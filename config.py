@@ -2,19 +2,20 @@
 import os
 from datetime import date
 
-# AWS-nøkler – hentes fra miljøvariabler (Render + lokalt)
-AWS_KEY = os.environ.get("AWS_KEY") or os.environ.get("AWS_ACCESS_KEY_ID")
-AWS_SECRET = os.environ.get("AWS_SECRET") or os.environ.get("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = os.environ.get("AWS_REGION", "eu-north-1")
+AWS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
 
-# S3 / Athena
-S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME", "prisanalyse-data")
-ATHENA_DATABASE = os.environ.get("ATHENA_DATABASE", "database_biler_parquet")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "prisanalyse-data")
 
-# Standard startdato for analyser (kan justeres)
+# 👉 Dette SKAL være *Athena-databasen* (schema), f.eks. "default" eller "prisanalyse"
+ATHENA_DATABASE = os.getenv("ATHENA_DATABASE", "default")
+
+# 👉 Dette SKAL være tabellen der bil-dataene ligger
+#   (den het sannsynligvis "database_biler_parquet" hos deg)
+ATHENA_TABLE = os.getenv("ATHENA_TABLE", "database_biler_parquet")
+
+# Default startdato
 DEFAULT_STARTDATE = date(2025, 6, 1)
 
-# Litt enkel logging – men ingen hard stopp
-if not AWS_KEY or not AWS_SECRET:
-    print("ADVARSEL: Kritiske AWS-miljøvariabler mangler.")
 

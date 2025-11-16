@@ -15,7 +15,10 @@ from config import (
     S3_BUCKET_NAME,
     ATHENA_DATABASE,
     DEFAULT_STARTDATE,
+    ATHENA_TABLE,          # 👈 legg til denne
 )
+
+
 FINN_BASE_URL = "https://www.finn.no/mobility/item/"
 
 # NYTT: gjenbruk logikken fra svv_app.pyapp.from svv_app import fetch_svv_data, flatten_svv_data, compute_eu_status
@@ -115,7 +118,6 @@ def _hent_bil_data_fra_athena(filters: dict) -> pd.DataFrame:
         where_clauses.append('"årstall" <= ' + str(int(filters["year_max"])))
 
     where_sql = " AND ".join(where_clauses)
-
     query = f"""
         SELECT
             finnkode,
@@ -130,7 +132,7 @@ def _hent_bil_data_fra_athena(filters: dict) -> pd.DataFrame:
             rekkevidde_str,
             selger,
             pris_num
-        FROM database_biler_parquet
+        FROM {ATHENA_TABLE}
         WHERE {where_sql}
     """
 
