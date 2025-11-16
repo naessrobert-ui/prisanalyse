@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prisanalyse</title>
+
+    <!-- Ren, moderne font -->
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #f9fafb;
+            background:
+                linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.85)),
+                url('https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=1920') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        .page {
+            max-width: 1100px;
+            width: 100%;
+            padding: 32px 20px 40px;
+            text-align: center;
+        }
+
+        .logo-line {
+            font-size: 0.8rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: #e5e7eb;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        h1 {
+            font-size: clamp(2.6rem, 4vw + 1rem, 3.4rem);
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        h1 .pris {
+            font-weight: 600;
+        }
+
+        h1 .analyse {
+            color: #60a5fa; /* lys blå */
+        }
+
+        .subtitle {
+            font-size: 1.05rem;
+            color: #d1d5db;
+            margin-bottom: 40px;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 24px;
+            justify-content: center;
+        }
+
+        /* På mobil – 1 per rad, på middels skjerm 2x2 */
+        @media (max-width: 1024px) {
+            .cards {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .cards {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card-link {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .card {
+            position: relative;
+            padding: 26px 24px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: radial-gradient(circle at top left, rgba(255,255,255,0.20), transparent 60%),
+                        rgba(17, 24, 39, 0.55);
+            box-shadow:
+                0 18px 45px rgba(0, 0, 0, 0.7),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            transition:
+                transform 0.2s ease-out,
+                box-shadow 0.2s ease-out,
+                background 0.2s ease-out;
+        }
+
+        .card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 90% 0%, rgba(96, 165, 250, 0.28), transparent 55%);
+            opacity: 0;
+            transition: opacity 0.2s ease-out;
+            pointer-events: none;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow:
+                0 26px 60px rgba(0, 0, 0, 0.85),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+            background: radial-gradient(circle at top left, rgba(255,255,255,0.25), transparent 60%),
+                        rgba(15, 23, 42, 0.8);
+        }
+
+        .card:hover::after {
+            opacity: 1;
+        }
+
+        .card-icon {
+            font-size: 2.1rem;
+            margin-bottom: 10px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .card-desc {
+            font-size: 0.95rem;
+            color: #e5e7eb;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="logo-line">Analyseplattform</div>
+    <h1>
+        <span class="pris">pris</span><span class="analyse">analyse</span>.no
+    </h1>
+    <p class="subtitle">
+        Velg en tjeneste for å starte analysen.
+    </p>
+
+    <div class="cards">
+
+        <!-- Bolig -->
+        <a class="card-link" href="/bolig/">
+            <div class="card">
+                <div class="card-icon">🏠</div>
+                <div class="card-title">Bolig</div>
+                <div class="card-desc">
+                    Analyser boligmarkedet i Norge – inkludert fritidsboliger, priser, m²-priser og dager på markedet.
+                </div>
+            </div>
+        </a>
+
+        <!-- Fritidsbolig – egen kort hvis du vil, ellers kan kommenteres bort -->
+        <a class="card-link" href="/fritidsbolig/">
+            <div class="card">
+                <div class="card-icon">🏡</div>
+                <div class="card-title">Fritidsbolig</div>
+                <div class="card-desc">
+                    Eget fokus på hytter og fritidseiendom – prisnivå, m²-priser og hvor lenge de ligger ute.
+                </div>
+            </div>
+        </a>
+
+        <!-- Bil -->
+        <a class="card-link" href="/bil/">
+            <div class="card">
+                <div class="card-icon">🚗</div>
+                <div class="card-title">Bil</div>
+                <div class="card-desc">
+                    Innsikt i bruktbilmarkedet: prisdynamikk, salgsfart og utvikling i utvalgte segmenter.
+                </div>
+            </div>
+        </a>
+
+        <!-- Vær -->
+        <a class="card-link" href="/ver/">
+            <div class="card">
+                <div class="card-icon">⛅</div>
+                <div class="card-title">Vær</div>
+                <div class="card-desc">
+                    Historiske temperaturer, avvik fra normalen og koblingen til strømforbruk og priser. (Kommer)
+                </div>
+            </div>
+        </a>
+
+        <!-- Jobb -->
+        <a class="card-link" href="/jobb/">
+            <div class="card">
+                <div class="card-icon">💼</div>
+                <div class="card-title">Jobb</div>
+                <div class="card-desc">
+                    Analyse av jobbmarked og lønnsutvikling – utlysningstrender og etterspurt kompetanse. (Kommer)
+                </div>
+            </div>
+        </a>
+
+    </div>
+</div>
+</body>
+</html>

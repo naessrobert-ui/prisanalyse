@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ tittel }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Font -->
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js via CDN (ingen lokale filer) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            min-height: 100vh;
+            padding: 32px 16px 40px;
+            color: #e5e7eb;
+            background:
+                linear-gradient(rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.9)),
+                url('https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=1920') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        a {
+            color: #60a5fa;
+            text-decoration: none;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            opacity: 0.85;
+        }
+
+        .top-bar a {
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        h1 {
+            font-size: clamp(2.2rem, 3vw + 1rem, 3.1rem);
+            margin-bottom: 8px;
+        }
+
+        h1 span.highlight {
+            color: #60a5fa;
+        }
+
+        .subtitle {
+            font-size: 0.95rem;
+            color: #d1d5db;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: radial-gradient(circle at top left, rgba(255,255,255,0.12), transparent 60%),
+                        rgba(15, 23, 42, 0.9);
+            border-radius: 20px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow:
+                0 18px 45px rgba(0,0,0,0.75),
+                inset 0 0 0 1px rgba(15,23,42,0.7);
+            padding: 18px 20px 20px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px 16px;
+            margin-bottom: 14px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 4px;
+            color: #9ca3af;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 6px 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            background: rgba(15, 23, 42, 0.9);
+            color: #e5e7eb;
+            font-size: 0.82rem;
+        }
+
+        textarea {
+            min-height: 64px;
+            resize: vertical;
+        }
+
+        select[multiple] {
+            min-height: 70px;
+        }
+
+        input::placeholder {
+            color: #6b7280;
+        }
+
+        .btn-primary {
+            margin-top: 12px;
+            padding: 8px 20px;
+            border-radius: 999px;
+            border: none;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary span.dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: white;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        .kpi-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .kpi {
+            flex: 1 1 150px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            font-size: 0.8rem;
+        }
+
+        .kpi-label {
+            color: #9ca3af;
+            margin-bottom: 4px;
+        }
+
+        .kpi-value {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+            margin-top: 10px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 260px;
+        }
+
+        .section-title {
+            margin-top: 22px;
+            margin-bottom: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .table-wrapper {
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 8px 12px;
+            font-size: 0.78rem;
+            color: #9ca3af;
+            border-bottom: 1px solid rgba(55, 65, 81, 0.9);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+
+        thead {
+            background: rgba(15, 23, 42, 0.98);
+        }
+
+        th, td {
+            padding: 6px 10px;
+            text-align: left;
+            border-bottom: 1px solid rgba(31, 41, 55, 0.95);
+            white-space: nowrap;
+        }
+
+        th {
+            font-weight: 600;
+            color: #9ca3af;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th.sort-asc::after {
+            content: " ▲";
+            font-size: 0.6rem;
+        }
+        th.sort-desc::after {
+            content: " ▼";
+            font-size: 0.6rem;
+        }
+
+        tbody tr:nth-child(even) {
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        tbody tr:hover {
+            background: rgba(30, 64, 175, 0.35);
+        }
+
+        .finn-link {
+            color: #93c5fd;
+            text-decoration: underline;
+        }
+
+        .no-data {
+            padding: 12px;
+            font-size: 0.82rem;
+            color: #9ca3af;
+        }
+
+        @media (max-width: 960px) {
+            .form-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="top-bar">
+        <div>PRISANALYSE.NO</div>
+        <a href="/bil">← Til bilanalyse</a>
+    </div>
+
+    <h1><span class="highlight">Dette</span> ble bilene solgt for</h1>
+    <div class="subtitle">
+        Se prisfall, dager til salgs og annonse-historikk for brukte biler.
+    </div>
+
+    <!-- Kort 1: Filtere + KPI + grafer -->
+    <div class="card" id="filterCard">
+
+        <div class="form-grid">
+            <!-- Produsent -->
+            <div>
+                <label for="produsent">Produsent</label>
+                <select id="produsent">
+                    <option value="">Alle produsenter</option>
+                    {% for p in produsenter %}
+                        <option value="{{ p }}">{{ p }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Modell -->
+            <div>
+                <label for="modell">Modell</label>
+                <select id="modell">
+                    <option value="">Alle modeller</option>
+                </select>
+            </div>
+
+            <!-- Startdato -->
+            <div>
+                <label for="startdato">Startdato</label>
+                <input type="date" id="startdato">
+            </div>
+
+            <!-- Selger -->
+            <div>
+                <label for="seller_sok">Selger</label>
+                <input id="seller_sok" type="text" placeholder="F.eks. Møller…">
+            </div>
+
+            <!-- Søk i tittel -->
+            <div>
+                <label for="modell_sok">Søk i tittel</label>
+                <input id="modell_sok" type="text" placeholder="F.eks. hengerfeste…">
+            </div>
+
+            <!-- Pris fra -->
+            <div>
+                <label for="pris_min">Pris fra</label>
+                <input id="pris_min" type="number" min="0" step="10000" placeholder="valgfritt">
+            </div>
+
+            <!-- Pris til -->
+            <div>
+                <label for="pris_max">Pris til</label>
+                <input id="pris_max" type="number" min="0" step="10000" placeholder="valgfritt">
+            </div>
+
+            <!-- Km maks -->
+            <div>
+                <label for="km_max">Km maks</label>
+                <input id="km_max" type="number" min="0" step="5000" placeholder="f.eks. 150000">
+            </div>
+
+            <!-- Årsmodell fra -->
+            <div>
+                <label for="year_min">Årsmodell fra</label>
+                <input id="year_min" type="number" min="0" step="1" placeholder="0">
+            </div>
+
+            <!-- Årsmodell til -->
+            <div>
+                <label for="year_max">Årsmodell til</label>
+                <input id="year_max" type="number" min="0" step="1" placeholder="valgfritt">
+            </div>
+
+            <!-- Rekkevidde fra -->
+            <div>
+                <label for="range_min">Rekkevidde fra</label>
+                <input id="range_min" type="number" min="0" step="10" placeholder="valgfritt">
+            </div>
+
+            <!-- Rekkevidde til -->
+            <div>
+                <label for="range_max">Rekkevidde til</label>
+                <input id="range_max" type="number" min="0" step="10" placeholder="valgfritt">
+            </div>
+
+            <!-- Hjuldrift -->
+            <div>
+                <label for="hjuldrift">Hjuldrift</label>
+                <select id="hjuldrift" multiple>
+                    {% for h in hjuldrift_opts %}
+                        <option value="{{ h }}">{{ h }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Drivstoff -->
+            <div>
+                <label for="drivstoff">Drivstoff</label>
+                <select id="drivstoff" multiple>
+                    {% for d in drivstoff_opts %}
+                        <option value="{{ d }}">{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Tom "filler" for grid-balanse -->
+            <div></div>
+            <div></div>
+        </div>
+
+        <button class="btn-primary" id="updateBtn">
+            <span class="dot"></span>
+            Oppdater søk
+        </button>
+
+        <!-- KPI-rad -->
+        <div class="kpi-row">
+            <div class="kpi">
+                <div class="kpi-label">Snitt dager i markedet</div>
+                <div class="kpi-value" id="kpiAvgDager">–</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Median dager i markedet</div>
+                <div class="kpi-value" id="kpiMedianDager">–</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Median pris</div>
+                <div class="kpi-value" id="kpiMedianPris">–</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Laveste pris</div>
+                <div class="kpi-value" id="kpiLavestePris">–</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Antall biler i utvalget</div>
+                <div class="kpi-value" id="kpiAntallBiler">–</div>
+            </div>
+        </div>
+
+        <!-- Grafer -->
+        <div class="charts-grid">
+            <div>
+                <canvas id="medianPriceChart"></canvas>
+            </div>
+            <div>
+                <canvas id="soldPerDayChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kort 2: Tabell -->
+    <div class="section-title">2. Utforsk resultater</div>
+    <div class="table-wrapper">
+        <div class="table-header">
+            <span id="tableCountLabel">Ingen biler i dette utvalget.</span>
+        </div>
+        <div style="max-height: 360px; overflow: auto;">
+            <table id="resultTable">
+                <thead>
+                <tr>
+                    <th data-key="produsent">Produsent</th>
+                    <th data-key="modell">Modell</th>
+                    <th data-key="årstall">År</th>
+                    <th data-key="kjørelengde">Km</th>
+                    <th data-key="pris_last">Pris</th>
+                    <th data-key="dager">Dager</th>
+                    <th data-key="dato_start">Startdato</th>
+                    <th data-key="dato_end">Siste dato</th>
+                    <th data-key="selger">Selger</th>
+                    <th data-key="finnkode">FINN-kode</th>
+                </tr>
+                </thead>
+                <tbody id="resultBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+    </div>  <!-- slutt på .page -->
+
+<script>
+    // Rå mapping fra backend
+    const MODELS_BY_PROD_RAW = {{ models_by_prod | tojson }};
+    const DATA_URL = "{{ data_url }}";
+
+    // Normaliser produsent-navn -> lowercase + trim
+    const MODELS_BY_PROD = {};
+    if (MODELS_BY_PROD_RAW && typeof MODELS_BY_PROD_RAW === "object") {
+        for (const [brand, models] of Object.entries(MODELS_BY_PROD_RAW)) {
+            const key = (brand || "").toLowerCase().trim();
+            MODELS_BY_PROD[key] = models || [];
+        }
+    }
+
+    let medianChart = null;
+    let soldChart = null;
+
+    let currentRows = [];
+    let currentSortKey = "pris_last";
+    let currentSortDir = "asc";
+
+    function formatNumber(n) {
+        if (n === null || n === undefined || isNaN(n)) return "–";
+        return n.toLocaleString("nb-NO");
+    }
+
+    function formatDate(d) {
+        if (!d) return "–";
+        try {
+            const dt = new Date(d);
+            if (isNaN(dt)) return d;
+            return dt.toISOString().slice(0, 10);
+        } catch {
+            return d;
+        }
+    }
+
+    function buildFilters() {
+        const produsent = document.getElementById("produsent").value || null;
+        const modell = document.getElementById("modell").value || null;
+        const startdato = document.getElementById("startdato").value || null;
+        const modell_sok = document.getElementById("modell_sok").value || null;
+        const seller_sok = document.getElementById("seller_sok").value || null;
+
+        const pris_min = document.getElementById("pris_min").value || null;
+        const pris_max = document.getElementById("pris_max").value || null;
+        const km_max = document.getElementById("km_max").value || null;
+
+        const year_min = document.getElementById("year_min").value || null;
+        const year_max = document.getElementById("year_max").value || null;
+
+        const range_min = document.getElementById("range_min").value || null;
+        const range_max = document.getElementById("range_max").value || null;
+
+        const drivstoff = Array.from(document.getElementById("drivstoff").selectedOptions).map(o => o.value);
+        const hjuldrift = Array.from(document.getElementById("hjuldrift").selectedOptions).map(o => o.value);
+
+        return {
+            produsent,
+            modell,
+            startdato,
+            modell_sok,
+            seller_sok,
+            pris_min,
+            pris_max,
+            km_max,
+            km_min: null,
+            year_min,
+            year_max,
+            range_min,
+            range_max,
+            drivstoff,
+            hjuldrift
+        };
+    }
+
+    function updateKpis(kpis, count) {
+        const avgDager = kpis && kpis.avg_dager != null ? kpis.avg_dager : null;
+        const medianDager = kpis && kpis.median_dager != null ? kpis.median_dager : null;
+        const medianPris = kpis && kpis.median_pris != null ? kpis.median_pris : null;
+        const lavestePris = kpis && kpis.laveste_pris != null ? kpis.laveste_pris : null;
+
+        document.getElementById("kpiAvgDager").textContent = avgDager != null ? avgDager + " d" : "–";
+        document.getElementById("kpiMedianDager").textContent = medianDager != null ? medianDager + " d" : "–";
+        document.getElementById("kpiMedianPris").textContent = medianPris != null ? formatNumber(medianPris) + " kr" : "–";
+        document.getElementById("kpiLavestePris").textContent = lavestePris != null ? formatNumber(lavestePris) + " kr" : "–";
+        document.getElementById("kpiAntallBiler").textContent = count != null ? formatNumber(count) : "0";
+
+        const label = document.getElementById("tableCountLabel");
+        if (count && count > 0) {
+            label.textContent = "Viser " + count + " biler i dette utvalget.";
+        } else {
+            label.textContent = "Ingen biler i dette utvalget.";
+        }
+    }
+
+    function renderCharts(dailyStats) {
+        const ctx1 = document.getElementById("medianPriceChart").getContext("2d");
+        const ctx2 = document.getElementById("soldPerDayChart").getContext("2d");
+
+        const labels = dailyStats.map(r => r.Dato || r.dato);
+        const medianPrices = dailyStats.map(r => r.Median_Pris_Usolgt || r.median_pris_usolgt);
+        const soldPerDay = dailyStats.map(r => r.Antall_Solgt || r.antall_solgt);
+
+        if (medianChart) medianChart.destroy();
+        if (soldChart) soldChart.destroy();
+
+        medianChart = new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Medianpris',
+                    data: medianPrices,
+                    tension: 0.25
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { ticks: { maxTicksLimit: 8 } },
+                    y: { ticks: { callback: v => formatNumber(v) } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        soldChart = new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Antall solgte',
+                    data: soldPerDay
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { ticks: { maxTicksLimit: 8 } },
+                    y: { beginAtZero: true }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function sortRows() {
+        if (!currentSortKey) return;
+        currentRows.sort((a, b) => {
+            const va = a[currentSortKey];
+            const vb = b[currentSortKey];
+
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+
+            const na = Number(va);
+            const nb = Number(vb);
+            if (!isNaN(na) && !isNaN(nb)) {
+                return currentSortDir === "asc" ? (na - nb) : (nb - na);
+            }
+
+            const sa = String(va).toLowerCase();
+            const sb = String(vb).toLowerCase();
+            if (sa < sb) return currentSortDir === "asc" ? -1 : 1;
+            if (sa > sb) return currentSortDir === "asc" ? 1 : -1;
+            return 0;
+        });
+    }
+
+    function renderTable() {
+        sortRows();
+        const tbody = document.getElementById("resultBody");
+        tbody.innerHTML = "";
+
+        currentRows.forEach(row => {
+            const tr = document.createElement("tr");
+            const pris = row.pris_last ?? row.pris ?? null;
+
+            tr.innerHTML = `
+                <td>${row.produsent || ""}</td>
+                <td>${row.modell || ""}</td>
+                <td>${row["årstall"] != null ? row["årstall"] : ""}</td>
+                <td>${row["kjørelengde"] != null ? formatNumber(row["kjørelengde"]) : ""}</td>
+                <td>${pris != null ? formatNumber(pris) : ""}</td>
+                <td>${row.dager != null ? row.dager : ""}</td>
+                <td>${formatDate(row.dato_start)}</td>
+                <td>${formatDate(row.dato_end)}</td>
+                <td>${row.selger || ""}</td>
+                <td>${
+                    row.finnkode
+                        ? `<a href="${row.finn_url || ("https://www.finn.no/mobility/item/" + row.finnkode)}"
+                               target="_blank" class="finn-link">${row.finnkode}</a>`
+                        : ""
+                }</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.querySelectorAll("#resultTable th").forEach(th => {
+            th.classList.remove("sort-asc", "sort-desc");
+            const key = th.dataset.key;
+            if (key === currentSortKey) {
+                th.classList.add(currentSortDir === "asc" ? "sort-asc" : "sort-desc");
+            }
+        });
+    }
+
+    async function fetchData() {
+        const btn = document.getElementById("updateBtn");
+        btn.disabled = true;
+
+        try {
+            const filters = buildFilters();
+            const resp = await fetch(DATA_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filters })
+            });
+
+            const data = await resp.json();
+            if (data.error) {
+                console.error("Feil fra server:", data.error);
+                updateKpis(null, 0);
+                currentRows = [];
+                renderTable();
+                return;
+            }
+
+            const historikk = data.historikk || [];
+            const dailyStats = data.daily_stats || [];
+            const kpis = data.kpis || {};
+
+            currentRows = historikk;
+            updateKpis(kpis, historikk.length);
+
+            if (dailyStats.length > 0) {
+                renderCharts(dailyStats);
+            } else {
+                if (medianChart) medianChart.destroy();
+                if (soldChart) soldChart.destroy();
+            }
+
+            renderTable();
+
+        } catch (err) {
+            console.error("Feil i fetchData:", err);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function setupModelDropdown() {
+        const prodSelect = document.getElementById("produsent");
+        const modelSelect = document.getElementById("modell");
+
+        function refreshModels() {
+            const key = (prodSelect.value || "").toLowerCase().trim();
+            const models = MODELS_BY_PROD[key] || [];
+
+            modelSelect.innerHTML = '<option value="">Alle modeller</option>';
+            models.forEach(m => {
+                const opt = document.createElement("option");
+                opt.value = m;
+                opt.textContent = m;
+                modelSelect.appendChild(opt);
+            });
+        }
+
+        prodSelect.addEventListener("change", refreshModels);
+        refreshModels();  // fyll for valgt produsent ved last
+    }
+
+    function setupSortHandlers() {
+        document.querySelectorAll("#resultTable th").forEach(th => {
+            th.addEventListener("click", () => {
+                const key = th.dataset.key;
+                if (!key) return;
+                if (currentSortKey === key) {
+                    currentSortDir = currentSortDir === "asc" ? "desc" : "asc";
+                } else {
+                    currentSortKey = key;
+                    currentSortDir = "asc";
+                }
+                renderTable();
+            });
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        setupModelDropdown();
+        setupSortHandlers();
+        document.getElementById("updateBtn").addEventListener("click", fetchData);
+    });
+</script>
+
+</body>
+</html>
+

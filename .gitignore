@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+
+# Virtuelle miljøer
+venv/
+.env/
+.venv/
+
+# PyCharm
+.idea/
+
+# OS-filer
+.DS_Store
+Thumbs.db
+
+# Logg- og cache-filer
+*.log
+.cache/
+.eggs/
+dist/
+build/
+
+# Lokale hemmeligheter / config
+config.py
+
+# Athena-resultater
+athena-results/

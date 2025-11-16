@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ tittel }}</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f4f6f8; color: #333; display: flex; flex-direction: column; min-height: 100vh; }
+        .main-container { flex: 1; display: flex; position: relative; }
+        .side-menu { width: 280px; padding: 20px; background-color: #fff; box-shadow: 2px 0 5px rgba(0,0,0,0.1); display: none; z-index: 10; }
+        #map { flex: 1; }
+        .landing-page { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://images.unsplash.com/photo-1582407947304-fd86f028f716?q=80&w=1992') no-repeat center center; background-size: cover; color: white; padding: 20px; }
+        .filter-box { background: rgba(255, 255, 255, 0.95); color: #333; padding: 30px; border-radius: 10px; max-width: 900px; width: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; text-align: left; }
+        h1, h2, h3 { margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        select, button, input { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+        .range-group { display: flex; gap: 10px; }
+        button { background-color: #0063fb; color: white; cursor: pointer; border: none; font-weight: bold; margin-top: 20px; }
+        #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); display: none; align-items: center; justify-content: center; font-size: 24px; z-index: 10000; }
+        #home-btn { position: fixed; top: 20px; left: 20px; z-index: 1000; width: auto; padding: 10px 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .map-stats-box { margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6; }
+        .map-stats-box h4 { margin-top: 0; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; }
+        .map-stats-box p { margin: 0 0 5px 0; font-size: 14px; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+    <div id="landing-view" class="landing-page">
+        <div class="filter-box">
+            <h1>{{ tittel }}</h1>
+            <p>Definer et utvalg for å starte analysen</p>
+
+            {% if show_fritidsbolig_link %}
+                <p style="margin-bottom: 1.5rem;">
+                    Ønsker du å se eget utsnitt for fritidsboliger?
+                    <a href="/fritidsbolig/" style="font-weight: 600; color: #0063fb; text-decoration: none;">
+                        Gå til analyse av fritidsboliger →
+                    </a>
+                </p>
+            {% endif %}
+            <div class="filter-grid">
+                <div class="form-group"><label for="fylke-select">Fylke</label><select id="fylke-select"><option>Alle</option>{% for fylke in fylker %}<option value="{{ fylke }}">{{ fylke }}</option>{% endfor %}</select></div>
+                <div class="form-group"><label for="status-select">Status</label><select id="status-select"><option>Alle</option><option value="Brukt">Brukt</option><option value="Nybygg">Nybygg</option></select></div>
+                <div class="form-group"><label for="boligtype-select">Boligtype</label><select id="boligtype-select"><option>Alle</option>{% for type in boligtyper %}<option value="{{ type }}">{{ type }}</option>{% endfor %}</select></div>
+                <div class="form-group"><label for="annonsepakke-select">Annonsepakke</label><select id="annonsepakke-select"><option>Alle</option>{% for pakke in annonsepakker %}<option value="{{ pakke }}">{{ pakke }}</option>{% endfor %}</select></div>
+                <div class="form-group"><label for="megler-select">Megler</label><select id="megler-select"><option>Alle</option>{% for megler in meglere %}<option value="{{ megler }}">{{ megler }}</option>{% endfor %}</select></div>
+                <div class="form-group"><label for="keyword-input">Søk i tittel</label><input type="text" id="keyword-input" placeholder="F.eks. 'Utsikt'"></div>
+                <div class="form-group"><label>Totalpris (kr)</label><div class="range-group"><input type="number" id="totalpris_fra" placeholder="Fra"><input type="number" id="totalpris_til" placeholder="Til"></div></div>
+                <div class="form-group"><label>M²-pris (kr)</label><div class="range-group"><input type="number" id="m2pris_fra" placeholder="Fra"><input type="number" id="m2pris_til" placeholder="Til"></div></div>
+                <div class="form-group"><label>Dager på markedet</label><div class="range-group"><input type="number" id="dager_fra" placeholder="Fra"><input type="number" id="dager_til" placeholder="Til"></div></div>
+            </div>
+            <button id="start-analysis-btn">Start analyse</button>
+        </div>
+    </div>
+
+    <div id="analysis-view" class="main-container" style="display: none;">
+        <a href="/" id="home-btn" class="btn btn-secondary">← Tilbake til forsiden</a>
+        <div class="side-menu">
+            <h3>Analysevalg</h3>
+            <p id="bolig-count"></p>
+            <div class="form-group"><label for="color-by-select">Fargelegg etter:</label><select id="color-by-select"><option value="totalpris" selected>Totalpris</option><option value="M2-pris">M²-pris</option><option value="dager_paa_markedet">Dager på markedet</option></select></div>
+            <div class="form-group"><label for="low-threshold-input">Grønn hvis verdi &lt;=</label><input type="number" id="low-threshold-input"></div>
+            <div class="form-group"><label for="high-threshold-input">Rød hvis verdi &gt;=</label><input type="number" id="high-threshold-input"></div>
+            <button id="update-map-btn">Oppdater kart</button>
+            <div id="map-stats-container" style="display: none;">
+                <div id="map-stats-avg" class="map-stats-box">
+                    <h4>Gjennomsnitt i utsnitt</h4>
+                    <p><strong>Antall synlige:</strong> <span id="stats-count-avg">0</span></p>
+                    <p><strong>Totalpris:</strong> <span id="stats-avg-totalpris">N/A</span></p>
+                    <p><strong>m²-pris:</strong> <span id="stats-avg-m2pris">N/A</span></p>
+                    <p><strong>Dager:</strong> <span id="stats-avg-dager">N/A</span></p>
+                </div>
+                 <div id="map-stats-median" class="map-stats-box">
+                    <h4>Median i utsnitt</h4>
+                    <p><strong>Totalpris:</strong> <span id="stats-median-totalpris">N/A</span></p>
+                    <p><strong>m²-pris:</strong> <span id="stats-median-m2pris">N/A</span></p>
+                    <p><strong>Dager:</strong> <span id="stats-median-dager">N/A</span></p>
+                </div>
+            </div>
+        </div>
+        <div id="map"></div>
+    </div>
+    <div id="loading-overlay">Laster...</div>
+
+    <script>
+        let map;
+        let boligData = [];
+        let markerClusterGroup;
+
+        const elements = {
+            startBtn: document.getElementById('start-analysis-btn'),
+            updateBtn: document.getElementById('update-map-btn'),
+            homeBtn: document.getElementById('home-btn'),
+            colorBySelect: document.getElementById('color-by-select'),
+            lowThresholdInput: document.getElementById('low-threshold-input'),
+            highThresholdInput: document.getElementById('high-threshold-input'),
+            loadingOverlay: document.getElementById('loading-overlay'),
+            landingView: document.getElementById('landing-view'),
+            analysisView: document.getElementById('analysis-view'),
+            sideMenu: document.querySelector('.side-menu'),
+            boligCountEl: document.getElementById('bolig-count'),
+            fylkeSelect: document.getElementById('fylke-select')
+        };
+
+        const fylkeKoordinater = {
+            'Agder': { lat: 58.45, lng: 7.8, zoom: 8 }, 'Akershus': { lat: 60.0, lng: 11.0, zoom: 9 },
+            'Buskerud': { lat: 60.5, lng: 9.5, zoom: 8 }, 'Finnmark': { lat: 70.1, lng: 25.0, zoom: 6 },
+            'Innlandet': { lat: 61.5, lng: 11.0, zoom: 7 }, 'Møre og Romsdal': { lat: 62.7, lng: 7.5, zoom: 8 },
+            'Nordland': { lat: 66.8, lng: 14.8, zoom: 6 }, 'Oslo': { lat: 59.91, lng: 10.75, zoom: 11 },
+            'Rogaland': { lat: 59.1, lng: 6.0, zoom: 8 }, 'Telemark': { lat: 59.5, lng: 8.5, zoom: 8 },
+            'Troms': { lat: 69.3, lng: 19.5, zoom: 7 }, 'Trøndelag': { lat: 63.8, lng: 11.5, zoom: 7 },
+            'Vestfold': { lat: 59.2, lng: 10.2, zoom: 9 }, 'Vestland': { lat: 61.0, lng: 6.5, zoom: 7 },
+            'Østfold': { lat: 59.3, lng: 11.3, zoom: 9 }
+        };
+
+        elements.startBtn.addEventListener('click', fetchInitialData);
+        elements.updateBtn.addEventListener('click', () => drawMarkers(false));
+        elements.colorBySelect.addEventListener('change', updateThresholdPlaceholders);
+        elements.homeBtn.addEventListener('click', (e) => { e.preventDefault(); goToHome(); });
+
+async function fetchInitialData() {
+            showLoading("Laster og filtrerer data...");
+            const filters = {
+                fylke: document.getElementById('fylke-select').value, status: document.getElementById('status-select').value,
+                boligtype: document.getElementById('boligtype-select').value, annonsepakke: document.getElementById('annonsepakke-select').value,
+                megler: document.getElementById('megler-select').value, keyword: document.getElementById('keyword-input').value,
+                totalpris_fra: document.getElementById('totalpris_fra').value, totalpris_til: document.getElementById('totalpris_til').value,
+                m2pris_fra: document.getElementById('m2pris_fra').value, m2pris_til: document.getElementById('m2pris_til').value,
+                dager_fra: document.getElementById('dager_fra').value, dager_til: document.getElementById('dager_til').value,
+            };
+            try {
+                const response = await fetch('{{ data_url }}', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filters })
+                });
+                if (!response.ok) throw new Error(`Server svarte med status ${response.status}`);
+
+                let rawData = await response.json();
+
+                // --- START PÅ KORRIGERING ---
+                const isFritidsbolig = window.location.pathname.includes('/fritidsbolig');
+                if (isFritidsbolig) {
+                    rawData.forEach(bolig => {
+                        if (bolig.totalpris > 100000000) { // Antar at ingen fritidsbolig koster over 100M
+                           bolig.totalpris /= 1000;
+                        }
+                        if (bolig['M2-pris'] > 500000) { // Antar at ingen m2-pris er over 500k
+                           bolig['M2-pris'] /= 1000;
+                        }
+                    });
+                }
+                boligData = rawData;
+                // --- SLUTT PÅ KORRIGERING ---
+
+                if (!boligData || boligData.length === 0) {
+                    alert("Fant ingen boliger som matchet dine filterkriterier.");
+                    hideLoading(); return;
+                }
+
+                elements.landingView.style.display = 'none';
+                elements.analysisView.style.display = 'flex';
+                elements.sideMenu.style.display = 'block';
+
+                if (!map) {
+                    map = L.map('map').setView([65.0, 15.0], 5);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    }).addTo(map);
+                }
+                setTimeout(() => map.invalidateSize(), 10);
+                updateThresholdPlaceholders();
+                drawMarkers(true);
+                map.on('moveend', updateMapStats);
+                updateMapStats();
+            } catch (error) {
+                console.error("Feil ved henting av data:", error);
+                alert("Kunne ikke laste data.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function calculateMedian(arr) {
+            if (!arr.length) return 0;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+
+        function updateMapStats() {
+            if (!map || !boligData || boligData.length === 0) return;
+
+            const bounds = map.getBounds();
+            const visibleBoliger = boligData.filter(b => b.latitude && b.longitude && bounds.contains([b.latitude, b.longitude]));
+            const count = visibleBoliger.length;
+            const statsContainer = document.getElementById('map-stats-container');
+
+            if (count > 0) {
+                statsContainer.style.display = 'block';
+                let totalPrices = [], m2Prices = [], dagerValues = [];
+                visibleBoliger.forEach(bolig => {
+                    if (bolig.totalpris > 0) totalPrices.push(bolig.totalpris);
+                    if (bolig['M2-pris'] > 0) m2Prices.push(bolig['M2-pris']);
+                    if (bolig.dager_paa_markedet != null) dagerValues.push(bolig.dager_paa_markedet);
+                });
+
+                const avgTotalpris = totalPrices.length ? totalPrices.reduce((a, b) => a + b, 0) / totalPrices.length : 0;
+                const avgM2Pris = m2Prices.length ? m2Prices.reduce((a, b) => a + b, 0) / m2Prices.length : 0;
+                const avgDager = dagerValues.length ? dagerValues.reduce((a, b) => a + b, 0) / dagerValues.length : 0;
+
+                const medianTotalpris = calculateMedian(totalPrices);
+                const medianM2Pris = calculateMedian(m2Prices);
+                const medianDager = calculateMedian(dagerValues);
+
+                document.getElementById('stats-count-avg').textContent = count;
+                document.getElementById('stats-avg-totalpris').textContent = `${(avgTotalpris / 1000000).toFixed(1)} MNOK`;
+                document.getElementById('stats-avg-m2pris').textContent = `${Math.round(avgM2Pris / 1000)} 000 kr`;
+                document.getElementById('stats-avg-dager').textContent = avgDager.toFixed(0);
+
+                document.getElementById('stats-median-totalpris').textContent = `${(medianTotalpris / 1000000).toFixed(1)} MNOK`;
+                document.getElementById('stats-median-m2pris').textContent = `${Math.round(medianM2Pris / 1000)} 000 kr`;
+                document.getElementById('stats-median-dager').textContent = medianDager.toFixed(0);
+
+            } else {
+                statsContainer.style.display = 'none';
+            }
+        }
+
+        function drawMarkers(resetView = false) {
+            showLoading("Tegner kart...");
+            elements.updateBtn.disabled = true;
+            setTimeout(() => {
+                if (markerClusterGroup) { markerClusterGroup.clearLayers(); } else {
+                    markerClusterGroup = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
+                    map.addLayer(markerClusterGroup);
+                }
+                const colorBy = elements.colorBySelect.value;
+                const lowValue = parseFloat(elements.lowThresholdInput.value);
+                const highValue = parseFloat(elements.highThresholdInput.value);
+                const isFritidsbolig = window.location.pathname.includes('/fritidsbolig');
+                boligData.forEach(bolig => {
+                    if (bolig.latitude == null || bolig.longitude == null) return;
+                    const valueForColor = bolig[colorBy];
+                    let color = '#808080';
+                    if (valueForColor <= lowValue) color = '#008000';
+                    if (valueForColor >= highValue) color = '#ff0000';
+                    const totalprisMNOK = (bolig.totalpris / 1000000).toFixed(1);
+                    const m2prisKTNOK = bolig['M2-pris'] ? Math.round(bolig['M2-pris'] / 1000) : 'N/A';
+                    let finnPath = 'homes';
+                    if (isFritidsbolig) {
+                        finnPath = 'leisuresale';
+                        if (bolig['NY/Brukt'] === 'Nybygg') finnPath = 'projectleisure';
+                    } else {
+                        if (bolig['NY/Brukt'] === 'Nybygg') finnPath = 'project';
+                    }
+                    const finnUrl = `https://www.finn.no/realestate/${finnPath}/ad.html?finnkode=${bolig.finnkode}`;
+                    const popupHtml = `<b>${bolig.full_title || ''}</b><br><hr><b>Totalpris:</b> ${totalprisMNOK} MNOK<br><b>M²-pris:</b> ${m2prisKTNOK === 'N/A' ? 'N/A' : m2prisKTNOK + ' 000 kr'}<br><b>Dager på markedet:</b> ${bolig.dager_paa_markedet != null ? bolig.dager_paa_markedet : 'N/A'}<br><b>Finnkode:</b> <a href="${finnUrl}" target="_blank">${bolig.finnkode}</a>`;
+                    const circle = L.circleMarker([bolig.latitude, bolig.longitude], { radius: 7, color: color, fillColor: color, fillOpacity: 0.7 }).bindPopup(popupHtml);
+                    markerClusterGroup.addLayer(circle);
+                });
+
+                if (resetView && boligData.length > 0) {
+                    const valgtFylke = elements.fylkeSelect.value;
+                    if (valgtFylke && valgtFylke !== 'Alle' && fylkeKoordinater[valgtFylke]) {
+                        const fylke = fylkeKoordinater[valgtFylke];
+                        map.setView([fylke.lat, fylke.lng], fylke.zoom);
+                    } else {
+                        const bounds = markerClusterGroup.getBounds();
+                        if (bounds.isValid()) {
+                            map.fitBounds(bounds, { padding: [50, 50] });
+                        } else {
+                            map.setView([65.0, 15.0], 5);
+                        }
+                    }
+                } else if (resetView) {
+                    map.setView([65.0, 15.0], 5);
+                }
+                elements.boligCountEl.textContent = `Viser ${boligData.length} boliger.`;
+                hideLoading();
+                elements.updateBtn.disabled = false;
+            }, 50);
+        }
+
+        function goToHome() {
+            elements.analysisView.style.display = 'none';
+            elements.landingView.style.display = 'flex';
+            if (map) { map.remove(); map = null; }
+            if (markerClusterGroup) { markerClusterGroup = null; }
+            boligData = [];
+            window.location.href = "/";
+        }
+
+        function updateThresholdPlaceholders() {
+            const selected = elements.colorBySelect.value;
+            const values = boligData.map(b => b[selected]).filter(v => v != null && !isNaN(v));
+            if (values.length > 0) {
+                values.sort((a, b) => a - b);
+                const lowIndex = Math.floor(values.length * 0.20);
+                const highIndex = Math.floor(values.length * 0.80) - 1;
+                elements.lowThresholdInput.value = Math.round(values[lowIndex]);
+                elements.highThresholdInput.value = Math.round(values[highIndex]);
+            }
+        }
+
+        function showLoading(message) {
+            elements.loadingOverlay.textContent = message;
+            elements.loadingOverlay.style.display = 'flex';
+        }
+        function hideLoading() {
+            elements.loadingOverlay.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
