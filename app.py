@@ -1,9 +1,10 @@
-# app.py
+# app.py (din justerte fil)
 from flask import Flask, render_template
 
 from bolig_routes import bolig_bp
 from fritidsbolig_routes import fritids_bp
 from bil_routes import bil_bp
+from gemini_routes import gemini_bp  # <-- 1. LEGG TIL DENNE LINJEN
 
 app = Flask(__name__)
 
@@ -11,6 +12,7 @@ app = Flask(__name__)
 app.register_blueprint(bolig_bp)
 app.register_blueprint(fritids_bp)
 app.register_blueprint(bil_bp)
+app.register_blueprint(gemini_bp)  # <-- 2. LEGG TIL DENNE LINJEN
 
 
 @app.route("/")

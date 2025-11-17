@@ -1,7 +1,7 @@
 # bil_routes.py
 import json
 from datetime import datetime, timedelta, date
-from rekordrask_logic import bygg_datasets, bygg_visning_for_solgte
+from rekordrask_parquet import bygg_visning_for_solgte_fra_parquet
 
 import boto3
 import awswrangler as wr
@@ -291,95 +291,93 @@ def bil_rekordrask_side():
 
 
 @bil_bp.route('/rekordrask/data', methods=['POST'])
-@bil_bp.route('/rekordrask/data', methods=['POST'])
 def get_bil_rekordrask_data():
+    """
+    Henter 'rekordraskt solgte' biler fra Parquet-filen i S3,
+    filtrerer på produsent/modell/pris/km/år osv. og returnerer JSON
+    i formatet som bil_rekordrask.html forventer.
+    """
     try:
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
 
-        # ---- Startdato for historikk (default: 3 siste dager) ----
+        # ---- Startdato (historikk fra) ----
         start_str = filters.get('startdato')
         if start_str:
-            # forventer ISO-format "YYYY-MM-DD" fra <input type="date">
             startdato = datetime.strptime(start_str, "%Y-%m-%d").date()
         else:
+            # default: 3 siste dager
             startdato = date.today() - timedelta(days=3)
 
-        # Bygg datasett med S3-logikken
-        df_usolgt, df_ny_usolgt, df_ny_solgt, daglig_key, time_key = bygg_datasets(startdato)
-
-        # Litt debug til konsollen
-        print(
-            "[rekordrask] startdato =", startdato,
-            "df_ny_solgt =", len(df_ny_solgt),
-            "df_ny_usolgt =", len(df_ny_usolgt),
-            "df_usolgt (aktive) =", len(df_usolgt),
-            "daglig_key =", daglig_key,
-            "time_key =", time_key
-        )
-
-        vis_solgte = bygg_visning_for_solgte(df_ny_solgt)
+        # Bygg visning fra Parquet
+        vis_solgte = bygg_visning_for_solgte_fra_parquet(startdato)
 
         if vis_solgte.empty:
             return jsonify({'rows': [], 'kpis': {}})
 
-        # --- Filtre (må matche HTML/JS) ---
-        # Produsent
-        prod = filters.get ("produsent")
+        # ---- Pandas-filtre tilsvarende UI ----
+        # Produsent / Merke
+        prod = filters.get('produsent')
         if prod:
-            safe_prod = prod.replace ("'", "''")
-            where_clauses.append (f"produsent = '{safe_prod}'")
+            vis_solgte = vis_solgte[vis_solgte['Merke'] == prod]
 
         # Modell
-        mod = filters.get ("modell")
+        mod = filters.get('modell')
         if mod:
-            safe_mod = mod.replace ("'", "''")
-            where_clauses.append (f"modell = '{safe_mod}'")
+            vis_solgte = vis_solgte[vis_solgte['Modell'] == mod]
 
+        # Pris
         if filters.get('pris_min'):
-            vis_solgte = vis_solgte[vis_solgte['Pris'] >= int(filters['pris_min'])]
+            vis_solgte = vis_solgte[
+                vis_solgte['Pris'].fillna(0) >= int(filters['pris_min'])
+            ]
         if filters.get('pris_max'):
-            vis_solgte = vis_solgte[vis_solgte['Pris'] <= int(filters['pris_max'])]
+            vis_solgte = vis_solgte[
+                vis_solgte['Pris'].fillna(0) <= int(filters['pris_max'])
+            ]
 
+        # Km maks
         if filters.get('km_max'):
-            vis_solgte = vis_solgte[vis_solgte['Km'] <= int(filters['km_max'])]
+            vis_solgte = vis_solgte[
+                vis_solgte['Km'].fillna(10**9) <= int(filters['km_max'])
+            ]
 
+        # Min år
         if filters.get('year_min'):
-            vis_solgte = vis_solgte[vis_solgte['Årsmodell'] >= int(filters['year_min'])]
+            vis_solgte = vis_solgte[
+                vis_solgte['Årsmodell'].fillna(0) >= int(filters['year_min'])
+            ]
 
-        # VIKTIG: feltet i UI er "maks DAGER til salg", men vi lagrer timer_til_salg (timer)
-        if filters.get('max_timer'):
-            max_dager = int(filters['max_timer'])
-            max_timer = max_dager * 24   # konverter dager -> timer
-            vis_solgte = vis_solgte[vis_solgte['timer_til_salg'] <= max_timer]
-
-        # Debug etter filtre
-        print(
-            "[rekordrask] etter filtre:",
-            "produsent=", filters.get('produsent'),
-            "modell=", filters.get('modell'),
-            "pris_min=", filters.get('pris_min'),
-            "pris_max=", filters.get('pris_max'),
-            "km_max=", filters.get('km_max'),
-            "year_min=", filters.get('year_min'),
-            "max_dager=", filters.get('max_timer'),
-            "-> rader igjen =", len(vis_solgte)
-        )
+        # Maks dager til salg (UI: max_dager, backend: timer_til_salg)
+        if filters.get('max_timer') or filters.get('max_dager'):
+            # I HTML-en heter det max_dager, men vi brukte max_timer i backend før
+            val = filters.get('max_timer') or filters.get('max_dager')
+            max_dager = int(val)
+            max_timer = max_dager * 24
+            vis_solgte = vis_solgte[
+                vis_solgte['timer_til_salg'] <= max_timer
+            ]
 
         if vis_solgte.empty:
             return jsonify({'rows': [], 'kpis': {}})
 
-        # Sorter på raskest salg
-        vis_solgte = vis_solgte.sort_values('timer_til_salg', ascending=True).head(500)
+        # ---- KPIs ----
+        min_timer = float(vis_solgte['timer_til_salg'].min())
+        median_timer = float(vis_solgte['timer_til_salg'].median())
+        avg_timer = float(vis_solgte['timer_til_salg'].mean())
 
         kpis = {
-            'min_timer': int(vis_solgte['timer_til_salg'].min()),
-            'median_timer': float(vis_solgte['timer_til_salg'].median()),
-            'avg_timer': float(vis_solgte['timer_til_salg'].mean()),
+            'min_timer': int(round(min_timer)),
+            'median_timer': median_timer,
+            'avg_timer': avg_timer,
         }
 
+        # Begrens antall rader litt (f.eks. 500) for frontend
+        vis_solgte = vis_solgte.sort_values('timer_til_salg', ascending=True).head(500)
+
+        # Sørg for at NaN -> None før JSON
         vis_solgte = vis_solgte.where(pd.notna(vis_solgte), None)
-        rows = json.loads(vis_solgte.to_json(orient='records', date_format='iso'))
+        rows = json.loads(vis_solgte.to_json(orient='records'))
 
         return jsonify({'rows': rows, 'kpis': kpis})
 

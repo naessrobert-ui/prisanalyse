@@ -7,7 +7,7 @@ __pycache__/
 
 # Virtuelle miljøer
 venv/
-.env/
+.env
 .venv/
 
 # PyCharm
@@ -24,8 +24,7 @@ Thumbs.db
 dist/
 build/
 
-# Lokale hemmeligheter / config
-config.py
+
 
 # Athena-resultater
 athena-results/

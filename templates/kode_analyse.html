@@ -1,0 +1,95 @@
+<!-- templates/kode_analyse.html -->
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Kodehjelp for BQUANT</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; background-color: #f4f7f9; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        h1 { color: #1a1a1a; text-align: center; }
+        textarea { width: 100%; min-height: 100px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; margin-bottom: 15px; box-sizing: border-box; }
+        button { display: block; width: 100%; padding: 15px; background-color: #007bff; color: white; border: none; border-radius: 6px; font-size: 18px; cursor: pointer; transition: background-color 0.3s; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
+        #result-container { margin-top: 30px; background-color: #2d2d2d; color: #f2f2f2; border-radius: 6px; padding: 20px; white-space: pre-wrap; word-wrap: break-word; font-family: "Courier New", Courier, monospace; display: none; }
+        .loader { text-align: center; font-style: italic; color: #777; }
+        .error { color: #d9534f; font-weight: bold; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Gemini Kodehjelp for BQUANT</h1>
+        <p>Beskriv hva du vil gjøre, så genererer jeg Python-koden for deg. Vær spesifikk for best resultat.</p>
+
+        <textarea id="prompt-input" placeholder="Eksempel: Skriv en BQL-query i Python for å hente daglig kursdata (PX_LAST) for Telenor (TEL.OL) for de siste 30 dagene."></textarea>
+
+        <button id="generate-btn">Generer kode</button>
+
+        <div id="loader" class="loader" style="display: none;">Tenker...</div>
+
+        <div id="result-container">
+            <code id="code-output"></code>
+        </div>
+    </div>
+
+<script>
+    // Hent alle HTML-elementene vi trenger å jobbe med
+    const promptInput = document.getElementById('prompt-input');
+    const generateBtn = document.getElementById('generate-btn');
+    const loader = document.getElementById('loader');
+    const resultContainer = document.getElementById('result-container');
+    const codeOutput = document.getElementById('code-output');
+
+    // Funksjon som kjører når man klikker på "Generer kode"-knappen
+    generateBtn.addEventListener('click', async () => {
+        const prompt = promptInput.value.trim();
+        if (!prompt) {
+            alert('Du må skrive en forespørsel.');
+            return;
+        }
+
+        // --- Start prosessen: Vis "Tenker..." og deaktiver knappen ---
+        loader.style.display = 'block';
+        generateBtn.disabled = true;
+        resultContainer.style.display = 'none';
+        codeOutput.innerHTML = '';
+
+        try {
+            // --- Send forespørselen til serveren (backend) ---
+            const response = await fetch('/kode/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt: prompt }),
+            });
+
+            // --- Håndter svaret fra serveren ---
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `En serverfeil oppstod: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // Bruk "marked.js" for å formatere koden pent
+            const htmlContent = marked.parse(data.code);
+            codeOutput.innerHTML = htmlContent;
+            resultContainer.style.display = 'block';
+
+        } catch (error) {
+            // --- Vis feilmelding hvis noe går galt ---
+            codeOutput.innerHTML = `<span class="error">Feil: ${error.message}</span>`;
+            resultContainer.style.display = 'block';
+        } finally {
+            // --- Rydd opp: Skjul "Tenker..." og aktiver knappen igjen ---
+            loader.style.display = 'none';
+            generateBtn.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>

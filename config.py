@@ -9,7 +9,7 @@ AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "prisanalyse-data")
 
 # 👉 Dette SKAL være *Athena-databasen* (schema), f.eks. "default" eller "prisanalyse"
-ATHENA_DATABASE = os.getenv("ATHENA_DATABASE", "default")
+ATHENA_DATABASE = os.getenv("ATHENA_DATABASE", "bil_finn_daglig")
 
 # 👉 Dette SKAL være tabellen der bil-dataene ligger
 #   (den het sannsynligvis "database_biler_parquet" hos deg)
