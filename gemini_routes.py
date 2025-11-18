@@ -18,7 +18,7 @@ try:
         model = None
     else:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-pro')
+        model = genai.GenerativeModel('gemini-3.0-pro')
 except Exception as e:
     print(f"Feil under konfigurering av Gemini API: {e}")
     model = None
@@ -27,7 +27,6 @@ except Exception as e:
 SYSTEM_INSTRUCTION = """
 Du er en ekspert på finansiell analyse og Python-koding, spesialisert for Bloomberg's BQUANT-miljø.
 All kode du genererer må være kompatibel med BQUANT.
-Bruk Bloomberg Query Language (BQL) der det er relevant.
 Svar kun med ren, kommentert Python-kode, med mindre du blir bedt om noe annet.
 Start kodesvaret med ```python og avslutt med ```.
 Ikke inkluder noe tekst før eller etter kodeblokken.
