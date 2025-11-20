@@ -1,64 +1,156 @@
-<!-- templates/kode_analyse.html -->
-<!DOCTYPE html>
-<html lang="no">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini Kodehjelp for BQUANT</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; background-color: #f4f7f9; color: #333; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h1 { color: #1a1a1a; text-align: center; }
-        textarea { width: 100%; min-height: 100px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; margin-bottom: 15px; box-sizing: border-box; }
-        button { display: block; width: 100%; padding: 15px; background-color: #007bff; color: white; border: none; border-radius: 6px; font-size: 18px; cursor: pointer; transition: background-color 0.3s; }
-        button:hover { background-color: #0056b3; }
-        button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
-        #result-container { margin-top: 30px; background-color: #2d2d2d; color: #f2f2f2; border-radius: 6px; padding: 20px; white-space: pre-wrap; word-wrap: break-word; font-family: "Courier New", Courier, monospace; display: none; }
-        .loader { text-align: center; font-style: italic; color: #777; }
-        .error { color: #d9534f; font-weight: bold; }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-</head>
-<body>
-    <div class="container">
-        <h1>Gemini Kodehjelp for BQUANT</h1>
-        <p>Beskriv hva du vil gjøre, så genererer jeg Python-koden for deg. Vær spesifikk for best resultat.</p>
+{% extends "base.html" %}
 
-        <textarea id="prompt-input" placeholder="Eksempel: Skriv en BQL-query i Python for å hente daglig kursdata (PX_LAST) for Telenor (TEL.OL) for de siste 30 dagene."></textarea>
+{% block title %}AI Kodeassistent{% endblock %}
 
-        <button id="generate-btn">Generer kode</button>
+{% block content %}
+<style>
+    /* --- CSS for denne spesifikke siden --- */
 
-        <div id="loader" class="loader" style="display: none;">Tenker...</div>
+    /* Hovedboks med "Glass"-effekt oppå bakgrunnsbildet */
+    .analysis-container {
+        background-color: rgba(255, 255, 255, 0.95); /* Hvit, litt gjennomsiktig */
+        border-radius: 15px;
+        padding: 40px;
+        margin-top: 40px;
+        margin-bottom: 40px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37); /* Moderne skygge */
+        backdrop-filter: blur(4px); /* Gjør bakgrunnen litt utydelig bak boksen */
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        max-width: 900px;
+        margin-left: auto;
+        margin-right: auto;
+    }
 
-        <div id="result-container">
-            <code id="code-output"></code>
+    /* Overskrift */
+    .analysis-header {
+        color: #333;
+        margin-bottom: 20px;
+        font-weight: 600;
+    }
+
+    /* Input-feltet */
+    #promptInput {
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        padding: 15px;
+        font-size: 1.1em;
+        resize: vertical; /* Lar brukeren endre størrelse */
+    }
+
+    #promptInput:focus {
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        border-color: #007bff;
+    }
+
+    /* Knappen */
+    .btn-generate {
+        padding: 12px 30px;
+        font-size: 1.1em;
+        border-radius: 50px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+
+    /* Kodeboksen (Resultatet) */
+    .code-wrapper {
+        position: relative;
+        display: none; /* Skjult til vi får svar */
+        margin-top: 30px;
+    }
+
+    #codeOutput {
+        background-color: #1e1e1e; /* VS Code mørk bakgrunn */
+        color: #d4d4d4; /* Lys grå tekst */
+        padding: 20px;
+        border-radius: 10px;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        white-space: pre-wrap; /* Beholder linjeskift og innrykk */
+        border: 1px solid #333;
+        min-height: 100px;
+        text-align: left;
+    }
+
+    /* Kopier-knapp inne i kodeboksen */
+    .copy-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 0.8em;
+        cursor: pointer;
+    }
+    .copy-btn:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Laste-animasjon */
+    .loading-spinner {
+        display: none;
+        margin-top: 20px;
+        color: #007bff;
+    }
+</style>
+
+<div class="container">
+    <div class="analysis-container">
+        <div class="text-center">
+            <h2 class="analysis-header">🤖 BQUANT Kodeassistent</h2>
+            <p class="text-muted">
+                Beskriv hva du vil analysere. Jeg genererer Python-kode tilpasset Bloomberg-miljøet.
+            </p>
+        </div>
+
+        <div class="form-group mt-4">
+            <textarea class="form-control" id="promptInput" rows="5" placeholder="Eksempel: Hent sluttkurs for EQNR og DNB de siste 2 årene og lag et plott som sammenligner avkastningen..."></textarea>
+        </div>
+
+        <div class="text-center mt-4">
+            <button onclick="generateCode()" class="btn btn-primary btn-generate">
+                ✨ Generer Kode
+            </button>
+        </div>
+
+        <!-- Laste-indikator -->
+        <div id="loadingIndicator" class="text-center loading-spinner">
+            <div class="spinner-border" role="status" style="width: 3rem; height: 3rem;">
+                <span class="sr-only">Loading...</span>
+            </div>
+            <p class="mt-2">Analyserer forespørselen og skriver kode...</p>
+        </div>
+
+        <!-- Resultat -->
+        <div id="codeWrapper" class="code-wrapper">
+            <button onclick="copyToClipboard()" class="copy-btn">Kopier kode</button>
+            <div id="codeOutput"></div>
         </div>
     </div>
+</div>
 
+<!-- JavaScript logikk -->
 <script>
-    // Hent alle HTML-elementene vi trenger å jobbe med
-    const promptInput = document.getElementById('prompt-input');
-    const generateBtn = document.getElementById('generate-btn');
-    const loader = document.getElementById('loader');
-    const resultContainer = document.getElementById('result-container');
-    const codeOutput = document.getElementById('code-output');
+    async function generateCode() {
+        const prompt = document.getElementById('promptInput').value;
+        const wrapper = document.getElementById('codeWrapper');
+        const outputDiv = document.getElementById('codeOutput');
+        const loadingDiv = document.getElementById('loadingIndicator');
 
-    // Funksjon som kjører når man klikker på "Generer kode"-knappen
-    generateBtn.addEventListener('click', async () => {
-        const prompt = promptInput.value.trim();
-        if (!prompt) {
-            alert('Du må skrive en forespørsel.');
+        // Sjekk at feltet ikke er tomt
+        if (!prompt.trim()) {
+            alert("Vennligst skriv inn en beskrivelse først.");
             return;
         }
 
-        // --- Start prosessen: Vis "Tenker..." og deaktiver knappen ---
-        loader.style.display = 'block';
-        generateBtn.disabled = true;
-        resultContainer.style.display = 'none';
-        codeOutput.innerHTML = '';
+        // Nullstill visning
+        wrapper.style.display = 'none';
+        outputDiv.innerText = '';
+        loadingDiv.style.display = 'block';
 
         try {
-            // --- Send forespørselen til serveren (backend) ---
+            // Send data til Python-backend
             const response = await fetch('/kode/generate', {
                 method: 'POST',
                 headers: {
@@ -67,29 +159,37 @@
                 body: JSON.stringify({ prompt: prompt }),
             });
 
-            // --- Håndter svaret fra serveren ---
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `En serverfeil oppstod: ${response.statusText}`);
-            }
-
             const data = await response.json();
 
-            // Bruk "marked.js" for å formatere koden pent
-            const htmlContent = marked.parse(data.code);
-            codeOutput.innerHTML = htmlContent;
-            resultContainer.style.display = 'block';
+            // Skjul laste-indikator
+            loadingDiv.style.display = 'none';
+
+            if (response.ok) {
+                // Rens svaret litt (fjern ```python hvis det er der)
+                let cleanCode = data.code.replace(/```python/g, "").replace(/```/g, "").trim();
+
+                outputDiv.innerText = cleanCode;
+                wrapper.style.display = 'block';
+            } else {
+                alert("Feil: " + (data.error || "Noe gikk galt på serveren."));
+            }
 
         } catch (error) {
-            // --- Vis feilmelding hvis noe går galt ---
-            codeOutput.innerHTML = `<span class="error">Feil: ${error.message}</span>`;
-            resultContainer.style.display = 'block';
-        } finally {
-            // --- Rydd opp: Skjul "Tenker..." og aktiver knappen igjen ---
-            loader.style.display = 'none';
-            generateBtn.disabled = false;
+            loadingDiv.style.display = 'none';
+            alert("Kunne ikke koble til serveren. Sjekk at appen kjører.\nFeilmelding: " + error);
         }
-    });
+    }
+
+    function copyToClipboard() {
+        const codeText = document.getElementById('codeOutput').innerText;
+        navigator.clipboard.writeText(codeText).then(() => {
+            const btn = document.querySelector('.copy-btn');
+            const originalText = btn.innerText;
+            btn.innerText = "Kopiert! ✅";
+            setTimeout(() => {
+                btn.innerText = originalText;
+            }, 2000);
+        });
+    }
 </script>
-</body>
-</html>
+{% endblock %}

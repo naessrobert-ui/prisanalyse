@@ -10,15 +10,15 @@ from datetime import date, datetime, timedelta
 # 1. KONFIGURASJON (Fyll inn det samme som i skraperen)
 # ======================================================
 
-# Bytt ut disse med dine faktiske nøkler!
-AWS_KEY = "AKIA6I7OP6NWGKAXVUXE"
-AWS_SECRET = "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"
-AWS_REGION = "eu-north-1"  # Eller "us-east-1" osv.
-S3_BUCKET_NAME = "prisanalyse-data"
-
 PARQUET_KEY = "calc/bil/bil_time.parquet"
 FINN_BASE_URL = "https://www.finn.no/mobility/item/"
 
+from config import (
+    AWS_KEY,
+    AWS_SECRET,
+    AWS_REGION,
+    S3_BUCKET_NAME,
+)
 GRUPPERINGSNIVAAER = {
     "1. Produsent": ["Merke"],
     "2. Produsent + Modell": ["Merke", "Modell"],
