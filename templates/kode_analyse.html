@@ -93,24 +93,108 @@
         margin-top: 20px;
         color: #007bff;
     }
+
+    /* Modusvalg */
+    .mode-group {
+        margin-top: 18px;
+        text-align: center;
+        background-color: #eef3ff; /* lys blå bakgrunn */
+        border-radius: 12px;
+        padding: 10px 14px;
+        border: 1px solid #c5d4ff;
+    }
+
+    .mode-group-title {
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #243b80;
+    }
+
+    .mode-options {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 4px;
+    }
+
+    .mode-option {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 20px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        background-color: #ffffffaa;
+        color: #123;
+        font-weight: 500;
+    }
+
+    .mode-option input[type="radio"] {
+        accent-color: #0056d6; /* tydelig blå */
+        transform: scale(1.2);
+    }
+
+    .mode-option.active {
+        background-color: #0056d6;
+        color: #fff;
+        border-color: #0040a0;
+    }
+
+    .mode-option.active input[type="radio"] {
+        accent-color: #ffffff;
+    }
+
+    .mode-description {
+        font-size: 0.85rem;
+        color: #555;
+        margin-top: 4px;
+    }
 </style>
 
 <div class="container">
     <div class="analysis-container">
         <div class="text-center">
-            <h2 class="analysis-header">🤖 BQUANT Kodeassistent</h2>
+            <h2 class="analysis-header">🤖 AI Kodeassistent &amp; Gemini</h2>
             <p class="text-muted">
-                Beskriv hva du vil analysere. Jeg genererer Python-kode tilpasset Bloomberg-miljøet.
+                Velg modus under. I BQUANT-modus får du ren Python-kode til Bloomberg-miljøet.
+                I finans-modus kan modellen forklare og kode. I helt fri-modus er det en vanlig AI-assistent.
             </p>
         </div>
 
         <div class="form-group mt-4">
-            <textarea class="form-control" id="promptInput" rows="5" placeholder="Eksempel: Hent sluttkurs for EQNR og DNB de siste 2 årene og lag et plott som sammenligner avkastningen..."></textarea>
+            <textarea class="form-control" id="promptInput" rows="5"
+                      placeholder="Eksempel (BQUANT): Hent sluttkurs for EQNR og DNB de siste 2 årene og lag et plott som sammenligner avkastningen...
+Eksempel (finans): Forklar forskjellen på P/E og P/B, og gi et lite kodeeksempel i Python.
+Eksempel (fri): Skriv et kort avsnitt om fordelene med indeksfond."></textarea>
+        </div>
+
+        <!-- Modusvalg -->
+        <div class="mode-group">
+            <div class="mode-group-title">Velg modellmodus</div>
+            <div class="mode-options">
+                <label class="mode-option active" id="mode-bquant-label">
+                    <input type="radio" name="mode" value="bquant" checked>
+                    BQUANT (ren kode)
+                </label>
+                <label class="mode-option" id="mode-finans-label">
+                    <input type="radio" name="mode" value="finans">
+                    Finans / analyse
+                </label>
+                <label class="mode-option" id="mode-free-label">
+                    <input type="radio" name="mode" value="free">
+                    Helt fri assistent
+                </label>
+            </div>
+            <div class="mode-description" id="modeDescription">
+                BQUANT: kun kommentert Python-kode, tilpasset Bloomberg BQUANT.
+            </div>
         </div>
 
         <div class="text-center mt-4">
             <button onclick="generateCode()" class="btn btn-primary btn-generate">
-                ✨ Generer Kode
+                ✨ Kjør Gemini
             </button>
         </div>
 
@@ -119,12 +203,12 @@
             <div class="spinner-border" role="status" style="width: 3rem; height: 3rem;">
                 <span class="sr-only">Loading...</span>
             </div>
-            <p class="mt-2">Analyserer forespørselen og skriver kode...</p>
+            <p class="mt-2">Analyserer forespørselen...</p>
         </div>
 
         <!-- Resultat -->
         <div id="codeWrapper" class="code-wrapper">
-            <button onclick="copyToClipboard()" class="copy-btn">Kopier kode</button>
+            <button onclick="copyToClipboard()" class="copy-btn">Kopier</button>
             <div id="codeOutput"></div>
         </div>
     </div>
@@ -132,11 +216,44 @@
 
 <!-- JavaScript logikk -->
 <script>
+    // Håndter aktiv-styling og beskrivelse for modusene
+    const modeLabels = {
+        bquant: document.getElementById('mode-bquant-label'),
+        finans: document.getElementById('mode-finans-label'),
+        free: document.getElementById('mode-free-label'),
+    };
+    const modeDescriptionEl = document.getElementById('modeDescription');
+
+    const modeTexts = {
+        bquant: 'BQUANT: kun kommentert Python-kode, tilpasset Bloomberg BQUANT.',
+        finans: 'Finans / analyse: kombinerer forklarende tekst og kode, ofte med Bloomberg/BQUANT i bakhodet.',
+        free: 'Helt fri assistent: vanlig AI-chat uten spesielle begrensninger – tekst, ideer, kode osv.',
+    };
+
+    function updateModeUI(selectedMode) {
+        Object.keys(modeLabels).forEach(mode => {
+            if (mode === selectedMode) {
+                modeLabels[mode].classList.add('active');
+            } else {
+                modeLabels[mode].classList.remove('active');
+            }
+        });
+        modeDescriptionEl.textContent = modeTexts[selectedMode] || '';
+    }
+
+    // Lytt på endringer på radio-knappene
+    document.querySelectorAll('input[name="mode"]').forEach(input => {
+        input.addEventListener('change', (e) => {
+            updateModeUI(e.target.value);
+        });
+    });
+
     async function generateCode() {
         const prompt = document.getElementById('promptInput').value;
         const wrapper = document.getElementById('codeWrapper');
         const outputDiv = document.getElementById('codeOutput');
         const loadingDiv = document.getElementById('loadingIndicator');
+        const mode = document.querySelector('input[name="mode"]:checked').value;
 
         // Sjekk at feltet ikke er tomt
         if (!prompt.trim()) {
@@ -156,7 +273,10 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ prompt: prompt }),
+                body: JSON.stringify({
+                    prompt: prompt,
+                    mode: mode  // viktig: send mode til backend
+                }),
             });
 
             const data = await response.json();
@@ -165,10 +285,18 @@
             loadingDiv.style.display = 'none';
 
             if (response.ok) {
-                // Rens svaret litt (fjern ```python hvis det er der)
-                let cleanCode = data.code.replace(/```python/g, "").replace(/```/g, "").trim();
+                let content = "";
 
-                outputDiv.innerText = cleanCode;
+                if (data.mode === 'bquant') {
+                    // Rens svaret litt (fjern ```python hvis det er der)
+                    let raw = data.code || "";
+                    content = raw.replace(/```python/g, "").replace(/```/g, "").trim();
+                } else {
+                    // Finans + fri-modus: vis tekst som den er
+                    content = data.text || "";
+                }
+
+                outputDiv.innerText = content || "(tomt svar)";
                 wrapper.style.display = 'block';
             } else {
                 alert("Feil: " + (data.error || "Noe gikk galt på serveren."));
