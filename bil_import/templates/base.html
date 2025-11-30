@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Analyse av biler{% endblock %}</title>
+    <style>
+        :root {
+            /* KORRIGERT: Gjort enda mer gjennomsiktig (fra 0.3 til 0.25) */
+            --glass-bg: rgba(10, 10, 20, 0.25);
+            --text-color: #f0f0f5;
+            --border-color: rgba(255, 255, 255, 0.2);
+            --primary-highlight: #58a6ff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+            background-image: url("{{ url_for('static', filename='background.jpg') }}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            /* KORRIGERT: Midtstiller nå innholdet vertikalt */
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(18px); /* Økt blur for bedre effekt */
+            -webkit-backdrop-filter: blur(18px);
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            padding: 2rem 3rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            /* Fjernet margin-top/bottom da align-items: center tar seg av dette */
+        }
+
+        h1, h2 {
+            text-align: center;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        h2 { font-size: 1.8rem; margin-top: 3rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; }
+
+        a { color: var(--primary-highlight); text-decoration: none; transition: color 0.2s ease; }
+        a:hover { text-decoration: underline; }
+
+        .summary-table {
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

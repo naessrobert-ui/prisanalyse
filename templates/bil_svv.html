@@ -81,7 +81,6 @@
       margin-top: 8px;
     }
 
-    /* Kort-stil – samme glass-look som forsiden */
     .card {
       border-radius: 18px;
       padding: 20px 18px;
@@ -101,7 +100,6 @@
       margin-bottom: 8px;
     }
 
-    /* Grid med minst to kort i bredden */
     .two-col {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -115,7 +113,6 @@
       }
     }
 
-    /* Form */
     form {
       display: flex;
       flex-wrap: wrap;
@@ -172,7 +169,6 @@
       font-size: 0.9rem;
     }
 
-    /* Definisjonslister (info-rader) */
     dl {
       display: grid;
       grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
@@ -314,10 +310,25 @@
         </dl>
       </div>
 
-      <!-- Bruktimport + EU-kontroll -->
+      <!-- Registrering + Bruktimport og EU-kontroll -->
       <div class="two-col">
         <div class="card">
-          <h2>Bruktimport</h2>
+          <h2>Registrering og bruktimport</h2>
+
+          <dl style="margin-bottom: 0.75rem;">
+            <dt>Kjøretøyets status</dt>
+            <dd>{{ flat.svv_registreringsstatus or "–" }}</dd>
+
+            <dt>Registrert første gang</dt>
+            <dd>{{ flat.svv_registrert_forste_gang or "–" }}</dd>
+
+            <dt>Registrert første gang i Norge</dt>
+            <dd>{{ flat.svv_registrert_forste_gang_norge or "–" }}</dd>
+
+            <dt>Registrert på eier</dt>
+            <dd>{{ flat.svv_registrert_pa_eier or "–" }}</dd>
+          </dl>
+
           {% if flat.svv_bruktimportert %}
             <p style="margin-bottom:0.4rem;">
               Bruktimportert kjøretøy
@@ -453,6 +464,13 @@
               {% endif %}
             </dd>
 
+            <dt>Antall aksler</dt>
+            <dd>{{ flat.svv_antall_aksler or "–" }}</dd>
+
+            <dt>Antall aksler med drift</dt>
+            <dd>{{ flat.svv_antall_aksler_med_drift or "–" }}</dd>
+
+
             <dt>Sitteplasser totalt</dt>
             <dd>{{ flat.svv_sitteplasser_totalt or "–" }}</dd>
           </dl>
@@ -461,13 +479,28 @@
         <div class="card">
           <h2>Motor / drivstoff / miljø</h2>
           <dl>
-            <dt>Drivstoff</dt>
+            <dt>Drivstoff (hovedmotor)</dt>
             <dd>{{ flat.svv_drivstoff_navn or "–" }}</dd>
+
+            <dt>Hybrid</dt>
+            <dd>{{ flat.svv_hybridkategori or "–" }}</dd>
+
+            <dt>Antall motorer</dt>
+            <dd>{{ flat.svv_antall_motorer or "–" }}</dd>
+
+            <dt>Elektrisk rekkevidde</dt>
+            <dd>
+              {% if flat.svv_elektrisk_rekkevidde_km %}
+                {{ flat.svv_elektrisk_rekkevidde_km }} km
+              {% else %}
+                –
+              {% endif %}
+            </dd>
 
             <dt>Euroklasse</dt>
             <dd>{{ flat.svv_euroklasse or "–" }}</dd>
 
-            <dt>Slagvolum</dt>
+            <dt>Slagvolum (hovedmotor)</dt>
             <dd>
               {% if flat.svv_slagvolum_cm3 %}
                 {{ flat.svv_slagvolum_cm3 }} cm³
@@ -476,7 +509,7 @@
               {% endif %}
             </dd>
 
-            <dt>Maks netto effekt</dt>
+            <dt>Maks netto effekt (hovedmotor)</dt>
             <dd>
               {% if flat.svv_maks_netto_effekt_kw %}
                 {{ flat.svv_maks_netto_effekt_kw }} kW
@@ -485,10 +518,10 @@
               {% endif %}
             </dd>
 
-            <dt>Motor-kode</dt>
+            <dt>Motor-kode (hovedmotor)</dt>
             <dd>{{ flat.svv_motor_kode or "–" }}</dd>
 
-            <dt>Forbruk blandet</dt>
+            <dt>Forbruk blandet (WLTP)</dt>
             <dd>
               {% if flat.svv_forbruk_blandet_l_100km %}
                 {{ flat.svv_forbruk_blandet_l_100km }} l/100km
@@ -497,7 +530,7 @@
               {% endif %}
             </dd>
 
-            <dt>CO₂ blandet</dt>
+            <dt>CO₂ blandet (WLTP)</dt>
             <dd>
               {% if flat.svv_co2_blandet_g_km %}
                 {{ flat.svv_co2_blandet_g_km }} g/km
@@ -506,6 +539,25 @@
               {% endif %}
             </dd>
           </dl>
+                      {% if flat.svv_motorer_detaljer %}
+            <details style="margin-top:0.7rem;">
+              <summary>Vis detaljer per motor</summary>
+              <ul style="margin-top:0.4rem; padding-left:1.2rem; font-size:0.86rem;">
+                {% for m in flat.svv_motorer_detaljer %}
+                  <li>
+                    <strong>Motor {{ m.nummer }}:</strong>
+                    {% if m.drivstoff %} {{ m.drivstoff }}{% endif %}
+                    {% if m.slagvolum_cm3 %}, {{ m.slagvolum_cm3 }} cm³{% endif %}
+                    {% if m.maks_netto_effekt_kw %}, {{ m.maks_netto_effekt_kw }} kW{% endif %}
+                    {% if m.maks_effekt_pr_time_kw %}, {{ m.maks_effekt_pr_time_kw }} kW (kont.){% endif %}
+                    {% if m.motor_kode %}, kode {{ m.motor_kode }}{% endif %}
+                    {% if m.arbeidsprinsipp %} ({{ m.arbeidsprinsipp }}){% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </details>
+          {% endif %}
+
         </div>
       </div>
 

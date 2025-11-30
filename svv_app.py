@@ -1,18 +1,14 @@
-from flask import Flask, render_template, request
+from datetime import date
 import requests
-import json
-from datetime import datetime, date
 
 # ========================
 # KONFIG
 # ========================
-SVV_API_KEY  = "094532a8-2343-4b4a-93f7-e284b1e0ec85"
+SVV_API_KEY = "094532a8-2343-4b4a-93f7-e284b1e0ec85"
 SVV_ENDPOINT = (
     "https://www.vegvesen.no/ws/no/vegvesen/kjoretoy/felles/datautlevering/"
     "enkeltoppslag/kjoretoydata"
 )
-
-app = Flask(__name__)
 
 
 # ========================
@@ -37,7 +33,10 @@ def get_nested_safe(data, keys, default=None):
 
 
 def fetch_svv_data(identifier: str):
-    """Slår opp på regnr eller VIN via SVV-API-et."""
+    """Slår opp på regnr eller VIN via SVV-API-et.
+
+    Returnerer (svv_raw_data, error_str)
+    """
     if not identifier:
         return None, "Du må oppgi et registreringsnummer eller understellsnummer."
 
@@ -108,6 +107,30 @@ def flatten_svv_data(svv_data: dict) -> dict:
     flat["svv_kjennemerke_ordinart"] = ordinart_plate or flat["svv_regnr"]
     flat["svv_kjennemerke_personlig"] = personlig_plate
     flat["svv_kjennemerke_alle"] = ", ".join(alle_plater) if alle_plater else None
+
+    # ---------------------------
+    # Registrering / status
+    # ---------------------------
+    flat["svv_registreringsstatus"] = get_nested_safe(
+        svv_data, ["registrering", "registreringsstatus", "kodeBeskrivelse"]
+    )
+
+    # NB: Denne finnes i JSON-en du sendte
+    reg_f_norge = get_nested_safe(
+        svv_data, ["forstegangsregistrering", "registrertForstegangNorgeDato"]
+    )
+    # Evt. generell "førstegangsregistrert"
+    reg_f_generell = get_nested_safe(
+        svv_data, ["godkjenning", "forstegangsGodkjenning", "forstegangRegistrertDato"]
+    )
+
+    flat["svv_registrert_forste_gang_norge"] = reg_f_norge
+    flat["svv_registrert_forste_gang"] = reg_f_generell or reg_f_norge
+
+    reg_pa_eier = get_nested_safe(
+        svv_data, ["registrering", "registrertForstegangPaEierskap"]
+    )
+    flat["svv_registrert_pa_eier"] = reg_pa_eier[:10] if reg_pa_eier else None
 
     # ---------------------------
     # Generell info
@@ -191,12 +214,42 @@ def flatten_svv_data(svv_data: dict) -> dict:
     # ---------------------------
     # Motor / drivstoff / miljø
     # ---------------------------
+
     motor_og_drivverk = get_nested_safe(
         svv_data,
         ["godkjenning", "tekniskGodkjenning", "tekniskeData", "motorOgDrivverk"],
         {},
     )
     motor_liste = motor_og_drivverk.get("motor") or []
+
+    # Antall motorer totalt
+    flat["svv_antall_motorer"] = len(motor_liste) if motor_liste else None
+
+    # Detaljer per motor (liste)
+    motorer_detaljer = []
+    for idx, motor in enumerate(motor_liste, start=1):
+        m = {}
+        m["nummer"] = idx
+        m["motor_kode"] = motor.get("motorKode")
+        m["arbeidsprinsipp"] = get_nested_safe(
+            motor, ["arbeidsprinsipp", "kodeBeskrivelse"]
+        )
+        m["slagvolum_cm3"] = motor.get("slagvolum")
+        m["antall_sylindre"] = motor.get("antallSylindre")
+
+        drivstoff_liste = motor.get("drivstoff") or []
+        driv0 = drivstoff_liste[0] if drivstoff_liste else {}
+        m["drivstoff"] = get_nested_safe(
+            driv0, ["drivstoffKode", "kodeBeskrivelse"]
+        )
+        m["maks_netto_effekt_kw"] = driv0.get("maksNettoEffekt")
+        m["maks_effekt_pr_time_kw"] = driv0.get("maksEffektPrTime")
+
+        motorer_detaljer.append(m)
+
+    flat["svv_motorer_detaljer"] = motorer_detaljer
+
+    # For enkelhets skyld: behold "motor 1" som hovedmotor
     motor0 = motor_liste[0] if motor_liste else {}
 
     flat["svv_slagvolum_cm3"] = motor0.get("slagvolum")
@@ -206,13 +259,25 @@ def flatten_svv_data(svv_data: dict) -> dict:
         motor0, ["arbeidsprinsipp", "kodeBeskrivelse"]
     )
 
-    drivstoff_liste = motor0.get("drivstoff") or []
-    drivstoff0 = drivstoff_liste[0] if drivstoff_liste else {}
+    drivstoff_liste0 = motor0.get("drivstoff") or []
+    drivstoff0 = drivstoff_liste0[0] if drivstoff_liste0 else {}
     flat["svv_drivstoff_navn"] = get_nested_safe(
         drivstoff0, ["drivstoffKode", "kodeBeskrivelse"]
     )
     flat["svv_maks_netto_effekt_kw"] = drivstoff0.get("maksNettoEffekt")
 
+    # Hybridtype (f.eks. "Ladbar hybrid")
+    flat["svv_hybridkategori"] = get_nested_safe(
+        motor_og_drivverk, ["hybridKategori", "kodeBeskrivelse"]
+    )
+
+
+    # Hybrid / el
+    flat["svv_hybridkategori"] = get_nested_safe(
+        motor_og_drivverk, ["hybridKategori", "kodeBeskrivelse"]
+    )
+
+    # Elektrisk rekkevidde – let etter elektrisk drivstoffgruppe i miljodata
     miljodata = get_nested_safe(
         svv_data,
         ["godkjenning", "tekniskGodkjenning", "tekniskeData", "miljodata"],
@@ -222,13 +287,36 @@ def flatten_svv_data(svv_data: dict) -> dict:
         miljodata, ["euroKlasse", "kodeBeskrivelse"]
     )
 
+    flat["svv_elektrisk_rekkevidde_km"] = None
+    grupper = miljodata.get("miljoOgdrivstoffGruppe") or []
+    if isinstance(grupper, list):
+        for grp in grupper:
+            drivstoffkode = get_nested_safe(
+                grp, ["drivstoffKodeMiljodata", "kodeBeskrivelse"]
+            )
+            if drivstoffkode and "Elektrisk" in drivstoffkode:
+                fu = get_nested_safe(grp, ["forbrukOgUtslipp", 0, "wltpKjoretoyspesifikk"], {})
+                flat["svv_elektrisk_rekkevidde_km"] = (
+                    fu.get("rekkeviddeKmBlandetkjoring")
+                    or fu.get("nedcRekkeviddeKm")
+                )
+                break
+
     forbruk = get_nested_safe(
         miljodata,
         ["miljoOgdrivstoffGruppe", 0, "forbrukOgUtslipp", 0],
         {},
     )
-    flat["svv_forbruk_blandet_l_100km"] = forbruk.get("forbrukBlandetKjoring")
-    flat["svv_co2_blandet_g_km"] = forbruk.get("co2BlandetKjoring")
+    # WLTP-verdier hvis de finnes
+    wltp = forbruk.get("wltpKjoretoyspesifikk") or {}
+    flat["svv_forbruk_blandet_l_100km"] = (
+        wltp.get("forbrukVektetKombinert")
+        or forbruk.get("forbrukBlandetKjoring")
+    )
+    flat["svv_co2_blandet_g_km"] = (
+        wltp.get("co2VektetKombinert")
+        or forbruk.get("co2BlandetKjoring")
+    )
 
     # ---------------------------
     # Persontall
@@ -247,6 +335,26 @@ def flatten_svv_data(svv_data: dict) -> dict:
     kontroll = svv_data.get("periodiskKjoretoyKontroll") or {}
     flat["svv_kontrollfrist"] = kontroll.get("kontrollfrist")
     flat["svv_sist_eu_godkjent"] = kontroll.get("sistGodkjent")
+
+    # ---------------------------
+    # Aksler – antall og hvor mange med drift
+    # ---------------------------
+    akslinger = get_nested_safe(
+        svv_data,
+        ["godkjenning", "tekniskGodkjenning", "tekniskeData", "akslinger"],
+        {},
+    )
+    flat["svv_antall_aksler"] = akslinger.get("antallAksler")
+
+    antall_med_drift = 0
+    akselgrupper = akslinger.get("akselGruppe") or []
+    if isinstance(akselgrupper, list):
+        for grp in akselgrupper:
+            akselliste = get_nested_safe(grp, ["akselListe", "aksel"], [])
+            for aksel in akselliste or []:
+                if aksel.get("drivAksel"):
+                    antall_med_drift += 1
+    flat["svv_antall_aksler_med_drift"] = antall_med_drift or None
 
     # ---------------------------
     # Dekk og felg (alle kombinasjoner)
@@ -288,11 +396,14 @@ def flatten_svv_data(svv_data: dict) -> dict:
                 innpress = aksel.get("innpress")
                 tvilling = aksel.get("tvilling")
 
-                aksel_tekst = f"aksel {aksel_id}: {dekkdim} {felgdim} {belast}{hast}, ET{innpress}, tvilling={tvilling}"
+                aksel_tekst = (
+                    f"aksel {aksel_id}: {dekkdim} {felgdim} {belast}{hast}, "
+                    f"ET{innpress}, tvilling={tvilling}"
+                )
                 aksel_tekster.append(aksel_tekst)
 
                 if dekkdim:
-                    unike_dekkdimensjoner.add(dekkdim)
+                    unike_dekkdimensjoner.add(dekkdim.strip())
 
                 if idx == 1:
                     combo_str = f"{dekkdim} {felgdim} {belast}{hast}, ET{innpress}"
@@ -333,40 +444,3 @@ def compute_eu_status(kontrollfrist_str: str):
         return "snart", diff
     else:
         return "ok", diff
-
-
-# ========================
-# FLASK-RUTE
-# ========================
-@app.route("/", methods=["GET", "POST"])
-def index():
-    svv_raw = None
-    flat = None
-    error = None
-    eu_status = None
-    eu_dager_igjen = None
-
-    if request.method == "POST":
-        ident = request.form.get("identifier", "").strip()
-        svv_raw, error = fetch_svv_data(ident)
-        if svv_raw and not error:
-            flat = flatten_svv_data(svv_raw)
-            eu_status, eu_dager_igjen = compute_eu_status(
-                flat.get("svv_kontrollfrist")
-            )
-
-    # Pretty JSON for visning
-    pretty_json = json.dumps(svv_raw, indent=2, ensure_ascii=False) if svv_raw else None
-
-    return render_template(
-        "index.html",
-        flat=flat,
-        raw_json=pretty_json,
-        error=error,
-        eu_status=eu_status,
-        eu_dager_igjen=eu_dager_igjen,
-    )
-
-
-if __name__ == "__main__":
-    app.run(debug=True)

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Start analyse{% endblock %}
+
+{% block content %}
+<style>
+    .start-container {
+        max-width: 600px;
+        margin: 2rem auto;
+        text-align: center;
+    }
+
+    .start-container p {
+        font-size: 1.2rem;
+        color: #c0c0c0;
+        margin-bottom: 2rem;
+    }
+
+    .start-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .start-form label {
+        font-weight: 500;
+        font-size: 1rem;
+        text-align: left;
+    }
+
+    .start-form input {
+        background: rgba(0,0,0,0.3);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 0.8rem;
+        border-radius: 8px;
+        font-size: 1rem;
+    }
+
+    .start-form button {
+        background-color: var(--primary-highlight);
+        color: #111;
+        font-weight: bold;
+        padding: 0.8rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.2s;
+        margin-top: 1rem;
+    }
+
+    .start-form button:hover {
+        background-color: #79c0ff;
+        transform: scale(1.05);
+    }
+</style>
+
+<div class="start-container">
+    <h1>Analyse – import</h1>
+    <p>Analyser bruktbilmarkedet på Finn.no</p>
+
+    <!-- 👇 Korrekt action for blueprint: bil_import.scan -->
+    <form action="{{ url_for('bil_import.scan') }}" method="post" class="start-form">
+
+        <label for="url">Lim inn URL fra Finn.no:</label>
+        <input type="url" id="url" name="url" required
+               placeholder="https://www.finn.no/car/used/search.html?...">
+
+        <label for="max_biler">Maksimalt antall biler:</label>
+        <input type="number" id="max_biler" name="max_biler" value="200" min="1">
+
+        <button type="submit">Start analyse</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Resultater fra analyse{% endblock %}
+
+{% block content %}
+<style>
+    table {
+        border: 1px solid var(--border-color);
+    }
+    th, td {
+        padding: 0.8rem 1rem;
+        border: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+        background-color: rgba(255, 255, 255, 0.1);
+        font-weight: 600;
+    }
+
+    tbody tr {
+        transition: background-color 0.2s ease;
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .filter-container {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .filter-container label {
+        font-weight: 500;
+        font-size: 1.1rem;
+    }
+
+    .filter-container select {
+        font-size: 1.1rem; /* Beholder stor tekst inni menyen */
+        padding: 0.75rem;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        /* KORRIGERT: Gjort selve menyen smalere */
+        min-width: 250px;
+        background-color: rgba(0,0,0,0.3);
+        color: var(--text-color);
+        cursor: pointer;
+    }
+
+    .back-link {
+        display: block;
+        text-align: center;
+        margin-top: 3rem;
+        font-size: 1rem;
+        color: #ccc;
+    }
+</style>
+
+    <h1>Resultater fra analysen</h1>
+
+    <h2 class="summary-title">Antall biler per land</h2>
+    <table class="summary-table">
+        <thead>
+            <tr>
+                <th>Land</th>
+                <th>Antall biler</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for land, antall in land_data %}
+            <tr>
+                <td>{{ land }}</td>
+                <td>{{ antall }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Detaljert oversikt over biler</h2>
+
+    <div class="filter-container">
+        <label for="country">Filtrer på importland:</label>
+        <form action="{{ url_for('bil_import.show_results') }}" method="get" id="filterForm">
+            <select name="country" id="country" onchange="document.getElementById('filterForm').submit()">
+                <option value="alle" {% if selected_filter == 'alle' %}selected{% endif %}>Alle land</option>
+                <option value="import" {% if selected_filter == 'import' %}selected{% endif %}>Alle (unntatt Norge & Ukjent)</option>
+                {% for country in countries %}
+                    <option value="{{ country }}" {% if selected_filter == country %}selected{% endif %}>{{ country }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>FINN-kode</th>
+                <th>Pris</th>
+                <th>Modell</th>
+                <th>Km</th>
+                <th>Reg. i Norge</th>
+                <th>Rekkevidde</th>
+                <th>Selger</th>
+                <th>Importland</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bil in biler %}
+            <tr>
+                <td><a href="{{ bil.url }}" target="_blank">{{ bil.finnkode }}</a></td>
+                <td>{{ "{:,}".format(bil.get('pris', 0)).replace(',', ' ') }} kr</td>
+                <td>
+                    {% if bil.svv_data %}{{ get_nested_safe(bil.svv_data, ['godkjenning', 'tekniskGodkjenning', 'tekniskeData', 'generelt', 'merke', 0, 'merke']) }} {{ get_nested_safe(bil.svv_data, ['godkjenning', 'tekniskGodkjenning', 'tekniskeData', 'generelt', 'handelsbetegnelse', 0]) }}{% else %}Mangler{% endif %}
+                </td>
+                <td>{{ "{:,}".format(bil.get('km', 0)).replace(',', ' ') }}</td>
+                <td>{{ bil.get('reg_norge', 'Mangler') }}</td>
+                <td>
+                    {% if bil.svv_data %}{% set drivstoff = get_nested_safe(bil.svv_data, ['godkjenning', 'tekniskGodkjenning', 'tekniskeData', 'motorOgDrivverk', 'motor', 0, 'drivstoff', 0, 'drivstoffKode', 'kodeBeskrivelse']) %}{% if drivstoff == 'Elektrisk' %}{% set rekkevidde = get_nested_safe(bil.svv_data, ['godkjenning', 'tekniskGodkjenning', 'tekniskeData', 'miljodata', 'miljoOgdrivstoffGruppe', 0, 'forbrukOgUtslipp', 0, 'wltpKjoretoyspesifikk', 'rekkeviddeKmBlandetkjoring']) %}{{ rekkevidde ~ ' km' if rekkevidde != 'Mangler' else 'Mangler' }}{% else %}N/A{% endif %}{% else %}Mangler{% endif %}
+                </td>
+                <td>{{ bil.get('selger', 'Mangler') }}</td>
+                <td>
+                    {% if bil.svv_data %}{{ get_nested_safe(bil.svv_data, ['godkjenning', 'forstegangsGodkjenning', 'bruktimport', 'importland', 'landNavn'], 'Norge') }}{% else %}Ukjent{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="/" class="back-link">&larr; Kjør en ny analyse</a>
+{% endblock %}

@@ -25,7 +25,7 @@ try:
         # RETTELSE 2: Bruk en modell som faktisk finnes. '2.5-pro' finnes ikke.
         # Vi bruker 1.5-flash fordi den er raskest og gir færrest feilmeldinger.
         model = genai.GenerativeModel ('gemini-2.5-pro')
-        print ("✅ Gemini API konfigurert OK med modell: gemini-1.5-flash")
+        print ("✅ Gemini API konfigurert OK med modell: gemini-2.5-pro")
 
 except Exception as e:
     print (f"❌ Feil under konfigurering av Gemini API: {e}")
