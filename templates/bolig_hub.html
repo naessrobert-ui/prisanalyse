@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Boliganalyse – prisanalyse.no{% endblock %}
+
+{% block content %}
+
+<style>
+  .bolig-hero {
+      padding: 60px 0 30px 0;
+      text-align: center;
+  }
+  .bolig-hero h1 {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+  }
+  .bolig-hero p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+  }
+
+  .bolig-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      max-width: 1100px;
+      margin: 0 auto 60px auto;
+  }
+
+  .bolig-card {
+      background: rgba(15, 23, 42, 0.92); /* mørk blå-ish */
+      border-radius: 18px;
+      padding: 24px 22px;
+      box-shadow: 0 18px 35px rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+  }
+
+  .bolig-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 25px 45px rgba(0, 0, 0, 0.6);
+      border-color: rgba(59, 130, 246, 0.9);
+  }
+
+  .bolig-card-icon {
+      font-size: 28px;
+      margin-bottom: 4px;
+  }
+  .bolig-card h2 {
+      font-size: 1.2rem;
+      margin: 0;
+  }
+  .bolig-card p {
+      font-size: 0.95rem;
+      margin: 0;
+      opacity: 0.9;
+  }
+</style>
+
+<section class="bolig-hero">
+  <p class="hero-kicker">ANALYSEPLATTFORM</p>
+  <h1>Boliganalyse</h1>
+  <p>Velg en boligtjeneste for å starte analysen.</p>
+</section>
+
+<section class="bolig-grid">
+
+  <!-- Rad 1 -->
+  <a href="{{ url_for('bolig.bolig_analyse_side') }}" class="bolig-card">
+    <div class="bolig-card-icon">🏠</div>
+    <h2>Boliger for salg</h2>
+    <p>
+      Filtrer og analyser dagens annonser – m²-pris, totalpris og dager på markedet.
+    </p>
+  </a>
+
+  <a href="{{ url_for('bolig.bolig_historikk_view') }}" class="bolig-card">
+    <div class="bolig-card-icon">📈</div>
+    <h2>Historisk utvikling</h2>
+    <p>
+      Se utviklingen i boligpriser over tid per fylke og for hele Norge.
+    </p>
+  </a>
+
+  <a href="{{ url_for('bolig.bolig_priser_sted') }}" class="bolig-card">
+    <div class="bolig-card-icon">📍</div>
+    <h2>Priser per sted</h2>
+    <p>
+      Median m²-pris og totalpris per fylke, sted og gate.
+    </p>
+  </a>
+
+  <!-- Rad 2 -->
+  <a href="{{ url_for('bolig.bolig_kupp') }}" class="bolig-card">
+    <div class="bolig-card-icon">💸</div>
+    <h2>Underprisradar</h2>
+    <p>
+      Finn boliger priset under referansenivå – både fylkesvis og lokalt.
+    </p>
+  </a>
+
+  <a href="{{ url_for('bolig.bolig_buzz') }}" class="bolig-card">
+    <div class="bolig-card-icon">🧠</div>
+    <h2>Buzzord i annonsetitler</h2>
+    <p>
+      Ordsky og differanseord for billige vs. dyre boliger.
+    </p>
+  </a>
+
+  <a href="{{ url_for('bolig.bolig_varmekart') }}" class="bolig-card">
+    <div class="bolig-card-icon">🌍</div>
+    <h2>Varmekart</h2>
+    <p>
+      Geografisk kart over m²-priser i Norge.
+    </p>
+  </a>
+
+</section>
+
+{% endblock %}

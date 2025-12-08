@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Historisk utvikling – boliger{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+
+    <h2 class="mb-2">
+        🪙 Historisk utvikling i boligpriser
+    </h2>
+
+    <p class="text-muted mb-4">
+        Analysen bygger på historiske boligfiler og viser nivå og endring
+        for valgt metrikk per fylke – samt aggregert for hele Norge.
+    </p>
+
+    <!-- Filter form -->
+    <form method="get" class="row g-3 mb-4">
+
+        <div class="col-md-4">
+            <label for="metric" class="form-label fw-bold">Metrikk</label>
+            <select name="metric" id="metric" class="form-select">
+                {% for key, label in metric_options.items() %}
+                <option value="{{ key }}" {% if key == metric_key %}selected{% endif %}>
+                    {{ label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label fw-bold">Fra dato (valgfri)</label>
+            <div class="input-group">
+                <input type="text"
+                       id="start_date"
+                       name="start"
+                       class="form-control"
+                       placeholder="dd.mm.åååå"
+                       value="{{ start_value or '' }}">
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label fw-bold">Til dato (valgfri)</label>
+            <div class="input-group">
+                <input type="text"
+                       id="end_date"
+                       name="end"
+                       class="form-control"
+                       placeholder="dd.mm.åååå"
+                       value="{{ end_value or '' }}">
+            </div>
+        </div>
+
+        <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">
+                Oppdater
+            </button>
+        </div>
+
+    </form>
+
+    {% if error %}
+        <div class="alert alert-danger">
+            {{ error }}
+        </div>
+    {% else %}
+        {% if has_data %}
+            <div class="alert alert-light border">
+                Viser endring fra
+                <strong>{{ first_date }}</strong> til <strong>{{ last_date }}</strong>
+                for valgt metrikk:
+                <strong>{{ metric_label }}</strong>
+            </div>
+
+            <div class="table-responsive shadow-sm p-3 bg-white rounded">
+                {{ table_html|safe }}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                Velg ønsket periode og trykk <strong>Oppdater</strong> for å se historikk.
+            </div>
+        {% endif %}
+    {% endif %}
+
+</div>
+
+{# 1) Sørg for at Flatpickr JS er lastet, selv om base.html skulle mangle det #}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>
+    // Datoer vi faktisk har filer for (kommer fra backend som ISO-strenger "YYYY-MM-DD")
+    const availableDates = {{ available_dates_js | tojson | safe }};
+
+    document.addEventListener("DOMContentLoaded", function () {
+        // Visuelt bevis på at scriptet kjører: litt lysere bakgrunn
+        const startEl = document.getElementById("start_date");
+        const endEl   = document.getElementById("end_date");
+        if (startEl) startEl.style.backgroundColor = "rgba(255,255,255,0.95)";
+        if (endEl)   endEl.style.backgroundColor   = "rgba(255,255,255,0.95)";
+
+        if (typeof flatpickr === "function") {
+            flatpickr("#start_date", {
+                dateFormat: "d.m.Y",
+                enable: availableDates,  // kun disse datoene er klikkbare
+            });
+
+            flatpickr("#end_date", {
+                dateFormat: "d.m.Y",
+                enable: availableDates,
+                defaultDate: document.getElementById("end_date").value || null,
+            });
+        } else {
+            console.warn("Flatpickr ikke tilgjengelig – sjekk <script src='https://cdn.jsdelivr.net/npm/flatpickr'></script>");
+        }
+    });
+</script>
+
+{% endblock %}
+

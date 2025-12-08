@@ -1,4 +1,8 @@
 # app.py (din justerte fil)
+import subprocess
+import sys
+import os
+
 from flask import Flask, render_template
 
 from flask_session import Session
@@ -7,6 +11,41 @@ import os
 
 load_dotenv()
 from bolig_routes import bolig_bp
+app = Flask(__name__)
+def start_streamlit(script, port):
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    result = sock.connect_ex(("127.0.0.1", port))
+    sock.close()
+    if result == 0:
+        print(f"Streamlit-app på port {port} kjører allerede.")
+        return
+
+    python_path = sys.executable
+    subprocess.Popen(
+        [
+            python_path,
+            "-m",
+            "streamlit",
+            "run",
+            script,
+            "--server.port",
+            str(port),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+    )
+
+
+def startup_apps():
+    """Start alle Streamlit-appene én gang ved oppstart."""
+    start_streamlit("app_region.py", 8501)
+    start_streamlit("appKupp.py", 8502)
+    start_streamlit("app_buzz.py", 8503)
+    start_streamlit("app_varme.py", 8504)
+    print("Alle Streamlit-apper forsøkt startet.")
+
+app.register_blueprint(bolig_bp)
 from fritidsbolig_routes import fritids_bp
 from bil_routes import bil_bp
 from bil_import import bil_import_bp
@@ -48,4 +87,5 @@ def jobb_side():
 
 
 if __name__ == "__main__":
+    startup_apps()
     app.run(debug=True)

@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Analyse av biler{% endblock %}</title>
+
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
     <style>
         :root {
             /* KORRIGERT: Gjort enda mer gjennomsiktig (fra 0.3 til 0.25) */
@@ -34,13 +38,12 @@
             width: 100%;
             max-width: 1400px;
             background: var(--glass-bg);
-            backdrop-filter: blur(18px); /* Økt blur for bedre effekt */
+            backdrop-filter: blur(18px);
             -webkit-backdrop-filter: blur(18px);
             border-radius: 20px;
             border: 1px solid var(--border-color);
             padding: 2rem 3rem;
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            /* Fjernet margin-top/bottom da align-items: center tar seg av dette */
         }
 
         h1, h2 {
@@ -50,9 +53,19 @@
         }
 
         h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
-        h2 { font-size: 1.8rem; margin-top: 3rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; }
+        h2 {
+            font-size: 1.8rem;
+            margin-top: 3rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
 
-        a { color: var(--primary-highlight); text-decoration: none; transition: color 0.2s ease; }
+        a {
+            color: var(--primary-highlight);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
         a:hover { text-decoration: underline; }
 
         .summary-table {
@@ -66,5 +79,8 @@
     <div class="container">
         {% block content %}{% endblock %}
     </div>
+
+    <!-- Flatpickr JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </body>
 </html>
