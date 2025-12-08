@@ -1,9 +1,21 @@
 # bolig_routes.py
 import json
 from functools import lru_cache
-
 import pandas as pd
+import folium
 from flask import Blueprint, render_template, jsonify, request, redirect
+
+from functools import lru_cache
+
+from bolig_data import load_latest_bolig_df
+from bolig_varmekart_service import clean_data
+from bolig_historikk import (
+    METRIC_LABELS,
+    get_available_bolig_dates,
+    get_default_dates_for_ui,
+    build_historikk_tabell,
+)
+
 
 from bolig_data import load_latest_bolig_df
 from bolig_historikk import (
@@ -293,6 +305,157 @@ def bolig_historikk_view():
         available_dates_js=available_dates_js,
     )
 
+@bolig_bp.route("/varmekart/")
+def bolig_varmekart_view():
+    """
+    Varmekart over M2-pris i Norge – nå som ren Flask-route.
+    Filter styres via query-parametre (?fylke=Oslo&boligtype=Leilighet&...).
+    """
+    # 1) Hent og rens data
+    df_raw = get_cached_bolig_df()
+    if df_raw is None or df_raw.empty:
+        return render_template(
+            "bolig_varmekart.html",
+            error="Fant ingen bolig-data å vise.",
+            map_html=None,
+            stats=None,
+            filter_values={},
+            filter_options={},
+        )
+
+    try:
+        df = clean_data(df_raw)
+    except Exception as e:
+        return render_template(
+            "bolig_varmekart.html",
+            error=f"Feil ved rensing av data: {e}",
+            map_html=None,
+            stats=None,
+            filter_values={},
+            filter_options={},
+        )
+
+    # 2) Mulige filterverdier (til dropdowns)
+    alle_fylker = sorted(df["fylke"].dropna().unique().tolist()) if "fylke" in df.columns else []
+    alle_typer = sorted(df["boligtype"].dropna().unique().tolist()) if "boligtype" in df.columns else []
+    alle_nybrukt = ["Alle", "Brukt", "Nybygg"]
+
+    # 3) Les filter fra query-parametre (med defaults)
+    valgt_fylke = request.args.get("fylke", "Alle")
+    valgt_boligtype = request.args.get("boligtype", "Alle")
+    valgt_nybrukt = request.args.get("nybrukt", "Alle")
+
+    # Prisintervall – faller tilbake på data-min/max hvis ikke satt
+    try:
+        pris_min_data = int(df["M2-pris"].min())
+        pris_max_data = int(df["M2-pris"].max())
+    except ValueError:
+        pris_min_data, pris_max_data = 0, 200_000
+
+    pris_min = request.args.get("pris_min")
+    pris_max = request.args.get("pris_max")
+
+    if pris_min is None or pris_max is None:
+        pris_min = max(pris_min_data, 20_000)
+        pris_max = min(pris_max_data, 200_000)
+    else:
+        pris_min = int(pris_min)
+        pris_max = int(pris_max)
+
+    # 4) Filtrer DataFrame
+    filtered = df.copy()
+
+    if valgt_fylke != "Alle" and "fylke" in filtered.columns:
+        filtered = filtered[filtered["fylke"] == valgt_fylke]
+
+    if valgt_boligtype != "Alle" and "boligtype" in filtered.columns:
+        filtered = filtered[filtered["boligtype"].isin([valgt_boligtype])]
+
+    if valgt_nybrukt == "Brukt":
+        filtered = filtered[filtered["NY/Brukt"] == "Brukt"]
+    elif valgt_nybrukt == "Nybygg":
+        filtered = filtered[filtered["NY/Brukt"] == "Nybygg"]
+
+    filtered = filtered[
+        (filtered["M2-pris"] >= pris_min) &
+        (filtered["M2-pris"] <= pris_max)
+    ]
+
+    if filtered.empty:
+        return render_template(
+            "bolig_varmekart.html",
+            error="Ingen boliger matcher filtrene.",
+            map_html=None,
+            stats=None,
+            filter_values={
+                "fylke": valgt_fylke,
+                "boligtype": valgt_boligtype,
+                "nybrukt": valgt_nybrukt,
+                "pris_min": pris_min,
+                "pris_max": pris_max,
+            },
+            filter_options={
+                "fylker": alle_fylker,
+                "boligtyper": alle_typer,
+                "nybrukt": alle_nybrukt,
+                "pris_min_data": pris_min_data,
+                "pris_max_data": pris_max_data,
+            },
+        )
+
+    # 5) Bygg folium-kart
+    center_lat = filtered["latitude"].mean()
+    center_lon = filtered["longitude"].mean()
+
+    m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=6,
+        tiles="cartodbpositron",
+    )
+
+    heat_data = filtered[["latitude", "longitude", "M2-pris"]].values.tolist()
+
+    from folium.plugins import HeatMap
+
+    HeatMap(
+        heat_data,
+        name="M2 Pris Varmekart",
+        min_opacity=0.3,
+        max_zoom=15,
+        radius=18,
+        blur=15,
+        gradient={0.2: "blue", 0.4: "cyan", 0.6: "lime", 0.8: "yellow", 1.0: "red"},
+    ).add_to(m)
+
+    map_html = m._repr_html_()  # HTML som kan embeddes direkte i template
+
+    # 6) Enkle stats, som i Streamlit-versjonen
+    stats = {
+        "mean_m2": int(filtered["M2-pris"].mean()),
+        "max_m2": int(filtered["M2-pris"].max()),
+        "count": len(filtered),
+    }
+
+    return render_template(
+        "bolig_varmekart.html",
+        error=None,
+        map_html=map_html,
+        stats=stats,
+        filter_values={
+            "fylke": valgt_fylke,
+            "boligtype": valgt_boligtype,
+            "nybrukt": valgt_nybrukt,
+            "pris_min": pris_min,
+            "pris_max": pris_max,
+        },
+        filter_options={
+            "fylker": alle_fylker,
+            "boligtyper": alle_typer,
+            "nybrukt": alle_nybrukt,
+            "pris_min_data": pris_min_data,
+            "pris_max_data": pris_max_data,
+        },
+    )
 
 # --------------------------------------------------
 # 6) Ruter til de tre nye Streamlit-appene
