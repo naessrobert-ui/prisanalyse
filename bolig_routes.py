@@ -12,10 +12,15 @@ from bolig_historikk import (
     get_default_dates_for_ui,
     build_historikk_tabell,
 )
-# URLs til Streamlit-appene (lokalt fallback til 127.0.0.1)
-UNDERPRIS_URL = os.environ.get("UNDERPRIS_URL", "http://127.0.0.1:8502")
-VARMEKART_URL = os.environ.get("VARMEKART_URL", "http://127.0.0.1:8504")
-BUZZ_URL = os.environ.get("BUZZ_URL", "http://127.0.0.1:8503")
+def _require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Miljøvariabelen {name} må være satt på serveren.")
+    return value
+
+UNDERPRIS_URL = _require_env("UNDERPRIS_URL")
+VARMEKART_URL = _require_env("VARMEKART_URL")
+BUZZ_URL      = _require_env("BUZZ_URL")
 
 # ÉN blueprint, med navn "bolig" og url_prefix "/bolig"
 bolig_bp = Blueprint("bolig", __name__, url_prefix="/bolig")
@@ -485,162 +490,6 @@ def bolig_kupp():
 # ------------------------------------
 # 5) Underprisradar
 # ------------------------------------
-@bolig_bp.route("/kupp/")
-def bolig_kupp_view():
-    """
-    Underprisradar – kart og liste over underprisede boliger.
-    """
-    df_raw = get_cached_bolig_df()
-    if df_raw is None or df_raw.empty:
-        return render_template(
-            "bolig_kupp.html",
-            error="Fant ingen boligdata å analysere.",
-            map_html=None,
-            table_html="",
-            params={},
-            valg_liste={},
-        )
-
-    # Les filtre fra query string
-    q = request.args
-
-    valgt_fylke = q.get("fylke", "Alle")
-    valgt_boligtype = q.get("boligtype", "Alle")
-    valgt_eierform = q.get("eierform", "Alle")
-
-    max_dager = q.get("max_dager") or None
-    max_dager = int(max_dager) if max_dager is not None else None
-
-    referansevalg = q.get("referanse", "segment")  # 'segment' eller 'lokal'
-
-    min_segment_størrelse = int(q.get("min_segment", 15))
-    min_lokal_naboer = int(q.get("min_lokal_naboer", 20))
-    min_underpris_pct = float(q.get("min_underpris_pct", 5.0))
-
-    kun_dyre_omraader = q.get("kun_dyre_omraader", "0") == "1"
-    min_dyrt_nivå = int(q.get("min_dyrt_nivå", 60000))
-
-    top_n = int(q.get("top_n", 50))
-
-    # Verdier til form
-    params = {
-        "fylke": valgt_fylke,
-        "boligtype": valgt_boligtype,
-        "eierform": valgt_eierform,
-        "max_dager": max_dager if max_dager is not None else "",
-        "referanse": referansevalg,
-        "min_segment": min_segment_størrelse,
-        "min_lokal_naboer": min_lokal_naboer,
-        "min_underpris_pct": min_underpris_pct,
-        "kun_dyre_omraader": "1" if kun_dyre_omraader else "0",
-        "min_dyrt_nivå": min_dyrt_nivå,
-        "top_n": top_n,
-    }
-
-    # Lister til nedtrekk
-    try:
-        df_tmp = df_raw.copy()
-        df_tmp.columns = [c.strip() for c in df_tmp.columns]
-        fylker = ["Alle"] + sorted(
-            df_tmp.get("fylke", pd.Series(dtype=str))
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
-        )
-        boligtyper = ["Alle"] + sorted(
-            df_tmp.get("boligtype", pd.Series(dtype=str))
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
-        )
-        eierformer = ["Alle"] + sorted(
-            df_tmp.get("eierform", pd.Series(dtype=str))
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
-        )
-    except Exception:
-        fylker = ["Alle"]
-        boligtyper = ["Alle"]
-        eierformer = ["Alle"]
-
-    valg_liste = {
-        "fylker": fylker,
-        "boligtyper": boligtyper,
-        "eierformer": eierformer,
-    }
-
-    try:
-        sub, map_html = build_underprisradar(
-            df_raw,
-            valgt_fylke=valgt_fylke,
-            valgt_boligtype=valgt_boligtype,
-            valgt_eierform=valgt_eierform,
-            max_dager=max_dager,
-            referansevalg=referansevalg,
-            min_segment_størrelse=min_segment_størrelse,
-            min_lokal_naboer=min_lokal_naboer,
-            min_underpris_pct=min_underpris_pct,
-            kun_dyre_omraader=kun_dyre_omraader,
-            min_dyrt_nivå=min_dyrt_nivå,
-            top_n=top_n,
-        )
-
-        if sub is None or len(sub) == 0:
-            table_html = ""
-            error = "Ingen boliger matcher filtrene og kravene til underpris/datagrunnlag."
-        else:
-            vis_cols = [
-                "adresse",
-                "postnummer",
-                "fylke",
-                "boligtype",
-                "eierform",
-                "areal_m2",
-                "M2-pris",
-                "referanse_M2",
-                "underpris_pct",
-                "underpris_kr",
-                "lokal_referanse_M2",
-                "lokal_underpris_pct",
-                "lokal_underpris_kr",
-                "antall_i_segment",
-                "lokal_antall_naboer",
-            ]
-            vis_cols = [c for c in vis_cols if c in sub.columns]
-            vis = sub[vis_cols].copy()
-
-            # enkel formatering: prosenter i %
-            if "underpris_pct" in vis.columns:
-                vis["underpris_pct"] = (vis["underpris_pct"] * 100).round(1)
-            if "lokal_underpris_pct" in vis.columns:
-                vis["lokal_underpris_pct"] = (
-                    vis["lokal_underpris_pct"] * 100
-                ).round(1)
-
-            table_html = vis.to_html(
-                classes="table table-sm table-striped table-hover mb-0",
-                index=False,
-                border=0,
-            )
-            error = None
-
-    except Exception as e:
-        map_html = None
-        table_html = ""
-        error = f"Feil i underprisradar: {e}"
-
-    return render_template(
-        "bolig_kupp.html",
-        map_html=map_html,
-        table_html=table_html,
-        error=error,
-        params=params,
-        valg_liste=valg_liste,
-    )
 
 
 @bolig_bp.route("/buzz/")
