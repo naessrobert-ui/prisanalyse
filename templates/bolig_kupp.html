@@ -4,153 +4,193 @@
 {% block content %}
 
 <style>
+  .page-wrapper {
+    min-height: calc(100vh - 140px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px 60px;
+  }
+
+  .glass-card-wide {
+    width: 100%;
+    max-width: 1200px;
+    background: radial-gradient(circle at top left,
+                rgba(255,255,255,0.14),
+                rgba(10,20,35,0.97));
+    border-radius: 26px;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.80);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 32px 38px 30px;
+    color: #f5f7fb;
+  }
+
   .bolig-hero {
-      padding: 60px 0 30px 0;
-      text-align: center;
+      padding: 0 0 24px 0;
+      text-align: left;
+  }
+  .bolig-hero .hero-kicker {
+      font-size: 0.85rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #9fb4d6;
+      margin-bottom: 0.35rem;
   }
   .bolig-hero h1 {
-      font-size: 2.6rem;
+      font-size: 2.3rem;
       margin-bottom: 0.4rem;
   }
   .bolig-hero p {
-      font-size: 1.05rem;
-      opacity: 0.9;
+      font-size: 1.02rem;
+      opacity: 0.95;
+      max-width: 720px;
+  }
+
+  /* Gjør kortene inne i glasskortet litt lysere / mer luftige */
+  .underpris-card {
+      background-color: rgba(3, 14, 25, 0.9) !important;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06) !important;
   }
 </style>
 
-<section class="bolig-hero">
-  <p class="hero-kicker">ANALYSEPLATTFORM</p>
-  <h1>Underprisradar</h1>
-  <p>
-    Finn boliger som ser <strong>underprisede</strong> ut sammenlignet med lignende boliger
-    i samme fylke, boligtype og størrelsesbånd.
-  </p>
-</section>
+<div class="page-wrapper">
+  <div class="glass-card-wide">
 
-<div class="container mb-5">
+    <section class="bolig-hero">
+      <p class="hero-kicker">ANALYSEPLATTFORM</p>
+      <h1>Underprisradar</h1>
+      <p>
+        Finn boliger som ser <strong>underprisede</strong> ut sammenlignet med lignende boliger
+        i samme fylke, boligtype og størrelsesbånd.
+      </p>
+    </section>
 
-  <!-- Filter-skjema -->
-  <form method="get" class="card mb-4 p-3 bg-dark border-0 shadow-sm">
-    <div class="row g-3 align-items-end">
+    <!-- Filter-skjema -->
+    <form method="get" class="underpris-card mb-4 p-3">
+      <div class="row g-3 align-items-end">
 
-      <div class="col-md-3">
-        <label class="form-label text-muted">Fylke</label>
-        <select name="fylke" class="form-select form-select-sm bg-secondary border-0 text-light">
-          {% for f in fylke_options %}
-            <option value="{{ f }}" {% if f == selected_fylke %}selected{% endif %}>{{ f }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label text-muted">Boligtype</label>
-        <select name="boligtype" class="form-select form-select-sm bg-secondary border-0 text-light">
-          {% for b in boligtype_options %}
-            <option value="{{ b }}" {% if b == selected_boligtype %}selected{% endif %}>{{ b }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label text-muted">Eierform</label>
-        <select name="eierform" class="form-select form-select-sm bg-secondary border-0 text-light">
-          {% for e in eierform_options %}
-            <option value="{{ e }}" {% if e == selected_eierform %}selected{% endif %}>{{ e }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label text-muted">Topp underpris (%)</label>
-        <div class="input-group input-group-sm">
-          <input type="number" name="min_underpris_pct" class="form-control bg-secondary border-0 text-light"
-                 value="{{ min_underpris_pct }}" min="0" max="80" step="1">
-          <span class="input-group-text bg-secondary border-0 text-light">min</span>
+        <div class="col-md-3">
+          <label class="form-label text-muted">Fylke</label>
+          <select name="fylke" class="form-select form-select-sm bg-secondary border-0 text-light">
+            {% for f in fylke_options %}
+              <option value="{{ f }}" {% if f == selected_fylke %}selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+          </select>
         </div>
-      </div>
 
-    </div>
-
-    <div class="row g-3 align-items-end mt-3">
-
-      <div class="col-md-3">
-        <label class="form-label text-muted">Min. antall i segment</label>
-        <input type="number" name="min_segment_size"
-               class="form-control form-control-sm bg-secondary border-0 text-light"
-               value="{{ min_segment_size }}" min="3" max="100" step="1">
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label text-muted">Antall kandidater</label>
-        <input type="number" name="top_n"
-               class="form-control form-control-sm bg-secondary border-0 text-light"
-               value="{{ top_n }}" min="10" max="300" step="10">
-      </div>
-
-      <div class="col-md-3">
-        <label class="form-label text-muted">Kun dyre områder</label>
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="kun_dyre" name="kun_dyre" value="1"
-                 {% if kun_dyre %}checked{% endif %}>
-          <label class="form-check-label" for="kun_dyre">
-            Filtrer til segmenter med høyt prisnivå.
-          </label>
+        <div class="col-md-3">
+          <label class="form-label text-muted">Boligtype</label>
+          <select name="boligtype" class="form-select form-select-sm bg-secondary border-0 text-light">
+            {% for b in boligtype_options %}
+              <option value="{{ b }}" {% if b == selected_boligtype %}selected{% endif %}>{{ b }}</option>
+            {% endfor %}
+          </select>
         </div>
-        <small class="text-muted">
-          Min. nivå:
-          <input type="number" name="min_dyrt_nivå"
-                 class="form-control form-control-sm bg-secondary border-0 text-light mt-1"
-                 value="{{ min_dyrt_nivå }}" min="20000" max="200000" step="5000">
-          kr/m²
-        </small>
-      </div>
 
-      <div class="col-md-3 text-md-end mt-3 mt-md-0">
-        <button type="submit" class="btn btn-primary btn-sm px-4">
-          Oppdater analyse
-        </button>
-      </div>
+        <div class="col-md-3">
+          <label class="form-label text-muted">Eierform</label>
+          <select name="eierform" class="form-select form-select-sm bg-secondary border-0 text-light">
+            {% for e in eierform_options %}
+              <option value="{{ e }}" {% if e == selected_eierform %}selected{% endif %}>{{ e }}</option>
+            {% endfor %}
+          </select>
+        </div>
 
-    </div>
-  </form>
-
-  {% if error %}
-    <div class="alert alert-warning">
-      {{ error }}
-    </div>
-  {% endif %}
-
-  {% if has_data %}
-    <p class="text-muted mb-3">
-      Viser <strong>{{ antall_kandidater }}</strong> kandidater som ser underprisede ut
-      basert på segment-median for m²-pris.
-    </p>
-
-    <div class="row g-4">
-      <div class="col-lg-7">
-        <div class="card bg-dark border-0 shadow-sm">
-          <div class="card-header bg-transparent border-0">
-            <h5 class="card-title mb-0">Kart over kandidater</h5>
-          </div>
-          <div class="card-body p-0">
-            {{ map_html|safe }}
+        <div class="col-md-3">
+          <label class="form-label text-muted">Topp underpris (%)</label>
+          <div class="input-group input-group-sm">
+            <input type="number" name="min_underpris_pct" class="form-control bg-secondary border-0 text-light"
+                   value="{{ min_underpris_pct }}" min="0" max="80" step="1">
+            <span class="input-group-text bg-secondary border-0 text-light">min</span>
           </div>
         </div>
+
       </div>
 
-      <div class="col-lg-5">
-        <div class="card bg-dark border-0 shadow-sm">
-          <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">Detaljert liste</h5>
+      <div class="row g-3 align-items-end mt-3">
+
+        <div class="col-md-3">
+          <label class="form-label text-muted">Min. antall i segment</label>
+          <input type="number" name="min_segment_size"
+                 class="form-control form-control-sm bg-secondary border-0 text-light"
+                 value="{{ min_segment_size }}" min="3" max="100" step="1">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label text-muted">Antall kandidater</label>
+          <input type="number" name="top_n"
+                 class="form-control form-control-sm bg-secondary border-0 text-light"
+                 value="{{ top_n }}" min="10" max="300" step="10">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label text-muted">Kun dyre områder</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="kun_dyre" name="kun_dyre" value="1"
+                   {% if kun_dyre %}checked{% endif %}>
+            <label class="form-check-label" for="kun_dyre">
+              Filtrer til segmenter med høyt prisnivå.
+            </label>
           </div>
-          <div class="card-body table-responsive">
-            {{ table_html|safe }}
+          <small class="text-muted">
+            Min. nivå:
+            <input type="number" name="min_dyrt_nivå"
+                   class="form-control form-control-sm bg-secondary border-0 text-light mt-1"
+                   value="{{ min_dyrt_nivå }}" min="20000" max="200000" step="5000">
+            kr/m²
+          </small>
+        </div>
+
+        <div class="col-md-3 text-md-end mt-3 mt-md-0">
+          <button type="submit" class="btn btn-primary btn-sm px-4">
+            Oppdater analyse
+          </button>
+        </div>
+
+      </div>
+    </form>
+
+    {% if error %}
+      <div class="alert alert-warning">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    {% if has_data %}
+      <p class="text-muted mb-3">
+        Viser <strong>{{ antall_kandidater }}</strong> kandidater som ser underprisede ut
+        basert på segment-median for m²-pris.
+      </p>
+
+      <div class="row g-4">
+        <div class="col-lg-7">
+          <div class="underpris-card">
+            <div class="card-header bg-transparent border-0">
+              <h5 class="card-title mb-0">Kart over kandidater</h5>
+            </div>
+            <div class="card-body p-0">
+              {{ map_html|safe }}
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-5">
+          <div class="underpris-card">
+            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+              <h5 class="card-title mb-0">Detaljert liste</h5>
+            </div>
+            <div class="card-body table-responsive">
+              {{ table_html|safe }}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  {% endif %}
+    {% endif %}
 
+  </div>
 </div>
 
 {% endblock %}
+
