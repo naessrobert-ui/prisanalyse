@@ -1,4 +1,6 @@
-# app.py
+# -*- coding: utf-8 -*-
+"""Main Flask entrypoint for the prisanalyse project."""
+
 import os
 import subprocess
 import sys
@@ -29,6 +31,7 @@ def start_streamlit(script: str, port: int) -> None:
 
     if result == 0:
         print(f"Streamlit-app på port {port} kjører allerede.")
+        print(f"Streamlit app on port {port} is already running.")
         return
 
     python_path = sys.executable
@@ -48,31 +51,29 @@ def start_streamlit(script: str, port: int) -> None:
 
 
 def startup_apps():
-def startup_apps() -> None:
     """Start alle Streamlit-appene én gang ved oppstart."""
+def startup_apps() -> None:
+    """Start all Streamlit helper apps once at startup."""
 
     start_streamlit("app_region.py", 8501)
     start_streamlit("appKupp.py", 8502)
     start_streamlit("app_buzz.py", 8503)
     start_streamlit("app_varme.py", 8504)
     print("Alle Streamlit-apper forsøkt startet.")
+    print("Attempted to start all Streamlit apps.")
+
+
+def create_app() -> Flask:
+    """Create and configure the Flask app once."""
 
 app.register_blueprint(bolig_bp)
 from fritidsbolig_routes import fritids_bp
 from bil_routes import bil_bp
 from bil_import import bil_import_bp
 from gemini_routes import gemini_bp  # <-- 1. LEGG TIL DENNE LINJEN
-
-app = Flask(__name__)
-def create_app() -> Flask:
-    """Lag og konfigurer Flask-appen én gang.
-
-    Dette gir én klar oppstartssti som både lokalt debug-kjøring og
-    produksjonsservere (gunicorn) kan bruke uten å duplisere state.
-    """
-
     app = Flask(__name__)
 
+app = Flask(__name__)
     # 🔐 Secret key for sessions
     app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
     app.config["SESSION_PERMANENT"] = False
@@ -85,7 +86,7 @@ app.config["SESSION_TYPE"] = "filesystem"
     Session(app)
 
 Session(app)
-    # Registrer «seksjonene»
+    # Register "sections"
     from bil_import import bil_import_bp
     from bil_routes import bil_bp
     from bolig_routes import bolig_bp
@@ -131,13 +132,13 @@ def jobb_side():
 if __name__ == "__main__":
     startup_apps()
     app.run(debug=True)
-    # Start Streamlit-hjelpeappene når vi kjører lokalt, men tillat at
-    # deploy-miljøer (f.eks. Render) kan slå det av med START_STREAMLIT_APPS=0.
+    # Start Streamlit helper apps when running locally. Deployment environments
+    # (e.g., Render) can disable this by setting START_STREAMLIT_APPS=0.
     should_start_streamlit = os.environ.get("START_STREAMLIT_APPS", "1") != "0"
 
     if should_start_streamlit:
         startup_apps()
     else:
-        print("Hopper over oppstart av Streamlit-apper (styrt av START_STREAMLIT_APPS)")
+        print("Skipping Streamlit helper startup (controlled by START_STREAMLIT_APPS)")
 
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
