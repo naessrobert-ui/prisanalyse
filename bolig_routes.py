@@ -9,6 +9,9 @@ import pandas as pd
 import folium
 from folium.plugins import MarkerCluster
 from flask import Blueprint, render_template, jsonify, request, redirect
+from collections import Counter
+import re
+
 
 from bolig_data import load_latest_bolig_df
 from bolig_varmekart_service import clean_data
@@ -527,6 +530,356 @@ def bolig_varmekart_view():
         },
     )
 
+# --------------------------------------------------
+# BUZZ-ANALYSE – HJELPEFUNKSJONER
+# --------------------------------------------------
+# BUZZ-ANALYSE – FLASK-VERSJON
+# --------------------------------------------------
+
+
+@bolig_bp.route("/buzz/")
+def bolig_buzz():
+    """
+    Flask-versjon av buzz-analysen.
+    Bruker query-parametre til å styre valg (fylke, metrikk, kvantil).
+    """
+    df_raw = get_cached_bolig_df()
+    if df_raw is None or df_raw.empty:
+        return render_template(
+            "bolig_buzz.html",
+            error="Fant ingen boligdata til buzz-analysen.",
+            has_data=False,
+        )
+
+    try:
+        df = _clean_price_and_title(df_raw)
+    except Exception as e:
+        return render_template(
+            "bolig_buzz.html",
+            error=f"Feil ved klargjøring av data: {e}",
+            has_data=False,
+        )
+
+    # -----------------------
+    # Les parametre fra URL
+    # -----------------------
+    fylker = ["Hele Norge"] + sorted(df["fylke"].dropna().unique().tolist())
+    valgt_fylke = request.args.get("fylke", "Hele Norge")
+    if valgt_fylke not in fylker:
+        valgt_fylke = "Hele Norge"
+
+    metric_param = request.args.get("metric", "m2")  # 'm2' eller 'total'
+    if metric_param == "total":
+        metric_col = "totalpris"
+        metric_label = "kr"
+        metrikknavn = "Totalpris"
+    else:
+        metric_col = "M2-pris"
+        metric_label = "kr/m²"
+        metrikknavn = "M²-pris"
+
+    metode = request.args.get("metode", "pct")  # bare 'pct' støttes her
+    pct = int(request.args.get("pct", "10"))
+    pct = max(1, min(40, pct))
+
+    gruppe = request.args.get("gruppe", "dyreste")  # 'billigste', 'dyreste', 'midten'
+    if gruppe not in {"billigste", "dyreste", "midten"}:
+        gruppe = "dyreste"
+
+    fjern_stedsnavn_param = request.args.get("fjern_stedsnavn", "1")
+    fjern_stedsnavn = fjern_stedsnavn_param != "0"
+
+    # -----------------------
+    # Filtrer område
+    # -----------------------
+    if valgt_fylke == "Hele Norge":
+        df_scope = df.copy()
+    else:
+        df_scope = df[df["fylke"] == valgt_fylke].copy()
+
+    df_scope = df_scope.dropna(subset=[metric_col])
+    metric_values = df_scope[metric_col].values
+
+    if len(metric_values) == 0:
+        return render_template(
+            "bolig_buzz.html",
+            error=f"Ingen gyldige verdier for {metric_col} i valgt område.",
+            has_data=False,
+        )
+
+    # -----------------------
+    # Definer prisklasse (kvantiler)
+    # -----------------------
+    q_low = np.percentile(metric_values, pct)
+    q_high = np.percentile(metric_values, 100 - pct)
+
+    if gruppe == "billigste":
+        df_sel = df_scope[df_scope[metric_col] <= q_low]
+        gruppebeskrivelse = f"Billigste {pct} %"
+    elif gruppe == "dyreste":
+        df_sel = df_scope[df_scope[metric_col] >= q_high]
+        gruppebeskrivelse = f"Dyreste {pct} %"
+    else:
+        df_sel = df_scope[(df_scope[metric_col] > q_low) & (df_scope[metric_col] < q_high)]
+        gruppebeskrivelse = f"Midterste {pct}–{100-pct} %"
+
+    n_scope = len(df_scope)
+    n_sel = len(df_sel)
+
+    if n_sel == 0:
+        return render_template(
+            "bolig_buzz.html",
+            error="Ingen boliger i valgt prisklasse.",
+            has_data=False,
+            fylker=fylker,
+            valgt_fylke=valgt_fylke,
+        )
+
+    # -----------------------
+    # Stopwords og tokenisering
+    # -----------------------
+    if fjern_stedsnavn:
+        place_stopwords = _build_place_stopwords(df_scope)
+        stopwords = BASE_STOPWORDS | place_stopwords
+    else:
+        stopwords = BASE_STOPWORDS
+
+    counts_sel = _count_tokens(df_sel["full_title"], stopwords)
+    df_rest = df_scope.loc[~df_scope.index.isin(df_sel.index)]
+    counts_rest = _count_tokens(df_rest["full_title"], stopwords)
+
+    if not counts_sel:
+        return render_template(
+            "bolig_buzz.html",
+            error="Fant ingen ord å analysere i valgt prisklasse.",
+            has_data=False,
+        )
+
+    # Toppliste-ord
+    top_n = 30
+    common_words = counts_sel.most_common(top_n)
+    df_words = pd.DataFrame(common_words, columns=["ord", "antall"])
+
+    # Differanseord
+    df_diff = _compute_diff_words(counts_sel, counts_rest, min_total=5, top_n=40)
+
+    # -----------------------
+    # Tekstrapport
+    # -----------------------
+    median_sel = df_sel[metric_col].median()
+    median_rest = df_rest[metric_col].median() if len(df_rest) > 0 else np.nan
+
+    retning = "høyere" if median_sel > median_rest else "lavere"
+    diff_prosent = (
+        (median_sel - median_rest) / median_rest * 100
+        if not np.isnan(median_rest) and median_rest > 0 else 0
+    )
+
+    område_txt = "i hele Norge" if valgt_fylke == "Hele Norge" else f"i {valgt_fylke}"
+    metrikk_txt = "m²-pris" if metric_col == "M2-pris" else "totalpris"
+
+    summary_lines: list[str] = []
+    summary_lines.append(
+        f"I denne analysen ser vi på **{gruppebeskrivelse.lower()}** "
+        f"{område_txt}, målt etter **{metrikk_txt}**."
+    )
+
+    if not np.isnan(median_rest) and median_rest > 0:
+        summary_lines.append(
+            f"Median {metrikk_txt} i denne gruppen er omtrent "
+            f"{median_sel:,.0f} {metric_label} mot {median_rest:,.0f} {metric_label} "
+            f"i resten av markedet – altså ca. {diff_prosent:+.1f} % {retning}."
+            .replace(",", " ")
+        )
+
+    if len(df_diff) > 0:
+        n_highlight = 7
+        highlight = df_diff.head(n_highlight)
+        strong = highlight[highlight["relativ_faktor"] >= 3]["ord"].tolist()
+        medium = highlight[
+            (highlight["relativ_faktor"] < 3) & (highlight["relativ_faktor"] >= 1.5)
+        ]["ord"].tolist()
+
+        if strong:
+            summary_lines.append(
+                "Ord som peker seg spesielt ut i denne gruppen, sammenlignet med resten, "
+                f"er blant annet **{', '.join(strong)}**."
+            )
+        if medium:
+            summary_lines.append(
+                f"I tillegg ser vi at ord som **{', '.join(medium)}** "
+                "også er klart vanligere her enn i resten av markedet."
+            )
+
+    if fjern_stedsnavn:
+        summary_lines.append(
+            "Stedsnavn er filtrert bort, slik at forskjellene i hovedsak reflekterer "
+            "hvordan boligene markedsføres – ikke hvor de ligger."
+        )
+
+    return render_template(
+        "bolig_buzz.html",
+        error=None,
+        has_data=True,
+        fylker=fylker,
+        valgt_fylke=valgt_fylke,
+        metric_param=metric_param,
+        metode=metode,
+        pct=pct,
+        gruppe=gruppe,
+        fjern_stedsnavn=fjern_stedsnavn,
+        n_scope=n_scope,
+        n_sel=n_sel,
+        metrikknavn=metrikknavn,
+        metric_label=metric_label,
+        gruppebeskrivelse=gruppebeskrivelse,
+        summary_lines=summary_lines,
+        words=df_words.to_dict(orient="records"),
+        diff_words=df_diff[["ord", "treff_valgt", "treff_rest", "relativ_faktor"]].to_dict(orient="records"),
+    )
+
+# --------------------------------------------------
+
+def _clean_price_and_title(df_raw: pd.DataFrame) -> pd.DataFrame:
+    df = df_raw.copy()
+    df.columns = df.columns.str.strip()
+
+    # --- M2-pris ---
+    if "M2-pris" not in df.columns:
+        raise ValueError("Fant ikke kolonnen 'M2-pris' i boligdataene.")
+
+    df["M2-pris"] = (
+        df["M2-pris"]
+        .astype(str)
+        .str.replace("kr", "", regex=False, case=False)
+        .str.replace(" ", "", regex=False)
+        .str.replace(".", "", regex=False)
+        .str.replace(",", ".", regex=False)
+    )
+    df["M2-pris"] = pd.to_numeric(df["M2-pris"], errors="coerce")
+
+    # --- Totalpris (hvis finnes) ---
+    if "totalpris" in df.columns:
+        df["totalpris"] = (
+            df["totalpris"]
+            .astype(str)
+            .str.replace("kr", "", regex=False, case=False)
+            .str.replace(" ", "", regex=False)
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False)
+        )
+        df["totalpris"] = pd.to_numeric(df["totalpris"], errors="coerce")
+    else:
+        df["totalpris"] = np.nan
+
+    # --- full_title ---
+    if "full_title" not in df.columns:
+        raise ValueError("Fant ikke kolonnen 'full_title' i boligdataene.")
+    df["full_title"] = df["full_title"].astype(str)
+
+    # --- fylke ---
+    if "fylke" not in df.columns:
+        df["fylke"] = "Ukjent"
+    else:
+        df["fylke"] = df["fylke"].fillna("Ukjent").astype(str)
+
+    # --- address (kan brukes til stedsnavn) ---
+    if "address" not in df.columns:
+        df["address"] = ""
+    else:
+        df["address"] = df["address"].fillna("").astype(str)
+
+    # filtrer bort helt meningsløse m2-priser
+    df = df[df["M2-pris"] > 5000]
+
+    return df
+
+
+def _build_place_stopwords(df_all: pd.DataFrame) -> set[str]:
+    words: set[str] = set()
+
+    # Fylkenavn
+    for v in df_all["fylke"].dropna().astype(str):
+        for tok in re.split(r"[^0-9a-zA-ZæøåÆØÅ]+", v):
+            tok = tok.strip().lower()
+            if len(tok) > 2:
+                words.add(tok)
+
+    # Adresse-komponenter
+    for v in df_all["address"].dropna().astype(str):
+        v = v.lower()
+        v = re.sub(r"[^0-9a-zæøå]+", " ", v)
+        for tok in v.split():
+            if len(tok) > 2:
+                words.add(tok)
+
+    return words
+
+
+BASE_STOPWORDS = {
+    "og", "i", "på", "med", "til", "fra", "for", "av", "som", "en", "et", "den",
+    "det", "de", "vi", "du", "er", "har", "kan", "må", "om", "år", "rom",
+    "nye", "ny", "flott", "lekker", "meget", "stor", "pen", "fin",
+    "bolig", "leilighet", "enebolig", "tomannsbolig", "rekkehus", "selges",
+    "tilsalgs", "til", "salg", "midt", "sentral", "sentralbeliggende",
+    "visning", "torsdag", "søndag", "mandag", "fredag", "lørdag",
+}
+
+
+def _tokenize(text: str, stopwords: set[str]) -> list[str]:
+    text = text.lower()
+    text = re.sub(r"[^0-9a-zæøå]+", " ", text)
+    tokens = text.split()
+    return [t for t in tokens if len(t) > 2 and t not in stopwords]
+
+
+def _count_tokens(series: pd.Series, stopwords: set[str]) -> Counter:
+    c: Counter = Counter()
+    for t in series:
+        c.update(_tokenize(t, stopwords))
+    return c
+
+
+def _compute_diff_words(
+    counts_a: Counter,
+    counts_b: Counter,
+    min_total: int = 5,
+    top_n: int = 30,
+) -> pd.DataFrame:
+    """
+    Lik logikken i Streamlit-versjonen:
+    ord som er relativt vanligere i gruppe A enn i gruppe B.
+    """
+    all_words = set(counts_a) | set(counts_b)
+    total_a = sum(counts_a.values())
+    total_b = sum(counts_b.values())
+    alpha = 0.5  # smoothing
+
+    rows = []
+    for w in all_words:
+        tot = counts_a[w] + counts_b[w]
+        if tot < min_total:
+            continue
+
+        p_a = (counts_a[w] + alpha) / (total_a + alpha * len(all_words))
+        p_b = (counts_b[w] + alpha) / (total_b + alpha * len(all_words))
+
+        ratio = p_a / p_b
+        log2_ratio = np.log2(ratio)
+        rows.append((w, counts_a[w], counts_b[w], log2_ratio))
+
+    if not rows:
+        return pd.DataFrame(
+            columns=["ord", "treff_valgt", "treff_rest", "log2_forhold", "relativ_faktor"]
+        )
+
+    df_diff_ = pd.DataFrame(
+        rows,
+        columns=["ord", "treff_valgt", "treff_rest", "log2_forhold"],
+    )
+    df_diff_["relativ_faktor"] = (2 ** df_diff_["log2_forhold"]).round(2)
+    df_diff_ = df_diff_.sort_values("log2_forhold", ascending=False).head(top_n)
+    return df_diff_
 
 # --------------------------------------------------
 # 7) Underprisradar – Flask-versjon
