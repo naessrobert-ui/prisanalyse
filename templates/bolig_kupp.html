@@ -3,61 +3,10 @@
 
 {% block content %}
 
-<style>
-  .page-wrapper {
-    min-height: calc(100vh - 140px);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 40px 16px 60px;
-  }
-
-  .glass-card-wide {
-    width: 100%;
-    max-width: 1200px;
-    background: radial-gradient(circle at top left,
-                rgba(255,255,255,0.14),
-                rgba(10,20,35,0.97));
-    border-radius: 26px;
-    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.80);
-    backdrop-filter: blur(14px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    padding: 32px 38px 30px;
-    color: #f5f7fb;
-  }
-
-  .bolig-hero {
-      padding: 0 0 24px 0;
-      text-align: left;
-  }
-  .bolig-hero .hero-kicker {
-      font-size: 0.85rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #9fb4d6;
-      margin-bottom: 0.35rem;
-  }
-  .bolig-hero h1 {
-      font-size: 2.3rem;
-      margin-bottom: 0.4rem;
-  }
-  .bolig-hero p {
-      font-size: 1.02rem;
-      opacity: 0.95;
-      max-width: 720px;
-  }
-
-  /* Gjør kortene inne i glasskortet litt lysere / mer luftige */
-  .underpris-card {
-      background-color: rgba(3, 14, 25, 0.9) !important;
-      border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.06) !important;
-  }
-</style>
-
 <div class="page-wrapper">
   <div class="glass-card-wide">
 
+    <!-- Hero-seksjon -->
     <section class="bolig-hero">
       <p class="hero-kicker">ANALYSEPLATTFORM</p>
       <h1>Underprisradar</h1>
@@ -68,12 +17,12 @@
     </section>
 
     <!-- Filter-skjema -->
-    <form method="get" class="underpris-card mb-4 p-3">
+    <form method="get" class="filter-card">
       <div class="row g-3 align-items-end">
 
         <div class="col-md-3">
-          <label class="form-label text-muted">Fylke</label>
-          <select name="fylke" class="form-select form-select-sm bg-secondary border-0 text-light">
+          <label class="form-label text-light">Fylke</label>
+          <select name="fylke" class="form-select form-select-sm input-glass">
             {% for f in fylke_options %}
               <option value="{{ f }}" {% if f == selected_fylke %}selected{% endif %}>{{ f }}</option>
             {% endfor %}
@@ -81,8 +30,8 @@
         </div>
 
         <div class="col-md-3">
-          <label class="form-label text-muted">Boligtype</label>
-          <select name="boligtype" class="form-select form-select-sm bg-secondary border-0 text-light">
+          <label class="form-label text-light">Boligtype</label>
+          <select name="boligtype" class="form-select form-select-sm input-glass">
             {% for b in boligtype_options %}
               <option value="{{ b }}" {% if b == selected_boligtype %}selected{% endif %}>{{ b }}</option>
             {% endfor %}
@@ -90,8 +39,8 @@
         </div>
 
         <div class="col-md-3">
-          <label class="form-label text-muted">Eierform</label>
-          <select name="eierform" class="form-select form-select-sm bg-secondary border-0 text-light">
+          <label class="form-label text-light">Eierform</label>
+          <select name="eierform" class="form-select form-select-sm input-glass">
             {% for e in eierform_options %}
               <option value="{{ e }}" {% if e == selected_eierform %}selected{% endif %}>{{ e }}</option>
             {% endfor %}
@@ -99,45 +48,40 @@
         </div>
 
         <div class="col-md-3">
-          <label class="form-label text-muted">Topp underpris (%)</label>
+          <label class="form-label text-light">Topp underpris (%)</label>
           <div class="input-group input-group-sm">
-            <input type="number" name="min_underpris_pct" class="form-control bg-secondary border-0 text-light"
+            <input type="number" name="min_underpris_pct" class="form-control input-glass"
                    value="{{ min_underpris_pct }}" min="0" max="80" step="1">
-            <span class="input-group-text bg-secondary border-0 text-light">min</span>
+            <span class="input-group-text input-glass">min</span>
           </div>
         </div>
-
       </div>
 
       <div class="row g-3 align-items-end mt-3">
-
         <div class="col-md-3">
-          <label class="form-label text-muted">Min. antall i segment</label>
-          <input type="number" name="min_segment_size"
-                 class="form-control form-control-sm bg-secondary border-0 text-light"
+          <label class="form-label text-light">Min. antall i segment</label>
+          <input type="number" name="min_segment_size" class="form-control form-control-sm input-glass"
                  value="{{ min_segment_size }}" min="3" max="100" step="1">
         </div>
 
         <div class="col-md-3">
-          <label class="form-label text-muted">Antall kandidater</label>
-          <input type="number" name="top_n"
-                 class="form-control form-control-sm bg-secondary border-0 text-light"
+          <label class="form-label text-light">Antall kandidater</label>
+          <input type="number" name="top_n" class="form-control form-control-sm input-glass"
                  value="{{ top_n }}" min="10" max="300" step="10">
         </div>
 
         <div class="col-md-3">
-          <label class="form-label text-muted">Kun dyre områder</label>
+          <label class="form-label text-light">Kun dyre områder</label>
           <div class="form-check">
             <input class="form-check-input" type="checkbox" id="kun_dyre" name="kun_dyre" value="1"
                    {% if kun_dyre %}checked{% endif %}>
-            <label class="form-check-label" for="kun_dyre">
-              Filtrer til segmenter med høyt prisnivå.
+            <label class="form-check-label text-light" for="kun_dyre">
+              Filtrer segmenter med høyt prisnivå
             </label>
           </div>
-          <small class="text-muted">
+          <small class="text-light">
             Min. nivå:
-            <input type="number" name="min_dyrt_nivå"
-                   class="form-control form-control-sm bg-secondary border-0 text-light mt-1"
+            <input type="number" name="min_dyrt_nivå" class="form-control form-control-sm input-glass"
                    value="{{ min_dyrt_nivå }}" min="20000" max="200000" step="5000">
             kr/m²
           </small>
@@ -148,49 +92,77 @@
             Oppdater analyse
           </button>
         </div>
-
       </div>
     </form>
 
     {% if error %}
-      <div class="alert alert-warning">
-        {{ error }}
-      </div>
+      <div class="alert alert-warning mt-3">{{ error }}</div>
     {% endif %}
 
     {% if has_data %}
-      <p class="text-muted mb-3">
-        Viser <strong>{{ antall_kandidater }}</strong> kandidater som ser underprisede ut
-        basert på segment-median for m²-pris.
+
+      <p class="text-light mt-3 mb-2">
+        Viser <strong>{{ antall_kandidater }}</strong> kandidater som ser underprisede ut basert på segment-median for m²-pris.
       </p>
 
-      <div class="row g-4">
-        <div class="col-lg-7">
-          <div class="underpris-card">
-            <div class="card-header bg-transparent border-0">
-              <h5 class="card-title mb-0">Kart over kandidater</h5>
-            </div>
-            <div class="card-body p-0">
-              {{ map_html|safe }}
-            </div>
-          </div>
-        </div>
-
-        <div class="col-lg-5">
-          <div class="underpris-card">
-            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-              <h5 class="card-title mb-0">Detaljert liste</h5>
-            </div>
-            <div class="card-body table-responsive">
-              {{ table_html|safe }}
-            </div>
-          </div>
+      <!-- KART -->
+      <div class="card-content mt-4">
+        <h4 class="section-title">Kart over kandidater</h4>
+        <div class="mt-2">
+          {{ map_html|safe }}
         </div>
       </div>
-    {% endif %}
 
+      <!-- TABELL -->
+      <div class="card-content mt-4">
+        <h4 class="section-title">Detaljert liste</h4>
+
+        <div id="underpris-table-wrapper" class="mt-3">
+          {{ table_html|safe }}
+        </div>
+      </div>
+
+    {% endif %}
   </div>
 </div>
 
-{% endblock %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const wrapper = document.getElementById('underpris-table-wrapper');
+  if (!wrapper) return;
 
+  const table = wrapper.querySelector('table');
+  if (!table) return;
+
+  const getCellValue = (tr, idx) =>
+    (tr.children[idx].innerText || tr.children[idx].textContent).trim();
+
+  const comparer = (idx, asc) => (a, b) => {
+    const v1 = getCellValue(asc ? a : b, idx);
+    const v2 = getCellValue(asc ? b : a, idx);
+
+    const n1 = parseFloat(v1.replace(/\s/g, '').replace(',', '.'));
+    const n2 = parseFloat(v2.replace(/\s/g, '').replace(',', '.'));
+
+    if (!isNaN(n1) && !isNaN(n2)) return n1 - n2;
+
+    return v1.localeCompare(v2, 'nb');
+  };
+
+  table.querySelectorAll('th').forEach((th, idx) => {
+    th.style.cursor = 'pointer';
+    th.title = 'Klikk for å sortere';
+
+    th.addEventListener('click', () => {
+      const tbody = table.tBodies[0];
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      const asc = !(th.dataset.sortAsc === 'true');
+      th.dataset.sortAsc = asc ? 'true' : 'false';
+
+      rows.sort(comparer(idx, asc)).forEach(tr => tbody.appendChild(tr));
+    });
+  });
+});
+</script>
+
+{% endblock %}
