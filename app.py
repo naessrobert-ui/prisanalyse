@@ -1,22 +1,24 @@
-# app.py (din justerte fil)
+# app.py
+import os
 import subprocess
 import sys
-import os
 
-from flask import Flask, render_template
-
-from flask_session import Session
 from dotenv import load_dotenv
-import os
+from flask import Flask, render_template
+from flask_session import Session
 
 load_dotenv()
-from bolig_routes import bolig_bp
-app = Flask(__name__)
-def start_streamlit(script, port):
+
+
+def start_streamlit(script: str, port: int) -> None:
+    """Start a Streamlit app if it is not already running on the given port."""
+
     import socket
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     result = sock.connect_ex(("127.0.0.1", port))
     sock.close()
+
     if result == 0:
         print(f"Streamlit-app på port {port} kjører allerede.")
         return
@@ -37,35 +39,49 @@ def start_streamlit(script, port):
     )
 
 
-def startup_apps():
+def startup_apps() -> None:
     """Start alle Streamlit-appene én gang ved oppstart."""
+
     start_streamlit("app_region.py", 8501)
     start_streamlit("appKupp.py", 8502)
     start_streamlit("app_buzz.py", 8503)
     start_streamlit("app_varme.py", 8504)
     print("Alle Streamlit-apper forsøkt startet.")
 
-app.register_blueprint(bolig_bp)
-from fritidsbolig_routes import fritids_bp
-from bil_routes import bil_bp
-from bil_import import bil_import_bp
-from gemini_routes import gemini_bp  # <-- 1. LEGG TIL DENNE LINJEN
 
-app = Flask(__name__)
+def create_app() -> Flask:
+    """Lag og konfigurer Flask-appen én gang.
 
-# 🔐 Secret key for sessions
-app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
-app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = "filesystem"
+    Dette gir én klar oppstartssti som både lokalt debug-kjøring og
+    produksjonsservere (gunicorn) kan bruke uten å duplisere state.
+    """
 
-Session(app)
+    app = Flask(__name__)
 
-# Registrer «seksjonene»
-app.register_blueprint(bolig_bp)
-app.register_blueprint(fritids_bp)
-app.register_blueprint(bil_bp)
-app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
-app.register_blueprint(gemini_bp)  # <-- 2. LEGG TIL DENNE LINJEN
+    # 🔐 Secret key for sessions
+    app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
+    app.config["SESSION_PERMANENT"] = False
+    app.config["SESSION_TYPE"] = "filesystem"
+
+    Session(app)
+
+    # Registrer «seksjonene»
+    from bil_import import bil_import_bp
+    from bil_routes import bil_bp
+    from bolig_routes import bolig_bp
+    from fritidsbolig_routes import fritids_bp
+    from gemini_routes import gemini_bp
+
+    app.register_blueprint(bolig_bp)
+    app.register_blueprint(fritids_bp)
+    app.register_blueprint(bil_bp)
+    app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
+    app.register_blueprint(gemini_bp)
+
+    return app
+
+
+app = create_app()
 
 
 @app.route("/")
