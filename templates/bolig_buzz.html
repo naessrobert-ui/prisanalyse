@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Bolig – buzzord-analyse{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1>💬 Buzzord-analyse i boligannonser</h1>
+
+  {% if error %}
+    <div class="alert alert-danger mt-3">{{ error }}</div>
+  {% elif not has_data %}
+    <p>Ingen data å vise.</p>
+  {% else %}
+
+    <!-- Filter-skjema -->
+    <form method="get" class="row g-3 mt-3 mb-4">
+      <div class="col-md-3">
+        <label class="form-label">Fylke</label>
+        <select name="fylke" class="form-select">
+          {% for f in fylker %}
+            <option value="{{ f }}" {% if f == valgt_fylke %}selected{% endif %}>{{ f }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Pris-metrikk</label>
+        <select name="metric" class="form-select">
+          <option value="m2" {% if metric_param == 'm2' %}selected{% endif %}>M²-pris</option>
+          <option value="total" {% if metric_param == 'total' %}selected{% endif %}>Totalpris</option>
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Kvantil (%)</label>
+        <input type="number" name="pct" class="form-control" min="1" max="40" value="{{ pct }}">
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Gruppe</label>
+        <select name="gruppe" class="form-select">
+          <option value="billigste" {% if gruppe == 'billigste' %}selected{% endif %}>Billigste</option>
+          <option value="dyreste" {% if gruppe == 'dyreste' %}selected{% endif %}>Dyreste</option>
+          <option value="midten" {% if gruppe == 'midten' %}selected{% endif %}>Midterste</option>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label d-block">&nbsp;</label>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="fjern_stedsnavn" value="1"
+                 id="fjernSted" {% if fjern_stedsnavn %}checked{% endif %}>
+          <label class="form-check-label" for="fjernSted">
+            Fjern stedsnavn
+          </label>
+        </div>
+      </div>
+
+      <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">Oppdater</button>
+      </div>
+    </form>
+
+    <p>
+      Utvalg i område: <strong>{{ n_scope }}</strong> boliger.
+      I valgt prisklasse: <strong>{{ n_sel }}</strong> boliger.
+    </p>
+
+    <!-- Tekstlig oppsummering -->
+    <div class="mt-3 mb-4">
+      {% for line in summary_lines %}
+        <p>{{ line|safe }}</p>
+      {% endfor %}
+    </div>
+
+    <div class="row mt-4">
+      <div class="col-md-6">
+        <h3>Mest brukte ord i valgt gruppe</h3>
+        <table class="table table-sm table-striped table-hover">
+          <thead>
+            <tr>
+              <th>Ord</th>
+              <th>Antall</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in words %}
+              <tr>
+                <td>{{ row.ord }}</td>
+                <td>{{ row.antall }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="col-md-6">
+        <h3>Differanseord</h3>
+        <p class="text-muted">
+          Ord som er relativt vanligere i valgt prisklasse enn i resten av markedet.
+        </p>
+        <table class="table table-sm table-striped table-hover">
+          <thead>
+            <tr>
+              <th>Ord</th>
+              <th>Treff (valgt)</th>
+              <th>Treff (resten)</th>
+              <th>Relativ faktor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in diff_words %}
+              <tr>
+                <td>{{ row.ord }}</td>
+                <td>{{ row.treff_valgt }}</td>
+                <td>{{ row.treff_rest }}</td>
+                <td>{{ row.relativ_faktor }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  {% endif %}
+</div>
+{% endblock %}
