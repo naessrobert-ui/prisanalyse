@@ -3,15 +3,15 @@
 
 import json
 from functools import lru_cache
+from collections import Counter
+import re
+import os
 
 import numpy as np
 import pandas as pd
 import folium
 from folium.plugins import MarkerCluster
 from flask import Blueprint, render_template, jsonify, request, redirect
-from collections import Counter
-import re
-
 
 from bolig_data import load_latest_bolig_df
 from bolig_varmekart_service import clean_data
@@ -29,8 +29,6 @@ bolig_bp = Blueprint("bolig", __name__, url_prefix="/bolig")
 # --------------------------------------------------
 # Caching av siste bolig-DataFrame fra S3
 # --------------------------------------------------
-
-
 @lru_cache(maxsize=1)
 def get_cached_bolig_df():
     """
@@ -46,11 +44,157 @@ def get_cached_bolig_df():
 
 
 # --------------------------------------------------
+# HJELPEFUNKSJONER – UNDERPRISRADAR
+# --------------------------------------------------
+def _clean_kupp_data(df_raw: pd.DataFrame) -> pd.DataFrame:
+    """
+    Rensing tilpasset Underprisradar.
+    Forventer kolonner som i bolig_X_*.csv.
+    """
+    df = df_raw.copy()
+    df.columns = [c.strip() for c in df.columns]
+
+    # --- M2-pris ---
+    if "M2-pris" not in df.columns:
+        cand = [c for c in df.columns if "m2" in c.lower() and "pris" in c.lower()]
+        if cand:
+            df.rename(columns={cand[0]: "M2-pris"}, inplace=True)
+        else:
+            raise ValueError("Fant ingen kolonne for M2-pris i boligdata.")
+
+    df["M2-pris"] = (
+        df["M2-pris"]
+        .astype(str)
+        .str.replace("kr", "", regex=False, case=False)
+        .str.replace(" ", "", regex=False)
+        .str.replace(".", "", regex=False)
+        .str.replace(",", ".", regex=False)
+    )
+    df["M2-pris"] = pd.to_numeric(df["M2-pris"], errors="coerce")
+
+    # --- Totalpris (kun for visning) ---
+    if "totalpris" in df.columns:
+        df["totalpris"] = (
+            df["totalpris"]
+            .astype(str)
+            .str.replace("kr", "", regex=False, case=False)
+            .str.replace(" ", "", regex=False)
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False)
+        )
+        df["totalpris"] = pd.to_numeric(df["totalpris"], errors="coerce")
+    else:
+        df["totalpris"] = np.nan
+
+    # --- Koordinater ---
+    lat_col = None
+    lon_col = None
+    for c in df.columns:
+        cl = c.lower()
+        if "lat" in cl and lat_col is None:
+            lat_col = c
+        if ("lon" in cl or "lng" in cl or "long" in cl) and lon_col is None:
+            lon_col = c
+
+    if lat_col is None or lon_col is None:
+        raise ValueError("Fant ikke kolonner for latitude/longitude i boligdata.")
+
+    for col in [lat_col, lon_col]:
+        df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df.rename(columns={lat_col: "latitude", lon_col: "longitude"}, inplace=True)
+
+    # --- Areal (size -> areal_m2) ---
+    area_col = "size"
+    if area_col not in df.columns:
+        raise ValueError("Fant ikke arealkolonnen 'size' i boligdata.")
+
+    df["areal_m2"] = (
+        df[area_col]
+        .astype(str)
+        .str.replace("m²", "", regex=False)
+        .str.replace("m2", "", regex=False)
+        .str.replace(",", ".", regex=False)
+        .str.replace(" ", "", regex=False)
+    )
+    df["areal_m2"] = pd.to_numeric(df["areal_m2"], errors="coerce")
+
+    # --- Kategorier: fylke, boligtype, eierform ---
+    for col in ["fylke", "boligtype", "eierform"]:
+        if col in df.columns:
+            df[col] = df[col].fillna("Ukjent").astype(str)
+        else:
+            df[col] = "Ukjent"
+
+    # --- Dager på markedet (valgfritt) ---
+    if "publisert_dato" in df.columns and "dager_på_markedet" not in df.columns:
+        publisert = pd.to_datetime(df["publisert_dato"], errors="coerce", utc=True)
+        today = pd.Timestamp.now(tz="UTC").normalize()
+        df["dager_på_markedet"] = (today - publisert).dt.days
+
+    # --- Filtrer bort åpenbart dårlige/manglende verdier ---
+    df = df.dropna(subset=["latitude", "longitude", "M2-pris", "areal_m2"])
+    df = df[df["M2-pris"] > 5000]
+    df = df[
+        (df["latitude"] > 57)
+        & (df["latitude"] < 72)
+        & (df["longitude"] > 4)
+        & (df["longitude"] < 32)
+    ]
+
+    return df
+
+
+def _add_segment_underpricing(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Legger til segment-baserte underpris-metrikker:
+    - referanse_M2 (median pris i segment)
+    - antall_i_segment
+    - underpris_pct, underpris_kr
+    """
+    df = df.copy()
+
+    size_bins = [0, 40, 60, 80, 100, 150, 1000]
+    size_labels = ["0-40", "40-60", "60-80", "80-100", "100-150", "150+"]
+
+    df["størrelsesbånd"] = pd.cut(
+        df["areal_m2"],
+        bins=size_bins,
+        labels=size_labels,
+        right=False,
+    )
+
+    group_cols = ["fylke", "boligtype", "eierform", "størrelsesbånd"]
+
+    stats = (
+        df.groupby(group_cols)["M2-pris"]
+        .agg(referanse_M2="median", antall_i_segment="size")
+        .reset_index()
+    )
+
+    df = df.merge(stats, on=group_cols, how="left")
+
+    df["underpris_pct"] = (df["referanse_M2"] - df["M2-pris"]) / df["referanse_M2"]
+    df["underpris_kr"] = (df["referanse_M2"] - df["M2-pris"]) * df["areal_m2"]
+
+    return df
+
+
+# --------------------------------------------------
 # 1) Bolig-hub (menyside)
 # --------------------------------------------------
-
-
 @bolig_bp.route("/")
+def bolig_hub():
+    """
+    Oversiktsside for bolig-analysene.
+    """
+    return render_template("bolig_hub.html")
+
+
+# --------------------------------------------------
+# 5) Underprisradar – Flask-versjon
+# --------------------------------------------------
 @bolig_bp.route("/kupp/")
 def bolig_kupp_view():
     """
