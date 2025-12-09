@@ -1211,17 +1211,35 @@ def bolig_kupp_view():
     ]
     display_cols = [c for c in display_cols if c in sub.columns]
 
-    table_df = sub[display_cols].copy()
+   table_df = sub[display_cols].copy()
     table_df["underpris_pct"] = (table_df["underpris_pct"] * 100).round(1)
+
     for col in ["M2-pris", "referanse_M2", "underpris_kr"]:
         if col in table_df.columns:
             table_df[col] = table_df[col].round(0).astype("Int64")
+
+# Gjør FINN-kode klikkbar
+    if "finnkode" in table_df.columns:
+        def _make_finn_link(val):
+            if pd.isna(val):
+                return ""
+            try:
+                fk_int = int(float(val))
+            except Exception:
+                return val
+
+            url = f"https://www.finn.no/realestate/homes/ad.html?finnkode={fk_int}"
+            return f"<a href='{url}' target='_blank'>{fk_int}</a>"
+
+        table_df["finnkode"] = table_df["finnkode"].apply(_make_finn_link)
 
     table_html = table_df.to_html(
         classes="table table-sm table-striped table-hover mb-0",
         index=False,
         border=0,
+        escape=False,  # viktig for at <a>-taggene ikke escapes
     )
+
 
     return render_template(
         "bolig_kupp.html",
