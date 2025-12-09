@@ -11,6 +11,44 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
     <style>
+        /* Lys bakgrunn på tabeller */
+        .table, .table tbody tr td, .table thead th {
+            background-color: rgba(255,255,255,0.85) !important;
+            color: #111 !important;
+        }
+        
+        /* Header i tabell */
+        .table thead th {
+            background-color: rgba(240,240,240,0.95) !important;
+            font-weight: 600;
+            border-bottom: 2px solid rgba(0,0,0,0.12);
+        }
+        
+        /* Alternating rows */
+        .table tbody tr:nth-child(odd) {
+            background-color: rgba(255,255,255,0.92) !important;
+        }
+        .table tbody tr:nth-child(even) {
+            background-color: rgba(245,245,245,0.92) !important;
+        }
+        
+        /* Cards som omgir tabeller */
+        .card {
+            background-color: rgba(255,255,255,0.85) !important;
+            border-radius: 18px;
+        }
+        
+        /* Card titles */
+        .card-title, .card-header {
+            color: #002244 !important;
+            font-weight: 650;
+        }
+        
+        /* Skillelinjer blir tynnere og lysere */
+        .table-bordered td, .table-bordered th {
+            border: 1px solid rgba(0,0,0,0.15) !important;
+        }
+
         body {
             /* Backup-farge i tilfelle gradient ikke virker */
             background-color: #1a1a1a;
