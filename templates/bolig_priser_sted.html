@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Bolig – priser per sted{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1>Bolig – priser per sted</h1>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% elif has_data %}
+    <table class="table table-sm table-striped table-hover">
+      <thead>
+        <tr>
+          {% for col_key, col_label in columns %}
+            <th>{{ col_label }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            {% for col_key, _ in columns %}
+              <td>{{ row[col_key] }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Ingen data tilgjengelig.</p>
+  {% endif %}
+</div>
+{% endblock %}
