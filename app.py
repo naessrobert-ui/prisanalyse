@@ -1,9 +1,9 @@
-# app.py (din justerte fil)
 # app.py
 import os
 import subprocess
 import sys
 import os
+from typing import Optional
 
 from dotenv import load_dotenv
 from flask import Flask, render_template
@@ -78,8 +78,13 @@ def create_app() -> Flask:
     app.config["SESSION_PERMANENT"] = False
     app.config["SESSION_TYPE"] = "filesystem"
 
+# 🔐 Secret key for sessions
+app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = "filesystem"
     Session(app)
 
+Session(app)
     # Registrer «seksjonene»
     from bil_import import bil_import_bp
     from bil_routes import bil_bp
@@ -87,27 +92,22 @@ def create_app() -> Flask:
     from fritidsbolig_routes import fritids_bp
     from gemini_routes import gemini_bp
 
-    app.register_blueprint(bolig_bp)
-    app.register_blueprint(fritids_bp)
-    app.register_blueprint(bil_bp)
-    app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
-    app.register_blueprint(gemini_bp)
-
-# 🔐 Secret key for sessions
-app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
-app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = "filesystem"
-    return app
-
-Session(app)
-
 # Registrer «seksjonene»
 app.register_blueprint(bolig_bp)
 app.register_blueprint(fritids_bp)
 app.register_blueprint(bil_bp)
 app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
 app.register_blueprint(gemini_bp)  # <-- 2. LEGG TIL DENNE LINJEN
-app = create_app()
+    app.register_blueprint(bolig_bp)
+    app.register_blueprint(fritids_bp)
+    app.register_blueprint(bil_bp)
+    app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
+    app.register_blueprint(gemini_bp)
+
+    return app
+
+
+app: Optional[Flask] = create_app()
 
 
 @app.route("/")
@@ -131,4 +131,13 @@ def jobb_side():
 if __name__ == "__main__":
     startup_apps()
     app.run(debug=True)
-    app.run(debug=True)
+    # Start Streamlit-hjelpeappene når vi kjører lokalt, men tillat at
+    # deploy-miljøer (f.eks. Render) kan slå det av med START_STREAMLIT_APPS=0.
+    should_start_streamlit = os.environ.get("START_STREAMLIT_APPS", "1") != "0"
+
+    if should_start_streamlit:
+        startup_apps()
+    else:
+        print("Hopper over oppstart av Streamlit-apper (styrt av START_STREAMLIT_APPS)")
+
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
