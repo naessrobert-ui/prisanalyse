@@ -1,4 +1,6 @@
-# app.py
+# -*- coding: utf-8 -*-
+"""Main Flask entrypoint for the prisanalyse project."""
+
 import os
 import subprocess
 import sys
@@ -21,7 +23,7 @@ def start_streamlit(script: str, port: int) -> None:
     sock.close()
 
     if result == 0:
-        print(f"Streamlit-app på port {port} kjører allerede.")
+        print(f"Streamlit app on port {port} is already running.")
         return
 
     python_path = sys.executable
@@ -41,21 +43,17 @@ def start_streamlit(script: str, port: int) -> None:
 
 
 def startup_apps() -> None:
-    """Start alle Streamlit-appene én gang ved oppstart."""
+    """Start all Streamlit helper apps once at startup."""
 
     start_streamlit("app_region.py", 8501)
     start_streamlit("appKupp.py", 8502)
     start_streamlit("app_buzz.py", 8503)
     start_streamlit("app_varme.py", 8504)
-    print("Alle Streamlit-apper forsøkt startet.")
+    print("Attempted to start all Streamlit apps.")
 
 
 def create_app() -> Flask:
-    """Lag og konfigurer Flask-appen én gang.
-
-    Dette gir én klar oppstartssti som både lokalt debug-kjøring og
-    produksjonsservere (gunicorn) kan bruke uten å duplisere state.
-    """
+    """Create and configure the Flask app once."""
 
     app = Flask(__name__)
 
@@ -66,7 +64,7 @@ def create_app() -> Flask:
 
     Session(app)
 
-    # Registrer «seksjonene»
+    # Register "sections"
     from bil_import import bil_import_bp
     from bil_routes import bil_bp
     from bolig_routes import bolig_bp
@@ -87,30 +85,27 @@ app: Optional[Flask] = create_app()
 
 @app.route("/")
 def forside():
-    # Forvent at templates/landing_page.html inneholder den nye, lyse forsiden
     return render_template("landing_page.html")
 
 
 @app.route("/ver/")
 def ver_side():
-    # Enkel placeholder – kan senere byttes ut med ekte væranalyse
     return render_template("ver_analyse.html")
 
 
 @app.route("/jobb/")
 def jobb_side():
-    # Enkel placeholder – kan senere byttes ut med ekte jobbanalyse
     return render_template("jobb_analyse.html")
 
 
 if __name__ == "__main__":
-    # Start Streamlit-hjelpeappene når vi kjører lokalt, men tillat at
-    # deploy-miljøer (f.eks. Render) kan slå det av med START_STREAMLIT_APPS=0.
+    # Start Streamlit helper apps when running locally. Deployment environments
+    # (e.g., Render) can disable this by setting START_STREAMLIT_APPS=0.
     should_start_streamlit = os.environ.get("START_STREAMLIT_APPS", "1") != "0"
 
     if should_start_streamlit:
         startup_apps()
     else:
-        print("Hopper over oppstart av Streamlit-apper (styrt av START_STREAMLIT_APPS)")
+        print("Skipping Streamlit helper startup (controlled by START_STREAMLIT_APPS)")
 
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
