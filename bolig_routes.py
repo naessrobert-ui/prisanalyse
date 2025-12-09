@@ -576,4 +576,318 @@ def bolig_kupp_view():
         df_local["M2-pris"] = (
             df_local["M2-pris"]
             .astype(str)
-            .str.replace("kr", "", rege
+            .str.replace("kr", "", regex=False, case=False)
+            .str.replace(" ", "", regex=False)
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False)
+        )
+        df_local["M2-pris"] = pd.to_numeric(df_local["M2-pris"], errors="coerce")
+
+        # Totalpris
+        if "totalpris" in df_local.columns:
+            df_local["totalpris"] = (
+                df_local["totalpris"]
+                .astype(str)
+                .str.replace("kr", "", regex=False, case=False)
+                .str.replace(" ", "", regex=False)
+                .str.replace(".", "", regex=False)
+                .str.replace(",", ".", regex=False)
+            )
+            df_local["totalpris"] = pd.to_numeric(
+                df_local["totalpris"], errors="coerce"
+            )
+        else:
+            df_local["totalpris"] = np.nan
+
+        # Koordinater
+        lat_col = None
+        lon_col = None
+        for c in df_local.columns:
+            cl = c.lower()
+            if "lat" in cl and lat_col is None:
+                lat_col = c
+            if ("lon" in cl or "lng" in cl or "long" in cl) and lon_col is None:
+                lon_col = c
+
+        if lat_col is None or lon_col is None:
+            raise ValueError("Fant ikke kolonner for latitude/longitude i boligdata.")
+
+        for col in [lat_col, lon_col]:
+            df_local[col] = df_local[col].astype(str).str.replace(",", ".", regex=False)
+            df_local[col] = pd.to_numeric(df_local[col], errors="coerce")
+
+        df_local.rename(
+            columns={lat_col: "latitude", lon_col: "longitude"}, inplace=True
+        )
+
+        # Areal
+        area_col = "size"
+        if area_col not in df_local.columns:
+            raise ValueError("Fant ikke arealkolonnen 'size' i boligdata.")
+
+        df_local["areal_m2"] = (
+            df_local[area_col]
+            .astype(str)
+            .str.replace("m²", "", regex=False)
+            .str.replace("m2", "", regex=False)
+            .str.replace(",", ".", regex=False)
+            .str.replace(" ", "", regex=False)
+        )
+        df_local["areal_m2"] = pd.to_numeric(df_local["areal_m2"], errors="coerce")
+
+        # Kategorier
+        for col in ["fylke", "boligtype", "eierform"]:
+            if col in df_local.columns:
+                df_local[col] = df_local[col].fillna("Ukjent").astype(str)
+            else:
+                df_local[col] = "Ukjent"
+
+        # Dager på markedet
+        if (
+            "publisert_dato" in df_local.columns
+            and "dager_på_markedet" not in df_local.columns
+        ):
+            publisert = pd.to_datetime(
+                df_local["publisert_dato"], errors="coerce", utc=True
+            )
+            today = pd.Timestamp.now(tz="UTC").normalize()
+            df_local["dager_på_markedet"] = (today - publisert).dt.days
+
+        # Filter bort dårlige verdier
+        df_local = df_local.dropna(
+            subset=["latitude", "longitude", "M2-pris", "areal_m2"]
+        )
+        df_local = df_local[df_local["M2-pris"] > 5000]
+        df_local = df_local[
+            (df_local["latitude"] > 57)
+            & (df_local["latitude"] < 72)
+            & (df_local["longitude"] > 4)
+            & (df_local["longitude"] < 32)
+        ]
+
+        return df_local
+
+    def _add_segment_underpricing(df_local: pd.DataFrame) -> pd.DataFrame:
+        df_local = df_local.copy()
+
+        size_bins = [0, 40, 60, 80, 100, 150, 1000]
+        size_labels = ["0-40", "40-60", "60-80", "80-100", "100-150", "150+"]
+
+        df_local["størrelsesbånd"] = pd.cut(
+            df_local["areal_m2"],
+            bins=size_bins,
+            labels=size_labels,
+            right=False,
+        )
+
+        group_cols = ["fylke", "boligtype", "eierform", "størrelsesbånd"]
+
+        stats = (
+            df_local.groupby(group_cols)["M2-pris"]
+            .agg(referanse_M2="median", antall_i_segment="size")
+            .reset_index()
+        )
+
+        df_local = df_local.merge(stats, on=group_cols, how="left")
+
+        df_local["underpris_pct"] = (
+            df_local["referanse_M2"] - df_local["M2-pris"]
+        ) / df_local["referanse_M2"]
+        df_local["underpris_kr"] = (
+            df_local["referanse_M2"] - df_local["M2-pris"]
+        ) * df_local["areal_m2"]
+
+        return df_local
+
+    # ---- Rensing og beregning ----------------------
+
+    try:
+        df = _clean_kupp_data(df_raw)
+        df = _add_segment_underpricing(df)
+    except Exception as e:
+        return render_template(
+            "bolig_kupp.html",
+            error=f"Feil ved datarensing/beregning: {e}",
+            has_data=False,
+        )
+
+    # -----------------------
+    # Les filter-parametre
+    # -----------------------
+    fylke = request.args.get("fylke", "Alle")
+    boligtype = request.args.get("boligtype", "Alle")
+    eierform = request.args.get("eierform", "Alle")
+    min_segment_size = int(request.args.get("min_segment_size", 15))
+    min_underpris_pct = float(request.args.get("min_underpris_pct", 10.0))
+    top_n = int(request.args.get("top_n", 50))
+    kun_dyre = request.args.get("kun_dyre", "0") == "1"
+    min_dyrt_nivå = int(request.args.get("min_dyrt_nivå", 60000))
+
+    sub = df.copy()
+
+    if fylke != "Alle":
+        sub = sub[sub["fylke"] == fylke]
+
+    if boligtype != "Alle":
+        sub = sub[sub["boligtype"] == boligtype]
+
+    if eierform != "Alle":
+        sub = sub[sub["eierform"] == eierform]
+
+    # Segment-krav
+    sub = sub[
+        (sub["antall_i_segment"] >= min_segment_size)
+        & (sub["underpris_pct"] > min_underpris_pct / 100.0)
+    ]
+
+    if kun_dyre:
+        sub = sub[sub["referanse_M2"] >= min_dyrt_nivå]
+
+    if len(sub) == 0:
+        return render_template(
+            "bolig_kupp.html",
+            error="Ingen boliger matcher filtrene/kravene til underprising.",
+            has_data=False,
+            fylke_options=["Alle"] + sorted(df["fylke"].dropna().unique().tolist()),
+            boligtype_options=["Alle"]
+            + sorted(df["boligtype"].dropna().unique().tolist()),
+            eierform_options=["Alle"]
+            + sorted(df["eierform"].dropna().unique().tolist()),
+            selected_fylke=fylke,
+            selected_boligtype=boligtype,
+            selected_eierform=eierform,
+            min_segment_size=min_segment_size,
+            min_underpris_pct=min_underpris_pct,
+            top_n=top_n,
+            kun_dyre=kun_dyre,
+            min_dyrt_nivå=min_dyrt_nivå,
+        )
+
+    # Sorter og begrens topp N
+    sub = sub.sort_values("underpris_pct", ascending=False).head(top_n)
+
+    # -----------------------
+    # Bygg kart (Folium)
+    # -----------------------
+    map_center_lat = sub["latitude"].mean()
+    map_center_lon = sub["longitude"].mean()
+
+    m = folium.Map(
+        location=[map_center_lat, map_center_lon],
+        zoom_start=5.5,
+        tiles="cartodbpositron",
+    )
+
+    marker_cluster = MarkerCluster().add_to(m)
+
+    for _, row in sub.iterrows():
+        adresse = row.get("adresse") or row.get("address") or "Ukjent adresse"
+        postnr = row.get("postnummer", "")
+        sted = f"{adresse}, {postnr}" if postnr not in (None, "", np.nan) else adresse
+
+        m2 = row["M2-pris"]
+        ref = row["referanse_M2"]
+        up_pct = row["underpris_pct"] * 100
+        up_kr = row["underpris_kr"]
+        areal = row["areal_m2"]
+        tot = row.get("totalpris", np.nan)
+
+        finnkode = row.get("finnkode")
+        finnline = ""
+        if pd.notna(finnkode):
+            try:
+                fk_str = str(int(float(finnkode)))
+                finn_url = (
+                    f"https://www.finn.no/realestate/homes/ad.html?finnkode={fk_str}"
+                )
+                finnline = (
+                    f"<br><a href='{finn_url}' target='_blank'>"
+                    f"Åpne på FINN (kode {fk_str})</a>"
+                )
+            except Exception:
+                pass
+
+        popup_html = (
+            f"<b>{sted}</b><br>"
+            f"{row.get('boligtype', '')} – {row.get('eierform', '')}<br>"
+            f"Areal: {areal:.0f} m²<br>"
+            f"M²-pris: {m2:,.0f} kr/m²<br>"
+            f"Segment-ref: {ref:,.0f} kr/m²<br>"
+            f"Underpris: {up_pct:.1f} % (~{up_kr:,.0f} kr)"
+        ).replace(",", " ")
+
+        if pd.notna(tot):
+            popup_html += f"<br>Totalpris: {tot:,.0f} kr".replace(",", " ")
+
+        popup_html += finnline
+
+        tooltip_html = (
+            f"<b>{sted}</b><br>"
+            f"{areal:.0f} m², {m2:,.0f} kr/m²<br>"
+            f"{up_pct:.1f}% under segment-ref."
+        ).replace(",", " ")
+
+        folium.CircleMarker(
+            location=[row["latitude"], row["longitude"]],
+            radius=10,
+            color=None,
+            fill=True,
+            fill_opacity=0.85,
+            popup=folium.Popup(popup_html, max_width=350),
+            tooltip=folium.Tooltip(tooltip_html, sticky=True, direction="top"),
+        ).add_to(marker_cluster)
+
+    map_html = m._repr_html_()
+
+    # -----------------------
+    # Tabell (pandas -> HTML)
+    # -----------------------
+    display_cols = [
+        "adresse",
+        "postnummer",
+        "fylke",
+        "boligtype",
+        "eierform",
+        "areal_m2",
+        "M2-pris",
+        "referanse_M2",
+        "underpris_pct",
+        "underpris_kr",
+        "antall_i_segment",
+        "finnkode",
+    ]
+    display_cols = [c for c in display_cols if c in sub.columns]
+
+    table_df = sub[display_cols].copy()
+    table_df["underpris_pct"] = (table_df["underpris_pct"] * 100).round(1)
+    for col in ["M2-pris", "referanse_M2", "underpris_kr"]:
+        if col in table_df.columns:
+            table_df[col] = table_df[col].round(0).astype("Int64")
+
+    table_html = table_df.to_html(
+        classes="table table-sm table-striped table-hover mb-0",
+        index=False,
+        border=0,
+    )
+
+    return render_template(
+        "bolig_kupp.html",
+        has_data=True,
+        error=None,
+        fylke_options=["Alle"] + sorted(df["fylke"].dropna().unique().tolist()),
+        boligtype_options=["Alle"]
+        + sorted(df["boligtype"].dropna().unique().tolist()),
+        eierform_options=["Alle"]
+        + sorted(df["eierform"].dropna().unique().tolist()),
+        selected_fylke=fylke,
+        selected_boligtype=boligtype,
+        selected_eierform=eierform,
+        min_segment_size=min_segment_size,
+        min_underpris_pct=min_underpris_pct,
+        top_n=top_n,
+        kun_dyre=kun_dyre,
+        min_dyrt_nivå=min_dyrt_nivå,
+        antall_kandidater=len(sub),
+        map_html=map_html,
+        table_html=table_html,
+    )
