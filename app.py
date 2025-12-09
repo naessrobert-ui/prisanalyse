@@ -2,6 +2,7 @@
 """Main Flask entrypoint for the prisanalyse project."""
 
 import os
+import socket
 import subprocess
 import sys
 from typing import Optional
@@ -16,15 +17,10 @@ load_dotenv()
 def start_streamlit(script: str, port: int) -> None:
     """Start a Streamlit app if it is not already running on the given port."""
 
-    import socket
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    result = sock.connect_ex(("127.0.0.1", port))
-    sock.close()
-
-    if result == 0:
-        print(f"Streamlit app on port {port} is already running.")
-        return
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        if sock.connect_ex(("127.0.0.1", port)) == 0:
+            print(f"Streamlit app on port {port} is already running.")
+            return
 
     python_path = sys.executable
     subprocess.Popen(
@@ -57,7 +53,7 @@ def create_app() -> Flask:
 
     app = Flask(__name__)
 
-    # 🔐 Secret key for sessions
+    # Secret key for sessions
     app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
     app.config["SESSION_PERMANENT"] = False
     app.config["SESSION_TYPE"] = "filesystem"
@@ -77,25 +73,22 @@ def create_app() -> Flask:
     app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
     app.register_blueprint(gemini_bp)
 
+    @app.route("/")
+    def forside():
+        return render_template("landing_page.html")
+
+    @app.route("/ver/")
+    def ver_side():
+        return render_template("ver_analyse.html")
+
+    @app.route("/jobb/")
+    def jobb_side():
+        return render_template("jobb_analyse.html")
+
     return app
 
 
 app: Optional[Flask] = create_app()
-
-
-@app.route("/")
-def forside():
-    return render_template("landing_page.html")
-
-
-@app.route("/ver/")
-def ver_side():
-    return render_template("ver_analyse.html")
-
-
-@app.route("/jobb/")
-def jobb_side():
-    return render_template("jobb_analyse.html")
 
 
 if __name__ == "__main__":
