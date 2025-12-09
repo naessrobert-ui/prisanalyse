@@ -1217,10 +1217,25 @@ def bolig_kupp_view():
         if col in table_df.columns:
             table_df[col] = table_df[col].round(0).astype("Int64")
 
+     # 🔹 GJØR FINNKODE KLIKKBAR
+    if "finnkode" in table_df.columns:
+        def make_finn_link(val):
+            if pd.isna(val):
+                return ""
+            try:
+                fk_str = str(int(float(val)))
+            except Exception:
+                fk_str = str(val)
+            url = f"https://www.finn.no/realestate/homes/ad.html?finnkode={fk_str}"
+            return f"<a href='{url}' target='_blank'>{fk_str}</a>"
+
+        table_df["finnkode"] = table_df["finnkode"].apply(make_finn_link)
+
     table_html = table_df.to_html(
         classes="table table-sm table-striped table-hover mb-0",
         index=False,
         border=0,
+        escape=False,  # 🔹 VIKTIG: tillat HTML-lenker
     )
 
     return render_template(
