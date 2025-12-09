@@ -17,8 +17,6 @@ import os
 load_dotenv()
 from bolig_routes import bolig_bp
 app = Flask(__name__)
-def start_streamlit(script, port):
-
 
 def start_streamlit(script: str, port: int) -> None:
     """Start a Streamlit app if it is not already running on the given port."""
@@ -50,8 +48,6 @@ def start_streamlit(script: str, port: int) -> None:
     )
 
 
-def startup_apps():
-    """Start alle Streamlit-appene én gang ved oppstart."""
 def startup_apps() -> None:
     """Start all Streamlit helper apps once at startup."""
 
@@ -66,44 +62,44 @@ def startup_apps() -> None:
 def create_app() -> Flask:
     """Create and configure the Flask app once."""
 
-app.register_blueprint(bolig_bp)
-from fritidsbolig_routes import fritids_bp
-from bil_routes import bil_bp
-from bil_import import bil_import_bp
-from gemini_routes import gemini_bp  # <-- 1. LEGG TIL DENNE LINJEN
+    app.register_blueprint(bolig_bp)
+    from fritidsbolig_routes import fritids_bp
+    from bil_routes import bil_bp
+    from bil_import import bil_import_bp
+    from gemini_routes import gemini_bp  # <-- 1. LEGG TIL DENNE LINJEN
+        app = Flask(__name__)
+    
     app = Flask(__name__)
-
-app = Flask(__name__)
+        # 🔐 Secret key for sessions
+        app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
+        app.config["SESSION_PERMANENT"] = False
+        app.config["SESSION_TYPE"] = "filesystem"
+    
     # 🔐 Secret key for sessions
     app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
     app.config["SESSION_PERMANENT"] = False
     app.config["SESSION_TYPE"] = "filesystem"
-
-# 🔐 Secret key for sessions
-app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
-app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = "filesystem"
+        Session(app)
+    
     Session(app)
-
-Session(app)
-    # Register "sections"
-    from bil_import import bil_import_bp
-    from bil_routes import bil_bp
-    from bolig_routes import bolig_bp
-    from fritidsbolig_routes import fritids_bp
-    from gemini_routes import gemini_bp
-
-# Registrer «seksjonene»
-app.register_blueprint(bolig_bp)
-app.register_blueprint(fritids_bp)
-app.register_blueprint(bil_bp)
-app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
-app.register_blueprint(gemini_bp)  # <-- 2. LEGG TIL DENNE LINJEN
+        # Register "sections"
+        from bil_import import bil_import_bp
+        from bil_routes import bil_bp
+        from bolig_routes import bolig_bp
+        from fritidsbolig_routes import fritids_bp
+        from gemini_routes import gemini_bp
+    
+    # Registrer «seksjonene»
     app.register_blueprint(bolig_bp)
     app.register_blueprint(fritids_bp)
     app.register_blueprint(bil_bp)
     app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
-    app.register_blueprint(gemini_bp)
+    app.register_blueprint(gemini_bp)  # <-- 2. LEGG TIL DENNE LINJEN
+        app.register_blueprint(bolig_bp)
+        app.register_blueprint(fritids_bp)
+        app.register_blueprint(bil_bp)
+        app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
+        app.register_blueprint(gemini_bp)
 
     return app
 
