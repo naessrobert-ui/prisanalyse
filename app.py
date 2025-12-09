@@ -2,6 +2,7 @@
 import os
 import subprocess
 import sys
+from typing import Optional
 
 from dotenv import load_dotenv
 from flask import Flask, render_template
@@ -81,7 +82,7 @@ def create_app() -> Flask:
     return app
 
 
-app = create_app()
+app: Optional[Flask] = create_app()
 
 
 @app.route("/")
