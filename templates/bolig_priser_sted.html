@@ -3,32 +3,139 @@
 {% block title %}Bolig – priser per sted{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-  <h1>Bolig – priser per sted</h1>
+<style>
+  /* Layout for siden */
+  .page-wrapper {
+    min-height: calc(100vh - 140px); /* plass til header + footer */
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px 60px;
+  }
 
-  {% if error %}
-    <div class="alert alert-danger">{{ error }}</div>
-  {% elif has_data %}
-    <table class="table table-sm table-striped table-hover">
-      <thead>
-        <tr>
-          {% for col_key, col_label in columns %}
-            <th>{{ col_label }}</th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in rows %}
-          <tr>
-            {% for col_key, _ in columns %}
-              <td>{{ row[col_key] }}</td>
+  /* Glass/kort-boks oppå den mørke bakgrunnen */
+  .analysis-card {
+    width: 100%;
+    max-width: 1100px;
+    background: rgba(5, 23, 35, 0.9);          /* mørk, litt gjennomsiktig */
+    border-radius: 18px;
+    box-shadow: 0 20px 55px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 32px 36px 28px;
+    color: #f5f7fb;
+  }
+
+  .analysis-card h1 {
+    font-size: 2.2rem;
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+  }
+
+  .analysis-card p.lead-text {
+    margin: 0 0 18px;
+    font-size: 0.98rem;
+    color: #c9d5e5;
+  }
+
+  .alert-box {
+    margin-top: 18px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: rgba(220, 53, 69, 0.12);
+    border: 1px solid rgba(220, 53, 69, 0.35);
+    color: #f8d7da;
+    font-size: 0.95rem;
+  }
+
+  .table-wrapper {
+    margin-top: 18px;
+    overflow-x: auto;
+  }
+
+  .table-priser {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.94rem;
+    background: rgba(2, 12, 20, 0.85);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .table-priser thead th {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    font-weight: 600;
+    color: #e6edf7;
+    white-space: nowrap;
+  }
+
+  .table-priser tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #dde6f3;
+  }
+
+  .table-priser tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .table-priser tbody tr:hover {
+    background: rgba(72, 149, 239, 0.14);
+  }
+
+  .table-priser tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  @media (max-width: 768px) {
+    .analysis-card {
+      padding: 24px 18px 22px;
+    }
+
+    .analysis-card h1 {
+      font-size: 1.7rem;
+    }
+  }
+</style>
+
+<div class="page-wrapper">
+  <div class="analysis-card">
+    <h1>Bolig – priser per sted</h1>
+    <p class="lead-text">
+      Oversikt over nivået på boligprisene i Norge, aggregert per fylke.
+      Tallene er basert på boliger som ligger ute for salg i den siste datafilen.
+    </p>
+
+    {% if error %}
+      <div class="alert-box">
+        {{ error }}
+      </div>
+    {% elif has_data %}
+      <div class="table-wrapper">
+        <table class="table-priser">
+          <thead>
+            <tr>
+              {% for col_key, col_label in columns %}
+                <th>{{ col_label }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                {% for col_key, _ in columns %}
+                  <td>{{ row[col_key] }}</td>
+                {% endfor %}
+              </tr>
             {% endfor %}
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <p>Ingen data tilgjengelig.</p>
-  {% endif %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>Ingen data tilgjengelig.</p>
+    {% endif %}
+  </div>
 </div>
 {% endblock %}
