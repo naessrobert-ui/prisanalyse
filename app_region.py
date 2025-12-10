@@ -238,18 +238,21 @@ def vis_kart_for_boliger(df_props: pd.DataFrame, tittel: str):
 # --------------------------------------------------
 # SIDEBAR-FILTRE
 # --------------------------------------------------
-st.sidebar.header("Filtre")
-
-# Nybygg / brukt
-status_valg = st.sidebar.radio(
-    "Nybygg / brukt",
-    ["Alle", "Kun nybygg", "Kun brukt"],
+# Nybygg / brukt — nå gjelder filteret HELE datasettet videre
+st.sidebar.subheader("Nye/brukt filter")
+ny_filter = st.sidebar.radio(
+    "Velg boligtyper som skal være med",
+    ["Alle boliger", "Kun nybygg", "Kun brukt"],
     index=0
 )
-if status_valg == "Kun nybygg":
-    df = df[df["NY/Brukt"] == "Nybygg"]
-elif status_valg == "Kun brukt":
-    df = df[df["NY/Brukt"] == "Brukt"]
+
+# Filter brukes på en separat scope-dataframe
+df_scope = df.copy()
+if ny_filter == "Kun nybygg":
+    df_scope = df_scope[df_scope["NY/Brukt"] == "Nybygg"]
+elif ny_filter == "Kun brukt":
+    df_scope = df_scope[df_scope["NY/Brukt"] == "Brukt"]
+
 
 # Fylke-filter
 fylker = ["Alle fylker"] + sorted(df["fylke"].unique().tolist())
