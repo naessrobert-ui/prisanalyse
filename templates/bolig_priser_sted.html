@@ -164,21 +164,21 @@
     opacity: 0.8;
   }
 
-  .table-priser tbody td {
+  .table-priser  td {
     padding: 8px 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     color: #dde6f3;
   }
 
-  .table-priser tbody tr:nth-child(even) {
+  .table-priser  tr:nth-child(even) {
     background: rgba(255, 255, 255, 0.02);
   }
 
-  .table-priser tbody tr:hover {
+  .table-priser  tr:hover {
     background: rgba(80, 160, 255, 0.18);
   }
 
-  .table-priser tbody tr:last-child td {
+  .table-priser  tr:last-child td {
     border-bottom: none;
   }
 
@@ -291,12 +291,105 @@
             {% for row in rows %}
               <tr>
                 {% for col_key, _ in columns %}
-                  <td>{{ row[col_key] }}</td>
+                  {% if mode == 'sted' and col_key == 'sted' %}
+                    <td>
+                      <a href="{{ url_for('bolig.bolig_priser_sted',
+                                         nivaa=mode,
+                                         sort=sort,
+                                         order=order,
+                                         top_n=top_n,
+                                         min_n=min_n,
+                                         detalj_nivaa='sted',
+                                         detalj_key=row['sted']) }}">
+                        {{ row[col_key] }}
+                      </a>
+                    </td>
+                  {% elif mode == 'gate' and col_key == 'gate_sted' %}
+                    <td>
+                      <a href="{{ url_for('bolig.bolig_priser_sted',
+                                         nivaa=mode,
+                                         sort=sort,
+                                         order=order,
+                                         top_n=top_n,
+                                         min_n=min_n,
+                                         detalj_nivaa='gate',
+                                         detalj_key=row['gate_sted']) }}">
+                        {{ row[col_key] }}
+                      </a>
+                    </td>
+                  {% elif mode == 'fylke' and col_key == 'fylke' %}
+                    <td>
+                      <a href="{{ url_for('bolig.bolig_priser_sted',
+                                         nivaa=mode,
+                                         sort=sort,
+                                         order=order,
+                                         top_n=top_n,
+                                         min_n=min_n,
+                                         detalj_nivaa='fylke',
+                                         detalj_key=row['fylke']) }}">
+                        {{ row[col_key] }}
+                      </a>
+                    </td>
+                  {% else %}
+                    <td>{{ row[col_key] }}</td>
+                  {% endif %}
                 {% endfor %}
               </tr>
             {% endfor %}
           </tbody>
         </table>
+              </div>  {# slutt på table-wrapper for hovedtabell #}
+
+      {% if detalj_rows and detalj_title %}
+        <hr style="margin: 22px 0; border-color: rgba(255,255,255,0.08);">
+
+        <h3 style="font-size: 1.25rem; margin-bottom: 6px;">
+          {{ detalj_title }}
+        </h3>
+        <p class="topn-hint">
+          Viser alle boliger som inngår i denne gruppen. FINN-kode er klikkbar.
+        </p>
+
+        <div class="table-wrapper">
+          <table class="table-priser">
+            <thead>
+              <tr>
+                <th>Adresse</th>
+                <th>Fylke</th>
+                <th>Sted</th>
+                <th>Gate, sted</th>
+                <th>Boligtype</th>
+                <th>M²-pris</th>
+                <th>Totalpris</th>
+                <th>Dager på markedet</th>
+                <th>FINN-kode</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in detalj_rows %}
+                <tr>
+                  <td>{{ r.adresse }}</td>
+                  <td>{{ r.fylke }}</td>
+                  <td>{{ r.sted }}</td>
+                  <td>{{ r.gate_sted }}</td>
+                  <td>{{ r.boligtype }}</td>
+                  <td>{% if r.m2pris is not none %}{{ r.m2pris }}{% endif %}</td>
+                  <td>{% if r.totalpris is not none %}{{ r.totalpris }}{% endif %}</td>
+                  <td>{% if r.dager is not none %}{{ r.dager }}{% endif %}</td>
+                  <td>
+                    {% if r.finn_url and r.finnkode %}
+                      <a href="{{ r.finn_url }}" target="_blank">{{ r.finnkode }}</a>
+                    {% elif r.finnkode %}
+                      {{ r.finnkode }}
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+
       </div>
     {% else %}
       <p>Ingen data tilgjengelig.</p>
