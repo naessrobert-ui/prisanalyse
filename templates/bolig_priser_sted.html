@@ -203,6 +203,40 @@
 <div class="page-wrapper">
   <div class="glass-card">
     <h1>{{ title }}</h1>
+        <div style="margin: 10px 0 8px;">
+      <form method="get" action="{{ url_for('bolig.bolig_priser_sted') }}"
+            style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:0.9rem;">
+        <span style="color:#cfd9ea;">Nybygg / brukt:</span>
+
+        <select name="nybrukt"
+                onchange="this.form.submit()"
+                style="border-radius:999px;border:1px solid rgba(255,255,255,0.35);
+                       background:rgba(3,10,20,0.9);color:#f5f7fb;
+                       padding:3px 10px;font-size:0.9rem;">
+          <option value="alle"   {% if nybrukt_filter == 'alle' %}selected{% endif %}>Alle boliger</option>
+          <option value="nybygg" {% if nybrukt_filter == 'nybygg' %}selected{% endif %}>Kun nybygg</option>
+          <option value="brukt"  {% if nybrukt_filter == 'brukt' %}selected{% endif %}>Kun brukte</option>
+        </select>
+
+        {# Bevar nåværende view-parametre når vi bytter filter #}
+        {% if mode %}<input type="hidden" name="nivaa" value="{{ mode }}">{% endif %}
+        {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+        {% if order %}<input type="hidden" name="order" value="{{ order }}">{% endif %}
+        {% if top_n %}<input type="hidden" name="top_n" value="{{ top_n }}">{% endif %}
+        {% if min_n %}<input type="hidden" name="min_n" value="{{ min_n }}">{% endif %}
+        {% if detalj_nivaa %}<input type="hidden" name="detalj_nivaa" value="{{ detalj_nivaa }}">{% endif %}
+        {% if detalj_key %}<input type="hidden" name="detalj_key" value="{{ detalj_key }}">{% endif %}
+      </form>
+
+      <div style="font-size:0.8rem;color:#9ca9c7;margin-top:2px;">
+        Filter: <strong>
+          {% if nybrukt_filter == 'nybygg' %}Kun nybygg
+          {% elif nybrukt_filter == 'brukt' %}Kun brukte
+          {% else %}Alle boliger{% endif %}
+        </strong>
+      </div>
+    </div>
+
     <p class="lead-text">
       {{ lead_text }}
     </p>
