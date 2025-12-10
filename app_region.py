@@ -180,6 +180,31 @@ with st.spinner("Laster og bearbeider data..."):
 st.success(f"Data lastet: {len(df):,} boliger".replace(",", " "))
 
 # --------------------------------------------------
+# TOPP-FILTER: Nybygg / Brukt / Alle
+# --------------------------------------------------
+st.markdown("### Filtrer på boligtype")
+
+nyvalg = st.radio(
+    "Velg hvilke boliger som skal inngå i analysene:",
+    ["Alle boliger", "Kun nybygg", "Kun brukt"],
+    horizontal=True,
+)
+
+df_base = df.copy()
+if nyvalg == "Kun nybygg":
+    df_base = df_base[df_base["NY/Brukt"] == "Nybygg"]
+elif nyvalg == "Kun brukt":
+    df_base = df_base[df_base["NY/Brukt"] == "Brukt"]
+
+st.markdown(
+    f"<span style='font-size:0.9rem;color:#b0bdd5;'>"
+    f"Filter: <b>{nyvalg}</b> – {len(df_base):,} boliger etter filtrering."
+    f"</span>",
+    unsafe_allow_html=True,
+)
+
+
+# --------------------------------------------------
 # HJELPEFUNKSJON: KARTVISNING
 # --------------------------------------------------
 def vis_kart_for_boliger(df_props: pd.DataFrame, tittel: str):
@@ -259,9 +284,9 @@ fylker = ["Alle fylker"] + sorted(df["fylke"].unique().tolist())
 valgt_fylke = st.sidebar.selectbox("Fylke (for detaljer)", fylker, index=0)
 
 if valgt_fylke != "Alle fylker":
-    df_scope = df[df["fylke"] == valgt_fylke].copy()
+    df_scope = df_base[df_base["fylke"] == valgt_fylke]
 else:
-    df_scope = df.copy()
+    df_scope = df_base.copy()
 
 # Boligtype-filter
 boligtyper_unike = sorted(df_scope["boligtype"].unique().tolist())
@@ -344,7 +369,7 @@ tab_fylke, tab_sted, tab_gate = st.tabs(["Fylke", "Sted (fra adresse)", "Gate+st
 with tab_fylke:
     st.subheader("Statistikk per fylke og boligtype")
 
-    df_fylke_base = df_scope.copy()
+    df_fylke_base = df_base.copy()
     if boligvalg:
         df_fylke_base = df_fylke_base[df_fylke_base["boligtype"].isin(boligvalg)]
 
