@@ -200,6 +200,7 @@ def bolig_priser_sted():
             "bolig_priser_sted.html",
             error="Fant ingen boligdata å analysere.",
             has_data=False,
+            nybrukt_filter=nybrukt_filter,
             rows=[],
             columns=[],
             mode="fylke",
@@ -244,6 +245,17 @@ def bolig_priser_sted():
             dsort=None,
             dorder=None,
         )
+
+        # ---- Globalt filter: nybygg / brukt / alle ----
+    nybrukt_filter = request.args.get("nybrukt", "alle").lower()
+    if nybrukt_filter not in {"alle", "nybygg", "brukt"}:
+        nybrukt_filter = "alle"
+
+    if nybrukt_filter == "nybygg":
+        df = df[df["NY/Brukt"] == "Nybygg"]
+    elif nybrukt_filter == "brukt":
+        df = df[df["NY/Brukt"] == "Brukt"]
+
 
     # ---- Hovedparametre ----
     mode = request.args.get("nivaa", "fylke")
