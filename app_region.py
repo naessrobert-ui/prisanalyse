@@ -290,6 +290,9 @@ if len(df_scope) == 0:
 # --------------------------------------------------
 # AGGREGASJONSFUNKSJON
 # --------------------------------------------------
+# --------------------------------------------------
+# AGGREGASJONSFUNKSJON
+# --------------------------------------------------
 def aggregate_group(df_in: pd.DataFrame, group_cols):
     agg = (
         df_in
@@ -306,10 +309,22 @@ def aggregate_group(df_in: pd.DataFrame, group_cols):
         )
         .reset_index()
     )
+
+    # Rounding
     for col in ["median_m2", "gj_snitt_m2", "median_totalpris", "median_dager"]:
         if col in agg.columns:
             agg[col] = agg[col].round(0)
+
+    # Tusenskilleformat for bedre lesbarhet
+    for display_col in ["median_m2", "gj_snitt_m2", "median_totalpris"]:
+        if display_col in agg.columns:
+            agg[display_col] = agg[display_col].apply(
+                lambda x: f"{int(x):,}".replace(",", " ") if pd.notna(x) else x
+            )
+
     return agg
+
+
 
 
 METRIC_TO_COUNT_COL = {
@@ -329,7 +344,7 @@ tab_fylke, tab_sted, tab_gate = st.tabs(["Fylke", "Sted (fra adresse)", "Gate+st
 with tab_fylke:
     st.subheader("Statistikk per fylke og boligtype")
 
-    df_fylke_base = df.copy()
+    df_fylke_base = df_scope.copy()
     if boligvalg:
         df_fylke_base = df_fylke_base[df_fylke_base["boligtype"].isin(boligvalg)]
 
