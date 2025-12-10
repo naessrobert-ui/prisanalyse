@@ -44,6 +44,97 @@ def get_cached_bolig_df():
         print(f"[CACHE ERROR] Kunne ikke laste boligdata: {e}")
         return None
 
+# --------------------------------------------------
+# Hjelpefunksjon for "priser per sted"
+# --------------------------------------------------
+
+def _prepare_priser_df(df_raw: pd.DataFrame) -> pd.DataFrame:
+    """
+    Rens data for pris-tabellene og lag felt for sted / gate+sted.
+    - M2-pris og totalpris gjøres numeriske
+    - Dager på markedet beregnes
+    - 'sted' og 'gate_sted' (gate uten husnummer + sted) lages fra address
+    """
+    df = df_raw.copy()
+    df.columns = df.columns.str.strip()
+
+    # --- M2-pris ---
+    if "M2-pris" not in df.columns:
+        raise ValueError("Datasettet mangler kolonnen 'M2-pris'.")
+
+    df["M2-pris"] = (
+        df["M2-pris"]
+        .astype(str)
+        .str.replace("kr", "", regex=False, case=False)
+        .str.replace(" ", "", regex=False)
+        .str.replace(".", "", regex=False)
+        .str.replace(",", ".", regex=False)
+    )
+    df["M2-pris"] = pd.to_numeric(df["M2-pris"], errors="coerce")
+
+    # --- Totalpris ---
+    if "totalpris" in df.columns:
+        df["totalpris"] = (
+            df["totalpris"]
+            .astype(str)
+            .str.replace("kr", "", regex=False, case=False)
+            .str.replace(" ", "", regex=False)
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False)
+        )
+        df["totalpris"] = pd.to_numeric(df["totalpris"], errors="coerce")
+    else:
+        df["totalpris"] = np.nan
+
+    # --- Dager på markedet ---
+    if "publisert_dato" in df.columns:
+        publisert = pd.to_datetime(df["publisert_dato"], errors="coerce", utc=True)
+        now_utc = pd.Timestamp.now("UTC")
+        df["dager_paa_markedet"] = (now_utc - publisert).dt.days
+    else:
+        df["dager_paa_markedet"] = np.nan
+
+    # --- Adresse / sted / gate ---
+    if "address" not in df.columns:
+        df["address"] = ""
+    df["address"] = df["address"].fillna("").astype(str)
+
+    def extract_sted(addr: str) -> str:
+        if not addr:
+            return ""
+        parts = addr.split(",")
+        if len(parts) < 2:
+            return ""
+        return parts[-1].strip()
+
+    def extract_gate(addr: str) -> str:
+        # Kun gatenavn, uten husnummer
+        if not addr:
+            return ""
+        gate_raw = addr.split(",")[0].strip()
+        tokens = gate_raw.split()
+        tokens_uten_nr = [t for t in tokens if not any(ch.isdigit() for ch in t)]
+        if not tokens_uten_nr:
+            return gate_raw
+        return " ".join(tokens_uten_nr)
+
+    df["sted"] = df["address"].apply(extract_sted)
+    df["gate"] = df["address"].apply(extract_gate)
+
+    # Gate+sted: f.eks. "Grefsenveien, Oslo"
+    def make_gate_sted(row):
+        gate = (row.get("gate") or "").strip()
+        sted = (row.get("sted") or "").strip()
+        if gate and sted:
+            return f"{gate}, {sted}"
+        return gate or sted
+
+    df["gate_sted"] = df.apply(make_gate_sted, axis=1)
+
+    # Filtrer bort åpenbart tull
+    df = df[df["M2-pris"] > 5000]
+
+    return df
 
 # --------------------------------------------------
 # 1) Bolig-hub (menyside)
@@ -66,57 +157,161 @@ def bolig_hub():
 @bolig_bp.route("/priser-sted/")
 def bolig_priser_sted():
     """
-    Enkel Flask-side for 'Priser per sted'.
+    Flask-side for 'Priser per sted'.
 
-    Aggregert nivå: per fylke (kan lett bygges ut til kommune/bydel senere).
+    Støtter tre nivåer (query-param 'nivaa'):
+      - 'fylke'  (default): én rad per fylke
+      - 'sted'   : topp N steder (fra adressens sted-del)
+      - 'gate'   : topp N gate+sted (gatenavn uten husnr + sted)
+
+    For sted og gate vises topp N (default 20) basert på høyest median m²-pris.
     """
-    df = get_cached_bolig_df()
-    if df is None or df.empty:
+    df_raw = get_cached_bolig_df()
+    if df_raw is None or df_raw.empty:
         return render_template(
             "bolig_priser_sted.html",
             error="Fant ingen boligdata å analysere.",
             has_data=False,
             rows=[],
             columns=[],
+            mode="fylke",
+            title="Bolig – priser per sted",
+            lead_text="",
+            show_top_n=False,
+            top_n=None,
         )
 
-    # Sørg for at nødvendige kolonner finnes
-    if "fylke" not in df.columns:
+    try:
+        df = _prepare_priser_df(df_raw)
+    except Exception as e:
         return render_template(
             "bolig_priser_sted.html",
-            error="Datasettet mangler kolonnen 'fylke'.",
+            error=f"Feil ved klargjøring av boligdata: {e}",
             has_data=False,
             rows=[],
             columns=[],
+            mode="fylke",
+            title="Bolig – priser per sted",
+            lead_text="",
+            show_top_n=False,
+            top_n=None,
         )
 
-    # Prøv å konvertere relevante kolonner til numerisk
-    for col in ["M2-pris", "totalpris"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+    # Hvilket nivå skal vi vise?
+    mode = request.args.get("nivaa", "fylke")
+    if mode not in {"fylke", "sted", "gate"}:
+        mode = "fylke"
 
-    # Gruppér per fylke og beregn noen enkle nøkkeltall
-    agg = df.groupby("fylke").agg(
-        antall=("fylke", "size"),
-        median_m2pris=("M2-pris", "median"),
-        gjennomsnitt_m2pris=("M2-pris", "mean"),
-        median_totalpris=("totalpris", "median") if "totalpris" in df.columns else ("M2-pris", "median"),
-    )
+    # Antall rader for sted/gate (topp N)
+    try:
+        top_n = int(request.args.get("top_n", "20"))
+    except ValueError:
+        top_n = 20
+    top_n = max(1, min(top_n, 200))
 
-    agg = agg.reset_index()
+    # ---------- Aggregasjon ----------
+    if mode == "fylke":
+        if "fylke" not in df.columns:
+            return render_template(
+                "bolig_priser_sted.html",
+                error="Datasettet mangler kolonnen 'fylke'.",
+                has_data=False,
+                rows=[],
+                columns=[],
+                mode=mode,
+                title="Bolig – priser per fylke",
+                lead_text="",
+                show_top_n=False,
+                top_n=None,
+            )
 
-    # Ryddige heltall der det er naturlig
-    for col in ["median_m2pris", "gjennomsnitt_m2pris", "median_totalpris"]:
+        agg = df.groupby("fylke").agg(
+            antall=("M2-pris", "size"),
+            median_m2pris=("M2-pris", "median"),
+            gjennomsnitt_m2pris=("M2-pris", "mean"),
+            median_totalpris=("totalpris", "median"),
+            median_dager=("dager_paa_markedet", "median"),
+        )
+        agg = agg.reset_index()
+        agg = agg.sort_values("fylke")
+
+        title = "Bolig – priser per fylke"
+        lead_text = (
+            "Aggregert oversikt over boligmarkedet per fylke – antall boliger, "
+            "m²-priser, median totalpris og median antall dager annonsene har ligget ute "
+            "i den siste datasamlingen."
+        )
+        columns = [
+            ("fylke", "Fylke"),
+            ("antall", "Antall boliger"),
+            ("median_m2pris", "Median m²-pris"),
+            ("gjennomsnitt_m2pris", "Snitt m²-pris"),
+            ("median_totalpris", "Median totalpris"),
+            ("median_dager", "Median dager på markedet"),
+        ]
+        show_top_n = False
+
+    elif mode == "sted":
+        df_sted = df[df["sted"] != ""].copy()
+        agg = df_sted.groupby("sted").agg(
+            antall=("M2-pris", "size"),
+            median_m2pris=("M2-pris", "median"),
+            median_totalpris=("totalpris", "median"),
+            median_dager=("dager_paa_markedet", "median"),
+        )
+        agg = agg.reset_index()
+
+        # Sorter på høyest median m²-pris og ta topp N
+        agg = agg.sort_values("median_m2pris", ascending=False).head(top_n)
+
+        title = "Bolig – priser per sted"
+        lead_text = (
+            f"Topp {top_n} steder basert på median m²-pris. "
+            "Viser median kvadratmeterpris, median totalpris og median antall dager "
+            "annonsene har ligget ute i den siste datasamlingen."
+        )
+        columns = [
+            ("sted", "Sted"),
+            ("antall", "Antall boliger"),
+            ("median_m2pris", "Median m²-pris"),
+            ("median_totalpris", "Median totalpris"),
+            ("median_dager", "Median dager på markedet"),
+        ]
+        show_top_n = True
+
+    else:  # mode == "gate"
+        df_gate = df[df["gate_sted"] != ""].copy()
+        agg = df_gate.groupby("gate_sted").agg(
+            antall=("M2-pris", "size"),
+            median_m2pris=("M2-pris", "median"),
+            median_totalpris=("totalpris", "median"),
+            median_dager=("dager_paa_markedet", "median"),
+        )
+        agg = agg.reset_index()
+
+        # Sorter på høyest median m²-pris og ta topp N
+        agg = agg.sort_values("median_m2pris", ascending=False).head(top_n)
+
+        title = "Bolig – priser per gate"
+        lead_text = (
+            f"Topp {top_n} gate+sted-kombinasjoner (gatenavn uten husnummer, pluss sted) "
+            "basert på median m²-pris. Viser median kvadratmeterpris, median totalpris "
+            "og median antall dager annonsene har ligget ute."
+        )
+        columns = [
+            ("gate_sted", "Gate, sted"),
+            ("antall", "Antall boliger"),
+            ("median_m2pris", "Median m²-pris"),
+            ("median_totalpris", "Median totalpris"),
+            ("median_dager", "Median dager på markedet"),
+        ]
+        show_top_n = True
+
+    # Rounding / integer-visning
+    for col in ["median_m2pris", "gjennomsnitt_m2pris", "median_totalpris", "median_dager"]:
         if col in agg.columns:
             agg[col] = agg[col].round(0).astype("Int64")
 
-    columns = [
-        ("fylke", "Fylke"),
-        ("antall", "Antall boliger"),
-        ("median_m2pris", "Median m²-pris"),
-        ("gjennomsnitt_m2pris", "Snitt m²-pris"),
-        ("median_totalpris", "Median totalpris"),
-    ]
     rows = agg.to_dict(orient="records")
 
     return render_template(
@@ -125,6 +320,11 @@ def bolig_priser_sted():
         has_data=True,
         rows=rows,
         columns=columns,
+        mode=mode,
+        title=title,
+        lead_text=lead_text,
+        show_top_n=show_top_n,
+        top_n=top_n if show_top_n else None,
     )
 
 
