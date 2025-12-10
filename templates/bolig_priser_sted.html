@@ -33,9 +33,45 @@
   }
 
   .glass-card p.lead-text {
-    margin: 0 0 18px;
+    margin: 0 0 12px;
     font-size: 0.98rem;
     color: #cfd9ea;
+  }
+
+  .mode-tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 6px 0 10px;
+  }
+
+  .mode-tab {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    text-decoration: none;
+    color: #dbe7ff;
+    background: rgba(9, 20, 40, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+
+  .mode-tab:hover {
+    background: rgba(50, 120, 255, 0.45);
+    transform: translateY(-1px);
+  }
+
+  .mode-tab.active {
+    background: linear-gradient(135deg, #3f82ff, #7c5cff);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #ffffff;
+  }
+
+  .topn-hint {
+    font-size: 0.86rem;
+    color: #b9c5dd;
+    margin-bottom: 4px;
   }
 
   .alert-box {
@@ -103,11 +139,32 @@
 
 <div class="page-wrapper">
   <div class="glass-card">
-    <h1>Bolig – priser per sted</h1>
+    <h1>{{ title }}</h1>
     <p class="lead-text">
-      Aggregert oversikt over boligmarkedet per fylke – antall boliger,
-      m²-priser og nivå på totalpris i den siste datasamlingen.
+      {{ lead_text }}
     </p>
+
+    <div class="mode-tabs">
+      <a href="{{ url_for('bolig.bolig_priser_sted', nivaa='fylke') }}"
+         class="mode-tab{% if mode == 'fylke' %} active{% endif %}">
+        Per fylke
+      </a>
+      <a href="{{ url_for('bolig.bolig_priser_sted', nivaa='sted') }}"
+         class="mode-tab{% if mode == 'sted' %} active{% endif %}">
+        Topp steder
+      </a>
+      <a href="{{ url_for('bolig.bolig_priser_sted', nivaa='gate') }}"
+         class="mode-tab{% if mode == 'gate' %} active{% endif %}">
+        Topp gate+sted
+      </a>
+    </div>
+
+    {% if show_top_n and top_n %}
+      <div class="topn-hint">
+        Viser topp {{ top_n }} rader basert på høyest median m²-pris.
+        (Du kan endre antall ved å legge til <code>?nivaa={{ mode }}&top_n=50</code> i URL-en.)
+      </div>
+    {% endif %}
 
     {% if error %}
       <div class="alert-box">
