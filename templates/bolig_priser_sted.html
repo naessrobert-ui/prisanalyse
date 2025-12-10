@@ -242,24 +242,43 @@
     </p>
 
     <div class="mode-tabs">
-      <a href="{{ url_for('bolig.bolig_priser_sted', nivaa='fylke') }}"
-         class="mode-tab{% if mode == 'fylke' %} active{% endif %}">
-        Per fylke
-      </a>
-      <a href="{{ url_for('bolig.bolig_priser_sted', nivaa='sted', min_n=min_n, top_n=top_n, sort=sort, order=order) }}"
-         class="mode-tab{% if mode == 'sted' %} active{% endif %}">
-        Topp steder
-      </a>
-      <a href="{{ url_for('bolig.bolig_priser_sted', nivaa='gate', min_n=min_n, top_n=top_n, sort=sort, order=order) }}"
-         class="mode-tab{% if mode == 'gate' %} active{% endif %}">
-        Topp gate+sted
-      </a>
+<a href="{{ url_for('bolig.bolig_priser_sted',
+                    nivaa='fylke',
+                    nybrukt=nybrukt_filter) }}"
+   class="mode-tab{% if mode == 'fylke' %} active{% endif %}">
+  Per fylke
+</a>
+
+<a href="{{ url_for('bolig.bolig_priser_sted',
+                    nivaa='sted',
+                    min_n=min_n,
+                    top_n=top_n,
+                    sort=sort,
+                    order=order,
+                    nybrukt=nybrukt_filter) }}"
+   class="mode-tab{% if mode == 'sted' %} active{% endif %}">
+  Topp steder
+</a>
+
+<a href="{{ url_for('bolig.bolig_priser_sted',
+                    nivaa='gate',
+                    min_n=min_n,
+                    top_n=top_n,
+                    sort=sort,
+                    order=order,
+                    nybrukt=nybrukt_filter) }}"
+   class="mode-tab{% if mode == 'gate' %} active{% endif %}">
+  Topp gate+sted
+</a>
+
     </div>
 
     {% if show_top_n and top_n %}
       <div class="filter-line">
         <form method="get">
           <input type="hidden" name="nivaa" value="{{ mode }}">
+          <input type="hidden" name="nybrukt" value="{{ nybrukt_filter }}">
+
           {% if sort %}
             <input type="hidden" name="sort" value="{{ sort }}">
           {% endif %}
@@ -304,13 +323,14 @@
                   {% set target_order = 'asc' %}
                 {% endif %}
                 <th>
-                  <a class="th-link"
-                     href="{{ url_for('bolig.bolig_priser_sted',
-                                      nivaa=mode,
-                                      sort=col_key,
-                                      order=target_order,
-                                      top_n=top_n,
-                                      min_n=min_n) }}">
+          <a class="th-link"
+             href="{{ url_for('bolig.bolig_priser_sted',
+                              nivaa=mode,
+                              sort=col_key,
+                              order=target_order,
+                              top_n=top_n,
+                              min_n=min_n,
+                              nybrukt=nybrukt_filter) }}">
                     <span>{{ col_label }}</span>
                     {% if is_current %}
                       <span class="sort-indicator">
