@@ -162,9 +162,14 @@ def bolig_priser_sted():
     Støtter tre nivåer (query-param 'nivaa'):
       - 'fylke'  (default): én rad per fylke
       - 'sted'   : topp N steder (fra adressens sted-del)
-      - 'gate'   : topp N gate+sted (gatenavn uten husnr + sted)
+      - 'gate'   : topp N gate+sted (gatenavn uten husnummer + sted)
 
-    For sted og gate vises topp N (default 20) basert på høyest median m²-pris.
+    Kontroll-parametre:
+      - nivaa = 'fylke' | 'sted' | 'gate'
+      - sort  = kolonnenavn (f.eks. 'median_m2pris', 'median_totalpris', 'median_dager', 'antall', 'fylke', 'sted', 'gate_sted')
+      - order = 'asc' | 'desc'
+      - top_n = antall rader for sted/gate (default 20)
+      - min_n = minimum antall observasjoner per gruppe for sted/gate (default 5)
     """
     df_raw = get_cached_bolig_df()
     if df_raw is None or df_raw.empty:
@@ -179,6 +184,9 @@ def bolig_priser_sted():
             lead_text="",
             show_top_n=False,
             top_n=None,
+            sort=None,
+            order=None,
+            min_n=None,
         )
 
     try:
@@ -195,19 +203,32 @@ def bolig_priser_sted():
             lead_text="",
             show_top_n=False,
             top_n=None,
+            sort=None,
+            order=None,
+            min_n=None,
         )
 
-    # Hvilket nivå skal vi vise?
+    # ---- Les parametre ----
     mode = request.args.get("nivaa", "fylke")
     if mode not in {"fylke", "sted", "gate"}:
         mode = "fylke"
 
-    # Antall rader for sted/gate (topp N)
     try:
         top_n = int(request.args.get("top_n", "20"))
     except ValueError:
         top_n = 20
     top_n = max(1, min(top_n, 200))
+
+    try:
+        min_n = int(request.args.get("min_n", "5"))
+    except ValueError:
+        min_n = 5
+    min_n = max(1, min(min_n, 500))
+
+    sort_col = request.args.get("sort", None)
+    order = request.args.get("order", None)
+    if order not in {"asc", "desc"}:
+        order = None  # vi setter default lenger nede
 
     # ---------- Aggregasjon ----------
     if mode == "fylke":
@@ -223,6 +244,9 @@ def bolig_priser_sted():
                 lead_text="",
                 show_top_n=False,
                 top_n=None,
+                sort=sort_col,
+                order=order,
+                min_n=min_n,
             )
 
         agg = df.groupby("fylke").agg(
@@ -233,7 +257,6 @@ def bolig_priser_sted():
             median_dager=("dager_paa_markedet", "median"),
         )
         agg = agg.reset_index()
-        agg = agg.sort_values("fylke")
 
         title = "Bolig – priser per fylke"
         lead_text = (
@@ -251,6 +274,11 @@ def bolig_priser_sted():
         ]
         show_top_n = False
 
+        # default sort: alfabetisk fylke hvis ikke angitt
+        if sort_col is None:
+            sort_col = "fylke"
+            order = "asc"  # alfabetisk
+
     elif mode == "sted":
         df_sted = df[df["sted"] != ""].copy()
         agg = df_sted.groupby("sted").agg(
@@ -261,14 +289,13 @@ def bolig_priser_sted():
         )
         agg = agg.reset_index()
 
-        # Sorter på høyest median m²-pris og ta topp N
-        agg = agg.sort_values("median_m2pris", ascending=False).head(top_n)
+        # filtrer på minimum antall observasjoner
+        agg = agg[agg["antall"] >= min_n]
 
         title = "Bolig – priser per sted"
         lead_text = (
-            f"Topp {top_n} steder basert på median m²-pris. "
-            "Viser median kvadratmeterpris, median totalpris og median antall dager "
-            "annonsene har ligget ute i den siste datasamlingen."
+            f"Topp {top_n} steder basert på valgt sortering. "
+            f"Kun steder med minst {min_n} boliger er tatt med."
         )
         columns = [
             ("sted", "Sted"),
@@ -278,6 +305,12 @@ def bolig_priser_sted():
             ("median_dager", "Median dager på markedet"),
         ]
         show_top_n = True
+
+        # default sort: høyest median m2-pris
+        if sort_col is None:
+            sort_col = "median_m2pris"
+        if order is None:
+            order = "desc"
 
     else:  # mode == "gate"
         df_gate = df[df["gate_sted"] != ""].copy()
@@ -289,14 +322,13 @@ def bolig_priser_sted():
         )
         agg = agg.reset_index()
 
-        # Sorter på høyest median m²-pris og ta topp N
-        agg = agg.sort_values("median_m2pris", ascending=False).head(top_n)
+        # filtrer på minimum antall observasjoner
+        agg = agg[agg["antall"] >= min_n]
 
         title = "Bolig – priser per gate"
         lead_text = (
-            f"Topp {top_n} gate+sted-kombinasjoner (gatenavn uten husnummer, pluss sted) "
-            "basert på median m²-pris. Viser median kvadratmeterpris, median totalpris "
-            "og median antall dager annonsene har ligget ute."
+            f"Topp {top_n} gate+sted-kombinasjoner (gatenavn uten husnummer, pluss sted). "
+            f"Kun gater med minst {min_n} boliger er tatt med."
         )
         columns = [
             ("gate_sted", "Gate, sted"),
@@ -306,6 +338,21 @@ def bolig_priser_sted():
             ("median_dager", "Median dager på markedet"),
         ]
         show_top_n = True
+
+        # default sort: høyest median m2-pris
+        if sort_col is None:
+            sort_col = "median_m2pris"
+        if order is None:
+            order = "desc"
+
+    # Hvis sort_col peker på en kolonne som ikke finnes, ignorer
+    ascending = (order == "asc")
+    if sort_col in agg.columns:
+        agg = agg.sort_values(sort_col, ascending=ascending)
+
+    # Topp N for sted/gate (hele datasetet «velges ut» etter valgt sortering)
+    if show_top_n:
+        agg = agg.head(top_n)
 
     # Rounding / integer-visning
     for col in ["median_m2pris", "gjennomsnitt_m2pris", "median_totalpris", "median_dager"]:
@@ -324,7 +371,10 @@ def bolig_priser_sted():
         title=title,
         lead_text=lead_text,
         show_top_n=show_top_n,
-        top_n=top_n if show_top_n else None,
+        top_n=top_n,
+        sort=sort_col,
+        order=order,
+        min_n=min_n,
     )
 
 
