@@ -169,81 +169,328 @@ def bolig_hub():
 # 2) Priser per sted – REN FLASK-VERSJON
 # --------------------------------------------------
 
+
 @bolig_bp.route("/priser-sted/")
 def bolig_priser_sted():
     """
-    Forbedret visning:
-    - filter: alle / nybygg / brukt
-    - sortering på kolonner
-    - formatert tallvisning
-    - riktig FINN-link logikk
+    Flask-side for 'Priser per sted'.
+
+    Hovednivå (query-param 'nivaa'):
+      - 'fylke'  (default): én rad per fylke
+      - 'sted'   : topp N steder
+      - 'gate'   : topp N gate+sted
+
+    Hovedparametre:
+      - nivaa = 'fylke' | 'sted' | 'gate'
+      - sort  = kolonnenavn (f.eks. 'median_m2pris', 'median_totalpris', 'median_dager', 'antall')
+      - order = 'asc' | 'desc'
+      - top_n = antall rader for sted/gate (default 20)
+      - min_n = minimum antall observasjoner per gruppe for sted/gate (default 5)
+
+    Detaljvisning (alle boliger i valgt gruppe):
+      - detalj_nivaa = 'fylke' | 'sted' | 'gate'
+      - detalj_key   = verdien (fylkenavn, sted, gate_sted)
+      - nybrukt      = 'alle' | 'nybygg' | 'brukt'
+      - dsort        = kolonne i detaljtabell (f.eks. 'm2pris', 'totalpris', 'dager')
+      - dorder       = 'asc' | 'desc'
     """
-
-    df = get_cached_bolig_df()
-
-    if df is None or df.empty:
+    df_raw = get_cached_bolig_df()
+    if df_raw is None or df_raw.empty:
         return render_template(
             "bolig_priser_sted.html",
             error="Fant ingen boligdata å analysere.",
             has_data=False,
             rows=[],
             columns=[],
-            nybrukt_filter="alle"
+            mode="fylke",
+            title="Bolig – priser per sted",
+            lead_text="",
+            show_top_n=False,
+            top_n=None,
+            sort=None,
+            order=None,
+            min_n=None,
+            detalj_nivaa=None,
+            detalj_key=None,
+            detalj_title=None,
+            detalj_rows=[],
+            nybrukt_filter="alle",
+            dsort=None,
+            dorder=None,
         )
 
-    # Hent filter fra URL (f.eks. ?nybrukt_filter=nybygg)
-    nybrukt_filter = request.args.get("nybrukt_filter", "alle")
-
-    # -----------------------
-    # Normalisering av variabel
-    # -----------------------
-    if "NY/Brukt" not in df.columns:
-        df["NY/Brukt"] = "Ukjent"
-
-    if nybrukt_filter == "nybygg":
-        df = df[df["NY/Brukt"] == "Nybygg"]
-    elif nybrukt_filter == "brukt":
-        df = df[df["NY/Brukt"] == "Brukt"]
-
-    if len(df) == 0:
+    try:
+        df = _prepare_priser_df(df_raw)
+    except Exception as e:
         return render_template(
             "bolig_priser_sted.html",
-            error=f"Ingen boliger matcher filteret '{nybrukt_filter}'.",
+            error=f"Feil ved klargjøring av boligdata: {e}",
             has_data=False,
             rows=[],
             columns=[],
-            nybrukt_filter=nybrukt_filter
+            mode="fylke",
+            title="Bolig – priser per sted",
+            lead_text="",
+            show_top_n=False,
+            top_n=None,
+            sort=None,
+            order=None,
+            min_n=None,
+            detalj_nivaa=None,
+            detalj_key=None,
+            detalj_title=None,
+            detalj_rows=[],
+            nybrukt_filter="alle",
+            dsort=None,
+            dorder=None,
         )
 
-    # Sørg for talltyper
-    for col in ["M2-pris", "totalpris"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+    # ---- Hovedparametre ----
+    mode = request.args.get("nivaa", "fylke")
+    if mode not in {"fylke", "sted", "gate"}:
+        mode = "fylke"
 
-    # Gruppér per fylke
-    agg = df.groupby("fylke").agg(
-        antall=("fylke", "size"),
-        median_m2pris=("M2-pris", "median"),
-        median_totalpris=("totalpris", "median"),
-    ).reset_index()
+    try:
+        top_n = int(request.args.get("top_n", "20"))
+    except ValueError:
+        top_n = 20
+    top_n = max(1, min(top_n, 200))
 
-    # Formatering
-    for col in ["median_m2pris", "median_totalpris"]:
+    try:
+        min_n = int(request.args.get("min_n", "5"))
+    except ValueError:
+        min_n = 5
+    min_n = max(1, min(min_n, 500))
+
+    sort_col = request.args.get("sort", None)
+    order = request.args.get("order", None)
+    if order not in {"asc", "desc"}:
+        order = None
+
+    # ---- Aggregasjon til hovedtabell ----
+    if mode == "fylke":
+        if "fylke" not in df.columns:
+            return render_template(
+                "bolig_priser_sted.html",
+                error="Datasettet mangler kolonnen 'fylke'.",
+                has_data=False,
+                rows=[],
+                columns=[],
+                mode=mode,
+                title="Bolig – priser per fylke",
+                lead_text="",
+                show_top_n=False,
+                top_n=None,
+                sort=sort_col,
+                order=order,
+                min_n=min_n,
+                detalj_nivaa=None,
+                detalj_key=None,
+                detalj_title=None,
+                detalj_rows=[],
+                nybrukt_filter="alle",
+                dsort=None,
+                dorder=None,
+            )
+
+        agg = df.groupby("fylke").agg(
+            antall=("M2-pris", "size"),
+            median_m2pris=("M2-pris", "median"),
+            gjennomsnitt_m2pris=("M2-pris", "mean"),
+            median_totalpris=("totalpris", "median"),
+            median_dager=("dager_paa_markedet", "median"),
+        )
+        agg = agg.reset_index()
+
+        title = "Bolig – priser per fylke"
+        lead_text = (
+            "Aggregert oversikt over boligmarkedet per fylke – antall boliger, "
+            "m²-priser, median totalpris og median antall dager annonsene har ligget ute "
+            "i den siste datasamlingen."
+        )
+        columns = [
+            ("fylke", "Fylke"),
+            ("antall", "Antall boliger"),
+            ("median_m2pris", "Median m²-pris"),
+            ("gjennomsnitt_m2pris", "Snitt m²-pris"),
+            ("median_totalpris", "Median totalpris"),
+            ("median_dager", "Median dager på markedet"),
+        ]
+        show_top_n = False
+
+        if sort_col is None:
+            sort_col = "fylke"
+            order = "asc"
+
+    elif mode == "sted":
+        df_sted = df[df["sted"] != ""].copy()
+        agg = df_sted.groupby("sted").agg(
+            antall=("M2-pris", "size"),
+            median_m2pris=("M2-pris", "median"),
+            median_totalpris=("totalpris", "median"),
+            median_dager=("dager_paa_markedet", "median"),
+        )
+        agg = agg.reset_index()
+        agg = agg[agg["antall"] >= min_n]
+
+        title = "Bolig – priser per sted"
+        lead_text = (
+            f"Topp {top_n} steder basert på valgt sortering. "
+            f"Kun steder med minst {min_n} boliger er tatt med."
+        )
+        columns = [
+            ("sted", "Sted"),
+            ("antall", "Antall boliger"),
+            ("median_m2pris", "Median m²-pris"),
+            ("median_totalpris", "Median totalpris"),
+            ("median_dager", "Median dager på markedet"),
+        ]
+        show_top_n = True
+
+        if sort_col is None:
+            sort_col = "median_m2pris"
+        if order is None:
+            order = "desc"
+
+    else:  # mode == "gate"
+        df_gate = df[df["gate_sted"] != ""].copy()
+        agg = df_gate.groupby("gate_sted").agg(
+            antall=("M2-pris", "size"),
+            median_m2pris=("M2-pris", "median"),
+            median_totalpris=("totalpris", "median"),
+            median_dager=("dager_paa_markedet", "median"),
+        )
+        agg = agg.reset_index()
+        agg = agg[agg["antall"] >= min_n]
+
+        title = "Bolig – priser per gate"
+        lead_text = (
+            f"Topp {top_n} gate+sted-kombinasjoner (gatenavn uten husnummer, pluss sted). "
+            f"Kun gater med minst {min_n} boliger er tatt med."
+        )
+        columns = [
+            ("gate_sted", "Gate, sted"),
+            ("antall", "Antall boliger"),
+            ("median_m2pris", "Median m²-pris"),
+            ("median_totalpris", "Median totalpris"),
+            ("median_dager", "Median dager på markedet"),
+        ]
+        show_top_n = True
+
+        if sort_col is None:
+            sort_col = "median_m2pris"
+        if order is None:
+            order = "desc"
+
+    # ---- Sortering i hovedtabell ----
+    ascending = (order == "asc")
+    if sort_col in agg.columns:
+        agg = agg.sort_values(sort_col, ascending=ascending)
+
+    if show_top_n:
+        agg = agg.head(top_n)
+
+    # ---- Formater tall med tusenskille (mellomrom) ----
+    def fmt_int(v):
+        if pd.isna(v):
+            return ""
+        try:
+            return f"{int(round(v)):,}".replace(",", " ")
+        except Exception:
+            return str(v)
+
+    for col in ["antall", "median_m2pris", "gjennomsnitt_m2pris", "median_totalpris", "median_dager"]:
         if col in agg.columns:
-            agg[col] = agg[col].astype(float).round(0).astype("Int64")
-
-    # Sørg for visuell tusenskillevisning
-    for col in ["median_m2pris", "median_totalpris"]:
-        agg[col] = agg[col].apply(lambda x: f"{x:,.0f}".replace(",", " ") if pd.notna(x) else x)
-
-    columns = [
-        ("fylke", "Fylke"),
-        ("antall", "Antall boliger"),
-        ("median_m2pris", "Median m²-pris"),
-        ("median_totalpris", "Median totalpris"),
-    ]
+            agg[col] = agg[col].apply(fmt_int)
 
     rows = agg.to_dict(orient="records")
+
+    # --------------------------------------------------
+    # DETALJVISNING
+    # --------------------------------------------------
+    detalj_nivaa = request.args.get("detalj_nivaa")
+    detalj_key = request.args.get("detalj_key")
+
+    nybrukt_filter = request.args.get("nybrukt", "alle").lower()
+    if nybrukt_filter not in {"alle", "nybygg", "brukt"}:
+        nybrukt_filter = "alle"
+
+    dsort = request.args.get("dsort", "m2pris")
+    dorder = request.args.get("dorder", "desc")
+    if dorder not in {"asc", "desc"}:
+        dorder = "desc"
+
+    detalj_rows = []
+    detalj_title = None
+
+    if detalj_nivaa in {"fylke", "sted", "gate"} and detalj_key:
+        if detalj_nivaa == "fylke":
+            df_det = df[df["fylke"] == detalj_key].copy()
+            detalj_title = f"Detaljert liste – fylke: {detalj_key}"
+        elif detalj_nivaa == "sted":
+            df_det = df[df["sted"] == detalj_key].copy()
+            detalj_title = f"Detaljert liste – sted: {detalj_key}"
+        else:  # gate
+            df_det = df[df["gate_sted"] == detalj_key].copy()
+            detalj_title = f"Detaljert liste – gate+sted: {detalj_key}"
+
+        # Filtrer på nybygg / brukt
+        if nybrukt_filter == "nybygg":
+            df_det = df_det[df_det["NY/Brukt"] == "Nybygg"]
+        elif nybrukt_filter == "brukt":
+            df_det = df_det[df_det["NY/Brukt"] == "Brukt"]
+
+        if not df_det.empty:
+            df_det = df_det.copy()
+            for col in ["M2-pris", "totalpris", "dager_paa_markedet"]:
+                if col in df_det.columns:
+                    df_det[col] = pd.to_numeric(df_det[col], errors="coerce")
+
+            def make_finn_info(val):
+                if pd.isna(val):
+                    return (None, None)
+                try:
+                    fk_str = str(int(float(val)))
+                except Exception:
+                    fk_str = str(val)
+                url = f"https://www.finn.no/realestate/homes/ad.html?finnkode={fk_str}"
+                return (fk_str, url)
+
+            for _, r in df_det.iterrows():
+                fk_str, fk_url = make_finn_info(r.get("finnkode"))
+                detalj_rows.append(
+                    {
+                        "adresse": r.get("address") or "",
+                        "fylke": r.get("fylke") or "",
+                        "sted": r.get("sted") or "",
+                        "gate_sted": r.get("gate_sted") or "",
+                        "boligtype": r.get("boligtype") or "",
+                        "nybrukt": r.get("NY/Brukt") or "",
+                        "m2pris": int(round(r["M2-pris"])) if pd.notna(r.get("M2-pris")) else None,
+                        "totalpris": int(round(r["totalpris"])) if pd.notna(r.get("totalpris")) else None,
+                        "dager": int(r["dager_paa_markedet"]) if pd.notna(r.get("dager_paa_markedet")) else None,
+                        "finnkode": fk_str,
+                        "finn_url": fk_url,
+                    }
+                )
+
+            # Sortering i detaljtabell
+            reverse = (dorder == "desc")
+
+            if dsort in {"m2pris", "totalpris", "dager"}:
+                def key_num(row):
+                    v = row.get(dsort)
+                    return v if v is not None else -1
+                detalj_rows.sort(key=key_num, reverse=reverse)
+            elif dsort in {"adresse", "fylke", "sted", "gate_sted", "boligtype", "nybrukt"}:
+                detalj_rows.sort(key=lambda r: (r.get(dsort) or ""), reverse=reverse)
+
+            # Formater priser med mellomrom
+            for r in detalj_rows:
+                if r["m2pris"] is not None:
+                    r["m2pris"] = f"{r['m2pris']:,}".replace(",", " ")
+                if r["totalpris"] is not None:
+                    r["totalpris"] = f"{r['totalpris']:,}".replace(",", " ")
 
     return render_template(
         "bolig_priser_sted.html",
@@ -251,7 +498,21 @@ def bolig_priser_sted():
         has_data=True,
         rows=rows,
         columns=columns,
-        nybrukt_filter=nybrukt_filter
+        mode=mode,
+        title=title,
+        lead_text=lead_text,
+        show_top_n=show_top_n,
+        top_n=top_n,
+        sort=sort_col,
+        order=order,
+        min_n=min_n,
+        detalj_nivaa=detalj_nivaa,
+        detalj_key=detalj_key,
+        detalj_title=detalj_title,
+        detalj_rows=detalj_rows,
+        nybrukt_filter=nybrukt_filter,
+        dsort=dsort,
+        dorder=dorder,
     )
 
 
