@@ -203,6 +203,19 @@
 <div class="page-wrapper">
   <div class="glass-card">
     <h1>{{ title }}</h1>
+    <form method="get" action="/bolig/priser-sted/" style="margin-top: 12px;">
+    <label>Vis type:</label>
+    <select name="nybrukt_filter" onchange="this.form.submit()">
+        <option value="alle" {% if nybrukt_filter=='alle' %}selected{% endif %}>Alle boliger</option>
+        <option value="nybygg" {% if nybrukt_filter=='nybygg' %}selected{% endif %}>Kun nybygg</option>
+        <option value="brukt" {% if nybrukt_filter=='brukt' %}selected{% endif %}>Kun brukt</option>
+    </select>
+</form>
+
+<p style="margin-top:4px;color:#96a8c3;font-size:0.9rem;">
+    Filter er satt til: <strong>{{ nybrukt_filter }}</strong>
+</p>
+
     <p class="lead-text">
       {{ lead_text }}
     </p>
