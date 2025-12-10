@@ -42,7 +42,7 @@
     display: inline-flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin: 6px 0 10px;
+    margin: 6px 0 12px;
   }
 
   .mode-tab {
@@ -71,7 +71,47 @@
   .topn-hint {
     font-size: 0.86rem;
     color: #b9c5dd;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
+  }
+
+  .filter-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 0.86rem;
+    color: #cfd9ea;
+  }
+
+  .filter-line label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .filter-line input[type="number"] {
+    width: 70px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(3, 10, 20, 0.8);
+    color: #f5f7fb;
+    padding: 2px 8px;
+    font-size: 0.84rem;
+  }
+
+  .filter-line button {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(90, 150, 255, 0.95);
+    color: #ffffff;
+    padding: 4px 12px;
+    font-size: 0.84rem;
+    cursor: pointer;
+  }
+
+  .filter-line button:hover {
+    background: rgba(110, 170, 255, 1);
   }
 
   .alert-box {
@@ -107,6 +147,23 @@
     white-space: nowrap;
   }
 
+  .th-link {
+    color: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .th-link:hover {
+    text-decoration: underline;
+  }
+
+  .sort-indicator {
+    font-size: 0.8rem;
+    opacity: 0.8;
+  }
+
   .table-priser tbody td {
     padding: 8px 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
@@ -134,6 +191,11 @@
     .glass-card h1 {
       font-size: 1.7rem;
     }
+
+    .filter-line {
+      flex-direction: column;
+      align-items: flex-start;
+    }
   }
 </style>
 
@@ -149,20 +211,44 @@
          class="mode-tab{% if mode == 'fylke' %} active{% endif %}">
         Per fylke
       </a>
-      <a href="{{ url_for('bolig.bolig_priser_sted', nivaa='sted') }}"
+      <a href="{{ url_for('bolig.bolig_priser_sted', nivaa='sted', min_n=min_n, top_n=top_n, sort=sort, order=order) }}"
          class="mode-tab{% if mode == 'sted' %} active{% endif %}">
         Topp steder
       </a>
-      <a href="{{ url_for('bolig.bolig_priser_sted', nivaa='gate') }}"
+      <a href="{{ url_for('bolig.bolig_priser_sted', nivaa='gate', min_n=min_n, top_n=top_n, sort=sort, order=order) }}"
          class="mode-tab{% if mode == 'gate' %} active{% endif %}">
         Topp gate+sted
       </a>
     </div>
 
     {% if show_top_n and top_n %}
+      <div class="filter-line">
+        <form method="get">
+          <input type="hidden" name="nivaa" value="{{ mode }}">
+          {% if sort %}
+            <input type="hidden" name="sort" value="{{ sort }}">
+          {% endif %}
+          {% if order %}
+            <input type="hidden" name="order" value="{{ order }}">
+          {% endif %}
+
+          <label>
+            Min. antall per gruppe:
+            <input type="number" name="min_n" value="{{ min_n or 5 }}" min="1" max="500">
+          </label>
+
+          <label>
+            Topp N:
+            <input type="number" name="top_n" value="{{ top_n }}" min="1" max="200">
+          </label>
+
+          <button type="submit">Oppdater</button>
+        </form>
+      </div>
+
       <div class="topn-hint">
-        Viser topp {{ top_n }} rader basert på høyest median m²-pris.
-        (Du kan endre antall ved å legge til <code>?nivaa={{ mode }}&top_n=50</code> i URL-en.)
+        Viser topp {{ top_n }} rader etter valgt sortering.
+        Kun grupper med minst {{ min_n }} boliger er inkludert.
       </div>
     {% endif %}
 
@@ -176,7 +262,28 @@
           <thead>
             <tr>
               {% for col_key, col_label in columns %}
-                <th>{{ col_label }}</th>
+                {% set is_current = (sort == col_key) %}
+                {% if is_current and order == 'asc' %}
+                  {% set target_order = 'desc' %}
+                {% else %}
+                  {% set target_order = 'asc' %}
+                {% endif %}
+                <th>
+                  <a class="th-link"
+                     href="{{ url_for('bolig.bolig_priser_sted',
+                                      nivaa=mode,
+                                      sort=col_key,
+                                      order=target_order,
+                                      top_n=top_n,
+                                      min_n=min_n) }}">
+                    <span>{{ col_label }}</span>
+                    {% if is_current %}
+                      <span class="sort-indicator">
+                        {% if order == 'asc' %}▲{% else %}▼{% endif %}
+                      </span>
+                    {% endif %}
+                  </a>
+                </th>
               {% endfor %}
             </tr>
           </thead>
