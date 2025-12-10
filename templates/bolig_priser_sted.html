@@ -90,8 +90,9 @@
     gap: 4px;
   }
 
-  .filter-line input[type="number"] {
-    width: 70px;
+  .filter-line input[type="number"],
+  .filter-line select {
+    width: 90px;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     background: rgba(3, 10, 20, 0.8);
@@ -164,21 +165,21 @@
     opacity: 0.8;
   }
 
-  .table-priser  td {
+  .table-priser tbody td {
     padding: 8px 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     color: #dde6f3;
   }
 
-  .table-priser  tr:nth-child(even) {
+  .table-priser tbody tr:nth-child(even) {
     background: rgba(255, 255, 255, 0.02);
   }
 
-  .table-priser  tr:hover {
+  .table-priser tbody tr:hover {
     background: rgba(80, 160, 255, 0.18);
   }
 
-  .table-priser  tr:last-child td {
+  .table-priser tbody tr:last-child td {
     border-bottom: none;
   }
 
@@ -300,7 +301,10 @@
                                          top_n=top_n,
                                          min_n=min_n,
                                          detalj_nivaa='sted',
-                                         detalj_key=row['sted']) }}">
+                                         detalj_key=row['sted'],
+                                         nybrukt=nybrukt_filter,
+                                         dsort=dsort,
+                                         dorder=dorder) }}">
                         {{ row[col_key] }}
                       </a>
                     </td>
@@ -313,7 +317,10 @@
                                          top_n=top_n,
                                          min_n=min_n,
                                          detalj_nivaa='gate',
-                                         detalj_key=row['gate_sted']) }}">
+                                         detalj_key=row['gate_sted'],
+                                         nybrukt=nybrukt_filter,
+                                         dsort=dsort,
+                                         dorder=dorder) }}">
                         {{ row[col_key] }}
                       </a>
                     </td>
@@ -326,7 +333,10 @@
                                          top_n=top_n,
                                          min_n=min_n,
                                          detalj_nivaa='fylke',
-                                         detalj_key=row['fylke']) }}">
+                                         detalj_key=row['fylke'],
+                                         nybrukt=nybrukt_filter,
+                                         dsort=dsort,
+                                         dorder=dorder) }}">
                         {{ row[col_key] }}
                       </a>
                     </td>
@@ -338,7 +348,7 @@
             {% endfor %}
           </tbody>
         </table>
-              </div>  {# slutt på table-wrapper for hovedtabell #}
+      </div>
 
       {% if detalj_rows and detalj_title %}
         <hr style="margin: 22px 0; border-color: rgba(255,255,255,0.08);">
@@ -346,6 +356,44 @@
         <h3 style="font-size: 1.25rem; margin-bottom: 6px;">
           {{ detalj_title }}
         </h3>
+
+        <div class="filter-line">
+          <form method="get">
+            <input type="hidden" name="nivaa" value="{{ mode }}">
+            <input type="hidden" name="detalj_nivaa" value="{{ detalj_nivaa }}">
+            <input type="hidden" name="detalj_key" value="{{ detalj_key }}">
+            {% if sort %}
+              <input type="hidden" name="sort" value="{{ sort }}">
+            {% endif %}
+            {% if order %}
+              <input type="hidden" name="order" value="{{ order }}">
+            {% endif %}
+            {% if top_n %}
+              <input type="hidden" name="top_n" value="{{ top_n }}">
+            {% endif %}
+            {% if min_n %}
+              <input type="hidden" name="min_n" value="{{ min_n }}">
+            {% endif %}
+            {% if dsort %}
+              <input type="hidden" name="dsort" value="{{ dsort }}">
+            {% endif %}
+            {% if dorder %}
+              <input type="hidden" name="dorder" value="{{ dorder }}">
+            {% endif %}
+
+            <label>
+              Nybygg / brukt:
+              <select name="nybrukt">
+                <option value="alle"   {% if nybrukt_filter == 'alle' %}selected{% endif %}>Alle</option>
+                <option value="nybygg" {% if nybrukt_filter == 'nybygg' %}selected{% endif %}>Kun nybygg</option>
+                <option value="brukt"  {% if nybrukt_filter == 'brukt' %}selected{% endif %}>Kun brukt</option>
+              </select>
+            </label>
+
+            <button type="submit">Filtrer</button>
+          </form>
+        </div>
+
         <p class="topn-hint">
           Viser alle boliger som inngår i denne gruppen. FINN-kode er klikkbar.
         </p>
@@ -354,15 +402,47 @@
           <table class="table-priser">
             <thead>
               <tr>
-                <th>Adresse</th>
-                <th>Fylke</th>
-                <th>Sted</th>
-                <th>Gate, sted</th>
-                <th>Boligtype</th>
-                <th>M²-pris</th>
-                <th>Totalpris</th>
-                <th>Dager på markedet</th>
-                <th>FINN-kode</th>
+                {% set cols_detail = [
+                  ('adresse', 'Adresse'),
+                  ('fylke', 'Fylke'),
+                  ('sted', 'Sted'),
+                  ('gate_sted', 'Gate, sted'),
+                  ('boligtype', 'Boligtype'),
+                  ('nybrukt', 'Ny / brukt'),
+                  ('m2pris', 'M²-pris'),
+                  ('totalpris', 'Totalpris'),
+                  ('dager', 'Dager på markedet'),
+                  ('finnkode', 'FINN-kode')
+                ] %}
+                {% for col_key, col_label in cols_detail %}
+                  {% set is_current_d = (dsort == col_key) %}
+                  {% if is_current_d and dorder == 'asc' %}
+                    {% set target_dorder = 'desc' %}
+                  {% else %}
+                    {% set target_dorder = 'asc' %}
+                  {% endif %}
+                  <th>
+                    <a class="th-link"
+                       href="{{ url_for('bolig.bolig_priser_sted',
+                                        nivaa=mode,
+                                        sort=sort,
+                                        order=order,
+                                        top_n=top_n,
+                                        min_n=min_n,
+                                        detalj_nivaa=detalj_nivaa,
+                                        detalj_key=detalj_key,
+                                        nybrukt=nybrukt_filter,
+                                        dsort=col_key,
+                                        dorder=target_dorder) }}">
+                      <span>{{ col_label }}</span>
+                      {% if is_current_d %}
+                        <span class="sort-indicator">
+                          {% if dorder == 'asc' %}▲{% else %}▼{% endif %}
+                        </span>
+                      {% endif %}
+                    </a>
+                  </th>
+                {% endfor %}
               </tr>
             </thead>
             <tbody>
@@ -373,8 +453,9 @@
                   <td>{{ r.sted }}</td>
                   <td>{{ r.gate_sted }}</td>
                   <td>{{ r.boligtype }}</td>
-                  <td>{% if r.m2pris is not none %}{{ r.m2pris }}{% endif %}</td>
-                  <td>{% if r.totalpris is not none %}{{ r.totalpris }}{% endif %}</td>
+                  <td>{{ r.nybrukt }}</td>
+                  <td>{{ r.m2pris }}</td>
+                  <td>{{ r.totalpris }}</td>
                   <td>{% if r.dager is not none %}{{ r.dager }}{% endif %}</td>
                   <td>
                     {% if r.finn_url and r.finnkode %}
@@ -389,8 +470,6 @@
           </table>
         </div>
       {% endif %}
-
-      </div>
     {% else %}
       <p>Ingen data tilgjengelig.</p>
     {% endif %}
