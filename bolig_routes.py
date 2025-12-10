@@ -215,7 +215,6 @@ def bolig_priser_sted():
             detalj_key=None,
             detalj_title=None,
             detalj_rows=[],
-            nybrukt_filter="alle",
             dsort=None,
             dorder=None,
         )
@@ -241,7 +240,7 @@ def bolig_priser_sted():
             detalj_key=None,
             detalj_title=None,
             detalj_rows=[],
-            nybrukt_filter="alle",
+            nybrukt_filter=nybrukt_filter,
             dsort=None,
             dorder=None,
         )
@@ -300,7 +299,7 @@ def bolig_priser_sted():
                 detalj_key=None,
                 detalj_title=None,
                 detalj_rows=[],
-                nybrukt_filter="alle",
+                nybrukt_filter=nybrukt_filter,
                 dsort=None,
                 dorder=None,
             )
