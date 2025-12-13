@@ -13,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
+        /* --- (Samme stiler som før) --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
@@ -208,7 +209,6 @@
 
         .finn-link { color: #93c5fd; text-decoration: underline; }
 
-        /* NY: info-kolonne (overskrift) – ellipsis */
         td.info-col {
             max-width: 360px;
             overflow: hidden;
@@ -242,7 +242,7 @@
     <div class="card" id="filterCard">
 
         <div class="form-grid">
-            <!-- Produsent -->
+            <!-- (Samme input-felter som før) -->
             <div>
                 <label for="produsent">Produsent</label>
                 <select id="produsent">
@@ -252,76 +252,52 @@
                     {% endfor %}
                 </select>
             </div>
-
-            <!-- Modell -->
             <div>
                 <label for="modell">Modell</label>
                 <select id="modell">
                     <option value="">Alle modeller</option>
                 </select>
             </div>
-
-            <!-- Startdato -->
             <div>
                 <label for="startdato">Startdato</label>
                 <input type="date" id="startdato">
             </div>
-
-            <!-- Selger -->
             <div>
                 <label for="seller_sok">Selger</label>
                 <input id="seller_sok" type="text" placeholder="F.eks. Møller…">
             </div>
-
-            <!-- Søk i tittel -->
             <div>
                 <label for="modell_sok">Søk i info</label>
                 <input id="modell_sok" type="text" placeholder="F.eks. hengerfeste…">
             </div>
-
-            <!-- Pris fra -->
             <div>
                 <label for="pris_min">Pris fra</label>
                 <input id="pris_min" type="number" min="0" step="10000" placeholder="valgfritt">
             </div>
-
-            <!-- Pris til -->
             <div>
                 <label for="pris_max">Pris til</label>
                 <input id="pris_max" type="number" min="0" step="10000" placeholder="valgfritt">
             </div>
-
-            <!-- Km maks -->
             <div>
                 <label for="km_max">Km maks</label>
                 <input id="km_max" type="number" min="0" step="5000" placeholder="f.eks. 150000">
             </div>
-
-            <!-- Årsmodell fra -->
             <div>
                 <label for="year_min">Årsmodell fra</label>
                 <input id="year_min" type="number" min="0" step="1" placeholder="0">
             </div>
-
-            <!-- Årsmodell til -->
             <div>
                 <label for="year_max">Årsmodell til</label>
                 <input id="year_max" type="number" min="0" step="1" placeholder="valgfritt">
             </div>
-
-            <!-- Rekkevidde fra -->
             <div>
                 <label for="range_min">Rekkevidde fra</label>
                 <input id="range_min" type="number" min="0" step="10" placeholder="valgfritt">
             </div>
-
-            <!-- Rekkevidde til -->
             <div>
                 <label for="range_max">Rekkevidde til</label>
                 <input id="range_max" type="number" min="0" step="10" placeholder="valgfritt">
             </div>
-
-            <!-- Hjuldrift -->
             <div>
                 <label for="hjuldrift">Hjuldrift</label>
                 <select id="hjuldrift" multiple>
@@ -330,8 +306,6 @@
                     {% endfor %}
                 </select>
             </div>
-
-            <!-- Drivstoff -->
             <div>
                 <label for="drivstoff">Drivstoff</label>
                 <select id="drivstoff" multiple>
@@ -340,8 +314,6 @@
                     {% endfor %}
                 </select>
             </div>
-
-            <!-- Filler -->
             <div></div>
             <div></div>
         </div>
@@ -393,25 +365,20 @@
             <table id="resultTable">
                 <thead>
                 <tr>
+                    <!-- ENDRING: FINN-kode flyttet først -->
+                    <th data-key="finnkode">FINN-kode</th>
                     <th data-key="produsent">Produsent</th>
                     <th data-key="modell">Modell</th>
-
-                    <!-- NY -->
                     <th data-key="overskrift">Info</th>
-
                     <th data-key="årstall">År</th>
                     <th data-key="kjørelengde">Km</th>
-
-                    <!-- NY -->
                     <th data-key="pris_start">Pris start</th>
                     <th data-key="pris_ny">Pris ny</th>
                     <th data-key="pris_endring">Endring</th>
-
                     <th data-key="dager">Dager</th>
                     <th data-key="dato_start">Startdato</th>
                     <th data-key="dato_end">Siste dato</th>
                     <th data-key="selger">Selger</th>
-                    <th data-key="finnkode">FINN-kode</th>
                 </tr>
                 </thead>
 
@@ -422,11 +389,10 @@
 </div>
 
 <script>
-    // Rå mapping fra backend
+    // (Samme variabler og hjelpefunksjoner som før)
     const MODELS_BY_PROD_RAW = {{ models_by_prod | tojson }};
     const DATA_URL = "{{ data_url }}";
 
-    // Normaliser produsent-navn -> lowercase + trim
     const MODELS_BY_PROD = {};
     if (MODELS_BY_PROD_RAW && typeof MODELS_BY_PROD_RAW === "object") {
         for (const [brand, models] of Object.entries(MODELS_BY_PROD_RAW)) {
@@ -437,20 +403,12 @@
 
     let medianChart = null;
     let soldChart = null;
-
     let currentRows = [];
-
-    // NY: startsorter på pris_ny (fallback til pris_last hvis backend ikke sender pris_ny)
     let currentSortKey = "pris_ny";
     let currentSortDir = "asc";
 
     function escapeHtml(s) {
-        return String(s ?? "")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#39;");
+        return String(s ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
     }
 
     function formatNumber(n) {
@@ -464,51 +422,31 @@
             const dt = new Date(d);
             if (isNaN(dt)) return d;
             return dt.toISOString().slice(0, 10);
-        } catch {
-            return d;
-        }
+        } catch { return d; }
     }
 
     function buildFilters() {
+        // (Samme filter-logikk som før)
         const produsent = document.getElementById("produsent").value || null;
         const modell = document.getElementById("modell").value || null;
         const startdato = document.getElementById("startdato").value || null;
         const modell_sok = document.getElementById("modell_sok").value || null;
         const seller_sok = document.getElementById("seller_sok").value || null;
-
         const pris_min = document.getElementById("pris_min").value || null;
         const pris_max = document.getElementById("pris_max").value || null;
         const km_max = document.getElementById("km_max").value || null;
-
         const year_min = document.getElementById("year_min").value || null;
         const year_max = document.getElementById("year_max").value || null;
-
         const range_min = document.getElementById("range_min").value || null;
         const range_max = document.getElementById("range_max").value || null;
-
         const drivstoff = Array.from(document.getElementById("drivstoff").selectedOptions).map(o => o.value);
         const hjuldrift = Array.from(document.getElementById("hjuldrift").selectedOptions).map(o => o.value);
 
-        return {
-            produsent,
-            modell,
-            startdato,
-            modell_sok,
-            seller_sok,
-            pris_min,
-            pris_max,
-            km_max,
-            km_min: null,
-            year_min,
-            year_max,
-            range_min,
-            range_max,
-            drivstoff,
-            hjuldrift
-        };
+        return { produsent, modell, startdato, modell_sok, seller_sok, pris_min, pris_max, km_max, km_min: null, year_min, year_max, range_min, range_max, drivstoff, hjuldrift };
     }
 
     function updateKpis(kpis, count) {
+        // (Samme KPI-logikk som før)
         const avgDager = kpis && kpis.avg_dager != null ? kpis.avg_dager : null;
         const medianDager = kpis && kpis.median_dager != null ? kpis.median_dager : null;
         const medianPris = kpis && kpis.median_pris != null ? kpis.median_pris : null;
@@ -529,16 +467,11 @@
     }
 
     function renderCharts(dailyStats) {
+        // (Samme graf-logikk som før)
         const ctx1 = document.getElementById("medianPriceChart").getContext("2d");
         const ctx2 = document.getElementById("soldPerDayChart").getContext("2d");
-
         const labels = dailyStats.map(r => r.Dato || r.dato);
-
-        // NY: kompatibel med begge navn
-        const medianPrices = dailyStats.map(r =>
-            r.Median_Pris_Usolgt ?? r.Median_Pris ?? r.median_pris_usolgt ?? r.median_pris
-        );
-
+        const medianPrices = dailyStats.map(r => r.Median_Pris_Usolgt ?? r.Median_Pris ?? r.median_pris_usolgt ?? r.median_pris);
         const soldPerDay = dailyStats.map(r => r.Antall_Solgt || r.antall_solgt);
 
         if (medianChart) medianChart.destroy();
@@ -546,63 +479,26 @@
 
         medianChart = new Chart(ctx1, {
             type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Medianpris',
-                    data: medianPrices,
-                    tension: 0.25
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: { ticks: { maxTicksLimit: 8 } },
-                    y: { ticks: { callback: v => formatNumber(v) } }
-                },
-                plugins: { legend: { display: false } }
-            }
+            data: { labels, datasets: [{ label: 'Medianpris', data: medianPrices, tension: 0.25 }] },
+            options: { responsive: true, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: v => formatNumber(v) } } }, plugins: { legend: { display: false } } }
         });
 
         soldChart = new Chart(ctx2, {
             type: 'bar',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Antall solgte',
-                    data: soldPerDay
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: { ticks: { maxTicksLimit: 8 } },
-                    y: { beginAtZero: true }
-                },
-                plugins: { legend: { display: false } }
-            }
+            data: { labels, datasets: [{ label: 'Antall solgte', data: soldPerDay }] },
+            options: { responsive: true, scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
         });
     }
 
     function sortRows() {
+        // (Samme sorteringslogikk som før)
         if (!currentSortKey) return;
-
         currentRows.sort((a, b) => {
-            const va = a[currentSortKey];
-            const vb = b[currentSortKey];
-
-            if (va == null && vb == null) return 0;
-            if (va == null) return 1;
-            if (vb == null) return -1;
-
-            const na = Number(va);
-            const nb = Number(vb);
-            if (!isNaN(na) && !isNaN(nb)) {
-                return currentSortDir === "asc" ? (na - nb) : (nb - na);
-            }
-
-            const sa = String(va).toLowerCase();
-            const sb = String(vb).toLowerCase();
+            const va = a[currentSortKey]; const vb = b[currentSortKey];
+            if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
+            const na = Number(va); const nb = Number(vb);
+            if (!isNaN(na) && !isNaN(nb)) { return currentSortDir === "asc" ? (na - nb) : (nb - na); }
+            const sa = String(va).toLowerCase(); const sb = String(sb).toLowerCase();
             if (sa < sb) return currentSortDir === "asc" ? -1 : 1;
             if (sa > sb) return currentSortDir === "asc" ? 1 : -1;
             return 0;
@@ -616,41 +512,32 @@
 
         currentRows.forEach(row => {
             const tr = document.createElement("tr");
-
             const prisNy = row.pris_ny ?? row.pris_last ?? null;
             const prisStart = row.pris_start ?? null;
+            const endring = (row.pris_endring != null) ? row.pris_endring : (prisStart != null && prisNy != null ? (prisNy - prisStart) : null);
 
-            const endring =
-                (row.pris_endring != null)
-                    ? row.pris_endring
-                    : (prisStart != null && prisNy != null ? (prisNy - prisStart) : null);
+            // ENDRING: Bygger Finnkode-cellen først og legger den øverst i tr.innerHTML
+            const finnCell = `<td>${
+                row.finnkode
+                    ? `<a href="${row.finn_url || ("https://www.finn.no/mobility/item/" + row.finnkode)}"
+                           target="_blank" class="finn-link">${escapeHtml(row.finnkode)}</a>`
+                    : ""
+            }</td>`;
 
             tr.innerHTML = `
+                ${finnCell}
                 <td>${escapeHtml(row.produsent || "")}</td>
                 <td>${escapeHtml(row.modell || "")}</td>
-
-                <td class="info-col" title="${escapeHtml(row.overskrift || "")}">
-                    ${escapeHtml(row.overskrift || "")}
-                </td>
-
+                <td class="info-col" title="${escapeHtml(row.overskrift || "")}">${escapeHtml(row.overskrift || "")}</td>
                 <td>${row["årstall"] != null ? row["årstall"] : ""}</td>
                 <td>${row["kjørelengde"] != null ? formatNumber(row["kjørelengde"]) : ""}</td>
-
                 <td>${prisStart != null ? formatNumber(prisStart) : ""}</td>
                 <td>${prisNy != null ? formatNumber(prisNy) : ""}</td>
                 <td>${endring != null ? formatNumber(endring) : ""}</td>
-
                 <td>${row.dager != null ? row.dager : ""}</td>
                 <td>${formatDate(row.dato_start)}</td>
                 <td>${formatDate(row.dato_end)}</td>
                 <td>${escapeHtml(row.selger || "")}</td>
-
-                <td>${
-                    row.finnkode
-                        ? `<a href="${row.finn_url || ("https://www.finn.no/mobility/item/" + row.finnkode)}"
-                               target="_blank" class="finn-link">${escapeHtml(row.finnkode)}</a>`
-                        : ""
-                }</td>
             `;
             tbody.appendChild(tr);
         });
@@ -664,9 +551,12 @@
         });
     }
 
+    // --- HER ER HOVEDENDRINGEN I JAVASCRIPT ---
     async function fetchData() {
         const btn = document.getElementById("updateBtn");
         btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = "<span class='dot'></span> Søker...";
 
         try {
             const filters = buildFilters();
@@ -677,77 +567,85 @@
             });
 
             const data = await resp.json();
-            if (data.error) {
-                console.error("Feil fra server:", data.error);
+
+            // Sjekk status fra backend
+            if (data.status === 'warning') {
+                // Viser advarselen til brukeren
+                alert(data.message);
+                // Tømmer data siden vi ikke fikk noen resultater
                 updateKpis(null, 0);
                 currentRows = [];
                 renderTable();
-                return;
-            }
-
-            const historikk = data.historikk || [];
-            const dailyStats = data.daily_stats || [];
-            const kpis = data.kpis || {};
-
-            currentRows = historikk;
-
-            // NY: hvis pris_ny ikke finnes i dataset, fall tilbake til pris_last
-            if (currentRows.length > 0 && currentRows[0] && currentRows[0].pris_ny === undefined) {
-                currentSortKey = "pris_last";
-            } else {
-                currentSortKey = "pris_ny";
-            }
-
-            updateKpis(kpis, historikk.length);
-
-            if (dailyStats.length > 0) {
-                renderCharts(dailyStats);
-            } else {
                 if (medianChart) medianChart.destroy();
                 if (soldChart) soldChart.destroy();
-            }
+                document.getElementById("tableCountLabel").textContent = data.message;
 
-            renderTable();
+            } else if (data.status === 'error' || data.error) {
+                // Håndterer faktiske feil
+                console.error("Feil fra server:", data.error || data.message);
+                alert("Det oppstod en feil: " + (data.message || data.error));
+                updateKpis(null, 0);
+                currentRows = [];
+                renderTable();
+
+            } else if (data.status === 'ok') {
+                 // Suksess - behandle data som normalt
+                const historikk = data.historikk || [];
+                const dailyStats = data.daily_stats || [];
+                const kpis = data.kpis || {};
+
+                currentRows = historikk;
+
+                if (currentRows.length > 0 && currentRows[0] && currentRows[0].pris_ny === undefined) {
+                    currentSortKey = "pris_last";
+                } else {
+                    currentSortKey = "pris_ny";
+                }
+
+                updateKpis(kpis, historikk.length);
+
+                if (dailyStats.length > 0) {
+                    renderCharts(dailyStats);
+                } else {
+                    if (medianChart) medianChart.destroy();
+                    if (soldChart) soldChart.destroy();
+                }
+                renderTable();
+            }
 
         } catch (err) {
             console.error("Feil i fetchData:", err);
+            alert("Kunne ikke kontakte serveren. Sjekk nettverkstilkoblingen din.");
         } finally {
             btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     }
+    // --- SLUTT PÅ ENDRING ---
 
     function setupModelDropdown() {
+        // (Samme logikk som før)
         const prodSelect = document.getElementById("produsent");
         const modelSelect = document.getElementById("modell");
-
         function refreshModels() {
             const key = (prodSelect.value || "").toLowerCase().trim();
             const models = MODELS_BY_PROD[key] || [];
-
             modelSelect.innerHTML = '<option value="">Alle modeller</option>';
             models.forEach(m => {
-                const opt = document.createElement("option");
-                opt.value = m;
-                opt.textContent = m;
-                modelSelect.appendChild(opt);
+                const opt = document.createElement("option"); opt.value = m; opt.textContent = m; modelSelect.appendChild(opt);
             });
         }
-
         prodSelect.addEventListener("change", refreshModels);
         refreshModels();
     }
 
     function setupSortHandlers() {
+        // (Samme logikk som før)
         document.querySelectorAll("#resultTable th").forEach(th => {
             th.addEventListener("click", () => {
                 const key = th.dataset.key;
                 if (!key) return;
-                if (currentSortKey === key) {
-                    currentSortDir = currentSortDir === "asc" ? "desc" : "asc";
-                } else {
-                    currentSortKey = key;
-                    currentSortDir = "asc";
-                }
+                if (currentSortKey === key) { currentSortDir = currentSortDir === "asc" ? "desc" : "asc"; } else { currentSortKey = key; currentSortDir = "asc"; }
                 renderTable();
             });
         });

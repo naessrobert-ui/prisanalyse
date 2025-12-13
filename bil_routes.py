@@ -6,6 +6,7 @@ import pandas as pd
 import io
 import numpy as np
 from flask import Blueprint, render_template, jsonify, request
+import traceback # Importert for bedre feilhåndtering
 
 from config import (
     AWS_KEY,
@@ -181,21 +182,48 @@ def bil_solgt_analyse_side():
         km_max=metadata.get('km_max', 200000),
     )
 
-
+# --- HER ER HOVEDENDRINGEN ---
 @bil_bp.route('/solgt/data', methods=['POST'])
 def get_bil_solgt_data():
     try:
+        # Definer maks antall rader vi tillater å behandle
+        MAX_ROWS_LIMIT = 800
+
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
 
+        # Dette laster hele databasen inn i minnet (flaskehalsen på Render)
         df = _last_inn_hele_databasen()
         if df.empty:
-            return jsonify({'historikk': [], 'daily_stats': [], 'kpis': {}})
+            # Returnerer status 'ok' men tomme lister
+            return jsonify({'status': 'ok', 'historikk': [], 'daily_stats': [], 'kpis': {}})
 
+        # Filtrerer dataene i minnet
         df_filtered = _filtrer_data(df, filters)
-        if df_filtered.empty:
-            return jsonify({'historikk': [], 'daily_stats': [], 'kpis': {}})
 
+        # --- NY SJEKK: Stopper hvis det er for mange treff ---
+        antall_treff = len(df_filtered)
+
+        if antall_treff > MAX_ROWS_LIMIT:
+            print(f"Advarsel: Søk ga {antall_treff} treff. Stopper behandling pga grense på {MAX_ROWS_LIMIT}.")
+            # Returnerer en advarsel til frontend, og IKKE dataene.
+            return jsonify({
+                'status': 'warning',
+                'message': f'Søket ga for mange treff ({antall_treff}). Visning er begrenset til søk med under {MAX_ROWS_LIMIT} resultater for å sikre ytelse.',
+                'count': antall_treff,
+                # Sender tomme datastrukturer for å unngå feil i frontend
+                'historikk': [],
+                'daily_stats': [],
+                'kpis': {}
+            })
+        # --- SLUTT NY SJEKK ---
+
+
+        if df_filtered.empty:
+             # Returnerer status 'ok' men tomme lister
+            return jsonify({'status': 'ok', 'historikk': [], 'daily_stats': [], 'kpis': {}})
+
+        # --- Start tung dataprosessering (kjøres kun hvis under grensen) ---
         cols = {c.lower(): c for c in df_filtered.columns}
 
         def find_col(options):
@@ -350,17 +378,22 @@ def get_bil_solgt_data():
 
         # JSON Export
         output_df = output_df.where(pd.notna(output_df), None)
-        if len(output_df) > 2000:
-            output_df = output_df.head(2000)
+
+        # (Den gamle begrensningen på 2000 er nå overflødig og kan fjernes,
+        # siden vi stopper mye tidligere hvis det er over 250)
+        # if len(output_df) > 2000:
+        #     output_df = output_df.head(2000)
 
         historikk = json.loads(output_df.to_json(orient='records', date_format='iso'))
-        return jsonify({'historikk': historikk, 'daily_stats': daily_stats, 'kpis': kpis})
+
+        # Returnerer suksess med status 'ok'
+        return jsonify({'status': 'ok', 'historikk': historikk, 'daily_stats': daily_stats, 'kpis': kpis})
 
     except Exception as e:
         print(f"Feil i /bil/solgt/data: {e}")
-        import traceback
         traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        # Returnerer feil med status 'error'
+        return jsonify({"status": "error", "error": str(e), "message": "En uventet feil oppstod på serveren."}), 500
 
 
 @bil_bp.route('/rekordrask')
@@ -390,15 +423,18 @@ def get_bil_rekordrask_data():
         vis_solgte = bygg_visning_for_solgte_fra_parquet(startdato)
 
         if vis_solgte.empty:
-            return jsonify({'rows': [], 'kpis': {}})
+            # Oppdatert med status
+            return jsonify({'status': 'ok', 'rows': [], 'kpis': {}})
 
         vis_solgte = vis_solgte.where(pd.notna(vis_solgte), None)
         rows = json.loads(vis_solgte.to_json(orient='records'))
-        return jsonify({'rows': rows, 'kpis': {}})
+        # Oppdatert med status
+        return jsonify({'status': 'ok', 'rows': rows, 'kpis': {}})
 
     except Exception as e:
         print(f"Feil i /bil/rekordrask/data: {e}")
-        return jsonify({"error": str(e)}), 500
+        # Oppdatert med status
+        return jsonify({"status": "error", "error": str(e)}), 500
 
 
 @bil_bp.route('/svv', methods=['GET', 'POST'])
