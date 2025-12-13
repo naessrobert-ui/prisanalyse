@@ -573,7 +573,7 @@
         const ctx2 = document.getElementById("soldPerDayChart").getContext("2d");
 
         const labels = dailyStats.map(r => r.Dato || r.dato);
-        const medianPrices = dailyStats.map(r => r.Median_Pris_Usolgt || r.median_pris_usolgt);
+        const medianPrices = dailyStats.map(r =>r.Median_Pris_Usolgt ?? r.Median_Pris ?? r.median_pris_usolgt ?? r.median_pris);
         const soldPerDay = dailyStats.map(r => r.Antall_Solgt || r.antall_solgt);
 
         if (medianChart) medianChart.destroy();

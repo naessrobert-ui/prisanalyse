@@ -60,13 +60,16 @@ def _last_inn_hele_databasen() -> pd.DataFrame:
 
 
 def _filtrer_data(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
+    """
+    Ryddet opp:
+    - Bruker kun Dato_ny som "sist observert"-dato for startdato-filter.
+    - Bruker kun Pris_ny som prisfilter (pris_min/max).
+    """
     if df.empty:
         return df
 
-    # Finn riktige kolonnenavn (case-insensitive)
     cols = {c.lower(): c for c in df.columns}
 
-    # Hjelpefunksjon for å finne kolonne
     def get_col(candidates):
         for cand in candidates:
             if cand.lower() in cols:
@@ -77,10 +80,13 @@ def _filtrer_data(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
     col_mod = get_col(['Modell', 'modell'])
     col_over = get_col(['Overskrift', 'overskrift', 'info'])
     col_selger = get_col(['selger', 'Selger'])
-    # Oppdatert for å inkludere pris_siste
-    col_pris_ny = get_col(['Pris_Ny', 'Pris_num', 'pris_last', 'pris_siste'])
-    # Oppdatert for å inkludere dato_siste
-    col_slutt = get_col(['slutt_dato', 'dato_end', 'dato_siste'])
+
+    # Kun to priser i datasettet:
+    col_pris_ny = get_col(['Pris_ny', 'pris_ny'])
+
+    # Kun to datoer i datasettet:
+    col_sist_obs = get_col(['Dato_ny', 'dato_ny'])
+
     col_km = get_col(['kjørelengde', 'km'])
     col_aar = get_col(['årstall', 'year'])
     col_rekk = get_col(['rekkevidde_str', 'rekkevidde'])
@@ -89,11 +95,13 @@ def _filtrer_data(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
 
     # --- Filtrering ---
 
-    # Dato (bruker slutt-dato / dato_siste)
+    # Dato-filter: bruk Dato_ny (sist observert for salg)
     start_str = filters.get("startdato")
-    if start_str and col_slutt:
-        startdato = pd.to_datetime(start_str)
-        df = df[df[col_slutt] >= startdato]
+    if start_str and col_sist_obs:
+        startdato = pd.to_datetime(start_str, errors='coerce')
+        if pd.notna(startdato):
+            df[col_sist_obs] = pd.to_datetime(df[col_sist_obs], errors='coerce')
+            df = df[df[col_sist_obs] >= startdato]
 
     # Tekst
     if filters.get("produsent") and col_prod:
@@ -104,29 +112,33 @@ def _filtrer_data(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
 
     if filters.get("modell_sok") and col_over:
         sok = filters["modell_sok"].lower()
-        df = df[df[col_over].str.lower().str.contains(sok, na=False)]
+        df = df[df[col_over].astype(str).str.lower().str.contains(sok, na=False)]
 
     if filters.get("seller_sok") and col_selger:
         sok = filters["seller_sok"].lower()
-        df = df[df[col_selger].str.lower().str.contains(sok, na=False)]
+        df = df[df[col_selger].astype(str).str.lower().str.contains(sok, na=False)]
 
     # Tall
     if col_pris_ny:
+        df[col_pris_ny] = pd.to_numeric(df[col_pris_ny], errors='coerce')
         if filters.get("pris_min"):
             df = df[df[col_pris_ny] >= int(filters["pris_min"])]
         if filters.get("pris_max"):
             df = df[df[col_pris_ny] <= int(filters["pris_max"])]
 
     if col_km and filters.get("km_max"):
+        df[col_km] = pd.to_numeric(df[col_km], errors='coerce')
         df = df[df[col_km] <= int(filters["km_max"])]
 
     if col_aar:
+        df[col_aar] = pd.to_numeric(df[col_aar], errors='coerce')
         if filters.get("year_min"):
             df = df[df[col_aar] >= int(filters["year_min"])]
         if filters.get("year_max"):
             df = df[df[col_aar] <= int(filters["year_max"])]
 
     if col_rekk:
+        df[col_rekk] = pd.to_numeric(df[col_rekk], errors='coerce')
         if filters.get("range_min"):
             df = df[df[col_rekk] >= int(filters["range_min"])]
         if filters.get("range_max"):
@@ -173,7 +185,8 @@ def bil_solgt_analyse_side():
 @bil_bp.route('/solgt/data', methods=['POST'])
 def get_bil_solgt_data():
     try:
-        filters = request.get_json().get('filters', {})
+        payload = request.get_json() or {}
+        filters = payload.get('filters', {}) or {}
         df = _last_inn_hele_databasen()
 
         if df.empty:
@@ -185,67 +198,60 @@ def get_bil_solgt_data():
         if df_filtered.empty:
             return jsonify({'historikk': [], 'daily_stats': [], 'kpis': {}})
 
-        # --- KOLONNE-MAPPING (Sikrer at vi finner dataene) ---
+        # --- KOLONNE-MAPPING ---
         cols = {c.lower(): c for c in df_filtered.columns}
 
         def find_col(options):
-            """Finn første kolonne som matcher en av opsjonene (case-insensitive)."""
             for key in options:
                 if key.lower() in cols:
                     return cols[key.lower()]
             return None
 
-        # Pris: start og slutt
-        c_pris_start = find_col(['pris', 'pris_start'])
-        # Her tar vi hensyn til at den faktisk heter pris_siste hos deg
-        c_pris_slutt = find_col(['pris_siste', 'pris_ny', 'pris_last'])
+        # --- Kun to prisfelt i datasettet ---
+        c_pris_start = find_col(['Pris', 'pris'])
+        c_pris_slutt = find_col(['Pris_ny', 'pris_ny'])
 
-        # Dato: start og slutt
-        c_dato_start = find_col(['dato', 'Dato', 'dato_start'])
-        c_dato_slutt = find_col(['dato_siste', 'slutt_dato', 'dato_slutt'])
+        # --- Kun to datofelt i datasettet ---
+        c_dato_start = find_col(['Dato', 'dato'])
+        c_dato_slutt = find_col(['Dato_ny', 'dato_ny'])
 
         # Andre felter
-        c_finnkode = find_col(['finnkode'])
-        c_overskrift = find_col(['overskrift', 'Overskrift', 'info'])
+        c_finnkode = find_col(['FinnKode', 'finnkode'])
+        c_overskrift = find_col(['Overskrift', 'overskrift', 'info'])
+        c_solgt = find_col(['Solgt', 'solgt'])
 
-        # Sikre numeriske verdier for beregning (robust, ingen fillna på int)
-        # Startpris
+        # Sikre numeriske verdier
         if c_pris_start and c_pris_start in df_filtered.columns:
-            df_filtered[c_pris_start] = (
-                pd.to_numeric(df_filtered[c_pris_start], errors='coerce')
-                .fillna(0)
-            )
+            df_filtered[c_pris_start] = pd.to_numeric(df_filtered[c_pris_start], errors='coerce').fillna(0)
         else:
-            # Hvis vi ikke finner startpris, opprett en null-kolonne
             c_pris_start = 'pris_start_tmp'
             df_filtered[c_pris_start] = 0
 
-        # Siste pris
         if c_pris_slutt and c_pris_slutt in df_filtered.columns:
-            df_filtered[c_pris_slutt] = (
-                pd.to_numeric(df_filtered[c_pris_slutt], errors='coerce')
-                .fillna(0)
-            )
+            df_filtered[c_pris_slutt] = pd.to_numeric(df_filtered[c_pris_slutt], errors='coerce').fillna(0)
         else:
             c_pris_slutt = 'pris_last_tmp'
             df_filtered[c_pris_slutt] = 0
 
-        # Beregn dager
-        if c_dato_start and c_dato_slutt and \
-                c_dato_start in df_filtered.columns and c_dato_slutt in df_filtered.columns:
-            # Sørg for at dato-kolonner faktisk er datetime
+        # Sikre dato-typer
+        if c_dato_start and c_dato_start in df_filtered.columns:
             df_filtered[c_dato_start] = pd.to_datetime(df_filtered[c_dato_start], errors='coerce')
+
+        if c_dato_slutt and c_dato_slutt in df_filtered.columns:
             df_filtered[c_dato_slutt] = pd.to_datetime(df_filtered[c_dato_slutt], errors='coerce')
 
+        # Beregn dager (fra sist lagt ut til sist observert)
+        if c_dato_start and c_dato_slutt and c_dato_start in df_filtered.columns and c_dato_slutt in df_filtered.columns:
             df_filtered['dager'] = (df_filtered[c_dato_slutt] - df_filtered[c_dato_start]).dt.days
-            df_filtered['dager'] = df_filtered['dager'].fillna(0).astype(int)
-            df_filtered['dager'] = df_filtered['dager'].apply(lambda x: x if x > 0 else 0)
+            df_filtered['dager'] = df_filtered['dager'].fillna(0).astype(int).clip(lower=0)
         else:
             df_filtered['dager'] = 0
 
-        # --- BEREGN ENDRET PRIS ---
-        # Positivt tall betyr at prisen har økt. Negativt betyr at den har falt.
-        df_filtered['prisfall'] = df_filtered[c_pris_slutt] - df_filtered[c_pris_start]
+        # Prisendring:
+        # pris_endring = Pris_ny - Pris (negativ => prisen ble redusert)
+        df_filtered['pris_endring'] = df_filtered[c_pris_slutt] - df_filtered[c_pris_start]
+        # pris_reduksjon = Pris - Pris_ny (positiv => prisen ble redusert)
+        df_filtered['pris_reduksjon'] = df_filtered[c_pris_start] - df_filtered[c_pris_slutt]
 
         # --- LAG FINN-LINK ---
         if c_finnkode and c_finnkode in df_filtered.columns:
@@ -259,25 +265,25 @@ def get_bil_solgt_data():
             df_filtered['finn_url'] = None
 
         # --- FORBERED JSON ---
-        # Mapper databasens kolonnenavn til det HTML/JS forventer
+        # Standardiser output til det frontend typisk forventer
         rename_map = {
             'Produsent': 'produsent',
             'Modell': 'modell',
-            c_overskrift: 'overskrift' if c_overskrift else None,  # Tittel
+            c_overskrift: 'overskrift' if c_overskrift else None,
             'årstall': 'årstall',
             'kjørelengde': 'kjørelengde',
             'drivstoff': 'drivstoff',
             'hjuldrift': 'hjuldrift',
             'rekkevidde_str': 'rekkevidde',
             'selger': 'selger',
-            c_dato_start: 'dato_start' if c_dato_start else None,
-            c_dato_slutt: 'dato_end' if c_dato_slutt else None,
-            c_pris_start: 'pris_start' if c_pris_start else None,
-            c_pris_slutt: 'pris_last' if c_pris_slutt else None,  # Siste pris
-            c_finnkode: 'finnkode' if c_finnkode else None
+            c_dato_start: 'dato_start' if c_dato_start else None,     # = Dato
+            c_dato_slutt: 'dato_end' if c_dato_slutt else None,       # = Dato_ny (sist observert)
+            c_pris_start: 'pris_start' if c_pris_start else None,     # = Pris
+            c_pris_slutt: 'pris_last' if c_pris_slutt else None,      # = Pris_ny
+            c_finnkode: 'finnkode' if c_finnkode else None,
+            c_solgt: 'solgt' if c_solgt else None
         }
 
-        # Fjern None-nøkler/verdier
         rename_map = {
             k: v for k, v in rename_map.items()
             if k is not None and v is not None and k in df_filtered.columns
@@ -285,14 +291,26 @@ def get_bil_solgt_data():
 
         output_df = df_filtered.rename(columns=rename_map)
 
-        # Sortering (for eksempel laveste pris først)
+        # Sørg for datetime i output for grouping
+        if 'dato_end' in output_df.columns:
+            output_df['dato_end'] = pd.to_datetime(output_df['dato_end'], errors='coerce')
+
+        # Sortering (laveste siste pris først)
         if 'pris_last' in output_df.columns:
             output_df = output_df.sort_values('pris_last', ascending=True)
 
         # --- KPIer ---
         kpis = {}
+        daily_stats = []
+
         if 'pris_last' in output_df.columns:
-            solgte = output_df[output_df['pris_last'] > 1000]
+            if 'solgt' in output_df.columns:
+                # Bruk solgt-flagget hvis det finnes
+                solgte = output_df[output_df['solgt'].astype(bool)]
+            else:
+                # Fallback (gammel logikk)
+                solgte = output_df[output_df['pris_last'] > 1000]
+
             if not solgte.empty:
                 kpis = {
                     'avg_dager': int(solgte['dager'].mean()),
@@ -303,19 +321,17 @@ def get_bil_solgt_data():
                     'antall': len(solgte)
                 }
 
-            # --- Grafer ---
-            if 'dato_end' in solgte.columns:
-                daily_stats_df = solgte.groupby(solgte['dato_end'].dt.date).agg(
-                    Antall_Solgt=('pris_last', 'count'),
-                    Median_Pris_Usolgt=('pris_last', 'median')
-                ).reset_index()
-                daily_stats_df.rename(columns={'dato_end': 'Dato'}, inplace=True)
-                daily_stats_df['Dato'] = pd.to_datetime(daily_stats_df['Dato']).dt.strftime('%Y-%m-%d')
-                daily_stats = json.loads(daily_stats_df.to_json(orient='records'))
-            else:
-                daily_stats = []
-        else:
-            daily_stats = []
+                # --- Grafer ---
+                if 'dato_end' in solgte.columns:
+                    solgte = solgte.copy()
+                    solgte['dato_end'] = pd.to_datetime(solgte['dato_end'], errors='coerce')
+                    daily_stats_df = solgte.dropna(subset=['dato_end']).groupby(solgte['dato_end'].dt.date).agg(
+                        Antall_Solgt=('pris_last', 'count'),
+                        Median_Pris=('pris_last', 'median')
+                    ).reset_index()
+                    daily_stats_df.rename(columns={'dato_end': 'Dato'}, inplace=True)
+                    daily_stats_df['Dato'] = pd.to_datetime(daily_stats_df['Dato']).dt.strftime('%Y-%m-%d')
+                    daily_stats = json.loads(daily_stats_df.to_json(orient='records'))
 
         # JSON Export
         output_df = output_df.where(pd.notna(output_df), None)
