@@ -183,47 +183,56 @@ def bil_solgt_analyse_side():
     )
 
 # --- HER ER HOVEDENDRINGEN ---
+# I bil_routes.py
+
+# Husk å importere traceback øverst i filen hvis den ikke er der:
+# import traceback
+
 @bil_bp.route('/solgt/data', methods=['POST'])
 def get_bil_solgt_data():
     try:
-        # Definer maks antall rader vi tillater å behandle
-        MAX_ROWS_LIMIT = 800
+        # --- GRENSEVERDI ---
+        # Vi setter en hard grense for hvor mange rader vi behandler.
+        # Hvis søket gir mer enn dette, sender vi en advarsel.
+        MAX_ROWS_LIMIT = 300
+        # -------------------
 
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
 
-        # Dette laster hele databasen inn i minnet (flaskehalsen på Render)
+        # 1. Laster hele filen i minnet. Dette går akkurat bra i dag.
         df = _last_inn_hele_databasen()
         if df.empty:
-            # Returnerer status 'ok' men tomme lister
+             # Returner tom suksess hvis databasen er tom
             return jsonify({'status': 'ok', 'historikk': [], 'daily_stats': [], 'kpis': {}})
 
-        # Filtrerer dataene i minnet
+        # 2. Filtrerer dataene i minnet
         df_filtered = _filtrer_data(df, filters)
 
-        # --- NY SJEKK: Stopper hvis det er for mange treff ---
+        # --- KRITISK SJEKK ---
+        # Her sjekker vi hvor mange rader vi har igjen.
         antall_treff = len(df_filtered)
+        print(f"Søk ferdig. Antall treff: {antall_treff}")
 
         if antall_treff > MAX_ROWS_LIMIT:
-            print(f"Advarsel: Søk ga {antall_treff} treff. Stopper behandling pga grense på {MAX_ROWS_LIMIT}.")
-            # Returnerer en advarsel til frontend, og IKKE dataene.
+            print(f"ADVARSEL: For mange treff. Stopper behandling for å unngå minnekrasj.")
+            # VIKTIG: Returner NÅ. Ikke la koden fortsette nedover.
+            # Vi sender en 'warning' status tilbake til frontend.
             return jsonify({
                 'status': 'warning',
                 'message': f'Søket ga for mange treff ({antall_treff}). Visning er begrenset til søk med under {MAX_ROWS_LIMIT} resultater for å sikre ytelse.',
                 'count': antall_treff,
-                # Sender tomme datastrukturer for å unngå feil i frontend
-                'historikk': [],
-                'daily_stats': [],
-                'kpis': {}
+                # Send tomme data for sikkerhets skyld
+                'historikk': [], 'daily_stats': [], 'kpis': {}
             })
-        # --- SLUTT NY SJEKK ---
+        # --- SLUTT PÅ SJEKK ---
 
 
         if df_filtered.empty:
-             # Returnerer status 'ok' men tomme lister
+             # Returner tom suksess hvis søket ga 0 treff
             return jsonify({'status': 'ok', 'historikk': [], 'daily_stats': [], 'kpis': {}})
 
-        # --- Start tung dataprosessering (kjøres kun hvis under grensen) ---
+        # --- Start dataprosessering (kjøres kun hvis under grensen) ---
         cols = {c.lower(): c for c in df_filtered.columns}
 
         def find_col(options):
@@ -232,20 +241,14 @@ def get_bil_solgt_data():
                     return cols[key.lower()]
             return None
 
-        # --- Kun to prisfelt ---
         c_pris_start = find_col(['Pris', 'pris'])
         c_pris_ny = find_col(['Pris_ny', 'pris_ny'])
-
-        # --- Kun to datofelt ---
         c_dato_start = find_col(['Dato', 'dato'])
         c_dato_ny = find_col(['Dato_ny', 'dato_ny'])
-
-        # Andre felt
         c_finnkode = find_col(['FinnKode', 'finnkode'])
         c_overskrift = find_col(['Overskrift', 'overskrift', 'info'])
         c_solgt = find_col(['Solgt', 'solgt'])
 
-        # Sikre numeriske verdier
         if c_pris_start and c_pris_start in df_filtered.columns:
             df_filtered[c_pris_start] = pd.to_numeric(df_filtered[c_pris_start], errors='coerce').fillna(0)
         else:
@@ -258,23 +261,19 @@ def get_bil_solgt_data():
             c_pris_ny = 'Pris_ny'
             df_filtered[c_pris_ny] = 0
 
-        # Sikre datoer
         if c_dato_start and c_dato_start in df_filtered.columns:
             df_filtered[c_dato_start] = pd.to_datetime(df_filtered[c_dato_start], errors='coerce')
         if c_dato_ny and c_dato_ny in df_filtered.columns:
             df_filtered[c_dato_ny] = pd.to_datetime(df_filtered[c_dato_ny], errors='coerce')
 
-        # Dager: Dato_ny - Dato
         if c_dato_start in df_filtered.columns and c_dato_ny in df_filtered.columns:
             df_filtered['dager'] = (df_filtered[c_dato_ny] - df_filtered[c_dato_start]).dt.days
             df_filtered['dager'] = df_filtered['dager'].fillna(0).astype(int).clip(lower=0)
         else:
             df_filtered['dager'] = 0
 
-        # Prisendring: Pris_ny - Pris (negativt = kutt)
         df_filtered['pris_endring'] = df_filtered[c_pris_ny] - df_filtered[c_pris_start]
 
-        # Finn-link
         if c_finnkode and c_finnkode in df_filtered.columns:
             df_filtered[c_finnkode] = (
                 df_filtered[c_finnkode]
@@ -285,7 +284,6 @@ def get_bil_solgt_data():
         else:
             df_filtered['finn_url'] = None
 
-        # --- Output mapping (frontend-navn) ---
         rename_map = {
             'Produsent': 'produsent',
             'Modell': 'modell',
@@ -295,19 +293,11 @@ def get_bil_solgt_data():
             'hjuldrift': 'hjuldrift',
             'rekkevidde_str': 'rekkevidde',
             'selger': 'selger',
-
-            # Info
             c_overskrift: 'overskrift' if c_overskrift else None,
-
-            # Datoer
-            c_dato_start: 'dato_start' if c_dato_start else None,   # = Dato
-            c_dato_ny: 'dato_end' if c_dato_ny else None,           # = Dato_ny (sist observert)
-
-            # Priser
-            c_pris_start: 'pris_start' if c_pris_start else None,   # = Pris
-            c_pris_ny: 'pris_ny' if c_pris_ny else None,            # = Pris_ny
-
-            # Kode/solgt
+            c_dato_start: 'dato_start' if c_dato_start else None,
+            c_dato_ny: 'dato_end' if c_dato_ny else None,
+            c_pris_start: 'pris_start' if c_pris_start else None,
+            c_pris_ny: 'pris_ny' if c_pris_ny else None,
             c_finnkode: 'finnkode' if c_finnkode else None,
             c_solgt: 'solgt' if c_solgt else None
         }
@@ -319,22 +309,18 @@ def get_bil_solgt_data():
 
         output_df = df_filtered.rename(columns=rename_map)
 
-        # Bakoverkomp: pris_last peker på siste pris
         if 'pris_ny' in output_df.columns and 'pris_last' not in output_df.columns:
             output_df['pris_last'] = output_df['pris_ny']
 
-        # Sikre pris_endring også i output (den finnes i df_filtered, men beholdes uansett)
         if 'pris_endring' not in output_df.columns and 'pris_start' in output_df.columns and 'pris_ny' in output_df.columns:
             output_df['pris_endring'] = (
                 pd.to_numeric(output_df['pris_ny'], errors='coerce').fillna(0)
                 - pd.to_numeric(output_df['pris_start'], errors='coerce').fillna(0)
             )
 
-        # Sørg for datetime i output for grouping
         if 'dato_end' in output_df.columns:
             output_df['dato_end'] = pd.to_datetime(output_df['dato_end'], errors='coerce')
 
-        # Sorter på siste pris (pris_ny)
         if 'pris_ny' in output_df.columns:
             output_df = output_df.sort_values('pris_ny', ascending=True)
 
@@ -342,7 +328,6 @@ def get_bil_solgt_data():
         kpis = {}
         daily_stats = []
 
-        # Bruk solgt-flagget hvis det finnes, ellers fallback
         if 'pris_ny' in output_df.columns:
             if 'solgt' in output_df.columns:
                 solgte = output_df[output_df['solgt'].astype(bool)]
@@ -369,7 +354,6 @@ def get_bil_solgt_data():
                         Median_Pris=('pris_ny', 'median')
                     ).reset_index()
 
-                    # Frontend-komp: beholder også gamle nøkkelnavn
                     daily_stats_df.rename(columns={'dato_end': 'Dato'}, inplace=True)
                     daily_stats_df['Dato'] = pd.to_datetime(daily_stats_df['Dato']).dt.strftime('%Y-%m-%d')
                     daily_stats_df['Median_Pris_Usolgt'] = daily_stats_df['Median_Pris']
@@ -379,22 +363,22 @@ def get_bil_solgt_data():
         # JSON Export
         output_df = output_df.where(pd.notna(output_df), None)
 
-        # (Den gamle begrensningen på 2000 er nå overflødig og kan fjernes,
-        # siden vi stopper mye tidligere hvis det er over 250)
-        # if len(output_df) > 2000:
-        #     output_df = output_df.head(2000)
+        # Ekstra sikkerhet: Kutt ned hvis vi på magisk vis har flere enn grensen her
+        if len(output_df) > MAX_ROWS_LIMIT:
+             output_df = output_df.head(MAX_ROWS_LIMIT)
 
+        # Dette er den tunge operasjonen som krasjer hvis output_df er for stor:
         historikk = json.loads(output_df.to_json(orient='records', date_format='iso'))
 
-        # Returnerer suksess med status 'ok'
+        # Returner suksess
         return jsonify({'status': 'ok', 'historikk': historikk, 'daily_stats': daily_stats, 'kpis': kpis})
 
     except Exception as e:
         print(f"Feil i /bil/solgt/data: {e}")
+        import traceback
         traceback.print_exc()
-        # Returnerer feil med status 'error'
+        # Returner feilmelding
         return jsonify({"status": "error", "error": str(e), "message": "En uventet feil oppstod på serveren."}), 500
-
 
 @bil_bp.route('/rekordrask')
 def bil_rekordrask_side():
