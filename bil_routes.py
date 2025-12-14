@@ -519,6 +519,51 @@ def bil_rekordrask_side():
         default_startdate=(date.today() - timedelta(days=3)).isoformat(),
     )
 
+@bil_bp.route('/rekordrask/grupper', methods=['POST'])
+def bil_rekordrask_grupper():
+    try:
+        payload = request.get_json() or {}
+        filters = payload.get('filters', {}) or {}
+
+        start_str = filters.get('startdato')
+        maks_dager = int(filters.get('maks_dager', 5))
+
+        if start_str:
+            startdato = datetime.strptime(start_str, "%Y-%m-%d").date()
+        else:
+            startdato = date.today() - timedelta(days=3)
+
+        df = bygg_visning_for_solgte_fra_parquet(startdato)
+        if df.empty:
+            return jsonify({'status': 'ok', 'groups': []})
+
+        # forventer at df har kolonner for produsent/modell og dager
+        cols = {c.lower(): c for c in df.columns}
+        c_prod = cols.get('produsent')
+        c_mod = cols.get('modell')
+        c_dager = cols.get('dager')
+
+        if not c_prod or not c_mod:
+            return jsonify({'status': 'error', 'message': 'Mangler produsent/modell i visningen'}), 500
+
+        if c_dager and maks_dager is not None:
+            df[c_dager] = pd.to_numeric(df[c_dager], errors='coerce')
+            df = df[df[c_dager] <= maks_dager]
+
+        groups = (
+            df.groupby([c_prod, c_mod], dropna=False)
+              .size()
+              .reset_index(name='antall')
+              .sort_values('antall', ascending=False)
+        )
+
+        groups = groups.where(pd.notna(groups), None)
+        return jsonify({'status': 'ok', 'groups': json.loads(groups.to_json(orient='records'))})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 
 @bil_bp.route('/rekordrask/data', methods=['POST'])
 def get_bil_rekordrask_data():

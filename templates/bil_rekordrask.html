@@ -25,10 +25,7 @@
             background-size: cover;
         }
 
-        .page {
-            max-width: 1200px;
-            width: 100%;
-        }
+        .page { max-width: 1200px; width: 100%; }
 
         .top-bar {
             display: flex;
@@ -55,10 +52,7 @@
             gap: 4px;
         }
 
-        .back-link span {
-            font-size: 1.15rem;
-            line-height: 1;
-        }
+        .back-link span { font-size: 1.15rem; line-height: 1; }
 
         h1 {
             font-size: clamp(2.1rem, 3.2vw + 1rem, 2.8rem);
@@ -66,9 +60,7 @@
             margin-bottom: 6px;
         }
 
-        h1 .highlight {
-            color: #60a5fa;
-        }
+        h1 .highlight { color: #60a5fa; }
 
         .subtitle {
             color: #d1d5db;
@@ -91,18 +83,14 @@
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 14px 18px;
-            margin-bottom: 18px;
+            margin-bottom: 10px;
         }
 
         @media (max-width: 1024px) {
-            .filters-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
+            .filters-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 640px) {
-            .filters-grid {
-                grid-template-columns: 1fr;
-            }
+            .filters-grid { grid-template-columns: 1fr; }
         }
 
         label {
@@ -132,9 +120,12 @@
 
         .button-row {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
             margin-top: 6px;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
         }
 
         .btn-primary {
@@ -154,9 +145,11 @@
                 0 0 0 1px rgba(34, 197, 94, 0.35);
         }
 
-        .btn-primary:hover {
-            filter: brightness(1.05);
-            transform: translateY(-1px);
+        .btn-primary:hover { filter: brightness(1.05); transform: translateY(-1px); }
+
+        .muted {
+            font-size: 0.82rem;
+            color: #9ca3af;
         }
 
         .kpi-row {
@@ -174,9 +167,7 @@
             font-size: 0.85rem;
         }
 
-        .kpi strong {
-            font-size: 0.9rem;
-        }
+        .kpi strong { font-size: 0.9rem; }
 
         .section-title {
             margin-top: 12px;
@@ -192,19 +183,17 @@
             border: 1px solid rgba(148, 163, 184, 0.6);
             background: rgba(15, 23, 42, 0.95);
         }
-                /* Kun for gruppetabellen: maks ca. 10 rader synlig, resten med scroll */
+
+        /* Kun for gruppetabellen: maks ca. 10 rader synlig, resten med scroll */
         #group-table-wrapper {
-            max-height: 360px;     /* juster ved behov – ca. 10 rader */
+            max-height: 360px;
             overflow-y: auto;
         }
-
-        /* Behold headeren synlig når man scroller i gruppetabellen */
         #group-table-wrapper thead {
             position: sticky;
             top: 0;
             z-index: 1;
         }
-
 
         table {
             width: 100%;
@@ -231,22 +220,11 @@
             color: #d1d5db;
         }
 
-        tbody tr:nth-child(even) {
-            background: rgba(15, 23, 42, 0.92);
-        }
+        tbody tr:nth-child(even) { background: rgba(15, 23, 42, 0.92); }
+        tbody tr:hover { background: rgba(30, 64, 175, 0.55); }
 
-        tbody tr:hover {
-            background: rgba(30, 64, 175, 0.55);
-        }
-
-        td a {
-            color: #60a5fa;
-            text-decoration: none;
-        }
-
-        td a:hover {
-            text-decoration: underline;
-        }
+        td a { color: #60a5fa; text-decoration: none; }
+        td a:hover { text-decoration: underline; }
 
         .results-info {
             margin-top: 6px;
@@ -255,7 +233,7 @@
         }
 
         .grouping-row {
-            margin-top: 16px;
+            margin-top: 10px;
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
@@ -278,15 +256,22 @@
         }
 
         .group-detail-row {
-            margin-top: 14px;
+            margin-top: 10px;
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
             align-items: center;
             justify-content: flex-start;
         }
+
+        .divider {
+            margin-top: 14px;
+            height: 1px;
+            background: rgba(148, 163, 184, 0.25);
+        }
     </style>
 </head>
+
 <body>
 <div class="page">
 
@@ -297,14 +282,14 @@
 
     <h1><span class="highlight">Biler</span> solgt rekordraskt</h1>
     <div class="subtitle">
-        Finn hvilke biler som forsvinner raskest fra Finn – basert på annonser som faktisk er solgt.
+        Starter med antall solgte per gruppe (f.eks. Volkswagen Golf, BMW X3) – sortert etter antall.
     </div>
 
     <div class="shell" data-url="{{ data_url }}">
         <form id="filter-form">
             <div class="filters-grid">
                 <div>
-                    <label for="produsent">Produsent</label>
+                    <label for="produsent">Produsent (valgfritt)</label>
                     <select id="produsent" name="produsent">
                         <option value="">Alle</option>
                         {% for p in produsenter %}
@@ -314,22 +299,20 @@
                 </div>
 
                 <div>
-                    <label for="modell">Modell</label>
+                    <label for="modell">Modell (valgfritt)</label>
                     <select id="modell" name="modell">
-                        <option value="">Velg produsent først</option>
+                        <option value="">Alle modeller</option>
                     </select>
                 </div>
 
                 <div>
                     <label for="startdato">Startdato (historikk fra)</label>
-                    <input type="date" id="startdato" name="startdato"
-                           value="{{ default_startdate }}">
+                    <input type="date" id="startdato" name="startdato" value="{{ default_startdate }}">
                 </div>
 
                 <div>
                     <label for="max_dager">Maks dager til salgs</label>
-                    <input type="number" id="max_dager" name="max_dager"
-                           min="1" step="1" value="5" placeholder="f.eks. 5">
+                    <input type="number" id="max_dager" name="max_dager" min="1" step="1" value="5" placeholder="f.eks. 5">
                 </div>
 
                 <div>
@@ -354,9 +337,8 @@
             </div>
 
             <div class="button-row">
-                <button type="submit" class="btn-primary">
-                    🔍 Finn raskeste salg
-                </button>
+                <div class="muted" id="autoload-hint">Henter automatisk grupper ved åpning…</div>
+                <button type="submit" class="btn-primary">🔄 Oppdater</button>
             </div>
         </form>
 
@@ -375,23 +357,23 @@
             </div>
         </div>
 
-        <!-- GRUPPERINGSMENY + AGGREGERT TABELL (øverst) -->
+        <!-- GRUPPER FØRST -->
         <div class="grouping-row">
             <div class="grouping-select-wrapper">
-                <div class="small-label">Grupperingsnivå for raskest salg</div>
+                <div class="small-label">Gruppering</div>
                 <select id="grouping-select">
-                    <option value="merke_modell">Merke og modell</option>
+                    <option value="merke_modell" selected>Merke og modell</option>
                     <option value="merke">Kun merke</option>
                     <option value="merke_modell_aar">Merke, modell og år</option>
                     <option value="merke_modell_drivstoff">Merke, modell og drivstoff</option>
                 </select>
             </div>
             <div class="results-info" id="group-info" style="text-align:right;">
-                Ingen grupper ennå – kjør et søk.
+                Laster…
             </div>
         </div>
 
-        <div class="section-title" style="margin-top:8px;">Grupper som selges raskest</div>
+        <div class="section-title" style="margin-top:8px;">Solgte per gruppe</div>
         <div class="table-wrapper" id="group-table-wrapper" style="display:none;">
             <table>
                 <thead>
@@ -406,13 +388,15 @@
             </table>
         </div>
 
-        <!-- Velg gruppe -> vis enkeltbiler -->
-        <div class="section-title" style="margin-top:12px;">Se enkeltbiler i en gruppe</div>
+        <div class="divider"></div>
+
+        <!-- ENKELTBILER KUN VED VALG -->
+        <div class="section-title" style="margin-top:12px;">Se enkeltbiler i valgt gruppe</div>
         <div class="group-detail-row">
             <div class="grouping-select-wrapper" style="max-width:420px;">
                 <div class="small-label">Velg gruppe</div>
-                <select id="group-detail-select">
-                    <option value="">Kjør et søk først</option>
+                <select id="group-detail-select" disabled>
+                    <option value="">Laster grupper…</option>
                 </select>
             </div>
         </div>
@@ -435,8 +419,8 @@
                 <tbody id="detail-body"></tbody>
             </table>
         </div>
-        <div class="results-info" id="detail-info" style="display:none;">
-        </div>
+
+        <div class="results-info" id="detail-info" style="display:none;"></div>
     </div>
 </div>
 
@@ -452,6 +436,7 @@
 
     let latestRows = [];      // alle solgte biler etter filtrering
     let currentGroups = [];   // grupper for valgt gruppering
+    let firstLoadDone = false;
 
     function formatPris(n) {
         if (n === null || n === undefined) return "";
@@ -468,12 +453,28 @@
         return dager.toFixed(1) + " d";
     }
 
-    produsentSelect.addEventListener('change', () => {
-        const prod = produsentSelect.value;
+    function setLoadingState(msg) {
+        document.getElementById('group-info').textContent = msg || "Laster…";
+        document.getElementById('group-table-wrapper').style.display = 'none';
+        document.getElementById('group-body').innerHTML = "";
+        groupDetailSelect.disabled = true;
+        groupDetailSelect.innerHTML = "<option value=''>Laster…</option>";
+        clearDetailTable();
+    }
+
+    function clearDetailTable() {
+        document.getElementById('detail-body').innerHTML = "";
+        document.getElementById('detail-table-wrapper').style.display = 'none';
+        const dInfo = document.getElementById('detail-info');
+        dInfo.textContent = "";
+        dInfo.style.display = 'none';
+    }
+
+    function populateModelDropdown(prod) {
         modellSelect.innerHTML = "";
         const optDefault = document.createElement('option');
         optDefault.value = "";
-        optDefault.textContent = prod ? "Alle modeller" : "Velg produsent først";
+        optDefault.textContent = prod ? "Alle modeller" : "Alle modeller";
         modellSelect.appendChild(optDefault);
 
         if (prod && modelsByProd && modelsByProd[prod]) {
@@ -484,20 +485,14 @@
                 modellSelect.appendChild(opt);
             });
         }
-    });
-
-    function clearDetailTable() {
-        document.getElementById('detail-body').innerHTML = "";
-        document.getElementById('detail-table-wrapper').style.display = 'none';
-        const dInfo = document.getElementById('detail-info');
-        dInfo.textContent = "";
-        dInfo.style.display = 'none';
     }
 
-    document.getElementById('filter-form').addEventListener('submit', function (e) {
-        e.preventDefault();
+    produsentSelect.addEventListener('change', () => {
+        populateModelDropdown(produsentSelect.value);
+    });
 
-        const filters = {
+    function buildFiltersFromForm() {
+        return {
             produsent: produsentSelect.value || null,
             modell: modellSelect.value || null,
             startdato: document.getElementById('startdato').value || null,
@@ -507,51 +502,74 @@
             year_min: document.getElementById('year_min').value || null,
             max_timer: document.getElementById('max_dager').value || null   // matcher backend
         };
+    }
 
-        fetch(dataUrl, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({filters: filters})
-        })
-        .then(resp => resp.json())
-        .then(data => {
-            console.log("DEBUG /rekordrask/data response:", data);
+    async function runSearch() {
+        setLoadingState(firstLoadDone ? "Oppdaterer…" : "Laster grupper…");
 
+        const filters = buildFiltersFromForm();
+
+        try {
+            const resp = await fetch(dataUrl, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({filters})
+            });
+
+            const data = await resp.json();
             const rawRows = data.rows || [];
             const rows = Array.isArray(rawRows) ? rawRows : Object.values(rawRows);
+
             latestRows = rows;
 
+            // KPI
             const kpis = data.kpis || {};
             const kpiRow = document.getElementById('kpi-row');
-
-            clearDetailTable();  // skjul evt. gamle enkeltbiler
-
-            if (!rows.length) {
-                kpiRow.style.display = 'none';
-                document.getElementById('group-table-wrapper').style.display = 'none';
-                document.getElementById('group-info').textContent = "Ingen biler i dette utvalget.";
-                groupDetailSelect.innerHTML = "<option value=''>Ingen grupper – kjør et søk med flere biler.</option>";
-                currentGroups = [];
-                return;
-            }
 
             function timerTilTekst(v) {
                 if (v === null || v === undefined) return "–";
                 const d = Number(v) / 24.0;
+                if (isNaN(d)) return "–";
                 return d.toFixed(1) + " d";
             }
-            document.getElementById('kpi-min').textContent = timerTilTekst(kpis.min_timer);
-            document.getElementById('kpi-median').textContent = timerTilTekst(kpis.median_timer);
-            document.getElementById('kpi-avg').textContent = timerTilTekst(kpis.avg_timer);
-            kpiRow.style.display = 'flex';
 
-            // bygg/oppdater gruppert tabell + meny
+            if (rows.length) {
+                document.getElementById('kpi-min').textContent = timerTilTekst(kpis.min_timer);
+                document.getElementById('kpi-median').textContent = timerTilTekst(kpis.median_timer);
+                document.getElementById('kpi-avg').textContent = timerTilTekst(kpis.avg_timer);
+                kpiRow.style.display = 'flex';
+            } else {
+                kpiRow.style.display = 'none';
+            }
+
+            clearDetailTable();
+
+            if (!rows.length) {
+                document.getElementById('group-info').textContent = "Ingen biler i dette utvalget.";
+                document.getElementById('group-table-wrapper').style.display = 'none';
+                groupDetailSelect.disabled = true;
+                groupDetailSelect.innerHTML = "<option value=''>Ingen grupper</option>";
+                currentGroups = [];
+                firstLoadDone = true;
+                document.getElementById('autoload-hint').textContent = "Tips: juster filtrene og trykk Oppdater.";
+                return;
+            }
+
             updateGroupingTable();
-        })
-        .catch(err => {
+            firstLoadDone = true;
+            document.getElementById('autoload-hint').textContent = "Tips: juster filtrene og trykk Oppdater.";
+        } catch (err) {
             console.error("Feil ved kall til /bil/rekordrask/data:", err);
             document.getElementById('group-info').textContent = "Teknisk feil ved henting av data.";
-        });
+            document.getElementById('group-table-wrapper').style.display = 'none';
+            groupDetailSelect.disabled = true;
+            groupDetailSelect.innerHTML = "<option value=''>Teknisk feil</option>";
+        }
+    }
+
+    document.getElementById('filter-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        runSearch();
     });
 
     groupingSelect.addEventListener('change', () => {
@@ -586,8 +604,9 @@
 
         if (!rows.length) {
             wrapper.style.display = 'none';
-            info.textContent = "Ingen grupper ennå – kjør et søk.";
-            groupDetailSelect.innerHTML = "<option value=''>Ingen grupper – kjør et søk.</option>";
+            info.textContent = "Ingen grupper.";
+            groupDetailSelect.disabled = true;
+            groupDetailSelect.innerHTML = "<option value=''>Ingen grupper</option>";
             return;
         }
 
@@ -638,25 +657,25 @@
 
         // sorter: først flest solgte, deretter raskest salg
         groupArr.sort((a, b) => {
-            if (b.count !== a.count) {
-                return b.count - a.count;      // flest solgte først
-            }
-            return a.avg_hours - b.avg_hours;   // raskest salg først
+            if (b.count !== a.count) return b.count - a.count;
+            return a.avg_hours - b.avg_hours;
         });
 
         if (!groupArr.length) {
             wrapper.style.display = 'none';
             info.textContent = "Ingen grupper med gyldige data i dette utvalget.";
-            groupDetailSelect.innerHTML = "<option value=''>Ingen grupper – juster filtrene.</option>";
+            groupDetailSelect.disabled = true;
+            groupDetailSelect.innerHTML = "<option value=''>Ingen grupper</option>";
             return;
         }
 
-        // bygg tabell + lagre grupper
         groupArr.forEach((g, idx) => {
             const id = String(idx);
+            const label = g.parts.join(" – ");
+
             currentGroups.push({
                 id: id,
-                label: g.parts.join(" – "),
+                label: label,
                 fields: fields.slice(),
                 parts: g.parts
             });
@@ -664,7 +683,7 @@
             const tr = document.createElement('tr');
 
             const gruppeTd = document.createElement('td');
-            gruppeTd.textContent = g.parts.join(" – ");
+            gruppeTd.textContent = label;
             tr.appendChild(gruppeTd);
 
             const antTd = document.createElement('td');
@@ -686,7 +705,9 @@
         info.textContent = `Viser ${groupArr.length} grupper basert på ${rows.length} solgte biler i utvalget.`;
 
         // oppdater menyen for valg av gruppe
+        groupDetailSelect.disabled = false;
         groupDetailSelect.innerHTML = "";
+
         const opt0 = document.createElement('option');
         opt0.value = "";
         opt0.textContent = "Velg gruppe for å se enkeltbiler";
@@ -771,6 +792,12 @@
         detailInfo.textContent = `Viser ${matched.length} biler i gruppen «${group.label}».`;
         detailInfo.style.display = 'block';
     }
+
+    // ✅ AUTO-LOAD ved åpning (GRUPPER FØRST)
+    document.addEventListener("DOMContentLoaded", () => {
+        populateModelDropdown(produsentSelect.value);
+        runSearch();
+    });
 </script>
 </body>
 </html>
