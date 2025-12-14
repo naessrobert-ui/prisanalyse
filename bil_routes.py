@@ -6,7 +6,7 @@ import pandas as pd
 import io
 import numpy as np
 from flask import Blueprint, render_template, jsonify, request
-import traceback # Importert for bedre feilhåndtering
+import traceback  # Importert for bedre feilhåndtering
 
 from config import (
     AWS_KEY,
@@ -22,7 +22,10 @@ bil_bp = Blueprint('bil', __name__, url_prefix='/bil')
 from svv_app import fetch_svv_data, flatten_svv_data, compute_eu_status
 
 FINN_BASE_URL = "https://www.finn.no/mobility/item/"
-PARQUET_FILE_KEY = "calc/bil/database_biler.parquet"
+
+# ✅ Oppdatert til ny fil:
+PARQUET_FILE_KEY = "calc/bil/database_biler_siste.parquet"
+
 METADATA_KEY = "calc/metadata.json"
 
 
@@ -158,12 +161,150 @@ def _filtrer_data(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
     return df
 
 
+# ------------------ NYE HJELPERE FOR OVERSIKT ------------------
+
+def _to_bool_series(s: pd.Series) -> pd.Series:
+    """
+    Robust konvertering til bool.
+    Tåler True/False, 0/1, "true"/"false", "yes"/"no".
+    """
+    if s.dtype == bool:
+        return s.fillna(False)
+    if np.issubdtype(s.dtype, np.number):
+        return s.fillna(0).astype(int).astype(bool)
+
+    # objekt/str
+    return s.astype(str).str.strip().str.lower().isin(
+        ["1", "true", "t", "yes", "y", "ja"]
+    )
+
+
+def _lag_alder_bucket_fra_aarstall(df: pd.DataFrame, aar_col: str) -> pd.Series:
+    """
+    Lager aldersgrupper basert på årstall.
+    """
+    now_year = datetime.now().year
+    year = pd.to_numeric(df[aar_col], errors="coerce")
+    age = (now_year - year).where(year.notna(), np.nan)
+
+    bins = [-1, 1, 3, 5, 8, 12, 100]
+    labels = ["0–1", "2–3", "4–5", "6–8", "9–12", "13+"]
+    return pd.cut(age, bins=bins, labels=labels)
+
+
 # ------------------ Ruter ------------------
 
 @bil_bp.route('/')
 def bil_landing():
     return render_template('bil_landing.html')
 
+
+# ==========================================================
+# ✅ NY: SOLGT-OVERSIKT (ANTALL SOLGTE PER MERKE / ALDER / DRIVSTOFF)
+# ==========================================================
+
+@bil_bp.route('/solgt/oversikt')
+def bil_solgt_oversikt_side():
+    """
+    Ny inngang: viser en oversikt (aggregert) i stedet for å starte med produsent-søk.
+    Krever ny template: bil_solgt_oversikt.html
+    """
+    metadata = _get_metadata()
+    return render_template(
+        'bil_solgt_oversikt.html',
+        tittel="Antall solgte biler",
+        data_url="/bil/solgt/oversikt/data",
+        drivstoff_opts=metadata.get('drivstoff_opts', []),
+        hjuldrift_opts=metadata.get('hjuldrift_opts', []),
+        year_min=metadata.get('year_min', 2000),
+        year_max=metadata.get('year_max', datetime.now().year),
+    )
+
+
+@bil_bp.route('/solgt/oversikt/data', methods=['POST'])
+def bil_solgt_oversikt_data():
+    """
+    Lett endpoint: les parquet -> filtrer til solgt==True -> groupby.
+    Frontend kan styre grouping via:
+      filters: {
+        group_by_fuel: true/false,
+        group_by_age: true/false,
+        drivstoff: [..] (valgfritt filter),
+        year_min/year_max (valgfritt filter)
+      }
+    """
+    try:
+        payload = request.get_json() or {}
+        filters = payload.get('filters', {}) or {}
+
+        df = _last_inn_hele_databasen()
+        if df.empty:
+            return jsonify({'status': 'ok', 'summary': []})
+
+        cols = {c.lower(): c for c in df.columns}
+
+        def get_col(candidates):
+            for cand in candidates:
+                if cand.lower() in cols:
+                    return cols[cand.lower()]
+            return None
+
+        col_prod = get_col(['Produsent', 'produsent'])
+        col_solgt = get_col(['Solgt', 'solgt'])
+        col_driv = get_col(['drivstoff'])
+        col_aar = get_col(['årstall', 'year'])
+
+        if not col_prod or not col_solgt:
+            return jsonify({
+                'status': 'error',
+                'message': 'Datasettet mangler nødvendige kolonner: produsent/solgt.'
+            }), 500
+
+        # Kun solgte
+        df = df[_to_bool_series(df[col_solgt])].copy()
+
+        # Valgfrie filtre
+        if col_driv and isinstance(filters.get("drivstoff"), list) and filters.get("drivstoff"):
+            df = df[df[col_driv].isin(filters["drivstoff"])]
+
+        if col_aar:
+            df[col_aar] = pd.to_numeric(df[col_aar], errors='coerce')
+            if filters.get("year_min"):
+                df = df[df[col_aar] >= int(filters["year_min"])]
+            if filters.get("year_max"):
+                df = df[df[col_aar] <= int(filters["year_max"])]
+
+        # Gruppéringsvalg
+        group_cols = [col_prod]
+
+        if filters.get("group_by_fuel") and col_driv:
+            group_cols.append(col_driv)
+
+        if filters.get("group_by_age") and col_aar:
+            df['alder'] = _lag_alder_bucket_fra_aarstall(df, col_aar)
+            group_cols.append('alder')
+
+        out = (
+            df.groupby(group_cols, dropna=False)
+              .size()
+              .reset_index(name='antall_solgt')
+              .sort_values('antall_solgt', ascending=False)
+        )
+
+        out = out.where(pd.notna(out), None)
+        summary = json.loads(out.to_json(orient='records'))
+
+        return jsonify({'status': 'ok', 'summary': summary})
+
+    except Exception as e:
+        print(f"Feil i /bil/solgt/oversikt/data: {e}")
+        traceback.print_exc()
+        return jsonify({"status": "error", "error": str(e), "message": "En uventet feil oppstod på serveren."}), 500
+
+
+# ==========================================================
+# EXISTING: SOLGT-ANALYSE SIDE
+# ==========================================================
 
 @bil_bp.route('/solgt')
 def bil_solgt_analyse_side():
@@ -182,57 +323,42 @@ def bil_solgt_analyse_side():
         km_max=metadata.get('km_max', 200000),
     )
 
-# --- HER ER HOVEDENDRINGEN ---
-# I bil_routes.py
-
-# Husk å importere traceback øverst i filen hvis den ikke er der:
-# import traceback
 
 @bil_bp.route('/solgt/data', methods=['POST'])
 def get_bil_solgt_data():
     try:
         # --- GRENSEVERDI ---
-        # Vi setter en hard grense for hvor mange rader vi behandler.
-        # Hvis søket gir mer enn dette, sender vi en advarsel.
         MAX_ROWS_LIMIT = 300
-        # -------------------
 
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
 
-        # 1. Laster hele filen i minnet. Dette går akkurat bra i dag.
+        # 1. Laster hele filen i minnet
         df = _last_inn_hele_databasen()
         if df.empty:
-             # Returner tom suksess hvis databasen er tom
             return jsonify({'status': 'ok', 'historikk': [], 'daily_stats': [], 'kpis': {}})
 
         # 2. Filtrerer dataene i minnet
         df_filtered = _filtrer_data(df, filters)
 
         # --- KRITISK SJEKK ---
-        # Her sjekker vi hvor mange rader vi har igjen.
         antall_treff = len(df_filtered)
         print(f"Søk ferdig. Antall treff: {antall_treff}")
 
         if antall_treff > MAX_ROWS_LIMIT:
             print(f"ADVARSEL: For mange treff. Stopper behandling for å unngå minnekrasj.")
-            # VIKTIG: Returner NÅ. Ikke la koden fortsette nedover.
-            # Vi sender en 'warning' status tilbake til frontend.
             return jsonify({
                 'status': 'warning',
                 'message': f'Søket ga for mange treff ({antall_treff}). Visning er begrenset til søk med under {MAX_ROWS_LIMIT} resultater for å sikre ytelse.',
                 'count': antall_treff,
-                # Send tomme data for sikkerhets skyld
                 'historikk': [], 'daily_stats': [], 'kpis': {}
             })
         # --- SLUTT PÅ SJEKK ---
 
-
         if df_filtered.empty:
-             # Returner tom suksess hvis søket ga 0 treff
             return jsonify({'status': 'ok', 'historikk': [], 'daily_stats': [], 'kpis': {}})
 
-        # --- Start dataprosessering (kjøres kun hvis under grensen) ---
+        # --- Start dataprosessering ---
         cols = {c.lower(): c for c in df_filtered.columns}
 
         def find_col(options):
@@ -365,20 +491,21 @@ def get_bil_solgt_data():
 
         # Ekstra sikkerhet: Kutt ned hvis vi på magisk vis har flere enn grensen her
         if len(output_df) > MAX_ROWS_LIMIT:
-             output_df = output_df.head(MAX_ROWS_LIMIT)
+            output_df = output_df.head(MAX_ROWS_LIMIT)
 
-        # Dette er den tunge operasjonen som krasjer hvis output_df er for stor:
         historikk = json.loads(output_df.to_json(orient='records', date_format='iso'))
 
-        # Returner suksess
         return jsonify({'status': 'ok', 'historikk': historikk, 'daily_stats': daily_stats, 'kpis': kpis})
 
     except Exception as e:
         print(f"Feil i /bil/solgt/data: {e}")
-        import traceback
         traceback.print_exc()
-        # Returner feilmelding
         return jsonify({"status": "error", "error": str(e), "message": "En uventet feil oppstod på serveren."}), 500
+
+
+# ==========================================================
+# EXISTING: REKORDRASK
+# ==========================================================
 
 @bil_bp.route('/rekordrask')
 def bil_rekordrask_side():
@@ -407,19 +534,20 @@ def get_bil_rekordrask_data():
         vis_solgte = bygg_visning_for_solgte_fra_parquet(startdato)
 
         if vis_solgte.empty:
-            # Oppdatert med status
             return jsonify({'status': 'ok', 'rows': [], 'kpis': {}})
 
         vis_solgte = vis_solgte.where(pd.notna(vis_solgte), None)
         rows = json.loads(vis_solgte.to_json(orient='records'))
-        # Oppdatert med status
         return jsonify({'status': 'ok', 'rows': rows, 'kpis': {}})
 
     except Exception as e:
         print(f"Feil i /bil/rekordrask/data: {e}")
-        # Oppdatert med status
         return jsonify({"status": "error", "error": str(e)}), 500
 
+
+# ==========================================================
+# EXISTING: SVV
+# ==========================================================
 
 @bil_bp.route('/svv', methods=['GET', 'POST'])
 def bil_svv_side():
