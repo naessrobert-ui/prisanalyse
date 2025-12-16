@@ -430,6 +430,18 @@ def get_bil_solgt_data():
         filters = payload.get('filters', {}) or {}
 
         path = _ensure_local_parquet()
+        cm = _duckdb_get_colmap()
+        con = _duckdb_con()
+
+        dbg_all = f"""
+        SELECT
+          count(*) AS total,
+          min(try_cast({_qident(cm['dato_start'])} as DATE)) AS min_dato_start,
+          max(try_cast({_qident(cm['dato_start'])} as DATE)) AS max_dato_start
+        FROM read_parquet('{path}')
+        """
+        print("DUCK ALL DATE DEBUG:", con.execute(dbg_all).fetchone())
+
         colmap = _duckdb_get_colmap()
         con = _duckdb_con()
 
