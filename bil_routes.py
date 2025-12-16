@@ -1,12 +1,17 @@
-# bil_routes.py
+# bil_routes.py (DuckDB + Parquet fra S3 via lokal /tmp-cache)
 import json
+import os
+import tempfile
+import threading
 from datetime import datetime, timedelta, date
+
 import boto3
 import pandas as pd
-import io
 import numpy as np
+import duckdb
+
 from flask import Blueprint, render_template, jsonify, request
-import traceback  # Importert for bedre feilhåndtering
+import traceback
 
 from config import (
     AWS_KEY,
@@ -23,13 +28,11 @@ from svv_app import fetch_svv_data, flatten_svv_data, compute_eu_status
 
 FINN_BASE_URL = "https://www.finn.no/mobility/item/"
 
-# ✅ Oppdatert til ny fil:
+# Parquet på S3
 PARQUET_FILE_KEY = "calc/bil/database_biler_siste.parquet"
-
 METADATA_KEY = "calc/metadata.json"
 
-
-# ------------------ Felles hjelp ------------------
+# ------------------ S3 helpers ------------------
 
 def _get_s3_client():
     return boto3.client(
@@ -51,138 +54,225 @@ def _get_metadata():
     return metadata
 
 
-def _last_inn_hele_databasen() -> pd.DataFrame:
-    try:
+# ------------------ Lokal cache av parquet ------------------
+
+_PARQUET_CACHE_LOCK = threading.Lock()
+_PARQUET_LOCAL_PATH = os.path.join(tempfile.gettempdir(), "database_biler_siste.parquet")
+_PARQUET_CACHE_META = {"etag": None, "last_modified": None}
+
+
+def _ensure_local_parquet() -> str:
+    """
+    Henter parquet fra S3 til lokal /tmp ved behov (per container/prosess).
+    Laster ned på nytt hvis ETag/LastModified har endret seg.
+    """
+    with _PARQUET_CACHE_LOCK:
         s3 = _get_s3_client()
-        obj = s3.get_object(Bucket=S3_BUCKET_NAME, Key=PARQUET_FILE_KEY)
-        buffer = io.BytesIO(obj['Body'].read())
-        df = pd.read_parquet(buffer)
-        return df
-    except Exception as e:
-        print(f"Feil ved lesing av Parquet: {e}")
-        return pd.DataFrame()
+        head = s3.head_object(Bucket=S3_BUCKET_NAME, Key=PARQUET_FILE_KEY)
+
+        etag = (head.get("ETag") or "").strip('"')
+        last_modified = head.get("LastModified")
+
+        if os.path.exists(_PARQUET_LOCAL_PATH):
+            if _PARQUET_CACHE_META["etag"] == etag and _PARQUET_CACHE_META["last_modified"] == last_modified:
+                return _PARQUET_LOCAL_PATH
+
+        tmp_path = _PARQUET_LOCAL_PATH + ".download"
+        with open(tmp_path, "wb") as f:
+            s3.download_fileobj(S3_BUCKET_NAME, PARQUET_FILE_KEY, f)
+
+        os.replace(tmp_path, _PARQUET_LOCAL_PATH)
+
+        _PARQUET_CACHE_META["etag"] = etag
+        _PARQUET_CACHE_META["last_modified"] = last_modified
+
+        # hvis fila endrer seg, refresh kolonnemapping
+        global _DUCKDB_COLMAP
+        _DUCKDB_COLMAP = None
+
+        return _PARQUET_LOCAL_PATH
 
 
-def _filtrer_data(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
+# ------------------ DuckDB connection + colmap ------------------
+
+_DUCKDB_LOCK = threading.Lock()
+_DUCKDB_CON = None
+
+_DUCKDB_COLMAP = None  # canonical -> faktisk kolonnenavn
+
+
+def _duckdb_con():
+    global _DUCKDB_CON
+    with _DUCKDB_LOCK:
+        if _DUCKDB_CON is None:
+            con = duckdb.connect(database=":memory:", read_only=False)
+            con.execute("PRAGMA threads=4;")
+            con.execute("PRAGMA enable_progress_bar=false;")
+            _DUCKDB_CON = con
+        return _DUCKDB_CON
+
+
+def _qident(name: str) -> str:
+    """Trygg quoting av SQL identifier."""
+    if name is None:
+        return "NULL"
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _duckdb_get_colmap() -> dict:
     """
-    Ryddet opp:
-    - Dato-filter bruker kun Dato_ny (sist observert for salg)
-    - Pris-filter bruker kun Pris_ny (sist observert pris)
+    Mapper canonical feltnavn til faktiske kolonnenavn i parquet,
+    slik at vi tåler Produsent/produsent osv.
     """
-    if df.empty:
-        return df
+    global _DUCKDB_COLMAP
+    if _DUCKDB_COLMAP is not None:
+        return _DUCKDB_COLMAP
 
-    cols = {c.lower(): c for c in df.columns}
+    path = _ensure_local_parquet()
+    con = _duckdb_con()
 
-    def get_col(candidates):
+    cols = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}')").fetchall()
+    actual_cols = [r[0] for r in cols]
+    lower_map = {c.lower(): c for c in actual_cols}
+
+    def pick(candidates):
         for cand in candidates:
-            if cand.lower() in cols:
-                return cols[cand.lower()]
+            if cand.lower() in lower_map:
+                return lower_map[cand.lower()]
         return None
 
-    col_prod = get_col(['Produsent', 'produsent'])
-    col_mod = get_col(['Modell', 'modell'])
-    col_over = get_col(['Overskrift', 'overskrift', 'info'])
-    col_selger = get_col(['Selger', 'selger'])
-
-    # Kun to priser i datasettet
-    col_pris_ny = get_col(['Pris_ny', 'pris_ny'])
-
-    # Kun to datoer i datasettet
-    col_sist_obs = get_col(['Dato_ny', 'dato_ny'])
-
-    col_km = get_col(['kjørelengde', 'km'])
-    col_aar = get_col(['årstall', 'year'])
-    col_rekk = get_col(['rekkevidde_str', 'rekkevidde'])
-    col_driv = get_col(['drivstoff'])
-    col_hjul = get_col(['hjuldrift'])
-
-    # --- Filtrering ---
-
-    # Dato-filter: bruk Dato_ny
-    start_str = filters.get("startdato")
-    if start_str and col_sist_obs:
-        startdato = pd.to_datetime(start_str, errors='coerce')
-        if pd.notna(startdato):
-            df[col_sist_obs] = pd.to_datetime(df[col_sist_obs], errors='coerce')
-            df = df[df[col_sist_obs] >= startdato]
-
-    # Tekst
-    if filters.get("produsent") and col_prod:
-        df = df[df[col_prod] == filters["produsent"]]
-
-    if filters.get("modell") and col_mod:
-        df = df[df[col_mod] == filters["modell"]]
-
-    if filters.get("modell_sok") and col_over:
-        sok = filters["modell_sok"].lower()
-        df = df[df[col_over].astype(str).str.lower().str.contains(sok, na=False)]
-
-    if filters.get("seller_sok") and col_selger:
-        sok = filters["seller_sok"].lower()
-        df = df[df[col_selger].astype(str).str.lower().str.contains(sok, na=False)]
-
-    # Tall
-    if col_pris_ny:
-        df[col_pris_ny] = pd.to_numeric(df[col_pris_ny], errors='coerce')
-        if filters.get("pris_min"):
-            df = df[df[col_pris_ny] >= int(filters["pris_min"])]
-        if filters.get("pris_max"):
-            df = df[df[col_pris_ny] <= int(filters["pris_max"])]
-
-    if col_km and filters.get("km_max"):
-        df[col_km] = pd.to_numeric(df[col_km], errors='coerce')
-        df = df[df[col_km] <= int(filters["km_max"])]
-
-    if col_aar:
-        df[col_aar] = pd.to_numeric(df[col_aar], errors='coerce')
-        if filters.get("year_min"):
-            df = df[df[col_aar] >= int(filters["year_min"])]
-        if filters.get("year_max"):
-            df = df[df[col_aar] <= int(filters["year_max"])]
-
-    if col_rekk:
-        df[col_rekk] = pd.to_numeric(df[col_rekk], errors='coerce')
-        if filters.get("range_min"):
-            df = df[df[col_rekk] >= int(filters["range_min"])]
-        if filters.get("range_max"):
-            df = df[df[col_rekk] <= int(filters["range_max"])]
-
-    if col_driv and filters.get("drivstoff"):
-        d_list = filters["drivstoff"]
-        if isinstance(d_list, list):
-            df = df[df[col_driv].isin(d_list)]
-
-    if col_hjul and filters.get("hjuldrift"):
-        h_list = filters["hjuldrift"]
-        if isinstance(h_list, list):
-            df = df[df[col_hjul].isin(h_list)]
-
-    return df
+    _DUCKDB_COLMAP = {
+        "produsent": pick(["Produsent", "produsent"]),
+        "modell": pick(["Modell", "modell"]),
+        "overskrift": pick(["Overskrift", "overskrift", "info"]),
+        "selger": pick(["Selger", "selger"]),
+        "pris_start": pick(["Pris", "pris"]),
+        "pris_ny": pick(["Pris_ny", "pris_ny"]),
+        "dato_start": pick(["Dato", "dato"]),
+        "dato_end": pick(["Dato_ny", "dato_ny"]),
+        "finnkode": pick(["FinnKode", "finnkode"]),
+        "solgt": pick(["Solgt", "solgt"]),
+        "km": pick(["kjørelengde", "km"]),
+        "aar": pick(["årstall", "year"]),
+        "rekkevidde": pick(["rekkevidde_str", "rekkevidde"]),
+        "drivstoff": pick(["drivstoff"]),
+        "hjuldrift": pick(["hjuldrift"]),
+    }
+    return _DUCKDB_COLMAP
 
 
-# ------------------ NYE HJELPERE FOR OVERSIKT ------------------
+def _bool_expr(col_ident: str) -> str:
+    """
+    Robust bool-tolkning i SQL:
+    True/False, 0/1, 'true'/'false', 'ja'/'nei', osv.
+    """
+    return f"""
+    (
+      case
+        when {col_ident} is null then false
+        when typeof({col_ident}) = 'BOOLEAN' then {col_ident}
+        else lower(trim(cast({col_ident} as varchar))) in ('1','true','t','yes','y','ja')
+      end
+    )
+    """
+
+
+def _build_where_sql(filters: dict, colmap: dict):
+    """
+    WHERE + params (parameterbinding) basert på samme filterlogikk som før.
+    Merk: Dato-filter bruker kun Dato_ny (dato_end).
+    Pris-filter bruker kun Pris_ny.
+    """
+    clauses = []
+    params = []
+
+    # Dato (Dato_ny)
+    if filters.get("startdato") and colmap.get("dato_end"):
+        clauses.append(f"try_cast({_qident(colmap['dato_end'])} AS TIMESTAMP) >= try_cast(? AS TIMESTAMP)")
+        params.append(filters["startdato"])
+
+    # Produsent/modell
+    if filters.get("produsent") and colmap.get("produsent"):
+        clauses.append(f"{_qident(colmap['produsent'])} = ?")
+        params.append(filters["produsent"])
+
+    if filters.get("modell") and colmap.get("modell"):
+        clauses.append(f"{_qident(colmap['modell'])} = ?")
+        params.append(filters["modell"])
+
+    # Tekstsøk i overskrift (modell_sok) og selger
+    if filters.get("modell_sok") and colmap.get("overskrift"):
+        clauses.append(
+            f"lower(cast({_qident(colmap['overskrift'])} AS VARCHAR)) LIKE '%' || lower(?) || '%'"
+        )
+        params.append(filters["modell_sok"])
+
+    if filters.get("seller_sok") and colmap.get("selger"):
+        clauses.append(
+            f"lower(cast({_qident(colmap['selger'])} AS VARCHAR)) LIKE '%' || lower(?) || '%'"
+        )
+        params.append(filters["seller_sok"])
+
+    # Pris (Pris_ny)
+    if colmap.get("pris_ny"):
+        if filters.get("pris_min") not in (None, ""):
+            clauses.append(f"try_cast({_qident(colmap['pris_ny'])} AS BIGINT) >= ?")
+            params.append(int(filters["pris_min"]))
+        if filters.get("pris_max") not in (None, ""):
+            clauses.append(f"try_cast({_qident(colmap['pris_ny'])} AS BIGINT) <= ?")
+            params.append(int(filters["pris_max"]))
+
+    # Km max
+    if colmap.get("km") and filters.get("km_max") not in (None, ""):
+        clauses.append(f"try_cast({_qident(colmap['km'])} AS BIGINT) <= ?")
+        params.append(int(filters["km_max"]))
+
+    # År min/max
+    if colmap.get("aar"):
+        if filters.get("year_min") not in (None, ""):
+            clauses.append(f"try_cast({_qident(colmap['aar'])} AS BIGINT) >= ?")
+            params.append(int(filters["year_min"]))
+        if filters.get("year_max") not in (None, ""):
+            clauses.append(f"try_cast({_qident(colmap['aar'])} AS BIGINT) <= ?")
+            params.append(int(filters["year_max"]))
+
+    # Rekkevidde min/max
+    if colmap.get("rekkevidde"):
+        if filters.get("range_min") not in (None, ""):
+            clauses.append(f"try_cast({_qident(colmap['rekkevidde'])} AS BIGINT) >= ?")
+            params.append(int(filters["range_min"]))
+        if filters.get("range_max") not in (None, ""):
+            clauses.append(f"try_cast({_qident(colmap['rekkevidde'])} AS BIGINT) <= ?")
+            params.append(int(filters["range_max"]))
+
+    # Drivstoff/hjuldrift (multi)
+    if colmap.get("drivstoff") and isinstance(filters.get("drivstoff"), list) and filters["drivstoff"]:
+        vals = filters["drivstoff"]
+        placeholders = ",".join(["?"] * len(vals))
+        clauses.append(f"{_qident(colmap['drivstoff'])} IN ({placeholders})")
+        params.extend(vals)
+
+    if colmap.get("hjuldrift") and isinstance(filters.get("hjuldrift"), list) and filters["hjuldrift"]:
+        vals = filters["hjuldrift"]
+        placeholders = ",".join(["?"] * len(vals))
+        clauses.append(f"{_qident(colmap['hjuldrift'])} IN ({placeholders})")
+        params.extend(vals)
+
+    where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    return where_sql, params
+
+
+# ------------------ Små pandas-hjelpere (på små resultater) ------------------
 
 def _to_bool_series(s: pd.Series) -> pd.Series:
-    """
-    Robust konvertering til bool.
-    Tåler True/False, 0/1, "true"/"false", "yes"/"no".
-    """
     if s.dtype == bool:
         return s.fillna(False)
     if np.issubdtype(s.dtype, np.number):
         return s.fillna(0).astype(int).astype(bool)
-
-    # objekt/str
-    return s.astype(str).str.strip().str.lower().isin(
-        ["1", "true", "t", "yes", "y", "ja"]
-    )
+    return s.astype(str).str.strip().str.lower().isin(["1", "true", "t", "yes", "y", "ja"])
 
 
 def _lag_alder_bucket_fra_aarstall(df: pd.DataFrame, aar_col: str) -> pd.Series:
-    """
-    Lager aldersgrupper basert på årstall.
-    """
     now_year = datetime.now().year
     year = pd.to_numeric(df[aar_col], errors="coerce")
     age = (now_year - year).where(year.notna(), np.nan)
@@ -200,15 +290,11 @@ def bil_landing():
 
 
 # ==========================================================
-# ✅ NY: SOLGT-OVERSIKT (ANTALL SOLGTE PER MERKE / ALDER / DRIVSTOFF)
+# SOLGT-OVERSIKT (DuckDB)
 # ==========================================================
 
 @bil_bp.route('/solgt/oversikt')
 def bil_solgt_oversikt_side():
-    """
-    Ny inngang: viser en oversikt (aggregert) i stedet for å starte med produsent-søk.
-    Krever ny template: bil_solgt_oversikt.html
-    """
     metadata = _get_metadata()
     return render_template(
         'bil_solgt_oversikt.html',
@@ -223,76 +309,83 @@ def bil_solgt_oversikt_side():
 
 @bil_bp.route('/solgt/oversikt/data', methods=['POST'])
 def bil_solgt_oversikt_data():
-    """
-    Lett endpoint: les parquet -> filtrer til solgt==True -> groupby.
-    Frontend kan styre grouping via:
-      filters: {
-        group_by_fuel: true/false,
-        group_by_age: true/false,
-        drivstoff: [..] (valgfritt filter),
-        year_min/year_max (valgfritt filter)
-      }
-    """
     try:
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
 
-        df = _last_inn_hele_databasen()
-        if df.empty:
-            return jsonify({'status': 'ok', 'summary': []})
+        path = _ensure_local_parquet()
+        colmap = _duckdb_get_colmap()
+        con = _duckdb_con()
 
-        cols = {c.lower(): c for c in df.columns}
-
-        def get_col(candidates):
-            for cand in candidates:
-                if cand.lower() in cols:
-                    return cols[cand.lower()]
-            return None
-
-        col_prod = get_col(['Produsent', 'produsent'])
-        col_solgt = get_col(['Solgt', 'solgt'])
-        col_driv = get_col(['drivstoff'])
-        col_aar = get_col(['årstall', 'year'])
-
-        if not col_prod or not col_solgt:
+        if not colmap.get("produsent") or not colmap.get("solgt"):
             return jsonify({
                 'status': 'error',
                 'message': 'Datasettet mangler nødvendige kolonner: produsent/solgt.'
             }), 500
 
-        # Kun solgte
-        df = df[_to_bool_series(df[col_solgt])].copy()
+        prod = _qident(colmap["produsent"])
+        solgt_col = _qident(colmap["solgt"])
+        driv = _qident(colmap["drivstoff"]) if colmap.get("drivstoff") else None
+        aar = _qident(colmap["aar"]) if colmap.get("aar") else None
+
+        # Base WHERE: kun solgte
+        where_parts = [f"{_bool_expr(solgt_col)} = true"]
+        params = []
 
         # Valgfrie filtre
-        if col_driv and isinstance(filters.get("drivstoff"), list) and filters.get("drivstoff"):
-            df = df[df[col_driv].isin(filters["drivstoff"])]
+        if driv and isinstance(filters.get("drivstoff"), list) and filters["drivstoff"]:
+            vals = filters["drivstoff"]
+            where_parts.append(f"{driv} IN ({','.join(['?'] * len(vals))})")
+            params.extend(vals)
 
-        if col_aar:
-            df[col_aar] = pd.to_numeric(df[col_aar], errors='coerce')
-            if filters.get("year_min"):
-                df = df[df[col_aar] >= int(filters["year_min"])]
-            if filters.get("year_max"):
-                df = df[df[col_aar] <= int(filters["year_max"])]
+        if aar:
+            if filters.get("year_min") not in (None, ""):
+                where_parts.append(f"try_cast({aar} AS BIGINT) >= ?")
+                params.append(int(filters["year_min"]))
+            if filters.get("year_max") not in (None, ""):
+                where_parts.append(f"try_cast({aar} AS BIGINT) <= ?")
+                params.append(int(filters["year_max"]))
 
-        # Gruppéringsvalg
-        group_cols = [col_prod]
+        where_sql = " WHERE " + " AND ".join(where_parts) if where_parts else ""
 
-        if filters.get("group_by_fuel") and col_driv:
-            group_cols.append(col_driv)
+        group_cols = [prod]
+        select_cols = [f"{prod} AS produsent"]
 
-        if filters.get("group_by_age") and col_aar:
-            df['alder'] = _lag_alder_bucket_fra_aarstall(df, col_aar)
-            group_cols.append('alder')
+        if filters.get("group_by_fuel") and driv:
+            group_cols.append(driv)
+            select_cols.append(f"{driv} AS drivstoff")
 
-        out = (
-            df.groupby(group_cols, dropna=False)
-              .size()
-              .reset_index(name='antall_solgt')
-              .sort_values('antall_solgt', ascending=False)
-        )
+        if filters.get("group_by_age") and aar:
+            now_year = datetime.now().year
+            alder_expr = f"""
+              CASE
+                WHEN try_cast({aar} AS BIGINT) IS NULL THEN NULL
+                ELSE
+                  CASE
+                    WHEN ({now_year} - try_cast({aar} AS BIGINT)) <= 1 THEN '0–1'
+                    WHEN ({now_year} - try_cast({aar} AS BIGINT)) <= 3 THEN '2–3'
+                    WHEN ({now_year} - try_cast({aar} AS BIGINT)) <= 5 THEN '4–5'
+                    WHEN ({now_year} - try_cast({aar} AS BIGINT)) <= 8 THEN '6–8'
+                    WHEN ({now_year} - try_cast({aar} AS BIGINT)) <= 12 THEN '9–12'
+                    ELSE '13+'
+                  END
+              END
+            """
+            group_cols.append(alder_expr)
+            select_cols.append(f"{alder_expr} AS alder")
 
-        out = out.where(pd.notna(out), None)
-        summary = json.loads(out.to_json(orient='records'))
+        sql = f"""
+          SELECT {', '.join(select_cols)},
+                 COUNT(*) AS antall_solgt
+          FROM read_parquet('{path}')
+          {where_sql}
+          GROUP BY {', '.join(group_cols)}
+          ORDER BY antall_solgt DESC
+        """
+
+        out_df = con.execute(sql, params).df()
+        out_df = out_df.where(pd.notna(out_df), None)
+        summary = json.loads(out_df.to_json(orient='records'))
 
         return jsonify({'status': 'ok', 'summary': summary})
 
@@ -303,7 +396,7 @@ def bil_solgt_oversikt_data():
 
 
 # ==========================================================
-# EXISTING: SOLGT-ANALYSE SIDE
+# SOLGT-ANALYSE SIDE
 # ==========================================================
 
 @bil_bp.route('/solgt')
@@ -326,176 +419,179 @@ def bil_solgt_analyse_side():
 
 @bil_bp.route('/solgt/data', methods=['POST'])
 def get_bil_solgt_data():
+    """
+    DuckDB-endpoint:
+    - filtrerer direkte mot parquet (lokal cache)
+    - returnerer maks 300 rader per svar (page_size cap)
+    - default sort: laveste pris_ny først
+    """
     try:
-        # --- GRENSEVERDI ---
         MAX_ROWS_LIMIT = 300
 
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
 
-        # 1. Laster hele filen i minnet
-        df = _last_inn_hele_databasen()
-        if df.empty:
-            return jsonify({'status': 'ok', 'historikk': [], 'daily_stats': [], 'kpis': {}})
+        # valgfritt: paging (bakoverkompatibelt – hvis frontend ikke sender dette)
+        page = int(payload.get("page") or 1)
+        page_size = int(payload.get("page_size") or MAX_ROWS_LIMIT)
+        page = max(page, 1)
+        page_size = max(1, min(page_size, MAX_ROWS_LIMIT))
+        offset = (page - 1) * page_size
 
-        # 2. Filtrerer dataene i minnet
-        df_filtered = _filtrer_data(df, filters)
+        path = _ensure_local_parquet()
+        colmap = _duckdb_get_colmap()
+        con = _duckdb_con()
 
-        # --- KRITISK SJEKK ---
-        antall_treff = len(df_filtered)
-        print(f"Søk ferdig. Antall treff: {antall_treff}")
+        where_sql, params = _build_where_sql(filters, colmap)
 
-        if antall_treff > MAX_ROWS_LIMIT:
-            print(f"ADVARSEL: For mange treff. Stopper behandling for å unngå minnekrasj.")
+        # total count (for warning/paging)
+        count_sql = f"SELECT COUNT(*) AS cnt FROM read_parquet('{path}') {where_sql}"
+        total_count = int(con.execute(count_sql, params).fetchone()[0])
+
+        if total_count == 0:
             return jsonify({
-                'status': 'warning',
-                'message': f'Søket ga for mange treff ({antall_treff}). Visning er begrenset til søk med under {MAX_ROWS_LIMIT} resultater for å sikre ytelse.',
-                'count': antall_treff,
-                'historikk': [], 'daily_stats': [], 'kpis': {}
+                'status': 'ok',
+                'historikk': [],
+                'daily_stats': [],
+                'kpis': {},
+                'count': 0,
+                'page': page,
+                'page_size': page_size,
+                'truncated': False
             })
-        # --- SLUTT PÅ SJEKK ---
 
-        if df_filtered.empty:
-            return jsonify({'status': 'ok', 'historikk': [], 'daily_stats': [], 'kpis': {}})
+        def col_or_null(key: str) -> str:
+            c = colmap.get(key)
+            return _qident(c) if c else "NULL"
 
-        # --- Start dataprosessering ---
-        cols = {c.lower(): c for c in df_filtered.columns}
+        c_prod = col_or_null("produsent")
+        c_mod = col_or_null("modell")
+        c_aar = col_or_null("aar")
+        c_km = col_or_null("km")
+        c_driv = col_or_null("drivstoff")
+        c_hjul = col_or_null("hjuldrift")
+        c_rekk = col_or_null("rekkevidde")
+        c_selger = col_or_null("selger")
+        c_over = col_or_null("overskrift")
+        c_pris_start = col_or_null("pris_start")
+        c_pris_ny = col_or_null("pris_ny")
+        c_dato_start = col_or_null("dato_start")
+        c_dato_end = col_or_null("dato_end")
+        c_finn = col_or_null("finnkode")
+        c_solgt = col_or_null("solgt")
 
-        def find_col(options):
-            for key in options:
-                if key.lower() in cols:
-                    return cols[key.lower()]
-            return None
+        # computed / cast
+        pris_start_num = f"coalesce(try_cast({c_pris_start} AS BIGINT), 0)"
+        pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
 
-        c_pris_start = find_col(['Pris', 'pris'])
-        c_pris_ny = find_col(['Pris_ny', 'pris_ny'])
-        c_dato_start = find_col(['Dato', 'dato'])
-        c_dato_ny = find_col(['Dato_ny', 'dato_ny'])
-        c_finnkode = find_col(['FinnKode', 'finnkode'])
-        c_overskrift = find_col(['Overskrift', 'overskrift', 'info'])
-        c_solgt = find_col(['Solgt', 'solgt'])
+        dato_start_ts = f"try_cast({c_dato_start} AS TIMESTAMP)"
+        dato_end_ts = f"try_cast({c_dato_end} AS TIMESTAMP)"
 
-        if c_pris_start and c_pris_start in df_filtered.columns:
-            df_filtered[c_pris_start] = pd.to_numeric(df_filtered[c_pris_start], errors='coerce').fillna(0)
-        else:
-            c_pris_start = 'Pris'
-            df_filtered[c_pris_start] = 0
+        dager_expr = f"""
+          greatest(
+            coalesce(date_diff('day', {dato_start_ts}, {dato_end_ts}), 0),
+            0
+          )
+        """
+        pris_endring_expr = f"({pris_ny_num} - {pris_start_num})"
 
-        if c_pris_ny and c_pris_ny in df_filtered.columns:
-            df_filtered[c_pris_ny] = pd.to_numeric(df_filtered[c_pris_ny], errors='coerce').fillna(0)
-        else:
-            c_pris_ny = 'Pris_ny'
-            df_filtered[c_pris_ny] = 0
+        # finnkode str + url
+        finnkode_str = f"regexp_replace(cast({c_finn} as varchar), '\\\\.0$', '')"
+        finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
 
-        if c_dato_start and c_dato_start in df_filtered.columns:
-            df_filtered[c_dato_start] = pd.to_datetime(df_filtered[c_dato_start], errors='coerce')
-        if c_dato_ny and c_dato_ny in df_filtered.columns:
-            df_filtered[c_dato_ny] = pd.to_datetime(df_filtered[c_dato_ny], errors='coerce')
+        solgt_bool_expr = _bool_expr(c_solgt)
 
-        if c_dato_start in df_filtered.columns and c_dato_ny in df_filtered.columns:
-            df_filtered['dager'] = (df_filtered[c_dato_ny] - df_filtered[c_dato_start]).dt.days
-            df_filtered['dager'] = df_filtered['dager'].fillna(0).astype(int).clip(lower=0)
-        else:
-            df_filtered['dager'] = 0
+        # ✅ DEFAULT sort: laveste pris_ny først (samme som ønsket)
+        data_sql = f"""
+          SELECT
+            {c_prod} AS produsent,
+            {c_mod} AS modell,
+            {c_aar} AS årstall,
+            {c_km} AS kjørelengde,
+            {c_driv} AS drivstoff,
+            {c_hjul} AS hjuldrift,
+            {c_rekk} AS rekkevidde,
+            {c_selger} AS selger,
+            {c_over} AS overskrift,
+            {dato_start_ts} AS dato_start,
+            {dato_end_ts} AS dato_end,
+            {pris_start_num} AS pris_start,
+            {pris_ny_num} AS pris_ny,
+            {pris_ny_num} AS pris_last,
+            {pris_endring_expr} AS pris_endring,
+            {dager_expr} AS dager,
+            {finnkode_str} AS finnkode,
+            {finn_url_expr} AS finn_url,
+            {solgt_bool_expr} AS solgt
+          FROM read_parquet('{path}')
+          {where_sql}
+          ORDER BY {pris_ny_num} ASC
+          LIMIT {page_size} OFFSET {offset}
+        """
 
-        df_filtered['pris_endring'] = df_filtered[c_pris_ny] - df_filtered[c_pris_start]
+        output_df = con.execute(data_sql, params).df()
 
-        if c_finnkode and c_finnkode in df_filtered.columns:
-            df_filtered[c_finnkode] = (
-                df_filtered[c_finnkode]
-                .astype(str)
-                .str.replace(r'\.0$', '', regex=True)
-            )
-            df_filtered['finn_url'] = FINN_BASE_URL + df_filtered[c_finnkode]
-        else:
-            df_filtered['finn_url'] = None
-
-        rename_map = {
-            'Produsent': 'produsent',
-            'Modell': 'modell',
-            'årstall': 'årstall',
-            'kjørelengde': 'kjørelengde',
-            'drivstoff': 'drivstoff',
-            'hjuldrift': 'hjuldrift',
-            'rekkevidde_str': 'rekkevidde',
-            'selger': 'selger',
-            c_overskrift: 'overskrift' if c_overskrift else None,
-            c_dato_start: 'dato_start' if c_dato_start else None,
-            c_dato_ny: 'dato_end' if c_dato_ny else None,
-            c_pris_start: 'pris_start' if c_pris_start else None,
-            c_pris_ny: 'pris_ny' if c_pris_ny else None,
-            c_finnkode: 'finnkode' if c_finnkode else None,
-            c_solgt: 'solgt' if c_solgt else None
-        }
-
-        rename_map = {
-            k: v for k, v in rename_map.items()
-            if k is not None and v is not None and k in df_filtered.columns
-        }
-
-        output_df = df_filtered.rename(columns=rename_map)
-
-        if 'pris_ny' in output_df.columns and 'pris_last' not in output_df.columns:
-            output_df['pris_last'] = output_df['pris_ny']
-
-        if 'pris_endring' not in output_df.columns and 'pris_start' in output_df.columns and 'pris_ny' in output_df.columns:
-            output_df['pris_endring'] = (
-                pd.to_numeric(output_df['pris_ny'], errors='coerce').fillna(0)
-                - pd.to_numeric(output_df['pris_start'], errors='coerce').fillna(0)
-            )
-
-        if 'dato_end' in output_df.columns:
-            output_df['dato_end'] = pd.to_datetime(output_df['dato_end'], errors='coerce')
-
-        if 'pris_ny' in output_df.columns:
-            output_df = output_df.sort_values('pris_ny', ascending=True)
-
-        # --- KPIer og grafer ---
+        # KPIer og daily_stats beregnes på returnert side (maks 300)
         kpis = {}
         daily_stats = []
 
-        if 'pris_ny' in output_df.columns:
-            if 'solgt' in output_df.columns:
-                solgte = output_df[output_df['solgt'].astype(bool)]
+        if not output_df.empty:
+            if "solgt" in output_df.columns:
+                solgte = output_df[_to_bool_series(output_df["solgt"])].copy()
             else:
-                solgte = output_df[output_df['pris_ny'] > 1000]
+                solgte = output_df[output_df["pris_ny"].fillna(0) > 1000].copy()
 
             if not solgte.empty:
+                solgte["pris_ny"] = pd.to_numeric(solgte["pris_ny"], errors="coerce").fillna(0)
+                solgte["dager"] = pd.to_numeric(solgte["dager"], errors="coerce").fillna(0).astype(int)
+
                 kpis = {
                     'avg_dager': int(solgte['dager'].mean()),
                     'median_dager': int(solgte['dager'].median()),
                     'avg_pris': int(solgte['pris_ny'].mean()),
                     'median_pris': int(solgte['pris_ny'].median()),
                     'laveste_pris': int(solgte['pris_ny'].min()),
-                    'antall': len(solgte)
+                    'antall': int(len(solgte))
                 }
 
-                if 'dato_end' in solgte.columns:
-                    solgte = solgte.copy()
-                    solgte['dato_end'] = pd.to_datetime(solgte['dato_end'], errors='coerce')
-                    solgte = solgte.dropna(subset=['dato_end'])
+                if "dato_end" in solgte.columns:
+                    solgte["dato_end"] = pd.to_datetime(solgte["dato_end"], errors="coerce")
+                    solgte = solgte.dropna(subset=["dato_end"])
+                    if not solgte.empty:
+                        daily_stats_df = solgte.groupby(solgte["dato_end"].dt.date).agg(
+                            Antall_Solgt=("pris_ny", "count"),
+                            Median_Pris=("pris_ny", "median")
+                        ).reset_index()
 
-                    daily_stats_df = solgte.groupby(solgte['dato_end'].dt.date).agg(
-                        Antall_Solgt=('pris_ny', 'count'),
-                        Median_Pris=('pris_ny', 'median')
-                    ).reset_index()
+                        # første kolonne blir dato
+                        if daily_stats_df.columns[0] != "Dato":
+                            daily_stats_df.rename(columns={daily_stats_df.columns[0]: "Dato"}, inplace=True)
 
-                    daily_stats_df.rename(columns={'dato_end': 'Dato'}, inplace=True)
-                    daily_stats_df['Dato'] = pd.to_datetime(daily_stats_df['Dato']).dt.strftime('%Y-%m-%d')
-                    daily_stats_df['Median_Pris_Usolgt'] = daily_stats_df['Median_Pris']
+                        daily_stats_df["Dato"] = pd.to_datetime(daily_stats_df["Dato"]).dt.strftime("%Y-%m-%d")
+                        daily_stats_df["Median_Pris_Usolgt"] = daily_stats_df["Median_Pris"]
+                        daily_stats = json.loads(daily_stats_df.to_json(orient="records"))
 
-                    daily_stats = json.loads(daily_stats_df.to_json(orient='records'))
-
-        # JSON Export
+        # JSON export (NaN -> None)
         output_df = output_df.where(pd.notna(output_df), None)
-
-        # Ekstra sikkerhet: Kutt ned hvis vi på magisk vis har flere enn grensen her
-        if len(output_df) > MAX_ROWS_LIMIT:
-            output_df = output_df.head(MAX_ROWS_LIMIT)
-
         historikk = json.loads(output_df.to_json(orient='records', date_format='iso'))
 
-        return jsonify({'status': 'ok', 'historikk': historikk, 'daily_stats': daily_stats, 'kpis': kpis})
+        resp = {
+            'status': 'ok',
+            'historikk': historikk,
+            'daily_stats': daily_stats,
+            'kpis': kpis,
+            'count': total_count,
+            'page': page,
+            'page_size': page_size,
+            'truncated': total_count > page_size,
+        }
+
+        # ✅ Hvis mange treff: status warning, men behold data
+        if total_count > page_size:
+            resp['status'] = 'warning'
+            resp['message'] = f"Søket ga {total_count} treff. Viser {page_size} per side (side {page})."
+
+        return jsonify(resp)
 
     except Exception as e:
         print(f"Feil i /bil/solgt/data: {e}")
@@ -504,7 +600,7 @@ def get_bil_solgt_data():
 
 
 # ==========================================================
-# EXISTING: REKORDRASK
+# REKORDRASK (beholdt som før)
 # ==========================================================
 
 @bil_bp.route('/rekordrask')
@@ -518,6 +614,7 @@ def bil_rekordrask_side():
         models_by_prod=json.dumps(metadata.get('models_by_prod', {})),
         default_startdate=(date.today() - timedelta(days=3)).isoformat(),
     )
+
 
 @bil_bp.route('/rekordrask/grupper', methods=['POST'])
 def bil_rekordrask_grupper():
@@ -537,7 +634,6 @@ def bil_rekordrask_grupper():
         if df.empty:
             return jsonify({'status': 'ok', 'groups': []})
 
-        # forventer at df har kolonner for produsent/modell og dager
         cols = {c.lower(): c for c in df.columns}
         c_prod = cols.get('produsent')
         c_mod = cols.get('modell')
@@ -571,6 +667,7 @@ def get_bil_rekordrask_data():
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
         start_str = filters.get('startdato')
+
         if start_str:
             startdato = datetime.strptime(start_str, "%Y-%m-%d").date()
         else:
@@ -591,7 +688,7 @@ def get_bil_rekordrask_data():
 
 
 # ==========================================================
-# EXISTING: SVV
+# SVV (beholdt som før)
 # ==========================================================
 
 @bil_bp.route('/svv', methods=['GET', 'POST'])

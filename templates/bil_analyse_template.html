@@ -13,7 +13,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        /* --- (Samme stiler som før) --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
@@ -131,6 +130,22 @@
 
         .btn-primary:disabled { opacity: 0.6; cursor: default; }
 
+        .btn-mini {
+            margin-top: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: none;
+            background: rgba(148, 163, 184, 0.22);
+            color: #e5e7eb;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-mini:hover { background: rgba(148, 163, 184, 0.32); }
+
         .kpi-row {
             display: flex;
             gap: 12px;
@@ -182,6 +197,8 @@
             border-bottom: 1px solid rgba(55, 65, 81, 0.9);
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            gap: 12px;
         }
 
         table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
@@ -242,7 +259,6 @@
     <div class="card" id="filterCard">
 
         <div class="form-grid">
-            <!-- (Samme input-felter som før) -->
             <div>
                 <label for="produsent">Produsent</label>
                 <select id="produsent">
@@ -298,6 +314,7 @@
                 <label for="range_max">Rekkevidde til</label>
                 <input id="range_max" type="number" min="0" step="10" placeholder="valgfritt">
             </div>
+
             <div>
                 <label for="hjuldrift">Hjuldrift</label>
                 <select id="hjuldrift" multiple>
@@ -305,7 +322,9 @@
                         <option value="{{ h }}">{{ h }}</option>
                     {% endfor %}
                 </select>
+                <button type="button" class="btn-mini" onclick="clearMultiSelect('hjuldrift')">Nullstill hjuldrift</button>
             </div>
+
             <div>
                 <label for="drivstoff">Drivstoff</label>
                 <select id="drivstoff" multiple>
@@ -313,7 +332,9 @@
                         <option value="{{ d }}">{{ d }}</option>
                     {% endfor %}
                 </select>
+                <button type="button" class="btn-mini" onclick="clearMultiSelect('drivstoff')">Nullstill drivstoff</button>
             </div>
+
             <div></div>
             <div></div>
         </div>
@@ -359,13 +380,17 @@
     <div class="table-wrapper">
         <div class="table-header">
             <span id="tableCountLabel">Ingen biler i dette utvalget.</span>
+
+            <input id="tableSearch"
+                   type="text"
+                   placeholder="Søk i tabellen…"
+                   style="max-width: 320px;">
         </div>
 
         <div style="max-height: 360px; overflow: auto;">
             <table id="resultTable">
                 <thead>
                 <tr>
-                    <!-- ENDRING: FINN-kode flyttet først -->
                     <th data-key="finnkode">FINN-kode</th>
                     <th data-key="produsent">Produsent</th>
                     <th data-key="modell">Modell</th>
@@ -389,7 +414,6 @@
 </div>
 
 <script>
-    // (Samme variabler og hjelpefunksjoner som før)
     const MODELS_BY_PROD_RAW = {{ models_by_prod | tojson }};
     const DATA_URL = "{{ data_url }}";
 
@@ -403,12 +427,22 @@
 
     let medianChart = null;
     let soldChart = null;
+
+    // ✅ NYTT: allRows + currentRows (table search)
+    let allRows = [];
     let currentRows = [];
+
+    // Default sort: laveste pris først
     let currentSortKey = "pris_ny";
     let currentSortDir = "asc";
 
     function escapeHtml(s) {
-        return String(s ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+        return String(s ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
     }
 
     function formatNumber(n) {
@@ -425,8 +459,12 @@
         } catch { return d; }
     }
 
+    function clearMultiSelect(id) {
+        const sel = document.getElementById(id);
+        Array.from(sel.options).forEach(o => o.selected = false);
+    }
+
     function buildFilters() {
-        // (Samme filter-logikk som før)
         const produsent = document.getElementById("produsent").value || null;
         const modell = document.getElementById("modell").value || null;
         const startdato = document.getElementById("startdato").value || null;
@@ -442,11 +480,15 @@
         const drivstoff = Array.from(document.getElementById("drivstoff").selectedOptions).map(o => o.value);
         const hjuldrift = Array.from(document.getElementById("hjuldrift").selectedOptions).map(o => o.value);
 
-        return { produsent, modell, startdato, modell_sok, seller_sok, pris_min, pris_max, km_max, km_min: null, year_min, year_max, range_min, range_max, drivstoff, hjuldrift };
+        return {
+            produsent, modell, startdato, modell_sok, seller_sok,
+            pris_min, pris_max, km_max, km_min: null,
+            year_min, year_max, range_min, range_max,
+            drivstoff, hjuldrift
+        };
     }
 
     function updateKpis(kpis, count) {
-        // (Samme KPI-logikk som før)
         const avgDager = kpis && kpis.avg_dager != null ? kpis.avg_dager : null;
         const medianDager = kpis && kpis.median_dager != null ? kpis.median_dager : null;
         const medianPris = kpis && kpis.median_pris != null ? kpis.median_pris : null;
@@ -457,17 +499,9 @@
         document.getElementById("kpiMedianPris").textContent = medianPris != null ? formatNumber(medianPris) + " kr" : "–";
         document.getElementById("kpiLavestePris").textContent = lavestePris != null ? formatNumber(lavestePris) + " kr" : "–";
         document.getElementById("kpiAntallBiler").textContent = count != null ? formatNumber(count) : "0";
-
-        const label = document.getElementById("tableCountLabel");
-        if (count && count > 0) {
-            label.textContent = "Viser " + count + " biler i dette utvalget.";
-        } else {
-            label.textContent = "Ingen biler i dette utvalget.";
-        }
     }
 
     function renderCharts(dailyStats) {
-        // (Samme graf-logikk som før)
         const ctx1 = document.getElementById("medianPriceChart").getContext("2d");
         const ctx2 = document.getElementById("soldPerDayChart").getContext("2d");
         const labels = dailyStats.map(r => r.Dato || r.dato);
@@ -490,15 +524,27 @@
         });
     }
 
+    // ✅ FIX: sortRows (hadde bug med sb)
     function sortRows() {
-        // (Samme sorteringslogikk som før)
         if (!currentSortKey) return;
         currentRows.sort((a, b) => {
-            const va = a[currentSortKey]; const vb = b[currentSortKey];
-            if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
-            const na = Number(va); const nb = Number(vb);
-            if (!isNaN(na) && !isNaN(nb)) { return currentSortDir === "asc" ? (na - nb) : (nb - na); }
-            const sa = String(va).toLowerCase(); const sb = String(sb).toLowerCase();
+            const va = a[currentSortKey];
+            const vb = b[currentSortKey];
+
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+
+            const na = Number(va);
+            const nb = Number(vb);
+
+            if (!isNaN(na) && !isNaN(nb)) {
+                return currentSortDir === "asc" ? (na - nb) : (nb - na);
+            }
+
+            const sa = String(va).toLowerCase();
+            const sb = String(vb).toLowerCase();
+
             if (sa < sb) return currentSortDir === "asc" ? -1 : 1;
             if (sa > sb) return currentSortDir === "asc" ? 1 : -1;
             return 0;
@@ -514,9 +560,10 @@
             const tr = document.createElement("tr");
             const prisNy = row.pris_ny ?? row.pris_last ?? null;
             const prisStart = row.pris_start ?? null;
-            const endring = (row.pris_endring != null) ? row.pris_endring : (prisStart != null && prisNy != null ? (prisNy - prisStart) : null);
+            const endring = (row.pris_endring != null)
+                ? row.pris_endring
+                : (prisStart != null && prisNy != null ? (prisNy - prisStart) : null);
 
-            // ENDRING: Bygger Finnkode-cellen først og legger den øverst i tr.innerHTML
             const finnCell = `<td>${
                 row.finnkode
                     ? `<a href="${row.finn_url || ("https://www.finn.no/mobility/item/" + row.finnkode)}"
@@ -551,7 +598,42 @@
         });
     }
 
-    // --- HER ER HOVEDENDRINGEN I JAVASCRIPT ---
+    function updateTableCountLabel() {
+        const label = document.getElementById("tableCountLabel");
+        const total = allRows.length;
+        const shown = currentRows.length;
+
+        if (total === 0) {
+            label.textContent = "Ingen biler i dette utvalget.";
+            return;
+        }
+        if (shown === total) {
+            label.textContent = `Viser ${formatNumber(total)} biler i dette utvalget.`;
+            return;
+        }
+        label.textContent = `Viser ${formatNumber(shown)} av ${formatNumber(total)} biler (etter tabellsøk).`;
+    }
+
+    function applyTableSearch() {
+        const q = (document.getElementById("tableSearch").value || "").trim().toLowerCase();
+        if (!q) {
+            currentRows = allRows.slice();
+            renderTable();
+            updateTableCountLabel();
+            return;
+        }
+
+        currentRows = allRows.filter(row =>
+            Object.values(row).some(v => {
+                if (v === null || v === undefined) return false;
+                return String(v).toLowerCase().includes(q);
+            })
+        );
+
+        renderTable();
+        updateTableCountLabel();
+    }
+
     async function fetchData() {
         const btn = document.getElementById("updateBtn");
         btn.disabled = true;
@@ -559,6 +641,9 @@
         btn.innerHTML = "<span class='dot'></span> Søker...";
 
         try {
+            // nullstill tabellsøk ved nytt server-søk
+            document.getElementById("tableSearch").value = "";
+
             const filters = buildFilters();
             const resp = await fetch(DATA_URL, {
                 method: "POST",
@@ -568,50 +653,50 @@
 
             const data = await resp.json();
 
-            // Sjekk status fra backend
-            if (data.status === 'warning') {
-                // Viser advarselen til brukeren
-                alert(data.message);
-                // Tømmer data siden vi ikke fikk noen resultater
+            if (data.status === 'error' || data.error) {
+                console.error("Feil fra server:", data.error || data.message);
+                alert("Det oppstod en feil: " + (data.message || data.error));
                 updateKpis(null, 0);
+                allRows = [];
                 currentRows = [];
                 renderTable();
                 if (medianChart) medianChart.destroy();
                 if (soldChart) soldChart.destroy();
-                document.getElementById("tableCountLabel").textContent = data.message;
-
-            } else if (data.status === 'error' || data.error) {
-                // Håndterer faktiske feil
-                console.error("Feil fra server:", data.error || data.message);
-                alert("Det oppstod en feil: " + (data.message || data.error));
-                updateKpis(null, 0);
-                currentRows = [];
-                renderTable();
-
-            } else if (data.status === 'ok') {
-                 // Suksess - behandle data som normalt
-                const historikk = data.historikk || [];
-                const dailyStats = data.daily_stats || [];
-                const kpis = data.kpis || {};
-
-                currentRows = historikk;
-
-                if (currentRows.length > 0 && currentRows[0] && currentRows[0].pris_ny === undefined) {
-                    currentSortKey = "pris_last";
-                } else {
-                    currentSortKey = "pris_ny";
-                }
-
-                updateKpis(kpis, historikk.length);
-
-                if (dailyStats.length > 0) {
-                    renderCharts(dailyStats);
-                } else {
-                    if (medianChart) medianChart.destroy();
-                    if (soldChart) soldChart.destroy();
-                }
-                renderTable();
+                updateTableCountLabel();
+                return;
             }
+
+            // ✅ HÅNDTERER både ok og warning likt: behold data hvis det finnes
+            if (data.status === 'warning' && data.message) {
+                alert(data.message);
+            }
+
+            const historikk = data.historikk || [];
+            const dailyStats = data.daily_stats || [];
+            const kpis = data.kpis || {};
+
+            allRows = historikk;
+            currentRows = historikk.slice();
+
+            // default sort: pris_ny (fallback pris_last)
+            if (currentRows.length > 0 && currentRows[0] && currentRows[0].pris_ny === undefined) {
+                currentSortKey = "pris_last";
+            } else {
+                currentSortKey = "pris_ny";
+            }
+            currentSortDir = "asc";
+
+            updateKpis(kpis, historikk.length);
+
+            if (dailyStats.length > 0) {
+                renderCharts(dailyStats);
+            } else {
+                if (medianChart) medianChart.destroy();
+                if (soldChart) soldChart.destroy();
+            }
+
+            renderTable();
+            updateTableCountLabel();
 
         } catch (err) {
             console.error("Feil i fetchData:", err);
@@ -621,32 +706,41 @@
             btn.innerHTML = originalText;
         }
     }
-    // --- SLUTT PÅ ENDRING ---
 
     function setupModelDropdown() {
-        // (Samme logikk som før)
         const prodSelect = document.getElementById("produsent");
         const modelSelect = document.getElementById("modell");
+
         function refreshModels() {
             const key = (prodSelect.value || "").toLowerCase().trim();
             const models = MODELS_BY_PROD[key] || [];
             modelSelect.innerHTML = '<option value="">Alle modeller</option>';
             models.forEach(m => {
-                const opt = document.createElement("option"); opt.value = m; opt.textContent = m; modelSelect.appendChild(opt);
+                const opt = document.createElement("option");
+                opt.value = m;
+                opt.textContent = m;
+                modelSelect.appendChild(opt);
             });
         }
+
         prodSelect.addEventListener("change", refreshModels);
         refreshModels();
     }
 
     function setupSortHandlers() {
-        // (Samme logikk som før)
         document.querySelectorAll("#resultTable th").forEach(th => {
             th.addEventListener("click", () => {
                 const key = th.dataset.key;
                 if (!key) return;
-                if (currentSortKey === key) { currentSortDir = currentSortDir === "asc" ? "desc" : "asc"; } else { currentSortKey = key; currentSortDir = "asc"; }
+
+                if (currentSortKey === key) {
+                    currentSortDir = currentSortDir === "asc" ? "desc" : "asc";
+                } else {
+                    currentSortKey = key;
+                    currentSortDir = "asc";
+                }
                 renderTable();
+                updateTableCountLabel();
             });
         });
     }
@@ -654,7 +748,11 @@
     document.addEventListener("DOMContentLoaded", () => {
         setupModelDropdown();
         setupSortHandlers();
+
         document.getElementById("updateBtn").addEventListener("click", fetchData);
+
+        // ✅ Knytter tabellsøk
+        document.getElementById("tableSearch").addEventListener("input", applyTableSearch);
     });
 </script>
 
