@@ -29,7 +29,7 @@ from svv_app import fetch_svv_data, flatten_svv_data, compute_eu_status
 FINN_BASE_URL = "https://www.finn.no/mobility/item/"
 
 # Parquet på S3
-PARQUET_FILE_KEY = "calc/bil/database_biler_siste.parquet"
+PARQUET_FILE_KEY = "calc/bil/database_biler.parquet"
 METADATA_KEY = "calc/metadata.json"
 
 # ------------------ S3 helpers ------------------
