@@ -1,4 +1,4 @@
-# bil_routes.py (DuckDB + Parquet fra S3 via lokal /tmp-cache)
+# bil_routes.py (DuckDB + Parquet fra S3 via lokal /tmp-cache, per-file cache)
 import json
 import os
 import tempfile
@@ -28,9 +28,14 @@ from svv_app import fetch_svv_data, flatten_svv_data, compute_eu_status
 
 FINN_BASE_URL = "https://www.finn.no/mobility/item/"
 
-# Parquet på S3
-PARQUET_FILE_KEY = "calc/bil/database_biler.parquet"
+# -------------------------
+# S3 keys (VIKTIG)
+# -------------------------
+PARQUET_KEY_SOLGT = "calc/bil/database_biler.parquet"           # ✅ hele historikken (til /bil/solgt)
+PARQUET_KEY_REKORDRASK = "calc/bil/database_biler_siste.parquet"  # ✅ “siste”-fila (til rekordrask / annen app)
+
 METADATA_KEY = "calc/metadata.json"
+
 
 # ------------------ S3 helpers ------------------
 
@@ -54,51 +59,77 @@ def _get_metadata():
     return metadata
 
 
-# ------------------ Lokal cache av parquet ------------------
+# ------------------ Lokal cache av parquet (per S3-key) ------------------
 
 _PARQUET_CACHE_LOCK = threading.Lock()
-_PARQUET_LOCAL_PATH = os.path.join(tempfile.gettempdir(), "database_biler_siste.parquet")
-_PARQUET_CACHE_META = {"etag": None, "last_modified": None}
+
+# cache per S3-key
+# {
+#   s3_key: {
+#      "local_path": "...",
+#      "etag": "...",
+#      "last_modified": datetime,
+#      "colmap": {...}  (DuckDB kolonnemapping)
+#   }
+# }
+_PARQUET_CACHE = {}
 
 
-def _ensure_local_parquet() -> str:
+def _safe_tmp_name_from_key(s3_key: str) -> str:
+    # unngå "/" i filnavn
+    return s3_key.replace("/", "__")
+
+
+def _ensure_local_parquet(s3_key: str) -> str:
     """
-    Henter parquet fra S3 til lokal /tmp ved behov (per container/prosess).
+    Henter parquet fra S3 til lokal /tmp ved behov.
     Laster ned på nytt hvis ETag/LastModified har endret seg.
+    Cache er per S3-key slik at ulike filer aldri overskriver hverandre.
     """
     with _PARQUET_CACHE_LOCK:
         s3 = _get_s3_client()
-        head = s3.head_object(Bucket=S3_BUCKET_NAME, Key=PARQUET_FILE_KEY)
+        head = s3.head_object(Bucket=S3_BUCKET_NAME, Key=s3_key)
 
         etag = (head.get("ETag") or "").strip('"')
         last_modified = head.get("LastModified")
 
-        if os.path.exists(_PARQUET_LOCAL_PATH):
-            if _PARQUET_CACHE_META["etag"] == etag and _PARQUET_CACHE_META["last_modified"] == last_modified:
-                return _PARQUET_LOCAL_PATH
+        if s3_key not in _PARQUET_CACHE:
+            local_name = _safe_tmp_name_from_key(s3_key)
+            local_path = os.path.join(tempfile.gettempdir(), local_name)
+            _PARQUET_CACHE[s3_key] = {
+                "local_path": local_path,
+                "etag": None,
+                "last_modified": None,
+                "colmap": None
+            }
 
-        tmp_path = _PARQUET_LOCAL_PATH + ".download"
+        meta = _PARQUET_CACHE[s3_key]
+        local_path = meta["local_path"]
+
+        # Har vi allerede riktig versjon på disk?
+        if os.path.exists(local_path):
+            if meta["etag"] == etag and meta["last_modified"] == last_modified:
+                return local_path
+
+        # Last ned atomisk
+        tmp_path = local_path + ".download"
         with open(tmp_path, "wb") as f:
-            s3.download_fileobj(S3_BUCKET_NAME, PARQUET_FILE_KEY, f)
+            s3.download_fileobj(S3_BUCKET_NAME, s3_key, f)
 
-        os.replace(tmp_path, _PARQUET_LOCAL_PATH)
+        os.replace(tmp_path, local_path)
 
-        _PARQUET_CACHE_META["etag"] = etag
-        _PARQUET_CACHE_META["last_modified"] = last_modified
+        # Oppdater cache-meta
+        meta["etag"] = etag
+        meta["last_modified"] = last_modified
+        meta["colmap"] = None  # refresh colmap hvis fila endres
 
-        # hvis fila endrer seg, refresh kolonnemapping
-        global _DUCKDB_COLMAP
-        _DUCKDB_COLMAP = None
-
-        return _PARQUET_LOCAL_PATH
+        return local_path
 
 
 # ------------------ DuckDB connection + colmap ------------------
 
 _DUCKDB_LOCK = threading.Lock()
 _DUCKDB_CON = None
-
-_DUCKDB_COLMAP = None  # canonical -> faktisk kolonnenavn
 
 
 def _duckdb_con():
@@ -119,19 +150,19 @@ def _qident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
-def _duckdb_get_colmap() -> dict:
+def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
     """
-    Mapper canonical feltnavn til faktiske kolonnenavn i parquet,
-    slik at vi tåler Produsent/produsent osv.
+    Mapper canonical feltnavn -> faktisk kolonnenavn i parquet.
+    Cache per S3-key.
     """
-    global _DUCKDB_COLMAP
-    if _DUCKDB_COLMAP is not None:
-        return _DUCKDB_COLMAP
+    with _PARQUET_CACHE_LOCK:
+        meta = _PARQUET_CACHE.get(s3_key)
+        if meta and meta.get("colmap") is not None:
+            return meta["colmap"]
 
-    path = _ensure_local_parquet()
     con = _duckdb_con()
 
-    cols = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}')").fetchall()
+    cols = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{local_path}')").fetchall()
     actual_cols = [r[0] for r in cols]
     lower_map = {c.lower(): c for c in actual_cols}
 
@@ -141,7 +172,7 @@ def _duckdb_get_colmap() -> dict:
                 return lower_map[cand.lower()]
         return None
 
-    _DUCKDB_COLMAP = {
+    colmap = {
         "produsent": pick(["Produsent", "produsent"]),
         "modell": pick(["Modell", "modell"]),
         "overskrift": pick(["Overskrift", "overskrift", "info"]),
@@ -158,7 +189,11 @@ def _duckdb_get_colmap() -> dict:
         "drivstoff": pick(["drivstoff"]),
         "hjuldrift": pick(["hjuldrift"]),
     }
-    return _DUCKDB_COLMAP
+
+    with _PARQUET_CACHE_LOCK:
+        _PARQUET_CACHE[s3_key]["colmap"] = colmap
+
+    return colmap
 
 
 def _bool_expr(col_ident: str) -> str:
@@ -263,26 +298,6 @@ def _build_where_sql(filters: dict, colmap: dict):
     return where_sql, params
 
 
-# ------------------ pandas helpers (små resultater / UI) ------------------
-
-def _to_bool_series(s: pd.Series) -> pd.Series:
-    if s.dtype == bool:
-        return s.fillna(False)
-    if np.issubdtype(s.dtype, np.number):
-        return s.fillna(0).astype(int).astype(bool)
-    return s.astype(str).str.strip().str.lower().isin(["1", "true", "t", "yes", "y", "ja"])
-
-
-def _lag_alder_bucket_fra_aarstall(df: pd.DataFrame, aar_col: str) -> pd.Series:
-    now_year = datetime.now().year
-    year = pd.to_numeric(df[aar_col], errors="coerce")
-    age = (now_year - year).where(year.notna(), np.nan)
-
-    bins = [-1, 1, 3, 5, 8, 12, 100]
-    labels = ["0–1", "2–3", "4–5", "6–8", "9–12", "13+"]
-    return pd.cut(age, bins=bins, labels=labels)
-
-
 # ------------------ Ruter ------------------
 
 @bil_bp.route('/')
@@ -291,7 +306,7 @@ def bil_landing():
 
 
 # ==========================================================
-# SOLGT-OVERSIKT (DuckDB)
+# SOLGT-OVERSIKT (DuckDB)  -- bruker HELE historikken
 # ==========================================================
 
 @bil_bp.route('/solgt/oversikt')
@@ -314,8 +329,9 @@ def bil_solgt_oversikt_data():
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
 
-        path = _ensure_local_parquet()
-        colmap = _duckdb_get_colmap()
+        s3_key = PARQUET_KEY_SOLGT
+        path = _ensure_local_parquet(s3_key)
+        colmap = _duckdb_get_colmap(path, s3_key)
         con = _duckdb_con()
 
         if not colmap.get("produsent") or not colmap.get("solgt"):
@@ -395,7 +411,7 @@ def bil_solgt_oversikt_data():
 
 
 # ==========================================================
-# SOLGT-ANALYSE SIDE
+# SOLGT-ANALYSE SIDE  -- bruker HELE historikken
 # ==========================================================
 
 @bil_bp.route('/solgt')
@@ -429,35 +445,12 @@ def get_bil_solgt_data():
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
 
-        path = _ensure_local_parquet()
-        cm = _duckdb_get_colmap()
-        con = _duckdb_con()
-
-        dbg_all = f"""
-        SELECT
-          count(*) AS total,
-          min(try_cast({_qident(cm['dato_start'])} as DATE)) AS min_dato_start,
-          max(try_cast({_qident(cm['dato_start'])} as DATE)) AS max_dato_start
-        FROM read_parquet('{path}')
-        """
-        print("DUCK ALL DATE DEBUG:", con.execute(dbg_all).fetchone())
-
-        colmap = _duckdb_get_colmap()
+        s3_key = PARQUET_KEY_SOLGT
+        path = _ensure_local_parquet(s3_key)
+        colmap = _duckdb_get_colmap(path, s3_key)
         con = _duckdb_con()
 
         where_sql, params = _build_where_sql(filters, colmap)
-
-        dbg_sql = f"""
-        SELECT
-          count(*) AS total,
-          min(try_cast({_qident(colmap['dato_start'])} as DATE)) AS min_dato_start,
-          max(try_cast({_qident(colmap['dato_start'])} as DATE)) AS max_dato_start,
-          min(try_cast({_qident(colmap['dato_end'])} as DATE)) AS min_dato_end,
-          max(try_cast({_qident(colmap['dato_end'])} as DATE)) AS max_dato_end
-        FROM read_parquet('{path}')
-        {where_sql}
-        """
-        print("DUCK DATE DEBUG:", con.execute(dbg_sql, params).fetchone())
 
         # Total treff
         count_sql = f"SELECT COUNT(*) AS cnt FROM read_parquet('{path}') {where_sql}"
@@ -517,17 +510,12 @@ def get_bil_solgt_data():
         # ----------------------------
         # KPI + daily_stats på ALLE treff (ikke bare 300)
         # ----------------------------
-
-        # Definer "solgte" som før:
-        # - hvis solgt-kolonne finnes: solgt == true
-        # - ellers: pris_ny > 1000
         solgt_filter_sql = ""
         if solgt_expr:
             solgt_filter_sql = f" AND ({solgt_expr}) = true"
         else:
             solgt_filter_sql = f" AND ({pris_ny_num}) > 1000"
 
-        # KPI query
         kpi_sql = f"""
           SELECT
             CAST(avg({dager_expr}) AS BIGINT) AS avg_dager,
@@ -553,7 +541,6 @@ def get_bil_solgt_data():
                 "antall": int(kpi_row[5] or 0),
             }
 
-        # Daily stats query (dato_end)
         daily_stats = []
         if colmap.get("dato_end"):
             daily_sql = f"""
@@ -574,7 +561,7 @@ def get_bil_solgt_data():
             daily_stats = json.loads(daily_df.to_json(orient="records"))
 
         # ----------------------------
-        # Visningstabell: 300 billigste
+        # Visningstabell: 300 billigste (pris_ny ASC)
         # ----------------------------
         data_sql = f"""
           SELECT
@@ -607,7 +594,6 @@ def get_bil_solgt_data():
         output_df = output_df.where(pd.notna(output_df), None)
 
         historikk = json.loads(output_df.to_json(orient='records', date_format='iso'))
-
         returned_count = len(historikk)
 
         return jsonify({
@@ -628,7 +614,7 @@ def get_bil_solgt_data():
 
 
 # ==========================================================
-# REKORDRASK (beholdt)
+# REKORDRASK (beholdt som før, bruker din eksisterende pipeline)
 # ==========================================================
 
 @bil_bp.route('/rekordrask')
