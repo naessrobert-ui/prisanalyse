@@ -5,11 +5,9 @@
     <title>{{ tittel }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- Font -->
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-    <!-- Chart.js via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
@@ -27,48 +25,28 @@
         }
 
         .page { max-width: 1200px; margin: 0 auto; }
-
         a { color: #60a5fa; text-decoration: none; }
 
         .top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            font-size: 0.8rem;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            opacity: 0.85;
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px; font-size: 0.8rem;
+            letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.85;
         }
 
-        .top-bar a {
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
+        .top-bar a { font-size: 0.8rem; display: flex; align-items: center; gap: 4px; }
 
-        h1 {
-            font-size: clamp(2.2rem, 3vw + 1rem, 3.1rem);
-            margin-bottom: 8px;
-        }
-
+        h1 { font-size: clamp(2.2rem, 3vw + 1rem, 3.1rem); margin-bottom: 8px; }
         h1 span.highlight { color: #60a5fa; }
 
-        .subtitle {
-            font-size: 0.95rem;
-            color: #d1d5db;
-            margin-bottom: 24px;
-        }
+        .subtitle { font-size: 0.95rem; color: #d1d5db; margin-bottom: 24px; }
 
         .card {
             background: radial-gradient(circle at top left, rgba(255,255,255,0.12), transparent 60%),
                         rgba(15, 23, 42, 0.9);
             border-radius: 20px;
             border: 1px solid rgba(148, 163, 184, 0.35);
-            box-shadow:
-                0 18px 45px rgba(0,0,0,0.75),
-                inset 0 0 0 1px rgba(15,23,42,0.7);
+            box-shadow: 0 18px 45px rgba(0,0,0,0.75),
+                        inset 0 0 0 1px rgba(15,23,42,0.7);
             padding: 18px 20px 20px;
         }
 
@@ -88,11 +66,7 @@
             color: #9ca3af;
         }
 
-        input[type="text"],
-        input[type="number"],
-        input[type="date"],
-        select,
-        textarea {
+        input[type="text"], input[type="number"], input[type="date"], select {
             width: 100%;
             padding: 6px 8px;
             border-radius: 8px;
@@ -103,7 +77,6 @@
         }
 
         select[multiple] { min-height: 70px; }
-
         input::placeholder { color: #6b7280; }
 
         .btn-primary {
@@ -122,10 +95,7 @@
         }
 
         .btn-primary span.dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 999px;
-            background: white;
+            width: 8px; height: 8px; border-radius: 999px; background: white;
         }
 
         .btn-primary:disabled { opacity: 0.6; cursor: default; }
@@ -140,19 +110,10 @@
             font-size: 0.75rem;
             font-weight: 600;
             cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
         }
         .btn-mini:hover { background: rgba(148, 163, 184, 0.32); }
 
-        .kpi-row {
-            display: flex;
-            gap: 12px;
-            margin-top: 10px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-        }
+        .kpi-row { display: flex; gap: 12px; margin-top: 10px; margin-bottom: 10px; flex-wrap: wrap; }
 
         .kpi {
             flex: 1 1 150px;
@@ -175,12 +136,7 @@
 
         canvas { width: 100%; height: 260px; }
 
-        .section-title {
-            margin-top: 22px;
-            margin-bottom: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-        }
+        .section-title { margin-top: 22px; margin-bottom: 8px; font-size: 1rem; font-weight: 600; }
 
         .table-wrapper {
             background: rgba(15, 23, 42, 0.9);
@@ -236,7 +192,6 @@
             .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .charts-grid { grid-template-columns: 1fr; }
         }
-
         @media (max-width: 640px) {
             .form-grid { grid-template-columns: 1fr; }
         }
@@ -251,13 +206,9 @@
     </div>
 
     <h1><span class="highlight">Dette</span> ble bilene solgt for</h1>
-    <div class="subtitle">
-        Se prisendringer, dager i markedet og annonse-historikk.
-    </div>
+    <div class="subtitle">Se prisendringer, dager i markedet og annonse-historikk.</div>
 
-    <!-- Kort 1: Filtere + KPI + grafer -->
     <div class="card" id="filterCard">
-
         <div class="form-grid">
             <div>
                 <label for="produsent">Produsent</label>
@@ -344,7 +295,6 @@
             Oppdater søk
         </button>
 
-        <!-- KPI-rad -->
         <div class="kpi-row">
             <div class="kpi">
                 <div class="kpi-label">Snitt dager i markedet</div>
@@ -368,23 +318,17 @@
             </div>
         </div>
 
-        <!-- Grafer -->
         <div class="charts-grid">
             <div><canvas id="medianPriceChart"></canvas></div>
             <div><canvas id="soldPerDayChart"></canvas></div>
         </div>
     </div>
 
-    <!-- Kort 2: Tabell -->
     <div class="section-title">2. Utforsk resultater</div>
     <div class="table-wrapper">
         <div class="table-header">
             <span id="tableCountLabel">Ingen biler i dette utvalget.</span>
-
-            <input id="tableSearch"
-                   type="text"
-                   placeholder="Søk i tabellen…"
-                   style="max-width: 320px;">
+            <input id="tableSearch" type="text" placeholder="Søk i tabellen…" style="max-width: 320px;">
         </div>
 
         <div style="max-height: 360px; overflow: auto;">
@@ -428,13 +372,17 @@
     let medianChart = null;
     let soldChart = null;
 
-    // ✅ NYTT: allRows + currentRows (table search)
     let allRows = [];
     let currentRows = [];
 
-    // Default sort: laveste pris først
     let currentSortKey = "pris_ny";
     let currentSortDir = "asc";
+
+    // ✅ NYTT: fra server
+    let serverTotalCount = 0;
+    let serverReturnedCount = 0;
+    let serverLimit = 300;
+    let serverTruncated = false;
 
     function escapeHtml(s) {
         return String(s ?? "")
@@ -504,6 +452,7 @@
     function renderCharts(dailyStats) {
         const ctx1 = document.getElementById("medianPriceChart").getContext("2d");
         const ctx2 = document.getElementById("soldPerDayChart").getContext("2d");
+
         const labels = dailyStats.map(r => r.Dato || r.dato);
         const medianPrices = dailyStats.map(r => r.Median_Pris_Usolgt ?? r.Median_Pris ?? r.median_pris_usolgt ?? r.median_pris);
         const soldPerDay = dailyStats.map(r => r.Antall_Solgt || r.antall_solgt);
@@ -524,9 +473,9 @@
         });
     }
 
-    // ✅ FIX: sortRows (hadde bug med sb)
     function sortRows() {
         if (!currentSortKey) return;
+
         currentRows.sort((a, b) => {
             const va = a[currentSortKey];
             const vb = b[currentSortKey];
@@ -600,18 +549,32 @@
 
     function updateTableCountLabel() {
         const label = document.getElementById("tableCountLabel");
-        const total = allRows.length;
-        const shown = currentRows.length;
 
-        if (total === 0) {
+        const totalFromServer = serverTotalCount || allRows.length;
+        const shownInTable = currentRows.length;
+        const returned = allRows.length;
+
+        if (totalFromServer === 0) {
             label.textContent = "Ingen biler i dette utvalget.";
             return;
         }
-        if (shown === total) {
-            label.textContent = `Viser ${formatNumber(total)} biler i dette utvalget.`;
+
+        // Hvis tabellsøk filtrerer ned
+        if (shownInTable !== returned) {
+            if (serverTruncated) {
+                label.textContent = `Viser ${formatNumber(shownInTable)} av ${formatNumber(returned)} (tabellsøk). Returnert: ${formatNumber(returned)} billigste av ${formatNumber(totalFromServer)} biler.`;
+            } else {
+                label.textContent = `Viser ${formatNumber(shownInTable)} av ${formatNumber(returned)} (tabellsøk).`;
+            }
             return;
         }
-        label.textContent = `Viser ${formatNumber(shown)} av ${formatNumber(total)} biler (etter tabellsøk).`;
+
+        // Ingen tabellsøk: vis tydelig begrensning hvis aktiv
+        if (serverTruncated) {
+            label.textContent = `Viser ${formatNumber(returned)} billigste av ${formatNumber(totalFromServer)} biler.`;
+        } else {
+            label.textContent = `Viser ${formatNumber(returned)} biler i dette utvalget.`;
+        }
     }
 
     function applyTableSearch() {
@@ -641,7 +604,6 @@
         btn.innerHTML = "<span class='dot'></span> Søker...";
 
         try {
-            // nullstill tabellsøk ved nytt server-søk
             document.getElementById("tableSearch").value = "";
 
             const filters = buildFilters();
@@ -655,10 +617,14 @@
 
             if (data.status === 'error' || data.error) {
                 console.error("Feil fra server:", data.error || data.message);
-                alert("Det oppstod en feil: " + (data.message || data.error));
+                alert("Det oppstod en feil:\n" + (data.message || "") + "\n" + (data.error || ""));
                 updateKpis(null, 0);
                 allRows = [];
                 currentRows = [];
+                serverTotalCount = 0;
+                serverReturnedCount = 0;
+                serverLimit = 300;
+                serverTruncated = false;
                 renderTable();
                 if (medianChart) medianChart.destroy();
                 if (soldChart) soldChart.destroy();
@@ -666,34 +632,29 @@
                 return;
             }
 
-            // ✅ HÅNDTERER både ok og warning likt: behold data hvis det finnes
-            if (data.status === 'warning' && data.message) {
-                alert(data.message);
-            }
-
             const historikk = data.historikk || [];
             const dailyStats = data.daily_stats || [];
             const kpis = data.kpis || {};
 
+            // ✅ server-info
+            serverTotalCount = Number(data.total_count || 0);
+            serverReturnedCount = Number(data.returned_count || historikk.length);
+            serverLimit = Number(data.limit || 300);
+            serverTruncated = Boolean(data.truncated);
+
             allRows = historikk;
             currentRows = historikk.slice();
 
-            // default sort: pris_ny (fallback pris_last)
-            if (currentRows.length > 0 && currentRows[0] && currentRows[0].pris_ny === undefined) {
-                currentSortKey = "pris_last";
-            } else {
-                currentSortKey = "pris_ny";
-            }
+            currentSortKey = (currentRows.length > 0 && currentRows[0] && currentRows[0].pris_ny === undefined)
+                ? "pris_last"
+                : "pris_ny";
             currentSortDir = "asc";
 
-            updateKpis(kpis, historikk.length);
+            // KPI viser total utvalg (alle treff, ikke bare returnert)
+            updateKpis(kpis, serverTotalCount || historikk.length);
 
-            if (dailyStats.length > 0) {
-                renderCharts(dailyStats);
-            } else {
-                if (medianChart) medianChart.destroy();
-                if (soldChart) soldChart.destroy();
-            }
+            if (dailyStats.length > 0) renderCharts(dailyStats);
+            else { if (medianChart) medianChart.destroy(); if (soldChart) soldChart.destroy(); }
 
             renderTable();
             updateTableCountLabel();
@@ -748,10 +709,7 @@
     document.addEventListener("DOMContentLoaded", () => {
         setupModelDropdown();
         setupSortHandlers();
-
         document.getElementById("updateBtn").addEventListener("click", fetchData);
-
-        // ✅ Knytter tabellsøk
         document.getElementById("tableSearch").addEventListener("input", applyTableSearch);
     });
 </script>

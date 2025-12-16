@@ -180,9 +180,9 @@ def _bool_expr(col_ident: str) -> str:
 
 def _build_where_sql(filters: dict, colmap: dict):
     """
-    WHERE + params (parameterbinding) basert på samme filterlogikk som før.
-    Merk: Dato-filter bruker kun Dato_ny (dato_end).
-    Pris-filter bruker kun Pris_ny.
+    WHERE + params
+    - Dato-filter bruker kun Dato_ny (dato_end)
+    - Pris-filter bruker kun Pris_ny
     """
     clauses = []
     params = []
@@ -201,7 +201,7 @@ def _build_where_sql(filters: dict, colmap: dict):
         clauses.append(f"{_qident(colmap['modell'])} = ?")
         params.append(filters["modell"])
 
-    # Tekstsøk i overskrift (modell_sok) og selger
+    # Tekstsøk
     if filters.get("modell_sok") and colmap.get("overskrift"):
         clauses.append(
             f"lower(cast({_qident(colmap['overskrift'])} AS VARCHAR)) LIKE '%' || lower(?) || '%'"
@@ -263,7 +263,7 @@ def _build_where_sql(filters: dict, colmap: dict):
     return where_sql, params
 
 
-# ------------------ Små pandas-hjelpere (på små resultater) ------------------
+# ------------------ pandas helpers (små resultater / UI) ------------------
 
 def _to_bool_series(s: pd.Series) -> pd.Series:
     if s.dtype == bool:
@@ -329,11 +329,9 @@ def bil_solgt_oversikt_data():
         driv = _qident(colmap["drivstoff"]) if colmap.get("drivstoff") else None
         aar = _qident(colmap["aar"]) if colmap.get("aar") else None
 
-        # Base WHERE: kun solgte
         where_parts = [f"{_bool_expr(solgt_col)} = true"]
         params = []
 
-        # Valgfrie filtre
         if driv and isinstance(filters.get("drivstoff"), list) and filters["drivstoff"]:
             vals = filters["drivstoff"]
             where_parts.append(f"{driv} IN ({','.join(['?'] * len(vals))})")
@@ -421,10 +419,9 @@ def bil_solgt_analyse_side():
 @bil_bp.route('/solgt/data', methods=['POST'])
 def get_bil_solgt_data():
     """
-    DuckDB-endpoint:
-    - filtrerer direkte mot parquet (lokal cache)
-    - returnerer maks 300 rader per svar (page_size cap)
-    - default sort: laveste pris_ny først
+    ✅ Ingen early-return.
+    ✅ Visning begrenses til MAX_ROWS_LIMIT billigste (pris_ny ASC).
+    ✅ KPI + daily_stats beregnes på ALLE treff.
     """
     try:
         MAX_ROWS_LIMIT = 300
@@ -432,20 +429,13 @@ def get_bil_solgt_data():
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
 
-        # valgfritt: paging (bakoverkompatibelt – hvis frontend ikke sender dette)
-        page = int(payload.get("page") or 1)
-        page_size = int(payload.get("page_size") or MAX_ROWS_LIMIT)
-        page = max(page, 1)
-        page_size = max(1, min(page_size, MAX_ROWS_LIMIT))
-        offset = (page - 1) * page_size
-
         path = _ensure_local_parquet()
         colmap = _duckdb_get_colmap()
         con = _duckdb_con()
 
         where_sql, params = _build_where_sql(filters, colmap)
 
-        # total count (for warning/paging)
+        # Total treff
         count_sql = f"SELECT COUNT(*) AS cnt FROM read_parquet('{path}') {where_sql}"
         total_count = int(con.execute(count_sql, params).fetchone()[0])
 
@@ -455,9 +445,9 @@ def get_bil_solgt_data():
                 'historikk': [],
                 'daily_stats': [],
                 'kpis': {},
-                'count': 0,
-                'page': page,
-                'page_size': page_size,
+                'total_count': 0,
+                'returned_count': 0,
+                'limit': MAX_ROWS_LIMIT,
                 'truncated': False
             })
 
@@ -481,7 +471,6 @@ def get_bil_solgt_data():
         c_finn = col_or_null("finnkode")
         c_solgt = col_or_null("solgt")
 
-        # computed / cast
         pris_start_num = f"coalesce(try_cast({c_pris_start} AS BIGINT), 0)"
         pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
 
@@ -494,15 +483,75 @@ def get_bil_solgt_data():
             0
           )
         """
-        pris_endring_expr = f"({pris_ny_num} - {pris_start_num})"
 
-        # finnkode str + url
+        pris_endring_expr = f"({pris_ny_num} - {pris_start_num})"
         finnkode_str = f"regexp_replace(cast({c_finn} as varchar), '\\\\.0$', '')"
         finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
 
-        solgt_bool_expr = _bool_expr(c_solgt)
+        solgt_expr = _bool_expr(c_solgt) if colmap.get("solgt") else None
 
-        # ✅ DEFAULT sort: laveste pris_ny først (samme som ønsket)
+        # ----------------------------
+        # KPI + daily_stats på ALLE treff (ikke bare 300)
+        # ----------------------------
+
+        # Definer "solgte" som før:
+        # - hvis solgt-kolonne finnes: solgt == true
+        # - ellers: pris_ny > 1000
+        solgt_filter_sql = ""
+        if solgt_expr:
+            solgt_filter_sql = f" AND ({solgt_expr}) = true"
+        else:
+            solgt_filter_sql = f" AND ({pris_ny_num}) > 1000"
+
+        # KPI query
+        kpi_sql = f"""
+          SELECT
+            CAST(avg({dager_expr}) AS BIGINT) AS avg_dager,
+            CAST(median({dager_expr}) AS BIGINT) AS median_dager,
+            CAST(avg({pris_ny_num}) AS BIGINT) AS avg_pris,
+            CAST(median({pris_ny_num}) AS BIGINT) AS median_pris,
+            CAST(min({pris_ny_num}) AS BIGINT) AS laveste_pris,
+            COUNT(*) AS antall
+          FROM read_parquet('{path}')
+          {where_sql}
+          {solgt_filter_sql}
+        """
+
+        kpi_row = con.execute(kpi_sql, params).fetchone()
+        kpis = {}
+        if kpi_row and kpi_row[5] and int(kpi_row[5]) > 0:
+            kpis = {
+                "avg_dager": int(kpi_row[0] or 0),
+                "median_dager": int(kpi_row[1] or 0),
+                "avg_pris": int(kpi_row[2] or 0),
+                "median_pris": int(kpi_row[3] or 0),
+                "laveste_pris": int(kpi_row[4] or 0),
+                "antall": int(kpi_row[5] or 0),
+            }
+
+        # Daily stats query (dato_end)
+        daily_stats = []
+        if colmap.get("dato_end"):
+            daily_sql = f"""
+              SELECT
+                CAST(date({dato_end_ts}) AS VARCHAR) AS Dato,
+                COUNT(*) AS Antall_Solgt,
+                median({pris_ny_num}) AS Median_Pris,
+                median({pris_ny_num}) AS Median_Pris_Usolgt
+              FROM read_parquet('{path}')
+              {where_sql}
+              {solgt_filter_sql}
+              AND {dato_end_ts} IS NOT NULL
+              GROUP BY 1
+              ORDER BY 1
+            """
+            daily_df = con.execute(daily_sql, params).df()
+            daily_df = daily_df.where(pd.notna(daily_df), None)
+            daily_stats = json.loads(daily_df.to_json(orient="records"))
+
+        # ----------------------------
+        # Visningstabell: 300 billigste
+        # ----------------------------
         data_sql = f"""
           SELECT
             {c_prod} AS produsent,
@@ -522,77 +571,31 @@ def get_bil_solgt_data():
             {pris_endring_expr} AS pris_endring,
             {dager_expr} AS dager,
             {finnkode_str} AS finnkode,
-            {finn_url_expr} AS finn_url,
-            {solgt_bool_expr} AS solgt
+            {finn_url_expr} AS finn_url
+            {"," + solgt_expr + " AS solgt" if solgt_expr else ""}
           FROM read_parquet('{path}')
           {where_sql}
           ORDER BY {pris_ny_num} ASC
-          LIMIT {page_size} OFFSET {offset}
+          LIMIT {MAX_ROWS_LIMIT}
         """
 
         output_df = con.execute(data_sql, params).df()
-
-        # KPIer og daily_stats beregnes på returnert side (maks 300)
-        kpis = {}
-        daily_stats = []
-
-        if not output_df.empty:
-            if "solgt" in output_df.columns:
-                solgte = output_df[_to_bool_series(output_df["solgt"])].copy()
-            else:
-                solgte = output_df[output_df["pris_ny"].fillna(0) > 1000].copy()
-
-            if not solgte.empty:
-                solgte["pris_ny"] = pd.to_numeric(solgte["pris_ny"], errors="coerce").fillna(0)
-                solgte["dager"] = pd.to_numeric(solgte["dager"], errors="coerce").fillna(0).astype(int)
-
-                kpis = {
-                    'avg_dager': int(solgte['dager'].mean()),
-                    'median_dager': int(solgte['dager'].median()),
-                    'avg_pris': int(solgte['pris_ny'].mean()),
-                    'median_pris': int(solgte['pris_ny'].median()),
-                    'laveste_pris': int(solgte['pris_ny'].min()),
-                    'antall': int(len(solgte))
-                }
-
-                if "dato_end" in solgte.columns:
-                    solgte["dato_end"] = pd.to_datetime(solgte["dato_end"], errors="coerce")
-                    solgte = solgte.dropna(subset=["dato_end"])
-                    if not solgte.empty:
-                        daily_stats_df = solgte.groupby(solgte["dato_end"].dt.date).agg(
-                            Antall_Solgt=("pris_ny", "count"),
-                            Median_Pris=("pris_ny", "median")
-                        ).reset_index()
-
-                        # første kolonne blir dato
-                        if daily_stats_df.columns[0] != "Dato":
-                            daily_stats_df.rename(columns={daily_stats_df.columns[0]: "Dato"}, inplace=True)
-
-                        daily_stats_df["Dato"] = pd.to_datetime(daily_stats_df["Dato"]).dt.strftime("%Y-%m-%d")
-                        daily_stats_df["Median_Pris_Usolgt"] = daily_stats_df["Median_Pris"]
-                        daily_stats = json.loads(daily_stats_df.to_json(orient="records"))
-
-        # JSON export (NaN -> None)
         output_df = output_df.where(pd.notna(output_df), None)
+
         historikk = json.loads(output_df.to_json(orient='records', date_format='iso'))
 
-        resp = {
+        returned_count = len(historikk)
+
+        return jsonify({
             'status': 'ok',
             'historikk': historikk,
             'daily_stats': daily_stats,
             'kpis': kpis,
-            'count': total_count,
-            'page': page,
-            'page_size': page_size,
-            'truncated': total_count > page_size,
-        }
-
-        # ✅ Hvis mange treff: status warning, men behold data
-        if total_count > page_size:
-            resp['status'] = 'warning'
-            resp['message'] = f"Søket ga {total_count} treff. Viser {page_size} per side (side {page})."
-
-        return jsonify(resp)
+            'total_count': total_count,
+            'returned_count': returned_count,
+            'limit': MAX_ROWS_LIMIT,
+            'truncated': total_count > returned_count
+        })
 
     except Exception as e:
         print(f"Feil i /bil/solgt/data: {e}")
@@ -601,7 +604,7 @@ def get_bil_solgt_data():
 
 
 # ==========================================================
-# REKORDRASK (beholdt som før)
+# REKORDRASK (beholdt)
 # ==========================================================
 
 @bil_bp.route('/rekordrask')
@@ -689,7 +692,7 @@ def get_bil_rekordrask_data():
 
 
 # ==========================================================
-# SVV (beholdt som før)
+# SVV (beholdt)
 # ==========================================================
 
 @bil_bp.route('/svv', methods=['GET', 'POST'])
