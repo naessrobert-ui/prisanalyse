@@ -435,6 +435,18 @@ def get_bil_solgt_data():
 
         where_sql, params = _build_where_sql(filters, colmap)
 
+        dbg_sql = f"""
+        SELECT
+          count(*) AS total,
+          min(try_cast({_qident(colmap['dato_start'])} as DATE)) AS min_dato_start,
+          max(try_cast({_qident(colmap['dato_start'])} as DATE)) AS max_dato_start,
+          min(try_cast({_qident(colmap['dato_end'])} as DATE)) AS min_dato_end,
+          max(try_cast({_qident(colmap['dato_end'])} as DATE)) AS max_dato_end
+        FROM read_parquet('{path}')
+        {where_sql}
+        """
+        print("DUCK DATE DEBUG:", con.execute(dbg_sql, params).fetchone())
+
         # Total treff
         count_sql = f"SELECT COUNT(*) AS cnt FROM read_parquet('{path}') {where_sql}"
         total_count = int(con.execute(count_sql, params).fetchone()[0])
