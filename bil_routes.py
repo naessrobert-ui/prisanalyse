@@ -163,15 +163,16 @@ def _duckdb_get_colmap() -> dict:
 
 def _bool_expr(col_ident: str) -> str:
     """
-    Robust bool-tolkning i SQL:
-    True/False, 0/1, 'true'/'false', 'ja'/'nei', osv.
+    Returnerer ALWAYS BOOLEAN.
+    Tåler bool, 0/1, og strenger som 'true'/'ja' osv.
     """
     return f"""
     (
       case
         when {col_ident} is null then false
-        when typeof({col_ident}) = 'BOOLEAN' then {col_ident}
-        else lower(trim(cast({col_ident} as varchar))) in ('1','true','t','yes','y','ja')
+        when try_cast({col_ident} as BOOLEAN) is not null then try_cast({col_ident} as BOOLEAN)
+        when lower(trim(cast({col_ident} as varchar))) in ('1','true','t','yes','y','ja') then true
+        else false
       end
     )
     """
