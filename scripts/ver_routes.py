@@ -1,11 +1,10 @@
-# ver_routes.py
 from datetime import date as _date
 
 from flask import Blueprint, request, render_template
-
 from snow_map import build_snow_map_html
 
-ver_bp = Blueprint("ver", __name__, template_folder="templates")
+ver_bp = Blueprint("ver", __name__)
+
 
 @ver_bp.route("/")
 def ver_index():
