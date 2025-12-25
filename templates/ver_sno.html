@@ -143,17 +143,15 @@
             <div class="badge">Frost</div>
         </div>
         <p class="lead">
-            Kartet under viser snødybde (cm) fra Frost. Vi prøver å generere kartet automatisk på serveren
-            når det mangler eller er eldre enn en viss tid. Du kan også generere det manuelt med scriptet i
-            <strong>scripts/snow_map.py</strong> og lagre resultatet som <strong>static/snow_map.html</strong>.
+            Kartet under viser snødybde (cm) fra Frost. Du kan generere kartet med scriptet i
+            <strong>scripts/snow_map.py</strong> og legge resultatet som <strong>static/snow_map.html</strong>.
         </p>
 
         <iframe class="map-frame" src="/ver/sno/kart" title="Snømengde-kart"></iframe>
 
         <p class="note">
-            Mangler kart? Prøv å laste siden på nytt etter litt, eller kjør scriptet med ønsket dato og pek utfil
-            til <code>static/snow_map.html</code>. Eksempel:
-            <code>python scripts/snow_map.py --date 2024-02-01 --out-html static/snow_map.html</code>.
+            Mangler kart? Kjør scriptet med ønsket dato og pek utfil til <code>static/snow_map.html</code>.
+            Eksempel: <code>python scripts/snow_map.py --date 2024-02-01 --out-html static/snow_map.html</code>.
         </p>
 
         <a href="/ver/" class="back-link">
