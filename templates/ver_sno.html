@@ -2,7 +2,7 @@
 <html lang="nb">
 <head>
     <meta charset="UTF-8">
-    <title>Væranalyse – prisanalyse.no</title>
+    <title>Snømengde – prisanalyse.no</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -62,7 +62,7 @@
         }
 
         .page {
-            max-width: 980px;
+            max-width: 1100px;
             width: 100%;
         }
 
@@ -71,14 +71,6 @@
             border-radius: var(--card-radius);
             box-shadow: var(--card-shadow);
             padding: 24px 24px 26px;
-        }
-
-        .logo-line {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.16em;
-            color: var(--text-muted);
-            margin-bottom: 4px;
         }
 
         .title-row {
@@ -112,58 +104,26 @@
             margin-bottom: 18px;
         }
 
-        .options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-            margin-bottom: 20px;
+        .map-frame {
+            width: 100%;
+            min-height: 520px;
+            border: 0;
+            border-radius: 14px;
+            background: #f1f5f9;
         }
 
-        .option-card {
-            background: #f8fafc;
-            border-radius: 16px;
-            padding: 16px;
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            min-height: 160px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .option-title {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .option-desc {
-            font-size: 0.9rem;
+        .note {
+            font-size: 0.85rem;
             color: var(--text-muted);
-            margin-bottom: 12px;
-        }
-
-        .option-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            text-decoration: none;
-            font-size: 0.9rem;
-            color: var(--accent);
-            font-weight: 600;
-        }
-
-        .option-status {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: var(--text-muted);
+            margin-top: 14px;
+            line-height: 1.5;
         }
 
         .back-link {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            margin-top: 8px;
+            margin-top: 16px;
             text-decoration: none;
             font-size: 0.9rem;
             color: var(--accent);
@@ -178,51 +138,24 @@
 <body>
 <div class="page">
     <div class="card">
-        <div class="logo-line">prisanalyse.no</div>
         <div class="title-row">
-            <h1>Væranalyse</h1>
-            <div class="badge">Beta</div>
+            <h1>Snømengde i Norge</h1>
+            <div class="badge">Frost</div>
         </div>
         <p class="lead">
-            Her bygger vi opp flere værmoduler. Velg et alternativ under for å utforske snødata eller se hva som kommer.
+            Kartet under viser snødybde (cm) fra Frost. Du kan generere kartet med scriptet i
+            <strong>scripts/snow_map.py</strong> og legge resultatet som <strong>static/snow_map.html</strong>.
         </p>
 
-        <div class="options">
-            <div class="option-card">
-                <div>
-                    <div class="option-title">Snømengde i Norge</div>
-                    <div class="option-desc">
-                        Kart med snødybde fra Frost-data for valgt dato, med stasjoner og heatmap.
-                    </div>
-                </div>
-                <a class="option-link" href="/ver/sno/">
-                    Åpne snømengde-kart →
-                </a>
-            </div>
+        <iframe class="map-frame" src="/ver/sno/kart" title="Snømengde-kart"></iframe>
 
-            <div class="option-card">
-                <div>
-                    <div class="option-title">Temperaturavvik</div>
-                    <div class="option-desc">
-                        Sammenligning mot normalen og regionale avvik.
-                    </div>
-                </div>
-                <div class="option-status">Kommer snart</div>
-            </div>
+        <p class="note">
+            Mangler kart? Kjør scriptet med ønsket dato og pek utfil til <code>static/snow_map.html</code>.
+            Eksempel: <code>python scripts/snow_map.py --date 2024-02-01 --out-html static/snow_map.html</code>.
+        </p>
 
-            <div class="option-card">
-                <div>
-                    <div class="option-title">Vær vs strøm</div>
-                    <div class="option-desc">
-                        Korrelasjon mellom temperatur, forbruk og priser.
-                    </div>
-                </div>
-                <div class="option-status">Kommer snart</div>
-            </div>
-        </div>
-
-        <a href="/" class="back-link">
-            <span>←</span> Tilbake til forsiden
+        <a href="/ver/" class="back-link">
+            <span>←</span> Tilbake til væralternativer
         </a>
     </div>
 </div>

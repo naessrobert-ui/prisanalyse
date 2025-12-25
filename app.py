@@ -6,7 +6,7 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from flask import Flask, render_template
+from flask import Flask, render_template, send_file
 from flask_session import Session
 
 # Blueprints
@@ -51,6 +51,17 @@ def create_app() -> Flask:
     @app.route("/ver/")
     def ver_side():
         return render_template("ver_analyse.html")
+
+    @app.route("/ver/sno/")
+    def ver_sno_side():
+        return render_template("ver_sno.html")
+
+    @app.route("/ver/sno/kart")
+    def ver_sno_kart():
+        map_path = os.path.join(app.root_path, "static", "snow_map.html")
+        if os.path.exists(map_path):
+            return send_file(map_path)
+        return render_template("ver_sno_kart_missing.html")
 
     @app.route("/jobb/")
     def jobb_side():
