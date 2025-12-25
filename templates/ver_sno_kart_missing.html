@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="UTF-8">
+    <title>Snømengde – kart mangler</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="20">
+    <style>
+        body {
+            font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #f8fafc;
+            color: #111827;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .box {
+            max-width: 520px;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            margin-bottom: 12px;
+        }
+
+        p {
+            font-size: 0.95rem;
+            color: #6b7280;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>Kartet er ikke generert ennå</h1>
+        <p>
+            Vi forsøker å generere kartet automatisk. Denne siden oppdateres hvert 20. sekund.
+            Du kan også kjøre <code>scripts/snow_map.py</code> manuelt og lagre resultatet som
+            <code>static/snow_map.html</code>.
+        </p>
+    </div>
+</body>
+</html>
