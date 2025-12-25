@@ -3,6 +3,9 @@
 """Main Flask entrypoint for prisanalyse."""
 
 import os
+import subprocess
+import sys
+from datetime import datetime, timezone
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -52,6 +55,30 @@ def create_app() -> Flask:
     def ver_side():
         return render_template("ver_analyse.html")
 
+    def _auto_generate_snow_map(map_path: str) -> None:
+        enabled = os.environ.get("SNOW_MAP_AUTO_GENERATE", "true").lower() in {"1", "true", "yes"}
+        if not enabled:
+            return
+        if not os.environ.get("FROST_CLIENT_ID"):
+            return
+
+        script_path = os.path.join(app.root_path, "scripts", "snow_map.py")
+        if not os.path.exists(script_path):
+            return
+
+        max_age_hours = int(os.environ.get("SNOW_MAP_MAX_AGE_HOURS", "12"))
+        if os.path.exists(map_path):
+            age_seconds = datetime.now(tz=timezone.utc).timestamp() - os.path.getmtime(map_path)
+            if age_seconds < max_age_hours * 3600:
+                return
+
+        os.makedirs(os.path.dirname(map_path), exist_ok=True)
+        today = datetime.now(tz=timezone.utc).date().isoformat()
+        subprocess.run(
+            [sys.executable, script_path, "--date", today, "--out-html", map_path],
+            check=True,
+        )
+
     @app.route("/ver/sno/")
     def ver_sno_side():
         return render_template("ver_sno.html")
@@ -59,6 +86,10 @@ def create_app() -> Flask:
     @app.route("/ver/sno/kart")
     def ver_sno_kart():
         map_path = os.path.join(app.root_path, "static", "snow_map.html")
+        try:
+            _auto_generate_snow_map(map_path)
+        except Exception:
+            pass
         if os.path.exists(map_path):
             return send_file(map_path)
         return render_template("ver_sno_kart_missing.html")
