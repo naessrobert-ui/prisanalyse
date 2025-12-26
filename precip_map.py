@@ -211,7 +211,6 @@ def get_sources_metadata(
         params: dict[str, str | int] = {
             "ids": ",".join(batch),
             "fields": "id,name,shortName,country,geometry",
-            "limit": limit,
         }
         for page in iter_pages(session, path, params, auth=auth, timeout=timeout):
             if page.get("@type") == "ErrorResponse":
@@ -268,7 +267,6 @@ def fetch_observations_interval(
             "elements": elements,
             "timeoffsets": "default",
             "levels": "default",
-            "limit": limit,
         }
         if qualities:
             params["qualities"] = qualities
