@@ -18,7 +18,6 @@ from dotenv import load_dotenv
 import folium
 from folium.plugins import HeatMap, MarkerCluster
 
-
 # --- .env loading -------------------------------------------------------
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 load_dotenv()
@@ -28,11 +27,10 @@ DEFAULT_TIMEOUT = 20
 
 # Elementer
 ELEMENT_PRECIP_DAY = "sum(precipitation_amount P1D)"      # døgnsum
-ELEMENT_PRECIP_HOURLY = "sum(precipitation_amount PT1H)"  # time-sum (summerer 24 timer for last24h)
+ELEMENT_PRECIP_HOURLY = "sum(precipitation_amount PT1H)"  # timesum (summerer 24 timer for last24h)
 
 UNIT_MM = "mm"
 Mode = Literal["last24h", "day", "mtd", "ytd"]
-
 
 # -----------------------
 # Defaults mot 502/timeout
@@ -468,14 +466,61 @@ def _loading_overlay_js() -> str:
 """
 
 
+def _save_view_listener_js() -> str:
+    # Lagrer alltid view i parent.sessionStorage ("precip_view_v1") ved zoom/pan
+    return """
+<script>
+  const STORE_KEY = "precip_view_v1";
+
+  function findLeafletMap() {
+    for (const k of Object.keys(window)) {
+      const v = window[k];
+      if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function' && typeof v.getZoom === 'function') {
+        return v;
+      }
+    }
+    return null;
+  }
+
+  function saveViewToParent() {
+    try {
+      const map = findLeafletMap();
+      if (!map) return;
+      const b = map.getBounds();
+      const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(",");
+      const c = map.getCenter();
+      const z = map.getZoom();
+
+      // samme origin => kan skrive til parent sessionStorage
+      if (window.parent && window.parent.sessionStorage) {
+        window.parent.sessionStorage.setItem(
+          STORE_KEY,
+          JSON.stringify({ bbox: bbox, z: String(z), clat: String(c.lat), clon: String(c.lng) })
+        );
+      }
+    } catch (e) {}
+  }
+
+  (function attachViewListener() {
+    const map = findLeafletMap();
+    if (!map) return;
+    map.on("moveend", saveViewToParent);
+    map.on("zoomend", saveViewToParent);
+    saveViewToParent();
+  })();
+</script>
+"""
+
+
 def make_empty_map_with_button(*, title: str, mode: str, date_str: str) -> str:
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
 
     ui = f"""
     {_loading_overlay_js()}
+    {_save_view_listener_js()}
 
     <div style="
-      position: fixed; top: 12px; right: 12px; left: auto; z-index: 9999;
+      position: fixed; top: 12px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -492,7 +537,7 @@ def make_empty_map_with_button(*, title: str, mode: str, date_str: str) -> str:
     </div>
 
     <script>
-      function findLeafletMap() {{
+      function findLeafletMap2() {{
         for (const k of Object.keys(window)) {{
           const v = window[k];
           if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
@@ -503,7 +548,7 @@ def make_empty_map_with_button(*, title: str, mode: str, date_str: str) -> str:
       }}
 
       document.getElementById('bboxFetchBtn').addEventListener('click', function() {{
-        const map = findLeafletMap();
+        const map = findLeafletMap2();
         if (!map) {{
           alert('Fant ikke kart-objektet. Prøv å reloade siden.');
           return;
@@ -540,7 +585,6 @@ def make_info_map(
     center: Optional[tuple[float, float]] = None,
     zoom: Optional[int] = None,
 ) -> str:
-    # behold utsnitt hvis vi har det
     if center and zoom is not None:
         m = folium.Map(location=[center[0], center[1]], zoom_start=int(zoom), tiles="OpenStreetMap")
     else:
@@ -548,6 +592,7 @@ def make_info_map(
 
     ui = f"""
     {_loading_overlay_js()}
+    {_save_view_listener_js()}
 
     <div style="
       position: fixed; top: 12px; right: 12px; z-index: 9999;
@@ -570,7 +615,7 @@ def make_info_map(
     </div>
 
     <script>
-      function findLeafletMap() {{
+      function findLeafletMap2() {{
         for (const k of Object.keys(window)) {{
           const v = window[k];
           if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
@@ -581,7 +626,7 @@ def make_info_map(
       }}
 
       document.getElementById('refreshBBoxBtn').addEventListener('click', function() {{
-        const map = findLeafletMap();
+        const map = findLeafletMap2();
         if (!map) {{
           alert('Fant ikke kart-objektet. Prøv å reloade siden.');
           return;
@@ -643,7 +688,6 @@ def make_map(
     if d.empty:
         raise RuntimeError("Har data, men ingen rader med både koordinater og verdi.")
 
-    # Kvantiler for farger
     vals = d["value"].astype(float)
     q10 = float(vals.quantile(0.10))
     q20 = float(vals.quantile(0.20))
@@ -652,20 +696,19 @@ def make_map(
 
     def color_for(mm: float) -> str:
         if mm >= q90:
-            return "#ff0000"   # topp 10% (klar rød)
+            return "#ff0000"   # topp 10%
         if mm >= q80:
-            return "#8b0000"   # 80-90% (mørk rød)
+            return "#8b0000"   # 80-90%
         if mm <= q10:
-            return "#00b300"   # bunn 10% (grønn)
+            return "#00b300"   # bunn 10%
         if mm <= q20:
-            return "#006400"   # 10-20% (mørk grønn)
-        return "#808080"       # resten (grå)
+            return "#006400"   # 10-20%
+        return "#808080"       # midten
 
     def radius_for(mm: float) -> float:
         r = 3.0 + 4.5 * math.sqrt(max(mm, 0.0))
         return float(max(3.0, min(r, 20.0)))
 
-    # Map init: hvis vi har center+zoom -> behold nøyaktig utsnitt
     if center and zoom is not None:
         m = folium.Map(location=[center[0], center[1]], zoom_start=int(zoom), tiles="OpenStreetMap")
     else:
@@ -676,10 +719,10 @@ def make_map(
             w, s, e, n = bounds
             m.fit_bounds([[s, w], [n, e]])
 
-    # Loading overlay
     folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
+    # ✅ lagre view ved zoom/pan inne i iframe
+    folium.Element(_save_view_listener_js()).add_to(m.get_root().html)
 
-    # Oppdater-knapp for synlig utsnitt (etter zoom/pan)
     refresh_box = f"""
     <div style="
       position: fixed; top: 12px; right: 12px; z-index: 9999;
@@ -699,7 +742,7 @@ def make_map(
     </div>
 
     <script>
-      function findLeafletMap() {{
+      function findLeafletMap3() {{
         for (const k of Object.keys(window)) {{
           const v = window[k];
           if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
@@ -710,7 +753,7 @@ def make_map(
       }}
 
       document.getElementById('refreshBBoxBtn').addEventListener('click', function() {{
-        const map = findLeafletMap();
+        const map = findLeafletMap3();
         if (!map) {{
           alert('Fant ikke kart-objektet. Prøv å reloade siden.');
           return;
@@ -736,7 +779,6 @@ def make_map(
     """
     folium.Element(refresh_box).add_to(m.get_root().html)
 
-    # Legend (flyttet litt ned for å unngå refresh-boksen)
     legend_html = """
     <div style="
       position: fixed; top: 120px; right: 12px; z-index: 9999;
@@ -775,7 +817,6 @@ def make_map(
     """
     folium.Element(legend_html).add_to(m.get_root().html)
 
-    # Heatmap
     clipped = d["value"].clip(lower=0, upper=heat_clip_mm)
     weights = (clipped / heat_clip_mm) ** 0.5
     heat_data = [[float(lat), float(lon), float(wt)] for lat, lon, wt in zip(d["lat"], d["lon"], weights)]
@@ -783,7 +824,6 @@ def make_map(
     HeatMap(heat_data, radius=heat_radius, blur=heat_blur, min_opacity=0.2, max_zoom=10).add_to(heat_layer)
     heat_layer.add_to(m)
 
-    # Markører
     points_layer = folium.FeatureGroup(name="Stasjoner", show=True)
     points_layer.add_to(m)
     layer_for_markers = MarkerCluster().add_to(points_layer) if cluster else points_layer
@@ -821,7 +861,6 @@ def make_map(
 
     folium.LayerControl().add_to(m)
 
-    # Toppliste (topp N)
     top = d.sort_values("value", ascending=False).head(int(top_n)).copy()
     rows_html: list[str] = []
     for i, r in enumerate(top.itertuples(index=False), start=1):
@@ -945,7 +984,6 @@ def build_precip_map_html(
 ) -> str:
     day_str = date_str or _date.today().isoformat()
 
-    # center/zoom (for å holde utsnitt ved periodebytte)
     center: Optional[tuple[float, float]] = None
     zoom: Optional[int] = None
     try:
@@ -957,7 +995,6 @@ def build_precip_map_html(
         center = None
         zoom = None
 
-    # Ingen bbox: lett kart med knapp
     if not bbox:
         title = "Nedbør"
         if mode == "last24h":
@@ -972,7 +1009,6 @@ def build_precip_map_html(
 
     w, s, e, n = _parse_bbox(bbox)
 
-    # ✅ “områdevern” mot timeout/502
     area = (e - w) * (n - s)
     max_area = MAX_AREA_BY_MODE.get(str(mode), 8.0)
     if area > max_area:
@@ -1031,9 +1067,7 @@ def build_precip_map_html(
                 zoom=zoom,
             )
 
-        # ✅ pre-sample før observations (redder store bbox)
         src_meta = pre_sample_sources_grid(src_meta, w=w, s=s, e=e, n=n, max_sources=MAX_SOURCES_PRE_OBS)
-
         sources = src_meta["baseId"].astype(str).tolist()
 
         obs = fetch_observations_interval(
@@ -1078,7 +1112,6 @@ def build_precip_map_html(
             zoom=zoom,
         )
 
-    # ned-sample etter data (for kart-ytelse)
     merged = downsample_spatial_best_quality(
         merged,
         w=w, s=s, e=e, n=n,
