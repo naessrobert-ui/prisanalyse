@@ -514,7 +514,6 @@ def build_precip_df(
             sources=list(out["sourceId"].unique()),
             timeout=timeout,
             batch_size=batch_size,
-            limit=limit,
         )
 
     df = out.merge(meta, on="sourceId", how="left")
