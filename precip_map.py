@@ -34,6 +34,19 @@ UNIT_MM = "mm"
 Mode = Literal["last24h", "day", "mtd", "ytd"]
 
 
+# -----------------------
+# Defaults mot 502/timeout
+# -----------------------
+MAX_SOURCES_PRE_OBS = 1200  # pre-sample sources hvis mange
+# areal = (e-w)*(n-s) i grader^2 (grov, men fungerer)
+MAX_AREA_BY_MODE: dict[str, float] = {
+    "last24h": 20.0,
+    "day": 12.0,
+    "mtd": 8.0,
+    "ytd": 6.0,
+}
+
+
 # ======================================================================
 # Auth / Frost helpers
 # ======================================================================
@@ -220,6 +233,43 @@ def fetch_sources_in_bbox(
     return df.dropna(subset=["baseId", "lat", "lon"])
 
 
+def pre_sample_sources_grid(
+    src_meta: pd.DataFrame,
+    *,
+    w: float,
+    s: float,
+    e: float,
+    n: float,
+    max_sources: int = MAX_SOURCES_PRE_OBS,
+) -> pd.DataFrame:
+    """
+    Billig pre-sampling: én stasjon per gridcelle (basert på lat/lon).
+    Brukes før vi henter observations for å unngå timeout ved store bbox.
+    """
+    if src_meta.empty or len(src_meta) <= max_sources:
+        return src_meta
+
+    df = src_meta.copy()
+
+    width = max(e - w, 1e-9)
+    height = max(n - s, 1e-9)
+    target_side = max(int(max_sources ** 0.5), 10)
+
+    cell_lon = max(width / target_side, 0.02)
+    cell_lat = max(height / target_side, 0.02)
+
+    df["ix"] = ((df["lon"] - w) / cell_lon).astype(int)
+    df["iy"] = ((df["lat"] - s) / cell_lat).astype(int)
+
+    # én per celle
+    df2 = df.groupby(["iy", "ix"], as_index=False).head(1).reset_index(drop=True)
+
+    if len(df2) > max_sources:
+        df2 = df2.head(max_sources)
+
+    return df2.drop(columns=["ix", "iy"], errors="ignore")
+
+
 # ======================================================================
 # Observasjoner
 # ======================================================================
@@ -321,7 +371,7 @@ def aggregate_sum_per_station(df: pd.DataFrame, *, count_col: str) -> pd.DataFra
 
 
 # ======================================================================
-# Downsample (kun hvis for mange)
+# Downsample (kun hvis for mange) - etter data
 # ======================================================================
 
 def downsample_spatial_best_quality(
@@ -371,13 +421,59 @@ def downsample_spatial_best_quality(
 
 
 # ======================================================================
-# UI: tomt kart + knapp
+# UI helpers
 # ======================================================================
+
+def _loading_overlay_js() -> str:
+    return """
+<div id="loadingOverlay" style="
+  display:none;
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+">
+  <div style="
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: rgba(255,255,255,0.97); border-radius: 16px;
+    padding: 16px 18px; min-width: 280px;
+    box-shadow: 0 18px 45px rgba(15,23,42,.25);
+  ">
+    <div style="font-weight:900; margin-bottom:6px;">Henter data…</div>
+    <div style="color:#334155; font-size:13px;">
+      Dette kan ta litt tid for store perioder/områder.
+    </div>
+    <div style="margin-top:10px; font-size:14px;">
+      Tid: <b><span id="loadingSeconds">0</span>s</b>
+    </div>
+  </div>
+</div>
+
+<script>
+  window._loadingTimer = null;
+  window.showLoading = function() {
+    const ov = document.getElementById('loadingOverlay');
+    const s = document.getElementById('loadingSeconds');
+    if (!ov || !s) return;
+    ov.style.display = 'block';
+    let t = 0;
+    s.textContent = '0';
+    if (window._loadingTimer) clearInterval(window._loadingTimer);
+    window._loadingTimer = setInterval(function() {
+      t += 1;
+      s.textContent = String(t);
+    }, 1000);
+  }
+</script>
+"""
+
 
 def make_empty_map_with_button(*, title: str, mode: str, date_str: str) -> str:
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
 
-    button_html = f"""
+    ui = f"""
+    {_loading_overlay_js()}
+
     <div style="
       position: fixed; top: 12px; right: 12px; left: auto; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
@@ -413,11 +509,7 @@ def make_empty_map_with_button(*, title: str, mode: str, date_str: str) -> str:
           return;
         }}
         const b = map.getBounds();
-        const west = b.getWest();
-        const south = b.getSouth();
-        const east = b.getEast();
-        const north = b.getNorth();
-        const bbox = [west, south, east, north].join(',');
+        const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
 
         const c = map.getCenter();
         const z = map.getZoom();
@@ -430,11 +522,90 @@ def make_empty_map_with_button(*, title: str, mode: str, date_str: str) -> str:
         qs.set('clat', String(c.lat));
         qs.set('clon', String(c.lng));
 
+        if (window.showLoading) window.showLoading();
         window.location.href = '/ver/nedbor-kart?' + qs.toString();
       }});
     </script>
     """
-    folium.Element(button_html).add_to(m.get_root().html)
+    folium.Element(ui).add_to(m.get_root().html)
+    return m.get_root().render()
+
+
+def make_info_map(
+    *,
+    title: str,
+    message: str,
+    mode: str,
+    date_str: str,
+    center: Optional[tuple[float, float]] = None,
+    zoom: Optional[int] = None,
+) -> str:
+    # behold utsnitt hvis vi har det
+    if center and zoom is not None:
+        m = folium.Map(location=[center[0], center[1]], zoom_start=int(zoom), tiles="OpenStreetMap")
+    else:
+        m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
+
+    ui = f"""
+    {_loading_overlay_js()}
+
+    <div style="
+      position: fixed; top: 12px; right: 12px; z-index: 9999;
+      background: rgba(255,255,255,.95); padding: 10px 12px;
+      border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      max-width: 420px;
+    ">
+      <div style="font-weight:900; margin-bottom:6px;">{title}</div>
+      <div style="font-size:13px; color:#334155; margin-bottom:10px;">
+        {message}
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-bottom:10px;">
+        Tips: Zoom inn litt og trykk “Oppdater dette utsnittet”.
+      </div>
+      <button id="refreshBBoxBtn" style="
+        padding:8px 12px; border:none; border-radius:999px;
+        background:#0f172a; color:white; cursor:pointer;
+      ">Oppdater dette utsnittet</button>
+    </div>
+
+    <script>
+      function findLeafletMap() {{
+        for (const k of Object.keys(window)) {{
+          const v = window[k];
+          if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
+            return v;
+          }}
+        }}
+        return null;
+      }}
+
+      document.getElementById('refreshBBoxBtn').addEventListener('click', function() {{
+        const map = findLeafletMap();
+        if (!map) {{
+          alert('Fant ikke kart-objektet. Prøv å reloade siden.');
+          return;
+        }}
+        const b = map.getBounds();
+        const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
+
+        const c = map.getCenter();
+        const z = map.getZoom();
+
+        const qs = new URLSearchParams();
+        qs.set('mode', '{mode}');
+        if ('{date_str}') qs.set('date', '{date_str}');
+        qs.set('bbox', bbox);
+        qs.set('z', String(z));
+        qs.set('clat', String(c.lat));
+        qs.set('clon', String(c.lng));
+
+        if (window.showLoading) window.showLoading();
+        window.location.href = '/ver/nedbor-kart?' + qs.toString();
+      }});
+    </script>
+    """
+    folium.Element(ui).add_to(m.get_root().html)
     return m.get_root().render()
 
 
@@ -505,6 +676,9 @@ def make_map(
             w, s, e, n = bounds
             m.fit_bounds([[s, w], [n, e]])
 
+    # Loading overlay
+    folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
+
     # Oppdater-knapp for synlig utsnitt (etter zoom/pan)
     refresh_box = f"""
     <div style="
@@ -514,7 +688,7 @@ def make_map(
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
       max-width: 360px;
     ">
-      <div style="font-weight:800; margin-bottom:6px;">Oppdater</div>
+      <div style="font-weight:900; margin-bottom:6px;">Oppdater</div>
       <div style="font-size:13px; color:#334155; margin-bottom:10px;">
         Hent nye tall/stasjoner for synlig utsnitt.
       </div>
@@ -542,11 +716,7 @@ def make_map(
           return;
         }}
         const b = map.getBounds();
-        const west = b.getWest();
-        const south = b.getSouth();
-        const east = b.getEast();
-        const north = b.getNorth();
-        const bbox = [west, south, east, north].join(',');
+        const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
 
         const c = map.getCenter();
         const z = map.getZoom();
@@ -559,6 +729,7 @@ def make_map(
         qs.set('clat', String(c.lat));
         qs.set('clon', String(c.lng));
 
+        if (window.showLoading) window.showLoading();
         window.location.href = '/ver/nedbor-kart?' + qs.toString();
       }});
     </script>
@@ -566,7 +737,7 @@ def make_map(
     folium.Element(refresh_box).add_to(m.get_root().html)
 
     # Legend (flyttet litt ned for å unngå refresh-boksen)
-    legend_html = f"""
+    legend_html = """
     <div style="
       position: fixed; top: 120px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
@@ -575,7 +746,7 @@ def make_map(
       max-width: 360px;
       font-size: 13px; color:#0f172a;
     ">
-      <div style="font-weight:800; margin-bottom:6px;">Forklaring</div>
+      <div style="font-weight:900; margin-bottom:6px;">Forklaring</div>
       <div style="margin-bottom:6px;">Farge = percentiler i utsnittet</div>
       <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
         <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#ff0000;"></span>
@@ -667,7 +838,7 @@ def make_map(
                 </a>
                 <div style="font-size:12px;color:#64748b;">{sid}</div>
               </td>
-              <td style="padding:6px 8px; text-align:right; font-weight:800;">{mm:.1f} mm</td>
+              <td style="padding:6px 8px; text-align:right; font-weight:900;">{mm:.1f} mm</td>
             </tr>
             """
         )
@@ -774,6 +945,18 @@ def build_precip_map_html(
 ) -> str:
     day_str = date_str or _date.today().isoformat()
 
+    # center/zoom (for å holde utsnitt ved periodebytte)
+    center: Optional[tuple[float, float]] = None
+    zoom: Optional[int] = None
+    try:
+        if clat is not None and clon is not None:
+            center = (float(clat), float(clon))
+        if z is not None:
+            zoom = int(float(z))
+    except Exception:
+        center = None
+        zoom = None
+
     # Ingen bbox: lett kart med knapp
     if not bbox:
         title = "Nedbør"
@@ -788,20 +971,21 @@ def build_precip_map_html(
         return make_empty_map_with_button(title=title, mode=str(mode), date_str=day_str)
 
     w, s, e, n = _parse_bbox(bbox)
+
+    # ✅ “områdevern” mot timeout/502
+    area = (e - w) * (n - s)
+    max_area = MAX_AREA_BY_MODE.get(str(mode), 8.0)
+    if area > max_area:
+        return make_info_map(
+            title="Området er for stort",
+            message=f"Valgt område er for stort for periode '{mode}'. Zoom litt mer inn og prøv igjen.",
+            mode=str(mode),
+            date_str=day_str,
+            center=center,
+            zoom=zoom,
+        )
+
     auth = _env_auth()
-
-    # center/zoom (for å holde utsnitt ved periodebytte)
-    center: Optional[tuple[float, float]] = None
-    zoom: Optional[int] = None
-    try:
-        if clat is not None and clon is not None:
-            center = (float(clat), float(clon))
-        if z is not None:
-            zoom = int(float(z))
-    except Exception:
-        center = None
-        zoom = None
-
     day = datetime.strptime(day_str, "%Y-%m-%d").date()
 
     if mode == "last24h":
@@ -838,7 +1022,17 @@ def build_precip_map_html(
     with requests.Session() as sess:
         src_meta = fetch_sources_in_bbox(sess, auth=auth, w=w, s=s, e=e, n=n, timeout=timeout)
         if src_meta.empty:
-            return make_empty_map_with_button(title=f"{title} (ingen stasjoner i området)", mode=str(mode), date_str=day_str)
+            return make_info_map(
+                title="Ingen stasjoner i området",
+                message="Zoom litt ut eller flytt utsnittet.",
+                mode=str(mode),
+                date_str=day_str,
+                center=center,
+                zoom=zoom,
+            )
+
+        # ✅ pre-sample før observations (redder store bbox)
+        src_meta = pre_sample_sources_grid(src_meta, w=w, s=s, e=e, n=n, max_sources=MAX_SOURCES_PRE_OBS)
 
         sources = src_meta["baseId"].astype(str).tolist()
 
@@ -855,7 +1049,14 @@ def build_precip_map_html(
         )
 
     if obs.empty:
-        return make_empty_map_with_button(title=f"{title} (ingen data i perioden)", mode=str(mode), date_str=day_str)
+        return make_info_map(
+            title="Ingen data i perioden",
+            message="Prøv en annen periode eller zoom litt ut/inn og oppdater utsnittet.",
+            mode=str(mode),
+            date_str=day_str,
+            center=center,
+            zoom=zoom,
+        )
 
     if mode == "day":
         picked = pick_day_value_per_station(obs, day=day)
@@ -868,8 +1069,16 @@ def build_precip_map_html(
     merged = merged.dropna(subset=["lat", "lon", "value"])
 
     if merged.empty:
-        return make_empty_map_with_button(title=f"{title} (ingen plottbare punkter)", mode=str(mode), date_str=day_str)
+        return make_info_map(
+            title="Ingen plottbare punkter",
+            message="Data finnes, men mangler koordinater/verdi for plotting.",
+            mode=str(mode),
+            date_str=day_str,
+            center=center,
+            zoom=zoom,
+        )
 
+    # ned-sample etter data (for kart-ytelse)
     merged = downsample_spatial_best_quality(
         merged,
         w=w, s=s, e=e, n=n,
