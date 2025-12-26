@@ -42,7 +42,7 @@ def ver_hub():
         </div>
         <div class="card">
           <h2>Nedbør</h2>
-          <p>Siste 24 timer (rullerende) + MTD/YTD.</p>
+          <p>Zoom/pan og hent data for synlig område.</p>
           <a class="btn" href="/ver/nedbor">Åpne</a>
         </div>
       </div>
@@ -64,12 +64,11 @@ def sno_index():
 @ver_bp.route("/snomengde-kart")
 def snomengde_kart():
     date_str = request.args.get("date")  # kan være None
-    html_map = build_snow_map_html(date_str=date_str, show_heatmap=True)
-    return html_map
+    return build_snow_map_html(date_str=date_str, show_heatmap=True)
 
 
 # ------------------
-# NEDBØR
+# NEDBØR (INLINE INDEX)
 # ------------------
 @ver_bp.route("/nedbor")
 def nedbor_index():
@@ -81,6 +80,7 @@ def nedbor_index():
     <meta charset="utf-8" />
     <title>Nedbør i Norge – Væranalyse</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+
     <style>
       body {{
         margin: 0;
@@ -88,11 +88,13 @@ def nedbor_index():
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         background: #f5f7fb;
       }}
+
       .page {{
         max-width: 1200px;
         margin: 32px auto;
         padding: 0 16px 32px;
       }}
+
       .card {{
         background: white;
         border-radius: 16px;
@@ -100,9 +102,11 @@ def nedbor_index():
         box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
         margin-bottom: 16px;
       }}
+
       .card h1 {{
         margin: 0 0 8px;
       }}
+
       .controls {{
         display: flex;
         flex-wrap: wrap;
@@ -110,12 +114,14 @@ def nedbor_index():
         margin-top: 10px;
         align-items: center;
       }}
+
       .controls input,
       .controls select {{
         padding: 6px 10px;
         border-radius: 10px;
         border: 1px solid #d1d5db;
       }}
+
       .controls button {{
         padding: 7px 14px;
         border-radius: 999px;
@@ -124,6 +130,7 @@ def nedbor_index():
         color: white;
         cursor: pointer;
       }}
+
       #map-frame {{
         width: 100%;
         height: 80vh;
@@ -141,8 +148,8 @@ def nedbor_index():
       <div class="card">
         <h1>Nedbør i Norge</h1>
         <p>
-          Standard er rullerende siste 24 timer (caches i 5 minutter).
-          Du kan også velge kalenderdøgn, måned-til-dato eller år-til-dato.
+          Zoom/pan til ønsket område og trykk <b>Hent data for synlig område</b> i kartet.
+          Når data er hentet, kan du bytte periode uten å miste zoom (bbox beholdes).
         </p>
 
         <form id="controls" class="controls">
@@ -188,10 +195,18 @@ def nedbor_index():
         const qs = new URLSearchParams();
         qs.set("mode", mode);
 
+        // date brukes ikke for last24h
         if (mode !== "last24h") {{
           const d = dateInput.value;
           if (d) qs.set("date", d);
         }}
+
+        // ✅ behold bbox hvis kartet allerede er lastet for et område
+        try {{
+          const current = new URL(frame.src);
+          const bbox = current.searchParams.get("bbox");
+          if (bbox) qs.set("bbox", bbox);
+        }} catch (e) {{}}
 
         frame.src = `${{baseUrl}}?${{qs.toString()}}`;
       }}
@@ -208,7 +223,9 @@ def nedbor_index():
 """
 
 
-
+# ------------------
+# NEDBØR (KART)
+# ------------------
 @ver_bp.route("/nedbor-kart")
 def nedbor_kart():
     date_str = request.args.get("date")
@@ -218,10 +235,9 @@ def nedbor_kart():
     if mode not in {"last24h", "day", "mtd", "ytd"}:
         mode = "last24h"
 
-    # VIKTIG: uten bbox returnerer vi et lett "tomt" kart med knapp
     return build_precip_map_html(
         date_str=date_str,
-        mode=mode,
+        mode=mode,   # type: ignore[arg-type]
         bbox=bbox,
         show_heatmap=True,
     )

@@ -378,6 +378,9 @@ def make_map(
     center_lat = float(d["lat"].mean())
     center_lon = float(d["lon"].mean())
     m = folium.Map(location=[center_lat, center_lon], zoom_start=5, tiles="OpenStreetMap")
+    if bounds:
+        w, s, e, n = bounds
+        m.fit_bounds([[s, w], [n, e]])
 
     # Heatmap (vektet)
     clipped = d["value"].clip(lower=0, upper=heat_clip_mm)
@@ -572,7 +575,7 @@ def make_empty_map_with_button(
     # Folium-kartet har en map-variabel i JS; vi finner den ved å lete etter første globale med .getBounds.
     button_html = f"""
     <div style="
-      position: fixed; top: 12px; left: 12px; z-index: 9999;
+      position: fixed; top: 12px; right: 12px; left: auto; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -864,6 +867,7 @@ def build_precip_map_html(
         heat_radius=heat_radius,
         heat_blur=heat_blur,
         heat_clip_mm=heat_clip_mm,
+        bounds=(w, s, e, n),
     )
 
 
