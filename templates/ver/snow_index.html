@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="no">
   <head>
-    <meta charset="utf-8">
-    <title>Væranalyse – Snømengde i Norge</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <title>Snømengde i Norge – Væranalyse</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <style>
       body {
@@ -11,91 +11,73 @@
         padding: 0;
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         background: #f5f7fb;
-        color: #111827;
       }
+
       .page {
         max-width: 1200px;
-        margin: 40px auto;
-        padding: 0 16px 40px;
+        margin: 32px auto;
+        padding: 0 16px 32px;
       }
+
       .card {
-        background: #ffffff;
-        border-radius: 18px;
-        padding: 20px 24px;
+        background: white;
+        border-radius: 16px;
+        padding: 18px 22px;
         box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
-        margin-bottom: 20px;
+        margin-bottom: 16px;
       }
+
       .card h1 {
-        font-size: 1.6rem;
         margin: 0 0 8px;
       }
-      .card h2 {
-        font-size: 1.2rem;
-        margin: 0 0 6px;
-      }
-      .card p {
-        margin: 0 0 12px;
-        color: #4b5563;
-      }
+
       .date-form {
         display: flex;
         flex-wrap: wrap;
-        align-items: center;
         gap: 10px;
-        margin-top: 8px;
+        margin-top: 10px;
+        align-items: center;
       }
-      .date-form label {
-        font-size: 0.95rem;
-        color: #374151;
-      }
-      .date-form input[type="date"] {
+
+      .date-form input {
         padding: 6px 10px;
         border-radius: 10px;
         border: 1px solid #d1d5db;
-        font-size: 0.95rem;
       }
+
       .date-form button {
-        padding: 7px 16px;
+        padding: 7px 14px;
         border-radius: 999px;
         border: none;
         background: #2563eb;
         color: white;
-        font-size: 0.95rem;
         cursor: pointer;
       }
-      .date-form button:hover {
-        background: #1d4ed8;
-      }
-      .helper-text {
-        font-size: 0.8rem;
-        color: #6b7280;
-      }
+
       #map-frame {
         width: 100%;
         height: 80vh;
         border: none;
-        border-radius: 18px;
+        border-radius: 16px;
         box-shadow: 0 18px 45px rgba(15, 23, 42, 0.1);
         background: #e5e7eb;
       }
     </style>
   </head>
+
   <body>
     <div class="page">
-      <div class="card">
-        <h1>Væranalyse</h1>
-        <p>Her bygger vi opp flere væremoduler. Snømengde-kartet viser målt snødybde i Norge fra Frost-data.</p>
-      </div>
 
       <div class="card">
-        <h2>Snømengde i Norge</h2>
+        <h1>Snømengde i Norge</h1>
         <p>
-          Kartet viser snødybde for valgt dato. Standard er siste tilgjengelige dato
-          (i dag med fallback ±2 dager).
+          Kartet viser snødybde fra Frost-data. Standard er siste tilgjengelige dato
+          (med fallback ±2 dager for stasjoner uten data).
         </p>
 
         <form id="date-form" class="date-form">
           <label for="date-input">Velg dato:</label>
+
           <input
             type="date"
             id="date-input"
@@ -103,10 +85,8 @@
             value="{{ default_date }}"
             max="{{ default_date }}"
           />
-          <button type="submit">Vis kart</button>
-          <span class="helper-text">
-            Tom dato = siste tilgjengelige målinger.
-          </span>
+
+          <button type="submit">Vis</button>
         </form>
       </div>
 
@@ -115,14 +95,15 @@
         src="{{ url_for('ver.snomengde_kart') }}"
         loading="lazy"
       ></iframe>
+
     </div>
 
     <script>
-      const form = document.getElementById('date-form');
-      const input = document.getElementById('date-input');
-      const frame = document.getElementById('map-frame');
+      const form = document.getElementById("date-form");
+      const input = document.getElementById("date-input");
+      const frame = document.getElementById("map-frame");
 
-      form.addEventListener('submit', function (e) {
+      form.addEventListener("submit", function (e) {
         e.preventDefault();
         const d = input.value;
         const baseUrl = "{{ url_for('ver.snomengde_kart') }}";
@@ -131,4 +112,3 @@
     </script>
   </body>
 </html>
-
