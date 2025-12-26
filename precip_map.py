@@ -362,6 +362,7 @@ def make_map(
     heat_radius: int = 25,
     heat_blur: int = 18,
     heat_clip_mm: float = 80.0,
+    bounds: Optional[tuple[float, float, float, float]] = None,  # (w,s,e,n)
 ) -> str:
     if df.empty:
         raise RuntimeError("Ingen data å plotte (df er tom).")
@@ -378,6 +379,8 @@ def make_map(
     center_lat = float(d["lat"].mean())
     center_lon = float(d["lon"].mean())
     m = folium.Map(location=[center_lat, center_lon], zoom_start=5, tiles="OpenStreetMap")
+
+    # ✅ Hold utsnittet dersom bbox er gitt
     if bounds:
         w, s, e, n = bounds
         m.fit_bounds([[s, w], [n, e]])
@@ -385,9 +388,9 @@ def make_map(
     # Heatmap (vektet)
     clipped = d["value"].clip(lower=0, upper=heat_clip_mm)
     weights = (clipped / heat_clip_mm) ** 0.5
-    heat_data = [[float(lat), float(lon), float(w)] for lat, lon, w in zip(d["lat"], d["lon"], weights)]
+    heat_data = [[float(lat), float(lon), float(wt)] for lat, lon, wt in zip(d["lat"], d["lon"], weights)]
     heat_layer = folium.FeatureGroup(name=f"Heatmap – {title}", show=heatmap_show)
-    HeatMap(heat_data, radius=heat_radius, blur=heat_blur, min_opacity=0.2, max_zoom=8).add_to(heat_layer)
+    HeatMap(heat_data, radius=heat_radius, blur=heat_blur, min_opacity=0.2, max_zoom=10).add_to(heat_layer)
     heat_layer.add_to(m)
 
     points_layer = folium.FeatureGroup(name="Stasjoner (hover)", show=True)
@@ -397,7 +400,7 @@ def make_map(
     for _, r in d.iterrows():
         mm = float(r["value"])
         name = (r.get("name") or r.get("shortName") or r["sourceId"])
-        unit = r.get("unit") or UNIT_MM
+        unit = r.get("unit") or "mm"
         t = r.get("referenceTime")
         t_str = pd.to_datetime(t).strftime("%Y-%m-%d %H:%M UTC") if pd.notna(t) else "ukjent tid"
 
