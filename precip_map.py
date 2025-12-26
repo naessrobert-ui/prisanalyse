@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 import folium
 from folium.plugins import HeatMap, MarkerCluster
 
+
 # --- .env loading -------------------------------------------------------
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 load_dotenv()
@@ -27,7 +28,7 @@ DEFAULT_TIMEOUT = 20
 
 # Elementer
 ELEMENT_PRECIP_DAY = "sum(precipitation_amount P1D)"      # døgnsum
-ELEMENT_PRECIP_HOURLY = "sum(precipitation_amount PT1H)"  # time (summerer 24 timer for last24h)
+ELEMENT_PRECIP_HOURLY = "sum(precipitation_amount PT1H)"  # time-sum (summerer 24 timer for last24h)
 
 UNIT_MM = "mm"
 Mode = Literal["last24h", "day", "mtd", "ytd"]
@@ -356,10 +357,7 @@ def downsample_spatial_best_quality(
     d["ix"] = ((d["lon"] - w) / cell_lon).astype(int)
     d["iy"] = ((d["lat"] - s) / cell_lat).astype(int)
 
-    d_sorted = d.sort_values(
-        ["iy", "ix", "qualityCode", "referenceTime"],
-        ascending=[True, True, True, False],
-    )
+    d_sorted = d.sort_values(["iy", "ix", "qualityCode", "referenceTime"], ascending=[True, True, True, False])
     grid_pick = d_sorted.groupby(["iy", "ix"], as_index=False).head(1).reset_index(drop=True)
 
     top_pick = d.sort_values("value", ascending=False).head(keep_top_n)
@@ -379,16 +377,15 @@ def downsample_spatial_best_quality(
 def make_empty_map_with_button(*, title: str, mode: str, date_str: str) -> str:
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
 
-    # Flyttet til top's RIGHT så den ikke dekker zoom-knappene.
     button_html = f"""
     <div style="
       position: fixed; top: 12px; right: 12px; left: auto; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-      max-width: 340px;
+      max-width: 360px;
     ">
-      <div style="font-weight:700; margin-bottom:6px;">{title}</div>
+      <div style="font-weight:800; margin-bottom:6px;">{title}</div>
       <div style="font-size:13px; color:#334155; margin-bottom:10px;">
         Zoom/pan til ønsket område og trykk hent.
       </div>
@@ -442,7 +439,7 @@ def make_empty_map_with_button(*, title: str, mode: str, date_str: str) -> str:
 
 
 # ======================================================================
-# Kart med data: styling + legend + toppliste
+# Kart med data: styling + legend + toppliste + oppdater-knapp
 # ======================================================================
 
 def make_map(
@@ -455,10 +452,12 @@ def make_map(
     heat_radius: int = 25,
     heat_blur: int = 18,
     heat_clip_mm: float = 80.0,
-    bounds: Optional[tuple[float, float, float, float]] = None,       # (w,s,e,n)
-    center: Optional[tuple[float, float]] = None,                     # (lat,lon)
+    bounds: Optional[tuple[float, float, float, float]] = None,  # (w,s,e,n)
+    center: Optional[tuple[float, float]] = None,                # (lat,lon)
     zoom: Optional[int] = None,
     top_n: int = 10,
+    mode: str = "last24h",
+    date_str: str = "",
 ) -> str:
     if df.empty:
         raise RuntimeError("Ingen data å plotte (df er tom).")
@@ -492,7 +491,6 @@ def make_map(
         return "#808080"       # resten (grå)
 
     def radius_for(mm: float) -> float:
-        # sqrt-skala: god visuelt
         r = 3.0 + 4.5 * math.sqrt(max(mm, 0.0))
         return float(max(3.0, min(r, 20.0)))
 
@@ -507,17 +505,77 @@ def make_map(
             w, s, e, n = bounds
             m.fit_bounds([[s, w], [n, e]])
 
-    # Legend (top-right, under knapp)
-    legend_html = f"""
+    # Oppdater-knapp for synlig utsnitt (etter zoom/pan)
+    refresh_box = f"""
     <div style="
-      position: fixed; top: 90px; right: 12px; z-index: 9999;
+      position: fixed; top: 12px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-      max-width: 340px;
+      max-width: 360px;
+    ">
+      <div style="font-weight:800; margin-bottom:6px;">Oppdater</div>
+      <div style="font-size:13px; color:#334155; margin-bottom:10px;">
+        Hent nye tall/stasjoner for synlig utsnitt.
+      </div>
+      <button id="refreshBBoxBtn" style="
+        padding:8px 12px; border:none; border-radius:999px;
+        background:#0f172a; color:white; cursor:pointer;
+      ">Oppdater dette utsnittet</button>
+    </div>
+
+    <script>
+      function findLeafletMap() {{
+        for (const k of Object.keys(window)) {{
+          const v = window[k];
+          if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
+            return v;
+          }}
+        }}
+        return null;
+      }}
+
+      document.getElementById('refreshBBoxBtn').addEventListener('click', function() {{
+        const map = findLeafletMap();
+        if (!map) {{
+          alert('Fant ikke kart-objektet. Prøv å reloade siden.');
+          return;
+        }}
+        const b = map.getBounds();
+        const west = b.getWest();
+        const south = b.getSouth();
+        const east = b.getEast();
+        const north = b.getNorth();
+        const bbox = [west, south, east, north].join(',');
+
+        const c = map.getCenter();
+        const z = map.getZoom();
+
+        const qs = new URLSearchParams();
+        qs.set('mode', '{mode}');
+        if ('{date_str}') qs.set('date', '{date_str}');
+        qs.set('bbox', bbox);
+        qs.set('z', String(z));
+        qs.set('clat', String(c.lat));
+        qs.set('clon', String(c.lng));
+
+        window.location.href = '/ver/nedbor-kart?' + qs.toString();
+      }});
+    </script>
+    """
+    folium.Element(refresh_box).add_to(m.get_root().html)
+
+    # Legend (flyttet litt ned for å unngå refresh-boksen)
+    legend_html = f"""
+    <div style="
+      position: fixed; top: 120px; right: 12px; z-index: 9999;
+      background: rgba(255,255,255,.95); padding: 10px 12px;
+      border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      max-width: 360px;
       font-size: 13px; color:#0f172a;
     ">
-      <div style="font-weight:700; margin-bottom:6px;">Forklaring</div>
+      <div style="font-weight:800; margin-bottom:6px;">Forklaring</div>
       <div style="margin-bottom:6px;">Farge = percentiler i utsnittet</div>
       <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
         <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#ff0000;"></span>
@@ -540,7 +598,7 @@ def make_map(
         <span>Bunn 10%</span>
       </div>
       <div style="margin-top:8px; color:#334155;">
-        Radius ~ √(mm) (proporsjonal, men dempet).
+        Radius ~ √(mm)
       </div>
     </div>
     """
@@ -609,7 +667,7 @@ def make_map(
                 </a>
                 <div style="font-size:12px;color:#64748b;">{sid}</div>
               </td>
-              <td style="padding:6px 8px; text-align:right; font-weight:700;">{mm:.1f} mm</td>
+              <td style="padding:6px 8px; text-align:right; font-weight:800;">{mm:.1f} mm</td>
             </tr>
             """
         )
@@ -623,7 +681,7 @@ def make_map(
       max-width: 520px;
     ">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-        <div style="font-weight:800;">Topp {int(top_n)} i utsnittet</div>
+        <div style="font-weight:900;">Topp {int(top_n)} i utsnittet</div>
         <button onclick="toggleToplist()" style="border:none;background:#e2e8f0;border-radius:999px;padding:6px 10px;cursor:pointer;">
           Vis/skjul
         </button>
@@ -646,14 +704,12 @@ def make_map(
     """
     folium.Element(topbox_html).add_to(m.get_root().html)
 
-    # JS mapping: sourceId -> Leaflet marker, og focusStation()
     map_var = m.get_name()
     mapping_lines = ",\n".join([f'"{sid}": {jsname}' for sid, jsname in marker_map.items()])
 
     js = f"""
     <script>
       function findLeafletMap() {{
-        // Bruk folium-map var hvis mulig, fallback til scanning.
         if (typeof {map_var} !== 'undefined') return {map_var};
         for (const k of Object.keys(window)) {{
           const v = window[k];
@@ -716,7 +772,6 @@ def build_precip_map_html(
     heat_blur: int = 18,
     heat_clip_mm: float = 80.0,
 ) -> str:
-    # UI-dato for day/mtd/ytd
     day_str = date_str or _date.today().isoformat()
 
     # Ingen bbox: lett kart med knapp
@@ -730,14 +785,12 @@ def build_precip_map_html(
             title = "Nedbør hittil i måneden"
         elif mode == "ytd":
             title = "Nedbør hittil i året"
-
         return make_empty_map_with_button(title=title, mode=str(mode), date_str=day_str)
 
-    # bbox: hent data kun for utsnittet
     w, s, e, n = _parse_bbox(bbox)
     auth = _env_auth()
 
-    # center/zoom (for å ikke “utvide” når vi bytter periode)
+    # center/zoom (for å holde utsnitt ved periodebytte)
     center: Optional[tuple[float, float]] = None
     zoom: Optional[int] = None
     try:
@@ -841,6 +894,8 @@ def build_precip_map_html(
         center=center,
         zoom=zoom,
         top_n=10,
+        mode=str(mode),
+        date_str=day_str if mode != "last24h" else "",
     )
 
 

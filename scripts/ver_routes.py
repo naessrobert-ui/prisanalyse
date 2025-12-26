@@ -42,7 +42,7 @@ def ver_hub():
         </div>
         <div class="card">
           <h2>Nedbør</h2>
-          <p>Zoom/pan og hent data for synlig område. Toppliste + legend.</p>
+          <p>Zoom/pan og hent data for synlig område. Oppdater-knapp i kartet.</p>
           <a class="btn" href="/ver/nedbor">Åpne</a>
         </div>
       </div>
@@ -139,8 +139,8 @@ def nedbor_index():
       <div class="card">
         <h1>Nedbør i Norge</h1>
         <p>
-          Zoom/pan til ønsket område og trykk <b>Hent data for synlig område</b> i kartet.
-          Når data er hentet, kan du bytte periode uten å miste zoom (bbox + zoom/center beholdes).
+          Zoom/pan i kartet og bruk knappene i kartet for å hente/oppdatere utsnittet.
+          Når data er hentet, kan du bytte periode uten å miste område (lagres lokalt i nettleseren).
         </p>
 
         <form id="controls" class="controls">
@@ -179,6 +179,32 @@ def nedbor_index():
       const modeSelect = document.getElementById("mode");
       const frame = document.getElementById("map-frame");
 
+      const STORE_KEY = "precip_view_v1"; // {{bbox,z,clat,clon}}
+
+      function saveViewFromFrameUrl() {{
+        try {{
+          const u = new URL(frame.src);
+          const bbox = u.searchParams.get("bbox");
+          const z = u.searchParams.get("z");
+          const clat = u.searchParams.get("clat");
+          const clon = u.searchParams.get("clon");
+          if (bbox && z && clat && clon) {{
+            sessionStorage.setItem(STORE_KEY, JSON.stringify({{ bbox, z, clat, clon }}));
+          }}
+        }} catch (e) {{}}
+      }}
+
+      function loadView() {{
+        try {{
+          const raw = sessionStorage.getItem(STORE_KEY);
+          if (raw) {{
+            const obj = JSON.parse(raw);
+            if (obj && obj.bbox && obj.z && obj.clat && obj.clon) return obj;
+          }}
+        }} catch (e) {{}}
+        return null;
+      }}
+
       function updateFrame() {{
         const mode = modeSelect.value || "last24h";
         const baseUrl = "/ver/nedbor-kart";
@@ -191,19 +217,27 @@ def nedbor_index():
           if (d) qs.set("date", d);
         }}
 
-        // ✅ behold bbox + zoom/center hvis kartet allerede er lastet for et område
-        try {{
-          const current = new URL(frame.src);
-          const bbox = current.searchParams.get("bbox");
-          const z = current.searchParams.get("z");
-          const clat = current.searchParams.get("clat");
-          const clon = current.searchParams.get("clon");
-
-          if (bbox) qs.set("bbox", bbox);
-          if (z) qs.set("z", z);
-          if (clat) qs.set("clat", clat);
-          if (clon) qs.set("clon", clon);
-        }} catch (e) {{}}
+        // ✅ Primært: bruk lagret utsnitt
+        const saved = loadView();
+        if (saved) {{
+          qs.set("bbox", saved.bbox);
+          qs.set("z", saved.z);
+          qs.set("clat", saved.clat);
+          qs.set("clon", saved.clon);
+        }} else {{
+          // fallback: prøv fra frame.src
+          try {{
+            const current = new URL(frame.src);
+            const bbox = current.searchParams.get("bbox");
+            const z = current.searchParams.get("z");
+            const clat = current.searchParams.get("clat");
+            const clon = current.searchParams.get("clon");
+            if (bbox) qs.set("bbox", bbox);
+            if (z) qs.set("z", z);
+            if (clat) qs.set("clat", clat);
+            if (clon) qs.set("clon", clon);
+          }} catch (e) {{}}
+        }}
 
         frame.src = `${{baseUrl}}?${{qs.toString()}}`;
       }}
@@ -214,6 +248,26 @@ def nedbor_index():
       }});
 
       modeSelect.addEventListener("change", updateFrame);
+
+      // Når iframe navigerer (etter "Hent/oppdater" i kartet), lagre view
+      frame.addEventListener("load", saveViewFromFrameUrl);
+
+      // Ved første load: hvis vi har lagret utsnitt og iframe ikke har bbox, gjenbruk det.
+      window.addEventListener("load", function () {{
+        const saved = loadView();
+        if (!saved) return;
+        try {{
+          const u = new URL(frame.src);
+          if (!u.searchParams.get("bbox")) {{
+            const qs = new URLSearchParams(u.searchParams.toString());
+            qs.set("bbox", saved.bbox);
+            qs.set("z", saved.z);
+            qs.set("clat", saved.clat);
+            qs.set("clon", saved.clon);
+            frame.src = `${{u.pathname}}?${{qs.toString()}}`;
+          }}
+        }} catch (e) {{}}
+      }});
     </script>
   </body>
 </html>
