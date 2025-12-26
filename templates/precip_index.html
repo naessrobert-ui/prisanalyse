@@ -2,7 +2,7 @@
 <html lang="no">
   <head>
     <meta charset="utf-8" />
-    <title>Snømengde i Norge – Væranalyse</title>
+    <title>Nedbør i Norge – Væranalyse</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <style>
@@ -31,7 +31,7 @@
         margin: 0 0 8px;
       }
 
-      .date-form {
+      .controls {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
@@ -39,13 +39,14 @@
         align-items: center;
       }
 
-      .date-form input {
+      .controls input,
+      .controls select {
         padding: 6px 10px;
         border-radius: 10px;
         border: 1px solid #d1d5db;
       }
 
-      .date-form button {
+      .controls button {
         padding: 7px 14px;
         border-radius: 999px;
         border: none;
@@ -69,15 +70,14 @@
     <div class="page">
 
       <div class="card">
-        <h1>Snømengde i Norge</h1>
+        <h1>Nedbør i Norge</h1>
         <p>
-          Kartet viser snødybde fra Frost-data. Standard er siste tilgjengelige dato
-          (med fallback ±2 dager for stasjoner uten data).
+          Standard er rullerende siste 24 timer (caches i 5 minutter).
+          Du kan også velge kalenderdøgn, måned-til-dato eller år-til-dato.
         </p>
 
-        <form id="date-form" class="date-form">
-          <label for="date-input">Velg dato:</label>
-
+        <form id="controls" class="controls">
+          <label for="date-input">Dato:</label>
           <input
             type="date"
             id="date-input"
@@ -86,29 +86,54 @@
             max="{{ default_date }}"
           />
 
+          <label for="mode">Periode:</label>
+          <select id="mode" name="mode">
+            <option value="last24h" selected>Siste 24 timer (rullerende)</option>
+            <option value="day">Kalenderdøgn (valgt dato)</option>
+            <option value="mtd">Hittil i måneden</option>
+            <option value="ytd">Hittil i året</option>
+          </select>
+
           <button type="submit">Vis</button>
         </form>
       </div>
 
       <iframe
         id="map-frame"
-        src="{{ url_for('ver.snomengde_kart') }}"
+        src="{{ url_for('ver.nedbor_kart') }}?mode=last24h"
         loading="lazy"
       ></iframe>
 
     </div>
 
     <script>
-      const form = document.getElementById("date-form");
-      const input = document.getElementById("date-input");
+      const form = document.getElementById("controls");
+      const dateInput = document.getElementById("date-input");
+      const modeSelect = document.getElementById("mode");
       const frame = document.getElementById("map-frame");
+
+      function updateFrame() {
+        const mode = modeSelect.value || "last24h";
+        const baseUrl = "{{ url_for('ver.nedbor_kart') }}";
+
+        const qs = new URLSearchParams();
+        qs.set("mode", mode);
+
+        // date brukes ikke for last24h
+        if (mode !== "last24h") {
+          const d = dateInput.value;
+          if (d) qs.set("date", d);
+        }
+
+        frame.src = `${baseUrl}?${qs.toString()}`;
+      }
 
       form.addEventListener("submit", function (e) {
         e.preventDefault();
-        const d = input.value;
-        const baseUrl = "{{ url_for('ver.snomengde_kart') }}";
-        frame.src = d ? `${baseUrl}?date=${encodeURIComponent(d)}` : baseUrl;
+        updateFrame();
       });
+
+      modeSelect.addEventListener("change", updateFrame);
     </script>
   </body>
 </html>
