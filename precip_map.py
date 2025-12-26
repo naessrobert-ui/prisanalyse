@@ -423,6 +423,209 @@ def make_map(
         m.save(out_html)
     return html_str
 
+def _parse_bbox(bbox: str) -> tuple[float, float, float, float]:
+    parts = [p.strip() for p in bbox.split(",")]
+    if len(parts) != 4:
+        raise ValueError("bbox må være 'west,south,east,north'")
+    w, s, e, n = map(float, parts)
+    if not (-180 <= w <= 180 and -180 <= e <= 180 and -90 <= s <= 90 and -90 <= n <= 90):
+        raise ValueError("bbox-koordinater utenfor gyldig område")
+    if e <= w or n <= s:
+        raise ValueError("bbox ugyldig: east<=west eller north<=south")
+    return w, s, e, n
+
+
+def _bbox_polygon_wkt(w: float, s: float, e: float, n: float) -> str:
+    # POLYGON((lon lat, lon lat, ...))
+    return f"POLYGON(({w} {s},{e} {s},{e} {n},{w} {n},{w} {s}))"
+
+
+def fetch_sources_in_bbox(
+    session: requests.Session,
+    *,
+    auth: FrostAuth,
+    w: float,
+    s: float,
+    e: float,
+    n: float,
+    timeout: int,
+) -> pd.DataFrame:
+    """
+    Hent stasjoner i bbox via /sources geometry-filter.
+    Returnerer DF med baseId, name, shortName, lat, lon.
+    """
+    path = "/sources/v0.jsonld"
+    poly = _bbox_polygon_wkt(w, s, e, n)
+
+    params: dict[str, str | int] = {
+        "country": "NO",
+        "geometry": poly,
+        "fields": "id,name,shortName,country,geometry",
+    }
+
+    rows: list[dict[str, Any]] = []
+    for page in iter_pages(session, path, params, auth=auth, timeout=timeout):
+        if page.get("@type") == "ErrorResponse":
+            continue
+        for item in page.get("data", []):
+            geom = item.get("geometry") or {}
+            coords = geom.get("coordinates")  # [lon, lat]
+            lon = lat = None
+            if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                lon, lat = coords[0], coords[1]
+            rows.append(
+                {
+                    "baseId": item.get("id"),
+                    "name": item.get("name"),
+                    "shortName": item.get("shortName"),
+                    "country": item.get("country"),
+                    "lat": lat,
+                    "lon": lon,
+                }
+            )
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
+    df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
+    return df.dropna(subset=["baseId", "lat", "lon"])
+
+
+def downsample_spatial_best_quality(
+    df: pd.DataFrame,
+    *,
+    w: float,
+    s: float,
+    e: float,
+    n: float,
+    max_points: int = 1200,
+    keep_top_n: int = 50,
+) -> pd.DataFrame:
+    """
+    Hvis df har <= max_points -> returner df.
+    Ellers: velg 1 pr gridcelle, prioritert på:
+      1) qualityCode (lavest best)
+      2) referenceTime (nyest best)
+    I tillegg: behold alltid topp keep_top_n på høyeste value.
+    """
+    if df.empty or len(df) <= max_points:
+        return df
+
+    d = df.copy()
+    d["qualityCode"] = pd.to_numeric(d.get("qualityCode"), errors="coerce")
+    # NaN quality -> sett "dårlig" høyt tall
+    d["qualityCode"] = d["qualityCode"].fillna(999999)
+
+    # Gridstørrelse: sett slik at vi ender omtrent på max_points
+    width = max(e - w, 1e-9)
+    height = max(n - s, 1e-9)
+    target_side = max(int(max_points ** 0.5), 10)
+
+    cell_lon = width / target_side
+    cell_lat = height / target_side
+
+    # Minste cellestørrelse for å unngå ekstremt små ruter
+    cell_lon = max(cell_lon, 0.02)
+    cell_lat = max(cell_lat, 0.02)
+
+    d["ix"] = ((d["lon"] - w) / cell_lon).astype(int)
+    d["iy"] = ((d["lat"] - s) / cell_lat).astype(int)
+
+    # Velg beste pr celle
+    d_sorted = d.sort_values(
+        ["iy", "ix", "qualityCode", "referenceTime"],
+        ascending=[True, True, True, False],
+    )
+    grid_pick = (
+        d_sorted.groupby(["iy", "ix"], as_index=False)
+        .head(1)
+        .reset_index(drop=True)
+    )
+
+    # Behold alltid topp N på nedbør (for å ikke miste “hendelser”)
+    top_pick = d.sort_values("value", ascending=False).head(keep_top_n)
+
+    out = pd.concat([grid_pick, top_pick], ignore_index=True)
+    out = out.drop_duplicates(subset=["sourceId"], keep="first")
+
+    # Hvis fortsatt for mange: trim (men behold beste kvalitet først)
+    if len(out) > max_points:
+        out = out.sort_values(["qualityCode", "referenceTime"], ascending=[True, False]).head(max_points)
+
+    return out.reset_index(drop=True)
+
+
+def make_empty_map_with_button(
+    *,
+    title: str,
+    mode: str,
+    date_str: str,
+) -> str:
+    """
+    Raskt “tomt kart” (ingen datakall) + knapp som henter bbox og reload’er kartet i iframe.
+    """
+    # Grovt senter Norge
+    m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
+
+    # Knapp + JS: henter Leaflet bounds og reloader samme endpoint med bbox
+    # Folium-kartet har en map-variabel i JS; vi finner den ved å lete etter første globale med .getBounds.
+    button_html = f"""
+    <div style="
+      position: fixed; top: 12px; left: 12px; z-index: 9999;
+      background: rgba(255,255,255,.95); padding: 10px 12px;
+      border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      max-width: 320px;
+    ">
+      <div style="font-weight:700; margin-bottom:6px;">{title}</div>
+      <div style="font-size:13px; color:#334155; margin-bottom:10px;">
+        Zoom/pan til ønsket område og trykk hent.
+      </div>
+      <button id="bboxFetchBtn" style="
+        padding:8px 12px; border:none; border-radius:999px;
+        background:#2563eb; color:white; cursor:pointer;
+      ">Hent data for synlig område</button>
+    </div>
+
+    <script>
+      function findLeafletMap() {{
+        // Folium lager en Leaflet-map i global scope; vi prøver å finne den.
+        for (const k of Object.keys(window)) {{
+          const v = window[k];
+          if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
+            return v;
+          }}
+        }}
+        return null;
+      }}
+
+      document.getElementById('bboxFetchBtn').addEventListener('click', function() {{
+        const map = findLeafletMap();
+        if (!map) {{
+          alert('Fant ikke kart-objektet. Prøv å reloade siden.');
+          return;
+        }}
+        const b = map.getBounds();
+        const west = b.getWest();
+        const south = b.getSouth();
+        const east = b.getEast();
+        const north = b.getNorth();
+
+        const bbox = [west, south, east, north].join(',');
+
+        const qs = new URLSearchParams();
+        qs.set('mode', '{mode}');
+        if ('{date_str}') qs.set('date', '{date_str}');
+        qs.set('bbox', bbox);
+
+        window.location.href = '/ver/nedbor-kart?' + qs.toString();
+      }});
+    </script>
+    """
+
+    folium.Element(button_html).add_to(m.get_root().html)
+    return m.get_root().render()
 
 # ======================================================================
 #  Bygg DF + HTML for gitt dato/mode
@@ -524,6 +727,7 @@ def build_precip_map_html(
     date_str: Optional[str] = None,
     *,
     mode: Mode = "day",
+    bbox: Optional[str] = None,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
     limit: int = 1000,
@@ -535,37 +739,124 @@ def build_precip_map_html(
     heat_clip_mm: float = 80.0,
 ) -> str:
     """
-    Bygger nedbør-kart og returnerer HTML.
-    - mode=last24h caches i minne (TTL = LAST24H_TTL_SECONDS)
+    Uten bbox: returner raskt tomt kart med knapp.
+    Med bbox: hent kun data for synlig område og bygg kartet på nytt.
     """
-    # --------- CACHE (kun last24h) ----------
+
+    # Dato default for UI (brukes for day/mtd/ytd)
+    day_str = date_str or _date.today().isoformat()
+
+    # 1) Ingen bbox -> superraskt kart uten datakall
+    if not bbox:
+        title = "Nedbør"
+        if mode == "last24h":
+            title = "Nedbør siste 24 timer (rullerende)"
+        elif mode == "day":
+            title = "Nedbør kalenderdøgn (valgt dato)"
+        elif mode == "mtd":
+            title = "Nedbør hittil i måneden"
+        elif mode == "ytd":
+            title = "Nedbør hittil i året"
+
+        return make_empty_map_with_button(title=title, mode=str(mode), date_str=day_str)
+
+    # 2) bbox finnes -> hent kun for området
+    w, s, e, n = _parse_bbox(bbox)
+    auth = _env_auth()
+
+    # Finn referencetime + element basert på mode (samme logikk som i build_precip_df)
+    day = datetime.strptime(day_str, "%Y-%m-%d").date()
     if mode == "last24h":
-        cache_key = "last24h"
-        now_s = time.time()
+        now = datetime.now(timezone.utc)
+        start_dt = now - timedelta(hours=24)
+        referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
+        elements = ELEMENT_PRECIP_HOURLY
+        title = "Nedbør siste 24 timer (rullerende)"
+        sum_count_col = "n_hours"
+    elif mode == "day":
+        start = day
+        end = day + timedelta(days=1)
+        referencetime = f"{start.isoformat()}/{end.isoformat()}"
+        elements = ELEMENT_PRECIP_DAY
+        title = "Nedbør kalenderdøgn (valgt dato)"
+        sum_count_col = "n_days"
+    elif mode == "mtd":
+        start = _date(day.year, day.month, 1)
+        end = day + timedelta(days=1)
+        referencetime = f"{start.isoformat()}/{end.isoformat()}"
+        elements = ELEMENT_PRECIP_DAY
+        title = f"Nedbør hittil i måneden ({start.isoformat()} → {day.isoformat()})"
+        sum_count_col = "n_days"
+    elif mode == "ytd":
+        start = _date(day.year, 1, 1)
+        end = day + timedelta(days=1)
+        referencetime = f"{start.isoformat()}/{end.isoformat()}"
+        elements = ELEMENT_PRECIP_DAY
+        title = f"Nedbør hittil i året ({start.isoformat()} → {day.isoformat()})"
+        sum_count_col = "n_days"
+    else:
+        raise ValueError(f"Ukjent mode: {mode}")
 
-        with _CACHE_LOCK:
-            cached = _LAST24H_CACHE.get(cache_key)
-            if cached:
-                ts, html = cached
-                if now_s - ts < LAST24H_TTL_SECONDS:
-                    return html
+    with requests.Session() as sess:
+        # 2a) Hent stasjoner i bbox (metadata) – billig
+        src_meta = fetch_sources_in_bbox(sess, auth=auth, w=w, s=s, e=e, n=n, timeout=timeout)
+        if src_meta.empty:
+            return make_empty_map_with_button(title=f"{title} (ingen stasjoner i området)", mode=str(mode), date_str=day_str)
 
-    # --------- BYGG PÅ NYTT ----------
-    df, _day, title = build_precip_df(
-        date_str=date_str,
-        mode=mode,
-        timeout=timeout,
-        batch_size=batch_size,
-        limit=limit,
-        qualities=qualities,
+        # Observations kan ofte ta baseId direkte. Vi bruker baseId-liste.
+        sources = src_meta["baseId"].astype(str).tolist()
+
+        # 2b) Hent observasjoner KUN for disse stasjonene
+        obs = fetch_observations_interval(
+            sess,
+            auth=auth,
+            sources=sources,
+            referencetime=referencetime,
+            elements=elements,
+            timeout=timeout,
+            batch_size=batch_size,
+            limit=limit,
+            qualities=qualities,
+        )
+
+    if obs.empty:
+        # Ingen data i perioden i akkurat dette området
+        return make_empty_map_with_button(title=f"{title} (ingen data i perioden)", mode=str(mode), date_str=day_str)
+
+    # 2c) Aggreger (last24h/mtd/ytd = sum; day = pick)
+    if mode == "day":
+        picked = pick_day_value_per_station(obs, day=day)
+        out = picked[["sourceId", "referenceTime", "value", "unit", "qualityCode"]].copy()
+    else:
+        out = aggregate_sum_per_station(obs, count_col=sum_count_col)
+
+    # 2d) Merge inn lat/lon/name fra src_meta
+    # obs.sourceId kan komme tilbake som "SNxxxx:0" selv om vi spurte på baseId,
+    # så vi lager baseId kolonne for trygg merge.
+    out["baseId"] = out["sourceId"].astype(str).map(base_source_id)
+    meta = src_meta.rename(columns={"baseId": "baseId"})
+    merged = out.merge(meta, on="baseId", how="left").drop(columns=["baseId"])
+
+    merged = merged.dropna(subset=["lat", "lon", "value"])
+    if merged.empty:
+        return make_empty_map_with_button(title=f"{title} (ingen plottbare punkter)", mode=str(mode), date_str=day_str)
+
+    # 2e) Nedskalering hvis veldig mange punkter (best kvalitet)
+    merged = downsample_spatial_best_quality(
+        merged,
+        w=w, s=s, e=e, n=n,
+        max_points=1200,
+        keep_top_n=50,
     )
 
+    # Oppdatert-stempel for last24h
     if mode == "last24h":
         updated = datetime.now(timezone.utc).strftime("%H:%M UTC")
         title = f"{title}<br><small>Oppdatert ca. {updated}</small>"
 
-    html = make_map(
-        df,
+    # 2f) Bygg kart med punkter
+    return make_map(
+        merged,
         title=title,
         out_html=None,
         cluster=cluster,
@@ -574,13 +865,6 @@ def build_precip_map_html(
         heat_blur=heat_blur,
         heat_clip_mm=heat_clip_mm,
     )
-
-    # --------- LAGRE I CACHE ----------
-    if mode == "last24h":
-        with _CACHE_LOCK:
-            _LAST24H_CACHE[cache_key] = (time.time(), html)
-
-    return html
 
 
 # ======================================================================

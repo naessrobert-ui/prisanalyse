@@ -213,6 +213,15 @@ def nedbor_index():
 def nedbor_kart():
     date_str = request.args.get("date")
     mode = request.args.get("mode", "last24h")  # last24h|day|mtd|ytd
+    bbox = request.args.get("bbox")  # "west,south,east,north" eller None
+
     if mode not in {"last24h", "day", "mtd", "ytd"}:
         mode = "last24h"
-    return build_precip_map_html(date_str=date_str, mode=mode, show_heatmap=True)
+
+    # VIKTIG: uten bbox returnerer vi et lett "tomt" kart med knapp
+    return build_precip_map_html(
+        date_str=date_str,
+        mode=mode,
+        bbox=bbox,
+        show_heatmap=True,
+    )
