@@ -200,7 +200,6 @@ def get_sources_metadata(
     sources: list[str],
     timeout: int,
     batch_size: int,
-    limit: int = 1000,
 ) -> pd.DataFrame:
     path = "/sources/v0.jsonld"
     mapping = {sid: base_source_id(sid) for sid in sources}
