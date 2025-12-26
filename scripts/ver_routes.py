@@ -1,6 +1,7 @@
-from datetime import date as _date
+from __future__ import annotations
 
-from flask import Blueprint, request, render_template
+from datetime import date as _date
+from flask import Blueprint, request
 
 from snow_map import build_snow_map_html
 from precip_map import build_precip_map_html
@@ -8,11 +9,11 @@ from precip_map import build_precip_map_html
 ver_bp = Blueprint("ver", __name__)
 
 
-# ------------------
-# HUB / MENY (INLINE)
-# ------------------
+# =========================
+# HUB / MENY
+# =========================
 @ver_bp.route("/")
-def ver_hub():
+def ver_hub() -> str:
     return """
 <!doctype html>
 <html lang="no">
@@ -22,13 +23,20 @@ def ver_hub():
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:#f5f7fb; }
-      .page { max-width: 1000px; margin: 32px auto; padding: 0 16px; }
-      .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-      .card { background:white; border-radius:16px; padding:18px 22px; box-shadow:0 18px 45px rgba(15,23,42,.08); }
-      a.btn { display:inline-block; margin-top:10px; padding:8px 14px; border-radius:999px; background:#2563eb; color:white; text-decoration:none; }
-      p { margin: 8px 0 0; color:#334155; }
-      h1 { margin: 0 0 12px; }
-      h2 { margin: 0 0 6px; }
+      .page { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
+      h1 { margin: 0 0 14px; }
+      .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .card {
+        background: white; border-radius: 18px; padding: 18px 20px;
+        box-shadow: 0 18px 45px rgba(15,23,42,.08);
+      }
+      .card h2 { margin:0 0 6px; }
+      .muted { color:#475569; margin: 0 0 12px; }
+      .btn {
+        display:inline-block; padding: 8px 14px; border-radius: 999px;
+        background:#2563eb; color:#fff; text-decoration:none; font-weight:700;
+      }
+      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
@@ -37,12 +45,12 @@ def ver_hub():
       <div class="grid">
         <div class="card">
           <h2>Snømengde</h2>
-          <p>Snødybde fra Frost. Velg dato.</p>
+          <p class="muted">Snødybde fra Frost. Velg dato.</p>
           <a class="btn" href="/ver/sno">Åpne</a>
         </div>
         <div class="card">
           <h2>Nedbør</h2>
-          <p>Zoom/pan og hent data for synlig område. Oppdater-knapp i kartet.</p>
+          <p class="muted">Siste 24 timer (rullerende) + dag / MTD / YTD.</p>
           <a class="btn" href="/ver/nedbor">Åpne</a>
         </div>
       </div>
@@ -52,26 +60,75 @@ def ver_hub():
 """
 
 
-# ------------------
+# =========================
 # SNØ
-# ------------------
+# =========================
 @ver_bp.route("/sno")
-def sno_index():
+def sno_index() -> str:
     today_str = _date.today().isoformat()
-    return render_template("ver/snow_index.html", default_date=today_str)
+    return f"""
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="utf-8" />
+    <title>Snømengde i Norge – Væranalyse</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:#f5f7fb; }}
+      .page {{ max-width:1200px; margin:32px auto; padding:0 16px 32px; }}
+      .card {{ background:#fff; border-radius:16px; padding:18px 22px;
+              box-shadow: 0 18px 45px rgba(15,23,42,.08); margin-bottom:16px; }}
+      .date-form {{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px; }}
+      .date-form input {{ padding:6px 10px; border-radius:10px; border:1px solid #d1d5db; }}
+      .date-form button {{ padding:7px 14px; border-radius:999px; border:none; background:#2563eb; color:white; cursor:pointer; }}
+      #map-frame {{ width:100%; height:80vh; border:none; border-radius:16px; background:#e5e7eb;
+                  box-shadow: 0 18px 45px rgba(15,23,42,.10); }}
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="card">
+        <h1 style="margin:0 0 8px;">Snømengde i Norge</h1>
+        <p style="margin:0; color:#475569;">Velg dato. Standard er i dag (med fallback ±2 dager).</p>
+
+        <form id="date-form" class="date-form">
+          <label for="date-input">Dato:</label>
+          <input type="date" id="date-input" name="date" value="{today_str}" max="{today_str}">
+          <button type="submit">Vis</button>
+        </form>
+      </div>
+
+      <iframe id="map-frame" src="/ver/snomengde-kart" loading="lazy"></iframe>
+    </div>
+
+    <script>
+      const form = document.getElementById("date-form");
+      const input = document.getElementById("date-input");
+      const frame = document.getElementById("map-frame");
+
+      form.addEventListener("submit", function(e) {{
+        e.preventDefault();
+        const d = input.value;
+        const baseUrl = "/ver/snomengde-kart";
+        frame.src = d ? `${{baseUrl}}?date=${{encodeURIComponent(d)}}` : baseUrl;
+      }});
+    </script>
+  </body>
+</html>
+"""
 
 
 @ver_bp.route("/snomengde-kart")
-def snomengde_kart():
-    date_str = request.args.get("date")  # kan være None
+def snomengde_kart() -> str:
+    date_str = request.args.get("date")
     return build_snow_map_html(date_str=date_str, show_heatmap=True)
 
 
-# ------------------
-# NEDBØR (INLINE INDEX)
-# ------------------
+# =========================
+# NEDBØR
+# =========================
 @ver_bp.route("/nedbor")
-def nedbor_index():
+def nedbor_index() -> str:
     today_str = _date.today().isoformat()
     return f"""
 <!doctype html>
@@ -80,7 +137,6 @@ def nedbor_index():
     <meta charset="utf-8" />
     <title>Nedbør i Norge – Væranalyse</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-
     <style>
       body {{
         margin: 0;
@@ -127,7 +183,7 @@ def nedbor_index():
         height: 80vh;
         border: none;
         border-radius: 16px;
-        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.1);
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
         background: #e5e7eb;
       }}
     </style>
@@ -135,28 +191,21 @@ def nedbor_index():
 
   <body>
     <div class="page">
-
       <div class="card">
         <h1>Nedbør i Norge</h1>
-        <p>
-          Zoom/pan i kartet og bruk knappene i kartet for å hente/oppdatere utsnittet.
-          Når data er hentet, kan du bytte periode uten å miste område (lagres lokalt i nettleseren).
-        </p>
+        <p style="margin:0; color:#475569;">
+          Standard er rullerende siste 24 timer. Zoom/pan til ønsket område og trykk hent i kartet.
+          Når du bytter periode beholdes utsnittet.
+    </p>
 
-        <form id="controls" class="controls">
+        <form id="controls-form" class="controls">
           <label for="date-input">Dato:</label>
-          <input
-            type="date"
-            id="date-input"
-            name="date"
-            value="{today_str}"
-            max="{today_str}"
-          />
+          <input type="date" id="date-input" name="date" value="{today_str}" max="{today_str}">
 
-          <label for="mode">Periode:</label>
-          <select id="mode" name="mode">
-            <option value="last24h" selected>Siste 24 timer (rullerende)</option>
-            <option value="day">Kalenderdøgn (valgt dato)</option>
+          <label for="mode-select">Periode:</label>
+          <select id="mode-select" name="mode">
+            <option value="last24h" selected>Siste 24 timer</option>
+            <option value="day">Kalenderdøgn</option>
             <option value="mtd">Hittil i måneden</option>
             <option value="ytd">Hittil i året</option>
           </select>
@@ -165,108 +214,73 @@ def nedbor_index():
         </form>
       </div>
 
-      <iframe
-        id="map-frame"
-        src="/ver/nedbor-kart?mode=last24h"
-        loading="lazy"
-      ></iframe>
-
+      <iframe id="map-frame" src="/ver/nedbor-kart?mode=last24h" loading="lazy"></iframe>
     </div>
 
     <script>
-      const form = document.getElementById("controls");
+      const STORE_KEY = "precip_view_v1";
+      const form = document.getElementById("controls-form");
       const dateInput = document.getElementById("date-input");
-      const modeSelect = document.getElementById("mode");
+      const modeSelect = document.getElementById("mode-select");
       const frame = document.getElementById("map-frame");
 
-      const STORE_KEY = "precip_view_v1"; // {{bbox,z,clat,clon}}
-
-      function saveViewFromFrameUrl() {{
-        try {{
-          const u = new URL(frame.src);
-          const bbox = u.searchParams.get("bbox");
-          const z = u.searchParams.get("z");
-          const clat = u.searchParams.get("clat");
-          const clon = u.searchParams.get("clon");
-          if (bbox && z && clat && clon) {{
-            sessionStorage.setItem(STORE_KEY, JSON.stringify({{ bbox, z, clat, clon }}));
-          }}
-        }} catch (e) {{}}
-      }}
-
-      function loadView() {{
+      function readSavedView() {{
         try {{
           const raw = sessionStorage.getItem(STORE_KEY);
-          if (raw) {{
-            const obj = JSON.parse(raw);
-            if (obj && obj.bbox && obj.z && obj.clat && obj.clon) return obj;
-          }}
-        }} catch (e) {{}}
-        return null;
+          if (!raw) return null;
+          const obj = JSON.parse(raw);
+          if (!obj || !obj.bbox) return null;
+          return obj;
+        }} catch (e) {{
+          return null;
+        }}
       }}
 
-      function updateFrame() {{
+      function buildFrameUrl() {{
         const mode = modeSelect.value || "last24h";
-        const baseUrl = "/ver/nedbor-kart";
+        const d = dateInput.value || "{today_str}";
 
         const qs = new URLSearchParams();
         qs.set("mode", mode);
 
-        if (mode !== "last24h") {{
-          const d = dateInput.value;
-          if (d) qs.set("date", d);
-        }}
+        // date brukes for day/mtd/ytd (kan også sendes for last24h uten skade)
+        qs.set("date", d);
 
-        // ✅ Primært: bruk lagret utsnitt
-        const saved = loadView();
+        // ✅ HER er nøkkelen: alltid ta med lagret utsnitt om vi har det
+        const saved = readSavedView();
         if (saved) {{
-          qs.set("bbox", saved.bbox);
-          qs.set("z", saved.z);
-          qs.set("clat", saved.clat);
-          qs.set("clon", saved.clon);
-        }} else {{
-          // fallback: prøv fra frame.src
-          try {{
-            const current = new URL(frame.src);
-            const bbox = current.searchParams.get("bbox");
-            const z = current.searchParams.get("z");
-            const clat = current.searchParams.get("clat");
-            const clon = current.searchParams.get("clon");
-            if (bbox) qs.set("bbox", bbox);
-            if (z) qs.set("z", z);
-            if (clat) qs.set("clat", clat);
-            if (clon) qs.set("clon", clon);
-          }} catch (e) {{}}
+          if (saved.bbox) qs.set("bbox", saved.bbox);
+          if (saved.z) qs.set("z", saved.z);
+          if (saved.clat) qs.set("clat", saved.clat);
+          if (saved.clon) qs.set("clon", saved.clon);
         }}
 
-        frame.src = `${{baseUrl}}?${{qs.toString()}}`;
+        return "/ver/nedbor-kart?" + qs.toString();
       }}
 
-      form.addEventListener("submit", function (e) {{
-        e.preventDefault();
-        updateFrame();
-      }});
+      // Backup: hvis iframe lastes med bbox i URL, lagre den også (så vi alltid har noe)
+      function saveViewFromFrameUrl() {{
+        try {{
+          const u = new URL(frame.contentWindow.location.href);
+          const bbox = u.searchParams.get("bbox");
+          if (!bbox) return;
+          const z = u.searchParams.get("z") || "";
+          const clat = u.searchParams.get("clat") || "";
+          const clon = u.searchParams.get("clon") || "";
+          sessionStorage.setItem(STORE_KEY, JSON.stringify({{ bbox, z, clat, clon }}));
+        }} catch (e) {{}}
+      }}
 
-      modeSelect.addEventListener("change", updateFrame);
-
-      // Når iframe navigerer (etter "Hent/oppdater" i kartet), lagre view
       frame.addEventListener("load", saveViewFromFrameUrl);
 
-      // Ved første load: hvis vi har lagret utsnitt og iframe ikke har bbox, gjenbruk det.
-      window.addEventListener("load", function () {{
-        const saved = loadView();
-        if (!saved) return;
-        try {{
-          const u = new URL(frame.src);
-          if (!u.searchParams.get("bbox")) {{
-            const qs = new URLSearchParams(u.searchParams.toString());
-            qs.set("bbox", saved.bbox);
-            qs.set("z", saved.z);
-            qs.set("clat", saved.clat);
-            qs.set("clon", saved.clon);
-            frame.src = `${{u.pathname}}?${{qs.toString()}}`;
-          }}
-        }} catch (e) {{}}
+      form.addEventListener("submit", function(e) {{
+        e.preventDefault();
+        frame.src = buildFrameUrl();
+      }});
+
+      // Valgfritt: bytt periode => autoload (uten å måtte trykke "Vis")
+      modeSelect.addEventListener("change", function() {{
+        frame.src = buildFrameUrl();
       }});
     </script>
   </body>
@@ -274,11 +288,8 @@ def nedbor_index():
 """
 
 
-# ------------------
-# NEDBØR (KART)
-# ------------------
 @ver_bp.route("/nedbor-kart")
-def nedbor_kart():
+def nedbor_kart() -> str:
     date_str = request.args.get("date")
     mode = request.args.get("mode", "last24h")
     bbox = request.args.get("bbox")
