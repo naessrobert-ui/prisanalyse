@@ -32,6 +32,7 @@ UNIT_MIN = "min"
 
 Mode = Literal["last24h", "day", "mtd", "ytd"]
 
+
 # ======================================================================
 # Auth / Frost helpers
 # ======================================================================
@@ -214,7 +215,6 @@ def fetch_sources_by_ids(
     path = "/sources/v0.jsonld"
     rows: list[dict[str, Any]] = []
 
-    # ids-listen kan bli lang -> chunk
     for batch in chunked(source_ids, batch_size):
         params: dict[str, str | int] = {
             "ids": ",".join(batch),
@@ -248,7 +248,11 @@ def fetch_sources_by_ids(
         return df
     df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
     df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
-    return df.dropna(subset=["baseId", "lat", "lon"]).drop_duplicates(subset=["baseId"], keep="first")
+    return (
+        df.dropna(subset=["baseId", "lat", "lon"])
+        .drop_duplicates(subset=["baseId"], keep="first")
+        .reset_index(drop=True)
+    )
 
 
 # ======================================================================
@@ -321,9 +325,15 @@ def aggregate_sun_per_station(df: pd.DataFrame, *, count_col: str) -> pd.DataFra
     """
     if df.empty:
         return df
+
     out = (
         df.groupby("sourceId", as_index=False)
-        .agg(value=("value", "sum"), n=("value", "size"), rt_max=("referenceTime", "max"), qmin=("qualityCode", "min"))
+        .agg(
+            value=("value", "sum"),
+            n=("value", "size"),
+            rt_max=("referenceTime", "max"),
+            qmin=("qualityCode", "min"),
+        )
         .reset_index(drop=True)
     )
     out.rename(columns={"n": count_col}, inplace=True)
@@ -473,8 +483,13 @@ def make_map(
     center_lon = float(d["lon"].mean())
     m = folium.Map(location=[center_lat, center_lon], zoom_start=5, tiles="OpenStreetMap")
 
-    # Fit til alle punkter (Norge-ish)
-    m.fit_bounds([[float(d["lat"].min()), float(d["lon"].min())], [float(d["lat"].max()), float(d["lon"].max())]])
+    # Fit til alle punkter
+    m.fit_bounds(
+        [
+            [float(d["lat"].min()), float(d["lon"].min())],
+            [float(d["lat"].max()), float(d["lon"].max())],
+        ]
+    )
 
     folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
 
@@ -651,13 +666,18 @@ def make_map(
 
 
 # ======================================================================
-# Hoved: bygg HTML for solskinn (all stations)
+# Hoved: bygg HTML for solskinn (alle stasjoner)
+# NB: bakoverkompatibel signatur (bbox/z/clat/clon ignoreres)
 # ======================================================================
 
 def build_sunshine_map_html(
     date_str: Optional[str] = None,
     *,
     mode: Mode = "day",
+    bbox: Optional[str] = None,   # ignoreres (for bakoverkompatibilitet)
+    z: Optional[str] = None,      # ignoreres
+    clat: Optional[str] = None,   # ignoreres
+    clon: Optional[str] = None,   # ignoreres
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
     limit: int = 1000,
@@ -668,6 +688,8 @@ def build_sunshine_map_html(
     heat_blur: int = 18,
     heat_clip_hours: float = 12.0,
 ) -> str:
+    _ = (bbox, z, clat, clon)  # eksplisitt: ikke i bruk
+
     day_str = date_str or _date.today().isoformat()
     auth = _env_auth()
     day = datetime.strptime(day_str, "%Y-%m-%d").date()
@@ -702,7 +724,6 @@ def build_sunshine_map_html(
     elements = ELEMENT_SUN_HOURLY
 
     with requests.Session() as sess:
-        # 1) Finn alle kilder som har solskinnserie i perioden
         sources = fetch_sunshine_station_ids(
             sess,
             auth=auth,
@@ -720,7 +741,6 @@ def build_sunshine_map_html(
                 date_str=day_str if mode != "last24h" else "",
             )
 
-        # 2) Metadata (koordinater/navn) for disse
         src_meta = fetch_sources_by_ids(sess, auth=auth, source_ids=sources, timeout=timeout, batch_size=200)
         if src_meta.empty:
             return make_info_map(
@@ -730,7 +750,6 @@ def build_sunshine_map_html(
                 date_str=day_str if mode != "last24h" else "",
             )
 
-        # 3) Observasjoner
         obs = fetch_observations_interval(
             sess,
             auth=auth,
@@ -753,7 +772,6 @@ def build_sunshine_map_html(
 
     out = aggregate_sun_per_station(obs, count_col=sum_count_col)
 
-    # merge på baseId
     out["baseId"] = out["sourceId"].astype(str).map(base_source_id)
     merged = out.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
     merged = merged.dropna(subset=["lat", "lon", "sun_hours"])
