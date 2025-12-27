@@ -28,21 +28,9 @@ DEFAULT_TIMEOUT = 20
 # Solskinn: sum av "duration_of_sunshine" per time
 # (Frost returnerer typisk minutter per time for dette elementet; vi summerer og konverterer til timer.)
 ELEMENT_SUN_HOURLY = "sum(duration_of_sunshine PT1H)"
-
 UNIT_MIN = "min"
+
 Mode = Literal["last24h", "day", "mtd", "ytd"]
-
-# -----------------------
-# Defaults mot 502/timeout
-# -----------------------
-MAX_SOURCES_PRE_OBS = 1200
-MAX_AREA_BY_MODE: dict[str, float] = {
-    "last24h": 20.0,
-    "day": 12.0,
-    "mtd": 8.0,
-    "ytd": 6.0,
-}
-
 
 # ======================================================================
 # Auth / Frost helpers
@@ -73,7 +61,6 @@ def frost_get_json(
     """
     GET med retries (429/5xx).
 
-    VIKTIG:
     - 404 og 412 returneres som JSON (ErrorResponse) og håndteres høyere opp.
       412 brukes bl.a. når ingen tidsserie finnes for kombinasjonen parametere.
     """
@@ -92,7 +79,6 @@ def frost_get_json(
         if r.status_code == 200:
             return r.json()
 
-        # ✅ Behandle som "tomt" (ErrorResponse), ikke hard crash
         if r.status_code in (404, 412):
             return r.json()
 
@@ -166,53 +152,81 @@ def base_source_id(source_id: str) -> str:
 
 
 # ======================================================================
-# BBOX + Sources
+# Finn "alle solskinn-stasjoner" (uten bbox)
 # ======================================================================
 
-def _parse_bbox(bbox: str) -> tuple[float, float, float, float]:
-    parts = [p.strip() for p in bbox.split(",")]
-    if len(parts) != 4:
-        raise ValueError("bbox må være 'west,south,east,north'")
-    w, s, e, n = map(float, parts)
-    if not (-180 <= w <= 180 and -180 <= e <= 180 and -90 <= s <= 90 and -90 <= n <= 90):
-        raise ValueError("bbox-koordinater utenfor gyldig område")
-    if e <= w or n <= s:
-        raise ValueError("bbox ugyldig: east<=west eller north<=south")
-    return w, s, e, n
-
-
-def _bbox_polygon_wkt(w: float, s: float, e: float, n: float) -> str:
-    return f"POLYGON(({w} {s},{e} {s},{e} {n},{w} {n},{w} {s}))"
-
-
-def fetch_sources_in_bbox(
+def fetch_sunshine_station_ids(
     session: requests.Session,
     *,
     auth: FrostAuth,
-    w: float,
-    s: float,
-    e: float,
-    n: float,
+    referencetime: str,
+    elements: str,
     timeout: int,
-) -> pd.DataFrame:
+    qualities: str = "0,1,2,3,4",
+) -> list[str]:
     """
-    Hent stasjoner i bbox via /sources geometry-filter.
-    Returnerer DF med baseId, name, shortName, lat, lon.
+    Bruk /observations/availableTimeSeries uten 'sources' for å finne alle kilder
+    som har tidsserie for elementet i perioden.
     """
-    path = "/sources/v0.jsonld"
-    poly = _bbox_polygon_wkt(w, s, e, n)
-
+    path = "/observations/availableTimeSeries/v0.jsonld"
     params: dict[str, str | int] = {
-        "country": "NO",
-        "geometry": poly,
-        "fields": "id,name,shortName,country,geometry",
+        "referencetime": referencetime,
+        "elements": elements,
+        "timeoffsets": "default",
+        "levels": "default",
     }
+    if qualities:
+        params["qualities"] = qualities
 
-    rows: list[dict[str, Any]] = []
+    keep: list[str] = []
+    seen: set[str] = set()
+
     for page in iter_pages(session, path, params, auth=auth, timeout=timeout):
         if page.get("@type") == "ErrorResponse":
             continue
         for item in page.get("data", []):
+            sid = item.get("sourceId")
+            if not sid:
+                continue
+            b = base_source_id(str(sid))
+            if b not in seen:
+                seen.add(b)
+                keep.append(b)
+
+    return keep
+
+
+def fetch_sources_by_ids(
+    session: requests.Session,
+    *,
+    auth: FrostAuth,
+    source_ids: list[str],
+    timeout: int,
+    batch_size: int = 200,
+) -> pd.DataFrame:
+    """
+    Hent stasjonsmetadata via /sources?ids=...
+    Returnerer DF med baseId, name, shortName, lat, lon.
+    """
+    if not source_ids:
+        return pd.DataFrame(columns=["baseId", "name", "shortName", "country", "lat", "lon"])
+
+    path = "/sources/v0.jsonld"
+    rows: list[dict[str, Any]] = []
+
+    # ids-listen kan bli lang -> chunk
+    for batch in chunked(source_ids, batch_size):
+        params: dict[str, str | int] = {
+            "ids": ",".join(batch),
+            "types": "SensorSystem",
+            "fields": "id,name,shortName,country,geometry",
+        }
+
+        js = frost_get_json(session, path, params, auth=auth, timeout=timeout)
+        if js.get("@type") == "ErrorResponse":
+            continue
+
+        for item in js.get("data", []):
             geom = item.get("geometry") or {}
             coords = geom.get("coordinates")  # [lon, lat]
             lon = lat = None
@@ -234,89 +248,7 @@ def fetch_sources_in_bbox(
         return df
     df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
     df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
-    return df.dropna(subset=["baseId", "lat", "lon"])
-
-
-def pre_sample_sources_grid(
-    src_meta: pd.DataFrame,
-    *,
-    w: float,
-    s: float,
-    e: float,
-    n: float,
-    max_sources: int = MAX_SOURCES_PRE_OBS,
-) -> pd.DataFrame:
-    """
-    Billig pre-sampling: én stasjon per gridcelle før observations.
-    """
-    if src_meta.empty or len(src_meta) <= max_sources:
-        return src_meta
-
-    df = src_meta.copy()
-
-    width = max(e - w, 1e-9)
-    height = max(n - s, 1e-9)
-    target_side = max(int(max_sources ** 0.5), 10)
-
-    cell_lon = max(width / target_side, 0.02)
-    cell_lat = max(height / target_side, 0.02)
-
-    df["ix"] = ((df["lon"] - w) / cell_lon).astype(int)
-    df["iy"] = ((df["lat"] - s) / cell_lat).astype(int)
-
-    df2 = df.groupby(["iy", "ix"], as_index=False).head(1).reset_index(drop=True)
-
-    if len(df2) > max_sources:
-        df2 = df2.head(max_sources)
-
-    return df2.drop(columns=["ix", "iy"], errors="ignore")
-
-
-# ======================================================================
-# Available time series filter (viktig for solskinn)
-# ======================================================================
-
-def filter_sources_with_timeseries(
-    session: requests.Session,
-    *,
-    auth: FrostAuth,
-    sources: list[str],
-    referencetime: str,
-    elements: str,
-    timeout: int,
-    batch_size: int = 250,
-    qualities: str = "0,1,2,3,4",
-) -> list[str]:
-    """
-    Bruk /observations/availableTimeSeries for å beholde kun sources som faktisk
-    har tidsserie for (elements + referencetime). Dette hindrer 412/“ingen tidsserie”.
-    """
-    path = "/observations/availableTimeSeries/v0.jsonld"
-    keep: set[str] = set()
-
-    for batch in chunked(sources, batch_size):
-        params: dict[str, str | int] = {
-            "sources": ",".join(batch),
-            "referencetime": referencetime,
-            "elements": elements,
-            "timeoffsets": "default",
-            "levels": "default",
-        }
-        if qualities:
-            params["qualities"] = qualities
-
-        js = frost_get_json(session, path, params, auth=auth, timeout=timeout)
-        if js.get("@type") == "ErrorResponse":
-            continue
-
-        for item in js.get("data", []):
-            sid = item.get("sourceId")
-            if not sid:
-                continue
-            keep.add(base_source_id(str(sid)))
-
-    # behold rekkefølge
-    return [s for s in sources if base_source_id(s) in keep]
+    return df.dropna(subset=["baseId", "lat", "lon"]).drop_duplicates(subset=["baseId"], keep="first")
 
 
 # ======================================================================
@@ -405,57 +337,6 @@ def aggregate_sun_per_station(df: pd.DataFrame, *, count_col: str) -> pd.DataFra
 
 
 # ======================================================================
-# Downsample (kun hvis for mange) - etter data
-# ======================================================================
-
-def downsample_spatial_best_quality(
-    df: pd.DataFrame,
-    *,
-    w: float,
-    s: float,
-    e: float,
-    n: float,
-    max_points: int = 1200,
-    keep_top_n: int = 10,
-    value_col: str = "sun_hours",
-) -> pd.DataFrame:
-    """
-    Hvis df <= max_points: behold alt.
-    Ellers: 1 pr gridcelle, prioritert på:
-      - lavest qualityCode (best)
-      - nyeste referenceTime
-    + behold topp keep_top_n høyeste value_col.
-    """
-    if df.empty or len(df) <= max_points:
-        return df
-
-    d = df.copy()
-    d["qualityCode"] = pd.to_numeric(d.get("qualityCode"), errors="coerce").fillna(999999)
-
-    width = max(e - w, 1e-9)
-    height = max(n - s, 1e-9)
-    target_side = max(int(max_points ** 0.5), 10)
-
-    cell_lon = max(width / target_side, 0.02)
-    cell_lat = max(height / target_side, 0.02)
-
-    d["ix"] = ((d["lon"] - w) / cell_lon).astype(int)
-    d["iy"] = ((d["lat"] - s) / cell_lat).astype(int)
-
-    d_sorted = d.sort_values(["iy", "ix", "qualityCode", "referenceTime"], ascending=[True, True, True, False])
-    grid_pick = d_sorted.groupby(["iy", "ix"], as_index=False).head(1).reset_index(drop=True)
-
-    top_pick = d.sort_values(value_col, ascending=False).head(keep_top_n)
-
-    out = pd.concat([grid_pick, top_pick], ignore_index=True).drop_duplicates(subset=["sourceId"], keep="first")
-
-    if len(out) > max_points:
-        out = out.sort_values(["qualityCode", "referenceTime"], ascending=[True, False]).head(max_points)
-
-    return out.reset_index(drop=True)
-
-
-# ======================================================================
 # UI helpers
 # ======================================================================
 
@@ -476,7 +357,7 @@ def _loading_overlay_js() -> str:
   ">
     <div style="font-weight:900; margin-bottom:6px;">Henter data…</div>
     <div style="color:#334155; font-size:13px;">
-      Dette kan ta litt tid for store perioder/områder.
+      Dette kan ta litt tid for store perioder.
     </div>
     <div style="margin-top:10px; font-size:14px;">
       Tid: <b><span id="loadingSeconds">0</span>s</b>
@@ -503,133 +384,10 @@ def _loading_overlay_js() -> str:
 """
 
 
-def _save_view_listener_js() -> str:
-    # Del samme key med nedbør for å beholde samme utsnitt når du bytter kart
-    return """
-<script>
-  const STORE_KEY = "precip_view_v1";
-
-  function findLeafletMap() {
-    for (const k of Object.keys(window)) {
-      const v = window[k];
-      if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function' && typeof v.getZoom === 'function') {
-        return v;
-      }
-    }
-    return null;
-  }
-
-  function saveViewToParent() {
-    try {
-      const map = findLeafletMap();
-      if (!map) return;
-      const b = map.getBounds();
-      const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(",");
-      const c = map.getCenter();
-      const z = map.getZoom();
-
-      if (window.parent && window.parent.sessionStorage) {
-        window.parent.sessionStorage.setItem(
-          STORE_KEY,
-          JSON.stringify({ bbox: bbox, z: String(z), clat: String(c.lat), clon: String(c.lng) })
-        );
-      }
-    } catch (e) {}
-  }
-
-  (function attachViewListener() {
-    const map = findLeafletMap();
-    if (!map) return;
-    map.on("moveend", saveViewToParent);
-    map.on("zoomend", saveViewToParent);
-    saveViewToParent();
-  })();
-</script>
-"""
-
-
-def make_empty_map_with_button(*, title: str, mode: str, date_str: str) -> str:
+def make_info_map(*, title: str, message: str, mode: str, date_str: str) -> str:
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
-
     ui = f"""
     {_loading_overlay_js()}
-    {_save_view_listener_js()}
-
-    <div style="
-      position: fixed; top: 12px; right: 12px; z-index: 9999;
-      background: rgba(255,255,255,.95); padding: 10px 12px;
-      border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
-      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-      max-width: 360px;
-    ">
-      <div style="font-weight:800; margin-bottom:6px;">{title}</div>
-      <div style="font-size:13px; color:#334155; margin-bottom:10px;">
-        Zoom/pan til ønsket område og trykk hent.
-      </div>
-      <button id="bboxFetchBtn" style="
-        padding:8px 12px; border:none; border-radius:999px;
-        background:#2563eb; color:white; cursor:pointer;
-      ">Hent data for synlig område</button>
-    </div>
-
-    <script>
-      function findLeafletMap2() {{
-        for (const k of Object.keys(window)) {{
-          const v = window[k];
-          if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
-            return v;
-          }}
-        }}
-        return null;
-      }}
-
-      document.getElementById('bboxFetchBtn').addEventListener('click', function() {{
-        const map = findLeafletMap2();
-        if (!map) {{
-          alert('Fant ikke kart-objektet. Prøv å reloade siden.');
-          return;
-        }}
-        const b = map.getBounds();
-        const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
-
-        const c = map.getCenter();
-        const z = map.getZoom();
-
-        const qs = new URLSearchParams();
-        qs.set('mode', '{mode}');
-        if ('{date_str}') qs.set('date', '{date_str}');
-        qs.set('bbox', bbox);
-        qs.set('z', String(z));
-        qs.set('clat', String(c.lat));
-        qs.set('clon', String(c.lng));
-
-        if (window.showLoading) window.showLoading();
-        window.location.href = '/ver/solskinn-kart?' + qs.toString();
-      }});
-    </script>
-    """
-    folium.Element(ui).add_to(m.get_root().html)
-    return m.get_root().render()
-
-
-def make_info_map(
-    *,
-    title: str,
-    message: str,
-    mode: str,
-    date_str: str,
-    center: Optional[tuple[float, float]] = None,
-    zoom: Optional[int] = None,
-) -> str:
-    if center and zoom is not None:
-        m = folium.Map(location=[center[0], center[1]], zoom_start=int(zoom), tiles="OpenStreetMap")
-    else:
-        m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
-
-    ui = f"""
-    {_loading_overlay_js()}
-    {_save_view_listener_js()}
-
     <div style="
       position: fixed; top: 12px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
@@ -638,49 +396,18 @@ def make_info_map(
       max-width: 420px;
     ">
       <div style="font-weight:900; margin-bottom:6px;">{title}</div>
-      <div style="font-size:13px; color:#334155; margin-bottom:10px;">
-        {message}
-      </div>
-      <div style="font-size:12px; color:#64748b; margin-bottom:10px;">
-        Tips: Zoom inn litt og trykk “Oppdater dette utsnittet”.
-      </div>
-      <button id="refreshBBoxBtn" style="
+      <div style="font-size:13px; color:#334155; margin-bottom:10px;">{message}</div>
+      <button id="refreshBtn" style="
         padding:8px 12px; border:none; border-radius:999px;
         background:#0f172a; color:white; cursor:pointer;
-      ">Oppdater dette utsnittet</button>
+      ">Oppdater</button>
     </div>
 
     <script>
-      function findLeafletMap2() {{
-        for (const k of Object.keys(window)) {{
-          const v = window[k];
-          if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
-            return v;
-          }}
-        }}
-        return null;
-      }}
-
-      document.getElementById('refreshBBoxBtn').addEventListener('click', function() {{
-        const map = findLeafletMap2();
-        if (!map) {{
-          alert('Fant ikke kart-objektet. Prøv å reloade siden.');
-          return;
-        }}
-        const b = map.getBounds();
-        const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
-
-        const c = map.getCenter();
-        const z = map.getZoom();
-
+      document.getElementById('refreshBtn').addEventListener('click', function() {{
         const qs = new URLSearchParams();
         qs.set('mode', '{mode}');
         if ('{date_str}') qs.set('date', '{date_str}');
-        qs.set('bbox', bbox);
-        qs.set('z', String(z));
-        qs.set('clat', String(c.lat));
-        qs.set('clon', String(c.lng));
-
         if (window.showLoading) window.showLoading();
         window.location.href = '/ver/solskinn-kart?' + qs.toString();
       }});
@@ -704,9 +431,6 @@ def make_map(
     heat_radius: int = 25,
     heat_blur: int = 18,
     heat_clip_hours: float = 12.0,
-    bounds: Optional[tuple[float, float, float, float]] = None,  # (w,s,e,n)
-    center: Optional[tuple[float, float]] = None,                # (lat,lon)
-    zoom: Optional[int] = None,
     top_n: int = 10,
     mode: str = "last24h",
     date_str: str = "",
@@ -731,7 +455,6 @@ def make_map(
     q90 = float(vals.quantile(0.90))
 
     def color_for(hours: float) -> str:
-        # Mye sol = varme farger, lite sol = blått
         if hours >= q90:
             return "#ffb703"
         if hours >= q80:
@@ -746,18 +469,14 @@ def make_map(
         r = 3.0 + 6.0 * math.sqrt(max(hours, 0.0))
         return float(max(3.0, min(r, 22.0)))
 
-    if center and zoom is not None:
-        m = folium.Map(location=[center[0], center[1]], zoom_start=int(zoom), tiles="OpenStreetMap")
-    else:
-        center_lat = float(d["lat"].mean())
-        center_lon = float(d["lon"].mean())
-        m = folium.Map(location=[center_lat, center_lon], zoom_start=5, tiles="OpenStreetMap")
-        if bounds:
-            w, s, e, n = bounds
-            m.fit_bounds([[s, w], [n, e]])
+    center_lat = float(d["lat"].mean())
+    center_lon = float(d["lon"].mean())
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=5, tiles="OpenStreetMap")
+
+    # Fit til alle punkter (Norge-ish)
+    m.fit_bounds([[float(d["lat"].min()), float(d["lon"].min())], [float(d["lat"].max()), float(d["lon"].max())]])
 
     folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
-    folium.Element(_save_view_listener_js()).add_to(m.get_root().html)
 
     refresh_box = f"""
     <div style="
@@ -769,89 +488,25 @@ def make_map(
     ">
       <div style="font-weight:900; margin-bottom:6px;">Oppdater</div>
       <div style="font-size:13px; color:#334155; margin-bottom:10px;">
-        Hent nye tall/stasjoner for synlig utsnitt.
+        Hent nye tall for valgt periode.
       </div>
-      <button id="refreshBBoxBtn" style="
+      <button id="refreshBtn" style="
         padding:8px 12px; border:none; border-radius:999px;
         background:#0f172a; color:white; cursor:pointer;
-      ">Oppdater dette utsnittet</button>
+      ">Oppdater</button>
     </div>
 
     <script>
-      function findLeafletMap3() {{
-        for (const k of Object.keys(window)) {{
-          const v = window[k];
-          if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
-            return v;
-          }}
-        }}
-        return null;
-      }}
-
-      document.getElementById('refreshBBoxBtn').addEventListener('click', function() {{
-        const map = findLeafletMap3();
-        if (!map) {{
-          alert('Fant ikke kart-objektet. Prøv å reloade siden.');
-          return;
-        }}
-        const b = map.getBounds();
-        const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',');
-
-        const c = map.getCenter();
-        const z = map.getZoom();
-
+      document.getElementById('refreshBtn').addEventListener('click', function() {{
         const qs = new URLSearchParams();
         qs.set('mode', '{mode}');
         if ('{date_str}') qs.set('date', '{date_str}');
-        qs.set('bbox', bbox);
-        qs.set('z', String(z));
-        qs.set('clat', String(c.lat));
-        qs.set('clon', String(c.lng));
-
         if (window.showLoading) window.showLoading();
         window.location.href = '/ver/solskinn-kart?' + qs.toString();
       }});
     </script>
     """
     folium.Element(refresh_box).add_to(m.get_root().html)
-
-    legend_html = """
-    <div style="
-      position: fixed; top: 120px; right: 12px; z-index: 9999;
-      background: rgba(255,255,255,.95); padding: 10px 12px;
-      border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
-      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-      max-width: 360px;
-      font-size: 13px; color:#0f172a;
-    ">
-      <div style="font-weight:900; margin-bottom:6px;">Forklaring</div>
-      <div style="margin-bottom:6px;">Farge = percentiler i utsnittet</div>
-      <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#ffb703;"></span>
-        <span>Topp 10% (mest sol)</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#f77f00;"></span>
-        <span>80–90%</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#808080;"></span>
-        <span>Midten</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#2563eb;"></span>
-        <span>10–20%</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#1d4ed8;"></span>
-        <span>Bunn 10% (minst sol)</span>
-      </div>
-      <div style="margin-top:8px; color:#334155;">
-        Radius ~ √(timer)
-      </div>
-    </div>
-    """
-    folium.Element(legend_html).add_to(m.get_root().html)
 
     clipped = d["sun_hours"].clip(lower=0, upper=heat_clip_hours)
     weights = (clipped / heat_clip_hours) ** 0.5
@@ -926,7 +581,7 @@ def make_map(
       max-width: 520px;
     ">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-        <div style="font-weight:900;">Topp {int(top_n)} i utsnittet</div>
+        <div style="font-weight:900;">Topp {int(top_n)}</div>
         <button onclick="toggleToplist()" style="border:none;background:#e2e8f0;border-radius:999px;padding:6px 10px;cursor:pointer;">
           Vis/skjul
         </button>
@@ -996,17 +651,13 @@ def make_map(
 
 
 # ======================================================================
-# Hoved: bygg HTML for solskinn (tomt kart eller bbox)
+# Hoved: bygg HTML for solskinn (all stations)
 # ======================================================================
 
 def build_sunshine_map_html(
     date_str: Optional[str] = None,
     *,
     mode: Mode = "day",
-    bbox: Optional[str] = None,
-    z: Optional[str] = None,
-    clat: Optional[str] = None,
-    clon: Optional[str] = None,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
     limit: int = 1000,
@@ -1018,44 +669,6 @@ def build_sunshine_map_html(
     heat_clip_hours: float = 12.0,
 ) -> str:
     day_str = date_str or _date.today().isoformat()
-
-    center: Optional[tuple[float, float]] = None
-    zoom: Optional[int] = None
-    try:
-        if clat is not None and clon is not None:
-            center = (float(clat), float(clon))
-        if z is not None:
-            zoom = int(float(z))
-    except Exception:
-        center = None
-        zoom = None
-
-    if not bbox:
-        title = "Solskinn"
-        if mode == "last24h":
-            title = "Solskinn siste 24 timer (rullerende)"
-        elif mode == "day":
-            title = "Solskinn kalenderdøgn (valgt dato)"
-        elif mode == "mtd":
-            title = "Solskinn hittil i måneden"
-        elif mode == "ytd":
-            title = "Solskinn hittil i året"
-        return make_empty_map_with_button(title=title, mode=str(mode), date_str=day_str)
-
-    w, s, e, n = _parse_bbox(bbox)
-
-    area = (e - w) * (n - s)
-    max_area = MAX_AREA_BY_MODE.get(str(mode), 8.0)
-    if area > max_area:
-        return make_info_map(
-            title="Området er for stort",
-            message=f"Valgt område er for stort for periode '{mode}'. Zoom litt mer inn og prøv igjen.",
-            mode=str(mode),
-            date_str=day_str,
-            center=center,
-            zoom=zoom,
-        )
-
     auth = _env_auth()
     day = datetime.strptime(day_str, "%Y-%m-%d").date()
 
@@ -1089,44 +702,35 @@ def build_sunshine_map_html(
     elements = ELEMENT_SUN_HOURLY
 
     with requests.Session() as sess:
-        src_meta = fetch_sources_in_bbox(sess, auth=auth, w=w, s=s, e=e, n=n, timeout=timeout)
-        if src_meta.empty:
-            return make_info_map(
-                title="Ingen stasjoner i området",
-                message="Zoom litt ut eller flytt utsnittet.",
-                mode=str(mode),
-                date_str=day_str,
-                center=center,
-                zoom=zoom,
-            )
-
-        src_meta = pre_sample_sources_grid(src_meta, w=w, s=s, e=e, n=n, max_sources=MAX_SOURCES_PRE_OBS)
-        sources = src_meta["baseId"].astype(str).tolist()
-
-        # ✅ Viktig for solskinn: behold bare stasjoner som har tidsserie
-        sources = filter_sources_with_timeseries(
+        # 1) Finn alle kilder som har solskinnserie i perioden
+        sources = fetch_sunshine_station_ids(
             sess,
             auth=auth,
-            sources=sources,
             referencetime=referencetime,
             elements=elements,
             timeout=timeout,
-            batch_size=250,
             qualities=qualities,
         )
 
         if not sources:
             return make_info_map(
-                title="Ingen solskinn-stasjoner i området",
-                message="Utsnittet ser ut til å mangle stasjoner med solskinnsensor for perioden. Zoom ut/flytt utsnittet og prøv igjen.",
+                title="Ingen solskinn-stasjoner",
+                message="Fant ingen stasjoner med solskinnsensor/tidsserie for perioden.",
                 mode=str(mode),
-                date_str=day_str,
-                center=center,
-                zoom=zoom,
+                date_str=day_str if mode != "last24h" else "",
             )
-        print(f"Antall stasjoner med solskinn-tidsserie i området: {len(sources)}")
-        print("Eksempelstasjoner:", sources[:20])
 
+        # 2) Metadata (koordinater/navn) for disse
+        src_meta = fetch_sources_by_ids(sess, auth=auth, source_ids=sources, timeout=timeout, batch_size=200)
+        if src_meta.empty:
+            return make_info_map(
+                title="Mangler stasjonsmetadata",
+                message="Fant solskinn-stasjoner, men klarte ikke hente koordinater/navn fra /sources.",
+                mode=str(mode),
+                date_str=day_str if mode != "last24h" else "",
+            )
+
+        # 3) Observasjoner
         obs = fetch_observations_interval(
             sess,
             auth=auth,
@@ -1142,15 +746,14 @@ def build_sunshine_map_html(
     if obs.empty:
         return make_info_map(
             title="Ingen data i perioden",
-            message="Prøv en annen periode eller zoom litt ut/inn og oppdater utsnittet.",
+            message="Stasjoner finnes, men ingen observasjoner ble returnert for perioden.",
             mode=str(mode),
-            date_str=day_str,
-            center=center,
-            zoom=zoom,
+            date_str=day_str if mode != "last24h" else "",
         )
 
     out = aggregate_sun_per_station(obs, count_col=sum_count_col)
 
+    # merge på baseId
     out["baseId"] = out["sourceId"].astype(str).map(base_source_id)
     merged = out.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
     merged = merged.dropna(subset=["lat", "lon", "sun_hours"])
@@ -1160,18 +763,8 @@ def build_sunshine_map_html(
             title="Ingen plottbare punkter",
             message="Data finnes, men mangler koordinater/verdi for plotting.",
             mode=str(mode),
-            date_str=day_str,
-            center=center,
-            zoom=zoom,
+            date_str=day_str if mode != "last24h" else "",
         )
-
-    merged = downsample_spatial_best_quality(
-        merged,
-        w=w, s=s, e=e, n=n,
-        max_points=1200,
-        keep_top_n=10,
-        value_col="sun_hours",
-    )
 
     if mode == "last24h":
         updated = datetime.now(timezone.utc).strftime("%H:%M UTC")
@@ -1186,9 +779,6 @@ def build_sunshine_map_html(
         heat_radius=heat_radius,
         heat_blur=heat_blur,
         heat_clip_hours=heat_clip_hours,
-        bounds=(w, s, e, n),
-        center=center,
-        zoom=zoom,
         top_n=10,
         mode=str(mode),
         date_str=day_str if mode != "last24h" else "",
@@ -1200,16 +790,14 @@ def build_sunshine_map_html(
 # ======================================================================
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Solskinn-kart (bbox on-demand).")
+    ap = argparse.ArgumentParser(description="Solskinn-kart (alle stasjoner, ingen bbox).")
     ap.add_argument("--mode", default="last24h", choices=["last24h", "day", "mtd", "ytd"])
     ap.add_argument("--date", default=_date.today().isoformat())
-    ap.add_argument("--bbox", default="", help="west,south,east,north")
     args = ap.parse_args()
 
     html = build_sunshine_map_html(
         date_str=args.date,
         mode=args.mode,  # type: ignore[arg-type]
-        bbox=args.bbox or None,
         show_heatmap=True,
     )
     print(html[:800])
