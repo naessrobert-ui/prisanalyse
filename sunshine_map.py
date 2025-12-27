@@ -25,8 +25,8 @@ load_dotenv()
 FROST_BASE = "https://frost.met.no"
 DEFAULT_TIMEOUT = 20
 
-# Element (solskinnstid)
-# Summerer minutters solskinn per time. Vi summerer over intervall og konverterer til timer.
+# Solskinn: sum av "duration_of_sunshine" per time
+# (Frost returnerer typisk minutter per time for dette elementet; vi summerer og konverterer til timer.)
 ELEMENT_SUN_HOURLY = "sum(duration_of_sunshine PT1H)"
 
 UNIT_MIN = "min"
@@ -70,7 +70,13 @@ def frost_get_json(
     retries: int = 6,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """GET med retries (429/5xx). Returnerer JSON (inkl. ErrorResponse ved 404)."""
+    """
+    GET med retries (429/5xx).
+
+    VIKTIG:
+    - 404 og 412 returneres som JSON (ErrorResponse) og håndteres høyere opp.
+      412 brukes bl.a. når ingen tidsserie finnes for kombinasjonen parametere.
+    """
     url = f"{FROST_BASE}{path}"
     backoff = 1.0
 
@@ -86,7 +92,8 @@ def frost_get_json(
         if r.status_code == 200:
             return r.json()
 
-        if r.status_code == 404:
+        # ✅ Behandle som "tomt" (ErrorResponse), ikke hard crash
+        if r.status_code in (404, 412):
             return r.json()
 
         if r.status_code == 429 or 500 <= r.status_code < 600:
@@ -239,7 +246,9 @@ def pre_sample_sources_grid(
     n: float,
     max_sources: int = MAX_SOURCES_PRE_OBS,
 ) -> pd.DataFrame:
-    """Billig pre-sampling: én stasjon per gridcelle før observations."""
+    """
+    Billig pre-sampling: én stasjon per gridcelle før observations.
+    """
     if src_meta.empty or len(src_meta) <= max_sources:
         return src_meta
 
@@ -264,6 +273,53 @@ def pre_sample_sources_grid(
 
 
 # ======================================================================
+# Available time series filter (viktig for solskinn)
+# ======================================================================
+
+def filter_sources_with_timeseries(
+    session: requests.Session,
+    *,
+    auth: FrostAuth,
+    sources: list[str],
+    referencetime: str,
+    elements: str,
+    timeout: int,
+    batch_size: int = 250,
+    qualities: str = "0,1,2,3,4",
+) -> list[str]:
+    """
+    Bruk /observations/availableTimeSeries for å beholde kun sources som faktisk
+    har tidsserie for (elements + referencetime). Dette hindrer 412/“ingen tidsserie”.
+    """
+    path = "/observations/availableTimeSeries/v0.jsonld"
+    keep: set[str] = set()
+
+    for batch in chunked(sources, batch_size):
+        params: dict[str, str | int] = {
+            "sources": ",".join(batch),
+            "referencetime": referencetime,
+            "elements": elements,
+            "timeoffsets": "default",
+            "levels": "default",
+        }
+        if qualities:
+            params["qualities"] = qualities
+
+        js = frost_get_json(session, path, params, auth=auth, timeout=timeout)
+        if js.get("@type") == "ErrorResponse":
+            continue
+
+        for item in js.get("data", []):
+            sid = item.get("sourceId")
+            if not sid:
+                continue
+            keep.add(base_source_id(str(sid)))
+
+    # behold rekkefølge
+    return [s for s in sources if base_source_id(s) in keep]
+
+
+# ======================================================================
 # Observasjoner
 # ======================================================================
 
@@ -279,7 +335,10 @@ def fetch_observations_interval(
     limit: int = 1000,
     qualities: str = "0,1,2,3,4",
 ) -> pd.DataFrame:
-    """Hent observasjoner i et intervall for mange stasjoner. Returnerer lang DF."""
+    """
+    Hent observasjoner i et intervall for mange stasjoner.
+    Returnerer lang DF.
+    """
     path = "/observations/v0.jsonld"
     rows: list[dict[str, Any]] = []
 
@@ -397,7 +456,7 @@ def downsample_spatial_best_quality(
 
 
 # ======================================================================
-# UI helpers (samme som precip_map, men peker til /ver/solskinn-kart)
+# UI helpers
 # ======================================================================
 
 def _loading_overlay_js() -> str:
@@ -445,7 +504,7 @@ def _loading_overlay_js() -> str:
 
 
 def _save_view_listener_js() -> str:
-    # Behold samme key som nedbør => samme utsnitt mellom kart
+    # Del samme key med nedbør for å beholde samme utsnitt når du bytter kart
     return """
 <script>
   const STORE_KEY = "precip_view_v1";
@@ -632,7 +691,7 @@ def make_info_map(
 
 
 # ======================================================================
-# Kart med data: styling + legend + toppliste + oppdater-knapp
+# Kart med data
 # ======================================================================
 
 def make_map(
@@ -1044,6 +1103,30 @@ def build_sunshine_map_html(
         src_meta = pre_sample_sources_grid(src_meta, w=w, s=s, e=e, n=n, max_sources=MAX_SOURCES_PRE_OBS)
         sources = src_meta["baseId"].astype(str).tolist()
 
+        # ✅ Viktig for solskinn: behold bare stasjoner som har tidsserie
+        sources = filter_sources_with_timeseries(
+            sess,
+            auth=auth,
+            sources=sources,
+            referencetime=referencetime,
+            elements=elements,
+            timeout=timeout,
+            batch_size=250,
+            qualities=qualities,
+        )
+
+        if not sources:
+            return make_info_map(
+                title="Ingen solskinn-stasjoner i området",
+                message="Utsnittet ser ut til å mangle stasjoner med solskinnsensor for perioden. Zoom ut/flytt utsnittet og prøv igjen.",
+                mode=str(mode),
+                date_str=day_str,
+                center=center,
+                zoom=zoom,
+            )
+        print(f"Antall stasjoner med solskinn-tidsserie i området: {len(sources)}")
+        print("Eksempelstasjoner:", sources[:20])
+
         obs = fetch_observations_interval(
             sess,
             auth=auth,
@@ -1129,7 +1212,7 @@ def main() -> None:
         bbox=args.bbox or None,
         show_heatmap=True,
     )
-    print(html[:500])
+    print(html[:800])
 
 
 if __name__ == "__main__":
