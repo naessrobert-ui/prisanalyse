@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import time
 from dataclasses import dataclass
@@ -354,79 +355,224 @@ def filter_df_by_county(df: pd.DataFrame, county: str) -> pd.DataFrame:
     return df.loc[mask].copy()
 
 
-def compute_top_n_df(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
+# ======================================================================
+#  Fylke-filtrering og topp-10-hjelpere
+# ======================================================================
+
+def filter_df_by_county(df: pd.DataFrame, county: str) -> pd.DataFrame:
     """
-    Lag en DataFrame med topp N stasjoner sortert etter mest snø.
+    Filtrer på fylke (case-insensitivt). Bruker kolonnen 'county' fra /sources.
+    Hvis 'county' ikke finnes, eller alle er NaN, returneres tom DF.
+    """
+    if "county" not in df.columns:
+        return df.iloc[0:0].copy()
+
+    county = (county or "").strip().lower()
+    if not county:
+        return df
+
+    s = df["county"].astype(str).str.lower()
+    mask = s == county
+    return df.loc[mask].copy()
+
+
+def build_top_panel_html(df: pd.DataFrame, region_label: str, n: int = 10) -> str:
+    """
+    Lager et lite overlay-panel med topp N-stasjoner.
+    - Tabellen er liten, uten dato-kolonne (kun #, stasjon, fylke, snødybde).
+    - Rader er klikkbare og zoomer kartet inn på stasjonen.
+    - En knapp "Topp 10 i utsnitt" beregner topp 10 for gjeldende kartutsnitt.
     """
     if df.empty:
-        return df
+        return ""
 
     d = df.copy()
     d["value"] = pd.to_numeric(d["value"], errors="coerce")
-    d = d.dropna(subset=["value"])
+    d["lat"] = pd.to_numeric(d["lat"], errors="coerce")
+    d["lon"] = pd.to_numeric(d["lon"], errors="coerce")
+    d = d.dropna(subset=["value", "lat", "lon"])
 
-    # Sikre at 'county' finnes
+    # Sikre felter
     if "county" not in d.columns:
         d["county"] = ""
-
     d["station"] = d["name"].fillna(d["shortName"]).fillna(d["sourceId"])
+    d["referenceTime"] = pd.to_datetime(d["referenceTime"], errors="coerce", utc=True)
+    d["referenceTime"] = d["referenceTime"].dt.strftime("%Y-%m-%d %H:%M UTC")
+    if "unit" not in d.columns:
+        d["unit"] = "cm"
 
-    # Sorter og plukk topp N
-    d = d.sort_values("value", ascending=False)
-    top = d.head(n).copy()
+    # Full datastruktur til JS (for "topp 10 i utsnitt")
+    records = d[["station", "county", "value", "unit", "referenceTime", "lat", "lon"]]
+    data_json = json.dumps(records.to_dict(orient="records"), ensure_ascii=False)
 
-    # Velg pene kolonner
-    top["referenceTime"] = pd.to_datetime(top["referenceTime"], errors="coerce", utc=True)
-    top["referenceTime"] = top["referenceTime"].dt.strftime("%Y-%m-%d %H:%M UTC")
+    # Initial topp N til tabellen
+    top = records.sort_values("value", ascending=False).head(n).reset_index(drop=True)
+    title_text = f"Topp {len(top)} snøstasjoner – {region_label}"
 
-    if "unit" not in top.columns:
-        top["unit"] = "cm"
+    parts: list[str] = []
 
-    out = top[["station", "county", "value", "unit", "referenceTime"]].reset_index(drop=True)
-    out.insert(0, "rank", out.index + 1)
-    return out
+    # Litt styling: lite, hvitt panel oppe til høyre
+    parts.append(
+        "<style>"
+        "#snow-top10-wrapper{"
+        " position:absolute;"
+        " top:12px;"
+        " right:12px;"
+        " background:white;"
+        " padding:8px 10px;"
+        " border-radius:8px;"
+        " box-shadow:0 2px 6px rgba(0,0,0,0.25);"
+        " max-width:360px;"
+        " font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+        " font-size:12px;"
+        " z-index:9999;"
+        "}"
+        "#snow-top10-wrapper h3,#snow-top10-wrapper div.snow-top10-title{"
+        " margin:0 0 4px 0;"
+        " font-size:13px;"
+        " font-weight:600;"
+        "}"
+        "#snow-top10-wrapper button{"
+        " margin:4px 0 6px 0;"
+        " padding:3px 6px;"
+        " font-size:11px;"
+        " border-radius:6px;"
+        " border:1px solid #1d4ed8;"
+        " background:#2563eb;"
+        " color:white;"
+        " cursor:pointer;"
+        "}"
+        "#snow-top10-wrapper button:hover{background:#1d4ed8;}"
+        "#snow-top10-wrapper table{"
+        " width:100%;"
+        " border-collapse:collapse;"
+        "}"
+        "#snow-top10-wrapper th,#snow-top10-wrapper td{"
+        " padding:2px 4px;"
+        " border-bottom:1px solid #e5e7eb;"
+        " text-align:left;"
+        "}"
+        "#snow-top10-wrapper th{"
+        " font-weight:600;"
+        " font-size:11px;"
+        "}"
+        "#snow-top10-wrapper tr.snow-top10-row:hover{"
+        " background:#eff6ff;"
+        "}"
+        "</style>"
+    )
 
-
-def top_n_html_table(df: pd.DataFrame, region_label: str, n: int = 10) -> str:
-    """
-    Bygg en enkel HTML-tabell med topp N.
-    Embeddes inn i kart-HTML-en.
-    """
-    top = compute_top_n_df(df, n=n)
-    if top.empty:
-        return f"<h3>Ingen snødata for {region_label}</h3>"
-
-    # Enkelt HTML (unngår pandas.to_html for å ha full kontroll)
-    rows_html = []
-    rows_html.append(
+    # Selve panelet + tabell
+    parts.append(
+        "<div id='snow-top10-wrapper' class='snow-top10-panel'>"
+        f"<div id='snow-top10-title' class='snow-top10-title'>{title_text}</div>"
+        "<button id='snow-top10-viewport' type='button'>Topp 10 i utsnitt</button>"
+        "<table id='snow-top10-table'>"
+        "<thead>"
         "<tr>"
         "<th>#</th>"
         "<th>Stasjon</th>"
         "<th>Fylke</th>"
-        "<th>Snødybde (cm)</th>"
-        "<th>Tid (UTC)</th>"
+        "<th>Snø (cm)</th>"
         "</tr>"
+        "</thead>"
+        "<tbody>"
     )
 
-    for _, r in top.iterrows():
-        rows_html.append(
-            "<tr>"
-            f"<td>{int(r['rank'])}</td>"
+    for idx, r in top.iterrows():
+        rank = idx + 1
+        parts.append(
+            "<tr class='snow-top10-row' "
+            f"data-lat='{r['lat']}' data-lon='{r['lon']}'>"
+            f"<td>{rank}</td>"
             f"<td>{r['station']}</td>"
             f"<td>{r['county']}</td>"
             f"<td>{float(r['value']):.0f}</td>"
-            f"<td>{r['referenceTime']}</td>"
             "</tr>"
         )
 
-    table_html = (
-        f"<h3>Topp {len(top)} snøstasjoner – {region_label}</h3>"
-        "<table border='1' cellpadding='4' cellspacing='0' "
-        "style='border-collapse: collapse; margin-top: 1em;'>"
-        + "".join(rows_html)
-        + "</table>"
+    parts.append("</tbody></table></div>")  # close table + wrapper
+
+    # All data som JSON – brukes for "topp 10 i utsnitt"
+    parts.append(
+        "<script id='snow-all-data' type='application/json'>"
+        + data_json +
+        "</script>"
     )
-    return table_html
+
+    # JS: finn Leaflet-kartet, flytt panelet inn i kart-diven,
+    # zoom ved klikk på rad, og regn ut topp 10 i gjeldende utsnitt.
+    js = (
+        "(function(){"
+        "  var dataEl=document.getElementById('snow-all-data');"
+        "  if(!dataEl) return;"
+        "  var snowData=JSON.parse(dataEl.textContent||dataEl.innerText||'[]');"
+        "  var mapObj=null;"
+        "  if(window.L){"
+        "    for(var k in window){"
+        "      try{"
+        "        if(window[k] instanceof L.Map){ mapObj=window[k]; break; }"
+        "      }catch(e){}"
+        "    }"
+        "  }"
+        "  var panel=document.getElementById('snow-top10-wrapper');"
+        "  var titleEl=document.getElementById('snow-top10-title');"
+        "  var mapEl=document.querySelector('.folium-map');"
+        "  if(panel && mapEl){"
+        "    mapEl.style.position='relative';"
+        "    mapEl.appendChild(panel);"
+        "  }"
+        "  function attachRowHandlers(){"
+        "    var rows=document.querySelectorAll('#snow-top10-table tbody tr');"
+        "    rows.forEach(function(row){"
+        "      row.style.cursor='pointer';"
+        "      row.addEventListener('click',function(){"
+        "        var lat=parseFloat(this.getAttribute('data-lat'));"
+        "        var lon=parseFloat(this.getAttribute('data-lon'));"
+        "        if(mapObj && !isNaN(lat) && !isNaN(lon)){"
+        "          mapObj.setView([lat,lon],10);"
+        "        }"
+        "      });"
+        "    });"
+        "  }"
+        "  attachRowHandlers();"
+        "  var btn=document.getElementById('snow-top10-viewport');"
+        f"  var defaultTitle='{title_text.replace(\"'\",\"\\\\'\")}';"
+        "  if(btn && mapObj){"
+        "    btn.addEventListener('click',function(){"
+        "      var b=mapObj.getBounds();"
+        "      var inside=snowData.filter(function(p){"
+        "        return p.lat>=b.getSouth() && p.lat<=b.getNorth() && "
+        "               p.lon>=b.getWest() && p.lon<=b.getEast();"
+        "      });"
+        "      inside.sort(function(a,b){return b.value-a.value;});"
+        f"      var top=inside.slice(0,{n});"
+        "      var tbody=document.querySelector('#snow-top10-table tbody');"
+        "      if(!tbody) return;"
+        "      tbody.innerHTML='';"
+        "      top.forEach(function(p,idx){"
+        "        var tr=document.createElement('tr');"
+        "        tr.className='snow-top10-row';"
+        "        tr.setAttribute('data-lat',p.lat);"
+        "        tr.setAttribute('data-lon',p.lon);"
+        "        tr.innerHTML="
+        "          '<td>'+(idx+1)+'</td>' +"
+        "          '<td>'+p.station+'</td>' +"
+        "          '<td>'+(p.county||'')+'</td>' +"
+        "          '<td>'+Math.round(p.value)+'</td>';"
+        "        tbody.appendChild(tr);"
+        "      });"
+        "      if(titleEl){"
+        f"        titleEl.textContent='Topp {n} snøstasjoner – utsnitt';"
+        "      }"
+        "      attachRowHandlers();"
+        "    });"
+        "  }"
+        "})();"
+    )
+    parts.append("<script>" + js + "</script>")
+
+    return "".join(parts)
 
 
 def inject_html_before_body_end(page_html: str, extra_html: str) -> str:
@@ -434,12 +580,14 @@ def inject_html_before_body_end(page_html: str, extra_html: str) -> str:
     Stikk inn extra_html rett før </body>.
     Hvis </body> ikke finnes, appendes bare på slutten.
     """
+    if not extra_html:
+        return page_html
     marker = "</body>"
-    idx = page_html.lower().rfind(marker)
+    lower = page_html.lower()
+    idx = lower.rfind(marker)
     if idx == -1:
         return page_html + "\n" + extra_html
     return page_html[:idx] + extra_html + "\n" + page_html[idx:]
-
 
 # ======================================================================
 #  Kartbygging
@@ -687,9 +835,11 @@ def build_snow_map_html(
     )
 
     # Bygg topp-10-tabell og stikk den inn før </body>
-    top_html = top_n_html_table(df_used, region_label=region_label, n=top_n)
-    combined_html = inject_html_before_body_end(html_map, top_html)
+    # Bygg topp-10-panel (overlay) og stikk det inn før </body>
+    top_panel_html = build_top_panel_html(df_used, region_label=region_label, n=top_n)
+    combined_html = inject_html_before_body_end(html_map, top_panel_html)
     return combined_html
+
 
 
 # ======================================================================
