@@ -160,6 +160,7 @@ def list_sources_with_snow_in_referencetime(
     """
     Finn stasjoner som har tilgjengelig tidsserie for snødybde i referencetime-intervallet.
     NB: Ikke filtrer på timeoffsets/levels her for snødybde.
+    (Per nå spør vi hele universet; fylke-filtrering gjøres senere via metadata.)
     """
     path = "/observations/availableTimeSeries/v0.jsonld"
     params: dict[str, str | int] = {
@@ -293,7 +294,8 @@ def get_sources_metadata(
     """
     /sources støtter ids=... (ikke sources=...).
     observations/sourceId kan være SNxxxx:0 -> vi spør /sources med SNxxxx.
-    Returnerer DF med samme sourceId-format som i observations.
+    Returnerer DF med samme sourceId-format som i observations,
+    og inkluderer county for fylke-filtrering.
     """
     path = "/sources/v0.jsonld"
     mapping = {sid: base_source_id(sid) for sid in sources}
@@ -303,7 +305,7 @@ def get_sources_metadata(
     for batch in chunked(base_ids, batch_size):
         params: dict[str, str | int] = {
             "ids": ",".join(batch),
-            "fields": "id,name,shortName,country,geometry",
+            "fields": "id,name,shortName,country,county,geometry",
         }
         for page in iter_pages(session, path, params, auth=auth, timeout=timeout):
             if page.get("@type") == "ErrorResponse":
@@ -320,14 +322,123 @@ def get_sources_metadata(
                         "name": item.get("name"),
                         "shortName": item.get("shortName"),
                         "country": item.get("country"),
+                        "county": item.get("county"),  # kan være None
                         "lat": lat,
                         "lon": lon,
                     }
                 )
 
-    meta = pd.DataFrame(rows, columns=["baseId", "name", "shortName", "country", "lat", "lon"])
+    meta = pd.DataFrame(rows, columns=["baseId", "name", "shortName", "country", "county", "lat", "lon"])
     link = pd.DataFrame({"sourceId": list(mapping.keys()), "baseId": list(mapping.values())})
     return link.merge(meta, on="baseId", how="left").drop(columns=["baseId"])
+
+
+# ======================================================================
+#  Fylke-filtrering og topp-10-hjelpere
+# ======================================================================
+
+def filter_df_by_county(df: pd.DataFrame, county: str) -> pd.DataFrame:
+    """
+    Filtrer på fylke (case-insensitivt). Bruker kolonnen 'county' fra /sources.
+    Hvis 'county' ikke finnes, eller alle er NaN, returneres tom DF.
+    """
+    if "county" not in df.columns:
+        return df.iloc[0:0].copy()
+
+    county = (county or "").strip().lower()
+    if not county:
+        return df
+
+    s = df["county"].astype(str).str.lower()
+    mask = s == county
+    return df.loc[mask].copy()
+
+
+def compute_top_n_df(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
+    """
+    Lag en DataFrame med topp N stasjoner sortert etter mest snø.
+    """
+    if df.empty:
+        return df
+
+    d = df.copy()
+    d["value"] = pd.to_numeric(d["value"], errors="coerce")
+    d = d.dropna(subset=["value"])
+
+    # Sikre at 'county' finnes
+    if "county" not in d.columns:
+        d["county"] = ""
+
+    d["station"] = d["name"].fillna(d["shortName"]).fillna(d["sourceId"])
+
+    # Sorter og plukk topp N
+    d = d.sort_values("value", ascending=False)
+    top = d.head(n).copy()
+
+    # Velg pene kolonner
+    top["referenceTime"] = pd.to_datetime(top["referenceTime"], errors="coerce", utc=True)
+    top["referenceTime"] = top["referenceTime"].dt.strftime("%Y-%m-%d %H:%M UTC")
+
+    if "unit" not in top.columns:
+        top["unit"] = "cm"
+
+    out = top[["station", "county", "value", "unit", "referenceTime"]].reset_index(drop=True)
+    out.insert(0, "rank", out.index + 1)
+    return out
+
+
+def top_n_html_table(df: pd.DataFrame, region_label: str, n: int = 10) -> str:
+    """
+    Bygg en enkel HTML-tabell med topp N.
+    Embeddes inn i kart-HTML-en.
+    """
+    top = compute_top_n_df(df, n=n)
+    if top.empty:
+        return f"<h3>Ingen snødata for {region_label}</h3>"
+
+    # Enkelt HTML (unngår pandas.to_html for å ha full kontroll)
+    rows_html = []
+    rows_html.append(
+        "<tr>"
+        "<th>#</th>"
+        "<th>Stasjon</th>"
+        "<th>Fylke</th>"
+        "<th>Snødybde (cm)</th>"
+        "<th>Tid (UTC)</th>"
+        "</tr>"
+    )
+
+    for _, r in top.iterrows():
+        rows_html.append(
+            "<tr>"
+            f"<td>{int(r['rank'])}</td>"
+            f"<td>{r['station']}</td>"
+            f"<td>{r['county']}</td>"
+            f"<td>{float(r['value']):.0f}</td>"
+            f"<td>{r['referenceTime']}</td>"
+            "</tr>"
+        )
+
+    table_html = (
+        f"<h3>Topp {len(top)} snøstasjoner – {region_label}</h3>"
+        "<table border='1' cellpadding='4' cellspacing='0' "
+        "style='border-collapse: collapse; margin-top: 1em;'>"
+        + "".join(rows_html)
+        + "</table>"
+    )
+    return table_html
+
+
+def inject_html_before_body_end(page_html: str, extra_html: str) -> str:
+    """
+    Stikk inn extra_html rett før </body>.
+    Hvis </body> ikke finnes, appendes bare på slutten.
+    """
+    marker = "</body>"
+    idx = page_html.lower().rfind(marker)
+    if idx == -1:
+        return page_html + "\n" + extra_html
+    return page_html[:idx] + extra_html + "\n" + page_html[idx:]
 
 
 # ======================================================================
@@ -357,10 +468,13 @@ def make_map(
     heat_radius: int,
     heat_blur: int,
     heat_clip_cm: float,
+    zoom_to_data: bool = False,
 ) -> str:
     """
     Lager folium-kart fra df.
     out_html: hvis satt, lagres kartet til denne filen.
+    zoom_to_data: hvis True, zoomer kartet inn på min/max lat/lon i df
+                  (perfekt for fylke-visning).
     Returnerer alltid HTML-strengen for kartet (for embedding i web-app).
     """
     if df.empty:
@@ -414,6 +528,11 @@ def make_map(
             tooltip=folium.Tooltip(html, sticky=True),
             popup=folium.Popup(html, max_width=320),
         ).add_to(layer_for_markers)
+
+    if zoom_to_data:
+        lat_min, lat_max = float(d["lat"].min()), float(d["lat"].max())
+        lon_min, lon_max = float(d["lon"].min()), float(d["lon"].max())
+        m.fit_bounds([[lat_min, lon_min], [lat_max, lon_max]])
 
     folium.LayerControl().add_to(m)
 
@@ -516,6 +635,8 @@ def build_snow_df_for_day(
 def build_snow_map_html(
     date_str: Optional[str] = None,
     *,
+    county: Optional[str] = None,
+    top_n: int = 10,
     window_days: int = 2,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
@@ -529,6 +650,9 @@ def build_snow_map_html(
 ) -> str:
     """
     Bygger snøkart for valgt dato og returnerer HTML-strengen.
+    - Hvis county er satt (f.eks. 'Vestland'), filtreres dataene til dette fylket
+      og kartet zoomes inn på disse stasjonene.
+    - I tillegg embeddes en HTML-tabell med topp N stasjoner (mest snø).
     date_str: 'YYYY-MM-DD', eller None = i dag (siste mulige dato med fallback).
     """
     df, _day = build_snow_df_for_day(
@@ -540,17 +664,32 @@ def build_snow_map_html(
         qualities=qualities,
     )
 
-    html_str = make_map(
-        df,
+    region_label = "Norge"
+    df_used = df
+
+    if county:
+        filtered = filter_df_by_county(df, county)
+        if not filtered.empty:
+            df_used = filtered
+            region_label = county
+        # Hvis filtrering gir tomt resultat, behold hele Norge,
+        # men region_label får fortsatt være "Norge".
+
+    html_map = make_map(
+        df_used,
         out_html=None,
         cluster=cluster,
         heatmap_show=show_heatmap,
         heat_radius=heat_radius,
         heat_blur=heat_blur,
         heat_clip_cm=heat_clip_cm,
+        zoom_to_data=bool(county),  # zoom inn når vi viser ett fylke
     )
 
-    return html_str
+    # Bygg topp-10-tabell og stikk den inn før </body>
+    top_html = top_n_html_table(df_used, region_label=region_label, n=top_n)
+    combined_html = inject_html_before_body_end(html_map, top_html)
+    return combined_html
 
 
 # ======================================================================
@@ -559,7 +698,10 @@ def build_snow_map_html(
 
 def main() -> None:
     ap = argparse.ArgumentParser(
-        description="Snødybde-kart fra Frost for valgt dato. Raskt + fallback ±N dager kun for stasjoner uten data."
+        description=(
+            "Snødybde-kart fra Frost for valgt dato, med fallback ±N dager kun for "
+            "stasjoner uten data. Kan filtrere på fylke og viser topp 10-stasjoner."
+        )
     )
     ap.add_argument(
         "--date",
@@ -581,6 +723,14 @@ def main() -> None:
     ap.add_argument("--heat-blur", type=int, default=18)
     ap.add_argument("--heat-clip-cm", type=float, default=200.0)
 
+    ap.add_argument(
+        "--county",
+        "--fylke",
+        dest="county",
+        default="",
+        help="Filtrer på fylke (case-insensitivt), f.eks. 'Vestland'. Tom = hele Norge.",
+    )
+
     args = ap.parse_args()
 
     df, day = build_snow_df_for_day(
@@ -592,26 +742,59 @@ def main() -> None:
         qualities=args.qualities,
     )
 
+    county = (args.county or "").strip()
+    if not county:
+        # Spør interaktivt hvis ikke gitt
+        try:
+            county = input("Oppgi fylke (f.eks. 'Vestland', enter = alle): ").strip()
+        except EOFError:
+            county = ""
+
+    region_label = "Norge"
+    df_used = df
+
+    if county:
+        filtered = filter_df_by_county(df, county)
+        if not filtered.empty:
+            df_used = filtered
+            region_label = county
+        else:
+            print(f"Advarsel: fant ingen stasjoner med fylke='{county}'. Viser hele Norge i stedet.")
+
     out_csv = args.out_csv or f"snow_{args.date}_smartfallback_pm{args.window_days}d.csv"
     out_html = args.out_html or f"snow_map_{args.date}_smartfallback_pm{args.window_days}d.html"
 
-    df.to_csv(out_csv, index=False)
+    df_used.to_csv(out_csv, index=False)
 
     html_map = make_map(
-        df,
-        out_html=out_html,
+        df_used,
+        out_html=None,  # vi legger på topp-10 først, så lagrer manuelt
         cluster=not args.no_cluster,
         heatmap_show=args.show_heatmap,
         heat_radius=args.heat_radius,
         heat_blur=args.heat_blur,
         heat_clip_cm=args.heat_clip_cm,
+        zoom_to_data=bool(county),
     )
 
+    # Legg på topp-10 i HTML-en
+    top_html = top_n_html_table(df_used, region_label=region_label, n=10)
+    combined_html = inject_html_before_body_end(html_map, top_html)
+
+    with open(out_html, "w", encoding="utf-8") as f:
+        f.write(combined_html)
+
     print(f"Dato: {day}")
-    print(f"Stasjoner (i kart): {df['sourceId'].nunique()}")
+    print(f"Stasjoner (i valgt region): {df_used['sourceId'].nunique()}")
+    print(f"Region: {region_label}")
     print(f"Skrev CSV:  {out_csv}")
     print(f"Skrev kart: {out_html}")
-    # html_map returneres, men brukes ikke i CLI
+
+    # Print topp-10 i terminalen
+    top_df = compute_top_n_df(df_used, n=10)
+    if not top_df.empty:
+        print("\nTopp 10 stasjoner (mest snø):")
+        print(top_df.to_string(index=False))
 
 
 if __name__ == "__main__":
