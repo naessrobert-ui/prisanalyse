@@ -25,6 +25,9 @@ load_dotenv()
 FROST_BASE = "https://frost.met.no"
 DEFAULT_TIMEOUT = 20
 
+# Basiselement (timesol) – brukes KUN til å finne stasjoner
+ELEMENT_SUN_BASE = "sum(duration_of_sunshine PT1H)"
+
 # Aggregert solskinn fra Frost:
 # sum(duration_of_sunshine P1D)  -> timer siste døgn
 # sum(duration_of_sunshine P1M)  -> timer så langt i måneden
@@ -711,9 +714,12 @@ def build_sunshine_map_html(
     auth = _env_auth()
     day = datetime.strptime(day_str, "%Y-%m-%d").date()
 
-    # Velg element + referencetime per modus
+    # Velg element for observasjoner + referencetime per modus
+    elements_obs: str
+    elements_src = ELEMENT_SUN_BASE  # til availableTimeSeries (timesol)
+
     if mode == "last24h":
-        elements = ELEMENT_SUN_DAILY
+        elements_obs = ELEMENT_SUN_DAILY
         now = datetime.now(timezone.utc)
         # Litt rom bakover for å være sikker på at siste verdi er med
         start_dt = now - timedelta(days=2)
@@ -722,7 +728,7 @@ def build_sunshine_map_html(
         sum_count_col = "n_obs"
 
     elif mode == "day":
-        elements = ELEMENT_SUN_DAILY
+        elements_obs = ELEMENT_SUN_DAILY
         start = day
         end = day + timedelta(days=1)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
@@ -730,7 +736,7 @@ def build_sunshine_map_html(
         sum_count_col = "n_obs"
 
     elif mode == "mtd":
-        elements = ELEMENT_SUN_MONTHLY
+        elements_obs = ELEMENT_SUN_MONTHLY
         start = _date(day.year, day.month, 1)
         end = day + timedelta(days=1)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
@@ -738,7 +744,7 @@ def build_sunshine_map_html(
         sum_count_col = "n_obs"
 
     elif mode == "ytd":
-        elements = ELEMENT_SUN_YEARLY
+        elements_obs = ELEMENT_SUN_YEARLY
         start = _date(day.year, 1, 1)
         end = day + timedelta(days=1)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
@@ -749,11 +755,12 @@ def build_sunshine_map_html(
         raise ValueError(f"Ukjent mode: {mode}")
 
     with requests.Session() as sess:
+        # Finn stasjoner med timeserier (bruk timesol som "baseelement")
         sources = fetch_sunshine_station_ids(
             sess,
             auth=auth,
             referencetime=referencetime,
-            elements=elements,
+            elements=elements_src,
             timeout=timeout,
             qualities=qualities,  # ignorert inne i funksjonen for availableTimeSeries
         )
@@ -781,12 +788,13 @@ def build_sunshine_map_html(
                 date_str=day_str if mode != "last24h" else "",
             )
 
+        # Hent ferdig aggregerte verdier (P1D/P1M/P1Y)
         obs = fetch_observations_interval(
             sess,
             auth=auth,
             sources=sources,
             referencetime=referencetime,
-            elements=elements,
+            elements=elements_obs,
             timeout=timeout,
             batch_size=batch_size,
             limit=limit,
@@ -854,4 +862,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
