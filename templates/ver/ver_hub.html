@@ -5,31 +5,156 @@
     <title>Vær – Væranalyse</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:#f5f7fb; }
-      .page { max-width: 1000px; margin: 32px auto; padding: 0 16px; }
-      .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-      .card { background:white; border-radius:16px; padding:18px 22px; box-shadow:0 18px 45px rgba(15,23,42,.08); }
-      a.btn { display:inline-block; margin-top:10px; padding:8px 14px; border-radius:999px; background:#2563eb; color:white; text-decoration:none; }
-      p { margin: 8px 0 0; color:#334155; }
-      h1 { margin: 0 0 12px; }
-      h2 { margin: 0 0 6px; }
+      :root {
+        color-scheme: light;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        min-height: 100vh;
+        /* Bakgrunnsbilde – bytt filnavn til det du bruker på de andre sidene */
+        background-color: #0f172a;
+        background-image: url("{{ url_for('static', filename='img/bg-main.svg') }}");
+        background-repeat: no-repeat;
+        background-size: cover;
+        background-position: top center;
+      }
+
+      .shell {
+        max-width: 1100px;
+        margin: 32px auto 40px;
+        padding: 0 16px;
+      }
+
+      .panel {
+        background: rgba(248, 250, 252, 0.96);
+        border-radius: 24px;
+        box-shadow: 0 22px 55px rgba(15, 23, 42, 0.35);
+        padding: 24px 24px 28px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        letter-spacing: -0.02em;
+        color: #0f172a;
+      }
+
+      .subtitle {
+        margin: 0 0 20px;
+        font-size: 14px;
+        color: #64748b;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        background: white;
+        border-radius: 18px;
+        padding: 18px 20px 20px;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        display: flex;
+        flex-direction: column;
+        min-height: 130px;
+      }
+
+      h2 {
+        margin: 0 0 4px;
+        font-size: 18px;
+        color: #0f172a;
+      }
+
+      .label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+
+      .label-sno { color: #0ea5e9; }
+      .label-nedbor { color: #22c55e; }
+      .label-sol { color: #f59e0b; }
+
+      p {
+        margin: 6px 0 0;
+        color: #334155;
+        font-size: 14px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 12px;
+        padding: 8px 16px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        color: white;
+        background: #2563eb;
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+      }
+
+      .btn:hover {
+        background: #1d4ed8;
+      }
+
+      .btn-green {
+        background: #16a34a;
+        box-shadow: 0 10px 25px rgba(34, 197, 94, 0.3);
+      }
+
+      .btn-green:hover {
+        background: #15803d;
+      }
+
+      .btn-amber {
+        background: #f59e0b;
+        box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
+      }
+
+      .btn-amber:hover {
+        background: #d97706;
+      }
     </style>
   </head>
   <body>
-    <div class="page">
-      <h1>Vær</h1>
+    <div class="shell">
+      <div class="panel">
+        <h1>Vær</h1>
+        <p class="subtitle">
+          Snømengde, nedbør og solskinn basert på data fra Frost.
+        </p>
 
-      <div class="grid">
-        <div class="card">
-          <h2>Snømengde</h2>
-          <p>Snødybde fra Frost. Velg dato.</p>
-          <a class="btn" href="{{ url_for('ver.sno_index') }}">Åpne</a>
-        </div>
+        <div class="grid">
+          <div class="card">
+            <div class="label label-sno">Snø</div>
+            <h2>Snømengde</h2>
+            <p>Snødybde fra Frost. Velg dato og se kart over hele landet.</p>
+            <a class="btn" href="{{ url_for('ver.sno_index') }}">Åpne</a>
+          </div>
 
-        <div class="card">
-          <h2>Nedbør</h2>
-          <p>Siste 24 timer (rullerende) + MTD/YTD.</p>
-          <a class="btn" href="{{ url_for('ver.nedbor_index') }}">Åpne</a>
+          <div class="card">
+            <div class="label label-nedbor">Nedbør</div>
+            <h2>Nedbør</h2>
+            <p>Siste 24 timer (rullerende) + dag / MTD / YTD per stasjon.</p>
+            <a class="btn btn-green" href="{{ url_for('ver.nedbor_index') }}">Åpne</a>
+          </div>
+
+          <div class="card">
+            <div class="label label-sol">Sol</div>
+            <h2>Solskinn</h2>
+            <p>Timer med solskinn siste 24 timer (rullerende) + dag / MTD / YTD.</p>
+            <a class="btn btn-amber" href="{{ url_for('ver.solskinn_index') }}">Åpne</a>
+          </div>
         </div>
       </div>
     </div>

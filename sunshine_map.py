@@ -25,10 +25,15 @@ load_dotenv()
 FROST_BASE = "https://frost.met.no"
 DEFAULT_TIMEOUT = 20
 
-# Solskinn: sum av "duration_of_sunshine" per time
-# (Frost returnerer typisk minutter per time for dette elementet; vi summerer og konverterer til timer.)
+# Solskinn: alternative elementer
+# Timesbasert (brukes ikke lenger aktivt, men beholdes hvis du vil eksperimentere senere)
 ELEMENT_SUN_HOURLY = "sum(duration_of_sunshine PT1H)"
 UNIT_MIN = "min"
+
+# Aggregert per døgn / måned / år
+ELEMENT_SUN_DAILY = "sum(duration_of_sunshine P1D)"
+ELEMENT_SUN_MONTHLY = "sum(duration_of_sunshine P1M)"
+ELEMENT_SUN_YEARLY = "sum(duration_of_sunshine P1Y)"
 
 Mode = Literal["last24h", "day", "mtd", "ytd"]
 
@@ -178,7 +183,7 @@ def fetch_sunshine_station_ids(
         "elements": elements,
         "timeoffsets": "default",
         "levels": "default",
-        # Viktig: ingen 'qualities' her – ellers får vi 400 Bad Request.
+        # Ingen 'qualities' her – ellers får vi 400 Bad Request.
     }
 
     keep: list[str] = []
@@ -696,34 +701,45 @@ def build_sunshine_map_html(
     auth = _env_auth()
     day = datetime.strptime(day_str, "%Y-%m-%d").date()
 
+    # Bestem element + referencetime per mode
     if mode == "last24h":
+        # Bruk P1D – siste døgn (rullerende vindu)
+        elements = ELEMENT_SUN_DAILY
         now = datetime.now(timezone.utc)
-        start_dt = now - timedelta(hours=24)
+        start_dt = now - timedelta(days=1)
         referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
-        title = "Solskinn siste 24 timer (rullerende)"
-        sum_count_col = "n_hours"
+        title = "Solskinn siste døgn"
+        sum_count_col = "n_days"
+
     elif mode == "day":
+        # Ett kalenderdøgn
+        elements = ELEMENT_SUN_DAILY
         start = day
         end = day + timedelta(days=1)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
-        title = "Solskinn kalenderdøgn (valgt dato)"
-        sum_count_col = "n_hours"
+        title = f"Solskinn kalenderdøgn {day.isoformat()}"
+        sum_count_col = "n_days"
+
     elif mode == "mtd":
+        # Hittil i måneden – aggregert P1M
+        elements = ELEMENT_SUN_MONTHLY
         start = _date(day.year, day.month, 1)
         end = day + timedelta(days=1)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
         title = f"Solskinn hittil i måneden ({start.isoformat()} → {day.isoformat()})"
-        sum_count_col = "n_hours"
+        sum_count_col = "n_months"
+
     elif mode == "ytd":
+        # Hittil i året – aggregert P1Y
+        elements = ELEMENT_SUN_YEARLY
         start = _date(day.year, 1, 1)
         end = day + timedelta(days=1)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
-        title = f"Solskinn hittil i året ({start.isoformat()} → {day.isoformat()})"
-        sum_count_col = "n_hours"
+        title = f"Solskinn hittil i året {day.year} ({start.isoformat()} → {day.isoformat()})"
+        sum_count_col = "n_years"
+
     else:
         raise ValueError(f"Ukjent mode: {mode}")
-
-    elements = ELEMENT_SUN_HOURLY
 
     with requests.Session() as sess:
         sources = fetch_sunshine_station_ids(
@@ -732,7 +748,7 @@ def build_sunshine_map_html(
             referencetime=referencetime,
             elements=elements,
             timeout=timeout,
-            qualities=qualities,  # tas ikke med i params til availableTimeSeries
+            qualities=qualities,  # brukes ikke i availableTimeSeries, men OK i signaturen
         )
 
         if not sources:
@@ -825,3 +841,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
