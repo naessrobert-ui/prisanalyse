@@ -537,7 +537,6 @@ def build_top_panel_html(df: pd.DataFrame, region_label: str, n: int = 10) -> st
         "  }"
         "  attachRowHandlers();"
         "  var btn=document.getElementById('snow-top10-viewport');"
-        f"  var defaultTitle='{title_text.replace(\"'\",\"\\\\'\")}';"
         "  if(btn && mapObj){"
         "    btn.addEventListener('click',function(){"
         "      var b=mapObj.getBounds();"
