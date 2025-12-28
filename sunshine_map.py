@@ -168,6 +168,9 @@ def fetch_sunshine_station_ids(
     """
     Bruk /observations/availableTimeSeries uten 'sources' for å finne alle kilder
     som har tidsserie for elementet i perioden.
+
+    NB: /observations/availableTimeSeries støtter **ikke** 'qualities',
+    så vi sender den ikke i params selv om funksjonen tar et qualities-argument.
     """
     path = "/observations/availableTimeSeries/v0.jsonld"
     params: dict[str, str | int] = {
@@ -175,9 +178,8 @@ def fetch_sunshine_station_ids(
         "elements": elements,
         "timeoffsets": "default",
         "levels": "default",
+        # Viktig: ingen 'qualities' her – ellers får vi 400 Bad Request.
     }
-    if qualities:
-        params["qualities"] = qualities
 
     keep: list[str] = []
     seen: set[str] = set()
@@ -730,7 +732,7 @@ def build_sunshine_map_html(
             referencetime=referencetime,
             elements=elements,
             timeout=timeout,
-            qualities=qualities,
+            qualities=qualities,  # tas ikke med i params til availableTimeSeries
         )
 
         if not sources:
