@@ -25,12 +25,10 @@ load_dotenv()
 FROST_BASE = "https://frost.met.no"
 DEFAULT_TIMEOUT = 20
 
-# Solskinn: alternative elementer
-# Timesbasert (brukes ikke lenger aktivt, men beholdes hvis du vil eksperimentere senere)
-ELEMENT_SUN_HOURLY = "sum(duration_of_sunshine PT1H)"
-UNIT_MIN = "min"
-
-# Aggregert per døgn / måned / år
+# Aggregert solskinn fra Frost:
+# sum(duration_of_sunshine P1D)  -> timer siste døgn
+# sum(duration_of_sunshine P1M)  -> timer så langt i måneden
+# sum(duration_of_sunshine P1Y)  -> timer så langt i året
 ELEMENT_SUN_DAILY = "sum(duration_of_sunshine P1D)"
 ELEMENT_SUN_MONTHLY = "sum(duration_of_sunshine P1M)"
 ELEMENT_SUN_YEARLY = "sum(duration_of_sunshine P1Y)"
@@ -168,7 +166,7 @@ def fetch_sunshine_station_ids(
     referencetime: str,
     elements: str,
     timeout: int,
-    qualities: str = "0,1,2,3,4",
+    qualities: str = "0,1,2,3,4",  # tas IKKE med i kall til availableTimeSeries
 ) -> list[str]:
     """
     Bruk /observations/availableTimeSeries uten 'sources' for å finne alle kilder
@@ -281,6 +279,10 @@ def fetch_observations_interval(
     """
     Hent observasjoner i et intervall for mange stasjoner.
     Returnerer lang DF.
+
+    Her bruker vi ferdig aggregerte elementer (P1D, P1M, P1Y),
+    så vi skal **ikke** summere videre på tvers av rader – vi velger
+    bare siste tilgjengelige verdi per stasjon senere.
     """
     path = "/observations/v0.jsonld"
     rows: list[dict[str, Any]] = []
@@ -327,30 +329,38 @@ def fetch_observations_interval(
 
 def aggregate_sun_per_station(df: pd.DataFrame, *, count_col: str) -> pd.DataFrame:
     """
-    Summerer solskinn (minutter) over intervallet per stasjon.
-    Lager også sun_hours = minutter/60.
+    Velg siste tilgjengelige aggregat-verdi per stasjon i perioden.
+
+    Verdien fra Frost for P1D / P1M / P1Y er allerede i **timer**,
+    så sun_hours = value (ingen deling på 60).
     """
     if df.empty:
         return df
 
-    out = (
-        df.groupby("sourceId", as_index=False)
+    d = df.dropna(subset=["referenceTime", "value"]).copy()
+    d["referenceTime"] = pd.to_datetime(d["referenceTime"], errors="coerce", utc=True)
+    d["value"] = pd.to_numeric(d["value"], errors="coerce")
+    d["qualityCode"] = pd.to_numeric(d.get("qualityCode"), errors="coerce")
+    d = d.dropna(subset=["referenceTime", "value"])
+
+    # Sorter slik at "last" i groupby faktisk blir siste i tid
+    d = d.sort_values(["sourceId", "referenceTime"])
+
+    grouped = (
+        d.groupby("sourceId", as_index=False)
         .agg(
-            value=("value", "sum"),
-            n=("value", "size"),
-            rt_max=("referenceTime", "max"),
-            qmin=("qualityCode", "min"),
+            referenceTime=("referenceTime", "last"),
+            value=("value", "last"),
+            qualityCode=("qualityCode", "min"),
+            **{count_col: ("value", "size")},
         )
         .reset_index(drop=True)
     )
-    out.rename(columns={"n": count_col}, inplace=True)
-    out["unit"] = UNIT_MIN
-    out["referenceTime"] = out["rt_max"]
-    out["qualityCode"] = out["qmin"]
-    out.drop(columns=["rt_max", "qmin"], inplace=True)
 
-    out["sun_hours"] = pd.to_numeric(out["value"], errors="coerce") / 60.0
-    return out
+    # Frost-aggregatene er i timer
+    grouped["unit"] = "hours"
+    grouped["sun_hours"] = grouped["value"].astype(float)
+    return grouped
 
 
 # ======================================================================
@@ -701,42 +711,39 @@ def build_sunshine_map_html(
     auth = _env_auth()
     day = datetime.strptime(day_str, "%Y-%m-%d").date()
 
-    # Bestem element + referencetime per mode
+    # Velg element + referencetime per modus
     if mode == "last24h":
-        # Bruk P1D – siste døgn (rullerende vindu)
         elements = ELEMENT_SUN_DAILY
         now = datetime.now(timezone.utc)
-        start_dt = now - timedelta(days=1)
+        # Litt rom bakover for å være sikker på at siste verdi er med
+        start_dt = now - timedelta(days=2)
         referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
         title = "Solskinn siste døgn"
-        sum_count_col = "n_days"
+        sum_count_col = "n_obs"
 
     elif mode == "day":
-        # Ett kalenderdøgn
         elements = ELEMENT_SUN_DAILY
         start = day
         end = day + timedelta(days=1)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
         title = f"Solskinn kalenderdøgn {day.isoformat()}"
-        sum_count_col = "n_days"
+        sum_count_col = "n_obs"
 
     elif mode == "mtd":
-        # Hittil i måneden – aggregert P1M
         elements = ELEMENT_SUN_MONTHLY
         start = _date(day.year, day.month, 1)
         end = day + timedelta(days=1)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
         title = f"Solskinn hittil i måneden ({start.isoformat()} → {day.isoformat()})"
-        sum_count_col = "n_months"
+        sum_count_col = "n_obs"
 
     elif mode == "ytd":
-        # Hittil i året – aggregert P1Y
         elements = ELEMENT_SUN_YEARLY
         start = _date(day.year, 1, 1)
         end = day + timedelta(days=1)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
         title = f"Solskinn hittil i året {day.year} ({start.isoformat()} → {day.isoformat()})"
-        sum_count_col = "n_years"
+        sum_count_col = "n_obs"
 
     else:
         raise ValueError(f"Ukjent mode: {mode}")
@@ -748,7 +755,7 @@ def build_sunshine_map_html(
             referencetime=referencetime,
             elements=elements,
             timeout=timeout,
-            qualities=qualities,  # brukes ikke i availableTimeSeries, men OK i signaturen
+            qualities=qualities,  # ignorert inne i funksjonen for availableTimeSeries
         )
 
         if not sources:
@@ -759,7 +766,13 @@ def build_sunshine_map_html(
                 date_str=day_str if mode != "last24h" else "",
             )
 
-        src_meta = fetch_sources_by_ids(sess, auth=auth, source_ids=sources, timeout=timeout, batch_size=200)
+        src_meta = fetch_sources_by_ids(
+            sess,
+            auth=auth,
+            source_ids=sources,
+            timeout=timeout,
+            batch_size=200,
+        )
         if src_meta.empty:
             return make_info_map(
                 title="Mangler stasjonsmetadata",
