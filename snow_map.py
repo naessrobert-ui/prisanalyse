@@ -1,214 +1,140 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
-import argparse
-import json
 import os
-import time
-from dataclasses import dataclass
-from datetime import date as _date
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Any, Iterator, Optional
-
-import pandas as pd
 import requests
+import pandas as pd
+import folium
+from folium.plugins import MarkerCluster, HeatMap
+from datetime import datetime, timedelta, date as _date
+from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv
 
-import folium
-from folium.plugins import HeatMap, MarkerCluster
-
-# --- .env loading ---
+# Last miljøvariabler
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 load_dotenv()
 
-FROST_BASE = "https://frost.met.no"
-DEFAULT_TIMEOUT = 20
-ELEMENT_SNOW = "surface_snow_thickness"
 
-
-@dataclass(frozen=True)
-class FrostAuth:
-    client_id: str
-    client_secret: str = ""
-
-
-def _env_auth() -> FrostAuth:
+def _env_auth():
     cid = os.getenv("FROST_CLIENT_ID")
     if not cid:
-        raise RuntimeError("Sett miljøvariabelen FROST_CLIENT_ID.")
-    return FrostAuth(client_id=cid, client_secret=os.getenv("FROST_CLIENT_SECRET", ""))
+        return None
+    return (cid, os.getenv("FROST_CLIENT_SECRET", ""))
 
 
-def frost_get_json(session: requests.Session, path: str, params: Optional[dict] = None, *, auth: FrostAuth,
-                   retries: int = 6, timeout: int = DEFAULT_TIMEOUT) -> dict[str, Any]:
-    url = f"{FROST_BASE}{path}"
-    backoff = 1.0
-    for _attempt in range(1, retries + 1):
-        r = session.get(url, params=params, auth=(auth.client_id, auth.client_secret), timeout=timeout)
-        if r.status_code == 200: return r.json()
-        if r.status_code == 404: return r.json()
-        if r.status_code == 429 or 500 <= r.status_code < 600:
-            time.sleep(backoff)
-            backoff *= 2
-            continue
-        break
-    return {"data": []}
-
-
-def iter_pages(session: requests.Session, path: str, params: dict, *, auth: FrostAuth, timeout: int) -> Iterator[
-    dict[str, Any]]:
-    p = params.copy()
-    first = frost_get_json(session, path, p, auth=auth, timeout=timeout)
-    yield first
-    if first.get("@type") == "ErrorResponse": return
-    try:
-        total, offset, per_page = int(first.get("totalItemCount", 0)), int(first.get("offset", 0)), int(
-            first.get("itemsPerPage", 0))
-    except:
-        return
-    if total <= 0 or per_page <= 0: return
-    next_offset = offset + per_page
-    while next_offset < total:
-        p2 = params.copy();
-        p2["offset"] = next_offset
-        page = frost_get_json(session, path, p2, auth=auth, timeout=timeout)
-        yield page
-        next_offset += per_page
-
-
-def chunked(xs: list[str], n: int):
-    for i in range(0, len(xs), n): yield xs[i: i + n]
-
-
-def base_source_id(source_id: str) -> str:
-    return source_id.split(":")[0]
-
-
-def list_sources_for_day_window(session, *, auth, day, window_days, timeout) -> list[str]:
-    start = day - timedelta(days=window_days)
-    end = day + timedelta(days=window_days + 1)
-    params = {"referencetime": f"{start.isoformat()}/{end.isoformat()}", "elements": ELEMENT_SNOW}
-    source_ids = set()
-    for page in iter_pages(session, "/observations/availableTimeSeries/v0.jsonld", params, auth=auth, timeout=timeout):
-        for item in page.get("data", []):
-            if item.get("sourceId"): source_ids.add(item["sourceId"])
-    return sorted(source_ids)
-
-
-def fetch_observations_interval(session, *, auth, sources, referencetime, timeout, batch_size, limit=1000,
-                                qualities="") -> pd.DataFrame:
-    rows = []
-    for batch in chunked(sources, batch_size):
-        params = {"sources": ",".join(batch), "referencetime": referencetime, "elements": ELEMENT_SNOW, "limit": limit}
-        if qualities: params["qualities"] = qualities
-        for page in iter_pages(session, "/observations/v0.jsonld", params, auth=auth, timeout=timeout):
-            for item in page.get("data", []):
-                sid, item_rt = item.get("sourceId"), item.get("referenceTime")
-                for obs in item.get("observations", []):
-                    rows.append({"sourceId": sid, "referenceTime": obs.get("referenceTime") or item_rt,
-                                 "value": obs.get("value"), "unit": obs.get("unit")})
-    df = pd.DataFrame(rows)
-    if not df.empty: df["referenceTime"] = pd.to_datetime(df["referenceTime"], errors="coerce", utc=True)
-    return df
-
-
-def choose_nearest_per_station(df: pd.DataFrame, *, target_day: _date) -> pd.DataFrame:
-    if df.empty: return df
-    target_ts = pd.Timestamp(datetime(target_day.year, target_day.month, target_day.day, tzinfo=timezone.utc))
-    d = df.dropna(subset=["referenceTime", "value"]).copy()
-    d["value"] = pd.to_numeric(d["value"], errors="coerce")
-    d = d.dropna(subset=["value"])
-    d["abs_diff_s"] = (d["referenceTime"] - target_ts).abs().dt.total_seconds()
-    return d.sort_values(["sourceId", "abs_diff_s"]).groupby("sourceId").head(1).reset_index(drop=True)
-
-
-def get_sources_metadata(session, *, auth, sources, timeout, batch_size) -> pd.DataFrame:
-    mapping = {sid: base_source_id(sid) for sid in sources}
-    base_ids = sorted(set(mapping.values()))
-    rows = []
-    for batch in chunked(base_ids, batch_size):
-        params = {"ids": ",".join(batch), "fields": "id,name,county,geometry"}
-        for page in iter_pages(session, "/sources/v0.jsonld", params, auth=auth, timeout=timeout):
-            for item in page.get("data", []):
-                coords = item.get("geometry", {}).get("coordinates", [None, None])
-                rows.append(
-                    {"baseId": item.get("id"), "name": item.get("name"), "county": item.get("county"), "lat": coords[1],
-                     "lon": coords[0]})
-    meta = pd.DataFrame(rows)
-    link = pd.DataFrame({"sourceId": list(mapping.keys()), "baseId": list(mapping.values())})
-    return link.merge(meta, on="baseId", how="left").drop(columns=["baseId"])
-
-
-def filter_df_by_county(df: pd.DataFrame, county: str) -> pd.DataFrame:
-    if "county" not in df.columns or not county: return df
-    mask = df["county"].astype(str).str.lower() == county.strip().lower()
-    return df.loc[mask].copy()
-
-
-def build_top_panel_html(df: pd.DataFrame, region_label: str, n: int = 10) -> str:
-    if df.empty: return ""
-    d = df.dropna(subset=["value", "lat", "lon"]).copy()
-    d["station"] = d["name"].fillna(d["sourceId"])
-    top = d.sort_values("value", ascending=False).head(n)
-
-    parts = [
-        "<style>#snow-top10-wrapper{position:absolute;top:12px;right:12px;background:white;padding:10px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.3);z-index:9999;font-family:sans-serif;font-size:12px;min-width:200px;}</style>"]
-    parts.append(f"<div id='snow-top10-wrapper'><b>Topp {len(top)} - {region_label}</b><hr><table style='width:100%'>")
-    for idx, r in top.reset_index(drop=True).iterrows():
-        parts.append(
-            f"<tr><td>{idx + 1}. {r['station']}</td><td style='text-align:right'><b>{int(r['value'])} cm</b></td></tr>")
-    parts.append("</table></div>")
-    return "".join(parts)
-
-
-def inject_html_before_body_end(page_html: str, extra_html: str) -> str:
-    return page_html.replace("</body>", f"{extra_html}</body>") if "</body>" in page_html else page_html + extra_html
-
-
-def make_map(df, cluster, heatmap_show, heat_radius, heat_blur, heat_clip_cm, zoom_to_data=False) -> str:
-    d = df.dropna(subset=["lat", "lon", "value"]).copy()
-    m = folium.Map(location=[d["lat"].mean(), d["lon"].mean()], zoom_start=5)
-
-    if heatmap_show:
-        HeatMap([[r["lat"], r["lon"], min(r["value"] / heat_clip_cm, 1)] for _, r in d.iterrows()], radius=heat_radius,
-                blur=heat_blur).add_to(m)
-
-    target = MarkerCluster().add_to(m) if cluster else m
-    for _, r in d.iterrows():
-        folium.CircleMarker([r["lat"], r["lon"]], radius=5, color="blue" if r["value"] > 50 else "green", fill=True,
-                            popup=f"{r['name']}: {int(r['value'])} cm").add_to(target)
-
-    if zoom_to_data: m.fit_bounds([[d.lat.min(), d.lon.min()], [d.lat.max(), d.lon.max()]])
-    return m.get_root().render()
-
-
-def build_snow_df_for_day(date_str=None, window_days=2) -> tuple[pd.DataFrame, _date]:
+def build_snow_map_html(date_str: Optional[str] = None, county: Optional[str] = None, **kwargs) -> str:
     auth = _env_auth()
-    day = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else _date.today()
-    with requests.Session() as sess:
-        universe = list_sources_for_day_window(sess, auth=auth, day=day, window_days=window_days, timeout=20)
-        df_all = fetch_observations_interval(sess, auth=auth, sources=universe,
-                                             referencetime=f"{(day - timedelta(days=window_days)).isoformat()}/{(day + timedelta(days=1)).isoformat()}",
-                                             timeout=20, batch_size=80)
-        obs = choose_nearest_per_station(df_all, target_day=day)
-        meta = get_sources_metadata(sess, auth=auth, sources=list(obs["sourceId"].unique()), timeout=20, batch_size=80)
-        return obs.merge(meta, on="sourceId", how="left"), day
+    if not auth:
+        return "<h1>Manglende API-nøkkel (FROST_CLIENT_ID)</h1>"
 
+    # 1. Dato-håndtering
+    # Frost feil 400 skjer ofte pga feil datoformat. Vi sikrer ISO-format her.
+    try:
+        if date_str:
+            target_dt = datetime.strptime(date_str, "%Y-%m-%d")
+        else:
+            target_dt = datetime.now()
+    except:
+        target_dt = datetime.now()
 
-def build_snow_map_html(date_str=None, county=None, **kwargs) -> str:
-    df, _ = build_snow_df_for_day(date_str)
-    region = "Norge"
-    if county:
-        filtered = filter_df_by_county(df, county)
-        if not filtered.empty: df, region = filtered, county
+    # Vi henter data for de siste 24 timene - dette er raskest og gir færrest feil
+    start_time = (target_dt - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
+    end_time = target_dt.strftime("%Y-%m-%dT%H:%M:%S")
+    referencetime = f"{start_time}/{end_time}"
 
-    html = make_map(df, cluster=True, heatmap_show=True, heat_radius=25, heat_blur=18, heat_clip_cm=200,
-                    zoom_to_data=bool(county))
-    return inject_html_before_body_end(html, build_top_panel_html(df, region))
+    session = requests.Session()
 
+    try:
+        # 2. Hent snø-observasjoner (raskeste metode)
+        obs_url = "https://frost.met.no/observations/v0.jsonld"
+        params = {
+            "sources": "@all",
+            "elements": "surface_snow_thickness",
+            "referencetime": referencetime,
+            "latest": 1
+        }
 
-if __name__ == "__main__":
-    # For CLI bruk
-    df, d = build_snow_df_for_day()
-    print(df.sort_values("value", ascending=False).head(10))
+        r = session.get(obs_url, params=params, auth=auth, timeout=25)
+
+        if r.status_code == 400:
+            return f"<h1>Frost feil 400</h1><p>API-et forsto ikke forespørselen. Prøv en annen dato.</p>"
+        if r.status_code != 200:
+            return f"<h1>Kunne ikke hente data (Frost feil {r.status_code})</h1>"
+
+        data = r.json().get('data', [])
+        if not data:
+            return "<h1>Ingen snødata tilgjengelig for valgt tidspunkt</h1>"
+
+        # 3. Hent Metadata for alle stasjoner (for å få koordinater og fylke)
+        meta_url = "https://frost.met.no/sources/v0.jsonld"
+        meta_params = {"fields": "id,name,geometry,county"}
+        mr = session.get(meta_url, params=meta_params, auth=auth, timeout=25)
+
+        stasjoner = {}
+        if mr.status_code == 200:
+            for s in mr.json().get('data', []):
+                coords = s.get('geometry', {}).get('coordinates', [None, None])
+                stasjoner[s['id']] = {
+                    "name": s.get('name', s['id']),
+                    "lat": coords[1],
+                    "lon": coords[0],
+                    "county": s.get('county', 'Ukjent')
+                }
+
+        # 4. Koble sammen
+        rows = []
+        for item in data:
+            base_id = item['sourceId'].split(':')[0]
+            if base_id in stasjoner:
+                s = stasjoner[base_id]
+                if s['lat'] is not None:
+                    val = item['observations'][0]['value']
+                    rows.append({
+                        "name": s['name'],
+                        "lat": s['lat'],
+                        "lon": s['lon'],
+                        "value": val,
+                        "county": s['county']
+                    })
+
+        df = pd.DataFrame(rows)
+        if county:
+            df = df[df["county"].astype(str).str.lower() == county.lower()]
+
+        if df.empty:
+            return "<h1>Ingen data funnet for valgt område</h1>"
+
+        # 5. Bygg kartet
+        m = folium.Map(location=[65, 13], zoom_start=5)
+
+        # Varmekart (Heatmap)
+        heat_data = [[r['lat'], r['lon'], min(r['value'] / 100, 1)] for _, r in df.iterrows()]
+        HeatMap(heat_data, radius=15, blur=10).add_to(m)
+
+        # Cluster for stasjoner
+        cluster = MarkerCluster().add_to(m)
+        for _, r in df.iterrows():
+            folium.CircleMarker(
+                [r['lat'], r['lon']],
+                radius=6,
+                color="blue" if r['value'] > 40 else "green",
+                fill=True,
+                popup=f"<b>{r['name']}</b><br>Snø: {int(r['value'])} cm"
+            ).add_to(cluster)
+
+        # 6. Topp 10 Liste
+        top_10 = df.sort_values("value", ascending=False).head(10)
+        top_html = """
+        <div style="position: fixed; top: 10px; right: 10px; width: 220px; 
+                    background: white; padding: 10px; border: 2px solid #ccc; 
+                    z-index: 9999; font-size: 12px; border-radius: 10px; box-shadow: 2px 2px 5px rgba(0,0,0,0.2);">
+            <b>Topp 10 snødybde</b><hr>
+            <table style="width: 100%;">
+        """
+        for i, (_, r) in enumerate(top_10.iterrows()):
+            top_html += f"<tr><td>{i + 1}. {r['name']}</td><td style='text-align:right'><b>{int(r['value'])} cm</b></td></tr>"
+        top_html += "</table></div>"
+
+        return m.get_root().render().replace("</body>", f"{top_html}</body>")
+
+    except Exception as e:
+        return f"<h1>Systemfeil</h1><p>{str(e)}</p>"
