@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import date as _date
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, Tuple
 
 import pandas as pd
 import requests
@@ -157,6 +157,43 @@ def chunked(xs: list[str], n: int) -> Iterator[list[str]]:
 
 def base_source_id(source_id: str) -> str:
     return source_id.split(":")[0]
+
+
+def _parse_bbox(bbox: Optional[str]) -> Optional[Tuple[float, float, float, float]]:
+    """
+    Parse bbox-streng 'south,west,north,east' til tuple.
+    Returnerer None hvis bbox er tom/ugyldig.
+    """
+    if not bbox:
+        return None
+    try:
+        parts = [float(x.strip()) for x in bbox.split(",")]
+        if len(parts) != 4:
+            return None
+        south, west, north, east = parts
+        # enkel sanity-check
+        if south > north or west > east:
+            return None
+        return south, west, north, east
+    except Exception:
+        return None
+
+
+def _filter_meta_by_bbox(
+    meta: pd.DataFrame,
+    bbox_coords: Optional[Tuple[float, float, float, float]],
+) -> pd.DataFrame:
+    """Filtrer metadata-DF på bbox, hvis satt."""
+    if bbox_coords is None or meta.empty:
+        return meta
+    south, west, north, east = bbox_coords
+    m = meta.copy()
+    m["lat"] = pd.to_numeric(m["lat"], errors="coerce")
+    m["lon"] = pd.to_numeric(m["lon"], errors="coerce")
+    return m[
+        (m["lat"].between(south, north))
+        & (m["lon"].between(west, east))
+    ].copy()
 
 
 # ======================================================================
@@ -319,6 +356,26 @@ def choose_nearest_per_station(
     return d.drop(columns=["abs_diff_s"])
 
 
+def choose_latest_per_station(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    For 'latest'-modus: velg siste observasjon per sourceId (største referenceTime).
+    """
+    if df.empty:
+        return df
+
+    d = df.dropna(subset=["referenceTime", "value"]).copy()
+    d["value"] = pd.to_numeric(d["value"], errors="coerce")
+    d = d.dropna(subset=["value"])
+
+    d = (
+        d.sort_values(["sourceId", "referenceTime"], ascending=[True, False])
+        .groupby("sourceId", as_index=False)
+        .head(1)
+        .reset_index(drop=True)
+    )
+    return d
+
+
 def get_sources_metadata(
     session: requests.Session,
     *,
@@ -478,8 +535,78 @@ def make_map(
 
 
 # ======================================================================
-#  Bygg DF + HTML for gitt dato (brukes både av CLI og Flask)
+#  Bygg DF for "latest" og "day"
 # ======================================================================
+
+def build_snow_df_latest(
+    *,
+    window_hours: int = 24,
+    timeout: int = DEFAULT_TIMEOUT,
+    batch_size: int = 80,
+    limit: int = 1000,
+    qualities: str = "",
+    bbox_coords: Optional[Tuple[float, float, float, float]] = None,
+) -> tuple[pd.DataFrame, _date]:
+    """
+    Hurtig-modus: siste tilgjengelige snødybde per stasjon, basert på siste window_hours.
+    Hvis bbox er satt, begrenser vi stasjonene til kartutsnittet.
+    """
+    auth = _env_auth()
+    now = datetime.now(timezone.utc)
+    start_dt = now - timedelta(hours=window_hours)
+    referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
+    today = now.date()
+
+    with requests.Session() as sess:
+        # 1) finn universe
+        universe = list_sources_with_snow_in_referencetime(
+            sess,
+            auth=auth,
+            referencetime=referencetime,
+            timeout=timeout,
+        )
+        if not universe:
+            raise RuntimeError("Fant ingen stasjoner med snødybde i siste døgn.")
+
+        # 2) metadata for alle
+        meta_all = get_sources_metadata(
+            sess,
+            auth=auth,
+            sources=universe,
+            timeout=timeout,
+            batch_size=batch_size,
+            limit=limit,
+        )
+        if meta_all.empty:
+            raise RuntimeError("Fant stasjoner, men ingen koordinater fra /sources.")
+
+        # 3) filtrer på bbox, hvis satt
+        meta_filtered = _filter_meta_by_bbox(meta_all, bbox_coords)
+
+        if meta_filtered.empty:
+            raise RuntimeError("Ingen stasjoner innenfor valgt kartutsnitt.")
+
+        sources_in_view = meta_filtered["sourceId"].astype(str).unique().tolist()
+
+        # 4) observasjoner for disse kildene
+        obs = fetch_observations_interval(
+            sess,
+            auth=auth,
+            sources=sources_in_view,
+            referencetime=referencetime,
+            timeout=timeout,
+            batch_size=batch_size,
+            limit=limit,
+            qualities=qualities,
+        )
+
+    if obs.empty:
+        raise RuntimeError("Ingen observasjoner for stasjonene i valgt tidsrom.")
+
+    latest = choose_latest_per_station(obs)
+    df = latest.merge(meta_filtered, on="sourceId", how="left")
+    return df, today
+
 
 def build_snow_df_for_day(
     date_str: Optional[str] = None,
@@ -490,9 +617,11 @@ def build_snow_df_for_day(
     batch_size: int = 80,
     limit: int = 1000,
     qualities: str = "",
+    bbox_coords: Optional[Tuple[float, float, float, float]] = None,
 ) -> tuple[pd.DataFrame, _date]:
     """
     Lager data-frame med snødybde for valgt dag, med fallback ±window_days.
+    Hvis bbox_coords er satt, begrenser vi universet til stasjoner i kartutsnittet.
     date_str: 'YYYY-MM-DD', eller None = i dag.
     Returnerer (df, day).
     """
@@ -508,6 +637,7 @@ def build_snow_df_for_day(
     day_rt = f"{day_start.isoformat()}/{day_end.isoformat()}"
 
     with requests.Session() as sess:
+        # 1) Finn univers av stasjoner i ±window_days (hele Norge)
         universe = list_sources_for_day_window(
             sess,
             auth=auth,
@@ -521,11 +651,31 @@ def build_snow_df_for_day(
                 "Fant ingen stasjoner med snødybde-serie i valgt vindu. Prøv større window_days."
             )
 
-        # Trinn 1: kun valgt dag
-        df_day = fetch_observations_interval(
+        # 2) Metadata for universet
+        meta_all = get_sources_metadata(
             sess,
             auth=auth,
             sources=universe,
+            timeout=timeout,
+            batch_size=batch_size,
+            limit=limit,
+        )
+        if meta_all.empty:
+            raise RuntimeError("Fant stasjoner, men ingen koordinater fra /sources.")
+
+        # 3) Begrens til stasjoner i kartutsnitt (hvis bbox)
+        meta_filtered = _filter_meta_by_bbox(meta_all, bbox_coords)
+        if meta_filtered.empty:
+            raise RuntimeError("Ingen stasjoner innenfor valgt kartutsnitt.")
+
+        # Bare disse vil vi gjøre observasjons-oppslag på:
+        sources_in_view = meta_filtered["sourceId"].astype(str).unique().tolist()
+
+        # 4) Hent observasjoner for valgt dag
+        df_day = fetch_observations_interval(
+            sess,
+            auth=auth,
+            sources=sources_in_view,
             referencetime=day_rt,
             timeout=timeout,
             batch_size=batch_size,
@@ -534,9 +684,9 @@ def build_snow_df_for_day(
         )
 
         have = set(df_day["sourceId"].unique()) if not df_day.empty else set()
-        missing = [s for s in universe if s not in have]
+        missing = [s for s in sources_in_view if s not in have]
 
-        # Trinn 2: fallback ±window_days for de som mangler (hvis window_days > 0)
+        # 5) Fallback ±window_days for de som mangler (hvis window_days > 0)
         df_fb = pd.DataFrame()
         if missing and window_days > 0:
             fb_start = day - timedelta(days=window_days)
@@ -553,28 +703,29 @@ def build_snow_df_for_day(
                 qualities=qualities,
             )
 
-        df_all = pd.concat([df_day, df_fb], ignore_index=True)
-        obs = choose_nearest_per_station(df_all, target_day=day)
+    df_all = pd.concat([df_day, df_fb], ignore_index=True)
+    obs = choose_nearest_per_station(df_all, target_day=day)
 
-        if obs.empty:
-            raise RuntimeError("Ingen observasjoner funnet selv med fallback.")
+    if obs.empty:
+        raise RuntimeError("Ingen observasjoner funnet selv med fallback.")
 
-        meta = get_sources_metadata(
-            sess,
-            auth=auth,
-            sources=list(obs["sourceId"].unique()),
-            timeout=timeout,
-            batch_size=batch_size,
-            limit=limit,
-        )
-
-    df = obs.merge(meta, on="sourceId", how="left")
+    df = obs.merge(meta_filtered, on="sourceId", how="left")
     return df, day
 
+
+# ======================================================================
+#  Public: bygg HTML for snøkart
+#  NB: tar nå 'mode' og optional bbox/z/clat/clon (for kompatibilitet)
+# ======================================================================
 
 def build_snow_map_html(
     date_str: Optional[str] = None,
     *,
+    mode: str = "latest",            # "latest" (hurtig) eller "day" (dato + fallback)
+    bbox: Optional[str] = None,      # "south,west,north,east" – brukes til å begrense stasjoner
+    z: Optional[str] = None,         # ignoreres, men beholdes for bakoverkompabilitet
+    clat: Optional[str] = None,      # ignoreres
+    clon: Optional[str] = None,      # ignoreres
     window_days: int = 1,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
@@ -587,19 +738,44 @@ def build_snow_map_html(
     heat_clip_cm: float = 200.0,
 ) -> str:
     """
-    Bygger snøkart for valgt dato og returnerer HTML-strengen.
-    date_str: 'YYYY-MM-DD', eller None = i dag (siste mulige dato med fallback).
-    """
-    df, day = build_snow_df_for_day(
-        date_str=date_str,
-        window_days=window_days,
-        timeout=timeout,
-        batch_size=batch_size,
-        limit=limit,
-        qualities=qualities,
-    )
+    Bygger snøkart for valgt modus og returnerer HTML-strengen.
 
-    _ = day  # hvis du vil logge/print senere
+    mode="latest":
+      - ignorerer date_str (bruker siste window_hours, hardkodet i build_snow_df_latest)
+      - rask: kun ett tidsvindu, ingen fallback
+
+    mode="day":
+      - bruker date_str (eller dagens dato hvis None)
+      - fallback ±window_days for stasjoner uten data den dagen
+      - stasjoner begrenses til bbox hvis satt
+    """
+    _ = (z, clat, clon)  # eksplisitt ikke brukt
+    bbox_coords = _parse_bbox(bbox)
+
+    if mode == "latest":
+        df, day = build_snow_df_latest(
+            window_hours=24,
+            timeout=timeout,
+            batch_size=batch_size,
+            limit=limit,
+            qualities=qualities,
+            bbox_coords=bbox_coords,
+        )
+        title = f"Siste tilgjengelige snødybde (siste 24 timer, per stasjon) – {day.isoformat()}"
+    else:
+        # alt annet tolkes som "day"
+        df, day = build_snow_df_for_day(
+            date_str=date_str,
+            window_days=window_days,
+            timeout=timeout,
+            batch_size=batch_size,
+            limit=limit,
+            qualities=qualities,
+            bbox_coords=bbox_coords,
+        )
+        title = f"Snødybde nær {day.isoformat()} (med fallback ±{window_days} dag(er))"
+
+    _ = day  # hvis du vil logge senere
 
     html_str = make_map(
         df,
@@ -615,33 +791,40 @@ def build_snow_map_html(
 
 
 # ======================================================================
-#  CLI-main (valgfritt, men kjekt å beholde)
+#  CLI-main (valgfritt)
 # ======================================================================
 
 def main() -> None:
     ap = argparse.ArgumentParser(
         description=(
-            "Snødybde-kart fra Frost for valgt dato. Raskere versjon med "
-            "cache og mindre default-vindu (±1 dag)."
+            "Snødybde-kart fra Frost. "
+            "Mode 'latest' = siste døgn. Mode 'day' = gitt dato med fallback ±N dager."
         )
     )
     ap.add_argument(
+        "--mode",
+        default="day",
+        choices=["latest", "day"],
+        help="latest = siste døgn (hurtig), day = kalenderdato + fallback",
+    )
+    ap.add_argument(
         "--date",
-        help="Mål-dato (UTC) YYYY-MM-DD (default = i dag)",
+        help="Mål-dato (UTC) YYYY-MM-DD (brukes kun i mode=day, default = i dag)",
         default=_date.today().isoformat(),
     )
     ap.add_argument(
         "--window-days",
         type=int,
         default=1,
-        help="Fallback-vindu ±N dager (kun for manglende stasjoner). 0 = ingen fallback.",
+        help="Fallback-vindu ±N dager (kun for mode=day). 0 = ingen fallback.",
     )
     ap.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     ap.add_argument("--batch-size", type=int, default=80)
     ap.add_argument("--limit", type=int, default=1000, help="Per-side limit for Frost (paging)")
     ap.add_argument("--qualities", default="", help="Valgfritt filter, f.eks. '0,1,2,3,4'. Tom = ingen filter.")
 
-    ap.add_argument("--out-csv", default="", help="CSV-ut (tom = auto-navn)")
+    ap.add_argument("--bbox", default="", help="Optional bbox: 'south,west,north,east'.")
+    ap.add_argument("--out-csv", default="", help="CSV-ut (tom = ingen fil)")
     ap.add_argument("--out-html", default="", help="HTML-kart (tom = auto-navn)")
 
     ap.add_argument("--no-cluster", action="store_true")
@@ -651,20 +834,32 @@ def main() -> None:
     ap.add_argument("--heat-clip-cm", type=float, default=200.0)
 
     args = ap.parse_args()
+    bbox_coords = _parse_bbox(args.bbox)
 
-    df, day = build_snow_df_for_day(
-        date_str=args.date,
-        window_days=args.window_days,
-        timeout=args.timeout,
-        batch_size=args.batch_size,
-        limit=args.limit,
-        qualities=args.qualities,
-    )
+    if args.mode == "latest":
+        df, day = build_snow_df_latest(
+            window_hours=24,
+            timeout=args.timeout,
+            batch_size=args.batch_size,
+            limit=args.limit,
+            qualities=args.qualities,
+            bbox_coords=bbox_coords,
+        )
+    else:
+        df, day = build_snow_df_for_day(
+            date_str=args.date,
+            window_days=args.window_days,
+            timeout=args.timeout,
+            batch_size=args.batch_size,
+            limit=args.limit,
+            qualities=args.qualities,
+            bbox_coords=bbox_coords,
+        )
 
-    out_csv = args.out_csv or f"snow_{args.date}_smartfallback_pm{args.window_days}d.csv"
-    out_html = args.out_html or f"snow_map_{args.date}_smartfallback_pm{args.window_days}d.html"
+    out_html = args.out_html or f"snow_map_{args.mode}_{args.date}.html"
 
-    df.to_csv(out_csv, index=False)
+    if args.out_csv:
+        df.to_csv(args.out_csv, index=False)
 
     _html_map = make_map(
         df,
@@ -676,11 +871,14 @@ def main() -> None:
         heat_clip_cm=args.heat_clip_cm,
     )
 
-    print(f"Dato: {day}")
+    print(f"Mode: {args.mode}")
+    print(f"Dato (for day-mode): {day}")
     print(f"Stasjoner (i kart): {df['sourceId'].nunique()}")
-    print(f"Skrev CSV:  {out_csv}")
+    if args.out_csv:
+        print(f"Skrev CSV:  {args.out_csv}")
     print(f"Skrev kart: {out_html}")
 
 
 if __name__ == "__main__":
     main()
+
