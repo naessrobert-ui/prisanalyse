@@ -50,7 +50,7 @@ NORWAY_COUNTIES: list[str] = [
     "Finnmark",
 ]
 
-# Temperaturtyper + element-fallback (per periode settes suffix P1D/P1M/P1Y)
+# Temperaturtyper
 TEMP_TYPES: dict[TempType, dict[str, str]] = {
     "min": {"label": "Minimumstemperatur", "fn": "min"},
     "max": {"label": "Maksimumstemperatur", "fn": "max"},
@@ -191,7 +191,6 @@ def fetch_sources_in_county(
     Returnerer DF med: baseId, name, shortName, county, countyid, lat, lon.
     """
     path = "/sources/v0.jsonld"
-
     base_params: dict[str, str | int] = {
         "types": "SensorSystem",
         "country": "NO",
@@ -298,7 +297,7 @@ def fetch_observations_interval(
         return df
     df["referenceTime"] = pd.to_datetime(df["referenceTime"], errors="coerce", utc=True)
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    df["qualityCode"] = pd.to_numeric(df["qualityCode"], errors="coerce")
+    df["qualityCode"] = pd.to_numeric(df.get("qualityCode"), errors="coerce")
     return df.dropna(subset=["referenceTime", "value"])
 
 
@@ -411,10 +410,7 @@ def make_empty_map_with_dropdown(
     selected_temp: TempType = "min",
     selected_period: Period = "last",
 ) -> str:
-    """
-    Tomt kart med fylke + temperaturtype + (valgfritt) periode (default last).
-    Dette påvirker ikke hastighet, siden vi ikke henter data før "Hent".
-    """
+    """Tomt kart med fylke + temperaturtype + periode. Ingen API-kall før 'Hent'."""
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
 
     county_opts = "\n".join(
@@ -450,7 +446,7 @@ def make_empty_map_with_dropdown(
     ">
       <div style="font-weight:900; margin-bottom:8px;">Temperatur</div>
       <div style="font-size:13px; color:#334155; margin-bottom:10px;">
-        Velg fylke og temperaturtype. Du kan også velge periode.
+        Velg fylke, temperaturtype og periode.
       </div>
 
       <label style="font-size:12px; color:#64748b;">Fylke</label>
@@ -606,7 +602,6 @@ def make_temp_map(
     q90 = float(vals.quantile(0.90))
 
     def color_for(tc: float) -> str:
-        # Nøytral fargeskala (kaldt->blått, varmt->rødt)
         if tc <= q10:
             return "#1d4ed8"
         if tc <= q20:
@@ -627,7 +622,6 @@ def make_temp_map(
     center_lon = float(d["lon"].mean())
     m = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles="OpenStreetMap")
     folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
-
     map_var = m.get_name()
 
     # Header: fylke + temp + periode + inputs
@@ -774,9 +768,10 @@ def make_temp_map(
     """
     folium.Element(header).add_to(m.get_root().html)
 
+    # ✅ Forklaring flyttet ned til høyre (og over tabellen)
     legend = """
     <div style="
-      position: fixed; top: 340px; right: 12px; z-index: 9999;
+      position: fixed; bottom: 140px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -809,10 +804,7 @@ def make_temp_map(
     """
     folium.Element(legend).add_to(m.get_root().html)
 
-    # Heatmap: vi ønsker "ekstremt" i valgt retning.
-    # - For min: kaldere -> høyere vekt
-    # - For max: varmere -> høyere vekt
-    # - For mean: avvik fra median -> høyere vekt (litt "kontrast")
+    # Heatmap-vekting: "ekstremt" i valgt retning
     v = d["value"].astype(float)
     if selected_temp == "min":
         clipped = v.clip(lower=heat_clip_cold, upper=10.0)
@@ -871,13 +863,9 @@ def make_temp_map(
 
     folium.LayerControl().add_to(m)
 
-    # Toppliste: i utsnittet, dynamisk.
+    # Toppliste: dynamisk etter utsnitt + bruker kan velge kaldest/varmest
     points_json = json.dumps(points_js, ensure_ascii=False)
-
-    # Sortering av toppliste:
-    # - min/mean: lavest først
-    # - max: høyest først
-    sort_desc = "true" if selected_temp == "max" else "false"
+    default_sort = "warm" if selected_temp == "max" else "cold"
 
     topbox_html = f"""
     <div style="
@@ -891,10 +879,22 @@ def make_temp_map(
         <div style="font-weight:900;">
           <span id="topTitle">Oppdaterer…</span>
         </div>
-        <button onclick="toggleToplist()" style="border:none;background:#e2e8f0;border-radius:999px;padding:6px 10px;cursor:pointer;">
-          Vis/skjul
-        </button>
+
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="topSortSel" style="
+            padding:6px 10px; border-radius:999px; border:1px solid #e2e8f0;
+            background:white; font-weight:700; font-size:13px; color:#0f172a;
+          ">
+            <option value="cold" {"selected" if default_sort=="cold" else ""}>Kaldest først</option>
+            <option value="warm" {"selected" if default_sort=="warm" else ""}>Varmest først</option>
+          </select>
+
+          <button onclick="toggleToplist()" style="border:none;background:#e2e8f0;border-radius:999px;padding:6px 10px;cursor:pointer;">
+            Vis/skjul
+          </button>
+        </div>
       </div>
+
       <div id="toplistBody" style="margin-top:8px; max-height: 240px; overflow:auto;">
         <table style="border-collapse:collapse; width:100%;">
           <thead>
@@ -931,8 +931,10 @@ def make_temp_map(
         const b = map.getBounds();
         const inView = window._tempPoints.filter(p => b.contains([p.lat, p.lon]));
 
-        // sort: asc for min/mean, desc for max
-        const desc = {sort_desc};
+        const sel = document.getElementById("topSortSel");
+        const mode = sel ? (sel.value || "cold") : "cold";
+        const desc = (mode === "warm");  // warm => høyeste først
+
         inView.sort((a,b) => desc ? (b.value - a.value) : (a.value - b.value));
 
         const top = inView.slice(0, {int(top_n)});
@@ -971,6 +973,10 @@ def make_temp_map(
             if (tries < 60) setTimeout(tick, 150);
             return;
           }}
+
+          const sel = document.getElementById("topSortSel");
+          if (sel) sel.addEventListener("change", () => updateToplist(map));
+
           map.on("moveend", () => updateToplist(map));
           map.on("zoomend", () => updateToplist(map));
           updateToplist(map);
@@ -1005,7 +1011,6 @@ def build_min_temp_map_html(
     limit: int = 1000,
     qualities: str = "0,1,2,3,4",
 ) -> str:
-    # Hold navnet for kompatibilitet med ver_routes.py
     if not county:
         return make_empty_map_with_dropdown(selected_temp=temp, selected_period=period)
 
@@ -1022,7 +1027,7 @@ def build_min_temp_map_html(
     ui_month = month_str or now.strftime("%Y-%m")
     ui_year = year_str or now.strftime("%Y")
 
-    # referencetime
+    # referencetime + title
     if period == "day":
         day = _date.fromisoformat(ui_date)
         start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
