@@ -8,13 +8,14 @@ from precip_map import build_precip_map_html
 from sunshine_map import build_sunshine_map_html
 from temp_map import build_min_temp_map_html
 
+# ✅ Blueprint heter "ver" og URL-prefix er /ver
 ver = Blueprint("ver", __name__, url_prefix="/ver")
 
 
 # =========================
 # HUB / MENY
 # =========================
-@ver_bp.route("/")
+@ver.route("/")
 def ver_hub() -> str:
     return """
 <!doctype html>
@@ -38,6 +39,9 @@ def ver_hub() -> str:
         display:inline-block; padding: 8px 14px; border-radius: 999px;
         background:#2563eb; color:#fff; text-decoration:none; font-weight:700;
       }
+      .btn-green { background:#16a34a; }
+      .btn-amber { background:#f59e0b; }
+      .btn-red { background:#ef4444; }
       @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
     </style>
   </head>
@@ -50,53 +54,57 @@ def ver_hub() -> str:
           <p class="muted">Snødybde fra Frost. Velg dato.</p>
           <a class="btn" href="/ver/sno">Åpne</a>
         </div>
+
         <div class="card">
           <h2>Nedbør</h2>
           <p class="muted">Siste 24 timer (rullerende) + dag / MTD / YTD.</p>
-          <a class="btn" href="/ver/nedbor">Åpne</a>
+          <a class="btn btn-green" href="/ver/nedbor">Åpne</a>
         </div>
+
         <div class="card">
           <h2>Solskinn</h2>
           <p class="muted">Siste 24 timer (rullerende) + dag / MTD / YTD.</p>
-          <a class="btn" href="/ver/solskinn">Åpne</a>
+          <a class="btn btn-amber" href="/ver/solskinn">Åpne</a>
+        </div>
+
+        <div class="card">
+          <h2>Min temperatur siste døgn</h2>
+          <p class="muted">Velg fylke og se nyeste døgn-min (P1D) per stasjon.</p>
+          <a class="btn btn-red" href="/ver/min-temp">Åpne</a>
         </div>
       </div>
     </div>
   </body>
 </html>
 """
+
+
+# =========================
+# MIN TEMP (ny)
+# =========================
 @ver.get("/min-temp")
 def min_temp_index():
-    """
-    Viser et 'index'-view (kan være en side med iframe, eller bare returnere kart direkte).
-    Her bruker vi en egen template som viser kart i iframe (samme mønster som mange bruker).
-    """
     return render_template("ver/min_temp_index.html")
 
 
 @ver.get("/min-temp-kart")
 def min_temp_map():
-    """
-    Returnerer selve folium-HTML'en.
-    Dropdown i kartet navigerer til /ver/min-temp-kart?county=...
-    """
     county = request.args.get("county") or None
 
     html = build_min_temp_map_html(
         county=county,
-        # evt juster for ytelse:
         timeout=20,
         batch_size=80,
         limit=1000,
         qualities="0,1,2,3,4",
     )
-
     return Response(html, mimetype="text/html; charset=utf-8")
+
 
 # =========================
 # SNØ
 # =========================
-@ver_bp.route("/sno")
+@ver.route("/sno")
 def sno_index() -> str:
     today_str = _date.today().isoformat()
     return f"""
@@ -151,7 +159,7 @@ def sno_index() -> str:
 """
 
 
-@ver_bp.route("/snomengde-kart")
+@ver.route("/snomengde-kart")
 def snomengde_kart() -> str:
     date_str = request.args.get("date")
     return build_snow_map_html(date_str=date_str, show_heatmap=True)
@@ -160,7 +168,7 @@ def snomengde_kart() -> str:
 # =========================
 # NEDBØR
 # =========================
-@ver_bp.route("/nedbor")
+@ver.route("/nedbor")
 def nedbor_index() -> str:
     today_str = _date.today().isoformat()
     return f"""
@@ -316,7 +324,7 @@ def nedbor_index() -> str:
 """
 
 
-@ver_bp.route("/nedbor-kart")
+@ver.route("/nedbor-kart")
 def nedbor_kart() -> str:
     date_str = request.args.get("date")
     mode = request.args.get("mode", "last24h")
@@ -343,7 +351,7 @@ def nedbor_kart() -> str:
 # =========================
 # SOLSKINN
 # =========================
-@ver_bp.route("/solskinn")
+@ver.route("/solskinn")
 def solskinn_index() -> str:
     today_str = _date.today().isoformat()
     return f"""
@@ -499,7 +507,7 @@ def solskinn_index() -> str:
 """
 
 
-@ver_bp.route("/solskinn-kart")
+@ver.route("/solskinn-kart")
 def solskinn_kart() -> str:
     date_str = request.args.get("date")
     mode = request.args.get("mode", "last24h")
@@ -521,3 +529,4 @@ def solskinn_kart() -> str:
         clon=clon,
         show_heatmap=True,
     )
+

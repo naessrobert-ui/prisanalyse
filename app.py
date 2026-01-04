@@ -15,7 +15,7 @@ from fritidsbolig_routes import fritids_bp
 from bil_routes import bil_bp
 from bil_import import bil_import_bp
 from gemini_routes import gemini_bp
-from scripts.ver_routes import ver_bp
+from scripts.ver_routes import ver
 
 
 load_dotenv()
@@ -41,7 +41,7 @@ def create_app() -> Flask:
     app.register_blueprint(bil_bp)
     app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
     app.register_blueprint(gemini_bp)
-    app.register_blueprint(ver_bp, url_prefix="/ver")  # all /ver/* via ver_routes.py
+    app.register_blueprint(ver)
 
     # -----------------------
     # Forside / generelle sider
