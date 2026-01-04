@@ -176,64 +176,87 @@ def fetch_sources_in_county(
     timeout: int,
 ) -> pd.DataFrame:
     """
-    Hent stasjoner i fylke via /sources. Returnerer DF med baseId, name, shortName, lat, lon, countyname.
-    Vi prøver flere parameternavn for robusthet (county / countyname / countyid).
+    Hent stasjoner i fylke via /sources.
+
+    Merk: /sources støtter ikke feltet 'countyname' (gir 400).
+    Bruk 'county' og ev. 'countyid' i stedet.
+
+    Returnerer DF med: baseId, name, shortName, county, countyid, lat, lon.
     """
     path = "/sources/v0.jsonld"
 
-    # Vi ber om countyname i output – støttes ifølge Frost “user questions”.
-    # (Supported fields inkluderer countyid/countyname.) :contentReference[oaicite:1]{index=1}
+    # Frost /sources: supported fields inkluderer county og countyid (men ikke countyname).
     base_params: dict[str, str | int] = {
         "types": "SensorSystem",
         "country": "NO",
-        "fields": "id,name,shortName,geometry,countyname,countyid",
+        "fields": "id,name,shortName,geometry,county,countyid",
+        "county": county,  # filter på fylke
     }
 
-    def _try(params: dict[str, str | int]) -> pd.DataFrame:
-        rows: list[dict[str, Any]] = []
-        for page in iter_pages(session, path, params, auth=auth, timeout=timeout):
-            if page.get("@type") == "ErrorResponse":
-                continue
-            for item in page.get("data", []):
-                geom = item.get("geometry") or {}
-                coords = geom.get("coordinates")  # [lon, lat]
-                lon = lat = None
-                if isinstance(coords, (list, tuple)) and len(coords) >= 2:
-                    lon, lat = coords[0], coords[1]
-                rows.append(
-                    {
-                        "baseId": item.get("id"),
-                        "name": item.get("name"),
-                        "shortName": item.get("shortName"),
-                        "countyname": item.get("countyname"),
-                        "countyid": item.get("countyid"),
-                        "lat": lat,
-                        "lon": lon,
-                    }
-                )
-        df = pd.DataFrame(rows)
-        if df.empty:
-            return df
-        df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
-        df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
-        return df.dropna(subset=["baseId", "lat", "lon"])
+    rows: list[dict[str, Any]] = []
+    for page in iter_pages(session, path, base_params, auth=auth, timeout=timeout):
+        if page.get("@type") == "ErrorResponse":
+            # Behold gjerne mer logging her om du vil
+            continue
 
-    # Prøv: county=<navn>
-    p1 = {**base_params, "county": county}
-    df = _try(p1)
-    if not df.empty:
+        for item in page.get("data", []):
+            geom = item.get("geometry") or {}
+            coords = geom.get("coordinates")  # [lon, lat]
+            lon = lat = None
+            if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                lon, lat = coords[0], coords[1]
+
+            rows.append(
+                {
+                    "baseId": item.get("id"),
+                    "name": item.get("name"),
+                    "shortName": item.get("shortName"),
+                    "county": item.get("county"),
+                    "countyid": item.get("countyid"),
+                    "lat": lat,
+                    "lon": lon,
+                }
+            )
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        # Lite robust wildcard-forsøk (kan hjelpe hvis fylkesnavn matcher litt annerledes i Frost)
+        # Eksempel: "Møre og Romsdal" -> "Møre*Romsdal"
+        county_wild = county.replace(" og ", "*")
+        if county_wild != county:
+            params2 = base_params.copy()
+            params2["county"] = county_wild
+
+            rows2: list[dict[str, Any]] = []
+            for page in iter_pages(session, path, params2, auth=auth, timeout=timeout):
+                if page.get("@type") == "ErrorResponse":
+                    continue
+                for item in page.get("data", []):
+                    geom = item.get("geometry") or {}
+                    coords = geom.get("coordinates")
+                    lon = lat = None
+                    if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                        lon, lat = coords[0], coords[1]
+                    rows2.append(
+                        {
+                            "baseId": item.get("id"),
+                            "name": item.get("name"),
+                            "shortName": item.get("shortName"),
+                            "county": item.get("county"),
+                            "countyid": item.get("countyid"),
+                            "lat": lat,
+                            "lon": lon,
+                        }
+                    )
+
+            df = pd.DataFrame(rows2)
+
+    if df.empty:
         return df
 
-    # Fallback: countyname=<navn>
-    p2 = {**base_params, "countyname": county}
-    df = _try(p2)
-    if not df.empty:
-        return df
-
-    # Fallback: prøv litt “wildcard” hvis fylkenavn avviker i Frost
-    p3 = {**base_params, "county": county.replace(" og ", "*")}
-    df = _try(p3)
-    return df
+    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
+    df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
+    return df.dropna(subset=["baseId", "lat", "lon"]).reset_index(drop=True)
 
 
 # ======================================================================
