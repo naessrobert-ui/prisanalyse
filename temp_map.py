@@ -1046,4 +1046,126 @@ def build_min_temp_map_html(
     element_candidates = _elements_for(temp, period)
 
     with requests.Session() as sess:
-        src_meta = fetch_sources_in_county(sess, auth=auth, county
+        src_meta = fetch_sources_in_county(sess, auth=auth, county=county, timeout=timeout)
+        if src_meta.empty:
+            return make_empty_map_with_dropdown(
+                selected_county=county,
+                selected_temp=temp,
+                selected_period=period,
+            )
+
+        sources = src_meta["baseId"].astype(str).tolist()
+
+        obs = pd.DataFrame()
+        element_used: str | None = None
+        for el in element_candidates:
+            tmp = fetch_observations_interval(
+                sess,
+                auth=auth,
+                sources=sources,
+                referencetime=referencetime,
+                elements=el,
+                timeout=timeout,
+                batch_size=batch_size,
+                limit=limit,
+                qualities=qualities,
+            )
+            if not tmp.empty:
+                obs = tmp
+                element_used = el
+                break
+
+    if obs.empty:
+        m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
+        folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
+        msg = f"""
+        <div style="
+          position: fixed; top: 12px; right: 12px; z-index: 9999;
+          background: rgba(255,255,255,.95); padding: 12px 12px;
+          border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
+          font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+          max-width: 420px;
+        ">
+          <div style="font-weight:900; margin-bottom:6px;">Ingen data</div>
+          <div style="font-size:13px; color:#334155;">
+            Fant ingen tidsserier for valgt kombinasjon i <b>{county}</b>.
+            Prøv annen temperaturtype eller periode.
+          </div>
+        </div>
+        """
+        folium.Element(msg).add_to(m.get_root().html)
+        return m.get_root().render()
+
+    # plukk per stasjon
+    if period == "day":
+        picked = pick_value_in_day(obs, day=_date.fromisoformat(ui_date))
+    else:
+        picked = pick_latest_value_per_station(obs)
+
+    if picked.empty:
+        return make_empty_map_with_dropdown(
+            selected_county=county,
+            selected_temp=temp,
+            selected_period=period,
+        )
+
+    picked["baseId"] = picked["sourceId"].astype(str).map(base_source_id)
+    merged = picked.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
+    merged = merged.dropna(subset=["lat", "lon", "value"])
+
+    if merged.empty:
+        return make_empty_map_with_dropdown(
+            selected_county=county,
+            selected_temp=temp,
+            selected_period=period,
+        )
+
+    updated = now.strftime("%Y-%m-%d %H:%M UTC")
+    used_txt = f" ({element_used})" if element_used else ""
+    title = f"{title_base}{used_txt}<br><small>Oppdatert ca. {updated}</small>"
+
+    return make_temp_map(
+        merged,
+        title=title,
+        selected_county=county,
+        selected_temp=temp,
+        selected_period=period,
+        selected_date=ui_date,
+        selected_month=ui_month,
+        selected_year=ui_year,
+        element_used=element_used or "(ukjent)",
+        cluster=True,
+        heatmap_show=True,
+        heat_radius=25,
+        heat_blur=18,
+        top_n=10,
+    )
+
+
+# ======================================================================
+# CLI (valgfritt)
+# ======================================================================
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Temperatur-kart (velg fylke).")
+    ap.add_argument("--county", default="", help="Fylke, f.eks. 'Innlandet'")
+    ap.add_argument("--temp", default="min", choices=["min", "max", "mean"])
+    ap.add_argument("--period", default="last", choices=["last", "day", "month", "year"])
+    ap.add_argument("--date", default="", help="YYYY-MM-DD (for period=day)")
+    ap.add_argument("--month", default="", help="YYYY-MM (for period=month)")
+    ap.add_argument("--year", default="", help="YYYY (for period=year)")
+    args = ap.parse_args()
+
+    html = build_min_temp_map_html(
+        county=args.county or None,
+        temp=args.temp,  # type: ignore[arg-type]
+        period=args.period,  # type: ignore[arg-type]
+        date_str=args.date or None,
+        month_str=args.month or None,
+        year_str=args.year or None,
+    )
+    print(html[:700])
+
+
+if __name__ == "__main__":
+    main()
