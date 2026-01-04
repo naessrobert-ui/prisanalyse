@@ -91,13 +91,23 @@ def min_temp_index():
 def min_temp_map():
     county = request.args.get("county") or None
 
+    period = request.args.get("period", "last")
+    date_str = request.args.get("date")
+    month_str = request.args.get("month")
+    year_str = request.args.get("year")
+
     html = build_min_temp_map_html(
         county=county,
+        period=period,
+        date_str=date_str,
+        month_str=month_str,
+        year_str=year_str,
         timeout=20,
         batch_size=80,
         limit=1000,
         qualities="0,1,2,3,4",
     )
+
     return Response(html, mimetype="text/html; charset=utf-8")
 
 

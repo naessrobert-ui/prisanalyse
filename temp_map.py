@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import time
 from dataclasses import dataclass
+from datetime import date as _date
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterator, Optional, Literal
+from typing import Any, Iterator, Optional
 
 import pandas as pd
 import requests
@@ -25,12 +27,9 @@ load_dotenv()
 FROST_BASE = "https://frost.met.no"
 DEFAULT_TIMEOUT = 20
 
-# Element: døgn-min temp (best estimate)
-ELEMENT_TMIN_DAY = "best_estimate_min(air_temperature P1D)"
 UNIT_C = "°C"
 
-# En pragmatisk fylkeliste (etter 2024-endringene). Hvis Frost county-navn avviker,
-# håndterer vi fallback (se fetch_sources_in_county()).
+# En pragmatisk fylkeliste (etter 2024-endringene).
 NORWAY_COUNTIES: list[str] = [
     "Oslo",
     "Akershus",
@@ -76,7 +75,7 @@ def frost_get_json(
     retries: int = 6,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """GET med retries (429/5xx). Returnerer JSON (inkl. ErrorResponse ved 404)."""
+    """GET med retries (429/5xx). Returnerer JSON (inkl. ErrorResponse ved 404/412)."""
     url = f"{FROST_BASE}{path}"
     backoff = 1.0
 
@@ -95,7 +94,6 @@ def frost_get_json(
         # 404 og 412 returneres som ErrorResponse (ikke kast)
         if r.status_code in (404, 412):
             return r.json()
-
 
         if r.status_code == 429 or 500 <= r.status_code < 600:
             time.sleep(backoff)
@@ -179,90 +177,64 @@ def fetch_sources_in_county(
 ) -> pd.DataFrame:
     """
     Hent stasjoner i fylke via /sources.
-
-    Merk: /sources støtter ikke feltet 'countyname' (gir 400).
-    Bruk 'county' og ev. 'countyid' i stedet.
+    Bruk 'county' og ev. 'countyid'. (Ikke 'countyname'.)
 
     Returnerer DF med: baseId, name, shortName, county, countyid, lat, lon.
     """
     path = "/sources/v0.jsonld"
 
-    # Frost /sources: supported fields inkluderer county og countyid (men ikke countyname).
     base_params: dict[str, str | int] = {
         "types": "SensorSystem",
         "country": "NO",
         "fields": "id,name,shortName,geometry,county,countyid",
-        "county": county,  # filter på fylke
+        "county": county,
     }
 
-    rows: list[dict[str, Any]] = []
-    for page in iter_pages(session, path, base_params, auth=auth, timeout=timeout):
-        if page.get("@type") == "ErrorResponse":
-            # Behold gjerne mer logging her om du vil
-            continue
+    def _fetch(params: dict[str, str | int]) -> pd.DataFrame:
+        rows: list[dict[str, Any]] = []
+        for page in iter_pages(session, path, params, auth=auth, timeout=timeout):
+            if page.get("@type") == "ErrorResponse":
+                continue
+            for item in page.get("data", []):
+                geom = item.get("geometry") or {}
+                coords = geom.get("coordinates")  # [lon, lat]
+                lon = lat = None
+                if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                    lon, lat = coords[0], coords[1]
+                rows.append(
+                    {
+                        "baseId": item.get("id"),
+                        "name": item.get("name"),
+                        "shortName": item.get("shortName"),
+                        "county": item.get("county"),
+                        "countyid": item.get("countyid"),
+                        "lat": lat,
+                        "lon": lon,
+                    }
+                )
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return df
+        df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
+        df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
+        return df.dropna(subset=["baseId", "lat", "lon"]).reset_index(drop=True)
 
-        for item in page.get("data", []):
-            geom = item.get("geometry") or {}
-            coords = geom.get("coordinates")  # [lon, lat]
-            lon = lat = None
-            if isinstance(coords, (list, tuple)) and len(coords) >= 2:
-                lon, lat = coords[0], coords[1]
-
-            rows.append(
-                {
-                    "baseId": item.get("id"),
-                    "name": item.get("name"),
-                    "shortName": item.get("shortName"),
-                    "county": item.get("county"),
-                    "countyid": item.get("countyid"),
-                    "lat": lat,
-                    "lon": lon,
-                }
-            )
-
-    df = pd.DataFrame(rows)
-    if df.empty:
-        # Lite robust wildcard-forsøk (kan hjelpe hvis fylkesnavn matcher litt annerledes i Frost)
-        # Eksempel: "Møre og Romsdal" -> "Møre*Romsdal"
-        county_wild = county.replace(" og ", "*")
-        if county_wild != county:
-            params2 = base_params.copy()
-            params2["county"] = county_wild
-
-            rows2: list[dict[str, Any]] = []
-            for page in iter_pages(session, path, params2, auth=auth, timeout=timeout):
-                if page.get("@type") == "ErrorResponse":
-                    continue
-                for item in page.get("data", []):
-                    geom = item.get("geometry") or {}
-                    coords = geom.get("coordinates")
-                    lon = lat = None
-                    if isinstance(coords, (list, tuple)) and len(coords) >= 2:
-                        lon, lat = coords[0], coords[1]
-                    rows2.append(
-                        {
-                            "baseId": item.get("id"),
-                            "name": item.get("name"),
-                            "shortName": item.get("shortName"),
-                            "county": item.get("county"),
-                            "countyid": item.get("countyid"),
-                            "lat": lat,
-                            "lon": lon,
-                        }
-                    )
-
-            df = pd.DataFrame(rows2)
-
-    if df.empty:
+    df = _fetch(base_params)
+    if not df.empty:
         return df
 
-    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
-    df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
-    return df.dropna(subset=["baseId", "lat", "lon"]).reset_index(drop=True)
+    # Wildcard-fallback (kan hjelpe ved navnevariasjoner)
+    county_wild = county.replace(" og ", "*")
+    if county_wild != county:
+        p2 = base_params.copy()
+        p2["county"] = county_wild
+        return _fetch(p2)
+
+    return df
 
 
 # ======================================================================
-# Observasjoner: siste døgn (nyeste P1D pr stasjon)
+# Observasjoner
 # ======================================================================
 
 def fetch_observations_interval(
@@ -277,10 +249,7 @@ def fetch_observations_interval(
     limit: int = 1000,
     qualities: str = "0,1,2,3,4",
 ) -> pd.DataFrame:
-    """
-    Hent observasjoner i et intervall for mange stasjoner.
-    Returnerer lang DF.
-    """
+    """Hent observasjoner i et intervall for mange stasjoner. Returnerer lang DF."""
     path = "/observations/v0.jsonld"
     rows: list[dict[str, Any]] = []
 
@@ -325,20 +294,52 @@ def fetch_observations_interval(
 
 
 def pick_latest_value_per_station(df: pd.DataFrame) -> pd.DataFrame:
-    """Velg nyeste observasjon per stasjon (brukes for 'siste døgn' P1D)."""
+    """Velg nyeste observasjon per stasjon."""
     if df.empty:
         return df
-    out = (
+    return (
         df.sort_values(["sourceId", "referenceTime"], ascending=[True, False])
         .groupby("sourceId", as_index=False)
         .head(1)
         .reset_index(drop=True)
     )
-    return out
+
+
+def pick_value_in_day(df: pd.DataFrame, *, day: _date) -> pd.DataFrame:
+    """Velg verdien som hører til valgt kalenderdøgn (UTC)."""
+    if df.empty:
+        return df
+    start = pd.Timestamp(datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
+    end = start + pd.Timedelta(days=1)
+    d = df[(df["referenceTime"] >= start) & (df["referenceTime"] < end)].copy()
+    if d.empty:
+        return d
+    return pick_latest_value_per_station(d)
 
 
 # ======================================================================
-# UI helpers (dropdown i kart)
+# Period helpers (UTC)
+# ======================================================================
+
+def _month_bounds_utc(ym: str) -> tuple[datetime, datetime]:
+    y, m = map(int, ym.split("-"))
+    start = datetime(y, m, 1, tzinfo=timezone.utc)
+    if m == 12:
+        end = datetime(y + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end = datetime(y, m + 1, 1, tzinfo=timezone.utc)
+    return start, end
+
+
+def _year_bounds_utc(y: str) -> tuple[datetime, datetime]:
+    yy = int(y)
+    start = datetime(yy, 1, 1, tzinfo=timezone.utc)
+    end = datetime(yy + 1, 1, 1, tzinfo=timezone.utc)
+    return start, end
+
+
+# ======================================================================
+# UI helpers
 # ======================================================================
 
 def _loading_overlay_js() -> str:
@@ -386,6 +387,10 @@ def _loading_overlay_js() -> str:
 
 
 def make_empty_map_with_dropdown(*, selected_county: str = "") -> str:
+    """
+    Tomt kart: kun fylkevelger.
+    Periodemeny kommer når data er lastet (for å holde default rask/enkelt).
+    """
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
     opts = "\n".join(
         f'<option value="{c}" {"selected" if c == selected_county else ""}>{c}</option>'
@@ -402,9 +407,9 @@ def make_empty_map_with_dropdown(*, selected_county: str = "") -> str:
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
       max-width: 360px;
     ">
-      <div style="font-weight:900; margin-bottom:8px;">Minimumstemperatur – siste døgn</div>
+      <div style="font-weight:900; margin-bottom:8px;">Minimumstemperatur</div>
       <div style="font-size:13px; color:#334155; margin-bottom:10px;">
-        Velg fylke for å hente stasjoner og nyeste døgn-min (P1D).
+        Velg fylke for å hente nyeste døgn-min per stasjon.
       </div>
 
       <label style="font-size:12px; color:#64748b;">Fylke</label>
@@ -421,7 +426,7 @@ def make_empty_map_with_dropdown(*, selected_county: str = "") -> str:
         margin-top:10px; width:100%;
         padding:9px 12px; border:none; border-radius:999px;
         background:#0f172a; color:white; cursor:pointer; font-weight:700;
-      ">Hent</button>
+      ">Hent siste døgn</button>
     </div>
 
     <script>
@@ -433,16 +438,12 @@ def make_empty_map_with_dropdown(*, selected_county: str = "") -> str:
         }}
         const qs = new URLSearchParams();
         qs.set('county', c);
+        // default period=last
+        qs.set('period', 'last');
         if (window.showLoading) window.showLoading();
-        // Hvis du kjører dette som ren CLI/fil: bytt til bare "?county=".
-        // I webapp: bruk din route, f.eks. '/ver/min-temp-kart'
         window.location.href = '/ver/min-temp-kart?' + qs.toString();
       }}
       document.getElementById('fetchBtn').addEventListener('click', go);
-      document.getElementById('countySel').addEventListener('change', function() {{
-        // auto-fetch hvis du vil:
-        // go();
-      }});
     </script>
     """
     folium.Element(ui).add_to(m.get_root().html)
@@ -450,7 +451,7 @@ def make_empty_map_with_dropdown(*, selected_county: str = "") -> str:
 
 
 # ======================================================================
-# Kart med data (tilpasset temperatur)
+# Kart med data
 # ======================================================================
 
 def make_temp_map(
@@ -458,11 +459,16 @@ def make_temp_map(
     *,
     title: str,
     selected_county: str,
+    selected_period: str,
+    selected_date: str,
+    selected_month: str,
+    selected_year: str,
+    element_used: str,
     cluster: bool = True,
     heatmap_show: bool = True,
     heat_radius: int = 25,
     heat_blur: int = 18,
-    heat_clip_cold: float = -25.0,  # klipp kaldt for heat-weight
+    heat_clip_cold: float = -25.0,
     top_n: int = 10,
 ) -> str:
     if df.empty:
@@ -478,26 +484,23 @@ def make_temp_map(
         raise RuntimeError("Har data, men ingen rader med både koordinater og verdi.")
 
     vals = d["value"].astype(float)
-    q10 = float(vals.quantile(0.10))  # kaldest 10%
+    q10 = float(vals.quantile(0.10))
     q20 = float(vals.quantile(0.20))
     q80 = float(vals.quantile(0.80))
-    q90 = float(vals.quantile(0.90))  # varmest 10%
+    q90 = float(vals.quantile(0.90))
 
     def color_for(tc: float) -> str:
-        # kaldt -> blått, varmt -> rødt
         if tc <= q10:
-            return "#1d4ed8"   # kaldest 10%
+            return "#1d4ed8"
         if tc <= q20:
-            return "#2563eb"   # 10–20%
+            return "#2563eb"
         if tc >= q90:
-            return "#dc2626"   # varmest 10%
+            return "#dc2626"
         if tc >= q80:
-            return "#ef4444"   # 80–90%
-        return "#64748b"       # midten
+            return "#ef4444"
+        return "#64748b"
 
     def radius_for(tc: float) -> float:
-        # litt større bobler ved mer “ekstremt” (kaldere)
-        # bruk avstand fra median
         med = float(vals.median())
         strength = abs(tc - med)
         r = 4.0 + 2.5 * math.sqrt(max(strength, 0.0))
@@ -509,64 +512,139 @@ def make_temp_map(
 
     folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
 
-    # Dropdown + refresh
+    # Header: fylke + periode + inputs
     opts = "\n".join(
         f'<option value="{c}" {"selected" if c == selected_county else ""}>{c}</option>'
         for c in NORWAY_COUNTIES
     )
+
+    period_opts = {
+        "last": "Siste døgn",
+        "day": "Valgt døgn",
+        "month": "Valgt måned",
+        "year": "Valgt år",
+    }
+    period_html = "\n".join(
+        f'<option value="{k}" {"selected" if k == selected_period else ""}>{v}</option>'
+        for k, v in period_opts.items()
+    )
+
     header = f"""
     <div style="
       position: fixed; top: 12px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 12px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-      max-width: 380px;
+      max-width: 410px;
     ">
       <div style="font-weight:900; margin-bottom:6px;">{title}</div>
       <div style="font-size:12px; color:#64748b; margin-bottom:10px;">
-        Nyeste døgn-min (P1D) per stasjon i valgt fylke.
+        Element: <code style="font-size:11px;">{element_used}</code>
       </div>
 
-      <div style="display:flex; gap:8px; align-items:end;">
-        <div style="flex:1;">
-          <label style="font-size:12px; color:#64748b;">Fylke</label>
-          <select id="countySel" style="
-            width:100%; margin-top:4px;
-            padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px;
-            background:white;
-          ">
-            <option value="">– Velg –</option>
-            {opts}
-          </select>
-        </div>
-        <button id="refreshBtn" style="
-          padding:9px 12px; border:none; border-radius:999px;
-          background:#0f172a; color:white; cursor:pointer; font-weight:800;
-        ">Oppdater</button>
+      <label style="font-size:12px; color:#64748b;">Fylke</label>
+      <select id="countySel" style="
+        width:100%; margin-top:4px; margin-bottom:10px;
+        padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px;
+        background:white;
+      ">
+        <option value="">– Velg –</option>
+        {opts}
+      </select>
+
+      <label style="font-size:12px; color:#64748b;">Periode</label>
+      <select id="periodSel" style="
+        width:100%; margin-top:4px;
+        padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px;
+        background:white;
+      ">
+        {period_html}
+      </select>
+
+      <div id="dayBox" style="margin-top:8px; display:none;">
+        <label style="font-size:12px; color:#64748b;">Dato</label>
+        <input id="dayInput" type="date" value="{selected_date}" style="
+          width:100%; margin-top:4px;
+          padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px;
+        ">
       </div>
+
+      <div id="monthBox" style="margin-top:8px; display:none;">
+        <label style="font-size:12px; color:#64748b;">Måned</label>
+        <input id="monthInput" type="month" value="{selected_month}" style="
+          width:100%; margin-top:4px;
+          padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px;
+        ">
+      </div>
+
+      <div id="yearBox" style="margin-top:8px; display:none;">
+        <label style="font-size:12px; color:#64748b;">År</label>
+        <input id="yearInput" type="number" min="1900" max="2100" value="{selected_year}" style="
+          width:100%; margin-top:4px;
+          padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px;
+        ">
+      </div>
+
+      <button id="refreshBtn" style="
+        margin-top:10px; width:100%;
+        padding:9px 12px; border:none; border-radius:999px;
+        background:#0f172a; color:white; cursor:pointer; font-weight:800;
+      ">Oppdater</button>
     </div>
 
     <script>
+      const periodSel = document.getElementById("periodSel");
+      const dayBox = document.getElementById("dayBox");
+      const monthBox = document.getElementById("monthBox");
+      const yearBox = document.getElementById("yearBox");
+
+      function syncPeriodUI() {{
+        const p = periodSel.value || "last";
+        dayBox.style.display = (p === "day") ? "block" : "none";
+        monthBox.style.display = (p === "month") ? "block" : "none";
+        yearBox.style.display = (p === "year") ? "block" : "none";
+      }}
+      periodSel.addEventListener("change", syncPeriodUI);
+      syncPeriodUI();
+
       function go() {{
         const c = document.getElementById('countySel').value;
         if (!c) {{
           alert('Velg fylke først.');
           return;
         }}
+
+        const p = periodSel.value || "last";
         const qs = new URLSearchParams();
         qs.set('county', c);
+        qs.set('period', p);
+
+        if (p === "day") {{
+          const d = document.getElementById("dayInput").value;
+          if (!d) {{ alert("Velg dato"); return; }}
+          qs.set("date", d);
+        }} else if (p === "month") {{
+          const m = document.getElementById("monthInput").value;
+          if (!m) {{ alert("Velg måned"); return; }}
+          qs.set("month", m);
+        }} else if (p === "year") {{
+          const y = document.getElementById("yearInput").value;
+          if (!y) {{ alert("Velg år"); return; }}
+          qs.set("year", y);
+        }}
+
         if (window.showLoading) window.showLoading();
         window.location.href = '/ver/min-temp-kart?' + qs.toString();
       }}
+
       document.getElementById('refreshBtn').addEventListener('click', go);
-      document.getElementById('countySel').addEventListener('change', go);
     </script>
     """
     folium.Element(header).add_to(m.get_root().html)
 
     legend = """
     <div style="
-      position: fixed; top: 140px; right: 12px; z-index: 9999;
+      position: fixed; top: 320px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -599,8 +677,7 @@ def make_temp_map(
     """
     folium.Element(legend).add_to(m.get_root().html)
 
-    # Heatmap: gi mer vekt til kaldt (klipp fra heat_clip_cold til f.eks. +10)
-    # Vi mapper "kaldere => høyere vekt".
+    # Heatmap: kaldere => høyere vekt
     clipped = d["value"].clip(lower=heat_clip_cold, upper=10.0)
     weights = (10.0 - clipped) / (10.0 - heat_clip_cold)  # 0..1
     heat_data = [[float(lat), float(lon), float(wt)] for lat, lon, wt in zip(d["lat"], d["lon"], weights)]
@@ -611,6 +688,9 @@ def make_temp_map(
     points_layer = folium.FeatureGroup(name="Stasjoner", show=True)
     points_layer.add_to(m)
     layer_for_markers = MarkerCluster().add_to(points_layer) if cluster else points_layer
+
+    # For toppliste-oppdatering i JS (uten nye kall)
+    points_js: list[dict[str, Any]] = []
 
     for _, r in d.iterrows():
         tc = float(r["value"])
@@ -634,28 +714,19 @@ def make_temp_map(
             popup=folium.Popup(html, max_width=360),
         ).add_to(layer_for_markers)
 
-    folium.LayerControl().add_to(m)
-
-    # Toppliste = kaldest N
-    top = d.sort_values("value", ascending=True).head(int(top_n)).copy()
-    rows_html: list[str] = []
-    for i, r in enumerate(top.itertuples(index=False), start=1):
-        sid = str(getattr(r, "sourceId"))
-        nm = getattr(r, "name", None) or getattr(r, "shortName", None) or sid
-        tc = float(getattr(r, "value"))
-        rows_html.append(
-            f"""
-            <tr>
-              <td style="padding:6px 8px; color:#64748b;">{i}</td>
-              <td style="padding:6px 8px;">
-                {nm}
-                <div style="font-size:12px;color:#64748b;">{sid}</div>
-              </td>
-              <td style="padding:6px 8px; text-align:right; font-weight:900;">{tc:.1f} °C</td>
-            </tr>
-            """
+        points_js.append(
+            {
+                "sid": str(r["sourceId"]),
+                "name": str(name),
+                "lat": float(r["lat"]),
+                "lon": float(r["lon"]),
+                "value": float(tc),
+            }
         )
 
+    folium.LayerControl().add_to(m)
+
+    # Toppliste-boks (nå dynamisk i utsnittet)
     topbox_html = f"""
     <div style="
       position: fixed; bottom: 12px; left: 12px; z-index: 9999;
@@ -665,7 +736,9 @@ def make_temp_map(
       max-width: 520px;
     ">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-        <div style="font-weight:900;">Kaldest {int(top_n)} i fylket</div>
+        <div style="font-weight:900;">
+          <span id="topTitle">Kaldest {int(top_n)} i utsnittet</span>
+        </div>
         <button onclick="toggleToplist()" style="border:none;background:#e2e8f0;border-radius:999px;padding:6px 10px;cursor:pointer;">
           Vis/skjul
         </button>
@@ -679,8 +752,8 @@ def make_temp_map(
               <th style="text-align:right; padding:6px 8px; color:#64748b; font-size:12px;">°C</th>
             </tr>
           </thead>
-          <tbody>
-            {''.join(rows_html)}
+          <tbody id="toplistTbody">
+            <tr><td colspan="3" style="padding:8px; color:#64748b;">Oppdaterer…</td></tr>
           </tbody>
         </table>
       </div>
@@ -692,6 +765,60 @@ def make_temp_map(
         if (!el) return;
         el.style.display = (el.style.display === "none") ? "block" : "none";
       }}
+
+      function findLeafletMap() {{
+        for (const k of Object.keys(window)) {{
+          const v = window[k];
+          if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
+            return v;
+          }}
+        }}
+        return null;
+      }}
+
+      window._tempPoints = {json.dumps(points_js, ensure_ascii=False)};
+
+      function updateToplist() {{
+        const map = findLeafletMap();
+        if (!map) return;
+
+        const b = map.getBounds();
+        const inView = window._tempPoints.filter(p => b.contains([p.lat, p.lon]));
+        inView.sort((a,b) => a.value - b.value);
+
+        const top = inView.slice(0, {int(top_n)});
+        const tb = document.getElementById("toplistTbody");
+        const tt = document.getElementById("topTitle");
+        if (!tb) return;
+
+        if (tt) {{
+          tt.textContent = "Kaldest {int(top_n)} i utsnittet (" + inView.length + " stasjoner)";
+        }}
+
+        if (top.length === 0) {{
+          tb.innerHTML = '<tr><td colspan="3" style="padding:8px; color:#64748b;">Ingen punkter i utsnittet.</td></tr>';
+          return;
+        }}
+
+        tb.innerHTML = top.map((p, i) => `
+          <tr>
+            <td style="padding:6px 8px; color:#64748b;">${{i+1}}</td>
+            <td style="padding:6px 8px;">
+              ${{p.name}}
+              <div style="font-size:12px;color:#64748b;">${{p.sid}}</div>
+            </td>
+            <td style="padding:6px 8px; text-align:right; font-weight:900;">${{p.value.toFixed(1)}} °C</td>
+          </tr>
+        `).join("");
+      }}
+
+      (function attachToplistUpdater() {{
+        const map = findLeafletMap();
+        if (!map) return;
+        map.on("moveend", updateToplist);
+        map.on("zoomend", updateToplist);
+        updateToplist();
+      }})();
     </script>
     """
     folium.Element(topbox_html).add_to(m.get_root().html)
@@ -700,12 +827,16 @@ def make_temp_map(
 
 
 # ======================================================================
-# Hoved: bygg HTML for min-temp (dropdown -> fylke)
+# Hoved: bygg HTML for min-temp
 # ======================================================================
 
 def build_min_temp_map_html(
     *,
     county: Optional[str] = None,
+    period: str = "last",                 # last|day|month|year
+    date_str: Optional[str] = None,       # YYYY-MM-DD
+    month_str: Optional[str] = None,      # YYYY-MM
+    year_str: Optional[str] = None,       # YYYY
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
     limit: int = 1000,
@@ -715,11 +846,51 @@ def build_min_temp_map_html(
         return make_empty_map_with_dropdown()
 
     auth = _env_auth()
-
-    # Vi henter siste ~2 døgn og plukker nyeste P1D per stasjon
     now = datetime.now(timezone.utc)
-    start_dt = now - timedelta(days=2)
-    referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
+
+    # Default values for UI inputs
+    ui_date = (date_str or _date.today().isoformat())
+    ui_month = (month_str or now.strftime("%Y-%m"))
+    ui_year = (year_str or now.strftime("%Y"))
+
+    # Bestem referencetime + element-kandidater
+    period = (period or "last").lower()
+
+    if period == "day":
+        day = _date.fromisoformat(ui_date)
+        start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+        end = start + timedelta(days=1)
+        referencetime = f"{start.isoformat()}/{end.isoformat()}"
+        element_candidates = [
+            "best_estimate_min(air_temperature P1D)",
+            "min(air_temperature P1D)",
+        ]
+        title_base = f"Minimumstemperatur – døgn ({ui_date}) – {county}"
+    elif period == "month":
+        start, end = _month_bounds_utc(ui_month)
+        referencetime = f"{start.isoformat()}/{end.isoformat()}"
+        element_candidates = [
+            "best_estimate_min(air_temperature P1M)",
+            "min(air_temperature P1M)",
+        ]
+        title_base = f"Minimumstemperatur – måned ({ui_month}) – {county}"
+    elif period == "year":
+        start, end = _year_bounds_utc(ui_year)
+        referencetime = f"{start.isoformat()}/{end.isoformat()}"
+        element_candidates = [
+            "best_estimate_min(air_temperature P1Y)",
+            "min(air_temperature P1Y)",
+        ]
+        title_base = f"Minimumstemperatur – år ({ui_year}) – {county}"
+    else:
+        # last: hent siste ~2 døgn og plukk nyeste P1D per stasjon
+        start_dt = now - timedelta(days=2)
+        referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
+        element_candidates = [
+            "best_estimate_min(air_temperature P1D)",
+            "min(air_temperature P1D)",
+        ]
+        title_base = f"Minimumstemperatur – siste døgn ({county})"
 
     with requests.Session() as sess:
         src_meta = fetch_sources_in_county(sess, auth=auth, county=county, timeout=timeout)
@@ -728,15 +899,8 @@ def build_min_temp_map_html(
 
         sources = src_meta["baseId"].astype(str).tolist()
 
-        # Prøv først "best_estimate_*" hvis tilgjengelig, ellers fall tilbake til standard "min(...)"
-        element_candidates: list[str] = [
-            "best_estimate_min(air_temperature P1D)",
-            "min(air_temperature P1D)",
-        ]
-
         obs = pd.DataFrame()
-        element_used: str | None = None
-
+        element_used: str = ""
         for el in element_candidates:
             tmp = fetch_observations_interval(
                 sess,
@@ -755,7 +919,6 @@ def build_min_temp_map_html(
                 break
 
     if obs.empty:
-        # Vis kartet med dropdown og “ingen data”
         m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
         folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
         msg = f"""
@@ -768,30 +931,42 @@ def build_min_temp_map_html(
         ">
           <div style="font-weight:900; margin-bottom:6px;">Ingen data</div>
           <div style="font-size:13px; color:#334155;">
-            Fant ingen døgn-min temperatur i siste 2 døgn for fylket <b>{county}</b>.
-            Prøv et annet fylke.
+            Fant ingen tidsserier for valgt kombinasjon i <b>{county}</b>.
+            Prøv en annen periode eller annet fylke.
           </div>
         </div>
         """
         folium.Element(msg).add_to(m.get_root().html)
         return m.get_root().render()
 
-    latest = pick_latest_value_per_station(obs)
-    latest["baseId"] = latest["sourceId"].astype(str).map(base_source_id)
-    merged = latest.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
+    # Velg verdi per stasjon (avhengig av modus)
+    if period == "day":
+        picked = pick_value_in_day(obs, day=_date.fromisoformat(ui_date))
+    else:
+        picked = pick_latest_value_per_station(obs)
+
+    if picked.empty:
+        return make_empty_map_with_dropdown(selected_county=county)
+
+    picked["baseId"] = picked["sourceId"].astype(str).map(base_source_id)
+    merged = picked.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
     merged = merged.dropna(subset=["lat", "lon", "value"])
 
     if merged.empty:
         return make_empty_map_with_dropdown(selected_county=county)
 
     updated = now.strftime("%Y-%m-%d %H:%M UTC")
-    used_txt = f" ({element_used})" if element_used else ""
-    title = f"Minimumstemperatur – siste døgn ({county}){used_txt}<br><small>Oppdatert ca. {updated}</small>"
+    title = f"{title_base}<br><small>Oppdatert ca. {updated}</small>"
 
     return make_temp_map(
         merged,
         title=title,
         selected_county=county,
+        selected_period=period,
+        selected_date=ui_date,
+        selected_month=ui_month,
+        selected_year=ui_year,
+        element_used=element_used or "(ukjent)",
         cluster=True,
         heatmap_show=True,
         heat_radius=25,
@@ -807,9 +982,19 @@ def build_min_temp_map_html(
 def main() -> None:
     ap = argparse.ArgumentParser(description="Min-temp-kart (velg fylke).")
     ap.add_argument("--county", default="", help="Fylke, f.eks. 'Innlandet'")
+    ap.add_argument("--period", default="last", choices=["last", "day", "month", "year"])
+    ap.add_argument("--date", default="", help="YYYY-MM-DD (for period=day)")
+    ap.add_argument("--month", default="", help="YYYY-MM (for period=month)")
+    ap.add_argument("--year", default="", help="YYYY (for period=year)")
     args = ap.parse_args()
 
-    html = build_min_temp_map_html(county=args.county or None)
+    html = build_min_temp_map_html(
+        county=args.county or None,
+        period=args.period,
+        date_str=args.date or None,
+        month_str=args.month or None,
+        year_str=args.year or None,
+    )
     print(html[:700])
 
 
