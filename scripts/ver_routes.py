@@ -6,7 +6,7 @@ from flask import Blueprint, request, render_template, Response
 from snow_map import build_snow_map_html
 from precip_map import build_precip_map_html
 from sunshine_map import build_sunshine_map_html
-from temp_kart import build_min_temp_map_html
+from temp_map import build_min_temp_map_html
 
 ver = Blueprint("ver", __name__, url_prefix="/ver")
 
@@ -75,7 +75,7 @@ def min_temp_index():
 
 
 @ver.get("/min-temp-kart")
-def min_temp_kart():
+def min_temp_map():
     """
     Returnerer selve folium-HTML'en.
     Dropdown i kartet navigerer til /ver/min-temp-kart?county=...
