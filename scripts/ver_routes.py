@@ -90,7 +90,7 @@ def min_temp_index():
 @ver.get("/min-temp-kart")
 def min_temp_map():
     county = request.args.get("county") or None
-
+    temp = request.args.get("temp", "min")
     period = request.args.get("period", "last")
     date_str = request.args.get("date")
     month_str = request.args.get("month")
@@ -98,7 +98,8 @@ def min_temp_map():
 
     html = build_min_temp_map_html(
         county=county,
-        period=period,
+        temp=temp,  # "min" | "max" | "mean"
+        period=period,  # "last" | "day" | "month" | "year"
         date_str=date_str,
         month_str=month_str,
         year_str=year_str,
@@ -107,7 +108,6 @@ def min_temp_map():
         limit=1000,
         qualities="0,1,2,3,4",
     )
-
     return Response(html, mimetype="text/html; charset=utf-8")
 
 
