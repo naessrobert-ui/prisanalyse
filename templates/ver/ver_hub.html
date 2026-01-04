@@ -155,6 +155,17 @@
             <p>Timer med solskinn siste 24 timer (rullerende) + dag / MTD / YTD.</p>
             <a class="btn btn-amber" href="{{ url_for('ver.solskinn_index') }}">Åpne</a>
           </div>
+
+          <div class="card">
+            <div class="label" style="color:#ef4444;">Temperatur</div>
+            <h2>Min temperatur siste døgn</h2>
+            <p>Velg fylke og se nyeste døgn-min (P1D) per stasjon.</p>
+            <a class="btn" style="background:#ef4444; box-shadow: 0 10px 25px rgba(239, 68, 68, 0.28);"
+               href="{{ url_for('ver.min_temp_index') }}">Åpne</a>
+          </div>
+
+
+
         </div>
       </div>
     </div>

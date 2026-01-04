@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from datetime import date as _date
-from flask import Blueprint, request
+from flask import Blueprint, request, render_template, Response
 
 from snow_map import build_snow_map_html
 from precip_map import build_precip_map_html
 from sunshine_map import build_sunshine_map_html
+from temp_kart import build_min_temp_map_html
 
-ver_bp = Blueprint("ver", __name__)
+ver = Blueprint("ver", __name__, url_prefix="/ver")
 
 
 # =========================
@@ -64,7 +65,33 @@ def ver_hub() -> str:
   </body>
 </html>
 """
+@ver.get("/min-temp")
+def min_temp_index():
+    """
+    Viser et 'index'-view (kan være en side med iframe, eller bare returnere kart direkte).
+    Her bruker vi en egen template som viser kart i iframe (samme mønster som mange bruker).
+    """
+    return render_template("ver/min_temp_index.html")
 
+
+@ver.get("/min-temp-kart")
+def min_temp_kart():
+    """
+    Returnerer selve folium-HTML'en.
+    Dropdown i kartet navigerer til /ver/min-temp-kart?county=...
+    """
+    county = request.args.get("county") or None
+
+    html = build_min_temp_map_html(
+        county=county,
+        # evt juster for ytelse:
+        timeout=20,
+        batch_size=80,
+        limit=1000,
+        qualities="0,1,2,3,4",
+    )
+
+    return Response(html, mimetype="text/html; charset=utf-8")
 
 # =========================
 # SNØ
