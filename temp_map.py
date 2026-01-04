@@ -725,6 +725,8 @@ def make_temp_map(
         )
 
     folium.LayerControl().add_to(m)
+    map_var = m.get_name()
+    points_json = json.dumps(points_js, ensure_ascii=False)
 
     # Toppliste-boks (nå dynamisk i utsnittet)
     topbox_html = f"""
@@ -766,27 +768,22 @@ def make_temp_map(
         el.style.display = (el.style.display === "none") ? "block" : "none";
       }}
 
-      function findLeafletMap() {{
-        for (const k of Object.keys(window)) {{
-          const v = window[k];
-          if (v && typeof v.getBounds === 'function' && typeof v.getCenter === 'function') {{
-            return v;
-          }}
-        }}
+      // Bruk Folium sitt konkrete kartnavn
+      function getMap() {{
+        try {{
+          if (typeof {map_var} !== "undefined") return {map_var};
+        }} catch (e) {{}}
         return null;
       }}
 
-      window._tempPoints = {json.dumps(points_js, ensure_ascii=False)};
+      window._tempPoints = {points_json};
 
-      function updateToplist() {{
-        const map = findLeafletMap();
-        if (!map) return;
-
+      function updateToplist(map) {{
         const b = map.getBounds();
         const inView = window._tempPoints.filter(p => b.contains([p.lat, p.lon]));
         inView.sort((a,b) => a.value - b.value);
-
         const top = inView.slice(0, {int(top_n)});
+
         const tb = document.getElementById("toplistTbody");
         const tt = document.getElementById("topTitle");
         if (!tb) return;
@@ -812,15 +809,29 @@ def make_temp_map(
         `).join("");
       }}
 
+      // Retry til kartet faktisk er opprettet (Folium kan sette det opp etter script-tags)
       (function attachToplistUpdater() {{
-        const map = findLeafletMap();
-        if (!map) return;
-        map.on("moveend", updateToplist);
-        map.on("zoomend", updateToplist);
-        updateToplist();
+        let tries = 0;
+        function tick() {{
+          const map = getMap();
+          if (!map) {{
+            tries += 1;
+            if (tries < 60) setTimeout(tick, 150);  // ~9 sek maks
+            return;
+          }}
+          map.on("moveend", () => updateToplist(map));
+          map.on("zoomend", () => updateToplist(map));
+          updateToplist(map);
+        }}
+        if (document.readyState === "loading") {{
+          document.addEventListener("DOMContentLoaded", tick);
+        }} else {{
+          tick();
+        }}
       }})();
     </script>
     """
+
     folium.Element(topbox_html).add_to(m.get_root().html)
 
     return m.get_root().render()
