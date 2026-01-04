@@ -92,8 +92,10 @@ def frost_get_json(
         if r.status_code == 200:
             return r.json()
 
-        if r.status_code == 404:
+        # 404 og 412 returneres som ErrorResponse (ikke kast)
+        if r.status_code in (404, 412):
             return r.json()
+
 
         if r.status_code == 429 or 500 <= r.status_code < 600:
             time.sleep(backoff)
@@ -726,17 +728,31 @@ def build_min_temp_map_html(
 
         sources = src_meta["baseId"].astype(str).tolist()
 
-        obs = fetch_observations_interval(
-            sess,
-            auth=auth,
-            sources=sources,
-            referencetime=referencetime,
-            elements=ELEMENT_TMIN_DAY,
-            timeout=timeout,
-            batch_size=batch_size,
-            limit=limit,
-            qualities=qualities,
-        )
+        # Prøv først "best_estimate_*" hvis tilgjengelig, ellers fall tilbake til standard "min(...)"
+        element_candidates: list[str] = [
+            "best_estimate_min(air_temperature P1D)",
+            "min(air_temperature P1D)",
+        ]
+
+        obs = pd.DataFrame()
+        element_used: str | None = None
+
+        for el in element_candidates:
+            tmp = fetch_observations_interval(
+                sess,
+                auth=auth,
+                sources=sources,
+                referencetime=referencetime,
+                elements=el,
+                timeout=timeout,
+                batch_size=batch_size,
+                limit=limit,
+                qualities=qualities,
+            )
+            if not tmp.empty:
+                obs = tmp
+                element_used = el
+                break
 
     if obs.empty:
         # Vis kartet med dropdown og “ingen data”
@@ -769,7 +785,8 @@ def build_min_temp_map_html(
         return make_empty_map_with_dropdown(selected_county=county)
 
     updated = now.strftime("%Y-%m-%d %H:%M UTC")
-    title = f"Minimumstemperatur – siste døgn ({county})<br><small>Oppdatert ca. {updated}</small>"
+    used_txt = f" ({element_used})" if element_used else ""
+    title = f"Minimumstemperatur – siste døgn ({county}){used_txt}<br><small>Oppdatert ca. {updated}</small>"
 
     return make_temp_map(
         merged,
