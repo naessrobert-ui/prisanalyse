@@ -6,7 +6,7 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect
 from flask_session import Session
 
 # Blueprints
@@ -16,6 +16,8 @@ from bil_routes import bil_bp
 from bil_import import bil_import_bp
 from gemini_routes import gemini_bp
 from scripts.ver_routes import ver
+from dash_apps.strom import create_dash_app
+
 
 
 load_dotenv()
@@ -55,6 +57,13 @@ def create_app() -> Flask:
     def jobb_side():
         return render_template("jobb_analyse.html")
 
+
+    @app.route("/strom")
+    def strom():
+        return redirect("/stromdash/")
+
+    create_dash_app(app)
+
     return app
 
 
@@ -66,5 +75,5 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000)),
-        debug=True,
+        debug=False,
     )
