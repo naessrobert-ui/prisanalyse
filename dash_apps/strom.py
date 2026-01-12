@@ -198,8 +198,17 @@ def load_resources():
 # -----------------------------
 def create_dash_app(flask_server):
     df_raw, change_cols_found, gj, features, geo_nr_key, feature_bbox_by_nr, centroid_by_nr, features_by_nr = load_resources()
-    ALL_FYLKER = sorted([x for x in df_raw[CSV_COLS["fylke"]].unique() if str(x) != 'nan'])
-    ALL_REGIONER = sorted([x for x in df_raw[CSV_COLS["region"]].unique() if str(x) != 'nan'])
+
+    def _clean_str_list(s: pd.Series) -> list[str]:
+        out = []
+        for x in s.dropna().tolist():
+            v = str(x).strip()
+            if v and v.lower() != "nan":
+                out.append(v)
+        return sorted(set(out))
+
+    ALL_FYLKER = _clean_str_list(df_raw[CSV_COLS["fylke"]])
+    ALL_REGIONER = _clean_str_list(df_raw[CSV_COLS["region"]])
 
     # --- Initialiser App ---
     app = Dash(__name__, server=flask_server,
@@ -291,16 +300,20 @@ def create_dash_app(flask_server):
     # ... def main_layout()
 
     def serve_layout():
-        return html.Div(
-            style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "padding": "12px"},
-            children=[
-                dcc.Store(id="app-state", data={"stage": "landing"}),
-                dcc.Store(id="scope-store", data={"type": "country", "id": "NO"}),
-                dcc.Store(id="relayout-store"),
-                dcc.Store(id="view-store", data=DEFAULT_VIEW),
-                html.Div(id="page", children=landing_layout()),
-            ],
-        )
+        try:
+            return html.Div(
+                children=[
+                    dcc.Store(id="app-state", data={"stage": "landing"}),
+                    dcc.Store(id="scope-store", data={"type": "country", "id": "NO"}),
+                    dcc.Store(id="relayout-store"),
+                    dcc.Store(id="view-store", data=DEFAULT_VIEW),
+                    html.Div(id="page", children=landing_layout()),
+                ]
+            )
+        except Exception:
+            logger.exception("Layout crash")
+            return html.Pre("Layout crash:\n" + traceback.format_exc())
+
 
     app.layout = serve_layout  # <-- viktig: etter def, og uten parenteser
 
