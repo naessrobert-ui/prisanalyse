@@ -1,11 +1,11 @@
+# dash_apps/strom.py
 # -*- coding: utf-8 -*-
-import logging
-logger = logging.getLogger(__name__)
 
+import logging
 import math
 import json
 from pathlib import Path
-from typing import Dict, Any, Iterable, Tuple, Optional, Set
+from typing import Dict, Any, Iterable, Tuple, Optional, Set, List
 
 import pandas as pd
 import numpy as np
@@ -14,10 +14,12 @@ import plotly.graph_objects as go
 
 from dash import Dash, dcc, html, Input, Output, State, dash_table, callback_context, no_update, exceptions
 
+logger = logging.getLogger(__name__)
+
 # -----------------------------
-# FIL / KOLONNER / OPPSETT
+# FIL / KOLONNER
 # -----------------------------
-BASE_DIR = Path(__file__).resolve().parents[1]
+BASE_DIR = Path(__file__).resolve().parents[1]  # prisanalyse/
 CSV_PATH = BASE_DIR / "static" / "data" / "kommuner.csv"
 CSV_SEP = ";"
 
@@ -35,125 +37,118 @@ CSV_COLS = {
 CHANGE_ALIASES = {
     "oct": ["incr_oct", "INCR_OCT", "incr oct", "increase_oct", "increase oct"],
     "nov": ["incr_nov", "INCR_NOV", "incr nov", "increase_nov", "increase nov"],
-    "dec": ["incr_dec", "INCR_DEC", "incr dec", "increase_dec", "increase_dec"],
-    "q4": ["incr_Q4", "incr_q4", "INCR_Q4", "incr q4", "increase_q4", "increase q4"],
+    "dec": ["incr_dec", "INCR_DEC", "incr dec", "increase_dec", "increase dec"],
+    "q4":  ["incr_Q4", "incr_q4", "INCR_Q4", "incr q4", "increase_q4", "increase q4"],
 }
 
-
 # -----------------------------
-# HJELPEFUNKSJONER (LOGIKK & MATEMATIKK)
+# HELPERS
 # -----------------------------
 def normalize_columns(cols):
     return pd.Index(cols).astype(str).str.replace("\ufeff", "", regex=False).str.strip()
-
 
 def canon(s: str) -> str:
     s = str(s).strip().casefold()
     return "".join(ch for ch in s if ch.isalnum())
 
-
 def find_col(actual_cols, aliases) -> Optional[str]:
     actual_cols = list(actual_cols)
     actual_c = {c: canon(c) for c in actual_cols}
     alias_c = [canon(a) for a in aliases]
+
     for c in actual_cols:
-        if actual_c[c] in alias_c: return c
+        if actual_c[c] in alias_c:
+            return c
     for c in actual_cols:
         for a in alias_c:
-            if a and a in actual_c[c]: return c
+            if a and a in actual_c[c]:
+                return c
     return None
 
-
 def normalize_kommunenr(x) -> str:
-    if x is None: return ""
+    if x is None:
+        return ""
     s = str(x).strip()
-    if s.endswith(".0"): s = s[:-2]
-    return s.zfill(4) if s.isdigit() else s
-
+    if s.endswith(".0"):
+        s = s[:-2]
+    if s.isdigit():
+        s = s.zfill(4)
+    return s
 
 def safe_div(n: float, d: float) -> Optional[float]:
-    if d in (None, 0) or (isinstance(d, float) and math.isnan(d)): return None
+    if d in (None, 0) or (isinstance(d, float) and math.isnan(d)):
+        return None
     return float(n) / float(d)
 
-
 def pct0(x: Optional[float]) -> str:
-    if x is None or (isinstance(x, float) and math.isnan(x)): return "—"
+    if x is None or (isinstance(x, float) and math.isnan(x)):
+        return "—"
     return f"{int(round(x * 100))}%"
 
-
 def fmt_pct(x: Optional[float]) -> str:
-    if x is None or (isinstance(x, float) and math.isnan(x)): return "—"
+    if x is None or (isinstance(x, float) and math.isnan(x)):
+        return "—"
     try:
         return f"{float(x):.1f}%".replace(".", ",")
-    except:
+    except Exception:
         return "—"
 
-
 def to_number(series: pd.Series) -> pd.Series:
-    s = series.astype(str).str.strip().str.replace("%", "", regex=False).str.replace("\u00a0", "",
-                                                                                     regex=False).str.replace(" ", "",
-                                                                                                              regex=False)
+    s = series.astype(str).str.strip()
+    s = s.str.replace("%", "", regex=False)
+    s = s.str.replace("\u00a0", " ", regex=False)
+    s = s.str.replace(" ", "", regex=False)
+
     mask_both = s.str.contains(r"\.", regex=True) & s.str.contains(",", regex=False)
     s.loc[mask_both] = s.loc[mask_both].str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+
     mask_comma = (~mask_both) & s.str.contains(",", regex=False)
     s.loc[mask_comma] = s.loc[mask_comma].str.replace(",", ".", regex=False)
-    return pd.to_numeric(s, errors="coerce")
 
+    return pd.to_numeric(s, errors="coerce")
 
 def pick_geojson_nr_key(properties: Dict) -> Optional[str]:
     for c in ["kommunenummer", "kommunenr", "KOMMUNENR", "KOMMUNE_NR", "KOMMUNENUMMER", "id", "ID"]:
-        if c in properties: return c
+        if c in properties:
+            return c
     return None
-
 
 def get_feature_bbox(feature: Dict) -> Tuple[float, float, float, float]:
     geom = feature.get("geometry") or {}
+    gtype = geom.get("type")
     coords = geom.get("coordinates") or []
     lons, lats = [], []
 
-    def add_ring(ring):
+    def add_ring(ring: Iterable[Any]):
         for lon, lat in ring:
-            lons.append(lon);
+            lons.append(lon)
             lats.append(lat)
 
-    gtype = geom.get("type")
     if gtype == "Polygon":
-        for r in coords: add_ring(r)
+        for ring in coords:
+            add_ring(ring)
     elif gtype == "MultiPolygon":
-        for p in coords:
-            for r in p: add_ring(r)
-    return (min(lons), min(lats), max(lons), max(lats)) if lons else (0.0, 0.0, 0.0, 0.0)
+        for poly in coords:
+            for ring in poly:
+                add_ring(ring)
 
+    if not lons or not lats:
+        return (0.0, 0.0, 0.0, 0.0)
+    return (min(lons), min(lats), max(lons), max(lats))
 
-def feature_centroid(feature: Dict) -> Optional[Tuple[float, float]]:
-    bbox = get_feature_bbox(feature)
-    if bbox == (0.0, 0.0, 0.0, 0.0): return None
-    return ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
+def bbox_union(bboxes: List[Tuple[float, float, float, float]]) -> Optional[Tuple[float, float, float, float]]:
+    bboxes = [b for b in bboxes if b and b != (0.0, 0.0, 0.0, 0.0)]
+    if not bboxes:
+        return None
+    minx = min(b[0] for b in bboxes)
+    miny = min(b[1] for b in bboxes)
+    maxx = max(b[2] for b in bboxes)
+    maxy = max(b[3] for b in bboxes)
+    return (minx, miny, maxx, maxy)
 
-
-def bboxes_intersect(a: Tuple[float, float, float, float], b: Tuple[float, float, float, float]) -> bool:
-    return not (a[2] < b[0] or a[0] > b[2] or a[3] < b[1] or a[1] > b[3])
-
-
-def viewport_bbox_from_relayout(relayout: Dict[str, Any]) -> Optional[Tuple[float, float, float, float]]:
-    if not relayout: return None
-    for key in ["mapbox._derived", "mapbox._derived.coordinates"]:
-        coords = relayout.get(key)
-        if isinstance(coords, list) and len(coords) > 0:
-            lons = [c[0] for c in coords];
-            lats = [c[1] for c in coords]
-            return (min(lons), min(lats), max(lons), max(lats))
-    return None
-
-
-def get_trigger_id() -> Optional[str]:
-    if not callback_context.triggered: return None
-    return callback_context.triggered[0]["prop_id"].split(".")[0]
-
-
-def change_label(change_period: str) -> str:
-    return {"oct": "Oktober", "nov": "November", "dec": "Desember", "q4": "Q4"}.get(change_period, "Q4")
-
+def bbox_center(b: Tuple[float, float, float, float]) -> Dict[str, float]:
+    minx, miny, maxx, maxy = b
+    return {"lon": (minx + maxx) / 2.0, "lat": (miny + maxy) / 2.0}
 
 def zoom_for_bbox(lon_span: float, lat_span: float) -> float:
     span = max(lon_span, lat_span)
@@ -164,6 +159,13 @@ def zoom_for_bbox(lon_span: float, lat_span: float) -> float:
     if span <= 8.0: return 4.6
     return 3.6
 
+def _clean_str_list(s: pd.Series) -> list[str]:
+    out = []
+    for x in s.dropna().tolist():
+        v = str(x).strip()
+        if v and v.lower() != "nan":
+            out.append(v)
+    return sorted(set(out))
 
 # -----------------------------
 # DATA LOADING
@@ -171,184 +173,270 @@ def zoom_for_bbox(lon_span: float, lat_span: float) -> float:
 def load_resources():
     df_raw = pd.read_csv(CSV_PATH, sep=CSV_SEP, low_memory=False)
     df_raw.columns = normalize_columns(df_raw.columns)
+
     df_raw[CSV_COLS["knr"]] = df_raw[CSV_COLS["knr"]].apply(normalize_kommunenr)
     df_raw[CSV_COLS["fylke"]] = df_raw[CSV_COLS["fylke"]].astype(str).str.strip()
     df_raw[CSV_COLS["region"]] = df_raw[CSV_COLS["region"]].astype(str).str.strip().str.upper()
+
     change_cols_found = {k: find_col(df_raw.columns, aliases) for k, aliases in CHANGE_ALIASES.items()}
 
     GEOJSON_PATH = BASE_DIR / "static" / "geo" / "Kommuner-M.geojson"
     with open(GEOJSON_PATH, "r", encoding="utf-8") as f:
         gj = json.load(f)
 
-    features = gj.get("features", [])
-    geo_nr_key = pick_geojson_nr_key(features[0]["properties"])
+    features = gj.get("features") or []
+    if not features or "properties" not in features[0]:
+        raise RuntimeError("GeoJSON mangler forventet struktur (features/properties).")
 
-    feature_bbox_by_nr, centroid_by_nr, features_by_nr = {}, {}, {}
+    geo_nr_key = pick_geojson_nr_key(features[0]["properties"])
+    if not geo_nr_key:
+        raise RuntimeError("Fant ikke kommunenummer-felt i GeoJSON.")
+
+    feature_bbox_by_nr: Dict[str, Tuple[float, float, float, float]] = {}
+    centroid_by_nr: Dict[str, Tuple[float, float]] = {}
+
     for feat in features:
         knr = normalize_kommunenr(feat["properties"].get(geo_nr_key, ""))
-        if not knr: continue
-        features_by_nr[knr] = feat
-        feature_bbox_by_nr[knr] = get_feature_bbox(feat)
-        c = feature_centroid(feat)
-        if c: centroid_by_nr[knr] = c
+        if not knr:
+            continue
+        b = get_feature_bbox(feat)
+        feature_bbox_by_nr[knr] = b
+        # enkel centroid via bbox
+        if b != (0.0, 0.0, 0.0, 0.0):
+            cx = (b[0] + b[2]) / 2.0
+            cy = (b[1] + b[3]) / 2.0
+            centroid_by_nr[knr] = (cx, cy)
 
-    return df_raw, change_cols_found, gj, features, geo_nr_key, feature_bbox_by_nr, centroid_by_nr, features_by_nr
-
+    return df_raw, change_cols_found, gj, geo_nr_key, feature_bbox_by_nr, centroid_by_nr
 
 # -----------------------------
 # DASH FACTORY
 # -----------------------------
 def create_dash_app(flask_server):
-    df_raw, change_cols_found, gj, features, geo_nr_key, feature_bbox_by_nr, centroid_by_nr, features_by_nr = load_resources()
-    DEFAULT_VIEW = {"lon": 13.0, "lat": 65.0, "zoom": 4.0}
+    df_raw, change_cols_found, gj, geo_nr_key, feature_bbox_by_nr, centroid_by_nr = load_resources()
 
-    def _clean_str_list(s: pd.Series) -> list[str]:
-        out = []
-        for x in s.dropna().tolist():
-            v = str(x).strip()
-            if v and v.lower() != "nan":
-                out.append(v)
-        return sorted(set(out))
+    DEFAULT_VIEW = {"lon": 13.0, "lat": 65.0, "zoom": 4.0}
 
     ALL_FYLKER = _clean_str_list(df_raw[CSV_COLS["fylke"]])
     ALL_REGIONER = _clean_str_list(df_raw[CSV_COLS["region"]])
 
-    # --- Initialiser App ---
-    app = Dash(__name__, server=flask_server,
-               routes_pathname_prefix="/stromdash/",
-               requests_pathname_prefix="/stromdash/",
-               suppress_callback_exceptions=True)
+    app = Dash(
+        __name__,
+        server=flask_server,
+        url_base_pathname="/stromdash/",
+        routes_pathname_prefix="/stromdash/",
+        requests_pathname_prefix="/stromdash/",
+        suppress_callback_exceptions=True,
+    )
+    app.title = "Norgespris per kommune"
 
-    # --- Interne hjelpefunksjoner for DF-cache og Scope ---
-    df_cache = {}
+    # -----------------------------
+    # DF cache
+    # -----------------------------
+    df_cache: Dict[str, pd.DataFrame] = {}
 
-    def get_df_cached(mode):
-        if mode not in df_cache:
-            df = df_raw.copy()
-            np_col, tot_col = (CSV_COLS["bolig_np"], CSV_COLS["bolig_tot"]) if mode == "Bolig" else (
-                CSV_COLS["fritid_np"], CSV_COLS["fritid_tot"])
-            df["norgespris"] = to_number(df[np_col])
-            df["total"] = to_number(df[tot_col])
-            df["andel"] = df.apply(lambda r: safe_div(r["norgespris"], r["total"]), axis=1)
-            df["andel_pct0"] = df["andel"].apply(pct0)
-            for k, col in change_cols_found.items():
-                if col: df[col] = to_number(df[col])
-            df["knr_norm"] = df[CSV_COLS["knr"]].apply(normalize_kommunenr)
-            df_cache[mode] = df
-        return df_cache[mode]
+    def get_df_cached(mode_value: str) -> pd.DataFrame:
+        mode_value = "Bolig" if mode_value == "Bolig" else "Fritid"
+        if mode_value in df_cache:
+            return df_cache[mode_value]
 
-    # --- Layouts ---
+        df = df_raw.copy()
+
+        if mode_value == "Bolig":
+            np_col, tot_col = CSV_COLS["bolig_np"], CSV_COLS["bolig_tot"]
+        else:
+            np_col, tot_col = CSV_COLS["fritid_np"], CSV_COLS["fritid_tot"]
+
+        df["norgespris"] = to_number(df[np_col])
+        df["total"] = to_number(df[tot_col])
+        df["andel"] = df.apply(lambda r: safe_div(r["norgespris"], r["total"]), axis=1)
+        df["andel_pct0"] = df["andel"].apply(pct0)
+
+        for _, col in change_cols_found.items():
+            if col and col in df.columns:
+                df[col] = to_number(df[col])
+
+        df["knr_norm"] = df[CSV_COLS["knr"]].apply(normalize_kommunenr)
+        df_cache[mode_value] = df
+        return df
+
+    # -----------------------------
+    # Scope helpers
+    # -----------------------------
+    def filter_df_by_scope(df: pd.DataFrame, scope: Dict[str, str]) -> pd.DataFrame:
+        stype = (scope or {}).get("type", "country")
+        sid = (scope or {}).get("id", "NO")
+
+        if stype == "country":
+            return df
+
+        if stype == "county":
+            return df[df[CSV_COLS["fylke"]] == sid].copy()
+
+        if stype == "region":
+            sid2 = str(sid).strip().upper()
+            return df[df[CSV_COLS["region"]].astype(str).str.upper() == sid2].copy()
+
+        return df
+
+    def view_for_scope(df_scoped: pd.DataFrame) -> Dict[str, float]:
+        knrs = df_scoped[CSV_COLS["knr"]].astype(str).tolist()
+        bbs = [feature_bbox_by_nr.get(normalize_kommunenr(k)) for k in knrs]
+        ub = bbox_union([b for b in bbs if b is not None])
+        if not ub:
+            return DEFAULT_VIEW
+        center = bbox_center(ub)
+        lon_span = float(ub[2] - ub[0])
+        lat_span = float(ub[3] - ub[1])
+        zoom = zoom_for_bbox(lon_span, lat_span)
+        return {"lon": float(center["lon"]), "lat": float(center["lat"]), "zoom": float(zoom)}
+
+    # -----------------------------
+    # Layouts
+    # -----------------------------
     def landing_layout():
-        return html.Div(style={"maxWidth": "980px", "margin": "auto", "padding": "40px"}, children=[
-            html.H1("Norgespris per kommune – interaktivt kart"),
-            html.Div(
-                style={"background": "#fafafa", "padding": "25px", "borderRadius": "15px", "border": "1px solid #eee"},
-                children=[
-                    html.Label("Velg geografisk nivå:", style={"fontWeight": "bold"}),
-                    dcc.RadioItems(id="scope-type", options=[
-                        {"label": "Hele landet", "value": "country"},
-                        {"label": "Strømregion", "value": "region"},
-                        {"label": "Fylke", "value": "county"}
-                    ], value="country", labelStyle={"display": "block", "margin": "10px 0"}),
-                    dcc.Dropdown(id="scope-id", style={"marginTop": "10px"}),
-                    html.Hr(),
-                    html.Label("Datakilde:"),
-                    dcc.Dropdown(id="landing-mode", options=[{"label": "Bolig", "value": "Bolig"},
-                                                             {"label": "Fritidsbolig", "value": "Fritid"}],
-                                 value="Bolig"),
-                    html.Button("Generer Kart", id="start-btn", n_clicks=0,
-                                style={"marginTop": "20px", "width": "100%", "padding": "15px", "background": "#2c3e50",
-                                       "color": "white", "borderRadius": "10px", "cursor": "pointer"})
-                ])
-        ])
+        return html.Div(
+            style={"maxWidth": "980px", "margin": "auto", "padding": "40px"},
+            children=[
+                html.H1("Norgespris per kommune – interaktivt kart"),
+                html.Div(
+                    style={"background": "#fafafa", "padding": "25px", "borderRadius": "15px", "border": "1px solid #eee"},
+                    children=[
+                        html.Label("Velg geografisk nivå:", style={"fontWeight": "700"}),
+                        dcc.RadioItems(
+                            id="scope-type",
+                            options=[
+                                {"label": "Hele landet", "value": "country"},
+                                {"label": "Strømregion", "value": "region"},
+                                {"label": "Fylke", "value": "county"},
+                            ],
+                            value="country",
+                            labelStyle={"display": "block", "margin": "10px 0"},
+                        ),
+                        dcc.Dropdown(id="scope-id", style={"marginTop": "10px"}),
 
-        html.Div(id="debug-trigger", style={"marginTop": "10px", "color": "#666"})
+                        html.Hr(),
 
-    import traceback
+                        html.Label("Datakilde:", style={"fontWeight": "700"}),
+                        dcc.Dropdown(
+                            id="landing-mode",
+                            options=[{"label": "Bolig", "value": "Bolig"}, {"label": "Fritidsbolig", "value": "Fritid"}],
+                            value="Bolig",
+                            clearable=False,
+                        ),
+
+                        html.Button(
+                            "Generer kart",
+                            id="start-btn",
+                            n_clicks=0,
+                            style={
+                                "marginTop": "20px",
+                                "width": "100%",
+                                "padding": "15px",
+                                "background": "#2c3e50",
+                                "color": "white",
+                                "borderRadius": "10px",
+                                "cursor": "pointer",
+                                "border": "0",
+                                "fontWeight": "700",
+                            },
+                        ),
+
+                        html.Div(id="debug-trigger", style={"marginTop": "10px", "color": "#666"}),
+                    ],
+                ),
+            ],
+        )
+
+    def main_layout():
+        return html.Div(
+            children=[
+                html.Div(
+                    style={
+                        "display": "flex",
+                        "justifyContent": "space-between",
+                        "alignItems": "center",
+                        "padding": "10px 20px",
+                        "background": "white",
+                        "borderBottom": "1px solid #eee",
+                    },
+                    children=[
+                        html.H2("Norgespris-analyse", style={"margin": 0}),
+                        html.Button("Bytt område", id="change-scope", n_clicks=0),
+                    ],
+                ),
+
+                html.Div(
+                    style={"display": "flex", "padding": "15px", "gap": "15px", "flexWrap": "wrap", "background": "#f8f9fa"},
+                    children=[
+                        dcc.Dropdown(
+                            id="mode",
+                            options=[{"label": "Bolig", "value": "Bolig"}, {"label": "Fritidsbolig", "value": "Fritid"}],
+                            value="Bolig",
+                            style={"width": "200px"},
+                            clearable=False,
+                        ),
+                        dcc.Dropdown(
+                            id="change_period",
+                            options=[
+                                {"label": "Hele Q4", "value": "q4"},
+                                {"label": "Oktober", "value": "oct"},
+                                {"label": "November", "value": "nov"},
+                                {"label": "Desember", "value": "dec"},
+                            ],
+                            value="q4",
+                            style={"width": "180px"},
+                            clearable=False,
+                        ),
+                        html.Div([html.Label("Rød ≤ andel"), dcc.Input(id="low", type="number", value=0.20, step=0.01, min=0, max=1)]),
+                        html.Div([html.Label("Blå ≥ andel"), dcc.Input(id="high", type="number", value=0.50, step=0.01, min=0, max=1)]),
+                        html.Div([html.Label("Prikk-skala (pp)"), dcc.Input(id="marker_scale_pct", type="number", value=10.0, step=0.5, min=0.1)]),
+                    ],
+                ),
+
+                dcc.Loading(
+                    children=[
+                        html.Div(
+                            style={"display": "grid", "gridTemplateColumns": "1.2fr 1fr", "gap": "10px", "padding": "10px"},
+                            children=[
+                                dcc.Graph(id="map", style={"height": "760px"}, config={"displaylogo": False}),
+                                html.Div(
+                                    children=[
+                                        dcc.Graph(id="scatter-plot", style={"height": "340px"}, config={"displaylogo": False}),
+                                        html.Div(id="tables-container", style={"marginTop": "10px"}),
+                                    ]
+                                ),
+                            ],
+                        )
+                    ]
+                ),
+            ]
+        )
 
     def serve_layout():
-        try:
-            return html.Div(
-                style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "padding": "12px"},
-                children=[
-                    dcc.Store(id="app-state", data={"stage": "landing"}),  # landing | ready
-                    dcc.Store(id="scope-store", data={"type": "country", "id": "NO"}),
-                    dcc.Store(id="relayout-store"),
-                    dcc.Store(id="view-store", data=DEFAULT_VIEW),
-                    html.Div(id="page", children=landing_layout()),  # default: aldri blank
-                ],
-            )
-        except Exception:
-            logger.exception("Layout crash")
-            return html.Pre("Layout crash:\n" + traceback.format_exc())
+        return html.Div(
+            style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"},
+            children=[
+                dcc.Store(id="app-state", data={"stage": "landing"}),     # landing | ready
+                dcc.Store(id="scope-store", data={"type": "country", "id": "NO"}),
+                dcc.Store(id="view-store", data=DEFAULT_VIEW),
+                html.Div(id="page", children=landing_layout()),
+            ],
+        )
 
     app.layout = serve_layout
 
-    def main_layout():
-        return html.Div(children=[
-            html.Div(style={"display": "flex", "justifyContent": "space-between", "padding": "10px 20px",
-                            "background": "white", "borderBottom": "1px solid #eee"}, children=[
-                html.H2("Norgespris-analyse", style={"margin": 0}),
-                html.Button("Bytt område", id="change-scope", n_clicks=0)
-            ]),
-            html.Div(style={"display": "flex", "padding": "15px", "gap": "15px", "flexWrap": "wrap",
-                            "background": "#f8f9fa"}, children=[
-                dcc.Dropdown(id="mode", options=[{"label": "Bolig", "value": "Bolig"},
-                                                 {"label": "Fritidsbolig", "value": "Fritid"}], value="Bolig",
-                             style={"width": "180px"}),
-                dcc.Dropdown(id="change_period",
-                             options=[{"label": "Q4", "value": "q4"}, {"label": "Okt", "value": "oct"},
-                                      {"label": "Nov", "value": "nov"}, {"label": "Des", "value": "dec"}], value="q4",
-                             style={"width": "150px"}),
-                html.Div([html.Label("Filter Lav: "),
-                          dcc.Input(id="low", type="number", value=0.2, step=0.05, style={"width": "60px"})]),
-                html.Div([html.Label("Filter Høy: "),
-                          dcc.Input(id="high", type="number", value=0.5, step=0.05, style={"width": "60px"})]),
-                html.Div([html.Label("Prikk-skala: "),
-                          dcc.Input(id="marker_scale_pct", type="number", value=10.0, style={"width": "60px"})]),
-            ]),
-            dcc.Loading(children=[
-                html.Div(
-                    style={"display": "grid", "gridTemplateColumns": "1.2fr 1fr", "gap": "10px", "padding": "10px"},
-                    children=[
-                        dcc.Graph(id="map", style={"height": "750px"}),
-                        html.Div(children=[
-                            dcc.Graph(id="scatter-plot"),
-                            html.Div(id="tables-container", style={"marginTop": "10px"})
-                        ])
-                    ])
-            ])
-        ])
-
-    # Kritiske rettelser for Render: serve_layout definert her
-    # ... def landing_layout()
-    # ... def main_layout()
-
-    def serve_layout():
-        try:
-            return html.Div(
-                children=[
-                    dcc.Store(id="app-state", data={"stage": "landing"}),
-                    dcc.Store(id="scope-store", data={"type": "country", "id": "NO"}),
-                    dcc.Store(id="relayout-store"),
-                    dcc.Store(id="view-store", data=DEFAULT_VIEW),
-                    html.Div(id="page", children=landing_layout()),
-                ]
-            )
-        except Exception:
-            logger.exception("Layout crash")
-            return html.Pre("Layout crash:\n" + traceback.format_exc())
-
-
-    app.layout = serve_layout  # <-- viktig: etter def, og uten parenteser
-
-    # --- Callbacks ---
+    # -----------------------------
+    # Callbacks
+    # -----------------------------
     @app.callback(
-        [Output("scope-id", "options"), Output("scope-id", "value")],
-        Input("scope-type", "value")
+        Output("scope-id", "options"),
+        Output("scope-id", "value"),
+        Input("scope-type", "value"),
     )
     def update_scope_options(stype):
-        if stype == "country": return [{"label": "Norge", "value": "NO"}], "NO"
+        if stype == "country":
+            return [{"label": "Norge", "value": "NO"}], "NO"
         if stype == "county":
             opts = [{"label": f, "value": f} for f in ALL_FYLKER]
         else:
@@ -360,114 +448,214 @@ def create_dash_app(flask_server):
         Input("start-btn", "n_clicks"),
         Input("scope-type", "value"),
         Input("scope-id", "value"),
+        Input("landing-mode", "value"),
     )
-    def dbg(n, t, v):
+    def dbg(n, t, v, m):
         trig = callback_context.triggered[0]["prop_id"] if callback_context.triggered else "none"
-        return f"trigger={trig} | start-btn={n} | scope-type={t} | scope-id={v}"
-
-    @app.callback(
-        [Output("page-content", "children"), Output("app-state", "data"), Output("scope-store", "data")],
-        [Input("start-btn", "n_clicks"), Input("change-scope", "n_clicks")],
-        [State("scope-type", "value"), State("scope-id", "value"), State("landing-mode", "value")],
-        prevent_initial_call=True
-    )
-    def toggle_view(n1, n2, stype, sid, lmode):
-        trigger = get_trigger_id()
-        if trigger == "start-btn":
-            return main_layout(), "main", {"type": stype, "id": sid, "mode": lmode}
-        return landing_layout(), "landing", None
+        return f"trigger={trig} | start={n} | type={t} | id={v} | mode={m}"
 
     @app.callback(
         Output("app-state", "data"),
         Output("scope-store", "data"),
+        Output("view-store", "data"),
         Input("start-btn", "n_clicks"),
-        State("scope-type", "value"),  # radio: country/region/fylke
-        State("scope-id", "value"),  # dropdown: NO / N01 / Rogaland etc
+        State("scope-type", "value"),
+        State("scope-id", "value"),
+        State("landing-mode", "value"),
         prevent_initial_call=True,
     )
-    def on_start(n, scope_type, scope_id):
+    def on_start(n, scope_type, scope_id, landing_mode):
         if not n:
             raise exceptions.PreventUpdate
 
         scope_type = scope_type or "country"
         if scope_type == "country":
             scope_id = "NO"
-
         if not scope_id:
-            # hvis bruker ikke har valgt region/fylke ennå
             raise exceptions.PreventUpdate
 
-        return {"stage": "ready"}, {"type": scope_type, "id": str(scope_id)}
+        # beregn view basert på valgt scope og valgt mode
+        df = get_df_cached(landing_mode)
+        df_scoped = filter_df_by_scope(df, {"type": scope_type, "id": str(scope_id)})
+        view = view_for_scope(df_scoped)
+
+        return {"stage": "ready", "mode": landing_mode}, {"type": scope_type, "id": str(scope_id)}, view
+
+    @app.callback(
+        Output("app-state", "data"),
+        Input("change-scope", "n_clicks"),
+        State("app-state", "data"),
+        prevent_initial_call=True,
+    )
+    def back_to_landing(n, state):
+        if not n:
+            raise exceptions.PreventUpdate
+        return {"stage": "landing"}
 
     @app.callback(
         Output("page", "children"),
         Input("app-state", "data"),
-        State("scope-store", "data"),
-        State("mode", "value"),
     )
-    def render_page(state, scope, mode_value):
+    def render_page(state):
         stage = (state or {}).get("stage", "landing")
         if stage != "ready":
             return landing_layout()
-
-        return main_layout(mode_value=mode_value, scope=scope)
+        return main_layout()
 
     @app.callback(
-        [Output("map", "figure"), Output("scatter-plot", "figure"), Output("tables-container", "children")],
-        [Input("app-state", "data"), Input("mode", "value"), Input("change_period", "value"),
-         Input("low", "value"), Input("high", "value"), Input("marker_scale_pct", "value"),
-         Input("map", "relayoutData")],
-        State("scope-store", "data")
+        Output("mode", "value"),
+        Input("app-state", "data"),
+        prevent_initial_call=True,
     )
-    def update_dashboard(state, mode, period, low, high, scale_pct, relayout, scope_data):
-        if state != "main" or not scope_data: return no_update, no_update, no_update
+    def sync_mode_from_landing(state):
+        # når vi går til ready, kopier over valgt mode
+        if (state or {}).get("stage") != "ready":
+            raise exceptions.PreventUpdate
+        return (state or {}).get("mode", "Bolig")
 
-        df = get_df_cached(mode)
+    @app.callback(
+        Output("map", "figure"),
+        Output("scatter-plot", "figure"),
+        Output("tables-container", "children"),
+        Input("app-state", "data"),
+        Input("mode", "value"),
+        Input("change_period", "value"),
+        Input("low", "value"),
+        Input("high", "value"),
+        Input("marker_scale_pct", "value"),
+        Input("view-store", "data"),
+        State("scope-store", "data"),
+    )
+    def update_dashboard(state, mode_value, period, low, high, marker_scale_pct, view, scope):
+        if (state or {}).get("stage") != "ready":
+            return no_update, no_update, no_update
+
+        df = get_df_cached(mode_value)
+        df_scoped = filter_df_by_scope(df, scope or {"type": "country", "id": "NO"}).copy()
+
+        low = 0.20 if low is None else float(low)
+        high = 0.50 if high is None else float(high)
+        marker_scale_pct = 10.0 if marker_scale_pct is None else float(marker_scale_pct)
+
         change_col = change_cols_found.get(period)
-        df["change_val"] = df[change_col] if change_col else 0
+        df_scoped["change_val"] = df_scoped[change_col] if (change_col and change_col in df_scoped.columns) else np.nan
 
-        # Finn utsnitt for tabell-filtrering
-        visible_df = df
-        bbox = viewport_bbox_from_relayout(relayout)
-        if bbox:
-            visible_knrs = [k for k, b in feature_bbox_by_nr.items() if bboxes_intersect(b, bbox)]
-            visible_df = df[df["knr_norm"].isin(visible_knrs)]
-
-        # --- FIG 1: Map ---
+        # --- Map (choropleth) ---
+        # enkel farge etter andel (kontinuerlig)
         fig_map = px.choropleth_mapbox(
-            df, geojson=gj, locations=CSV_COLS["knr"],
+            df_scoped,
+            geojson=gj,
+            locations=CSV_COLS["knr"],
             featureidkey=f"properties.{geo_nr_key}",
-            color="andel", color_continuous_scale="RdBu",
-            range_color=[0, 1], mapbox_style="carto-positron",
-            zoom=4.5, center={"lat": 64, "lon": 12}, opacity=0.6
+            color="andel",
+            color_continuous_scale="RdBu",
+            range_color=[0, 1],
+            mapbox_style="carto-positron",
+            opacity=0.6,
+            hover_name=CSV_COLS["kommune"],
+            hover_data={"andel_pct0": True, "norgespris": True, "total": True},
+        )
+        fig_map.update_layout(
+            mapbox=dict(
+                center={"lon": float((view or DEFAULT_VIEW).get("lon", DEFAULT_VIEW["lon"])),
+                        "lat": float((view or DEFAULT_VIEW).get("lat", DEFAULT_VIEW["lat"]))},
+                zoom=float((view or DEFAULT_VIEW).get("zoom", DEFAULT_VIEW["zoom"])),
+            ),
+            margin=dict(l=0, r=0, t=0, b=0),
+            uirevision="keep",
         )
 
-        # Legg til endrings-prikker (Scattermapbox)
-        df_pts = df.dropna(subset=["change_val"]).copy()
-        df_pts["lon"] = df_pts["knr_norm"].map(lambda k: centroid_by_nr.get(k, (None, None))[0])
-        df_pts["lat"] = df_pts["knr_norm"].map(lambda k: centroid_by_nr.get(k, (None, None))[1])
-        df_pts = df_pts.dropna(subset=["lon"])
+        # prikker for endring
+        pts = df_scoped.dropna(subset=["change_val"]).copy()
+        pts["lon"] = pts["knr_norm"].map(lambda k: centroid_by_nr.get(k, (None, None))[0])
+        pts["lat"] = pts["knr_norm"].map(lambda k: centroid_by_nr.get(k, (None, None))[1])
+        pts = pts.dropna(subset=["lon", "lat"])
 
-        fig_map.add_trace(go.Scattermapbox(
-            lon=df_pts["lon"], lat=df_pts["lat"], mode="markers",
-            marker=dict(size=df_pts["change_val"].abs() * scale_pct,
-                        color=df_pts["change_val"], colorscale="Picnic", showscale=False),
-            hovertext=df_pts[CSV_COLS["kommune"]] + ": " + df_pts["change_val"].apply(fmt_pct)
-        ))
-        fig_map.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, uirevision="constant")
+        if not pts.empty:
+            scale = max(0.1, float(marker_scale_pct))
+            abs_chg = pts["change_val"].abs().clip(upper=scale)
+            pts["size"] = 12 + 26 * (abs_chg / scale)
 
-        # --- FIG 2: Scatter ---
-        fig_scatter = px.scatter(visible_df, x="andel", y="change_val", trendline="ols",
-                                 hover_name=CSV_COLS["kommune"], title="Andel vs Endring (Valgt utsnitt)")
+            fig_map.add_trace(
+                go.Scattermapbox(
+                    lon=pts["lon"],
+                    lat=pts["lat"],
+                    mode="markers",
+                    marker=dict(
+                        size=pts["size"],
+                        color=pts["change_val"],
+                        colorscale="Picnic",
+                        opacity=0.85,
+                        showscale=False,
+                    ),
+                    hovertext=pts[CSV_COLS["kommune"]].astype(str) + "<br>Endring: " + pts["change_val"].apply(fmt_pct),
+                    hoverinfo="text",
+                    showlegend=False,
+                )
+            )
+
+        # --- Scatter (andel vs endring) ---
+        scat = df_scoped.dropna(subset=["andel", "change_val"]).copy()
+        fig_scatter = px.scatter(
+            scat,
+            x="andel",
+            y="change_val",
+            hover_name=CSV_COLS["kommune"],
+            labels={"andel": "Andel Norgespris", "change_val": "Endring (%)"},
+        )
+        fig_scatter.update_xaxes(tickformat=".0%")
+        fig_scatter.update_layout(title="Sammenheng: andel vs endring", margin=dict(l=0, r=0, t=40, b=0), height=340)
+
+        # trendlinje med numpy (ingen statsmodels)
+        if len(scat) >= 3:
+            x = scat["andel"].astype(float).to_numpy()
+            y = scat["change_val"].astype(float).to_numpy()
+            try:
+                a, b = np.polyfit(x, y, 1)
+                xl = np.linspace(float(x.min()), float(x.max()), 60)
+                yl = a * xl + b
+                fig_scatter.add_trace(go.Scatter(x=xl, y=yl, mode="lines", name="Trend", hoverinfo="skip"))
+            except Exception:
+                pass
 
         # --- Tabeller ---
-        top_5 = visible_df.nlargest(5, "andel")[[CSV_COLS["kommune"], "andel_pct0"]]
-        bot_5 = visible_df.nsmallest(5, "andel")[[CSV_COLS["kommune"], "andel_pct0"]]
+        tdf = df_scoped.copy()
+        tdf["andel_num"] = tdf["andel"].fillna(-1)
 
-        tables = html.Div(style={"display": "flex", "gap": "20px"}, children=[
-            html.Div([html.B("Høyest andel"), dash_table.DataTable(top_5.to_dict('records'))]),
-            html.Div([html.B("Lavest andel"), dash_table.DataTable(bot_5.to_dict('records'))])
-        ])
+        top_df = tdf.sort_values("andel_num", ascending=False).head(10)[[CSV_COLS["kommune"], "andel_pct0"]]
+        bot_df = tdf.sort_values("andel_num", ascending=True).head(10)[[CSV_COLS["kommune"], "andel_pct0"]]
+
+        tables = html.Div(
+            style={"display": "flex", "gap": "20px"},
+            children=[
+                html.Div(
+                    style={"flex": "1"},
+                    children=[
+                        html.B("Høyest andel"),
+                        dash_table.DataTable(
+                            data=top_df.to_dict("records"),
+                            columns=[{"name": c, "id": c} for c in top_df.columns],
+                            style_table={"border": "1px solid #eee", "borderRadius": "10px", "overflow": "hidden"},
+                            style_cell={"padding": "8px", "fontSize": "14px"},
+                            style_header={"fontWeight": "700", "backgroundColor": "#fafafa"},
+                        ),
+                    ],
+                ),
+                html.Div(
+                    style={"flex": "1"},
+                    children=[
+                        html.B("Lavest andel"),
+                        dash_table.DataTable(
+                            data=bot_df.to_dict("records"),
+                            columns=[{"name": c, "id": c} for c in bot_df.columns],
+                            style_table={"border": "1px solid #eee", "borderRadius": "10px", "overflow": "hidden"},
+                            style_cell={"padding": "8px", "fontSize": "14px"},
+                            style_header={"fontWeight": "700", "backgroundColor": "#fafafa"},
+                        ),
+                    ],
+                ),
+            ],
+        )
 
         return fig_map, fig_scatter, tables
 
