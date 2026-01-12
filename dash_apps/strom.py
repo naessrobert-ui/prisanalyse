@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import logging
+logger = logging.getLogger(__name__)
 
 import math
 import json
@@ -198,6 +200,7 @@ def load_resources():
 # -----------------------------
 def create_dash_app(flask_server):
     df_raw, change_cols_found, gj, features, geo_nr_key, feature_bbox_by_nr, centroid_by_nr, features_by_nr = load_resources()
+    DEFAULT_VIEW = {"lon": 13.0, "lat": 65.0, "zoom": 4.0}
 
     def _clean_str_list(s: pd.Series) -> list[str]:
         out = []
@@ -258,6 +261,26 @@ def create_dash_app(flask_server):
                                        "color": "white", "borderRadius": "10px", "cursor": "pointer"})
                 ])
         ])
+
+    import traceback
+
+    def serve_layout():
+        try:
+            return html.Div(
+                style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "padding": "12px"},
+                children=[
+                    dcc.Store(id="app-state", data={"stage": "landing"}),  # landing | ready
+                    dcc.Store(id="scope-store", data={"type": "country", "id": "NO"}),
+                    dcc.Store(id="relayout-store"),
+                    dcc.Store(id="view-store", data=DEFAULT_VIEW),
+                    html.Div(id="page", children=landing_layout()),  # default: aldri blank
+                ],
+            )
+        except Exception:
+            logger.exception("Layout crash")
+            return html.Pre("Layout crash:\n" + traceback.format_exc())
+
+    app.layout = serve_layout
 
     def main_layout():
         return html.Div(children=[
