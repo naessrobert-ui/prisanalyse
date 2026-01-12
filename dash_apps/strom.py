@@ -224,8 +224,6 @@ def create_dash_app(flask_server):
         __name__,
         server=flask_server,
         url_base_pathname="/stromdash/",
-        routes_pathname_prefix="/stromdash/",
-        requests_pathname_prefix="/stromdash/",
         suppress_callback_exceptions=True,
     )
     app.title = "Norgespris per kommune"
