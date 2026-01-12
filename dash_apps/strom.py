@@ -894,16 +894,19 @@ def create_dash_app(flask_server):
             ],
         )
 
-    app.layout = html.Div(
-        style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "padding": "12px"},
-        children=[
-            dcc.Store(id="app-state", data={"stage": "landing"}),  # landing | ready
-            dcc.Store(id="scope-store", data={"type": "country", "id": "NO"}),
-            dcc.Store(id="relayout-store"),
-            dcc.Store(id="view-store", data=DEFAULT_VIEW),
-            html.Div(id="page", children=landing_layout()),
-        ],
-    )
+    app.layout = serve_layout
+
+    def serve_layout():
+        return html.Div(
+            style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "padding": "12px"},
+            children=[
+                dcc.Store(id="app-state", data={"stage": "landing"}),  # landing | ready
+                dcc.Store(id="scope-store", data={"type": "country", "id": "NO"}),
+                dcc.Store(id="relayout-store"),
+                dcc.Store(id="view-store", data=DEFAULT_VIEW),
+                html.Div(id="page", children=landing_layout()),  # default uten blank side
+            ],
+        )
 
     # -----------------------------
     # ROUTING / LANDING
