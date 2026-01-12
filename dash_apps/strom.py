@@ -5,7 +5,7 @@ import logging
 import math
 import json
 from pathlib import Path
-from typing import Dict, Any, Iterable, Tuple, Optional, Set, List
+from typing import Dict, Any, Tuple, Optional, List
 
 import pandas as pd
 import numpy as np
@@ -17,17 +17,17 @@ from dash import Dash, dcc, html, Input, Output, State, dash_table, callback_con
 logger = logging.getLogger(__name__)
 
 # -----------------------------
-# FIL / KOLONNER
+# FIL / OPPSETT
 # -----------------------------
 BASE_DIR = Path(__file__).resolve().parents[1]  # prisanalyse/
 CSV_PATH = BASE_DIR / "static" / "data" / "kommuner.csv"
 CSV_SEP = ";"
+GEOJSON_PATH = BASE_DIR / "static" / "geo" / "Kommuner-M.geojson"
 
-CSV_COLS = {
+# Viktige felt (vi finner "Fylke"/"Region" robust ved innlesing)
+CSV_COLS_FIXED = {
     "kommune": "KOMMUNE",
     "knr": "KOMMUNENUMMER",
-    "fylke": "Fylke",
-    "region": "Region",
     "bolig_np": "Bolig-Norgespris",
     "bolig_tot": "Bolig-alle",
     "fritid_np": "Fritid-Norgespris",
@@ -45,7 +45,12 @@ CHANGE_ALIASES = {
 # HELPERS
 # -----------------------------
 def normalize_columns(cols):
-    return pd.Index(cols).astype(str).str.replace("\ufeff", "", regex=False).str.strip()
+    return (
+        pd.Index(cols)
+        .astype(str)
+        .str.replace("\ufeff", "", regex=False)  # BOM
+        .str.strip()
+    )
 
 def canon(s: str) -> str:
     s = str(s).strip().casefold()
@@ -119,7 +124,7 @@ def get_feature_bbox(feature: Dict) -> Tuple[float, float, float, float]:
     coords = geom.get("coordinates") or []
     lons, lats = [], []
 
-    def add_ring(ring: Iterable[Any]):
+    def add_ring(ring):
         for lon, lat in ring:
             lons.append(lon)
             lats.append(lat)
@@ -140,11 +145,12 @@ def bbox_union(bboxes: List[Tuple[float, float, float, float]]) -> Optional[Tupl
     bboxes = [b for b in bboxes if b and b != (0.0, 0.0, 0.0, 0.0)]
     if not bboxes:
         return None
-    minx = min(b[0] for b in bboxes)
-    miny = min(b[1] for b in bboxes)
-    maxx = max(b[2] for b in bboxes)
-    maxy = max(b[3] for b in bboxes)
-    return (minx, miny, maxx, maxy)
+    return (
+        min(b[0] for b in bboxes),
+        min(b[1] for b in bboxes),
+        max(b[2] for b in bboxes),
+        max(b[3] for b in bboxes),
+    )
 
 def bbox_center(b: Tuple[float, float, float, float]) -> Dict[str, float]:
     minx, miny, maxx, maxy = b
@@ -159,28 +165,43 @@ def zoom_for_bbox(lon_span: float, lat_span: float) -> float:
     if span <= 8.0: return 4.6
     return 3.6
 
-def _clean_str_list(s: pd.Series) -> list[str]:
-    out = []
-    for x in s.dropna().tolist():
-        v = str(x).strip()
-        if v and v.lower() != "nan":
-            out.append(v)
-    return sorted(set(out))
+def clean_str_list(s: pd.Series) -> list[str]:
+    # robust: dropp NaN, "", "nan"
+    s = s.dropna().astype(str).str.strip()
+    s = s[(s != "") & (s.str.lower() != "nan")]
+    return sorted(set(s.tolist()))
 
 # -----------------------------
 # DATA LOADING
 # -----------------------------
 def load_resources():
+    # CSV
     df_raw = pd.read_csv(CSV_PATH, sep=CSV_SEP, low_memory=False)
     df_raw.columns = normalize_columns(df_raw.columns)
 
-    df_raw[CSV_COLS["knr"]] = df_raw[CSV_COLS["knr"]].apply(normalize_kommunenr)
-    df_raw[CSV_COLS["fylke"]] = df_raw[CSV_COLS["fylke"]].astype(str).str.strip()
-    df_raw[CSV_COLS["region"]] = df_raw[CSV_COLS["region"]].astype(str).str.strip().str.upper()
+    # Finn Fylke/Region robust (case/spacing)
+    fylke_col = find_col(df_raw.columns, ["Fylke", "fylke", "FYLKE"])
+    region_col = find_col(df_raw.columns, ["Region", "region", "REGION", "Strømregion", "Stromregion"])
 
+    if not fylke_col:
+        raise RuntimeError("Fant ikke kolonne for Fylke i kommuner.csv (sjekk kolonnenavn).")
+    if not region_col:
+        raise RuntimeError("Fant ikke kolonne for Region i kommuner.csv (sjekk kolonnenavn).")
+
+    # Normaliser kommunenr
+    knr_col = CSV_COLS_FIXED["knr"]
+    if knr_col not in df_raw.columns:
+        raise RuntimeError(f"Mangler forventet kolonne {knr_col} i kommuner.csv.")
+    df_raw[knr_col] = df_raw[knr_col].apply(normalize_kommunenr)
+
+    # Trim fylke/region
+    df_raw[fylke_col] = df_raw[fylke_col].astype(str).str.strip()
+    df_raw[region_col] = df_raw[region_col].astype(str).str.strip().str.upper()
+
+    # Change-kolonner
     change_cols_found = {k: find_col(df_raw.columns, aliases) for k, aliases in CHANGE_ALIASES.items()}
 
-    GEOJSON_PATH = BASE_DIR / "static" / "geo" / "Kommuner-M.geojson"
+    # GeoJSON
     with open(GEOJSON_PATH, "r", encoding="utf-8") as f:
         gj = json.load(f)
 
@@ -201,25 +222,25 @@ def load_resources():
             continue
         b = get_feature_bbox(feat)
         feature_bbox_by_nr[knr] = b
-        # enkel centroid via bbox
         if b != (0.0, 0.0, 0.0, 0.0):
-            cx = (b[0] + b[2]) / 2.0
-            cy = (b[1] + b[3]) / 2.0
-            centroid_by_nr[knr] = (cx, cy)
+            centroid_by_nr[knr] = ((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0)
 
-    return df_raw, change_cols_found, gj, geo_nr_key, feature_bbox_by_nr, centroid_by_nr
+    return df_raw, fylke_col, region_col, change_cols_found, gj, geo_nr_key, feature_bbox_by_nr, centroid_by_nr
 
 # -----------------------------
 # DASH FACTORY
 # -----------------------------
 def create_dash_app(flask_server):
-    df_raw, change_cols_found, gj, geo_nr_key, feature_bbox_by_nr, centroid_by_nr = load_resources()
+    df_raw, FYLKE_COL, REGION_COL, change_cols_found, gj, geo_nr_key, feature_bbox_by_nr, centroid_by_nr = load_resources()
 
     DEFAULT_VIEW = {"lon": 13.0, "lat": 65.0, "zoom": 4.0}
 
-    ALL_FYLKER = _clean_str_list(df_raw[CSV_COLS["fylke"]])
-    ALL_REGIONER = _clean_str_list(df_raw[CSV_COLS["region"]])
+    ALL_FYLKER = clean_str_list(df_raw[FYLKE_COL])
+    ALL_REGIONER = clean_str_list(df_raw[REGION_COL])
 
+    logger.warning("Loaded %d fylker, %d regioner", len(ALL_FYLKER), len(ALL_REGIONER))
+
+    # Dash: bruk KUN url_base_pathname (ikke requests/routes samtidig)
     app = Dash(
         __name__,
         server=flask_server,
@@ -241,9 +262,9 @@ def create_dash_app(flask_server):
         df = df_raw.copy()
 
         if mode_value == "Bolig":
-            np_col, tot_col = CSV_COLS["bolig_np"], CSV_COLS["bolig_tot"]
+            np_col, tot_col = CSV_COLS_FIXED["bolig_np"], CSV_COLS_FIXED["bolig_tot"]
         else:
-            np_col, tot_col = CSV_COLS["fritid_np"], CSV_COLS["fritid_tot"]
+            np_col, tot_col = CSV_COLS_FIXED["fritid_np"], CSV_COLS_FIXED["fritid_tot"]
 
         df["norgespris"] = to_number(df[np_col])
         df["total"] = to_number(df[tot_col])
@@ -254,7 +275,8 @@ def create_dash_app(flask_server):
             if col and col in df.columns:
                 df[col] = to_number(df[col])
 
-        df["knr_norm"] = df[CSV_COLS["knr"]].apply(normalize_kommunenr)
+        df["knr_norm"] = df[CSV_COLS_FIXED["knr"]].apply(normalize_kommunenr)
+
         df_cache[mode_value] = df
         return df
 
@@ -269,16 +291,16 @@ def create_dash_app(flask_server):
             return df
 
         if stype == "county":
-            return df[df[CSV_COLS["fylke"]] == sid].copy()
+            return df[df[FYLKE_COL] == sid].copy()
 
         if stype == "region":
             sid2 = str(sid).strip().upper()
-            return df[df[CSV_COLS["region"]].astype(str).str.upper() == sid2].copy()
+            return df[df[REGION_COL].astype(str).str.upper() == sid2].copy()
 
         return df
 
     def view_for_scope(df_scoped: pd.DataFrame) -> Dict[str, float]:
-        knrs = df_scoped[CSV_COLS["knr"]].astype(str).tolist()
+        knrs = df_scoped[CSV_COLS_FIXED["knr"]].astype(str).tolist()
         bbs = [feature_bbox_by_nr.get(normalize_kommunenr(k)) for k in knrs]
         ub = bbox_union([b for b in bbs if b is not None])
         if not ub:
@@ -298,9 +320,15 @@ def create_dash_app(flask_server):
             children=[
                 html.H1("Norgespris per kommune – interaktivt kart"),
                 html.Div(
-                    style={"background": "#fafafa", "padding": "25px", "borderRadius": "15px", "border": "1px solid #eee"},
+                    style={
+                        "background": "#fafafa",
+                        "padding": "25px",
+                        "borderRadius": "15px",
+                        "border": "1px solid #eee",
+                    },
                     children=[
                         html.Label("Velg geografisk nivå:", style={"fontWeight": "700"}),
+
                         dcc.RadioItems(
                             id="scope-type",
                             options=[
@@ -311,7 +339,15 @@ def create_dash_app(flask_server):
                             value="country",
                             labelStyle={"display": "block", "margin": "10px 0"},
                         ),
-                        dcc.Dropdown(id="scope-id", style={"marginTop": "10px"}),
+
+                        # Viktig: default options/value slik at den aldri er tom ved start
+                        dcc.Dropdown(
+                            id="scope-id",
+                            options=[{"label": "Norge", "value": "NO"}],
+                            value="NO",
+                            clearable=False,
+                            style={"marginTop": "10px"},
+                        ),
 
                         html.Hr(),
 
@@ -415,7 +451,7 @@ def create_dash_app(flask_server):
         return html.Div(
             style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"},
             children=[
-                dcc.Store(id="app-state", data={"stage": "landing"}),     # landing | ready
+                dcc.Store(id="app-state", data={"stage": "landing"}),      # landing | ready
                 dcc.Store(id="scope-store", data={"type": "country", "id": "NO"}),
                 dcc.Store(id="view-store", data=DEFAULT_VIEW),
                 html.Div(id="page", children=landing_layout()),
@@ -433,13 +469,21 @@ def create_dash_app(flask_server):
         Input("scope-type", "value"),
     )
     def update_scope_options(stype):
+        logger.warning("update_scope_options stype=%s", stype)
+
         if stype == "country":
             return [{"label": "Norge", "value": "NO"}], "NO"
+
         if stype == "county":
             opts = [{"label": f, "value": f} for f in ALL_FYLKER]
         else:
             opts = [{"label": r, "value": r} for r in ALL_REGIONER]
-        return opts, (opts[0]["value"] if opts else None)
+
+        if not opts:
+            # tydelig fallback hvis listene er tomme
+            return [{"label": "Ingen treff (sjekk CSV)", "value": "__none__"}], "__none__"
+
+        return opts, opts[0]["value"]
 
     @app.callback(
         Output("debug-trigger", "children"),
@@ -469,10 +513,10 @@ def create_dash_app(flask_server):
         scope_type = scope_type or "country"
         if scope_type == "country":
             scope_id = "NO"
-        if not scope_id:
+
+        if not scope_id or scope_id == "__none__":
             raise exceptions.PreventUpdate
 
-        # beregn view basert på valgt scope og valgt mode
         df = get_df_cached(landing_mode)
         df_scoped = filter_df_by_scope(df, {"type": scope_type, "id": str(scope_id)})
         view = view_for_scope(df_scoped)
@@ -482,10 +526,9 @@ def create_dash_app(flask_server):
     @app.callback(
         Output("app-state", "data"),
         Input("change-scope", "n_clicks"),
-        State("app-state", "data"),
         prevent_initial_call=True,
     )
-    def back_to_landing(n, state):
+    def back_to_landing(n):
         if not n:
             raise exceptions.PreventUpdate
         return {"stage": "landing"}
@@ -506,7 +549,6 @@ def create_dash_app(flask_server):
         prevent_initial_call=True,
     )
     def sync_mode_from_landing(state):
-        # når vi går til ready, kopier over valgt mode
         if (state or {}).get("stage") != "ready":
             raise exceptions.PreventUpdate
         return (state or {}).get("mode", "Bolig")
@@ -531,34 +573,30 @@ def create_dash_app(flask_server):
         df = get_df_cached(mode_value)
         df_scoped = filter_df_by_scope(df, scope or {"type": "country", "id": "NO"}).copy()
 
-        low = 0.20 if low is None else float(low)
-        high = 0.50 if high is None else float(high)
         marker_scale_pct = 10.0 if marker_scale_pct is None else float(marker_scale_pct)
 
         change_col = change_cols_found.get(period)
         df_scoped["change_val"] = df_scoped[change_col] if (change_col and change_col in df_scoped.columns) else np.nan
 
-        # --- Map (choropleth) ---
-        # enkel farge etter andel (kontinuerlig)
+        # --- MAP ---
         fig_map = px.choropleth_mapbox(
             df_scoped,
             geojson=gj,
-            locations=CSV_COLS["knr"],
+            locations=CSV_COLS_FIXED["knr"],
             featureidkey=f"properties.{geo_nr_key}",
             color="andel",
             color_continuous_scale="RdBu",
             range_color=[0, 1],
             mapbox_style="carto-positron",
             opacity=0.6,
-            hover_name=CSV_COLS["kommune"],
+            hover_name=CSV_COLS_FIXED["kommune"],
             hover_data={"andel_pct0": True, "norgespris": True, "total": True},
         )
+
+        v = view or DEFAULT_VIEW
         fig_map.update_layout(
-            mapbox=dict(
-                center={"lon": float((view or DEFAULT_VIEW).get("lon", DEFAULT_VIEW["lon"])),
-                        "lat": float((view or DEFAULT_VIEW).get("lat", DEFAULT_VIEW["lat"]))},
-                zoom=float((view or DEFAULT_VIEW).get("zoom", DEFAULT_VIEW["zoom"])),
-            ),
+            mapbox=dict(center={"lon": float(v.get("lon", DEFAULT_VIEW["lon"])), "lat": float(v.get("lat", DEFAULT_VIEW["lat"]))},
+                       zoom=float(v.get("zoom", DEFAULT_VIEW["zoom"]))),
             margin=dict(l=0, r=0, t=0, b=0),
             uirevision="keep",
         )
@@ -579,32 +617,26 @@ def create_dash_app(flask_server):
                     lon=pts["lon"],
                     lat=pts["lat"],
                     mode="markers",
-                    marker=dict(
-                        size=pts["size"],
-                        color=pts["change_val"],
-                        colorscale="Picnic",
-                        opacity=0.85,
-                        showscale=False,
-                    ),
-                    hovertext=pts[CSV_COLS["kommune"]].astype(str) + "<br>Endring: " + pts["change_val"].apply(fmt_pct),
+                    marker=dict(size=pts["size"], color=pts["change_val"], colorscale="Picnic", opacity=0.85, showscale=False),
+                    hovertext=pts[CSV_COLS_FIXED["kommune"]].astype(str) + "<br>Endring: " + pts["change_val"].apply(fmt_pct),
                     hoverinfo="text",
                     showlegend=False,
                 )
             )
 
-        # --- Scatter (andel vs endring) ---
+        # --- SCATTER ---
         scat = df_scoped.dropna(subset=["andel", "change_val"]).copy()
         fig_scatter = px.scatter(
             scat,
             x="andel",
             y="change_val",
-            hover_name=CSV_COLS["kommune"],
+            hover_name=CSV_COLS_FIXED["kommune"],
             labels={"andel": "Andel Norgespris", "change_val": "Endring (%)"},
         )
         fig_scatter.update_xaxes(tickformat=".0%")
         fig_scatter.update_layout(title="Sammenheng: andel vs endring", margin=dict(l=0, r=0, t=40, b=0), height=340)
 
-        # trendlinje med numpy (ingen statsmodels)
+        # trend med numpy (ingen statsmodels)
         if len(scat) >= 3:
             x = scat["andel"].astype(float).to_numpy()
             y = scat["change_val"].astype(float).to_numpy()
@@ -616,12 +648,12 @@ def create_dash_app(flask_server):
             except Exception:
                 pass
 
-        # --- Tabeller ---
+        # --- TABELLER ---
         tdf = df_scoped.copy()
         tdf["andel_num"] = tdf["andel"].fillna(-1)
 
-        top_df = tdf.sort_values("andel_num", ascending=False).head(10)[[CSV_COLS["kommune"], "andel_pct0"]]
-        bot_df = tdf.sort_values("andel_num", ascending=True).head(10)[[CSV_COLS["kommune"], "andel_pct0"]]
+        top_df = tdf.sort_values("andel_num", ascending=False).head(10)[[CSV_COLS_FIXED["kommune"], "andel_pct0"]]
+        bot_df = tdf.sort_values("andel_num", ascending=True).head(10)[[CSV_COLS_FIXED["kommune"], "andel_pct0"]]
 
         tables = html.Div(
             style={"display": "flex", "gap": "20px"},
