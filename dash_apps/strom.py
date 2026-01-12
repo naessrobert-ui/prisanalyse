@@ -12,7 +12,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-from dash import Dash, dcc, html, Input, Output, State, dash_table, callback_context, no_update
+from dash import Dash, dcc, html, Input, Output, State, dash_table, callback_context, no_update, exceptions
 
 # -----------------------------
 # FIL / KOLONNER / OPPSETT
@@ -262,6 +262,8 @@ def create_dash_app(flask_server):
                 ])
         ])
 
+        html.Div(id="debug-trigger", style={"marginTop": "10px", "color": "#666"})
+
     import traceback
 
     def serve_layout():
@@ -354,6 +356,16 @@ def create_dash_app(flask_server):
         return opts, (opts[0]["value"] if opts else None)
 
     @app.callback(
+        Output("debug-trigger", "children"),
+        Input("start-btn", "n_clicks"),
+        Input("scope-type", "value"),
+        Input("scope-id", "value"),
+    )
+    def dbg(n, t, v):
+        trig = callback_context.triggered[0]["prop_id"] if callback_context.triggered else "none"
+        return f"trigger={trig} | start-btn={n} | scope-type={t} | scope-id={v}"
+
+    @app.callback(
         [Output("page-content", "children"), Output("app-state", "data"), Output("scope-store", "data")],
         [Input("start-btn", "n_clicks"), Input("change-scope", "n_clicks")],
         [State("scope-type", "value"), State("scope-id", "value"), State("landing-mode", "value")],
@@ -364,6 +376,41 @@ def create_dash_app(flask_server):
         if trigger == "start-btn":
             return main_layout(), "main", {"type": stype, "id": sid, "mode": lmode}
         return landing_layout(), "landing", None
+
+    @app.callback(
+        Output("app-state", "data"),
+        Output("scope-store", "data"),
+        Input("start-btn", "n_clicks"),
+        State("scope-type", "value"),  # radio: country/region/fylke
+        State("scope-id", "value"),  # dropdown: NO / N01 / Rogaland etc
+        prevent_initial_call=True,
+    )
+    def on_start(n, scope_type, scope_id):
+        if not n:
+            raise exceptions.PreventUpdate
+
+        scope_type = scope_type or "country"
+        if scope_type == "country":
+            scope_id = "NO"
+
+        if not scope_id:
+            # hvis bruker ikke har valgt region/fylke ennå
+            raise exceptions.PreventUpdate
+
+        return {"stage": "ready"}, {"type": scope_type, "id": str(scope_id)}
+
+    @app.callback(
+        Output("page", "children"),
+        Input("app-state", "data"),
+        State("scope-store", "data"),
+        State("mode", "value"),
+    )
+    def render_page(state, scope, mode_value):
+        stage = (state or {}).get("stage", "landing")
+        if stage != "ready":
+            return landing_layout()
+
+        return main_layout(mode_value=mode_value, scope=scope)
 
     @app.callback(
         [Output("map", "figure"), Output("scatter-plot", "figure"), Output("tables-container", "children")],
