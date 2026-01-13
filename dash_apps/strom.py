@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Any, Iterable, Tuple, Optional, Set
 
 import pandas as pd
+import requests
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -35,6 +36,8 @@ CHANGE_ALIASES = {
     "dec": ["incr_dec", "INCR_DEC", "incr dec", "increase_dec", "increase dec"],
     "q4":  ["incr_Q4", "incr_q4", "INCR_Q4", "incr q4", "increase_q4", "increase q4"],
 }
+
+KOMMUNER_GEOJSON_URL = "https://raw.githubusercontent.com/robhop/fylker-og-kommuner/main/Kommuner-M.geojson"
 
 
 # -----------------------------
@@ -89,7 +92,10 @@ def pct0(x: Optional[float]) -> str:
     return f"{int(round(x * 100))}%"
 
 def fmt_pct(x: Optional[float]) -> str:
-    # x er i prosentpoeng (2.3 -> "2,3%")
+    """
+    Formatterer en verdi som allerede er i PROSENTPOENG (f.eks 2.3 -> "2,3%").
+    Merk: incr_* i CSV er desimaltall (0.023), så vi ganger med 100 der vi lager change_pct.
+    """
     if x is None or (isinstance(x, float) and math.isnan(x)):
         return "—"
     try:
@@ -201,15 +207,17 @@ def change_label(change_period: str) -> str:
 
 
 # -----------------------------
-# DATA-LOADING
+# DATA-LOADING (én gang når Dash monteres)
 # -----------------------------
 def load_resources() -> tuple[pd.DataFrame, dict, dict, list, str, dict, dict]:
+    # CSV
     df_raw = pd.read_csv(CSV_PATH, sep=CSV_SEP, low_memory=False)
     df_raw.columns = normalize_columns(df_raw.columns)
     df_raw[CSV_COLS["knr"]] = df_raw[CSV_COLS["knr"]].apply(normalize_kommunenr)
 
     change_cols_found = {k: find_col(df_raw.columns, aliases) for k, aliases in CHANGE_ALIASES.items()}
 
+    # GeoJSON
     GEOJSON_PATH = BASE_DIR / "static" / "geo" / "Kommuner-M.geojson"
     with open(GEOJSON_PATH, "r", encoding="utf-8") as f:
         gj = json.load(f)
@@ -239,6 +247,11 @@ def load_resources() -> tuple[pd.DataFrame, dict, dict, list, str, dict, dict]:
 # DASH FACTORY
 # -----------------------------
 def create_dash_app(flask_server):
+    """
+    Monter Dash inni Flask.
+    Dash blir tilgjengelig på /stromdash/
+    """
+    # Last ressurser én gang ved montering (ikke ved import)
     df_raw, change_cols_found, gj, features, geo_nr_key, feature_bbox_by_nr, centroid_by_nr = load_resources()
 
     def build_df(mode_value: str) -> pd.DataFrame:
@@ -257,7 +270,8 @@ def create_dash_app(flask_server):
         df["andel"] = df.apply(lambda r: safe_div(r["norgespris"], r["total"]), axis=1)
         df["andel_pct0"] = df["andel"].apply(pct0)
 
-        # endringskolonner er desimal i csv (0.023). Vi ganger med 100 når vi bruker dem.
+        # incr_* i CSV er desimaltall (0.023 = 2.3%), så vi leser dem som tall her,
+        # og ganger med 100 først når vi bruker dem til visning/terskler.
         for _, col in change_cols_found.items():
             if col and col in df.columns:
                 df[col] = to_number(df[col])
@@ -275,7 +289,6 @@ def create_dash_app(flask_server):
         change_red_le: float,
         change_blue_ge: float,
         marker_scale_pct: float,
-        uirev: Any,
     ) -> go.Figure:
         low, high = sorted([float(low), float(high)])
 
@@ -284,7 +297,8 @@ def create_dash_app(flask_server):
 
         dff = df.copy()
         if change_col and change_col in dff.columns:
-            dff["change_pct"] = dff[change_col] * 100.0  # desimal -> prosentpoeng
+            # CSV: desimal (0.023). UI/plot: prosentpoeng (2.3)
+            dff["change_pct"] = dff[change_col] * 100.0
         else:
             dff["change_pct"] = float("nan")
         dff["change_pct_str"] = dff["change_pct"].apply(fmt_pct)
@@ -319,7 +333,7 @@ def create_dash_app(flask_server):
             opacity=0.75,
         )
 
-        # FIX: riktig %{...} og periodetekst
+        # FIX: Hovertemplate må bruke %{...} (ikke %{{...}}) og bør bygges som f-string
         fig.update_traces(
             hovertemplate=(
                 f"<b>%{{hovertext}}</b><br>"
@@ -330,6 +344,7 @@ def create_dash_app(flask_server):
             )
         )
 
+        # Terskler er oppgitt i prosentpoeng i UI (f.eks -5 eller 2.5)
         red_le = float(change_red_le)
         blue_ge = float(change_blue_ge)
 
@@ -350,6 +365,8 @@ def create_dash_app(flask_server):
 
         scale = max(0.1, float(marker_scale_pct))
         abs_chg = dff2["change_pct"].abs().clip(upper=scale)
+
+        # Store prikker
         dff2["chg_size"] = 12 + 26 * (abs_chg / scale)
 
         fig.add_trace(
@@ -368,6 +385,7 @@ def create_dash_app(flask_server):
             )
         )
 
+        # Labels når man zoomer inn
         SHOW_LABELS_ZOOM = 5
         if zoom >= SHOW_LABELS_ZOOM:
             dff2["label"] = (
@@ -375,6 +393,7 @@ def create_dash_app(flask_server):
                 + "<br>Andel " + dff2["andel_pct0"].astype(str)
                 + "<br>Forbruk " + dff2["change_pct"].apply(fmt_pct)
             )
+
             fig.add_trace(
                 go.Scattermapbox(
                     lon=dff2["lon"],
@@ -388,12 +407,13 @@ def create_dash_app(flask_server):
                 )
             )
 
-        fig.update_layout(
-            mapbox_style="open-street-map",
-            margin=dict(l=0, r=0, t=0, b=0),
-            mapbox=dict(center=center, zoom=zoom),
-            uirevision=uirev,  # <-- dette gjør at knappe-zoom faktisk slår gjennom
-        )
+            fig.update_layout(
+                mapbox_style="open-street-map",
+                margin=dict(l=0, r=0, t=0, b=0),
+                mapbox=dict(center=center, zoom=zoom),
+                # uirevision="keep",  # <- fjern denne
+                uirevision=f"view:{center['lon']:.5f}:{center['lat']:.5f}:{zoom:.2f}",
+            )
         return fig
 
     def build_scatter_fig(df: pd.DataFrame, change_period: str, visible_knr: Optional[Set[str]]) -> go.Figure:
@@ -402,6 +422,7 @@ def create_dash_app(flask_server):
 
         dff = df.copy()
         if change_col and change_col in dff.columns:
+            # CSV: desimal (0.023). Plot: prosentpoeng (2.3)
             dff["change_pct"] = dff[change_col] * 100.0
         else:
             dff["change_pct"] = float("nan")
@@ -426,14 +447,17 @@ def create_dash_app(flask_server):
             import numpy as np
             x = dff["andel"].astype(float).to_numpy()
             y = dff["change_pct"].astype(float).to_numpy()
+
             try:
                 a, b = np.polyfit(x, y, 1)
                 yhat = a * x + b
+
                 ss_res = float(((y - yhat) ** 2).sum())
                 ss_tot = float(((y - y.mean()) ** 2).sum())
                 r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else float("nan")
                 if not math.isnan(r2):
                     r2_text = f"R²: {r2:.3f}".replace(".", ",")
+
                 x_line = np.linspace(float(x.min()), float(x.max()), 60)
                 y_line = a * x_line + b
                 fig.add_trace(go.Scatter(x=x_line, y=y_line, mode="lines", name="Trendlinje", hoverinfo="skip"))
@@ -451,10 +475,14 @@ def create_dash_app(flask_server):
     # -----------------------------
     # DASH APP
     # -----------------------------
-    app = Dash(__name__, server=flask_server, url_base_pathname="/stromdash/")
+    app = Dash(
+        __name__,
+        server=flask_server,
+        url_base_pathname="/stromdash/",
+    )
     app.title = "Norgespris per kommune"
 
-    DEFAULT_VIEW = {"lon": 13.0, "lat": 65.0, "zoom": 4.0, "rev": 0}
+    DEFAULT_VIEW = {"lon": 13.0, "lat": 65.0, "zoom": 4.0}
 
     input_box_style = {
         "width": "110px",
@@ -465,9 +493,30 @@ def create_dash_app(flask_server):
     }
 
     TABLE_HEIGHT = "300px"
-    table_style_table = {"height": TABLE_HEIGHT, "overflowY": "auto", "overflowX": "auto", "border": "1px solid #eee", "borderRadius": "10px"}
-    table_style_cell = {"padding": "9px", "fontSize": "14px", "lineHeight": "1.25", "whiteSpace": "normal", "height": "auto"}
-    table_style_header = {"fontWeight": "800", "fontSize": "14px", "position": "sticky", "top": 0, "zIndex": 2, "backgroundColor": "#fafafa", "borderBottom": "1px solid #e5e5e5"}
+
+    table_style_table = {
+        "height": TABLE_HEIGHT,
+        "overflowY": "auto",
+        "overflowX": "auto",
+        "border": "1px solid #eee",
+        "borderRadius": "10px",
+    }
+    table_style_cell = {
+        "padding": "9px",
+        "fontSize": "14px",
+        "lineHeight": "1.25",
+        "whiteSpace": "normal",
+        "height": "auto",
+    }
+    table_style_header = {
+        "fontWeight": "800",
+        "fontSize": "14px",
+        "position": "sticky",
+        "top": 0,
+        "zIndex": 2,
+        "backgroundColor": "#fafafa",
+        "borderBottom": "1px solid #e5e5e5",
+    }
 
     app.layout = html.Div(
         style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "padding": "12px"},
@@ -475,9 +524,17 @@ def create_dash_app(flask_server):
             html.H1("Norgespris per kommune – interaktivt kart", style={"margin": "0 0 10px 0"}),
 
             html.Div(
-                style={"display": "flex", "gap": "18px", "alignItems": "center", "marginBottom": "10px",
-                       "padding": "10px 12px", "border": "1px solid #e5e5e5", "borderRadius": "12px",
-                       "background": "#fafafa", "flexWrap": "wrap"},
+                style={
+                    "display": "flex",
+                    "gap": "18px",
+                    "alignItems": "center",
+                    "marginBottom": "10px",
+                    "padding": "10px 12px",
+                    "border": "1px solid #e5e5e5",
+                    "borderRadius": "12px",
+                    "background": "#fafafa",
+                    "flexWrap": "wrap",
+                },
                 children=[
                     html.Div(children=[
                         html.Label("Vis data for:", style={"fontWeight": "700", "fontSize": "14px"}),
@@ -493,28 +550,48 @@ def create_dash_app(flask_server):
                         html.Label("Endring i forbruk:", style={"fontWeight": "700", "fontSize": "14px"}),
                         dcc.Dropdown(
                             id="change_period",
-                            options=[{"label": "Oktober", "value": "oct"}, {"label": "November", "value": "nov"},
-                                     {"label": "Desember", "value": "dec"}, {"label": "Hele Q4", "value": "q4"}],
+                            options=[
+                                {"label": "Oktober", "value": "oct"},
+                                {"label": "November", "value": "nov"},
+                                {"label": "Desember", "value": "dec"},
+                                {"label": "Hele Q4", "value": "q4"},
+                            ],
                             value="q4",
                             clearable=False,
                             style={"width": "170px", "fontSize": "14px"},
                         ),
                     ]),
-                    html.Div(children=[html.Label("Rød ≤ (andel)", style={"fontWeight": "700", "fontSize": "14px"}),
-                                       dcc.Input(id="low", type="number", value=0.20, step=0.01, min=0, max=1, style=input_box_style)]),
-                    html.Div(children=[html.Label("Blå ≥ (andel)", style={"fontWeight": "700", "fontSize": "14px"}),
-                                       dcc.Input(id="high", type="number", value=0.50, step=0.01, min=0, max=1, style=input_box_style)]),
-                    html.Div(children=[html.Label("Rød ≤ (endring %)", style={"fontWeight": "700", "fontSize": "14px"}),
-                                       dcc.Input(id="chg_red_le", type="number", value=0.0, step=0.1, style=input_box_style)]),
-                    html.Div(children=[html.Label("Blå ≥ (endring %)", style={"fontWeight": "700", "fontSize": "14px"}),
-                                       dcc.Input(id="chg_blue_ge", type="number", value=0.0, step=0.1, style=input_box_style)]),
-                    html.Div(children=[html.Label("Prikk-skala (prosentpoeng)", style={"fontWeight": "700", "fontSize": "14px"}),
-                                       dcc.Input(id="marker_scale_pct", type="number", value=10.0, step=0.5, min=0.1, style=input_box_style)]),
+                    html.Div(children=[
+                        html.Label("Rød ≤ (andel)", style={"fontWeight": "700", "fontSize": "14px"}),
+                        dcc.Input(id="low", type="number", value=0.20, step=0.01, min=0, max=1, style=input_box_style),
+                    ]),
+                    html.Div(children=[
+                        html.Label("Blå ≥ (andel)", style={"fontWeight": "700", "fontSize": "14px"}),
+                        dcc.Input(id="high", type="number", value=0.50, step=0.01, min=0, max=1, style=input_box_style),
+                    ]),
+                    html.Div(children=[
+                        html.Label("Rød ≤ (endring %)", style={"fontWeight": "700", "fontSize": "14px"}),
+                        dcc.Input(id="chg_red_le", type="number", value=0.0, step=0.1, style=input_box_style),
+                    ]),
+                    html.Div(children=[
+                        html.Label("Blå ≥ (endring %)", style={"fontWeight": "700", "fontSize": "14px"}),
+                        dcc.Input(id="chg_blue_ge", type="number", value=0.0, step=0.1, style=input_box_style),
+                    ]),
+                    html.Div(children=[
+                        html.Label("Prikk-skala (prosentpoeng)", style={"fontWeight": "700", "fontSize": "14px"}),
+                        dcc.Input(id="marker_scale_pct", type="number", value=10.0, step=0.5, min=0.1, style=input_box_style),
+                    ]),
                 ],
             ),
 
             html.Div(
-                style={"display": "grid", "gridTemplateColumns": "1.12fr 1fr", "gridTemplateRows": "auto auto", "gap": "14px", "alignItems": "start"},
+                style={
+                    "display": "grid",
+                    "gridTemplateColumns": "1.12fr 1fr",
+                    "gridTemplateRows": "auto auto",
+                    "gap": "14px",
+                    "alignItems": "start",
+                },
                 children=[
                     html.Div(
                         style={"gridColumn": "1", "gridRow": "1 / span 2"},
@@ -528,8 +605,15 @@ def create_dash_app(flask_server):
                                         config={"scrollZoom": True, "displayModeBar": True, "displaylogo": False},
                                     ),
                                     html.Div(
-                                        style={"position": "absolute", "top": "12px", "left": "12px", "zIndex": 9999,
-                                               "display": "flex", "flexDirection": "column", "gap": "6px"},
+                                        style={
+                                            "position": "absolute",
+                                            "top": "12px",
+                                            "left": "12px",
+                                            "zIndex": 9999,
+                                            "display": "flex",
+                                            "flexDirection": "column",
+                                            "gap": "6px",
+                                        },
                                         children=[
                                             html.Button("+", id="zoom-in", n_clicks=0, style={
                                                 "width": "44px", "height": "44px", "fontSize": "26px", "fontWeight": "800",
@@ -565,16 +649,34 @@ def create_dash_app(flask_server):
                             html.Div(id="count", style={"color": "#555", "marginBottom": "8px"}),
 
                             html.H4("Høyest andel"),
-                            dash_table.DataTable(id="top", page_size=15, style_table=table_style_table, style_cell=table_style_cell, style_header=table_style_header),
+                            dash_table.DataTable(
+                                id="top",
+                                page_size=15,
+                                style_table=table_style_table,
+                                style_cell=table_style_cell,
+                                style_header=table_style_header,
+                            ),
 
                             html.H4("Lavest andel", style={"marginTop": "14px"}),
-                            dash_table.DataTable(id="bottom", page_size=15, style_table=table_style_table, style_cell=table_style_cell, style_header=table_style_header),
+                            dash_table.DataTable(
+                                id="bottom",
+                                page_size=15,
+                                style_table=table_style_table,
+                                style_cell=table_style_cell,
+                                style_header=table_style_header,
+                            ),
                         ],
                     ),
 
                     html.Div(
                         style={"gridColumn": "2", "gridRow": "2"},
-                        children=[dcc.Graph(id="scatter", style={"height": "340px"}, config={"displayModeBar": True, "displaylogo": False})],
+                        children=[
+                            dcc.Graph(
+                                id="scatter",
+                                style={"height": "340px"},
+                                config={"displayModeBar": True, "displaylogo": False},
+                            ),
+                        ],
                     ),
                 ],
             ),
@@ -584,8 +686,6 @@ def create_dash_app(flask_server):
     # -----------------------------
     # CALLBACKS
     # -----------------------------
-
-    # 1) Bygg kart (ENESTE callback som skriver til map.figure)
     @app.callback(
         Output("map", "figure"),
         Input("mode", "value"),
@@ -600,10 +700,8 @@ def create_dash_app(flask_server):
     def update_map(mode_value, low, high, change_period, chg_red_le, chg_blue_ge, marker_scale_pct, view):
         df = build_df("Bolig" if mode_value == "Bolig" else "Fritid")
 
-        view = view or DEFAULT_VIEW
         center = {"lon": float(view.get("lon", DEFAULT_VIEW["lon"])), "lat": float(view.get("lat", DEFAULT_VIEW["lat"]))}
         zoom = float(view.get("zoom", DEFAULT_VIEW["zoom"]))
-        rev = view.get("rev", 0)
 
         low = 0.20 if low is None else float(low)
         high = 0.50 if high is None else float(high)
@@ -621,10 +719,9 @@ def create_dash_app(flask_server):
             change_red_le=chg_red_le,
             change_blue_ge=chg_blue_ge,
             marker_scale_pct=marker_scale_pct,
-            uirev=rev,  # viktig: endres når knapper brukes
         )
 
-    # 2) Hold view-store i sync med mus (relayout) + zoomknapper
+    # Håndter både kart-relayout og zoom-knapper
     @app.callback(
         Output("relayout-store", "data"),
         Output("view-store", "data"),
@@ -638,42 +735,39 @@ def create_dash_app(flask_server):
     def sync_view_and_relayout(relayout, zin, zout, zreset, view):
         view = view or DEFAULT_VIEW
         trig = get_trigger_id()
+
         new_view = dict(view)
 
-        # Mus pan/zoom
+        # Kart-interaksjon (pan/zoom med mus)
         if trig == "map" and relayout:
             if "mapbox.zoom" in relayout:
                 new_view["zoom"] = float(relayout["mapbox.zoom"])
+
             if "mapbox.center" in relayout and isinstance(relayout["mapbox.center"], dict):
                 c = relayout["mapbox.center"]
                 if "lon" in c:
                     new_view["lon"] = float(c["lon"])
                 if "lat" in c:
                     new_view["lat"] = float(c["lat"])
-            # Ikke øk rev her – da “låser” vi ikke brukerens interaksjon
+
             return (relayout or {}), new_view
 
-        # Zoomknapper
+        # Zoom-knapper (bruk view-store som basis)
         lon = float(new_view.get("lon", DEFAULT_VIEW["lon"]))
         lat = float(new_view.get("lat", DEFAULT_VIEW["lat"]))
         zoom = float(new_view.get("zoom", DEFAULT_VIEW["zoom"]))
-        rev = int(new_view.get("rev", 0))
 
         if trig == "zoom-in":
             zoom = min(18.0, zoom + 1.0)
-            rev += 1
         elif trig == "zoom-out":
             zoom = max(1.0, zoom - 1.0)
-            rev += 1
         elif trig == "zoom-reset":
             lon, lat, zoom = DEFAULT_VIEW["lon"], DEFAULT_VIEW["lat"], DEFAULT_VIEW["zoom"]
-            rev += 1
         else:
             return (relayout or {}), no_update
 
-        return (relayout or {}), {"lon": lon, "lat": lat, "zoom": zoom, "rev": rev}
+        return (relayout or {}), {"lon": lon, "lat": lat, "zoom": zoom}
 
-    # 3) Tabeller + scatter + debug
     @app.callback(
         Output("top", "data"),
         Output("top", "columns"),
@@ -693,11 +787,13 @@ def create_dash_app(flask_server):
         change_col = change_cols_found.get(change_period)
 
         if change_col and change_col in df.columns:
+            # CSV: desimal (0.023). Tabell/debug: prosentpoeng (2.3)
             df["change_pct"] = df[change_col] * 100.0
         else:
             df["change_pct"] = float("nan")
 
         bbox = viewport_bbox_from_relayout(relayout or {})
+
         if bbox is None:
             visible = set(df[CSV_COLS["knr"]].tolist())
             count_text = "Viser alle kommuner (zoom/pan i kartet for å filtrere på synlig utsnitt)."
