@@ -466,9 +466,9 @@ def create_dash_app(flask_server):
         server=flask_server,
         url_base_pathname="/stromdash/",
         suppress_callback_exceptions=True,
-        # Hvis assets-mappen ikke plukkes opp i din deploy, bruk denne:
-        # assets_folder=str(BASE_DIR / "assets"),
+        assets_folder=str(BASE_DIR / "assets"),
     )
+
     app.title = "Norgespris per kommune"
 
     input_box_style = {
