@@ -210,14 +210,12 @@ def change_label(change_period: str) -> str:
 # DATA-LOADING (én gang når Dash monteres)
 # -----------------------------
 def load_resources() -> tuple[pd.DataFrame, dict, dict, list, str, dict, dict]:
-    # CSV
     df_raw = pd.read_csv(CSV_PATH, sep=CSV_SEP, low_memory=False)
     df_raw.columns = normalize_columns(df_raw.columns)
     df_raw[CSV_COLS["knr"]] = df_raw[CSV_COLS["knr"]].apply(normalize_kommunenr)
 
     change_cols_found = {k: find_col(df_raw.columns, aliases) for k, aliases in CHANGE_ALIASES.items()}
 
-    # GeoJSON
     GEOJSON_PATH = BASE_DIR / "static" / "geo" / "Kommuner-M.geojson"
     with open(GEOJSON_PATH, "r", encoding="utf-8") as f:
         gj = json.load(f)
@@ -247,11 +245,6 @@ def load_resources() -> tuple[pd.DataFrame, dict, dict, list, str, dict, dict]:
 # DASH FACTORY
 # -----------------------------
 def create_dash_app(flask_server):
-    """
-    Monter Dash inni Flask.
-    Dash blir tilgjengelig på /stromdash/
-    """
-    # Last ressurser én gang ved montering (ikke ved import)
     df_raw, change_cols_found, gj, features, geo_nr_key, feature_bbox_by_nr, centroid_by_nr = load_resources()
 
     def build_df(mode_value: str) -> pd.DataFrame:
@@ -270,8 +263,6 @@ def create_dash_app(flask_server):
         df["andel"] = df.apply(lambda r: safe_div(r["norgespris"], r["total"]), axis=1)
         df["andel_pct0"] = df["andel"].apply(pct0)
 
-        # incr_* i CSV er desimaltall (0.023 = 2.3%), så vi leser dem som tall her,
-        # og ganger med 100 først når vi bruker dem til visning/terskler.
         for _, col in change_cols_found.items():
             if col and col in df.columns:
                 df[col] = to_number(df[col])
@@ -297,8 +288,7 @@ def create_dash_app(flask_server):
 
         dff = df.copy()
         if change_col and change_col in dff.columns:
-            # CSV: desimal (0.023). UI/plot: prosentpoeng (2.3)
-            dff["change_pct"] = dff[change_col] * 100.0
+            dff["change_pct"] = dff[change_col] * 100.0  # desimal -> prosentpoeng
         else:
             dff["change_pct"] = float("nan")
         dff["change_pct_str"] = dff["change_pct"].apply(fmt_pct)
@@ -333,7 +323,7 @@ def create_dash_app(flask_server):
             opacity=0.75,
         )
 
-        # FIX: Hovertemplate må bruke %{...} (ikke %{{...}}) og bør bygges som f-string
+        # FIX: korrekt hovertemplate + riktig periode-label
         fig.update_traces(
             hovertemplate=(
                 f"<b>%{{hovertext}}</b><br>"
@@ -344,7 +334,6 @@ def create_dash_app(flask_server):
             )
         )
 
-        # Terskler er oppgitt i prosentpoeng i UI (f.eks -5 eller 2.5)
         red_le = float(change_red_le)
         blue_ge = float(change_blue_ge)
 
@@ -365,8 +354,6 @@ def create_dash_app(flask_server):
 
         scale = max(0.1, float(marker_scale_pct))
         abs_chg = dff2["change_pct"].abs().clip(upper=scale)
-
-        # Store prikker
         dff2["chg_size"] = 12 + 26 * (abs_chg / scale)
 
         fig.add_trace(
@@ -385,7 +372,6 @@ def create_dash_app(flask_server):
             )
         )
 
-        # Labels når man zoomer inn
         SHOW_LABELS_ZOOM = 5
         if zoom >= SHOW_LABELS_ZOOM:
             dff2["label"] = (
@@ -393,7 +379,6 @@ def create_dash_app(flask_server):
                 + "<br>Andel " + dff2["andel_pct0"].astype(str)
                 + "<br>Forbruk " + dff2["change_pct"].apply(fmt_pct)
             )
-
             fig.add_trace(
                 go.Scattermapbox(
                     lon=dff2["lon"],
@@ -421,7 +406,6 @@ def create_dash_app(flask_server):
 
         dff = df.copy()
         if change_col and change_col in dff.columns:
-            # CSV: desimal (0.023). Plot: prosentpoeng (2.3)
             dff["change_pct"] = dff[change_col] * 100.0
         else:
             dff["change_pct"] = float("nan")
@@ -720,38 +704,44 @@ def create_dash_app(flask_server):
             marker_scale_pct=marker_scale_pct,
         )
 
-    # Håndter både kart-relayout og zoom-knapper
+    # FIX: Når man trykker på knappene, må vi også "pushe" ny view til kartet.
     @app.callback(
         Output("relayout-store", "data"),
         Output("view-store", "data"),
+        Output("map", "figure"),
         Input("map", "relayoutData"),
         Input("zoom-in", "n_clicks"),
         Input("zoom-out", "n_clicks"),
         Input("zoom-reset", "n_clicks"),
         State("view-store", "data"),
+        State("mode", "value"),
+        State("low", "value"),
+        State("high", "value"),
+        State("change_period", "value"),
+        State("chg_red_le", "value"),
+        State("chg_blue_ge", "value"),
+        State("marker_scale_pct", "value"),
         prevent_initial_call=True,
     )
-    def sync_view_and_relayout(relayout, zin, zout, zreset, view):
+    def sync_view_and_relayout(relayout, zin, zout, zreset, view,
+                              mode_value, low, high, change_period, chg_red_le, chg_blue_ge, marker_scale_pct):
         view = view or DEFAULT_VIEW
         trig = get_trigger_id()
-
         new_view = dict(view)
 
-        # Kart-interaksjon (pan/zoom med mus)
+        # Kart-interaksjon (pan/zoom med mus) -> bare oppdater stores
         if trig == "map" and relayout:
             if "mapbox.zoom" in relayout:
                 new_view["zoom"] = float(relayout["mapbox.zoom"])
-
             if "mapbox.center" in relayout and isinstance(relayout["mapbox.center"], dict):
                 c = relayout["mapbox.center"]
                 if "lon" in c:
                     new_view["lon"] = float(c["lon"])
                 if "lat" in c:
                     new_view["lat"] = float(c["lat"])
+            return (relayout or {}), new_view, no_update
 
-            return (relayout or {}), new_view
-
-        # Zoom-knapper (bruk view-store som basis)
+        # Zoom-knapper -> oppdater view + bygg ny figur med ny view
         lon = float(new_view.get("lon", DEFAULT_VIEW["lon"]))
         lat = float(new_view.get("lat", DEFAULT_VIEW["lat"]))
         zoom = float(new_view.get("zoom", DEFAULT_VIEW["zoom"]))
@@ -763,9 +753,29 @@ def create_dash_app(flask_server):
         elif trig == "zoom-reset":
             lon, lat, zoom = DEFAULT_VIEW["lon"], DEFAULT_VIEW["lat"], DEFAULT_VIEW["zoom"]
         else:
-            return (relayout or {}), no_update
+            return (relayout or {}), no_update, no_update
 
-        return (relayout or {}), {"lon": lon, "lat": lat, "zoom": zoom}
+        # bygg ny figur med oppdatert view (dette er det som gjør at knappen faktisk zoomer)
+        df = build_df("Bolig" if mode_value == "Bolig" else "Fritid")
+        low = 0.20 if low is None else float(low)
+        high = 0.50 if high is None else float(high)
+        chg_red_le = 0.0 if chg_red_le is None else float(chg_red_le)
+        chg_blue_ge = 0.0 if chg_blue_ge is None else float(chg_blue_ge)
+        marker_scale_pct = 10.0 if marker_scale_pct is None else float(marker_scale_pct)
+
+        fig = build_map_fig(
+            df=df,
+            low=low,
+            high=high,
+            center={"lon": lon, "lat": lat},
+            zoom=zoom,
+            change_period=change_period,
+            change_red_le=chg_red_le,
+            change_blue_ge=chg_blue_ge,
+            marker_scale_pct=marker_scale_pct,
+        )
+
+        return (relayout or {}), {"lon": lon, "lat": lat, "zoom": zoom}, fig
 
     @app.callback(
         Output("top", "data"),
@@ -786,7 +796,6 @@ def create_dash_app(flask_server):
         change_col = change_cols_found.get(change_period)
 
         if change_col and change_col in df.columns:
-            # CSV: desimal (0.023). Tabell/debug: prosentpoeng (2.3)
             df["change_pct"] = df[change_col] * 100.0
         else:
             df["change_pct"] = float("nan")
