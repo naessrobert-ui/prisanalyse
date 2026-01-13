@@ -4,9 +4,10 @@
 import math
 import json
 from pathlib import Path
-from typing import Dict, Any, Iterable, Tuple, Optional, Set, List
+from typing import Dict, Any, Iterable, Tuple, Optional, Set
 
 import pandas as pd
+import requests
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -27,8 +28,6 @@ CSV_COLS = {
     "bolig_tot": "Bolig-alle",
     "fritid_np": "Fritid-Norgespris",
     "fritid_tot": "Fritid-alle",
-    "fylke": "Fylke",
-    "region": "Region",
 }
 
 CHANGE_ALIASES = {
@@ -37,6 +36,8 @@ CHANGE_ALIASES = {
     "dec": ["incr_dec", "INCR_DEC", "incr dec", "increase_dec", "increase dec"],
     "q4":  ["incr_Q4", "incr_q4", "INCR_Q4", "incr q4", "increase_q4", "increase q4"],
 }
+
+KOMMUNER_GEOJSON_URL = "https://raw.githubusercontent.com/robhop/fylker-og-kommuner/main/Kommuner-M.geojson"
 
 
 # -----------------------------
@@ -99,7 +100,6 @@ def fmt_pct(x: Optional[float]) -> str:
         return "—"
 
 def to_number(series: pd.Series) -> pd.Series:
-    # robust for "0,15" / "0.15" / "1 234,56" etc
     s = series.astype(str).str.strip()
     s = s.str.replace("%", "", regex=False)
     s = s.str.replace("\u00a0", " ", regex=False)
@@ -145,10 +145,28 @@ def get_feature_bbox(feature: Dict) -> Tuple[float, float, float, float]:
     return (min(lons), min(lats), max(lons), max(lats))
 
 def feature_centroid(feature: Dict) -> Optional[Tuple[float, float]]:
-    bbox = get_feature_bbox(feature)
-    if bbox == (0.0, 0.0, 0.0, 0.0):
+    geom = feature.get("geometry") or {}
+    gtype = geom.get("type")
+    coords = geom.get("coordinates") or []
+
+    lons, lats = [], []
+
+    def add_ring(ring):
+        for lon, lat in ring:
+            lons.append(lon)
+            lats.append(lat)
+
+    if gtype == "Polygon":
+        for ring in coords:
+            add_ring(ring)
+    elif gtype == "MultiPolygon":
+        for poly in coords:
+            for ring in poly:
+                add_ring(ring)
+
+    if not lons or not lats:
         return None
-    return ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
+    return (float(sum(lons) / len(lons)), float(sum(lats) / len(lats)))
 
 def bboxes_intersect(a: Tuple[float, float, float, float], b: Tuple[float, float, float, float]) -> bool:
     a_minx, a_miny, a_maxx, a_maxy = a
@@ -183,49 +201,19 @@ def get_trigger_id() -> Optional[str]:
 def change_label(change_period: str) -> str:
     return {"oct": "Oktober", "nov": "November", "dec": "Desember", "q4": "Q4"}.get(change_period, "Q4")
 
-def zoom_for_bbox(lon_span: float, lat_span: float) -> float:
-    span = max(lon_span, lat_span)
-    if span <= 0.5: return 8.0
-    if span <= 1.0: return 7.0
-    if span <= 2.0: return 6.2
-    if span <= 4.0: return 5.4
-    if span <= 8.0: return 4.6
-    return 3.7
-
-def bbox_union(bboxes: List[Tuple[float, float, float, float]]) -> Optional[Tuple[float, float, float, float]]:
-    bboxes = [b for b in bboxes if b and b != (0.0, 0.0, 0.0, 0.0)]
-    if not bboxes:
-        return None
-    return (
-        min(b[0] for b in bboxes),
-        min(b[1] for b in bboxes),
-        max(b[2] for b in bboxes),
-        max(b[3] for b in bboxes),
-    )
-
 
 # -----------------------------
 # DATA-LOADING (én gang når Dash monteres)
 # -----------------------------
 def load_resources() -> tuple[pd.DataFrame, dict, dict, list, str, dict, dict]:
+    # CSV
     df_raw = pd.read_csv(CSV_PATH, sep=CSV_SEP, low_memory=False)
     df_raw.columns = normalize_columns(df_raw.columns)
-
     df_raw[CSV_COLS["knr"]] = df_raw[CSV_COLS["knr"]].apply(normalize_kommunenr)
-
-    # Fylke/Region fra CSV (brukes i dropdown)
-    if CSV_COLS["fylke"] in df_raw.columns:
-        df_raw[CSV_COLS["fylke"]] = df_raw[CSV_COLS["fylke"]].astype(str).str.strip()
-    else:
-        df_raw[CSV_COLS["fylke"]] = ""
-
-    if CSV_COLS["region"] in df_raw.columns:
-        df_raw[CSV_COLS["region"]] = df_raw[CSV_COLS["region"]].astype(str).str.strip()
-    else:
-        df_raw[CSV_COLS["region"]] = ""
 
     change_cols_found = {k: find_col(df_raw.columns, aliases) for k, aliases in CHANGE_ALIASES.items()}
 
+    # GeoJSON
     GEOJSON_PATH = BASE_DIR / "static" / "geo" / "Kommuner-M.geojson"
     with open(GEOJSON_PATH, "r", encoding="utf-8") as f:
         gj = json.load(f)
@@ -255,16 +243,12 @@ def load_resources() -> tuple[pd.DataFrame, dict, dict, list, str, dict, dict]:
 # DASH FACTORY
 # -----------------------------
 def create_dash_app(flask_server):
+    """
+    Monter Dash inni Flask.
+    Dash blir tilgjengelig på /stromdash/
+    """
+    # Last ressurser én gang ved montering (ikke ved import)
     df_raw, change_cols_found, gj, features, geo_nr_key, feature_bbox_by_nr, centroid_by_nr = load_resources()
-
-    # dropdown-lister
-    def uniq_list(col: str) -> list[str]:
-        s = df_raw[col].dropna().astype(str).str.strip()
-        s = s[(s != "") & (s.str.lower() != "nan")]
-        return sorted(set(s.tolist()))
-
-    ALL_FYLKER = uniq_list(CSV_COLS["fylke"]) if CSV_COLS["fylke"] in df_raw.columns else []
-    ALL_REGIONER = uniq_list(CSV_COLS["region"]) if CSV_COLS["region"] in df_raw.columns else []
 
     def build_df(mode_value: str) -> pd.DataFrame:
         df = df_raw.copy()
@@ -288,26 +272,6 @@ def create_dash_app(flask_server):
 
         df["knr_norm"] = df[CSV_COLS["knr"]].apply(normalize_kommunenr)
         return df
-
-    def filter_scope(df: pd.DataFrame, geo_type: str, geo_value: str) -> pd.DataFrame:
-        if geo_type == "country":
-            return df
-        if geo_type == "county":
-            return df[df[CSV_COLS["fylke"]] == geo_value].copy()
-        if geo_type == "region":
-            return df[df[CSV_COLS["region"]] == geo_value].copy()
-        return df
-
-    def scope_view(df_scope: pd.DataFrame, default_view: Dict[str, float]) -> Dict[str, float]:
-        knrs = df_scope["knr_norm"].dropna().astype(str).tolist()
-        bbs = [feature_bbox_by_nr.get(k) for k in knrs if k in feature_bbox_by_nr]
-        u = bbox_union([b for b in bbs if b])
-        if not u:
-            return dict(default_view)
-        center_lon = (u[0] + u[2]) / 2
-        center_lat = (u[1] + u[3]) / 2
-        z = zoom_for_bbox(u[2] - u[0], u[3] - u[1])
-        return {"lon": float(center_lon), "lat": float(center_lat), "zoom": float(z)}
 
     def build_map_fig(
         df: pd.DataFrame,
@@ -353,23 +317,22 @@ def create_dash_app(flask_server):
         fig = px.choropleth_mapbox(
             dff,
             geojson=gj,
-            locations="knr_norm",
+            locations=CSV_COLS["knr"],
             featureidkey=f"properties.{geo_nr_key}",
             color="kategori",
             color_discrete_map=color_map,
             hover_name=CSV_COLS["kommune"],
-            custom_data=["andel_pct0", "change_pct_str", "norgespris", "total", "knr_norm"],
+            custom_data=["andel_pct0", "change_pct_str", "norgespris", "total"],
             opacity=0.75,
         )
 
         fig.update_traces(
             hovertemplate=(
                 "<b>%{hovertext}</b><br>"
-                "Kommunenr: %{customdata[4]}<br>"
-                "Andel Norgespris: %{customdata[0]}<br>"
-                f"Endring {period_label} (%): %{customdata[1]}<br>"
-                "Norgespris: %{customdata[2]}<br>"
-                "Total: %{customdata[3]}<extra></extra>"
+                "Andel Norgespris: %{{customdata[0]}}<br>"
+                f"Endring {period_label} (%): %{{customdata[1]}}<br>"
+                "Norgespris: %{{customdata[2]}}<br>"
+                "Total: %{{customdata[3]}}<extra></extra>"
             )
         )
 
@@ -393,25 +356,47 @@ def create_dash_app(flask_server):
 
         scale = max(0.1, float(marker_scale_pct))
         abs_chg = dff2["change_pct"].abs().clip(upper=scale)
+
+        # Store prikker
         dff2["chg_size"] = 12 + 26 * (abs_chg / scale)
 
-        # legg customdata med andel + endring for klikk-info
         fig.add_trace(
             go.Scattermapbox(
                 lon=dff2["lon"],
                 lat=dff2["lat"],
                 mode="markers",
                 marker=dict(size=dff2["chg_size"], color=dff2["chg_color"], opacity=0.85),
-                customdata=list(zip(dff2["andel_pct0"], dff2["change_pct_str"], dff2["knr_norm"], dff2[CSV_COLS["kommune"]])),
-                hovertemplate=(
-                    "<b>%{customdata[3]}</b><br>"
-                    "Kommunenr: %{customdata[2]}<br>"
-                    "Andel Norgespris: %{customdata[0]}<br>"
-                    f"Endring {period_label} (%): %{customdata[1]}<extra></extra>"
+                hovertext=(
+                    dff2[CSV_COLS["kommune"]].astype(str)
+                    + "<br>Andel Norgespris: " + dff2["andel_pct0"].astype(str)
+                    + f"<br>Endring {period_label} (%): " + dff2["change_pct"].apply(fmt_pct)
                 ),
+                hoverinfo="text",
                 showlegend=False,
             )
         )
+
+        # Labels når man zoomer inn
+        SHOW_LABELS_ZOOM = 5
+        if zoom >= SHOW_LABELS_ZOOM:
+            dff2["label"] = (
+                dff2[CSV_COLS["kommune"]].astype(str)
+                + "<br>Andel " + dff2["andel_pct0"].astype(str)
+                + "<br>Forbruk " + dff2["change_pct"].apply(fmt_pct)
+            )
+
+            fig.add_trace(
+                go.Scattermapbox(
+                    lon=dff2["lon"],
+                    lat=dff2["lat"],
+                    mode="text",
+                    text=dff2["label"],
+                    textposition="top center",
+                    textfont=dict(size=12, color="black"),
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
 
         fig.update_layout(
             mapbox_style="open-street-map",
@@ -432,7 +417,7 @@ def create_dash_app(flask_server):
             dff["change_pct"] = float("nan")
 
         if visible_knr is not None:
-            dff = dff[dff["knr_norm"].isin(visible_knr)].copy()
+            dff = dff[dff[CSV_COLS["knr"]].isin(visible_knr)].copy()
 
         dff = dff.dropna(subset=["andel", "change_pct"]).copy()
 
@@ -446,10 +431,33 @@ def create_dash_app(flask_server):
         )
         fig.update_xaxes(tickformat=".0%")
 
+        r2_text = "R²: —"
+        if len(dff) >= 3:
+            import numpy as np
+            x = dff["andel"].astype(float).to_numpy()
+            y = dff["change_pct"].astype(float).to_numpy()
+
+            try:
+                a, b = np.polyfit(x, y, 1)
+                yhat = a * x + b
+
+                ss_res = float(((y - yhat) ** 2).sum())
+                ss_tot = float(((y - y.mean()) ** 2).sum())
+                r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else float("nan")
+                if not math.isnan(r2):
+                    r2_text = f"R²: {r2:.3f}".replace(".", ",")
+
+                x_line = np.linspace(float(x.min()), float(x.max()), 60)
+                y_line = a * x_line + b
+                fig.add_trace(go.Scatter(x=x_line, y=y_line, mode="lines", name="Trendlinje", hoverinfo="skip"))
+            except Exception:
+                pass
+
         fig.update_layout(
             margin=dict(l=0, r=0, t=45, b=0),
             height=340,
-            title=f"Sammenheng: Norgespris-andel vs endring i forbruk ({period_label})",
+            title=f"Sammenheng: Norgespris-andel vs endring i forbruk ({period_label}) — {r2_text}",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         )
         return fig
 
@@ -459,8 +467,7 @@ def create_dash_app(flask_server):
     app = Dash(
         __name__,
         server=flask_server,
-        routes_pathname_prefix="/stromdash/",
-        requests_pathname_prefix="/stromdash/",
+        url_base_pathname="/stromdash/",
     )
     app.title = "Norgespris per kommune"
 
@@ -504,46 +511,6 @@ def create_dash_app(flask_server):
         style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "padding": "12px"},
         children=[
             html.H1("Norgespris per kommune – interaktivt kart", style={"margin": "0 0 10px 0"}),
-
-            # --- NYTT: Geografi/område ---
-            html.Div(
-                style={
-                    "display": "flex",
-                    "gap": "14px",
-                    "alignItems": "end",
-                    "marginBottom": "10px",
-                    "padding": "10px 12px",
-                    "border": "1px solid #e5e5e5",
-                    "borderRadius": "12px",
-                    "background": "#fff",
-                    "flexWrap": "wrap",
-                },
-                children=[
-                    html.Div(children=[
-                        html.Label("Geografi:", style={"fontWeight": "800", "fontSize": "14px"}),
-                        dcc.Dropdown(
-                            id="geo-type",
-                            options=[
-                                {"label": "Hele landet", "value": "country"},
-                                {"label": "Fylke", "value": "county"},
-                                {"label": "Strømregion", "value": "region"},
-                            ],
-                            value="country",
-                            clearable=False,
-                            style={"width": "180px"},
-                        ),
-                    ]),
-                    html.Div(children=[
-                        html.Label("Velg område:", style={"fontWeight": "800", "fontSize": "14px"}),
-                        dcc.Dropdown(id="geo-value", style={"width": "240px"}),
-                    ]),
-                    html.Button("Tilbake til Norge", id="geo-reset", n_clicks=0, style={
-                        "height": "40px", "padding": "0 14px", "borderRadius": "10px",
-                        "border": "1px solid #ccc", "background": "#fafafa", "cursor": "pointer",
-                        "fontWeight": "700"
-                    }),
-                ],
-            ),
 
             html.Div(
                 style={
@@ -623,7 +590,7 @@ def create_dash_app(flask_server):
                                 children=[
                                     dcc.Graph(
                                         id="map",
-                                        style={"height": "calc(100vh - 260px)", "minHeight": "720px"},
+                                        style={"height": "calc(100vh - 220px)", "minHeight": "720px"},
                                         config={"scrollZoom": True, "displayModeBar": True, "displaylogo": False},
                                     ),
                                     html.Div(
@@ -658,6 +625,7 @@ def create_dash_app(flask_server):
                             ),
 
                             html.Div(style={"margin": "8px 0", "color": "#555"}, id="debug-change"),
+
                             dcc.Store(id="relayout-store"),
                             dcc.Store(id="view-store", data=DEFAULT_VIEW),
                         ],
@@ -666,12 +634,6 @@ def create_dash_app(flask_server):
                     html.Div(
                         style={"gridColumn": "2", "gridRow": "1"},
                         children=[
-                            html.H3("Valgt kommune", style={"marginTop": "0"}),
-                            html.Div(
-                                id="click-info",
-                                style={"border": "1px solid #eee", "borderRadius": "10px", "padding": "10px", "background": "#fff", "marginBottom": "12px"},
-                            ),
-
                             html.H3("Oversikt (synlig utsnitt)", style={"marginTop": "0"}),
                             html.Div(id="count", style={"color": "#555", "marginBottom": "8px"}),
 
@@ -711,50 +673,7 @@ def create_dash_app(flask_server):
     )
 
     # -----------------------------
-    # NYTT: geo dropdown options
-    # -----------------------------
-    @app.callback(
-        Output("geo-value", "options"),
-        Output("geo-value", "value"),
-        Input("geo-type", "value"),
-    )
-    def update_geo_value_opts(geo_type):
-        if geo_type == "country":
-            return [{"label": "Norge", "value": "Norge"}], "Norge"
-        if geo_type == "county":
-            opts = [{"label": x, "value": x} for x in ALL_FYLKER]
-            return opts, (opts[0]["value"] if opts else None)
-        if geo_type == "region":
-            opts = [{"label": x, "value": x} for x in ALL_REGIONER]
-            return opts, (opts[0]["value"] if opts else None)
-        return [], None
-
-    # Når geo endres: sett view-store til riktig utsnitt (zoom til fylke/region)
-    @app.callback(
-        Output("view-store", "data"),
-        Input("geo-type", "value"),
-        Input("geo-value", "value"),
-        Input("geo-reset", "n_clicks"),
-        State("mode", "value"),
-        prevent_initial_call=True,
-    )
-    def update_view_for_scope(geo_type, geo_value, n_reset, mode_value):
-        trig = get_trigger_id()
-        if trig == "geo-reset":
-            return DEFAULT_VIEW
-
-        if not geo_type or geo_type == "country":
-            return DEFAULT_VIEW
-
-        if not geo_value:
-            return no_update
-
-        df = build_df("Bolig" if mode_value == "Bolig" else "Fritid")
-        df_scope = filter_scope(df, geo_type, geo_value)
-        return scope_view(df_scope, DEFAULT_VIEW)
-
-    # -----------------------------
-    # Kart
+    # CALLBACKS
     # -----------------------------
     @app.callback(
         Output("map", "figure"),
@@ -766,12 +685,9 @@ def create_dash_app(flask_server):
         Input("chg_blue_ge", "value"),
         Input("marker_scale_pct", "value"),
         Input("view-store", "data"),
-        Input("geo-type", "value"),
-        Input("geo-value", "value"),
     )
-    def update_map(mode_value, low, high, change_period, chg_red_le, chg_blue_ge, marker_scale_pct, view, geo_type, geo_value):
+    def update_map(mode_value, low, high, change_period, chg_red_le, chg_blue_ge, marker_scale_pct, view):
         df = build_df("Bolig" if mode_value == "Bolig" else "Fritid")
-        df = filter_scope(df, geo_type or "country", geo_value or "Norge")
 
         center = {"lon": float(view.get("lon", DEFAULT_VIEW["lon"])), "lat": float(view.get("lat", DEFAULT_VIEW["lat"]))}
         zoom = float(view.get("zoom", DEFAULT_VIEW["zoom"]))
@@ -811,6 +727,7 @@ def create_dash_app(flask_server):
 
         new_view = dict(view)
 
+        # Kart-interaksjon (pan/zoom med mus)
         if trig == "map" and relayout:
             if "mapbox.zoom" in relayout:
                 new_view["zoom"] = float(relayout["mapbox.zoom"])
@@ -824,6 +741,7 @@ def create_dash_app(flask_server):
 
             return (relayout or {}), new_view
 
+        # Zoom-knapper (bruk view-store som basis)
         lon = float(new_view.get("lon", DEFAULT_VIEW["lon"]))
         lat = float(new_view.get("lat", DEFAULT_VIEW["lat"]))
         zoom = float(new_view.get("zoom", DEFAULT_VIEW["zoom"]))
@@ -839,9 +757,6 @@ def create_dash_app(flask_server):
 
         return (relayout or {}), {"lon": lon, "lat": lat, "zoom": zoom}
 
-    # -----------------------------
-    # Tabeller + scatter + debug
-    # -----------------------------
     @app.callback(
         Output("top", "data"),
         Output("top", "columns"),
@@ -853,12 +768,9 @@ def create_dash_app(flask_server):
         Input("mode", "value"),
         Input("change_period", "value"),
         Input("relayout-store", "data"),
-        Input("geo-type", "value"),
-        Input("geo-value", "value"),
     )
-    def update_tables_scatter_debug(mode_value, change_period, relayout, geo_type, geo_value):
+    def update_tables_scatter_debug(mode_value, change_period, relayout):
         df = build_df("Bolig" if mode_value == "Bolig" else "Fritid")
-        df = filter_scope(df, geo_type or "country", geo_value or "Norge")
 
         period_label = change_label(change_period)
         change_col = change_cols_found.get(change_period)
@@ -871,8 +783,8 @@ def create_dash_app(flask_server):
         bbox = viewport_bbox_from_relayout(relayout or {})
 
         if bbox is None:
-            visible = set(df["knr_norm"].tolist())
-            count_text = "Viser alle kommuner i valgt område (zoom/pan i kartet for å filtrere på synlig utsnitt)."
+            visible = set(df[CSV_COLS["knr"]].tolist())
+            count_text = "Viser alle kommuner (zoom/pan i kartet for å filtrere på synlig utsnitt)."
         else:
             visible: Set[str] = set()
             for knr, fb in feature_bbox_by_nr.items():
@@ -880,7 +792,7 @@ def create_dash_app(flask_server):
                     visible.add(knr)
             count_text = f"Kommuner i synlig utsnitt: {len(visible)}"
 
-        dff = df[df["knr_norm"].isin(visible)].copy()
+        dff = df[df[CSV_COLS["knr"]].isin(visible)].copy()
         dff["andel_num"] = dff["andel"].fillna(-1)
 
         dff["Andel Norgespris"] = dff["andel_pct0"]
@@ -903,7 +815,6 @@ def create_dash_app(flask_server):
         total0 = int((df["total"].fillna(0) == 0).sum())
 
         debug = (
-            f"Område-filter: {geo_type}:{geo_value} | "
             f"Endringskolonne brukt: {change_col or 'IKKE FUNNET'} | "
             f"Gyldige endringsverdier: {n_ok}/{n_total} | "
             f"min={fmt_pct(mn)}, max={fmt_pct(mx)} | "
@@ -916,60 +827,6 @@ def create_dash_app(flask_server):
             count_text,
             scatter_fig,
             debug,
-        )
-
-    # -----------------------------
-    # NYTT: Klikk-info (andel + endring)
-    # -----------------------------
-    @app.callback(
-        Output("click-info", "children"),
-        Input("map", "clickData"),
-        Input("mode", "value"),
-        Input("change_period", "value"),
-        Input("geo-type", "value"),
-        Input("geo-value", "value"),
-    )
-    def show_click_info(clickData, mode_value, change_period, geo_type, geo_value):
-        period_label = change_label(change_period)
-
-        if not clickData or not clickData.get("points"):
-            return html.Div("Klikk på en kommune i kartet for å se detaljer.", style={"color": "#666"})
-
-        p = clickData["points"][0]
-
-        knr = None
-        if "location" in p and p["location"]:
-            knr = normalize_kommunenr(p["location"])
-
-        # fallback: customdata fra prikk-trace
-        if (not knr) and ("customdata" in p) and p["customdata"] and len(p["customdata"]) >= 3:
-            knr = normalize_kommunenr(p["customdata"][2])
-
-        if not knr:
-            return html.Div("Klarte ikke å lese kommunenr fra klikket.", style={"color": "#b00"})
-
-        df = build_df("Bolig" if mode_value == "Bolig" else "Fritid")
-        df = filter_scope(df, geo_type or "country", geo_value or "Norge")
-
-        change_col = change_cols_found.get(change_period)
-        if change_col and change_col in df.columns:
-            df["change_pct"] = df[change_col]
-        else:
-            df["change_pct"] = float("nan")
-
-        row = df[df["knr_norm"] == knr]
-        if row.empty:
-            return html.Div(f"Fant ikke rad for kommunenr {knr} (etter område-filter).", style={"color": "#b00"})
-
-        r = row.iloc[0]
-        return html.Div(
-            children=[
-                html.Div(str(r.get(CSV_COLS["kommune"], "")), style={"fontWeight": "900", "fontSize": "16px"}),
-                html.Div(f"Kommunenr: {knr}"),
-                html.Hr(style={"margin": "8px 0"}),
-                html.Div(f"Andel Norgespris: {r.get('andel_pct0', '—')}", style={"fontWeight": "700"}),
-                html.Div(f"Endring {period_label} (%): {fmt_pct(r.get('change_pct'))}", style={"fontWeight": "700"}),
-            ]
         )
 
     return app
