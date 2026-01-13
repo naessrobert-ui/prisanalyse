@@ -5,6 +5,8 @@ import math
 import json
 from pathlib import Path
 from typing import Dict, Any, Iterable, Tuple, Optional, Set
+from flask import url_for
+
 
 import pandas as pd
 import plotly.express as px
@@ -503,7 +505,8 @@ def create_dash_app(flask_server):
 
     def intro_layout():
         # Samme bakgrunn som resten av appen:
-        BACKGROUND_IMAGE_URL = "/static/background.jpg"
+        BACKGROUND_IMAGE_URL = f"{flask_server.static_url_path}/background.jpg"
+
 
         # Litt "glassmorphism" og knapper som matcher landing-siden bedre.
         btn_style = {
@@ -530,7 +533,7 @@ def create_dash_app(flask_server):
                 "padding": "34px 16px",
                 "fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
                 "backgroundImage": (
-                    "linear-gradient(rgba(0,0,0,0.62), rgba(0,0,0,0.62)), "
+                    "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), "
                     f"url('{BACKGROUND_IMAGE_URL}')"
                 ),
                 "backgroundSize": "cover",
