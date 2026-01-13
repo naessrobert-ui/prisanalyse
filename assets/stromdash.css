@@ -2,13 +2,34 @@ body {
   outline: 6px solid red !important;
 }
 
-
 /* Mobil/laptop-smal: stack alt i én kolonne så kart ikke blir "skygget" */
 @media (max-width: 980px) {
+
+  /* === MOBIL: EKTE FULL BREDDE (viewport), ikke bare 100% av container === */
+  .container,
+  .container-fluid {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Main wrapper */
+  .strom-page {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
   /* 1 kolonne: kart på topp, tabeller under */
   .strom-grid {
     grid-template-columns: 1fr !important;
     grid-template-rows: auto !important;
+    min-width: 0 !important;
   }
 
   /* Slipp desktop grid-låsing */
@@ -17,30 +38,26 @@ body {
   .strom-scatter-col {
     grid-column: 1 / -1 !important;
     grid-row: auto !important;
-    width: 100% !important;
+    width: 100% !important;     /* layout-flyt */
     min-width: 0 !important;
   }
 
-  /* Fjern side-padding (hvis du har className="strom-page" på main container) */
-  .strom-page {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
-
-  /* Kartet full bredde */
+  /* Kartet full bredde (viewport) */
   .strom-map-col {
     margin-left: 0 !important;
     margin-right: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
   }
 
-  /* Plotly må også få full bredde */
+  /* Plotly må også få full bredde (viewport) */
   .strom-map-graph,
   .strom-map-graph > div,
   .strom-map-graph .js-plotly-plot,
   .strom-map-graph .plot-container,
   .strom-map-graph .svg-container {
-    width: 100% !important;
-    max-width: 100% !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
     min-width: 0 !important;
   }
 
