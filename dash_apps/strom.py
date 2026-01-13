@@ -464,7 +464,7 @@ def create_dash_app(flask_server):
         __name__,
         server=flask_server,
         url_base_pathname="/stromdash/",
-        suppress_callback_exceptions=True,  # nødvendig når vi bytter layout (intro -> app)
+        suppress_callback_exceptions=True,
     )
     app.title = "Norgespris per kommune"
 
@@ -502,53 +502,105 @@ def create_dash_app(flask_server):
     }
 
     def intro_layout():
+        # Samme bakgrunn som resten av appen:
+        BACKGROUND_IMAGE_URL = "/static/background.jpg"
+
+        # Litt "glassmorphism" og knapper som matcher landing-siden bedre.
+        btn_style = {
+            "padding": "12px 18px",
+            "borderRadius": "14px",
+            "border": "1px solid rgba(255,255,255,0.18)",
+            "background": "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
+            "color": "rgba(255,255,255,0.95)",
+            "fontSize": "16px",
+            "fontWeight": "800",
+            "cursor": "pointer",
+            "boxShadow": "0 10px 30px rgba(0,0,0,0.35)",
+            "backdropFilter": "blur(10px)",
+            "-webkit-backdrop-filter": "blur(10px)",
+        }
+
         return html.Div(
             style={
-                "maxWidth": "900px",
-                "margin": "40px auto",
-                "padding": "22px",
-                "border": "1px solid #e8e8e8",
-                "borderRadius": "16px",
-                "background": "white",
-                "boxShadow": "0 6px 24px rgba(0,0,0,0.06)",
+                "minHeight": "100vh",
+                "width": "100%",
+                "display": "flex",
+                "alignItems": "center",
+                "justifyContent": "center",
+                "padding": "34px 16px",
                 "fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+                "backgroundImage": (
+                    "linear-gradient(rgba(0,0,0,0.62), rgba(0,0,0,0.62)), "
+                    f"url('{BACKGROUND_IMAGE_URL}')"
+                ),
+                "backgroundSize": "cover",
+                "backgroundPosition": "center",
+                "backgroundRepeat": "no-repeat",
+                "backgroundAttachment": "fixed",
+                "backgroundColor": "#0b1220",
             },
             children=[
-                html.H1("Norgespris per kommune", style={"marginTop": 0}),
-                html.P(
-                    "Denne siden bygger et interaktivt kart og noen figurer basert på kommune-data. "
-                    "Første gang kan det ta litt tid fordi kartet må genereres og sendes til nettleseren.",
-                    style={"color": "#444", "fontSize": "16px", "lineHeight": "1.5"},
-                ),
-                html.Ul(
-                    style={"color": "#444", "fontSize": "15px", "lineHeight": "1.6"},
-                    children=[
-                        html.Li("Når du trykker Start, lastes kartet og tabellene."),
-                        html.Li("Det kan ta noen sekunder første gang (stor GeoJSON + kart-figur)."),
-                        html.Li("Etterpå er pan/zoom raskt og trigger ikke full rebuild av kartet."),
-                    ],
-                ),
-                html.Div(style={"height": "12px"}),
-                html.Button(
-                    "Start kart",
-                    id="start-app",
-                    n_clicks=0,
-                    style={
-                        "padding": "12px 18px",
-                        "borderRadius": "12px",
-                        "border": "1px solid #d0d0d0",
-                        "background": "#111",
-                        "color": "white",
-                        "fontSize": "16px",
-                        "fontWeight": "700",
-                        "cursor": "pointer",
-                    },
-                ),
-                html.Div(style={"height": "10px"}),
                 html.Div(
-                    "Tips: om du vil gjøre første last enda raskere, er neste steg ofte å forenkle GeoJSON (simplify).",
-                    style={"color": "#666", "fontSize": "13px"},
-                ),
+                    style={
+                        "maxWidth": "940px",
+                        "width": "100%",
+                        "padding": "28px 28px",
+                        "borderRadius": "18px",
+                        "background": "rgba(17, 24, 39, 0.52)",
+                        "border": "1px solid rgba(255,255,255,0.14)",
+                        "boxShadow": "0 18px 60px rgba(0,0,0,0.35)",
+                        "backdropFilter": "blur(12px)",
+                        "-webkit-backdrop-filter": "blur(12px)",
+                        "color": "rgba(255,255,255,0.92)",
+                    },
+                    children=[
+                        html.H1(
+                            "Norgespris per kommune",
+                            style={
+                                "marginTop": 0,
+                                "marginBottom": "12px",
+                                "fontSize": "40px",
+                                "letterSpacing": "-0.02em",
+                            },
+                        ),
+                        html.P(
+                            "Her kan du se hvor stor andel av strømforbrukerne i hver kommune som har valgt Norgespris. "
+                            "Du kan også sammenligne forbruket i årets tre siste måneder med samme periode i fjor.",
+                            style={
+                                "margin": "0 0 10px 0",
+                                "fontSize": "16px",
+                                "lineHeight": "1.6",
+                                "color": "rgba(255,255,255,0.86)",
+                            },
+                        ),
+                        html.P(
+                            "For at tallene skal være sammenlignbare, er det viktig å sammenligne kommuner med lignende klima. "
+                            "Dataene kommer fra Elhub og er oppdatert per 11. januar 2026.",
+                            style={
+                                "margin": "0 0 18px 0",
+                                "fontSize": "16px",
+                                "lineHeight": "1.6",
+                                "color": "rgba(255,255,255,0.86)",
+                            },
+                        ),
+                        html.Div(
+                            style={
+                                "display": "flex",
+                                "gap": "12px",
+                                "alignItems": "center",
+                                "flexWrap": "wrap",
+                                "marginTop": "6px",
+                            },
+                            children=[
+                                html.Button("Start kart", id="start-app", n_clicks=0, style=btn_style),
+                                html.Span(
+                                    "Første gang kan det ta litt tid å generere kartet.",
+                                    style={"fontSize": "13px", "color": "rgba(255,255,255,0.72)"},
+                                ),
+                            ],
+                        ),
+                    ],
+                )
             ],
         )
 
@@ -729,7 +781,6 @@ def create_dash_app(flask_server):
             ],
         )
 
-    # Root layout: alltid samme "shell"
     app.layout = html.Div(
         children=[
             dcc.Store(id="app-stage", data="intro"),
@@ -737,20 +788,18 @@ def create_dash_app(flask_server):
         ]
     )
 
-    # Render riktig side
     @app.callback(Output("page", "children"), Input("app-stage", "data"))
     def render_page(stage):
         if stage == "ready":
             return main_layout()
         return intro_layout()
 
-    # Bytt til app når user klikker start
     @app.callback(Output("app-stage", "data"), Input("start-app", "n_clicks"), prevent_initial_call=True)
     def start_app(n):
         return "ready"
 
     # -----------------------------
-    # CALLBACKS (samme som før, men de kjører først når main_layout finnes)
+    # CALLBACKS
     # -----------------------------
     @app.callback(
         Output("map", "figure"),
