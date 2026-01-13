@@ -82,7 +82,41 @@ body {
   .strom-side-col { margin-top: 10px; }
   .strom-scatter-col { margin-top: 10px; }
 }
+@media (max-width: 980px) {
 
+  /* Fjern Bootstrap "gutter" som gir hvite kanter */
+  .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  .col, [class*="col-"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Kart-kolonnen: fjern også padding (ikke bare margin) */
+  .strom-map-col {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Hvis du bruker 100vw: sentrer mot viewport så parent-padding ikke klemmer */
+  .strom-map-col,
+  .strom-map-graph {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    position: relative !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+
+  /* Plotly modebar (de svake ikonene) – valgfritt å skjule */
+  .modebar, .modebar-container {
+    display: none !important;
+  }
+}
 /* Veldig små skjermer */
 @media (max-width: 420px) {
   .strom-map-graph {
