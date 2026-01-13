@@ -505,7 +505,7 @@ def create_dash_app(flask_server):
 
     def intro_layout():
         # Samme bakgrunn som resten av appen:
-        BACKGROUND_IMAGE_URL = f"{flask_server.static_url_path}/background.jpg"
+        BACKGROUND_IMAGE_URL = "/bil_import/static/background.jpg"
 
 
         # Litt "glassmorphism" og knapper som matcher landing-siden bedre.
