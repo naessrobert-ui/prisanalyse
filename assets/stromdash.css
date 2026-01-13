@@ -1,0 +1,39 @@
+/* Mobil/laptop-smal: stack alt i én kolonne så kart ikke blir "skygget" */
+@media (max-width: 980px) {
+  .strom-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+  }
+
+  /* Slutt å tvinge kartet til å span'e rader/kolonner */
+  .strom-map-col,
+  .strom-side-col,
+  .strom-scatter-col {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+
+  /* Kartet: mobilvennlig høyde */
+  .strom-map-graph {
+    height: 58vh !important;
+    min-height: 380px !important;
+  }
+
+  /* Litt luft */
+  .strom-side-col { margin-top: 6px; }
+  .strom-scatter-col { margin-top: 6px; }
+}
+
+/* Veldig små skjermer */
+@media (max-width: 420px) {
+  .strom-map-graph {
+    height: 52vh !important;
+    min-height: 340px !important;
+  }
+}
+
+/* (Valgfritt) litt "hover" for start-knappen på intro, hvis du vil */
+.strom-start-btn:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
