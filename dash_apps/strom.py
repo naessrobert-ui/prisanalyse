@@ -92,6 +92,10 @@ def pct0(x: Optional[float]) -> str:
     return f"{int(round(x * 100))}%"
 
 def fmt_pct(x: Optional[float]) -> str:
+    """
+    Formatterer en verdi som allerede er i PROSENTPOENG (f.eks 2.3 -> "2,3%").
+    Merk: incr_* i CSV er desimaltall (0.023), så vi ganger med 100 der vi lager change_pct.
+    """
     if x is None or (isinstance(x, float) and math.isnan(x)):
         return "—"
     try:
@@ -266,6 +270,8 @@ def create_dash_app(flask_server):
         df["andel"] = df.apply(lambda r: safe_div(r["norgespris"], r["total"]), axis=1)
         df["andel_pct0"] = df["andel"].apply(pct0)
 
+        # incr_* i CSV er desimaltall (0.023 = 2.3%), så vi leser dem som tall her,
+        # og ganger med 100 først når vi bruker dem til visning/terskler.
         for _, col in change_cols_found.items():
             if col and col in df.columns:
                 df[col] = to_number(df[col])
@@ -291,7 +297,8 @@ def create_dash_app(flask_server):
 
         dff = df.copy()
         if change_col and change_col in dff.columns:
-            dff["change_pct"] = dff[change_col]
+            # CSV: desimal (0.023). UI/plot: prosentpoeng (2.3)
+            dff["change_pct"] = dff[change_col] * 100.0
         else:
             dff["change_pct"] = float("nan")
         dff["change_pct_str"] = dff["change_pct"].apply(fmt_pct)
@@ -336,6 +343,7 @@ def create_dash_app(flask_server):
             )
         )
 
+        # Terskler er oppgitt i prosentpoeng i UI (f.eks -5 eller 2.5)
         red_le = float(change_red_le)
         blue_ge = float(change_blue_ge)
 
@@ -412,7 +420,8 @@ def create_dash_app(flask_server):
 
         dff = df.copy()
         if change_col and change_col in dff.columns:
-            dff["change_pct"] = dff[change_col]
+            # CSV: desimal (0.023). Plot: prosentpoeng (2.3)
+            dff["change_pct"] = dff[change_col] * 100.0
         else:
             dff["change_pct"] = float("nan")
 
@@ -776,7 +785,8 @@ def create_dash_app(flask_server):
         change_col = change_cols_found.get(change_period)
 
         if change_col and change_col in df.columns:
-            df["change_pct"] = df[change_col]
+            # CSV: desimal (0.023). Tabell/debug: prosentpoeng (2.3)
+            df["change_pct"] = df[change_col] * 100.0
         else:
             df["change_pct"] = float("nan")
 
