@@ -12,7 +12,7 @@ body {
   }
 
   /* Ikke la elementene "låse" seg til desktop grid-plassering */
-  .strom-map-col,
+  .ol,
   .strom-side-col,
   .strom-scatter-col {
     grid-column: 1 / -1 !important;
@@ -22,7 +22,7 @@ body {
   }
 
   /* Kartet må få full bredde */
-  .strom-map-col,
+  .ol,
   .strom-map-graph,
   .strom-map-graph > div {
     width: 100% !important;
@@ -49,13 +49,13 @@ body {
   }
 
   /* Gi kartet full skjermbredde (tar igjen padding) */
-  .strom-map-col {
-    margin-left: 12px !important;   /* valgfritt: behold litt luft */
-    margin-right: 12px !important;  /* valgfritt */
+  .ol {
+    margin-left: 0 !important;   /* valgfritt: behold litt luft foreslått 12px*/
+    margin-right: 0 !important;  /* valgfritt */
   }
 
   /* Hvis du vil HELT kant-til-kant, bruk dette i stedet og slett marginene over:
-  .strom-map-col { margin-left: 0 !important; margin-right: 0 !important; }
+  .ol { margin-left: 0 !important; margin-right: 0 !important; }
   */
 
   .strom-map-graph,
