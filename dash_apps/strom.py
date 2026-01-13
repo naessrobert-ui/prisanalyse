@@ -20,7 +20,7 @@ from dash import Patch
 # -----------------------------
 # FIL / KOLONNER
 # -----------------------------
-BASE_DIR = Path(__file__).resolve().parents[1]  # prosjektroten (prisanalyse/)
+BASE_DIR = Path(__file__).resolve().parents[1]
 CSV_PATH = BASE_DIR / "static" / "data" / "kommuner.csv"
 CSV_SEP = ";"
 
@@ -195,7 +195,7 @@ def change_label(change_period: str) -> str:
 
 
 # -----------------------------
-# DATA-LOADING (én gang når Dash monteres)
+# DATA-LOADING (én gang ved montering)
 # -----------------------------
 def load_resources() -> tuple[pd.DataFrame, dict, dict, list, str, dict, dict]:
     df_raw = pd.read_csv(CSV_PATH, sep=CSV_SEP, low_memory=False)
@@ -233,18 +233,12 @@ def load_resources() -> tuple[pd.DataFrame, dict, dict, list, str, dict, dict]:
 # DASH FACTORY
 # -----------------------------
 def create_dash_app(flask_server):
-    """
-    Monter Dash inni Flask.
-    Dash blir tilgjengelig på /stromdash/
-    """
     df_raw, change_cols_found, gj, features, geo_nr_key, feature_bbox_by_nr, centroid_by_nr = load_resources()
 
-    # Precompute lon/lat maps (raskere enn lambda per rad)
     lon_by_nr = {k: v[0] for k, v in centroid_by_nr.items()}
     lat_by_nr = {k: v[1] for k, v in centroid_by_nr.items()}
 
     def build_df_once(mode_value: str) -> pd.DataFrame:
-        """Bygg ferdig df én gang per modus (stor speedup)."""
         df = df_raw.copy()
 
         if mode_value == "Bolig":
@@ -252,20 +246,16 @@ def create_dash_app(flask_server):
         else:
             np_col, tot_col = CSV_COLS["fritid_np"], CSV_COLS["fritid_tot"]
 
-        # Konverter bare én gang
         df["norgespris"] = to_number(df[np_col])
         df["total"] = to_number(df[tot_col])
 
-        # Vektoriser andel (ingen apply axis=1)
         df["andel"] = df["norgespris"] / df["total"]
         df.loc[df["total"].isna() | (df["total"] == 0), "andel"] = pd.NA
 
-        # Rask prosent-tekst
         andel_pct = (df["andel"] * 100).round()
         df["andel_pct0"] = andel_pct.astype("Int64").astype(str).add("%")
         df.loc[df["andel"].isna(), "andel_pct0"] = "—"
 
-        # Endringskolonner konverteres én gang
         for _, col in change_cols_found.items():
             if col and col in df.columns:
                 df[col] = to_number(df[col])
@@ -273,12 +263,13 @@ def create_dash_app(flask_server):
         df["knr_norm"] = df[CSV_COLS["knr"]].map(normalize_kommunenr)
         return df
 
-    # Ferdigbygg to dataset én gang
     df_bolig = build_df_once("Bolig")
     df_fritid = build_df_once("Fritid")
 
     def get_df(mode_value: str) -> pd.DataFrame:
         return df_bolig if mode_value == "Bolig" else df_fritid
+
+    DEFAULT_VIEW = {"lon": 13.0, "lat": 65.0, "zoom": 4.0}
 
     def build_map_fig(
         df: pd.DataFrame,
@@ -296,12 +287,11 @@ def create_dash_app(flask_server):
         change_col = change_cols_found.get(change_period)
         period_label = change_label(change_period)
 
-        # Tynn DF for kart (mindre kopi)
         keep = [CSV_COLS["kommune"], CSV_COLS["knr"], "knr_norm", "andel", "andel_pct0", "norgespris", "total"]
         dff = df[keep].copy()
 
         if change_col and change_col in df.columns:
-            dff["change_pct"] = df[change_col] * 100.0  # desimal -> prosentpoeng
+            dff["change_pct"] = df[change_col] * 100.0
         else:
             dff["change_pct"] = float("nan")
         dff["change_pct_str"] = dff["change_pct"].map(fmt_pct)
@@ -346,7 +336,6 @@ def create_dash_app(flask_server):
             )
         )
 
-        # Prikker
         red_le = float(change_red_le)
         blue_ge = float(change_blue_ge)
 
@@ -367,7 +356,6 @@ def create_dash_app(flask_server):
 
         scale = max(0.1, float(marker_scale_pct))
         abs_chg = dff2["change_pct"].abs().clip(upper=scale)
-
         dff2["chg_size"] = 12 + 26 * (abs_chg / scale)
 
         fig.add_trace(
@@ -386,7 +374,6 @@ def create_dash_app(flask_server):
             )
         )
 
-        # Labels når man zoomer inn
         SHOW_LABELS_ZOOM = 5
         if zoom >= SHOW_LABELS_ZOOM:
             dff2["label"] = (
@@ -394,7 +381,6 @@ def create_dash_app(flask_server):
                 + "<br>Andel " + dff2["andel_pct0"].astype(str)
                 + "<br>Forbruk " + dff2["change_pct"].map(fmt_pct)
             )
-
             fig.add_trace(
                 go.Scattermapbox(
                     lon=dff2["lon"],
@@ -412,7 +398,7 @@ def create_dash_app(flask_server):
             mapbox_style="open-street-map",
             margin=dict(l=0, r=0, t=0, b=0),
             mapbox=dict(center=center, zoom=zoom),
-            uirevision="keep",  # behold pan/zoom uten å trigge ny figur
+            uirevision="keep",
         )
         return fig
 
@@ -420,7 +406,6 @@ def create_dash_app(flask_server):
         change_col = change_cols_found.get(change_period)
         period_label = change_label(change_period)
 
-        # Tynn DF
         keep = [CSV_COLS["kommune"], CSV_COLS["knr"], "andel", "andel_pct0", "norgespris", "total"]
         dff = df[keep].copy()
 
@@ -452,7 +437,6 @@ def create_dash_app(flask_server):
             try:
                 a, b = np.polyfit(x, y, 1)
                 yhat = a * x + b
-
                 ss_res = float(((y - yhat) ** 2).sum())
                 ss_tot = float(((y - y.mean()) ** 2).sum())
                 r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else float("nan")
@@ -480,10 +464,9 @@ def create_dash_app(flask_server):
         __name__,
         server=flask_server,
         url_base_pathname="/stromdash/",
+        suppress_callback_exceptions=True,  # nødvendig når vi bytter layout (intro -> app)
     )
     app.title = "Norgespris per kommune"
-
-    DEFAULT_VIEW = {"lon": 13.0, "lat": 65.0, "zoom": 4.0}
 
     input_box_style = {
         "width": "110px",
@@ -494,7 +477,6 @@ def create_dash_app(flask_server):
     }
 
     TABLE_HEIGHT = "300px"
-
     table_style_table = {
         "height": TABLE_HEIGHT,
         "overflowY": "auto",
@@ -519,181 +501,257 @@ def create_dash_app(flask_server):
         "borderBottom": "1px solid #e5e5e5",
     }
 
-    app.layout = html.Div(
-        style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "padding": "12px"},
-        children=[
-            html.H1("Norgespris per kommune – interaktivt kart", style={"margin": "0 0 10px 0"}),
+    def intro_layout():
+        return html.Div(
+            style={
+                "maxWidth": "900px",
+                "margin": "40px auto",
+                "padding": "22px",
+                "border": "1px solid #e8e8e8",
+                "borderRadius": "16px",
+                "background": "white",
+                "boxShadow": "0 6px 24px rgba(0,0,0,0.06)",
+                "fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+            },
+            children=[
+                html.H1("Norgespris per kommune", style={"marginTop": 0}),
+                html.P(
+                    "Denne siden bygger et interaktivt kart og noen figurer basert på kommune-data. "
+                    "Første gang kan det ta litt tid fordi kartet må genereres og sendes til nettleseren.",
+                    style={"color": "#444", "fontSize": "16px", "lineHeight": "1.5"},
+                ),
+                html.Ul(
+                    style={"color": "#444", "fontSize": "15px", "lineHeight": "1.6"},
+                    children=[
+                        html.Li("Når du trykker Start, lastes kartet og tabellene."),
+                        html.Li("Det kan ta noen sekunder første gang (stor GeoJSON + kart-figur)."),
+                        html.Li("Etterpå er pan/zoom raskt og trigger ikke full rebuild av kartet."),
+                    ],
+                ),
+                html.Div(style={"height": "12px"}),
+                html.Button(
+                    "Start kart",
+                    id="start-app",
+                    n_clicks=0,
+                    style={
+                        "padding": "12px 18px",
+                        "borderRadius": "12px",
+                        "border": "1px solid #d0d0d0",
+                        "background": "#111",
+                        "color": "white",
+                        "fontSize": "16px",
+                        "fontWeight": "700",
+                        "cursor": "pointer",
+                    },
+                ),
+                html.Div(style={"height": "10px"}),
+                html.Div(
+                    "Tips: om du vil gjøre første last enda raskere, er neste steg ofte å forenkle GeoJSON (simplify).",
+                    style={"color": "#666", "fontSize": "13px"},
+                ),
+            ],
+        )
 
-            html.Div(
-                style={
-                    "display": "flex",
-                    "gap": "18px",
-                    "alignItems": "center",
-                    "marginBottom": "10px",
-                    "padding": "10px 12px",
-                    "border": "1px solid #e5e5e5",
-                    "borderRadius": "12px",
-                    "background": "#fafafa",
-                    "flexWrap": "wrap",
-                },
-                children=[
-                    html.Div(children=[
-                        html.Label("Vis data for:", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Dropdown(
-                            id="mode",
-                            options=[{"label": "Bolig", "value": "Bolig"}, {"label": "Fritidsbolig", "value": "Fritid"}],
-                            value="Bolig",
-                            clearable=False,
-                            style={"width": "220px", "fontSize": "14px"},
-                        ),
-                    ]),
-                    html.Div(children=[
-                        html.Label("Endring i forbruk:", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Dropdown(
-                            id="change_period",
-                            options=[
-                                {"label": "Oktober", "value": "oct"},
-                                {"label": "November", "value": "nov"},
-                                {"label": "Desember", "value": "dec"},
-                                {"label": "Hele Q4", "value": "q4"},
-                            ],
-                            value="q4",
-                            clearable=False,
-                            style={"width": "170px", "fontSize": "14px"},
-                        ),
-                    ]),
-                    html.Div(children=[
-                        html.Label("Rød ≤ (andel)", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Input(id="low", type="number", value=0.20, step=0.01, min=0, max=1,
-                                  debounce=True, style=input_box_style),
-                    ]),
-                    html.Div(children=[
-                        html.Label("Blå ≥ (andel)", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Input(id="high", type="number", value=0.50, step=0.01, min=0, max=1,
-                                  debounce=True, style=input_box_style),
-                    ]),
-                    html.Div(children=[
-                        html.Label("Rød ≤ (endring %)", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Input(id="chg_red_le", type="number", value=0.0, step=0.1,
-                                  debounce=True, style=input_box_style),
-                    ]),
-                    html.Div(children=[
-                        html.Label("Blå ≥ (endring %)", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Input(id="chg_blue_ge", type="number", value=0.0, step=0.1,
-                                  debounce=True, style=input_box_style),
-                    ]),
-                    html.Div(children=[
-                        html.Label("Prikk-skala (prosentpoeng)", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Input(id="marker_scale_pct", type="number", value=10.0, step=0.5, min=0.1,
-                                  debounce=True, style=input_box_style),
-                    ]),
-                ],
-            ),
+    def main_layout():
+        return html.Div(
+            style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "padding": "12px"},
+            children=[
+                html.H1("Norgespris per kommune – interaktivt kart", style={"margin": "0 0 10px 0"}),
 
-            html.Div(
-                style={
-                    "display": "grid",
-                    "gridTemplateColumns": "1.12fr 1fr",
-                    "gridTemplateRows": "auto auto",
-                    "gap": "14px",
-                    "alignItems": "start",
-                },
-                children=[
-                    html.Div(
-                        style={"gridColumn": "1", "gridRow": "1 / span 2"},
-                        children=[
-                            html.Div(
-                                style={"position": "relative"},
-                                children=[
-                                    dcc.Graph(
-                                        id="map",
-                                        style={"height": "calc(100vh - 220px)", "minHeight": "720px"},
-                                        config={"scrollZoom": True, "displayModeBar": True, "displaylogo": False},
-                                    ),
-                                    html.Div(
-                                        style={
-                                            "position": "absolute",
-                                            "top": "12px",
-                                            "left": "12px",
-                                            "zIndex": 9999,
-                                            "display": "flex",
-                                            "flexDirection": "column",
-                                            "gap": "6px",
-                                        },
-                                        children=[
-                                            html.Button("+", id="zoom-in", n_clicks=0, style={
-                                                "width": "44px", "height": "44px", "fontSize": "26px", "fontWeight": "800",
-                                                "borderRadius": "10px", "border": "1px solid #ccc", "background": "white",
-                                                "cursor": "pointer", "boxShadow": "0 1px 6px rgba(0,0,0,0.15)",
-                                            }),
-                                            html.Button("–", id="zoom-out", n_clicks=0, style={
-                                                "width": "44px", "height": "44px", "fontSize": "26px", "fontWeight": "800",
-                                                "borderRadius": "10px", "border": "1px solid #ccc", "background": "white",
-                                                "cursor": "pointer", "boxShadow": "0 1px 6px rgba(0,0,0,0.15)",
-                                            }),
-                                            html.Button("⟲", id="zoom-reset", n_clicks=0, title="Tilbake til Norge", style={
-                                                "width": "44px", "height": "44px", "fontSize": "20px", "fontWeight": "800",
-                                                "borderRadius": "10px", "border": "1px solid #ccc", "background": "white",
-                                                "cursor": "pointer", "boxShadow": "0 1px 6px rgba(0,0,0,0.15)",
-                                            }),
-                                        ],
-                                    ),
+                html.Div(
+                    style={
+                        "display": "flex",
+                        "gap": "18px",
+                        "alignItems": "center",
+                        "marginBottom": "10px",
+                        "padding": "10px 12px",
+                        "border": "1px solid #e5e5e5",
+                        "borderRadius": "12px",
+                        "background": "#fafafa",
+                        "flexWrap": "wrap",
+                    },
+                    children=[
+                        html.Div(children=[
+                            html.Label("Vis data for:", style={"fontWeight": "700", "fontSize": "14px"}),
+                            dcc.Dropdown(
+                                id="mode",
+                                options=[{"label": "Bolig", "value": "Bolig"}, {"label": "Fritidsbolig", "value": "Fritid"}],
+                                value="Bolig",
+                                clearable=False,
+                                style={"width": "220px", "fontSize": "14px"},
+                            ),
+                        ]),
+                        html.Div(children=[
+                            html.Label("Endring i forbruk:", style={"fontWeight": "700", "fontSize": "14px"}),
+                            dcc.Dropdown(
+                                id="change_period",
+                                options=[
+                                    {"label": "Oktober", "value": "oct"},
+                                    {"label": "November", "value": "nov"},
+                                    {"label": "Desember", "value": "dec"},
+                                    {"label": "Hele Q4", "value": "q4"},
                                 ],
+                                value="q4",
+                                clearable=False,
+                                style={"width": "170px", "fontSize": "14px"},
                             ),
+                        ]),
+                        html.Div(children=[
+                            html.Label("Rød ≤ (andel)", style={"fontWeight": "700", "fontSize": "14px"}),
+                            dcc.Input(id="low", type="number", value=0.20, step=0.01, min=0, max=1,
+                                      debounce=True, style=input_box_style),
+                        ]),
+                        html.Div(children=[
+                            html.Label("Blå ≥ (andel)", style={"fontWeight": "700", "fontSize": "14px"}),
+                            dcc.Input(id="high", type="number", value=0.50, step=0.01, min=0, max=1,
+                                      debounce=True, style=input_box_style),
+                        ]),
+                        html.Div(children=[
+                            html.Label("Rød ≤ (endring %)", style={"fontWeight": "700", "fontSize": "14px"}),
+                            dcc.Input(id="chg_red_le", type="number", value=0.0, step=0.1,
+                                      debounce=True, style=input_box_style),
+                        ]),
+                        html.Div(children=[
+                            html.Label("Blå ≥ (endring %)", style={"fontWeight": "700", "fontSize": "14px"}),
+                            dcc.Input(id="chg_blue_ge", type="number", value=0.0, step=0.1,
+                                      debounce=True, style=input_box_style),
+                        ]),
+                        html.Div(children=[
+                            html.Label("Prikk-skala (prosentpoeng)", style={"fontWeight": "700", "fontSize": "14px"}),
+                            dcc.Input(id="marker_scale_pct", type="number", value=10.0, step=0.5, min=0.1,
+                                      debounce=True, style=input_box_style),
+                        ]),
+                    ],
+                ),
 
-                            html.Div(style={"margin": "8px 0", "color": "#555"}, id="debug-change"),
+                html.Div(
+                    style={
+                        "display": "grid",
+                        "gridTemplateColumns": "1.12fr 1fr",
+                        "gridTemplateRows": "auto auto",
+                        "gap": "14px",
+                        "alignItems": "start",
+                    },
+                    children=[
+                        html.Div(
+                            style={"gridColumn": "1", "gridRow": "1 / span 2"},
+                            children=[
+                                html.Div(
+                                    style={"position": "relative"},
+                                    children=[
+                                        dcc.Loading(
+                                            type="default",
+                                            children=dcc.Graph(
+                                                id="map",
+                                                style={"height": "calc(100vh - 220px)", "minHeight": "720px"},
+                                                config={"scrollZoom": True, "displayModeBar": True, "displaylogo": False},
+                                            ),
+                                        ),
+                                        html.Div(
+                                            style={
+                                                "position": "absolute",
+                                                "top": "12px",
+                                                "left": "12px",
+                                                "zIndex": 9999,
+                                                "display": "flex",
+                                                "flexDirection": "column",
+                                                "gap": "6px",
+                                            },
+                                            children=[
+                                                html.Button("+", id="zoom-in", n_clicks=0, style={
+                                                    "width": "44px", "height": "44px", "fontSize": "26px", "fontWeight": "800",
+                                                    "borderRadius": "10px", "border": "1px solid #ccc", "background": "white",
+                                                    "cursor": "pointer", "boxShadow": "0 1px 6px rgba(0,0,0,0.15)",
+                                                }),
+                                                html.Button("–", id="zoom-out", n_clicks=0, style={
+                                                    "width": "44px", "height": "44px", "fontSize": "26px", "fontWeight": "800",
+                                                    "borderRadius": "10px", "border": "1px solid #ccc", "background": "white",
+                                                    "cursor": "pointer", "boxShadow": "0 1px 6px rgba(0,0,0,0.15)",
+                                                }),
+                                                html.Button("⟲", id="zoom-reset", n_clicks=0, title="Tilbake til Norge", style={
+                                                    "width": "44px", "height": "44px", "fontSize": "20px", "fontWeight": "800",
+                                                    "borderRadius": "10px", "border": "1px solid #ccc", "background": "white",
+                                                    "cursor": "pointer", "boxShadow": "0 1px 6px rgba(0,0,0,0.15)",
+                                                }),
+                                            ],
+                                        ),
+                                    ],
+                                ),
 
-                            dcc.Store(id="relayout-store"),
-                            dcc.Store(id="view-store", data=DEFAULT_VIEW),
-                        ],
-                    ),
+                                html.Div(style={"margin": "8px 0", "color": "#555"}, id="debug-change"),
 
-                    html.Div(
-                        style={"gridColumn": "2", "gridRow": "1"},
-                        children=[
-                            html.H3("Oversikt (synlig utsnitt)", style={"marginTop": "0"}),
-                            html.Div(id="count", style={"color": "#555", "marginBottom": "8px"}),
+                                dcc.Store(id="relayout-store"),
+                                dcc.Store(id="view-store", data=DEFAULT_VIEW),
+                            ],
+                        ),
 
-                            html.H4("Høyest andel"),
-                            dash_table.DataTable(
-                                id="top",
-                                page_size=15,
-                                style_table=table_style_table,
-                                style_cell=table_style_cell,
-                                style_header=table_style_header,
-                            ),
+                        html.Div(
+                            style={"gridColumn": "2", "gridRow": "1"},
+                            children=[
+                                html.H3("Oversikt (synlig utsnitt)", style={"marginTop": "0"}),
+                                html.Div(id="count", style={"color": "#555", "marginBottom": "8px"}),
 
-                            html.H4("Lavest andel", style={"marginTop": "14px"}),
-                            dash_table.DataTable(
-                                id="bottom",
-                                page_size=15,
-                                style_table=table_style_table,
-                                style_cell=table_style_cell,
-                                style_header=table_style_header,
-                            ),
-                        ],
-                    ),
+                                html.H4("Høyest andel"),
+                                dash_table.DataTable(
+                                    id="top",
+                                    page_size=15,
+                                    style_table=table_style_table,
+                                    style_cell=table_style_cell,
+                                    style_header=table_style_header,
+                                ),
 
-                    html.Div(
-                        style={"gridColumn": "2", "gridRow": "2"},
-                        children=[
-                            dcc.Graph(
-                                id="scatter",
-                                style={"height": "340px"},
-                                config={"displayModeBar": True, "displaylogo": False},
-                            ),
-                        ],
-                    ),
-                ],
-            ),
-        ],
+                                html.H4("Lavest andel", style={"marginTop": "14px"}),
+                                dash_table.DataTable(
+                                    id="bottom",
+                                    page_size=15,
+                                    style_table=table_style_table,
+                                    style_cell=table_style_cell,
+                                    style_header=table_style_header,
+                                ),
+                            ],
+                        ),
+
+                        html.Div(
+                            style={"gridColumn": "2", "gridRow": "2"},
+                            children=[
+                                dcc.Loading(
+                                    type="default",
+                                    children=dcc.Graph(
+                                        id="scatter",
+                                        style={"height": "340px"},
+                                        config={"displayModeBar": True, "displaylogo": False},
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        )
+
+    # Root layout: alltid samme "shell"
+    app.layout = html.Div(
+        children=[
+            dcc.Store(id="app-stage", data="intro"),
+            html.Div(id="page"),
+        ]
     )
 
-    # -----------------------------
-    # CALLBACKS
-    # -----------------------------
+    # Render riktig side
+    @app.callback(Output("page", "children"), Input("app-stage", "data"))
+    def render_page(stage):
+        if stage == "ready":
+            return main_layout()
+        return intro_layout()
 
-    # 1) Bygg hele kart-figuren KUN når parametre/data endres (ikke ved pan/zoom)
+    # Bytt til app når user klikker start
+    @app.callback(Output("app-stage", "data"), Input("start-app", "n_clicks"), prevent_initial_call=True)
+    def start_app(n):
+        return "ready"
+
+    # -----------------------------
+    # CALLBACKS (samme som før, men de kjører først når main_layout finnes)
+    # -----------------------------
     @app.callback(
         Output("map", "figure"),
         Input("mode", "value"),
@@ -703,7 +761,7 @@ def create_dash_app(flask_server):
         Input("chg_red_le", "value"),
         Input("chg_blue_ge", "value"),
         Input("marker_scale_pct", "value"),
-        State("view-store", "data"),  # state: påvirker initialt utsnitt når vi rebuild'er, men trigger ikke
+        State("view-store", "data"),
     )
     def update_map(mode_value, low, high, change_period, chg_red_le, chg_blue_ge, marker_scale_pct, view):
         df = get_df(mode_value)
@@ -730,7 +788,6 @@ def create_dash_app(flask_server):
             marker_scale_pct=marker_scale_pct,
         )
 
-    # 2) Sync view-store for (a) user pan/zoom (kun lagre) og (b) zoom-knapper (lagre + PATCH kartlayout)
     @app.callback(
         Output("relayout-store", "data"),
         Output("view-store", "data"),
@@ -748,7 +805,6 @@ def create_dash_app(flask_server):
 
         new_view = dict(view)
 
-        # Kart-interaksjon (pan/zoom med mus): kun oppdater store. IKKE oppdater figuren.
         if trig == "map" and relayout:
             if "mapbox.zoom" in relayout:
                 new_view["zoom"] = float(relayout["mapbox.zoom"])
@@ -762,7 +818,6 @@ def create_dash_app(flask_server):
 
             return (relayout or {}), new_view, no_update
 
-        # Zoom-knapper: patch kun layout (superlett vs rebuild)
         lon = float(new_view.get("lon", DEFAULT_VIEW["lon"]))
         lat = float(new_view.get("lat", DEFAULT_VIEW["lat"]))
         zoom = float(new_view.get("zoom", DEFAULT_VIEW["zoom"]))
@@ -782,7 +837,6 @@ def create_dash_app(flask_server):
 
         return (relayout or {}), {"lon": lon, "lat": lat, "zoom": zoom}, patched
 
-    # 3) Tabeller + scatter: bruker ferdig df + bbox-filter
     @app.callback(
         Output("top", "data"),
         Output("top", "columns"),
@@ -813,13 +867,11 @@ def create_dash_app(flask_server):
             count_text = "Viser alle kommuner (zoom/pan i kartet for å filtrere på synlig utsnitt)."
         else:
             visible: Set[str] = set()
-            # ca 350 kommuner: loop er ok
             for knr, fb in feature_bbox_by_nr.items():
                 if bboxes_intersect(fb, bbox):
                     visible.add(knr)
             count_text = f"Kommuner i synlig utsnitt: {len(visible)}"
 
-        # Tynn DF for tabell
         dff = df[[CSV_COLS["kommune"], CSV_COLS["knr"], "andel", "andel_pct0"]].copy()
         dff["change_pct"] = change_pct
         dff = dff[dff[CSV_COLS["knr"]].isin(visible)].copy()
