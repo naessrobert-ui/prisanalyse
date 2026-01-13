@@ -1,27 +1,47 @@
 /* Mobil/laptop-smal: stack alt i én kolonne så kart ikke blir "skygget" */
 @media (max-width: 980px) {
+  /* 1 kolonne: kart på topp, tabeller under */
   .strom-grid {
     grid-template-columns: 1fr !important;
     grid-template-rows: auto !important;
   }
 
-  /* Slutt å tvinge kartet til å span'e rader/kolonner */
+  /* Ikke la elementene "låse" seg til desktop grid-plassering */
   .strom-map-col,
   .strom-side-col,
   .strom-scatter-col {
-    grid-column: auto !important;
+    grid-column: 1 / -1 !important;
     grid-row: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
   }
 
-  /* Kartet: mobilvennlig høyde */
+  /* Kartet må få full bredde */
+  .strom-map-col,
+  .strom-map-graph,
+  .strom-map-graph > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Mobilvennlig høyde */
   .strom-map-graph {
     height: 58vh !important;
     min-height: 380px !important;
   }
 
   /* Litt luft */
-  .strom-side-col { margin-top: 6px; }
-  .strom-scatter-col { margin-top: 6px; }
+  .strom-side-col { margin-top: 10px; }
+  .strom-scatter-col { margin-top: 10px; }
+}
+
+@media (max-width: 980px) {
+  .dash-table-container,
+  .dash-spreadsheet-container {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 
 /* Veldig små skjermer */
