@@ -7,11 +7,14 @@ from pathlib import Path
 from typing import Dict, Any, Iterable, Tuple, Optional, Set
 
 import pandas as pd
-import requests
 import plotly.express as px
 import plotly.graph_objects as go
 
-from dash import Dash, dcc, html, Input, Output, State, dash_table, callback_context, no_update
+from dash import (
+    Dash, dcc, html, Input, Output, State, dash_table,
+    callback_context, no_update
+)
+from dash import Patch
 
 
 # -----------------------------
@@ -36,8 +39,6 @@ CHANGE_ALIASES = {
     "dec": ["incr_dec", "INCR_DEC", "incr dec", "increase_dec", "increase dec"],
     "q4":  ["incr_Q4", "incr_q4", "INCR_Q4", "incr q4", "increase_q4", "increase q4"],
 }
-
-KOMMUNER_GEOJSON_URL = "https://raw.githubusercontent.com/robhop/fylker-og-kommuner/main/Kommuner-M.geojson"
 
 
 # -----------------------------
@@ -81,21 +82,8 @@ def normalize_kommunenr(x) -> str:
         s = s.zfill(4)
     return s
 
-def safe_div(n: float, d: float) -> Optional[float]:
-    if d in (None, 0) or (isinstance(d, float) and math.isnan(d)):
-        return None
-    return float(n) / float(d)
-
-def pct0(x: Optional[float]) -> str:
-    if x is None or (isinstance(x, float) and math.isnan(x)):
-        return "—"
-    return f"{int(round(x * 100))}%"
-
 def fmt_pct(x: Optional[float]) -> str:
-    """
-    Formatterer en verdi som allerede er i PROSENTPOENG (f.eks 2.3 -> "2,3%").
-    Merk: incr_* i CSV er desimaltall (0.023), så vi ganger med 100 der vi lager change_pct.
-    """
+    """x er i prosentpoeng (2.3 -> '2,3%')"""
     if x is None or (isinstance(x, float) and math.isnan(x)):
         return "—"
     try:
@@ -210,14 +198,12 @@ def change_label(change_period: str) -> str:
 # DATA-LOADING (én gang når Dash monteres)
 # -----------------------------
 def load_resources() -> tuple[pd.DataFrame, dict, dict, list, str, dict, dict]:
-    # CSV
     df_raw = pd.read_csv(CSV_PATH, sep=CSV_SEP, low_memory=False)
     df_raw.columns = normalize_columns(df_raw.columns)
-    df_raw[CSV_COLS["knr"]] = df_raw[CSV_COLS["knr"]].apply(normalize_kommunenr)
+    df_raw[CSV_COLS["knr"]] = df_raw[CSV_COLS["knr"]].map(normalize_kommunenr)
 
     change_cols_found = {k: find_col(df_raw.columns, aliases) for k, aliases in CHANGE_ALIASES.items()}
 
-    # GeoJSON
     GEOJSON_PATH = BASE_DIR / "static" / "geo" / "Kommuner-M.geojson"
     with open(GEOJSON_PATH, "r", encoding="utf-8") as f:
         gj = json.load(f)
@@ -251,10 +237,14 @@ def create_dash_app(flask_server):
     Monter Dash inni Flask.
     Dash blir tilgjengelig på /stromdash/
     """
-    # Last ressurser én gang ved montering (ikke ved import)
     df_raw, change_cols_found, gj, features, geo_nr_key, feature_bbox_by_nr, centroid_by_nr = load_resources()
 
-    def build_df(mode_value: str) -> pd.DataFrame:
+    # Precompute lon/lat maps (raskere enn lambda per rad)
+    lon_by_nr = {k: v[0] for k, v in centroid_by_nr.items()}
+    lat_by_nr = {k: v[1] for k, v in centroid_by_nr.items()}
+
+    def build_df_once(mode_value: str) -> pd.DataFrame:
+        """Bygg ferdig df én gang per modus (stor speedup)."""
         df = df_raw.copy()
 
         if mode_value == "Bolig":
@@ -262,22 +252,33 @@ def create_dash_app(flask_server):
         else:
             np_col, tot_col = CSV_COLS["fritid_np"], CSV_COLS["fritid_tot"]
 
-        df[np_col] = to_number(df[np_col])
-        df[tot_col] = to_number(df[tot_col])
+        # Konverter bare én gang
+        df["norgespris"] = to_number(df[np_col])
+        df["total"] = to_number(df[tot_col])
 
-        df["norgespris"] = df[np_col]
-        df["total"] = df[tot_col]
-        df["andel"] = df.apply(lambda r: safe_div(r["norgespris"], r["total"]), axis=1)
-        df["andel_pct0"] = df["andel"].apply(pct0)
+        # Vektoriser andel (ingen apply axis=1)
+        df["andel"] = df["norgespris"] / df["total"]
+        df.loc[df["total"].isna() | (df["total"] == 0), "andel"] = pd.NA
 
-        # incr_* i CSV er desimaltall (0.023 = 2.3%), så vi leser dem som tall her,
-        # og ganger med 100 først når vi bruker dem til visning/terskler.
+        # Rask prosent-tekst
+        andel_pct = (df["andel"] * 100).round()
+        df["andel_pct0"] = andel_pct.astype("Int64").astype(str).add("%")
+        df.loc[df["andel"].isna(), "andel_pct0"] = "—"
+
+        # Endringskolonner konverteres én gang
         for _, col in change_cols_found.items():
             if col and col in df.columns:
                 df[col] = to_number(df[col])
 
-        df["knr_norm"] = df[CSV_COLS["knr"]].apply(normalize_kommunenr)
+        df["knr_norm"] = df[CSV_COLS["knr"]].map(normalize_kommunenr)
         return df
+
+    # Ferdigbygg to dataset én gang
+    df_bolig = build_df_once("Bolig")
+    df_fritid = build_df_once("Fritid")
+
+    def get_df(mode_value: str) -> pd.DataFrame:
+        return df_bolig if mode_value == "Bolig" else df_fritid
 
     def build_map_fig(
         df: pd.DataFrame,
@@ -295,13 +296,15 @@ def create_dash_app(flask_server):
         change_col = change_cols_found.get(change_period)
         period_label = change_label(change_period)
 
-        dff = df.copy()
-        if change_col and change_col in dff.columns:
-            # CSV: desimal (0.023). UI/plot: prosentpoeng (2.3)
-            dff["change_pct"] = dff[change_col] * 100.0
+        # Tynn DF for kart (mindre kopi)
+        keep = [CSV_COLS["kommune"], CSV_COLS["knr"], "knr_norm", "andel", "andel_pct0", "norgespris", "total"]
+        dff = df[keep].copy()
+
+        if change_col and change_col in df.columns:
+            dff["change_pct"] = df[change_col] * 100.0  # desimal -> prosentpoeng
         else:
             dff["change_pct"] = float("nan")
-        dff["change_pct_str"] = dff["change_pct"].apply(fmt_pct)
+        dff["change_pct_str"] = dff["change_pct"].map(fmt_pct)
 
         def kategori(share):
             if share is None or (isinstance(share, float) and math.isnan(share)):
@@ -312,7 +315,7 @@ def create_dash_app(flask_server):
                 return f"≤ {int(round(low * 100))}%"
             return "mellom"
 
-        dff["kategori"] = dff["andel"].apply(kategori)
+        dff["kategori"] = dff["andel"].map(kategori)
 
         color_map = {
             f"≥ {int(round(high * 100))}%": "#1f77b4",
@@ -333,7 +336,6 @@ def create_dash_app(flask_server):
             opacity=0.75,
         )
 
-        # FIX: Hovertemplate må bruke %{...} (ikke %{{...}}) og bør bygges som f-string
         fig.update_traces(
             hovertemplate=(
                 f"<b>%{{hovertext}}</b><br>"
@@ -344,7 +346,7 @@ def create_dash_app(flask_server):
             )
         )
 
-        # Terskler er oppgitt i prosentpoeng i UI (f.eks -5 eller 2.5)
+        # Prikker
         red_le = float(change_red_le)
         blue_ge = float(change_blue_ge)
 
@@ -358,15 +360,14 @@ def create_dash_app(flask_server):
             return "#9e9e9e"
 
         dff2 = dff.copy()
-        dff2["lon"] = dff2["knr_norm"].map(lambda k: centroid_by_nr.get(k, (None, None))[0])
-        dff2["lat"] = dff2["knr_norm"].map(lambda k: centroid_by_nr.get(k, (None, None))[1])
+        dff2["lon"] = dff2["knr_norm"].map(lon_by_nr)
+        dff2["lat"] = dff2["knr_norm"].map(lat_by_nr)
         dff2 = dff2.dropna(subset=["lon", "lat", "change_pct"]).copy()
-        dff2["chg_color"] = dff2["change_pct"].apply(change_color)
+        dff2["chg_color"] = dff2["change_pct"].map(change_color)
 
         scale = max(0.1, float(marker_scale_pct))
         abs_chg = dff2["change_pct"].abs().clip(upper=scale)
 
-        # Store prikker
         dff2["chg_size"] = 12 + 26 * (abs_chg / scale)
 
         fig.add_trace(
@@ -378,7 +379,7 @@ def create_dash_app(flask_server):
                 hovertext=(
                     dff2[CSV_COLS["kommune"]].astype(str)
                     + "<br>Andel Norgespris: " + dff2["andel_pct0"].astype(str)
-                    + f"<br>Endring {period_label} (%): " + dff2["change_pct"].apply(fmt_pct)
+                    + f"<br>Endring {period_label} (%): " + dff2["change_pct"].map(fmt_pct)
                 ),
                 hoverinfo="text",
                 showlegend=False,
@@ -391,7 +392,7 @@ def create_dash_app(flask_server):
             dff2["label"] = (
                 dff2[CSV_COLS["kommune"]].astype(str)
                 + "<br>Andel " + dff2["andel_pct0"].astype(str)
-                + "<br>Forbruk " + dff2["change_pct"].apply(fmt_pct)
+                + "<br>Forbruk " + dff2["change_pct"].map(fmt_pct)
             )
 
             fig.add_trace(
@@ -411,7 +412,7 @@ def create_dash_app(flask_server):
             mapbox_style="open-street-map",
             margin=dict(l=0, r=0, t=0, b=0),
             mapbox=dict(center=center, zoom=zoom),
-            uirevision="keep",
+            uirevision="keep",  # behold pan/zoom uten å trigge ny figur
         )
         return fig
 
@@ -419,10 +420,12 @@ def create_dash_app(flask_server):
         change_col = change_cols_found.get(change_period)
         period_label = change_label(change_period)
 
-        dff = df.copy()
-        if change_col and change_col in dff.columns:
-            # CSV: desimal (0.023). Plot: prosentpoeng (2.3)
-            dff["change_pct"] = dff[change_col] * 100.0
+        # Tynn DF
+        keep = [CSV_COLS["kommune"], CSV_COLS["knr"], "andel", "andel_pct0", "norgespris", "total"]
+        dff = df[keep].copy()
+
+        if change_col and change_col in df.columns:
+            dff["change_pct"] = df[change_col] * 100.0
         else:
             dff["change_pct"] = float("nan")
 
@@ -446,7 +449,6 @@ def create_dash_app(flask_server):
             import numpy as np
             x = dff["andel"].astype(float).to_numpy()
             y = dff["change_pct"].astype(float).to_numpy()
-
             try:
                 a, b = np.polyfit(x, y, 1)
                 yhat = a * x + b
@@ -562,23 +564,28 @@ def create_dash_app(flask_server):
                     ]),
                     html.Div(children=[
                         html.Label("Rød ≤ (andel)", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Input(id="low", type="number", value=0.20, step=0.01, min=0, max=1, style=input_box_style),
+                        dcc.Input(id="low", type="number", value=0.20, step=0.01, min=0, max=1,
+                                  debounce=True, style=input_box_style),
                     ]),
                     html.Div(children=[
                         html.Label("Blå ≥ (andel)", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Input(id="high", type="number", value=0.50, step=0.01, min=0, max=1, style=input_box_style),
+                        dcc.Input(id="high", type="number", value=0.50, step=0.01, min=0, max=1,
+                                  debounce=True, style=input_box_style),
                     ]),
                     html.Div(children=[
                         html.Label("Rød ≤ (endring %)", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Input(id="chg_red_le", type="number", value=0.0, step=0.1, style=input_box_style),
+                        dcc.Input(id="chg_red_le", type="number", value=0.0, step=0.1,
+                                  debounce=True, style=input_box_style),
                     ]),
                     html.Div(children=[
                         html.Label("Blå ≥ (endring %)", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Input(id="chg_blue_ge", type="number", value=0.0, step=0.1, style=input_box_style),
+                        dcc.Input(id="chg_blue_ge", type="number", value=0.0, step=0.1,
+                                  debounce=True, style=input_box_style),
                     ]),
                     html.Div(children=[
                         html.Label("Prikk-skala (prosentpoeng)", style={"fontWeight": "700", "fontSize": "14px"}),
-                        dcc.Input(id="marker_scale_pct", type="number", value=10.0, step=0.5, min=0.1, style=input_box_style),
+                        dcc.Input(id="marker_scale_pct", type="number", value=10.0, step=0.5, min=0.1,
+                                  debounce=True, style=input_box_style),
                     ]),
                 ],
             ),
@@ -685,6 +692,8 @@ def create_dash_app(flask_server):
     # -----------------------------
     # CALLBACKS
     # -----------------------------
+
+    # 1) Bygg hele kart-figuren KUN når parametre/data endres (ikke ved pan/zoom)
     @app.callback(
         Output("map", "figure"),
         Input("mode", "value"),
@@ -694,11 +703,12 @@ def create_dash_app(flask_server):
         Input("chg_red_le", "value"),
         Input("chg_blue_ge", "value"),
         Input("marker_scale_pct", "value"),
-        Input("view-store", "data"),
+        State("view-store", "data"),  # state: påvirker initialt utsnitt når vi rebuild'er, men trigger ikke
     )
     def update_map(mode_value, low, high, change_period, chg_red_le, chg_blue_ge, marker_scale_pct, view):
-        df = build_df("Bolig" if mode_value == "Bolig" else "Fritid")
+        df = get_df(mode_value)
 
+        view = view or DEFAULT_VIEW
         center = {"lon": float(view.get("lon", DEFAULT_VIEW["lon"])), "lat": float(view.get("lat", DEFAULT_VIEW["lat"]))}
         zoom = float(view.get("zoom", DEFAULT_VIEW["zoom"]))
 
@@ -720,10 +730,11 @@ def create_dash_app(flask_server):
             marker_scale_pct=marker_scale_pct,
         )
 
-    # Håndter både kart-relayout og zoom-knapper
+    # 2) Sync view-store for (a) user pan/zoom (kun lagre) og (b) zoom-knapper (lagre + PATCH kartlayout)
     @app.callback(
         Output("relayout-store", "data"),
         Output("view-store", "data"),
+        Output("map", "figure", allow_duplicate=True),
         Input("map", "relayoutData"),
         Input("zoom-in", "n_clicks"),
         Input("zoom-out", "n_clicks"),
@@ -731,13 +742,13 @@ def create_dash_app(flask_server):
         State("view-store", "data"),
         prevent_initial_call=True,
     )
-    def sync_view_and_relayout(relayout, zin, zout, zreset, view):
+    def sync_view_and_buttons(relayout, zin, zout, zreset, view):
         view = view or DEFAULT_VIEW
         trig = get_trigger_id()
 
         new_view = dict(view)
 
-        # Kart-interaksjon (pan/zoom med mus)
+        # Kart-interaksjon (pan/zoom med mus): kun oppdater store. IKKE oppdater figuren.
         if trig == "map" and relayout:
             if "mapbox.zoom" in relayout:
                 new_view["zoom"] = float(relayout["mapbox.zoom"])
@@ -749,9 +760,9 @@ def create_dash_app(flask_server):
                 if "lat" in c:
                     new_view["lat"] = float(c["lat"])
 
-            return (relayout or {}), new_view
+            return (relayout or {}), new_view, no_update
 
-        # Zoom-knapper (bruk view-store som basis)
+        # Zoom-knapper: patch kun layout (superlett vs rebuild)
         lon = float(new_view.get("lon", DEFAULT_VIEW["lon"]))
         lat = float(new_view.get("lat", DEFAULT_VIEW["lat"]))
         zoom = float(new_view.get("zoom", DEFAULT_VIEW["zoom"]))
@@ -763,10 +774,15 @@ def create_dash_app(flask_server):
         elif trig == "zoom-reset":
             lon, lat, zoom = DEFAULT_VIEW["lon"], DEFAULT_VIEW["lat"], DEFAULT_VIEW["zoom"]
         else:
-            return (relayout or {}), no_update
+            return (relayout or {}), no_update, no_update
 
-        return (relayout or {}), {"lon": lon, "lat": lat, "zoom": zoom}
+        patched = Patch()
+        patched["layout"]["mapbox"]["center"] = {"lon": lon, "lat": lat}
+        patched["layout"]["mapbox"]["zoom"] = zoom
 
+        return (relayout or {}), {"lon": lon, "lat": lat, "zoom": zoom}, patched
+
+    # 3) Tabeller + scatter: bruker ferdig df + bbox-filter
     @app.callback(
         Output("top", "data"),
         Output("top", "columns"),
@@ -780,16 +796,15 @@ def create_dash_app(flask_server):
         Input("relayout-store", "data"),
     )
     def update_tables_scatter_debug(mode_value, change_period, relayout):
-        df = build_df("Bolig" if mode_value == "Bolig" else "Fritid")
+        df = get_df(mode_value)
 
         period_label = change_label(change_period)
         change_col = change_cols_found.get(change_period)
 
         if change_col and change_col in df.columns:
-            # CSV: desimal (0.023). Tabell/debug: prosentpoeng (2.3)
-            df["change_pct"] = df[change_col] * 100.0
+            change_pct = df[change_col] * 100.0
         else:
-            df["change_pct"] = float("nan")
+            change_pct = pd.Series([float("nan")] * len(df), index=df.index)
 
         bbox = viewport_bbox_from_relayout(relayout or {})
 
@@ -798,16 +813,20 @@ def create_dash_app(flask_server):
             count_text = "Viser alle kommuner (zoom/pan i kartet for å filtrere på synlig utsnitt)."
         else:
             visible: Set[str] = set()
+            # ca 350 kommuner: loop er ok
             for knr, fb in feature_bbox_by_nr.items():
                 if bboxes_intersect(fb, bbox):
                     visible.add(knr)
             count_text = f"Kommuner i synlig utsnitt: {len(visible)}"
 
-        dff = df[df[CSV_COLS["knr"]].isin(visible)].copy()
-        dff["andel_num"] = dff["andel"].fillna(-1)
+        # Tynn DF for tabell
+        dff = df[[CSV_COLS["kommune"], CSV_COLS["knr"], "andel", "andel_pct0"]].copy()
+        dff["change_pct"] = change_pct
+        dff = dff[dff[CSV_COLS["knr"]].isin(visible)].copy()
 
+        dff["andel_num"] = dff["andel"].fillna(-1)
         dff["Andel Norgespris"] = dff["andel_pct0"]
-        dff[f"Endring {period_label} (%)"] = dff["change_pct"].apply(fmt_pct)
+        dff[f"Endring {period_label} (%)"] = dff["change_pct"].map(fmt_pct)
 
         cols_show = [CSV_COLS["kommune"], "Andel Norgespris", f"Endring {period_label} (%)"]
         top_df = dff.sort_values("andel_num", ascending=False)[cols_show].head(15)
@@ -817,12 +836,12 @@ def create_dash_app(flask_server):
         scatter_fig = build_scatter_fig(df, change_period=change_period, visible_knr=visible)
 
         n_total = len(df)
-        n_ok = int(df["change_pct"].notna().sum())
-        mn = df["change_pct"].min(skipna=True)
-        mx = df["change_pct"].max(skipna=True)
+        n_ok = int(pd.notna(change_pct).sum())
+        mn = float(change_pct.min(skipna=True)) if n_ok else float("nan")
+        mx = float(change_pct.max(skipna=True)) if n_ok else float("nan")
 
         missing_share = int(df["andel"].isna().sum())
-        missing_change = int(df["change_pct"].isna().sum())
+        missing_change = int(pd.isna(change_pct).sum())
         total0 = int((df["total"].fillna(0) == 0).sum())
 
         debug = (
