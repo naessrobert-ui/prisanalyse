@@ -695,16 +695,20 @@ def create_dash_app(flask_server):
                                 html.Div(
                                     style={"position": "relative"},
                                     children=[
-                                        dcc.Loading(
+                                       dcc.Loading(
                                             type="default",
-                                            children=dcc.Graph(
-                                                id="map",
-                                                className="strom-map-graph",
-                                                style={"height": "calc(100vh - 220px)", "minHeight": "720px"},
-                                                config={"scrollZoom": True, "displayModeBar": True, "displaylogo": False},
-                                            ),
+                                            style={"width": "100%"},
+                                            children=html.Div(
+                                                style={"width": "100%"},
+                                                children=dcc.Graph(
+                                                    id="map",
+                                                    className="strom-map-graph",
+                                                    style={"width": "100%", "height": "calc(100vh - 220px)", "minHeight": "720px"},
+                                                    config={"scrollZoom": True, "displayModeBar": True, "displaylogo": False, "responsive": True},
                                         ),
-                                        html.Div(
+                                    ),
+                                ),
+                                                                        html.Div(
                                             style={
                                                 "position": "absolute",
                                                 "top": "12px",
