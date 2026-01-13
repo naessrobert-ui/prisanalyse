@@ -608,6 +608,7 @@ def create_dash_app(flask_server):
 
     def main_layout():
         return html.Div(
+            className="strom-page",
             style={"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "padding": "12px"},
             children=[
                 html.H1("Norgespris per kommune – interaktivt kart", style={"margin": "0 0 10px 0"}),

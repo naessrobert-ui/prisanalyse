@@ -16,13 +16,12 @@ body {
     padding-right: 0 !important;
   }
 
-  /* Main wrapper */
+  /* Main wrapper (viktig: nuller ALL padding, pga inline padding:12px i Python) */
   .strom-page {
     width: 100vw !important;
     max-width: 100vw !important;
     margin: 0 !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    padding: 0 !important; /* <-- NYTT: fjerner topp/bunn også */
   }
 
   /* Fjern Bootstrap "gutter" som gir hvite kanter */
