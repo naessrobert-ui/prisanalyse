@@ -407,13 +407,12 @@ def create_dash_app(flask_server):
                 )
             )
 
-            fig.update_layout(
-                mapbox_style="open-street-map",
-                margin=dict(l=0, r=0, t=0, b=0),
-                mapbox=dict(center=center, zoom=zoom),
-                # uirevision="keep",  # <- fjern denne
-                uirevision=f"view:{center['lon']:.5f}:{center['lat']:.5f}:{zoom:.2f}",
-            )
+        fig.update_layout(
+            mapbox_style="open-street-map",
+            margin=dict(l=0, r=0, t=0, b=0),
+            mapbox=dict(center=center, zoom=zoom),
+            uirevision="keep",
+        )
         return fig
 
     def build_scatter_fig(df: pd.DataFrame, change_period: str, visible_knr: Optional[Set[str]]) -> go.Figure:
