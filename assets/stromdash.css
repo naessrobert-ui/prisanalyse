@@ -40,6 +40,13 @@ body {
   .strom-side-col { margin-top: 10px; }
   .strom-scatter-col { margin-top: 10px; }
 }
+@media (max-width: 980px) {
+  /* Skjul Plotly-legend på mobil */
+  .strom-map-graph .legend {
+    display: none !important;
+  }
+}
+
 
 @media (max-width: 980px) {
   .dash-table-container,
