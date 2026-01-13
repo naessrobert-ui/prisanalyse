@@ -5,8 +5,6 @@ import math
 import json
 from pathlib import Path
 from typing import Dict, Any, Iterable, Tuple, Optional, Set
-from flask import url_for
-
 
 import pandas as pd
 import plotly.express as px
@@ -14,9 +12,8 @@ import plotly.graph_objects as go
 
 from dash import (
     Dash, dcc, html, Input, Output, State, dash_table,
-    callback_context, no_update
+    callback_context, no_update, Patch
 )
-from dash import Patch
 
 
 # -----------------------------
@@ -258,6 +255,7 @@ def create_dash_app(flask_server):
         df["andel_pct0"] = andel_pct.astype("Int64").astype(str).add("%")
         df.loc[df["andel"].isna(), "andel_pct0"] = "—"
 
+        # endringskolonner (desimal i CSV: 0.023 = 2.3%)
         for _, col in change_cols_found.items():
             if col and col in df.columns:
                 df[col] = to_number(df[col])
@@ -265,6 +263,7 @@ def create_dash_app(flask_server):
         df["knr_norm"] = df[CSV_COLS["knr"]].map(normalize_kommunenr)
         return df
 
+    # Precompute for fart
     df_bolig = build_df_once("Bolig")
     df_fritid = build_df_once("Fritid")
 
@@ -467,6 +466,8 @@ def create_dash_app(flask_server):
         server=flask_server,
         url_base_pathname="/stromdash/",
         suppress_callback_exceptions=True,
+        # Hvis assets-mappen ikke plukkes opp i din deploy, bruk denne:
+        # assets_folder=str(BASE_DIR / "assets"),
     )
     app.title = "Norgespris per kommune"
 
@@ -504,17 +505,15 @@ def create_dash_app(flask_server):
     }
 
     def intro_layout():
-        # Samme bakgrunn som resten av appen:
-        BACKGROUND_IMAGE_URL = "/bil_import/static/background.jpg"
+        # Robust static-path: unngår “sort bakgrunn” pga feil URL
+        BACKGROUND_IMAGE_URL = f"{flask_server.static_url_path}/background.jpg"
 
-
-        # Litt "glassmorphism" og knapper som matcher landing-siden bedre.
         btn_style = {
             "padding": "12px 18px",
             "borderRadius": "14px",
             "border": "1px solid rgba(255,255,255,0.18)",
-            "background": "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))",
-            "color": "rgba(255,255,255,0.95)",
+            "background": "linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.06))",
+            "color": "rgba(255,255,255,0.96)",
             "fontSize": "16px",
             "fontWeight": "800",
             "cursor": "pointer",
@@ -595,7 +594,7 @@ def create_dash_app(flask_server):
                                 "marginTop": "6px",
                             },
                             children=[
-                                html.Button("Start kart", id="start-app", n_clicks=0, style=btn_style),
+                                html.Button("Start kart", id="start-app", n_clicks=0, style=btn_style, className="strom-start-btn"),
                                 html.Span(
                                     "Første gang kan det ta litt tid å generere kartet.",
                                     style={"fontSize": "13px", "color": "rgba(255,255,255,0.72)"},
@@ -626,17 +625,17 @@ def create_dash_app(flask_server):
                         "flexWrap": "wrap",
                     },
                     children=[
-                        html.Div(children=[
+                        html.Div(style={"minWidth": "220px"}, children=[
                             html.Label("Vis data for:", style={"fontWeight": "700", "fontSize": "14px"}),
                             dcc.Dropdown(
                                 id="mode",
                                 options=[{"label": "Bolig", "value": "Bolig"}, {"label": "Fritidsbolig", "value": "Fritid"}],
                                 value="Bolig",
                                 clearable=False,
-                                style={"width": "220px", "fontSize": "14px"},
+                                style={"width": "220px", "maxWidth": "100%", "fontSize": "14px"},
                             ),
                         ]),
-                        html.Div(children=[
+                        html.Div(style={"minWidth": "170px"}, children=[
                             html.Label("Endring i forbruk:", style={"fontWeight": "700", "fontSize": "14px"}),
                             dcc.Dropdown(
                                 id="change_period",
@@ -648,7 +647,7 @@ def create_dash_app(flask_server):
                                 ],
                                 value="q4",
                                 clearable=False,
-                                style={"width": "170px", "fontSize": "14px"},
+                                style={"width": "170px", "maxWidth": "100%", "fontSize": "14px"},
                             ),
                         ]),
                         html.Div(children=[
@@ -680,6 +679,7 @@ def create_dash_app(flask_server):
                 ),
 
                 html.Div(
+                    className="strom-grid",
                     style={
                         "display": "grid",
                         "gridTemplateColumns": "1.12fr 1fr",
@@ -689,6 +689,7 @@ def create_dash_app(flask_server):
                     },
                     children=[
                         html.Div(
+                            className="strom-map-col",
                             style={"gridColumn": "1", "gridRow": "1 / span 2"},
                             children=[
                                 html.Div(
@@ -698,6 +699,7 @@ def create_dash_app(flask_server):
                                             type="default",
                                             children=dcc.Graph(
                                                 id="map",
+                                                className="strom-map-graph",
                                                 style={"height": "calc(100vh - 220px)", "minHeight": "720px"},
                                                 config={"scrollZoom": True, "displayModeBar": True, "displaylogo": False},
                                             ),
@@ -741,6 +743,7 @@ def create_dash_app(flask_server):
                         ),
 
                         html.Div(
+                            className="strom-side-col",
                             style={"gridColumn": "2", "gridRow": "1"},
                             children=[
                                 html.H3("Oversikt (synlig utsnitt)", style={"marginTop": "0"}),
@@ -767,6 +770,7 @@ def create_dash_app(flask_server):
                         ),
 
                         html.Div(
+                            className="strom-scatter-col",
                             style={"gridColumn": "2", "gridRow": "2"},
                             children=[
                                 dcc.Loading(
@@ -784,6 +788,7 @@ def create_dash_app(flask_server):
             ],
         )
 
+    # Root layout (intro -> app)
     app.layout = html.Div(
         children=[
             dcc.Store(id="app-stage", data="intro"),
@@ -857,6 +862,7 @@ def create_dash_app(flask_server):
 
         new_view = dict(view)
 
+        # Kart-interaksjon (pan/zoom)
         if trig == "map" and relayout:
             if "mapbox.zoom" in relayout:
                 new_view["zoom"] = float(relayout["mapbox.zoom"])
@@ -870,6 +876,7 @@ def create_dash_app(flask_server):
 
             return (relayout or {}), new_view, no_update
 
+        # Zoom-knapper: patch kun center/zoom (raskere)
         lon = float(new_view.get("lon", DEFAULT_VIEW["lon"]))
         lat = float(new_view.get("lat", DEFAULT_VIEW["lat"]))
         zoom = float(new_view.get("zoom", DEFAULT_VIEW["zoom"]))
