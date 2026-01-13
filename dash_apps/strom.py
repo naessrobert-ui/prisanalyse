@@ -333,13 +333,14 @@ def create_dash_app(flask_server):
             opacity=0.75,
         )
 
+        # FIX: Hovertemplate må bruke %{...} (ikke %{{...}}) og bør bygges som f-string
         fig.update_traces(
             hovertemplate=(
-                "<b>%{hovertext}</b><br>"
-                "Andel Norgespris: %{{customdata[0]}}<br>"
+                f"<b>%{{hovertext}}</b><br>"
+                f"Andel Norgespris: %{{customdata[0]}}<br>"
                 f"Endring {period_label} (%): %{{customdata[1]}}<br>"
-                "Norgespris: %{{customdata[2]}}<br>"
-                "Total: %{{customdata[3]}}<extra></extra>"
+                f"Norgespris: %{{customdata[2]}}<br>"
+                f"Total: %{{customdata[3]}}<extra></extra>"
             )
         )
 
