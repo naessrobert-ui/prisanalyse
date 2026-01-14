@@ -213,7 +213,14 @@ def sno_index() -> str:
 
       frame.addEventListener("load", saveViewFromFrameUrl);
 
-      function buildFrameUrl() {{
+            const REGION_DEFAULTS = {{
+        south: {{ bbox: "57.0,4.0,62.5,12.5", z: "5", clat: "60.5", clon: "8.5" }},
+        mid:   {{ bbox: "62.0,4.0,66.7,16.5", z: "5", clat: "64.5", clon: "10.5" }},
+        north: {{ bbox: "66.3,10.0,71.5,31.5", z: "4", clat: "68.8", clon: "19.0" }},
+        all:   {{ bbox: "57.0,4.0,71.5,31.5", z: "4", clat: "64.0", clon: "14.0" }}
+      }};
+
+      function buildFrameUrl(resetView=false) {{
         const mode = modeSelect.value || "latest";
         const region = regionSelect.value || "south";
         const d = dateInput.value || "{today_str}";
@@ -226,18 +233,27 @@ def sno_index() -> str:
           qs.set("date", d);
         }}
 
-        const saved = readSavedView();
-        if (saved) {{
-          if (saved.bbox) qs.set("bbox", saved.bbox);
-          if (saved.z) qs.set("z", saved.z);
-          if (saved.clat) qs.set("clat", saved.clat);
-          if (saved.clon) qs.set("clon", saved.clon);
+        const def = REGION_DEFAULTS[region] || REGION_DEFAULTS.south;
+
+        if (resetView) {{
+          qs.set("bbox", def.bbox);
+          qs.set("z", def.z);
+          qs.set("clat", def.clat);
+          qs.set("clon", def.clon);
         }} else {{
-          // fallback hvis ingen lagret view ennå
-          qs.set("bbox", "{default_bbox}");
-          qs.set("z", "{default_z}");
-          qs.set("clat", "{default_clat}");
-          qs.set("clon", "{default_clon}");
+          const saved = readSavedView();
+          if (saved) {{
+            if (saved.bbox) qs.set("bbox", saved.bbox);
+            if (saved.z) qs.set("z", saved.z);
+            if (saved.clat) qs.set("clat", saved.clat);
+            if (saved.clon) qs.set("clon", saved.clon);
+          }} else {{
+            // fallback hvis ingen lagret view ennå
+            qs.set("bbox", def.bbox);
+            qs.set("z", def.z);
+            qs.set("clat", def.clat);
+            qs.set("clon", def.clon);
+          }}
         }}
 
         return "/ver/snomengde-kart?" + qs.toString();
@@ -248,9 +264,9 @@ def sno_index() -> str:
         frame.src = buildFrameUrl();
       }});
 
-      // Når region endres: last umiddelbart
+      // Når region endres: reset utsnitt til region-default
       regionSelect.addEventListener("change", function() {{
-        frame.src = buildFrameUrl();
+        frame.src = buildFrameUrl(true);
       }});
 
       // Når modus endres: last umiddelbart

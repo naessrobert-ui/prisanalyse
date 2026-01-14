@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 
 import folium
 from folium.plugins import HeatMap, MarkerCluster
+from branca.element import MacroElement, Template
 
 # --- .env loading (robust på Windows/PyCharm) ----------------------------
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
@@ -532,6 +533,130 @@ def make_map(
             tooltip=folium.Tooltip(html, sticky=True),
             popup=folium.Popup(html, max_width=320),
         ).add_to(layer_for_markers)
+
+
+    # --------------------------------------------------------------
+    # Overlay-tabell: sortert snødybde for stasjoner i utsnittet
+    # --------------------------------------------------------------
+    try:
+        tbl = d.copy()
+        tbl["value"] = pd.to_numeric(tbl["value"], errors="coerce")
+        tbl = tbl.dropna(subset=["value"])
+
+        top_n = 20
+        tbl_top = tbl.sort_values("value", ascending=False).head(top_n)
+        tbl_bottom = tbl.sort_values("value", ascending=True).head(top_n)
+
+        def _rows_html(t: pd.DataFrame) -> str:
+            rows = []
+            for i, r in enumerate(t.itertuples(index=False), start=1):
+                name = getattr(r, "name", None) or getattr(r, "shortName", None) or getattr(r, "sourceId", "")
+                sid = getattr(r, "sourceId", "")
+                cm = float(getattr(r, "value"))
+                rows.append(
+                    f"""<tr>
+  <td style="padding:6px 8px; color:#64748b; width:26px;">{i}</td>
+  <td style="padding:6px 8px;">
+    <div style="font-weight:800;">{name}</div>
+    <div style="color:#64748b; font-size:12px;">{sid}</div>
+  </td>
+  <td style="padding:6px 8px; text-align:right; font-weight:900;">{cm:.0f} cm</td>
+</tr>"""
+                )
+            return "\n".join(rows)
+
+        rows_top = _rows_html(tbl_top)
+        rows_bottom = _rows_html(tbl_bottom)
+
+        total_st = int(d["sourceId"].nunique()) if "sourceId" in d.columns else int(len(d))
+
+        table_tpl = """{% macro html(this, kwargs) %}
+<div id="snow-table"
+ style="position: fixed; left: 16px; bottom: 16px; z-index: 9999;
+ background: rgba(255,255,255,0.96); backdrop-filter: blur(6px);
+ border-radius: 14px; box-shadow: 0 18px 45px rgba(15,23,42,.18);
+ width: 380px; max-width: calc(100vw - 32px); overflow: hidden;
+ font-family: system-ui, -apple-system, "Segoe UI", sans-serif;">
+  <div style="padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+    <div style="font-weight:950; line-height:1.1;">
+      Snø i utsnittet <span style="color:#64748b; font-weight:800;">(__TOTAL__ stasjoner)</span>
+    </div>
+    <button id="snow-table-toggle"
+      style="border:none; background:#e2e8f0; padding:6px 10px; border-radius:999px; cursor:pointer; font-weight:800;">
+      Vis/skjul
+    </button>
+  </div>
+
+  <div style="padding:0 12px 10px;">
+    <select id="snow-table-mode"
+      style="width:100%; padding:7px 10px; border-radius:12px; border:1px solid #d1d5db; font-weight:700;">
+      <option value="top" selected>Mest snø (topp __TOPN__)</option>
+      <option value="bottom">Minst snø (topp __TOPN__)</option>
+    </select>
+  </div>
+
+  <div id="snow-table-body" style="max-height: 280px; overflow:auto; border-top:1px solid #e2e8f0;">
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead>
+        <tr style="position:sticky; top:0; background:white;">
+          <th style="text-align:left; padding:6px 8px; color:#64748b;">#</th>
+          <th style="text-align:left; padding:6px 8px; color:#64748b;">Stasjon</th>
+          <th style="text-align:right; padding:6px 8px; color:#64748b;">cm</th>
+        </tr>
+      </thead>
+      <tbody id="snow-tbody-top">
+__ROWS_TOP__
+      </tbody>
+      <tbody id="snow-tbody-bottom" style="display:none;">
+__ROWS_BOTTOM__
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function() {
+  const btn = document.getElementById('snow-table-toggle');
+  const body = document.getElementById('snow-table-body');
+  const mode = document.getElementById('snow-table-mode');
+  const top = document.getElementById('snow-tbody-top');
+  const bottom = document.getElementById('snow-tbody-bottom');
+
+  if (btn && body) {
+    btn.addEventListener('click', () => {
+      body.style.display = (body.style.display === 'none') ? 'block' : 'none';
+    });
+  }
+
+  if (mode && top && bottom) {
+    mode.addEventListener('change', () => {
+      if (mode.value === 'bottom') {
+        top.style.display = 'none';
+        bottom.style.display = '';
+      } else {
+        bottom.style.display = 'none';
+        top.style.display = '';
+      }
+    });
+  }
+})();
+</script>
+{% endmacro %}"""
+
+        table_tpl = (
+            table_tpl
+            .replace("__TOTAL__", str(total_st))
+            .replace("__TOPN__", str(top_n))
+            .replace("__ROWS_TOP__", rows_top)
+            .replace("__ROWS_BOTTOM__", rows_bottom)
+        )
+
+        macro = MacroElement()
+        macro._template = Template(table_tpl)
+        m.get_root().add_child(macro)
+    except Exception:
+        # tabellen er nice-to-have; ikke la den knekke kartet
+        pass
 
     folium.LayerControl().add_to(m)
 
