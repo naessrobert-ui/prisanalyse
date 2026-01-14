@@ -114,9 +114,18 @@ def min_temp_map():
 # =========================
 # SNØ
 # =========================
+
+
 @ver.route("/sno")
 def sno_index() -> str:
     today_str = _date.today().isoformat()
+
+    # Default: sør-norge bbox
+    default_bbox = "57.0,4.0,62.5,12.5"
+    default_z = "5"
+    default_clat = "60.5"
+    default_clon = "8.5"
+
     return f"""
 <!doctype html>
 <html lang="no">
@@ -129,39 +138,124 @@ def sno_index() -> str:
       .page {{ max-width:1200px; margin:32px auto; padding:0 16px 32px; }}
       .card {{ background:#fff; border-radius:16px; padding:18px 22px;
               box-shadow: 0 18px 45px rgba(15,23,42,.08); margin-bottom:16px; }}
-      .date-form {{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px; }}
-      .date-form input {{ padding:6px 10px; border-radius:10px; border:1px solid #d1d5db; }}
-      .date-form button {{ padding:7px 14px; border-radius:999px; border:none; background:#2563eb; color:white; cursor:pointer; }}
+      .row {{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px; }}
+      input, select {{ padding:6px 10px; border-radius:10px; border:1px solid #d1d5db; }}
+      button {{ padding:7px 14px; border-radius:999px; border:none; background:#2563eb; color:white; cursor:pointer; font-weight:700; }}
       #map-frame {{ width:100%; height:80vh; border:none; border-radius:16px; background:#e5e7eb;
                   box-shadow: 0 18px 45px rgba(15,23,42,.10); }}
+      .muted {{ color:#475569; margin:0; }}
     </style>
   </head>
   <body>
     <div class="page">
       <div class="card">
         <h1 style="margin:0 0 8px;">Snømengde i Norge</h1>
-        <p style="margin:0; color:#475569;">Velg dato. Standard er i dag (med fallback ±2 dager).</p>
+        <p class="muted">Standard er <b>siste oppdaterte snødybde</b> i kartutsnittet (rask). Du kan også velge dag.</p>
 
-        <form id="date-form" class="date-form">
+        <form id="controls-form" class="row">
+          <label for="mode-select">Modus:</label>
+          <select id="mode-select" name="mode">
+            <option value="latest" selected>Oppdatert (latest)</option>
+            <option value="day">Kalenderdato</option>
+          </select>
+
           <label for="date-input">Dato:</label>
           <input type="date" id="date-input" name="date" value="{today_str}" max="{today_str}">
+
+          <label for="region-select">Region:</label>
+          <select id="region-select" name="region">
+            <option value="south" selected>Sør</option>
+            <option value="mid">Midt</option>
+            <option value="north">Nord</option>
+            <option value="all">Hele landet (tregere)</option>
+          </select>
+
           <button type="submit">Vis</button>
         </form>
       </div>
 
-      <iframe id="map-frame" src="/ver/snomengde-kart" loading="lazy"></iframe>
+      <iframe id="map-frame"
+        src="/ver/snomengde-kart?mode=latest&region=south&bbox={default_bbox}&z={default_z}&clat={default_clat}&clon={default_clon}"
+        loading="lazy"></iframe>
     </div>
 
     <script>
-      const form = document.getElementById("date-form");
-      const input = document.getElementById("date-input");
+      const STORE_KEY = "snow_view_v1";
+      const form = document.getElementById("controls-form");
+      const modeSelect = document.getElementById("mode-select");
+      const dateInput = document.getElementById("date-input");
+      const regionSelect = document.getElementById("region-select");
       const frame = document.getElementById("map-frame");
+
+      function readSavedView() {{
+        try {{
+          const raw = sessionStorage.getItem(STORE_KEY);
+          if (!raw) return null;
+          const obj = JSON.parse(raw);
+          if (!obj || !obj.bbox) return null;
+          return obj;
+        }} catch (e) {{
+          return null;
+        }}
+      }}
+
+      function saveViewFromFrameUrl() {{
+        try {{
+          const u = new URL(frame.contentWindow.location.href);
+          const bbox = u.searchParams.get("bbox");
+          if (!bbox) return;
+          const z = u.searchParams.get("z") || "";
+          const clat = u.searchParams.get("clat") || "";
+          const clon = u.searchParams.get("clon") || "";
+          sessionStorage.setItem(STORE_KEY, JSON.stringify({{ bbox, z, clat, clon }}));
+        }} catch (e) {{}}
+      }}
+
+      frame.addEventListener("load", saveViewFromFrameUrl);
+
+      function buildFrameUrl() {{
+        const mode = modeSelect.value || "latest";
+        const region = regionSelect.value || "south";
+        const d = dateInput.value || "{today_str}";
+
+        const qs = new URLSearchParams();
+        qs.set("mode", mode);
+        qs.set("region", region);
+
+        if (mode === "day") {{
+          qs.set("date", d);
+        }}
+
+        const saved = readSavedView();
+        if (saved) {{
+          if (saved.bbox) qs.set("bbox", saved.bbox);
+          if (saved.z) qs.set("z", saved.z);
+          if (saved.clat) qs.set("clat", saved.clat);
+          if (saved.clon) qs.set("clon", saved.clon);
+        }} else {{
+          // fallback hvis ingen lagret view ennå
+          qs.set("bbox", "{default_bbox}");
+          qs.set("z", "{default_z}");
+          qs.set("clat", "{default_clat}");
+          qs.set("clon", "{default_clon}");
+        }}
+
+        return "/ver/snomengde-kart?" + qs.toString();
+      }}
 
       form.addEventListener("submit", function(e) {{
         e.preventDefault();
-        const d = input.value;
-        const baseUrl = "/ver/snomengde-kart";
-        frame.src = d ? `${{baseUrl}}?date=${{encodeURIComponent(d)}}` : baseUrl;
+        frame.src = buildFrameUrl();
+      }});
+
+      // Når region endres: last umiddelbart
+      regionSelect.addEventListener("change", function() {{
+        frame.src = buildFrameUrl();
+      }});
+
+      // Når modus endres: last umiddelbart
+      modeSelect.addEventListener("change", function() {{
+        frame.src = buildFrameUrl();
       }});
     </script>
   </body>
@@ -170,9 +264,36 @@ def sno_index() -> str:
 
 
 @ver.route("/snomengde-kart")
-def snomengde_kart() -> str:
+def snomengde_kart():
     date_str = request.args.get("date")
-    return build_snow_map_html(date_str=date_str, show_heatmap=True)
+    mode = request.args.get("mode", "latest")
+    region = request.args.get("region")  # south|mid|north|all
+    bbox = request.args.get("bbox")
+
+    z = request.args.get("z")
+    clat = request.args.get("clat")
+    clon = request.args.get("clon")
+
+    if mode not in {"latest", "day"}:
+        mode = "latest"
+
+    html = build_snow_map_html(
+        date_str=date_str,
+        mode=mode,
+        bbox=bbox,
+        region=region,
+        z=z,
+        clat=clat,
+        clon=clon,
+        show_heatmap=True,
+        # tunables:
+        timeout=20,
+        qualities="0,1,2,3,4",
+        window_days=2,
+        cache_ttl_seconds=60,   # øk til 120/300 om du vil
+        debug_timing=False,     # sett True ved feilsøking
+    )
+    return Response(html, mimetype="text/html; charset=utf-8")
 
 
 # =========================
