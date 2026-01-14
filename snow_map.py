@@ -538,75 +538,167 @@ def make_map(
 #  Bygg DF for "latest" og "day"
 # ======================================================================
 
-def build_snow_df_latest(
+
+def bbox_to_wkt_polygon(bbox: Tuple[float, float, float, float]) -> str:
+    """
+    Lag WKT POLYGON fra bbox (south, west, north, east).
+    WKT bruker (lon lat).
+    """
+    south, west, north, east = bbox
+    return (
+        f"POLYGON(({west} {south}, {east} {south}, {east} {north}, "
+        f"{west} {north}, {west} {south}))"
+    )
+
+
+def list_sources_in_bbox(
+    session: requests.Session,
     *,
-    window_hours: int = 24,
+    auth: "FrostAuth",
+    bbox: Tuple[float, float, float, float],
+    timeout: int,
+    batch_limit: int = 1000,
+) -> pd.DataFrame:
+    """
+    Hent stasjoner (SensorSystem) innenfor bbox via /sources med geometry=POLYGON(WKT).
+    Returnerer DF med baseId + navn + lat/lon.
+    """
+    path = "/sources/v0.jsonld"
+    wkt = bbox_to_wkt_polygon(bbox)
+
+    params: dict[str, str | int] = {
+        "types": "SensorSystem",
+        "country": "NO",
+        "geometry": wkt,
+        "fields": "id,name,shortName,country,geometry",
+        "limit": batch_limit,
+    }
+
+    page = frost_get_json(session, path, params, auth=auth, timeout=timeout)
+    if page.get("@type") == "ErrorResponse":
+        return pd.DataFrame(columns=["baseId", "name", "shortName", "country", "lat", "lon"])
+
+    rows: list[dict[str, Any]] = []
+    for item in page.get("data", []):
+        geom = item.get("geometry") or {}
+        coords = geom.get("coordinates")  # [lon, lat]
+        lon = lat = None
+        if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+            lon, lat = coords[0], coords[1]
+        rows.append(
+            {
+                "baseId": item.get("id"),
+                "name": item.get("name"),
+                "shortName": item.get("shortName"),
+                "country": item.get("country"),
+                "lat": lat,
+                "lon": lon,
+            }
+        )
+
+    df = pd.DataFrame(rows)
+    df = df.dropna(subset=["baseId"]).reset_index(drop=True)
+    return df
+
+
+def fetch_latest_snow_for_sources(
+    session: requests.Session,
+    *,
+    auth: "FrostAuth",
+    source_base_ids: list[str],
+    timeout: int,
+    batch_size: int,
+    qualities: str = "0,1,2,3,4",
+) -> pd.DataFrame:
+    """
+    Hent siste snødybde per stasjon med referencetime=latest&limit=1.
+    """
+    if not source_base_ids:
+        return pd.DataFrame()
+
+    path = "/observations/v0.jsonld"
+    rows: list[dict[str, Any]] = []
+
+    for batch in chunked(source_base_ids, batch_size):
+        params: dict[str, str | int] = {
+            "sources": ",".join(batch),
+            "referencetime": "latest",
+            "elements": ELEMENT_SNOW,
+            "limit": 1,  # siste per (source, element)
+            # disse to reduserer “duplikate” tidsserier (sensor/offset/levels)
+            "timeoffsets": "default",
+            "levels": "default",
+        }
+        if qualities:
+            params["qualities"] = qualities
+
+        data = frost_get_json(session, path, params, auth=auth, timeout=timeout)
+        if data.get("@type") == "ErrorResponse":
+            continue
+
+        for item in data.get("data", []):
+            sid = item.get("sourceId")
+            item_rt = item.get("referenceTime")
+            for obs in item.get("observations", []):
+                rows.append(
+                    {
+                        "sourceId": sid,
+                        "referenceTime": obs.get("referenceTime") or item_rt,
+                        "elementId": obs.get("elementId"),
+                        "value": obs.get("value"),
+                        "unit": obs.get("unit"),
+                        "qualityCode": obs.get("qualityCode"),
+                    }
+                )
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    df["referenceTime"] = pd.to_datetime(df["referenceTime"], errors="coerce", utc=True)
+    df["value"] = pd.to_numeric(df["value"], errors="coerce")
+    df = df.dropna(subset=["referenceTime", "value"])
+    return df
+
+
+def build_snow_df_latest_fast_south_first(
+    *,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
-    limit: int = 1000,
-    qualities: str = "",
-    bbox_coords: Optional[Tuple[float, float, float, float]] = None,
-) -> tuple[pd.DataFrame, _date]:
+    qualities: str = "0,1,2,3,4",
+    # Sør-Norge-ish default bbox (kan justeres):
+    bbox_coords: Tuple[float, float, float, float] = (57.0, 4.0, 62.5, 12.5),
+) -> tuple[pd.DataFrame, datetime]:
     """
-    Hurtig-modus: siste tilgjengelige snødybde per stasjon, basert på siste window_hours.
-    Hvis bbox er satt, begrenser vi stasjonene til kartutsnittet.
+    Rask oppstart:
+      1) hent stasjoner i bbox via /sources (ingen availableTimeSeries-scan)
+      2) hent 'latest' snødybde for disse (limit=1)
     """
     auth = _env_auth()
     now = datetime.now(timezone.utc)
-    start_dt = now - timedelta(hours=window_hours)
-    referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
-    today = now.date()
 
     with requests.Session() as sess:
-        # 1) finn universe
-        universe = list_sources_with_snow_in_referencetime(
-            sess,
-            auth=auth,
-            referencetime=referencetime,
-            timeout=timeout,
-        )
-        if not universe:
-            raise RuntimeError("Fant ingen stasjoner med snødybde i siste døgn.")
+        meta = list_sources_in_bbox(sess, auth=auth, bbox=bbox_coords, timeout=timeout)
+        if meta.empty:
+            raise RuntimeError("Fant ingen stasjoner i valgt bbox.")
 
-        # 2) metadata for alle
-        meta_all = get_sources_metadata(
+        base_ids = meta["baseId"].astype(str).tolist()
+
+        obs = fetch_latest_snow_for_sources(
             sess,
             auth=auth,
-            sources=universe,
+            source_base_ids=base_ids,
             timeout=timeout,
             batch_size=batch_size,
-            limit=limit,
-        )
-        if meta_all.empty:
-            raise RuntimeError("Fant stasjoner, men ingen koordinater fra /sources.")
-
-        # 3) filtrer på bbox, hvis satt
-        meta_filtered = _filter_meta_by_bbox(meta_all, bbox_coords)
-
-        if meta_filtered.empty:
-            raise RuntimeError("Ingen stasjoner innenfor valgt kartutsnitt.")
-
-        sources_in_view = meta_filtered["sourceId"].astype(str).unique().tolist()
-
-        # 4) observasjoner for disse kildene
-        obs = fetch_observations_interval(
-            sess,
-            auth=auth,
-            sources=sources_in_view,
-            referencetime=referencetime,
-            timeout=timeout,
-            batch_size=batch_size,
-            limit=limit,
             qualities=qualities,
         )
 
     if obs.empty:
-        raise RuntimeError("Ingen observasjoner for stasjonene i valgt tidsrom.")
+        raise RuntimeError("Ingen 'latest' snøobservasjoner i området (prøv større bbox eller uten kvalitetsfilter).")
 
-    latest = choose_latest_per_station(obs)
-    df = latest.merge(meta_filtered, on="sourceId", how="left")
-    return df, today
-
+    # obs.sourceId kan være "SN12345:0" mens meta.baseId er "SN12345"
+    obs["baseId"] = obs["sourceId"].astype(str).map(base_source_id)
+    df = obs.merge(meta, left_on="baseId", right_on="baseId", how="left").drop(columns=["baseId"])
+    return df, now
 
 def build_snow_df_for_day(
     date_str: Optional[str] = None,
