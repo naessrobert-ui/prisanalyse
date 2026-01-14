@@ -1,3 +1,16 @@
+from __future__ import annotations
+
+from datetime import date as _date
+from flask import Blueprint, request, render_template, Response
+
+from snow_map import build_snow_map_html
+
+
+ver = Blueprint("ver", __name__, url_prefix="/ver")
+
+# først etter dette er det lov å bruke @ver.route(...)
+
+
 import traceback
 from flask import Response, request
 
