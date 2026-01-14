@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Iterator, Optional, Literal
 
 import pandas as pd
+from ver_station_db import stations_in_bbox_wsen
 import requests
 from dotenv import load_dotenv
 
@@ -1056,7 +1057,11 @@ def build_precip_map_html(
         raise ValueError(f"Ukjent mode: {mode}")
 
     with requests.Session() as sess:
-        src_meta = fetch_sources_in_bbox(sess, auth=auth, w=w, s=s, e=e, n=n, timeout=timeout)
+        # Bruk lokal stasjons-DB (hurtig) i stedet for /sources-kall hver gang
+        src_meta = stations_in_bbox_wsen(w, s, e, n)
+        if src_meta.empty:
+            # fallback hvis DB mangler/er tom
+            src_meta = fetch_sources_in_bbox(sess, auth=auth, w=w, s=s, e=e, n=n, timeout=timeout)
         if src_meta.empty:
             return make_info_map(
                 title="Ingen stasjoner i området",

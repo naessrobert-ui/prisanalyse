@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple
 
 import pandas as pd
+from ver_station_db import stations_in_bbox_swne
 import requests
 from dotenv import load_dotenv
 
@@ -718,7 +719,11 @@ def build_snow_df_latest_fast_south_first(
     now = datetime.now(timezone.utc)
 
     with requests.Session() as sess:
-        meta = list_sources_in_bbox(sess, auth=auth, bbox=bbox_coords, timeout=timeout)
+        # Bruk lokal stasjons-DB (hurtig) i stedet for /sources-kall hver gang
+        meta = stations_in_bbox_swne(bbox_coords)
+        if meta.empty:
+            # fallback hvis DB mangler/er tom
+            meta = list_sources_in_bbox(sess, auth=auth, bbox=bbox_coords, timeout=timeout)
 
         if meta.empty:
             raise RuntimeError("Fant ingen stasjoner i valgt bbox.")
