@@ -290,8 +290,6 @@ def snomengde_kart():
         timeout=20,
         qualities="0,1,2,3,4",
         window_days=2,
-        cache_ttl_seconds=60,   # øk til 120/300 om du vil
-        debug_timing=False,     # sett True ved feilsøking
     )
     return Response(html, mimetype="text/html; charset=utf-8")
 
