@@ -264,8 +264,9 @@ def sno_index() -> str:
         frame.src = buildFrameUrl();
       }});
 
-      // Når region endres: reset utsnitt til region-default
+      // Når region endres: reset utsnitt til region-default (og dropp gammel lagret bbox)
       regionSelect.addEventListener("change", function() {{
+        try {{ sessionStorage.removeItem(STORE_KEY); }} catch (e) {{}}
         frame.src = buildFrameUrl(true);
       }});
 

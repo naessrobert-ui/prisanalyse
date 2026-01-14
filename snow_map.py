@@ -476,6 +476,11 @@ def make_map(
     heat_radius: int,
     heat_blur: int,
     heat_clip_cm: float,
+    # viewport hints (fra URL): gjør at region/bbox faktisk vises riktig
+    bbox_coords: Optional[Tuple[float, float, float, float]] = None,
+    z: Optional[int] = None,
+    clat: Optional[float] = None,
+    clon: Optional[float] = None,
 ) -> str:
     """
     Lager folium-kart fra df.
@@ -494,9 +499,31 @@ def make_map(
     d["value"] = pd.to_numeric(d["value"], errors="coerce")
     d = d.dropna(subset=["lat", "lon", "value"])
 
+    # --------------------------------------------------------------
+# Kart-view: bruk bbox/zoom/center hvis sendt inn fra URL, ellers mean av data.
+# Dette er viktig for at region-valg (mid/north/all) faktisk skal flytte kartet.
+# --------------------------------------------------------------
+if bbox_coords is not None:
+    south, west, north, east = bbox_coords
+    center_lat = (south + north) / 2.0
+    center_lon = (west + east) / 2.0
+else:
     center_lat = float(d["lat"].mean())
     center_lon = float(d["lon"].mean())
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=5, tiles="OpenStreetMap")
+
+zoom_start = int(z) if (z is not None and str(z).isdigit()) else 5
+if clat is not None and clon is not None:
+    try:
+        center_lat = float(clat)
+        center_lon = float(clon)
+    except Exception:
+        pass
+
+m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom_start, tiles="OpenStreetMap")
+
+# Hvis bbox er kjent: tving view til bbox (Leaflet setter riktig zoom)
+if bbox_coords is not None:
+    m.fit_bounds([[south, west], [north, east]])
 
     # Heatmap
     clipped = d["value"].clip(lower=0, upper=heat_clip_cm)
@@ -534,6 +561,74 @@ def make_map(
             popup=folium.Popup(html, max_width=320),
         ).add_to(layer_for_markers)
 
+
+
+    # --------------------------------------------------------------
+    # Kontroll: "Oppdater utsnitt" (reload med bbox/z/center)
+    # --------------------------------------------------------------
+    try:
+        ctrl_tpl = """{% macro html(this, kwargs) %}
+<div style="position: fixed; left: 16px; top: 16px; z-index: 9999;
+  background: rgba(255,255,255,0.96); backdrop-filter: blur(6px);
+  border-radius: 999px; box-shadow: 0 18px 45px rgba(15,23,42,.18);
+  padding: 8px 10px; font-family: system-ui, -apple-system, \"Segoe UI\", sans-serif;">
+  <button id="snow-refresh"
+    style="border:none; background:#2563eb; color:white; padding:7px 12px;
+      border-radius:999px; cursor:pointer; font-weight:900;">
+    Oppdater utsnitt
+  </button>
+</div>
+
+<script>
+(function() {
+  function findLeafletMap() {
+    // Prøv Folium sitt kart-objekt først (ofte globalt)
+    for (const k in window) {
+      try {
+        const v = window[k];
+        if (v && v instanceof L.Map) return v;
+      } catch(e) {}
+    }
+    // fallback: finn første objekt som ligner
+    for (const k in window) {
+      const v = window[k];
+      if (v && v._container && v.getBounds && v.getCenter && v.getZoom) return v;
+    }
+    return null;
+  }
+
+  function fmt(x) {
+    try { return Number(x).toFixed(5); } catch(e) { return String(x); }
+  }
+
+  const btn = document.getElementById('snow-refresh');
+  if (!btn) return;
+
+  btn.addEventListener('click', function() {
+    const map = findLeafletMap();
+    if (!map) return;
+
+    const b = map.getBounds();
+    const south = b.getSouth(), west = b.getWest(), north = b.getNorth(), east = b.getEast();
+    const c = map.getCenter();
+    const z = map.getZoom();
+
+    const u = new URL(window.location.href);
+    u.searchParams.set('bbox', [fmt(south), fmt(west), fmt(north), fmt(east)].join(','));
+    u.searchParams.set('z', String(z));
+    u.searchParams.set('clat', fmt(c.lat));
+    u.searchParams.set('clon', fmt(c.lng));
+
+    window.location.href = u.toString();
+  });
+})();
+</script>
+{% endmacro %}"""
+        ctrl = MacroElement()
+        ctrl._template = Template(ctrl_tpl)
+        m.get_root().add_child(ctrl)
+    except Exception:
+        pass
 
     # --------------------------------------------------------------
     # Overlay-tabell: sortert snødybde for stasjoner i utsnittet
@@ -1049,6 +1144,10 @@ def build_snow_map_html(
         heat_radius=heat_radius,
         heat_blur=heat_blur,
         heat_clip_cm=heat_clip_cm,
+        bbox_coords=bbox_coords,
+        z=int(z) if (z and str(z).isdigit()) else None,
+        clat=float(clat) if clat else None,
+        clon=float(clon) if clon else None,
     )
     return html_str
 
@@ -1138,6 +1237,7 @@ def main() -> None:
         heat_radius=args.heat_radius,
         heat_blur=args.heat_blur,
         heat_clip_cm=args.heat_clip_cm,
+        bbox_coords=bbox_coords,
     )
 
     print(f"Mode: {args.mode}")
