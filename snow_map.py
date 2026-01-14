@@ -500,30 +500,31 @@ def make_map(
     d = d.dropna(subset=["lat", "lon", "value"])
 
     # --------------------------------------------------------------
-# Kart-view: bruk bbox/zoom/center hvis sendt inn fra URL, ellers mean av data.
-# Dette er viktig for at region-valg (mid/north/all) faktisk skal flytte kartet.
-# --------------------------------------------------------------
-if bbox_coords is not None:
-    south, west, north, east = bbox_coords
-    center_lat = (south + north) / 2.0
-    center_lon = (west + east) / 2.0
-else:
-    center_lat = float(d["lat"].mean())
-    center_lon = float(d["lon"].mean())
+    # Kart-view: bruk bbox/zoom/center hvis sendt inn fra URL, ellers mean av data.
+    # Dette er viktig for at region-valg (mid/north/all) faktisk skal flytte kartet.
+    # --------------------------------------------------------------
+    south = west = north = east = None
+    if bbox_coords is not None:
+        south, west, north, east = bbox_coords
+        center_lat = (south + north) / 2.0
+        center_lon = (west + east) / 2.0
+    else:
+        center_lat = float(d["lat"].mean())
+        center_lon = float(d["lon"].mean())
 
-zoom_start = int(z) if (z is not None and str(z).isdigit()) else 5
-if clat is not None and clon is not None:
-    try:
-        center_lat = float(clat)
-        center_lon = float(clon)
-    except Exception:
-        pass
+    zoom_start = int(z) if (z is not None and str(z).isdigit()) else 5
+    if clat is not None and clon is not None:
+        try:
+            center_lat = float(clat)
+            center_lon = float(clon)
+        except Exception:
+            pass
 
-m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom_start, tiles="OpenStreetMap")
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom_start, tiles="OpenStreetMap")
 
-# Hvis bbox er kjent: tving view til bbox (Leaflet setter riktig zoom)
-if bbox_coords is not None:
-    m.fit_bounds([[south, west], [north, east]])
+    # Hvis bbox er kjent: tving view til bbox (Leaflet setter riktig zoom)
+    if bbox_coords is not None and south is not None:
+        m.fit_bounds([[south, west], [north, east]])
 
     # Heatmap
     clipped = d["value"].clip(lower=0, upper=heat_clip_cm)
@@ -532,7 +533,6 @@ if bbox_coords is not None:
     heat_layer = folium.FeatureGroup(name="Heatmap snødybde", show=heatmap_show)
     HeatMap(heat_data, radius=heat_radius, blur=heat_blur, min_opacity=0.2, max_zoom=8).add_to(heat_layer)
     heat_layer.add_to(m)
-
     # Punktmarkører
     points_layer = folium.FeatureGroup(name="Stasjoner (hover)", show=True)
     points_layer.add_to(m)
