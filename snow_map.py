@@ -845,29 +845,23 @@ def build_snow_map_html(
     bbox_coords = _parse_bbox(bbox)
 
     if mode == "latest":
-        df, day = build_snow_df_latest(
-            window_hours=24,
-            timeout=timeout,
-            batch_size=batch_size,
-            limit=limit,
-            qualities=qualities,
-            bbox_coords=bbox_coords,
-        )
-        title = f"Siste tilgjengelige snødybde (siste 24 timer, per stasjon) – {day.isoformat()}"
-    else:
-        # alt annet tolkes som "day"
-        df, day = build_snow_df_for_day(
-            date_str=date_str,
-            window_days=window_days,
-            timeout=timeout,
-            batch_size=batch_size,
-            limit=limit,
-            qualities=qualities,
-            bbox_coords=bbox_coords,
-        )
-        title = f"Snødybde nær {day.isoformat()} (med fallback ±{window_days} dag(er))"
+        # Hvis bbox er sendt inn fra UI, bruk den. Hvis ikke: default Sør-Norge.
+        if bbox_coords is not None:
+            df, now_dt = build_snow_df_latest_fast_south_first(
+                timeout=timeout,
+                batch_size=batch_size,
+                qualities=qualities or "0,1,2,3,4",
+                bbox_coords=bbox_coords,
+            )
+        else:
+            df, now_dt = build_snow_df_latest_fast_south_first(
+                timeout=timeout,
+                batch_size=batch_size,
+                qualities=qualities or "0,1,2,3,4",
+                # default Sør-Norge bbox ligger allerede i funksjonen
+            )
 
-    _ = day  # hvis du vil logge senere
+        _ = now_dt  # hvis du vil logge senere
 
     html_str = make_map(
         df,
@@ -929,14 +923,20 @@ def main() -> None:
     bbox_coords = _parse_bbox(args.bbox)
 
     if args.mode == "latest":
-        df, day = build_snow_df_latest(
-            window_hours=24,
-            timeout=args.timeout,
-            batch_size=args.batch_size,
-            limit=args.limit,
-            qualities=args.qualities,
-            bbox_coords=bbox_coords,
-        )
+        if bbox_coords is not None:
+            df, now_dt = build_snow_df_latest_fast_south_first(
+                timeout=args.timeout,
+                batch_size=args.batch_size,
+                qualities=args.qualities or "0,1,2,3,4",
+                bbox_coords=bbox_coords,
+            )
+        else:
+            df, now_dt = build_snow_df_latest_fast_south_first(
+                timeout=args.timeout,
+                batch_size=args.batch_size,
+                qualities=args.qualities or "0,1,2,3,4",
+            )
+        day = now_dt.date()
     else:
         df, day = build_snow_df_for_day(
             date_str=args.date,
