@@ -195,6 +195,14 @@ def _filter_meta_by_bbox(
         & (m["lon"].between(west, east))
     ].copy()
 
+REGION_BBOX: dict[str, Tuple[float, float, float, float]] = {
+    # south, west, north, east
+    "south": (57.0, 4.0, 62.5, 12.5),
+    "mid": (62.0, 4.0, 66.7, 16.5),
+    "north": (66.3, 10.0, 71.5, 31.5),
+    # hele Norge-ish (kan justeres)
+    "all": (57.0, 4.0, 71.5, 31.5),
+}
 
 # ======================================================================
 #  Hente stasjoner og observasjoner
@@ -847,11 +855,12 @@ def build_snow_df_for_day(
 def build_snow_map_html(
     date_str: Optional[str] = None,
     *,
-    mode: str = "latest",            # "latest" (hurtig) eller "day" (dato + fallback)
-    bbox: Optional[str] = None,      # "south,west,north,east" – brukes til å begrense stasjoner
-    z: Optional[str] = None,         # ignoreres, men beholdes for bakoverkompabilitet
-    clat: Optional[str] = None,      # ignoreres
-    clon: Optional[str] = None,      # ignoreres
+    mode: str = "latest",             # "latest" eller "day"
+    region: Optional[str] = None,     # "south" | "mid" | "north" | "all"
+    bbox: Optional[str] = None,       # "south,west,north,east"
+    z: Optional[str] = None,          # ignoreres (kompat)
+    clat: Optional[str] = None,       # ignoreres
+    clon: Optional[str] = None,       # ignoreres
     window_days: int = 1,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
@@ -864,38 +873,43 @@ def build_snow_map_html(
     heat_clip_cm: float = 200.0,
 ) -> str:
     """
-    Bygger snøkart for valgt modus og returnerer HTML-strengen.
+    Bygger snøkart for valgt modus og returnerer HTML.
 
-    mode="latest":
-      - ignorerer date_str (bruker siste window_hours, hardkodet i build_snow_df_latest)
-      - rask: kun ett tidsvindu, ingen fallback
+    - mode="latest": bruker /sources+geometry (bbox) + /observations referencetime=latest&limit=1
+      (rask oppstart, ingen availableTimeSeries-scan)
 
-    mode="day":
-      - bruker date_str (eller dagens dato hvis None)
-      - fallback ±window_days for stasjoner uten data den dagen
-      - stasjoner begrenses til bbox hvis satt
+    - mode="day": bruker original day-fallback (availableTimeSeries -> metadata -> obs -> fallback)
+      og kan begrenses av bbox (kartutsnitt) hvis sendt inn.
     """
-    _ = (z, clat, clon)  # eksplisitt ikke brukt
+    _ = (z, clat, clon)  # beholdt for kompatibilitet
+
+    # 1) Bestem bbox: prioritet bbox-param, ellers region, ellers default sør
     bbox_coords = _parse_bbox(bbox)
+    if bbox_coords is None:
+        key = (region or "south").strip().lower()
+        bbox_coords = REGION_BBOX.get(key, REGION_BBOX["south"])
+
+    if mode not in {"latest", "day"}:
+        mode = "latest"
 
     if mode == "latest":
-        # Hvis bbox er sendt inn fra UI, bruk den. Hvis ikke: default Sør-Norge.
-        if bbox_coords is not None:
-            df, now_dt = build_snow_df_latest_fast_south_first(
-                timeout=timeout,
-                batch_size=batch_size,
-                qualities=qualities or "0,1,2,3,4",
-                bbox_coords=bbox_coords,
-            )
-        else:
-            df, now_dt = build_snow_df_latest_fast_south_first(
-                timeout=timeout,
-                batch_size=batch_size,
-                qualities=qualities or "0,1,2,3,4",
-                # default Sør-Norge bbox ligger allerede i funksjonen
-            )
-
-        _ = now_dt  # hvis du vil logge senere
+        df, _now_dt = build_snow_df_latest_fast_south_first(
+            timeout=timeout,
+            batch_size=batch_size,
+            qualities=qualities or "0,1,2,3,4",
+            bbox_coords=bbox_coords,
+        )
+    else:
+        # day-mode: bruk din eksisterende funksjon (den fungerer), men begrens med bbox
+        df, _day = build_snow_df_for_day(
+            date_str=date_str,
+            window_days=window_days,
+            timeout=timeout,
+            batch_size=batch_size,
+            limit=limit,
+            qualities=qualities,
+            bbox_coords=bbox_coords,
+        )
 
     html_str = make_map(
         df,
@@ -906,7 +920,6 @@ def build_snow_map_html(
         heat_blur=heat_blur,
         heat_clip_cm=heat_clip_cm,
     )
-
     return html_str
 
 
