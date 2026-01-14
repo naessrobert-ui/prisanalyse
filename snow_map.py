@@ -15,6 +15,14 @@ Krever:
 - miljøvariabel FROST_CLIENT_ID (evt FROST_CLIENT_SECRET)
 """
 
+from pathlib import Path
+from dotenv import load_dotenv
+
+# robust: les .env ved siden av snow_map.py + fallback til cwd
+load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
+load_dotenv()
+
+
 from __future__ import annotations
 
 import os
