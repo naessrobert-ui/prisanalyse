@@ -554,47 +554,80 @@ def bbox_to_wkt_polygon(bbox: Tuple[float, float, float, float]) -> str:
 def list_sources_in_bbox(
     session: requests.Session,
     *,
-    auth: "FrostAuth",
+    auth: FrostAuth,
     bbox: Tuple[float, float, float, float],
     timeout: int,
-    batch_limit: int = 1000,
 ) -> pd.DataFrame:
     """
     Hent stasjoner (SensorSystem) innenfor bbox via /sources med geometry=POLYGON(WKT).
-    Returnerer DF med baseId + navn + lat/lon.
+    /sources støtter IKKE 'limit' (hos deg), så vi henter uten limit og gjør best-effort paginering
+    via offset dersom API-et tillater det.
     """
     path = "/sources/v0.jsonld"
     wkt = bbox_to_wkt_polygon(bbox)
 
-    params: dict[str, str | int] = {
+    base_params: dict[str, str | int] = {
         "types": "SensorSystem",
         "country": "NO",
         "geometry": wkt,
         "fields": "id,name,shortName,country,geometry",
-        "limit": batch_limit,
     }
 
-    page = frost_get_json(session, path, params, auth=auth, timeout=timeout)
-    if page.get("@type") == "ErrorResponse":
+    rows: list[dict[str, Any]] = []
+
+    # Første side
+    first = frost_get_json(session, path, base_params, auth=auth, timeout=timeout)
+    if first.get("@type") == "ErrorResponse":
         return pd.DataFrame(columns=["baseId", "name", "shortName", "country", "lat", "lon"])
 
-    rows: list[dict[str, Any]] = []
-    for item in page.get("data", []):
-        geom = item.get("geometry") or {}
-        coords = geom.get("coordinates")  # [lon, lat]
-        lon = lat = None
-        if isinstance(coords, (list, tuple)) and len(coords) >= 2:
-            lon, lat = coords[0], coords[1]
-        rows.append(
-            {
-                "baseId": item.get("id"),
-                "name": item.get("name"),
-                "shortName": item.get("shortName"),
-                "country": item.get("country"),
-                "lat": lat,
-                "lon": lon,
-            }
-        )
+    def _consume(page: dict[str, Any]) -> None:
+        for item in page.get("data", []):
+            geom = item.get("geometry") or {}
+            coords = geom.get("coordinates")  # [lon, lat]
+            lon = lat = None
+            if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                lon, lat = coords[0], coords[1]
+            rows.append(
+                {
+                    "baseId": item.get("id"),
+                    "name": item.get("name"),
+                    "shortName": item.get("shortName"),
+                    "country": item.get("country"),
+                    "lat": lat,
+                    "lon": lon,
+                }
+            )
+
+    _consume(first)
+
+    # Best-effort paging: prøv offset hvis det finnes flere sider
+    try:
+        total = int(first.get("totalItemCount", 0))
+        offset = int(first.get("offset", 0))
+        per_page = int(first.get("itemsPerPage", 0))
+    except Exception:
+        total = offset = per_page = 0
+
+    if total > 0 and per_page > 0:
+        next_offset = offset + per_page
+        while next_offset < total:
+            p = dict(base_params)
+            p["offset"] = next_offset  # noen Frost-oppsett støtter dette selv om det ikke står i help-lista
+            page = frost_get_json(session, path, p, auth=auth, timeout=timeout)
+
+            # Hvis offset ikke støttes hos deg vil dette typisk bli ErrorResponse/400 – da stopper vi.
+            if page.get("@type") == "ErrorResponse":
+                break
+
+            _consume(page)
+
+            try:
+                offset = int(page.get("offset", next_offset))
+                per_page = int(page.get("itemsPerPage", per_page))
+                total = int(page.get("totalItemCount", total))
+            except Exception:
+                break
+            next_offset = offset + per_page
 
     df = pd.DataFrame(rows)
     df = df.dropna(subset=["baseId"]).reset_index(drop=True)
@@ -678,6 +711,7 @@ def build_snow_df_latest_fast_south_first(
 
     with requests.Session() as sess:
         meta = list_sources_in_bbox(sess, auth=auth, bbox=bbox_coords, timeout=timeout)
+
         if meta.empty:
             raise RuntimeError("Fant ingen stasjoner i valgt bbox.")
 
