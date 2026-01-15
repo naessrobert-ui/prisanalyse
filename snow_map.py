@@ -602,7 +602,7 @@ def make_map(
             if (v !== undefined && v !== null && !isNaN(v)) vals.push(v);
           }
           if (vals.length === 0){
-            return L.divIcon({html: '<div><span>?</span></div>', className: 'marker-cluster marker-cluster-small', iconSize: new L.Point(40, 40)});
+            return L.divIcon({html: '<div><span>–</span></div>', className: 'marker-cluster marker-cluster-small', iconSize: new L.Point(40, 40)});
           }
           vals.sort(function(a,b){return a-b;});
           var mid = Math.floor(vals.length/2);
@@ -643,8 +643,8 @@ def make_map(
             fill_opacity=0.85,
             tooltip=folium.Tooltip(html, sticky=True),
             popup=folium.Popup(html, max_width=320),
-            # <-- brukes av cluster-funksjonen
-            snow=cm,
+            # <-- brukes av cluster-funksjonen (JS leser marker.options.snow)
+            **{"snow": float(cm)},
         ).add_to(layer_for_markers)
 
     # ---- Overlay: KPI + tabell (topp/bunn) + knapp "Oppdater utsnitt"
