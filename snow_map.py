@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple
 
 import pandas as pd
+import numpy as np
 import requests
 from dotenv import load_dotenv
 
@@ -451,19 +452,57 @@ def get_sources_metadata(
 #  Kartbygging
 # ======================================================================
 
-def _color_cm(cm: float) -> str:
+
+def _color_cm_static(cm: float) -> str:
+    """Fallback/legacy thresholds."""
     if cm >= 150:
-        return "darkblue"
-    if cm >= 75:
-        return "blue"
+        return "darkred"
+    if cm >= 100:
+        return "red"
+    if cm >= 70:
+        return "orange"
+    if cm >= 50:
+        return "yellow"
     if cm >= 30:
+        return "lightgreen"
+    if cm >= 20:
         return "cadetblue"
     if cm >= 10:
         return "green"
-    if cm >= 1:
-        return "orange"
-    return "lightgray"
+    return "gray"
 
+
+def _color_cm_quantile(cm: float, p10: float, p90: float, blue_threshold: float = 50.0) -> str:
+    """Color by distribution in current view.
+
+    - Bottom 10% => gray
+    - Top 10% OR >= blue_threshold => blue
+    - Otherwise a green/yellow/orange ramp
+    """
+    try:
+        v = float(cm)
+    except Exception:
+        return "gray"
+
+    # guard
+    if not np.isfinite(v):
+        return "gray"
+
+    if v <= p10:
+        return "#9ca3af"  # gray-400
+    if v >= max(p90, blue_threshold):
+        return "#2563eb"  # blue-600
+
+    # mid ramp
+    if v >= blue_threshold:
+        return "#60a5fa"  # light blue
+    if v >= 70:
+        return "#f59e0b"  # amber
+    if v >= 40:
+        return "#fbbf24"  # yellow
+    if v >= 20:
+        return "#22c55e"  # green
+    return "#86efac"      # light green
 
 
 def _heat_params_for_zoom(z: int | None) -> tuple[int, int]:
@@ -599,28 +638,60 @@ def make_map(
           var vals = [];
           for (var i=0; i<children.length; i++){
             var v = children[i].options && children[i].options.snow;
-            if (v !== undefined && v !== null && !isNaN(v)) vals.push(v);
+            if (v !== undefined && v !== null && !isNaN(v)) vals.push(Number(v));
           }
           if (vals.length === 0){
-            return L.divIcon({html: '<div><span>-</span></div>', className: 'marker-cluster marker-cluster-small', iconSize: new L.Point(40, 40)});
+            return L.divIcon({
+              html: '<div class="snow-cluster snow-cluster-empty">-</div>',
+              className: '',
+              iconSize: new L.Point(38, 38)
+            });
           }
+
           vals.sort(function(a,b){return a-b;});
+          var maxv = vals[vals.length-1];
           var mid = Math.floor(vals.length/2);
           var med = (vals.length % 2) ? vals[mid] : (vals[mid-1]+vals[mid])/2;
-          var cm = Math.round(med);
 
-          // Farge etter nivå
-          var cls = 'marker-cluster-small';
-          if (cm >= 150) cls = 'marker-cluster-large';
-          else if (cm >= 70) cls = 'marker-cluster-medium';
+          var maxcm = Math.round(maxv);
+          var medcm = Math.round(med);
 
-          var html = '<div><span>' + cm + '</span><div style="font-size:10px; line-height:10px; margin-top:-2px; opacity:.85">cm</div></div>';
-          return L.divIcon({ html: html, className: 'marker-cluster ' + cls, iconSize: new L.Point(46, 46) });
+          // Farge: mye snø => blå, lite => grå, ellers grønn
+          var cls = 'snow-cluster-mid';
+          if (maxcm >= 50) cls = 'snow-cluster-high';
+          else if (maxcm <= 10) cls = 'snow-cluster-low';
+
+          var html =
+            '<div class="snow-cluster ' + cls + '">' +
+              '<div class="big">' + maxcm + '</div>' +
+              '<div class="small">med ' + medcm + '</div>' +
+              '<div class="unit">cm</div>' +
+            '</div>';
+
+          return L.divIcon({ html: html, className: '', iconSize: new L.Point(52, 52) });
         }
         """
         layer_for_markers = MarkerCluster(icon_create_function=icon_create_function, options={'maxClusterRadius': 35, 'disableClusteringAtZoom': 8}).add_to(points_layer)
     else:
         layer_for_markers = points_layer
+
+    # --- Farge-/størrelseparametre basert på fordelingen i *utsnittet* ---
+    _vals = pd.to_numeric(d["value"], errors="coerce").dropna()
+    if len(_vals) > 0:
+        p10 = float(_vals.quantile(0.10))
+        p90 = float(_vals.quantile(0.90))
+        p98 = float(_vals.quantile(0.98))
+    else:
+        p10, p90, p98 = 0.0, 50.0, 100.0
+
+    blue_threshold = 50.0  # kan justeres (fast terskel for "mye snø")
+    vmax_size = max(p98, blue_threshold, 10.0)
+
+    def _marker_size_cm(cm: float) -> int:
+        # Kvadratrotskalering gir penere størrelsesforskjell
+        x = max(0.0, min(float(cm), vmax_size)) / vmax_size
+        size = 12 + int(22 * (x ** 0.5))  # 12..34px
+        return max(10, min(36, size))
 
     for _, r in d.iterrows():
         cm = float(r["value"])
@@ -638,11 +709,24 @@ def make_map(
         folium.Marker(
             location=[float(r["lat"]), float(r["lon"])],
             icon=folium.DivIcon(
-                html=f'<div style="width:12px;height:12px;border-radius:50%;'
-                     f'background:{_color_cm(cm)};border:2px solid {_color_cm(cm)};'
-                     f'opacity:0.85"></div>',
-                icon_size=(12, 12),
-                icon_anchor=(6, 6),
+                html=(
+                    f'<div style="'
+                    f'width:{_marker_size_cm(cm)}px;height:{_marker_size_cm(cm)}px;'
+                    f'border-radius:999px;'
+                    f'background:{_color_cm_quantile(cm, p10, p90, blue_threshold)};'
+                    f'border:2px solid { _color_cm_quantile(cm, p10, p90, blue_threshold) };'
+                    f'opacity:0.90;'
+                    f'display:flex;align-items:center;justify-content:center;'
+                    f'color:white;font-weight:900;'
+                    f'font-size:{max(9, int(_marker_size_cm(cm)*0.33))}px;'
+                    f'line-height:1;'
+                    f'text-shadow:0 1px 2px rgba(0,0,0,.45);'
+                    f'">'
+                    f'{cm:.0f}'
+                    f'</div>'
+                ),
+                icon_size=(_marker_size_cm(cm), _marker_size_cm(cm)),
+                icon_anchor=(_marker_size_cm(cm)//2, _marker_size_cm(cm)//2),
             ),
             tooltip=folium.Tooltip(html, sticky=True),
             popup=folium.Popup(html, max_width=320),
@@ -724,12 +808,37 @@ def make_map(
   font-weight:800;
 }
 #snow-panel thead th:last-child{ text-align:right; }
+
+/* --- Cluster-ikon for snø --- */
+.snow-cluster{
+  width:52px; height:52px;
+  border-radius:999px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  box-shadow: 0 10px 24px rgba(15,23,42,.25);
+  color:#fff;
+  font-family: system-ui,-apple-system,"Segoe UI",sans-serif;
+  border:2px solid rgba(255,255,255,.65);
+}
+.snow-cluster .big{ font-weight:900; font-size:16px; line-height:16px; }
+.snow-cluster .small{ font-weight:800; font-size:11px; line-height:12px; opacity:.95; margin-top:1px; }
+.snow-cluster .unit{ font-weight:800; font-size:10px; line-height:10px; opacity:.9; margin-top:1px; }
+.snow-cluster-high{ background:#2563eb; } /* blå */
+.snow-cluster-mid{ background:#16a34a; }  /* grønn */
+.snow-cluster-low{ background:#9ca3af; }  /* grå */
+.snow-cluster-empty{ background:#e2e8f0; color:#0f172a; }
+
 </style>"""
 
         panel = f"""<div id="snow-panel">
   <div class="hdr">
     <div class="title">Mest snø i utsnittet <span style="color:#64748b; font-weight:700;">(topp 20)</span></div>
-    <button type="button" onclick="var b=document.getElementById('snow-panel-body'); b.style.display=(b.style.display==='none'?'block':'none');">Vis/skjul</button>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button id="snow-refresh" type="button">Oppdater</button>
+      <button type="button" onclick="var b=document.getElementById('snow-panel-body'); b.style.display=(b.style.display==='none'?'block':'none');">Vis/skjul</button>
+    </div>
   </div>
   <div class="body" id="snow-panel-body">
     <table>
@@ -743,9 +852,62 @@ def make_map(
   </div>
 </div>"""
 
+
         root = m.get_root()
         root.header.add_child(folium.Element(css))
         root.html.add_child(folium.Element(panel))
+        script = """
+<script>
+(function(){
+  function findMap(){
+    for (var k in window){
+      if (k.startsWith('map_') && window[k] && window[k] instanceof L.Map) return window[k];
+    }
+    return null;
+  }
+
+  function buildAndReload(){
+    var map = findMap();
+    if (!map) return;
+    var b = map.getBounds();
+    var bbox = [
+      b.getSouth().toFixed(6),
+      b.getWest().toFixed(6),
+      b.getNorth().toFixed(6),
+      b.getEast().toFixed(6)
+    ].join(',');
+    var z = map.getZoom();
+    var c = map.getCenter();
+    var u = new URL(window.location.href);
+    u.searchParams.set('bbox', bbox);
+    u.searchParams.set('z', String(z));
+    u.searchParams.set('clat', c.lat.toFixed(6));
+    u.searchParams.set('clon', c.lng.toFixed(6));
+    window.location.href = u.toString();
+  }
+
+  var btn = document.getElementById('snow-refresh');
+  if (btn){
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      buildAndReload();
+    });
+  }
+
+  // Auto-oppdater når du zoomer (for at tabellen skal følge utsnittet)
+  var map = findMap();
+  if (map){
+    var timer = null;
+    map.on('zoomend', function(){
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(buildAndReload, 650);
+    });
+  }
+})();
+</script>
+"""
+        root.html.add_child(folium.Element(script))
+
     except Exception as e:
         print("Snow overlay failed:", e)
 
