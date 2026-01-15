@@ -602,7 +602,7 @@ def make_map(
             if (v !== undefined && v !== null && !isNaN(v)) vals.push(v);
           }
           if (vals.length === 0){
-            return L.divIcon({html: '<div><span>–</span></div>', className: 'marker-cluster marker-cluster-small', iconSize: new L.Point(40, 40)});
+            return L.divIcon({html: '<div><span>-</span></div>', className: 'marker-cluster marker-cluster-small', iconSize: new L.Point(40, 40)});
           }
           vals.sort(function(a,b){return a-b;});
           var mid = Math.floor(vals.length/2);
@@ -635,16 +635,19 @@ def make_map(
 
         html = f"{name}<br>Snødybde: <b>{cm:.0f} {unit}</b><br>Tid: {t_str}{diff_part}"
 
-        folium.CircleMarker(
+        folium.Marker(
             location=[float(r["lat"]), float(r["lon"])],
-            radius=5,
-            color=_color_cm(cm),
-            fill=True,
-            fill_opacity=0.85,
+            icon=folium.DivIcon(
+                html=f'<div style="width:12px;height:12px;border-radius:50%;'
+                     f'background:{_color_cm(cm)};border:2px solid {_color_cm(cm)};'
+                     f'opacity:0.85"></div>',
+                icon_size=(12, 12),
+                icon_anchor=(6, 6),
+            ),
             tooltip=folium.Tooltip(html, sticky=True),
             popup=folium.Popup(html, max_width=320),
-            # <-- brukes av cluster-funksjonen (JS leser marker.options.snow)
-            **{"snow": float(cm)},
+            # <-- brukes av cluster-funksjonen
+            snow=float(cm),
         ).add_to(layer_for_markers)
 
     # ---- Overlay: KPI + tabell (topp/bunn) + knapp "Oppdater utsnitt"
