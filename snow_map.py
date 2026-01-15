@@ -11,13 +11,11 @@ from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple
 
 import pandas as pd
-from ver_station_db import stations_in_bbox_swne
 import requests
 from dotenv import load_dotenv
 
 import folium
 from folium.plugins import HeatMap, MarkerCluster
-from branca.element import MacroElement, Template
 
 # --- .env loading (robust på Windows/PyCharm) ----------------------------
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
@@ -467,80 +465,166 @@ def _color_cm(cm: float) -> str:
     return "lightgray"
 
 
+
+def _heat_params_for_zoom(z: int | None) -> tuple[int, int]:
+    """Return (radius, blur) for HeatMap tuned by zoom."""
+    if z is None:
+        return 18, 14
+    if z <= 4:
+        return 30, 22
+    if z == 5:
+        return 26, 20
+    if z == 6:
+        return 22, 18
+    if z == 7:
+        return 18, 16
+    if z == 8:
+        return 16, 14
+    if z == 9:
+        return 14, 12
+    return 12, 10
+
+
 def make_map(
     df: pd.DataFrame,
     *,
     out_html: Optional[str] = None,
     cluster: bool,
     heatmap_show: bool,
-    heat_radius: int,
-    heat_blur: int,
-    heat_clip_cm: float,
-    # viewport hints (fra URL): gjør at region/bbox faktisk vises riktig
+    # legacy/tunables (can be overridden by zoom-aware defaults)
+    heat_radius: int = 25,
+    heat_blur: int = 18,
+    heat_clip_cm: float = 0.0,
+    # view controls
+    zoom_start: Optional[int] = None,
+    center_lat: Optional[float] = None,
+    center_lon: Optional[float] = None,
     bbox_coords: Optional[Tuple[float, float, float, float]] = None,
-    z: Optional[int] = None,
-    clat: Optional[float] = None,
-    clon: Optional[float] = None,
 ) -> str:
     """
-    Lager folium-kart fra df.
-    out_html: hvis satt, lagres kartet til denne filen.
-    Returnerer alltid HTML-strengen for kartet (for embedding i web-app).
+    Lager folium-kart fra df (snødybde).
+
+    - heat_clip_cm: hvis 0, beregnes automatisk (98-persentil) for *aktuelt utsnitt/region*.
+    - zoom_start/center_*: brukes hvis sendt inn (for å bevare view ved reload).
+    - bbox_coords: hvis sendt inn, brukes til fit_bounds (god UX ved regionvalg).
     """
     if df.empty:
-        raise RuntimeError("Ingen data å plotte (df er tom).")
+        m = folium.Map(location=[65.0, 13.0], zoom_start=4, tiles="OpenStreetMap")
+        folium.LayerControl().add_to(m)
+        html_str = m.get_root().render()
+        if out_html:
+            m.save(out_html)
+        return html_str
 
-    d = df.dropna(subset=["lat", "lon", "value"]).copy()
-    if d.empty:
-        raise RuntimeError("Har data, men ingen rader med både koordinater og verdi.")
-
+    d = df.copy()
+    for c in ("lat", "lon", "value"):
+        if c not in d.columns:
+            raise RuntimeError(f"Mangler kolonne '{c}' i df.")
     d["lat"] = pd.to_numeric(d["lat"], errors="coerce")
     d["lon"] = pd.to_numeric(d["lon"], errors="coerce")
     d["value"] = pd.to_numeric(d["value"], errors="coerce")
     d = d.dropna(subset=["lat", "lon", "value"])
 
-    # --------------------------------------------------------------
-    # Kart-view: bruk bbox/zoom/center hvis sendt inn fra URL, ellers mean av data.
-    # Dette er viktig for at region-valg (mid/north/all) faktisk skal flytte kartet.
-    # --------------------------------------------------------------
-    south = west = north = east = None
+    if d.empty:
+        raise RuntimeError("Har data, men ingen rader med både koordinater og verdi.")
+
+    # ---- View: bruk clat/clon/z hvis sendt inn, ellers midtpunkt av punktene
+    if center_lat is None:
+        center_lat = float(d["lat"].mean())
+    if center_lon is None:
+        center_lon = float(d["lon"].mean())
+    if zoom_start is None:
+        zoom_start = 5
+
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=int(zoom_start), tiles="OpenStreetMap")
+
+    # Fit bounds hvis vi har bbox (gir bedre “region-hopp”)
     if bbox_coords is not None:
         south, west, north, east = bbox_coords
-        center_lat = (south + north) / 2.0
-        center_lon = (west + east) / 2.0
-    else:
-        center_lat = float(d["lat"].mean())
-        center_lon = float(d["lon"].mean())
-
-    zoom_start = int(z) if (z is not None and str(z).isdigit()) else 5
-    if clat is not None and clon is not None:
         try:
-            center_lat = float(clat)
-            center_lon = float(clon)
+            m.fit_bounds([[south, west], [north, east]])
         except Exception:
             pass
 
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom_start, tiles="OpenStreetMap")
+    # ---- Heatmap: “visuelt og pent”, vektet av snødybde (ikke bare tetthet)
+    # Per-region/utsnitt scaling: beregn klipp (vmax) fra data i dette utsnittet (robust mot outliers)
+    vals = d["value"].clip(lower=0.0)
+    if heat_clip_cm and heat_clip_cm > 0:
+        clip_cm = float(heat_clip_cm)
+    else:
+        q = float(vals.quantile(0.98)) if len(vals) else 1.0
+        clip_cm = max(q, 10.0)  # minst 10 cm så ikke alt blir “rødt” på lite snø
+    clipped = vals.clip(upper=clip_cm)
 
-    # Hvis bbox er kjent: tving view til bbox (Leaflet setter riktig zoom)
-    if bbox_coords is not None and south is not None:
-        m.fit_bounds([[south, west], [north, east]])
+    # Normaliser til 0..1 og bruk en mild gamma for bedre kontrast
+    weights = (clipped / clip_cm).clip(0.0, 1.0) ** 0.7
 
-    # Heatmap
-    clipped = d["value"].clip(lower=0, upper=heat_clip_cm)
-    weights = (clipped / heat_clip_cm) ** 0.5
     heat_data = [[float(lat), float(lon), float(w)] for lat, lon, w in zip(d["lat"], d["lon"], weights)]
-    heat_layer = folium.FeatureGroup(name="Heatmap snødybde", show=heatmap_show)
-    HeatMap(heat_data, radius=heat_radius, blur=heat_blur, min_opacity=0.2, max_zoom=8).add_to(heat_layer)
+
+    # Snø-intuitiv gradient (kald blå -> hvit -> lilla/rød)
+    SNOW_GRADIENT = {
+        0.00: "#08306b",
+        0.20: "#2171b5",
+        0.40: "#41b6c4",
+        0.55: "#ffffff",
+        0.70: "#c7a9ff",
+        0.85: "#7a3db8",
+        1.00: "#d73027",
+    }
+
+    # Zoom-aware radius/blur (overstyr legacy-verdier hvis z er satt)
+    zr, zb = _heat_params_for_zoom(int(zoom_start) if zoom_start is not None else None)
+    heat_radius = int(zr) if zr else int(heat_radius)
+    heat_blur = int(zb) if zb else int(heat_blur)
+
+    heat_layer = folium.FeatureGroup(name="Snødybde (interpolert)", show=heatmap_show)
+    HeatMap(
+        heat_data,
+        radius=heat_radius,
+        blur=heat_blur,
+        min_opacity=0.20,
+        gradient=SNOW_GRADIENT,
+        max_zoom=10,
+    ).add_to(heat_layer)
     heat_layer.add_to(m)
-    # Punktmarkører
+
+    # ---- Punktmarkører + cluster med MEDIAN (cm)
     points_layer = folium.FeatureGroup(name="Stasjoner (hover)", show=True)
     points_layer.add_to(m)
-    layer_for_markers = MarkerCluster().add_to(points_layer) if cluster else points_layer
+
+    if cluster:
+        icon_create_function = """
+        function(cluster) {
+          var children = cluster.getAllChildMarkers();
+          var vals = [];
+          for (var i=0; i<children.length; i++){
+            var v = children[i].options && children[i].options.snow;
+            if (v !== undefined && v !== null && !isNaN(v)) vals.push(v);
+          }
+          if (vals.length === 0){
+            return L.divIcon({html: '<div><span>?</span></div>', className: 'marker-cluster marker-cluster-small', iconSize: new L.Point(40, 40)});
+          }
+          vals.sort(function(a,b){return a-b;});
+          var mid = Math.floor(vals.length/2);
+          var med = (vals.length % 2) ? vals[mid] : (vals[mid-1]+vals[mid])/2;
+          var cm = Math.round(med);
+
+          // Farge etter nivå
+          var cls = 'marker-cluster-small';
+          if (cm >= 150) cls = 'marker-cluster-large';
+          else if (cm >= 70) cls = 'marker-cluster-medium';
+
+          var html = '<div><span>' + cm + '</span><div style="font-size:10px; line-height:10px; margin-top:-2px; opacity:.85">cm</div></div>';
+          return L.divIcon({ html: html, className: 'marker-cluster ' + cls, iconSize: new L.Point(46, 46) });
+        }
+        """
+        layer_for_markers = MarkerCluster(icon_create_function=icon_create_function).add_to(points_layer)
+    else:
+        layer_for_markers = points_layer
 
     for _, r in d.iterrows():
         cm = float(r["value"])
-        name = (r.get("name") or r.get("shortName") or r["sourceId"])
+        name = (r.get("name") or r.get("shortName") or r.get("sourceId"))
         unit = r.get("unit") or "cm"
         t = r.get("referenceTime")
         t_str = pd.to_datetime(t).strftime("%Y-%m-%d %H:%M UTC") if pd.notna(t) else "ukjent tid"
@@ -559,198 +643,136 @@ def make_map(
             fill_opacity=0.85,
             tooltip=folium.Tooltip(html, sticky=True),
             popup=folium.Popup(html, max_width=320),
+            # <-- brukes av cluster-funksjonen
+            snow=cm,
         ).add_to(layer_for_markers)
 
-
-
-    # --------------------------------------------------------------
-    # Kontroll: "Oppdater utsnitt" (reload med bbox/z/center)
-    # --------------------------------------------------------------
+    # ---- Overlay: KPI + tabell (topp/bunn) + knapp "Oppdater utsnitt"
     try:
-        ctrl_tpl = """{% macro html(this, kwargs) %}
-<div style="position: fixed; left: 16px; top: 16px; z-index: 9999;
-  background: rgba(255,255,255,0.96); backdrop-filter: blur(6px);
-  border-radius: 999px; box-shadow: 0 18px 45px rgba(15,23,42,.18);
-  padding: 8px 10px; font-family: system-ui, -apple-system, \"Segoe UI\", sans-serif;">
-  <button id="snow-refresh"
-    style="border:none; background:#2563eb; color:white; padding:7px 12px;
-      border-radius:999px; cursor:pointer; font-weight:900;">
-    Oppdater utsnitt
-  </button>
-</div>
+        from branca.element import MacroElement, Template
 
-<script>
-(function() {
-  function findLeafletMap() {
-    // Prøv Folium sitt kart-objekt først (ofte globalt)
-    for (const k in window) {
-      try {
-        const v = window[k];
-        if (v && v instanceof L.Map) return v;
-      } catch(e) {}
-    }
-    // fallback: finn første objekt som ligner
-    for (const k in window) {
-      const v = window[k];
-      if (v && v._container && v.getBounds && v.getCenter && v.getZoom) return v;
-    }
-    return null;
-  }
+        med = float(vals.median()) if len(vals) else 0.0
+        mean = float(vals.mean()) if len(vals) else 0.0
+        mx = float(vals.max()) if len(vals) else 0.0
 
-  function fmt(x) {
-    try { return Number(x).toFixed(5); } catch(e) { return String(x); }
-  }
+        tbl = d.copy().sort_values("value", ascending=False)
+        top20 = tbl.head(20)
+        bot20 = tbl.tail(20).sort_values("value", ascending=True)
 
-  const btn = document.getElementById('snow-refresh');
-  if (!btn) return;
-
-  btn.addEventListener('click', function() {
-    const map = findLeafletMap();
-    if (!map) return;
-
-    const b = map.getBounds();
-    const south = b.getSouth(), west = b.getWest(), north = b.getNorth(), east = b.getEast();
-    const c = map.getCenter();
-    const z = map.getZoom();
-
-    const u = new URL(window.location.href);
-    u.searchParams.set('bbox', [fmt(south), fmt(west), fmt(north), fmt(east)].join(','));
-    u.searchParams.set('z', String(z));
-    u.searchParams.set('clat', fmt(c.lat));
-    u.searchParams.set('clon', fmt(c.lng));
-
-    window.location.href = u.toString();
-  });
-})();
-</script>
-{% endmacro %}"""
-        ctrl = MacroElement()
-        ctrl._template = Template(ctrl_tpl)
-        m.get_root().add_child(ctrl)
-    except Exception:
-        pass
-
-    # --------------------------------------------------------------
-    # Overlay-tabell: sortert snødybde for stasjoner i utsnittet
-    # --------------------------------------------------------------
-    try:
-        tbl = d.copy()
-        tbl["value"] = pd.to_numeric(tbl["value"], errors="coerce")
-        tbl = tbl.dropna(subset=["value"])
-
-        top_n = 20
-        tbl_top = tbl.sort_values("value", ascending=False).head(top_n)
-        tbl_bottom = tbl.sort_values("value", ascending=True).head(top_n)
-
-        def _rows_html(t: pd.DataFrame) -> str:
+        def _rows(dfsub: pd.DataFrame) -> str:
             rows = []
-            for i, r in enumerate(t.itertuples(index=False), start=1):
-                name = getattr(r, "name", None) or getattr(r, "shortName", None) or getattr(r, "sourceId", "")
-                sid = getattr(r, "sourceId", "")
-                cm = float(getattr(r, "value"))
+            for i, rr in enumerate(dfsub.itertuples(index=False), start=1):
+                nm = getattr(rr, "name", None) or getattr(rr, "shortName", None) or getattr(rr, "sourceId", "")
+                sid = getattr(rr, "sourceId", "")
+                v = float(getattr(rr, "value"))
                 rows.append(
-                    f"""<tr>
-  <td style="padding:6px 8px; color:#64748b; width:26px;">{i}</td>
-  <td style="padding:6px 8px;">
-    <div style="font-weight:800;">{name}</div>
-    <div style="color:#64748b; font-size:12px;">{sid}</div>
-  </td>
-  <td style="padding:6px 8px; text-align:right; font-weight:900;">{cm:.0f} cm</td>
-</tr>"""
+                    "<tr>"
+                    f"<td style='padding:6px 8px; color:#64748b; width:26px;'>{i}</td>"
+                    f"<td style='padding:6px 8px;'><div style='font-weight:800'>{nm}</div>"
+                    f"<div style='color:#64748b; font-size:12px;'>{sid}</div></td>"
+                    f"<td style='padding:6px 8px; text-align:right; font-weight:900;'>{v:.0f} cm</td>"
+                    "</tr>"
                 )
-            return "\n".join(rows)
+            return "".join(rows)
 
-        rows_top = _rows_html(tbl_top)
-        rows_bottom = _rows_html(tbl_bottom)
+        rows_top = _rows(top20)
+        rows_bot = _rows(bot20)
 
-        total_st = int(d["sourceId"].nunique()) if "sourceId" in d.columns else int(len(d))
+        overlay = f"""
+        <div id="snow-panel"
+         style="position: fixed; left: 16px; bottom: 16px; z-index: 9999;
+         background: rgba(255,255,255,0.96); backdrop-filter: blur(6px);
+         border-radius: 14px; box-shadow: 0 18px 45px rgba(15,23,42,.18);
+         width: 380px; max-width: calc(100vw - 32px); overflow: hidden; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;">
+          <div style="padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <div style="font-weight:900;">Snø i utsnittet ({len(d)} stasjoner)</div>
+            <div style="display:flex; gap:8px;">
+              <button id="snow-toggle" style="border:none; background:#e2e8f0; padding:6px 10px; border-radius:999px; cursor:pointer; font-weight:800;">Vis/skjul</button>
+              <button id="snow-refresh" style="border:none; background:#2563eb; color:white; padding:6px 10px; border-radius:999px; cursor:pointer; font-weight:900;">Oppdater utsnitt</button>
+            </div>
+          </div>
 
-        table_tpl = """{% macro html(this, kwargs) %}
-<div id="snow-table"
- style="position: fixed; left: 16px; bottom: 16px; z-index: 9999;
- background: rgba(255,255,255,0.96); backdrop-filter: blur(6px);
- border-radius: 14px; box-shadow: 0 18px 45px rgba(15,23,42,.18);
- width: 380px; max-width: calc(100vw - 32px); overflow: hidden;
- font-family: system-ui, -apple-system, "Segoe UI", sans-serif;">
-  <div style="padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-    <div style="font-weight:950; line-height:1.1;">
-      Snø i utsnittet <span style="color:#64748b; font-weight:800;">(__TOTAL__ stasjoner)</span>
-    </div>
-    <button id="snow-table-toggle"
-      style="border:none; background:#e2e8f0; padding:6px 10px; border-radius:999px; cursor:pointer; font-weight:800;">
-      Vis/skjul
-    </button>
-  </div>
+          <div id="snow-body" style="border-top:1px solid #e2e8f0;">
+            <div style="padding:10px 12px; display:flex; gap:10px; flex-wrap:wrap; color:#0f172a;">
+              <div style="background:#f1f5f9; padding:6px 10px; border-radius:999px;"><b>Maks</b> {mx:.0f} cm</div>
+              <div style="background:#f1f5f9; padding:6px 10px; border-radius:999px;"><b>Median</b> {med:.0f} cm</div>
+              <div style="background:#f1f5f9; padding:6px 10px; border-radius:999px;"><b>Snitt</b> {mean:.0f} cm</div>
+              <div style="background:#f1f5f9; padding:6px 10px; border-radius:999px;"><b>Skala</b> ~P98={clip_cm:.0f} cm</div>
+            </div>
 
-  <div style="padding:0 12px 10px;">
-    <select id="snow-table-mode"
-      style="width:100%; padding:7px 10px; border-radius:12px; border:1px solid #d1d5db; font-weight:700;">
-      <option value="top" selected>Mest snø (topp __TOPN__)</option>
-      <option value="bottom">Minst snø (topp __TOPN__)</option>
-    </select>
-  </div>
+            <div style="padding:0 12px 10px;">
+              <select id="snow-table-mode" style="width:100%; padding:7px 10px; border-radius:12px; border:1px solid #d1d5db; font-weight:800;">
+                <option value="top" selected>Mest snø (topp 20)</option>
+                <option value="bottom">Minst snø (topp 20)</option>
+              </select>
+            </div>
 
-  <div id="snow-table-body" style="max-height: 280px; overflow:auto; border-top:1px solid #e2e8f0;">
-    <table style="width:100%; border-collapse:collapse; font-size:13px;">
-      <thead>
-        <tr style="position:sticky; top:0; background:white;">
-          <th style="text-align:left; padding:6px 8px; color:#64748b;">#</th>
-          <th style="text-align:left; padding:6px 8px; color:#64748b;">Stasjon</th>
-          <th style="text-align:right; padding:6px 8px; color:#64748b;">cm</th>
-        </tr>
-      </thead>
-      <tbody id="snow-tbody-top">
-__ROWS_TOP__
-      </tbody>
-      <tbody id="snow-tbody-bottom" style="display:none;">
-__ROWS_BOTTOM__
-      </tbody>
-    </table>
-  </div>
-</div>
+            <div style="max-height: 320px; overflow:auto; border-top:1px solid #e2e8f0;">
+              <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                <thead>
+                  <tr style="position:sticky; top:0; background:white;">
+                    <th style="text-align:left; padding:6px 8px; color:#64748b;">#</th>
+                    <th style="text-align:left; padding:6px 8px; color:#64748b;">Stasjon</th>
+                    <th style="text-align:right; padding:6px 8px; color:#64748b;">cm</th>
+                  </tr>
+                </thead>
+                <tbody id="snow-table-rows">
+                  {rows_top}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
 
-<script>
-(function() {
-  const btn = document.getElementById('snow-table-toggle');
-  const body = document.getElementById('snow-table-body');
-  const mode = document.getElementById('snow-table-mode');
-  const top = document.getElementById('snow-tbody-top');
-  const bottom = document.getElementById('snow-tbody-bottom');
+        <script>
+          (function() {{
+            function getMap() {{
+              for (var k in window) {{
+                if (k.startsWith('map_') && window[k] && window[k].getBounds) return window[k];
+              }}
+              return null;
+            }}
 
-  if (btn && body) {
-    btn.addEventListener('click', () => {
-      body.style.display = (body.style.display === 'none') ? 'block' : 'none';
-    });
-  }
+            var btnToggle = document.getElementById('snow-toggle');
+            var body = document.getElementById('snow-body');
+            btnToggle.addEventListener('click', function() {{
+              body.style.display = (body.style.display === 'none') ? 'block' : 'none';
+            }});
 
-  if (mode && top && bottom) {
-    mode.addEventListener('change', () => {
-      if (mode.value === 'bottom') {
-        top.style.display = 'none';
-        bottom.style.display = '';
-      } else {
-        bottom.style.display = 'none';
-        top.style.display = '';
-      }
-    });
-  }
-})();
-</script>
-{% endmacro %}"""
+            var sel = document.getElementById('snow-table-mode');
+            var rowsTop = {json.dumps(rows_top)};
+            var rowsBot = {json.dumps(rows_bot)};
+            sel.addEventListener('change', function() {{
+              document.getElementById('snow-table-rows').innerHTML = (sel.value === 'bottom') ? rowsBot : rowsTop;
+            }});
 
-        table_tpl = (
-            table_tpl
-            .replace("__TOTAL__", str(total_st))
-            .replace("__TOPN__", str(top_n))
-            .replace("__ROWS_TOP__", rows_top)
-            .replace("__ROWS_BOTTOM__", rows_bottom)
-        )
+            var btnRefresh = document.getElementById('snow-refresh');
+            btnRefresh.addEventListener('click', function() {{
+              var map = getMap();
+              if (!map) return;
+
+              var b = map.getBounds();
+              var sw = b.getSouthWest();
+              var ne = b.getNorthEast();
+              var bbox = [sw.lat.toFixed(5), sw.lng.toFixed(5), ne.lat.toFixed(5), ne.lng.toFixed(5)].join(',');
+              var z = map.getZoom();
+              var c = map.getCenter();
+
+              var u = new URL(window.location.href);
+              u.searchParams.set('bbox', bbox);
+              u.searchParams.set('z', String(z));
+              u.searchParams.set('clat', c.lat.toFixed(5));
+              u.searchParams.set('clon', c.lng.toFixed(5));
+              window.location.href = u.toString();
+            }});
+          }})();
+        </script>
+        """
 
         macro = MacroElement()
-        macro._template = Template(table_tpl)
+        macro._template = Template(overlay)
         m.get_root().add_child(macro)
     except Exception:
-        # tabellen er nice-to-have; ikke la den knekke kartet
         pass
 
     folium.LayerControl().add_to(m)
@@ -939,11 +961,7 @@ def build_snow_df_latest_fast_south_first(
     now = datetime.now(timezone.utc)
 
     with requests.Session() as sess:
-        # Bruk lokal stasjons-DB (hurtig) i stedet for /sources-kall hver gang
-        meta = stations_in_bbox_swne(bbox_coords)
-        if meta.empty:
-            # fallback hvis DB mangler/er tom
-            meta = list_sources_in_bbox(sess, auth=auth, bbox=bbox_coords, timeout=timeout)
+        meta = list_sources_in_bbox(sess, auth=auth, bbox=bbox_coords, timeout=timeout)
 
         if meta.empty:
             raise RuntimeError("Fant ingen stasjoner i valgt bbox.")
@@ -1095,7 +1113,7 @@ def build_snow_map_html(
     show_heatmap: bool = True,
     heat_radius: int = 25,
     heat_blur: int = 18,
-    heat_clip_cm: float = 200.0,
+    heat_clip_cm: float = 0.0,
 ) -> str:
     """
     Bygger snøkart for valgt modus og returnerer HTML.
@@ -1106,8 +1124,7 @@ def build_snow_map_html(
     - mode="day": bruker original day-fallback (availableTimeSeries -> metadata -> obs -> fallback)
       og kan begrenses av bbox (kartutsnitt) hvis sendt inn.
     """
-    _ = (z, clat, clon)  # beholdt for kompatibilitet
-
+    
     # 1) Bestem bbox: prioritet bbox-param, ellers region, ellers default sør
     bbox_coords = _parse_bbox(bbox)
     if bbox_coords is None:
@@ -1136,6 +1153,24 @@ def build_snow_map_html(
             bbox_coords=bbox_coords,
         )
 
+    
+    # View-parametere fra querystring (brukes for å beholde zoom/pan ved reload)
+    zoom_i: Optional[int] = None
+    clat_f: Optional[float] = None
+    clon_f: Optional[float] = None
+    try:
+        if z is not None and str(z).strip() != "":
+            zoom_i = int(float(str(z)))
+    except Exception:
+        zoom_i = None
+    try:
+        if clat is not None and str(clat).strip() != "":
+            clat_f = float(str(clat))
+        if clon is not None and str(clon).strip() != "":
+            clon_f = float(str(clon))
+    except Exception:
+        clat_f, clon_f = None, None
+
     html_str = make_map(
         df,
         out_html=None,
@@ -1144,10 +1179,10 @@ def build_snow_map_html(
         heat_radius=heat_radius,
         heat_blur=heat_blur,
         heat_clip_cm=heat_clip_cm,
+        zoom_start=zoom_i,
+        center_lat=clat_f,
+        center_lon=clon_f,
         bbox_coords=bbox_coords,
-        z=int(z) if (z and str(z).isdigit()) else None,
-        clat=float(clat) if clat else None,
-        clon=float(clon) if clon else None,
     )
     return html_str
 
@@ -1237,7 +1272,6 @@ def main() -> None:
         heat_radius=args.heat_radius,
         heat_blur=args.heat_blur,
         heat_clip_cm=args.heat_clip_cm,
-        bbox_coords=bbox_coords,
     )
 
     print(f"Mode: {args.mode}")
