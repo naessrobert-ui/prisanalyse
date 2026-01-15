@@ -651,129 +651,105 @@ def make_map(
         ).add_to(layer_for_markers)
 
     # ---- Overlay: KPI + tabell (topp/bunn) + knapp "Oppdater utsnitt"
+    
+    # --- Overlay: Topp snø i utsnittet (topp 20) ---
     try:
-        from branca.element import MacroElement, Template
+        import html as _html
 
-        med = float(vals.median()) if len(vals) else 0.0
-        mean = float(vals.mean()) if len(vals) else 0.0
-        mx = float(vals.max()) if len(vals) else 0.0
+        dd = d.copy()
+        dd["value"] = pd.to_numeric(dd["value"], errors="coerce")
+        dd = dd.dropna(subset=["value"]).sort_values("value", ascending=False).head(20)
 
-        tbl = d.copy().sort_values("value", ascending=False)
-        top20 = tbl.head(20)
-        bot20 = tbl.tail(20).sort_values("value", ascending=True)
+        rows = []
+        for i, rr in enumerate(dd.itertuples(index=False), start=1):
+            nm = getattr(rr, "name", None) or getattr(rr, "shortName", None) or getattr(rr, "sourceId", "")
+            sid = getattr(rr, "sourceId", "")
+            v = float(getattr(rr, "value"))
+            rows.append(
+                f"""<tr>
+<td style="padding:6px 8px; color:#64748b; width:28px;">{i}</td>
+<td style="padding:6px 8px;">
+  <div style="font-weight:800;">{_html.escape(str(nm))}</div>
+  <div style="color:#64748b; font-size:12px;">{_html.escape(str(sid))}</div>
+</td>
+<td style="padding:6px 8px; text-align:right; font-weight:900; white-space:nowrap;">{v:.0f} cm</td>
+</tr>"""
+            )
 
-        def _rows(dfsub: pd.DataFrame) -> str:
-            rows = []
-            for i, rr in enumerate(dfsub.itertuples(index=False), start=1):
-                nm = getattr(rr, "name", None) or getattr(rr, "shortName", None) or getattr(rr, "sourceId", "")
-                sid = getattr(rr, "sourceId", "")
-                v = float(getattr(rr, "value"))
-                rows.append(
-                    "<tr>"
-                    f"<td style='padding:6px 8px; color:#64748b; width:26px;'>{i}</td>"
-                    f"<td style='padding:6px 8px;'><div style='font-weight:800'>{nm}</div>"
-                    f"<div style='color:#64748b; font-size:12px;'>{sid}</div></td>"
-                    f"<td style='padding:6px 8px; text-align:right; font-weight:900;'>{v:.0f} cm</td>"
-                    "</tr>"
-                )
-            return "".join(rows)
+        rows_html = "\n".join(rows)
+        css = """<style>
+#snow-panel{
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 99999;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(6px);
+  border-radius: 14px;
+  box-shadow: 0 18px 45px rgba(15,23,42,.20);
+  overflow: hidden;
+  font-family: system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+#snow-panel .hdr{
+  padding: 10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+}
+#snow-panel .title{ font-weight: 900; }
+#snow-panel button{
+  border:none;
+  background:#e2e8f0;
+  padding:6px 10px;
+  border-radius:999px;
+  cursor:pointer;
+  font-weight:800;
+}
+#snow-panel .body{
+  border-top: 1px solid #e2e8f0;
+  max-height: 320px;
+  overflow: auto;
+}
+#snow-panel table{ width:100%; border-collapse:collapse; font-size:13px; }
+#snow-panel thead th{
+  position: sticky;
+  top: 0;
+  background: white;
+  text-align:left;
+  padding:6px 8px;
+  color:#64748b;
+  font-weight:800;
+}
+#snow-panel thead th:last-child{ text-align:right; }
+</style>"""
 
-        rows_top = _rows(top20)
-        rows_bot = _rows(bot20)
+        panel = f"""<div id="snow-panel">
+  <div class="hdr">
+    <div class="title">Mest snø i utsnittet <span style="color:#64748b; font-weight:700;">(topp 20)</span></div>
+    <button type="button" onclick="var b=document.getElementById('snow-panel-body'); b.style.display=(b.style.display==='none'?'block':'none');">Vis/skjul</button>
+  </div>
+  <div class="body" id="snow-panel-body">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Stasjon</th><th>cm</th></tr>
+      </thead>
+      <tbody>
+        {rows_html}
+      </tbody>
+    </table>
+  </div>
+</div>"""
 
-        overlay = f"""
-        <div id="snow-panel"
-         style="position: fixed; left: 16px; bottom: 16px; z-index: 9999;
-         background: rgba(255,255,255,0.96); backdrop-filter: blur(6px);
-         border-radius: 14px; box-shadow: 0 18px 45px rgba(15,23,42,.18);
-         width: 380px; max-width: calc(100vw - 32px); overflow: hidden; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;">
-          <div style="padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <div style="font-weight:900;">Snø i utsnittet ({len(d)} stasjoner)</div>
-            <div style="display:flex; gap:8px;">
-              <button id="snow-toggle" style="border:none; background:#e2e8f0; padding:6px 10px; border-radius:999px; cursor:pointer; font-weight:800;">Vis/skjul</button>
-              <button id="snow-refresh" style="border:none; background:#2563eb; color:white; padding:6px 10px; border-radius:999px; cursor:pointer; font-weight:900;">Oppdater utsnitt</button>
-            </div>
-          </div>
-
-          <div id="snow-body" style="border-top:1px solid #e2e8f0;">
-            <div style="padding:10px 12px; display:flex; gap:10px; flex-wrap:wrap; color:#0f172a;">
-              <div style="background:#f1f5f9; padding:6px 10px; border-radius:999px;"><b>Maks</b> {mx:.0f} cm</div>
-              <div style="background:#f1f5f9; padding:6px 10px; border-radius:999px;"><b>Median</b> {med:.0f} cm</div>
-              <div style="background:#f1f5f9; padding:6px 10px; border-radius:999px;"><b>Snitt</b> {mean:.0f} cm</div>
-              <div style="background:#f1f5f9; padding:6px 10px; border-radius:999px;"><b>Skala</b> ~P98={clip_cm:.0f} cm</div>
-            </div>
-
-            <div style="padding:0 12px 10px;">
-              <select id="snow-table-mode" style="width:100%; padding:7px 10px; border-radius:12px; border:1px solid #d1d5db; font-weight:800;">
-                <option value="top" selected>Mest snø (topp 20)</option>
-                <option value="bottom">Minst snø (topp 20)</option>
-              </select>
-            </div>
-
-            <div style="max-height: 320px; overflow:auto; border-top:1px solid #e2e8f0;">
-              <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                <thead>
-                  <tr style="position:sticky; top:0; background:white;">
-                    <th style="text-align:left; padding:6px 8px; color:#64748b;">#</th>
-                    <th style="text-align:left; padding:6px 8px; color:#64748b;">Stasjon</th>
-                    <th style="text-align:right; padding:6px 8px; color:#64748b;">cm</th>
-                  </tr>
-                </thead>
-                <tbody id="snow-table-rows">
-                  {rows_top}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <script>
-          (function() {{
-            function getMap() {{
-              for (var k in window) {{
-                if (k.startsWith('map_') && window[k] && window[k].getBounds) return window[k];
-              }}
-              return null;
-            }}
-
-            var btnToggle = document.getElementById('snow-toggle');
-            var body = document.getElementById('snow-body');
-            btnToggle.addEventListener('click', function() {{
-              body.style.display = (body.style.display === 'none') ? 'block' : 'none';
-            }});
-
-            var sel = document.getElementById('snow-table-mode');
-            var rowsTop = {json.dumps(rows_top)};
-            var rowsBot = {json.dumps(rows_bot)};
-            sel.addEventListener('change', function() {{
-              document.getElementById('snow-table-rows').innerHTML = (sel.value === 'bottom') ? rowsBot : rowsTop;
-            }});
-
-            var btnRefresh = document.getElementById('snow-refresh');
-            btnRefresh.addEventListener('click', function() {{
-              var map = getMap();
-              if (!map) return;
-
-              var b = map.getBounds();
-              var sw = b.getSouthWest();
-              var ne = b.getNorthEast();
-              var bbox = [sw.lat.toFixed(5), sw.lng.toFixed(5), ne.lat.toFixed(5), ne.lng.toFixed(5)].join(',');
-              var z = map.getZoom();
-              var c = map.getCenter();
-
-              var u = new URL(window.location.href);
-              u.searchParams.set('bbox', bbox);
-              u.searchParams.set('z', String(z));
-              u.searchParams.set('clat', c.lat.toFixed(5));
-              u.searchParams.set('clon', c.lng.toFixed(5));
-              window.location.href = u.toString();
-            }});
-          }})();
-        </script>
-        """
-        m.get_root().html.add_child(folium.Element(overlay))
+        root = m.get_root()
+        root.header.add_child(folium.Element(css))
+        root.html.add_child(folium.Element(panel))
     except Exception as e:
-        print('Overlay build failed:', e)
+        print("Snow overlay failed:", e)
+
+
 
     folium.LayerControl().add_to(m)
 
