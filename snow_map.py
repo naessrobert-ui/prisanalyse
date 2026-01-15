@@ -618,7 +618,7 @@ def make_map(
           return L.divIcon({ html: html, className: 'marker-cluster ' + cls, iconSize: new L.Point(46, 46) });
         }
         """
-        layer_for_markers = MarkerCluster(icon_create_function=icon_create_function).add_to(points_layer)
+        layer_for_markers = MarkerCluster(icon_create_function=icon_create_function, options={'maxClusterRadius': 35, 'disableClusteringAtZoom': 8}).add_to(points_layer)
     else:
         layer_for_markers = points_layer
 
@@ -771,12 +771,9 @@ def make_map(
           }})();
         </script>
         """
-
-        macro = MacroElement()
-        macro._template = Template(overlay)
-        m.get_root().add_child(macro)
-    except Exception:
-        pass
+        m.get_root().html.add_child(folium.Element(overlay))
+    except Exception as e:
+        print('Overlay build failed:', e)
 
     folium.LayerControl().add_to(m)
 
