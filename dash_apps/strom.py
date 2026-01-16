@@ -20,7 +20,7 @@ from dash import (
 # FIL / KOLONNER
 # -----------------------------
 BASE_DIR = Path(__file__).resolve().parents[1]
-CSV_PATH = BASE_DIR / "static" / "data" / "kommuner.csv"
+CSV_PATH = BASE_DIR / "static" / "data" / "Kommune_Ny.csv"   # <-- endret
 CSV_SEP = ";"
 
 CSV_COLS = {
@@ -37,6 +37,7 @@ CHANGE_ALIASES = {
     "nov": ["incr_nov", "INCR_NOV", "incr nov", "increase_nov", "increase nov"],
     "dec": ["incr_dec", "INCR_DEC", "incr dec", "increase_dec", "increase dec"],
     "q4":  ["incr_Q4", "incr_q4", "INCR_Q4", "incr q4", "increase_q4", "increase q4"],
+    "jan": ["incr_jan", "INCR_JAN", "incr jan", "increase_jan", "increase jan"],  # <-- lagt til
 }
 
 
@@ -190,7 +191,13 @@ def get_trigger_id() -> Optional[str]:
     return callback_context.triggered[0]["prop_id"].split(".")[0]
 
 def change_label(change_period: str) -> str:
-    return {"oct": "Oktober", "nov": "November", "dec": "Desember", "q4": "Q4"}.get(change_period, "Q4")
+    return {
+        "oct": "Oktober",
+        "nov": "November",
+        "dec": "Desember",
+        "q4": "Q4",
+        "jan": "1.–13. januar",   # <-- lagt til
+    }.get(change_period, "Q4")
 
 
 # -----------------------------
@@ -505,7 +512,6 @@ def create_dash_app(flask_server):
     }
 
     def intro_layout():
-        # Robust static-path: unngår “sort bakgrunn” pga feil URL
         BACKGROUND_IMAGE_URL = f"{flask_server.static_url_path}/background.jpg"
 
         btn_style = {
@@ -636,7 +642,7 @@ def create_dash_app(flask_server):
                                 style={"width": "220px", "maxWidth": "100%", "fontSize": "14px"},
                             ),
                         ]),
-                        html.Div(style={"minWidth": "170px"}, children=[
+                        html.Div(style={"minWidth": "200px"}, children=[
                             html.Label("Endring i forbruk:", style={"fontWeight": "700", "fontSize": "14px"}),
                             dcc.Dropdown(
                                 id="change_period",
@@ -645,10 +651,11 @@ def create_dash_app(flask_server):
                                     {"label": "November", "value": "nov"},
                                     {"label": "Desember", "value": "dec"},
                                     {"label": "Hele Q4", "value": "q4"},
+                                    {"label": "1.–13. januar", "value": "jan"},  # <-- lagt til
                                 ],
-                                value="q4",
+                                value="q4",  # <-- fortsatt default
                                 clearable=False,
-                                style={"width": "170px", "maxWidth": "100%", "fontSize": "14px"},
+                                style={"width": "200px", "maxWidth": "100%", "fontSize": "14px"},
                             ),
                         ]),
                         html.Div(children=[
@@ -696,7 +703,7 @@ def create_dash_app(flask_server):
                                 html.Div(
                                     style={"position": "relative"},
                                     children=[
-                                       dcc.Loading(
+                                        dcc.Loading(
                                             type="default",
                                             style={"width": "100%"},
                                             children=html.Div(
@@ -706,10 +713,10 @@ def create_dash_app(flask_server):
                                                     className="strom-map-graph",
                                                     style={"width": "100%", "height": "calc(100vh - 220px)", "minHeight": "720px"},
                                                     config={"scrollZoom": True, "displayModeBar": True, "displaylogo": False, "responsive": True},
+                                                ),
+                                            ),
                                         ),
-                                    ),
-                                ),
-                                                                        html.Div(
+                                        html.Div(
                                             style={
                                                 "position": "absolute",
                                                 "top": "12px",
