@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import requests
 from dotenv import load_dotenv
 
@@ -25,13 +25,28 @@ load_dotenv()
 FROST_BASE = "https://frost.met.no"
 DEFAULT_TIMEOUT = 20
 
-ELEMENT_SNOW = "surface_snow_thickness"  # snødybde (cm)
+# --- Elementer -----------------------------------------------------------
+ELEMENT_SNOW_DEPTH = "surface_snow_thickness"  # cm
+ELEMENT_NEW_SNOW_24H = "over_time(thickness_of_snowfall_amount P1D)"  # cm (SS_24)
+
+METRICS = {
+    "snow": {
+        "element": ELEMENT_SNOW_DEPTH,
+        "label": "Snødybde",
+        "unit_fallback": "cm",
+    },
+    "newsnow24": {
+        "element": ELEMENT_NEW_SNOW_24H,
+        "label": "Nysnø siste døgn",
+        "unit_fallback": "cm",
+    },
+}
 
 # ----------------------------------------------------------------------
 #  Enkle caches i minne for å unngå unødvendige kall i samme prosess
 # ----------------------------------------------------------------------
-# (dato, window_days) -> liste med sourceId
-_SOURCE_UNIVERSE_CACHE: dict[tuple[_date, int], list[str]] = {}
+# (dato, window_days, element) -> liste med sourceId
+_SOURCE_UNIVERSE_CACHE: dict[tuple[_date, int, str], list[str]] = {}
 
 # baseId -> metadata-dict (id, name, shortName, country, lat, lon)
 _META_CACHE: dict[str, dict[str, Any]] = {}
@@ -65,9 +80,7 @@ def frost_get_json(
     retries: int = 6,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """
-    GET med retries (429/5xx). Returnerer JSON (inkl. ErrorResponse ved 404).
-    """
+    """GET med retries (429/5xx). Returnerer JSON (inkl. ErrorResponse ved 404)."""
     url = f"{FROST_BASE}{path}"
     backoff = 1.0
 
@@ -109,11 +122,7 @@ def iter_pages(
     auth: FrostAuth,
     timeout: int,
 ) -> Iterator[dict[str, Any]]:
-    """
-    Robust paginering for Frost v0:
-    - Følg offset/itemsPerPage/totalItemCount.
-    (Mange endepunkter har ikke 'next'.)
-    """
+    """Robust paginering for Frost v0 (offset/itemsPerPage/totalItemCount)."""
     p = params.copy()
     first = frost_get_json(session, path, p, auth=auth, timeout=timeout)
     yield first
@@ -161,10 +170,7 @@ def base_source_id(source_id: str) -> str:
 
 
 def _parse_bbox(bbox: Optional[str]) -> Optional[Tuple[float, float, float, float]]:
-    """
-    Parse bbox-streng 'south,west,north,east' til tuple.
-    Returnerer None hvis bbox er tom/ugyldig.
-    """
+    """Parse bbox-streng 'south,west,north,east' til tuple."""
     if not bbox:
         return None
     try:
@@ -172,7 +178,6 @@ def _parse_bbox(bbox: Optional[str]) -> Optional[Tuple[float, float, float, floa
         if len(parts) != 4:
             return None
         south, west, north, east = parts
-        # enkel sanity-check
         if south > north or west > east:
             return None
         return south, west, north, east
@@ -191,40 +196,34 @@ def _filter_meta_by_bbox(
     m = meta.copy()
     m["lat"] = pd.to_numeric(m["lat"], errors="coerce")
     m["lon"] = pd.to_numeric(m["lon"], errors="coerce")
-    return m[
-        (m["lat"].between(south, north))
-        & (m["lon"].between(west, east))
-    ].copy()
+    return m[(m["lat"].between(south, north)) & (m["lon"].between(west, east))].copy()
+
 
 REGION_BBOX: dict[str, Tuple[float, float, float, float]] = {
-    # south, west, north, east
     "south": (57.0, 4.0, 62.5, 12.5),
     "mid": (62.0, 4.0, 66.7, 16.5),
     "north": (66.3, 10.0, 71.5, 31.5),
-    # hele Norge-ish (kan justeres)
     "all": (57.0, 4.0, 71.5, 31.5),
 }
+
 
 # ======================================================================
 #  Hente stasjoner og observasjoner
 # ======================================================================
 
-def list_sources_with_snow_in_referencetime(
+def list_sources_with_element_in_referencetime(
     session: requests.Session,
     *,
     auth: FrostAuth,
     referencetime: str,
+    element: str,
     timeout: int,
 ) -> list[str]:
-    """
-    Finn stasjoner som har tilgjengelig tidsserie for snødybde i referencetime-intervallet.
-    NB: Ikke filtrer på timeoffsets/levels her for snødybde.
-    """
+    """Finn stasjoner som har tilgjengelig tidsserie for elementet i referencetime-intervallet."""
     path = "/observations/availableTimeSeries/v0.jsonld"
     params: dict[str, str | int] = {
         "referencetime": referencetime,
-        "elements": ELEMENT_SNOW,
-        # mindre payload – vi trenger bare sourceId
+        "elements": element,
         "fields": "sourceId",
     }
 
@@ -234,10 +233,8 @@ def list_sources_with_snow_in_referencetime(
             continue
         for item in page.get("data", []):
             sid = item.get("sourceId")
-            if sid and isinstance(sid, str):
-                # Begrens til norske stasjoner (SNxxxxx) for å kutte støy
-                if sid.startswith("SN"):
-                    source_ids.add(sid)
+            if sid and isinstance(sid, str) and sid.startswith("SN"):
+                source_ids.add(sid)
 
     return sorted(source_ids)
 
@@ -248,16 +245,15 @@ def list_sources_for_day_window(
     auth: FrostAuth,
     day: _date,
     window_days: int,
+    element: str,
     timeout: int,
     limit: int = 1000,
 ) -> list[str]:
     """
-    Finn stasjoner med snødybde-serie i [day-window, day+window+1).
-
-    Resultatet caches per (dato, window_days) i _SOURCE_UNIVERSE_CACHE for
-    å slippe nye /availableTimeSeries-kall for samme dag.
+    Finn stasjoner med tidsserie for element i [day-window, day+window+1).
+    Caches per (dato, window_days, element).
     """
-    cache_key = (day, int(window_days))
+    cache_key = (day, int(window_days), element)
     if cache_key in _SOURCE_UNIVERSE_CACHE:
         return _SOURCE_UNIVERSE_CACHE[cache_key]
 
@@ -265,10 +261,11 @@ def list_sources_for_day_window(
     end = day + timedelta(days=window_days + 1)
     referencetime = f"{start.isoformat()}/{end.isoformat()}"
 
-    universe = list_sources_with_snow_in_referencetime(
+    universe = list_sources_with_element_in_referencetime(
         session,
         auth=auth,
         referencetime=referencetime,
+        element=element,
         timeout=timeout,
     )
 
@@ -282,15 +279,13 @@ def fetch_observations_interval(
     auth: FrostAuth,
     sources: list[str],
     referencetime: str,
+    element: str,
     timeout: int,
     batch_size: int,
     limit: int = 1000,
     qualities: str = "",
 ) -> pd.DataFrame:
-    """
-    Hent observasjoner for sources i et interval.
-    Returnerer lang DF med sourceId/referenceTime/value...
-    """
+    """Hent observasjoner for sources i et interval. Returnerer lang DF."""
     path = "/observations/v0.jsonld"
     rows: list[dict[str, Any]] = []
 
@@ -301,7 +296,7 @@ def fetch_observations_interval(
         params: dict[str, str | int] = {
             "sources": ",".join(batch),
             "referencetime": referencetime,
-            "elements": ELEMENT_SNOW,
+            "elements": element,
             "limit": limit,
         }
         if qualities:
@@ -333,15 +328,8 @@ def fetch_observations_interval(
     return df
 
 
-def choose_nearest_per_station(
-    df: pd.DataFrame,
-    *,
-    target_day: _date,
-) -> pd.DataFrame:
-    """
-    Velg nærmeste observasjon til target_day (00:00 UTC)
-    per sourceId (IKKE baseId).
-    """
+def choose_nearest_per_station(df: pd.DataFrame, *, target_day: _date) -> pd.DataFrame:
+    """Velg nærmeste observasjon til target_day (00:00 UTC) per sourceId."""
     if df.empty:
         return df
 
@@ -366,9 +354,7 @@ def choose_nearest_per_station(
 
 
 def choose_latest_per_station(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    For 'latest'-modus: velg siste observasjon per sourceId (største referenceTime).
-    """
+    """Velg siste observasjon per sourceId (største referenceTime)."""
     if df.empty:
         return df
 
@@ -394,20 +380,12 @@ def get_sources_metadata(
     batch_size: int,
     limit: int = 1000,
 ) -> pd.DataFrame:
-    """
-    /sources støtter ids=... (ikke sources=...).
-    observations/sourceId kan være SNxxxx:0 -> vi spør /sources med SNxxxx.
-    Returnerer DF med samme sourceId-format som i observations.
-
-    For å spare tid caches metadata per baseId i _META_CACHE.
-    """
+    """Hent metadata fra /sources for baseId (SNxxxxx). Caches per baseId."""
     path = "/sources/v0.jsonld"
     mapping = {sid: base_source_id(sid) for sid in sources}
     base_ids = sorted(set(mapping.values()))
 
     rows: list[dict[str, Any]] = []
-
-    # Hent bare metadata for baseId vi ikke allerede har
     missing: list[str] = [bid for bid in base_ids if bid not in _META_CACHE]
 
     for batch in chunked(missing, batch_size):
@@ -437,7 +415,6 @@ def get_sources_metadata(
                 if meta_rec["baseId"]:
                     _META_CACHE[meta_rec["baseId"]] = meta_rec
 
-    # Bygg DF ut fra cache for alle base_ids vi trenger
     for bid in base_ids:
         rec = _META_CACHE.get(bid)
         if rec:
@@ -452,61 +429,29 @@ def get_sources_metadata(
 #  Kartbygging
 # ======================================================================
 
-
-def _color_cm_static(cm: float) -> str:
-    """Fallback/legacy thresholds."""
-    if cm >= 150:
-        return "darkred"
-    if cm >= 100:
-        return "red"
-    if cm >= 70:
-        return "orange"
-    if cm >= 50:
-        return "yellow"
-    if cm >= 30:
-        return "lightgreen"
-    if cm >= 20:
-        return "cadetblue"
-    if cm >= 10:
-        return "green"
-    return "gray"
-
-
 def _color_cm_quantile(cm: float, p10: float, p90: float, blue_threshold: float = 50.0) -> str:
-    """Color by distribution in current view.
-
-    - Bottom 10% => gray
-    - Top 10% OR >= blue_threshold => blue
-    - Otherwise a green/yellow/orange ramp
-    """
     try:
         v = float(cm)
     except Exception:
         return "gray"
-
-    # guard
     if not np.isfinite(v):
         return "gray"
-
     if v <= p10:
         return "#9ca3af"  # gray-400
     if v >= max(p90, blue_threshold):
         return "#2563eb"  # blue-600
-
-    # mid ramp
     if v >= blue_threshold:
-        return "#60a5fa"  # light blue
+        return "#60a5fa"
     if v >= 70:
-        return "#f59e0b"  # amber
+        return "#f59e0b"
     if v >= 40:
-        return "#fbbf24"  # yellow
+        return "#fbbf24"
     if v >= 20:
-        return "#22c55e"  # green
-    return "#86efac"      # light green
+        return "#22c55e"
+    return "#86efac"
 
 
 def _heat_params_for_zoom(z: int | None) -> tuple[int, int]:
-    """Return (radius, blur) for HeatMap tuned by zoom."""
     if z is None:
         return 18, 14
     if z <= 4:
@@ -530,23 +475,16 @@ def make_map(
     out_html: Optional[str] = None,
     cluster: bool,
     heatmap_show: bool,
-    # legacy/tunables (can be overridden by zoom-aware defaults)
     heat_radius: int = 25,
     heat_blur: int = 18,
     heat_clip_cm: float = 0.0,
-    # view controls
     zoom_start: Optional[int] = None,
     center_lat: Optional[float] = None,
     center_lon: Optional[float] = None,
     bbox_coords: Optional[Tuple[float, float, float, float]] = None,
+    metric_label: str = "Snødybde",
+    unit_fallback: str = "cm",
 ) -> str:
-    """
-    Lager folium-kart fra df (snødybde).
-
-    - heat_clip_cm: hvis 0, beregnes automatisk (98-persentil) for *aktuelt utsnitt/region*.
-    - zoom_start/center_*: brukes hvis sendt inn (for å bevare view ved reload).
-    - bbox_coords: hvis sendt inn, brukes til fit_bounds (god UX ved regionvalg).
-    """
     if df.empty:
         m = folium.Map(location=[65.0, 13.0], zoom_start=4, tiles="OpenStreetMap")
         folium.LayerControl().add_to(m)
@@ -567,7 +505,6 @@ def make_map(
     if d.empty:
         raise RuntimeError("Har data, men ingen rader med både koordinater og verdi.")
 
-    # ---- View: bruk clat/clon/z hvis sendt inn, ellers midtpunkt av punktene
     if center_lat is None:
         center_lat = float(d["lat"].mean())
     if center_lon is None:
@@ -577,7 +514,6 @@ def make_map(
 
     m = folium.Map(location=[center_lat, center_lon], zoom_start=int(zoom_start), tiles="OpenStreetMap")
 
-    # Fit bounds hvis vi har bbox (gir bedre “region-hopp”)
     if bbox_coords is not None:
         south, west, north, east = bbox_coords
         try:
@@ -585,22 +521,17 @@ def make_map(
         except Exception:
             pass
 
-    # ---- Heatmap: “visuelt og pent”, vektet av snødybde (ikke bare tetthet)
-    # Per-region/utsnitt scaling: beregn klipp (vmax) fra data i dette utsnittet (robust mot outliers)
     vals = d["value"].clip(lower=0.0)
     if heat_clip_cm and heat_clip_cm > 0:
         clip_cm = float(heat_clip_cm)
     else:
         q = float(vals.quantile(0.98)) if len(vals) else 1.0
-        clip_cm = max(q, 10.0)  # minst 10 cm så ikke alt blir “rødt” på lite snø
+        clip_cm = max(q, 10.0)
     clipped = vals.clip(upper=clip_cm)
-
-    # Normaliser til 0..1 og bruk en mild gamma for bedre kontrast
     weights = (clipped / clip_cm).clip(0.0, 1.0) ** 0.7
 
     heat_data = [[float(lat), float(lon), float(w)] for lat, lon, w in zip(d["lat"], d["lon"], weights)]
 
-    # Snø-intuitiv gradient (kald blå -> hvit -> lilla/rød)
     SNOW_GRADIENT = {
         0.00: "#08306b",
         0.20: "#2171b5",
@@ -611,12 +542,11 @@ def make_map(
         1.00: "#d73027",
     }
 
-    # Zoom-aware radius/blur (overstyr legacy-verdier hvis z er satt)
     zr, zb = _heat_params_for_zoom(int(zoom_start) if zoom_start is not None else None)
     heat_radius = int(zr) if zr else int(heat_radius)
     heat_blur = int(zb) if zb else int(heat_blur)
 
-    heat_layer = folium.FeatureGroup(name="Snødybde (interpolert)", show=heatmap_show)
+    heat_layer = folium.FeatureGroup(name=f"{metric_label} (interpolert)", show=heatmap_show)
     HeatMap(
         heat_data,
         radius=heat_radius,
@@ -627,7 +557,6 @@ def make_map(
     ).add_to(heat_layer)
     heat_layer.add_to(m)
 
-    # ---- Punktmarkører + cluster med MEDIAN (cm)
     points_layer = folium.FeatureGroup(name="Stasjoner (hover)", show=True)
     points_layer.add_to(m)
 
@@ -656,7 +585,6 @@ def make_map(
           var maxcm = Math.round(maxv);
           var medcm = Math.round(med);
 
-          // Farge: mye snø => blå, lite => grå, ellers grønn
           var cls = 'snow-cluster-mid';
           if (maxcm >= 50) cls = 'snow-cluster-high';
           else if (maxcm <= 10) cls = 'snow-cluster-low';
@@ -671,11 +599,13 @@ def make_map(
           return L.divIcon({ html: html, className: '', iconSize: new L.Point(52, 52) });
         }
         """
-        layer_for_markers = MarkerCluster(icon_create_function=icon_create_function, options={'maxClusterRadius': 35, 'disableClusteringAtZoom': 8}).add_to(points_layer)
+        layer_for_markers = MarkerCluster(
+            icon_create_function=icon_create_function,
+            options={"maxClusterRadius": 35, "disableClusteringAtZoom": 8},
+        ).add_to(points_layer)
     else:
         layer_for_markers = points_layer
 
-    # --- Farge-/størrelseparametre basert på fordelingen i *utsnittet* ---
     _vals = pd.to_numeric(d["value"], errors="coerce").dropna()
     if len(_vals) > 0:
         p10 = float(_vals.quantile(0.10))
@@ -684,19 +614,18 @@ def make_map(
     else:
         p10, p90, p98 = 0.0, 50.0, 100.0
 
-    blue_threshold = 50.0  # kan justeres (fast terskel for "mye snø")
+    blue_threshold = 50.0
     vmax_size = max(p98, blue_threshold, 10.0)
 
     def _marker_size_cm(cm: float) -> int:
-        # Kvadratrotskalering gir penere størrelsesforskjell
         x = max(0.0, min(float(cm), vmax_size)) / vmax_size
-        size = 12 + int(22 * (x ** 0.5))  # 12..34px
+        size = 12 + int(22 * (x ** 0.5))
         return max(10, min(36, size))
 
     for _, r in d.iterrows():
         cm = float(r["value"])
         name = (r.get("name") or r.get("shortName") or r.get("sourceId"))
-        unit = r.get("unit") or "cm"
+        unit = r.get("unit") or unit_fallback
         t = r.get("referenceTime")
         t_str = pd.to_datetime(t).strftime("%Y-%m-%d %H:%M UTC") if pd.notna(t) else "ukjent tid"
 
@@ -704,7 +633,7 @@ def make_map(
         if "diff_hours" in d.columns and pd.notna(r.get("diff_hours")):
             diff_part = f"<br>Avvik: {float(r['diff_hours']):+.1f} timer"
 
-        html = f"{name}<br>Snødybde: <b>{cm:.0f} {unit}</b><br>Tid: {t_str}{diff_part}"
+        html = f"{name}<br>{metric_label}: <b>{cm:.0f} {unit}</b><br>Tid: {t_str}{diff_part}"
 
         folium.Marker(
             location=[float(r["lat"]), float(r["lon"])],
@@ -714,7 +643,7 @@ def make_map(
                     f'width:{_marker_size_cm(cm)}px;height:{_marker_size_cm(cm)}px;'
                     f'border-radius:999px;'
                     f'background:{_color_cm_quantile(cm, p10, p90, blue_threshold)};'
-                    f'border:2px solid { _color_cm_quantile(cm, p10, p90, blue_threshold) };'
+                    f'border:2px solid {_color_cm_quantile(cm, p10, p90, blue_threshold)};'
                     f'opacity:0.90;'
                     f'display:flex;align-items:center;justify-content:center;'
                     f'color:white;font-weight:900;'
@@ -730,13 +659,10 @@ def make_map(
             ),
             tooltip=folium.Tooltip(html, sticky=True),
             popup=folium.Popup(html, max_width=320),
-            # <-- brukes av cluster-funksjonen
             snow=float(cm),
         ).add_to(layer_for_markers)
 
-    # ---- Overlay: KPI + tabell (topp/bunn) + knapp "Oppdater utsnitt"
-    
-    # --- Overlay: Topp snø i utsnittet (topp 20) ---
+    # ---- Overlay: topp 20 (tekst justeres med metric_label)
     try:
         import html as _html
 
@@ -756,7 +682,7 @@ def make_map(
   <div style="font-weight:800;">{_html.escape(str(nm))}</div>
   <div style="color:#64748b; font-size:12px;">{_html.escape(str(sid))}</div>
 </td>
-<td style="padding:6px 8px; text-align:right; font-weight:900; white-space:nowrap;">{v:.0f} cm</td>
+<td style="padding:6px 8px; text-align:right; font-weight:900; white-space:nowrap;">{v:.0f} {unit_fallback}</td>
 </tr>"""
             )
 
@@ -809,7 +735,6 @@ def make_map(
 }
 #snow-panel thead th:last-child{ text-align:right; }
 
-/* --- Cluster-ikon for snø --- */
 .snow-cluster{
   width:52px; height:52px;
   border-radius:999px;
@@ -825,16 +750,15 @@ def make_map(
 .snow-cluster .big{ font-weight:900; font-size:16px; line-height:16px; }
 .snow-cluster .small{ font-weight:800; font-size:11px; line-height:12px; opacity:.95; margin-top:1px; }
 .snow-cluster .unit{ font-weight:800; font-size:10px; line-height:10px; opacity:.9; margin-top:1px; }
-.snow-cluster-high{ background:#2563eb; } /* blå */
-.snow-cluster-mid{ background:#16a34a; }  /* grønn */
-.snow-cluster-low{ background:#9ca3af; }  /* grå */
+.snow-cluster-high{ background:#2563eb; }
+.snow-cluster-mid{ background:#16a34a; }
+.snow-cluster-low{ background:#9ca3af; }
 .snow-cluster-empty{ background:#e2e8f0; color:#0f172a; }
-
 </style>"""
 
         panel = f"""<div id="snow-panel">
   <div class="hdr">
-    <div class="title">Mest snø i utsnittet <span style="color:#64748b; font-weight:700;">(topp 20)</span></div>
+    <div class="title">Mest {metric_label.lower()} i utsnittet <span style="color:#64748b; font-weight:700;">(topp 20)</span></div>
     <div style="display:flex; gap:8px; align-items:center;">
       <button id="snow-refresh" type="button">Oppdater</button>
       <button type="button" onclick="var b=document.getElementById('snow-panel-body'); b.style.display=(b.style.display==='none'?'block':'none');">Vis/skjul</button>
@@ -843,7 +767,7 @@ def make_map(
   <div class="body" id="snow-panel-body">
     <table>
       <thead>
-        <tr><th>#</th><th>Stasjon</th><th>cm</th></tr>
+        <tr><th>#</th><th>Stasjon</th><th>{unit_fallback}</th></tr>
       </thead>
       <tbody>
         {rows_html}
@@ -851,7 +775,6 @@ def make_map(
     </table>
   </div>
 </div>"""
-
 
         root = m.get_root()
         root.header.add_child(folium.Element(css))
@@ -894,7 +817,6 @@ def make_map(
     });
   }
 
-  // Auto-oppdater når du zoomer (for at tabellen skal følge utsnittet)
   var map = findMap();
   if (map){
     var timer = null;
@@ -907,19 +829,14 @@ def make_map(
 </script>
 """
         root.html.add_child(folium.Element(script))
-
     except Exception as e:
         print("Snow overlay failed:", e)
-
-
 
     folium.LayerControl().add_to(m)
 
     html_str = m.get_root().render()
-
     if out_html:
         m.save(out_html)
-
     return html_str
 
 
@@ -927,12 +844,8 @@ def make_map(
 #  Bygg DF for "latest" og "day"
 # ======================================================================
 
-
 def bbox_to_wkt_polygon(bbox: Tuple[float, float, float, float]) -> str:
-    """
-    Lag WKT POLYGON fra bbox (south, west, north, east).
-    WKT bruker (lon lat).
-    """
+    """Lag WKT POLYGON fra bbox (south, west, north, east). WKT bruker (lon lat)."""
     south, west, north, east = bbox
     return (
         f"POLYGON(({west} {south}, {east} {south}, {east} {north}, "
@@ -947,11 +860,7 @@ def list_sources_in_bbox(
     bbox: Tuple[float, float, float, float],
     timeout: int,
 ) -> pd.DataFrame:
-    """
-    Hent stasjoner (SensorSystem) innenfor bbox via /sources med geometry=POLYGON(WKT).
-    /sources støtter IKKE 'limit' (hos deg), så vi henter uten limit og gjør best-effort paginering
-    via offset dersom API-et tillater det.
-    """
+    """Hent stasjoner (SensorSystem) innenfor bbox via /sources + geometry WKT polygon."""
     path = "/sources/v0.jsonld"
     wkt = bbox_to_wkt_polygon(bbox)
 
@@ -964,7 +873,6 @@ def list_sources_in_bbox(
 
     rows: list[dict[str, Any]] = []
 
-    # Første side
     first = frost_get_json(session, path, base_params, auth=auth, timeout=timeout)
     if first.get("@type") == "ErrorResponse":
         return pd.DataFrame(columns=["baseId", "name", "shortName", "country", "lat", "lon"])
@@ -989,7 +897,7 @@ def list_sources_in_bbox(
 
     _consume(first)
 
-    # Best-effort paging: prøv offset hvis det finnes flere sider
+    # Best-effort paging via offset dersom API-et tillater det
     try:
         total = int(first.get("totalItemCount", 0))
         offset = int(first.get("offset", 0))
@@ -1001,15 +909,11 @@ def list_sources_in_bbox(
         next_offset = offset + per_page
         while next_offset < total:
             p = dict(base_params)
-            p["offset"] = next_offset  # noen Frost-oppsett støtter dette selv om det ikke står i help-lista
+            p["offset"] = next_offset
             page = frost_get_json(session, path, p, auth=auth, timeout=timeout)
-
-            # Hvis offset ikke støttes hos deg vil dette typisk bli ErrorResponse/400 – da stopper vi.
             if page.get("@type") == "ErrorResponse":
                 break
-
             _consume(page)
-
             try:
                 offset = int(page.get("offset", next_offset))
                 per_page = int(page.get("itemsPerPage", per_page))
@@ -1023,18 +927,17 @@ def list_sources_in_bbox(
     return df
 
 
-def fetch_latest_snow_for_sources(
+def fetch_latest_for_sources(
     session: requests.Session,
     *,
     auth: "FrostAuth",
     source_base_ids: list[str],
+    element: str,
     timeout: int,
     batch_size: int,
     qualities: str = "0,1,2,3,4",
 ) -> pd.DataFrame:
-    """
-    Hent siste snødybde per stasjon med referencetime=latest&limit=1.
-    """
+    """Hent siste verdi per stasjon med referencetime=latest&limit=1."""
     if not source_base_ids:
         return pd.DataFrame()
 
@@ -1045,9 +948,8 @@ def fetch_latest_snow_for_sources(
         params: dict[str, str | int] = {
             "sources": ",".join(batch),
             "referencetime": "latest",
-            "elements": ELEMENT_SNOW,
-            "limit": 1,  # siste per (source, element)
-            # disse to reduserer “duplikate” tidsserier (sensor/offset/levels)
+            "elements": element,
+            "limit": 1,
             "timeoffsets": "default",
             "levels": "default",
         }
@@ -1082,51 +984,46 @@ def fetch_latest_snow_for_sources(
     return df
 
 
-def build_snow_df_latest_fast_south_first(
+def build_df_latest_fast_bbox(
     *,
+    element: str,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
     qualities: str = "0,1,2,3,4",
-    # Sør-Norge-ish default bbox (kan justeres):
     bbox_coords: Tuple[float, float, float, float] = (57.0, 4.0, 62.5, 12.5),
 ) -> tuple[pd.DataFrame, datetime]:
-    """
-    Rask oppstart:
-      1) hent stasjoner i bbox via /sources (ingen availableTimeSeries-scan)
-      2) hent 'latest' snødybde for disse (limit=1)
-    """
+    """Rask oppstart: /sources i bbox -> /observations latest for valgte stasjoner."""
     auth = _env_auth()
     now = datetime.now(timezone.utc)
 
     with requests.Session() as sess:
         meta = list_sources_in_bbox(sess, auth=auth, bbox=bbox_coords, timeout=timeout)
-
         if meta.empty:
             raise RuntimeError("Fant ingen stasjoner i valgt bbox.")
 
         base_ids = meta["baseId"].astype(str).tolist()
-
-        obs = fetch_latest_snow_for_sources(
+        obs = fetch_latest_for_sources(
             sess,
             auth=auth,
             source_base_ids=base_ids,
+            element=element,
             timeout=timeout,
             batch_size=batch_size,
             qualities=qualities,
         )
 
     if obs.empty:
-        raise RuntimeError("Ingen 'latest' snøobservasjoner i området (prøv større bbox eller uten kvalitetsfilter).")
+        raise RuntimeError("Ingen 'latest' observasjoner i området (prøv større bbox eller uten kvalitetsfilter).")
 
-    # obs.sourceId kan være "SN12345:0" mens meta.baseId er "SN12345"
     obs["baseId"] = obs["sourceId"].astype(str).map(base_source_id)
     df = obs.merge(meta, left_on="baseId", right_on="baseId", how="left").drop(columns=["baseId"])
     return df, now
 
-def build_snow_df_for_day(
+
+def build_df_for_day(
     date_str: Optional[str] = None,
     *,
-    # mindre default-vindu for bedre ytelse (var 2 tidligere)
+    element: str,
     window_days: int = 1,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
@@ -1134,12 +1031,7 @@ def build_snow_df_for_day(
     qualities: str = "",
     bbox_coords: Optional[Tuple[float, float, float, float]] = None,
 ) -> tuple[pd.DataFrame, _date]:
-    """
-    Lager data-frame med snødybde for valgt dag, med fallback ±window_days.
-    Hvis bbox_coords er satt, begrenser vi universet til stasjoner i kartutsnittet.
-    date_str: 'YYYY-MM-DD', eller None = i dag.
-    Returnerer (df, day).
-    """
+    """Dataframe for valgt dag, med fallback ±window_days. Kan begrenses av bbox."""
     auth = _env_auth()
 
     if date_str:
@@ -1147,26 +1039,21 @@ def build_snow_df_for_day(
     else:
         day = _date.today()
 
-    day_start = day
-    day_end = day + timedelta(days=1)
-    day_rt = f"{day_start.isoformat()}/{day_end.isoformat()}"
+    day_rt = f"{day.isoformat()}/{(day + timedelta(days=1)).isoformat()}"
 
     with requests.Session() as sess:
-        # 1) Finn univers av stasjoner i ±window_days (hele Norge)
         universe = list_sources_for_day_window(
             sess,
             auth=auth,
             day=day,
             window_days=window_days,
+            element=element,
             timeout=timeout,
         )
 
         if not universe:
-            raise RuntimeError(
-                "Fant ingen stasjoner med snødybde-serie i valgt vindu. Prøv større window_days."
-            )
+            raise RuntimeError("Fant ingen stasjoner med tidsserie i valgt vindu. Prøv større window_days.")
 
-        # 2) Metadata for universet
         meta_all = get_sources_metadata(
             sess,
             auth=auth,
@@ -1178,20 +1065,18 @@ def build_snow_df_for_day(
         if meta_all.empty:
             raise RuntimeError("Fant stasjoner, men ingen koordinater fra /sources.")
 
-        # 3) Begrens til stasjoner i kartutsnitt (hvis bbox)
         meta_filtered = _filter_meta_by_bbox(meta_all, bbox_coords)
         if meta_filtered.empty:
             raise RuntimeError("Ingen stasjoner innenfor valgt kartutsnitt.")
 
-        # Bare disse vil vi gjøre observasjons-oppslag på:
         sources_in_view = meta_filtered["sourceId"].astype(str).unique().tolist()
 
-        # 4) Hent observasjoner for valgt dag
         df_day = fetch_observations_interval(
             sess,
             auth=auth,
             sources=sources_in_view,
             referencetime=day_rt,
+            element=element,
             timeout=timeout,
             batch_size=batch_size,
             limit=limit,
@@ -1201,7 +1086,6 @@ def build_snow_df_for_day(
         have = set(df_day["sourceId"].unique()) if not df_day.empty else set()
         missing = [s for s in sources_in_view if s not in have]
 
-        # 5) Fallback ±window_days for de som mangler (hvis window_days > 0)
         df_fb = pd.DataFrame()
         if missing and window_days > 0:
             fb_start = day - timedelta(days=window_days)
@@ -1212,6 +1096,7 @@ def build_snow_df_for_day(
                 auth=auth,
                 sources=missing,
                 referencetime=fb_rt,
+                element=element,
                 timeout=timeout,
                 batch_size=batch_size,
                 limit=limit,
@@ -1220,7 +1105,6 @@ def build_snow_df_for_day(
 
     df_all = pd.concat([df_day, df_fb], ignore_index=True)
     obs = choose_nearest_per_station(df_all, target_day=day)
-
     if obs.empty:
         raise RuntimeError("Ingen observasjoner funnet selv med fallback.")
 
@@ -1229,19 +1113,19 @@ def build_snow_df_for_day(
 
 
 # ======================================================================
-#  Public: bygg HTML for snøkart
-#  NB: tar nå 'mode' og optional bbox/z/clat/clon (for kompatibilitet)
+#  Public: bygg HTML for kart
 # ======================================================================
 
 def build_snow_map_html(
     date_str: Optional[str] = None,
     *,
     mode: str = "latest",             # "latest" eller "day"
+    metric: str = "snow",             # "snow" eller "newsnow24"
     region: Optional[str] = None,     # "south" | "mid" | "north" | "all"
     bbox: Optional[str] = None,       # "south,west,north,east"
-    z: Optional[str] = None,          # ignoreres (kompat)
-    clat: Optional[str] = None,       # ignoreres
-    clon: Optional[str] = None,       # ignoreres
+    z: Optional[str] = None,
+    clat: Optional[str] = None,
+    clon: Optional[str] = None,
     window_days: int = 1,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
@@ -1253,17 +1137,11 @@ def build_snow_map_html(
     heat_blur: int = 18,
     heat_clip_cm: float = 0.0,
 ) -> str:
-    """
-    Bygger snøkart for valgt modus og returnerer HTML.
+    metric_cfg = METRICS.get(metric, METRICS["snow"])
+    element = metric_cfg["element"]
+    label = metric_cfg["label"]
+    unit_fallback = metric_cfg["unit_fallback"]
 
-    - mode="latest": bruker /sources+geometry (bbox) + /observations referencetime=latest&limit=1
-      (rask oppstart, ingen availableTimeSeries-scan)
-
-    - mode="day": bruker original day-fallback (availableTimeSeries -> metadata -> obs -> fallback)
-      og kan begrenses av bbox (kartutsnitt) hvis sendt inn.
-    """
-    
-    # 1) Bestem bbox: prioritet bbox-param, ellers region, ellers default sør
     bbox_coords = _parse_bbox(bbox)
     if bbox_coords is None:
         key = (region or "south").strip().lower()
@@ -1273,16 +1151,17 @@ def build_snow_map_html(
         mode = "latest"
 
     if mode == "latest":
-        df, _now_dt = build_snow_df_latest_fast_south_first(
+        df, _now_dt = build_df_latest_fast_bbox(
+            element=element,
             timeout=timeout,
             batch_size=batch_size,
             qualities=qualities or "0,1,2,3,4",
             bbox_coords=bbox_coords,
         )
     else:
-        # day-mode: bruk din eksisterende funksjon (den fungerer), men begrens med bbox
-        df, _day = build_snow_df_for_day(
+        df, _day = build_df_for_day(
             date_str=date_str,
+            element=element,
             window_days=window_days,
             timeout=timeout,
             batch_size=batch_size,
@@ -1291,8 +1170,6 @@ def build_snow_map_html(
             bbox_coords=bbox_coords,
         )
 
-    
-    # View-parametere fra querystring (brukes for å beholde zoom/pan ved reload)
     zoom_i: Optional[int] = None
     clat_f: Optional[float] = None
     clon_f: Optional[float] = None
@@ -1321,26 +1198,34 @@ def build_snow_map_html(
         center_lat=clat_f,
         center_lon=clon_f,
         bbox_coords=bbox_coords,
+        metric_label=label,
+        unit_fallback=unit_fallback,
     )
     return html_str
 
 
 # ======================================================================
-#  CLI-main (valgfritt)
+#  CLI
 # ======================================================================
 
 def main() -> None:
     ap = argparse.ArgumentParser(
         description=(
-            "Snødybde-kart fra Frost. "
-            "Mode 'latest' = siste døgn. Mode 'day' = gitt dato med fallback ±N dager."
+            "Kart fra Frost. "
+            "Mode 'latest' = siste tilgjengelige. Mode 'day' = gitt dato med fallback ±N dager."
         )
     )
     ap.add_argument(
         "--mode",
         default="day",
         choices=["latest", "day"],
-        help="latest = siste døgn (hurtig), day = kalenderdato + fallback",
+        help="latest = siste tilgjengelige, day = kalenderdato + fallback",
+    )
+    ap.add_argument(
+        "--metric",
+        default="snow",
+        choices=["snow", "newsnow24"],
+        help="snow = snødybde, newsnow24 = nysnø siste døgn",
     )
     ap.add_argument(
         "--date",
@@ -1371,24 +1256,26 @@ def main() -> None:
     args = ap.parse_args()
     bbox_coords = _parse_bbox(args.bbox)
 
+    metric_cfg = METRICS.get(args.metric, METRICS["snow"])
+    element = metric_cfg["element"]
+    label = metric_cfg["label"]
+    unit_fallback = metric_cfg["unit_fallback"]
+
     if args.mode == "latest":
-        if bbox_coords is not None:
-            df, now_dt = build_snow_df_latest_fast_south_first(
-                timeout=args.timeout,
-                batch_size=args.batch_size,
-                qualities=args.qualities or "0,1,2,3,4",
-                bbox_coords=bbox_coords,
-            )
-        else:
-            df, now_dt = build_snow_df_latest_fast_south_first(
-                timeout=args.timeout,
-                batch_size=args.batch_size,
-                qualities=args.qualities or "0,1,2,3,4",
-            )
+        if bbox_coords is None:
+            bbox_coords = REGION_BBOX["south"]
+        df, now_dt = build_df_latest_fast_bbox(
+            element=element,
+            timeout=args.timeout,
+            batch_size=args.batch_size,
+            qualities=args.qualities or "0,1,2,3,4",
+            bbox_coords=bbox_coords,
+        )
         day = now_dt.date()
     else:
-        df, day = build_snow_df_for_day(
+        df, day = build_df_for_day(
             date_str=args.date,
+            element=element,
             window_days=args.window_days,
             timeout=args.timeout,
             batch_size=args.batch_size,
@@ -1397,12 +1284,12 @@ def main() -> None:
             bbox_coords=bbox_coords,
         )
 
-    out_html = args.out_html or f"snow_map_{args.mode}_{args.date}.html"
+    out_html = args.out_html or f"snow_map_{args.metric}_{args.mode}_{args.date}.html"
 
     if args.out_csv:
         df.to_csv(args.out_csv, index=False)
 
-    _html_map = make_map(
+    make_map(
         df,
         out_html=out_html,
         cluster=not args.no_cluster,
@@ -1410,9 +1297,12 @@ def main() -> None:
         heat_radius=args.heat_radius,
         heat_blur=args.heat_blur,
         heat_clip_cm=args.heat_clip_cm,
+        metric_label=label,
+        unit_fallback=unit_fallback,
     )
 
     print(f"Mode: {args.mode}")
+    print(f"Metric: {args.metric} ({label})")
     print(f"Dato (for day-mode): {day}")
     print(f"Stasjoner (i kart): {df['sourceId'].nunique()}")
     if args.out_csv:
@@ -1422,3 +1312,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
