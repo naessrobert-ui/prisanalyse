@@ -9,15 +9,16 @@ from dataclasses import dataclass
 from datetime import date as _date
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterator, Optional, Literal
+from typing import Any, Iterator, Optional, Literal, Tuple
 
 import pandas as pd
-from ver_station_db import stations_by_ids
 import requests
 from dotenv import load_dotenv
 
 import folium
 from folium.plugins import HeatMap, MarkerCluster
+
+from ver_station_db import load_station_db, stations_in_bbox_swne_with
 
 # --- .env loading -------------------------------------------------------
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
@@ -26,13 +27,10 @@ load_dotenv()
 FROST_BASE = "https://frost.met.no"
 DEFAULT_TIMEOUT = 20
 
-# Basiselement (timesol) – brukes KUN til å finne stasjoner
-ELEMENT_SUN_BASE = "sum(duration_of_sunshine PT1H)"
-
 # Aggregert solskinn fra Frost:
-# sum(duration_of_sunshine P1D)  -> timer siste døgn
-# sum(duration_of_sunshine P1M)  -> timer så langt i måneden
-# sum(duration_of_sunshine P1Y)  -> timer så langt i året
+# sum(duration_of_sunshine P1D)  -> timer siste døgn / kalenderdøgn
+# sum(duration_of_sunshine P1M)  -> timer så langt i måneden (eller månedlig)
+# sum(duration_of_sunshine P1Y)  -> timer så langt i året (eller årlig)
 ELEMENT_SUN_DAILY = "sum(duration_of_sunshine P1D)"
 ELEMENT_SUN_MONTHLY = "sum(duration_of_sunshine P1M)"
 ELEMENT_SUN_YEARLY = "sum(duration_of_sunshine P1Y)"
@@ -160,111 +158,6 @@ def base_source_id(source_id: str) -> str:
 
 
 # ======================================================================
-# Finn "alle solskinn-stasjoner" (uten bbox)
-# ======================================================================
-
-def fetch_sunshine_station_ids(
-    session: requests.Session,
-    *,
-    auth: FrostAuth,
-    referencetime: str,
-    elements: str,
-    timeout: int,
-    qualities: str = "0,1,2,3,4",  # tas IKKE med i kall til availableTimeSeries
-) -> list[str]:
-    """
-    Bruk /observations/availableTimeSeries uten 'sources' for å finne alle kilder
-    som har tidsserie for elementet i perioden.
-
-    NB: /observations/availableTimeSeries støtter **ikke** 'qualities',
-    så vi sender den ikke i params selv om funksjonen tar et qualities-argument.
-    """
-    path = "/observations/availableTimeSeries/v0.jsonld"
-    params: dict[str, str | int] = {
-        "referencetime": referencetime,
-        "elements": elements,
-        "timeoffsets": "default",
-        "levels": "default",
-        # Ingen 'qualities' her – ellers får vi 400 Bad Request.
-    }
-
-    keep: list[str] = []
-    seen: set[str] = set()
-
-    for page in iter_pages(session, path, params, auth=auth, timeout=timeout):
-        if page.get("@type") == "ErrorResponse":
-            continue
-        for item in page.get("data", []):
-            sid = item.get("sourceId")
-            if not sid:
-                continue
-            b = base_source_id(str(sid))
-            if b not in seen:
-                seen.add(b)
-                keep.append(b)
-
-    return keep
-
-
-def fetch_sources_by_ids(
-    session: requests.Session,
-    *,
-    auth: FrostAuth,
-    source_ids: list[str],
-    timeout: int,
-    batch_size: int = 200,
-) -> pd.DataFrame:
-    """
-    Hent stasjonsmetadata via /sources?ids=...
-    Returnerer DF med baseId, name, shortName, lat, lon.
-    """
-    if not source_ids:
-        return pd.DataFrame(columns=["baseId", "name", "shortName", "country", "lat", "lon"])
-
-    path = "/sources/v0.jsonld"
-    rows: list[dict[str, Any]] = []
-
-    for batch in chunked(source_ids, batch_size):
-        params: dict[str, str | int] = {
-            "ids": ",".join(batch),
-            "types": "SensorSystem",
-            "fields": "id,name,shortName,country,geometry",
-        }
-
-        js = frost_get_json(session, path, params, auth=auth, timeout=timeout)
-        if js.get("@type") == "ErrorResponse":
-            continue
-
-        for item in js.get("data", []):
-            geom = item.get("geometry") or {}
-            coords = geom.get("coordinates")  # [lon, lat]
-            lon = lat = None
-            if isinstance(coords, (list, tuple)) and len(coords) >= 2:
-                lon, lat = coords[0], coords[1]
-            rows.append(
-                {
-                    "baseId": item.get("id"),
-                    "name": item.get("name"),
-                    "shortName": item.get("shortName"),
-                    "country": item.get("country"),
-                    "lat": lat,
-                    "lon": lon,
-                }
-            )
-
-    df = pd.DataFrame(rows)
-    if df.empty:
-        return df
-    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
-    df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
-    return (
-        df.dropna(subset=["baseId", "lat", "lon"])
-        .drop_duplicates(subset=["baseId"], keep="first")
-        .reset_index(drop=True)
-    )
-
-
-# ======================================================================
 # Observasjoner
 # ======================================================================
 
@@ -336,7 +229,7 @@ def aggregate_sun_per_station(df: pd.DataFrame, *, count_col: str) -> pd.DataFra
     Velg siste tilgjengelige aggregat-verdi per stasjon i perioden.
 
     Verdien fra Frost for P1D / P1M / P1Y er allerede i **timer**,
-    så sun_hours = value (ingen deling på 60).
+    så sun_hours = value.
     """
     if df.empty:
         return df
@@ -347,7 +240,6 @@ def aggregate_sun_per_station(df: pd.DataFrame, *, count_col: str) -> pd.DataFra
     d["qualityCode"] = pd.to_numeric(d.get("qualityCode"), errors="coerce")
     d = d.dropna(subset=["referenceTime", "value"])
 
-    # Sorter slik at "last" i groupby faktisk blir siste i tid
     d = d.sort_values(["sourceId", "referenceTime"])
 
     grouped = (
@@ -361,7 +253,6 @@ def aggregate_sun_per_station(df: pd.DataFrame, *, count_col: str) -> pd.DataFra
         .reset_index(drop=True)
     )
 
-    # Frost-aggregatene er i timer
     grouped["unit"] = "hours"
     grouped["sun_hours"] = grouped["value"].astype(float)
     return grouped
@@ -504,7 +395,6 @@ def make_map(
     center_lon = float(d["lon"].mean())
     m = folium.Map(location=[center_lat, center_lon], zoom_start=5, tiles="OpenStreetMap")
 
-    # Fit til alle punkter
     m.fit_bounds(
         [
             [float(d["lat"].min()), float(d["lon"].min())],
@@ -687,16 +577,24 @@ def make_map(
 
 
 # ======================================================================
-# Hoved: bygg HTML for solskinn (alle stasjoner)
-# NB: bakoverkompatibel signatur (bbox/z/clat/clon ignoreres)
+# Hoved: bygg HTML for solskinn (parquet som kildeliste)
 # ======================================================================
+
+def _parse_bbox_swne(bbox: str) -> Tuple[float, float, float, float]:
+    # forventer "south,west,north,east"
+    parts = [p.strip() for p in bbox.split(",")]
+    if len(parts) != 4:
+        raise ValueError("bbox må være 'south,west,north,east'")
+    s, w, n, e = map(float, parts)
+    return (s, w, n, e)
+
 
 def build_sunshine_map_html(
     date_str: Optional[str] = None,
     *,
     mode: Mode = "day",
-    bbox: Optional[str] = None,   # ignoreres (for bakoverkompatibilitet)
-    z: Optional[str] = None,      # ignoreres
+    bbox: Optional[str] = None,   # hvis satt: begrens stasjoner til bbox
+    z: Optional[str] = None,      # ignoreres (bakoverkompatibilitet)
     clat: Optional[str] = None,   # ignoreres
     clon: Optional[str] = None,   # ignoreres
     timeout: int = DEFAULT_TIMEOUT,
@@ -709,21 +607,17 @@ def build_sunshine_map_html(
     heat_blur: int = 18,
     heat_clip_hours: float = 12.0,
 ) -> str:
-    _ = (bbox, z, clat, clon)  # eksplisitt: ikke i bruk
+    _ = (z, clat, clon)  # eksplisitt: ikke i bruk
 
     day_str = date_str or _date.today().isoformat()
     auth = _env_auth()
     day = datetime.strptime(day_str, "%Y-%m-%d").date()
 
     # Velg element for observasjoner + referencetime per modus
-    elements_obs: str
-    elements_src = ELEMENT_SUN_BASE  # til availableTimeSeries (timesol)
-
     if mode == "last24h":
         elements_obs = ELEMENT_SUN_DAILY
         now = datetime.now(timezone.utc)
-        # Litt rom bakover for å være sikker på at siste verdi er med
-        start_dt = now - timedelta(days=2)
+        start_dt = now - timedelta(days=2)  # rom for siste verdi
         referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
         title = "Solskinn siste døgn"
         sum_count_col = "n_obs"
@@ -755,41 +649,29 @@ def build_sunshine_map_html(
     else:
         raise ValueError(f"Ukjent mode: {mode}")
 
+    # --- Stasjoner fra parquet ------------------------------------------------
+    if bbox:
+        bbox_swne = _parse_bbox_swne(bbox)
+        st = stations_in_bbox_swne_with(bbox_swne, require_sun=True)
+    else:
+        st = load_station_db()
+        if not st.empty:
+            st = st[st["has_sun"] == True].copy()
+
+    if st.empty:
+        return make_info_map(
+            title="Ingen solskinn-stasjoner",
+            message="Fant ingen stasjoner med has_sun=True i stasjonsdatabasen.",
+            mode=str(mode),
+            date_str=day_str if mode != "last24h" else "",
+        )
+
+    st = st.dropna(subset=["baseId", "lat", "lon"]).copy()
+    sources = st["baseId"].astype(str).tolist()
+    src_meta = st[["baseId", "name", "shortName", "lat", "lon"]].copy()
+
+    # --- Observasjoner --------------------------------------------------------
     with requests.Session() as sess:
-        # Finn stasjoner med timeserier (bruk timesol som "baseelement")
-        sources = fetch_sunshine_station_ids(
-            sess,
-            auth=auth,
-            referencetime=referencetime,
-            elements=elements_src,
-            timeout=timeout,
-            qualities=qualities,  # ignorert inne i funksjonen for availableTimeSeries
-        )
-
-        if not sources:
-            return make_info_map(
-                title="Ingen solskinn-stasjoner",
-                message="Fant ingen stasjoner med solskinnsensor/tidsserie for perioden.",
-                mode=str(mode),
-                date_str=day_str if mode != "last24h" else "",
-            )
-
-        src_meta = fetch_sources_by_ids(
-            sess,
-            auth=auth,
-            source_ids=sources,
-            timeout=timeout,
-            batch_size=200,
-        )
-        if src_meta.empty:
-            return make_info_map(
-                title="Mangler stasjonsmetadata",
-                message="Fant solskinn-stasjoner, men klarte ikke hente koordinater/navn fra /sources.",
-                mode=str(mode),
-                date_str=day_str if mode != "last24h" else "",
-            )
-
-        # Hent ferdig aggregerte verdier (P1D/P1M/P1Y)
         obs = fetch_observations_interval(
             sess,
             auth=auth,
@@ -805,13 +687,14 @@ def build_sunshine_map_html(
     if obs.empty:
         return make_info_map(
             title="Ingen data i perioden",
-            message="Stasjoner finnes, men ingen observasjoner ble returnert for perioden.",
+            message="Stasjoner finnes (has_sun=True), men ingen observasjoner ble returnert for perioden.",
             mode=str(mode),
             date_str=day_str if mode != "last24h" else "",
         )
 
     out = aggregate_sun_per_station(obs, count_col=sum_count_col)
 
+    # Join mot parquet-metadata
     out["baseId"] = out["sourceId"].astype(str).map(base_source_id)
     merged = out.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
     merged = merged.dropna(subset=["lat", "lon", "sun_hours"])
@@ -848,14 +731,16 @@ def build_sunshine_map_html(
 # ======================================================================
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Solskinn-kart (alle stasjoner, ingen bbox).")
+    ap = argparse.ArgumentParser(description="Solskinn-kart (stasjonsliste fra parquet).")
     ap.add_argument("--mode", default="last24h", choices=["last24h", "day", "mtd", "ytd"])
     ap.add_argument("--date", default=_date.today().isoformat())
+    ap.add_argument("--bbox", default="", help="Valgfritt: 'south,west,north,east'")
     args = ap.parse_args()
 
     html = build_sunshine_map_html(
         date_str=args.date,
         mode=args.mode,  # type: ignore[arg-type]
+        bbox=args.bbox or None,
         show_heatmap=True,
     )
     print(html[:800])
