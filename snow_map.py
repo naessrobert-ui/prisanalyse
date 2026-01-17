@@ -18,6 +18,9 @@ from dotenv import load_dotenv
 import folium
 from folium.plugins import HeatMap, MarkerCluster
 
+# NYTT: stasjonsutvalg fra parquet (has_snow)
+from ver_station_db import load_station_db, stations_in_bbox_swne_with
+
 # --- .env loading (robust på Windows/PyCharm) ----------------------------
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 load_dotenv()
@@ -30,13 +33,6 @@ ELEMENT_SNOW = "surface_snow_thickness"  # snødybde (cm)
 # ----------------------------------------------------------------------
 #  Enkle caches i minne for å unngå unødvendige kall i samme prosess
 # ----------------------------------------------------------------------
-# (dato, window_days) -> liste med sourceId
-_SOURCE_UNIVERSE_CACHE: dict[tuple[_date, int], list[str]] = {}
-
-# baseId -> metadata-dict (id, name, shortName, country, lat, lon)
-_META_CACHE: dict[str, dict[str, Any]] = {}
-
-# Cache for latest (per bbox + qualities)
 _LATEST_DF_CACHE: dict[tuple, tuple[datetime, pd.DataFrame]] = {}
 LATEST_TTL_SECONDS = 3600  # 1 time
 
@@ -69,7 +65,7 @@ def frost_get_json(
     retries: int = 6,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """GET med retries (429/5xx). Returnerer JSON (inkl. ErrorResponse ved 404)."""
+    """GET med retries (429/5xx). Returnerer JSON (inkl. ErrorResponse ved 404/412)."""
     url = f"{FROST_BASE}{path}"
     backoff = 1.0
 
@@ -85,7 +81,7 @@ def frost_get_json(
         if r.status_code == 200:
             return r.json()
 
-        if r.status_code == 404:
+        if r.status_code in (404, 412):
             return r.json()
 
         if r.status_code == 429 or 500 <= r.status_code < 600:
@@ -173,79 +169,18 @@ def _parse_bbox(bbox: Optional[str]) -> Optional[Tuple[float, float, float, floa
         return None
 
 
-def _filter_meta_by_bbox(
-    meta: pd.DataFrame,
-    bbox_coords: Optional[Tuple[float, float, float, float]],
-) -> pd.DataFrame:
-    if bbox_coords is None or meta.empty:
-        return meta
-    south, west, north, east = bbox_coords
-    m = meta.copy()
-    m["lat"] = pd.to_numeric(m["lat"], errors="coerce")
-    m["lon"] = pd.to_numeric(m["lon"], errors="coerce")
-    return m[(m["lat"].between(south, north)) & (m["lon"].between(west, east))].copy()
-
-
 REGION_BBOX: dict[str, Tuple[float, float, float, float]] = {
     "south": (57.0, 4.0, 62.5, 12.5),
     "mid": (62.0, 4.0, 66.7, 16.5),
     "north": (66.3, 10.0, 71.5, 31.5),
     "all": (57.0, 4.0, 71.5, 31.5),
+    # hvis du vil: "vestland": (59.4754202, 4.0875274, 62.3823948, 8.322053),
 }
 
 
 # ======================================================================
-#  Hente stasjoner og observasjoner
+#  Observasjoner
 # ======================================================================
-
-def list_sources_with_snow_in_referencetime(
-    session: requests.Session,
-    *,
-    auth: FrostAuth,
-    referencetime: str,
-    timeout: int,
-) -> list[str]:
-    path = "/observations/availableTimeSeries/v0.jsonld"
-    params: dict[str, str | int] = {
-        "referencetime": referencetime,
-        "elements": ELEMENT_SNOW,
-        "fields": "sourceId",
-    }
-
-    source_ids: set[str] = set()
-    for page in iter_pages(session, path, params, auth=auth, timeout=timeout):
-        if page.get("@type") == "ErrorResponse":
-            continue
-        for item in page.get("data", []):
-            sid = item.get("sourceId")
-            if sid and isinstance(sid, str) and sid.startswith("SN"):
-                source_ids.add(sid)
-
-    return sorted(source_ids)
-
-
-def list_sources_for_day_window(
-    session: requests.Session,
-    *,
-    auth: FrostAuth,
-    day: _date,
-    window_days: int,
-    timeout: int,
-) -> list[str]:
-    cache_key = (day, int(window_days))
-    if cache_key in _SOURCE_UNIVERSE_CACHE:
-        return _SOURCE_UNIVERSE_CACHE[cache_key]
-
-    start = day - timedelta(days=window_days)
-    end = day + timedelta(days=window_days + 1)
-    referencetime = f"{start.isoformat()}/{end.isoformat()}"
-
-    universe = list_sources_with_snow_in_referencetime(
-        session, auth=auth, referencetime=referencetime, timeout=timeout
-    )
-    _SOURCE_UNIVERSE_CACHE[cache_key] = universe
-    return universe
-
 
 def fetch_observations_interval(
     session: requests.Session,
@@ -300,28 +235,6 @@ def fetch_observations_interval(
     return df
 
 
-def choose_nearest_per_station(df: pd.DataFrame, *, target_day: _date) -> pd.DataFrame:
-    if df.empty:
-        return df
-
-    target_dt = datetime(target_day.year, target_day.month, target_day.day, tzinfo=timezone.utc)
-    target_ts = pd.Timestamp(target_dt)
-
-    d = df.dropna(subset=["referenceTime", "value"]).copy()
-    d["value"] = pd.to_numeric(d["value"], errors="coerce")
-    d = d.dropna(subset=["value"])
-
-    d["abs_diff_s"] = (d["referenceTime"] - target_ts).abs().dt.total_seconds()
-    d = (
-        d.sort_values(["sourceId", "abs_diff_s", "referenceTime"], ascending=[True, True, False])
-        .groupby(["sourceId"], as_index=False)
-        .head(1)
-        .reset_index(drop=True)
-    )
-    d["diff_hours"] = (d["referenceTime"] - target_ts).dt.total_seconds() / 3600.0
-    return d.drop(columns=["abs_diff_s"])
-
-
 def choose_nearest_per_baseid(df: pd.DataFrame, *, target_day: _date) -> pd.DataFrame:
     """Velg nærmeste observasjon til target_day (00:00 UTC) per baseId."""
     if df.empty:
@@ -345,61 +258,143 @@ def choose_nearest_per_baseid(df: pd.DataFrame, *, target_day: _date) -> pd.Data
     return d.drop(columns=["abs_diff_s"])
 
 
-def get_sources_metadata(
+def fetch_latest_snow_for_sources(
     session: requests.Session,
     *,
     auth: FrostAuth,
-    sources: list[str],
+    source_base_ids: list[str],
     timeout: int,
     batch_size: int,
+    qualities: str = "0,1,2,3,4",
 ) -> pd.DataFrame:
-    path = "/sources/v0.jsonld"
-    mapping = {sid: base_source_id(sid) for sid in sources}
-    base_ids = sorted(set(mapping.values()))
+    if not source_base_ids:
+        return pd.DataFrame()
 
+    path = "/observations/v0.jsonld"
     rows: list[dict[str, Any]] = []
 
-    missing = [bid for bid in base_ids if bid not in _META_CACHE]
-
-    for batch in chunked(missing, batch_size):
-        if not batch:
-            break
+    for batch in chunked(source_base_ids, batch_size):
         params: dict[str, str | int] = {
-            "ids": ",".join(batch),
-            "fields": "id,name,shortName,country,geometry",
+            "sources": ",".join(batch),
+            "referencetime": "latest",
+            "elements": ELEMENT_SNOW,
+            "limit": 1,
+            "timeoffsets": "default",
+            "levels": "default",
         }
-        for page in iter_pages(session, path, params, auth=auth, timeout=timeout):
-            if page.get("@type") == "ErrorResponse":
-                continue
-            for item in page.get("data", []):
-                geom = item.get("geometry") or {}
-                coords = geom.get("coordinates")  # [lon, lat]
-                lon = lat = None
-                if isinstance(coords, (list, tuple)) and len(coords) >= 2:
-                    lon, lat = coords[0], coords[1]
-                meta_rec = {
-                    "baseId": item.get("id"),
-                    "name": item.get("name"),
-                    "shortName": item.get("shortName"),
-                    "country": item.get("country"),
-                    "lat": lat,
-                    "lon": lon,
-                }
-                if meta_rec["baseId"]:
-                    _META_CACHE[meta_rec["baseId"]] = meta_rec
+        if qualities:
+            params["qualities"] = qualities
 
-    for bid in base_ids:
-        rec = _META_CACHE.get(bid)
-        if rec:
-            rows.append(rec)
+        data = frost_get_json(session, path, params, auth=auth, timeout=timeout)
+        if data.get("@type") == "ErrorResponse":
+            continue
 
-    meta = pd.DataFrame(rows, columns=["baseId", "name", "shortName", "country", "lat", "lon"])
-    link = pd.DataFrame({"sourceId": list(mapping.keys()), "baseId": list(mapping.values())})
-    return link.merge(meta, on="baseId", how="left").drop(columns=["baseId"])
+        for item in data.get("data", []):
+            sid = item.get("sourceId")
+            item_rt = item.get("referenceTime")
+            for obs in item.get("observations", []):
+                rows.append(
+                    {
+                        "sourceId": sid,
+                        "referenceTime": obs.get("referenceTime") or item_rt,
+                        "elementId": obs.get("elementId"),
+                        "value": obs.get("value"),
+                        "unit": obs.get("unit"),
+                        "qualityCode": obs.get("qualityCode"),
+                    }
+                )
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    df["referenceTime"] = pd.to_datetime(df["referenceTime"], errors="coerce", utc=True)
+    df["value"] = pd.to_numeric(df["value"], errors="coerce")
+    return df.dropna(subset=["referenceTime", "value"])
+
+
+def fetch_snow_for_baseids_with_fallback(
+    session: requests.Session,
+    *,
+    auth: FrostAuth,
+    base_ids: list[str],
+    target_day: _date,
+    window_days: int,
+    timeout: int,
+    batch_size: int,
+    limit: int = 1000,
+    qualities: str = "",
+) -> pd.DataFrame:
+    if not base_ids:
+        return pd.DataFrame()
+
+    day_rt = f"{target_day.isoformat()}/{(target_day + timedelta(days=1)).isoformat()}"
+
+    df_day = fetch_observations_interval(
+        session,
+        auth=auth,
+        sources=base_ids,
+        referencetime=day_rt,
+        timeout=timeout,
+        batch_size=batch_size,
+        limit=limit,
+        qualities=qualities,
+    )
+
+    df_fb = pd.DataFrame()
+    if window_days > 0:
+        fb_start = target_day - timedelta(days=window_days)
+        fb_end = target_day + timedelta(days=window_days + 1)
+        fb_rt = f"{fb_start.isoformat()}/{fb_end.isoformat()}"
+        df_fb = fetch_observations_interval(
+            session,
+            auth=auth,
+            sources=base_ids,
+            referencetime=fb_rt,
+            timeout=timeout,
+            batch_size=batch_size,
+            limit=limit,
+            qualities=qualities,
+        )
+
+    df_all = pd.concat([df_day, df_fb], ignore_index=True)
+    if df_all.empty:
+        return df_all
+
+    df_all["baseId"] = df_all["sourceId"].astype(str).map(base_source_id)
+    return choose_nearest_per_baseid(df_all, target_day=target_day)
 
 
 # ======================================================================
-#  Kartbygging
+#  Stasjoner fra parquet (has_snow)
+# ======================================================================
+
+def _stations_meta_for_bbox(
+    bbox_coords: Optional[Tuple[float, float, float, float]]
+) -> pd.DataFrame:
+    """
+    Returnerer stasjoner (metadata) fra parquet, filtrert på bbox og has_snow=True.
+    Output-kolonner minst: baseId,name,shortName,country,lat,lon
+    """
+    if bbox_coords is not None:
+        st = stations_in_bbox_swne_with(bbox_coords, require_snow=True)
+    else:
+        st = load_station_db()
+        if not st.empty:
+            st = st[st["has_snow"] == True].copy()
+
+    if st.empty:
+        return pd.DataFrame(columns=["baseId", "name", "shortName", "country", "lat", "lon"])
+
+    keep = [c for c in ["baseId", "name", "shortName", "country", "lat", "lon"] if c in st.columns]
+    st = st[keep].copy()
+    st["lat"] = pd.to_numeric(st["lat"], errors="coerce")
+    st["lon"] = pd.to_numeric(st["lon"], errors="coerce")
+    st = st.dropna(subset=["baseId", "lat", "lon"]).drop_duplicates(subset=["baseId"], keep="first")
+    return st.reset_index(drop=True)
+
+
+# ======================================================================
+#  Kartbygging (uendret)
 # ======================================================================
 
 def _color_cm_quantile(cm: float, p10: float, p90: float, blue_threshold: float = 50.0) -> str:
@@ -493,7 +488,6 @@ def make_map(
         except Exception:
             pass
 
-    # Heatmap: for endring bruker vi abs for "styrke"
     if is_change:
         vals = d["value"].abs().clip(lower=0.0)
     else:
@@ -586,7 +580,6 @@ def make_map(
     else:
         layer_for_markers = points_layer
 
-    # Farger/størrelser basert på fordeling i utsnittet (for endring: abs)
     _vals = pd.to_numeric(d["value"].abs() if is_change else d["value"], errors="coerce").dropna()
     if len(_vals) > 0:
         p10 = float(_vals.quantile(0.10))
@@ -609,7 +602,6 @@ def make_map(
         name = (r.get("name") or r.get("shortName") or r.get("sourceId"))
         unit = r.get("unit") or "cm"
 
-        # popup/tooltip
         if "delta_cm" in d.columns and pd.notna(r.get("delta_cm")) and pd.notna(r.get("value_latest")) and pd.notna(r.get("value_since")):
             delta = float(r["delta_cm"])
             latest_v = float(r["value_latest"])
@@ -664,7 +656,7 @@ def make_map(
             snow=float(cm_abs if is_change else val),
         ).add_to(layer_for_markers)
 
-    # Enkel overlay: topp 20 (gjenbruker din stil)
+    # (overlay + refresh JS beholdt som i din fil)
     try:
         import html as _html
 
@@ -796,140 +788,8 @@ def make_map(
 
 
 # ======================================================================
-#  Data builders
+#  Data builders (nå uten /sources)
 # ======================================================================
-
-def bbox_to_wkt_polygon(bbox: Tuple[float, float, float, float]) -> str:
-    south, west, north, east = bbox
-    return (
-        f"POLYGON(({west} {south}, {east} {south}, {east} {north}, "
-        f"{west} {north}, {west} {south}))"
-    )
-
-
-def list_sources_in_bbox(
-    session: requests.Session,
-    *,
-    auth: FrostAuth,
-    bbox: Tuple[float, float, float, float],
-    timeout: int,
-) -> pd.DataFrame:
-    path = "/sources/v0.jsonld"
-    wkt = bbox_to_wkt_polygon(bbox)
-
-    base_params: dict[str, str | int] = {
-        "types": "SensorSystem",
-        "country": "NO",
-        "geometry": wkt,
-        "fields": "id,name,shortName,country,geometry",
-    }
-
-    rows: list[dict[str, Any]] = []
-    first = frost_get_json(session, path, base_params, auth=auth, timeout=timeout)
-    if first.get("@type") == "ErrorResponse":
-        return pd.DataFrame(columns=["baseId", "name", "shortName", "country", "lat", "lon"])
-
-    def _consume(page: dict[str, Any]) -> None:
-        for item in page.get("data", []):
-            geom = item.get("geometry") or {}
-            coords = geom.get("coordinates")
-            lon = lat = None
-            if isinstance(coords, (list, tuple)) and len(coords) >= 2:
-                lon, lat = coords[0], coords[1]
-            rows.append(
-                {
-                    "baseId": item.get("id"),
-                    "name": item.get("name"),
-                    "shortName": item.get("shortName"),
-                    "country": item.get("country"),
-                    "lat": lat,
-                    "lon": lon,
-                }
-            )
-
-    _consume(first)
-
-    try:
-        total = int(first.get("totalItemCount", 0))
-        offset = int(first.get("offset", 0))
-        per_page = int(first.get("itemsPerPage", 0))
-    except Exception:
-        total = offset = per_page = 0
-
-    if total > 0 and per_page > 0:
-        next_offset = offset + per_page
-        while next_offset < total:
-            p = dict(base_params)
-            p["offset"] = next_offset
-            page = frost_get_json(session, path, p, auth=auth, timeout=timeout)
-            if page.get("@type") == "ErrorResponse":
-                break
-            _consume(page)
-            try:
-                offset = int(page.get("offset", next_offset))
-                per_page = int(page.get("itemsPerPage", per_page))
-                total = int(page.get("totalItemCount", total))
-            except Exception:
-                break
-            next_offset = offset + per_page
-
-    df = pd.DataFrame(rows)
-    return df.dropna(subset=["baseId"]).reset_index(drop=True)
-
-
-def fetch_latest_snow_for_sources(
-    session: requests.Session,
-    *,
-    auth: FrostAuth,
-    source_base_ids: list[str],
-    timeout: int,
-    batch_size: int,
-    qualities: str = "0,1,2,3,4",
-) -> pd.DataFrame:
-    if not source_base_ids:
-        return pd.DataFrame()
-
-    path = "/observations/v0.jsonld"
-    rows: list[dict[str, Any]] = []
-
-    for batch in chunked(source_base_ids, batch_size):
-        params: dict[str, str | int] = {
-            "sources": ",".join(batch),
-            "referencetime": "latest",
-            "elements": ELEMENT_SNOW,
-            "limit": 1,
-            "timeoffsets": "default",
-            "levels": "default",
-        }
-        if qualities:
-            params["qualities"] = qualities
-
-        data = frost_get_json(session, path, params, auth=auth, timeout=timeout)
-        if data.get("@type") == "ErrorResponse":
-            continue
-
-        for item in data.get("data", []):
-            sid = item.get("sourceId")
-            item_rt = item.get("referenceTime")
-            for obs in item.get("observations", []):
-                rows.append(
-                    {
-                        "sourceId": sid,
-                        "referenceTime": obs.get("referenceTime") or item_rt,
-                        "elementId": obs.get("elementId"),
-                        "value": obs.get("value"),
-                        "unit": obs.get("unit"),
-                        "qualityCode": obs.get("qualityCode"),
-                    }
-                )
-
-    df = pd.DataFrame(rows)
-    if df.empty:
-        return df
-    df["referenceTime"] = pd.to_datetime(df["referenceTime"], errors="coerce", utc=True)
-    df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    return df.dropna(subset=["referenceTime", "value"])
-
 
 def _get_latest_cached(
     session: requests.Session,
@@ -944,9 +804,9 @@ def _get_latest_cached(
     now = datetime.now(timezone.utc)
     cache_key = (tuple(round(x, 6) for x in bbox_coords), str(qualities_latest).strip())
 
-    meta = list_sources_in_bbox(session, auth=auth, bbox=bbox_coords, timeout=timeout)
+    meta = _stations_meta_for_bbox(bbox_coords)
     if meta.empty:
-        raise RuntimeError("Fant ingen stasjoner i valgt bbox.")
+        raise RuntimeError("Fant ingen has_snow-stasjoner i valgt bbox (parquet).")
     base_ids = meta["baseId"].astype(str).tolist()
 
     hit = _LATEST_DF_CACHE.get(cache_key)
@@ -986,11 +846,13 @@ def build_snow_df_latest_fast_south_first(
     bbox_coords: Tuple[float, float, float, float] = (57.0, 4.0, 62.5, 12.5),
 ) -> tuple[pd.DataFrame, datetime]:
     auth = _env_auth()
+
+    meta = _stations_meta_for_bbox(bbox_coords)
+    if meta.empty:
+        raise RuntimeError("Fant ingen has_snow-stasjoner i valgt bbox (parquet).")
+    base_ids = meta["baseId"].astype(str).tolist()
+
     with requests.Session() as sess:
-        meta = list_sources_in_bbox(sess, auth=auth, bbox=bbox_coords, timeout=timeout)
-        if meta.empty:
-            raise RuntimeError("Fant ingen stasjoner i valgt bbox.")
-        base_ids = meta["baseId"].astype(str).tolist()
         obs = fetch_latest_snow_for_sources(
             sess,
             auth=auth,
@@ -1007,58 +869,6 @@ def build_snow_df_latest_fast_south_first(
     obs["baseId"] = obs["sourceId"].astype(str).map(base_source_id)
     df = obs.merge(meta, on="baseId", how="left").drop(columns=["baseId"])
     return df, now
-
-
-def fetch_snow_for_baseids_with_fallback(
-    session: requests.Session,
-    *,
-    auth: FrostAuth,
-    base_ids: list[str],
-    target_day: _date,
-    window_days: int,
-    timeout: int,
-    batch_size: int,
-    limit: int = 1000,
-    qualities: str = "",
-) -> pd.DataFrame:
-    if not base_ids:
-        return pd.DataFrame()
-
-    day_rt = f"{target_day.isoformat()}/{(target_day + timedelta(days=1)).isoformat()}"
-
-    df_day = fetch_observations_interval(
-        session,
-        auth=auth,
-        sources=base_ids,
-        referencetime=day_rt,
-        timeout=timeout,
-        batch_size=batch_size,
-        limit=limit,
-        qualities=qualities,
-    )
-
-    df_fb = pd.DataFrame()
-    if window_days > 0:
-        fb_start = target_day - timedelta(days=window_days)
-        fb_end = target_day + timedelta(days=window_days + 1)
-        fb_rt = f"{fb_start.isoformat()}/{fb_end.isoformat()}"
-        df_fb = fetch_observations_interval(
-            session,
-            auth=auth,
-            sources=base_ids,
-            referencetime=fb_rt,
-            timeout=timeout,
-            batch_size=batch_size,
-            limit=limit,
-            qualities=qualities,
-        )
-
-    df_all = pd.concat([df_day, df_fb], ignore_index=True)
-    if df_all.empty:
-        return df_all
-
-    df_all["baseId"] = df_all["sourceId"].astype(str).map(base_source_id)
-    return choose_nearest_per_baseid(df_all, target_day=target_day)
 
 
 def build_snow_df_change_since(
@@ -1138,6 +948,12 @@ def build_snow_df_for_day(
     qualities: str = "",
     bbox_coords: Optional[Tuple[float, float, float, float]] = None,
 ) -> tuple[pd.DataFrame, _date]:
+    """
+    Day-mode uten /availableTimeSeries og uten /sources:
+    - stasjoner fra parquet (has_snow) + bbox
+    - hent obs i dag og fallback-vindu
+    - velg nærmeste per baseId
+    """
     auth = _env_auth()
 
     if date_str:
@@ -1145,67 +961,30 @@ def build_snow_df_for_day(
     else:
         day = _date.today()
 
-    day_rt = f"{day.isoformat()}/{(day + timedelta(days=1)).isoformat()}"
+    meta = _stations_meta_for_bbox(bbox_coords)
+    if meta.empty:
+        raise RuntimeError("Fant ingen has_snow-stasjoner i utsnittet (parquet).")
+
+    base_ids = meta["baseId"].astype(str).tolist()
 
     with requests.Session() as sess:
-        universe = list_sources_for_day_window(
-            sess, auth=auth, day=day, window_days=window_days, timeout=timeout
-        )
-        if not universe:
-            raise RuntimeError("Fant ingen stasjoner med snødybde-serie i valgt vindu. Prøv større window_days.")
-
-        meta_all = get_sources_metadata(
+        obs = fetch_snow_for_baseids_with_fallback(
             sess,
             auth=auth,
-            sources=universe,
-            timeout=timeout,
-            batch_size=batch_size,
-        )
-        if meta_all.empty:
-            raise RuntimeError("Fant stasjoner, men ingen koordinater fra /sources.")
-
-        meta_filtered = _filter_meta_by_bbox(meta_all, bbox_coords)
-        if meta_filtered.empty:
-            raise RuntimeError("Ingen stasjoner innenfor valgt kartutsnitt.")
-
-        sources_in_view = meta_filtered["sourceId"].astype(str).unique().tolist()
-
-        df_day = fetch_observations_interval(
-            sess,
-            auth=auth,
-            sources=sources_in_view,
-            referencetime=day_rt,
+            base_ids=base_ids,
+            target_day=day,
+            window_days=window_days,
             timeout=timeout,
             batch_size=batch_size,
             limit=limit,
             qualities=qualities,
         )
 
-        have = set(df_day["sourceId"].unique()) if not df_day.empty else set()
-        missing = [s for s in sources_in_view if s not in have]
-
-        df_fb = pd.DataFrame()
-        if missing and window_days > 0:
-            fb_start = day - timedelta(days=window_days)
-            fb_end = day + timedelta(days=window_days + 1)
-            fb_rt = f"{fb_start.isoformat()}/{fb_end.isoformat()}"
-            df_fb = fetch_observations_interval(
-                sess,
-                auth=auth,
-                sources=missing,
-                referencetime=fb_rt,
-                timeout=timeout,
-                batch_size=batch_size,
-                limit=limit,
-                qualities=qualities,
-            )
-
-    df_all = pd.concat([df_day, df_fb], ignore_index=True)
-    obs = choose_nearest_per_station(df_all, target_day=day)
     if obs.empty:
-        raise RuntimeError("Ingen observasjoner funnet selv med fallback.")
+        raise RuntimeError("Ingen observasjoner funnet (selv med fallback).")
 
-    df = obs.merge(meta_filtered, on="sourceId", how="left")
+    df = obs.merge(meta, on="baseId", how="left").drop(columns=["baseId"])
+    df = df.dropna(subset=["lat", "lon", "value"]).reset_index(drop=True)
     return df, day
 
 
@@ -1332,7 +1111,7 @@ def build_snow_map_html(
 def main() -> None:
     ap = argparse.ArgumentParser(
         description=(
-            "Snødybde-kart fra Frost. "
+            "Snødybde-kart fra Frost, med stasjonsliste fra parquet (has_snow). "
             "Mode 'latest' = siste verdi. Mode 'day' = gitt dato med fallback ±N dager. "
             "Ny: --change for endring (latest - baseline)."
         )
@@ -1355,7 +1134,6 @@ def main() -> None:
     ap.add_argument("--heat-blur", type=int, default=18)
     ap.add_argument("--heat-clip-cm", type=float, default=200.0)
 
-    # endring
     ap.add_argument("--change", action="store_true")
     ap.add_argument(
         "--since",
@@ -1447,5 +1225,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
