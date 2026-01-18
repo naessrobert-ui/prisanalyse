@@ -16,7 +16,7 @@ import requests
 from dotenv import load_dotenv
 
 import folium
-from folium.plugins import HeatMap, MarkerCluster
+from folium.plugins import HeatMap  # MarkerCluster fjernet
 
 from ver_station_db import load_station_db, stations_in_bbox_swne_with
 
@@ -348,7 +348,7 @@ def make_map(
     *,
     title: str,
     out_html: Optional[str] = None,
-    cluster: bool = True,
+    cluster: bool = False,  # default endret: ingen clustering
     heatmap_show: bool = True,
     heat_radius: int = 25,
     heat_blur: int = 18,
@@ -443,7 +443,9 @@ def make_map(
 
     points_layer = folium.FeatureGroup(name="Stasjoner", show=True)
     points_layer.add_to(m)
-    layer_for_markers = MarkerCluster().add_to(points_layer) if cluster else points_layer
+
+    # === Viktig endring: Ingen MarkerCluster. Legg markører direkte i points_layer.
+    layer_for_markers = points_layer
 
     marker_map: dict[str, str] = {}
 
@@ -601,7 +603,7 @@ def build_sunshine_map_html(
     batch_size: int = 80,
     limit: int = 1000,
     qualities: str = "0,1,2,3,4",
-    cluster: bool = True,
+    cluster: bool = False,        # default endret: ingen clustering
     show_heatmap: bool = True,
     heat_radius: int = 25,
     heat_blur: int = 18,
@@ -715,7 +717,7 @@ def build_sunshine_map_html(
         merged,
         title=title,
         out_html=None,
-        cluster=cluster,
+        cluster=cluster,  # beholdt parameter (men default er nå False)
         heatmap_show=show_heatmap,
         heat_radius=heat_radius,
         heat_blur=heat_blur,
@@ -742,9 +744,11 @@ def main() -> None:
         mode=args.mode,  # type: ignore[arg-type]
         bbox=args.bbox or None,
         show_heatmap=True,
+        cluster=False,   # eksplisitt: aldri clustering i CLI
     )
     print(html[:800])
 
 
 if __name__ == "__main__":
     main()
+
