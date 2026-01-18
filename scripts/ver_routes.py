@@ -1,7 +1,22 @@
 from __future__ import annotations
 
+import math
+import time
+from dataclasses import dataclass
 from datetime import date as _date
-from flask import Blueprint, request, render_template, Response
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional, Tuple
+
+import requests
+from flask import Blueprint, request, render_template, Response, jsonify
+from mapbox_vector_tile import decode as mvt_decode
+
+try:
+    from zoneinfo import ZoneInfo  # py3.9+
+
+    OSLO = ZoneInfo("Europe/Oslo")
+except Exception:
+    OSLO = timezone.utc  # fallback
 
 from snow_map import build_snow_map_html
 from precip_map import build_precip_map_html
@@ -10,6 +25,46 @@ from temp_map import build_min_temp_map_html
 
 # ✅ Blueprint heter "ver" og URL-prefix er /ver
 ver = Blueprint("ver", __name__, url_prefix="/ver")
+
+
+# =========================
+# SKILØYPER (Kvamskogen)
+# =========================
+UPSTREAM_SEGMENTS = "https://api.loyper.net/segments/{z}/{x}/{y}"
+_loyper_session = requests.Session()
+
+# Kvamskogen (fra URL-en din)
+KVAM_LAT = 60.37834747146485
+KVAM_LNG = 5.979590206513535
+KVAM_LOCATION_ID = "kvamskogen"
+
+
+def _latlng_to_tile(lat: float, lng: float, z: int) -> Tuple[int, int]:
+    n = 2 ** z
+    x = int((lng + 180.0) / 360.0 * n)
+    lat_rad = math.radians(lat)
+    y = int((1.0 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2.0 * n)
+    return x, y
+
+
+def _parse_last_update(s: Any) -> Optional[datetime]:
+    """Forventet format: 'YYYY-MM-DD HH:MM:SS' (tolkes som Europe/Oslo)."""
+    if not s:
+        return None
+    try:
+        local_dt = datetime.strptime(str(s), "%Y-%m-%d %H:%M:%S").replace(tzinfo=OSLO)
+        return local_dt.astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+@dataclass
+class _CacheEntry:
+    expires_at: float
+    payload: dict
+
+
+_STATS_CACHE: Dict[tuple, _CacheEntry] = {}
 
 
 # =========================
@@ -72,11 +127,164 @@ def ver_hub() -> str:
           <p class="muted">Velg fylke og se nyeste døgn-min (P1D) per stasjon.</p>
           <a class="btn btn-red" href="/ver/min-temp">Åpne</a>
         </div>
+
+        <div class="card">
+          <h2>Skiløyper – Kvamskogen</h2>
+          <p class="muted">Sanntids løypestatus (preparering) med alder-farger og egne markeringer.</p>
+          <a class="btn" href="/ver/skiloyper-kvamskogen">Åpne</a>
+        </div>
       </div>
     </div>
   </body>
 </html>
 """
+
+
+@ver.get("/skiloyper-kvamskogen")
+def skiloyper_kvamskogen_index():
+    # NB: legg loypekart_kvamskogen.html i templates/ver/
+    return render_template("ver/loypekart_kvamskogen.html")
+
+
+@ver.get("/skiloyper-kvamskogen/tiles/segments/<int:z>/<int:x>/<int:y>.pbf")
+def skiloyper_kvamskogen_tile(z: int, x: int, y: int):
+    """Proxy for løyper.net tiles slik at alt går under prisanalyse.no (samme origin)."""
+    url = UPSTREAM_SEGMENTS.format(z=z, x=x, y=y)
+    r = _loyper_session.get(url, timeout=15)
+
+    status = r.status_code
+    if status not in (200, 204):
+        return Response("Upstream error", status=status)
+
+    resp = Response(r.content, status=status, mimetype="application/x-protobuf")
+    resp.headers["Cache-Control"] = "public, max-age=60"
+    # (CORS er i praksis ikke nødvendig når vi server under samme domene,
+    # men det skader heller ikke.)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "*"
+    return resp
+
+
+@ver.get("/skiloyper-kvamskogen/stats")
+def skiloyper_kvamskogen_stats():
+    """Stats til dashboardet i kartet (sampler tiles rundt sentrum)."""
+    z = int(request.args.get("z", 13))
+    radius = int(request.args.get("radius", 2))
+    fresh_hours = int(request.args.get("fresh_hours", 12))
+    cache_seconds = int(request.args.get("cache_seconds", 60))
+
+    z = max(0, min(19, z))
+    radius = max(0, min(6, radius))
+    fresh_hours = max(1, min(72, fresh_hours))
+    cache_seconds = max(0, min(600, cache_seconds))
+
+    cache_key = ("kvamskogen", z, radius, fresh_hours)
+    now_ts = time.time()
+    if cache_seconds > 0:
+        hit = _STATS_CACHE.get(cache_key)
+        if hit and hit.expires_at > now_ts:
+            return jsonify(hit.payload)
+
+    center_x, center_y = _latlng_to_tile(KVAM_LAT, KVAM_LNG, z)
+    now_utc = datetime.now(timezone.utc)
+    fresh_seconds = fresh_hours * 3600
+
+    seen = set()  # (id, track_id)
+    total = 0
+    active = 0
+    freshly_groomed = 0
+
+    newest_dt_utc: Optional[datetime] = None
+    newest_dt_local: Optional[datetime] = None
+    newest_seg_id: Optional[Any] = None
+    newest_track_id: Optional[Any] = None
+    newest_age_seconds: Optional[float] = None
+
+    with_last_update = 0
+    missing_last_update = 0
+
+    for dx in range(-radius, radius + 1):
+        for dy in range(-radius, radius + 1):
+            x = center_x + dx
+            y = center_y + dy
+            url = UPSTREAM_SEGMENTS.format(z=z, x=x, y=y)
+            r = _loyper_session.get(url, timeout=15)
+            if r.status_code == 204:
+                continue
+            if r.status_code != 200:
+                continue
+
+            try:
+                tile = mvt_decode(r.content)
+            except Exception:
+                continue
+
+            layer = tile.get("segments")
+            if not layer:
+                continue
+
+            for f in layer.get("features", []):
+                props: Dict[str, Any] = f.get("properties", {}) or {}
+                if str(props.get("location_id", "")) != KVAM_LOCATION_ID:
+                    continue
+
+                seg_id = props.get("id")
+                track_id = props.get("track_id")
+                key = (seg_id, track_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                total += 1
+                is_active = bool(props.get("is_active"))
+                if is_active:
+                    active += 1
+
+                last_dt_utc = _parse_last_update(props.get("last_update"))
+                if last_dt_utc:
+                    with_last_update += 1
+
+                    if newest_dt_utc is None or last_dt_utc > newest_dt_utc:
+                        newest_dt_utc = last_dt_utc
+                        newest_dt_local = last_dt_utc.astimezone(OSLO)
+                        newest_seg_id = seg_id
+                        newest_track_id = track_id
+                        newest_age_seconds = (now_utc - last_dt_utc).total_seconds()
+
+                    # "nylig preparert": aktiv + ikke open_not_groomed + innen fresh_hours
+                    if is_active and (not bool(props.get("open_not_groomed"))):
+                        age = (now_utc - last_dt_utc).total_seconds()
+                        if age <= fresh_seconds:
+                            freshly_groomed += 1
+                else:
+                    missing_last_update += 1
+
+    payload = {
+        "location_id": KVAM_LOCATION_ID,
+        "fresh_hours": fresh_hours,
+        "sample": {"z": z, "radius": radius, "tiles": (2 * radius + 1) ** 2},
+        "counts": {
+            "segments_total": total,
+            "segments_active": active,
+            "segments_freshly_groomed": freshly_groomed,
+        },
+        "updates": {
+            "latest_update_utc": newest_dt_utc.isoformat() if newest_dt_utc else None,
+            "latest_update_local": newest_dt_local.isoformat() if newest_dt_local else None,
+            "newest_segment": {
+                "id": newest_seg_id,
+                "track_id": newest_track_id,
+                "age_seconds": newest_age_seconds,
+            },
+            "coverage": {"with_last_update": with_last_update, "missing_last_update": missing_last_update},
+        },
+    }
+
+    if cache_seconds > 0:
+        _STATS_CACHE[cache_key] = _CacheEntry(expires_at=now_ts + cache_seconds, payload=payload)
+
+    return jsonify(payload)
 
 
 # =========================

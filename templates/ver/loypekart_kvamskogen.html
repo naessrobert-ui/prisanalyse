@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8" />
+  <title>Kvamskogen – løypekart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; }
+
+    .panel {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.92);
+      padding: 12px 12px;
+      border-radius: 12px;
+      font: 14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+      max-width: 420px;
+      min-width: 280px;
+    }
+
+    .title { margin: 0 0 8px 0; font-size: 15px; font-weight: 650; }
+
+    .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+    .swatch {
+      width: 26px; height: 0;
+      border-top-width: 4px; border-top-style: solid;
+      border-radius: 2px; flex: 0 0 auto;
+    }
+    .swatch.dashed { border-top-style: dashed; }
+    .muted { opacity: 0.65; }
+    .small { font-size: 12px; opacity: 0.85; margin-top: 8px; }
+
+    .controls { margin-top: 10px; font-size: 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    input[type="number"] {
+      width: 70px; padding: 4px 6px;
+      border: 1px solid rgba(0,0,0,0.18);
+      border-radius: 8px; outline: none;
+    }
+    .btn {
+      display: inline-block;
+      padding: 6px 10px; border: 1px solid rgba(0,0,0,0.18);
+      border-radius: 10px; background: white; cursor: pointer;
+      user-select: none; font-size: 12px;
+    }
+    .btn:hover { background: rgba(0,0,0,0.04); }
+
+    /* Mini-dashboard */
+
+    .dash-headline {
+      margin-top: 10px;
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    .dash {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(0,0,0,0.10);
+    }
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .card {
+      background: rgba(255,255,255,0.75);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 12px;
+      padding: 8px 10px;
+    }
+    .card .k { font-size: 12px; opacity: 0.75; }
+    .card .v { font-size: 18px; font-weight: 700; margin-top: 2px; }
+    .card .s { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.08);
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .bar > div {
+      height: 100%;
+      width: 0%;
+      background: rgba(37,99,235,0.75);
+    }
+
+    .latest {
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.9;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.05);
+    }
+    .latest b { font-weight: 700; }
+
+    /* Stor og lettlest hover-tooltip */
+    .seg-hover-tip {
+      font: 16px/1.25 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      padding: 6px 8px;
+    }
+    .seg-hover-tip b { font-weight: 750; }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <div class="panel">
+    <div class="title">Kvamskogen – løypestatus</div>
+
+    <div class="row">
+      <div class="swatch" style="border-top-color:#dc2626;"></div>
+      <div>Preparert ≤ 1 time</div>
+    </div>
+    <div class="row">
+      <div class="swatch" style="border-top-color:#16a34a;"></div>
+      <div>Preparert ≤ <span id="freshLabel">12</span> timer</div>
+    </div>
+    <div class="row">
+      <div class="swatch" style="border-top-color:#4ade80;"></div>
+      <div>Preparert ≤ 24 timer</div>
+    </div>
+    <div class="row">
+      <div class="swatch" style="border-top-color:#2563eb;"></div>
+      <div>Preparert ≤ 3 døgn</div>
+    </div>
+    <div class="row">
+      <div class="swatch" style="border-top-color:#93c5fd;"></div>
+      <div>Preparert ≤ 1 uke</div>
+    </div>
+    <div class="row">
+      <div class="swatch dashed" style="border-top-color:#1e3a8a;"></div>
+      <div>Aktiv, men ikke preparert / åpen uten prepping</div>
+    </div>
+    <div class="row muted">
+      <div class="swatch" style="border-top-color:#6b7280;"></div>
+      <div>Stengt / inaktiv</div>
+    </div>
+
+    <div class="controls">
+      <div>“Nylig” ≤ <input id="hours" type="number" min="1" step="1" value="12" /> timer</div>
+      <div class="btn" id="reload">Oppdater</div>
+    </div>
+
+    <div class="dash">
+      <div class="dash-headline" id="dashHeadline">Laster…</div>
+      <div id="dashStatus" class="small">Laster statistikk…</div>
+
+      <div class="dash-grid" id="dashGrid" style="display:none;">
+        <div class="card">
+          <div class="k">Segmenter</div>
+          <div class="v" id="vTotal">–</div>
+          <div class="s" id="sQuality">–</div>
+        </div>
+
+        <div class="card">
+          <div class="k">Aktive</div>
+          <div class="v" id="vActive">–</div>
+          <div class="s" id="sActive">–</div>
+          <div class="bar"><div id="bActive"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="k">Nylig preparert</div>
+          <div class="v" id="vFresh">–</div>
+          <div class="s" id="sFresh">–</div>
+          <div class="bar"><div id="bFresh"></div></div>
+        </div>
+      </div>
+
+      <div class="latest" id="latestBox" style="display:none;"></div>
+    </div>
+
+    <div class="small">Hover på en løype for info. Klikk for debug-popup.</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
+
+  <script>
+    const LOCATION_ID = "kvamskogen";
+    let FRESH_HOURS = 12;
+
+    // Nyeste segment fra /stats
+    let NEWEST_ID = null;
+    let NEWEST_TRACK = null;
+    let NEWEST_AGE_S = null;
+
+    // Blink state (kun for nyeste-segment overlay)
+    let blinkTimer = null;
+    let blinkOn = true;
+
+    const map = L.map("map", { zoomControl: false }).setView([60.378347, 5.979590], 13);
+
+    // Zoom-knapper oppe til høyre (panel ligger oppe til venstre)
+    L.control.zoom({ position: "topright" }).addTo(map);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap"
+    }).addTo(map);
+
+    // ---- Performance: cache date parsing ----
+    const _luCache = new Map(); // key -> Date|null
+    function parseLastUpdateCached(p) {
+      const s = p?.last_update;
+      if (!s) return null;
+
+      const key = `${p.id ?? ""}:${p.track_id ?? ""}:${s}`;
+      if (_luCache.has(key)) return _luCache.get(key);
+
+      const iso = String(s).replace(" ", "T");
+      const d = new Date(iso);
+      const out = isNaN(d.getTime()) ? null : d;
+
+      _luCache.set(key, out);
+      if (_luCache.size > 5000) _luCache.clear();
+      return out;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function hoursSince(dateObj) {
+      if (!dateObj) return Infinity;
+      return (Date.now() - dateObj.getTime()) / (1000 * 60 * 60);
+    }
+
+    function formatAge(ms) {
+      if (!Number.isFinite(ms) || ms < 0) return "ukjent";
+
+      const minutes = Math.floor(ms / 60000);
+      if (minutes < 60) return `${minutes} min`;
+
+      const hours = Math.floor(minutes / 60);
+      const remMin = minutes % 60;
+
+      // < 3 timer: vis timer + min
+      if (hours < 3) return `${hours} t ${remMin} min`;
+
+      // 3t til < 24t: vis bare timer
+      if (hours < 24) return `${hours} t`;
+
+      const days = Math.floor(hours / 24);
+      const remH = hours % 24;
+
+      // 1–2 døgn (og opp til < 3 døgn): vis dager + timer
+      if (days < 3) return `${days} d ${remH} t`;
+
+      // >= 3 døgn: vis bare dager
+      return `${days} d`;
+    }
+
+function updateDashboardHeadline(ageSeconds) {
+      const el = document.getElementById("dashHeadline");
+      if (!el) return;
+
+      if (ageSeconds == null || !Number.isFinite(ageSeconds) || ageSeconds < 0) {
+        el.textContent = "Oppdatert: ukjent";
+        return;
+      }
+
+      const ms = ageSeconds * 1000;
+      const minutes = Math.floor(ms / 60000);
+      const hours = ms / 3600000;
+      const days = Math.floor(hours / 24);
+
+      if (ms <= 3600000) {
+        const minTxt = Math.max(1, minutes);
+        el.textContent = `Prepareres nå – siste oppdatering ${minTxt} minutter siden`;
+        return;
+      }
+
+      if (ms < 86400000) {
+        el.textContent = `Nylig kjørt – ${formatAge(ms)} siden`;
+        return;
+      }
+
+      // 1 døgn+
+      const dTxt = days === 1 ? "1 dag" : `${days} dager`;
+      if (ms < 7 * 86400000) {
+        el.textContent = `Oppdatert ${dTxt} siden`;
+      } else {
+        el.textContent = `Ikkekjørt på ${dTxt}`;
+      }
+    }
+
+    // ---- Styling ----
+    function isKvamskogen(p) {
+      return String(p.location_id) === LOCATION_ID;
+    }
+
+    function isNewestSegment(p) {
+      return (
+        NEWEST_ID != null &&
+        NEWEST_TRACK != null &&
+        String(p.id) === String(NEWEST_ID) &&
+        String(p.track_id) === String(NEWEST_TRACK)
+      );
+    }
+
+    // 1) Hovedlag: alle segmenter unntatt open_not_groomed (de tegnes i egne lag)
+    function styleMain(p) {
+      if (!isKvamskogen(p)) return { opacity: 0, weight: 0 };
+      if (p.open_not_groomed) return { opacity: 0, weight: 0 };
+
+      // Inaktiv
+      if (!p.is_active) {
+        return { color: "#6b7280", weight: 3, opacity: 0.65 };
+      }
+
+      const lastDate = parseLastUpdateCached(p);
+      const ageH = hoursSince(lastDate);
+      if (!Number.isFinite(ageH)) {
+        // Ukjent dato: vis som "gammel", men fortsatt synlig
+        return { color: "#475569", weight: 3.2, opacity: 0.75 };
+      }
+
+      // Fargeskala (stabil - ingen blinking her)
+      if (ageH <= 1)   return { color: "#dc2626", weight: 5.5, opacity: 1.0 }; // rød
+      if (ageH <= FRESH_HOURS) return { color: "#16a34a", weight: 5, opacity: 1.0 }; // kraftig grønn
+      if (ageH <= 24)  return { color: "#4ade80", weight: 4, opacity: 0.9 };   // lysere grønn
+      if (ageH <= 72)  return { color: "#2563eb", weight: 3.5, opacity: 0.9 }; // blå
+      if (ageH <= 168) return { color: "#93c5fd", weight: 3.2, opacity: 0.85 }; // lys blå
+
+      // Eldre enn 1 uke: synlig, men dempet (ikke "usynlig")
+      return { color: "#475569", weight: 3.2, opacity: 0.75 };
+    }
+
+    // 2) open_not_groomed: outline (lys) + inner (mørk striplet)
+    function styleOpenOutline(p) {
+      if (!isKvamskogen(p)) return { opacity: 0, weight: 0 };
+      if (!(p.is_active && p.open_not_groomed)) return { opacity: 0, weight: 0 };
+      return { color: "#e0f2fe", weight: 8, opacity: 0.95 };
+    }
+    function styleOpenInner(p) {
+      if (!isKvamskogen(p)) return { opacity: 0, weight: 0 };
+      if (!(p.is_active && p.open_not_groomed)) return { opacity: 0, weight: 0 };
+      return { color: "#1e3a8a", weight: 4.5, opacity: 1.0, dashArray: "7,6" };
+    }
+
+    // 3) Nyeste-segment overlay (blinker alene, slik at resten ikke "flickrer")
+    function styleNewestBlink(p) {
+      if (!isKvamskogen(p)) return { opacity: 0, weight: 0 };
+      const newestUnder1h = (NEWEST_AGE_S != null && NEWEST_AGE_S <= 3600);
+      if (!newestUnder1h) return { opacity: 0, weight: 0 };
+      if (!isNewestSegment(p)) return { opacity: 0, weight: 0 };
+      return {
+        color: "#dc2626",
+        weight: 6,
+        opacity: blinkOn ? 1.0 : 0.15
+      };
+    }
+
+    // Usynlig "hit"-style for mer følsom hover
+    function styleHit(p) {
+      if (String(p.location_id) !== LOCATION_ID) return { opacity: 0, weight: 0 };
+      return { color: "#000000", weight: 14, opacity: 0.0 };
+    }
+
+    // ---- Tooltip (hover) ----
+    let hoverTip = null;
+    let lastHoverKey = null;
+    let rafPending = false;
+    let pendingEvt = null;
+
+    function ensureHoverTip() {
+      if (!hoverTip) hoverTip = L.tooltip({ sticky: true, opacity: 0.95, direction: "top" });
+      return hoverTip;
+    }
+
+    function makeHoverHTML(p) {
+      const lastDate = parseLastUpdateCached(p);
+      const ageMs = lastDate ? (Date.now() - lastDate.getTime()) : NaN;
+      const ageTxt = lastDate ? formatAge(ageMs) : "ukjent";
+
+      return `
+        <div class="seg-hover-tip">
+          <div><b>${escapeHtml(p.name ?? "Løype")}</b></div>
+          <div style="opacity:.85;">Sist preparert: ${ageTxt} siden</div>
+        </div>
+      `;
+    }
+
+    // ---- Klikk-popup (debug) ----
+    function makePopupHTML(p) {
+      const lastDate = parseLastUpdateCached(p);
+      const ageMs = lastDate ? (Date.now() - lastDate.getTime()) : NaN;
+      const ageTxt = lastDate ? formatAge(ageMs) : "ukjent";
+
+      const derived =
+        (p.is_active && !p.open_not_groomed && Number.isFinite(ageMs) && (ageMs/3600000) <= FRESH_HOURS) ? "NYLIG PREPARERT" :
+        (p.is_active ? "AKTIV (ikke nylig preparert)" : "INAKTIV");
+
+      const newestTag =
+        (NEWEST_ID != null && String(p.id) === String(NEWEST_ID) && NEWEST_AGE_S != null)
+          ? ` <span style="margin-left:6px; padding:2px 6px; border-radius:999px; background:rgba(255,0,0,0.12); color:#b91c1c; font-weight:700;">
+              NYESTE (${Math.round(NEWEST_AGE_S/60)} min)
+            </span>`
+          : "";
+
+      return `
+        <div style="font:14px system-ui; max-width: 680px;">
+          <div style="margin-bottom:6px;"><b>Status:</b> ${derived}${newestTag}</div>
+
+          <div style="margin:6px 0 8px 0; padding:6px 8px; border-radius:10px; background:rgba(0,0,0,0.06); display:inline-block;">
+            <b>Sist preparert:</b> ${ageTxt} siden
+          </div>
+
+          <div><b>id:</b> ${p.id ?? ""}</div>
+          <div><b>track_id:</b> ${p.track_id ?? ""}</div>
+          <div><b>is_active:</b> ${p.is_active}</div>
+          <div><b>open_not_groomed:</b> ${p.open_not_groomed}</div>
+          <div><b>lighted:</b> ${p.lighted}</div>
+
+          <hr/>
+          <details>
+            <summary>Vis rå-data</summary>
+            <pre style="margin:8px 0 0 0; white-space:pre-wrap;">${escapeHtml(JSON.stringify(p, null, 2))}</pre>
+          </details>
+        </div>
+      `;
+    }
+
+    // ---- Blink control (kun redraw, ingen refetch) ----
+    function startBlink() {
+      if (blinkTimer) return;
+      blinkOn = true;
+      blinkTimer = setInterval(() => {
+        blinkOn = !blinkOn;
+        // Viktig: kun blink-laget redrawes, ikke alle segmenter
+        if (segmentsNewestLayer) segmentsNewestLayer.redraw();
+      }, 600);
+    }
+
+    function stopBlink() {
+      if (!blinkTimer) return;
+      clearInterval(blinkTimer);
+      blinkTimer = null;
+      blinkOn = true;
+      if (segmentsNewestLayer) segmentsNewestLayer.redraw();
+    }
+
+    // ---- Layers: visual + hit ----
+    let segmentsMainLayer = null;
+    let segmentsOpenOutlineLayer = null;
+    let segmentsOpenInnerLayer = null;
+    let segmentsNewestLayer = null;
+    let segmentsHitLayer = null;
+
+    function addSegmentsLayer() {
+      if (segmentsMainLayer) map.removeLayer(segmentsMainLayer);
+      if (segmentsOpenOutlineLayer) map.removeLayer(segmentsOpenOutlineLayer);
+      if (segmentsOpenInnerLayer) map.removeLayer(segmentsOpenInnerLayer);
+      if (segmentsNewestLayer) map.removeLayer(segmentsNewestLayer);
+      if (segmentsHitLayer) map.removeLayer(segmentsHitLayer);
+      segmentsMainLayer = null;
+      segmentsOpenOutlineLayer = null;
+      segmentsOpenInnerLayer = null;
+      segmentsNewestLayer = null;
+      segmentsHitLayer = null;
+
+      const tileUrl = "/ver/skiloyper-kvamskogen/tiles/segments/{z}/{x}/{y}.pbf";
+      const commonOpts = {
+        maxNativeZoom: 14,
+        maxZoom: 19,
+        interactive: false,
+        getFeatureId: (f) => {
+          const p = f.properties || {};
+          return `${p.id ?? ""}:${p.track_id ?? ""}`;
+        }
+      };
+
+      // 1) Hovedlag (fargeskala)
+      segmentsMainLayer = L.vectorGrid.protobuf(
+        "/ver/skiloyper-kvamskogen/tiles/segments/{z}/{x}/{y}.pbf",
+        {
+          vectorTileLayerStyles: { segments: (p) => styleMain(p) },
+          ...commonOpts
+        }
+      ).addTo(map);
+
+      // 2) open_not_groomed: outline under
+      segmentsOpenOutlineLayer = L.vectorGrid.protobuf(tileUrl, {
+        vectorTileLayerStyles: { segments: (p) => styleOpenOutline(p) },
+        ...commonOpts
+      }).addTo(map);
+
+      // 3) open_not_groomed: inner dashed over
+      segmentsOpenInnerLayer = L.vectorGrid.protobuf(tileUrl, {
+        vectorTileLayerStyles: { segments: (p) => styleOpenInner(p) },
+        ...commonOpts
+      }).addTo(map);
+
+      // 4) Nyeste-segment blink overlay (redrawes alene)
+      segmentsNewestLayer = L.vectorGrid.protobuf(tileUrl, {
+        vectorTileLayerStyles: { segments: (p) => styleNewestBlink(p) },
+        ...commonOpts
+      }).addTo(map);
+
+      // 2) Usynlig "hit"-lag for følsom hover
+      segmentsHitLayer = L.vectorGrid.protobuf(
+        "/ver/skiloyper-kvamskogen/tiles/segments/{z}/{x}/{y}.pbf",
+        {
+          vectorTileLayerStyles: { segments: (p) => styleHit(p) },
+          maxNativeZoom: 14,
+          maxZoom: 19,
+          interactive: true,
+          getFeatureId: (f) => {
+            const p = f.properties || {};
+            return `${p.id ?? ""}:${p.track_id ?? ""}`;
+          }
+        }
+      ).addTo(map);
+
+      // Hover: throttle (smooth)
+      segmentsHitLayer.on("mousemove", (e) => {
+        pendingEvt = e;
+        if (rafPending) return;
+        rafPending = true;
+
+        requestAnimationFrame(() => {
+          rafPending = false;
+          const ev = pendingEvt;
+          if (!ev) return;
+
+          const p = ev.layer?.properties || {};
+          if (String(p.location_id) !== LOCATION_ID) return;
+
+          const key = `${p.id ?? ""}:${p.track_id ?? ""}:${p.last_update ?? ""}`;
+          if (key === lastHoverKey) return;
+          lastHoverKey = key;
+
+          const tip = ensureHoverTip();
+          tip.setLatLng(ev.latlng).setContent(makeHoverHTML(p));
+          tip.addTo(map);
+        });
+      });
+
+      segmentsHitLayer.on("mouseout", () => {
+        lastHoverKey = null;
+        if (hoverTip) map.removeLayer(hoverTip);
+      });
+
+      // Klikk-popup på synlig lag
+      segmentsMainLayer.on("click", (e) => {
+        const props = e.layer.properties || {};
+        L.popup({ maxWidth: 720 })
+          .setLatLng(e.latlng)
+          .setContent(makePopupHTML(props))
+          .openOn(map);
+      });
+    }
+
+    // ---- Dashboard ----
+    function pct(x) {
+      if (!Number.isFinite(x)) return "0%";
+      return `${Math.round(x * 100)}%`;
+    }
+
+    function setBar(el, share) {
+      const v = Math.max(0, Math.min(1, Number(share || 0)));
+      el.style.width = `${Math.round(v * 100)}%`;
+    }
+
+    async function refreshDashboard() {
+      const status = document.getElementById("dashStatus");
+      const grid = document.getElementById("dashGrid");
+      const latestBox = document.getElementById("latestBox");
+
+      try {
+        status.textContent = "Laster statistikk…";
+        grid.style.display = "none";
+        latestBox.style.display = "none";
+
+        const url = `/ver/skiloyper-kvamskogen/stats?fresh_hours=${encodeURIComponent(FRESH_HOURS)}&z=13&radius=2`;
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+
+        const c = data.counts || {};
+        const s = data.shares || {};
+        const q = data.data_quality || {};
+        const u = data.updates || {};
+
+        // Oppdater "nyeste segment" state + blink
+        const newest = u.newest_segment || {};
+        NEWEST_ID = newest.id ?? null;
+        NEWEST_TRACK = newest.track_id ?? null;
+        NEWEST_AGE_S = newest.age_seconds ?? null;
+
+        updateDashboardHeadline(NEWEST_AGE_S);
+
+        // Overskrift (mer lesbart enn tall):
+        const headlineEl = document.getElementById("dashHeadline");
+        if (headlineEl) {
+          if (NEWEST_AGE_S == null) {
+            headlineEl.textContent = "Ingen oppdateringstid";
+          } else {
+            const mins = Math.max(0, Math.round(NEWEST_AGE_S / 60));
+            const hours = NEWEST_AGE_S / 3600;
+            const days = NEWEST_AGE_S / 86400;
+
+            if (NEWEST_AGE_S < 3600) {
+              headlineEl.textContent = `Prepareres nå – siste oppdatering ${mins} min siden`;
+            } else if (NEWEST_AGE_S < 86400) {
+              const h = Math.round(hours * 10) / 10;
+              headlineEl.textContent = `Nylig kjørt – ${h} timer siden`;
+            } else if (NEWEST_AGE_S < 604800) {
+              const d = Math.floor(days);
+              headlineEl.textContent = `Oppdatert ${d} dager siden`;
+            } else {
+              const d = Math.floor(days);
+              headlineEl.textContent = `Ikkekjørt på ${d} dager`;
+            }
+          }
+        }
+
+        if (NEWEST_ID && NEWEST_AGE_S != null && NEWEST_AGE_S <= 3600) startBlink();
+        else stopBlink();
+
+        // Oppdater stiler uten å re-laste tiles
+        if (segmentsMainLayer) segmentsMainLayer.redraw();
+        if (segmentsOpenOutlineLayer) segmentsOpenOutlineLayer.redraw();
+        if (segmentsOpenInnerLayer) segmentsOpenInnerLayer.redraw();
+        if (segmentsNewestLayer) segmentsNewestLayer.redraw();
+
+        document.getElementById("vTotal").textContent = c.segments_total ?? 0;
+        document.getElementById("vActive").textContent = c.segments_active ?? 0;
+        document.getElementById("vFresh").textContent = c.segments_freshly_groomed ?? 0;
+
+        document.getElementById("sQuality").textContent =
+          `last_update: ${q.with_last_update ?? 0} OK / ${q.missing_last_update ?? 0} mangler`;
+
+        document.getElementById("sActive").textContent =
+          `${pct(s.share_active_total)} av alle segmenter`;
+
+        document.getElementById("sFresh").textContent =
+          `${pct(s.share_fresh_of_active)} av aktive (≤ ${data.fresh_hours ?? FRESH_HOURS}t)`;
+
+        setBar(document.getElementById("bActive"), s.share_active_total);
+        setBar(document.getElementById("bFresh"), s.share_fresh_of_active);
+
+        const latestIso = u.latest_update_local || u.latest_update_utc;
+        const latestTxt = latestIso
+          ? new Date(latestIso).toLocaleString("nb-NO", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })
+          : "ukjent";
+
+        const genIso = data.generated_at_utc ? new Date(data.generated_at_utc) : null;
+        const genTxt = genIso ? genIso.toLocaleTimeString("nb-NO", { hour:"2-digit", minute:"2-digit", second:"2-digit" }) : "";        const newestTxt =
+          (NEWEST_ID && NEWEST_TRACK && NEWEST_AGE_S != null)
+            ? `Siste preparerte segment: id=${NEWEST_ID}, track=${NEWEST_TRACK} (${formatAge(NEWEST_AGE_S*1000)} siden)`
+            : "Siste preparerte segment: ukjent";
+
+        latestBox.innerHTML = `
+          <div><b>Sist oppdatert/prepping:</b> ${latestTxt}</div>
+          <div style="margin-top:4px;">${newestTxt}</div>
+          <div style="opacity:.75; margin-top:4px;">Sampling: z=${data.sample?.z ?? "?"}, radius=${data.sample?.radius ?? "?"} • Generert: ${genTxt} (UTC)</div>
+        `;
+
+        status.textContent = "";
+        grid.style.display = "grid";
+        latestBox.style.display = "block";
+      } catch (e) {
+        status.textContent = `Kunne ikke hente dashboard: ${e}`;
+      }
+    }
+
+    // ---- Controls ----
+    document.getElementById("hours").addEventListener("change", (e) => {
+      const v = Number(e.target.value);
+      if (Number.isFinite(v) && v > 0) {
+        FRESH_HOURS = v;
+        const lbl = document.getElementById("freshLabel");
+        if (lbl) lbl.textContent = String(FRESH_HOURS);
+
+        // Kun redraw – ingen behov for å re-add'e lagene
+        if (segmentsMainLayer) segmentsMainLayer.redraw();
+        if (segmentsOpenOutlineLayer) segmentsOpenOutlineLayer.redraw();
+        if (segmentsOpenInnerLayer) segmentsOpenInnerLayer.redraw();
+        if (segmentsNewestLayer) segmentsNewestLayer.redraw();
+        refreshDashboard();
+      }
+    });
+
+    document.getElementById("reload").addEventListener("click", () => {
+      addSegmentsLayer();
+      refreshDashboard();
+    });
+
+    // Start
+    const lbl = document.getElementById("freshLabel");
+    if (lbl) lbl.textContent = String(FRESH_HOURS);
+    addSegmentsLayer();
+    refreshDashboard();
+    setInterval(refreshDashboard, 60_000);
+  </script>
+</body>
+</html>
