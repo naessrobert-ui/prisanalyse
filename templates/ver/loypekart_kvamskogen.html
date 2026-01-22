@@ -3,10 +3,6 @@
 <head>
   <meta charset="utf-8" />
   <title>Kvamskogen – løypekart</title>
-  <div class="title">
-  Kvamskogen – løypestatus
-  <button class="panel-toggle" id="panelToggle" type="button">Skjul</button>
-  </div>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -15,9 +11,50 @@
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; }
 
-    .panel {
+    /* Toppbar (tittel + knapp) */
+    .topbar {
       position: absolute;
       top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 1100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+
+      background: rgba(255,255,255,0.92);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font: 14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+    }
+
+    .topbar .title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 6px 10px;
+      border: 1px solid rgba(0,0,0,0.18);
+      border-radius: 10px;
+      background: white;
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+    }
+    .btn:hover { background: rgba(0,0,0,0.04); }
+
+    /* Panel */
+    .panel {
+      position: absolute;
+      top: 64px; /* under topbar */
       left: 12px;
       z-index: 1000;
       background: rgba(255,255,255,0.92);
@@ -29,7 +66,7 @@
       min-width: 280px;
     }
 
-    .title { margin: 0 0 8px 0; font-size: 15px; font-weight: 650; }
+    .panel.is-collapsed { display: none; }
 
     .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
     .swatch {
@@ -47,16 +84,8 @@
       border: 1px solid rgba(0,0,0,0.18);
       border-radius: 8px; outline: none;
     }
-    .btn {
-      display: inline-block;
-      padding: 6px 10px; border: 1px solid rgba(0,0,0,0.18);
-      border-radius: 10px; background: white; cursor: pointer;
-      user-select: none; font-size: 12px;
-    }
-    .btn:hover { background: rgba(0,0,0,0.04); }
 
     /* Mini-dashboard */
-
     .dash-headline {
       margin-top: 10px;
       font-size: 14px;
@@ -113,15 +142,39 @@
       padding: 6px 8px;
     }
     .seg-hover-tip b { font-weight: 750; }
+
+    /* Mobil: panelet skal ikke dekke hele kartet */
+    @media (max-width: 600px) {
+      .topbar {
+        top: 8px; left: 8px; right: 8px;
+        padding: 10px 10px;
+      }
+
+      .panel {
+        top: 58px;
+        left: 8px;
+        right: 8px;
+        max-width: none;
+        min-width: 0;
+
+        /* Nøkkelen: begrens høyden + scroll */
+        max-height: 45vh;
+        overflow: auto;
+      }
+    }
   </style>
 </head>
 
 <body>
   <div id="map"></div>
 
-  <div class="panel">
+  <!-- Toppbar (erstatter div i head) -->
+  <div class="topbar">
     <div class="title">Kvamskogen – løypestatus</div>
+    <button class="btn" id="panelToggle" type="button">Skjul</button>
+  </div>
 
+  <div class="panel" id="panel">
     <div class="row">
       <div class="swatch" style="border-top-color:#dc2626;"></div>
       <div>Preparert ≤ 1 time</div>
@@ -271,7 +324,7 @@
       return `${days} d`;
     }
 
-function updateDashboardHeadline(ageSeconds) {
+    function updateDashboardHeadline(ageSeconds) {
       const el = document.getElementById("dashHeadline");
       if (!el) return;
 
@@ -518,7 +571,7 @@ function updateDashboardHeadline(ageSeconds) {
         ...commonOpts
       }).addTo(map);
 
-      // 2) Usynlig "hit"-lag for følsom hover
+      // 5) Usynlig "hit"-lag for følsom hover
       segmentsHitLayer = L.vectorGrid.protobuf(
         "/ver/skiloyper-kvamskogen/tiles/segments/{z}/{x}/{y}.pbf",
         {
@@ -611,31 +664,6 @@ function updateDashboardHeadline(ageSeconds) {
 
         updateDashboardHeadline(NEWEST_AGE_S);
 
-        // Overskrift (mer lesbart enn tall):
-        const headlineEl = document.getElementById("dashHeadline");
-        if (headlineEl) {
-          if (NEWEST_AGE_S == null) {
-            headlineEl.textContent = "Ingen oppdateringstid";
-          } else {
-            const mins = Math.max(0, Math.round(NEWEST_AGE_S / 60));
-            const hours = NEWEST_AGE_S / 3600;
-            const days = NEWEST_AGE_S / 86400;
-
-            if (NEWEST_AGE_S < 3600) {
-              headlineEl.textContent = `Prepareres nå – siste oppdatering ${mins} min siden`;
-            } else if (NEWEST_AGE_S < 86400) {
-              const h = Math.round(hours * 10) / 10;
-              headlineEl.textContent = `Nylig kjørt – ${h} timer siden`;
-            } else if (NEWEST_AGE_S < 604800) {
-              const d = Math.floor(days);
-              headlineEl.textContent = `Oppdatert ${d} dager siden`;
-            } else {
-              const d = Math.floor(days);
-              headlineEl.textContent = `Ikkekjørt på ${d} dager`;
-            }
-          }
-        }
-
         if (NEWEST_ID && NEWEST_AGE_S != null && NEWEST_AGE_S <= 3600) startBlink();
         else stopBlink();
 
@@ -667,7 +695,9 @@ function updateDashboardHeadline(ageSeconds) {
           : "ukjent";
 
         const genIso = data.generated_at_utc ? new Date(data.generated_at_utc) : null;
-        const genTxt = genIso ? genIso.toLocaleTimeString("nb-NO", { hour:"2-digit", minute:"2-digit", second:"2-digit" }) : "";        const newestTxt =
+        const genTxt = genIso ? genIso.toLocaleTimeString("nb-NO", { hour:"2-digit", minute:"2-digit", second:"2-digit" }) : "";
+
+        const newestTxt =
           (NEWEST_ID && NEWEST_TRACK && NEWEST_AGE_S != null)
             ? `Siste preparerte segment: id=${NEWEST_ID}, track=${NEWEST_TRACK} (${formatAge(NEWEST_AGE_S*1000)} siden)`
             : "Siste preparerte segment: ukjent";
@@ -707,6 +737,20 @@ function updateDashboardHeadline(ageSeconds) {
       addSegmentsLayer();
       refreshDashboard();
     });
+
+    // Skjul/Vis panel
+    (function initPanelToggle() {
+      const btn = document.getElementById("panelToggle");
+      const panel = document.getElementById("panel");
+      if (!btn || !panel) return;
+
+      btn.addEventListener("click", () => {
+        const collapsed = panel.classList.toggle("is-collapsed");
+        btn.textContent = collapsed ? "Vis" : "Skjul";
+        // Leaflet trenger ofte en "resize" etter layout-endringer:
+        setTimeout(() => map.invalidateSize(), 50);
+      });
+    })();
 
     // Start
     const lbl = document.getElementById("freshLabel");
