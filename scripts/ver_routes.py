@@ -19,7 +19,7 @@ except Exception:
     OSLO = timezone.utc  # fallback
 
 from snow_map import build_snow_map_html
-from precip_map import build_precip_map_html
+from precip_map import build_precip_county_map_html
 from sunshine_map import build_sunshine_map_html
 from temp_map import build_min_temp_map_html
 
@@ -303,7 +303,6 @@ def min_temp_map():
     date_str = request.args.get("date")
     month_str = request.args.get("month")
     year_str = request.args.get("year")
-    top_n = request.args.get("top", "20")
 
     html = build_min_temp_map_html(
         county=county,
@@ -312,7 +311,6 @@ def min_temp_map():
         date_str=date_str,
         month_str=month_str,
         year_str=year_str,
-        top_n=top_n,
         timeout=20,
         batch_size=80,
         limit=1000,
@@ -825,184 +823,39 @@ def snomengde_kart():
 # =========================
 # NEDBØR
 # =========================
+
 @ver.route("/nedbor")
-def nedbor_index() -> str:
-    today_str = _date.today().isoformat()
-    return f"""
-<!doctype html>
-<html lang="no">
-  <head>
-    <meta charset="utf-8" />
-    <title>Nedbør i Norge – Væranalyse</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      body {{
-        margin: 0;
-        padding: 0;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #f5f7fb;
-      }}
-      .page {{
-        max-width: 1200px;
-        margin: 32px auto;
-        padding: 0 16px 32px;
-      }}
-      .card {{
-        background: white;
-        border-radius: 16px;
-        padding: 18px 22px;
-        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
-        margin-bottom: 16px;
-      }}
-      .card h1 {{ margin: 0 0 8px; }}
-      .controls {{
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 10px;
-        align-items: center;
-      }}
-      .controls input,
-      .controls select {{
-        padding: 6px 10px;
-        border-radius: 10px;
-        border: 1px solid #d1d5db;
-      }}
-      .controls button {{
-        padding: 7px 14px;
-        border-radius: 999px;
-        border: none;
-        background: #2563eb;
-        color: white;
-        cursor: pointer;
-      }}
-      #map-frame {{
-        width: 100%;
-        height: 80vh;
-        border: none;
-        border-radius: 16px;
-        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
-        background: #e5e7eb;
-      }}
-    </style>
-  </head>
+def nedbor_index():
+    # Samme pattern som temperatur: tomt folium-kart med valg, ingen API-kall før "Hent"
+    html = build_precip_county_map_html(county=None, mode="last24h", top_n=50)
+    return Response(html, mimetype="text/html; charset=utf-8")
 
-  <body>
-    <div class="page">
-      <div class="card">
-        <h1>Nedbør i Norge</h1>
-        <p style="margin:0; color:#475569;">
-          Standard er rullerende siste 24 timer. Zoom/pan til ønsket område og trykk hent i kartet.
-          Når du bytter periode beholdes utsnittet.
-        </p>
-
-        <form id="controls-form" class="controls">
-          <label for="date-input">Dato:</label>
-          <input type="date" id="date-input" name="date" value="{today_str}" max="{today_str}">
-
-          <label for="mode-select">Periode:</label>
-          <select id="mode-select" name="mode">
-            <option value="last24h" selected>Siste 24 timer</option>
-            <option value="day">Kalenderdøgn</option>
-            <option value="mtd">Hittil i måneden</option>
-            <option value="ytd">Hittil i året</option>
-          </select>
-
-          <button type="submit">Vis</button>
-        </form>
-      </div>
-
-      <iframe id="map-frame" src="/ver/nedbor-kart?mode=last24h" loading="lazy"></iframe>
-    </div>
-
-    <script>
-      const STORE_KEY = "precip_view_v1";
-      const form = document.getElementById("controls-form");
-      const dateInput = document.getElementById("date-input");
-      const modeSelect = document.getElementById("mode-select");
-      const frame = document.getElementById("map-frame");
-
-      function readSavedView() {{
-        try {{
-          const raw = sessionStorage.getItem(STORE_KEY);
-          if (!raw) return null;
-          const obj = JSON.parse(raw);
-          if (!obj || !obj.bbox) return null;
-          return obj;
-        }} catch (e) {{
-          return null;
-        }}
-      }}
-
-      function buildFrameUrl() {{
-        const mode = modeSelect.value || "last24h";
-        const d = dateInput.value || "{today_str}";
-
-        const qs = new URLSearchParams();
-        qs.set("mode", mode);
-        qs.set("date", d);
-
-        const saved = readSavedView();
-        if (saved) {{
-          if (saved.bbox) qs.set("bbox", saved.bbox);
-          if (saved.z) qs.set("z", saved.z);
-          if (saved.clat) qs.set("clat", saved.clat);
-          if (saved.clon) qs.set("clon", saved.clon);
-        }}
-
-        return "/ver/nedbor-kart?" + qs.toString();
-      }}
-
-      function saveViewFromFrameUrl() {{
-        try {{
-          const u = new URL(frame.contentWindow.location.href);
-          const bbox = u.searchParams.get("bbox");
-          if (!bbox) return;
-          const z = u.searchParams.get("z") || "";
-          const clat = u.searchParams.get("clat") || "";
-          const clon = u.searchParams.get("clon") || "";
-          sessionStorage.setItem(STORE_KEY, JSON.stringify({{ bbox, z, clat, clon }}));
-        }} catch (e) {{}}
-      }}
-
-      frame.addEventListener("load", saveViewFromFrameUrl);
-
-      form.addEventListener("submit", function(e) {{
-        e.preventDefault();
-        frame.src = buildFrameUrl();
-      }});
-
-      modeSelect.addEventListener("change", function() {{
-        frame.src = buildFrameUrl();
-      }});
-    </script>
-  </body>
-</html>
-"""
 
 
 @ver.route("/nedbor-kart")
-def nedbor_kart() -> str:
-    date_str = request.args.get("date")
+def nedbor_kart() -> Response:
+    county = request.args.get("county") or None
     mode = request.args.get("mode", "last24h")
-    bbox = request.args.get("bbox")
-
-    z = request.args.get("z")
-    clat = request.args.get("clat")
-    clon = request.args.get("clon")
+    date_str = request.args.get("date")
+    top_n = request.args.get("top", "50")
 
     if mode not in {"last24h", "day", "mtd", "ytd"}:
         mode = "last24h"
 
-    return build_precip_map_html(
-        date_str=date_str,
+    html = build_precip_county_map_html(
+        county=county,
         mode=mode,  # type: ignore[arg-type]
-        bbox=bbox,
-        z=z,
-        clat=clat,
-        clon=clon,
+        date_str=date_str,
+        top_n=top_n,
+        timeout=20,
+        batch_size=80,
+        limit=1000,
+        qualities="0,1,2,3,4",
         show_heatmap=True,
     )
+    return Response(html, mimetype="text/html; charset=utf-8")
+
+
 
 
 # =========================
