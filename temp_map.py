@@ -410,13 +410,19 @@ def make_empty_map_with_dropdown(
     selected_county: str = "",
     selected_temp: TempType = "min",
     selected_period: Period = "last",
+    selected_top_n: int = 20,
 ) -> str:
     """Tomt kart med fylke + temperaturtype + periode. Ingen API-kall før 'Hent'."""
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
 
     county_opts = "\n".join(
-        f'<option value="{c}" {"selected" if c == selected_county else ""}>{c}</option>'
-        for c in NORWAY_COUNTIES
+        [
+            f'<option value="ALL" {"selected" if selected_county == "ALL" else ""}>Hele landet (tregere)</option>',
+            *[
+                f'<option value="{c}" {"selected" if c == selected_county else ""}>{c}</option>'
+                for c in NORWAY_COUNTIES
+            ],
+        ]
     )
 
     temp_opts = "\n".join(
@@ -478,6 +484,19 @@ def make_empty_map_with_dropdown(
         {period_html}
       </select>
 
+      <label style="font-size:12px; color:#64748b; margin-top:10px;">Vis topp</label>
+      <select id="topSel" style="
+        width:100%; margin-top:4px;
+        padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px;
+        background:white;
+      ">
+        <option value="20" {"selected" if selected_top_n == 20 else ""}>20</option>
+        <option value="50" {"selected" if selected_top_n == 50 else ""}>50</option>
+        <option value="100" {"selected" if selected_top_n == 100 else ""}>100</option>
+        <option value="200" {"selected" if selected_top_n == 200 else ""}>200</option>
+        <option value="500" {"selected" if selected_top_n == 500 else ""}>500</option>
+      </select>
+
       <div id="dayBox" style="margin-top:8px; display:none;">
         <label style="font-size:12px; color:#64748b;">Dato</label>
         <input id="dayInput" type="date" value="{_date.today().isoformat()}" style="
@@ -537,6 +556,8 @@ def make_empty_map_with_dropdown(
         qs.set('county', c);
         qs.set('temp', t);
         qs.set('period', p);
+        const topN = parseInt(document.getElementById('topSel').value || '20', 10);
+        qs.set('top', String(topN));
 
         if (p === "day") {{
           const d = document.getElementById("dayInput").value;
@@ -576,6 +597,7 @@ def make_temp_map(
     selected_date: str,
     selected_month: str,
     selected_year: str,
+    selected_top_n: int = 20,
     element_used: str,
     cluster: bool = True,
     heatmap_show: bool = True,
@@ -627,8 +649,13 @@ def make_temp_map(
 
     # Header: fylke + temp + periode + inputs
     county_opts = "\n".join(
-        f'<option value="{c}" {"selected" if c == selected_county else ""}>{c}</option>'
-        for c in NORWAY_COUNTIES
+        [
+            f'<option value="ALL" {"selected" if selected_county == "ALL" else ""}>Hele landet (tregere)</option>',
+            *[
+                f'<option value="{c}" {"selected" if c == selected_county else ""}>{c}</option>'
+                for c in NORWAY_COUNTIES
+            ],
+        ]
     )
     temp_opts = "\n".join(
         f'<option value="{k}" {"selected" if k == selected_temp else ""}>{v["label"]}</option>'
@@ -684,6 +711,19 @@ def make_temp_map(
         background:white;
       ">
         {period_html}
+      </select>
+
+      <label style="font-size:12px; color:#64748b; margin-top:10px;">Vis topp</label>
+      <select id="topSel" style="
+        width:100%; margin-top:4px;
+        padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px;
+        background:white;
+      ">
+        <option value="20" {"selected" if selected_top_n == 20 else ""}>20</option>
+        <option value="50" {"selected" if selected_top_n == 50 else ""}>50</option>
+        <option value="100" {"selected" if selected_top_n == 100 else ""}>100</option>
+        <option value="200" {"selected" if selected_top_n == 200 else ""}>200</option>
+        <option value="500" {"selected" if selected_top_n == 500 else ""}>500</option>
       </select>
 
       <div id="dayBox" style="margin-top:8px; display:none;">
@@ -745,6 +785,8 @@ def make_temp_map(
         qs.set('county', c);
         qs.set('temp', t);
         qs.set('period', p);
+        const topN = parseInt(document.getElementById('topSel').value || '20', 10);
+        qs.set('top', String(topN));
 
         if (p === "day") {{
           const d = document.getElementById("dayInput").value;
@@ -1007,18 +1049,25 @@ def build_min_temp_map_html(
     date_str: Optional[str] = None,   # YYYY-MM-DD for day
     month_str: Optional[str] = None,  # YYYY-MM for month
     year_str: Optional[str] = None,   # YYYY for year
+    top_n: int = 20,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
     limit: int = 1000,
     qualities: str = "0,1,2,3,4",
 ) -> str:
     if not county:
-        return make_empty_map_with_dropdown(selected_temp=temp, selected_period=period)
+        return make_empty_map_with_dropdown(selected_temp=temp, selected_period=period, selected_top_n=top_n)
 
     if temp not in TEMP_TYPES:
         temp = "min"
     if period not in {"last", "day", "month", "year"}:
         period = "last"
+
+    try:
+        top_n = int(top_n)
+    except Exception:
+        top_n = 20
+    top_n = max(1, min(top_n, 5000))
 
     auth = _env_auth()
     now = datetime.now(timezone.utc)
@@ -1053,16 +1102,29 @@ def build_min_temp_map_html(
 
     with requests.Session() as sess:
         # Bruk lokal stasjons-DB (hurtig) i stedet for /sources-kall hver gang
-        src_meta = stations_in_county(county)
+        county_is_all = (county == "ALL")
+        if county_is_all:
+            frames = [stations_in_county(c) for c in NORWAY_COUNTIES]
+            frames = [df for df in frames if df is not None and not df.empty]
+            src_meta = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        else:
+            src_meta = stations_in_county(county)
+
         if src_meta.empty:
             # fallback hvis DB mangler/er tom
-            src_meta = fetch_sources_in_county(sess, auth=auth, county=county, timeout=timeout)
+            if county_is_all:
+                frames = [fetch_sources_in_county(sess, auth=auth, county=c, timeout=timeout) for c in NORWAY_COUNTIES]
+                frames = [df for df in frames if df is not None and not df.empty]
+                src_meta = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+            else:
+                src_meta = fetch_sources_in_county(sess, auth=auth, county=county, timeout=timeout)
         if src_meta.empty:
             return make_empty_map_with_dropdown(
-                selected_county=county,
-                selected_temp=temp,
-                selected_period=period,
-            )
+            selected_county=county,
+            selected_temp=temp,
+            selected_period=period,
+            selected_top_n=top_n,
+        )
 
         sources = src_meta["baseId"].astype(str).tolist()
 
@@ -1117,17 +1179,26 @@ def build_min_temp_map_html(
             selected_county=county,
             selected_temp=temp,
             selected_period=period,
+            selected_top_n=top_n,
         )
 
     picked["baseId"] = picked["sourceId"].astype(str).map(base_source_id)
     merged = picked.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
     merged = merged.dropna(subset=["lat", "lon", "value"])
 
+    if county == "ALL":
+        # For "Hele landet": plott kun topp N for å holde kartet raskt
+        if temp == "min":
+            merged = merged.nsmallest(top_n, "value")
+        else:
+            merged = merged.nlargest(top_n, "value")
+
     if merged.empty:
         return make_empty_map_with_dropdown(
             selected_county=county,
             selected_temp=temp,
             selected_period=period,
+            selected_top_n=top_n,
         )
 
     updated = now.strftime("%Y-%m-%d %H:%M UTC")
@@ -1143,12 +1214,13 @@ def build_min_temp_map_html(
         selected_date=ui_date,
         selected_month=ui_month,
         selected_year=ui_year,
+        selected_top_n=top_n,
         element_used=element_used or "(ukjent)",
         cluster=True,
         heatmap_show=True,
         heat_radius=25,
         heat_blur=18,
-        top_n=10,
+        top_n=top_n,
     )
 
 
