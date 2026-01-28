@@ -245,9 +245,14 @@ def _build_where_sql(filters: dict, colmap: dict):
 
     if filters.get("seller_sok") and colmap.get("selger"):
         clauses.append(
-            f"lower(cast({_qident(colmap['selger'])} AS VARCHAR)) LIKE '%' || lower(?) || '%'"
+            # trim() gjør søk mer robust mot tilfeldige mellomrom i datakilden
+            f"lower(trim(cast({_qident(colmap['selger'])} AS VARCHAR))) LIKE '%' || lower(trim(?)) || '%'"
         )
         params.append(filters["seller_sok"])
+
+    # Default: pris_min = 1 hvis klient ikke sender noe (ønsket standard i UI)
+    if filters.get("pris_min") in (None, ""):
+        filters["pris_min"] = 1
 
     # Pris (Pris_ny)
     if colmap.get("pris_ny"):
@@ -452,9 +457,53 @@ def get_bil_solgt_data():
 
         where_sql, params = _build_where_sql(filters, colmap)
 
-        # Total treff
-        count_sql = f"SELECT COUNT(*) AS cnt FROM read_parquet('{path}') {where_sql}"
-        total_count = int(con.execute(count_sql, params).fetchone()[0])
+        def col_or_null(key: str) -> str:
+            c = colmap.get(key)
+            return _qident(c) if c else "NULL"
+
+        c_dato_end = col_or_null("dato_end")
+        c_solgt = col_or_null("solgt")
+        dato_end_ts = f"try_cast({c_dato_end} AS TIMESTAMP)"
+
+        # ---------------------------------
+        # Statusfilter:
+        # - finn_na: biler som er "sist sett" på max-dato i datasettet
+        # - solgt_fjernet: alt som IKKE er sist sett på max-dato
+        # - alle: ingen statusfilter på tabellen
+        #
+        # NB: Uansett status kutter vi max-dato i 'antall solgte'-diagrammet,
+        # fordi max-dato representerer biler som fortsatt ligger ute.
+        # ---------------------------------
+        status = (filters.get("status") or "solgt_fjernet").strip()  # default: solgt/fjernet
+
+        max_date = None
+        if colmap.get("dato_end"):
+            max_date = con.execute(
+                f"SELECT max(date({dato_end_ts})) FROM read_parquet('{path}') WHERE {dato_end_ts} IS NOT NULL"
+            ).fetchone()[0]
+
+        status_sql = ""
+        status_params = []
+        if max_date is not None:
+            if status == "finn_na":
+                status_sql = f" AND date({dato_end_ts}) = ?"
+                status_params.append(str(max_date))
+                if colmap.get("solgt"):
+                    status_sql += f" AND ({_bool_expr(c_solgt)}) = false"
+            elif status == "solgt_fjernet":
+                status_sql = f" AND date({dato_end_ts}) < ?"
+                status_params.append(str(max_date))
+
+        # brukes til diagram/KPI: kutt alltid maxdato, ellers blir siste stolpe "aktive" biler
+        exclude_maxdate_sql = ""
+        exclude_maxdate_params = []
+        if max_date is not None:
+            exclude_maxdate_sql = f" AND date({dato_end_ts}) < ?"
+            exclude_maxdate_params.append(str(max_date))
+
+        # Total treff (respekter status-filter for tabell/utvalg)
+        count_sql = f"SELECT COUNT(*) AS cnt FROM read_parquet('{path}') {where_sql} {status_sql}"
+        total_count = int(con.execute(count_sql, params + status_params).fetchone()[0])
 
         if total_count == 0:
             return jsonify({
@@ -468,10 +517,6 @@ def get_bil_solgt_data():
                 'truncated': False
             })
 
-        def col_or_null(key: str) -> str:
-            c = colmap.get(key)
-            return _qident(c) if c else "NULL"
-
         c_prod = col_or_null("produsent")
         c_mod = col_or_null("modell")
         c_aar = col_or_null("aar")
@@ -484,15 +529,12 @@ def get_bil_solgt_data():
         c_pris_start = col_or_null("pris_start")
         c_pris_ny = col_or_null("pris_ny")
         c_dato_start = col_or_null("dato_start")
-        c_dato_end = col_or_null("dato_end")
         c_finn = col_or_null("finnkode")
-        c_solgt = col_or_null("solgt")
 
         pris_start_num = f"coalesce(try_cast({c_pris_start} AS BIGINT), 0)"
         pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
 
         dato_start_ts = f"try_cast({c_dato_start} AS TIMESTAMP)"
-        dato_end_ts = f"try_cast({c_dato_end} AS TIMESTAMP)"
 
         dager_expr = f"""
           greatest(
@@ -509,12 +551,20 @@ def get_bil_solgt_data():
 
         # ----------------------------
         # KPI + daily_stats på ALLE treff (ikke bare 300)
+        #
+        # Bruk "solgt/fjernet"-logikk ved å kutte max-dato i datasettet.
+        # Da unngår vi at siste dag i diagrammet blir "biler som fortsatt er ute".
         # ----------------------------
         solgt_filter_sql = ""
+        solgt_filter_params = []
         if solgt_expr:
             solgt_filter_sql = f" AND ({solgt_expr}) = true"
         else:
             solgt_filter_sql = f" AND ({pris_ny_num}) > 1000"
+
+        # Kutt alltid maxdato i KPI/diagram
+        solgt_filter_sql += exclude_maxdate_sql
+        solgt_filter_params.extend(exclude_maxdate_params)
 
         kpi_sql = f"""
           SELECT
@@ -529,7 +579,7 @@ def get_bil_solgt_data():
           {solgt_filter_sql}
         """
 
-        kpi_row = con.execute(kpi_sql, params).fetchone()
+        kpi_row = con.execute(kpi_sql, params + solgt_filter_params).fetchone()
         kpis = {}
         if kpi_row and kpi_row[5] and int(kpi_row[5]) > 0:
             kpis = {
@@ -556,7 +606,7 @@ def get_bil_solgt_data():
               GROUP BY 1
               ORDER BY 1
             """
-            daily_df = con.execute(daily_sql, params).df()
+            daily_df = con.execute(daily_sql, params + solgt_filter_params).df()
             daily_df = daily_df.where(pd.notna(daily_df), None)
             daily_stats = json.loads(daily_df.to_json(orient="records"))
 
@@ -586,11 +636,12 @@ def get_bil_solgt_data():
             {"," + solgt_expr + " AS solgt" if solgt_expr else ""}
           FROM read_parquet('{path}')
           {where_sql}
+          {status_sql}
           ORDER BY {pris_ny_num} ASC
           LIMIT {MAX_ROWS_LIMIT}
         """
 
-        output_df = con.execute(data_sql, params).df()
+        output_df = con.execute(data_sql, params + status_params).df()
         output_df = output_df.where(pd.notna(output_df), None)
 
         historikk = json.loads(output_df.to_json(orient='records', date_format='iso'))

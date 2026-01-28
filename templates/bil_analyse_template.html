@@ -226,6 +226,14 @@
                 </select>
             </div>
             <div>
+                <label for="status_filter">Vis</label>
+                <select id="status_filter">
+                    <option value="">Alle biler</option>
+                    <option value="solgt_fjernet" selected>Solgte / fjernet</option>
+                    <option value="finn_na">På FINN nå</option>
+                </select>
+            </div>
+            <div>
                 <label for="startdato">Startdato</label>
                 <input type="date" id="startdato">
             </div>
@@ -239,7 +247,7 @@
             </div>
             <div>
                 <label for="pris_min">Pris fra</label>
-                <input id="pris_min" type="number" min="0" step="10000" placeholder="valgfritt">
+                <input id="pris_min" type="number" min="0" step="10000" value="1">
             </div>
             <div>
                 <label for="pris_max">Pris til</label>
@@ -413,6 +421,7 @@
     }
 
     function buildFilters() {
+        const status = document.getElementById("status_filter").value || null;
         const produsent = document.getElementById("produsent").value || null;
         const modell = document.getElementById("modell").value || null;
         const startdato = document.getElementById("startdato").value || null;
@@ -429,6 +438,7 @@
         const hjuldrift = Array.from(document.getElementById("hjuldrift").selectedOptions).map(o => o.value);
 
         return {
+            status,
             produsent, modell, startdato, modell_sok, seller_sok,
             pris_min, pris_max, km_max, km_min: null,
             year_min, year_max, range_min, range_max,
