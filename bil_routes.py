@@ -346,6 +346,34 @@ def bil_solgt_oversikt_data():
         path = _ensure_local_parquet(s3_key)
         colmap = _duckdb_get_colmap(path, s3_key)
         con = _duckdb_con()
+        import os
+
+        # DEBUG: kolonner + colmap
+        try:
+            cols = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}')").fetchall()
+            actual_cols = [r[0] for r in cols]
+        except Exception as e:
+            actual_cols = []
+            print("REKORDRASK DEBUG: DESCRIBE feilet:", e)
+
+        print("REKORDRASK DEBUG: parquet_local_path =", path)
+        print("REKORDRASK DEBUG: parquet_size_bytes =", os.path.getsize(path) if os.path.exists(path) else -1)
+        print("REKORDRASK DEBUG: first_cols =", actual_cols[:50])
+        print("REKORDRASK DEBUG: colmap =", colmap)
+
+        # DEBUG: counts
+        total_cnt = con.execute(f"SELECT COUNT(*) FROM read_parquet('{path}')").fetchone()[0]
+        print("REKORDRASK DEBUG: rows_total =", total_cnt)
+
+        where_sql, params = _rekordrask_where(filters, colmap)
+        filtered_cnt = con.execute(
+            f"SELECT COUNT(*) FROM read_parquet('{path}') {where_sql}",
+            params
+        ).fetchone()[0]
+
+        print("REKORDRASK DEBUG: where_sql =", where_sql)
+        print("REKORDRASK DEBUG: params =", params)
+        print("REKORDRASK DEBUG: rows_after_where =", filtered_cnt)
 
         if not colmap.get("produsent") or not colmap.get("solgt"):
             return jsonify({
