@@ -757,7 +757,10 @@ def _rekordrask_where(filters: dict, colmap: dict):
 
 
 def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
-    """CTE base: filtrert DF_alle + derived columns."""
+    """
+    CTE base: filtrert DF_alle + derived columns + _is_rekord.
+    VIKTIG: max_days bindes kun ÉN gang (?), og gjenbrukes via _is_rekord.
+    """
     c_dato = _qident(colmap.get("dato_start"))
     c_dato_ny = _qident(colmap.get("dato_end"))
     c_solgt = _qident(colmap.get("solgt"))
@@ -778,7 +781,14 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
           {dato_ts} AS _dato,
           {dato_ny_ts} AS _dato_ny,
           {solgt_norm} AS _solgt_norm,
-          {days_to_end} AS _days_to_end
+          {days_to_end} AS _days_to_end,
+          (
+            {solgt_norm} != 'nei'
+            AND {dato_ts} IS NOT NULL
+            AND {dato_ny_ts} IS NOT NULL
+            AND {days_to_end} IS NOT NULL
+            AND {days_to_end} <= ?
+          ) AS _is_rekord
         FROM read_parquet('{path}')
         {where_sql}
       )
@@ -849,30 +859,22 @@ def bil_rekordrask_grupper():
             select_group.append(f"{sql_ident} AS {out_name}")
             group_by.append(sql_ident)
 
-        # rekordsolgt definisjon
-        is_rek = f"""
-          (_solgt_norm != 'nei')
-          AND _dato IS NOT NULL
-          AND _dato_ny IS NOT NULL
-          AND _days_to_end IS NOT NULL
-          AND _days_to_end <= ?
-        """
-
+        # OBS: _is_rekord er precomputed i base og binder max_days kun én gang.
         sql = f"""
           {base}
           SELECT
             {', '.join(select_group)},
             COUNT(*) AS alle_antall,
-            SUM(CASE WHEN {is_rek} THEN 1 ELSE 0 END) AS rekordsolgt_antall,
-            (SUM(CASE WHEN {is_rek} THEN 1 ELSE 0 END) / COUNT(*)) AS andel_rekordsolgt
+            SUM(CASE WHEN _is_rekord THEN 1 ELSE 0 END) AS rekordsolgt_antall,
+            (SUM(CASE WHEN _is_rekord THEN 1 ELSE 0 END) / COUNT(*)) AS andel_rekordsolgt
           FROM base
           GROUP BY {', '.join(group_by)}
           HAVING COUNT(*) >= ?
           ORDER BY rekordsolgt_antall DESC, andel_rekordsolgt DESC, alle_antall DESC
         """
 
-        # params: WHERE + (max_days brukt 2 ganger) + min_obs
-        all_params = params + [max_days, max_days, min_obs]
+        # params: WHERE + (max_days én gang, bindes i base) + min_obs
+        all_params = params + [max_days, min_obs]
         df = con.execute(sql, all_params).df()
         df = df.where(pd.notna(df), None)
         groups = json.loads(df.to_json(orient="records"))
@@ -882,10 +884,10 @@ def bil_rekordrask_grupper():
           {base}
           SELECT
             COUNT(*) AS alle_antall,
-            SUM(CASE WHEN {is_rek} THEN 1 ELSE 0 END) AS rekordsolgt_antall
+            SUM(CASE WHEN _is_rekord THEN 1 ELSE 0 END) AS rekordsolgt_antall
           FROM base
         """
-        kpi_row = con.execute(kpi_sql, params + [max_days, max_days]).fetchone()
+        kpi_row = con.execute(kpi_sql, params + [max_days]).fetchone()
         alle_antall = int(kpi_row[0] or 0)
         rekord_antall = int(kpi_row[1] or 0)
         andel = (rekord_antall / alle_antall) if alle_antall else 0.0
@@ -940,15 +942,6 @@ def bil_rekordrask_data():
         finnkode_str = f"regexp_replace(cast({c_finn} as varchar), '\\\\.0$', '')"
         finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
 
-        # rekordsolgt filter
-        is_rek = f"""
-          (_solgt_norm != 'nei')
-          AND _dato IS NOT NULL
-          AND _dato_ny IS NOT NULL
-          AND _days_to_end IS NOT NULL
-          AND _days_to_end <= ?
-        """
-
         # group-match: IS NOT DISTINCT FROM for å håndtere NULL
         group_where_parts = []
         group_params = []
@@ -972,6 +965,7 @@ def bil_rekordrask_data():
 
         group_where_sql = (" AND " + " AND ".join(group_where_parts)) if group_where_parts else ""
 
+        # OBS: _is_rekord er precomputed i base og binder max_days kun én gang.
         sql = f"""
           {base}
           SELECT
@@ -989,13 +983,13 @@ def bil_rekordrask_data():
             {finnkode_str} AS finnkode,
             {finn_url_expr} AS finn_url
           FROM base
-          WHERE {is_rek}
+          WHERE _is_rekord
           {group_where_sql}
           ORDER BY dager ASC, dato_ny ASC
           LIMIT 2000
         """
 
-        df = con.execute(sql, params + [max_days, max_days] + group_params).df()
+        df = con.execute(sql, params + [max_days] + group_params).df()
         df = df.where(pd.notna(df), None)
         rows = json.loads(df.to_json(orient="records"))
 
