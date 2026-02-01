@@ -149,6 +149,11 @@ def _qident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
+def _to_bigint_sql(col_ident: str) -> str:
+    """Robust tall-cast i DuckDB: fjern alt som ikke er siffer før BIGINT."""
+    return f"try_cast(regexp_replace(cast({col_ident} as varchar), '[^0-9]', '', 'g') as BIGINT)"
+
+
 def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
     """
     Mapper canonical feltnavn -> faktisk kolonnenavn i parquet.
