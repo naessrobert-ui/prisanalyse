@@ -171,6 +171,7 @@
         <div>
           <label for="drivstoff">Drivstoff</label>
           <select id="drivstoff">
+            <option value="Alle">Alle</option>
             {% for v in drivstoff %}
               <option value="{{ v }}">{{ v }}</option>
             {% endfor %}
@@ -180,6 +181,7 @@
         <div>
           <label for="hjuldrift">Hjuldrift</label>
           <select id="hjuldrift">
+            <option value="Alle">Alle</option>
             {% for v in hjuldrift %}
               <option value="{{ v }}">{{ v }}</option>
             {% endfor %}
@@ -189,6 +191,7 @@
         <div>
           <label for="produsent">Merke (Produsent)</label>
           <select id="produsent">
+            <option value="Alle">Alle</option>
             {% for v in produsenter %}
               <option value="{{ v }}">{{ v }}</option>
             {% endfor %}
@@ -242,6 +245,33 @@
     </div>
 
     <h2>Andel rekordsolgte per gruppe (sortert)</h2>
+
+    <!-- NYTT: søk + paginering for å unngå "uendelig lang" tabell -->
+    <div class="panel" style="margin-top: 8px;">
+      <div class="grid" style="margin-top:0;">
+        <div style="grid-column: 1 / -1;">
+          <label for="groupSearch">Søk i grupper (produsent/modell/år/etc.)</label>
+          <input id="groupSearch" type="text" placeholder="Søk..." />
+        </div>
+
+        <div>
+          <label for="pageSize">Vis rader</label>
+          <select id="pageSize">
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="200">200</option>
+            <option value="500">500</option>
+          </select>
+        </div>
+
+        <div class="actions" style="justify-content:flex-start;">
+          <button id="prevPage" class="btn" style="background:rgba(255,255,255,0.10); box-shadow:none;">Forrige</button>
+          <button id="nextPage" class="btn" style="background:rgba(255,255,255,0.10); box-shadow:none;">Neste</button>
+          <span class="note" id="pageInfo" style="margin-left:8px;"></span>
+        </div>
+      </div>
+    </div>
+
     <div class="tablewrap">
       <table id="tblGroups">
         <thead><tr id="groupsHead"></tr></thead>
@@ -394,28 +424,6 @@
 
       body.appendChild(tr);
     }
-
-    const sel = el("groupSelect");
-    sel.innerHTML = "";
-    const opt0 = document.createElement("option");
-    opt0.value = "";
-    opt0.textContent = groups.length ? "Velg..." : "Ingen grupper";
-    sel.appendChild(opt0);
-
-    groups.slice(0, 2000).forEach((row) => {
-      const g = groupKeyFromRow(row, groupCols);
-      const opt = document.createElement("option");
-      opt.value = JSON.stringify(g);
-      opt.textContent = groupLabel(g, groupCols);
-      sel.appendChild(opt);
-    });
-
-    sel.onchange = () => {
-      const v = sel.value;
-      if (!v) return;
-      const g = JSON.parse(v);
-      fetchRowsForGroup(g, groupCols);
-    };
   }
 
   function renderRows(rows) {
@@ -461,6 +469,78 @@
     }
   }
 
+  // ----------------------------
+  // NYTT: søk + paginering
+  // ----------------------------
+  let allGroups = [];
+  let groupColsGlobal = [];
+  let pageIndex = 0;
+
+  function applyGroupFilterAndPaging() {
+    const q = (el("groupSearch").value || "").trim().toLowerCase();
+    const size = Number(el("pageSize").value || 100);
+
+    let filtered = allGroups;
+    if (q) {
+      filtered = allGroups.filter(row =>
+        groupColsGlobal.some(c => String(row[c] ?? "").toLowerCase().includes(q))
+      );
+    }
+
+    const total = filtered.length;
+    const pages = Math.max(1, Math.ceil(total / size));
+    pageIndex = Math.max(0, Math.min(pageIndex, pages - 1));
+
+    const start = pageIndex * size;
+    const view = filtered.slice(start, start + size);
+
+    el("pageInfo").textContent = total
+      ? `${start + 1}-${Math.min(start + size, total)} av ${total}`
+      : "0 rader";
+
+    renderGroups(view, groupColsGlobal);
+
+    // Dropdown – bygges fra filtrert liste (begrens for ytelse)
+    const sel = el("groupSelect");
+    sel.innerHTML = "";
+    const opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = total ? "Velg..." : "Ingen grupper";
+    sel.appendChild(opt0);
+
+    filtered.slice(0, 2000).forEach((row) => {
+      const g = groupKeyFromRow(row, groupColsGlobal);
+      const opt = document.createElement("option");
+      opt.value = JSON.stringify(g);
+      opt.textContent = groupLabel(g, groupColsGlobal);
+      sel.appendChild(opt);
+    });
+
+    sel.onchange = () => {
+      const v = sel.value;
+      if (!v) return;
+      const g = JSON.parse(v);
+      fetchRowsForGroup(g, groupColsGlobal);
+    };
+  }
+
+  el("groupSearch").addEventListener("input", () => {
+    pageIndex = 0;
+    applyGroupFilterAndPaging();
+  });
+  el("pageSize").addEventListener("change", () => {
+    pageIndex = 0;
+    applyGroupFilterAndPaging();
+  });
+  el("prevPage").addEventListener("click", () => {
+    pageIndex = Math.max(0, pageIndex - 1);
+    applyGroupFilterAndPaging();
+  });
+  el("nextPage").addEventListener("click", () => {
+    pageIndex = pageIndex + 1;
+    applyGroupFilterAndPaging();
+  });
+
   async function run() {
     showError("");
     el("btnRun").disabled = true;
@@ -482,8 +562,11 @@
         throw new Error(data.message || "Ukjent feil ved henting av grupper.");
       }
 
-      const groupCols = data.group_cols || [];
-      renderGroups(data.groups || [], groupCols);
+      groupColsGlobal = data.group_cols || [];
+      allGroups = data.groups || [];
+      pageIndex = 0;
+
+      applyGroupFilterAndPaging();
       setKpis(data.kpis || null);
 
     } catch (e) {
