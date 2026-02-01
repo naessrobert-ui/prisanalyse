@@ -729,17 +729,29 @@ def _rekordrask_group_cols(filters: dict, colmap: dict):
 def _rekordrask_where(filters: dict, colmap: dict):
     """WHERE + params for DF_alle.
 
-    DEBUG: Dato-filter er deaktivert for å sjekke om dato er årsaken til 0 treff.
-    (Vi bruker fortsatt dato_start/dato_end i _rekordrask_base_sql for å beregne _is_rekord.)
+    Filtrerer på Dato (dato_start) fra UI. UI kan sende dd.mm.yyyy eller yyyy-mm-dd.
     """
     clauses = []
     params = []
 
+    c_dato = colmap.get("dato_start")
     c_prod = colmap.get("produsent")
     c_pris = colmap.get("pris_ny")
     c_aar  = colmap.get("aar")
     c_driv = colmap.get("drivstoff")
     c_hjul = colmap.get("hjuldrift")
+
+    # Dato-filter (Dato/dato_start)
+    if c_dato:
+        dato_ts = _to_timestamp_sql(_qident(c_dato))
+        fra = _normalize_date_input(filters.get("fra_dato"))
+        til = _normalize_date_input(filters.get("til_dato"))
+        if fra:
+            clauses.append(f"date({dato_ts}) >= date(?)")
+            params.append(fra)
+        if til:
+            clauses.append(f"date({dato_ts}) <= date(?)")
+            params.append(til)
 
     produsent = (filters.get("produsent") or "Alle").strip()
     if produsent != "Alle" and c_prod:
