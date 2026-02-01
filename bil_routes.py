@@ -784,32 +784,22 @@ def _rekordrask_where(filters: dict, colmap: dict):
 def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     """
     CTE base: filtrert DF_alle + derived columns + _is_rekord.
-    max_days bindes kun ÉN gang (?), og gjenbrukes via _is_rekord.
+
+    Viktig: datoene i parquet kan være dd.mm.yyyy, så vi må parse med _to_timestamp_sql,
+    ellers blir alt NULL og alle dato-baserte beregninger/dato-filter feiler.
     """
     c_dato = _qident(colmap.get("dato_start"))
     c_dato_ny = _qident(colmap.get("dato_end"))
     c_solgt = _qident(colmap.get("solgt"))
 
-    dato_ts = f"try_cast({c_dato} AS TIMESTAMP)"
-    dato_ny_ts = f"try_cast({c_dato_ny} AS TIMESTAMP)"
+    dato_ts = _to_timestamp_sql(c_dato)
+    dato_ny_ts = _to_timestamp_sql(c_dato_ny)
 
-    # Normaliser solgt-tekst; NULL -> ''
-    solgt_norm = f"lower(trim(coalesce(cast({c_solgt} as varchar), '')))"
+    # solgt_norm: string-normalisering (som Streamlit: 'nei' er ikke solgt)
+    solgt_norm = f"lower(trim(cast({c_solgt} as varchar)))"
 
-    # dager ute som float (sekunder / 86400)
+    # days_to_end som float (sekunder / 86400)
     days_to_end = f"(date_diff('second', {dato_ts}, {dato_ny_ts}) / 86400.0)"
-
-    # Rekordsolgt: solgt != 'nei' og begge datoer finnes og dager <= max_days
-    is_rekord = f"""
-      (
-        {solgt_norm} <> 'nei'
-        AND {solgt_norm} <> ''
-        AND {dato_ts} IS NOT NULL
-        AND {dato_ny_ts} IS NOT NULL
-        AND {days_to_end} IS NOT NULL
-        AND {days_to_end} <= ?
-      )
-    """
 
     return f"""
       WITH base AS (
@@ -819,7 +809,13 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
           {dato_ny_ts} AS _dato_ny,
           {solgt_norm} AS _solgt_norm,
           {days_to_end} AS _days_to_end,
-          {is_rekord} AS _is_rekord
+          (
+            {solgt_norm} != 'nei'
+            AND {dato_ts} IS NOT NULL
+            AND {dato_ny_ts} IS NOT NULL
+            AND {days_to_end} IS NOT NULL
+            AND {days_to_end} <= ?
+          ) AS _is_rekord
         FROM read_parquet('{path}')
         {where_sql}
       )
