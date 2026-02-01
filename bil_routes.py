@@ -1,6 +1,7 @@
 # bil_routes.py (DuckDB + Parquet fra S3 via lokal /tmp-cache, per-file cache)
 import json
 import os
+import re
 import tempfile
 import threading
 from datetime import datetime, timedelta, date
