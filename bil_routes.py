@@ -149,16 +149,6 @@ def _qident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
-def _to_bigint_sql(col_ident: str) -> str:
-    """
-    Robust tall-cast i DuckDB:
-    - caster til varchar
-    - fjerner alt som ikke er 0-9
-    - try_cast til BIGINT
-    """
-    return f"try_cast(regexp_replace(cast({col_ident} as varchar), '[^0-9]', '', 'g') as BIGINT)"
-
-
 def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
     """
     Mapper canonical feltnavn -> faktisk kolonnenavn i parquet.
@@ -346,34 +336,6 @@ def bil_solgt_oversikt_data():
         path = _ensure_local_parquet(s3_key)
         colmap = _duckdb_get_colmap(path, s3_key)
         con = _duckdb_con()
-        import os
-
-        # DEBUG: kolonner + colmap
-        try:
-            cols = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}')").fetchall()
-            actual_cols = [r[0] for r in cols]
-        except Exception as e:
-            actual_cols = []
-            print("REKORDRASK DEBUG: DESCRIBE feilet:", e)
-
-        print("REKORDRASK DEBUG: parquet_local_path =", path)
-        print("REKORDRASK DEBUG: parquet_size_bytes =", os.path.getsize(path) if os.path.exists(path) else -1)
-        print("REKORDRASK DEBUG: first_cols =", actual_cols[:50])
-        print("REKORDRASK DEBUG: colmap =", colmap)
-
-        # DEBUG: counts
-        total_cnt = con.execute(f"SELECT COUNT(*) FROM read_parquet('{path}')").fetchone()[0]
-        print("REKORDRASK DEBUG: rows_total =", total_cnt)
-
-        where_sql, params = _rekordrask_where(filters, colmap)
-        filtered_cnt = con.execute(
-            f"SELECT COUNT(*) FROM read_parquet('{path}') {where_sql}",
-            params
-        ).fetchone()[0]
-
-        print("REKORDRASK DEBUG: where_sql =", where_sql)
-        print("REKORDRASK DEBUG: params =", params)
-        print("REKORDRASK DEBUG: rows_after_where =", filtered_cnt)
 
         if not colmap.get("produsent") or not colmap.get("solgt"):
             return jsonify({
@@ -680,8 +642,8 @@ def get_bil_solgt_data():
 
 
 # ==========================================================
-# REKORDRASK (NY) – erstatter gammel pipeline, ellers alt uendret
-# Bruker SAMME parquet som resten: database_biler.parquet (AWS-versjonen)
+# REKORDRASK (NY) – robust mot varierende datatyper/metadata
+# Bruker SAMME parquet som resten: database_biler.parquet (AWS)
 # Endepunkter:
 #   GET  /bil/rekordrask
 #   POST /bil/rekordrask/grupper   -> groups + kpis + group_cols
@@ -696,21 +658,20 @@ def _rekordrask_group_cols(filters: dict, colmap: dict):
     # mapping fra "canonical" -> (sql ident, json field name)
     # NB: vi bruker "aarstall" i JSON for å matche UI (og unngå "år" i JS)
     m = {
-        "produsent": ( _qident(colmap.get("produsent")), "produsent"),
-        "modell":    ( _qident(colmap.get("modell")), "modell"),
-        "aar":       ( _qident(colmap.get("aar")), "aarstall"),
-        "drivstoff": ( _qident(colmap.get("drivstoff")), "drivstoff"),
-        "hjuldrift": ( _qident(colmap.get("hjuldrift")), "hjuldrift"),
-        "selger":    ( _qident(colmap.get("selger")), "selger"),
-        "km":        ( _qident(colmap.get("km")), "km"),
+        "produsent": (_qident(colmap.get("produsent")), "produsent"),
+        "modell":    (_qident(colmap.get("modell")), "modell"),
+        "aar":       (_qident(colmap.get("aar")), "aarstall"),
+        "drivstoff": (_qident(colmap.get("drivstoff")), "drivstoff"),
+        "hjuldrift": (_qident(colmap.get("hjuldrift")), "hjuldrift"),
+        "selger":    (_qident(colmap.get("selger")), "selger"),
+        "km":        (_qident(colmap.get("km")), "km"),
     }
 
     def pick(keys):
-        cols_sql = []
-        cols_names = []
+        cols_sql, cols_names = [], []
         for k in keys:
-            sql_ident, out_name = m.get(k, (None, None))
-            if sql_ident and sql_ident != "NULL":
+            sql_ident, out_name = m.get(k, ("NULL", None))
+            if sql_ident and sql_ident != "NULL" and out_name:
                 cols_sql.append(sql_ident)
                 cols_names.append(out_name)
         return cols_sql, cols_names
@@ -731,37 +692,38 @@ def _rekordrask_group_cols(filters: dict, colmap: dict):
 
 
 def _rekordrask_where(filters: dict, colmap: dict):
-    """WHERE + params for DF_alle (filtrerer på Dato = dato_start)."""
+    """
+    WHERE + params for DF_alle.
+    Viktig:
+      - Periode-filter bruker Dato_ny (dato_end) som standard, fallback til Dato (dato_start).
+      - Pris/år bruker robust parsing (fjerner alt som ikke er siffer) før BIGINT.
+    """
     clauses = []
     params = []
 
-    c_dato = colmap.get("dato_start")
-    c_prod = colmap.get("produsent")
-    c_pris = colmap.get("pris_ny")
-    c_aar  = colmap.get("aar")
-    c_driv = colmap.get("drivstoff")
-    c_hjul = colmap.get("hjuldrift")
+    # Periodekolonne: Dato_ny først, fallback Dato
+    c_period = colmap.get("dato_end") or colmap.get("dato_start")
+    if not c_period:
+        raise ValueError("Mangler kolonne for Dato_ny/Dato i datasettet.")
 
-    if not c_dato:
-        raise ValueError("Mangler kolonne for Dato/Dato_start i datasettet.")
-
-    dato_ts = f"try_cast({_qident(c_dato)} AS TIMESTAMP)"
+    period_ts = f"try_cast({_qident(c_period)} AS TIMESTAMP)"
 
     fra = filters.get("fra_dato")
     til = filters.get("til_dato")
     if fra:
-        clauses.append(f"{dato_ts} >= try_cast(? AS TIMESTAMP)")
+        clauses.append(f"{period_ts} >= try_cast(? AS TIMESTAMP)")
         params.append(fra)
     if til:
-        # inkluder hele dagen
-        clauses.append(f"{dato_ts} <= (try_cast(? AS TIMESTAMP) + INTERVAL '1 day' - INTERVAL '1 second')")
+        clauses.append(f"{period_ts} <= (try_cast(? AS TIMESTAMP) + INTERVAL '1 day' - INTERVAL '1 second')")
         params.append(til)
 
+    c_prod = colmap.get("produsent")
     produsent = (filters.get("produsent") or "Alle").strip()
     if produsent != "Alle" and c_prod:
         clauses.append(f"{_qident(c_prod)} = ?")
         params.append(produsent)
 
+    c_pris = colmap.get("pris_ny")
     pris_fra = filters.get("pris_fra")
     pris_til = filters.get("pris_til")
     if c_pris and pris_fra not in (None, ""):
@@ -773,6 +735,7 @@ def _rekordrask_where(filters: dict, colmap: dict):
         clauses.append(f"{pris_expr} <= ?")
         params.append(int(pris_til))
 
+    c_aar = colmap.get("aar")
     aar_fra = filters.get("aar_fra")
     aar_til = filters.get("aar_til")
     if c_aar and aar_fra not in (None, ""):
@@ -784,11 +747,13 @@ def _rekordrask_where(filters: dict, colmap: dict):
         clauses.append(f"{aar_expr} <= ?")
         params.append(int(aar_til))
 
+    c_driv = colmap.get("drivstoff")
     drivstoff = (filters.get("drivstoff") or "Alle").strip()
     if drivstoff != "Alle" and c_driv:
         clauses.append(f"{_qident(c_driv)} = ?")
         params.append(drivstoff)
 
+    c_hjul = colmap.get("hjuldrift")
     hjuldrift = (filters.get("hjuldrift") or "Alle").strip()
     if hjuldrift != "Alle" and c_hjul:
         clauses.append(f"{_qident(c_hjul)} = ?")
@@ -801,7 +766,7 @@ def _rekordrask_where(filters: dict, colmap: dict):
 def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     """
     CTE base: filtrert DF_alle + derived columns + _is_rekord.
-    VIKTIG: max_days bindes kun ÉN gang (?), og gjenbrukes via _is_rekord.
+    max_days bindes kun ÉN gang (?), og gjenbrukes via _is_rekord.
     """
     c_dato = _qident(colmap.get("dato_start"))
     c_dato_ny = _qident(colmap.get("dato_end"))
@@ -810,11 +775,23 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     dato_ts = f"try_cast({c_dato} AS TIMESTAMP)"
     dato_ny_ts = f"try_cast({c_dato_ny} AS TIMESTAMP)"
 
-    # solgt_norm: string-normalisering (som Streamlit: 'nei' er ikke solgt)
-    solgt_norm = f"lower(trim(cast({c_solgt} as varchar)))"
+    # Normaliser solgt-tekst; NULL -> ''
+    solgt_norm = f"lower(trim(coalesce(cast({c_solgt} as varchar), '')))"
 
-    # days_to_end som float (sekunder / 86400)
+    # dager ute som float (sekunder / 86400)
     days_to_end = f"(date_diff('second', {dato_ts}, {dato_ny_ts}) / 86400.0)"
+
+    # Rekordsolgt: solgt != 'nei' og begge datoer finnes og dager <= max_days
+    is_rekord = f"""
+      (
+        {solgt_norm} <> 'nei'
+        AND {solgt_norm} <> ''
+        AND {dato_ts} IS NOT NULL
+        AND {dato_ny_ts} IS NOT NULL
+        AND {days_to_end} IS NOT NULL
+        AND {days_to_end} <= ?
+      )
+    """
 
     return f"""
       WITH base AS (
@@ -824,41 +801,81 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
           {dato_ny_ts} AS _dato_ny,
           {solgt_norm} AS _solgt_norm,
           {days_to_end} AS _days_to_end,
-          (
-            {solgt_norm} != 'nei'
-            AND {dato_ts} IS NOT NULL
-            AND {dato_ny_ts} IS NOT NULL
-            AND {days_to_end} IS NOT NULL
-            AND {days_to_end} <= ?
-          ) AS _is_rekord
+          {is_rekord} AS _is_rekord
         FROM read_parquet('{path}')
         {where_sql}
       )
     """
 
 
+def _distinct_list_from_parquet(con, path: str, col_ident: str):
+    """Robust DISTINCT-liste: NULL/blank filtreres bort, trim() og cast til varchar."""
+    if not col_ident or col_ident == "NULL":
+        return []
+    rows = con.execute(f"""
+        SELECT DISTINCT trim(cast({col_ident} as varchar)) AS v
+        FROM read_parquet('{path}')
+        WHERE {col_ident} IS NOT NULL AND trim(cast({col_ident} as varchar)) <> ''
+        ORDER BY 1
+    """).fetchall()
+    vals = [r[0] for r in rows if r and r[0] is not None and str(r[0]).strip() != ""]
+    return vals
+
+
+def _rekordrask_default_dates(con, path: str, colmap: dict):
+    """
+    Default fra/til settes basert på max dato i datasettet:
+      - foretrekk Dato_ny (dato_end)
+      - fallback Dato (dato_start)
+    """
+    c_end = colmap.get("dato_end")
+    c_start = colmap.get("dato_start")
+    col = c_end or c_start
+    if not col:
+        # fallback: siste 30 dager fra i dag
+        today = date.today()
+        return (today - timedelta(days=30)).isoformat(), today.isoformat()
+
+    col_ident = _qident(col)
+    max_date = con.execute(
+        f"SELECT max(date(try_cast({col_ident} AS TIMESTAMP))) FROM read_parquet('{path}')"
+    ).fetchone()[0]
+
+    if not max_date:
+        today = date.today()
+        return (today - timedelta(days=30)).isoformat(), today.isoformat()
+
+    to_date = max_date
+    from_date = (to_date - timedelta(days=30))
+    return from_date.isoformat(), to_date.isoformat()
+
+
 @bil_bp.route('/rekordrask')
 def bil_rekordrask_side():
     """
-    Denne siden bruker din nye HTML/JS (bil_rekordrask.html).
-    Den henter grupper via POST /bil/rekordrask/grupper
-    og detaljer via POST /bil/rekordrask/data
+    Bruker bil_rekordrask.html.
+    Dropdowns + default datoer hentes fra parquet (samme kilde som analysene).
     """
-    metadata = _get_metadata()
+    s3_key = PARQUET_KEY_SOLGT
+    path = _ensure_local_parquet(s3_key)
+    colmap = _duckdb_get_colmap(path, s3_key)
+    con = _duckdb_con()
 
-    # defaults som matcher streamlit-ish: siste 30 dager, maks 3 dager, min 30
-    today = date.today()
-    default_from = (today - timedelta(days=30)).isoformat()
-    default_to = today.isoformat()
+    # dropdowns fra parquet
+    produsenter = _distinct_list_from_parquet(con, path, _qident(colmap.get("produsent")))
+    drivstoff  = _distinct_list_from_parquet(con, path, _qident(colmap.get("drivstoff")))
+    hjuldrift  = _distinct_list_from_parquet(con, path, _qident(colmap.get("hjuldrift")))
+
+    default_from, default_to = _rekordrask_default_dates(con, path, colmap)
 
     return render_template(
         'bil_rekordrask.html',
         tittel="Biler solgt rekordraskt",
         grupper_url="/bil/rekordrask/grupper",
         data_url="/bil/rekordrask/data",
-        produsenter=metadata.get('produsenter', []),
-        drivstoff=metadata.get('drivstoff_opts', []),
-        hjuldrift=metadata.get('hjuldrift_opts', []),
+        produsenter=produsenter,
+        drivstoff=drivstoff,
+        hjuldrift=hjuldrift,
         default_from=default_from,
         default_to=default_to,
         default_max_days=3,
@@ -872,7 +889,6 @@ def bil_rekordrask_grupper():
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
 
-        # defaults
         max_days = float(filters.get("max_days") or 3)
         min_obs = int(filters.get("min_obs") or 30)
 
@@ -901,18 +917,18 @@ def bil_rekordrask_grupper():
             select_group.append(f"{sql_ident} AS {out_name}")
             group_by.append(sql_ident)
 
-        # OBS: _is_rekord er precomputed i base og binder max_days kun én gang.
         sql = f"""
           {base}
           SELECT
             {', '.join(select_group)},
             COUNT(*) AS alle_antall,
             SUM(CASE WHEN _is_rekord THEN 1 ELSE 0 END) AS rekordsolgt_antall,
-            (SUM(CASE WHEN _is_rekord THEN 1 ELSE 0 END) / COUNT(*)) AS andel_rekordsolgt
+            CASE WHEN COUNT(*) = 0 THEN 0 ELSE (SUM(CASE WHEN _is_rekord THEN 1 ELSE 0 END) * 1.0 / COUNT(*)) END AS andel_rekordsolgt
           FROM base
           GROUP BY {', '.join(group_by)}
           HAVING COUNT(*) >= ?
-          ORDER BY rekordsolgt_antall DESC, andel_rekordsolgt DESC, alle_antall DESC
+          ORDER BY andel_rekordsolgt DESC, rekordsolgt_antall DESC, alle_antall DESC
+          LIMIT 5000
         """
 
         # params: WHERE + (max_days én gang, bindes i base) + min_obs
@@ -969,7 +985,7 @@ def bil_rekordrask_data():
 
         base = _rekordrask_base_sql(path, colmap, where_sql)
 
-        # detaljfelter (matcher din HTML)
+        # detaljfelter (matcher HTML)
         c_prod = _qident(colmap.get("produsent"))
         c_mod  = _qident(colmap.get("modell"))
         c_aar  = _qident(colmap.get("aar"))
@@ -980,7 +996,7 @@ def bil_rekordrask_data():
         c_sel  = _qident(colmap.get("selger"))
         c_finn = _qident(colmap.get("finnkode"))
 
-        # for finn-url
+        # for finn-url: strip trailing .0, og ta vare på siffer
         finnkode_str = f"regexp_replace(cast({c_finn} as varchar), '\\\\.0$', '')"
         finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
 
@@ -988,7 +1004,6 @@ def bil_rekordrask_data():
         group_where_parts = []
         group_params = []
 
-        # group kommer med keys som group_cols_names (produsent/modell/aarstall/...)
         name_to_sql = dict(zip(group_cols_names, group_cols_sql))
         for out_name, sql_ident in name_to_sql.items():
             if out_name not in group:
@@ -997,27 +1012,29 @@ def bil_rekordrask_data():
             if val is None or val == "":
                 group_where_parts.append(f"{sql_ident} IS NULL")
             else:
-                # aarstall er ofte tall
                 if out_name == "aarstall":
-                    group_where_parts.append(f"try_cast({sql_ident} AS BIGINT) IS NOT DISTINCT FROM ?")
+                    group_where_parts.append(f"coalesce({_to_bigint_sql(sql_ident)}, 0) IS NOT DISTINCT FROM ?")
                     group_params.append(int(val))
                 else:
-                    group_where_parts.append(f"cast({sql_ident} as varchar) IS NOT DISTINCT FROM ?")
-                    group_params.append(str(val))
+                    group_where_parts.append(f"trim(cast({sql_ident} as varchar)) IS NOT DISTINCT FROM ?")
+                    group_params.append(str(val).strip())
 
         group_where_sql = (" AND " + " AND ".join(group_where_parts)) if group_where_parts else ""
 
-        # OBS: _is_rekord er precomputed i base og binder max_days kun én gang.
+        pris_num = f"coalesce({_to_bigint_sql(c_pris)}, 0)"
+        km_num = f"coalesce({_to_bigint_sql(c_km)}, NULL)"
+        aar_num = f"coalesce({_to_bigint_sql(c_aar)}, NULL)"
+
         sql = f"""
           {base}
           SELECT
             {c_prod} AS produsent,
             {c_mod} AS modell,
-            try_cast({c_aar} AS BIGINT) AS aarstall,
+            {aar_num} AS aarstall,
             {c_driv} AS drivstoff,
             {c_hjul} AS hjuldrift,
-            coalesce(try_cast({c_pris} AS BIGINT), 0) AS pris_ny,
-            try_cast({c_km} AS BIGINT) AS km,
+            {pris_num} AS pris_ny,
+            {km_num} AS km,
             _days_to_end AS dager,
             CAST(_dato AS VARCHAR) AS dato,
             CAST(_dato_ny AS VARCHAR) AS dato_ny,
@@ -1028,7 +1045,7 @@ def bil_rekordrask_data():
           WHERE _is_rekord
           {group_where_sql}
           ORDER BY dager ASC, dato_ny ASC
-          LIMIT 2000
+          LIMIT 5000
         """
 
         df = con.execute(sql, params + [max_days] + group_params).df()
