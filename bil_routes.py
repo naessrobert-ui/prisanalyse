@@ -727,10 +727,11 @@ def _rekordrask_group_cols(filters: dict, colmap: dict):
 
 
 def _rekordrask_where(filters: dict, colmap: dict):
-    \"\"\"WHERE + params for DF_alle.
-    DEBUG-modus: Dato-filter er *helt deaktivert* for å verifisere om dato er årsaken til 0 treff.
-    (Vi bruker fortsatt dato_start/dato_end senere for å beregne _is_rekord.)
-    \"\"\"
+    """WHERE + params for DF_alle.
+
+    DEBUG: Dato-filter er deaktivert for å sjekke om dato er årsaken til 0 treff.
+    (Vi bruker fortsatt dato_start/dato_end i _rekordrask_base_sql for å beregne _is_rekord.)
+    """
     clauses = []
     params = []
 
@@ -779,9 +780,6 @@ def _rekordrask_where(filters: dict, colmap: dict):
 
     where_sql = " WHERE " + " AND ".join(clauses) if clauses else ""
     return where_sql, params
-
-
-
 
 def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     """
