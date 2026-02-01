@@ -149,6 +149,16 @@ def _qident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
+def _to_bigint_sql(col_ident: str) -> str:
+    """
+    Robust tall-cast i DuckDB:
+    - caster til varchar
+    - fjerner alt som ikke er 0-9
+    - try_cast til BIGINT
+    """
+    return f"try_cast(regexp_replace(cast({col_ident} as varchar), '[^0-9]', '', 'g') as BIGINT)"
+
+
 def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
     """
     Mapper canonical feltnavn -> faktisk kolonnenavn i parquet.
@@ -727,19 +737,23 @@ def _rekordrask_where(filters: dict, colmap: dict):
     pris_fra = filters.get("pris_fra")
     pris_til = filters.get("pris_til")
     if c_pris and pris_fra not in (None, ""):
-        clauses.append(f"coalesce(try_cast({_qident(c_pris)} AS BIGINT), 0) >= ?")
+        pris_expr = f"coalesce({_to_bigint_sql(_qident(c_pris))}, 0)"
+        clauses.append(f"{pris_expr} >= ?")
         params.append(int(pris_fra))
     if c_pris and pris_til not in (None, ""):
-        clauses.append(f"coalesce(try_cast({_qident(c_pris)} AS BIGINT), 0) <= ?")
+        pris_expr = f"coalesce({_to_bigint_sql(_qident(c_pris))}, 0)"
+        clauses.append(f"{pris_expr} <= ?")
         params.append(int(pris_til))
 
     aar_fra = filters.get("aar_fra")
     aar_til = filters.get("aar_til")
     if c_aar and aar_fra not in (None, ""):
-        clauses.append(f"try_cast({_qident(c_aar)} AS BIGINT) >= ?")
+        aar_expr = f"coalesce({_to_bigint_sql(_qident(c_aar))}, 0)"
+        clauses.append(f"{aar_expr} >= ?")
         params.append(int(aar_fra))
     if c_aar and aar_til not in (None, ""):
-        clauses.append(f"try_cast({_qident(c_aar)} AS BIGINT) <= ?")
+        aar_expr = f"coalesce({_to_bigint_sql(_qident(c_aar))}, 0)"
+        clauses.append(f"{aar_expr} <= ?")
         params.append(int(aar_til))
 
     drivstoff = (filters.get("drivstoff") or "Alle").strip()
