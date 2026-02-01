@@ -1,5 +1,6 @@
 # bil_routes.py (DuckDB + Parquet fra S3 via lokal /tmp-cache, per-file cache)
 import json
+import re
 import os
 import tempfile
 import threading
@@ -151,7 +152,35 @@ def _qident(name: str) -> str:
 
 def _to_bigint_sql(col_ident: str) -> str:
     """Robust tall-cast i DuckDB: fjern alt som ikke er siffer før BIGINT."""
-    return f"try_cast(regexp_replace(cast({col_ident} as varchar), '[^0-9]', '', 'g') as BIGINT)"
+    return f"try_cast(regexp_replace(cast({col_ident} as varchar), '[^0-9]', '', 'g') as
+
+def _normalize_date_input(s: str | None) -> str | None:
+    """Accepts 'YYYY-MM-DD' or 'DD.MM.YYYY' (optionally with time) and returns ISO-like string DuckDB can cast."""
+    if s is None:
+        return None
+    s = str(s).strip()
+    if not s:
+        return None
+
+    # Already ISO-ish
+    if re.match(r"^\d{4}-\d{2}-\d{2}", s):
+        return s
+
+    # Common Norwegian format: DD.MM.YYYY or DD.MM.YYYY HH:MM
+    m = re.match(r"^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$", s)
+    if m:
+        dd, mm, yyyy, hh, mi, ss = m.groups()
+        dd = dd.zfill(2)
+        mm = mm.zfill(2)
+        hh = (hh or "00").zfill(2)
+        mi = (mi or "00").zfill(2)
+        ss = (ss or "00").zfill(2)
+        # return timestamp string
+        return f"{yyyy}-{mm}-{dd} {hh}:{mi}:{ss}"
+
+    # Fallback: pass through (DuckDB might still parse)
+    return s
+ BIGINT)"
 
 
 def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
@@ -713,8 +742,8 @@ def _rekordrask_where(filters: dict, colmap: dict):
 
     period_ts = f"try_cast({_qident(c_period)} AS TIMESTAMP)"
 
-    fra = filters.get("fra_dato")
-    til = filters.get("til_dato")
+    fra = _normalize_date_input(filters.get("fra_dato"))
+    til = _normalize_date_input(filters.get("til_dato"))
     if fra:
         clauses.append(f"{period_ts} >= try_cast(? AS TIMESTAMP)")
         params.append(fra)
