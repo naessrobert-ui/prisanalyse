@@ -1,6 +1,7 @@
 # bil_routes.py (DuckDB + Parquet fra S3 via lokal /tmp-cache, per-file cache)
 import json
 import os
+import re
 import tempfile
 import threading
 from datetime import datetime, timedelta, date
@@ -21,8 +22,6 @@ from config import (
     DEFAULT_STARTDATE
 )
 
-from rekordrask_parquet import bygg_visning_for_solgte_fra_parquet
-
 bil_bp = Blueprint('bil', __name__, url_prefix='/bil')
 from svv_app import fetch_svv_data, flatten_svv_data, compute_eu_status
 
@@ -31,8 +30,8 @@ FINN_BASE_URL = "https://www.finn.no/mobility/item/"
 # -------------------------
 # S3 keys (VIKTIG)
 # -------------------------
-PARQUET_KEY_SOLGT = "calc/bil/database_biler.parquet"           # ✅ hele historikken (til /bil/solgt)
-PARQUET_KEY_REKORDRASK = "calc/bil/database_biler_siste.parquet"  # ✅ “siste”-fila (til rekordrask / annen app)
+PARQUET_KEY_SOLGT = "calc/bil/database_biler.parquet"             # ✅ hele historikken (AWS)
+PARQUET_KEY_REKORDRASK = "calc/bil/database_biler_siste.parquet"  # (beholdt hvis annet bruker den)
 
 METADATA_KEY = "calc/metadata.json"
 
@@ -144,9 +143,9 @@ def _duckdb_con():
 
 
 def _qident(name: str) -> str:
-    """Trygg quoting av SQL identifier."""
+    """Sikker quoting for kolonnenavn (inkl. æøå/space)."""
     if name is None:
-        return "NULL"
+        return None
     return '"' + name.replace('"', '""') + '"'
 
 
@@ -245,7 +244,6 @@ def _build_where_sql(filters: dict, colmap: dict):
 
     if filters.get("seller_sok") and colmap.get("selger"):
         clauses.append(
-            # trim() gjør søk mer robust mot tilfeldige mellomrom i datakilden
             f"lower(trim(cast({_qident(colmap['selger'])} AS VARCHAR))) LIKE '%' || lower(trim(?)) || '%'"
         )
         params.append(filters["seller_sok"])
@@ -319,437 +317,409 @@ def bil_solgt_oversikt_side():
     metadata = _get_metadata()
     return render_template(
         'bil_solgt_oversikt.html',
-        tittel="Antall solgte biler",
-        data_url="/bil/solgt/oversikt/data",
-        drivstoff_opts=metadata.get('drivstoff_opts', []),
-        hjuldrift_opts=metadata.get('hjuldrift_opts', []),
-        year_min=metadata.get('year_min', 2000),
-        year_max=metadata.get('year_max', datetime.now().year),
-    )
-
-
-@bil_bp.route('/solgt/oversikt/data', methods=['POST'])
-def bil_solgt_oversikt_data():
-    try:
-        payload = request.get_json() or {}
-        filters = payload.get('filters', {}) or {}
-
-        s3_key = PARQUET_KEY_SOLGT
-        path = _ensure_local_parquet(s3_key)
-        colmap = _duckdb_get_colmap(path, s3_key)
-        con = _duckdb_con()
-
-        if not colmap.get("produsent") or not colmap.get("solgt"):
-            return jsonify({
-                'status': 'error',
-                'message': 'Datasettet mangler nødvendige kolonner: produsent/solgt.'
-            }), 500
-
-        prod = _qident(colmap["produsent"])
-        solgt_col = _qident(colmap["solgt"])
-        driv = _qident(colmap["drivstoff"]) if colmap.get("drivstoff") else None
-        aar = _qident(colmap["aar"]) if colmap.get("aar") else None
-
-        where_parts = [f"{_bool_expr(solgt_col)} = true"]
-        params = []
-
-        if driv and isinstance(filters.get("drivstoff"), list) and filters["drivstoff"]:
-            vals = filters["drivstoff"]
-            where_parts.append(f"{driv} IN ({','.join(['?'] * len(vals))})")
-            params.extend(vals)
-
-        if aar:
-            if filters.get("year_min") not in (None, ""):
-                where_parts.append(f"try_cast({aar} AS BIGINT) >= ?")
-                params.append(int(filters["year_min"]))
-            if filters.get("year_max") not in (None, ""):
-                where_parts.append(f"try_cast({aar} AS BIGINT) <= ?")
-                params.append(int(filters["year_max"]))
-
-        where_sql = " WHERE " + " AND ".join(where_parts) if where_parts else ""
-
-        group_cols = [prod]
-        select_cols = [f"{prod} AS produsent"]
-
-        if filters.get("group_by_fuel") and driv:
-            group_cols.append(driv)
-            select_cols.append(f"{driv} AS drivstoff")
-
-        if filters.get("group_by_age") and aar:
-            now_year = datetime.now().year
-            alder_expr = f"""
-              CASE
-                WHEN try_cast({aar} AS BIGINT) IS NULL THEN NULL
-                ELSE
-                  CASE
-                    WHEN ({now_year} - try_cast({aar} AS BIGINT)) <= 1 THEN '0–1'
-                    WHEN ({now_year} - try_cast({aar} AS BIGINT)) <= 3 THEN '2–3'
-                    WHEN ({now_year} - try_cast({aar} AS BIGINT)) <= 5 THEN '4–5'
-                    WHEN ({now_year} - try_cast({aar} AS BIGINT)) <= 8 THEN '6–8'
-                    WHEN ({now_year} - try_cast({aar} AS BIGINT)) <= 12 THEN '9–12'
-                    ELSE '13+'
-                  END
-              END
-            """
-            group_cols.append(alder_expr)
-            select_cols.append(f"{alder_expr} AS alder")
-
-        sql = f"""
-          SELECT {', '.join(select_cols)},
-                 COUNT(*) AS antall_solgt
-          FROM read_parquet('{path}')
-          {where_sql}
-          GROUP BY {', '.join(group_cols)}
-          ORDER BY antall_solgt DESC
-        """
-
-        out_df = con.execute(sql, params).df()
-        out_df = out_df.where(pd.notna(out_df), None)
-        summary = json.loads(out_df.to_json(orient='records'))
-
-        return jsonify({'status': 'ok', 'summary': summary})
-
-    except Exception as e:
-        print(f"Feil i /bil/solgt/oversikt/data: {e}")
-        traceback.print_exc()
-        return jsonify({"status": "error", "error": str(e), "message": "En uventet feil oppstod på serveren."}), 500
-
-
-# ==========================================================
-# SOLGT-ANALYSE SIDE  -- bruker HELE historikken
-# ==========================================================
-
-@bil_bp.route('/solgt')
-def bil_solgt_analyse_side():
-    metadata = _get_metadata()
-    return render_template(
-        'bil_analyse_template.html',
-        tittel="Dette ble bilene solgt for",
+        tittel="Solgte biler",
         data_url="/bil/solgt/data",
         produsenter=metadata.get('produsenter', []),
-        models_by_prod=metadata.get('models_by_prod', {}),
-        drivstoff_opts=metadata.get('drivstoff_opts', []),
-        hjuldrift_opts=metadata.get('hjuldrift_opts', []),
-        year_min=metadata.get('year_min', 2000),
-        year_max=metadata.get('year_max', datetime.now().year),
-        km_min=metadata.get('km_min', 0),
-        km_max=metadata.get('km_max', 200000),
+        models_by_prod=json.dumps(metadata.get('models_by_prod', {})),
+        default_startdate=DEFAULT_STARTDATE,
     )
 
 
 @bil_bp.route('/solgt/data', methods=['POST'])
 def get_bil_solgt_data():
-    """
-    ✅ Ingen early-return.
-    ✅ Visning begrenses til MAX_ROWS_LIMIT billigste (pris_ny ASC).
-    ✅ KPI + daily_stats beregnes på ALLE treff.
-    """
     try:
-        MAX_ROWS_LIMIT = 300
-
         payload = request.get_json() or {}
         filters = payload.get('filters', {}) or {}
+        s3_key = PARQUET_KEY_SOLGT
+        local_path = _ensure_local_parquet(s3_key)
+        colmap = _duckdb_get_colmap(local_path, s3_key)
+
+        where_sql, params = _build_where_sql(filters, colmap)
+
+        con = _duckdb_con()
+
+        # Velg kolonner vi viser (med aliases)
+        selects = []
+        def add(key, alias):
+            if colmap.get(key):
+                selects.append(f"{_qident(colmap[key])} AS {alias}")
+
+        add("produsent", "Produsent")
+        add("modell", "Modell")
+        add("aar", "årstall")
+        add("drivstoff", "drivstoff")
+        add("hjuldrift", "hjuldrift")
+        add("km", "kjørelengde")
+        add("pris_ny", "Pris_ny")
+        add("dato_start", "Dato")
+        add("dato_end", "Dato_ny")
+        add("solgt", "Solgt")
+        add("selger", "Selger")
+        add("finnkode", "FinnKode")
+
+        if not selects:
+            return jsonify({"status": "error", "message": "Fant ingen kolonner i parquet."}), 500
+
+        sql = f"""
+            SELECT {", ".join(selects)}
+            FROM read_parquet('{local_path}')
+            {where_sql}
+            ORDER BY try_cast({_qident(colmap.get('dato_end'))} AS TIMESTAMP) DESC NULLS LAST
+            LIMIT 50000
+        """
+
+        df = con.execute(sql, params).df()
+        df = df.where(pd.notna(df), None)
+        rows = json.loads(df.to_json(orient='records', date_format='iso'))
+        return jsonify({"status": "ok", "rows": rows, "kpis": {}})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ==========================================================
+# NY: REKORDSOLGT / REKORDRASK (DuckDB, samme AWS-parquet)
+# ==========================================================
+
+@bil_bp.route('/rekordrask')
+def bil_rekordrask_side():
+    """Ny UI (inspirert av Streamlit) + ny backend mot database_biler.parquet (AWS)."""
+    # Vi henter valglister direkte fra samme parquet som ellers i bil-appen
+    s3_key = PARQUET_KEY_SOLGT
+    path = _ensure_local_parquet(s3_key)
+    colmap = _duckdb_get_colmap(path, s3_key)
+    con = _duckdb_con()
+
+    # Distinct-valglister (robust mot NULL/blank)
+    def distinct_list(colkey: str):
+        col = colmap.get(colkey)
+        if not col:
+            return ["Alle"]
+        c = _qident(col)
+        rows = con.execute(f"""
+            SELECT DISTINCT trim(cast({c} as varchar)) AS v
+            FROM read_parquet('{path}')
+            WHERE {c} IS NOT NULL AND trim(cast({c} as varchar)) <> ''
+            ORDER BY 1
+        """).fetchall()
+        vals = [r[0] for r in rows if r and r[0] is not None and str(r[0]).strip() != ""]
+        return ["Alle"] + vals
+
+    produsenter = distinct_list("produsent")
+    drivstoff = distinct_list("drivstoff")
+    hjuldrift = distinct_list("hjuldrift")
+
+    # Fornuftige defaultdatoer (siste 30 dager)
+    today = date.today()
+    default_from = (today - timedelta(days=30)).isoformat()
+    default_to = today.isoformat()
+
+    return render_template(
+        "bil_rekordrask.html",
+        tittel="Biler solgt rekordraskt",
+        grupper_url="/bil/rekordrask/grupper",
+        data_url="/bil/rekordrask/data",
+        produsenter=produsenter,
+        drivstoff=drivstoff,
+        hjuldrift=hjuldrift,
+        default_from=default_from,
+        default_to=default_to,
+        default_max_days=3,
+        default_min_obs=30,
+    )
+
+
+def _rekordsolgt_conditions_sql(colmap: dict):
+    """Returnerer (days_expr, is_sold_expr)."""
+    c_dato = _qident(colmap.get("dato_start") or "Dato")
+    c_dato_ny = _qident(colmap.get("dato_end") or "Dato_ny")
+    c_solgt = _qident(colmap.get("solgt") or "Solgt")
+
+    # dager ute (kan bli NULL hvis datoer mangler)
+    days_expr = f"(epoch(try_cast({c_dato_ny} AS TIMESTAMP)) - epoch(try_cast({c_dato} AS TIMESTAMP))) / 86400.0"
+
+    # Solgt != 'nei' (inkluderer 'fjernet' etc.)
+    sold_norm = f"lower(trim(cast({c_solgt} as varchar)))"
+    is_sold_expr = f"({c_solgt} IS NOT NULL AND {sold_norm} <> 'nei')"
+
+    return days_expr, is_sold_expr
+
+
+def _rekordrask_group_cols(choice: str, custom_cols):
+    """UI->kanoniske kolonnenavn."""
+    presets = {
+        "Produsent + Modell": ["produsent", "modell"],
+        "Produsent + Modell + årstall": ["produsent", "modell", "aar"],
+        "Produsent + Modell + årstall + drivstoff": ["produsent", "modell", "aar", "drivstoff"],
+    }
+    if choice in presets:
+        return presets[choice]
+    # Egendefinert: forvent kanoniske nøkler fra UI
+    if isinstance(custom_cols, list) and custom_cols:
+        allowed = {"produsent", "modell", "aar", "drivstoff", "hjuldrift", "km", "selger"}
+        return [c for c in custom_cols if c in allowed]
+    return ["produsent", "modell"]
+
+
+@bil_bp.route('/rekordrask/grupper', methods=['POST'])
+def bil_rekordrask_grupper():
+    """Returnerer grupperte andeler + KPIer."""
+    try:
+        payload = request.get_json() or {}
+        filters = payload.get("filters", {}) or {}
+
+        # UI-felter (ny)
+        fra_dato = filters.get("fra_dato")  # YYYY-MM-DD (Dato)
+        til_dato = filters.get("til_dato")  # YYYY-MM-DD (Dato)
+        max_days = int(filters.get("max_days", 3))
+        min_obs = int(filters.get("min_obs", 30))
+
+        group_choice = filters.get("group_choice", "Produsent + Modell + årstall + drivstoff")
+        custom_cols = filters.get("group_cols")
+        group_cols_keys = _rekordrask_group_cols(group_choice, custom_cols)
 
         s3_key = PARQUET_KEY_SOLGT
         path = _ensure_local_parquet(s3_key)
         colmap = _duckdb_get_colmap(path, s3_key)
         con = _duckdb_con()
 
-        where_sql, params = _build_where_sql(filters, colmap)
+        # (canonical_key, actual_column)
+        group_cols_pairs = []
+        for k in group_cols_keys:
+            actual = colmap.get(k)
+            if actual:
+                group_cols_pairs.append((k, actual))
 
-        def col_or_null(key: str) -> str:
-            c = colmap.get(key)
-            return _qident(c) if c else "NULL"
+        if not group_cols_pairs:
+            return jsonify({"status": "error", "message": "Ingen gyldige grupperingskolonner funnet i datagrunnlaget."}), 400
 
-        c_dato_end = col_or_null("dato_end")
-        c_solgt = col_or_null("solgt")
-        dato_end_ts = f"try_cast({c_dato_end} AS TIMESTAMP)"
+        group_cols_keys_valid = [k for (k, _) in group_cols_pairs]
 
-        # ---------------------------------
-        # Statusfilter:
-        # - finn_na: biler som er "sist sett" på max-dato i datasettet
-        # - solgt_fjernet: alt som IKKE er sist sett på max-dato
-        # - alle: ingen statusfilter på tabellen
-        #
-        # NB: Uansett status kutter vi max-dato i 'antall solgte'-diagrammet,
-        # fordi max-dato representerer biler som fortsatt ligger ute.
-        # ---------------------------------
-        status = (filters.get("status") or "solgt_fjernet").strip()  # default: solgt/fjernet
+        days_expr, is_sold_expr = _rekordsolgt_conditions_sql(colmap)
+        is_rekord_expr = f"({is_sold_expr} AND {days_expr} <= ?)"
 
-        max_date = None
-        if colmap.get("dato_end"):
-            max_date = con.execute(
-                f"SELECT max(date({dato_end_ts})) FROM read_parquet('{path}') WHERE {dato_end_ts} IS NOT NULL"
-            ).fetchone()[0]
+        # WHERE for basis-filter (dato/pris/år/drivstoff/hjuldrift/produsent)
+        # NB: vi filtrerer på Dato (dato_start) for fra/til slik som i Streamlit
+        where_clauses = []
+        params = [max_days]  # først til is_rekord_expr
 
-        status_sql = ""
-        status_params = []
-        if max_date is not None:
-            if status == "finn_na":
-                status_sql = f" AND date({dato_end_ts}) = ?"
-                status_params.append(str(max_date))
-                if colmap.get("solgt"):
-                    status_sql += f" AND ({_bool_expr(c_solgt)}) = false"
-            elif status == "solgt_fjernet":
-                status_sql = f" AND date({dato_end_ts}) < ?"
-                status_params.append(str(max_date))
+        if colmap.get("dato_start"):
+            c_dato = _qident(colmap["dato_start"])
+            if fra_dato:
+                where_clauses.append(f"date(try_cast({c_dato} AS TIMESTAMP)) >= date(?)")
+                params.append(fra_dato)
+            if til_dato:
+                where_clauses.append(f"date(try_cast({c_dato} AS TIMESTAMP)) <= date(?)")
+                params.append(til_dato)
 
-        # brukes til diagram/KPI: kutt alltid maxdato, ellers blir siste stolpe "aktive" biler
-        exclude_maxdate_sql = ""
-        exclude_maxdate_params = []
-        if max_date is not None:
-            exclude_maxdate_sql = f" AND date({dato_end_ts}) < ?"
-            exclude_maxdate_params.append(str(max_date))
+        if filters.get("produsent") and filters["produsent"] != "Alle" and colmap.get("produsent"):
+            where_clauses.append(f"{_qident(colmap['produsent'])} = ?")
+            params.append(filters["produsent"])
 
-        # Total treff (respekter status-filter for tabell/utvalg)
-        count_sql = f"SELECT COUNT(*) AS cnt FROM read_parquet('{path}') {where_sql} {status_sql}"
-        total_count = int(con.execute(count_sql, params + status_params).fetchone()[0])
+        if filters.get("drivstoff") and filters["drivstoff"] != "Alle" and colmap.get("drivstoff"):
+            where_clauses.append(f"{_qident(colmap['drivstoff'])} = ?")
+            params.append(filters["drivstoff"])
+        if filters.get("hjuldrift") and filters["hjuldrift"] != "Alle" and colmap.get("hjuldrift"):
+            where_clauses.append(f"{_qident(colmap['hjuldrift'])} = ?")
+            params.append(filters["hjuldrift"])
 
-        if total_count == 0:
-            return jsonify({
-                'status': 'ok',
-                'historikk': [],
-                'daily_stats': [],
-                'kpis': {},
-                'total_count': 0,
-                'returned_count': 0,
-                'limit': MAX_ROWS_LIMIT,
-                'truncated': False
-            })
+        if colmap.get("pris_ny"):
+            c_pris = _qident(colmap["pris_ny"])
+            if filters.get("pris_fra") not in (None, ""):
+                where_clauses.append(f"try_cast({c_pris} AS BIGINT) >= ?")
+                params.append(int(filters["pris_fra"]))
+            if filters.get("pris_til") not in (None, ""):
+                where_clauses.append(f"try_cast({c_pris} AS BIGINT) <= ?")
+                params.append(int(filters["pris_til"]))
 
-        c_prod = col_or_null("produsent")
-        c_mod = col_or_null("modell")
-        c_aar = col_or_null("aar")
-        c_km = col_or_null("km")
-        c_driv = col_or_null("drivstoff")
-        c_hjul = col_or_null("hjuldrift")
-        c_rekk = col_or_null("rekkevidde")
-        c_selger = col_or_null("selger")
-        c_over = col_or_null("overskrift")
-        c_pris_start = col_or_null("pris_start")
-        c_pris_ny = col_or_null("pris_ny")
-        c_dato_start = col_or_null("dato_start")
-        c_finn = col_or_null("finnkode")
+        if colmap.get("aar"):
+            c_aar = _qident(colmap["aar"])
+            if filters.get("aar_fra") not in (None, ""):
+                where_clauses.append(f"try_cast({c_aar} AS BIGINT) >= ?")
+                params.append(int(filters["aar_fra"]))
+            if filters.get("aar_til") not in (None, ""):
+                where_clauses.append(f"try_cast({c_aar} AS BIGINT) <= ?")
+                params.append(int(filters["aar_til"]))
 
-        pris_start_num = f"coalesce(try_cast({c_pris_start} AS BIGINT), 0)"
-        pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
+        where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
-        dato_start_ts = f"try_cast({c_dato_start} AS TIMESTAMP)"
+        select_group = ", ".join([f"{_qident(actual)} AS {k}" for (k, actual) in group_cols_pairs])
+        group_by = ", ".join([str(i+1) for i in range(len(group_cols_pairs))])
 
-        dager_expr = f"""
-          greatest(
-            coalesce(date_diff('day', {dato_start_ts}, {dato_end_ts}), 0),
-            0
-          )
+        sql_groups = f"""
+            WITH base AS (
+                SELECT
+                    {select_group},
+                    {days_expr} AS dager,
+                    {is_sold_expr} AS is_sold,
+                    {is_rekord_expr} AS is_rekord
+                FROM read_parquet('{path}')
+                {where_sql}
+            )
+            SELECT
+                {", ".join(group_cols_keys_valid)},
+                COUNT(*) AS alle_antall,
+                SUM(CASE WHEN is_rekord THEN 1 ELSE 0 END) AS rekordsolgt_antall,
+                CASE WHEN COUNT(*) = 0 THEN 0 ELSE (SUM(CASE WHEN is_rekord THEN 1 ELSE 0 END) * 1.0 / COUNT(*)) END AS andel_rekordsolgt
+            FROM base
+            GROUP BY {group_by}
+            HAVING COUNT(*) >= ?
+            ORDER BY andel_rekordsolgt DESC, rekordsolgt_antall DESC, alle_antall DESC
+            LIMIT 5000
         """
 
-        pris_endring_expr = f"({pris_ny_num} - {pris_start_num})"
-        finnkode_str = f"regexp_replace(cast({c_finn} as varchar), '\\\\.0$', '')"
-        finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
+        df_groups = con.execute(sql_groups, params + [min_obs]).df()
 
-        solgt_expr = _bool_expr(c_solgt) if colmap.get("solgt") else None
-
-        # ----------------------------
-        # KPI + daily_stats på ALLE treff (ikke bare 300)
-        #
-        # Bruk "solgt/fjernet"-logikk ved å kutte max-dato i datasettet.
-        # Da unngår vi at siste dag i diagrammet blir "biler som fortsatt er ute".
-        # ----------------------------
-        solgt_filter_sql = ""
-        solgt_filter_params = []
-        if solgt_expr:
-            solgt_filter_sql = f" AND ({solgt_expr}) = true"
-        else:
-            solgt_filter_sql = f" AND ({pris_ny_num}) > 1000"
-
-        # Kutt alltid maxdato i KPI/diagram
-        solgt_filter_sql += exclude_maxdate_sql
-        solgt_filter_params.extend(exclude_maxdate_params)
-
-        kpi_sql = f"""
-          SELECT
-            CAST(avg({dager_expr}) AS BIGINT) AS avg_dager,
-            CAST(median({dager_expr}) AS BIGINT) AS median_dager,
-            CAST(avg({pris_ny_num}) AS BIGINT) AS avg_pris,
-            CAST(median({pris_ny_num}) AS BIGINT) AS median_pris,
-            CAST(min({pris_ny_num}) AS BIGINT) AS laveste_pris,
-            COUNT(*) AS antall
-          FROM read_parquet('{path}')
-          {where_sql}
-          {solgt_filter_sql}
+        # KPIer (hele utvalget)
+        sql_kpi = f"""
+            SELECT
+                COUNT(*) AS alle_antall,
+                SUM(CASE WHEN {is_rekord_expr} THEN 1 ELSE 0 END) AS rekordsolgt_antall
+            FROM read_parquet('{path}')
+            {where_sql}
         """
+        df_kpi = con.execute(sql_kpi, params).df()
+        alle = int(df_kpi.loc[0, "alle_antall"]) if not df_kpi.empty else 0
+        rek = int(df_kpi.loc[0, "rekordsolgt_antall"]) if not df_kpi.empty else 0
+        andel = (rek / alle) if alle else 0.0
 
-        kpi_row = con.execute(kpi_sql, params + solgt_filter_params).fetchone()
-        kpis = {}
-        if kpi_row and kpi_row[5] and int(kpi_row[5]) > 0:
-            kpis = {
-                "avg_dager": int(kpi_row[0] or 0),
-                "median_dager": int(kpi_row[1] or 0),
-                "avg_pris": int(kpi_row[2] or 0),
-                "median_pris": int(kpi_row[3] or 0),
-                "laveste_pris": int(kpi_row[4] or 0),
-                "antall": int(kpi_row[5] or 0),
-            }
-
-        daily_stats = []
-        if colmap.get("dato_end"):
-            daily_sql = f"""
-              SELECT
-                CAST(date({dato_end_ts}) AS VARCHAR) AS Dato,
-                COUNT(*) AS Antall_Solgt,
-                median({pris_ny_num}) AS Median_Pris,
-                median({pris_ny_num}) AS Median_Pris_Usolgt
-              FROM read_parquet('{path}')
-              {where_sql}
-              {solgt_filter_sql}
-              AND {dato_end_ts} IS NOT NULL
-              GROUP BY 1
-              ORDER BY 1
-            """
-            daily_df = con.execute(daily_sql, params + solgt_filter_params).df()
-            daily_df = daily_df.where(pd.notna(daily_df), None)
-            daily_stats = json.loads(daily_df.to_json(orient="records"))
-
-        # ----------------------------
-        # Visningstabell: 300 billigste (pris_ny ASC)
-        # ----------------------------
-        data_sql = f"""
-          SELECT
-            {c_prod} AS produsent,
-            {c_mod} AS modell,
-            {c_aar} AS årstall,
-            {c_km} AS kjørelengde,
-            {c_driv} AS drivstoff,
-            {c_hjul} AS hjuldrift,
-            {c_rekk} AS rekkevidde,
-            {c_selger} AS selger,
-            {c_over} AS overskrift,
-            {dato_start_ts} AS dato_start,
-            {dato_end_ts} AS dato_end,
-            {pris_start_num} AS pris_start,
-            {pris_ny_num} AS pris_ny,
-            {pris_ny_num} AS pris_last,
-            {pris_endring_expr} AS pris_endring,
-            {dager_expr} AS dager,
-            {finnkode_str} AS finnkode,
-            {finn_url_expr} AS finn_url
-            {"," + solgt_expr + " AS solgt" if solgt_expr else ""}
-          FROM read_parquet('{path}')
-          {where_sql}
-          {status_sql}
-          ORDER BY {pris_ny_num} ASC
-          LIMIT {MAX_ROWS_LIMIT}
-        """
-
-        output_df = con.execute(data_sql, params + status_params).df()
-        output_df = output_df.where(pd.notna(output_df), None)
-
-        historikk = json.loads(output_df.to_json(orient='records', date_format='iso'))
-        returned_count = len(historikk)
+        df_groups = df_groups.where(pd.notna(df_groups), None)
 
         return jsonify({
-            'status': 'ok',
-            'historikk': historikk,
-            'daily_stats': daily_stats,
-            'kpis': kpis,
-            'total_count': total_count,
-            'returned_count': returned_count,
-            'limit': MAX_ROWS_LIMIT,
-            'truncated': total_count > returned_count
+            "status": "ok",
+            "group_cols": group_cols_keys_valid,
+            "groups": json.loads(df_groups.to_json(orient="records")),
+            "kpis": {"alle_antall": alle, "rekordsolgt_antall": rek, "andel": andel}
         })
 
     except Exception as e:
-        print(f"Feil i /bil/solgt/data: {e}")
         traceback.print_exc()
-        return jsonify({"status": "error", "error": str(e), "message": "En uventet feil oppstod på serveren."}), 500
-
-
-# ==========================================================
-# REKORDRASK (beholdt som før, bruker din eksisterende pipeline)
-# ==========================================================
-
-@bil_bp.route('/rekordrask')
-def bil_rekordrask_side():
-    metadata = _get_metadata()
-    return render_template(
-        'bil_rekordrask.html',
-        tittel="Biler solgt rekordraskt",
-        data_url="/bil/rekordrask/data",
-        produsenter=metadata.get('produsenter', []),
-        models_by_prod=json.dumps(metadata.get('models_by_prod', {})),
-        default_startdate=(date.today() - timedelta(days=3)).isoformat(),
-    )
-
-
-@bil_bp.route('/rekordrask/grupper', methods=['POST'])
-def bil_rekordrask_grupper():
-    try:
-        payload = request.get_json() or {}
-        filters = payload.get('filters', {}) or {}
-
-        start_str = filters.get('startdato')
-        maks_dager = int(filters.get('maks_dager', 5))
-
-        if start_str:
-            startdato = datetime.strptime(start_str, "%Y-%m-%d").date()
-        else:
-            startdato = date.today() - timedelta(days=3)
-
-        df = bygg_visning_for_solgte_fra_parquet(startdato)
-        if df.empty:
-            return jsonify({'status': 'ok', 'groups': []})
-
-        cols = {c.lower(): c for c in df.columns}
-        c_prod = cols.get('produsent')
-        c_mod = cols.get('modell')
-        c_dager = cols.get('dager')
-
-        if not c_prod or not c_mod:
-            return jsonify({'status': 'error', 'message': 'Mangler produsent/modell i visningen'}), 500
-
-        if c_dager and maks_dager is not None:
-            df[c_dager] = pd.to_numeric(df[c_dager], errors='coerce')
-            df = df[df[c_dager] <= maks_dager]
-
-        groups = (
-            df.groupby([c_prod, c_mod], dropna=False)
-              .size()
-              .reset_index(name='antall')
-              .sort_values('antall', ascending=False)
-        )
-
-        groups = groups.where(pd.notna(groups), None)
-        return jsonify({'status': 'ok', 'groups': json.loads(groups.to_json(orient='records'))})
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @bil_bp.route('/rekordrask/data', methods=['POST'])
 def get_bil_rekordrask_data():
+    """Returnerer enkeltbiler i valgt gruppe (rekordsolgte)."""
     try:
         payload = request.get_json() or {}
-        filters = payload.get('filters', {}) or {}
-        start_str = filters.get('startdato')
+        filters = payload.get("filters", {}) or {}
+        group = payload.get("group", {}) or {}
 
-        if start_str:
-            startdato = datetime.strptime(start_str, "%Y-%m-%d").date()
-        else:
-            startdato = date.today() - timedelta(days=3)
+        fra_dato = filters.get("fra_dato")
+        til_dato = filters.get("til_dato")
+        max_days = int(filters.get("max_days", 3))
 
-        vis_solgte = bygg_visning_for_solgte_fra_parquet(startdato)
+        group_choice = filters.get("group_choice", "Produsent + Modell + årstall + drivstoff")
+        custom_cols = filters.get("group_cols")
+        group_cols_keys = _rekordrask_group_cols(group_choice, custom_cols)
 
-        if vis_solgte.empty:
-            return jsonify({'status': 'ok', 'rows': [], 'kpis': {}})
+        s3_key = PARQUET_KEY_SOLGT
+        path = _ensure_local_parquet(s3_key)
+        colmap = _duckdb_get_colmap(path, s3_key)
+        con = _duckdb_con()
 
-        vis_solgte = vis_solgte.where(pd.notna(vis_solgte), None)
-        rows = json.loads(vis_solgte.to_json(orient='records'))
-        return jsonify({'status': 'ok', 'rows': rows, 'kpis': {}})
+        days_expr, is_sold_expr = _rekordsolgt_conditions_sql(colmap)
+        is_rekord_expr = f"({is_sold_expr} AND {days_expr} <= ?)"
+
+        where_clauses = []
+        params = [max_days]
+
+        if colmap.get("dato_start"):
+            c_dato = _qident(colmap["dato_start"])
+            if fra_dato:
+                where_clauses.append(f"date(try_cast({c_dato} AS TIMESTAMP)) >= date(?)")
+                params.append(fra_dato)
+            if til_dato:
+                where_clauses.append(f"date(try_cast({c_dato} AS TIMESTAMP)) <= date(?)")
+                params.append(til_dato)
+
+        if filters.get("produsent") and filters["produsent"] != "Alle" and colmap.get("produsent"):
+            where_clauses.append(f"{_qident(colmap['produsent'])} = ?")
+            params.append(filters["produsent"])
+
+        if filters.get("drivstoff") and filters["drivstoff"] != "Alle" and colmap.get("drivstoff"):
+            where_clauses.append(f"{_qident(colmap['drivstoff'])} = ?")
+            params.append(filters["drivstoff"])
+
+        if filters.get("hjuldrift") and filters["hjuldrift"] != "Alle" and colmap.get("hjuldrift"):
+            where_clauses.append(f"{_qident(colmap['hjuldrift'])} = ?")
+            params.append(filters["hjuldrift"])
+
+        if colmap.get("pris_ny"):
+            c_pris = _qident(colmap["pris_ny"])
+            if filters.get("pris_fra") not in (None, ""):
+                where_clauses.append(f"try_cast({c_pris} AS BIGINT) >= ?")
+                params.append(int(filters["pris_fra"]))
+            if filters.get("pris_til") not in (None, ""):
+                where_clauses.append(f"try_cast({c_pris} AS BIGINT) <= ?")
+                params.append(int(filters["pris_til"]))
+
+        if colmap.get("aar"):
+            c_aar = _qident(colmap["aar"])
+            if filters.get("aar_fra") not in (None, ""):
+                where_clauses.append(f"try_cast({c_aar} AS BIGINT) >= ?")
+                params.append(int(filters["aar_fra"]))
+            if filters.get("aar_til") not in (None, ""):
+                where_clauses.append(f"try_cast({c_aar} AS BIGINT) <= ?")
+                params.append(int(filters["aar_til"]))
+
+        # Gruppe-match
+        for k in group_cols_keys:
+            if k in group and group[k] not in (None, "", "Alle") and colmap.get(k):
+                where_clauses.append(f"{_qident(colmap[k])} = ?")
+                params.append(group[k])
+
+        # Kun rekordsolgte i detaljvisningen
+        where_clauses.append(is_rekord_expr)
+
+        where_sql = " WHERE " + " AND ".join(where_clauses)
+
+        # Kolonner til UI
+        c_prod = _qident(colmap.get("produsent")) if colmap.get("produsent") else "NULL"
+        c_mod = _qident(colmap.get("modell")) if colmap.get("modell") else "NULL"
+        c_aar = _qident(colmap.get("aar")) if colmap.get("aar") else "NULL"
+        c_driv = _qident(colmap.get("drivstoff")) if colmap.get("drivstoff") else "NULL"
+        c_hjul = _qident(colmap.get("hjuldrift")) if colmap.get("hjuldrift") else "NULL"
+        c_pris = _qident(colmap.get("pris_ny")) if colmap.get("pris_ny") else "NULL"
+        c_km = _qident(colmap.get("km")) if colmap.get("km") else "NULL"
+        c_finn = _qident(colmap.get("finnkode")) if colmap.get("finnkode") else "NULL"
+        c_dato = _qident(colmap.get("dato_start")) if colmap.get("dato_start") else "NULL"
+        c_dato_ny = _qident(colmap.get("dato_end")) if colmap.get("dato_end") else "NULL"
+        c_selger = _qident(colmap.get("selger")) if colmap.get("selger") else "NULL"
+
+        finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || cast({c_finn} as varchar) END"
+
+        sql_rows = f"""
+            SELECT
+                {c_prod} AS produsent,
+                {c_mod} AS modell,
+                try_cast({c_aar} AS BIGINT) AS aarstall,
+                {c_driv} AS drivstoff,
+                {c_hjul} AS hjuldrift,
+                try_cast({c_pris} AS BIGINT) AS pris_ny,
+                try_cast({c_km} AS BIGINT) AS km,
+                try_cast({c_dato} AS TIMESTAMP) AS dato,
+                try_cast({c_dato_ny} AS TIMESTAMP) AS dato_ny,
+                {days_expr} AS dager,
+                {c_selger} AS selger,
+                {c_finn} AS finnkode,
+                {finn_url_expr} AS finn_url
+            FROM read_parquet('{path}')
+            {where_sql}
+            ORDER BY dager ASC, dato_ny ASC
+            LIMIT 5000
+        """
+
+        df = con.execute(sql_rows, params).df()
+        df = df.where(pd.notna(df), None)
+        rows = json.loads(df.to_json(orient="records", date_format="iso"))
+
+        return jsonify({"status": "ok", "rows": rows})
 
     except Exception as e:
-        print(f"Feil i /bil/rekordrask/data: {e}")
-        return jsonify({"status": "error", "error": str(e)}), 500
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # ==========================================================
@@ -762,27 +732,27 @@ def bil_svv_side():
     flat = None
     error = None
     eu_status = None
-    eu_dager_igjen = None
 
-    if request.method == "POST":
-        ident = (request.form.get("identifier") or "").strip()
-        if not ident:
-            error = "Du må oppgi et registreringsnummer eller understellsnummer."
-        else:
-            svv_raw, error = fetch_svv_data(ident)
-            if svv_raw and not error:
-                flat = flatten_svv_data(svv_raw)
-                eu_status, eu_dager_igjen = compute_eu_status(
-                    flat.get("svv_kontrollfrist")
-                )
-
-    pretty_json = json.dumps(svv_raw, indent=2, ensure_ascii=False) if svv_raw else None
+    if request.method == 'POST':
+        try:
+            regnr = request.form.get('regnr', '').strip()
+            vin = request.form.get('vin', '').strip()
+            if not regnr and not vin:
+                error = "Du må fylle inn regnr eller VIN."
+            else:
+                svv_raw = fetch_svv_data(regnr=regnr or None, vin=vin or None)
+                if not svv_raw:
+                    error = "Ingen data funnet fra Statens vegvesen."
+                else:
+                    flat = flatten_svv_data(svv_raw)
+                    eu_status = compute_eu_status(svv_raw)
+        except Exception as e:
+            error = str(e)
 
     return render_template(
-        "bil_svv.html",
+        'bil_svv.html',
+        svv_raw=svv_raw,
         flat=flat,
-        raw_json=pretty_json,
         error=error,
-        eu_status=eu_status,
-        eu_dager_igjen=eu_dager_igjen,
+        eu_status=eu_status
     )
