@@ -1,3 +1,30 @@
+
+
+def _normalize_date_input(s: str | None) -> str | None:
+    """Aksepterer 'YYYY-MM-DD' eller 'DD.MM.YYYY' (evt. med tid) og returnerer streng DuckDB kan caste."""
+    if s is None:
+        return None
+    s = str(s).strip()
+    if not s:
+        return None
+
+    # ISO-format allerede
+    if re.match(r"^\d{4}-\d{2}-\d{2}", s):
+        return s
+
+    # Norsk format: DD.MM.YYYY eller DD.MM.YYYY HH:MM(:SS)
+    m = re.match(r"^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$", s)
+    if m:
+        dd, mm, yyyy, hh, mi, ss = m.groups()
+        dd = dd.zfill(2)
+        mm = mm.zfill(2)
+        hh = (hh or "00").zfill(2)
+        mi = (mi or "00").zfill(2)
+        ss = (ss or "00").zfill(2)
+        return f"{yyyy}-{mm}-{dd} {hh}:{mi}:{ss}"
+
+    # fallback: send videre (DuckDB kan kanskje parse)
+    return s
 # bil_routes.py (DuckDB + Parquet fra S3 via lokal /tmp-cache, per-file cache)
 import json
 import re
