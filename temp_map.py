@@ -175,74 +175,6 @@ def base_source_id(source_id: str) -> str:
 
 
 # ======================================================================
-# Sources per fylke
-# ======================================================================
-
-def fetch_sources_in_county(
-    session: requests.Session,
-    *,
-    auth: FrostAuth,
-    county: str,
-    timeout: int,
-) -> pd.DataFrame:
-    """
-    Hent stasjoner i fylke via /sources.
-    Bruk 'county' og ev. 'countyid'. (Ikke 'countyname'.)
-
-    Returnerer DF med: baseId, name, shortName, county, countyid, lat, lon.
-    """
-    path = "/sources/v0.jsonld"
-    base_params: dict[str, str | int] = {
-        "types": "SensorSystem",
-        "country": "NO",
-        "fields": "id,name,shortName,geometry,county,countyid",
-        "county": county,
-    }
-
-    def _fetch(params: dict[str, str | int]) -> pd.DataFrame:
-        rows: list[dict[str, Any]] = []
-        for page in iter_pages(session, path, params, auth=auth, timeout=timeout):
-            if page.get("@type") == "ErrorResponse":
-                continue
-            for item in page.get("data", []):
-                geom = item.get("geometry") or {}
-                coords = geom.get("coordinates")  # [lon, lat]
-                lon = lat = None
-                if isinstance(coords, (list, tuple)) and len(coords) >= 2:
-                    lon, lat = coords[0], coords[1]
-                rows.append(
-                    {
-                        "baseId": item.get("id"),
-                        "name": item.get("name"),
-                        "shortName": item.get("shortName"),
-                        "county": item.get("county"),
-                        "countyid": item.get("countyid"),
-                        "lat": lat,
-                        "lon": lon,
-                    }
-                )
-        df = pd.DataFrame(rows)
-        if df.empty:
-            return df
-        df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
-        df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
-        return df.dropna(subset=["baseId", "lat", "lon"]).reset_index(drop=True)
-
-    df = _fetch(base_params)
-    if not df.empty:
-        return df
-
-    # Wildcard-fallback (kan hjelpe ved navnevariasjoner)
-    county_wild = county.replace(" og ", "*")
-    if county_wild != county:
-        p2 = base_params.copy()
-        p2["county"] = county_wild
-        return _fetch(p2)
-
-    return df
-
-
-# ======================================================================
 # Observasjoner
 # ======================================================================
 
@@ -326,6 +258,42 @@ def pick_value_in_day(df: pd.DataFrame, *, day: _date) -> pd.DataFrame:
     return pick_latest_value_per_station(d)
 
 
+def aggregate_ytd_temp_per_station(df: pd.DataFrame, temp: TempType) -> pd.DataFrame:
+    """
+    Aggreger daglige (P1D) temperaturer i en periode til en verdi per stasjon.
+    Brukes for period=year (hittil i år / hele året).
+    """
+    if df.empty:
+        return df
+
+    d = df.dropna(subset=["sourceId", "referenceTime", "value"]).copy()
+    d["value"] = pd.to_numeric(d["value"], errors="coerce")
+    d["qualityCode"] = pd.to_numeric(d.get("qualityCode"), errors="coerce")
+    d = d.dropna(subset=["value"])
+    d = d.sort_values(["sourceId", "referenceTime"])
+
+    if temp == "min":
+        out = d.groupby("sourceId", as_index=False).agg(
+            referenceTime=("referenceTime", "max"),
+            value=("value", "min"),
+            qualityCode=("qualityCode", "min"),
+        )
+    elif temp == "max":
+        out = d.groupby("sourceId", as_index=False).agg(
+            referenceTime=("referenceTime", "max"),
+            value=("value", "max"),
+            qualityCode=("qualityCode", "min"),
+        )
+    else:  # mean
+        out = d.groupby("sourceId", as_index=False).agg(
+            referenceTime=("referenceTime", "max"),
+            value=("value", "mean"),
+            qualityCode=("qualityCode", "min"),
+        )
+
+    return out.reset_index(drop=True)
+
+
 # ======================================================================
 # Period helpers (UTC)
 # ======================================================================
@@ -337,13 +305,6 @@ def _month_bounds_utc(ym: str) -> tuple[datetime, datetime]:
         end = datetime(y + 1, 1, 1, tzinfo=timezone.utc)
     else:
         end = datetime(y, m + 1, 1, tzinfo=timezone.utc)
-    return start, end
-
-
-def _year_bounds_utc(y: str) -> tuple[datetime, datetime]:
-    yy = int(y)
-    start = datetime(yy, 1, 1, tzinfo=timezone.utc)
-    end = datetime(yy + 1, 1, 1, tzinfo=timezone.utc)
     return start, end
 
 
@@ -434,7 +395,7 @@ def make_empty_map_with_dropdown(
         "last": "Siste døgn",
         "day": "Valgt døgn",
         "month": "Valgt måned",
-        "year": "Valgt år",
+        "year": "Valgt år (hittil nå hvis inneværende år)",
     }
     period_html = "\n".join(
         f'<option value="{k}" {"selected" if k == selected_period else ""}>{v}</option>'
@@ -665,7 +626,7 @@ def make_temp_map(
         "last": "Siste døgn",
         "day": "Valgt døgn",
         "month": "Valgt måned",
-        "year": "Valgt år",
+        "year": "Valgt år (hittil nå hvis inneværende år)",
     }
     period_html = "\n".join(
         f'<option value="{k}" {"selected" if k == selected_period else ""}>{v}</option>'
@@ -811,42 +772,6 @@ def make_temp_map(
     """
     folium.Element(header).add_to(m.get_root().html)
 
-    # ✅ Forklaring flyttet ned til høyre (og over tabellen)
-    legend = """
-    <div style="
-      position: fixed; bottom: 140px; right: 12px; z-index: 9999;
-      background: rgba(255,255,255,.95); padding: 10px 12px;
-      border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
-      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-      max-width: 360px;
-      font-size: 13px; color:#0f172a;
-    ">
-      <div style="font-weight:900; margin-bottom:6px;">Forklaring</div>
-      <div style="margin-bottom:6px;">Farge = percentiler i fylket</div>
-      <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#1d4ed8;"></span>
-        <span>Lavest 10%</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#2563eb;"></span>
-        <span>10–20%</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#64748b;"></span>
-        <span>Midten</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#ef4444;"></span>
-        <span>80–90%</span>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; margin:4px 0;">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#dc2626;"></span>
-        <span>Høyest 10%</span>
-      </div>
-    </div>
-    """
-    folium.Element(legend).add_to(m.get_root().html)
-
     # Heatmap-vekting: "ekstremt" i valgt retning
     v = d["value"].astype(float)
     if selected_temp == "min":
@@ -906,7 +831,6 @@ def make_temp_map(
 
     folium.LayerControl().add_to(m)
 
-    # Toppliste: dynamisk etter utsnitt + bruker kan velge kaldest/varmest
     points_json = json.dumps(points_js, ensure_ascii=False)
     default_sort = "warm" if selected_temp == "max" else "cold"
 
@@ -1084,21 +1008,39 @@ def build_min_temp_map_html(
         end = start + timedelta(days=1)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
         title_base = f'{TEMP_TYPES[temp]["label"]} – døgn ({ui_date}) – {county}'
+
     elif period == "month":
         start, end = _month_bounds_utc(ui_month)
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
         title_base = f'{TEMP_TYPES[temp]["label"]} – måned ({ui_month}) – {county}'
+
     elif period == "year":
-        start, end = _year_bounds_utc(ui_year)
+        # ✅ NYTT: "Valgt år" = hittil i år dersom inneværende år, ellers hele året.
+        yy = int(ui_year)
+        start = datetime(yy, 1, 1, tzinfo=timezone.utc)
+        today = _date.today()
+        if yy == today.year:
+            # slutt eksklusiv => i morgen 00:00 UTC
+            end = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) + timedelta(days=1)
+            title_base = f'{TEMP_TYPES[temp]["label"]} – hittil i år ({yy}) – {county}'
+        else:
+            end = datetime(yy + 1, 1, 1, tzinfo=timezone.utc)
+            title_base = f'{TEMP_TYPES[temp]["label"]} – år ({yy}) – {county}'
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
-        title_base = f'{TEMP_TYPES[temp]["label"]} – år ({ui_year}) – {county}'
+
     else:
         # last: hent siste ~2 døgn og plukk nyeste P1D per stasjon
         start_dt = now - timedelta(days=2)
         referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
         title_base = f'{TEMP_TYPES[temp]["label"]} – siste døgn ({county})'
 
-    element_candidates = _elements_for(temp, period)
+    # ✅ Element-kandidater:
+    # - year: bruk P1D (ikke P1Y) og aggregér selv
+    # - ellers: som før
+    if period == "year":
+        element_candidates = _elements_for(temp, "day")  # P1D
+    else:
+        element_candidates = _elements_for(temp, period)
 
     with requests.Session() as sess:
         # Bruk lokal stasjons-DB (hurtig) i stedet for /sources-kall hver gang
@@ -1111,20 +1053,13 @@ def build_min_temp_map_html(
             src_meta = stations_in_county(county)
 
         if src_meta.empty:
-            # fallback hvis DB mangler/er tom
-            if county_is_all:
-                frames = [fetch_sources_in_county(sess, auth=auth, county=c, timeout=timeout) for c in NORWAY_COUNTIES]
-                frames = [df for df in frames if df is not None and not df.empty]
-                src_meta = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-            else:
-                src_meta = fetch_sources_in_county(sess, auth=auth, county=county, timeout=timeout)
-        if src_meta.empty:
+            # fallback: tomt kart med dropdown (du kan evt. re-introdusere /sources her om ønskelig)
             return make_empty_map_with_dropdown(
-            selected_county=county,
-            selected_temp=temp,
-            selected_period=period,
-            selected_top_n=top_n,
-        )
+                selected_county=county,
+                selected_temp=temp,
+                selected_period=period,
+                selected_top_n=top_n,
+            )
 
         sources = src_meta["baseId"].astype(str).tolist()
 
@@ -1168,9 +1103,11 @@ def build_min_temp_map_html(
         folium.Element(msg).add_to(m.get_root().html)
         return m.get_root().render()
 
-    # plukk per stasjon
+    # plukk/agg per stasjon
     if period == "day":
         picked = pick_value_in_day(obs, day=_date.fromisoformat(ui_date))
+    elif period == "year":
+        picked = aggregate_ytd_temp_per_station(obs, temp=temp)
     else:
         picked = pick_latest_value_per_station(obs)
 
@@ -1236,6 +1173,7 @@ def main() -> None:
     ap.add_argument("--date", default="", help="YYYY-MM-DD (for period=day)")
     ap.add_argument("--month", default="", help="YYYY-MM (for period=month)")
     ap.add_argument("--year", default="", help="YYYY (for period=year)")
+    ap.add_argument("--top", default="20", help="topp N ved ALL")
     args = ap.parse_args()
 
     html = build_min_temp_map_html(
@@ -1245,6 +1183,7 @@ def main() -> None:
         date_str=args.date or None,
         month_str=args.month or None,
         year_str=args.year or None,
+        top_n=int(args.top) if args.top.isdigit() else 20,
     )
     print(html[:700])
 
