@@ -1,380 +1,747 @@
-{% extends "base.html" %}
-{% block content %}
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ tittel }} – prisanalyse.no</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-<style>
-  /* --- Tabell-layout: scroll + sticky header --- */
-  .table-wrap {
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
-    overflow: hidden;
-    background: rgba(0,0,0,0.25);
-  }
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px 40px;
+      color: #f9fafb;
+      background:
+        linear-gradient(rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.88)),
+        url('{{ url_for("static", filename="background.jpg") }}') no-repeat center center fixed;
+      background-size: cover;
+    }
+    .shell {
+      width: min(1200px, 100%);
+      background: rgba(10, 16, 26, 0.78);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+      padding: 22px 22px 18px;
+      backdrop-filter: blur(10px);
+    }
 
-  .table-scroll {
-    max-height: 420px;           /* << GRUPPER: scroll-høyde */
-    overflow-y: auto;
-    overflow-x: auto;
-  }
+    .topline { display:flex; align-items:center; justify-content: space-between; gap:12px; margin-bottom: 10px; }
+    .brand { letter-spacing: .18em; text-transform: uppercase; font-size: 12px; opacity: .8; }
+    .backlink a { color: rgba(255,255,255,.88); text-decoration:none; font-size: 13px; opacity:.9; }
+    .backlink a:hover { text-decoration: underline; }
 
-  .table-scroll table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 900px;
-  }
+    h1 { font-size: 42px; line-height: 1.05; margin: 8px 0 8px; font-weight: 800; }
+    h1 .accent { color: #60a5fa; }
+    .subtitle { opacity: .9; margin-bottom: 14px; }
 
-  .table-scroll thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: rgba(10, 16, 28, 0.95);
-    backdrop-filter: blur(8px);
-    cursor: pointer;             /* << gjør det tydelig at man kan klikke */
-    user-select: none;
-  }
+    .panel {
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(2, 6, 23, 0.55);
+      padding: 14px;
+      margin-top: 12px;
+    }
 
-  .table-scroll thead th.sortable:hover {
-    background: rgba(20, 30, 50, 0.95);
-  }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    @media (max-width: 980px) { .grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
 
-  .sort-indicator {
-    opacity: 0.7;
-    margin-left: 6px;
-    font-size: 12px;
-  }
+    label { font-size: 12px; opacity: .85; display: block; margin-bottom: 6px; }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(15, 23, 42, 0.6);
+      color: #f9fafb;
+      outline: none;
+    }
+    input::placeholder { color: rgba(255,255,255,0.55); }
 
-  /* --- Detaljtabellen større --- */
-  .table-scroll.details {
-    max-height: 620px;           /* << DETALJER: høyere, viser mange flere rader */
-  }
+    .actions { display:flex; align-items:center; justify-content: flex-end; margin-top: 12px; gap: 10px; }
+    .btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: white;
+      box-shadow: 0 10px 28px rgba(34,197,94,0.35);
+    }
+    .btn:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
 
-  /* Litt bedre spacing for celler */
-  table th, table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    vertical-align: middle;
-    white-space: nowrap;
-  }
+    .note { font-size: 12px; opacity: .8; margin-top: 10px; }
 
-  /* Små “chips” i UI hvis du har */
-  .muted {
-    opacity: 0.8;
-  }
+    .kpis { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-top: 12px; }
+    @media (max-width: 780px) { .kpis { grid-template-columns: 1fr; } }
+    .kpi {
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(2, 6, 23, 0.45);
+      padding: 14px;
+    }
+    .kpi .label { font-size: 12px; opacity: .8; }
+    .kpi .value { font-size: 28px; font-weight: 800; margin-top: 6px; }
 
-  /* Kontroller over tabellen */
-  .table-controls {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-    margin: 10px 0 12px 0;
-  }
+    h2 { font-size: 18px; margin: 14px 0 10px; }
 
-  .table-controls input, .table-controls select {
-    background: rgba(0,0,0,0.25);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    color: #fff;
-    padding: 10px 12px;
-    outline: none;
-  }
+    /* =========================
+       TABELLER
+       ========================= */
+    .tablewrap {
+      overflow: auto;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
 
-  .pager {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
+    /* NYTT: begrens høyden til gruppetabellen, så den ikke tar hele siden */
+    .tablewrap.groups {
+      max-height: 420px;   /* scroll inne i tabellen */
+    }
 
-  .pager button {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.12);
-    color: #fff;
-    padding: 8px 12px;
-    border-radius: 12px;
-    cursor: pointer;
-  }
-  .pager button:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-</style>
+    /* NYTT: gjør detaljtabellen høyere, så du ser mange biler */
+    .tablewrap.details {
+      max-height: 650px;   /* juster gjerne til 800px om du vil */
+    }
 
-<div class="container">
-  <h1>Biler solgt rekordraskt</h1>
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    th, td { padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 13px; }
+    th {
+      text-align: left;
+      font-size: 12px;
+      opacity: .85;
+      position: sticky;
+      top: 0;
+      background: rgba(2, 6, 23, 0.92);
+      user-select: none;
+    }
+    tr:hover td { background: rgba(255,255,255,0.04); }
+    .right { text-align: right; }
+    .clickable { cursor: pointer; }
+    .pill {
+      display:inline-flex;
+      align-items:center;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(15, 23, 42, 0.55);
+    }
+    .error { margin-top: 12px; color: #fecaca; }
 
-  <!-- (Her antar jeg at du allerede har parameterkortet ditt over) -->
-  <!-- ... din eksisterende filter-UI ... -->
+    /* NYTT: sortable headers */
+    th.sortable { cursor: pointer; }
+    th.sortable:hover { background: rgba(10, 18, 40, 0.92); }
+    .sort-ind {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 11px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
 
-  <section style="margin-top: 20px;">
+<body>
+  <div class="shell" data-grupper-url="{{ grupper_url }}" data-data-url="{{ data_url }}">
+    <div class="topline">
+      <div class="brand">PRISANALYSE.NO</div>
+      <div class="backlink"><a href="/bil">← Til bilanalyse</a></div>
+    </div>
+
+    <h1><span class="accent">Biler</span> solgt rekordraskt</h1>
+    <div class="subtitle">
+      Rekordsolgt = <span class="pill">Solgt != "nei"</span> (inkl. <span class="pill">"fjernet"</span>) og <span class="pill">(Dato_ny - Dato) ≤ maks dager</span>.
+    </div>
+
+    <div class="panel">
+      <h2>Parametere</h2>
+      <div class="grid">
+        <div>
+          <label for="fra_dato">Fra-dato (Dato)</label>
+          <input id="fra_dato" type="date" value="{{ default_from }}" />
+        </div>
+        <div>
+          <label for="til_dato">Til-dato (Dato)</label>
+          <input id="til_dato" type="date" value="{{ default_to }}" />
+        </div>
+
+        <div>
+          <label for="max_days">Maks dager ute (rekordsolgt)</label>
+          <input id="max_days" type="number" min="0" max="3650" step="1" value="{{ default_max_days }}" />
+        </div>
+        <div>
+          <label for="min_obs">Minst antall i hver gruppe</label>
+          <input id="min_obs" type="number" min="1" max="1000000" step="1" value="{{ default_min_obs }}" />
+        </div>
+
+        <div>
+          <label for="pris_fra">Pris fra (Pris_ny)</label>
+          <input id="pris_fra" type="number" min="0" step="1000" value="1500" />
+        </div>
+        <div>
+          <label for="pris_til">Pris til (Pris_ny)</label>
+          <input id="pris_til" type="number" min="0" step="1000" value="" placeholder="valgfritt" />
+        </div>
+
+        <div>
+          <label for="aar_fra">Årstall fra</label>
+          <input id="aar_fra" type="number" min="1900" max="2100" step="1" value="1950" />
+        </div>
+        <div>
+          <label for="aar_til">Årstall til</label>
+          <input id="aar_til" type="number" min="1900" max="2100" step="1" value="" placeholder="valgfritt" />
+        </div>
+
+        <div>
+          <label for="drivstoff">Drivstoff</label>
+          <select id="drivstoff">
+            <option value="Alle">Alle</option>
+            {% for v in drivstoff %}
+              <option value="{{ v }}">{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label for="hjuldrift">Hjuldrift</label>
+          <select id="hjuldrift">
+            <option value="Alle">Alle</option>
+            {% for v in hjuldrift %}
+              <option value="{{ v }}">{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label for="produsent">Merke (Produsent)</label>
+          <select id="produsent">
+            <option value="Alle">Alle</option>
+            {% for v in produsenter %}
+              <option value="{{ v }}">{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label for="group_choice">Gruppering</label>
+          <select id="group_choice">
+            <option>Produsent + Modell</option>
+            <option>Produsent + Modell + årstall</option>
+            <option selected>Produsent + Modell + årstall + drivstoff</option>
+            <option>Egendefinert</option>
+          </select>
+        </div>
+
+        <div style="grid-column: 1 / -1; display:none;" id="custom_cols_wrap">
+          <label for="group_cols">Egendefinert grupperingskolonner (hold Ctrl/Cmd for flere)</label>
+          <select id="group_cols" multiple size="6">
+            <option value="produsent" selected>produsent</option>
+            <option value="modell" selected>modell</option>
+            <option value="aar">aar</option>
+            <option value="drivstoff">drivstoff</option>
+            <option value="hjuldrift">hjuldrift</option>
+            <option value="selger">selger</option>
+            <option value="km">km</option>
+          </select>
+          <div class="note">Tips: hold Ctrl/Cmd for å velge flere. Start gjerne med produsent+modell.</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btnRun" class="btn">Oppdater</button>
+      </div>
+      <div id="err" class="error" style="display:none;"></div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi">
+        <div class="label">Antall i DF_alle</div>
+        <div class="value" id="kpiAlle">–</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Antall rekordsolgte</div>
+        <div class="value" id="kpiRek">–</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Andel rekordsolgte</div>
+        <div class="value" id="kpiAndel">–</div>
+      </div>
+    </div>
+
     <h2>Andel rekordsolgte per gruppe (sortert)</h2>
 
-    <div class="table-controls">
-      <input id="groupSearch" type="text" placeholder="Søk i grupper (produsent/modell/år/etc.)" />
+    <!-- søk + paginering -->
+    <div class="panel" style="margin-top: 8px;">
+      <div class="grid" style="margin-top:0;">
+        <div style="grid-column: 1 / -1;">
+          <label for="groupSearch">Søk i grupper (produsent/modell/år/etc.)</label>
+          <input id="groupSearch" type="text" placeholder="Søk..." />
+        </div>
 
-      <label class="muted">Vis rader</label>
-      <select id="groupPageSize">
-        <option value="10" selected>10</option>
-        <option value="25">25</option>
-        <option value="50">50</option>
-        <option value="100">100</option>
-      </select>
+        <div>
+          <label for="pageSize">Vis rader</label>
+          <select id="pageSize">
+            <!-- NYTT: default topp 10 -->
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </div>
 
-      <div class="pager">
-        <button id="groupPrev">Forrige</button>
-        <button id="groupNext">Neste</button>
-        <span class="muted" id="groupRange">0–0 av 0</span>
+        <div class="actions" style="justify-content:flex-start;">
+          <button id="prevPage" class="btn" style="background:rgba(255,255,255,0.10); box-shadow:none;">Forrige</button>
+          <button id="nextPage" class="btn" style="background:rgba(255,255,255,0.10); box-shadow:none;">Neste</button>
+          <span class="note" id="pageInfo" style="margin-left:8px;"></span>
+        </div>
+      </div>
+      <div class="note" style="margin-top:6px;">
+        Tips: Klikk på en kolonne-overskrift for å sortere.
       </div>
     </div>
 
-    <div class="table-wrap">
-      <div class="table-scroll" id="groupTableScroll">
-        <table id="groupTable">
-          <thead>
-            <tr>
-              <th class="sortable" data-key="produsent">produsent <span class="sort-indicator" id="si-produsent"></span></th>
-              <th class="sortable" data-key="modell">modell <span class="sort-indicator" id="si-modell"></span></th>
-              <th class="sortable" data-key="aarstall">aarstall <span class="sort-indicator" id="si-aarstall"></span></th>
-              <th class="sortable" data-key="drivstoff">drivstoff <span class="sort-indicator" id="si-drivstoff"></span></th>
-              <th class="sortable" data-key="alle_antall">alle_antall <span class="sort-indicator" id="si-alle_antall"></span></th>
-              <th class="sortable" data-key="rekordsolgt_antall">rekordsolgt_antall <span class="sort-indicator" id="si-rekordsolgt_antall"></span></th>
-              <th class="sortable" data-key="andel_rekordsolgt">andel_rekordsolgt <span class="sort-indicator" id="si-andel_rekordsolgt"></span></th>
-            </tr>
-          </thead>
-          <tbody id="groupTbody">
-            <!-- fylles av JS -->
-          </tbody>
-        </table>
+    <!-- NYTT: groups får egen scroll-høyde -->
+    <div class="tablewrap groups">
+      <table id="tblGroups">
+        <thead><tr id="groupsHead"></tr></thead>
+        <tbody id="groupsBody"></tbody>
+      </table>
+    </div>
+
+    <h2 style="margin-top:16px;">Se enkeltbiler i valgt gruppe</h2>
+    <div class="panel">
+      <div class="grid" style="margin-top:0;">
+        <div style="grid-column: 1 / -1;">
+          <label for="groupSelect">Velg gruppe</label>
+          <select id="groupSelect">
+            <option value="">Ingen grupper</option>
+          </select>
+          <div class="note">Klikk også på en rad i tabellen over for å velge gruppe automatisk.</div>
+        </div>
       </div>
     </div>
-  </section>
 
-  <section style="margin-top: 24px;">
-    <h2>Se enkeltbiler i valgt gruppe</h2>
-
-    <!-- Her antar jeg at du allerede har dropdown "Velg gruppe" osv. -->
-    <!-- ... din eksisterende gruppevelger ... -->
-
-    <div class="table-wrap" style="margin-top: 12px;">
-      <div class="table-scroll details" id="detailsTableScroll">
-        <table id="detailsTable">
-          <thead>
-            <tr>
-              <th>Produsent</th>
-              <th>Modell</th>
-              <th>År</th>
-              <th>Drivstoff</th>
-              <th>Hjuldrift</th>
-              <th>Pris</th>
-              <th>Km</th>
-              <th>Dager</th>
-              <th>Dato</th>
-              <th>Dato_ny</th>
-              <th>Selger</th>
-              <th>Finn</th>
-            </tr>
-          </thead>
-          <tbody id="detailsTbody">
-            <!-- fylles av JS -->
-          </tbody>
-        </table>
-      </div>
+    <!-- NYTT: details får større scroll-høyde -->
+    <div class="tablewrap details" style="margin-top: 10px;">
+      <table id="tblRows">
+        <thead>
+          <tr>
+            <th>Produsent</th><th>Modell</th><th class="right">År</th>
+            <th>Drivstoff</th><th>Hjuldrift</th>
+            <th class="right">Pris</th><th class="right">Km</th><th class="right">Dager</th>
+            <th>Dato</th><th>Dato_ny</th><th>Selger</th><th>Finn</th>
+          </tr>
+        </thead>
+        <tbody id="rowsBody"></tbody>
+      </table>
     </div>
-  </section>
-</div>
+  </div>
 
 <script>
-  /**
-   * Forutsetning:
-   * Du har allerede JS som:
-   *  - kaller /bil/rekordrask/grupper og får JSON: { groups: [...] }
-   *  - kaller /bil/rekordrask/data og får JSON: { rows: [...] }
-   *
-   * Her lager vi bare:
-   *  - paging + søk + sortering for GROUPS-tabellen
-   *  - og vi gjør DETALJ-tabellen høyere (CSS over)
-   */
+  const shell = document.querySelector(".shell");
+  const grupperUrl = shell.dataset.grupperUrl;
+  const dataUrl = shell.dataset.dataUrl;
 
-  // ---------------------------
-  // GROUP TABLE state
-  // ---------------------------
-  let groupRaw = [];          // hele dataset fra server
-  let groupFiltered = [];     // etter søk
-  let groupSortKey = "andel_rekordsolgt";
-  let groupSortDir = "desc";  // "asc" | "desc"
-  let groupPage = 1;
+  const el = (id) => document.getElementById(id);
 
-  function isNumberKey(key) {
-    return ["alle_antall", "rekordsolgt_antall", "andel_rekordsolgt", "aarstall"].includes(key);
+  function showError(msg) {
+    const e = el("err");
+    e.textContent = msg || "";
+    e.style.display = msg ? "block" : "none";
   }
 
-  function normalizeValue(v, key) {
-    if (v === null || v === undefined) return null;
-    if (isNumberKey(key)) {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
+  function num(x) {
+    if (x === null || x === undefined || x === "") return null;
+    const n = Number(x);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function buildFilters() {
+    const groupChoice = el("group_choice").value;
+    const custom = [...el("group_cols").selectedOptions].map(o => o.value);
+
+    const filters = {
+      fra_dato: el("fra_dato").value || null,
+      til_dato: el("til_dato").value || null,
+      max_days: num(el("max_days").value) ?? 3,
+      min_obs: num(el("min_obs").value) ?? 30,
+      pris_fra: num(el("pris_fra").value),
+      pris_til: num(el("pris_til").value),
+      aar_fra: num(el("aar_fra").value),
+      aar_til: num(el("aar_til").value),
+      drivstoff: el("drivstoff").value || "Alle",
+      hjuldrift: el("hjuldrift").value || "Alle",
+      produsent: el("produsent").value || "Alle",
+      group_choice: groupChoice,
+      group_cols: (groupChoice === "Egendefinert") ? custom : null
+    };
+
+    if (filters.fra_dato && filters.til_dato && filters.fra_dato > filters.til_dato) {
+      throw new Error("Fra-dato kan ikke være etter til-dato.");
     }
-    return String(v);
+    if (filters.pris_fra !== null && filters.pris_til !== null && filters.pris_fra > filters.pris_til) {
+      throw new Error("Pris fra kan ikke være større enn pris til.");
+    }
+    if (filters.aar_fra !== null && filters.aar_til !== null && filters.aar_fra > filters.aar_til) {
+      throw new Error("Årstall fra kan ikke være større enn årstall til.");
+    }
+    return filters;
   }
 
-  function compare(a, b, key) {
-    const va = normalizeValue(a[key], key);
-    const vb = normalizeValue(b[key], key);
-
-    // NULLS LAST
-    if (va === null && vb === null) return 0;
-    if (va === null) return 1;
-    if (vb === null) return -1;
-
-    if (isNumberKey(key)) return va - vb;
-    return va.localeCompare(vb, "nb", { numeric: true, sensitivity: "base" });
+  function fmtInt(x) {
+    if (x === null || x === undefined) return "–";
+    const n = Number(x);
+    if (!Number.isFinite(n)) return "–";
+    return n.toLocaleString("nb-NO");
+  }
+  function fmtPct(x) {
+    const n = Number(x);
+    if (!Number.isFinite(n)) return "–";
+    return (n * 100).toLocaleString("nb-NO", { maximumFractionDigits: 2 }) + "%";
+  }
+  function fmtDate(x) {
+    if (!x) return "";
+    try { return new Date(x).toISOString().slice(0, 10); } catch { return String(x); }
   }
 
-  function applyGroupSearch() {
-    const q = (document.getElementById("groupSearch").value || "").trim().toLowerCase();
-    if (!q) {
-      groupFiltered = [...groupRaw];
-      return;
+  function setKpis(kpis) {
+    el("kpiAlle").textContent = fmtInt(kpis?.alle_antall);
+    el("kpiRek").textContent = fmtInt(kpis?.rekordsolgt_antall);
+    el("kpiAndel").textContent = fmtPct(kpis?.andel);
+  }
+
+  function groupKeyFromRow(row, groupCols) {
+    const obj = {};
+    for (const c of groupCols) obj[c] = row[c] ?? null;
+    return obj;
+  }
+
+  function groupLabel(obj, groupCols) {
+    return groupCols.map(c => `${c}=${obj[c] ?? ""}`).join(" | ");
+  }
+
+  // ============================
+  // NYTT: Sortering av gruppetabell
+  // ============================
+  let sortKey = "andel_rekordsolgt";
+  let sortDir = "desc"; // "asc" | "desc"
+
+  function isNumericKey(key) {
+    // kolonner som ofte er tall
+    return ["alle_antall", "rekordsolgt_antall", "andel_rekordsolgt", "aarstall", "km"].includes(key);
+  }
+
+  function cmp(a, b, key) {
+    const va = a[key];
+    const vb = b[key];
+
+    // nulls last
+    const aNull = (va === null || va === undefined || va === "");
+    const bNull = (vb === null || vb === undefined || vb === "");
+    if (aNull && bNull) return 0;
+    if (aNull) return 1;
+    if (bNull) return -1;
+
+    if (isNumericKey(key)) {
+      const na = Number(va);
+      const nb = Number(vb);
+      if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+      // fall back string compare
+    }
+    return String(va).localeCompare(String(vb), "nb", { numeric: true, sensitivity: "base" });
+  }
+
+  function sortGroupsInPlace(arr) {
+    arr.sort((a, b) => {
+      const c = cmp(a, b, sortKey);
+      return sortDir === "asc" ? c : -c;
+    });
+  }
+
+  function sortIndicator(key) {
+    if (key !== sortKey) return "";
+    return sortDir === "asc" ? "▲" : "▼";
+  }
+
+  function setSort(key) {
+    if (sortKey === key) {
+      sortDir = (sortDir === "asc") ? "desc" : "asc";
+    } else {
+      sortKey = key;
+      // default retning: tall desc, tekst asc
+      sortDir = isNumericKey(key) ? "desc" : "asc";
+    }
+    pageIndex = 0;
+    applyGroupFilterAndPaging();
+  }
+
+  function renderGroups(groups, groupCols) {
+    const head = el("groupsHead");
+    head.innerHTML = "";
+
+    // dynamiske gruppesøyler (produsent/modell/år etc.)
+    for (const c of groupCols) {
+      const th = document.createElement("th");
+      th.className = "sortable";
+      th.dataset.key = c;
+      th.innerHTML = `${c}<span class="sort-ind">${sortIndicator(c)}</span>`;
+      th.addEventListener("click", () => setSort(c));
+      head.appendChild(th);
     }
 
-    groupFiltered = groupRaw.filter(r => {
-      // søk på vanlige tekstkolonner
-      const fields = ["produsent", "modell", "drivstoff", "aarstall"];
-      return fields.some(f => (r[f] ?? "").toString().toLowerCase().includes(q));
-    });
-  }
+    // faste metrikker
+    const addTh = (key, label, cls="") => {
+      const th = document.createElement("th");
+      th.className = ("sortable " + cls).trim();
+      th.dataset.key = key;
+      th.innerHTML = `${label}<span class="sort-ind">${sortIndicator(key)}</span>`;
+      th.addEventListener("click", () => setSort(key));
+      head.appendChild(th);
+    };
 
-  function applyGroupSort() {
-    groupFiltered.sort((a, b) => {
-      const c = compare(a, b, groupSortKey);
-      return groupSortDir === "asc" ? c : -c;
-    });
-  }
+    addTh("alle_antall", "alle_antall", "right");
+    addTh("rekordsolgt_antall", "rekordsolgt_antall", "right");
+    addTh("andel_rekordsolgt", "andel_rekordsolgt", "right");
 
-  function updateSortIndicators() {
-    const keys = ["produsent","modell","aarstall","drivstoff","alle_antall","rekordsolgt_antall","andel_rekordsolgt"];
-    keys.forEach(k => {
-      const el = document.getElementById("si-" + k);
-      if (!el) return;
-      if (k === groupSortKey) {
-        el.textContent = groupSortDir === "asc" ? "▲" : "▼";
-      } else {
-        el.textContent = "";
-      }
-    });
-  }
+    const body = el("groupsBody");
+    body.innerHTML = "";
 
-  function renderGroupTable() {
-    const pageSize = Number(document.getElementById("groupPageSize").value || 10);
-    const total = groupFiltered.length;
-
-    const maxPage = Math.max(1, Math.ceil(total / pageSize));
-    if (groupPage > maxPage) groupPage = maxPage;
-    if (groupPage < 1) groupPage = 1;
-
-    const startIdx = (groupPage - 1) * pageSize;
-    const endIdx = Math.min(total, startIdx + pageSize);
-    const slice = groupFiltered.slice(startIdx, endIdx);
-
-    // range text
-    document.getElementById("groupRange").textContent =
-      total === 0 ? "0–0 av 0" : `${startIdx + 1}–${endIdx} av ${total}`;
-
-    // buttons
-    document.getElementById("groupPrev").disabled = (groupPage <= 1);
-    document.getElementById("groupNext").disabled = (groupPage >= maxPage);
-
-    // rows
-    const tbody = document.getElementById("groupTbody");
-    tbody.innerHTML = "";
-
-    for (const r of slice) {
+    for (const row of groups) {
       const tr = document.createElement("tr");
+      tr.classList.add("clickable");
+      tr.addEventListener("click", () => {
+        const g = groupKeyFromRow(row, groupCols);
+        selectGroup(g, groupCols);
+      });
 
-      const pct = (r.andel_rekordsolgt ?? null);
-      const pctText = (pct === null || pct === undefined)
-        ? ""
-        : (Number(pct) * 100).toFixed(2).replace(".", ",") + "%";
+      for (const c of groupCols) {
+        const td = document.createElement("td");
+        td.textContent = row[c] ?? "";
+        tr.appendChild(td);
+      }
 
-      tr.innerHTML = `
-        <td>${r.produsent ?? ""}</td>
-        <td>${r.modell ?? ""}</td>
-        <td>${r.aarstall ?? ""}</td>
-        <td>${r.drivstoff ?? ""}</td>
-        <td>${r.alle_antall ?? ""}</td>
-        <td>${r.rekordsolgt_antall ?? ""}</td>
-        <td>${pctText}</td>
-      `;
+      const tdAll = document.createElement("td"); tdAll.className="right"; tdAll.textContent = fmtInt(row.alle_antall); tr.appendChild(tdAll);
+      const tdRek = document.createElement("td"); tdRek.className="right"; tdRek.textContent = fmtInt(row.rekordsolgt_antall); tr.appendChild(tdRek);
+      const tdAnd = document.createElement("td"); tdAnd.className="right"; tdAnd.textContent = fmtPct(row.andel_rekordsolgt); tr.appendChild(tdAnd);
 
-      // (valgfritt) klikk på rad for å velge gruppe automatisk:
-      // tr.addEventListener("click", () => selectGroupFromRow(r));
-
-      tbody.appendChild(tr);
+      body.appendChild(tr);
     }
   }
 
-  function refreshGroupUI() {
-    applyGroupSearch();
-    applyGroupSort();
-    updateSortIndicators();
-    renderGroupTable();
+  function renderRows(rows) {
+    const body = el("rowsBody");
+    body.innerHTML = "";
+    for (const r of rows) {
+      const tr = document.createElement("tr");
+      const td = (txt, cls="") => {
+        const c = document.createElement("td");
+        c.textContent = (txt === null || txt === undefined) ? "" : String(txt);
+        if (cls) c.className = cls;
+        return c;
+      };
+
+      tr.appendChild(td(r.produsent));
+      tr.appendChild(td(r.modell));
+      tr.appendChild(td(r.aarstall, "right"));
+      tr.appendChild(td(r.drivstoff));
+      tr.appendChild(td(r.hjuldrift));
+      tr.appendChild(td(fmtInt(r.pris_ny), "right"));
+      tr.appendChild(td(fmtInt(r.km), "right"));
+      tr.appendChild(td((r.dager ?? "").toString(), "right"));
+      tr.appendChild(td(fmtDate(r.dato)));
+      tr.appendChild(td(fmtDate(r.dato_ny)));
+      tr.appendChild(td(r.selger));
+
+      const linkTd = document.createElement("td");
+      if (r.finn_url) {
+        const a = document.createElement("a");
+        a.href = r.finn_url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = r.finnkode ? String(r.finnkode) : "Finn";
+        a.style.color = "rgba(255,255,255,0.9)";
+        a.style.textDecoration = "underline";
+        linkTd.appendChild(a);
+      } else {
+        linkTd.textContent = "";
+      }
+      tr.appendChild(linkTd);
+
+      body.appendChild(tr);
+    }
   }
 
-  // ---------------------------
-  // Bind events
-  // ---------------------------
-  document.getElementById("groupSearch").addEventListener("input", () => {
-    groupPage = 1;
-    refreshGroupUI();
-  });
+  // ----------------------------
+  // søk + paginering (med sortering)
+  // ----------------------------
+  let allGroups = [];
+  let groupColsGlobal = [];
+  let pageIndex = 0;
 
-  document.getElementById("groupPageSize").addEventListener("change", () => {
-    groupPage = 1;
-    renderGroupTable();
-  });
+  function applyGroupFilterAndPaging() {
+    const q = (el("groupSearch").value || "").trim().toLowerCase();
+    const size = Number(el("pageSize").value || 10);
 
-  document.getElementById("groupPrev").addEventListener("click", () => {
-    groupPage -= 1;
-    renderGroupTable();
-  });
+    let filtered = allGroups;
 
-  document.getElementById("groupNext").addEventListener("click", () => {
-    groupPage += 1;
-    renderGroupTable();
-  });
+    // filter (søk i gruppesøyler + også litt i metrikker hvis du vil)
+    if (q) {
+      filtered = allGroups.filter(row =>
+        groupColsGlobal.some(c => String(row[c] ?? "").toLowerCase().includes(q))
+        || String(row.alle_antall ?? "").toLowerCase().includes(q)
+        || String(row.rekordsolgt_antall ?? "").toLowerCase().includes(q)
+        || String(row.andel_rekordsolgt ?? "").toLowerCase().includes(q)
+      );
+    }
 
-  // Sortering ved klikk på header
-  document.querySelectorAll("#groupTable thead th.sortable").forEach(th => {
-    th.addEventListener("click", () => {
-      const key = th.dataset.key;
-      if (!key) return;
+    // NYTT: sortering før paging
+    sortGroupsInPlace(filtered);
 
-      if (groupSortKey === key) {
-        groupSortDir = (groupSortDir === "asc") ? "desc" : "asc";
-      } else {
-        groupSortKey = key;
-        // Default: tallkolonner desc, tekst asc
-        groupSortDir = isNumberKey(key) ? "desc" : "asc";
-      }
-      groupPage = 1;
-      refreshGroupUI();
+    const total = filtered.length;
+    const pages = Math.max(1, Math.ceil(total / size));
+    pageIndex = Math.max(0, Math.min(pageIndex, pages - 1));
+
+    const start = pageIndex * size;
+    const view = filtered.slice(start, start + size);
+
+    el("pageInfo").textContent = total
+      ? `${start + 1}-${Math.min(start + size, total)} av ${total}`
+      : "0 rader";
+
+    renderGroups(view, groupColsGlobal);
+
+    // Dropdown – bygges fra filtrert (begrens for ytelse)
+    const sel = el("groupSelect");
+    sel.innerHTML = "";
+    const opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = total ? "Velg..." : "Ingen grupper";
+    sel.appendChild(opt0);
+
+    filtered.slice(0, 2000).forEach((row) => {
+      const g = groupKeyFromRow(row, groupColsGlobal);
+      const opt = document.createElement("option");
+      opt.value = JSON.stringify(g);
+      opt.textContent = groupLabel(g, groupColsGlobal);
+      sel.appendChild(opt);
     });
+
+    sel.onchange = () => {
+      const v = sel.value;
+      if (!v) return;
+      const g = JSON.parse(v);
+      fetchRowsForGroup(g, groupColsGlobal);
+    };
+  }
+
+  el("groupSearch").addEventListener("input", () => {
+    pageIndex = 0;
+    applyGroupFilterAndPaging();
+  });
+  el("pageSize").addEventListener("change", () => {
+    pageIndex = 0;
+    applyGroupFilterAndPaging();
+  });
+  el("prevPage").addEventListener("click", () => {
+    pageIndex = Math.max(0, pageIndex - 1);
+    applyGroupFilterAndPaging();
+  });
+  el("nextPage").addEventListener("click", () => {
+    pageIndex = pageIndex + 1;
+    applyGroupFilterAndPaging();
   });
 
-  // ---------------------------
-  // Integrasjonspunkt: kall denne etter at du har hentet groups fra backend
-  // ---------------------------
-  window.setGroupData = function(groups) {
-    groupRaw = Array.isArray(groups) ? groups : [];
-    groupPage = 1;
-    // default sort
-    groupSortKey = "andel_rekordsolgt";
-    groupSortDir = "desc";
-    refreshGroupUI();
-  };
+  async function run() {
+    showError("");
+    el("btnRun").disabled = true;
+    el("groupsBody").innerHTML = "";
+    el("rowsBody").innerHTML = "";
+    el("groupSelect").innerHTML = '<option value="">Laster...</option>';
+    setKpis(null);
 
-  // OBS:
-  // I eksisterende kode din der du gjør fetch('/bil/rekordrask/grupper'),
-  // legg inn: setGroupData(data.groups);
+    try {
+      const filters = buildFilters();
+      const res = await fetch(grupperUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filters })
+      });
 
+      const data = await res.json();
+      if (!res.ok || data.status !== "ok") {
+        throw new Error(data.message || "Ukjent feil ved henting av grupper.");
+      }
+
+      groupColsGlobal = data.group_cols || [];
+      allGroups = data.groups || [];
+      pageIndex = 0;
+
+      // reset sort til standard hver gang du kjører på nytt
+      sortKey = "andel_rekordsolgt";
+      sortDir = "desc";
+
+      applyGroupFilterAndPaging();
+      setKpis(data.kpis || null);
+
+    } catch (e) {
+      showError(e.message || String(e));
+    } finally {
+      el("btnRun").disabled = false;
+    }
+  }
+
+  async function fetchRowsForGroup(group, groupCols) {
+    showError("");
+    el("rowsBody").innerHTML = "";
+
+    try {
+      const filters = buildFilters();
+      const res = await fetch(dataUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filters, group })
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== "ok") {
+        throw new Error(data.message || "Ukjent feil ved henting av enkeltbiler.");
+      }
+      renderRows(data.rows || []);
+    } catch (e) {
+      showError(e.message || String(e));
+    }
+  }
+
+  function selectGroup(group, groupCols) {
+    const sel = el("groupSelect");
+    const value = JSON.stringify(group);
+    for (const opt of sel.options) {
+      if (opt.value === value) { sel.value = value; break; }
+    }
+    fetchRowsForGroup(group, groupCols);
+  }
+
+  el("group_choice").addEventListener("change", () => {
+    const isCustom = el("group_choice").value === "Egendefinert";
+    el("custom_cols_wrap").style.display = isCustom ? "block" : "none";
+  });
+
+  el("btnRun").addEventListener("click", run);
+
+  run();
 </script>
-
-{% endblock %}
+</body>
+</html>
