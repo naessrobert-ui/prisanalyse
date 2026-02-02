@@ -826,35 +826,51 @@ def _rekordrask_group_cols(filters: dict, colmap: dict):
 def _rekordrask_where(filters: dict, colmap: dict):
     """
     WHERE + params for DF_alle.
-    Filtrerer på Dato (dato_start) i fra/til, slik som i analyse_rekordsolgt.py.
+
+    Viktig:
+      - date_field bestemmer om fra/til gjelder:
+          * "dato"    => Dato (dato_start / publisert)
+          * "dato_ny" => Dato_ny (dato_end / solgt/fjernet)
+      - Default: "dato_ny" (gir logisk "solgt i perioden")
     """
     clauses = []
     params = []
 
-    c_dato = colmap.get("dato_start")
+    # Velg hvilket datofelt som skal brukes for fra/til
+    date_field = (filters.get("date_field") or "dato_ny").strip().lower()
+    if date_field in ("dato", "start", "dato_start"):
+        c_dato = colmap.get("dato_start")
+    else:
+        c_dato = colmap.get("dato_end")  # default: dato_ny
+
     c_prod = colmap.get("produsent")
     c_pris = colmap.get("pris_ny")
     c_aar  = colmap.get("aar")
     c_driv = colmap.get("drivstoff")
     c_hjul = colmap.get("hjuldrift")
 
+    # Dato-filter
     if c_dato:
         dato_ts = _to_timestamp_sql(_qident(c_dato))
 
         fra = _normalize_date_input(filters.get("fra_dato"))
         til = _normalize_date_input(filters.get("til_dato"))
+
+        # NB: sammenligner som DATE på begge sider
         if fra:
-            clauses.append(f"date({dato_ts}) >= date(?)")
+            clauses.append(f"date({dato_ts}) >= date(try_cast(? as TIMESTAMP))")
             params.append(fra)
         if til:
-            clauses.append(f"date({dato_ts}) <= date(?)")
+            clauses.append(f"date({dato_ts}) <= date(try_cast(? as TIMESTAMP))")
             params.append(til)
 
+    # Produsent
     produsent = (filters.get("produsent") or "Alle").strip()
     if produsent != "Alle" and c_prod:
         clauses.append(f"{_qident(c_prod)} = ?")
         params.append(produsent)
 
+    # Pris (Pris_ny)
     pris_fra = filters.get("pris_fra")
     pris_til = filters.get("pris_til")
     if c_pris and pris_fra not in (None, ""):
@@ -866,6 +882,7 @@ def _rekordrask_where(filters: dict, colmap: dict):
         clauses.append(f"{pris_expr} <= ?")
         params.append(int(pris_til))
 
+    # Årstall
     aar_fra = filters.get("aar_fra")
     aar_til = filters.get("aar_til")
     if c_aar and aar_fra not in (None, ""):
@@ -877,11 +894,13 @@ def _rekordrask_where(filters: dict, colmap: dict):
         clauses.append(f"{aar_expr} <= ?")
         params.append(int(aar_til))
 
+    # Drivstoff
     drivstoff = (filters.get("drivstoff") or "Alle").strip()
     if drivstoff != "Alle" and c_driv:
         clauses.append(f"{_qident(c_driv)} = ?")
         params.append(drivstoff)
 
+    # Hjuldrift
     hjuldrift = (filters.get("hjuldrift") or "Alle").strip()
     if hjuldrift != "Alle" and c_hjul:
         clauses.append(f"{_qident(c_hjul)} = ?")
