@@ -30,7 +30,7 @@ DEFAULT_TIMEOUT = 20
 # Aggregert solskinn fra Frost:
 # sum(duration_of_sunshine P1D)  -> timer siste døgn / kalenderdøgn
 # sum(duration_of_sunshine P1M)  -> timer så langt i måneden (eller månedlig)
-# sum(duration_of_sunshine P1Y)  -> timer så langt i året (eller årlig)
+# sum(duration_of_sunshine P1Y)  -> timer så langt i året (eller årlig)  (ofte ikke tilgjengelig)
 ELEMENT_SUN_DAILY = "sum(duration_of_sunshine P1D)"
 ELEMENT_SUN_MONTHLY = "sum(duration_of_sunshine P1M)"
 ELEMENT_SUN_YEARLY = "sum(duration_of_sunshine P1Y)"
@@ -177,9 +177,8 @@ def fetch_observations_interval(
     Hent observasjoner i et intervall for mange stasjoner.
     Returnerer lang DF.
 
-    Her bruker vi ferdig aggregerte elementer (P1D, P1M, P1Y),
-    så vi skal **ikke** summere videre på tvers av rader – vi velger
-    bare siste tilgjengelige verdi per stasjon senere.
+    Vi bruker ferdig aggregerte elementer (P1D, P1M, P1Y),
+    og summerer kun selv der vi eksplisitt ønsker det (ytd med P1M).
     """
     path = "/observations/v0.jsonld"
     rows: list[dict[str, Any]] = []
@@ -256,6 +255,50 @@ def aggregate_sun_per_station(df: pd.DataFrame, *, count_col: str) -> pd.DataFra
     grouped["unit"] = "hours"
     grouped["sun_hours"] = grouped["value"].astype(float)
     return grouped
+
+
+def sum_monthly_to_period_per_station(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Summer månedsverdier (P1M) per stasjon i perioden.
+
+    Brukes for 'ytd':
+      - Hent P1M fra 1. januar til (dato + 1 dag)
+      - Velg siste verdi per (stasjon, måned) og summer.
+    """
+    if df.empty:
+        return df
+
+    d = df.dropna(subset=["referenceTime", "value"]).copy()
+    d["referenceTime"] = pd.to_datetime(d["referenceTime"], errors="coerce", utc=True)
+    d["value"] = pd.to_numeric(d["value"], errors="coerce")
+    d["qualityCode"] = pd.to_numeric(d.get("qualityCode"), errors="coerce")
+    d = d.dropna(subset=["referenceTime", "value"])
+
+    d["month"] = d["referenceTime"].dt.to_period("M").astype(str)
+    d = d.sort_values(["sourceId", "referenceTime"])
+
+    last_per_month = (
+        d.groupby(["sourceId", "month"], as_index=False)
+        .agg(
+            referenceTime=("referenceTime", "last"),
+            value=("value", "last"),
+            qualityCode=("qualityCode", "min"),
+        )
+    )
+
+    out = (
+        last_per_month.groupby("sourceId", as_index=False)
+        .agg(
+            referenceTime=("referenceTime", "max"),
+            value=("value", "sum"),
+            qualityCode=("qualityCode", "min"),
+            n_obs=("value", "size"),
+        )
+        .reset_index(drop=True)
+    )
+    out["unit"] = "hours"
+    out["sun_hours"] = out["value"].astype(float)
+    return out
 
 
 # ======================================================================
@@ -444,7 +487,6 @@ def make_map(
     points_layer = folium.FeatureGroup(name="Stasjoner", show=True)
     points_layer.add_to(m)
 
-    # === Viktig endring: Ingen MarkerCluster. Legg markører direkte i points_layer.
     layer_for_markers = points_layer
 
     marker_map: dict[str, str] = {}
@@ -613,7 +655,15 @@ def build_sunshine_map_html(
 
     day_str = date_str or _date.today().isoformat()
     auth = _env_auth()
-    day = datetime.strptime(day_str, "%Y-%m-%d").date()
+
+    # Forenklet parsing:
+    # - Normalt forventer vi YYYY-MM-DD
+    # - For ytd kan vi også få YYYY (tolkes som 31.12 samme år)
+    if mode == "ytd" and day_str.isdigit() and len(day_str) == 4:
+        year = int(day_str)
+        day = _date(year, 12, 31)
+    else:
+        day = datetime.strptime(day_str, "%Y-%m-%d").date()
 
     # Velg element for observasjoner + referencetime per modus
     if mode == "last24h":
@@ -633,6 +683,7 @@ def build_sunshine_map_html(
         sum_count_col = "n_obs"
 
     elif mode == "mtd":
+        # Viktig: slutt er eksklusiv => "til og med day" = day + 1
         elements_obs = ELEMENT_SUN_MONTHLY
         start = _date(day.year, day.month, 1)
         end = day + timedelta(days=1)
@@ -641,9 +692,11 @@ def build_sunshine_map_html(
         sum_count_col = "n_obs"
 
     elif mode == "ytd":
-        elements_obs = ELEMENT_SUN_YEARLY
+        # NY LOGIKK: Hent månedsverdier fra 1. januar til og med valgt dato (day+1),
+        # og summer månedene per stasjon.
+        elements_obs = ELEMENT_SUN_MONTHLY
         start = _date(day.year, 1, 1)
-        end = day + timedelta(days=1)
+        end = day + timedelta(days=1)  # "til og med day"
         referencetime = f"{start.isoformat()}/{end.isoformat()}"
         title = f"Solskinn hittil i året {day.year} ({start.isoformat()} → {day.isoformat()})"
         sum_count_col = "n_obs"
@@ -694,7 +747,11 @@ def build_sunshine_map_html(
             date_str=day_str if mode != "last24h" else "",
         )
 
-    out = aggregate_sun_per_station(obs, count_col=sum_count_col)
+    # --- Aggregering ----------------------------------------------------------
+    if mode == "ytd":
+        out = sum_monthly_to_period_per_station(obs)
+    else:
+        out = aggregate_sun_per_station(obs, count_col=sum_count_col)
 
     # Join mot parquet-metadata
     out["baseId"] = out["sourceId"].astype(str).map(base_source_id)
@@ -717,7 +774,7 @@ def build_sunshine_map_html(
         merged,
         title=title,
         out_html=None,
-        cluster=cluster,  # beholdt parameter (men default er nå False)
+        cluster=cluster,
         heatmap_show=show_heatmap,
         heat_radius=heat_radius,
         heat_blur=heat_blur,
@@ -744,11 +801,10 @@ def main() -> None:
         mode=args.mode,  # type: ignore[arg-type]
         bbox=args.bbox or None,
         show_heatmap=True,
-        cluster=False,   # eksplisitt: aldri clustering i CLI
+        cluster=False,
     )
     print(html[:800])
 
 
 if __name__ == "__main__":
     main()
-
