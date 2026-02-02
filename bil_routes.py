@@ -150,42 +150,76 @@ def _qident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
-# ==========================================================
-# NORMALISERING / PARSING
-# ==========================================================
 
-def _normalize_date_input(s: str | None) -> str | None:
-    """
-    Normaliserer dato fra UI til ISO (YYYY-MM-DD).
+
+def _normalize_date_input(s: str | int | float | None) -> str | None:
+    """Normaliserer dato fra UI til ISO-format.
+
     Støtter:
-      - '02.01.2026'
-      - '02/01/2026'
-      - '2026-01-02'
-      - alle over med klokkeslett (ignorerer klokkeslett for filter)
-    Returnerer None hvis tom/ukjent.
+      - dd.mm.yyyy [hh:mm[:ss]]
+      - yyyy-mm-dd [hh:mm[:ss]]
+      - mm/dd/yyyy [hh:mm[:ss]] (typisk browser/locale)
+      - epoch (sekunder eller millisekunder): int/float eller streng med 10/13 siffer
+
+    Returnerer:
+      - 'YYYY-MM-DD' eller 'YYYY-MM-DD HH:MM:SS'
+      - None hvis tom/ugyldig
     """
     if s is None:
         return None
+
+    # Epoch i sek/ms (kan komme fra JS Date)
+    if isinstance(s, (int, float)):
+        epoch = float(s)
+        if epoch > 1e12:  # ms
+            epoch = epoch / 1000.0
+        return datetime.utcfromtimestamp(epoch).strftime("%Y-%m-%d")
+
     s = str(s).strip()
     if not s:
         return None
 
-    # ISO først: YYYY-MM-DD...
-    m = re.match(r'^(\d{4})-(\d{2})-(\d{2})', s)
-    if m:
-        yyyy, mm, dd = m.groups()
-        return f"{yyyy}-{mm}-{dd}"
+    if re.fullmatch(r"\d{10,13}", s):
+        epoch = float(s)
+        if len(s) >= 13:
+            epoch = epoch / 1000.0
+        return datetime.utcfromtimestamp(epoch).strftime("%Y-%m-%d")
 
-    # dd.mm.yyyy eller dd/mm/yyyy
-    m = re.match(r'^(\d{1,2})[./](\d{1,2})[./](\d{4})', s)
+    # dd.mm.yyyy [hh:mm[:ss]]
+    m = re.match(r'^(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$', s)
     if m:
-        dd = int(m.group(1))
-        mm = int(m.group(2))
-        yyyy = int(m.group(3))
-        if 1 <= dd <= 31 and 1 <= mm <= 12:
-            return f"{yyyy:04d}-{mm:02d}-{dd:02d}"
+        dd, mm, yyyy, hh, mi, ss = m.groups()
+        if hh is None:
+            return f"{yyyy}-{mm}-{dd}"
+        ss = ss or "00"
+        return f"{yyyy}-{mm}-{dd} {hh}:{mi}:{ss}"
 
-    return None
+    # yyyy-mm-dd [hh:mm[:ss]]
+    m = re.match(r'^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$', s)
+    if m:
+        yyyy, mm, dd, hh, mi, ss = m.groups()
+        if hh is None:
+            return f"{yyyy}-{mm}-{dd}"
+        ss = ss or "00"
+        return f"{yyyy}-{mm}-{dd} {hh}:{mi}:{ss}"
+
+    # mm/dd/yyyy eller dd/mm/yyyy [hh:mm[:ss]]
+    m = re.match(r'^(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$', s)
+    if m:
+        a, b, yyyy, hh, mi, ss = m.groups()
+        a_i, b_i = int(a), int(b)
+        # heuristikk: hvis a > 12 og b <= 12, tolkes som dd/mm
+        if a_i > 12 and b_i <= 12:
+            dd, mm = f"{a_i:02d}", f"{b_i:02d}"
+        else:
+            mm, dd = f"{a_i:02d}", f"{b_i:02d}"
+        if hh is None:
+            return f"{yyyy}-{mm}-{dd}"
+        ss = ss or "00"
+        return f"{yyyy}-{mm}-{dd} {hh}:{mi}:{ss}"
+
+    # fallback: returner som den er (DuckDB try_cast/try_strptime kan fortsatt klare det)
+    return s
 
 
 def _to_bigint_sql(col_ident: str) -> str:
@@ -194,50 +228,23 @@ def _to_bigint_sql(col_ident: str) -> str:
 
 
 def _to_timestamp_sql(col_ident: str) -> str:
-    """
-    Robust timestamp-parse i DuckDB.
-
+    """Robust timestamp-parse i DuckDB.
     Støtter:
-      - TIMESTAMP direkte
-      - strings: 'YYYY-MM-DD HH:MM:SS', 'YYYY-MM-DD'
-      - strings: 'DD.MM.YYYY', 'DD.MM.YYYY HH:MM:SS'
-      - epoch i sekunder eller millisekunder (int/str)
+      - 'YYYY-MM-DD HH:MM:SS' (din parquet)
+      - 'YYYY-MM-DD'
+      - 'DD.MM.YYYY'
+      - 'DD.MM.YYYY HH:MM:SS'
     """
     s = f"cast({col_ident} as varchar)"
-
-    # DuckDB: to_timestamp(x) forventer sekunder; vi detekterer ms via størrelse
-    return f"""
-    (
-      case
-        when try_cast({col_ident} as TIMESTAMP) is not null
-          then try_cast({col_ident} as TIMESTAMP)
-
-        when try_strptime({s}, '%Y-%m-%d %H:%M:%S') is not null
-          then try_strptime({s}, '%Y-%m-%d %H:%M:%S')
-
-        when try_strptime({s}, '%Y-%m-%d') is not null
-          then try_strptime({s}, '%Y-%m-%d')
-
-        when try_strptime({s}, '%d.%m.%Y %H:%M:%S') is not null
-          then try_strptime({s}, '%d.%m.%Y %H:%M:%S')
-
-        when try_strptime({s}, '%d.%m.%Y') is not null
-          then try_strptime({s}, '%d.%m.%Y')
-
-        when try_cast({col_ident} as BIGINT) is not null then
-          (
-            case
-              when abs(try_cast({col_ident} as BIGINT)) > 1000000000000
-                then to_timestamp(try_cast({col_ident} as DOUBLE) / 1000.0)
-              else
-                to_timestamp(try_cast({col_ident} as DOUBLE))
-            end
-          )
-
-        else null
-      end
+    return (
+        "coalesce("
+        f"try_cast({col_ident} as TIMESTAMP),"
+        f"try_strptime({s}, '%Y-%m-%d %H:%M:%S'),"
+        f"try_strptime({s}, '%Y-%m-%d'),"
+        f"try_strptime({s}, '%d.%m.%Y %H:%M:%S'),"
+        f"try_strptime({s}, '%d.%m.%Y')"
+        ")"
     )
-    """
 
 
 def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
@@ -734,7 +741,21 @@ def get_bil_solgt_data():
 
 # ==========================================================
 # REKORDRASK (DuckDB) – logikk basert på analyse_rekordsolgt.py
+#
+# Definisjon:
+#   rekordsolgt = (Solgt != "nei") (inkl. "fjernet") AND (Dato_ny - Dato) <= maks_dager
+# Filtrering:
+#   - fra/til dato filtrerer på Dato (startdato / publiseringsdato)
+#   - pris_fra/pris_til filtrerer på Pris_ny
+#   - årstall fra/til filtrerer på årstall
+#   - drivstoff/hjuldrift/produsent filtrerer på eksakt match (Alle = ingen filter)
+#
+# Endepunkter:
+#   GET  /bil/rekordrask
+#   POST /bil/rekordrask/grupper   -> grupper + kpis + group_cols
+#   POST /bil/rekordrask/data      -> rader for valgt gruppe
 # ==========================================================
+
 
 def _normalize_str_sql(col_ident: str) -> str:
     """lower(trim(cast(.. as varchar)))"""
@@ -747,13 +768,13 @@ def _rekordrask_group_cols(filters: dict, colmap: dict):
     custom = filters.get("group_cols") or None
 
     m = {
-        "produsent": (_qident(colmap.get("produsent")), "produsent"),
-        "modell":    (_qident(colmap.get("modell")), "modell"),
-        "aar":       (_qident(colmap.get("aar")), "aarstall"),
-        "drivstoff": (_qident(colmap.get("drivstoff")), "drivstoff"),
-        "hjuldrift": (_qident(colmap.get("hjuldrift")), "hjuldrift"),
-        "selger":    (_qident(colmap.get("selger")), "selger"),
-        "km":        (_qident(colmap.get("km")), "km"),
+        "produsent": ( _qident(colmap.get("produsent")), "produsent"),
+        "modell":    ( _qident(colmap.get("modell")), "modell"),
+        "aar":       ( _qident(colmap.get("aar")), "aarstall"),
+        "drivstoff": ( _qident(colmap.get("drivstoff")), "drivstoff"),
+        "hjuldrift": ( _qident(colmap.get("hjuldrift")), "hjuldrift"),
+        "selger":    ( _qident(colmap.get("selger")), "selger"),
+        "km":        ( _qident(colmap.get("km")), "km"),
     }
 
     def pick(keys):
@@ -782,13 +803,7 @@ def _rekordrask_group_cols(filters: dict, colmap: dict):
 def _rekordrask_where(filters: dict, colmap: dict):
     """
     WHERE + params for DF_alle.
-    Filtrerer på Dato (dato_start) i fra/til.
-
-    🔧 FIKS:
-    - IKKE bruk date(...) >= date(?) (det ga cast-feil og 0 treff)
-    - bruk timestamp-sammenligning:
-        _dato >= fra
-        _dato < (til + 1 dag)
+    Filtrerer på Dato (dato_start) i fra/til, slik som i analyse_rekordsolgt.py.
     """
     clauses = []
     params = []
@@ -805,13 +820,11 @@ def _rekordrask_where(filters: dict, colmap: dict):
 
         fra = _normalize_date_input(filters.get("fra_dato"))
         til = _normalize_date_input(filters.get("til_dato"))
-
         if fra:
-            clauses.append(f"{dato_ts} >= try_cast(? as TIMESTAMP)")
+            clauses.append(f"date({dato_ts}) >= date(?)")
             params.append(fra)
-
         if til:
-            clauses.append(f"{dato_ts} < (try_cast(? as TIMESTAMP) + INTERVAL '1 day')")
+            clauses.append(f"date({dato_ts}) <= date(?)")
             params.append(til)
 
     produsent = (filters.get("produsent") or "Alle").strip()
@@ -859,7 +872,7 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     """
     CTE base:
       - normaliserer solgt (string)
-      - parser datoer robust
+      - parser datoer robust (støtter dd.mm.yyyy)
       - beregner days_to_end
       - _is_rekord (binder maks_dager én gang)
     """
@@ -1084,7 +1097,6 @@ def bil_rekordrask_data():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 # ==========================================================
 # SVV (beholdt)
