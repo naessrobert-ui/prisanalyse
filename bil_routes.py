@@ -228,43 +228,45 @@ def _to_bigint_sql(col_ident: str) -> str:
 
 
 def _to_timestamp_sql(col_ident: str) -> str:
-    """Robust timestamp-parse i DuckDB.
-
-    Håndterer både strenger og numeriske varianter.
-
-    Støtter bl.a.:
-      - 'YYYY-MM-DD HH:MM:SS' (typisk i parquet hos deg)
-      - 'YYYY-MM-DD'
-      - 'DD.MM.YYYY' / 'DD.MM.YYYY HH:MM:SS'
-      - heltall epoch (sekunder eller millisekunder)
-      - heltall 'YYYYMMDD'
     """
-    s = f"cast({col_ident} as varchar)"
-    # Hvis kolonnen er numerisk, kan den være epoch eller YYYYMMDD.
-    num = f"try_cast({col_ident} as BIGINT)"
-    return f"""(
-      case
-        when {num} is not null then
-          case
-            when {num} >= 1000000000000 then to_timestamp({num} / 1000.0)       -- epoch ms
-            when {num} >= 1000000000 then to_timestamp({num} * 1.0)             -- epoch s
-            when {num} between 19000101 and 21001231 then try_strptime(cast({num} as varchar), '%Y%m%d')
-            else try_cast({col_ident} as TIMESTAMP)
-          end
-        else
-          coalesce(
-            try_cast({col_ident} as TIMESTAMP),
-            try_strptime({s}, '%Y-%m-%d %H:%M:%S'),
-            try_strptime({s}, '%Y-%m-%d'),
-            try_strptime({s}, '%d.%m.%Y %H:%M:%S'),
-            try_strptime({s}, '%d.%m.%Y'),
-            try_strptime({s}, '%d/%m/%Y %H:%M:%S'),
-            try_strptime({s}, '%d/%m/%Y'),
-            try_strptime({s}, '%Y/%m/%d %H:%M:%S'),
-            try_strptime({s}, '%Y/%m/%d')
-          )
-      end
-    )"""
+    Robust timestamp-parse i DuckDB.
+
+    Støtter:
+      - Tekst:
+        'YYYY-MM-DD HH:MM:SS'
+        'YYYY-MM-DD'
+        'DD.MM.YYYY'
+        'DD.MM.YYYY HH:MM:SS'
+      - Tall (ofte i parquet):
+        10 siffer  = epoch seconds
+        13 siffer  = epoch milliseconds
+        16 siffer  = epoch microseconds
+        19 siffer  = epoch nanoseconds
+        8 siffer   = yyyymmdd
+    """
+    s = f"trim(cast({col_ident} as varchar))"
+    n = f"try_cast({s} as BIGINT)"
+
+    numeric_ts = f"""
+      CASE
+        WHEN regexp_matches({s}, '^[0-9]{{19}}$') THEN to_timestamp({n} / 1000000000.0)
+        WHEN regexp_matches({s}, '^[0-9]{{16}}$') THEN to_timestamp({n} / 1000000.0)
+        WHEN regexp_matches({s}, '^[0-9]{{13}}$') THEN to_timestamp({n} / 1000.0)
+        WHEN regexp_matches({s}, '^[0-9]{{10}}$') THEN to_timestamp({n} * 1.0)
+        WHEN regexp_matches({s}, '^[0-9]{{8}}$')  THEN try_strptime({s}, '%Y%m%d')
+        ELSE NULL
+      END
+    """
+
+    return (
+        "coalesce("
+        f"{numeric_ts},"
+        f"try_strptime({s}, '%Y-%m-%d %H:%M:%S'),"
+        f"try_strptime({s}, '%Y-%m-%d'),"
+        f"try_strptime({s}, '%d.%m.%Y %H:%M:%S'),"
+        f"try_strptime({s}, '%d.%m.%Y')"
+        ")"
+    )
 
 
 
