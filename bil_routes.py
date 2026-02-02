@@ -229,22 +229,43 @@ def _to_bigint_sql(col_ident: str) -> str:
 
 def _to_timestamp_sql(col_ident: str) -> str:
     """Robust timestamp-parse i DuckDB.
-    Støtter:
-      - 'YYYY-MM-DD HH:MM:SS' (din parquet)
+
+    Håndterer både strenger og numeriske varianter.
+
+    Støtter bl.a.:
+      - 'YYYY-MM-DD HH:MM:SS' (typisk i parquet hos deg)
       - 'YYYY-MM-DD'
-      - 'DD.MM.YYYY'
-      - 'DD.MM.YYYY HH:MM:SS'
+      - 'DD.MM.YYYY' / 'DD.MM.YYYY HH:MM:SS'
+      - heltall epoch (sekunder eller millisekunder)
+      - heltall 'YYYYMMDD'
     """
     s = f"cast({col_ident} as varchar)"
-    return (
-        "coalesce("
-        f"try_cast({col_ident} as TIMESTAMP),"
-        f"try_strptime({s}, '%Y-%m-%d %H:%M:%S'),"
-        f"try_strptime({s}, '%Y-%m-%d'),"
-        f"try_strptime({s}, '%d.%m.%Y %H:%M:%S'),"
-        f"try_strptime({s}, '%d.%m.%Y')"
-        ")"
-    )
+    # Hvis kolonnen er numerisk, kan den være epoch eller YYYYMMDD.
+    num = f"try_cast({col_ident} as BIGINT)"
+    return f"""(
+      case
+        when {num} is not null then
+          case
+            when {num} >= 1000000000000 then to_timestamp({num} / 1000.0)       -- epoch ms
+            when {num} >= 1000000000 then to_timestamp({num} * 1.0)             -- epoch s
+            when {num} between 19000101 and 21001231 then try_strptime(cast({num} as varchar), '%Y%m%d')
+            else try_cast({col_ident} as TIMESTAMP)
+          end
+        else
+          coalesce(
+            try_cast({col_ident} as TIMESTAMP),
+            try_strptime({s}, '%Y-%m-%d %H:%M:%S'),
+            try_strptime({s}, '%Y-%m-%d'),
+            try_strptime({s}, '%d.%m.%Y %H:%M:%S'),
+            try_strptime({s}, '%d.%m.%Y'),
+            try_strptime({s}, '%d/%m/%Y %H:%M:%S'),
+            try_strptime({s}, '%d/%m/%Y'),
+            try_strptime({s}, '%Y/%m/%d %H:%M:%S'),
+            try_strptime({s}, '%Y/%m/%d')
+          )
+      end
+    )"""
+
 
 
 def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
@@ -981,7 +1002,7 @@ def bil_rekordrask_grupper():
           LIMIT 5000
         """
 
-        df = con.execute(sql, params + [max_days, min_obs]).df()
+        df = con.execute(sql, [max_days] + params + [min_obs]).df()
         df = df.where(pd.notna(df), None)
         groups = json.loads(df.to_json(orient="records"))
 
@@ -992,7 +1013,7 @@ def bil_rekordrask_grupper():
             SUM(CASE WHEN _is_rekord THEN 1 ELSE 0 END) AS rekordsolgt_antall
           FROM base
         """
-        kpi_row = con.execute(kpi_sql, params + [max_days]).fetchone()
+        kpi_row = con.execute(kpi_sql, [max_days] + params).fetchone()
         alle_antall = int(kpi_row[0] or 0)
         rekord_antall = int(kpi_row[1] or 0)
         andel = (rekord_antall / alle_antall) if alle_antall else 0.0
@@ -1088,7 +1109,7 @@ def bil_rekordrask_data():
           LIMIT 2000
         """
 
-        df = con.execute(sql, params + [max_days] + group_params).df()
+        df = con.execute(sql, [max_days] + params + group_params).df()
         df = df.where(pd.notna(df), None)
         rows = json.loads(df.to_json(orient="records"))
 
