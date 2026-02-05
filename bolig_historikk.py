@@ -1,503 +1,652 @@
-import os
-import re
+# bolig_streamlit_app.py
+# En-fil Streamlit-app: tabell + drilldown + kart + raskere daglig serie (numpy-masker)
+#
+# Kjør: streamlit run bolig_streamlit_app.py
+#
+# Avhengigheter (typisk):
+#   pip install streamlit boto3 botocore pandas pyarrow numpy matplotlib folium streamlit-folium st-aggrid
+
 import io
-from pathlib import Path
-from typing import Tuple, Optional, List, Dict
+import os
+from dataclasses import dataclass
+from typing import Optional, Literal
 
+import numpy as np
 import pandas as pd
+import streamlit as st
 
-# Prøv å importere boto3, men ikke krav
-try:
-    import boto3  # type: ignore
-    HAS_BOTO3 = True
-except ImportError:
-    HAS_BOTO3 = False
+import boto3
+from botocore.config import Config
 
-# ----------------------------
-#  Konfigurasjon
-# ----------------------------
+import matplotlib.pyplot as plt
 
-BUCKET_NAME = os.environ.get("BOLIG_S3_BUCKET", "prisanalyse-data")
-BOLIG_PREFIX = os.environ.get("BOLIG_HIST_PREFIX", "raw/bolig-daglig/")
-LOCAL_DIR = Path("raw/bolig-daglig")  # lokal fallback
-
-# Første fil som skal brukes i historikken (faktisk fil i S3: bolig_X_07-11-2025.csv)
-MIN_VALID_DATE = pd.Timestamp("2025-11-07")
-
-# Default startdato i UI (kan være før første fil – vi klipper i logikken)
-DEFAULT_START_UI = pd.Timestamp("2025-11-01")
-
-METRIC_LABELS: Dict[str, str] = {
-    "median_m2": "Median m²-pris",
-    "median_totalpris": "Median totalpris",
-    "median_dager": "Median dager på markedet",
-}
-
-METRIC_TO_COLUMN = {
-    "median_m2": "M2-pris",
-    "median_totalpris": "totalpris",
-    "median_dager": "dager_paa_markedet",
-}
-
-DATE_REGEX = re.compile(r"(\d{2})[-_](\d{2})[-_](\d{4})")
+import folium
+from streamlit_folium import st_folium
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 
 
-# ----------------------------
-#  Hjelpere
-# ----------------------------
-
-def _extract_date_from_name(name: str) -> Optional[pd.Timestamp]:
-    m = DATE_REGEX.search(name)
-    if not m:
-        return None
-    day, month, year = m.groups()
-    try:
-        return pd.to_datetime(f"{year}-{month}-{day}")
-    except Exception:
-        return None
+# ----------------- Config -----------------
+@dataclass(frozen=True)
+class AppConfig:
+    s3_bucket: str = os.environ.get("BOLIG_S3_BUCKET", "prisanalyse-data")
+    master_key: str = os.environ.get("BOLIG_MASTER_KEY", "calc/bolig/bolig_master/bolig_master.parquet")
+    # kart bounds (Norge-ish)
+    min_lat: float = 57.0
+    max_lat: float = 72.0
+    min_lon: float = 4.0
+    max_lon: float = 32.0
 
 
-def _normalize_col_name(s: str) -> str:
+CFG = AppConfig()
+
+
+# ----------------- Data loading -----------------
+@st.cache_data(show_spinner=False)
+def load_master_s3(bucket: str, key: str) -> pd.DataFrame:
+    config = Config(
+        retries={"max_attempts": 10, "mode": "standard"},
+        connect_timeout=30,
+        read_timeout=120,
+        tcp_keepalive=True,
+    )
+    s3 = boto3.client("s3", config=config)
+    obj = s3.get_object(Bucket=bucket, Key=key)
+    return pd.read_parquet(io.BytesIO(obj["Body"].read()))
+
+
+@st.cache_data(show_spinner=False)
+def load_master_local(path: str) -> pd.DataFrame:
+    return pd.read_parquet(path)
+
+
+def extract_poststed(address: pd.Series) -> pd.Series:
     """
-    Normaliser kolonnenavn (robust mot små variasjoner).
+    Poststed = teksten etter siste komma i address. Fjerner 4-sifret postnummer.
     """
-    s = str(s)
-    s = s.strip().lower()
+    s = address.astype(str)
+    s = s.str.split(",").str[-1]
+    s = s.str.replace(r"\b\d{4}\b", "", regex=True)
+    s = s.str.strip()
+    s = s.replace({"": pd.NA, "None": pd.NA, "nan": pd.NA})
     return s
 
 
-def _find_col(df: pd.DataFrame, wanted: str, extra_aliases: Optional[List[str]] = None) -> Optional[str]:
+def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Finn en kolonne i df som matcher 'wanted' (case-insensitiv).
-    Returnerer faktisk kolonnenavn slik det står i df.
+    Sikrer forventede kolonner, typer og derivert "sted".
     """
-    aliases: set[str] = set()
-    aliases.add(_normalize_col_name(wanted))
-    if extra_aliases:
-        for a in extra_aliases:
-            aliases.add(_normalize_col_name(a))
+    d = df.copy()
 
-    for c in df.columns:
-        c_norm = _normalize_col_name(c)
-        if c_norm in aliases:
-            return c
+    required = [
+        "finnkode", "fylke", "kommune_nr", "kommune_navn",
+        "address", "full_title",
+        "totalpris", "m2_pris", "ny_brukt",
+        "latitude", "longitude",
+        "dato_første", "dato_siste",
+        "pris_første", "pris_ny", "dato_prisendring",
+    ]
+    for c in required:
+        if c not in d.columns:
+            d[c] = pd.NA
+
+    # Dates
+    d["dato_første"] = pd.to_datetime(d["dato_første"], errors="coerce").dt.normalize()
+    d["dato_siste"] = pd.to_datetime(d["dato_siste"], errors="coerce").dt.normalize()
+    d["dato_prisendring"] = pd.to_datetime(d["dato_prisendring"], errors="coerce").dt.normalize()
+
+    # Numerics
+    for col in ["totalpris", "m2_pris", "latitude", "longitude", "pris_første", "pris_ny"]:
+        d[col] = pd.to_numeric(d[col], errors="coerce")
+
+    # Strings
+    for c in ["fylke", "kommune_navn", "ny_brukt", "address", "full_title"]:
+        d[c] = d[c].astype(str).replace({"None": "", "nan": ""})
+
+    d["finnkode"] = d["finnkode"].astype(str)
+
+    # Sted (poststed)
+    d["sted"] = extract_poststed(d["address"])
+    mask = d["sted"].isna() | (d["sted"].astype(str).str.strip() == "")
+    d.loc[mask, "sted"] = d["kommune_navn"]
+
+    return d
+
+
+def apply_ny_brukt_filter(df: pd.DataFrame, choice: str) -> pd.DataFrame:
+    if choice == "Begge":
+        return df.copy()
+
+    s = df["ny_brukt"].astype(str).str.strip().str.lower()
+    if choice == "Brukt":
+        return df[s == "brukt"].copy()
+    # "Nybygg"
+    return df[s.isin(["nybygg", "ny", "nytt"])].copy()
+
+
+Level = Literal["Fylke", "Kommune", "Sted"]
+
+
+def group_key(df: pd.DataFrame, level: Level) -> pd.Series:
+    if level == "Fylke":
+        return df["fylke"].fillna("").astype(str)
+    if level == "Kommune":
+        return df["kommune_navn"].fillna("").astype(str)
+    return df["sted"].fillna("").astype(str)
+
+
+def filter_by_level(df: pd.DataFrame, level: Level, value: str) -> pd.DataFrame:
+    value = str(value)
+    if level == "Fylke":
+        return df[df["fylke"].fillna("").astype(str) == value].copy()
+    if level == "Kommune":
+        return df[df["kommune_navn"].fillna("").astype(str) == value].copy()
+    return df[df["sted"].fillna("").astype(str) == value].copy()
+
+
+def snapshot_metrics(df: pd.DataFrame, day: pd.Timestamp, level: Level) -> pd.DataFrame:
+    """
+    Snapshot på én dag: aktive annonser og noen aggregater per group.
+    """
+    day = pd.to_datetime(day).normalize()
+    d = df.dropna(subset=["dato_første", "dato_siste"]).copy()
+
+    active = d[(d["dato_første"] <= day) & (d["dato_siste"] >= day)].copy()
+    if active.empty:
+        return pd.DataFrame(columns=["group", "active_count", "median_totalpris", "median_m2", "mean_days_on_market"])
+
+    active["group"] = group_key(active, level)
+    active["days_on_market_today"] = (day - active["dato_første"]).dt.days
+
+    out = active.groupby("group", dropna=False).agg(
+        active_count=("finnkode", "count"),
+        median_totalpris=("totalpris", "median"),
+        median_m2=("m2_pris", "median"),
+        mean_days_on_market=("days_on_market_today", "mean"),
+    ).reset_index()
+
+    return out
+
+
+def pct_change(end: pd.Series, start: pd.Series) -> pd.Series:
+    start = pd.to_numeric(start, errors="coerce")
+    end = pd.to_numeric(end, errors="coerce")
+    base = start.replace({0: np.nan})
+    pct = (end - start) / base * 100.0
+    return pct.round(0)
+
+
+def build_table(df: pd.DataFrame, level: Level, start_day: pd.Timestamp, end_day: pd.Timestamp) -> pd.DataFrame:
+    start_day = pd.to_datetime(start_day).normalize()
+    end_day = pd.to_datetime(end_day).normalize()
+
+    m_start = snapshot_metrics(df, start_day, level).set_index("group")
+    m_end = snapshot_metrics(df, end_day, level).set_index("group")
+
+    groups = m_start.index.union(m_end.index)
+    out = pd.DataFrame({"Sted": groups.astype(str)})
+
+    def get(name: str, frame: pd.DataFrame, default=np.nan) -> pd.Series:
+        if frame.empty:
+            return pd.Series([default] * len(out))
+        s = frame.reindex(groups)[name]
+        return s.reset_index(drop=True)
+
+    med_m2_end = get("median_m2", m_end)
+    med_tp_end = get("median_totalpris", m_end)
+    act_end = get("active_count", m_end)
+    mean_dom_end = get("mean_days_on_market", m_end)
+
+    med_m2_start = get("median_m2", m_start)
+    act_start = get("active_count", m_start)
+    mean_dom_start = get("mean_days_on_market", m_start)
+
+    out["Med m² nå"] = med_m2_end
+    out["Med pris nå"] = med_tp_end
+    out["Aktive nå"] = act_end
+    out["Snitt tid nå"] = pd.to_numeric(mean_dom_end, errors="coerce").round(0)
+
+    out["Δm²"] = (med_m2_end - med_m2_start)
+    out["Δm²%"] = pct_change(med_m2_end, med_m2_start)
+
+    out["Δakt"] = (act_end - act_start)
+    out["Δakt%"] = pct_change(act_end, act_start)
+
+    out["Δtid"] = (pd.to_numeric(mean_dom_end, errors="coerce") - pd.to_numeric(mean_dom_start, errors="coerce")).round(0)
+    out["Δtid%"] = pct_change(mean_dom_end, mean_dom_start)
+
+    out = out[out["Sted"].astype(str).str.strip() != ""].copy()
+    out = out.sort_values("Aktive nå", ascending=False, na_position="last")
+    return out
+
+
+def format_table(table: pd.DataFrame) -> pd.DataFrame:
+    show = table.copy()
+
+    for col in ["Med m² nå", "Med pris nå", "Δm²"]:
+        if col in show.columns:
+            show[col] = pd.to_numeric(show[col], errors="coerce").round(0)
+
+    for col in ["Δm²%", "Δakt%", "Δtid%"]:
+        if col in show.columns:
+            show[col] = pd.to_numeric(show[col], errors="coerce").astype("Int64")
+
+    for col in ["Aktive nå", "Δakt"]:
+        if col in show.columns:
+            show[col] = pd.to_numeric(show[col], errors="coerce").astype("Int64")
+
+    for col in ["Snitt tid nå", "Δtid"]:
+        if col in show.columns:
+            show[col] = pd.to_numeric(show[col], errors="coerce").astype("Int64")
+
+    return show
+
+
+# ----------------- Raskere daglig serie -----------------
+@st.cache_data(show_spinner=False)
+def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Timestamp) -> pd.DataFrame:
+    """
+    Daglig serie med enklere, raskere numerikk:
+    - Precompute numpy-arrays for dato_første/dato_siste som int (days since epoch)
+    - Bruk bool-masker per dag
+    Fortsatt O(#days * #rows) i verste fall, men mye raskere enn pandas-filter + groupby i loop.
+    """
+    start_day = pd.to_datetime(start_day).normalize()
+    end_day = pd.to_datetime(end_day).normalize()
+    days = pd.date_range(start_day, end_day, freq="D")
+
+    d = df.dropna(subset=["dato_første", "dato_siste"]).copy()
+    if d.empty:
+        return pd.DataFrame(columns=["dato", "active_count", "median_m2", "mean_m2", "median_totalpris", "mean_totalpris"])
+
+    d["dato_første"] = pd.to_datetime(d["dato_første"], errors="coerce").dt.normalize()
+    d["dato_siste"] = pd.to_datetime(d["dato_siste"], errors="coerce").dt.normalize()
+
+    # til numpy
+    start_i = d["dato_første"].values.astype("datetime64[D]").astype(np.int64)
+    end_i = d["dato_siste"].values.astype("datetime64[D]").astype(np.int64)
+
+    m2 = pd.to_numeric(d.get("m2_pris"), errors="coerce").to_numpy(dtype=float)
+    tp = pd.to_numeric(d.get("totalpris"), errors="coerce").to_numpy(dtype=float)
+
+    day_i = days.values.astype("datetime64[D]").astype(np.int64)
+
+    rows = []
+    for di, day in zip(day_i, days):
+        mask = (start_i <= di) & (end_i >= di)
+        if not np.any(mask):
+            rows.append(
+                {"dato": day, "active_count": 0, "median_m2": np.nan, "mean_m2": np.nan,
+                 "median_totalpris": np.nan, "mean_totalpris": np.nan}
+            )
+            continue
+
+        m2v = m2[mask]
+        tpv = tp[mask]
+
+        # median/mean med NaN-safe
+        m2_median = float(np.nanmedian(m2v)) if np.isfinite(m2v).any() else np.nan
+        m2_mean = float(np.nanmean(m2v)) if np.isfinite(m2v).any() else np.nan
+
+        tp_median = float(np.nanmedian(tpv)) if np.isfinite(tpv).any() else np.nan
+        tp_mean = float(np.nanmean(tpv)) if np.isfinite(tpv).any() else np.nan
+
+        rows.append(
+            {"dato": day, "active_count": int(mask.sum()), "median_m2": m2_median, "mean_m2": m2_mean,
+             "median_totalpris": tp_median, "mean_totalpris": tp_mean}
+        )
+
+    return pd.DataFrame(rows)
+
+
+def active_on_day(df: pd.DataFrame, day: pd.Timestamp) -> pd.DataFrame:
+    day = pd.to_datetime(day).normalize()
+    d = df.dropna(subset=["dato_første", "dato_siste"]).copy()
+    d["dato_første"] = pd.to_datetime(d["dato_første"], errors="coerce").dt.normalize()
+    d["dato_siste"] = pd.to_datetime(d["dato_siste"], errors="coerce").dt.normalize()
+    return d[(d["dato_første"] <= day) & (d["dato_siste"] >= day)].copy()
+
+
+def filter_geo_bounds(d: pd.DataFrame) -> pd.DataFrame:
+    ok = (
+        d["latitude"].between(CFG.min_lat, CFG.max_lat, inclusive="both")
+        & d["longitude"].between(CFG.min_lon, CFG.max_lon, inclusive="both")
+    )
+    return d[ok].dropna(subset=["latitude", "longitude"]).copy()
+
+
+def make_map(points: pd.DataFrame, end_day: pd.Timestamp, tiles: str = "OpenStreetMap") -> folium.Map:
+    """
+    Kart med popup som viser:
+    - publisert (dato_første)
+    - sist sett (dato_siste)
+    - SOLGT hvis dato_siste < end_day
+    - dager på markedet (til dato_siste hvis solgt ellers til end_day)
+    - prisendring (hvis registrert)
+    """
+    end_day = pd.to_datetime(end_day).normalize()
+
+    center_lat = float(points["latitude"].median()) if not points.empty else 64.0
+    center_lon = float(points["longitude"].median()) if not points.empty else 11.0
+
+    m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=6,
+        control_scale=True,
+        tiles=tiles,
+    )
+
+    from folium.plugins import MarkerCluster
+    cluster = MarkerCluster(name="Boliger").add_to(m)
+
+    for _, r in points.iterrows():
+        d_first = pd.to_datetime(r.get("dato_første"), errors="coerce")
+        d_last = pd.to_datetime(r.get("dato_siste"), errors="coerce")
+
+        d_first_str = d_first.date().isoformat() if pd.notna(d_first) else ""
+        d_last_str = d_last.date().isoformat() if pd.notna(d_last) else ""
+
+        sold = bool(pd.notna(d_last) and d_last.normalize() < end_day)
+
+        days = ""
+        if pd.notna(d_first):
+            ref_end = d_last.normalize() if (sold and pd.notna(d_last)) else end_day
+            days = str(int((ref_end - d_first.normalize()).days))
+
+        pris_first = pd.to_numeric(r.get("pris_første"), errors="coerce")
+        pris_new = pd.to_numeric(r.get("pris_ny"), errors="coerce")
+        d_price = pd.to_datetime(r.get("dato_prisendring"), errors="coerce")
+
+        changed = False
+        if pd.notna(pris_first) and pd.notna(pris_new) and pris_new != pris_first:
+            if pd.notna(d_price) and pd.notna(d_first) and d_price.normalize() != d_first.normalize():
+                changed = True
+
+        price_change_line = ""
+        if changed:
+            price_change_line = (
+                f"Prisendring: {pris_first:,.0f} → {pris_new:,.0f}<br>"
+                f"Dato prisendring: {(d_price.date().isoformat() if pd.notna(d_price) else '')}<br>"
+            )
+
+        status_txt = "SOLGT" if sold else "AKTIV"
+
+        tp = pd.to_numeric(r.get("totalpris"), errors="coerce")
+        m2v = pd.to_numeric(r.get("m2_pris"), errors="coerce")
+
+        # Bygg popup trygt (fiks “operator precedence”-fella)
+        lines = []
+        title = str(r.get("full_title", "") or "")
+        addr = str(r.get("address", "") or "")
+        lines.append(f"<b>{title}</b><br>")
+        lines.append(f"{addr}<br>")
+
+        if pd.notna(tp):
+            lines.append(f"Totalpris: {tp:,.0f}<br>")
+        else:
+            lines.append("Totalpris: <br>")
+
+        if pd.notna(m2v):
+            lines.append(f"m²-pris: {m2v:,.0f}<br>")
+        else:
+            lines.append("m²-pris: <br>")
+
+        lines.append(f"Publisert (først sett): {d_first_str}<br>")
+        lines.append(f"Sist sett: {d_last_str}<br>")
+        lines.append(f"Status: <b>{status_txt}</b><br>")
+        lines.append(f"Dager: {days}<br>")
+        if price_change_line:
+            lines.append(price_change_line)
+        lines.append(f"Finnkode: {r.get('finnkode','')}")
+
+        popup_html = "".join(lines)
+
+        folium.CircleMarker(
+            location=[float(r["latitude"]), float(r["longitude"])],
+            radius=4,
+            fill=True,
+            fill_opacity=0.85,
+            popup=folium.Popup(popup_html, max_width=420),
+        ).add_to(cluster)
+
+    folium.LayerControl().add_to(m)
+    return m
+
+
+def plot_daily(series: pd.DataFrame, title: str):
+    if series.empty:
+        st.info("Ingen tidsserie å vise.")
+        return
+
+    fig1 = plt.figure()
+    plt.plot(series["dato"], series["median_m2"], label="Median m²-pris")
+    plt.plot(series["dato"], series["mean_m2"], label="Snitt m²-pris")
+    plt.legend()
+    plt.title(f"{title} – m²-pris per dag")
+    plt.xlabel("Dato")
+    plt.ylabel("Kr per m²")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    st.pyplot(fig1)
+
+    fig1b = plt.figure()
+    plt.plot(series["dato"], series["median_totalpris"], label="Median totalpris")
+    plt.plot(series["dato"], series["mean_totalpris"], label="Snitt totalpris")
+    plt.legend()
+    plt.title(f"{title} – totalpris per dag")
+    plt.xlabel("Dato")
+    plt.ylabel("Kr")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    st.pyplot(fig1b)
+
+    fig2 = plt.figure()
+    plt.plot(series["dato"], series["active_count"], label="Aktive annonser")
+    plt.legend()
+    plt.title(f"{title} – aktive annonser per dag")
+    plt.xlabel("Dato")
+    plt.ylabel("Antall")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    st.pyplot(fig2)
+
+
+def get_selected_place(grid_response: dict) -> Optional[str]:
+    selected_rows = grid_response.get("selected_rows", None)
+    if selected_rows is None:
+        return None
+
+    if isinstance(selected_rows, pd.DataFrame):
+        if selected_rows.empty:
+            return None
+        return selected_rows.iloc[0].get("Sted", None)
+
+    if isinstance(selected_rows, list):
+        if len(selected_rows) == 0:
+            return None
+        row0 = selected_rows[0] or {}
+        return row0.get("Sted", None)
+
+    if isinstance(selected_rows, dict):
+        return selected_rows.get("Sted", None)
+
     return None
 
 
-def _format_int_with_spaces(x: Optional[float]) -> str:
+# ----------------- UI -----------------
+st.set_page_config(page_title="Bolig – tabell + kart + drilldown", layout="wide")
+
+st.markdown(
     """
-    Formatér heltall med tusenskille (mellomrom). None/NaN -> tom streng.
-    """
-    if x is None or pd.isna(x):
-        return ""
-    try:
-        i = int(round(float(x)))
-        return f"{i:,}".replace(",", " ")
-    except Exception:
-        return ""
+    <style>
+      html, body, [class*="css"]  { font-size: 18px !important; }
+      .block-container { padding-top: 1.2rem; padding-bottom: 1.2rem; }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
+st.title("Boligpriser – tabell + kart (klikk på rad for detaljer)")
 
-# ----------------------------
-#  S3-fil-liste (kun listing – ingen CSV-lesing)
-# ----------------------------
+with st.sidebar:
+    st.header("Datakilde")
+    source = st.radio("Velg kilde", ["S3 master", "Lokal fil"], index=0)
 
-def list_bolig_files_from_s3() -> List[Tuple[pd.Timestamp, str]]:
-    if not HAS_BOTO3:
-        print("[HIST] boto3 ikke tilgjengelig – hopper over S3.")
-        return []
-
-    try:
-        s3 = boto3.client("s3")
-    except Exception as e:
-        print(f"[HIST] Klarte ikke å opprette S3-klient: {e}")
-        return []
-
-    files_with_dates: List[Tuple[pd.Timestamp, str]] = []
-
-    try:
-        paginator = s3.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=BUCKET_NAME, Prefix=BOLIG_PREFIX):
-            for obj in page.get("Contents", []):
-                key = obj["Key"]
-                dt = _extract_date_from_name(key)
-                if dt is None:
-                    continue
-                files_with_dates.append((dt, key))
-    except Exception as e:
-        print(f"[HIST] Feil ved listing av S3-objekter: {e}")
-        return []
-
-    files_with_dates.sort(key=lambda x: x[0])
-    print(f"[HIST] Fant {len(files_with_dates)} historikkfiler i S3.")
-    return files_with_dates
-
-
-# ----------------------------
-#  Lokal fil-liste (kun listing – ingen CSV-lesing)
-# ----------------------------
-
-def list_bolig_files_local() -> List[Tuple[pd.Timestamp, Path]]:
-    files_with_dates: List[Tuple[pd.Timestamp, Path]] = []
-    if not LOCAL_DIR.exists():
-        print(f"[HIST] Lokal katalog finnes ikke: {LOCAL_DIR}")
-        return []
-
-    for p in LOCAL_DIR.glob("*.csv"):
-        dt = _extract_date_from_name(p.name)
-        if dt is None:
-            continue
-        files_with_dates.append((dt, p))
-
-    files_with_dates.sort(key=lambda x: x[0])
-    print(f"[HIST] Fant {len(files_with_dates)} historikkfiler lokalt.")
-    return files_with_dates
-
-
-# ----------------------------
-#  Felles listing – brukes både til dato-oversikt og historikk
-# ----------------------------
-
-def list_bolig_files_anywhere() -> List[Tuple[pd.Timestamp, str]]:
-    """
-    Returnerer liste (dato, key/filnavn) fra S3 hvis noe finnes,
-    ellers fra lokal katalog. Leser IKKE CSV, bare lister filer.
-    """
-    files_s3 = list_bolig_files_from_s3()
-    if files_s3:
-        return files_s3
-
-    files_local = list_bolig_files_local()
-    return [(dt, str(path)) for (dt, path) in files_local]
-
-
-def get_available_bolig_dates() -> List[pd.Timestamp]:
-    """
-    Bruk denne i Flask-routen for å vite hvilke datoer som finnes filer for.
-    Leser IKKE CSV, bare lister objekter.
-    """
-    files = list_bolig_files_anywhere()
-    dates = sorted({d for (d, _) in files})
-    return dates
-
-
-def get_default_dates_for_ui() -> Tuple[pd.Timestamp, Optional[pd.Timestamp]]:
-    """
-    Default verdier til kalenderen i UI:
-    - start: 1. november 2025 (konstant)
-    - slutt: siste tilgjengelige fil (eller None hvis ingenting)
-    """
-    dates = get_available_bolig_dates()
-    if not dates:
-        return DEFAULT_START_UI, None
-    return DEFAULT_START_UI, dates[-1]
-
-
-# ----------------------------
-#  CSV-lesing (faktisk data)
-# ----------------------------
-
-def read_bolig_csv_from_s3(key: str) -> pd.DataFrame:
-    import boto3  # type: ignore
-    s3 = boto3.client("s3")
-    print(f"[HIST] Leser CSV fra S3: {key}")
-    obj = s3.get_object(Bucket=BUCKET_NAME, Key=key)
-    body = obj["Body"].read()
-    data = io.BytesIO(body)
-
-    df = pd.read_csv(
-        data,
-        sep=";",
-        encoding="utf-16",   # VIKTIG: samme som bolig_data.py
-        on_bad_lines="skip",
-        engine="python",
-    )
-    df.columns = df.columns.str.strip()
-    return df
-
-
-def read_bolig_csv_anywhere(key: str) -> pd.DataFrame:
-    """
-    Les CSV enten fra S3 (hvis key er S3-path) eller lokalt.
-    """
-    if key.startswith(BOLIG_PREFIX) and HAS_BOTO3:
-        return read_bolig_csv_from_s3(key)
-
-    path = Path(key)
-    if not path.is_absolute():
-        path = LOCAL_DIR / path.name
-
-    print(f"[HIST] Leser CSV lokalt: {path}")
-    df = pd.read_csv(
-        path,
-        sep=";",
-        encoding="utf-16",
-        on_bad_lines="skip",
-        engine="python",
-    )
-    df.columns = df.columns.str.strip()
-    return df
-
-
-# ----------------------------
-#  Rens & aggreger
-# ----------------------------
-
-def prepare_snapshot_df(df: pd.DataFrame, snapshot_date: pd.Timestamp) -> pd.DataFrame:
-    df = df.copy()
-
-    # --- Fylke ---
-    fylke_col = _find_col(df, "fylke", extra_aliases=["Fylke", "fylke_navn"])
-    if fylke_col is None:
-        print("[HIST] Fant ingen fylke-kolonne i CSV. Kolonner:", list(df.columns))
-        return pd.DataFrame(columns=["fylke", "M2-pris", "totalpris", "dager_paa_markedet"])
-
-    df["fylke"] = df[fylke_col].astype(str).str.strip()
-    df = df[df["fylke"].notna() & (df["fylke"] != "")]
-
-    # --- M2-pris ---
-    m2_col = _find_col(df, "M2-pris", extra_aliases=["m2_pris", "pris_per_m2", "m2pris"])
-    if m2_col is not None:
-        df["M2-pris"] = (
-            df[m2_col]
-            .astype(str)
-            .str.replace("kr", "", regex=False)
-            .str.replace(" ", "", regex=False)
-            .str.replace(",", ".", regex=False)
-        )
-        df["M2-pris"] = pd.to_numeric(df["M2-pris"], errors="coerce")
+    if source == "Lokal fil":
+        local_path = st.text_input("Sti til bolig_master.parquet", value="bolig_master.parquet")
+        load_btn = st.button("Last data", type="primary")
     else:
-        df["M2-pris"] = pd.NA
+        st.caption(f"S3: s3://{CFG.s3_bucket}/{CFG.master_key}")
+        load_btn = st.button("Last data", type="primary")
 
-    # --- totalpris ---
-    tot_col = _find_col(df, "totalpris", extra_aliases=["Totalpris", "total_pris"])
-    if tot_col is not None:
-        df["totalpris"] = (
-            df[tot_col]
-            .astype(str)
-            .str.replace("kr", "", regex=False)
-            .str.replace(" ", "", regex=False)
-            .str.replace(",", ".", regex=False)
-        )
-        df["totalpris"] = pd.to_numeric(df["totalpris"], errors="coerce")
-    else:
-        df["totalpris"] = pd.NA
-
-    # --- publisert_dato -> dager på markedet ---
-    pub_col = _find_col(df, "publisert_dato", extra_aliases=["PublisertDato", "publisert"])
-    if pub_col is not None:
-        df["publisert_dato_dt"] = pd.to_datetime(df[pub_col], errors="coerce", utc=True)
-        snap_ts = pd.Timestamp(snapshot_date).tz_localize("UTC")
-        df["dager_paa_markedet"] = (snap_ts - df["publisert_dato_dt"]).dt.days
-    else:
-        df["dager_paa_markedet"] = pd.NA
-
-    return df[["fylke", "M2-pris", "totalpris", "dager_paa_markedet"]]
-
-
-def aggregate_snapshot(df: pd.DataFrame, metric_col: str) -> pd.DataFrame:
-    colname = METRIC_TO_COLUMN[metric_col]
-
-    if colname not in df.columns:
-        print(f"[HIST] Advarsel: Kolonne '{colname}' finnes ikke i snapshot-df. Kolonner: {list(df.columns)}")
-        return pd.DataFrame(columns=["fylke", "nivå", "antall"])
-
-    sub = df[["fylke", colname]].dropna()
-    if sub.empty:
-        print(f"[HIST] Advarsel: Ingen gyldige verdier for '{colname}' etter dropna().")
-        return pd.DataFrame(columns=["fylke", "nivå", "antall"])
-
-    grouped = sub.groupby("fylke")[colname]
-    agg = grouped.median().to_frame(name="nivå")
-    agg["antall"] = grouped.size()
-    agg = agg.reset_index()
-    return agg
-
-
-# ----------------------------
-#  Velg to snapshots (første + siste)
-# ----------------------------
-
-def _pick_two_snapshots(
-    files: List[Tuple[pd.Timestamp, str]],
-    start_date: Optional[pd.Timestamp],
-    end_date: Optional[pd.Timestamp],
-) -> Tuple[Tuple[pd.Timestamp, str], Tuple[pd.Timestamp, str]]:
-
-    if not files:
-        raise ValueError("Fant ingen historikkfiler verken i S3 eller lokalt.")
-
-    # Filtrér vekk alle før MIN_VALID_DATE
-    files = [(d, k) for (d, k) in files if d >= MIN_VALID_DATE]
-    if not files:
-        raise ValueError(f"Ingen filer nyere enn {MIN_VALID_DATE.date()}.")
-
-    # Bruk evt. brukerens intervall, men aldri før MIN_VALID_DATE
-    if start_date is not None:
-        start_date = max(start_date, MIN_VALID_DATE)
-        kandidater = [(d, k) for (d, k) in files if d >= start_date]
-        if not kandidater:
-            raise ValueError("Fant ingen filer som er nyere enn valgt startdato.")
-        first = kandidater[0]
-    else:
-        first = files[0]
-
-    if end_date is not None:
-        kandidater = [(d, k) for (d, k) in files if d <= end_date]
-        if not kandidater:
-            raise ValueError("Fant ingen filer som er eldre enn valgt sluttdato.")
-        last = kandidater[-1]
-    else:
-        last = files[-1]
-
-    return first, last
-
-
-# ----------------------------
-#  Hovedfunksjon brukt av Flask
-# ----------------------------
-
-def build_historikk_tabell(
-    metric_col: str = "median_m2",
-    start_date: Optional[pd.Timestamp] = None,
-    end_date: Optional[pd.Timestamp] = None,
-) -> Tuple[pd.DataFrame, pd.Timestamp, pd.Timestamp]:
-
-    if metric_col not in METRIC_LABELS:
-        metric_col = "median_m2"
-
-    files = list_bolig_files_anywhere()
-    if not files:
-        raise ValueError("Fant ingen bolig-daglig-filer i S3 eller lokalt.")
-
-    first_snap, last_snap = _pick_two_snapshots(files, start_date, end_date)
-    first_date, first_key = first_snap
-    last_date, last_key = last_snap
-
-    print(
-        f"[HIST] Bruker filer:\n"
-        f"  Første: {first_key} ({first_date.date()})\n"
-        f"  Siste : {last_key} ({last_date.date()})"
+    st.divider()
+    st.header("Kart")
+    tiles = st.selectbox(
+        "Kartstil",
+        ["OpenStreetMap", "CartoDB Voyager", "CartoDB Positron"],
+        index=0
     )
 
-    df_first_raw = read_bolig_csv_anywhere(first_key)
-    df_last_raw = read_bolig_csv_anywhere(last_key)
+    st.divider()
+    st.header("Ytelse")
+    st.caption("Tips: stort date-intervall + stort sted kan bli tungt.")
+    max_days_hint = st.checkbox("Varsle ved > 365 dager", value=True)
 
-    # Litt debug-info om kolonner / head
-    print("[HIST] Første CSV-kolonner:", list(df_first_raw.columns))
-    print("[HIST] Siste CSV-kolonner:", list(df_last_raw.columns))
-    try:
-        print("[HIST] Første CSV-head:\n", df_first_raw.head().to_string())
-        print("[HIST] Siste CSV-head:\n", df_last_raw.head().to_string())
-    except Exception:
-        pass
 
-    df_first = prepare_snapshot_df(df_first_raw, first_date)
-    df_last = prepare_snapshot_df(df_last_raw, last_date)
-
-    agg_first = aggregate_snapshot(df_first, metric_col)
-    agg_last = aggregate_snapshot(df_last, metric_col)
-
-    merged = agg_first.merge(
-        agg_last,
-        on="fylke",
-        how="outer",
-        suffixes=("_første", "_siste"),
-    )
-
-    merged["endring"] = merged["nivå_siste"] - merged["nivå_første"]
-
-    def _pct(row):
-        if pd.notna(row["nivå_første"]) and row["nivå_første"] != 0:
-            return (row["endring"] / row["nivå_første"]) * 100.0
-        return pd.NA
-
-    merged["endring_%"] = merged.apply(_pct, axis=1)
-
-    def _weighted(agg: pd.DataFrame) -> Optional[float]:
-        if agg.empty or agg["antall"].sum() == 0:
-            return None
-        return (agg["nivå"] * agg["antall"]).sum() / agg["antall"].sum()
-
-    norge_first = _weighted(agg_first)
-    norge_last = _weighted(agg_last)
-    norge_first_n = int(agg_first["antall"].sum()) if not agg_first.empty else 0
-    norge_last_n = int(agg_last["antall"].sum()) if not agg_last.empty else 0
-
-    norge_row: Dict[str, object] = {
-        "fylke": "Norge (vektet)",
-        "nivå_første": norge_first,
-        "antall_første": norge_first_n,
-        "nivå_siste": norge_last,
-        "antall_siste": norge_last_n,
-    }
-    norge_row["endring"] = (
-        None if (norge_first is None or norge_last is None) else norge_last - norge_first
-    )
-    if norge_row["endring"] is not None and norge_first not in (None, 0):
-        norge_row["endring_%"] = (norge_row["endring"] / norge_first) * 100.0
-    else:
-        norge_row["endring_%"] = None
-
-    merged = merged.rename(
-        columns={
-            "nivå_første": "første_nivå",
-            "nivå_siste": "siste_nivå",
-        }
-    )
-
-    fylker_df = merged.sort_values("fylke").reset_index(drop=True)
-
-    norge_df = pd.DataFrame([norge_row]).rename(
-        columns={
-            "nivå_første": "første_nivå",
-            "nivå_siste": "siste_nivå",
-        }
-    )
-
-    full_df = pd.concat([norge_df, fylker_df], ignore_index=True)
-
-    # ----------------------------
-    #  Formatering av tall for visning
-    is_price_metric = metric_col in ("median_m2", "median_totalpris")
-
-    if is_price_metric:
-        # Prisfelter som heltall med tusenskille (mellomrom)
-        for col in ["første_nivå", "siste_nivå", "endring"]:
-            full_df[col] = full_df[col].apply(_format_int_with_spaces)
-    else:
-        # Ikke-pris:
-        if metric_col == "median_dager":
-            # Rund av til hele dager, behold som tall (Int64) så de vises uten desimaler
-            for col in ["første_nivå", "siste_nivå", "endring"]:
-                full_df[col] = pd.to_numeric(full_df[col], errors="coerce").round(0).astype("Int64")
-        # evt. andre ikke-pris-metrikker kan få egen behandling senere
-    # endring_% med én desimal
-    def _fmt_pct(x):
-        if x is None or pd.isna(x):
-            return ""
+if load_btn:
+    with st.spinner("Laster data..."):
         try:
-            return f"{float(x):.1f}"
-        except Exception:
-            return ""
+            raw = load_master_local(local_path) if source == "Lokal fil" else load_master_s3(CFG.s3_bucket, CFG.master_key)
+            df0 = normalize_master(raw)
+            st.session_state["df"] = df0
+            st.success(f"Lastet {len(df0):,} rader")
+        except Exception as e:
+            st.error(f"Klarte ikke å laste/lese master: {e}")
 
-    full_df["endring_%"] = full_df["endring_%"].apply(_fmt_pct)
 
-    full_df = full_df[
-        [
-            "fylke",
-            "første_nivå",
-            "siste_nivå",
-            "endring",
-            "endring_%",
-            "antall_første",
-            "antall_siste",
-        ]
-    ]
+df = st.session_state.get("df")
+if df is None:
+    st.info("Trykk **Last data** i venstremenyen for å starte.")
+    st.stop()
 
-    full_df = full_df.rename(
-        columns={
-            "fylke": "Fylke",
-        }
+min_date = df["dato_første"].min()
+max_date = df["dato_siste"].max()
+if pd.isna(min_date) or pd.isna(max_date):
+    st.error("Mangler dato_første/dato_siste i master.")
+    st.stop()
+
+st.subheader("Valg")
+c1, c2, c3, c4, c5 = st.columns([1.1, 1.2, 1.2, 1.2, 1.4])
+with c1:
+    level = st.selectbox("Detaljnivå", ["Fylke", "Kommune", "Sted"], index=0)
+with c2:
+    start_day = st.date_input("Start", value=min_date.date(), min_value=min_date.date(), max_value=max_date.date())
+with c3:
+    end_day = st.date_input("Slutt", value=max_date.date(), min_value=min_date.date(), max_value=max_date.date())
+with c4:
+    nybrukt_choice = st.selectbox("Boligtype", ["Brukt", "Nybygg", "Begge"], index=0)
+with c5:
+    search = st.text_input("Søk i sted", value="")
+
+start_ts = pd.to_datetime(start_day).normalize()
+end_ts = pd.to_datetime(end_day).normalize()
+
+if end_ts < start_ts:
+    st.error("Slutt-dato må være >= start-dato.")
+    st.stop()
+
+if max_days_hint and (end_ts - start_ts).days > 365:
+    st.warning("Du har valgt et intervall på over 365 dager. Tidsserie kan bli treg.")
+
+fdf = apply_ny_brukt_filter(df, nybrukt_choice)
+
+st.caption("Klikk på en rad i tabellen for å få graf + kart for valgt sted.")
+
+tab1, tab2 = st.tabs(["📋 Tabell", "🗺️ Kart (alle aktive slutt-dato)"])
+
+with tab1:
+    with st.spinner("Beregner tabell..."):
+        table = build_table(fdf, level, start_ts, end_ts)
+
+    if search.strip():
+        q = search.strip().lower()
+        table = table[table["Sted"].astype(str).str.lower().str.contains(q, na=False)].copy()
+
+    show = format_table(table)
+
+    gb = GridOptionsBuilder.from_dataframe(show)
+    gb.configure_default_column(sortable=True, filter=True, resizable=True)
+    gb.configure_selection(selection_mode="single", use_checkbox=False)
+    gb.configure_grid_options(domLayout="normal")
+    gb.configure_pagination(enabled=False)
+    grid_options = gb.build()
+
+    grid_response = AgGrid(
+        show,
+        gridOptions=grid_options,
+        data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        height=520,
+        fit_columns_on_grid_load=True,
+        allow_unsafe_jscode=False,
+        try_to_convert_back_to_original_types=False,
     )
 
-    return full_df, first_date, last_date
+    selected_place = get_selected_place(grid_response)
+
+    st.download_button(
+        "Last ned som CSV",
+        data=show.to_csv(index=False).encode("utf-8"),
+        file_name=f"bolig_tabell_{level.lower()}_{nybrukt_choice.lower()}_{start_day}_{end_day}.csv",
+        mime="text/csv",
+    )
+
+    st.divider()
+    st.subheader("Detaljer (drilldown)")
+
+    if not selected_place:
+        st.info("Klikk på en rad i tabellen over for å se graf + kart.")
+    else:
+        sub = filter_by_level(fdf, level, str(selected_place))
+        if sub.empty:
+            st.warning("Fant ingen rader for valgt sted.")
+        else:
+            title = f"{level}: {selected_place} ({nybrukt_choice})"
+            st.write(f"Valgt: **{title}**")
+
+            with st.spinner("Beregner tidsserie..."):
+                ser = daily_series_fast(sub, start_ts, end_ts)
+            plot_daily(ser, title)
+
+            st.subheader("Kart – aktive boliger på slutt-dato")
+            day_active = active_on_day(sub, end_ts)
+            day_active = filter_geo_bounds(day_active)
+
+            st.write(f"Aktive med gyldige koordinater: **{len(day_active):,}**")
+
+            max_points = st.slider("Maks punkter (kart)", 500, 20000, 5000, 500, key="max_points_detail")
+            if len(day_active) > max_points:
+                day_active = day_active.sample(max_points, random_state=42)
+
+            m = make_map(day_active, end_day=end_ts, tiles=tiles)
+            st_folium(m, width=None, height=650)
+
+with tab2:
+    st.caption("Kartet viser aktive boliger på valgt **Slutt-dato** for hele datasettet (etter Brukt/Nybygg-filter).")
+    active_all = active_on_day(fdf, end_ts)
+    active_all = filter_geo_bounds(active_all)
+
+    st.write(f"Aktive med gyldige koordinater: **{len(active_all):,}**")
+
+    max_points_all = st.slider(
+        "Maks punkter å tegne",
+        min_value=500,
+        max_value=20000,
+        value=5000,
+        step=500,
+        key="max_points_all"
+    )
+    if len(active_all) > max_points_all:
+        active_all = active_all.sample(max_points_all, random_state=42)
+
+    m_all = make_map(active_all, end_day=end_ts, tiles=tiles)
+    st_folium(m_all, width=None, height=700)
