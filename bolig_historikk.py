@@ -1,10 +1,11 @@
 # bolig_streamlit_app.py
 # En-fil Streamlit-app: tabell + drilldown + kart + raskere daglig serie (numpy-masker)
 #
-# Kjør: streamlit run bolig_streamlit_app.py
+# Kjør lokalt:
+#   python -m streamlit run bolig_streamlit_app.py
 #
 # Avhengigheter (typisk):
-#   pip install streamlit boto3 botocore pandas pyarrow numpy matplotlib folium streamlit-folium st-aggrid
+#   pip install streamlit boto3 botocore pandas pyarrow numpy matplotlib folium streamlit-folium streamlit-aggrid
 
 import io
 import os
@@ -244,12 +245,6 @@ def format_table(table: pd.DataFrame) -> pd.DataFrame:
 # ----------------- Raskere daglig serie -----------------
 @st.cache_data(show_spinner=False)
 def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Timestamp) -> pd.DataFrame:
-    """
-    Daglig serie med enklere, raskere numerikk:
-    - Precompute numpy-arrays for dato_første/dato_siste som int (days since epoch)
-    - Bruk bool-masker per dag
-    Fortsatt O(#days * #rows) i verste fall, men mye raskere enn pandas-filter + groupby i loop.
-    """
     start_day = pd.to_datetime(start_day).normalize()
     end_day = pd.to_datetime(end_day).normalize()
     days = pd.date_range(start_day, end_day, freq="D")
@@ -261,7 +256,6 @@ def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Tim
     d["dato_første"] = pd.to_datetime(d["dato_første"], errors="coerce").dt.normalize()
     d["dato_siste"] = pd.to_datetime(d["dato_siste"], errors="coerce").dt.normalize()
 
-    # til numpy
     start_i = d["dato_første"].values.astype("datetime64[D]").astype(np.int64)
     end_i = d["dato_siste"].values.astype("datetime64[D]").astype(np.int64)
 
@@ -283,7 +277,6 @@ def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Tim
         m2v = m2[mask]
         tpv = tp[mask]
 
-        # median/mean med NaN-safe
         m2_median = float(np.nanmedian(m2v)) if np.isfinite(m2v).any() else np.nan
         m2_mean = float(np.nanmean(m2v)) if np.isfinite(m2v).any() else np.nan
 
@@ -315,14 +308,6 @@ def filter_geo_bounds(d: pd.DataFrame) -> pd.DataFrame:
 
 
 def make_map(points: pd.DataFrame, end_day: pd.Timestamp, tiles: str = "OpenStreetMap") -> folium.Map:
-    """
-    Kart med popup som viser:
-    - publisert (dato_første)
-    - sist sett (dato_siste)
-    - SOLGT hvis dato_siste < end_day
-    - dager på markedet (til dato_siste hvis solgt ellers til end_day)
-    - prisendring (hvis registrert)
-    """
     end_day = pd.to_datetime(end_day).normalize()
 
     center_lat = float(points["latitude"].median()) if not points.empty else 64.0
@@ -373,7 +358,6 @@ def make_map(points: pd.DataFrame, end_day: pd.Timestamp, tiles: str = "OpenStre
         tp = pd.to_numeric(r.get("totalpris"), errors="coerce")
         m2v = pd.to_numeric(r.get("m2_pris"), errors="coerce")
 
-        # Bygg popup trygt (fiks “operator precedence”-fella)
         lines = []
         title = str(r.get("full_title", "") or "")
         addr = str(r.get("address", "") or "")
@@ -472,181 +456,185 @@ def get_selected_place(grid_response: dict) -> Optional[str]:
     return None
 
 
-# ----------------- UI -----------------
-st.set_page_config(page_title="Bolig – tabell + kart + drilldown", layout="wide")
+# ----------------- Streamlit entrypoint -----------------
+def run_app():
+    st.set_page_config(page_title="Bolig – tabell + kart + drilldown", layout="wide")
 
-st.markdown(
-    """
-    <style>
-      html, body, [class*="css"]  { font-size: 18px !important; }
-      .block-container { padding-top: 1.2rem; padding-bottom: 1.2rem; }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-st.title("Boligpriser – tabell + kart (klikk på rad for detaljer)")
-
-with st.sidebar:
-    st.header("Datakilde")
-    source = st.radio("Velg kilde", ["S3 master", "Lokal fil"], index=0)
-
-    if source == "Lokal fil":
-        local_path = st.text_input("Sti til bolig_master.parquet", value="bolig_master.parquet")
-        load_btn = st.button("Last data", type="primary")
-    else:
-        st.caption(f"S3: s3://{CFG.s3_bucket}/{CFG.master_key}")
-        load_btn = st.button("Last data", type="primary")
-
-    st.divider()
-    st.header("Kart")
-    tiles = st.selectbox(
-        "Kartstil",
-        ["OpenStreetMap", "CartoDB Voyager", "CartoDB Positron"],
-        index=0
+    st.markdown(
+        """
+        <style>
+          html, body, [class*="css"]  { font-size: 18px !important; }
+          .block-container { padding-top: 1.2rem; padding-bottom: 1.2rem; }
+        </style>
+        """,
+        unsafe_allow_html=True
     )
 
-    st.divider()
-    st.header("Ytelse")
-    st.caption("Tips: stort date-intervall + stort sted kan bli tungt.")
-    max_days_hint = st.checkbox("Varsle ved > 365 dager", value=True)
+    st.title("Boligpriser – tabell + kart (klikk på rad for detaljer)")
 
+    with st.sidebar:
+        st.header("Datakilde")
+        source = st.radio("Velg kilde", ["S3 master", "Lokal fil"], index=0)
 
-if load_btn:
-    with st.spinner("Laster data..."):
-        try:
-            raw = load_master_local(local_path) if source == "Lokal fil" else load_master_s3(CFG.s3_bucket, CFG.master_key)
-            df0 = normalize_master(raw)
-            st.session_state["df"] = df0
-            st.success(f"Lastet {len(df0):,} rader")
-        except Exception as e:
-            st.error(f"Klarte ikke å laste/lese master: {e}")
-
-
-df = st.session_state.get("df")
-if df is None:
-    st.info("Trykk **Last data** i venstremenyen for å starte.")
-    st.stop()
-
-min_date = df["dato_første"].min()
-max_date = df["dato_siste"].max()
-if pd.isna(min_date) or pd.isna(max_date):
-    st.error("Mangler dato_første/dato_siste i master.")
-    st.stop()
-
-st.subheader("Valg")
-c1, c2, c3, c4, c5 = st.columns([1.1, 1.2, 1.2, 1.2, 1.4])
-with c1:
-    level = st.selectbox("Detaljnivå", ["Fylke", "Kommune", "Sted"], index=0)
-with c2:
-    start_day = st.date_input("Start", value=min_date.date(), min_value=min_date.date(), max_value=max_date.date())
-with c3:
-    end_day = st.date_input("Slutt", value=max_date.date(), min_value=min_date.date(), max_value=max_date.date())
-with c4:
-    nybrukt_choice = st.selectbox("Boligtype", ["Brukt", "Nybygg", "Begge"], index=0)
-with c5:
-    search = st.text_input("Søk i sted", value="")
-
-start_ts = pd.to_datetime(start_day).normalize()
-end_ts = pd.to_datetime(end_day).normalize()
-
-if end_ts < start_ts:
-    st.error("Slutt-dato må være >= start-dato.")
-    st.stop()
-
-if max_days_hint and (end_ts - start_ts).days > 365:
-    st.warning("Du har valgt et intervall på over 365 dager. Tidsserie kan bli treg.")
-
-fdf = apply_ny_brukt_filter(df, nybrukt_choice)
-
-st.caption("Klikk på en rad i tabellen for å få graf + kart for valgt sted.")
-
-tab1, tab2 = st.tabs(["📋 Tabell", "🗺️ Kart (alle aktive slutt-dato)"])
-
-with tab1:
-    with st.spinner("Beregner tabell..."):
-        table = build_table(fdf, level, start_ts, end_ts)
-
-    if search.strip():
-        q = search.strip().lower()
-        table = table[table["Sted"].astype(str).str.lower().str.contains(q, na=False)].copy()
-
-    show = format_table(table)
-
-    gb = GridOptionsBuilder.from_dataframe(show)
-    gb.configure_default_column(sortable=True, filter=True, resizable=True)
-    gb.configure_selection(selection_mode="single", use_checkbox=False)
-    gb.configure_grid_options(domLayout="normal")
-    gb.configure_pagination(enabled=False)
-    grid_options = gb.build()
-
-    grid_response = AgGrid(
-        show,
-        gridOptions=grid_options,
-        data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
-        update_mode=GridUpdateMode.SELECTION_CHANGED,
-        height=520,
-        fit_columns_on_grid_load=True,
-        allow_unsafe_jscode=False,
-        try_to_convert_back_to_original_types=False,
-    )
-
-    selected_place = get_selected_place(grid_response)
-
-    st.download_button(
-        "Last ned som CSV",
-        data=show.to_csv(index=False).encode("utf-8"),
-        file_name=f"bolig_tabell_{level.lower()}_{nybrukt_choice.lower()}_{start_day}_{end_day}.csv",
-        mime="text/csv",
-    )
-
-    st.divider()
-    st.subheader("Detaljer (drilldown)")
-
-    if not selected_place:
-        st.info("Klikk på en rad i tabellen over for å se graf + kart.")
-    else:
-        sub = filter_by_level(fdf, level, str(selected_place))
-        if sub.empty:
-            st.warning("Fant ingen rader for valgt sted.")
+        if source == "Lokal fil":
+            local_path = st.text_input("Sti til bolig_master.parquet", value="bolig_master.parquet")
+            load_btn = st.button("Last data", type="primary")
         else:
-            title = f"{level}: {selected_place} ({nybrukt_choice})"
-            st.write(f"Valgt: **{title}**")
+            st.caption(f"S3: s3://{CFG.s3_bucket}/{CFG.master_key}")
+            load_btn = st.button("Last data", type="primary")
 
-            with st.spinner("Beregner tidsserie..."):
-                ser = daily_series_fast(sub, start_ts, end_ts)
-            plot_daily(ser, title)
+        st.divider()
+        st.header("Kart")
+        tiles = st.selectbox(
+            "Kartstil",
+            ["OpenStreetMap", "CartoDB Voyager", "CartoDB Positron"],
+            index=0
+        )
 
-            st.subheader("Kart – aktive boliger på slutt-dato")
-            day_active = active_on_day(sub, end_ts)
-            day_active = filter_geo_bounds(day_active)
+        st.divider()
+        st.header("Ytelse")
+        st.caption("Tips: stort date-intervall + stort sted kan bli tungt.")
+        max_days_hint = st.checkbox("Varsle ved > 365 dager", value=True)
 
-            st.write(f"Aktive med gyldige koordinater: **{len(day_active):,}**")
+    if load_btn:
+        with st.spinner("Laster data..."):
+            try:
+                raw = load_master_local(local_path) if source == "Lokal fil" else load_master_s3(CFG.s3_bucket, CFG.master_key)
+                df0 = normalize_master(raw)
+                st.session_state["df"] = df0
+                st.success(f"Lastet {len(df0):,} rader")
+            except Exception as e:
+                st.error(f"Klarte ikke å laste/lese master: {e}")
 
-            max_points = st.slider("Maks punkter (kart)", 500, 20000, 5000, 500, key="max_points_detail")
-            if len(day_active) > max_points:
-                day_active = day_active.sample(max_points, random_state=42)
+    df = st.session_state.get("df")
+    if df is None:
+        st.info("Trykk **Last data** i venstremenyen for å starte.")
+        st.stop()
 
-            m = make_map(day_active, end_day=end_ts, tiles=tiles)
-            st_folium(m, width=None, height=650)
+    min_date = df["dato_første"].min()
+    max_date = df["dato_siste"].max()
+    if pd.isna(min_date) or pd.isna(max_date):
+        st.error("Mangler dato_første/dato_siste i master.")
+        st.stop()
 
-with tab2:
-    st.caption("Kartet viser aktive boliger på valgt **Slutt-dato** for hele datasettet (etter Brukt/Nybygg-filter).")
-    active_all = active_on_day(fdf, end_ts)
-    active_all = filter_geo_bounds(active_all)
+    st.subheader("Valg")
+    c1, c2, c3, c4, c5 = st.columns([1.1, 1.2, 1.2, 1.2, 1.4])
+    with c1:
+        level: Level = st.selectbox("Detaljnivå", ["Fylke", "Kommune", "Sted"], index=0)
+    with c2:
+        start_day = st.date_input("Start", value=min_date.date(), min_value=min_date.date(), max_value=max_date.date())
+    with c3:
+        end_day = st.date_input("Slutt", value=max_date.date(), min_value=min_date.date(), max_value=max_date.date())
+    with c4:
+        nybrukt_choice = st.selectbox("Boligtype", ["Brukt", "Nybygg", "Begge"], index=0)
+    with c5:
+        search = st.text_input("Søk i sted", value="")
 
-    st.write(f"Aktive med gyldige koordinater: **{len(active_all):,}**")
+    start_ts = pd.to_datetime(start_day).normalize()
+    end_ts = pd.to_datetime(end_day).normalize()
 
-    max_points_all = st.slider(
-        "Maks punkter å tegne",
-        min_value=500,
-        max_value=20000,
-        value=5000,
-        step=500,
-        key="max_points_all"
-    )
-    if len(active_all) > max_points_all:
-        active_all = active_all.sample(max_points_all, random_state=42)
+    if end_ts < start_ts:
+        st.error("Slutt-dato må være >= start-dato.")
+        st.stop()
 
-    m_all = make_map(active_all, end_day=end_ts, tiles=tiles)
-    st_folium(m_all, width=None, height=700)
+    if max_days_hint and (end_ts - start_ts).days > 365:
+        st.warning("Du har valgt et intervall på over 365 dager. Tidsserie kan bli treg.")
+
+    fdf = apply_ny_brukt_filter(df, nybrukt_choice)
+
+    st.caption("Klikk på en rad i tabellen for å få graf + kart for valgt sted.")
+
+    tab1, tab2 = st.tabs(["📋 Tabell", "🗺️ Kart (alle aktive slutt-dato)"])
+
+    with tab1:
+        with st.spinner("Beregner tabell..."):
+            table = build_table(fdf, level, start_ts, end_ts)
+
+        if search.strip():
+            q = search.strip().lower()
+            table = table[table["Sted"].astype(str).str.lower().str.contains(q, na=False)].copy()
+
+        show = format_table(table)
+
+        gb = GridOptionsBuilder.from_dataframe(show)
+        gb.configure_default_column(sortable=True, filter=True, resizable=True)
+        gb.configure_selection(selection_mode="single", use_checkbox=False)
+        gb.configure_grid_options(domLayout="normal")
+        gb.configure_pagination(enabled=False)
+        grid_options = gb.build()
+
+        grid_response = AgGrid(
+            show,
+            gridOptions=grid_options,
+            data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+            update_mode=GridUpdateMode.SELECTION_CHANGED,
+            height=520,
+            fit_columns_on_grid_load=True,
+            allow_unsafe_jscode=False,
+            try_to_convert_back_to_original_types=False,
+        )
+
+        selected_place = get_selected_place(grid_response)
+
+        st.download_button(
+            "Last ned som CSV",
+            data=show.to_csv(index=False).encode("utf-8"),
+            file_name=f"bolig_tabell_{level.lower()}_{nybrukt_choice.lower()}_{start_day}_{end_day}.csv",
+            mime="text/csv",
+        )
+
+        st.divider()
+        st.subheader("Detaljer (drilldown)")
+
+        if not selected_place:
+            st.info("Klikk på en rad i tabellen over for å se graf + kart.")
+        else:
+            sub = filter_by_level(fdf, level, str(selected_place))
+            if sub.empty:
+                st.warning("Fant ingen rader for valgt sted.")
+            else:
+                title = f"{level}: {selected_place} ({nybrukt_choice})"
+                st.write(f"Valgt: **{title}**")
+
+                with st.spinner("Beregner tidsserie..."):
+                    ser = daily_series_fast(sub, start_ts, end_ts)
+                plot_daily(ser, title)
+
+                st.subheader("Kart – aktive boliger på slutt-dato")
+                day_active = active_on_day(sub, end_ts)
+                day_active = filter_geo_bounds(day_active)
+
+                st.write(f"Aktive med gyldige koordinater: **{len(day_active):,}**")
+
+                max_points = st.slider("Maks punkter (kart)", 500, 20000, 5000, 500, key="max_points_detail")
+                if len(day_active) > max_points:
+                    day_active = day_active.sample(max_points, random_state=42)
+
+                m = make_map(day_active, end_day=end_ts, tiles=tiles)
+                st_folium(m, width=None, height=650)
+
+    with tab2:
+        st.caption("Kartet viser aktive boliger på valgt **Slutt-dato** for hele datasettet (etter Brukt/Nybygg-filter).")
+        active_all = active_on_day(fdf, end_ts)
+        active_all = filter_geo_bounds(active_all)
+
+        st.write(f"Aktive med gyldige koordinater: **{len(active_all):,}**")
+
+        max_points_all = st.slider(
+            "Maks punkter å tegne",
+            min_value=500,
+            max_value=20000,
+            value=5000,
+            step=500,
+            key="max_points_all"
+        )
+        if len(active_all) > max_points_all:
+            active_all = active_all.sample(max_points_all, random_state=42)
+
+        m_all = make_map(active_all, end_day=end_ts, tiles=tiles)
+        st_folium(m_all, width=None, height=700)
+
+
+# Viktig: ingen Streamlit-kjøring ved import (gunicorn/import skal ikke trigge appen)
+if __name__ == "__main__":
+    run_app()
