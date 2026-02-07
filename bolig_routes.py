@@ -1,22 +1,33 @@
 # bolig_routes.py
 # -*- coding: utf-8 -*-
 
+import io
 import json
 import os
+from datetime import datetime
 from functools import lru_cache
+from typing import Optional
 
+import boto3
 import numpy as np
 import pandas as pd
 import folium
 from folium.plugins import MarkerCluster
-from flask import Blueprint, render_template, jsonify, request, redirect
+from flask import Blueprint, render_template, jsonify, request
 from collections import Counter
 import re
 
 
 from bolig_data import load_latest_bolig_df
 from bolig_varmekart_service import clean_data
-HISTORIKK_APP_URL = os.environ.get("BOLIG_HISTORIKK_URL", "http://localhost:8501")
+from config import AWS_KEY, AWS_REGION, AWS_SECRET, S3_BUCKET_NAME
+HISTORIKK_PREFIX = os.environ.get("BOLIG_HISTORIKK_PREFIX", "raw/bolig-daglig/")
+HISTORIKK_PATTERN = re.compile(r"bolig_X_(\d{2}-\d{2}-\d{4})\.csv")
+HISTORIKK_METRICS = {
+    "median_m2": {"label": "Median m²-pris", "suffix": " kr/m²"},
+    "median_totalpris": {"label": "Median totalpris", "suffix": " kr"},
+    "antall": {"label": "Antall boliger", "suffix": ""},
+}
 
 # ÉN blueprint, med navn "bolig" og url_prefix "/bolig"
 bolig_bp = Blueprint("bolig", __name__, url_prefix="/bolig")
@@ -39,6 +50,183 @@ def get_cached_bolig_df():
     except Exception as e:
         print(f"[CACHE ERROR] Kunne ikke laste boligdata: {e}")
         return None
+
+# --------------------------------------------------
+# Historikk-hjelpere (S3)
+# --------------------------------------------------
+
+
+def _get_s3_client():
+    return boto3.client(
+        "s3",
+        region_name=AWS_REGION,
+        aws_access_key_id=AWS_KEY,
+        aws_secret_access_key=AWS_SECRET,
+    )
+
+
+@lru_cache(maxsize=1)
+def list_historikk_files():
+    """
+    Returnerer dict: {date: s3_key} for historikk-filer i S3.
+    """
+    s3_client = _get_s3_client()
+    files = {}
+    continuation_token = None
+
+    try:
+        while True:
+            params = {"Bucket": S3_BUCKET_NAME, "Prefix": HISTORIKK_PREFIX}
+            if continuation_token:
+                params["ContinuationToken"] = continuation_token
+
+            response = s3_client.list_objects_v2(**params)
+            for obj in response.get("Contents", []):
+                key = obj.get("Key", "")
+                match = HISTORIKK_PATTERN.search(key)
+                if match:
+                    file_date = datetime.strptime(match.group(1), "%d-%m-%Y").date()
+                    files[file_date] = key
+
+            if not response.get("IsTruncated"):
+                break
+            continuation_token = response.get("NextContinuationToken")
+    except Exception as e:
+        print(f"[HISTORIKK ERROR] Kunne ikke liste historikkfiler: {e}")
+        return {}
+
+    return files
+
+
+@lru_cache(maxsize=24)
+def load_historikk_df(s3_key: str) -> pd.DataFrame:
+    s3_client = _get_s3_client()
+    obj = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=s3_key)
+    df = pd.read_csv(
+        io.BytesIO(obj["Body"].read()),
+        sep=";",
+        encoding="utf-16",
+        on_bad_lines="skip",
+    )
+    df.columns = df.columns.str.strip()
+    return df
+
+
+def _parse_bolig_number(series: pd.Series) -> pd.Series:
+    cleaned = (
+        series.astype(str)
+        .str.replace("kr", "", regex=False, case=False)
+        .str.replace(" ", "", regex=False)
+        .str.replace(".", "", regex=False)
+        .str.replace(",", ".", regex=False)
+    )
+    return pd.to_numeric(cleaned, errors="coerce")
+
+
+def _normalize_historikk_df(df_raw: pd.DataFrame) -> pd.DataFrame:
+    df = df_raw.copy()
+    df.columns = df.columns.str.strip()
+
+    if "fylke" not in df.columns:
+        df["fylke"] = "Ukjent"
+    df["fylke"] = df["fylke"].fillna("Ukjent").astype(str)
+
+    if "M2-pris" not in df.columns:
+        df["M2-pris"] = np.nan
+    df["M2-pris"] = _parse_bolig_number(df["M2-pris"])
+
+    if "totalpris" not in df.columns:
+        df["totalpris"] = np.nan
+    df["totalpris"] = _parse_bolig_number(df["totalpris"])
+
+    return df
+
+
+def _parse_date_input(date_str: Optional[str]):
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, "%d.%m.%Y").date()
+    except ValueError:
+        return None
+
+
+def _format_value(value: float, metric_key: str, is_percent: bool = False) -> str:
+    if pd.isna(value):
+        return ""
+    if is_percent:
+        return f"{value:.0f} %"
+    if metric_key == "antall":
+        return f"{int(round(value)):,}".replace(",", " ")
+    suffix = HISTORIKK_METRICS[metric_key]["suffix"]
+    return f"{value:,.0f}{suffix}".replace(",", " ")
+
+
+def _metric_series(df: pd.DataFrame, metric_key: str) -> pd.Series:
+    if metric_key == "median_m2":
+        return df.groupby("fylke")["M2-pris"].median()
+    if metric_key == "median_totalpris":
+        return df.groupby("fylke")["totalpris"].median()
+    return df.groupby("fylke")["fylke"].count()
+
+
+def _metric_value(df: pd.DataFrame, metric_key: str) -> float:
+    if metric_key == "median_m2":
+        return float(df["M2-pris"].median())
+    if metric_key == "median_totalpris":
+        return float(df["totalpris"].median())
+    return float(len(df))
+
+
+def _build_historikk_table(
+    df_start: pd.DataFrame, df_end: pd.DataFrame, metric_key: str
+) -> str:
+    start_series = _metric_series(df_start, metric_key)
+    end_series = _metric_series(df_end, metric_key)
+    groups = start_series.index.union(end_series.index)
+
+    table = pd.DataFrame({"Fylke": groups.astype(str)})
+    table["Start"] = start_series.reindex(groups).values
+    table["Slutt"] = end_series.reindex(groups).values
+    table["Endring"] = table["Slutt"] - table["Start"]
+    table["Endring %"] = (table["Endring"] / table["Start"]) * 100
+
+    norway_row = pd.DataFrame(
+        {
+            "Fylke": ["Hele Norge"],
+            "Start": [_metric_value(df_start, metric_key)],
+            "Slutt": [_metric_value(df_end, metric_key)],
+            "Endring": [
+                _metric_value(df_end, metric_key) - _metric_value(df_start, metric_key)
+            ],
+        }
+    )
+    norway_row["Endring %"] = (norway_row["Endring"] / norway_row["Start"]) * 100
+
+    table = table.sort_values("Fylke")
+    table = pd.concat([norway_row, table], ignore_index=True)
+
+    display = pd.DataFrame(
+        {
+            "Fylke": table["Fylke"],
+            "Start": table["Start"].apply(
+                lambda v: _format_value(v, metric_key, is_percent=False)
+            ),
+            "Slutt": table["Slutt"].apply(
+                lambda v: _format_value(v, metric_key, is_percent=False)
+            ),
+            "Endring": table["Endring"].apply(
+                lambda v: _format_value(v, metric_key, is_percent=False)
+            ),
+            "Endring %": table["Endring %"].apply(
+                lambda v: _format_value(v, metric_key, is_percent=True)
+            ),
+        }
+    )
+
+    return display.to_html(
+        index=False, classes="table table-striped table-sm", border=0
+    )
 
 # --------------------------------------------------
 # Hjelpefunksjon for "priser per sted"
@@ -648,7 +836,63 @@ def bolig_historikk_view():
     - Første gang (uten start/end) -> ingen CSV-lesing, bare skjema.
     - Når bruker har valgt minst én dato -> leser to filer og bygger tabell.
     """
-    return redirect(HISTORIKK_APP_URL)
+    metric_key = request.args.get("metric", "median_m2")
+    if metric_key not in HISTORIKK_METRICS:
+        metric_key = "median_m2"
+
+    available_files = list_historikk_files()
+    available_dates = sorted(available_files.keys())
+    available_dates_js = [d.strftime("%Y-%m-%d") for d in available_dates]
+
+    start_raw = request.args.get("start")
+    end_raw = request.args.get("end")
+    start_date = _parse_date_input(start_raw)
+    end_date = _parse_date_input(end_raw)
+
+    error = None
+    table_html = ""
+    has_data = False
+    first_date = None
+    last_date = None
+
+    if start_raw or end_raw:
+        if not start_date or not end_date:
+            error = "Du må velge både fra- og til-dato i formatet dd.mm.åååå."
+        elif start_date > end_date:
+            error = "Startdato kan ikke være etter sluttdato."
+        elif start_date not in available_files or end_date not in available_files:
+            error = "Valgte datoer finnes ikke i historikkfilene."
+        else:
+            try:
+                df_start = _normalize_historikk_df(
+                    load_historikk_df(available_files[start_date])
+                )
+                df_end = _normalize_historikk_df(
+                    load_historikk_df(available_files[end_date])
+                )
+                table_html = _build_historikk_table(df_start, df_end, metric_key)
+                has_data = True
+                first_date = start_date.strftime("%d.%m.%Y")
+                last_date = end_date.strftime("%d.%m.%Y")
+            except Exception as e:
+                error = f"Feil ved lasting av historikkdata: {e}"
+
+    return render_template(
+        "bolig_historikk.html",
+        metric_options={
+            key: meta["label"] for key, meta in HISTORIKK_METRICS.items()
+        },
+        metric_key=metric_key,
+        metric_label=HISTORIKK_METRICS[metric_key]["label"],
+        start_value=start_raw,
+        end_value=end_raw,
+        available_dates_js=available_dates_js,
+        has_data=has_data,
+        table_html=table_html,
+        error=error,
+        first_date=first_date,
+        last_date=last_date,
+    )
 
 
 # --------------------------------------------------
