@@ -1,7 +1,7 @@
 # bolig_streamlit_app.py
 # En-fil Streamlit-app: tabell + drilldown + kart + raskere daglig serie (numpy-masker)
 #
-# Kjør lokalt:
+# Kjør lokalt: ?
 #   python -m streamlit run bolig_streamlit_app.py
 #
 # Avhengigheter (typisk):
