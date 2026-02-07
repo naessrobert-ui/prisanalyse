@@ -263,6 +263,25 @@ def _build_snapshot(df: pd.DataFrame, metric_col: str) -> pd.DataFrame:
     )
     return metrics
 
+def get_default_dates_for_ui(days_back: int = 30) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """
+    Returnerer (start, slutt) som passer for UI:
+    - slutt = siste tilgjengelige historikkdato
+    - start = nærmeste dato som er >= (slutt - days_back)
+      (eller første tilgjengelige hvis det ikke finnes noe så langt tilbake)
+    """
+    dates = get_available_bolig_dates()
+    if not dates:
+        raise ValueError("Ingen tilgjengelige historikkdatoer.")
+
+    end_dt = dates[-1]
+    target_start = (end_dt - pd.Timedelta(days=days_back)).normalize()
+
+    # finn første dato >= target_start
+    start_candidates = [d for d in dates if d >= target_start]
+    start_dt = start_candidates[0] if start_candidates else dates[0]
+
+    return start_dt, end_dt
 
 # ----------------- Public API brukt av Flask -----------------
 
