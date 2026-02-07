@@ -49,12 +49,6 @@ def get_cached_bolig_df():
 # --------------------------------------------------
 
 def _prepare_priser_df(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """
-    Rens data for pris-tabellene og lag felt for sted / gate+sted.
-    - M2-pris og totalpris gjøres numeriske
-    - Dager på markedet beregnes
-    - 'sted' og 'gate_sted' (gate uten husnummer + sted) lages fra address
-    """
     df = df_raw.copy()
     df.columns = df.columns.str.strip()
 
@@ -108,20 +102,16 @@ def _prepare_priser_df(df_raw: pd.DataFrame) -> pd.DataFrame:
         return parts[-1].strip()
 
     def extract_gate(addr: str) -> str:
-        # Kun gatenavn, uten husnummer
         if not addr:
             return ""
         gate_raw = addr.split(",")[0].strip()
         tokens = gate_raw.split()
         tokens_uten_nr = [t for t in tokens if not any(ch.isdigit() for ch in t)]
-        if not tokens_uten_nr:
-            return gate_raw
-        return " ".join(tokens_uten_nr)
+        return " ".join(tokens_uten_nr) if tokens_uten_nr else gate_raw
 
     df["sted"] = df["address"].apply(extract_sted)
     df["gate"] = df["address"].apply(extract_gate)
 
-    # Gate+sted: f.eks. "Grefsenveien, Oslo"
     def make_gate_sted(row):
         gate = (row.get("gate") or "").strip()
         sted = (row.get("sted") or "").strip()
@@ -134,7 +124,7 @@ def _prepare_priser_df(df_raw: pd.DataFrame) -> pd.DataFrame:
     # Filtrer bort åpenbart tull
     df = df[df["M2-pris"] > 5000]
 
-        # --- NY/Brukt (for filtrering i detaljtabell) ---
+    # --- NY/Brukt (for filtrering i detaljtabell) ---
     if "NY/Brukt" not in df.columns:
         df["NY/Brukt"] = "Ukjent"
     df["NY/Brukt"] = df["NY/Brukt"].fillna("Ukjent").astype(str).str.strip()
@@ -148,7 +138,6 @@ def _prepare_priser_df(df_raw: pd.DataFrame) -> pd.DataFrame:
         return "Ukjent"
 
     df["NY/Brukt"] = df["NY/Brukt"].apply(_norm_nybrukt)
-
 
     return df
 
@@ -194,6 +183,17 @@ def bolig_priser_sted():
       - dsort        = kolonne i detaljtabell (f.eks. 'm2pris', 'totalpris', 'dager')
       - dorder       = 'asc' | 'desc'
     """
+
+        # ---- Globalt filter: nybygg / brukt / alle ----
+    nybrukt_filter = request.args.get("nybrukt", "alle").lower()
+    if nybrukt_filter not in {"alle", "nybygg", "brukt"}:
+        nybrukt_filter = "alle"
+
+    if nybrukt_filter == "nybygg":
+        df = df[df["NY/Brukt"] == "Nybygg"]
+    elif nybrukt_filter == "brukt":
+        df = df[df["NY/Brukt"] == "Brukt"]
+    
     df_raw = get_cached_bolig_df()
     if df_raw is None or df_raw.empty:
         return render_template(
@@ -245,15 +245,6 @@ def bolig_priser_sted():
             dorder=None,
         )
 
-        # ---- Globalt filter: nybygg / brukt / alle ----
-    nybrukt_filter = request.args.get("nybrukt", "alle").lower()
-    if nybrukt_filter not in {"alle", "nybygg", "brukt"}:
-        nybrukt_filter = "alle"
-
-    if nybrukt_filter == "nybygg":
-        df = df[df["NY/Brukt"] == "Nybygg"]
-    elif nybrukt_filter == "brukt":
-        df = df[df["NY/Brukt"] == "Brukt"]
 
 
     # ---- Hovedparametre ----
@@ -422,9 +413,6 @@ def bolig_priser_sted():
     detalj_nivaa = request.args.get("detalj_nivaa")
     detalj_key = request.args.get("detalj_key")
 
-    nybrukt_filter = request.args.get("nybrukt", "alle").lower()
-    if nybrukt_filter not in {"alle", "nybygg", "brukt"}:
-        nybrukt_filter = "alle"
 
     dsort = request.args.get("dsort", "m2pris")
     dorder = request.args.get("dorder", "desc")
