@@ -137,6 +137,22 @@ def apply_ny_brukt_filter(df: pd.DataFrame, choice: str) -> pd.DataFrame:
 Level = Literal["Fylke", "Kommune", "Sted"]
 
 
+class HistorikkConfig:
+    prefix: str = "raw/bolig-daglig/"
+    filename_regex: str = r"bolig_X_(\d{2}-\d{2}-\d{4})\.csv"
+
+
+CFG = HistorikkConfig()
+
+METRIC_LABELS = {
+    "median_totalpris": "Median totalpris",
+    "mean_totalpris": "Snitt totalpris",
+    "median_m2pris": "Median m²-pris",
+    "mean_m2pris": "Snitt m²-pris",
+    "count": "Antall annonser",
+}
+
+
 def group_key(df: pd.DataFrame, level: Level) -> pd.Series:
     if level == "Fylke":
         return df["fylke"].fillna("").astype(str)
@@ -210,9 +226,6 @@ def build_table(df: pd.DataFrame, level: Level, start_day: pd.Timestamp, end_day
     med_m2_start = get("median_m2", m_start)
     act_start = get("active_count", m_start)
     mean_dom_start = get("mean_days_on_market", m_start)
-class HistorikkConfig:
-    prefix: str = "raw/bolig-daglig/"
-    filename_regex: str = r"bolig_X_(\d{2}-\d{2}-\d{4})\.csv"
 
     out["Med m² nå"] = med_m2_end
     out["Med pris nå"] = med_tp_end
@@ -221,20 +234,12 @@ class HistorikkConfig:
 
     out["Δm²"] = (med_m2_end - med_m2_start)
     out["Δm²%"] = pct_change(med_m2_end, med_m2_start)
-CFG = HistorikkConfig()
 
     out["Δakt"] = (act_end - act_start)
     out["Δakt%"] = pct_change(act_end, act_start)
 
     out["Δtid"] = (pd.to_numeric(mean_dom_end, errors="coerce") - pd.to_numeric(mean_dom_start, errors="coerce")).round(0)
     out["Δtid%"] = pct_change(mean_dom_end, mean_dom_start)
-METRIC_LABELS = {
-    "median_totalpris": "Median totalpris",
-    "mean_totalpris": "Snitt totalpris",
-    "median_m2pris": "Median m²-pris",
-    "mean_m2pris": "Snitt m²-pris",
-    "count": "Antall annonser",
-}
 
     out = out[out["Sted"].astype(str).str.strip() != ""].copy()
     out = out.sort_values("Aktive nå", ascending=False, na_position="last")
