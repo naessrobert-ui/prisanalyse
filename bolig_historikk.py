@@ -1,5 +1,5 @@
 # bolig_historikk.py
-# Historikk-funksjoner for Flask-ruten /bolig/historikk/
+# Historikk-funksjoner for Flask-ruten /bolig/historikk/ opp
 
 from __future__ import annotations
 
