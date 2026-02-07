@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import json
+import os
 from functools import lru_cache
 
 import numpy as np
@@ -15,12 +16,7 @@ import re
 
 from bolig_data import load_latest_bolig_df
 from bolig_varmekart_service import clean_data
-from bolig_historikk import (
-    METRIC_LABELS,
-    get_available_bolig_dates,
-    get_default_dates_for_ui,
-    build_historikk_tabell,
-)
+HISTORIKK_APP_URL = os.environ.get("BOLIG_HISTORIKK_URL", "http://localhost:8501")
 
 # ÉN blueprint, med navn "bolig" og url_prefix "/bolig"
 bolig_bp = Blueprint("bolig", __name__, url_prefix="/bolig")
@@ -652,104 +648,7 @@ def bolig_historikk_view():
     - Første gang (uten start/end) -> ingen CSV-lesing, bare skjema.
     - Når bruker har valgt minst én dato -> leser to filer og bygger tabell.
     """
-
-    # 1) Hent datoene det finnes filer for (KUN listing – ingen CSV-lesing)
-    available_dates = get_available_bolig_dates()  # liste av pd.Timestamp
-    default_start, default_end = get_default_dates_for_ui()
-
-    if not available_dates or default_end is None:
-        # Ingen filer i det hele tatt
-        return render_template(
-            "bolig_historikk.html",
-            metric_options=METRIC_LABELS,
-            metric_key="median_totalpris",
-            metric_label=METRIC_LABELS["median_totalpris"],
-            start_value="",
-            end_value="",
-            first_date=None,
-            last_date=None,
-            table_html="",
-            error="Fant ingen historikkfiler for boliger.",
-            has_data=False,
-            available_dates_js=[],
-        )
-
-    # 2) Les query-parametre
-    metric = request.args.get("metric", "median_totalpris")
-    start_str = (request.args.get("start") or "").strip()
-    end_str = (request.args.get("end") or "").strip()
-
-    # Brukeren har "sendt inn" bare hvis minst én dato faktisk er satt
-    submitted = bool(start_str or end_str)
-
-    # 3) Verdier som skal stå i input-feltene (tekst dd.mm.åååå)
-    if start_str:
-        start_value = start_str
-    else:
-        start_value = default_start.strftime("%d.%m.%Y")
-
-    if end_str:
-        end_value = end_str
-    else:
-        end_value = default_end.strftime("%d.%m.%Y")
-
-    # 4) Bare bygg tabell hvis brukeren faktisk har valgt dato
-    table_html = ""
-    first_date_disp = None
-    last_date_disp = None
-    error = None
-    has_data = False
-
-    if submitted:
-
-        def _parse_d(s: str | None) -> pd.Timestamp | None:
-            if not s:
-                return None
-            return pd.to_datetime(s, format="%d.%m.%Y", errors="coerce")
-
-        start_dt = _parse_d(start_str) or default_start
-        end_dt = _parse_d(end_str) or default_end
-
-        try:
-            df, first_date, last_date = build_historikk_tabell(
-                metric_col=metric,
-                start_date=start_dt,
-                end_date=end_dt,
-            )
-
-            table_html = df.to_html(
-                classes="table table-sm table-striped table-hover mb-0",
-                index=False,
-                border=0,
-            )
-            first_date_disp = first_date.strftime("%d.%m.%Y")
-            last_date_disp = last_date.strftime("%d.%m.%Y")
-            has_data = True
-        except Exception as e:
-            error = f"Feil i historikk-beregning: {e}"
-            has_data = False
-
-    # 5) Gyldige datoer til JS (YYYY-mm-dd)
-    available_dates_js = [d.strftime("%Y-%m-%d") for d in available_dates]
-
-    # 6) Label for valgt metrikk
-    metric_label = METRIC_LABELS.get(metric, METRIC_LABELS["median_totalpris"])
-
-    # 7) Render template
-    return render_template(
-        "bolig_historikk.html",
-        metric_options=METRIC_LABELS,
-        metric_key=metric,
-        metric_label=metric_label,
-        start_value=start_value,
-        end_value=end_value,
-        first_date=first_date_disp,
-        last_date=last_date_disp,
-        table_html=table_html,
-        error=error,
-        has_data=has_data,
-        available_dates_js=available_dates_js,
-    )
+    return redirect(HISTORIKK_APP_URL)
 
 
 # --------------------------------------------------

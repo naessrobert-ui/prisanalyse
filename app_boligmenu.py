@@ -1,3 +1,5 @@
+import os
+
 import streamlit as st
 from PIL import Image
 
@@ -42,6 +44,8 @@ st.write("")
 st.write("")
 
 # --- MENU GRID ---
+historikk_url = os.environ.get("BOLIG_HISTORIKK_URL", "http://localhost:8501")
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -59,13 +63,13 @@ with col1:
     """, unsafe_allow_html=True)
 
 with col2:
-    st.markdown("""
+    st.markdown(f"""
     <div style="background: rgba(30,30,60,0.85); padding:30px; border-radius:18px;">
         <h3 style="color:white;">📈 Historisk utvikling</h3>
         <p style="color:#ddd; font-size:15px;">
             Se prisutvikling over tid per fylke og samlet for Norge.
         </p>
-        <a href="/historikk"><button style="width:100%; padding:12px; background:#005eff; color:white; border:none; border-radius:6px;">
+        <a href="{historikk_url}"><button style="width:100%; padding:12px; background:#005eff; color:white; border:none; border-radius:6px;">
             Åpne historikk
         </button></a>
     </div>
