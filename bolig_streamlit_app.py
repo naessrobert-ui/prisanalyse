@@ -1,5 +1,5 @@
 # bolig_streamlit_app.py
-# En-fil Streamlit-app: tabell + drilldown + kart + raskere daglig serie (numpy-masker). tet
+# En-fil Streamlit-app: tabell + drilldown + kart + raskere daglig serie (numpy-masker)
 #
 # Kjør lokalt:
 #   python -m streamlit run bolig_streamlit_app.py
@@ -10,7 +10,7 @@
 import io
 import os
 from dataclasses import dataclass
-from typing import Optional, Literal
+from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -23,14 +23,16 @@ import matplotlib.pyplot as plt
 
 import folium
 from streamlit_folium import st_folium
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
+from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder, GridUpdateMode
 
 
 # ----------------- Config -----------------
 @dataclass(frozen=True)
 class AppConfig:
     s3_bucket: str = os.environ.get("BOLIG_S3_BUCKET", "prisanalyse-data")
-    master_key: str = os.environ.get("BOLIG_MASTER_KEY", "calc/bolig/bolig_master/bolig_master.parquet")
+    master_key: str = os.environ.get(
+        "BOLIG_MASTER_KEY", "calc/bolig/bolig_master/bolig_master.parquet"
+    )
     # kart bounds (Norge-ish)
     min_lat: float = 57.0
     max_lat: float = 72.0
@@ -79,12 +81,22 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
 
     required = [
-        "finnkode", "fylke", "kommune_nr", "kommune_navn",
-        "address", "full_title",
-        "totalpris", "m2_pris", "ny_brukt",
-        "latitude", "longitude",
-        "dato_første", "dato_siste",
-        "pris_første", "pris_ny", "dato_prisendring",
+        "finnkode",
+        "fylke",
+        "kommune_nr",
+        "kommune_navn",
+        "address",
+        "full_title",
+        "totalpris",
+        "m2_pris",
+        "ny_brukt",
+        "latitude",
+        "longitude",
+        "dato_første",
+        "dato_siste",
+        "pris_første",
+        "pris_ny",
+        "dato_prisendring",
     ]
     for c in required:
         if c not in d.columns:
@@ -93,10 +105,19 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
     # Dates
     d["dato_første"] = pd.to_datetime(d["dato_første"], errors="coerce").dt.normalize()
     d["dato_siste"] = pd.to_datetime(d["dato_siste"], errors="coerce").dt.normalize()
-    d["dato_prisendring"] = pd.to_datetime(d["dato_prisendring"], errors="coerce").dt.normalize()
+    d["dato_prisendring"] = pd.to_datetime(
+        d["dato_prisendring"], errors="coerce"
+    ).dt.normalize()
 
     # Numerics
-    for col in ["totalpris", "m2_pris", "latitude", "longitude", "pris_første", "pris_ny"]:
+    for col in [
+        "totalpris",
+        "m2_pris",
+        "latitude",
+        "longitude",
+        "pris_første",
+        "pris_ny",
+    ]:
         d[col] = pd.to_numeric(d[col], errors="coerce")
 
     # Strings
@@ -153,17 +174,29 @@ def snapshot_metrics(df: pd.DataFrame, day: pd.Timestamp, level: Level) -> pd.Da
 
     active = d[(d["dato_første"] <= day) & (d["dato_siste"] >= day)].copy()
     if active.empty:
-        return pd.DataFrame(columns=["group", "active_count", "median_totalpris", "median_m2", "mean_days_on_market"])
+        return pd.DataFrame(
+            columns=[
+                "group",
+                "active_count",
+                "median_totalpris",
+                "median_m2",
+                "mean_days_on_market",
+            ]
+        )
 
     active["group"] = group_key(active, level)
     active["days_on_market_today"] = (day - active["dato_første"]).dt.days
 
-    out = active.groupby("group", dropna=False).agg(
-        active_count=("finnkode", "count"),
-        median_totalpris=("totalpris", "median"),
-        median_m2=("m2_pris", "median"),
-        mean_days_on_market=("days_on_market_today", "mean"),
-    ).reset_index()
+    out = (
+        active.groupby("group", dropna=False)
+        .agg(
+            active_count=("finnkode", "count"),
+            median_totalpris=("totalpris", "median"),
+            median_m2=("m2_pris", "median"),
+            mean_days_on_market=("days_on_market_today", "mean"),
+        )
+        .reset_index()
+    )
 
     return out
 
@@ -176,7 +209,9 @@ def pct_change(end: pd.Series, start: pd.Series) -> pd.Series:
     return pct.round(0)
 
 
-def build_table(df: pd.DataFrame, level: Level, start_day: pd.Timestamp, end_day: pd.Timestamp) -> pd.DataFrame:
+def build_table(
+    df: pd.DataFrame, level: Level, start_day: pd.Timestamp, end_day: pd.Timestamp
+) -> pd.DataFrame:
     start_day = pd.to_datetime(start_day).normalize()
     end_day = pd.to_datetime(end_day).normalize()
 
@@ -206,13 +241,16 @@ def build_table(df: pd.DataFrame, level: Level, start_day: pd.Timestamp, end_day
     out["Aktive nå"] = act_end
     out["Snitt tid nå"] = pd.to_numeric(mean_dom_end, errors="coerce").round(0)
 
-    out["Δm²"] = (med_m2_end - med_m2_start)
+    out["Δm²"] = med_m2_end - med_m2_start
     out["Δm²%"] = pct_change(med_m2_end, med_m2_start)
 
-    out["Δakt"] = (act_end - act_start)
+    out["Δakt"] = act_end - act_start
     out["Δakt%"] = pct_change(act_end, act_start)
 
-    out["Δtid"] = (pd.to_numeric(mean_dom_end, errors="coerce") - pd.to_numeric(mean_dom_start, errors="coerce")).round(0)
+    out["Δtid"] = (
+        pd.to_numeric(mean_dom_end, errors="coerce")
+        - pd.to_numeric(mean_dom_start, errors="coerce")
+    ).round(0)
     out["Δtid%"] = pct_change(mean_dom_end, mean_dom_start)
 
     out = out[out["Sted"].astype(str).str.strip() != ""].copy()
@@ -244,14 +282,25 @@ def format_table(table: pd.DataFrame) -> pd.DataFrame:
 
 # ----------------- Raskere daglig serie -----------------
 @st.cache_data(show_spinner=False)
-def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Timestamp) -> pd.DataFrame:
+def daily_series_fast(
+    df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Timestamp
+) -> pd.DataFrame:
     start_day = pd.to_datetime(start_day).normalize()
     end_day = pd.to_datetime(end_day).normalize()
     days = pd.date_range(start_day, end_day, freq="D")
 
     d = df.dropna(subset=["dato_første", "dato_siste"]).copy()
     if d.empty:
-        return pd.DataFrame(columns=["dato", "active_count", "median_m2", "mean_m2", "median_totalpris", "mean_totalpris"])
+        return pd.DataFrame(
+            columns=[
+                "dato",
+                "active_count",
+                "median_m2",
+                "mean_m2",
+                "median_totalpris",
+                "mean_totalpris",
+            ]
+        )
 
     d["dato_første"] = pd.to_datetime(d["dato_første"], errors="coerce").dt.normalize()
     d["dato_siste"] = pd.to_datetime(d["dato_siste"], errors="coerce").dt.normalize()
@@ -269,8 +318,14 @@ def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Tim
         mask = (start_i <= di) & (end_i >= di)
         if not np.any(mask):
             rows.append(
-                {"dato": day, "active_count": 0, "median_m2": np.nan, "mean_m2": np.nan,
-                 "median_totalpris": np.nan, "mean_totalpris": np.nan}
+                {
+                    "dato": day,
+                    "active_count": 0,
+                    "median_m2": np.nan,
+                    "mean_m2": np.nan,
+                    "median_totalpris": np.nan,
+                    "mean_totalpris": np.nan,
+                }
             )
             continue
 
@@ -284,8 +339,14 @@ def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Tim
         tp_mean = float(np.nanmean(tpv)) if np.isfinite(tpv).any() else np.nan
 
         rows.append(
-            {"dato": day, "active_count": int(mask.sum()), "median_m2": m2_median, "mean_m2": m2_mean,
-             "median_totalpris": tp_median, "mean_totalpris": tp_mean}
+            {
+                "dato": day,
+                "active_count": int(mask.sum()),
+                "median_m2": m2_median,
+                "mean_m2": m2_mean,
+                "median_totalpris": tp_median,
+                "mean_totalpris": tp_mean,
+            }
         )
 
     return pd.DataFrame(rows)
@@ -300,14 +361,15 @@ def active_on_day(df: pd.DataFrame, day: pd.Timestamp) -> pd.DataFrame:
 
 
 def filter_geo_bounds(d: pd.DataFrame) -> pd.DataFrame:
-    ok = (
-        d["latitude"].between(CFG.min_lat, CFG.max_lat, inclusive="both")
-        & d["longitude"].between(CFG.min_lon, CFG.max_lon, inclusive="both")
-    )
+    ok = d["latitude"].between(CFG.min_lat, CFG.max_lat, inclusive="both") & d[
+        "longitude"
+    ].between(CFG.min_lon, CFG.max_lon, inclusive="both")
     return d[ok].dropna(subset=["latitude", "longitude"]).copy()
 
 
-def make_map(points: pd.DataFrame, end_day: pd.Timestamp, tiles: str = "OpenStreetMap") -> folium.Map:
+def make_map(
+    points: pd.DataFrame, end_day: pd.Timestamp, tiles: str = "OpenStreetMap"
+) -> folium.Map:
     end_day = pd.to_datetime(end_day).normalize()
 
     center_lat = float(points["latitude"].median()) if not points.empty else 64.0
@@ -321,6 +383,7 @@ def make_map(points: pd.DataFrame, end_day: pd.Timestamp, tiles: str = "OpenStre
     )
 
     from folium.plugins import MarkerCluster
+
     cluster = MarkerCluster(name="Boliger").add_to(m)
 
     for _, r in points.iterrows():
@@ -343,7 +406,11 @@ def make_map(points: pd.DataFrame, end_day: pd.Timestamp, tiles: str = "OpenStre
 
         changed = False
         if pd.notna(pris_first) and pd.notna(pris_new) and pris_new != pris_first:
-            if pd.notna(d_price) and pd.notna(d_first) and d_price.normalize() != d_first.normalize():
+            if (
+                pd.notna(d_price)
+                and pd.notna(d_first)
+                and d_price.normalize() != d_first.normalize()
+            ):
                 changed = True
 
         price_change_line = ""
@@ -467,7 +534,7 @@ def run_app():
           .block-container { padding-top: 1.2rem; padding-bottom: 1.2rem; }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     st.title("Boligpriser – tabell + kart (klikk på rad for detaljer)")
@@ -477,7 +544,9 @@ def run_app():
         source = st.radio("Velg kilde", ["S3 master", "Lokal fil"], index=0)
 
         if source == "Lokal fil":
-            local_path = st.text_input("Sti til bolig_master.parquet", value="bolig_master.parquet")
+            local_path = st.text_input(
+                "Sti til bolig_master.parquet", value="bolig_master.parquet"
+            )
             load_btn = st.button("Last data", type="primary")
         else:
             st.caption(f"S3: s3://{CFG.s3_bucket}/{CFG.master_key}")
@@ -486,9 +555,7 @@ def run_app():
         st.divider()
         st.header("Kart")
         tiles = st.selectbox(
-            "Kartstil",
-            ["OpenStreetMap", "CartoDB Voyager", "CartoDB Positron"],
-            index=0
+            "Kartstil", ["OpenStreetMap", "CartoDB Voyager", "CartoDB Positron"], index=0
         )
 
         st.divider()
@@ -499,7 +566,11 @@ def run_app():
     if load_btn:
         with st.spinner("Laster data..."):
             try:
-                raw = load_master_local(local_path) if source == "Lokal fil" else load_master_s3(CFG.s3_bucket, CFG.master_key)
+                raw = (
+                    load_master_local(local_path)
+                    if source == "Lokal fil"
+                    else load_master_s3(CFG.s3_bucket, CFG.master_key)
+                )
                 df0 = normalize_master(raw)
                 st.session_state["df"] = df0
                 st.success(f"Lastet {len(df0):,} rader")
@@ -522,9 +593,19 @@ def run_app():
     with c1:
         level: Level = st.selectbox("Detaljnivå", ["Fylke", "Kommune", "Sted"], index=0)
     with c2:
-        start_day = st.date_input("Start", value=min_date.date(), min_value=min_date.date(), max_value=max_date.date())
+        start_day = st.date_input(
+            "Start",
+            value=min_date.date(),
+            min_value=min_date.date(),
+            max_value=max_date.date(),
+        )
     with c3:
-        end_day = st.date_input("Slutt", value=max_date.date(), min_value=min_date.date(), max_value=max_date.date())
+        end_day = st.date_input(
+            "Slutt",
+            value=max_date.date(),
+            min_value=min_date.date(),
+            max_value=max_date.date(),
+        )
     with c4:
         nybrukt_choice = st.selectbox("Boligtype", ["Brukt", "Nybygg", "Begge"], index=0)
     with c5:
@@ -552,7 +633,9 @@ def run_app():
 
         if search.strip():
             q = search.strip().lower()
-            table = table[table["Sted"].astype(str).str.lower().str.contains(q, na=False)].copy()
+            table = table[
+                table["Sted"].astype(str).str.lower().str.contains(q, na=False)
+            ].copy()
 
         show = format_table(table)
 
@@ -579,7 +662,10 @@ def run_app():
         st.download_button(
             "Last ned som CSV",
             data=show.to_csv(index=False).encode("utf-8"),
-            file_name=f"bolig_tabell_{level.lower()}_{nybrukt_choice.lower()}_{start_day}_{end_day}.csv",
+            file_name=(
+                f"bolig_tabell_{level.lower()}_{nybrukt_choice.lower()}_"
+                f"{start_day}_{end_day}.csv"
+            ),
             mime="text/csv",
         )
 
@@ -606,7 +692,14 @@ def run_app():
 
                 st.write(f"Aktive med gyldige koordinater: **{len(day_active):,}**")
 
-                max_points = st.slider("Maks punkter (kart)", 500, 20000, 5000, 500, key="max_points_detail")
+                max_points = st.slider(
+                    "Maks punkter (kart)",
+                    500,
+                    20000,
+                    5000,
+                    500,
+                    key="max_points_detail",
+                )
                 if len(day_active) > max_points:
                     day_active = day_active.sample(max_points, random_state=42)
 
@@ -614,7 +707,10 @@ def run_app():
                 st_folium(m, width=None, height=650)
 
     with tab2:
-        st.caption("Kartet viser aktive boliger på valgt **Slutt-dato** for hele datasettet (etter Brukt/Nybygg-filter).")
+        st.caption(
+            "Kartet viser aktive boliger på valgt **Slutt-dato** for hele datasettet "
+            "(etter Brukt/Nybygg-filter)."
+        )
         active_all = active_on_day(fdf, end_ts)
         active_all = filter_geo_bounds(active_all)
 
@@ -626,7 +722,7 @@ def run_app():
             max_value=20000,
             value=5000,
             step=500,
-            key="max_points_all"
+            key="max_points_all",
         )
         if len(active_all) > max_points_all:
             active_all = active_all.sample(max_points_all, random_state=42)
