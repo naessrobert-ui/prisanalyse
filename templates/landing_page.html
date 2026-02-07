@@ -5,11 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prisanalyse</title>
 
-    <!-- Ren, moderne font -->
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
 
     <style>
+        :root {
+            color-scheme: dark;
+            --brand: #60a5fa;
+            --brand-soft: rgba(96, 165, 250, 0.18);
+            --panel: rgba(15, 23, 42, 0.7);
+            --panel-strong: rgba(15, 23, 42, 0.88);
+            --text: #f8fafc;
+            --text-muted: #d1d5db;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -20,69 +29,127 @@
             font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             min-height: 100vh;
             display: flex;
-            align-items: center;
             justify-content: center;
-            color: #f9fafb;
+            color: var(--text);
             background:
-                linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.85)),
-                url('https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=1920') no-repeat center center fixed;
+                linear-gradient(140deg, rgba(2, 6, 23, 0.93), rgba(15, 23, 42, 0.95)),
+                url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1920') no-repeat center center fixed;
             background-size: cover;
         }
 
         .page {
-            max-width: 1100px;
+            max-width: 1200px;
             width: 100%;
-            padding: 32px 20px 40px;
-            text-align: center;
+            padding: 42px 24px 60px;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 32px;
+            align-items: center;
+            margin-bottom: 46px;
+        }
+
+        .hero-card {
+            background: var(--panel);
+            border-radius: 26px;
+            padding: 32px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(18px);
         }
 
         .logo-line {
-            font-size: 0.8rem;
-            letter-spacing: 0.2em;
+            font-size: 0.75rem;
+            letter-spacing: 0.4em;
             text-transform: uppercase;
-            color: #e5e7eb;
-            opacity: 0.8;
-            margin-bottom: 8px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
         }
 
         h1 {
-            font-size: clamp(2.6rem, 4vw + 1rem, 3.4rem);
+            font-size: clamp(2.4rem, 4vw + 1rem, 3.6rem);
             font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        h1 .pris {
-            font-weight: 600;
+            margin-bottom: 12px;
         }
 
         h1 .analyse {
-            color: #60a5fa; /* lys blå */
+            color: var(--brand);
         }
 
         .subtitle {
+            color: var(--text-muted);
             font-size: 1.05rem;
-            color: #d1d5db;
-            margin-bottom: 40px;
+            margin-bottom: 24px;
+        }
+
+        .cta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 20px;
+            border-radius: 999px;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid transparent;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .cta-primary {
+            background: var(--brand);
+            color: #0f172a;
+            box-shadow: 0 16px 40px rgba(96, 165, 250, 0.35);
+        }
+
+        .cta-secondary {
+            background: transparent;
+            color: var(--text);
+            border-color: rgba(148, 163, 184, 0.5);
+        }
+
+        .cta:hover {
+            transform: translateY(-2px);
+        }
+
+        .hero-metrics {
+            display: grid;
+            gap: 16px;
+        }
+
+        .metric-card {
+            background: var(--panel-strong);
+            border-radius: 18px;
+            padding: 18px 20px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            font-size: 1.6rem;
+            font-weight: 600;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            margin-bottom: 18px;
         }
 
         .cards {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 24px;
-            justify-content: center;
-        }
-
-        /* På mobil – 1 per rad, på middels skjerm 2x2 */
-        @media (max-width: 1024px) {
-            .cards {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-
-        @media (max-width: 640px) {
-            .cards {
-                grid-template-columns: 1fr;
-            }
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 22px;
         }
 
         .card-link {
@@ -91,148 +158,209 @@
         }
 
         .card {
+            height: 100%;
             position: relative;
-            padding: 26px 24px;
+            padding: 22px 22px 24px;
             border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            background: radial-gradient(circle at top left, rgba(255,255,255,0.20), transparent 60%),
-                        rgba(17, 24, 39, 0.55);
-            box-shadow:
-                0 18px 45px rgba(0, 0, 0, 0.7),
-                inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: radial-gradient(circle at top left, rgba(255,255,255,0.18), transparent 60%),
+                        rgba(15, 23, 42, 0.62);
+            box-shadow: 0 18px 35px rgba(0, 0, 0, 0.6);
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, background 0.2s ease-out;
             display: flex;
             flex-direction: column;
-            align-items: flex-start;
-            transition:
-                transform 0.2s ease-out,
-                box-shadow 0.2s ease-out,
-                background 0.2s ease-out;
-        }
-
-        .card::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 90% 0%, rgba(96, 165, 250, 0.28), transparent 55%);
-            opacity: 0;
-            transition: opacity 0.2s ease-out;
-            pointer-events: none;
+            gap: 10px;
         }
 
         .card:hover {
             transform: translateY(-6px);
-            box-shadow:
-                0 26px 60px rgba(0, 0, 0, 0.85),
-                inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+            box-shadow: 0 26px 50px rgba(0, 0, 0, 0.75);
             background: radial-gradient(circle at top left, rgba(255,255,255,0.25), transparent 60%),
-                        rgba(15, 23, 42, 0.8);
-        }
-
-        .card:hover::after {
-            opacity: 1;
+                        rgba(15, 23, 42, 0.85);
         }
 
         .card-icon {
-            font-size: 2.1rem;
-            margin-bottom: 10px;
+            font-size: 2rem;
         }
 
         .card-title {
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             font-weight: 600;
-            margin-bottom: 6px;
         }
 
         .card-desc {
             font-size: 0.95rem;
-            color: #e5e7eb;
-            text-align: left;
+            color: var(--text-muted);
+        }
+
+        .secondary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 22px;
+            margin-top: 28px;
+        }
+
+        .panel {
+            background: var(--panel);
+            border-radius: 20px;
+            padding: 22px;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+        }
+
+        .panel h3 {
+            font-size: 1.05rem;
+            margin-bottom: 10px;
+        }
+
+        .panel ul {
+            list-style: none;
+            display: grid;
+            gap: 8px;
+        }
+
+        .panel li {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: var(--brand-soft);
+            color: var(--brand);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        @media (max-width: 640px) {
+            .hero-card {
+                padding: 26px;
+            }
         }
     </style>
 </head>
 <body>
 <div class="page">
-    <div class="logo-line">Analyseplattform</div>
-    <h1>
-        <span class="pris">pris</span><span class="analyse">analyse</span>.no
-    </h1>
-    <p class="subtitle">
-        Velg en tjeneste for å starte analysen.
-    </p>
+    <section class="hero">
+        <div class="hero-card">
+            <div class="logo-line">Analyseplattform</div>
+            <h1>
+                <span class="pris">pris</span><span class="analyse">analyse</span>.no
+            </h1>
+            <p class="subtitle">
+                En samlet plattform for bolig-, bil- og væranalyse – raskt, visuelt og datadrevet.
+            </p>
+            <div class="cta-row">
+                <a class="cta cta-primary" href="{{ url_for('bolig.bolig_hub') }}">Start med bolig</a>
+                <a class="cta cta-secondary" href="/strom">Se strømkartet</a>
+            </div>
+        </div>
+        <div class="hero-metrics">
+            <div class="metric-card">
+                <div class="metric-label">Oppdatert bolig- og bilinnsikt</div>
+                <div class="metric-value">Daglig</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Nøkkelindikatorer i samme dashbord</div>
+                <div class="metric-value">6 moduler</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Klar for dypdykk</div>
+                <div class="metric-value">Historikk + kart</div>
+            </div>
+        </div>
+    </section>
 
-    <div class="cards">
-
-        <!-- Bolig -->
-        <a class="card-link" href="{{ url_for('bolig.bolig_hub') }}">
-            <div class="card">
-                <div class="card-icon">🏠</div>
-                <div class="card-title">Bolig</div>
-                <div class="card-desc">
-                    Analyser boligmarkedet i Norge – inkludert fritidsboliger, priser, m²-priser og dager på markedet.
+    <section>
+        <h2 class="section-title">Velg analyse</h2>
+        <div class="cards">
+            <a class="card-link" href="{{ url_for('bolig.bolig_hub') }}">
+                <div class="card">
+                    <div class="card-icon">🏠</div>
+                    <div class="card-title">Bolig</div>
+                    <div class="card-desc">
+                        Full boligpakke med filtrering, historikk, prissjekk og markedsindikatorer.
+                    </div>
                 </div>
-            </div>
-        </a>
-
-        <!-- Fritidsbolig – egen kort hvis du vil, ellers kan kommenteres bort -->
-        <a class="card-link" href="/fritidsbolig/">
-            <div class="card">
-                <div class="card-icon">🏡</div>
-                <div class="card-title">Fritidsbolig</div>
-                <div class="card-desc">
-                    Eget fokus på hytter og fritidseiendom – prisnivå, m²-priser og hvor lenge de ligger ute.
+            </a>
+            <a class="card-link" href="/fritidsbolig/">
+                <div class="card">
+                    <div class="card-icon">🏡</div>
+                    <div class="card-title">Fritidsbolig</div>
+                    <div class="card-desc">
+                        Overvåk hyttemarkedet med prisnivå, m²-analyse og liggetid.
+                    </div>
                 </div>
-            </div>
-        </a>
-
-        <!-- Bil -->
-        <a class="card-link" href="/bil/">
-            <div class="card">
-                <div class="card-icon">🚗</div>
-                <div class="card-title">Bil</div>
-                <div class="card-desc">
-                    Innsikt i bruktbilmarkedet: prisdynamikk, salgsfart og utvikling i utvalgte segmenter.
+            </a>
+            <a class="card-link" href="/bil/">
+                <div class="card">
+                    <div class="card-icon">🚗</div>
+                    <div class="card-title">Bil</div>
+                    <div class="card-desc">
+                        Segmenter bruktbilmarkedet og følg tempo, prisfall og annonseringstid.
+                    </div>
                 </div>
-            </div>
-        </a>
-
-        <!-- Vær -->
-        <a class="card-link" href="/ver/">
-            <div class="card">
-                <div class="card-icon">⛅</div>
-                <div class="card-title">Vær</div>
-                <div class="card-desc">
-                    Historiske temperaturer og avvik fra normalen – med analyse av sammenhengen mellom vær, forbruk og priser.
+            </a>
+            <a class="card-link" href="/ver/">
+                <div class="card">
+                    <div class="card-icon">⛅</div>
+                    <div class="card-title">Vær</div>
+                    <div class="card-desc">
+                        Analyser temperaturer, avvik og sammenheng med forbruk og priser.
+                    </div>
                 </div>
-            </div>
-        </a>
-
-        <!-- Strøm -->
-        <a class="card-link" href="/strom">
-          <div class="card">
-            <div class="card-icon">⚡</div>
-            <div class="card-title">Strøm</div>
-            <div class="card-desc">
-              Interaktivt kart over Norgespris per kommune – andeler og endring i forbruk.
-            </div>
-          </div>
-        </a>
-
-
-
-                <!-- Kodeassistent -->
-        <a class="card-link" href="/kode/">
-            <div class="card">
-                <div class="card-icon">👨‍💻</div>
-                <div class="card-title">Kodeassistent</div>
-                <div class="card-desc">
-                    Få hjelp av Gemini til å skrive og feilsøke Python-kode for Bloomberg BQUANT-miljøet.
+            </a>
+            <a class="card-link" href="/strom">
+                <div class="card">
+                    <div class="card-icon">⚡</div>
+                    <div class="card-title">Strøm</div>
+                    <div class="card-desc">
+                        Interaktivt kart over Norgespris per kommune og endring i forbruk.
+                    </div>
                 </div>
-            </div>
-        </a>
+            </a>
+            <a class="card-link" href="/kode/">
+                <div class="card">
+                    <div class="card-icon">👨‍💻</div>
+                    <div class="card-title">Kodeassistent</div>
+                    <div class="card-desc">
+                        Bruk Gemini til å skrive, teste og feilsøke Python i BQUANT-miljøet.
+                    </div>
+                </div>
+            </a>
+        </div>
+    </section>
 
-    </div>
+    <section class="secondary-grid">
+        <div class="panel">
+            <span class="pill">Nytt</span>
+            <h3>Rask tilgang</h3>
+            <ul>
+                <li>Bolig-hubben samler alle boligmoduler i én visning.</li>
+                <li>Historikk gir prisutvikling per fylke og nasjonalt.</li>
+                <li>Underprisradar peker ut potensielle kupp automatisk.</li>
+            </ul>
+        </div>
+        <div class="panel">
+            <span class="pill">Oversikt</span>
+            <h3>Typiske arbeidsflyter</h3>
+            <ul>
+                <li>Start med dagens annonser → filtrer → sammenlign prisnivå.</li>
+                <li>Bytt til historikk for trend og sesonganalyse.</li>
+                <li>Avslutt med kartvisning for geografiske mønstre.</li>
+            </ul>
+        </div>
+        <div class="panel">
+            <span class="pill">Tips</span>
+            <h3>Få mer ut av dataene</h3>
+            <ul>
+                <li>Kombiner bolig- og værdata for pris-/forbruksanalyse.</li>
+                <li>Bruk kodeassistenten for raske datauttrekk.</li>
+                <li>Utforsk strøm-kartet for regionale endringer.</li>
+            </ul>
+        </div>
+    </section>
 </div>
 </body>
 </html>
