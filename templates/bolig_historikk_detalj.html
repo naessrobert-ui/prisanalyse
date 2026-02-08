@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Bolighistorikk – detalj{% endblock %}
+
+{% block content %}
+<style>
+  .page-wrap{max-width:1100px;margin:0 auto;padding:26px 16px 60px;}
+  .card{
+    background: rgba(10,20,35,0.92);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 18px;
+    box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+    padding: 18px 18px 16px;
+    color:#f5f7fb;
+  }
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .title{margin:0;font-size:1.5rem;letter-spacing:0.02em;}
+  .meta{color:#cfd9ea;font-size:0.92rem;}
+  .btn{
+    display:inline-block;
+    padding:7px 12px;
+    border-radius:999px;
+    text-decoration:none;
+    border:1px solid rgba(255,255,255,0.22);
+    background: rgba(3,10,20,0.65);
+    color:#e8f0ff;
+    font-size:0.92rem;
+  }
+  .btn:hover{background: rgba(60,140,255,0.35);}
+  .imgwrap{margin-top:12px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.10);background:rgba(2,8,18,0.85);}
+  .imgwrap img{width:100%;height:auto;display:block;}
+  .stats{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;}
+  .pill{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:#dbe7ff;font-size:0.92rem;}
+  .err{margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(220,53,69,0.16);border:1px solid rgba(220,53,69,0.45);color:#fbe9eb;}
+</style>
+
+<div class="page-wrap">
+  <div class="card">
+    <div class="topbar">
+      <div>
+        <h1 class="title">Detalj: {{ value }}</h1>
+        <div class="meta">
+          Nivå: <b>{{ level }}</b> • Boligtype: <b>{{ ny_brukt }}</b>
+          {% if start and end %} • Periode: <b>{{ start }}</b> – <b>{{ end }}</b>{% endif %}
+        </div>
+      </div>
+      <a class="btn" href="{{ url_for('bolig.bolig_historikk_view', level=level, ny_brukt=ny_brukt, start=start, end=end) }}">← Tilbake til oversikt</a>
+    </div>
+
+    {% if plot_png %}
+      <div class="imgwrap">
+        <img alt="Historikk-graf" src="data:image/png;base64,{{ plot_png }}" />
+      </div>
+    {% else %}
+      <div class="err">Ingen graf tilgjengelig for dette valget (mangler data i perioden).</div>
+    {% endif %}
+
+    {% if stats %}
+      <div class="stats">
+        <div class="pill">Rader: <b>{{ stats.rader }}</b></div>
+        <div class="pill">Maks aktive annonser i perioden: <b>{{ stats.aktive_max }}</b></div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
