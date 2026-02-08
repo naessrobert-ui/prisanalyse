@@ -1,95 +1,88 @@
-<!doctype html>
-<html lang="no">
-<head>
-  <meta charset="utf-8">
-  <title>Bolig – Historikk</title>
-  <style>
-    body { font-family: system-ui, Arial; margin: 16px; }
-    .row { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; }
-    label { display:block; font-size: 12px; color:#333; margin-bottom:4px;}
-    input, select { padding: 6px 8px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 12px; }
-    th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 14px; }
-    th { background: #f5f5f5; text-align: left; }
-    a { text-decoration:none; }
-    .muted { color:#666; font-size: 12px; }
-  </style>
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}Historisk utvikling – boligpriser{% endblock %}
 
-  <h1>Bolig – Historikk</h1>
-  <div class="muted">Master: {{ min_day }} → {{ max_day }}</div>
+{% block content %}
+<div class="container" style="max-width:1100px;margin:30px auto;padding:0 16px;color:#e9eef7;">
+  <h1 style="margin:0 0 6px;">Historisk utvikling i boligpriser</h1>
+  <p style="margin:0 0 18px;color:#b9c6da;">
+    Velg nivå, ny/bruk, periode og metrikk. Klikk på en rad for detaljvisning.
+  </p>
 
-  <form method="get" action="">
-    <div class="row">
-      <div>
-        <label>Nivå</label>
-        <select name="level">
-          {% for opt in ["Fylke","Kommune","Sted"] %}
-            <option value="{{ opt }}" {% if opt==level %}selected{% endif %}>{{ opt }}</option>
-          {% endfor %}
-        </select>
-      </div>
+  <form method="get" style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;background:rgba(0,0,0,0.18);padding:14px 14px;border-radius:14px;border:1px solid rgba(255,255,255,0.10);">
+    <div>
+      <label style="display:block;font-size:0.85rem;color:#c8d2e3;margin-bottom:4px;">Nivå</label>
+      <select name="level" style="min-width:160px;">
+        {% for opt in ["Fylke","Kommune","Sted"] %}
+          <option value="{{ opt }}" {% if level==opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+    </div>
 
-      <div>
-        <label>Ny/Brukt</label>
-        <select name="ny_brukt">
-          {% for opt in ["Begge","Brukt","Nybygg"] %}
-            <option value="{{ opt }}" {% if opt==ny_brukt %}selected{% endif %}>{{ opt }}</option>
-          {% endfor %}
-        </select>
-      </div>
+    <div>
+      <label style="display:block;font-size:0.85rem;color:#c8d2e3;margin-bottom:4px;">Ny/Brukt</label>
+      <select name="ny_brukt" style="min-width:160px;">
+        {% for opt in ["Begge","Brukt","Nybygg"] %}
+          <option value="{{ opt }}" {% if ny_brukt==opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+    </div>
 
-      <div>
-        <label>Start</label>
-        <input type="date" name="start" value="{{ start }}" min="{{ min_day }}" max="{{ max_day }}">
-      </div>
+    <div>
+      <label style="display:block;font-size:0.85rem;color:#c8d2e3;margin-bottom:4px;">Metrikk</label>
+      <select name="metric" style="min-width:220px;">
+        {% for key, label in metric_options.items() %}
+          <option value="{{ key }}" {% if metric==key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
 
-      <div>
-        <label>Slutt</label>
-        <input type="date" name="end" value="{{ end }}" min="{{ min_day }}" max="{{ max_day }}">
-      </div>
+    <div>
+      <label style="display:block;font-size:0.85rem;color:#c8d2e3;margin-bottom:4px;">Fra</label>
+      <input type="date" name="start" value="{{ start or '' }}" min="{{ min_day or '' }}" max="{{ max_day or '' }}">
+    </div>
 
-      <div>
-        <button type="submit">Oppdater</button>
-      </div>
+    <div>
+      <label style="display:block;font-size:0.85rem;color:#c8d2e3;margin-bottom:4px;">Til</label>
+      <input type="date" name="end" value="{{ end or '' }}" min="{{ min_day or '' }}" max="{{ max_day or '' }}">
+    </div>
+
+    <div>
+      <button type="submit" class="btn btn-primary" style="padding:8px 14px;border-radius:10px;">Oppdater</button>
     </div>
   </form>
 
-  {% if rows|length == 0 %}
-    <p>Ingen data / ingen treff.</p>
+  {% if not rows %}
+    <div style="margin-top:18px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);">
+      Ingen data å vise for valgte filtre/periode.
+    </div>
   {% else %}
-    <table>
-      <thead>
-        <tr>
-          {% for c in columns %}
-            <th>{{ c }}</th>
-          {% endfor %}
-          <th>Detaljer</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in rows %}
+    <div style="margin-top:18px;overflow:auto;border-radius:14px;border:1px solid rgba(255,255,255,0.10);background:rgba(0,0,0,0.15);">
+      <table class="table table-sm table-hover" style="margin:0;color:#e9eef7;">
+        <thead>
           <tr>
             {% for c in columns %}
-              <td>
-                {% if c == "Sted" %}
-                  {{ r[c] }}
-                {% else %}
-                  {{ r[c] }}
-                {% endif %}
-              </td>
+              <th style="white-space:nowrap;">{{ c }}</th>
             {% endfor %}
-            <td>
-              <a href="{{ url_for('bolig.bolig_historikk_detalj', level=level, value=r['Sted'], ny_brukt=ny_brukt, start=start, end=end, metric=metric) }}">
-                Vis
-              </a>
-            </td>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr>
+              {# forventer at første kolonne er gruppenavn (fylke/kommune/sted) #}
+              <td style="white-space:nowrap;">
+                <a href="{{ url_for('bolig.bolig_historikk_detalj', level=level, value=r[columns[0]], ny_brukt=ny_brukt, start=start, end=end) }}"
+                   style="color:#9ec1ff;text-decoration:none;">
+                  {{ r[columns[0]] }}
+                </a>
+              </td>
+              {% for c in columns[1:] %}
+                <td style="white-space:nowrap;">{{ r[c] }}</td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% endif %}
-
-</body>
-</html>
+</div>
+{% endblock %}
