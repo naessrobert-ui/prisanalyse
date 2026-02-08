@@ -62,6 +62,16 @@ def bolig_historikk_view():
     min_day = df["dato_første"].min()
     max_day = df["dato_siste"].max()
 
+
+    # Liste med alle tilgjengelige datoer (for JS datepicker i template)
+    try:
+        available_dates_js = (
+            pd.date_range(min_day, max_day, freq="D")
+            .strftime("%Y-%m-%d")
+            .tolist()
+        )
+    except Exception:
+        available_dates_js = []
     # Hvis dataset mangler datoer: returnér tomt, men med alle template-variabler
     if pd.isna(min_day) or pd.isna(max_day):
         return render_template(
@@ -76,6 +86,7 @@ def bolig_historikk_view():
             rows=[],
             metric=metric,
             metric_options=metric_options,
+            available_dates_js=available_dates_js,
         )
 
     if start is None or pd.isna(start):
@@ -99,6 +110,7 @@ def bolig_historikk_view():
         rows=rows,
         metric=metric,
         metric_options=metric_options,
+        available_dates_js=available_dates_js,
     )
 
 
