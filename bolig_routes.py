@@ -28,7 +28,6 @@ from bolig_historikk_service import (
     daily_series_fast,
 )
 
-from flask import url_for
 import base64
 import matplotlib.pyplot as plt
 from io import BytesIO
@@ -39,19 +38,19 @@ def _parse_date(s: str):
         return None
     return pd.to_datetime(s, errors="coerce")
 
-
 @bolig_bp.route("/historikk/")
 def bolig_historikk_view():
-    """
-    Fullintegrert historikk-side (Flask).
-    Query params:
-      level=Fylke|Kommune|Sted
-      ny_brukt=Begge|Brukt|Nybygg
-      start=YYYY-MM-DD
-      end=YYYY-MM-DD
-    """
     level = request.args.get("level", "Kommune")
     ny_brukt = request.args.get("ny_brukt", "Begge")
+
+    metric = request.args.get("metric", "median_m2")
+    metric_options = {
+        "median_m2": "Median m²-pris",
+        "median_totalpris": "Median totalpris",
+        "active_count": "Antall aktive annonser",
+        "mean_days_on_market": "Snitt dager på markedet",
+    }
+
     start = _parse_date(request.args.get("start", ""))
     end = _parse_date(request.args.get("end", ""))
 
@@ -60,18 +59,23 @@ def bolig_historikk_view():
     df = normalize_master(raw)
     df = apply_ny_brukt_filter(df, ny_brukt)
 
-    # Defaults for datoer (hvis bruker ikke har valgt)
     min_day = df["dato_første"].min()
     max_day = df["dato_siste"].max()
 
+    # Hvis dataset mangler datoer: returnér tomt, men med alle template-variabler
     if pd.isna(min_day) or pd.isna(max_day):
-        # Ingen data
         return render_template(
             "bolig_historikk.html",
-            level=level, ny_brukt=ny_brukt,
-            start=None, end=None,
-            min_day=None, max_day=None,
-            rows=[], columns=[],
+            level=level,
+            ny_brukt=ny_brukt,
+            start=None,
+            end=None,
+            min_day=None,
+            max_day=None,
+            columns=[],
+            rows=[],
+            metric=metric,
+            metric_options=metric_options,
         )
 
     if start is None or pd.isna(start):
@@ -79,10 +83,7 @@ def bolig_historikk_view():
     if end is None or pd.isna(end):
         end = max_day
 
-    # bygg tabell
     table = build_table(df, level, start, end)
-
-    # gjør klar for template
     columns = list(table.columns)
     rows = table.to_dict(orient="records")
 
@@ -96,7 +97,10 @@ def bolig_historikk_view():
         max_day=str(pd.to_datetime(max_day).date()),
         columns=columns,
         rows=rows,
+        metric=metric,
+        metric_options=metric_options,
     )
+
 
 
 @bolig_bp.route("/historikk/detalj/")
@@ -109,6 +113,16 @@ def bolig_historikk_detalj():
     level = request.args.get("level", "Kommune")
     value = request.args.get("value", "")
     ny_brukt = request.args.get("ny_brukt", "Begge")
+    metric = request.args.get("metric", "median_m2")
+
+    metric_meta = {
+        "median_m2": ("median_m2", "Median m²-pris", "kr/m²"),
+        "median_totalpris": ("median_totalpris", "Median totalpris", "kr"),
+        "active_count": ("active_count", "Antall aktive annonser", "antall"),
+        "mean_days_on_market": ("mean_days_on_market", "Snitt dager på markedet", "dager"),
+    }
+    ycol, title_txt, yunit = metric_meta.get(metric, ("median_m2", "Median m²-pris", "kr/m²"))
+
     start = _parse_date(request.args.get("start", ""))
     end = _parse_date(request.args.get("end", ""))
 
@@ -130,10 +144,16 @@ def bolig_historikk_detalj():
 
     # plot -> base64 png (ingen ekstra JS)
     fig = plt.figure()
-    plt.plot(ser["dato"], ser["median_m2"])
-    plt.title(f"Median m²-pris – {value} ({ny_brukt})")
+
+    if ycol not in ser.columns:
+        # fallback hvis daily_series_fast ikke leverer den kolonnen
+        ycol = "median_m2"
+        title_txt, yunit = "Median m²-pris", "kr/m²"
+
+    plt.plot(ser["dato"], pd.to_numeric(ser[ycol], errors="coerce"))
+    plt.title(f"{title_txt} – {value} ({ny_brukt})")
     plt.xlabel("Dato")
-    plt.ylabel("Median m²-pris")
+    plt.ylabel(yunit)
     plt.xticks(rotation=30)
     plt.tight_layout()
 
@@ -157,7 +177,7 @@ def bolig_historikk_detalj():
         stats=stats,
     )
 
-HISTORIKK_APP_URL = os.environ.get("BOLIG_HISTORIKK_URL", "http://localhost:8501")
+
 
 
 
@@ -293,42 +313,75 @@ def bolig_hub():
 # 2) Priser per sted – REN FLASK-VERSJON
 # --------------------------------------------------
 
-
-@bolig_bp.route("/priser-sted/")
-def bolig_priser_sted():
-    """
-    Flask-side for 'Priser per sted'.
-
-    Hovednivå (query-param 'nivaa'):
-      - 'fylke'  (default): én rad per fylke
-      - 'sted'   : topp N steder
-      - 'gate'   : topp N gate+sted
-
-    Hovedparametre:
-      - nivaa = 'fylke' | 'sted' | 'gate'
-      - sort  = kolonnenavn (f.eks. 'median_m2pris', 'median_totalpris', 'median_dager', 'antall')
-      - order = 'asc' | 'desc'
-      - top_n = antall rader for sted/gate (default 20)
-      - min_n = minimum antall observasjoner per gruppe for sted/gate (default 5)
-
-    Detaljvisning (alle boliger i valgt gruppe):
-      - detalj_nivaa = 'fylke' | 'sted' | 'gate'
-      - detalj_key   = verdien (fylkenavn, sted, gate_sted)
-      - nybrukt      = 'alle' | 'nybygg' | 'brukt'
-      - dsort        = kolonne i detaljtabell (f.eks. 'm2pris', 'totalpris', 'dager')
-      - dorder       = 'asc' | 'desc'
-    """
+    @bolig_bp.route("/priser-sted/")
+    def bolig_priser_sted():
+        """
+        Flask-side for 'Priser per sted'.
+        ...
+        """
 
         # ---- Globalt filter: nybygg / brukt / alle ----
-    nybrukt_filter = request.args.get("nybrukt", "alle").lower()
-    if nybrukt_filter not in {"alle", "nybygg", "brukt"}:
-        nybrukt_filter = "alle"
+        nybrukt_filter = request.args.get("nybrukt", "alle").lower()
+        if nybrukt_filter not in {"alle", "nybygg", "brukt"}:
+            nybrukt_filter = "alle"
 
-    if nybrukt_filter == "nybygg":
-        df = df[df["NY/Brukt"] == "Nybygg"]
-    elif nybrukt_filter == "brukt":
-        df = df[df["NY/Brukt"] == "Brukt"]
-    
+        df_raw = get_cached_bolig_df()
+        if df_raw is None or df_raw.empty:
+            return render_template(
+                "bolig_priser_sted.html",
+                error="Fant ingen boligdata å analysere.",
+                has_data=False,
+                nybrukt_filter=nybrukt_filter,
+                rows=[],
+                columns=[],
+                mode="fylke",
+                title="Bolig – priser per sted",
+                lead_text="",
+                show_top_n=False,
+                top_n=None,
+                sort=None,
+                order=None,
+                min_n=None,
+                detalj_nivaa=None,
+                detalj_key=None,
+                detalj_title=None,
+                detalj_rows=[],
+                dsort=None,
+                dorder=None,
+            )
+
+        try:
+            df = _prepare_priser_df(df_raw)
+        except Exception as e:
+            return render_template(
+                "bolig_priser_sted.html",
+                error=f"Feil ved klargjøring av boligdata: {e}",
+                has_data=False,
+                rows=[],
+                columns=[],
+                mode="fylke",
+                title="Bolig – priser per sted",
+                lead_text="",
+                show_top_n=False,
+                top_n=None,
+                sort=None,
+                order=None,
+                min_n=None,
+                detalj_nivaa=None,
+                detalj_key=None,
+                detalj_title=None,
+                detalj_rows=[],
+                nybrukt_filter=nybrukt_filter,
+                dsort=None,
+                dorder=None,
+            )
+
+        # ✅ Nå finnes df, så her er det trygt å filtrere:
+        if nybrukt_filter == "nybygg":
+            df = df[df["NY/Brukt"] == "Nybygg"]
+        elif nybrukt_filter == "brukt":
+            df = df[df["NY/Brukt"] == "Brukt"]
+
     df_raw = get_cached_bolig_df()
     if df_raw is None or df_raw.empty:
         return render_template(

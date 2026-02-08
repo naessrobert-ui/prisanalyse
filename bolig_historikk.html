@@ -81,7 +81,7 @@
               </td>
             {% endfor %}
             <td>
-              <a href="{{ url_for('bolig.bolig_historikk_detalj', level=level, value=r['Sted'], ny_brukt=ny_brukt, start=start, end=end) }}">
+              <a href="{{ url_for('bolig.bolig_historikk_detalj', level=level, value=r['Sted'], ny_brukt=ny_brukt, start=start, end=end, metric=metric) }}">
                 Vis
               </a>
             </td>
