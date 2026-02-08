@@ -159,8 +159,6 @@ def bolig_historikk_detalj():
 
 HISTORIKK_APP_URL = os.environ.get("BOLIG_HISTORIKK_URL", "http://localhost:8501")
 
-# ÉN blueprint, med navn "bolig" og url_prefix "/bolig"
-bolig_bp = Blueprint("bolig", __name__, url_prefix="/bolig")
 
 
 # --------------------------------------------------
