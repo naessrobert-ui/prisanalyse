@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import folium
 from folium.plugins import MarkerCluster
-from flask import Blueprint, render_template, jsonify, request, redirect
+from flask import Blueprint, render_template, jsonify, request, redirect, utl_for
 from collections import Counter
 import re
 
@@ -32,6 +32,7 @@ import base64
 import matplotlib.pyplot as plt
 from io import BytesIO
 
+bolig_bp = Blueprint("bolig", __name__, url_prefix="/bolig")
 
 def _parse_date(s: str):
     if not s:
