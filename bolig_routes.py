@@ -1,5 +1,5 @@
 # bolig_routes.py
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*- sjekk
 
 import json
 import os
