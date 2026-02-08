@@ -29,6 +29,8 @@ from bolig_historikk_service import (
 )
 
 import base64
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from io import BytesIO
 
@@ -40,15 +42,15 @@ def _parse_date(s: str):
 
 @bolig_bp.route("/historikk/")
 def bolig_historikk_view():
-    level = request.args.get("level", "Kommune")
-    ny_brukt = request.args.get("ny_brukt", "Begge")
+    level = request.args.get("level", "Fylke")
+    ny_brukt = request.args.get("ny_brukt", "Brukt")
 
     metric = request.args.get("metric", "median_m2")
     metric_options = {
         "median_m2": "Median m²-pris",
         "median_totalpris": "Median totalpris",
         "active_count": "Antall aktive annonser",
-        "mean_days_on_market": "Snitt dager på markedet",
+        "mean_days_on_market": "Median dager på markedet",
     }
 
     start = _parse_date(request.args.get("start", ""))
@@ -89,10 +91,21 @@ def bolig_historikk_view():
             available_dates_js=available_dates_js,
         )
 
+    today = pd.Timestamp.today().normalize()
+
+    # Defaults: siste ~30 dager -> i dag (clampet til datasettets min/max)
     if start is None or pd.isna(start):
-        start = min_day
+        start = today - pd.Timedelta(days=30)
     if end is None or pd.isna(end):
+        end = today
+
+    if start < min_day:
+        start = min_day
+    if end > max_day:
         end = max_day
+    if end < start:
+        end = start
+
 
     table = build_table(df, level, start, end)
     columns = list(table.columns)
@@ -117,23 +130,10 @@ def bolig_historikk_view():
 
 @bolig_bp.route("/historikk/detalj/")
 def bolig_historikk_detalj():
-    """
-    Detaljside for valgt gruppe fra tabellen.
-    Params:
-      level, value, ny_brukt, start, end
-    """
-    level = request.args.get("level", "Kommune")
+    """Detaljside for valgt gruppe fra tabellen."""
+    level = request.args.get("level", "Fylke")
     value = request.args.get("value", "")
-    ny_brukt = request.args.get("ny_brukt", "Begge")
-    metric = request.args.get("metric", "median_m2")
-
-    metric_meta = {
-        "median_m2": ("median_m2", "Median m²-pris", "kr/m²"),
-        "median_totalpris": ("median_totalpris", "Median totalpris", "kr"),
-        "active_count": ("active_count", "Antall aktive annonser", "antall"),
-        "mean_days_on_market": ("mean_days_on_market", "Snitt dager på markedet", "dager"),
-    }
-    ycol, title_txt, yunit = metric_meta.get(metric, ("median_m2", "Median m²-pris", "kr/m²"))
+    ny_brukt = request.args.get("ny_brukt", "Brukt")
 
     start = _parse_date(request.args.get("start", ""))
     end = _parse_date(request.args.get("end", ""))
@@ -146,28 +146,41 @@ def bolig_historikk_detalj():
     if df.empty or start is None or end is None or pd.isna(start) or pd.isna(end):
         return render_template(
             "bolig_historikk_detalj.html",
-            level=level, value=value, ny_brukt=ny_brukt,
-            start=None, end=None,
+            level=level,
+            value=value,
+            ny_brukt=ny_brukt,
+            start=None,
+            end=None,
             plot_png=None,
             stats=None,
+            detail_columns=[],
+            detail_rows=[],
         )
 
     ser = daily_series_fast(df, start, end)
 
-    # plot -> base64 png (ingen ekstra JS)
-    fig = plt.figure()
+    # --------- 2x2 grafer ---------
+    fig, axes = plt.subplots(2, 2, figsize=(16, 8))
+    axes = axes.flatten()
 
-    if ycol not in ser.columns:
-        # fallback hvis daily_series_fast ikke leverer den kolonnen
-        ycol = "median_m2"
-        title_txt, yunit = "Median m²-pris", "kr/m²"
+    plots = [
+        ("median_m2", "Median m²-pris", "kr/m²"),
+        ("median_totalpris", "Median totalpris", "kr"),
+        ("active_count", "Antall aktive annonser", "antall"),
+        ("mean_days_on_market", "Median dager på markedet", "dager"),
+    ]
 
-    plt.plot(ser["dato"], pd.to_numeric(ser[ycol], errors="coerce"))
-    plt.title(f"{title_txt} – {value} ({ny_brukt})")
-    plt.xlabel("Dato")
-    plt.ylabel(yunit)
-    plt.xticks(rotation=30)
-    plt.tight_layout()
+    for ax, (col, title, unit) in zip(axes, plots):
+        if col in ser.columns:
+            ax.plot(ser["dato"], pd.to_numeric(ser[col], errors="coerce"))
+            ax.set_title(title)
+            ax.set_ylabel(unit)
+            ax.tick_params(axis="x", rotation=30)
+        else:
+            ax.set_visible(False)
+
+    fig.suptitle(f"{value} ({ny_brukt})", y=1.02)
+    fig.tight_layout()
 
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=160)
@@ -177,19 +190,117 @@ def bolig_historikk_detalj():
 
     stats = {
         "rader": int(len(df)),
-        "aktive_max": int(pd.to_numeric(ser["active_count"], errors="coerce").max() or 0),
+        "aktive_max": int(pd.to_numeric(ser.get("active_count"), errors="coerce").max() or 0),
     }
+
+    # --------- Debug-tabell (kurert) ---------
+    start_n = pd.to_datetime(start).normalize()
+    end_n = pd.to_datetime(end).normalize()
+
+    df_list = df.copy()
+    df_list["dato_første"] = pd.to_datetime(df_list.get("dato_første"), errors="coerce").dt.normalize()
+    df_list["dato_siste"] = pd.to_datetime(df_list.get("dato_siste"), errors="coerce").dt.normalize()
+
+    # Ta med annonser som overlapper perioden: publisert <= end og siste >= start
+    df_list = df_list[
+        df_list["dato_første"].notna()
+        & df_list["dato_siste"].notna()
+        & (df_list["dato_første"] <= end_n)
+        & (df_list["dato_siste"] >= start_n)
+    ].copy()
+
+    df_list["dager_paa_markedet_slutt"] = (end_n - df_list["dato_første"]).dt.days
+    df_list.loc[df_list["dager_paa_markedet_slutt"] < 0, "dager_paa_markedet_slutt"] = 0
+
+    def fmt_int_space(v):
+        if pd.isna(v):
+            return ""
+        try:
+            return f"{int(round(float(v))):,}".replace(",", " ")
+        except Exception:
+            return str(v)
+
+    _months = {
+        1: "jan", 2: "feb", 3: "mar", 4: "apr", 5: "mai", 6: "jun",
+        7: "jul", 8: "aug", 9: "sep", 10: "okt", 11: "nov", 12: "des"
+    }
+
+    def fmt_date_no(v):
+        if pd.isna(v) or v == "":
+            return ""
+        try:
+            dt = pd.to_datetime(v).to_pydatetime().date()
+            return f"{dt.day:02d}. {_months[dt.month]} {dt.year}"
+        except Exception:
+            return str(v)
+
+    def finn_url(val):
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return ""
+        try:
+            fk = str(int(float(val)))
+        except Exception:
+            fk = str(val)
+        return f"https://www.finn.no/realestate/homes/ad.html?finnkode={fk}"
+
+    col = lambda *cands: next((c for c in cands if c in df_list.columns), None)
+
+    c_finn = col("finnkode", "FINN-kode", "finn_code")
+    c_title = col("full_title", "tittel", "title")
+    c_addr = col("address", "adresse")
+    c_place = col("sted", "place")
+    c_type = col("boligtype", "property_type", "type")
+    c_ny = col("ny_brukt", "nybrukt", "new_used")
+    c_area = col("areal", "bruksareal", "kvm", "area")
+    c_m2 = col("m2_pris", "m2_price", "m2pris")
+    c_total = col("totalpris", "total_price", "pris")
+
+    detail_columns = [
+        "FINN", "Tittel", "Adresse", "Sted", "Boligtype", "Ny/Brukt",
+        "Areal", "M²-pris", "Totalpris", "Publisert", "Siste dato", "Dager (slutt)"
+    ]
+    detail_rows = []
+
+    for _, r in df_list.iterrows():
+        fk = r.get(c_finn) if c_finn else ""
+        url = finn_url(fk)
+        # FINN som tekst
+        if fk is None or (isinstance(fk, float) and pd.isna(fk)):
+            fk_txt = ""
+        else:
+            try:
+                fk_txt = str(int(float(fk)))
+            except Exception:
+                fk_txt = str(fk)
+
+        detail_rows.append({
+            "FINN": fk_txt,
+            "Tittel": "" if not c_title else (r.get(c_title) or ""),
+            "Adresse": "" if not c_addr else (r.get(c_addr) or ""),
+            "Sted": "" if not c_place else (r.get(c_place) or ""),
+            "Boligtype": "" if not c_type else (r.get(c_type) or ""),
+            "Ny/Brukt": "" if not c_ny else (r.get(c_ny) or ""),
+            "Areal": fmt_int_space(r.get(c_area)) if c_area else "",
+            "M²-pris": fmt_int_space(r.get(c_m2)) if c_m2 else "",
+            "Totalpris": fmt_int_space(r.get(c_total)) if c_total else "",
+            "Publisert": fmt_date_no(r.get("dato_første")),
+            "Siste dato": fmt_date_no(r.get("dato_siste")),
+            "Dager (slutt)": fmt_int_space(r.get("dager_paa_markedet_slutt")),
+            "FINN_URL": url,
+        })
 
     return render_template(
         "bolig_historikk_detalj.html",
-        level=level, value=value, ny_brukt=ny_brukt,
+        level=level,
+        value=value,
+        ny_brukt=ny_brukt,
         start=str(pd.to_datetime(start).date()),
         end=str(pd.to_datetime(end).date()),
         plot_png=plot_png,
         stats=stats,
+        detail_columns=detail_columns,
+        detail_rows=detail_rows,
     )
-
-
 
 
 

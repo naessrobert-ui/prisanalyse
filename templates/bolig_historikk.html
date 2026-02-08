@@ -2,16 +2,64 @@
 {% block title %}Historisk utvikling – boligpriser{% endblock %}
 
 {% block content %}
-<div class="container" style="max-width:1100px;margin:30px auto;padding:0 16px;color:#e9eef7;">
+<style>
+  /* Full bredde – bryt ut av container i base.html */
+  .fullbleed{
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding-left: 16px;
+    padding-right: 16px;
+    color:#e9eef7;
+  }
+
+  .panel{
+    background: rgba(0,0,0,0.18);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .table-wrap{
+    margin-top:18px;
+    overflow-x:auto;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,0.10);
+    background:rgba(0,0,0,0.15);
+    max-height: 520px; /* ca 10 rader */
+  }
+
+  table{
+    width:100%;
+    min-width:1400px;
+  }
+
+  thead th{
+    position:sticky;
+    top:0;
+    z-index:2;
+    background:rgba(20,30,45,0.95);
+    white-space:nowrap;
+    cursor:pointer;
+  }
+
+  td, th{
+    white-space:nowrap;
+  }
+</style>
+
+<div class="fullbleed">
+
   <h1 style="margin:0 0 6px;">Historisk utvikling i boligpriser</h1>
   <p style="margin:0 0 18px;color:#b9c6da;">
     Velg nivå, ny/bruk, periode og metrikk. Klikk på en rad for detaljvisning.
   </p>
 
-  <form method="get" style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;background:rgba(0,0,0,0.18);padding:14px 14px;border-radius:14px;border:1px solid rgba(255,255,255,0.10);">
+  <form method="get" class="panel" style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;">
     <div>
-      <label style="display:block;font-size:0.85rem;color:#c8d2e3;margin-bottom:4px;">Nivå</label>
-      <select name="level" style="min-width:160px;">
+      <label>Nivå</label>
+      <select name="level">
         {% for opt in ["Fylke","Kommune","Sted"] %}
           <option value="{{ opt }}" {% if level==opt %}selected{% endif %}>{{ opt }}</option>
         {% endfor %}
@@ -19,8 +67,8 @@
     </div>
 
     <div>
-      <label style="display:block;font-size:0.85rem;color:#c8d2e3;margin-bottom:4px;">Ny/Brukt</label>
-      <select name="ny_brukt" style="min-width:160px;">
+      <label>Ny/Brukt</label>
+      <select name="ny_brukt">
         {% for opt in ["Begge","Brukt","Nybygg"] %}
           <option value="{{ opt }}" {% if ny_brukt==opt %}selected{% endif %}>{{ opt }}</option>
         {% endfor %}
@@ -28,61 +76,57 @@
     </div>
 
     <div>
-      <label style="display:block;font-size:0.85rem;color:#c8d2e3;margin-bottom:4px;">Metrikk</label>
-      <select name="metric" style="min-width:220px;">
-        {% for key, label in metric_options.items() %}
-          <option value="{{ key }}" {% if metric==key %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
+      <label>Fra</label>
+      <input type="date" name="start" value="{{ start or '' }}">
     </div>
 
     <div>
-      <label style="display:block;font-size:0.85rem;color:#c8d2e3;margin-bottom:4px;">Fra</label>
-      <input type="date" name="start" value="{{ start or '' }}" min="{{ min_day or '' }}" max="{{ max_day or '' }}">
+      <label>Til</label>
+      <input type="date" name="end" value="{{ end or '' }}">
     </div>
 
     <div>
-      <label style="display:block;font-size:0.85rem;color:#c8d2e3;margin-bottom:4px;">Til</label>
-      <input type="date" name="end" value="{{ end or '' }}" min="{{ min_day or '' }}" max="{{ max_day or '' }}">
-    </div>
-
-    <div>
-      <button type="submit" class="btn btn-primary" style="padding:8px 14px;border-radius:10px;">Oppdater</button>
+      <button type="submit" class="btn btn-primary" style="border-radius:10px;">Oppdater</button>
     </div>
   </form>
 
-  {% if not rows %}
-    <div style="margin-top:18px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);">
-      Ingen data å vise for valgte filtre/periode.
-    </div>
-  {% else %}
-    <div style="margin-top:18px;overflow:auto;border-radius:14px;border:1px solid rgba(255,255,255,0.10);background:rgba(0,0,0,0.15);">
-      <table class="table table-sm table-hover" style="margin:0;color:#e9eef7;">
+  {% if rows %}
+    <div class="table-wrap">
+      <table id="overviewTable" class="table table-sm table-hover">
         <thead>
           <tr>
             {% for c in columns %}
-              <th style="white-space:nowrap;">{{ c }}</th>
+              <th>{{ c }}</th>
             {% endfor %}
           </tr>
         </thead>
         <tbody>
           {% for r in rows %}
             <tr>
-              {# forventer at første kolonne er gruppenavn (fylke/kommune/sted) #}
-              <td style="white-space:nowrap;">
-                <a href="{{ url_for('bolig.bolig_historikk_detalj', level=level, value=r[columns[0]], ny_brukt=ny_brukt, start=start, end=end) }}"
+              <td>
+                <a href="{{ url_for('bolig.bolig_historikk_detalj',
+                                    level=level,
+                                    value=r[columns[0]],
+                                    ny_brukt=ny_brukt,
+                                    start=start,
+                                    end=end) }}"
                    style="color:#9ec1ff;text-decoration:none;">
                   {{ r[columns[0]] }}
                 </a>
               </td>
               {% for c in columns[1:] %}
-                <td style="white-space:nowrap;">{{ r[c] }}</td>
+                <td>{{ r[c] }}</td>
               {% endfor %}
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+  {% else %}
+    <div class="panel" style="margin-top:18px;">
+      Ingen data å vise for valgte filtre/periode.
+    </div>
   {% endif %}
+
 </div>
 {% endblock %}

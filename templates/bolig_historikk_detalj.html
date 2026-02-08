@@ -1,66 +1,293 @@
 {% extends "base.html" %}
-
-{% block title %}Bolighistorikk – detalj{% endblock %}
+{% block title %}Detalj – {{ value }}{% endblock %}
 
 {% block content %}
 <style>
-  .page-wrap{max-width:1100px;margin:0 auto;padding:26px 16px 60px;}
-  .card{
-    background: rgba(10,20,35,0.92);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 18px;
-    box-shadow: 0 18px 60px rgba(0,0,0,0.55);
-    padding: 18px 18px 16px;
-    color:#f5f7fb;
+  .detail-container{
+    max-width: 100%;
+  /* Bryt ut av ev. max-width container i base.html */
+  .detail-fullbleed{
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding-left: 16px;
+    padding-right: 16px;
   }
-  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .title{margin:0;font-size:1.5rem;letter-spacing:0.02em;}
-  .meta{color:#cfd9ea;font-size:0.92rem;}
-  .btn{
-    display:inline-block;
-    padding:7px 12px;
-    border-radius:999px;
-    text-decoration:none;
-    border:1px solid rgba(255,255,255,0.22);
-    background: rgba(3,10,20,0.65);
-    color:#e8f0ff;
-    font-size:0.92rem;
+
+    margin: 22px auto;
+    padding: 0 16px;
+    color:#e9eef7;
   }
-  .btn:hover{background: rgba(60,140,255,0.35);}
-  .imgwrap{margin-top:12px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.10);background:rgba(2,8,18,0.85);}
-  .imgwrap img{width:100%;height:auto;display:block;}
-  .stats{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;}
-  .pill{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:#dbe7ff;font-size:0.92rem;}
-  .err{margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(220,53,69,0.16);border:1px solid rgba(220,53,69,0.45);color:#fbe9eb;}
+  .panel{
+    background: rgba(0,0,0,0.18);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .detail-filters{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:end;
+    margin-top: 12px;
+  }
+  .detail-filters label{
+    display:block;
+    font-size:0.85rem;
+    color:#c8d2e3;
+    margin-bottom:4px;
+  }
+  .detail-filters input,
+  .detail-filters select{
+    min-width: 160px;
+  }
+  .detail-filters .searchbox{
+    min-width: 340px;
+  }
+
+  .plot-wrap{
+    margin-top: 12px;
+    overflow:auto;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.12);
+    padding: 10px;
+  }
+  .plot-wrap img{
+    display:block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+  }
+
+  /* Tabellen: full bredde, uten at den blir "smal" pga mange kolonner */
+  .detail-table-wrap{
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 620px; /* ca 20 rader synlig */
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.12);
+    margin-top: 12px;
+  }
+  .detail-table-wrap table{
+    width: 100%;
+    margin: 0;
+  }
+  .detail-table-wrap thead th{
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(20, 30, 45, 0.96);
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  /* Standard: ikke bryt tallkolonner */
+  .detail-table-wrap td{
+    white-space: nowrap;
+  }
+  /* Men la tekstkolonner bryte slik at hele tabellen får plass på skjermen */
+  .wrap-text{
+    white-space: normal !important;
+    max-width: 420px;
+    line-height: 1.2;
+  }
+
+  .muted{ color:#b9c6da; }
 </style>
 
-<div class="page-wrap">
-  <div class="card">
-    <div class="topbar">
-      <div>
-        <h1 class="title">Detalj: {{ value }}</h1>
-        <div class="meta">
-          Nivå: <b>{{ level }}</b> • Boligtype: <b>{{ ny_brukt }}</b>
-          {% if start and end %} • Periode: <b>{{ start }}</b> – <b>{{ end }}</b>{% endif %}
-        </div>
+<div class="detail-container detail-fullbleed">
+  <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap;">
+    <div>
+      <h1 style="margin:0 0 6px;">Detalj: {{ value }}</h1>
+      <div class="muted" style="font-size:0.92rem;">
+        Nivå: {{ level }} · Boligtype: {{ ny_brukt }} · Periode: {{ start }} – {{ end }}
       </div>
-      <a class="btn" href="{{ url_for('bolig.bolig_historikk_view', level=level, ny_brukt=ny_brukt, start=start, end=end) }}">← Tilbake til oversikt</a>
+    </div>
+    <div>
+      <a href="{{ url_for('bolig.bolig_historikk_view', level=level, ny_brukt=ny_brukt, start=start, end=end) }}"
+         class="btn btn-secondary" style="border-radius:10px;">
+        ← Tilbake til oversikt
+      </a>
+    </div>
+  </div>
+
+  <!-- Filtre: ny/brukt + datoer (server-side) + fritekst (client-side) -->
+  <div class="panel" style="margin-top:14px;">
+    <form method="get" class="detail-filters">
+      <input type="hidden" name="level" value="{{ level }}">
+      <input type="hidden" name="value" value="{{ value }}">
+
+      <div>
+        <label>Ny/Brukt</label>
+        <select name="ny_brukt">
+          {% for opt in ["Begge","Brukt","Nybygg"] %}
+            <option value="{{ opt }}" {% if ny_brukt==opt %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label>Fra</label>
+        <input type="date" name="start" value="{{ start or '' }}">
+      </div>
+
+      <div>
+        <label>Til</label>
+        <input type="date" name="end" value="{{ end or '' }}">
+      </div>
+
+      <div>
+        <label>Søk i tabellen</label>
+        <input id="detailSearch" class="searchbox" type="text"
+               placeholder="FINN-kode, adresse, boligtype, sted…">
+      </div>
+
+      <div>
+        <button type="submit" class="btn btn-primary" style="padding:8px 14px;border-radius:10px;">Oppdater</button>
+      </div>
+    </form>
+  </div>
+
+  {% if plot_png %}
+    <div class="plot-wrap">
+      <img src="data:image/png;base64,{{ plot_png }}" alt="Historikk">
+    </div>
+  {% endif %}
+
+  {% if detail_rows %}
+    <h3 style="margin:14px 0 8px;">Eiendommer som overlapper perioden</h3>
+    <div class="muted" style="font-size:0.9rem;">
+      Klikk på kolonneoverskrift for sortering. Søkefeltet filtrerer rader umiddelbart.
     </div>
 
-    {% if plot_png %}
-      <div class="imgwrap">
-        <img alt="Historikk-graf" src="data:image/png;base64,{{ plot_png }}" />
-      </div>
-    {% else %}
-      <div class="err">Ingen graf tilgjengelig for dette valget (mangler data i perioden).</div>
-    {% endif %}
+    <div class="detail-table-wrap">
+      <table id="detailTable" class="table table-sm table-hover" style="color:#e9eef7;">
+        <thead>
+          <tr>
+            {% for c in detail_columns %}
+              <th>{{ c }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in detail_rows %}
+            <tr>
+              {% for c in detail_columns %}
+                {% if c == "FINN" %}
+                  <td>
+                    {% if r["FINN_URL"] %}
+                      <a href="{{ r['FINN_URL'] }}" target="_blank" style="color:#9ec1ff;text-decoration:none;">
+                        {{ r["FINN"] }}
+                      </a>
+                    {% else %}
+                      {{ r["FINN"] }}
+                    {% endif %}
+                  </td>
+                {% elif c in ["Tittel", "Adresse"] %}
+                  <td class="wrap-text">{{ r[c] }}</td>
+                {% else %}
+                  <td>{{ r[c] }}</td>
+                {% endif %}
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
 
-    {% if stats %}
-      <div class="stats">
-        <div class="pill">Rader: <b>{{ stats.rader }}</b></div>
-        <div class="pill">Maks aktive annonser i perioden: <b>{{ stats.aktive_max }}</b></div>
-      </div>
-    {% endif %}
-  </div>
+    <script>
+      (function () {
+        const table = document.getElementById("detailTable");
+        const search = document.getElementById("detailSearch");
+        if (!table || !table.tHead || !table.tBodies.length) return;
+        const tbody = table.tBodies[0];
+
+        const getCell = (row, idx) => (row.cells[idx]?.innerText || "").trim();
+
+        const toNumber = (txt) => {
+          if (!txt) return NaN;
+          const cleaned = txt
+            .replace(/\s+/g, "")
+            .replace("%", "")
+            .replace(/\./g, "")
+            .replace(",", ".");
+          const n = Number(cleaned);
+          return Number.isFinite(n) ? n : NaN;
+        };
+
+        const toDate = (txt) => {
+          if (!txt) return NaN;
+          // prøver først native Date.parse (ISO), ellers norsk "12. des 2025"
+          let t = Date.parse(txt);
+          if (Number.isFinite(t)) return t;
+
+          const m = txt.match(/^(\d{1,2})\.\s*([a-zæøå]{3})\s*(\d{4})$/i);
+          if (!m) return NaN;
+          const day = Number(m[1]);
+          const mon = m[2].toLowerCase();
+          const year = Number(m[3]);
+          const map = {jan:0,feb:1,mar:2,apr:3,mai:4,jun:5,jul:6,aug:7,sep:8,okt:9,nov:10,des:11};
+          if (!(mon in map)) return NaN;
+          return new Date(year, map[mon], day).getTime();
+        };
+
+        const sortByColumn = (colIdx) => {
+          const th = table.tHead.rows[0].cells[colIdx];
+          const currentDir = th.getAttribute("data-sort-dir") || "desc";
+          const newDir = currentDir === "asc" ? "desc" : "asc";
+
+          [...table.tHead.rows[0].cells].forEach(h => h.removeAttribute("data-sort-dir"));
+          th.setAttribute("data-sort-dir", newDir);
+
+          const rows = [...tbody.rows];
+          rows.sort((a, b) => {
+            const av = getCell(a, colIdx);
+            const bv = getCell(b, colIdx);
+
+            const ad = toDate(av), bd = toDate(bv);
+            if (!Number.isNaN(ad) && !Number.isNaN(bd)) {
+              return newDir === "asc" ? ad - bd : bd - ad;
+            }
+
+            const an = toNumber(av), bn = toNumber(bv);
+            if (!Number.isNaN(an) && !Number.isNaN(bn)) {
+              return newDir === "asc" ? an - bn : bn - an;
+            }
+
+            return newDir === "asc"
+              ? av.localeCompare(bv, "no")
+              : bv.localeCompare(av, "no");
+          });
+
+          rows.forEach(r => tbody.appendChild(r));
+        };
+
+        [...table.tHead.rows[0].cells].forEach((th, idx) => {
+          th.title = "Klikk for å sortere";
+          th.addEventListener("click", () => sortByColumn(idx));
+        });
+
+        if (search) {
+          search.addEventListener("input", () => {
+            const q = (search.value || "").trim().toLowerCase();
+            const rows = [...tbody.rows];
+            if (!q) {
+              rows.forEach(r => r.style.display = "");
+              return;
+            }
+            rows.forEach(r => {
+              const txt = (r.innerText || "").toLowerCase();
+              r.style.display = txt.includes(q) ? "" : "none";
+            });
+          });
+        }
+      })();
+    </script>
+  {% endif %}
 </div>
 {% endblock %}

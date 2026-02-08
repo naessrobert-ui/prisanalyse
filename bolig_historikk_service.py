@@ -94,7 +94,7 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def apply_ny_brukt_filter(df: pd.DataFrame, choice: str) -> pd.DataFrame:
-    if choice == "Begge":
+    if choice in {"Begge", "NBrukt"}:
         return df.copy()
     s = df["ny_brukt"].astype(str).str.strip().str.lower()
     if choice == "Brukt":
@@ -135,7 +135,7 @@ def snapshot_metrics(df: pd.DataFrame, day: pd.Timestamp, level: Level) -> pd.Da
         active_count=("finnkode", "count"),
         median_totalpris=("totalpris", "median"),
         median_m2=("m2_pris", "median"),
-        mean_days_on_market=("days_on_market_today", "mean"),
+        mean_days_on_market=("days_on_market_today", "median")  # median for active ads that day,
     ).reset_index()
 
     return out
@@ -165,22 +165,74 @@ def build_table(df: pd.DataFrame, level: Level, start_day: pd.Timestamp, end_day
         s = frame.reindex(groups)[name]
         return s.reset_index(drop=True)
 
+    # Slutt-metrikker
     out["Aktive (slutt)"] = get("active_count", m_end)
-    out["M2 median (slutt)"] = get("median_m2", m_end).round(0)
-    out["Totalpris median (slutt)"] = get("median_totalpris", m_end).round(0)
-    out["Dager på markedet snitt (slutt)"] = get("mean_days_on_market", m_end).round(1)
+    out["M2 pris (slutt)"] = get("median_m2", m_end)
+    out["Totalpris median (slutt)"] = get("median_totalpris", m_end)
+    out["Dager på markedet (slutt)"] = get("mean_days_on_market", m_end)
 
-    out["M2 median (start)"] = get("median_m2", m_start).round(0)
-    out["Totalpris median (start)"] = get("median_totalpris", m_start).round(0)
-    out["Aktive (start)"] = get("active_count", m_start)
+    # Start-metrikker (brukes kun for endringer)
+    out["M2 pris (start)"] = get("median_m2", m_start)
+    out["Dager på markedet (start)"] = get("mean_days_on_market", m_start)
 
-    out["M2 %"] = pct_change(out["M2 median (slutt)"], out["M2 median (start)"])
-    out["Totalpris %"] = pct_change(out["Totalpris median (slutt)"], out["Totalpris median (start)"])
-    out["Aktive %"] = pct_change(out["Aktive (slutt)"], out["Aktive (start)"])
+    # Endringer
+    out["Endring M2 (%)"] = pct_change(out["M2 pris (slutt)"], out["M2 pris (start)"])
+    out["Endring dager på markedet"] = (
+        pd.to_numeric(out["Dager på markedet (slutt)"], errors="coerce")
+        - pd.to_numeric(out["Dager på markedet (start)"], errors="coerce")
+    )
 
-    # Litt rydding: sorter på aktive slutt
-    out = out.sort_values(by="Aktive (slutt)", ascending=False, na_position="last").reset_index(drop=True)
+    # Velg kolonner som skal vises (Sted + ønskede kolonner)
+    out = out[
+        [
+            "Sted",
+            "Endring M2 (%)",
+            "M2 pris (slutt)",
+            "Endring dager på markedet",
+            "Totalpris median (slutt)",
+            "Aktive (slutt)",
+            "Dager på markedet (slutt)",
+        ]
+    ].copy()
+
+    # --- Formatering for visning ---
+    def _fmt_int_space(v) -> str:
+        if pd.isna(v):
+            return ""
+        try:
+            return f"{int(round(float(v))):,}".replace(",", " ")
+        except Exception:
+            return str(v)
+
+    def _to_int(v):
+        if pd.isna(v):
+            return pd.NA
+        try:
+            return int(round(float(v)))
+        except Exception:
+            return pd.NA
+
+    # Gjør om til int der ønsket
+    out["Endring M2 (%)"] = out["Endring M2 (%)"].apply(_to_int).astype("Int64")
+    out["Endring dager på markedet"] = out["Endring dager på markedet"].apply(_to_int).astype("Int64")
+    out["Dager på markedet (slutt)"] = out["Dager på markedet (slutt)"].apply(_to_int).astype("Int64")
+    out["Aktive (slutt)"] = out["Aktive (slutt)"].apply(_to_int).astype("Int64")
+    out["M2 pris (slutt)"] = out["M2 pris (slutt)"].apply(_to_int).astype("Int64")
+    out["Totalpris median (slutt)"] = out["Totalpris median (slutt)"].apply(_to_int).astype("Int64")
+
+    # Sorter default på Endring M2 (%) (numerisk), før vi formatter til tekst
+    out = out.sort_values(by="Endring M2 (%)", ascending=False, na_position="last").reset_index(drop=True)
+
+    # Formatter priser med tusenskille (mellomrom) til tekst for visning
+    out["M2 pris (slutt)"] = out["M2 pris (slutt)"].apply(_fmt_int_space)
+    out["Totalpris median (slutt)"] = out["Totalpris median (slutt)"].apply(_fmt_int_space)
+
+    # Resten som vanlige heltall-tekster
+    for c in ["Endring M2 (%)", "Endring dager på markedet", "Aktive (slutt)", "Dager på markedet (slutt)"]:
+        out[c] = out[c].apply(lambda v: "" if pd.isna(v) else str(int(v)))
+
     return out
+
 
 
 def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Timestamp) -> pd.DataFrame:
@@ -193,7 +245,7 @@ def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Tim
 
     d = df.dropna(subset=["dato_første", "dato_siste"]).copy()
     if d.empty:
-        return pd.DataFrame(columns=["dato", "active_count", "median_m2", "mean_m2", "median_totalpris", "mean_totalpris"])
+        return pd.DataFrame(columns=["dato", "active_count", "median_m2", "mean_m2", "median_totalpris", "mean_totalpris", "mean_days_on_market"])
 
     start_i = d["dato_første"].values.astype("datetime64[D]").astype(np.int64)
     end_i = d["dato_siste"].values.astype("datetime64[D]").astype(np.int64)
@@ -207,11 +259,14 @@ def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Tim
     for di, day in zip(day_i, days):
         mask = (start_i <= di) & (end_i >= di)
         if not mask.any():
-            out_rows.append((day, 0, np.nan, np.nan, np.nan, np.nan))
+            out_rows.append((day, 0, np.nan, np.nan, np.nan, np.nan, np.nan))
             continue
 
         m2v = m2[mask]
         tpv = tp[mask]
+
+        days_on_market = (di - start_i[mask]).astype(float)
+        mean_dom = float(np.nanmedian(days_on_market)) if days_on_market.size else np.nan  # median days on market for active ads that day
 
         out_rows.append((
             day,
@@ -220,6 +275,7 @@ def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Tim
             float(np.nanmean(m2v)),
             float(np.nanmedian(tpv)) if np.isfinite(np.nanmedian(tpv)) else np.nan,
             float(np.nanmean(tpv)),
+            mean_dom,
         ))
 
-    return pd.DataFrame(out_rows, columns=["dato", "active_count", "median_m2", "mean_m2", "median_totalpris", "mean_totalpris"])
+    return pd.DataFrame(out_rows, columns=["dato", "active_count", "median_m2", "mean_m2", "median_totalpris", "mean_totalpris", "mean_days_on_market"])
