@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <title>Bolig – Historikk</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 16px; }
+    .row { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; }
+    label { display:block; font-size: 12px; color:#333; margin-bottom:4px;}
+    input, select { padding: 6px 8px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+    th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 14px; }
+    th { background: #f5f5f5; text-align: left; }
+    a { text-decoration:none; }
+    .muted { color:#666; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Bolig – Historikk</h1>
+  <div class="muted">Master: {{ min_day }} → {{ max_day }}</div>
+
+  <form method="get" action="">
+    <div class="row">
+      <div>
+        <label>Nivå</label>
+        <select name="level">
+          {% for opt in ["Fylke","Kommune","Sted"] %}
+            <option value="{{ opt }}" {% if opt==level %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label>Ny/Brukt</label>
+        <select name="ny_brukt">
+          {% for opt in ["Begge","Brukt","Nybygg"] %}
+            <option value="{{ opt }}" {% if opt==ny_brukt %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label>Start</label>
+        <input type="date" name="start" value="{{ start }}" min="{{ min_day }}" max="{{ max_day }}">
+      </div>
+
+      <div>
+        <label>Slutt</label>
+        <input type="date" name="end" value="{{ end }}" min="{{ min_day }}" max="{{ max_day }}">
+      </div>
+
+      <div>
+        <button type="submit">Oppdater</button>
+      </div>
+    </div>
+  </form>
+
+  {% if rows|length == 0 %}
+    <p>Ingen data / ingen treff.</p>
+  {% else %}
+    <table>
+      <thead>
+        <tr>
+          {% for c in columns %}
+            <th>{{ c }}</th>
+          {% endfor %}
+          <th>Detaljer</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            {% for c in columns %}
+              <td>
+                {% if c == "Sted" %}
+                  {{ r[c] }}
+                {% else %}
+                  {{ r[c] }}
+                {% endif %}
+              </td>
+            {% endfor %}
+            <td>
+              <a href="{{ url_for('bolig.bolig_historikk_detalj', level=level, value=r['Sted'], ny_brukt=ny_brukt, start=start, end=end) }}">
+                Vis
+              </a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+</body>
+</html>

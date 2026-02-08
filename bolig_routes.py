@@ -16,6 +16,146 @@ import re
 
 from bolig_data import load_latest_bolig_df
 from bolig_varmekart_service import clean_data
+
+from bolig_historikk_service import (
+    CFG as HIST_CFG,
+    load_master_s3_cached,
+    normalize_master,
+    apply_ny_brukt_filter,
+    build_table,
+    filter_by_level,
+    daily_series_fast,
+)
+
+from flask import url_for
+import base64
+import matplotlib.pyplot as plt
+from io import BytesIO
+
+
+def _parse_date(s: str):
+    if not s:
+        return None
+    return pd.to_datetime(s, errors="coerce")
+
+
+@bolig_bp.route("/historikk/")
+def bolig_historikk_view():
+    """
+    Fullintegrert historikk-side (Flask).
+    Query params:
+      level=Fylke|Kommune|Sted
+      ny_brukt=Begge|Brukt|Nybygg
+      start=YYYY-MM-DD
+      end=YYYY-MM-DD
+    """
+    level = request.args.get("level", "Kommune")
+    ny_brukt = request.args.get("ny_brukt", "Begge")
+    start = _parse_date(request.args.get("start", ""))
+    end = _parse_date(request.args.get("end", ""))
+
+    # last master fra S3 og normaliser
+    raw = load_master_s3_cached(HIST_CFG.s3_bucket, HIST_CFG.master_key)
+    df = normalize_master(raw)
+    df = apply_ny_brukt_filter(df, ny_brukt)
+
+    # Defaults for datoer (hvis bruker ikke har valgt)
+    min_day = df["dato_første"].min()
+    max_day = df["dato_siste"].max()
+
+    if pd.isna(min_day) or pd.isna(max_day):
+        # Ingen data
+        return render_template(
+            "bolig_historikk.html",
+            level=level, ny_brukt=ny_brukt,
+            start=None, end=None,
+            min_day=None, max_day=None,
+            rows=[], columns=[],
+        )
+
+    if start is None or pd.isna(start):
+        start = min_day
+    if end is None or pd.isna(end):
+        end = max_day
+
+    # bygg tabell
+    table = build_table(df, level, start, end)
+
+    # gjør klar for template
+    columns = list(table.columns)
+    rows = table.to_dict(orient="records")
+
+    return render_template(
+        "bolig_historikk.html",
+        level=level,
+        ny_brukt=ny_brukt,
+        start=str(pd.to_datetime(start).date()),
+        end=str(pd.to_datetime(end).date()),
+        min_day=str(pd.to_datetime(min_day).date()),
+        max_day=str(pd.to_datetime(max_day).date()),
+        columns=columns,
+        rows=rows,
+    )
+
+
+@bolig_bp.route("/historikk/detalj/")
+def bolig_historikk_detalj():
+    """
+    Detaljside for valgt gruppe fra tabellen.
+    Params:
+      level, value, ny_brukt, start, end
+    """
+    level = request.args.get("level", "Kommune")
+    value = request.args.get("value", "")
+    ny_brukt = request.args.get("ny_brukt", "Begge")
+    start = _parse_date(request.args.get("start", ""))
+    end = _parse_date(request.args.get("end", ""))
+
+    raw = load_master_s3_cached(HIST_CFG.s3_bucket, HIST_CFG.master_key)
+    df = normalize_master(raw)
+    df = apply_ny_brukt_filter(df, ny_brukt)
+    df = filter_by_level(df, level, value)
+
+    if df.empty or start is None or end is None or pd.isna(start) or pd.isna(end):
+        return render_template(
+            "bolig_historikk_detalj.html",
+            level=level, value=value, ny_brukt=ny_brukt,
+            start=None, end=None,
+            plot_png=None,
+            stats=None,
+        )
+
+    ser = daily_series_fast(df, start, end)
+
+    # plot -> base64 png (ingen ekstra JS)
+    fig = plt.figure()
+    plt.plot(ser["dato"], ser["median_m2"])
+    plt.title(f"Median m²-pris – {value} ({ny_brukt})")
+    plt.xlabel("Dato")
+    plt.ylabel("Median m²-pris")
+    plt.xticks(rotation=30)
+    plt.tight_layout()
+
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=160)
+    plt.close(fig)
+    buf.seek(0)
+    plot_png = base64.b64encode(buf.read()).decode("utf-8")
+
+    stats = {
+        "rader": int(len(df)),
+        "aktive_max": int(pd.to_numeric(ser["active_count"], errors="coerce").max() or 0),
+    }
+
+    return render_template(
+        "bolig_historikk_detalj.html",
+        level=level, value=value, ny_brukt=ny_brukt,
+        start=str(pd.to_datetime(start).date()),
+        end=str(pd.to_datetime(end).date()),
+        plot_png=plot_png,
+        stats=stats,
+    )
+
 HISTORIKK_APP_URL = os.environ.get("BOLIG_HISTORIKK_URL", "http://localhost:8501")
 
 # ÉN blueprint, med navn "bolig" og url_prefix "/bolig"
@@ -641,14 +781,6 @@ def get_bolig_data():
 # --------------------------------------------------
 
 
-@bolig_bp.route("/historikk/")
-def bolig_historikk_view():
-    """
-    Viser historisk utvikling i boligpriser.
-    - Første gang (uten start/end) -> ingen CSV-lesing, bare skjema.
-    - Når bruker har valgt minst én dato -> leser to filer og bygger tabell.
-    """
-    return redirect(HISTORIKK_APP_URL)
 
 
 # --------------------------------------------------
