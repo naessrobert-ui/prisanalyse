@@ -157,6 +157,29 @@ def bolig_historikk_detalj():
             detail_rows=[],
         )
 
+    min_day = df["dato_første"].min()
+    max_day = df["dato_siste"].max()
+    if pd.isna(min_day) or pd.isna(max_day):
+        return render_template(
+            "bolig_historikk_detalj.html",
+            level=level,
+            value=value,
+            ny_brukt=ny_brukt,
+            start=None,
+            end=None,
+            plot_png=None,
+            stats=None,
+            detail_columns=[],
+            detail_rows=[],
+        )
+
+    if start < min_day:
+        start = min_day
+    if end > max_day:
+        end = max_day
+    if end < start:
+        end = start
+
     ser = daily_series_fast(df, start, end)
 
     # --------- 2x2 grafer ---------
@@ -188,9 +211,15 @@ def bolig_historikk_detalj():
     buf.seek(0)
     plot_png = base64.b64encode(buf.read()).decode("utf-8")
 
+    active_max = 0
+    if "active_count" in ser.columns:
+        max_val = pd.to_numeric(ser["active_count"], errors="coerce").max()
+        if pd.notna(max_val):
+            active_max = int(max_val)
+
     stats = {
         "rader": int(len(df)),
-        "aktive_max": int(pd.to_numeric(ser.get("active_count"), errors="coerce").max() or 0),
+        "aktive_max": active_max,
     }
 
     # --------- Debug-tabell (kurert) ---------
