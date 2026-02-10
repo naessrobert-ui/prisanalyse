@@ -61,7 +61,12 @@ def bolig_historikk_view():
     df = normalize_master(raw)
     df = apply_ny_brukt_filter(df, ny_brukt)
 
-    min_day = df["dato_første"].min()
+    # Bruk publisert_dato som startdato hvis tilgjengelig, ellers fallback til dato_første
+    df["publisert_dato"] = pd.to_datetime(df.get("publisert_dato"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    df["dato_første"] = pd.to_datetime(df.get("dato_første"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    df["start_dato"] = df["publisert_dato"].fillna(df["dato_første"])
+
+    min_day = df["start_dato"].min()
     max_day = df["dato_siste"].max()
 
 
@@ -155,31 +160,100 @@ def bolig_historikk_detalj():
             stats=None,
             detail_columns=[],
             detail_rows=[],
+            removed_columns=[],
+            removed_rows=[],
         )
 
-    ser = daily_series_fast(df, start, end)
+    start_n = pd.to_datetime(start).normalize()
+    end_n = pd.to_datetime(end).normalize()
 
-    # --------- 2x2 grafer ---------
-    fig, axes = plt.subplots(2, 2, figsize=(16, 8))
+    # Sørg for konsistente datoer + start_dato
+    df = df.copy()
+    df["publisert_dato"] = pd.to_datetime(df.get("publisert_dato"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    df["dato_første"] = pd.to_datetime(df.get("dato_første"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    df["dato_siste"] = pd.to_datetime(df.get("dato_siste"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    df["start_dato"] = df["publisert_dato"].fillna(df["dato_første"])
+
+    # ---------- 1) Daglig serie for aktive annonser ----------
+    ser = daily_series_fast(df, start_n, end_n)
+
+    # ---------- 2) "Flow": nye og forsvunne annonser per dag ----------
+    d_period = df[
+        df["start_dato"].notna()
+        & df["dato_siste"].notna()
+        & (df["start_dato"] <= end_n)
+        & (df["dato_siste"] >= start_n)
+    ].copy()
+
+    # Nye annonser: publisert_dato i perioden
+    new_ads = d_period[(d_period["publisert_dato"] >= start_n) & (d_period["publisert_dato"] <= end_n)].copy()
+    # Forsvunnet: dato_siste i perioden
+    gone_ads = d_period[(d_period["dato_siste"] >= start_n) & (d_period["dato_siste"] <= end_n)].copy()
+
+    if not new_ads.empty:
+        new_ads["day"] = new_ads["publisert_dato"]
+    if not gone_ads.empty:
+        gone_ads["day"] = gone_ads["dato_siste"]
+
+    daily_new = (
+        new_ads.groupby("day", dropna=False).agg(
+            new_count=("finnkode", "count"),
+            new_m2_median=("m2_pris", "median"),
+        ).reset_index()
+        if not new_ads.empty else pd.DataFrame(columns=["day", "new_count", "new_m2_median"])
+    )
+    daily_gone = (
+        gone_ads.groupby("day", dropna=False).agg(
+            gone_count=("finnkode", "count"),
+            gone_m2_median=("m2_pris", "median"),
+        ).reset_index()
+        if not gone_ads.empty else pd.DataFrame(columns=["day", "gone_count", "gone_m2_median"])
+    )
+
+    days = pd.date_range(start_n, end_n, freq="D")
+    flow = pd.DataFrame({"dato": days})
+    flow = flow.merge(daily_new.rename(columns={"day": "dato"}), on="dato", how="left")
+    flow = flow.merge(daily_gone.rename(columns={"day": "dato"}), on="dato", how="left")
+
+    # ---------- 3) Plot: 3x2 (aktive + flow) ----------
+    fig, axes = plt.subplots(3, 2, figsize=(18, 11))
     axes = axes.flatten()
 
+    # (A) Aktive (samme som før)
     plots = [
-        ("median_m2", "Median m²-pris", "kr/m²"),
-        ("median_totalpris", "Median totalpris", "kr"),
+        ("median_m2", "Median m²-pris (aktive)", "kr/m²"),
+        ("median_totalpris", "Median totalpris (aktive)", "kr"),
         ("active_count", "Antall aktive annonser", "antall"),
-        ("mean_days_on_market", "Median dager på markedet", "dager"),
+        ("mean_days_on_market", "Median dager på markedet (aktive)", "dager"),
     ]
+    for ax, (col, title, unit) in zip(axes[:4], plots):
+        ax.plot(ser["dato"], pd.to_numeric(ser.get(col), errors="coerce"))
+        ax.set_title(title)
+        ax.set_ylabel(unit)
+        ax.tick_params(axis="x", rotation=30)
+        ax.grid(alpha=0.2)
 
-    for ax, (col, title, unit) in zip(axes, plots):
-        if col in ser.columns:
-            ax.plot(ser["dato"], pd.to_numeric(ser[col], errors="coerce"))
-            ax.set_title(title)
-            ax.set_ylabel(unit)
-            ax.tick_params(axis="x", rotation=30)
-        else:
-            ax.set_visible(False)
+    # (B) Flow: m²-pris nye vs forsvunne
+    ax5 = axes[4]
+    ax5.plot(flow["dato"], pd.to_numeric(flow.get("new_m2_median"), errors="coerce"), label="Nye annonser")
+    ax5.plot(flow["dato"], pd.to_numeric(flow.get("gone_m2_median"), errors="coerce"), label="Forsvunnet annonser")
+    ax5.set_title("Median m²-pris – nye vs forsvunne")
+    ax5.set_ylabel("kr/m²")
+    ax5.tick_params(axis="x", rotation=30)
+    ax5.grid(alpha=0.2)
+    ax5.legend()
 
-    fig.suptitle(f"{value} ({ny_brukt})", y=1.02)
+    # (C) Flow: antall nye vs forsvunne
+    ax6 = axes[5]
+    ax6.plot(flow["dato"], pd.to_numeric(flow.get("new_count"), errors="coerce"), label="Nye")
+    ax6.plot(flow["dato"], pd.to_numeric(flow.get("gone_count"), errors="coerce"), label="Forsvunnet")
+    ax6.set_title("Antall per dag – nye vs forsvunne")
+    ax6.set_ylabel("antall")
+    ax6.tick_params(axis="x", rotation=30)
+    ax6.grid(alpha=0.2)
+    ax6.legend()
+
+    fig.suptitle(f"{value} ({ny_brukt})", y=1.01)
     fig.tight_layout()
 
     buf = BytesIO()
@@ -191,26 +265,20 @@ def bolig_historikk_detalj():
     stats = {
         "rader": int(len(df)),
         "aktive_max": int(pd.to_numeric(ser.get("active_count"), errors="coerce").max() or 0),
+        "nye_sum": int(pd.to_numeric(flow.get("new_count"), errors="coerce").sum() or 0),
+        "forsvunnet_sum": int(pd.to_numeric(flow.get("gone_count"), errors="coerce").sum() or 0),
     }
 
-    # --------- Debug-tabell (kurert) ---------
-    start_n = pd.to_datetime(start).normalize()
-    end_n = pd.to_datetime(end).normalize()
-
-    df_list = df.copy()
-    df_list["dato_første"] = pd.to_datetime(df_list.get("dato_første"), errors="coerce").dt.normalize()
-    df_list["dato_siste"] = pd.to_datetime(df_list.get("dato_siste"), errors="coerce").dt.normalize()
-
-    # Ta med annonser som overlapper perioden: publisert <= end og siste >= start
-    df_list = df_list[
-        df_list["dato_første"].notna()
-        & df_list["dato_siste"].notna()
-        & (df_list["dato_første"] <= end_n)
-        & (df_list["dato_siste"] >= start_n)
-    ].copy()
-
-    df_list["dager_paa_markedet_slutt"] = (end_n - df_list["dato_første"]).dt.days
+    # ---------- 4) Tabeller ----------
+    # A) Overlapper perioden (samme som før)
+    df_list = d_period.copy()
+    df_list["dager_paa_markedet_slutt"] = (end_n - df_list["start_dato"]).dt.days
     df_list.loc[df_list["dager_paa_markedet_slutt"] < 0, "dager_paa_markedet_slutt"] = 0
+
+    # B) Forsvunnet i perioden (dato_siste i [start, end])
+    df_removed = df_list[(df_list["dato_siste"] >= start_n) & (df_list["dato_siste"] <= end_n)].copy()
+    df_removed["dager_paa_markedet"] = (df_removed["dato_siste"] - df_removed["start_dato"]).dt.days
+    df_removed.loc[df_removed["dager_paa_markedet"] < 0, "dager_paa_markedet"] = 0
 
     def fmt_int_space(v):
         if pd.isna(v):
@@ -255,16 +323,15 @@ def bolig_historikk_detalj():
     c_m2 = col("m2_pris", "m2_price", "m2pris")
     c_total = col("totalpris", "total_price", "pris")
 
+    # --- Overlapp-tabell ---
     detail_columns = [
         "FINN", "Tittel", "Adresse", "Sted", "Boligtype", "Ny/Brukt",
         "Areal", "M²-pris", "Totalpris", "Publisert", "Siste dato", "Dager (slutt)"
     ]
     detail_rows = []
-
     for _, r in df_list.iterrows():
         fk = r.get(c_finn) if c_finn else ""
         url = finn_url(fk)
-        # FINN som tekst
         if fk is None or (isinstance(fk, float) and pd.isna(fk)):
             fk_txt = ""
         else:
@@ -283,9 +350,41 @@ def bolig_historikk_detalj():
             "Areal": fmt_int_space(r.get(c_area)) if c_area else "",
             "M²-pris": fmt_int_space(r.get(c_m2)) if c_m2 else "",
             "Totalpris": fmt_int_space(r.get(c_total)) if c_total else "",
-            "Publisert": fmt_date_no(r.get("dato_første")),
+            "Publisert": fmt_date_no(r.get("publisert_dato") if pd.notna(r.get("publisert_dato")) else r.get("dato_første")),
             "Siste dato": fmt_date_no(r.get("dato_siste")),
             "Dager (slutt)": fmt_int_space(r.get("dager_paa_markedet_slutt")),
+            "FINN_URL": url,
+        })
+
+    # --- Forsvunnet-tabell ---
+    removed_columns = [
+        "FINN", "Tittel", "Adresse", "Sted", "Boligtype",
+        "Areal", "M²-pris", "Totalpris", "Publisert", "Forsvunnet", "Dager på markedet"
+    ]
+    removed_rows = []
+    for _, r in df_removed.sort_values("dato_siste").iterrows():
+        fk = r.get(c_finn) if c_finn else ""
+        url = finn_url(fk)
+        if fk is None or (isinstance(fk, float) and pd.isna(fk)):
+            fk_txt = ""
+        else:
+            try:
+                fk_txt = str(int(float(fk)))
+            except Exception:
+                fk_txt = str(fk)
+
+        removed_rows.append({
+            "FINN": fk_txt,
+            "Tittel": "" if not c_title else (r.get(c_title) or ""),
+            "Adresse": "" if not c_addr else (r.get(c_addr) or ""),
+            "Sted": "" if not c_place else (r.get(c_place) or ""),
+            "Boligtype": "" if not c_type else (r.get(c_type) or ""),
+            "Areal": fmt_int_space(r.get(c_area)) if c_area else "",
+            "M²-pris": fmt_int_space(r.get(c_m2)) if c_m2 else "",
+            "Totalpris": fmt_int_space(r.get(c_total)) if c_total else "",
+            "Publisert": fmt_date_no(r.get("publisert_dato") if pd.notna(r.get("publisert_dato")) else r.get("dato_første")),
+            "Forsvunnet": fmt_date_no(r.get("dato_siste")),
+            "Dager på markedet": fmt_int_space(r.get("dager_paa_markedet")),
             "FINN_URL": url,
         })
 
@@ -294,14 +393,15 @@ def bolig_historikk_detalj():
         level=level,
         value=value,
         ny_brukt=ny_brukt,
-        start=str(pd.to_datetime(start).date()),
-        end=str(pd.to_datetime(end).date()),
+        start=str(pd.to_datetime(start_n).date()),
+        end=str(pd.to_datetime(end_n).date()),
         plot_png=plot_png,
         stats=stats,
         detail_columns=detail_columns,
         detail_rows=detail_rows,
+        removed_columns=removed_columns,
+        removed_rows=removed_rows,
     )
-
 
 
 # --------------------------------------------------

@@ -64,6 +64,7 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
         "address", "full_title",
         "totalpris", "m2_pris", "ny_brukt",
         "latitude", "longitude",
+        "publisert_dato",
         "dato_første", "dato_siste",
         "pris_første", "pris_ny", "dato_prisendring",
     ]
@@ -72,9 +73,10 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
             d[c] = pd.NA
 
     # Dates
-    d["dato_første"] = pd.to_datetime(d["dato_første"], errors="coerce").dt.normalize()
-    d["dato_siste"] = pd.to_datetime(d["dato_siste"], errors="coerce").dt.normalize()
-    d["dato_prisendring"] = pd.to_datetime(d["dato_prisendring"], errors="coerce").dt.normalize()
+    d["publisert_dato"] = pd.to_datetime(d.get("publisert_dato"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    d["dato_første"] = pd.to_datetime(d["dato_første"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    d["dato_siste"] = pd.to_datetime(d["dato_siste"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    d["dato_prisendring"] = pd.to_datetime(d["dato_prisendring"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
 
     # Numerics
     for col in ["totalpris", "m2_pris", "latitude", "longitude", "pris_første", "pris_ny"]:
@@ -122,14 +124,19 @@ def filter_by_level(df: pd.DataFrame, level: Level, value: str) -> pd.DataFrame:
 
 def snapshot_metrics(df: pd.DataFrame, day: pd.Timestamp, level: Level) -> pd.DataFrame:
     day = pd.to_datetime(day).normalize()
-    d = df.dropna(subset=["dato_første", "dato_siste"]).copy()
+    d = df.dropna(subset=["dato_siste"]).copy()
 
-    active = d[(d["dato_første"] <= day) & (d["dato_siste"] >= day)].copy()
+    # Bruk publisert_dato som startdato hvis tilgjengelig, ellers fallback til dato_første
+    d["start_dato"] = pd.to_datetime(d.get("publisert_dato"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    d["start_dato"] = d["start_dato"].fillna(d["dato_første"])
+    d = d.dropna(subset=["start_dato"]).copy()
+
+    active = d[(d["start_dato"] <= day) & (d["dato_siste"] >= day)].copy()
     if active.empty:
         return pd.DataFrame(columns=["group", "active_count", "median_totalpris", "median_m2", "mean_days_on_market"])
 
     active["group"] = group_key(active, level)
-    active["days_on_market_today"] = (day - active["dato_første"]).dt.days
+    active["days_on_market_today"] = (day - active["start_dato"]).dt.days
 
     out = active.groupby("group", dropna=False).agg(
         active_count=("finnkode", "count"),
@@ -243,11 +250,14 @@ def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Tim
     end_day = pd.to_datetime(end_day).normalize()
     days = pd.date_range(start_day, end_day, freq="D")
 
-    d = df.dropna(subset=["dato_første", "dato_siste"]).copy()
+    d = df.dropna(subset=["dato_siste"]).copy()
+    d["start_dato"] = pd.to_datetime(d.get("publisert_dato"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    d["start_dato"] = d["start_dato"].fillna(d["dato_første"])
+    d = d.dropna(subset=["start_dato"]).copy()
     if d.empty:
         return pd.DataFrame(columns=["dato", "active_count", "median_m2", "mean_m2", "median_totalpris", "mean_totalpris", "mean_days_on_market"])
 
-    start_i = d["dato_første"].values.astype("datetime64[D]").astype(np.int64)
+    start_i = d["start_dato"].values.astype("datetime64[D]").astype(np.int64)
     end_i = d["dato_siste"].values.astype("datetime64[D]").astype(np.int64)
 
     m2 = pd.to_numeric(d.get("m2_pris"), errors="coerce").to_numpy(dtype=float)

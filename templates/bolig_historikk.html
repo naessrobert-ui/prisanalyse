@@ -42,11 +42,39 @@
     background:rgba(20,30,45,0.95);
     white-space:nowrap;
     cursor:pointer;
+    user-select:none;
   }
 
   td, th{
     white-space:nowrap;
   }
+
+  /* Søkefelt */
+  .search-row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    margin-top:14px;
+    flex-wrap:wrap;
+  }
+  #tableSearch{
+    width:min(520px, 100%);
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.12);
+    background:rgba(0,0,0,0.20);
+    color:#e9eef7;
+    outline:none;
+  }
+  #tableSearch::placeholder{ color:#b9c6da; }
+
+  /* Sort-indikator */
+  th .sort-ind{
+    opacity:0.7;
+    font-size:12px;
+    margin-left:6px;
+  }
+  th:hover{ text-decoration: underline; }
 </style>
 
 <div class="fullbleed">
@@ -91,12 +119,23 @@
   </form>
 
   {% if rows %}
+
+    <div class="search-row">
+      <input id="tableSearch" type="text" placeholder="Søk i {{ columns[0] }}… (f.eks. Bergen)">
+      <div style="color:#b9c6da;font-size:13px;">
+        Tips: Klikk på kolonneoverskrifter for å sortere.
+      </div>
+    </div>
+
     <div class="table-wrap">
       <table id="overviewTable" class="table table-sm table-hover">
         <thead>
           <tr>
             {% for c in columns %}
-              <th>{{ c }}</th>
+              <th>
+                <span class="th-label">{{ c }}</span>
+                <span class="sort-ind" aria-hidden="true"></span>
+              </th>
             {% endfor %}
           </tr>
         </thead>
@@ -122,6 +161,91 @@
         </tbody>
       </table>
     </div>
+
+    {% raw %}
+    <script>
+      // ---------- SØK (kun første kolonne) ----------
+      (function() {
+        const input = document.getElementById("tableSearch");
+        const table = document.getElementById("overviewTable");
+        const tbody = table.querySelector("tbody");
+
+        input.addEventListener("input", function () {
+          const q = (this.value || "").toLowerCase().trim();
+          const rows = Array.from(tbody.querySelectorAll("tr"));
+
+          rows.forEach(row => {
+            const firstCellText = (row.children[0]?.innerText || "").toLowerCase();
+            row.style.display = firstCellText.includes(q) ? "" : "none";
+          });
+        });
+      })();
+
+      // ---------- SORTERING ----------
+      (function() {
+        const table = document.getElementById("overviewTable");
+        const tbody = table.querySelector("tbody");
+        const headers = Array.from(table.querySelectorAll("thead th"));
+
+        // state per kolonne: 1 = asc, -1 = desc
+        const dir = new Array(headers.length).fill(0);
+
+        function clearIndicators(exceptIdx) {
+          headers.forEach((th, i) => {
+            if (i !== exceptIdx) {
+              dir[i] = 0;
+              const ind = th.querySelector(".sort-ind");
+              if (ind) ind.textContent = "";
+            }
+          });
+        }
+
+        function parseNorNumber(s) {
+          if (s == null) return null;
+          let t = String(s).trim();
+          t = t.replace(/\u00A0/g, " ").replace(/\s/g, "");
+          if (!t) return null;
+          t = t.replace(/\./g, "").replace(/,/g, ".").replace(/%/g, "");
+          const n = Number(t);
+          return Number.isFinite(n) ? n : null;
+        }
+
+        function getCellValue(row, idx) {
+          const cell = row.children[idx];
+          return cell ? cell.innerText.trim() : "";
+        }
+
+        headers.forEach((th, idx) => {
+          th.addEventListener("click", () => {
+            const rows = Array.from(tbody.querySelectorAll("tr"))
+              .filter(r => r.style.display !== "none");
+
+            dir[idx] = (dir[idx] === 1) ? -1 : 1;
+            clearIndicators(idx);
+
+            const ind = th.querySelector(".sort-ind");
+            if (ind) ind.textContent = dir[idx] === 1 ? "▲" : "▼";
+
+            rows.sort((a, b) => {
+              const A = getCellValue(a, idx);
+              const B = getCellValue(b, idx);
+
+              const nA = parseNorNumber(A);
+              const nB = parseNorNumber(B);
+
+              if (nA !== null && nB !== null) {
+                return dir[idx] * (nA - nB);
+              }
+              return dir[idx] * A.localeCompare(B, "nb", { sensitivity: "base" });
+            });
+
+            rows.forEach(r => tbody.appendChild(r));
+          });
+        });
+      })();
+    </script>
+    {% endraw %}
+
   {% else %}
     <div class="panel" style="margin-top:18px;">
       Ingen data å vise for valgte filtre/periode.

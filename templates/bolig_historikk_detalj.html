@@ -3,8 +3,6 @@
 
 {% block content %}
 <style>
-  .detail-container{
-    max-width: 100%;
   /* Bryt ut av ev. max-width container i base.html */
   .detail-fullbleed{
     width: 100vw;
@@ -15,10 +13,12 @@
     padding-right: 16px;
   }
 
+  .detail-container{
     margin: 22px auto;
     padding: 0 16px;
     color:#e9eef7;
   }
+
   .panel{
     background: rgba(0,0,0,0.18);
     border: 1px solid rgba(255,255,255,0.10);
@@ -61,7 +61,7 @@
     margin: 0 auto;
   }
 
-  /* Tabellen: full bredde, uten at den blir "smal" pga mange kolonner */
+  /* Tabellen */
   .detail-table-wrap{
     width: 100%;
     overflow-x: auto;
@@ -86,11 +86,9 @@
     cursor: pointer;
     user-select: none;
   }
-  /* Standard: ikke bryt tallkolonner */
   .detail-table-wrap td{
     white-space: nowrap;
   }
-  /* Men la tekstkolonner bryte slik at hele tabellen får plass på skjermen */
   .wrap-text{
     white-space: normal !important;
     max-width: 420px;
@@ -142,7 +140,7 @@
       </div>
 
       <div>
-        <label>Søk i tabellen</label>
+        <label>Søk i tabellene</label>
         <input id="detailSearch" class="searchbox" type="text"
                placeholder="FINN-kode, adresse, boligtype, sted…">
       </div>
@@ -199,11 +197,56 @@
         </tbody>
       </table>
     </div>
+  {% endif %}
 
-    <script>
-      (function () {
-        const table = document.getElementById("detailTable");
-        const search = document.getElementById("detailSearch");
+  {% if removed_rows %}
+    <h3 style="margin:18px 0 8px;">Annonser som forsvant i perioden</h3>
+    <div class="muted" style="font-size:0.9rem;">
+      Dette er annonser der <b>dato_siste</b> ligger innenfor perioden (typisk solgt/trukket/utløpt).
+    </div>
+
+    <div class="detail-table-wrap">
+      <table id="removedTable" class="table table-sm table-hover" style="color:#e9eef7;">
+        <thead>
+          <tr>
+            {% for c in removed_columns %}
+              <th>{{ c }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in removed_rows %}
+            <tr>
+              {% for c in removed_columns %}
+                {% if c == "FINN" %}
+                  <td>
+                    {% if r["FINN_URL"] %}
+                      <a href="{{ r['FINN_URL'] }}" target="_blank" style="color:#9ec1ff;text-decoration:none;">
+                        {{ r["FINN"] }}
+                      </a>
+                    {% else %}
+                      {{ r["FINN"] }}
+                    {% endif %}
+                  </td>
+                {% elif c in ["Tittel", "Adresse"] %}
+                  <td class="wrap-text">{{ r[c] }}</td>
+                {% else %}
+                  <td>{{ r[c] }}</td>
+                {% endif %}
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  <script>
+    (function () {
+      const search = document.getElementById("detailSearch");
+
+      function initSortableTable(tableId) {
+        const table = document.getElementById(tableId);
         if (!table || !table.tHead || !table.tBodies.length) return;
         const tbody = table.tBodies[0];
 
@@ -222,7 +265,6 @@
 
         const toDate = (txt) => {
           if (!txt) return NaN;
-          // prøver først native Date.parse (ISO), ellers norsk "12. des 2025"
           let t = Date.parse(txt);
           if (Number.isFinite(t)) return t;
 
@@ -244,7 +286,7 @@
           [...table.tHead.rows[0].cells].forEach(h => h.removeAttribute("data-sort-dir"));
           th.setAttribute("data-sort-dir", newDir);
 
-          const rows = [...tbody.rows];
+          const rows = [...tbody.rows].filter(r => r.style.display !== "none");
           rows.sort((a, b) => {
             const av = getCell(a, colIdx);
             const bv = getCell(b, colIdx);
@@ -272,22 +314,35 @@
           th.addEventListener("click", () => sortByColumn(idx));
         });
 
-        if (search) {
-          search.addEventListener("input", () => {
-            const q = (search.value || "").trim().toLowerCase();
-            const rows = [...tbody.rows];
-            if (!q) {
-              rows.forEach(r => r.style.display = "");
-              return;
-            }
-            rows.forEach(r => {
-              const txt = (r.innerText || "").toLowerCase();
-              r.style.display = txt.includes(q) ? "" : "none";
-            });
-          });
+        return table;
+      }
+
+      const t1 = initSortableTable("detailTable");
+      const t2 = initSortableTable("removedTable");
+
+      function applySearchToTable(table, q) {
+        if (!table || !table.tBodies.length) return;
+        const tbody = table.tBodies[0];
+        const rows = [...tbody.rows];
+        if (!q) {
+          rows.forEach(r => r.style.display = "");
+          return;
         }
-      })();
-    </script>
-  {% endif %}
+        rows.forEach(r => {
+          const txt = (r.innerText || "").toLowerCase();
+          r.style.display = txt.includes(q) ? "" : "none";
+        });
+      }
+
+      if (search) {
+        search.addEventListener("input", () => {
+          const q = (search.value || "").trim().toLowerCase();
+          applySearchToTable(t1, q);
+          applySearchToTable(t2, q);
+        });
+      }
+    })();
+  </script>
+
 </div>
 {% endblock %}
