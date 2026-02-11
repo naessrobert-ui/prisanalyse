@@ -819,7 +819,6 @@ def snomengde_kart():
     )
     return Response(html, mimetype="text/html; charset=utf-8")
 
-
 # =========================
 # NEDBØR
 # =========================
@@ -827,9 +826,8 @@ def snomengde_kart():
 @ver.route("/nedbor")
 def nedbor_index():
     # Samme pattern som temperatur: tomt folium-kart med valg, ingen API-kall før "Hent"
-    html = build_precip_county_map_html(county=None, mode="last24h", top_n=50)
+    html = build_precip_county_map_html(county=None, mode="last24h", top_n=50, rank="max")
     return Response(html, mimetype="text/html; charset=utf-8")
-
 
 
 @ver.route("/nedbor-kart")
@@ -839,6 +837,10 @@ def nedbor_kart() -> Response:
     date_str = request.args.get("date")
     top_n = request.args.get("top", "50")
 
+    rank = request.args.get("rank", "max")
+    if rank not in {"max", "min"}:
+        rank = "max"
+
     if mode not in {"last24h", "day", "mtd", "ytd"}:
         mode = "last24h"
 
@@ -847,6 +849,7 @@ def nedbor_kart() -> Response:
         mode=mode,  # type: ignore[arg-type]
         date_str=date_str,
         top_n=top_n,
+        rank=rank,  # <-- NY
         timeout=20,
         batch_size=80,
         limit=1000,
@@ -854,8 +857,7 @@ def nedbor_kart() -> Response:
         show_heatmap=True,
     )
     return Response(html, mimetype="text/html; charset=utf-8")
-
-
+# =========================
 
 
 # =========================
