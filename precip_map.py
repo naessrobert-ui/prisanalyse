@@ -1,8 +1,6 @@
-
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import math
 import os
 import time
 from dataclasses import dataclass
@@ -30,6 +28,9 @@ DEFAULT_TIMEOUT = 20
 
 UNIT_MM = "mm"
 Mode = Literal["last24h", "day", "mtd", "ytd"]
+Rank = Literal["max", "min"]
+
+WET_DAY_THRESHOLD_MM = 0.1  # antall dager med nedbør >= 0.1 mm
 
 # En pragmatisk fylkeliste (etter 2024-endringene).
 NORWAY_COUNTIES: list[str] = [
@@ -249,13 +250,28 @@ def pick_day_value_per_station(df: pd.DataFrame, *, day: _date) -> pd.DataFrame:
     return d
 
 
-def aggregate_sum_per_station(df: pd.DataFrame, *, count_col: str) -> pd.DataFrame:
-    """Summerer value over intervallet per stasjon."""
+def aggregate_sum_per_station(
+    df: pd.DataFrame,
+    *,
+    count_col: str,
+    wet_day_threshold_mm: float = WET_DAY_THRESHOLD_MM,
+) -> pd.DataFrame:
+    """Summerer value over intervallet per stasjon + teller 'wet_days' (>= terskel)."""
     if df.empty:
         return df
+
+    d2 = df.copy()
+    d2["wet_flag"] = (d2["value"] >= wet_day_threshold_mm).astype(int)
+
     out = (
-        df.groupby("sourceId", as_index=False)
-        .agg(value=("value", "sum"), n=("value", "size"), rt_max=("referenceTime", "max"), qmin=("qualityCode", "min"))
+        d2.groupby("sourceId", as_index=False)
+        .agg(
+            value=("value", "sum"),
+            n=("value", "size"),
+            wet_days=("wet_flag", "sum"),
+            rt_max=("referenceTime", "max"),
+            qmin=("qualityCode", "min"),
+        )
         .reset_index(drop=True)
     )
     out.rename(columns={"n": count_col}, inplace=True)
@@ -267,7 +283,7 @@ def aggregate_sum_per_station(df: pd.DataFrame, *, count_col: str) -> pd.DataFra
 
 
 # ======================================================================
-# UI helpers (same style as temp)
+# UI helpers
 # ======================================================================
 
 def _loading_overlay_js() -> str:
@@ -320,6 +336,7 @@ def make_empty_map_with_dropdown(
     selected_mode: Mode = "last24h",
     selected_date: str = "",
     selected_top_n: int = 50,
+    selected_rank: Rank = "max",
 ) -> str:
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
 
@@ -342,6 +359,13 @@ def make_empty_map_with_dropdown(
     mode_opts = "\n".join(
         f'<option value="{k}" {"selected" if k == selected_mode else ""}>{v}</option>'
         for k, v in mode_labels.items()
+    )
+
+    rank_opts = "\n".join(
+        [
+            f'<option value="max" {"selected" if selected_rank == "max" else ""}>Mest nedbør</option>',
+            f'<option value="min" {"selected" if selected_rank == "min" else ""}>Minst nedbør</option>',
+        ]
     )
 
     if not selected_date:
@@ -389,6 +413,15 @@ def make_empty_map_with_dropdown(
         ">
       </div>
 
+      <label style="font-size:12px; color:#64748b;">Hele landet: velg</label>
+      <select id="rankSel" style="
+        width:100%; margin-top:4px; margin-bottom:10px;
+        padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px;
+        background:white;
+      ">
+        {rank_opts}
+      </select>
+
       <label style="font-size:12px; color:#64748b;">Vis topp</label>
       <select id="topSel" style="
         width:100%; margin-top:4px;
@@ -434,6 +467,9 @@ def make_empty_map_with_dropdown(
         const topN = parseInt(document.getElementById('topSel').value || '50', 10);
         qs.set('top', String(topN));
 
+        const rank = document.getElementById('rankSel').value || 'max';
+        qs.set('rank', rank);
+
         if (m !== "last24h") {{
           const d = document.getElementById("dateInput").value;
           if (!d) {{ alert("Velg dato"); return; }}
@@ -462,6 +498,7 @@ def make_map(
     selected_mode: Mode,
     selected_date: str,
     selected_top_n: int,
+    selected_rank: Rank,
     cluster: bool = True,
     heatmap_show: bool = True,
     heat_radius: int = 25,
@@ -475,6 +512,7 @@ def make_map(
             selected_mode=selected_mode,
             selected_date=selected_date,
             selected_top_n=selected_top_n,
+            selected_rank=selected_rank,
         )
 
     d = df.dropna(subset=["lat", "lon", "value"]).copy()
@@ -488,6 +526,7 @@ def make_map(
             selected_mode=selected_mode,
             selected_date=selected_date,
             selected_top_n=selected_top_n,
+            selected_rank=selected_rank,
         )
 
     center_lat = float(d["lat"].mean())
@@ -508,7 +547,7 @@ def make_map(
         layer.add_to(m)
 
     marker_map: dict[str, str] = {}
-    for i, r in d.iterrows():
+    for _, r in d.iterrows():
         val = float(r["value"])
         name = str(r.get("name") or r.get("shortName") or r.get("sourceId") or "")
         sid = str(r.get("sourceId") or "")
@@ -519,13 +558,20 @@ def make_map(
         except Exception:
             rt_s = str(rt or "")
 
+        wet_days_line = ""
+        if "wet_days" in d.columns and pd.notna(r.get("wet_days")):
+            wet_days_line = (
+                f"<br><small>Våte dager (≥{WET_DAY_THRESHOLD_MM:.1f} mm): "
+                f"<b>{int(r['wet_days'])}</b></small>"
+            )
+
         popup = folium.Popup(
             folium.IFrame(
-                html=f"<b>{name}</b><br>{val:.1f} {UNIT_MM}<br><small>{rt_s}</small>",
-                width=240,
-                height=90,
+                html=f"<b>{name}</b><br>{val:.1f} {UNIT_MM}{wet_days_line}<br><small>{rt_s}</small>",
+                width=270,
+                height=115 if wet_days_line else 90,
             ),
-            max_width=260,
+            max_width=310,
         )
 
         mk = folium.CircleMarker(
@@ -541,23 +587,29 @@ def make_map(
         else:
             mk.add_to(m)
 
-        # Give each marker a JS name for focus
         jsname = mk.get_name()
         if sid:
             marker_map[sid] = jsname
 
-    # Top list (highest precip)
-    top = d.sort_values("value", ascending=False).head(int(top_n)).copy()
-    rows_html = []
-    for _, r in top.iterrows():
-        sid = str(r.get("sourceId") or "")
-        nm = str(r.get("name") or r.get("shortName") or sid)
-        rows_html.append(
-            f'<tr style="cursor:pointer;" onclick="focusStation(\'{sid}\')">'
-            f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0;'>{nm}</td>"
-            f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:800;'>{float(r['value']):.1f}</td>"
-            f"</tr>"
-        )
+    # Mest / Minst lister
+    most = d.sort_values("value", ascending=False).head(int(top_n)).copy()
+    least = d.sort_values("value", ascending=True).head(int(top_n)).copy()
+
+    def _rows(tbl: pd.DataFrame) -> str:
+        rows: list[str] = []
+        for _, rr in tbl.iterrows():
+            sid = str(rr.get("sourceId") or "")
+            nm = str(rr.get("name") or rr.get("shortName") or sid)
+            rows.append(
+                f'<tr style="cursor:pointer;" onclick="focusStation(\'{sid}\')">'
+                f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0;'>{nm}</td>"
+                f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:800;'>{float(rr['value']):.1f}</td>"
+                f"</tr>"
+            )
+        return "".join(rows)
+
+    rows_most = _rows(most)
+    rows_least = _rows(least)
 
     topbox_html = f"""
     <div style="
@@ -566,16 +618,26 @@ def make_map(
       padding: 10px 12px; border-radius: 12px;
       box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-      max-width: 440px;
+      max-width: 460px;
     ">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-        <div style="font-weight:900;">Topp {len(top)} (mest nedbør)</div>
+        <div style="font-weight:900;">Stasjoner</div>
         <button onclick="toggleToplist()" style="
           border:none; border-radius:999px; padding:6px 10px;
           background:#0f172a; color:white; cursor:pointer; font-weight:800;
         ">Vis/skjul</button>
       </div>
-      <div id="toplistBody" style="margin-top:8px; max-height: 260px; overflow:auto;">
+
+      <div id="toplistBody" style="margin-top:8px; max-height: 280px; overflow:auto;">
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <button onclick="showMost()" style="border:none; border-radius:999px; padding:6px 10px; background:#0f172a; color:white; cursor:pointer; font-weight:800;">
+            Mest nedbør
+          </button>
+          <button onclick="showLeast()" style="border:none; border-radius:999px; padding:6px 10px; background:#e2e8f0; color:#0f172a; cursor:pointer; font-weight:800;">
+            Minst nedbør
+          </button>
+        </div>
+
         <table style="border-collapse:collapse; width:100%; font-size:13px;">
           <thead>
             <tr>
@@ -583,8 +645,12 @@ def make_map(
               <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #e2e8f0;">mm</th>
             </tr>
           </thead>
-          <tbody>
-            {''.join(rows_html)}
+
+          <tbody id="tbodyMost">
+            {rows_most}
+          </tbody>
+          <tbody id="tbodyLeast" style="display:none;">
+            {rows_least}
           </tbody>
         </table>
       </div>
@@ -626,6 +692,20 @@ def make_map(
         if (!el) return;
         el.style.display = (el.style.display === "none") ? "block" : "none";
       }}
+
+      function showMost() {{
+        const a = document.getElementById("tbodyMost");
+        const b = document.getElementById("tbodyLeast");
+        if (a) a.style.display = "table-row-group";
+        if (b) b.style.display = "none";
+      }}
+
+      function showLeast() {{
+        const a = document.getElementById("tbodyMost");
+        const b = document.getElementById("tbodyLeast");
+        if (a) a.style.display = "none";
+        if (b) b.style.display = "table-row-group";
+      }}
     </script>
     """
     folium.Element(js).add_to(m.get_root().html)
@@ -638,10 +718,12 @@ def make_map(
       padding: 8px 12px; border-radius: 12px;
       box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-      max-width: 520px;
+      max-width: 560px;
     ">
       <div style="font-weight:900;">{title}</div>
-      <div style="font-size:12px; color:#475569;">Fylke: {selected_county} · Periode: {selected_mode}</div>
+      <div style="font-size:12px; color:#475569;">
+        Fylke: {selected_county} · Periode: {selected_mode}{(" · Hele landet: " + ("mest" if selected_rank=="max" else "minst")) if selected_county=="ALL" else ""}
+      </div>
     </div>
     """
     folium.Element(title_html).add_to(m.get_root().html)
@@ -659,6 +741,7 @@ def build_precip_county_map_html(
     mode: Mode = "last24h",
     date_str: Optional[str] = None,
     top_n: int | str = 50,
+    rank: Rank = "max",
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
     limit: int = 1000,
@@ -677,8 +760,16 @@ def build_precip_county_map_html(
         top_n_i = 50
     top_n_i = max(1, min(top_n_i, 5000))
 
+    if rank not in {"max", "min"}:
+        rank = "max"
+
     if not county:
-        return make_empty_map_with_dropdown(selected_mode=mode, selected_date=day_str, selected_top_n=top_n_i)
+        return make_empty_map_with_dropdown(
+            selected_mode=mode,
+            selected_date=day_str,
+            selected_top_n=top_n_i,
+            selected_rank=rank,
+        )
 
     if mode not in {"last24h", "day", "mtd", "ytd"}:
         mode = "last24h"
@@ -730,6 +821,7 @@ def build_precip_county_map_html(
                 selected_mode=mode,
                 selected_date=day_str,
                 selected_top_n=top_n_i,
+                selected_rank=rank,
             )
 
         sources = src_meta["baseId"].astype(str).tolist()
@@ -751,13 +843,19 @@ def build_precip_county_map_html(
             selected_mode=mode,
             selected_date=day_str,
             selected_top_n=top_n_i,
+            selected_rank=rank,
         )
 
     if mode == "day":
         picked = pick_day_value_per_station(obs, day=day)
         out = picked[["sourceId", "referenceTime", "value", "unit", "qualityCode"]].copy()
+        # Våte dager for "day" blir 0/1 (basert på døgnsummen)
+        out["wet_days"] = (out["value"] >= WET_DAY_THRESHOLD_MM).astype(int)
     else:
         out = aggregate_sum_per_station(obs, count_col=sum_count_col)
+        # For last24h ønsker vi ikke å vise "våte dager" (det blir våte timer).
+        if mode == "last24h" and "wet_days" in out.columns:
+            out = out.drop(columns=["wet_days"])
 
     out["baseId"] = out["sourceId"].astype(str).map(base_source_id)
     merged = out.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
@@ -769,11 +867,13 @@ def build_precip_county_map_html(
             selected_mode=mode,
             selected_date=day_str,
             selected_top_n=top_n_i,
+            selected_rank=rank,
         )
 
-    # For "Hele landet": plott kun topp N (mest nedbør) for fart.
+    # For "Hele landet": plott kun topp N for fart, og la bruker velge mest/minst.
     if county == "ALL":
-        merged = merged.sort_values("value", ascending=False).head(top_n_i)
+        asc = (rank == "min")
+        merged = merged.sort_values("value", ascending=asc).head(top_n_i)
 
     return make_map(
         merged,
@@ -782,6 +882,7 @@ def build_precip_county_map_html(
         selected_mode=mode,
         selected_date=day_str if mode != "last24h" else "",
         selected_top_n=top_n_i,
+        selected_rank=rank,
         cluster=cluster,
         heatmap_show=show_heatmap,
         heat_radius=heat_radius,
