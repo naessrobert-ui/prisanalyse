@@ -99,7 +99,19 @@ def _parse_number_series(series: pd.Series) -> pd.Series:
 
 
 def _parse_area_m2(df: pd.DataFrame) -> pd.Series:
-    area_col = next((c for c in ["size", "areal", "areal_m2", "bruksareal", "kvm", "area"] if c in df.columns), None)
+    # NB: "size" i master kan være antall rom (3, 4, 5 ...) og må ikke brukes som areal.
+    preferred = ["areal", "areal_m2", "bruksareal", "kvm", "area", "bra", "p-rom", "prom", "primærrom", "boareal"]
+    area_col = next((c for c in preferred if c in df.columns), None)
+
+    if area_col is None:
+        for c in df.columns:
+            cl = str(c).strip().lower()
+            if cl == "size" or "rom" in cl:
+                continue
+            if any(k in cl for k in ["areal", "bra", "boareal", "kvm", "m2", "m²", "primær"]):
+                area_col = c
+                break
+
     if area_col is None:
         return pd.Series(np.nan, index=df.index, dtype=float)
 

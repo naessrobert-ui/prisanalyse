@@ -90,7 +90,19 @@ def _parse_number_series(series: pd.Series) -> pd.Series:
 
 def _parse_area_m2(df: pd.DataFrame) -> pd.Series:
     # NB: "size" i master kan være antall rom (3, 4, 5 ...) og må ikke brukes som areal.
-    area_col = next((c for c in ["areal", "areal_m2", "bruksareal", "kvm", "area"] if c in df.columns), None)
+    preferred = ["areal", "areal_m2", "bruksareal", "kvm", "area", "bra", "p-rom", "prom", "primærrom", "boareal"]
+    area_col = next((c for c in preferred if c in df.columns), None)
+
+    if area_col is None:
+        # Fallback: finn sannsynlig arealkolonne med navneheuristikk
+        for c in df.columns:
+            cl = str(c).strip().lower()
+            if cl == "size" or "rom" in cl:
+                continue
+            if any(k in cl for k in ["areal", "bra", "boareal", "kvm", "m2", "m²", "primær"]):
+                area_col = c
+                break
+
     if area_col is None:
         return pd.Series(np.nan, index=df.index, dtype=float)
 
@@ -141,9 +153,6 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
 
     # Hvis m2 fortsatt er åpenbart urimelig etter eventuell reparasjon, sett til NaN
     d.loc[(d["m2_pris"] < 5_000) | (d["m2_pris"] > 300_000), "m2_pris"] = np.nan
-    valid_calc = area_m2 > 8
-    suspect_m2 = d["m2_pris"].isna() | (d["m2_pris"] <= 1_000) | (d["m2_pris"] >= 500_000)
-    d.loc[suspect_m2 & valid_calc, "m2_pris"] = calc_m2[suspect_m2 & valid_calc]
 
     # Strings
     for c in ["fylke", "kommune_navn", "ny_brukt", "address", "full_title"]:
