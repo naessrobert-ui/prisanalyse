@@ -56,6 +56,52 @@ def extract_poststed(address: pd.Series) -> pd.Series:
     return s
 
 
+def _parse_number_series(series: pd.Series) -> pd.Series:
+    """
+    Tåler både norske og internasjonale tusenskiller/desimaler.
+    Eksempler som håndteres: "1 234 567", "1.234.567", "1,234,567", "123,45".
+    """
+    s = series.astype(str)
+    s = s.str.replace("\u00a0", "", regex=False)  # NBSP
+    s = s.str.replace("kr", "", regex=False, case=False)
+    s = s.str.replace(" ", "", regex=False)
+    s = s.str.replace(r"[^0-9,.-]", "", regex=True)
+
+    # Hvis både punktum og komma finnes: bruk siste separator som desimaltegn.
+    both_mask = s.str.contains(".", regex=False) & s.str.contains(",", regex=False)
+    decimal_comma_mask = both_mask & (s.str.rfind(",") > s.str.rfind("."))
+    decimal_dot_mask = both_mask & ~decimal_comma_mask
+
+    s.loc[decimal_comma_mask] = s.loc[decimal_comma_mask].str.replace(".", "", regex=False)
+    s.loc[decimal_comma_mask] = s.loc[decimal_comma_mask].str.replace(",", ".", regex=False)
+
+    s.loc[decimal_dot_mask] = s.loc[decimal_dot_mask].str.replace(",", "", regex=False)
+
+    # Kun komma: bruk komma som desimaltegn.
+    comma_only_mask = (~both_mask) & s.str.contains(",", regex=False)
+    s.loc[comma_only_mask] = s.loc[comma_only_mask].str.replace(",", ".", regex=False)
+
+    # Punktum kun som tusenskiller (f.eks. 1.234.567) -> fjern punktum.
+    thousands_dot_mask = s.str.match(r"^-?\d{1,3}(\.\d{3})+$", na=False)
+    s.loc[thousands_dot_mask] = s.loc[thousands_dot_mask].str.replace(".", "", regex=False)
+
+    return pd.to_numeric(s, errors="coerce")
+
+
+def _parse_area_m2(df: pd.DataFrame) -> pd.Series:
+    area_col = next((c for c in ["size", "areal", "areal_m2", "bruksareal", "kvm", "area"] if c in df.columns), None)
+    if area_col is None:
+        return pd.Series(np.nan, index=df.index, dtype=float)
+
+    area = df[area_col].astype(str)
+    area = area.str.replace("m²", "", regex=False)
+    area = area.str.replace("m2", "", regex=False)
+    area = area.str.replace(" ", "", regex=False)
+    area = area.str.replace(",", ".", regex=False)
+    area = pd.to_numeric(area, errors="coerce")
+    return area
+
+
 def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
 
@@ -80,7 +126,16 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
 
     # Numerics
     for col in ["totalpris", "m2_pris", "latitude", "longitude", "pris_første", "pris_ny"]:
-        d[col] = pd.to_numeric(d[col], errors="coerce")
+        d[col] = _parse_number_series(d[col])
+
+    # M2-pris kan i enkelte masterfiler være feil/skjevt serialisert.
+    # Reparer verdier som er tomme eller åpenbart urimelige ved å bruke totalpris/areal.
+    area_m2 = _parse_area_m2(d)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        calc_m2 = d["totalpris"] / area_m2
+    valid_calc = area_m2 > 8
+    suspect_m2 = d["m2_pris"].isna() | (d["m2_pris"] <= 1_000) | (d["m2_pris"] >= 500_000)
+    d.loc[suspect_m2 & valid_calc, "m2_pris"] = calc_m2[suspect_m2 & valid_calc]
 
     # Strings
     for c in ["fylke", "kommune_navn", "ny_brukt", "address", "full_title"]:
