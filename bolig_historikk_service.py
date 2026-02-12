@@ -105,7 +105,7 @@ def _parse_area_m2(df: pd.DataFrame) -> pd.Series:
 
 def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
-
+/
     required = [
         "finnkode", "fylke", "kommune_nr", "kommune_navn",
         "address", "full_title",
@@ -141,6 +141,9 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
 
     # Hvis m2 fortsatt er åpenbart urimelig etter eventuell reparasjon, sett til NaN
     d.loc[(d["m2_pris"] < 5_000) | (d["m2_pris"] > 300_000), "m2_pris"] = np.nan
+    valid_calc = area_m2 > 8
+    suspect_m2 = d["m2_pris"].isna() | (d["m2_pris"] <= 1_000) | (d["m2_pris"] >= 500_000)
+    d.loc[suspect_m2 & valid_calc, "m2_pris"] = calc_m2[suspect_m2 & valid_calc]
 
     # Strings
     for c in ["fylke", "kommune_navn", "ny_brukt", "address", "full_title"]:
