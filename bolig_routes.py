@@ -319,9 +319,38 @@ def bolig_historikk_detalj():
     c_place = col("sted", "place")
     c_type = col("boligtype", "property_type", "type")
     c_ny = col("ny_brukt", "nybrukt", "new_used")
-    c_area = col("areal", "bruksareal", "kvm", "area")
+    def pick_area_col(df, *cands):
+        for c in cands:
+            if c not in df.columns:
+                continue
+            vals = pd.to_numeric(df[c], errors="coerce").dropna()
+            if vals.empty:
+                return c
+            small_share = ((vals >= 1) & (vals <= 20)).mean()
+            integer_share = (np.abs(vals - np.round(vals)) < 1e-9).mean()
+            # Hopper over kolonner som ser ut som romtall
+            if small_share >= 0.7 and integer_share >= 0.9:
+                continue
+            return c
+        return None
+
+    c_area = pick_area_col(df_list, "areal", "areal_m2", "bruksareal", "kvm", "area", "size")
     c_m2 = col("m2_pris", "m2_price", "m2pris")
     c_total = col("totalpris", "total_price", "pris")
+
+    def m2_for_row(r):
+        m2_val = r.get(c_m2) if c_m2 else np.nan
+        m2_num = pd.to_numeric(m2_val, errors="coerce")
+        if pd.notna(m2_num) and 5_000 <= float(m2_num) <= 300_000:
+            return float(m2_num)
+
+        area_num = pd.to_numeric(r.get(c_area) if c_area else np.nan, errors="coerce")
+        total_num = pd.to_numeric(r.get(c_total) if c_total else np.nan, errors="coerce")
+        if pd.notna(area_num) and pd.notna(total_num) and 15 <= float(area_num) <= 1000:
+            calc = float(total_num) / float(area_num)
+            if 5_000 <= calc <= 300_000:
+                return calc
+        return np.nan
 
     # --- Overlapp-tabell ---
     detail_columns = [
@@ -348,7 +377,7 @@ def bolig_historikk_detalj():
             "Boligtype": "" if not c_type else (r.get(c_type) or ""),
             "Ny/Brukt": "" if not c_ny else (r.get(c_ny) or ""),
             "Areal": fmt_int_space(r.get(c_area)) if c_area else "",
-            "M²-pris": fmt_int_space(r.get(c_m2)) if c_m2 else "",
+            "M²-pris": fmt_int_space(m2_for_row(r)),
             "Totalpris": fmt_int_space(r.get(c_total)) if c_total else "",
             "Publisert": fmt_date_no(r.get("publisert_dato") if pd.notna(r.get("publisert_dato")) else r.get("dato_første")),
             "Siste dato": fmt_date_no(r.get("dato_siste")),
@@ -380,7 +409,7 @@ def bolig_historikk_detalj():
             "Sted": "" if not c_place else (r.get(c_place) or ""),
             "Boligtype": "" if not c_type else (r.get(c_type) or ""),
             "Areal": fmt_int_space(r.get(c_area)) if c_area else "",
-            "M²-pris": fmt_int_space(r.get(c_m2)) if c_m2 else "",
+            "M²-pris": fmt_int_space(m2_for_row(r)),
             "Totalpris": fmt_int_space(r.get(c_total)) if c_total else "",
             "Publisert": fmt_date_no(r.get("publisert_dato") if pd.notna(r.get("publisert_dato")) else r.get("dato_første")),
             "Forsvunnet": fmt_date_no(r.get("dato_siste")),
