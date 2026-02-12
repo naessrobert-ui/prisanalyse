@@ -117,7 +117,7 @@ def _parse_area_m2(df: pd.DataFrame) -> pd.Series:
 
 def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
-/
+
     required = [
         "finnkode", "fylke", "kommune_nr", "kommune_navn",
         "address", "full_title",
