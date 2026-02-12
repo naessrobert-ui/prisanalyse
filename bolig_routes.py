@@ -319,7 +319,7 @@ def bolig_historikk_detalj():
     c_place = col("sted", "place")
     c_type = col("boligtype", "property_type", "type")
     c_ny = col("ny_brukt", "nybrukt", "new_used")
-    c_area = col("areal", "bruksareal", "kvm", "area")
+    c_area = col("areal", "areal_m2", "bruksareal", "kvm", "area")
     c_m2 = col("m2_pris", "m2_price", "m2pris")
     c_total = col("totalpris", "total_price", "pris")
 
