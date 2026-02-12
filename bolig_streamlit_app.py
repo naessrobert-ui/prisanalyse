@@ -160,9 +160,12 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
     area_m2 = _parse_area_m2(d)
     with np.errstate(divide="ignore", invalid="ignore"):
         calc_m2 = d["totalpris"] / area_m2
-    valid_calc = area_m2 > 8
-    suspect_m2 = d["m2_pris"].isna() | (d["m2_pris"] <= 1_000) | (d["m2_pris"] >= 500_000)
-    d.loc[suspect_m2 & valid_calc, "m2_pris"] = calc_m2[suspect_m2 & valid_calc]
+    plausible_area = (area_m2 >= 15) & (area_m2 <= 1000)
+    plausible_calc = (calc_m2 >= 5_000) & (calc_m2 <= 300_000)
+    suspect_m2 = d["m2_pris"].isna() | (d["m2_pris"] <= 1_000) | (d["m2_pris"] >= 300_000)
+    d.loc[suspect_m2 & plausible_area & plausible_calc, "m2_pris"] = calc_m2[suspect_m2 & plausible_area & plausible_calc]
+
+    d.loc[(d["m2_pris"] < 5_000) | (d["m2_pris"] > 300_000), "m2_pris"] = np.nan
 
     # Strings
     for c in ["fylke", "kommune_navn", "ny_brukt", "address", "full_title"]:

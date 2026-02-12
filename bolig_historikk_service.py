@@ -89,7 +89,8 @@ def _parse_number_series(series: pd.Series) -> pd.Series:
 
 
 def _parse_area_m2(df: pd.DataFrame) -> pd.Series:
-    area_col = next((c for c in ["size", "areal", "areal_m2", "bruksareal", "kvm", "area"] if c in df.columns), None)
+    # NB: "size" i master kan være antall rom (3, 4, 5 ...) og må ikke brukes som areal.
+    area_col = next((c for c in ["areal", "areal_m2", "bruksareal", "kvm", "area"] if c in df.columns), None)
     if area_col is None:
         return pd.Series(np.nan, index=df.index, dtype=float)
 
@@ -104,7 +105,7 @@ def _parse_area_m2(df: pd.DataFrame) -> pd.Series:
 
 def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
-
+/
     required = [
         "finnkode", "fylke", "kommune_nr", "kommune_navn",
         "address", "full_title",
@@ -133,6 +134,13 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
     area_m2 = _parse_area_m2(d)
     with np.errstate(divide="ignore", invalid="ignore"):
         calc_m2 = d["totalpris"] / area_m2
+    plausible_area = (area_m2 >= 15) & (area_m2 <= 1000)
+    plausible_calc = (calc_m2 >= 5_000) & (calc_m2 <= 300_000)
+    suspect_m2 = d["m2_pris"].isna() | (d["m2_pris"] <= 1_000) | (d["m2_pris"] >= 300_000)
+    d.loc[suspect_m2 & plausible_area & plausible_calc, "m2_pris"] = calc_m2[suspect_m2 & plausible_area & plausible_calc]
+
+    # Hvis m2 fortsatt er åpenbart urimelig etter eventuell reparasjon, sett til NaN
+    d.loc[(d["m2_pris"] < 5_000) | (d["m2_pris"] > 300_000), "m2_pris"] = np.nan
     valid_calc = area_m2 > 8
     suspect_m2 = d["m2_pris"].isna() | (d["m2_pris"] <= 1_000) | (d["m2_pris"] >= 500_000)
     d.loc[suspect_m2 & valid_calc, "m2_pris"] = calc_m2[suspect_m2 & valid_calc]
