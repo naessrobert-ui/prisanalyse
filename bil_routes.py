@@ -1146,6 +1146,7 @@ def bil_rekordrask_data():
 
 BILRADAR_S3_KEY = "calc/bil/bilradar.html"
 BILRADAR_MODELL_KEY = "calc/bil/bil_prismodell_v2.pkl"
+BILRADAR_MODELL_LOCAL = "bil_prismodell_v2.pkl"   # Lokal kopi — mye raskere enn S3
 BILRADAR_SISTE_PREFIX = "raw/bil-time/"
 
 @bil_bp.route('/radar')
@@ -1174,7 +1175,7 @@ def bil_radar_siste():
     import io
     import time as _time
 
-    from bilradar_scorer import last_modell_fra_s3, scorer_biler, lag_json_data, GOOD_DEAL_THRESHOLD
+    from bilradar_scorer import last_modell_lokal_eller_s3, scorer_biler, lag_json_data, GOOD_DEAL_THRESHOLD
 
     t0 = _time.perf_counter()
 
@@ -1205,8 +1206,13 @@ def bil_radar_siste():
         df = pd.read_csv(io.StringIO(content), sep=";", dtype=str)
         print(f"[BilRadar/siste] {len(df)} rader lastet")
 
-        # 3. Last modell (cached)
-        modeller = last_modell_fra_s3(s3, S3_BUCKET_NAME, BILRADAR_MODELL_KEY)
+        # 3. Last modell (lokal først, fallback S3, cached etter første gang)
+        modeller = last_modell_lokal_eller_s3(
+            local_path=BILRADAR_MODELL_LOCAL,
+            s3_client=s3,
+            bucket=S3_BUCKET_NAME,
+            key=BILRADAR_MODELL_KEY,
+        )
 
         # 4. Score
         df_scored = scorer_biler(df, modeller)
@@ -1247,16 +1253,24 @@ def bil_radar_siste():
 
 
 def _get_bilradar_html_template():
-    """Henter HTML-templaten fra generer_bilradar.py (importerer den)."""
+    """Henter BilRadar HTML-template fra templates-mappen."""
+    # Prøv templates-mappen først
+    template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+    template_path = os.path.join(template_dir, "bilradar_template.html")
+
+    if os.path.exists(template_path):
+        with open(template_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    # Fallback: prøv import fra generer_bilradar
     try:
         from generer_bilradar import HTML_TEMPLATE
         return HTML_TEMPLATE
     except ImportError:
-        # Fallback: les fra S3 og bruk som base (erstatt data)
-        # Denne burde ikke trigge hvis generer_bilradar.py er tilgjengelig
-        raise ImportError(
-            "Kan ikke importere HTML_TEMPLATE fra generer_bilradar. "
-            "Sørg for at generer_bilradar.py er tilgjengelig i PYTHONPATH."
+        raise FileNotFoundError(
+            "BilRadar HTML-template ikke funnet. "
+            "Legg bilradar_template.html i templates/-mappen, "
+            "eller sørg for at generer_bilradar.py er tilgjengelig."
         )
 
 
