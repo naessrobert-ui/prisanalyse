@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import html as _html
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -8,6 +10,8 @@ from datetime import date as _date
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, Optional, Literal
+
+logger = logging.getLogger(__name__)
 
 import pandas as pd
 import requests
@@ -20,6 +24,7 @@ from folium.plugins import HeatMap, MarkerCluster
 from ver_station_db import stations_in_county
 
 # --- .env loading -------------------------------------------------------
+# Load .env next to this script, then fall back to working-directory .env
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 load_dotenv()
 
@@ -86,10 +91,10 @@ def frost_get_json(
     url = f"{FROST_BASE}{path}"
     backoff = 1.0
 
-    for _attempt in range(1, retries + 1):
+    for attempt in range(1, retries + 1):
         r = session.get(
             url,
-            params=params or None,
+            params=params,
             auth=(auth.client_id, auth.client_secret),
             headers={"Accept": "application/json"},
             timeout=timeout,
@@ -102,6 +107,10 @@ def frost_get_json(
             return r.json()
 
         if r.status_code == 429 or 500 <= r.status_code < 600:
+            logger.warning(
+                "Frost %s %s — attempt %d/%d, backing off %.1fs",
+                r.status_code, url, attempt, retries, backoff,
+            )
             time.sleep(backoff)
             backoff *= 2
             continue
@@ -226,7 +235,8 @@ def fetch_observations_interval(
         return df
     df["referenceTime"] = pd.to_datetime(df["referenceTime"], errors="coerce", utc=True)
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    df["qualityCode"] = pd.to_numeric(df.get("qualityCode"), errors="coerce")
+    # Quality codes may contain string suffixes; coerce to numeric but keep NaN rather than dropping
+    df["qualityCode"] = pd.to_numeric(df["qualityCode"], errors="coerce")
     return df.dropna(subset=["referenceTime", "value"])
 
 
@@ -260,8 +270,7 @@ def aggregate_sum_per_station(
     if df.empty:
         return df
 
-    d2 = df.copy()
-    d2["wet_flag"] = (d2["value"] >= wet_day_threshold_mm).astype(int)
+    d2 = df.assign(wet_flag=(df["value"] >= wet_day_threshold_mm).astype(int))
 
     out = (
         d2.groupby("sourceId", as_index=False)
@@ -539,7 +548,7 @@ def make_map(
     if heatmap_show:
         clipped = d["value"].clip(0, heat_clip_mm).astype(float)
         weights = (clipped / max(float(clipped.max() or 1.0), 1e-9)).fillna(0.0)
-        hm_data = [[r["lat"], r["lon"], float(w)] for (_, r), w in zip(d.iterrows(), weights)]
+        hm_data = list(zip(d["lat"].tolist(), d["lon"].tolist(), weights.tolist()))
         HeatMap(hm_data, radius=heat_radius, blur=heat_blur, min_opacity=0.25).add_to(m)
 
     layer = MarkerCluster() if cluster else None
@@ -549,8 +558,8 @@ def make_map(
     marker_map: dict[str, str] = {}
     for _, r in d.iterrows():
         val = float(r["value"])
-        name = str(r.get("name") or r.get("shortName") or r.get("sourceId") or "")
-        sid = str(r.get("sourceId") or "")
+        name = _html.escape(str(r.get("name") or r.get("shortName") or r.get("sourceId") or ""))
+        sid = _html.escape(str(r.get("sourceId") or ""))
         rt = r.get("referenceTime")
         rt_s = ""
         try:
@@ -598,8 +607,8 @@ def make_map(
     def _rows(tbl: pd.DataFrame) -> str:
         rows: list[str] = []
         for _, rr in tbl.iterrows():
-            sid = str(rr.get("sourceId") or "")
-            nm = str(rr.get("name") or rr.get("shortName") or sid)
+            sid = _html.escape(str(rr.get("sourceId") or ""))
+            nm = _html.escape(str(rr.get("name") or rr.get("shortName") or sid))
             rows.append(
                 f'<tr style="cursor:pointer;" onclick="focusStation(\'{sid}\')">'
                 f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0;'>{nm}</td>"
@@ -751,7 +760,9 @@ def build_precip_county_map_html(
     heat_radius: int = 25,
     heat_blur: int = 18,
     heat_clip_mm: float = 80.0,
+    session: Optional[requests.Session] = None,
 ) -> str:
+    t0 = time.monotonic()
     day_str = date_str or _date.today().isoformat()
 
     try:
@@ -763,13 +774,17 @@ def build_precip_county_map_html(
     if rank not in {"max", "min"}:
         rank = "max"
 
+    # Shared kwargs for the empty-map fallback
+    empty_kw: dict[str, Any] = dict(
+        selected_county=county or "",
+        selected_mode=mode,
+        selected_date=day_str,
+        selected_top_n=top_n_i,
+        selected_rank=rank,
+    )
+
     if not county:
-        return make_empty_map_with_dropdown(
-            selected_mode=mode,
-            selected_date=day_str,
-            selected_top_n=top_n_i,
-            selected_rank=rank,
-        )
+        return make_empty_map_with_dropdown(**empty_kw)
 
     if mode not in {"last24h", "day", "mtd", "ytd"}:
         mode = "last24h"
@@ -806,7 +821,10 @@ def build_precip_county_map_html(
         title = f"Nedbør hittil i året ({start.isoformat()} → {day.isoformat()})"
         sum_count_col = "n_days"
 
-    with requests.Session() as sess:
+    # Allow caller to pass in a reusable session (avoids new TCP pool per call)
+    owns_session = session is None
+    sess = session or requests.Session()
+    try:
         county_is_all = (county == "ALL")
         if county_is_all:
             frames = [stations_in_county(c) for c in NORWAY_COUNTIES]
@@ -816,13 +834,7 @@ def build_precip_county_map_html(
             src_meta = stations_in_county(county)
 
         if src_meta.empty:
-            return make_empty_map_with_dropdown(
-                selected_county=county,
-                selected_mode=mode,
-                selected_date=day_str,
-                selected_top_n=top_n_i,
-                selected_rank=rank,
-            )
+            return make_empty_map_with_dropdown(**empty_kw)
 
         sources = src_meta["baseId"].astype(str).tolist()
         obs = fetch_observations_interval(
@@ -836,15 +848,15 @@ def build_precip_county_map_html(
             limit=limit,
             qualities=qualities,
         )
+    finally:
+        if owns_session:
+            sess.close()
+
+    elapsed = time.monotonic() - t0
+    logger.info("Data fetch completed in %.1fs (%d sources, mode=%s)", elapsed, len(sources) if 'sources' in dir() else 0, mode)
 
     if obs.empty:
-        return make_empty_map_with_dropdown(
-            selected_county=county,
-            selected_mode=mode,
-            selected_date=day_str,
-            selected_top_n=top_n_i,
-            selected_rank=rank,
-        )
+        return make_empty_map_with_dropdown(**empty_kw)
 
     if mode == "day":
         picked = pick_day_value_per_station(obs, day=day)
@@ -862,18 +874,15 @@ def build_precip_county_map_html(
     merged = merged.dropna(subset=["lat", "lon", "value"])
 
     if merged.empty:
-        return make_empty_map_with_dropdown(
-            selected_county=county,
-            selected_mode=mode,
-            selected_date=day_str,
-            selected_top_n=top_n_i,
-            selected_rank=rank,
-        )
+        return make_empty_map_with_dropdown(**empty_kw)
 
     # For "Hele landet": plott kun topp N for fart, og la bruker velge mest/minst.
     if county == "ALL":
         asc = (rank == "min")
         merged = merged.sort_values("value", ascending=asc).head(top_n_i)
+
+    total_elapsed = time.monotonic() - t0
+    logger.info("Total build time: %.1fs", total_elapsed)
 
     return make_map(
         merged,
@@ -890,3 +899,32 @@ def build_precip_county_map_html(
         heat_clip_mm=heat_clip_mm,
         top_n=min(10, len(merged)),
     )
+
+
+# ======================================================================
+# CLI entry point
+# ======================================================================
+
+if __name__ == "__main__":
+    import argparse
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+    parser = argparse.ArgumentParser(description="Generate precipitation map HTML")
+    parser.add_argument("--county", default=None, help="County name or 'ALL'")
+    parser.add_argument("--mode", default="last24h", choices=["last24h", "day", "mtd", "ytd"])
+    parser.add_argument("--date", default=None, dest="date_str", help="Date (YYYY-MM-DD)")
+    parser.add_argument("--top-n", default=50, type=int, help="Top N stations to show")
+    parser.add_argument("--rank", default="max", choices=["max", "min"])
+    parser.add_argument("-o", "--output", default="precip_map.html", help="Output HTML file")
+    args = parser.parse_args()
+
+    html_out = build_precip_county_map_html(
+        county=args.county,
+        mode=args.mode,
+        date_str=args.date_str,
+        top_n=args.top_n,
+        rank=args.rank,
+    )
+    Path(args.output).write_text(html_out, encoding="utf-8")
+    logger.info("Wrote %s", args.output)

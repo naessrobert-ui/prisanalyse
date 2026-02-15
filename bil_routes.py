@@ -1141,6 +1141,126 @@ def bil_rekordrask_data():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================================
+# BILRADAR
+# ==========================================================
+
+BILRADAR_S3_KEY = "calc/bil/bilradar.html"
+BILRADAR_MODELL_KEY = "calc/bil/bil_prismodell_v2.pkl"
+BILRADAR_SISTE_PREFIX = "raw/bil-time/"
+
+@bil_bp.route('/radar')
+def bil_radar_velger():
+    """Velgerside: siste døgn (live) eller alle biler (forhåndsgenerert)."""
+    return render_template('bil_radar_velger.html')
+
+
+@bil_bp.route('/radar/alle')
+def bil_radar_alle():
+    """Serverer forhåndsgenerert BilRadar HTML fra S3."""
+    try:
+        s3 = _get_s3_client()
+        obj = s3.get_object(Bucket=S3_BUCKET_NAME, Key=BILRADAR_S3_KEY)
+        html = obj['Body'].read().decode('utf-8')
+        from flask import Response
+        return Response(html, mimetype='text/html')
+    except Exception as e:
+        from flask import abort
+        abort(404, description=f"BilRadar (alle) er ikke generert ennå. Kjør generer_bilradar.py først. ({e})")
+
+
+@bil_bp.route('/radar/siste')
+def bil_radar_siste():
+    """Live scoring av siste døgns biler."""
+    import io
+    import time as _time
+
+    from bilradar_scorer import last_modell_fra_s3, scorer_biler, lag_json_data, GOOD_DEAL_THRESHOLD
+
+    t0 = _time.perf_counter()
+
+    try:
+        s3 = _get_s3_client()
+
+        # 1. Finn nyeste biler_siste_*.csv
+        paginator = s3.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=S3_BUCKET_NAME, Prefix=BILRADAR_SISTE_PREFIX)
+        csv_files = []
+        for page in pages:
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                if key.endswith(".csv") and obj.get("Size", 0) > 0:
+                    csv_files.append((obj["LastModified"], key))
+
+        if not csv_files:
+            from flask import abort
+            abort(404, description="Ingen biler_siste filer funnet i S3.")
+
+        csv_files.sort(reverse=True)
+        latest_key = csv_files[0][1]
+        print(f"[BilRadar/siste] Leser {latest_key}")
+
+        # 2. Les CSV
+        resp = s3.get_object(Bucket=S3_BUCKET_NAME, Key=latest_key)
+        content = resp["Body"].read().decode("utf-16")
+        df = pd.read_csv(io.StringIO(content), sep=";", dtype=str)
+        print(f"[BilRadar/siste] {len(df)} rader lastet")
+
+        # 3. Last modell (cached)
+        modeller = last_modell_fra_s3(s3, S3_BUCKET_NAME, BILRADAR_MODELL_KEY)
+
+        # 4. Score
+        df_scored = scorer_biler(df, modeller)
+
+        # 5. Generer HTML
+        data_json = lag_json_data(df_scored)
+        antall = str(len(df_scored))
+        filnavn = latest_key.split("/")[-1]
+        elapsed = _time.perf_counter() - t0
+        dato = datetime.now().strftime("%d. %b %Y kl. %H:%M") + f" (beregnet på {elapsed:.1f}s)"
+
+        # Hent HTML-template fra generer_bilradar
+        html_template = _get_bilradar_html_template()
+        html = html_template.replace("__DATA_JSON__", data_json)
+        html = html.replace("__ANTALL__", antall)
+        html = html.replace("__DATO__", dato)
+        html = html.replace("__THRESHOLD__", str(GOOD_DEAL_THRESHOLD))
+
+        # Bytt tittel til å indikere siste døgn
+        html = html.replace(
+            "<title>BilRadar – Finn gode bilkjøp</title>",
+            "<title>BilRadar – Siste døgn</title>"
+        )
+        html = html.replace(
+            "Bil<span>Radar</span>",
+            "Bil<span>Radar</span> – Siste døgn"
+        )
+
+        print(f"[BilRadar/siste] Ferdig: {antall} biler, {elapsed:.1f}s")
+
+        from flask import Response
+        return Response(html, mimetype='text/html')
+
+    except Exception as e:
+        traceback.print_exc()
+        from flask import abort
+        abort(500, description=f"Feil ved live scoring: {e}")
+
+
+def _get_bilradar_html_template():
+    """Henter HTML-templaten fra generer_bilradar.py (importerer den)."""
+    try:
+        from generer_bilradar import HTML_TEMPLATE
+        return HTML_TEMPLATE
+    except ImportError:
+        # Fallback: les fra S3 og bruk som base (erstatt data)
+        # Denne burde ikke trigge hvis generer_bilradar.py er tilgjengelig
+        raise ImportError(
+            "Kan ikke importere HTML_TEMPLATE fra generer_bilradar. "
+            "Sørg for at generer_bilradar.py er tilgjengelig i PYTHONPATH."
+        )
+
+
+# ==========================================================
 # SVV (beholdt)
 # ==========================================================
 
