@@ -1,4 +1,3 @@
-# app.py
 # -*- coding: utf-8 -*-
 """Main Flask entrypoint for prisanalyse."""
 
@@ -6,7 +5,7 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, redirect
+from flask import Flask, render_template, redirect, request, abort, Response
 from flask_session import Session
 
 # Blueprints
@@ -21,6 +20,11 @@ from dash_apps.strom import create_dash_app
 
 
 load_dotenv()
+
+BLOCKED_BOTS = [
+    'SemrushBot', 'AhrefsBot', 'MJ12bot', 'DotBot',
+    'BLEXBot', 'PetalBot', 'Bytespider',
+]
 
 
 def create_app() -> Flask:
@@ -37,6 +41,37 @@ def create_app() -> Flask:
 
     Session(app)
 
+    # --- Bot-blokkering (kjører før ALLE requests) ---
+    @app.before_request
+    def block_bots():
+        ua = request.headers.get('User-Agent', '')
+        if any(bot in ua for bot in BLOCKED_BOTS):
+            abort(403)
+
+    # --- robots.txt for å be botter holde seg unna ---
+    @app.route("/robots.txt")
+    def robots_txt():
+        lines = [
+            "User-agent: SemrushBot",
+            "Disallow: /",
+            "",
+            "User-agent: AhrefsBot",
+            "Disallow: /",
+            "",
+            "User-agent: MJ12bot",
+            "Disallow: /",
+            "",
+            "User-agent: *",
+            "Disallow: /bolig/priser-sted/",
+            "Disallow: /bolig/priser-gate/",
+            "",
+            "User-agent: Googlebot",
+            "Allow: /",
+            "",
+            "Sitemap: https://prisanalyse.no/sitemap.xml",
+        ]
+        return Response("\n".join(lines), mimetype="text/plain")
+
     # Registrer seksjonene (blueprints)
     app.register_blueprint(bolig_bp)
     app.register_blueprint(fritids_bp)
@@ -50,13 +85,11 @@ def create_app() -> Flask:
     # -----------------------
     @app.route("/")
     def forside():
-        # Landing page med kortene (Bolig, Fritidsbolig, Bil, Ver, Jobb, …)
         return render_template("landing_page.html")
 
     @app.route("/jobb/")
     def jobb_side():
         return render_template("jobb_analyse.html")
-
 
     @app.route("/strom")
     def strom():
@@ -67,11 +100,9 @@ def create_app() -> Flask:
     return app
 
 
-# Slik at Flask CLI også kan finne appen
 app: Optional[Flask] = create_app()
 
 if __name__ == "__main__":
-    # Kjør kun Flask – ingen Streamlit
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000)),
