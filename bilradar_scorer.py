@@ -218,15 +218,53 @@ def scorer_biler(df: pd.DataFrame, modeller: dict, threshold: int = GOOD_DEAL_TH
     df["segment_1"] = df["Produsent"] + " | " + df["Modell"] + " | " + df["drivstoff"]
     df["segment_2"] = df["Produsent"] + " | " + df["drivstoff"]
 
-    # Prediker
-    resultater = []
-    for idx, row in df.iterrows():
-        bil = row.to_dict()
-        pris_pred, nivaa = prediker_pris(bil, modeller)
-        resultater.append({"idx": idx, "forventet_pris": pris_pred, "modell_nivaa": nivaa})
+    # Prediker – batch per segment (50-100x raskere enn iterrows)
+    df["forventet_pris"] = np.nan
+    df["modell_nivaa"] = "Ingen modell"
 
-    pred_df = pd.DataFrame(resultater).set_index("idx")
-    df = df.join(pred_df)
+    nivaa_1 = modeller.get("nivaa_1", {})
+    nivaa_2 = modeller.get("nivaa_2", {})
+    generell = modeller.get("generell")
+
+    # Nivå 1: batch per (Produsent | Modell | drivstoff)
+    for seg, m in nivaa_1.items():
+        mask = df["segment_1"] == seg
+        if not mask.any():
+            continue
+        sub = df.loc[mask]
+        hjul_enc = sub["hjuldrift"].map(m["hjuldrift_map"]).fillna(-1).astype(int)
+        X = np.column_stack([sub["alder"].values, sub["kjørelengde"].values, hjul_enc.values])
+        df.loc[mask, "forventet_pris"] = m["model"].predict(X)
+        df.loc[mask, "modell_nivaa"] = "Nivå 1"
+
+    # Nivå 2: batch per (Produsent | drivstoff) – kun de som ikke fikk nivå 1
+    ingen_pred = df["forventet_pris"].isna()
+    for seg, m in nivaa_2.items():
+        mask = ingen_pred & (df["segment_2"] == seg)
+        if not mask.any():
+            continue
+        sub = df.loc[mask]
+        hjul_enc = sub["hjuldrift"].map(m["hjuldrift_map"]).fillna(-1).astype(int)
+        X = np.column_stack([sub["alder"].values, sub["kjørelengde"].values, hjul_enc.values])
+        df.loc[mask, "forventet_pris"] = m["model"].predict(X)
+        df.loc[mask, "modell_nivaa"] = "Nivå 2"
+
+    # Generell: alle som fremdeles mangler prediksjon
+    if generell is not None:
+        ingen_pred = df["forventet_pris"].isna()
+        if ingen_pred.any():
+            m = generell
+            sub = df.loc[ingen_pred]
+            prod_enc   = sub["Produsent"].map(m["prod_map"]).fillna(-1).astype(int)
+            modell_enc = sub["Modell"].map(m["modell_map"]).fillna(-1).astype(int)
+            driv_enc   = sub["drivstoff"].map(m["driv_map"]).fillna(-1).astype(int)
+            hjul_enc   = sub["hjuldrift"].map(m["hjul_map"]).fillna(-1).astype(int)
+            X = np.column_stack([
+                sub["alder"].values, sub["kjørelengde"].values,
+                prod_enc.values, modell_enc.values, driv_enc.values, hjul_enc.values
+            ])
+            df.loc[ingen_pred, "forventet_pris"] = m["model"].predict(X)
+            df.loc[ingen_pred, "modell_nivaa"] = "Generell"
 
     mask = df["forventet_pris"].notna() & (df["forventet_pris"] > 0)
     df.loc[mask, "rabatt_kr"] = df.loc[mask, "forventet_pris"] - df.loc[mask, "salgspris"]
