@@ -97,6 +97,30 @@ def create_app() -> Flask:
 
     create_dash_app(app)
 
+    # --- Preload BilRadar-modell ved oppstart ---
+    # Modellen caches i bilradar_scorer._MODEL_CACHE og deles av alle workers
+    # via gunicorn --preload. Gjøres her så første request ikke henger.
+    try:
+        from bilradar_scorer import last_modell_lokal_eller_s3
+        from bil_routes import BILRADAR_MODELL_LOCAL, BILRADAR_MODELL_KEY
+        from config import AWS_KEY, AWS_SECRET, AWS_REGION, S3_BUCKET_NAME
+        import boto3
+        s3 = boto3.client(
+            "s3",
+            region_name=AWS_REGION,
+            aws_access_key_id=AWS_KEY,
+            aws_secret_access_key=AWS_SECRET,
+        )
+        last_modell_lokal_eller_s3(
+            local_path=BILRADAR_MODELL_LOCAL,
+            s3_client=s3,
+            bucket=S3_BUCKET_NAME,
+            key=BILRADAR_MODELL_KEY,
+        )
+        print("[Oppstart] BilRadar-modell lastet og klar")
+    except Exception as e:
+        print(f"[Oppstart] ADVARSEL: Kunne ikke preloade BilRadar-modell: {e}")
+
     return app
 
 
