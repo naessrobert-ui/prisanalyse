@@ -1,11 +1,12 @@
 """
-bilradar_scorer.py — Felles scoring-logikk for BilRadar
+bilradar_scorer.py – Felles scoring-logikk for BilRadar
 ========================================================
 Brukes av:
   - bil_routes.py (Flask, live scoring av siste døgn)
   - generer_bilradar.py (batch, scoring av alle biler)
 
-Laster prismodell fra S3 (pickle), scorer biler, genererer JSON for HTML.
+Støtter både joblib (.joblib) og pickle (.pkl) — foretrekker joblib.
+Laster prismodell fra lokal disk (med S3-fallback), cacher i minne.
 """
 
 import io
@@ -27,21 +28,57 @@ _MODEL_CACHE = {
 }
 
 
+def _last_fra_fil(path: str):
+    """Last modell fra enten .joblib eller .pkl — velger format automatisk."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext == ".joblib":
+        try:
+            import joblib
+            return joblib.load(path)
+        except ImportError:
+            raise ImportError("joblib er ikke installert. Kjør: pip install joblib")
+    else:
+        with open(path, "rb") as f:
+            return pickle.load(f)
+
+
+def _last_fra_bytes(data: bytes, hint_ext: str = ".pkl"):
+    """Last modell fra bytes-objekt (S3). Velger format basert på hint."""
+    ext = hint_ext.lower()
+    if ext == ".joblib":
+        try:
+            import joblib
+            return joblib.load(io.BytesIO(data))
+        except ImportError:
+            raise ImportError("joblib er ikke installert. Kjør: pip install joblib")
+    else:
+        return pickle.loads(data)
+
+
+def _logg_modell_info(modeller):
+    n1 = len(modeller.get("nivaa_1", {}))
+    n2 = len(modeller.get("nivaa_2", {}))
+    har_gen = modeller.get("generell") is not None
+    fmt = "joblib" if modeller.get("_format") == "joblib" else "pickle"
+    print(f"[BilRadar] Modell lastet: Nivå 1: {n1} | Nivå 2: {n2} | Generell: {'Ja' if har_gen else 'Nei'}")
+
+
+# ---- Innlastingsfunksjoner ----
+
 def last_modell_fra_s3(s3_client, bucket: str, key: str):
-    """Last prismodell fra S3. Cacher i minne — lastes kun én gang."""
+    """Last prismodell fra S3. Støtter .joblib og .pkl. Cacher i minne."""
     with _MODEL_LOCK:
         if _MODEL_CACHE["modeller"] is not None:
             return _MODEL_CACHE["modeller"]
 
         print(f"[BilRadar] Laster prismodell fra s3://{bucket}/{key} ...")
         obj = s3_client.get_object(Bucket=bucket, Key=key)
-        modeller = pickle.loads(obj["Body"].read())
+        data = obj["Body"].read()
 
-        n1 = len(modeller.get("nivaa_1", {}))
-        n2 = len(modeller.get("nivaa_2", {}))
-        har_gen = modeller.get("generell") is not None
-        print(f"[BilRadar] Modell lastet: Nivå 1: {n1} | Nivå 2: {n2} | Generell: {'Ja' if har_gen else 'Nei'}")
+        hint_ext = os.path.splitext(key)[1]
+        modeller = _last_fra_bytes(data, hint_ext)
 
+        _logg_modell_info(modeller)
         _MODEL_CACHE["modeller"] = modeller
         _MODEL_CACHE["loaded_at"] = datetime.now()
         return modeller
@@ -49,32 +86,51 @@ def last_modell_fra_s3(s3_client, bucket: str, key: str):
 
 def last_modell_lokal_eller_s3(local_path: str, s3_client=None, bucket: str = "", key: str = ""):
     """
-    Last prismodell fra lokal fil først, fallback til S3.
-    Cacher i minne — lastes kun én gang.
+    Last prismodell — prøver i denne rekkefølgen:
+      1. Oppgitt local_path  (.joblib eller .pkl)
+      2. Samme sti men med .joblib-endelse (automatisk oppgradering)
+      3. Nedlasting fra S3 til /tmp/  (cacher lokalt for neste restart)
     """
     with _MODEL_LOCK:
         if _MODEL_CACHE["modeller"] is not None:
             return _MODEL_CACHE["modeller"]
 
-        # Prøv lokal fil først (mye raskere)
+        # 1. Prøv oppgitt sti
         if local_path and os.path.exists(local_path):
-            print(f"[BilRadar] Laster prismodell fra lokal fil: {local_path} ...")
-            with open(local_path, "rb") as f:
-                modeller = pickle.load(f)
-        elif s3_client and bucket and key:
-            print(f"[BilRadar] Lokal fil ikke funnet, laster fra s3://{bucket}/{key} ...")
-            obj = s3_client.get_object(Bucket=bucket, Key=key)
-            modeller = pickle.loads(obj["Body"].read())
+            print(f"[BilRadar] Laster fra: {local_path}")
+            modeller = _last_fra_fil(local_path)
+
+        # 2. Prøv .joblib-variant av samme sti
+        elif local_path:
+            joblib_path = os.path.splitext(local_path)[0] + ".joblib"
+            if os.path.exists(joblib_path):
+                print(f"[BilRadar] Fant joblib-variant: {joblib_path}")
+                modeller = _last_fra_fil(joblib_path)
+            elif s3_client and bucket and key:
+                # 3. Last fra S3 og cache lokalt
+                print(f"[BilRadar] Laster fra S3: s3://{bucket}/{key}")
+                obj = s3_client.get_object(Bucket=bucket, Key=key)
+                data = obj["Body"].read()
+
+                # Cache til /tmp/ for raskere neste oppstart
+                cache_path = os.path.join("/tmp", os.path.basename(key))
+                try:
+                    with open(cache_path, "wb") as f:
+                        f.write(data)
+                    print(f"[BilRadar] Cachet til disk: {cache_path}")
+                except Exception:
+                    pass  # /tmp ikke tilgjengelig — fortsett uten disk-cache
+
+                hint_ext = os.path.splitext(key)[1]
+                modeller = _last_fra_bytes(data, hint_ext)
+            else:
+                raise FileNotFoundError(
+                    f"Prismodell ikke funnet: lokal={local_path}, S3={bucket}/{key}"
+                )
         else:
-            raise FileNotFoundError(
-                f"Prismodell ikke funnet: lokal={local_path}, S3={bucket}/{key}"
-            )
+            raise FileNotFoundError("Ingen local_path oppgitt og ingen S3-konfigurasjon.")
 
-        n1 = len(modeller.get("nivaa_1", {}))
-        n2 = len(modeller.get("nivaa_2", {}))
-        har_gen = modeller.get("generell") is not None
-        print(f"[BilRadar] Modell lastet: Nivå 1: {n1} | Nivå 2: {n2} | Generell: {'Ja' if har_gen else 'Nei'}")
-
+        _logg_modell_info(modeller)
         _MODEL_CACHE["modeller"] = modeller
         _MODEL_CACHE["loaded_at"] = datetime.now()
         return modeller

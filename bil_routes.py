@@ -1145,8 +1145,8 @@ def bil_rekordrask_data():
 # ==========================================================
 
 BILRADAR_S3_KEY = "calc/bil/bilradar.html"
-BILRADAR_MODELL_KEY = "calc/bil/bil_prismodell_v2.pkl"
-BILRADAR_MODELL_LOCAL = "bil_prismodell_v2.pkl"   # Lokal kopi — mye raskere enn S3
+BILRADAR_MODELL_KEY = "calc/bil/bil_prismodell_v2.joblib"
+BILRADAR_MODELL_LOCAL = "bil_prismodell_v2.joblib"   # Lokal kopi — mye raskere enn S3
 BILRADAR_SISTE_PREFIX = "raw/bil-time/"
 
 @bil_bp.route('/radar')
