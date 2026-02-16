@@ -97,33 +97,6 @@ def create_app() -> Flask:
 
     create_dash_app(app)
 
-    # --- Varm opp BilRadar-modell i bakgrunn ved oppstart ---
-    # Lastes i egen tråd så gunicorn ikke blokkerer
-    import threading
-    def _preload_modell():
-        try:
-            from bilradar_scorer import last_modell_lokal_eller_s3
-            from bil_routes import BILRADAR_MODELL_LOCAL, BILRADAR_MODELL_KEY
-            from config import AWS_KEY, AWS_SECRET, AWS_REGION, S3_BUCKET_NAME
-            import boto3
-            s3 = boto3.client(
-                "s3",
-                region_name=AWS_REGION,
-                aws_access_key_id=AWS_KEY,
-                aws_secret_access_key=AWS_SECRET,
-            )
-            last_modell_lokal_eller_s3(
-                local_path=BILRADAR_MODELL_LOCAL,
-                s3_client=s3,
-                bucket=S3_BUCKET_NAME,
-                key=BILRADAR_MODELL_KEY,
-            )
-            print("[Oppstart] BilRadar-modell lastet og klar")
-        except Exception as e:
-            print(f"[Oppstart] ADVARSEL: Kunne ikke preloade BilRadar-modell: {e}")
-
-    threading.Thread(target=_preload_modell, daemon=True).start()
-
     return app
 
 
