@@ -1156,6 +1156,12 @@ BILRADAR_HTML_CACHE = {"alle": {"html": None, "etag": None},
                        "siste": {"html": None, "csv_key": None}}
 BILRADAR_HTML_LOCK = threading.Lock()
 
+def _get_bilradar_html_template() -> str:
+    """Leser BilRadar HTML-template fra disk."""
+    template_path = os.path.join(os.path.dirname(__file__), "templates", "bil_radar.html")
+    with open(template_path, "r", encoding="utf-8") as f:
+        return f.read()
+
 
 def _lag_json_data_fra_parquet(df: pd.DataFrame) -> str:
     import json as _json
