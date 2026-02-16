@@ -1155,18 +1155,162 @@ def bil_radar_velger():
     return render_template('bil_radar_velger.html')
 
 
+BILRADAR_ALLE_CACHE = {
+    "html": None,
+    "generated_at": None,
+    "alle_key": None,
+    "siste_key": None,
+}
+BILRADAR_ALLE_CACHE_LOCK = threading.Lock()
+BILRADAR_ALLE_MAX_AGE_MINUTES = 60
+
+
+def _finn_siste_csv(s3, prefix: str, pattern: str):
+    """Finner nyeste CSV-fil under et S3-prefix som matcher pattern."""
+    paginator = s3.get_paginator("list_objects_v2")
+    best = None
+    for page in paginator.paginate(Bucket=S3_BUCKET_NAME, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            if not key.endswith(".csv") or obj.get("Size", 0) == 0:
+                continue
+            if not re.search(pattern, key.split("/")[-1]):
+                continue
+            lm = obj["LastModified"]
+            if best is None or lm > best[1]:
+                best = (key, lm)
+    return best
+
+
+def _les_csv_fra_s3(s3, key: str) -> pd.DataFrame:
+    import io as _io
+    resp = s3.get_object(Bucket=S3_BUCKET_NAME, Key=key)
+    content = resp["Body"].read().decode("utf-16")
+    return pd.read_csv(_io.StringIO(content), sep=";", dtype=str)
+
+
 @bil_bp.route('/radar/alle')
 def bil_radar_alle():
-    """Serverer forhåndsgenerert BilRadar HTML fra S3."""
+    """
+    Kombinerer siste daglige CSV (alle biler) med siste time-CSV (nye biler + bilder).
+    Cacher HTML i minne – regenererer kun hvis CSV-filene på S3 er endret.
+    """
+    import time as _time
+    from bilradar_scorer import last_modell_lokal_eller_s3, scorer_biler, lag_json_data, GOOD_DEAL_THRESHOLD
+    from flask import Response
+
+    t0 = _time.perf_counter()
+
     try:
         s3 = _get_s3_client()
-        obj = s3.get_object(Bucket=S3_BUCKET_NAME, Key=BILRADAR_S3_KEY)
-        html = obj['Body'].read().decode('utf-8')
-        from flask import Response
+
+        # Finn nyeste filer
+        alle_result = _finn_siste_csv(s3, "raw/bil-daglig/", r"biler_alle_")
+        siste_result = _finn_siste_csv(s3, "raw/bil-time/", r"biler_siste_")
+
+        if not alle_result:
+            from flask import abort
+            abort(404, description="Ingen biler_alle CSV funnet i S3.")
+
+        alle_key = alle_result[0]
+        siste_key = siste_result[0] if siste_result else None
+
+        # Sjekk cache
+        with BILRADAR_ALLE_CACHE_LOCK:
+            cached = BILRADAR_ALLE_CACHE.copy()
+
+        if cached["html"] and cached["generated_at"]:
+            age = (datetime.now() - cached["generated_at"]).total_seconds() / 60
+            if (age < BILRADAR_ALLE_MAX_AGE_MINUTES
+                    and cached["alle_key"] == alle_key
+                    and cached["siste_key"] == siste_key):
+                print(f"[BilRadar/alle] Cache ({age:.0f} min) – serverer direkte")
+                return Response(cached["html"], mimetype='text/html')
+
+        # Last daglig CSV
+        print(f"[BilRadar/alle] Laster daglig: {alle_key}")
+        df_alle = _les_csv_fra_s3(s3, alle_key)
+        df_alle = df_alle.rename(columns={
+            "årstall": "Årstall", "kjørelengde": "Kjørelengde",
+            "girkasse": "Girkasse", "drivstoff": "Drivstoff",
+            "selger": "Selger", "sted": "Sted",
+            "hjuldrift": "Hjuldrift", "garanti": "Garanti",
+            "forhandler": "Forhandler",
+        })
+        df_alle = df_alle.drop_duplicates(subset="FinnKode", keep="last")
+        print(f"[BilRadar/alle] {len(df_alle)} biler fra daglig CSV")
+
+        # Kombiner med time-CSV (nye biler + bilder)
+        if siste_key:
+            print(f"[BilRadar/alle] Laster time: {siste_key}")
+            df_siste = _les_csv_fra_s3(s3, siste_key)
+            df_siste = df_siste.rename(columns={
+                "Garanti (mnd)": "Garanti",
+                "Forhandler type": "Forhandler",
+                "Service oppgitt": "Service",
+            })
+            df_siste = df_siste.drop_duplicates(subset="FinnKode", keep="last")
+
+            # Fyll inn BildeURL fra time-CSV der daglig mangler
+            if "BildeURL" not in df_alle.columns:
+                df_alle["BildeURL"] = ""
+            if "BildeURL" in df_siste.columns:
+                bilde_map = df_siste.set_index("FinnKode")["BildeURL"].dropna().to_dict()
+                mangler = df_alle["BildeURL"].isna() | (df_alle["BildeURL"].astype(str).str.strip() == "")
+                df_alle.loc[mangler, "BildeURL"] = df_alle.loc[mangler, "FinnKode"].map(bilde_map)
+
+            # Legg til nye biler som kun finnes i time-CSV
+            nye_koder = set(df_siste["FinnKode"]) - set(df_alle["FinnKode"])
+            if nye_koder:
+                df_nye = df_siste[df_siste["FinnKode"].isin(nye_koder)].copy()
+                df_alle = pd.concat([df_alle, df_nye], ignore_index=True)
+                print(f"[BilRadar/alle] +{len(df_nye)} nye fra time-CSV → totalt {len(df_alle)}")
+        else:
+            if "BildeURL" not in df_alle.columns:
+                df_alle["BildeURL"] = ""
+
+        # Fjern solgte
+        if "Pris" in df_alle.columns:
+            df_alle = df_alle[~df_alle["Pris"].astype(str).str.lower().str.contains("solgt", na=False)]
+
+        # Last modell
+        modeller = last_modell_lokal_eller_s3(
+            local_path=BILRADAR_MODELL_LOCAL,
+            s3_client=s3,
+            bucket=S3_BUCKET_NAME,
+            key=BILRADAR_MODELL_KEY,
+        )
+
+        # Score
+        print(f"[BilRadar/alle] Scorer {len(df_alle)} biler...")
+        df_scored = scorer_biler(df_alle, modeller)
+
+        # Generer HTML
+        data_json = lag_json_data(df_scored)
+        elapsed = _time.perf_counter() - t0
+        dato = datetime.now().strftime("%d. %b %Y kl. %H:%M") + f" (beregnet på {elapsed:.1f}s)"
+
+        html_template = _get_bilradar_html_template()
+        html = html_template.replace("__DATA_JSON__", data_json)
+        html = html.replace("__ANTALL__", str(len(df_scored)))
+        html = html.replace("__DATO__", dato)
+        html = html.replace("__THRESHOLD__", str(GOOD_DEAL_THRESHOLD))
+
+        print(f"[BilRadar/alle] Ferdig: {len(df_scored)} biler på {elapsed:.1f}s")
+
+        # Oppdater cache
+        with BILRADAR_ALLE_CACHE_LOCK:
+            BILRADAR_ALLE_CACHE["html"] = html
+            BILRADAR_ALLE_CACHE["generated_at"] = datetime.now()
+            BILRADAR_ALLE_CACHE["alle_key"] = alle_key
+            BILRADAR_ALLE_CACHE["siste_key"] = siste_key
+
         return Response(html, mimetype='text/html')
+
     except Exception as e:
+        traceback.print_exc()
         from flask import abort
-        abort(404, description=f"BilRadar (alle) er ikke generert ennå. Kjør generer_bilradar.py først. ({e})")
+        abort(500, description=f"Feil ved generering av BilRadar (alle): {e}")
 
 
 @bil_bp.route('/radar/siste')
