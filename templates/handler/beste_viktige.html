@@ -1,0 +1,88 @@
+{# templates/handler/beste_viktige.html #}
+{% extends "handler/_shell.html" %}
+{% block title %}Handler de beste / viktige{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>⭐ Handler de beste / viktige</h1>
+  <div class="sub">Sorter kjøp etter netto kjøp, og salg etter største salg fra investorer i valgt liste.</div>
+</div>
+
+<div class="panel">
+  <div class="row g-3">
+    <div class="col-md-3">
+      <label>Liste</label>
+      <select class="form-select" id="bv-list">
+        <option value="Beste">Beste</option>
+        <option value="Viktige">Viktige</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label>Fra dato</label>
+      <input type="date" class="form-control" id="bv-date-from">
+    </div>
+    <div class="col-md-3">
+      <label>Til dato</label>
+      <input type="date" class="form-control" id="bv-date-to">
+    </div>
+    <div class="col-md-3">
+      <label>Vis topp N</label>
+      <input type="number" class="form-control" id="bv-top-n" value="30" min="5" max="200" step="5">
+    </div>
+  </div>
+  <button class="btn btn-primary mt-3" id="bv-btn">Hent</button>
+</div>
+
+<div id="bv-info" class="mb-3" style="color:var(--pa-muted)"></div>
+
+<div id="buy-section" style="display:none">
+  <h5 style="color:var(--pa-text)">Mest kjøp (per aksje) – sortert etter netto kjøp</h5>
+  <div id="bv-buy-table"></div>
+</div>
+
+<div id="sell-section" style="display:none" class="mt-4">
+  <h5 style="color:var(--pa-text)">Mest salg (per aksje) – sortert etter største salg</h5>
+  <div id="bv-sell-table"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const today = new Date();
+  const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
+  document.getElementById('bv-date-from').value = ago30.toISOString().slice(0,10);
+  document.getElementById('bv-date-to').value = today.toISOString().slice(0,10);
+
+  const cols = [
+    {key:'ticker', label:'Ticker'}, {key:'isin', label:'ISIN'}, {key:'navn', label:'Navn'},
+    {key:'antall_obs', label:'Obs', fmt:'int'},
+    {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num'}, {key:'salg_mnok', label:'Salg MNOK', fmt:'num'},
+    {key:'netto_mnok', label:'Netto MNOK', fmt:'num'},
+  ];
+
+  document.getElementById('bv-btn').addEventListener('click', async function() {
+    const list_name = document.getElementById('bv-list').value;
+    const df = document.getElementById('bv-date-from').value;
+    const dt = document.getElementById('bv-date-to').value;
+    const topN = document.getElementById('bv-top-n').value;
+
+    this.innerHTML = '<span class="spinner"></span> Henter…';
+
+    const resp = await fetch(`{{ url_for("handler.api_beste_viktige") }}?list_name=${list_name}&date_from=${df}&date_to=${dt}&top_n=${topN}`);
+    const data = await resp.json();
+    this.textContent = 'Hent';
+
+    if (data.error) {
+      document.getElementById('bv-info').textContent = data.error;
+      return;
+    }
+
+    document.getElementById('bv-info').textContent = `Matchet ${data.investor_count || '?'} investorer fra listen.`;
+    document.getElementById('buy-section').style.display = 'block';
+    document.getElementById('sell-section').style.display = 'block';
+
+    buildTable(data.buy, cols, 'bv-buy-table');
+    buildTable(data.sell, cols, 'bv-sell-table');
+  });
+</script>
+{% endblock %}

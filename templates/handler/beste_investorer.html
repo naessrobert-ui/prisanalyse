@@ -1,0 +1,332 @@
+{# templates/handler/beste_investorer.html #}
+{% extends "handler/_shell.html" %}
+{% block title %}Beste investorer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>🏆 Beste investorer</h1>
+  <div class="sub">Ranger investorer på gevinst (kr) og gevinst% for valgt periode og utvalg.</div>
+</div>
+
+{% if db_error %}
+<div class="panel" style="border-color: var(--pa-accent);">⚠️ {{ db_error }}</div>
+{% endif %}
+
+<!-- Periode -->
+<div class="panel">
+  <div class="row g-3">
+    <div class="col-md-3">
+      <label>Fra dato</label>
+      <input type="date" class="form-control" id="bi-date-from" value="2022-01-01">
+    </div>
+    <div class="col-md-3">
+      <label>Til dato</label>
+      <input type="date" class="form-control" id="bi-date-to">
+    </div>
+  </div>
+</div>
+
+<!-- Investorutvalg -->
+<div class="panel">
+  <h6 style="color:var(--pa-text); margin-bottom:12px;">Investorutvalg</h6>
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label>Modus</label>
+      <select class="form-select" id="bi-inv-mode">
+        <option value="alle">Alle</option>
+        <option value="csv">CSV fra Eiere-Styring</option>
+        <option value="selected">Søk og velg</option>
+      </select>
+    </div>
+    <div class="col-md-4" id="bi-csv-wrap" style="display:none">
+      <label>CSV-fil</label>
+      <select class="form-select" id="bi-csv-file">
+        <option value="">Velg fil…</option>
+        {% for f in csv_files %}
+        <option value="{{ f }}">{{ f }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-8" id="bi-search-wrap" style="display:none">
+      <label>Søk investor (min 3 tegn)</label>
+      <div class="search-wrap">
+        <input type="text" class="form-control" id="bi-inv-search">
+        <div class="search-results" id="bi-inv-results" style="display:none"></div>
+      </div>
+      <div id="bi-selected-investors" class="mt-2" style="font-size:0.85rem; color:var(--pa-muted)"></div>
+    </div>
+  </div>
+  <div class="row g-3 mt-1">
+    <div class="col-md-3">
+      <label>Investortype</label>
+      <select class="form-select" id="bi-invtype">
+        {% for t in investor_types %}
+        <option value="{{ t }}">{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label>Country code</label>
+      <select class="form-select" id="bi-country" multiple size="3">
+        {% for cc in country_codes %}
+        <option value="{{ cc }}">{{ cc }}</option>
+        {% endfor %}
+      </select>
+      <small class="text-muted">Hold Ctrl for å velge flere. La tom for alle.</small>
+    </div>
+  </div>
+</div>
+
+<!-- Aksjeutvalg -->
+<div class="panel">
+  <h6 style="color:var(--pa-text); margin-bottom:12px;">Aksjeutvalg</h6>
+  <div class="row g-3">
+    <div class="col-md-3">
+      <label>Modus</label>
+      <select class="form-select" id="bi-sec-mode">
+        <option value="alle">Alle</option>
+        <option value="single">Én aksje</option>
+        <option value="csv">CSV med aksjer</option>
+      </select>
+    </div>
+    <div class="col-md-5" id="bi-sec-single-wrap" style="display:none">
+      <label>Søk ticker/navn</label>
+      <div class="search-wrap">
+        <input type="text" class="form-control" id="bi-sec-search">
+        <div class="search-results" id="bi-sec-results" style="display:none"></div>
+      </div>
+      <input type="hidden" id="bi-sec-isin">
+      <small class="text-muted" id="bi-sec-label"></small>
+    </div>
+    <div class="col-md-5" id="bi-sec-csv-wrap" style="display:none">
+      <label>CSV-fil</label>
+      <select class="form-select" id="bi-sec-csv-file">
+        <option value="">Velg fil…</option>
+        {% for f in csv_files %}
+        <option value="{{ f }}">{{ f }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Filtre -->
+<div class="panel">
+  <h6 style="color:var(--pa-text); margin-bottom:12px;">Filtre</h6>
+  <div class="row g-3">
+    <div class="col-md-3">
+      <label>Min antall handler</label>
+      <input type="number" class="form-control" id="bi-min-trades" value="10" min="1">
+    </div>
+    <div class="col-md-3">
+      <label>Min bruttohandel (MNOK)</label>
+      <input type="number" class="form-control" id="bi-min-brutto" value="10" min="0" step="1">
+    </div>
+  </div>
+  <button class="btn btn-primary mt-3" id="bi-run-btn">Kjør analyse</button>
+</div>
+
+<!-- Resultat -->
+<div id="bi-status" class="mb-2" style="color:var(--pa-muted)"></div>
+<div id="bi-result-table"></div>
+
+<div id="bi-csv-dl-wrap" style="display:none" class="mt-2">
+  <button class="btn btn-outline-secondary" id="bi-dl-csv">Last ned resultat (CSV)</button>
+</div>
+
+<!-- Transaksjoner -->
+<div id="bi-tx-section" style="display:none" class="mt-4">
+  <hr style="border-color:var(--pa-border)">
+  <h5 style="color:var(--pa-text)">Transaksjoner for <span id="bi-tx-name"></span></h5>
+  <div id="bi-tx-table"></div>
+  <div class="row g-3 mt-2" id="bi-tx-totals"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Init date
+  const today = new Date();
+  document.getElementById('bi-date-to').value = today.toISOString().slice(0,10);
+
+  // Toggle visibility
+  const invMode = document.getElementById('bi-inv-mode');
+  invMode.addEventListener('change', () => {
+    document.getElementById('bi-csv-wrap').style.display = invMode.value === 'csv' ? '' : 'none';
+    document.getElementById('bi-search-wrap').style.display = invMode.value === 'selected' ? '' : 'none';
+  });
+
+  const secMode = document.getElementById('bi-sec-mode');
+  secMode.addEventListener('change', () => {
+    document.getElementById('bi-sec-single-wrap').style.display = secMode.value === 'single' ? '' : 'none';
+    document.getElementById('bi-sec-csv-wrap').style.display = secMode.value === 'csv' ? '' : 'none';
+  });
+
+  // Investor multi-select
+  let selectedInvestorIds = [];
+  setupSearch('bi-inv-search', 'bi-inv-results',
+    '{{ url_for("handler.api_beste_search_investors") }}',
+    'label', 'investor_id',
+    function(item) {
+      if (!selectedInvestorIds.includes(item.investor_id)) {
+        selectedInvestorIds.push(item.investor_id);
+        updateSelectedDisplay();
+      }
+    }
+  );
+
+  function updateSelectedDisplay() {
+    const el = document.getElementById('bi-selected-investors');
+    if (selectedInvestorIds.length === 0) { el.innerHTML = ''; return; }
+    el.innerHTML = selectedInvestorIds.map((id, i) =>
+      `<span style="display:inline-block; background:rgba(231,76,138,0.15); padding:2px 8px; border-radius:8px; margin:2px; font-size:0.8rem;">
+        ${id} <a href="#" onclick="removeInvestor(${i}); return false;" style="color:#f87171; margin-left:4px;">×</a>
+      </span>`
+    ).join('');
+  }
+  window.removeInvestor = function(i) {
+    selectedInvestorIds.splice(i, 1);
+    updateSelectedDisplay();
+  };
+
+  // Security search
+  let selectedSecIsin = null;
+  setupSearch('bi-sec-search', 'bi-sec-results',
+    '{{ url_for("handler.api_beste_search_securities") }}',
+    'ticker', 'isin',
+    function(item) {
+      selectedSecIsin = item.isin;
+      document.getElementById('bi-sec-isin').value = item.isin;
+      document.getElementById('bi-sec-label').textContent = `✓ ${item.ticker} — ${item.navn}`;
+    }
+  );
+
+  // Store result for CSV / drilldown
+  let lastResult = [];
+  let lastParams = {};
+
+  // Run analysis
+  document.getElementById('bi-run-btn').addEventListener('click', async function() {
+    const params = new URLSearchParams();
+    params.set('date_from', document.getElementById('bi-date-from').value);
+    params.set('date_to', document.getElementById('bi-date-to').value);
+    params.set('invtype', document.getElementById('bi-invtype').value);
+    params.set('min_trades', document.getElementById('bi-min-trades').value);
+    params.set('min_brutto_mnok', document.getElementById('bi-min-brutto').value);
+
+    // Investor mode
+    const im = invMode.value;
+    params.set('inv_mode', im);
+    if (im === 'csv') params.set('csv_file', document.getElementById('bi-csv-file').value);
+    if (im === 'selected') params.set('investor_ids', selectedInvestorIds.join(','));
+
+    // Country
+    const ccSel = document.getElementById('bi-country');
+    const ccVals = Array.from(ccSel.selectedOptions).map(o => o.value);
+    if (ccVals.length) params.set('country_codes', ccVals.join(','));
+
+    // Security mode
+    const sm = secMode.value;
+    params.set('sec_mode', sm);
+    if (sm === 'single' && selectedSecIsin) params.set('isin', selectedSecIsin);
+    if (sm === 'csv') params.set('sec_csv_file', document.getElementById('bi-sec-csv-file').value);
+
+    lastParams = Object.fromEntries(params);
+
+    this.innerHTML = '<span class="spinner"></span> Kjører…';
+    document.getElementById('bi-status').textContent = '';
+    document.getElementById('bi-tx-section').style.display = 'none';
+
+    try {
+      const resp = await fetch('{{ url_for("handler.api_beste_investorer_run") }}?' + params.toString());
+      const data = await resp.json();
+      this.textContent = 'Kjør analyse';
+
+      if (data.error) {
+        document.getElementById('bi-status').textContent = data.error;
+        document.getElementById('bi-result-table').innerHTML = '';
+        return;
+      }
+
+      document.getElementById('bi-status').innerHTML =
+        `${data.count || 0} investorer funnet. <em style="color:var(--pa-muted)">${data.price_source || ''}</em>`;
+
+      lastResult = data.rows || [];
+
+      buildTable(lastResult, [
+        {key:'navn', label:'Navn'},
+        {key:'trades', label:'Handler', fmt:'int'},
+        {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
+        {key:'gevinst_mnok', label:'Gevinst MNOK', fmt:'num', dec:2},
+        {key:'gevinst_pct', label:'Gevinst %', fmt:'num', dec:2},
+      ], 'bi-result-table');
+
+      document.getElementById('bi-csv-dl-wrap').style.display = lastResult.length ? '' : 'none';
+
+      // Make rows clickable
+      const rows = document.querySelectorAll('#bi-result-table table tbody tr');
+      rows.forEach((tr, i) => {
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('click', () => loadTransactions(lastResult[i]));
+      });
+
+    } catch(e) {
+      this.textContent = 'Kjør analyse';
+      document.getElementById('bi-status').textContent = 'Feil: ' + e.message;
+    }
+  });
+
+  // Transaction drilldown
+  async function loadTransactions(investor) {
+    const sec = document.getElementById('bi-tx-section');
+    sec.style.display = 'block';
+    document.getElementById('bi-tx-name').textContent = investor.navn || investor.investor_id;
+
+    const params = new URLSearchParams();
+    params.set('investor_id', investor.investor_id);
+    params.set('date_from', lastParams.date_from || '2022-01-01');
+    params.set('date_to', lastParams.date_to || new Date().toISOString().slice(0,10));
+    if (lastParams.isin) params.set('isin_filter', lastParams.isin);
+
+    const resp = await fetch('{{ url_for("handler.api_beste_transactions") }}?' + params.toString());
+    const data = await resp.json();
+
+    buildTable(data.rows, [
+      {key:'dato', label:'Dato'},
+      {key:'ticker', label:'Ticker'},
+      {key:'navn', label:'Navn'},
+      {key:'isin', label:'ISIN'},
+      {key:'qty', label:'Antall', fmt:'int'},
+      {key:'trade_price', label:'Kurs', fmt:'num', dec:2},
+      {key:'last_price', label:'Siste kurs', fmt:'num', dec:2},
+      {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
+      {key:'gevinst_mnok', label:'Gevinst MNOK', fmt:'num', dec:2},
+    ], 'bi-tx-table');
+
+    const t = data.totals || {};
+    document.getElementById('bi-tx-totals').innerHTML = `
+      <div class="col-md-3"><div class="panel"><small>Brutto MNOK</small><div style="font-size:1.2rem; font-weight:700">${fmtNum(t.brutto_mnok,2)}</div></div></div>
+      <div class="col-md-3"><div class="panel"><small>Gevinst MNOK</small><div style="font-size:1.2rem; font-weight:700" class="${signClass(t.gevinst_mnok)}">${fmtNum(t.gevinst_mnok,2)}</div></div></div>
+      <div class="col-md-3"><div class="panel"><small>Gevinst %</small><div style="font-size:1.2rem; font-weight:700" class="${signClass(t.gevinst_pct)}">${fmtNum(t.gevinst_pct,2)}%</div></div></div>
+    `;
+
+    sec.scrollIntoView({behavior: 'smooth'});
+  }
+
+  // CSV download (client-side)
+  document.getElementById('bi-dl-csv').addEventListener('click', function() {
+    if (!lastResult.length) return;
+    const cols = ['navn','trades','brutto_mnok','gevinst_mnok','gevinst_pct'];
+    const header = cols.join(';');
+    const rows = lastResult.map(r => cols.map(c => {
+      let v = r[c]; if (typeof v === 'number') v = v.toString().replace('.', ','); return v ?? '';
+    }).join(';'));
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `beste_investorer_${lastParams.date_from}_${lastParams.date_to}.csv`;
+    a.click();
+  });
+</script>
+{% endblock %}

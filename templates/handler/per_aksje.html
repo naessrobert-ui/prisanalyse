@@ -1,0 +1,109 @@
+{# templates/handler/per_aksje.html #}
+{% extends "handler/_shell.html" %}
+{% block title %}Handler per aksje{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>📈 Handler per aksje</h1>
+  <div class="sub">To tabeller per eier: mest netto kjøp og mest netto salg.</div>
+</div>
+
+<div class="panel">
+  <div class="row g-3">
+    <div class="col-md-5">
+      <label>Søk selskap / ticker (min 2 tegn)</label>
+      <div class="search-wrap">
+        <input type="text" class="form-control" id="sec-search" placeholder="Eks: YAR, NOD, Aker…">
+        <div class="search-results" id="sec-results" style="display:none"></div>
+      </div>
+      <small class="text-muted" id="sec-selected-label"></small>
+      <input type="hidden" id="sec-isin">
+    </div>
+    <div class="col-md-2">
+      <label>Fra dato</label>
+      <input type="date" class="form-control" id="date-from">
+    </div>
+    <div class="col-md-2">
+      <label>Til dato</label>
+      <input type="date" class="form-control" id="date-to">
+    </div>
+    <div class="col-md-3">
+      <label>Vis topp N</label>
+      <input type="number" class="form-control" id="top-n" value="30" min="5" max="200" step="5">
+    </div>
+  </div>
+  <div class="mt-3">
+    <button class="btn btn-primary" id="btn-fetch" disabled>Hent</button>
+    <button class="btn btn-outline-secondary ms-2" id="btn-csv" style="display:none">Last ned CSV</button>
+  </div>
+</div>
+
+<div id="buy-section" style="display:none">
+  <h5 class="mt-4 mb-2" style="color:var(--pa-text)">Mest netto kjøp (per eier)</h5>
+  <div id="buy-table"></div>
+</div>
+
+<div id="sell-section" style="display:none">
+  <h5 class="mt-4 mb-2" style="color:var(--pa-text)">Mest netto salg (per eier)</h5>
+  <div id="sell-table"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const today = new Date();
+  const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
+  document.getElementById('date-from').value = ago30.toISOString().slice(0,10);
+  document.getElementById('date-to').value = today.toISOString().slice(0,10);
+
+  let selectedIsin = null;
+
+  setupSearch('sec-search', 'sec-results',
+    '{{ url_for("handler.api_search_securities") }}',
+    'label', 'isin',
+    function(item) {
+      selectedIsin = item.isin;
+      document.getElementById('sec-isin').value = item.isin;
+      document.getElementById('sec-selected-label').textContent = '✓ ' + item.label;
+      document.getElementById('btn-fetch').disabled = false;
+    }
+  );
+
+  const cols = [
+    {key:'eier', label:'Eier'},
+    {key:'investor_type', label:'Type'},
+    {key:'antall_obs', label:'Obs', fmt:'int'},
+    {key:'kjop_antall', label:'Kjøp ant.', fmt:'int'},
+    {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num'},
+    {key:'salg_antall', label:'Salg ant.', fmt:'int'},
+    {key:'salg_mnok', label:'Salg MNOK', fmt:'num'},
+    {key:'netto_mnok', label:'Netto MNOK', fmt:'num'},
+  ];
+
+  document.getElementById('btn-fetch').addEventListener('click', async function() {
+    if (!selectedIsin) return;
+    const df = document.getElementById('date-from').value;
+    const dt = document.getElementById('date-to').value;
+    const topN = document.getElementById('top-n').value;
+    this.innerHTML = '<span class="spinner"></span> Henter…';
+
+    const resp = await fetch(`{{ url_for("handler.api_per_aksje") }}?isin=${selectedIsin}&date_from=${df}&date_to=${dt}&top_n=${topN}`);
+    const data = await resp.json();
+    this.textContent = 'Hent';
+
+    if (data.error) return;
+
+    document.getElementById('buy-section').style.display = 'block';
+    document.getElementById('sell-section').style.display = 'block';
+    buildTable(data.buy, cols, 'buy-table');
+    buildTable(data.sell, cols, 'sell-table');
+    document.getElementById('btn-csv').style.display = 'inline-block';
+  });
+
+  document.getElementById('btn-csv').addEventListener('click', function() {
+    const df = document.getElementById('date-from').value;
+    const dt = document.getElementById('date-to').value;
+    window.open(`{{ url_for("handler.api_per_aksje_csv") }}?isin=${selectedIsin}&date_from=${df}&date_to=${dt}`);
+  });
+</script>
+{% endblock %}

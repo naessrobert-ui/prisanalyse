@@ -1,0 +1,112 @@
+{# templates/handler/index.html #}
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Handler Oslo Børs – prisanalyse.no</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --pa-dark: #0f1225;
+      --pa-card: rgba(255,255,255,0.06);
+      --pa-border: rgba(255,255,255,0.08);
+      --pa-accent: #e74c8a;
+      --pa-text: #e2e8f0;
+      --pa-muted: #94a3b8;
+    }
+    body { background: var(--pa-dark); color: var(--pa-text); font-family: system-ui, -apple-system, sans-serif; }
+    .navbar { background: rgba(15,18,37,0.95); border-bottom: 1px solid var(--pa-border); }
+    .navbar-brand { color: #fff !important; font-weight: 700; }
+    .hero {
+      background: linear-gradient(135deg, #1a1f3a 0%, #0f1225 100%);
+      border-radius: 18px; padding: 40px; margin: 24px 0;
+      border: 1px solid var(--pa-border);
+    }
+    .hero h1 { font-size: 2rem; margin-bottom: 8px; }
+    .hero p { color: var(--pa-muted); max-width: 600px; }
+    .card-module {
+      background: var(--pa-card); border: 1px solid var(--pa-border);
+      border-radius: 16px; padding: 24px; height: 100%;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .card-module:hover { border-color: var(--pa-accent); transform: translateY(-2px); }
+    .card-module h3 { font-size: 1.1rem; margin-bottom: 8px; }
+    .card-module p { color: var(--pa-muted); font-size: 0.9rem; margin-bottom: 16px; }
+    .card-module .icon { font-size: 2rem; margin-bottom: 12px; }
+    .btn-handler {
+      background: var(--pa-accent); color: #fff; border: none;
+      border-radius: 999px; padding: 8px 20px; font-weight: 600;
+      text-decoration: none; display: inline-block;
+    }
+    .btn-handler:hover { background: #d63d7a; color: #fff; }
+    a { color: var(--pa-accent); }
+    .db-warning { background: rgba(231,76,138,0.1); border: 1px solid var(--pa-accent);
+                  border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark px-4">
+    <a class="navbar-brand" href="/">📈 FinansApp</a>
+    <a href="/" class="text-white text-decoration-none">← Tilbake</a>
+  </nav>
+
+  <div class="container py-4">
+    {% if db_error %}
+    <div class="db-warning">
+      <strong>⚠️ Database:</strong> {{ db_error }}
+    </div>
+    {% endif %}
+
+    <div class="hero">
+      <h1>📊 Handler norske aksjer</h1>
+      <p>Utforsk handler og eierskap i norske aksjer. Velg en analyse nedenfor.</p>
+    </div>
+
+    <div class="row g-4 mt-2">
+      <div class="col-md-4">
+        <div class="card-module">
+          <div class="icon">📌</div>
+          <h3>Handler per eier</h3>
+          <p>Se hvilke eiere som handler mest, netto kjøp/salg og trender per eier.</p>
+          <a href="{{ url_for('handler.per_eier_page') }}" class="btn-handler">Åpne</a>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card-module">
+          <div class="icon">📈</div>
+          <h3>Handler per aksje</h3>
+          <p>Analyser volum og aktivitet per aksje, med filtrering på periode.</p>
+          <a href="{{ url_for('handler.per_aksje_page') }}" class="btn-handler">Åpne</a>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card-module">
+          <div class="icon">⭐</div>
+          <h3>Handler de beste / viktige</h3>
+          <p>Fremhev handler fra de beste eller viktigste investorene.</p>
+          <a href="{{ url_for('handler.beste_viktige_page') }}" class="btn-handler">Åpne</a>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card-module">
+          <div class="icon">🧭</div>
+          <h3>Eier oversikt</h3>
+          <p>Oppsummering av eierskap og endringer over tid, per aksje eller per eier.</p>
+          <a href="{{ url_for('handler.eier_oversikt_page') }}" class="btn-handler">Åpne</a>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card-module">
+          <div class="icon">🏆</div>
+          <h3>Beste investorer</h3>
+          <p>Finn investorene med sterkest historisk avkastning basert på handler.</p>
+          <a href="{{ url_for('handler.beste_investorer_page') }}" class="btn-handler">Åpne</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

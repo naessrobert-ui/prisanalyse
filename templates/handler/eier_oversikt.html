@@ -1,0 +1,126 @@
+{# templates/handler/eier_oversikt.html #}
+{% extends "handler/_shell.html" %}
+{% block title %}Eier oversikt{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>🧭 Eier oversikt</h1>
+  <div class="sub">Oppsummering av eierskap og endringer over tid, per aksje eller per eier.</div>
+</div>
+
+<!-- Tab nav -->
+<ul class="nav nav-pills mb-3" role="tablist">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-eier" style="color:var(--pa-text)">Per eier</button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-aksje" style="color:var(--pa-text)">Per aksje</button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  <!-- Per eier -->
+  <div class="tab-pane fade show active" id="tab-eier">
+    <div class="panel">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label>Søk investor (min 4 tegn)</label>
+          <div class="search-wrap">
+            <input type="text" class="form-control" id="eo-inv-search">
+            <div class="search-results" id="eo-inv-results" style="display:none"></div>
+          </div>
+          <input type="hidden" id="eo-inv-id">
+        </div>
+        <div class="col-md-3">
+          <label>Fra dato</label>
+          <input type="date" class="form-control" id="eo-date-from">
+        </div>
+        <div class="col-md-3">
+          <label>Til dato</label>
+          <input type="date" class="form-control" id="eo-date-to">
+        </div>
+      </div>
+      <button class="btn btn-primary mt-3" id="eo-btn" disabled>Hent data</button>
+    </div>
+    <div id="eo-eier-table"></div>
+    <canvas id="eo-chart" style="display:none; max-height:300px; margin-top:16px"></canvas>
+  </div>
+
+  <!-- Per aksje -->
+  <div class="tab-pane fade" id="tab-aksje">
+    <div class="panel">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label>Søk aksje/ISIN (min 2 tegn)</label>
+          <div class="search-wrap">
+            <input type="text" class="form-control" id="eo-sec-search">
+            <div class="search-results" id="eo-sec-results" style="display:none"></div>
+          </div>
+          <input type="hidden" id="eo-sec-isin">
+        </div>
+        <div class="col-md-3">
+          <label>Fra dato</label>
+          <input type="date" class="form-control" id="eo-sec-date-from">
+        </div>
+        <div class="col-md-3">
+          <label>Til dato</label>
+          <input type="date" class="form-control" id="eo-sec-date-to">
+        </div>
+      </div>
+      <button class="btn btn-primary mt-3" id="eo-sec-btn" disabled>Hent data</button>
+    </div>
+    <div id="eo-aksje-table"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const today = new Date();
+  const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
+  ['eo-date-from','eo-sec-date-from'].forEach(id => document.getElementById(id).value = ago30.toISOString().slice(0,10));
+  ['eo-date-to','eo-sec-date-to'].forEach(id => document.getElementById(id).value = today.toISOString().slice(0,10));
+
+  // Per eier
+  let eoInvId = null;
+  setupSearch('eo-inv-search', 'eo-inv-results',
+    '{{ url_for("handler.api_search_investors") }}', 'label', 'investor_id',
+    item => { eoInvId = item.investor_id; document.getElementById('eo-btn').disabled = false; }
+  );
+
+  document.getElementById('eo-btn').addEventListener('click', async function() {
+    if (!eoInvId) return;
+    this.innerHTML = '<span class="spinner"></span>';
+    const resp = await fetch(`{{ url_for("handler.api_eier_oversikt_per_eier") }}?investor_id=${eoInvId}&date_from=${document.getElementById('eo-date-from').value}&date_to=${document.getElementById('eo-date-to').value}`);
+    const data = await resp.json();
+    this.textContent = 'Hent data';
+
+    buildTable(data.rows, [
+      {key:'ticker', label:'Ticker'}, {key:'isin', label:'ISIN'}, {key:'navn', label:'Navn'},
+      {key:'antall_obs', label:'Obs', fmt:'int'}, {key:'netto_antall', label:'Netto ant.', fmt:'int'},
+      {key:'netto_mnok', label:'Netto MNOK', fmt:'num', dec:2}, {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
+    ], 'eo-eier-table');
+  });
+
+  // Per aksje
+  let eoIsin = null;
+  setupSearch('eo-sec-search', 'eo-sec-results',
+    '{{ url_for("handler.api_search_securities") }}', 'label', 'isin',
+    item => { eoIsin = item.isin; document.getElementById('eo-sec-btn').disabled = false; }
+  );
+
+  document.getElementById('eo-sec-btn').addEventListener('click', async function() {
+    if (!eoIsin) return;
+    this.innerHTML = '<span class="spinner"></span>';
+    const resp = await fetch(`{{ url_for("handler.api_eier_oversikt_per_aksje") }}?isin=${eoIsin}&date_from=${document.getElementById('eo-sec-date-from').value}&date_to=${document.getElementById('eo-sec-date-to').value}`);
+    const data = await resp.json();
+    this.textContent = 'Hent data';
+
+    buildTable(data.rows, [
+      {key:'navn', label:'Eier'}, {key:'investor_id', label:'ID'},
+      {key:'antall_obs', label:'Obs', fmt:'int'}, {key:'netto_antall', label:'Netto ant.', fmt:'int'},
+      {key:'netto_mnok', label:'Netto MNOK', fmt:'num', dec:2},
+    ], 'eo-aksje-table');
+  });
+</script>
+{% endblock %}
