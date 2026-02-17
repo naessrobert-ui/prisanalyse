@@ -116,7 +116,8 @@ def create_app() -> Flask:
             if value:
                 return value, False, f"env:{name}"
 
-        return "", False, ""
+        fallback_url = f"{request.host_url.rstrip('/')}/handler"
+        return fallback_url, False, "fallback:same-origin-/handler"
 
     def _handler_is_reachable(app_url: str) -> bool:
         try:
