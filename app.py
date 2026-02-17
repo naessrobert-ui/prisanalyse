@@ -2,8 +2,12 @@
 """Main Flask entrypoint for prisanalyse."""
 
 import os
+import subprocess
+import time
 from typing import Optional
+from urllib.error import URLError
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.request import urlopen
 
 from dotenv import load_dotenv
 from flask import Flask, render_template, redirect, request, abort, Response
@@ -96,7 +100,7 @@ def create_app() -> Flask:
     def strom():
         return redirect("/stromdash/")
 
-    def _get_handler_base_url() -> Tuple[str, bool]:
+    def _get_handler_base_url() -> tuple[str, bool]:
         app_url = request.args.get("app_url", "").strip()
         if app_url:
             return app_url, True
