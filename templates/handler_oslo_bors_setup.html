@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Handler Oslo Børs{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card-content mt-4">
+            {% if startup_hint %}
+            <div class="alert alert-warning mt-3" role="alert">
+                {{ startup_hint }}
+            </div>
+            {% endif %}
+            <div class="alert alert-secondary mt-3" role="alert">
+                <strong>Diagnose:</strong>
+                {% if config_source == 'missing-config' %}
+                Ingen URL funnet i miljøvariabler. Sett en av disse i Render:
+                <code>HANDLER_OSLO_BORS_URL</code>, <code>HANDLER_OSLO_BORS_APP_URL</code>,
+                <code>HANDLER_URL</code> eller <code>STREAMLIT_HANDLER_URL</code>.
+                {% else %}
+                Konfigurasjon funnet via <code>{{ config_source }}</code>.
+                {% endif %}
+                {% if reachability == 'unreachable' and attempted_target %}
+                URL-en svarer ikke akkurat nå: <code>{{ attempted_target }}</code>.
+                {% endif %}
+            </div>
+            <h3>Handler Oslo Børs</h3>
+            <p>
+                Denne modulen er klar i menyen, men mangler URL til den kjørende appen.
+                Sett miljøvariabelen <code>HANDLER_OSLO_BORS_URL</code> for å koble til appen,
+                eller send den inn direkte i URL som <code>?app_url=...</code>.
+            </p>
+            <p>
+                For Streamlit anbefales redirect (standard):
+                <code>/handler-oslo-bors/?app_url=https://din-app.example.com</code>
+            </p>
+            <p>
+                Hvis du vil teste iframe/embed, kan du bruke:
+                <code>/handler-oslo-bors/?app_url=https://din-app.example.com&amp;mode=embed</code>.
+                Merk at mange Streamlit-oppsett blokkerer embedding av sikkerhetsgrunner.
+            </p>
+            <p>
+                Eksisterende skript i <code>handler</code>-repoet ditt blir ikke endret av denne integrasjonen.
+                De kjører videre i Streamlit-appen slik du har satt opp der.
+            </p>
+            <p>
+                Du kan også lenke direkte til undersider/stier i handler:
+                <code>/handler-oslo-bors/noen/sti?app_url=https://din-app.example.com</code>
+            </p>
+            <div class="alert alert-info mt-3" role="alert">
+                <strong>Praktisk oppstart:</strong><br>
+                1) Deploy/kjør <code>handler</code>-appen (Streamlit),<br>
+                2) sett <code>HANDLER_OSLO_BORS_URL</code> i prisanalyse til URL-en som faktisk kjører, og<br>
+                3) åpne <code>/handler-oslo-bors/</code> fra menyen.
+            </div>
+            <p>
+                Full guide: <code>docs/handler_oslo_bors.md</code>
+            </p>
+            <p>
+                Valgfritt: automatisk oppstart kan settes med
+                <code>HANDLER_OSLO_BORS_AUTOSTART_CMD</code> (og evt. <code>HANDLER_OSLO_BORS_AUTOSTART_CWD</code>).
+            </p>
+            <p class="mb-0">
+                Kildekode: <a href="{{ repo_url }}" target="_blank" rel="noopener noreferrer">{{ repo_url }}</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

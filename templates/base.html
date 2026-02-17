@@ -115,6 +115,20 @@
             color: #007bff !important;
         }
 
+        .dropdown-menu {
+            background-color: rgba(10, 10, 10, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .dropdown-item {
+            color: #ddd;
+        }
+
+        .dropdown-item:hover {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+
         /* Footer */
         footer {
             background-color: rgba(0,0,0,0.8);
@@ -142,8 +156,16 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/">Hjem</a>
                     </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="bilMeny" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-car"></i> Bil
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="bilMeny">
+                            <a class="dropdown-item" href="/bil/">Bilanalyse</a>
+                            <a class="dropdown-item" href="/handler-oslo-bors/">Handler Oslo Børs</a>
+                        </div>
+                    </li>
                     <li class="nav-item">
-                        <!-- Denne linken går til kodeassistenten din -->
                         <a class="nav-link" href="/kode/">
                             <i class="fas fa-robot"></i> AI Kodeassistent
                         </a>
