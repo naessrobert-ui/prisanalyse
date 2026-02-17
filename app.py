@@ -2,12 +2,8 @@
 """Main Flask entrypoint for prisanalyse."""
 
 import os
-import subprocess
-import time
-from typing import Optional, Tuple
-from urllib.error import URLError
+from typing import Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-from urllib.request import urlopen
 
 from dotenv import load_dotenv
 from flask import Flask, render_template, redirect, request, abort, Response
