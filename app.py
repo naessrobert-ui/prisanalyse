@@ -197,21 +197,6 @@ def create_app() -> Flask:
 
         if target_url:
             mode = request.args.get("mode", "redirect").strip().lower()
-            app_is_reachable = _handler_is_reachable(app_url)
-
-            if not app_is_reachable:
-                repo_url = os.environ.get(
-                    "HANDLER_OSLO_BORS_REPO_URL",
-                    "https://github.com/naessrobert-ui/handler",
-                ).strip()
-                return render_template(
-                    "handler_oslo_bors_setup.html",
-                    repo_url=repo_url,
-                    startup_hint=startup_hint,
-                    config_source=config_source,
-                    attempted_target=target_url,
-                    reachability="unreachable",
-                )
 
             if mode == "embed":
                 return render_template(

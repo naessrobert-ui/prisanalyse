@@ -35,7 +35,7 @@ Hvis ingen env er satt, vises en oppsettside med tydelig beskjed i UI.
 - Meny: **Bil → Handler Oslo Børs**
 - URL: `/handler-oslo-bors/`
 
-Standard er redirect til `HANDLER_OSLO_BORS_URL` (anbefalt for Streamlit). Hvis URL-en ikke svarer, vises oppsettsiden med diagnose i stedet for en blind redirect.
+Standard er redirect til `HANDLER_OSLO_BORS_URL` (anbefalt for Streamlit).
 
 ## 4) Deep links (undersider/parametre)
 Hvis du trenger sti eller parametre, støttes dette:
