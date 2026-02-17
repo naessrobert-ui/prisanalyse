@@ -96,11 +96,45 @@ def create_app() -> Flask:
     def strom():
         return redirect("/stromdash/")
 
-    def _get_handler_base_url() -> str:
+    def _get_handler_base_url() -> Tuple[str, bool]:
         app_url = request.args.get("app_url", "").strip()
         if app_url:
-            return app_url
-        return os.environ.get("HANDLER_OSLO_BORS_URL", "").strip()
+            return app_url, True
+        return os.environ.get("HANDLER_OSLO_BORS_URL", "").strip(), False
+
+    def _handler_is_reachable(app_url: str) -> bool:
+        try:
+            with urlopen(app_url, timeout=1.5):
+                return True
+        except (URLError, ValueError):
+            return False
+
+    def _autostart_handler_if_configured(app_url: str, from_query: bool) -> str:
+        """Forsøk å starte handler-prosess automatisk hvis konfigurert via env."""
+        if from_query:
+            return ""
+
+        autostart_cmd = os.environ.get("HANDLER_OSLO_BORS_AUTOSTART_CMD", "").strip()
+        if not autostart_cmd:
+            return ""
+
+        if _handler_is_reachable(app_url):
+            return ""
+
+        try:
+            subprocess.Popen(
+                autostart_cmd,
+                shell=True,
+                cwd=os.environ.get("HANDLER_OSLO_BORS_AUTOSTART_CWD") or None,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            time.sleep(float(os.environ.get("HANDLER_OSLO_BORS_AUTOSTART_WAIT", "2.5")))
+            if _handler_is_reachable(app_url):
+                return "Handler ble startet automatisk."
+            return "Forsøkte å starte handler automatisk, men appen svarte ikke ennå."
+        except Exception:
+            return "Forsøket på automatisk oppstart feilet. Sjekk HANDLER_OSLO_BORS_AUTOSTART_CMD."
 
     def _build_handler_target(app_url: str, subpath: str = "") -> str:
         """Bygg endelig URL mot handler-appen og bevar øvrige query params."""
@@ -139,7 +173,8 @@ def create_app() -> Flask:
         Streamlit-apper blokkerer ofte cross-origin iframes i standardoppsett.
         Derfor bruker vi redirect som standard, og iframe bare når mode=embed.
         """
-        app_url = _get_handler_base_url()
+        app_url, from_query = _get_handler_base_url()
+        startup_hint = _autostart_handler_if_configured(app_url, from_query)
         target_url = _build_handler_target(app_url, subpath=subpath)
 
         if target_url:
@@ -158,6 +193,7 @@ def create_app() -> Flask:
         return render_template(
             "handler_oslo_bors_setup.html",
             repo_url=repo_url,
+            startup_hint=startup_hint,
         )
 
     create_dash_app(app)
