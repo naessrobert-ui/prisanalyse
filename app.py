@@ -100,11 +100,23 @@ def create_app() -> Flask:
     def strom():
         return redirect("/stromdash/")
 
-    def _get_handler_base_url() -> tuple[str, bool]:
+    def _get_handler_base_url() -> tuple[str, bool, str]:
         app_url = request.args.get("app_url", "").strip()
         if app_url:
-            return app_url, True
-        return os.environ.get("HANDLER_OSLO_BORS_URL", "").strip(), False
+            return app_url, True, "query:app_url"
+
+        env_candidates = [
+            "HANDLER_OSLO_BORS_URL",
+            "HANDLER_OSLO_BORS_APP_URL",
+            "HANDLER_URL",
+            "STREAMLIT_HANDLER_URL",
+        ]
+        for name in env_candidates:
+            value = os.environ.get(name, "").strip()
+            if value:
+                return value, False, f"env:{name}"
+
+        return "", False, ""
 
     def _handler_is_reachable(app_url: str) -> bool:
         try:
@@ -177,7 +189,7 @@ def create_app() -> Flask:
         Streamlit-apper blokkerer ofte cross-origin iframes i standardoppsett.
         Derfor bruker vi redirect som standard, og iframe bare når mode=embed.
         """
-        app_url, from_query = _get_handler_base_url()
+        app_url, from_query, config_source = _get_handler_base_url()
         startup_hint = _autostart_handler_if_configured(app_url, from_query)
         target_url = _build_handler_target(app_url, subpath=subpath)
 
@@ -198,6 +210,7 @@ def create_app() -> Flask:
             "handler_oslo_bors_setup.html",
             repo_url=repo_url,
             startup_hint=startup_hint,
+            config_source=config_source,
         )
 
     create_dash_app(app)

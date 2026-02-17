@@ -11,6 +11,16 @@
                 {{ startup_hint }}
             </div>
             {% endif %}
+            <div class="alert alert-secondary mt-3" role="alert">
+                <strong>Diagnose:</strong>
+                {% if config_source %}
+                Konfigurasjon funnet via <code>{{ config_source }}</code>.
+                {% else %}
+                Ingen URL funnet i miljøvariabler. Sjekk at minst én av disse er satt i Render:
+                <code>HANDLER_OSLO_BORS_URL</code>, <code>HANDLER_OSLO_BORS_APP_URL</code>,
+                <code>HANDLER_URL</code> eller <code>STREAMLIT_HANDLER_URL</code>.
+                {% endif %}
+            </div>
             <h3>Handler Oslo Børs</h3>
             <p>
                 Denne modulen er klar i menyen, men mangler URL til den kjørende appen.

@@ -13,7 +13,7 @@ streamlit run app.py --server.port 8501 --server.address 0.0.0.0
 ```
 
 ## 2) Pek prisanalyse til handler
-Sett miljøvariabel på prisanalyse-tjenesten:
+Sett miljøvariabel på prisanalyse-tjenesten (primært):
 
 ```bash
 HANDLER_OSLO_BORS_URL=https://din-host/handler
@@ -26,6 +26,8 @@ HANDLER_OSLO_BORS_URL=http://127.0.0.1:8501
 ```
 
 Deretter restart prisanalyse.
+
+Alternative navn som også støttes: `HANDLER_OSLO_BORS_APP_URL`, `HANDLER_URL`, `STREAMLIT_HANDLER_URL`.
 
 ## 3) Hvordan brukeren åpner appen
 - Meny: **Bil → Handler Oslo Børs**
