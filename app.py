@@ -3,6 +3,7 @@
 
 import os
 from typing import Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from dotenv import load_dotenv
 from flask import Flask, render_template, redirect, request, abort, Response
@@ -94,6 +95,70 @@ def create_app() -> Flask:
     @app.route("/strom")
     def strom():
         return redirect("/stromdash/")
+
+    def _get_handler_base_url() -> str:
+        app_url = request.args.get("app_url", "").strip()
+        if app_url:
+            return app_url
+        return os.environ.get("HANDLER_OSLO_BORS_URL", "").strip()
+
+    def _build_handler_target(app_url: str, subpath: str = "") -> str:
+        """Bygg endelig URL mot handler-appen og bevar øvrige query params."""
+        parsed = urlsplit(app_url)
+        if parsed.scheme not in {"http", "https"}:
+            return ""
+
+        cleaned_base = parsed._replace(path=parsed.path.rstrip("/"))
+        combined_path = cleaned_base.path
+        if subpath:
+            combined_path = f"{combined_path}/{subpath.lstrip('/')}"
+
+        passthrough = [
+            (key, value)
+            for key, value in request.args.items()
+            if key not in {"app_url", "mode"}
+        ]
+        existing = parse_qsl(parsed.query, keep_blank_values=True)
+        merged_query = urlencode(existing + passthrough)
+
+        return urlunsplit(
+            (
+                cleaned_base.scheme,
+                cleaned_base.netloc,
+                combined_path,
+                merged_query,
+                cleaned_base.fragment,
+            )
+        )
+
+    @app.route("/handler-oslo-bors/")
+    @app.route("/handler-oslo-bors/<path:subpath>")
+    def handler_oslo_bors(subpath: str = ""):
+        """Åpne Handler Oslo Børs (Streamlit) via redirect eller embed.
+
+        Streamlit-apper blokkerer ofte cross-origin iframes i standardoppsett.
+        Derfor bruker vi redirect som standard, og iframe bare når mode=embed.
+        """
+        app_url = _get_handler_base_url()
+        target_url = _build_handler_target(app_url, subpath=subpath)
+
+        if target_url:
+            mode = request.args.get("mode", "redirect").strip().lower()
+            if mode == "embed":
+                return render_template(
+                    "embed_streamlit.html",
+                    app_url=target_url,
+                )
+            return redirect(target_url)
+
+        repo_url = os.environ.get(
+            "HANDLER_OSLO_BORS_REPO_URL",
+            "https://github.com/naessrobert-ui/handler",
+        ).strip()
+        return render_template(
+            "handler_oslo_bors_setup.html",
+            repo_url=repo_url,
+        )
 
     create_dash_app(app)
 
