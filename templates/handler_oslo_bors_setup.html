@@ -13,12 +13,15 @@
             {% endif %}
             <div class="alert alert-secondary mt-3" role="alert">
                 <strong>Diagnose:</strong>
-                {% if config_source %}
-                Konfigurasjon funnet via <code>{{ config_source }}</code>.
-                {% else %}
-                Ingen URL funnet i miljøvariabler. Vi prøver fallback til <code>/handler</code> på samme domene. Sjekk ellers at minst én av disse er satt i Render:
+                {% if config_source == 'missing-config' %}
+                Ingen URL funnet i miljøvariabler. Sett en av disse i Render:
                 <code>HANDLER_OSLO_BORS_URL</code>, <code>HANDLER_OSLO_BORS_APP_URL</code>,
                 <code>HANDLER_URL</code> eller <code>STREAMLIT_HANDLER_URL</code>.
+                {% else %}
+                Konfigurasjon funnet via <code>{{ config_source }}</code>.
+                {% endif %}
+                {% if reachability == 'unreachable' and attempted_target %}
+                URL-en svarer ikke akkurat nå: <code>{{ attempted_target }}</code>.
                 {% endif %}
             </div>
             <h3>Handler Oslo Børs</h3>
@@ -46,8 +49,8 @@
             </p>
             <div class="alert alert-info mt-3" role="alert">
                 <strong>Praktisk oppstart:</strong><br>
-                1) Start <code>handler</code> som egen Streamlit-prosess (egen port),<br>
-                2) sett <code>HANDLER_OSLO_BORS_URL</code> i prisanalyse, og<br>
+                1) Deploy/kjør <code>handler</code>-appen (Streamlit),<br>
+                2) sett <code>HANDLER_OSLO_BORS_URL</code> i prisanalyse til URL-en som faktisk kjører, og<br>
                 3) åpne <code>/handler-oslo-bors/</code> fra menyen.
             </div>
             <p>

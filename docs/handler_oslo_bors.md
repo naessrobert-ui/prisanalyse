@@ -29,13 +29,13 @@ Deretter restart prisanalyse.
 
 Alternative navn som også støttes: `HANDLER_OSLO_BORS_APP_URL`, `HANDLER_URL`, `STREAMLIT_HANDLER_URL`.
 
-Hvis ingen env er satt, brukes fallback til `https://<ditt-domene>/handler` (samme origin).
+Hvis ingen env er satt, vises en oppsettside med tydelig beskjed i UI.
 
 ## 3) Hvordan brukeren åpner appen
 - Meny: **Bil → Handler Oslo Børs**
 - URL: `/handler-oslo-bors/`
 
-Standard er redirect til `HANDLER_OSLO_BORS_URL` (anbefalt for Streamlit).
+Standard er redirect til `HANDLER_OSLO_BORS_URL` (anbefalt for Streamlit). Hvis URL-en ikke svarer, vises oppsettsiden med diagnose i stedet for en blind redirect.
 
 ## 4) Deep links (undersider/parametre)
 Hvis du trenger sti eller parametre, støttes dette:

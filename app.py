@@ -116,8 +116,7 @@ def create_app() -> Flask:
             if value:
                 return value, False, f"env:{name}"
 
-        fallback_url = f"{request.host_url.rstrip('/')}/handler"
-        return fallback_url, False, "fallback:same-origin-/handler"
+        return "", False, "missing-config"
 
     def _handler_is_reachable(app_url: str) -> bool:
         try:
@@ -191,11 +190,29 @@ def create_app() -> Flask:
         Derfor bruker vi redirect som standard, og iframe bare når mode=embed.
         """
         app_url, from_query, config_source = _get_handler_base_url()
-        startup_hint = _autostart_handler_if_configured(app_url, from_query)
-        target_url = _build_handler_target(app_url, subpath=subpath)
+        startup_hint = ""
+        if app_url:
+            startup_hint = _autostart_handler_if_configured(app_url, from_query)
+        target_url = _build_handler_target(app_url, subpath=subpath) if app_url else ""
 
         if target_url:
             mode = request.args.get("mode", "redirect").strip().lower()
+            app_is_reachable = _handler_is_reachable(app_url)
+
+            if not app_is_reachable:
+                repo_url = os.environ.get(
+                    "HANDLER_OSLO_BORS_REPO_URL",
+                    "https://github.com/naessrobert-ui/handler",
+                ).strip()
+                return render_template(
+                    "handler_oslo_bors_setup.html",
+                    repo_url=repo_url,
+                    startup_hint=startup_hint,
+                    config_source=config_source,
+                    attempted_target=target_url,
+                    reachability="unreachable",
+                )
+
             if mode == "embed":
                 return render_template(
                     "embed_streamlit.html",
@@ -212,6 +229,8 @@ def create_app() -> Flask:
             repo_url=repo_url,
             startup_hint=startup_hint,
             config_source=config_source,
+            attempted_target=target_url,
+            reachability="missing-config",
         )
 
     create_dash_app(app)
