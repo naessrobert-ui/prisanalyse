@@ -10,9 +10,10 @@ Registrer i app.py:
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import io
 import logging
-import uuid
+import time
 
 import pandas as pd
 from flask import (
@@ -37,6 +38,10 @@ handler_bp = Blueprint(
     template_folder="templates",
     url_prefix="/handler-oslo-bors",
 )
+
+
+_BV_INVESTOR_CACHE: dict[str, dict] = {}
+_BV_INVESTOR_CACHE_TTL_SECONDS = 15 * 60
 
 
 # =========================================================
@@ -76,7 +81,52 @@ def _check_db() -> str | None:
             f"S3-plassering styres av HANDLER_DB_S3_URI (nå: {s3_uri})."
             f"{parse_hint}"
         )
-    return None
+
+
+def _cache_key_for_beste_viktige(list_name: str, date_from: dt.date, date_to: dt.date) -> str:
+    base = f"{list_name}|{date_from.isoformat()}|{date_to.isoformat()}"
+    return hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
+
+
+def _get_cached_investor_ids(cache_key: str) -> list[str] | None:
+    row = _BV_INVESTOR_CACHE.get(cache_key)
+    if not row:
+        return None
+    if row.get("expires_at", 0) < time.time():
+        _BV_INVESTOR_CACHE.pop(cache_key, None)
+        return None
+    return row.get("investor_ids")
+
+
+def _set_cached_investor_ids(cache_key: str, investor_ids: list[str]) -> None:
+    _BV_INVESTOR_CACHE[cache_key] = {
+        "investor_ids": investor_ids,
+        "expires_at": time.time() + _BV_INVESTOR_CACHE_TTL_SECONDS,
+    }
+
+
+def _load_investor_ids_for_beste_viktige(
+    conn,
+    list_name: str,
+    date_from: dt.date,
+    date_to: dt.date,
+) -> list[str]:
+    cache_key = _cache_key_for_beste_viktige(list_name, date_from, date_to)
+    cached = _get_cached_investor_ids(cache_key)
+    if cached is not None:
+        return cached
+
+    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
+    list_path = hd.resolve_list_csv_path(csv_name)
+    if not list_path:
+        return []
+
+    df_list = hd.read_csv_guess(list_path)
+    patterns = hd.extract_owner_patterns(list_name, df_list)
+    investor_ids = hd.resolve_investor_ids(conn, patterns)
+    if investor_ids:
+        _set_cached_investor_ids(cache_key, investor_ids)
+    return investor_ids
 
 
 def _save_best_viktige_selection(investor_ids: list[str]) -> str:
@@ -343,7 +393,8 @@ def api_beste_viktige():
     list_name = request.args.get("list_name", "Beste")
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
-    top_n = int(request.args.get("top_n", 30))
+    top_n = int(request.args.get("top_n", 10))
+    query_key = _cache_key_for_beste_viktige(list_name, date_from, date_to)
 
     csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
     list_path = hd.resolve_list_csv_path(csv_name)
@@ -357,9 +408,7 @@ def api_beste_viktige():
         }), 404
 
     conn = hd.db_connect()
-    df_list = hd.read_csv_guess(list_path)
-    patterns = hd.extract_owner_patterns(list_name, df_list)
-    investor_ids = hd.resolve_investor_ids(conn, patterns)
+    investor_ids = _load_investor_ids_for_beste_viktige(conn, list_name, date_from, date_to)
 
     if not investor_ids:
         conn.close()
@@ -385,45 +434,49 @@ def api_beste_viktige():
         label=lambda d: d["ticker"].fillna("") + " | " + d["navn"].fillna("") + " | " + d["isin"].fillna("")
     )[["isin", "label"]].to_dict("records")
 
-    selection_key = _save_best_viktige_selection(investor_ids)
-
     return jsonify({
         "buy": buy[cols].to_dict("records"),
         "sell": sell[cols].to_dict("records"),
         "investor_count": len(investor_ids),
         "detail_options": detail_options,
-        "selection_key": selection_key,
+        "query_key": query_key,
     })
 
 
-@handler_bp.route("/api/beste-viktige/detaljer")
-def api_beste_viktige_detaljer():
-    selection_key = request.args.get("selection_key", "").strip()
-    isin = request.args.get("isin", "").strip()
+@handler_bp.route("/api/beste-viktige/details")
+def api_beste_viktige_details():
+    list_name = request.args.get("list_name", "Beste")
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
+    isin = request.args.get("isin", "").strip()
+    query_key = request.args.get("query_key", "").strip()
 
-    if not selection_key:
-        return jsonify({"error": "Mangler selection_key. Trykk Hent på nytt."}), 400
     if not isin:
         return jsonify({"error": "Velg aksje"}), 400
 
-    investor_ids = _load_best_viktige_selection(selection_key)
-    if not investor_ids:
-        return jsonify({"error": "Utvalg utløpt. Trykk Hent på nytt."}), 410
+    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
+    list_path = hd.resolve_list_csv_path(csv_name)
+    if not list_path:
+        return jsonify({"error": f"Fant ikke listefil: {csv_name}"}), 404
 
     conn = hd.db_connect()
-    details = hd.fetch_best_viktige_trades_for_isin(conn, investor_ids, isin, date_from, date_to)
+    investor_ids = _get_cached_investor_ids(query_key) if query_key else None
+    if investor_ids is None:
+        investor_ids = _load_investor_ids_for_beste_viktige(conn, list_name, date_from, date_to)
+
+    if not investor_ids:
+        conn.close()
+        return jsonify({"rows": [], "message": "Fant ingen investorer som matcher listen"})
+
+    dfi = hd.fetch_best_viktige_trades_for_isin(conn, investor_ids, isin, date_from, date_to)
     conn.close()
 
-    if details.empty:
-        return jsonify({"rows": [], "message": "Ingen transaksjoner for valgt aksje"})
+    if dfi.empty:
+        return jsonify({"rows": []})
 
-    details["kurs"] = pd.to_numeric(details["kurs"], errors="coerce").round(2)
-    details["belop_mnok"] = pd.to_numeric(details["belop_mnok"], errors="coerce").round(4)
-    details = details.sort_values(["dato", "belop"], ascending=[False, False])
-    cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
-    return jsonify({"rows": details[cols].to_dict("records")})
+    detail_cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
+    dfi["belop_mnok"] = pd.to_numeric(dfi["belop_mnok"], errors="coerce").round(4)
+    return jsonify({"rows": dfi[detail_cols].to_dict("records")})
 
 
 # =========================================================

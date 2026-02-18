@@ -578,21 +578,48 @@ def extract_owner_patterns(list_name: str, df: pd.DataFrame) -> list[str]:
 
 
 def resolve_investor_ids(conn, patterns: list[str], max_hits: int = 50) -> list[str]:
+    if not patterns:
+        return []
+
+    conn.execute("DROP TABLE IF EXISTS temp_owner_patterns")
+    conn.execute("CREATE TEMP TABLE temp_owner_patterns (pattern TEXT PRIMARY KEY)")
+    conn.executemany(
+        "INSERT OR IGNORE INTO temp_owner_patterns(pattern) VALUES (?)",
+        [(p.upper(),) for p in patterns if str(p or "").strip()],
+    )
+    conn.commit()
+
     sql = """
-    SELECT investor_id FROM investor
-    WHERE UPPER(COALESCE(investor_id,'')) LIKE :q
-       OR UPPER(COALESCE(first_name,'')) LIKE :q
-       OR UPPER(COALESCE(last_name,'')) LIKE :q
-       OR UPPER(COALESCE(first_name,'')||' '||COALESCE(last_name,'')) LIKE :q
-       OR UPPER(COALESCE(last_name,'')||' '||COALESCE(first_name,'')) LIKE :q
-    LIMIT :lim
+    WITH matches AS (
+        SELECT i.investor_id,
+               p.pattern,
+               ROW_NUMBER() OVER (PARTITION BY p.pattern ORDER BY i.investor_id) AS rn
+        FROM investor i
+        JOIN temp_owner_patterns p ON (
+            UPPER(COALESCE(i.investor_id,'')) LIKE '%'||p.pattern||'%'
+            OR UPPER(COALESCE(i.first_name,'')) LIKE '%'||p.pattern||'%'
+            OR UPPER(COALESCE(i.last_name,'')) LIKE '%'||p.pattern||'%'
+            OR UPPER(COALESCE(i.first_name,'')||' '||COALESCE(i.last_name,'')) LIKE '%'||p.pattern||'%'
+            OR UPPER(COALESCE(i.last_name,'')||' '||COALESCE(i.first_name,'')) LIKE '%'||p.pattern||'%'
+        )
+    )
+    SELECT DISTINCT investor_id
+    FROM matches
+    WHERE rn <= ?
+    ORDER BY investor_id
     """
-    ids = set()
-    for pat in patterns:
-        rows = conn.execute(sql, {"q": f"%{pat.upper()}%", "lim": max_hits}).fetchall()
-        for r in rows:
-            ids.add(str(r["investor_id"]).strip())
-    return sorted(ids)
+    rows = conn.execute(sql, (max_hits,)).fetchall()
+    return [str(r["investor_id"]).strip() for r in rows if str(r["investor_id"] or "").strip()]
+
+
+def populate_temp_selected_investors(conn, investor_ids: list[str]) -> None:
+    conn.execute("DROP TABLE IF EXISTS temp_selected_investors")
+    conn.execute("CREATE TEMP TABLE temp_selected_investors (investor_id TEXT PRIMARY KEY)")
+    conn.executemany(
+        "INSERT OR IGNORE INTO temp_selected_investors(investor_id) VALUES (?)",
+        [(x,) for x in investor_ids],
+    )
+    conn.commit()
 
 
 def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date, date_to: dt.date) -> pd.DataFrame:
@@ -600,11 +627,7 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     if not investor_ids:
         return pd.DataFrame()
 
-    conn.execute("DROP TABLE IF EXISTS temp_selected_investors")
-    conn.execute("CREATE TEMP TABLE temp_selected_investors (investor_id TEXT PRIMARY KEY)")
-    conn.executemany("INSERT OR IGNORE INTO temp_selected_investors(investor_id) VALUES (?)",
-                     [(x,) for x in investor_ids])
-    conn.commit()
+    populate_temp_selected_investors(conn, investor_ids)
 
     sql = """
     WITH prices AS (
@@ -640,6 +663,112 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
         df["salg_mnok"] = df["salg_belop"] / 1_000_000
         df["netto_mnok"] = df["netto_belop"] / 1_000_000
         df["brutto_mnok"] = df["brutto_belop"] / 1_000_000
+    return df
+
+
+def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date, date_to: dt.date) -> pd.DataFrame:
+    """Alle handler på transaksjonsnivå for investorer i valgt liste og periode."""
+    if not investor_ids:
+        return pd.DataFrame()
+
+    populate_temp_selected_investors(conn, investor_ids)
+
+    sql = """
+    WITH prices AS (
+        SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
+        FROM position_change WHERE COALESCE(price_yesterday,0)>0
+        GROUP BY isin, date(date_today)
+    ),
+    trades AS (
+        SELECT pc.date_today AS dato,
+               pc.isin,
+               pc.investor_id,
+               pc.change_qty,
+               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+        FROM position_change pc
+        JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
+        LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
+        WHERE pc.date_today BETWEEN ? AND ?
+    )
+    SELECT t.dato,
+           COALESCE(s.ticker,'') AS ticker,
+           t.isin,
+           COALESCE(s.isin_name,'') AS navn,
+           t.investor_id,
+           COALESCE(i.first_name,'') AS first_name,
+           COALESCE(i.last_name,'') AS last_name,
+           COALESCE(i.investor_type,'') AS investor_type,
+           COALESCE(t.change_qty,0) AS antall,
+           t.trade_price AS kurs,
+           (COALESCE(t.change_qty,0)*t.trade_price) AS belop
+    FROM trades t
+    JOIN security s ON s.isin=t.isin
+    LEFT JOIN investor i ON i.investor_id=t.investor_id
+    WHERE COALESCE(t.trade_price,0)>0
+    ORDER BY t.dato DESC
+    """
+    rows = conn.execute(sql, (date_from.isoformat(), date_to.isoformat())).fetchall()
+    df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
+    if not df.empty:
+        df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
+        df["belop_mnok"] = df["belop"].fillna(0) / 1_000_000
+    return df
+
+
+def fetch_best_viktige_trades_for_isin(
+    conn,
+    investor_ids: list[str],
+    isin: str,
+    date_from: dt.date,
+    date_to: dt.date,
+) -> pd.DataFrame:
+    if not investor_ids or not isin:
+        return pd.DataFrame()
+
+    populate_temp_selected_investors(conn, investor_ids)
+
+    sql = """
+    WITH prices AS (
+        SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
+        FROM position_change WHERE COALESCE(price_yesterday,0)>0
+        GROUP BY isin, date(date_today)
+    ),
+    trades AS (
+        SELECT pc.date_today AS dato,
+               pc.isin,
+               pc.investor_id,
+               pc.change_qty,
+               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+        FROM position_change pc
+        JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
+        LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
+        WHERE pc.date_today BETWEEN ? AND ?
+          AND pc.isin = ?
+    )
+    SELECT t.dato,
+           COALESCE(s.ticker,'') AS ticker,
+           t.isin,
+           COALESCE(s.isin_name,'') AS navn,
+           t.investor_id,
+           COALESCE(i.first_name,'') AS first_name,
+           COALESCE(i.last_name,'') AS last_name,
+           COALESCE(i.investor_type,'') AS investor_type,
+           COALESCE(t.change_qty,0) AS antall,
+           t.trade_price AS kurs,
+           (COALESCE(t.change_qty,0)*t.trade_price) AS belop
+    FROM trades t
+    JOIN security s ON s.isin=t.isin
+    LEFT JOIN investor i ON i.investor_id=t.investor_id
+    WHERE COALESCE(t.trade_price,0)>0
+    ORDER BY t.dato DESC, belop DESC
+    """
+
+    rows = conn.execute(sql, (date_from.isoformat(), date_to.isoformat(), isin)).fetchall()
+    df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
+    if not df.empty:
+        df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
+        df["kurs"] = pd.to_numeric(df["kurs"], errors="coerce").round(2)
+        df["belop_mnok"] = pd.to_numeric(df["belop"], errors="coerce").fillna(0) / 1_000_000
     return df
 
 
