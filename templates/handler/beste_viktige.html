@@ -38,12 +38,29 @@
 
 <div id="buy-section" style="display:none">
   <h5 style="color:var(--pa-text)">Mest kjøp (per aksje) – sortert etter netto kjøp</h5>
+  <div class="mb-2" style="color:var(--pa-muted); font-size:0.82rem;">Klikk på en rad (ticker/navn) for å åpne alle handler for aksjen under.</div>
   <div id="bv-buy-table"></div>
 </div>
 
 <div id="sell-section" style="display:none" class="mt-4">
   <h5 style="color:var(--pa-text)">Mest salg (per aksje) – sortert etter største salg</h5>
   <div id="bv-sell-table"></div>
+</div>
+
+<hr class="my-4" style="border-color:var(--pa-border)">
+
+<div id="details-section" style="display:none">
+  <h5 style="color:var(--pa-text)">Detaljer for valgt aksje – alle handler (investor, dato, antall, kurs, beløp)</h5>
+  <div class="panel mt-2">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-12">
+        <label>Velg aksje</label>
+        <select class="form-select" id="bv-detail-isin"></select>
+      </div>
+    </div>
+  </div>
+  <div id="bv-details-info" class="mb-2" style="color:var(--pa-muted)"></div>
+  <div id="bv-details-table"></div>
 </div>
 {% endblock %}
 
