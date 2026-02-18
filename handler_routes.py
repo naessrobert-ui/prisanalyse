@@ -29,6 +29,9 @@ import handler_data_beste as hdb
 
 _LOG = logging.getLogger(__name__)
 
+_BEST_VIKTIGE_SELECTIONS: dict[str, dict] = {}
+_BEST_VIKTIGE_SELECTION_TTL_SEC = 30 * 60
+
 handler_bp = Blueprint(
     "handler",
     __name__,
@@ -124,6 +127,29 @@ def _load_investor_ids_for_beste_viktige(
     if investor_ids:
         _set_cached_investor_ids(cache_key, investor_ids)
     return investor_ids
+
+
+def _save_best_viktige_selection(investor_ids: list[str]) -> str:
+    now = dt.datetime.utcnow()
+    stale = [k for k, v in _BEST_VIKTIGE_SELECTIONS.items()
+             if (now - v.get("created_at", now)).total_seconds() > _BEST_VIKTIGE_SELECTION_TTL_SEC]
+    for k in stale:
+        _BEST_VIKTIGE_SELECTIONS.pop(k, None)
+
+    key = uuid.uuid4().hex
+    _BEST_VIKTIGE_SELECTIONS[key] = {"investor_ids": list(investor_ids), "created_at": now}
+    return key
+
+
+def _load_best_viktige_selection(selection_key: str) -> list[str]:
+    hit = _BEST_VIKTIGE_SELECTIONS.get(selection_key)
+    if not hit:
+        return []
+    age = (dt.datetime.utcnow() - hit.get("created_at", dt.datetime.utcnow())).total_seconds()
+    if age > _BEST_VIKTIGE_SELECTION_TTL_SEC:
+        _BEST_VIKTIGE_SELECTIONS.pop(selection_key, None)
+        return []
+    return list(hit.get("investor_ids", []))
 
 
 # =========================================================
