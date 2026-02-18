@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import io
 import os
+import logging
 
 import pandas as pd
 from flask import (
@@ -24,6 +25,8 @@ from flask import (
 
 import handler_data as hd
 import handler_data_beste as hdb
+
+_LOG = logging.getLogger(__name__)
 
 handler_bp = Blueprint(
     "handler",
@@ -54,10 +57,17 @@ def _csv_response(df: pd.DataFrame, filename: str) -> Response:
     )
 
 
-def _check_db():
+def _check_db() -> str | None:
     """Return error message if DB not available, else None."""
     if not hd.db_available():
-        return "Database ikke tilgjengelig. Sjekk at topchanges.db finnes."
+        diag = hd.db_diagnostics()
+        _LOG.warning("Handler DB utilgjengelig: %s", diag)
+        return (
+            "Database ikke tilgjengelig. Sett HANDLER_LOCAL_DB_PATH til full filsti på Render-serveren "
+            f"(nå satt til: {diag['path']}). "
+            "Sti på din lokale PC (f.eks. C:\\...) kan ikke leses fra Render. "
+            "Alternativt sett HANDLER_DB_S3_URI til en gyldig fil i S3."
+        )
     return None
 
 
@@ -67,7 +77,14 @@ def _check_db():
 @handler_bp.route("/")
 def handler_index():
     db_err = _check_db()
-    return render_template("handler/index.html", db_error=db_err)
+    diag = hd.db_diagnostics()
+    return render_template(
+        "handler/index.html",
+        db_error=db_err,
+        db_path=diag["path"],
+        db_s3_uri=hd.HANDLER_DB_S3_URI,
+        db_parent_exists=diag["parent_exists"],
+    )
 
 
 # =========================================================
