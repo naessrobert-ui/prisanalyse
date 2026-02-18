@@ -57,7 +57,10 @@ def _csv_response(df: pd.DataFrame, filename: str) -> Response:
 def _check_db():
     """Return error message if DB not available, else None."""
     if not hd.db_available():
-        return "Database ikke tilgjengelig. Sjekk at topchanges.db finnes."
+        return (
+            "Database ikke tilgjengelig. Sjekk at topchanges.db finnes lokalt "
+            "(HANDLER_LOCAL_DB_PATH) eller at HANDLER_DB_S3_URI peker til en gyldig fil i S3."
+        )
     return None
 
 

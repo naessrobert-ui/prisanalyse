@@ -72,3 +72,28 @@ HANDLER_OSLO_BORS_AUTOSTART_WAIT="2.5"
 ```
 
 Da vil første kall til `/handler-oslo-bors/` forsøke å starte handler (kun når `app_url` ikke sendes i query).
+
+
+## 8) Database: lokal vs S3
+Kort svar:
+- **Raskest i drift**: lokal disk på server (f.eks. `/tmp/topchanges_sqlite_work/topchanges.db`).
+- **Best for distribusjon/backup**: S3 som kilde, og appen henter filen ned lokalt ved oppstart.
+
+Nye miljøvariabler for Flask-varianten av Handler:
+
+```bash
+# Lokal sti (brukes direkte hvis filen finnes)
+HANDLER_LOCAL_DB_PATH=/tmp/topchanges_sqlite_work/topchanges.db
+
+# Valgfritt: fallback til S3 hvis lokal fil mangler
+HANDLER_DB_S3_URI=s3://mitt-bucket/topchanges/topchanges.db
+HANDLER_DB_S3_REGION=eu-west-1
+HANDLER_DB_S3_AUTO_DOWNLOAD=1
+```
+
+Hvordan det fungerer:
+1. Appen sjekker `HANDLER_LOCAL_DB_PATH`.
+2. Hvis filen mangler og `HANDLER_DB_S3_URI` er satt, lastes DB ned til lokal sti automatisk.
+3. Deretter kjører alle spørringer mot lokal fil (lavere latency enn å lese direkte fra nett).
+
+> Merk: Appen kan ikke hente filer direkte fra din private PC uten at du først laster dem opp et sted (S3, SCP, rsync, osv.).
