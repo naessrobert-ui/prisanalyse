@@ -14,6 +14,7 @@ from typing import Optional, List, Dict, Tuple
 
 import pandas as pd
 import boto3
+from botocore.exceptions import ClientError
 
 
 # =========================================================
@@ -56,13 +57,30 @@ _LOG = logging.getLogger(__name__)
 
 
 def _parse_s3_uri(uri: str) -> tuple[str, str]:
-    if not uri.startswith("s3://"):
-        raise ValueError("Ugyldig S3-URI. Forventet format: s3://bucket/key")
-    without_scheme = uri[5:]
-    parts = without_scheme.split("/", 1)
+    raw = (uri or "").strip()
+    if not raw:
+        raise ValueError("Tom S3-URI")
+
+    normalized = raw[5:] if raw.startswith("s3://") else raw
+    parts = normalized.split("/", 1)
     if len(parts) != 2 or not parts[0] or not parts[1]:
         raise ValueError("Ugyldig S3-URI. Forventet format: s3://bucket/key")
     return parts[0], parts[1]
+
+
+def _candidate_s3_keys(key: str, local_path: str) -> list[str]:
+    clean = key.strip().lstrip("/")
+    if not clean:
+        return []
+
+    candidates = [clean]
+    if clean.endswith("/"):
+        local_name = Path(local_path).name or "topchanges.db"
+        for suffix in ("topchanges.db", "topchanges", local_name):
+            c = f"{clean}{suffix}".replace("//", "/")
+            if c not in candidates:
+                candidates.append(c)
+    return candidates
 
 
 def _download_db_from_s3(local_path: str | None = None) -> bool:
@@ -76,9 +94,23 @@ def _download_db_from_s3(local_path: str | None = None) -> bool:
         bucket, key = _parse_s3_uri(HANDLER_DB_S3_URI)
         client_args = {"region_name": HANDLER_DB_S3_REGION} if HANDLER_DB_S3_REGION else {}
         s3 = boto3.client("s3", **client_args)
-        s3.download_file(bucket, key, str(path))
-        _LOG.info("Lastet handler-db fra S3: %s til %s", HANDLER_DB_S3_URI, path)
-        return path.is_file()
+
+        candidates = _candidate_s3_keys(key, str(path))
+        for candidate in candidates:
+            try:
+                s3.download_file(bucket, candidate, str(path))
+                _LOG.info("Lastet handler-db fra S3: s3://%s/%s til %s", bucket, candidate, path)
+                return path.is_file()
+            except ClientError as exc:
+                err_code = exc.response.get("Error", {}).get("Code", "")
+                if err_code in {"404", "NoSuchKey", "NotFound"}:
+                    _LOG.warning("S3 key ikke funnet: s3://%s/%s", bucket, candidate)
+                    continue
+                _LOG.warning("S3-feil ved nedlasting av s3://%s/%s: %s", bucket, candidate, exc)
+                return False
+
+        _LOG.warning("Fant ingen gyldig S3 DB-fil for %s. Forsøkte nøkler: %s", HANDLER_DB_S3_URI, candidates)
+        return False
     except Exception as exc:
         _LOG.warning("Klarte ikke laste handler-db fra S3 (%s): %s", HANDLER_DB_S3_URI, exc)
         return False
@@ -112,11 +144,23 @@ def db_available(db_path: str | None = None) -> bool:
 def db_diagnostics(local_path: str | None = None) -> dict:
     path = local_path or HANDLER_DB_PATH
     p = Path(path)
+    parsed = None
+    parse_error = ""
+    if HANDLER_DB_S3_URI:
+        try:
+            bucket, key = _parse_s3_uri(HANDLER_DB_S3_URI)
+            parsed = f"s3://{bucket}/{key}"
+        except Exception as exc:
+            parse_error = str(exc)
+
     return {
         "path": str(p),
         "path_exists": p.is_file(),
         "parent_exists": p.parent.exists(),
         "s3_uri_configured": bool(HANDLER_DB_S3_URI),
+        "s3_uri_raw": HANDLER_DB_S3_URI,
+        "s3_uri_parsed": parsed,
+        "s3_parse_error": parse_error,
         "s3_region": HANDLER_DB_S3_REGION,
         "s3_auto_download": HANDLER_DB_S3_AUTO_DOWNLOAD,
     }
