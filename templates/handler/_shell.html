@@ -56,10 +56,12 @@
       font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none;
     }
     table.data-table th:hover { color: var(--pa-accent); }
+    table.data-table th.active-sort { color: var(--pa-accent); }
     table.data-table td {
       padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.03);
     }
     table.data-table tr:hover td { background: rgba(255,255,255,0.03); }
+    table.data-table tr.row-clickable { cursor: pointer; }
     .text-pos { color: #34d399; }
     .text-neg { color: #f87171; }
     .empty-msg { color: var(--pa-muted); text-align: center; padding: 32px; font-style: italic; }
@@ -77,6 +79,15 @@
     }
     .search-results .item:hover { background: rgba(231,76,138,0.15); }
     .search-wrap { position: relative; }
+    .table-controls {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 8px; flex-wrap: wrap;
+    }
+    .table-slider-wrap {
+      display: flex; align-items: center; gap: 10px; color: var(--pa-muted); font-size: 0.82rem;
+    }
+    .table-slider-wrap input[type="range"] { width: 180px; }
+    .table-page-info { color: var(--pa-muted); font-size: 0.82rem; }
     a { color: var(--pa-accent); }
   </style>
   {% block extra_head %}{% endblock %}
@@ -118,32 +129,125 @@
     /** Color class for positive/negative */
     function signClass(v) { return v > 0 ? 'text-pos' : v < 0 ? 'text-neg' : ''; }
 
-    /** Build a <table> from rows + column config */
-    function buildTable(rows, columns, containerId) {
+    function compareValues(a, b) {
+      if (a == null && b == null) return 0;
+      if (a == null) return -1;
+      if (b == null) return 1;
+
+      const na = Number(a);
+      const nb = Number(b);
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) {
+        return na - nb;
+      }
+      return String(a).localeCompare(String(b), 'nb', {sensitivity: 'base'});
+    }
+
+    /** Build a sortable + paged <table> from rows + column config */
+    function buildTable(rows, columns, containerId, options={}) {
       const c = document.getElementById(containerId);
       if (!rows || rows.length === 0) {
         c.innerHTML = '<div class="empty-msg">Ingen data</div>';
         return;
       }
-      let html = '<div class="table-container"><table class="data-table"><thead><tr>';
-      columns.forEach(col => {
-        html += `<th data-col="${col.key}">${col.label}</th>`;
-      });
-      html += '</tr></thead><tbody>';
-      rows.forEach(row => {
-        html += '<tr>';
+
+      const key = options.tableKey || containerId;
+      const pageSizes = options.pageSizes || [10, 20, 30, 50, 100];
+      const defaultPageSize = pageSizes.includes(options.defaultPageSize) ? options.defaultPageSize : pageSizes[0];
+      const tableState = {
+        allRows: Array.from(rows),
+        sortCol: options.initialSort?.key || null,
+        sortAsc: options.initialSort?.asc ?? false,
+        pageSize: defaultPageSize,
+      };
+
+      const sliderId = `${key}-rows-slider`;
+      const valueId = `${key}-rows-value`;
+      const infoId = `${key}-page-info`;
+
+      c.innerHTML = `
+        <div class="table-controls">
+          <div class="table-slider-wrap">
+            <span>Vis rader</span>
+            <input type="range" id="${sliderId}" min="0" max="${pageSizes.length - 1}" value="${pageSizes.indexOf(defaultPageSize)}" step="1">
+            <strong id="${valueId}">${defaultPageSize}</strong>
+          </div>
+          <div class="table-page-info" id="${infoId}"></div>
+        </div>
+        <div class="table-container"></div>
+      `;
+
+      const slider = document.getElementById(sliderId);
+      const pageInfo = document.getElementById(infoId);
+      const pageValue = document.getElementById(valueId);
+      const tableWrap = c.querySelector('.table-container');
+
+      function renderTable() {
+        const sorted = Array.from(tableState.allRows);
+        if (tableState.sortCol) {
+          sorted.sort((ra, rb) => {
+            const cmp = compareValues(ra[tableState.sortCol], rb[tableState.sortCol]);
+            return tableState.sortAsc ? cmp : -cmp;
+          });
+        }
+
+        const visibleRows = sorted.slice(0, tableState.pageSize);
+        pageValue.textContent = tableState.pageSize;
+        pageInfo.textContent = `Viser ${visibleRows.length} av ${sorted.length} rader`;
+
+        let html = '<table class="data-table"><thead><tr>';
         columns.forEach(col => {
-          let val = row[col.key];
-          let cls = '';
-          if (col.fmt === 'num') { cls = signClass(val); val = fmtNum(val, col.dec || 1); }
-          else if (col.fmt === 'int') { val = fmtInt(val); }
-          else { val = val ?? '–'; }
-          html += `<td class="${cls}">${val}</td>`;
+          const active = tableState.sortCol === col.key;
+          const arrow = active ? (tableState.sortAsc ? ' ▲' : ' ▼') : '';
+          html += `<th class="${active ? 'active-sort' : ''}" data-col="${col.key}">${col.label}${arrow}</th>`;
         });
-        html += '</tr>';
+        html += '</tr></thead><tbody>';
+
+        visibleRows.forEach((row, idx) => {
+          const clickableClass = typeof options.onRowClick === 'function' ? 'row-clickable' : '';
+          html += `<tr class="${clickableClass}" data-row-idx="${idx}">`;
+          columns.forEach(col => {
+            let val = row[col.key];
+            let cls = '';
+            if (col.fmt === 'num') { cls = signClass(val); val = fmtNum(val, col.dec || 1); }
+            else if (col.fmt === 'int') { val = fmtInt(val); }
+            else { val = val ?? '–'; }
+            html += `<td class="${cls}">${val}</td>`;
+          });
+          html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        tableWrap.innerHTML = html;
+
+        tableWrap.querySelectorAll('th[data-col]').forEach(th => {
+          th.addEventListener('click', () => {
+            const key = th.dataset.col;
+            if (tableState.sortCol === key) {
+              tableState.sortAsc = !tableState.sortAsc;
+            } else {
+              tableState.sortCol = key;
+              tableState.sortAsc = true;
+            }
+            renderTable();
+          });
+        });
+
+        if (typeof options.onRowClick === 'function') {
+          tableWrap.querySelectorAll('tbody tr').forEach((tr) => {
+            tr.addEventListener('click', () => {
+              const rowIdx = Number(tr.dataset.rowIdx);
+              options.onRowClick(visibleRows[rowIdx]);
+            });
+          });
+        }
+      }
+
+      slider.addEventListener('input', () => {
+        tableState.pageSize = pageSizes[Number(slider.value)] || defaultPageSize;
+        renderTable();
       });
-      html += '</tbody></table></div>';
-      c.innerHTML = html;
+
+      renderTable();
     }
 
     /** Live-search dropdown for investors or securities */
