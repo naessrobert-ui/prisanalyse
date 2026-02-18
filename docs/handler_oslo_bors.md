@@ -97,3 +97,56 @@ Hvordan det fungerer:
 3. Deretter kjører alle spørringer mot lokal fil (lavere latency enn å lese direkte fra nett).
 
 > Merk: Appen kan ikke hente filer direkte fra din private PC uten at du først laster dem opp et sted (S3, SCP, rsync, osv.).
+
+
+## 9) Hvor legger jeg inn eksakt lokal filsti?
+Legg den i miljøvariabelen `HANDLER_LOCAL_DB_PATH` på **serveren der Flask-appen kjører** (ikke på din egen PC).
+
+Vanligst er å bruke `.env` i prosjektroten (samme sted som `app.py`):
+
+```env
+HANDLER_LOCAL_DB_PATH=/tmp/topchanges_sqlite_work/topchanges.db
+```
+
+Eksempel på Windows-server:
+
+```env
+HANDLER_LOCAL_DB_PATH=C:\topchanges_sqlite_work\topchanges.db
+```
+
+Etter at du har lagret `.env`, restart appen/Gunicorn.
+
+
+## 10) Ja — på Render skal dette settes i **Environment Variables**
+Ja, du skal sette dette i Render under tjenesten din:
+
+1. Gå til Render → **Web Service** (prisanalyse).
+2. Velg **Environment**.
+3. Legg til variabel:
+   - Key: `HANDLER_LOCAL_DB_PATH`
+   - Value: full sti til DB-filen på serveren (eksempel: `/tmp/topchanges_sqlite_work/topchanges.db`)
+4. (Valgfritt) legg til S3 fallback:
+   - `HANDLER_DB_S3_URI=s3://bucket/path/topchanges.db`
+   - `HANDLER_DB_S3_REGION=eu-west-1`
+5. Trykk **Save / Deploy** og restart tjenesten.
+
+Viktig:
+- Dette er **ikke** en egen setting inne i "Render template" i appen.
+- Det er en vanlig miljøvariabel i Render, som leses av `load_dotenv`/`os.getenv` i appen.
+
+
+## 11) Hvordan lese Render-loggen for denne feilen
+Linjene du sendte er hovedsakelig **access logs** (HTTP 200/503), ikke detaljert app-feil.
+
+Når DB feiler nå, logger appen også en egen warning med diagnostikk, f.eks.:
+
+```text
+Handler DB utilgjengelig: {'path': '/tmp/topchanges_sqlite_work/topchanges.db', 'path_exists': False, 'parent_exists': True, 's3_uri_configured': False, ...}
+```
+
+Tolkning:
+- `path_exists: False` => filen finnes ikke på den stien.
+- `parent_exists: False` => mappen finnes ikke (feil sti eller ikke opprettet).
+- `s3_uri_configured: False` => ingen S3 fallback er satt.
+
+Hvis du får 503 på `/handler-oslo-bors/api/search-investors`, er årsaken nesten alltid at DB-filen ikke ligger på `HANDLER_LOCAL_DB_PATH`, eller at S3 fallback ikke er konfigurert/tilgjengelig.

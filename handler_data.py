@@ -109,6 +109,18 @@ def db_available(db_path: str | None = None) -> bool:
     return ensure_local_db(db_path)
 
 
+def db_diagnostics(local_path: str | None = None) -> dict:
+    path = local_path or HANDLER_DB_PATH
+    p = Path(path)
+    return {
+        "path": str(p),
+        "path_exists": p.is_file(),
+        "parent_exists": p.parent.exists(),
+        "s3_uri_configured": bool(HANDLER_DB_S3_URI),
+        "s3_region": HANDLER_DB_S3_REGION,
+        "s3_auto_download": HANDLER_DB_S3_AUTO_DOWNLOAD,
+    }
+
 # =========================================================
 # Helpers
 # =========================================================
