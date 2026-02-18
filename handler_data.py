@@ -8,10 +8,13 @@ from __future__ import annotations
 import os
 import sqlite3
 import datetime as dt
+import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
 import pandas as pd
+import boto3
+from botocore.exceptions import ClientError
 
 
 # =========================================================
@@ -42,21 +45,141 @@ HANDLER_LIST_DIR = _path_from_env(
     r"I:\6_EQUITIES\Database\Eiere-Styring",
 )
 
+HANDLER_DB_S3_URI = _path_from_env("HANDLER_DB_S3_URI", "")
+HANDLER_DB_S3_REGION = _path_from_env("HANDLER_DB_S3_REGION", "")
+HANDLER_DB_S3_AUTO_DOWNLOAD = _path_from_env("HANDLER_DB_S3_AUTO_DOWNLOAD", "1").lower() not in {
+    "0",
+    "false",
+    "no",
+}
+HANDLER_DB_S3_PREFER = _path_from_env("HANDLER_DB_S3_PREFER", "1").lower() not in {
+    "0",
+    "false",
+    "no",
+}
+
+_LOG = logging.getLogger(__name__)
+_S3_SYNC_ATTEMPTED: set[str] = set()
+
+
+def _parse_s3_uri(uri: str) -> tuple[str, str]:
+    raw = (uri or "").strip()
+    if not raw:
+        raise ValueError("Tom S3-URI")
+
+    normalized = raw[5:] if raw.startswith("s3://") else raw
+    parts = normalized.split("/", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError("Ugyldig S3-URI. Forventet format: s3://bucket/key")
+    return parts[0], parts[1]
+
+
+def _candidate_s3_keys(key: str, local_path: str) -> list[str]:
+    clean = key.strip().lstrip("/")
+    if not clean:
+        return []
+
+    candidates = [clean]
+    if clean.endswith("/"):
+        local_name = Path(local_path).name or "topchanges.db"
+        for suffix in ("topchanges.db", "topchanges", local_name):
+            c = f"{clean}{suffix}".replace("//", "/")
+            if c not in candidates:
+                candidates.append(c)
+    return candidates
+
+
+def _download_db_from_s3(local_path: str | None = None) -> bool:
+    if not HANDLER_DB_S3_URI:
+        return False
+
+    path = Path(local_path or HANDLER_DB_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        bucket, key = _parse_s3_uri(HANDLER_DB_S3_URI)
+        client_args = {"region_name": HANDLER_DB_S3_REGION} if HANDLER_DB_S3_REGION else {}
+        s3 = boto3.client("s3", **client_args)
+
+        candidates = _candidate_s3_keys(key, str(path))
+        for candidate in candidates:
+            try:
+                s3.download_file(bucket, candidate, str(path))
+                _LOG.info("Lastet handler-db fra S3: s3://%s/%s til %s", bucket, candidate, path)
+                return path.is_file()
+            except ClientError as exc:
+                err_code = exc.response.get("Error", {}).get("Code", "")
+                if err_code in {"404", "NoSuchKey", "NotFound"}:
+                    _LOG.warning("S3 key ikke funnet: s3://%s/%s", bucket, candidate)
+                    continue
+                _LOG.warning("S3-feil ved nedlasting av s3://%s/%s: %s", bucket, candidate, exc)
+                return False
+
+        _LOG.warning("Fant ingen gyldig S3 DB-fil for %s. Forsøkte nøkler: %s", HANDLER_DB_S3_URI, candidates)
+        return False
+    except Exception as exc:
+        _LOG.warning("Klarte ikke laste handler-db fra S3 (%s): %s", HANDLER_DB_S3_URI, exc)
+        return False
+
+
+def ensure_local_db(local_path: str | None = None) -> bool:
+    path = local_path or HANDLER_DB_PATH
+
+    # Prefer S3 copy when configured (attempt once per process/path)
+    if HANDLER_DB_S3_URI and HANDLER_DB_S3_PREFER and path not in _S3_SYNC_ATTEMPTED:
+        _S3_SYNC_ATTEMPTED.add(path)
+        if _download_db_from_s3(path):
+            return True
+
+    if os.path.isfile(path):
+        return True
+
+    if not HANDLER_DB_S3_AUTO_DOWNLOAD:
+        return False
+
+    return _download_db_from_s3(path)
+
 
 # =========================================================
 # DB connection
 # =========================================================
 def db_connect(db_path: str | None = None) -> sqlite3.Connection:
     path = db_path or HANDLER_DB_PATH
+    if not ensure_local_db(path):
+        raise FileNotFoundError(f"Database ikke funnet på sti: {path}")
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def db_available(db_path: str | None = None) -> bool:
-    path = db_path or HANDLER_DB_PATH
-    return os.path.isfile(path)
+    return ensure_local_db(db_path)
 
+
+def db_diagnostics(local_path: str | None = None) -> dict:
+    path = local_path or HANDLER_DB_PATH
+    p = Path(path)
+    parsed = None
+    parse_error = ""
+    if HANDLER_DB_S3_URI:
+        try:
+            bucket, key = _parse_s3_uri(HANDLER_DB_S3_URI)
+            parsed = f"s3://{bucket}/{key}"
+        except Exception as exc:
+            parse_error = str(exc)
+
+    return {
+        "path": str(p),
+        "path_exists": p.is_file(),
+        "parent_exists": p.parent.exists(),
+        "s3_uri_configured": bool(HANDLER_DB_S3_URI),
+        "s3_uri_raw": HANDLER_DB_S3_URI,
+        "s3_uri_parsed": parsed,
+        "s3_parse_error": parse_error,
+        "s3_region": HANDLER_DB_S3_REGION,
+        "s3_auto_download": HANDLER_DB_S3_AUTO_DOWNLOAD,
+        "s3_prefer": HANDLER_DB_S3_PREFER,
+    }
 
 # =========================================================
 # Helpers
