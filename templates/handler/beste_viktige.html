@@ -44,22 +44,6 @@
   <h5 style="color:var(--pa-text)">Mest salg (per aksje) – sortert etter største salg</h5>
   <div id="bv-sell-table"></div>
 </div>
-
-<hr class="my-4" style="border-color:var(--pa-border)">
-
-<div id="details-section" style="display:none">
-  <h5 style="color:var(--pa-text)">Detaljer for valgt aksje – alle transaksjoner (hvem, dato, antall, beløp)</h5>
-  <div class="panel mt-2">
-    <div class="row g-3 align-items-end">
-      <div class="col-md-12">
-        <label>Velg aksje</label>
-        <select class="form-select" id="bv-detail-isin"></select>
-      </div>
-    </div>
-  </div>
-  <div id="bv-details-info" class="mb-2" style="color:var(--pa-muted)"></div>
-  <div id="bv-details-table"></div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -75,52 +59,6 @@
     {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num'}, {key:'salg_mnok', label:'Salg MNOK', fmt:'num'},
     {key:'netto_mnok', label:'Netto MNOK', fmt:'num'},
   ];
-
-  const detailCols = [
-    {key:'dato', label:'Dato'},
-    {key:'eier', label:'Eier'},
-    {key:'investor_id', label:'Investor ID'},
-    {key:'investor_type', label:'Type'},
-    {key:'antall', label:'Antall aksjer', fmt:'int'},
-    {key:'kurs', label:'Kurs', fmt:'num', dec:2},
-    {key:'belop_mnok', label:'Beløp MNOK', fmt:'num', dec:4},
-  ];
-
-  let currentSelectionKey = '';
-
-  function fillDetailDropdown(options) {
-    const sel = document.getElementById('bv-detail-isin');
-    sel.innerHTML = '';
-    (options || []).forEach(opt => {
-      const el = document.createElement('option');
-      el.value = opt.isin;
-      el.textContent = opt.label;
-      sel.appendChild(el);
-    });
-  }
-
-  async function loadDetails() {
-    const isin = document.getElementById('bv-detail-isin').value;
-    const df = document.getElementById('bv-date-from').value;
-    const dt = document.getElementById('bv-date-to').value;
-    if (!isin || !currentSelectionKey) return;
-
-    document.getElementById('bv-details-info').textContent = 'Henter transaksjoner…';
-    const resp = await fetch(
-      `{{ url_for("handler.api_beste_viktige_detaljer") }}?selection_key=${encodeURIComponent(currentSelectionKey)}&isin=${encodeURIComponent(isin)}&date_from=${df}&date_to=${dt}`
-    );
-    const data = await resp.json();
-    if (data.error) {
-      document.getElementById('bv-details-info').textContent = data.error;
-      buildTable([], detailCols, 'bv-details-table');
-      return;
-    }
-    const rows = data.rows || [];
-    document.getElementById('bv-details-info').textContent = rows.length
-      ? `${rows.length} transaksjoner for valgt aksje.`
-      : (data.message || 'Ingen transaksjoner for valgt aksje.');
-    buildTable(rows, detailCols, 'bv-details-table');
-  }
 
   document.getElementById('bv-btn').addEventListener('click', async function() {
     const list_name = document.getElementById('bv-list').value;
@@ -145,16 +83,6 @@
 
     buildTable(data.buy, cols, 'bv-buy-table');
     buildTable(data.sell, cols, 'bv-sell-table');
-
-    const detailOptions = data.detail_options || [];
-    currentSelectionKey = data.selection_key || '';
-    fillDetailDropdown(detailOptions);
-    document.getElementById('details-section').style.display = detailOptions.length ? 'block' : 'none';
-    if (detailOptions.length) {
-      await loadDetails();
-    }
   });
-
-  document.getElementById('bv-detail-isin').addEventListener('change', loadDetails);
 </script>
 {% endblock %}
