@@ -30,6 +30,9 @@ import handler_data_beste as hdb
 
 _LOG = logging.getLogger(__name__)
 
+_BEST_VIKTIGE_SELECTIONS: dict[str, dict] = {}
+_BEST_VIKTIGE_SELECTION_TTL_SEC = 30 * 60
+
 handler_bp = Blueprint(
     "handler",
     __name__,
