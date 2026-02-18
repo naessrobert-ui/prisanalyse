@@ -352,9 +352,54 @@ def api_beste_viktige():
     buy = summary[summary["netto_belop"]>0].sort_values("netto_belop", ascending=False).head(top_n)
     sell = summary[summary["salg_belop"]>0].sort_values("salg_belop", ascending=False).head(top_n)
 
+    detail_options_df = pd.concat([buy[["ticker", "isin", "navn"]], sell[["ticker", "isin", "navn"]]], ignore_index=True)
+    detail_options_df = detail_options_df.drop_duplicates(subset=["isin"])
+    detail_options = detail_options_df.assign(
+        label=lambda d: d["ticker"].fillna("") + " | " + d["navn"].fillna("") + " | " + d["isin"].fillna("")
+    )[["isin", "label"]].to_dict("records")
+
     return jsonify({
         "buy": buy[cols].to_dict("records"),
         "sell": sell[cols].to_dict("records"),
+        "investor_count": len(investor_ids),
+        "detail_options": detail_options,
+    })
+
+
+@handler_bp.route("/api/beste-viktige/detaljer")
+def api_beste_viktige_detaljer():
+    list_name = request.args.get("list_name", "Beste")
+    isin = request.args.get("isin", "").strip()
+    date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
+    date_to = _parse_date(request.args.get("date_to"), dt.date.today())
+    top_n = int(request.args.get("top_n", 50))
+
+    if not isin:
+        return jsonify({"error": "Velg aksje"}), 400
+
+    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
+    list_path = hd.resolve_list_csv_path(csv_name)
+    if not list_path:
+        return jsonify({"error": f"Fant ikke listefil: {csv_name}"}), 404
+
+    conn = hd.db_connect()
+    df_list = hd.read_csv_guess(list_path)
+    patterns = hd.extract_owner_patterns(list_name, df_list)
+    investor_ids = hd.resolve_investor_ids(conn, patterns)
+    details = hd.fetch_best_viktige_details_for_isin(conn, investor_ids, isin, date_from, date_to)
+    conn.close()
+
+    if details.empty:
+        return jsonify({"rows": [], "investor_count": len(investor_ids), "message": "Ingen detaljer for valgt aksje"})
+
+    for c in ["kjop_mnok", "salg_mnok", "netto_mnok"]:
+        details[c] = details[c].round(1)
+
+    details = details.sort_values("kjop_mnok", ascending=False).head(top_n)
+
+    cols = ["eier", "investor_id", "investor_type", "antall_obs", "kjop_mnok", "salg_mnok", "netto_mnok"]
+    return jsonify({
+        "rows": details[cols].to_dict("records"),
         "investor_count": len(investor_ids),
     })
 

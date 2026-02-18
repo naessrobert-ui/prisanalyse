@@ -643,6 +643,62 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     return df
 
 
+def fetch_best_viktige_details_for_isin(
+    conn,
+    investor_ids: list[str],
+    isin: str,
+    date_from: dt.date,
+    date_to: dt.date,
+) -> pd.DataFrame:
+    """Detaljer per eier for valgt aksje innenfor valgt investorliste."""
+    if not investor_ids or not isin:
+        return pd.DataFrame()
+
+    conn.execute("DROP TABLE IF EXISTS temp_selected_investors")
+    conn.execute("CREATE TEMP TABLE temp_selected_investors (investor_id TEXT PRIMARY KEY)")
+    conn.executemany(
+        "INSERT OR IGNORE INTO temp_selected_investors(investor_id) VALUES (?)",
+        [(x,) for x in investor_ids],
+    )
+    conn.commit()
+
+    sql = """
+    WITH prices AS (
+        SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
+        FROM position_change WHERE COALESCE(price_yesterday,0)>0
+        GROUP BY isin, date(date_today)
+    ),
+    trades AS (
+        SELECT pc.investor_id, pc.change_qty,
+               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+        FROM position_change pc
+        JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
+        LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
+        WHERE pc.isin=? AND pc.date_today BETWEEN ? AND ?
+    )
+    SELECT t.investor_id,
+           COALESCE(i.first_name,'') AS first_name,
+           COALESCE(i.last_name,'') AS last_name,
+           COALESCE(i.investor_type,'') AS investor_type,
+           COUNT(*) AS antall_obs,
+           SUM(CASE WHEN COALESCE(t.change_qty,0)>0 THEN COALESCE(t.change_qty,0)*t.trade_price ELSE 0 END) AS kjop_belop,
+           SUM(CASE WHEN COALESCE(t.change_qty,0)<0 THEN ABS(COALESCE(t.change_qty,0)*t.trade_price) ELSE 0 END) AS salg_belop,
+           SUM(COALESCE(t.change_qty,0)*t.trade_price) AS netto_belop
+    FROM trades t
+    LEFT JOIN investor i ON i.investor_id=t.investor_id
+    WHERE COALESCE(t.trade_price,0)>0
+    GROUP BY t.investor_id, i.first_name, i.last_name, i.investor_type
+    """
+    rows = conn.execute(sql, (isin, date_from.isoformat(), date_to.isoformat())).fetchall()
+    df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
+    if not df.empty:
+        df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
+        df["kjop_mnok"] = df["kjop_belop"].fillna(0) / 1_000_000
+        df["salg_mnok"] = df["salg_belop"].fillna(0) / 1_000_000
+        df["netto_mnok"] = df["netto_belop"].fillna(0) / 1_000_000
+    return df
+
+
 def _list_csv_files_s3() -> list[str]:
     if not HANDLER_LIST_S3_PREFIX:
         return []
