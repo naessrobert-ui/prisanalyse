@@ -169,3 +169,31 @@ HANDLER_LOCAL_DB_PATH=/tmp/topchanges_sqlite_work/topchanges
 ```
 
 Men siden Render ikke har tilgang til PC-filen din, må du først kopiere databasen til Render (f.eks. via S3 fallback) og så peke `HANDLER_LOCAL_DB_PATH` til filen som faktisk finnes i Render-miljøet.
+
+
+## 13) Kan appen laste opp fra din lokale PC til S3?
+Kort svar: **ikke direkte** fra Render-appen.
+
+- Render kjører i skyen og har ikke tilgang til filene på PC-en din.
+- Men du kan kjøre et lite opplastingsskript **lokalt på din PC** for å laste DB til S3.
+
+Skript i repoet:
+
+```bash
+python scripts/upload_handler_db_to_s3.py \
+  --source "C:/Users/<deg>/AppData/Local/Temp/topchanges_sqlite_work/topchanges" \
+  --bucket ditt-bucket-navn \
+  --key topchanges/topchanges.db \
+  --region eu-west-1
+```
+
+Deretter setter du i Render:
+
+```env
+HANDLER_DB_S3_URI=s3://ditt-bucket-navn/topchanges/topchanges.db
+HANDLER_DB_S3_REGION=eu-west-1
+HANDLER_DB_S3_AUTO_DOWNLOAD=1
+HANDLER_LOCAL_DB_PATH=/tmp/topchanges_sqlite_work/topchanges.db
+```
+
+Når appen starter og lokal fil mangler, lastes DB automatisk ned fra S3 til `HANDLER_LOCAL_DB_PATH`.
