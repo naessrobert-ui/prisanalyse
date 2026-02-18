@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import datetime as dt
 import io
-import os
+import logging
 
 import pandas as pd
 from flask import (
@@ -24,6 +24,8 @@ from flask import (
 
 import handler_data as hd
 import handler_data_beste as hdb
+
+_LOG = logging.getLogger(__name__)
 
 handler_bp = Blueprint(
     "handler",
@@ -54,10 +56,22 @@ def _csv_response(df: pd.DataFrame, filename: str) -> Response:
     )
 
 
-def _check_db():
+def _check_db() -> str | None:
     """Return error message if DB not available, else None."""
     if not hd.db_available():
-        return "Database ikke tilgjengelig. Sjekk at topchanges.db finnes."
+        diag = hd.db_diagnostics()
+        _LOG.warning("Handler DB utilgjengelig: %s", diag)
+        s3_uri = diag.get("s3_uri_parsed") or diag.get("s3_uri_raw") or "(ikke satt)"
+        parse_hint = ""
+        if diag.get("s3_parse_error"):
+            parse_hint = f" Ugyldig S3-format: {diag['s3_parse_error']}."
+        return (
+            "Database ikke tilgjengelig. Sett HANDLER_LOCAL_DB_PATH til full filsti på Render-serveren "
+            f"(nå satt til: {diag['path']}). "
+            "Sti på din lokale PC (f.eks. C:\\...) kan ikke leses fra Render. "
+            f"S3-plassering styres av HANDLER_DB_S3_URI (nå: {s3_uri})."
+            f"{parse_hint}"
+        )
     return None
 
 
@@ -67,7 +81,15 @@ def _check_db():
 @handler_bp.route("/")
 def handler_index():
     db_err = _check_db()
-    return render_template("handler/index.html", db_error=db_err)
+    diag = hd.db_diagnostics()
+    return render_template(
+        "handler/index.html",
+        db_error=db_err,
+        db_path=diag["path"],
+        db_s3_uri=diag.get("s3_uri_parsed") or hd.HANDLER_DB_S3_URI,
+        db_s3_parse_error=diag.get("s3_parse_error"),
+        db_parent_exists=diag["parent_exists"],
+    )
 
 
 # =========================================================
@@ -296,14 +318,16 @@ def api_beste_viktige():
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
     top_n = int(request.args.get("top_n", 30))
 
-    list_dir = hd.HANDLER_LIST_DIR
-    if list_name == "Beste":
-        list_path = os.path.join(list_dir, "Beste.csv")
-    else:
-        list_path = os.path.join(list_dir, "Viktige.csv")
+    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
+    list_path = hd.resolve_list_csv_path(csv_name)
 
-    if not os.path.exists(list_path):
-        return jsonify({"error": f"Fant ikke listefil: {list_path}"}), 404
+    if not list_path:
+        return jsonify({
+            "error": (
+                f"Fant ikke listefil: {csv_name}. "
+                f"Søkt lokalt i {hd.HANDLER_LIST_DIR} og evt. S3-prefix {hd.HANDLER_LIST_S3_PREFIX or '(ikke satt)'}"
+            )
+        }), 404
 
     conn = hd.db_connect()
     df_list = hd.read_csv_guess(list_path)
@@ -397,8 +421,8 @@ def api_beste_investorer_run():
     if inv_mode == "csv":
         csv_file = request.args.get("csv_file", "")
         if csv_file:
-            path = os.path.join(hd.HANDLER_LIST_DIR, csv_file)
-            if os.path.exists(path):
+            path = hd.resolve_list_csv_path(csv_file)
+            if path:
                 investor_ids = hdb.load_first_column_values(path)
     elif inv_mode == "selected":
         ids_str = request.args.get("investor_ids", "")
@@ -419,8 +443,8 @@ def api_beste_investorer_run():
     elif sec_mode == "csv":
         csv_file = request.args.get("sec_csv_file", "")
         if csv_file:
-            path = os.path.join(hd.HANDLER_LIST_DIR, csv_file)
-            if os.path.exists(path):
+            path = hd.resolve_list_csv_path(csv_file)
+            if path:
                 conn_tmp = hd.db_connect()
                 cols_tmp = hdb.detect_cols(conn_tmp)
                 tokens = hdb.load_first_column_values(path)
