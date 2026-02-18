@@ -62,11 +62,12 @@ def _check_db() -> str | None:
     if not hd.db_available():
         diag = hd.db_diagnostics()
         _LOG.warning("Handler DB utilgjengelig: %s", diag)
+        s3_uri = hd.HANDLER_DB_S3_URI or "(ikke satt)"
         return (
             "Database ikke tilgjengelig. Sett HANDLER_LOCAL_DB_PATH til full filsti på Render-serveren "
             f"(nå satt til: {diag['path']}). "
             "Sti på din lokale PC (f.eks. C:\\...) kan ikke leses fra Render. "
-            "Alternativt sett HANDLER_DB_S3_URI til en gyldig fil i S3."
+            f"S3-plassering styres av HANDLER_DB_S3_URI (nå: {s3_uri})."
         )
     return None
 

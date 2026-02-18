@@ -197,3 +197,24 @@ HANDLER_LOCAL_DB_PATH=/tmp/topchanges_sqlite_work/topchanges.db
 ```
 
 Når appen starter og lokal fil mangler, lastes DB automatisk ned fra S3 til `HANDLER_LOCAL_DB_PATH`.
+
+
+## 14) Hvor i S3 er filplasseringen definert?
+Den er definert i miljøvariabelen `HANDLER_DB_S3_URI`.
+
+Format:
+
+```env
+HANDLER_DB_S3_URI=s3://<bucket>/<key>
+```
+
+Eksempel:
+
+```env
+HANDLER_DB_S3_URI=s3://prisanalyse-data/topchanges/topchanges.db
+```
+
+- `bucket` = S3-bucketnavn.
+- `key` = full sti/filnavn inne i bucket.
+
+Hvis `HANDLER_DB_S3_URI` ikke er satt, finnes det ingen definert S3-plassering for DB-filen.
