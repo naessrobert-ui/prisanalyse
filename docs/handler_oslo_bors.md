@@ -202,10 +202,16 @@ Når appen starter og lokal fil mangler, lastes DB automatisk ned fra S3 til `HA
 ## 14) Hvor i S3 er filplasseringen definert?
 Den er definert i miljøvariabelen `HANDLER_DB_S3_URI`.
 
-Format:
+Format (anbefalt):
 
 ```env
 HANDLER_DB_S3_URI=s3://<bucket>/<key>
+```
+
+Det støttes også uten prefiks:
+
+```env
+HANDLER_DB_S3_URI=<bucket>/<key>
 ```
 
 Eksempel:
@@ -218,3 +224,12 @@ HANDLER_DB_S3_URI=s3://prisanalyse-data/topchanges/topchanges.db
 - `key` = full sti/filnavn inne i bucket.
 
 Hvis `HANDLER_DB_S3_URI` ikke er satt, finnes det ingen definert S3-plassering for DB-filen.
+
+
+### Hvis du setter en mappe/prefix i stedet for fil
+Hvis verdien slutter med `/` (f.eks. `s3://prisanalyse-data/calc/`), prøver appen automatisk:
+- `.../topchanges.db`
+- `.../topchanges`
+- samt lokalt filnavn fra `HANDLER_LOCAL_DB_PATH`
+
+Dette gjør oppsettet mer tolerant hvis du bare har satt en prefix først.

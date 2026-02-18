@@ -63,6 +63,10 @@
         <code>HANDLER_LOCAL_DB_PATH={{ db_path }}</code>
         {% if db_s3_uri %}
         <div class="mt-1"><strong>S3 fallback:</strong> <code>{{ db_s3_uri }}</code></div>
+        <div><small>Tips: Du kan bruke både <code>s3://bucket/key</code> og <code>bucket/key</code>. Hvis key slutter med <code>/</code>, prøver appen automatisk <code>topchanges.db</code> og <code>topchanges</code>.</small></div>
+        {% endif %}
+        {% if db_s3_parse_error %}
+        <div class="mt-1 text-warning"><strong>S3 format-feil:</strong> {{ db_s3_parse_error }}</div>
         {% endif %}
       </div>
     </div>
