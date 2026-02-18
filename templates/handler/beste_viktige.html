@@ -106,7 +106,7 @@
       detailsInfo.textContent = 'Henter detaljhandler…';
       const { listName, dateFrom, dateTo } = currentQueryParams();
       const url = `{{ url_for("handler.api_beste_viktige_details") }}?list_name=${encodeURIComponent(listName)}&date_from=${dateFrom}&date_to=${dateTo}&isin=${encodeURIComponent(isin)}&query_key=${encodeURIComponent(currentQueryKey)}`;
-      const resp = await fetch(url);
+      const resp = await fetch(url, { cache: 'no-store' });
       const data = await resp.json();
       if (data.error) {
         detailsInfo.textContent = data.error;
@@ -144,7 +144,7 @@
 
     this.innerHTML = '<span class="spinner"></span> Henter…';
 
-    const resp = await fetch(`{{ url_for("handler.api_beste_viktige") }}?list_name=${list_name}&date_from=${df}&date_to=${dt}&top_n=${topN}`);
+    const resp = await fetch(`{{ url_for("handler.api_beste_viktige") }}?list_name=${list_name}&date_from=${df}&date_to=${dt}&top_n=${topN}`, { cache: 'no-store' });
     const data = await resp.json();
     this.textContent = 'Hent';
 

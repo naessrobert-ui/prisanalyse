@@ -18,6 +18,7 @@ import time
 import pandas as pd
 from flask import (
     Blueprint,
+    make_response,
     render_template,
     request,
     jsonify,
@@ -127,29 +128,6 @@ def _load_investor_ids_for_beste_viktige(
     if investor_ids:
         _set_cached_investor_ids(cache_key, investor_ids)
     return investor_ids
-
-
-def _save_best_viktige_selection(investor_ids: list[str]) -> str:
-    now = dt.datetime.utcnow()
-    stale = [k for k, v in _BEST_VIKTIGE_SELECTIONS.items()
-             if (now - v.get("created_at", now)).total_seconds() > _BEST_VIKTIGE_SELECTION_TTL_SEC]
-    for k in stale:
-        _BEST_VIKTIGE_SELECTIONS.pop(k, None)
-
-    key = uuid.uuid4().hex
-    _BEST_VIKTIGE_SELECTIONS[key] = {"investor_ids": list(investor_ids), "created_at": now}
-    return key
-
-
-def _load_best_viktige_selection(selection_key: str) -> list[str]:
-    hit = _BEST_VIKTIGE_SELECTIONS.get(selection_key)
-    if not hit:
-        return []
-    age = (dt.datetime.utcnow() - hit.get("created_at", dt.datetime.utcnow())).total_seconds()
-    if age > _BEST_VIKTIGE_SELECTION_TTL_SEC:
-        _BEST_VIKTIGE_SELECTIONS.pop(selection_key, None)
-        return []
-    return list(hit.get("investor_ids", []))
 
 
 # =========================================================
@@ -393,7 +371,11 @@ def api_beste_viktige():
     list_name = request.args.get("list_name", "Beste")
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
-    top_n = int(request.args.get("top_n", 10))
+    try:
+        top_n = int(request.args.get("top_n", 10))
+    except (TypeError, ValueError):
+        top_n = 10
+    top_n = max(10, min(top_n, 200))
     query_key = _cache_key_for_beste_viktige(list_name, date_from, date_to)
 
     csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
@@ -434,13 +416,53 @@ def api_beste_viktige():
         label=lambda d: d["ticker"].fillna("") + " | " + d["navn"].fillna("") + " | " + d["isin"].fillna("")
     )[["isin", "label"]].to_dict("records")
 
-    return jsonify({
+    resp = make_response(jsonify({
         "buy": buy[cols].to_dict("records"),
         "sell": sell[cols].to_dict("records"),
         "investor_count": len(investor_ids),
         "detail_options": detail_options,
         "query_key": query_key,
-    })
+    }))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@handler_bp.route("/api/beste-viktige/details")
+def api_beste_viktige_details():
+    list_name = request.args.get("list_name", "Beste")
+    date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
+    date_to = _parse_date(request.args.get("date_to"), dt.date.today())
+    isin = request.args.get("isin", "").strip()
+    query_key = request.args.get("query_key", "").strip()
+
+    if not isin:
+        return jsonify({"error": "Velg aksje"}), 400
+
+    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
+    list_path = hd.resolve_list_csv_path(csv_name)
+    if not list_path:
+        return jsonify({"error": f"Fant ikke listefil: {csv_name}"}), 404
+
+    conn = hd.db_connect()
+    investor_ids = _get_cached_investor_ids(query_key) if query_key else None
+    if investor_ids is None:
+        investor_ids = _load_investor_ids_for_beste_viktige(conn, list_name, date_from, date_to)
+
+    if not investor_ids:
+        conn.close()
+        return jsonify({"rows": [], "message": "Fant ingen investorer som matcher listen"})
+
+    dfi = hd.fetch_best_viktige_trades_for_isin(conn, investor_ids, isin, date_from, date_to)
+    conn.close()
+
+    if dfi.empty:
+        return jsonify({"rows": []})
+
+    detail_cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
+    dfi["belop_mnok"] = pd.to_numeric(dfi["belop_mnok"], errors="coerce").round(4)
+    resp = make_response(jsonify({"rows": dfi[detail_cols].to_dict("records")}))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @handler_bp.route("/api/beste-viktige/details")
