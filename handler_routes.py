@@ -18,6 +18,7 @@ import time
 import pandas as pd
 from flask import (
     Blueprint,
+    make_response,
     render_template,
     request,
     jsonify,
@@ -127,29 +128,6 @@ def _load_investor_ids_for_beste_viktige(
     if investor_ids:
         _set_cached_investor_ids(cache_key, investor_ids)
     return investor_ids
-
-
-def _save_best_viktige_selection(investor_ids: list[str]) -> str:
-    now = dt.datetime.utcnow()
-    stale = [k for k, v in _BEST_VIKTIGE_SELECTIONS.items()
-             if (now - v.get("created_at", now)).total_seconds() > _BEST_VIKTIGE_SELECTION_TTL_SEC]
-    for k in stale:
-        _BEST_VIKTIGE_SELECTIONS.pop(k, None)
-
-    key = uuid.uuid4().hex
-    _BEST_VIKTIGE_SELECTIONS[key] = {"investor_ids": list(investor_ids), "created_at": now}
-    return key
-
-
-def _load_best_viktige_selection(selection_key: str) -> list[str]:
-    hit = _BEST_VIKTIGE_SELECTIONS.get(selection_key)
-    if not hit:
-        return []
-    age = (dt.datetime.utcnow() - hit.get("created_at", dt.datetime.utcnow())).total_seconds()
-    if age > _BEST_VIKTIGE_SELECTION_TTL_SEC:
-        _BEST_VIKTIGE_SELECTIONS.pop(selection_key, None)
-        return []
-    return list(hit.get("investor_ids", []))
 
 
 # =========================================================
@@ -393,7 +371,11 @@ def api_beste_viktige():
     list_name = request.args.get("list_name", "Beste")
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
-    top_n = int(request.args.get("top_n", 10))
+    try:
+        top_n = int(request.args.get("top_n", 10))
+    except (TypeError, ValueError):
+        top_n = 10
+    top_n = max(10, min(top_n, 200))
     query_key = _cache_key_for_beste_viktige(list_name, date_from, date_to)
 
     csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
@@ -428,19 +410,24 @@ def api_beste_viktige():
     buy = summary[summary["netto_belop"]>0].sort_values("netto_belop", ascending=False).head(top_n)
     sell = summary[summary["salg_belop"]>0].sort_values("salg_belop", ascending=False).head(top_n)
 
-    detail_options_df = pd.concat([buy[["ticker", "isin", "navn"]], sell[["ticker", "isin", "navn"]]], ignore_index=True)
+    # Bruk hele sammendraget som grunnlag for detaljvalg, ikke bare topp N.
+    # Da kan brukeren alltid velge en aksje i nedtrekkslisten og se alle handler.
+    detail_options_df = summary[["ticker", "isin", "navn"]].copy()
     detail_options_df = detail_options_df.drop_duplicates(subset=["isin"])
+    detail_options_df = detail_options_df.sort_values(["ticker", "navn", "isin"], ascending=[True, True, True])
     detail_options = detail_options_df.assign(
         label=lambda d: d["ticker"].fillna("") + " | " + d["navn"].fillna("") + " | " + d["isin"].fillna("")
     )[["isin", "label"]].to_dict("records")
 
-    return jsonify({
+    resp = make_response(jsonify({
         "buy": buy[cols].to_dict("records"),
         "sell": sell[cols].to_dict("records"),
         "investor_count": len(investor_ids),
         "detail_options": detail_options,
         "query_key": query_key,
-    })
+    }))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @handler_bp.route("/api/beste-viktige/details")
@@ -476,7 +463,9 @@ def api_beste_viktige_details():
 
     detail_cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
     dfi["belop_mnok"] = pd.to_numeric(dfi["belop_mnok"], errors="coerce").round(4)
-    return jsonify({"rows": dfi[detail_cols].to_dict("records")})
+    resp = make_response(jsonify({"rows": dfi[detail_cols].to_dict("records")}))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 # =========================================================
