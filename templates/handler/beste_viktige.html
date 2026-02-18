@@ -31,6 +31,7 @@
     </div>
   </div>
   <button class="btn btn-primary mt-3" id="bv-btn">Hent</button>
+  <div class="mt-2" style="color:var(--pa-muted); font-size:0.82rem;">Ny tabellvisning: starter med 10 rader. Dra velgeren ved tabellen for å vise flere.</div>
 </div>
 
 <div id="bv-info" class="mb-3" style="color:var(--pa-muted)"></div>
@@ -68,6 +69,7 @@
   const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
   document.getElementById('bv-date-from').value = ago30.toISOString().slice(0,10);
   document.getElementById('bv-date-to').value = today.toISOString().slice(0,10);
+  document.getElementById('bv-top-n').value = 10;
 
   const cols = [
     {key:'ticker', label:'Ticker'}, {key:'isin', label:'ISIN'}, {key:'navn', label:'Navn'},
@@ -87,6 +89,7 @@
   ];
 
   let detailCacheByIsin = {};
+  let currentQueryKey = '';
 
   function currentQueryParams() {
     const listName = document.getElementById('bv-list').value;
@@ -118,7 +121,7 @@
       const detailsInfo = document.getElementById('bv-details-info');
       detailsInfo.textContent = 'Henter detaljhandler…';
       const { listName, dateFrom, dateTo } = currentQueryParams();
-      const url = `{{ url_for("handler.api_beste_viktige_details") }}?list_name=${encodeURIComponent(listName)}&date_from=${dateFrom}&date_to=${dateTo}&isin=${encodeURIComponent(isin)}`;
+      const url = `{{ url_for("handler.api_beste_viktige_details") }}?list_name=${encodeURIComponent(listName)}&date_from=${dateFrom}&date_to=${dateTo}&isin=${encodeURIComponent(isin)}&query_key=${encodeURIComponent(currentQueryKey)}`;
       const resp = await fetch(url);
       const data = await resp.json();
       if (data.error) {
@@ -186,6 +189,7 @@
     });
 
     const detailOptions = data.detail_options || [];
+    currentQueryKey = data.query_key || '';
     detailCacheByIsin = {};
     fillDetailDropdown(detailOptions);
     document.getElementById('details-section').style.display = detailOptions.length ? 'block' : 'none';

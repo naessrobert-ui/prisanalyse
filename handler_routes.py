@@ -10,8 +10,10 @@ Registrer i app.py:
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import io
 import logging
+import time
 
 import pandas as pd
 from flask import (
@@ -33,6 +35,10 @@ handler_bp = Blueprint(
     template_folder="templates",
     url_prefix="/handler-oslo-bors",
 )
+
+
+_BV_INVESTOR_CACHE: dict[str, dict] = {}
+_BV_INVESTOR_CACHE_TTL_SECONDS = 15 * 60
 
 
 # =========================================================
@@ -72,7 +78,52 @@ def _check_db() -> str | None:
             f"S3-plassering styres av HANDLER_DB_S3_URI (nå: {s3_uri})."
             f"{parse_hint}"
         )
-    return None
+
+
+def _cache_key_for_beste_viktige(list_name: str, date_from: dt.date, date_to: dt.date) -> str:
+    base = f"{list_name}|{date_from.isoformat()}|{date_to.isoformat()}"
+    return hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
+
+
+def _get_cached_investor_ids(cache_key: str) -> list[str] | None:
+    row = _BV_INVESTOR_CACHE.get(cache_key)
+    if not row:
+        return None
+    if row.get("expires_at", 0) < time.time():
+        _BV_INVESTOR_CACHE.pop(cache_key, None)
+        return None
+    return row.get("investor_ids")
+
+
+def _set_cached_investor_ids(cache_key: str, investor_ids: list[str]) -> None:
+    _BV_INVESTOR_CACHE[cache_key] = {
+        "investor_ids": investor_ids,
+        "expires_at": time.time() + _BV_INVESTOR_CACHE_TTL_SECONDS,
+    }
+
+
+def _load_investor_ids_for_beste_viktige(
+    conn,
+    list_name: str,
+    date_from: dt.date,
+    date_to: dt.date,
+) -> list[str]:
+    cache_key = _cache_key_for_beste_viktige(list_name, date_from, date_to)
+    cached = _get_cached_investor_ids(cache_key)
+    if cached is not None:
+        return cached
+
+    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
+    list_path = hd.resolve_list_csv_path(csv_name)
+    if not list_path:
+        return []
+
+    df_list = hd.read_csv_guess(list_path)
+    patterns = hd.extract_owner_patterns(list_name, df_list)
+    investor_ids = hd.resolve_investor_ids(conn, patterns)
+    if investor_ids:
+        _set_cached_investor_ids(cache_key, investor_ids)
+    return investor_ids
 
 
 # =========================================================
@@ -317,6 +368,7 @@ def api_beste_viktige():
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
     top_n = int(request.args.get("top_n", 10))
+    query_key = _cache_key_for_beste_viktige(list_name, date_from, date_to)
 
     csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
     list_path = hd.resolve_list_csv_path(csv_name)
@@ -330,9 +382,7 @@ def api_beste_viktige():
         }), 404
 
     conn = hd.db_connect()
-    df_list = hd.read_csv_guess(list_path)
-    patterns = hd.extract_owner_patterns(list_name, df_list)
-    investor_ids = hd.resolve_investor_ids(conn, patterns)
+    investor_ids = _load_investor_ids_for_beste_viktige(conn, list_name, date_from, date_to)
 
     if not investor_ids:
         conn.close()
@@ -363,6 +413,7 @@ def api_beste_viktige():
         "sell": sell[cols].to_dict("records"),
         "investor_count": len(investor_ids),
         "detail_options": detail_options,
+        "query_key": query_key,
     })
 
 
@@ -372,6 +423,7 @@ def api_beste_viktige_details():
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
     isin = request.args.get("isin", "").strip()
+    query_key = request.args.get("query_key", "").strip()
 
     if not isin:
         return jsonify({"error": "Velg aksje"}), 400
@@ -382,9 +434,9 @@ def api_beste_viktige_details():
         return jsonify({"error": f"Fant ikke listefil: {csv_name}"}), 404
 
     conn = hd.db_connect()
-    df_list = hd.read_csv_guess(list_path)
-    patterns = hd.extract_owner_patterns(list_name, df_list)
-    investor_ids = hd.resolve_investor_ids(conn, patterns)
+    investor_ids = _get_cached_investor_ids(query_key) if query_key else None
+    if investor_ids is None:
+        investor_ids = _load_investor_ids_for_beste_viktige(conn, list_name, date_from, date_to)
 
     if not investor_ids:
         conn.close()
