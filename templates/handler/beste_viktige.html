@@ -44,6 +44,22 @@
   <h5 style="color:var(--pa-text)">Mest salg (per aksje) – sortert etter største salg</h5>
   <div id="bv-sell-table"></div>
 </div>
+
+<hr class="my-4" style="border-color:var(--pa-border)">
+
+<div id="details-section" style="display:none">
+  <h5 style="color:var(--pa-text)">Detaljer for valgt aksje – alle transaksjoner (hvem, dato, antall, beløp)</h5>
+  <div class="panel mt-2">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-12">
+        <label>Velg aksje</label>
+        <select class="form-select" id="bv-detail-isin"></select>
+      </div>
+    </div>
+  </div>
+  <div id="bv-details-info" class="mb-2" style="color:var(--pa-muted)"></div>
+  <div id="bv-details-table"></div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -59,6 +75,38 @@
     {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num'}, {key:'salg_mnok', label:'Salg MNOK', fmt:'num'},
     {key:'netto_mnok', label:'Netto MNOK', fmt:'num'},
   ];
+
+  const detailCols = [
+    {key:'dato', label:'Dato'},
+    {key:'eier', label:'Eier'},
+    {key:'investor_id', label:'Investor ID'},
+    {key:'investor_type', label:'Type'},
+    {key:'antall', label:'Antall aksjer', fmt:'int'},
+    {key:'kurs', label:'Kurs', fmt:'num', dec:2},
+    {key:'belop_mnok', label:'Beløp MNOK', fmt:'num', dec:4},
+  ];
+
+  let detailsByIsin = {};
+
+  function fillDetailDropdown(options) {
+    const sel = document.getElementById('bv-detail-isin');
+    sel.innerHTML = '';
+    (options || []).forEach(opt => {
+      const el = document.createElement('option');
+      el.value = opt.isin;
+      el.textContent = opt.label;
+      sel.appendChild(el);
+    });
+  }
+
+  function loadDetails() {
+    const isin = document.getElementById('bv-detail-isin').value;
+    const rows = detailsByIsin[isin] || [];
+    document.getElementById('bv-details-info').textContent = rows.length
+      ? `${rows.length} transaksjoner for valgt aksje.`
+      : 'Ingen transaksjoner for valgt aksje.';
+    buildTable(rows, detailCols, 'bv-details-table');
+  }
 
   document.getElementById('bv-btn').addEventListener('click', async function() {
     const list_name = document.getElementById('bv-list').value;
@@ -83,6 +131,16 @@
 
     buildTable(data.buy, cols, 'bv-buy-table');
     buildTable(data.sell, cols, 'bv-sell-table');
+
+    const detailOptions = data.detail_options || [];
+    detailsByIsin = data.details_by_isin || {};
+    fillDetailDropdown(detailOptions);
+    document.getElementById('details-section').style.display = detailOptions.length ? 'block' : 'none';
+    if (detailOptions.length) {
+      loadDetails();
+    }
   });
+
+  document.getElementById('bv-detail-isin').addEventListener('change', loadDetails);
 </script>
 {% endblock %}

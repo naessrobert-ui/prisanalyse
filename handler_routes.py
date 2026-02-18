@@ -338,11 +338,24 @@ def api_beste_viktige():
         conn.close()
         return jsonify({"error": "Fant ingen investorer som matcher listen"}), 404
 
-    summary = hd.fetch_best_viktige_summary(conn, investor_ids, date_from, date_to)
+    trades = hd.fetch_best_viktige_trades(conn, investor_ids, date_from, date_to)
     conn.close()
 
-    if summary.empty:
+    if trades.empty:
         return jsonify({"buy": [], "sell": [], "message": "Ingen handler i perioden"})
+
+    grp = trades.groupby(["ticker", "isin", "navn"], dropna=False)
+    summary = grp.agg(
+        antall_obs=("isin", "size"),
+        kjop_belop=("belop", lambda s: s[s > 0].sum()),
+        salg_belop=("belop", lambda s: (-s[s < 0]).sum()),
+        netto_belop=("belop", "sum"),
+    ).reset_index()
+    summary["brutto_belop"] = summary["kjop_belop"] + summary["salg_belop"]
+    summary["kjop_mnok"] = summary["kjop_belop"] / 1_000_000
+    summary["salg_mnok"] = summary["salg_belop"] / 1_000_000
+    summary["netto_mnok"] = summary["netto_belop"] / 1_000_000
+    summary["brutto_mnok"] = summary["brutto_belop"] / 1_000_000
 
     for c in ["kjop_mnok","salg_mnok","netto_mnok","brutto_mnok"]:
         summary[c] = summary[c].round(1)
@@ -352,10 +365,31 @@ def api_beste_viktige():
     buy = summary[summary["netto_belop"]>0].sort_values("netto_belop", ascending=False).head(top_n)
     sell = summary[summary["salg_belop"]>0].sort_values("salg_belop", ascending=False).head(top_n)
 
+    detail_options_df = pd.concat([buy[["ticker", "isin", "navn"]], sell[["ticker", "isin", "navn"]]], ignore_index=True)
+    detail_options_df = detail_options_df.drop_duplicates(subset=["isin"])
+    detail_options = detail_options_df.assign(
+        label=lambda d: d["ticker"].fillna("") + " | " + d["navn"].fillna("") + " | " + d["isin"].fillna("")
+    )[["isin", "label"]].to_dict("records")
+
+    detail_isins = set(detail_options_df["isin"].dropna().astype(str).tolist())
+    details_by_isin = {}
+    detail_cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
+    for detail_isin in detail_isins:
+        dfi = trades[trades["isin"] == detail_isin].copy()
+        if dfi.empty:
+            details_by_isin[detail_isin] = []
+            continue
+        dfi["kurs"] = pd.to_numeric(dfi["kurs"], errors="coerce").round(2)
+        dfi["belop_mnok"] = pd.to_numeric(dfi["belop_mnok"], errors="coerce").round(4)
+        dfi = dfi.sort_values(["dato", "belop"], ascending=[False, False])
+        details_by_isin[detail_isin] = dfi[detail_cols].to_dict("records")
+
     return jsonify({
         "buy": buy[cols].to_dict("records"),
         "sell": sell[cols].to_dict("records"),
         "investor_count": len(investor_ids),
+        "detail_options": detail_options,
+        "details_by_isin": details_by_isin,
     })
 
 
