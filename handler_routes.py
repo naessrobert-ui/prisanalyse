@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import datetime as dt
 import io
-import os
 import logging
 
 import pandas as pd
@@ -319,14 +318,16 @@ def api_beste_viktige():
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
     top_n = int(request.args.get("top_n", 30))
 
-    list_dir = hd.HANDLER_LIST_DIR
-    if list_name == "Beste":
-        list_path = os.path.join(list_dir, "Beste.csv")
-    else:
-        list_path = os.path.join(list_dir, "Viktige.csv")
+    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
+    list_path = hd.resolve_list_csv_path(csv_name)
 
-    if not os.path.exists(list_path):
-        return jsonify({"error": f"Fant ikke listefil: {list_path}"}), 404
+    if not list_path:
+        return jsonify({
+            "error": (
+                f"Fant ikke listefil: {csv_name}. "
+                f"Søkt lokalt i {hd.HANDLER_LIST_DIR} og evt. S3-prefix {hd.HANDLER_LIST_S3_PREFIX or '(ikke satt)'}"
+            )
+        }), 404
 
     conn = hd.db_connect()
     df_list = hd.read_csv_guess(list_path)
@@ -420,8 +421,8 @@ def api_beste_investorer_run():
     if inv_mode == "csv":
         csv_file = request.args.get("csv_file", "")
         if csv_file:
-            path = os.path.join(hd.HANDLER_LIST_DIR, csv_file)
-            if os.path.exists(path):
+            path = hd.resolve_list_csv_path(csv_file)
+            if path:
                 investor_ids = hdb.load_first_column_values(path)
     elif inv_mode == "selected":
         ids_str = request.args.get("investor_ids", "")
@@ -442,8 +443,8 @@ def api_beste_investorer_run():
     elif sec_mode == "csv":
         csv_file = request.args.get("sec_csv_file", "")
         if csv_file:
-            path = os.path.join(hd.HANDLER_LIST_DIR, csv_file)
-            if os.path.exists(path):
+            path = hd.resolve_list_csv_path(csv_file)
+            if path:
                 conn_tmp = hd.db_connect()
                 cols_tmp = hdb.detect_cols(conn_tmp)
                 tokens = hdb.load_first_column_values(path)

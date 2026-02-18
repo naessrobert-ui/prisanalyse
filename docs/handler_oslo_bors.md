@@ -263,3 +263,26 @@ HANDLER_DB_S3_FORCE_DOWNLOAD=1
 
 Da forsøker appen å hente DB fra S3 på hver sjekk, og overskriver lokal kopi når nedlasting lykkes.
 Dette er nyttig hvis du oppdaterer DB ofte i S3 og vil unngå at en gammel lokal cache blir brukt.
+
+
+## 16) Listefiler (Beste/Viktige) fra S3
+Nå kan appen også hente listefiler (`.csv`) fra S3, ikke bare databasen.
+
+Sett i Render:
+
+```env
+HANDLER_LIST_S3_PREFIX=s3://prisanalyse-data/calc/lister
+# valgfritt (bruk samme region som bucket)
+HANDLER_DB_S3_REGION=eu-west-1
+```
+
+Oppførsel:
+- Appen sjekker først lokal `HANDLER_LIST_DIR`.
+- Hvis filen ikke finnes lokalt, prøver den S3-prefix fra `HANDLER_LIST_S3_PREFIX`.
+- Dette gjelder både:
+  - `Beste.csv` / `Viktige.csv` i **Handler de beste / viktige**
+  - CSV-filtre i **Beste investorer**.
+
+Tips: last opp filene til samme prefix, f.eks.:
+- `s3://prisanalyse-data/calc/lister/Beste.csv`
+- `s3://prisanalyse-data/calc/lister/Viktige.csv`
