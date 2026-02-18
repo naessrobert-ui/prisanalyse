@@ -316,7 +316,7 @@ def api_beste_viktige():
     list_name = request.args.get("list_name", "Beste")
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
-    top_n = int(request.args.get("top_n", 30))
+    top_n = int(request.args.get("top_n", 10))
 
     csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
     list_path = hd.resolve_list_csv_path(csv_name)
@@ -338,24 +338,11 @@ def api_beste_viktige():
         conn.close()
         return jsonify({"error": "Fant ingen investorer som matcher listen"}), 404
 
-    trades = hd.fetch_best_viktige_trades(conn, investor_ids, date_from, date_to)
+    summary = hd.fetch_best_viktige_summary(conn, investor_ids, date_from, date_to)
     conn.close()
 
-    if trades.empty:
+    if summary.empty:
         return jsonify({"buy": [], "sell": [], "message": "Ingen handler i perioden"})
-
-    grp = trades.groupby(["ticker", "isin", "navn"], dropna=False)
-    summary = grp.agg(
-        antall_obs=("isin", "size"),
-        kjop_belop=("belop", lambda s: s[s > 0].sum()),
-        salg_belop=("belop", lambda s: (-s[s < 0]).sum()),
-        netto_belop=("belop", "sum"),
-    ).reset_index()
-    summary["brutto_belop"] = summary["kjop_belop"] + summary["salg_belop"]
-    summary["kjop_mnok"] = summary["kjop_belop"] / 1_000_000
-    summary["salg_mnok"] = summary["salg_belop"] / 1_000_000
-    summary["netto_mnok"] = summary["netto_belop"] / 1_000_000
-    summary["brutto_mnok"] = summary["brutto_belop"] / 1_000_000
 
     for c in ["kjop_mnok","salg_mnok","netto_mnok","brutto_mnok"]:
         summary[c] = summary[c].round(1)
@@ -371,26 +358,47 @@ def api_beste_viktige():
         label=lambda d: d["ticker"].fillna("") + " | " + d["navn"].fillna("") + " | " + d["isin"].fillna("")
     )[["isin", "label"]].to_dict("records")
 
-    detail_isins = set(detail_options_df["isin"].dropna().astype(str).tolist())
-    details_by_isin = {}
-    detail_cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
-    for detail_isin in detail_isins:
-        dfi = trades[trades["isin"] == detail_isin].copy()
-        if dfi.empty:
-            details_by_isin[detail_isin] = []
-            continue
-        dfi["kurs"] = pd.to_numeric(dfi["kurs"], errors="coerce").round(2)
-        dfi["belop_mnok"] = pd.to_numeric(dfi["belop_mnok"], errors="coerce").round(4)
-        dfi = dfi.sort_values(["dato", "belop"], ascending=[False, False])
-        details_by_isin[detail_isin] = dfi[detail_cols].to_dict("records")
-
     return jsonify({
         "buy": buy[cols].to_dict("records"),
         "sell": sell[cols].to_dict("records"),
         "investor_count": len(investor_ids),
         "detail_options": detail_options,
-        "details_by_isin": details_by_isin,
     })
+
+
+@handler_bp.route("/api/beste-viktige/details")
+def api_beste_viktige_details():
+    list_name = request.args.get("list_name", "Beste")
+    date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
+    date_to = _parse_date(request.args.get("date_to"), dt.date.today())
+    isin = request.args.get("isin", "").strip()
+
+    if not isin:
+        return jsonify({"error": "Velg aksje"}), 400
+
+    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
+    list_path = hd.resolve_list_csv_path(csv_name)
+    if not list_path:
+        return jsonify({"error": f"Fant ikke listefil: {csv_name}"}), 404
+
+    conn = hd.db_connect()
+    df_list = hd.read_csv_guess(list_path)
+    patterns = hd.extract_owner_patterns(list_name, df_list)
+    investor_ids = hd.resolve_investor_ids(conn, patterns)
+
+    if not investor_ids:
+        conn.close()
+        return jsonify({"rows": [], "message": "Fant ingen investorer som matcher listen"})
+
+    dfi = hd.fetch_best_viktige_trades_for_isin(conn, investor_ids, isin, date_from, date_to)
+    conn.close()
+
+    if dfi.empty:
+        return jsonify({"rows": []})
+
+    detail_cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
+    dfi["belop_mnok"] = pd.to_numeric(dfi["belop_mnok"], errors="coerce").round(4)
+    return jsonify({"rows": dfi[detail_cols].to_dict("records")})
 
 
 # =========================================================
