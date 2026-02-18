@@ -150,3 +150,116 @@ Tolkning:
 - `s3_uri_configured: False` => ingen S3 fallback er satt.
 
 Hvis du får 503 på `/handler-oslo-bors/api/search-investors`, er årsaken nesten alltid at DB-filen ikke ligger på `HANDLER_LOCAL_DB_PATH`, eller at S3 fallback ikke er konfigurert/tilgjengelig.
+
+
+## 12) Vanlig misforståelse: filen ligger på din PC, ikke på Render
+Hvis du ser filen i Windows under f.eks.:
+
+```text
+C:\Users\<deg>\AppData\Local\Temp\topchanges_sqlite_work\topchanges
+```
+
+så er den **kun på din egen maskin**. Render kan ikke lese den direkte.
+
+I tillegg: i skjermbildet ditt heter filen `topchanges` (uten `.db`).
+Hvis du vil bruke lokal sti på Render må du peke til nøyaktig filnavn som finnes der, f.eks.:
+
+```env
+HANDLER_LOCAL_DB_PATH=/tmp/topchanges_sqlite_work/topchanges
+```
+
+Men siden Render ikke har tilgang til PC-filen din, må du først kopiere databasen til Render (f.eks. via S3 fallback) og så peke `HANDLER_LOCAL_DB_PATH` til filen som faktisk finnes i Render-miljøet.
+
+
+## 13) Kan appen laste opp fra din lokale PC til S3?
+Kort svar: **ikke direkte** fra Render-appen.
+
+- Render kjører i skyen og har ikke tilgang til filene på PC-en din.
+- Men du kan kjøre et lite opplastingsskript **lokalt på din PC** for å laste DB til S3.
+
+Skript i repoet:
+
+```bash
+python scripts/upload_handler_db_to_s3.py \
+  --source "C:/Users/<deg>/AppData/Local/Temp/topchanges_sqlite_work/topchanges" \
+  --bucket ditt-bucket-navn \
+  --key topchanges/topchanges.db \
+  --region eu-west-1
+```
+
+Deretter setter du i Render:
+
+```env
+HANDLER_DB_S3_URI=s3://ditt-bucket-navn/topchanges/topchanges.db
+HANDLER_DB_S3_REGION=eu-west-1
+HANDLER_DB_S3_AUTO_DOWNLOAD=1
+HANDLER_LOCAL_DB_PATH=/tmp/topchanges_sqlite_work/topchanges.db
+```
+
+Når appen starter og lokal fil mangler, lastes DB automatisk ned fra S3 til `HANDLER_LOCAL_DB_PATH`.
+
+
+## 14) Hvor i S3 er filplasseringen definert?
+Den er definert i miljøvariabelen `HANDLER_DB_S3_URI`.
+
+Format (anbefalt):
+
+```env
+HANDLER_DB_S3_URI=s3://<bucket>/<key>
+```
+
+Det støttes også uten prefiks:
+
+```env
+HANDLER_DB_S3_URI=<bucket>/<key>
+```
+
+Eksempel:
+
+```env
+HANDLER_DB_S3_URI=s3://prisanalyse-data/topchanges/topchanges.db
+```
+
+- `bucket` = S3-bucketnavn.
+- `key` = full sti/filnavn inne i bucket.
+
+Hvis `HANDLER_DB_S3_URI` ikke er satt, finnes det ingen definert S3-plassering for DB-filen.
+
+
+### Hvis du setter en mappe/prefix i stedet for fil
+Hvis verdien slutter med `/` (f.eks. `s3://prisanalyse-data/calc/`), prøver appen automatisk:
+- `.../topchanges.db`
+- `.../topchanges`
+- samt lokalt filnavn fra `HANDLER_LOCAL_DB_PATH`
+
+Dette gjør oppsettet mer tolerant hvis du bare har satt en prefix først.
+
+
+## 15) Tving appen til å bruke S3-kopi først
+Hvis du vil at appen alltid skal hente fra S3 ved oppstart (og overskrive lokal kopi), sett:
+
+```env
+HANDLER_DB_S3_PREFER=1
+```
+
+Dette er nå standard. Oppførsel:
+1. Hvis `HANDLER_DB_S3_URI` er satt, forsøker appen først å laste ned fra S3 én gang per oppstartsprosess.
+2. Hvis nedlasting lykkes, brukes den lokale kopien som ble hentet fra S3.
+3. Hvis nedlasting feiler, brukes eksisterende lokal fil hvis den finnes.
+
+For å slå av denne prioriteringen (lokal først), sett:
+
+```env
+HANDLER_DB_S3_PREFER=0
+```
+
+
+### Hvis du vil tvinge ny nedlasting fra S3 hver gang
+Sett:
+
+```env
+HANDLER_DB_S3_FORCE_DOWNLOAD=1
+```
+
+Da forsøker appen å hente DB fra S3 på hver sjekk, og overskriver lokal kopi når nedlasting lykkes.
+Dette er nyttig hvis du oppdaterer DB ofte i S3 og vil unngå at en gammel lokal cache blir brukt.

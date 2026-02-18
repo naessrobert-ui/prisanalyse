@@ -62,10 +62,16 @@ def _check_db() -> str | None:
     if not hd.db_available():
         diag = hd.db_diagnostics()
         _LOG.warning("Handler DB utilgjengelig: %s", diag)
+        s3_uri = diag.get("s3_uri_parsed") or diag.get("s3_uri_raw") or "(ikke satt)"
+        parse_hint = ""
+        if diag.get("s3_parse_error"):
+            parse_hint = f" Ugyldig S3-format: {diag['s3_parse_error']}."
         return (
-            "Database ikke tilgjengelig. Sett HANDLER_LOCAL_DB_PATH til full filsti på serveren, "
-            f"nå satt til: {diag['path']}. "
-            "Alternativt sett HANDLER_DB_S3_URI til en gyldig fil i S3."
+            "Database ikke tilgjengelig. Sett HANDLER_LOCAL_DB_PATH til full filsti på Render-serveren "
+            f"(nå satt til: {diag['path']}). "
+            "Sti på din lokale PC (f.eks. C:\\...) kan ikke leses fra Render. "
+            f"S3-plassering styres av HANDLER_DB_S3_URI (nå: {s3_uri})."
+            f"{parse_hint}"
         )
     return None
 
@@ -81,7 +87,8 @@ def handler_index():
         "handler/index.html",
         db_error=db_err,
         db_path=diag["path"],
-        db_s3_uri=hd.HANDLER_DB_S3_URI,
+        db_s3_uri=diag.get("s3_uri_parsed") or hd.HANDLER_DB_S3_URI,
+        db_s3_parse_error=diag.get("s3_parse_error"),
         db_parent_exists=diag["parent_exists"],
     )
 

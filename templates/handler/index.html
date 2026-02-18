@@ -58,10 +58,16 @@
       <div class="mt-2 small">
         <div><strong>Aktiv lokal sti nå:</strong> <code>{{ db_path }}</code></div>
         <div><strong>Mappe finnes på server:</strong> {{ "Ja" if db_parent_exists else "Nei" }}</div>
+        <div><strong>Obs:</strong> Dette er sti inne i Render-miljøet, ikke på din lokale PC.</div>
         <div><strong>Legg i .env (samme mappe som app.py):</strong></div>
         <code>HANDLER_LOCAL_DB_PATH={{ db_path }}</code>
         {% if db_s3_uri %}
         <div class="mt-1"><strong>S3 fallback:</strong> <code>{{ db_s3_uri }}</code></div>
+        <div><small>Tips: Du kan bruke både <code>s3://bucket/key</code> og <code>bucket/key</code>. Hvis key slutter med <code>/</code>, prøver appen automatisk <code>topchanges.db</code> og <code>topchanges</code>.</small></div>
+        <div><small>Standard er å foretrekke S3-kopi ved oppstart (<code>HANDLER_DB_S3_PREFER=1</code>).</small></div>
+        {% endif %}
+        {% if db_s3_parse_error %}
+        <div class="mt-1 text-warning"><strong>S3 format-feil:</strong> {{ db_s3_parse_error }}</div>
         {% endif %}
       </div>
     </div>
