@@ -252,3 +252,14 @@ For å slå av denne prioriteringen (lokal først), sett:
 ```env
 HANDLER_DB_S3_PREFER=0
 ```
+
+
+### Hvis du vil tvinge ny nedlasting fra S3 hver gang
+Sett:
+
+```env
+HANDLER_DB_S3_FORCE_DOWNLOAD=1
+```
+
+Da forsøker appen å hente DB fra S3 på hver sjekk, og overskriver lokal kopi når nedlasting lykkes.
+Dette er nyttig hvis du oppdaterer DB ofte i S3 og vil unngå at en gammel lokal cache blir brukt.

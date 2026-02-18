@@ -57,6 +57,11 @@ HANDLER_DB_S3_PREFER = _path_from_env("HANDLER_DB_S3_PREFER", "1").lower() not i
     "false",
     "no",
 }
+HANDLER_DB_S3_FORCE_DOWNLOAD = _path_from_env("HANDLER_DB_S3_FORCE_DOWNLOAD", "0").lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 _LOG = logging.getLogger(__name__)
 _S3_SYNC_ATTEMPTED: set[str] = set()
@@ -125,6 +130,11 @@ def _download_db_from_s3(local_path: str | None = None) -> bool:
 def ensure_local_db(local_path: str | None = None) -> bool:
     path = local_path or HANDLER_DB_PATH
 
+    # Force-download on each check (overwrites local cache) when explicitly enabled
+    if HANDLER_DB_S3_URI and HANDLER_DB_S3_FORCE_DOWNLOAD:
+        if _download_db_from_s3(path):
+            return True
+
     # Prefer S3 copy when configured (attempt once per process/path)
     if HANDLER_DB_S3_URI and HANDLER_DB_S3_PREFER and path not in _S3_SYNC_ATTEMPTED:
         _S3_SYNC_ATTEMPTED.add(path)
@@ -179,6 +189,7 @@ def db_diagnostics(local_path: str | None = None) -> dict:
         "s3_region": HANDLER_DB_S3_REGION,
         "s3_auto_download": HANDLER_DB_S3_AUTO_DOWNLOAD,
         "s3_prefer": HANDLER_DB_S3_PREFER,
+        "s3_force_download": HANDLER_DB_S3_FORCE_DOWNLOAD,
     }
 
 # =========================================================
