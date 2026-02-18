@@ -365,11 +365,24 @@ def api_beste_viktige():
         conn.close()
         return jsonify({"error": "Fant ingen investorer som matcher listen"}), 404
 
-    summary = hd.fetch_best_viktige_summary(conn, investor_ids, date_from, date_to)
+    trades = hd.fetch_best_viktige_trades(conn, investor_ids, date_from, date_to)
     conn.close()
 
-    if summary.empty:
+    if trades.empty:
         return jsonify({"buy": [], "sell": [], "message": "Ingen handler i perioden"})
+
+    grp = trades.groupby(["ticker", "isin", "navn"], dropna=False)
+    summary = grp.agg(
+        antall_obs=("isin", "size"),
+        kjop_belop=("belop", lambda s: s[s > 0].sum()),
+        salg_belop=("belop", lambda s: (-s[s < 0]).sum()),
+        netto_belop=("belop", "sum"),
+    ).reset_index()
+    summary["brutto_belop"] = summary["kjop_belop"] + summary["salg_belop"]
+    summary["kjop_mnok"] = summary["kjop_belop"] / 1_000_000
+    summary["salg_mnok"] = summary["salg_belop"] / 1_000_000
+    summary["netto_mnok"] = summary["netto_belop"] / 1_000_000
+    summary["brutto_mnok"] = summary["brutto_belop"] / 1_000_000
 
     for c in ["kjop_mnok","salg_mnok","netto_mnok","brutto_mnok"]:
         summary[c] = summary[c].round(1)
