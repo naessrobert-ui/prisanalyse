@@ -643,9 +643,15 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     return df
 
 
-def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date, date_to: dt.date) -> pd.DataFrame:
-    """Alle handler på transaksjonsnivå for investorer i valgt liste og periode."""
-    if not investor_ids:
+def fetch_best_viktige_trades_for_isin(
+    conn,
+    investor_ids: list[str],
+    isin: str,
+    date_from: dt.date,
+    date_to: dt.date,
+) -> pd.DataFrame:
+    """Alle handler på transaksjonsnivå for valgt aksje innenfor valgt investorliste."""
+    if not investor_ids or not isin:
         return pd.DataFrame()
 
     conn.execute("DROP TABLE IF EXISTS temp_selected_investors")
@@ -671,7 +677,7 @@ def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date,
         FROM position_change pc
         JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
         LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
-        WHERE pc.date_today BETWEEN ? AND ?
+        WHERE pc.isin=? AND pc.date_today BETWEEN ? AND ?
     )
     SELECT t.dato,
            COALESCE(s.ticker,'') AS ticker,
@@ -690,7 +696,7 @@ def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date,
     WHERE COALESCE(t.trade_price,0)>0
     ORDER BY t.dato DESC
     """
-    rows = conn.execute(sql, (date_from.isoformat(), date_to.isoformat())).fetchall()
+    rows = conn.execute(sql, (isin, date_from.isoformat(), date_to.isoformat())).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]

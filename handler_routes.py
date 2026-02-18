@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import io
 import logging
+import uuid
 
 import pandas as pd
 from flask import (
@@ -26,6 +27,9 @@ import handler_data as hd
 import handler_data_beste as hdb
 
 _LOG = logging.getLogger(__name__)
+
+_BEST_VIKTIGE_SELECTIONS: dict[str, dict] = {}
+_BEST_VIKTIGE_SELECTION_TTL_SEC = 30 * 60
 
 handler_bp = Blueprint(
     "handler",
@@ -73,6 +77,29 @@ def _check_db() -> str | None:
             f"{parse_hint}"
         )
     return None
+
+
+def _save_best_viktige_selection(investor_ids: list[str]) -> str:
+    now = dt.datetime.utcnow()
+    stale = [k for k, v in _BEST_VIKTIGE_SELECTIONS.items()
+             if (now - v.get("created_at", now)).total_seconds() > _BEST_VIKTIGE_SELECTION_TTL_SEC]
+    for k in stale:
+        _BEST_VIKTIGE_SELECTIONS.pop(k, None)
+
+    key = uuid.uuid4().hex
+    _BEST_VIKTIGE_SELECTIONS[key] = {"investor_ids": list(investor_ids), "created_at": now}
+    return key
+
+
+def _load_best_viktige_selection(selection_key: str) -> list[str]:
+    hit = _BEST_VIKTIGE_SELECTIONS.get(selection_key)
+    if not hit:
+        return []
+    age = (dt.datetime.utcnow() - hit.get("created_at", dt.datetime.utcnow())).total_seconds()
+    if age > _BEST_VIKTIGE_SELECTION_TTL_SEC:
+        _BEST_VIKTIGE_SELECTIONS.pop(selection_key, None)
+        return []
+    return list(hit.get("investor_ids", []))
 
 
 # =========================================================
@@ -371,26 +398,45 @@ def api_beste_viktige():
         label=lambda d: d["ticker"].fillna("") + " | " + d["navn"].fillna("") + " | " + d["isin"].fillna("")
     )[["isin", "label"]].to_dict("records")
 
-    detail_isins = set(detail_options_df["isin"].dropna().astype(str).tolist())
-    details_by_isin = {}
-    detail_cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
-    for detail_isin in detail_isins:
-        dfi = trades[trades["isin"] == detail_isin].copy()
-        if dfi.empty:
-            details_by_isin[detail_isin] = []
-            continue
-        dfi["kurs"] = pd.to_numeric(dfi["kurs"], errors="coerce").round(2)
-        dfi["belop_mnok"] = pd.to_numeric(dfi["belop_mnok"], errors="coerce").round(4)
-        dfi = dfi.sort_values(["dato", "belop"], ascending=[False, False])
-        details_by_isin[detail_isin] = dfi[detail_cols].to_dict("records")
+    selection_key = _save_best_viktige_selection(investor_ids)
 
     return jsonify({
         "buy": buy[cols].to_dict("records"),
         "sell": sell[cols].to_dict("records"),
         "investor_count": len(investor_ids),
         "detail_options": detail_options,
-        "details_by_isin": details_by_isin,
+        "selection_key": selection_key,
     })
+
+
+@handler_bp.route("/api/beste-viktige/detaljer")
+def api_beste_viktige_detaljer():
+    selection_key = request.args.get("selection_key", "").strip()
+    isin = request.args.get("isin", "").strip()
+    date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
+    date_to = _parse_date(request.args.get("date_to"), dt.date.today())
+
+    if not selection_key:
+        return jsonify({"error": "Mangler selection_key. Trykk Hent på nytt."}), 400
+    if not isin:
+        return jsonify({"error": "Velg aksje"}), 400
+
+    investor_ids = _load_best_viktige_selection(selection_key)
+    if not investor_ids:
+        return jsonify({"error": "Utvalg utløpt. Trykk Hent på nytt."}), 410
+
+    conn = hd.db_connect()
+    details = hd.fetch_best_viktige_trades_for_isin(conn, investor_ids, isin, date_from, date_to)
+    conn.close()
+
+    if details.empty:
+        return jsonify({"rows": [], "message": "Ingen transaksjoner for valgt aksje"})
+
+    details["kurs"] = pd.to_numeric(details["kurs"], errors="coerce").round(2)
+    details["belop_mnok"] = pd.to_numeric(details["belop_mnok"], errors="coerce").round(4)
+    details = details.sort_values(["dato", "belop"], ascending=[False, False])
+    cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
+    return jsonify({"rows": details[cols].to_dict("records")})
 
 
 # =========================================================

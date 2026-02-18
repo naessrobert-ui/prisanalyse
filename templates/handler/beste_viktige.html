@@ -86,7 +86,7 @@
     {key:'belop_mnok', label:'Beløp MNOK', fmt:'num', dec:4},
   ];
 
-  let detailsByIsin = {};
+  let currentSelectionKey = '';
 
   function fillDetailDropdown(options) {
     const sel = document.getElementById('bv-detail-isin');
@@ -99,12 +99,26 @@
     });
   }
 
-  function loadDetails() {
+  async function loadDetails() {
     const isin = document.getElementById('bv-detail-isin').value;
-    const rows = detailsByIsin[isin] || [];
+    const df = document.getElementById('bv-date-from').value;
+    const dt = document.getElementById('bv-date-to').value;
+    if (!isin || !currentSelectionKey) return;
+
+    document.getElementById('bv-details-info').textContent = 'Henter transaksjoner…';
+    const resp = await fetch(
+      `{{ url_for("handler.api_beste_viktige_detaljer") }}?selection_key=${encodeURIComponent(currentSelectionKey)}&isin=${encodeURIComponent(isin)}&date_from=${df}&date_to=${dt}`
+    );
+    const data = await resp.json();
+    if (data.error) {
+      document.getElementById('bv-details-info').textContent = data.error;
+      buildTable([], detailCols, 'bv-details-table');
+      return;
+    }
+    const rows = data.rows || [];
     document.getElementById('bv-details-info').textContent = rows.length
       ? `${rows.length} transaksjoner for valgt aksje.`
-      : 'Ingen transaksjoner for valgt aksje.';
+      : (data.message || 'Ingen transaksjoner for valgt aksje.');
     buildTable(rows, detailCols, 'bv-details-table');
   }
 
@@ -133,11 +147,11 @@
     buildTable(data.sell, cols, 'bv-sell-table');
 
     const detailOptions = data.detail_options || [];
-    detailsByIsin = data.details_by_isin || {};
+    currentSelectionKey = data.selection_key || '';
     fillDetailDropdown(detailOptions);
     document.getElementById('details-section').style.display = detailOptions.length ? 'block' : 'none';
     if (detailOptions.length) {
-      loadDetails();
+      await loadDetails();
     }
   });
 
