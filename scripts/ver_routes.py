@@ -196,8 +196,13 @@ def _hent_prognose_data(
                 ),
                 "stasjoner": list(STASJONER.keys()),
             }
+        place = (
+            Place(stasjon_navn, float(lat), float(lon), int(moh))
+            if (moh is not None and float(moh) > 0)
+            else Place(stasjon_navn, float(lat), float(lon))
+        )
         config = {
-            "place": Place(stasjon_navn, float(lat), float(lon), int(moh or 0)),
+            "place": place,
             "frost_id": frost_id,
         }
 
@@ -364,7 +369,7 @@ def _finn_snøstasjoner(query: str = "", limit: int = 30) -> list[dict[str, Any]
                     "frost_id": frost_id,
                     "lat": float(rad.get("lat")) if pd.notna(rad.get("lat")) else None,
                     "lon": float(rad.get("lon")) if pd.notna(rad.get("lon")) else None,
-                    "moh": 0,
+                    "moh": None,
                     "source": "frost_db",
                 })
     except Exception:
@@ -552,7 +557,7 @@ async function load(){
   const frostId=opt.dataset.frost || '';
   const lat=opt.dataset.lat || '';
   const lon=opt.dataset.lon || '';
-  const moh=opt.dataset.moh || '0';
+  const moh=opt.dataset.moh || '';
   statusEl.innerHTML='<div class="spinner"></div>';
   statusEl.className='status';
   cardsEl.style.display='none';
