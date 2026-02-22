@@ -12,6 +12,7 @@ import pandas as pd
 import requests
 from flask import Blueprint, request, render_template, Response, jsonify
 from mapbox_vector_tile import decode as mvt_decode
+from metno_locationforecast import Place
 
 try:
     from zoneinfo import ZoneInfo  # py3.9+
@@ -23,6 +24,7 @@ from snow_map import build_snow_map_html
 from precip_map import build_precip_county_map_html
 from sunshine_map import build_sunshine_map_html
 from temp_map import build_min_temp_map_html
+from ver_station_db import load_station_db
 
 # Snøprognose-logikk fra snow_increase.py
 from snow_increase import (
@@ -176,11 +178,28 @@ def _vær_type(temp: float, nedbør: float) -> dict:
     return {"icon": "🌧️", "label": "Regn"}
 
 
-def _hent_prognose_data(stasjon_navn: str) -> dict[str, Any]:
+def _hent_prognose_data(
+    stasjon_navn: str,
+    *,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+    moh: Optional[float] = None,
+    frost_id: Optional[str] = None,
+) -> dict[str, Any]:
     """Henter og beregner snøprognose. Returnerer dict klar for JSON."""
     config = STASJONER.get(stasjon_navn)
     if not config:
-        return {"error": f"Ukjent stasjon: {stasjon_navn}", "stasjoner": list(STASJONER.keys())}
+        if lat is None or lon is None or not frost_id:
+            return {
+                "error": (
+                    "Ukjent stasjon. Velg en foreslått snøstasjon, eller oppgi lat/lon + frost_id."
+                ),
+                "stasjoner": list(STASJONER.keys()),
+            }
+        config = {
+            "place": Place(stasjon_navn, float(lat), float(lon), int(moh or 0)),
+            "frost_id": frost_id,
+        }
 
     auth = _env_auth()
     session = requests.Session()
@@ -211,6 +230,7 @@ def _hent_prognose_data(stasjon_navn: str) -> dict[str, Any]:
             "netto_mm":     rad["netto_mm"],
             "snødybde_cm":  rad["snødybde_cm"],
             "snøfaktor":    rad["snøfaktor"],
+            "vind_ms":      round(float(rad.get("vind_ms")), 1) if pd.notna(rad.get("vind_ms")) else None,
             "vær_ikon":     vær["icon"],
             "vær_label":    vær["label"],
         })
@@ -227,6 +247,8 @@ def _hent_prognose_data(stasjon_navn: str) -> dict[str, Any]:
             total_ny_snø_mm=("ny_snø_mm", "sum"),
             total_smelting_mm=("smelting_mm", "sum"),
             snødybde_slutt_cm=("snødybde_cm", "last"),
+            vind_ms_snitt=("vind_ms", "mean"),
+            vind_ms_maks=("vind_ms", "max"),
         )
         .round(1)
     )
@@ -251,6 +273,8 @@ def _hent_prognose_data(stasjon_navn: str) -> dict[str, Any]:
             "total_ny_snø_mm":   rad["total_ny_snø_mm"],
             "total_smelting_mm": rad["total_smelting_mm"],
             "snødybde_slutt_cm": rad["snødybde_slutt_cm"],
+            "vind_ms_snitt":     rad["vind_ms_snitt"],
+            "vind_ms_maks":      rad["vind_ms_maks"],
             "vær_ikon":          vær["icon"],
             "vær_label":         vær["label"],
         })
@@ -284,7 +308,9 @@ def _hent_prognose_data(stasjon_navn: str) -> dict[str, Any]:
         "endring_neste_døgn_cm": round(snø_24t - snødybde_cm, 1),
         "total_nedbør_mm":   round(float(df_48["nedbør_mm"].sum()), 1),
         "total_ny_snø_mm":   round(float(df_48["ny_snø_mm"].sum()), 1),
+        "total_ny_snø_cm":   round(float(df_48["ny_snø_mm"].sum()) / 10, 1),
         "total_smelting_mm": round(float(df_48["smelting_mm"].sum()), 1),
+        "temperatur_nå_c":   round(float(df["temperatur_c"].iloc[0]), 1) if not df.empty else None,
         "min_temp_c":        round(float(df_48["temperatur_c"].min()), 1),
         "maks_temp_c":       round(float(df_48["temperatur_c"].max()), 1),
     }
@@ -303,11 +329,75 @@ def _hent_prognose_data(stasjon_navn: str) -> dict[str, Any]:
     }
 
 
+def _finn_snøstasjoner(query: str = "", limit: int = 30) -> list[dict[str, Any]]:
+    """Søk i lokal Frost-stasjonsdatabase etter stasjoner som rapporterer snø."""
+    items: list[dict[str, Any]] = []
+
+    # 1) Håndplukkede standardvalg først
+    for navn, conf in STASJONER.items():
+        place = conf["place"]
+        items.append({
+            "label": navn,
+            "frost_id": conf["frost_id"],
+            "lat": place.coordinates["latitude"],
+            "lon": place.coordinates["longitude"],
+            "moh": place.coordinates["altitude"],
+            "source": "preset",
+        })
+
+    # 2) Fyll på fra lokal stasjons-DB
+    try:
+        df = load_station_db()
+        if not df.empty:
+            d = df[df["has_snow"] == True].copy()
+            if query:
+                q = query.strip().lower()
+                if q:
+                    d = d[d["name"].astype(str).str.lower().str.contains(q, na=False)]
+            d = d.head(limit)
+            for _, rad in d.iterrows():
+                frost_id = str(rad.get("baseId", "")).strip()
+                if not frost_id:
+                    continue
+                items.append({
+                    "label": str(rad.get("name") or frost_id),
+                    "frost_id": frost_id,
+                    "lat": float(rad.get("lat")) if pd.notna(rad.get("lat")) else None,
+                    "lon": float(rad.get("lon")) if pd.notna(rad.get("lon")) else None,
+                    "moh": 0,
+                    "source": "frost_db",
+                })
+    except Exception:
+        pass
+
+    # dedup på frost_id
+    unike: dict[str, dict[str, Any]] = {}
+    for it in items:
+        fid = str(it.get("frost_id") or "")
+        if fid and fid not in unike:
+            unike[fid] = it
+
+    out = list(unike.values())
+    out.sort(key=lambda x: x["label"].lower())
+    return out[:limit]
+
+
+@ver.get("/api/snostasjoner")
+def api_snostasjoner():
+    q = request.args.get("q", "").strip()
+    limit = min(max(int(request.args.get("limit", 30)), 1), 100)
+    return jsonify({"items": _finn_snøstasjoner(query=q, limit=limit)})
+
+
 @ver.get("/api/snovarsel")
 def api_snovarsel():
     stasjon = request.args.get("stasjon", "Kvamskogen")
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    moh = request.args.get("moh", type=float)
+    frost_id = request.args.get("frost_id")
     try:
-        data = _hent_prognose_data(stasjon)
+        data = _hent_prognose_data(stasjon, lat=lat, lon=lon, moh=moh, frost_id=frost_id)
         return jsonify(data)
     except Exception as e:
         traceback.print_exc()
@@ -348,7 +438,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
 .hero h1{font-family:var(--serif);font-weight:900;font-size:clamp(26px,5vw,40px);background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-.02em;}
 .hero .sub{color:var(--muted);font-size:13px;margin-top:4px}
 .loc-bar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:14px 0 6px;align-items:center;}
-.loc-bar select{background:var(--surface2);color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-family:var(--sans);}
+.loc-bar select,.loc-bar input{background:var(--surface2);color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-family:var(--sans);}
 .loc-bar button{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0a0f1f;border:none;border-radius:10px;padding:8px 18px;font-weight:700;cursor:pointer;font-family:var(--sans);font-size:13px;}
 .status{text-align:center;color:var(--muted);font-size:12px;min-height:18px;margin:4px 0 14px}
 .status.err{color:var(--neg-c)}
@@ -373,6 +463,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
 .hc .pr{font-size:10px;color:var(--rain-c);min-height:14px}
 .hc .sn{font-size:10px;color:var(--snow-c);min-height:14px}
 .hc .sd{font-size:10px;color:var(--muted);margin-top:2px}
+.hc .wd{font-size:10px;color:var(--accent);font-weight:700}
 .day-sep{position:absolute;top:-18px;left:0;right:0;font-size:9px;color:var(--accent);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dg{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:8px}
 .dc{background:var(--surface2);border-radius:12px;padding:12px 10px;text-align:center}
@@ -395,9 +486,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
     <p class="sub">Prognose basert på YR-varsel + observert snødybde fra <a href="https://frost.met.no" target="_blank">Frost</a></p>
   </div>
   <div class="loc-bar">
-    <select id="stasjon-sel">
-      <option value="Kvamskogen" selected>Kvamskogen</option>
-    </select>
+    <input id="stasjon-query" placeholder="Søk sted / stasjonsnavn"/>
+    <button onclick="loadStations()">Søk</button>
+    <select id="stasjon-sel"></select>
     <button onclick="load()">Hent prognose</button>
   </div>
   <div class="status" id="status"></div>
@@ -433,14 +524,41 @@ let snowChart=null, twChart=null;
 
 function fmtDH(s){const d=new Date(s);return d.getDate()+'.'+MONTHS[d.getMonth()]+' '+String(d.getHours()).padStart(2,'0')+'h'}
 function fmtH(s){const d=new Date(s);return String(d.getHours()).padStart(2,'0')+':00'}
+function fmtWeekdayHour(s){const d=new Date(s);return DAYS[d.getDay()]+' '+fmtH(s)}
+
+async function loadStations(){
+  const q=(document.getElementById('stasjon-query').value||'').trim();
+  const sel=document.getElementById('stasjon-sel');
+  try{
+    const r=await fetch('/ver/api/snostasjoner?q='+encodeURIComponent(q));
+    const data=await r.json();
+    const items=data.items||[];
+    if(!items.length){
+      sel.innerHTML='<option value="">Ingen stasjoner funnet</option>';
+      return;
+    }
+    const defaultIdx=Math.max(0, items.findIndex(it=>it.frost_id==='SN50310' || String(it.label||'').toLowerCase().includes('kvamskogen')));
+    sel.innerHTML=items.map((it,idx)=>`<option value="${it.label}" data-frost="${it.frost_id}" data-lat="${it.lat ?? ''}" data-lon="${it.lon ?? ''}" data-moh="${it.moh ?? 0}" ${idx===defaultIdx?'selected':''}>${it.label} (${it.frost_id})</option>`).join('');
+  }catch(e){
+    sel.innerHTML='<option value="Kvamskogen" data-frost="SN50310" data-lat="60.3983" data-lon="5.9728" data-moh="500" selected>Kvamskogen (SN50310)</option>';
+  }
+}
 
 async function load(){
-  const st=document.getElementById('stasjon-sel').value;
+  const sel=document.getElementById('stasjon-sel');
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt){return;}
+  const st=opt.value;
+  const frostId=opt.dataset.frost || '';
+  const lat=opt.dataset.lat || '';
+  const lon=opt.dataset.lon || '';
+  const moh=opt.dataset.moh || '0';
   statusEl.innerHTML='<div class="spinner"></div>';
   statusEl.className='status';
   cardsEl.style.display='none';
   try{
-    const r=await fetch('/ver/api/snovarsel?stasjon='+encodeURIComponent(st));
+    const qs=new URLSearchParams({stasjon:st,frost_id:frostId,lat,lon,moh}).toString();
+    const r=await fetch('/ver/api/snovarsel?'+qs);
     const d=await r.json();
     if(d.error){throw new Error(d.error);}
     render(d);
@@ -459,6 +577,7 @@ function renderSummary(d){
   const endring=s.endring_cm;
   const fmtDelta=(v)=>`${v>=0?'+':''}${v}`;
   const cls=(v)=>v>=0?'pos':'neg';
+  const tempNow = s.temperatur_nå_c ?? 0;
   document.getElementById('sum-grid').innerHTML=`
     <div class="sb ${cls(s.endring_neste_time_cm)}"><div class="v">${fmtDelta(s.endring_neste_time_cm)} cm</div><div class="l">Endring neste time</div><div class="m">Snødybde: ${s.snø_neste_time_cm} cm</div></div>
     <div class="sb ${cls(s.endring_neste_3t_cm)}"><div class="v">${fmtDelta(s.endring_neste_3t_cm)} cm</div><div class="l">Endring neste 3 timer</div><div class="m">Snødybde: ${s.snø_neste_3t_cm} cm</div></div>
@@ -467,9 +586,10 @@ function renderSummary(d){
     <div class="sb ${endring>=0?'pos':'neg'}"><div class="v">${endring>=0?'+':''}${endring}</div><div class="l">Endring (cm)</div></div>
     <div class="sb snow"><div class="v">${s.slutt_snødybde_cm.toFixed(1)}</div><div class="l">Prognose slutt (cm)</div></div>
     <div class="sb rain"><div class="v">${s.total_nedbør_mm}</div><div class="l">Nedbør 48t (mm)</div></div>
-    <div class="sb snow"><div class="v">${s.total_ny_snø_mm}</div><div class="l">Ny snø 48t (mm)</div></div>
-    <div class="sb cold"><div class="v">${s.min_temp_c}°</div><div class="l">Min temp</div></div>
+    <div class="sb snow"><div class="v">${s.total_ny_snø_cm.toFixed(1)}</div><div class="l">Ny snø 48t (cm)</div></div>
     <div class="sb warm"><div class="v">${s.maks_temp_c}°</div><div class="l">Maks temp</div></div>
+    <div class="sb ${tempNow<=0?'cold':'warm'}"><div class="v">${tempNow>0?'+':''}${tempNow}°</div><div class="l">Temperatur nå</div></div>
+    <div class="sb cold"><div class="v">${s.min_temp_c}°</div><div class="l">Min temp</div></div>
     <div class="sb neg"><div class="v">${s.total_smelting_mm}</div><div class="l">Smelting 48t (mm)</div></div>`;
 }
 
@@ -479,7 +599,7 @@ function renderSnowChart(d){
   if(snowChart) snowChart.destroy();
   snowChart=new Chart(ctx,{type:'line',data:{labels:iv.map(x=>fmtDH(x.start)),datasets:[
     {label:'Snødybde (cm)',data:iv.map(x=>x.snødybde_cm),borderColor:'#a5d8ff',backgroundColor:'rgba(165,216,255,.1)',fill:true,tension:.3,borderWidth:2.5,pointRadius:0,pointHoverRadius:4,yAxisID:'y'},
-    {label:'Netto snø/smelting (mm)',data:iv.map(x=>x.netto_mm),type:'bar',backgroundColor:iv.map(x=>x.netto_mm>=0?'rgba(105,219,124,.5)':'rgba(255,107,107,.45)'),borderRadius:2,yAxisID:'y1'}
+    {label:'Netto snø/smelting (mm)',data:iv.map(x=>x.netto_mm),type:'bar',backgroundColor:iv.map(x=>x.netto_mm>=0?'rgba(116,192,252,.55)':'rgba(255,107,107,.45)'),borderRadius:2,yAxisID:'y1'}
   ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
     plugins:{legend:{labels:{color:'#7b8db5',font:{family:'Outfit',size:11}}},tooltip:{backgroundColor:'rgba(15,23,48,.92)',titleFont:{family:'Outfit'},bodyFont:{family:'Outfit'}}},
     scales:{x:{ticks:{color:'#7b8db5',font:{size:9,family:'Outfit'},maxRotation:45,autoSkip:true,maxTicksLimit:18},grid:{color:'rgba(100,130,200,.08)'}},
@@ -492,12 +612,12 @@ function renderTempChart(d){
   const ctx=document.getElementById('chart-tw').getContext('2d');
   if(twChart) twChart.destroy();
   twChart=new Chart(ctx,{type:'line',data:{labels:iv.map(x=>fmtDH(x.start)),datasets:[
-    {label:'Temperatur (°C)',data:iv.map(x=>x.temperatur_c),borderColor:'#ffa94d',backgroundColor:'transparent',tension:.3,borderWidth:2,pointRadius:0,pointHoverRadius:4,yAxisID:'y'},
-    {label:'Nedbør (mm)',data:iv.map(x=>x.nedbør_mm),type:'bar',backgroundColor:iv.map(x=>x.temperatur_c<=1.5?'rgba(165,216,255,.55)':'rgba(116,192,252,.45)'),borderRadius:2,yAxisID:'y1'}
+    {label:'Temperatur (°C)',data:iv.map(x=>x.temperatur_c),borderColor:'#4dabf7',segment:{borderColor:(ctx)=>ctx.p0.parsed.y<=0&&ctx.p1.parsed.y<=0?'#4dabf7':'#ff6b6b'},backgroundColor:'transparent',tension:.3,borderWidth:2,pointRadius:0,pointHoverRadius:4,yAxisID:'y'},
+    {label:'Nedbør (mm)',data:iv.map(x=>x.nedbør_mm),type:'bar',backgroundColor:iv.map(x=>x.temperatur_c<=0?'rgba(116,192,252,.55)':'rgba(255,107,107,.5)'),borderRadius:2,yAxisID:'y1'}
   ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
     plugins:{legend:{labels:{color:'#7b8db5',font:{family:'Outfit',size:11}}},tooltip:{backgroundColor:'rgba(15,23,48,.92)',titleFont:{family:'Outfit'},bodyFont:{family:'Outfit'}}},
     scales:{x:{ticks:{color:'#7b8db5',font:{size:9,family:'Outfit'},maxRotation:45,autoSkip:true,maxTicksLimit:18},grid:{color:'rgba(100,130,200,.08)'}},
-      y:{position:'left',title:{display:true,text:'°C',color:'#ffa94d',font:{family:'Outfit',size:11}},ticks:{color:'#ffa94d',font:{size:10,family:'Outfit'}},grid:{color:'rgba(100,130,200,.06)'}},
+      y:{position:'left',title:{display:true,text:'°C',color:'#7dd3fc',font:{family:'Outfit',size:11}},ticks:{color:'#7dd3fc',font:{size:10,family:'Outfit'}},grid:{color:'rgba(100,130,200,.06)'}},
       y1:{position:'right',title:{display:true,text:'Nedbør (mm)',color:'#74c0fc',font:{family:'Outfit',size:11}},ticks:{color:'#74c0fc',font:{size:10,family:'Outfit'}},grid:{drawOnChartArea:false},min:0}}}});
 }
 
@@ -515,11 +635,12 @@ function renderHourly(d){
     if(dateStr!==prevDate){daySep=`<div class="day-sep">${DAYS[dt.getDay()]} ${dateStr}</div>`;prevDate=dateStr;}
     html+=`<div class="hc${isNight?' night':''}">
       ${daySep}
-      <div class="t">${fmtH(iv.start)}</div>
+      <div class="wd">${fmtWeekdayHour(iv.start)}</div>
       <div class="wi">${iv.vær_ikon}</div>
       <div class="tp" style="color:${iv.temperatur_c<=0?'var(--cold-c)':'var(--warm-c)'}">${iv.temperatur_c>0?'+':''}${iv.temperatur_c}°</div>
       <div class="pr">${iv.nedbør_mm>0?iv.nedbør_mm+'mm':''}</div>
-      <div class="sn">${iv.ny_snø_mm>0?'❄ '+iv.ny_snø_mm+'mm':''}</div>
+      <div class="sn">${iv.ny_snø_mm>0?'❄ '+(iv.ny_snø_mm/10).toFixed(1)+'cm':''}</div>
+      <div class="pr">${iv.vind_ms!==null?'💨 '+iv.vind_ms+' m/s':''}</div>
       <div class="sd">${iv.snødybde_cm}cm</div>
     </div>`;}
   el.innerHTML=html+'</div>';
@@ -535,14 +656,15 @@ function renderDaily(d){
       <div class="di">${dag.vær_ikon}</div>
       <div class="dt"><span class="hi">${dag.maks_temp_c>0?'+':''}${dag.maks_temp_c}°</span> / <span class="lo">${dag.min_temp_c}°</span></div>
       <div class="dp">${dag.total_nedbør_mm>0?'💧 '+dag.total_nedbør_mm+'mm':''}</div>
-      <div class="ds">${dag.total_ny_snø_mm>0?'❄ +'+dag.total_ny_snø_mm+'mm':''}</div>
+      <div class="ds">${dag.total_ny_snø_mm>0?'❄ +'+(dag.total_ny_snø_mm/10).toFixed(1)+'cm':''}</div>
+      <div class="dp">${dag.vind_ms_snitt!==null?'💨 '+dag.vind_ms_snitt+' m/s':''}</div>
       <div class="dd">Snø: ${dag.snødybde_slutt_cm}cm</div>
     </div>`;}
   document.getElementById('daily-grid').innerHTML=html;
 }
 
 // Last automatisk ved oppstart
-load();
+loadStations().then(()=>load());
 </script>
 </body>
 </html>
