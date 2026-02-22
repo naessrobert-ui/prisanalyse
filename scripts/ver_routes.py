@@ -255,12 +255,33 @@ def _hent_prognose_data(stasjon_navn: str) -> dict[str, Any]:
             "vær_label":         vær["label"],
         })
 
-    # 6) Sammendrag-tall (neste 48t)
+    # 6) Nærprognose (neste 1t / 3t / 24t)
+    def _snødybde_ved_timer(timer_frem: float) -> float:
+        if df.empty:
+            return float(snødybde_cm)
+
+        kumulativ_tid = df["timer"].cumsum()
+        treff = df[kumulativ_tid >= timer_frem]
+        if treff.empty:
+            return float(df["snødybde_cm"].iloc[-1])
+        return float(treff.iloc[0]["snødybde_cm"])
+
+    snø_1t = _snødybde_ved_timer(1.0)
+    snø_3t = _snødybde_ved_timer(3.0)
+    snø_24t = _snødybde_ved_timer(24.0)
+
+    # 7) Sammendrag-tall (neste 48t)
     df_48 = df.head(48) if len(df) > 48 else df
     sammendrag = {
         "start_snødybde_cm": snødybde_cm,
         "slutt_snødybde_cm": float(df["snødybde_cm"].iloc[-1]) if not df.empty else snødybde_cm,
         "endring_cm":        round(float(df["snødybde_cm"].iloc[-1]) - snødybde_cm, 1) if not df.empty else 0,
+        "snø_neste_time_cm": round(snø_1t, 1),
+        "snø_neste_3t_cm":   round(snø_3t, 1),
+        "snø_neste_døgn_cm": round(snø_24t, 1),
+        "endring_neste_time_cm": round(snø_1t - snødybde_cm, 1),
+        "endring_neste_3t_cm":   round(snø_3t - snødybde_cm, 1),
+        "endring_neste_døgn_cm": round(snø_24t - snødybde_cm, 1),
         "total_nedbør_mm":   round(float(df_48["nedbør_mm"].sum()), 1),
         "total_ny_snø_mm":   round(float(df_48["ny_snø_mm"].sum()), 1),
         "total_smelting_mm": round(float(df_48["smelting_mm"].sum()), 1),
@@ -337,6 +358,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
 .sb{background:var(--surface2);border-radius:12px;padding:12px 8px;text-align:center;}
 .sb .v{font-size:22px;font-weight:800;line-height:1.1}
 .sb .l{font-size:10px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
+.sb .m{font-size:9px;color:var(--muted);margin-top:3px;opacity:.85}
 .sb.snow .v{color:var(--snow-c)} .sb.rain .v{color:var(--rain-c)}
 .sb.warm .v{color:var(--warm-c)} .sb.cold .v{color:var(--cold-c)}
 .sb.pos .v{color:var(--pos-c)} .sb.neg .v{color:var(--neg-c)}
@@ -397,7 +419,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
       <div class="hs" id="hourly-scroll"></div>
     </div>
     <div class="card" id="c-daily">
-      <h2>📅 Daglig oversikt</h2>
+      <h2>📅 Videre utvikling dag for dag</h2>
       <div class="dg" id="daily-grid"></div>
     </div>
   </div>
@@ -435,7 +457,12 @@ function render(d){renderSummary(d);renderSnowChart(d);renderTempChart(d);render
 function renderSummary(d){
   const s=d.sammendrag;
   const endring=s.endring_cm;
+  const fmtDelta=(v)=>`${v>=0?'+':''}${v}`;
+  const cls=(v)=>v>=0?'pos':'neg';
   document.getElementById('sum-grid').innerHTML=`
+    <div class="sb ${cls(s.endring_neste_time_cm)}"><div class="v">${fmtDelta(s.endring_neste_time_cm)} cm</div><div class="l">Endring neste time</div><div class="m">Snødybde: ${s.snø_neste_time_cm} cm</div></div>
+    <div class="sb ${cls(s.endring_neste_3t_cm)}"><div class="v">${fmtDelta(s.endring_neste_3t_cm)} cm</div><div class="l">Endring neste 3 timer</div><div class="m">Snødybde: ${s.snø_neste_3t_cm} cm</div></div>
+    <div class="sb ${cls(s.endring_neste_døgn_cm)}"><div class="v">${fmtDelta(s.endring_neste_døgn_cm)} cm</div><div class="l">Endring neste døgn</div><div class="m">Snødybde: ${s.snø_neste_døgn_cm} cm</div></div>
     <div class="sb snow"><div class="v">${s.start_snødybde_cm}</div><div class="l">Snødybde nå (cm)</div></div>
     <div class="sb ${endring>=0?'pos':'neg'}"><div class="v">${endring>=0?'+':''}${endring}</div><div class="l">Endring (cm)</div></div>
     <div class="sb snow"><div class="v">${s.slutt_snødybde_cm.toFixed(1)}</div><div class="l">Prognose slutt (cm)</div></div>
