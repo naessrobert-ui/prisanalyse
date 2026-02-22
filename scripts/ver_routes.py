@@ -537,7 +537,8 @@ async function loadStations(){
       sel.innerHTML='<option value="">Ingen stasjoner funnet</option>';
       return;
     }
-    sel.innerHTML=items.map((it,idx)=>`<option value="${it.label}" data-frost="${it.frost_id}" data-lat="${it.lat ?? ''}" data-lon="${it.lon ?? ''}" data-moh="${it.moh ?? 0}" ${idx===0?'selected':''}>${it.label} (${it.frost_id})</option>`).join('');
+    const defaultIdx=Math.max(0, items.findIndex(it=>it.frost_id==='SN50310' || String(it.label||'').toLowerCase().includes('kvamskogen')));
+    sel.innerHTML=items.map((it,idx)=>`<option value="${it.label}" data-frost="${it.frost_id}" data-lat="${it.lat ?? ''}" data-lon="${it.lon ?? ''}" data-moh="${it.moh ?? 0}" ${idx===defaultIdx?'selected':''}>${it.label} (${it.frost_id})</option>`).join('');
   }catch(e){
     sel.innerHTML='<option value="Kvamskogen" data-frost="SN50310" data-lat="60.3983" data-lon="5.9728" data-moh="500" selected>Kvamskogen (SN50310)</option>';
   }
