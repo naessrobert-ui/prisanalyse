@@ -12,6 +12,7 @@ import pandas as pd
 import requests
 from flask import Blueprint, request, render_template, Response, jsonify
 from mapbox_vector_tile import decode as mvt_decode
+from metno_locationforecast import Place
 
 try:
     from zoneinfo import ZoneInfo  # py3.9+
@@ -23,6 +24,7 @@ from snow_map import build_snow_map_html
 from precip_map import build_precip_county_map_html
 from sunshine_map import build_sunshine_map_html
 from temp_map import build_min_temp_map_html
+from ver_station_db import load_station_db
 
 # Snøprognose-logikk fra snow_increase.py
 from snow_increase import (
@@ -176,11 +178,28 @@ def _vær_type(temp: float, nedbør: float) -> dict:
     return {"icon": "🌧️", "label": "Regn"}
 
 
-def _hent_prognose_data(stasjon_navn: str) -> dict[str, Any]:
+def _hent_prognose_data(
+    stasjon_navn: str,
+    *,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+    moh: Optional[float] = None,
+    frost_id: Optional[str] = None,
+) -> dict[str, Any]:
     """Henter og beregner snøprognose. Returnerer dict klar for JSON."""
     config = STASJONER.get(stasjon_navn)
     if not config:
-        return {"error": f"Ukjent stasjon: {stasjon_navn}", "stasjoner": list(STASJONER.keys())}
+        if lat is None or lon is None or not frost_id:
+            return {
+                "error": (
+                    "Ukjent stasjon. Velg en foreslått snøstasjon, eller oppgi lat/lon + frost_id."
+                ),
+                "stasjoner": list(STASJONER.keys()),
+            }
+        config = {
+            "place": Place(stasjon_navn, float(lat), float(lon), int(moh or 0)),
+            "frost_id": frost_id,
+        }
 
     auth = _env_auth()
     session = requests.Session()
@@ -310,11 +329,75 @@ def _hent_prognose_data(stasjon_navn: str) -> dict[str, Any]:
     }
 
 
+def _finn_snøstasjoner(query: str = "", limit: int = 30) -> list[dict[str, Any]]:
+    """Søk i lokal Frost-stasjonsdatabase etter stasjoner som rapporterer snø."""
+    items: list[dict[str, Any]] = []
+
+    # 1) Håndplukkede standardvalg først
+    for navn, conf in STASJONER.items():
+        place = conf["place"]
+        items.append({
+            "label": navn,
+            "frost_id": conf["frost_id"],
+            "lat": place.coordinates["latitude"],
+            "lon": place.coordinates["longitude"],
+            "moh": place.coordinates["altitude"],
+            "source": "preset",
+        })
+
+    # 2) Fyll på fra lokal stasjons-DB
+    try:
+        df = load_station_db()
+        if not df.empty:
+            d = df[df["has_snow"] == True].copy()
+            if query:
+                q = query.strip().lower()
+                if q:
+                    d = d[d["name"].astype(str).str.lower().str.contains(q, na=False)]
+            d = d.head(limit)
+            for _, rad in d.iterrows():
+                frost_id = str(rad.get("baseId", "")).strip()
+                if not frost_id:
+                    continue
+                items.append({
+                    "label": str(rad.get("name") or frost_id),
+                    "frost_id": frost_id,
+                    "lat": float(rad.get("lat")) if pd.notna(rad.get("lat")) else None,
+                    "lon": float(rad.get("lon")) if pd.notna(rad.get("lon")) else None,
+                    "moh": 0,
+                    "source": "frost_db",
+                })
+    except Exception:
+        pass
+
+    # dedup på frost_id
+    unike: dict[str, dict[str, Any]] = {}
+    for it in items:
+        fid = str(it.get("frost_id") or "")
+        if fid and fid not in unike:
+            unike[fid] = it
+
+    out = list(unike.values())
+    out.sort(key=lambda x: x["label"].lower())
+    return out[:limit]
+
+
+@ver.get("/api/snostasjoner")
+def api_snostasjoner():
+    q = request.args.get("q", "").strip()
+    limit = min(max(int(request.args.get("limit", 30)), 1), 100)
+    return jsonify({"items": _finn_snøstasjoner(query=q, limit=limit)})
+
+
 @ver.get("/api/snovarsel")
 def api_snovarsel():
     stasjon = request.args.get("stasjon", "Kvamskogen")
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    moh = request.args.get("moh", type=float)
+    frost_id = request.args.get("frost_id")
     try:
-        data = _hent_prognose_data(stasjon)
+        data = _hent_prognose_data(stasjon, lat=lat, lon=lon, moh=moh, frost_id=frost_id)
         return jsonify(data)
     except Exception as e:
         traceback.print_exc()
@@ -355,7 +438,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
 .hero h1{font-family:var(--serif);font-weight:900;font-size:clamp(26px,5vw,40px);background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-.02em;}
 .hero .sub{color:var(--muted);font-size:13px;margin-top:4px}
 .loc-bar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:14px 0 6px;align-items:center;}
-.loc-bar select{background:var(--surface2);color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-family:var(--sans);}
+.loc-bar select,.loc-bar input{background:var(--surface2);color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-family:var(--sans);}
 .loc-bar button{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0a0f1f;border:none;border-radius:10px;padding:8px 18px;font-weight:700;cursor:pointer;font-family:var(--sans);font-size:13px;}
 .status{text-align:center;color:var(--muted);font-size:12px;min-height:18px;margin:4px 0 14px}
 .status.err{color:var(--neg-c)}
@@ -403,9 +486,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
     <p class="sub">Prognose basert på YR-varsel + observert snødybde fra <a href="https://frost.met.no" target="_blank">Frost</a></p>
   </div>
   <div class="loc-bar">
-    <select id="stasjon-sel">
-      <option value="Kvamskogen" selected>Kvamskogen</option>
-    </select>
+    <input id="stasjon-query" placeholder="Søk sted / stasjonsnavn"/>
+    <button onclick="loadStations()">Søk</button>
+    <select id="stasjon-sel"></select>
     <button onclick="load()">Hent prognose</button>
   </div>
   <div class="status" id="status"></div>
@@ -443,13 +526,38 @@ function fmtDH(s){const d=new Date(s);return d.getDate()+'.'+MONTHS[d.getMonth()
 function fmtH(s){const d=new Date(s);return String(d.getHours()).padStart(2,'0')+':00'}
 function fmtWeekdayHour(s){const d=new Date(s);return DAYS[d.getDay()]+' '+fmtH(s)}
 
+async function loadStations(){
+  const q=(document.getElementById('stasjon-query').value||'').trim();
+  const sel=document.getElementById('stasjon-sel');
+  try{
+    const r=await fetch('/ver/api/snostasjoner?q='+encodeURIComponent(q));
+    const data=await r.json();
+    const items=data.items||[];
+    if(!items.length){
+      sel.innerHTML='<option value="">Ingen stasjoner funnet</option>';
+      return;
+    }
+    sel.innerHTML=items.map((it,idx)=>`<option value="${it.label}" data-frost="${it.frost_id}" data-lat="${it.lat ?? ''}" data-lon="${it.lon ?? ''}" data-moh="${it.moh ?? 0}" ${idx===0?'selected':''}>${it.label} (${it.frost_id})</option>`).join('');
+  }catch(e){
+    sel.innerHTML='<option value="Kvamskogen" data-frost="SN50310" data-lat="60.3983" data-lon="5.9728" data-moh="500" selected>Kvamskogen (SN50310)</option>';
+  }
+}
+
 async function load(){
-  const st=document.getElementById('stasjon-sel').value;
+  const sel=document.getElementById('stasjon-sel');
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt){return;}
+  const st=opt.value;
+  const frostId=opt.dataset.frost || '';
+  const lat=opt.dataset.lat || '';
+  const lon=opt.dataset.lon || '';
+  const moh=opt.dataset.moh || '0';
   statusEl.innerHTML='<div class="spinner"></div>';
   statusEl.className='status';
   cardsEl.style.display='none';
   try{
-    const r=await fetch('/ver/api/snovarsel?stasjon='+encodeURIComponent(st));
+    const qs=new URLSearchParams({stasjon:st,frost_id:frostId,lat,lon,moh}).toString();
+    const r=await fetch('/ver/api/snovarsel?'+qs);
     const d=await r.json();
     if(d.error){throw new Error(d.error);}
     render(d);
@@ -555,7 +663,7 @@ function renderDaily(d){
 }
 
 // Last automatisk ved oppstart
-load();
+loadStations().then(()=>load());
 </script>
 </body>
 </html>
