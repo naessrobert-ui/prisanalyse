@@ -358,6 +358,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
 .sb{background:var(--surface2);border-radius:12px;padding:12px 8px;text-align:center;}
 .sb .v{font-size:22px;font-weight:800;line-height:1.1}
 .sb .l{font-size:10px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
+.sb .m{font-size:9px;color:var(--muted);margin-top:3px;opacity:.85}
 .sb.snow .v{color:var(--snow-c)} .sb.rain .v{color:var(--rain-c)}
 .sb.warm .v{color:var(--warm-c)} .sb.cold .v{color:var(--cold-c)}
 .sb.pos .v{color:var(--pos-c)} .sb.neg .v{color:var(--neg-c)}
@@ -457,10 +458,11 @@ function renderSummary(d){
   const s=d.sammendrag;
   const endring=s.endring_cm;
   const fmtDelta=(v)=>`${v>=0?'+':''}${v}`;
+  const cls=(v)=>v>=0?'pos':'neg';
   document.getElementById('sum-grid').innerHTML=`
-    <div class="sb snow"><div class="v">${s.snø_neste_time_cm}</div><div class="l">Forventet snø neste time (cm)</div><div class="l">${fmtDelta(s.endring_neste_time_cm)} cm</div></div>
-    <div class="sb snow"><div class="v">${s.snø_neste_3t_cm}</div><div class="l">Forventet snø neste 3 timer (cm)</div><div class="l">${fmtDelta(s.endring_neste_3t_cm)} cm</div></div>
-    <div class="sb snow"><div class="v">${s.snø_neste_døgn_cm}</div><div class="l">Forventet snø neste døgn (cm)</div><div class="l">${fmtDelta(s.endring_neste_døgn_cm)} cm</div></div>
+    <div class="sb ${cls(s.endring_neste_time_cm)}"><div class="v">${fmtDelta(s.endring_neste_time_cm)} cm</div><div class="l">Endring neste time</div><div class="m">Snødybde: ${s.snø_neste_time_cm} cm</div></div>
+    <div class="sb ${cls(s.endring_neste_3t_cm)}"><div class="v">${fmtDelta(s.endring_neste_3t_cm)} cm</div><div class="l">Endring neste 3 timer</div><div class="m">Snødybde: ${s.snø_neste_3t_cm} cm</div></div>
+    <div class="sb ${cls(s.endring_neste_døgn_cm)}"><div class="v">${fmtDelta(s.endring_neste_døgn_cm)} cm</div><div class="l">Endring neste døgn</div><div class="m">Snødybde: ${s.snø_neste_døgn_cm} cm</div></div>
     <div class="sb snow"><div class="v">${s.start_snødybde_cm}</div><div class="l">Snødybde nå (cm)</div></div>
     <div class="sb ${endring>=0?'pos':'neg'}"><div class="v">${endring>=0?'+':''}${endring}</div><div class="l">Endring (cm)</div></div>
     <div class="sb snow"><div class="v">${s.slutt_snødybde_cm.toFixed(1)}</div><div class="l">Prognose slutt (cm)</div></div>
