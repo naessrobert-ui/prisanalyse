@@ -145,6 +145,28 @@ def _download_db_from_s3(local_path: str | None = None) -> bool:
         return False
 
 
+def upload_db_bytes_to_s3(db_bytes: bytes, filename: str = "topchanges.db") -> str:
+    """Upload raw DB bytes to configured S3 URI and return final s3:// URI."""
+    if not HANDLER_DB_S3_URI:
+        raise ValueError("HANDLER_DB_S3_URI er ikke satt")
+
+    bucket, key = _parse_s3_uri(HANDLER_DB_S3_URI)
+    final_key = key.strip().lstrip("/")
+    if final_key.endswith("/"):
+        safe_name = Path(filename).name or "topchanges.db"
+        final_key = f"{final_key}{safe_name}".replace("//", "/")
+
+    client_args = {"region_name": HANDLER_DB_S3_REGION} if HANDLER_DB_S3_REGION else {}
+    s3 = boto3.client("s3", **client_args)
+    s3.put_object(
+        Bucket=bucket,
+        Key=final_key,
+        Body=db_bytes,
+        ContentType="application/octet-stream",
+    )
+    return f"s3://{bucket}/{final_key}"
+
+
 def ensure_local_db(local_path: str | None = None) -> bool:
     path = local_path or HANDLER_DB_PATH
 

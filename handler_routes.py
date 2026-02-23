@@ -13,6 +13,7 @@ import datetime as dt
 import hashlib
 import io
 import logging
+import os
 import time
 
 import pandas as pd
@@ -144,7 +145,45 @@ def handler_index():
         db_s3_uri=diag.get("s3_uri_parsed") or hd.HANDLER_DB_S3_URI,
         db_s3_parse_error=diag.get("s3_parse_error"),
         db_parent_exists=diag["parent_exists"],
+        db_s3_upload_enabled=bool(hd.HANDLER_DB_S3_URI),
     )
+
+
+@handler_bp.route("/api/upload-db-to-s3", methods=["POST"])
+def api_upload_db_to_s3():
+    if not hd.HANDLER_DB_S3_URI:
+        return jsonify({"error": "HANDLER_DB_S3_URI er ikke satt på serveren."}), 400
+
+    db_file = request.files.get("db_file")
+    if not db_file or not db_file.filename:
+        return jsonify({"error": "Velg en fil først."}), 400
+
+    filename = os.path.basename(db_file.filename)
+    if not filename.lower().endswith(".db"):
+        return jsonify({"error": "Filen må være en SQLite .db-fil."}), 400
+
+    payload = db_file.read()
+    if not payload:
+        return jsonify({"error": "Filen er tom."}), 400
+
+    try:
+        s3_uri = hd.upload_db_bytes_to_s3(payload, filename=filename)
+    except Exception as exc:
+        _LOG.exception("Feil ved opplasting av handler-db til S3")
+        return jsonify({"error": f"Klarte ikke laste opp til S3: {exc}"}), 500
+
+    try:
+        local_db = io.BytesIO(payload)
+        with open(hd.HANDLER_DB_PATH, "wb") as f:
+            f.write(local_db.getbuffer())
+    except Exception:
+        _LOG.warning("S3-opplasting ok, men klarte ikke oppdatere lokal DB-cache", exc_info=True)
+
+    return jsonify({
+        "ok": True,
+        "message": "Ny DB er lastet opp til S3.",
+        "s3_uri": s3_uri,
+    })
 
 
 # =========================================================
