@@ -12,9 +12,11 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import io
+import json
 import logging
 import os
 import time
+from pathlib import Path
 
 import pandas as pd
 from flask import (
@@ -46,6 +48,54 @@ _BV_INVESTOR_CACHE: dict[str, dict] = {}
 _BV_INVESTOR_CACHE_TTL_SECONDS = 15 * 60
 
 
+_BV_PERSISTENT_CACHE_PATH = Path(hd.HANDLER_LIST_CACHE_DIR) / "beste_viktige_investor_cache.json"
+
+
+def _load_persistent_cache_blob() -> dict:
+    try:
+        if not _BV_PERSISTENT_CACHE_PATH.exists():
+            return {}
+        with open(_BV_PERSISTENT_CACHE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_persistent_cache_blob(data: dict) -> None:
+    try:
+        _BV_PERSISTENT_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(_BV_PERSISTENT_CACHE_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except Exception:
+        _LOG.warning("Klarte ikke lagre persistent beste/viktige-cache", exc_info=True)
+
+
+def _get_persistent_cached_investor_ids(cache_key: str) -> list[str] | None:
+    data = _load_persistent_cache_blob()
+    row = data.get(cache_key)
+    if not isinstance(row, dict):
+        return None
+    if row.get("expires_at", 0) < time.time():
+        data.pop(cache_key, None)
+        _save_persistent_cache_blob(data)
+        return None
+    ids = row.get("investor_ids")
+    if not isinstance(ids, list):
+        return None
+    return [str(x) for x in ids if str(x).strip()]
+
+
+def _set_persistent_cached_investor_ids(cache_key: str, investor_ids: list[str]) -> None:
+    data = _load_persistent_cache_blob()
+    data[cache_key] = {
+        "investor_ids": investor_ids,
+        "expires_at": time.time() + _BV_INVESTOR_CACHE_TTL_SECONDS,
+    }
+    _save_persistent_cache_blob(data)
+
+
+
 # =========================================================
 # Helpers
 # =========================================================
@@ -66,6 +116,14 @@ def _csv_response(df: pd.DataFrame, filename: str) -> Response:
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
+
+
+
+def _emit_timing(message: str, **fields) -> None:
+    payload = " ".join(f"{k}={v}" for k, v in fields.items())
+    msg = f"{message} {payload}".strip()
+    _LOG.info(msg)
+    print(msg)
 
 def _check_db() -> str | None:
     """Return error message if DB not available, else None."""
@@ -90,14 +148,78 @@ def _cache_key_for_beste_viktige(list_name: str, date_from: dt.date, date_to: dt
     return hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
 
 
+def _default_list_filename() -> str:
+    files = hd.list_csv_files()
+    if not files:
+        return "Beste.csv"
+    if "Beste.csv" in files:
+        return "Beste.csv"
+    return files[0]
+
+
+def _normalize_list_filename(raw: str | None) -> str:
+    v = (raw or "").strip()
+    if not v:
+        return _default_list_filename()
+    if not v.lower().endswith(".csv"):
+        v = f"{v}.csv"
+    return Path(v).name
+
+
+def _is_beste_file(list_filename: str) -> bool:
+    return Path(list_filename).stem.strip().lower() == "beste"
+
+
+def _investor_cache_key_for_list(list_filename: str) -> str:
+    list_path = hd.resolve_list_csv_path(list_filename)
+    if not list_path:
+        return list_filename
+    try:
+        list_mtime = int(os.path.getmtime(list_path))
+    except OSError:
+        list_mtime = 0
+    try:
+        db_mtime = int(os.path.getmtime(hd.HANDLER_DB_PATH)) if os.path.isfile(hd.HANDLER_DB_PATH) else 0
+    except OSError:
+        db_mtime = 0
+    return f"{list_filename}|lm={list_mtime}|dbm={db_mtime}|v=2"
+
+
+def _read_list_file_content(list_filename: str) -> str:
+    list_path = hd.resolve_list_csv_path(list_filename)
+    if not list_path:
+        raise FileNotFoundError(f"Fant ikke listefil: {list_filename}")
+    with open(list_path, "r", encoding="latin-1", newline="") as f:
+        return f.read()
+
+
+def _write_list_file_content(list_filename: str, content: str) -> str:
+    safe_name = Path(list_filename).name
+    target_dir = Path(hd.HANDLER_LIST_DIR)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path = target_dir / safe_name
+    with open(target_path, "w", encoding="latin-1", newline="") as f:
+        f.write(content)
+    _BV_INVESTOR_CACHE.clear()
+    _save_persistent_cache_blob({})
+    return str(target_path)
+
+
 def _get_cached_investor_ids(cache_key: str) -> list[str] | None:
     row = _BV_INVESTOR_CACHE.get(cache_key)
-    if not row:
-        return None
-    if row.get("expires_at", 0) < time.time():
-        _BV_INVESTOR_CACHE.pop(cache_key, None)
-        return None
-    return row.get("investor_ids")
+    if row:
+        if row.get("expires_at", 0) < time.time():
+            _BV_INVESTOR_CACHE.pop(cache_key, None)
+        else:
+            return row.get("investor_ids")
+
+    persisted = _get_persistent_cached_investor_ids(cache_key)
+    if persisted is not None:
+        _BV_INVESTOR_CACHE[cache_key] = {
+            "investor_ids": persisted,
+            "expires_at": time.time() + _BV_INVESTOR_CACHE_TTL_SECONDS,
+        }
+    return persisted
 
 
 def _set_cached_investor_ids(cache_key: str, investor_ids: list[str]) -> None:
@@ -105,26 +227,27 @@ def _set_cached_investor_ids(cache_key: str, investor_ids: list[str]) -> None:
         "investor_ids": investor_ids,
         "expires_at": time.time() + _BV_INVESTOR_CACHE_TTL_SECONDS,
     }
+    _set_persistent_cached_investor_ids(cache_key, investor_ids)
 
 
 def _load_investor_ids_for_beste_viktige(
     conn,
-    list_name: str,
+    list_filename: str,
     date_from: dt.date,
     date_to: dt.date,
 ) -> list[str]:
-    cache_key = _cache_key_for_beste_viktige(list_name, date_from, date_to)
+    cache_key = _investor_cache_key_for_list(list_filename)
     cached = _get_cached_investor_ids(cache_key)
     if cached is not None:
         return cached
 
-    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
-    list_path = hd.resolve_list_csv_path(csv_name)
+    list_path = hd.resolve_list_csv_path(list_filename)
     if not list_path:
         return []
 
     df_list = hd.read_csv_guess(list_path)
-    patterns = hd.extract_owner_patterns(list_name, df_list)
+    owner_mode = "Beste" if _is_beste_file(list_filename) else "Viktige"
+    patterns = hd.extract_owner_patterns(owner_mode, df_list)
     investor_ids = hd.resolve_investor_ids(conn, patterns)
     if investor_ids:
         _set_cached_investor_ids(cache_key, investor_ids)
@@ -407,7 +530,8 @@ def beste_viktige_page():
 
 @handler_bp.route("/api/beste-viktige")
 def api_beste_viktige():
-    list_name = request.args.get("list_name", "Beste")
+    t0 = time.perf_counter()
+    list_name = _normalize_list_filename(request.args.get("list_name"))
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
     try:
@@ -417,28 +541,37 @@ def api_beste_viktige():
     top_n = max(10, min(top_n, 200))
     query_key = _cache_key_for_beste_viktige(list_name, date_from, date_to)
 
-    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
-    list_path = hd.resolve_list_csv_path(csv_name)
+    list_path = hd.resolve_list_csv_path(list_name)
 
     if not list_path:
         return jsonify({
             "error": (
-                f"Fant ikke listefil: {csv_name}. "
+                f"Fant ikke listefil: {list_name}. "
                 f"Søkt lokalt i {hd.HANDLER_LIST_DIR} og evt. S3-prefix {hd.HANDLER_LIST_S3_PREFIX or '(ikke satt)'}"
             )
         }), 404
 
+    t_conn = time.perf_counter()
     conn = hd.db_connect()
+    t_ids_start = time.perf_counter()
     investor_ids = _load_investor_ids_for_beste_viktige(conn, list_name, date_from, date_to)
+    t_ids = time.perf_counter()
 
     if not investor_ids:
         conn.close()
         return jsonify({"error": "Fant ingen investorer som matcher listen"}), 404
 
-    summary = hd.fetch_best_viktige_summary(conn, investor_ids, date_from, date_to)
+    try:
+        summary = hd.fetch_best_viktige_summary(conn, investor_ids, date_from, date_to)
+    except Exception as exc:
+        conn.close()
+        _emit_timing("beste-viktige error", list=list_name, error=type(exc).__name__, msg=str(exc))
+        return jsonify({"error": f"Klarte ikke hente sammendrag: {exc}"}), 500
+    t_summary = time.perf_counter()
     conn.close()
 
     if summary.empty:
+        _emit_timing("beste-viktige timing", list=list_name, conn_s=f"{t_ids_start-t_conn:.3f}", ids_s=f"{t_ids-t_ids_start:.3f}", summary_s=f"{t_summary-t_ids:.3f}", total_s=f"{t_summary-t0:.3f}", status="empty")
         return jsonify({"buy": [], "sell": [], "message": "Ingen handler i perioden"})
 
     for c in ["kjop_mnok","salg_mnok","netto_mnok","brutto_mnok"]:
@@ -449,8 +582,6 @@ def api_beste_viktige():
     buy = summary[summary["netto_belop"]>0].sort_values("netto_belop", ascending=False).head(top_n)
     sell = summary[summary["salg_belop"]>0].sort_values("salg_belop", ascending=False).head(top_n)
 
-    # Bruk hele sammendraget som grunnlag for detaljvalg, ikke bare topp N.
-    # Da kan brukeren alltid velge en aksje i nedtrekkslisten og se alle handler.
     detail_options_df = summary[["ticker", "isin", "navn"]].copy()
     detail_options_df = detail_options_df.drop_duplicates(subset=["isin"])
     detail_options_df = detail_options_df.sort_values(["ticker", "navn", "isin"], ascending=[True, True, True])
@@ -458,12 +589,23 @@ def api_beste_viktige():
         label=lambda d: d["ticker"].fillna("") + " | " + d["navn"].fillna("") + " | " + d["isin"].fillna("")
     )[["isin", "label"]].to_dict("records")
 
+    t_end = time.perf_counter()
+    _emit_timing("beste-viktige timing", list=list_name, conn_s=f"{t_ids_start-t_conn:.3f}", ids_s=f"{t_ids-t_ids_start:.3f}", summary_s=f"{t_summary-t_ids:.3f}", format_s=f"{t_end-t_summary:.3f}", total_s=f"{t_end-t0:.3f}", investors=len(investor_ids), rows=len(summary))
+
     resp = make_response(jsonify({
         "buy": buy[cols].to_dict("records"),
         "sell": sell[cols].to_dict("records"),
         "investor_count": len(investor_ids),
         "detail_options": detail_options,
         "query_key": query_key,
+        "list_name": list_name,
+        "timing_ms": {
+            "connect": round((t_ids_start - t_conn) * 1000, 1),
+            "resolve_ids": round((t_ids - t_ids_start) * 1000, 1),
+            "summary": round((t_summary - t_ids) * 1000, 1),
+            "format": round((t_end - t_summary) * 1000, 1),
+            "total": round((t_end - t0) * 1000, 1),
+        },
     }))
     resp.headers["Cache-Control"] = "no-store"
     return resp
@@ -471,7 +613,8 @@ def api_beste_viktige():
 
 @handler_bp.route("/api/beste-viktige/details")
 def api_beste_viktige_details():
-    list_name = request.args.get("list_name", "Beste")
+    t0 = time.perf_counter()
+    list_name = _normalize_list_filename(request.args.get("list_name"))
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
     isin = request.args.get("isin", "").strip()
@@ -480,31 +623,68 @@ def api_beste_viktige_details():
     if not isin:
         return jsonify({"error": "Velg aksje"}), 400
 
-    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
-    list_path = hd.resolve_list_csv_path(csv_name)
+    list_path = hd.resolve_list_csv_path(list_name)
     if not list_path:
-        return jsonify({"error": f"Fant ikke listefil: {csv_name}"}), 404
+        return jsonify({"error": f"Fant ikke listefil: {list_name}"}), 404
 
+    t_conn = time.perf_counter()
     conn = hd.db_connect()
     investor_ids = _get_cached_investor_ids(query_key) if query_key else None
+    t_ids_start = time.perf_counter()
     if investor_ids is None:
         investor_ids = _load_investor_ids_for_beste_viktige(conn, list_name, date_from, date_to)
+    t_ids = time.perf_counter()
 
     if not investor_ids:
         conn.close()
         return jsonify({"rows": [], "message": "Fant ingen investorer som matcher listen"})
 
-    dfi = hd.fetch_best_viktige_trades_for_isin(conn, investor_ids, isin, date_from, date_to)
+    try:
+        dfi = hd.fetch_best_viktige_trades_for_isin(conn, investor_ids, isin, date_from, date_to)
+    except Exception as exc:
+        conn.close()
+        _emit_timing("beste-viktige details error", list=list_name, isin=isin, error=type(exc).__name__, msg=str(exc))
+        return jsonify({"error": f"Klarte ikke hente detaljer: {exc}"}), 500
+    t_details = time.perf_counter()
     conn.close()
 
     if dfi.empty:
+        _emit_timing("beste-viktige details timing", list=list_name, isin=isin, conn_s=f"{t_ids_start-t_conn:.3f}", ids_s=f"{t_ids-t_ids_start:.3f}", details_s=f"{t_details-t_ids:.3f}", total_s=f"{t_details-t0:.3f}", status="empty")
         return jsonify({"rows": []})
 
-    detail_cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
-    dfi["belop_mnok"] = pd.to_numeric(dfi["belop_mnok"], errors="coerce").round(4)
-    resp = make_response(jsonify({"rows": dfi[detail_cols].to_dict("records")}))
+    detail_cols = ["eier", "investor_id", "investor_type", "antall_obs", "kjop_mnok", "salg_mnok", "netto_mnok"]
+    for c in ["kjop_mnok", "salg_mnok", "netto_mnok"]:
+        dfi[c] = pd.to_numeric(dfi[c], errors="coerce").round(4)
+    t_end = time.perf_counter()
+    _emit_timing("beste-viktige details timing", list=list_name, isin=isin, conn_s=f"{t_ids_start-t_conn:.3f}", ids_s=f"{t_ids-t_ids_start:.3f}", details_s=f"{t_details-t_ids:.3f}", format_s=f"{t_end-t_details:.3f}", total_s=f"{t_end-t0:.3f}", rows=len(dfi))
+    resp = make_response(jsonify({"rows": dfi[detail_cols].to_dict("records"), "timing_ms": {"connect": round((t_ids_start - t_conn) * 1000, 1), "resolve_ids": round((t_ids - t_ids_start) * 1000, 1), "details": round((t_details - t_ids) * 1000, 1), "format": round((t_end - t_details) * 1000, 1), "total": round((t_end - t0) * 1000, 1)}}))
     resp.headers["Cache-Control"] = "no-store"
     return resp
+
+
+@handler_bp.route("/api/beste-viktige/list")
+def api_beste_viktige_get_list():
+    list_name = _normalize_list_filename(request.args.get("list_name"))
+    try:
+        content = _read_list_file_content(list_name)
+    except FileNotFoundError as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify({"list_name": list_name, "content": content})
+
+
+@handler_bp.route("/api/beste-viktige/list/save", methods=["POST"])
+def api_beste_viktige_save_list():
+    payload = request.get_json(silent=True) or {}
+    list_name = _normalize_list_filename(payload.get("list_name"))
+    save_as = _normalize_list_filename(payload.get("save_as") or list_name)
+    content = str(payload.get("content") or "")
+    if not content.strip():
+        return jsonify({"error": "Listeinnhold kan ikke være tomt"}), 400
+    try:
+        saved_path = _write_list_file_content(save_as, content)
+    except Exception as exc:
+        return jsonify({"error": f"Klarte ikke lagre listefil: {exc}"}), 500
+    return jsonify({"ok": True, "saved_as": save_as, "path": saved_path})
 
 
 # =========================================================
