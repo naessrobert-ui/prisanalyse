@@ -196,11 +196,13 @@
         return;
       }
       detailCacheByIsin[isin] = data.rows || [];
+      if (Array.isArray(detailCacheByIsin[isin])) { detailCacheByIsin[isin].__timing = data.timing_ms || {}; }
     }
 
     const rows = detailCacheByIsin[isin] || [];
+    const tm = (detailCacheByIsin[isin] && detailCacheByIsin[isin].__timing) || {};
     document.getElementById('bv-details-info').textContent = rows.length
-      ? `${rows.length} eiere for valgt aksje.`
+      ? `${rows.length} eiere for valgt aksje. Tid(ms): connect=${tm.connect ?? '?'} ids=${tm.resolve_ids ?? '?'} details=${tm.details ?? '?'} format=${tm.format ?? '?'} total=${tm.total ?? '?'}.`
       : 'Ingen data for valgt aksje.';
     buildTable(rows, detailCols, 'bv-details-table', {
       tableKey: 'bv-detail-table',
@@ -236,7 +238,8 @@
       return;
     }
 
-    document.getElementById('bv-info').textContent = `Matchet ${data.investor_count || '?'} investorer fra listen.`;
+    const tm = data.timing_ms || {};
+    document.getElementById('bv-info').textContent = `Matchet ${data.investor_count || '?'} investorer fra listen. Tid(ms): connect=${tm.connect ?? '?'} ids=${tm.resolve_ids ?? '?'} summary=${tm.summary ?? '?'} format=${tm.format ?? '?'} total=${tm.total ?? '?'}.`;
     document.getElementById('buy-section').style.display = 'block';
     document.getElementById('sell-section').style.display = 'block';
 

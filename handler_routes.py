@@ -71,6 +71,14 @@ def _csv_response(df: pd.DataFrame, filename: str) -> Response:
     )
 
 
+
+
+def _emit_timing(message: str, **fields) -> None:
+    payload = " ".join(f"{k}={v}" for k, v in fields.items())
+    msg = f"{message} {payload}".strip()
+    _LOG.info(msg)
+    print(msg)
+
 def _check_db() -> str | None:
     """Return error message if DB not available, else None."""
     if not hd.db_available():
@@ -522,12 +530,17 @@ def api_beste_viktige():
         conn.close()
         return jsonify({"error": "Fant ingen investorer som matcher listen"}), 404
 
-    summary = hd.fetch_best_viktige_summary(conn, investor_ids, date_from, date_to)
+    try:
+        summary = hd.fetch_best_viktige_summary(conn, investor_ids, date_from, date_to)
+    except Exception as exc:
+        conn.close()
+        _emit_timing("beste-viktige error", list=list_name, error=type(exc).__name__, msg=str(exc))
+        return jsonify({"error": f"Klarte ikke hente sammendrag: {exc}"}), 500
     t_summary = time.perf_counter()
     conn.close()
 
     if summary.empty:
-        _LOG.info("beste-viktige timing list=%s conn=%.3fs ids=%.3fs summary=%.3fs total=%.3fs (empty)", list_name, t_ids_start-t_conn, t_ids-t_ids_start, t_summary-t_ids, t_summary-t0)
+        _emit_timing("beste-viktige timing", list=list_name, conn_s=f"{t_ids_start-t_conn:.3f}", ids_s=f"{t_ids-t_ids_start:.3f}", summary_s=f"{t_summary-t_ids:.3f}", total_s=f"{t_summary-t0:.3f}", status="empty")
         return jsonify({"buy": [], "sell": [], "message": "Ingen handler i perioden"})
 
     for c in ["kjop_mnok","salg_mnok","netto_mnok","brutto_mnok"]:
@@ -546,7 +559,7 @@ def api_beste_viktige():
     )[["isin", "label"]].to_dict("records")
 
     t_end = time.perf_counter()
-    _LOG.info("beste-viktige timing list=%s conn=%.3fs ids=%.3fs summary=%.3fs format=%.3fs total=%.3fs investors=%d rows=%d", list_name, t_ids_start-t_conn, t_ids-t_ids_start, t_summary-t_ids, t_end-t_summary, t_end-t0, len(investor_ids), len(summary))
+    _emit_timing("beste-viktige timing", list=list_name, conn_s=f"{t_ids_start-t_conn:.3f}", ids_s=f"{t_ids-t_ids_start:.3f}", summary_s=f"{t_summary-t_ids:.3f}", format_s=f"{t_end-t_summary:.3f}", total_s=f"{t_end-t0:.3f}", investors=len(investor_ids), rows=len(summary))
 
     resp = make_response(jsonify({
         "buy": buy[cols].to_dict("records"),
@@ -555,6 +568,13 @@ def api_beste_viktige():
         "detail_options": detail_options,
         "query_key": query_key,
         "list_name": list_name,
+        "timing_ms": {
+            "connect": round((t_ids_start - t_conn) * 1000, 1),
+            "resolve_ids": round((t_ids - t_ids_start) * 1000, 1),
+            "summary": round((t_summary - t_ids) * 1000, 1),
+            "format": round((t_end - t_summary) * 1000, 1),
+            "total": round((t_end - t0) * 1000, 1),
+        },
     }))
     resp.headers["Cache-Control"] = "no-store"
     return resp
@@ -588,20 +608,25 @@ def api_beste_viktige_details():
         conn.close()
         return jsonify({"rows": [], "message": "Fant ingen investorer som matcher listen"})
 
-    dfi = hd.fetch_best_viktige_trades_for_isin(conn, investor_ids, isin, date_from, date_to)
+    try:
+        dfi = hd.fetch_best_viktige_trades_for_isin(conn, investor_ids, isin, date_from, date_to)
+    except Exception as exc:
+        conn.close()
+        _emit_timing("beste-viktige details error", list=list_name, isin=isin, error=type(exc).__name__, msg=str(exc))
+        return jsonify({"error": f"Klarte ikke hente detaljer: {exc}"}), 500
     t_details = time.perf_counter()
     conn.close()
 
     if dfi.empty:
-        _LOG.info("beste-viktige details timing list=%s isin=%s conn=%.3fs ids=%.3fs details=%.3fs total=%.3fs (empty)", list_name, isin, t_ids_start-t_conn, t_ids-t_ids_start, t_details-t_ids, t_details-t0)
+        _emit_timing("beste-viktige details timing", list=list_name, isin=isin, conn_s=f"{t_ids_start-t_conn:.3f}", ids_s=f"{t_ids-t_ids_start:.3f}", details_s=f"{t_details-t_ids:.3f}", total_s=f"{t_details-t0:.3f}", status="empty")
         return jsonify({"rows": []})
 
     detail_cols = ["eier", "investor_id", "investor_type", "antall_obs", "kjop_mnok", "salg_mnok", "netto_mnok"]
     for c in ["kjop_mnok", "salg_mnok", "netto_mnok"]:
         dfi[c] = pd.to_numeric(dfi[c], errors="coerce").round(4)
     t_end = time.perf_counter()
-    _LOG.info("beste-viktige details timing list=%s isin=%s conn=%.3fs ids=%.3fs details=%.3fs format=%.3fs total=%.3fs rows=%d", list_name, isin, t_ids_start-t_conn, t_ids-t_ids_start, t_details-t_ids, t_end-t_details, t_end-t0, len(dfi))
-    resp = make_response(jsonify({"rows": dfi[detail_cols].to_dict("records")}))
+    _emit_timing("beste-viktige details timing", list=list_name, isin=isin, conn_s=f"{t_ids_start-t_conn:.3f}", ids_s=f"{t_ids-t_ids_start:.3f}", details_s=f"{t_details-t_ids:.3f}", format_s=f"{t_end-t_details:.3f}", total_s=f"{t_end-t0:.3f}", rows=len(dfi))
+    resp = make_response(jsonify({"rows": dfi[detail_cols].to_dict("records"), "timing_ms": {"connect": round((t_ids_start - t_conn) * 1000, 1), "resolve_ids": round((t_ids - t_ids_start) * 1000, 1), "details": round((t_details - t_ids) * 1000, 1), "format": round((t_end - t_details) * 1000, 1), "total": round((t_end - t0) * 1000, 1)}}))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
