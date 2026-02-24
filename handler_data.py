@@ -753,6 +753,7 @@ def fetch_best_viktige_trades_for_isin(
     date_from: dt.date,
     date_to: dt.date,
 ) -> pd.DataFrame:
+    """Samlet per investor for valgt aksje (raskere enn transaksjonsliste)."""
     if not investor_ids or not isin:
         return pd.DataFrame()
 
@@ -767,9 +768,7 @@ def fetch_best_viktige_trades_for_isin(
         GROUP BY isin, date(date_today)
     ),
     trades AS (
-        SELECT pc.date_today AS dato,
-               pc.isin,
-               pc.investor_id,
+        SELECT pc.investor_id,
                pc.change_qty,
                COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
         FROM position_change pc
@@ -778,22 +777,21 @@ def fetch_best_viktige_trades_for_isin(
         WHERE pc.date_today BETWEEN ? AND ?
           AND pc.isin = ?
     )
-    SELECT t.dato,
-           COALESCE(s.ticker,'') AS ticker,
-           t.isin,
-           COALESCE(s.isin_name,'') AS navn,
-           t.investor_id,
+    SELECT tr.investor_id,
            COALESCE(i.first_name,'') AS first_name,
            COALESCE(i.last_name,'') AS last_name,
            COALESCE(i.investor_type,'') AS investor_type,
-           COALESCE(t.change_qty,0) AS antall,
-           t.trade_price AS kurs,
-           (COALESCE(t.change_qty,0)*t.trade_price) AS belop
-    FROM trades t
-    JOIN security s ON s.isin=t.isin
-    LEFT JOIN investor i ON i.investor_id=t.investor_id
-    WHERE COALESCE(t.trade_price,0)>0
-    ORDER BY t.dato DESC, belop DESC
+           COUNT(*) AS antall_obs,
+           SUM(CASE WHEN COALESCE(tr.change_qty,0) > 0 THEN COALESCE(tr.change_qty,0) ELSE 0 END) AS kjop_antall,
+           SUM(CASE WHEN COALESCE(tr.change_qty,0) > 0 THEN COALESCE(tr.change_qty,0) * tr.trade_price ELSE 0 END) AS kjop_belop,
+           SUM(CASE WHEN COALESCE(tr.change_qty,0) < 0 THEN ABS(COALESCE(tr.change_qty,0)) ELSE 0 END) AS salg_antall,
+           SUM(CASE WHEN COALESCE(tr.change_qty,0) < 0 THEN ABS(COALESCE(tr.change_qty,0) * tr.trade_price) ELSE 0 END) AS salg_belop,
+           SUM(COALESCE(tr.change_qty,0) * tr.trade_price) AS netto_belop
+    FROM trades tr
+    LEFT JOIN investor i ON i.investor_id = tr.investor_id
+    WHERE COALESCE(tr.trade_price,0) > 0
+    GROUP BY tr.investor_id, i.first_name, i.last_name, i.investor_type
+    ORDER BY kjop_belop DESC
     """
 
     date_to_plus_1 = (date_to + dt.timedelta(days=1)).isoformat()
@@ -804,8 +802,11 @@ def fetch_best_viktige_trades_for_isin(
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
-        df["kurs"] = pd.to_numeric(df["kurs"], errors="coerce").round(2)
-        df["belop_mnok"] = pd.to_numeric(df["belop"], errors="coerce").fillna(0) / 1_000_000
+        for c in ["kjop_belop", "salg_belop", "netto_belop"]:
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
+        df["kjop_mnok"] = df["kjop_belop"] / 1_000_000
+        df["salg_mnok"] = df["salg_belop"] / 1_000_000
+        df["netto_mnok"] = df["netto_belop"] / 1_000_000
     return df
 
 

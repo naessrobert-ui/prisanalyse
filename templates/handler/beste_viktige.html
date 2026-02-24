@@ -50,7 +50,7 @@
 <hr class="my-4" style="border-color:var(--pa-border)">
 
 <div id="details-section" style="display:none">
-  <h5 style="color:var(--pa-text)">Detaljer for valgt aksje – alle handler (investor, dato, antall, kurs, beløp)</h5>
+  <h5 style="color:var(--pa-text)">Detaljer for valgt aksje – samlet per eier (sortert etter kjøp)</h5>
   <div class="panel mt-2">
     <div class="row g-3 align-items-end">
       <div class="col-md-12">
@@ -80,13 +80,13 @@
   ];
 
   const detailCols = [
-    {key:'dato', label:'Dato'},
     {key:'eier', label:'Eier'},
     {key:'investor_id', label:'Investor ID'},
     {key:'investor_type', label:'Type'},
-    {key:'antall', label:'Antall aksjer', fmt:'int'},
-    {key:'kurs', label:'Kurs', fmt:'num', dec:2},
-    {key:'belop_mnok', label:'Beløp MNOK', fmt:'num', dec:4},
+    {key:'antall_obs', label:'Obs', fmt:'int'},
+    {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num', dec:4},
+    {key:'salg_mnok', label:'Salg MNOK', fmt:'num', dec:4},
+    {key:'netto_mnok', label:'Netto MNOK', fmt:'num', dec:4},
   ];
 
   let detailCacheByIsin = {};
@@ -134,13 +134,13 @@
 
     const rows = detailCacheByIsin[isin] || [];
     document.getElementById('bv-details-info').textContent = rows.length
-      ? `${rows.length} transaksjoner for valgt aksje.`
-      : 'Ingen transaksjoner for valgt aksje.';
+      ? `${rows.length} eiere for valgt aksje.`
+      : 'Ingen data for valgt aksje.';
     buildTable(rows, detailCols, 'bv-details-table', {
       tableKey: 'bv-detail-table',
       defaultPageSize: 10,
       pageSizes: [10, 20, 30, 50, 100],
-      initialSort: { key: 'dato', asc: false },
+      initialSort: { key: 'kjop_mnok', asc: false },
     });
   }
 
@@ -194,9 +194,7 @@
     detailCacheByIsin = {};
     fillDetailDropdown(detailOptions);
     document.getElementById('details-section').style.display = detailOptions.length ? 'block' : 'none';
-    if (detailOptions.length) {
-      await loadDetails();
-    }
+    // Ikke autolast detaljer; brukeren kan velge aksje ved behov (raskere opplevd respons).
   });
 
   document.getElementById('bv-detail-isin').addEventListener('change', async () => {
