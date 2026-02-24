@@ -46,6 +46,9 @@ handler_bp = Blueprint(
 _BV_INVESTOR_CACHE: dict[str, dict] = {}
 _BV_INVESTOR_CACHE_TTL_SECONDS = 15 * 60
 
+_BESTE_TX_CACHE: dict[str, dict] = {}
+_BESTE_TX_CACHE_TTL_SECONDS = 30 * 60
+
 
 # =========================================================
 # Helpers
@@ -165,6 +168,34 @@ def _set_cached_investor_ids(cache_key: str, investor_ids: list[str]) -> None:
     _BV_INVESTOR_CACHE[cache_key] = {
         "investor_ids": investor_ids,
         "expires_at": time.time() + _BV_INVESTOR_CACHE_TTL_SECONDS,
+    }
+
+
+def _cache_key_for_beste_transactions(
+    investor_id: str,
+    date_from: dt.date,
+    date_to: dt.date,
+    isin_filter: list[str] | None,
+) -> str:
+    isin_key = ",".join(sorted(isin_filter or []))
+    base = f"{investor_id}|{date_from.isoformat()}|{date_to.isoformat()}|{isin_key}"
+    return hashlib.sha1(base.encode("utf-8")).hexdigest()[:20]
+
+
+def _get_cached_beste_transactions(cache_key: str) -> dict | None:
+    row = _BESTE_TX_CACHE.get(cache_key)
+    if not row:
+        return None
+    if row.get("expires_at", 0) < time.time():
+        _BESTE_TX_CACHE.pop(cache_key, None)
+        return None
+    return row.get("payload")
+
+
+def _set_cached_beste_transactions(cache_key: str, payload: dict) -> None:
+    _BESTE_TX_CACHE[cache_key] = {
+        "payload": payload,
+        "expires_at": time.time() + _BESTE_TX_CACHE_TTL_SECONDS,
     }
 
 
@@ -762,6 +793,11 @@ def api_beste_transactions():
     if not investor_id:
         return jsonify({"error": "Mangler investor_id"}), 400
 
+    cache_key = _cache_key_for_beste_transactions(investor_id, date_from, date_to, isin_filter)
+    cached_payload = _get_cached_beste_transactions(cache_key)
+    if cached_payload is not None:
+        return jsonify(cached_payload)
+
     conn = hd.db_connect()
     cols = hdb.detect_cols(conn)
     last_map, _ = hdb.build_last_price_cache(conn, cols)
@@ -770,7 +806,9 @@ def api_beste_transactions():
     conn.close()
 
     if tx.empty:
-        return jsonify({"rows": [], "totals": {}})
+        payload = {"rows": [], "totals": {}}
+        _set_cached_beste_transactions(cache_key, payload)
+        return jsonify(payload)
 
     for c in ["brutto_mnok", "gevinst_mnok"]:
         if c in tx.columns:
@@ -783,11 +821,13 @@ def api_beste_transactions():
     profit_total = tx["profit_kr"].sum() / 1_000_000
     pct_total = (tx["profit_kr"].sum() / tx["gross_kr"].sum() * 100.0) if tx["gross_kr"].sum() else 0.0
 
-    return jsonify({
+    payload = {
         "rows": tx[show].to_dict("records"),
         "totals": {
             "brutto_mnok": round(gross_total, 2),
             "gevinst_mnok": round(profit_total, 2),
             "gevinst_pct": round(pct_total, 2),
         },
-    })
+    }
+    _set_cached_beste_transactions(cache_key, payload)
+    return jsonify(payload)

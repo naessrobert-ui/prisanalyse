@@ -603,7 +603,11 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     WHERE COALESCE(t.trade_price,0)>0
     GROUP BY s.ticker, t.isin, s.isin_name
     """
-    rows = conn.execute(sql, (date_from.isoformat(), date_to.isoformat())).fetchall()
+    date_to_plus_1 = (date_to + dt.timedelta(days=1)).isoformat()
+    rows = conn.execute(
+        sql,
+        (date_from.isoformat(), date_to_plus_1, date_from.isoformat(), date_to.isoformat()),
+    ).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         for c in ["kjop_belop","salg_belop","netto_belop","brutto_belop"]:
