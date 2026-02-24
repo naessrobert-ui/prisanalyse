@@ -13,8 +13,9 @@
     <div class="col-md-3">
       <label>Liste</label>
       <select class="form-select" id="bv-list">
-        <option value="Beste">Beste</option>
-        <option value="Viktige">Viktige</option>
+        {% for f in csv_files %}
+          <option value="{{ f }}" {% if f == 'Beste.csv' %}selected{% endif %}>{{ f }}</option>
+        {% endfor %}
       </select>
     </div>
     <div class="col-md-3">
@@ -33,6 +34,26 @@
   <button class="btn btn-primary mt-3" id="bv-btn">Hent</button>
   <div class="mt-2" style="color:var(--pa-muted); font-size:0.82rem;">Ny tabellvisning: starter med 10 rader. Dra velgeren ved tabellen for å vise flere.</div>
 </div>
+
+<div class="panel mt-3">
+  <h5 style="color:var(--pa-text)">Rediger liste</h5>
+  <div class="row g-2 align-items-end">
+    <div class="col-md-4">
+      <label>Åpne liste</label>
+      <button class="btn btn-outline-light w-100" id="bv-load-list">Åpne valgt liste i editor</button>
+    </div>
+    <div class="col-md-4">
+      <label>Lagre som filnavn (.csv valgfritt)</label>
+      <input type="text" id="bv-save-as" class="form-control" placeholder="Eks: MinListe.csv">
+    </div>
+    <div class="col-md-4">
+      <button class="btn btn-primary w-100" id="bv-save-list">Lagre liste</button>
+    </div>
+  </div>
+  <div class="mt-2" id="bv-list-msg" style="color:var(--pa-muted)"></div>
+  <textarea id="bv-list-editor" class="form-control mt-2" rows="10" style="font-family:monospace;" placeholder="Åpne en liste for å redigere innhold her..."></textarea>
+</div>
+
 
 <div id="bv-info" class="mb-3" style="color:var(--pa-muted)"></div>
 
@@ -91,6 +112,51 @@
 
   let detailCacheByIsin = {};
   let currentQueryKey = '';
+
+
+  async function openListInEditor() {
+    const listName = document.getElementById('bv-list').value;
+    const msg = document.getElementById('bv-list-msg');
+    msg.textContent = 'Laster liste...';
+    const resp = await fetch(`{{ url_for("handler.api_beste_viktige_get_list") }}?list_name=${encodeURIComponent(listName)}`, { cache: 'no-store' });
+    const data = await resp.json();
+    if (data.error) {
+      msg.textContent = data.error;
+      return;
+    }
+    document.getElementById('bv-list-editor').value = data.content || '';
+    document.getElementById('bv-save-as').value = data.list_name || listName;
+    msg.textContent = `Åpnet ${data.list_name}`;
+  }
+
+  async function saveListFromEditor() {
+    const listName = document.getElementById('bv-list').value;
+    const saveAsRaw = document.getElementById('bv-save-as').value.trim();
+    const content = document.getElementById('bv-list-editor').value;
+    const msg = document.getElementById('bv-list-msg');
+    msg.textContent = 'Lagrer...';
+    const resp = await fetch(`{{ url_for("handler.api_beste_viktige_save_list") }}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ list_name: listName, save_as: saveAsRaw || listName, content }),
+    });
+    const data = await resp.json();
+    if (data.error) {
+      msg.textContent = data.error;
+      return;
+    }
+    msg.textContent = `Lagret som ${data.saved_as}`;
+    const sel = document.getElementById('bv-list');
+    if (![...sel.options].some(o => o.value === data.saved_as)) {
+      const opt = document.createElement('option');
+      opt.value = data.saved_as;
+      opt.textContent = data.saved_as;
+      sel.appendChild(opt);
+    }
+    sel.value = data.saved_as;
+    document.getElementById('bv-save-as').value = data.saved_as;
+  }
+
 
   function currentQueryParams() {
     const listName = document.getElementById('bv-list').value;
@@ -199,6 +265,14 @@
 
   document.getElementById('bv-detail-isin').addEventListener('change', async () => {
     await loadDetails();
+  });
+
+  document.getElementById('bv-load-list').addEventListener('click', async () => {
+    await openListInEditor();
+  });
+
+  document.getElementById('bv-save-list').addEventListener('click', async () => {
+    await saveListFromEditor();
   });
 </script>
 {% endblock %}

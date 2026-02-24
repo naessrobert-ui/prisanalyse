@@ -70,6 +70,7 @@ HANDLER_DB_S3_FORCE_DOWNLOAD = _path_from_env("HANDLER_DB_S3_FORCE_DOWNLOAD", "0
 
 _LOG = logging.getLogger(__name__)
 _S3_SYNC_ATTEMPTED: set[str] = set()
+_INDEX_INIT_DONE: set[str] = set()
 
 
 def _parse_s3_uri(uri: str) -> tuple[str, str]:
@@ -189,120 +190,34 @@ def ensure_local_db(local_path: str | None = None) -> bool:
 
     return _download_db_from_s3(path)
 
-HANDLER_DB_S3_URI = _path_from_env("HANDLER_DB_S3_URI", "")
-HANDLER_DB_S3_REGION = _path_from_env("HANDLER_DB_S3_REGION", "")
-HANDLER_DB_S3_AUTO_DOWNLOAD = _path_from_env("HANDLER_DB_S3_AUTO_DOWNLOAD", "1").lower() not in {
-    "0",
-    "false",
-    "no",
-}
-HANDLER_DB_S3_PREFER = _path_from_env("HANDLER_DB_S3_PREFER", "1").lower() not in {
-    "0",
-    "false",
-    "no",
-}
-HANDLER_DB_S3_FORCE_DOWNLOAD = _path_from_env("HANDLER_DB_S3_FORCE_DOWNLOAD", "0").lower() in {
-    "1",
-    "true",
-    "yes",
-}
-
-_LOG = logging.getLogger(__name__)
-_S3_SYNC_ATTEMPTED: set[str] = set()
-
-
-def _parse_s3_uri(uri: str) -> tuple[str, str]:
-    raw = (uri or "").strip()
-    if not raw:
-        raise ValueError("Tom S3-URI")
-
-    normalized = raw[5:] if raw.startswith("s3://") else raw
-    parts = normalized.split("/", 1)
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError("Ugyldig S3-URI. Forventet format: s3://bucket/key")
-    return parts[0], parts[1]
-
-
-def _candidate_s3_keys(key: str, local_path: str) -> list[str]:
-    clean = key.strip().lstrip("/")
-    if not clean:
-        return []
-
-    candidates = [clean]
-    if clean.endswith("/"):
-        local_name = Path(local_path).name or "topchanges.db"
-        for suffix in ("topchanges.db", "topchanges", local_name):
-            c = f"{clean}{suffix}".replace("//", "/")
-            if c not in candidates:
-                candidates.append(c)
-    return candidates
-
-
-def _download_db_from_s3(local_path: str | None = None) -> bool:
-    if not HANDLER_DB_S3_URI:
-        return False
-
-    path = Path(local_path or HANDLER_DB_PATH)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    try:
-        bucket, key = _parse_s3_uri(HANDLER_DB_S3_URI)
-        client_args = {"region_name": HANDLER_DB_S3_REGION} if HANDLER_DB_S3_REGION else {}
-        s3 = boto3.client("s3", **client_args)
-
-        candidates = _candidate_s3_keys(key, str(path))
-        for candidate in candidates:
-            try:
-                s3.download_file(bucket, candidate, str(path))
-                _LOG.info("Lastet handler-db fra S3: s3://%s/%s til %s", bucket, candidate, path)
-                return path.is_file()
-            except ClientError as exc:
-                err_code = exc.response.get("Error", {}).get("Code", "")
-                if err_code in {"404", "NoSuchKey", "NotFound"}:
-                    _LOG.warning("S3 key ikke funnet: s3://%s/%s", bucket, candidate)
-                    continue
-                _LOG.warning("S3-feil ved nedlasting av s3://%s/%s: %s", bucket, candidate, exc)
-                return False
-
-        _LOG.warning("Fant ingen gyldig S3 DB-fil for %s. Forsøkte nøkler: %s", HANDLER_DB_S3_URI, candidates)
-        return False
-    except Exception as exc:
-        _LOG.warning("Klarte ikke laste handler-db fra S3 (%s): %s", HANDLER_DB_S3_URI, exc)
-        return False
-
-
-def ensure_local_db(local_path: str | None = None) -> bool:
-    path = local_path or HANDLER_DB_PATH
-
-    # Force-download on each check (overwrites local cache) when explicitly enabled
-    if HANDLER_DB_S3_URI and HANDLER_DB_S3_FORCE_DOWNLOAD:
-        if _download_db_from_s3(path):
-            return True
-
-    # Prefer S3 copy when configured (attempt once per process/path)
-    if HANDLER_DB_S3_URI and HANDLER_DB_S3_PREFER and path not in _S3_SYNC_ATTEMPTED:
-        _S3_SYNC_ATTEMPTED.add(path)
-        if _download_db_from_s3(path):
-            return True
-
-    if os.path.isfile(path):
-        return True
-
-    if not HANDLER_DB_S3_AUTO_DOWNLOAD:
-        return False
-
-    return _download_db_from_s3(path)
-
-
 # =========================================================
 # DB connection
 # =========================================================
+def _ensure_runtime_indexes(conn: sqlite3.Connection, db_key: str) -> None:
+    if db_key in _INDEX_INIT_DONE:
+        return
+    try:
+        conn.executescript("""
+        CREATE INDEX IF NOT EXISTS idx_pc_inv_date_isin ON position_change(investor_id, date_today, isin);
+        CREATE INDEX IF NOT EXISTS idx_pc_isin_date ON position_change(isin, date_today);
+        CREATE INDEX IF NOT EXISTS idx_pc_isin_date_price ON position_change(isin, date_today, price_yesterday);
+        """)
+        conn.commit()
+    except Exception:
+        _LOG.warning("Klarte ikke opprette runtime-indekser for handler-db", exc_info=True)
+    finally:
+        _INDEX_INIT_DONE.add(db_key)
+
+
 def db_connect(db_path: str | None = None) -> sqlite3.Connection:
     path = db_path or HANDLER_DB_PATH
     if not ensure_local_db(path):
         raise FileNotFoundError(f"Database ikke funnet på sti: {path}")
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA temp_store=MEMORY")
+    conn.execute("PRAGMA cache_size=-200000")
+    _ensure_runtime_indexes(conn, path)
     return conn
 
 
@@ -649,20 +564,33 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     populate_temp_selected_investors(conn, investor_ids)
 
     sql = """
-    WITH prices AS (
-        SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
-        FROM position_change
-        WHERE COALESCE(price_yesterday,0)>0
-          AND date_today BETWEEN ? AND ?
-        GROUP BY isin, date(date_today)
-    ),
-    trades AS (
-        SELECT pc.isin, pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+    WITH selected_trades AS (
+        SELECT pc.isin,
+               pc.change_qty,
+               pc.price_yesterday,
+               date(pc.date_today,'+1 day') AS price_d
         FROM position_change pc
         JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
-        LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
         WHERE pc.date_today BETWEEN ? AND ?
+    ),
+    needed_prices AS (
+        SELECT DISTINCT isin, price_d AS d
+        FROM selected_trades
+        WHERE COALESCE(price_yesterday,0) <= 0
+    ),
+    prices AS (
+        SELECT p.isin, date(p.date_today) AS d, MAX(p.price_yesterday) AS p
+        FROM position_change p
+        JOIN needed_prices n ON n.isin=p.isin AND n.d=date(p.date_today)
+        WHERE COALESCE(p.price_yesterday,0)>0
+        GROUP BY p.isin, date(p.date_today)
+    ),
+    trades AS (
+        SELECT st.isin,
+               st.change_qty,
+               COALESCE(NULLIF(st.price_yesterday,0), p2.p) AS trade_price
+        FROM selected_trades st
+        LEFT JOIN prices p2 ON p2.isin=st.isin AND p2.d=st.price_d
     )
     SELECT COALESCE(s.ticker,'') AS ticker, t.isin,
            COALESCE(s.isin_name,'') AS navn,
@@ -760,22 +688,35 @@ def fetch_best_viktige_trades_for_isin(
     populate_temp_selected_investors(conn, investor_ids)
 
     sql = """
-    WITH prices AS (
-        SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
-        FROM position_change
-        WHERE COALESCE(price_yesterday,0)>0
-          AND date_today BETWEEN ? AND ?
-        GROUP BY isin, date(date_today)
-    ),
-    trades AS (
+    WITH selected_trades AS (
         SELECT pc.investor_id,
                pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+               pc.price_yesterday,
+               date(pc.date_today,'+1 day') AS price_d
         FROM position_change pc
         JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
-        LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
         WHERE pc.date_today BETWEEN ? AND ?
           AND pc.isin = ?
+    ),
+    needed_prices AS (
+        SELECT DISTINCT price_d AS d
+        FROM selected_trades
+        WHERE COALESCE(price_yesterday,0) <= 0
+    ),
+    prices AS (
+        SELECT date(p.date_today) AS d, MAX(p.price_yesterday) AS p
+        FROM position_change p
+        JOIN needed_prices n ON n.d=date(p.date_today)
+        WHERE p.isin = ?
+          AND COALESCE(p.price_yesterday,0)>0
+        GROUP BY date(p.date_today)
+    ),
+    trades AS (
+        SELECT st.investor_id,
+               st.change_qty,
+               COALESCE(NULLIF(st.price_yesterday,0), p2.p) AS trade_price
+        FROM selected_trades st
+        LEFT JOIN prices p2 ON p2.d=st.price_d
     )
     SELECT tr.investor_id,
            COALESCE(i.first_name,'') AS first_name,
@@ -794,10 +735,9 @@ def fetch_best_viktige_trades_for_isin(
     ORDER BY kjop_belop DESC
     """
 
-    date_to_plus_1 = (date_to + dt.timedelta(days=1)).isoformat()
     rows = conn.execute(
         sql,
-        (date_from.isoformat(), date_to_plus_1, date_from.isoformat(), date_to.isoformat(), isin),
+        (date_from.isoformat(), date_to.isoformat(), isin, isin),
     ).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
