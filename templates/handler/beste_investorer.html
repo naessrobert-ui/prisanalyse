@@ -129,6 +129,7 @@
 <!-- Resultat -->
 <div id="bi-status" class="mb-2" style="color:var(--pa-muted)"></div>
 <div id="bi-result-table"></div>
+<div id="bi-click-hint" style="display:none; color:var(--pa-muted); font-size:0.85rem; margin-top:6px;">Klikk på <strong>Navn</strong> for å vise transaksjoner.</div>
 
 <div id="bi-csv-dl-wrap" style="display:none" class="mt-2">
   <button class="btn btn-outline-secondary" id="bi-dl-csv">Last ned resultat (CSV)</button>
@@ -204,6 +205,7 @@
   // Store result for CSV / drilldown
   let lastResult = [];
   let lastParams = {};
+  const txCache = new Map();
 
   // Run analysis
   document.getElementById('bi-run-btn').addEventListener('click', async function() {
@@ -261,7 +263,25 @@
         {key:'gevinst_pct', label:'Gevinst %', fmt:'num', dec:2},
       ], 'bi-result-table');
 
+      requestAnimationFrame(() => {
+        document.querySelectorAll('#bi-result-table table tbody tr').forEach((tr, i) => {
+          const nameCell = tr.querySelector('td:first-child');
+          if (!nameCell) return;
+          nameCell.innerHTML = `<a href="#" class="bi-name-link" data-row-idx="${i}">${nameCell.textContent}</a>`;
+        });
+
+        document.querySelectorAll('.bi-name-link').forEach((lnk) => {
+          lnk.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const idx = Number(lnk.dataset.rowIdx);
+            loadTransactions(lastResult[idx]);
+          });
+        });
+      });
+
       document.getElementById('bi-csv-dl-wrap').style.display = lastResult.length ? '' : 'none';
+      document.getElementById('bi-click-hint').style.display = lastResult.length ? '' : 'none';
 
       // Make rows clickable
       const rows = document.querySelectorAll('#bi-result-table table tbody tr');
@@ -288,8 +308,20 @@
     params.set('date_to', lastParams.date_to || new Date().toISOString().slice(0,10));
     if (lastParams.isin) params.set('isin_filter', lastParams.isin);
 
+    const txCacheKey = params.toString();
+    if (txCache.has(txCacheKey)) {
+      renderTransactions(txCache.get(txCacheKey));
+      return;
+    }
+
     const resp = await fetch('{{ url_for("handler.api_beste_transactions") }}?' + params.toString());
     const data = await resp.json();
+    txCache.set(txCacheKey, data);
+    renderTransactions(data);
+  }
+
+  function renderTransactions(data) {
+    const sec = document.getElementById('bi-tx-section');
 
     buildTable(data.rows, [
       {key:'dato', label:'Dato'},
