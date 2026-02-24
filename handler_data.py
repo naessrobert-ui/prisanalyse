@@ -603,11 +603,14 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     WHERE COALESCE(t.trade_price,0)>0
     GROUP BY s.ticker, t.isin, s.isin_name
     """
-    date_to_plus_1 = (date_to + dt.timedelta(days=1)).isoformat()
-    rows = conn.execute(
-        sql,
-        (date_from.isoformat(), date_to_plus_1, date_from.isoformat(), date_to.isoformat()),
-    ).fetchall()
+    bind_values = (
+        date_from.isoformat(),
+        date_to.isoformat(),
+        (date_to + dt.timedelta(days=1)).isoformat(),
+        date_from.isoformat(),
+        date_to.isoformat(),
+    )
+    rows = conn.execute(sql, bind_values[:sql.count("?")]).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         for c in ["kjop_belop","salg_belop","netto_belop","brutto_belop"]:
@@ -663,10 +666,13 @@ def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date,
     ORDER BY t.dato DESC
     """
     date_to_plus_1 = (date_to + dt.timedelta(days=1)).isoformat()
-    rows = conn.execute(
-        sql,
-        (date_from.isoformat(), date_to_plus_1, date_from.isoformat(), date_to.isoformat()),
-    ).fetchall()
+    bind_values = (
+        date_from.isoformat(),
+        date_to_plus_1,
+        date_from.isoformat(),
+        date_to.isoformat(),
+    )
+    rows = conn.execute(sql, bind_values[:sql.count("?")]).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
@@ -735,10 +741,13 @@ def fetch_best_viktige_trades_for_isin(
     ORDER BY kjop_belop DESC
     """
 
-    rows = conn.execute(
-        sql,
-        (date_from.isoformat(), date_to.isoformat(), isin, isin),
-    ).fetchall()
+    bind_values = (
+        date_from.isoformat(),
+        date_to.isoformat(),
+        isin,
+        isin,
+    )
+    rows = conn.execute(sql, bind_values[:sql.count("?")]).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
