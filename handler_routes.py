@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import io
+import json
 import logging
 import os
 import time
@@ -48,6 +49,54 @@ _BV_INVESTOR_CACHE_TTL_SECONDS = 15 * 60
 
 _BESTE_TX_CACHE: dict[str, dict] = {}
 _BESTE_TX_CACHE_TTL_SECONDS = 30 * 60
+
+
+_BV_PERSISTENT_CACHE_PATH = Path(hd.HANDLER_LIST_CACHE_DIR) / "beste_viktige_investor_cache.json"
+
+
+def _load_persistent_cache_blob() -> dict:
+    try:
+        if not _BV_PERSISTENT_CACHE_PATH.exists():
+            return {}
+        with open(_BV_PERSISTENT_CACHE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_persistent_cache_blob(data: dict) -> None:
+    try:
+        _BV_PERSISTENT_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(_BV_PERSISTENT_CACHE_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except Exception:
+        _LOG.warning("Klarte ikke lagre persistent beste/viktige-cache", exc_info=True)
+
+
+def _get_persistent_cached_investor_ids(cache_key: str) -> list[str] | None:
+    data = _load_persistent_cache_blob()
+    row = data.get(cache_key)
+    if not isinstance(row, dict):
+        return None
+    if row.get("expires_at", 0) < time.time():
+        data.pop(cache_key, None)
+        _save_persistent_cache_blob(data)
+        return None
+    ids = row.get("investor_ids")
+    if not isinstance(ids, list):
+        return None
+    return [str(x) for x in ids if str(x).strip()]
+
+
+def _set_persistent_cached_investor_ids(cache_key: str, investor_ids: list[str]) -> None:
+    data = _load_persistent_cache_blob()
+    data[cache_key] = {
+        "investor_ids": investor_ids,
+        "expires_at": time.time() + _BV_INVESTOR_CACHE_TTL_SECONDS,
+    }
+    _save_persistent_cache_blob(data)
+
 
 
 # =========================================================
@@ -129,10 +178,14 @@ def _investor_cache_key_for_list(list_filename: str) -> str:
     if not list_path:
         return list_filename
     try:
-        mtime = int(os.path.getmtime(list_path))
+        list_mtime = int(os.path.getmtime(list_path))
     except OSError:
-        mtime = 0
-    return f"{list_filename}|{mtime}"
+        list_mtime = 0
+    try:
+        db_mtime = int(os.path.getmtime(hd.HANDLER_DB_PATH)) if os.path.isfile(hd.HANDLER_DB_PATH) else 0
+    except OSError:
+        db_mtime = 0
+    return f"{list_filename}|lm={list_mtime}|dbm={db_mtime}|v=2"
 
 
 def _read_list_file_content(list_filename: str) -> str:
@@ -151,17 +204,25 @@ def _write_list_file_content(list_filename: str, content: str) -> str:
     with open(target_path, "w", encoding="latin-1", newline="") as f:
         f.write(content)
     _BV_INVESTOR_CACHE.clear()
+    _save_persistent_cache_blob({})
     return str(target_path)
 
 
 def _get_cached_investor_ids(cache_key: str) -> list[str] | None:
     row = _BV_INVESTOR_CACHE.get(cache_key)
-    if not row:
-        return None
-    if row.get("expires_at", 0) < time.time():
-        _BV_INVESTOR_CACHE.pop(cache_key, None)
-        return None
-    return row.get("investor_ids")
+    if row:
+        if row.get("expires_at", 0) < time.time():
+            _BV_INVESTOR_CACHE.pop(cache_key, None)
+        else:
+            return row.get("investor_ids")
+
+    persisted = _get_persistent_cached_investor_ids(cache_key)
+    if persisted is not None:
+        _BV_INVESTOR_CACHE[cache_key] = {
+            "investor_ids": persisted,
+            "expires_at": time.time() + _BV_INVESTOR_CACHE_TTL_SECONDS,
+        }
+    return persisted
 
 
 def _set_cached_investor_ids(cache_key: str, investor_ids: list[str]) -> None:
@@ -169,6 +230,7 @@ def _set_cached_investor_ids(cache_key: str, investor_ids: list[str]) -> None:
         "investor_ids": investor_ids,
         "expires_at": time.time() + _BV_INVESTOR_CACHE_TTL_SECONDS,
     }
+    _set_persistent_cached_investor_ids(cache_key, investor_ids)
 
 
 def _cache_key_for_beste_transactions(
