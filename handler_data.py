@@ -603,35 +603,32 @@ def resolve_investor_ids(conn, patterns: list[str], max_hits: int = 50) -> list[
     if not patterns:
         return []
 
-    conn.execute("DROP TABLE IF EXISTS temp_owner_patterns")
-    conn.execute("CREATE TEMP TABLE temp_owner_patterns (pattern TEXT PRIMARY KEY)")
-    conn.executemany(
-        "INSERT OR IGNORE INTO temp_owner_patterns(pattern) VALUES (?)",
-        [(p.upper(),) for p in patterns if str(p or "").strip()],
-    )
-    conn.commit()
-
     sql = """
-    WITH matches AS (
-        SELECT i.investor_id,
-               p.pattern,
-               ROW_NUMBER() OVER (PARTITION BY p.pattern ORDER BY i.investor_id) AS rn
-        FROM investor i
-        JOIN temp_owner_patterns p ON (
-            UPPER(COALESCE(i.investor_id,'')) LIKE '%'||p.pattern||'%'
-            OR UPPER(COALESCE(i.first_name,'')) LIKE '%'||p.pattern||'%'
-            OR UPPER(COALESCE(i.last_name,'')) LIKE '%'||p.pattern||'%'
-            OR UPPER(COALESCE(i.first_name,'')||' '||COALESCE(i.last_name,'')) LIKE '%'||p.pattern||'%'
-            OR UPPER(COALESCE(i.last_name,'')||' '||COALESCE(i.first_name,'')) LIKE '%'||p.pattern||'%'
-        )
-    )
-    SELECT DISTINCT investor_id
-    FROM matches
-    WHERE rn <= ?
-    ORDER BY investor_id
+    SELECT investor_id
+    FROM investor
+    WHERE
+      UPPER(COALESCE(investor_id,'')) LIKE :q
+      OR UPPER(COALESCE(first_name,'')) LIKE :q
+      OR UPPER(COALESCE(last_name,'')) LIKE :q
+      OR UPPER(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) LIKE :q
+      OR UPPER(COALESCE(last_name,'') || ' ' || COALESCE(first_name,'')) LIKE :q
+    LIMIT :lim
     """
-    rows = conn.execute(sql, (max_hits,)).fetchall()
-    return [str(r["investor_id"]).strip() for r in rows if str(r["investor_id"] or "").strip()]
+
+    investor_ids: list[str] = []
+    seen = set()
+    for pattern in patterns:
+        p = str(pattern or "").strip()
+        if not p:
+            continue
+        q = f"%{p.upper()}%"
+        rows = conn.execute(sql, {"q": q, "lim": int(max_hits)}).fetchall()
+        for row in rows:
+            investor_id = str(row["investor_id"] or "").strip()
+            if investor_id and investor_id not in seen:
+                seen.add(investor_id)
+                investor_ids.append(investor_id)
+    return sorted(investor_ids)
 
 
 def populate_temp_selected_investors(conn, investor_ids: list[str]) -> None:
@@ -654,7 +651,9 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     sql = """
     WITH prices AS (
         SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
-        FROM position_change WHERE COALESCE(price_yesterday,0)>0
+        FROM position_change
+        WHERE COALESCE(price_yesterday,0)>0
+          AND date_today BETWEEN ? AND ?
         GROUP BY isin, date(date_today)
     ),
     trades AS (
@@ -676,7 +675,11 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     WHERE COALESCE(t.trade_price,0)>0
     GROUP BY s.ticker, t.isin, s.isin_name
     """
-    rows = conn.execute(sql, (date_from.isoformat(), date_to.isoformat())).fetchall()
+    date_to_plus_1 = (date_to + dt.timedelta(days=1)).isoformat()
+    rows = conn.execute(
+        sql,
+        (date_from.isoformat(), date_to_plus_1, date_from.isoformat(), date_to.isoformat()),
+    ).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         for c in ["kjop_belop","salg_belop","netto_belop","brutto_belop"]:
@@ -698,7 +701,9 @@ def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date,
     sql = """
     WITH prices AS (
         SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
-        FROM position_change WHERE COALESCE(price_yesterday,0)>0
+        FROM position_change
+        WHERE COALESCE(price_yesterday,0)>0
+          AND date_today BETWEEN ? AND ?
         GROUP BY isin, date(date_today)
     ),
     trades AS (
@@ -729,7 +734,11 @@ def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date,
     WHERE COALESCE(t.trade_price,0)>0
     ORDER BY t.dato DESC
     """
-    rows = conn.execute(sql, (date_from.isoformat(), date_to.isoformat())).fetchall()
+    date_to_plus_1 = (date_to + dt.timedelta(days=1)).isoformat()
+    rows = conn.execute(
+        sql,
+        (date_from.isoformat(), date_to_plus_1, date_from.isoformat(), date_to.isoformat()),
+    ).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
@@ -752,7 +761,9 @@ def fetch_best_viktige_trades_for_isin(
     sql = """
     WITH prices AS (
         SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
-        FROM position_change WHERE COALESCE(price_yesterday,0)>0
+        FROM position_change
+        WHERE COALESCE(price_yesterday,0)>0
+          AND date_today BETWEEN ? AND ?
         GROUP BY isin, date(date_today)
     ),
     trades AS (
@@ -785,7 +796,11 @@ def fetch_best_viktige_trades_for_isin(
     ORDER BY t.dato DESC, belop DESC
     """
 
-    rows = conn.execute(sql, (date_from.isoformat(), date_to.isoformat(), isin)).fetchall()
+    date_to_plus_1 = (date_to + dt.timedelta(days=1)).isoformat()
+    rows = conn.execute(
+        sql,
+        (date_from.isoformat(), date_to_plus_1, date_from.isoformat(), date_to.isoformat(), isin),
+    ).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
