@@ -90,6 +90,18 @@ def _cache_key_for_beste_viktige(list_name: str, date_from: dt.date, date_to: dt
     return hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
 
 
+def _investor_cache_key_for_list(list_name: str) -> str:
+    csv_name = "Beste.csv" if list_name == "Beste" else "Viktige.csv"
+    list_path = hd.resolve_list_csv_path(csv_name)
+    if not list_path:
+        return list_name
+    try:
+        mtime = int(os.path.getmtime(list_path))
+    except OSError:
+        mtime = 0
+    return f"{list_name}|{mtime}"
+
+
 def _get_cached_investor_ids(cache_key: str) -> list[str] | None:
     row = _BV_INVESTOR_CACHE.get(cache_key)
     if not row:
@@ -113,7 +125,7 @@ def _load_investor_ids_for_beste_viktige(
     date_from: dt.date,
     date_to: dt.date,
 ) -> list[str]:
-    cache_key = _cache_key_for_beste_viktige(list_name, date_from, date_to)
+    cache_key = _investor_cache_key_for_list(list_name)
     cached = _get_cached_investor_ids(cache_key)
     if cached is not None:
         return cached
@@ -500,8 +512,9 @@ def api_beste_viktige_details():
     if dfi.empty:
         return jsonify({"rows": []})
 
-    detail_cols = ["dato", "eier", "investor_id", "investor_type", "antall", "kurs", "belop_mnok"]
-    dfi["belop_mnok"] = pd.to_numeric(dfi["belop_mnok"], errors="coerce").round(4)
+    detail_cols = ["eier", "investor_id", "investor_type", "antall_obs", "kjop_mnok", "salg_mnok", "netto_mnok"]
+    for c in ["kjop_mnok", "salg_mnok", "netto_mnok"]:
+        dfi[c] = pd.to_numeric(dfi[c], errors="coerce").round(4)
     resp = make_response(jsonify({"rows": dfi[detail_cols].to_dict("records")}))
     resp.headers["Cache-Control"] = "no-store"
     return resp
