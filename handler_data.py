@@ -70,6 +70,7 @@ HANDLER_DB_S3_FORCE_DOWNLOAD = _path_from_env("HANDLER_DB_S3_FORCE_DOWNLOAD", "0
 
 _LOG = logging.getLogger(__name__)
 _S3_SYNC_ATTEMPTED: set[str] = set()
+_INDEX_INIT_DONE: set[str] = set()
 
 
 def _parse_s3_uri(uri: str) -> tuple[str, str]:
@@ -189,120 +190,34 @@ def ensure_local_db(local_path: str | None = None) -> bool:
 
     return _download_db_from_s3(path)
 
-HANDLER_DB_S3_URI = _path_from_env("HANDLER_DB_S3_URI", "")
-HANDLER_DB_S3_REGION = _path_from_env("HANDLER_DB_S3_REGION", "")
-HANDLER_DB_S3_AUTO_DOWNLOAD = _path_from_env("HANDLER_DB_S3_AUTO_DOWNLOAD", "1").lower() not in {
-    "0",
-    "false",
-    "no",
-}
-HANDLER_DB_S3_PREFER = _path_from_env("HANDLER_DB_S3_PREFER", "1").lower() not in {
-    "0",
-    "false",
-    "no",
-}
-HANDLER_DB_S3_FORCE_DOWNLOAD = _path_from_env("HANDLER_DB_S3_FORCE_DOWNLOAD", "0").lower() in {
-    "1",
-    "true",
-    "yes",
-}
-
-_LOG = logging.getLogger(__name__)
-_S3_SYNC_ATTEMPTED: set[str] = set()
-
-
-def _parse_s3_uri(uri: str) -> tuple[str, str]:
-    raw = (uri or "").strip()
-    if not raw:
-        raise ValueError("Tom S3-URI")
-
-    normalized = raw[5:] if raw.startswith("s3://") else raw
-    parts = normalized.split("/", 1)
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError("Ugyldig S3-URI. Forventet format: s3://bucket/key")
-    return parts[0], parts[1]
-
-
-def _candidate_s3_keys(key: str, local_path: str) -> list[str]:
-    clean = key.strip().lstrip("/")
-    if not clean:
-        return []
-
-    candidates = [clean]
-    if clean.endswith("/"):
-        local_name = Path(local_path).name or "topchanges.db"
-        for suffix in ("topchanges.db", "topchanges", local_name):
-            c = f"{clean}{suffix}".replace("//", "/")
-            if c not in candidates:
-                candidates.append(c)
-    return candidates
-
-
-def _download_db_from_s3(local_path: str | None = None) -> bool:
-    if not HANDLER_DB_S3_URI:
-        return False
-
-    path = Path(local_path or HANDLER_DB_PATH)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    try:
-        bucket, key = _parse_s3_uri(HANDLER_DB_S3_URI)
-        client_args = {"region_name": HANDLER_DB_S3_REGION} if HANDLER_DB_S3_REGION else {}
-        s3 = boto3.client("s3", **client_args)
-
-        candidates = _candidate_s3_keys(key, str(path))
-        for candidate in candidates:
-            try:
-                s3.download_file(bucket, candidate, str(path))
-                _LOG.info("Lastet handler-db fra S3: s3://%s/%s til %s", bucket, candidate, path)
-                return path.is_file()
-            except ClientError as exc:
-                err_code = exc.response.get("Error", {}).get("Code", "")
-                if err_code in {"404", "NoSuchKey", "NotFound"}:
-                    _LOG.warning("S3 key ikke funnet: s3://%s/%s", bucket, candidate)
-                    continue
-                _LOG.warning("S3-feil ved nedlasting av s3://%s/%s: %s", bucket, candidate, exc)
-                return False
-
-        _LOG.warning("Fant ingen gyldig S3 DB-fil for %s. Forsøkte nøkler: %s", HANDLER_DB_S3_URI, candidates)
-        return False
-    except Exception as exc:
-        _LOG.warning("Klarte ikke laste handler-db fra S3 (%s): %s", HANDLER_DB_S3_URI, exc)
-        return False
-
-
-def ensure_local_db(local_path: str | None = None) -> bool:
-    path = local_path or HANDLER_DB_PATH
-
-    # Force-download on each check (overwrites local cache) when explicitly enabled
-    if HANDLER_DB_S3_URI and HANDLER_DB_S3_FORCE_DOWNLOAD:
-        if _download_db_from_s3(path):
-            return True
-
-    # Prefer S3 copy when configured (attempt once per process/path)
-    if HANDLER_DB_S3_URI and HANDLER_DB_S3_PREFER and path not in _S3_SYNC_ATTEMPTED:
-        _S3_SYNC_ATTEMPTED.add(path)
-        if _download_db_from_s3(path):
-            return True
-
-    if os.path.isfile(path):
-        return True
-
-    if not HANDLER_DB_S3_AUTO_DOWNLOAD:
-        return False
-
-    return _download_db_from_s3(path)
-
-
 # =========================================================
 # DB connection
 # =========================================================
+def _ensure_runtime_indexes(conn: sqlite3.Connection, db_key: str) -> None:
+    if db_key in _INDEX_INIT_DONE:
+        return
+    try:
+        conn.executescript("""
+        CREATE INDEX IF NOT EXISTS idx_pc_inv_date_isin ON position_change(investor_id, date_today, isin);
+        CREATE INDEX IF NOT EXISTS idx_pc_isin_date ON position_change(isin, date_today);
+        CREATE INDEX IF NOT EXISTS idx_pc_isin_date_price ON position_change(isin, date_today, price_yesterday);
+        """)
+        conn.commit()
+    except Exception:
+        _LOG.warning("Klarte ikke opprette runtime-indekser for handler-db", exc_info=True)
+    finally:
+        _INDEX_INIT_DONE.add(db_key)
+
+
 def db_connect(db_path: str | None = None) -> sqlite3.Connection:
     path = db_path or HANDLER_DB_PATH
     if not ensure_local_db(path):
         raise FileNotFoundError(f"Database ikke funnet på sti: {path}")
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA temp_store=MEMORY")
+    conn.execute("PRAGMA cache_size=-200000")
+    _ensure_runtime_indexes(conn, path)
     return conn
 
 
@@ -603,35 +518,32 @@ def resolve_investor_ids(conn, patterns: list[str], max_hits: int = 50) -> list[
     if not patterns:
         return []
 
-    conn.execute("DROP TABLE IF EXISTS temp_owner_patterns")
-    conn.execute("CREATE TEMP TABLE temp_owner_patterns (pattern TEXT PRIMARY KEY)")
-    conn.executemany(
-        "INSERT OR IGNORE INTO temp_owner_patterns(pattern) VALUES (?)",
-        [(p.upper(),) for p in patterns if str(p or "").strip()],
-    )
-    conn.commit()
-
     sql = """
-    WITH matches AS (
-        SELECT i.investor_id,
-               p.pattern,
-               ROW_NUMBER() OVER (PARTITION BY p.pattern ORDER BY i.investor_id) AS rn
-        FROM investor i
-        JOIN temp_owner_patterns p ON (
-            UPPER(COALESCE(i.investor_id,'')) LIKE '%'||p.pattern||'%'
-            OR UPPER(COALESCE(i.first_name,'')) LIKE '%'||p.pattern||'%'
-            OR UPPER(COALESCE(i.last_name,'')) LIKE '%'||p.pattern||'%'
-            OR UPPER(COALESCE(i.first_name,'')||' '||COALESCE(i.last_name,'')) LIKE '%'||p.pattern||'%'
-            OR UPPER(COALESCE(i.last_name,'')||' '||COALESCE(i.first_name,'')) LIKE '%'||p.pattern||'%'
-        )
-    )
-    SELECT DISTINCT investor_id
-    FROM matches
-    WHERE rn <= ?
-    ORDER BY investor_id
+    SELECT investor_id
+    FROM investor
+    WHERE
+      UPPER(COALESCE(investor_id,'')) LIKE :q
+      OR UPPER(COALESCE(first_name,'')) LIKE :q
+      OR UPPER(COALESCE(last_name,'')) LIKE :q
+      OR UPPER(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) LIKE :q
+      OR UPPER(COALESCE(last_name,'') || ' ' || COALESCE(first_name,'')) LIKE :q
+    LIMIT :lim
     """
-    rows = conn.execute(sql, (max_hits,)).fetchall()
-    return [str(r["investor_id"]).strip() for r in rows if str(r["investor_id"] or "").strip()]
+
+    investor_ids: list[str] = []
+    seen = set()
+    for pattern in patterns:
+        p = str(pattern or "").strip()
+        if not p:
+            continue
+        q = f"%{p.upper()}%"
+        rows = conn.execute(sql, {"q": q, "lim": int(max_hits)}).fetchall()
+        for row in rows:
+            investor_id = str(row["investor_id"] or "").strip()
+            if investor_id and investor_id not in seen:
+                seen.add(investor_id)
+                investor_ids.append(investor_id)
+    return sorted(investor_ids)
 
 
 def populate_temp_selected_investors(conn, investor_ids: list[str]) -> None:
@@ -652,18 +564,33 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     populate_temp_selected_investors(conn, investor_ids)
 
     sql = """
-    WITH prices AS (
-        SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
-        FROM position_change WHERE COALESCE(price_yesterday,0)>0
-        GROUP BY isin, date(date_today)
-    ),
-    trades AS (
-        SELECT pc.isin, pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+    WITH selected_trades AS (
+        SELECT pc.isin,
+               pc.change_qty,
+               pc.price_yesterday,
+               date(pc.date_today,'+1 day') AS price_d
         FROM position_change pc
         JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
-        LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
         WHERE pc.date_today BETWEEN ? AND ?
+    ),
+    needed_prices AS (
+        SELECT DISTINCT isin, price_d AS d
+        FROM selected_trades
+        WHERE COALESCE(price_yesterday,0) <= 0
+    ),
+    prices AS (
+        SELECT p.isin, date(p.date_today) AS d, MAX(p.price_yesterday) AS p
+        FROM position_change p
+        JOIN needed_prices n ON n.isin=p.isin AND n.d=date(p.date_today)
+        WHERE COALESCE(p.price_yesterday,0)>0
+        GROUP BY p.isin, date(p.date_today)
+    ),
+    trades AS (
+        SELECT st.isin,
+               st.change_qty,
+               COALESCE(NULLIF(st.price_yesterday,0), p2.p) AS trade_price
+        FROM selected_trades st
+        LEFT JOIN prices p2 ON p2.isin=st.isin AND p2.d=st.price_d
     )
     SELECT COALESCE(s.ticker,'') AS ticker, t.isin,
            COALESCE(s.isin_name,'') AS navn,
@@ -676,7 +603,14 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     WHERE COALESCE(t.trade_price,0)>0
     GROUP BY s.ticker, t.isin, s.isin_name
     """
-    rows = conn.execute(sql, (date_from.isoformat(), date_to.isoformat())).fetchall()
+    bind_values = (
+        date_from.isoformat(),
+        date_to.isoformat(),
+        (date_to + dt.timedelta(days=1)).isoformat(),
+        date_from.isoformat(),
+        date_to.isoformat(),
+    )
+    rows = conn.execute(sql, bind_values[:sql.count("?")]).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         for c in ["kjop_belop","salg_belop","netto_belop","brutto_belop"]:
@@ -698,7 +632,9 @@ def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date,
     sql = """
     WITH prices AS (
         SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
-        FROM position_change WHERE COALESCE(price_yesterday,0)>0
+        FROM position_change
+        WHERE COALESCE(price_yesterday,0)>0
+          AND date_today BETWEEN ? AND ?
         GROUP BY isin, date(date_today)
     ),
     trades AS (
@@ -729,7 +665,14 @@ def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date,
     WHERE COALESCE(t.trade_price,0)>0
     ORDER BY t.dato DESC
     """
-    rows = conn.execute(sql, (date_from.isoformat(), date_to.isoformat())).fetchall()
+    date_to_plus_1 = (date_to + dt.timedelta(days=1)).isoformat()
+    bind_values = (
+        date_from.isoformat(),
+        date_to_plus_1,
+        date_from.isoformat(),
+        date_to.isoformat(),
+    )
+    rows = conn.execute(sql, bind_values[:sql.count("?")]).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
@@ -744,53 +687,75 @@ def fetch_best_viktige_trades_for_isin(
     date_from: dt.date,
     date_to: dt.date,
 ) -> pd.DataFrame:
+    """Samlet per investor for valgt aksje (raskere enn transaksjonsliste)."""
     if not investor_ids or not isin:
         return pd.DataFrame()
 
     populate_temp_selected_investors(conn, investor_ids)
 
     sql = """
-    WITH prices AS (
-        SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
-        FROM position_change WHERE COALESCE(price_yesterday,0)>0
-        GROUP BY isin, date(date_today)
-    ),
-    trades AS (
-        SELECT pc.date_today AS dato,
-               pc.isin,
-               pc.investor_id,
+    WITH selected_trades AS (
+        SELECT pc.investor_id,
                pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+               pc.price_yesterday,
+               date(pc.date_today,'+1 day') AS price_d
         FROM position_change pc
         JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
-        LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
         WHERE pc.date_today BETWEEN ? AND ?
           AND pc.isin = ?
+    ),
+    needed_prices AS (
+        SELECT DISTINCT price_d AS d
+        FROM selected_trades
+        WHERE COALESCE(price_yesterday,0) <= 0
+    ),
+    prices AS (
+        SELECT date(p.date_today) AS d, MAX(p.price_yesterday) AS p
+        FROM position_change p
+        JOIN needed_prices n ON n.d=date(p.date_today)
+        WHERE p.isin = ?
+          AND COALESCE(p.price_yesterday,0)>0
+        GROUP BY date(p.date_today)
+    ),
+    trades AS (
+        SELECT st.investor_id,
+               st.change_qty,
+               COALESCE(NULLIF(st.price_yesterday,0), p2.p) AS trade_price
+        FROM selected_trades st
+        LEFT JOIN prices p2 ON p2.d=st.price_d
     )
-    SELECT t.dato,
-           COALESCE(s.ticker,'') AS ticker,
-           t.isin,
-           COALESCE(s.isin_name,'') AS navn,
-           t.investor_id,
+    SELECT tr.investor_id,
            COALESCE(i.first_name,'') AS first_name,
            COALESCE(i.last_name,'') AS last_name,
            COALESCE(i.investor_type,'') AS investor_type,
-           COALESCE(t.change_qty,0) AS antall,
-           t.trade_price AS kurs,
-           (COALESCE(t.change_qty,0)*t.trade_price) AS belop
-    FROM trades t
-    JOIN security s ON s.isin=t.isin
-    LEFT JOIN investor i ON i.investor_id=t.investor_id
-    WHERE COALESCE(t.trade_price,0)>0
-    ORDER BY t.dato DESC, belop DESC
+           COUNT(*) AS antall_obs,
+           SUM(CASE WHEN COALESCE(tr.change_qty,0) > 0 THEN COALESCE(tr.change_qty,0) ELSE 0 END) AS kjop_antall,
+           SUM(CASE WHEN COALESCE(tr.change_qty,0) > 0 THEN COALESCE(tr.change_qty,0) * tr.trade_price ELSE 0 END) AS kjop_belop,
+           SUM(CASE WHEN COALESCE(tr.change_qty,0) < 0 THEN ABS(COALESCE(tr.change_qty,0)) ELSE 0 END) AS salg_antall,
+           SUM(CASE WHEN COALESCE(tr.change_qty,0) < 0 THEN ABS(COALESCE(tr.change_qty,0) * tr.trade_price) ELSE 0 END) AS salg_belop,
+           SUM(COALESCE(tr.change_qty,0) * tr.trade_price) AS netto_belop
+    FROM trades tr
+    LEFT JOIN investor i ON i.investor_id = tr.investor_id
+    WHERE COALESCE(tr.trade_price,0) > 0
+    GROUP BY tr.investor_id, i.first_name, i.last_name, i.investor_type
+    ORDER BY kjop_belop DESC
     """
 
-    rows = conn.execute(sql, (date_from.isoformat(), date_to.isoformat(), isin)).fetchall()
+    bind_values = (
+        date_from.isoformat(),
+        date_to.isoformat(),
+        isin,
+        isin,
+    )
+    rows = conn.execute(sql, bind_values[:sql.count("?")]).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         df["eier"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
-        df["kurs"] = pd.to_numeric(df["kurs"], errors="coerce").round(2)
-        df["belop_mnok"] = pd.to_numeric(df["belop"], errors="coerce").fillna(0) / 1_000_000
+        for c in ["kjop_belop", "salg_belop", "netto_belop"]:
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
+        df["kjop_mnok"] = df["kjop_belop"] / 1_000_000
+        df["salg_mnok"] = df["salg_belop"] / 1_000_000
+        df["netto_mnok"] = df["netto_belop"] / 1_000_000
     return df
 
 
