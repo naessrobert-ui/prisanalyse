@@ -254,6 +254,7 @@
             <div class="cta-row">
                 <a class="cta cta-primary" href="{{ url_for('bolig.bolig_hub') }}">Start med bolig</a>
                 <a class="cta cta-secondary" href="/strom">Se strømkartet</a>
+                <a class="cta cta-secondary" href="{{ url_for('regnskap.regnskap_hub') }}">Åpne Renskap</a>
             </div>
         </div>
         <div class="hero-metrics">
@@ -338,6 +339,16 @@
                     </div>
                 </div>
             </a>
+            <a class="card-link" href="{{ url_for('regnskap.regnskap_hub') }}">
+                <div class="card">
+                    <div class="card-icon">🧾</div>
+                    <div class="card-title">Renskap</div>
+                    <div class="card-desc">
+                        Hente t regnskap fra alle norske bedrifter via filopplasting, URL eller søk.
+                    </div>
+                </div>
+            </a>
+
         </div>
     </section>
 

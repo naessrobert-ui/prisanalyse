@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renskap | Prisanalyse</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+        .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 48px; }
+        a { color: #93c5fd; }
+        h1 { margin-bottom: 8px; }
+        .subtitle { color: #cbd5e1; margin-bottom: 24px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+        .card { background: #1e293b; border-radius: 14px; padding: 16px; border: 1px solid #334155; }
+        label { display: block; margin-bottom: 8px; font-weight: 700; }
+        input[type="text"], input[type="url"], input[type="file"] { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #475569; background:#0f172a; color:#f1f5f9; }
+        button, .download-btn { padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; background: #60a5fa; color: #0f172a; cursor:pointer; text-decoration:none; display:inline-block; }
+        .error { color: #fca5a5; margin-top: 8px; }
+        .success { color: #86efac; margin-top: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.92rem; }
+        th, td { border: 1px solid #334155; padding: 8px; text-align: left; }
+        th { background:#0f172a; }
+        .details { margin-top: 12px; }
+        .details li { margin-bottom: 6px; }
+        .status-ok { color: #86efac; font-weight: 700; }
+        .status-feil { color: #fca5a5; font-weight: 700; }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .overlay.show { display: flex; }
+        .overlay-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 18px 20px;
+            width: min(520px, 90vw);
+        }
+        .bar { height: 8px; background: #334155; border-radius: 999px; overflow: hidden; margin-top: 10px; }
+        .bar span { display:block; height: 100%; width: 30%; background:#60a5fa; animation: slide 1.2s infinite; }
+        @keyframes slide { 0%{transform:translateX(-120%);} 100%{transform:translateX(320%);} }
+    </style>
+</head>
+<body>
+<div class="overlay" id="batchOverlay">
+    <div class="overlay-card">
+        <strong>Henter regnskap…</strong>
+        <p id="timerText">Kjøretid: 0 sek · Estimat igjen: beregnes…</p>
+        <div class="bar"><span></span></div>
+    </div>
+</div>
+
+<div class="wrap">
+    <p><a href="/">← Til forsiden</a></p>
+    <h1>Renskap</h1>
+    <p class="subtitle">Hente t regnskap fra alle norske bedrifter.</p>
+
+    <div class="grid">
+        <section class="card">
+            <h2>1) Last opp organisasjonsnumre</h2>
+            <form method="post" enctype="multipart/form-data" id="batchForm">
+                <input type="hidden" name="action" value="batch">
+                <label for="orgnr_file">Fil (txt/csv/xlsx med 9-sifrede orgnr)</label>
+                <input id="orgnr_file" type="file" name="orgnr_file" accept=".txt,.csv,.xlsx">
+                <button type="submit">Hent regnskap</button>
+            </form>
+            {% if batch_error %}<p class="error">{{ batch_error }}</p>{% endif %}
+            {% if batch_summary %}<p class="success">{{ batch_summary }}</p>{% endif %}
+            {% if batch_results %}
+            <p style="margin-top:10px;">
+                <a class="download-btn" href="{{ url_for('regnskap.batch_download_csv') }}">Last ned resultat (CSV)</a>
+            </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Orgnr</th>
+                        <th>Selskap</th>
+                        <th>År</th>
+                        <th>Omsetning</th>
+                        <th>Resultat etter skatt</th>
+                        <th>Egenkapital</th>
+                        <th>Feil</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in batch_results %}
+                    <tr>
+                        <td class="{{ 'status-ok' if row.status == 'OK' else 'status-feil' }}">{{ row.status }}</td>
+                        <td>{{ row.orgnr }}</td>
+                        <td>{{ row.company }}</td>
+                        <td>{{ row.year or '' }}</td>
+                        <td>{{ format_amount(row.omsetning) }}</td>
+                        <td>{{ format_amount(row.resultat_etter_skatt) }}</td>
+                        <td>{{ format_amount(row.egenkapital) }}</td>
+                        <td>{{ row.error }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </section>
+
+        <section class="card">
+            <h2>2) Lim inn Proff-URL</h2>
+            <form method="post">
+                <input type="hidden" name="action" value="url">
+                <label for="proff_url">URL til regnskapsside</label>
+                <input id="proff_url" type="url" name="proff_url" placeholder="https://www.proff.no/regnskap/...">
+                <button type="submit">Hent detaljer</button>
+            </form>
+            {% if url_error %}<p class="error">{{ url_error }}</p>{% endif %}
+            {% if url_details %}
+            <ul class="details">
+                {% for key, value in url_details %}
+                <li><strong>{{ key }}:</strong> {{ value }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </section>
+
+        <section class="card">
+            <h2>3) Søk etter selskap eller orgnr</h2>
+            <form method="post">
+                <input type="hidden" name="action" value="search">
+                <label for="search_query">Søk</label>
+                <input id="search_query" type="text" name="search_query" placeholder="Eks. Equinor eller 923609016">
+                <button type="submit">Søk og hent</button>
+            </form>
+            {% if search_error %}<p class="error">{{ search_error }}</p>{% endif %}
+            {% if search_details %}
+            <ul class="details">
+                {% for key, value in search_details %}
+                <li><strong>{{ key }}:</strong> {{ value }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </section>
+    </div>
+</div>
+<script>
+    const form = document.getElementById('batchForm');
+    const overlay = document.getElementById('batchOverlay');
+    const timerText = document.getElementById('timerText');
+
+    form?.addEventListener('submit', () => {
+        overlay.classList.add('show');
+        const started = Date.now();
+        const estimatedTotalSec = 80; // grovestimat for opptil 100 orgnr
+        const interval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - started) / 1000);
+            const remaining = Math.max(estimatedTotalSec - elapsed, 0);
+            timerText.textContent = `Kjøretid: ${elapsed} sek · Estimat igjen: ca ${remaining} sek`;
+        }, 1000);
+
+        window.addEventListener('pageshow', () => clearInterval(interval), { once: true });
+    });
+</script>
+</body>
+</html>
