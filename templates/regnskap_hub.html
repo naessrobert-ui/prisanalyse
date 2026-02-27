@@ -14,16 +14,48 @@
         .card { background: #1e293b; border-radius: 14px; padding: 16px; border: 1px solid #334155; }
         label { display: block; margin-bottom: 8px; font-weight: 700; }
         input[type="text"], input[type="url"], input[type="file"] { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #475569; background:#0f172a; color:#f1f5f9; }
-        button { padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; background: #60a5fa; color: #0f172a; cursor:pointer; }
+        button, .download-btn { padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; background: #60a5fa; color: #0f172a; cursor:pointer; text-decoration:none; display:inline-block; }
         .error { color: #fca5a5; margin-top: 8px; }
+        .success { color: #86efac; margin-top: 8px; }
         table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.92rem; }
         th, td { border: 1px solid #334155; padding: 8px; text-align: left; }
         th { background:#0f172a; }
         .details { margin-top: 12px; }
         .details li { margin-bottom: 6px; }
+        .status-ok { color: #86efac; font-weight: 700; }
+        .status-feil { color: #fca5a5; font-weight: 700; }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .overlay.show { display: flex; }
+        .overlay-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 18px 20px;
+            width: min(520px, 90vw);
+        }
+        .bar { height: 8px; background: #334155; border-radius: 999px; overflow: hidden; margin-top: 10px; }
+        .bar span { display:block; height: 100%; width: 30%; background:#60a5fa; animation: slide 1.2s infinite; }
+        @keyframes slide { 0%{transform:translateX(-120%);} 100%{transform:translateX(320%);} }
     </style>
 </head>
 <body>
+<div class="overlay" id="batchOverlay">
+    <div class="overlay-card">
+        <strong>Henter regnskap…</strong>
+        <p id="timerText">Kjøretid: 0 sek · Estimat igjen: beregnes…</p>
+        <div class="bar"><span></span></div>
+    </div>
+</div>
+
 <div class="wrap">
     <p><a href="/">← Til forsiden</a></p>
     <h1>Renskap</h1>
@@ -32,34 +64,42 @@
     <div class="grid">
         <section class="card">
             <h2>1) Last opp organisasjonsnumre</h2>
-            <form method="post" enctype="multipart/form-data">
+            <form method="post" enctype="multipart/form-data" id="batchForm">
                 <input type="hidden" name="action" value="batch">
-                <label for="orgnr_file">Fil (txt/csv med 9-sifrede orgnr)</label>
-                <input id="orgnr_file" type="file" name="orgnr_file" accept=".txt,.csv">
+                <label for="orgnr_file">Fil (txt/csv/xlsx med 9-sifrede orgnr)</label>
+                <input id="orgnr_file" type="file" name="orgnr_file" accept=".txt,.csv,.xlsx">
                 <button type="submit">Hent regnskap</button>
             </form>
             {% if batch_error %}<p class="error">{{ batch_error }}</p>{% endif %}
+            {% if batch_summary %}<p class="success">{{ batch_summary }}</p>{% endif %}
             {% if batch_results %}
+            <p style="margin-top:10px;">
+                <a class="download-btn" href="{{ url_for('regnskap.batch_download_csv') }}">Last ned resultat (CSV)</a>
+            </p>
             <table>
                 <thead>
                     <tr>
-                        <th>Selskap</th>
+                        <th>Status</th>
                         <th>Orgnr</th>
+                        <th>Selskap</th>
                         <th>År</th>
                         <th>Omsetning</th>
                         <th>Resultat etter skatt</th>
                         <th>Egenkapital</th>
+                        <th>Feil</th>
                     </tr>
                 </thead>
                 <tbody>
                 {% for row in batch_results %}
                     <tr>
-                        <td>{{ row.company }}</td>
+                        <td class="{{ 'status-ok' if row.status == 'OK' else 'status-feil' }}">{{ row.status }}</td>
                         <td>{{ row.orgnr }}</td>
-                        <td>{{ row.year }}</td>
-                        <td>{{ row.omsetning }}</td>
-                        <td>{{ row.resultat_etter_skatt }}</td>
-                        <td>{{ row.egenkapital }}</td>
+                        <td>{{ row.company }}</td>
+                        <td>{{ row.year or '' }}</td>
+                        <td>{{ format_amount(row.omsetning) }}</td>
+                        <td>{{ format_amount(row.resultat_etter_skatt) }}</td>
+                        <td>{{ format_amount(row.egenkapital) }}</td>
+                        <td>{{ row.error }}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
@@ -104,5 +144,23 @@
         </section>
     </div>
 </div>
+<script>
+    const form = document.getElementById('batchForm');
+    const overlay = document.getElementById('batchOverlay');
+    const timerText = document.getElementById('timerText');
+
+    form?.addEventListener('submit', () => {
+        overlay.classList.add('show');
+        const started = Date.now();
+        const estimatedTotalSec = 80; // grovestimat for opptil 100 orgnr
+        const interval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - started) / 1000);
+            const remaining = Math.max(estimatedTotalSec - elapsed, 0);
+            timerText.textContent = `Kjøretid: ${elapsed} sek · Estimat igjen: ca ${remaining} sek`;
+        }, 1000);
+
+        window.addEventListener('pageshow', () => clearInterval(interval), { once: true });
+    });
+</script>
 </body>
 </html>
