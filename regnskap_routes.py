@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Regnskap-modul for prisanalyse."""
+"""Regnskap-modul for prisanalyse.
+
+Direkte port av Proff_all.py.
+Kjernen: hent https://www.proff.no/regnskap/-/<orgnr> og parse
+__NEXT_DATA__ JSON – identisk logikk som fungerer i CLI-skriptet.
+"""
 
 from __future__ import annotations
 
@@ -9,29 +14,48 @@ import json
 import re
 import time
 import zipfile
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import quote
 from xml.etree import ElementTree as ET
 
 import requests
+import urllib3
 from bs4 import BeautifulSoup
 from flask import Blueprint, make_response, render_template, request, session
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 regnskap_bp = Blueprint("regnskap", __name__, url_prefix="/regnskap")
 
-USER_AGENT = "Mozilla/5.0"
-TIMEOUT = 20
-SLEEP_BETWEEN_REQUESTS_SEC = 0.6
+# ---------------------------------------------------------------------------
+# Konfig – identisk med Proff_all.py
+# ---------------------------------------------------------------------------
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
+TIMEOUT    = 15
+BATCH_WORKERS = 4
+
 URL_TEMPLATES = [
     "https://www.proff.no/regnskap/-/{org}",
     "https://www.proff.no/regnskap/{org}",
 ]
 
+# Proff søk
+PROFF_SEARCH_URL = "https://www.proff.no/bransjesøk"
 
+# Brreg – kun for navn-søk (søk på selskapsnavn i boks 3)
+BRREG_SEARCH_URL = "https://data.brreg.no/enhetsregisteret/api/enheter"
+
+
+# ---------------------------------------------------------------------------
+# Dataklasser
+# ---------------------------------------------------------------------------
 @dataclass
 class LookupResult:
     company: str
@@ -58,6 +82,9 @@ class BatchRow:
     debug: str = ""
 
 
+# ---------------------------------------------------------------------------
+# HTTP-session
+# ---------------------------------------------------------------------------
 def make_session() -> requests.Session:
     sess = requests.Session()
     retries = Retry(
@@ -67,223 +94,306 @@ def make_session() -> requests.Session:
         allowed_methods=["GET"],
     )
     sess.mount("https://", HTTPAdapter(max_retries=retries))
-    sess.headers.update({"User-Agent": USER_AGENT})
+    sess.headers.update({
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "nb-NO,nb;q=0.9,no;q=0.8,en;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+    })
     return sess
 
 
+# ---------------------------------------------------------------------------
+# Kjernefunksjoner – kopiert direkte fra Proff_all.py
+# ---------------------------------------------------------------------------
 def normalize_orgnr(value: str) -> str:
     return re.sub(r"\D", "", str(value or "").strip())
 
 
-def build_urls(orgnr: str) -> list[str]:
-    return [tpl.format(org=orgnr) for tpl in URL_TEMPLATES]
+def format_amount(value: float | None) -> str:
+    if value is None:
+        return ""
+    return f"{value:,.0f}".replace(",", "\u00a0")
 
 
-def try_fetch_payload(http_session: requests.Session, url: str) -> tuple[dict[str, Any] | None, str]:
+def try_fetch_payload(sess: requests.Session, url: str) -> dict | None:
+    """Identisk med Proff_all.py."""
     try:
-        response = http_session.get(url, timeout=TIMEOUT, verify=False)
-        if response.status_code != 200:
-            return None, f"HTTP {response.status_code}"
-    except requests.RequestException as exc:
-        return None, f"Request-feil: {exc}"
-
-    soup = BeautifulSoup(response.text, "html.parser")
-    script = soup.find("script", {"id": "__NEXT_DATA__", "type": "application/json"})
-    if script and script.string:
-        try:
-            return json.loads(script.string), "OK"
-        except Exception:
-            pass
-
-    # Fallback: noen sider har NEXT_DATA uten id-attributt.
-    for candidate in soup.find_all("script", {"type": "application/json"}):
-        text = candidate.string or ""
-        if '"pageProps"' in text and '"company"' in text:
-            try:
-                payload = json.loads(text)
-                if isinstance(payload, dict):
-                    return payload, "OK"
-            except Exception:
-                continue
-
-    return None, "Fant ikke JSON payload"
-
-
-def resolve_regnskap_url_by_orgnr(http_session: requests.Session, orgnr: str) -> str | None:
-    """Finn mer presis regnskap-URL via søk dersom mal-URL ikke fungerer."""
-    search_url = f"https://www.proff.no/bransjesok?q={orgnr}"
-    try:
-        response = http_session.get(search_url, timeout=TIMEOUT)
+        r = sess.get(url, verify=False, timeout=TIMEOUT)
     except requests.RequestException:
         return None
-
-    if response.status_code != 200:
+    if r.status_code != 200:
+        return None
+    soup = BeautifulSoup(r.text, "html.parser")
+    script = soup.find("script", {"id": "__NEXT_DATA__", "type": "application/json"})
+    if not script or not script.string:
+        return None
+    try:
+        return json.loads(script.string)
+    except Exception:
         return None
 
-    matches = re.findall(r"/regnskap/[^\"'\s<>]+", response.text)
-    for path in matches:
-        if orgnr in path:
-            return f"https://www.proff.no{path}"
-    if matches:
-        return f"https://www.proff.no{matches[0]}"
-    return None
 
-
-def payload_company(payload: dict[str, Any]) -> dict[str, Any]:
-    return payload.get("props", {}).get("pageProps", {}).get("company", {})
-
-
-def company_name(company: dict[str, Any]) -> str:
+def get_company_name(payload: dict) -> str:
+    """Identisk med Proff_all.py."""
+    company = (
+        payload.get("props", {})
+               .get("pageProps", {})
+               .get("company", {})
+    )
     for key in ("name", "companyName", "displayName"):
-        value = company.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return "Ukjent"
+        v = company.get(key)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    return ""
 
 
-def account_amount(account_year: dict[str, Any], code: str) -> float | None:
-    for account in account_year.get("accounts", []):
-        if account.get("code") == code:
-            amount = account.get("amount")
-            if isinstance(amount, str):
-                amount = amount.replace(" ", "").replace("\xa0", "")
+def extract_accounts_records(payload: dict) -> tuple[list[dict], str]:
+    """Identisk med Proff_all.py sin extract_accounts_df, uten pandas."""
+    company  = payload["props"]["pageProps"].get("company", {})
+    currency = company.get("currency", "NOK")
+    accounts = company.get("companyAccounts", []) or []
+    records  = []
+    for y in accounts:
+        rec = {"year": y.get("year")}
+        for a in y.get("accounts", []):
+            code = a.get("code")
+            amt  = a.get("amount")
+            if isinstance(amt, str):
+                amt = amt.replace(" ", "").replace("\xa0", "")
             try:
-                return float(amount)
-            except (TypeError, ValueError):
-                return None
-    return None
+                amt = float(amt)
+            except Exception:
+                pass
+            if code:
+                rec[code] = amt
+        if rec.get("year") is not None:
+            records.append(rec)
+    return records, currency
 
 
-def latest_year_data(company: dict[str, Any]) -> dict[str, Any] | None:
-    years = company.get("companyAccounts", []) or []
-    valid_years = [y for y in years if y.get("year") is not None]
-    if not valid_years:
-        return None
-    return sorted(valid_years, key=lambda row: row.get("year"), reverse=True)[0]
-
-
-def lookup_orgnr(http_session: requests.Session, orgnr: str) -> LookupResult | None:
-    urls = build_urls(orgnr)
-    resolved_url = resolve_regnskap_url_by_orgnr(http_session, orgnr)
-    if resolved_url and resolved_url not in urls:
-        urls.append(resolved_url)
-
-    debug_attempts: list[str] = []
-
-    for url in urls:
-        payload, payload_debug = try_fetch_payload(http_session, url)
-        if not payload:
-            debug_attempts.append(f"Ingen payload fra {url} ({payload_debug})")
-            continue
-
-        company = payload_company(payload)
-        year_data = latest_year_data(company)
-        if not year_data:
-            debug_attempts.append(f"Mangler companyAccounts i payload fra {url}")
-            continue
-
-        return LookupResult(
-            company=company_name(company),
-            orgnr=normalize_orgnr(company.get("orgNumber", orgnr)),
-            year=year_data.get("year"),
-            resultat_etter_skatt=account_amount(year_data, "AR"),
-            egenkapital=account_amount(year_data, "SEK"),
-            omsetning=account_amount(year_data, "SDI"),
-            url_used=url,
-            debug_message="; ".join(debug_attempts),
+def proff_resolve_regnskap_url(
+    sess: requests.Session, orgnr: str
+) -> str | None:
+    """
+    To-stegs URL-resolving:
+      1. GET bransjesøk?q=<orgnr>
+      2. Finn companyId via (a) data-p-stats JSON, (b) /selskap/-href
+      3. Bytt /selskap/ -> /regnskap/ og returner full URL
+    """
+    try:
+        search_url = f"{PROFF_SEARCH_URL}?q={orgnr}"
+        print(f"[RESOLVE] GET {search_url}", flush=True)
+        resp = sess.get(
+            PROFF_SEARCH_URL,
+            params={"q": orgnr},
+            timeout=TIMEOUT,
+            verify=False,
         )
+        print(f"[RESOLVE] status={resp.status_code} len={len(resp.text)}", flush=True)
+        if resp.status_code != 200:
+            return None
+
+        html = resp.text
+
+        # Metode 1: data-p-stats JSON inneholder companyId direkte
+        # <div data-p-stats="{...&quot;companyId&quot;:&quot;IF310ML0CUX&quot;...}">
+        m = re.search(r'(?:&quot;|")companyId(?:&quot;|")\s*:\s*(?:&quot;|")([A-Z0-9]+)(?:&quot;|")', html)
+        print(f"[RESOLVE] companyId match: {m.group(1) if m else None}", flush=True)
+        if m:
+            company_id = m.group(1)
+            # Finn full /selskap/-path for å beholde slug (navn/sted/bransje)
+            slug_m = re.search(
+                r'href="(/selskap/[^"]*' + re.escape(company_id) + r'[^"]*)"', html
+            )
+            if slug_m:
+                path = slug_m.group(1).replace("/selskap/", "/regnskap/")
+                url = "https://www.proff.no" + path
+                print(f"[RESOLVE] -> slug URL: {url}", flush=True)
+                return url
+            # Fallback: bygg minimal regnskap-URL med bare companyId
+            url = f"https://www.proff.no/regnskap/-/{orgnr}/{company_id}"
+            print(f"[RESOLVE] -> fallback URL: {url}", flush=True)
+            return url
+
+        # Metode 2: finn /selskap/-href direkte med regex
+        href_m = re.search(r'href="(/selskap/[^"]+)"', html)
+        if href_m:
+            path = href_m.group(1).replace("/selskap/", "/regnskap/")
+            return "https://www.proff.no" + path
+
+        # Metode 3: BeautifulSoup fallback
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if "/selskap/" in href:
+                regnskap = href.replace("/selskap/", "/regnskap/")
+                base = "https://www.proff.no"
+                return base + regnskap if regnskap.startswith("/") else regnskap
+
+    except Exception:
+        pass
     return None
 
 
+def build_urls(org: str, url_hint: str | None = None) -> list[str]:
+    """Fallback-URLer hvis to-stegs resolving feiler."""
+    urls = []
+    if url_hint and str(url_hint).strip():
+        urls.append(str(url_hint).strip())
+    for tpl in URL_TEMPLATES:
+        urls.append(tpl.format(org=org))
+    seen, out = set(), []
+    for u in urls:
+        if u not in seen:
+            seen.add(u)
+            out.append(u)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Oppslag
+# ---------------------------------------------------------------------------
+def lookup_orgnr(
+    http_session: requests.Session,
+    orgnr: str,
+    url_hint: str | None = None,
+) -> LookupResult | None:
+    payload  = None
+    used_url = None
+    debug_parts: list[str] = []
+
+    # Steg 1: to-stegs resolving via bransjesøk (gir riktig intern Proff-URL)
+    print(f"[LOOKUP] orgnr={orgnr}", flush=True)
+    resolved = proff_resolve_regnskap_url(http_session, orgnr)
+    print(f"[LOOKUP] resolved={resolved}", flush=True)
+    if resolved:
+        p = try_fetch_payload(http_session, resolved)
+        print(f"[LOOKUP] payload fra resolved: {bool(p)}", flush=True)
+        if p:
+            payload  = p
+            used_url = resolved
+        else:
+            debug_parts.append(f"ingen payload fra resolved: {resolved}")
+
+    # Steg 2: fallback til direkte URL-templates
+    if not payload:
+        for url in build_urls(orgnr, url_hint):
+            p = try_fetch_payload(http_session, url)
+            if p:
+                payload  = p
+                used_url = url
+                break
+            debug_parts.append(f"ingen payload: {url}")
+
+    if not payload:
+        return None
+
+    records, _ = extract_accounts_records(payload)
+    if not records:
+        return None
+
+    latest = max(records, key=lambda r: r.get("year", 0))
+    year   = latest.get("year")
+
+    company_data = payload.get("props", {}).get("pageProps", {}).get("company", {})
+    found_orgnr  = normalize_orgnr(company_data.get("orgNumber", orgnr))
+
+    return LookupResult(
+        company=get_company_name(payload),
+        orgnr=found_orgnr,
+        year=year,
+        resultat_etter_skatt=latest.get("AR"),
+        egenkapital=latest.get("SEK"),
+        omsetning=latest.get("SDI"),
+        url_used=used_url or "",
+        debug_message="; ".join(debug_parts),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Søk: navn → orgnr (Brreg Enhetsregisteret)
+# ---------------------------------------------------------------------------
+def search_to_orgnr(http_session: requests.Session, query: str) -> str | None:
+    normalized = normalize_orgnr(query)
+    if len(normalized) == 9:
+        return normalized
+    try:
+        resp = http_session.get(
+            BRREG_SEARCH_URL,
+            params={"navn": query, "size": 5},
+            timeout=TIMEOUT,
+            headers={"Accept": "application/json"},
+        )
+        if resp.status_code == 200:
+            hits = resp.json().get("_embedded", {}).get("enheter", [])
+            if hits:
+                return str(hits[0].get("organisasjonsnummer", ""))
+    except Exception:
+        pass
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Fil-parsing (xlsx / txt / csv)
+# ---------------------------------------------------------------------------
 def parse_xlsx_values(content: bytes) -> list[str]:
     ns = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
     values: list[str] = []
-
     with zipfile.ZipFile(io.BytesIO(content)) as archive:
-        shared_strings: list[str] = []
+        shared: list[str] = []
         if "xl/sharedStrings.xml" in archive.namelist():
-            shared_root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
-            for si in shared_root.findall("x:si", ns):
-                text = "".join(node.text or "" for node in si.findall(".//x:t", ns))
-                shared_strings.append(text)
-
+            root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
+            for si in root.findall("x:si", ns):
+                text = "".join(n.text or "" for n in si.findall(".//x:t", ns))
+                shared.append(text)
         if "xl/worksheets/sheet1.xml" not in archive.namelist():
             return []
-
-        sheet_root = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
-        for cell in sheet_root.findall(".//x:c", ns):
+        sheet = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
+        for cell in sheet.findall(".//x:c", ns):
             ctype = cell.attrib.get("t")
-            value_node = cell.find("x:v", ns)
-            inline_node = cell.find("x:is/x:t", ns)
-
-            if ctype == "s" and value_node is not None:
+            vnode = cell.find("x:v", ns)
+            inode = cell.find("x:is/x:t", ns)
+            if ctype == "s" and vnode is not None:
                 try:
-                    values.append(shared_strings[int(value_node.text or "")])
+                    values.append(shared[int(vnode.text or "")])
                 except Exception:
                     continue
-            elif inline_node is not None and inline_node.text:
-                values.append(inline_node.text)
-            elif value_node is not None and value_node.text:
-                values.append(value_node.text)
-
+            elif inode is not None and inode.text:
+                values.append(inode.text)
+            elif vnode is not None and vnode.text:
+                values.append(vnode.text)
     return values
 
 
 def parse_orgnrs_from_file(file_storage) -> list[str]:
-    content = file_storage.read()
+    content  = file_storage.read()
     filename = (file_storage.filename or "").lower()
-
     if filename.endswith(".xlsx"):
-        raw_items = parse_xlsx_values(content)
+        raw = parse_xlsx_values(content)
     else:
-        raw_items = re.split(r"[\s,;]+", content.decode("utf-8", errors="ignore"))
-
+        raw = re.split(r"[\s,;]+", content.decode("utf-8", errors="ignore"))
     orgnrs = []
-    for item in raw_items:
+    for item in raw:
         org = normalize_orgnr(item)
         if len(org) == 9:
             orgnrs.append(org)
     return list(dict.fromkeys(orgnrs))
 
 
-def search_to_orgnr(http_session: requests.Session, query: str) -> str | None:
-    normalized = normalize_orgnr(query)
-    if len(normalized) == 9:
-        return normalized
-
-    search_url = f"https://www.proff.no/bransjesok?q={quote(query)}"
-    try:
-        response = http_session.get(search_url, timeout=TIMEOUT)
-    except requests.RequestException:
-        return None
-
-    if response.status_code != 200:
-        return None
-
-    matches = re.findall(r"/regnskap/[^\"'\s<>]+", response.text)
-    for match in matches:
-        org_candidates = re.findall(r"(\d{9})", match)
-        if org_candidates:
-            return org_candidates[-1]
-
-    return None
-
-
-def format_amount(value: float | None) -> str:
-    if value is None:
-        return ""
-    return f"{value:,.0f}".replace(",", " ")
-
-
+# ---------------------------------------------------------------------------
+# Presentasjon
+# ---------------------------------------------------------------------------
 def build_detail_rows(result: LookupResult) -> list[tuple[str, str]]:
     return [
-        ("Selskap", result.company),
-        ("Organisasjonsnummer", result.orgnr),
-        ("Siste tilgjengelige regnskapsår", str(result.year) if result.year else "Ukjent"),
-        ("Omsetning (SDI)", format_amount(result.omsetning) or "Mangler"),
-        ("Resultat etter skatt (AR)", format_amount(result.resultat_etter_skatt) or "Mangler"),
-        ("Egenkapital (SEK)", format_amount(result.egenkapital) or "Mangler"),
-        ("Kilde", result.url_used),
+        ("Selskap",              result.company),
+        ("Organisasjonsnummer",  result.orgnr),
+        ("Siste regnskapsår",    str(result.year) if result.year else "Ukjent"),
+        ("Sum driftsinntekter",  format_amount(result.omsetning) or "Mangler"),
+        ("Resultat etter skatt", format_amount(result.resultat_etter_skatt) or "Mangler"),
+        ("Egenkapital",          format_amount(result.egenkapital) or "Mangler"),
+        ("URL",                  result.url_used),
     ]
 
 
@@ -291,56 +401,54 @@ def serialize_batch_rows(rows: list[BatchRow]) -> list[dict[str, Any]]:
     return [row.__dict__ for row in rows]
 
 
-def deserialize_batch_rows(raw_rows: list[dict[str, Any]]) -> list[BatchRow]:
-    return [BatchRow(**raw) for raw in raw_rows]
+def deserialize_batch_rows(raw: list[dict[str, Any]]) -> list[BatchRow]:
+    return [BatchRow(**r) for r in raw]
 
 
+# ---------------------------------------------------------------------------
+# Flask-ruter
+# ---------------------------------------------------------------------------
 @regnskap_bp.route("/batch-download.csv")
 def batch_download_csv():
-    rows = deserialize_batch_rows(session.get("regnskap_batch_rows", []))
-
+    rows   = deserialize_batch_rows(session.get("regnskap_batch_rows", []))
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter=";")
     writer.writerow([
-        "orgnr", "status", "selskap", "år", "omsetning", "resultat_etter_skatt", "egenkapital", "url", "feil", "debug"
+        "orgnr", "status", "selskap", "år",
+        "omsetning", "resultat_etter_skatt", "egenkapital",
+        "url", "feil", "debug",
     ])
-
     for row in rows:
         writer.writerow([
-            row.orgnr,
-            row.status,
-            row.company,
-            row.year or "",
+            row.orgnr, row.status, row.company, row.year or "",
             format_amount(row.omsetning),
             format_amount(row.resultat_etter_skatt),
             format_amount(row.egenkapital),
-            row.url_used,
-            row.error,
-            row.debug,
+            row.url_used, row.error, row.debug,
         ])
-
     csv_content = "\ufeff" + buffer.getvalue()
-    response = make_response(csv_content)
-    response.headers["Content-Type"] = "text/csv; charset=utf-8"
-    response.headers["Content-Disposition"] = "attachment; filename=regnskap_resultater.csv"
-    return response
+    resp = make_response(csv_content)
+    resp.headers["Content-Type"]        = "text/csv; charset=utf-8"
+    resp.headers["Content-Disposition"] = "attachment; filename=regnskap_resultater.csv"
+    return resp
 
 
 @regnskap_bp.route("/", methods=["GET", "POST"])
 def regnskap_hub():
     http_session = make_session()
 
-    batch_results: list[BatchRow] = []
-    batch_error = ""
+    batch_results: list[BatchRow]       = []
+    batch_error   = ""
     batch_summary = ""
-    url_details: list[tuple[str, str]] = []
-    url_error = ""
+    url_details:   list[tuple[str, str]] = []
+    url_error     = ""
     search_details: list[tuple[str, str]] = []
-    search_error = ""
+    search_error  = ""
 
     if request.method == "POST":
         action = request.form.get("action", "")
 
+        # ---- BATCH --------------------------------------------------------
         if action == "batch":
             upload = request.files.get("orgnr_file")
             if not upload or not upload.filename:
@@ -348,66 +456,89 @@ def regnskap_hub():
             else:
                 orgnrs = parse_orgnrs_from_file(upload)
                 if not orgnrs:
-                    batch_error = "Fant ingen gyldige organisasjonsnumre (9 siffer) i filen. Støtter txt, csv og xlsx."
+                    batch_error = "Fant ingen gyldige 9-sifrede orgnr i filen (støtter txt/csv/xlsx)."
                 else:
-                    start_time = time.perf_counter()
-                    for orgnr in orgnrs[:100]:
-                        time.sleep(SLEEP_BETWEEN_REQUESTS_SEC)
-                        result = lookup_orgnr(http_session, orgnr)
-                        if result:
-                            batch_results.append(
-                                BatchRow(
-                                    orgnr=result.orgnr,
-                                    status="OK",
-                                    company=result.company,
-                                    year=result.year,
-                                    omsetning=result.omsetning,
-                                    resultat_etter_skatt=result.resultat_etter_skatt,
-                                    egenkapital=result.egenkapital,
-                                    url_used=result.url_used,
-                                    debug=result.debug_message,
-                                )
-                            )
-                        else:
-                            batch_results.append(
-                                BatchRow(
-                                    orgnr=orgnr,
-                                    status="FEIL",
-                                    error="Fant ikke regnskapstall på Proff for dette orgnr.",
-                                    debug=(
-                                        "Prøv manuelt i nettleser: "
-                                        f"https://www.proff.no/bransjesok?q={orgnr}"
-                                    ),
-                                )
-                            )
+                    t0 = time.perf_counter()
+                    orgnrs_batch = orgnrs[:100]
 
-                    duration = time.perf_counter() - start_time
-                    ok_count = len([r for r in batch_results if r.status == "OK"])
-                    fail_count = len(batch_results) - ok_count
+                    def fetch_one(org: str) -> tuple[str, LookupResult | None]:
+                        s = make_session()
+                        return org, lookup_orgnr(s, org)
+
+                    results_map: dict[str, LookupResult | None] = {}
+                    with ThreadPoolExecutor(max_workers=BATCH_WORKERS) as ex:
+                        futures = {ex.submit(fetch_one, org): org for org in orgnrs_batch}
+                        for future in as_completed(futures):
+                            org, res = future.result()
+                            results_map[org] = res
+
+                    for org in orgnrs_batch:
+                        res = results_map.get(org)
+                        if res:
+                            batch_results.append(BatchRow(
+                                orgnr=res.orgnr, status="OK",
+                                company=res.company, year=res.year,
+                                omsetning=res.omsetning,
+                                resultat_etter_skatt=res.resultat_etter_skatt,
+                                egenkapital=res.egenkapital,
+                                url_used=res.url_used,
+                                debug=res.debug_message,
+                            ))
+                        else:
+                            # lookup_orgnr returnerte None - prøv resolve på nytt bare for debug
+                            _dbg_resolved = proff_resolve_regnskap_url(http_session, org)
+                            batch_results.append(BatchRow(
+                                orgnr=org, status="FEIL",
+                                error="Fant ikke __NEXT_DATA__ på Proff.",
+                                debug=f"resolved={_dbg_resolved or 'ingen'}",
+                            ))
+
+                    dur = time.perf_counter() - t0
+                    ok  = sum(1 for r in batch_results if r.status == "OK")
                     batch_summary = (
                         f"Ferdig: {len(batch_results)} behandlet · "
-                        f"{ok_count} treff · {fail_count} uten treff · {duration:.1f} sek"
+                        f"{ok} treff · {len(batch_results)-ok} uten treff · {dur:.1f} sek"
                     )
                     session["regnskap_batch_rows"] = serialize_batch_rows(batch_results)
 
-        if action == "url":
+        # ---- URL ----------------------------------------------------------
+        elif action == "url":
             regnskap_url = (request.form.get("proff_url") or "").strip()
-            payload, payload_debug = try_fetch_payload(http_session, regnskap_url) if regnskap_url else (None, "Tom URL")
-            if not payload:
-                url_error = f"Klarte ikke å hente data fra URL-en. Kontroller lenken. ({payload_debug})"
+            if not regnskap_url:
+                url_error = "Skriv inn en URL."
             else:
-                company = payload_company(payload)
-                orgnr = normalize_orgnr(company.get("orgNumber", ""))
-                if len(orgnr) != 9:
-                    url_error = "Fant ikke organisasjonsnummer i URL-resultatet."
-                else:
-                    result = lookup_orgnr(http_session, orgnr)
-                    if result:
-                        url_details = build_detail_rows(result)
+                payload = try_fetch_payload(http_session, regnskap_url)
+                if payload:
+                    records, _ = extract_accounts_records(payload)
+                    if records:
+                        latest = max(records, key=lambda r: r.get("year", 0))
+                        cd     = payload.get("props", {}).get("pageProps", {}).get("company", {})
+                        res = LookupResult(
+                            company=get_company_name(payload),
+                            orgnr=normalize_orgnr(cd.get("orgNumber", "")),
+                            year=latest.get("year"),
+                            resultat_etter_skatt=latest.get("AR"),
+                            egenkapital=latest.get("SEK"),
+                            omsetning=latest.get("SDI"),
+                            url_used=regnskap_url,
+                        )
+                        url_details = build_detail_rows(res)
                     else:
-                        url_error = "Fant ikke regnskapstall for selskapet."
+                        url_error = "Fant payload men ingen regnskapstall."
+                else:
+                    # Trekk ut orgnr fra URL og prøv standard templates
+                    candidates = re.findall(r"(\d{9})", regnskap_url)
+                    if candidates:
+                        res = lookup_orgnr(http_session, candidates[-1], regnskap_url)
+                        if res:
+                            url_details = build_detail_rows(res)
+                        else:
+                            url_error = "Klarte ikke hente regnskapstall. Sjekk at URL er en Proff regnskap-side."
+                    else:
+                        url_error = "Ingen __NEXT_DATA__ på siden og ingen orgnr funnet i URL."
 
-        if action == "search":
+        # ---- SEARCH -------------------------------------------------------
+        elif action == "search":
             query = (request.form.get("search_query") or "").strip()
             if not query:
                 search_error = "Skriv inn søk (navn eller orgnr)."
@@ -416,11 +547,14 @@ def regnskap_hub():
                 if not orgnr:
                     search_error = "Fant ingen selskaper fra søket."
                 else:
-                    result = lookup_orgnr(http_session, orgnr)
-                    if result:
-                        search_details = build_detail_rows(result)
+                    res = lookup_orgnr(http_session, orgnr)
+                    if res:
+                        search_details = build_detail_rows(res)
                     else:
-                        search_error = "Fant ikke regnskapstall for søket."
+                        search_error = (
+                            f"Fant orgnr {orgnr} men ingen regnskapstall på Proff. "
+                            f"Sjekk: https://www.proff.no/regnskap/-/{orgnr}"
+                        )
 
     return render_template(
         "regnskap_hub.html",
