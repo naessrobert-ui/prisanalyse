@@ -72,6 +72,7 @@
             </form>
             {% if batch_error %}<p class="error">{{ batch_error }}</p>{% endif %}
             {% if batch_summary %}<p class="success">{{ batch_summary }}</p>{% endif %}
+            <p style="margin-top:8px;color:#cbd5e1;font-size:0.9rem">Hvis du får FEIL, se kolonnen <b>Debug/feilsøking</b> eller last ned CSV for detaljer.</p>
             {% if batch_results %}
             <p style="margin-top:10px;">
                 <a class="download-btn" href="{{ url_for('regnskap.batch_download_csv') }}">Last ned resultat (CSV)</a>
@@ -87,6 +88,7 @@
                         <th>Resultat etter skatt</th>
                         <th>Egenkapital</th>
                         <th>Feil</th>
+                        <th>Debug/feilsøking</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -100,6 +102,7 @@
                         <td>{{ format_amount(row.resultat_etter_skatt) }}</td>
                         <td>{{ format_amount(row.egenkapital) }}</td>
                         <td>{{ row.error }}</td>
+                        <td style="max-width:280px;word-break:break-word">{{ row.debug }}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
