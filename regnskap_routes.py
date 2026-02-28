@@ -591,6 +591,38 @@ def deserialize_batch_rows(raw: list[dict[str, Any]]) -> list[BatchRow]:
 
 
 # ---------------------------------------------------------------------------
+# Resultatvisning
+# ---------------------------------------------------------------------------
+def render_regnskap_result_page(
+    *,
+    mode: str,
+    title: str,
+    batch_results: list[BatchRow] | None = None,
+    batch_error: str = "",
+    batch_summary: str = "",
+    url_details: list[tuple[str, str]] | None = None,
+    url_error: str = "",
+    search_details: list[tuple[str, str]] | None = None,
+    search_error: str = "",
+    search_query: str = "",
+) -> str:
+    return render_template(
+        "regnskap_result.html",
+        mode=mode,
+        title=title,
+        batch_results=batch_results or [],
+        batch_error=batch_error,
+        batch_summary=batch_summary,
+        url_details=url_details or [],
+        url_error=url_error,
+        search_details=search_details or [],
+        search_error=search_error,
+        search_query=search_query,
+        format_amount=format_amount,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Flask-ruter
 # ---------------------------------------------------------------------------
 @regnskap_bp.route("/batch-download.csv")
@@ -763,23 +795,35 @@ def regnskap_hub():
                 if not orgnr:
                     search_error = "Fant ingen selskaper fra søket."
                 else:
-                    res = lookup_orgnr(http_session, orgnr)
+                    res = lookup_orgnr_brreg(http_session, orgnr)
                     if res:
                         search_details = build_detail_rows(res)
                     else:
-                        search_error = (
-                            f"Fant orgnr {orgnr} men ingen regnskapstall på Proff. "
-                            f"Sjekk: https://www.proff.no/regnskap/-/{orgnr}"
-                        )
+                        search_error = f"Fant orgnr {orgnr}, men Brreg hadde ingen regnskapsdata."
 
-    return render_template(
-        "regnskap_hub.html",
-        batch_results=batch_results,
-        batch_error=batch_error,
-        batch_summary=batch_summary,
-        format_amount=format_amount,
-        url_details=url_details,
-        url_error=url_error,
-        search_details=search_details,
-        search_error=search_error,
-    )
+            return render_regnskap_result_page(
+                mode="search",
+                title="Søkeresultat",
+                search_details=search_details,
+                search_error=search_error,
+                search_query=query,
+            )
+
+        if action == "batch":
+            return render_regnskap_result_page(
+                mode="batch",
+                title="Batch-resultat",
+                batch_results=batch_results,
+                batch_error=batch_error,
+                batch_summary=batch_summary,
+            )
+
+        if action == "url":
+            return render_regnskap_result_page(
+                mode="url",
+                title="Resultat fra Proff-URL",
+                url_details=url_details,
+                url_error=url_error,
+            )
+
+    return render_template("regnskap_hub.html")
