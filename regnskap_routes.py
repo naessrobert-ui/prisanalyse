@@ -55,6 +55,7 @@ PROFF_SEARCH_URL = "https://www.proff.no/bransjesøk"
 
 # Brreg – kun for navn-søk (søk på selskapsnavn i boks 3)
 BRREG_SEARCH_URL = "https://data.brreg.no/enhetsregisteret/api/enheter"
+BRREG_REGNSKAP_URL = "https://data.brreg.no/regnskapsregisteret/regnskap"
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +85,7 @@ class BatchRow:
     resultat_etter_skatt: float | None = None
     egenkapital: float | None = None
     url_used: str = ""
+    kilde: str = ""
     error: str = ""
     debug: str = ""
 
@@ -273,6 +275,152 @@ def proff_resolve_regnskap_url(sess: requests.Session, orgnr: str) -> str | None
     return None
 
 
+def _get_nested_amount(obj: dict, *keys: str) -> float | None:
+    current: Any = obj
+    for key in keys:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    if isinstance(current, (int, float)):
+        return float(current)
+    if isinstance(current, dict):
+        amount = current.get("beloep")
+        if isinstance(amount, (int, float)):
+            return float(amount)
+    return None
+
+
+def lookup_orgnr_brreg(http_session: requests.Session, orgnr: str) -> LookupResult | None:
+    """Hent siste tilgjengelige regnskap fra Brreg for gitt orgnr."""
+    try:
+        resp = http_session.get(
+            f"{BRREG_REGNSKAP_URL}/{orgnr}",
+            timeout=TIMEOUT,
+            headers={"Accept": "application/json"},
+        )
+        if resp.status_code != 200:
+            return None
+        payload = resp.json()
+        if isinstance(payload, list):
+            if not payload:
+                return None
+            payload = payload[0]
+        if not isinstance(payload, dict):
+            return None
+
+        virksomhet = payload.get("virksomhet", {})
+        periode = payload.get("regnskapsperiode", {})
+        period_to = str(periode.get("tilDato", "")).strip()
+        period_display = None
+        if periode.get("fraDato") and periode.get("tilDato"):
+            period_display = f"{periode.get('fraDato')} – {periode.get('tilDato')}"
+        elif period_to:
+            period_display = period_to
+
+        year = None
+        if period_to and re.match(r"^\d{4}", period_to):
+            year = int(period_to[:4])
+
+        company_name = (
+            virksomhet.get("navn")
+            or virksomhet.get("organisasjonsnavn")
+            or ""
+        )
+
+        return LookupResult(
+            company=company_name,
+            orgnr=normalize_orgnr(virksomhet.get("organisasjonsnummer", orgnr)),
+            year=year,
+            regnskapsperiode=period_display,
+            resultat_etter_skatt=_get_nested_amount(payload, "resultatregnskapResultat", "aarsresultat"),
+            egenkapital=_get_nested_amount(payload, "egenkapitalGjeld", "egenkapital", "sumEgenkapital"),
+            omsetning=_get_nested_amount(
+                payload,
+                "resultatregnskapResultat",
+                "driftsresultat",
+                "driftsinntekter",
+                "sumDriftsinntekter",
+            ),
+            url_used=f"{BRREG_REGNSKAP_URL}/{orgnr}",
+            debug_message="Kilde: Brreg regnskapsregisteret",
+        )
+    except Exception:
+        return None
+
+
+def lookup_proff_url_html(http_session: requests.Session, regnskap_url: str) -> LookupResult | None:
+    """Parser Proff-tabeller direkte fra HTML (logikk fra regnskap_core.py)."""
+    try:
+        resp = http_session.get(regnskap_url, timeout=TIMEOUT, verify=False)
+    except requests.RequestException:
+        return None
+    if resp.status_code != 200:
+        return None
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    per_period: dict[str, dict[str, float | None]] = {}
+
+    for table in soup.find_all("table"):
+        rows = table.find_all("tr")
+        if len(rows) < 3:
+            continue
+
+        header_cells = rows[0].find_all(["th", "td"])
+        periods = [
+            c.get_text(strip=True)
+            for c in header_cells[1:]
+            if re.match(r"^\d{4}-\d{2}$", c.get_text(strip=True))
+        ]
+        if not periods:
+            continue
+
+        for row in rows[1:]:
+            cells = row.find_all(["th", "td"])
+            if len(cells) < len(periods) + 1:
+                continue
+            label = cells[0].get_text(strip=True).strip().lower()
+            if not label or "valuta" in label or "startdato" in label or "sluttdato" in label:
+                continue
+
+            key = re.sub(r"[^a-z0-9_æøå]", "_", label)
+            for idx, period in enumerate(periods):
+                value_raw = (
+                    cells[idx + 1]
+                    .get_text(strip=True)
+                    .replace("\xa0", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
+                try:
+                    # Proff-tabellen viser ofte beløp i tusen
+                    value = float(value_raw) * 1000
+                except ValueError:
+                    value = None
+                per_period.setdefault(period, {})[key] = value
+
+    if not per_period:
+        return None
+
+    latest_period = max(per_period.keys())
+    latest = per_period[latest_period]
+    title = (soup.title.string.strip() if soup.title and soup.title.string else "")
+
+    org_candidates = re.findall(r"(\d{9})", regnskap_url)
+    orgnr = org_candidates[-1] if org_candidates else ""
+
+    return LookupResult(
+        company=title.split("|")[0].strip() if title else "",
+        orgnr=orgnr,
+        year=int(latest_period[:4]),
+        regnskapsperiode=latest_period,
+        resultat_etter_skatt=latest.get("årsresultat") or latest.get("aarsresultat"),
+        egenkapital=latest.get("sum_egenkapital") or latest.get("egenkapital"),
+        omsetning=latest.get("sum_driftsinntekter") or latest.get("driftsinntekter"),
+        url_used=regnskap_url,
+        debug_message="Kilde: Proff HTML-tabell",
+    )
+
+
 def build_urls(org: str, url_hint: str | None = None) -> list[str]:
     """Fallback-URLer hvis to-stegs resolving feiler."""
     urls = []
@@ -443,6 +591,38 @@ def deserialize_batch_rows(raw: list[dict[str, Any]]) -> list[BatchRow]:
 
 
 # ---------------------------------------------------------------------------
+# Resultatvisning
+# ---------------------------------------------------------------------------
+def render_regnskap_result_page(
+    *,
+    mode: str,
+    title: str,
+    batch_results: list[BatchRow] | None = None,
+    batch_error: str = "",
+    batch_summary: str = "",
+    url_details: list[tuple[str, str]] | None = None,
+    url_error: str = "",
+    search_details: list[tuple[str, str]] | None = None,
+    search_error: str = "",
+    search_query: str = "",
+) -> str:
+    return render_template(
+        "regnskap_result.html",
+        mode=mode,
+        title=title,
+        batch_results=batch_results or [],
+        batch_error=batch_error,
+        batch_summary=batch_summary,
+        url_details=url_details or [],
+        url_error=url_error,
+        search_details=search_details or [],
+        search_error=search_error,
+        search_query=search_query,
+        format_amount=format_amount,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Flask-ruter
 # ---------------------------------------------------------------------------
 @regnskap_bp.route("/batch-download.csv")
@@ -518,7 +698,7 @@ def regnskap_hub():
 
                     def fetch_one(org: str) -> tuple[str, LookupResult | None]:
                         s = make_session()
-                        return org, lookup_orgnr(s, org)
+                        return org, lookup_orgnr_brreg(s, org)
 
                     results_map: dict[str, LookupResult | None] = {}
                     with ThreadPoolExecutor(max_workers=BATCH_WORKERS) as ex:
@@ -541,6 +721,7 @@ def regnskap_hub():
                                     resultat_etter_skatt=res.resultat_etter_skatt,
                                     egenkapital=res.egenkapital,
                                     url_used=res.url_used,
+                                    kilde="Brreg",
                                     debug=res.debug_message,
                                 )
                             )
@@ -551,8 +732,8 @@ def regnskap_hub():
                                 BatchRow(
                                     orgnr=org,
                                     status="FEIL",
-                                    error="Fant ikke __NEXT_DATA__ på Proff.",
-                                    debug=f"resolved={_dbg_resolved or 'ingen'}",
+                                    error="Fant ikke regnskapsdata i Brreg.",
+                                    debug=f"resolved={_dbg_resolved or 'ingen'}; Brreg ga ingen data",
                                 )
                             )
 
@@ -571,7 +752,10 @@ def regnskap_hub():
                 url_error = "Skriv inn en URL."
             else:
                 payload = try_fetch_payload(http_session, regnskap_url)
-                if payload:
+                html_result = lookup_proff_url_html(http_session, regnskap_url)
+                if html_result:
+                    url_details = build_detail_rows(html_result)
+                elif payload:
                     records, _ = extract_accounts_records(payload)
                     if records:
                         latest = max(records, key=lambda r: r.get("year", 0) or 0)
@@ -611,23 +795,35 @@ def regnskap_hub():
                 if not orgnr:
                     search_error = "Fant ingen selskaper fra søket."
                 else:
-                    res = lookup_orgnr(http_session, orgnr)
+                    res = lookup_orgnr_brreg(http_session, orgnr)
                     if res:
                         search_details = build_detail_rows(res)
                     else:
-                        search_error = (
-                            f"Fant orgnr {orgnr} men ingen regnskapstall på Proff. "
-                            f"Sjekk: https://www.proff.no/regnskap/-/{orgnr}"
-                        )
+                        search_error = f"Fant orgnr {orgnr}, men Brreg hadde ingen regnskapsdata."
 
-    return render_template(
-        "regnskap_hub.html",
-        batch_results=batch_results,
-        batch_error=batch_error,
-        batch_summary=batch_summary,
-        format_amount=format_amount,
-        url_details=url_details,
-        url_error=url_error,
-        search_details=search_details,
-        search_error=search_error,
-    )
+            return render_regnskap_result_page(
+                mode="search",
+                title="Søkeresultat",
+                search_details=search_details,
+                search_error=search_error,
+                search_query=query,
+            )
+
+        if action == "batch":
+            return render_regnskap_result_page(
+                mode="batch",
+                title="Batch-resultat",
+                batch_results=batch_results,
+                batch_error=batch_error,
+                batch_summary=batch_summary,
+            )
+
+        if action == "url":
+            return render_regnskap_result_page(
+                mode="url",
+                title="Resultat fra Proff-URL",
+                url_details=url_details,
+                url_error=url_error,
+            )
+
+    return render_template("regnskap_hub.html")

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} | Prisanalyse</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+        .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 48px; }
+        .card { background: #1e293b; border-radius: 14px; padding: 16px; border: 1px solid #334155; }
+        a { color: #93c5fd; }
+        .error { color: #fca5a5; margin-top: 8px; }
+        .success { color: #86efac; margin-top: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.92rem; }
+        th, td { border: 1px solid #334155; padding: 8px; text-align: left; }
+        th { background:#0f172a; }
+        .details { margin-top: 12px; }
+        .details li { margin-bottom: 6px; }
+        .status-ok { color: #86efac; font-weight: 700; }
+        .status-feil { color: #fca5a5; font-weight: 700; }
+        .download-btn { padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; background: #60a5fa; color: #0f172a; cursor:pointer; text-decoration:none; display:inline-block; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <p><a href="{{ url_for('regnskap.regnskap_hub') }}">← Tilbake til valgside</a></p>
+    <h1>{{ title }}</h1>
+
+    <section class="card">
+        {% if mode == 'batch' %}
+            {% if batch_error %}<p class="error">{{ batch_error }}</p>{% endif %}
+            {% if batch_summary %}<p class="success">{{ batch_summary }}</p>{% endif %}
+            {% if batch_results %}
+            <p style="margin-top:10px;">
+                <a class="download-btn" href="{{ url_for('regnskap.batch_download_csv') }}">Last ned resultat (CSV)</a>
+            </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Orgnr</th>
+                        <th>Selskap</th>
+                        <th>År</th>
+                        <th>Omsetning</th>
+                        <th>Resultat etter skatt</th>
+                        <th>Egenkapital</th>
+                        <th>Kilde</th>
+                        <th>Feil</th>
+                        <th>Debug/feilsøking</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in batch_results %}
+                    <tr>
+                        <td class="{{ 'status-ok' if row.status == 'OK' else 'status-feil' }}">{{ row.status }}</td>
+                        <td>{{ row.orgnr }}</td>
+                        <td>{{ row.company }}</td>
+                        <td>{{ row.year or '' }}</td>
+                        <td>{{ format_amount(row.omsetning) }}</td>
+                        <td>{{ format_amount(row.resultat_etter_skatt) }}</td>
+                        <td>{{ format_amount(row.egenkapital) }}</td>
+                        <td>{{ row.kilde or '' }}</td>
+                        <td>{{ row.error }}</td>
+                        <td style="max-width:280px;word-break:break-word">{{ row.debug }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        {% elif mode == 'url' %}
+            {% if url_error %}<p class="error">{{ url_error }}</p>{% endif %}
+            {% if url_details %}
+            <ul class="details">
+                {% for key, value in url_details %}
+                <li><strong>{{ key }}:</strong> {{ value }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        {% elif mode == 'search' %}
+            {% if search_query %}<p>Søk: <strong>{{ search_query }}</strong></p>{% endif %}
+            {% if search_error %}<p class="error">{{ search_error }}</p>{% endif %}
+            {% if search_details %}
+            <ul class="details">
+                {% for key, value in search_details %}
+                <li><strong>{{ key }}:</strong> {{ value }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            <hr style="border-color:#334155;margin:18px 0;">
+            <p><strong>Brreg søkemuligheter i denne løsningen:</strong> navn eller orgnr.</p>
+            <p style="color:#cbd5e1;">Brreg sitt enhetsregister har også felter som kan brukes for mer avansert filtrering (f.eks. kommune/sted og næringskode/bransje), men da bør vi legge til egne inputfelter i skjemaet.</p>
+        {% endif %}
+    </section>
+</div>
+</body>
+</html>
