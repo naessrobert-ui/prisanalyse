@@ -4,6 +4,10 @@
 Direkte port av Proff_all.py.
 Kjernen: hent https://www.proff.no/regnskap/-/<orgnr> og parse
 __NEXT_DATA__ JSON – identisk logikk som fungerer i CLI-skriptet.
+
+OPPDATERT:
+- Støtter "regnskapsperiode" (typisk "YYYY-MM", f.eks. "2024-12") i tillegg til year (int).
+- Robust sortering på siste regnskap ved å utlede year fra periode/år-felt.
 """
 
 from __future__ import annotations
@@ -38,7 +42,7 @@ USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0.0.0 Safari/537.36"
 )
-TIMEOUT    = 15
+TIMEOUT = 15
 BATCH_WORKERS = 4
 
 URL_TEMPLATES = [
@@ -61,6 +65,7 @@ class LookupResult:
     company: str
     orgnr: str
     year: int | None
+    regnskapsperiode: str | None  # <-- NYTT (typisk "YYYY-MM", f.eks. "2024-12")
     resultat_etter_skatt: float | None
     egenkapital: float | None
     omsetning: float | None
@@ -74,6 +79,7 @@ class BatchRow:
     status: str
     company: str = ""
     year: int | None = None
+    regnskapsperiode: str | None = None  # <-- NYTT
     omsetning: float | None = None
     resultat_etter_skatt: float | None = None
     egenkapital: float | None = None
@@ -94,18 +100,20 @@ def make_session() -> requests.Session:
         allowed_methods=["GET"],
     )
     sess.mount("https://", HTTPAdapter(max_retries=retries))
-    sess.headers.update({
-        "User-Agent": USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "nb-NO,nb;q=0.9,no;q=0.8,en;q=0.7",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-    })
+    sess.headers.update(
+        {
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "nb-NO,nb;q=0.9,no;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+        }
+    )
     return sess
 
 
 # ---------------------------------------------------------------------------
-# Kjernefunksjoner – kopiert direkte fra Proff_all.py
+# Kjernefunksjoner – kopiert direkte fra Proff_all.py (+ litt robusthet)
 # ---------------------------------------------------------------------------
 def normalize_orgnr(value: str) -> str:
     return re.sub(r"\D", "", str(value or "").strip())
@@ -137,11 +145,7 @@ def try_fetch_payload(sess: requests.Session, url: str) -> dict | None:
 
 def get_company_name(payload: dict) -> str:
     """Identisk med Proff_all.py."""
-    company = (
-        payload.get("props", {})
-               .get("pageProps", {})
-               .get("company", {})
-    )
+    company = payload.get("props", {}).get("pageProps", {}).get("company", {})
     for key in ("name", "companyName", "displayName"):
         v = company.get(key)
         if isinstance(v, str) and v.strip():
@@ -149,17 +153,54 @@ def get_company_name(payload: dict) -> str:
     return ""
 
 
+def _parse_year_and_period(y: dict) -> tuple[int | None, str | None]:
+    """
+    Proff kan gi år/perioder litt ulikt. UI viser ofte "YYYY-MM" (f.eks. 2024-12).
+    I JSON kan det ligge som:
+      - y["year"] = 2024
+      - y["year"] = "2024-12"
+      - y["period"] = "2024-12"
+    Vi returnerer:
+      - year_int: int (for sortering)
+      - period_str: original streng hvis vi finner den (for visning)
+    """
+    period = y.get("period") or y.get("year")
+    period_str = None
+    if period is not None:
+        period_str = str(period).strip() or None
+
+    year_int = None
+    if period_str:
+        m = re.match(r"^(\d{4})(?:-(\d{2}))?$", period_str)
+        if m:
+            year_int = int(m.group(1))
+    else:
+        # siste fallback
+        yr = y.get("year")
+        if isinstance(yr, int):
+            year_int = yr
+
+    return year_int, period_str
+
+
 def extract_accounts_records(payload: dict) -> tuple[list[dict], str]:
-    """Identisk med Proff_all.py sin extract_accounts_df, uten pandas."""
-    company  = payload["props"]["pageProps"].get("company", {})
+    """Som Proff_all.py sin extract_accounts_df, uten pandas. Nå med 'period'."""
+    company = payload["props"]["pageProps"].get("company", {})
     currency = company.get("currency", "NOK")
     accounts = company.get("companyAccounts", []) or []
-    records  = []
+    records = []
+
     for y in accounts:
-        rec = {"year": y.get("year")}
+        year_int, period_str = _parse_year_and_period(y)
+
+        rec: dict[str, Any] = {
+            "year": year_int,        # int for sortering
+            "period": period_str,    # streng for visning (f.eks. "2024-12")
+        }
+
         for a in y.get("accounts", []):
             code = a.get("code")
-            amt  = a.get("amount")
+            amt = a.get("amount")
             if isinstance(amt, str):
                 amt = amt.replace(" ", "").replace("\xa0", "")
             try:
@@ -168,14 +209,14 @@ def extract_accounts_records(payload: dict) -> tuple[list[dict], str]:
                 pass
             if code:
                 rec[code] = amt
+
         if rec.get("year") is not None:
             records.append(rec)
+
     return records, currency
 
 
-def proff_resolve_regnskap_url(
-    sess: requests.Session, orgnr: str
-) -> str | None:
+def proff_resolve_regnskap_url(sess: requests.Session, orgnr: str) -> str | None:
     """
     To-stegs URL-resolving:
       1. GET bransjesøk?q=<orgnr>
@@ -183,24 +224,22 @@ def proff_resolve_regnskap_url(
       3. Bytt /selskap/ -> /regnskap/ og returner full URL
     """
     try:
-        search_url = f"{PROFF_SEARCH_URL}?q={orgnr}"
-        print(f"[RESOLVE] GET {search_url}", flush=True)
         resp = sess.get(
             PROFF_SEARCH_URL,
             params={"q": orgnr},
             timeout=TIMEOUT,
             verify=False,
         )
-        print(f"[RESOLVE] status={resp.status_code} len={len(resp.text)}", flush=True)
         if resp.status_code != 200:
             return None
 
         html = resp.text
 
         # Metode 1: data-p-stats JSON inneholder companyId direkte
-        # <div data-p-stats="{...&quot;companyId&quot;:&quot;IF310ML0CUX&quot;...}">
-        m = re.search(r'(?:&quot;|")companyId(?:&quot;|")\s*:\s*(?:&quot;|")([A-Z0-9]+)(?:&quot;|")', html)
-        print(f"[RESOLVE] companyId match: {m.group(1) if m else None}", flush=True)
+        m = re.search(
+            r'(?:&quot;|")companyId(?:&quot;|")\s*:\s*(?:&quot;|")([A-Z0-9]+)(?:&quot;|")',
+            html,
+        )
         if m:
             company_id = m.group(1)
             # Finn full /selskap/-path for å beholde slug (navn/sted/bransje)
@@ -209,15 +248,12 @@ def proff_resolve_regnskap_url(
             )
             if slug_m:
                 path = slug_m.group(1).replace("/selskap/", "/regnskap/")
-                url = "https://www.proff.no" + path
-                print(f"[RESOLVE] -> slug URL: {url}", flush=True)
-                return url
-            # Fallback: bygg minimal regnskap-URL med bare companyId
-            url = f"https://www.proff.no/regnskap/-/{orgnr}/{company_id}"
-            print(f"[RESOLVE] -> fallback URL: {url}", flush=True)
-            return url
+                return "https://www.proff.no" + path
 
-        # Metode 2: finn /selskap/-href direkte med regex
+            # Fallback: bygg minimal regnskap-URL med bare companyId
+            return f"https://www.proff.no/regnskap/-/{orgnr}/{company_id}"
+
+        # Metode 2: finn /selskap/-href direkte med regex (ofte nok)
         href_m = re.search(r'href="(/selskap/[^"]+)"', html)
         if href_m:
             path = href_m.group(1).replace("/selskap/", "/regnskap/")
@@ -260,19 +296,16 @@ def lookup_orgnr(
     orgnr: str,
     url_hint: str | None = None,
 ) -> LookupResult | None:
-    payload  = None
+    payload = None
     used_url = None
     debug_parts: list[str] = []
 
     # Steg 1: to-stegs resolving via bransjesøk (gir riktig intern Proff-URL)
-    print(f"[LOOKUP] orgnr={orgnr}", flush=True)
     resolved = proff_resolve_regnskap_url(http_session, orgnr)
-    print(f"[LOOKUP] resolved={resolved}", flush=True)
     if resolved:
         p = try_fetch_payload(http_session, resolved)
-        print(f"[LOOKUP] payload fra resolved: {bool(p)}", flush=True)
         if p:
-            payload  = p
+            payload = p
             used_url = resolved
         else:
             debug_parts.append(f"ingen payload fra resolved: {resolved}")
@@ -282,7 +315,7 @@ def lookup_orgnr(
         for url in build_urls(orgnr, url_hint):
             p = try_fetch_payload(http_session, url)
             if p:
-                payload  = p
+                payload = p
                 used_url = url
                 break
             debug_parts.append(f"ingen payload: {url}")
@@ -294,16 +327,19 @@ def lookup_orgnr(
     if not records:
         return None
 
-    latest = max(records, key=lambda r: r.get("year", 0))
-    year   = latest.get("year")
+    # "Siste" regnskap: sorter på year (int).
+    latest = max(records, key=lambda r: r.get("year", 0) or 0)
+    year = latest.get("year")
+    period = latest.get("period")
 
     company_data = payload.get("props", {}).get("pageProps", {}).get("company", {})
-    found_orgnr  = normalize_orgnr(company_data.get("orgNumber", orgnr))
+    found_orgnr = normalize_orgnr(company_data.get("orgNumber", orgnr))
 
     return LookupResult(
         company=get_company_name(payload),
         orgnr=found_orgnr,
         year=year,
+        regnskapsperiode=period,
         resultat_etter_skatt=latest.get("AR"),
         egenkapital=latest.get("SEK"),
         omsetning=latest.get("SDI"),
@@ -368,7 +404,7 @@ def parse_xlsx_values(content: bytes) -> list[str]:
 
 
 def parse_orgnrs_from_file(file_storage) -> list[str]:
-    content  = file_storage.read()
+    content = file_storage.read()
     filename = (file_storage.filename or "").lower()
     if filename.endswith(".xlsx"):
         raw = parse_xlsx_values(content)
@@ -387,13 +423,14 @@ def parse_orgnrs_from_file(file_storage) -> list[str]:
 # ---------------------------------------------------------------------------
 def build_detail_rows(result: LookupResult) -> list[tuple[str, str]]:
     return [
-        ("Selskap",              result.company),
-        ("Organisasjonsnummer",  result.orgnr),
-        ("Siste regnskapsår",    str(result.year) if result.year else "Ukjent"),
-        ("Sum driftsinntekter",  format_amount(result.omsetning) or "Mangler"),
+        ("Selskap", result.company),
+        ("Organisasjonsnummer", result.orgnr),
+        ("Regnskapsperiode", result.regnskapsperiode or "Ukjent"),
+        ("Siste regnskapsår", str(result.year) if result.year else "Ukjent"),
+        ("Sum driftsinntekter", format_amount(result.omsetning) or "Mangler"),
         ("Resultat etter skatt", format_amount(result.resultat_etter_skatt) or "Mangler"),
-        ("Egenkapital",          format_amount(result.egenkapital) or "Mangler"),
-        ("URL",                  result.url_used),
+        ("Egenkapital", format_amount(result.egenkapital) or "Mangler"),
+        ("URL", result.url_used),
     ]
 
 
@@ -410,25 +447,43 @@ def deserialize_batch_rows(raw: list[dict[str, Any]]) -> list[BatchRow]:
 # ---------------------------------------------------------------------------
 @regnskap_bp.route("/batch-download.csv")
 def batch_download_csv():
-    rows   = deserialize_batch_rows(session.get("regnskap_batch_rows", []))
+    rows = deserialize_batch_rows(session.get("regnskap_batch_rows", []))
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter=";")
-    writer.writerow([
-        "orgnr", "status", "selskap", "år",
-        "omsetning", "resultat_etter_skatt", "egenkapital",
-        "url", "feil", "debug",
-    ])
+    writer.writerow(
+        [
+            "orgnr",
+            "status",
+            "selskap",
+            "regnskapsperiode",
+            "år",
+            "omsetning",
+            "resultat_etter_skatt",
+            "egenkapital",
+            "url",
+            "feil",
+            "debug",
+        ]
+    )
     for row in rows:
-        writer.writerow([
-            row.orgnr, row.status, row.company, row.year or "",
-            format_amount(row.omsetning),
-            format_amount(row.resultat_etter_skatt),
-            format_amount(row.egenkapital),
-            row.url_used, row.error, row.debug,
-        ])
+        writer.writerow(
+            [
+                row.orgnr,
+                row.status,
+                row.company,
+                row.regnskapsperiode or "",
+                row.year or "",
+                format_amount(row.omsetning),
+                format_amount(row.resultat_etter_skatt),
+                format_amount(row.egenkapital),
+                row.url_used,
+                row.error,
+                row.debug,
+            ]
+        )
     csv_content = "\ufeff" + buffer.getvalue()
     resp = make_response(csv_content)
-    resp.headers["Content-Type"]        = "text/csv; charset=utf-8"
+    resp.headers["Content-Type"] = "text/csv; charset=utf-8"
     resp.headers["Content-Disposition"] = "attachment; filename=regnskap_resultater.csv"
     return resp
 
@@ -437,13 +492,13 @@ def batch_download_csv():
 def regnskap_hub():
     http_session = make_session()
 
-    batch_results: list[BatchRow]       = []
-    batch_error   = ""
+    batch_results: list[BatchRow] = []
+    batch_error = ""
     batch_summary = ""
-    url_details:   list[tuple[str, str]] = []
-    url_error     = ""
+    url_details: list[tuple[str, str]] = []
+    url_error = ""
     search_details: list[tuple[str, str]] = []
-    search_error  = ""
+    search_error = ""
 
     if request.method == "POST":
         action = request.form.get("action", "")
@@ -475,26 +530,34 @@ def regnskap_hub():
                     for org in orgnrs_batch:
                         res = results_map.get(org)
                         if res:
-                            batch_results.append(BatchRow(
-                                orgnr=res.orgnr, status="OK",
-                                company=res.company, year=res.year,
-                                omsetning=res.omsetning,
-                                resultat_etter_skatt=res.resultat_etter_skatt,
-                                egenkapital=res.egenkapital,
-                                url_used=res.url_used,
-                                debug=res.debug_message,
-                            ))
+                            batch_results.append(
+                                BatchRow(
+                                    orgnr=res.orgnr,
+                                    status="OK",
+                                    company=res.company,
+                                    year=res.year,
+                                    regnskapsperiode=res.regnskapsperiode,
+                                    omsetning=res.omsetning,
+                                    resultat_etter_skatt=res.resultat_etter_skatt,
+                                    egenkapital=res.egenkapital,
+                                    url_used=res.url_used,
+                                    debug=res.debug_message,
+                                )
+                            )
                         else:
                             # lookup_orgnr returnerte None - prøv resolve på nytt bare for debug
                             _dbg_resolved = proff_resolve_regnskap_url(http_session, org)
-                            batch_results.append(BatchRow(
-                                orgnr=org, status="FEIL",
-                                error="Fant ikke __NEXT_DATA__ på Proff.",
-                                debug=f"resolved={_dbg_resolved or 'ingen'}",
-                            ))
+                            batch_results.append(
+                                BatchRow(
+                                    orgnr=org,
+                                    status="FEIL",
+                                    error="Fant ikke __NEXT_DATA__ på Proff.",
+                                    debug=f"resolved={_dbg_resolved or 'ingen'}",
+                                )
+                            )
 
                     dur = time.perf_counter() - t0
-                    ok  = sum(1 for r in batch_results if r.status == "OK")
+                    ok = sum(1 for r in batch_results if r.status == "OK")
                     batch_summary = (
                         f"Ferdig: {len(batch_results)} behandlet · "
                         f"{ok} treff · {len(batch_results)-ok} uten treff · {dur:.1f} sek"
@@ -511,12 +574,13 @@ def regnskap_hub():
                 if payload:
                     records, _ = extract_accounts_records(payload)
                     if records:
-                        latest = max(records, key=lambda r: r.get("year", 0))
-                        cd     = payload.get("props", {}).get("pageProps", {}).get("company", {})
+                        latest = max(records, key=lambda r: r.get("year", 0) or 0)
+                        cd = payload.get("props", {}).get("pageProps", {}).get("company", {})
                         res = LookupResult(
                             company=get_company_name(payload),
                             orgnr=normalize_orgnr(cd.get("orgNumber", "")),
                             year=latest.get("year"),
+                            regnskapsperiode=latest.get("period"),
                             resultat_etter_skatt=latest.get("AR"),
                             egenkapital=latest.get("SEK"),
                             omsetning=latest.get("SDI"),
