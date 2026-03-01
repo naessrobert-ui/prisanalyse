@@ -90,6 +90,52 @@ class BatchRow:
     debug: str = ""
 
 
+@dataclass
+class FinancialDataset:
+    company: str
+    orgnr: str
+    url_used: str
+    currency: str
+    records: list[dict[str, Any]]
+
+    @property
+    def columns(self) -> list[str]:
+        fixed = ["period", "year"]
+        dynamic = sorted(
+            {
+                key
+                for rec in self.records
+                for key in rec.keys()
+                if key not in fixed
+            }
+        )
+        return fixed + dynamic
+
+
+FIELD_LABELS: dict[str, str] = {
+    "period": "Regnskapsperiode",
+    "year": "Regnskapsår",
+    "SDI": "Sum driftsinntekter (omsetning)",
+    "ORFS": "Ordinært resultat før skattekostnad",
+    "OR": "Ordinært resultat",
+    "DRR": "Driftsresultat",
+    "ODR": "Driftsresultat",
+    "AR": "Årsresultat",
+    "SEK": "Sum egenkapital",
+    "sum_driftsinntekter": "Sum driftsinntekter (omsetning)",
+    "driftsinntekter": "Driftsinntekter",
+    "driftsresultat": "Driftsresultat",
+    "resultat_før_skattekostnad": "Resultat før skattekostnad",
+    "resultat_for_skattekostnad": "Resultat før skattekostnad",
+    "resultat_før_skatt": "Resultat før skatt",
+    "resultat_for_skatt": "Resultat før skatt",
+    "årsresultat": "Årsresultat",
+    "aarsresultat": "Årsresultat",
+    "sum_egenkapital": "Sum egenkapital",
+    "egenkapital": "Egenkapital",
+}
+
+
 # ---------------------------------------------------------------------------
 # HTTP-session
 # ---------------------------------------------------------------------------
@@ -216,6 +262,94 @@ def extract_accounts_records(payload: dict) -> tuple[list[dict], str]:
             records.append(rec)
 
     return records, currency
+
+
+def parse_proff_html_accounts(html: str) -> list[dict[str, Any]]:
+    """Les ut alle perioder/felter fra Proff HTML-tabeller."""
+    soup = BeautifulSoup(html, "html.parser")
+    per_period: dict[str, dict[str, Any]] = {}
+
+    for table in soup.find_all("table"):
+        rows = table.find_all("tr")
+        if len(rows) < 3:
+            continue
+
+        header_cells = rows[0].find_all(["th", "td"])
+        periods = [
+            c.get_text(strip=True)
+            for c in header_cells[1:]
+            if re.match(r"^\d{4}-\d{2}$", c.get_text(strip=True))
+        ]
+        if not periods:
+            continue
+
+        for row in rows[1:]:
+            cells = row.find_all(["th", "td"])
+            if len(cells) < len(periods) + 1:
+                continue
+
+            label = cells[0].get_text(strip=True).strip().lower()
+            if not label or "valuta" in label or "startdato" in label or "sluttdato" in label:
+                continue
+
+            key = re.sub(r"[^a-z0-9_æøå]", "_", label)
+            for idx, period in enumerate(periods):
+                value_raw = (
+                    cells[idx + 1]
+                    .get_text(strip=True)
+                    .replace("\xa0", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
+                try:
+                    # Proff-tabellen viser ofte beløp i tusen
+                    value = float(value_raw) * 1000
+                except ValueError:
+                    value = None
+                period_rec = per_period.setdefault(period, {"period": period, "year": int(period[:4])})
+                period_rec[key] = value
+
+    return list(per_period.values())
+
+
+def build_dataset_from_payload(payload: dict, regnskap_url: str) -> FinancialDataset | None:
+    records, currency = extract_accounts_records(payload)
+    if not records:
+        return None
+    company_data = payload.get("props", {}).get("pageProps", {}).get("company", {})
+    records_sorted = sorted(records, key=lambda r: (r.get("year", 0) or 0, str(r.get("period") or "")))
+    return FinancialDataset(
+        company=get_company_name(payload),
+        orgnr=normalize_orgnr(company_data.get("orgNumber", "")),
+        url_used=regnskap_url,
+        currency=currency,
+        records=records_sorted,
+    )
+
+
+def build_dataset_from_html(http_session: requests.Session, regnskap_url: str) -> FinancialDataset | None:
+    try:
+        resp = http_session.get(regnskap_url, timeout=TIMEOUT, verify=False)
+    except requests.RequestException:
+        return None
+    if resp.status_code != 200:
+        return None
+
+    records = parse_proff_html_accounts(resp.text)
+    if not records:
+        return None
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    title = (soup.title.string.strip() if soup.title and soup.title.string else "")
+    org_candidates = re.findall(r"(\d{9})", regnskap_url)
+
+    return FinancialDataset(
+        company=title.split("|")[0].strip() if title else "",
+        orgnr=org_candidates[-1] if org_candidates else "",
+        url_used=regnskap_url,
+        currency="NOK",
+        records=sorted(records, key=lambda r: (r.get("year", 0) or 0, str(r.get("period") or ""))),
+    )
 
 
 def proff_resolve_regnskap_url(sess: requests.Session, orgnr: str) -> str | None:
@@ -569,6 +703,83 @@ def parse_orgnrs_from_file(file_storage) -> list[str]:
 # ---------------------------------------------------------------------------
 # Presentasjon
 # ---------------------------------------------------------------------------
+
+def _pick_metric(rec: dict[str, Any], *candidates: str) -> float | None:
+    for key in candidates:
+        value = rec.get(key)
+        if isinstance(value, (int, float)):
+            return float(value)
+    return None
+
+
+def build_column_metadata(columns: list[str]) -> dict[str, dict[str, str]]:
+    metadata: dict[str, dict[str, str]] = {}
+    for col in columns:
+        label = FIELD_LABELS.get(col)
+        if not label:
+            label = col.replace("_", " ").strip().capitalize()
+        metadata[col] = {
+            "short": col,
+            "full": label,
+        }
+    return metadata
+
+
+def build_chart_series(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    points_omsetning: list[dict[str, Any]] = []
+    points_resultat_for_skatt: list[dict[str, Any]] = []
+    points_driftsmargin: list[dict[str, Any]] = []
+
+    for rec in records:
+        label = rec.get("period") or str(rec.get("year") or "")
+        omsetning = _pick_metric(rec, "SDI", "sum_driftsinntekter", "driftsinntekter")
+        resultat_for_skatt = _pick_metric(
+            rec,
+            "ORFS",
+            "OR", 
+            "resultat_før_skattekostnad",
+            "resultat_for_skattekostnad",
+            "resultat_før_skatt",
+            "resultat_for_skatt",
+        )
+        driftsresultat = _pick_metric(rec, "DRR", "ODR", "driftsresultat")
+        if omsetning is not None:
+            points_omsetning.append({"label": label, "value": omsetning})
+        if resultat_for_skatt is not None:
+            points_resultat_for_skatt.append({"label": label, "value": resultat_for_skatt})
+        if omsetning and driftsresultat is not None:
+            points_driftsmargin.append({"label": label, "value": (driftsresultat / omsetning) * 100})
+
+    return {
+        "omsetning": points_omsetning,
+        "resultat_for_skatt": points_resultat_for_skatt,
+        "driftsmargin": points_driftsmargin,
+    }
+
+
+def dataset_to_session_payload(dataset: FinancialDataset) -> dict[str, Any]:
+    return {
+        "company": dataset.company,
+        "orgnr": dataset.orgnr,
+        "url_used": dataset.url_used,
+        "currency": dataset.currency,
+        "records": dataset.records,
+    }
+
+
+def dataset_from_session_payload(raw: dict[str, Any]) -> FinancialDataset | None:
+    if not raw:
+        return None
+    records = raw.get("records")
+    if not isinstance(records, list) or not records:
+        return None
+    return FinancialDataset(
+        company=str(raw.get("company", "")),
+        orgnr=str(raw.get("orgnr", "")),
+        url_used=str(raw.get("url_used", "")),
+        currency=str(raw.get("currency", "NOK")),
+        records=records,
+    )
 def build_detail_rows(result: LookupResult) -> list[tuple[str, str]]:
     return [
         ("Selskap", result.company),
@@ -602,6 +813,7 @@ def render_regnskap_result_page(
     batch_summary: str = "",
     url_details: list[tuple[str, str]] | None = None,
     url_error: str = "",
+    url_dataset: FinancialDataset | None = None,
     search_details: list[tuple[str, str]] | None = None,
     search_error: str = "",
     search_query: str = "",
@@ -618,6 +830,9 @@ def render_regnskap_result_page(
         search_details=search_details or [],
         search_error=search_error,
         search_query=search_query,
+        url_dataset=url_dataset,
+        column_metadata=(build_column_metadata(url_dataset.columns) if url_dataset else {}),
+        chart_series=(build_chart_series(url_dataset.records) if url_dataset else {}),
         format_amount=format_amount,
     )
 
@@ -668,6 +883,35 @@ def batch_download_csv():
     return resp
 
 
+@regnskap_bp.route("/detailed-download.csv")
+def detailed_download_csv():
+    dataset = dataset_from_session_payload(session.get("regnskap_url_dataset", {}))
+    if not dataset:
+        resp = make_response("Ingen detaljer å laste ned.")
+        resp.status_code = 400
+        return resp
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";")
+    writer.writerow(dataset.columns)
+    for rec in dataset.records:
+        row = []
+        for col in dataset.columns:
+            val = rec.get(col, "")
+            if isinstance(val, float):
+                row.append(f"{val:.2f}")
+            else:
+                row.append(val)
+        writer.writerow(row)
+
+    csv_content = "﻿" + buffer.getvalue()
+    resp = make_response(csv_content)
+    filename_org = dataset.orgnr or "ukjent"
+    resp.headers["Content-Type"] = "text/csv; charset=utf-8"
+    resp.headers["Content-Disposition"] = f"attachment; filename=regnskap_detaljer_{filename_org}.csv"
+    return resp
+
+
 @regnskap_bp.route("/", methods=["GET", "POST"])
 def regnskap_hub():
     http_session = make_session()
@@ -677,6 +921,7 @@ def regnskap_hub():
     batch_summary = ""
     url_details: list[tuple[str, str]] = []
     url_error = ""
+    url_dataset: FinancialDataset | None = None
     search_details: list[tuple[str, str]] = []
     search_error = ""
 
@@ -747,32 +992,31 @@ def regnskap_hub():
 
         # ---- URL ----------------------------------------------------------
         elif action == "url":
+            session.pop("regnskap_url_dataset", None)
             regnskap_url = (request.form.get("proff_url") or "").strip()
             if not regnskap_url:
                 url_error = "Skriv inn en URL."
             else:
                 payload = try_fetch_payload(http_session, regnskap_url)
-                html_result = lookup_proff_url_html(http_session, regnskap_url)
-                if html_result:
-                    url_details = build_detail_rows(html_result)
-                elif payload:
-                    records, _ = extract_accounts_records(payload)
-                    if records:
-                        latest = max(records, key=lambda r: r.get("year", 0) or 0)
-                        cd = payload.get("props", {}).get("pageProps", {}).get("company", {})
-                        res = LookupResult(
-                            company=get_company_name(payload),
-                            orgnr=normalize_orgnr(cd.get("orgNumber", "")),
-                            year=latest.get("year"),
-                            regnskapsperiode=latest.get("period"),
-                            resultat_etter_skatt=latest.get("AR"),
-                            egenkapital=latest.get("SEK"),
-                            omsetning=latest.get("SDI"),
-                            url_used=regnskap_url,
-                        )
-                        url_details = build_detail_rows(res)
-                    else:
-                        url_error = "Fant payload men ingen regnskapstall."
+                if payload:
+                    url_dataset = build_dataset_from_payload(payload, regnskap_url)
+                if not url_dataset:
+                    url_dataset = build_dataset_from_html(http_session, regnskap_url)
+
+                if url_dataset:
+                    latest = max(url_dataset.records, key=lambda r: r.get("year", 0) or 0)
+                    res = LookupResult(
+                        company=url_dataset.company,
+                        orgnr=url_dataset.orgnr,
+                        year=latest.get("year"),
+                        regnskapsperiode=latest.get("period"),
+                        resultat_etter_skatt=latest.get("AR"),
+                        egenkapital=latest.get("SEK"),
+                        omsetning=latest.get("SDI"),
+                        url_used=regnskap_url,
+                    )
+                    url_details = build_detail_rows(res)
+                    session["regnskap_url_dataset"] = dataset_to_session_payload(url_dataset)
                 else:
                     # Trekk ut orgnr fra URL og prøv standard templates
                     candidates = re.findall(r"(\d{9})", regnskap_url)
@@ -824,6 +1068,7 @@ def regnskap_hub():
                 title="Resultat fra Proff-URL",
                 url_details=url_details,
                 url_error=url_error,
+                url_dataset=url_dataset,
             )
 
     return render_template("regnskap_hub.html")
