@@ -19,6 +19,13 @@
         .status-ok { color: #86efac; font-weight: 700; }
         .status-feil { color: #fca5a5; font-weight: 700; }
         .download-btn { padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; background: #60a5fa; color: #0f172a; cursor:pointer; text-decoration:none; display:inline-block; }
+        .chart-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-top:16px; }
+        .chart-card { background:#0f172a; border:1px solid #334155; border-radius:10px; padding:10px; }
+        .bar-row { margin-bottom:8px; }
+        .bar-label { display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:4px; color:#cbd5e1; }
+        .bar-track { background:#1e293b; border-radius:999px; height:10px; overflow:hidden; }
+        .bar-fill { background:#60a5fa; height:100%; }
+        .table-wrap { overflow-x:auto; margin-top:14px; }
     </style>
 </head>
 <body>
@@ -76,6 +83,48 @@
                 {% endfor %}
             </ul>
             {% endif %}
+            {% if url_dataset %}
+            <p style="margin-top:12px;">
+                <a class="download-btn" href="{{ url_for('regnskap.detailed_download_csv') }}">Last ned alle år/felter (CSV for Excel)</a>
+            </p>
+            <div class="chart-grid">
+                <div class="chart-card">
+                    <h3>Omsetning per år</h3>
+                    <div id="chart-omsetning"></div>
+                </div>
+                <div class="chart-card">
+                    <h3>Resultat før skatt per år</h3>
+                    <div id="chart-resultat"></div>
+                </div>
+                <div class="chart-card">
+                    <h3>Margin (%) per år</h3>
+                    <div id="chart-margin"></div>
+                </div>
+            </div>
+
+            <h3 style="margin-top:18px;">Alle tilgjengelige regnskapsfelter ({{ url_dataset.currency }})</h3>
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        {% for col in url_dataset.columns %}
+                        <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in url_dataset.records %}
+                    <tr>
+                        {% for col in url_dataset.columns %}
+                        {% set value = row.get(col, '') %}
+                        <td>{% if value is number %}{{ format_amount(value) }}{% else %}{{ value }}{% endif %}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% endif %}
         {% elif mode == 'search' %}
             {% if search_query %}<p>Søk: <strong>{{ search_query }}</strong></p>{% endif %}
             {% if search_error %}<p class="error">{{ search_error }}</p>{% endif %}
@@ -92,5 +141,27 @@
         {% endif %}
     </section>
 </div>
+<script>
+    const chartSeries = {{ chart_series|tojson }};
+
+    function renderBars(containerId, points, color = '#60a5fa', suffix = '') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (!points || !points.length) {
+            container.innerHTML = '<p style="color:#cbd5e1">Ingen data tilgjengelig.</p>';
+            return;
+        }
+        const maxAbs = Math.max(...points.map(p => Math.abs(p.value) || 0), 1);
+        container.innerHTML = points.map((p) => {
+            const pct = Math.max((Math.abs(p.value) / maxAbs) * 100, 2);
+            const pretty = Number.isFinite(p.value) ? p.value.toLocaleString('no-NO', {maximumFractionDigits: 1}) : '';
+            return `<div class="bar-row"><div class="bar-label"><span>${p.label}</span><span>${pretty}${suffix}</span></div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+        }).join('');
+    }
+
+    renderBars('chart-omsetning', chartSeries.omsetning, '#60a5fa');
+    renderBars('chart-resultat', chartSeries.resultat_for_skatt, '#34d399');
+    renderBars('chart-margin', chartSeries.margin, '#f59e0b', '%');
+</script>
 </body>
 </html>
