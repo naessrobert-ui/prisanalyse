@@ -112,6 +112,30 @@ class FinancialDataset:
         return fixed + dynamic
 
 
+FIELD_LABELS: dict[str, str] = {
+    "period": "Regnskapsperiode",
+    "year": "Regnskapsår",
+    "SDI": "Sum driftsinntekter (omsetning)",
+    "ORFS": "Ordinært resultat før skattekostnad",
+    "OR": "Ordinært resultat",
+    "DRR": "Driftsresultat",
+    "ODR": "Driftsresultat",
+    "AR": "Årsresultat",
+    "SEK": "Sum egenkapital",
+    "sum_driftsinntekter": "Sum driftsinntekter (omsetning)",
+    "driftsinntekter": "Driftsinntekter",
+    "driftsresultat": "Driftsresultat",
+    "resultat_før_skattekostnad": "Resultat før skattekostnad",
+    "resultat_for_skattekostnad": "Resultat før skattekostnad",
+    "resultat_før_skatt": "Resultat før skatt",
+    "resultat_for_skatt": "Resultat før skatt",
+    "årsresultat": "Årsresultat",
+    "aarsresultat": "Årsresultat",
+    "sum_egenkapital": "Sum egenkapital",
+    "egenkapital": "Egenkapital",
+}
+
+
 # ---------------------------------------------------------------------------
 # HTTP-session
 # ---------------------------------------------------------------------------
@@ -688,10 +712,23 @@ def _pick_metric(rec: dict[str, Any], *candidates: str) -> float | None:
     return None
 
 
+def build_column_metadata(columns: list[str]) -> dict[str, dict[str, str]]:
+    metadata: dict[str, dict[str, str]] = {}
+    for col in columns:
+        label = FIELD_LABELS.get(col)
+        if not label:
+            label = col.replace("_", " ").strip().capitalize()
+        metadata[col] = {
+            "short": col,
+            "full": label,
+        }
+    return metadata
+
+
 def build_chart_series(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     points_omsetning: list[dict[str, Any]] = []
     points_resultat_for_skatt: list[dict[str, Any]] = []
-    points_margin: list[dict[str, Any]] = []
+    points_driftsmargin: list[dict[str, Any]] = []
 
     for rec in records:
         label = rec.get("period") or str(rec.get("year") or "")
@@ -705,17 +742,18 @@ def build_chart_series(records: list[dict[str, Any]]) -> dict[str, list[dict[str
             "resultat_før_skatt",
             "resultat_for_skatt",
         )
+        driftsresultat = _pick_metric(rec, "DRR", "ODR", "driftsresultat")
         if omsetning is not None:
             points_omsetning.append({"label": label, "value": omsetning})
         if resultat_for_skatt is not None:
             points_resultat_for_skatt.append({"label": label, "value": resultat_for_skatt})
-        if omsetning and resultat_for_skatt is not None:
-            points_margin.append({"label": label, "value": (resultat_for_skatt / omsetning) * 100})
+        if omsetning and driftsresultat is not None:
+            points_driftsmargin.append({"label": label, "value": (driftsresultat / omsetning) * 100})
 
     return {
         "omsetning": points_omsetning,
         "resultat_for_skatt": points_resultat_for_skatt,
-        "margin": points_margin,
+        "driftsmargin": points_driftsmargin,
     }
 
 
@@ -793,6 +831,7 @@ def render_regnskap_result_page(
         search_error=search_error,
         search_query=search_query,
         url_dataset=url_dataset,
+        column_metadata=(build_column_metadata(url_dataset.columns) if url_dataset else {}),
         chart_series=(build_chart_series(url_dataset.records) if url_dataset else {}),
         format_amount=format_amount,
     )

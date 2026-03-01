@@ -97,7 +97,7 @@
                     <div id="chart-resultat"></div>
                 </div>
                 <div class="chart-card">
-                    <h3>Margin (%) per år</h3>
+                    <h3>Driftsmargin (%) per år</h3>
                     <div id="chart-margin"></div>
                 </div>
             </div>
@@ -108,7 +108,12 @@
                 <thead>
                     <tr>
                         {% for col in url_dataset.columns %}
-                        <th>{{ col }}</th>
+                        <th>
+                            <span title="{{ column_metadata.get(col, {}).get('full', col) }}">{{ col }}</span>
+                            {% if column_metadata.get(col, {}).get('full', col) != col %}
+                            <span style="display:block;color:#94a3b8;font-size:0.78rem;line-height:1.2;margin-top:2px;">{{ column_metadata.get(col, {}).get('full', col) }}</span>
+                            {% endif %}
+                        </th>
                         {% endfor %}
                     </tr>
                 </thead>
@@ -161,7 +166,7 @@
 
     renderBars('chart-omsetning', chartSeries.omsetning, '#60a5fa');
     renderBars('chart-resultat', chartSeries.resultat_for_skatt, '#34d399');
-    renderBars('chart-margin', chartSeries.margin, '#f59e0b', '%');
+    renderBars('chart-margin', chartSeries.driftsmargin, '#f59e0b', '%');
 </script>
 </body>
 </html>
