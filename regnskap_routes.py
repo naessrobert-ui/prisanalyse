@@ -261,7 +261,21 @@ def extract_accounts_records(payload: dict) -> tuple[list[dict], str, dict[str, 
                 pass
             if code:
                 rec[code] = amt
-                for label_key in ("label", "name", "nameNb", "description", "title", "accountName"):
+                for label_key in (
+                    "label",
+                    "labelNb",
+                    "labelNo",
+                    "name",
+                    "nameNb",
+                    "nameNo",
+                    "displayName",
+                    "displayNameNb",
+                    "description",
+                    "accountDescription",
+                    "title",
+                    "accountName",
+                    "text",
+                ):
                     label_val = a.get(label_key)
                     if isinstance(label_val, str) and label_val.strip() and label_val.strip() != str(code):
                         dynamic_labels.setdefault(str(code), label_val.strip())
@@ -273,10 +287,11 @@ def extract_accounts_records(payload: dict) -> tuple[list[dict], str, dict[str, 
     return records, currency, dynamic_labels
 
 
-def parse_proff_html_accounts(html: str) -> list[dict[str, Any]]:
+def parse_proff_html_accounts(html: str) -> tuple[list[dict[str, Any]], dict[str, str]]:
     """Les ut alle perioder/felter fra Proff HTML-tabeller."""
     soup = BeautifulSoup(html, "html.parser")
     per_period: dict[str, dict[str, Any]] = {}
+    field_labels: dict[str, str] = {}
 
     for table in soup.find_all("table"):
         rows = table.find_all("tr")
@@ -297,11 +312,14 @@ def parse_proff_html_accounts(html: str) -> list[dict[str, Any]]:
             if len(cells) < len(periods) + 1:
                 continue
 
-            label = cells[0].get_text(strip=True).strip().lower()
+            raw_label = cells[0].get_text(strip=True).strip()
+            label = raw_label.lower()
             if not label or "valuta" in label or "startdato" in label or "sluttdato" in label:
                 continue
 
             key = re.sub(r"[^a-z0-9_æøå]", "_", label)
+            if key:
+                field_labels.setdefault(key, raw_label)
             for idx, period in enumerate(periods):
                 value_raw = (
                     cells[idx + 1]
@@ -318,7 +336,7 @@ def parse_proff_html_accounts(html: str) -> list[dict[str, Any]]:
                 period_rec = per_period.setdefault(period, {"period": period, "year": int(period[:4])})
                 period_rec[key] = value
 
-    return list(per_period.values())
+    return list(per_period.values()), field_labels
 
 
 def build_dataset_from_payload(payload: dict, regnskap_url: str) -> FinancialDataset | None:
@@ -350,7 +368,7 @@ def build_dataset_from_html(http_session: requests.Session, regnskap_url: str) -
     if resp.status_code != 200:
         return None
 
-    records = parse_proff_html_accounts(resp.text)
+    records, field_labels = parse_proff_html_accounts(resp.text)
     if not records:
         return None
 
@@ -364,6 +382,7 @@ def build_dataset_from_html(http_session: requests.Session, regnskap_url: str) -
         url_used=regnskap_url,
         currency="NOK",
         records=sorted(records, key=lambda r: (r.get("year", 0) or 0, str(r.get("period") or ""))),
+        field_labels=field_labels,
     )
 
 
@@ -527,7 +546,8 @@ def lookup_proff_url_html(http_session: requests.Session, regnskap_url: str) -> 
             cells = row.find_all(["th", "td"])
             if len(cells) < len(periods) + 1:
                 continue
-            label = cells[0].get_text(strip=True).strip().lower()
+            raw_label = cells[0].get_text(strip=True).strip()
+            label = raw_label.lower()
             if not label or "valuta" in label or "startdato" in label or "sluttdato" in label:
                 continue
 
@@ -759,7 +779,7 @@ def build_chart_series(
 ) -> dict[str, list[dict[str, Any]]]:
     points_omsetning: list[dict[str, Any]] = []
     points_resultat_for_skatt: list[dict[str, Any]] = []
-    points_driftsmargin: list[dict[str, Any]] = []
+    points_resultatmargin: list[dict[str, Any]] = []
     field_labels = field_labels or {}
 
     omsetning_candidates = ["SDI", "sum_driftsinntekter", "driftsinntekter", *_keys_matching_labels(field_labels, "omsetning", "driftsinntekt")]
@@ -773,30 +793,22 @@ def build_chart_series(
         "resultat_for_skatt",
         *_keys_matching_labels(field_labels, "før skatt", "foer skatt", "skattekostnad"),
     ]
-    driftsresultat_candidates = [
-        "DRR",
-        "ODR",
-        "DRI",
-        "driftsresultat",
-        *_keys_matching_labels(field_labels, "driftsresultat", "ebit"),
-    ]
 
     for rec in records:
         label = rec.get("period") or str(rec.get("year") or "")
         omsetning = _pick_metric(rec, *omsetning_candidates)
         resultat_for_skatt = _pick_metric(rec, *resultat_candidates)
-        driftsresultat = _pick_metric(rec, *driftsresultat_candidates)
         if omsetning is not None:
             points_omsetning.append({"label": label, "value": omsetning})
         if resultat_for_skatt is not None:
             points_resultat_for_skatt.append({"label": label, "value": resultat_for_skatt})
-        if omsetning not in (None, 0) and driftsresultat is not None:
-            points_driftsmargin.append({"label": label, "value": (driftsresultat / omsetning) * 100})
+        if omsetning not in (None, 0) and resultat_for_skatt is not None:
+            points_resultatmargin.append({"label": label, "value": (resultat_for_skatt / omsetning) * 100})
 
     return {
         "omsetning": points_omsetning,
         "resultat_for_skatt": points_resultat_for_skatt,
-        "driftsmargin": points_driftsmargin,
+        "resultatmargin": points_resultatmargin,
     }
 
 
