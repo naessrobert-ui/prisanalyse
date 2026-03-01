@@ -667,26 +667,88 @@ def lookup_orgnr(
 
 
 # ---------------------------------------------------------------------------
-# Søk: navn → orgnr (Brreg Enhetsregisteret)
+# Søk: navn → orgnr (Brreg Enhetsregisteret + Proff fallback)
 # ---------------------------------------------------------------------------
+def _normalize_company_name(value: str) -> str:
+    cleaned = (value or "").lower()
+    cleaned = re.sub(r"\b(as|asa|ans|nuf|sa|d[aå])\b", " ", cleaned)
+    cleaned = re.sub(r"[^a-z0-9æøå]+", " ", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _score_brreg_hit(hit: dict[str, Any], query_normalized: str) -> int:
+    name = str(hit.get("navn") or "")
+    name_normalized = _normalize_company_name(name)
+    status = str(hit.get("slettedato") or "").strip()
+
+    score = 0
+    if name_normalized == query_normalized:
+        score += 100
+    elif name_normalized.startswith(query_normalized):
+        score += 60
+    elif query_normalized and query_normalized in name_normalized:
+        score += 30
+
+    # Foretrekk aktive selskaper
+    if not status:
+        score += 15
+
+    # Svak bonus for lengde-likhet (reduserer feil på korte, tvetydige søk)
+    score -= abs(len(name_normalized) - len(query_normalized))
+    return score
+
+
+def _search_to_orgnr_proff(http_session: requests.Session, query: str) -> str | None:
+    """Fallback: finn orgnr fra Proff sin søkeside når Brreg-navnesøk bommer."""
+    try:
+        resp = http_session.get(
+            PROFF_SEARCH_URL,
+            params={"q": query},
+            timeout=TIMEOUT,
+            verify=False,
+        )
+        if resp.status_code != 200:
+            return None
+
+        # Treffer ofte både i href og i innebygget data-attributter.
+        candidates = re.findall(r"\b(\d{9})\b", resp.text)
+        for cand in candidates:
+            if len(cand) == 9:
+                return cand
+    except Exception:
+        return None
+    return None
+
+
 def search_to_orgnr(http_session: requests.Session, query: str) -> str | None:
     normalized = normalize_orgnr(query)
     if len(normalized) == 9:
         return normalized
+
+    query_normalized = _normalize_company_name(query)
+
     try:
         resp = http_session.get(
             BRREG_SEARCH_URL,
-            params={"navn": query, "size": 5},
+            params={"navn": query, "size": 20},
             timeout=TIMEOUT,
             headers={"Accept": "application/json"},
         )
         if resp.status_code == 200:
             hits = resp.json().get("_embedded", {}).get("enheter", [])
             if hits:
-                return str(hits[0].get("organisasjonsnummer", ""))
+                ranked = sorted(
+                    hits,
+                    key=lambda hit: _score_brreg_hit(hit, query_normalized),
+                    reverse=True,
+                )
+                best_orgnr = normalize_orgnr(str(ranked[0].get("organisasjonsnummer", "")))
+                if len(best_orgnr) == 9:
+                    return best_orgnr
     except Exception:
         pass
-    return None
+
+    return _search_to_orgnr_proff(http_session, query)
 
 
 # ---------------------------------------------------------------------------
@@ -1096,11 +1158,18 @@ def regnskap_hub():
                 if not orgnr:
                     search_error = "Fant ingen selskaper fra søket."
                 else:
+                    # Primærkilde for raskt svar er Brreg, men ikke alle selskaper
+                    # har publiserte regnskapstall der. Da prøver vi Proff-fallback.
                     res = lookup_orgnr_brreg(http_session, orgnr)
+                    if not res:
+                        res = lookup_orgnr(http_session, orgnr)
+
                     if res:
                         search_details = build_detail_rows(res)
                     else:
-                        search_error = f"Fant orgnr {orgnr}, men Brreg hadde ingen regnskapsdata."
+                        search_error = (
+                            f"Fant orgnr {orgnr}, men ingen regnskapsdata i verken Brreg eller Proff."
+                        )
 
             return render_regnskap_result_page(
                 mode="search",
