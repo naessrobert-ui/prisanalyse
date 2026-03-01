@@ -322,7 +322,12 @@ def parse_proff_html_accounts(html: str) -> list[dict[str, Any]]:
 
 
 def build_dataset_from_payload(payload: dict, regnskap_url: str) -> FinancialDataset | None:
-    records, currency, dynamic_labels = extract_accounts_records(payload)
+    extracted = extract_accounts_records(payload)
+    if len(extracted) == 3:
+        records, currency, dynamic_labels = extracted
+    else:
+        records, currency = extracted  # bakoverkompatibilitet ved eldre returverdi
+        dynamic_labels = {}
     if not records:
         return None
     company_data = payload.get("props", {}).get("pageProps", {}).get("company", {})
@@ -334,94 +339,6 @@ def build_dataset_from_payload(payload: dict, regnskap_url: str) -> FinancialDat
         currency=currency,
         records=records_sorted,
         field_labels=dynamic_labels,
-    )
-
-
-def build_dataset_from_html(http_session: requests.Session, regnskap_url: str) -> FinancialDataset | None:
-    try:
-        resp = http_session.get(regnskap_url, timeout=TIMEOUT, verify=False)
-    except requests.RequestException:
-        return None
-    if resp.status_code != 200:
-        return None
-
-    records = parse_proff_html_accounts(resp.text)
-    if not records:
-        return None
-
-    soup = BeautifulSoup(resp.text, "html.parser")
-    title = (soup.title.string.strip() if soup.title and soup.title.string else "")
-    org_candidates = re.findall(r"(\d{9})", regnskap_url)
-
-    return FinancialDataset(
-        company=title.split("|")[0].strip() if title else "",
-        orgnr=org_candidates[-1] if org_candidates else "",
-        url_used=regnskap_url,
-        currency="NOK",
-        records=sorted(records, key=lambda r: (r.get("year", 0) or 0, str(r.get("period") or ""))),
-    )
-
-
-def parse_proff_html_accounts(html: str) -> list[dict[str, Any]]:
-    """Les ut alle perioder/felter fra Proff HTML-tabeller."""
-    soup = BeautifulSoup(html, "html.parser")
-    per_period: dict[str, dict[str, Any]] = {}
-
-    for table in soup.find_all("table"):
-        rows = table.find_all("tr")
-        if len(rows) < 3:
-            continue
-
-        header_cells = rows[0].find_all(["th", "td"])
-        periods = [
-            c.get_text(strip=True)
-            for c in header_cells[1:]
-            if re.match(r"^\d{4}-\d{2}$", c.get_text(strip=True))
-        ]
-        if not periods:
-            continue
-
-        for row in rows[1:]:
-            cells = row.find_all(["th", "td"])
-            if len(cells) < len(periods) + 1:
-                continue
-
-            label = cells[0].get_text(strip=True).strip().lower()
-            if not label or "valuta" in label or "startdato" in label or "sluttdato" in label:
-                continue
-
-            key = re.sub(r"[^a-z0-9_æøå]", "_", label)
-            for idx, period in enumerate(periods):
-                value_raw = (
-                    cells[idx + 1]
-                    .get_text(strip=True)
-                    .replace("\xa0", "")
-                    .replace(" ", "")
-                    .replace(",", ".")
-                )
-                try:
-                    # Proff-tabellen viser ofte beløp i tusen
-                    value = float(value_raw) * 1000
-                except ValueError:
-                    value = None
-                period_rec = per_period.setdefault(period, {"period": period, "year": int(period[:4])})
-                period_rec[key] = value
-
-    return list(per_period.values())
-
-
-def build_dataset_from_payload(payload: dict, regnskap_url: str) -> FinancialDataset | None:
-    records, currency = extract_accounts_records(payload)
-    if not records:
-        return None
-    company_data = payload.get("props", {}).get("pageProps", {}).get("company", {})
-    records_sorted = sorted(records, key=lambda r: (r.get("year", 0) or 0, str(r.get("period") or "")))
-    return FinancialDataset(
-        company=get_company_name(payload),
-        orgnr=normalize_orgnr(company_data.get("orgNumber", "")),
-        url_used=regnskap_url,
-        currency=currency,
-        records=records_sorted,
     )
 
 
@@ -703,7 +620,8 @@ def lookup_orgnr(
     if not payload:
         return None
 
-    records, _, _ = extract_accounts_records(payload)
+    extracted = extract_accounts_records(payload)
+    records = extracted[0]
     if not records:
         return None
 
