@@ -19,7 +19,7 @@ import re
 import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from xml.etree import ElementTree as ET
 
@@ -97,6 +97,7 @@ class FinancialDataset:
     url_used: str
     currency: str
     records: list[dict[str, Any]]
+    field_labels: dict[str, str] = field(default_factory=dict)
 
     @property
     def columns(self) -> list[str]:
@@ -115,18 +116,20 @@ class FinancialDataset:
 FIELD_LABELS: dict[str, str] = {
     "period": "Regnskapsperiode",
     "year": "Regnskapsår",
-    "SDI": "Sum driftsinntekter (omsetning)",
-    "ORFS": "Ordinært resultat før skattekostnad",
+    "SDI": "Omsetning",
+    "ORFS": "Resultat før skatt",
     "OR": "Ordinært resultat",
     "DRR": "Driftsresultat",
-    "ODR": "Driftsresultat",
+    "ODR": "Driftsresultat (EBIT)",
+    "DRI": "Driftsresultat (EBIT)",
+    "AARS": "Resultat før skatt",
     "AR": "Årsresultat",
     "SEK": "Sum egenkapital",
-    "sum_driftsinntekter": "Sum driftsinntekter (omsetning)",
+    "sum_driftsinntekter": "Omsetning",
     "driftsinntekter": "Driftsinntekter",
-    "driftsresultat": "Driftsresultat",
-    "resultat_før_skattekostnad": "Resultat før skattekostnad",
-    "resultat_for_skattekostnad": "Resultat før skattekostnad",
+    "driftsresultat": "Driftsresultat (EBIT)",
+    "resultat_før_skattekostnad": "Resultat før skatt",
+    "resultat_for_skattekostnad": "Resultat før skatt",
     "resultat_før_skatt": "Resultat før skatt",
     "resultat_for_skatt": "Resultat før skatt",
     "årsresultat": "Årsresultat",
@@ -231,12 +234,13 @@ def _parse_year_and_period(y: dict) -> tuple[int | None, str | None]:
     return year_int, period_str
 
 
-def extract_accounts_records(payload: dict) -> tuple[list[dict], str]:
+def extract_accounts_records(payload: dict) -> tuple[list[dict], str, dict[str, str]]:
     """Som Proff_all.py sin extract_accounts_df, uten pandas. Nå med 'period'."""
     company = payload["props"]["pageProps"].get("company", {})
     currency = company.get("currency", "NOK")
     accounts = company.get("companyAccounts", []) or []
     records = []
+    dynamic_labels: dict[str, str] = {}
 
     for y in accounts:
         year_int, period_str = _parse_year_and_period(y)
@@ -257,11 +261,105 @@ def extract_accounts_records(payload: dict) -> tuple[list[dict], str]:
                 pass
             if code:
                 rec[code] = amt
+                for label_key in ("label", "name", "nameNb", "description", "title", "accountName"):
+                    label_val = a.get(label_key)
+                    if isinstance(label_val, str) and label_val.strip() and label_val.strip() != str(code):
+                        dynamic_labels.setdefault(str(code), label_val.strip())
+                        break
 
         if rec.get("year") is not None:
             records.append(rec)
 
-    return records, currency
+    return records, currency, dynamic_labels
+
+
+def parse_proff_html_accounts(html: str) -> list[dict[str, Any]]:
+    """Les ut alle perioder/felter fra Proff HTML-tabeller."""
+    soup = BeautifulSoup(html, "html.parser")
+    per_period: dict[str, dict[str, Any]] = {}
+
+    for table in soup.find_all("table"):
+        rows = table.find_all("tr")
+        if len(rows) < 3:
+            continue
+
+        header_cells = rows[0].find_all(["th", "td"])
+        periods = [
+            c.get_text(strip=True)
+            for c in header_cells[1:]
+            if re.match(r"^\d{4}-\d{2}$", c.get_text(strip=True))
+        ]
+        if not periods:
+            continue
+
+        for row in rows[1:]:
+            cells = row.find_all(["th", "td"])
+            if len(cells) < len(periods) + 1:
+                continue
+
+            label = cells[0].get_text(strip=True).strip().lower()
+            if not label or "valuta" in label or "startdato" in label or "sluttdato" in label:
+                continue
+
+            key = re.sub(r"[^a-z0-9_æøå]", "_", label)
+            for idx, period in enumerate(periods):
+                value_raw = (
+                    cells[idx + 1]
+                    .get_text(strip=True)
+                    .replace("\xa0", "")
+                    .replace(" ", "")
+                    .replace(",", ".")
+                )
+                try:
+                    # Proff-tabellen viser ofte beløp i tusen
+                    value = float(value_raw) * 1000
+                except ValueError:
+                    value = None
+                period_rec = per_period.setdefault(period, {"period": period, "year": int(period[:4])})
+                period_rec[key] = value
+
+    return list(per_period.values())
+
+
+def build_dataset_from_payload(payload: dict, regnskap_url: str) -> FinancialDataset | None:
+    records, currency, dynamic_labels = extract_accounts_records(payload)
+    if not records:
+        return None
+    company_data = payload.get("props", {}).get("pageProps", {}).get("company", {})
+    records_sorted = sorted(records, key=lambda r: (r.get("year", 0) or 0, str(r.get("period") or "")))
+    return FinancialDataset(
+        company=get_company_name(payload),
+        orgnr=normalize_orgnr(company_data.get("orgNumber", "")),
+        url_used=regnskap_url,
+        currency=currency,
+        records=records_sorted,
+        field_labels=dynamic_labels,
+    )
+
+
+def build_dataset_from_html(http_session: requests.Session, regnskap_url: str) -> FinancialDataset | None:
+    try:
+        resp = http_session.get(regnskap_url, timeout=TIMEOUT, verify=False)
+    except requests.RequestException:
+        return None
+    if resp.status_code != 200:
+        return None
+
+    records = parse_proff_html_accounts(resp.text)
+    if not records:
+        return None
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    title = (soup.title.string.strip() if soup.title and soup.title.string else "")
+    org_candidates = re.findall(r"(\d{9})", regnskap_url)
+
+    return FinancialDataset(
+        company=title.split("|")[0].strip() if title else "",
+        orgnr=org_candidates[-1] if org_candidates else "",
+        url_used=regnskap_url,
+        currency="NOK",
+        records=sorted(records, key=lambda r: (r.get("year", 0) or 0, str(r.get("period") or ""))),
+    )
 
 
 def parse_proff_html_accounts(html: str) -> list[dict[str, Any]]:
@@ -605,7 +703,7 @@ def lookup_orgnr(
     if not payload:
         return None
 
-    records, _ = extract_accounts_records(payload)
+    records, _, _ = extract_accounts_records(payload)
     if not records:
         return None
 
@@ -712,10 +810,11 @@ def _pick_metric(rec: dict[str, Any], *candidates: str) -> float | None:
     return None
 
 
-def build_column_metadata(columns: list[str]) -> dict[str, dict[str, str]]:
+def build_column_metadata(columns: list[str], field_labels: dict[str, str] | None = None) -> dict[str, dict[str, str]]:
     metadata: dict[str, dict[str, str]] = {}
+    field_labels = field_labels or {}
     for col in columns:
-        label = FIELD_LABELS.get(col)
+        label = field_labels.get(col) or FIELD_LABELS.get(col)
         if not label:
             label = col.replace("_", " ").strip().capitalize()
         metadata[col] = {
@@ -725,29 +824,55 @@ def build_column_metadata(columns: list[str]) -> dict[str, dict[str, str]]:
     return metadata
 
 
-def build_chart_series(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def _keys_matching_labels(field_labels: dict[str, str], *terms: str) -> list[str]:
+    if not field_labels:
+        return []
+    matches: list[str] = []
+    for key, label in field_labels.items():
+        norm = (label or "").strip().lower()
+        if any(term in norm for term in terms):
+            matches.append(key)
+    return matches
+
+
+def build_chart_series(
+    records: list[dict[str, Any]],
+    field_labels: dict[str, str] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
     points_omsetning: list[dict[str, Any]] = []
     points_resultat_for_skatt: list[dict[str, Any]] = []
     points_driftsmargin: list[dict[str, Any]] = []
+    field_labels = field_labels or {}
+
+    omsetning_candidates = ["SDI", "sum_driftsinntekter", "driftsinntekter", *_keys_matching_labels(field_labels, "omsetning", "driftsinntekt")]
+    resultat_candidates = [
+        "ORFS",
+        "OR",
+        "AARS",
+        "resultat_før_skattekostnad",
+        "resultat_for_skattekostnad",
+        "resultat_før_skatt",
+        "resultat_for_skatt",
+        *_keys_matching_labels(field_labels, "før skatt", "foer skatt", "skattekostnad"),
+    ]
+    driftsresultat_candidates = [
+        "DRR",
+        "ODR",
+        "DRI",
+        "driftsresultat",
+        *_keys_matching_labels(field_labels, "driftsresultat", "ebit"),
+    ]
 
     for rec in records:
         label = rec.get("period") or str(rec.get("year") or "")
-        omsetning = _pick_metric(rec, "SDI", "sum_driftsinntekter", "driftsinntekter")
-        resultat_for_skatt = _pick_metric(
-            rec,
-            "ORFS",
-            "OR", 
-            "resultat_før_skattekostnad",
-            "resultat_for_skattekostnad",
-            "resultat_før_skatt",
-            "resultat_for_skatt",
-        )
-        driftsresultat = _pick_metric(rec, "DRR", "ODR", "driftsresultat")
+        omsetning = _pick_metric(rec, *omsetning_candidates)
+        resultat_for_skatt = _pick_metric(rec, *resultat_candidates)
+        driftsresultat = _pick_metric(rec, *driftsresultat_candidates)
         if omsetning is not None:
             points_omsetning.append({"label": label, "value": omsetning})
         if resultat_for_skatt is not None:
             points_resultat_for_skatt.append({"label": label, "value": resultat_for_skatt})
-        if omsetning and driftsresultat is not None:
+        if omsetning not in (None, 0) and driftsresultat is not None:
             points_driftsmargin.append({"label": label, "value": (driftsresultat / omsetning) * 100})
 
     return {
@@ -764,6 +889,7 @@ def dataset_to_session_payload(dataset: FinancialDataset) -> dict[str, Any]:
         "url_used": dataset.url_used,
         "currency": dataset.currency,
         "records": dataset.records,
+        "field_labels": dataset.field_labels,
     }
 
 
@@ -779,6 +905,7 @@ def dataset_from_session_payload(raw: dict[str, Any]) -> FinancialDataset | None
         url_used=str(raw.get("url_used", "")),
         currency=str(raw.get("currency", "NOK")),
         records=records,
+        field_labels=(raw.get("field_labels") if isinstance(raw.get("field_labels"), dict) else {}),
     )
 def build_detail_rows(result: LookupResult) -> list[tuple[str, str]]:
     return [
@@ -831,8 +958,8 @@ def render_regnskap_result_page(
         search_error=search_error,
         search_query=search_query,
         url_dataset=url_dataset,
-        column_metadata=(build_column_metadata(url_dataset.columns) if url_dataset else {}),
-        chart_series=(build_chart_series(url_dataset.records) if url_dataset else {}),
+        column_metadata=(build_column_metadata(url_dataset.columns, url_dataset.field_labels) if url_dataset else {}),
+        chart_series=(build_chart_series(url_dataset.records, url_dataset.field_labels) if url_dataset else {}),
         format_amount=format_amount,
     )
 

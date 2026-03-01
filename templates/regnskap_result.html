@@ -21,10 +21,12 @@
         .download-btn { padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; background: #60a5fa; color: #0f172a; cursor:pointer; text-decoration:none; display:inline-block; }
         .chart-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-top:16px; }
         .chart-card { background:#0f172a; border:1px solid #334155; border-radius:10px; padding:10px; }
-        .bar-row { margin-bottom:8px; }
-        .bar-label { display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:4px; color:#cbd5e1; }
-        .bar-track { background:#1e293b; border-radius:999px; height:10px; overflow:hidden; }
-        .bar-fill { background:#60a5fa; height:100%; }
+        .vchart { display:flex; gap:10px; align-items:flex-end; min-height:220px; overflow-x:auto; padding-bottom:8px; }
+        .vbar-wrap { min-width:42px; display:flex; flex-direction:column; align-items:center; gap:6px; }
+        .vbar-value { font-size:0.75rem; color:#cbd5e1; white-space:nowrap; }
+        .vbar-track { width:24px; height:150px; background:#1e293b; border-radius:8px; display:flex; align-items:flex-end; overflow:hidden; }
+        .vbar-fill { width:100%; border-radius:8px; }
+        .vbar-label { font-size:0.75rem; color:#cbd5e1; white-space:nowrap; }
         .table-wrap { overflow-x:auto; margin-top:14px; }
     </style>
 </head>
@@ -109,9 +111,9 @@
                     <tr>
                         {% for col in url_dataset.columns %}
                         <th>
-                            <span title="{{ column_metadata.get(col, {}).get('full', col) }}">{{ col }}</span>
+                            <span title="{{ col }}">{{ column_metadata.get(col, {}).get('full', col) }}</span>
                             {% if column_metadata.get(col, {}).get('full', col) != col %}
-                            <span style="display:block;color:#94a3b8;font-size:0.78rem;line-height:1.2;margin-top:2px;">{{ column_metadata.get(col, {}).get('full', col) }}</span>
+                            <span style="display:block;color:#94a3b8;font-size:0.72rem;line-height:1.2;margin-top:2px;">{{ col }}</span>
                             {% endif %}
                         </th>
                         {% endfor %}
@@ -149,7 +151,7 @@
 <script>
     const chartSeries = {{ chart_series|tojson }};
 
-    function renderBars(containerId, points, color = '#60a5fa', suffix = '') {
+    function renderVerticalBars(containerId, points, color = '#60a5fa', suffix = '', maxFractions = 0) {
         const container = document.getElementById(containerId);
         if (!container) return;
         if (!points || !points.length) {
@@ -157,16 +159,19 @@
             return;
         }
         const maxAbs = Math.max(...points.map(p => Math.abs(p.value) || 0), 1);
-        container.innerHTML = points.map((p) => {
+        container.innerHTML = `<div class="vchart">${points.map((p) => {
             const pct = Math.max((Math.abs(p.value) / maxAbs) * 100, 2);
-            const pretty = Number.isFinite(p.value) ? p.value.toLocaleString('no-NO', {maximumFractionDigits: 1}) : '';
-            return `<div class="bar-row"><div class="bar-label"><span>${p.label}</span><span>${pretty}${suffix}</span></div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
-        }).join('');
+            const pretty = Number.isFinite(p.value)
+                ? p.value.toLocaleString('no-NO', { maximumFractionDigits: maxFractions })
+                : '';
+            const barColor = p.value < 0 ? '#ef4444' : color;
+            return `<div class="vbar-wrap"><div class="vbar-value">${pretty}${suffix}</div><div class="vbar-track"><div class="vbar-fill" style="height:${pct}%;background:${barColor}"></div></div><div class="vbar-label">${p.label}</div></div>`;
+        }).join('')}</div>`;
     }
 
-    renderBars('chart-omsetning', chartSeries.omsetning, '#60a5fa');
-    renderBars('chart-resultat', chartSeries.resultat_for_skatt, '#34d399');
-    renderBars('chart-margin', chartSeries.driftsmargin, '#f59e0b', '%');
+    renderVerticalBars('chart-omsetning', chartSeries.omsetning, '#60a5fa');
+    renderVerticalBars('chart-resultat', chartSeries.resultat_for_skatt, '#34d399');
+    renderVerticalBars('chart-margin', chartSeries.driftsmargin, '#f59e0b', '%', 1);
 </script>
 </body>
 </html>
