@@ -82,7 +82,7 @@
             {% if url_details %}
             <ul class="details">
                 {% for key, value in url_details %}
-                <li><strong>{{ key }}:</strong> {{ value }}</li>
+                <li><strong>{{ key }}:</strong> {% if value.startswith('http') %}<a href="{{ value }}" target="_blank" rel="noopener noreferrer">{{ 'Last ned siste års regnskap' if key == 'Last ned siste års regnskap' else value }}</a>{% else %}{{ value }}{% endif %}</li>
                 {% endfor %}
             </ul>
             {% endif %}
@@ -139,12 +139,12 @@
             {% if search_details %}
             <ul class="details">
                 {% for key, value in search_details %}
-                <li><strong>{{ key }}:</strong> {{ value }}</li>
+                <li><strong>{{ key }}:</strong> {% if value.startswith('http') %}<a href="{{ value }}" target="_blank" rel="noopener noreferrer">{{ 'Last ned siste års regnskap' if key == 'Last ned siste års regnskap' else value }}</a>{% else %}{{ value }}{% endif %}</li>
                 {% endfor %}
             </ul>
             {% endif %}
             <hr style="border-color:#334155;margin:18px 0;">
-            <p><strong>Brreg søkemuligheter i denne løsningen:</strong> navn eller orgnr.</p>
+            <p><strong>Brreg søkemuligheter i denne løsningen:</strong> navn (forbedret fritekstsøk) eller org.nr.</p>
             <p style="color:#cbd5e1;">Brreg sitt enhetsregister har også felter som kan brukes for mer avansert filtrering (f.eks. kommune/sted og næringskode/bransje), men da bør vi legge til egne inputfelter i skjemaet.</p>
         {% endif %}
     </section>

@@ -13,6 +13,7 @@ OPPDATERT:
 from __future__ import annotations
 
 import csv
+import difflib
 import io
 import json
 import re
@@ -68,9 +69,12 @@ class LookupResult:
     year: int | None
     regnskapsperiode: str | None  # <-- NYTT (typisk "YYYY-MM", f.eks. "2024-12")
     resultat_etter_skatt: float | None
-    egenkapital: float | None
-    omsetning: float | None
-    url_used: str
+    resultat_for_skatt: float | None = None
+    driftsresultat: float | None = None
+    egenkapital: float | None = None
+    sum_eiendeler: float | None = None
+    omsetning: float | None = None
+    url_used: str = ""
     debug_message: str = ""
 
 
@@ -501,7 +505,10 @@ def lookup_orgnr_brreg(http_session: requests.Session, orgnr: str) -> LookupResu
             year=year,
             regnskapsperiode=period_display,
             resultat_etter_skatt=_get_nested_amount(payload, "resultatregnskapResultat", "aarsresultat"),
+            resultat_for_skatt=_get_nested_amount(payload, "resultatregnskapResultat", "resultatFoerSkattekostnad"),
+            driftsresultat=_get_nested_amount(payload, "resultatregnskapResultat", "driftsresultat", "driftsresultat"),
             egenkapital=_get_nested_amount(payload, "egenkapitalGjeld", "egenkapital", "sumEgenkapital"),
+            sum_eiendeler=_get_nested_amount(payload, "eiendeler", "sumEiendeler"),
             omsetning=_get_nested_amount(
                 payload,
                 "resultatregnskapResultat",
@@ -583,6 +590,8 @@ def lookup_proff_url_html(http_session: requests.Session, regnskap_url: str) -> 
         year=int(latest_period[:4]),
         regnskapsperiode=latest_period,
         resultat_etter_skatt=latest.get("årsresultat") or latest.get("aarsresultat"),
+        resultat_for_skatt=latest.get("resultat_før_skatt") or latest.get("resultat_for_skatt"),
+        driftsresultat=latest.get("driftsresultat"),
         egenkapital=latest.get("sum_egenkapital") or latest.get("egenkapital"),
         omsetning=latest.get("sum_driftsinntekter") or latest.get("driftsinntekter"),
         url_used=regnskap_url,
@@ -659,7 +668,10 @@ def lookup_orgnr(
         year=year,
         regnskapsperiode=period,
         resultat_etter_skatt=latest.get("AR"),
+        resultat_for_skatt=latest.get("ORFS") or latest.get("AARS"),
+        driftsresultat=latest.get("DRR") or latest.get("DRI") or latest.get("ODR"),
         egenkapital=latest.get("SEK"),
+        sum_eiendeler=latest.get("SUME") or latest.get("SA"),
         omsetning=latest.get("SDI"),
         url_used=used_url or "",
         debug_message="; ".join(debug_parts),
@@ -676,25 +688,36 @@ def _normalize_company_name(value: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
-def _score_brreg_hit(hit: dict[str, Any], query_normalized: str) -> int:
+def _score_brreg_hit(hit: dict[str, Any], query_normalized: str) -> float:
     name = str(hit.get("navn") or "")
     name_normalized = _normalize_company_name(name)
     status = str(hit.get("slettedato") or "").strip()
 
-    score = 0
+    query_tokens = set(query_normalized.split())
+    name_tokens = set(name_normalized.split())
+
+    score = 0.0
     if name_normalized == query_normalized:
-        score += 100
+        score += 120
     elif name_normalized.startswith(query_normalized):
-        score += 60
+        score += 80
     elif query_normalized and query_normalized in name_normalized:
-        score += 30
+        score += 45
+
+    # Token-overlapp gir bedre treff på delvis navn
+    if query_tokens:
+        overlap = len(query_tokens & name_tokens) / len(query_tokens)
+        score += overlap * 50
+
+    # Ligner stavemåte? (f.eks. små skrivefeil)
+    score += difflib.SequenceMatcher(None, query_normalized, name_normalized).ratio() * 35
 
     # Foretrekk aktive selskaper
     if not status:
         score += 15
 
     # Svak bonus for lengde-likhet (reduserer feil på korte, tvetydige søk)
-    score -= abs(len(name_normalized) - len(query_normalized))
+    score -= abs(len(name_normalized) - len(query_normalized)) * 0.3
     return score
 
 
@@ -726,27 +749,35 @@ def search_to_orgnr(http_session: requests.Session, query: str) -> str | None:
         return normalized
 
     query_normalized = _normalize_company_name(query)
+    if not query_normalized:
+        return None
 
-    try:
-        resp = http_session.get(
-            BRREG_SEARCH_URL,
-            params={"navn": query, "size": 20},
-            timeout=TIMEOUT,
-            headers={"Accept": "application/json"},
+    all_hits: list[dict[str, Any]] = []
+    for navn_query in [query, query_normalized]:
+        try:
+            resp = http_session.get(
+                BRREG_SEARCH_URL,
+                params={"navn": navn_query, "size": 100},
+                timeout=TIMEOUT,
+                headers={"Accept": "application/json"},
+            )
+            if resp.status_code == 200:
+                hits = resp.json().get("_embedded", {}).get("enheter", [])
+                if isinstance(hits, list):
+                    all_hits.extend(hits)
+        except Exception:
+            continue
+
+    if all_hits:
+        ranked = sorted(
+            all_hits,
+            key=lambda hit: _score_brreg_hit(hit, query_normalized),
+            reverse=True,
         )
-        if resp.status_code == 200:
-            hits = resp.json().get("_embedded", {}).get("enheter", [])
-            if hits:
-                ranked = sorted(
-                    hits,
-                    key=lambda hit: _score_brreg_hit(hit, query_normalized),
-                    reverse=True,
-                )
-                best_orgnr = normalize_orgnr(str(ranked[0].get("organisasjonsnummer", "")))
-                if len(best_orgnr) == 9:
-                    return best_orgnr
-    except Exception:
-        pass
+        for hit in ranked[:5]:
+            best_orgnr = normalize_orgnr(str(hit.get("organisasjonsnummer", "")))
+            if len(best_orgnr) == 9:
+                return best_orgnr
 
     return _search_to_orgnr_proff(http_session, query)
 
@@ -900,15 +931,20 @@ def dataset_from_session_payload(raw: dict[str, Any]) -> FinancialDataset | None
         field_labels=(raw.get("field_labels") if isinstance(raw.get("field_labels"), dict) else {}),
     )
 def build_detail_rows(result: LookupResult) -> list[tuple[str, str]]:
+    brreg_download_url = f"https://virksomhet.brreg.no/nb/oppslag/enheter/{result.orgnr}" if result.orgnr else ""
     return [
         ("Selskap", result.company),
         ("Organisasjonsnummer", result.orgnr),
         ("Regnskapsperiode", result.regnskapsperiode or "Ukjent"),
         ("Siste regnskapsår", str(result.year) if result.year else "Ukjent"),
         ("Sum driftsinntekter", format_amount(result.omsetning) or "Mangler"),
+        ("Driftsresultat", format_amount(result.driftsresultat) or "Mangler"),
+        ("Resultat før skatt", format_amount(result.resultat_for_skatt) or "Mangler"),
         ("Resultat etter skatt", format_amount(result.resultat_etter_skatt) or "Mangler"),
         ("Egenkapital", format_amount(result.egenkapital) or "Mangler"),
-        ("URL", result.url_used),
+        ("Sum eiendeler", format_amount(result.sum_eiendeler) or "Mangler"),
+        ("Last ned siste års regnskap", brreg_download_url or "Mangler"),
+        ("Kilde-URL", result.url_used),
     ]
 
 
@@ -1130,7 +1166,10 @@ def regnskap_hub():
                         year=latest.get("year"),
                         regnskapsperiode=latest.get("period"),
                         resultat_etter_skatt=latest.get("AR"),
+                        resultat_for_skatt=latest.get("ORFS") or latest.get("AARS"),
+                        driftsresultat=latest.get("DRR") or latest.get("DRI") or latest.get("ODR"),
                         egenkapital=latest.get("SEK"),
+                        sum_eiendeler=latest.get("SUME") or latest.get("SA"),
                         omsetning=latest.get("SDI"),
                         url_used=regnskap_url,
                     )
