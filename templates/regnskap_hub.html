@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Renskap | Prisanalyse</title>
+    <title>Regnskap | Prisanalyse</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
         .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 48px; }
@@ -58,8 +58,8 @@
 
 <div class="wrap">
     <p><a href="/">← Til forsiden</a></p>
-    <h1>Renskap</h1>
-    <p class="subtitle">Hente t regnskap fra alle norske bedrifter.</p>
+    <h1>Regnskap</h1>
+    <p class="subtitle">Hent regnskap fra alle norske bedrifter.</p>
 
     <div class="grid">
         <section class="card">
@@ -131,11 +131,11 @@
         </section>
 
         <section class="card">
-            <h2>3) Søk etter selskap eller orgnr</h2>
+            <h2>3) Søk etter selskap eller org.nr.</h2>
             <form method="post">
                 <input type="hidden" name="action" value="search">
                 <label for="search_query">Søk</label>
-                <input id="search_query" type="text" name="search_query" placeholder="Eks. Equinor eller 923609016">
+                <input id="search_query" type="text" name="search_query" placeholder="Eks. Equinor ASA eller 923609016">
                 <button type="submit">Søk og hent</button>
             </form>
             {% if search_error %}<p class="error">{{ search_error }}</p>{% endif %}
