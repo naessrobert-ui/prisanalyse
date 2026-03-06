@@ -956,6 +956,9 @@ def get_bolig_data():
         if filters.get("fylke") and filters["fylke"] != "Alle":
             df = df[df["fylke"] == filters["fylke"]]
 
+        if filters.get("status") and filters["status"] != "Alle" and "NY/Brukt" in df.columns:
+            df = df[df["NY/Brukt"] == filters["status"]]
+
         if filters.get("totalpris_fra"):
             df = df[df["totalpris"] >= int(filters["totalpris_fra"])]
         if filters.get("totalpris_til"):
