@@ -143,6 +143,9 @@ async function fetchInitialData() {
                 if (!response.ok) throw new Error(`Server svarte med status ${response.status}`);
 
                 let rawData = await response.json();
+                if (!Array.isArray(rawData)) {
+                    throw new Error('Ugyldig datasvar fra server');
+                }
 
                 // --- START PÅ KORRIGERING ---
                 const isFritidsbolig = window.location.pathname.includes('/fritidsbolig');
@@ -156,7 +159,9 @@ async function fetchInitialData() {
                         }
                     });
                 }
-                boligData = rawData;
+                boligData = rawData
+                    .map(normalizeBoligRecord)
+                    .filter(b => b.latitude != null && b.longitude != null);
                 // --- SLUTT PÅ KORRIGERING ---
 
                 if (!boligData || boligData.length === 0) {
@@ -198,7 +203,9 @@ async function fetchInitialData() {
             if (!map || !boligData || boligData.length === 0) return;
 
             const bounds = map.getBounds();
-            const visibleBoliger = boligData.filter(b => b.latitude && b.longitude && bounds.contains([b.latitude, b.longitude]));
+            const visibleBoliger = boligData.filter(
+                b => b.latitude != null && b.longitude != null && bounds.contains([b.latitude, b.longitude])
+            );
             const count = visibleBoliger.length;
             const statsContainer = document.getElementById('map-stats-container');
 
@@ -307,6 +314,44 @@ async function fetchInitialData() {
                 elements.lowThresholdInput.value = Math.round(values[lowIndex]);
                 elements.highThresholdInput.value = Math.round(values[highIndex]);
             }
+        }
+
+        function toNumber(value) {
+            if (value == null || value === '') return null;
+            if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+            if (typeof value === 'string') {
+                const normalized = value
+                    .replace(/\u00a0/g, ' ')
+                    .replace(/kr/gi, '')
+                    .replace(/\s+/g, '')
+                    .replace(/\.(?=\d{3}(\D|$))/g, '')
+                    .replace(',', '.');
+                const parsed = Number(normalized);
+                return Number.isFinite(parsed) ? parsed : null;
+            }
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function normalizeBoligRecord(bolig) {
+            const lat = toNumber(bolig.latitude ?? bolig.lat ?? bolig.Latitude ?? bolig.LATITUDE);
+            const lon = toNumber(
+                bolig.longitude
+                ?? bolig.lng
+                ?? bolig.lon
+                ?? bolig.long
+                ?? bolig.Longitude
+                ?? bolig.LONGITUDE
+            );
+
+            return {
+                ...bolig,
+                latitude: lat,
+                longitude: lon,
+                totalpris: toNumber(bolig.totalpris),
+                'M2-pris': toNumber(bolig['M2-pris']),
+                dager_paa_markedet: toNumber(bolig.dager_paa_markedet),
+            };
         }
 
         function showLoading(message) {
