@@ -9,6 +9,7 @@ import os
 import sqlite3
 import datetime as dt
 import logging
+import re
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
@@ -71,6 +72,7 @@ HANDLER_DB_S3_FORCE_DOWNLOAD = _path_from_env("HANDLER_DB_S3_FORCE_DOWNLOAD", "0
 _LOG = logging.getLogger(__name__)
 _S3_SYNC_ATTEMPTED: set[str] = set()
 _INDEX_INIT_DONE: set[str] = set()
+_INVESTOR_SEARCH_ROWS_CACHE: dict[str, list[tuple[str, str, str, str, str]]] = {}
 
 
 def _parse_s3_uri(uri: str) -> tuple[str, str]:
@@ -518,31 +520,65 @@ def resolve_investor_ids(conn, patterns: list[str], max_hits: int = 50) -> list[
     if not patterns:
         return []
 
-    sql = """
-    SELECT investor_id
-    FROM investor
-    WHERE
-      UPPER(COALESCE(investor_id,'')) LIKE :q
-      OR UPPER(COALESCE(first_name,'')) LIKE :q
-      OR UPPER(COALESCE(last_name,'')) LIKE :q
-      OR UPPER(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) LIKE :q
-      OR UPPER(COALESCE(last_name,'') || ' ' || COALESCE(first_name,'')) LIKE :q
-    LIMIT :lim
-    """
+    clean_patterns = []
+    seen_patterns = set()
+    for pattern in patterns:
+        p = str(pattern or "").strip().upper()
+        if not p or p in seen_patterns:
+            continue
+        seen_patterns.add(p)
+        clean_patterns.append(p)
+    if not clean_patterns:
+        return []
+
+    db_key_row = conn.execute("PRAGMA database_list").fetchone()
+    db_key = str(db_key_row[2]) if db_key_row and len(db_key_row) >= 3 else "__memory__"
+
+    rows = _INVESTOR_SEARCH_ROWS_CACHE.get(db_key)
+    if rows is None:
+        raw_rows = conn.execute(
+            """
+            SELECT
+                COALESCE(investor_id,'') AS investor_id,
+                UPPER(COALESCE(investor_id,'')) AS investor_id_u,
+                UPPER(COALESCE(first_name,'')) AS first_name_u,
+                UPPER(COALESCE(last_name,'')) AS last_name_u
+            FROM investor
+            """
+        ).fetchall()
+        rows = []
+        for r in raw_rows:
+            investor_id = str(r["investor_id"] or "").strip()
+            if not investor_id:
+                continue
+            fn = str(r["first_name_u"] or "")
+            ln = str(r["last_name_u"] or "")
+            rows.append((
+                investor_id,
+                str(r["investor_id_u"] or ""),
+                fn,
+                ln,
+                f"{fn} {ln}".strip(),
+            ))
+        _INVESTOR_SEARCH_ROWS_CACHE[db_key] = rows
+
+    pattern_re = re.compile("|".join(re.escape(p) for p in clean_patterns))
+    max_total_hits = max(int(max_hits), 1) * len(clean_patterns)
 
     investor_ids: list[str] = []
-    seen = set()
-    for pattern in patterns:
-        p = str(pattern or "").strip()
-        if not p:
-            continue
-        q = f"%{p.upper()}%"
-        rows = conn.execute(sql, {"q": q, "lim": int(max_hits)}).fetchall()
-        for row in rows:
-            investor_id = str(row["investor_id"] or "").strip()
-            if investor_id and investor_id not in seen:
-                seen.add(investor_id)
+    seen_ids: set[str] = set()
+    for investor_id, iid_u, fn_u, ln_u, full_u in rows:
+        if (
+            pattern_re.search(iid_u)
+            or pattern_re.search(fn_u)
+            or pattern_re.search(ln_u)
+            or pattern_re.search(full_u)
+        ):
+            if investor_id not in seen_ids:
+                seen_ids.add(investor_id)
                 investor_ids.append(investor_id)
+                if len(investor_ids) >= max_total_hits:
+                    break
     return sorted(investor_ids)
 
 
