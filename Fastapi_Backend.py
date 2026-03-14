@@ -168,8 +168,6 @@ LATEST_REGNSKAP_JOIN = """
     ) r ON TRUE
 """
 
-from contextlib import asynccontextmanager
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -489,3 +487,9 @@ def toplist(
         offset=offset,
         results=[SearchResult(**row) for row in rows],
     )
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("Fastapi_Backend:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")), reload=os.getenv("RELOAD", "false").lower() == "true")
