@@ -30,6 +30,11 @@ pip install -r requirements.txt
 uvicorn asgi:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
 
+
+### Viktig om `DATABASE_URL`
+
+I samlet ASGI-modus vil hovedappen starte selv om `DATABASE_URL` mangler, men `regnskap-api` blir da satt i fallback-modus med feilmelding på `/regnskap-api/health`.
+
 ### 4) Endepunkter
 
 - Flask (eksisterende): `http://localhost:8000/`
