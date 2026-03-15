@@ -164,15 +164,29 @@
                         <input id="api_kommune" type="text" placeholder="Eks. 0301">
                     </div>
                     <div>
-                        <label for="api_naeringskode">Næringskode (prefix)</label>
-                        <input id="api_naeringskode" type="text" placeholder="Eks. 62">
+                        <label for="api_naeringskode">Næringskode (prefix eller tekst)</label>
+                        <input id="api_naeringskode" type="text" placeholder="Eks. 62 eller eiendom">
                     </div>
+                    <div>
+                        <label for="api_orgform">Organisasjonsform</label>
+                        <input id="api_orgform" type="text" placeholder="Eks. AS, ENK, ANS">
+                    </div>
+                    <div>
+                        <label for="api_accounting_year">Regnskapsår</label>
+                        <input id="api_accounting_year" type="number" placeholder="Eks. 2022" min="2000" max="2099">
+                    </div>
+                </div>
+
+                <div class="inline-grid">
                     <div>
                         <label for="api_sort">Sorter på</label>
                         <select id="api_sort">
                             <option value="revenue">Omsetning</option>
                             <option value="profit">Resultat</option>
+                            <option value="operating_profit">Driftsresultat</option>
                             <option value="equity">Egenkapital</option>
+                            <option value="total_assets">Sum eiendeler</option>
+                            <option value="equity_ratio">Egenkapitalgrad</option>
                             <option value="name">Navn</option>
                         </select>
                     </div>
@@ -184,20 +198,39 @@
 
                 <div class="inline-grid">
                     <div>
-                        <label for="api_min_revenue">Min omsetning</label>
-                        <input id="api_min_revenue" type="number" step="1" placeholder="Eks. 1000000">
+                        <label for="api_min_revenue">Min omsetning (NOK)</label>
+                        <input id="api_min_revenue" type="number" step="1" placeholder="Eks. 10000000">
                     </div>
                     <div>
-                        <label for="api_min_profit">Min resultat (etter skatt)</label>
+                        <label for="api_max_revenue">Maks omsetning (NOK)</label>
+                        <input id="api_max_revenue" type="number" step="1" placeholder="Eks. 100000000">
+                    </div>
+                    <div>
+                        <label for="api_min_profit">Min nettoresultat</label>
                         <input id="api_min_profit" type="number" step="1" placeholder="Eks. 500000">
                     </div>
                     <div>
-                        <label for="api_min_operating_profit">Min resultat før skatt / drift</label>
+                        <label for="api_min_operating_profit">Min driftsresultat</label>
                         <input id="api_min_operating_profit" type="number" step="1" placeholder="Eks. 500000">
                     </div>
+                </div>
+
+                <div class="inline-grid">
                     <div>
                         <label for="api_min_equity_ratio">Min egenkapitalgrad (%)</label>
                         <input id="api_min_equity_ratio" type="number" step="0.1" placeholder="Eks. 30">
+                    </div>
+                    <div>
+                        <label for="api_max_equity_ratio">Maks egenkapitalgrad (%)</label>
+                        <input id="api_max_equity_ratio" type="number" step="0.1" placeholder="Eks. 80">
+                    </div>
+                    <div>
+                        <label for="api_min_total_assets">Min sum eiendeler</label>
+                        <input id="api_min_total_assets" type="number" step="1" placeholder="Eks. 5000000">
+                    </div>
+                    <div>
+                        <label for="api_max_total_assets">Maks sum eiendeler</label>
+                        <input id="api_max_total_assets" type="number" step="1" placeholder="Eks. 500000000">
                     </div>
                 </div>
 
@@ -246,12 +279,14 @@
                         <tr>
                             <th>Orgnr</th>
                             <th>Navn</th>
+                            <th>Næringskode</th>
                             <th>År</th>
                             <th>Omsetning</th>
-                            <th>Resultat</th>
+                            <th>Driftsresultat</th>
+                            <th>Nettoresultat</th>
                             <th>Egenkapital</th>
                             <th>Kommune</th>
-                            <th>Avstand (m)</th>
+                            <th>Avstand</th>
                         </tr>
                     </thead>
                     <tbody id="apiResultsBody"></tbody>
@@ -384,64 +419,90 @@
         apiResultsBody.innerHTML = '';
         clearInsights();
 
-        const q = document.getElementById('api_query')?.value?.trim();
-        const kommune = document.getElementById('api_kommune')?.value?.trim();
-        const naeringskode = document.getElementById('api_naeringskode')?.value?.trim();
-        const minRevenue = document.getElementById('api_min_revenue')?.value?.trim();
-        const minProfit = document.getElementById('api_min_profit')?.value?.trim();
+        // Samle alle feltverdier
+        const q                  = document.getElementById('api_query')?.value?.trim();
+        const kommune            = document.getElementById('api_kommune')?.value?.trim();
+        const naeringskode       = document.getElementById('api_naeringskode')?.value?.trim();
+        const orgform            = document.getElementById('api_orgform')?.value?.trim();
+        const accountingYear     = document.getElementById('api_accounting_year')?.value?.trim();
+        const minRevenue         = document.getElementById('api_min_revenue')?.value?.trim();
+        const maxRevenue         = document.getElementById('api_max_revenue')?.value?.trim();
+        const minProfit          = document.getElementById('api_min_profit')?.value?.trim();
         const minOperatingProfit = document.getElementById('api_min_operating_profit')?.value?.trim();
-        const minEquityRatioPct = document.getElementById('api_min_equity_ratio')?.value?.trim();
-        const sort = document.getElementById('api_sort')?.value || 'revenue';
-        const limit = document.getElementById('api_limit')?.value?.trim() || '20';
-        const hasRegnskap = document.getElementById('api_has_regnskap')?.checked;
-        const lat = document.getElementById('api_lat')?.value?.trim();
-        const lon = document.getElementById('api_lon')?.value?.trim();
-        const radiusKm = document.getElementById('api_radius')?.value?.trim() || '5';
+        const minEquityRatioPct  = document.getElementById('api_min_equity_ratio')?.value?.trim();
+        const maxEquityRatioPct  = document.getElementById('api_max_equity_ratio')?.value?.trim();
+        const minTotalAssets     = document.getElementById('api_min_total_assets')?.value?.trim();
+        const maxTotalAssets     = document.getElementById('api_max_total_assets')?.value?.trim();
+        const sort               = document.getElementById('api_sort')?.value || 'revenue';
+        const limit              = document.getElementById('api_limit')?.value?.trim() || '20';
+        const hasRegnskap        = document.getElementById('api_has_regnskap')?.checked;
+        const lat                = document.getElementById('api_lat')?.value?.trim();
+        const lon                = document.getElementById('api_lon')?.value?.trim();
+        const radiusKm           = document.getElementById('api_radius')?.value?.trim() || '5';
 
+        const hasGeo = lat && lon;
+
+        // Sjekk: minst ett søkekriterie må være fylt inn
+        const hasAnyCriteria = q || kommune || naeringskode || orgform || accountingYear
+            || minRevenue || maxRevenue || minProfit || minOperatingProfit
+            || minEquityRatioPct || maxEquityRatioPct || minTotalAssets || maxTotalAssets
+            || hasRegnskap || hasGeo;
+
+        if (!hasAnyCriteria) {
+            apiStatus.textContent = '⚠️ Fyll inn minst ett søkekriterie – navn, kommune, næringskode, omsetning, e.l.';
+            return;
+        }
+
+        // Bygg URL-parametere
         const params = new URLSearchParams();
         addIfPresent(params, 'limit', limit);
         addIfPresent(params, 'sort', sort);
         addIfPresent(params, 'kommune', kommune);
         addIfPresent(params, 'naeringskode', naeringskode);
+        addIfPresent(params, 'orgform', orgform);
+        addIfPresent(params, 'accounting_year', accountingYear);
         addIfPresent(params, 'min_revenue', minRevenue);
+        addIfPresent(params, 'max_revenue', maxRevenue);
         addIfPresent(params, 'min_profit', minProfit);
         addIfPresent(params, 'min_operating_profit', minOperatingProfit);
+        addIfPresent(params, 'min_total_assets', minTotalAssets);
+        addIfPresent(params, 'max_total_assets', maxTotalAssets);
+
         if (minEquityRatioPct) {
             const ratio = Number(minEquityRatioPct) / 100;
-            if (Number.isFinite(ratio)) {
-                params.set('min_equity_ratio', String(ratio));
-            }
+            if (Number.isFinite(ratio)) params.set('min_equity_ratio', String(ratio));
+        }
+        if (maxEquityRatioPct) {
+            const ratio = Number(maxEquityRatioPct) / 100;
+            if (Number.isFinite(ratio)) params.set('max_equity_ratio', String(ratio));
         }
         if (hasRegnskap) params.set('has_regnskap', 'true');
-
-        const hasGeo = lat && lon;
         if (hasGeo) {
             addIfPresent(params, 'lat', lat);
             addIfPresent(params, 'lon', lon);
             addIfPresent(params, 'radius_km', radiusKm);
         }
-
         if (q) {
             const isOrgnr = /^\d{9}$/.test(q);
             if (isOrgnr) params.set('orgnr', q);
             else params.set('q', q);
         }
 
-        if (!q && !kommune && !naeringskode && !minRevenue && !minProfit && !minOperatingProfit && !hasGeo) {
-            apiStatus.textContent = 'Legg inn minst ett søkekriterie (navn/orgnr, kommune, næringskode, økonomifilter eller beliggenhet).';
-            return;
-        }
+        // Sjekk om avanserte filtre krever /regnskap-api
+        const needsAdvanced = kommune || naeringskode || orgform || accountingYear
+            || minRevenue || maxRevenue || minProfit || minOperatingProfit
+            || minEquityRatioPct || maxEquityRatioPct || minTotalAssets || maxTotalAssets
+            || hasGeo;
 
         apiStatus.textContent = 'Søker…';
 
+        // Innsikt-kall (uten limit/sort/geo)
         const insightParams = new URLSearchParams(params);
         insightParams.delete('limit');
         insightParams.delete('sort');
-        if (hasGeo) {
-            insightParams.delete('lat');
-            insightParams.delete('lon');
-            insightParams.delete('radius_km');
-        }
+        insightParams.delete('lat');
+        insightParams.delete('lon');
+        insightParams.delete('radius_km');
 
         for (const insightEndpoint of ['/regnskap-api/api/search/insights', '/regnskap/api/search/insights']) {
             try {
@@ -464,46 +525,53 @@
                 });
 
                 renderInsightList(apiInsightsRevenue, insightData.by_revenue_band, (key) => {
-                    const revInput = document.getElementById('api_min_revenue');
-                    if (key.startsWith('10-100')) revInput.value = '10000000';
-                    else if (key.startsWith('1-10')) revInput.value = '1000000';
-                    else if (key.startsWith('> 100')) revInput.value = '100000000';
-                    else if (key.startsWith('< 1')) revInput.value = '';
+                    const minInput = document.getElementById('api_min_revenue');
+                    const maxInput = document.getElementById('api_max_revenue');
+                    minInput.value = '';
+                    maxInput.value = '';
+                    if (key.startsWith('< 1'))              { maxInput.value = '999999'; }
+                    else if (key.startsWith('1–10'))         { minInput.value = '1000000';   maxInput.value = '9999999'; }
+                    else if (key.startsWith('10–100'))       { minInput.value = '10000000';  maxInput.value = '99999999'; }
+                    else if (key.startsWith('100 mill–1'))   { minInput.value = '100000000'; maxInput.value = '999999999'; }
+                    else if (key.startsWith('> 1'))          { minInput.value = '1000000000'; }
                     apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
                 });
 
                 apiInsights.style.display = '';
                 break;
             } catch (_err) {
-                // ignorer innsikt-feil
+                // ignorer innsikt-feil stille
             }
         }
 
-        const searchEndpoints = hasGeo
-            ? ['/regnskap-api/api/nearby', '/regnskap-api/api/search', '/regnskap/api/search']
-            : ['/regnskap-api/api/search', '/regnskap/api/search'];
+        // Søke-endepunkter – velg basert på geo og avanserte filtre
+        let searchEndpoints;
+        if (hasGeo) {
+            searchEndpoints = ['/regnskap-api/api/nearby'];
+        } else {
+            searchEndpoints = needsAdvanced
+                ? ['/regnskap-api/api/search']                          // kun FastAPI
+                : ['/regnskap-api/api/search', '/regnskap/api/search']; // FastAPI med Flask-fallback
+        }
 
-        const fallbackNeedsQuery = !q && (kommune || naeringskode || minRevenue || minProfit || minOperatingProfit || minEquityRatioPct || hasGeo);
         let lastError = '';
 
         for (const endpoint of searchEndpoints) {
             try {
-                if (endpoint === '/regnskap/api/search' && fallbackNeedsQuery) {
-                    lastError = 'Fallback-API støtter bare navn/orgnr. Start /regnskap-api for avansert filtrering.';
-                    continue;
-                }
-
                 const res = await fetch(`${endpoint}?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
                 const data = await parseMaybeJson(res);
 
                 if (!res.ok) {
-                    lastError = `${endpoint} feilet: ${data.detail || res.statusText}`;
+                    lastError = `${endpoint} svarte ${res.status}: ${data.detail || res.statusText}`;
                     continue;
                 }
 
                 const rows = Array.isArray(data.results) ? data.results : [];
                 if (!rows.length) {
-                    apiStatus.textContent = 'Ingen treff.';
+                    const totalCount = data.total_count ?? null;
+                    apiStatus.textContent = totalCount !== null
+                        ? `Ingen treff (totalt ${fmtNumber(totalCount)} matchet filteret, men alle er utenfor side).`
+                        : 'Ingen treff.';
                     return;
                 }
 
@@ -512,12 +580,14 @@
                     const values = [
                         row.orgnr ?? '',
                         row.navn ?? '',
+                        row.naeringskode ?? '',
                         row.accounting_year ?? '',
                         fmtNumber(row.revenue),
+                        fmtNumber(row.operating_profit),
                         fmtNumber(row.net_profit),
                         fmtNumber(row.equity),
                         row.kommunenummer ?? '',
-                        fmtNumber(row.distance_m),
+                        row.distance_m ? fmtNumber(row.distance_m) + ' m' : '',
                     ];
                     values.forEach((value) => {
                         const td = document.createElement('td');
@@ -528,14 +598,20 @@
                 }
 
                 apiResultsTable.style.display = '';
-                apiStatus.textContent = `Fant ${rows.length} treff via ${endpoint}.`;
+                const totalCount = data.total_count ?? data.total_returned;
+                apiStatus.textContent = `Viser ${rows.length} av totalt ${fmtNumber(totalCount)} treff (via ${endpoint}).`;
                 return;
-            } catch (_err) {
-                lastError = `${endpoint} svarte ikke.`;
+            } catch (err) {
+                lastError = `${endpoint} svarte ikke (${err.message}).`;
             }
         }
 
-        apiStatus.textContent = `❌ ${lastError || 'Klarte ikke søke mot noen API-endepunkter.'}`;
+        // Ingen endepunkter fungerte
+        if (needsAdvanced) {
+            apiStatus.textContent = `❌ /regnskap-api er ikke tilgjengelig. Avanserte filtre (omsetning, næringskode, kommune osv.) krever at FastAPI-modulen kjører. Sjekk at DATABASE_URL er satt og at ASGI-appen starter. Feil: ${lastError}`;
+        } else {
+            apiStatus.textContent = `❌ ${lastError || 'Klarte ikke søke mot noen API-endepunkter.'}`;
+        }
     });
 </script>
 </body>
