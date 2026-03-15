@@ -27,7 +27,7 @@ from xml.etree import ElementTree as ET
 import requests
 import urllib3
 from bs4 import BeautifulSoup
-from flask import Blueprint, make_response, render_template, request, session
+from flask import Blueprint, jsonify, make_response, render_template, request, session
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -992,6 +992,21 @@ def render_regnskap_result_page(
     )
 
 
+def _lookup_from_query(http_session: requests.Session, query: str) -> tuple[LookupResult | None, str | None]:
+    orgnr = search_to_orgnr(http_session, query)
+    if not orgnr:
+        return None, "Fant ingen selskaper fra søket."
+
+    result = lookup_orgnr_brreg(http_session, orgnr)
+    if not result:
+        result = lookup_orgnr(http_session, orgnr)
+
+    if not result:
+        return None, f"Fant orgnr {orgnr}, men ingen regnskapsdata i verken Brreg eller Proff."
+
+    return result, None
+
+
 # ---------------------------------------------------------------------------
 # Flask-ruter
 # ---------------------------------------------------------------------------
@@ -1065,6 +1080,41 @@ def detailed_download_csv():
     resp.headers["Content-Type"] = "text/csv; charset=utf-8"
     resp.headers["Content-Disposition"] = f"attachment; filename=regnskap_detaljer_{filename_org}.csv"
     return resp
+
+
+@regnskap_bp.route("/api/health")
+def regnskap_api_health():
+    return jsonify({"ok": True, "service": "regnskap-flask-api"})
+
+
+@regnskap_bp.route("/api/search")
+def regnskap_api_search():
+    query = (request.args.get("q") or request.args.get("orgnr") or "").strip()
+    if not query:
+        return jsonify({"detail": "Missing query parameter q or orgnr"}), 400
+
+    http_session = make_session()
+    result, error = _lookup_from_query(http_session, query)
+    if error:
+        return jsonify(
+            {
+                "total_returned": 0,
+                "limit": 1,
+                "offset": 0,
+                "results": [],
+                "detail": error,
+            }
+        )
+
+    payload = {
+        "orgnr": result.orgnr,
+        "navn": result.company,
+        "accounting_year": result.year,
+        "revenue": result.omsetning,
+        "net_profit": result.resultat_etter_skatt,
+        "equity": result.egenkapital,
+    }
+    return jsonify({"total_returned": 1, "limit": 1, "offset": 0, "results": [payload]})
 
 
 @regnskap_bp.route("/", methods=["GET", "POST"])
