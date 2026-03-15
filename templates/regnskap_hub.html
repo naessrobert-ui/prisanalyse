@@ -24,6 +24,8 @@
         .details li { margin-bottom: 6px; }
         .status-ok { color: #86efac; font-weight: 700; }
         .status-feil { color: #fca5a5; font-weight: 700; }
+        .muted { color:#94a3b8; font-size:0.9rem; }
+        .api-table-wrap { overflow-x:auto; }
 
         .overlay {
             position: fixed;
@@ -147,6 +149,36 @@
             </ul>
             {% endif %}
         </section>
+
+        <section class="card">
+            <h2>4) Søk i regnskaps-API (ny modul)</h2>
+            <p class="muted">Bruker <code>/regnskap-api/api/search</code> fra samme side.</p>
+            <form id="apiSearchForm">
+                <label for="api_query">Navn eller org.nr</label>
+                <input id="api_query" type="text" placeholder="Eks. Equinor eller 923609016">
+                <label for="api_limit">Antall treff</label>
+                <input id="api_limit" type="text" value="20">
+                <button type="submit">Søk i ny modul</button>
+                <button type="button" id="apiHealthBtn" style="margin-left:8px;">Sjekk API-status</button>
+            </form>
+            <p id="apiStatus" class="muted" style="margin-top:8px;"></p>
+            <div class="api-table-wrap">
+                <table id="apiResultsTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Orgnr</th>
+                            <th>Navn</th>
+                            <th>År</th>
+                            <th>Omsetning</th>
+                            <th>Resultat</th>
+                            <th>Egenkapital</th>
+                        </tr>
+                    </thead>
+                    <tbody id="apiResultsBody"></tbody>
+                </table>
+            </div>
+        </section>
+
     </div>
 </div>
 <script>
@@ -156,9 +188,7 @@
     const progressBar = document.getElementById('progressBar');
 
     form?.addEventListener('submit', () => {
-        // Tell antall orgnr fra filen for bedre estimat
-        const fileInput = document.getElementById('orgnr_file');
-        const estimatedTotalSec = 15; // ~15 sek for 100 orgnr med parallell henting
+        const estimatedTotalSec = 15;
 
         overlay.classList.add('show');
         const started = Date.now();
@@ -173,6 +203,116 @@
         }, 500);
 
         window.addEventListener('pageshow', () => clearInterval(interval), { once: true });
+    });
+
+    const apiForm = document.getElementById('apiSearchForm');
+    const apiHealthBtn = document.getElementById('apiHealthBtn');
+    const apiStatus = document.getElementById('apiStatus');
+    const apiResultsTable = document.getElementById('apiResultsTable');
+    const apiResultsBody = document.getElementById('apiResultsBody');
+
+    function fmtNumber(value) {
+        if (value === null || value === undefined || value === '') return '';
+        const num = Number(value);
+        if (!Number.isFinite(num)) return String(value);
+        return new Intl.NumberFormat('nb-NO').format(Math.round(num));
+    }
+
+    async function parseMaybeJson(res) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            return await res.json();
+        }
+        const text = await res.text();
+        return { detail: text.slice(0, 160) || 'Ugyldig svarformat (ikke JSON).' };
+    }
+
+    async function checkApiHealth() {
+        apiStatus.textContent = 'Sjekker API-status…';
+
+        const healthEndpoints = ['/regnskap-api/health', '/regnskap/api/health'];
+        for (const endpoint of healthEndpoints) {
+            try {
+                const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } });
+                const data = await parseMaybeJson(res);
+                if (res.ok && data.ok) {
+                    apiStatus.textContent = `✅ API kjører via ${endpoint}`;
+                    return;
+                }
+            } catch (_err) {
+                // prøv neste endpoint
+            }
+        }
+
+        apiStatus.textContent = '❌ Fant ingen fungerende API-endepunkt. Prøv å starte ASGI-app eller bruk /regnskap/api/* fallback.';
+    }
+
+    apiHealthBtn?.addEventListener('click', checkApiHealth);
+
+    apiForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        apiStatus.textContent = '';
+        apiResultsTable.style.display = 'none';
+        apiResultsBody.innerHTML = '';
+
+        const q = document.getElementById('api_query')?.value?.trim();
+        const limit = document.getElementById('api_limit')?.value?.trim() || '20';
+        if (!q) {
+            apiStatus.textContent = 'Skriv inn navn eller org.nr.';
+            return;
+        }
+
+        const isOrgnr = /^\d{9}$/.test(q);
+        const params = new URLSearchParams({ limit });
+        if (isOrgnr) params.set('orgnr', q);
+        else params.set('q', q);
+
+        apiStatus.textContent = 'Søker…';
+        const searchEndpoints = ['/regnskap-api/api/search', '/regnskap/api/search'];
+
+        for (const endpoint of searchEndpoints) {
+            try {
+                const res = await fetch(`${endpoint}?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+                const data = await parseMaybeJson(res);
+
+                if (!res.ok) {
+                    apiStatus.textContent = `⚠️ ${endpoint} feilet: ${data.detail || res.statusText}`;
+                    continue;
+                }
+
+                const rows = Array.isArray(data.results) ? data.results : [];
+                if (!rows.length) {
+                    apiStatus.textContent = 'Ingen treff.';
+                    return;
+                }
+
+                for (const row of rows) {
+                    const tr = document.createElement('tr');
+                    const values = [
+                        row.orgnr ?? '',
+                        row.navn ?? '',
+                        row.accounting_year ?? '',
+                        fmtNumber(row.revenue),
+                        fmtNumber(row.net_profit),
+                        fmtNumber(row.equity),
+                    ];
+                    values.forEach((value) => {
+                        const td = document.createElement('td');
+                        td.textContent = String(value);
+                        tr.appendChild(td);
+                    });
+                    apiResultsBody.appendChild(tr);
+                }
+
+                apiResultsTable.style.display = '';
+                apiStatus.textContent = `Fant ${rows.length} treff via ${endpoint}.`;
+                return;
+            } catch (_err) {
+                // prøv neste endpoint
+            }
+        }
+
+        apiStatus.textContent = '❌ Klarte ikke søke mot noen API-endepunkter.';
     });
 </script>
 </body>

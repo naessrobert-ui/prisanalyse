@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
@@ -62,11 +62,8 @@ def fetch_all(sql: str, params: list[Any] | tuple[Any, ...]) -> list[dict[str, A
     try:
         with pool.connection() as conn:
             with conn.cursor() as cur:
-                print("SQL:", sql)
-                print("PARAMS:", params)
                 cur.execute(sql, params)
                 rows = cur.fetchall()
-                print("ROW COUNT:", len(rows))
                 return [normalize_decimal(dict(row)) for row in rows]
     except Exception as e:
         print("FETCH_ALL ERROR:", repr(e))
@@ -77,11 +74,8 @@ def fetch_one(sql: str, params: list[Any] | tuple[Any, ...]) -> dict[str, Any] |
     try:
         with pool.connection() as conn:
             with conn.cursor() as cur:
-                print("SQL:", sql)
-                print("PARAMS:", params)
                 cur.execute(sql, params)
                 row = cur.fetchone()
-                print("ROW:", row)
                 return normalize_decimal(dict(row)) if row else None
     except Exception as e:
         print("FETCH_ONE ERROR:", repr(e))
@@ -151,7 +145,28 @@ class HealthResponse(BaseModel):
     ok: bool = True
     service: str = "prisanalyse-api"
 
-from contextlib import asynccontextmanager
+
+LATEST_REGNSKAP_JOIN = """
+    LEFT JOIN LATERAL (
+        SELECT
+            rm.accounting_year,
+            rm.revenue,
+            rm.operating_profit,
+            rm.net_profit,
+            rm.total_assets,
+            rm.equity,
+            rm.total_liabilities,
+            rm.current_assets,
+            rm.short_term_liabilities,
+            rm.equity_ratio,
+            rm.ebit_margin,
+            rm.net_margin
+        FROM regnskap_metrics rm
+        WHERE rm.orgnr = e.orgnr
+        ORDER BY rm.accounting_year DESC NULLS LAST
+        LIMIT 1
+    ) r ON TRUE
+"""
 
 
 @asynccontextmanager
@@ -219,7 +234,7 @@ def search(
 ) -> SearchResponse:
     limit = clean_limit(limit)
 
-    sql = """
+    sql = f"""
         SELECT
             e.orgnr::text AS orgnr,
             e.navn,
@@ -239,7 +254,7 @@ def search(
             r.equity_ratio,
             NULL::double precision AS distance_m
         FROM entity e
-        LEFT JOIN regnskap_metrics r ON r.orgnr = e.orgnr
+        {LATEST_REGNSKAP_JOIN}
         WHERE 1=1
     """
     params: list[Any] = []
@@ -303,7 +318,7 @@ def search(
 
 @app.get("/api/company/{orgnr}", response_model=CompanyDetail)
 def company_detail(orgnr: str) -> CompanyDetail:
-    sql = """
+    sql = f"""
         SELECT
             e.orgnr,
             e.navn,
@@ -333,7 +348,7 @@ def company_detail(orgnr: str) -> CompanyDetail:
             r.ebit_margin,
             r.net_margin
         FROM entity e
-        LEFT JOIN regnskap_metrics r ON r.orgnr = e.orgnr
+        {LATEST_REGNSKAP_JOIN}
         WHERE e.orgnr = %s
         LIMIT 1
     """
@@ -357,7 +372,7 @@ def nearby(
     limit = clean_limit(limit)
     radius_m = radius_km * 1000
 
-    sql = """
+    sql = f"""
         SELECT
             e.orgnr,
             e.navn,
@@ -380,7 +395,7 @@ def nearby(
                 ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
             ) AS distance_m
         FROM entity e
-        LEFT JOIN regnskap_metrics r ON r.orgnr = e.orgnr
+        {LATEST_REGNSKAP_JOIN}
         WHERE e.geog IS NOT NULL
           AND ST_DWithin(
                 e.geog,
@@ -405,7 +420,12 @@ def nearby(
     params.extend([limit, offset])
 
     rows = fetch_all(sql, params)
-    return SearchResponse(total_returned=len(rows), limit=limit, offset=offset, results=rows)
+    return SearchResponse(
+        total_returned=len(rows),
+        limit=limit,
+        offset=offset,
+        results=[SearchResult(**row) for row in rows],
+    )
 
 
 @app.get("/api/toplist", response_model=SearchResponse)
@@ -444,7 +464,7 @@ def toplist(
             r.equity_ratio,
             NULL::double precision AS distance_m
         FROM entity e
-        JOIN regnskap_metrics r ON r.orgnr = e.orgnr
+        {LATEST_REGNSKAP_JOIN}
         WHERE {metric_col} IS NOT NULL
     """
     params: list[Any] = []
@@ -467,3 +487,9 @@ def toplist(
         offset=offset,
         results=[SearchResult(**row) for row in rows],
     )
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("Fastapi_Backend:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")), reload=os.getenv("RELOAD", "false").lower() == "true")
