@@ -496,53 +496,58 @@
 
         apiStatus.textContent = 'Søker…';
 
-        // Innsikt-kall (uten limit/sort/geo)
+        // Innsikt-kall i bakgrunnen – blokkerer ikke søkeresultatene
         const insightParams = new URLSearchParams(params);
         insightParams.delete('limit');
         insightParams.delete('sort');
         insightParams.delete('lat');
         insightParams.delete('lon');
         insightParams.delete('radius_km');
+        insightParams.set('has_regnskap', 'true'); // begrens til selskaper med regnskap for hastighet
 
-        for (const insightEndpoint of ['/regnskap-api/api/search/insights', '/regnskap/api/search/insights']) {
-            try {
-                const insightRes = await fetch(`${insightEndpoint}?${insightParams.toString()}`, { headers: { 'Accept': 'application/json' } });
-                const insightData = await parseMaybeJson(insightRes);
-                if (!insightRes.ok) continue;
+        const loadInsights = async () => {
+            for (const insightEndpoint of ['/regnskap-api/api/search/insights']) {
+                try {
+                    const insightRes = await fetch(`${insightEndpoint}?${insightParams.toString()}`, { headers: { 'Accept': 'application/json' } });
+                    const insightData = await parseMaybeJson(insightRes);
+                    if (!insightRes.ok) return;
 
-                apiInsightsTotal.textContent = `${fmtNumber(insightData.total_matches || 0)} selskaper matcher filteret.`;
+                    apiInsightsTotal.textContent = `${fmtNumber(insightData.total_matches || 0)} selskaper matcher filteret.`;
 
-                renderInsightList(apiInsightsKommune, insightData.by_kommune, (key) => {
-                    if (key === 'Ukjent') return;
-                    document.getElementById('api_kommune').value = key;
-                    apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
-                });
+                    renderInsightList(apiInsightsKommune, insightData.by_kommune, (key) => {
+                        if (key === 'Ukjent') return;
+                        document.getElementById('api_kommune').value = key;
+                        apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                    });
 
-                renderInsightList(apiInsightsNaering, insightData.by_naeringskode_prefix, (key) => {
-                    if (key === 'Ukjent') return;
-                    document.getElementById('api_naeringskode').value = key;
-                    apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
-                });
+                    renderInsightList(apiInsightsNaering, insightData.by_naeringskode_prefix, (key) => {
+                        if (key === 'Ukjent') return;
+                        document.getElementById('api_naeringskode').value = key;
+                        apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                    });
 
-                renderInsightList(apiInsightsRevenue, insightData.by_revenue_band, (key) => {
-                    const minInput = document.getElementById('api_min_revenue');
-                    const maxInput = document.getElementById('api_max_revenue');
-                    minInput.value = '';
-                    maxInput.value = '';
-                    if (key.startsWith('< 1'))              { maxInput.value = '999999'; }
-                    else if (key.startsWith('1–10'))         { minInput.value = '1000000';   maxInput.value = '9999999'; }
-                    else if (key.startsWith('10–100'))       { minInput.value = '10000000';  maxInput.value = '99999999'; }
-                    else if (key.startsWith('100 mill–1'))   { minInput.value = '100000000'; maxInput.value = '999999999'; }
-                    else if (key.startsWith('> 1'))          { minInput.value = '1000000000'; }
-                    apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
-                });
+                    renderInsightList(apiInsightsRevenue, insightData.by_revenue_band, (key) => {
+                        const minInput = document.getElementById('api_min_revenue');
+                        const maxInput = document.getElementById('api_max_revenue');
+                        minInput.value = '';
+                        maxInput.value = '';
+                        if (key.startsWith('< 1'))              { maxInput.value = '999999'; }
+                        else if (key.startsWith('1–10'))         { minInput.value = '1000000';   maxInput.value = '9999999'; }
+                        else if (key.startsWith('10–100'))       { minInput.value = '10000000';  maxInput.value = '99999999'; }
+                        else if (key.startsWith('100 mill–1'))   { minInput.value = '100000000'; maxInput.value = '999999999'; }
+                        else if (key.startsWith('> 1'))          { minInput.value = '1000000000'; }
+                        apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                    });
 
-                apiInsights.style.display = '';
-                break;
-            } catch (_err) {
-                // ignorer innsikt-feil stille
+                    apiInsights.style.display = '';
+                } catch (_err) {
+                    // ignorer innsikt-feil stille
+                }
             }
-        }
+        };
+
+        // Start insights i bakgrunnen uten await
+        loadInsights();
 
         // Søke-endepunkter – velg basert på geo og avanserte filtre
         let searchEndpoints;
