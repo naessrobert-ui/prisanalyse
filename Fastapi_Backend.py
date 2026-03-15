@@ -151,10 +151,19 @@ def normalize_decimal(value: Any) -> Any:
     return value
 
 
+# IAM-token cache – gyldige i 15 min, vi fornyer etter 12 min
+import time
+_token_cache: dict = {"token": None, "expires_at": 0.0}
+_TOKEN_TTL = 12 * 60  # 12 minutter
+
+
 def get_iam_token() -> str:
-    """Generer midlertidig RDS IAM-token via AWS CLI."""
+    """Generer midlertidig RDS IAM-token via AWS CLI. Caches i 12 min."""
+    now = time.monotonic()
+    if _token_cache["token"] and now < _token_cache["expires_at"]:
+        return _token_cache["token"]
     try:
-        return subprocess.check_output(
+        token = subprocess.check_output(
             [AWS_CLI, "rds", "generate-db-auth-token",
              "--hostname", RDS_HOST,
              "--port", str(RDS_PORT),
@@ -162,6 +171,10 @@ def get_iam_token() -> str:
              "--region", AWS_REGION],
             text=True,
         ).strip()
+        _token_cache["token"] = token
+        _token_cache["expires_at"] = now + _TOKEN_TTL
+        print(f"[iam] Nytt token generert, gyldig til {_TOKEN_TTL}s fra nå")
+        return token
     except FileNotFoundError as e:
         raise HTTPException(status_code=500, detail="AWS CLI ikke funnet på serveren.") from e
     except subprocess.CalledProcessError as e:
