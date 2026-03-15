@@ -223,6 +223,23 @@
                 <button type="button" id="apiHealthBtn" style="margin-left:8px;">Sjekk API-status</button>
             </form>
             <p id="apiStatus" class="muted" style="margin-top:8px;"></p>
+            <div id="apiInsights" class="muted" style="margin:10px 0 14px; display:none;">
+                <p><strong>Markedsoverblikk:</strong> <span id="apiInsightsTotal"></span></p>
+                <div class="inline-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+                    <div>
+                        <strong>Topp kommuner</strong>
+                        <ul id="apiInsightsKommune"></ul>
+                    </div>
+                    <div>
+                        <strong>Topp sektorer (NACE-prefix)</strong>
+                        <ul id="apiInsightsNaering"></ul>
+                    </div>
+                    <div>
+                        <strong>Omsetningsfordeling</strong>
+                        <ul id="apiInsightsRevenue"></ul>
+                    </div>
+                </div>
+            </div>
             <div class="api-table-wrap">
                 <table id="apiResultsTable" style="display:none;">
                     <thead>
@@ -273,6 +290,11 @@
     const apiStatus = document.getElementById('apiStatus');
     const apiResultsTable = document.getElementById('apiResultsTable');
     const apiResultsBody = document.getElementById('apiResultsBody');
+    const apiInsights = document.getElementById('apiInsights');
+    const apiInsightsTotal = document.getElementById('apiInsightsTotal');
+    const apiInsightsKommune = document.getElementById('apiInsightsKommune');
+    const apiInsightsNaering = document.getElementById('apiInsightsNaering');
+    const apiInsightsRevenue = document.getElementById('apiInsightsRevenue');
 
     function addIfPresent(params, key, value) {
         if (value === null || value === undefined) return;
@@ -286,6 +308,38 @@
         const num = Number(value);
         if (!Number.isFinite(num)) return String(value);
         return new Intl.NumberFormat('nb-NO').format(Math.round(num));
+    }
+
+
+    function clearInsights() {
+        apiInsights.style.display = 'none';
+        apiInsightsTotal.textContent = '';
+        apiInsightsKommune.innerHTML = '';
+        apiInsightsNaering.innerHTML = '';
+        apiInsightsRevenue.innerHTML = '';
+    }
+
+    function renderInsightList(target, rows, onClick) {
+        target.innerHTML = '';
+        if (!Array.isArray(rows) || !rows.length) {
+            const li = document.createElement('li');
+            li.textContent = 'Ingen data';
+            target.appendChild(li);
+            return;
+        }
+
+        rows.forEach((row) => {
+            const li = document.createElement('li');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.style.margin = '0';
+            button.style.padding = '2px 6px';
+            button.style.fontSize = '0.85rem';
+            button.textContent = `${row.key}: ${fmtNumber(row.count)} selskaper`;
+            button.addEventListener('click', () => onClick(row.key));
+            li.appendChild(button);
+            target.appendChild(li);
+        });
     }
 
     async function parseMaybeJson(res) {
@@ -306,7 +360,11 @@
                 const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } });
                 const data = await parseMaybeJson(res);
                 if (res.ok && data.ok) {
-                    apiStatus.textContent = `✅ API kjører via ${endpoint}`;
+                    if (endpoint === '/regnskap/api/health') {
+                        apiStatus.textContent = '⚠️ API kjører via /regnskap/api/health (fallback). For avanserte filtre uten navn/orgnr må /regnskap-api være oppe.';
+                    } else {
+                        apiStatus.textContent = `✅ API kjører via ${endpoint}`;
+                    }
                     return;
                 }
             } catch (_err) {
@@ -324,6 +382,7 @@
         apiStatus.textContent = '';
         apiResultsTable.style.display = 'none';
         apiResultsBody.innerHTML = '';
+        clearInsights();
 
         const q = document.getElementById('api_query')?.value?.trim();
         const kommune = document.getElementById('api_kommune')?.value?.trim();
@@ -374,17 +433,71 @@
         }
 
         apiStatus.textContent = 'Søker…';
+
+        const insightParams = new URLSearchParams(params);
+        insightParams.delete('limit');
+        insightParams.delete('sort');
+        if (hasGeo) {
+            insightParams.delete('lat');
+            insightParams.delete('lon');
+            insightParams.delete('radius_km');
+        }
+
+        for (const insightEndpoint of ['/regnskap-api/api/search/insights', '/regnskap/api/search/insights']) {
+            try {
+                const insightRes = await fetch(`${insightEndpoint}?${insightParams.toString()}`, { headers: { 'Accept': 'application/json' } });
+                const insightData = await parseMaybeJson(insightRes);
+                if (!insightRes.ok) continue;
+
+                apiInsightsTotal.textContent = `${fmtNumber(insightData.total_matches || 0)} selskaper matcher filteret.`;
+
+                renderInsightList(apiInsightsKommune, insightData.by_kommune, (key) => {
+                    if (key === 'Ukjent') return;
+                    document.getElementById('api_kommune').value = key;
+                    apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                });
+
+                renderInsightList(apiInsightsNaering, insightData.by_naeringskode_prefix, (key) => {
+                    if (key === 'Ukjent') return;
+                    document.getElementById('api_naeringskode').value = key;
+                    apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                });
+
+                renderInsightList(apiInsightsRevenue, insightData.by_revenue_band, (key) => {
+                    const revInput = document.getElementById('api_min_revenue');
+                    if (key.startsWith('10-100')) revInput.value = '10000000';
+                    else if (key.startsWith('1-10')) revInput.value = '1000000';
+                    else if (key.startsWith('> 100')) revInput.value = '100000000';
+                    else if (key.startsWith('< 1')) revInput.value = '';
+                    apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                });
+
+                apiInsights.style.display = '';
+                break;
+            } catch (_err) {
+                // ignorer innsikt-feil
+            }
+        }
+
         const searchEndpoints = hasGeo
             ? ['/regnskap-api/api/nearby', '/regnskap-api/api/search', '/regnskap/api/search']
             : ['/regnskap-api/api/search', '/regnskap/api/search'];
 
+        const fallbackNeedsQuery = !q && (kommune || naeringskode || minRevenue || minProfit || minOperatingProfit || minEquityRatioPct || hasGeo);
+        let lastError = '';
+
         for (const endpoint of searchEndpoints) {
             try {
+                if (endpoint === '/regnskap/api/search' && fallbackNeedsQuery) {
+                    lastError = 'Fallback-API støtter bare navn/orgnr. Start /regnskap-api for avansert filtrering.';
+                    continue;
+                }
+
                 const res = await fetch(`${endpoint}?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
                 const data = await parseMaybeJson(res);
 
                 if (!res.ok) {
-                    apiStatus.textContent = `⚠️ ${endpoint} feilet: ${data.detail || res.statusText}`;
+                    lastError = `${endpoint} feilet: ${data.detail || res.statusText}`;
                     continue;
                 }
 
@@ -418,11 +531,11 @@
                 apiStatus.textContent = `Fant ${rows.length} treff via ${endpoint}.`;
                 return;
             } catch (_err) {
-                // prøv neste endpoint
+                lastError = `${endpoint} svarte ikke.`;
             }
         }
 
-        apiStatus.textContent = '❌ Klarte ikke søke mot noen API-endepunkter.';
+        apiStatus.textContent = `❌ ${lastError || 'Klarte ikke søke mot noen API-endepunkter.'}`;
     });
 </script>
 </body>
