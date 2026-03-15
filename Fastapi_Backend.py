@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import psycopg
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any, Literal
@@ -21,12 +22,114 @@ if not DATABASE_URL:
 
 ALLOWED_ORIGINS = [
     origin.strip()
-    for origin in os.getenv("ALLOWED_ORIGINS", "https://prisanalyse.no,http://localhost:3000,http://localhost:5173").split(",")
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        "https://prisanalyse.no,http://localhost:3000,http://localhost:5173",
+    ).split(",")
     if origin.strip()
 ]
 
 DEFAULT_LIMIT = int(os.getenv("DEFAULT_LIMIT", "20"))
 MAX_LIMIT = int(os.getenv("MAX_LIMIT", "100"))
+
+
+# ------------------------------------------------------------
+# Næringskode: tekstnavn → kode-prefix
+# Legg til etter behov. Søk på ?sektor=eiendom gir naeringskode LIKE '68%'
+# ------------------------------------------------------------
+NAERINGSKODE_MAP: dict[str, str] = {
+    # Primærnæringer
+    "landbruk": "01",
+    "skogbruk": "02",
+    "fiske": "03",
+    "akvakultur": "03",
+    "oppdrett": "03",
+    # Industri / olje
+    "olje": "06",
+    "petroleum": "06",
+    "bergverk": "08",
+    "industri": "10",
+    "næringsmidler": "10",
+    "kjemisk": "20",
+    "bygg": "41",
+    "anlegg": "42",
+    "installasjon": "43",
+    # Handel / service
+    "handel": "45",
+    "detaljhandel": "47",
+    "engros": "46",
+    "transport": "49",
+    "shipping": "50",
+    "luftfart": "51",
+    "lagring": "52",
+    "hotell": "55",
+    "restaurant": "56",
+    "servering": "56",
+    # IKT / media
+    "ikt": "62",
+    "it": "62",
+    "programvare": "62",
+    "konsulent": "70",
+    "telekom": "61",
+    "media": "59",
+    "film": "59",
+    "reklame": "73",
+    # Finans / eiendom
+    "finans": "64",
+    "bank": "64",
+    "forsikring": "65",
+    "eiendom": "68",
+    # Helse / utdanning
+    "helse": "86",
+    "lege": "86",
+    "sykehus": "86",
+    "tannlege": "86",
+    "barnehage": "88",
+    "utdanning": "85",
+    "skole": "85",
+    # Organisasjoner
+    "organisasjon": "94",
+    "idrett": "93",
+}
+
+
+def resolve_naeringskode_prefix(value: str) -> str:
+    """
+    Returnerer kode-prefix for oppslag.
+    Aksepterer enten tekstnavn ('eiendom') eller direkte kode ('68', '68.1').
+    """
+    normalized = value.strip().lower()
+    if normalized in NAERINGSKODE_MAP:
+        return NAERINGSKODE_MAP[normalized]
+    # Sannsynligvis allerede en kode – returner som-er (strip whitespace)
+    return value.strip()
+
+
+# ------------------------------------------------------------
+# Subquery som alltid henter siste regnskapsår per orgnr
+# Bruk som JOIN i alle SELECT-spørringer
+# ------------------------------------------------------------
+LATEST_REGNSKAP_JOIN = """
+    LEFT JOIN LATERAL (
+        SELECT *
+        FROM regnskap_metrics rm
+        WHERE rm.orgnr = e.orgnr
+        ORDER BY rm.accounting_year DESC NULLS LAST
+        LIMIT 1
+    ) r ON true
+"""
+
+# Samme, men brukt der vi ønsker et spesifikt år
+def latest_regnskap_join_for_year(year: int) -> str:
+    return f"""
+    LEFT JOIN LATERAL (
+        SELECT *
+        FROM regnskap_metrics rm
+        WHERE rm.orgnr = e.orgnr
+          AND rm.accounting_year = {int(year)}
+        LIMIT 1
+    ) r ON true
+"""
 
 
 # ------------------------------------------------------------
@@ -62,8 +165,11 @@ def fetch_all(sql: str, params: list[Any] | tuple[Any, ...]) -> list[dict[str, A
     try:
         with pool.connection() as conn:
             with conn.cursor() as cur:
+                print("SQL:", sql)
+                print("PARAMS:", params)
                 cur.execute(sql, params)
                 rows = cur.fetchall()
+                print("ROW COUNT:", len(rows))
                 return [normalize_decimal(dict(row)) for row in rows]
     except Exception as e:
         print("FETCH_ALL ERROR:", repr(e))
@@ -74,12 +180,16 @@ def fetch_one(sql: str, params: list[Any] | tuple[Any, ...]) -> dict[str, Any] |
     try:
         with pool.connection() as conn:
             with conn.cursor() as cur:
+                print("SQL:", sql)
+                print("PARAMS:", params)
                 cur.execute(sql, params)
                 row = cur.fetchone()
+                print("ROW:", row)
                 return normalize_decimal(dict(row)) if row else None
     except Exception as e:
         print("FETCH_ONE ERROR:", repr(e))
         raise HTTPException(status_code=500, detail=f"DB error: {repr(e)}")
+
 
 # ------------------------------------------------------------
 # Response models
@@ -105,7 +215,8 @@ class SearchResult(BaseModel):
 
 
 class SearchResponse(BaseModel):
-    total_returned: int
+    total_count: int        # totalt antall treff (uavhengig av paginering)
+    total_returned: int     # antall returnert i denne siden
     limit: int
     offset: int
     results: list[SearchResult]
@@ -158,29 +269,9 @@ class HealthResponse(BaseModel):
     service: str = "prisanalyse-api"
 
 
-LATEST_REGNSKAP_JOIN = """
-    LEFT JOIN LATERAL (
-        SELECT
-            rm.accounting_year,
-            rm.revenue,
-            rm.operating_profit,
-            rm.net_profit,
-            rm.total_assets,
-            rm.equity,
-            rm.total_liabilities,
-            rm.current_assets,
-            rm.short_term_liabilities,
-            rm.equity_ratio,
-            rm.ebit_margin,
-            rm.net_margin
-        FROM regnskap_metrics rm
-        WHERE rm.orgnr = e.orgnr
-        ORDER BY rm.accounting_year DESC NULLS LAST
-        LIMIT 1
-    ) r ON TRUE
-"""
-
-
+# ------------------------------------------------------------
+# Lifespan
+# ------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Starting lifespan...")
@@ -195,21 +286,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Prisanalyse API",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
-
-import psycopg
-
-@app.get("/debug/direct")
-def debug_direct():
-    try:
-        with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT current_database() AS db, current_user AS usr")
-                return dict(cur.fetchone())
-    except Exception as e:
-        return {"error": repr(e), "database_url": DATABASE_URL}
 
 app.add_middleware(
     CORSMiddleware,
@@ -221,13 +300,8 @@ app.add_middleware(
 
 
 # ------------------------------------------------------------
-# Endpoints
+# Filter-builder (alle søkeendepunkter bruker denne)
 # ------------------------------------------------------------
-@app.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
-    return HealthResponse()
-
-
 def append_search_filters(
     sql: str,
     params: list[Any],
@@ -236,12 +310,20 @@ def append_search_filters(
     q: str | None = None,
     orgform: str | None = None,
     kommune: str | None = None,
-    naeringskode_prefix: str | None = None,
+    naeringskode_prefix: str | None = None,   # rå kode eller tekstnavn
+    sektor: str | None = None,                 # alias for naeringskode via NAERINGSKODE_MAP
     min_revenue: float | None = None,
     max_revenue: float | None = None,
     min_profit: float | None = None,
+    max_profit: float | None = None,
     min_operating_profit: float | None = None,
+    max_operating_profit: float | None = None,
     min_equity_ratio: float | None = None,
+    max_equity_ratio: float | None = None,
+    min_total_assets: float | None = None,
+    max_total_assets: float | None = None,
+    min_equity: float | None = None,
+    max_equity: float | None = None,
     has_regnskap: bool = False,
 ) -> str:
     if orgnr:
@@ -254,20 +336,26 @@ def append_search_filters(
 
     if orgform:
         sql += " AND e.orgform = %s"
-        params.append(orgform)
+        params.append(orgform.upper())
 
     if kommune:
         sql += " AND e.kommunenummer = %s"
         params.append(kommune)
 
+    # sektor (tekst) overstyres av naeringskode_prefix (rå kode) hvis begge er satt
+    effective_prefix: str | None = None
     if naeringskode_prefix:
+        effective_prefix = resolve_naeringskode_prefix(naeringskode_prefix)
+    elif sektor:
+        effective_prefix = resolve_naeringskode_prefix(sektor)
+
+    if effective_prefix:
         sql += " AND e.naeringskode LIKE %s"
-        params.append(f"{naeringskode_prefix}%")
+        params.append(f"{effective_prefix}%")
 
     if min_revenue is not None:
         sql += " AND r.revenue >= %s"
         params.append(min_revenue)
-
     if max_revenue is not None:
         sql += " AND r.revenue <= %s"
         params.append(max_revenue)
@@ -275,14 +363,37 @@ def append_search_filters(
     if min_profit is not None:
         sql += " AND r.net_profit >= %s"
         params.append(min_profit)
+    if max_profit is not None:
+        sql += " AND r.net_profit <= %s"
+        params.append(max_profit)
 
     if min_operating_profit is not None:
         sql += " AND r.operating_profit >= %s"
         params.append(min_operating_profit)
+    if max_operating_profit is not None:
+        sql += " AND r.operating_profit <= %s"
+        params.append(max_operating_profit)
 
     if min_equity_ratio is not None:
         sql += " AND r.equity_ratio >= %s"
         params.append(min_equity_ratio)
+    if max_equity_ratio is not None:
+        sql += " AND r.equity_ratio <= %s"
+        params.append(max_equity_ratio)
+
+    if min_total_assets is not None:
+        sql += " AND r.total_assets >= %s"
+        params.append(min_total_assets)
+    if max_total_assets is not None:
+        sql += " AND r.total_assets <= %s"
+        params.append(max_total_assets)
+
+    if min_equity is not None:
+        sql += " AND r.equity >= %s"
+        params.append(min_equity)
+    if max_equity is not None:
+        sql += " AND r.equity <= %s"
+        params.append(max_equity)
 
     if has_regnskap:
         sql += " AND r.accounting_year IS NOT NULL"
@@ -290,78 +401,136 @@ def append_search_filters(
     return sql
 
 
+# SELECT-kolonner som brukes av search og nearby
+_SEARCH_COLS = """
+    e.orgnr::text AS orgnr,
+    e.navn,
+    e.orgform,
+    e.naeringskode,
+    e.kommunenummer,
+    e.postnummer,
+    e.adresse,
+    e.lat,
+    e.lon,
+    r.accounting_year,
+    r.revenue,
+    r.operating_profit,
+    r.net_profit,
+    r.total_assets,
+    r.equity,
+    r.equity_ratio
+"""
+
+_SORT_MAP = {
+    "revenue":           "r.revenue DESC NULLS LAST, e.navn ASC",
+    "profit":            "r.net_profit DESC NULLS LAST, e.navn ASC",
+    "operating_profit":  "r.operating_profit DESC NULLS LAST, e.navn ASC",
+    "equity":            "r.equity DESC NULLS LAST, e.navn ASC",
+    "total_assets":      "r.total_assets DESC NULLS LAST, e.navn ASC",
+    "equity_ratio":      "r.equity_ratio DESC NULLS LAST, e.navn ASC",
+    "name":              "e.navn ASC",
+}
+
+
+# ------------------------------------------------------------
+# Endpoints
+# ------------------------------------------------------------
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    return HealthResponse()
+
+
+@app.get("/debug/direct")
+def debug_direct():
+    try:
+        with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT current_database() AS db, current_user AS usr")
+                return dict(cur.fetchone())
+    except Exception as e:
+        return {"error": repr(e), "database_url": DATABASE_URL}
+
+
+@app.get("/api/naeringskoder")
+def list_naeringskoder() -> dict:
+    """Returnerer alle kjente tekstnavn → kode-mappinger."""
+    return {"mappings": NAERINGSKODE_MAP}
+
+
 @app.get("/api/search", response_model=SearchResponse)
 def search(
     q: str | None = Query(default=None, description="Fritekst mot navn"),
     orgnr: str | None = None,
-    orgform: str | None = None,
-    kommune: str | None = None,
-    naeringskode_prefix: str | None = Query(default=None, alias="naeringskode"),
-    min_revenue: float | None = None,
-    max_revenue: float | None = None,
-    min_profit: float | None = None,
-    min_operating_profit: float | None = None,
-    min_equity_ratio: float | None = None,
+    orgform: str | None = Query(default=None, description="F.eks. AS, ENK, ANS"),
+    kommune: str | None = Query(default=None, description="Kommunenummer, f.eks. 4601"),
+    naeringskode_prefix: str | None = Query(
+        default=None, alias="naeringskode",
+        description="Kode-prefix (f.eks. '68') eller tekstnavn (f.eks. 'eiendom')",
+    ),
+    sektor: str | None = Query(
+        default=None,
+        description="Tekstnavn for sektor, f.eks. 'eiendom', 'it', 'shipping'",
+    ),
+    accounting_year: int | None = Query(default=None, description="Hent tall for spesifikt år"),
+    min_revenue: float | None = Query(default=None, description="Min omsetning (NOK)"),
+    max_revenue: float | None = Query(default=None, description="Maks omsetning (NOK)"),
+    min_profit: float | None = Query(default=None, description="Min nettoresultat"),
+    max_profit: float | None = Query(default=None, description="Maks nettoresultat"),
+    min_operating_profit: float | None = Query(default=None, description="Min driftsresultat"),
+    max_operating_profit: float | None = Query(default=None, description="Maks driftsresultat"),
+    min_equity_ratio: float | None = Query(default=None, description="Min egenkapitalandel (0–1)"),
+    max_equity_ratio: float | None = Query(default=None, description="Maks egenkapitalandel (0–1)"),
+    min_total_assets: float | None = Query(default=None, description="Min sum eiendeler"),
+    max_total_assets: float | None = Query(default=None, description="Maks sum eiendeler"),
+    min_equity: float | None = Query(default=None, description="Min egenkapital"),
+    max_equity: float | None = Query(default=None, description="Maks egenkapital"),
     has_regnskap: bool = False,
-    sort: Literal["revenue", "profit", "equity", "name"] = "revenue",
+    sort: Literal[
+        "revenue", "profit", "operating_profit", "equity", "total_assets", "equity_ratio", "name"
+    ] = "revenue",
     limit: int = DEFAULT_LIMIT,
     offset: int = 0,
 ) -> SearchResponse:
     limit = clean_limit(limit)
 
-    sql = f"""
-        SELECT
-            e.orgnr::text AS orgnr,
-            e.navn,
-            e.orgform,
-            e.naeringskode,
-            e.kommunenummer,
-            e.postnummer,
-            e.adresse,
-            e.lat,
-            e.lon,
-            r.accounting_year,
-            r.revenue,
-            r.operating_profit,
-            r.net_profit,
-            r.total_assets,
-            r.equity,
-            r.equity_ratio,
-            NULL::double precision AS distance_m
+    regnskap_join = (
+        latest_regnskap_join_for_year(accounting_year)
+        if accounting_year
+        else LATEST_REGNSKAP_JOIN
+    )
+
+    base_sql = f"""
         FROM entity e
-        {LATEST_REGNSKAP_JOIN}
+        {regnskap_join}
         WHERE 1=1
     """
     params: list[Any] = []
-
-    sql = append_search_filters(
-        sql,
-        params,
-        orgnr=orgnr,
-        q=q,
-        orgform=orgform,
-        kommune=kommune,
-        naeringskode_prefix=naeringskode_prefix,
-        min_revenue=min_revenue,
-        max_revenue=max_revenue,
-        min_profit=min_profit,
-        min_operating_profit=min_operating_profit,
-        min_equity_ratio=min_equity_ratio,
+    base_sql = append_search_filters(
+        base_sql, params,
+        orgnr=orgnr, q=q, orgform=orgform, kommune=kommune,
+        naeringskode_prefix=naeringskode_prefix, sektor=sektor,
+        min_revenue=min_revenue, max_revenue=max_revenue,
+        min_profit=min_profit, max_profit=max_profit,
+        min_operating_profit=min_operating_profit, max_operating_profit=max_operating_profit,
+        min_equity_ratio=min_equity_ratio, max_equity_ratio=max_equity_ratio,
+        min_total_assets=min_total_assets, max_total_assets=max_total_assets,
+        min_equity=min_equity, max_equity=max_equity,
         has_regnskap=has_regnskap,
     )
 
-    order_by = {
-        "revenue": "r.revenue DESC NULLS LAST, e.navn ASC",
-        "profit": "r.net_profit DESC NULLS LAST, e.navn ASC",
-        "equity": "r.equity DESC NULLS LAST, e.navn ASC",
-        "name": "e.navn ASC",
-    }[sort]
+    # Total count (same WHERE, no LIMIT)
+    count_row = fetch_one(f"SELECT COUNT(*)::int AS n {base_sql}", params) or {"n": 0}
+    total_count: int = count_row["n"]
 
-    sql += f" ORDER BY {order_by} LIMIT %s OFFSET %s"
-    params.extend([limit, offset])
+    order_by = _SORT_MAP[sort]
+    data_sql = (
+        f"SELECT {_SEARCH_COLS}, NULL::double precision AS distance_m {base_sql}"
+        f" ORDER BY {order_by} LIMIT %s OFFSET %s"
+    )
+    rows = fetch_all(data_sql, [*params, limit, offset])
 
-    rows = fetch_all(sql, params)
     return SearchResponse(
+        total_count=total_count,
         total_returned=len(rows),
         limit=limit,
         offset=offset,
@@ -376,33 +545,44 @@ def search_insights(
     orgform: str | None = None,
     kommune: str | None = None,
     naeringskode_prefix: str | None = Query(default=None, alias="naeringskode"),
+    sektor: str | None = None,
+    accounting_year: int | None = None,
     min_revenue: float | None = None,
     max_revenue: float | None = None,
     min_profit: float | None = None,
+    max_profit: float | None = None,
     min_operating_profit: float | None = None,
+    max_operating_profit: float | None = None,
     min_equity_ratio: float | None = None,
+    max_equity_ratio: float | None = None,
+    min_total_assets: float | None = None,
+    max_total_assets: float | None = None,
+    min_equity: float | None = None,
+    max_equity: float | None = None,
     has_regnskap: bool = False,
     group_limit: int = Query(default=8, ge=1, le=20),
 ) -> SearchInsightsResponse:
+    regnskap_join = (
+        latest_regnskap_join_for_year(accounting_year)
+        if accounting_year
+        else LATEST_REGNSKAP_JOIN
+    )
     base_sql = f"""
         FROM entity e
-        {LATEST_REGNSKAP_JOIN}
+        {regnskap_join}
         WHERE 1=1
     """
     base_params: list[Any] = []
     base_sql = append_search_filters(
-        base_sql,
-        base_params,
-        orgnr=orgnr,
-        q=q,
-        orgform=orgform,
-        kommune=kommune,
-        naeringskode_prefix=naeringskode_prefix,
-        min_revenue=min_revenue,
-        max_revenue=max_revenue,
-        min_profit=min_profit,
-        min_operating_profit=min_operating_profit,
-        min_equity_ratio=min_equity_ratio,
+        base_sql, base_params,
+        orgnr=orgnr, q=q, orgform=orgform, kommune=kommune,
+        naeringskode_prefix=naeringskode_prefix, sektor=sektor,
+        min_revenue=min_revenue, max_revenue=max_revenue,
+        min_profit=min_profit, max_profit=max_profit,
+        min_operating_profit=min_operating_profit, max_operating_profit=max_operating_profit,
+        min_equity_ratio=min_equity_ratio, max_equity_ratio=max_equity_ratio,
+        min_total_assets=min_total_assets, max_total_assets=max_total_assets,
+        min_equity=min_equity, max_equity=max_equity,
         has_regnskap=has_regnskap,
     )
 
@@ -438,11 +618,12 @@ def search_insights(
         f"""
         SELECT
             CASE
-                WHEN r.revenue IS NULL THEN 'Mangler omsetning'
-                WHEN r.revenue < 1000000 THEN '< 1 mill'
-                WHEN r.revenue < 10000000 THEN '1-10 mill'
-                WHEN r.revenue < 100000000 THEN '10-100 mill'
-                ELSE '> 100 mill'
+                WHEN r.revenue IS NULL      THEN 'Mangler omsetning'
+                WHEN r.revenue < 1000000    THEN '< 1 mill'
+                WHEN r.revenue < 10000000   THEN '1–10 mill'
+                WHEN r.revenue < 100000000  THEN '10–100 mill'
+                WHEN r.revenue < 1000000000 THEN '100 mill–1 mrd'
+                ELSE                             '> 1 mrd'
             END AS key,
             COUNT(*)::int AS count
         {base_sql}
@@ -459,11 +640,15 @@ def search_insights(
         by_revenue_band=[InsightBucket(**row) for row in revenue_rows],
     )
 
+
 @app.get("/api/company/{orgnr}", response_model=CompanyDetail)
 def company_detail(orgnr: str) -> CompanyDetail:
+    """
+    Henter siste regnskap via LATERAL JOIN – ikke LIMIT 1 på tvers av år.
+    """
     sql = f"""
         SELECT
-            e.orgnr,
+            e.orgnr::text AS orgnr,
             e.navn,
             e.orgform,
             e.naeringskode,
@@ -492,8 +677,7 @@ def company_detail(orgnr: str) -> CompanyDetail:
             r.net_margin
         FROM entity e
         {LATEST_REGNSKAP_JOIN}
-        WHERE e.orgnr = %s
-        LIMIT 1
+        WHERE e.orgnr::text = %s
     """
     row = fetch_one(sql, [orgnr])
     if not row:
@@ -507,9 +691,20 @@ def nearby(
     lon: float,
     radius_km: float = Query(default=5.0, gt=0),
     q: str | None = None,
+    orgform: str | None = None,
+    naeringskode_prefix: str | None = Query(default=None, alias="naeringskode"),
+    sektor: str | None = None,
+    accounting_year: int | None = None,
     min_revenue: float | None = None,
+    max_revenue: float | None = None,
     min_profit: float | None = None,
+    max_profit: float | None = None,
     min_operating_profit: float | None = None,
+    max_operating_profit: float | None = None,
+    min_equity_ratio: float | None = None,
+    max_equity_ratio: float | None = None,
+    min_total_assets: float | None = None,
+    max_total_assets: float | None = None,
     has_regnskap: bool = False,
     limit: int = DEFAULT_LIMIT,
     offset: int = 0,
@@ -517,30 +712,21 @@ def nearby(
     limit = clean_limit(limit)
     radius_m = radius_km * 1000
 
+    regnskap_join = (
+        latest_regnskap_join_for_year(accounting_year)
+        if accounting_year
+        else LATEST_REGNSKAP_JOIN
+    )
+
     sql = f"""
         SELECT
-            e.orgnr,
-            e.navn,
-            e.orgform,
-            e.naeringskode,
-            e.kommunenummer,
-            e.postnummer,
-            e.adresse,
-            e.lat,
-            e.lon,
-            r.accounting_year,
-            r.revenue,
-            r.operating_profit,
-            r.net_profit,
-            r.total_assets,
-            r.equity,
-            r.equity_ratio,
+            {_SEARCH_COLS},
             ST_Distance(
                 e.geog,
                 ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
             ) AS distance_m
         FROM entity e
-        {LATEST_REGNSKAP_JOIN}
+        {regnskap_join}
         WHERE e.geog IS NOT NULL
           AND ST_DWithin(
                 e.geog,
@@ -550,30 +736,34 @@ def nearby(
     """
     params: list[Any] = [lon, lat, lon, lat, radius_m]
 
-    if q:
-        sql += " AND e.navn ILIKE %s"
-        params.append(f"%{q}%")
+    params_filters: list[Any] = []
+    # Bruk append_search_filters på en tom streng og hent bare AND-delen
+    filter_sql = append_search_filters(
+        "",
+        params_filters,
+        q=q, orgform=orgform,
+        naeringskode_prefix=naeringskode_prefix, sektor=sektor,
+        min_revenue=min_revenue, max_revenue=max_revenue,
+        min_profit=min_profit, max_profit=max_profit,
+        min_operating_profit=min_operating_profit, max_operating_profit=max_operating_profit,
+        min_equity_ratio=min_equity_ratio, max_equity_ratio=max_equity_ratio,
+        min_total_assets=min_total_assets, max_total_assets=max_total_assets,
+        has_regnskap=has_regnskap,
+    )
+    sql += filter_sql
+    params.extend(params_filters)
 
-    if min_revenue is not None:
-        sql += " AND r.revenue >= %s"
-        params.append(min_revenue)
-
-    if min_profit is not None:
-        sql += " AND r.net_profit >= %s"
-        params.append(min_profit)
-
-    if min_operating_profit is not None:
-        sql += " AND r.operating_profit >= %s"
-        params.append(min_operating_profit)
-
-    if has_regnskap:
-        sql += " AND r.accounting_year IS NOT NULL"
+    # Count
+    count_sql = f"SELECT COUNT(*)::int AS n FROM entity e {regnskap_join} WHERE e.geog IS NOT NULL AND ST_DWithin(e.geog, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, %s){filter_sql}"
+    count_params = [lon, lat, radius_m, *params_filters]
+    count_row = fetch_one(count_sql, count_params) or {"n": 0}
 
     sql += " ORDER BY distance_m ASC LIMIT %s OFFSET %s"
     params.extend([limit, offset])
 
     rows = fetch_all(sql, params)
     return SearchResponse(
+        total_count=count_row["n"],
         total_returned=len(rows),
         limit=limit,
         offset=offset,
@@ -583,66 +773,59 @@ def nearby(
 
 @app.get("/api/toplist", response_model=SearchResponse)
 def toplist(
-    by: Literal["revenue", "profit", "equity"] = "revenue",
+    by: Literal["revenue", "profit", "operating_profit", "equity", "total_assets"] = "revenue",
     kommune: str | None = None,
     naeringskode_prefix: str | None = Query(default=None, alias="naeringskode"),
+    sektor: str | None = None,
+    orgform: str | None = None,
+    accounting_year: int | None = None,
+    min_revenue: float | None = None,
+    max_revenue: float | None = None,
     limit: int = DEFAULT_LIMIT,
     offset: int = 0,
 ) -> SearchResponse:
     limit = clean_limit(limit)
 
     metric_col = {
-        "revenue": "r.revenue",
-        "profit": "r.net_profit",
-        "equity": "r.equity",
+        "revenue":          "r.revenue",
+        "profit":           "r.net_profit",
+        "operating_profit": "r.operating_profit",
+        "equity":           "r.equity",
+        "total_assets":     "r.total_assets",
     }[by]
 
-    sql = f"""
-        SELECT
-            e.orgnr::text AS orgnr,
-            e.navn,
-            e.orgform,
-            e.naeringskode,
-            e.kommunenummer,
-            e.postnummer,
-            e.adresse,
-            e.lat,
-            e.lon,
-            r.accounting_year,
-            r.revenue,
-            r.operating_profit,
-            r.net_profit,
-            r.total_assets,
-            r.equity,
-            r.equity_ratio,
-            NULL::double precision AS distance_m
+    regnskap_join = (
+        latest_regnskap_join_for_year(accounting_year)
+        if accounting_year
+        else LATEST_REGNSKAP_JOIN
+    )
+
+    base_sql = f"""
         FROM entity e
-        {LATEST_REGNSKAP_JOIN}
+        {regnskap_join}
         WHERE {metric_col} IS NOT NULL
     """
     params: list[Any] = []
+    base_sql = append_search_filters(
+        base_sql, params,
+        kommune=kommune,
+        naeringskode_prefix=naeringskode_prefix, sektor=sektor,
+        orgform=orgform,
+        min_revenue=min_revenue, max_revenue=max_revenue,
+    )
 
-    if kommune:
-        sql += " AND e.kommunenummer = %s"
-        params.append(kommune)
+    count_row = fetch_one(f"SELECT COUNT(*)::int AS n {base_sql}", params) or {"n": 0}
 
-    if naeringskode_prefix:
-        sql += " AND e.naeringskode LIKE %s"
-        params.append(f"{naeringskode_prefix}%")
+    data_sql = (
+        f"SELECT {_SEARCH_COLS}, NULL::double precision AS distance_m {base_sql}"
+        f" ORDER BY {metric_col} DESC NULLS LAST, e.navn ASC LIMIT %s OFFSET %s"
+    )
+    rows = fetch_all(data_sql, [*params, limit, offset])
 
-    sql += f" ORDER BY {metric_col} DESC NULLS LAST, e.navn ASC LIMIT %s OFFSET %s"
-    params.extend([limit, offset])
-
-    rows = fetch_all(sql, params)
     return SearchResponse(
+        total_count=count_row["n"],
         total_returned=len(rows),
         limit=limit,
         offset=offset,
         results=[SearchResult(**row) for row in rows],
     )
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("Fastapi_Backend:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")), reload=os.getenv("RELOAD", "false").lower() == "true")
