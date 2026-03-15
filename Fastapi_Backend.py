@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import psycopg
 from decimal import Decimal
 from typing import Any, Literal
@@ -9,15 +10,17 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from psycopg.rows import dict_row
-from psycopg_pool import ConnectionPool
 
 
 # ------------------------------------------------------------
-# Configuration
+# Configuration – AWS RDS IAM
 # ------------------------------------------------------------
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("Missing DATABASE_URL environment variable")
+RDS_HOST = os.getenv("RDS_HOST", "brreg-mini-proff.cvos4q86gzmu.eu-north-1.rds.amazonaws.com")
+RDS_PORT = int(os.getenv("RDS_PORT", "5432"))
+RDS_DB   = os.getenv("RDS_DB",   "postgres")
+RDS_USER = os.getenv("RDS_USER", "postgres")
+AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
+AWS_CLI    = os.getenv("AWS_CLI",    "aws")
 
 ALLOWED_ORIGINS = [
     origin.strip()
@@ -29,7 +32,7 @@ ALLOWED_ORIGINS = [
 ]
 
 DEFAULT_LIMIT = int(os.getenv("DEFAULT_LIMIT", "20"))
-MAX_LIMIT = int(os.getenv("MAX_LIMIT", "100"))
+MAX_LIMIT     = int(os.getenv("MAX_LIMIT",     "100"))
 
 
 # ------------------------------------------------------------
@@ -132,18 +135,6 @@ def latest_regnskap_join_for_year(year: int) -> str:
 
 
 # ------------------------------------------------------------
-# Database pool
-# ------------------------------------------------------------
-pool = ConnectionPool(
-    conninfo=DATABASE_URL,
-    min_size=1,
-    max_size=10,
-    kwargs={"row_factory": dict_row},
-    open=False,
-)
-
-
-# ------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------
 def clean_limit(limit: int) -> int:
@@ -160,9 +151,40 @@ def normalize_decimal(value: Any) -> Any:
     return value
 
 
+def get_iam_token() -> str:
+    """Generer midlertidig RDS IAM-token via AWS CLI."""
+    try:
+        return subprocess.check_output(
+            [AWS_CLI, "rds", "generate-db-auth-token",
+             "--hostname", RDS_HOST,
+             "--port", str(RDS_PORT),
+             "--username", RDS_USER,
+             "--region", AWS_REGION],
+            text=True,
+        ).strip()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail="AWS CLI ikke funnet på serveren.") from e
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(status_code=500, detail=f"Klarte ikke generere RDS IAM token: {e}") from e
+
+
+def get_conn() -> psycopg.Connection:
+    token = get_iam_token()
+    return psycopg.connect(
+        host=RDS_HOST,
+        port=RDS_PORT,
+        dbname=RDS_DB,
+        user=RDS_USER,
+        password=token,
+        sslmode="require",
+        row_factory=dict_row,
+        connect_timeout=10,
+    )
+
+
 def fetch_all(sql: str, params: list[Any] | tuple[Any, ...]) -> list[dict[str, Any]]:
     try:
-        with pool.connection() as conn:
+        with get_conn() as conn:
             with conn.cursor() as cur:
                 print("SQL:", sql)
                 print("PARAMS:", params)
@@ -170,6 +192,8 @@ def fetch_all(sql: str, params: list[Any] | tuple[Any, ...]) -> list[dict[str, A
                 rows = cur.fetchall()
                 print("ROW COUNT:", len(rows))
                 return [normalize_decimal(dict(row)) for row in rows]
+    except HTTPException:
+        raise
     except Exception as e:
         print("FETCH_ALL ERROR:", repr(e))
         raise HTTPException(status_code=500, detail=f"DB error: {repr(e)}")
@@ -177,7 +201,7 @@ def fetch_all(sql: str, params: list[Any] | tuple[Any, ...]) -> list[dict[str, A
 
 def fetch_one(sql: str, params: list[Any] | tuple[Any, ...]) -> dict[str, Any] | None:
     try:
-        with pool.connection() as conn:
+        with get_conn() as conn:
             with conn.cursor() as cur:
                 print("SQL:", sql)
                 print("PARAMS:", params)
@@ -185,6 +209,8 @@ def fetch_one(sql: str, params: list[Any] | tuple[Any, ...]) -> dict[str, Any] |
                 row = cur.fetchone()
                 print("ROW:", row)
                 return normalize_decimal(dict(row)) if row else None
+    except HTTPException:
+        raise
     except Exception as e:
         print("FETCH_ONE ERROR:", repr(e))
         raise HTTPException(status_code=500, detail=f"DB error: {repr(e)}")
@@ -269,7 +295,7 @@ class HealthResponse(BaseModel):
 
 
 # ------------------------------------------------------------
-# App (ingen lifespan her – pool åpnes av asgi.py når mountet)
+# App (ingen pool – ny IAM-tilkobling per request)
 # ------------------------------------------------------------
 app = FastAPI(
     title="Prisanalyse API",
@@ -283,6 +309,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+def root():
+    return {"message": "Prisanalyse API kjører"}
+
+
+@app.get("/health")
+def health():
+    return {"ok": True, "service": "prisanalyse-api"}
+
+
+@app.get("/debug/direct")
+def debug_direct():
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT current_database() AS db, current_user AS usr")
+                return dict(cur.fetchone())
+    except Exception as e:
+        return {"error": repr(e)}
 
 
 # ------------------------------------------------------------

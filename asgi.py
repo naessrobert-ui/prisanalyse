@@ -1,7 +1,5 @@
 """ASGI entrypoint that serves Flask + (optionally) FastAPI regnskapsmodul."""
 
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from a2wsgi import WSGIMiddleware
 
@@ -17,7 +15,7 @@ def _build_regnskap_fallback(reason: str) -> FastAPI:
             "ok": False,
             "error": "Regnskap API is unavailable",
             "reason": reason,
-            "hint": "Set DATABASE_URL environment variable for Fastapi_Backend.py",
+            "hint": "Sjekk at AWS IAM-konfig er riktig (RDS_HOST, RDS_USER, AWS_REGION).",
         }
 
     @fallback.get("/health")
@@ -34,36 +32,11 @@ def _build_regnskap_fallback(reason: str) -> FastAPI:
 
 # Mount FastAPI regnskap first so '/regnskap-api/*' resolves before '/'.
 try:
-    from Fastapi_Backend import app as regnskap_api, pool
-    _regnskap_ok = True
-except Exception as exc:  # pragma: no cover - startup fallback
+    from Fastapi_Backend import app as regnskap_api
+except Exception as exc:
     regnskap_api = _build_regnskap_fallback(repr(exc))
-    pool = None
-    _regnskap_ok = False
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Open/close the psycopg connection pool for the regnskap API."""
-    if _regnskap_ok and pool is not None:
-        print("[asgi] Opening DB connection pool...")
-        pool.open()
-        print("[asgi] DB pool open.")
-    try:
-        yield
-    finally:
-        if _regnskap_ok and pool is not None:
-            print("[asgi] Closing DB connection pool...")
-            pool.close()
-            print("[asgi] DB pool closed.")
-
-
-app = FastAPI(
-    title="Prisanalyse Combined ASGI",
-    version="1.0.2",
-    lifespan=lifespan,
-)
-
+app = FastAPI(title="Prisanalyse Combined ASGI", version="1.0.3")
 app.mount("/regnskap-api", regnskap_api)
 
 # Flask app keeps existing routes on '/'.
