@@ -360,7 +360,11 @@
                 const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } });
                 const data = await parseMaybeJson(res);
                 if (res.ok && data.ok) {
-                    apiStatus.textContent = `✅ API kjører via ${endpoint}`;
+                    if (endpoint === '/regnskap/api/health') {
+                        apiStatus.textContent = '⚠️ API kjører via /regnskap/api/health (fallback). For avanserte filtre uten navn/orgnr må /regnskap-api være oppe.';
+                    } else {
+                        apiStatus.textContent = `✅ API kjører via ${endpoint}`;
+                    }
                     return;
                 }
             } catch (_err) {
@@ -479,13 +483,21 @@
             ? ['/regnskap-api/api/nearby', '/regnskap-api/api/search', '/regnskap/api/search']
             : ['/regnskap-api/api/search', '/regnskap/api/search'];
 
+        const fallbackNeedsQuery = !q && (kommune || naeringskode || minRevenue || minProfit || minOperatingProfit || minEquityRatioPct || hasGeo);
+        let lastError = '';
+
         for (const endpoint of searchEndpoints) {
             try {
+                if (endpoint === '/regnskap/api/search' && fallbackNeedsQuery) {
+                    lastError = 'Fallback-API støtter bare navn/orgnr. Start /regnskap-api for avansert filtrering.';
+                    continue;
+                }
+
                 const res = await fetch(`${endpoint}?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
                 const data = await parseMaybeJson(res);
 
                 if (!res.ok) {
-                    apiStatus.textContent = `⚠️ ${endpoint} feilet: ${data.detail || res.statusText}`;
+                    lastError = `${endpoint} feilet: ${data.detail || res.statusText}`;
                     continue;
                 }
 
@@ -519,11 +531,11 @@
                 apiStatus.textContent = `Fant ${rows.length} treff via ${endpoint}.`;
                 return;
             } catch (_err) {
-                // prøv neste endpoint
+                lastError = `${endpoint} svarte ikke.`;
             }
         }
 
-        apiStatus.textContent = '❌ Klarte ikke søke mot noen API-endepunkter.';
+        apiStatus.textContent = `❌ ${lastError || 'Klarte ikke søke mot noen API-endepunkter.'}`;
     });
 </script>
 </body>
