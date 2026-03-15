@@ -115,7 +115,7 @@ LATEST_REGNSKAP_JOIN = """
     LEFT JOIN LATERAL (
         SELECT *
         FROM regnskap_metrics rm
-        WHERE TRIM(rm.orgnr::text) = TRIM(e.orgnr::text)
+        WHERE rm.orgnr::text = e.orgnr
         ORDER BY rm.accounting_year DESC NULLS LAST
         LIMIT 1
     ) r ON true
@@ -127,7 +127,7 @@ def latest_regnskap_join_for_year(year: int) -> str:
     LEFT JOIN LATERAL (
         SELECT *
         FROM regnskap_metrics rm
-        WHERE TRIM(rm.orgnr::text) = TRIM(e.orgnr::text)
+        WHERE rm.orgnr::text = e.orgnr
           AND rm.accounting_year = {int(year)}
         LIMIT 1
     ) r ON true
