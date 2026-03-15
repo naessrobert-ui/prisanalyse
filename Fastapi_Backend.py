@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import psycopg
-from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -270,24 +269,11 @@ class HealthResponse(BaseModel):
 
 
 # ------------------------------------------------------------
-# Lifespan
+# App (ingen lifespan her – pool åpnes av asgi.py når mountet)
 # ------------------------------------------------------------
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    print("Starting lifespan...")
-    pool.open()
-    print("Pool opened")
-    try:
-        yield
-    finally:
-        print("Closing pool...")
-        pool.close()
-
-
 app = FastAPI(
     title="Prisanalyse API",
     version="0.2.0",
-    lifespan=lifespan,
 )
 
 app.add_middleware(
