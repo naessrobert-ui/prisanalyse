@@ -111,6 +111,18 @@ class SearchResponse(BaseModel):
     results: list[SearchResult]
 
 
+class InsightBucket(BaseModel):
+    key: str
+    count: int
+
+
+class SearchInsightsResponse(BaseModel):
+    total_matches: int
+    by_kommune: list[InsightBucket]
+    by_naeringskode_prefix: list[InsightBucket]
+    by_revenue_band: list[InsightBucket]
+
+
 class CompanyDetail(BaseModel):
     orgnr: str
     navn: str | None = None
@@ -216,6 +228,68 @@ def health() -> HealthResponse:
     return HealthResponse()
 
 
+def append_search_filters(
+    sql: str,
+    params: list[Any],
+    *,
+    orgnr: str | None = None,
+    q: str | None = None,
+    orgform: str | None = None,
+    kommune: str | None = None,
+    naeringskode_prefix: str | None = None,
+    min_revenue: float | None = None,
+    max_revenue: float | None = None,
+    min_profit: float | None = None,
+    min_operating_profit: float | None = None,
+    min_equity_ratio: float | None = None,
+    has_regnskap: bool = False,
+) -> str:
+    if orgnr:
+        sql += " AND e.orgnr::text = %s"
+        params.append(orgnr)
+
+    if q:
+        sql += " AND e.navn ILIKE %s"
+        params.append(f"%{q}%")
+
+    if orgform:
+        sql += " AND e.orgform = %s"
+        params.append(orgform)
+
+    if kommune:
+        sql += " AND e.kommunenummer = %s"
+        params.append(kommune)
+
+    if naeringskode_prefix:
+        sql += " AND e.naeringskode LIKE %s"
+        params.append(f"{naeringskode_prefix}%")
+
+    if min_revenue is not None:
+        sql += " AND r.revenue >= %s"
+        params.append(min_revenue)
+
+    if max_revenue is not None:
+        sql += " AND r.revenue <= %s"
+        params.append(max_revenue)
+
+    if min_profit is not None:
+        sql += " AND r.net_profit >= %s"
+        params.append(min_profit)
+
+    if min_operating_profit is not None:
+        sql += " AND r.operating_profit >= %s"
+        params.append(min_operating_profit)
+
+    if min_equity_ratio is not None:
+        sql += " AND r.equity_ratio >= %s"
+        params.append(min_equity_ratio)
+
+    if has_regnskap:
+        sql += " AND r.accounting_year IS NOT NULL"
+
+    return sql
+
+
 @app.get("/api/search", response_model=SearchResponse)
 def search(
     q: str | None = Query(default=None, description="Fritekst mot navn"),
@@ -260,48 +334,21 @@ def search(
     """
     params: list[Any] = []
 
-    if orgnr:
-        sql += " AND e.orgnr::text = %s"
-        params.append(orgnr)
-
-    if q:
-        sql += " AND e.navn ILIKE %s"
-        params.append(f"%{q}%")
-
-    if orgform:
-        sql += " AND e.orgform = %s"
-        params.append(orgform)
-
-    if kommune:
-        sql += " AND e.kommunenummer = %s"
-        params.append(kommune)
-
-    if naeringskode_prefix:
-        sql += " AND e.naeringskode LIKE %s"
-        params.append(f"{naeringskode_prefix}%")
-
-    if min_revenue is not None:
-        sql += " AND r.revenue >= %s"
-        params.append(min_revenue)
-
-    if max_revenue is not None:
-        sql += " AND r.revenue <= %s"
-        params.append(max_revenue)
-
-    if min_profit is not None:
-        sql += " AND r.net_profit >= %s"
-        params.append(min_profit)
-
-    if min_operating_profit is not None:
-        sql += " AND r.operating_profit >= %s"
-        params.append(min_operating_profit)
-
-    if min_equity_ratio is not None:
-        sql += " AND r.equity_ratio >= %s"
-        params.append(min_equity_ratio)
-
-    if has_regnskap:
-        sql += " AND r.accounting_year IS NOT NULL"
+    sql = append_search_filters(
+        sql,
+        params,
+        orgnr=orgnr,
+        q=q,
+        orgform=orgform,
+        kommune=kommune,
+        naeringskode_prefix=naeringskode_prefix,
+        min_revenue=min_revenue,
+        max_revenue=max_revenue,
+        min_profit=min_profit,
+        min_operating_profit=min_operating_profit,
+        min_equity_ratio=min_equity_ratio,
+        has_regnskap=has_regnskap,
+    )
 
     order_by = {
         "revenue": "r.revenue DESC NULLS LAST, e.navn ASC",
@@ -319,6 +366,97 @@ def search(
         limit=limit,
         offset=offset,
         results=[SearchResult(**row) for row in rows],
+    )
+
+
+@app.get("/api/search/insights", response_model=SearchInsightsResponse)
+def search_insights(
+    q: str | None = Query(default=None, description="Fritekst mot navn"),
+    orgnr: str | None = None,
+    orgform: str | None = None,
+    kommune: str | None = None,
+    naeringskode_prefix: str | None = Query(default=None, alias="naeringskode"),
+    min_revenue: float | None = None,
+    max_revenue: float | None = None,
+    min_profit: float | None = None,
+    min_operating_profit: float | None = None,
+    min_equity_ratio: float | None = None,
+    has_regnskap: bool = False,
+    group_limit: int = Query(default=8, ge=1, le=20),
+) -> SearchInsightsResponse:
+    base_sql = f"""
+        FROM entity e
+        {LATEST_REGNSKAP_JOIN}
+        WHERE 1=1
+    """
+    base_params: list[Any] = []
+    base_sql = append_search_filters(
+        base_sql,
+        base_params,
+        orgnr=orgnr,
+        q=q,
+        orgform=orgform,
+        kommune=kommune,
+        naeringskode_prefix=naeringskode_prefix,
+        min_revenue=min_revenue,
+        max_revenue=max_revenue,
+        min_profit=min_profit,
+        min_operating_profit=min_operating_profit,
+        min_equity_ratio=min_equity_ratio,
+        has_regnskap=has_regnskap,
+    )
+
+    total_row = fetch_one(f"SELECT COUNT(*)::int AS total_matches {base_sql}", base_params) or {"total_matches": 0}
+
+    kommune_rows = fetch_all(
+        f"""
+        SELECT
+            COALESCE(NULLIF(e.kommunenummer, ''), 'Ukjent') AS key,
+            COUNT(*)::int AS count
+        {base_sql}
+        GROUP BY 1
+        ORDER BY count DESC, key ASC
+        LIMIT %s
+        """,
+        [*base_params, group_limit],
+    )
+
+    naering_rows = fetch_all(
+        f"""
+        SELECT
+            COALESCE(NULLIF(SUBSTRING(e.naeringskode FROM 1 FOR 2), ''), 'Ukjent') AS key,
+            COUNT(*)::int AS count
+        {base_sql}
+        GROUP BY 1
+        ORDER BY count DESC, key ASC
+        LIMIT %s
+        """,
+        [*base_params, group_limit],
+    )
+
+    revenue_rows = fetch_all(
+        f"""
+        SELECT
+            CASE
+                WHEN r.revenue IS NULL THEN 'Mangler omsetning'
+                WHEN r.revenue < 1000000 THEN '< 1 mill'
+                WHEN r.revenue < 10000000 THEN '1-10 mill'
+                WHEN r.revenue < 100000000 THEN '10-100 mill'
+                ELSE '> 100 mill'
+            END AS key,
+            COUNT(*)::int AS count
+        {base_sql}
+        GROUP BY 1
+        ORDER BY count DESC, key ASC
+        """,
+        base_params,
+    )
+
+    return SearchInsightsResponse(
+        total_matches=total_row.get("total_matches", 0),
+        by_kommune=[InsightBucket(**row) for row in kommune_rows],
+        by_naeringskode_prefix=[InsightBucket(**row) for row in naering_rows],
+        by_revenue_band=[InsightBucket(**row) for row in revenue_rows],
     )
 
 @app.get("/api/company/{orgnr}", response_model=CompanyDetail)
