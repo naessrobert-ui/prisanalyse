@@ -23,6 +23,7 @@ folium==0.20.0
 fonttools==4.61.0
 gitdb==4.0.12
 GitPython==3.1.45
+psycopg[binary]
 google-ai-generativelanguage==0.6.15
 google-api-core==2.28.1
 google-api-python-client==2.187.0
@@ -100,3 +101,5 @@ geopandas>=0.14
 metno-locationforecast==2.1.0
 a2wsgi==1.10.8
 uvicorn==0.34.0
+fastapi
+psycopg-pool
