@@ -218,19 +218,33 @@
         return new Intl.NumberFormat('nb-NO').format(Math.round(num));
     }
 
+    async function parseMaybeJson(res) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            return await res.json();
+        }
+        const text = await res.text();
+        return { detail: text.slice(0, 160) || 'Ugyldig svarformat (ikke JSON).' };
+    }
+
     async function checkApiHealth() {
         apiStatus.textContent = 'Sjekker API-status…';
-        try {
-            const res = await fetch('/regnskap-api/health');
-            const data = await res.json();
-            if (res.ok && data.ok) {
-                apiStatus.textContent = '✅ Regnskaps-API kjører.';
-            } else {
-                apiStatus.textContent = `⚠️ API svarer, men ikke klar: ${data.reason || data.error || 'ukjent feil'}`;
+
+        const healthEndpoints = ['/regnskap-api/health', '/regnskap/api/health'];
+        for (const endpoint of healthEndpoints) {
+            try {
+                const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } });
+                const data = await parseMaybeJson(res);
+                if (res.ok && data.ok) {
+                    apiStatus.textContent = `✅ API kjører via ${endpoint}`;
+                    return;
+                }
+            } catch (_err) {
+                // prøv neste endpoint
             }
-        } catch (err) {
-            apiStatus.textContent = `❌ Fikk ikke kontakt med /regnskap-api/health: ${err}`;
         }
+
+        apiStatus.textContent = '❌ Fant ingen fungerende API-endepunkt. Prøv å starte ASGI-app eller bruk /regnskap/api/* fallback.';
     }
 
     apiHealthBtn?.addEventListener('click', checkApiHealth);
@@ -254,43 +268,51 @@
         else params.set('q', q);
 
         apiStatus.textContent = 'Søker…';
-        try {
-            const res = await fetch(`/regnskap-api/api/search?${params.toString()}`);
-            const data = await res.json();
-            if (!res.ok) {
-                apiStatus.textContent = `❌ API-feil: ${data.detail || res.statusText}`;
+        const searchEndpoints = ['/regnskap-api/api/search', '/regnskap/api/search'];
+
+        for (const endpoint of searchEndpoints) {
+            try {
+                const res = await fetch(`${endpoint}?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+                const data = await parseMaybeJson(res);
+
+                if (!res.ok) {
+                    apiStatus.textContent = `⚠️ ${endpoint} feilet: ${data.detail || res.statusText}`;
+                    continue;
+                }
+
+                const rows = Array.isArray(data.results) ? data.results : [];
+                if (!rows.length) {
+                    apiStatus.textContent = 'Ingen treff.';
+                    return;
+                }
+
+                for (const row of rows) {
+                    const tr = document.createElement('tr');
+                    const values = [
+                        row.orgnr ?? '',
+                        row.navn ?? '',
+                        row.accounting_year ?? '',
+                        fmtNumber(row.revenue),
+                        fmtNumber(row.net_profit),
+                        fmtNumber(row.equity),
+                    ];
+                    values.forEach((value) => {
+                        const td = document.createElement('td');
+                        td.textContent = String(value);
+                        tr.appendChild(td);
+                    });
+                    apiResultsBody.appendChild(tr);
+                }
+
+                apiResultsTable.style.display = '';
+                apiStatus.textContent = `Fant ${rows.length} treff via ${endpoint}.`;
                 return;
+            } catch (_err) {
+                // prøv neste endpoint
             }
-
-            const rows = Array.isArray(data.results) ? data.results : [];
-            if (!rows.length) {
-                apiStatus.textContent = 'Ingen treff.';
-                return;
-            }
-
-            for (const row of rows) {
-                const tr = document.createElement('tr');
-                const values = [
-                    row.orgnr ?? '',
-                    row.navn ?? '',
-                    row.accounting_year ?? '',
-                    fmtNumber(row.revenue),
-                    fmtNumber(row.net_profit),
-                    fmtNumber(row.equity),
-                ];
-                values.forEach((value) => {
-                    const td = document.createElement('td');
-                    td.textContent = String(value);
-                    tr.appendChild(td);
-                });
-                apiResultsBody.appendChild(tr);
-            }
-
-            apiResultsTable.style.display = '';
-            apiStatus.textContent = `Fant ${rows.length} treff.`;
-        } catch (err) {
-            apiStatus.textContent = `❌ Klarte ikke søke mot regnskaps-API: ${err}`;
         }
+
+        apiStatus.textContent = '❌ Klarte ikke søke mot noen API-endepunkter.';
     });
 </script>
 </body>
