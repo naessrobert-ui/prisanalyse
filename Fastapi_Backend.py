@@ -226,6 +226,7 @@ def search(
     min_revenue: float | None = None,
     max_revenue: float | None = None,
     min_profit: float | None = None,
+    min_operating_profit: float | None = None,
     min_equity_ratio: float | None = None,
     has_regnskap: bool = False,
     sort: Literal["revenue", "profit", "equity", "name"] = "revenue",
@@ -290,6 +291,10 @@ def search(
     if min_profit is not None:
         sql += " AND r.net_profit >= %s"
         params.append(min_profit)
+
+    if min_operating_profit is not None:
+        sql += " AND r.operating_profit >= %s"
+        params.append(min_operating_profit)
 
     if min_equity_ratio is not None:
         sql += " AND r.equity_ratio >= %s"
@@ -365,6 +370,8 @@ def nearby(
     radius_km: float = Query(default=5.0, gt=0),
     q: str | None = None,
     min_revenue: float | None = None,
+    min_profit: float | None = None,
+    min_operating_profit: float | None = None,
     has_regnskap: bool = False,
     limit: int = DEFAULT_LIMIT,
     offset: int = 0,
@@ -412,6 +419,14 @@ def nearby(
     if min_revenue is not None:
         sql += " AND r.revenue >= %s"
         params.append(min_revenue)
+
+    if min_profit is not None:
+        sql += " AND r.net_profit >= %s"
+        params.append(min_profit)
+
+    if min_operating_profit is not None:
+        sql += " AND r.operating_profit >= %s"
+        params.append(min_operating_profit)
 
     if has_regnskap:
         sql += " AND r.accounting_year IS NOT NULL"

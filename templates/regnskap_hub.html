@@ -13,7 +13,9 @@
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
         .card { background: #1e293b; border-radius: 14px; padding: 16px; border: 1px solid #334155; }
         label { display: block; margin-bottom: 8px; font-weight: 700; }
-        input[type="text"], input[type="url"], input[type="file"] { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #475569; background:#0f172a; color:#f1f5f9; }
+        input[type="text"], input[type="url"], input[type="file"], input[type="number"], select { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #475569; background:#0f172a; color:#f1f5f9; }
+        .inline-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+        .check-wrap { display:flex; align-items:center; gap:8px; margin: 8px 0 12px; }
         button, .download-btn { padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; background: #60a5fa; color: #0f172a; cursor:pointer; text-decoration:none; display:inline-block; }
         .error { color: #fca5a5; margin-top: 8px; }
         .success { color: #86efac; margin-top: 8px; }
@@ -152,12 +154,71 @@
 
         <section class="card">
             <h2>4) Søk i regnskaps-API (ny modul)</h2>
-            <p class="muted">Bruker <code>/regnskap-api/api/search</code> fra samme side.</p>
+            <p class="muted">Avansert søk: navn/orgnr, kommune, næringskode, omsetning/resultat, egenkapitalgrad og beliggenhet.</p>
             <form id="apiSearchForm">
                 <label for="api_query">Navn eller org.nr</label>
                 <input id="api_query" type="text" placeholder="Eks. Equinor eller 923609016">
-                <label for="api_limit">Antall treff</label>
-                <input id="api_limit" type="text" value="20">
+                <div class="inline-grid">
+                    <div>
+                        <label for="api_kommune">Kommune (nummer)</label>
+                        <input id="api_kommune" type="text" placeholder="Eks. 0301">
+                    </div>
+                    <div>
+                        <label for="api_naeringskode">Næringskode (prefix)</label>
+                        <input id="api_naeringskode" type="text" placeholder="Eks. 62">
+                    </div>
+                    <div>
+                        <label for="api_sort">Sorter på</label>
+                        <select id="api_sort">
+                            <option value="revenue">Omsetning</option>
+                            <option value="profit">Resultat</option>
+                            <option value="equity">Egenkapital</option>
+                            <option value="name">Navn</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="api_limit">Antall treff</label>
+                        <input id="api_limit" type="number" min="1" max="100" value="20">
+                    </div>
+                </div>
+
+                <div class="inline-grid">
+                    <div>
+                        <label for="api_min_revenue">Min omsetning</label>
+                        <input id="api_min_revenue" type="number" step="1" placeholder="Eks. 1000000">
+                    </div>
+                    <div>
+                        <label for="api_min_profit">Min resultat (etter skatt)</label>
+                        <input id="api_min_profit" type="number" step="1" placeholder="Eks. 500000">
+                    </div>
+                    <div>
+                        <label for="api_min_operating_profit">Min resultat før skatt / drift</label>
+                        <input id="api_min_operating_profit" type="number" step="1" placeholder="Eks. 500000">
+                    </div>
+                    <div>
+                        <label for="api_min_equity_ratio">Min egenkapitalgrad (%)</label>
+                        <input id="api_min_equity_ratio" type="number" step="0.1" placeholder="Eks. 30">
+                    </div>
+                </div>
+
+                <div class="inline-grid">
+                    <div>
+                        <label for="api_lat">Breddegrad (lat)</label>
+                        <input id="api_lat" type="number" step="any" placeholder="Eks. 59.9139">
+                    </div>
+                    <div>
+                        <label for="api_lon">Lengdegrad (lon)</label>
+                        <input id="api_lon" type="number" step="any" placeholder="Eks. 10.7522">
+                    </div>
+                    <div>
+                        <label for="api_radius">Radius (km)</label>
+                        <input id="api_radius" type="number" step="0.1" min="0.1" value="5">
+                    </div>
+                </div>
+                <label class="check-wrap" for="api_has_regnskap">
+                    <input id="api_has_regnskap" type="checkbox">
+                    Kun selskaper med regnskap
+                </label>
                 <button type="submit">Søk i ny modul</button>
                 <button type="button" id="apiHealthBtn" style="margin-left:8px;">Sjekk API-status</button>
             </form>
@@ -172,6 +233,8 @@
                             <th>Omsetning</th>
                             <th>Resultat</th>
                             <th>Egenkapital</th>
+                            <th>Kommune</th>
+                            <th>Avstand (m)</th>
                         </tr>
                     </thead>
                     <tbody id="apiResultsBody"></tbody>
@@ -210,6 +273,13 @@
     const apiStatus = document.getElementById('apiStatus');
     const apiResultsTable = document.getElementById('apiResultsTable');
     const apiResultsBody = document.getElementById('apiResultsBody');
+
+    function addIfPresent(params, key, value) {
+        if (value === null || value === undefined) return;
+        const normalized = String(value).trim();
+        if (!normalized) return;
+        params.set(key, normalized);
+    }
 
     function fmtNumber(value) {
         if (value === null || value === undefined || value === '') return '';
@@ -256,19 +326,57 @@
         apiResultsBody.innerHTML = '';
 
         const q = document.getElementById('api_query')?.value?.trim();
+        const kommune = document.getElementById('api_kommune')?.value?.trim();
+        const naeringskode = document.getElementById('api_naeringskode')?.value?.trim();
+        const minRevenue = document.getElementById('api_min_revenue')?.value?.trim();
+        const minProfit = document.getElementById('api_min_profit')?.value?.trim();
+        const minOperatingProfit = document.getElementById('api_min_operating_profit')?.value?.trim();
+        const minEquityRatioPct = document.getElementById('api_min_equity_ratio')?.value?.trim();
+        const sort = document.getElementById('api_sort')?.value || 'revenue';
         const limit = document.getElementById('api_limit')?.value?.trim() || '20';
-        if (!q) {
-            apiStatus.textContent = 'Skriv inn navn eller org.nr.';
+        const hasRegnskap = document.getElementById('api_has_regnskap')?.checked;
+        const lat = document.getElementById('api_lat')?.value?.trim();
+        const lon = document.getElementById('api_lon')?.value?.trim();
+        const radiusKm = document.getElementById('api_radius')?.value?.trim() || '5';
+
+        const params = new URLSearchParams();
+        addIfPresent(params, 'limit', limit);
+        addIfPresent(params, 'sort', sort);
+        addIfPresent(params, 'kommune', kommune);
+        addIfPresent(params, 'naeringskode', naeringskode);
+        addIfPresent(params, 'min_revenue', minRevenue);
+        addIfPresent(params, 'min_profit', minProfit);
+        addIfPresent(params, 'min_operating_profit', minOperatingProfit);
+        if (minEquityRatioPct) {
+            const ratio = Number(minEquityRatioPct) / 100;
+            if (Number.isFinite(ratio)) {
+                params.set('min_equity_ratio', String(ratio));
+            }
+        }
+        if (hasRegnskap) params.set('has_regnskap', 'true');
+
+        const hasGeo = lat && lon;
+        if (hasGeo) {
+            addIfPresent(params, 'lat', lat);
+            addIfPresent(params, 'lon', lon);
+            addIfPresent(params, 'radius_km', radiusKm);
+        }
+
+        if (q) {
+            const isOrgnr = /^\d{9}$/.test(q);
+            if (isOrgnr) params.set('orgnr', q);
+            else params.set('q', q);
+        }
+
+        if (!q && !kommune && !naeringskode && !minRevenue && !minProfit && !minOperatingProfit && !hasGeo) {
+            apiStatus.textContent = 'Legg inn minst ett søkekriterie (navn/orgnr, kommune, næringskode, økonomifilter eller beliggenhet).';
             return;
         }
 
-        const isOrgnr = /^\d{9}$/.test(q);
-        const params = new URLSearchParams({ limit });
-        if (isOrgnr) params.set('orgnr', q);
-        else params.set('q', q);
-
         apiStatus.textContent = 'Søker…';
-        const searchEndpoints = ['/regnskap-api/api/search', '/regnskap/api/search'];
+        const searchEndpoints = hasGeo
+            ? ['/regnskap-api/api/nearby', '/regnskap-api/api/search', '/regnskap/api/search']
+            : ['/regnskap-api/api/search', '/regnskap/api/search'];
 
         for (const endpoint of searchEndpoints) {
             try {
@@ -295,6 +403,8 @@
                         fmtNumber(row.revenue),
                         fmtNumber(row.net_profit),
                         fmtNumber(row.equity),
+                        row.kommunenummer ?? '',
+                        fmtNumber(row.distance_m),
                     ];
                     values.forEach((value) => {
                         const td = document.createElement('td');
