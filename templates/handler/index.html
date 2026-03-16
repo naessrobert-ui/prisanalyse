@@ -163,11 +163,32 @@
             method: 'POST',
             body: formData,
           });
-          const data = await resp.json();
+
+          const contentType = (resp.headers.get('content-type') || '').toLowerCase();
+          let data = null;
+          let rawBody = '';
+
+          if (contentType.includes('application/json')) {
+            data = await resp.json();
+          } else {
+            rawBody = (await resp.text()).trim();
+          }
+
           if (!resp.ok) {
-            uploadStatus.textContent = `Feil: ${data.error || 'ukjent feil'}`;
+            const serverMessage = data?.error || data?.message;
+            const fallbackMessage = rawBody
+              ? `${rawBody.replace(/\s+/g, ' ').slice(0, 180)}${rawBody.length > 180 ? '…' : ''}`
+              : `HTTP ${resp.status}`;
+
+            uploadStatus.textContent = `Feil: ${serverMessage || fallbackMessage}`;
             return;
           }
+
+          if (!data) {
+            uploadStatus.textContent = 'Feil: Serveren returnerte et uventet svarformat.';
+            return;
+          }
+
           uploadStatus.textContent = `✅ ${data.message} (${data.s3_uri})`;
         } catch (err) {
           uploadStatus.textContent = `Feil ved opplasting: ${err}`;
