@@ -295,6 +295,39 @@ def search_investors(conn: sqlite3.Connection, query: str, limit: int = 50) -> l
     return result
 
 
+def _postprocess_handler_per_eier_df(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    df["kjop_snitt_kurs"] = pd.to_numeric(df.get("kjop_snitt_kurs"), errors="coerce")
+    df["salg_snitt_kurs"] = pd.to_numeric(df.get("salg_snitt_kurs"), errors="coerce")
+    df["siste_kurs"] = pd.to_numeric(df.get("siste_kurs"), errors="coerce").fillna(0)
+
+    # Netto snittkurs vises ut fra nettoretning i perioden (kjøp ved netto > 0, salg ved netto < 0)
+    df["netto_snitt_kurs"] = df["kjop_snitt_kurs"]
+    df.loc[df["netto_antall"] < 0, "netto_snitt_kurs"] = df.loc[df["netto_antall"] < 0, "salg_snitt_kurs"]
+
+    # Gevinst/tap beregnes på netto antall i perioden mot netto snittkurs
+    df["u_realisert_belop"] = (df["netto_antall"] * (df["siste_kurs"] - df["netto_snitt_kurs"].fillna(0)))
+
+    # Delvis oppsplitting (for oppsummering)
+    df["kjop_gevinst_belop"] = df["kjop_antall"] * (df["siste_kurs"] - df["kjop_snitt_kurs"].fillna(0))
+    df["salg_gevinst_belop"] = df["salg_antall"] * (df["salg_snitt_kurs"].fillna(0) - df["siste_kurs"])
+
+    df["kjop_mnok"] = df["kjop_belop"] / 1_000_000
+    df["salg_mnok"] = df["salg_belop"] / 1_000_000
+    df["netto_mnok"] = df["netto_belop"] / 1_000_000
+    df["brutto_mnok"] = df["brutto_belop"] / 1_000_000
+    df["siste_kurs"] = df["siste_kurs"].round(4)
+    df["netto_snitt_kurs"] = df["netto_snitt_kurs"].round(4)
+    df["kjop_snitt_kurs"] = df["kjop_snitt_kurs"].round(4)
+    df["salg_snitt_kurs"] = df["salg_snitt_kurs"].round(4)
+    df["gevinst_mnok"] = df["u_realisert_belop"] / 1_000_000
+    df["kjop_gevinst_mnok"] = df["kjop_gevinst_belop"] / 1_000_000
+    df["salg_gevinst_mnok"] = df["salg_gevinst_belop"] / 1_000_000
+    return df
+
+
 def fetch_handler_per_eier(conn, investor_id: str, date_from: dt.date, date_to: dt.date) -> pd.DataFrame:
     sql = """
     WITH prices AS (
@@ -350,35 +383,54 @@ def fetch_handler_per_eier(conn, investor_id: str, date_from: dt.date, date_to: 
     GROUP BY s.ticker, t.isin, s.isin_name, lp.latest_price
     ORDER BY ABS(netto_belop) DESC
     """
-    rows = conn.execute(sql, (investor_id, date_from.isoformat(), date_to.isoformat())).fetchall()
+
+    fallback_sql = """
+    SELECT COALESCE(s.ticker,'') AS ticker,
+           pc.isin,
+           COALESCE(s.isin_name,'') AS navn,
+           COUNT(*) AS antall_obs,
+           SUM(COALESCE(pc.change_qty,0)) AS netto_antall,
+           SUM(CASE WHEN COALESCE(pc.change_qty,0)>0 THEN COALESCE(pc.change_qty,0) ELSE 0 END) AS kjop_antall,
+           SUM(CASE WHEN COALESCE(pc.change_qty,0)<0 THEN ABS(COALESCE(pc.change_qty,0)) ELSE 0 END) AS salg_antall,
+           SUM(CASE WHEN COALESCE(pc.change_qty,0)>0 THEN COALESCE(pc.change_qty,0)*pc.price_yesterday ELSE 0 END) AS kjop_belop,
+           SUM(CASE WHEN COALESCE(pc.change_qty,0)<0 THEN ABS(COALESCE(pc.change_qty,0)*pc.price_yesterday) ELSE 0 END) AS salg_belop,
+           SUM(COALESCE(pc.change_qty,0)*pc.price_yesterday) AS netto_belop,
+           CASE
+             WHEN SUM(CASE WHEN COALESCE(pc.change_qty,0)>0 THEN COALESCE(pc.change_qty,0) ELSE 0 END) > 0
+             THEN SUM(CASE WHEN COALESCE(pc.change_qty,0)>0 THEN COALESCE(pc.change_qty,0)*pc.price_yesterday ELSE 0 END)
+                  / SUM(CASE WHEN COALESCE(pc.change_qty,0)>0 THEN COALESCE(pc.change_qty,0) ELSE 0 END)
+             ELSE NULL
+           END AS kjop_snitt_kurs,
+           CASE
+             WHEN SUM(CASE WHEN COALESCE(pc.change_qty,0)<0 THEN ABS(COALESCE(pc.change_qty,0)) ELSE 0 END) > 0
+             THEN SUM(CASE WHEN COALESCE(pc.change_qty,0)<0 THEN ABS(COALESCE(pc.change_qty,0)*pc.price_yesterday) ELSE 0 END)
+                  / SUM(CASE WHEN COALESCE(pc.change_qty,0)<0 THEN ABS(COALESCE(pc.change_qty,0)) ELSE 0 END)
+             ELSE NULL
+           END AS salg_snitt_kurs,
+           SUM(ABS(COALESCE(pc.change_qty,0)*pc.price_yesterday)) AS brutto_belop,
+           (
+             SELECT MAX(p2.price_yesterday)
+             FROM position_change p2
+             WHERE p2.isin=pc.isin AND COALESCE(p2.price_yesterday,0)>0
+           ) AS siste_kurs
+    FROM position_change pc
+    JOIN security s ON s.isin=pc.isin
+    WHERE pc.investor_id=?
+      AND pc.date_today BETWEEN ? AND ?
+      AND COALESCE(pc.price_yesterday,0)>0
+    GROUP BY s.ticker, pc.isin, s.isin_name
+    ORDER BY ABS(netto_belop) DESC
+    """
+
+    params = (investor_id, date_from.isoformat(), date_to.isoformat())
+    try:
+        rows = conn.execute(sql, params).fetchall()
+    except sqlite3.DatabaseError:
+        _LOG.warning("Primær per-eier-query feilet, prøver fallback uten pris-CTE", exc_info=True)
+        rows = conn.execute(fallback_sql, params).fetchall()
+
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
-    if not df.empty:
-        df["kjop_snitt_kurs"] = df["kjop_snitt_kurs"].astype(float)
-        df["salg_snitt_kurs"] = df["salg_snitt_kurs"].astype(float)
-
-        # Netto snittkurs vises ut fra nettoretning i perioden (kjøp ved netto > 0, salg ved netto < 0)
-        df["netto_snitt_kurs"] = df["kjop_snitt_kurs"]
-        df.loc[df["netto_antall"] < 0, "netto_snitt_kurs"] = df.loc[df["netto_antall"] < 0, "salg_snitt_kurs"]
-
-        # Gevinst/tap beregnes på netto antall i perioden mot netto snittkurs
-        df["u_realisert_belop"] = (df["netto_antall"] * (df["siste_kurs"] - df["netto_snitt_kurs"].fillna(0)))
-
-        # Delvis oppsplitting (for oppsummering)
-        df["kjop_gevinst_belop"] = df["kjop_antall"] * (df["siste_kurs"] - df["kjop_snitt_kurs"].fillna(0))
-        df["salg_gevinst_belop"] = df["salg_antall"] * (df["salg_snitt_kurs"].fillna(0) - df["siste_kurs"])
-
-        df["kjop_mnok"] = df["kjop_belop"] / 1_000_000
-        df["salg_mnok"] = df["salg_belop"] / 1_000_000
-        df["netto_mnok"] = df["netto_belop"] / 1_000_000
-        df["brutto_mnok"] = df["brutto_belop"] / 1_000_000
-        df["siste_kurs"] = df["siste_kurs"].round(4)
-        df["netto_snitt_kurs"] = df["netto_snitt_kurs"].round(4)
-        df["kjop_snitt_kurs"] = df["kjop_snitt_kurs"].round(4)
-        df["salg_snitt_kurs"] = df["salg_snitt_kurs"].round(4)
-        df["gevinst_mnok"] = df["u_realisert_belop"] / 1_000_000
-        df["kjop_gevinst_mnok"] = df["kjop_gevinst_belop"] / 1_000_000
-        df["salg_gevinst_mnok"] = df["salg_gevinst_belop"] / 1_000_000
-    return df
+    return _postprocess_handler_per_eier_df(df)
 
 
 def fetch_eier_transactions(conn, investor_id: str, isin: str, date_from: dt.date, date_to: dt.date) -> pd.DataFrame:
