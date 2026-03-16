@@ -102,9 +102,12 @@
       {key:'netto_antall', label:'Netto antall', fmt:'int'},
       {key:'kjop_antall', label:'Kjøp antall', fmt:'int'},
       {key:'salg_antall', label:'Salg antall', fmt:'int'},
+      {key:'netto_snitt_kurs', label:'Netto kurs i perioden', fmt:'num', dec:2},
+      {key:'kjop_snitt_kurs', label:'Kjøp kurs i perioden', fmt:'num', dec:2},
+      {key:'salg_snitt_kurs', label:'Salg kurs i perioden', fmt:'num', dec:2},
       {key:'siste_kurs', label:'Siste kurs', fmt:'num', dec:2},
-      {key:'kjop_mnok', label:'Brutto kjøp MNOK', fmt:'num', dec:2},
-      {key:'salg_mnok', label:'Brutto salg MNOK', fmt:'num', dec:2},
+      {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num', dec:2},
+      {key:'salg_mnok', label:'Salg MNOK', fmt:'num', dec:2},
       {key:'netto_mnok', label:'Netto kjøp/salg MNOK', fmt:'num', dec:2},
       {key:'gevinst_mnok', label:'Gevinst/tap MNOK', fmt:'num', dec:2},
       {key:'kjop_gevinst_mnok', label:'Gevinst kjøp MNOK', fmt:'num', dec:2},
@@ -183,7 +186,7 @@
             </tr>
             <tr>
               <td>Salg</td>
-              <td>${summaryCell(-salgHandel)}</td>
+              <td>${summaryCell(salgHandel)}</td>
               <td>${summaryCell(salgGevinst)}</td>
             </tr>
             <tr>

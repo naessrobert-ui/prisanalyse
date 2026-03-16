@@ -398,7 +398,8 @@ def api_per_eier():
     # Round for display
     display_cols = [
         "kjop_mnok", "salg_mnok", "netto_mnok", "brutto_mnok",
-        "gevinst_mnok", "kjop_gevinst_mnok", "salg_gevinst_mnok", "siste_kurs",
+        "gevinst_mnok", "kjop_gevinst_mnok", "salg_gevinst_mnok",
+        "siste_kurs", "netto_snitt_kurs", "kjop_snitt_kurs", "salg_snitt_kurs",
     ]
     for c in display_cols:
         if c in df.columns:
@@ -416,7 +417,8 @@ def api_per_eier():
     return jsonify({
         "rows": df[[
             "ticker","isin","navn","antall_obs","netto_antall",
-            "kjop_antall","salg_antall","siste_kurs",
+            "kjop_antall","salg_antall",
+            "netto_snitt_kurs","kjop_snitt_kurs","salg_snitt_kurs","siste_kurs",
             "kjop_mnok","salg_mnok","netto_mnok","brutto_mnok",
             "gevinst_mnok","kjop_gevinst_mnok","salg_gevinst_mnok",
         ]].to_dict("records"),
