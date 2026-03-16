@@ -4,6 +4,7 @@ import numpy as np
 import folium
 from streamlit_folium import st_folium
 from bolig_data import load_latest_bolig_df   # behold denne
+from bolig_historikk_service import _parse_datetime_series
 
 # --------------------------------------------------
 # KONFIG
@@ -143,12 +144,10 @@ def clean_and_enrich(df_raw: pd.DataFrame) -> pd.DataFrame:
 
     # --- Dager på markedet ---
     if "publisert_dato" in df.columns:
-        publisert = pd.to_datetime(
+        publisert = _parse_datetime_series(
             df["publisert_dato"],
-            errors="coerce",
-            dayfirst=True,
-            utc=True,
-        )
+            normalize=False,
+        ).dt.tz_localize("UTC", nonexistent="NaT", ambiguous="NaT")
         today = pd.Timestamp.now(tz="UTC").normalize()
         df["dager_på_markedet"] = (today - publisert).dt.days
     else:
