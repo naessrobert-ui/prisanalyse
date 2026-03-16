@@ -15,6 +15,7 @@ import io
 import json
 import logging
 import os
+import sqlite3
 import time
 from pathlib import Path
 
@@ -145,6 +146,21 @@ def _check_db() -> str | None:
             f"{parse_hint}"
         )
 
+
+
+def _db_runtime_error_message(exc: Exception) -> str:
+    msg = str(exc).lower()
+    if "database disk image is malformed" in msg:
+        return (
+            "Handler-databasen er korrupt (SQLite meldte 'database disk image is malformed'). "
+            "Last opp eller pek til en frisk DB-fil, og restart tjenesten."
+        )
+    if "locking protocol" in msg:
+        return (
+            "Handler-databasen er midlertidig låst ('locking protocol'). "
+            "Prøv igjen om litt, eller restart tjenesten."
+        )
+    return "Teknisk databasefeil ved lesing av handler-data. Prøv igjen om litt."
 
 def _cache_key_for_beste_viktige(list_name: str, date_from: dt.date, date_to: dt.date) -> str:
     base = f"{list_name}|{date_from.isoformat()}|{date_to.isoformat()}"
@@ -388,20 +404,49 @@ def api_per_eier():
     if err:
         return jsonify({"error": err}), 503
 
-    conn = hd.db_connect()
-    df = hd.fetch_handler_per_eier(conn, investor_id, date_from, date_to)
-    conn.close()
+    conn = None
+    try:
+        conn = hd.db_connect()
+        df = hd.fetch_handler_per_eier(conn, investor_id, date_from, date_to)
+    except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
+        _LOG.exception("DB-feil i api_per_eier investor_id=%s", investor_id)
+        return jsonify({"error": _db_runtime_error_message(exc)}), 503
+    finally:
+        if conn is not None:
+            conn.close()
 
     if df.empty:
         return jsonify({"rows": [], "message": "Ingen handler i perioden"})
 
     # Round for display
-    df["netto_mnok"] = df["netto_mnok"].round(2)
-    df["brutto_mnok"] = df["brutto_mnok"].round(2)
+    display_cols = [
+        "kjop_mnok", "salg_mnok", "netto_mnok", "brutto_mnok",
+        "gevinst_mnok", "kjop_gevinst_mnok", "salg_gevinst_mnok",
+        "siste_kurs", "netto_snitt_kurs", "kjop_snitt_kurs", "salg_snitt_kurs",
+    ]
+    for c in display_cols:
+        if c in df.columns:
+            df[c] = df[c].round(2)
+
+    summary = {
+        "netto_mnok": round(float(df["netto_mnok"].sum()), 2),
+        "brutto_kjop_mnok": round(float(df["kjop_mnok"].sum()), 2),
+        "brutto_salg_mnok": round(float(df["salg_mnok"].sum()), 2),
+        "samlet_gevinst_mnok": round(float(df["gevinst_mnok"].sum()), 2),
+        "kjop_gevinst_mnok": round(float(df["kjop_gevinst_mnok"].sum()), 2),
+        "salg_gevinst_mnok": round(float(df["salg_gevinst_mnok"].sum()), 2),
+    }
 
     return jsonify({
-        "rows": df[["ticker","isin","navn","antall_obs","netto_antall","netto_mnok","brutto_mnok"]].to_dict("records"),
+        "rows": df[[
+            "ticker","isin","navn","antall_obs","netto_antall",
+            "kjop_antall","salg_antall",
+            "netto_snitt_kurs","kjop_snitt_kurs","salg_snitt_kurs","siste_kurs",
+            "kjop_mnok","salg_mnok","netto_mnok","brutto_mnok",
+            "gevinst_mnok","kjop_gevinst_mnok","salg_gevinst_mnok",
+        ]].to_dict("records"),
         "count": len(df),
+        "summary": summary,
     })
 
 
@@ -415,9 +460,16 @@ def api_per_eier_detaljer():
     if not investor_id or not isin:
         return jsonify({"error": "Mangler investor_id eller isin"}), 400
 
-    conn = hd.db_connect()
-    df = hd.fetch_eier_transactions(conn, investor_id, isin, date_from, date_to)
-    conn.close()
+    conn = None
+    try:
+        conn = hd.db_connect()
+        df = hd.fetch_eier_transactions(conn, investor_id, isin, date_from, date_to)
+    except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
+        _LOG.exception("DB-feil i api_per_eier_detaljer investor_id=%s isin=%s", investor_id, isin)
+        return jsonify({"error": _db_runtime_error_message(exc)}), 503
+    finally:
+        if conn is not None:
+            conn.close()
 
     if df.empty:
         return jsonify({"rows": [], "sum_mnok": 0})
@@ -434,9 +486,16 @@ def api_per_eier_csv():
     investor_id = request.args.get("investor_id", "").strip()
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
-    conn = hd.db_connect()
-    df = hd.fetch_handler_per_eier(conn, investor_id, date_from, date_to)
-    conn.close()
+    conn = None
+    try:
+        conn = hd.db_connect()
+        df = hd.fetch_handler_per_eier(conn, investor_id, date_from, date_to)
+    except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
+        _LOG.exception("DB-feil i api_per_eier investor_id=%s", investor_id)
+        return jsonify({"error": _db_runtime_error_message(exc)}), 503
+    finally:
+        if conn is not None:
+            conn.close()
     return _csv_response(df, f"handler_per_eier_{investor_id}.csv")
 
 

@@ -34,7 +34,11 @@
   </div>
 </div>
 
+
+<div id="summary-area" style="display:none" class="panel"></div>
+
 <div id="result-area"></div>
+
 
 <div id="detail-area" style="display:none">
   <hr style="border-color: var(--pa-border)">
@@ -83,18 +87,31 @@
     if (data.error) { document.getElementById('result-area').innerHTML = `<div class="panel">${data.error}</div>`; return; }
     if (!data.rows || data.rows.length === 0) {
       document.getElementById('result-area').innerHTML = '<div class="empty-msg">Ingen handler i perioden</div>';
+      document.getElementById('summary-area').style.display = 'none';
       document.getElementById('detail-area').style.display = 'none';
       return;
     }
 
     lastRows = data.rows;
+    renderSummary(data.summary || {});
     buildTable(data.rows, [
       {key:'ticker', label:'Ticker'},
       {key:'isin', label:'ISIN'},
       {key:'navn', label:'Navn'},
       {key:'antall_obs', label:'Obs', fmt:'int'},
       {key:'netto_antall', label:'Netto antall', fmt:'int'},
-      {key:'netto_mnok', label:'Netto MNOK', fmt:'num', dec:2},
+      {key:'kjop_antall', label:'Kjøp antall', fmt:'int'},
+      {key:'salg_antall', label:'Salg antall', fmt:'int'},
+      {key:'netto_snitt_kurs', label:'Netto kurs i perioden', fmt:'num', dec:2},
+      {key:'kjop_snitt_kurs', label:'Kjøp kurs i perioden', fmt:'num', dec:2},
+      {key:'salg_snitt_kurs', label:'Salg kurs i perioden', fmt:'num', dec:2},
+      {key:'siste_kurs', label:'Siste kurs', fmt:'num', dec:2},
+      {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num', dec:2},
+      {key:'salg_mnok', label:'Salg MNOK', fmt:'num', dec:2},
+      {key:'netto_mnok', label:'Netto kjøp/salg MNOK', fmt:'num', dec:2},
+      {key:'gevinst_mnok', label:'Gevinst/tap MNOK', fmt:'num', dec:2},
+      {key:'kjop_gevinst_mnok', label:'Gevinst kjøp MNOK', fmt:'num', dec:2},
+      {key:'salg_gevinst_mnok', label:'Gevinst salg MNOK', fmt:'num', dec:2},
       {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
     ], 'result-area');
 
@@ -127,6 +144,60 @@
     ], 'detail-table');
 
     document.getElementById('detail-sum').textContent = data.sum_mnok ? `Sum: ${fmtNum(data.sum_mnok, 2)} MNOK` : '';
+  }
+
+
+  function fmtSummaryInt(v) {
+    if (v == null || isNaN(v)) return '–';
+    return Math.round(Number(v)).toLocaleString('nb-NO', {maximumFractionDigits: 0});
+  }
+
+  function summaryCell(v) {
+    return `<span class="${signClass(v)}" style="font-weight:700">${fmtSummaryInt(v)}</span>`;
+  }
+
+  function renderSummary(summary) {
+    const el = document.getElementById('summary-area');
+    el.style.display = 'block';
+
+    const kjopHandel = summary.brutto_kjop_mnok || 0;
+    const salgHandel = summary.brutto_salg_mnok || 0;
+    const nettoHandel = summary.netto_mnok || 0;
+    const kjopGevinst = summary.kjop_gevinst_mnok || 0;
+    const salgGevinst = summary.salg_gevinst_mnok || 0;
+    const nettoGevinst = summary.samlet_gevinst_mnok || 0;
+
+    el.innerHTML = `
+      <h5 class="mb-2">Oppsummering (MNOK)</h5>
+      <div class="table-container">
+        <table class="data-table" style="max-width:480px">
+          <thead>
+            <tr>
+              <th> </th>
+              <th>Handel</th>
+              <th>Gevinst</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Kjøp</td>
+              <td>${summaryCell(kjopHandel)}</td>
+              <td>${summaryCell(kjopGevinst)}</td>
+            </tr>
+            <tr>
+              <td>Salg</td>
+              <td>${summaryCell(salgHandel)}</td>
+              <td>${summaryCell(salgGevinst)}</td>
+            </tr>
+            <tr>
+              <td><strong>Netto</strong></td>
+              <td>${summaryCell(nettoHandel)}</td>
+              <td>${summaryCell(nettoGevinst)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
   // CSV download
