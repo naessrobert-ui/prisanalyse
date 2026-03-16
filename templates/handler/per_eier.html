@@ -96,23 +96,16 @@
       renderSummary(data.summary || {});
       buildTable(data.rows, [
       {key:'ticker', label:'Ticker'},
-      {key:'isin', label:'ISIN'},
       {key:'navn', label:'Navn'},
       {key:'antall_obs', label:'Obs', fmt:'int'},
-      {key:'netto_antall', label:'Netto antall', fmt:'int'},
-      {key:'kjop_antall', label:'Kjøp antall', fmt:'int'},
-      {key:'salg_antall', label:'Salg antall', fmt:'int'},
-      {key:'netto_snitt_kurs', label:'Netto kurs i perioden', fmt:'num', dec:2},
-      {key:'kjop_snitt_kurs', label:'Kjøp kurs i perioden', fmt:'num', dec:2},
-      {key:'salg_snitt_kurs', label:'Salg kurs i perioden', fmt:'num', dec:2},
-      {key:'siste_kurs', label:'Siste kurs', fmt:'num', dec:2},
-      {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num', dec:2},
-      {key:'salg_mnok', label:'Salg MNOK', fmt:'num', dec:2},
       {key:'netto_mnok', label:'Netto kjøp/salg MNOK', fmt:'num', dec:2},
       {key:'gevinst_mnok', label:'Gevinst/tap MNOK', fmt:'num', dec:2},
-      {key:'kjop_gevinst_mnok', label:'Gevinst kjøp MNOK', fmt:'num', dec:2},
-      {key:'salg_gevinst_mnok', label:'Gevinst salg MNOK', fmt:'num', dec:2},
-      {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
+      {key:'kjop_antall', label:'Kjøp antall', fmt:'int'},
+      {key:'salg_antall', label:'Salg antall', fmt:'int'},
+      {key:'kjop_snitt_kurs', label:'Kurs kjøp', fmt:'num', dec:2},
+      {key:'salg_snitt_kurs', label:'Kurs salg', fmt:'num', dec:2},
+      {key:'kjop_mnok', label:'Samlet kjøpssum MNOK', fmt:'num', dec:2},
+      {key:'salg_mnok', label:'Samlet salgssum MNOK', fmt:'num', dec:2},
     ], 'result-area');
 
       document.getElementById('btn-csv').style.display = 'inline-block';
@@ -155,13 +148,13 @@
   }
 
 
-  function fmtSummaryInt(v) {
+  function fmtSummaryNum(v, dec=1) {
     if (v == null || isNaN(v)) return '–';
-    return Math.round(Number(v)).toLocaleString('nb-NO', {maximumFractionDigits: 0});
+    return Number(v).toLocaleString('nb-NO', {minimumFractionDigits: dec, maximumFractionDigits: dec});
   }
 
   function summaryCell(v) {
-    return `<span class="${signClass(v)}" style="font-weight:700">${fmtSummaryInt(v)}</span>`;
+    return `<span class="${signClass(v)}" style="font-weight:700">${fmtSummaryNum(v,1)}</span>`;
   }
 
   function renderSummary(summary) {
