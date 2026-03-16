@@ -19,6 +19,7 @@ import sqlite3
 import time
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from flask import (
     Blueprint,
@@ -161,6 +162,25 @@ def _db_runtime_error_message(exc: Exception) -> str:
             "Prøv igjen om litt, eller restart tjenesten."
         )
     return "Teknisk databasefeil ved lesing av handler-data. Prøv igjen om litt."
+
+
+def _json_safe_df(df: pd.DataFrame) -> pd.DataFrame:
+    # Flask/Python kan ellers serialisere NaN som `NaN` (ugyldig JSON for browser parser)
+    safe = df.replace([np.inf, -np.inf], np.nan)
+    safe = safe.astype(object)
+    return safe.where(pd.notnull(safe), None)
+
+
+def _safe_summary_value(v: float | int | None) -> float:
+    if v is None:
+        return 0.0
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return 0.0
+    if not np.isfinite(f):
+        return 0.0
+    return round(f, 2)
 
 def _cache_key_for_beste_viktige(list_name: str, date_from: dt.date, date_to: dt.date) -> str:
     base = f"{list_name}|{date_from.isoformat()}|{date_to.isoformat()}"
@@ -429,16 +449,16 @@ def api_per_eier():
             df[c] = df[c].round(2)
 
     summary = {
-        "netto_mnok": round(float(df["netto_mnok"].sum()), 2),
-        "brutto_kjop_mnok": round(float(df["kjop_mnok"].sum()), 2),
-        "brutto_salg_mnok": round(float(df["salg_mnok"].sum()), 2),
-        "samlet_gevinst_mnok": round(float(df["gevinst_mnok"].sum()), 2),
-        "kjop_gevinst_mnok": round(float(df["kjop_gevinst_mnok"].sum()), 2),
-        "salg_gevinst_mnok": round(float(df["salg_gevinst_mnok"].sum()), 2),
+        "netto_mnok": _safe_summary_value(df["netto_mnok"].sum()),
+        "brutto_kjop_mnok": _safe_summary_value(df["kjop_mnok"].sum()),
+        "brutto_salg_mnok": _safe_summary_value(df["salg_mnok"].sum()),
+        "samlet_gevinst_mnok": _safe_summary_value(df["gevinst_mnok"].sum()),
+        "kjop_gevinst_mnok": _safe_summary_value(df["kjop_gevinst_mnok"].sum()),
+        "salg_gevinst_mnok": _safe_summary_value(df["salg_gevinst_mnok"].sum()),
     }
 
-    # Unngå NaN i JSON-respons (kan gi parse-feil i browser og hengende spinner)
-    df = df.where(pd.notnull(df), None)
+    # Unngå NaN/Infinity i JSON-respons (kan gi parse-feil i browser og hengende spinner)
+    df = _json_safe_df(df)
 
     return jsonify({
         "rows": df[[
