@@ -3,6 +3,7 @@
 
 import io
 import os
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal, Optional
@@ -24,6 +25,41 @@ class HistConfig:
 
 
 CFG = HistConfig()
+
+
+def _parse_datetime_series(values, *, normalize: bool = True) -> pd.Series:
+    """
+    Robust datetime-parser for mixed boligdata-format.
+    Tåler bl.a.:
+      - ISO-tidsstempel
+      - norsk format: DD.MM.YYYY HH:MM
+      - tekst med innbakt label/linjeskift, f.eks. "publisert_dato\n22.12.2021 11:11"
+    """
+
+    if isinstance(values, pd.Series):
+        s = values.copy()
+    else:
+        s = pd.Series(values)
+
+    def _extract_date_text(v):
+        if pd.isna(v):
+            return None
+        txt = str(v).strip()
+        if not txt:
+            return None
+
+        match = re.search(
+            r"(\d{1,2}\.\d{1,2}\.\d{4}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?)",
+            txt,
+        )
+        return match.group(1) if match else txt
+
+    cleaned = s.map(_extract_date_text)
+    parsed = pd.to_datetime(cleaned, errors="coerce", utc=True, dayfirst=True)
+    parsed = parsed.dt.tz_convert(None)
+    if normalize:
+        parsed = parsed.dt.normalize()
+    return parsed
 
 
 def _s3_client():
@@ -132,10 +168,10 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
             d[c] = pd.NA
 
     # Dates
-    d["publisert_dato"] = pd.to_datetime(d.get("publisert_dato"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
-    d["dato_første"] = pd.to_datetime(d["dato_første"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
-    d["dato_siste"] = pd.to_datetime(d["dato_siste"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
-    d["dato_prisendring"] = pd.to_datetime(d["dato_prisendring"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    d["publisert_dato"] = _parse_datetime_series(d.get("publisert_dato"), normalize=True)
+    d["dato_første"] = _parse_datetime_series(d["dato_første"], normalize=True)
+    d["dato_siste"] = _parse_datetime_series(d["dato_siste"], normalize=True)
+    d["dato_prisendring"] = _parse_datetime_series(d["dato_prisendring"], normalize=True)
 
     # Numerics
     for col in ["totalpris", "m2_pris", "latitude", "longitude", "pris_første", "pris_ny"]:
@@ -199,7 +235,7 @@ def snapshot_metrics(df: pd.DataFrame, day: pd.Timestamp, level: Level) -> pd.Da
     d = df.dropna(subset=["dato_siste"]).copy()
 
     # Bruk publisert_dato som startdato hvis tilgjengelig, ellers fallback til dato_første
-    d["start_dato"] = pd.to_datetime(d.get("publisert_dato"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    d["start_dato"] = _parse_datetime_series(d.get("publisert_dato"), normalize=True)
     d["start_dato"] = d["start_dato"].fillna(d["dato_første"])
     d = d.dropna(subset=["start_dato"]).copy()
 
@@ -323,7 +359,7 @@ def daily_series_fast(df: pd.DataFrame, start_day: pd.Timestamp, end_day: pd.Tim
     days = pd.date_range(start_day, end_day, freq="D")
 
     d = df.dropna(subset=["dato_siste"]).copy()
-    d["start_dato"] = pd.to_datetime(d.get("publisert_dato"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    d["start_dato"] = _parse_datetime_series(d.get("publisert_dato"), normalize=True)
     d["start_dato"] = d["start_dato"].fillna(d["dato_første"])
     d = d.dropna(subset=["start_dato"]).copy()
     if d.empty:

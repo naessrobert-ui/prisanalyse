@@ -26,6 +26,7 @@ from bolig_historikk_service import (
     build_table,
     filter_by_level,
     daily_series_fast,
+    _parse_datetime_series,
 )
 
 import base64
@@ -62,7 +63,7 @@ def bolig_historikk_view():
     df = apply_ny_brukt_filter(df, ny_brukt)
 
     # Bruk publisert_dato som startdato hvis tilgjengelig, ellers fallback til dato_første
-    df["publisert_dato"] = pd.to_datetime(df.get("publisert_dato"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    df["publisert_dato"] = _parse_datetime_series(df.get("publisert_dato"), normalize=True)
     df["dato_første"] = pd.to_datetime(df.get("dato_første"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
     df["start_dato"] = df["publisert_dato"].fillna(df["dato_første"])
 
@@ -169,7 +170,7 @@ def bolig_historikk_detalj():
 
     # Sørg for konsistente datoer + start_dato
     df = df.copy()
-    df["publisert_dato"] = pd.to_datetime(df.get("publisert_dato"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    df["publisert_dato"] = _parse_datetime_series(df.get("publisert_dato"), normalize=True)
     df["dato_første"] = pd.to_datetime(df.get("dato_første"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
     df["dato_siste"] = pd.to_datetime(df.get("dato_siste"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
     df["start_dato"] = df["publisert_dato"].fillna(df["dato_første"])
@@ -460,7 +461,7 @@ def _prepare_priser_df(df_raw: pd.DataFrame) -> pd.DataFrame:
 
     # --- Dager på markedet ---
     if "publisert_dato" in df.columns:
-        publisert = pd.to_datetime(df["publisert_dato"], errors="coerce", utc=True)
+        publisert = _parse_datetime_series(df["publisert_dato"], normalize=False).dt.tz_localize("UTC", nonexistent="NaT", ambiguous="NaT")
         now_utc = pd.Timestamp.now("UTC")
         df["dager_paa_markedet"] = (now_utc - publisert).dt.days
     else:
@@ -939,9 +940,7 @@ def get_bolig_data():
 
         # Dager på markedet
         if "publisert_dato" in df.columns:
-            df["publisert_dato_dt"] = pd.to_datetime(
-                df["publisert_dato"], errors="coerce", utc=True
-            )
+            df["publisert_dato_dt"] = _parse_datetime_series(df["publisert_dato"], normalize=False).dt.tz_localize("UTC", nonexistent="NaT", ambiguous="NaT")
             now_utc = pd.Timestamp.now("UTC")
             df["dager_paa_markedet"] = (now_utc - df["publisert_dato_dt"]).dt.days
         else:
@@ -1642,9 +1641,7 @@ def bolig_kupp_view():
             "publisert_dato" in df_local.columns
             and "dager_på_markedet" not in df_local.columns
         ):
-            publisert = pd.to_datetime(
-                df_local["publisert_dato"], errors="coerce", utc=True
-            )
+            publisert = _parse_datetime_series(df_local["publisert_dato"], normalize=False).dt.tz_localize("UTC", nonexistent="NaT", ambiguous="NaT")
             today = pd.Timestamp.now(tz="UTC").normalize()
             df_local["dager_på_markedet"] = (today - publisert).dt.days
 
