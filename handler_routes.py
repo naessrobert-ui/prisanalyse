@@ -437,6 +437,9 @@ def api_per_eier():
         "salg_gevinst_mnok": round(float(df["salg_gevinst_mnok"].sum()), 2),
     }
 
+    # Unngå NaN i JSON-respons (kan gi parse-feil i browser og hengende spinner)
+    df = df.where(pd.notnull(df), None)
+
     return jsonify({
         "rows": df[[
             "ticker","isin","navn","antall_obs","netto_antall",

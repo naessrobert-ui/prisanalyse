@@ -80,21 +80,21 @@
     const dt = document.getElementById('date-to').value;
     this.innerHTML = '<span class="spinner"></span> Henter…';
 
-    const resp = await fetch(`{{ url_for("handler.api_per_eier") }}?investor_id=${selectedInvestorId}&date_from=${df}&date_to=${dt}`);
-    const data = await resp.json();
-    this.textContent = 'Hent handler';
+    try {
+      const resp = await fetch(`{{ url_for("handler.api_per_eier") }}?investor_id=${selectedInvestorId}&date_from=${df}&date_to=${dt}`);
+      const data = await resp.json();
 
-    if (data.error) { document.getElementById('result-area').innerHTML = `<div class="panel">${data.error}</div>`; return; }
-    if (!data.rows || data.rows.length === 0) {
-      document.getElementById('result-area').innerHTML = '<div class="empty-msg">Ingen handler i perioden</div>';
-      document.getElementById('summary-area').style.display = 'none';
-      document.getElementById('detail-area').style.display = 'none';
-      return;
-    }
+      if (data.error) { document.getElementById('result-area').innerHTML = `<div class="panel">${data.error}</div>`; return; }
+      if (!data.rows || data.rows.length === 0) {
+        document.getElementById('result-area').innerHTML = '<div class="empty-msg">Ingen handler i perioden</div>';
+        document.getElementById('summary-area').style.display = 'none';
+        document.getElementById('detail-area').style.display = 'none';
+        return;
+      }
 
-    lastRows = data.rows;
-    renderSummary(data.summary || {});
-    buildTable(data.rows, [
+      lastRows = data.rows;
+      renderSummary(data.summary || {});
+      buildTable(data.rows, [
       {key:'ticker', label:'Ticker'},
       {key:'isin', label:'ISIN'},
       {key:'navn', label:'Navn'},
@@ -115,13 +115,21 @@
       {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
     ], 'result-area');
 
-    document.getElementById('btn-csv').style.display = 'inline-block';
+      document.getElementById('btn-csv').style.display = 'inline-block';
 
-    // Build detail dropdown
-    const sel = document.getElementById('detail-select');
-    sel.innerHTML = data.rows.map(r => `<option value="${r.isin}">${r.ticker} | ${r.navn} | ${r.isin}</option>`).join('');
-    document.getElementById('detail-area').style.display = 'block';
-    loadDetail();
+      // Build detail dropdown
+      const sel = document.getElementById('detail-select');
+      sel.innerHTML = data.rows.map(r => `<option value="${r.isin}">${r.ticker} | ${r.navn} | ${r.isin}</option>`).join('');
+      document.getElementById('detail-area').style.display = 'block';
+      loadDetail();
+    } catch (e) {
+      document.getElementById('result-area').innerHTML = '<div class="panel">Teknisk feil ved henting av handler. Prøv igjen.</div>';
+      document.getElementById('summary-area').style.display = 'none';
+      document.getElementById('detail-area').style.display = 'none';
+      console.error('api/per-eier fetch failed', e);
+    } finally {
+      this.textContent = 'Hent handler';
+    }
   });
 
   // Detail drill-down
