@@ -489,12 +489,18 @@ def health() -> HealthResponse:
 @app.get("/debug/direct")
 def debug_direct():
     try:
-        with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
+        with get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT current_database() AS db, current_user AS usr")
                 return dict(cur.fetchone())
     except Exception as e:
-        return {"error": repr(e), "database_url": DATABASE_URL}
+        return {
+            "error": repr(e),
+            "db_host": RDS_HOST,
+            "db_port": RDS_PORT,
+            "db_name": RDS_DB,
+            "db_user": RDS_USER,
+        }
 
 
 @app.get("/api/naeringskoder")
