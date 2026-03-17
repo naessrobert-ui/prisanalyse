@@ -82,6 +82,7 @@
       <h3>⬆️ Last opp nyeste <code>topchanges.db</code> til S3</h3>
       <p class="mb-3">
         Har du en nyere database lokalt? Last den opp her, så publiseres den til S3-plasseringen appen bruker.
+        Maks størrelse per opplasting er <strong>{{ db_upload_limit_mb }} MB</strong>.
       </p>
       <form id="dbUploadForm" class="row g-2 align-items-center">
         <div class="col-md-7">
@@ -180,7 +181,12 @@
               ? `${rawBody.replace(/\s+/g, ' ').slice(0, 180)}${rawBody.length > 180 ? '…' : ''}`
               : `HTTP ${resp.status}`;
 
-            uploadStatus.textContent = `Feil: ${serverMessage || fallbackMessage}`;
+            let finalMessage = serverMessage || fallbackMessage;
+            if (!serverMessage && (resp.status === 502 || resp.status === 413)) {
+              finalMessage = `Opplasting avvist (HTTP ${resp.status}). Filen kan være for stor for proxy/server. Prøv en mindre fil eller øk opplastingsgrensen på serveren.`;
+            }
+
+            uploadStatus.textContent = `Feil: ${finalMessage}`;
             return;
           }
 
@@ -189,7 +195,8 @@
             return;
           }
 
-          uploadStatus.textContent = `✅ ${data.message} (${data.s3_uri})`;
+          const sizeMb = typeof data.size_bytes === 'number' ? `, ${(data.size_bytes / (1024 * 1024)).toFixed(1)} MB` : '';
+          uploadStatus.textContent = `✅ ${data.message} (${data.s3_uri}${sizeMb})`;
         } catch (err) {
           uploadStatus.textContent = `Feil ved opplasting: ${err}`;
         }

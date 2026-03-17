@@ -29,6 +29,7 @@ from flask import (
     jsonify,
     Response,
 )
+from werkzeug.exceptions import RequestEntityTooLarge
 
 import handler_data as hd
 import handler_data_beste as hdb
@@ -54,6 +55,30 @@ _BESTE_TX_CACHE_TTL_SECONDS = 30 * 60
 
 
 _BV_PERSISTENT_CACHE_PATH = Path(hd.HANDLER_LIST_CACHE_DIR) / "beste_viktige_investor_cache.json"
+
+
+def _parse_upload_limit_mb() -> int:
+    raw = (os.getenv("HANDLER_DB_UPLOAD_MAX_MB", "40") or "40").strip()
+    try:
+        limit_mb = int(raw)
+    except ValueError:
+        _LOG.warning("Ugyldig HANDLER_DB_UPLOAD_MAX_MB=%s. Bruker standard 40 MB.", raw)
+        return 40
+    return max(1, limit_mb)
+
+
+_HANDLER_DB_UPLOAD_MAX_MB = _parse_upload_limit_mb()
+_HANDLER_DB_UPLOAD_MAX_BYTES = _HANDLER_DB_UPLOAD_MAX_MB * 1024 * 1024
+
+
+@handler_bp.errorhandler(RequestEntityTooLarge)
+def handle_handler_upload_too_large(_err):
+    return jsonify({
+        "error": (
+            "Filen er for stor for web-opplasting. "
+            f"Maks er {_HANDLER_DB_UPLOAD_MAX_MB} MB (HANDLER_DB_UPLOAD_MAX_MB)."
+        )
+    }), 413
 
 
 def _load_persistent_cache_blob() -> dict:
@@ -336,6 +361,7 @@ def handler_index():
         db_s3_parse_error=diag.get("s3_parse_error"),
         db_parent_exists=diag["parent_exists"],
         db_s3_upload_enabled=bool(hd.HANDLER_DB_S3_URI),
+        db_upload_limit_mb=_HANDLER_DB_UPLOAD_MAX_MB,
     )
 
 
@@ -356,6 +382,16 @@ def api_upload_db_to_s3():
     if not payload:
         return jsonify({"error": "Filen er tom."}), 400
 
+    payload_size = len(payload)
+    if payload_size > _HANDLER_DB_UPLOAD_MAX_BYTES:
+        return jsonify({
+            "error": (
+                "Filen er for stor for web-opplasting "
+                f"({payload_size / (1024 * 1024):.1f} MB > {_HANDLER_DB_UPLOAD_MAX_MB} MB). "
+                "Bruk mindre DB eller øk HANDLER_DB_UPLOAD_MAX_MB."
+            )
+        }), 413
+
     try:
         s3_uri = hd.upload_db_bytes_to_s3(payload, filename=filename)
     except Exception as exc:
@@ -373,6 +409,7 @@ def api_upload_db_to_s3():
         "ok": True,
         "message": "Ny DB er lastet opp til S3.",
         "s3_uri": s3_uri,
+        "size_bytes": payload_size,
     })
 
 
