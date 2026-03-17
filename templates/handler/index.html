@@ -83,6 +83,7 @@
       <p class="mb-3">
         Har du en nyere database lokalt? Last den opp her, så publiseres den til S3-plasseringen appen bruker.
       </p>
+      <p class="small text-secondary">Store filer kan feile via nettleser/proxy (typisk 502/504). For veldig store databaser, bruk <code>scripts/upload_handler_db_to_s3.py</code> i servermiljøet.</p>
       <form id="dbUploadForm" class="row g-2 align-items-center">
         <div class="col-md-7">
           <input type="file" class="form-control" id="db_file" name="db_file" accept=".db" {% if not db_s3_upload_enabled %}disabled{% endif %}>
@@ -158,6 +159,8 @@
           return;
         }
 
+        const fileSizeMb = Number((file.size / (1024 * 1024)).toFixed(1));
+
         try {
           const resp = await fetch("{{ url_for('handler.api_upload_db_to_s3') }}", {
             method: 'POST',
@@ -179,6 +182,16 @@
             const fallbackMessage = rawBody
               ? `${rawBody.replace(/\s+/g, ' ').slice(0, 180)}${rawBody.length > 180 ? '…' : ''}`
               : `HTTP ${resp.status}`;
+
+            if ([502, 503, 504].includes(resp.status)) {
+              uploadStatus.textContent = `Feil: Opplastingen feilet med ${resp.status}. Filen (${fileSizeMb} MB) er trolig for stor for web-opplasting. Prøv en mindre DB eller bruk scripts/upload_handler_db_to_s3.py på serveren.`;
+              return;
+            }
+
+            if (resp.status === 413) {
+              uploadStatus.textContent = `Feil: Filen (${fileSizeMb} MB) er for stor for opplasting i nettleseren.`;
+              return;
+            }
 
             uploadStatus.textContent = `Feil: ${serverMessage || fallbackMessage}`;
             return;
