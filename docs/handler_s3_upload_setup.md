@@ -78,3 +78,17 @@ Eksempel på policy for ett key-prefix:
 - **Upload stopper på 502 via app-endepunkt**: bruk direkte S3-opplasting i UI (standardflyt).
 - **PUT mot presigned URL feiler med CORS**: verifiser `AllowedOrigins`, `AllowedMethods` og `AllowedHeaders`.
 - **Upload ok, men data ikke oppdatert i appen**: kall `/handler-oslo-bors/api/reload-db-from-s3` (gjøres automatisk i UI etter vellykket upload).
+
+
+## Lokal nød-opplasting (anbefalt når web-opplasting feiler)
+
+Kjør fra maskinen som har DB-filen:
+
+```bash
+python scripts/upload_handler_db_to_s3.py \
+  --source /path/to/topchanges_recent_60d.db \
+  --bucket <DIN_BUCKET> \
+  --key <DIN_PREFIX>/topchanges.db
+```
+
+Etter opplasting: verifiser at `HANDLER_DB_S3_URI` peker til samme `s3://bucket/key` i drift.

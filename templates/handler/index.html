@@ -148,6 +148,19 @@
     const uploadForm = document.getElementById('dbUploadForm');
     const uploadStatus = document.getElementById('dbUploadStatus');
 
+
+    function friendlyProxyError(respStatus, rawBody) {
+      if (respStatus === 502 || respStatus === 413 || respStatus === 504) {
+        return 'Proxy/server avviste opplastingen (HTTP ' + respStatus + '). For store filer bør du bruke lokal script-opplasting (scripts/upload_handler_db_to_s3.py).';
+      }
+      if (rawBody && rawBody.toLowerCase().includes('<!doctype html')) {
+        return `HTTP ${respStatus} fra proxy/server (HTML-feilside).`;
+      }
+      return rawBody
+        ? `${rawBody.replace(/\s+/g, ' ').slice(0, 180)}${rawBody.length > 180 ? '…' : ''}`
+        : `HTTP ${respStatus}`;
+    }
+
     async function uploadViaAppProxy(formData, fileSizeMb) {
       const resp = await fetch("{{ url_for('handler.api_upload_db_to_s3') }}", {
         method: 'POST',
@@ -166,9 +179,7 @@
 
       if (!resp.ok) {
         const serverMessage = data?.error || data?.message;
-        const fallbackMessage = rawBody
-          ? `${rawBody.replace(/\s+/g, ' ').slice(0, 180)}${rawBody.length > 180 ? '…' : ''}`
-          : `HTTP ${resp.status}`;
+        const fallbackMessage = friendlyProxyError(resp.status, rawBody);
         throw new Error(serverMessage || fallbackMessage);
       }
 
@@ -188,7 +199,8 @@
           return;
         }
 
-        const fileSizeMb = (file.size / (1024 * 1024)).toFixed(1);
+        const fileSizeMbValue = file.size / (1024 * 1024);
+        const fileSizeMb = fileSizeMbValue.toFixed(1);
         let stage = 'presign';
 
         try {
@@ -231,6 +243,11 @@
         } catch (err) {
           const msg = String(err || 'Ukjent feil');
           if (msg.includes('Failed to fetch') && stage === 's3_put') {
+            if (fileSizeMbValue > 200) {
+              uploadStatus.textContent = 'Direkte S3-opplasting ble blokkert (typisk CORS/nettverk), og filen er stor. Bruk lokal script-opplasting: python scripts/upload_handler_db_to_s3.py --source <fil.db> --bucket <bucket> --key <key>. Deretter oppdater HANDLER_DB_S3_URI om nødvendig.';
+              return;
+            }
+
             uploadStatus.textContent = 'Direkte S3-opplasting ble blokkert (typisk CORS/nettverk). Prøver fallback via app-proxy...';
             try {
               await uploadViaAppProxy(formData, fileSizeMb);
