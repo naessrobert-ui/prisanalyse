@@ -148,6 +148,34 @@
     const uploadForm = document.getElementById('dbUploadForm');
     const uploadStatus = document.getElementById('dbUploadStatus');
 
+    async function uploadViaAppProxy(formData, fileSizeMb) {
+      const resp = await fetch("{{ url_for('handler.api_upload_db_to_s3') }}", {
+        method: 'POST',
+        body: formData,
+      });
+
+      const contentType = (resp.headers.get('content-type') || '').toLowerCase();
+      let data = null;
+      let rawBody = '';
+
+      if (contentType.includes('application/json')) {
+        data = await resp.json();
+      } else {
+        rawBody = (await resp.text()).trim();
+      }
+
+      if (!resp.ok) {
+        const serverMessage = data?.error || data?.message;
+        const fallbackMessage = rawBody
+          ? `${rawBody.replace(/\s+/g, ' ').slice(0, 180)}${rawBody.length > 180 ? '…' : ''}`
+          : `HTTP ${resp.status}`;
+        throw new Error(serverMessage || fallbackMessage);
+      }
+
+      const s3Uri = data?.s3_uri || 'S3';
+      uploadStatus.textContent = `✅ Ny DB lastet opp via app-proxy (${fileSizeMb} MB) til ${s3Uri}`;
+    }
+
     if (uploadForm) {
       uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -161,6 +189,7 @@
         }
 
         const fileSizeMb = (file.size / (1024 * 1024)).toFixed(1);
+        let stage = 'presign';
 
         try {
           const presignResp = await fetch("{{ url_for('handler.api_upload_db_to_s3_presign') }}", {
@@ -176,6 +205,7 @@
             return;
           }
 
+          stage = 's3_put';
           uploadStatus.textContent = `Laster opp ${fileSizeMb} MB direkte til S3...`;
           const putResp = await fetch(presignData.upload_url, {
             method: 'PUT',
@@ -188,6 +218,7 @@
             return;
           }
 
+          stage = 'reload_local';
           const reloadResp = await fetch("{{ url_for('handler.api_reload_db_from_s3') }}", { method: 'POST' });
           const reloadData = await reloadResp.json().catch(() => ({}));
           if (!reloadResp.ok) {
@@ -198,6 +229,18 @@
 
           uploadStatus.textContent = `✅ Ny DB lastet opp (${fileSizeMb} MB) og aktivert fra ${presignData.s3_uri}`;
         } catch (err) {
+          const msg = String(err || 'Ukjent feil');
+          if (msg.includes('Failed to fetch') && stage === 's3_put') {
+            uploadStatus.textContent = 'Direkte S3-opplasting ble blokkert (typisk CORS/nettverk). Prøver fallback via app-proxy...';
+            try {
+              await uploadViaAppProxy(formData, fileSizeMb);
+              return;
+            } catch (fallbackErr) {
+              uploadStatus.textContent = `Feil: S3 direkteopplasting feilet (CORS/nettverk), og fallback via app-proxy feilet også: ${fallbackErr}`;
+              return;
+            }
+          }
+
           uploadStatus.textContent = `Feil ved opplasting: ${err}`;
         }
       });
