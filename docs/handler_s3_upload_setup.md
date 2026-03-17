@@ -83,6 +83,8 @@ Eksempel på policy for ett key-prefix:
 ## Lokal nød-opplasting (anbefalt når web-opplasting feiler)
 
 Kjør fra maskinen som har DB-filen:
+Se også steg-for-steg: `docs/handler_upload_quickstart.md`.
+
 
 ```bash
 python scripts/upload_handler_db_to_s3.py \
