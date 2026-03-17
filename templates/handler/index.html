@@ -161,6 +161,19 @@
         : `HTTP ${respStatus}`;
     }
 
+
+    function sanitizeErrorText(errLike) {
+      const raw = String(errLike || '').replace(/^Error:\s*/i, '').trim();
+      const lower = raw.toLowerCase();
+      if (lower.includes('<!doctype html') || lower.includes('<html')) {
+        return 'Proxy/server returnerte HTML-feilside. Bruk lokal script-opplasting for store filer.';
+      }
+      if (lower.includes('failed to fetch')) {
+        return 'Nettverk/CORS-feil (Failed to fetch).';
+      }
+      return raw;
+    }
+
     async function uploadViaAppProxy(formData, fileSizeMb) {
       const resp = await fetch("{{ url_for('handler.api_upload_db_to_s3') }}", {
         method: 'POST',
@@ -181,6 +194,10 @@
         const serverMessage = data?.error || data?.message;
         const fallbackMessage = friendlyProxyError(resp.status, rawBody);
         throw new Error(serverMessage || fallbackMessage);
+      }
+
+      if (!data || typeof data !== 'object') {
+        throw new Error('App-proxy svarte uten gyldig JSON.');
       }
 
       const s3Uri = data?.s3_uri || 'S3';
@@ -253,12 +270,14 @@
               await uploadViaAppProxy(formData, fileSizeMb);
               return;
             } catch (fallbackErr) {
-              uploadStatus.textContent = `Feil: S3 direkteopplasting feilet (CORS/nettverk), og fallback via app-proxy feilet også: ${fallbackErr}`;
+              const clean = sanitizeErrorText(fallbackErr);
+              uploadStatus.textContent = `Feil: S3 direkteopplasting feilet (CORS/nettverk), og fallback via app-proxy feilet også: ${clean} Bruk lokal script-opplasting (scripts/upload_handler_db_to_s3.py).`;
               return;
             }
           }
 
-          uploadStatus.textContent = `Feil ved opplasting: ${err}`;
+          const clean = sanitizeErrorText(err);
+          uploadStatus.textContent = `Feil ved opplasting: ${clean}`;
         }
       });
     }
