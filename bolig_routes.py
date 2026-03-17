@@ -3,7 +3,8 @@
 
 import json
 import os
-from functools import lru_cache
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -402,18 +403,96 @@ def bolig_historikk_detalj():
 # --------------------------------------------------
 
 
-@lru_cache(maxsize=1)
-def get_cached_bolig_df():
+_OSLO_TZ = ZoneInfo("Europe/Oslo")
+_BOLIG_DF_CACHE = {"df": None, "loaded_at": None}
+_BOLIG_DAILY_REFRESH_HOUR = int(os.getenv("BOLIG_DAILY_REFRESH_HOUR", "8"))
+_BOLIG_CACHE_MAX_AGE_HOURS = int(os.getenv("BOLIG_CACHE_MAX_AGE_HOURS", "30"))
+
+
+def _daily_refresh_cutoff(now_local: datetime) -> datetime:
+    return now_local.replace(
+        hour=_BOLIG_DAILY_REFRESH_HOUR,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+
+def _should_refresh_bolig_cache(now_local: datetime, force_refresh: bool) -> bool:
+    if force_refresh:
+        return True
+
+    if _BOLIG_DF_CACHE["df"] is None or _BOLIG_DF_CACHE["loaded_at"] is None:
+        return True
+
+    loaded_at = _BOLIG_DF_CACHE["loaded_at"]
+    cutoff_today = _daily_refresh_cutoff(now_local)
+
+    # Filen oppdateres normalt rundt kl. 08:00. Hvis vi har cache fra før cutoff,
+    # og nå er passert cutoff, må vi hente på nytt.
+    if now_local >= cutoff_today and loaded_at < cutoff_today:
+        return True
+
+    # Sikkerhetsnett hvis daglig refresh av en eller annen grunn uteblir.
+    max_age = timedelta(hours=_BOLIG_CACHE_MAX_AGE_HOURS)
+    if now_local - loaded_at >= max_age:
+        return True
+
+    return False
+
+
+def get_cached_bolig_df(force_refresh: bool = False):
     """
     Returnerer cacha DataFrame fra S3.
-    Leser kun én gang per prosess via load_latest_bolig_df().
+
+    Cache oppdateres når vi passerer daglig oppdateringstid (default kl. 08:00 Oslo),
+    eller ved force_refresh=True.
     """
+    now_local = datetime.now(_OSLO_TZ)
+
+    if not _should_refresh_bolig_cache(now_local, force_refresh):
+        return _BOLIG_DF_CACHE["df"]
+
     try:
         df = load_latest_bolig_df()
+        _BOLIG_DF_CACHE["df"] = df
+        _BOLIG_DF_CACHE["loaded_at"] = now_local
         return df
     except Exception as e:
         print(f"[CACHE ERROR] Kunne ikke laste boligdata: {e}")
-        return None
+        return _BOLIG_DF_CACHE["df"]
+
+
+def _resolve_days_on_market(df: pd.DataFrame) -> pd.Series:
+    """
+    Finn beste tilgjengelige verdi for dager på markedet.
+
+    Prioriterer ferdigberegnede kolonner fra datakilden,
+    og faller tilbake til beregning fra publiseringsdato.
+    """
+    day_columns = [
+        "dager_paa_markedet",
+        "dager_på_markedet",
+        "Dager på markedet",
+        "days_on_market",
+    ]
+
+    for col in day_columns:
+        if col in df.columns:
+            days = pd.to_numeric(df[col], errors="coerce")
+            if days.notna().any():
+                return days
+
+    date_columns = ["publisert_dato", "published", "dato_første"]
+    for col in date_columns:
+        if col in df.columns:
+            publisert = _parse_datetime_series(df[col], normalize=False).dt.tz_localize(
+                "UTC", nonexistent="NaT", ambiguous="NaT"
+            )
+            now_utc = pd.Timestamp.now("UTC")
+            return (now_utc - publisert).dt.days
+
+    return pd.Series(np.nan, index=df.index)
 
 
 def _resolve_days_on_market(df: pd.DataFrame) -> pd.Series:
