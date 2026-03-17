@@ -365,6 +365,44 @@ def handler_index():
     )
 
 
+
+
+@handler_bp.route("/api/upload-db-to-s3-presign", methods=["POST"])
+def api_upload_db_to_s3_presign():
+    if not hd.HANDLER_DB_S3_URI:
+        return jsonify({"error": "HANDLER_DB_S3_URI er ikke satt på serveren."}), 400
+
+    payload = request.get_json(silent=True) or {}
+    filename = os.path.basename(str(payload.get("filename") or "topchanges.db"))
+    if not filename.lower().endswith(".db"):
+        return jsonify({"error": "Filen må være en SQLite .db-fil."}), 400
+
+    try:
+        presigned = hd.create_db_upload_presigned_url(filename=filename)
+    except Exception as exc:
+        _LOG.exception("Klarte ikke generere presigned URL for handler-db")
+        return jsonify({"error": f"Klarte ikke klargjøre direkte S3-opplasting: {exc}"}), 500
+
+    return jsonify({"ok": True, **presigned})
+
+
+@handler_bp.route("/api/reload-db-from-s3", methods=["POST"])
+def api_reload_db_from_s3():
+    if not hd.HANDLER_DB_S3_URI:
+        return jsonify({"error": "HANDLER_DB_S3_URI er ikke satt på serveren."}), 400
+
+    try:
+        reloaded = hd.refresh_local_db_from_s3()
+    except Exception as exc:
+        _LOG.exception("Klarte ikke oppdatere lokal DB fra S3")
+        return jsonify({"error": f"Klarte ikke oppdatere lokal DB: {exc}"}), 500
+
+    if not reloaded:
+        return jsonify({"error": "Filen ble lastet opp, men lokal DB ble ikke oppdatert fra S3."}), 500
+
+    return jsonify({"ok": True, "message": "Lokal DB-cache ble oppdatert fra S3."})
+
+
 @handler_bp.route("/api/upload-db-to-s3", methods=["POST"])
 def api_upload_db_to_s3():
     if not hd.HANDLER_DB_S3_URI:
