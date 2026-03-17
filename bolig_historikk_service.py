@@ -5,7 +5,7 @@ import io
 import os
 import re
 from dataclasses import dataclass
-from functools import lru_cache
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
 import numpy as np
@@ -22,6 +22,7 @@ Level = Literal["Fylke", "Kommune", "Sted"]
 class HistConfig:
     s3_bucket: str = os.environ.get("BOLIG_S3_BUCKET", "prisanalyse-data")
     master_key: str = os.environ.get("BOLIG_MASTER_KEY", "calc/bolig/bolig_master/bolig_master.parquet")
+    cache_ttl_seconds: int = int(os.environ.get("BOLIG_MASTER_CACHE_TTL_SECONDS", "900"))
 
 
 CFG = HistConfig()
@@ -72,14 +73,58 @@ def _s3_client():
     return boto3.client("s3", config=config)
 
 
-@lru_cache(maxsize=1)
+_MASTER_CACHE: dict[tuple[str, str], dict[str, object]] = {}
+
+
+def _to_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def load_master_s3_cached(bucket: str, key: str) -> pd.DataFrame:
     """
-    Leser master parquet fra S3 én gang per prosess.
+    Leser master parquet fra S3 med cache som invalides når objektet endres
+    eller når cache-levetiden utløper.
     """
+    now = datetime.now(timezone.utc)
+    cache_key = (bucket, key)
+    cache_ttl = max(0, int(CFG.cache_ttl_seconds))
+    cached = _MASTER_CACHE.get(cache_key)
+
+    if cached is not None:
+        loaded_at = _to_utc(cached.get("loaded_at"))
+        if loaded_at is not None and (now - loaded_at).total_seconds() < cache_ttl:
+            return cached["df"]
+
     s3 = _s3_client()
+    try:
+        head = s3.head_object(Bucket=bucket, Key=key)
+    except Exception:
+        # Fallback: prøv direkte lesing om metadata-oppslag feiler.
+        obj = s3.get_object(Bucket=bucket, Key=key)
+        df = pd.read_parquet(io.BytesIO(obj["Body"].read()))
+        _MASTER_CACHE[cache_key] = {"df": df, "loaded_at": now, "last_modified": None}
+        return df
+
+    remote_last_modified = _to_utc(head.get("LastModified"))
+
+    if cached is not None:
+        cached_last_modified = _to_utc(cached.get("last_modified"))
+        if cached_last_modified is not None and remote_last_modified is not None:
+            if remote_last_modified <= cached_last_modified:
+                cached["loaded_at"] = now
+                return cached["df"]
+
     obj = s3.get_object(Bucket=bucket, Key=key)
     df = pd.read_parquet(io.BytesIO(obj["Body"].read()))
+    _MASTER_CACHE[cache_key] = {
+        "df": df,
+        "loaded_at": now,
+        "last_modified": remote_last_modified,
+    }
     return df
 
 
