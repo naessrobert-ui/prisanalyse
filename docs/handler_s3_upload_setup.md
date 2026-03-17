@@ -66,6 +66,13 @@ Eksempel på policy for ett key-prefix:
 }
 ```
 
+
+## Opplastingsgrense i app
+
+- Appen bruker `HANDLER_DB_UPLOAD_MAX_MB` (standard **300 MB**).
+- For filer rundt 235 MB skal dette normalt være innenfor.
+- Hvis proxy (NGINX/Render) har lavere grense, bruk direkte S3-flyt i UI.
+
 ## Feilsøking
 
 - **Upload stopper på 502 via app-endepunkt**: bruk direkte S3-opplasting i UI (standardflyt).

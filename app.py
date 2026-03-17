@@ -40,11 +40,11 @@ def create_app() -> Flask:
     )
     app.config["SESSION_PERMANENT"] = False
     app.config["SESSION_TYPE"] = "filesystem"
-    upload_limit_raw = (os.environ.get("HANDLER_DB_UPLOAD_MAX_MB", "40") or "40").strip()
+    upload_limit_raw = (os.environ.get("HANDLER_DB_UPLOAD_MAX_MB", "300") or "300").strip()
     try:
         upload_limit_mb = int(upload_limit_raw)
     except ValueError:
-        upload_limit_mb = 40
+        upload_limit_mb = 300
     app.config["MAX_CONTENT_LENGTH"] = max(1, upload_limit_mb) * 1024 * 1024
 
     Session(app)

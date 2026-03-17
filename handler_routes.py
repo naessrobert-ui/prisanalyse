@@ -58,12 +58,12 @@ _BV_PERSISTENT_CACHE_PATH = Path(hd.HANDLER_LIST_CACHE_DIR) / "beste_viktige_inv
 
 
 def _parse_upload_limit_mb() -> int:
-    raw = (os.getenv("HANDLER_DB_UPLOAD_MAX_MB", "40") or "40").strip()
+    raw = (os.getenv("HANDLER_DB_UPLOAD_MAX_MB", "300") or "300").strip()
     try:
         limit_mb = int(raw)
     except ValueError:
-        _LOG.warning("Ugyldig HANDLER_DB_UPLOAD_MAX_MB=%s. Bruker standard 40 MB.", raw)
-        return 40
+        _LOG.warning("Ugyldig HANDLER_DB_UPLOAD_MAX_MB=%s. Bruker standard 300 MB.", raw)
+        return 300
     return max(1, limit_mb)
 
 
