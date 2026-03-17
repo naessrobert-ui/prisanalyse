@@ -3,7 +3,8 @@
 
 import json
 import os
-import time
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -410,31 +411,60 @@ def bolig_historikk_detalj():
 # --------------------------------------------------
 
 
-_BOLIG_DF_CACHE = {"df": None, "ts": 0.0}
-_BOLIG_CACHE_TTL_SECONDS = int(os.getenv("BOLIG_CACHE_TTL_SECONDS", "300"))
+_OSLO_TZ = ZoneInfo("Europe/Oslo")
+_BOLIG_DF_CACHE = {"df": None, "loaded_at": None}
+_BOLIG_DAILY_REFRESH_HOUR = int(os.getenv("BOLIG_DAILY_REFRESH_HOUR", "7"))
+_BOLIG_CACHE_MAX_AGE_HOURS = int(os.getenv("BOLIG_CACHE_MAX_AGE_HOURS", "30"))
+
+
+def _daily_refresh_cutoff(now_local: datetime) -> datetime:
+    return now_local.replace(
+        hour=_BOLIG_DAILY_REFRESH_HOUR,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+
+def _should_refresh_bolig_cache(now_local: datetime, force_refresh: bool) -> bool:
+    if force_refresh:
+        return True
+
+    if _BOLIG_DF_CACHE["df"] is None or _BOLIG_DF_CACHE["loaded_at"] is None:
+        return True
+
+    loaded_at = _BOLIG_DF_CACHE["loaded_at"]
+    cutoff_today = _daily_refresh_cutoff(now_local)
+
+    # Filen oppdateres normalt rundt kl. 07:00. Hvis vi har cache fra før cutoff,
+    # og nå er passert cutoff, må vi hente på nytt.
+    if now_local >= cutoff_today and loaded_at < cutoff_today:
+        return True
+
+    # Sikkerhetsnett hvis daglig refresh av en eller annen grunn uteblir.
+    max_age = timedelta(hours=_BOLIG_CACHE_MAX_AGE_HOURS)
+    if now_local - loaded_at >= max_age:
+        return True
+
+    return False
 
 
 def get_cached_bolig_df(force_refresh: bool = False):
     """
-    Returnerer cacha DataFrame fra S3 med kort TTL.
+    Returnerer cacha DataFrame fra S3.
 
-    Tidligere ble data cachet én gang per prosess (kunne bli hengende hele dagen).
-    Nå refresher vi automatisk etter TTL (default 300 sek) eller ved force_refresh.
+    Cache oppdateres når vi passerer daglig oppdateringstid (default kl. 07:00 Oslo),
+    eller ved force_refresh=True.
     """
-    now = time.time()
-    cache_age = now - _BOLIG_DF_CACHE["ts"]
+    now_local = datetime.now(_OSLO_TZ)
 
-    if (
-        not force_refresh
-        and _BOLIG_DF_CACHE["df"] is not None
-        and cache_age < _BOLIG_CACHE_TTL_SECONDS
-    ):
+    if not _should_refresh_bolig_cache(now_local, force_refresh):
         return _BOLIG_DF_CACHE["df"]
 
     try:
         df = load_latest_bolig_df()
         _BOLIG_DF_CACHE["df"] = df
-        _BOLIG_DF_CACHE["ts"] = now
+        _BOLIG_DF_CACHE["loaded_at"] = now_local
         return df
     except Exception as e:
         print(f"[CACHE ERROR] Kunne ikke laste boligdata: {e}")
