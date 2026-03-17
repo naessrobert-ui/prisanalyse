@@ -148,8 +148,10 @@ def _download_db_from_s3(local_path: str | None = None) -> bool:
         return False
 
 
-def upload_db_bytes_to_s3(db_bytes: bytes, filename: str = "topchanges.db") -> str:
-    """Upload raw DB bytes to configured S3 URI and return final s3:// URI."""
+
+
+def build_db_s3_target(filename: str = "topchanges.db") -> tuple[str, str, str]:
+    """Resolve configured S3 target and return (bucket, key, s3_uri)."""
     if not HANDLER_DB_S3_URI:
         raise ValueError("HANDLER_DB_S3_URI er ikke satt")
 
@@ -158,6 +160,42 @@ def upload_db_bytes_to_s3(db_bytes: bytes, filename: str = "topchanges.db") -> s
     if final_key.endswith("/"):
         safe_name = Path(filename).name or "topchanges.db"
         final_key = f"{final_key}{safe_name}".replace("//", "/")
+    return bucket, final_key, f"s3://{bucket}/{final_key}"
+
+
+def create_db_upload_presigned_url(filename: str = "topchanges.db", expires_seconds: int = 900) -> dict[str, str]:
+    """Create presigned PUT URL for direct browser upload to S3."""
+    bucket, final_key, s3_uri = build_db_s3_target(filename=filename)
+    client_args = {"region_name": HANDLER_DB_S3_REGION} if HANDLER_DB_S3_REGION else {}
+    s3 = boto3.client("s3", **client_args)
+    upload_url = s3.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": bucket,
+            "Key": final_key,
+            "ContentType": "application/octet-stream",
+        },
+        ExpiresIn=max(60, int(expires_seconds)),
+    )
+    return {
+        "upload_url": upload_url,
+        "s3_uri": s3_uri,
+        "content_type": "application/octet-stream",
+    }
+
+
+def refresh_local_db_from_s3(local_path: str | None = None) -> bool:
+    """Force refresh local DB from configured S3 object."""
+    path = local_path or HANDLER_DB_PATH
+    return _download_db_from_s3(path)
+
+
+def upload_db_bytes_to_s3(db_bytes: bytes, filename: str = "topchanges.db") -> str:
+    """Upload raw DB bytes to configured S3 URI and return final s3:// URI."""
+    if not HANDLER_DB_S3_URI:
+        raise ValueError("HANDLER_DB_S3_URI er ikke satt")
+
+    bucket, final_key, s3_uri = build_db_s3_target(filename=filename)
 
     client_args = {"region_name": HANDLER_DB_S3_REGION} if HANDLER_DB_S3_REGION else {}
     s3 = boto3.client("s3", **client_args)
@@ -167,7 +205,7 @@ def upload_db_bytes_to_s3(db_bytes: bytes, filename: str = "topchanges.db") -> s
         Body=db_bytes,
         ContentType="application/octet-stream",
     )
-    return f"s3://{bucket}/{final_key}"
+    return s3_uri
 
 
 def ensure_local_db(local_path: str | None = None) -> bool:

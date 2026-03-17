@@ -82,6 +82,8 @@
       <h3>⬆️ Last opp nyeste <code>topchanges.db</code> til S3</h3>
       <p class="mb-3">
         Har du en nyere database lokalt? Last den opp her, så publiseres den til S3-plasseringen appen bruker.
+        Store filer (f.eks. 235 MB) lastes nå direkte til S3 for å unngå 502 via app-proxy.
+        Hvis opplasting feiler i nettleser, sjekk S3 CORS-oppsett (se <code>docs/handler_s3_upload_setup.md</code>).
       </p>
       <form id="dbUploadForm" class="row g-2 align-items-center">
         <div class="col-md-7">
@@ -146,10 +148,66 @@
     const uploadForm = document.getElementById('dbUploadForm');
     const uploadStatus = document.getElementById('dbUploadStatus');
 
+
+    function friendlyProxyError(respStatus, rawBody) {
+      if (respStatus === 502 || respStatus === 413 || respStatus === 504) {
+        return 'Proxy/server avviste opplastingen (HTTP ' + respStatus + '). For store filer bør du bruke lokal script-opplasting (scripts/upload_handler_db_to_s3.py).';
+      }
+      if (rawBody && rawBody.toLowerCase().includes('<!doctype html')) {
+        return `HTTP ${respStatus} fra proxy/server (HTML-feilside).`;
+      }
+      return rawBody
+        ? `${rawBody.replace(/\s+/g, ' ').slice(0, 180)}${rawBody.length > 180 ? '…' : ''}`
+        : `HTTP ${respStatus}`;
+    }
+
+
+    function sanitizeErrorText(errLike) {
+      const raw = String(errLike || '').replace(/^Error:\s*/i, '').trim();
+      const lower = raw.toLowerCase();
+      if (lower.includes('<!doctype html') || lower.includes('<html')) {
+        return 'Proxy/server returnerte HTML-feilside. Bruk lokal script-opplasting for store filer.';
+      }
+      if (lower.includes('failed to fetch')) {
+        return 'Nettverk/CORS-feil (Failed to fetch).';
+      }
+      return raw;
+    }
+
+    async function uploadViaAppProxy(formData, fileSizeMb) {
+      const resp = await fetch("{{ url_for('handler.api_upload_db_to_s3') }}", {
+        method: 'POST',
+        body: formData,
+      });
+
+      const contentType = (resp.headers.get('content-type') || '').toLowerCase();
+      let data = null;
+      let rawBody = '';
+
+      if (contentType.includes('application/json')) {
+        data = await resp.json();
+      } else {
+        rawBody = (await resp.text()).trim();
+      }
+
+      if (!resp.ok) {
+        const serverMessage = data?.error || data?.message;
+        const fallbackMessage = friendlyProxyError(resp.status, rawBody);
+        throw new Error(serverMessage || fallbackMessage);
+      }
+
+      if (!data || typeof data !== 'object') {
+        throw new Error('App-proxy svarte uten gyldig JSON.');
+      }
+
+      const s3Uri = data?.s3_uri || 'S3';
+      uploadStatus.textContent = `✅ Ny DB lastet opp via app-proxy (${fileSizeMb} MB) til ${s3Uri}`;
+    }
+
     if (uploadForm) {
       uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        uploadStatus.textContent = 'Laster opp...';
+        uploadStatus.textContent = 'Klargjør opplasting...';
 
         const formData = new FormData(uploadForm);
         const file = formData.get('db_file');
@@ -158,40 +216,68 @@
           return;
         }
 
+        const fileSizeMbValue = file.size / (1024 * 1024);
+        const fileSizeMb = fileSizeMbValue.toFixed(1);
+        let stage = 'presign';
+
         try {
-          const resp = await fetch("{{ url_for('handler.api_upload_db_to_s3') }}", {
+          const presignResp = await fetch("{{ url_for('handler.api_upload_db_to_s3_presign') }}", {
             method: 'POST',
-            body: formData,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name }),
+          });
+          const presignData = await presignResp.json();
+
+          if (!presignResp.ok || !presignData.upload_url) {
+            const serverMessage = presignData?.error || `HTTP ${presignResp.status}`;
+            uploadStatus.textContent = `Feil: ${serverMessage}`;
+            return;
+          }
+
+          stage = 's3_put';
+          uploadStatus.textContent = `Laster opp ${fileSizeMb} MB direkte til S3...`;
+          const putResp = await fetch(presignData.upload_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': presignData.content_type || 'application/octet-stream' },
+            body: file,
           });
 
-          const contentType = (resp.headers.get('content-type') || '').toLowerCase();
-          let data = null;
-          let rawBody = '';
-
-          if (contentType.includes('application/json')) {
-            data = await resp.json();
-          } else {
-            rawBody = (await resp.text()).trim();
-          }
-
-          if (!resp.ok) {
-            const serverMessage = data?.error || data?.message;
-            const fallbackMessage = rawBody
-              ? `${rawBody.replace(/\s+/g, ' ').slice(0, 180)}${rawBody.length > 180 ? '…' : ''}`
-              : `HTTP ${resp.status}`;
-
-            uploadStatus.textContent = `Feil: ${serverMessage || fallbackMessage}`;
+          if (!putResp.ok) {
+            uploadStatus.textContent = `Feil: Direkte opplasting til S3 feilet (HTTP ${putResp.status}). Sjekk S3 CORS-regler.`;
             return;
           }
 
-          if (!data) {
-            uploadStatus.textContent = 'Feil: Serveren returnerte et uventet svarformat.';
+          stage = 'reload_local';
+          const reloadResp = await fetch("{{ url_for('handler.api_reload_db_from_s3') }}", { method: 'POST' });
+          const reloadData = await reloadResp.json().catch(() => ({}));
+          if (!reloadResp.ok) {
+            const msg = reloadData?.error || `HTTP ${reloadResp.status}`;
+            uploadStatus.textContent = `✅ Lastet opp til ${presignData.s3_uri} (${fileSizeMb} MB), men lokal cache ble ikke oppdatert: ${msg}`;
             return;
           }
 
-          uploadStatus.textContent = `✅ ${data.message} (${data.s3_uri})`;
+          uploadStatus.textContent = `✅ Ny DB lastet opp (${fileSizeMb} MB) og aktivert fra ${presignData.s3_uri}`;
         } catch (err) {
-          uploadStatus.textContent = `Feil ved opplasting: ${err}`;
+          const msg = String(err || 'Ukjent feil');
+          if (msg.includes('Failed to fetch') && stage === 's3_put') {
+            if (fileSizeMbValue > 200) {
+              uploadStatus.textContent = 'Direkte S3-opplasting ble blokkert (typisk CORS/nettverk), og filen er stor. Bruk lokal script-opplasting: python scripts/upload_handler_db_to_s3.py --source <fil.db> --bucket <bucket> --key <key>. Deretter oppdater HANDLER_DB_S3_URI om nødvendig.';
+              return;
+            }
+
+            uploadStatus.textContent = 'Direkte S3-opplasting ble blokkert (typisk CORS/nettverk). Prøver fallback via app-proxy...';
+            try {
+              await uploadViaAppProxy(formData, fileSizeMb);
+              return;
+            } catch (fallbackErr) {
+              const clean = sanitizeErrorText(fallbackErr);
+              uploadStatus.textContent = `Feil: S3 direkteopplasting feilet (CORS/nettverk), og fallback via app-proxy feilet også: ${clean} Bruk lokal script-opplasting (scripts/upload_handler_db_to_s3.py).`;
+              return;
+            }
+          }
+
+          const clean = sanitizeErrorText(err);
+          uploadStatus.textContent = `Feil ved opplasting: ${clean}`;
         }
       });
     }
