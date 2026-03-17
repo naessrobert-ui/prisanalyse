@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Literal, Optional
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
