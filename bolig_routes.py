@@ -413,7 +413,7 @@ def bolig_historikk_detalj():
 
 _OSLO_TZ = ZoneInfo("Europe/Oslo")
 _BOLIG_DF_CACHE = {"df": None, "loaded_at": None}
-_BOLIG_DAILY_REFRESH_HOUR = int(os.getenv("BOLIG_DAILY_REFRESH_HOUR", "7"))
+_BOLIG_DAILY_REFRESH_HOUR = int(os.getenv("BOLIG_DAILY_REFRESH_HOUR", "8"))
 _BOLIG_CACHE_MAX_AGE_HOURS = int(os.getenv("BOLIG_CACHE_MAX_AGE_HOURS", "30"))
 
 
@@ -436,7 +436,7 @@ def _should_refresh_bolig_cache(now_local: datetime, force_refresh: bool) -> boo
     loaded_at = _BOLIG_DF_CACHE["loaded_at"]
     cutoff_today = _daily_refresh_cutoff(now_local)
 
-    # Filen oppdateres normalt rundt kl. 07:00. Hvis vi har cache fra før cutoff,
+    # Filen oppdateres normalt rundt kl. 08:00. Hvis vi har cache fra før cutoff,
     # og nå er passert cutoff, må vi hente på nytt.
     if now_local >= cutoff_today and loaded_at < cutoff_today:
         return True
@@ -453,7 +453,7 @@ def get_cached_bolig_df(force_refresh: bool = False):
     """
     Returnerer cacha DataFrame fra S3.
 
-    Cache oppdateres når vi passerer daglig oppdateringstid (default kl. 07:00 Oslo),
+    Cache oppdateres når vi passerer daglig oppdateringstid (default kl. 08:00 Oslo),
     eller ved force_refresh=True.
     """
     now_local = datetime.now(_OSLO_TZ)
