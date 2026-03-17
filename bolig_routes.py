@@ -3,7 +3,7 @@
 
 import json
 import os
-from functools import lru_cache
+import time
 
 import numpy as np
 import pandas as pd
@@ -410,18 +410,67 @@ def bolig_historikk_detalj():
 # --------------------------------------------------
 
 
-@lru_cache(maxsize=1)
-def get_cached_bolig_df():
+_BOLIG_DF_CACHE = {"df": None, "ts": 0.0}
+_BOLIG_CACHE_TTL_SECONDS = int(os.getenv("BOLIG_CACHE_TTL_SECONDS", "300"))
+
+
+def get_cached_bolig_df(force_refresh: bool = False):
     """
-    Returnerer cacha DataFrame fra S3.
-    Leser kun én gang per prosess via load_latest_bolig_df().
+    Returnerer cacha DataFrame fra S3 med kort TTL.
+
+    Tidligere ble data cachet én gang per prosess (kunne bli hengende hele dagen).
+    Nå refresher vi automatisk etter TTL (default 300 sek) eller ved force_refresh.
     """
+    now = time.time()
+    cache_age = now - _BOLIG_DF_CACHE["ts"]
+
+    if (
+        not force_refresh
+        and _BOLIG_DF_CACHE["df"] is not None
+        and cache_age < _BOLIG_CACHE_TTL_SECONDS
+    ):
+        return _BOLIG_DF_CACHE["df"]
+
     try:
         df = load_latest_bolig_df()
+        _BOLIG_DF_CACHE["df"] = df
+        _BOLIG_DF_CACHE["ts"] = now
         return df
     except Exception as e:
         print(f"[CACHE ERROR] Kunne ikke laste boligdata: {e}")
-        return None
+        return _BOLIG_DF_CACHE["df"]
+
+
+def _resolve_days_on_market(df: pd.DataFrame) -> pd.Series:
+    """
+    Finn beste tilgjengelige verdi for dager på markedet.
+
+    Prioriterer ferdigberegnede kolonner fra datakilden,
+    og faller tilbake til beregning fra publiseringsdato.
+    """
+    day_columns = [
+        "dager_paa_markedet",
+        "dager_på_markedet",
+        "Dager på markedet",
+        "days_on_market",
+    ]
+
+    for col in day_columns:
+        if col in df.columns:
+            days = pd.to_numeric(df[col], errors="coerce")
+            if days.notna().any():
+                return days
+
+    date_columns = ["publisert_dato", "published", "dato_første"]
+    for col in date_columns:
+        if col in df.columns:
+            publisert = _parse_datetime_series(df[col], normalize=False).dt.tz_localize(
+                "UTC", nonexistent="NaT", ambiguous="NaT"
+            )
+            now_utc = pd.Timestamp.now("UTC")
+            return (now_utc - publisert).dt.days
+
+    return pd.Series(np.nan, index=df.index)
 
 # --------------------------------------------------
 # Hjelpefunksjon for "priser per sted"
@@ -460,12 +509,7 @@ def _prepare_priser_df(df_raw: pd.DataFrame) -> pd.DataFrame:
         df["totalpris"] = np.nan
 
     # --- Dager på markedet ---
-    if "publisert_dato" in df.columns:
-        publisert = _parse_datetime_series(df["publisert_dato"], normalize=False).dt.tz_localize("UTC", nonexistent="NaT", ambiguous="NaT")
-        now_utc = pd.Timestamp.now("UTC")
-        df["dager_paa_markedet"] = (now_utc - publisert).dt.days
-    else:
-        df["dager_paa_markedet"] = np.nan
+    df["dager_paa_markedet"] = _resolve_days_on_market(df)
 
     # --- Adresse / sted / gate ---
     if "address" not in df.columns:
@@ -939,12 +983,7 @@ def get_bolig_data():
         df = df_full.copy()
 
         # Dager på markedet
-        if "publisert_dato" in df.columns:
-            df["publisert_dato_dt"] = _parse_datetime_series(df["publisert_dato"], normalize=False).dt.tz_localize("UTC", nonexistent="NaT", ambiguous="NaT")
-            now_utc = pd.Timestamp.now("UTC")
-            df["dager_paa_markedet"] = (now_utc - df["publisert_dato_dt"]).dt.days
-        else:
-            df["dager_paa_markedet"] = None
+        df["dager_paa_markedet"] = _resolve_days_on_market(df)
 
         for col in ["totalpris", "M2-pris", "dager_paa_markedet"]:
             if col in df.columns:
@@ -1637,13 +1676,7 @@ def bolig_kupp_view():
                 df_local[col] = "Ukjent"
 
         # Dager på markedet
-        if (
-            "publisert_dato" in df_local.columns
-            and "dager_på_markedet" not in df_local.columns
-        ):
-            publisert = _parse_datetime_series(df_local["publisert_dato"], normalize=False).dt.tz_localize("UTC", nonexistent="NaT", ambiguous="NaT")
-            today = pd.Timestamp.now(tz="UTC").normalize()
-            df_local["dager_på_markedet"] = (today - publisert).dt.days
+        df_local["dager_på_markedet"] = _resolve_days_on_market(df_local)
 
         # Filter bort dårlige verdier
         df_local = df_local.dropna(
