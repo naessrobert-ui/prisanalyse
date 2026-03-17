@@ -20,8 +20,7 @@ from bolig_varmekart_service import clean_data
 
 from bolig_historikk_service import (
     CFG as HIST_CFG,
-    load_master_s3_cached,
-    normalize_master,
+    load_normalized_master_cached,
     apply_ny_brukt_filter,
     build_table,
     filter_by_level,
@@ -58,13 +57,10 @@ def bolig_historikk_view():
     end = _parse_date(request.args.get("end", ""))
 
     # last master fra S3 og normaliser
-    raw = load_master_s3_cached(HIST_CFG.s3_bucket, HIST_CFG.master_key)
-    df = normalize_master(raw)
-    df = apply_ny_brukt_filter(df, ny_brukt)
+    base_df = load_normalized_master_cached(HIST_CFG.s3_bucket, HIST_CFG.master_key)
+    df = apply_ny_brukt_filter(base_df, ny_brukt)
 
     # Bruk publisert_dato som startdato hvis tilgjengelig, ellers fallback til dato_første
-    df["publisert_dato"] = _parse_datetime_series(df.get("publisert_dato"), normalize=True)
-    df["dato_første"] = pd.to_datetime(df.get("dato_første"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
     df["start_dato"] = df["publisert_dato"].fillna(df["dato_første"])
 
     min_day = df["start_dato"].min()
@@ -144,9 +140,8 @@ def bolig_historikk_detalj():
     start = _parse_date(request.args.get("start", ""))
     end = _parse_date(request.args.get("end", ""))
 
-    raw = load_master_s3_cached(HIST_CFG.s3_bucket, HIST_CFG.master_key)
-    df = normalize_master(raw)
-    df = apply_ny_brukt_filter(df, ny_brukt)
+    base_df = load_normalized_master_cached(HIST_CFG.s3_bucket, HIST_CFG.master_key)
+    df = apply_ny_brukt_filter(base_df, ny_brukt)
     df = filter_by_level(df, level, value)
 
     if df.empty or start is None or end is None or pd.isna(start) or pd.isna(end):
@@ -170,9 +165,6 @@ def bolig_historikk_detalj():
 
     # Sørg for konsistente datoer + start_dato
     df = df.copy()
-    df["publisert_dato"] = _parse_datetime_series(df.get("publisert_dato"), normalize=True)
-    df["dato_første"] = pd.to_datetime(df.get("dato_første"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
-    df["dato_siste"] = pd.to_datetime(df.get("dato_siste"), errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
     df["start_dato"] = df["publisert_dato"].fillna(df["dato_første"])
 
     # ---------- 1) Daglig serie for aktive annonser ----------

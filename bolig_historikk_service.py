@@ -83,6 +83,15 @@ def load_master_s3_cached(bucket: str, key: str) -> pd.DataFrame:
     return df
 
 
+@lru_cache(maxsize=1)
+def load_normalized_master_cached(bucket: str, key: str) -> pd.DataFrame:
+    """
+    Leser og normaliserer master én gang per prosess for å redusere CPU/memory per request.
+    """
+    raw = load_master_s3_cached(bucket, key)
+    return normalize_master(raw)
+
+
 def extract_poststed(address: pd.Series) -> pd.Series:
     s = address.astype(str)
     s = s.str.split(",").str[-1]
@@ -152,7 +161,19 @@ def _parse_area_m2(df: pd.DataFrame) -> pd.Series:
 
 
 def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
-    d = df.copy()
+    # Behold kun kolonner vi faktisk bruker i historikk-endepunktene,
+    # slik at vi ikke drar med store, ubrukte objektkolonner i minnet.
+    used_columns = [
+        "finnkode", "fylke", "kommune_nr", "kommune_navn",
+        "address", "full_title", "boligtype",
+        "totalpris", "m2_pris", "ny_brukt",
+        "latitude", "longitude",
+        "publisert_dato", "dato_første", "dato_siste", "dato_prisendring",
+        "pris_første", "pris_ny",
+        "areal", "areal_m2", "bruksareal", "kvm", "area", "bra", "p-rom", "prom", "primærrom", "boareal", "size",
+    ]
+    present_cols = [c for c in used_columns if c in df.columns]
+    d = df.reindex(columns=present_cols).copy()
 
     required = [
         "finnkode", "fylke", "kommune_nr", "kommune_navn",
