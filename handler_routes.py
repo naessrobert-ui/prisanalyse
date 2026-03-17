@@ -29,6 +29,7 @@ from flask import (
     jsonify,
     Response,
 )
+from werkzeug.exceptions import RequestEntityTooLarge
 
 import handler_data as hd
 import handler_data_beste as hdb
@@ -54,6 +55,30 @@ _BESTE_TX_CACHE_TTL_SECONDS = 30 * 60
 
 
 _BV_PERSISTENT_CACHE_PATH = Path(hd.HANDLER_LIST_CACHE_DIR) / "beste_viktige_investor_cache.json"
+
+
+def _parse_upload_limit_mb() -> int:
+    raw = (os.getenv("HANDLER_DB_UPLOAD_MAX_MB", "40") or "40").strip()
+    try:
+        limit_mb = int(raw)
+    except ValueError:
+        _LOG.warning("Ugyldig HANDLER_DB_UPLOAD_MAX_MB=%s. Bruker standard 40 MB.", raw)
+        return 40
+    return max(1, limit_mb)
+
+
+_HANDLER_DB_UPLOAD_MAX_MB = _parse_upload_limit_mb()
+_HANDLER_DB_UPLOAD_MAX_BYTES = _HANDLER_DB_UPLOAD_MAX_MB * 1024 * 1024
+
+
+@handler_bp.errorhandler(RequestEntityTooLarge)
+def handle_handler_upload_too_large(_err):
+    return jsonify({
+        "error": (
+            "Filen er for stor for web-opplasting. "
+            f"Maks er {_HANDLER_DB_UPLOAD_MAX_MB} MB (HANDLER_DB_UPLOAD_MAX_MB)."
+        )
+    }), 413
 
 
 def _load_persistent_cache_blob() -> dict:
@@ -336,7 +361,46 @@ def handler_index():
         db_s3_parse_error=diag.get("s3_parse_error"),
         db_parent_exists=diag["parent_exists"],
         db_s3_upload_enabled=bool(hd.HANDLER_DB_S3_URI),
+        db_upload_limit_mb=_HANDLER_DB_UPLOAD_MAX_MB,
     )
+
+
+
+
+@handler_bp.route("/api/upload-db-to-s3-presign", methods=["POST"])
+def api_upload_db_to_s3_presign():
+    if not hd.HANDLER_DB_S3_URI:
+        return jsonify({"error": "HANDLER_DB_S3_URI er ikke satt på serveren."}), 400
+
+    payload = request.get_json(silent=True) or {}
+    filename = os.path.basename(str(payload.get("filename") or "topchanges.db"))
+    if not filename.lower().endswith(".db"):
+        return jsonify({"error": "Filen må være en SQLite .db-fil."}), 400
+
+    try:
+        presigned = hd.create_db_upload_presigned_url(filename=filename)
+    except Exception as exc:
+        _LOG.exception("Klarte ikke generere presigned URL for handler-db")
+        return jsonify({"error": f"Klarte ikke klargjøre direkte S3-opplasting: {exc}"}), 500
+
+    return jsonify({"ok": True, **presigned})
+
+
+@handler_bp.route("/api/reload-db-from-s3", methods=["POST"])
+def api_reload_db_from_s3():
+    if not hd.HANDLER_DB_S3_URI:
+        return jsonify({"error": "HANDLER_DB_S3_URI er ikke satt på serveren."}), 400
+
+    try:
+        reloaded = hd.refresh_local_db_from_s3()
+    except Exception as exc:
+        _LOG.exception("Klarte ikke oppdatere lokal DB fra S3")
+        return jsonify({"error": f"Klarte ikke oppdatere lokal DB: {exc}"}), 500
+
+    if not reloaded:
+        return jsonify({"error": "Filen ble lastet opp, men lokal DB ble ikke oppdatert fra S3."}), 500
+
+    return jsonify({"ok": True, "message": "Lokal DB-cache ble oppdatert fra S3."})
 
 
 @handler_bp.route("/api/upload-db-to-s3", methods=["POST"])
@@ -356,6 +420,16 @@ def api_upload_db_to_s3():
     if not payload:
         return jsonify({"error": "Filen er tom."}), 400
 
+    payload_size = len(payload)
+    if payload_size > _HANDLER_DB_UPLOAD_MAX_BYTES:
+        return jsonify({
+            "error": (
+                "Filen er for stor for web-opplasting "
+                f"({payload_size / (1024 * 1024):.1f} MB > {_HANDLER_DB_UPLOAD_MAX_MB} MB). "
+                "Bruk mindre DB eller øk HANDLER_DB_UPLOAD_MAX_MB."
+            )
+        }), 413
+
     try:
         s3_uri = hd.upload_db_bytes_to_s3(payload, filename=filename)
     except Exception as exc:
@@ -373,6 +447,7 @@ def api_upload_db_to_s3():
         "ok": True,
         "message": "Ny DB er lastet opp til S3.",
         "s3_uri": s3_uri,
+        "size_bytes": payload_size,
     })
 
 
