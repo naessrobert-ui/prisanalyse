@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import os
+import re
 import subprocess
 import psycopg
 from decimal import Decimal
@@ -143,6 +144,14 @@ def latest_regnskap_join_for_year(year: int) -> str:
 # ------------------------------------------------------------
 def clean_limit(limit: int) -> int:
     return max(1, min(limit, MAX_LIMIT))
+
+
+def normalize_search_tokens(value: str) -> list[str]:
+    cleaned = (value or "").lower()
+    cleaned = re.sub(r"\b(as|asa|ans|nuf|sa|d[aå])\b", " ", cleaned)
+    cleaned = re.sub(r"[^0-9a-zæøå]+", " ", cleaned)
+    tokens = [token for token in cleaned.split() if token]
+    return list(dict.fromkeys(tokens))[:8]
 
 
 def build_search_base_sql(
@@ -369,6 +378,18 @@ class SearchSummaryResponse(BaseModel):
     avg_equity_ratio: float | None = None
 
 
+class DatabaseDiagnosticsResponse(BaseModel):
+    total_entities: int
+    entities_with_nonempty_name: int
+    entities_missing_name: int
+    entities_with_blank_name: int
+    distinct_names: int
+    orgnr_like_names: int
+    names_equal_address: int
+    total_regnskap_rows: int
+    entities_with_regnskap: int
+
+
 class CompanyDetail(BaseModel):
     orgnr: str
     navn: str | None = None
@@ -474,8 +495,13 @@ def append_search_filters(
         params.append(orgnr)
 
     if q:
-        sql += " AND e.navn ILIKE %s"
-        params.append(f"%{q}%")
+        tokens = normalize_search_tokens(q)
+        if tokens:
+            sql += " AND " + " AND ".join("e.navn ILIKE %s" for _ in tokens)
+            params.extend(f"%{token}%" for token in tokens)
+        else:
+            sql += " AND e.navn ILIKE %s"
+            params.append(f"%{q}%")
 
     if orgform:
         sql += " AND e.orgform = %s"
@@ -604,6 +630,49 @@ def debug_direct():
 def list_naeringskoder() -> dict:
     """Returnerer alle kjente tekstnavn → kode-mappinger."""
     return {"mappings": NAERINGSKODE_MAP}
+
+
+@app.get("/api/db/diagnostics", response_model=DatabaseDiagnosticsResponse)
+def db_diagnostics() -> DatabaseDiagnosticsResponse:
+    row = fetch_one(
+        """
+        SELECT
+            COUNT(*)::int AS total_entities,
+            COUNT(*) FILTER (
+                WHERE e.navn IS NOT NULL AND NULLIF(BTRIM(e.navn), '') IS NOT NULL
+            )::int AS entities_with_nonempty_name,
+            COUNT(*) FILTER (WHERE e.navn IS NULL)::int AS entities_missing_name,
+            COUNT(*) FILTER (WHERE e.navn IS NOT NULL AND NULLIF(BTRIM(e.navn), '') IS NULL)::int AS entities_with_blank_name,
+            COUNT(DISTINCT NULLIF(BTRIM(e.navn), ''))::int AS distinct_names,
+            COUNT(*) FILTER (WHERE COALESCE(BTRIM(e.navn), '') ~ '^[0-9]{9}$')::int AS orgnr_like_names,
+            COUNT(*) FILTER (
+                WHERE NULLIF(BTRIM(e.navn), '') IS NOT NULL
+                  AND NULLIF(BTRIM(e.adresse), '') IS NOT NULL
+                  AND LOWER(BTRIM(e.navn)) = LOWER(BTRIM(e.adresse))
+            )::int AS names_equal_address,
+            COALESCE((SELECT COUNT(*)::int FROM regnskap_metrics), 0)::int AS total_regnskap_rows,
+            COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS entities_with_regnskap
+        FROM entity e
+        LEFT JOIN LATERAL (
+            SELECT rm.accounting_year
+            FROM regnskap_metrics rm
+            WHERE rm.orgnr = e.orgnr
+            LIMIT 1
+        ) r ON true
+        """,
+        [],
+    ) or {
+        "total_entities": 0,
+        "entities_with_nonempty_name": 0,
+        "entities_missing_name": 0,
+        "entities_with_blank_name": 0,
+        "distinct_names": 0,
+        "orgnr_like_names": 0,
+        "names_equal_address": 0,
+        "total_regnskap_rows": 0,
+        "entities_with_regnskap": 0,
+    }
+    return DatabaseDiagnosticsResponse(**row)
 
 
 @app.get("/api/search", response_model=SearchResponse)

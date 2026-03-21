@@ -259,6 +259,7 @@
             <div id="apiActions" style="display:none; gap:8px; flex-wrap:wrap; align-items:center; margin: 10px 0;">
                 <button type="button" id="apiExportBtn">Eksporter alle treff (CSV)</button>
                 <button type="button" id="apiSummaryBtn">Analyser alle treff</button>
+                <button type="button" id="apiDiagnosticsBtn">Sjekk databasekvalitet</button>
                 <input id="apiResultFilter" type="text" placeholder="Søk i trefflisten som vises nå">
             </div>
             <div id="apiSummary" class="muted card" style="display:none; margin-bottom: 12px; padding: 12px;">
@@ -271,6 +272,20 @@
                     <div><strong>Sum nettoresultat</strong><div id="apiSummaryNetProfit"></div></div>
                     <div><strong>Sum egenkapital</strong><div id="apiSummaryEquity"></div></div>
                     <div><strong>Snitt egenkapitalgrad</strong><div id="apiSummaryEquityRatio"></div></div>
+                </div>
+            </div>
+            <div id="apiDiagnostics" class="muted card" style="display:none; margin-bottom: 12px; padding: 12px;">
+                <strong>Databasekvalitet</strong>
+                <div class="inline-grid" style="margin-top:10px;">
+                    <div><strong>Totalt selskaper</strong><div id="apiDiagnosticsTotal"></div></div>
+                    <div><strong>Med navn</strong><div id="apiDiagnosticsNamed"></div></div>
+                    <div><strong>Mangler navn</strong><div id="apiDiagnosticsMissing"></div></div>
+                    <div><strong>Blankt navn</strong><div id="apiDiagnosticsBlank"></div></div>
+                    <div><strong>Unike navn</strong><div id="apiDiagnosticsDistinct"></div></div>
+                    <div><strong>Navn ser ut som orgnr</strong><div id="apiDiagnosticsOrgnrLike"></div></div>
+                    <div><strong>Navn = adresse</strong><div id="apiDiagnosticsNameEqualsAddress"></div></div>
+                    <div><strong>Regnskapsrader</strong><div id="apiDiagnosticsRegnskapRows"></div></div>
+                    <div><strong>Selskaper med regnskap</strong><div id="apiDiagnosticsWithRegnskap"></div></div>
                 </div>
             </div>
             <div id="apiInsights" class="muted" style="margin:10px 0 14px; display:none;">
@@ -348,6 +363,7 @@
     const apiActions = document.getElementById('apiActions');
     const apiExportBtn = document.getElementById('apiExportBtn');
     const apiSummaryBtn = document.getElementById('apiSummaryBtn');
+    const apiDiagnosticsBtn = document.getElementById('apiDiagnosticsBtn');
     const apiResultFilter = document.getElementById('apiResultFilter');
     const apiSummary = document.getElementById('apiSummary');
     const apiSummaryTotal = document.getElementById('apiSummaryTotal');
@@ -357,6 +373,16 @@
     const apiSummaryNetProfit = document.getElementById('apiSummaryNetProfit');
     const apiSummaryEquity = document.getElementById('apiSummaryEquity');
     const apiSummaryEquityRatio = document.getElementById('apiSummaryEquityRatio');
+    const apiDiagnostics = document.getElementById('apiDiagnostics');
+    const apiDiagnosticsTotal = document.getElementById('apiDiagnosticsTotal');
+    const apiDiagnosticsNamed = document.getElementById('apiDiagnosticsNamed');
+    const apiDiagnosticsMissing = document.getElementById('apiDiagnosticsMissing');
+    const apiDiagnosticsBlank = document.getElementById('apiDiagnosticsBlank');
+    const apiDiagnosticsDistinct = document.getElementById('apiDiagnosticsDistinct');
+    const apiDiagnosticsOrgnrLike = document.getElementById('apiDiagnosticsOrgnrLike');
+    const apiDiagnosticsNameEqualsAddress = document.getElementById('apiDiagnosticsNameEqualsAddress');
+    const apiDiagnosticsRegnskapRows = document.getElementById('apiDiagnosticsRegnskapRows');
+    const apiDiagnosticsWithRegnskap = document.getElementById('apiDiagnosticsWithRegnskap');
     const apiResultsTable = document.getElementById('apiResultsTable');
     const apiResultsBody = document.getElementById('apiResultsBody');
     const apiInsights = document.getElementById('apiInsights');
@@ -405,6 +431,19 @@
         apiSummaryNetProfit.textContent = '';
         apiSummaryEquity.textContent = '';
         apiSummaryEquityRatio.textContent = '';
+    }
+
+    function clearDiagnostics() {
+        apiDiagnostics.style.display = 'none';
+        apiDiagnosticsTotal.textContent = '';
+        apiDiagnosticsNamed.textContent = '';
+        apiDiagnosticsMissing.textContent = '';
+        apiDiagnosticsBlank.textContent = '';
+        apiDiagnosticsDistinct.textContent = '';
+        apiDiagnosticsOrgnrLike.textContent = '';
+        apiDiagnosticsNameEqualsAddress.textContent = '';
+        apiDiagnosticsRegnskapRows.textContent = '';
+        apiDiagnosticsWithRegnskap.textContent = '';
     }
 
     function applyResultFilter() {
@@ -500,6 +539,7 @@
         apiPagination.style.display = 'none';
         clearInsights();
         clearSummary();
+        clearDiagnostics();
 
         // Samle alle feltverdier
         const q                  = document.getElementById('api_query')?.value?.trim();
@@ -787,6 +827,31 @@
             apiStatus.textContent = 'Analyse lastet.';
         } catch (err) {
             apiStatus.textContent = `❌ Klarte ikke hente analyse: ${err.message}`;
+        }
+    });
+
+    apiDiagnosticsBtn?.addEventListener('click', async () => {
+        apiStatus.textContent = 'Laster databasekvalitet…';
+        try {
+            const res = await fetch('/regnskap-api/api/db/diagnostics', { headers: { 'Accept': 'application/json' } });
+            const data = await parseMaybeJson(res);
+            if (!res.ok) {
+                apiStatus.textContent = `❌ Klarte ikke hente databasekvalitet: ${data.detail || res.statusText}`;
+                return;
+            }
+            apiDiagnosticsTotal.textContent = fmtNumber(data.total_entities);
+            apiDiagnosticsNamed.textContent = fmtNumber(data.entities_with_nonempty_name);
+            apiDiagnosticsMissing.textContent = fmtNumber(data.entities_missing_name);
+            apiDiagnosticsBlank.textContent = fmtNumber(data.entities_with_blank_name);
+            apiDiagnosticsDistinct.textContent = fmtNumber(data.distinct_names);
+            apiDiagnosticsOrgnrLike.textContent = fmtNumber(data.orgnr_like_names);
+            apiDiagnosticsNameEqualsAddress.textContent = fmtNumber(data.names_equal_address);
+            apiDiagnosticsRegnskapRows.textContent = fmtNumber(data.total_regnskap_rows);
+            apiDiagnosticsWithRegnskap.textContent = fmtNumber(data.entities_with_regnskap);
+            apiDiagnostics.style.display = '';
+            apiStatus.textContent = 'Databasekvalitet lastet.';
+        } catch (err) {
+            apiStatus.textContent = `❌ Klarte ikke hente databasekvalitet: ${err.message}`;
         }
     });
 </script>
