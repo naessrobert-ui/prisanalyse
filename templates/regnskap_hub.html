@@ -192,7 +192,7 @@
                     </div>
                     <div>
                         <label for="api_limit">Antall treff</label>
-                        <input id="api_limit" type="number" min="1" max="100" value="20">
+                        <input id="api_limit" type="number" min="1" max="500" value="100">
                     </div>
                 </div>
 
@@ -256,6 +256,23 @@
                 <button type="button" id="apiHealthBtn" style="margin-left:8px;">Sjekk API-status</button>
             </form>
             <p id="apiStatus" class="muted" style="margin-top:8px;"></p>
+            <div id="apiActions" style="display:none; gap:8px; flex-wrap:wrap; align-items:center; margin: 10px 0;">
+                <button type="button" id="apiExportBtn">Eksporter alle treff (CSV)</button>
+                <button type="button" id="apiSummaryBtn">Analyser alle treff</button>
+                <input id="apiResultFilter" type="text" placeholder="Søk i trefflisten som vises nå">
+            </div>
+            <div id="apiSummary" class="muted card" style="display:none; margin-bottom: 12px; padding: 12px;">
+                <strong>Analyse av alle treff</strong>
+                <div class="inline-grid" style="margin-top:10px;">
+                    <div><strong>Treff</strong><div id="apiSummaryTotal"></div></div>
+                    <div><strong>Med regnskap</strong><div id="apiSummaryRegnskap"></div></div>
+                    <div><strong>Sum omsetning</strong><div id="apiSummaryRevenue"></div></div>
+                    <div><strong>Sum driftsresultat</strong><div id="apiSummaryOperatingProfit"></div></div>
+                    <div><strong>Sum nettoresultat</strong><div id="apiSummaryNetProfit"></div></div>
+                    <div><strong>Sum egenkapital</strong><div id="apiSummaryEquity"></div></div>
+                    <div><strong>Snitt egenkapitalgrad</strong><div id="apiSummaryEquityRatio"></div></div>
+                </div>
+            </div>
             <div id="apiInsights" class="muted" style="margin:10px 0 14px; display:none;">
                 <p><strong>Markedsoverblikk:</strong> <span id="apiInsightsTotal"></span></p>
                 <div class="inline-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
@@ -272,6 +289,11 @@
                         <ul id="apiInsightsRevenue"></ul>
                     </div>
                 </div>
+            </div>
+            <div id="apiPagination" class="muted" style="display:none; margin-top: 12px; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <button type="button" id="apiPrevPage">← Forrige side</button>
+                <button type="button" id="apiNextPage">Neste side →</button>
+                <span id="apiPageInfo"></span>
             </div>
             <div class="api-table-wrap">
                 <table id="apiResultsTable" style="display:none;">
@@ -323,6 +345,18 @@
     const apiForm = document.getElementById('apiSearchForm');
     const apiHealthBtn = document.getElementById('apiHealthBtn');
     const apiStatus = document.getElementById('apiStatus');
+    const apiActions = document.getElementById('apiActions');
+    const apiExportBtn = document.getElementById('apiExportBtn');
+    const apiSummaryBtn = document.getElementById('apiSummaryBtn');
+    const apiResultFilter = document.getElementById('apiResultFilter');
+    const apiSummary = document.getElementById('apiSummary');
+    const apiSummaryTotal = document.getElementById('apiSummaryTotal');
+    const apiSummaryRegnskap = document.getElementById('apiSummaryRegnskap');
+    const apiSummaryRevenue = document.getElementById('apiSummaryRevenue');
+    const apiSummaryOperatingProfit = document.getElementById('apiSummaryOperatingProfit');
+    const apiSummaryNetProfit = document.getElementById('apiSummaryNetProfit');
+    const apiSummaryEquity = document.getElementById('apiSummaryEquity');
+    const apiSummaryEquityRatio = document.getElementById('apiSummaryEquityRatio');
     const apiResultsTable = document.getElementById('apiResultsTable');
     const apiResultsBody = document.getElementById('apiResultsBody');
     const apiInsights = document.getElementById('apiInsights');
@@ -330,6 +364,16 @@
     const apiInsightsKommune = document.getElementById('apiInsightsKommune');
     const apiInsightsNaering = document.getElementById('apiInsightsNaering');
     const apiInsightsRevenue = document.getElementById('apiInsightsRevenue');
+    const apiPagination = document.getElementById('apiPagination');
+    const apiPrevPage = document.getElementById('apiPrevPage');
+    const apiNextPage = document.getElementById('apiNextPage');
+    const apiPageInfo = document.getElementById('apiPageInfo');
+
+    const apiSearchState = {
+        params: null,
+        offset: 0,
+        endpoint: '',
+    };
 
     function addIfPresent(params, key, value) {
         if (value === null || value === undefined) return;
@@ -343,6 +387,42 @@
         const num = Number(value);
         if (!Number.isFinite(num)) return String(value);
         return new Intl.NumberFormat('nb-NO').format(Math.round(num));
+    }
+
+    function fmtPercent(value) {
+        if (value === null || value === undefined || value === '') return '';
+        const num = Number(value);
+        if (!Number.isFinite(num)) return String(value);
+        return new Intl.NumberFormat('nb-NO', { maximumFractionDigits: 1 }).format(num * 100) + ' %';
+    }
+
+    function clearSummary() {
+        apiSummary.style.display = 'none';
+        apiSummaryTotal.textContent = '';
+        apiSummaryRegnskap.textContent = '';
+        apiSummaryRevenue.textContent = '';
+        apiSummaryOperatingProfit.textContent = '';
+        apiSummaryNetProfit.textContent = '';
+        apiSummaryEquity.textContent = '';
+        apiSummaryEquityRatio.textContent = '';
+    }
+
+    function applyResultFilter() {
+        const needle = (apiResultFilter?.value || '').trim().toLowerCase();
+        const rows = Array.from(apiResultsBody.querySelectorAll('tr'));
+        rows.forEach((row) => {
+            const matches = !needle || row.textContent.toLowerCase().includes(needle);
+            row.style.display = matches ? '' : 'none';
+        });
+    }
+
+    function endpointSupportsAdvancedActions(endpoint) {
+        return endpoint === '/regnskap-api/api/search' || endpoint === '/regnskap-api/api/nearby';
+    }
+
+    function buildDerivedEndpoint(suffix) {
+        if (!apiSearchState.endpoint || !endpointSupportsAdvancedActions(apiSearchState.endpoint)) return '';
+        return `${apiSearchState.endpoint}/${suffix}`;
     }
 
 
@@ -412,12 +492,14 @@
 
     apiHealthBtn?.addEventListener('click', checkApiHealth);
 
-    apiForm?.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    async function runApiSearch({ resetOffset = true, skipInsights = false } = {}) {
         apiStatus.textContent = '';
+        apiActions.style.display = 'none';
         apiResultsTable.style.display = 'none';
         apiResultsBody.innerHTML = '';
+        apiPagination.style.display = 'none';
         clearInsights();
+        clearSummary();
 
         // Samle alle feltverdier
         const q                  = document.getElementById('api_query')?.value?.trim();
@@ -434,7 +516,7 @@
         const minTotalAssets     = document.getElementById('api_min_total_assets')?.value?.trim();
         const maxTotalAssets     = document.getElementById('api_max_total_assets')?.value?.trim();
         const sort               = document.getElementById('api_sort')?.value || 'revenue';
-        const limit              = document.getElementById('api_limit')?.value?.trim() || '20';
+        const limit              = document.getElementById('api_limit')?.value?.trim() || '100';
         const hasRegnskap        = document.getElementById('api_has_regnskap')?.checked;
         const lat                = document.getElementById('api_lat')?.value?.trim();
         const lon                = document.getElementById('api_lon')?.value?.trim();
@@ -455,7 +537,10 @@
 
         // Bygg URL-parametere
         const params = new URLSearchParams();
-        addIfPresent(params, 'limit', limit);
+        const normalizedLimit = Math.max(1, Math.min(Number(limit) || 100, 500));
+        params.set('limit', String(normalizedLimit));
+        const offset = resetOffset ? 0 : (apiSearchState.offset || 0);
+        params.set('offset', String(offset));
         addIfPresent(params, 'sort', sort);
         addIfPresent(params, 'kommune', kommune);
         addIfPresent(params, 'naeringskode', naeringskode);
@@ -496,9 +581,14 @@
 
         apiStatus.textContent = 'Søker…';
 
+        apiSearchState.params = new URLSearchParams(params);
+        apiSearchState.offset = offset;
+        apiSearchState.endpoint = '';
+
         // Innsikt-kall i bakgrunnen – blokkerer ikke søkeresultatene
         const insightParams = new URLSearchParams(params);
         insightParams.delete('limit');
+        insightParams.delete('offset');
         insightParams.delete('sort');
         insightParams.delete('lat');
         insightParams.delete('lon');
@@ -547,7 +637,7 @@
         };
 
         // Start insights i bakgrunnen uten await
-        loadInsights();
+        if (!skipInsights) loadInsights();
 
         // Søke-endepunkter – velg basert på geo og avanserte filtre
         let searchEndpoints;
@@ -603,7 +693,24 @@
                 }
 
                 apiResultsTable.style.display = '';
-                const totalCount = data.total_count ?? data.total_returned;
+                apiActions.style.display = '';
+                apiSearchState.endpoint = endpoint;
+                apiExportBtn.disabled = !endpointSupportsAdvancedActions(endpoint);
+                apiSummaryBtn.disabled = !endpointSupportsAdvancedActions(endpoint);
+                applyResultFilter();
+                const totalCount = Number(data.total_count ?? data.total_returned ?? rows.length);
+                const totalReturned = Number(data.total_returned ?? rows.length);
+                const currentOffset = Number(data.offset ?? offset ?? 0);
+                const pageSize = Number(data.limit ?? normalizedLimit);
+                const currentPage = Math.floor(currentOffset / Math.max(pageSize, 1)) + 1;
+                const totalPages = Math.max(1, Math.ceil(totalCount / Math.max(pageSize, 1)));
+                const startRow = totalCount ? currentOffset + 1 : 0;
+                const endRow = Math.min(currentOffset + totalReturned, totalCount || totalReturned);
+
+                apiPrevPage.disabled = currentOffset <= 0;
+                apiNextPage.disabled = currentOffset + totalReturned >= totalCount;
+                apiPageInfo.textContent = `Side ${fmtNumber(currentPage)} av ${fmtNumber(totalPages)} · viser ${fmtNumber(startRow)}–${fmtNumber(endRow)} av ${fmtNumber(totalCount)} selskaper`;
+                apiPagination.style.display = totalCount > pageSize ? 'flex' : '';
                 apiStatus.textContent = `Viser ${rows.length} av totalt ${fmtNumber(totalCount)} treff (via ${endpoint}).`;
                 return;
             } catch (err) {
@@ -616,6 +723,70 @@
             apiStatus.textContent = `❌ /regnskap-api er ikke tilgjengelig. Avanserte filtre (omsetning, næringskode, kommune osv.) krever at FastAPI-modulen kjører. Sjekk at DATABASE_URL er satt og at ASGI-appen starter. Feil: ${lastError}`;
         } else {
             apiStatus.textContent = `❌ ${lastError || 'Klarte ikke søke mot noen API-endepunkter.'}`;
+        }
+    }
+
+    apiForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await runApiSearch({ resetOffset: true });
+    });
+
+    apiPrevPage?.addEventListener('click', async () => {
+        if (!apiSearchState.params) return;
+        const limit = Math.max(1, Number(apiSearchState.params.get('limit')) || 100);
+        apiSearchState.offset = Math.max(0, apiSearchState.offset - limit);
+        await runApiSearch({ resetOffset: false, skipInsights: true });
+    });
+
+    apiNextPage?.addEventListener('click', async () => {
+        if (!apiSearchState.params) return;
+        const limit = Math.max(1, Number(apiSearchState.params.get('limit')) || 100);
+        apiSearchState.offset += limit;
+        await runApiSearch({ resetOffset: false, skipInsights: true });
+    });
+
+    apiResultFilter?.addEventListener('input', applyResultFilter);
+
+    apiExportBtn?.addEventListener('click', () => {
+        const exportEndpoint = buildDerivedEndpoint('export.csv');
+        if (!exportEndpoint || !apiSearchState.params) {
+            apiStatus.textContent = '⚠️ CSV-eksport krever et søk som gikk via /regnskap-api.';
+            return;
+        }
+        const params = new URLSearchParams(apiSearchState.params);
+        params.delete('limit');
+        params.delete('offset');
+        window.open(`${exportEndpoint}?${params.toString()}`, '_blank', 'noopener');
+    });
+
+    apiSummaryBtn?.addEventListener('click', async () => {
+        const summaryEndpoint = buildDerivedEndpoint('summary');
+        if (!summaryEndpoint || !apiSearchState.params) {
+            apiStatus.textContent = '⚠️ Analyse krever et søk som gikk via /regnskap-api.';
+            return;
+        }
+        apiStatus.textContent = 'Laster analyse…';
+        const params = new URLSearchParams(apiSearchState.params);
+        params.delete('limit');
+        params.delete('offset');
+        try {
+            const res = await fetch(`${summaryEndpoint}?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+            const data = await parseMaybeJson(res);
+            if (!res.ok) {
+                apiStatus.textContent = `❌ Klarte ikke hente analyse: ${data.detail || res.statusText}`;
+                return;
+            }
+            apiSummaryTotal.textContent = fmtNumber(data.total_matches);
+            apiSummaryRegnskap.textContent = fmtNumber(data.companies_with_regnskap);
+            apiSummaryRevenue.textContent = fmtNumber(data.sum_revenue);
+            apiSummaryOperatingProfit.textContent = fmtNumber(data.sum_operating_profit);
+            apiSummaryNetProfit.textContent = fmtNumber(data.sum_net_profit);
+            apiSummaryEquity.textContent = fmtNumber(data.sum_equity);
+            apiSummaryEquityRatio.textContent = fmtPercent(data.avg_equity_ratio);
+            apiSummary.style.display = '';
+            apiStatus.textContent = 'Analyse lastet.';
+        } catch (err) {
+            apiStatus.textContent = `❌ Klarte ikke hente analyse: ${err.message}`;
         }
     });
 </script>
