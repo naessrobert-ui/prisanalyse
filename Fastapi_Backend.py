@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import csv
+import io
 import os
+import re
 import subprocess
 import psycopg
 from decimal import Decimal
@@ -8,6 +11,7 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from psycopg.rows import dict_row
 
@@ -31,8 +35,9 @@ ALLOWED_ORIGINS = [
     if origin.strip()
 ]
 
-DEFAULT_LIMIT = int(os.getenv("DEFAULT_LIMIT", "20"))
-MAX_LIMIT     = int(os.getenv("MAX_LIMIT",     "100"))
+DEFAULT_LIMIT = int(os.getenv("DEFAULT_LIMIT", "100"))
+MAX_LIMIT     = int(os.getenv("MAX_LIMIT",     "500"))
+SEARCH_EXPORT_BATCH_SIZE = int(os.getenv("SEARCH_EXPORT_BATCH_SIZE", "1000"))
 
 
 # ------------------------------------------------------------
@@ -139,6 +144,97 @@ def latest_regnskap_join_for_year(year: int) -> str:
 # ------------------------------------------------------------
 def clean_limit(limit: int) -> int:
     return max(1, min(limit, MAX_LIMIT))
+
+
+def normalize_search_tokens(value: str) -> list[str]:
+    cleaned = (value or "").lower()
+    cleaned = re.sub(r"\b(as|asa|ans|nuf|sa|d[aå])\b", " ", cleaned)
+    cleaned = re.sub(r"[^0-9a-zæøå]+", " ", cleaned)
+    tokens = [token for token in cleaned.split() if token]
+    return list(dict.fromkeys(tokens))[:8]
+
+
+def build_search_base_sql(
+    *,
+    orgnr: str | None = None,
+    q: str | None = None,
+    orgform: str | None = None,
+    kommune: str | None = None,
+    naeringskode_prefix: str | None = None,
+    sektor: str | None = None,
+    accounting_year: int | None = None,
+    min_revenue: float | None = None,
+    max_revenue: float | None = None,
+    min_profit: float | None = None,
+    max_profit: float | None = None,
+    min_operating_profit: float | None = None,
+    max_operating_profit: float | None = None,
+    min_equity_ratio: float | None = None,
+    max_equity_ratio: float | None = None,
+    min_total_assets: float | None = None,
+    max_total_assets: float | None = None,
+    min_equity: float | None = None,
+    max_equity: float | None = None,
+    has_regnskap: bool = False,
+) -> tuple[str, list[Any], str]:
+    regnskap_join = (
+        latest_regnskap_join_for_year(accounting_year)
+        if accounting_year
+        else LATEST_REGNSKAP_JOIN
+    )
+    base_sql = f"""
+        FROM entity e
+        {regnskap_join}
+        WHERE 1=1
+    """
+    params: list[Any] = []
+    base_sql = append_search_filters(
+        base_sql,
+        params,
+        orgnr=orgnr,
+        q=q,
+        orgform=orgform,
+        kommune=kommune,
+        naeringskode_prefix=naeringskode_prefix,
+        sektor=sektor,
+        min_revenue=min_revenue,
+        max_revenue=max_revenue,
+        min_profit=min_profit,
+        max_profit=max_profit,
+        min_operating_profit=min_operating_profit,
+        max_operating_profit=max_operating_profit,
+        min_equity_ratio=min_equity_ratio,
+        max_equity_ratio=max_equity_ratio,
+        min_total_assets=min_total_assets,
+        max_total_assets=max_total_assets,
+        min_equity=min_equity,
+        max_equity=max_equity,
+        has_regnskap=has_regnskap,
+    )
+    return base_sql, params, regnskap_join
+
+
+def build_csv_response(columns: list[str], batch_iter, filename: str) -> StreamingResponse:
+    def generate():
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(columns)
+        yield buffer.getvalue()
+        buffer.seek(0)
+        buffer.truncate(0)
+
+        for rows in batch_iter:
+            for row in rows:
+                writer.writerow([row.get(col, "") if row.get(col) is not None else "" for col in columns])
+            yield buffer.getvalue()
+            buffer.seek(0)
+            buffer.truncate(0)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 def normalize_decimal(value: Any) -> Any:
@@ -272,6 +368,28 @@ class SearchInsightsResponse(BaseModel):
     by_revenue_band: list[InsightBucket]
 
 
+class SearchSummaryResponse(BaseModel):
+    total_matches: int
+    companies_with_regnskap: int
+    sum_revenue: float = 0.0
+    sum_operating_profit: float = 0.0
+    sum_net_profit: float = 0.0
+    sum_equity: float = 0.0
+    avg_equity_ratio: float | None = None
+
+
+class DatabaseDiagnosticsResponse(BaseModel):
+    total_entities: int
+    entities_with_nonempty_name: int
+    entities_missing_name: int
+    entities_with_blank_name: int
+    distinct_names: int
+    orgnr_like_names: int
+    names_equal_address: int
+    total_regnskap_rows: int
+    entities_with_regnskap: int
+
+
 class CompanyDetail(BaseModel):
     orgnr: str
     navn: str | None = None
@@ -377,8 +495,13 @@ def append_search_filters(
         params.append(orgnr)
 
     if q:
-        sql += " AND e.navn ILIKE %s"
-        params.append(f"%{q}%")
+        tokens = normalize_search_tokens(q)
+        if tokens:
+            sql += " AND " + " AND ".join("e.navn ILIKE %s" for _ in tokens)
+            params.extend(f"%{token}%" for token in tokens)
+        else:
+            sql += " AND e.navn ILIKE %s"
+            params.append(f"%{q}%")
 
     if orgform:
         sql += " AND e.orgform = %s"
@@ -509,6 +632,49 @@ def list_naeringskoder() -> dict:
     return {"mappings": NAERINGSKODE_MAP}
 
 
+@app.get("/api/db/diagnostics", response_model=DatabaseDiagnosticsResponse)
+def db_diagnostics() -> DatabaseDiagnosticsResponse:
+    row = fetch_one(
+        """
+        SELECT
+            COUNT(*)::int AS total_entities,
+            COUNT(*) FILTER (
+                WHERE e.navn IS NOT NULL AND NULLIF(BTRIM(e.navn), '') IS NOT NULL
+            )::int AS entities_with_nonempty_name,
+            COUNT(*) FILTER (WHERE e.navn IS NULL)::int AS entities_missing_name,
+            COUNT(*) FILTER (WHERE e.navn IS NOT NULL AND NULLIF(BTRIM(e.navn), '') IS NULL)::int AS entities_with_blank_name,
+            COUNT(DISTINCT NULLIF(BTRIM(e.navn), ''))::int AS distinct_names,
+            COUNT(*) FILTER (WHERE COALESCE(BTRIM(e.navn), '') ~ '^[0-9]{9}$')::int AS orgnr_like_names,
+            COUNT(*) FILTER (
+                WHERE NULLIF(BTRIM(e.navn), '') IS NOT NULL
+                  AND NULLIF(BTRIM(e.adresse), '') IS NOT NULL
+                  AND LOWER(BTRIM(e.navn)) = LOWER(BTRIM(e.adresse))
+            )::int AS names_equal_address,
+            COALESCE((SELECT COUNT(*)::int FROM regnskap_metrics), 0)::int AS total_regnskap_rows,
+            COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS entities_with_regnskap
+        FROM entity e
+        LEFT JOIN LATERAL (
+            SELECT rm.accounting_year
+            FROM regnskap_metrics rm
+            WHERE rm.orgnr = e.orgnr
+            LIMIT 1
+        ) r ON true
+        """,
+        [],
+    ) or {
+        "total_entities": 0,
+        "entities_with_nonempty_name": 0,
+        "entities_missing_name": 0,
+        "entities_with_blank_name": 0,
+        "distinct_names": 0,
+        "orgnr_like_names": 0,
+        "names_equal_address": 0,
+        "total_regnskap_rows": 0,
+        "entities_with_regnskap": 0,
+    }
+    return DatabaseDiagnosticsResponse(**row)
+
+
 @app.get("/api/search", response_model=SearchResponse)
 def search(
     q: str | None = Query(default=None, description="Fritekst mot navn"),
@@ -545,21 +711,9 @@ def search(
 ) -> SearchResponse:
     limit = clean_limit(limit)
 
-    regnskap_join = (
-        latest_regnskap_join_for_year(accounting_year)
-        if accounting_year
-        else LATEST_REGNSKAP_JOIN
-    )
-
-    base_sql = f"""
-        FROM entity e
-        {regnskap_join}
-        WHERE 1=1
-    """
-    params: list[Any] = []
-    base_sql = append_search_filters(
-        base_sql, params,
+    base_sql, params, _regnskap_join = build_search_base_sql(
         orgnr=orgnr, q=q, orgform=orgform, kommune=kommune,
+        accounting_year=accounting_year,
         naeringskode_prefix=naeringskode_prefix, sektor=sektor,
         min_revenue=min_revenue, max_revenue=max_revenue,
         min_profit=min_profit, max_profit=max_profit,
@@ -614,20 +768,9 @@ def search_insights(
     has_regnskap: bool = False,
     group_limit: int = Query(default=8, ge=1, le=20),
 ) -> SearchInsightsResponse:
-    regnskap_join = (
-        latest_regnskap_join_for_year(accounting_year)
-        if accounting_year
-        else LATEST_REGNSKAP_JOIN
-    )
-    base_sql = f"""
-        FROM entity e
-        {regnskap_join}
-        WHERE 1=1
-    """
-    base_params: list[Any] = []
-    base_sql = append_search_filters(
-        base_sql, base_params,
+    base_sql, base_params, _regnskap_join = build_search_base_sql(
         orgnr=orgnr, q=q, orgform=orgform, kommune=kommune,
+        accounting_year=accounting_year,
         naeringskode_prefix=naeringskode_prefix, sektor=sektor,
         min_revenue=min_revenue, max_revenue=max_revenue,
         min_profit=min_profit, max_profit=max_profit,
@@ -691,6 +834,164 @@ def search_insights(
         by_naeringskode_prefix=[InsightBucket(**row) for row in naering_rows],
         by_revenue_band=[InsightBucket(**row) for row in revenue_rows],
     )
+
+
+@app.get("/api/search/summary", response_model=SearchSummaryResponse)
+def search_summary(
+    q: str | None = Query(default=None, description="Fritekst mot navn"),
+    orgnr: str | None = None,
+    orgform: str | None = None,
+    kommune: str | None = None,
+    naeringskode_prefix: str | None = Query(default=None, alias="naeringskode"),
+    sektor: str | None = None,
+    accounting_year: int | None = None,
+    min_revenue: float | None = None,
+    max_revenue: float | None = None,
+    min_profit: float | None = None,
+    max_profit: float | None = None,
+    min_operating_profit: float | None = None,
+    max_operating_profit: float | None = None,
+    min_equity_ratio: float | None = None,
+    max_equity_ratio: float | None = None,
+    min_total_assets: float | None = None,
+    max_total_assets: float | None = None,
+    min_equity: float | None = None,
+    max_equity: float | None = None,
+    has_regnskap: bool = False,
+) -> SearchSummaryResponse:
+    base_sql, base_params, _regnskap_join = build_search_base_sql(
+        orgnr=orgnr,
+        q=q,
+        orgform=orgform,
+        kommune=kommune,
+        accounting_year=accounting_year,
+        naeringskode_prefix=naeringskode_prefix,
+        sektor=sektor,
+        min_revenue=min_revenue,
+        max_revenue=max_revenue,
+        min_profit=min_profit,
+        max_profit=max_profit,
+        min_operating_profit=min_operating_profit,
+        max_operating_profit=max_operating_profit,
+        min_equity_ratio=min_equity_ratio,
+        max_equity_ratio=max_equity_ratio,
+        min_total_assets=min_total_assets,
+        max_total_assets=max_total_assets,
+        min_equity=min_equity,
+        max_equity=max_equity,
+        has_regnskap=has_regnskap,
+    )
+    summary_row = fetch_one(
+        f"""
+        SELECT
+            COUNT(*)::int AS total_matches,
+            COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS companies_with_regnskap,
+            COALESCE(SUM(r.revenue), 0)::double precision AS sum_revenue,
+            COALESCE(SUM(r.operating_profit), 0)::double precision AS sum_operating_profit,
+            COALESCE(SUM(r.net_profit), 0)::double precision AS sum_net_profit,
+            COALESCE(SUM(r.equity), 0)::double precision AS sum_equity,
+            AVG(r.equity_ratio)::double precision AS avg_equity_ratio
+        {base_sql}
+        """,
+        base_params,
+    ) or {
+        "total_matches": 0,
+        "companies_with_regnskap": 0,
+        "sum_revenue": 0.0,
+        "sum_operating_profit": 0.0,
+        "sum_net_profit": 0.0,
+        "sum_equity": 0.0,
+        "avg_equity_ratio": None,
+    }
+    return SearchSummaryResponse(**summary_row)
+
+
+@app.get("/api/search/export.csv")
+def export_search_csv(
+    q: str | None = Query(default=None, description="Fritekst mot navn"),
+    orgnr: str | None = None,
+    orgform: str | None = None,
+    kommune: str | None = None,
+    naeringskode_prefix: str | None = Query(default=None, alias="naeringskode"),
+    sektor: str | None = None,
+    accounting_year: int | None = None,
+    min_revenue: float | None = None,
+    max_revenue: float | None = None,
+    min_profit: float | None = None,
+    max_profit: float | None = None,
+    min_operating_profit: float | None = None,
+    max_operating_profit: float | None = None,
+    min_equity_ratio: float | None = None,
+    max_equity_ratio: float | None = None,
+    min_total_assets: float | None = None,
+    max_total_assets: float | None = None,
+    min_equity: float | None = None,
+    max_equity: float | None = None,
+    has_regnskap: bool = False,
+    sort: Literal[
+        "revenue", "profit", "operating_profit", "equity", "total_assets", "equity_ratio", "name"
+    ] = "revenue",
+) -> StreamingResponse:
+    base_sql, base_params, _regnskap_join = build_search_base_sql(
+        orgnr=orgnr,
+        q=q,
+        orgform=orgform,
+        kommune=kommune,
+        accounting_year=accounting_year,
+        naeringskode_prefix=naeringskode_prefix,
+        sektor=sektor,
+        min_revenue=min_revenue,
+        max_revenue=max_revenue,
+        min_profit=min_profit,
+        max_profit=max_profit,
+        min_operating_profit=min_operating_profit,
+        max_operating_profit=max_operating_profit,
+        min_equity_ratio=min_equity_ratio,
+        max_equity_ratio=max_equity_ratio,
+        min_total_assets=min_total_assets,
+        max_total_assets=max_total_assets,
+        min_equity=min_equity,
+        max_equity=max_equity,
+        has_regnskap=has_regnskap,
+    )
+    order_by = _SORT_MAP[sort]
+    columns = [
+        "orgnr",
+        "navn",
+        "orgform",
+        "naeringskode",
+        "kommunenummer",
+        "postnummer",
+        "adresse",
+        "accounting_year",
+        "revenue",
+        "operating_profit",
+        "net_profit",
+        "total_assets",
+        "equity",
+        "equity_ratio",
+        "lat",
+        "lon",
+    ]
+
+    def batch_iter():
+        offset = 0
+        while True:
+            rows = fetch_all(
+                f"""
+                SELECT {_SEARCH_COLS}
+                {base_sql}
+                ORDER BY {order_by}
+                LIMIT %s OFFSET %s
+                """,
+                [*base_params, SEARCH_EXPORT_BATCH_SIZE, offset],
+            )
+            if not rows:
+                break
+            yield rows
+            offset += len(rows)
+
+    return build_csv_response(columns, batch_iter(), "regnskap_search_results.csv")
 
 
 @app.get("/api/company/{orgnr}", response_model=CompanyDetail)
@@ -821,6 +1122,188 @@ def nearby(
         offset=offset,
         results=[SearchResult(**row) for row in rows],
     )
+
+
+@app.get("/api/nearby/summary", response_model=SearchSummaryResponse)
+def nearby_summary(
+    lat: float,
+    lon: float,
+    radius_km: float = Query(default=5.0, gt=0),
+    q: str | None = None,
+    orgform: str | None = None,
+    naeringskode_prefix: str | None = Query(default=None, alias="naeringskode"),
+    sektor: str | None = None,
+    accounting_year: int | None = None,
+    min_revenue: float | None = None,
+    max_revenue: float | None = None,
+    min_profit: float | None = None,
+    max_profit: float | None = None,
+    min_operating_profit: float | None = None,
+    max_operating_profit: float | None = None,
+    min_equity_ratio: float | None = None,
+    max_equity_ratio: float | None = None,
+    min_total_assets: float | None = None,
+    max_total_assets: float | None = None,
+    has_regnskap: bool = False,
+) -> SearchSummaryResponse:
+    radius_m = radius_km * 1000
+    regnskap_join = (
+        latest_regnskap_join_for_year(accounting_year)
+        if accounting_year
+        else LATEST_REGNSKAP_JOIN
+    )
+    params_filters: list[Any] = []
+    filter_sql = append_search_filters(
+        "",
+        params_filters,
+        q=q,
+        orgform=orgform,
+        naeringskode_prefix=naeringskode_prefix,
+        sektor=sektor,
+        min_revenue=min_revenue,
+        max_revenue=max_revenue,
+        min_profit=min_profit,
+        max_profit=max_profit,
+        min_operating_profit=min_operating_profit,
+        max_operating_profit=max_operating_profit,
+        min_equity_ratio=min_equity_ratio,
+        max_equity_ratio=max_equity_ratio,
+        min_total_assets=min_total_assets,
+        max_total_assets=max_total_assets,
+        has_regnskap=has_regnskap,
+    )
+    row = fetch_one(
+        f"""
+        SELECT
+            COUNT(*)::int AS total_matches,
+            COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS companies_with_regnskap,
+            COALESCE(SUM(r.revenue), 0)::double precision AS sum_revenue,
+            COALESCE(SUM(r.operating_profit), 0)::double precision AS sum_operating_profit,
+            COALESCE(SUM(r.net_profit), 0)::double precision AS sum_net_profit,
+            COALESCE(SUM(r.equity), 0)::double precision AS sum_equity,
+            AVG(r.equity_ratio)::double precision AS avg_equity_ratio
+        FROM entity e
+        {regnskap_join}
+        WHERE e.geog IS NOT NULL
+          AND ST_DWithin(
+                e.geog,
+                ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
+                %s
+          )
+          {filter_sql}
+        """,
+        [lon, lat, radius_m, *params_filters],
+    ) or {
+        "total_matches": 0,
+        "companies_with_regnskap": 0,
+        "sum_revenue": 0.0,
+        "sum_operating_profit": 0.0,
+        "sum_net_profit": 0.0,
+        "sum_equity": 0.0,
+        "avg_equity_ratio": None,
+    }
+    return SearchSummaryResponse(**row)
+
+
+@app.get("/api/nearby/export.csv")
+def export_nearby_csv(
+    lat: float,
+    lon: float,
+    radius_km: float = Query(default=5.0, gt=0),
+    q: str | None = None,
+    orgform: str | None = None,
+    naeringskode_prefix: str | None = Query(default=None, alias="naeringskode"),
+    sektor: str | None = None,
+    accounting_year: int | None = None,
+    min_revenue: float | None = None,
+    max_revenue: float | None = None,
+    min_profit: float | None = None,
+    max_profit: float | None = None,
+    min_operating_profit: float | None = None,
+    max_operating_profit: float | None = None,
+    min_equity_ratio: float | None = None,
+    max_equity_ratio: float | None = None,
+    min_total_assets: float | None = None,
+    max_total_assets: float | None = None,
+    has_regnskap: bool = False,
+) -> StreamingResponse:
+    radius_m = radius_km * 1000
+    regnskap_join = (
+        latest_regnskap_join_for_year(accounting_year)
+        if accounting_year
+        else LATEST_REGNSKAP_JOIN
+    )
+    params_filters: list[Any] = []
+    filter_sql = append_search_filters(
+        "",
+        params_filters,
+        q=q,
+        orgform=orgform,
+        naeringskode_prefix=naeringskode_prefix,
+        sektor=sektor,
+        min_revenue=min_revenue,
+        max_revenue=max_revenue,
+        min_profit=min_profit,
+        max_profit=max_profit,
+        min_operating_profit=min_operating_profit,
+        max_operating_profit=max_operating_profit,
+        min_equity_ratio=min_equity_ratio,
+        max_equity_ratio=max_equity_ratio,
+        min_total_assets=min_total_assets,
+        max_total_assets=max_total_assets,
+        has_regnskap=has_regnskap,
+    )
+    columns = [
+        "orgnr",
+        "navn",
+        "orgform",
+        "naeringskode",
+        "kommunenummer",
+        "postnummer",
+        "adresse",
+        "accounting_year",
+        "revenue",
+        "operating_profit",
+        "net_profit",
+        "total_assets",
+        "equity",
+        "equity_ratio",
+        "lat",
+        "lon",
+        "distance_m",
+    ]
+
+    def batch_iter():
+        offset = 0
+        while True:
+            rows = fetch_all(
+                f"""
+                SELECT
+                    {_SEARCH_COLS},
+                    ST_Distance(
+                        e.geog,
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
+                    ) AS distance_m
+                FROM entity e
+                {regnskap_join}
+                WHERE e.geog IS NOT NULL
+                  AND ST_DWithin(
+                        e.geog,
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
+                        %s
+                  )
+                  {filter_sql}
+                ORDER BY distance_m ASC
+                LIMIT %s OFFSET %s
+                """,
+                [lon, lat, lon, lat, radius_m, *params_filters, SEARCH_EXPORT_BATCH_SIZE, offset],
+            )
+            if not rows:
+                break
+            yield rows
+            offset += len(rows)
+
+    return build_csv_response(columns, batch_iter(), "regnskap_nearby_results.csv")
 
 
 @app.get("/api/toplist", response_model=SearchResponse)
