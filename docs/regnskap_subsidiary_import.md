@@ -22,10 +22,15 @@ export DATABASE_URL='postgresql://<user>:<password>@<host>:5432/<db>'
 
 ## 2. Kjør importen
 
+Filnavnet er valgfritt, men anbefalt navnekonvensjon er:
+
+- relasjonsfil: `subsidiary_relations_YYYY-MM-DD.csv`
+- eller norsk variant: `datterselskaper_YYYY-MM-DD.csv`
+
 En enkel kjøring:
 
 ```bash
-python scripts/import_subsidiaries_csv.py /path/til/datterselskaper.csv
+python scripts/import_subsidiaries_csv.py /path/til/datterselskaper_2026-03-21.csv
 ```
 
 Hvis CSV-en bruker andre kolonnenavn enn standardoppsettet, kan du mappe dem eksplisitt:

@@ -81,6 +81,21 @@ Se implementasjonen her. 【F:scripts/normalize_underenheter_csv.py†L1-L123】
 
 ## 3. Anbefalt produksjonsflyt
 
+### Filnavn
+
+CSV-filen kan i praksis hete hva som helst, fordi scriptet tar inn eksplisitt filsti som argument. Men jeg anbefaler denne navnekonvensjonen:
+
+- råfil: `underenheter_YYYY-MM-DD.csv`
+- normalisert fil: `normalized_underenheter_YYYY-MM-DD.csv`
+
+Eksempel:
+
+```bash
+python scripts/normalize_underenheter_csv.py \
+  underenheter_2026-03-21.csv \
+  normalized_underenheter_2026-03-21.csv
+```
+
 ### Steg 1 – normaliser CSV
 
 ```bash
