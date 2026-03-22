@@ -214,8 +214,7 @@
             <div class="actions-row">
                 <button type="button" id="presetTopRevenueBtn">Selskaper &gt; 1 mrd</button>
                 <button type="button" class="secondary" id="resetApiFormBtn">Nullstill</button>
-                <button type="button" class="secondary" id="apiHealthBtn">Sjekk API-status</button>
-            </div>
+                            </div>
         </div>
 
         <form id="apiSearchForm" style="margin-top: 16px;">
@@ -461,7 +460,6 @@
     });
 
     const apiForm = document.getElementById('apiSearchForm');
-    const apiHealthBtn = document.getElementById('apiHealthBtn');
     const apiStatus = document.getElementById('apiStatus');
     const apiMetaInfo = document.getElementById('apiMetaInfo');
     const apiSummary = document.getElementById('apiSummary');
@@ -702,7 +700,6 @@
     });
 
     apiResultFilter?.addEventListener('input', applyClientFilter);
-    apiHealthBtn?.addEventListener('click', checkApiHealth);
 
     presetTopRevenueBtn?.addEventListener('click', () => {
         document.getElementById('api_min_omsetning').value = '1000000000';
@@ -724,7 +721,6 @@
     });
 
     loadFilterMeta();
-    checkApiHealth();
 </script>
 </body>
 </html>

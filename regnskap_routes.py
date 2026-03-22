@@ -32,6 +32,8 @@ from flask import Blueprint, jsonify, make_response, render_template, request, s
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+ANALYSIS_API_URL = "http://192.168.86.30:8010"
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 regnskap_bp = Blueprint("regnskap", __name__, url_prefix="/regnskap")
