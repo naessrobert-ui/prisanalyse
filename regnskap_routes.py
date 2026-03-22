@@ -32,7 +32,6 @@ from flask import Blueprint, jsonify, make_response, render_template, request, s
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-ANALYSIS_API_URL = "http://192.168.86.30:8010"
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -60,7 +59,7 @@ PROFF_SEARCH_URL = "https://www.proff.no/bransjesøk"
 # Brreg – kun for navn-søk (søk på selskapsnavn i boks 3)
 BRREG_SEARCH_URL = "https://data.brreg.no/enhetsregisteret/api/enheter"
 BRREG_REGNSKAP_URL = "https://data.brreg.no/regnskapsregisteret/regnskap"
-ANALYSIS_API_URL = os.environ.get("ANALYSIS_API_URL", "http://127.0.0.1:8010").rstrip("/")
+ANALYSIS_API_URL = os.environ.get("ANALYSIS_API_URL", "http://192.168.86.30:8010").rstrip("/")
 
 
 # ---------------------------------------------------------------------------
