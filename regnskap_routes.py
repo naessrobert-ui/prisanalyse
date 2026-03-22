@@ -16,6 +16,7 @@ import csv
 import difflib
 import io
 import json
+import os
 import re
 import time
 import zipfile
@@ -57,6 +58,7 @@ PROFF_SEARCH_URL = "https://www.proff.no/bransjesøk"
 # Brreg – kun for navn-søk (søk på selskapsnavn i boks 3)
 BRREG_SEARCH_URL = "https://data.brreg.no/enhetsregisteret/api/enheter"
 BRREG_REGNSKAP_URL = "https://data.brreg.no/regnskapsregisteret/regnskap"
+ANALYSIS_API_URL = os.environ.get("ANALYSIS_API_URL", "http://127.0.0.1:8010").rstrip("/")
 
 
 # ---------------------------------------------------------------------------
@@ -1008,6 +1010,28 @@ def _lookup_from_query(http_session: requests.Session, query: str) -> tuple[Look
 
 
 # ---------------------------------------------------------------------------
+# Analysis API-proxy
+# ---------------------------------------------------------------------------
+
+
+def proxy_analysis_api(path: str, params: dict[str, Any] | None = None):
+    try:
+        resp = requests.get(
+            f"{ANALYSIS_API_URL}{path}",
+            params=params,
+            timeout=20,
+            headers={"Accept": "application/json"},
+        )
+    except requests.RequestException as exc:
+        return jsonify({"detail": "Analysis API utilgjengelig", "error": str(exc)}), 503
+
+    response = make_response(resp.text, resp.status_code)
+    response.headers["Content-Type"] = resp.headers.get("Content-Type", "application/json; charset=utf-8")
+    return response
+
+
+
+# ---------------------------------------------------------------------------
 # Flask-ruter
 # ---------------------------------------------------------------------------
 @regnskap_bp.route("/batch-download.csv")
@@ -1085,6 +1109,48 @@ def detailed_download_csv():
 @regnskap_bp.route("/api/health")
 def regnskap_api_health():
     return jsonify({"ok": True, "service": "regnskap-flask-api"})
+
+
+@regnskap_bp.route("/api/analysis/health")
+def regnskap_api_analysis_health():
+    return proxy_analysis_api("/analysis-api/health")
+
+
+@regnskap_bp.route("/api/companies/filter")
+def regnskap_api_companies_filter():
+    allowed = {
+        "q",
+        "kommune",
+        "naeringskode",
+        "adresse",
+        "min_omsetning",
+        "max_omsetning",
+        "min_resultat",
+        "max_resultat",
+        "min_egenkapitalandel",
+        "min_netto_margin",
+        "min_ansatte",
+        "max_ansatte",
+        "orgform",
+        "limit",
+        "offset",
+        "sort_by",
+        "sort_dir",
+    }
+    params = {key: value for key, value in request.args.items() if key in allowed and str(value).strip() != ""}
+    return proxy_analysis_api("/analysis-api/companies/filter", params)
+
+
+@regnskap_bp.route("/api/companies/filter-meta")
+def regnskap_api_companies_filter_meta():
+    return proxy_analysis_api("/analysis-api/companies/filter/meta")
+
+
+@regnskap_bp.route("/api/companies/top-omsetning")
+def regnskap_api_companies_top_omsetning():
+    allowed = {"limit", "min_omsetning", "orgform"}
+    params = {key: value for key, value in request.args.items() if key in allowed and str(value).strip() != ""}
+    return proxy_analysis_api("/analysis-api/companies/top-omsetning", params)
 
 
 @regnskap_bp.route("/api/search")
@@ -1286,4 +1352,13 @@ def regnskap_hub():
                 url_dataset=url_dataset,
             )
 
-    return render_template("regnskap_hub.html")
+    active_module = (request.args.get("mode") or "api").strip().lower()
+    if active_module not in {"api", "legacy"}:
+        active_module = "api"
+
+    return render_template(
+        "regnskap_hub.html",
+        analysis_api_url=ANALYSIS_API_URL,
+        active_module=active_module,
+        primary_module="api",
+    )

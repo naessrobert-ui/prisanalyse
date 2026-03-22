@@ -5,30 +5,141 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Regnskap | Prisanalyse</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
-        .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 48px; }
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --card-soft: #172337;
+            --border: #334155;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --brand: #60a5fa;
+            --brand-strong: #3b82f6;
+            --ok: #86efac;
+            --bad: #fca5a5;
+            --warn: #fde68a;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
         a { color: #93c5fd; }
-        h1 { margin-bottom: 8px; }
-        .subtitle { color: #cbd5e1; margin-bottom: 24px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
-        .card { background: #1e293b; border-radius: 14px; padding: 16px; border: 1px solid #334155; }
-        label { display: block; margin-bottom: 8px; font-weight: 700; }
-        input[type="text"], input[type="url"], input[type="file"], input[type="number"], select { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #475569; background:#0f172a; color:#f1f5f9; }
-        .inline-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
-        .check-wrap { display:flex; align-items:center; gap:8px; margin: 8px 0 12px; }
-        button, .download-btn { padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; background: #60a5fa; color: #0f172a; cursor:pointer; text-decoration:none; display:inline-block; }
-        .error { color: #fca5a5; margin-top: 8px; }
-        .success { color: #86efac; margin-top: 8px; }
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 48px; }
+        h1 { margin: 0 0 8px; }
+        h2, h3 { margin-top: 0; }
+        .subtitle { color: #cbd5e1; margin: 0 0 24px; }
+        .muted { color: var(--muted); font-size: 0.95rem; }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(96, 165, 250, 0.15);
+            color: #bfdbfe;
+            border: 1px solid rgba(96, 165, 250, 0.35);
+            font-size: 0.88rem;
+            font-weight: 700;
+        }
+        .hero {
+            margin: 18px 0 26px;
+            padding: 18px;
+            border-radius: 18px;
+            border: 1px solid rgba(96, 165, 250, 0.25);
+            background: linear-gradient(135deg, rgba(30,41,59,0.95), rgba(23,35,55,0.98));
+            box-shadow: 0 18px 45px rgba(2, 6, 23, 0.25);
+        }
+        .hero-top {
+            display: flex;
+            align-items: start;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+        .hero-copy { max-width: 760px; }
+        .hero-copy p { margin: 10px 0 0; color: #cbd5e1; }
+        .hero-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+        .layout { display: grid; gap: 18px; }
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 18px;
+            border: 1px solid var(--border);
+        }
+        .card-primary {
+            background: linear-gradient(180deg, rgba(30,41,59,1), rgba(23,35,55,1));
+            border-color: rgba(96, 165, 250, 0.28);
+            box-shadow: 0 16px 36px rgba(2, 6, 23, 0.18);
+        }
+        .legacy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-top: 18px; }
+        .form-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+        .form-grid-wide { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        label { display:block; margin-bottom: 8px; font-weight: 700; }
+        input[type="text"], input[type="url"], input[type="file"], input[type="number"], select {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 11px 12px;
+            border-radius: 10px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: #f1f5f9;
+        }
+        .actions-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top: 8px; }
+        button, .download-btn {
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 10px;
+            font-weight: 700;
+            background: var(--brand);
+            color: #0f172a;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        button.secondary, .download-btn.secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid #475569;
+        }
+        button:disabled { opacity: 0.55; cursor: not-allowed; }
+        .error { color: var(--bad); margin-top: 8px; }
+        .success { color: var(--ok); margin-top: 8px; }
+        .status-line {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.45);
+            border: 1px solid #334155;
+            min-height: 44px;
+        }
         table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.92rem; }
-        th, td { border: 1px solid #334155; padding: 8px; text-align: left; }
-        th { background:#0f172a; }
+        th, td { border: 1px solid #334155; padding: 8px; text-align: left; vertical-align: top; }
+        th { background:#0f172a; position: sticky; top: 0; }
+        .api-table-wrap { overflow-x:auto; }
         .details { margin-top: 12px; }
         .details li { margin-bottom: 6px; }
-        .status-ok { color: #86efac; font-weight: 700; }
-        .status-feil { color: #fca5a5; font-weight: 700; }
-        .muted { color:#94a3b8; font-size:0.9rem; }
-        .api-table-wrap { overflow-x:auto; }
-
+        .status-ok { color: var(--ok); font-weight: 700; }
+        .status-feil { color: var(--bad); font-weight: 700; }
+        .section-head { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+        .section-head p { margin: 6px 0 0; }
+        .summary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; }
+        .summary-box {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .summary-box strong { display:block; margin-bottom: 6px; color: #cbd5e1; }
+        .results-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top: 12px; }
+        .results-toolbar input { margin: 0; min-width: 240px; }
+        .pagination { display:none; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+        .hint-list { margin: 10px 0 0; padding-left: 18px; color: #cbd5e1; }
+        .hint-list li { margin-bottom: 6px; }
+        .legacy-head { margin-top: 30px; }
+        .legacy-head h2 { margin-bottom: 6px; }
         .overlay {
             position: fixed;
             inset: 0;
@@ -49,6 +160,11 @@
         .bar { height: 8px; background: #334155; border-radius: 999px; overflow: hidden; margin-top: 10px; }
         .bar span { display:block; height: 100%; width: 30%; background:#60a5fa; animation: slide 1.2s infinite; }
         @keyframes slide { 0%{transform:translateX(-120%);} 100%{transform:translateX(320%);} }
+        @media (max-width: 720px) {
+            .wrap { padding-left: 16px; padding-right: 16px; }
+            .hero { padding: 16px; }
+            .card, .card-primary { padding: 16px; }
+        }
     </style>
 </head>
 <body>
@@ -63,11 +179,179 @@
 <div class="wrap">
     <p><a href="/">← Til forsiden</a></p>
     <h1>Regnskap</h1>
-    <p class="subtitle">Hent regnskap fra alle norske bedrifter.</p>
+    <p class="subtitle">Hent regnskap fra alle norske bedrifter — med analysemodulen som hovedinngang.</p>
 
-    <div class="grid">
+    <section class="hero">
+        <div class="hero-top">
+            <div class="hero-copy">
+                <span class="pill">Anbefalt start · ny hovedmodul</span>
+                <h2 style="margin:12px 0 6px; font-size:2rem;">Søk direkte i analyseplattformen</h2>
+                <p>
+                    Denne modulen er laget for brede søk og filtrering: navn, org.nr, kommune, næringskode,
+                    gateadresse, omsetning, resultat, margin, egenkapitalandel og ansatte.
+                </p>
+                <ul class="hint-list">
+                    <li>Finn alle selskaper med omsetning over 1 milliard.</li>
+                    <li>Finn selskaper på en bestemt gateadresse.</li>
+                    <li>Finn brede navnetreff og sorter etter omsetning eller resultat.</li>
+                </ul>
+            </div>
+            <div>
+                <div class="summary-box" style="min-width:240px;">
+                    <strong>Bruk dette først</strong>
+                    <div class="muted">Punkt 1–3 ligger fortsatt under som alternative metoder.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card card-primary">
+        <div class="section-head">
+            <div>
+                <h2 style="margin-bottom:6px;">Søk i regnskaps-API</h2>
+                <p class="muted">Samme startside som før, men nå med analysemodulen som førstevalg.</p>
+            </div>
+            <div class="actions-row">
+                <button type="button" id="presetTopRevenueBtn">Selskaper &gt; 1 mrd</button>
+                <button type="button" class="secondary" id="resetApiFormBtn">Nullstill</button>
+                <button type="button" class="secondary" id="apiHealthBtn">Sjekk API-status</button>
+            </div>
+        </div>
+
+        <form id="apiSearchForm" style="margin-top: 16px;">
+            <div class="form-grid-wide">
+                <div>
+                    <label for="api_query">Navn eller org.nr</label>
+                    <input id="api_query" type="text" placeholder="Eks. Equinor eller 923609016">
+                </div>
+                <div>
+                    <label for="api_adresse">Gateadresse / beliggenhet</label>
+                    <input id="api_adresse" type="text" placeholder="Eks. Karl Johans gate 1">
+                </div>
+                <div>
+                    <label for="api_kommune">Kommune (nummer)</label>
+                    <input id="api_kommune" type="text" placeholder="Eks. 0301">
+                </div>
+                <div>
+                    <label for="api_naeringskode">Næringskode</label>
+                    <input id="api_naeringskode" type="text" placeholder="Eks. 62 eller eiendom">
+                </div>
+                <div>
+                    <label for="api_orgform">Organisasjonsform</label>
+                    <input id="api_orgform" type="text" placeholder="Eks. AS, ENK, ANS" value="AS">
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div>
+                    <label for="api_min_omsetning">Min omsetning</label>
+                    <input id="api_min_omsetning" type="number" step="1" placeholder="Eks. 1000000000">
+                </div>
+                <div>
+                    <label for="api_max_omsetning">Maks omsetning</label>
+                    <input id="api_max_omsetning" type="number" step="1" placeholder="Eks. 5000000000">
+                </div>
+                <div>
+                    <label for="api_min_resultat">Min årsresultat</label>
+                    <input id="api_min_resultat" type="number" step="1" placeholder="Eks. 10000000">
+                </div>
+                <div>
+                    <label for="api_max_resultat">Maks årsresultat</label>
+                    <input id="api_max_resultat" type="number" step="1" placeholder="Eks. 500000000">
+                </div>
+                <div>
+                    <label for="api_min_egenkapitalandel">Min egenkapitalandel (%)</label>
+                    <input id="api_min_egenkapitalandel" type="number" step="0.1" placeholder="Eks. 25">
+                </div>
+                <div>
+                    <label for="api_min_netto_margin">Min nettomargin (%)</label>
+                    <input id="api_min_netto_margin" type="number" step="0.1" placeholder="Eks. 5">
+                </div>
+                <div>
+                    <label for="api_min_ansatte">Min ansatte</label>
+                    <input id="api_min_ansatte" type="number" min="0" step="1" placeholder="Eks. 10">
+                </div>
+                <div>
+                    <label for="api_max_ansatte">Maks ansatte</label>
+                    <input id="api_max_ansatte" type="number" min="0" step="1" placeholder="Eks. 1000">
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div>
+                    <label for="api_sort_by">Sorter på</label>
+                    <select id="api_sort_by">
+                        <option value="omsetning">Omsetning</option>
+                        <option value="aarsresultat">Årsresultat</option>
+                        <option value="egenkapitalandel">Egenkapitalandel</option>
+                        <option value="netto_margin">Netto margin</option>
+                        <option value="ansatte">Ansatte</option>
+                        <option value="navn">Navn</option>
+                        <option value="regnskapsaar">Regnskapsår</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="api_sort_dir">Retning</label>
+                    <select id="api_sort_dir">
+                        <option value="desc">Synkende</option>
+                        <option value="asc">Stigende</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="api_limit">Antall treff per side</label>
+                    <input id="api_limit" type="number" min="1" max="500" value="100">
+                </div>
+            </div>
+
+            <div class="actions-row">
+                <button type="submit">Søk i analyseplattformen</button>
+            </div>
+        </form>
+
+        <div id="apiStatus" class="status-line muted">Ikke søkt ennå.</div>
+        <div id="apiMetaInfo" class="muted" style="margin-top:10px;"></div>
+
+        <div id="apiSummary" class="summary-grid" style="display:none;"></div>
+
+        <div class="results-toolbar" id="apiActions" style="display:none;">
+            <input id="apiResultFilter" type="text" placeholder="Filtrer i trefflisten som vises nå">
+        </div>
+
+        <div class="api-table-wrap">
+            <table id="apiResultsTable" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Orgnr</th>
+                        <th>Navn</th>
+                        <th>Form</th>
+                        <th>Kommune</th>
+                        <th>Ansatte</th>
+                        <th>År</th>
+                        <th>Omsetning</th>
+                        <th>Årsresultat</th>
+                        <th>Netto margin</th>
+                        <th>Egenkapitalandel</th>
+                    </tr>
+                </thead>
+                <tbody id="apiResultsBody"></tbody>
+            </table>
+        </div>
+
+        <div class="pagination" id="apiPagination">
+            <button type="button" id="apiPrevPage">← Forrige side</button>
+            <button type="button" id="apiNextPage">Neste side →</button>
+            <span id="apiPageInfo" class="muted"></span>
+        </div>
+    </section>
+
+    <section class="legacy-head">
+        <h2>Andre måter å hente regnskap på</h2>
+        <p class="muted">Disse verktøyene er fortsatt tilgjengelige, men analysemodulen over er nå standardvalg.</p>
+    </section>
+
+    <div class="legacy-grid">
         <section class="card">
-            <h2>1) Last opp organisasjonsnumre</h2>
+            <h3>1) Last opp organisasjonsnumre</h3>
             <form method="post" enctype="multipart/form-data" id="batchForm">
                 <input type="hidden" name="action" value="batch">
                 <label for="orgnr_file">Fil (txt/csv/xlsx med 9-sifrede orgnr)</label>
@@ -117,7 +401,7 @@
         </section>
 
         <section class="card">
-            <h2>2) Lim inn Proff-URL</h2>
+            <h3>2) Lim inn Proff-URL</h3>
             <form method="post">
                 <input type="hidden" name="action" value="url">
                 <label for="proff_url">URL til regnskapsside</label>
@@ -135,7 +419,7 @@
         </section>
 
         <section class="card">
-            <h2>3) Søk etter selskap eller org.nr.</h2>
+            <h3>3) Søk etter selskap eller org.nr.</h3>
             <form method="post">
                 <input type="hidden" name="action" value="search">
                 <label for="search_query">Søk</label>
@@ -151,188 +435,9 @@
             </ul>
             {% endif %}
         </section>
-
-        <section class="card">
-            <h2>4) Søk i regnskaps-API (ny modul)</h2>
-            <p class="muted">Avansert søk: navn/orgnr, kommune, næringskode, omsetning/resultat, egenkapitalgrad og beliggenhet.</p>
-            <form id="apiSearchForm">
-                <label for="api_query">Navn eller org.nr</label>
-                <input id="api_query" type="text" placeholder="Eks. Equinor eller 923609016">
-                <div class="inline-grid">
-                    <div>
-                        <label for="api_kommune">Kommune (nummer)</label>
-                        <input id="api_kommune" type="text" placeholder="Eks. 0301">
-                    </div>
-                    <div>
-                        <label for="api_naeringskode">Næringskode (prefix eller tekst)</label>
-                        <input id="api_naeringskode" type="text" placeholder="Eks. 62 eller eiendom">
-                    </div>
-                    <div>
-                        <label for="api_orgform">Organisasjonsform</label>
-                        <input id="api_orgform" type="text" placeholder="Eks. AS, ENK, ANS">
-                    </div>
-                    <div>
-                        <label for="api_accounting_year">Regnskapsår</label>
-                        <input id="api_accounting_year" type="number" placeholder="Eks. 2022" min="2000" max="2099">
-                    </div>
-                </div>
-
-                <div class="inline-grid">
-                    <div>
-                        <label for="api_sort">Sorter på</label>
-                        <select id="api_sort">
-                            <option value="revenue">Omsetning</option>
-                            <option value="profit">Resultat</option>
-                            <option value="operating_profit">Driftsresultat</option>
-                            <option value="equity">Egenkapital</option>
-                            <option value="total_assets">Sum eiendeler</option>
-                            <option value="equity_ratio">Egenkapitalgrad</option>
-                            <option value="name">Navn</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="api_limit">Antall treff</label>
-                        <input id="api_limit" type="number" min="1" max="500" value="100">
-                    </div>
-                </div>
-
-                <div class="inline-grid">
-                    <div>
-                        <label for="api_min_revenue">Min omsetning (NOK)</label>
-                        <input id="api_min_revenue" type="number" step="1" placeholder="Eks. 10000000">
-                    </div>
-                    <div>
-                        <label for="api_max_revenue">Maks omsetning (NOK)</label>
-                        <input id="api_max_revenue" type="number" step="1" placeholder="Eks. 100000000">
-                    </div>
-                    <div>
-                        <label for="api_min_profit">Min nettoresultat</label>
-                        <input id="api_min_profit" type="number" step="1" placeholder="Eks. 500000">
-                    </div>
-                    <div>
-                        <label for="api_min_operating_profit">Min driftsresultat</label>
-                        <input id="api_min_operating_profit" type="number" step="1" placeholder="Eks. 500000">
-                    </div>
-                </div>
-
-                <div class="inline-grid">
-                    <div>
-                        <label for="api_min_equity_ratio">Min egenkapitalgrad (%)</label>
-                        <input id="api_min_equity_ratio" type="number" step="0.1" placeholder="Eks. 30">
-                    </div>
-                    <div>
-                        <label for="api_max_equity_ratio">Maks egenkapitalgrad (%)</label>
-                        <input id="api_max_equity_ratio" type="number" step="0.1" placeholder="Eks. 80">
-                    </div>
-                    <div>
-                        <label for="api_min_total_assets">Min sum eiendeler</label>
-                        <input id="api_min_total_assets" type="number" step="1" placeholder="Eks. 5000000">
-                    </div>
-                    <div>
-                        <label for="api_max_total_assets">Maks sum eiendeler</label>
-                        <input id="api_max_total_assets" type="number" step="1" placeholder="Eks. 500000000">
-                    </div>
-                </div>
-
-                <div class="inline-grid">
-                    <div>
-                        <label for="api_lat">Breddegrad (lat)</label>
-                        <input id="api_lat" type="number" step="any" placeholder="Eks. 59.9139">
-                    </div>
-                    <div>
-                        <label for="api_lon">Lengdegrad (lon)</label>
-                        <input id="api_lon" type="number" step="any" placeholder="Eks. 10.7522">
-                    </div>
-                    <div>
-                        <label for="api_radius">Radius (km)</label>
-                        <input id="api_radius" type="number" step="0.1" min="0.1" value="5">
-                    </div>
-                </div>
-                <label class="check-wrap" for="api_has_regnskap">
-                    <input id="api_has_regnskap" type="checkbox">
-                    Kun selskaper med regnskap
-                </label>
-                <button type="submit">Søk i ny modul</button>
-                <button type="button" id="apiHealthBtn" style="margin-left:8px;">Sjekk API-status</button>
-            </form>
-            <p id="apiStatus" class="muted" style="margin-top:8px;"></p>
-            <div id="apiActions" style="display:none; gap:8px; flex-wrap:wrap; align-items:center; margin: 10px 0;">
-                <button type="button" id="apiExportBtn">Eksporter alle treff (CSV)</button>
-                <button type="button" id="apiSummaryBtn">Analyser alle treff</button>
-                <button type="button" id="apiDiagnosticsBtn">Sjekk databasekvalitet</button>
-                <input id="apiResultFilter" type="text" placeholder="Søk i trefflisten som vises nå">
-            </div>
-            <div id="apiSummary" class="muted card" style="display:none; margin-bottom: 12px; padding: 12px;">
-                <strong>Analyse av alle treff</strong>
-                <div class="inline-grid" style="margin-top:10px;">
-                    <div><strong>Treff</strong><div id="apiSummaryTotal"></div></div>
-                    <div><strong>Med regnskap</strong><div id="apiSummaryRegnskap"></div></div>
-                    <div><strong>Sum omsetning</strong><div id="apiSummaryRevenue"></div></div>
-                    <div><strong>Sum driftsresultat</strong><div id="apiSummaryOperatingProfit"></div></div>
-                    <div><strong>Sum nettoresultat</strong><div id="apiSummaryNetProfit"></div></div>
-                    <div><strong>Sum egenkapital</strong><div id="apiSummaryEquity"></div></div>
-                    <div><strong>Snitt egenkapitalgrad</strong><div id="apiSummaryEquityRatio"></div></div>
-                </div>
-            </div>
-            <div id="apiDiagnostics" class="muted card" style="display:none; margin-bottom: 12px; padding: 12px;">
-                <strong>Databasekvalitet</strong>
-                <div class="inline-grid" style="margin-top:10px;">
-                    <div><strong>Totalt selskaper</strong><div id="apiDiagnosticsTotal"></div></div>
-                    <div><strong>Med navn</strong><div id="apiDiagnosticsNamed"></div></div>
-                    <div><strong>Mangler navn</strong><div id="apiDiagnosticsMissing"></div></div>
-                    <div><strong>Blankt navn</strong><div id="apiDiagnosticsBlank"></div></div>
-                    <div><strong>Unike navn</strong><div id="apiDiagnosticsDistinct"></div></div>
-                    <div><strong>Navn ser ut som orgnr</strong><div id="apiDiagnosticsOrgnrLike"></div></div>
-                    <div><strong>Navn = adresse</strong><div id="apiDiagnosticsNameEqualsAddress"></div></div>
-                    <div><strong>Regnskapsrader</strong><div id="apiDiagnosticsRegnskapRows"></div></div>
-                    <div><strong>Selskaper med regnskap</strong><div id="apiDiagnosticsWithRegnskap"></div></div>
-                </div>
-            </div>
-            <div id="apiInsights" class="muted" style="margin:10px 0 14px; display:none;">
-                <p><strong>Markedsoverblikk:</strong> <span id="apiInsightsTotal"></span></p>
-                <div class="inline-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
-                    <div>
-                        <strong>Topp kommuner</strong>
-                        <ul id="apiInsightsKommune"></ul>
-                    </div>
-                    <div>
-                        <strong>Topp sektorer (NACE-prefix)</strong>
-                        <ul id="apiInsightsNaering"></ul>
-                    </div>
-                    <div>
-                        <strong>Omsetningsfordeling</strong>
-                        <ul id="apiInsightsRevenue"></ul>
-                    </div>
-                </div>
-            </div>
-            <div id="apiPagination" class="muted" style="display:none; margin-top: 12px; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <button type="button" id="apiPrevPage">← Forrige side</button>
-                <button type="button" id="apiNextPage">Neste side →</button>
-                <span id="apiPageInfo"></span>
-            </div>
-            <div class="api-table-wrap">
-                <table id="apiResultsTable" style="display:none;">
-                    <thead>
-                        <tr>
-                            <th>Orgnr</th>
-                            <th>Navn</th>
-                            <th>Næringskode</th>
-                            <th>År</th>
-                            <th>Omsetning</th>
-                            <th>Driftsresultat</th>
-                            <th>Nettoresultat</th>
-                            <th>Egenkapital</th>
-                            <th>Kommune</th>
-                            <th>Avstand</th>
-                        </tr>
-                    </thead>
-                    <tbody id="apiResultsBody"></tbody>
-                </table>
-            </div>
-        </section>
-
     </div>
 </div>
+
 <script>
     const form = document.getElementById('batchForm');
     const overlay = document.getElementById('batchOverlay');
@@ -341,7 +446,6 @@
 
     form?.addEventListener('submit', () => {
         const estimatedTotalSec = 15;
-
         overlay.classList.add('show');
         const started = Date.now();
 
@@ -349,7 +453,6 @@
             const elapsed = Math.floor((Date.now() - started) / 1000);
             const remaining = Math.max(estimatedTotalSec - elapsed, 0);
             const pct = Math.min(Math.round((elapsed / estimatedTotalSec) * 100), 95);
-
             timerText.textContent = `Kjøretid: ${elapsed} sek · Estimat igjen: ca ${remaining} sek`;
             if (progressBar) progressBar.style.width = pct + '%';
         }, 500);
@@ -360,46 +463,41 @@
     const apiForm = document.getElementById('apiSearchForm');
     const apiHealthBtn = document.getElementById('apiHealthBtn');
     const apiStatus = document.getElementById('apiStatus');
-    const apiActions = document.getElementById('apiActions');
-    const apiExportBtn = document.getElementById('apiExportBtn');
-    const apiSummaryBtn = document.getElementById('apiSummaryBtn');
-    const apiDiagnosticsBtn = document.getElementById('apiDiagnosticsBtn');
-    const apiResultFilter = document.getElementById('apiResultFilter');
+    const apiMetaInfo = document.getElementById('apiMetaInfo');
     const apiSummary = document.getElementById('apiSummary');
-    const apiSummaryTotal = document.getElementById('apiSummaryTotal');
-    const apiSummaryRegnskap = document.getElementById('apiSummaryRegnskap');
-    const apiSummaryRevenue = document.getElementById('apiSummaryRevenue');
-    const apiSummaryOperatingProfit = document.getElementById('apiSummaryOperatingProfit');
-    const apiSummaryNetProfit = document.getElementById('apiSummaryNetProfit');
-    const apiSummaryEquity = document.getElementById('apiSummaryEquity');
-    const apiSummaryEquityRatio = document.getElementById('apiSummaryEquityRatio');
-    const apiDiagnostics = document.getElementById('apiDiagnostics');
-    const apiDiagnosticsTotal = document.getElementById('apiDiagnosticsTotal');
-    const apiDiagnosticsNamed = document.getElementById('apiDiagnosticsNamed');
-    const apiDiagnosticsMissing = document.getElementById('apiDiagnosticsMissing');
-    const apiDiagnosticsBlank = document.getElementById('apiDiagnosticsBlank');
-    const apiDiagnosticsDistinct = document.getElementById('apiDiagnosticsDistinct');
-    const apiDiagnosticsOrgnrLike = document.getElementById('apiDiagnosticsOrgnrLike');
-    const apiDiagnosticsNameEqualsAddress = document.getElementById('apiDiagnosticsNameEqualsAddress');
-    const apiDiagnosticsRegnskapRows = document.getElementById('apiDiagnosticsRegnskapRows');
-    const apiDiagnosticsWithRegnskap = document.getElementById('apiDiagnosticsWithRegnskap');
+    const apiActions = document.getElementById('apiActions');
     const apiResultsTable = document.getElementById('apiResultsTable');
     const apiResultsBody = document.getElementById('apiResultsBody');
-    const apiInsights = document.getElementById('apiInsights');
-    const apiInsightsTotal = document.getElementById('apiInsightsTotal');
-    const apiInsightsKommune = document.getElementById('apiInsightsKommune');
-    const apiInsightsNaering = document.getElementById('apiInsightsNaering');
-    const apiInsightsRevenue = document.getElementById('apiInsightsRevenue');
+    const apiResultFilter = document.getElementById('apiResultFilter');
     const apiPagination = document.getElementById('apiPagination');
     const apiPrevPage = document.getElementById('apiPrevPage');
     const apiNextPage = document.getElementById('apiNextPage');
     const apiPageInfo = document.getElementById('apiPageInfo');
+    const presetTopRevenueBtn = document.getElementById('presetTopRevenueBtn');
+    const resetApiFormBtn = document.getElementById('resetApiFormBtn');
 
-    const apiSearchState = {
-        params: null,
-        offset: 0,
-        endpoint: '',
-    };
+    const state = { params: null, offset: 0, meta: null };
+
+    function fmtNumber(value) {
+        if (value === null || value === undefined || value === '') return '';
+        const num = Number(value);
+        if (!Number.isFinite(num)) return String(value);
+        return new Intl.NumberFormat('nb-NO', { maximumFractionDigits: 0 }).format(num);
+    }
+
+    function fmtPct(value) {
+        if (value === null || value === undefined || value === '') return '';
+        const num = Number(value);
+        if (!Number.isFinite(num)) return String(value);
+        return new Intl.NumberFormat('nb-NO', { maximumFractionDigits: 1 }).format(num) + ' %';
+    }
+
+    function getRowValue(row, keys) {
+        for (const key of keys) {
+            if (row[key] !== undefined && row[key] !== null) return row[key];
+        }
+        return null;
+    }
 
     function addIfPresent(params, key, value) {
         if (value === null || value === undefined) return;
@@ -408,361 +506,179 @@
         params.set(key, normalized);
     }
 
-    function fmtNumber(value) {
-        if (value === null || value === undefined || value === '') return '';
-        const num = Number(value);
-        if (!Number.isFinite(num)) return String(value);
-        return new Intl.NumberFormat('nb-NO').format(Math.round(num));
-    }
-
-    function fmtPercent(value) {
-        if (value === null || value === undefined || value === '') return '';
-        const num = Number(value);
-        if (!Number.isFinite(num)) return String(value);
-        return new Intl.NumberFormat('nb-NO', { maximumFractionDigits: 1 }).format(num * 100) + ' %';
-    }
-
-    function clearSummary() {
+    function clearResults() {
         apiSummary.style.display = 'none';
-        apiSummaryTotal.textContent = '';
-        apiSummaryRegnskap.textContent = '';
-        apiSummaryRevenue.textContent = '';
-        apiSummaryOperatingProfit.textContent = '';
-        apiSummaryNetProfit.textContent = '';
-        apiSummaryEquity.textContent = '';
-        apiSummaryEquityRatio.textContent = '';
+        apiSummary.innerHTML = '';
+        apiActions.style.display = 'none';
+        apiResultsTable.style.display = 'none';
+        apiResultsBody.innerHTML = '';
+        apiPagination.style.display = 'none';
     }
 
-    function clearDiagnostics() {
-        apiDiagnostics.style.display = 'none';
-        apiDiagnosticsTotal.textContent = '';
-        apiDiagnosticsNamed.textContent = '';
-        apiDiagnosticsMissing.textContent = '';
-        apiDiagnosticsBlank.textContent = '';
-        apiDiagnosticsDistinct.textContent = '';
-        apiDiagnosticsOrgnrLike.textContent = '';
-        apiDiagnosticsNameEqualsAddress.textContent = '';
-        apiDiagnosticsRegnskapRows.textContent = '';
-        apiDiagnosticsWithRegnskap.textContent = '';
+    function renderSummary(total, returned, sortBy, sortDir) {
+        const summaryItems = [
+            ['Totalt treff', fmtNumber(total)],
+            ['Vises nå', fmtNumber(returned)],
+            ['Sortering', `${sortBy} · ${sortDir}`],
+        ];
+        apiSummary.innerHTML = summaryItems.map(([label, value]) => `
+            <div class="summary-box">
+                <strong>${label}</strong>
+                <div>${value}</div>
+            </div>
+        `).join('');
+        apiSummary.style.display = '';
     }
 
-    function applyResultFilter() {
+    function applyClientFilter() {
         const needle = (apiResultFilter?.value || '').trim().toLowerCase();
-        const rows = Array.from(apiResultsBody.querySelectorAll('tr'));
-        rows.forEach((row) => {
-            const matches = !needle || row.textContent.toLowerCase().includes(needle);
-            row.style.display = matches ? '' : 'none';
-        });
-    }
-
-    function endpointSupportsAdvancedActions(endpoint) {
-        return endpoint === '/regnskap-api/api/search' || endpoint === '/regnskap-api/api/nearby';
-    }
-
-    function buildDerivedEndpoint(suffix) {
-        if (!apiSearchState.endpoint || !endpointSupportsAdvancedActions(apiSearchState.endpoint)) return '';
-        return `${apiSearchState.endpoint}/${suffix}`;
-    }
-
-
-    function clearInsights() {
-        apiInsights.style.display = 'none';
-        apiInsightsTotal.textContent = '';
-        apiInsightsKommune.innerHTML = '';
-        apiInsightsNaering.innerHTML = '';
-        apiInsightsRevenue.innerHTML = '';
-    }
-
-    function renderInsightList(target, rows, onClick) {
-        target.innerHTML = '';
-        if (!Array.isArray(rows) || !rows.length) {
-            const li = document.createElement('li');
-            li.textContent = 'Ingen data';
-            target.appendChild(li);
-            return;
-        }
-
-        rows.forEach((row) => {
-            const li = document.createElement('li');
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.style.margin = '0';
-            button.style.padding = '2px 6px';
-            button.style.fontSize = '0.85rem';
-            button.textContent = `${row.key}: ${fmtNumber(row.count)} selskaper`;
-            button.addEventListener('click', () => onClick(row.key));
-            li.appendChild(button);
-            target.appendChild(li);
+        Array.from(apiResultsBody.querySelectorAll('tr')).forEach((row) => {
+            row.style.display = !needle || row.textContent.toLowerCase().includes(needle) ? '' : 'none';
         });
     }
 
     async function parseMaybeJson(res) {
         const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-            return await res.json();
-        }
+        if (contentType.includes('application/json')) return await res.json();
         const text = await res.text();
-        return { detail: text.slice(0, 160) || 'Ugyldig svarformat (ikke JSON).' };
+        return { detail: text.slice(0, 200) || 'Ugyldig svarformat.' };
+    }
+
+    async function loadFilterMeta() {
+        try {
+            const res = await fetch('/regnskap/api/companies/filter-meta', { headers: { 'Accept': 'application/json' } });
+            const data = await parseMaybeJson(res);
+            if (!res.ok) return;
+            state.meta = data;
+            const addressInfo = Array.isArray(data.address_columns) && data.address_columns.length
+                ? `Adressefelter funnet: ${data.address_columns.join(', ')}`
+                : 'Ingen adressefelt oppdaget i entity-tabellen ennå.';
+            apiMetaInfo.textContent = addressInfo;
+        } catch (_err) {
+            apiMetaInfo.textContent = 'Klarte ikke lese metadata for filterfeltene.';
+        }
     }
 
     async function checkApiHealth() {
-        apiStatus.textContent = 'Sjekker API-status…';
-
-        const healthEndpoints = ['/regnskap-api/health', '/regnskap/api/health'];
-        for (const endpoint of healthEndpoints) {
-            try {
-                const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } });
-                const data = await parseMaybeJson(res);
-                if (res.ok && data.ok) {
-                    if (endpoint === '/regnskap/api/health') {
-                        apiStatus.textContent = '⚠️ API kjører via /regnskap/api/health (fallback). For avanserte filtre uten navn/orgnr må /regnskap-api være oppe.';
-                    } else {
-                        apiStatus.textContent = `✅ API kjører via ${endpoint}`;
-                    }
-                    return;
-                }
-            } catch (_err) {
-                // prøv neste endpoint
+        apiStatus.textContent = 'Sjekker analyse-API…';
+        try {
+            const res = await fetch('/regnskap/api/analysis/health', { headers: { 'Accept': 'application/json' } });
+            const data = await parseMaybeJson(res);
+            if (!res.ok) {
+                apiStatus.textContent = `❌ Analyse-API svarte ${res.status}: ${data.detail || res.statusText}`;
+                return;
             }
+            apiStatus.textContent = `✅ Analyse-API er oppe · ${fmtNumber(data.entity_count)} selskaper · ${fmtNumber(data.regnskap_count)} regnskapsrader`;
+        } catch (err) {
+            apiStatus.textContent = `❌ Klarte ikke kontakte analyse-API: ${err.message}`;
         }
-
-        apiStatus.textContent = '❌ Fant ingen fungerende API-endepunkt. Prøv å starte ASGI-app eller bruk /regnskap/api/* fallback.';
     }
 
-    apiHealthBtn?.addEventListener('click', checkApiHealth);
+    function collectSearchParams(resetOffset = true) {
+        const params = new URLSearchParams();
+        const limit = Math.max(1, Math.min(Number(document.getElementById('api_limit')?.value || 100), 500));
 
-    async function runApiSearch({ resetOffset = true, skipInsights = false } = {}) {
-        apiStatus.textContent = '';
-        apiActions.style.display = 'none';
-        apiResultsTable.style.display = 'none';
-        apiResultsBody.innerHTML = '';
-        apiPagination.style.display = 'none';
-        clearInsights();
-        clearSummary();
-        clearDiagnostics();
+        addIfPresent(params, 'q', document.getElementById('api_query')?.value);
+        addIfPresent(params, 'adresse', document.getElementById('api_adresse')?.value);
+        addIfPresent(params, 'kommune', document.getElementById('api_kommune')?.value);
+        addIfPresent(params, 'naeringskode', document.getElementById('api_naeringskode')?.value);
+        addIfPresent(params, 'orgform', document.getElementById('api_orgform')?.value);
+        addIfPresent(params, 'min_omsetning', document.getElementById('api_min_omsetning')?.value);
+        addIfPresent(params, 'max_omsetning', document.getElementById('api_max_omsetning')?.value);
+        addIfPresent(params, 'min_resultat', document.getElementById('api_min_resultat')?.value);
+        addIfPresent(params, 'max_resultat', document.getElementById('api_max_resultat')?.value);
 
-        // Samle alle feltverdier
-        const q                  = document.getElementById('api_query')?.value?.trim();
-        const kommune            = document.getElementById('api_kommune')?.value?.trim();
-        const naeringskode       = document.getElementById('api_naeringskode')?.value?.trim();
-        const orgform            = document.getElementById('api_orgform')?.value?.trim();
-        const accountingYear     = document.getElementById('api_accounting_year')?.value?.trim();
-        const minRevenue         = document.getElementById('api_min_revenue')?.value?.trim();
-        const maxRevenue         = document.getElementById('api_max_revenue')?.value?.trim();
-        const minProfit          = document.getElementById('api_min_profit')?.value?.trim();
-        const minOperatingProfit = document.getElementById('api_min_operating_profit')?.value?.trim();
-        const minEquityRatioPct  = document.getElementById('api_min_equity_ratio')?.value?.trim();
-        const maxEquityRatioPct  = document.getElementById('api_max_equity_ratio')?.value?.trim();
-        const minTotalAssets     = document.getElementById('api_min_total_assets')?.value?.trim();
-        const maxTotalAssets     = document.getElementById('api_max_total_assets')?.value?.trim();
-        const sort               = document.getElementById('api_sort')?.value || 'revenue';
-        const limit              = document.getElementById('api_limit')?.value?.trim() || '100';
-        const hasRegnskap        = document.getElementById('api_has_regnskap')?.checked;
-        const lat                = document.getElementById('api_lat')?.value?.trim();
-        const lon                = document.getElementById('api_lon')?.value?.trim();
-        const radiusKm           = document.getElementById('api_radius')?.value?.trim() || '5';
+        const equityPct = document.getElementById('api_min_egenkapitalandel')?.value?.trim();
+        const marginPct = document.getElementById('api_min_netto_margin')?.value?.trim();
+        if (equityPct) addIfPresent(params, 'min_egenkapitalandel', equityPct);
+        if (marginPct) addIfPresent(params, 'min_netto_margin', marginPct);
 
-        const hasGeo = lat && lon;
+        addIfPresent(params, 'min_ansatte', document.getElementById('api_min_ansatte')?.value);
+        addIfPresent(params, 'max_ansatte', document.getElementById('api_max_ansatte')?.value);
+        addIfPresent(params, 'sort_by', document.getElementById('api_sort_by')?.value);
+        addIfPresent(params, 'sort_dir', document.getElementById('api_sort_dir')?.value);
+        params.set('limit', String(limit));
+        params.set('offset', String(resetOffset ? 0 : state.offset));
+        return params;
+    }
 
-        // Sjekk: minst ett søkekriterie må være fylt inn
-        const hasAnyCriteria = q || kommune || naeringskode || orgform || accountingYear
-            || minRevenue || maxRevenue || minProfit || minOperatingProfit
-            || minEquityRatioPct || maxEquityRatioPct || minTotalAssets || maxTotalAssets
-            || hasRegnskap || hasGeo;
+    function hasAnyFilter(params) {
+        return Array.from(params.keys()).some((key) => !['limit', 'offset', 'sort_by', 'sort_dir', 'orgform'].includes(key))
+            || !!(params.get('orgform') || '').trim();
+    }
 
-        if (!hasAnyCriteria) {
-            apiStatus.textContent = '⚠️ Fyll inn minst ett søkekriterie – navn, kommune, næringskode, omsetning, e.l.';
+    async function runApiSearch({ resetOffset = true } = {}) {
+        clearResults();
+        const params = collectSearchParams(resetOffset);
+        if (!hasAnyFilter(params)) {
+            apiStatus.textContent = '⚠️ Fyll inn minst ett søkekriterie.';
             return;
         }
 
-        // Bygg URL-parametere
-        const params = new URLSearchParams();
-        const normalizedLimit = Math.max(1, Math.min(Number(limit) || 100, 500));
-        params.set('limit', String(normalizedLimit));
-        const offset = resetOffset ? 0 : (apiSearchState.offset || 0);
-        params.set('offset', String(offset));
-        addIfPresent(params, 'sort', sort);
-        addIfPresent(params, 'kommune', kommune);
-        addIfPresent(params, 'naeringskode', naeringskode);
-        addIfPresent(params, 'orgform', orgform);
-        addIfPresent(params, 'accounting_year', accountingYear);
-        addIfPresent(params, 'min_revenue', minRevenue);
-        addIfPresent(params, 'max_revenue', maxRevenue);
-        addIfPresent(params, 'min_profit', minProfit);
-        addIfPresent(params, 'min_operating_profit', minOperatingProfit);
-        addIfPresent(params, 'min_total_assets', minTotalAssets);
-        addIfPresent(params, 'max_total_assets', maxTotalAssets);
+        state.params = new URLSearchParams(params);
+        state.offset = Number(params.get('offset') || 0);
+        apiStatus.textContent = 'Søker i analyseplattformen…';
 
-        if (minEquityRatioPct) {
-            const ratio = Number(minEquityRatioPct) / 100;
-            if (Number.isFinite(ratio)) params.set('min_equity_ratio', String(ratio));
-        }
-        if (maxEquityRatioPct) {
-            const ratio = Number(maxEquityRatioPct) / 100;
-            if (Number.isFinite(ratio)) params.set('max_equity_ratio', String(ratio));
-        }
-        if (hasRegnskap) params.set('has_regnskap', 'true');
-        if (hasGeo) {
-            addIfPresent(params, 'lat', lat);
-            addIfPresent(params, 'lon', lon);
-            addIfPresent(params, 'radius_km', radiusKm);
-        }
-        if (q) {
-            const isOrgnr = /^\d{9}$/.test(q);
-            if (isOrgnr) params.set('orgnr', q);
-            else params.set('q', q);
-        }
-
-        // Sjekk om avanserte filtre krever /regnskap-api
-        const needsAdvanced = kommune || naeringskode || orgform || accountingYear
-            || minRevenue || maxRevenue || minProfit || minOperatingProfit
-            || minEquityRatioPct || maxEquityRatioPct || minTotalAssets || maxTotalAssets
-            || hasGeo;
-
-        apiStatus.textContent = 'Søker…';
-
-        apiSearchState.params = new URLSearchParams(params);
-        apiSearchState.offset = offset;
-        apiSearchState.endpoint = '';
-
-        // Innsikt-kall i bakgrunnen – blokkerer ikke søkeresultatene
-        const insightParams = new URLSearchParams(params);
-        insightParams.delete('limit');
-        insightParams.delete('offset');
-        insightParams.delete('sort');
-        insightParams.delete('lat');
-        insightParams.delete('lon');
-        insightParams.delete('radius_km');
-        insightParams.set('has_regnskap', 'true'); // begrens til selskaper med regnskap for hastighet
-
-        const loadInsights = async () => {
-            for (const insightEndpoint of ['/regnskap-api/api/search/insights']) {
-                try {
-                    const insightRes = await fetch(`${insightEndpoint}?${insightParams.toString()}`, { headers: { 'Accept': 'application/json' } });
-                    const insightData = await parseMaybeJson(insightRes);
-                    if (!insightRes.ok) return;
-
-                    apiInsightsTotal.textContent = `${fmtNumber(insightData.total_matches || 0)} selskaper matcher filteret.`;
-
-                    renderInsightList(apiInsightsKommune, insightData.by_kommune, (key) => {
-                        if (key === 'Ukjent') return;
-                        document.getElementById('api_kommune').value = key;
-                        apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
-                    });
-
-                    renderInsightList(apiInsightsNaering, insightData.by_naeringskode_prefix, (key) => {
-                        if (key === 'Ukjent') return;
-                        document.getElementById('api_naeringskode').value = key;
-                        apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
-                    });
-
-                    renderInsightList(apiInsightsRevenue, insightData.by_revenue_band, (key) => {
-                        const minInput = document.getElementById('api_min_revenue');
-                        const maxInput = document.getElementById('api_max_revenue');
-                        minInput.value = '';
-                        maxInput.value = '';
-                        if (key.startsWith('< 1'))              { maxInput.value = '999999'; }
-                        else if (key.startsWith('1–10'))         { minInput.value = '1000000';   maxInput.value = '9999999'; }
-                        else if (key.startsWith('10–100'))       { minInput.value = '10000000';  maxInput.value = '99999999'; }
-                        else if (key.startsWith('100 mill–1'))   { minInput.value = '100000000'; maxInput.value = '999999999'; }
-                        else if (key.startsWith('> 1'))          { minInput.value = '1000000000'; }
-                        apiForm.dispatchEvent(new Event('submit', { cancelable: true }));
-                    });
-
-                    apiInsights.style.display = '';
-                } catch (_err) {
-                    // ignorer innsikt-feil stille
-                }
-            }
-        };
-
-        // Start insights i bakgrunnen uten await
-        if (!skipInsights) loadInsights();
-
-        // Søke-endepunkter – velg basert på geo og avanserte filtre
-        let searchEndpoints;
-        if (hasGeo) {
-            searchEndpoints = ['/regnskap-api/api/nearby'];
-        } else {
-            searchEndpoints = needsAdvanced
-                ? ['/regnskap-api/api/search']                          // kun FastAPI
-                : ['/regnskap-api/api/search', '/regnskap/api/search']; // FastAPI med Flask-fallback
-        }
-
-        let lastError = '';
-
-        for (const endpoint of searchEndpoints) {
-            try {
-                const res = await fetch(`${endpoint}?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
-                const data = await parseMaybeJson(res);
-
-                if (!res.ok) {
-                    lastError = `${endpoint} svarte ${res.status}: ${data.detail || res.statusText}`;
-                    continue;
-                }
-
-                const rows = Array.isArray(data.results) ? data.results : [];
-                if (!rows.length) {
-                    const totalCount = data.total_count ?? null;
-                    apiStatus.textContent = totalCount !== null
-                        ? `Ingen treff (totalt ${fmtNumber(totalCount)} matchet filteret, men alle er utenfor side).`
-                        : 'Ingen treff.';
-                    return;
-                }
-
-                for (const row of rows) {
-                    const tr = document.createElement('tr');
-                    const values = [
-                        row.orgnr ?? '',
-                        row.navn ?? '',
-                        row.naeringskode ?? '',
-                        row.accounting_year ?? '',
-                        fmtNumber(row.revenue),
-                        fmtNumber(row.operating_profit),
-                        fmtNumber(row.net_profit),
-                        fmtNumber(row.equity),
-                        row.kommunenummer ?? '',
-                        row.distance_m ? fmtNumber(row.distance_m) + ' m' : '',
-                    ];
-                    values.forEach((value) => {
-                        const td = document.createElement('td');
-                        td.textContent = String(value);
-                        tr.appendChild(td);
-                    });
-                    apiResultsBody.appendChild(tr);
-                }
-
-                apiResultsTable.style.display = '';
-                apiActions.style.display = '';
-                apiSearchState.endpoint = endpoint;
-                apiExportBtn.disabled = !endpointSupportsAdvancedActions(endpoint);
-                apiSummaryBtn.disabled = !endpointSupportsAdvancedActions(endpoint);
-                applyResultFilter();
-                const totalCount = Number(data.total_count ?? data.total_returned ?? rows.length);
-                const totalReturned = Number(data.total_returned ?? rows.length);
-                const currentOffset = Number(data.offset ?? offset ?? 0);
-                const pageSize = Number(data.limit ?? normalizedLimit);
-                const currentPage = Math.floor(currentOffset / Math.max(pageSize, 1)) + 1;
-                const totalPages = Math.max(1, Math.ceil(totalCount / Math.max(pageSize, 1)));
-                const startRow = totalCount ? currentOffset + 1 : 0;
-                const endRow = Math.min(currentOffset + totalReturned, totalCount || totalReturned);
-
-                apiPrevPage.disabled = currentOffset <= 0;
-                apiNextPage.disabled = currentOffset + totalReturned >= totalCount;
-                apiPageInfo.textContent = `Side ${fmtNumber(currentPage)} av ${fmtNumber(totalPages)} · viser ${fmtNumber(startRow)}–${fmtNumber(endRow)} av ${fmtNumber(totalCount)} selskaper`;
-                apiPagination.style.display = totalCount > pageSize ? 'flex' : '';
-                apiStatus.textContent = `Viser ${rows.length} av totalt ${fmtNumber(totalCount)} treff (via ${endpoint}).`;
+        try {
+            const res = await fetch(`/regnskap/api/companies/filter?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+            const data = await parseMaybeJson(res);
+            if (!res.ok) {
+                apiStatus.textContent = `❌ Søket feilet: ${data.detail || res.statusText}`;
                 return;
-            } catch (err) {
-                lastError = `${endpoint} svarte ikke (${err.message}).`;
             }
-        }
 
-        // Ingen endepunkter fungerte
-        if (needsAdvanced) {
-            apiStatus.textContent = `❌ /regnskap-api er ikke tilgjengelig. Avanserte filtre (omsetning, næringskode, kommune osv.) krever at FastAPI-modulen kjører. Sjekk at DATABASE_URL er satt og at ASGI-appen starter. Feil: ${lastError}`;
-        } else {
-            apiStatus.textContent = `❌ ${lastError || 'Klarte ikke søke mot noen API-endepunkter.'}`;
+            const rows = Array.isArray(data.results) ? data.results : [];
+            const total = Number(data.total_returned ?? rows.length);
+            const limit = Number(data.limit ?? params.get('limit') ?? 100);
+            const offset = Number(data.offset ?? params.get('offset') ?? 0);
+            state.offset = offset;
+
+            if (!rows.length) {
+                apiStatus.textContent = total > 0
+                    ? `Ingen rader på denne siden. Totalt ${fmtNumber(total)} treff matcher filteret.`
+                    : 'Ingen treff for valgt filter.';
+                return;
+            }
+
+            rows.forEach((row) => {
+                const tr = document.createElement('tr');
+                const cells = [
+                    getRowValue(row, ['orgnr']),
+                    getRowValue(row, ['navn']),
+                    getRowValue(row, ['orgform']),
+                    getRowValue(row, ['kommune', 'kommunenummer']),
+                    getRowValue(row, ['ansatte']),
+                    getRowValue(row, ['regnskapsaar']),
+                    fmtNumber(getRowValue(row, ['omsetning', 'sum_driftsinntekter'])),
+                    fmtNumber(getRowValue(row, ['aarsresultat'])),
+                    fmtPct(getRowValue(row, ['netto_margin'])),
+                    fmtPct(getRowValue(row, ['egenkapitalandel'])),
+                ];
+
+                cells.forEach((value) => {
+                    const td = document.createElement('td');
+                    td.textContent = value === null || value === undefined ? '' : String(value);
+                    tr.appendChild(td);
+                });
+                apiResultsBody.appendChild(tr);
+            });
+
+            apiResultsTable.style.display = '';
+            apiActions.style.display = 'flex';
+            renderSummary(total, rows.length, data.sort_by || params.get('sort_by') || 'omsetning', data.sort_dir || params.get('sort_dir') || 'desc');
+            applyClientFilter();
+
+            const currentPage = Math.floor(offset / Math.max(limit, 1)) + 1;
+            const totalPages = Math.max(1, Math.ceil(total / Math.max(limit, 1)));
+            const startRow = offset + 1;
+            const endRow = Math.min(offset + rows.length, total);
+            apiPrevPage.disabled = offset <= 0;
+            apiNextPage.disabled = endRow >= total;
+            apiPageInfo.textContent = `Side ${fmtNumber(currentPage)} av ${fmtNumber(totalPages)} · viser ${fmtNumber(startRow)}–${fmtNumber(endRow)} av ${fmtNumber(total)}`;
+            apiPagination.style.display = total > limit ? 'flex' : '';
+            apiStatus.textContent = `✅ Fant ${fmtNumber(total)} selskaper. Viser ${fmtNumber(rows.length)} på denne siden.`;
+        } catch (err) {
+            apiStatus.textContent = `❌ Klarte ikke gjennomføre søket: ${err.message}`;
         }
     }
 
@@ -772,88 +688,43 @@
     });
 
     apiPrevPage?.addEventListener('click', async () => {
-        if (!apiSearchState.params) return;
-        const limit = Math.max(1, Number(apiSearchState.params.get('limit')) || 100);
-        apiSearchState.offset = Math.max(0, apiSearchState.offset - limit);
-        await runApiSearch({ resetOffset: false, skipInsights: true });
+        if (!state.params) return;
+        const limit = Math.max(1, Number(state.params.get('limit') || 100));
+        state.offset = Math.max(0, state.offset - limit);
+        await runApiSearch({ resetOffset: false });
     });
 
     apiNextPage?.addEventListener('click', async () => {
-        if (!apiSearchState.params) return;
-        const limit = Math.max(1, Number(apiSearchState.params.get('limit')) || 100);
-        apiSearchState.offset += limit;
-        await runApiSearch({ resetOffset: false, skipInsights: true });
+        if (!state.params) return;
+        const limit = Math.max(1, Number(state.params.get('limit') || 100));
+        state.offset += limit;
+        await runApiSearch({ resetOffset: false });
     });
 
-    apiResultFilter?.addEventListener('input', applyResultFilter);
+    apiResultFilter?.addEventListener('input', applyClientFilter);
+    apiHealthBtn?.addEventListener('click', checkApiHealth);
 
-    apiExportBtn?.addEventListener('click', () => {
-        const exportEndpoint = buildDerivedEndpoint('export.csv');
-        if (!exportEndpoint || !apiSearchState.params) {
-            apiStatus.textContent = '⚠️ CSV-eksport krever et søk som gikk via /regnskap-api.';
-            return;
-        }
-        const params = new URLSearchParams(apiSearchState.params);
-        params.delete('limit');
-        params.delete('offset');
-        window.open(`${exportEndpoint}?${params.toString()}`, '_blank', 'noopener');
+    presetTopRevenueBtn?.addEventListener('click', () => {
+        document.getElementById('api_min_omsetning').value = '1000000000';
+        document.getElementById('api_sort_by').value = 'omsetning';
+        document.getElementById('api_sort_dir').value = 'desc';
+        document.getElementById('api_limit').value = '100';
+        document.getElementById('api_query').focus();
+        apiStatus.textContent = 'Preset lagt inn: selskaper over 1 milliard i omsetning.';
     });
 
-    apiSummaryBtn?.addEventListener('click', async () => {
-        const summaryEndpoint = buildDerivedEndpoint('summary');
-        if (!summaryEndpoint || !apiSearchState.params) {
-            apiStatus.textContent = '⚠️ Analyse krever et søk som gikk via /regnskap-api.';
-            return;
-        }
-        apiStatus.textContent = 'Laster analyse…';
-        const params = new URLSearchParams(apiSearchState.params);
-        params.delete('limit');
-        params.delete('offset');
-        try {
-            const res = await fetch(`${summaryEndpoint}?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
-            const data = await parseMaybeJson(res);
-            if (!res.ok) {
-                apiStatus.textContent = `❌ Klarte ikke hente analyse: ${data.detail || res.statusText}`;
-                return;
-            }
-            apiSummaryTotal.textContent = fmtNumber(data.total_matches);
-            apiSummaryRegnskap.textContent = fmtNumber(data.companies_with_regnskap);
-            apiSummaryRevenue.textContent = fmtNumber(data.sum_revenue);
-            apiSummaryOperatingProfit.textContent = fmtNumber(data.sum_operating_profit);
-            apiSummaryNetProfit.textContent = fmtNumber(data.sum_net_profit);
-            apiSummaryEquity.textContent = fmtNumber(data.sum_equity);
-            apiSummaryEquityRatio.textContent = fmtPercent(data.avg_equity_ratio);
-            apiSummary.style.display = '';
-            apiStatus.textContent = 'Analyse lastet.';
-        } catch (err) {
-            apiStatus.textContent = `❌ Klarte ikke hente analyse: ${err.message}`;
-        }
+    resetApiFormBtn?.addEventListener('click', () => {
+        apiForm.reset();
+        document.getElementById('api_orgform').value = 'AS';
+        document.getElementById('api_limit').value = '100';
+        document.getElementById('api_sort_by').value = 'omsetning';
+        document.getElementById('api_sort_dir').value = 'desc';
+        clearResults();
+        apiStatus.textContent = 'Filter nullstilt.';
     });
 
-    apiDiagnosticsBtn?.addEventListener('click', async () => {
-        apiStatus.textContent = 'Laster databasekvalitet…';
-        try {
-            const res = await fetch('/regnskap-api/api/db/diagnostics', { headers: { 'Accept': 'application/json' } });
-            const data = await parseMaybeJson(res);
-            if (!res.ok) {
-                apiStatus.textContent = `❌ Klarte ikke hente databasekvalitet: ${data.detail || res.statusText}`;
-                return;
-            }
-            apiDiagnosticsTotal.textContent = fmtNumber(data.total_entities);
-            apiDiagnosticsNamed.textContent = fmtNumber(data.entities_with_nonempty_name);
-            apiDiagnosticsMissing.textContent = fmtNumber(data.entities_missing_name);
-            apiDiagnosticsBlank.textContent = fmtNumber(data.entities_with_blank_name);
-            apiDiagnosticsDistinct.textContent = fmtNumber(data.distinct_names);
-            apiDiagnosticsOrgnrLike.textContent = fmtNumber(data.orgnr_like_names);
-            apiDiagnosticsNameEqualsAddress.textContent = fmtNumber(data.names_equal_address);
-            apiDiagnosticsRegnskapRows.textContent = fmtNumber(data.total_regnskap_rows);
-            apiDiagnosticsWithRegnskap.textContent = fmtNumber(data.entities_with_regnskap);
-            apiDiagnostics.style.display = '';
-            apiStatus.textContent = 'Databasekvalitet lastet.';
-        } catch (err) {
-            apiStatus.textContent = `❌ Klarte ikke hente databasekvalitet: ${err.message}`;
-        }
-    });
+    loadFilterMeta();
+    checkApiHealth();
 </script>
 </body>
 </html>

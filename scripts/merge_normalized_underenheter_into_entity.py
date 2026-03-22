@@ -55,21 +55,45 @@ def normalize_bool(value: str) -> str:
 
 def cast_expr(stage_alias: str, column: str, kind: str) -> str:
     source = f"NULLIF(BTRIM({stage_alias}.{column}), '')"
+
     if kind == "orgnr":
-        return f"NULLIF(regexp_replace(COALESCE({stage_alias}.{column}, ''), '\\\\D', '', 'g'), '')::bigint"
+        # Behold som tekst med bare sifre
+        return f"NULLIF(regexp_replace(COALESCE({stage_alias}.{column}, ''), '\\\\D', '', 'g'), '')"
+
     if kind == "int":
-        return f"NULLIF(regexp_replace(COALESCE({stage_alias}.{column}, ''), '\\\\D', '', 'g'), '')::integer"
+        # Bare cast hvis hele feltet faktisk er et heltall
+        return (
+            f"CASE "
+            f"WHEN NULLIF(BTRIM({stage_alias}.{column}), '') ~ '^\\d+$' "
+            f"THEN NULLIF(BTRIM({stage_alias}.{column}), '')::integer "
+            f"ELSE NULL END"
+        )
+
     if kind == "bool":
         return (
             f"CASE LOWER(BTRIM(COALESCE({stage_alias}.{column}, ''))) "
-            "WHEN 'true' THEN true WHEN '1' THEN true WHEN 'ja' THEN true WHEN 'j' THEN true "
-            "WHEN 'yes' THEN true WHEN 'false' THEN false WHEN '0' THEN false "
-            "WHEN 'nei' THEN false WHEN 'n' THEN false WHEN 'no' THEN false ELSE NULL END"
+            "WHEN 'true' THEN true "
+            "WHEN '1' THEN true "
+            "WHEN 'ja' THEN true "
+            "WHEN 'j' THEN true "
+            "WHEN 'yes' THEN true "
+            "WHEN 'false' THEN false "
+            "WHEN '0' THEN false "
+            "WHEN 'nei' THEN false "
+            "WHEN 'n' THEN false "
+            "WHEN 'no' THEN false "
+            "ELSE NULL END"
         )
-    if kind == "date":
-        return f"{source}::date"
-    return source
 
+    if kind == "date":
+        return (
+            f"CASE "
+            f"WHEN NULLIF(BTRIM({stage_alias}.{column}), '') ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}$' "
+            f"THEN NULLIF(BTRIM({stage_alias}.{column}), '')::date "
+            f"ELSE NULL END"
+        )
+
+    return source
 
 def existing_entity_columns(cur: psycopg.Cursor) -> set[str]:
     cur.execute(
@@ -86,8 +110,10 @@ def existing_entity_columns(cur: psycopg.Cursor) -> set[str]:
 def merge_csv(args: argparse.Namespace) -> None:
     csv_path = Path(args.csv_path)
     database_url = args.database_url or os.getenv("DATABASE_URL")
+
     if not database_url:
         raise SystemExit("Mangler DATABASE_URL. Sett miljøvariabel eller bruk --database-url.")
+
     if not csv_path.exists():
         raise SystemExit(f"Fant ikke fil: {csv_path}")
 
@@ -100,10 +126,12 @@ def merge_csv(args: argparse.Namespace) -> None:
             with conn.cursor() as cur:
                 entity_cols = existing_entity_columns(cur)
                 active_rules = [rule for rule in FIELD_RULES if rule["target"] in entity_cols]
+
                 if "orgnr" not in {rule["target"] for rule in active_rules}:
                     raise SystemExit("Fant ikke kolonnen 'orgnr' i entity-tabellen.")
 
                 stage_cols = [rule["target"] for rule in active_rules]
+
                 cur.execute("DROP TABLE IF EXISTS entity_underenheter_stage")
                 cur.execute(
                     f"""
@@ -131,6 +159,7 @@ def merge_csv(args: argparse.Namespace) -> None:
                         staged_rows += 1
 
                 join_orgnr = cast_expr("s", "orgnr", "orgnr")
+
                 insert_cols = [rule["target"] for rule in active_rules]
                 insert_vals = [cast_expr("s", rule["target"], rule["kind"]) for rule in active_rules]
 
@@ -138,8 +167,10 @@ def merge_csv(args: argparse.Namespace) -> None:
                 for rule in active_rules:
                     if rule["target"] == "orgnr":
                         continue
+
                     expr = cast_expr("s", rule["target"], rule["kind"])
-                    if rule["kind"] in {"text"}:
+
+                    if rule["kind"] == "text":
                         update_assignments.append(
                             f"""{rule["target"]} = CASE
                                     WHEN NULLIF(BTRIM(COALESCE(e.{rule["target"]}::text, '')), '') IS NULL
@@ -151,7 +182,8 @@ def merge_csv(args: argparse.Namespace) -> None:
                     else:
                         update_assignments.append(
                             f"""{rule["target"]} = CASE
-                                    WHEN e.{rule["target"]} IS NULL AND {expr} IS NOT NULL
+                                    WHEN e.{rule["target"]} IS NULL
+                                     AND {expr} IS NOT NULL
                                     THEN {expr}
                                     ELSE e.{rule["target"]}
                                 END"""
@@ -164,7 +196,8 @@ def merge_csv(args: argparse.Namespace) -> None:
                         COUNT(*) FILTER (WHERE e.orgnr IS NULL)::int AS inserts,
                         COUNT(*) FILTER (WHERE e.orgnr IS NOT NULL)::int AS matched_existing
                     FROM entity_underenheter_stage s
-                    LEFT JOIN entity e ON e.orgnr = {join_orgnr}
+                    LEFT JOIN entity e
+                      ON NULLIF(BTRIM(COALESCE(e.orgnr::text, '')), '') = {join_orgnr}
                     """
                 )
                 stage_rows, insert_count, matched_existing = cur.fetchone()
@@ -182,7 +215,7 @@ def merge_csv(args: argparse.Namespace) -> None:
                     UPDATE entity e
                     SET {", ".join(update_assignments)}
                     FROM entity_underenheter_stage s
-                    WHERE e.orgnr = {join_orgnr}
+                    WHERE NULLIF(BTRIM(COALESCE(e.orgnr::text, '')), '') = {join_orgnr}
                     """
                 )
                 updated_rows = cur.rowcount
@@ -192,12 +225,14 @@ def merge_csv(args: argparse.Namespace) -> None:
                     INSERT INTO entity ({", ".join(insert_cols)})
                     SELECT {", ".join(insert_vals)}
                     FROM entity_underenheter_stage s
-                    LEFT JOIN entity e ON e.orgnr = {join_orgnr}
+                    LEFT JOIN entity e
+                      ON NULLIF(BTRIM(COALESCE(e.orgnr::text, '')), '') = {join_orgnr}
                     WHERE e.orgnr IS NULL
                       AND {join_orgnr} IS NOT NULL
                     """
                 )
                 inserted_rows = cur.rowcount
+
                 conn.commit()
 
     print("Merge ferdig.")
