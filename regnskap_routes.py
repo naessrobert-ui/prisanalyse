@@ -59,7 +59,28 @@ PROFF_SEARCH_URL = "https://www.proff.no/bransjesøk"
 # Brreg – kun for navn-søk (søk på selskapsnavn i boks 3)
 BRREG_SEARCH_URL = "https://data.brreg.no/enhetsregisteret/api/enheter"
 BRREG_REGNSKAP_URL = "https://data.brreg.no/regnskapsregisteret/regnskap"
-ANALYSIS_API_URL = os.environ.get("ANALYSIS_API_URL", "http://192.168.86.30:8010").rstrip("/")
+
+
+def _build_analysis_api_candidates() -> list[str]:
+    explicit = (os.environ.get("ANALYSIS_API_URL") or "").strip().rstrip("/")
+    if explicit:
+        return [explicit]
+
+    candidates: list[str] = []
+    port = (os.environ.get("PORT") or "8000").strip() or "8000"
+    for base in (
+        f"http://127.0.0.1:{port}",
+        "http://127.0.0.1:8010",
+        "http://192.168.86.30:8010",
+    ):
+        normalized = base.rstrip("/")
+        if normalized not in candidates:
+            candidates.append(normalized)
+    return candidates
+
+
+ANALYSIS_API_CANDIDATES = _build_analysis_api_candidates()
+ANALYSIS_API_URL = ANALYSIS_API_CANDIDATES[0]
 
 
 # ---------------------------------------------------------------------------
@@ -1015,20 +1036,92 @@ def _lookup_from_query(http_session: requests.Session, query: str) -> tuple[Look
 # ---------------------------------------------------------------------------
 
 
-def proxy_analysis_api(path: str, params: dict[str, Any] | None = None):
-    try:
-        resp = requests.get(
-            f"{ANALYSIS_API_URL}{path}",
-            params=params,
-            timeout=20,
-            headers={"Accept": "application/json"},
-        )
-    except requests.RequestException as exc:
-        return jsonify({"detail": "Analysis API utilgjengelig", "error": str(exc)}), 503
 
-    response = make_response(resp.text, resp.status_code)
-    response.headers["Content-Type"] = resp.headers.get("Content-Type", "application/json; charset=utf-8")
+
+def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None):
+    try:
+        from analysis_api_compat import (
+            get_analysis_health_payload,
+            get_companies_filter_meta_payload,
+            get_companies_filter_payload,
+            get_companies_top_omsetning_payload,
+        )
+    except Exception:
+        return None
+
+    params = params or {}
+    if path == "/analysis-api/health":
+        payload = get_analysis_health_payload()
+    elif path == "/analysis-api/companies/filter/meta":
+        payload = get_companies_filter_meta_payload()
+    elif path == "/analysis-api/companies/filter":
+        payload = get_companies_filter_payload(
+            q=params.get("q"),
+            kommune=params.get("kommune"),
+            naeringskode=params.get("naeringskode"),
+            adresse=params.get("adresse"),
+            min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
+            max_omsetning=float(params["max_omsetning"]) if params.get("max_omsetning") else None,
+            min_resultat=float(params["min_resultat"]) if params.get("min_resultat") else None,
+            max_resultat=float(params["max_resultat"]) if params.get("max_resultat") else None,
+            min_egenkapitalandel=float(params["min_egenkapitalandel"]) if params.get("min_egenkapitalandel") else None,
+            min_netto_margin=float(params["min_netto_margin"]) if params.get("min_netto_margin") else None,
+            min_ansatte=int(params["min_ansatte"]) if params.get("min_ansatte") else None,
+            max_ansatte=int(params["max_ansatte"]) if params.get("max_ansatte") else None,
+            orgform=params.get("orgform"),
+            limit=int(params.get("limit") or 100),
+            offset=int(params.get("offset") or 0),
+            sort_by=params.get("sort_by") or "omsetning",
+            sort_dir=params.get("sort_dir") or "desc",
+        )
+    elif path == "/analysis-api/companies/top-omsetning":
+        payload = get_companies_top_omsetning_payload(
+            limit=int(params.get("limit") or 100),
+            min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
+            orgform=params.get("orgform"),
+        )
+    else:
+        return None
+
+    response = make_response(json.dumps(payload, ensure_ascii=False), 200)
+    response.headers["Content-Type"] = "application/json; charset=utf-8"
+    response.headers["X-Analysis-API-Base"] = "local-compat"
     return response
+
+def proxy_analysis_api(path: str, params: dict[str, Any] | None = None):
+    if not (os.environ.get("ANALYSIS_API_URL") or "").strip():
+        local_response = _proxy_analysis_api_locally(path, params)
+        if local_response is not None:
+            return local_response
+
+    last_error: str | None = None
+
+    for base_url in ANALYSIS_API_CANDIDATES:
+        try:
+            resp = requests.get(
+                f"{base_url}{path}",
+                params=params,
+                timeout=20,
+                headers={"Accept": "application/json"},
+            )
+        except requests.RequestException as exc:
+            last_error = f"{base_url}: {exc}"
+            continue
+
+        if resp.status_code == 404 and len(ANALYSIS_API_CANDIDATES) > 1:
+            last_error = f"{base_url}: HTTP 404"
+            continue
+
+        response = make_response(resp.text, resp.status_code)
+        response.headers["Content-Type"] = resp.headers.get("Content-Type", "application/json; charset=utf-8")
+        response.headers["X-Analysis-API-Base"] = base_url
+        return response
+
+    return jsonify({
+        "detail": "Analysis API utilgjengelig",
+        "error": last_error or "Ingen kandidater svarte.",
+        "candidates": ANALYSIS_API_CANDIDATES,
+    }), 503
 
 
 
