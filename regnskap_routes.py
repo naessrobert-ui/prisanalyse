@@ -59,7 +59,28 @@ PROFF_SEARCH_URL = "https://www.proff.no/bransjesøk"
 # Brreg – kun for navn-søk (søk på selskapsnavn i boks 3)
 BRREG_SEARCH_URL = "https://data.brreg.no/enhetsregisteret/api/enheter"
 BRREG_REGNSKAP_URL = "https://data.brreg.no/regnskapsregisteret/regnskap"
-ANALYSIS_API_URL = os.environ.get("ANALYSIS_API_URL", "http://192.168.86.30:8010").rstrip("/")
+
+
+def _build_analysis_api_candidates() -> list[str]:
+    explicit = (os.environ.get("ANALYSIS_API_URL") or "").strip().rstrip("/")
+    if explicit:
+        return [explicit]
+
+    candidates: list[str] = []
+    port = (os.environ.get("PORT") or "8000").strip() or "8000"
+    for base in (
+        f"http://127.0.0.1:{port}",
+        "http://127.0.0.1:8010",
+        "http://192.168.86.30:8010",
+    ):
+        normalized = base.rstrip("/")
+        if normalized not in candidates:
+            candidates.append(normalized)
+    return candidates
+
+
+ANALYSIS_API_CANDIDATES = _build_analysis_api_candidates()
+ANALYSIS_API_URL = ANALYSIS_API_CANDIDATES[0]
 
 
 # ---------------------------------------------------------------------------
@@ -1016,19 +1037,34 @@ def _lookup_from_query(http_session: requests.Session, query: str) -> tuple[Look
 
 
 def proxy_analysis_api(path: str, params: dict[str, Any] | None = None):
-    try:
-        resp = requests.get(
-            f"{ANALYSIS_API_URL}{path}",
-            params=params,
-            timeout=20,
-            headers={"Accept": "application/json"},
-        )
-    except requests.RequestException as exc:
-        return jsonify({"detail": "Analysis API utilgjengelig", "error": str(exc)}), 503
+    last_error: str | None = None
 
-    response = make_response(resp.text, resp.status_code)
-    response.headers["Content-Type"] = resp.headers.get("Content-Type", "application/json; charset=utf-8")
-    return response
+    for base_url in ANALYSIS_API_CANDIDATES:
+        try:
+            resp = requests.get(
+                f"{base_url}{path}",
+                params=params,
+                timeout=20,
+                headers={"Accept": "application/json"},
+            )
+        except requests.RequestException as exc:
+            last_error = f"{base_url}: {exc}"
+            continue
+
+        if resp.status_code == 404 and len(ANALYSIS_API_CANDIDATES) > 1:
+            last_error = f"{base_url}: HTTP 404"
+            continue
+
+        response = make_response(resp.text, resp.status_code)
+        response.headers["Content-Type"] = resp.headers.get("Content-Type", "application/json; charset=utf-8")
+        response.headers["X-Analysis-API-Base"] = base_url
+        return response
+
+    return jsonify({
+        "detail": "Analysis API utilgjengelig",
+        "error": last_error or "Ingen kandidater svarte.",
+        "candidates": ANALYSIS_API_CANDIDATES,
+    }), 503
 
 
 
