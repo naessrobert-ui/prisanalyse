@@ -72,6 +72,7 @@ def get_companies_filter_payload(
     min_ansatte: int | None = None,
     max_ansatte: int | None = None,
     orgform: str | None = None,
+    has_regnskap: bool = False,
     limit: int = 100,
     offset: int = 0,
     sort_by: str = "omsetning",
@@ -88,7 +89,7 @@ def get_companies_filter_payload(
         min_profit=min_resultat,
         max_profit=max_resultat,
         min_equity_ratio=(min_egenkapitalandel / 100.0) if min_egenkapitalandel is not None else None,
-        has_regnskap=True,
+        has_regnskap=has_regnskap,
     )
 
     if adresse:
@@ -153,10 +154,12 @@ def get_companies_top_omsetning_payload(
     limit: int = 100,
     min_omsetning: float | None = None,
     orgform: str | None = None,
+    has_regnskap: bool = False,
 ) -> list[dict[str, Any]]:
     payload = get_companies_filter_payload(
         min_omsetning=min_omsetning,
         orgform=orgform,
+        has_regnskap=has_regnskap,
         limit=limit,
         offset=0,
         sort_by="omsetning",
@@ -195,6 +198,7 @@ def companies_filter(
     min_ansatte: int | None = None,
     max_ansatte: int | None = None,
     orgform: str | None = None,
+    has_regnskap: bool = False,
     limit: int = Query(default=100, ge=1, le=MAX_LIMIT),
     offset: int = Query(default=0, ge=0),
     sort_by: str = "omsetning",
@@ -226,9 +230,11 @@ def companies_top_omsetning(
     limit: int = Query(default=100, ge=1, le=MAX_LIMIT),
     min_omsetning: float | None = None,
     orgform: str | None = None,
+    has_regnskap: bool = False,
 ) -> list[dict[str, Any]]:
     return get_companies_top_omsetning_payload(
         limit=limit,
         min_omsetning=min_omsetning,
         orgform=orgform,
+        has_regnskap=has_regnskap,
     )
