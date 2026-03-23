@@ -236,8 +236,8 @@
                     <input id="api_naeringskode" type="text" placeholder="Eks. 62 eller eiendom">
                 </div>
                 <div>
-                    <label for="api_orgform">Organisasjonsform</label>
-                    <input id="api_orgform" type="text" placeholder="Eks. AS, ENK, ANS" value="AS">
+                    <label for="api_orgform">Organisasjonsform (valgfritt)</label>
+                    <input id="api_orgform" type="text" placeholder="Eks. AS, ENK, ANS">
                 </div>
             </div>
 
@@ -297,9 +297,20 @@
                     </select>
                 </div>
                 <div>
+                    <label for="api_result_scope">Vis selskaper</label>
+                    <select id="api_result_scope">
+                        <option value="all" selected>Alle selskaper</option>
+                        <option value="with_regnskap">Kun selskaper med regnskap</option>
+                    </select>
+                </div>
+                <div>
                     <label for="api_limit">Antall treff per side</label>
                     <input id="api_limit" type="number" min="1" max="500" value="100">
                 </div>
+            </div>
+
+            <div class="muted" style="margin-top:8px;">
+                Tips: Tomt felt for organisasjonsform + «Alle selskaper» gir bredest navnesøk, også for selskaper uten registrert regnskap.
             </div>
 
             <div class="actions-row">
@@ -309,6 +320,7 @@
 
         <div id="apiStatus" class="status-line muted">Ikke søkt ennå.</div>
         <div id="apiMetaInfo" class="muted" style="margin-top:10px;"></div>
+        <div id="apiActiveFilters" class="muted" style="margin-top:8px; display:none;"></div>
 
         <div id="apiSummary" class="summary-grid" style="display:none;"></div>
 
@@ -507,10 +519,44 @@
     function clearResults() {
         apiSummary.style.display = 'none';
         apiSummary.innerHTML = '';
+        apiActiveFilters.style.display = 'none';
+        apiActiveFilters.textContent = '';
         apiActions.style.display = 'none';
         apiResultsTable.style.display = 'none';
         apiResultsBody.innerHTML = '';
         apiPagination.style.display = 'none';
+    }
+
+    function renderActiveFilters(params) {
+        const chips = [];
+        const pushChip = (label, value) => {
+            if (value === null || value === undefined || value === '') return;
+            chips.push(`<span style="display:inline-block;margin:4px 8px 0 0;padding:4px 10px;border:1px solid rgba(148,163,184,.25);border-radius:999px;background:rgba(15,23,42,.35);">${label}: ${value}</span>`);
+        };
+
+        pushChip('Navn/org.nr', params.get('q'));
+        pushChip('Adresse', params.get('adresse'));
+        pushChip('Kommune', params.get('kommune'));
+        pushChip('Næringskode', params.get('naeringskode'));
+        pushChip('Organisasjonsform', params.get('orgform'));
+        pushChip('Vis selskaper', params.get('has_regnskap') === 'true' ? 'Kun med regnskap' : 'Alle selskaper');
+        pushChip('Min omsetning', fmtNumber(params.get('min_omsetning')));
+        pushChip('Maks omsetning', fmtNumber(params.get('max_omsetning')));
+        pushChip('Min årsresultat', fmtNumber(params.get('min_resultat')));
+        pushChip('Maks årsresultat', fmtNumber(params.get('max_resultat')));
+        pushChip('Min EK-andel', fmtPct(params.get('min_egenkapitalandel')));
+        pushChip('Min nettomargin', fmtPct(params.get('min_netto_margin')));
+        pushChip('Min ansatte', fmtNumber(params.get('min_ansatte')));
+        pushChip('Maks ansatte', fmtNumber(params.get('max_ansatte')));
+
+        if (!chips.length) {
+            apiActiveFilters.style.display = 'none';
+            apiActiveFilters.textContent = '';
+            return;
+        }
+
+        apiActiveFilters.innerHTML = `<strong>Aktive serverfiltre:</strong><br>${chips.join('')}`;
+        apiActiveFilters.style.display = '';
     }
 
     function renderSummary(total, returned, sortBy, sortDir) {
@@ -581,6 +627,9 @@
         addIfPresent(params, 'kommune', document.getElementById('api_kommune')?.value);
         addIfPresent(params, 'naeringskode', document.getElementById('api_naeringskode')?.value);
         addIfPresent(params, 'orgform', document.getElementById('api_orgform')?.value);
+        if ((document.getElementById('api_result_scope')?.value || 'all') === 'with_regnskap') {
+            params.set('has_regnskap', 'true');
+        }
         addIfPresent(params, 'min_omsetning', document.getElementById('api_min_omsetning')?.value);
         addIfPresent(params, 'max_omsetning', document.getElementById('api_max_omsetning')?.value);
         addIfPresent(params, 'min_resultat', document.getElementById('api_min_resultat')?.value);
@@ -630,6 +679,8 @@
             const limit = Number(data.limit ?? params.get('limit') ?? 100);
             const offset = Number(data.offset ?? params.get('offset') ?? 0);
             state.offset = offset;
+
+            renderActiveFilters(params);
 
             if (!rows.length) {
                 apiStatus.textContent = total > 0
@@ -712,7 +763,8 @@
 
     resetApiFormBtn?.addEventListener('click', () => {
         apiForm.reset();
-        document.getElementById('api_orgform').value = 'AS';
+        document.getElementById('api_orgform').value = '';
+        document.getElementById('api_result_scope').value = 'all';
         document.getElementById('api_limit').value = '100';
         document.getElementById('api_sort_by').value = 'omsetning';
         document.getElementById('api_sort_dir').value = 'desc';
