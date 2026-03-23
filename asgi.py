@@ -42,17 +42,22 @@ except Exception as exc:
 
 try:
     from analysis_platform import app as analysis_api
-except Exception as exc:
-    analysis_api = _build_api_fallback(
-        title="Analysis API unavailable",
-        service="analysis-api",
-        reason=repr(exc),
-        hint="Sjekk at DATABASE_URL er satt i miljøet for analyseplattformen.",
-        route_prefix="/analysis-api",
-    )
+    analysis_router = analysis_api.router
+except Exception:
+    try:
+        from analysis_api_compat import router as analysis_router
+    except Exception as exc:
+        analysis_api = _build_api_fallback(
+            title="Analysis API unavailable",
+            service="analysis-api",
+            reason=repr(exc),
+            hint="Sjekk at DATABASE_URL eller AWS/RDS-konfig er satt for analyse-API-et.",
+            route_prefix="/analysis-api",
+        )
+        analysis_router = analysis_api.router
 
-app = FastAPI(title="Prisanalyse Combined ASGI", version="1.0.4")
-app.include_router(analysis_api.router)
+app = FastAPI(title="Prisanalyse Combined ASGI", version="1.0.5")
+app.include_router(analysis_router)
 app.mount("/regnskap-api", regnskap_api)
 
 # Flask app keeps existing routes on '/'.
