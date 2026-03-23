@@ -30,13 +30,11 @@ def _sort_sql(sort_by: str, sort_dir: str) -> str:
     return f"{column} {direction} NULLS LAST, e.navn ASC, e.orgnr ASC"
 
 
-@router.get("/analysis-api/")
-def analysis_root() -> dict[str, Any]:
+def get_analysis_root_payload() -> dict[str, Any]:
     return {"ok": True, "service": "analysis-api-compat"}
 
 
-@router.get("/analysis-api/health")
-def analysis_health() -> dict[str, Any]:
+def get_analysis_health_payload() -> dict[str, Any]:
     entity_row = fetch_one("SELECT COUNT(*)::int AS n FROM entity", []) or {"n": 0}
     regnskap_row = fetch_one("SELECT COUNT(*)::int AS n FROM regnskap_metrics", []) or {"n": 0}
     return {
@@ -50,8 +48,7 @@ def analysis_health() -> dict[str, Any]:
     }
 
 
-@router.get("/analysis-api/companies/filter/meta")
-def companies_filter_meta() -> dict[str, Any]:
+def get_companies_filter_meta_payload() -> dict[str, Any]:
     return {
         "address_columns": ["adresse"],
         "industry_code_columns": ["naeringskode"],
@@ -60,8 +57,8 @@ def companies_filter_meta() -> dict[str, Any]:
     }
 
 
-@router.get("/analysis-api/companies/filter")
-def companies_filter(
+def get_companies_filter_payload(
+    *,
     q: str | None = None,
     kommune: str | None = None,
     naeringskode: str | None = None,
@@ -75,8 +72,8 @@ def companies_filter(
     min_ansatte: int | None = None,
     max_ansatte: int | None = None,
     orgform: str | None = None,
-    limit: int = Query(default=100, ge=1, le=MAX_LIMIT),
-    offset: int = Query(default=0, ge=0),
+    limit: int = 100,
+    offset: int = 0,
     sort_by: str = "omsetning",
     sort_dir: str = "desc",
 ) -> dict[str, Any]:
@@ -151,13 +148,13 @@ def companies_filter(
     }
 
 
-@router.get("/analysis-api/companies/top-omsetning")
-def companies_top_omsetning(
-    limit: int = Query(default=100, ge=1, le=MAX_LIMIT),
+def get_companies_top_omsetning_payload(
+    *,
+    limit: int = 100,
     min_omsetning: float | None = None,
     orgform: str | None = None,
 ) -> list[dict[str, Any]]:
-    payload = companies_filter(
+    payload = get_companies_filter_payload(
         min_omsetning=min_omsetning,
         orgform=orgform,
         limit=limit,
@@ -166,3 +163,72 @@ def companies_top_omsetning(
         sort_dir="desc",
     )
     return payload["results"]
+
+
+@router.get("/analysis-api/")
+def analysis_root() -> dict[str, Any]:
+    return get_analysis_root_payload()
+
+
+@router.get("/analysis-api/health")
+def analysis_health() -> dict[str, Any]:
+    return get_analysis_health_payload()
+
+
+@router.get("/analysis-api/companies/filter/meta")
+def companies_filter_meta() -> dict[str, Any]:
+    return get_companies_filter_meta_payload()
+
+
+@router.get("/analysis-api/companies/filter")
+def companies_filter(
+    q: str | None = None,
+    kommune: str | None = None,
+    naeringskode: str | None = None,
+    adresse: str | None = None,
+    min_omsetning: float | None = None,
+    max_omsetning: float | None = None,
+    min_resultat: float | None = None,
+    max_resultat: float | None = None,
+    min_egenkapitalandel: float | None = None,
+    min_netto_margin: float | None = None,
+    min_ansatte: int | None = None,
+    max_ansatte: int | None = None,
+    orgform: str | None = None,
+    limit: int = Query(default=100, ge=1, le=MAX_LIMIT),
+    offset: int = Query(default=0, ge=0),
+    sort_by: str = "omsetning",
+    sort_dir: str = "desc",
+) -> dict[str, Any]:
+    return get_companies_filter_payload(
+        q=q,
+        kommune=kommune,
+        naeringskode=naeringskode,
+        adresse=adresse,
+        min_omsetning=min_omsetning,
+        max_omsetning=max_omsetning,
+        min_resultat=min_resultat,
+        max_resultat=max_resultat,
+        min_egenkapitalandel=min_egenkapitalandel,
+        min_netto_margin=min_netto_margin,
+        min_ansatte=min_ansatte,
+        max_ansatte=max_ansatte,
+        orgform=orgform,
+        limit=limit,
+        offset=offset,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+
+
+@router.get("/analysis-api/companies/top-omsetning")
+def companies_top_omsetning(
+    limit: int = Query(default=100, ge=1, le=MAX_LIMIT),
+    min_omsetning: float | None = None,
+    orgform: str | None = None,
+) -> list[dict[str, Any]]:
+    return get_companies_top_omsetning_payload(
+        limit=limit,
+        min_omsetning=min_omsetning,
+        orgform=orgform,
+    )

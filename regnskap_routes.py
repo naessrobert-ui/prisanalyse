@@ -1036,7 +1036,64 @@ def _lookup_from_query(http_session: requests.Session, query: str) -> tuple[Look
 # ---------------------------------------------------------------------------
 
 
+
+
+def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None):
+    try:
+        from analysis_api_compat import (
+            get_analysis_health_payload,
+            get_companies_filter_meta_payload,
+            get_companies_filter_payload,
+            get_companies_top_omsetning_payload,
+        )
+    except Exception:
+        return None
+
+    params = params or {}
+    if path == "/analysis-api/health":
+        payload = get_analysis_health_payload()
+    elif path == "/analysis-api/companies/filter/meta":
+        payload = get_companies_filter_meta_payload()
+    elif path == "/analysis-api/companies/filter":
+        payload = get_companies_filter_payload(
+            q=params.get("q"),
+            kommune=params.get("kommune"),
+            naeringskode=params.get("naeringskode"),
+            adresse=params.get("adresse"),
+            min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
+            max_omsetning=float(params["max_omsetning"]) if params.get("max_omsetning") else None,
+            min_resultat=float(params["min_resultat"]) if params.get("min_resultat") else None,
+            max_resultat=float(params["max_resultat"]) if params.get("max_resultat") else None,
+            min_egenkapitalandel=float(params["min_egenkapitalandel"]) if params.get("min_egenkapitalandel") else None,
+            min_netto_margin=float(params["min_netto_margin"]) if params.get("min_netto_margin") else None,
+            min_ansatte=int(params["min_ansatte"]) if params.get("min_ansatte") else None,
+            max_ansatte=int(params["max_ansatte"]) if params.get("max_ansatte") else None,
+            orgform=params.get("orgform"),
+            limit=int(params.get("limit") or 100),
+            offset=int(params.get("offset") or 0),
+            sort_by=params.get("sort_by") or "omsetning",
+            sort_dir=params.get("sort_dir") or "desc",
+        )
+    elif path == "/analysis-api/companies/top-omsetning":
+        payload = get_companies_top_omsetning_payload(
+            limit=int(params.get("limit") or 100),
+            min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
+            orgform=params.get("orgform"),
+        )
+    else:
+        return None
+
+    response = make_response(json.dumps(payload, ensure_ascii=False), 200)
+    response.headers["Content-Type"] = "application/json; charset=utf-8"
+    response.headers["X-Analysis-API-Base"] = "local-compat"
+    return response
+
 def proxy_analysis_api(path: str, params: dict[str, Any] | None = None):
+    if not (os.environ.get("ANALYSIS_API_URL") or "").strip():
+        local_response = _proxy_analysis_api_locally(path, params)
+        if local_response is not None:
+            return local_response
+
     last_error: str | None = None
 
     for base_url in ANALYSIS_API_CANDIDATES:
