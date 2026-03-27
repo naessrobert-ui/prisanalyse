@@ -1,3 +1,3 @@
 git add scripts/__init__.py
-git commit -m "Add __init__.py to scripts"
+git commit -m "Fix empty __init__.py"
 git push
