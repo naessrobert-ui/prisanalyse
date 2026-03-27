@@ -89,7 +89,7 @@ def create_app() -> Flask:
     app.register_blueprint(bil_bp)
     app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
     app.register_blueprint(gemini_bp)
-    app.register_blueprint(ver)
+    app.register_blueprint(ver, name="ver_main")
     app.register_blueprint(handler_bp)
     app.register_blueprint(regnskap_bp)
     app.register_blueprint(ver)
