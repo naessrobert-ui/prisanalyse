@@ -256,9 +256,20 @@ def forside():
     return Response(_FORSIDE_HTML, mimetype="text/html; charset=utf-8")
 
 
+# ── Server-side cache (deles mellom alle brukere) ─────────────────────────────
+_STATUS_CACHE: dict = {}
+_STATUS_CACHE_TTL = 15 * 60  # 15 minutter
+
+
 @kvamskogen_bp.get("/api/status")
 def api_status():
     import concurrent.futures
+
+    now_ts = time.time()
+    hit = _STATUS_CACHE.get("status")
+    if hit and hit["expires_at"] > now_ts:
+        return jsonify(hit["payload"])
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
         fut_sno    = ex.submit(_hent_sno)
         fut_loyper = ex.submit(_hent_loyper)
@@ -269,7 +280,7 @@ def api_status():
     s      = sno_data.get("sammendrag", {})
     daglig = sno_data.get("daglig", [])
 
-    return jsonify({
+    payload = {
         "hentet":   datetime.now().isoformat(timespec="seconds"),
         "tolkning": tolkning,
         "sno": {
@@ -317,15 +328,27 @@ def api_status():
             }
             for iv in sno_data.get("intervaller", [])
         ],
-    })
+    }
+    _STATUS_CACHE["status"] = {"expires_at": now_ts + _STATUS_CACHE_TTL, "payload": payload}
+    return jsonify(payload)
+
+
+_HISTORIKK_CACHE: dict = {}
+_HISTORIKK_CACHE_TTL = 15 * 60
 
 
 @kvamskogen_bp.get("/api/historikk")
 def api_historikk():
     try:
         hours = max(1, min(72, int(request.args.get("hours", 24))))
-        data  = hent_historikk(hours)
-        return jsonify({"ok": True, "data": data, "antall": len(data)})
+        now_ts = time.time()
+        hit = _HISTORIKK_CACHE.get(hours)
+        if hit and hit["expires_at"] > now_ts:
+            return jsonify(hit["payload"])
+        data = hent_historikk(hours)
+        payload = {"ok": True, "data": data, "antall": len(data)}
+        _HISTORIKK_CACHE[hours] = {"expires_at": now_ts + _HISTORIKK_CACHE_TTL, "payload": payload}
+        return jsonify(payload)
     except Exception as e:
         traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
