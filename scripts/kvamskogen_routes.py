@@ -40,14 +40,12 @@ Svar KUN med gyldig JSON (ingen markdown):
 2. detail (100-200 ord) i 2-3 avsnitt:
    - Første avsnitt: Forholdene nå – snøtype, temperatur, hva det betyr for skiopplevelsen.
    - Andre avsnitt: Løypestatus – preparert? Nylig kjørt? Hva kan man forvente?
-   - Tredje avsnitt: Fremtidsutsikter – bruk ukedag-feltet. Vurder KOMBINASJONEN av:
-     * Ny snø dagen før eller natten → løst, fint underlag
-     * Oppholdsvær / sol på dagtid → god sikt og behagelig
-     * Lav vindstyrke (under 4 m/s) → komfortabelt i løypene
-     * Kald natt (min under -1°C) → snøen setter seg og blir fast
-     Den BESTE skidagen er: nysnø + sol + lite vind + litt kaldt = drømmedag!
-     Nevn ukedagen eksplisitt og hva som gjør den bra.
-     Eks: "Fredag blir trolig ukens høydepunkt – nysnø natt til fredag, sol og 2 m/s vind."
+   - Tredje avsnitt: Fremtidsutsikter – analyser ALLE dagene i prognosen, ikke bare de nærmeste.
+     Se etter gode vinduer selv om det er dårlige dager imellom.
+     Drømmedagen = nysnø dagen før + oppholdsvær/sol + vind under 4 m/s + kald natt (min under -1°C).
+     Nevn KONKRET hvilke dager som ser bra ut med ukedag og hva som gjør dem gode.
+     Eks: "Etter regnværet onsdag snur det – torsdag og fredag har -3°C om natten, sol og lite vind."
+     Ikke stopp analysen ved første dårlige dag – se hele uka.
 
 3. snow_quality: "Utmerket" | "Godt" | "Moderat" | "Dårlig"
    - Utmerket: nysnø + sol/oppholdsvær + lite vind + under 0°C
@@ -380,7 +378,11 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 .hero-icon{font-size:38px;line-height:1;flex-shrink:0;margin-top:2px;}
 .hero-text{flex:1;}
 .hero-verdict{font-size:20px;font-weight:600;line-height:1.3;margin-bottom:6px;}
-.hero-detail{font-size:14px;color:var(--muted);line-height:1.5;}
+.hero-detail{font-size:14px;color:var(--muted);line-height:1.6;}
+.hero-detail-short{display:block;}
+.hero-detail-full{display:none;margin-top:8px;}
+.hero-detail-full.open{display:block;}
+.les-mer{font-size:12px;color:var(--blue);cursor:pointer;border:none;background:none;padding:4px 0;text-decoration:underline;}
 .hero-badge{display:inline-block;margin-top:12px;font-size:12px;font-weight:600;padding:3px 12px;border-radius:20px;border:1px solid;}
 .badge-green{background:var(--green-bg);color:var(--green);border-color:var(--green-bd);}
 .badge-amber{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd);}
@@ -585,7 +587,13 @@ function renderFcast(){
 
 
 
-function fmtTemp(v){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+'°C';}
+function toggleDetail(btn){
+  const full=document.getElementById('hero-full');
+  const open=full.classList.toggle('open');
+  btn.textContent=open?'Les mindre ▴':'Les mer ▾';
+}
+
+if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+'°C';}
 function fmtDelta(v,u='cm'){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+' '+u;}
 
 async function init(){
@@ -596,7 +604,17 @@ async function init(){
 function renderStatus(d){
   const t=d.tolkning||{},s=d.sno||{},lp=d.loyper||{};
   const bc={'green':'badge-green','amber':'badge-amber','red':'badge-red'}[t.badge_color]||'badge-amber';
-  document.getElementById('hero').innerHTML=`<div class="hero-top"><div class="hero-icon">${t.icon||'🏔️'}</div><div class="hero-text"><div class="hero-verdict">${t.verdict||'Kvamskogen'}</div><div class="hero-detail">${(t.detail||'').replace(/\n/g,'<br>')}</div><span class="hero-badge ${bc}">${t.snow_quality||'Ukjent'} skiføre</span></div></div>`;
+  const fullDetail = (t.detail||'').replace(/\n/g,'<br>');
+  // Første avsnitt som kortversjon
+  const firstPara = (t.detail||'').split('\n').filter(x=>x.trim())[0] || '';
+  const hasMore = (t.detail||'').split('\n').filter(x=>x.trim()).length > 1;
+  const detailHtml = hasMore
+    ? `<span class="hero-detail-short">${firstPara}</span>
+       <span class="hero-detail-full" id="hero-full">${fullDetail}</span>
+       <button class="les-mer" onclick="toggleDetail(this)">Les mer ▾</button>`
+    : `<span class="hero-detail-short">${fullDetail}</span>`;
+
+  document.getElementById('hero').innerHTML=`<div class="hero-top"><div class="hero-icon">${t.icon||'🏔️'}</div><div class="hero-text"><div class="hero-verdict">${t.verdict||'Kvamskogen'}</div><div class="hero-detail">${detailHtml}</div><span class="hero-badge ${bc}">${t.snow_quality||'Ukjent'} skiføre</span></div></div>`;
   document.getElementById('m-dybde').textContent=s.dybde_cm!=null?s.dybde_cm+' cm':'–';
   document.getElementById('m-dybde-sub').textContent=s.ny_sno_48t_cm!=null?'+'+s.ny_sno_48t_cm+' cm siste 48t':'';
   document.getElementById('m-1t').textContent=fmtDelta(s.endring_1t_cm);
