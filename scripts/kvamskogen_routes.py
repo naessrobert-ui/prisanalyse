@@ -35,24 +35,28 @@ Skriv naturlig, muntlig norsk bokmål – varm og personlig tone.
 Svar KUN med gyldig JSON (ingen markdown):
 {"verdict":"...","detail":"...","snow_quality":"...","badge_color":"...","icon":"..."}
 
-1. verdict (maks 10 ord): Situasjonen akkurat nå. Gjerne litt entusiastisk hvis forholdene er gode.
+1. verdict (maks 10 ord): Situasjonen akkurat nå. Gjerne entusiastisk hvis forholdene er gode.
 
-2. detail (100-200 ord): Skriv en fyldig, engasjerende tekst i 2-3 avsnitt:
+2. detail (100-200 ord) i 2-3 avsnitt:
    - Første avsnitt: Forholdene nå – snøtype, temperatur, hva det betyr for skiopplevelsen.
-   - Andre avsnitt: Løypestatus – er de preparert? Nylig kjørt? Hva kan man forvente?
-   - Tredje avsnitt: Fremtidsutsikter – analyser prognosen og finn den beste dagen(e)
-     de neste 5 dagene. Nevn ukedag og hva som gjør den bra (temperatur, ny snø, osv.).
-     Vær konkret: "Torsdag ser strålende ut med -4°C og 8 cm ny snø ventet."
+   - Andre avsnitt: Løypestatus – preparert? Nylig kjørt? Hva kan man forvente?
+   - Tredje avsnitt: Fremtidsutsikter – bruk ukedag-feltet. Vurder KOMBINASJONEN av:
+     * Ny snø dagen før eller natten → løst, fint underlag
+     * Oppholdsvær / sol på dagtid → god sikt og behagelig
+     * Lav vindstyrke (under 4 m/s) → komfortabelt i løypene
+     * Kald natt (min under -1°C) → snøen setter seg og blir fast
+     Den BESTE skidagen er: nysnø + sol + lite vind + litt kaldt = drømmedag!
+     Nevn ukedagen eksplisitt og hva som gjør den bra.
+     Eks: "Fredag blir trolig ukens høydepunkt – nysnø natt til fredag, sol og 2 m/s vind."
 
 3. snow_quality: "Utmerket" | "Godt" | "Moderat" | "Dårlig"
+   - Utmerket: nysnø + sol/oppholdsvær + lite vind + under 0°C
+   - Godt: under 0°C, snø siste 3 døgn, løyper preparert
+   - Moderat: 0–3°C, våt snø, eller løyper ikke preparert
+   - Dårlig: regn, over 3°C, kraftig vind, smelting
+
 4. badge_color: "green" | "amber" | "red"
 5. icon: ⛷️ 🎿 ☀️ 🌨️ 🌧️ 🌫️ 🥶 💧
-
-Regler snow_quality:
-- Utmerket: kaldsnø (-5 til -15°C), løyper preparert siste 12t
-- Godt: under 0°C, snø siste 3 døgn
-- Moderat: 0–3°C, våt snø, eller løyper ikke preparert
-- Dårlig: regn, over 3°C, smelting
 """.strip()
 
 FROST_BASE_URL = "https://frost.met.no"
@@ -163,9 +167,13 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict) -> dict:
         "prognose_neste_dager": [
             {
                 "dato":       d.get("dato"),
+                "ukedag":     ["mandag","tirsdag","onsdag","torsdag","fredag","lørdag","søndag"][
+                                  __import__("datetime").date.fromisoformat(d.get("dato","2000-01-01")).weekday()
+                              ] if d.get("dato") else "",
                 "min_c":      d.get("min_temp_c"),
                 "maks_c":     d.get("maks_temp_c"),
                 "ny_sno_cm":  round(d.get("total_ny_snø_mm", 0) / 10, 1),
+                "vind_ms":    d.get("vind_ms_snitt"),
                 "ver":        d.get("vær_label"),
             }
             for d in sno_data.get("daglig", [])[:8]
