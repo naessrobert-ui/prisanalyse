@@ -283,6 +283,16 @@ def api_status():
             }
             for d in daglig[:8]
         ],
+        "intervaller": [
+            {
+                "start":        iv.get("start"),
+                "temperatur_c": iv.get("temperatur_c"),
+                "nedbor_mm":    iv.get("nedbør_mm"),
+                "vind_ms":      iv.get("vind_ms"),
+                "timer":        iv.get("timer"),
+            }
+            for iv in sno_data.get("intervaller", [])
+        ],
     })
 
 
@@ -365,6 +375,25 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 <div class="page">
   <nav class="nav"><a href="/">prisanalyse.no</a> &rsaquo; Kvamskogen</nav>
   <div class="hero" id="hero"><div class="loading-hero"><span class="spinner"></span> Henter vaerstatus&hellip;</div></div>
+
+  <div class="section-label">Værprognose – kommende timer</div>
+  <div style="background:#0f172a;border-radius:var(--radius);padding:16px 18px;margin-bottom:4px;">
+    <div class="chart-hours" style="margin-bottom:8px;">
+      <button class="active" onclick="setFcast(48,this)" style="background:#1e293b;color:#94a3b8;border-color:#334155;">48t</button>
+      <button onclick="setFcast(96,this)" style="background:#1e293b;color:#94a3b8;border-color:#334155;">4 dager</button>
+      <button onclick="setFcast(168,this)" style="background:#1e293b;color:#94a3b8;border-color:#334155;">7 dager</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+      <span class="leg"><span class="leg-line" style="background:#4dabf7"></span><span style="color:#7b8db5;font-size:11px;">Temp (°C)</span></span>
+      <span class="leg"><span class="leg-bar" style="background:rgba(255,107,107,0.6)"></span><span style="color:#7b8db5;font-size:11px;">Nedbør varm</span></span>
+      <span class="leg"><span class="leg-bar" style="background:rgba(116,192,252,0.6)"></span><span style="color:#7b8db5;font-size:11px;">Nedbør kald</span></span>
+    </div>
+    <div style="position:relative;height:220px;">
+      <canvas id="fcast-chart"></canvas>
+      <div id="fcast-msg" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#7b8db5;font-size:13px;"><span class="spinner"></span></div>
+    </div>
+  </div>
+
   <div class="section-label">Snøstatus</div>
   <div class="metric-grid">
     <div class="metric"><div class="metric-lbl">Snødybde nå</div><div class="metric-val" id="m-dybde">–</div><div class="metric-sub" id="m-dybde-sub"></div></div>
@@ -413,7 +442,72 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 <script>
 const DAYS=['søn','man','tir','ons','tor','fre','lør'];
 const MONTHS=['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
+let fcastData=[],fcastHours=48,fcastChart=null;
 let histData=[],currentHours=12,histChart=null;
+
+function setFcast(h,btn){
+  fcastHours=h;
+  document.querySelectorAll('[onclick^="setFcast"]').forEach(el=>{
+    el.style.background='#1e293b';el.style.color='#94a3b8';
+  });
+  if(btn){btn.style.background='#334155';btn.style.color='#e2e8f0';}
+  renderFcast();
+}
+
+function renderFcast(){
+  if(!fcastData.length)return;
+  const msg=document.getElementById('fcast-msg');
+  const cutoff=new Date(Date.now()+fcastHours*3600*1000);
+  let data=fcastData.filter(x=>new Date(x.start)<=cutoff);
+  if(fcastHours>48) data=data.filter(x=>x.timer>=6);
+  if(!data.length)return;
+
+  const MS=['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
+  const labels=data.map(x=>{
+    const dt=new Date(x.start);const h=dt.getHours();
+    if(h===0)return dt.getDate()+'.'+MS[dt.getMonth()]+' 00:00';
+    return String(h).padStart(2,'0')+':00';
+  });
+  const temps=data.map(x=>x.temperatur_c!=null?parseFloat(x.temperatur_c):null);
+  const precip=data.map(x=>x.nedbor_mm!=null?parseFloat(x.nedbor_mm):null);
+  const precipColors=data.map(x=>{
+    const t=x.temperatur_c!=null?parseFloat(x.temperatur_c):1;
+    return t<=0?'rgba(116,192,252,0.6)':'rgba(255,107,107,0.6)';
+  });
+
+  const ctx=document.getElementById('fcast-chart').getContext('2d');
+  if(fcastChart)fcastChart.destroy();
+  if(msg)msg.style.display='none';
+
+  fcastChart=new Chart(ctx,{
+    data:{labels,datasets:[
+      {type:'bar',label:'Nedbør (mm)',data:precip,backgroundColor:precipColors,borderRadius:2,yAxisID:'yP',order:2},
+      {type:'line',label:'Temperatur (°C)',data:temps,borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:0.3,fill:false,yAxisID:'yT',order:1,
+        segment:{borderColor:c=>c.p0.parsed.y<=0?'rgba(77,171,247,1)':'rgba(255,107,107,1)'},backgroundColor:'transparent'},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'rgba(8,14,31,.95)',titleColor:'#dce4f5',bodyColor:'#7b8db5',
+          callbacks:{label:c=>{
+            if(c.parsed.y==null)return null;
+            if(c.dataset.label.includes('Temp'))return`Temp: ${c.parsed.y>0?'+':''}${c.parsed.y.toFixed(1)}°C`;
+            return`Nedbør: ${c.parsed.y.toFixed(1)} mm`;
+          }}}
+      },
+      scales:{
+        x:{ticks:{color:'#7b8db5',font:{size:10},maxRotation:30,autoSkip:true,maxTicksLimit:14},grid:{color:'rgba(100,130,200,.06)'}},
+        yT:{position:'left',ticks:{color:'#7b8db5',font:{size:10},callback:v=>(v>0?'+':'')+v+'°'},grid:{color:'rgba(100,130,200,.06)'},
+          afterDataLimits(s){if(s.min>0)s.min=-1;if(s.max<0)s.max=1;}},
+        yP:{position:'right',min:0,suggestedMax:1,ticks:{color:'#7b8db5',font:{size:10},callback:v=>v+' mm'},grid:{drawOnChartArea:false}},
+      }
+    }
+  });
+}
+
+
 
 function fmtTemp(v){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+'°C';}
 function fmtDelta(v,u='cm'){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+' '+u;}
@@ -446,6 +540,7 @@ function renderStatus(d){
   }).join('');
   const ts=new Date(d.hentet);
   document.getElementById('footer').textContent=`Oppdatert: ${ts.toLocaleString('no-NO')} · Data: Yr, Frost, loyper.net`;
+  if(d.intervaller&&d.intervaller.length){fcastData=d.intervaller;renderFcast();}
 }
 
 async function loadHistorikk(){
