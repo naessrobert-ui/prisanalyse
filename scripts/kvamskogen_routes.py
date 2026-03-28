@@ -1,16 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Kvamskogen forside – prisanalyse.no/kvamskogen
-
-Registrer i app.py:
-    from scripts.kvamskogen_routes import kvamskogen_bp
-    app.register_blueprint(kvamskogen_bp)
-
-Avhenger av:
-  - /ver/api/snovarsel?stasjon=Kvamskogen  (fra snow_increase.py / ver_routes.py)
-  - /ver/skiloyper-kvamskogen/stats        (fra ver_routes.py)
-  - Anthropic API (ANTHROPIC_API_KEY i .env)
-  - Frost API (FROST_CLIENT_ID i .env)
 """
 
 from __future__ import annotations
@@ -34,8 +24,6 @@ load_dotenv()
 kvamskogen_bp = Blueprint("kvamskogen", __name__, url_prefix="/kvamskogen")
 
 LOCAL_TZ = ZoneInfo("Europe/Oslo")
-
-# ── Anthropic ─────────────────────────────────────────────────────────────────
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL   = "claude-sonnet-4-20250514"
@@ -66,24 +54,13 @@ Regler for snow_quality:
 - Dårlig:   regn, smelting, over 3C, ingen ny snø på lenge
 """.strip()
 
-
-# ── Frost historikk ───────────────────────────────────────────────────────────
-
 FROST_BASE_URL = "https://frost.met.no"
 FROST_SOURCE   = "SN50310"
 FROST_TIMEOUT  = 20
 FROST_RETRIES  = 4
 
-
-@dataclass(frozen=True)
-class ElementGroup:
-    name: str
-    candidates: tuple
-
-
-# Hardkodede element-IDer bekreftet for SN50310
 FROST_ELEMENTS = {
-    "temperature":   "air_temperature",
+    "temperature":   "air_temperature,max(air_temperature PT1H),min(air_temperature PT1H)",
     "precipitation": "sum(precipitation_amount PT1H)",
     "wind_speed":    "wind_speed",
 }
@@ -112,35 +89,14 @@ def _iso_z(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _choose_element(available: list, group: ElementGroup):
-    hourly = [x["elementId"] for x in available
-              if x.get("timeResolution") == "PT1H" and x.get("elementId")]
-    for c in group.candidates:
-        if c in hourly:
-            return c
-    for eid in hourly:
-        if group.name == "temperature"   and "air_temperature" in eid and "anomaly" not in eid: return eid
-        if group.name == "precipitation" and "precipitation_amount" in eid and "anomaly" not in eid: return eid
-        if group.name == "wind_speed"    and "wind_speed" in eid and "gust" not in eid and "direction" not in eid: return eid
-    return None
-
-
 def _clean_value(element_id: str, value: Any) -> Any:
     try:
         n = float(value)
     except (TypeError, ValueError):
         return value
-    if "cloud_area_fraction" in element_id and n == -3: return None
-    if "precipitation_amount" in element_id and n == -1: return 0.0
+    if "precipitation_amount" in element_id and n == -1:
+        return 0.0
     return n
-
-
-# Bekreftet for SN50310
-FROST_ELEMENTS = {
-    "temperature":   "air_temperature",
-    "precipitation": "sum(precipitation_amount PT1H)",
-    "wind_speed":    "wind_speed",
-}
 
 
 def hent_historikk(hours: int = 24) -> list:
@@ -148,15 +104,25 @@ def hent_historikk(hours: int = 24) -> list:
     start_utc = end_utc - timedelta(hours=hours)
     session   = _frost_session()
 
-    alias   = {eid: name for name, eid in FROST_ELEMENTS.items()}
+    all_elements = "air_temperature,max(air_temperature PT1H),min(air_temperature PT1H),sum(precipitation_amount PT1H),wind_speed"
+
     payload = _frost_get(session, "/observations/v0.jsonld", {
         "sources":       FROST_SOURCE,
         "referencetime": f"{_iso_z(start_utc)}/{_iso_z(end_utc)}",
-        "elements":      ",".join(FROST_ELEMENTS.values()),
+        "elements":      all_elements,
         "timeoffsets":   "default",
         "levels":        "default",
         "qualities":     "0,1,2,3,4",
     })
+
+    def _classify(eid: str):
+        if eid in ("air_temperature", "max(air_temperature PT1H)", "min(air_temperature PT1H)"):
+            return "temperature"
+        if "precipitation_amount" in eid:
+            return "precipitation"
+        if eid in ("wind_speed", "mean(wind_speed PT1H)"):
+            return "wind_speed"
+        return None
 
     rows: dict = {}
     for item in payload.get("data", []):
@@ -168,14 +134,12 @@ def hent_historikk(hours: int = 24) -> list:
             rows[ref_local] = {"time": ref_local}
         for obs in item.get("observations", []):
             eid  = str(obs.get("elementId", ""))
-            name = alias.get(eid)
-            if name:
+            name = _classify(eid)
+            if name and name not in rows[ref_local]:
                 rows[ref_local][name] = _clean_value(eid, obs.get("value"))
 
     return sorted(rows.values(), key=lambda x: x["time"])
 
-
-# ── AI-tolkning ───────────────────────────────────────────────────────────────
 
 def _ai_tolkning(sno_data: dict, loyper_data: dict) -> dict:
     if not ANTHROPIC_API_KEY:
@@ -228,23 +192,21 @@ def _fallback_tolkning(sno_data: dict, loyper_data: dict) -> dict:
 
     if temp <= -3 and ny_sno > 3 and preparert > 0:
         return {"verdict": "Kald natt med fersk sno – ideelt skiføre",
-                "detail": f"Temperaturen er {temp}C og det har kommet {ny_sno:.1f} cm ny sno. Loyper er nylig preparert.",
+                "detail": f"Temperaturen er {temp}C og {ny_sno:.1f} cm ny sno. Loyper preparert.",
                 "snow_quality": "Utmerket", "badge_color": "green", "icon": "⛷️"}
     elif temp <= 0 and dybde > 10:
         return {"verdict": "Kaldt og greit – brukbart skiføre",
-                "detail": f"Snodybden er {dybde} cm og temperaturen holder seg under null.",
+                "detail": f"Snodybden er {dybde} cm og temp under null.",
                 "snow_quality": "Godt", "badge_color": "green", "icon": "🎿"}
     elif 0 < temp <= 3:
         return {"verdict": "Mildt ver – snoen er vat og tung",
-                "detail": f"Med {temp}C blir snoen klissete. Bruk heller morgenoekten.",
+                "detail": f"Med {temp}C blir snoen klissete. Bruk morgenoekten.",
                 "snow_quality": "Moderat", "badge_color": "amber", "icon": "🌨️"}
     else:
         return {"verdict": "Smelting og mildt – darlig skiføre",
-                "detail": f"Temperaturen er {temp}C. Snoen smelter raskt.",
+                "detail": f"Temperaturen er {temp}C. Snoen smelter.",
                 "snow_quality": "Dårlig", "badge_color": "red", "icon": "💧"}
 
-
-# ── Interne API-kall ──────────────────────────────────────────────────────────
 
 def _hent_sno() -> dict:
     try:
@@ -266,8 +228,6 @@ def _hent_loyper() -> dict:
         return {}
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
-
 @kvamskogen_bp.get("/")
 def forside():
     return Response(_FORSIDE_HTML, mimetype="text/html; charset=utf-8")
@@ -275,9 +235,14 @@ def forside():
 
 @kvamskogen_bp.get("/api/status")
 def api_status():
-    sno_data    = _hent_sno()
-    loyper_data = _hent_loyper()
-    tolkning    = _ai_tolkning(sno_data, loyper_data)
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+        fut_sno    = ex.submit(_hent_sno)
+        fut_loyper = ex.submit(_hent_loyper)
+        sno_data    = fut_sno.result()
+        loyper_data = fut_loyper.result()
+
+    tolkning = _ai_tolkning(sno_data, loyper_data)
     s      = sno_data.get("sammendrag", {})
     daglig = sno_data.get("daglig", [])
 
@@ -331,9 +296,6 @@ def api_historikk():
         traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
-
-# ── HTML ──────────────────────────────────────────────────────────────────────
-
 _FORSIDE_HTML = r"""<!DOCTYPE html>
 <html lang="no">
 <head>
@@ -342,20 +304,12 @@ _FORSIDE_HTML = r"""<!DOCTYPE html>
 <title>Kvamskogen - i dag</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-:root{
-  --bg:#f5f7fb;--surface:#fff;--border:#e2e8f0;
-  --text:#0f172a;--muted:#64748b;--hint:#94a3b8;
-  --green:#15803d;--green-bg:#f0fdf4;--green-bd:#bbf7d0;
-  --amber:#92400e;--amber-bg:#fffbeb;--amber-bd:#fde68a;
-  --red:#991b1b;--red-bg:#fef2f2;--red-bd:#fecaca;
-  --blue:#1d4ed8;--radius:14px;--shadow:0 2px 12px rgba(15,23,42,.07);
-}
+:root{--bg:#f5f7fb;--surface:#fff;--border:#e2e8f0;--text:#0f172a;--muted:#64748b;--hint:#94a3b8;--green:#15803d;--green-bg:#f0fdf4;--green-bd:#bbf7d0;--amber:#92400e;--amber-bg:#fffbeb;--amber-bd:#fde68a;--red:#991b1b;--red-bg:#fef2f2;--red-bd:#fecaca;--blue:#1d4ed8;--radius:14px;--shadow:0 2px 12px rgba(15,23,42,.07);}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.55;}
 a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 .page{max-width:860px;margin:0 auto;padding:20px 16px 48px;}
-.nav{font-size:13px;color:var(--muted);margin-bottom:18px;}
-.nav a{color:var(--muted);}
+.nav{font-size:13px;color:var(--muted);margin-bottom:18px;}.nav a{color:var(--muted);}
 .hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px 18px;box-shadow:var(--shadow);margin-bottom:14px;}
 .hero-top{display:flex;align-items:flex-start;gap:14px;}
 .hero-icon{font-size:38px;line-height:1;flex-shrink:0;margin-top:2px;}
@@ -410,11 +364,7 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 <body>
 <div class="page">
   <nav class="nav"><a href="/">prisanalyse.no</a> &rsaquo; Kvamskogen</nav>
-
-  <div class="hero" id="hero">
-    <div class="loading-hero"><span class="spinner"></span> Henter vaerstatus&hellip;</div>
-  </div>
-
+  <div class="hero" id="hero"><div class="loading-hero"><span class="spinner"></span> Henter vaerstatus&hellip;</div></div>
   <div class="section-label">Snøstatus</div>
   <div class="metric-grid">
     <div class="metric"><div class="metric-lbl">Snødybde nå</div><div class="metric-val" id="m-dybde">–</div><div class="metric-sub" id="m-dybde-sub"></div></div>
@@ -422,13 +372,12 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
     <div class="metric"><div class="metric-lbl">Endring neste 3t</div><div class="metric-val" id="m-3t">–</div><div class="metric-sub">prognose</div></div>
     <div class="metric"><div class="metric-lbl">Temperatur nå</div><div class="metric-val" id="m-temp">–</div><div class="metric-sub" id="m-temp-sub"></div></div>
   </div>
-
   <div class="section-label">Siste døgn – observert (Frost/SN50310)</div>
   <div class="chart-card">
     <div class="chart-hours">
-      <button class="active" onclick="setHours(12, this)">12t</button>
-      <button onclick="setHours(24, this)">24t</button>
-      <button onclick="setHours(48, this)">48t</button>
+      <button class="active" onclick="setHours(12,this)">12t</button>
+      <button onclick="setHours(24,this)">24t</button>
+      <button onclick="setHours(48,this)">48t</button>
     </div>
     <div class="chart-legend">
       <span class="leg"><span class="leg-line" style="background:#3b82f6"></span>Temp (°C)</span>
@@ -441,27 +390,15 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
       <div class="chart-msg" id="chart-msg"><span class="spinner"></span></div>
     </div>
   </div>
-
   <div class="section-label">Løypestatus</div>
   <div class="loyper-card">
-    <div class="loyper-row">
-      <span><span class="loyper-dot dot-green"></span>Nylig preparert (&le;12t)</span>
-      <span id="l-preparert" style="font-weight:600">–</span>
-    </div>
-    <div class="loyper-row">
-      <span><span class="loyper-dot dot-amber"></span>Aktive, ikke preparert</span>
-      <span id="l-aktive">–</span>
-    </div>
-    <div class="loyper-row">
-      <span><span class="loyper-dot dot-gray"></span>Totalt registrert</span>
-      <span id="l-totalt">–</span>
-    </div>
+    <div class="loyper-row"><span><span class="loyper-dot dot-green"></span>Nylig preparert (&le;12t)</span><span id="l-preparert" style="font-weight:600">–</span></div>
+    <div class="loyper-row"><span><span class="loyper-dot dot-amber"></span>Aktive, ikke preparert</span><span id="l-aktive">–</span></div>
+    <div class="loyper-row"><span><span class="loyper-dot dot-gray"></span>Totalt registrert</span><span id="l-totalt">–</span></div>
     <div class="loyper-meta" id="l-meta"></div>
   </div>
-
   <div class="section-label">Snøprognose – kommende dager</div>
   <div class="forecast-strip" id="forecast"></div>
-
   <div class="section-label">Verktøy</div>
   <div class="links-grid">
     <a class="link-card" href="/ver/varsel-kvamskogen"><span class="link-card-icon">❄️</span>Snøvarsel (detaljert)</a>
@@ -473,37 +410,23 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
   </div>
   <div class="footer" id="footer"></div>
 </div>
-
 <script>
 const DAYS=['søn','man','tir','ons','tor','fre','lør'];
 const MONTHS=['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
-
-let histData=[], currentHours=12, histChart=null;
+let histData=[],currentHours=12,histChart=null;
 
 function fmtTemp(v){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+'°C';}
 function fmtDelta(v,u='cm'){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+' '+u;}
 
 async function init(){
-  try{
-    const d=await(await fetch('/kvamskogen/api/status')).json();
-    renderStatus(d);
-  }catch(e){
-    document.getElementById('hero').innerHTML='<div class="loading-hero" style="color:#991b1b">Kunne ikke hente data.</div>';
-  }
+  try{const d=await(await fetch('/kvamskogen/api/status')).json();renderStatus(d);}
+  catch(e){document.getElementById('hero').innerHTML='<div class="loading-hero" style="color:#991b1b">Kunne ikke hente data.</div>';}
 }
 
 function renderStatus(d){
   const t=d.tolkning||{},s=d.sno||{},lp=d.loyper||{};
   const bc={'green':'badge-green','amber':'badge-amber','red':'badge-red'}[t.badge_color]||'badge-amber';
-  document.getElementById('hero').innerHTML=`
-    <div class="hero-top">
-      <div class="hero-icon">${t.icon||'🏔️'}</div>
-      <div class="hero-text">
-        <div class="hero-verdict">${t.verdict||'Kvamskogen'}</div>
-        <div class="hero-detail">${t.detail||''}</div>
-        <span class="hero-badge ${bc}">${t.snow_quality||'Ukjent'} skiføre</span>
-      </div>
-    </div>`;
+  document.getElementById('hero').innerHTML=`<div class="hero-top"><div class="hero-icon">${t.icon||'🏔️'}</div><div class="hero-text"><div class="hero-verdict">${t.verdict||'Kvamskogen'}</div><div class="hero-detail">${t.detail||''}</div><span class="hero-badge ${bc}">${t.snow_quality||'Ukjent'} skiføre</span></div></div>`;
   document.getElementById('m-dybde').textContent=s.dybde_cm!=null?s.dybde_cm+' cm':'–';
   document.getElementById('m-dybde-sub').textContent=s.ny_sno_48t_cm!=null?'+'+s.ny_sno_48t_cm+' cm siste 48t':'';
   document.getElementById('m-1t').textContent=fmtDelta(s.endring_1t_cm);
@@ -515,18 +438,11 @@ function renderStatus(d){
   prepEl.style.color=lp.preparert>0?'#15803d':'#64748b';
   document.getElementById('l-aktive').textContent=lp.aktive!=null?lp.aktive+' segmenter':'–';
   document.getElementById('l-totalt').textContent=lp.totalt!=null?lp.totalt+' segmenter':'–';
-  if(lp.sist_prep_timer!=null)
-    document.getElementById('l-meta').textContent=`Sist preparert: ${lp.sist_prep_timer} t siden · ${lp.last_update||''}`;
+  if(lp.sist_prep_timer!=null)document.getElementById('l-meta').textContent=`Sist preparert: ${lp.sist_prep_timer} t siden · ${lp.last_update||''}`;
   document.getElementById('forecast').innerHTML=(d.daglig||[]).map(dag=>{
     const dt=new Date(dag.dato+'T12:00:00');
     const navn=DAYS[dt.getDay()]+' '+dt.getDate()+'.'+MONTHS[dt.getMonth()];
-    return`<div class="fday">
-      <div class="fday-name">${navn}</div>
-      <div class="fday-icon">${dag.ver_ikon||'–'}</div>
-      <div class="fday-temp"><span style="color:#ef4444">${dag.maks_temp_c>0?'+':''}${dag.maks_temp_c}°</span> / <span style="color:#0284c7">${dag.min_temp_c}°</span></div>
-      <div class="fday-snow">${dag.ny_sno_cm>0?'❄ +'+dag.ny_sno_cm+'cm':''}</div>
-      <div class="fday-depth">${dag.snodybde_cm!=null?dag.snodybde_cm+' cm':''}</div>
-    </div>`;
+    return`<div class="fday"><div class="fday-name">${navn}</div><div class="fday-icon">${dag.ver_ikon||'–'}</div><div class="fday-temp"><span style="color:#ef4444">${dag.maks_temp_c>0?'+':''}${dag.maks_temp_c}°</span> / <span style="color:#0284c7">${dag.min_temp_c}°</span></div><div class="fday-snow">${dag.ny_sno_cm>0?'❄ +'+dag.ny_sno_cm+'cm':''}</div><div class="fday-depth">${dag.snodybde_cm!=null?dag.snodybde_cm+' cm':''}</div></div>`;
   }).join('');
   const ts=new Date(d.hentet);
   document.getElementById('footer').textContent=`Oppdatert: ${ts.toLocaleString('no-NO')} · Data: Yr, Frost, loyper.net`;
@@ -534,8 +450,7 @@ function renderStatus(d){
 
 async function loadHistorikk(){
   const msg=document.getElementById('chart-msg');
-  msg.innerHTML='<span class="spinner"></span>';
-  msg.style.display='flex';
+  msg.innerHTML='<span class="spinner"></span>';msg.style.display='flex';
   try{
     const d=await(await fetch(`/kvamskogen/api/historikk?hours=${currentHours}`)).json();
     if(d.ok&&d.data.length){histData=d.data;renderChart();msg.style.display='none';}
@@ -545,120 +460,30 @@ async function loadHistorikk(){
 
 function renderChart(){
   if(!histData.length)return;
-  const MONTHS_S=['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
-  const labels=histData.map(x=>{
-    const dt=new Date(x.time);
-    return dt.getDate()+'.'+MONTHS_S[dt.getMonth()]+' '+String(dt.getHours()).padStart(2,'0')+':00';
-  });
-
-  // Temp: blå linje under 0, rød over 0 (gradient via segment-farging)
-  const temps=histData.map(x=>x.temperature!=null?parseFloat(x.temperature):null);
-
-  // Nedbør: blå søyler hvis temp<0 (snø), rød hvis temp>=0 (regn)
-  const precip=histData.map(x=>x.precipitation!=null?parseFloat(x.precipitation):null);
-  const precipColors=histData.map(x=>{
-    const t=x.temperature!=null?parseFloat(x.temperature):0;
-    return t<0?'rgba(96,165,250,0.75)':'rgba(239,68,68,0.7)';
-  });
-
-  // Vind: tynn linje, sekundær y-akse
-  const wind=histData.map(x=>x.wind_speed!=null?parseFloat(x.wind_speed):null);
-
+  // Filtrer til kun hele timer (der temperatur finnes)
+  const hourly=histData.filter(x=>x.temperature!=null);
+  if(!hourly.length)return;
+  const MS=['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
+  const labels=hourly.map(x=>{const dt=new Date(x.time);const h=dt.getHours();if(h===0)return dt.getDate()+'.'+MS[dt.getMonth()]+' 00:00';return String(h).padStart(2,'0')+':00';});
+  const temps=hourly.map(x=>parseFloat(x.temperature));
+  const precip=hourly.map(x=>x.precipitation!=null?parseFloat(x.precipitation):null);
+  const precipColors=hourly.map(x=>{const t=parseFloat(x.temperature);return t<=0?'rgba(96,165,250,0.75)':'rgba(239,68,68,0.7)';});
+  const wind=hourly.map(x=>x.wind_speed!=null?parseFloat(x.wind_speed):null);
   const ctx=document.getElementById('hist-chart').getContext('2d');
   if(histChart)histChart.destroy();
-
   histChart=new Chart(ctx,{
-    data:{
-      labels,
-      datasets:[
-        {
-          type:'bar',
-          label:'Nedbør (mm)',
-          data:precip,
-          backgroundColor:precipColors,
-          borderRadius:2,
-          yAxisID:'yPrecip',
-          order:3,
-        },
-        {
-          type:'line',
-          label:'Temperatur (°C)',
-          data:temps,
-          borderWidth:2,
-          pointRadius:0,
-          pointHoverRadius:4,
-          tension:0.3,
-          fill:false,
-          yAxisID:'yTemp',
-          order:1,
-          segment:{
-            borderColor: ctx => {
-              const v=ctx.p0.parsed.y;
-              return v<0?'rgba(59,130,246,1)':'rgba(239,68,68,1)';
-            }
-          },
-          backgroundColor:'transparent',
-        },
-        {
-          type:'line',
-          label:'Vind (m/s)',
-          data:wind,
-          borderColor:'rgba(167,139,250,0.8)',
-          backgroundColor:'transparent',
-          borderWidth:1.5,
-          borderDash:[3,3],
-          pointRadius:0,
-          pointHoverRadius:3,
-          tension:0.3,
-          fill:false,
-          yAxisID:'yWind',
-          order:2,
-        },
-      ]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{display:false},
-        tooltip:{
-          backgroundColor:'rgba(15,23,42,.92)',
-          callbacks:{
-            label:c=>{
-              if(c.parsed.y==null)return null;
-              if(c.dataset.label.includes('Temp'))return`Temp: ${c.parsed.y>0?'+':''}${c.parsed.y.toFixed(1)}°C`;
-              if(c.dataset.label.includes('Nedbør'))return`Nedbør: ${c.parsed.y.toFixed(1)} mm`;
-              if(c.dataset.label.includes('Vind'))return`Vind: ${c.parsed.y.toFixed(1)} m/s`;
-            }
-          }
-        }
-      },
+    data:{labels,datasets:[
+      {type:'bar',label:'Nedbør (mm)',data:precip,backgroundColor:precipColors,borderRadius:2,yAxisID:'yPrecip',order:3},
+      {type:'line',label:'Temperatur (°C)',data:temps,borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:0.3,fill:false,yAxisID:'yTemp',order:1,segment:{borderColor:ctx=>ctx.p0.parsed.y<=0?'rgba(59,130,246,1)':'rgba(239,68,68,1)'},backgroundColor:'transparent'},
+      {type:'line',label:'Vind (m/s)',data:wind,borderColor:'rgba(167,139,250,0.8)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[3,3],pointRadius:0,pointHoverRadius:3,tension:0.3,fill:false,yAxisID:'yWind',order:2},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,.92)',callbacks:{label:c=>{if(c.parsed.y==null)return null;if(c.dataset.label.includes('Temp'))return`Temp: ${c.parsed.y>0?'+':''}${c.parsed.y.toFixed(1)}°C`;if(c.dataset.label.includes('Nedbør'))return`Nedbør: ${c.parsed.y.toFixed(1)} mm`;if(c.dataset.label.includes('Vind'))return`Vind: ${c.parsed.y.toFixed(1)} m/s`;}}}},
       scales:{
-        x:{
-          ticks:{color:'#94a3b8',font:{size:10},maxRotation:30,autoSkip:true,maxTicksLimit:14},
-          grid:{color:'rgba(0,0,0,.04)'}
-        },
-        yTemp:{
-          position:'left',
-          ticks:{color:'#94a3b8',font:{size:10},callback:v=>(v>0?'+':'')+v+'°'},
-          grid:{color:'rgba(0,0,0,.04)'},
-          afterDataLimits(scale){
-            // Nullinje synlig
-            if(scale.min>0) scale.min=-1;
-            if(scale.max<0) scale.max=1;
-          }
-        },
-        yPrecip:{
-          position:'right',
-          min:0,
-          ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+' mm'},
-          grid:{drawOnChartArea:false},
-        },
-        yWind:{
-          display:false,
-          min:0,
-        }
+        x:{ticks:{color:'#94a3b8',font:{size:10},maxRotation:30,autoSkip:true,maxTicksLimit:14},grid:{color:'rgba(0,0,0,.04)'}},
+        yTemp:{position:'left',ticks:{color:'#94a3b8',font:{size:10},callback:v=>(v>0?'+':'')+v+'°'},grid:{color:'rgba(0,0,0,.04)'},afterDataLimits(s){if(s.min>0)s.min=-1;if(s.max<0)s.max=1;}},
+        yPrecip:{position:'right',min:0,suggestedMax:1,ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+' mm'},grid:{drawOnChartArea:false}},
+        yWind:{display:false,min:0}
       }
     }
   });
