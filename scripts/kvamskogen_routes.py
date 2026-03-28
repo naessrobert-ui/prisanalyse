@@ -26,32 +26,33 @@ kvamskogen_bp = Blueprint("kvamskogen", __name__, url_prefix="/kvamskogen")
 LOCAL_TZ = ZoneInfo("Europe/Oslo")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-ANTHROPIC_MODEL   = "claude-sonnet-4-20250514"
+ANTHROPIC_MODEL   = "claude-sonnet-4-6"
 
 _SYSTEM_PROMPT = """
-Du er en lokal ekspert på Kvamskogen som skriver korte, presise værmeldinger
-til en norsk hytteeier. Basert på rådataene du får, skriv:
+Du er en lokal værvakt på Kvamskogen som skriver engasjerende meldinger til en hytteeier.
+Skriv naturlig, muntlig norsk bokmål – varm og personlig tone.
 
-1. verdict (maks 12 ord): Én setning som beskriver situasjonen. Eks: "Kald natt
-   med snø – ideelt skiføre tidlig i morgen." Bruk norske uttrykk.
-
-2. detail (maks 35 ord): En forklaring av snøtypen og hva det betyr i praksis.
-   Nevn løypestatus hvis relevant. Vær konkret.
-
-3. snow_quality: Et av disse: "Utmerket" | "Godt" | "Moderat" | "Dårlig"
-
-4. badge_color: "green" | "amber" | "red" basert på snow_quality.
-
-5. icon: Velg ett emoji som passer: ⛷️ 🎿 ☀️ 🌨️ 🌧️ 🌫️ 🥶 💧
-
-Svar KUN med gyldig JSON (ingen markdown, ingen forklaring):
+Svar KUN med gyldig JSON (ingen markdown):
 {"verdict":"...","detail":"...","snow_quality":"...","badge_color":"...","icon":"..."}
 
-Regler for snow_quality:
-- Utmerket: ny løssnø, temp -5 til -15C, løyper preparert siste 12t
-- Godt:     temp under 0C, snø siste 3 døgn, løyper aktive
-- Moderat:  mildt (0-3C), våt/klissete snø, eller løyper ikke preparert
-- Dårlig:   regn, smelting, over 3C, ingen ny snø på lenge
+1. verdict (maks 10 ord): Situasjonen akkurat nå. Gjerne litt entusiastisk hvis forholdene er gode.
+
+2. detail (100-200 ord): Skriv en fyldig, engasjerende tekst i 2-3 avsnitt:
+   - Første avsnitt: Forholdene nå – snøtype, temperatur, hva det betyr for skiopplevelsen.
+   - Andre avsnitt: Løypestatus – er de preparert? Nylig kjørt? Hva kan man forvente?
+   - Tredje avsnitt: Fremtidsutsikter – analyser prognosen og finn den beste dagen(e)
+     de neste 5 dagene. Nevn ukedag og hva som gjør den bra (temperatur, ny snø, osv.).
+     Vær konkret: "Torsdag ser strålende ut med -4°C og 8 cm ny snø ventet."
+
+3. snow_quality: "Utmerket" | "Godt" | "Moderat" | "Dårlig"
+4. badge_color: "green" | "amber" | "red"
+5. icon: ⛷️ 🎿 ☀️ 🌨️ 🌧️ 🌫️ 🥶 💧
+
+Regler snow_quality:
+- Utmerket: kaldsnø (-5 til -15°C), løyper preparert siste 12t
+- Godt: under 0°C, snø siste 3 døgn
+- Moderat: 0–3°C, våt snø, eller løyper ikke preparert
+- Dårlig: regn, over 3°C, smelting
 """.strip()
 
 FROST_BASE_URL = "https://frost.met.no"
@@ -156,9 +157,19 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict) -> dict:
         "maks_temp_48t_c":      s.get("maks_temp_c"),
         "min_temp_48t_c":       s.get("min_temp_c"),
         "ver_i_dag":            dag0.get("vær_label"),
-        "loyper_preparert":     loyper_data.get("freshly_groomed", 0),
-        "sist_preparert_timer": round(loyper_data.get("newest_age_seconds", 0) / 3600, 1)
-                                if loyper_data.get("newest_age_seconds") else None,
+        "loyper_preparert":     loyper_data.get("counts", {}).get("segments_freshly_groomed", 0),
+        "sist_preparert_timer": round(loyper_data.get("updates", {}).get("newest_segment", {}).get("age_seconds", 0) / 3600, 1)
+                                if loyper_data.get("updates", {}).get("newest_segment", {}).get("age_seconds") else None,
+        "prognose_neste_dager": [
+            {
+                "dato":       d.get("dato"),
+                "min_c":      d.get("min_temp_c"),
+                "maks_c":     d.get("maks_temp_c"),
+                "ny_sno_cm":  round(d.get("total_ny_snø_mm", 0) / 10, 1),
+                "ver":        d.get("vær_label"),
+            }
+            for d in sno_data.get("daglig", [])[:8]
+        ],
     }, ensure_ascii=False)
 
     try:
@@ -166,7 +177,7 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict) -> dict:
             "https://api.anthropic.com/v1/messages",
             headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
                      "content-type": "application/json"},
-            json={"model": ANTHROPIC_MODEL, "max_tokens": 256,
+            json={"model": ANTHROPIC_MODEL, "max_tokens": 1024,
                   "system": _SYSTEM_PROMPT,
                   "messages": [{"role": "user", "content": payload_str}]},
             timeout=15,
@@ -191,20 +202,24 @@ def _fallback_tolkning(sno_data: dict, loyper_data: dict) -> dict:
     preparert = loyper_data.get("freshly_groomed", 0)
 
     if temp <= -3 and ny_sno > 3 and preparert > 0:
-        return {"verdict": "Kald natt med fersk sno – ideelt skiføre",
-                "detail": f"Temperaturen er {temp}C og {ny_sno:.1f} cm ny sno. Loyper preparert.",
+        return {"verdict": "Kald natt med fersk snø – ideelt skiføre",
+                "detail": f"Temperaturen er {temp}°C og det har kommet {ny_sno:.1f} cm ny snø. Løypene er nylig preparert.",
                 "snow_quality": "Utmerket", "badge_color": "green", "icon": "⛷️"}
+    elif temp <= -3 and ny_sno > 3:
+        return {"verdict": "Fersk snø og kaldt – godt føre",
+                "detail": f"{ny_sno:.1f} cm ny snø og {temp}°C. Løypene er ikke nylig preparert.",
+                "snow_quality": "Godt", "badge_color": "green", "icon": "🎿"}
     elif temp <= 0 and dybde > 10:
-        return {"verdict": "Kaldt og greit – brukbart skiføre",
-                "detail": f"Snodybden er {dybde} cm og temp under null.",
+        return {"verdict": "Kaldt og stabilt – brukbart skiføre",
+                "detail": f"Snødybden er {dybde} cm og temperaturen holder seg under null.",
                 "snow_quality": "Godt", "badge_color": "green", "icon": "🎿"}
     elif 0 < temp <= 3:
-        return {"verdict": "Mildt ver – snoen er vat og tung",
-                "detail": f"Med {temp}C blir snoen klissete. Bruk morgenoekten.",
+        return {"verdict": "Mildt vær – snøen er våt og tung",
+                "detail": f"Med {temp}°C blir snøen klissete. Bruk heller morgenøkten.",
                 "snow_quality": "Moderat", "badge_color": "amber", "icon": "🌨️"}
     else:
-        return {"verdict": "Smelting og mildt – darlig skiføre",
-                "detail": f"Temperaturen er {temp}C. Snoen smelter.",
+        return {"verdict": "Smelting og mildt – dårlig skiføre",
+                "detail": f"Temperaturen er {temp}°C. Snøen smelter raskt.",
                 "snow_quality": "Dårlig", "badge_color": "red", "icon": "💧"}
 
 
@@ -262,12 +277,12 @@ def api_status():
             "prognose_slutt_cm": s.get("slutt_snødybde_cm"),
         },
         "loyper": {
-            "totalt":          loyper_data.get("total", 0),
-            "aktive":          loyper_data.get("active", 0),
-            "preparert":       loyper_data.get("freshly_groomed", 0),
-            "sist_prep_timer": round(loyper_data.get("newest_age_seconds", 0) / 3600, 1)
-                               if loyper_data.get("newest_age_seconds") else None,
-            "last_update":     loyper_data.get("newest_dt_local"),
+            "totalt":          loyper_data.get("counts", {}).get("segments_total", 0),
+            "aktive":          loyper_data.get("counts", {}).get("segments_active", 0),
+            "preparert":       loyper_data.get("counts", {}).get("segments_freshly_groomed", 0),
+            "sist_prep_timer": round(loyper_data.get("updates", {}).get("newest_segment", {}).get("age_seconds", 0) / 3600, 1)
+                               if loyper_data.get("updates", {}).get("newest_segment", {}).get("age_seconds") else None,
+            "last_update":     loyper_data.get("updates", {}).get("latest_update_local"),
         },
         "daglig": [
             {
@@ -289,6 +304,7 @@ def api_status():
                 "temperatur_c": iv.get("temperatur_c"),
                 "nedbor_mm":    iv.get("nedbør_mm"),
                 "vind_ms":      iv.get("vind_ms"),
+                "ver_ikon":     iv.get("vær_ikon"),
                 "timer":        iv.get("timer"),
             }
             for iv in sno_data.get("intervaller", [])
@@ -379,16 +395,19 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
   <div class="section-label">Værprognose – kommende timer</div>
   <div style="background:#0f172a;border-radius:var(--radius);padding:16px 18px;margin-bottom:4px;">
     <div class="chart-hours" style="margin-bottom:8px;">
-      <button class="active" onclick="setFcast(48,this)" style="background:#1e293b;color:#94a3b8;border-color:#334155;">48t</button>
-      <button onclick="setFcast(96,this)" style="background:#1e293b;color:#94a3b8;border-color:#334155;">4 dager</button>
-      <button onclick="setFcast(168,this)" style="background:#1e293b;color:#94a3b8;border-color:#334155;">7 dager</button>
+      <button class="active" onclick="setFcast(12,this)" style="background:#334155;color:#e2e8f0;border-color:#334155;">12t</button>
+      <button onclick="setFcast(24,this)" style="background:#1e293b;color:#94a3b8;border-color:#1e293b;">24t</button>
+      <button onclick="setFcast(48,this)" style="background:#1e293b;color:#94a3b8;border-color:#1e293b;">48t</button>
+      <button onclick="setFcast(168,this)" style="background:#1e293b;color:#94a3b8;border-color:#1e293b;">7 dager</button>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;">
       <span class="leg"><span class="leg-line" style="background:#4dabf7"></span><span style="color:#7b8db5;font-size:11px;">Temp (°C)</span></span>
       <span class="leg"><span class="leg-bar" style="background:rgba(255,107,107,0.6)"></span><span style="color:#7b8db5;font-size:11px;">Nedbør varm</span></span>
       <span class="leg"><span class="leg-bar" style="background:rgba(116,192,252,0.6)"></span><span style="color:#7b8db5;font-size:11px;">Nedbør kald</span></span>
+      <span class="leg"><span class="leg-line" style="background:#a78bfa"></span><span style="color:#7b8db5;font-size:11px;">Vind (m/s)</span></span>
     </div>
-    <div style="position:relative;height:220px;">
+    <div id="fcast-icons" style="display:flex;overflow-x:auto;gap:0;margin-bottom:6px;min-height:28px;"></div>
+    <div style="position:relative;height:200px;">
       <canvas id="fcast-chart"></canvas>
       <div id="fcast-msg" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#7b8db5;font-size:13px;"><span class="spinner"></span></div>
     </div>
@@ -442,7 +461,7 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 <script>
 const DAYS=['søn','man','tir','ons','tor','fre','lør'];
 const MONTHS=['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
-let fcastData=[],fcastHours=48,fcastChart=null;
+let fcastData=[],fcastHours=12,fcastChart=null;
 let histData=[],currentHours=12,histChart=null;
 
 function setFcast(h,btn){
@@ -463,9 +482,22 @@ function renderFcast(){
   if(!data.length)return;
 
   const MS=['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
+
+  // Vær-ikoner rad
+  const iconsEl=document.getElementById('fcast-icons');
+  if(iconsEl){
+    const step=Math.max(1,Math.floor(data.length/16));
+    iconsEl.innerHTML=data.filter((_,i)=>i%step===0).map(x=>{
+      const dt=new Date(x.start);
+      const lbl=String(dt.getHours()).padStart(2,'0')+':00';
+      const ikon=x.ver_ikon||'';
+      return`<div style="flex:1;min-width:32px;text-align:center;"><div style="font-size:14px;">${ikon}</div><div style="font-size:9px;color:#475569;">${lbl}</div></div>`;
+    }).join('');
+  }
+
   const labels=data.map(x=>{
     const dt=new Date(x.start);const h=dt.getHours();
-    if(h===0)return dt.getDate()+'.'+MS[dt.getMonth()]+' 00:00';
+    if(h===0||fcastHours>24)return dt.getDate()+'.'+MS[dt.getMonth()]+(h===0?'':' '+String(h).padStart(2,'0'));
     return String(h).padStart(2,'0')+':00';
   });
   const temps=data.map(x=>x.temperatur_c!=null?parseFloat(x.temperatur_c):null);
@@ -474,6 +506,7 @@ function renderFcast(){
     const t=x.temperatur_c!=null?parseFloat(x.temperatur_c):1;
     return t<=0?'rgba(116,192,252,0.6)':'rgba(255,107,107,0.6)';
   });
+  const wind=data.map(x=>x.vind_ms!=null?parseFloat(x.vind_ms):null);
 
   const ctx=document.getElementById('fcast-chart').getContext('2d');
   if(fcastChart)fcastChart.destroy();
@@ -481,9 +514,11 @@ function renderFcast(){
 
   fcastChart=new Chart(ctx,{
     data:{labels,datasets:[
-      {type:'bar',label:'Nedbør (mm)',data:precip,backgroundColor:precipColors,borderRadius:2,yAxisID:'yP',order:2},
+      {type:'bar',label:'Nedbør (mm)',data:precip,backgroundColor:precipColors,borderRadius:2,yAxisID:'yP',order:3},
       {type:'line',label:'Temperatur (°C)',data:temps,borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:0.3,fill:false,yAxisID:'yT',order:1,
         segment:{borderColor:c=>c.p0.parsed.y<=0?'rgba(77,171,247,1)':'rgba(255,107,107,1)'},backgroundColor:'transparent'},
+      {type:'line',label:'Vind (m/s)',data:wind,borderColor:'rgba(167,139,250,0.7)',backgroundColor:'transparent',
+        borderWidth:1.5,borderDash:[3,3],pointRadius:0,pointHoverRadius:3,tension:0.3,fill:false,yAxisID:'yW',order:2},
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,
@@ -494,6 +529,7 @@ function renderFcast(){
           callbacks:{label:c=>{
             if(c.parsed.y==null)return null;
             if(c.dataset.label.includes('Temp'))return`Temp: ${c.parsed.y>0?'+':''}${c.parsed.y.toFixed(1)}°C`;
+            if(c.dataset.label.includes('Vind'))return`Vind: ${c.parsed.y.toFixed(1)} m/s`;
             return`Nedbør: ${c.parsed.y.toFixed(1)} mm`;
           }}}
       },
@@ -502,6 +538,7 @@ function renderFcast(){
         yT:{position:'left',ticks:{color:'#7b8db5',font:{size:10},callback:v=>(v>0?'+':'')+v+'°'},grid:{color:'rgba(100,130,200,.06)'},
           afterDataLimits(s){if(s.min>0)s.min=-1;if(s.max<0)s.max=1;}},
         yP:{position:'right',min:0,suggestedMax:1,ticks:{color:'#7b8db5',font:{size:10},callback:v=>v+' mm'},grid:{drawOnChartArea:false}},
+        yW:{display:false,min:0},
       }
     }
   });
@@ -520,7 +557,7 @@ async function init(){
 function renderStatus(d){
   const t=d.tolkning||{},s=d.sno||{},lp=d.loyper||{};
   const bc={'green':'badge-green','amber':'badge-amber','red':'badge-red'}[t.badge_color]||'badge-amber';
-  document.getElementById('hero').innerHTML=`<div class="hero-top"><div class="hero-icon">${t.icon||'🏔️'}</div><div class="hero-text"><div class="hero-verdict">${t.verdict||'Kvamskogen'}</div><div class="hero-detail">${t.detail||''}</div><span class="hero-badge ${bc}">${t.snow_quality||'Ukjent'} skiføre</span></div></div>`;
+  document.getElementById('hero').innerHTML=`<div class="hero-top"><div class="hero-icon">${t.icon||'🏔️'}</div><div class="hero-text"><div class="hero-verdict">${t.verdict||'Kvamskogen'}</div><div class="hero-detail">${(t.detail||'').replace(/\n/g,'<br>')}</div><span class="hero-badge ${bc}">${t.snow_quality||'Ukjent'} skiføre</span></div></div>`;
   document.getElementById('m-dybde').textContent=s.dybde_cm!=null?s.dybde_cm+' cm':'–';
   document.getElementById('m-dybde-sub').textContent=s.ny_sno_48t_cm!=null?'+'+s.ny_sno_48t_cm+' cm siste 48t':'';
   document.getElementById('m-1t').textContent=fmtDelta(s.endring_1t_cm);
@@ -593,7 +630,7 @@ function setHours(h,btn){
 
 init();
 loadHistorikk();
-setInterval(init,10*60*1000);
+setInterval(init,15*60*1000);
 </script>
 </body>
 </html>
