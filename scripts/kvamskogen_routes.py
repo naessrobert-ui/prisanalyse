@@ -223,15 +223,18 @@ def _fallback_tolkning(sno_data: dict, loyper_data: dict) -> dict:
                 "snow_quality": "Dårlig", "badge_color": "red", "icon": "💧"}
 
 
-# ── Direkte funksjonskall (fungerer både lokalt og på Render) ────────────────
+# ── API-kall ──────────────────────────────────────────────────────────────────
+# Lokalt: localhost:5000, på Render: prisanalyse.no
+_IS_RENDER = os.getenv("RENDER") == "true"
+_BASE = "https://prisanalyse.no" if _IS_RENDER else "http://localhost:5000"
+
 
 def _hent_sno() -> dict:
     try:
-        from scripts.ver_routes import _hent_prognose_data
-        return _hent_prognose_data("Kvamskogen")
-    except ImportError:
-        from ver_routes import _hent_prognose_data
-        return _hent_prognose_data("Kvamskogen")
+        r = requests.get(f"{_BASE}/ver/api/snovarsel",
+                         params={"stasjon": "Kvamskogen"}, timeout=45)
+        r.raise_for_status()
+        return r.json()
     except Exception:
         traceback.print_exc()
         return {}
@@ -239,70 +242,10 @@ def _hent_sno() -> dict:
 
 def _hent_loyper() -> dict:
     try:
-        try:
-            from scripts.ver_routes import skiloyper_kvamskogen_stats as _stats_view
-        except ImportError:
-            from ver_routes import skiloyper_kvamskogen_stats as _stats_view
-
-        # Hent payload direkte fra cache-logikken i ver_routes
-        try:
-            from scripts.ver_routes import _STATS_CACHE, _CacheEntry, _latlng_to_tile, KVAM_LAT, KVAM_LNG, KVAM_LOCATION_ID, UPSTREAM_SEGMENTS, _loyper_session, _parse_last_update
-        except ImportError:
-            from ver_routes import _STATS_CACHE, _CacheEntry, _latlng_to_tile, KVAM_LAT, KVAM_LNG, KVAM_LOCATION_ID, UPSTREAM_SEGMENTS, _loyper_session, _parse_last_update
-
-        from mapbox_vector_tile import decode as mvt_decode
-        import time as _time
-
-        z, radius, fresh_hours, cache_seconds = 13, 2, 12, 60
-        cache_key = ("kvamskogen", z, radius, fresh_hours)
-        now_ts = _time.time()
-        hit = _STATS_CACHE.get(cache_key)
-        if hit and hit.expires_at > now_ts:
-            return hit.payload
-
-        center_x, center_y = _latlng_to_tile(KVAM_LAT, KVAM_LNG, z)
-        now_utc = datetime.now(timezone.utc)
-        fresh_sec = fresh_hours * 3600
-        seen = set(); total = active = groomed = 0
-        newest_utc = newest_local = newest_age = None
-
-        for dx in range(-radius, radius + 1):
-            for dy in range(-radius, radius + 1):
-                url = UPSTREAM_SEGMENTS.format(z=z, x=center_x+dx, y=center_y+dy)
-                try:
-                    r = _loyper_session.get(url, timeout=10)
-                    if r.status_code != 200: continue
-                    tile_data = mvt_decode(r.content)
-                except Exception: continue
-                layer = tile_data.get("segments")
-                if not layer: continue
-                for f in layer.get("features", []):
-                    p = f.get("properties", {}) or {}
-                    if str(p.get("location_id", "")) != KVAM_LOCATION_ID: continue
-                    key = (p.get("id"), p.get("track_id"))
-                    if key in seen: continue
-                    seen.add(key); total += 1
-                    is_active = bool(p.get("is_active"))
-                    if is_active: active += 1
-                    lu_dt = _parse_last_update(p.get("last_update"))
-                    if lu_dt:
-                        if newest_utc is None or lu_dt > newest_utc:
-                            newest_utc = lu_dt
-                            newest_age = (now_utc - lu_dt).total_seconds()
-                            newest_local = lu_dt.astimezone(LOCAL_TZ).isoformat()
-                        if is_active and not bool(p.get("open_not_groomed")):
-                            if (now_utc - lu_dt).total_seconds() <= fresh_sec:
-                                groomed += 1
-
-        payload = {
-            "counts": {"segments_total": total, "segments_active": active, "segments_freshly_groomed": groomed},
-            "updates": {
-                "latest_update_local": newest_local,
-                "newest_segment": {"age_seconds": newest_age},
-            },
-        }
-        _STATS_CACHE[cache_key] = _CacheEntry(expires_at=now_ts + cache_seconds, payload=payload)
-        return payload
+        r = requests.get(f"{_BASE}/ver/skiloyper-kvamskogen/stats",
+                         params={"z": 13, "radius": 2, "fresh_hours": 12}, timeout=20)
+        r.raise_for_status()
+        return r.json()
     except Exception:
         traceback.print_exc()
         return {}
