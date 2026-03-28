@@ -394,6 +394,340 @@ def api_historikk():
         traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
+
+# ── Soloppgang/solnedgang ─────────────────────────────────────────────────────
+
+def _sol_tider(dato_str: str) -> tuple:
+    """Beregn soloppgang og solnedgang for Kvamskogen (60.4°N, 5.97°E)."""
+    import math
+    from datetime import date
+    lat = math.radians(60.4)
+    dato = date.fromisoformat(dato_str)
+    dag_nr = dato.timetuple().tm_yday
+    decl = math.radians(23.45 * math.sin(math.radians(360/365*(dag_nr-81))))
+    cos_ha = (math.sin(math.radians(-0.833)) - math.sin(lat)*math.sin(decl)) / (math.cos(lat)*math.cos(decl))
+    if abs(cos_ha) > 1:
+        return None, None
+    ha = math.degrees(math.acos(cos_ha))
+    tz_offset = 2 if 3 <= dato.month <= 10 else 1
+    noon = 12 - 5.97/15 + tz_offset
+    def fmt(h):
+        hh = int(h); mm = int((h-hh)*60)
+        return f"{hh:02d}:{mm:02d}"
+    return fmt(noon - ha/15), fmt(noon + ha/15)
+
+
+def _analyser_dag(dato: str, intervaller: list, soloppgang: str, solnedgang: str) -> dict:
+    """Analyser én dag og returner skianbefaling via AI."""
+    if not ANTHROPIC_API_KEY:
+        return _fallback_dag(dato, intervaller, soloppgang, solnedgang)
+
+    prompt = f"""Analyser dette for skianbefalinger på Kvamskogen.
+Dato: {dato}, Soloppgang: {soloppgang}, Solnedgang: {solnedgang}
+
+Timedata (start, nedbør_mm, vind_ms, vær):
+{json.dumps([{"t": iv["start"][11:16], "nedbor": iv.get("nedbor_mm",0), "vind": iv.get("vind_ms",0), "ver": iv.get("ver_ikon",""), "temp": iv.get("temperatur_c",0)} for iv in intervaller if iv.get("timer",1)<=1], ensure_ascii=False)}
+
+Ranger forholdene og finn beste tidsvindu mellom soloppgang og solnedgang.
+
+REGLER:
+- Regn = dårlig (unngå)
+- Lett snøvær = greit
+- Vind > 8 m/s = ubehagelig
+- Sol + lite vind = perfekt
+- Mørkt = ikke aktuelt (utenfor soloppgang-solnedgang)
+
+Svar KUN med JSON:
+{{"score": 1-5, "kort": "En linje, maks 12 ord", "beste_tid": "f.eks. 10:00-14:00 eller null", "detalj": "2-3 setninger med konkret anbefaling og begrunnelse"}}
+
+Score: 5=perfekt, 4=bra, 3=greit, 2=dårlig, 1=ikke gå ut"""
+
+    try:
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
+                     "content-type": "application/json"},
+            json={"model": ANTHROPIC_MODEL, "max_tokens": 256,
+                  "messages": [{"role": "user", "content": prompt}]},
+            timeout=30,
+        )
+        r.raise_for_status()
+        text = r.json()["content"][0]["text"].strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"): text = text[4:]
+        return json.loads(text)
+    except Exception:
+        return _fallback_dag(dato, intervaller, soloppgang, solnedgang)
+
+
+def _fallback_dag(dato: str, intervaller: list, soloppgang: str, solnedgang: str) -> dict:
+    """Smartere regelbasert analyse – ser på perioder og overganger."""
+
+    def t_til_min(t):
+        if not t or ':' not in t: return 0
+        h, m = t.split(':'); return int(h)*60+int(m)
+
+    sol_opp_min = t_til_min(soloppgang)
+    sol_ned_min = t_til_min(solnedgang)
+
+    def iv_min(iv):
+        return t_til_min((iv.get("start") or "")[11:16])
+
+    def iv_type(iv):
+        nb  = iv.get("nedbor_mm") or 0
+        temp = iv.get("temperatur_c") or 0
+        if nb < 0.15: return "tørt"
+        if temp > 1.5: return "regn"
+        if 0 < temp <= 1.5: return "sludd"
+        return "snø"
+
+    def iv_label(iv):
+        nb   = iv.get("nedbor_mm") or 0
+        vind = iv.get("vind_ms") or 0
+        t    = iv_type(iv)
+        ikon = iv.get("ver_ikon") or ""
+        sol  = any(s in ikon for s in ["☀","🌤","⛅"])
+        if t == "tørt":
+            if sol:   return "sol"
+            if vind > 6: return "oppholdsvær, vind"
+            return "oppholdsvær"
+        if t == "regn":
+            return "kraftig regn" if nb > 2 else "lett regn"
+        if t == "sludd": return "sludd"
+        return "moderat snøvær" if nb > 1 else "lett snøvær"
+
+    # Kun timer i dagslys
+    dagslys = [iv for iv in intervaller
+               if sol_opp_min <= iv_min(iv) <= sol_ned_min] or intervaller
+
+    # Grupper sammenhengende intervaller med samme label
+    def finn_perioder(ivs):
+        if not ivs: return []
+        perioder, start_iv, prev = [], ivs[0], iv_label(ivs[0])
+        for iv in ivs[1:]:
+            curr = iv_label(iv)
+            if curr != prev:
+                perioder.append((start_iv, iv, prev))
+                start_iv, prev = iv, curr
+        perioder.append((start_iv, ivs[-1], prev))
+        return perioder
+
+    perioder = finn_perioder(dagslys)
+
+    # Beskriv perioder
+    deler = []
+    for start_iv, slutt_iv, label in perioder:
+        st = (start_iv.get("start") or "")[11:16]
+        sl = (slutt_iv.get("start") or "")[11:16]
+        if st == sl:
+            deler.append(f"{st}: {label}")
+        else:
+            deler.append(f"{st}–{sl}: {label}")
+
+    # Score
+    n = max(len(dagslys), 1)
+    regn_n = sum(1 for iv in dagslys if iv_type(iv) == "regn")
+    sol_n  = sum(1 for iv in dagslys if "sol" in iv_label(iv))
+    vind_snitt = sum(iv.get("vind_ms") or 0 for iv in dagslys) / n
+
+    if regn_n / n > 0.6:   score = 1
+    elif regn_n / n > 0.3: score = 2
+    elif sol_n / n > 0.4 and vind_snitt < 5: score = 5
+    elif sol_n / n > 0.2 and vind_snitt < 6: score = 4
+    else:                   score = 3
+
+    score_tekst = {5:"Strålende dag – perfekt skitur!",4:"Fin dag med gode forhold",
+                   3:"Greit skiføre",2:"En del regn, noen pauser",1:"Mye regn – bli hjemme"}
+
+    # Finn beste vindu
+    gode = [iv for iv in intervaller
+            if iv_type(iv) != "regn" and (iv.get("vind_ms") or 0) < 8
+            and sol_opp_min <= iv_min(iv) <= sol_ned_min]
+    beste_tid = None
+    if gode:
+        s = (gode[0].get("start") or "")[11:16]
+        e = (gode[-1].get("start") or "")[11:16]
+        if s != e: beste_tid = f"{s}–{e}"
+
+    detalj = ". ".join(deler) + "."
+    if vind_snitt > 7: detalj += " Merk: sterk vind hele dagen."
+    elif sol_n / n > 0.4: detalj += " 🌟"
+
+    # Legg til konkret anbefaling
+    if score == 5:
+        detalj += f" Bare å stikke ut – hele dagen fra {soloppgang} er fin!"
+    elif score == 4:
+        detalj += f" Anbefaler {beste_tid or soloppgang+'–'+solnedgang}."
+    elif score == 3 and beste_tid:
+        detalj += f" Det ser lovende ut mellom {beste_tid} – ellers grått."
+    elif score == 2 and beste_tid:
+        detalj += f" Har du lyst, bruk vinduet {beste_tid} – men forvent vått."
+    elif score == 1:
+        detalj += " Bli heller hjemme i dag."
+
+    return {"score": score, "kort": score_tekst[score],
+            "beste_tid": beste_tid or f"{soloppgang}–{solnedgang}",
+            "detalj": detalj}
+
+
+_SKITUR_AI_CACHE: dict = {}
+_SKITUR_AI_CACHE_TTL = 15 * 60
+
+_SKITUR_AI_PROMPT = """Du er en lokal turguide på Kvamskogen. Analyser timedata og gi korte, konkrete turanbefalinger på norsk bokmål.
+
+For hver dag:
+1. Se på HELE dagen time for time – ikke bare snittverdier
+2. Finn når vinden tiltar eller avtar (viktig å si kl XX blir det sterkere vind)
+3. Finn perioden med minst nedbør mellom soloppgang og solnedgang
+4. Skill mellom regn (temp>1.5°C), sludd (0-1.5°C) og snø (<0°C)
+5. Skriv "detalj" som én konkret setning som oppsummerer dagen – dette er det viktigste feltet
+6. Skriv "kort" som en 4-6 ords komprimering av detalj (ikke en separat vurdering)
+
+Eksempel på god detalj: "Rolig morgen med lett snø til kl 10, deretter kraftig vind 8–10 m/s og tett snøfall fra 13."
+Eksempel på tilhørende kort: "Rolig morgen, vind fra 13"
+
+Svar KUN med gyldig JSON-array (ingen markdown):
+[{"dato":"YYYY-MM-DD","score":1-5,"kort":"4-6 ord fra detalj","beste_tid":"HH:MM–HH:MM eller null","detalj":"1 konkret setning med timing"}]
+
+Score: 5=sol+lite vind hele dagen, 4=bra forhold, 3=variabelt/greit, 2=mye nedbør men pauser, 1=bli hjemme
+Beste tidsvindu: perioden med minst nedbør OG akseptabel vind (<8 m/s) mellom soloppgang og solnedgang."""
+
+
+@kvamskogen_bp.get("/api/skitur-ai")
+def api_skitur_ai():
+    """AI-analyse av alle skidager i ett kall."""
+    now_ts = time.time()
+    hit = _SKITUR_AI_CACHE.get("skitur_ai")
+    if hit and hit["expires_at"] > now_ts:
+        return jsonify(hit["payload"])
+
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"ok": False, "dager": []})
+
+    status_hit = _STATUS_CACHE.get("status")
+    if not status_hit:
+        return jsonify({"ok": False, "dager": []})
+
+    intervaller_raw = status_hit["payload"].get("intervaller", [])
+    if not intervaller_raw:
+        return jsonify({"ok": False, "dager": []})
+
+    from collections import defaultdict
+    import datetime as _dt
+
+    per_dag: dict = defaultdict(list)
+    for iv in intervaller_raw:
+        dato = (iv.get("start") or "")[:10]
+        if dato:
+            per_dag[dato].append(iv)
+
+    # Bygg kompakt dagsoversikt for AI
+    dager_payload = []
+    for dato in sorted(per_dag.keys())[:7]:
+        sol_opp, sol_ned = _sol_tider(dato)
+        dt = _dt.date.fromisoformat(dato)
+        ukedag = ["mandag","tirsdag","onsdag","torsdag","fredag","lørdag","søndag"][dt.weekday()]
+        ivs = per_dag[dato]
+        dager_payload.append({
+            "dato": dato,
+            "ukedag": ukedag,
+            "soloppgang": sol_opp,
+            "solnedgang": sol_ned,
+            "timer": [
+                {
+                    "t": (iv.get("start") or "")[11:16],
+                    "nb": round(iv.get("nedbor_mm") or 0, 1),
+                    "temp": round(iv.get("temperatur_c") or 0, 1),
+                    "vind": round(iv.get("vind_ms") or 0, 1),
+                    "ikon": iv.get("ver_ikon") or ""
+                }
+                for iv in ivs
+            ]
+        })
+
+    try:
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
+                     "content-type": "application/json"},
+            json={
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 1024,
+                "system": _SKITUR_AI_PROMPT,
+                "messages": [{"role": "user", "content": json.dumps(dager_payload, ensure_ascii=False)}]
+            },
+            timeout=30,
+        )
+        r.raise_for_status()
+        text = r.json()["content"][0]["text"].strip()
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"): text = text[4:]
+        ai_dager = json.loads(text)
+
+        # Legg til ukedag og sol-tider
+        for dag in ai_dager:
+            dato = dag.get("dato", "")
+            if dato:
+                dt = _dt.date.fromisoformat(dato)
+                dag["ukedag"] = ["mandag","tirsdag","onsdag","torsdag","fredag","lørdag","søndag"][dt.weekday()]
+                dag["soloppgang"], dag["solnedgang"] = _sol_tider(dato)
+
+        payload = {"ok": True, "dager": ai_dager}
+        _SKITUR_AI_CACHE["skitur_ai"] = {"expires_at": now_ts + _SKITUR_AI_CACHE_TTL, "payload": payload}
+        return jsonify(payload)
+
+    except Exception:
+        traceback.print_exc()
+        return jsonify({"ok": False, "dager": []})
+
+
+@kvamskogen_bp.get("/api/skitur")
+def api_skitur():
+    now_ts = time.time()
+    hit = _SKITUR_CACHE.get("skitur")
+    if hit and hit["expires_at"] > now_ts:
+        return jsonify(hit["payload"])
+
+    # Gjenbruk status-cache
+    status_hit = _STATUS_CACHE.get("status")
+    if not status_hit:
+        return jsonify({"ok": False, "dager": []})
+
+    intervaller_raw = status_hit["payload"].get("intervaller", [])
+    if not intervaller_raw:
+        return jsonify({"ok": False, "dager": []})
+
+    from collections import defaultdict
+    per_dag: dict = defaultdict(list)
+    for iv in intervaller_raw:
+        dato = (iv.get("start") or "")[:10]
+        if dato:
+            per_dag[dato].append(iv)
+
+    dager = []
+    for dato in sorted(per_dag.keys())[:8]:
+        ivs = per_dag[dato]
+        sol_opp, sol_ned = _sol_tider(dato)
+        analyse = _fallback_dag(dato, ivs, sol_opp or "07:00", sol_ned or "20:00")
+        from datetime import date as _date
+        dt = _date.fromisoformat(dato)
+        ukedag = ["mandag","tirsdag","onsdag","torsdag","fredag","lørdag","søndag"][dt.weekday()]
+        dager.append({
+            "dato": dato, "ukedag": ukedag,
+            "soloppgang": sol_opp, "solnedgang": sol_ned,
+            "score": analyse.get("score", 3),
+            "kort": analyse.get("kort", ""),
+            "beste_tid": analyse.get("beste_tid"),
+            "detalj": analyse.get("detalj", ""),
+        })
+
+    payload = {"ok": True, "dager": dager}
+    _SKITUR_CACHE["skitur"] = {"expires_at": now_ts + _SKITUR_CACHE_TTL, "payload": payload}
+    return jsonify(payload)
+
+
 _FORSIDE_HTML = r"""<!DOCTYPE html>
 <html lang="no">
 <head>
@@ -452,6 +786,31 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 .fday-temp{font-size:12px;font-weight:600;}
 .fday-snow{font-size:10px;color:#0284c7;margin-top:3px;min-height:14px;}
 .fday-depth{font-size:10px;color:var(--hint);margin-top:2px;}
+.ski-day{border-radius:14px;margin-bottom:10px;box-shadow:var(--shadow);overflow:hidden;}
+.ski-day-header{display:flex;align-items:center;gap:0;cursor:pointer;user-select:none;border-radius:14px;overflow:hidden;}
+.ski-day-left{width:88px;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;flex-shrink:0;padding:12px 8px;}
+.ski-day-left .score-5{background:linear-gradient(135deg,#fbbf24,#f59e0b);}
+.ski-day-left .score-4{background:linear-gradient(135deg,#34d399,#10b981);}
+.ski-day-left .score-3{background:linear-gradient(135deg,#93c5fd,#60a5fa);}
+.ski-day-left .score-2{background:linear-gradient(135deg,#94a3b8,#64748b);}
+.ski-day-left .score-1{background:linear-gradient(135deg,#fca5a5,#ef4444);}
+.ski-day-icon-big{font-size:32px;line-height:1;}
+.ski-day-name-top{font-size:11px;font-weight:700;color:rgba(255,255,255,0.9);text-transform:uppercase;letter-spacing:0.5px;}
+.ski-day-right{flex:1;background:var(--surface);padding:12px 16px;border-left:none;min-height:80px;display:flex;flex-direction:column;justify-content:center;gap:4px;}
+.ski-day-right:hover{background:#f8fafc;}
+.ski-day-title{font-size:15px;font-weight:600;color:var(--text);}
+.ski-day-kort{font-size:13px;color:var(--muted);}
+.ski-day-stats-inline{font-size:11px;color:var(--hint);font-weight:400;margin-left:6px;letter-spacing:0.2px;}
+.ski-day-stats{font-size:11px;color:var(--hint);margin-top:3px;letter-spacing:0.2px;}
+.ski-day-meta{display:flex;align-items:center;gap:10px;margin-top:4px;}
+.ski-beste-tid{font-size:12px;font-weight:600;color:var(--blue);}
+.ski-arrow{font-size:12px;color:var(--hint);margin-left:auto;}
+.ski-day-detail{padding:0 16px 12px 100px;}
+.ski-day-detail-text{font-size:13px;color:var(--muted);line-height:1.6;}
+.ski-day-sol{font-size:11px;color:var(--hint);margin-top:4px;}
+.ski-day-chart-section{background:#0f172a;border-radius:0 0 14px 14px;}
+.ski-day-chart-wrap{padding:0 12px 12px;height:180px;position:relative;}
+.ski-day-chart-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#475569;font-size:12px;}
 .links-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
 @media(max-width:480px){.links-grid{grid-template-columns:repeat(2,1fr);}}
 .link-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);text-align:center;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;}
@@ -524,14 +883,18 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
     </div>
   </div>
   <div class="section-label">Løypestatus</div>
-  <div class="loyper-card">
-    <div class="loyper-row"><span><span class="loyper-dot dot-green"></span>Nylig preparert (&le;12t)</span><span id="l-preparert" style="font-weight:600">–</span></div>
-    <div class="loyper-row"><span><span class="loyper-dot dot-amber"></span>Aktive, ikke preparert</span><span id="l-aktive">–</span></div>
-    <div class="loyper-row"><span><span class="loyper-dot dot-gray"></span>Totalt registrert</span><span id="l-totalt">–</span></div>
-    <div class="loyper-meta" id="l-meta"></div>
+  <div class="loyper-card" id="loyper-card">
+    <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px;" id="l-main">–</div>
+    <div style="font-size:13px;color:var(--muted);" id="l-sub"></div>
+    <div style="font-size:12px;color:var(--hint);margin-top:4px;" id="l-sno-siden-prep"></div>
+    <div style="font-size:13px;font-weight:500;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);" id="l-vurdering"></div>
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+      <a href="/ver/skiloyper-kvamskogen" style="font-size:13px;color:var(--blue);">🗺️ Se løypekartet →</a>
+    </div>
   </div>
-  <div class="section-label">Snøprognose – kommende dager</div>
-  <div class="forecast-strip" id="forecast"></div>
+  <div class="section-label">Når kan jeg gå på tur?</div>
+  <div style="font-size:12px;color:var(--hint);margin-bottom:10px;">Klikk på en dag for timedetaljer</div>
+  <div id="skitur-list"><div style="color:var(--hint);font-size:13px;padding:8px 0"><span class="spinner"></span> Laster skidager…</div></div>
   <div class="section-label">Verktøy</div>
   <div class="links-grid">
     <a class="link-card" href="/ver/varsel-kvamskogen"><span class="link-card-icon">❄️</span>Snøvarsel (detaljert)</a>
@@ -561,8 +924,9 @@ function setFcast(h,btn){
 function renderFcast(){
   if(!fcastData.length)return;
   const msg=document.getElementById('fcast-msg');
-  const cutoff=new Date(Date.now()+fcastHours*3600*1000);
-  let data=fcastData.filter(x=>new Date(x.start)<=cutoff);
+  const now=new Date();
+  const cutoff=new Date(now.getTime()+fcastHours*3600*1000);
+  let data=fcastData.filter(x=>new Date(x.start)>=new Date(now.getTime()-3600*1000)&&new Date(x.start)<=cutoff);
   if(fcastHours>48) data=data.filter(x=>x.timer>=6);
   if(!data.length)return;
 
@@ -631,6 +995,324 @@ function renderFcast(){
 
 
 
+// ── Skitur-anbefalinger (bygges fra status-data, ingen ekstra kall) ──
+const SCORE_EMOJI = {5:'☀️', 4:'🌤️', 3:'🌨️', 2:'🌧️', 1:'🌧️'};
+const UKEDAGER = ['søndag','mandag','tirsdag','onsdag','torsdag','fredag','lørdag'];
+
+function solTider(datoStr) {
+  // Enkel soloppgang/solnedgang for Kvamskogen (60.4°N)
+  const dato = new Date(datoStr+'T12:00:00');
+  const dag = Math.floor((dato - new Date(dato.getFullYear(),0,0)) / 86400000);
+  const decl = 23.45 * Math.sin((360/365*(dag-81)) * Math.PI/180) * Math.PI/180;
+  const lat = 60.4 * Math.PI/180;
+  const cosHA = (Math.sin(-0.833*Math.PI/180) - Math.sin(lat)*Math.sin(decl)) / (Math.cos(lat)*Math.cos(decl));
+  if(Math.abs(cosHA)>1) return ['--:--','--:--'];
+  const ha = Math.acos(cosHA) * 180/Math.PI;
+  const tz = dato.getMonth()>=2 && dato.getMonth()<=9 ? 2 : 1;
+  const noon = 12 - 5.97/15 + tz;
+  const fmt = h => { const hh=Math.floor(h); const mm=Math.round((h-hh)*60); return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'); };
+  return [fmt(noon-ha/15), fmt(noon+ha/15)];
+}
+
+function analyserDag(dato, ivs, solOpp, solNed) {
+  function tTilMin(t){ if(!t||!t.includes(':'))return 0; const[h,m]=t.split(':');return+h*60+ +m; }
+  const solOppMin=tTilMin(solOpp), solNedMin=tTilMin(solNed);
+  function ivMin(iv){ return tTilMin((iv.start||'').substring(11,16)); }
+
+  function ivType(iv){
+    const nb=iv.nedbor_mm||0, temp=iv.temperatur_c||0;
+    if(nb<0.15) return 'tørt';
+    if(temp>1.5) return 'regn';
+    if(temp>0)   return 'sludd';
+    return 'snø';
+  }
+  function ivLabel(iv){
+    const nb=iv.nedbor_mm||0, vind=iv.vind_ms||0, t=ivType(iv);
+    const ikon=iv.ver_ikon||'';
+    const sol=['☀','🌤','⛅'].some(s=>ikon.includes(s));
+    if(t==='tørt') return sol?'sol':(vind>6?'oppholdsvær, vind':'oppholdsvær');
+    if(t==='regn') return nb>2?'kraftig regn':'lett regn';
+    if(t==='sludd') return 'sludd';
+    return nb>1?'moderat snøvær':'lett snøvær';
+  }
+
+  // Kun dagslys
+  const dagslys=ivs.filter(iv=>ivMin(iv)>=solOppMin&&ivMin(iv)<=solNedMin);
+  const base=dagslys.length?dagslys:ivs;
+  const n=Math.max(base.length,1);
+
+  // Grupper sammenhengende perioder
+  const perioder=[];
+  if(base.length){
+    let startIv=base[0], prevLabel=ivLabel(base[0]);
+    for(let i=1;i<base.length;i++){
+      const curr=ivLabel(base[i]);
+      if(curr!==prevLabel){
+        perioder.push({start:(startIv.start||'').substring(11,16), slutt:(base[i].start||'').substring(11,16), label:prevLabel});
+        startIv=base[i]; prevLabel=curr;
+      }
+    }
+    perioder.push({start:(startIv.start||'').substring(11,16), slutt:(base[base.length-1].start||'').substring(11,16), label:prevLabel});
+  }
+
+  // Finn beste vindu (ikke regn, vind<8, i dagslys)
+  const gode=ivs.filter(iv=>ivType(iv)!=='regn'&&(iv.vind_ms||0)<8&&ivMin(iv)>=solOppMin&&ivMin(iv)<=solNedMin);
+  let besteTid=null;
+  if(gode.length>1){
+    const s=(gode[0].start||'').substring(11,16);
+    const e=(gode[gode.length-1].start||'').substring(11,16);
+    if(s!==e) besteTid=`${s}–${e}`;
+  }
+
+  // Score
+  const regnN=base.filter(iv=>ivType(iv)==='regn').length;
+  const solN=base.filter(iv=>ivLabel(iv)==='sol').length;
+  const vindSnitt=base.reduce((a,iv)=>a+(iv.vind_ms||0),0)/n;
+  let score;
+  if(regnN/n>0.6) score=1;
+  else if(regnN/n>0.3) score=2;
+  else if(solN/n>0.4&&vindSnitt<5) score=5;
+  else if(solN/n>0.2&&vindSnitt<6) score=4;
+  else score=3;
+
+  const kortTekst={5:'Strålende dag – perfekt skitur!',4:'Fin dag med gode forhold',3:'Greit skiføre',2:'En del regn, noen pauser',1:'Mye regn – bli hjemme'};
+
+  // Finn lavest nedbør-vindu i dagslys (2+ timer sammenhengende)
+  let lavNedbørVindu=null;
+  if(dagslys.length>1){
+    let bestSnitt=999, bestS=null, bestE=null;
+    for(let i=0;i<dagslys.length-1;i++){
+      for(let j=i+1;j<dagslys.length;j++){
+        const utsnitt=dagslys.slice(i,j+1);
+        const snitt=utsnitt.reduce((a,iv)=>a+(iv.nedbor_mm||0),0)/utsnitt.length;
+        if(snitt<bestSnitt&&utsnitt.length>=2){
+          bestSnitt=snitt;
+          bestS=(dagslys[i].start||'').substring(11,16);
+          bestE=(dagslys[j].start||'').substring(11,16);
+        }
+      }
+    }
+    if(bestS&&bestE&&bestS!==bestE) lavNedbørVindu=`${bestS}–${bestE}`;
+  }
+
+  // Kortfattet konklusjon – ikke lang periodebeskrivelse
+  let detalj='';
+  if(score===5){
+    detalj=`Sol og lite vind hele dagen. Bare å stikke ut fra ${solOpp}! 🌟`;
+  } else if(score===4){
+    detalj=`Gode forhold med sol i perioder.${besteTid?' Anbefalt tid: '+besteTid+'.':''}`;
+  } else if(score===3){
+    const vindKomm=vindSnitt>7?' Merk: en del vind.':'';
+    if(lavNedbørVindu) detalj=`Variabelt vær, men minst nedbør mellom ${lavNedbørVindu}. Da er det best å være ute.${vindKomm}`;
+    else detalj=`Greit skiføre gjennom dagen.${vindKomm}${besteTid?' Beste tid: '+besteTid+'.':''}`;
+  } else if(score===2){
+    if(besteTid) detalj=`En del regn, men vinduet ${besteTid} kan utnyttes hvis du vil ut.`;
+    else detalj='Mye nedbør – vanskelig å finne gode vinduer.';
+  } else {
+    detalj='Det regner mesteparten av dagen. Bli heller hjemme.';
+  }
+
+  return {score, kort:kortTekst[score], besteTid:besteTid||(solOpp+'–'+solNed), detalj};
+}
+
+function dagStats(ivs, solOpp, solNed) {
+  function tTilMin(t){ if(!t||!t.includes(':'))return 0; const[h,m]=t.split(':');return+h*60+ +m; }
+  const solOppMin=tTilMin(solOpp), solNedMin=tTilMin(solNed);
+  function ivMin(iv){ return tTilMin((iv.start||'').substring(11,16)); }
+
+  let regnMm=0, snoMm=0, vindSum=0, vindMaks=0, solTimer=0;
+  let n=0;
+  for(const iv of ivs){
+    const nb=iv.nedbor_mm||0, temp=iv.temperatur_c||0, vind=iv.vind_ms||0;
+    const ikon=iv.ver_ikon||'';
+    const t=iv.timer||1;
+    if(temp>1.5) regnMm+=nb; else snoMm+=nb;
+    vindSum+=vind; n++;
+    if(vind>vindMaks) vindMaks=vind;
+    if(['☀','🌤','⛅'].some(s=>ikon.includes(s))&&ivMin(iv)>=solOppMin&&ivMin(iv)<=solNedMin) solTimer+=t;
+  }
+  const vindSnitt=n?vindSum/n:0;
+  return {
+    regnMm: Math.round(regnMm*10)/10,
+    snoMm:  Math.round(snoMm*10)/10,
+    totMm:  Math.round((regnMm+snoMm)*10)/10,
+    vindSnitt: Math.round(vindSnitt*10)/10,
+    vindMaks:  Math.round(vindMaks*10)/10,
+    solTimer:  Math.round(solTimer),
+  };
+}
+
+
+function buildSkitur(intervaller, daglig) {
+  window._skiIntervaller = intervaller;
+  const el = document.getElementById('skitur-list');
+  if(!el) return;
+
+  if(!intervaller||!intervaller.length){
+    setTimeout(()=>{
+      fetch('/kvamskogen/api/status').then(r=>r.json()).then(d=>{
+        if(d.intervaller&&d.intervaller.length) buildSkitur(d.intervaller, d.daglig||[]);
+      }).catch(()=>{});
+    }, 3000);
+    return;
+  }
+
+  // Vis regelbasert umiddelbart
+  renderSkiturLokal(intervaller, el);
+
+  // Oppdater stille med AI i bakgrunnen
+  fetch('/kvamskogen/api/skitur-ai')
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.ok && d.dager && d.dager.length){
+        renderSkiturDager(d.dager, el, intervaller);
+      }
+    })
+    .catch(()=>{});
+}
+
+function renderSkiturLokal(intervaller, el) {
+  const perDag={};
+  intervaller.forEach(iv=>{
+    const dato=(iv.start||'').substring(0,10);
+    if(dato){if(!perDag[dato])perDag[dato]=[];perDag[dato].push(iv);}
+  });
+  const datoer=Object.keys(perDag).sort().slice(0,8);
+  if(!datoer.length){el.innerHTML='';return;}
+
+  const dager=datoer.map(dato=>{
+    const[solOpp,solNed]=solTider(dato);
+    const a=analyserDag(dato,perDag[dato],solOpp,solNed);
+    const dt=new Date(dato+'T12:00:00');
+    return{dato,ukedag:UKEDAGER[dt.getDay()],soloppgang:solOpp,solnedgang:solNed,...a,beste_tid:a.besteTid};
+  });
+  renderSkiturDager(dager, el, intervaller);
+}
+function renderSkiturDager(dager, el, intervaller) {
+  if(!dager||!dager.length){el.innerHTML='';return;}
+
+  // Bygg per-dag intervall-lookup
+  const perDag={};
+  (intervaller||[]).forEach(iv=>{
+    const dato=(iv.start||'').substring(0,10);
+    if(dato){if(!perDag[dato])perDag[dato]=[];perDag[dato].push(iv);}
+  });
+
+  el.innerHTML = dager.map((dag,i) => {
+    const dato=dag.dato, solOpp=dag.soloppgang||'07:00', solNed=dag.solnedgang||'20:00';
+    const score=dag.score||3, kort=dag.kort||'', detalj=dag.detalj||'';
+    const besteTid=dag.beste_tid||dag.besteTid||null;
+    const ukedag=dag.ukedag||'';
+    const dagStr=ukedag.charAt(0).toUpperCase()+ukedag.slice(1);
+    const datoStr=(dato||'').slice(5).replace('-','.');
+    const emoji=SCORE_EMOJI[score]||'🌨️';
+    const tidHtml=besteTid?`<span class="ski-beste-tid">⏰ ${besteTid}</span>`:'';
+
+    // Daglig statistikk
+    const ivs=perDag[dato]||[];
+    const st=ivs.length?dagStats(ivs,solOpp,solNed):null;
+    let statsHtml='';
+    if(st){
+      const nbParts=[];
+      if(st.snoMm>0) nbParts.push(`❄️ ${st.snoMm}mm`);
+      if(st.regnMm>0) nbParts.push(`🌧️ ${st.regnMm}mm`);
+      const nbStr=nbParts.length?nbParts.join(' '):'Tørt';
+      const vindStr=`💨 ${st.vindSnitt}/${st.vindMaks} m/s`;
+      const solStr=st.solTimer>0?`☀️ ${st.solTimer}t`:'';
+      statsHtml=`<div class="ski-day-stats">${nbStr} &nbsp;${vindStr}${solStr?' &nbsp;'+solStr:''}</div>`;
+    }
+    return `<div class="ski-day">
+      <div class="ski-day-header" onclick="toggleSkiDay(${i})">
+        <div class="ski-day-left score-${score}">
+          <div class="ski-day-icon-big">${emoji}</div>
+          <div class="ski-day-name-top">${dagStr}</div>
+        </div>
+        <div class="ski-day-right">
+          <div class="ski-day-title">${dagStr} ${datoStr}${st?` <span class="ski-day-stats-inline">${st.snoMm>0?'❄️ '+st.snoMm+'mm':''}${st.regnMm>0?(st.snoMm>0?' · ':'')+'🌧️ '+st.regnMm+'mm':''} · 💨 ${st.vindSnitt}/${st.vindMaks}m/s${st.solTimer>0?' · ☀️ '+st.solTimer+'t':''}</span>`:''}</div>
+          <div class="ski-day-kort">${kort}</div>
+          <div class="ski-day-kort" style="margin-top:4px;color:var(--text);opacity:0.75;">${detalj}</div>
+          <div class="ski-day-meta">
+            ${tidHtml}
+            <span class="ski-arrow" id="ski-arrow-${i}">▾ Graf</span>
+          </div>
+        </div>
+      </div>
+      <div class="ski-day-detail" id="ski-detail-${i}" data-dato="${dato}" data-rendered="0" style="display:block;">
+        <div class="ski-day-chart-section" id="ski-chart-section-${i}" style="display:none;">
+          <div class="ski-day-chart-wrap">
+            <canvas id="ski-chart-${i}"></canvas>
+            <div class="ski-day-chart-msg" id="ski-chart-msg-${i}"><span class="spinner"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSkiDay(i){
+  const chartSection=document.getElementById('ski-chart-section-'+i);
+  const arrow=document.getElementById('ski-arrow-'+i);
+  const detail=document.getElementById('ski-detail-'+i);
+  if(!chartSection) return;
+  const open=chartSection.style.display==='none';
+  chartSection.style.display=open?'block':'none';
+  if(arrow) arrow.textContent=open?'▴ Graf':'▾ Graf';
+  if(open && detail && detail.dataset.rendered==='0'){
+    detail.dataset.rendered='1';
+    renderSkiChart(i, detail.dataset.dato);
+  }
+}
+
+const _skiCharts={};
+function renderSkiChart(i, dato){
+  const msg=document.getElementById('ski-chart-msg-'+i);
+  const ctx=document.getElementById('ski-chart-'+i);
+  if(!ctx) return;
+
+  // Filtrer intervaller for denne datoen
+  const ivs=(window._skiIntervaller||[]).filter(iv=>(iv.start||'').startsWith(dato));
+  if(!ivs.length){ if(msg) msg.textContent='Ingen timedata'; return; }
+  if(msg) msg.style.display='none';
+
+  const MS=['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
+  const labels=ivs.map(iv=>{
+    const dt=new Date(iv.start); return String(dt.getHours()).padStart(2,'0')+':00';
+  });
+  const temps=ivs.map(iv=>iv.temperatur_c!=null?parseFloat(iv.temperatur_c):null);
+  const precip=ivs.map(iv=>iv.nedbor_mm!=null?parseFloat(iv.nedbor_mm):null);
+  const precipColors=ivs.map(iv=>(iv.temperatur_c||0)<=0?'rgba(116,192,252,0.7)':'rgba(255,107,107,0.7)');
+  const wind=ivs.map(iv=>iv.vind_ms!=null?parseFloat(iv.vind_ms):null);
+
+  if(_skiCharts[i]) _skiCharts[i].destroy();
+  _skiCharts[i]=new Chart(ctx,{
+    data:{labels,datasets:[
+      {type:'bar',label:'Nedbør',data:precip,backgroundColor:precipColors,borderRadius:2,yAxisID:'yP',order:3},
+      {type:'line',label:'Temp',data:temps,borderWidth:2,pointRadius:0,tension:0.3,fill:false,yAxisID:'yT',order:1,
+        segment:{borderColor:c=>c.p0.parsed.y<=0?'rgba(77,171,247,1)':'rgba(255,107,107,1)'},backgroundColor:'transparent'},
+      {type:'line',label:'Vind',data:wind,borderColor:'rgba(167,139,250,0.7)',backgroundColor:'transparent',
+        borderWidth:1.5,borderDash:[3,3],pointRadius:0,tension:0.3,fill:false,yAxisID:'yW',order:2},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(8,14,31,.95)',titleColor:'#dce4f5',bodyColor:'#7b8db5',
+        callbacks:{label:c=>{
+          if(c.parsed.y==null)return null;
+          if(c.dataset.label==='Temp')return`Temp: ${c.parsed.y>0?'+':''}${c.parsed.y.toFixed(1)}°C`;
+          if(c.dataset.label==='Vind')return`Vind: ${c.parsed.y.toFixed(1)} m/s`;
+          return`Nedbør: ${c.parsed.y.toFixed(1)} mm`;
+        }}}},
+      scales:{
+        x:{ticks:{color:'#7b8db5',font:{size:9},maxRotation:0},grid:{color:'rgba(100,130,200,.06)'}},
+        yT:{position:'left',ticks:{color:'#7b8db5',font:{size:9},callback:v=>(v>0?'+':'')+v+'°'},grid:{color:'rgba(100,130,200,.06)'},afterDataLimits(s){if(s.min>0)s.min=-1;if(s.max<0)s.max=1;}},
+        yP:{position:'right',min:0,suggestedMax:1,ticks:{color:'#7b8db5',font:{size:9}},grid:{drawOnChartArea:false}},
+        yW:{display:false,min:0},
+      }
+    }
+  });
+}
+
+
+
 function toggleDetail(btn){
   const full=document.getElementById('hero-full');
   const open=full.classList.toggle('open');
@@ -640,20 +1322,23 @@ function toggleDetail(btn){
 function fmtTemp(v){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+'°C';}
 function fmtDelta(v,u='cm'){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+' '+u;}
 
-async function init(){
+function init(){
   fetch('/kvamskogen/api/status')
     .then(r=>r.json())
     .then(d=>{
       renderStatus(d);
-      // Hvis data er tomt (cache ikke klar ennå), prøv igjen om 3 sek
       if(!d.sno||d.sno.dybde_cm==null){
         setTimeout(init, 3000);
+      } else {
+        // Data er klart – sett opp periodisk refresh
+        setTimeout(init, 15*60*1000);
       }
     })
     .catch(()=>setTimeout(init, 5000));
 }
 
 function renderStatus(d){
+  try{
   const t=d.tolkning||{},s=d.sno||{},lp=d.loyper||{};
   const bc={'green':'badge-green','amber':'badge-amber','red':'badge-red'}[t.badge_color]||'badge-amber';
   const fullDetail = (t.detail||'').replace(/\n/g,'<br>');
@@ -673,13 +1358,72 @@ function renderStatus(d){
   document.getElementById('m-3t').textContent=fmtDelta(s.endring_3t_cm);
   document.getElementById('m-temp').textContent=fmtTemp(s.temp_na_c);
   document.getElementById('m-temp-sub').textContent=s.min_temp_c!=null?`min ${fmtTemp(s.min_temp_c)} / maks ${fmtTemp(s.maks_temp_c)}`:'';
-  const prepEl=document.getElementById('l-preparert');
-  prepEl.textContent=lp.preparert!=null?lp.preparert+' segmenter':'–';
-  prepEl.style.color=lp.preparert>0?'#15803d':'#64748b';
-  document.getElementById('l-aktive').textContent=lp.aktive!=null?lp.aktive+' segmenter':'–';
-  document.getElementById('l-totalt').textContent=lp.totalt!=null?lp.totalt+' segmenter':'–';
-  if(lp.sist_prep_timer!=null)document.getElementById('l-meta').textContent=`Sist preparert: ${lp.sist_prep_timer} t siden · ${lp.last_update||''}`;
-  document.getElementById('forecast').innerHTML=(d.daglig||[]).map(dag=>{
+  // Løypestatus
+  const mainEl=document.getElementById('l-main');
+  const subEl=document.getElementById('l-sub');
+  const snoSidenEl=document.getElementById('l-sno-siden-prep');
+  if(mainEl&&lp.preparert!=null){
+    const prepPct=lp.totalt>0?Math.round(lp.preparert/lp.totalt*100):0;
+    const sistTimer=lp.sist_prep_timer!=null?lp.sist_prep_timer:null;
+
+    // Formatér tid siden prep
+    function fmtTid(t){
+      if(t==null) return 'ukjent';
+      const min=Math.round(t*60);
+      if(min<60) return `${min} minutter siden`;
+      if(t<2) return '1 time siden';
+      if(t<5) return `${Math.round(t*2)/2} timer siden`.replace('.',',');
+      if(t<48) return `${Math.round(t)} timer siden`;
+      return `${Math.round(t/24)} dager siden`;
+    }
+
+    mainEl.textContent=`🎿 Løypene ble kjørt ${fmtTid(sistTimer)}`;
+    mainEl.style.color=sistTimer!=null&&sistTimer<6?'var(--green)':sistTimer<24?'var(--text)':'var(--muted)';
+    if(subEl) subEl.textContent=`${lp.preparert} av ${lp.totalt} segmenter preparert (${prepPct}%)`;
+
+    // Snø siden prep – vis i cm
+    let snoSidenMm=0;
+    if(sistTimer!=null&&d.intervaller&&d.intervaller.length){
+      const prepTidspunkt=new Date(Date.now()-sistTimer*3600*1000);
+      snoSidenMm=d.intervaller
+        .filter(iv=>new Date(iv.start)>=prepTidspunkt)
+        .reduce((sum,iv)=>sum+((iv.temperatur_c||0)<=1.5?(iv.nedbor_mm||0):0),0);
+    }
+    const snoSidenCm=Math.round(snoSidenMm/10*10)/10;
+    if(snoSidenEl&&sistTimer!=null){
+      snoSidenEl.textContent=snoSidenCm>0?`❄️ ca. ${snoSidenCm} cm ny snø siden preparering`:'Ingen snøfall siden siste preparering';
+    }
+
+    // Regelbasert kvalitetsvurdering med værsymboler
+    const vurdEl=document.getElementById('l-vurdering');
+    if(vurdEl&&sistTimer!=null){
+      const temp=s.temp_na_c||0;
+      let vurd='', vurdFarge='var(--muted)';
+      if(sistTimer<2&&snoSidenCm<1){
+        vurd='☀️ Nypreparert og tørt – løypene er i topp stand'; vurdFarge='var(--green)';
+      } else if(snoSidenCm>=5&&temp<=0){
+        vurd=`🌨️ ${snoSidenCm} cm kaldsnø siden prep – perfekt underlag`; vurdFarge='var(--green)';
+      } else if(snoSidenCm>=2&&temp<=1.5){
+        vurd=`🌨️ ${snoSidenCm} cm ny snø siden prep – godt underlag`; vurdFarge='var(--green)';
+      } else if(snoSidenCm>=1&&temp<=1.5){
+        vurd=`🌨️ Litt nysnø siden prep – passe bra`; vurdFarge='var(--text)';
+      } else if(sistTimer<8&&temp<=1){
+        vurd='☀️ Relativt fersk preparering og kaldt – bra forhold'; vurdFarge='var(--text)';
+      } else if(temp>2&&sistTimer>6){
+        vurd='🌧️ Mildt vær – snøen er trolig tung og klissete'; vurdFarge='var(--amber)';
+      } else if(sistTimer>24){
+        vurd='🌫️ Over ett døgn siden prep – løypene kan være slitt'; vurdFarge='var(--amber)';
+      } else if(snoSidenMm>2&&temp>1.5){
+        vurd='🌧️ Regn siden prep – løypene er trolig våte'; vurdFarge='var(--amber)';
+      } else {
+        vurd='⛅ Greit preparert – akseptable forhold'; vurdFarge='var(--text)';
+      }
+      vurdEl.textContent=vurd;
+      vurdEl.style.color=vurdFarge;
+    }
+  }
+  const forecastEl=document.getElementById('forecast');
+  if(forecastEl) forecastEl.innerHTML=(d.daglig||[]).map(dag=>{
     const dt=new Date(dag.dato+'T12:00:00');
     const navn=DAYS[dt.getDay()]+' '+dt.getDate()+'.'+MONTHS[dt.getMonth()];
     return`<div class="fday"><div class="fday-name">${navn}</div><div class="fday-icon">${dag.ver_ikon||'–'}</div><div class="fday-temp"><span style="color:#ef4444">${dag.maks_temp_c>0?'+':''}${dag.maks_temp_c}°</span> / <span style="color:#0284c7">${dag.min_temp_c}°</span></div><div class="fday-snow">${dag.ny_sno_cm>0?'❄ +'+dag.ny_sno_cm+'cm':''}</div><div class="fday-depth">${dag.snodybde_cm!=null?dag.snodybde_cm+' cm':''}</div></div>`;
@@ -687,6 +1431,9 @@ function renderStatus(d){
   const ts=new Date(d.hentet);
   document.getElementById('footer').textContent=`Oppdatert: ${ts.toLocaleString('no-NO')} · Data: Yr, Frost, loyper.net`;
   if(d.intervaller&&d.intervaller.length){fcastData=d.intervaller;renderFcast();}
+  // Bygg skitur-anbefalinger fra intervaller
+  if(d.intervaller&&d.intervaller.length) buildSkitur(d.intervaller, d.daglig||[]);
+  }catch(e){console.error('renderStatus feil:', e);}
 }
 
 async function loadHistorikk(){
@@ -739,7 +1486,6 @@ function setHours(h,btn){
 
 init();
 loadHistorikk();
-setInterval(init,15*60*1000);
 </script>
 </body>
 </html>
