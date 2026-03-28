@@ -186,7 +186,7 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict) -> dict:
             json={"model": ANTHROPIC_MODEL, "max_tokens": 1024,
                   "system": _SYSTEM_PROMPT,
                   "messages": [{"role": "user", "content": payload_str}]},
-            timeout=15,
+            timeout=45,
         )
         r.raise_for_status()
         text = r.json()["content"][0]["text"].strip()
@@ -262,31 +262,43 @@ def forside():
     return Response(_FORSIDE_HTML, mimetype="text/html; charset=utf-8")
 
 
-# ── Server-side cache (deles mellom alle brukere) ─────────────────────────────
 _STATUS_CACHE: dict = {}
-_STATUS_CACHE_TTL = 15 * 60  # 15 minutter
+_STATUS_CACHE_TTL = 15 * 60
+_STATUS_REFRESHING = False
 
 
-@kvamskogen_bp.get("/api/status")
-def api_status():
-    import concurrent.futures
+def _refresh_cache():
+    """Kjøres i bakgrunnen – oppdaterer cache uten å blokkere requester."""
+    global _STATUS_REFRESHING
+    if _STATUS_REFRESHING:
+        return
+    _STATUS_REFRESHING = True
+    try:
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+            fut_sno    = ex.submit(_hent_sno)
+            fut_loyper = ex.submit(_hent_loyper)
+            sno_data    = fut_sno.result(timeout=60)
+            loyper_data = fut_loyper.result(timeout=25)
 
-    now_ts = time.time()
-    hit = _STATUS_CACHE.get("status")
-    if hit and hit["expires_at"] > now_ts:
-        return jsonify(hit["payload"])
+        tolkning = _ai_tolkning(sno_data, loyper_data)
+        s      = sno_data.get("sammendrag", {})
+        daglig = sno_data.get("daglig", [])
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
-        fut_sno    = ex.submit(_hent_sno)
-        fut_loyper = ex.submit(_hent_loyper)
-        sno_data    = fut_sno.result()
-        loyper_data = fut_loyper.result()
+        payload = _build_payload(tolkning, sno_data, loyper_data, s, daglig)
+        _STATUS_CACHE["status"] = {
+            "expires_at": time.time() + _STATUS_CACHE_TTL,
+            "payload": payload,
+        }
+    except Exception:
+        traceback.print_exc()
+    finally:
+        _STATUS_REFRESHING = False
 
-    tolkning = _ai_tolkning(sno_data, loyper_data)
-    s      = sno_data.get("sammendrag", {})
-    daglig = sno_data.get("daglig", [])
 
-    payload = {
+def _build_payload(tolkning, sno_data, loyper_data, s, daglig):
+    import datetime as _dt
+    return {
         "hentet":   datetime.now().isoformat(timespec="seconds"),
         "tolkning": tolkning,
         "sno": {
@@ -335,8 +347,31 @@ def api_status():
             for iv in sno_data.get("intervaller", [])
         ],
     }
-    _STATUS_CACHE["status"] = {"expires_at": now_ts + _STATUS_CACHE_TTL, "payload": payload}
-    return jsonify(payload)
+
+
+@kvamskogen_bp.get("/api/status")
+def api_status():
+    import threading
+
+    now_ts = time.time()
+    hit = _STATUS_CACHE.get("status")
+
+    if hit and hit["expires_at"] > now_ts:
+        # Cache er gyldig – returner umiddelbart
+        return jsonify(hit["payload"])
+
+    if hit:
+        # Cache er utløpt – returner gammel data og oppdater i bakgrunnen
+        threading.Thread(target=_refresh_cache, daemon=True).start()
+        return jsonify(hit["payload"])
+
+    # Ingen cache – første gang, må vente
+    _refresh_cache()
+    hit = _STATUS_CACHE.get("status")
+    if hit:
+        return jsonify(hit["payload"])
+    return jsonify({"hentet": datetime.now().isoformat(), "tolkning": _fallback_tolkning({}, {}),
+                    "sno": {}, "loyper": {}, "daglig": [], "intervaller": []})
 
 
 _HISTORIKK_CACHE: dict = {}
@@ -431,7 +466,16 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 <body>
 <div class="page">
   <nav class="nav"><a href="/">prisanalyse.no</a> &rsaquo; Kvamskogen</nav>
-  <div class="hero" id="hero"><div class="loading-hero"><span class="spinner"></span> Henter vaerstatus&hellip;</div></div>
+  <div class="hero" id="hero">
+    <div class="hero-top">
+      <div class="hero-icon">🏔️</div>
+      <div class="hero-text">
+        <div class="hero-verdict">Kvamskogen</div>
+        <div class="hero-detail"><span class="hero-detail-short">Henter værstatus…</span></div>
+        <span class="hero-badge badge-amber">Laster…</span>
+      </div>
+    </div>
+  </div>
 
   <div class="section-label">Værprognose – kommende timer</div>
   <div style="background:#0f172a;border-radius:var(--radius);padding:16px 18px;margin-bottom:4px;">
@@ -593,12 +637,20 @@ function toggleDetail(btn){
   btn.textContent=open?'Les mindre ▴':'Les mer ▾';
 }
 
-if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+'°C';}
+function fmtTemp(v){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+'°C';}
 function fmtDelta(v,u='cm'){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1)+' '+u;}
 
 async function init(){
-  try{const d=await(await fetch('/kvamskogen/api/status')).json();renderStatus(d);}
-  catch(e){document.getElementById('hero').innerHTML='<div class="loading-hero" style="color:#991b1b">Kunne ikke hente data.</div>';}
+  fetch('/kvamskogen/api/status')
+    .then(r=>r.json())
+    .then(d=>{
+      renderStatus(d);
+      // Hvis data er tomt (cache ikke klar ennå), prøv igjen om 3 sek
+      if(!d.sno||d.sno.dybde_cm==null){
+        setTimeout(init, 3000);
+      }
+    })
+    .catch(()=>setTimeout(init, 5000));
 }
 
 function renderStatus(d){
