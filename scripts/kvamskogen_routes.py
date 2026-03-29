@@ -17,6 +17,19 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import requests
 from flask import Blueprint, Response, jsonify, request
+
+# Direkteimport – unngår HTTP self-call som timer ut på Render
+try:
+    from scripts.ver_routes import _hent_prognose_data as _ver_hent_prognose_data
+    from scripts.ver_routes import skiloyper_kvamskogen_stats as _ver_loyper_stats
+    _VER_DIREKTE = True
+except ImportError:
+    try:
+        from ver_routes import _hent_prognose_data as _ver_hent_prognose_data
+        from ver_routes import skiloyper_kvamskogen_stats as _ver_loyper_stats
+        _VER_DIREKTE = True
+    except ImportError:
+        _VER_DIREKTE = False
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -236,6 +249,14 @@ _BASE = "https://prisanalyse.no" if _IS_RENDER else "http://localhost:5000"
 
 
 def _hent_sno() -> dict:
+    # Kall direkte hvis mulig – unngår self-HTTP som timer ut på Render
+    if _VER_DIREKTE:
+        try:
+            return _ver_hent_prognose_data("Kvamskogen")
+        except Exception:
+            traceback.print_exc()
+            return {}
+    # Fallback: HTTP (kun lokalt / ved importfeil)
     try:
         r = requests.get(f"{_BASE}/ver/api/snovarsel",
                          params={"stasjon": "Kvamskogen"}, timeout=45)
@@ -247,6 +268,21 @@ def _hent_sno() -> dict:
 
 
 def _hent_loyper() -> dict:
+    # Kall direkte hvis mulig – unngår self-HTTP som timer ut på Render
+    if _VER_DIREKTE:
+        try:
+            from flask import current_app
+            with current_app.test_request_context(
+                "/ver/skiloyper-kvamskogen/stats?z=13&radius=2&fresh_hours=12"
+            ):
+                resp = _ver_loyper_stats()
+                if hasattr(resp, "get_json"):
+                    return resp.get_json() or {}
+                return {}
+        except Exception:
+            traceback.print_exc()
+            return {}
+    # Fallback: HTTP (kun lokalt / ved importfeil)
     try:
         r = requests.get(f"{_BASE}/ver/skiloyper-kvamskogen/stats",
                          params={"z": 13, "radius": 2, "fresh_hours": 12}, timeout=20)
