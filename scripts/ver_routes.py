@@ -84,79 +84,240 @@ _STATS_CACHE: Dict[tuple, _CacheEntry] = {}
 # =========================
 @ver.route("/")
 def ver_hub() -> str:
-    return """
-<!doctype html>
+    return """<!DOCTYPE html>
 <html lang="no">
-  <head>
-    <meta charset="utf-8" />
-    <title>Vær – Væranalyse</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:#f5f7fb; }
-      .page { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
-      h1 { margin: 0 0 14px; }
-      .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      .card {
-        background: white; border-radius: 18px; padding: 18px 20px;
-        box-shadow: 0 18px 45px rgba(15,23,42,.08);
-      }
-      .card h2 { margin:0 0 6px; }
-      .muted { color:#475569; margin: 0 0 12px; }
-      .btn {
-        display:inline-block; padding: 8px 14px; border-radius: 999px;
-        background:#2563eb; color:#fff; text-decoration:none; font-weight:700;
-      }
-      .btn-green  { background:#16a34a; }
-      .btn-amber  { background:#f59e0b; }
-      .btn-red    { background:#ef4444; }
-      .btn-indigo { background:#4f46e5; }
-      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-    </style>
-  </head>
-  <body>
-    <div class="page">
-      <h1>Vær</h1>
-      <div class="grid">
-        <div class="card">
-          <h2>Snømengde</h2>
-          <p class="muted">Snødybde fra Frost. Zoom/pan og hent for utsnitt.</p>
-          <a class="btn" href="/ver/sno">Åpne</a>
-        </div>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Vær og snø – prisanalyse.no</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;line-height:1.5;min-height:100vh;}
 
-        <div class="card">
-          <h2>Nedbør</h2>
-          <p class="muted">Siste 24 timer (rullerende) + dag / MTD / YTD.</p>
-          <a class="btn btn-green" href="/ver/nedbor">Åpne</a>
-        </div>
+/* Nav */
+.topnav{padding:14px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1e293b;}
+.topnav-left{font-size:13px;color:#64748b;}
+.topnav-left a{color:#64748b;text-decoration:none;}
+.topnav-left a:hover{color:#e2e8f0;}
+.topnav-brand{font-weight:800;font-size:15px;color:#e2e8f0;}
+.topnav-brand span{color:#3b82f6;}
+.topnav-dato{font-size:12px;color:#475569;}
 
-        <div class="card">
-          <h2>Solskinn</h2>
-          <p class="muted">Siste 24 timer (rullerende) + dag / MTD / YTD.</p>
-          <a class="btn btn-amber" href="/ver/solskinn">Åpne</a>
-        </div>
+/* Hero */
+.hero{
+  padding:52px 28px 44px;text-align:center;
+  background:radial-gradient(ellipse 80% 55% at 50% 0%,rgba(59,130,246,.12) 0%,transparent 70%);
+  border-bottom:1px solid #1e293b;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.22);
+  border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;
+  color:#60a5fa;margin-bottom:18px;letter-spacing:.05em;text-transform:uppercase;
+}
+.hero h1{font-size:clamp(26px,4.5vw,44px);font-weight:800;letter-spacing:-.4px;line-height:1.15;margin-bottom:12px;}
+.hero h1 em{font-style:normal;color:#3b82f6;}
+.hero-sub{font-size:15px;color:#64748b;max-width:500px;margin:0 auto;}
 
-        <div class="card">
-          <h2>Min temperatur siste døgn</h2>
-          <p class="muted">Velg fylke og se nyeste døgn-min (P1D) per stasjon.</p>
-          <a class="btn btn-red" href="/ver/min-temp">Åpne</a>
-        </div>
+/* Stats */
+.stats{display:flex;justify-content:center;border-bottom:1px solid #1e293b;flex-wrap:wrap;}
+.stat{padding:16px 28px;text-align:center;border-right:1px solid #1e293b;}
+.stat:last-child{border-right:none;}
+.stat-val{font-size:20px;font-weight:800;color:#3b82f6;}
+.stat-lbl{font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
 
-        <div class="card">
-          <h2>Skiløyper – Kvamskogen</h2>
-          <p class="muted">Sanntids løypestatus (preparering) med alder-farger og egne markeringer.</p>
-          <a class="btn" href="/ver/skiloyper-kvamskogen">Åpne</a>
-        </div>
+/* Main */
+.main{max-width:1080px;margin:0 auto;padding:36px 20px 64px;}
 
-        <div class="card">
-          <h2>Snøprognoser</h2>
-          <p class="muted">Så mye snø kommer det? Prognose time for time basert på YR-varsel og observert snødybde.</p>
-          <a class="btn btn-indigo" href="/ver/varsel-kvamskogen">Åpne</a>
+/* Seksjoner */
+.seksjon{margin-bottom:36px;}
+.seksjon-tittel{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  color:#475569;margin-bottom:14px;display:flex;align-items:center;gap:10px;
+}
+.seksjon-tittel::after{content:'';flex:1;height:1px;background:#1e293b;}
+
+/* Kort-grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+.grid-wide{grid-template-columns:repeat(auto-fill,minmax(340px,1fr));}
+
+/* Kort */
+.kort{
+  background:#111827;border:1px solid #1e293b;border-radius:16px;
+  padding:20px 22px;text-decoration:none;color:inherit;
+  display:flex;flex-direction:column;gap:8px;
+  transition:border-color .15s,background .15s,box-shadow .15s;
+  cursor:pointer;
+}
+.kort:hover{border-color:#3b82f6;background:#141e33;box-shadow:0 0 0 1px rgba(59,130,246,.15),0 8px 24px rgba(0,0,0,.3);}
+.kort-topp{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.kort-ikon{font-size:26px;line-height:1;flex-shrink:0;}
+.kort-badge{
+  font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;
+  text-transform:uppercase;letter-spacing:.05em;flex-shrink:0;
+}
+.b-blå{background:rgba(59,130,246,.15);color:#60a5fa;}
+.b-grønn{background:rgba(34,197,94,.12);color:#4ade80;}
+.b-gul{background:rgba(245,158,11,.12);color:#fbbf24;}
+.b-rød{background:rgba(239,68,68,.12);color:#f87171;}
+.b-lilla{background:rgba(139,92,246,.12);color:#a78bfa;}
+.b-cyan{background:rgba(6,182,212,.12);color:#22d3ee;}
+.b-hvit{background:rgba(148,163,184,.1);color:#94a3b8;}
+.kort-tittel{font-size:15px;font-weight:700;color:#f1f5f9;margin-top:2px;}
+.kort-tekst{font-size:12px;color:#64748b;line-height:1.6;flex:1;}
+.kort-lenke{
+  display:inline-flex;align-items:center;gap:5px;margin-top:4px;
+  font-size:12px;font-weight:600;color:#3b82f6;
+}
+.kort-lenke::after{content:'→';}
+
+/* Fremhevet kort (nyhet/anbefalt) */
+.kort-featured{
+  background:linear-gradient(135deg,#111e3a 0%,#0f1829 100%);
+  border-color:rgba(59,130,246,.35);
+}
+.kort-featured:hover{border-color:#3b82f6;}
+
+@media(max-width:600px){
+  .hero{padding:36px 16px 30px;}
+  .stat{padding:14px 18px;}
+  .main{padding:24px 14px 48px;}
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-left">
+    <a href="/">prisanalyse.no</a> › Vær og snø
+  </div>
+  <div class="topnav-brand">pris<span>analyse</span>.no</div>
+  <div class="topnav-dato" id="nav-dato"></div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">🌨️ Sanntidsdata fra Frost &amp; Yr</div>
+  <h1>Norge i <em>sanntid</em> —<br>vær, snø og sol</h1>
+  <div class="hero-sub">Snødybde, nedbør, solskinn og temperaturer fra hele landet — pluss skiturplanlegging for Kvamskogen og resten av Norge.</div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-val">442</div><div class="stat-lbl">Snøstasjoner</div></div>
+  <div class="stat"><div class="stat-val">Frost</div><div class="stat-lbl">Datakilde</div></div>
+  <div class="stat"><div class="stat-val">Yr</div><div class="stat-lbl">Prognose</div></div>
+  <div class="stat"><div class="stat-val">8 dager</div><div class="stat-lbl">Fremtidsutsikt</div></div>
+</div>
+
+<div class="main">
+
+  <!-- Skitur og snø -->
+  <div class="seksjon">
+    <div class="seksjon-tittel">⛷️ Skitur og snøforhold</div>
+    <div class="grid grid-wide">
+
+      <a class="kort kort-featured" href="/snø/">
+        <div class="kort-topp">
+          <div class="kort-ikon">🏔️</div>
+          <span class="kort-badge b-blå">Nytt</span>
         </div>
-      </div>
+        <div class="kort-tittel">Snødashboard – Norge</div>
+        <div class="kort-tekst">Finn de beste skiforholdene i hele Norge. Sanntids snødybde, prognose 8 dager frem og skituranbefaling for hver dag. Klikk «Finn snø nær meg» for å starte.</div>
+        <div class="kort-lenke">Åpne dashboard</div>
+      </a>
+
+      <a class="kort kort-featured" href="/kvamskogen/">
+        <div class="kort-topp">
+          <div class="kort-ikon">🎿</div>
+          <span class="kort-badge b-grønn">Kvamskogen</span>
+        </div>
+        <div class="kort-tittel">Kvamskogen – Snø og vær</div>
+        <div class="kort-tekst">Detaljert snø- og værstatus for Kvamskogen. Historikk, prognose, skituranbefaling og løypestatus direkte fra Frost og Yr.</div>
+        <div class="kort-lenke">Åpne Kvamskogen</div>
+      </a>
+
+      <a class="kort" href="/ver/varsel-kvamskogen">
+        <div class="kort-topp">
+          <div class="kort-ikon">📊</div>
+          <span class="kort-badge b-lilla">Prognose</span>
+        </div>
+        <div class="kort-tittel">Snøprognoser</div>
+        <div class="kort-tekst">Time for time prognose basert på Yr-varsel og observert snødybde. Velg blant alle norske snøstasjoner.</div>
+        <div class="kort-lenke">Åpne</div>
+      </a>
+
+      <a class="kort" href="/ver/skiloyper-kvamskogen">
+        <div class="kort-topp">
+          <div class="kort-ikon">🗺️</div>
+          <span class="kort-badge b-cyan">Kart</span>
+        </div>
+        <div class="kort-tittel">Skiløyper – Kvamskogen</div>
+        <div class="kort-tekst">Sanntids løypestatus med alder-farger og egne markeringer. Se hvilke løyper som er preparert.</div>
+        <div class="kort-lenke">Åpne kart</div>
+      </a>
+
     </div>
-  </body>
-</html>
-"""
+  </div>
+
+  <!-- Nedbør og temperatur -->
+  <div class="seksjon">
+    <div class="seksjon-tittel">🌡️ Nedbør og temperatur</div>
+    <div class="grid">
+
+      <a class="kort" href="/ver/sno">
+        <div class="kort-topp">
+          <div class="kort-ikon">❄️</div>
+          <span class="kort-badge b-blå">Kart</span>
+        </div>
+        <div class="kort-tittel">Snømengde</div>
+        <div class="kort-tekst">Snødybde fra Frost. Zoom og pan for å hente data for ønsket utsnitt av Norge.</div>
+        <div class="kort-lenke">Åpne</div>
+      </a>
+
+      <a class="kort" href="/ver/nedbor">
+        <div class="kort-topp">
+          <div class="kort-ikon">🌧️</div>
+          <span class="kort-badge b-grønn">24t</span>
+        </div>
+        <div class="kort-tittel">Nedbør</div>
+        <div class="kort-tekst">Siste 24 timer (rullerende) pluss dag-, måneds- og årsakkumulering per stasjon.</div>
+        <div class="kort-lenke">Åpne</div>
+      </a>
+
+      <a class="kort" href="/ver/solskinn">
+        <div class="kort-topp">
+          <div class="kort-ikon">☀️</div>
+          <span class="kort-badge b-gul">Dagslys</span>
+        </div>
+        <div class="kort-tittel">Solskinn</div>
+        <div class="kort-tekst">Soltimer siste 24 timer (rullerende) pluss dag-, måneds- og årsakkumulering.</div>
+        <div class="kort-lenke">Åpne</div>
+      </a>
+
+      <a class="kort" href="/ver/min-temp">
+        <div class="kort-topp">
+          <div class="kort-ikon">🌡️</div>
+          <span class="kort-badge b-rød">Temp</span>
+        </div>
+        <div class="kort-tittel">Min temperatur siste døgn</div>
+        <div class="kort-tekst">Velg fylke og se nyeste døgn-minimum (P1D) per stasjon. Perfekt for å finne frostpunkter.</div>
+        <div class="kort-lenke">Åpne</div>
+      </a>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const el = document.getElementById('nav-dato');
+  if (el) {
+    el.textContent = new Date().toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'long'});
+  }
+})();
+</script>
+</body>
+</html>"""
 
 
 # =========================

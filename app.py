@@ -18,9 +18,8 @@ from gemini_routes import gemini_bp
 from scripts.ver_routes import ver
 from regnskap_routes import regnskap_bp
 from dash_apps.strom import create_dash_app
-from scripts.ver_routes import ver
 from scripts.kvamskogen_routes import kvamskogen_bp
-from scripts.sno_routes import sno_bp
+from scripts.sno_routes import sno_bp, start_warmup
 
 
 
@@ -90,12 +89,14 @@ def create_app() -> Flask:
     app.register_blueprint(bil_bp)
     app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
     app.register_blueprint(gemini_bp)
-    app.register_blueprint(ver, name="ver_main")
+    app.register_blueprint(ver)
     app.register_blueprint(handler_bp)
     app.register_blueprint(regnskap_bp)
-    app.register_blueprint(ver)
     app.register_blueprint(kvamskogen_bp)
     app.register_blueprint(sno_bp)
+
+    # Start bakgrunnsjobb som prefetcher snødybde for hele Norge
+    start_warmup()
 
 
 

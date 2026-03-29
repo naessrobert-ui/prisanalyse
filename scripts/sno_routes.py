@@ -66,6 +66,71 @@ _STATUS_CACHE:    dict = {}
 _HISTORIKK_CACHE: dict = {}
 _CACHE_TTL = 15 * 60
 
+# ── Norge-wide snødybde-cache (prefetchet ved oppstart) ───────────────────────
+_NORGE_SNØ_CACHE: dict = {}          # stasjonId → float (cm)
+_NORGE_SNØ_TS:    float = 0.0        # unix-timestamp for siste refresh
+_NORGE_SNØ_TTL   = 30 * 60          # refresh hvert 30. min
+
+def _hent_alle_snodybder_norge() -> dict:
+    """Hent siste snødybde for alle has_snow-stasjoner i ett eller flere batch-kall."""
+    client_id     = os.getenv("FROST_CLIENT_ID", "")
+    client_secret = os.getenv("FROST_CLIENT_SECRET", "")
+    if not client_id:
+        return {}
+    df = _load_stations()
+    if df is None:
+        return {}
+    alle_ids = df["baseId"].tolist()
+    resultat: dict = {}
+    batch = 100
+    for i in range(0, len(alle_ids), batch):
+        chunk = alle_ids[i:i+batch]
+        try:
+            r = requests.get(
+                f"{FROST_BASE_URL}/observations/v0.jsonld",
+                auth=(client_id, client_secret),
+                params={
+                    "sources":       ",".join(chunk),
+                    "referencetime": "latest",
+                    "elements":      "surface_snow_thickness",
+                    "limit":         500,
+                },
+                timeout=FROST_TIMEOUT,
+            )
+            if r.status_code == 200:
+                for item in r.json().get("data", []):
+                    sid = item.get("sourceId", "").split(":")[0]
+                    for obs in item.get("observations", []):
+                        if obs.get("elementId") == "surface_snow_thickness":
+                            v = obs.get("value")
+                            if v is not None:
+                                resultat[sid] = float(v)
+        except Exception:
+            traceback.print_exc()
+    return resultat
+
+def _warmup_norge():
+    """Kjør i bakgrunnstråd: hent snødybde for hele Norge og oppdater cache."""
+    global _NORGE_SNØ_CACHE, _NORGE_SNØ_TS
+    try:
+        data = _hent_alle_snodybder_norge()
+        if data:
+            _NORGE_SNØ_CACHE = data
+            _NORGE_SNØ_TS    = time.time()
+    except Exception:
+        traceback.print_exc()
+    finally:
+        import threading
+        t = threading.Timer(_NORGE_SNØ_TTL, _warmup_norge)
+        t.daemon = True
+        t.start()
+
+def start_warmup():
+    """Kalles én gang ved app-oppstart fra app.py: sno_routes.start_warmup()"""
+    import threading
+    t = threading.Thread(target=_warmup_norge, daemon=True)
+    t.start()
+
 # ── Sol-beregning ─────────────────────────────────────────────────────────────
 def _sol_tider(dato_str: str, lat: float, lon: float) -> tuple:
     import math
@@ -323,6 +388,30 @@ def api_stasjoner():
     return jsonify({"ok": True, "antall": len(stasjoner), "stasjoner": stasjoner})
 
 
+@sno_bp.get("/api/norge_sno")
+def api_norge_sno():
+    """
+    Returnerer hele Norge-cachen: stasjonId → snødybde_cm.
+    Brukes av frontend for topplister. Serveres fra minne, lynraskt.
+    Hvis cachen er tom (kald start), hentes data synkront.
+    """
+    global _NORGE_SNØ_CACHE, _NORGE_SNØ_TS
+    now_ts = time.time()
+    if not _NORGE_SNØ_CACHE or (now_ts - _NORGE_SNØ_TS) > _NORGE_SNØ_TTL * 2:
+        # Kald start eller svært gammel cache – hent synkront (én gang)
+        data = _hent_alle_snodybder_norge()
+        if data:
+            _NORGE_SNØ_CACHE = data
+            _NORGE_SNØ_TS    = now_ts
+    alder_min = int((now_ts - _NORGE_SNØ_TS) / 60) if _NORGE_SNØ_TS else None
+    return jsonify({
+        "ok":        True,
+        "stasjoner": _NORGE_SNØ_CACHE,
+        "antall":    len(_NORGE_SNØ_CACHE),
+        "alder_min": alder_min,
+    })
+
+
 @sno_bp.get("/api/snodybder")
 def api_snodybder():
     """
@@ -501,226 +590,471 @@ _OVERSIKT_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Snødashboard – finn snø i Norge</title>
+<title>Snødashboard – finn de beste skiforholdene i Norge</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-:root{
-  --bg:#f0f4fa;--surface:#fff;--border:#e2e8f0;--text:#0f172a;
-  --muted:#64748b;--hint:#94a3b8;--blue:#1d4ed8;--blue-l:#eff6ff;
-  --green:#15803d;--green-bg:#f0fdf4;--radius:14px;
-  --shadow:0 2px 14px rgba(15,23,42,.08);
-}
+/* ── Reset + base ── */
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;line-height:1.5;}
-.page{max-width:960px;margin:0 auto;padding:16px 14px 60px;}
-.nav{font-size:12px;color:var(--muted);margin-bottom:12px;}
-.nav a{color:var(--muted);text-decoration:none;}
-.header{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
-h1{font-size:22px;font-weight:800;letter-spacing:-.3px;}
-.subtitle{font-size:13px;color:var(--muted);margin-bottom:14px;}
-.filterbar{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);padding:14px 16px;
-  box-shadow:var(--shadow);margin-bottom:14px;
-  display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;
+body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;line-height:1.5;}
+a{color:inherit;text-decoration:none;}
+
+/* ── Tokens ── */
+:root{
+  --bg:#0a0f1e;--surface:#111827;--surface2:#1a2235;--border:#1e293b;
+  --blue:#3b82f6;--blue-d:#1d4ed8;--blue-glow:rgba(59,130,246,.18);
+  --green:#22c55e;--green-d:#15803d;--green-glow:rgba(34,197,94,.15);
+  --muted:#64748b;--hint:#94a3b8;--text:#e2e8f0;
+  --radius:14px;--shadow:0 4px 24px rgba(0,0,0,.4);
 }
-.f-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px;}
-.f-label{font-size:11px;font-weight:700;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;}
+
+/* ── Nav ── */
+.topnav{padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.topnav-brand{font-size:13px;color:var(--muted);}
+.topnav-brand a{color:var(--hint);}
+.topnav-brand span{color:var(--blue);font-weight:700;}
+
+/* ── Hero ── */
+.hero{
+  padding:56px 24px 48px;
+  text-align:center;
+  background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(59,130,246,.13) 0%, transparent 70%);
+  border-bottom:1px solid var(--border);
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);
+  border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;
+  color:var(--blue);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase;
+}
+.hero h1{font-size:clamp(28px,5vw,48px);font-weight:800;letter-spacing:-.5px;line-height:1.15;margin-bottom:14px;}
+.hero h1 em{font-style:normal;color:var(--blue);}
+.hero-sub{font-size:16px;color:var(--muted);max-width:520px;margin:0 auto 32px;}
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;}
+.btn-primary{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 24px;background:var(--blue);color:#fff;
+  border:none;border-radius:10px;font-size:15px;font-weight:700;
+  cursor:pointer;transition:background .15s,box-shadow .15s;
+  box-shadow:0 0 0 0 var(--blue-glow);
+}
+.btn-primary:hover{background:#2563eb;box-shadow:0 0 20px 4px var(--blue-glow);}
+.btn-secondary{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 22px;background:transparent;color:var(--hint);
+  border:1px solid var(--border);border-radius:10px;font-size:15px;font-weight:600;
+  cursor:pointer;transition:border-color .15s,color .15s;
+}
+.btn-secondary:hover{border-color:var(--blue);color:var(--blue);}
+
+/* ── Stats-strip ── */
+.stats-strip{
+  display:flex;justify-content:center;gap:0;
+  border-bottom:1px solid var(--border);
+}
+.stat{
+  padding:18px 32px;text-align:center;border-right:1px solid var(--border);
+}
+.stat:last-child{border-right:none;}
+.stat-val{font-size:22px;font-weight:800;color:var(--blue);}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.05em;}
+
+/* ── Main layout ── */
+.main{max-width:1100px;margin:0 auto;padding:32px 20px 60px;}
+
+/* ── Section headers ── */
+.seksjon-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.seksjon-header h2{font-size:16px;font-weight:700;}
+.seksjon-header .pill{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  padding:3px 9px;border-radius:20px;background:rgba(59,130,246,.12);color:var(--blue);
+}
+.seksjon-header .pill.green{background:rgba(34,197,94,.12);color:var(--green);}
+
+/* ── Topplister grid ── */
+.topp-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px;}
+@media(max-width:640px){.topp-grid{grid-template-columns:1fr;}}
+
+.topp-kort{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.topp-kort-header{padding:14px 18px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.topp-kort-header .ikon{font-size:18px;}
+.topp-kort-header h3{font-size:13px;font-weight:700;flex:1;}
+.topp-kort-header .oppdatert{font-size:11px;color:var(--muted);}
+
+.topp-rad{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 18px;border-bottom:1px solid rgba(255,255,255,.04);
+  cursor:pointer;transition:background .12s;
+}
+.topp-rad:last-child{border-bottom:none;}
+.topp-rad:hover{background:rgba(255,255,255,.04);}
+.topp-nr{font-size:12px;font-weight:800;color:var(--muted);width:18px;text-align:center;flex-shrink:0;}
+.topp-nr.gull{color:#f59e0b;}
+.topp-nr.solv{color:#94a3b8;}
+.topp-nr.bronse{color:#b45309;}
+.topp-info{flex:1;min-width:0;}
+.topp-navn{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.topp-fylke{font-size:11px;color:var(--muted);}
+.topp-sno{
+  font-size:14px;font-weight:800;flex-shrink:0;
+  padding:3px 10px;border-radius:8px;
+}
+.topp-sno.stor{background:rgba(59,130,246,.15);color:#60a5fa;}
+.topp-sno.middels{background:rgba(34,197,94,.12);color:var(--green);}
+.topp-sno.liten{background:rgba(148,163,184,.1);color:var(--hint);}
+.topp-pil{font-size:10px;color:var(--muted);flex-shrink:0;}
+.topp-laster{padding:20px;text-align:center;color:var(--muted);font-size:13px;}
+
+/* ── Søk-seksjon ── */
+.sok-seksjon{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+.sok-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;}
+.f-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:130px;}
+.f-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;}
 input[type=text],input[type=number],select{
-  padding:8px 10px;border:1px solid var(--border);border-radius:8px;
+  padding:9px 12px;border:1px solid var(--border);border-radius:8px;
   font-size:13px;outline:none;background:var(--bg);color:var(--text);width:100%;
 }
 input:focus,select:focus{border-color:var(--blue);}
-.pos-btn{
-  display:flex;align-items:center;gap:6px;
-  padding:8px 14px;border:none;border-radius:8px;
-  background:var(--blue);color:#fff;font-size:13px;font-weight:600;
-  cursor:pointer;white-space:nowrap;transition:background .15s;
-}
-.pos-btn:hover{background:#1e40af;}
-.pos-btn:disabled{background:#94a3b8;cursor:default;}
-.pos-status{font-size:11px;color:var(--muted);margin-top:2px;}
-#map{height:520px;border-radius:var(--radius);border:1px solid var(--border);
-  box-shadow:var(--shadow);margin-bottom:0;background:#e9eef4;}
-.hvordan{
-  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-  padding:14px 18px;box-shadow:var(--shadow);margin-bottom:14px;
-  font-size:13px;color:var(--muted);line-height:1.7;
-}
-.hvordan strong{color:var(--text);}
-.hvordan ol{padding-left:18px;margin-top:6px;}
-.hvordan li{margin-bottom:3px;}
-.list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-.list-header h2{font-size:14px;font-weight:700;}
-#count{font-size:12px;color:var(--muted);}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:9px;}
+
+/* ── Kart ── */
+#kart-seksjon{display:none;}
+#map{height:520px;border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);background:#111827;}
+
+/* ── Stasjonsliste ── */
+#liste-seksjon{display:none;margin-top:20px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
 .card{
   background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-  padding:13px 15px;box-shadow:var(--shadow);cursor:pointer;
-  text-decoration:none;color:inherit;display:block;transition:border-color .15s,background .15s;
+  padding:14px 16px;cursor:pointer;transition:border-color .15s,background .15s;
 }
-.card:hover{border-color:var(--blue);background:var(--blue-l);}
+.card:hover{border-color:var(--blue);background:var(--surface2);}
 .card-navn{font-size:13px;font-weight:700;}
 .card-info{font-size:11px;color:var(--muted);margin-top:3px;}
 .card-dist{font-size:11px;color:var(--blue);font-weight:600;margin-top:4px;}
 .card-sno{
-  display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;
-  background:var(--green-bg);color:var(--green);margin-top:5px;
+  display:inline-block;padding:2px 9px;border-radius:20px;
+  font-size:11px;font-weight:700;margin-top:6px;
+  background:rgba(34,197,94,.12);color:var(--green);
 }
-.card-sno.ingen{background:#f1f5f9;color:var(--hint);}
-.spinner{display:inline-block;width:15px;height:15px;border:2px solid var(--border);
-  border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;}
-@keyframes spin{to{transform:rotate(360deg)}}
-#loading-msg{padding:24px 0;text-align:center;color:var(--muted);font-size:13px;}
+.card-sno.ingen{background:rgba(148,163,184,.1);color:var(--muted);}
+
+/* ── Popup ── */
+.naer-kort{
+  background:#1a2235;border:1px solid #1e293b;border-radius:12px;
+  padding:12px 16px;cursor:pointer;transition:border-color .15s;min-width:160px;flex:1;max-width:220px;
+}
+.naer-kort:hover{border-color:#3b82f6;}
+.naer-navn{font-size:13px;font-weight:700;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.naer-dist{font-size:11px;color:#3b82f6;font-weight:600;margin-top:2px;}
+.naer-sno{font-size:18px;font-weight:800;margin-top:6px;color:#fff;}
+.naer-fylke{font-size:10px;color:#64748b;margin-top:2px;}
 .leaflet-popup-content{font-family:system-ui,sans-serif;font-size:13px;min-width:160px;}
-.popup-navn{font-weight:700;font-size:14px;margin-bottom:4px;}
+.popup-navn{font-weight:700;font-size:14px;margin-bottom:4px;color:#0f172a;}
 .popup-info{color:#64748b;font-size:12px;margin-bottom:8px;}
 .popup-btn{
-  display:block;text-align:center;padding:7px 0;background:var(--blue);color:#fff;
-  border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;
+  display:block;text-align:center;padding:7px 0;background:#1d4ed8;color:#fff;
+  border-radius:8px;font-size:13px;font-weight:600;
 }
-.popup-btn:hover{background:#1e40af;}
+
+/* ── Hjelp ── */
+.hjelp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:32px;}
+.hjelp-kort{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+.hjelp-ikon{font-size:22px;margin-bottom:8px;}
+.hjelp-tittel{font-size:13px;font-weight:700;margin-bottom:4px;}
+.hjelp-tekst{font-size:12px;color:var(--muted);line-height:1.6;}
+
+/* ── Status ── */
+#sno-status{display:none;text-align:center;font-size:12px;color:var(--muted);padding:6px 0;}
+#sno-hint{text-align:center;padding:10px 0;font-size:12px;color:var(--muted);}
+
+/* ── Spinner ── */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Responsive ── */
 @media(max-width:520px){
-  .filterbar{flex-direction:column;}
-  #map{height:300px;}
+  .stats-strip{flex-wrap:wrap;}
+  .stat{flex:1;min-width:120px;}
+  .hero{padding:40px 16px 32px;}
+  #map{height:320px;}
 }
 </style>
 </head>
 <body>
-<div class="page">
 
-  <div class="nav"><a href="/">prisanalyse.no</a> › Snødashboard</div>
+<!-- Nav -->
+<div class="topnav">
+  <div class="topnav-brand"><a href="/">prisanalyse.no</a> › <span>Snødashboard</span></div>
+  <div style="font-size:12px;color:var(--muted);" id="nav-dato"></div>
+</div>
 
-  <div class="header">
-    <span style="font-size:28px">🏔️</span>
-    <div>
-      <h1>Snødashboard</h1>
-      <div class="subtitle">Finn snøforhold og værprognose for norske fjellstasjoner</div>
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-badge">❄️ Norge rundt</div>
+  <h1>Når skal du på <em>skitur</em>?<br>Vi hjelper deg finne svaret.</h1>
+  <div class="hero-sub">Sanntidsdata fra 442 norske fjellstasjoner. Finn stedene med mest snø — og best prognose.</div>
+  <div class="hero-actions">
+    <button class="btn-primary" id="pos-btn" onclick="hentPosisjon()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+      Finn snø nær meg
+    </button>
+    <button class="btn-secondary" onclick="visKart()">
+      🗺 Åpne kartvisning
+    </button>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-top:12px;" id="pos-status"></div>
+</div>
+
+<!-- Nærmeste stasjoner (vises etter Finn meg) -->
+<div id="naer-meg-seksjon" style="display:none;background:#111827;border-top:1px solid #1e293b;padding:20px 0;">
+  <div style="max-width:1100px;margin:0 auto;padding:0 20px;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:12px;">📍 Nærmeste stasjoner</div>
+    <div id="naer-meg-grid" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-strip">
+  <div class="stat"><div class="stat-val">442</div><div class="stat-lbl">Stasjoner</div></div>
+  <div class="stat"><div class="stat-val" id="stat-sno">–</div><div class="stat-lbl">Stasjoner med snø</div></div>
+  <div class="stat"><div class="stat-val" id="stat-max">–</div><div class="stat-lbl">Maks snødybde (cm)</div></div>
+  <div class="stat"><div class="stat-val" id="stat-okt">–</div><div class="stat-lbl">Økt siste døgn</div></div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Topplister -->
+  <div class="topp-grid">
+
+    <div class="topp-kort">
+      <div class="topp-kort-header">
+        <span class="ikon">🏆</span>
+        <h3>Mest snø akkurat nå</h3>
+        <span class="oppdatert" id="oppdatert-tid"></span>
+      </div>
+      <div id="topp-mest" class="topp-laster"><span class="spinner"></span> Laster…</div>
+    </div>
+
+    <div class="topp-kort">
+      <div class="topp-kort-header">
+        <span class="ikon">📈</span>
+        <h3>Mest ny snø siste døgn</h3>
+        <span class="pill green">24t</span>
+      </div>
+      <div id="topp-okt" class="topp-laster"><span class="spinner"></span> Laster…</div>
+    </div>
+
+  </div>
+
+  <!-- Søk + kart -->
+  <div class="seksjon-header">
+    <h2>Søk og utforsk</h2>
+    <span class="pill">Kart</span>
+  </div>
+
+  <div class="sok-seksjon">
+    <div class="sok-grid">
+      <div class="f-group" style="flex:2;min-width:180px;">
+        <span class="f-label">Søk etter stasjon eller sted</span>
+        <input type="text" id="search" placeholder="f.eks. Kvamskogen, Geilo, Troms…" oninput="sokInput(this.value)"/>
+      </div>
+      <div class="f-group">
+        <span class="f-label">Maks avstand (km)</span>
+        <input type="number" id="f-dist" placeholder="Alle" min="1" max="2000" oninput="oppdaterVisning()"/>
+      </div>
+      <div class="f-group">
+        <span class="f-label">Min snødybde (cm)</span>
+        <input type="number" id="f-minsno" placeholder="0" min="0" max="500" oninput="oppdaterVisning()"/>
+      </div>
+      <div class="f-group">
+        <span class="f-label">Snøutvikling</span>
+        <select id="f-stiger" onchange="oppdaterVisning()">
+          <option value="">Alle</option>
+          <option value="ja">Kun stigende ↑</option>
+        </select>
+      </div>
     </div>
   </div>
 
-  <div class="hvordan">
-    <strong>Slik bruker du appen:</strong>
-    <ol>
-      <li>Klikk <b>Finn meg</b> for å zoome til din posisjon og hente snødybde i nærheten — eller zoom inn manuelt på kartet.</li>
-      <li>Snødybde hentes automatisk når du zoomer inn nok. <span style="color:var(--hint)">Grå prikk = ikke hentet, blå boble = litt snø, grønn boble = godt med snø.</span></li>
-      <li>Klikk på en stasjon i kartet og velg <b>Se snøforhold</b> for fullstendig prognose, historikk og skituranbefaling.</li>
-      <li>Bruk filtrene til å begrense søket: avstand fra deg, minste snødybde, eller kun stasjoner med stigende snø.</li>
-    </ol>
-  </div>
-
-  <div class="filterbar">
-    <div class="f-group" style="flex:2;min-width:170px;">
-      <span class="f-label">Søk</span>
-      <input type="text" id="search" placeholder="Stasjonsnavn eller fylke…" oninput="oppdaterVisning()"/>
-    </div>
-    <div class="f-group">
-      <span class="f-label">Maks avstand (km)</span>
-      <input type="number" id="f-dist" value="" placeholder="Alle" min="1" max="2000" oninput="oppdaterVisning()"/>
-    </div>
-    <div class="f-group">
-      <span class="f-label">Min snødybde (cm)</span>
-      <input type="number" id="f-minsno" value="" placeholder="0" min="0" max="500" oninput="oppdaterVisning()"/>
-    </div>
-    <div class="f-group">
-      <span class="f-label">Kun stigende snø</span>
-      <select id="f-stiger" onchange="oppdaterVisning()">
-        <option value="">Vis alle</option>
-        <option value="ja">Snø har økt ↑</option>
-      </select>
-    </div>
-    <div class="f-group" style="flex:0;">
-      <span class="f-label">Din posisjon</span>
-      <button class="pos-btn" id="pos-btn" onclick="hentPosisjon()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-        </svg>
-        Finn meg
-      </button>
-      <div class="pos-status" id="pos-status"></div>
+  <!-- Kart (skjult til åpnet) -->
+  <div id="kart-seksjon">
+    <div id="sno-hint">🔍 Zoom inn (eller klikk <b>Finn snø nær meg</b>) for å hente snødybde</div>
+    <div id="sno-status"></div>
+    <div id="map"></div>
+    <div style="text-align:right;margin-top:6px;">
+      <button onclick="skjulKart()" style="font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;">Skjul kart ▴</button>
     </div>
   </div>
 
-  <div id="map"></div>
-  <div id="sno-hint" style="text-align:center;padding:8px 0 12px;font-size:12px;color:var(--muted);">
-    🔍 Zoom inn på kartet (eller klikk <b>Finn meg</b>) for å hente snødybde
-  </div>
-  <div id="sno-status" style="display:none;font-size:12px;color:var(--muted);padding:4px 0 10px;text-align:center;"></div>
-
-  <div id="liste-seksjon" style="display:none;">
-    <div class="list-header" style="margin-top:14px;">
-      <h2>Stasjoner i området <span id="count" style="font-weight:400;color:var(--muted);font-size:12px;"></span></h2>
-      <button onclick="skjulListe()" style="font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;padding:4px 8px;">Skjul ▴</button>
+  <!-- Stasjonsliste -->
+  <div id="liste-seksjon">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-size:13px;font-weight:700;">Stasjoner i området <span id="count" style="font-weight:400;color:var(--muted);font-size:12px;"></span></span>
+      <button onclick="skjulListe()" style="font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;">Skjul ▴</button>
     </div>
-    <div id="loading-msg" style="display:none;"></div>
     <div class="grid" id="grid"></div>
   </div>
 
-</div>
+  <!-- Hjelp-seksjon -->
+  <div class="hjelp-grid">
+    <div class="hjelp-kort">
+      <div class="hjelp-ikon">📍</div>
+      <div class="hjelp-tittel">Finn snø nær deg</div>
+      <div class="hjelp-tekst">Klikk "Finn snø nær meg" og appen henter snødybde for alle stasjoner i nærheten. Sorter etter avstand.</div>
+    </div>
+    <div class="hjelp-kort">
+      <div class="hjelp-ikon">🗺</div>
+      <div class="hjelp-tittel">Utforsk kartet</div>
+      <div class="hjelp-tekst">Zoom inn på kartet for å se snødybde per stasjon. Størrelse og farge viser mengden. Klikk direkte for full prognose.</div>
+    </div>
+    <div class="hjelp-kort">
+      <div class="hjelp-ikon">⛷️</div>
+      <div class="hjelp-tittel">Planlegg skituren</div>
+      <div class="hjelp-tekst">Stasjonssiden viser 8-dagers prognose, skituranbefaling dag for dag, og observert historikk fra Frost.</div>
+    </div>
+    <div class="hjelp-kort">
+      <div class="hjelp-ikon">📈</div>
+      <div class="hjelp-tittel">Stigende snø</div>
+      <div class="hjelp-tekst">Bruk filteret "Kun stigende" for å finne steder der snødybden øker — ideelt for helgeplanlegging.</div>
+    </div>
+  </div>
+
+</div><!-- /main -->
 
 <script>
-// ── State ────────────────────────────────────────────────────────────────────
-let alleStasjoner = [];   // alle 442 stasjoner (kun metadata)
-let userPos       = null; // {lat, lon}
+// ═══════════════════════════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════════════════════════
+let alleStasjoner = [];
+let userPos       = null;
 let kart          = null;
 let markerLag     = null;
 let userMarker    = null;
-
-// Snødybde-cache: stasjonId → cm  (oppdateres ved zoom/posisjon)
-let snøCache = {};
-
-// Debounce-timer for zoom-hendelse
-let zoomTimer = null;
-
-// Sist hentede bbox – unngår doble kall ved minimale bevegelser
+let kartInit      = false;
+let snøCache      = {};
+let zoomTimer     = null;
 let sisteHentetBbox = null;
 
-// ── Kart-init ────────────────────────────────────────────────────────────────
-function initKart() {
-  kart = L.map('map', {center:[64.5,14.5], zoom:5, zoomControl:true, attributionControl:false});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:18}).addTo(kart);
-  markerLag = L.layerGroup().addTo(kart);
+// ── Dato i nav ────────────────────────────────────────────────
+(function(){
+  const el = document.getElementById('nav-dato');
+  if(el){
+    const n = new Date();
+    el.textContent = n.toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'long'});
+  }
+})();
 
-  // Hent snødybde når bruker zoomer inn nok
+// ═══════════════════════════════════════════════════════════════
+//  Kart
+// ═══════════════════════════════════════════════════════════════
+function initKart() {
+  if (kartInit) return;
+  kartInit = true;
+  kart = L.map('map', {center:[64.5,14.5], zoom:5, zoomControl:true, attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {maxZoom:18}).addTo(kart);
+  markerLag = L.layerGroup().addTo(kart);
   kart.on('moveend zoomend', () => {
     clearTimeout(zoomTimer);
     zoomTimer = setTimeout(sjekkOgHentSnø, 600);
   });
 }
 
-// ── Stasjonsliste (metadata, lynrask) ─────────────────────────────────────────
+function visKart() {
+  const sek = document.getElementById('kart-seksjon');
+  sek.style.display = 'block';
+  initKart();
+  setTimeout(() => kart.invalidateSize(), 50);
+  sek.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function skjulKart() {
+  document.getElementById('kart-seksjon').style.display = 'none';
+}
+
+function skjulListe() {
+  document.getElementById('liste-seksjon').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Stasjonsliste (lynrask, kun metadata)
+// ═══════════════════════════════════════════════════════════════
 async function lastStasjoner() {
   try {
     const r = await fetch('/sn%C3%B8/api/stasjoner');
     const d = await r.json();
     alleStasjoner = (d.stasjoner || []).map(s => ({...s, sno:null}));
-    document.getElementById('loading-msg').style.display = 'none';
-    oppdaterVisning();
-  } catch(e) {
-    document.getElementById('loading-msg').textContent = 'Kunne ikke laste stasjoner.';
-  }
+  } catch(e) { console.error('Feil ved lasting av stasjoner', e); }
 }
 
-// ── Hent snødybde for synlig kartutsnitt ──────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  Topplister  (/api/snodybder for et stort bbox)
+// ═══════════════════════════════════════════════════════════════
+async function lastTopplister() {
+  try {
+    // Bruk server-side cache (/api/norge_sno) – lynrask etter warmup
+    const r = await fetch('/sn%C3%B8/api/norge_sno');
+    const d = await r.json();
+    if (!d.ok) return;
+
+    Object.assign(snøCache, d.stasjoner);
+    alleStasjoner.forEach(s => {
+      if (snøCache[s.id] !== undefined) s.sno = snøCache[s.id];
+    });
+
+    // Statistikk-strip
+    const medSno = alleStasjoner.filter(s => s.sno != null && s.sno > 0);
+    const maks   = medSno.reduce((m,s) => Math.max(m, s.sno), 0);
+    document.getElementById('stat-sno').textContent = medSno.length;
+    document.getElementById('stat-max').textContent = maks > 0 ? Math.round(maks) : '–';
+
+    // Mest snø – topp 8
+    const sortert = [...medSno].sort((a,b) => b.sno - a.sno).slice(0,8);
+    document.getElementById('topp-mest').innerHTML = sortert.length
+      ? sortert.map((s,i) => toppRad(s, i, s.sno, 'cm')).join('')
+      : '<div class="topp-laster">Ingen data</div>';
+
+    // Tidspunkt + alder på cache
+    const now = new Date();
+    const alder = d.alder_min != null ? ` · ${d.alder_min} min siden` : '';
+    document.getElementById('oppdatert-tid').textContent =
+      'kl. ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0') + alder;
+
+    // Topp-okt placeholder inntil endring-data implementeres
+    document.getElementById('topp-okt').innerHTML =
+      '<div class="topp-laster" style="font-size:12px;color:var(--muted);padding:16px 18px;">Kommer snart – endring siste 24t</div>';
+    document.getElementById('stat-okt').textContent = '–';
+
+  } catch(e) { console.error('Topplister feil:', e); }
+}
+
+function toppRad(s, i, verdi, enhet) {
+  const nrKlass = i === 0 ? 'gull' : i === 1 ? 'solv' : i === 2 ? 'bronse' : '';
+  const snoKlass = verdi >= 60 ? 'stor' : verdi >= 20 ? 'middels' : 'liten';
+  const kortNavn = (s.navn || '').split(' – ').pop();
+  return `<div class="topp-rad" onclick="window.location='/sn%C3%B8/${s.id}'">
+    <div class="topp-nr ${nrKlass}">${i+1}</div>
+    <div class="topp-info">
+      <div class="topp-navn">${kortNavn}</div>
+      <div class="topp-fylke">${s.fylke || ''}</div>
+    </div>
+    <div class="topp-sno ${snoKlass}">${Math.round(verdi)} ${enhet}</div>
+    <div class="topp-pil">›</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Snødybde for synlig kartutsnitt
+// ═══════════════════════════════════════════════════════════════
 async function sjekkOgHentSnø() {
+  if (!kart) return;
   const zoom = kart.getZoom();
-  if (zoom < 7) {
-    // For langt ut – vis hint i stedet
-    document.getElementById('sno-hint').style.display = 'block';
-    return;
-  }
-  document.getElementById('sno-hint').style.display = 'none';
+  const hint = document.getElementById('sno-hint');
+  if (zoom < 7) { if(hint) hint.style.display='block'; return; }
+  if(hint) hint.style.display = 'none';
 
-  const b   = kart.getBounds();
-  const bbox = [
-    b.getSouth().toFixed(4),
-    b.getWest().toFixed(4),
-    b.getNorth().toFixed(4),
-    b.getEast().toFixed(4),
-  ].join(',');
-
-  // Ikke hent på nytt hvis bbox er tilnærmet lik forrige
+  const b    = kart.getBounds();
+  const bbox = [b.getSouth().toFixed(4),b.getWest().toFixed(4),b.getNorth().toFixed(4),b.getEast().toFixed(4)].join(',');
   if (bbox === sisteHentetBbox) return;
   sisteHentetBbox = bbox;
 
@@ -730,66 +1064,48 @@ async function sjekkOgHentSnø() {
     const d = await r.json();
     if (d.ok) {
       Object.assign(snøCache, d.stasjoner);
-      // Oppdater sno-feltet på alle stasjoner
-      alleStasjoner.forEach(s => {
-        if (snøCache[s.id] !== undefined) s.sno = snøCache[s.id];
-      });
-      visSnøStatus('Snødybde oppdatert – ' + d.antall + ' stasjoner', false);
+      alleStasjoner.forEach(s => { if (snøCache[s.id] !== undefined) s.sno = snøCache[s.id]; });
+      visSnøStatus('Oppdatert – ' + d.antall + ' stasjoner', false);
       oppdaterVisning();
     }
-  } catch(e) {
-    visSnøStatus('Feil ved henting av snødybde', false);
-  }
+  } catch(e) { visSnøStatus('Feil ved henting', false); }
 }
 
-// ── Hent snødybde ved posisjon (radius) ───────────────────────────────────────
 async function hentSnøForPosisjon(lat, lon, km) {
   visSnøStatus('Henter snødybde…', true);
-  sisteHentetBbox = null; // tving ny henting
+  sisteHentetBbox = null;
   try {
-    const url = '/sn%C3%B8/api/snodybder?lat='+lat+'&lon='+lon+'&km='+km;
-    const r   = await fetch(url);
-    const d   = await r.json();
+    const r = await fetch('/sn%C3%B8/api/snodybder?lat='+lat+'&lon='+lon+'&km='+km);
+    const d = await r.json();
     if (d.ok) {
       Object.assign(snøCache, d.stasjoner);
-      alleStasjoner.forEach(s => {
-        if (snøCache[s.id] !== undefined) s.sno = snøCache[s.id];
-      });
-      visSnøStatus('Snødybde oppdatert – ' + d.antall + ' stasjoner', false);
+      alleStasjoner.forEach(s => { if (snøCache[s.id] !== undefined) s.sno = snøCache[s.id]; });
+      visSnøStatus('Oppdatert – ' + d.antall + ' stasjoner', false);
       oppdaterVisning();
     }
-  } catch(e) {
-    visSnøStatus('Feil ved henting av snødybde', false);
-  }
+  } catch(e) { visSnøStatus('Feil', false); }
 }
 
 function visSnøStatus(tekst, laster) {
   const el = document.getElementById('sno-status');
-  const hint = document.getElementById('sno-hint');
   if (!el) return;
-  el.innerHTML = laster
-    ? '<span class="spinner"></span> ' + tekst
-    : '✓ ' + tekst;
+  el.innerHTML = laster ? '<span class="spinner"></span> '+tekst : '✓ '+tekst;
   el.style.display = 'block';
-  if (hint) hint.style.display = 'none';
   if (!laster) setTimeout(() => { el.style.display='none'; }, 4000);
 }
 
-function skjulListe() {
-  const sek = document.getElementById('liste-seksjon');
-  if (sek) sek.style.display = 'none';
-}
-
-// ── Geolocation ───────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  Geolocation
+// ═══════════════════════════════════════════════════════════════
 function hentPosisjon() {
   const btn    = document.getElementById('pos-btn');
   const status = document.getElementById('pos-status');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner" style="border-top-color:#fff;border-color:rgba(255,255,255,.3)"></span> Leter…';
+  btn.innerHTML = '<span class="spinner" style="border-top-color:#fff;border-color:rgba(255,255,255,.3)"></span> Finner posisjon…';
   if (!navigator.geolocation) {
-    status.textContent = 'Ikke støttet.';
+    status.textContent = 'Ikke støttet av nettleseren.';
     btn.disabled = false;
-    btn.innerHTML = '📍 Finn meg';
+    btn.innerHTML = '📍 Finn snø nær meg';
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -797,54 +1113,91 @@ function hentPosisjon() {
       userPos = {lat: pos.coords.latitude, lon: pos.coords.longitude};
       btn.disabled = false;
       btn.innerHTML = '✓ Posisjon funnet';
-      status.textContent = userPos.lat.toFixed(3) + '°N, ' + userPos.lon.toFixed(3) + '°E';
+      status.textContent = userPos.lat.toFixed(3)+'°N, '+userPos.lon.toFixed(3)+'°E';
 
-      if (userMarker) userMarker.remove();
-      const myIcon = L.divIcon({
-        html: '<div style="width:16px;height:16px;background:#1d4ed8;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 3px rgba(29,78,216,.3)"></div>',
-        iconSize:[16,16], iconAnchor:[8,8], className:''
-      });
-      userMarker = L.marker([userPos.lat, userPos.lon], {icon:myIcon}).addTo(kart);
-      userMarker.bindPopup('<b>Din posisjon</b>').openPopup();
-
-      // Zoom til posisjon – dette trigger også moveend → sjekkOgHentSnø
-      kart.setView([userPos.lat, userPos.lon], 8, {animate:true});
-
-      // Hent snø med radius basert på f-dist-feltet (default 100 km)
-      const km = parseFloat(document.getElementById('f-dist').value) || 100;
-      hentSnøForPosisjon(userPos.lat, userPos.lon, km);
-
-      oppdaterVisning();
+      visKart();
+      setTimeout(() => {
+        if (userMarker) userMarker.remove();
+        const myIcon = L.divIcon({
+          html:'<div style="width:16px;height:16px;background:#3b82f6;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(59,130,246,.3)"></div>',
+          iconSize:[16,16], iconAnchor:[8,8], className:''
+        });
+        userMarker = L.marker([userPos.lat, userPos.lon], {icon:myIcon}).addTo(kart);
+        userMarker.bindPopup('<b>Din posisjon</b>').openPopup();
+        kart.setView([userPos.lat, userPos.lon], 8, {animate:true});
+        const km = parseFloat(document.getElementById('f-dist').value) || 100;
+        hentSnøForPosisjon(userPos.lat, userPos.lon, km).then(() => {
+          visNaerMeg(userPos.lat, userPos.lon);
+        });
+        oppdaterVisning();
+      }, 100);
     },
     () => {
       btn.disabled = false;
-      btn.innerHTML = '📍 Finn meg';
+      btn.innerHTML = '📍 Finn snø nær meg';
       status.textContent = 'Tilgang nektet – tillat posisjon i nettleseren.';
     },
     {timeout:10000, maximumAge:60000}
   );
 }
 
-// ── Avstand (Haversine) ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  Markør-ikoner
+// ═══════════════════════════════════════════════════════════════
+function snøFargeOgStr(sno) {
+  if (sno === null) return {farge:'#334155', str:22, ring:'rgba(51,65,85,0.2)'};
+  if (sno >= 100)   return {farge:'#1e3a5f', str:56, ring:'rgba(30,58,95,0.25)'};
+  if (sno >= 60)    return {farge:'#1d4ed8', str:50, ring:'rgba(29,78,216,0.22)'};
+  if (sno >= 30)    return {farge:'#0284c7', str:44, ring:'rgba(2,132,199,0.2)'};
+  if (sno >= 10)    return {farge:'#15803d', str:38, ring:'rgba(21,128,61,0.2)'};
+  if (sno > 0)      return {farge:'#65a30d', str:32, ring:'rgba(101,163,13,0.18)'};
+  return                   {farge:'#475569', str:26, ring:'rgba(71,85,105,0.15)'};
+}
+
+function lagMarkerIkon(s) {
+  const {farge, str, ring} = snøFargeOgStr(s.sno);
+  const half = str / 2;
+  if (s.sno === null) {
+    return L.divIcon({
+      html:`<div style="width:${str}px;height:${str}px;background:${farge};border:2px solid rgba(255,255,255,.2);border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4);"></div>`,
+      className:'', iconSize:[str,str], iconAnchor:[half,half]
+    });
+  }
+  const kortNavn = (s.kort || s.navn || '').split(' – ').pop().split(' - ').pop();
+  const navnVis  = kortNavn.length > 12 ? kortNavn.slice(0,11)+'…' : kortNavn;
+  const fs       = str >= 50 ? 11 : str >= 40 ? 10 : 9;
+  return L.divIcon({
+    html:`<div style="
+      width:${str}px;height:${str}px;background:${farge};
+      border:2.5px solid rgba(255,255,255,.85);border-radius:50%;
+      box-shadow:0 2px 10px rgba(0,0,0,.5),0 0 0 5px ${ring};
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:1px;padding:3px;cursor:pointer;color:#fff;text-align:center;
+    ">
+      <div style="font-size:${fs+1}px;font-weight:800;line-height:1;">${Math.round(s.sno)}cm</div>
+      <div style="font-size:${fs-1}px;font-weight:600;line-height:1.1;opacity:.88;">${navnVis}</div>
+    </div>`,
+    className:'', iconSize:[str,str], iconAnchor:[half,half]
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Filtrering + visning
+// ═══════════════════════════════════════════════════════════════
 function haversine(lat1,lon1,lat2,lon2) {
-  const R=6371, d2r=Math.PI/180;
-  const dLat=(lat2-lat1)*d2r, dLon=(lon2-lon1)*d2r;
+  const R=6371,d2r=Math.PI/180;
+  const dLat=(lat2-lat1)*d2r,dLon=(lon2-lon1)*d2r;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*d2r)*Math.cos(lat2*d2r)*Math.sin(dLon/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-// ── Filtrering + sortering ────────────────────────────────────────────────────
 function filtrerOgSorter() {
   const q      = document.getElementById('search').value.toLowerCase();
   const maxD   = parseFloat(document.getElementById('f-dist').value) || Infinity;
   const minSno = parseFloat(document.getElementById('f-minsno').value) || 0;
   const stiger = document.getElementById('f-stiger').value === 'ja';
-
   return alleStasjoner
-    .map(s => {
-      const dist = userPos ? haversine(userPos.lat, userPos.lon, s.lat, s.lon) : null;
-      return {...s, dist};
-    })
+    .map(s => ({...s, dist: userPos ? haversine(userPos.lat,userPos.lon,s.lat,s.lon) : null}))
     .filter(s => {
       if (q && !(s.navn+s.fylke+s.id).toLowerCase().includes(q)) return false;
       if (s.dist !== null && s.dist > maxD) return false;
@@ -852,92 +1205,101 @@ function filtrerOgSorter() {
       if (stiger && !s.stiger) return false;
       return true;
     })
-    .sort((a,b) => {
-      if (a.dist !== null && b.dist !== null) return a.dist - b.dist;
-      return a.navn.localeCompare(b.navn, 'no');
-    });
+    .sort((a,b) => a.dist !== null && b.dist !== null ? a.dist-b.dist : a.navn.localeCompare(b.navn,'no'));
 }
 
-// ── Markør-ikon ───────────────────────────────────────────────────────────────
-function snøFargeOgStr(sno) {
-  if (sno === null) return {farge:'#94a3b8', tekst:'', str:28, tekstFarge:'#fff', ring:'rgba(148,163,184,0.25)'};
-  if (sno >= 100) return {farge:'#1e3a5f', tekst:Math.round(sno)+'cm', str:56, tekstFarge:'#fff', ring:'rgba(30,58,95,0.2)'};
-  if (sno >= 60)  return {farge:'#1d4ed8', tekst:Math.round(sno)+'cm', str:50, tekstFarge:'#fff', ring:'rgba(29,78,216,0.2)'};
-  if (sno >= 30)  return {farge:'#0284c7', tekst:Math.round(sno)+'cm', str:44, tekstFarge:'#fff', ring:'rgba(2,132,199,0.2)'};
-  if (sno >= 10)  return {farge:'#15803d', tekst:Math.round(sno)+'cm', str:38, tekstFarge:'#fff', ring:'rgba(21,128,61,0.2)'};
-  if (sno > 0)    return {farge:'#65a30d', tekst:Math.round(sno)+'cm', str:34, tekstFarge:'#fff', ring:'rgba(101,163,13,0.2)'};
-  return           {farge:'#94a3b8', tekst:'0cm', str:30, tekstFarge:'#fff', ring:'rgba(148,163,184,0.2)'};
-}
-
-function lagMarkerIkon(s) {
-  const {farge, tekst, str, tekstFarge, ring} = snøFargeOgStr(s.sno);
-  const kortNavn = (s.kort || s.navn || '').split(' – ').pop().split(' - ').pop();
-  const navnKort = kortNavn.length > 14 ? kortNavn.slice(0,13)+'…' : kortNavn;
-  const fontSize = str >= 50 ? 11 : str >= 40 ? 10 : 9;
-  const snoLinje = tekst ? `<div style="font-size:${fontSize+1}px;font-weight:800;line-height:1;">${tekst}</div>` : '';
-  const navnLinje = `<div style="font-size:${fontSize}px;font-weight:600;line-height:1.2;opacity:0.92;">${navnKort}</div>`;
-  const half = str / 2;
-  return L.divIcon({
-    html: `<div style="
-        width:${str}px;height:${str}px;
-        background:${farge};
-        border:3px solid #fff;
-        border-radius:50%;
-        box-shadow:0 2px 8px rgba(0,0,0,.28), 0 0 0 6px ${ring};
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        gap:1px;padding:3px;cursor:pointer;
-        color:${tekstFarge};text-align:center;
-      ">${snoLinje}${navnLinje}</div>`,
-    className: '',
-    iconSize: [str, str],
-    iconAnchor: [half, half],
-    popupAnchor: [0, -half],
-  });
-}
-
-// ── Oppdater kart + liste ─────────────────────────────────────────────────────
 function oppdaterVisning() {
   const liste = filtrerOgSorter();
-  markerLag.clearLayers();
-  liste.slice(0, 300).forEach(s => {
-    const m = L.marker([s.lat, s.lon], {icon: lagMarkerIkon(s)}).addTo(markerLag);
-    m.on('click', () => { window.location.href = '/sn%C3%B8/' + s.id; });
-  });
 
-  // Vis kun liste hvis vi har hentet snødybde for noen stasjoner
-  const harSnøData = liste.some(s => s.sno !== null);
-  const sek = document.getElementById('liste-seksjon');
-  if (sek) sek.style.display = harSnøData ? 'block' : 'none';
+  // Kart
+  if (kart && markerLag) {
+    markerLag.clearLayers();
+    liste.slice(0,300).forEach(s => {
+      const m = L.marker([s.lat,s.lon], {icon:lagMarkerIkon(s)}).addTo(markerLag);
+      m.on('click', () => { window.location.href='/sn%C3%B8/'+s.id; });
+    });
+  }
+
+  // Liste (kun om vi har snødata)
+  const harSnø = liste.some(s => s.sno !== null);
+  const sek    = document.getElementById('liste-seksjon');
+  if (sek) sek.style.display = harSnø ? 'block' : 'none';
 
   const g = document.getElementById('grid');
   const c = document.getElementById('count');
-  const listeFiltrert = liste.filter(s => s.sno !== null);
-  c.textContent = '– ' + listeFiltrert.length + ' stasjoner';
-  if (!listeFiltrert.length) {
-    g.innerHTML = '<div style="color:var(--hint);padding:16px 0;font-size:13px;">Ingen treff – prøv andre filtre</div>';
-    return;
-  }
-  g.innerHTML = listeFiltrert.slice(0, 80).map(s => {
-    const snoHtml = s.sno != null
-      ? '<span class="card-sno'+(s.sno <= 0 ? ' ingen':'')+'">'
-        + (s.sno > 30 ? '❄' : s.sno > 5 ? '🌨' : '·')
-        + ' '+Math.round(s.sno)+' cm</span>'
-      : '';
-    const distHtml = s.dist != null
-      ? '<div class="card-dist">📍 '+Math.round(s.dist)+' km unna</div>' : '';
-    return '<a class="card" href="/sn%C3%B8/'+s.id+'">'
-      + '<div class="card-navn">'+s.navn+'</div>'
-      + '<div class="card-info">'+(s.fylke||'')+'</div>'
-      + distHtml + snoHtml + '</a>';
+  const medData = liste.filter(s => s.sno !== null);
+  if (c) c.textContent = '– ' + medData.length + ' stasjoner';
+  if (g) g.innerHTML = medData.slice(0,80).map(s => {
+    const snoHtml = `<span class="card-sno${s.sno<=0?' ingen':''}">${s.sno>30?'❄':s.sno>5?'🌨':'·'} ${Math.round(s.sno)} cm</span>`;
+    const distHtml = s.dist!=null ? `<div class="card-dist">📍 ${Math.round(s.dist)} km</div>` : '';
+    return `<a class="card" href="/sn%C3%B8/${s.id}">
+      <div class="card-navn">${s.navn}</div>
+      <div class="card-info">${s.fylke||''}</div>
+      ${distHtml}${snoHtml}
+    </a>`;
   }).join('');
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
-initKart();
-lastStasjoner();
+// ═══════════════════════════════════════════════════════════════
+//  Søk → trigger kartvisning
+// ═══════════════════════════════════════════════════════════════
+function sokInput(q) {
+  oppdaterVisning();
+  if (q.length >= 2) {
+    visKart();
+    // Finn første treff og sentrér kartet
+    const treff = alleStasjoner.find(s =>
+      (s.navn+s.fylke+s.id).toLowerCase().includes(q.toLowerCase())
+    );
+    if (treff && kart) {
+      kart.setView([treff.lat, treff.lon], 9, {animate:true});
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Nærmeste stasjoner under hero
+// ═══════════════════════════════════════════════════════════════
+function visNaerMeg(lat, lon) {
+  function hav(s) {
+    const R=6371,d2r=Math.PI/180;
+    const dLat=(s.lat-lat)*d2r, dLon=(s.lon-lon)*d2r;
+    const a=Math.sin(dLat/2)**2+Math.cos(lat*d2r)*Math.cos(s.lat*d2r)*Math.sin(dLon/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+  const med = alleStasjoner
+    .filter(s => s.sno !== null)
+    .map(s => ({...s, dist: hav(s)}))
+    .sort((a,b) => a.dist - b.dist)
+    .slice(0, 5);
+
+  const sek = document.getElementById('naer-meg-seksjon');
+  const grid = document.getElementById('naer-meg-grid');
+  if (!sek || !grid) return;
+
+  if (!med.length) { sek.style.display='none'; return; }
+
+  grid.innerHTML = med.map(s => {
+    const snoFarge = s.sno >= 60 ? '#60a5fa' : s.sno >= 20 ? '#22c55e' : '#94a3b8';
+    const kortNavn = (s.navn||'').split(' – ').pop();
+    return `<div class="naer-kort" onclick="window.location='/sn%C3%B8/${s.id}'">
+      <div class="naer-navn">${kortNavn}</div>
+      <div class="naer-fylke">${s.fylke||''}</div>
+      <div class="naer-dist">📍 ${Math.round(s.dist)} km</div>
+      <div class="naer-sno" style="color:${snoFarge}">❄ ${Math.round(s.sno)} cm</div>
+    </div>`;
+  }).join('');
+  sek.style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Boot
+// ═══════════════════════════════════════════════════════════════
+lastStasjoner().then(lastTopplister);
 </script>
 </body>
 </html>"""
+
 
 
 _STASJON_HTML = """<!DOCTYPE html>
