@@ -860,12 +860,17 @@ def skiloyper_kvamskogen_tile(z: int, x: int, y: int):
     return resp
 
 
-@ver.get("/skiloyper-kvamskogen/stats")
-def skiloyper_kvamskogen_stats():
-    z = int(request.args.get("z", 13))
-    radius = int(request.args.get("radius", 2))
-    fresh_hours = int(request.args.get("fresh_hours", 12))
-    cache_seconds = int(request.args.get("cache_seconds", 60))
+def fetch_loyper_stats(
+    z: int = 13,
+    radius: int = 2,
+    fresh_hours: int = 12,
+    cache_seconds: int = 60,
+) -> dict:
+    """
+    Kjernelogikk for løypestatus – ingen Flask-avhengighet.
+    Kan kalles direkte fra andre moduler (f.eks. kvamskogen_routes.py)
+    uten å være inne i en request-kontekst.
+    """
     z = max(0, min(19, z)); radius = max(0, min(6, radius))
     fresh_hours = max(1, min(72, fresh_hours)); cache_seconds = max(0, min(600, cache_seconds))
 
@@ -874,12 +879,13 @@ def skiloyper_kvamskogen_stats():
     if cache_seconds > 0:
         hit = _STATS_CACHE.get(cache_key)
         if hit and hit.expires_at > now_ts:
-            return jsonify(hit.payload)
+            return hit.payload
 
     center_x, center_y = _latlng_to_tile(KVAM_LAT, KVAM_LNG, z)
     now_utc = datetime.now(timezone.utc)
     fresh_seconds = fresh_hours * 3600
-    seen = set(); total = active = freshly_groomed = with_last_update = missing_last_update = 0
+    seen = set()
+    total = active = freshly_groomed = with_last_update = missing_last_update = 0
     newest_dt_utc = newest_dt_local = newest_seg_id = newest_track_id = newest_age_seconds = None
 
     for dx in range(-radius, radius + 1):
@@ -903,8 +909,10 @@ def skiloyper_kvamskogen_stats():
                 if last_dt_utc:
                     with_last_update += 1
                     if newest_dt_utc is None or last_dt_utc > newest_dt_utc:
-                        newest_dt_utc = last_dt_utc; newest_dt_local = last_dt_utc.astimezone(OSLO)
-                        newest_seg_id = props.get("id"); newest_track_id = props.get("track_id")
+                        newest_dt_utc = last_dt_utc
+                        newest_dt_local = last_dt_utc.astimezone(OSLO)
+                        newest_seg_id = props.get("id")
+                        newest_track_id = props.get("track_id")
                         newest_age_seconds = (now_utc - last_dt_utc).total_seconds()
                     if is_active and not bool(props.get("open_not_groomed")):
                         if (now_utc - last_dt_utc).total_seconds() <= fresh_seconds:
@@ -925,7 +933,16 @@ def skiloyper_kvamskogen_stats():
     }
     if cache_seconds > 0:
         _STATS_CACHE[cache_key] = _CacheEntry(expires_at=now_ts + cache_seconds, payload=payload)
-    return jsonify(payload)
+    return payload
+
+
+@ver.get("/skiloyper-kvamskogen/stats")
+def skiloyper_kvamskogen_stats():
+    z            = int(request.args.get("z", 13))
+    radius       = int(request.args.get("radius", 2))
+    fresh_hours  = int(request.args.get("fresh_hours", 12))
+    cache_seconds = int(request.args.get("cache_seconds", 60))
+    return jsonify(fetch_loyper_stats(z, radius, fresh_hours, cache_seconds))
 
 
 # =========================

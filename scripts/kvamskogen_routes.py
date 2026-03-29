@@ -21,12 +21,12 @@ from flask import Blueprint, Response, jsonify, request
 # Direkteimport – unngår HTTP self-call som timer ut på Render
 try:
     from scripts.ver_routes import _hent_prognose_data as _ver_hent_prognose_data
-    from scripts.ver_routes import skiloyper_kvamskogen_stats as _ver_loyper_stats
+    from scripts.ver_routes import fetch_loyper_stats as _ver_fetch_loyper_stats
     _VER_DIREKTE = True
 except ImportError:
     try:
         from ver_routes import _hent_prognose_data as _ver_hent_prognose_data
-        from ver_routes import skiloyper_kvamskogen_stats as _ver_loyper_stats
+        from ver_routes import fetch_loyper_stats as _ver_fetch_loyper_stats
         _VER_DIREKTE = True
     except ImportError:
         _VER_DIREKTE = False
@@ -268,17 +268,10 @@ def _hent_sno() -> dict:
 
 
 def _hent_loyper() -> dict:
-    # Kall direkte hvis mulig – unngår self-HTTP som timer ut på Render
+    # Kall direkte – unngår Flask request-kontekst problem i bakgrunnstråd
     if _VER_DIREKTE:
         try:
-            from flask import current_app
-            with current_app.test_request_context(
-                "/ver/skiloyper-kvamskogen/stats?z=13&radius=2&fresh_hours=12"
-            ):
-                resp = _ver_loyper_stats()
-                if hasattr(resp, "get_json"):
-                    return resp.get_json() or {}
-                return {}
+            return _ver_fetch_loyper_stats(z=13, radius=2, fresh_hours=12)
         except Exception:
             traceback.print_exc()
             return {}
@@ -1417,45 +1410,51 @@ function renderStatus(d){
     mainEl.style.color=sistTimer!=null&&sistTimer<6?'var(--green)':sistTimer<24?'var(--text)':'var(--muted)';
     if(subEl) subEl.textContent=`${lp.preparert} av ${lp.totalt} segmenter preparert (${prepPct}%)`;
 
-    // Snø siden prep – vis i cm
-    let snoSidenMm=0;
-    if(sistTimer!=null&&d.intervaller&&d.intervaller.length){
-      const prepTidspunkt=new Date(Date.now()-sistTimer*3600*1000);
-      snoSidenMm=d.intervaller
-        .filter(iv=>new Date(iv.start)>=prepTidspunkt)
-        .reduce((sum,iv)=>sum+((iv.temperatur_c||0)<=1.5?(iv.nedbor_mm||0):0),0);
-    }
-    const snoSidenCm=Math.round(snoSidenMm/10*10)/10;
-    if(snoSidenEl&&sistTimer!=null){
-      snoSidenEl.textContent=snoSidenCm>0?`❄️ ca. ${snoSidenCm} cm ny snø siden preparering`:'Ingen snøfall siden siste preparering';
-    }
-
-    // Regelbasert kvalitetsvurdering med værsymboler
+    // Snø siden prep – hent fra Frost-historikk (ikke YR-prognose som er fremtid)
     const vurdEl=document.getElementById('l-vurdering');
-    if(vurdEl&&sistTimer!=null){
-      const temp=s.temp_na_c||0;
-      let vurd='', vurdFarge='var(--muted)';
-      if(sistTimer<2&&snoSidenCm<1){
-        vurd='☀️ Nypreparert og tørt – løypene er i topp stand'; vurdFarge='var(--green)';
-      } else if(snoSidenCm>=5&&temp<=0){
-        vurd=`🌨️ ${snoSidenCm} cm kaldsnø siden prep – perfekt underlag`; vurdFarge='var(--green)';
-      } else if(snoSidenCm>=2&&temp<=1.5){
-        vurd=`🌨️ ${snoSidenCm} cm ny snø siden prep – godt underlag`; vurdFarge='var(--green)';
-      } else if(snoSidenCm>=1&&temp<=1.5){
-        vurd=`🌨️ Litt nysnø siden prep – passe bra`; vurdFarge='var(--text)';
-      } else if(sistTimer<8&&temp<=1){
-        vurd='☀️ Relativt fersk preparering og kaldt – bra forhold'; vurdFarge='var(--text)';
-      } else if(temp>2&&sistTimer>6){
-        vurd='🌧️ Mildt vær – snøen er trolig tung og klissete'; vurdFarge='var(--amber)';
-      } else if(sistTimer>24){
-        vurd='🌫️ Over ett døgn siden prep – løypene kan være slitt'; vurdFarge='var(--amber)';
-      } else if(snoSidenMm>2&&temp>1.5){
-        vurd='🌧️ Regn siden prep – løypene er trolig våte'; vurdFarge='var(--amber)';
-      } else {
-        vurd='⛅ Greit preparert – akseptable forhold'; vurdFarge='var(--text)';
-      }
-      vurdEl.textContent=vurd;
-      vurdEl.style.color=vurdFarge;
+    if(sistTimer!=null){
+      const hoursNeeded=Math.max(2, Math.ceil(sistTimer)+1);
+      fetch(`/kvamskogen/api/historikk?hours=${hoursNeeded}`)
+        .then(r=>r.json())
+        .then(hist=>{
+          let snoSidenMm=0;
+          if(hist.ok&&hist.data.length){
+            const prepTidspunkt=new Date(Date.now()-sistTimer*3600*1000);
+            snoSidenMm=hist.data
+              .filter(iv=>new Date(iv.time)>=prepTidspunkt)
+              .reduce((sum,iv)=>sum+((iv.temperature||0)<=1.5?(iv.precipitation||0):0),0);
+          }
+          const snoSidenCm=Math.round(snoSidenMm/10*10)/10;
+          if(snoSidenEl){
+            snoSidenEl.textContent=snoSidenCm>0?`❄️ ca. ${snoSidenCm} cm ny snø siden preparering`:'Ingen snøfall siden siste preparering';
+          }
+          if(vurdEl){
+            const temp=s.temp_na_c||0;
+            let vurd='', vurdFarge='var(--muted)';
+            if(sistTimer<2&&snoSidenCm<1){
+              vurd='☀️ Nypreparert og tørt – løypene er i topp stand'; vurdFarge='var(--green)';
+            } else if(snoSidenCm>=5&&temp<=0){
+              vurd=`🌨️ ${snoSidenCm} cm kaldsnø siden prep – perfekt underlag`; vurdFarge='var(--green)';
+            } else if(snoSidenCm>=2&&temp<=1.5){
+              vurd=`🌨️ ${snoSidenCm} cm ny snø siden prep – godt underlag`; vurdFarge='var(--green)';
+            } else if(snoSidenCm>=1&&temp<=1.5){
+              vurd=`🌨️ Litt nysnø siden prep – passe bra`; vurdFarge='var(--text)';
+            } else if(sistTimer<8&&temp<=1){
+              vurd='☀️ Relativt fersk preparering og kaldt – bra forhold'; vurdFarge='var(--text)';
+            } else if(temp>2&&sistTimer>6){
+              vurd='🌧️ Mildt vær – snøen er trolig tung og klissete'; vurdFarge='var(--amber)';
+            } else if(sistTimer>24){
+              vurd='🌫️ Over ett døgn siden prep – løypene kan være slitt'; vurdFarge='var(--amber)';
+            } else if(snoSidenMm>2&&temp>1.5){
+              vurd='🌧️ Regn siden prep – løypene er trolig våte'; vurdFarge='var(--amber)';
+            } else {
+              vurd='⛅ Greit preparert – akseptable forhold'; vurdFarge='var(--text)';
+            }
+            vurdEl.textContent=vurd;
+            vurdEl.style.color=vurdFarge;
+          }
+        })
+        .catch(()=>{ if(snoSidenEl) snoSidenEl.textContent=''; });
     }
   }
   const forecastEl=document.getElementById('forecast');
