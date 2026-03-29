@@ -412,6 +412,93 @@ def api_norge_sno():
     })
 
 
+@sno_bp.get("/api/sno_endring")
+def api_sno_endring():
+    """
+    Hent snødybde for et sett stasjoner 2 døgn tilbake og beregn endring.
+    Query-param: ids=SN18700,SN18701,...  (kommaseparert, maks 150)
+    Returnerer: {ok, endringer: {id: {na, for2d, diff}}, antall}
+    Caches 30 min.
+    """
+    from datetime import timedelta
+
+    client_id     = os.getenv("FROST_CLIENT_ID", "")
+    client_secret = os.getenv("FROST_CLIENT_SECRET", "")
+    if not client_id:
+        return jsonify({"ok": False, "error": "Frost ikke konfigurert"}), 503
+
+    ids_raw = request.args.get("ids", "")
+    if not ids_raw:
+        return jsonify({"ok": False, "error": "Mangler ids-parameter"}), 400
+
+    ids = [i.strip() for i in ids_raw.split(",") if i.strip()][:150]
+    if not ids:
+        return jsonify({"ok": False, "error": "Ingen gyldige IDs"}), 400
+
+    # Cache-nøkkel basert på sorterte IDs (dato inngår implisitt via TTL)
+    cache_key = "endring_" + "_".join(sorted(ids)[:8]) + f"_{len(ids)}"
+    now_ts = time.time()
+    hit = _STATUS_CACHE.get(cache_key)
+    if hit and hit["expires_at"] > now_ts:
+        return jsonify(hit["payload"])
+
+    # Dagens verdier fra Norge-cachen (ingen ekstra Frost-kall)
+    na_verdier = {sid: _NORGE_SNØ_CACHE[sid] for sid in ids if sid in _NORGE_SNØ_CACHE}
+
+    # Dato 2 døgn tilbake (gir pålitelige observasjoner uavhengig av tidspunkt)
+    for2d_dato = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%d")
+    ref_start  = f"{for2d_dato}T00:00:00Z"
+    ref_slutt  = f"{for2d_dato}T23:59:59Z"
+
+    for2d_verdier: dict = {}
+    try:
+        r = requests.get(
+            f"{FROST_BASE_URL}/observations/v0.jsonld",
+            auth=(client_id, client_secret),
+            params={
+                "sources":       ",".join(ids),
+                "referencetime": f"{ref_start}/{ref_slutt}",
+                "elements":      "surface_snow_thickness",
+                "timeoffsets":   "PT0H",          # kun 06:00-observasjonen
+                "limit":         500,
+            },
+            timeout=FROST_TIMEOUT,
+        )
+        if r.status_code == 200:
+            for item in r.json().get("data", []):
+                sid = item.get("sourceId", "").split(":")[0]
+                for obs in item.get("observations", []):
+                    if obs.get("elementId") == "surface_snow_thickness":
+                        v = obs.get("value")
+                        if v is not None:
+                            # Behold høyeste verdi for dagen (kan være flere obs)
+                            if sid not in for2d_verdier or float(v) > for2d_verdier[sid]:
+                                for2d_verdier[sid] = float(v)
+    except Exception:
+        traceback.print_exc()
+
+    # Beregn endring
+    endringer = {}
+    for sid in ids:
+        na  = na_verdier.get(sid)
+        f2d = for2d_verdier.get(sid)
+        if na is not None and f2d is not None:
+            endringer[sid] = {
+                "na":   na,
+                "for2d": f2d,
+                "diff":  round(na - f2d, 1),
+            }
+
+    payload = {
+        "ok":        True,
+        "endringer": endringer,
+        "antall":    len(endringer),
+        "for2d_dato": for2d_dato,
+    }
+    _STATUS_CACHE[cache_key] = {"expires_at": now_ts + 30 * 60, "payload": payload}
+    return jsonify(payload)
+
+
 @sno_bp.get("/api/snodybder")
 def api_snodybder():
     """
@@ -818,7 +905,7 @@ input:focus,select:focus{border-color:var(--blue);}
   <div class="stat"><div class="stat-val">442</div><div class="stat-lbl">Stasjoner</div></div>
   <div class="stat"><div class="stat-val" id="stat-sno">–</div><div class="stat-lbl">Stasjoner med snø</div></div>
   <div class="stat"><div class="stat-val" id="stat-max">–</div><div class="stat-lbl">Maks snødybde (cm)</div></div>
-  <div class="stat"><div class="stat-val" id="stat-okt">–</div><div class="stat-lbl">Økt siste døgn</div></div>
+  <div class="stat"><div class="stat-val" id="stat-okt">–</div><div class="stat-lbl">Mest økning (2d)</div></div>
 </div>
 
 <!-- Main -->
@@ -839,8 +926,8 @@ input:focus,select:focus{border-color:var(--blue);}
     <div class="topp-kort">
       <div class="topp-kort-header">
         <span class="ikon">📈</span>
-        <h3>Mest ny snø siste døgn</h3>
-        <span class="pill green">24t</span>
+        <h3>Mest økning siste 2 døgn</h3>
+        <span class="pill green">48t · ≥30cm</span>
       </div>
       <div id="topp-okt" class="topp-laster"><span class="spinner"></span> Laster…</div>
     </div>
@@ -992,7 +1079,7 @@ async function lastStasjoner() {
 // ═══════════════════════════════════════════════════════════════
 async function lastTopplister() {
   try {
-    // Bruk server-side cache (/api/norge_sno) – lynrask etter warmup
+    // Steg 1: Hent dagens snødybde fra server-cache (lynrask)
     const r = await fetch('/sn%C3%B8/api/norge_sno');
     const d = await r.json();
     if (!d.ok) return;
@@ -1008,7 +1095,7 @@ async function lastTopplister() {
     document.getElementById('stat-sno').textContent = medSno.length;
     document.getElementById('stat-max').textContent = maks > 0 ? Math.round(maks) : '–';
 
-    // Mest snø – topp 8
+    // Topp 8 mest snø – vises umiddelbart
     const sortert = [...medSno].sort((a,b) => b.sno - a.sno).slice(0,8);
     document.getElementById('topp-mest').innerHTML = sortert.length
       ? sortert.map((s,i) => toppRad(s, i, s.sno, 'cm')).join('')
@@ -1020,12 +1107,72 @@ async function lastTopplister() {
     document.getElementById('oppdatert-tid').textContent =
       'kl. ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0') + alder;
 
-    // Topp-okt placeholder inntil endring-data implementeres
-    document.getElementById('topp-okt').innerHTML =
-      '<div class="topp-laster" style="font-size:12px;color:var(--muted);padding:16px 18px;">Kommer snart – endring siste 24t</div>';
-    document.getElementById('stat-okt').textContent = '–';
+    // Steg 2: Hent endring asynkront (kun for stasjoner med ≥ 30 cm)
+    lastEndring(medSno);
 
   } catch(e) { console.error('Topplister feil:', e); }
+}
+
+async function lastEndring(medSno) {
+  try {
+    // Filtrer til stasjoner med ≥ 30 cm – typisk 50-100 stk
+    const kandidater = medSno.filter(s => s.sno >= 30);
+    if (!kandidater.length) {
+      document.getElementById('topp-okt').innerHTML =
+        '<div class="topp-laster" style="padding:16px 18px;">Ingen stasjoner med ≥ 30 cm akkurat nå</div>';
+      return;
+    }
+
+    document.getElementById('topp-okt').innerHTML =
+      '<div class="topp-laster"><span class="spinner"></span> Henter endring (2 døgn)…</div>';
+
+    const ids = kandidater.map(s => s.id).join(',');
+    const r2  = await fetch('/sn%C3%B8/api/sno_endring?ids=' + ids);
+    const d2  = await r2.json();
+    if (!d2.ok) return;
+
+    // Bygg opp endring-map: stasjonId → diff
+    const endringMap = {};
+    for (const [sid, e] of Object.entries(d2.endringer)) {
+      endringMap[sid] = e.diff;
+    }
+
+    // Sorter etter størst positiv endring, topp 8
+    const medOkning = kandidater
+      .filter(s => endringMap[s.id] != null && endringMap[s.id] > 0)
+      .map(s => ({...s, diff: endringMap[s.id]}))
+      .sort((a,b) => b.diff - a.diff)
+      .slice(0, 8);
+
+    // Oppdater stat-okt
+    document.getElementById('stat-okt').textContent = medOkning.length > 0
+      ? '+' + Math.round(medOkning[0].diff) + ' cm'
+      : '–';
+
+    document.getElementById('topp-okt').innerHTML = medOkning.length
+      ? medOkning.map((s,i) => toppRadEndring(s, i)).join('')
+      : '<div class="topp-laster" style="padding:16px 18px;color:var(--muted);font-size:12px;">Ingen stasjoner med økning siste 2 døgn</div>';
+
+  } catch(e) {
+    console.error('Endring feil:', e);
+    document.getElementById('topp-okt').innerHTML =
+      '<div class="topp-laster" style="padding:16px 18px;color:var(--muted);font-size:12px;">Kunne ikke hente endringsdata</div>';
+  }
+}
+
+function toppRadEndring(s, i) {
+  const nrKlass  = i === 0 ? 'gull' : i === 1 ? 'solv' : i === 2 ? 'bronse' : '';
+  const snoKlass = s.diff >= 20 ? 'stor' : s.diff >= 5 ? 'middels' : 'liten';
+  const kortNavn = (s.navn || '').split(' – ').pop();
+  return `<div class="topp-rad" onclick="window.location='/sn%C3%B8/${s.id}'">
+    <div class="topp-nr ${nrKlass}">${i+1}</div>
+    <div class="topp-info">
+      <div class="topp-navn">${kortNavn}</div>
+      <div class="topp-fylke">${s.fylke || ''} · ${Math.round(s.sno)} cm nå</div>
+    </div>
+    <div class="topp-sno ${snoKlass}">+${Math.round(s.diff)} cm</div>
+    <div class="topp-pil">›</div>
+  </div>`;
 }
 
 function toppRad(s, i, verdi, enhet) {
