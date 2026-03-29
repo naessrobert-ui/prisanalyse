@@ -45,30 +45,21 @@ _SYSTEM_PROMPT = """
 Du er en lokal værvakt på Kvamskogen som skriver engasjerende meldinger til en hytteeier.
 Skriv naturlig, muntlig norsk bokmål – varm og personlig tone.
 
-Du får både værtall OG kamerabilder fra området (vegvesen-kamera på veien, Furedalen skitrekk og Eikedalen skisenter).
-Bruk bildene aktivt – de avslører ting tall ikke kan: om det faktisk snør eller regner, sikt, lys, og stemning.
+Du får både værtall OG kamerabilder fra området (vegvesen-kamera, Furedalen skitrekk og Eikedalen).
+Bruk bildene aktivt – de avslører ting tall ikke kan: snøtype, sikt, lys.
 
 Svar KUN med gyldig JSON (ingen markdown):
 {"verdict":"...","detail":"...","snow_quality":"...","badge_color":"...","icon":"..."}
 
-1. verdict (maks 10 ord): Situasjonen akkurat nå. Gjerne entusiastisk hvis forholdene er gode.
+1. verdict (maks 8 ord): Situasjonen akkurat nå.
 
-2. detail (150-250 ord) i 3 avsnitt:
-   - Første avsnitt: Forholdene nå – beskriv det du SER i bildene (snøtype, sikt, lys/mørke, sol eller overskyet).
-     Bruk temperaturen til å bekrefte eller nyansere bildet. Er det kaldsnø eller våt snø?
-     Nevn konkret hva bildene viser – f.eks. "Vegvesen-kameraet viser god sikt og tørr vei" eller
-     "Furedalen-bildet bekrefter at det snør aktivt akkurat nå."
-   - Andre avsnitt: Løypestatus og skiforhold – preparert? Nylig kjørt? Hva ser løypene ut til å være?
-   - Tredje avsnitt: Fremtidsutsikter – analyser ALLE dagene i prognosen.
-     Drømmedagen = nysnø dagen før + sol/oppholdsvær + vind under 4 m/s + kald natt (min under -1°C).
-     Nevn KONKRET hvilke dager som ser bra ut med ukedag. Ikke stopp ved første dårlige dag.
+2. detail (80-120 ord) i 2 avsnitt:
+   - Første avsnitt: Forholdene nå – beskriv kort hva bildene viser (snøtype, sikt, lys).
+     Bruk temperaturen til å bekrefte: kaldsnø eller våt snø?
+   - Andre avsnitt: Løypestatus + én konkret dag fremover som ser bra ut (eller advarsel hvis dårlig).
+     Drømmebetingelser: nysnø + sol + vind under 4 m/s + kald natt.
 
 3. snow_quality: "Utmerket" | "Godt" | "Moderat" | "Dårlig"
-   - Utmerket: nysnø + sol/oppholdsvær + lite vind + under 0°C
-   - Godt: under 0°C, snø siste 3 døgn, løyper preparert
-   - Moderat: 0–3°C, våt snø, eller løyper ikke preparert
-   - Dårlig: regn, over 3°C, kraftig vind, smelting
-
 4. badge_color: "green" | "amber" | "red"
 5. icon: ⛷️ 🎿 ☀️ 🌨️ 🌧️ 🌫️ 🥶 💧
 """.strip()
@@ -122,8 +113,8 @@ def _analyser_kamera() -> dict:
                     "content-type": "application/json",
                 },
                 json={
-                    "model": ANTHROPIC_MODEL,
-                    "max_tokens": 256,
+                    "model": "claude-haiku-4-5-20251001",
+                    "max_tokens": 200,
                     "system": _KAMERA_SYSTEM,
                     "messages": [{
                         "role": "user",
@@ -313,7 +304,7 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
             "https://api.anthropic.com/v1/messages",
             headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
                      "content-type": "application/json"},
-            json={"model": ANTHROPIC_MODEL, "max_tokens": 1024,
+            json={"model": ANTHROPIC_MODEL, "max_tokens": 400,
                   "system": _SYSTEM_PROMPT,
                   "messages": [{"role": "user", "content": user_content}]},
             timeout=60,
@@ -1160,7 +1151,7 @@ function renderFcast(){
       },
       scales:{
         x:{ticks:{color:'#7b8db5',font:{size:10},maxRotation:30,autoSkip:true,maxTicksLimit:14},grid:{color:'rgba(100,130,200,.06)'}},
-        yT:{position:'left',ticks:{color:'#7b8db5',font:{size:10},callback:v=>(v>0?'+':'')+v+'°'},grid:{color:'rgba(100,130,200,.06)'},
+        yT:{position:'left',ticks:{color:'#7b8db5',font:{size:10},callback:v=>(v>0?'+':'')+parseFloat(v).toFixed(1)+'°'},grid:{color:'rgba(100,130,200,.06)'},
           afterDataLimits(s){if(s.min>0)s.min=-1;if(s.max<0)s.max=1;}},
         yP:{position:'right',min:0,suggestedMax:1,ticks:{color:'#7b8db5',font:{size:10},callback:v=>v+' mm'},grid:{drawOnChartArea:false}},
         yW:{display:false,min:0},
@@ -1518,12 +1509,13 @@ function renderStatus(d){
   const t=d.tolkning||{},s=d.sno||{},lp=d.loyper||{};
   const bc={'green':'badge-green','amber':'badge-amber','red':'badge-red'}[t.badge_color]||'badge-amber';
   const fullDetail = (t.detail||'').replace(/\n/g,'<br>');
-  // Første avsnitt som kortversjon
-  const firstPara = (t.detail||'').split('\n').filter(x=>x.trim())[0] || '';
-  const hasMore = (t.detail||'').split('\n').filter(x=>x.trim()).length > 1;
+  // Split på dobbel linjeskift for avsnitt
+  const paras = (t.detail||'').split(/\n\n+/).map(x=>x.trim()).filter(Boolean);
+  const firstPara = paras[0] || '';
+  const hasMore = paras.length > 1;
   const detailHtml = hasMore
     ? `<span class="hero-detail-short">${firstPara}</span>
-       <span class="hero-detail-full" id="hero-full">${fullDetail}</span>
+       <span class="hero-detail-full" id="hero-full">${paras.slice(1).join('<br><br>')}</span>
        <button class="les-mer" onclick="toggleDetail(this)">Les mer ▾</button>`
     : `<span class="hero-detail-short">${fullDetail}</span>`;
 
