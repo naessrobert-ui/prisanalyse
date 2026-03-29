@@ -45,20 +45,23 @@ _SYSTEM_PROMPT = """
 Du er en lokal værvakt på Kvamskogen som skriver engasjerende meldinger til en hytteeier.
 Skriv naturlig, muntlig norsk bokmål – varm og personlig tone.
 
+Du får både værtall OG kamerabilder fra området (vegvesen-kamera på veien, Furedalen skitrekk og Eikedalen skisenter).
+Bruk bildene aktivt – de avslører ting tall ikke kan: om det faktisk snør eller regner, sikt, lys, og stemning.
+
 Svar KUN med gyldig JSON (ingen markdown):
 {"verdict":"...","detail":"...","snow_quality":"...","badge_color":"...","icon":"..."}
 
 1. verdict (maks 10 ord): Situasjonen akkurat nå. Gjerne entusiastisk hvis forholdene er gode.
 
-2. detail (100-200 ord) i 2-3 avsnitt:
-   - Første avsnitt: Forholdene nå – snøtype, temperatur, hva det betyr for skiopplevelsen.
-   - Andre avsnitt: Løypestatus – preparert? Nylig kjørt? Hva kan man forvente?
-   - Tredje avsnitt: Fremtidsutsikter – analyser ALLE dagene i prognosen, ikke bare de nærmeste.
-     Se etter gode vinduer selv om det er dårlige dager imellom.
-     Drømmedagen = nysnø dagen før + oppholdsvær/sol + vind under 4 m/s + kald natt (min under -1°C).
-     Nevn KONKRET hvilke dager som ser bra ut med ukedag og hva som gjør dem gode.
-     Eks: "Etter regnværet onsdag snur det – torsdag og fredag har -3°C om natten, sol og lite vind."
-     Ikke stopp analysen ved første dårlige dag – se hele uka.
+2. detail (150-250 ord) i 3 avsnitt:
+   - Første avsnitt: Forholdene nå – beskriv det du SER i bildene (snøtype, sikt, lys/mørke, sol eller overskyet).
+     Bruk temperaturen til å bekrefte eller nyansere bildet. Er det kaldsnø eller våt snø?
+     Nevn konkret hva bildene viser – f.eks. "Vegvesen-kameraet viser god sikt og tørr vei" eller
+     "Furedalen-bildet bekrefter at det snør aktivt akkurat nå."
+   - Andre avsnitt: Løypestatus og skiforhold – preparert? Nylig kjørt? Hva ser løypene ut til å være?
+   - Tredje avsnitt: Fremtidsutsikter – analyser ALLE dagene i prognosen.
+     Drømmedagen = nysnø dagen før + sol/oppholdsvær + vind under 4 m/s + kald natt (min under -1°C).
+     Nevn KONKRET hvilke dager som ser bra ut med ukedag. Ikke stopp ved første dårlige dag.
 
 3. snow_quality: "Utmerket" | "Godt" | "Moderat" | "Dårlig"
    - Utmerket: nysnø + sol/oppholdsvær + lite vind + under 0°C
@@ -69,6 +72,84 @@ Svar KUN med gyldig JSON (ingen markdown):
 4. badge_color: "green" | "amber" | "red"
 5. icon: ⛷️ 🎿 ☀️ 🌨️ 🌧️ 🌫️ 🥶 💧
 """.strip()
+
+KAMERA_URLS = {
+    "vegvesen":  "https://kamera.atlas.vegvesen.no/api/images/1229056_1",
+    "furedalen": "https://furedalen-webcamera.no/bunn/bilde2.jpg",
+    "eikedalen": "https://www.eikedalen.no/wc3/image00001.jpg",
+}
+
+_KAMERA_SYSTEM = """
+Du analyserer webkamerabilder fra Kvamskogen-området.
+Svar KUN med gyldig JSON (ingen markdown):
+{"nedbor_type":"...","sikt":"...","loyper":"...","sammendrag":"...","ikon":"..."}
+
+1. nedbor_type: "snø" | "regn" | "sludd" | "tørt" | "ukjent"
+2. sikt: "god" | "tåke" | "dårlig" | "ukjent"
+3. loyper: "gode" | "ok" | "dårlige" | "ikke synlig"
+4. sammendrag: Én setning (maks 15 ord) om det du ser.
+5. ikon: Ett emoji som oppsummerer forholdene.
+""".strip()
+
+
+def _analyser_kamera() -> dict:
+    """Henter kamerabilder og analyserer dem med Claude Vision."""
+    if not ANTHROPIC_API_KEY:
+        return {}
+
+    import base64
+
+    resultater = {}
+    session = requests.Session()
+    session.headers.update({"User-Agent": "Mozilla/5.0 (prisanalyse.no weather dashboard)"})
+
+    for navn, url in KAMERA_URLS.items():
+        try:
+            r = session.get(url, timeout=15)
+            if r.status_code != 200:
+                continue
+            b64 = base64.b64encode(r.content).decode()
+            # Bestem content-type
+            ct = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+            if ct not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+                ct = "image/jpeg"
+
+            resp = requests.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": ANTHROPIC_MODEL,
+                    "max_tokens": 256,
+                    "system": _KAMERA_SYSTEM,
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {"type": "image", "source": {"type": "base64", "media_type": ct, "data": b64}},
+                            {"type": "text", "text": "Analyser dette kamerabildet fra Kvamskogen."},
+                        ],
+                    }],
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            text = resp.json()["content"][0]["text"].strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            resultater[navn] = json.loads(text)
+            resultater[navn]["url"] = url
+            resultater[navn]["hentet"] = datetime.now().isoformat(timespec="seconds")
+        except Exception:
+            traceback.print_exc()
+            resultater[navn] = {"url": url, "feil": True}
+
+    return resultater
+
 
 FROST_BASE_URL = "https://frost.met.no"
 FROST_SOURCE   = "SN50310"
@@ -157,7 +238,7 @@ def hent_historikk(hours: int = 24) -> list:
     return sorted(rows.values(), key=lambda x: x["time"])
 
 
-def _ai_tolkning(sno_data: dict, loyper_data: dict) -> dict:
+def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = None) -> dict:
     if not ANTHROPIC_API_KEY:
         return _fallback_tolkning(sno_data, loyper_data)
 
@@ -192,14 +273,50 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict) -> dict:
     }, ensure_ascii=False)
 
     try:
+        import base64
+
+        # Bygg meldings-innhold: værtall + kamerabilder
+        user_content: list = [{"type": "text", "text": payload_str}]
+
+        if kamera_data:
+            img_session = requests.Session()
+            img_session.headers.update({"User-Agent": "Mozilla/5.0 (prisanalyse.no)"})
+            kamera_labels = {
+                "vegvesen":  "Vegvesen-kamera (veien til Kvamskogen)",
+                "furedalen": "Furedalen skitrekk",
+                "eikedalen": "Eikedalen skisenter",
+            }
+            for navn, label in kamera_labels.items():
+                url = KAMERA_URLS.get(navn)
+                if not url:
+                    continue
+                try:
+                    img_r = img_session.get(url, timeout=12)
+                    if img_r.status_code != 200:
+                        continue
+                    ct = img_r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+                    if ct not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+                        ct = "image/jpeg"
+                    b64 = base64.b64encode(img_r.content).decode()
+                    user_content.append({
+                        "type": "text",
+                        "text": f"Kamerabilde: {label}"
+                    })
+                    user_content.append({
+                        "type": "image",
+                        "source": {"type": "base64", "media_type": ct, "data": b64}
+                    })
+                except Exception:
+                    pass  # Hopp over dette kameraet hvis det feiler
+
         r = requests.post(
             "https://api.anthropic.com/v1/messages",
             headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
                      "content-type": "application/json"},
             json={"model": ANTHROPIC_MODEL, "max_tokens": 1024,
                   "system": _SYSTEM_PROMPT,
-                  "messages": [{"role": "user", "content": payload_str}]},
-            timeout=45,
+                  "messages": [{"role": "user", "content": user_content}]},
+            timeout=60,
         )
         r.raise_for_status()
         text = r.json()["content"][0]["text"].strip()
@@ -304,17 +421,19 @@ def _refresh_cache():
     _STATUS_REFRESHING = True
     try:
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
             fut_sno    = ex.submit(_hent_sno)
             fut_loyper = ex.submit(_hent_loyper)
+            fut_kamera = ex.submit(_analyser_kamera)
             sno_data    = fut_sno.result(timeout=60)
             loyper_data = fut_loyper.result(timeout=25)
+            kamera_data = fut_kamera.result(timeout=60)
 
-        tolkning = _ai_tolkning(sno_data, loyper_data)
+        tolkning = _ai_tolkning(sno_data, loyper_data, kamera_data)
         s      = sno_data.get("sammendrag", {})
         daglig = sno_data.get("daglig", [])
 
-        payload = _build_payload(tolkning, sno_data, loyper_data, s, daglig)
+        payload = _build_payload(tolkning, sno_data, loyper_data, s, daglig, kamera_data)
         _STATUS_CACHE["status"] = {
             "expires_at": time.time() + _STATUS_CACHE_TTL,
             "payload": payload,
@@ -325,7 +444,7 @@ def _refresh_cache():
         _STATUS_REFRESHING = False
 
 
-def _build_payload(tolkning, sno_data, loyper_data, s, daglig):
+def _build_payload(tolkning, sno_data, loyper_data, s, daglig, kamera_data=None):
     import datetime as _dt
     return {
         "hentet":   datetime.now().isoformat(timespec="seconds"),
@@ -375,6 +494,7 @@ def _build_payload(tolkning, sno_data, loyper_data, s, daglig):
             }
             for iv in sno_data.get("intervaller", [])
         ],
+        "kamera": kamera_data or {},
     }
 
 
@@ -796,6 +916,25 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 .chart-hours{display:flex;gap:6px;margin-bottom:10px;}
 .chart-hours button{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border);cursor:pointer;background:var(--bg);color:var(--muted);}
 .chart-hours button.active{background:#0f172a;color:#fff;border-color:#0f172a;}
+.kamera-seksjon{margin:2rem 0 1rem;}
+.kamera-seksjon h2{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#475569;margin-bottom:1rem;display:flex;align-items:center;gap:.6rem;}
+.kamera-seksjon h2::after{content:'';flex:1;height:1px;background:#e2e8f0;}
+.kamera-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;}
+.kamera-kort{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.06);}
+.kamera-kort img{width:100%;height:180px;object-fit:cover;display:block;background:#f1f5f9;}
+.kamera-info{padding:.75rem 1rem .9rem;}
+.kamera-tittel{font-size:.8rem;font-weight:700;color:#0f172a;margin-bottom:.4rem;}
+.kamera-ai{font-size:.78rem;color:#334155;line-height:1.5;}
+.kamera-ai .ai-linje{display:flex;gap:.4rem;align-items:center;margin-bottom:.2rem;}
+.kamera-ai .ai-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;min-width:52px;}
+.kamera-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:700;}
+.kb-sno{background:#dbeafe;color:#1d4ed8;}.kb-regn{background:#fee2e2;color:#b91c1c;}
+.kb-sludd{background:#fef9c3;color:#92400e;}.kb-tort{background:#dcfce7;color:#15803d;}
+.kb-god{background:#dcfce7;color:#15803d;}.kb-taake{background:#f1f5f9;color:#475569;}
+.kb-darlig{background:#fee2e2;color:#b91c1c;}.kb-ukjent{background:#f1f5f9;color:#94a3b8;}
+.kamera-sammendrag{font-size:.78rem;color:#475569;margin-top:.4rem;font-style:italic;}
+.kamera-tid{font-size:.65rem;color:#94a3b8;margin-top:.3rem;}
+.kamera-spinner{height:180px;display:flex;align-items:center;justify-content:center;background:#f8fafc;color:#94a3b8;font-size:.8rem;}
 .chart-legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;}
 .leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
 .leg-line{display:inline-block;width:18px;height:2px;border-radius:2px;}
@@ -924,6 +1063,14 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
   <div class="section-label">Når kan jeg gå på tur?</div>
   <div style="font-size:12px;color:var(--hint);margin-bottom:10px;">Klikk på en dag for timedetaljer</div>
   <div id="skitur-list"><div style="color:var(--hint);font-size:13px;padding:8px 0"><span class="spinner"></span> Laster skidager…</div></div>
+  <section class="kamera-seksjon">
+    <h2>📷 Webkameraer</h2>
+    <div class="kamera-grid">
+      <div class="kamera-kort" id="kamera-vegvesen"><div class="kamera-spinner">Laster…</div><div class="kamera-info"><div class="kamera-tittel">🚗 Vegvesen – Kvamskogen</div></div></div>
+      <div class="kamera-kort" id="kamera-furedalen"><div class="kamera-spinner">Laster…</div><div class="kamera-info"><div class="kamera-tittel">🎿 Furedalen skitrekk</div></div></div>
+      <div class="kamera-kort" id="kamera-eikedalen"><div class="kamera-spinner">Laster…</div><div class="kamera-info"><div class="kamera-tittel">⛷️ Eikedalen skisenter</div></div></div>
+    </div>
+  </section>
   <div class="section-label">Verktøy</div>
   <div class="links-grid">
     <a class="link-card" href="/ver/varsel-kvamskogen"><span class="link-card-icon">❄️</span>Snøvarsel (detaljert)</a>
@@ -1468,7 +1615,48 @@ function renderStatus(d){
   if(d.intervaller&&d.intervaller.length){fcastData=d.intervaller;renderFcast();}
   // Bygg skitur-anbefalinger fra intervaller
   if(d.intervaller&&d.intervaller.length) buildSkitur(d.intervaller, d.daglig||[]);
+  if(d.kamera) renderKamera(d.kamera);
   }catch(e){console.error('renderStatus feil:', e);}
+}
+
+function renderKamera(kamera){
+  const KAMERA_META={
+    vegvesen:  {tittel:'🚗 Vegvesen – Kvamskogen', url:'https://kamera.atlas.vegvesen.no/api/images/1229056_1'},
+    furedalen: {tittel:'🎿 Furedalen skitrekk',    url:'https://furedalen-webcamera.no/bunn/bilde2.jpg'},
+    eikedalen: {tittel:'⛷️ Eikedalen skisenter',    url:'https://www.eikedalen.no/wc3/image00001.jpg'},
+  };
+  function badgeClass(type){
+    const m={'snø':'kb-sno','regn':'kb-regn','sludd':'kb-sludd','tørt':'kb-tort',
+             'god':'kb-god','tåke':'kb-taake','dårlig':'kb-darlig'};
+    return m[type]||'kb-ukjent';
+  }
+  for(const [navn,meta] of Object.entries(KAMERA_META)){
+    const el=document.getElementById('kamera-'+navn);
+    if(!el) continue;
+    const data=kamera[navn]||{};
+    const ts=data.hentet?new Date(data.hentet).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}):'';
+    // Legg til cache-buster på bildet så det alltid er ferskt
+    const imgUrl=meta.url+'?t='+Date.now();
+    let aiHtml='';
+    if(!data.feil&&data.sammendrag){
+      aiHtml=`
+        <div class="kamera-ai">
+          <div class="ai-linje"><span class="ai-label">Nedbør</span><span class="kamera-badge ${badgeClass(data.nedbor_type)}">${data.ikon||''} ${data.nedbor_type||'ukjent'}</span></div>
+          <div class="ai-linje"><span class="ai-label">Sikt</span><span class="kamera-badge ${badgeClass(data.sikt)}">${data.sikt||'ukjent'}</span></div>
+          <div class="ai-linje"><span class="ai-label">Løyper</span><span class="kamera-badge kb-ukjent">${data.loyper||'–'}</span></div>
+          <div class="kamera-sammendrag">"${data.sammendrag}"</div>
+        </div>`;
+    } else if(data.feil){
+      aiHtml='<div class="kamera-ai" style="color:#94a3b8">AI-analyse ikke tilgjengelig</div>';
+    }
+    el.innerHTML=`
+      <img src="${imgUrl}" alt="${meta.tittel}" loading="lazy" onerror="this.style.display='none'">
+      <div class="kamera-info">
+        <div class="kamera-tittel">${meta.tittel}</div>
+        ${aiHtml}
+        ${ts?`<div class="kamera-tid">Analysert ${ts}</div>`:''}
+      </div>`;
+  }
 }
 
 async function loadHistorikk(){
