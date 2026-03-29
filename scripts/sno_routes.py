@@ -647,6 +647,119 @@ def api_historikk(stasjon_id: str):
     return jsonify(payload)
 
 
+_SKITUR_AI_CACHE: dict = {}
+_SKITUR_AI_CACHE_TTL = 120 * 60  # 2 timer, samme som resten
+
+_SKITUR_AI_PROMPT = """Du er en lokal turguide som analyserer timedata og gir korte, konkrete turanbefalinger på norsk bokmål.
+
+For hver dag:
+1. Se på HELE dagen time for time
+2. Finn perioden med minst nedbør mellom soloppgang og solnedgang
+3. Skill mellom regn (temp>1.5°C), sludd (0-1.5°C) og snø (<0°C)
+4. Skriv "detalj" som én konkret setning som oppsummerer dagen
+5. Skriv "kort" som en 4-6 ords komprimering av detalj
+
+Eksempel på god detalj: "Rolig morgen med lett snø til kl 10, deretter kraftig vind 8–10 m/s fra 13."
+Tilhørende kort: "Rolig morgen, vind fra 13"
+
+Svar KUN med gyldig JSON-array (ingen markdown):
+[{"dato":"YYYY-MM-DD","score":1-5,"kort":"4-6 ord","beste_tid":"HH:MM–HH:MM eller null","detalj":"1 konkret setning med timing"}]
+
+Score: 5=sol+lite vind hele dagen, 4=bra, 3=variabelt/greit, 2=mye nedbør men pauser, 1=bli hjemme""".strip()
+
+
+@sno_bp.get("/<stasjon_id>/api/skitur-ai")
+def api_skitur_ai(stasjon_id: str):
+    """Alle skidager analysert av AI i ett kall – cachet 2 timer."""
+    import datetime as _dt
+    from collections import defaultdict
+
+    now_ts = time.time()
+    cache_key = f"skitur_ai_{stasjon_id}"
+    hit = _SKITUR_AI_CACHE.get(cache_key)
+    if hit and hit["expires_at"] > now_ts:
+        return jsonify(hit["payload"])
+
+    if not ANTHROPIC_API_KEY:
+        return jsonify({"ok": False, "dager": []})
+
+    status_hit = _STATUS_CACHE.get(stasjon_id)
+    if not status_hit:
+        return jsonify({"ok": False, "dager": []})
+
+    intervaller_raw = status_hit["payload"].get("intervaller", [])
+    if not intervaller_raw:
+        return jsonify({"ok": False, "dager": []})
+
+    stasjon = _get_stasjon(stasjon_id)
+    lat = stasjon["lat"] if stasjon else 60.0
+    lon = stasjon["lon"] if stasjon else 10.0
+
+    per_dag: dict = defaultdict(list)
+    for iv in intervaller_raw:
+        dato = (iv.get("start") or "")[:10]
+        if dato:
+            per_dag[dato].append(iv)
+
+    dager_payload = []
+    for dato in sorted(per_dag.keys())[:7]:
+        sol_opp, sol_ned = _sol_tider(dato, lat, lon)
+        dt = _dt.date.fromisoformat(dato)
+        ukedag = ["mandag","tirsdag","onsdag","torsdag","fredag","lørdag","søndag"][dt.weekday()]
+        ivs = per_dag[dato]
+        dager_payload.append({
+            "dato": dato,
+            "ukedag": ukedag,
+            "soloppgang": sol_opp,
+            "solnedgang": sol_ned,
+            "timer": [
+                {
+                    "t": (iv.get("start") or "")[11:16],
+                    "nb": round(iv.get("nedbor_mm") or 0, 1),
+                    "temp": round(iv.get("temperatur_c") or 0, 1),
+                    "vind": round(iv.get("vind_ms") or 0, 1),
+                    "ikon": iv.get("ver_ikon") or "",
+                }
+                for iv in ivs
+            ],
+        })
+
+    try:
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
+                     "content-type": "application/json"},
+            json={
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 800,
+                "system": _SKITUR_AI_PROMPT,
+                "messages": [{"role": "user", "content": json.dumps(dager_payload, ensure_ascii=False)}],
+            },
+            timeout=30,
+        )
+        r.raise_for_status()
+        text = r.json()["content"][0]["text"].strip()
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"): text = text[4:]
+        ai_dager = json.loads(text)
+
+        for dag in ai_dager:
+            dato = dag.get("dato", "")
+            if dato:
+                dt = _dt.date.fromisoformat(dato)
+                dag["ukedag"] = ["mandag","tirsdag","onsdag","torsdag","fredag","lørdag","søndag"][dt.weekday()]
+                dag["soloppgang"], dag["solnedgang"] = _sol_tider(dato, lat, lon)
+
+        payload = {"ok": True, "dager": ai_dager}
+        _SKITUR_AI_CACHE[cache_key] = {"expires_at": now_ts + _SKITUR_AI_CACHE_TTL, "payload": payload}
+        return jsonify(payload)
+
+    except Exception:
+        traceback.print_exc()
+        return jsonify({"ok": False, "dager": []})
+
+
 # ── HTML-sider ────────────────────────────────────────────────────────────────
 
 @sno_bp.get("/")
@@ -1826,29 +1939,54 @@ function buildSkitur(intervaller){
   window._skiIntervaller=intervaller;
   const el=document.getElementById('skitur-list');
   if(!el||!intervaller||!intervaller.length){if(el)el.innerHTML='';return;}
+
+  // Vis regelbasert umiddelbart
+  renderSkiturLokal(intervaller, el);
+
+  // Oppdater stille med AI i bakgrunnen
+  fetch(`/sn%C3%B8/${STASJON_ID}/api/skitur-ai`)
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.ok&&d.dager&&d.dager.length) renderSkiturDager(d.dager, el);
+    })
+    .catch(()=>{});
+}
+
+function renderSkiturLokal(intervaller, el){
   const perDag={};
   intervaller.forEach(iv=>{const dato=(iv.start||'').substring(0,10);if(dato){if(!perDag[dato])perDag[dato]=[];perDag[dato].push(iv);}});
   const datoer=Object.keys(perDag).sort().slice(0,8);
   if(!datoer.length){el.innerHTML='';return;}
-  el.innerHTML=datoer.map((dato,i)=>{
+  const dager=datoer.map(dato=>{
     const[solOpp,solNed]=solTider(dato);
     const a=analyserDag(dato,perDag[dato],solOpp,solNed);
     const dt=new Date(dato+'T12:00:00');
-    const ukedag=UKEDAGER[dt.getDay()];
+    return{dato,ukedag:UKEDAGER[dt.getDay()],soloppgang:solOpp,solnedgang:solNed,...a,beste_tid:a.besteTid};
+  });
+  renderSkiturDager(dager, el);
+}
+
+function renderSkiturDager(dager, el){
+  if(!dager||!dager.length){el.innerHTML='';return;}
+  el.innerHTML=dager.map((dag,i)=>{
+    const dato=dag.dato;
+    const score=dag.score||3, kort=dag.kort||'', detalj=dag.detalj||'';
+    const besteTid=dag.beste_tid||dag.besteTid||null;
+    const ukedag=dag.ukedag||'';
     const dagStr=ukedag.charAt(0).toUpperCase()+ukedag.slice(1);
-    const datoStr=dato.slice(5).replace('-','.');
-    const emoji=SCORE_EMOJI[a.score]||'🌨️';
-    const tidHtml=a.besteTid?`<span class="ski-beste-tid">⏰ ${a.besteTid}</span>`:'';
+    const datoStr=(dato||'').slice(5).replace('-','.');
+    const emoji=SCORE_EMOJI[score]||'🌨️';
+    const tidHtml=besteTid?`<span class="ski-beste-tid">⏰ ${besteTid}</span>`:'';
     return`<div class="ski-day">
       <div class="ski-day-header" onclick="toggleSkiDay(${i})">
-        <div class="ski-day-left score-${a.score}"><div class="ski-day-icon-big">${emoji}</div><div class="ski-day-name-top">${dagStr}</div></div>
+        <div class="ski-day-left score-${score}"><div class="ski-day-icon-big">${emoji}</div><div class="ski-day-name-top">${dagStr}</div></div>
         <div class="ski-day-right">
           <div class="ski-day-title">${dagStr} ${datoStr}</div>
-          <div class="ski-day-kort">${a.kort}</div>
+          <div class="ski-day-kort">${kort}</div>
+          <div class="ski-day-kort" style="margin-top:3px;color:var(--hint);font-size:12px;">${detalj}</div>
           <div style="display:flex;align-items:center;gap:8px;margin-top:3px;">${tidHtml}<span class="ski-arrow" id="ski-arrow-${i}">▾ Graf</span></div>
         </div>
       </div>
-      <div class="ski-day-kort" style="padding:6px 14px 8px 94px;color:var(--muted);font-size:13px;">${a.detalj}</div>
       <div id="ski-chart-section-${i}" style="display:none;background:#0f172a;border-radius:0 0 14px 14px;">
         <div class="ski-day-chart-wrap"><canvas id="ski-chart-${i}"></canvas><div class="ski-day-chart-msg" id="ski-chart-msg-${i}"><span class="spinner"></span></div></div>
       </div>
