@@ -20,6 +20,7 @@ from regnskap_routes import regnskap_bp
 from dash_apps.strom import create_dash_app
 from scripts.ver_routes import ver
 from scripts.kvamskogen_routes import kvamskogen_bp
+from scripts.sno_routes import sno_bp
 
 
 
@@ -94,6 +95,7 @@ def create_app() -> Flask:
     app.register_blueprint(regnskap_bp)
     app.register_blueprint(ver)
     app.register_blueprint(kvamskogen_bp)
+    app.register_blueprint(sno_bp)
 
 
 
@@ -126,4 +128,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000)),
         debug=False,
+        threaded=True,
     )
