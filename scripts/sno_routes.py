@@ -323,6 +323,107 @@ def api_stasjoner():
     return jsonify({"ok": True, "antall": len(stasjoner), "stasjoner": stasjoner})
 
 
+@sno_bp.get("/api/snodybder")
+def api_snodybder():
+    """
+    Hent siste snødybde for stasjoner innenfor et bbox eller innenfor radius fra et punkt.
+    Query-params:
+      bbox=south,west,north,east   ELLER
+      lat=&lon=&km=                (radius-søk)
+    Maks 150 stasjoner per kall. Resultat caches 30 min.
+    """
+    client_id     = os.getenv("FROST_CLIENT_ID", "")
+    client_secret = os.getenv("FROST_CLIENT_SECRET", "")
+    if not client_id:
+        return jsonify({"ok": False, "error": "Frost ikke konfigurert"}), 503
+
+    df = _load_stations()
+    if df is None:
+        return jsonify({"ok": False, "error": "Ingen stasjonsdata"}), 503
+
+    # ── Finn relevante stasjoner ──────────────────────────────────────────────
+    bbox_str = request.args.get("bbox", "")
+    lat_s    = request.args.get("lat", "")
+    lon_s    = request.args.get("lon", "")
+    km_s     = request.args.get("km", "150")
+
+    subset = df.copy()
+
+    if bbox_str:
+        try:
+            s, w, n, e = [float(x) for x in bbox_str.split(",")]
+            subset = subset[
+                (subset["lat"] >= s) & (subset["lat"] <= n) &
+                (subset["lon"] >= w) & (subset["lon"] <= e)
+            ]
+        except Exception:
+            return jsonify({"ok": False, "error": "Ugyldig bbox"}), 400
+
+    elif lat_s and lon_s:
+        import math
+        try:
+            ulat = float(lat_s)
+            ulon = float(lon_s)
+            km   = min(float(km_s), 300)
+        except Exception:
+            return jsonify({"ok": False, "error": "Ugyldig lat/lon/km"}), 400
+
+        def _hav(r):
+            d2r = math.pi / 180
+            dlat = (r["lat"] - ulat) * d2r
+            dlon = (r["lon"] - ulon) * d2r
+            a = math.sin(dlat/2)**2 + math.cos(ulat*d2r)*math.cos(r["lat"]*d2r)*math.sin(dlon/2)**2
+            return 6371 * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+        subset = subset.copy()
+        subset["_dist"] = subset.apply(_hav, axis=1)
+        subset = subset[subset["_dist"] <= km].sort_values("_dist")
+    else:
+        return jsonify({"ok": False, "error": "Oppgi bbox eller lat/lon/km"}), 400
+
+    subset = subset.head(150)
+    if subset.empty:
+        return jsonify({"ok": True, "stasjoner": {}})
+
+    # ── Cache-nøkkel ──────────────────────────────────────────────────────────
+    ids = sorted(subset["baseId"].tolist())
+    cache_key = "snodybder_" + "_".join(ids[:10]) + f"_{len(ids)}"
+    now_ts = time.time()
+    hit = _STATUS_CACHE.get(cache_key)
+    if hit and hit["expires_at"] > now_ts:
+        return jsonify(hit["payload"])
+
+    # ── Frost batch-kall ──────────────────────────────────────────────────────
+    resultat = {}
+    try:
+        sources = ",".join(ids)
+        r = requests.get(
+            f"{FROST_BASE_URL}/observations/v0.jsonld",
+            auth=(client_id, client_secret),
+            params={
+                "sources":       sources,
+                "referencetime": "latest",
+                "elements":      "surface_snow_thickness",
+                "limit":         500,
+            },
+            timeout=FROST_TIMEOUT,
+        )
+        if r.status_code == 200:
+            for item in r.json().get("data", []):
+                sid  = item.get("sourceId", "").split(":")[0]
+                for obs in item.get("observations", []):
+                    if obs.get("elementId") == "surface_snow_thickness":
+                        v = obs.get("value")
+                        if v is not None:
+                            resultat[sid] = float(v)
+    except Exception:
+        traceback.print_exc()
+
+    payload = {"ok": True, "stasjoner": resultat, "antall": len(resultat)}
+    _STATUS_CACHE[cache_key] = {"expires_at": now_ts + 30 * 60, "payload": payload}
+    return jsonify(payload)
+
+
 @sno_bp.get("/<stasjon_id>/api/status")
 def api_status(stasjon_id: str):
     stasjon = _get_stasjon(stasjon_id)
@@ -400,56 +501,440 @@ _OVERSIKT_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Snødashboard – velg stasjon</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<title>Snødashboard – finn snø i Norge</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-:root{--bg:#f5f7fb;--surface:#fff;--border:#e2e8f0;--text:#0f172a;--muted:#64748b;--hint:#94a3b8;--blue:#1d4ed8;--radius:14px;--shadow:0 2px 12px rgba(15,23,42,.07);}
+:root{
+  --bg:#f0f4fa;--surface:#fff;--border:#e2e8f0;--text:#0f172a;
+  --muted:#64748b;--hint:#94a3b8;--blue:#1d4ed8;--blue-l:#eff6ff;
+  --green:#15803d;--green-bg:#f0fdf4;--radius:14px;
+  --shadow:0 2px 14px rgba(15,23,42,.08);
+}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;line-height:1.55;}
-.page{max-width:900px;margin:0 auto;padding:20px 16px 48px;}
-h1{font-size:22px;font-weight:700;margin-bottom:4px;}
-.subtitle{font-size:14px;color:var(--muted);margin-bottom:20px;}
-.search{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;margin-bottom:16px;outline:none;}
-.search:focus{border-color:var(--blue);}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);cursor:pointer;text-decoration:none;color:inherit;display:block;}
-.card:hover{border-color:var(--blue);background:#f0f6ff;}
-.card-navn{font-size:14px;font-weight:600;}
-.card-info{font-size:12px;color:var(--muted);margin-top:3px;}
-#count{font-size:13px;color:var(--muted);margin-bottom:10px;}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;line-height:1.5;}
+.page{max-width:960px;margin:0 auto;padding:16px 14px 60px;}
+.nav{font-size:12px;color:var(--muted);margin-bottom:12px;}
+.nav a{color:var(--muted);text-decoration:none;}
+.header{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+h1{font-size:22px;font-weight:800;letter-spacing:-.3px;}
+.subtitle{font-size:13px;color:var(--muted);margin-bottom:14px;}
+.filterbar{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 16px;
+  box-shadow:var(--shadow);margin-bottom:14px;
+  display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;
+}
+.f-group{display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px;}
+.f-label{font-size:11px;font-weight:700;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;}
+input[type=text],input[type=number],select{
+  padding:8px 10px;border:1px solid var(--border);border-radius:8px;
+  font-size:13px;outline:none;background:var(--bg);color:var(--text);width:100%;
+}
+input:focus,select:focus{border-color:var(--blue);}
+.pos-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 14px;border:none;border-radius:8px;
+  background:var(--blue);color:#fff;font-size:13px;font-weight:600;
+  cursor:pointer;white-space:nowrap;transition:background .15s;
+}
+.pos-btn:hover{background:#1e40af;}
+.pos-btn:disabled{background:#94a3b8;cursor:default;}
+.pos-status{font-size:11px;color:var(--muted);margin-top:2px;}
+#map{height:520px;border-radius:var(--radius);border:1px solid var(--border);
+  box-shadow:var(--shadow);margin-bottom:0;background:#e9eef4;}
+.hvordan{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 18px;box-shadow:var(--shadow);margin-bottom:14px;
+  font-size:13px;color:var(--muted);line-height:1.7;
+}
+.hvordan strong{color:var(--text);}
+.hvordan ol{padding-left:18px;margin-top:6px;}
+.hvordan li{margin-bottom:3px;}
+.list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.list-header h2{font-size:14px;font-weight:700;}
+#count{font-size:12px;color:var(--muted);}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:9px;}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:13px 15px;box-shadow:var(--shadow);cursor:pointer;
+  text-decoration:none;color:inherit;display:block;transition:border-color .15s,background .15s;
+}
+.card:hover{border-color:var(--blue);background:var(--blue-l);}
+.card-navn{font-size:13px;font-weight:700;}
+.card-info{font-size:11px;color:var(--muted);margin-top:3px;}
+.card-dist{font-size:11px;color:var(--blue);font-weight:600;margin-top:4px;}
+.card-sno{
+  display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;
+  background:var(--green-bg);color:var(--green);margin-top:5px;
+}
+.card-sno.ingen{background:#f1f5f9;color:var(--hint);}
+.spinner{display:inline-block;width:15px;height:15px;border:2px solid var(--border);
+  border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading-msg{padding:24px 0;text-align:center;color:var(--muted);font-size:13px;}
+.leaflet-popup-content{font-family:system-ui,sans-serif;font-size:13px;min-width:160px;}
+.popup-navn{font-weight:700;font-size:14px;margin-bottom:4px;}
+.popup-info{color:#64748b;font-size:12px;margin-bottom:8px;}
+.popup-btn{
+  display:block;text-align:center;padding:7px 0;background:var(--blue);color:#fff;
+  border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;
+}
+.popup-btn:hover{background:#1e40af;}
+@media(max-width:520px){
+  .filterbar{flex-direction:column;}
+  #map{height:300px;}
+}
 </style>
 </head>
 <body>
 <div class="page">
-  <div style="font-size:13px;color:var(--muted);margin-bottom:16px;"><a href="/" style="color:var(--muted)">prisanalyse.no</a> › Snødashboard</div>
-  <h1>🏔️ Snødashboard</h1>
-  <div class="subtitle">Velg en værstasjon for værprognose og snøforhold</div>
-  <input class="search" id="search" placeholder="Søk etter stasjon eller sted..." oninput="filtrer(this.value)"/>
-  <div id="count"></div>
-  <div class="grid" id="grid"><div style="color:var(--muted);padding:20px;">Laster stasjoner…</div></div>
+
+  <div class="nav"><a href="/">prisanalyse.no</a> › Snødashboard</div>
+
+  <div class="header">
+    <span style="font-size:28px">🏔️</span>
+    <div>
+      <h1>Snødashboard</h1>
+      <div class="subtitle">Finn snøforhold og værprognose for norske fjellstasjoner</div>
+    </div>
+  </div>
+
+  <div class="hvordan">
+    <strong>Slik bruker du appen:</strong>
+    <ol>
+      <li>Klikk <b>Finn meg</b> for å zoome til din posisjon og hente snødybde i nærheten — eller zoom inn manuelt på kartet.</li>
+      <li>Snødybde hentes automatisk når du zoomer inn nok. <span style="color:var(--hint)">Grå prikk = ikke hentet, blå boble = litt snø, grønn boble = godt med snø.</span></li>
+      <li>Klikk på en stasjon i kartet og velg <b>Se snøforhold</b> for fullstendig prognose, historikk og skituranbefaling.</li>
+      <li>Bruk filtrene til å begrense søket: avstand fra deg, minste snødybde, eller kun stasjoner med stigende snø.</li>
+    </ol>
+  </div>
+
+  <div class="filterbar">
+    <div class="f-group" style="flex:2;min-width:170px;">
+      <span class="f-label">Søk</span>
+      <input type="text" id="search" placeholder="Stasjonsnavn eller fylke…" oninput="oppdaterVisning()"/>
+    </div>
+    <div class="f-group">
+      <span class="f-label">Maks avstand (km)</span>
+      <input type="number" id="f-dist" value="" placeholder="Alle" min="1" max="2000" oninput="oppdaterVisning()"/>
+    </div>
+    <div class="f-group">
+      <span class="f-label">Min snødybde (cm)</span>
+      <input type="number" id="f-minsno" value="" placeholder="0" min="0" max="500" oninput="oppdaterVisning()"/>
+    </div>
+    <div class="f-group">
+      <span class="f-label">Kun stigende snø</span>
+      <select id="f-stiger" onchange="oppdaterVisning()">
+        <option value="">Vis alle</option>
+        <option value="ja">Snø har økt ↑</option>
+      </select>
+    </div>
+    <div class="f-group" style="flex:0;">
+      <span class="f-label">Din posisjon</span>
+      <button class="pos-btn" id="pos-btn" onclick="hentPosisjon()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+        </svg>
+        Finn meg
+      </button>
+      <div class="pos-status" id="pos-status"></div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+  <div id="sno-hint" style="text-align:center;padding:8px 0 12px;font-size:12px;color:var(--muted);">
+    🔍 Zoom inn på kartet (eller klikk <b>Finn meg</b>) for å hente snødybde
+  </div>
+  <div id="sno-status" style="display:none;font-size:12px;color:var(--muted);padding:4px 0 10px;text-align:center;"></div>
+
+  <div id="liste-seksjon" style="display:none;">
+    <div class="list-header" style="margin-top:14px;">
+      <h2>Stasjoner i området <span id="count" style="font-weight:400;color:var(--muted);font-size:12px;"></span></h2>
+      <button onclick="skjulListe()" style="font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;padding:4px 8px;">Skjul ▴</button>
+    </div>
+    <div id="loading-msg" style="display:none;"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
 </div>
+
 <script>
-let alleStasjoner=[];
-fetch('/snø/api/stasjoner').then(r=>r.json()).then(d=>{
-  alleStasjoner=d.stasjoner||[];
-  vis(alleStasjoner);
-});
-function vis(list){
-  const g=document.getElementById('grid');
-  const c=document.getElementById('count');
-  c.textContent=list.length+' stasjoner';
-  if(!list.length){g.innerHTML='<div style="color:var(--muted);padding:20px;">Ingen treff</div>';return;}
-  g.innerHTML=list.map(s=>`
-    <a class="card" href="/snø/${s.id}">
-      <div class="card-navn">${s.navn}</div>
-      <div class="card-info">${s.fylke||''} &nbsp;·&nbsp; ${s.lat.toFixed(2)}°N ${s.lon.toFixed(2)}°E</div>
-      <div class="card-info" style="margin-top:4px;font-size:11px;color:var(--hint);">${s.id}</div>
-    </a>`).join('');
+// ── State ────────────────────────────────────────────────────────────────────
+let alleStasjoner = [];   // alle 442 stasjoner (kun metadata)
+let userPos       = null; // {lat, lon}
+let kart          = null;
+let markerLag     = null;
+let userMarker    = null;
+
+// Snødybde-cache: stasjonId → cm  (oppdateres ved zoom/posisjon)
+let snøCache = {};
+
+// Debounce-timer for zoom-hendelse
+let zoomTimer = null;
+
+// Sist hentede bbox – unngår doble kall ved minimale bevegelser
+let sisteHentetBbox = null;
+
+// ── Kart-init ────────────────────────────────────────────────────────────────
+function initKart() {
+  kart = L.map('map', {center:[64.5,14.5], zoom:5, zoomControl:true, attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:18}).addTo(kart);
+  markerLag = L.layerGroup().addTo(kart);
+
+  // Hent snødybde når bruker zoomer inn nok
+  kart.on('moveend zoomend', () => {
+    clearTimeout(zoomTimer);
+    zoomTimer = setTimeout(sjekkOgHentSnø, 600);
+  });
 }
-function filtrer(q){
-  const s=q.toLowerCase();
-  vis(s?alleStasjoner.filter(x=>(x.navn+x.fylke+x.id).toLowerCase().includes(s)):alleStasjoner);
+
+// ── Stasjonsliste (metadata, lynrask) ─────────────────────────────────────────
+async function lastStasjoner() {
+  try {
+    const r = await fetch('/sn%C3%B8/api/stasjoner');
+    const d = await r.json();
+    alleStasjoner = (d.stasjoner || []).map(s => ({...s, sno:null}));
+    document.getElementById('loading-msg').style.display = 'none';
+    oppdaterVisning();
+  } catch(e) {
+    document.getElementById('loading-msg').textContent = 'Kunne ikke laste stasjoner.';
+  }
 }
+
+// ── Hent snødybde for synlig kartutsnitt ──────────────────────────────────────
+async function sjekkOgHentSnø() {
+  const zoom = kart.getZoom();
+  if (zoom < 7) {
+    // For langt ut – vis hint i stedet
+    document.getElementById('sno-hint').style.display = 'block';
+    return;
+  }
+  document.getElementById('sno-hint').style.display = 'none';
+
+  const b   = kart.getBounds();
+  const bbox = [
+    b.getSouth().toFixed(4),
+    b.getWest().toFixed(4),
+    b.getNorth().toFixed(4),
+    b.getEast().toFixed(4),
+  ].join(',');
+
+  // Ikke hent på nytt hvis bbox er tilnærmet lik forrige
+  if (bbox === sisteHentetBbox) return;
+  sisteHentetBbox = bbox;
+
+  visSnøStatus('Henter snødybde…', true);
+  try {
+    const r = await fetch('/sn%C3%B8/api/snodybder?bbox=' + bbox);
+    const d = await r.json();
+    if (d.ok) {
+      Object.assign(snøCache, d.stasjoner);
+      // Oppdater sno-feltet på alle stasjoner
+      alleStasjoner.forEach(s => {
+        if (snøCache[s.id] !== undefined) s.sno = snøCache[s.id];
+      });
+      visSnøStatus('Snødybde oppdatert – ' + d.antall + ' stasjoner', false);
+      oppdaterVisning();
+    }
+  } catch(e) {
+    visSnøStatus('Feil ved henting av snødybde', false);
+  }
+}
+
+// ── Hent snødybde ved posisjon (radius) ───────────────────────────────────────
+async function hentSnøForPosisjon(lat, lon, km) {
+  visSnøStatus('Henter snødybde…', true);
+  sisteHentetBbox = null; // tving ny henting
+  try {
+    const url = '/sn%C3%B8/api/snodybder?lat='+lat+'&lon='+lon+'&km='+km;
+    const r   = await fetch(url);
+    const d   = await r.json();
+    if (d.ok) {
+      Object.assign(snøCache, d.stasjoner);
+      alleStasjoner.forEach(s => {
+        if (snøCache[s.id] !== undefined) s.sno = snøCache[s.id];
+      });
+      visSnøStatus('Snødybde oppdatert – ' + d.antall + ' stasjoner', false);
+      oppdaterVisning();
+    }
+  } catch(e) {
+    visSnøStatus('Feil ved henting av snødybde', false);
+  }
+}
+
+function visSnøStatus(tekst, laster) {
+  const el = document.getElementById('sno-status');
+  const hint = document.getElementById('sno-hint');
+  if (!el) return;
+  el.innerHTML = laster
+    ? '<span class="spinner"></span> ' + tekst
+    : '✓ ' + tekst;
+  el.style.display = 'block';
+  if (hint) hint.style.display = 'none';
+  if (!laster) setTimeout(() => { el.style.display='none'; }, 4000);
+}
+
+function skjulListe() {
+  const sek = document.getElementById('liste-seksjon');
+  if (sek) sek.style.display = 'none';
+}
+
+// ── Geolocation ───────────────────────────────────────────────────────────────
+function hentPosisjon() {
+  const btn    = document.getElementById('pos-btn');
+  const status = document.getElementById('pos-status');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-top-color:#fff;border-color:rgba(255,255,255,.3)"></span> Leter…';
+  if (!navigator.geolocation) {
+    status.textContent = 'Ikke støttet.';
+    btn.disabled = false;
+    btn.innerHTML = '📍 Finn meg';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      userPos = {lat: pos.coords.latitude, lon: pos.coords.longitude};
+      btn.disabled = false;
+      btn.innerHTML = '✓ Posisjon funnet';
+      status.textContent = userPos.lat.toFixed(3) + '°N, ' + userPos.lon.toFixed(3) + '°E';
+
+      if (userMarker) userMarker.remove();
+      const myIcon = L.divIcon({
+        html: '<div style="width:16px;height:16px;background:#1d4ed8;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 3px rgba(29,78,216,.3)"></div>',
+        iconSize:[16,16], iconAnchor:[8,8], className:''
+      });
+      userMarker = L.marker([userPos.lat, userPos.lon], {icon:myIcon}).addTo(kart);
+      userMarker.bindPopup('<b>Din posisjon</b>').openPopup();
+
+      // Zoom til posisjon – dette trigger også moveend → sjekkOgHentSnø
+      kart.setView([userPos.lat, userPos.lon], 8, {animate:true});
+
+      // Hent snø med radius basert på f-dist-feltet (default 100 km)
+      const km = parseFloat(document.getElementById('f-dist').value) || 100;
+      hentSnøForPosisjon(userPos.lat, userPos.lon, km);
+
+      oppdaterVisning();
+    },
+    () => {
+      btn.disabled = false;
+      btn.innerHTML = '📍 Finn meg';
+      status.textContent = 'Tilgang nektet – tillat posisjon i nettleseren.';
+    },
+    {timeout:10000, maximumAge:60000}
+  );
+}
+
+// ── Avstand (Haversine) ───────────────────────────────────────────────────────
+function haversine(lat1,lon1,lat2,lon2) {
+  const R=6371, d2r=Math.PI/180;
+  const dLat=(lat2-lat1)*d2r, dLon=(lon2-lon1)*d2r;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*d2r)*Math.cos(lat2*d2r)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ── Filtrering + sortering ────────────────────────────────────────────────────
+function filtrerOgSorter() {
+  const q      = document.getElementById('search').value.toLowerCase();
+  const maxD   = parseFloat(document.getElementById('f-dist').value) || Infinity;
+  const minSno = parseFloat(document.getElementById('f-minsno').value) || 0;
+  const stiger = document.getElementById('f-stiger').value === 'ja';
+
+  return alleStasjoner
+    .map(s => {
+      const dist = userPos ? haversine(userPos.lat, userPos.lon, s.lat, s.lon) : null;
+      return {...s, dist};
+    })
+    .filter(s => {
+      if (q && !(s.navn+s.fylke+s.id).toLowerCase().includes(q)) return false;
+      if (s.dist !== null && s.dist > maxD) return false;
+      if (minSno > 0 && (s.sno == null || s.sno < minSno)) return false;
+      if (stiger && !s.stiger) return false;
+      return true;
+    })
+    .sort((a,b) => {
+      if (a.dist !== null && b.dist !== null) return a.dist - b.dist;
+      return a.navn.localeCompare(b.navn, 'no');
+    });
+}
+
+// ── Markør-ikon ───────────────────────────────────────────────────────────────
+function snøFargeOgStr(sno) {
+  if (sno === null) return {farge:'#94a3b8', tekst:'', str:28, tekstFarge:'#fff', ring:'rgba(148,163,184,0.25)'};
+  if (sno >= 100) return {farge:'#1e3a5f', tekst:Math.round(sno)+'cm', str:56, tekstFarge:'#fff', ring:'rgba(30,58,95,0.2)'};
+  if (sno >= 60)  return {farge:'#1d4ed8', tekst:Math.round(sno)+'cm', str:50, tekstFarge:'#fff', ring:'rgba(29,78,216,0.2)'};
+  if (sno >= 30)  return {farge:'#0284c7', tekst:Math.round(sno)+'cm', str:44, tekstFarge:'#fff', ring:'rgba(2,132,199,0.2)'};
+  if (sno >= 10)  return {farge:'#15803d', tekst:Math.round(sno)+'cm', str:38, tekstFarge:'#fff', ring:'rgba(21,128,61,0.2)'};
+  if (sno > 0)    return {farge:'#65a30d', tekst:Math.round(sno)+'cm', str:34, tekstFarge:'#fff', ring:'rgba(101,163,13,0.2)'};
+  return           {farge:'#94a3b8', tekst:'0cm', str:30, tekstFarge:'#fff', ring:'rgba(148,163,184,0.2)'};
+}
+
+function lagMarkerIkon(s) {
+  const {farge, tekst, str, tekstFarge, ring} = snøFargeOgStr(s.sno);
+  const kortNavn = (s.kort || s.navn || '').split(' – ').pop().split(' - ').pop();
+  const navnKort = kortNavn.length > 14 ? kortNavn.slice(0,13)+'…' : kortNavn;
+  const fontSize = str >= 50 ? 11 : str >= 40 ? 10 : 9;
+  const snoLinje = tekst ? `<div style="font-size:${fontSize+1}px;font-weight:800;line-height:1;">${tekst}</div>` : '';
+  const navnLinje = `<div style="font-size:${fontSize}px;font-weight:600;line-height:1.2;opacity:0.92;">${navnKort}</div>`;
+  const half = str / 2;
+  return L.divIcon({
+    html: `<div style="
+        width:${str}px;height:${str}px;
+        background:${farge};
+        border:3px solid #fff;
+        border-radius:50%;
+        box-shadow:0 2px 8px rgba(0,0,0,.28), 0 0 0 6px ${ring};
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:1px;padding:3px;cursor:pointer;
+        color:${tekstFarge};text-align:center;
+      ">${snoLinje}${navnLinje}</div>`,
+    className: '',
+    iconSize: [str, str],
+    iconAnchor: [half, half],
+    popupAnchor: [0, -half],
+  });
+}
+
+// ── Oppdater kart + liste ─────────────────────────────────────────────────────
+function oppdaterVisning() {
+  const liste = filtrerOgSorter();
+  markerLag.clearLayers();
+  liste.slice(0, 300).forEach(s => {
+    const m = L.marker([s.lat, s.lon], {icon: lagMarkerIkon(s)}).addTo(markerLag);
+    m.on('click', () => { window.location.href = '/sn%C3%B8/' + s.id; });
+  });
+
+  // Vis kun liste hvis vi har hentet snødybde for noen stasjoner
+  const harSnøData = liste.some(s => s.sno !== null);
+  const sek = document.getElementById('liste-seksjon');
+  if (sek) sek.style.display = harSnøData ? 'block' : 'none';
+
+  const g = document.getElementById('grid');
+  const c = document.getElementById('count');
+  const listeFiltrert = liste.filter(s => s.sno !== null);
+  c.textContent = '– ' + listeFiltrert.length + ' stasjoner';
+  if (!listeFiltrert.length) {
+    g.innerHTML = '<div style="color:var(--hint);padding:16px 0;font-size:13px;">Ingen treff – prøv andre filtre</div>';
+    return;
+  }
+  g.innerHTML = listeFiltrert.slice(0, 80).map(s => {
+    const snoHtml = s.sno != null
+      ? '<span class="card-sno'+(s.sno <= 0 ? ' ingen':'')+'">'
+        + (s.sno > 30 ? '❄' : s.sno > 5 ? '🌨' : '·')
+        + ' '+Math.round(s.sno)+' cm</span>'
+      : '';
+    const distHtml = s.dist != null
+      ? '<div class="card-dist">📍 '+Math.round(s.dist)+' km unna</div>' : '';
+    return '<a class="card" href="/sn%C3%B8/'+s.id+'">'
+      + '<div class="card-navn">'+s.navn+'</div>'
+      + '<div class="card-info">'+(s.fylke||'')+'</div>'
+      + distHtml + snoHtml + '</a>';
+  }).join('');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+initKart();
+lastStasjoner();
 </script>
 </body>
 </html>"""
@@ -603,13 +1088,17 @@ function init(){
     .then(r=>r.json())
     .then(d=>{
       renderStatus(d);
-      if(!d.sno||d.sno.dybde_cm==null){
-        setTimeout(init,3000); // Poll til data er klart
+      const harData = d.sno && d.sno.dybde_cm != null;
+      const harAI   = d.tolkning && d.tolkning.verdict;
+      if(!harData){
+        setTimeout(init, 3000);       // Ingen data ennå – poll raskt
+      } else if(!harAI){
+        setTimeout(init, 5000);       // Data OK men AI ikke klar – poll litt
       } else {
-        setTimeout(init,15*60*1000); // Refresh hvert 15 min
+        setTimeout(init, 15*60*1000); // Alt OK – refresh hvert 15 min
       }
     })
-    .catch(()=>setTimeout(init,5000));
+    .catch(()=>setTimeout(init, 5000));
 }
 
 function renderStatus(d){
