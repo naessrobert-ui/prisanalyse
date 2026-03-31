@@ -45,23 +45,20 @@ _SYSTEM_PROMPT = """
 Du er en lokal værvakt på Kvamskogen som skriver engasjerende meldinger til en hytteeier.
 Skriv naturlig, muntlig norsk bokmål – varm og personlig tone.
 
-Du får værtall, kamerabilder og et ferdig beregnet felt "verdict_ferdig".
-Bruk "verdict_ferdig" ordrett som "verdict" i svaret ditt – ikke skriv noe annet.
+Du får to ferdig beregnede felt som du skal bruke ORDRETT – ikke omformuler dem:
+- "verdict_ferdig" → bruk dette som "verdict"-feltet i JSON-svaret.
+- "fremover_tekst_ferdig" → bruk dette som tredje avsnitt i "detail"-feltet.
+
 Bruk kamerabilder aktivt – de avslører ting tall ikke kan: snøtype, sikt, lys.
 
 Svar KUN med gyldig JSON (ingen markdown):
 {"verdict":"...","detail":"...","snow_quality":"...","badge_color":"...","icon":"..."}
 
-detail (60-100 ord) i 2-3 korte avsnitt:
+detail i 3 korte avsnitt (60-100 ord totalt):
    - Første avsnitt: Forholdene nå – beskriv hva bildene viser (snøtype, sikt, lys, aktivitet).
      Bruk temperaturen til å bekrefte: kaldsnø eller våt snø?
    - Andre avsnitt: Løypestatus akkurat nå.
-   - Tredje avsnitt: Bruk "neste_gode_skidag"-feltet direkte.
-     score 5 = strålende/perfekt, score 4 = god dag, score 3 = brukbar.
-     Eks score 5 i morgen: "I morgen blir en strålende dag – sol og perfekt skivær."
-     Eks score 4: "I morgen ser det bra ut – gode forhold hele dagen."
-     Eks score 3: "Torsdag har en brukbar luke."
-     Ikke nevn spesifikke klokkeslett her.
+   - Tredje avsnitt: Kopier inn "fremover_tekst_ferdig" ORDRETT. Ikke legg til, ikke trekk fra.
 
 snow_quality: "Utmerket" | "Godt" | "Moderat" | "Dårlig"
 badge_color: "green" | "amber" | "red"
@@ -233,6 +230,50 @@ def hent_historikk(hours: int = 24) -> list:
     return sorted(rows.values(), key=lambda x: x["time"])
 
 
+def _bygg_fremover_tekst(ski_dager: list[dict], today_iso: str) -> str:
+    """Bygg tredje avsnitt i detail regelbasert – AI skal bruke dette ordrett."""
+    fremtidige = [d for d in ski_dager if d.get("dato", "") >= today_iso]
+    if not fremtidige:
+        return "Ingen skidager i prognosen."
+
+    # Finn første dag som er dårlig/regn (score 1-2) og første gode dag (score ≥ 3)
+    forste_darlig = next((d for d in fremtidige if d.get("score", 3) <= 2), None)
+    forste_gode   = next((d for d in fremtidige if d.get("score", 3) >= 3), None)
+
+    def _dagnavn(d: dict) -> str:
+        dato = d.get("dato", "")
+        if dato == today_iso:
+            return "I dag"
+        try:
+            from datetime import date as _date
+            delta = (_date.fromisoformat(dato) - _date.fromisoformat(today_iso)).days
+            if delta == 1:
+                return "I morgen"
+        except Exception:
+            pass
+        return d.get("ukedag", dato).capitalize()
+
+    def _score_tekst(score: int) -> str:
+        return {5: "strålende", 4: "bra", 3: "brukbar"}.get(score, "brukbar")
+
+    if forste_darlig and forste_gode:
+        darlig_navn = _dagnavn(forste_darlig)
+        gode_navn   = _dagnavn(forste_gode)
+        gode_score  = forste_gode.get("score", 3)
+        if forste_darlig.get("dato") < forste_gode.get("dato", ""):
+            # Dårlig dag kommer først
+            return f"{darlig_navn} er regndag – dropp ski. {gode_navn} ser {_score_tekst(gode_score)} ut."
+        else:
+            # Gode dag kommer først
+            return f"{gode_navn} ser {_score_tekst(gode_score)} ut."
+    elif forste_gode:
+        gode_navn  = _dagnavn(forste_gode)
+        gode_score = forste_gode.get("score", 3)
+        return f"{gode_navn} ser {_score_tekst(gode_score)} ut."
+    else:
+        return "Ingen gode skidager i nærmeste fremtid."
+
+
 def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = None) -> dict:
     if not ANTHROPIC_API_KEY:
         return _fallback_tolkning(sno_data, loyper_data)
@@ -351,9 +392,24 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
             return "Variabelt vær – sjekk prognosen"
 
     ferdig_verdict = _bygg_verdict(neste_gode, now_local.hour, today_iso)
+    fremover_tekst_ferdig = _bygg_fremover_tekst(ski_dager, today_iso)
+
+    # Kompakt per-dag-oversikt – gir AI fasit for hele perioden slik at den
+    # ikke kan skrive positivt om en dag som scorer 1-2 (f.eks. regndag).
+    ski_dager_oversikt = [
+        {
+            "dato":      d["dato"],
+            "ukedag":    d["ukedag"],
+            "score":     d["score"],
+            "kort":      d.get("kort", ""),
+            "beste_tid": d.get("beste_tid"),
+        }
+        for d in ski_dager
+    ]
 
     payload_str = json.dumps({
-        "verdict_ferdig":       ferdig_verdict,
+        "verdict_ferdig":        ferdig_verdict,
+        "fremover_tekst_ferdig": fremover_tekst_ferdig,
         "tidspunkt_na":         now_local.strftime("%A %H:%M").replace("Monday","mandag").replace("Tuesday","tirsdag").replace("Wednesday","onsdag").replace("Thursday","torsdag").replace("Friday","fredag").replace("Saturday","lørdag").replace("Sunday","søndag"),
         "temp_na_c":            s.get("temperatur_nå_c"),
         "snodybde_cm":          s.get("start_snødybde_cm"),
@@ -365,7 +421,8 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
         "loyper_preparert":     loyper_data.get("counts", {}).get("segments_freshly_groomed", 0),
         "sist_preparert_timer": round(loyper_data.get("updates", {}).get("newest_segment", {}).get("age_seconds", 0) / 3600, 1)
                                 if loyper_data.get("updates", {}).get("newest_segment", {}).get("age_seconds") else None,
-        "neste_gode_skidag": neste_gode_skidag,
+        "neste_gode_skidag":    neste_gode_skidag,
+        "ski_dager_oversikt":   ski_dager_oversikt,
     }, ensure_ascii=False)
 
     try:
@@ -1028,6 +1085,20 @@ def _lag_dagtekst(features: dict) -> tuple[int, str, str | None, str]:
 
     if not beste:
         return 1, "Ingen god ski-luke", None, "Ingen sammenhengende luke på minst to timer uten regn og kraftig vind."
+
+    # Regn dominerer mer enn halvparten av dagslyset → alltid maks score 2,
+    # uansett om det finnes en liten tørr luke tidlig på dagen.
+    if regn_andel > 0.50:
+        beste_tid = f'{beste["fra"]}–{beste["til"]}'
+        sol_opp = features.get("soloppgang")
+        sol_ned = features.get("solnedgang")
+        tid_tekst = _fmt_beste_tid_tekst(beste_tid, sol_opp, sol_ned)
+        if tid_tekst:
+            return 2, f"Regndag – liten luke {tid_tekst}", beste_tid, \
+                f"Regn dominerer dagen. Det finnes en marginal luke {tid_tekst}, men forholdene blir våte."
+        else:
+            return 1, "Regndag – ikke anbefalt", None, \
+                "Regn det meste av dagslyset. Ikke en dag for skitur."
 
     if beste["kvalitet"] == "perfekt" and beste["timer"] >= 3:
         score = 5
