@@ -1086,9 +1086,9 @@ def _lag_dagtekst(features: dict) -> tuple[int, str, str | None, str]:
     if not beste:
         return 1, "Ingen god ski-luke", None, "Ingen sammenhengende luke på minst to timer uten regn og kraftig vind."
 
-    # Regn dominerer mer enn halvparten av dagslyset → alltid maks score 2,
-    # uansett om det finnes en liten tørr luke tidlig på dagen.
-    if regn_andel > 0.50:
+    # Regn > 35% av dagslyset → alltid maks score 2, uansett tørr luke.
+    # (Tidligere terskel var 0.50 – for høy, lot regndager score 4.)
+    if regn_andel > 0.35:
         beste_tid = f'{beste["fra"]}–{beste["til"]}'
         sol_opp = features.get("soloppgang")
         sol_ned = features.get("solnedgang")
@@ -1100,12 +1100,11 @@ def _lag_dagtekst(features: dict) -> tuple[int, str, str | None, str]:
             return 1, "Regndag – ikke anbefalt", None, \
                 "Regn det meste av dagslyset. Ikke en dag for skitur."
 
+    # Score 4 krever nå at regn er under 15%
     if beste["kvalitet"] == "perfekt" and beste["timer"] >= 3:
         score = 5
-    elif beste["kvalitet"] in ("perfekt", "god") and beste["timer"] >= 2:
+    elif beste["kvalitet"] in ("perfekt", "god") and beste["timer"] >= 2 and regn_andel < 0.15:
         score = 4
-    elif regn_andel > 0.35:
-        score = 2
     else:
         score = 3
 
