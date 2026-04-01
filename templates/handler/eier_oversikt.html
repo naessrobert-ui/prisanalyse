@@ -67,6 +67,11 @@
           <input type="date" class="form-control" id="eo-sec-date-to">
         </div>
       </div>
+      <div class="d-flex gap-2 mt-2 flex-wrap">
+        <button type="button" class="btn btn-sm btn-outline-light eo-range-btn" data-range="1d">Siste dag</button>
+        <button type="button" class="btn btn-sm btn-outline-light eo-range-btn" data-range="30d">Siste måned</button>
+        <button type="button" class="btn btn-sm btn-outline-light eo-range-btn" data-range="max">Så langt som mulig</button>
+      </div>
       <button class="btn btn-primary mt-3" id="eo-sec-btn" disabled>Hent data</button>
     </div>
     <div id="eo-aksje-table"></div>
@@ -80,6 +85,25 @@
   const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
   ['eo-date-from','eo-sec-date-from'].forEach(id => document.getElementById(id).value = ago30.toISOString().slice(0,10));
   ['eo-date-to','eo-sec-date-to'].forEach(id => document.getElementById(id).value = today.toISOString().slice(0,10));
+  function setAksjeRange(days){
+    const to = new Date();
+    const from = new Date(to);
+    if(days === 'max'){
+      document.getElementById('eo-sec-date-from').value = '2000-01-01';
+    } else {
+      from.setDate(from.getDate() - Number(days));
+      document.getElementById('eo-sec-date-from').value = from.toISOString().slice(0,10);
+    }
+    document.getElementById('eo-sec-date-to').value = to.toISOString().slice(0,10);
+  }
+  document.querySelectorAll('.eo-range-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const range = btn.dataset.range;
+      if(range === '1d') setAksjeRange(1);
+      if(range === '30d') setAksjeRange(30);
+      if(range === 'max') setAksjeRange('max');
+    });
+  });
 
   // Per eier
   let eoInvId = null;
@@ -118,8 +142,12 @@
 
     buildTable(data.rows, [
       {key:'navn', label:'Eier'}, {key:'investor_id', label:'ID'},
-      {key:'antall_obs', label:'Obs', fmt:'int'}, {key:'netto_antall', label:'Netto ant.', fmt:'int'},
-      {key:'netto_mnok', label:'Netto MNOK', fmt:'num', dec:2},
+      {key:'ranking', label:'Rangering', fmt:'int'},
+      {key:'no_of_stocks', label:'Antall aksjer (nå)', fmt:'int'},
+      {key:'percentage', label:'Andel %', fmt:'num', dec:4},
+      {key:'endring_antall', label:'Endring i periode', fmt:'int'},
+      {key:'antall_obs', label:'Obs', fmt:'int'},
+      {key:'latest_date', label:'Sist oppdatert'},
     ], 'eo-aksje-table');
   });
 </script>

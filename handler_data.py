@@ -937,34 +937,85 @@ def fetch_eier_oversikt_timeseries(conn, investor_id: str, date_from: dt.date, d
 
 def fetch_aksje_oversikt_per_investor(conn, isin: str, date_from: dt.date, date_to: dt.date) -> pd.DataFrame:
     sql = """
-    WITH prices AS (
-        SELECT isin, date(date_today) AS d, MAX(price_yesterday) AS p
-        FROM position_change WHERE COALESCE(price_yesterday,0)>0
-        GROUP BY isin, date(date_today)
+    WITH latest_date AS (
+        SELECT MAX(date_today) AS d
+        FROM position_change
+        WHERE isin=? AND date_today<=?
     ),
-    trades AS (
-        SELECT pc.investor_id, pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+    current_pos AS (
+        SELECT
+            pc.investor_id,
+            MAX(COALESCE(pc.holding_today, 0)) AS holding_today,
+            MAX(COALESCE(pc.rank, 999999)) AS ranking
         FROM position_change pc
-        LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
-        WHERE pc.isin=? AND pc.date_today BETWEEN ? AND ?
+        JOIN latest_date ld ON ld.d = pc.date_today
+        WHERE pc.isin=?
+        GROUP BY pc.investor_id
+    ),
+    baseline_date AS (
+        SELECT
+            investor_id,
+            MAX(date_today) AS d
+        FROM position_change
+        WHERE isin=? AND date_today<=?
+        GROUP BY investor_id
+    ),
+    baseline_pos AS (
+        SELECT
+            pc.investor_id,
+            COALESCE(pc.holding_today, 0) AS holding_baseline
+        FROM position_change pc
+        JOIN baseline_date bd
+          ON bd.investor_id=pc.investor_id
+         AND bd.d=pc.date_today
+        WHERE pc.isin=?
+    ),
+    obs AS (
+        SELECT investor_id, COUNT(*) AS antall_obs
+        FROM position_change
+        WHERE isin=? AND date_today BETWEEN ? AND ?
+        GROUP BY investor_id
     )
-    SELECT t.investor_id,
-           COALESCE(i.first_name,'') AS first_name,
-           COALESCE(i.last_name,'') AS last_name,
-           COUNT(*) AS antall_obs,
-           SUM(COALESCE(t.change_qty,0)) AS netto_antall,
-           SUM(COALESCE(t.change_qty,0)*t.trade_price) AS netto_belop
-    FROM trades t JOIN investor i ON i.investor_id=t.investor_id
-    WHERE COALESCE(t.trade_price,0)>0
-    GROUP BY t.investor_id, i.first_name, i.last_name
-    ORDER BY ABS(netto_belop) DESC
+    SELECT
+        c.investor_id,
+        COALESCE(i.first_name,'') AS first_name,
+        COALESCE(i.last_name,'') AS last_name,
+        COALESCE(o.antall_obs, 0) AS antall_obs,
+        c.holding_today AS no_of_stocks,
+        (c.holding_today - COALESCE(b.holding_baseline, 0)) AS endring_antall,
+        c.ranking AS ranking,
+        s.issued_shares AS shares_out,
+        ld.d AS latest_date
+    FROM current_pos c
+    LEFT JOIN baseline_pos b ON b.investor_id=c.investor_id
+    LEFT JOIN obs o ON o.investor_id=c.investor_id
+    LEFT JOIN investor i ON i.investor_id=c.investor_id
+    LEFT JOIN security s ON s.isin=?
+    LEFT JOIN latest_date ld
+    ORDER BY c.holding_today DESC, c.ranking ASC, c.investor_id ASC
     """
-    rows = conn.execute(sql, (isin, date_from.isoformat(), date_to.isoformat())).fetchall()
+    rows = conn.execute(
+        sql,
+        (
+            isin,
+            date_to.isoformat(),
+            isin,
+            isin,
+            date_from.isoformat(),
+            isin,
+            isin,
+            date_from.isoformat(),
+            date_to.isoformat(),
+            isin,
+        ),
+    ).fetchall()
     df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
     if not df.empty:
         df["navn"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id","")) for _, r in df.iterrows()]
-        df["netto_mnok"] = df["netto_belop"] / 1_000_000
+        shares_out = pd.to_numeric(df["shares_out"], errors="coerce")
+        no_of_stocks = pd.to_numeric(df["no_of_stocks"], errors="coerce").fillna(0)
+        df["percentage"] = ((no_of_stocks / shares_out) * 100).where(shares_out > 0)
+        df["percentage"] = df["percentage"].fillna(0.0)
     return df
 
 

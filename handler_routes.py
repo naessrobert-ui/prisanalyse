@@ -747,9 +747,17 @@ def api_eier_oversikt_per_aksje():
     if df.empty:
         return jsonify({"rows": [], "message": "Ingen data"})
 
-    df["netto_mnok"] = df["netto_mnok"].round(2)
     return jsonify({
-        "rows": df[["navn","investor_id","antall_obs","netto_antall","netto_mnok"]].to_dict("records"),
+        "rows": df[[
+            "navn",
+            "investor_id",
+            "ranking",
+            "no_of_stocks",
+            "percentage",
+            "endring_antall",
+            "antall_obs",
+            "latest_date",
+        ]].round({"percentage": 4}).to_dict("records"),
     })
 
 
