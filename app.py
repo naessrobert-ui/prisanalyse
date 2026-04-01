@@ -2,6 +2,8 @@
 """Main Flask entrypoint for prisanalyse."""
 
 import os
+import threading
+import time
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -31,6 +33,17 @@ BLOCKED_BOTS = [
     'BLEXBot', 'PetalBot', 'Bytespider',
 ]
 
+# Enkel in-memory rate-limit for tunge endepunkt.
+# Nøkkel: "<ip>|<gruppe>" -> liste med request-tidspunkter (sekunder).
+_RATE_LIMIT_BUCKETS: dict[str, list[float]] = {}
+_RATE_LIMIT_LOCK = threading.Lock()
+_HEAVY_RATE_LIMIT_RULES = [
+    # Mange bots prøver /bolig/priser-sted i loop med ulike query-parametere.
+    {"prefix": "/bolig/priser-sted/", "window_sec": 60, "max_requests": 35},
+    # Datatung beregning som kan trigges gjentatte ganger av samme klient.
+    {"prefix": "/handler-oslo-bors/api/beste-investorer/run", "window_sec": 60, "max_requests": 8},
+]
+
 
 def create_app() -> Flask:
     """Opprett og konfigurer Flask-appen."""
@@ -58,6 +71,23 @@ def create_app() -> Flask:
         ua = request.headers.get('User-Agent', '')
         if any(bot in ua for bot in BLOCKED_BOTS):
             abort(403)
+
+        # Begrens spikete trafikk mot tunge ruter for å unngå CPU/RAM-spikes.
+        req_path = request.path or ""
+        for rule in _HEAVY_RATE_LIMIT_RULES:
+            if not req_path.startswith(rule["prefix"]):
+                continue
+            ip = (request.headers.get("X-Forwarded-For", "") or request.remote_addr or "unknown").split(",")[0].strip()
+            bucket_key = f"{ip}|{rule['prefix']}"
+            now = time.time()
+            cutoff = now - float(rule["window_sec"])
+            with _RATE_LIMIT_LOCK:
+                hits = _RATE_LIMIT_BUCKETS.get(bucket_key, [])
+                hits = [t for t in hits if t >= cutoff]
+                if len(hits) >= int(rule["max_requests"]):
+                    abort(429)
+                hits.append(now)
+                _RATE_LIMIT_BUCKETS[bucket_key] = hits
 
     # --- robots.txt for å be botter holde seg unna ---
     @app.route("/robots.txt")
