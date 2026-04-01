@@ -48,3 +48,12 @@ curl "http://localhost:5000/handler/api/eier-oversikt/top-shareholders?isin=NO00
 
 - **Last opp CSV-filer**: `Handler Oslo Børs` → forsiden (`/handler/`) → seksjonen **"Oppdater DB med nye CSV-filer"**.
 - **Se resultater i UI**: `Eier oversikt` (`/handler/eier-oversikt`) → tab **Per aksje** → panel **"Topp aksjonærer + siste endring"**.
+
+## Separat database for topp-20
+
+Ja. Etter CSV-opplasting bygges det nå en separat SQLite-fil med topp-20 snapshot per aksje:
+
+- Standard sti: `HANDLER_TOP20_DB_PATH` (default: `<workdir>/top20_shareholders.db`)
+- Tabell: `top20_snapshot`
+- Innhold: `snapshot_date`, `isin`, `investor_id`, `name`, `ranking`, `no_of_stocks`,
+  `percentage`, `last_change_date`, `days_since_last_change`, `ticker`, `company_name`.
