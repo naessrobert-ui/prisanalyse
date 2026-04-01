@@ -971,67 +971,80 @@ def api_beste_search_securities():
 
 @handler_bp.route("/api/beste-investorer/run")
 def api_beste_investorer_run():
-    date_from = _parse_date(request.args.get("date_from"), dt.date(2022, 1, 1))
-    date_to = _parse_date(request.args.get("date_to"), dt.date.today())
-    invtype = request.args.get("invtype", "Alle")
-    min_trades = int(request.args.get("min_trades", 10))
-    min_brutto = float(request.args.get("min_brutto_mnok", 10.0))
+    conn = None
+    try:
+        date_from = _parse_date(request.args.get("date_from"), dt.date(2022, 1, 1))
+        date_to = _parse_date(request.args.get("date_to"), dt.date.today())
+        invtype = request.args.get("invtype", "Alle")
+        try:
+            min_trades = int(request.args.get("min_trades", 10))
+        except (TypeError, ValueError):
+            min_trades = 10
+        try:
+            min_brutto = float(request.args.get("min_brutto_mnok", 10.0))
+        except (TypeError, ValueError):
+            min_brutto = 10.0
 
-    # Investor filter
-    inv_mode = request.args.get("inv_mode", "alle")
-    investor_ids = None
-    if inv_mode == "csv":
-        csv_file = request.args.get("csv_file", "")
-        if csv_file:
-            path = hd.resolve_list_csv_path(csv_file)
-            if path:
-                investor_ids = hdb.load_first_column_values(path)
-    elif inv_mode == "selected":
-        ids_str = request.args.get("investor_ids", "")
-        if ids_str:
-            investor_ids = [x.strip() for x in ids_str.split(",") if x.strip()]
+        # Investor filter
+        inv_mode = request.args.get("inv_mode", "alle")
+        investor_ids = None
+        if inv_mode == "csv":
+            csv_file = request.args.get("csv_file", "")
+            if csv_file:
+                path = hd.resolve_list_csv_path(csv_file)
+                if path:
+                    investor_ids = hdb.load_first_column_values(path)
+        elif inv_mode == "selected":
+            ids_str = request.args.get("investor_ids", "")
+            if ids_str:
+                investor_ids = [x.strip() for x in ids_str.split(",") if x.strip()]
 
-    # Country filter
-    country_str = request.args.get("country_codes", "")
-    country_codes = [c.strip() for c in country_str.split(",") if c.strip()] or None
+        # Country filter
+        country_str = request.args.get("country_codes", "")
+        country_codes = [c.strip() for c in country_str.split(",") if c.strip()] or None
 
-    # ISIN filter
-    sec_mode = request.args.get("sec_mode", "alle")
-    isin_filter = None
-    if sec_mode == "single":
-        isin = request.args.get("isin", "").strip()
-        if isin:
-            isin_filter = [isin]
-    elif sec_mode == "csv":
-        csv_file = request.args.get("sec_csv_file", "")
-        if csv_file:
-            path = hd.resolve_list_csv_path(csv_file)
-            if path:
-                conn_tmp = hd.db_connect()
-                cols_tmp = hdb.detect_cols(conn_tmp)
-                tokens = hdb.load_first_column_values(path)
-                isin_filter = hdb.resolve_isin_list_by_prefix(conn_tmp, cols_tmp, tokens) or None
-                conn_tmp.close()
+        # ISIN filter
+        sec_mode = request.args.get("sec_mode", "alle")
+        isin_filter = None
+        if sec_mode == "single":
+            isin = request.args.get("isin", "").strip()
+            if isin:
+                isin_filter = [isin]
+        elif sec_mode == "csv":
+            csv_file = request.args.get("sec_csv_file", "")
+            if csv_file:
+                path = hd.resolve_list_csv_path(csv_file)
+                if path:
+                    conn_tmp = hd.db_connect()
+                    cols_tmp = hdb.detect_cols(conn_tmp)
+                    tokens = hdb.load_first_column_values(path)
+                    isin_filter = hdb.resolve_isin_list_by_prefix(conn_tmp, cols_tmp, tokens) or None
+                    conn_tmp.close()
 
-    err = _check_db()
-    if err:
-        return jsonify({"error": err}), 503
+        err = _check_db()
+        if err:
+            return jsonify({"error": err}), 503
 
-    conn = hd.db_connect()
-    cols = hdb.detect_cols(conn)
-    hdb.ensure_indexes(conn, cols)
+        conn = hd.db_connect()
+        cols = hdb.detect_cols(conn)
+        hdb.ensure_indexes(conn, cols)
 
-    last_map, source_txt = hdb.build_last_price_cache(conn, cols)
+        last_map, source_txt = hdb.build_last_price_cache(conn, cols)
 
-    res = hdb.compute_best_investors(
-        conn=conn, cols=cols,
-        date_from=date_from, date_to=date_to,
-        investor_ids=investor_ids, invtype_choice=invtype,
-        country_codes=country_codes, isin_filter=isin_filter,
-        min_trades=min_trades, min_brutto_mnok=min_brutto,
-        last_price_map=last_map,
-    )
-    conn.close()
+        res = hdb.compute_best_investors(
+            conn=conn, cols=cols,
+            date_from=date_from, date_to=date_to,
+            investor_ids=investor_ids, invtype_choice=invtype,
+            country_codes=country_codes, isin_filter=isin_filter,
+            min_trades=min_trades, min_brutto_mnok=min_brutto,
+            last_price_map=last_map,
+        )
+    except Exception as e:
+        _LOG.exception("Feil i api_beste_investorer_run")
+        return jsonify({"error": f"Klarte ikke å kjøre analysen: {e}"}), 500
+    finally:
+        if conn is not None:
+            conn.close()
 
     if res.empty:
         return jsonify({"rows": [], "price_source": source_txt, "message": "Ingen treff"})
