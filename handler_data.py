@@ -10,6 +10,7 @@ import sqlite3
 import datetime as dt
 import logging
 import re
+import io
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 
@@ -206,6 +207,346 @@ def upload_db_bytes_to_s3(db_bytes: bytes, filename: str = "topchanges.db") -> s
         ContentType="application/octet-stream",
     )
     return s3_uri
+
+
+def get_db_s3_object_last_modified(filename: str = "topchanges.db") -> str | None:
+    if not HANDLER_DB_S3_URI:
+        return None
+    bucket, final_key, _ = build_db_s3_target(filename=filename)
+    client_args = {"region_name": HANDLER_DB_S3_REGION} if HANDLER_DB_S3_REGION else {}
+    s3 = boto3.client("s3", **client_args)
+    try:
+        head = s3.head_object(Bucket=bucket, Key=final_key)
+    except ClientError:
+        return None
+    last_modified = head.get("LastModified")
+    if not last_modified:
+        return None
+    return last_modified.isoformat()
+
+
+def _clean_num(x):
+    if x is None or (isinstance(x, float) and pd.isna(x)):
+        return None
+    s = str(x).strip()
+    if s == "" or s.lower() == "nan":
+        return None
+    s = s.replace(",", ".")
+    try:
+        return float(s)
+    except Exception:
+        return None
+
+
+def _normalize_date(value):
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    s = str(value).strip()
+    if s == "" or s.lower() == "nan":
+        return None
+    if re.fullmatch(r"\d+", s):
+        n = int(s)
+        if len(s) == 8:
+            try:
+                d = dt.date(int(s[0:4]), int(s[4:6]), int(s[6:8]))
+                return d.isoformat()
+            except Exception:
+                return None
+        if len(s) == 6:
+            try:
+                d = dt.date(2000 + int(s[0:2]), int(s[2:4]), int(s[4:6]))
+                return d.isoformat()
+            except Exception:
+                return None
+        if 20000 <= n <= 80000:
+            try:
+                d = pd.to_datetime(n, unit="D", origin="1899-12-30").date()
+                return d.isoformat()
+            except Exception:
+                return None
+    try:
+        d = pd.to_datetime(s, errors="coerce")
+        if pd.isna(d):
+            return None
+        return d.date().isoformat()
+    except Exception:
+        return None
+
+
+def _pick_col(df: pd.DataFrame, *names: str) -> str | None:
+    for n in names:
+        if n in df.columns:
+            return n
+    return None
+
+
+def _ensure_upload_schema(conn: sqlite3.Connection) -> None:
+    conn.executescript(
+        """
+    CREATE TABLE IF NOT EXISTS ingested_files (
+        filename TEXT PRIMARY KEY,
+        mtime REAL NOT NULL,
+        ingested_at TEXT NOT NULL
+    );
+    """
+    )
+    sec_cols = [r[1] for r in conn.execute("PRAGMA table_info(security)").fetchall()]
+    if "last_price" not in sec_cols:
+        conn.execute("ALTER TABLE security ADD COLUMN last_price REAL")
+
+    pc_cols = [r[1] for r in conn.execute("PRAGMA table_info(position_change)").fetchall()]
+    if "price_today" not in pc_cols:
+        conn.execute("ALTER TABLE position_change ADD COLUMN price_today REAL")
+
+    conn.executescript(
+        """
+    CREATE INDEX IF NOT EXISTS idx_pc_isin_date_today ON position_change(isin, date_today);
+    CREATE INDEX IF NOT EXISTS idx_pc_isin_price_yest ON position_change(isin, price_yesterday);
+    CREATE INDEX IF NOT EXISTS idx_pc_isin_price_today ON position_change(isin, price_today);
+    CREATE INDEX IF NOT EXISTS idx_pc_date_isin ON position_change(date_today, isin);
+    CREATE INDEX IF NOT EXISTS idx_pc_date_investor ON position_change(date_today, investor_id);
+    """
+    )
+    conn.commit()
+
+
+def get_max_date_today(conn: sqlite3.Connection) -> dt.date | None:
+    row = conn.execute("SELECT MAX(date_today) FROM position_change").fetchone()
+    if not row or not row[0]:
+        return None
+    try:
+        return dt.date.fromisoformat(str(row[0]))
+    except Exception:
+        return None
+
+
+def _refresh_security_last_price(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+    WITH candidates AS (
+        SELECT
+            isin,
+            date_today,
+            CASE
+                WHEN COALESCE(price_today, 0) > 0 THEN price_today
+                WHEN COALESCE(price_yesterday, 0) > 0 THEN price_yesterday
+                ELSE NULL
+            END AS eff_price
+        FROM position_change
+    ),
+    last_dates AS (
+        SELECT isin, MAX(date_today) AS last_date
+        FROM candidates
+        WHERE COALESCE(eff_price, 0) > 0
+        GROUP BY isin
+    ),
+    last_prices AS (
+        SELECT c.isin, MAX(c.eff_price) AS last_price
+        FROM candidates c
+        JOIN last_dates ld
+          ON ld.isin = c.isin
+         AND ld.last_date = c.date_today
+        WHERE COALESCE(c.eff_price, 0) > 0
+        GROUP BY c.isin
+    )
+    UPDATE security
+    SET last_price = (
+        SELECT lp.last_price
+        FROM last_prices lp
+        WHERE lp.isin = security.isin
+    )
+    WHERE isin IN (SELECT isin FROM last_prices)
+    """
+    )
+    conn.commit()
+
+
+def _ingest_one_csv_bytes(conn: sqlite3.Connection, filename: str, content: bytes) -> int:
+    try:
+        df = pd.read_csv(io.BytesIO(content), sep=";", encoding="latin-1", dtype=str)
+    except Exception:
+        df = pd.read_csv(io.BytesIO(content), sep=";", encoding="latin-1", dtype=str, engine="python")
+
+    col_investor_id = _pick_col(df, "New_ID", "investor_ID", "Investor_ID", "InvestorID")
+    col_investor_type = _pick_col(df, "Investortype", "InvestorType")
+    col_first = _pick_col(df, "Fornavn", "FirstName")
+    col_last = _pick_col(df, "Etternavn", "LastName")
+    col_country = _pick_col(df, "Country code", "Country_code", "CountryCode")
+    col_raw_id = _pick_col(df, "Date of Birth", "DOB", "Raw_ID")
+
+    col_isin = _pick_col(df, "ISIN")
+    col_ticker = _pick_col(df, "Ticker")
+    col_isin_name = _pick_col(df, "ISINNAVN", "ISINNAVN ", "ISINName")
+    col_paper_group = _pick_col(df, "PAPIRGRUPPE", "Papirgruppe")
+    col_issuer_orgnr = _pick_col(df, "Orgnr", "Org.nr", "IssuerOrgnr")
+    col_issuer_name = _pick_col(df, "Utsteder navn", "Utsteder_navn", "IssuerName")
+    col_reg_country = _pick_col(df, "Registrert land", "Registered country")
+    col_market = _pick_col(df, "Markedsplass", "Market")
+    col_sector = _pick_col(df, "Sektor", "Sector")
+    col_gics = _pick_col(df, "GICS_SECTOR", "GICS Sector")
+    col_ask = _pick_col(df, "ASK-papir", "ASK_papir")
+    col_issued = _pick_col(df, "Utstedt antall", "Issued_shares")
+
+    col_date_today = _pick_col(df, "DatoIdag", "Dato idag", "DateToday")
+    col_date_yest = _pick_col(df, "DatoIgaar", "Dato igaar", "DateYesterday")
+    col_h_today = _pick_col(df, "Beh. idag", "Beh idag", "Holding today")
+    col_h_yest = _pick_col(df, "Beh. igaar", "Beh igaar", "Holding yesterday")
+    col_price_today = _pick_col(df, "Kurs idag", "Kurs idag ", "Price today")
+    col_price_yest = _pick_col(df, "Kurs igaar", "Kurs igaar ", "Price yesterday")
+    col_change = _pick_col(df, "Change", "ChangeQty")
+    col_abs_change = _pick_col(df, "AbsChange", "Abs change")
+    col_change_pct = _pick_col(df, "ChangePercent", "Change %")
+    col_flag_exit = _pick_col(df, "Forlatt", "Exit")
+    col_flag_new = _pick_col(df, "Ny", "New")
+    col_rank = _pick_col(df, "Rank")
+
+    if col_isin is None or col_investor_id is None or col_date_today is None:
+        raise ValueError(f"Mangler nødvendige kolonner i {filename}. Trenger minst ISIN, investor_id og DatoIdag.")
+
+    inv = pd.DataFrame({
+        "investor_id": df[col_investor_id].astype(str).str.strip(),
+        "investor_type": df[col_investor_type].astype(str).str.strip() if col_investor_type else None,
+        "first_name": df[col_first].astype(str).str.strip() if col_first else None,
+        "last_name": df[col_last].astype(str).str.strip() if col_last else None,
+        "country_code": df[col_country].astype(str).str.strip() if col_country else None,
+        "raw_id": df[col_raw_id].astype(str).str.strip() if col_raw_id else None,
+    }).dropna(subset=["investor_id"])
+    inv["investor_id"] = inv["investor_id"].replace({"nan": None, "": None})
+    inv = inv.dropna(subset=["investor_id"]).drop_duplicates(subset=["investor_id"])
+    conn.executemany(
+        """
+        INSERT INTO investor(investor_id, investor_type, first_name, last_name, country_code, raw_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(investor_id) DO UPDATE SET
+            investor_type=COALESCE(excluded.investor_type, investor.investor_type),
+            first_name=COALESCE(excluded.first_name, investor.first_name),
+            last_name=COALESCE(excluded.last_name, investor.last_name),
+            country_code=COALESCE(excluded.country_code, investor.country_code),
+            raw_id=COALESCE(excluded.raw_id, investor.raw_id)
+        """,
+        inv[["investor_id", "investor_type", "first_name", "last_name", "country_code", "raw_id"]].itertuples(index=False, name=None),
+    )
+
+    sec = pd.DataFrame({
+        "isin": df[col_isin].astype(str).str.strip(),
+        "ticker": df[col_ticker].astype(str).str.strip() if col_ticker else None,
+        "isin_name": df[col_isin_name].astype(str).str.strip() if col_isin_name else None,
+        "paper_group": df[col_paper_group].astype(str).str.strip() if col_paper_group else None,
+        "issuer_orgnr": df[col_issuer_orgnr].astype(str).str.strip() if col_issuer_orgnr else None,
+        "issuer_name": df[col_issuer_name].astype(str).str.strip() if col_issuer_name else None,
+        "registered_country": df[col_reg_country].astype(str).str.strip() if col_reg_country else None,
+        "market": df[col_market].astype(str).str.strip() if col_market else None,
+        "sector": df[col_sector].astype(str).str.strip() if col_sector else None,
+        "gics_sector": df[col_gics].astype(str).str.strip() if col_gics else None,
+        "ask_paper": df[col_ask].astype(str).str.strip() if col_ask else None,
+        "issued_shares": df[col_issued].map(_clean_num) if col_issued else None,
+    }).dropna(subset=["isin"])
+    sec["isin"] = sec["isin"].replace({"nan": None, "": None})
+    sec = sec.dropna(subset=["isin"]).drop_duplicates(subset=["isin"])
+    conn.executemany(
+        """
+        INSERT INTO security(isin, ticker, isin_name, paper_group, issuer_orgnr, issuer_name,
+                             registered_country, market, sector, gics_sector, ask_paper, issued_shares)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(isin) DO UPDATE SET
+            ticker=COALESCE(excluded.ticker, security.ticker),
+            isin_name=COALESCE(excluded.isin_name, security.isin_name),
+            paper_group=COALESCE(excluded.paper_group, security.paper_group),
+            issuer_orgnr=COALESCE(excluded.issuer_orgnr, security.issuer_orgnr),
+            issuer_name=COALESCE(excluded.issuer_name, security.issuer_name),
+            registered_country=COALESCE(excluded.registered_country, security.registered_country),
+            market=COALESCE(excluded.market, security.market),
+            sector=COALESCE(excluded.sector, security.sector),
+            gics_sector=COALESCE(excluded.gics_sector, security.gics_sector),
+            ask_paper=COALESCE(excluded.ask_paper, security.ask_paper),
+            issued_shares=COALESCE(excluded.issued_shares, security.issued_shares)
+        """,
+        sec[["isin", "ticker", "isin_name", "paper_group", "issuer_orgnr", "issuer_name", "registered_country", "market", "sector", "gics_sector", "ask_paper", "issued_shares"]].itertuples(index=False, name=None),
+    )
+
+    facts = pd.DataFrame({
+        "isin": df[col_isin].astype(str).str.strip(),
+        "investor_id": df[col_investor_id].astype(str).str.strip(),
+        "date_today": df[col_date_today].map(_normalize_date),
+        "date_yesterday": df[col_date_yest].map(_normalize_date) if col_date_yest else None,
+        "holding_today": df[col_h_today].map(_clean_num) if col_h_today else None,
+        "holding_yesterday": df[col_h_yest].map(_clean_num) if col_h_yest else None,
+        "price_today": df[col_price_today].map(_clean_num) if col_price_today else None,
+        "price_yesterday": df[col_price_yest].map(_clean_num) if col_price_yest else None,
+        "change_qty": df[col_change].map(_clean_num) if col_change else None,
+        "abs_change_qty": df[col_abs_change].map(_clean_num) if col_abs_change else None,
+        "change_percent": df[col_change_pct].map(_clean_num) if col_change_pct else None,
+        "flag_new_source": df[col_flag_new].map(lambda x: int(float(x)) if str(x).strip() not in ["", "nan"] else None) if col_flag_new else None,
+        "flag_exit_source": df[col_flag_exit].map(lambda x: int(float(x)) if str(x).strip() not in ["", "nan"] else None) if col_flag_exit else None,
+        "rank": df[col_rank].map(lambda x: int(float(x)) if str(x).strip() not in ["", "nan"] else None) if col_rank else None,
+        "source_file": filename,
+    }).dropna(subset=["isin", "investor_id", "date_today"])
+    facts = facts.drop_duplicates(subset=["isin", "investor_id", "date_today"])
+
+    conn.executemany(
+        """
+        INSERT OR REPLACE INTO position_change(
+            isin, investor_id, date_today, date_yesterday,
+            holding_today, holding_yesterday, price_today, price_yesterday,
+            change_qty, abs_change_qty, change_percent,
+            flag_new_source, flag_exit_source, rank, source_file
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        facts[["isin", "investor_id", "date_today", "date_yesterday", "holding_today", "holding_yesterday", "price_today", "price_yesterday", "change_qty", "abs_change_qty", "change_percent", "flag_new_source", "flag_exit_source", "rank", "source_file"]].itertuples(index=False, name=None),
+    )
+
+    conn.execute(
+        "INSERT OR REPLACE INTO ingested_files(filename, mtime, ingested_at) VALUES (?, ?, ?)",
+        (filename, float(dt.datetime.now().timestamp()), dt.datetime.now().isoformat(timespec="seconds")),
+    )
+    conn.commit()
+    return int(len(facts))
+
+
+def apply_csv_updates_and_push_to_s3(files: list[tuple[str, bytes]]) -> dict:
+    if not files:
+        raise ValueError("Ingen CSV-filer mottatt.")
+    if not HANDLER_DB_S3_URI:
+        raise ValueError("HANDLER_DB_S3_URI er ikke satt")
+    if not ensure_local_db(HANDLER_DB_PATH):
+        raise FileNotFoundError(f"Fant ikke lokal DB på {HANDLER_DB_PATH}")
+
+    conn = sqlite3.connect(HANDLER_DB_PATH, timeout=60)
+    try:
+        conn.execute("PRAGMA busy_timeout=60000")
+        _ensure_upload_schema(conn)
+        before = get_max_date_today(conn)
+        processed_rows = 0
+        processed_files: list[str] = []
+
+        for filename, content in files:
+            if not filename.lower().endswith(".csv"):
+                continue
+            processed_rows += _ingest_one_csv_bytes(conn, filename, content)
+            processed_files.append(filename)
+
+        _refresh_security_last_price(conn)
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        conn.commit()
+        after = get_max_date_today(conn)
+    finally:
+        conn.close()
+
+    if not processed_files:
+        raise ValueError("Ingen gyldige .csv-filer å prosessere.")
+
+    with open(HANDLER_DB_PATH, "rb") as f:
+        payload = f.read()
+    s3_uri = upload_db_bytes_to_s3(payload, filename=Path(HANDLER_DB_PATH).name or "topchanges.db")
+    s3_last_modified = get_db_s3_object_last_modified(filename=Path(HANDLER_DB_PATH).name or "topchanges.db")
+    return {
+        "processed_files": processed_files,
+        "processed_rows": processed_rows,
+        "db_last_date_before": before.isoformat() if before else None,
+        "db_last_date_after": after.isoformat() if after else None,
+        "s3_uri": s3_uri,
+        "s3_last_modified": s3_last_modified,
+    }
 
 
 def ensure_local_db(local_path: str | None = None) -> bool:

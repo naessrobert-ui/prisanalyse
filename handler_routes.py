@@ -353,11 +353,26 @@ def _load_investor_ids_for_beste_viktige(
 def handler_index():
     db_err = _check_db()
     diag = hd.db_diagnostics()
+    db_last_date_today = None
+    if not db_err:
+        conn = None
+        try:
+            conn = hd.db_connect()
+            last_d = hd.get_max_date_today(conn)
+            db_last_date_today = last_d.isoformat() if last_d else None
+        except Exception:
+            _LOG.warning("Klarte ikke lese siste dato fra handler-db", exc_info=True)
+        finally:
+            if conn is not None:
+                conn.close()
+
     return render_template(
         "handler/index.html",
         db_error=db_err,
         db_path=diag["path"],
         db_s3_uri=diag.get("s3_uri_parsed") or hd.HANDLER_DB_S3_URI,
+        db_last_date_today=db_last_date_today,
+        db_s3_last_modified=hd.get_db_s3_object_last_modified(),
         db_s3_parse_error=diag.get("s3_parse_error"),
         db_parent_exists=diag["parent_exists"],
         db_s3_upload_enabled=bool(hd.HANDLER_DB_S3_URI),
@@ -449,6 +464,37 @@ def api_upload_db_to_s3():
         "s3_uri": s3_uri,
         "size_bytes": payload_size,
     })
+
+
+@handler_bp.route("/api/upload-csv-update-db", methods=["POST"])
+def api_upload_csv_update_db():
+    if not hd.HANDLER_DB_S3_URI:
+        return jsonify({"error": "HANDLER_DB_S3_URI er ikke satt på serveren."}), 400
+
+    files = request.files.getlist("csv_files")
+    if not files:
+        return jsonify({"error": "Velg minst én CSV-fil."}), 400
+
+    payloads: list[tuple[str, bytes]] = []
+    for f in files:
+        filename = os.path.basename(f.filename or "")
+        if not filename:
+            continue
+        content = f.read()
+        if not content:
+            continue
+        payloads.append((filename, content))
+
+    if not payloads:
+        return jsonify({"error": "Ingen gyldige filer med innhold ble sendt inn."}), 400
+
+    try:
+        result = hd.apply_csv_updates_and_push_to_s3(payloads)
+    except Exception as exc:
+        _LOG.exception("Feil ved CSV-opplasting og DB-oppdatering")
+        return jsonify({"error": f"Klarte ikke oppdatere database fra CSV: {exc}"}), 500
+
+    return jsonify({"ok": True, **result})
 
 
 # =========================================================

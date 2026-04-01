@@ -76,6 +76,10 @@
     <div class="hero">
       <h1>📊 Handler norske aksjer</h1>
       <p>Utforsk handler og eierskap i norske aksjer. Velg en analyse nedenfor.</p>
+      <div class="small mt-2">
+        <div><strong>Siste dato i aktiv DB:</strong> <code>{{ db_last_date_today or "ukjent" }}</code></div>
+        <div><strong>Siste oppdatering på S3-objekt:</strong> <code>{{ db_s3_last_modified or "ukjent" }}</code></div>
+      </div>
     </div>
 
     <div class="card-module mb-4">
@@ -97,6 +101,23 @@
       {% if not db_s3_upload_enabled %}
       <div class="small text-warning mt-2">Sett <code>HANDLER_DB_S3_URI</code> for å aktivere opplasting.</div>
       {% endif %}
+    </div>
+
+    <div class="card-module mb-4">
+      <h3>🧩 Last opp CSV-filer og oppdater DB automatisk</h3>
+      <p class="mb-3">
+        Last opp en eller flere underliggende CSV-filer. Appen oppdaterer lokal DB med filene og laster deretter opp oppdatert DB til S3.
+        Før oppdatering sjekkes og returneres siste dato i databasen, slik at du ser om nye data faktisk ble lagt til.
+      </p>
+      <form id="csvUpdateForm" class="row g-2 align-items-center">
+        <div class="col-md-7">
+          <input type="file" class="form-control" id="csv_files" name="csv_files" accept=".csv" multiple {% if not db_s3_upload_enabled %}disabled{% endif %}>
+        </div>
+        <div class="col-md-3">
+          <button type="submit" class="btn-handler w-100" {% if not db_s3_upload_enabled %}disabled{% endif %}>Oppdater DB fra CSV</button>
+        </div>
+      </form>
+      <div id="csvUpdateStatus" class="small mt-2"></div>
     </div>
 
     <div class="row g-4 mt-2">
@@ -147,6 +168,8 @@
   <script>
     const uploadForm = document.getElementById('dbUploadForm');
     const uploadStatus = document.getElementById('dbUploadStatus');
+    const csvUpdateForm = document.getElementById('csvUpdateForm');
+    const csvUpdateStatus = document.getElementById('csvUpdateStatus');
 
 
     function friendlyProxyError(respStatus, rawBody) {
@@ -278,6 +301,44 @@
 
           const clean = sanitizeErrorText(err);
           uploadStatus.textContent = `Feil ved opplasting: ${clean}`;
+        }
+      });
+    }
+
+    if (csvUpdateForm) {
+      csvUpdateForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        csvUpdateStatus.textContent = 'Starter oppdatering fra CSV...';
+        const formData = new FormData();
+        const fileInput = document.getElementById('csv_files');
+        const files = Array.from(fileInput?.files || []);
+        if (!files.length) {
+          csvUpdateStatus.textContent = 'Velg minst én CSV-fil først.';
+          return;
+        }
+
+        files.forEach((f) => formData.append('csv_files', f));
+
+        try {
+          const resp = await fetch("{{ url_for('handler.api_upload_csv_update_db') }}", {
+            method: 'POST',
+            body: formData,
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) {
+            csvUpdateStatus.textContent = `Feil: ${data?.error || 'Ukjent feil'}`;
+            return;
+          }
+
+          const before = data?.db_last_date_before || 'ukjent';
+          const after = data?.db_last_date_after || 'ukjent';
+          const filesCount = (data?.processed_files || []).length;
+          const rows = data?.processed_rows ?? 0;
+          const s3 = data?.s3_uri || 'S3';
+          const s3Updated = data?.s3_last_modified || 'ukjent';
+          csvUpdateStatus.textContent = `✅ Oppdatert fra ${filesCount} filer (${rows} rader). Siste dato i DB: ${before} -> ${after}. Lastet opp til ${s3}. S3 sist endret: ${s3Updated}.`;
+        } catch (err) {
+          csvUpdateStatus.textContent = `Feil ved CSV-oppdatering: ${sanitizeErrorText(err)}`;
         }
       });
     }
