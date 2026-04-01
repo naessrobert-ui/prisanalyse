@@ -44,3 +44,7 @@ Eksempel:
 curl "http://localhost:5000/handler/api/eier-oversikt/top-shareholders?isin=NO0010096985&as_of=2026-03-31&limit=20"
 ```
 
+## Hvor i appen du gjør dette
+
+- **Last opp CSV-filer**: `Handler Oslo Børs` → forsiden (`/handler/`) → seksjonen **"Oppdater DB med nye CSV-filer"**.
+- **Se resultater i UI**: `Eier oversikt` (`/handler/eier-oversikt`) → tab **Per aksje** → panel **"Topp aksjonærer + siste endring"**.
