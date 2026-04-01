@@ -65,6 +65,28 @@ def _get_stasjon(stasjon_id: str) -> Optional[dict]:
 _STATUS_CACHE:    dict = {}
 _HISTORIKK_CACHE: dict = {}
 _CACHE_TTL = 15 * 60
+_STATUS_CACHE_MAX_KEYS = 400
+_HISTORIKK_CACHE_MAX_KEYS = 200
+_SKITUR_AI_CACHE_MAX_KEYS = 200
+
+
+def _prune_cache(cache: dict, now_ts: float, max_keys: int) -> None:
+    """Fjern utløpte nøkler først, deretter eldste nøkler hvis cachen er for stor."""
+    expired = [k for k, v in cache.items() if isinstance(v, dict) and v.get("expires_at", 0) <= now_ts]
+    for k in expired:
+        cache.pop(k, None)
+
+    if len(cache) <= max_keys:
+        return
+
+    # Trim resterende cache ved å beholde de nyeste entries (høyest expires_at).
+    items = sorted(
+        cache.items(),
+        key=lambda kv: kv[1].get("expires_at", 0) if isinstance(kv[1], dict) else 0,
+        reverse=True,
+    )
+    cache.clear()
+    cache.update(items[:max_keys])
 
 # ── Norge-wide snødybde-cache (prefetchet ved oppstart) ───────────────────────
 _NORGE_SNØ_CACHE: dict = {}          # stasjonId → float (cm)
@@ -438,6 +460,7 @@ def api_sno_endring():
     # Cache-nøkkel basert på sorterte IDs (dato inngår implisitt via TTL)
     cache_key = "endring_" + "_".join(sorted(ids)[:8]) + f"_{len(ids)}"
     now_ts = time.time()
+    _prune_cache(_STATUS_CACHE, now_ts, _STATUS_CACHE_MAX_KEYS)
     hit = _STATUS_CACHE.get(cache_key)
     if hit and hit["expires_at"] > now_ts:
         return jsonify(hit["payload"])
@@ -565,6 +588,7 @@ def api_snodybder():
     ids = sorted(subset["baseId"].tolist())
     cache_key = "snodybder_" + "_".join(ids[:10]) + f"_{len(ids)}"
     now_ts = time.time()
+    _prune_cache(_STATUS_CACHE, now_ts, _STATUS_CACHE_MAX_KEYS)
     hit = _STATUS_CACHE.get(cache_key)
     if hit and hit["expires_at"] > now_ts:
         return jsonify(hit["payload"])
@@ -608,6 +632,7 @@ def api_status(stasjon_id: str):
 
     import threading
     now_ts = time.time()
+    _prune_cache(_STATUS_CACHE, now_ts, _STATUS_CACHE_MAX_KEYS)
     hit = _STATUS_CACHE.get(stasjon_id)
 
     if hit and hit["expires_at"] > now_ts:
@@ -637,6 +662,7 @@ def api_historikk(stasjon_id: str):
     timer = max(1, min(72, int(request.args.get("hours", 24))))
     cache_key = f"{stasjon_id}_{timer}"
     now_ts = time.time()
+    _prune_cache(_HISTORIKK_CACHE, now_ts, _HISTORIKK_CACHE_MAX_KEYS)
     hit = _HISTORIKK_CACHE.get(cache_key)
     if hit and hit["expires_at"] > now_ts:
         return jsonify(hit["payload"])
@@ -676,6 +702,7 @@ def api_skitur_ai(stasjon_id: str):
 
     now_ts = time.time()
     cache_key = f"skitur_ai_{stasjon_id}"
+    _prune_cache(_SKITUR_AI_CACHE, now_ts, _SKITUR_AI_CACHE_MAX_KEYS)
     hit = _SKITUR_AI_CACHE.get(cache_key)
     if hit and hit["expires_at"] > now_ts:
         return jsonify(hit["payload"])
