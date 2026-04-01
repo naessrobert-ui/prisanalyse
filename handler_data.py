@@ -53,6 +53,15 @@ HANDLER_LIST_CACHE_DIR = _path_from_env(
 )
 
 HANDLER_DB_S3_URI = _path_from_env("HANDLER_DB_S3_URI", "")
+HANDLER_TOP20_DB_PATH = _path_from_env(
+    "HANDLER_TOP20_DB_PATH",
+    _path_from_env(
+        "HANDLER_LOCAL_WORKDIR",
+        os.path.join(tempfile.gettempdir(), "topchanges_sqlite_work"),
+    )
+    + os.sep
+    + "top20_shareholders.db",
+)
 HANDLER_DB_S3_REGION = _path_from_env("HANDLER_DB_S3_REGION", "")
 HANDLER_DB_S3_AUTO_DOWNLOAD = _path_from_env("HANDLER_DB_S3_AUTO_DOWNLOAD", "1").lower() not in {
     "0",
@@ -280,6 +289,15 @@ def _pick_col(df: pd.DataFrame, *names: str) -> str | None:
     return None
 
 
+def _pick_col_ci(df: pd.DataFrame, *names: str) -> str | None:
+    lookup = {str(c).strip().lower(): c for c in df.columns}
+    for n in names:
+        key = str(n).strip().lower()
+        if key in lookup:
+            return lookup[key]
+    return None
+
+
 def _ensure_upload_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
@@ -363,20 +381,20 @@ def _refresh_security_last_price(conn: sqlite3.Connection) -> None:
 
 def _ingest_one_csv_bytes(conn: sqlite3.Connection, filename: str, content: bytes) -> int:
     try:
-        df = pd.read_csv(io.BytesIO(content), sep=";", encoding="latin-1", dtype=str)
+        df = pd.read_csv(io.BytesIO(content), sep=None, engine="python", encoding="latin-1", dtype=str)
     except Exception:
         df = pd.read_csv(io.BytesIO(content), sep=";", encoding="latin-1", dtype=str, engine="python")
 
-    col_investor_id = _pick_col(df, "New_ID", "investor_ID", "Investor_ID", "InvestorID")
-    col_investor_type = _pick_col(df, "Investortype", "InvestorType")
-    col_first = _pick_col(df, "Fornavn", "FirstName")
-    col_last = _pick_col(df, "Etternavn", "LastName")
-    col_country = _pick_col(df, "Country code", "Country_code", "CountryCode")
-    col_raw_id = _pick_col(df, "Date of Birth", "DOB", "Raw_ID")
+    col_investor_id = _pick_col_ci(df, "New_ID", "investor_ID", "Investor_ID", "InvestorID", "investorId")
+    col_investor_type = _pick_col_ci(df, "Investortype", "InvestorType", "ktotype", "private")
+    col_first = _pick_col_ci(df, "Fornavn", "FirstName", "First Name")
+    col_last = _pick_col_ci(df, "Etternavn", "LastName", "Last Name")
+    col_country = _pick_col_ci(df, "Country code", "Country_code", "CountryCode")
+    col_raw_id = _pick_col_ci(df, "Date of Birth", "DOB", "Raw_ID")
 
-    col_isin = _pick_col(df, "ISIN")
-    col_ticker = _pick_col(df, "Ticker")
-    col_isin_name = _pick_col(df, "ISINNAVN", "ISINNAVN ", "ISINName")
+    col_isin = _pick_col_ci(df, "ISIN", "isin")
+    col_ticker = _pick_col_ci(df, "Ticker", "ticker")
+    col_isin_name = _pick_col_ci(df, "ISINNAVN", "ISINNAVN ", "ISINName", "companyname", "name")
     col_paper_group = _pick_col(df, "PAPIRGRUPPE", "Papirgruppe")
     col_issuer_orgnr = _pick_col(df, "Orgnr", "Org.nr", "IssuerOrgnr")
     col_issuer_name = _pick_col(df, "Utsteder navn", "Utsteder_navn", "IssuerName")
@@ -385,20 +403,20 @@ def _ingest_one_csv_bytes(conn: sqlite3.Connection, filename: str, content: byte
     col_sector = _pick_col(df, "Sektor", "Sector")
     col_gics = _pick_col(df, "GICS_SECTOR", "GICS Sector")
     col_ask = _pick_col(df, "ASK-papir", "ASK_papir")
-    col_issued = _pick_col(df, "Utstedt antall", "Issued_shares")
+    col_issued = _pick_col_ci(df, "Utstedt antall", "Issued_shares", "sharesOut")
 
-    col_date_today = _pick_col(df, "DatoIdag", "Dato idag", "DateToday")
-    col_date_yest = _pick_col(df, "DatoIgaar", "Dato igaar", "DateYesterday")
-    col_h_today = _pick_col(df, "Beh. idag", "Beh idag", "Holding today")
-    col_h_yest = _pick_col(df, "Beh. igaar", "Beh igaar", "Holding yesterday")
-    col_price_today = _pick_col(df, "Kurs idag", "Kurs idag ", "Price today")
-    col_price_yest = _pick_col(df, "Kurs igaar", "Kurs igaar ", "Price yesterday")
-    col_change = _pick_col(df, "Change", "ChangeQty")
-    col_abs_change = _pick_col(df, "AbsChange", "Abs change")
-    col_change_pct = _pick_col(df, "ChangePercent", "Change %")
-    col_flag_exit = _pick_col(df, "Forlatt", "Exit")
-    col_flag_new = _pick_col(df, "Ny", "New")
-    col_rank = _pick_col(df, "Rank")
+    col_date_today = _pick_col_ci(df, "DatoIdag", "Dato idag", "DateToday", "date")
+    col_date_yest = _pick_col_ci(df, "DatoIgaar", "Dato igaar", "DateYesterday")
+    col_h_today = _pick_col_ci(df, "Beh. idag", "Beh idag", "Holding today", "noOfStocks")
+    col_h_yest = _pick_col_ci(df, "Beh. igaar", "Beh igaar", "Holding yesterday")
+    col_price_today = _pick_col_ci(df, "Kurs idag", "Kurs idag ", "Price today")
+    col_price_yest = _pick_col_ci(df, "Kurs igaar", "Kurs igaar ", "Price yesterday")
+    col_change = _pick_col_ci(df, "Change", "ChangeQty")
+    col_abs_change = _pick_col_ci(df, "AbsChange", "Abs change")
+    col_change_pct = _pick_col_ci(df, "ChangePercent", "Change %", "percentage")
+    col_flag_exit = _pick_col_ci(df, "Forlatt", "Exit")
+    col_flag_new = _pick_col_ci(df, "Ny", "New")
+    col_rank = _pick_col_ci(df, "Rank", "ranking")
 
     if col_isin is None or col_investor_id is None or col_date_today is None:
         raise ValueError(f"Mangler nødvendige kolonner i {filename}. Trenger minst ISIN, investor_id og DatoIdag.")
@@ -503,6 +521,152 @@ def _ingest_one_csv_bytes(conn: sqlite3.Connection, filename: str, content: byte
     return int(len(facts))
 
 
+def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path: str | None = None) -> str:
+    src_path = source_db_path or HANDLER_DB_PATH
+    dst_path = target_db_path or HANDLER_TOP20_DB_PATH
+    src = sqlite3.connect(src_path)
+    src.row_factory = sqlite3.Row
+    try:
+        rows = src.execute(
+            """
+            WITH obs AS (
+                SELECT
+                    pc.isin,
+                    pc.investor_id,
+                    pc.date_today,
+                    COALESCE(pc.holding_today, 0) AS holding_today,
+                    COALESCE(pc.rank, 999999) AS ranking,
+                    LAG(COALESCE(pc.holding_today, 0)) OVER (
+                        PARTITION BY pc.isin, pc.investor_id
+                        ORDER BY pc.date_today
+                    ) AS prev_holding
+                FROM position_change pc
+            ),
+            snap AS (
+                SELECT isin, MAX(date_today) AS snapshot_date
+                FROM obs
+                GROUP BY isin
+            ),
+            current_pos AS (
+                SELECT o.*
+                FROM obs o
+                JOIN snap s
+                  ON s.isin = o.isin
+                 AND s.snapshot_date = o.date_today
+            ),
+            last_change AS (
+                SELECT
+                    isin,
+                    investor_id,
+                    MAX(date_today) AS last_change_date
+                FROM obs
+                WHERE prev_holding IS NOT NULL
+                  AND COALESCE(holding_today, 0) <> COALESCE(prev_holding, 0)
+                GROUP BY isin, investor_id
+            ),
+            ranked AS (
+                SELECT
+                    c.*,
+                    s.snapshot_date,
+                    lc.last_change_date,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY c.isin
+                        ORDER BY c.ranking ASC, c.holding_today DESC, c.investor_id ASC
+                    ) AS rn
+                FROM current_pos c
+                JOIN snap s ON s.isin = c.isin
+                LEFT JOIN last_change lc
+                  ON lc.isin = c.isin
+                 AND lc.investor_id = c.investor_id
+            )
+            SELECT
+                r.snapshot_date,
+                r.isin,
+                r.investor_id,
+                COALESCE(i.first_name, '') AS first_name,
+                COALESCE(i.last_name, '') AS last_name,
+                r.ranking,
+                r.holding_today AS no_of_stocks,
+                sec.issued_shares AS shares_out,
+                sec.ticker,
+                sec.isin_name AS company_name,
+                r.last_change_date,
+                CAST((julianday(r.snapshot_date) - julianday(r.last_change_date)) AS INTEGER) AS days_since_last_change
+            FROM ranked r
+            LEFT JOIN investor i ON i.investor_id = r.investor_id
+            LEFT JOIN security sec ON sec.isin = r.isin
+            WHERE r.rn <= 20
+            ORDER BY r.snapshot_date DESC, r.isin, r.ranking ASC, r.investor_id ASC
+            """
+        ).fetchall()
+    finally:
+        src.close()
+
+    Path(dst_path).parent.mkdir(parents=True, exist_ok=True)
+    dst = sqlite3.connect(dst_path)
+    try:
+        dst.executescript(
+            """
+            DROP TABLE IF EXISTS top20_snapshot;
+            CREATE TABLE top20_snapshot (
+                snapshot_date TEXT NOT NULL,
+                isin TEXT NOT NULL,
+                investor_id TEXT NOT NULL,
+                name TEXT,
+                ranking INTEGER,
+                no_of_stocks REAL,
+                shares_out REAL,
+                percentage REAL,
+                ticker TEXT,
+                company_name TEXT,
+                last_change_date TEXT,
+                days_since_last_change INTEGER,
+                PRIMARY KEY (snapshot_date, isin, investor_id)
+            );
+            CREATE INDEX idx_top20_isin_snapshot ON top20_snapshot(isin, snapshot_date);
+            """
+        )
+        payload = []
+        for r in rows:
+            first = str(r["first_name"] or "").strip()
+            last = str(r["last_name"] or "").strip()
+            investor_id = str(r["investor_id"] or "").strip()
+            name = clean_name(first, last, investor_id)
+            shares_out = _clean_num(r["shares_out"])
+            no_of_stocks = _clean_num(r["no_of_stocks"])
+            pct = ((no_of_stocks or 0.0) / shares_out * 100.0) if shares_out and shares_out > 0 else 0.0
+            payload.append(
+                (
+                    r["snapshot_date"],
+                    r["isin"],
+                    investor_id,
+                    name,
+                    int(r["ranking"]) if r["ranking"] is not None else None,
+                    no_of_stocks,
+                    shares_out,
+                    pct,
+                    r["ticker"],
+                    r["company_name"],
+                    r["last_change_date"],
+                    int(r["days_since_last_change"]) if r["days_since_last_change"] is not None else None,
+                )
+            )
+        dst.executemany(
+            """
+            INSERT INTO top20_snapshot(
+                snapshot_date, isin, investor_id, name, ranking,
+                no_of_stocks, shares_out, percentage, ticker, company_name,
+                last_change_date, days_since_last_change
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            payload,
+        )
+        dst.commit()
+    finally:
+        dst.close()
+    return dst_path
+
+
 def apply_csv_updates_and_push_to_s3(files: list[tuple[str, bytes]]) -> dict:
     if not files:
         raise ValueError("Ingen CSV-filer mottatt.")
@@ -539,6 +703,7 @@ def apply_csv_updates_and_push_to_s3(files: list[tuple[str, bytes]]) -> dict:
         payload = f.read()
     s3_uri = upload_db_bytes_to_s3(payload, filename=Path(HANDLER_DB_PATH).name or "topchanges.db")
     s3_last_modified = get_db_s3_object_last_modified(filename=Path(HANDLER_DB_PATH).name or "topchanges.db")
+    top20_db_path = refresh_top20_snapshot_db(HANDLER_DB_PATH, HANDLER_TOP20_DB_PATH)
     return {
         "processed_files": processed_files,
         "processed_rows": processed_rows,
@@ -546,6 +711,7 @@ def apply_csv_updates_and_push_to_s3(files: list[tuple[str, bytes]]) -> dict:
         "db_last_date_after": after.isoformat() if after else None,
         "s3_uri": s3_uri,
         "s3_last_modified": s3_last_modified,
+        "top20_db_path": top20_db_path,
     }
 
 
@@ -1016,6 +1182,77 @@ def fetch_aksje_oversikt_per_investor(conn, isin: str, date_from: dt.date, date_
         no_of_stocks = pd.to_numeric(df["no_of_stocks"], errors="coerce").fillna(0)
         df["percentage"] = ((no_of_stocks / shares_out) * 100).where(shares_out > 0)
         df["percentage"] = df["percentage"].fillna(0.0)
+    return df
+
+
+def fetch_top_shareholders_with_last_change(
+    conn: sqlite3.Connection, isin: str, as_of_date: dt.date, limit: int = 20
+) -> pd.DataFrame:
+    safe_limit = max(1, min(int(limit), 50))
+    sql = """
+    WITH obs AS (
+        SELECT
+            pc.isin,
+            pc.investor_id,
+            pc.date_today,
+            COALESCE(pc.holding_today, 0) AS holding_today,
+            COALESCE(pc.rank, 999999) AS ranking,
+            LAG(COALESCE(pc.holding_today, 0)) OVER (
+                PARTITION BY pc.isin, pc.investor_id
+                ORDER BY pc.date_today
+            ) AS prev_holding
+        FROM position_change pc
+        WHERE pc.isin = ? AND pc.date_today <= ?
+    ),
+    snap AS (
+        SELECT MAX(date_today) AS d FROM obs
+    ),
+    current_pos AS (
+        SELECT o.*
+        FROM obs o
+        JOIN snap s ON s.d = o.date_today
+    ),
+    last_change AS (
+        SELECT
+            investor_id,
+            MAX(date_today) AS last_change_date
+        FROM obs
+        WHERE prev_holding IS NOT NULL
+          AND COALESCE(holding_today, 0) <> COALESCE(prev_holding, 0)
+        GROUP BY investor_id
+    )
+    SELECT
+        c.investor_id,
+        COALESCE(i.first_name, '') AS first_name,
+        COALESCE(i.last_name, '') AS last_name,
+        c.holding_today AS no_of_stocks,
+        c.ranking,
+        s.ticker,
+        s.isin_name AS company_name,
+        s.issued_shares AS shares_out,
+        snap.d AS snapshot_date,
+        lc.last_change_date
+    FROM current_pos c
+    LEFT JOIN investor i ON i.investor_id = c.investor_id
+    LEFT JOIN security s ON s.isin = c.isin
+    LEFT JOIN last_change lc ON lc.investor_id = c.investor_id
+    LEFT JOIN snap
+    ORDER BY c.ranking ASC, c.holding_today DESC, c.investor_id ASC
+    LIMIT ?
+    """
+    rows = conn.execute(sql, (isin, as_of_date.isoformat(), safe_limit)).fetchall()
+    df = pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
+    if df.empty:
+        return df
+
+    df["name"] = [clean_name(r["first_name"], r["last_name"], r.get("investor_id", "")) for _, r in df.iterrows()]
+    shares_out = pd.to_numeric(df["shares_out"], errors="coerce")
+    no_of_stocks = pd.to_numeric(df["no_of_stocks"], errors="coerce").fillna(0)
+    df["percentage"] = ((no_of_stocks / shares_out) * 100).where(shares_out > 0).fillna(0.0)
+
+    snap_dt = pd.to_datetime(df["snapshot_date"], errors="coerce")
+    change_dt = pd.to_datetime(df["last_change_date"], errors="coerce")
+    df["days_since_last_change"] = (snap_dt - change_dt).dt.days
     return df
 
 
