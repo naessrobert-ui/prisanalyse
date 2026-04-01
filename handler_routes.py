@@ -761,6 +761,43 @@ def api_eier_oversikt_per_aksje():
     })
 
 
+@handler_bp.route("/api/eier-oversikt/top-shareholders")
+def api_eier_oversikt_top_shareholders():
+    isin = request.args.get("isin", "").strip()
+    as_of = _parse_date(request.args.get("as_of"), dt.date.today())
+    limit = request.args.get("limit", "20").strip()
+
+    if not isin:
+        return jsonify({"error": "Velg aksje"}), 400
+
+    try:
+        top_n = int(limit)
+    except Exception:
+        top_n = 20
+
+    conn = hd.db_connect()
+    df = hd.fetch_top_shareholders_with_last_change(conn, isin, as_of, limit=top_n)
+    conn.close()
+
+    if df.empty:
+        return jsonify({"rows": [], "message": "Ingen data"})
+
+    return jsonify({
+        "rows": df[[
+            "name",
+            "investor_id",
+            "ranking",
+            "no_of_stocks",
+            "percentage",
+            "last_change_date",
+            "days_since_last_change",
+            "snapshot_date",
+            "ticker",
+            "company_name",
+        ]].round({"percentage": 4}).to_dict("records")
+    })
+
+
 # =========================================================
 # 4) Handler de beste / viktige
 # =========================================================
