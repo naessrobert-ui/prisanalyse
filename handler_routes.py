@@ -778,7 +778,7 @@ def api_eier_oversikt_top_shareholders():
     try:
         df = hd.fetch_top_shareholders_snapshot(isin, as_of, limit=top_n)
     except Exception:
-        app.logger.warning("Top20 snapshot-spørring feilet, faller tilbake til live-spørring", exc_info=True)
+        _LOG.warning("Top20 snapshot-spørring feilet, faller tilbake til live-spørring", exc_info=True)
         conn = hd.db_connect()
         try:
             df = hd.fetch_top_shareholders_with_last_change(conn, isin, as_of, limit=top_n)
