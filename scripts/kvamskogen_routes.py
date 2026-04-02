@@ -650,6 +650,7 @@ def _build_payload(tolkning, sno_data, loyper_data, s, daglig, kamera_data=None)
                 "nedbor_maks_mm": iv.get("nedbør_maks_mm"),
                 "nedbor_sannsynlighet_pct": iv.get("nedbør_sannsynlighet_pct"),
                 "vind_ms":      iv.get("vind_ms"),
+                "vind_kast_ms": iv.get("vind_kast_ms"),
                 "ver_ikon":     iv.get("vær_ikon"),
                 "timer":        iv.get("timer"),
             }
@@ -2238,14 +2239,18 @@ function renderSkiTable(i, dato){
     const nb=iv.nedbor_mm!=null?`${Number(iv.nedbor_mm).toFixed(1)} mm`:'0.0 mm';
     const nbMin=iv.nedbor_min_mm!=null?Number(iv.nedbor_min_mm).toFixed(1):null;
     const nbMaks=iv.nedbor_maks_mm!=null?Number(iv.nedbor_maks_mm).toFixed(1):null;
-    const nbRange=(nbMin!=null&&nbMaks!=null)?`${nbMin}–${nbMaks} mm`:'–';
-    const nbProb=iv.nedbor_sannsynlighet_pct!=null?`${Math.round(Number(iv.nedbor_sannsynlighet_pct))}%`:'–';
-    const vind=iv.vind_ms!=null?`${Number(iv.vind_ms).toFixed(1)} m/s`:'–';
+    const visRange=(nbMin!=null&&nbMaks!=null&&(Number(nbMin)>0||Number(nbMaks)>0));
+    const nbCombined=visRange?`${nb} (${nbMin}/${nbMaks})`:nb;
+    const nbProbRaw=iv.nedbor_sannsynlighet_pct!=null?Math.round(Number(iv.nedbor_sannsynlighet_pct)):null;
+    const nbProb=(Number(iv.nedbor_mm||0)===0 && nbProbRaw===0)?'–':(nbProbRaw!=null?`${nbProbRaw}%`:'–');
+    const vindSnitt=iv.vind_ms!=null?Number(iv.vind_ms).toFixed(1):null;
+    const vindMaks=iv.vind_kast_ms!=null?Number(iv.vind_kast_ms).toFixed(1):null;
+    const vind=vindSnitt!=null?(vindMaks!=null?`${vindSnitt}/${vindMaks} m/s`:`${vindSnitt} m/s`):'–';
     const type=(iv.nedbor_mm||0)<0.15?'Tørt':((iv.temperatur_c||0)>1.5?'Regn':((iv.temperatur_c||0)>0?'Sludd':'Snø'));
-    return `<tr><td>${hh}</td><td>${ikon||'–'}</td><td>${t}</td><td>${nb}</td><td>${nbRange}</td><td>${nbProb}</td><td>${vind}</td><td>${type}</td></tr>`;
+    return `<tr><td>${hh}</td><td>${ikon||'–'}</td><td>${t}</td><td>${nbCombined}</td><td>${nbProb}</td><td>${vind}</td><td>${type}</td></tr>`;
   }).join('');
   el.innerHTML=`<table class="ski-day-table">
-    <thead><tr><th>Tid</th><th>Symbol</th><th>Temp</th><th>Nedbør</th><th>Nedbør min–maks</th><th>Sjanse nedbør</th><th>Vind</th><th>Type</th></tr></thead>
+    <thead><tr><th>Tid</th><th>Symbol</th><th>Temp</th><th>Nedbør (min/maks)</th><th>Sjanse nedbør</th><th>Vind (snitt/kast)</th><th>Type</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
