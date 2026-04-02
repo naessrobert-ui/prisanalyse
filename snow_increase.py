@@ -209,6 +209,9 @@ def simuler_snøprognose(
             "timer":        timer,
             "temperatur_c": round(temp, 1),
             "nedbør_mm":    round(nedbør, 1),
+            "nedbør_min_mm": round(iv.get("nedbør_min_mm"), 1) if iv.get("nedbør_min_mm") is not None else None,
+            "nedbør_maks_mm": round(iv.get("nedbør_maks_mm"), 1) if iv.get("nedbør_maks_mm") is not None else None,
+            "nedbør_sannsynlighet_pct": int(round(iv.get("nedbør_sannsynlighet_pct"))) if iv.get("nedbør_sannsynlighet_pct") is not None else None,
             "snøfaktor":    round(faktor, 1),
             "vind_ms":      round(iv.get("vind_ms"), 1) if iv.get("vind_ms") is not None else None,
             "ny_snø_mm":    round(ny_snø_mm, 1),
@@ -255,6 +258,9 @@ def hent_intervaller(sted: Place) -> list[dict]:
 
         temp   = variabler.get("air_temperature")
         nedbør = variabler.get("precipitation_amount")
+        nedbør_min = variabler.get("precipitation_amount_min")
+        nedbør_maks = variabler.get("precipitation_amount_max")
+        nedbør_sannsynlighet = variabler.get("probability_of_precipitation")
         vind   = variabler.get("wind_speed")
 
         if temp is None or nedbør is None:
@@ -269,6 +275,9 @@ def hent_intervaller(sted: Place) -> list[dict]:
             "slutt":     slutt,
             "temp":      _parse_verdi(temp),
             "nedbør_mm": _parse_verdi(nedbør),
+            "nedbør_min_mm": _parse_verdi(nedbør_min) if nedbør_min is not None else None,
+            "nedbør_maks_mm": _parse_verdi(nedbør_maks) if nedbør_maks is not None else None,
+            "nedbør_sannsynlighet_pct": _parse_verdi(nedbør_sannsynlighet) if nedbør_sannsynlighet is not None else None,
             "vind_ms":   _parse_verdi(vind) if vind is not None else None,
             "timer":     timer,
         })
