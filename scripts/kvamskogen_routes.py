@@ -651,6 +651,7 @@ def _build_payload(tolkning, sno_data, loyper_data, s, daglig, kamera_data=None)
                 "nedbor_sannsynlighet_pct": iv.get("nedbør_sannsynlighet_pct"),
                 "vind_ms":      iv.get("vind_ms"),
                 "vind_kast_ms": iv.get("vind_kast_ms"),
+                "vindretning_grader": iv.get("vindretning_grader"),
                 "ver_ikon":     iv.get("vær_ikon"),
                 "timer":        iv.get("timer"),
             }
@@ -2251,12 +2252,14 @@ function renderSkiTable(i, dato){
     const nbProb=(Number(iv.nedbor_mm||0)===0 && nbProbRaw===0)?'–':(nbProbRaw!=null?`${nbProbRaw}%`:'–');
     const vindSnitt=iv.vind_ms!=null?Number(iv.vind_ms).toFixed(1):null;
     const vindMaks=iv.vind_kast_ms!=null?Number(iv.vind_kast_ms).toFixed(1):null;
-    const vind=vindSnitt!=null?(vindMaks!=null?`${vindSnitt}/${vindMaks} m/s`:`${vindSnitt} m/s`):'–';
+    const vindRetning=fmtVindretning(iv.vindretning_grader);
+    const vind=vindSnitt!=null?(vindMaks!=null?`${vindSnitt} (${vindMaks}) m/s`:`${vindSnitt} m/s`):'–';
+    const vindMedRetning=vindRetning?`${vind} ${vindRetning}`:vind;
     const type=(iv.nedbor_mm||0)<0.15?'Tørt':((iv.temperatur_c||0)>1.5?'Regn':((iv.temperatur_c||0)>0?'Sludd':'Snø'));
-    return `<tr><td>${hh}</td><td>${ikon||'–'}</td><td>${t}</td><td>${nbCombined}</td><td>${nbProb}</td><td>${vind}</td><td>${type}</td></tr>`;
+    return `<tr><td>${hh}</td><td>${ikon||'–'}</td><td>${t}</td><td>${nbCombined}</td><td>${nbProb}</td><td>${vindMedRetning}</td><td>${type}</td></tr>`;
   }).join('');
   el.innerHTML=`<table class="ski-day-table">
-    <thead><tr><th>Tid</th><th>Symbol</th><th>Temp</th><th>Nedbør (min/maks)</th><th>Sjanse nedbør</th><th>Vind (snitt/kast)</th><th>Type</th></tr></thead>
+    <thead><tr><th>Tid</th><th>Symbol</th><th>Temp</th><th>Nedbør (min/maks)</th><th>Sjanse nedbør</th><th>Vind (snitt/kast + retning)</th><th>Type</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
