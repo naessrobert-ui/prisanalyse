@@ -945,7 +945,13 @@ def bolig_priser_sted():
                     return v if v is not None else -1
                 detalj_rows.sort(key=key_num, reverse=reverse)
             else:
-                detalj_rows.sort(key=lambda r: (r.get(dsort) or ""), reverse=reverse)
+                def key_text(row):
+                    v = row.get(dsort)
+                    if v is None:
+                        return ""
+                    return str(v).casefold()
+
+                detalj_rows.sort(key=key_text, reverse=reverse)
 
             # Formater priser med mellomrom
             for r in detalj_rows:

@@ -58,7 +58,33 @@ def _parse_datetime_series(values, *, normalize: bool = True) -> pd.Series:
         return match.group(1) if match else txt
 
     cleaned = s.map(_extract_date_text)
-    parsed = pd.to_datetime(cleaned, errors="coerce", utc=True, dayfirst=True)
+
+    # Parse først eksplisitt norsk datoformat, deretter ISO/andre formater.
+    # Dette unngår advarselen om dayfirst=True på ISO-datoer og gjør parsing mer stabil.
+    parsed_no = pd.to_datetime(
+        cleaned,
+        format="%d.%m.%Y %H:%M:%S",
+        errors="coerce",
+        utc=True,
+    )
+    missing_time = parsed_no.isna()
+    if missing_time.any():
+        parsed_no.loc[missing_time] = pd.to_datetime(
+            cleaned[missing_time],
+            format="%d.%m.%Y %H:%M",
+            errors="coerce",
+            utc=True,
+        )
+
+    parsed = parsed_no
+    missing = parsed.isna()
+    if missing.any():
+        parsed.loc[missing] = pd.to_datetime(
+            cleaned[missing],
+            errors="coerce",
+            utc=True,
+            dayfirst=False,
+        )
     parsed = parsed.dt.tz_convert(None)
     if normalize:
         parsed = parsed.dt.normalize()
