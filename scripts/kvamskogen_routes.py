@@ -2231,6 +2231,12 @@ function renderSkiTable(i, dato){
   if(!el) return;
   const ivs=(window._skiIntervaller||[]).filter(iv=>(iv.start||'').startsWith(dato));
   if(!ivs.length){ el.innerHTML=''; return; }
+  function fmtVindretning(deg){
+    if(deg==null || Number.isNaN(Number(deg))) return '';
+    const dirs=['N','NØ','Ø','SØ','S','SV','V','NV'];
+    const idx=Math.round((((Number(deg)%360)+360)%360)/45)%8;
+    return dirs[idx];
+  }
   const rows=ivs.map(iv=>{
     const dt=new Date(iv.start);
     const hh=String(dt.getHours()).padStart(2,'0')+':00';
