@@ -775,9 +775,15 @@ def api_eier_oversikt_top_shareholders():
     except Exception:
         top_n = 20
 
-    conn = hd.db_connect()
-    df = hd.fetch_top_shareholders_with_last_change(conn, isin, as_of, limit=top_n)
-    conn.close()
+    try:
+        df = hd.fetch_top_shareholders_snapshot(isin, as_of, limit=top_n)
+    except Exception:
+        _LOG.warning("Top20 snapshot-spørring feilet, faller tilbake til live-spørring", exc_info=True)
+        conn = hd.db_connect()
+        try:
+            df = hd.fetch_top_shareholders_with_last_change(conn, isin, as_of, limit=top_n)
+        finally:
+            conn.close()
 
     if df.empty:
         return jsonify({"rows": [], "message": "Ingen data"})

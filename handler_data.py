@@ -83,6 +83,7 @@ _LOG = logging.getLogger(__name__)
 _S3_SYNC_ATTEMPTED: set[str] = set()
 _INDEX_INIT_DONE: set[str] = set()
 _INVESTOR_SEARCH_ROWS_CACHE: dict[str, list[tuple[str, str, str, str, str]]] = {}
+_TOP20_DB_REFRESHED: set[str] = set()
 
 
 def _parse_s3_uri(uri: str) -> tuple[str, str]:
@@ -768,6 +769,35 @@ def db_connect(db_path: str | None = None) -> sqlite3.Connection:
     return conn
 
 
+def _ensure_top20_snapshot_db() -> str:
+    """
+    Sørger for at top20 snapshot-db finnes og ikke er eldre enn kildedatabasen.
+    Returnerer sti til top20-db.
+    """
+    src = Path(HANDLER_DB_PATH)
+    dst = Path(HANDLER_TOP20_DB_PATH)
+    refresh_key = f"{src.resolve()}->{dst.resolve()}"
+
+    if refresh_key in _TOP20_DB_REFRESHED and dst.is_file():
+        return str(dst)
+
+    if not dst.is_file():
+        refresh_top20_snapshot_db(str(src), str(dst))
+        _TOP20_DB_REFRESHED.add(refresh_key)
+        return str(dst)
+
+    try:
+        src_mtime = src.stat().st_mtime if src.is_file() else 0
+        dst_mtime = dst.stat().st_mtime
+        if src_mtime > dst_mtime:
+            refresh_top20_snapshot_db(str(src), str(dst))
+    except Exception:
+        _LOG.warning("Klarte ikke verifisere/oppdatere top20 snapshot-db", exc_info=True)
+
+    _TOP20_DB_REFRESHED.add(refresh_key)
+    return str(dst)
+
+
 def db_available(db_path: str | None = None) -> bool:
     return ensure_local_db(db_path)
 
@@ -1254,6 +1284,45 @@ def fetch_top_shareholders_with_last_change(
     change_dt = pd.to_datetime(df["last_change_date"], errors="coerce")
     df["days_since_last_change"] = (snap_dt - change_dt).dt.days
     return df
+
+
+def fetch_top_shareholders_snapshot(
+    isin: str, as_of_date: dt.date, limit: int = 20
+) -> pd.DataFrame:
+    safe_limit = max(1, min(int(limit), 50))
+    top20_db_path = _ensure_top20_snapshot_db()
+    conn = sqlite3.connect(top20_db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                name,
+                investor_id,
+                ranking,
+                no_of_stocks,
+                percentage,
+                last_change_date,
+                days_since_last_change,
+                snapshot_date,
+                ticker,
+                company_name
+            FROM top20_snapshot
+            WHERE isin = ?
+              AND snapshot_date = (
+                  SELECT MAX(snapshot_date)
+                  FROM top20_snapshot
+                  WHERE isin = ? AND snapshot_date <= ?
+              )
+            ORDER BY ranking ASC, no_of_stocks DESC, investor_id ASC
+            LIMIT ?
+            """,
+            (isin, isin, as_of_date.isoformat(), safe_limit),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
 
 
 # =========================================================
