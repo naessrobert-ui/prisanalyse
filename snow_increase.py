@@ -215,7 +215,6 @@ def simuler_snøprognose(
             "snøfaktor":    round(faktor, 1),
             "vind_ms":      round(iv.get("vind_ms"), 1) if iv.get("vind_ms") is not None else None,
             "vind_kast_ms": round(iv.get("vind_kast_ms"), 1) if iv.get("vind_kast_ms") is not None else None,
-            "vindretning_grader": round(iv.get("vindretning_grader"), 0) if iv.get("vindretning_grader") is not None else None,
             "ny_snø_mm":    round(ny_snø_mm, 1),
             "smelting_mm":  round(smelting_mm, 1),
             "netto_mm":     round(ny_snø_mm - smelting_mm, 1),
@@ -265,7 +264,6 @@ def hent_intervaller(sted: Place) -> list[dict]:
         nedbør_sannsynlighet = variabler.get("probability_of_precipitation")
         vind   = variabler.get("wind_speed")
         vind_kast = variabler.get("wind_speed_of_gust")
-        vindretning = variabler.get("wind_from_direction")
 
         if temp is None or nedbør is None:
             continue
@@ -284,7 +282,6 @@ def hent_intervaller(sted: Place) -> list[dict]:
             "nedbør_sannsynlighet_pct": _parse_verdi(nedbør_sannsynlighet) if nedbør_sannsynlighet is not None else None,
             "vind_ms":   _parse_verdi(vind) if vind is not None else None,
             "vind_kast_ms": _parse_verdi(vind_kast) if vind_kast is not None else None,
-            "vindretning_grader": _parse_verdi(vindretning) if vindretning is not None else None,
             "timer":     timer,
         })
 
