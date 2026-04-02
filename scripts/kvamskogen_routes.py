@@ -1679,6 +1679,16 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 .ski-day-chart-section{background:#0f172a;border-radius:0 0 14px 14px;}
 .ski-day-chart-wrap{padding:0 12px 12px;height:180px;position:relative;}
 .ski-day-chart-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#475569;font-size:12px;}
+.ski-day-table-wrap{background:#f8fafc;border-top:1px solid #e2e8f0;padding:10px 12px 12px;overflow:auto;}
+.ski-day-table{width:100%;border-collapse:collapse;font-size:12px;color:#1e293b;min-width:560px;}
+.ski-day-table th,.ski-day-table td{padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;}
+.ski-day-table th{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;}
+.ski-day-symbols{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
+.ski-day-symbol{font-size:10px;color:#334155;background:#e2e8f0;padding:2px 6px;border-radius:999px;}
+@media(max-width:700px){
+  .ski-day-table{min-width:0;font-size:11px;}
+  .ski-day-table th,.ski-day-table td{padding:5px 6px;}
+}
 .links-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
 @media(max-width:480px){.links-grid{grid-template-columns:repeat(2,1fr);}}
 .link-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);text-align:center;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;}
@@ -2010,6 +2020,7 @@ function dagStats(ivs, solOpp, solNed) {
   function ivMin(iv){ return tTilMin((iv.start||'').substring(11,16)); }
 
   let regnMm=0, snoMm=0, vindSum=0, vindMaks=0, solTimer=0;
+  let solCount=0, delvisCount=0, overskyetCount=0;
   let totalTimer=0;
   for(const iv of ivs){
     const nb=iv.nedbor_mm||0, temp=iv.temperatur_c||0, vind=iv.vind_ms||0;
@@ -2019,8 +2030,18 @@ function dagStats(ivs, solOpp, solNed) {
     vindSum+=vind*t; totalTimer+=t;
     if(vind>vindMaks) vindMaks=vind;
     if(['☀','🌤','⛅'].some(s=>ikon.includes(s))&&ivMin(iv)>=solOppMin&&ivMin(iv)<=solNedMin&&t<=1) solTimer+=t;
+    if(ikon.includes('☀')) solCount+=t;
+    else if(ikon.includes('🌤')||ikon.includes('⛅')) delvisCount+=t;
+    else if(ikon.includes('☁')||ikon.includes('🌥')||ikon.includes('🌫')) overskyetCount+=t;
   }
   const vindSnitt=totalTimer?vindSum/totalTimer:0;
+  const symboler=[];
+  if(solCount>=Math.max(delvisCount,overskyetCount) && solCount>0) symboler.push('☀️ Sol');
+  else if(overskyetCount>=Math.max(solCount,delvisCount) && overskyetCount>0) symboler.push('☁️ Overskyet');
+  else if(delvisCount>0) symboler.push('⛅ Delvis skyet');
+  if(snoMm>0) symboler.push(`❄️ Snø ${Math.round(snoMm*10)/10} mm`);
+  if(regnMm>0) symboler.push(`🌧️ Regn ${Math.round(regnMm*10)/10} mm`);
+  if(!symboler.length) symboler.push('🌫️ Variabelt');
   return {
     regnMm: Math.round(regnMm*10)/10,
     snoMm:  Math.round(snoMm*10)/10,
@@ -2028,6 +2049,7 @@ function dagStats(ivs, solOpp, solNed) {
     vindSnitt: Math.round(vindSnitt*10)/10,
     vindMaks:  Math.round(vindMaks*10)/10,
     solTimer:  Math.round(solTimer),
+    symboler,
   };
 }
 
@@ -2100,16 +2122,9 @@ function renderSkiturDager(dager, el, intervaller) {
     // Daglig statistikk
     const ivs=perDag[dato]||[];
     const st=ivs.length?dagStats(ivs,solOpp,solNed):null;
-    let statsHtml='';
-    if(st){
-      const nbParts=[];
-      if(st.snoMm>0) nbParts.push(`❄️ ${st.snoMm}mm`);
-      if(st.regnMm>0) nbParts.push(`🌧️ ${st.regnMm}mm`);
-      const nbStr=nbParts.length?nbParts.join(' '):'Tørt';
-      const vindStr=`💨 ${st.vindSnitt}/${st.vindMaks} m/s`;
-      const solStr=st.solTimer>0?`☀️ ${st.solTimer}t`:'';
-      statsHtml=`<div class="ski-day-stats">${nbStr} &nbsp;${vindStr}${solStr?' &nbsp;'+solStr:''}</div>`;
-    }
+    const symbolsHtml=(st&&st.symboler&&st.symboler.length)
+      ? `<div class="ski-day-symbols">${st.symboler.map(s=>`<span class="ski-day-symbol">${s}</span>`).join('')}</div>`
+      : '';
     return `<div class="ski-day">
       <div class="ski-day-header" onclick="toggleSkiDay(${i})">
         <div class="ski-day-left score-${score}">
@@ -2118,11 +2133,12 @@ function renderSkiturDager(dager, el, intervaller) {
         </div>
         <div class="ski-day-right">
           <div class="ski-day-title">${dagStr} ${datoStr}${st?` <span class="ski-day-stats-inline">${st.snoMm>0?'❄️ '+st.snoMm+'mm':''}${st.regnMm>0?(st.snoMm>0?' · ':'')+'🌧️ '+st.regnMm+'mm':''} · 💨 ${st.vindSnitt}/${st.vindMaks}m/s${st.solTimer>0?' · ☀️ '+st.solTimer+'t':''}</span>`:''}</div>
+          ${symbolsHtml}
           <div class="ski-day-kort">${kort}</div>
           <div class="ski-day-kort" style="margin-top:4px;color:var(--text);opacity:0.75;">${detalj}</div>
           <div class="ski-day-meta">
             ${tidHtml}
-            <span class="ski-arrow" id="ski-arrow-${i}">▾ Graf</span>
+            <span class="ski-arrow" id="ski-arrow-${i}">▾ Graf + tabell</span>
           </div>
         </div>
       </div>
@@ -2132,6 +2148,7 @@ function renderSkiturDager(dager, el, intervaller) {
             <canvas id="ski-chart-${i}"></canvas>
             <div class="ski-day-chart-msg" id="ski-chart-msg-${i}"><span class="spinner"></span></div>
           </div>
+          <div class="ski-day-table-wrap" id="ski-table-wrap-${i}"></div>
         </div>
       </div>
     </div>`;
@@ -2145,14 +2162,19 @@ function toggleSkiDay(i){
   if(!chartSection) return;
   const open=chartSection.style.display==='none';
   chartSection.style.display=open?'block':'none';
-  if(arrow) arrow.textContent=open?'▴ Graf':'▾ Graf';
+  if(arrow) arrow.textContent=open?'▴ Graf + tabell':'▾ Graf + tabell';
   if(open && detail && detail.dataset.rendered==='0'){
     detail.dataset.rendered='1';
-    renderSkiChart(i, detail.dataset.dato);
+    renderSkiDetails(i, detail.dataset.dato);
   }
 }
 
 const _skiCharts={};
+function renderSkiDetails(i, dato){
+  renderSkiChart(i, dato);
+  renderSkiTable(i, dato);
+}
+
 function renderSkiChart(i, dato){
   const msg=document.getElementById('ski-chart-msg-'+i);
   const ctx=document.getElementById('ski-chart-'+i);
@@ -2198,6 +2220,27 @@ function renderSkiChart(i, dato){
       }
     }
   });
+}
+
+function renderSkiTable(i, dato){
+  const el=document.getElementById('ski-table-wrap-'+i);
+  if(!el) return;
+  const ivs=(window._skiIntervaller||[]).filter(iv=>(iv.start||'').startsWith(dato));
+  if(!ivs.length){ el.innerHTML=''; return; }
+  const rows=ivs.map(iv=>{
+    const dt=new Date(iv.start);
+    const hh=String(dt.getHours()).padStart(2,'0')+':00';
+    const ikon=iv.ver_ikon||'';
+    const t=iv.temperatur_c!=null?`${iv.temperatur_c>0?'+':''}${Number(iv.temperatur_c).toFixed(1)}°C`:'–';
+    const nb=iv.nedbor_mm!=null?`${Number(iv.nedbor_mm).toFixed(1)} mm`:'0.0 mm';
+    const vind=iv.vind_ms!=null?`${Number(iv.vind_ms).toFixed(1)} m/s`:'–';
+    const type=(iv.nedbor_mm||0)<0.15?'Tørt':((iv.temperatur_c||0)>1.5?'Regn':((iv.temperatur_c||0)>0?'Sludd':'Snø'));
+    return `<tr><td>${hh}</td><td>${ikon||'–'}</td><td>${t}</td><td>${nb}</td><td>${vind}</td><td>${type}</td></tr>`;
+  }).join('');
+  el.innerHTML=`<table class="ski-day-table">
+    <thead><tr><th>Tid</th><th>Symbol</th><th>Temp</th><th>Nedbør</th><th>Vind</th><th>Type</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 
