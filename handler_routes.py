@@ -57,6 +57,15 @@ _BESTE_TX_CACHE_TTL_SECONDS = 30 * 60
 _BV_PERSISTENT_CACHE_PATH = Path(hd.HANDLER_LIST_CACHE_DIR) / "beste_viktige_investor_cache.json"
 
 
+def _json_safe_records(df: pd.DataFrame, columns: list[str], round_map: dict | None = None) -> list[dict]:
+    """Konverterer dataframe til JSON-sikre records (NaN/NaT -> None)."""
+    out = df[columns]
+    if round_map:
+        out = out.round(round_map)
+    out = out.where(pd.notna(out), None)
+    return out.to_dict("records")
+
+
 def _parse_upload_limit_mb() -> int:
     raw = (os.getenv("HANDLER_DB_UPLOAD_MAX_MB", "300") or "300").strip()
     try:
@@ -723,10 +732,18 @@ def api_eier_oversikt_per_eier():
 
     ts_data = []
     if not ts.empty:
-        ts_data = ts[["dato","netto_mnok"]].round(2).to_dict("records")
+        ts_data = (
+            ts[["dato", "netto_mnok"]]
+            .round(2)
+            .where(pd.notna(ts[["dato", "netto_mnok"]]), None)
+            .to_dict("records")
+        )
 
     return jsonify({
-        "rows": df[["ticker","isin","navn","antall_obs","netto_antall","netto_mnok","brutto_mnok"]].to_dict("records"),
+        "rows": _json_safe_records(
+            df,
+            ["ticker", "isin", "navn", "antall_obs", "netto_antall", "netto_mnok", "brutto_mnok"],
+        ),
         "timeseries": ts_data,
     })
 
@@ -748,16 +765,20 @@ def api_eier_oversikt_per_aksje():
         return jsonify({"rows": [], "message": "Ingen data"})
 
     return jsonify({
-        "rows": df[[
-            "navn",
-            "investor_id",
-            "ranking",
-            "no_of_stocks",
-            "percentage",
-            "endring_antall",
-            "antall_obs",
-            "latest_date",
-        ]].round({"percentage": 4}).to_dict("records"),
+        "rows": _json_safe_records(
+            df,
+            [
+                "navn",
+                "investor_id",
+                "ranking",
+                "no_of_stocks",
+                "percentage",
+                "endring_antall",
+                "antall_obs",
+                "latest_date",
+            ],
+            {"percentage": 4},
+        ),
     })
 
 
@@ -789,18 +810,22 @@ def api_eier_oversikt_top_shareholders():
         return jsonify({"rows": [], "message": "Ingen data"})
 
     return jsonify({
-        "rows": df[[
-            "name",
-            "investor_id",
-            "ranking",
-            "no_of_stocks",
-            "percentage",
-            "last_change_date",
-            "days_since_last_change",
-            "snapshot_date",
-            "ticker",
-            "company_name",
-        ]].round({"percentage": 4}).to_dict("records")
+        "rows": _json_safe_records(
+            df,
+            [
+                "name",
+                "investor_id",
+                "ranking",
+                "no_of_stocks",
+                "percentage",
+                "last_change_date",
+                "days_since_last_change",
+                "snapshot_date",
+                "ticker",
+                "company_name",
+            ],
+            {"percentage": 4},
+        )
     })
 
 
