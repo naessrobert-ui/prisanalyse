@@ -918,16 +918,19 @@ def bolig_priser_sted():
                 url = f"https://www.finn.no/realestate/homes/ad.html?finnkode={fk_str}"
                 return (fk_str, url)
 
+            def as_text(val):
+                return "" if pd.isna(val) else str(val)
+
             for _, r in df_det.iterrows():
                 fk_str, fk_url = make_finn_info(r.get("finnkode"))
                 detalj_rows.append(
                     {
-                        "adresse": r.get("address") or "",
-                        "fylke": r.get("fylke") or "",
-                        "sted": r.get("sted") or "",
-                        "gate_sted": r.get("gate_sted") or "",
-                        "boligtype": r.get("boligtype") or "",
-                        "nybrukt": r.get("NY/Brukt") or "",
+                        "adresse": as_text(r.get("address")),
+                        "fylke": as_text(r.get("fylke")),
+                        "sted": as_text(r.get("sted")),
+                        "gate_sted": as_text(r.get("gate_sted")),
+                        "boligtype": as_text(r.get("boligtype")),
+                        "nybrukt": as_text(r.get("NY/Brukt")),
                         "m2pris": int(round(r["M2-pris"])) if pd.notna(r.get("M2-pris")) else None,
                         "totalpris": int(round(r["totalpris"])) if pd.notna(r.get("totalpris")) else None,
                         "dager": int(r["dager_paa_markedet"]) if pd.notna(r.get("dager_paa_markedet")) else None,
