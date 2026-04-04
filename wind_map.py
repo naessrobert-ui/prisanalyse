@@ -13,6 +13,7 @@ from typing import Any, Iterator, Optional, Literal
 import folium
 import pandas as pd
 import requests
+from requests import RequestException
 from dotenv import load_dotenv
 from folium.plugins import HeatMap
 
@@ -54,7 +55,18 @@ def _frost_get_json(session: requests.Session, path: str, params: dict[str, Any]
     url = f'{FROST_BASE}{path}'
     backoff = 1.0
     for _ in range(6):
-        r = session.get(url, params=params, auth=(auth.client_id, auth.client_secret), headers={'Accept': 'application/json'}, timeout=timeout)
+        try:
+            r = session.get(
+                url,
+                params=params,
+                auth=(auth.client_id, auth.client_secret),
+                headers={'Accept': 'application/json'},
+                timeout=timeout,
+            )
+        except RequestException:
+            time.sleep(backoff)
+            backoff *= 2
+            continue
         if r.status_code == 200:
             return r.json()
         if r.status_code in (404, 412):
@@ -297,10 +309,20 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
 
         referencetime = f"{start_dt.strftime('%Y-%m-%dT%H:%M:%SZ')}/{end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         element = 'wind_speed_of_gust' if metric == 'gust' else 'wind_speed'
-        obs = _fetch_obs(session, auth=auth, source_ids=stations['baseId'].tolist(), element=element, referencetime=referencetime, timeout=timeout)
-        agg = _aggregate_obs(obs, metric=metric)
-        if not agg.empty:
-            merged = stations.merge(agg, left_on='baseId', right_on='sourceId', how='inner')
+        try:
+            obs = _fetch_obs(
+                session,
+                auth=auth,
+                source_ids=stations['baseId'].tolist(),
+                element=element,
+                referencetime=referencetime,
+                timeout=timeout,
+            )
+            agg = _aggregate_obs(obs, metric=metric)
+            if not agg.empty:
+                merged = stations.merge(agg, left_on='baseId', right_on='sourceId', how='inner')
+        except Exception:
+            merged = pd.DataFrame()
     else:
         stations = stations.head(max(1, int(forecast_limit))).copy()
         rows: list[dict[str, Any]] = []
