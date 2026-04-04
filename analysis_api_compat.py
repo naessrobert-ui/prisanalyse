@@ -55,6 +55,7 @@ def get_companies_filter_meta_payload() -> dict[str, Any]:
         "address_columns": ["adresse"],
         "industry_code_columns": ["naeringskode"],
         "industry_text_columns": [],
+        "municipality_name_columns": [],
         "max_limit": MAX_LIMIT,
     }
 

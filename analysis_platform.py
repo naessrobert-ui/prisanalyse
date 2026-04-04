@@ -142,6 +142,7 @@ class CompanyFilterMetaResponse(BaseModel):
     address_columns: list[str]
     industry_code_columns: list[str]
     industry_text_columns: list[str]
+    municipality_name_columns: list[str]
     max_limit: int
 
 
@@ -267,6 +268,15 @@ def available_industry_text_columns() -> list[str]:
     )
 
 
+def available_municipality_name_columns() -> list[str]:
+    return existing_columns(
+        'entity',
+        'kommunenavn',
+        'kommune',
+        'kommune_navn',
+    )
+
+
 def build_company_filter(
     *,
     q: str | None,
@@ -297,8 +307,20 @@ def build_company_filter(
         params.extend([query, like_query, like_query])
 
     if kommune and kommune.strip():
-        filters.append("e.kommunenummer = %s")
-        params.append(kommune.strip())
+        kommune_value = kommune.strip()
+        if re.fullmatch(r"\d+", kommune_value):
+            filters.append("e.kommunenummer = %s")
+            params.append(kommune_value)
+        else:
+            name_columns = available_municipality_name_columns()
+            if name_columns:
+                filters.append("(" + " or ".join(_text_match_clause(col) for col in name_columns) + ")")
+                params.extend([f"%{kommune_value}%"] * len(name_columns))
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Kommunenavn-søk er ikke tilgjengelig (fant ingen kommunenavn-felter i entity-tabellen).",
+                )
 
     if orgform and orgform.strip():
         filters.append("e.orgform = %s")
@@ -621,6 +643,7 @@ def company_filter_meta() -> CompanyFilterMetaResponse:
         address_columns=available_address_columns(),
         industry_code_columns=available_industry_code_columns(),
         industry_text_columns=available_industry_text_columns(),
+        municipality_name_columns=available_municipality_name_columns(),
         max_limit=MAX_LIMIT,
     )
 
