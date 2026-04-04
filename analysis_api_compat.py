@@ -17,6 +17,8 @@ _COMPAT_SORT_MAP = {
     "egenkapitalandel": "r.equity_ratio",
     "netto_margin": "CASE WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL THEN (r.net_profit / r.revenue) END",
     "ansatte": "e.ansatte",
+    "omsetning_per_ansatt": "CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL THEN (r.revenue / e.ansatte) END",
+    "resultat_per_ansatt": "CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL THEN (r.net_profit / e.ansatte) END",
     "navn": "e.navn",
     "regnskapsaar": "r.accounting_year",
 }
@@ -71,6 +73,10 @@ def get_companies_filter_payload(
     min_netto_margin: float | None = None,
     min_ansatte: int | None = None,
     max_ansatte: int | None = None,
+    min_omsetning_per_ansatt: float | None = None,
+    max_omsetning_per_ansatt: float | None = None,
+    min_resultat_per_ansatt: float | None = None,
+    max_resultat_per_ansatt: float | None = None,
     orgform: str | None = None,
     has_regnskap: bool = False,
     limit: int = 100,
@@ -108,6 +114,22 @@ def get_companies_filter_payload(
         base_sql += " AND COALESCE(e.ansatte, 0) <= %s"
         params.append(max_ansatte)
 
+    if min_omsetning_per_ansatt is not None:
+        base_sql += " AND e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL AND (r.revenue / e.ansatte) >= %s"
+        params.append(min_omsetning_per_ansatt)
+
+    if max_omsetning_per_ansatt is not None:
+        base_sql += " AND e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL AND (r.revenue / e.ansatte) <= %s"
+        params.append(max_omsetning_per_ansatt)
+
+    if min_resultat_per_ansatt is not None:
+        base_sql += " AND e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL AND (r.net_profit / e.ansatte) >= %s"
+        params.append(min_resultat_per_ansatt)
+
+    if max_resultat_per_ansatt is not None:
+        base_sql += " AND e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL AND (r.net_profit / e.ansatte) <= %s"
+        params.append(max_resultat_per_ansatt)
+
     count_row = fetch_one(f"SELECT COUNT(*)::int AS n {base_sql}", params) or {"n": 0}
     total_count = int(count_row.get("n") or 0)
 
@@ -132,7 +154,17 @@ def get_companies_filter_payload(
             CASE
                 WHEN r.equity_ratio IS NOT NULL THEN ROUND(r.equity_ratio * 100.0, 2)
                 ELSE NULL
-            END AS egenkapitalandel
+            END AS egenkapitalandel,
+            CASE
+                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL
+                THEN ROUND((r.revenue / e.ansatte), 2)
+                ELSE NULL
+            END AS omsetning_per_ansatt,
+            CASE
+                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL
+                THEN ROUND((r.net_profit / e.ansatte), 2)
+                ELSE NULL
+            END AS resultat_per_ansatt
         {base_sql}
         ORDER BY {_sort_sql(sort_by, sort_dir)}
         LIMIT %s OFFSET %s
@@ -197,6 +229,10 @@ def companies_filter(
     min_netto_margin: float | None = None,
     min_ansatte: int | None = None,
     max_ansatte: int | None = None,
+    min_omsetning_per_ansatt: float | None = None,
+    max_omsetning_per_ansatt: float | None = None,
+    min_resultat_per_ansatt: float | None = None,
+    max_resultat_per_ansatt: float | None = None,
     orgform: str | None = None,
     has_regnskap: bool = False,
     limit: int = Query(default=100, ge=1, le=MAX_LIMIT),
@@ -217,6 +253,10 @@ def companies_filter(
         min_netto_margin=min_netto_margin,
         min_ansatte=min_ansatte,
         max_ansatte=max_ansatte,
+        min_omsetning_per_ansatt=min_omsetning_per_ansatt,
+        max_omsetning_per_ansatt=max_omsetning_per_ansatt,
+        min_resultat_per_ansatt=min_resultat_per_ansatt,
+        max_resultat_per_ansatt=max_resultat_per_ansatt,
         orgform=orgform,
         limit=limit,
         offset=offset,
