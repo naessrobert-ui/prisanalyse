@@ -92,7 +92,6 @@ def _fetch_obs(session: requests.Session, *, auth: FrostAuth, source_ids: list[s
             'timeoffsets': 'default',
             'levels': 'default',
             'limit': 1000,
-            'qualities': '0,1,2,3,4',
         }
         offset = 0
         while True:
@@ -241,7 +240,7 @@ def _fmt_label(mode: Mode, period: Period, metric: Metric, selected: _date, fore
 def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', metric: Metric = 'avg', date_str: Optional[str] = None,
                         forecast_hours: int = 24, region: Region = 'all',
                         bbox: Optional[str] = None, z: Optional[str] = None, clat: Optional[str] = None, clon: Optional[str] = None,
-                        timeout: int = DEFAULT_TIMEOUT, show_heatmap: bool = True, top_n: int = 600, forecast_limit: int = 1500) -> str:
+                        timeout: int = DEFAULT_TIMEOUT, show_heatmap: bool = True, top_n: int = 600, forecast_limit: int = 1500, observed_limit: int = 700) -> str:
     selected = _date.today()
     if date_str:
         try:
@@ -274,6 +273,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
         stations = load_station_db()
     stations = stations.dropna(subset=['baseId', 'lat', 'lon']).copy()
     stations['baseId'] = stations['baseId'].astype(str)
+    stations = stations[stations['baseId'].str.match(r"^SN\\d+$", na=False)].copy()
 
     merged = pd.DataFrame()
     wind_station_count_note = ''
@@ -294,6 +294,8 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
         pass
 
     if mode == 'observed':
+        if len(stations) > observed_limit:
+            stations = stations.head(observed_limit).copy()
         if period == 'hour':
             start_dt = datetime.now(timezone.utc) - timedelta(hours=24)
             end_dt = datetime.now(timezone.utc)
