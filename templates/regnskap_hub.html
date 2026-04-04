@@ -508,7 +508,7 @@
     const presetTopRevenueBtn = document.getElementById('presetTopRevenueBtn');
     const resetApiFormBtn = document.getElementById('resetApiFormBtn');
 
-    const state = { params: null, offset: 0, meta: null };
+    const state = { params: null, offset: 0, meta: null, currentRows: [], total: 0 };
 
     function fmtNumber(value) {
         if (value === null || value === undefined || value === '') return '';
@@ -559,6 +559,95 @@
         apiResultsTable.style.display = 'none';
         apiResultsBody.innerHTML = '';
         apiPagination.style.display = 'none';
+        state.currentRows = [];
+        state.total = 0;
+    }
+
+    function normalizeSortValue(row, sortBy) {
+        const numericOrNull = (value) => {
+            if (value === null || value === undefined || value === '') return null;
+            const num = Number(value);
+            return Number.isFinite(num) ? num : null;
+        };
+        switch (sortBy) {
+            case 'navn':
+                return String(getRowValue(row, ['navn']) || '').toLowerCase();
+            case 'ansatte':
+                return numericOrNull(getRowValue(row, ['ansatte']));
+            case 'regnskapsaar':
+                return numericOrNull(getRowValue(row, ['regnskapsaar']));
+            case 'omsetning':
+                return numericOrNull(getRowValue(row, ['omsetning', 'sum_driftsinntekter']));
+            case 'aarsresultat':
+                return numericOrNull(getRowValue(row, ['aarsresultat']));
+            case 'netto_margin':
+                return numericOrNull(getRowValue(row, ['netto_margin']));
+            case 'egenkapitalandel':
+                return numericOrNull(getRowValue(row, ['egenkapitalandel']));
+            case 'omsetning_per_ansatt':
+                return numericOrNull(getRowValue(row, ['omsetning_per_ansatt']));
+            case 'resultat_per_ansatt':
+                return numericOrNull(getRowValue(row, ['resultat_per_ansatt']));
+            default:
+                return numericOrNull(getRowValue(row, [sortBy]));
+        }
+    }
+
+    function sortRows(rows, sortBy, sortDir) {
+        const direction = (sortDir || 'desc') === 'asc' ? 1 : -1;
+        return [...rows].sort((a, b) => {
+            const av = normalizeSortValue(a, sortBy);
+            const bv = normalizeSortValue(b, sortBy);
+
+            if (av === null && bv === null) return 0;
+            if (av === null) return 1;
+            if (bv === null) return -1;
+
+            if (typeof av === 'string' && typeof bv === 'string') {
+                return av.localeCompare(bv, 'nb') * direction;
+            }
+            if (av < bv) return -1 * direction;
+            if (av > bv) return 1 * direction;
+            return 0;
+        });
+    }
+
+    function renderRows(rows) {
+        apiResultsBody.innerHTML = '';
+        rows.forEach((row) => {
+            const tr = document.createElement('tr');
+            const cells = [
+                getRowValue(row, ['orgnr']),
+                getRowValue(row, ['navn']),
+                getRowValue(row, ['orgform']),
+                getRowValue(row, ['kommune', 'kommunenummer']),
+                getRowValue(row, ['ansatte']),
+                getRowValue(row, ['regnskapsaar']),
+                fmtNumber(getRowValue(row, ['omsetning', 'sum_driftsinntekter'])),
+                fmtNumber(getRowValue(row, ['aarsresultat'])),
+                fmtPct(getRowValue(row, ['netto_margin'])),
+                fmtPct(getRowValue(row, ['egenkapitalandel'])),
+                fmtNumber(getRowValue(row, ['omsetning_per_ansatt'])),
+                fmtNumber(getRowValue(row, ['resultat_per_ansatt'])),
+            ];
+
+            cells.forEach((value) => {
+                const td = document.createElement('td');
+                td.textContent = value === null || value === undefined ? '' : String(value);
+                tr.appendChild(td);
+            });
+            apiResultsBody.appendChild(tr);
+        });
+    }
+
+    function applyCurrentSortAndRender() {
+        if (!state.currentRows.length) return;
+        const sortBy = document.getElementById('api_sort_by')?.value || 'omsetning';
+        const sortDir = document.getElementById('api_sort_dir')?.value || 'desc';
+        const sortedRows = sortRows(state.currentRows, sortBy, sortDir);
+        renderRows(sortedRows);
+        applyClientFilter();
+        renderSummary(state.total || sortedRows.length, sortedRows.length, sortBy, sortDir);
     }
 
     function renderActiveFilters(params) {
@@ -731,35 +820,12 @@
                 return;
             }
 
-            rows.forEach((row) => {
-                const tr = document.createElement('tr');
-                const cells = [
-                    getRowValue(row, ['orgnr']),
-                    getRowValue(row, ['navn']),
-                    getRowValue(row, ['orgform']),
-                    getRowValue(row, ['kommune', 'kommunenummer']),
-                    getRowValue(row, ['ansatte']),
-                    getRowValue(row, ['regnskapsaar']),
-                    fmtNumber(getRowValue(row, ['omsetning', 'sum_driftsinntekter'])),
-                    fmtNumber(getRowValue(row, ['aarsresultat'])),
-                    fmtPct(getRowValue(row, ['netto_margin'])),
-                    fmtPct(getRowValue(row, ['egenkapitalandel'])),
-                    fmtNumber(getRowValue(row, ['omsetning_per_ansatt'])),
-                    fmtNumber(getRowValue(row, ['resultat_per_ansatt'])),
-                ];
-
-                cells.forEach((value) => {
-                    const td = document.createElement('td');
-                    td.textContent = value === null || value === undefined ? '' : String(value);
-                    tr.appendChild(td);
-                });
-                apiResultsBody.appendChild(tr);
-            });
+            state.currentRows = rows;
+            state.total = total;
+            applyCurrentSortAndRender();
 
             apiResultsTable.style.display = '';
             apiActions.style.display = 'flex';
-            renderSummary(total, rows.length, data.sort_by || params.get('sort_by') || 'omsetning', data.sort_dir || params.get('sort_dir') || 'desc');
-            applyClientFilter();
 
             const currentPage = Math.floor(offset / Math.max(limit, 1)) + 1;
             const totalPages = Math.max(1, Math.ceil(total / Math.max(limit, 1)));
@@ -818,8 +884,14 @@
         apiStatus.textContent = 'Filter nullstilt.';
     });
 
-    document.getElementById('api_sort_by')?.addEventListener('change', updateSortHeaderUi);
-    document.getElementById('api_sort_dir')?.addEventListener('change', updateSortHeaderUi);
+    document.getElementById('api_sort_by')?.addEventListener('change', () => {
+        updateSortHeaderUi();
+        applyCurrentSortAndRender();
+    });
+    document.getElementById('api_sort_dir')?.addEventListener('change', () => {
+        updateSortHeaderUi();
+        applyCurrentSortAndRender();
+    });
 
     sortableHeaders.forEach((th) => {
         th.addEventListener('click', async () => {
@@ -835,7 +907,7 @@
                 sortDirEl.value = nextSortBy === 'navn' ? 'asc' : 'desc';
             }
             updateSortHeaderUi();
-            await runApiSearch({ resetOffset: true });
+            applyCurrentSortAndRender();
         });
     });
 
