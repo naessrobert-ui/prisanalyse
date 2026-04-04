@@ -113,6 +113,8 @@ class CompanyRow(BaseModel):
     sum_egenkapital: float | None = None
     netto_margin: float | None = None
     egenkapitalandel: float | None = None
+    omsetning_per_ansatt: float | None = None
+    resultat_per_ansatt: float | None = None
 
 
 class QualityResponse(BaseModel):
@@ -168,7 +170,17 @@ select
         when r.sum_eiendeler is not null and r.sum_eiendeler <> 0 and r.sum_egenkapital is not null
         then round((r.sum_egenkapital / r.sum_eiendeler) * 100.0, 2)
         else null
-    end as egenkapitalandel
+    end as egenkapitalandel,
+    case
+        when e.ansatte is not null and e.ansatte > 0 and r.sum_driftsinntekter is not null
+        then round(r.sum_driftsinntekter / e.ansatte::numeric, 2)
+        else null
+    end as omsetning_per_ansatt,
+    case
+        when e.ansatte is not null and e.ansatte > 0 and r.aarsresultat is not null
+        then round(r.aarsresultat / e.ansatte::numeric, 2)
+        else null
+    end as resultat_per_ansatt
 from regnskap_siste r
 join entity e on e.orgnr = r.orgnr
 """
@@ -269,6 +281,10 @@ def build_company_filter(
     min_netto_margin: float | None,
     min_ansatte: int | None,
     max_ansatte: int | None,
+    min_omsetning_per_ansatt: float | None,
+    max_omsetning_per_ansatt: float | None,
+    min_resultat_per_ansatt: float | None,
+    max_resultat_per_ansatt: float | None,
     orgform: str | None,
 ) -> tuple[list[str], list[Any]]:
     filters: list[str] = []
@@ -324,6 +340,30 @@ def build_company_filter(
         filters.append("e.ansatte <= %s")
         params.append(max_ansatte)
 
+    if min_omsetning_per_ansatt is not None:
+        filters.append(
+            "e.ansatte is not null and e.ansatte > 0 and r.sum_driftsinntekter is not null and (r.sum_driftsinntekter / e.ansatte::numeric) >= %s"
+        )
+        params.append(min_omsetning_per_ansatt)
+
+    if max_omsetning_per_ansatt is not None:
+        filters.append(
+            "e.ansatte is not null and e.ansatte > 0 and r.sum_driftsinntekter is not null and (r.sum_driftsinntekter / e.ansatte::numeric) <= %s"
+        )
+        params.append(max_omsetning_per_ansatt)
+
+    if min_resultat_per_ansatt is not None:
+        filters.append(
+            "e.ansatte is not null and e.ansatte > 0 and r.aarsresultat is not null and (r.aarsresultat / e.ansatte::numeric) >= %s"
+        )
+        params.append(min_resultat_per_ansatt)
+
+    if max_resultat_per_ansatt is not None:
+        filters.append(
+            "e.ansatte is not null and e.ansatte > 0 and r.aarsresultat is not null and (r.aarsresultat / e.ansatte::numeric) <= %s"
+        )
+        params.append(max_resultat_per_ansatt)
+
     if naeringskode and naeringskode.strip():
         value = naeringskode.strip()
         digit_search = re.sub(r"\D", "", value)
@@ -363,6 +403,8 @@ def company_order_by(sort_by: str, sort_dir: str) -> str:
         'netto_margin': 'netto_margin',
         'navn': 'e.navn',
         'ansatte': 'e.ansatte',
+        'omsetning_per_ansatt': 'omsetning_per_ansatt',
+        'resultat_per_ansatt': 'resultat_per_ansatt',
         'regnskapsaar': 'r.regnskapsaar',
     }
     if sort_by not in sort_map:
@@ -597,6 +639,10 @@ def filter_companies(
     min_netto_margin: float | None = Query(default=None),
     min_ansatte: int | None = Query(default=None, ge=0),
     max_ansatte: int | None = Query(default=None, ge=0),
+    min_omsetning_per_ansatt: float | None = Query(default=None),
+    max_omsetning_per_ansatt: float | None = Query(default=None),
+    min_resultat_per_ansatt: float | None = Query(default=None),
+    max_resultat_per_ansatt: float | None = Query(default=None),
     orgform: str | None = Query(default='AS'),
     limit: int = Query(default=50, ge=1, le=MAX_LIMIT),
     offset: int = Query(default=0, ge=0),
@@ -616,6 +662,10 @@ def filter_companies(
         min_netto_margin=min_netto_margin,
         min_ansatte=min_ansatte,
         max_ansatte=max_ansatte,
+        min_omsetning_per_ansatt=min_omsetning_per_ansatt,
+        max_omsetning_per_ansatt=max_omsetning_per_ansatt,
+        min_resultat_per_ansatt=min_resultat_per_ansatt,
+        max_resultat_per_ansatt=max_resultat_per_ansatt,
         orgform=orgform,
     )
 
