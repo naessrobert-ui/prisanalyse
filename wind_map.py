@@ -234,8 +234,13 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
     session = requests.Session()
     try:
         wind_ids = _fetch_wind_source_ids(session, auth=auth, timeout=timeout)
+        # Viktig: hvis source-filteret blir for aggressivt (API-variant/parameter-endring),
+        # kan nesten alle stasjoner forsvinne. Da faller vi tilbake til full stasjonsliste.
         if wind_ids:
-            stations = stations[stations['baseId'].isin(wind_ids)].copy()
+            filtered = stations[stations['baseId'].isin(wind_ids)].copy()
+            # Bruk filteret kun når det fortsatt gir fornuftig dekning.
+            if len(filtered) >= 50 and len(filtered) >= max(10, int(len(stations) * 0.15)):
+                stations = filtered
     except Exception:
         # Fallback: bruk alle stasjoner i DB dersom kildelisten feiler.
         pass
@@ -255,7 +260,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
                 end_dt = datetime(selected.year, selected.month + 1, 1, tzinfo=timezone.utc)
 
         referencetime = f"{start_dt.strftime('%Y-%m-%dT%H:%M:%SZ')}/{end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-        element = 'max(wind_speed_of_gust PT1H)' if metric == 'gust' else 'mean(wind_speed PT1H)'
+        element = 'wind_speed_of_gust' if metric == 'gust' else 'wind_speed'
         obs = _fetch_obs(session, auth=auth, source_ids=stations['baseId'].tolist(), element=element, referencetime=referencetime, timeout=timeout)
         agg = _aggregate_obs(obs, metric=metric)
         if not agg.empty:
