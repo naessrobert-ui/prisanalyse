@@ -24,6 +24,7 @@ from snow_map import build_snow_map_html
 from precip_map import build_precip_county_map_html
 from sunshine_map import build_sunshine_map_html
 from temp_map import build_min_temp_map_html
+from wind_map import build_wind_map_html
 from ver_station_db import load_station_db
 
 # Snøprognose-logikk fra snow_increase.py
@@ -300,6 +301,16 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
         </div>
         <div class="kort-tittel">Min temperatur siste døgn</div>
         <div class="kort-tekst">Velg fylke og se nyeste døgn-minimum (P1D) per stasjon. Perfekt for å finne frostpunkter.</div>
+        <div class="kort-lenke">Åpne</div>
+      </a>
+
+      <a class="kort" href="/ver/vind">
+        <div class="kort-topp">
+          <div class="kort-ikon">💨</div>
+          <span class="kort-badge b-cyan">Vind</span>
+        </div>
+        <div class="kort-tittel">Vind og vindkast</div>
+        <div class="kort-tekst">Se høyeste og gjennomsnittlig vind i kartet, eller bytt til forventet vind (Yr) for neste 24 timer.</div>
         <div class="kort-lenke">Åpne</div>
       </a>
 
@@ -1330,4 +1341,98 @@ def solskinn_kart() -> str:
         bbox=request.args.get("bbox"),
         z=request.args.get("z"), clat=request.args.get("clat"), clon=request.args.get("clon"),
         show_heatmap=True,
+    )
+
+
+# =========================
+# VIND
+# =========================
+@ver.route("/vind")
+def vind_index() -> str:
+    today_str = _date.today().isoformat()
+    return f"""<!doctype html>
+<html lang="no"><head><meta charset="utf-8"/><title>Vind i Norge</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
+.page{{max-width:1200px;margin:32px auto;padding:0 16px 32px;}}
+.card{{background:white;border-radius:16px;padding:18px 22px;box-shadow:0 18px 45px rgba(15,23,42,.08);margin-bottom:16px;}}
+.card h1{{margin:0 0 8px;}}
+.controls{{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;align-items:center;}}
+.controls input,.controls select{{padding:6px 10px;border-radius:10px;border:1px solid #d1d5db;}}
+.controls button{{padding:7px 14px;border-radius:999px;border:none;background:#2563eb;color:white;cursor:pointer;}}
+#map-frame{{width:100%;height:80vh;border:none;border-radius:16px;box-shadow:0 18px 45px rgba(15,23,42,.10);background:#e5e7eb;}}
+</style></head><body>
+<div class="page">
+  <div class="card">
+    <h1>Vind i Norge</h1>
+    <p style="margin:0;color:#475569;">Velg observerte vinddata (Frost) eller forventet vind neste 24 timer (Yr).</p>
+    <form id="controls-form" class="controls">
+      <label>Dato:</label><input type="date" id="date-input" value="{today_str}" max="{today_str}">
+      <label>Kilde:</label>
+      <select id="mode-select">
+        <option value="observed" selected>Observerte data</option>
+        <option value="forecast">Forventet vind</option>
+      </select>
+      <label>Periode:</label>
+      <select id="period-select">
+        <option value="hour" selected>Per time (siste 24t)</option>
+        <option value="day">Per dag</option>
+        <option value="month">Per måned</option>
+      </select>
+      <label>Måling:</label>
+      <select id="metric-select">
+        <option value="avg" selected>Gjennomsnittsvind</option>
+        <option value="gust">Vindkast</option>
+      </select>
+      <button type="submit">Vis</button>
+      <button type="button" id="btn-reset">Reset kart</button>
+    </form>
+  </div>
+  <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=avg" loading="lazy"></iframe>
+</div>
+<script>
+const STORE_KEY="wind_view_v1";
+const frame=document.getElementById("map-frame");
+const dateInput=document.getElementById("date-input");
+const modeSelect=document.getElementById("mode-select");
+const periodSelect=document.getElementById("period-select");
+const metricSelect=document.getElementById("metric-select");
+function readSaved(){{try{{const r=sessionStorage.getItem(STORE_KEY);return r?JSON.parse(r):null;}}catch(e){{return null;}}}}
+function saveFU(){{try{{const u=new URL(frame.contentWindow.location.href);const b=u.searchParams.get("bbox");if(!b)return;sessionStorage.setItem(STORE_KEY,JSON.stringify({{bbox:b,z:u.searchParams.get("z")||"",clat:u.searchParams.get("clat")||"",clon:u.searchParams.get("clon")||""}}));}}catch(e){{}}}}
+function buildUrl(){{
+  const qs=new URLSearchParams();
+  qs.set("mode",modeSelect.value||"observed");
+  qs.set("period",periodSelect.value||"hour");
+  qs.set("metric",metricSelect.value||"avg");
+  qs.set("date",dateInput.value||"{today_str}");
+  const s=readSaved();
+  if(s){{if(s.bbox)qs.set("bbox",s.bbox);if(s.z)qs.set("z",s.z);if(s.clat)qs.set("clat",s.clat);if(s.clon)qs.set("clon",s.clon);}}
+  return "/ver/vind-kart?"+qs.toString();
+}}
+frame.addEventListener("load",saveFU);
+modeSelect.addEventListener("change",()=>{{periodSelect.disabled = modeSelect.value === "forecast"; frame.src=buildUrl();}});
+periodSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
+metricSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
+document.getElementById("controls-form").addEventListener("submit",e=>{{e.preventDefault();frame.src=buildUrl();}});
+document.getElementById("btn-reset").addEventListener("click",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src="/ver/vind-kart?mode="+(modeSelect.value||"observed")+"&period="+(periodSelect.value||"hour")+"&metric="+(metricSelect.value||"avg")+"&date="+(dateInput.value||"{today_str}");}});
+</script></body></html>"""
+
+
+@ver.route("/vind-kart")
+def vind_kart() -> str:
+    mode = request.args.get("mode", "observed")
+    period = request.args.get("period", "hour")
+    metric = request.args.get("metric", "avg")
+    return build_wind_map_html(
+        mode=mode if mode in {"observed", "forecast"} else "observed",
+        period=period if period in {"hour", "day", "month"} else "hour",
+        metric=metric if metric in {"avg", "gust"} else "avg",
+        date_str=request.args.get("date"),
+        bbox=request.args.get("bbox"),
+        z=request.args.get("z"),
+        clat=request.args.get("clat"),
+        clon=request.args.get("clon"),
+        show_heatmap=True,
+        top_n=80,
     )
