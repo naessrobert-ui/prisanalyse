@@ -1684,7 +1684,7 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 .ski-day-chart-section{background:#0f172a;border-radius:0 0 14px 14px;}
 .ski-day-chart-wrap{padding:0 12px 12px;height:180px;position:relative;}
 .ski-day-chart-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#475569;font-size:12px;}
-.ski-day-table-wrap{background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 14px 14px;overflow:auto;}
+.ski-day-table-wrap{background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 14px 14px;overflow:auto;-webkit-overflow-scrolling:touch;position:relative;}
 .ski-day-table-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
 .ski-day-meta-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid;}
 .ski-day-meta-chip.best{background:#f0fdf4;color:#166534;border-color:#bbf7d0;}
@@ -1695,6 +1695,10 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 .ski-day-table{width:100%;border-collapse:collapse;font-size:12px;color:#1e293b;min-width:980px;}
 .ski-day-table th,.ski-day-table td{padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;vertical-align:top;}
 .ski-day-table th{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;background:#f8fafc;position:sticky;top:0;z-index:1;}
+.ski-day-table th:first-child,.ski-day-table td:first-child{position:sticky;left:0;background:#f8fafc;z-index:2;box-shadow:1px 0 0 #e2e8f0;}
+.ski-day-table thead th:first-child{z-index:4;}
+.ski-day-table tr:hover td:first-child{background:#f8fafc;}
+.ski-day-table-scrollhint{display:none;font-size:11px;color:#64748b;margin:0 0 8px 0;}
 .ski-day-table tr:hover td{background:#f8fafc;}
 .ski-day-row-best td{background:#f0fdf4;}
 .ski-day-row-warn td{background:#fffaf0;}
@@ -1723,9 +1727,19 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
   .ski-day-table th,.ski-day-table td{padding:6px 8px;}
 }
 @media(max-width:700px){
-  .ski-day-table{min-width:760px;font-size:11px;}
-  .ski-day-table th,.ski-day-table td{padding:5px 6px;}
+  .ski-day-detail{padding:0 0 12px 0;}
+  .ski-day-table-wrap{margin:0 -12px;padding:10px 12px 12px;}
+  .ski-day-table-scrollhint{display:block;}
+  .ski-day-table{min-width:900px;font-size:11px;}
+  .ski-day-table th,.ski-day-table td{padding:6px 7px;}
   .ski-day-table-meta{gap:6px;}
+  .ski-vurdering{min-width:150px;}
+  .ski-vurdering-note{display:none;}
+}
+@media(max-width:480px){
+  .ski-day-table{min-width:860px;font-size:10.5px;}
+  .ski-day-table th,.ski-day-table td{padding:6px 6px;}
+  .ski-day-table-meta{padding-right:8px;}
 }
 .links-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
 @media(max-width:480px){.links-grid{grid-template-columns:repeat(2,1fr);}}
@@ -2529,7 +2543,8 @@ function renderSkiTable(i, dato){
     return `<tr class="${rowClasses.join(' ')}"><td>${hh}${durationText}</td><td>${ikon}</td><td class="${tempClass}">${t}</td><td class="${nbClass}">${nbCombined}</td><td>${nbProb}</td><td class="${vindClass}">${vindMedRetning}</td><td class="${typeClass}">${type}</td><td class="ski-vurdering">${tags.join('')}<span class="ski-vurdering-note">${v.note}</span></td></tr>`;
   }).join('');
 
-  el.innerHTML=`${metaChips.length?`<div class="ski-day-table-meta">${metaChips.join('')}</div>`:''}<table class="ski-day-table">
+  const mobileHint = window.innerWidth <= 700 ? '<div class="ski-day-table-scrollhint">Dra sidelengs for flere detaljer →</div>' : '';
+  el.innerHTML=`${mobileHint}${metaChips.length?`<div class="ski-day-table-meta">${metaChips.join('')}</div>`:''}<table class="ski-day-table">
     <thead><tr><th>Tid</th><th>Symbol</th><th>Temp</th><th>Nedbør (min/maks)</th><th>Sjanse nedbør</th><th>Vind (snitt/kast + retning)</th><th>Type</th><th>Vurdering</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
