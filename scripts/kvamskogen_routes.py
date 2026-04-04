@@ -188,13 +188,6 @@ def _clean_value(element_id: str, value: Any) -> Any:
     return n
 
 
-def _pick_first(data: dict, *keys: str):
-    for key in keys:
-        if key in data and data.get(key) is not None:
-            return data.get(key)
-    return None
-
-
 def hent_historikk(hours: int = 24) -> list:
     end_utc   = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     start_utc = end_utc - timedelta(hours=hours)
@@ -650,17 +643,17 @@ def _build_payload(tolkning, sno_data, loyper_data, s, daglig, kamera_data=None)
         ],
         "intervaller": [
             {
-                "start":        _pick_first(iv, "start", "tid", "time", "from"),
-                "temperatur_c": _pick_first(iv, "temperatur_c", "temperature_c", "lufttemperatur_c", "air_temperature"),
-                "nedbor_mm":    _pick_first(iv, "nedbør_mm", "nedbor_mm", "precipitation_mm", "precipitation_amount"),
-                "nedbor_min_mm": _pick_first(iv, "nedbør_min_mm", "nedbor_min_mm", "precipitation_min_mm"),
-                "nedbor_maks_mm": _pick_first(iv, "nedbør_maks_mm", "nedbor_maks_mm", "precipitation_max_mm"),
-                "nedbor_sannsynlighet_pct": _pick_first(iv, "nedbør_sannsynlighet_pct", "nedbor_sannsynlighet_pct", "precipitation_probability", "probability_of_precipitation"),
-                "vind_ms":      _pick_first(iv, "vind_ms", "vindhastighet_ms", "wind_speed", "wind_speed_ms"),
-                "vind_kast_ms": _pick_first(iv, "vind_kast_ms", "vindkast_ms", "vind_kast", "vindkast", "wind_speed_of_gust", "wind_speed_of_gust_ms", "gust", "gust_ms", "wind_gust", "wind_gust_ms"),
-                "vindretning_grader": _pick_first(iv, "vindretning_grader", "vindretning", "vindretning_deg", "wind_from_direction", "wind_from_direction_deg", "wind_direction", "direction_deg"),
-                "ver_ikon":     _pick_first(iv, "vær_ikon", "ver_ikon", "ikon", "weather_icon", "symbol"),
-                "timer":        _pick_first(iv, "timer", "hours", "duration_hours"),
+                "start":        iv.get("start"),
+                "temperatur_c": iv.get("temperatur_c"),
+                "nedbor_mm":    iv.get("nedbør_mm"),
+                "nedbor_min_mm": iv.get("nedbør_min_mm"),
+                "nedbor_maks_mm": iv.get("nedbør_maks_mm"),
+                "nedbor_sannsynlighet_pct": iv.get("nedbør_sannsynlighet_pct"),
+                "vind_ms":      iv.get("vind_ms"),
+                "vind_kast_ms": iv.get("vind_kast_ms"),
+                "vindretning_grader": iv.get("vindretning_grader"),
+                "ver_ikon":     iv.get("vær_ikon"),
+                "timer":        iv.get("timer"),
             }
             for iv in sno_data.get("intervaller", [])
         ],
@@ -1600,7 +1593,7 @@ _FORSIDE_HTML = r"""<!DOCTYPE html>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.55;}
 a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
-.page{max-width:860px;margin:0 auto;padding:20px 16px 48px;}
+.page{max-width:1120px;margin:0 auto;padding:20px 16px 48px;}
 .nav{font-size:13px;color:var(--muted);margin-bottom:18px;}.nav a{color:var(--muted);}
 .hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px 18px;box-shadow:var(--shadow);margin-bottom:14px;}
 .hero-top{display:flex;align-items:flex-start;gap:14px;}
@@ -1691,15 +1684,48 @@ a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
 .ski-day-chart-section{background:#0f172a;border-radius:0 0 14px 14px;}
 .ski-day-chart-wrap{padding:0 12px 12px;height:180px;position:relative;}
 .ski-day-chart-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#475569;font-size:12px;}
-.ski-day-table-wrap{background:#f8fafc;border-top:1px solid #e2e8f0;padding:10px 12px 12px;overflow:auto;}
-.ski-day-table{width:100%;border-collapse:collapse;font-size:12px;color:#1e293b;min-width:560px;}
-.ski-day-table th,.ski-day-table td{padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;}
-.ski-day-table th{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;}
+.ski-day-table-wrap{background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 14px 14px;overflow:auto;}
+.ski-day-table-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.ski-day-meta-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid;}
+.ski-day-meta-chip.best{background:#f0fdf4;color:#166534;border-color:#bbf7d0;}
+.ski-day-meta-chip.wind{background:#faf5ff;color:#6b21a8;border-color:#e9d5ff;}
+.ski-day-meta-chip.precip{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;}
+.ski-day-meta-chip.cold{background:#ecfeff;color:#155e75;border-color:#a5f3fc;}
+.ski-day-meta-chip.warm{background:#fff7ed;color:#c2410c;border-color:#fed7aa;}
+.ski-day-table{width:100%;border-collapse:collapse;font-size:12px;color:#1e293b;min-width:980px;}
+.ski-day-table th,.ski-day-table td{padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;vertical-align:top;}
+.ski-day-table th{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;background:#f8fafc;position:sticky;top:0;z-index:1;}
+.ski-day-table tr:hover td{background:#f8fafc;}
+.ski-day-row-best td{background:#f0fdf4;}
+.ski-day-row-warn td{background:#fffaf0;}
+.ski-day-row-bad td{background:#fef2f2;}
+.ski-cell-temp-cold{color:#0f766e;font-weight:700;}
+.ski-cell-temp-warm{color:#c2410c;font-weight:700;}
+.ski-cell-nb-warn{color:#1d4ed8;font-weight:700;}
+.ski-cell-nb-bad{color:#1d4ed8;font-weight:800;}
+.ski-cell-type-rain{color:#b91c1c;font-weight:700;}
+.ski-cell-type-snow{color:#1d4ed8;font-weight:700;}
+.ski-cell-type-dry{color:#166534;font-weight:700;}
+.ski-cell-wind-warn{color:#7c3aed;font-weight:700;}
+.ski-cell-wind-bad{color:#6b21a8;font-weight:800;}
+.ski-vurdering{white-space:normal;min-width:220px;}
+.ski-vurdering-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.02em;margin:0 6px 4px 0;border:1px solid transparent;}
+.ski-vurdering-good{background:#dcfce7;color:#166534;border-color:#bbf7d0;}
+.ski-vurdering-warn{background:#fef3c7;color:#92400e;border-color:#fde68a;}
+.ski-vurdering-bad{background:#fee2e2;color:#991b1b;border-color:#fecaca;}
+.ski-vurdering-cold{background:#cffafe;color:#155e75;border-color:#a5f3fc;}
+.ski-vurdering-warm{background:#ffedd5;color:#9a3412;border-color:#fed7aa;}
+.ski-vurdering-note{display:block;font-size:11px;color:#475569;line-height:1.4;white-space:normal;}
 .ski-day-symbols{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
 .ski-day-symbol{font-size:10px;color:#334155;background:#e2e8f0;padding:2px 6px;border-radius:999px;}
+@media(max-width:900px){
+  .ski-day-table{min-width:860px;font-size:11px;}
+  .ski-day-table th,.ski-day-table td{padding:6px 8px;}
+}
 @media(max-width:700px){
-  .ski-day-table{min-width:0;font-size:11px;}
+  .ski-day-table{min-width:760px;font-size:11px;}
   .ski-day-table th,.ski-day-table td{padding:5px 6px;}
+  .ski-day-table-meta{gap:6px;}
 }
 .links-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
 @media(max-width:480px){.links-grid{grid-template-columns:repeat(2,1fr);}}
@@ -2026,62 +2052,11 @@ function analyserDag(dato, ivs, solOpp, solNed) {
   return {score, kort, besteTid, detalj};
 }
 
-function normaliserVindretning(verdi){
-  if(verdi==null) return null;
-  if(typeof verdi==='number' && Number.isFinite(verdi)) return ((verdi%360)+360)%360;
-
-  const s=String(verdi).trim().toUpperCase();
-  if(!s) return null;
-
-  const direkteTall=Number(s.replace(',', '.'));
-  if(Number.isFinite(direkteTall)) return ((direkteTall%360)+360)%360;
-
-  const kart={
-    'N':0,'NORD':0,
-    'NØ':45,'NORTHEAST':45,'NORDØST':45,'NE':45,
-    'Ø':90,'EAST':90,'ØST':90,'E':90,
-    'SØ':135,'SOUTHEAST':135,'SØRØST':135,'SE':135,
-    'S':180,'SØR':180,'SOUTH':180,
-    'SV':225,'SOUTHWEST':225,'SØRVEST':225,'SW':225,
-    'V':270,'WEST':270,'VEST':270,'W':270,
-    'NV':315,'NORTHWEST':315,'NORDVEST':315,'NW':315,
-  };
-  return Object.prototype.hasOwnProperty.call(kart, s) ? kart[s] : null;
-}
-
 function fmtVindPilFraGrader(deg){
-  const normalisert=normaliserVindretning(deg);
-  if(normalisert==null) return '';
+  if(deg==null || Number.isNaN(Number(deg))) return '';
   const dirs=['↑','↗','→','↘','↓','↙','←','↖'];
-  const idx=Math.round(normalisert/45)%8;
+  const idx=Math.round((((Number(deg)%360)+360)%360)/45)%8;
   return dirs[idx];
-}
-
-function lesVindSnitt(iv){
-  const kandidater=[iv?.vind_ms, iv?.vindMs, iv?.vindhastighet_ms, iv?.wind_speed, iv?.windSpeed, iv?.wind_speed_ms];
-  for(const v of kandidater){
-    const n=Number(v);
-    if(v!=null && Number.isFinite(n)) return n;
-  }
-  return null;
-}
-
-function lesVindKast(iv){
-  const kandidater=[iv?.vind_kast_ms, iv?.vindkast_ms, iv?.vind_kast, iv?.vindkast, iv?.wind_speed_of_gust, iv?.wind_speed_of_gust_ms, iv?.windGust, iv?.wind_gust, iv?.gust, iv?.gust_ms];
-  for(const v of kandidater){
-    const n=Number(v);
-    if(v!=null && Number.isFinite(n)) return n;
-  }
-  return null;
-}
-
-function lesVindretning(iv){
-  const kandidater=[iv?.vindretning_grader, iv?.vindretning, iv?.vindretning_deg, iv?.wind_from_direction, iv?.wind_from_direction_deg, iv?.windDirection, iv?.wind_direction, iv?.direction_deg];
-  for(const v of kandidater){
-    const n=normaliserVindretning(v);
-    if(n!=null) return n;
-  }
-  return null;
 }
 
 function dagStats(ivs, solOpp, solNed) {
@@ -2097,9 +2072,9 @@ function dagStats(ivs, solOpp, solNed) {
   for(const iv of ivs){
     const nb=Number(iv.nedbor_mm||0);
     const temp=Number(iv.temperatur_c||0);
-    const vind=lesVindSnitt(iv) ?? 0;
-    const kast=lesVindKast(iv);
-    const retning=lesVindretning(iv);
+    const vind=(iv.vind_ms!=null && !Number.isNaN(Number(iv.vind_ms))) ? Number(iv.vind_ms) : 0;
+    const kast=(iv.vind_kast_ms!=null && !Number.isNaN(Number(iv.vind_kast_ms))) ? Number(iv.vind_kast_ms) : null;
+    const retning=(iv.vindretning_grader!=null && !Number.isNaN(Number(iv.vindretning_grader))) ? Number(iv.vindretning_grader) : null;
     const ikon=iv.ver_ikon||'';
     const t=Number(iv.timer||1);
 
@@ -2107,7 +2082,7 @@ function dagStats(ivs, solOpp, solNed) {
 
     vindSum+=vind*t;
     totalTimer+=t;
-    if(lesVindSnitt(iv)!=null) harVindData=true;
+    if(iv.vind_ms!=null) harVindData=true;
     if(kast!=null) harKastData=true;
 
     const vindTop=Math.max(vind, kast!=null?kast:0);
@@ -2296,7 +2271,7 @@ function renderSkiChart(i, dato){
   const temps=ivs.map(iv=>iv.temperatur_c!=null?parseFloat(iv.temperatur_c):null);
   const precip=ivs.map(iv=>iv.nedbor_mm!=null?parseFloat(iv.nedbor_mm):null);
   const precipColors=ivs.map(iv=>(iv.temperatur_c||0)<=0?'rgba(116,192,252,0.7)':'rgba(255,107,107,0.7)');
-  const wind=ivs.map(iv=>{ const v=lesVindSnitt(iv); return v!=null?parseFloat(v):null; });
+  const wind=ivs.map(iv=>iv.vind_ms!=null?parseFloat(iv.vind_ms):null);
 
   if(_skiCharts[i]) _skiCharts[i].destroy();
   _skiCharts[i]=new Chart(ctx,{
@@ -2326,35 +2301,236 @@ function renderSkiChart(i, dato){
   });
 }
 
+function intervalType(iv){
+  const nb=Number(iv.nedbor_mm||0);
+  const temp=Number(iv.temperatur_c||0);
+  if(nb<0.15) return 'Tørt';
+  if(temp>1.5) return 'Regn';
+  if(temp>0) return 'Sludd';
+  return 'Snø';
+}
+
+function intervalWindTop(iv){
+  const vind=iv.vind_ms!=null && !Number.isNaN(Number(iv.vind_ms)) ? Number(iv.vind_ms) : 0;
+  const kast=iv.vind_kast_ms!=null && !Number.isNaN(Number(iv.vind_kast_ms)) ? Number(iv.vind_kast_ms) : null;
+  return Math.max(vind, kast!=null ? kast : 0);
+}
+
+function vurderIntervall(iv){
+  const nb=Number(iv.nedbor_mm||0);
+  const temp=Number(iv.temperatur_c||0);
+  const vind=iv.vind_ms!=null && !Number.isNaN(Number(iv.vind_ms)) ? Number(iv.vind_ms) : 0;
+  const kast=iv.vind_kast_ms!=null && !Number.isNaN(Number(iv.vind_kast_ms)) ? Number(iv.vind_kast_ms) : null;
+  const vindTop=Math.max(vind, kast!=null ? kast : 0);
+  const type=intervalType(iv);
+  const icon=iv.ver_ikon||'';
+  const hasSun=['☀','🌤','⛅'].some(s=>icon.includes(s));
+
+  let score=0;
+  let tone='good';
+  let label='Brukbart';
+  let note='Rolige forhold for dette intervallet.';
+
+  if(type==='Regn'){
+    score -= 10;
+    tone='bad';
+    label=nb>=1 ? 'Regn – dropp' : 'Vått føre';
+    note=nb>=1 ? 'Regn i dette intervallet gir klart dårligere skiføre.' : 'Mild nedbør gjør snøen våtere og tyngre.';
+  } else if(type==='Sludd'){
+    score -= 3;
+    tone='warn';
+    label='Sludd – variabelt';
+    note='På plussiden og med nedbør blir underlaget fort tyngre.';
+  } else if(type==='Snø'){
+    score += nb>0.2 ? 2 : 1;
+    label='Snøvær';
+    note=nb>=0.7 ? 'Snø i lufta, men ofte greit hvis vinden holder seg.' : 'Lett snøvær kan være fint å gå i.';
+  } else {
+    score += 4;
+    label='Tørt og rolig';
+    note='Lite nedbør gir ofte de mest stabile forholdene.';
+  }
+
+  if(vindTop>=14){
+    score -= 8;
+    tone='bad';
+    label='Svært vindutsatt';
+    note='Kraftige kast gjør dette intervallet klart mer krevende.';
+  } else if(vindTop>=10){
+    score -= 5;
+    tone=tone==='bad' ? 'bad' : 'warn';
+    label='Mye vind';
+    note='Vinden blir godt merkbar og kan gjøre turen ubehagelig.';
+  } else if(vindTop>=8){
+    score -= 3;
+    tone=tone==='bad' ? 'bad' : 'warn';
+    label='På grensen pga vind';
+    note='Dette er omtrent grensen der vinden begynner å trekke kvaliteten tydelig ned.';
+  } else if(vindTop<4){
+    score += 3;
+    if(type==='Tørt'){
+      label='Svært bra';
+      note='Opphold og lite vind gjør dette til et av de beste intervallene.';
+    }
+  } else if(vindTop<6){
+    score += 1;
+    if(type==='Tørt'){
+      label='Bra nå';
+      note='Rolig vind og opphold gir gode forhold.';
+    }
+  }
+
+  if(nb>=2){
+    score -= 4;
+    tone='bad';
+    if(type!=='Regn'){
+      label='Mye nedbør';
+      note='Dette er et av de våteste intervallene og blir mer krevende enn resten av dagen.';
+    }
+  } else if(nb>=0.8){
+    score -= 2;
+    if(tone==='good') tone='warn';
+    if(type==='Tørt'){
+      label='Mer nedbør';
+      note='En del nedbør i dette intervallet trekker komforten ned.';
+    }
+  }
+
+  if(temp<=-8 && type!=='Regn'){
+    score += 1;
+    if(tone==='good') tone='cold';
+    label='Kaldt men fint';
+    note='Kald luft gir tørrere snø, men det kan kjennes skarpt i ansiktet.';
+  } else if(temp>=4 && type==='Tørt'){
+    score -= 2;
+    if(tone==='good') tone='warm';
+    label='Mildt og mykt';
+    note='Milde temperaturer gjør snøen mykere selv uten regn.';
+  }
+
+  if(hasSun && type==='Tørt' && vindTop<6){
+    score += 2;
+    tone='good';
+    label='Best i dag';
+    note='Gløtt av sol, opphold og lite vind gjør dette intervallet ekstra attraktivt.';
+  }
+
+  return {score, tone, label, note, type, vindTop, nb, temp};
+}
+
+function finnIntervallHoydepunkter(ivs){
+  if(!ivs.length) return {};
+  const vurderinger=ivs.map(vurderIntervall);
+  let bestIdx=0, windIdx=0, precipIdx=0, coldIdx=0, warmIdx=0;
+  for(let i=1;i<ivs.length;i++){
+    if(vurderinger[i].score>vurderinger[bestIdx].score) bestIdx=i;
+    if(vurderinger[i].vindTop>vurderinger[windIdx].vindTop) windIdx=i;
+    if(vurderinger[i].nb>vurderinger[precipIdx].nb) precipIdx=i;
+    if(vurderinger[i].temp<vurderinger[coldIdx].temp) coldIdx=i;
+    if(vurderinger[i].temp>vurderinger[warmIdx].temp) warmIdx=i;
+  }
+  return {
+    vurderinger,
+    bestIdx,
+    windIdx: vurderinger[windIdx].vindTop>=8 ? windIdx : null,
+    precipIdx: vurderinger[precipIdx].nb>=0.5 ? precipIdx : null,
+    coldIdx: vurderinger[coldIdx].temp<=-5 ? coldIdx : null,
+    warmIdx: vurderinger[warmIdx].temp>=3 ? warmIdx : null,
+  };
+}
+
+function formatVindKort(iv){
+  const vindSnitt=iv.vind_ms!=null?Math.round(Number(iv.vind_ms)):null;
+  const vindMaks=iv.vind_kast_ms!=null?Math.round(Number(iv.vind_kast_ms)):null;
+  const vindPil=fmtVindPilFraGrader(iv.vindretning_grader);
+  const vind=vindSnitt!=null?(vindMaks!=null?`${vindSnitt}(${vindMaks})`:`${vindSnitt}`):'–';
+  return vindPil?`${vind} ${vindPil}`:vind;
+}
+
+function byggSkiMetaChips(ivs, hoydepunkter){
+  const chips=[];
+  if(!ivs.length || !hoydepunkter || !hoydepunkter.vurderinger) return chips;
+  const {bestIdx, windIdx, precipIdx, coldIdx, warmIdx, vurderinger}=hoydepunkter;
+
+  function hhmm(iv){
+    const dt=new Date(iv.start);
+    return String(dt.getHours()).padStart(2,'0')+':00';
+  }
+
+  if(bestIdx!=null){
+    chips.push(`<span class="ski-day-meta-chip best">⭐ Best ${hhmm(ivs[bestIdx])} · ${vurderinger[bestIdx].label}</span>`);
+  }
+  if(windIdx!=null){
+    chips.push(`<span class="ski-day-meta-chip wind">💨 Mest vind ${hhmm(ivs[windIdx])} · ${formatVindKort(ivs[windIdx])}</span>`);
+  }
+  if(precipIdx!=null){
+    chips.push(`<span class="ski-day-meta-chip precip">💧 Mest nedbør ${hhmm(ivs[precipIdx])} · ${Number(ivs[precipIdx].nedbor_mm||0).toFixed(1)} mm</span>`);
+  }
+  if(coldIdx!=null){
+    chips.push(`<span class="ski-day-meta-chip cold">🥶 Kaldest ${hhmm(ivs[coldIdx])} · ${Number(ivs[coldIdx].temperatur_c).toFixed(1)}°C</span>`);
+  }
+  if(warmIdx!=null){
+    chips.push(`<span class="ski-day-meta-chip warm">🌡️ Mildest ${hhmm(ivs[warmIdx])} · ${Number(ivs[warmIdx].temperatur_c).toFixed(1)}°C</span>`);
+  }
+  return chips;
+}
+
 function renderSkiTable(i, dato){
   const el=document.getElementById('ski-table-wrap-'+i);
   if(!el) return;
   const ivs=(window._skiIntervaller||[]).filter(iv=>(iv.start||'').startsWith(dato));
   if(!ivs.length){ el.innerHTML=''; return; }
-  const rows=ivs.map(iv=>{
+
+  const hp=finnIntervallHoydepunkter(ivs);
+  const vurderinger=hp.vurderinger||[];
+  const metaChips=byggSkiMetaChips(ivs, hp);
+
+  const rows=ivs.map((iv, idx)=>{
     const dt=new Date(iv.start);
     const hh=String(dt.getHours()).padStart(2,'0')+':00';
-    const ikon=iv.ver_ikon||'';
-    const t=iv.temperatur_c!=null?`${iv.temperatur_c>0?'+':''}${Number(iv.temperatur_c).toFixed(1)}°C`:'–';
-    const nb=iv.nedbor_mm!=null?`${Number(iv.nedbor_mm).toFixed(1)} mm`:'0.0 mm';
+    const ikon=iv.ver_ikon||'–';
+    const tempNum=iv.temperatur_c!=null?Number(iv.temperatur_c):null;
+    const t=tempNum!=null?`${tempNum>0?'+':''}${tempNum.toFixed(1)}°C`:'–';
+    const nbNum=iv.nedbor_mm!=null?Number(iv.nedbor_mm):0;
+    const nb=`${nbNum.toFixed(1)} mm`;
     const nbMin=iv.nedbor_min_mm!=null?Number(iv.nedbor_min_mm).toFixed(1):null;
     const nbMaks=iv.nedbor_maks_mm!=null?Number(iv.nedbor_maks_mm).toFixed(1):null;
     const visRange=(nbMin!=null&&nbMaks!=null&&(Number(nbMin)>0||Number(nbMaks)>0));
     const nbCombined=visRange?`${nb} (${nbMin}/${nbMaks})`:nb;
     const nbProbRaw=iv.nedbor_sannsynlighet_pct!=null?Math.round(Number(iv.nedbor_sannsynlighet_pct)):null;
-    const nbProb=(Number(iv.nedbor_mm||0)===0 && nbProbRaw===0)?'–':(nbProbRaw!=null?`${nbProbRaw}%`:'–');
-    const vindSnittRaw=lesVindSnitt(iv);
-    const vindKastRaw=lesVindKast(iv);
-    const vindSnitt=vindSnittRaw!=null?Math.round(vindSnittRaw):null;
-    const vindMaks=vindKastRaw!=null?Math.round(vindKastRaw):null;
-    const vindPil=fmtVindPilFraGrader(lesVindretning(iv));
-    const vind=vindSnitt!=null?(vindMaks!=null?`${vindSnitt}(${vindMaks})`:`${vindSnitt}`):'–';
-    const vindMedRetning=vindPil?`${vind} ${vindPil}`:vind;
-    const type=(iv.nedbor_mm||0)<0.15?'Tørt':((iv.temperatur_c||0)>1.5?'Regn':((iv.temperatur_c||0)>0?'Sludd':'Snø'));
-    return `<tr><td>${hh}</td><td>${ikon||'–'}</td><td>${t}</td><td>${nbCombined}</td><td>${nbProb}</td><td>${vindMedRetning}</td><td>${type}</td></tr>`;
+    const nbProb=(nbNum===0 && (nbProbRaw===0 || nbProbRaw==null))?'–':(nbProbRaw!=null?`${nbProbRaw}%`:'–');
+    const vindMedRetning=formatVindKort(iv);
+    const v=vurderinger[idx]||vurderIntervall(iv);
+    const type=v.type;
+
+    const rowClasses=[];
+    if(idx===hp.bestIdx) rowClasses.push('ski-day-row-best');
+    if(v.tone==='warn' && idx!==hp.bestIdx) rowClasses.push('ski-day-row-warn');
+    if(v.tone==='bad') rowClasses.push('ski-day-row-bad');
+
+    const tempClass=tempNum!=null?(tempNum<=-5?'ski-cell-temp-cold':(tempNum>=3?'ski-cell-temp-warm':'')):'';
+    const nbClass=nbNum>=1.5?'ski-cell-nb-bad':(nbNum>=0.5?'ski-cell-nb-warn':'');
+    const vindTop=v.vindTop;
+    const vindClass=vindTop>=10?'ski-cell-wind-bad':(vindTop>=8?'ski-cell-wind-warn':'');
+    const typeClass=type==='Regn'?'ski-cell-type-rain':(type==='Snø'?'ski-cell-type-snow':(type==='Tørt'?'ski-cell-type-dry':''));
+
+    const tags=[];
+    if(idx===hp.bestIdx) tags.push('<span class="ski-vurdering-pill ski-vurdering-good">Best i dag</span>');
+    if(hp.windIdx===idx) tags.push('<span class="ski-vurdering-pill ski-vurdering-warn">Mest vind</span>');
+    if(hp.precipIdx===idx) tags.push('<span class="ski-vurdering-pill ski-vurdering-warn">Mest nedbør</span>');
+    if(hp.coldIdx===idx) tags.push('<span class="ski-vurdering-pill ski-vurdering-cold">Kaldest</span>');
+    if(hp.warmIdx===idx) tags.push('<span class="ski-vurdering-pill ski-vurdering-warm">Mildest</span>');
+
+    const toneClass=v.tone==='bad'?'ski-vurdering-bad':(v.tone==='warn'?'ski-vurdering-warn':(v.tone==='cold'?'ski-vurdering-cold':(v.tone==='warm'?'ski-vurdering-warm':'ski-vurdering-good')));
+    tags.push(`<span class="ski-vurdering-pill ${toneClass}">${v.label}</span>`);
+
+    const durationText=(iv.timer!=null && Number(iv.timer)>1)?` <span style="color:#94a3b8;font-size:11px;">(${Number(iv.timer)} t)</span>`:'';
+
+    return `<tr class="${rowClasses.join(' ')}"><td>${hh}${durationText}</td><td>${ikon}</td><td class="${tempClass}">${t}</td><td class="${nbClass}">${nbCombined}</td><td>${nbProb}</td><td class="${vindClass}">${vindMedRetning}</td><td class="${typeClass}">${type}</td><td class="ski-vurdering">${tags.join('')}<span class="ski-vurdering-note">${v.note}</span></td></tr>`;
   }).join('');
-  el.innerHTML=`<table class="ski-day-table">
-    <thead><tr><th>Tid</th><th>Symbol</th><th>Temp</th><th>Nedbør (min/maks)</th><th>Sjanse nedbør</th><th>Vind (snitt/kast + retning)</th><th>Type</th></tr></thead>
+
+  el.innerHTML=`${metaChips.length?`<div class="ski-day-table-meta">${metaChips.join('')}</div>`:''}<table class="ski-day-table">
+    <thead><tr><th>Tid</th><th>Symbol</th><th>Temp</th><th>Nedbør (min/maks)</th><th>Sjanse nedbør</th><th>Vind (snitt/kast + retning)</th><th>Type</th><th>Vurdering</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
