@@ -274,6 +274,22 @@
                     <label for="api_max_ansatte">Maks ansatte</label>
                     <input id="api_max_ansatte" type="number" min="0" step="1" placeholder="Eks. 1000">
                 </div>
+                <div>
+                    <label for="api_min_omsetning_per_ansatt">Min omsetning per ansatt</label>
+                    <input id="api_min_omsetning_per_ansatt" type="number" step="1" placeholder="Eks. 1500000">
+                </div>
+                <div>
+                    <label for="api_max_omsetning_per_ansatt">Maks omsetning per ansatt</label>
+                    <input id="api_max_omsetning_per_ansatt" type="number" step="1" placeholder="Eks. 5000000">
+                </div>
+                <div>
+                    <label for="api_min_resultat_per_ansatt">Min resultat per ansatt</label>
+                    <input id="api_min_resultat_per_ansatt" type="number" step="1" placeholder="Eks. 200000">
+                </div>
+                <div>
+                    <label for="api_max_resultat_per_ansatt">Maks resultat per ansatt</label>
+                    <input id="api_max_resultat_per_ansatt" type="number" step="1" placeholder="Eks. 1000000">
+                </div>
             </div>
 
             <div class="form-grid">
@@ -285,6 +301,8 @@
                         <option value="egenkapitalandel">Egenkapitalandel</option>
                         <option value="netto_margin">Netto margin</option>
                         <option value="ansatte">Ansatte</option>
+                        <option value="omsetning_per_ansatt">Omsetning per ansatt</option>
+                        <option value="resultat_per_ansatt">Resultat per ansatt</option>
                         <option value="navn">Navn</option>
                         <option value="regnskapsaar">Regnskapsår</option>
                     </select>
@@ -342,6 +360,8 @@
                         <th>Årsresultat</th>
                         <th>Netto margin</th>
                         <th>Egenkapitalandel</th>
+                        <th>Omsetning/ansatt</th>
+                        <th>Resultat/ansatt</th>
                     </tr>
                 </thead>
                 <tbody id="apiResultsBody"></tbody>
@@ -548,6 +568,10 @@
         pushChip('Min nettomargin', fmtPct(params.get('min_netto_margin')));
         pushChip('Min ansatte', fmtNumber(params.get('min_ansatte')));
         pushChip('Maks ansatte', fmtNumber(params.get('max_ansatte')));
+        pushChip('Min omsetning/ansatt', fmtNumber(params.get('min_omsetning_per_ansatt')));
+        pushChip('Maks omsetning/ansatt', fmtNumber(params.get('max_omsetning_per_ansatt')));
+        pushChip('Min resultat/ansatt', fmtNumber(params.get('min_resultat_per_ansatt')));
+        pushChip('Maks resultat/ansatt', fmtNumber(params.get('max_resultat_per_ansatt')));
 
         if (!chips.length) {
             apiActiveFilters.style.display = 'none';
@@ -642,6 +666,10 @@
 
         addIfPresent(params, 'min_ansatte', document.getElementById('api_min_ansatte')?.value);
         addIfPresent(params, 'max_ansatte', document.getElementById('api_max_ansatte')?.value);
+        addIfPresent(params, 'min_omsetning_per_ansatt', document.getElementById('api_min_omsetning_per_ansatt')?.value);
+        addIfPresent(params, 'max_omsetning_per_ansatt', document.getElementById('api_max_omsetning_per_ansatt')?.value);
+        addIfPresent(params, 'min_resultat_per_ansatt', document.getElementById('api_min_resultat_per_ansatt')?.value);
+        addIfPresent(params, 'max_resultat_per_ansatt', document.getElementById('api_max_resultat_per_ansatt')?.value);
         addIfPresent(params, 'sort_by', document.getElementById('api_sort_by')?.value);
         addIfPresent(params, 'sort_dir', document.getElementById('api_sort_dir')?.value);
         params.set('limit', String(limit));
@@ -702,6 +730,8 @@
                     fmtNumber(getRowValue(row, ['aarsresultat'])),
                     fmtPct(getRowValue(row, ['netto_margin'])),
                     fmtPct(getRowValue(row, ['egenkapitalandel'])),
+                    fmtNumber(getRowValue(row, ['omsetning_per_ansatt'])),
+                    fmtNumber(getRowValue(row, ['resultat_per_ansatt'])),
                 ];
 
                 cells.forEach((value) => {
