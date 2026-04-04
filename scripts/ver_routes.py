@@ -1374,11 +1374,24 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
         <option value="observed" selected>Observerte data</option>
         <option value="forecast">Forventet vind</option>
       </select>
+      <label>Region:</label>
+      <select id="region-select">
+        <option value="all" selected>Hele landet</option>
+        <option value="south">Sør</option>
+        <option value="mid">Midt</option>
+        <option value="north">Nord</option>
+      </select>
       <label>Periode:</label>
       <select id="period-select">
         <option value="hour" selected>Per time (siste 24t)</option>
         <option value="day">Per dag</option>
         <option value="month">Per måned</option>
+      </select>
+      <label>Værmelding:</label>
+      <select id="forecast-hours">
+        <option value="24" selected>I dag / neste 24t</option>
+        <option value="72">Neste 3 døgn</option>
+        <option value="168">Neste uke</option>
       </select>
       <label>Måling:</label>
       <select id="metric-select">
@@ -1396,14 +1409,18 @@ const STORE_KEY="wind_view_v1";
 const frame=document.getElementById("map-frame");
 const dateInput=document.getElementById("date-input");
 const modeSelect=document.getElementById("mode-select");
+const regionSelect=document.getElementById("region-select");
 const periodSelect=document.getElementById("period-select");
+const forecastHoursSelect=document.getElementById("forecast-hours");
 const metricSelect=document.getElementById("metric-select");
 function readSaved(){{try{{const r=sessionStorage.getItem(STORE_KEY);return r?JSON.parse(r):null;}}catch(e){{return null;}}}}
 function saveFU(){{try{{const u=new URL(frame.contentWindow.location.href);const b=u.searchParams.get("bbox");if(!b)return;sessionStorage.setItem(STORE_KEY,JSON.stringify({{bbox:b,z:u.searchParams.get("z")||"",clat:u.searchParams.get("clat")||"",clon:u.searchParams.get("clon")||""}}));}}catch(e){{}}}}
 function buildUrl(){{
   const qs=new URLSearchParams();
   qs.set("mode",modeSelect.value||"observed");
+  qs.set("region",regionSelect.value||"all");
   qs.set("period",periodSelect.value||"hour");
+  qs.set("forecast_hours",forecastHoursSelect.value||"24");
   qs.set("metric",metricSelect.value||"avg");
   qs.set("date",dateInput.value||"{today_str}");
   const s=readSaved();
@@ -1411,11 +1428,14 @@ function buildUrl(){{
   return "/ver/vind-kart?"+qs.toString();
 }}
 frame.addEventListener("load",saveFU);
-modeSelect.addEventListener("change",()=>{{periodSelect.disabled = modeSelect.value === "forecast"; frame.src=buildUrl();}});
+modeSelect.addEventListener("change",()=>{{const fc = modeSelect.value === "forecast";periodSelect.disabled = fc;forecastHoursSelect.disabled = !fc; frame.src=buildUrl();}});
+regionSelect.addEventListener("change",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src=buildUrl();}});
 periodSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
+forecastHoursSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 metricSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 document.getElementById("controls-form").addEventListener("submit",e=>{{e.preventDefault();frame.src=buildUrl();}});
-document.getElementById("btn-reset").addEventListener("click",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src="/ver/vind-kart?mode="+(modeSelect.value||"observed")+"&period="+(periodSelect.value||"hour")+"&metric="+(metricSelect.value||"avg")+"&date="+(dateInput.value||"{today_str}");}});
+document.getElementById("btn-reset").addEventListener("click",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src="/ver/vind-kart?mode="+(modeSelect.value||"observed")+"&region="+(regionSelect.value||"all")+"&period="+(periodSelect.value||"hour")+"&forecast_hours="+(forecastHoursSelect.value||"24")+"&metric="+(metricSelect.value||"avg")+"&date="+(dateInput.value||"{today_str}");}});
+periodSelect.disabled = false; forecastHoursSelect.disabled = true;
 </script></body></html>"""
 
 
@@ -1424,15 +1444,19 @@ def vind_kart() -> str:
     mode = request.args.get("mode", "observed")
     period = request.args.get("period", "hour")
     metric = request.args.get("metric", "avg")
+    forecast_hours = int(request.args.get("forecast_hours", "24") or "24")
+    region = request.args.get("region", "all")
     return build_wind_map_html(
         mode=mode if mode in {"observed", "forecast"} else "observed",
         period=period if period in {"hour", "day", "month"} else "hour",
         metric=metric if metric in {"avg", "gust"} else "avg",
         date_str=request.args.get("date"),
+        forecast_hours=max(6, min(forecast_hours, 168)),
+        region=region if region in {"all", "south", "mid", "north"} else "all",
         bbox=request.args.get("bbox"),
         z=request.args.get("z"),
         clat=request.args.get("clat"),
         clon=request.args.get("clon"),
         show_heatmap=True,
-        top_n=80,
+        top_n=600,
     )

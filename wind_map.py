@@ -29,6 +29,7 @@ YR_UA = os.getenv('METNO_USER_AGENT', 'prisanalyse.no/1.0 kontakt@prisanalyse.no
 Mode = Literal['observed', 'forecast']
 Period = Literal['hour', 'day', 'month']
 Metric = Literal['avg', 'gust']
+Region = Literal['all', 'south', 'mid', 'north']
 
 
 @dataclass(frozen=True)
@@ -78,18 +79,29 @@ def _fetch_obs(session: requests.Session, *, auth: FrostAuth, source_ids: list[s
             'limit': 1000,
             'qualities': '0,1,2,3,4',
         }
-        page = _frost_get_json(session, '/observations/v0.jsonld', params, auth=auth, timeout=timeout)
-        if page.get('@type') == 'ErrorResponse':
-            continue
-        for item in page.get('data', []):
-            sid = str(item.get('sourceId') or '').split(':')[0]
-            item_rt = item.get('referenceTime')
-            for obs in item.get('observations', []):
-                rows.append({
-                    'sourceId': sid,
-                    'referenceTime': obs.get('referenceTime') or item_rt,
-                    'value': obs.get('value'),
-                })
+        offset = 0
+        while True:
+            params['offset'] = offset
+            page = _frost_get_json(session, '/observations/v0.jsonld', params, auth=auth, timeout=timeout)
+            if page.get('@type') == 'ErrorResponse':
+                break
+            data = page.get('data', []) or []
+            for item in data:
+                sid = str(item.get('sourceId') or '').split(':')[0]
+                item_rt = item.get('referenceTime')
+                for obs in item.get('observations', []):
+                    rows.append({
+                        'sourceId': sid,
+                        'referenceTime': obs.get('referenceTime') or item_rt,
+                        'value': obs.get('value'),
+                    })
+            per_page = int(page.get('itemsPerPage') or 0)
+            total = int(page.get('totalItemCount') or 0)
+            if not data or per_page <= 0:
+                break
+            offset += per_page
+            if total and offset >= total:
+                break
     df = pd.DataFrame(rows)
     if df.empty:
         return df
@@ -138,7 +150,7 @@ def _fetch_wind_source_ids(session: requests.Session, *, auth: FrostAuth, timeou
     return ids
 
 
-def _forecast_station(*, lat: float, lon: float, timeout: int = 12) -> Optional[dict[str, float]]:
+def _forecast_station(*, lat: float, lon: float, forecast_hours: int = 24, timeout: int = 12) -> Optional[dict[str, float]]:
     key = (round(lat, 3), round(lon, 3))
     now_ts = time.time()
     cached = _FORECAST_CACHE.get(key)
@@ -159,7 +171,7 @@ def _forecast_station(*, lat: float, lon: float, timeout: int = 12) -> Optional[
         return None
 
     now = datetime.now(timezone.utc)
-    horizon = now + timedelta(hours=24)
+    horizon = now + timedelta(hours=max(6, min(int(forecast_hours or 24), 168)))
     winds: list[float] = []
     gusts: list[float] = []
     for it in ts:
@@ -186,9 +198,9 @@ def _forecast_station(*, lat: float, lon: float, timeout: int = 12) -> Optional[
     return payload
 
 
-def _fmt_label(mode: Mode, period: Period, metric: Metric, selected: _date) -> str:
+def _fmt_label(mode: Mode, period: Period, metric: Metric, selected: _date, forecast_hours: int) -> str:
     if mode == 'forecast':
-        return 'Forventet vind neste 24 timer (Yr)'
+        return f'Forventet vind neste {forecast_hours} timer (Yr)'
     mtxt = 'vindkast (m/s)' if metric == 'gust' else 'gjennomsnittsvind (m/s)'
     if period == 'hour':
         return f'Siste 24 timer – {mtxt}'
@@ -198,8 +210,9 @@ def _fmt_label(mode: Mode, period: Period, metric: Metric, selected: _date) -> s
 
 
 def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', metric: Metric = 'avg', date_str: Optional[str] = None,
+                        forecast_hours: int = 24, region: Region = 'all',
                         bbox: Optional[str] = None, z: Optional[str] = None, clat: Optional[str] = None, clon: Optional[str] = None,
-                        timeout: int = DEFAULT_TIMEOUT, show_heatmap: bool = True, top_n: int = 120, forecast_limit: int = 1200) -> str:
+                        timeout: int = DEFAULT_TIMEOUT, show_heatmap: bool = True, top_n: int = 600, forecast_limit: int = 1500) -> str:
     selected = _date.today()
     if date_str:
         try:
@@ -214,7 +227,13 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
     if metric not in {'avg', 'gust'}:
         metric = 'avg'
 
-    s, w, n, e = 57.0, 4.0, 71.5, 31.5
+    region_defaults: dict[str, tuple[float, float, float, float]] = {
+        'south': (57.0, 4.0, 62.5, 12.5),
+        'mid': (62.0, 4.0, 66.7, 16.5),
+        'north': (66.3, 10.0, 71.5, 31.5),
+        'all': (57.0, 4.0, 71.5, 31.5),
+    }
+    s, w, n, e = region_defaults.get(region, region_defaults['all'])
     if bbox:
         try:
             s, w, n, e = [float(x) for x in bbox.split(',')]
@@ -271,7 +290,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
         max_workers = 24
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             futures = {
-                ex.submit(_forecast_station, lat=float(st['lat']), lon=float(st['lon'])): st
+                ex.submit(_forecast_station, lat=float(st['lat']), lon=float(st['lon']), forecast_hours=forecast_hours): st
                 for _, st in stations.iterrows()
             }
             for fut in as_completed(futures):
@@ -325,7 +344,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
             ),
         ).add_to(m)
 
-    label = _fmt_label(mode, period, metric, selected)
+    label = _fmt_label(mode, period, metric, selected, forecast_hours)
     top_txt = ''.join(f"<li>{getattr(r, 'name', r.baseId)}: <b>{float(r.value):.1f}</b> m/s</li>" for r in top.head(10).itertuples())
     info = f"""
     <div style="position:fixed;left:14px;bottom:14px;z-index:9999;background:rgba(15,23,42,.92);color:#e2e8f0;padding:12px 14px;border-radius:12px;border:1px solid #334155;max-width:330px;font:13px/1.35 system-ui;">
