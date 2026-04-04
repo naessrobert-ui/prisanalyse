@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date as _date
 from datetime import datetime, timedelta, timezone
@@ -108,16 +109,43 @@ def _aggregate_obs(df: pd.DataFrame, *, metric: Metric) -> pd.DataFrame:
 
 
 _FORECAST_CACHE: dict[tuple[float, float], tuple[float, dict[str, float]]] = {}
+_WIND_SOURCE_CACHE: tuple[float, set[str]] | None = None
 
 
-def _forecast_station(session: requests.Session, *, lat: float, lon: float, timeout: int = 12) -> Optional[dict[str, float]]:
+def _fetch_wind_source_ids(session: requests.Session, *, auth: FrostAuth, timeout: int = DEFAULT_TIMEOUT) -> set[str]:
+    """
+    Hent alle norske kilder som har vind-elementer tilgjengelig nå.
+    Caches i 6 timer for å unngå tunge kall på hver sidevisning.
+    """
+    global _WIND_SOURCE_CACHE
+    now_ts = time.time()
+    if _WIND_SOURCE_CACHE and _WIND_SOURCE_CACHE[0] > now_ts:
+        return _WIND_SOURCE_CACHE[1]
+
+    params = {
+        'country': 'NO',
+        'validtime': 'now',
+        'elements': 'wind_speed,wind_speed_of_gust',
+    }
+    data = _frost_get_json(session, '/sources/v0.jsonld', params, auth=auth, timeout=timeout)
+    ids: set[str] = set()
+    for item in data.get('data', []) or []:
+        sid = str(item.get('id') or '').strip()
+        if not sid:
+            continue
+        ids.add(sid.split(':')[0])
+    _WIND_SOURCE_CACHE = (now_ts + 21600, ids)
+    return ids
+
+
+def _forecast_station(*, lat: float, lon: float, timeout: int = 12) -> Optional[dict[str, float]]:
     key = (round(lat, 3), round(lon, 3))
     now_ts = time.time()
     cached = _FORECAST_CACHE.get(key)
     if cached and cached[0] > now_ts:
         return cached[1]
 
-    r = session.get(
+    r = requests.get(
         YR_COMPACT,
         params={'lat': f'{lat:.4f}', 'lon': f'{lon:.4f}'},
         headers={'User-Agent': YR_UA, 'Accept': 'application/json'},
@@ -171,7 +199,7 @@ def _fmt_label(mode: Mode, period: Period, metric: Metric, selected: _date) -> s
 
 def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', metric: Metric = 'avg', date_str: Optional[str] = None,
                         bbox: Optional[str] = None, z: Optional[str] = None, clat: Optional[str] = None, clon: Optional[str] = None,
-                        timeout: int = DEFAULT_TIMEOUT, show_heatmap: bool = True, top_n: int = 80, forecast_limit: int = 120) -> str:
+                        timeout: int = DEFAULT_TIMEOUT, show_heatmap: bool = True, top_n: int = 120, forecast_limit: int = 1200) -> str:
     selected = _date.today()
     if date_str:
         try:
@@ -200,10 +228,19 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
     stations['baseId'] = stations['baseId'].astype(str)
 
     merged = pd.DataFrame()
+    wind_station_count_note = ''
+
+    auth = _env_auth()
+    session = requests.Session()
+    try:
+        wind_ids = _fetch_wind_source_ids(session, auth=auth, timeout=timeout)
+        if wind_ids:
+            stations = stations[stations['baseId'].isin(wind_ids)].copy()
+    except Exception:
+        # Fallback: bruk alle stasjoner i DB dersom kildelisten feiler.
+        pass
 
     if mode == 'observed':
-        auth = _env_auth()
-        session = requests.Session()
         if period == 'hour':
             start_dt = datetime.now(timezone.utc) - timedelta(hours=24)
             end_dt = datetime.now(timezone.utc)
@@ -224,16 +261,27 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
         if not agg.empty:
             merged = stations.merge(agg, left_on='baseId', right_on='sourceId', how='inner')
     else:
-        session = requests.Session()
+        stations = stations.head(max(1, int(forecast_limit))).copy()
         rows: list[dict[str, Any]] = []
-        for _, st in stations.head(forecast_limit).iterrows():
-            fc = _forecast_station(session, lat=float(st['lat']), lon=float(st['lon']))
-            if not fc:
-                continue
-            rows.append({'baseId': st['baseId'], 'value': fc[metric], 'points': 1})
+        max_workers = 24
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futures = {
+                ex.submit(_forecast_station, lat=float(st['lat']), lon=float(st['lon'])): st
+                for _, st in stations.iterrows()
+            }
+            for fut in as_completed(futures):
+                st = futures[fut]
+                try:
+                    fc = fut.result()
+                except Exception:
+                    fc = None
+                if not fc:
+                    continue
+                rows.append({'baseId': st['baseId'], 'value': fc[metric], 'points': 1})
         if rows:
             fdf = pd.DataFrame(rows)
             merged = stations.merge(fdf, on='baseId', how='inner')
+        wind_station_count_note = f'Viser {len(merged)} av {len(stations)} vindstasjoner i utsnittet.'
 
     if merged.empty:
         m = folium.Map(location=[64.5, 14.5], zoom_start=4, tiles='CartoDB positron')
@@ -279,7 +327,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
       <div style="font-weight:800;margin-bottom:4px;">💨 Vindkart Norge</div>
       <div style="color:#93c5fd;margin-bottom:8px;">{label}</div>
       <ol style="margin:0;padding-left:18px;max-height:180px;overflow:auto;">{top_txt}</ol>
-      {"<div style='margin-top:8px;color:#94a3b8;font-size:11px;'>Forventet vind beregnes på et utvalg stasjoner i kartutsnittet.</div>" if mode=='forecast' else ''}
+      {"<div style='margin-top:8px;color:#94a3b8;font-size:11px;'>"+wind_station_count_note+"</div>" if mode=='forecast' else ''}
     </div>
     """
     m.get_root().html.add_child(folium.Element(info))

@@ -1386,6 +1386,7 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
         <option value="gust">Vindkast</option>
       </select>
       <button type="submit">Vis</button>
+      <button type="button" id="btn-reset">Reset kart</button>
     </form>
   </div>
   <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=avg" loading="lazy"></iframe>
@@ -1414,6 +1415,7 @@ modeSelect.addEventListener("change",()=>{{periodSelect.disabled = modeSelect.va
 periodSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 metricSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 document.getElementById("controls-form").addEventListener("submit",e=>{{e.preventDefault();frame.src=buildUrl();}});
+document.getElementById("btn-reset").addEventListener("click",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src="/ver/vind-kart?mode="+(modeSelect.value||"observed")+"&period="+(periodSelect.value||"hour")+"&metric="+(metricSelect.value||"avg")+"&date="+(dateInput.value||"{today_str}");}});
 </script></body></html>"""
 
 
