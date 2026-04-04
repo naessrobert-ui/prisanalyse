@@ -69,7 +69,10 @@ def _frost_get_json(session: requests.Session, path: str, params: dict[str, Any]
 
 def _fetch_obs(session: requests.Session, *, auth: FrostAuth, source_ids: list[str], element: str, referencetime: str, timeout: int, batch_size: int = 80) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
-    for batch in _chunked(source_ids, batch_size):
+
+    def _fetch_batch(batch: list[str]) -> None:
+        if not batch:
+            return
         params = {
             'sources': ','.join(batch),
             'referencetime': referencetime,
@@ -82,7 +85,18 @@ def _fetch_obs(session: requests.Session, *, auth: FrostAuth, source_ids: list[s
         offset = 0
         while True:
             params['offset'] = offset
-            page = _frost_get_json(session, '/observations/v0.jsonld', params, auth=auth, timeout=timeout)
+            try:
+                page = _frost_get_json(session, '/observations/v0.jsonld', params, auth=auth, timeout=timeout)
+            except RuntimeError as e:
+                # Frost kan svare 400 på for lange/komplekse source-lister.
+                # Del batchen og prøv igjen for å unngå 500 i appen.
+                if 'Frost-feil 400' in str(e) and len(batch) > 1:
+                    mid = len(batch) // 2
+                    _fetch_batch(batch[:mid])
+                    _fetch_batch(batch[mid:])
+                    return
+                # Ved andre feil: hopp over denne batchen i stedet for å krasje hele route.
+                return
             if page.get('@type') == 'ErrorResponse':
                 break
             data = page.get('data', []) or []
@@ -102,6 +116,9 @@ def _fetch_obs(session: requests.Session, *, auth: FrostAuth, source_ids: list[s
             offset += per_page
             if total and offset >= total:
                 break
+
+    for batch in _chunked(source_ids, batch_size):
+        _fetch_batch(batch)
     df = pd.DataFrame(rows)
     if df.empty:
         return df
