@@ -118,6 +118,7 @@
         table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.92rem; }
         th, td { border: 1px solid #334155; padding: 8px; text-align: left; vertical-align: top; }
         th { background:#0f172a; position: sticky; top: 0; }
+        th.sortable { cursor: pointer; user-select: none; }
         .api-table-wrap { overflow-x:auto; }
         .details { margin-top: 12px; }
         .details li { margin-bottom: 6px; }
@@ -351,17 +352,17 @@
                 <thead>
                     <tr>
                         <th>Orgnr</th>
-                        <th>Navn</th>
+                        <th class="sortable" data-sort-by="navn" data-label="Navn">Navn</th>
                         <th>Form</th>
                         <th>Kommune</th>
-                        <th>Ansatte</th>
-                        <th>År</th>
-                        <th>Omsetning</th>
-                        <th>Årsresultat</th>
-                        <th>Netto margin</th>
-                        <th>Egenkapitalandel</th>
-                        <th>Omsetning/ansatt</th>
-                        <th>Resultat/ansatt</th>
+                        <th class="sortable" data-sort-by="ansatte" data-label="Ansatte">Ansatte</th>
+                        <th class="sortable" data-sort-by="regnskapsaar" data-label="År">År</th>
+                        <th class="sortable" data-sort-by="omsetning" data-label="Omsetning">Omsetning</th>
+                        <th class="sortable" data-sort-by="aarsresultat" data-label="Årsresultat">Årsresultat</th>
+                        <th class="sortable" data-sort-by="netto_margin" data-label="Netto margin">Netto margin</th>
+                        <th class="sortable" data-sort-by="egenkapitalandel" data-label="Egenkapitalandel">Egenkapitalandel</th>
+                        <th class="sortable" data-sort-by="omsetning_per_ansatt" data-label="Omsetning/ansatt">Omsetning/ansatt</th>
+                        <th class="sortable" data-sort-by="resultat_per_ansatt" data-label="Resultat/ansatt">Resultat/ansatt</th>
                     </tr>
                 </thead>
                 <tbody id="apiResultsBody"></tbody>
@@ -503,6 +504,7 @@
     const apiPrevPage = document.getElementById('apiPrevPage');
     const apiNextPage = document.getElementById('apiNextPage');
     const apiPageInfo = document.getElementById('apiPageInfo');
+    const sortableHeaders = Array.from(document.querySelectorAll('#apiResultsTable thead th[data-sort-by]'));
     const presetTopRevenueBtn = document.getElementById('presetTopRevenueBtn');
     const resetApiFormBtn = document.getElementById('resetApiFormBtn');
 
@@ -534,6 +536,18 @@
         const normalized = String(value).trim();
         if (!normalized) return;
         params.set(key, normalized);
+    }
+
+    function updateSortHeaderUi() {
+        const currentSortBy = document.getElementById('api_sort_by')?.value || '';
+        const currentSortDir = document.getElementById('api_sort_dir')?.value || 'desc';
+        sortableHeaders.forEach((th) => {
+            const baseLabel = th.dataset.label || th.textContent || '';
+            const isActive = th.dataset.sortBy === currentSortBy;
+            th.textContent = `${baseLabel}${isActive ? (currentSortDir === 'asc' ? ' ↑' : ' ↓') : ''}`;
+            th.setAttribute('aria-sort', isActive ? (currentSortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+            th.title = `Sorter på ${baseLabel}`;
+        });
     }
 
     function clearResults() {
@@ -786,6 +800,7 @@
         document.getElementById('api_min_omsetning').value = '1000000000';
         document.getElementById('api_sort_by').value = 'omsetning';
         document.getElementById('api_sort_dir').value = 'desc';
+        updateSortHeaderUi();
         document.getElementById('api_limit').value = '100';
         document.getElementById('api_query').focus();
         apiStatus.textContent = 'Preset lagt inn: selskaper over 1 milliard i omsetning.';
@@ -798,10 +813,33 @@
         document.getElementById('api_limit').value = '100';
         document.getElementById('api_sort_by').value = 'omsetning';
         document.getElementById('api_sort_dir').value = 'desc';
+        updateSortHeaderUi();
         clearResults();
         apiStatus.textContent = 'Filter nullstilt.';
     });
 
+    document.getElementById('api_sort_by')?.addEventListener('change', updateSortHeaderUi);
+    document.getElementById('api_sort_dir')?.addEventListener('change', updateSortHeaderUi);
+
+    sortableHeaders.forEach((th) => {
+        th.addEventListener('click', async () => {
+            const nextSortBy = th.dataset.sortBy;
+            const sortByEl = document.getElementById('api_sort_by');
+            const sortDirEl = document.getElementById('api_sort_dir');
+            if (!nextSortBy || !sortByEl || !sortDirEl) return;
+
+            if (sortByEl.value === nextSortBy) {
+                sortDirEl.value = sortDirEl.value === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortByEl.value = nextSortBy;
+                sortDirEl.value = nextSortBy === 'navn' ? 'asc' : 'desc';
+            }
+            updateSortHeaderUi();
+            await runApiSearch({ resetOffset: true });
+        });
+    });
+
+    updateSortHeaderUi();
     loadFilterMeta();
 </script>
 </body>
