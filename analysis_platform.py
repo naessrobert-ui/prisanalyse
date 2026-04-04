@@ -28,6 +28,19 @@ API_TITLE = "Prisanalyse Regnskap API"
 API_VERSION = "0.1.0"
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 500
+MUNICIPALITY_NAME_TO_NUMBER = {
+    "oslo": "0301",
+    "bergen": "4601",
+    "trondheim": "5001",
+    "stavanger": "1103",
+    "sandnes": "1108",
+    "kristiansand": "4204",
+    "tromso": "5501",
+    "tromsø": "5501",
+    "bodo": "1804",
+    "bodø": "1804",
+    "drammen": "3301",
+}
 
 if not DATABASE_URL:
     raise RuntimeError("Mangler DATABASE_URL")
@@ -274,7 +287,19 @@ def available_municipality_name_columns() -> list[str]:
         'kommunenavn',
         'kommune',
         'kommune_navn',
+        'forretningsadresse_kommune',
+        'postadresse_kommune',
+        'beliggenhetsadresse_kommune',
+        'forretningsadresse_poststed',
+        'postadresse_poststed',
+        'beliggenhetsadresse_poststed',
     )
+
+
+def normalize_municipality_name(value: str) -> str:
+    normalized = (value or "").strip().lower()
+    normalized = re.sub(r"[^0-9a-zæøå]+", "", normalized)
+    return normalized
 
 
 def build_company_filter(
@@ -313,9 +338,17 @@ def build_company_filter(
             params.append(kommune_value)
         else:
             name_columns = available_municipality_name_columns()
+            municipality_number = MUNICIPALITY_NAME_TO_NUMBER.get(normalize_municipality_name(kommune_value))
+            sub_filters: list[str] = []
             if name_columns:
-                filters.append("(" + " or ".join(_text_match_clause(col) for col in name_columns) + ")")
+                sub_filters.extend(_text_match_clause(col) for col in name_columns)
                 params.extend([f"%{kommune_value}%"] * len(name_columns))
+            if municipality_number:
+                sub_filters.append("e.kommunenummer = %s")
+                params.append(municipality_number)
+
+            if sub_filters:
+                filters.append("(" + " or ".join(sub_filters) + ")")
             else:
                 raise HTTPException(
                     status_code=400,

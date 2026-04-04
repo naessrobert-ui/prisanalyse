@@ -8,6 +8,19 @@ from Fastapi_Backend import MAX_LIMIT, build_search_base_sql, clean_limit, fetch
 
 
 router = APIRouter()
+_MUNICIPALITY_NAME_TO_NUMBER = {
+    "oslo": "0301",
+    "bergen": "4601",
+    "trondheim": "5001",
+    "stavanger": "1103",
+    "sandnes": "1108",
+    "kristiansand": "4204",
+    "tromso": "5501",
+    "tromsø": "5501",
+    "bodo": "1804",
+    "bodø": "1804",
+    "drammen": "3301",
+}
 
 
 _COMPAT_SORT_MAP = {
@@ -86,10 +99,12 @@ def get_companies_filter_payload(
     sort_dir: str = "desc",
 ) -> dict[str, Any]:
     limit = clean_limit(limit)
+    normalized_kommune = (kommune or "").strip()
+    resolved_kommune = _MUNICIPALITY_NAME_TO_NUMBER.get(normalized_kommune.lower(), normalized_kommune) if normalized_kommune else None
     base_sql, params, _regnskap_join = build_search_base_sql(
         q=q,
         orgform=orgform,
-        kommune=kommune,
+        kommune=resolved_kommune,
         naeringskode_prefix=naeringskode,
         min_revenue=min_omsetning,
         max_revenue=max_omsetning,
