@@ -188,6 +188,13 @@ def _clean_value(element_id: str, value: Any) -> Any:
     return n
 
 
+def _pick_first(data: dict, *keys: str):
+    for key in keys:
+        if key in data and data.get(key) is not None:
+            return data.get(key)
+    return None
+
+
 def hent_historikk(hours: int = 24) -> list:
     end_utc   = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     start_utc = end_utc - timedelta(hours=hours)
@@ -643,17 +650,17 @@ def _build_payload(tolkning, sno_data, loyper_data, s, daglig, kamera_data=None)
         ],
         "intervaller": [
             {
-                "start":        iv.get("start"),
-                "temperatur_c": iv.get("temperatur_c"),
-                "nedbor_mm":    iv.get("nedbør_mm"),
-                "nedbor_min_mm": iv.get("nedbør_min_mm"),
-                "nedbor_maks_mm": iv.get("nedbør_maks_mm"),
-                "nedbor_sannsynlighet_pct": iv.get("nedbør_sannsynlighet_pct"),
-                "vind_ms":      iv.get("vind_ms"),
-                "vind_kast_ms": iv.get("vind_kast_ms"),
-                "vindretning_grader": iv.get("vindretning_grader"),
-                "ver_ikon":     iv.get("vær_ikon"),
-                "timer":        iv.get("timer"),
+                "start":        _pick_first(iv, "start", "tid", "time", "from"),
+                "temperatur_c": _pick_first(iv, "temperatur_c", "temperature_c", "lufttemperatur_c", "air_temperature"),
+                "nedbor_mm":    _pick_first(iv, "nedbør_mm", "nedbor_mm", "precipitation_mm", "precipitation_amount"),
+                "nedbor_min_mm": _pick_first(iv, "nedbør_min_mm", "nedbor_min_mm", "precipitation_min_mm"),
+                "nedbor_maks_mm": _pick_first(iv, "nedbør_maks_mm", "nedbor_maks_mm", "precipitation_max_mm"),
+                "nedbor_sannsynlighet_pct": _pick_first(iv, "nedbør_sannsynlighet_pct", "nedbor_sannsynlighet_pct", "precipitation_probability", "probability_of_precipitation"),
+                "vind_ms":      _pick_first(iv, "vind_ms", "vindhastighet_ms", "wind_speed", "wind_speed_ms"),
+                "vind_kast_ms": _pick_first(iv, "vind_kast_ms", "vindkast_ms", "vind_kast", "vindkast", "wind_speed_of_gust", "wind_speed_of_gust_ms", "gust", "gust_ms", "wind_gust", "wind_gust_ms"),
+                "vindretning_grader": _pick_first(iv, "vindretning_grader", "vindretning", "vindretning_deg", "wind_from_direction", "wind_from_direction_deg", "wind_direction", "direction_deg"),
+                "ver_ikon":     _pick_first(iv, "vær_ikon", "ver_ikon", "ikon", "weather_icon", "symbol"),
+                "timer":        _pick_first(iv, "timer", "hours", "duration_hours"),
             }
             for iv in sno_data.get("intervaller", [])
         ],
@@ -2019,6 +2026,64 @@ function analyserDag(dato, ivs, solOpp, solNed) {
   return {score, kort, besteTid, detalj};
 }
 
+function normaliserVindretning(verdi){
+  if(verdi==null) return null;
+  if(typeof verdi==='number' && Number.isFinite(verdi)) return ((verdi%360)+360)%360;
+
+  const s=String(verdi).trim().toUpperCase();
+  if(!s) return null;
+
+  const direkteTall=Number(s.replace(',', '.'));
+  if(Number.isFinite(direkteTall)) return ((direkteTall%360)+360)%360;
+
+  const kart={
+    'N':0,'NORD':0,
+    'NØ':45,'NORTHEAST':45,'NORDØST':45,'NE':45,
+    'Ø':90,'EAST':90,'ØST':90,'E':90,
+    'SØ':135,'SOUTHEAST':135,'SØRØST':135,'SE':135,
+    'S':180,'SØR':180,'SOUTH':180,
+    'SV':225,'SOUTHWEST':225,'SØRVEST':225,'SW':225,
+    'V':270,'WEST':270,'VEST':270,'W':270,
+    'NV':315,'NORTHWEST':315,'NORDVEST':315,'NW':315,
+  };
+  return Object.prototype.hasOwnProperty.call(kart, s) ? kart[s] : null;
+}
+
+function fmtVindPilFraGrader(deg){
+  const normalisert=normaliserVindretning(deg);
+  if(normalisert==null) return '';
+  const dirs=['↑','↗','→','↘','↓','↙','←','↖'];
+  const idx=Math.round(normalisert/45)%8;
+  return dirs[idx];
+}
+
+function lesVindSnitt(iv){
+  const kandidater=[iv?.vind_ms, iv?.vindMs, iv?.vindhastighet_ms, iv?.wind_speed, iv?.windSpeed, iv?.wind_speed_ms];
+  for(const v of kandidater){
+    const n=Number(v);
+    if(v!=null && Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function lesVindKast(iv){
+  const kandidater=[iv?.vind_kast_ms, iv?.vindkast_ms, iv?.vind_kast, iv?.vindkast, iv?.wind_speed_of_gust, iv?.wind_speed_of_gust_ms, iv?.windGust, iv?.wind_gust, iv?.gust, iv?.gust_ms];
+  for(const v of kandidater){
+    const n=Number(v);
+    if(v!=null && Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function lesVindretning(iv){
+  const kandidater=[iv?.vindretning_grader, iv?.vindretning, iv?.vindretning_deg, iv?.wind_from_direction, iv?.wind_from_direction_deg, iv?.windDirection, iv?.wind_direction, iv?.direction_deg];
+  for(const v of kandidater){
+    const n=normaliserVindretning(v);
+    if(n!=null) return n;
+  }
+  return null;
+}
+
 function dagStats(ivs, solOpp, solNed) {
   function tTilMin(t){ if(!t||!t.includes(':'))return 0; const[h,m]=t.split(':');return+h*60+ +m; }
   const solOppMin=tTilMin(solOpp), solNedMin=tTilMin(solNed);
@@ -2026,20 +2091,51 @@ function dagStats(ivs, solOpp, solNed) {
 
   let regnMm=0, snoMm=0, vindSum=0, vindMaks=0, solTimer=0;
   let solCount=0, delvisCount=0, overskyetCount=0;
-  let totalTimer=0;
+  let totalTimer=0, harVindData=false, harKastData=false;
+  let retSin=0, retCos=0, retWeight=0;
+
   for(const iv of ivs){
-    const nb=iv.nedbor_mm||0, temp=iv.temperatur_c||0, vind=iv.vind_ms||0;
+    const nb=Number(iv.nedbor_mm||0);
+    const temp=Number(iv.temperatur_c||0);
+    const vind=lesVindSnitt(iv) ?? 0;
+    const kast=lesVindKast(iv);
+    const retning=lesVindretning(iv);
     const ikon=iv.ver_ikon||'';
-    const t=iv.timer||1;
+    const t=Number(iv.timer||1);
+
     if(temp>1.5) regnMm+=nb; else snoMm+=nb;
-    vindSum+=vind*t; totalTimer+=t;
-    if(vind>vindMaks) vindMaks=vind;
+
+    vindSum+=vind*t;
+    totalTimer+=t;
+    if(lesVindSnitt(iv)!=null) harVindData=true;
+    if(kast!=null) harKastData=true;
+
+    const vindTop=Math.max(vind, kast!=null?kast:0);
+    if(vindTop>vindMaks) vindMaks=vindTop;
+
+    if(retning!=null){
+      const weight=Math.max(vindTop, 0.1)*t;
+      const rad=retning*Math.PI/180;
+      retSin+=Math.sin(rad)*weight;
+      retCos+=Math.cos(rad)*weight;
+      retWeight+=weight;
+    }
+
     if(['☀','🌤','⛅'].some(s=>ikon.includes(s))&&ivMin(iv)>=solOppMin&&ivMin(iv)<=solNedMin&&t<=1) solTimer+=t;
     if(ikon.includes('☀')) solCount+=t;
     else if(ikon.includes('🌤')||ikon.includes('⛅')) delvisCount+=t;
     else if(ikon.includes('☁')||ikon.includes('🌥')||ikon.includes('🌫')) overskyetCount+=t;
   }
+
   const vindSnitt=totalTimer?vindSum/totalTimer:0;
+  const vindRetningGrader=retWeight?((Math.atan2(retSin, retCos)*180/Math.PI)+360)%360:null;
+  const vindPil=fmtVindPilFraGrader(vindRetningGrader);
+  const avrundetSnitt=harVindData?Math.round(vindSnitt):null;
+  const avrundetMaks=(harVindData||harKastData)?Math.round(vindMaks):null;
+  const vindKort=avrundetSnitt!=null
+    ? (harKastData && avrundetMaks!=null ? `${avrundetSnitt}(${avrundetMaks})` : `${avrundetSnitt}`)
+    : '–';
+
   const symboler=[];
   if(solCount>=Math.max(delvisCount,overskyetCount) && solCount>0) symboler.push('☀️ Sol');
   else if(overskyetCount>=Math.max(solCount,delvisCount) && overskyetCount>0) symboler.push('☁️ Overskyet');
@@ -2053,6 +2149,9 @@ function dagStats(ivs, solOpp, solNed) {
     totMm:  Math.round((regnMm+snoMm)*10)/10,
     vindSnitt: Math.round(vindSnitt*10)/10,
     vindMaks:  Math.round(vindMaks*10)/10,
+    vindKort,
+    vindPil,
+    vindRetningGrader: vindRetningGrader!=null ? Math.round(vindRetningGrader) : null,
     solTimer:  Math.round(solTimer),
     symboler,
   };
@@ -2137,7 +2236,7 @@ function renderSkiturDager(dager, el, intervaller) {
           <div class="ski-day-name-top">${dagStr}</div>
         </div>
         <div class="ski-day-right">
-          <div class="ski-day-title">${dagStr} ${datoStr}${st?` <span class="ski-day-stats-inline">${st.snoMm>0?'❄️ '+st.snoMm+'mm':''}${st.regnMm>0?(st.snoMm>0?' · ':'')+'🌧️ '+st.regnMm+'mm':''} · 💨 ${st.vindSnitt}/${st.vindMaks}m/s${st.solTimer>0?' · ☀️ '+st.solTimer+'t':''}</span>`:''}</div>
+          <div class="ski-day-title">${dagStr} ${datoStr}${st?` <span class="ski-day-stats-inline">${st.snoMm>0?'❄️ '+st.snoMm+'mm':''}${st.regnMm>0?(st.snoMm>0?' · ':'')+'🌧️ '+st.regnMm+'mm':''} · 💨 ${st.vindKort}${st.vindPil?' '+st.vindPil:''}${st.solTimer>0?' · ☀️ '+st.solTimer+'t':''}</span>`:''}</div>
           ${symbolsHtml}
           <div class="ski-day-kort">${kort}</div>
           <div class="ski-day-kort" style="margin-top:4px;color:var(--text);opacity:0.75;">${detalj}</div>
@@ -2197,7 +2296,7 @@ function renderSkiChart(i, dato){
   const temps=ivs.map(iv=>iv.temperatur_c!=null?parseFloat(iv.temperatur_c):null);
   const precip=ivs.map(iv=>iv.nedbor_mm!=null?parseFloat(iv.nedbor_mm):null);
   const precipColors=ivs.map(iv=>(iv.temperatur_c||0)<=0?'rgba(116,192,252,0.7)':'rgba(255,107,107,0.7)');
-  const wind=ivs.map(iv=>iv.vind_ms!=null?parseFloat(iv.vind_ms):null);
+  const wind=ivs.map(iv=>{ const v=lesVindSnitt(iv); return v!=null?parseFloat(v):null; });
 
   if(_skiCharts[i]) _skiCharts[i].destroy();
   _skiCharts[i]=new Chart(ctx,{
@@ -2232,12 +2331,6 @@ function renderSkiTable(i, dato){
   if(!el) return;
   const ivs=(window._skiIntervaller||[]).filter(iv=>(iv.start||'').startsWith(dato));
   if(!ivs.length){ el.innerHTML=''; return; }
-  function fmtVindretning(deg){
-    if(deg==null || Number.isNaN(Number(deg))) return '';
-    const dirs=['N','NØ','Ø','SØ','S','SV','V','NV'];
-    const idx=Math.round((((Number(deg)%360)+360)%360)/45)%8;
-    return dirs[idx];
-  }
   const rows=ivs.map(iv=>{
     const dt=new Date(iv.start);
     const hh=String(dt.getHours()).padStart(2,'0')+':00';
@@ -2250,11 +2343,13 @@ function renderSkiTable(i, dato){
     const nbCombined=visRange?`${nb} (${nbMin}/${nbMaks})`:nb;
     const nbProbRaw=iv.nedbor_sannsynlighet_pct!=null?Math.round(Number(iv.nedbor_sannsynlighet_pct)):null;
     const nbProb=(Number(iv.nedbor_mm||0)===0 && nbProbRaw===0)?'–':(nbProbRaw!=null?`${nbProbRaw}%`:'–');
-    const vindSnitt=iv.vind_ms!=null?Number(iv.vind_ms).toFixed(1):null;
-    const vindMaks=iv.vind_kast_ms!=null?Number(iv.vind_kast_ms).toFixed(1):null;
-    const vindRetning=fmtVindretning(iv.vindretning_grader);
-    const vind=vindSnitt!=null?(vindMaks!=null?`${vindSnitt} (${vindMaks}) m/s`:`${vindSnitt} m/s`):'–';
-    const vindMedRetning=vindRetning?`${vind} ${vindRetning}`:vind;
+    const vindSnittRaw=lesVindSnitt(iv);
+    const vindKastRaw=lesVindKast(iv);
+    const vindSnitt=vindSnittRaw!=null?Math.round(vindSnittRaw):null;
+    const vindMaks=vindKastRaw!=null?Math.round(vindKastRaw):null;
+    const vindPil=fmtVindPilFraGrader(lesVindretning(iv));
+    const vind=vindSnitt!=null?(vindMaks!=null?`${vindSnitt}(${vindMaks})`:`${vindSnitt}`):'–';
+    const vindMedRetning=vindPil?`${vind} ${vindPil}`:vind;
     const type=(iv.nedbor_mm||0)<0.15?'Tørt':((iv.temperatur_c||0)>1.5?'Regn':((iv.temperatur_c||0)>0?'Sludd':'Snø'));
     return `<tr><td>${hh}</td><td>${ikon||'–'}</td><td>${t}</td><td>${nbCombined}</td><td>${nbProb}</td><td>${vindMedRetning}</td><td>${type}</td></tr>`;
   }).join('');

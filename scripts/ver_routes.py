@@ -339,6 +339,109 @@ def _vær_type(temp: float, nedbør: float) -> dict:
     return {"icon": "🌧️", "label": "Regn"}
 
 
+
+def _is_missing_value(value: Any) -> bool:
+    if value is None:
+        return True
+    try:
+        return bool(pd.isna(value))
+    except Exception:
+        return False
+
+
+def _pick_first_value(obj: Any, *names: str) -> Any:
+    """Finn første ikke-tomme felt, både direkte og ett nivå ned i vanlige beholdere."""
+    if obj is None:
+        return None
+
+    containers = [obj]
+
+    def _add_subcontainers(container: Any) -> None:
+        for subname in ("details", "data", "instant", "values", "forecast", "weather", "properties"):
+            sub = None
+            if isinstance(container, dict):
+                sub = container.get(subname)
+            else:
+                sub = getattr(container, subname, None)
+            if sub is not None:
+                containers.append(sub)
+
+    _add_subcontainers(obj)
+    # Ett ekstra nivå ned gir støtte for f.eks. {"instant": {"details": {...}}}
+    for container in list(containers):
+        _add_subcontainers(container)
+
+    for container in containers:
+        if isinstance(container, dict):
+            for name in names:
+                if name in container and not _is_missing_value(container[name]):
+                    return container[name]
+        else:
+            for name in names:
+                if hasattr(container, name):
+                    value = getattr(container, name)
+                    if not _is_missing_value(value):
+                        return value
+    return None
+
+
+def _safe_float(value: Any) -> Optional[float]:
+    if _is_missing_value(value):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_time_key(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, pd.Timestamp):
+        ts = value
+    else:
+        try:
+            ts = pd.to_datetime(value, utc=True)
+        except Exception:
+            try:
+                txt = str(value).strip()
+                if txt.endswith("Z"):
+                    txt = txt[:-1] + "+00:00"
+                ts = pd.to_datetime(txt, utc=True)
+            except Exception:
+                return str(value)
+    if pd.isna(ts):
+        return None
+    if getattr(ts, "tzinfo", None) is None:
+        ts = ts.tz_localize(timezone.utc)
+    else:
+        ts = ts.tz_convert(timezone.utc)
+    return ts.isoformat()
+
+
+def _build_raw_interval_lookup(intervaller: Any) -> dict[str, Any]:
+    lookup: dict[str, Any] = {}
+    for iv in intervaller or []:
+        start_value = _pick_first_value(
+            iv,
+            "start", "from", "time", "referenceTime", "valid_from", "start_time",
+            "fra", "tid",
+        )
+        key = _normalize_time_key(start_value)
+        if key and key not in lookup:
+            lookup[key] = iv
+    return lookup
+
+
+def _row_pick_first(rad: pd.Series, *names: str) -> Any:
+    for name in names:
+        if name in rad.index:
+            value = rad.get(name)
+            if not _is_missing_value(value):
+                return value
+    return None
+
+
 def _hent_prognose_data(
     stasjon_navn: str,
     *,
@@ -377,14 +480,70 @@ def _hent_prognose_data(
 
     # 2) YR-varsel
     intervaller = hent_intervaller(config["place"])
+    raw_interval_lookup = _build_raw_interval_lookup(intervaller)
 
     # 3) Simuler
-    df = simuler_snøprognose(intervaller, snødybde_cm)
+    df = simuler_snøprognose(intervaller, snødybde_cm).copy()
+
+    # 3b) Berik dataframe med vindkast og vindretning fra rå YR-intervaller
+    if "vind_kast_ms" not in df.columns:
+        df["vind_kast_ms"] = None
+    if "vindretning_grader" not in df.columns:
+        df["vindretning_grader"] = None
+
+    for idx, rad in df.iterrows():
+        gust = _safe_float(_row_pick_first(
+            rad,
+            "vind_kast_ms", "vindkast_ms", "vind_kast", "vindkast",
+            "wind_speed_of_gust", "wind_speed_of_gust_ms", "wind_gust_ms",
+            "wind_gust", "gust_ms", "gust",
+        ))
+        direction = _safe_float(_row_pick_first(
+            rad,
+            "vindretning_grader", "vindretning", "vindretning_deg",
+            "wind_from_direction_deg", "wind_from_direction",
+            "wind_direction_deg", "wind_direction", "direction_deg",
+        ))
+
+        if gust is None or direction is None:
+            raw_iv = raw_interval_lookup.get(_normalize_time_key(rad.get("start")))
+            if raw_iv is not None:
+                if gust is None:
+                    gust = _safe_float(_pick_first_value(
+                        raw_iv,
+                        "vind_kast_ms", "vindkast_ms", "vind_kast", "vindkast",
+                        "wind_speed_of_gust", "wind_speed_of_gust_ms",
+                        "wind_gust_ms", "wind_gust", "gust_ms", "gust",
+                    ))
+                if direction is None:
+                    direction = _safe_float(_pick_first_value(
+                        raw_iv,
+                        "vindretning_grader", "vindretning", "vindretning_deg",
+                        "wind_from_direction_deg", "wind_from_direction",
+                        "wind_direction_deg", "wind_direction", "direction_deg",
+                    ))
+
+        if gust is not None:
+            df.at[idx, "vind_kast_ms"] = gust
+        if direction is not None:
+            df.at[idx, "vindretning_grader"] = direction
 
     # 4) Bygg intervall-data med vær-type
     intervall_data = []
     for _, rad in df.iterrows():
         vær = _vær_type(rad["temperatur_c"], rad["nedbør_mm"])
+        gust = _safe_float(_row_pick_first(
+            rad,
+            "vind_kast_ms", "vindkast_ms", "vind_kast", "vindkast",
+            "wind_speed_of_gust", "wind_speed_of_gust_ms", "wind_gust_ms",
+            "wind_gust", "gust_ms", "gust",
+        ))
+        direction = _safe_float(_row_pick_first(
+            rad,
+            "vindretning_grader", "vindretning", "vindretning_deg",
+            "wind_from_direction_deg", "wind_from_direction",
+            "wind_direction_deg", "wind_direction", "direction_deg",
+        ))
         intervall_data.append({
             "start":        rad["start"].isoformat() if hasattr(rad["start"], "isoformat") else str(rad["start"]),
             "slutt":        rad["slutt"].isoformat() if hasattr(rad["slutt"], "isoformat") else str(rad["slutt"]),
@@ -400,6 +559,8 @@ def _hent_prognose_data(
             "snødybde_cm":  rad["snødybde_cm"],
             "snøfaktor":    rad["snøfaktor"],
             "vind_ms":      round(float(rad.get("vind_ms")), 1) if pd.notna(rad.get("vind_ms")) else None,
+            "vind_kast_ms": round(float(gust), 1) if gust is not None else None,
+            "vindretning_grader": int(round(float(direction))) if direction is not None else None,
             "vær_ikon":     vær["icon"],
             "vær_label":    vær["label"],
         })
@@ -418,6 +579,7 @@ def _hent_prognose_data(
             snødybde_slutt_cm=("snødybde_cm", "last"),
             vind_ms_snitt=("vind_ms", "mean"),
             vind_ms_maks=("vind_ms", "max"),
+            vind_kast_ms_maks=("vind_kast_ms", "max"),
         )
         .round(1)
     )
@@ -444,6 +606,7 @@ def _hent_prognose_data(
             "snødybde_slutt_cm": rad["snødybde_slutt_cm"],
             "vind_ms_snitt":     rad["vind_ms_snitt"],
             "vind_ms_maks":      rad["vind_ms_maks"],
+            "vind_kast_ms_maks": rad.get("vind_kast_ms_maks"),
             "vær_ikon":          vær["icon"],
             "vær_label":         vær["label"],
         })
