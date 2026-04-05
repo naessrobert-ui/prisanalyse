@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import math
 import time
@@ -1366,7 +1366,7 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
 <div class="page">
   <div class="card">
     <h1>Vind i Norge</h1>
-    <p style="margin:0;color:#475569;">Velg observerte vinddata (Frost) eller forventet vind neste 24 timer (Yr). Klikk på en stasjon for detaljert værvarsling.</p>
+    <p style="margin:0;color:#475569;">Velg observerte vinddata (Frost) eller forventet vind neste 24 timer (Yr).</p>
     <form id="controls-form" class="controls">
       <label>Dato:</label><input type="date" id="date-input" value="{today_str}" max="{today_str}">
       <label>Kilde:</label>
@@ -1402,8 +1402,41 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
       <button type="button" id="btn-reset">Reset kart</button>
     </form>
   </div>
+
+  <details style="margin-top:12px;border:0.5px solid var(--color-border-tertiary,#e5e7eb);border-radius:8px;padding:8px 12px;">
+    <summary style="cursor:pointer;font-size:13px;font-weight:500;color:var(--color-text-secondary,#6b7280);user-select:none;">
+      &#128168; Hva betyr vindstyrken? (Beaufort-skalaen)
+    </summary>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
+      <thead><tr style="border-bottom:1px solid var(--color-border-tertiary,#e5e7eb);">
+        <th style="text-align:left;padding:4px 6px;font-weight:500;color:var(--color-text-secondary,#6b7280);">Bf</th>
+        <th style="text-align:left;padding:4px 6px;font-weight:500;color:var(--color-text-secondary,#6b7280);">m/s</th>
+        <th style="text-align:left;padding:4px 6px;font-weight:500;color:var(--color-text-secondary,#6b7280);">Betegnelse</th>
+        <th style="text-align:left;padding:4px 6px;font-weight:500;color:var(--color-text-secondary,#6b7280);display:none" class="bf-desc">Beskrivelse</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:3px 6px;color:#888">0</td><td style="padding:3px 6px;font-family:monospace">0–0.2</td><td style="padding:3px 6px">Stille</td></tr>
+        <tr><td style="padding:3px 6px;color:#639922">1–3</td><td style="padding:3px 6px;font-family:monospace">0.3–5.4</td><td style="padding:3px 6px">Svak vind</td></tr>
+        <tr><td style="padding:3px 6px;color:#639922">4</td><td style="padding:3px 6px;font-family:monospace">5.5–7.9</td><td style="padding:3px 6px">Laber bris</td></tr>
+        <tr style="background:var(--color-background-secondary,#f9fafb)"><td style="padding:3px 6px;color:#BA7517">5</td><td style="padding:3px 6px;font-family:monospace">8–10.7</td><td style="padding:3px 6px">Frisk bris &#8212; sm&#229;tr&#230;r svaier</td></tr>
+        <tr><td style="padding:3px 6px;color:#EF9F27">6</td><td style="padding:3px 6px;font-family:monospace">10.8–13.8</td><td style="padding:3px 6px">Liten kuling &#8212; store greiner beveger seg</td></tr>
+        <tr style="background:var(--color-background-secondary,#f9fafb)"><td style="padding:3px 6px;color:#D85A30">7</td><td style="padding:3px 6px;font-family:monospace">13.9–17.1</td><td style="padding:3px 6px">Stiv kuling &#8212; tungt &#229; g&#229; mot vinden</td></tr>
+        <tr><td style="padding:3px 6px;color:#993C1D">8</td><td style="padding:3px 6px;font-family:monospace">17.2–20.7</td><td style="padding:3px 6px">Sterk kuling &#8212; nesten umulig &#229; g&#229; mot vinden</td></tr>
+        <tr style="background:var(--color-background-secondary,#f9fafb)"><td style="padding:3px 6px;color:#A32D2D">9</td><td style="padding:3px 6px;font-family:monospace">20.8–24.4</td><td style="padding:3px 6px">Liten storm &#8212; takstein kan l&#248;sne</td></tr>
+        <tr><td style="padding:3px 6px;color:#791F1F">10</td><td style="padding:3px 6px;font-family:monospace">24.5–28.4</td><td style="padding:3px 6px">Full storm &#8212; tr&#230;r rykkes opp</td></tr>
+        <tr style="background:var(--color-background-secondary,#f9fafb)"><td style="padding:3px 6px;color:#501313">11</td><td style="padding:3px 6px;font-family:monospace">28.5–32.6</td><td style="padding:3px 6px">Sterk storm &#8212; store &#248;deleggelser</td></tr>
+        <tr><td style="padding:3px 6px;font-weight:500;color:#2C2C2A">12</td><td style="padding:3px 6px;font-family:monospace">32.7+</td><td style="padding:3px 6px;font-weight:500">Orkan &#8212; katastrofeskader</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:11px;color:var(--color-text-secondary,#6b7280);margin-top:6px;">
+      Kast er typisk 30&#8211;50% h&#248;yere enn middelvindhastigheten.
+    </p>
+  </details>
   <div style="position:relative;">
-    <div id="map-loader" style="position:absolute;inset:0;z-index:10;background:rgba(15,23,42,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;min-height:400px;">
+    <div style="padding:4px 0 6px;color:#64748b;font-size:12px;">
+    💡 Klikk på en stasjon for time-for-time vær- og vinddata
+  </div>
+  <div id="map-loader" style="position:absolute;inset:0;z-index:10;background:rgba(15,23,42,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;min-height:400px;">
       <div style="width:48px;height:48px;border:5px solid #334155;border-top-color:#93c5fd;border-radius:50%;animation:spin 0.9s linear infinite;"></div>
       <div id="loader-text" style="color:#93c5fd;margin-top:16px;font-size:14px;font-family:system-ui;">Henter vinddata...</div>
     </div>

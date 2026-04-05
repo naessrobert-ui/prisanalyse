@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 from __future__ import annotations
 
 import os
@@ -159,6 +159,7 @@ _STATIC_WIND_IDS: set[str] = {'SN76930', 'SN92350', 'SN75410', 'SN28380', 'SN103
 
 
 _WIND_SOURCE_CACHE: tuple[float, set[str]] | None = None
+_LEARNED_WIND_IDS: set[str] = set()  # Stasjoner som har gitt data — vokser over tid
 
 
 def _fetch_wind_source_ids(session: requests.Session, *, auth: FrostAuth, timeout: int = DEFAULT_TIMEOUT) -> set[str]:
@@ -284,6 +285,57 @@ def _fmt_label(mode: Mode, period: Period, metric: Metric, selected: _date, fore
     return f'Måned {selected.strftime("%Y-%m")} – {mtxt}'
 
 
+def warmup_wind_stations(timeout: int = 30) -> None:
+    """Kjøres i bakgrunnen ved oppstart — prøver alle stasjoner og lærer hvilke som gir data."""
+    import threading
+    def _run():
+        global _LEARNED_WIND_IDS
+        try:
+            auth = _env_auth()
+            session = requests.Session()
+            # Hent alle Frost-vindstasjoner
+            r = session.get(
+                f'{FROST_BASE}/sources/v0.jsonld',
+                params={'country': 'NO', 'elements': 'wind_speed,wind_speed_of_gust'},
+                auth=auth, timeout=timeout,
+            )
+            if r.status_code != 200:
+                return
+            all_ids = list({str(s.get('id','')).split(':')[0]
+                           for s in r.json().get('data', []) or []
+                           if str(s.get('id','')).startswith('SN')})
+
+            # Hent observasjoner i batches for å se hvem som svarer
+            now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+            start = now - timedelta(hours=2)
+            rt = f"{start.strftime('%Y-%m-%dT%H:00:00Z')}/{now.strftime('%Y-%m-%dT%H:00:00Z')}"
+            batch_size = 50
+            found: set[str] = set()
+            for i in range(0, len(all_ids), batch_size):
+                batch = all_ids[i:i+batch_size]
+                try:
+                    resp = session.get(
+                        f'{FROST_BASE}/observations/v0.jsonld',
+                        params={'sources': ','.join(batch), 'referencetime': rt,
+                                'elements': 'wind_speed', 'limit': 1000},
+                        auth=auth, timeout=20,
+                    )
+                    if resp.status_code == 200:
+                        for item in resp.json().get('data', []) or []:
+                            sid = str(item.get('sourceId','')).split(':')[0]
+                            if sid:
+                                found.add(sid)
+                except Exception:
+                    pass
+            if len(found) >= 10:
+                _LEARNED_WIND_IDS.update(found)
+                print(f'[VIND] Warmup ferdig: {len(_LEARNED_WIND_IDS)} aktive vindstasjoner funnet', flush=True)
+        except Exception as e:
+            print(f'[VIND] Warmup feilet: {e}', flush=True)
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', metric: Metric = 'gust', date_str: Optional[str] = None,
                         forecast_hours: int = 24, region: Region = 'all',
                         bbox: Optional[str] = None, z: Optional[str] = None, clat: Optional[str] = None, clon: Optional[str] = None,
@@ -327,8 +379,10 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
 
     auth = _env_auth()
     session = requests.Session()
-    # Bruk statisk liste over kjente vindstasjoner — slipper Frost /sources-kall.
-    filtered = stations[stations['baseId'].isin(_STATIC_WIND_IDS)].copy()
+    # Bruk lært cache hvis vi har data, ellers start med statisk liste.
+    # Cachen vokser automatisk når nye stasjoner gir data.
+    active_ids = _LEARNED_WIND_IDS if len(_LEARNED_WIND_IDS) >= 10 else _STATIC_WIND_IDS
+    filtered = stations[stations['baseId'].isin(active_ids)].copy()
     if len(filtered) >= 10:
         stations = filtered
 
@@ -363,6 +417,8 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
             agg = _aggregate_obs(obs, metric=metric)
             if not agg.empty:
                 merged = stations.merge(agg, left_on='baseId', right_on='sourceId', how='inner')
+                # Lær hvilke stasjoner som ga data
+                _LEARNED_WIND_IDS.update(merged['baseId'].tolist())
         except Exception:
             merged = pd.DataFrame()
     else:
@@ -386,6 +442,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
                 if val is None:
                     continue
                 rows.append({'baseId': st['baseId'], 'value': val, 'points': 1})
+                _LEARNED_WIND_IDS.add(st['baseId'])
         if rows:
             fdf = pd.DataFrame(rows)
             merged = stations.merge(fdf, on='baseId', how='inner')
