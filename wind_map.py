@@ -32,7 +32,7 @@ def build_wind_map_html(
     *,
     mode: str = "observed",
     period: str = "hour",
-    metric: str = "avg",
+    metric: str = "gust",
     date_str: Optional[str] = None,
     forecast_hours: int = 24,
     region: str = "all",
