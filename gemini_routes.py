@@ -1,5 +1,5 @@
 import os
-import google.generativeai as genai
+import anthropic
 from flask import Blueprint, request, jsonify, render_template
 from dotenv import load_dotenv
 
@@ -9,26 +9,21 @@ gemini_bp = Blueprint("gemini_kode", __name__, template_folder="templates")
 # Last inn API-nøkkel fra .env-filen
 load_dotenv()
 
-# --- Konfigurer Gemini API ---
+# --- Konfigurer Anthropic API ---
 try:
-    # Sjekker både GEMINI og GOOGLE nøkkelnavn for sikkerhets skyld
-    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
 
     if not api_key:
-        print("❌ Advarsel: Fant ingen API-nøkkel i .env-filen (sjekk GEMINI_API_KEY eller GOOGLE_API_KEY).")
-        model = None
+        print("❌ Advarsel: Fant ingen ANTHROPIC_API_KEY i .env-filen.")
+        client = None
     else:
-        genai.configure(api_key=api_key)
-
-        # Inntil videre bruker vi 2.5-modellen fast
-        GEMINI_MODEL_NAME = "gemini-2.5-pro"
-
-        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        print(f"✅ Gemini API konfigurert OK med modell: {GEMINI_MODEL_NAME}")
+        client = anthropic.Anthropic(api_key=api_key)
+        CLAUDE_MODEL = "claude-sonnet-4-20250514"
+        print(f"✅ Anthropic API konfigurert OK med modell: {CLAUDE_MODEL}")
 
 except Exception as e:
-    print(f"❌ Feil under konfigurering av Gemini API: {e}")
-    model = None
+    print(f"❌ Feil under konfigurering av Anthropic API: {e}")
+    client = None
 
 # --- Systeminstruksjoner ---
 
@@ -74,8 +69,8 @@ def generate_code():
       - mode='finans'          : finans/analyse, både tekst og kode.
       - mode='free'            : helt fri assistent.
     """
-    if not model:
-        return jsonify({"error": "Gemini API er ikke konfigurert. Sjekk server-loggen."}), 500
+    if not client:
+        return jsonify({"error": "Anthropic API er ikke konfigurert. Sjekk server-loggen."}), 500
 
     data = request.get_json(silent=True) or {}
     user_prompt = data.get("prompt")
@@ -95,17 +90,18 @@ def generate_code():
         else:
             return jsonify({"error": f"Ukjent mode: {mode}"}), 400
 
-        full_prompt = f"{system_instruction}\n\nBrukerens forespørsel: {user_prompt}"
-
-        response = model.generate_content(full_prompt)
-        text = response.text or ""
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=4096,
+            system=system_instruction,
+            messages=[{"role": "user", "content": user_prompt}]
+        )
+        text = response.content[0].text or ""
 
         # Forskjellig payload ut basert på mode
         if mode == "bquant":
-            # Kompatibel med gammel frontend: 'code'
             return jsonify({"mode": mode, "code": text})
         else:
-            # Finans + fri-modus: bruk 'text'
             return jsonify({"mode": mode, "text": text})
 
     except Exception as e:
@@ -116,14 +112,18 @@ def generate_code():
 # --- Test-blokk ---
 if __name__ == "__main__":
     print("\n--- Starter manuell test av gemini_routes.py ---")
-    if model:
-        print("Sender test-spørsmål til Gemini...")
+    if client:
+        print("Sender test-spørsmål til Claude...")
         try:
-            test_response = model.generate_content("Skriv print('Hello World') i Python")
-            print("\nSvar fra Gemini:")
-            print(test_response.text)
+            test_response = client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=100,
+                messages=[{"role": "user", "content": "Skriv print('Hello World') i Python"}]
+            )
+            print("\nSvar fra Claude:")
+            print(test_response.content[0].text)
             print("\n✅ Test vellykket!")
         except Exception as e:
             print(f"\n❌ Test feilet: {e}")
     else:
-        print("❌ Kan ikke kjøre test fordi modellen ikke er lastet.")
+        print("❌ Kan ikke kjøre test fordi klienten ikke er lastet.")
