@@ -18,7 +18,7 @@ try:
         client = None
     else:
         client = anthropic.Anthropic(api_key=api_key)
-        CLAUDE_MODEL = "claude-sonnet-4-20250514"
+        CLAUDE_MODEL = "claude-sonnet-4-6"
         print(f"✅ Anthropic API konfigurert OK med modell: {CLAUDE_MODEL}")
 
 except Exception as e:
