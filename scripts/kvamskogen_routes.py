@@ -39,7 +39,7 @@ kvamskogen_bp = Blueprint("kvamskogen", __name__, url_prefix="/kvamskogen")
 LOCAL_TZ = ZoneInfo("Europe/Oslo")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-ANTHROPIC_MODEL   = "claude-haiku-4-5-20251001"
+ANTHROPIC_MODEL   = "claude-haiku-4-5"
 
 _SYSTEM_PROMPT = """
 Du er en lokal værvakt på Kvamskogen som skriver engasjerende meldinger til en hytteeier.
@@ -114,7 +114,7 @@ def _analyser_kamera() -> dict:
                     "content-type": "application/json",
                 },
                 json={
-                    "model": "claude-haiku-4-5-20251001",
+                    "model": "claude-haiku-4-5",
                     "max_tokens": 200,
                     "system": _KAMERA_SYSTEM,
                     "messages": [{
@@ -427,9 +427,11 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
 
     try:
         import base64
+        import gc
 
         # Bygg meldings-innhold: værtall + kamerabilder
         user_content: list = [{"type": "text", "text": payload_str}]
+        img_session = None
 
         if kamera_data:
             img_session = requests.Session()
@@ -451,6 +453,7 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
                     if ct not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
                         ct = "image/jpeg"
                     b64 = base64.b64encode(img_r.content).decode()
+                    img_r.close()  # frigjør response-minne umiddelbart
                     user_content.append({
                         "type": "text",
                         "text": f"Kamerabilde: {label}"
@@ -459,6 +462,7 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
                         "type": "image",
                         "source": {"type": "base64", "media_type": ct, "data": b64}
                     })
+                    del b64  # frigjør base64-streng etter den er lagt til
                 except Exception:
                     pass  # Hopp over dette kameraet hvis det feiler
 
@@ -484,6 +488,12 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
     except Exception:
         traceback.print_exc()
         return _fallback_tolkning(sno_data, loyper_data)
+    finally:
+        # Frigjør base64-bildene og HTTP-sessionen uansett hva som skjer
+        if img_session is not None:
+            img_session.close()
+        del user_content
+        gc.collect()
 
 
 def _fallback_tolkning(sno_data: dict, loyper_data: dict) -> dict:
@@ -702,6 +712,10 @@ def api_historikk():
         data = hent_historikk(hours)
         payload = {"ok": True, "data": data, "antall": len(data)}
         _HISTORIKK_CACHE[hours] = {"expires_at": now_ts + _HISTORIKK_CACHE_TTL, "payload": payload}
+        # Rydd ut utløpte nøkler så cachen ikke vokser ubegrenset
+        expired = [k for k, v in _HISTORIKK_CACHE.items() if v["expires_at"] <= now_ts]
+        for k in expired:
+            del _HISTORIKK_CACHE[k]
         return jsonify(payload)
     except Exception as e:
         traceback.print_exc()
@@ -1529,7 +1543,7 @@ def api_skitur_ai():
             headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
                      "content-type": "application/json"},
             json={
-                "model": "claude-haiku-4-5-20251001",
+                "model": "claude-haiku-4-5",
                 "max_tokens": 1024,
                 "system": _SKITUR_AI_PROMPT,
                 "messages": [{"role": "user", "content": json.dumps(dager_payload, ensure_ascii=False)}],
