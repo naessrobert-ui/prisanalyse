@@ -33,6 +33,7 @@ def build_wind_map_html(
     mode: str = "observed",
     period: str = "hour",
     metric: str = "gust",
+    hour_offset: int = 0,
     date_str: Optional[str] = None,
     forecast_hours: int = 24,
     region: str = "all",
@@ -56,6 +57,7 @@ def build_wind_map_html(
 
     selected_date = date_str or _date.today().isoformat()
     hours = max(6, min(int(forecast_hours or 24), 168))
+    selected_hour = max(0, min(int(hour_offset or 0), 24))
 
     details = {
         "modus": safe_mode,
@@ -63,6 +65,7 @@ def build_wind_map_html(
         "måling": safe_metric,
         "dato": selected_date,
         "forecast_hours": str(hours),
+        "hour_offset": str(selected_hour),
         "region": safe_region,
         "bbox": bbox or "(ingen)",
         "zoom": z or "(ukjent)",

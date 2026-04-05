@@ -1304,6 +1304,10 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
 .controls{{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;align-items:center;}}
 .controls input,.controls select{{padding:6px 10px;border-radius:10px;border:1px solid #d1d5db;}}
 .controls button{{padding:7px 14px;border-radius:999px;border:none;background:#2563eb;color:white;cursor:pointer;}}
+.controls .mini{{padding:6px 8px;min-width:78px;}}
+.range-wrap{{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:10px;border:1px solid #d1d5db;background:#fff;}}
+#hour-offset{{width:220px;}}
+#hour-label{{font-weight:600;color:#0f172a;min-width:52px;}}
 #map-frame{{width:100%;height:80vh;border:none;border-radius:16px;box-shadow:0 18px 45px rgba(15,23,42,.10);background:#e5e7eb;}}
 </style></head><body>
 <div class="page">
@@ -1393,17 +1397,29 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
         <option value="72">Neste 3 døgn</option>
         <option value="168">Neste uke</option>
       </select>
-      <label>Måling:</label>
-      <select id="metric-select">
-	        <option value="avg">Gjennomsnittsvind</option>
-	        <option value="peak">Høyeste timesverdi</option>
-	        <option value="gust" selected>Maks vindkast</option>
-      </select>
-      <button type="submit">Vis</button>
-      <button type="button" id="btn-reset">Reset kart</button>
-    </form>
-  </div>
-	  <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=gust" height="700"></iframe>
+	      <label>Måling:</label>
+	      <select id="metric-select">
+		        <option value="avg">Gjennomsnittsvind</option>
+		        <option value="peak">Høyeste timesverdi</option>
+		        <option value="gust" selected>Maks vindkast</option>
+	      </select>
+        <div class="range-wrap">
+          <label for="hour-offset">Time:</label>
+          <input type="range" id="hour-offset" min="0" max="24" step="1" value="0">
+          <span id="hour-label">Nå</span>
+        </div>
+        <label>Auto:</label>
+        <select id="play-delay" class="mini">
+          <option value="0" selected>Av</option>
+          <option value="1000">1s</option>
+          <option value="3000">3s</option>
+          <option value="10000">10s</option>
+        </select>
+	      <button type="submit">Vis</button>
+	      <button type="button" id="btn-reset">Reset kart</button>
+	    </form>
+	  </div>
+		  <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=gust&hour_offset=0" height="700"></iframe>
 </div>
 <script>
 const STORE_KEY="wind_view_v1";
@@ -1414,19 +1430,41 @@ const regionSelect=document.getElementById("region-select");
 const periodSelect=document.getElementById("period-select");
 const forecastHoursSelect=document.getElementById("forecast-hours");
 const metricSelect=document.getElementById("metric-select");
+const hourOffsetInput=document.getElementById("hour-offset");
+const hourLabel=document.getElementById("hour-label");
+const playDelaySelect=document.getElementById("play-delay");
+let playTimer = null;
 function readSaved(){{try{{const r=sessionStorage.getItem(STORE_KEY);return r?JSON.parse(r):null;}}catch(e){{return null;}}}}
 function saveFU(){{try{{const u=new URL(frame.contentWindow.location.href);const b=u.searchParams.get("bbox");if(!b)return;sessionStorage.setItem(STORE_KEY,JSON.stringify({{bbox:b,z:u.searchParams.get("z")||"",clat:u.searchParams.get("clat")||"",clon:u.searchParams.get("clon")||""}}));}}catch(e){{}}}}
+function updateHourLabel(){{
+  const v=parseInt(hourOffsetInput.value||"0",10);
+  if(v===0){{hourLabel.textContent="Nå"; return;}}
+  hourLabel.textContent=`+${{v}}t`;
+}}
 function buildUrl(){{
   const qs=new URLSearchParams();
   qs.set("mode",modeSelect.value||"observed");
   qs.set("region",regionSelect.value||"all");
   qs.set("period",periodSelect.value||"hour");
   qs.set("forecast_hours",forecastHoursSelect.value||"24");
-	  qs.set("metric",metricSelect.value||"gust");
+		  qs.set("metric",metricSelect.value||"gust");
+  qs.set("hour_offset",hourOffsetInput.value||"0");
   qs.set("date",dateInput.value||"{today_str}");
   const s=readSaved();
   if(s){{if(s.bbox)qs.set("bbox",s.bbox);if(s.z)qs.set("z",s.z);if(s.clat)qs.set("clat",s.clat);if(s.clon)qs.set("clon",s.clon);}}
   return "/ver/vind-kart?"+qs.toString();
+}}
+function stopPlayback(){{ if(playTimer){{clearInterval(playTimer); playTimer=null;}} }}
+function syncPlayback(){{
+  stopPlayback();
+  const delay=parseInt(playDelaySelect.value||"0",10);
+  if(delay<=0) return;
+  playTimer=setInterval(() => {{
+    const next=(parseInt(hourOffsetInput.value||"0",10)+1)%25;
+    hourOffsetInput.value=String(next);
+    updateHourLabel();
+    frame.src=buildUrl();
+  }}, delay);
 }}
 frame.addEventListener("load",saveFU);
 modeSelect.addEventListener("change",()=>{{const fc = modeSelect.value === "forecast";periodSelect.disabled = fc;forecastHoursSelect.disabled = !fc; frame.src=buildUrl();}});
@@ -1434,9 +1472,12 @@ regionSelect.addEventListener("change",()=>{{try{{sessionStorage.removeItem(STOR
 periodSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 forecastHoursSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 metricSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
+hourOffsetInput.addEventListener("input",()=>{{updateHourLabel(); frame.src=buildUrl();}});
+playDelaySelect.addEventListener("change",syncPlayback);
 document.getElementById("controls-form").addEventListener("submit",e=>{{e.preventDefault();frame.src=buildUrl();}});
-	document.getElementById("btn-reset").addEventListener("click",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src="/ver/vind-kart?mode="+(modeSelect.value||"observed")+"&region="+(regionSelect.value||"all")+"&period="+(periodSelect.value||"hour")+"&forecast_hours="+(forecastHoursSelect.value||"24")+"&metric="+(metricSelect.value||"gust")+"&date="+(dateInput.value||"{today_str}");}});
+		document.getElementById("btn-reset").addEventListener("click",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}hourOffsetInput.value="0";updateHourLabel();frame.src="/ver/vind-kart?mode="+(modeSelect.value||"observed")+"&region="+(regionSelect.value||"all")+"&period="+(periodSelect.value||"hour")+"&forecast_hours="+(forecastHoursSelect.value||"24")+"&metric="+(metricSelect.value||"gust")+"&hour_offset=0&date="+(dateInput.value||"{today_str}");}});
 periodSelect.disabled = false; forecastHoursSelect.disabled = true;
+updateHourLabel();
 </script></body></html>"""
 
 
@@ -1445,12 +1486,14 @@ def vind_kart() -> str:
     mode = request.args.get("mode", "observed")
     period = request.args.get("period", "hour")
     metric = request.args.get("metric", "gust")
+    hour_offset = int(request.args.get("hour_offset", "0") or "0")
     forecast_hours = int(request.args.get("forecast_hours", "24") or "24")
     region = request.args.get("region", "all")
     return build_wind_map_html(
         mode=mode if mode in {"observed", "forecast"} else "observed",
         period=period if period in {"hour", "day", "month"} else "hour",
         metric=metric if metric in {"avg", "gust", "peak"} else "gust",
+        hour_offset=max(0, min(hour_offset, 24)),
         date_str=request.args.get("date"),
         forecast_hours=max(6, min(forecast_hours, 168)),
         region=region if region in {"all", "south", "mid", "north"} else "all",
