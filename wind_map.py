@@ -89,13 +89,14 @@ def _fetch_obs(session: requests.Session, *, auth: FrostAuth, source_ids: list[s
             'sources': ','.join(batch),
             'referencetime': referencetime,
             'elements': element,
-            'timeoffsets': 'default',
-            'levels': 'default',
             'limit': 1000,
         }
         offset = 0
         while True:
-            params['offset'] = offset
+            if offset > 0:
+                params['offset'] = offset
+            elif 'offset' in params:
+                del params['offset']
             try:
                 page = _frost_get_json(session, '/observations/v0.jsonld', params, auth=auth, timeout=timeout)
             except RuntimeError as e:
@@ -273,7 +274,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
         stations = load_station_db()
     stations = stations.dropna(subset=['baseId', 'lat', 'lon']).copy()
     stations['baseId'] = stations['baseId'].astype(str)
-    stations = stations[stations['baseId'].str.match(r"^SN\\d+$", na=False)].copy()
+    stations = stations[stations['baseId'].str.match(r"^SN\d+$", na=False)].copy()
 
     merged = pd.DataFrame()
     wind_station_count_note = ''
@@ -287,7 +288,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
         if wind_ids:
             filtered = stations[stations['baseId'].isin(wind_ids)].copy()
             # Bruk filteret kun når det fortsatt gir fornuftig dekning.
-            if len(filtered) >= 50 and len(filtered) >= max(10, int(len(stations) * 0.15)):
+            if len(filtered) >= 10:
                 stations = filtered
     except Exception:
         # Fallback: bruk alle stasjoner i DB dersom kildelisten feiler.
@@ -297,8 +298,9 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
         if len(stations) > observed_limit:
             stations = stations.head(observed_limit).copy()
         if period == 'hour':
-            start_dt = datetime.now(timezone.utc) - timedelta(hours=24)
-            end_dt = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+            start_dt = now - timedelta(hours=24)
+            end_dt = now
         elif period == 'day':
             start_dt = datetime(selected.year, selected.month, selected.day, tzinfo=timezone.utc)
             end_dt = start_dt + timedelta(days=1)
@@ -310,7 +312,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
                 end_dt = datetime(selected.year, selected.month + 1, 1, tzinfo=timezone.utc)
 
         referencetime = f"{start_dt.strftime('%Y-%m-%dT%H:%M:%SZ')}/{end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-        element = 'wind_speed_of_gust' if metric == 'gust' else 'wind_speed'
+        element = 'max(wind_speed_of_gust PT1H)' if metric == 'gust' else 'wind_speed'
         try:
             obs = _fetch_obs(
                 session,

@@ -1396,13 +1396,14 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
       <label>Måling:</label>
       <select id="metric-select">
         <option value="avg" selected>Gjennomsnittsvind</option>
-        <option value="gust">Vindkast</option>
+        <option value="gust">Maks vindkast</option>
+        <option value="peak">Høyeste timesverdi</option>
       </select>
       <button type="submit">Vis</button>
       <button type="button" id="btn-reset">Reset kart</button>
     </form>
   </div>
-  <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=avg" loading="lazy"></iframe>
+  <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=avg" height="700"></iframe>
 </div>
 <script>
 const STORE_KEY="wind_view_v1";
@@ -1439,6 +1440,111 @@ periodSelect.disabled = false; forecastHoursSelect.disabled = true;
 </script></body></html>"""
 
 
+
+# =========================
+# VIND DEBUG
+# =========================
+@ver.route("/vind-debug")
+def vind_debug():
+    """Diagnostikkside – fjern i produksjon."""
+    import os, requests, pandas as pd
+    from ver_station_db import load_station_db, stations_in_bbox_swne
+    from wind_map import _env_auth, _fetch_wind_source_ids, _fetch_obs, DEFAULT_TIMEOUT
+
+    lines = []
+    try:
+        auth = _env_auth()
+        lines.append(f"✅ FROST_CLIENT_ID satt: {auth.client_id[:6]}...")
+    except Exception as e:
+        lines.append(f"❌ _env_auth feil: {e}")
+        return "<br>".join(lines)
+
+    session = requests.Session()
+
+    # 1. Stasjonsdatabase
+    try:
+        db = load_station_db()
+        lines.append(f"✅ Stasjonsdatabase: {len(db)} rader, kolonner: {list(db.columns)}")
+        sample = db.dropna(subset=["baseId"]).head(5)["baseId"].tolist()
+        lines.append(f"   Eksempel baseId-er: {sample}")
+    except Exception as e:
+        lines.append(f"❌ load_station_db feil: {e}")
+
+    # 2. Regex-filter
+    try:
+        db2 = load_station_db().dropna(subset=["baseId","lat","lon"]).copy()
+        db2["baseId"] = db2["baseId"].astype(str)
+        before = len(db2)
+        import re
+        db2 = db2[db2["baseId"].str.match(r"^SN\d+$", na=False)].copy()
+        lines.append(f"✅ Regex SN\d+: {before} → {len(db2)} stasjoner")
+        lines.append(f"   Topp 5 etter filter: {db2['baseId'].head(5).tolist()}")
+    except Exception as e:
+        lines.append(f"❌ Regex-filter feil: {e}")
+
+    # 3. Frost wind_ids
+    try:
+        wind_ids = _fetch_wind_source_ids(session, auth=auth, timeout=DEFAULT_TIMEOUT)
+        lines.append(f"✅ wind_ids fra Frost: {len(wind_ids)} IDer")
+        sample_ids = list(wind_ids)[:8]
+        lines.append(f"   Eksempel: {sample_ids}")
+        # Sjekk om de overlapper med stasjonslisten
+        overlap = db2["baseId"].isin(wind_ids).sum()
+        lines.append(f"   Overlapp mot stasjonsdatabase: {overlap} stasjoner")
+    except Exception as e:
+        lines.append(f"❌ _fetch_wind_source_ids feil: {e}")
+
+    # 4. Prøv Frost-observasjon med kjente vindstasjoner
+    try:
+        from datetime import datetime, timedelta, timezone
+        from wind_map import _frost_get_json, FROST_BASE
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(hours=3)
+        rt = f"{start.strftime('%Y-%m-%dT%H:%M:%SZ')}/{end.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        
+        # Bruk stasjoner som faktisk er i wind_ids
+        wind_stations = db2[db2["baseId"].isin(wind_ids)]["baseId"].head(5).tolist()
+        lines.append(f"   Test med vindstasjoner: {wind_stations}")
+        lines.append(f"   Referencetime: {rt}")
+        
+        # Kall Frost direkte og vis råsvaret
+        params = {
+            "sources": ",".join(wind_stations),
+            "referencetime": rt,
+            "elements": "wind_speed",
+            "timeoffsets": "default",
+            "levels": "default",
+            "limit": 10,
+            "offset": 0,
+        }
+        raw = _frost_get_json(session, "/observations/v0.jsonld", params, auth=auth, timeout=DEFAULT_TIMEOUT)
+        rtype = raw.get("@type", "ukjent")
+        rdata = raw.get("data", []) or []
+        total = raw.get("totalItemCount", "?")
+        lines.append(f"   Frost svar @type={rtype}, totalItemCount={total}, data-rader={len(rdata)}")
+        if rtype == "ErrorResponse":
+            lines.append(f"   ❌ ErrorResponse: {raw.get('error', {})}")
+        elif rdata:
+            item0 = rdata[0]
+            lines.append(f"   ✅ Første item sourceId={item0.get('sourceId')}, obs={item0.get('observations', [])[:2]}")
+        
+        # Prøv også med siste 24t
+        start24 = end - timedelta(hours=24)
+        rt24 = f"{start24.strftime('%Y-%m-%dT%H:%M:%SZ')}/{end.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        params24 = dict(params)
+        params24["referencetime"] = rt24
+        raw24 = _frost_get_json(session, "/observations/v0.jsonld", params24, auth=auth, timeout=DEFAULT_TIMEOUT)
+        rdata24 = raw24.get("data", []) or []
+        lines.append(f"   Siste 24t: @type={raw24.get('@type')}, data-rader={len(rdata24)}")
+        
+    except Exception as e:
+        import traceback
+        lines.append(f"❌ Frost obs-test feil: {e}")
+        lines.append(traceback.format_exc().replace("\n", "<br>"))
+
+    html = "<br>".join(lines)
+    return f"<pre style='font-family:monospace;padding:20px'>{html}</pre>"
+
 @ver.route("/vind-kart")
 def vind_kart() -> str:
     mode = request.args.get("mode", "observed")
@@ -1449,7 +1555,7 @@ def vind_kart() -> str:
     return build_wind_map_html(
         mode=mode if mode in {"observed", "forecast"} else "observed",
         period=period if period in {"hour", "day", "month"} else "hour",
-        metric=metric if metric in {"avg", "gust"} else "avg",
+        metric=metric if metric in {"avg", "gust", "peak"} else "avg",
         date_str=request.args.get("date"),
         forecast_hours=max(6, min(forecast_hours, 168)),
         region=region if region in {"all", "south", "mid", "north"} else "all",
