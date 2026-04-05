@@ -1395,15 +1395,15 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
       </select>
       <label>Måling:</label>
       <select id="metric-select">
-        <option value="avg" selected>Gjennomsnittsvind</option>
-        <option value="peak">Høyeste timesverdi</option>
-        <option value="gust">Maks vindkast</option>
+	        <option value="avg">Gjennomsnittsvind</option>
+	        <option value="peak">Høyeste timesverdi</option>
+	        <option value="gust" selected>Maks vindkast</option>
       </select>
       <button type="submit">Vis</button>
       <button type="button" id="btn-reset">Reset kart</button>
     </form>
   </div>
-  <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=avg" height="700"></iframe>
+	  <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=gust" height="700"></iframe>
 </div>
 <script>
 const STORE_KEY="wind_view_v1";
@@ -1422,7 +1422,7 @@ function buildUrl(){{
   qs.set("region",regionSelect.value||"all");
   qs.set("period",periodSelect.value||"hour");
   qs.set("forecast_hours",forecastHoursSelect.value||"24");
-  qs.set("metric",metricSelect.value||"avg");
+	  qs.set("metric",metricSelect.value||"gust");
   qs.set("date",dateInput.value||"{today_str}");
   const s=readSaved();
   if(s){{if(s.bbox)qs.set("bbox",s.bbox);if(s.z)qs.set("z",s.z);if(s.clat)qs.set("clat",s.clat);if(s.clon)qs.set("clon",s.clon);}}
@@ -1435,7 +1435,7 @@ periodSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 forecastHoursSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 metricSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 document.getElementById("controls-form").addEventListener("submit",e=>{{e.preventDefault();frame.src=buildUrl();}});
-document.getElementById("btn-reset").addEventListener("click",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src="/ver/vind-kart?mode="+(modeSelect.value||"observed")+"&region="+(regionSelect.value||"all")+"&period="+(periodSelect.value||"hour")+"&forecast_hours="+(forecastHoursSelect.value||"24")+"&metric="+(metricSelect.value||"avg")+"&date="+(dateInput.value||"{today_str}");}});
+	document.getElementById("btn-reset").addEventListener("click",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src="/ver/vind-kart?mode="+(modeSelect.value||"observed")+"&region="+(regionSelect.value||"all")+"&period="+(periodSelect.value||"hour")+"&forecast_hours="+(forecastHoursSelect.value||"24")+"&metric="+(metricSelect.value||"gust")+"&date="+(dateInput.value||"{today_str}");}});
 periodSelect.disabled = false; forecastHoursSelect.disabled = true;
 </script></body></html>"""
 
@@ -1444,13 +1444,13 @@ periodSelect.disabled = false; forecastHoursSelect.disabled = true;
 def vind_kart() -> str:
     mode = request.args.get("mode", "observed")
     period = request.args.get("period", "hour")
-    metric = request.args.get("metric", "avg")
+    metric = request.args.get("metric", "gust")
     forecast_hours = int(request.args.get("forecast_hours", "24") or "24")
     region = request.args.get("region", "all")
     return build_wind_map_html(
         mode=mode if mode in {"observed", "forecast"} else "observed",
         period=period if period in {"hour", "day", "month"} else "hour",
-        metric=metric if metric in {"avg", "gust", "peak"} else "avg",
+        metric=metric if metric in {"avg", "gust", "peak"} else "gust",
         date_str=request.args.get("date"),
         forecast_hours=max(6, min(forecast_hours, 168)),
         region=region if region in {"all", "south", "mid", "north"} else "all",
