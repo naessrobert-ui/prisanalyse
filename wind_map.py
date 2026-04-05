@@ -289,7 +289,6 @@ def warmup_wind_stations(timeout: int = 30) -> None:
     """Kjøres i bakgrunnen ved oppstart — prøver alle stasjoner og lærer hvilke som gir data."""
     import threading
     def _run():
-        global _LEARNED_WIND_IDS
         try:
             auth = _env_auth()
             session = requests.Session()
