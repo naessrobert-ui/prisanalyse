@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 import time
@@ -1366,7 +1366,7 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
 <div class="page">
   <div class="card">
     <h1>Vind i Norge</h1>
-    <p style="margin:0;color:#475569;">Velg observerte vinddata (Frost) eller forventet vind neste 24 timer (Yr).</p>
+    <p style="margin:0;color:#475569;">Velg observerte vinddata (Frost) eller forventet vind neste 24 timer (Yr). Klikk på en stasjon for detaljert værvarsling.</p>
     <form id="controls-form" class="controls">
       <label>Dato:</label><input type="date" id="date-input" value="{today_str}" max="{today_str}">
       <label>Kilde:</label>
@@ -1396,7 +1396,6 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
       <label>Måling:</label>
       <select id="metric-select">
         <option value="avg">Gjennomsnittsvind</option>
-        <option value="peak" style="display:none">Høyeste timesverdi</option>
         <option value="gust" selected>Maks vindkast</option>
       </select>
       <button type="submit">Vis</button>
@@ -1446,9 +1445,7 @@ modeSelect.addEventListener("change",()=>{{
   const fc = modeSelect.value === "forecast";
   periodSelect.disabled = fc;
   forecastHoursSelect.disabled = !fc;
-  var peakOpt = document.querySelector('#metric-select option[value="peak"]');
-  if(peakOpt) peakOpt.style.display = fc ? '' : 'none';
-  if(!fc && metricSelect.value === 'peak') metricSelect.value = 'avg';
+
   showLoader(); frame.src=buildUrl();
 }});
 regionSelect.addEventListener("change",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src=buildUrl();}});
@@ -1747,7 +1744,7 @@ def vind_kart() -> str:
     return build_wind_map_html(
         mode=mode if mode in {"observed", "forecast"} else "observed",
         period=period if period in {"hour", "day", "month"} else "hour",
-        metric=metric if metric in {"avg", "gust", "peak"} else "avg",
+        metric=metric if metric in {"avg", "gust"} else "avg",
         date_str=request.args.get("date"),
         forecast_hours=max(6, min(forecast_hours, 168)),
         region=region if region in {"all", "south", "mid", "north"} else "all",
