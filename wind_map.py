@@ -493,7 +493,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
     session = requests.Session()
     # Bruk lært cache hvis vi har data, ellers start med statisk liste.
     # Cachen vokser automatisk når nye stasjoner gir data.
-    active_ids = _LEARNED_WIND_IDS if len(_LEARNED_WIND_IDS) >= 10 else _STATIC_WIND_IDS
+    active_ids = _STATIC_WIND_IDS | _LEARNED_WIND_IDS  # Alltid union – ikke erstatt
     filtered = stations[stations['baseId'].isin(active_ids)].copy()
     if len(filtered) >= 10:
         stations = filtered
