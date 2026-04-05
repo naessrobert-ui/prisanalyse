@@ -39,7 +39,7 @@ kvamskogen_bp = Blueprint("kvamskogen", __name__, url_prefix="/kvamskogen")
 LOCAL_TZ = ZoneInfo("Europe/Oslo")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-ANTHROPIC_MODEL   = "claude-sonnet-4-6"
+ANTHROPIC_MODEL   = "claude-haiku-4-5-20251001"
 
 _SYSTEM_PROMPT = """
 Du er en lokal værvakt på Kvamskogen som skriver engasjerende meldinger til en hytteeier.
