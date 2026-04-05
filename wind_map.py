@@ -24,7 +24,7 @@ load_dotenv()
 
 FROST_BASE = 'https://frost.met.no'
 DEFAULT_TIMEOUT = 20
-YR_COMPACT = 'https://api.met.no/weatherapi/locationforecast/2.0/compact'
+YR_COMPACT = 'https://api.met.no/weatherapi/locationforecast/2.0/complete'
 YR_UA = os.getenv('METNO_USER_AGENT', 'prisanalyse.no/1.0 kontakt@prisanalyse.no')
 
 Mode = Literal['observed', 'forecast']
@@ -387,15 +387,48 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
             ),
         ).add_to(m)
 
+    import json
     label = _fmt_label(mode, period, metric, selected, forecast_hours)
-    top_txt = ''.join(f"<li>{getattr(r, 'name', r.baseId)}: <b>{float(r.value):.1f}</b> m/s</li>" for r in top.head(10).itertuples())
+    st_list = [
+        {'name': getattr(r, 'name', r.baseId) or r.baseId, 'lat': float(r.lat), 'lon': float(r.lon), 'value': float(r.value)}
+        for r in top.itertuples()
+    ]
+    st_json = json.dumps(st_list)
+    fc_note = (f"<div style='margin-top:6px;color:#94a3b8;font-size:11px;'>{wind_station_count_note}</div>" if mode == 'forecast' else '')
     info = f"""
-    <div style="position:fixed;left:14px;bottom:14px;z-index:9999;background:rgba(15,23,42,.92);color:#e2e8f0;padding:12px 14px;border-radius:12px;border:1px solid #334155;max-width:330px;font:13px/1.35 system-ui;">
-      <div style="font-weight:800;margin-bottom:4px;">💨 Vindkart Norge</div>
-      <div style="color:#93c5fd;margin-bottom:8px;">{label}</div>
-      <ol style="margin:0;padding-left:18px;max-height:180px;overflow:auto;">{top_txt}</ol>
-      {"<div style='margin-top:8px;color:#94a3b8;font-size:11px;'>"+wind_station_count_note+"</div>" if mode=='forecast' else ''}
+    <div id="vp" style="position:fixed;left:14px;bottom:14px;z-index:9999;background:rgba(15,23,42,.92);color:#e2e8f0;padding:12px 14px;border-radius:12px;border:1px solid #334155;max-width:260px;font:13px/1.35 system-ui;">
+      <div style="font-weight:800;margin-bottom:3px;">💨 Vindkart Norge</div>
+      <div style="color:#93c5fd;margin-bottom:3px;font-size:12px;">{label}</div>
+      <div id="va" style="color:#64748b;font-size:11px;margin-bottom:4px;"></div>
+      <ol id="vl" style="margin:0;padding-left:18px;max-height:200px;overflow-y:auto;scrollbar-width:thin;font-size:12px;"></ol>
+      {fc_note}
     </div>
+    <script>
+    (function(){{
+      var ST={st_json};
+      function upd(){{
+        var m=window._lm;if(!m)return;
+        var b=m.getBounds();
+        var v=ST.filter(function(s){{
+          return s.lat>=b.getSouth()&&s.lat<=b.getNorth()&&s.lon>=b.getWest()&&s.lon<=b.getEast();
+        }});
+        v.sort(function(a,b){{return b.value-a.value;}});
+        document.getElementById('vl').innerHTML=v.slice(0,20).map(function(s,i){{
+          return '<li>'+s.name+': <b>'+s.value.toFixed(1)+'</b> m/s</li>';
+        }}).join('');
+        document.getElementById('va').textContent=v.length+' stasjon'+(v.length!==1?'er':'')+' i visningsområdet';
+      }}
+      function init(){{
+        var ks=Object.keys(window);
+        for(var i=0;i<ks.length;i++){{
+          var v=window[ks[i]];
+          if(v&&v._leaflet_id&&v.getBounds){{window._lm=v;v.on('moveend zoomend',upd);upd();return;}}
+        }}
+        setTimeout(init,200);
+      }}
+      setTimeout(init,500);
+    }})();
+    </script>
     """
     m.get_root().html.add_child(folium.Element(info))
     return m.get_root().render()
