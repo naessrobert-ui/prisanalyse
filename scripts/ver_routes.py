@@ -1327,7 +1327,7 @@ function readSaved(){{try{{const r=sessionStorage.getItem(STORE_KEY);return r?JS
 function buildUrl(){{const qs=new URLSearchParams();qs.set("mode",modeSelect.value||"last24h");qs.set("date",dateInput.value||"{today_str}");const s=readSaved();if(s){{if(s.bbox)qs.set("bbox",s.bbox);if(s.z)qs.set("z",s.z);if(s.clat)qs.set("clat",s.clat);if(s.clon)qs.set("clon",s.clon);}}return"/ver/solskinn-kart?"+qs.toString();}}
 function saveFU(){{try{{const u=new URL(frame.contentWindow.location.href);const b=u.searchParams.get("bbox");if(!b)return;sessionStorage.setItem(STORE_KEY,JSON.stringify({{bbox:b,z:u.searchParams.get("z")||"",clat:u.searchParams.get("clat")||"",clon:u.searchParams.get("clon")||""}}));}}catch(e){{}}}}
 frame.addEventListener("load",saveFU);
-document.getElementById("controls-form").addEventListener("submit",e=>{{e.preventDefault();frame.src=buildUrl();}});
+document.getElementById("controls-form").addEventListener("submit",e=>{{e.preventDefault();showLoader();frame.src=buildUrl();}});
 modeSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 </script></body></html>"""
 
@@ -1403,7 +1403,14 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
       <button type="button" id="btn-reset">Reset kart</button>
     </form>
   </div>
-  <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=gust" height="700"></iframe>
+  <div style="position:relative;">
+    <div id="map-loader" style="position:absolute;inset:0;z-index:10;background:rgba(15,23,42,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;min-height:400px;">
+      <div style="width:48px;height:48px;border:5px solid #334155;border-top-color:#93c5fd;border-radius:50%;animation:spin 0.9s linear infinite;"></div>
+      <div id="loader-text" style="color:#93c5fd;margin-top:16px;font-size:14px;font-family:system-ui;">Henter vinddata...</div>
+    </div>
+    <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=gust" height="700" style="width:100%;border:none;border-radius:12px;" onload="document.getElementById('map-loader').style.display='none';"></iframe>
+  </div>
+  <style>@keyframes spin{{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}</style>
 </div>
 <script>
 const STORE_KEY="wind_view_v1";
@@ -1416,6 +1423,12 @@ const forecastHoursSelect=document.getElementById("forecast-hours");
 const metricSelect=document.getElementById("metric-select");
 function readSaved(){{try{{const r=sessionStorage.getItem(STORE_KEY);return r?JSON.parse(r):null;}}catch(e){{return null;}}}}
 function saveFU(){{try{{const u=new URL(frame.contentWindow.location.href);const b=u.searchParams.get("bbox");if(!b)return;sessionStorage.setItem(STORE_KEY,JSON.stringify({{bbox:b,z:u.searchParams.get("z")||"",clat:u.searchParams.get("clat")||"",clon:u.searchParams.get("clon")||""}}));}}catch(e){{}}}}
+function showLoader(){{
+  var el=document.getElementById('map-loader');
+  var txt=document.getElementById('loader-text');
+  if(el) el.style.display='flex';
+  if(txt) txt.textContent='Henter vinddata...';
+}}
 function buildUrl(){{
   const qs=new URLSearchParams();
   qs.set("mode",modeSelect.value||"observed");
@@ -1436,13 +1449,13 @@ modeSelect.addEventListener("change",()=>{{
   var peakOpt = document.querySelector('#metric-select option[value="peak"]');
   if(peakOpt) peakOpt.style.display = fc ? '' : 'none';
   if(!fc && metricSelect.value === 'peak') metricSelect.value = 'avg';
-  frame.src=buildUrl();
+  showLoader(); frame.src=buildUrl();
 }});
 regionSelect.addEventListener("change",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src=buildUrl();}});
-periodSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
-forecastHoursSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
-metricSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
-document.getElementById("controls-form").addEventListener("submit",e=>{{e.preventDefault();frame.src=buildUrl();}});
+periodSelect.addEventListener("change",()=>{{showLoader();frame.src=buildUrl();}});
+forecastHoursSelect.addEventListener("change",()=>{{showLoader();frame.src=buildUrl();}});
+metricSelect.addEventListener("change",()=>{{showLoader();frame.src=buildUrl();}});
+document.getElementById("controls-form").addEventListener("submit",e=>{{e.preventDefault();showLoader();frame.src=buildUrl();}});
 document.getElementById("btn-reset").addEventListener("click",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src="/ver/vind-kart?mode="+(modeSelect.value||"observed")+"&region="+(regionSelect.value||"all")+"&period="+(periodSelect.value||"hour")+"&forecast_hours="+(forecastHoursSelect.value||"24")+"&metric="+(metricSelect.value||"avg")+"&date="+(dateInput.value||"{today_str}");}});
 periodSelect.disabled = false; forecastHoursSelect.disabled = true;
 </script></body></html>"""
