@@ -213,6 +213,10 @@ def _forecast_station(*, lat: float, lon: float, forecast_hours: int = 24, timeo
     horizon = now + timedelta(hours=max(6, min(int(forecast_hours or 24), 168)))
     winds: list[float] = []
     gusts: list[float] = []
+    temps: list[float] = []
+    precips: list[float] = []
+    dirs: list[float] = []
+    now_details: dict = {}  # instant data for the first timestep
     for it in ts:
         t = pd.to_datetime(it.get('time'), utc=True, errors='coerce')
         if pd.isna(t):
@@ -221,18 +225,45 @@ def _forecast_station(*, lat: float, lon: float, forecast_hours: int = 24, timeo
         if t_py < now or t_py > horizon:
             continue
         details = (((it.get('data') or {}).get('instant') or {}).get('details') or {})
+        # Capture first timestep as "now"
+        if not now_details:
+            now_details = details
         ws = details.get('wind_speed')
         wg = details.get('wind_speed_of_gust')
+        temp = details.get('air_temperature')
+        wd = details.get('wind_from_direction')
+        # Precipitation from next_1_hours
+        n1 = ((it.get('data') or {}).get('next_1_hours') or {})
+        precip = (n1.get('details') or {}).get('precipitation_amount')
         if ws is not None:
             winds.append(float(ws))
         if wg is not None:
             gusts.append(float(wg))
+        if temp is not None:
+            temps.append(float(temp))
+        if wd is not None:
+            dirs.append(float(wd))
+        if precip is not None:
+            precips.append(float(precip))
     if not winds and not gusts:
         return None
+
+    def _wind_dir_txt(deg: float) -> str:
+        dirs_txt = ['N','NØ','Ø','SØ','S','SV','V','NV']
+        return dirs_txt[int((deg + 22.5) / 45) % 8]
+
     payload = {
         'avg': round(sum(winds) / max(len(winds), 1), 1) if winds else 0.0,
         'gust': round(max(gusts), 1) if gusts else None,
         'peak': round(max(winds), 1) if winds else 0.0,
+        'now_wind': round(now_details.get('wind_speed', 0) or 0, 1),
+        'now_gust': round(now_details.get('wind_speed_of_gust', 0) or 0, 1),
+        'now_temp': round(now_details.get('air_temperature', 0) or 0, 1) if now_details.get('air_temperature') is not None else None,
+        'now_dir': _wind_dir_txt(now_details['wind_from_direction']) if now_details.get('wind_from_direction') is not None else '',
+        'temp_avg': round(sum(temps) / max(len(temps), 1), 1) if temps else None,
+        'temp_min': round(min(temps), 1) if temps else None,
+        'temp_max': round(max(temps), 1) if temps else None,
+        'precip_sum': round(sum(precips), 1) if precips else 0.0,
     }
     _FORECAST_CACHE[key] = (now_ts + 1800, payload)
     return payload
@@ -382,19 +413,25 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
         val = float(r.value)
         ratio = 0 if vmax <= 0 else min(1.0, val / vmax)
         color = '#22c55e' if ratio < 0.33 else ('#f59e0b' if ratio < 0.66 else '#ef4444')
+        name = getattr(r, 'name', r.baseId) or r.baseId
+        # Popup med iframe til detaljert værsiden
+        popup_url = (
+            f"/ver/vind-popup?id={r.baseId}&mode={mode}"
+            f"&lat={float(r.lat):.4f}&lon={float(r.lon):.4f}"
+            f"&name={name}&hours={forecast_hours}"
+        )
+        popup_html = (
+            f'<iframe src="{popup_url}" width="340" height="420" '
+            f'style="border:none;border-radius:8px;" loading="lazy"></iframe>'
+        )
         folium.CircleMarker(
             location=[float(r.lat), float(r.lon)],
             radius=4 + 8 * ratio,
             color=color,
             fill=True,
             fill_opacity=0.9,
-            tooltip=f"{getattr(r, 'name', r.baseId)}: {val:.1f} m/s",
-            popup=(
-                f"<b>{getattr(r, 'name', r.baseId)}</b><br>"
-                f"Stasjon: {r.baseId}<br>"
-                f"Vind: <b>{val:.1f} m/s</b><br>"
-                f"Datapunkter: {int(getattr(r, 'points', 0) or 0)}"
-            ),
+            tooltip=f"{name}: {val:.1f} m/s",
+            popup=folium.Popup(popup_html, max_width=360),
         ).add_to(m)
 
     import json

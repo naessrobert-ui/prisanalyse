@@ -1461,6 +1461,282 @@ periodSelect.disabled = false; forecastHoursSelect.disabled = true;
 </script></body></html>"""
 
 
+
+
+# ── /ver/vind-popup ──────────────────────────────────────────────────────────
+_VIND_POPUP_CACHE: dict = {}
+
+def _vindretning_txt_vp(deg: float) -> str:
+    d = ['N','NØ','Ø','SØ','S','SV','V','NV']
+    return d[int((deg + 22.5) / 45) % 8]
+
+def _hent_frost_timesdata(station_id: str) -> list:
+    import os, requests as _req
+    from datetime import datetime, timedelta, timezone
+    from collections import defaultdict
+    auth = (os.getenv('FROST_CLIENT_ID',''), os.getenv('FROST_CLIENT_SECRET',''))
+    now  = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    start = now - timedelta(hours=24)
+    rt = f"{start.strftime('%Y-%m-%dT%H:00:00Z')}/{now.strftime('%Y-%m-%dT%H:00:00Z')}"
+    elements = 'wind_speed,max(wind_speed_of_gust PT1H),wind_from_direction,air_temperature,sum(precipitation_amount PT1H)'
+    try:
+        r = _req.get(
+            'https://frost.met.no/observations/v0.jsonld',
+            params={'sources': station_id, 'referencetime': rt, 'elements': elements, 'limit': 1000},
+            auth=auth, headers={'Accept': 'application/json'}, timeout=20,
+        )
+        if r.status_code != 200:
+            return []
+    except Exception:
+        return []
+    by_time: dict = defaultdict(dict)
+    for item in r.json().get('data', []) or []:
+        t = item.get('referenceTime','')[:16]
+        for obs in item.get('observations', []) or []:
+            eid = obs.get('elementId','')
+            val = obs.get('value')
+            if val is None: continue
+            if eid == 'wind_speed': by_time[t]['vind'] = round(float(val),1)
+            elif eid == 'max(wind_speed_of_gust PT1H)': by_time[t]['kast'] = round(float(val),1)
+            elif eid == 'wind_from_direction': by_time[t]['retning'] = _vindretning_txt_vp(float(val))
+            elif eid == 'air_temperature': by_time[t]['temp'] = round(float(val),1)
+            elif eid == 'sum(precipitation_amount PT1H)': by_time[t]['nedbor'] = round(float(val),1)
+    rows = []
+    for t in sorted(by_time.keys()):
+        d = by_time[t]
+        rows.append({'tid': t[11:16], 'dato': t[:10], 'vind': d.get('vind'),
+                     'kast': d.get('kast'), 'retning': d.get('retning',''),
+                     'retning_grader': None, 'temp': d.get('temp'), 'nedbor': d.get('nedbor', 0.0),
+                     'nedbor_prob': None})
+    return rows
+
+def _hent_yr_timesdata(lat: float, lon: float, hours: int = 48) -> list:
+    import requests as _req
+    from datetime import datetime, timedelta, timezone
+    import pandas as pd
+    try:
+        r = _req.get(
+            'https://api.met.no/weatherapi/locationforecast/2.0/complete',
+            params={'lat': f'{lat:.4f}', 'lon': f'{lon:.4f}'},
+            headers={'User-Agent': 'prisanalyse.no/1.0 kontakt@prisanalyse.no'},
+            timeout=20,
+        )
+        if r.status_code != 200:
+            return []
+    except Exception:
+        return []
+    ts = r.json()['properties']['timeseries']
+    now = datetime.now(timezone.utc)
+    horizon = now + timedelta(hours=hours)
+    rows = []
+    for it in ts:
+        t = pd.to_datetime(it.get('time'), utc=True, errors='coerce')
+        if pd.isna(t): continue
+        t_py = t.to_pydatetime()
+        if t_py < now or t_py > horizon: continue
+        inst = ((it.get('data') or {}).get('instant') or {}).get('details') or {}
+        n1d  = ((it.get('data') or {}).get('next_1_hours') or {}).get('details') or {}
+        ws = inst.get('wind_speed')
+        wg = inst.get('wind_speed_of_gust')
+        wd = inst.get('wind_from_direction')
+        tmp = inst.get('air_temperature')
+        prec = n1d.get('precipitation_amount')
+        prob = n1d.get('probability_of_precipitation')
+        rows.append({
+            'tid': t_py.astimezone().strftime('%H:%M'),
+            'dato': t_py.astimezone().strftime('%a %d.%m'),
+            'vind': round(ws,1) if ws is not None else None,
+            'kast': round(wg,1) if wg is not None else None,
+            'retning': _vindretning_txt_vp(wd) if wd is not None else '',
+            'retning_grader': round(wd) if wd is not None else None,
+            'temp': round(tmp,1) if tmp is not None else None,
+            'nedbor': round(prec,1) if prec is not None else 0.0,
+            'nedbor_prob': round(prob) if prob is not None else None,
+        })
+    return rows
+
+def _vind_verdict(fc_rows: list, obs_rows: list) -> str:
+    rows = fc_rows if fc_rows else obs_rows
+    if not rows:
+        return ''
+    vind_vals  = [r.get('vind') or 0 for r in rows]
+    kast_vals  = [r.get('kast') or 0 for r in rows]
+    nedbor_sum = sum(r.get('nedbor') or 0 for r in rows)
+    max_vind   = max(vind_vals) if vind_vals else 0
+    max_kast   = max(kast_vals) if kast_vals else 0
+
+    if max_kast >= 32.7 or max_vind >= 28.5:
+        vind_badge = ('<span style="background:#7f1d1d;color:#fca5a5;padding:2px 8px;border-radius:4px;font-weight:700">' +
+                      '&#128308; Orkan/storm</span>')
+    elif max_kast >= 24.5 or max_vind >= 20.8:
+        vind_badge = ('<span style="background:#7c2d12;color:#fdba74;padding:2px 8px;border-radius:4px;font-weight:700">' +
+                      '&#128308; Sterk kuling</span>')
+    elif max_kast >= 17.2 or max_vind >= 13.9:
+        vind_badge = ('<span style="background:#713f12;color:#fde68a;padding:2px 8px;border-radius:4px;font-weight:700">' +
+                      '&#128993; Kuling</span>')
+    elif max_vind >= 8.0:
+        vind_badge = ('<span style="background:#1c3d5a;color:#93c5fd;padding:2px 8px;border-radius:4px;font-weight:700">' +
+                      '&#128994; Frisk bris</span>')
+    else:
+        vind_badge = ('<span style="background:#14532d;color:#86efac;padding:2px 8px;border-radius:4px;font-weight:700">' +
+                      '&#128994; Svak vind</span>')
+
+    if nedbor_sum >= 20:
+        neb_badge = ('&nbsp;<span style="background:#1e3a5f;color:#60a5fa;padding:2px 8px;border-radius:4px;font-weight:700">' +
+                     '&#127783; Kraftig neb&#248;r</span>')
+    elif nedbor_sum >= 5:
+        neb_badge = ('&nbsp;<span style="background:#1e3a5f;color:#93c5fd;padding:2px 8px;border-radius:4px;font-weight:700">' +
+                     '&#127783; Moderat neb&#248;r</span>')
+    else:
+        neb_badge = ''
+
+    maks_txt = f'Maks {max_vind:.0f}'
+    if max_kast > max_vind:
+        maks_txt += f' (kast {max_kast:.0f}) m/s'
+    else:
+        maks_txt += ' m/s'
+
+    return (
+        '<div style="padding:6px 12px 8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">' +
+        vind_badge + neb_badge +
+        f'<span style="color:#475569;font-size:10px;margin-left:6px">{maks_txt}</span>' +
+        '</div>'
+    )
+
+
+def _build_popup_html(name: str, station_id: str, obs_rows: list, fc_rows: list, hours: int) -> str:
+    max_vind_obs = max((r.get('vind') or 0) for r in obs_rows) or 1
+    max_vind_fc  = max((r.get('vind') or 0) for r in fc_rows) or 1
+
+    def _vc(v, mx):
+        if v is None: return '#64748b'
+        ratio = v / mx
+        if ratio < 0.4: return '#22c55e'
+        if ratio < 0.7: return '#f59e0b'
+        return '#ef4444'
+
+    def _tc(t):
+        if t is None: return '#94a3b8'
+        if t < -5: return '#93c5fd'
+        if t < 0:  return '#bfdbfe'
+        if t < 5:  return '#fde68a'
+        return '#fca5a5'
+
+    def _make_tbody(rows, mx):
+        prev_dato = ''
+        tbody = ''
+        for r in rows:
+            dato_header = ''
+            dato = r.get('dato','')
+            if dato != prev_dato:
+                prev_dato = dato
+                dato_header = f'<tr><td colspan="6" style="background:#1e293b;color:#93c5fd;font-weight:700;padding:4px 8px;font-size:11px">{dato}</td></tr>'
+            v = r.get('vind')
+            k = r.get('kast')
+            t = r.get('temp')
+            n = r.get('nedbor') or 0
+            p = r.get('nedbor_prob')
+            ret = r.get('retning','')
+            rdeg = r.get('retning_grader')
+            pil = f'<span style="display:inline-block;transform:rotate({rdeg}deg)">&#8593;</span>' if rdeg is not None else ''
+            neb = f'<span style="color:#60a5fa">{n:.1f}</span>' if n > 0 else '<span style="color:#334155">&#8212;</span>'
+            if n > 0 and p: neb += f' <span style="color:#475569;font-size:10px">{p}%</span>'
+            tbody += (
+                dato_header +
+                f'<tr>'
+                f'<td style="padding:3px 6px;color:#94a3b8;white-space:nowrap">{r.get("tid","")}</td>'
+                f'<td style="padding:3px 6px;color:{_tc(t)};font-weight:600">{f"{t:+.1f}" + chr(176) if t is not None else "&#8212;"}</td>'
+                f'<td style="padding:3px 6px;color:{_vc(v,mx)};font-weight:700">{v if v is not None else "&#8212;"}</td>'
+                f'<td style="padding:3px 6px;color:#64748b">{f"({k})" if k else ""}</td>'
+                f'<td style="padding:3px 6px;color:#475569;font-size:11px;white-space:nowrap">{pil} {ret}</td>'
+                f'<td style="padding:3px 6px">{neb}</td>'
+                f'</tr>'
+            )
+        return tbody or '<tr><td colspan="6" style="color:#475569;padding:12px">Ingen data</td></tr>'
+
+    obs_tbody = _make_tbody(obs_rows, max_vind_obs)
+    fc_tbody  = _make_tbody(fc_rows,  max_vind_fc)
+
+    thead = ('<thead><tr>'
+             '<th>Tid</th><th>Temp</th><th>Vind</th><th>Kast</th><th>Retning</th><th>Neb&#248;r</th>'
+             '</tr></thead>')
+
+    css = (
+        'body{margin:0;background:#0f172a;color:#e2e8f0;font:12px/1.4 system-ui}'
+        'h2{margin:0;padding:8px 12px 2px;font-size:13px;color:#f1f5f9}'
+        '.sub{padding:0 12px 6px;color:#475569;font-size:10px}'
+        '.tabs{display:flex;border-bottom:1px solid #1e293b;}'
+        '.tab{padding:6px 14px;cursor:pointer;color:#64748b;font-size:11px;font-weight:600;border-bottom:2px solid transparent}'
+        '.tab.active{color:#93c5fd;border-bottom-color:#93c5fd}'
+        '.panel{display:none}.panel.active{display:block}'
+        'table{width:100%;border-collapse:collapse}'
+        'th{padding:4px 6px;text-align:left;color:#475569;font-size:10px;border-bottom:1px solid #1e293b}'
+        'tr:hover td{background:#ffffff08}'
+        '.leg{padding:5px 12px;color:#334155;font-size:10px;border-top:1px solid #1e293b}'
+    )
+
+    js = (
+        'function showTab(id){'
+        'document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));'
+        'document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));'
+        'document.getElementById("tab-"+id).classList.add("active");'
+        'document.getElementById("panel-"+id).classList.add("active");'
+        '}'
+    )
+
+    return (
+        f'<!DOCTYPE html><html><head><meta charset="utf-8">'
+        f'<style>{css}</style></head><body>'
+        f'<h2>&#128168; {name}</h2>'
+        f'<div class="sub">{station_id}</div>'
+        f'{_vind_verdict(fc_rows, obs_rows)}'
+        f'<div class="tabs">'
+        f'<div class="tab active" id="tab-fc" onclick="showTab(\'fc\')">&#128302; Prognose ({hours}t)</div>'
+        f'<div class="tab" id="tab-obs" onclick="showTab(\'obs\')">&#128200; Observert (24t)</div>'
+        f'</div>'
+        f'<div class="panel active" id="panel-fc">'
+        f'<table>{thead}<tbody>{fc_tbody}</tbody></table>'
+        f'</div>'
+        f'<div class="panel" id="panel-obs">'
+        f'<table>{thead}<tbody>{obs_tbody}</tbody></table>'
+        f'</div>'
+        f'<div class="leg">Vind/kast i m/s &middot; Neb&#248;r mm/t</div>'
+        f'<script>{js}</script>'
+        f'</body></html>'
+    )
+
+
+@ver.route('/vind-popup')
+def vind_popup():
+    import time as _time
+    station_id = request.args.get('id', '')
+    mode       = request.args.get('mode', 'observed')
+    lat        = request.args.get('lat', type=float)
+    lon        = request.args.get('lon', type=float)
+    name       = request.args.get('name', station_id)
+    hours      = request.args.get('hours', 48, type=int)
+    cache_key  = (station_id, mode, hours)
+    cached     = _VIND_POPUP_CACHE.get(cache_key)
+    if cached and cached[0] > _time.time():
+        from flask import Response as _Resp
+        return _Resp(cached[1], mimetype='text/html; charset=utf-8')
+    import concurrent.futures as _cf
+    with _cf.ThreadPoolExecutor(max_workers=2) as ex:
+        fut_obs = ex.submit(_hent_frost_timesdata, station_id) if station_id else None
+        fut_fc  = ex.submit(_hent_yr_timesdata, lat, lon, hours) if (lat is not None and lon is not None) else None
+        obs_rows = fut_obs.result() if fut_obs else []
+        fc_rows  = fut_fc.result()  if fut_fc  else []
+    # Filter obs to whole hours only
+    obs_rows = [r for r in obs_rows if r.get('tid','').endswith(':00')]
+    html = _build_popup_html(name, station_id, obs_rows, fc_rows, hours)
+    _VIND_POPUP_CACHE[cache_key] = (_time.time() + 1800, html)
+    from flask import Response as _Resp
+    return _Resp(html, mimetype='text/html; charset=utf-8')
+
+
+
+
+
 @ver.route("/vind-kart")
 def vind_kart() -> str:
     mode = request.args.get("mode", "observed")
