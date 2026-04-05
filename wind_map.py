@@ -451,7 +451,7 @@ def warmup_wind_stations(timeout: int = 30) -> None:
 def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', metric: Metric = 'gust', date_str: Optional[str] = None,
                         forecast_hours: int = 24, region: Region = 'all',
                         bbox: Optional[str] = None, z: Optional[str] = None, clat: Optional[str] = None, clon: Optional[str] = None,
-                        timeout: int = DEFAULT_TIMEOUT, show_heatmap: bool = True, top_n: int = 600, forecast_limit: int = 1500, observed_limit: int = 700) -> str:
+                        timeout: int = DEFAULT_TIMEOUT, show_heatmap: bool = True, top_n: int = 600, forecast_limit: int = 1500, observed_limit: int = 1000) -> str:
     selected = _date.today()
     if date_str:
         try:
