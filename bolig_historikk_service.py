@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from typing import Literal, Optional
-from functools import lru_cache
 
 import numpy as np
 import pandas as pd
@@ -148,6 +147,9 @@ def load_master_s3_cached(bucket: str, key: str) -> pd.DataFrame:
 
     obj = s3.get_object(Bucket=bucket, Key=key)
     df = pd.read_parquet(io.BytesIO(obj["Body"].read()))
+    # Fjern gammel DataFrame eksplisitt før vi erstatter, slik at GC kan frigi minnet.
+    if cache_key in _MASTER_CACHE:
+        del _MASTER_CACHE[cache_key]
     _MASTER_CACHE[cache_key] = {
         "df": df,
         "loaded_at": now,
@@ -156,13 +158,35 @@ def load_master_s3_cached(bucket: str, key: str) -> pd.DataFrame:
     return df
 
 
-@lru_cache(maxsize=1)
+# Manuell cache for normalisert master – invalideres når S3-data endres,
+# i stedet for lru_cache som aldri invalideres og skaper doble DataFrames i minnet.
+_NORMALIZED_CACHE: dict = {}
+
 def load_normalized_master_cached(bucket: str, key: str) -> pd.DataFrame:
     """
-    Leser og normaliserer master én gang per prosess for å redusere CPU/memory per request.
+    Leser og normaliserer master, cacher resultatet.
+    Invalideres automatisk når S3-objektet endres (samme logikk som load_master_s3_cached).
     """
+    cache_key = (bucket, key)
+    master_entry = _MASTER_CACHE.get(cache_key)
+
+    # Sjekk om vi allerede har en normalisert versjon med samme last_modified
+    norm_entry = _NORMALIZED_CACHE.get(cache_key)
+    if norm_entry is not None and master_entry is not None:
+        if norm_entry.get("last_modified") == master_entry.get("last_modified"):
+            return norm_entry["df"]
+
+    # Hent rå data og normaliser
     raw = load_master_s3_cached(bucket, key)
-    return normalize_master(raw)
+    master_entry = _MASTER_CACHE.get(cache_key)  # oppdatert etter load
+    normalized = normalize_master(raw)
+
+    # Lagre normalisert versjon – frigjør rå-kopi eksplisitt
+    _NORMALIZED_CACHE[cache_key] = {
+        "df": normalized,
+        "last_modified": master_entry.get("last_modified") if master_entry else None,
+    }
+    return normalized
 
 
 def extract_poststed(address: pd.Series) -> pd.Series:
