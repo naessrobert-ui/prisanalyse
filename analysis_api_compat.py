@@ -34,6 +34,7 @@ _COMPAT_SORT_MAP = {
     "resultat_per_ansatt": "CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL THEN (r.net_profit / e.ansatte) END",
     "navn": "e.navn",
     "regnskapsaar": "r.accounting_year",
+    "oppdatert_dato": "r.oppdatert_dato",
 }
 
 
@@ -93,6 +94,8 @@ def get_companies_filter_payload(
     max_resultat_per_ansatt: float | None = None,
     orgform: str | None = None,
     has_regnskap: bool = False,
+    regnskapsaar: int | None = None,
+    innlevert_etter: str | None = None,
     limit: int = 100,
     offset: int = 0,
     sort_by: str = "omsetning",
@@ -146,6 +149,14 @@ def get_companies_filter_payload(
         base_sql += " AND e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL AND (r.net_profit / e.ansatte) <= %s"
         params.append(max_resultat_per_ansatt)
 
+    if regnskapsaar is not None:
+        base_sql += " AND r.accounting_year = %s"
+        params.append(regnskapsaar)
+
+    if innlevert_etter is not None:
+        base_sql += " AND r.oppdatert_dato >= %s"
+        params.append(innlevert_etter)
+
     count_row = fetch_one(f"SELECT COUNT(*)::int AS n {base_sql}", params) or {"n": 0}
     total_count = int(count_row.get("n") or 0)
 
@@ -180,7 +191,8 @@ def get_companies_filter_payload(
                 WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL
                 THEN ROUND((r.net_profit / e.ansatte), 2)
                 ELSE NULL
-            END AS resultat_per_ansatt
+            END AS resultat_per_ansatt,
+            r.oppdatert_dato::text AS oppdatert_dato
         {base_sql}
         ORDER BY {_sort_sql(sort_by, sort_dir)}
         LIMIT %s OFFSET %s
@@ -251,6 +263,8 @@ def companies_filter(
     max_resultat_per_ansatt: float | None = None,
     orgform: str | None = None,
     has_regnskap: bool = False,
+    regnskapsaar: int | None = None,
+    innlevert_etter: str | None = None,
     limit: int = Query(default=100, ge=1, le=MAX_LIMIT),
     offset: int = Query(default=0, ge=0),
     sort_by: str = "omsetning",
@@ -274,6 +288,8 @@ def companies_filter(
         min_resultat_per_ansatt=min_resultat_per_ansatt,
         max_resultat_per_ansatt=max_resultat_per_ansatt,
         orgform=orgform,
+        regnskapsaar=regnskapsaar,
+        innlevert_etter=innlevert_etter,
         limit=limit,
         offset=offset,
         sort_by=sort_by,

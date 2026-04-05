@@ -291,6 +291,14 @@
                     <label for="api_max_resultat_per_ansatt">Maks resultat per ansatt</label>
                     <input id="api_max_resultat_per_ansatt" type="number" step="1" placeholder="Eks. 1000000">
                 </div>
+                <div>
+                    <label for="api_regnskapsaar">Regnskapsår</label>
+                    <input id="api_regnskapsaar" type="number" min="2000" max="2030" step="1" placeholder="Eks. 2024">
+                </div>
+                <div>
+                    <label for="api_innlevert_etter">Innlevert etter dato</label>
+                    <input id="api_innlevert_etter" type="date" placeholder="Eks. 2026-01-01">
+                </div>
             </div>
 
             <div class="form-grid">
@@ -306,6 +314,7 @@
                         <option value="resultat_per_ansatt">Resultat per ansatt</option>
                         <option value="navn">Navn</option>
                         <option value="regnskapsaar">Regnskapsår</option>
+                        <option value="oppdatert_dato">Innlevert dato</option>
                     </select>
                 </div>
                 <div>
@@ -675,6 +684,8 @@
         pushChip('Maks omsetning/ansatt', fmtNumber(params.get('max_omsetning_per_ansatt')));
         pushChip('Min resultat/ansatt', fmtNumber(params.get('min_resultat_per_ansatt')));
         pushChip('Maks resultat/ansatt', fmtNumber(params.get('max_resultat_per_ansatt')));
+        pushChip('Regnskapsår', params.get('regnskapsaar'));
+        pushChip('Innlevert etter', params.get('innlevert_etter'));
 
         if (!chips.length) {
             apiActiveFilters.style.display = 'none';
@@ -776,6 +787,8 @@
         addIfPresent(params, 'max_omsetning_per_ansatt', document.getElementById('api_max_omsetning_per_ansatt')?.value);
         addIfPresent(params, 'min_resultat_per_ansatt', document.getElementById('api_min_resultat_per_ansatt')?.value);
         addIfPresent(params, 'max_resultat_per_ansatt', document.getElementById('api_max_resultat_per_ansatt')?.value);
+        addIfPresent(params, 'regnskapsaar', document.getElementById('api_regnskapsaar')?.value);
+        addIfPresent(params, 'innlevert_etter', document.getElementById('api_innlevert_etter')?.value);
         addIfPresent(params, 'sort_by', document.getElementById('api_sort_by')?.value);
         addIfPresent(params, 'sort_dir', document.getElementById('api_sort_dir')?.value);
         params.set('limit', String(limit));
