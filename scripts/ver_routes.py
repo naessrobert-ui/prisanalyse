@@ -1395,15 +1395,15 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
       </select>
       <label>Måling:</label>
       <select id="metric-select">
-        <option value="avg" selected>Gjennomsnittsvind</option>
-        <option value="peak">Høyeste timesverdi</option>
-        <option value="gust">Maks vindkast</option>
+        <option value="avg">Gjennomsnittsvind</option>
+        <option value="peak" style="display:none">Høyeste timesverdi</option>
+        <option value="gust" selected>Maks vindkast</option>
       </select>
       <button type="submit">Vis</button>
       <button type="button" id="btn-reset">Reset kart</button>
     </form>
   </div>
-  <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=avg" height="700"></iframe>
+  <iframe id="map-frame" src="/ver/vind-kart?mode=observed&period=hour&metric=gust" height="700"></iframe>
 </div>
 <script>
 const STORE_KEY="wind_view_v1";
@@ -1429,7 +1429,15 @@ function buildUrl(){{
   return "/ver/vind-kart?"+qs.toString();
 }}
 frame.addEventListener("load",saveFU);
-modeSelect.addEventListener("change",()=>{{const fc = modeSelect.value === "forecast";periodSelect.disabled = fc;forecastHoursSelect.disabled = !fc; frame.src=buildUrl();}});
+modeSelect.addEventListener("change",()=>{{
+  const fc = modeSelect.value === "forecast";
+  periodSelect.disabled = fc;
+  forecastHoursSelect.disabled = !fc;
+  var peakOpt = document.querySelector('#metric-select option[value="peak"]');
+  if(peakOpt) peakOpt.style.display = fc ? '' : 'none';
+  if(!fc && metricSelect.value === 'peak') metricSelect.value = 'avg';
+  frame.src=buildUrl();
+}});
 regionSelect.addEventListener("change",()=>{{try{{sessionStorage.removeItem(STORE_KEY);}}catch(e){{}}frame.src=buildUrl();}});
 periodSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
 forecastHoursSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
