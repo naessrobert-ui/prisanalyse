@@ -24,7 +24,8 @@ load_dotenv()
 
 FROST_BASE = 'https://frost.met.no'
 DEFAULT_TIMEOUT = 20
-YR_COMPACT = 'https://api.met.no/weatherapi/locationforecast/2.0/complete'
+YR_COMPACT = 'https://api.met.no/weatherapi/locationforecast/2.0/compact'
+YR_COMPLETE = 'https://api.met.no/weatherapi/locationforecast/2.0/complete'
 YR_UA = os.getenv('METNO_USER_AGENT', 'prisanalyse.no/1.0 kontakt@prisanalyse.no')
 
 Mode = Literal['observed', 'forecast']
@@ -150,6 +151,12 @@ def _aggregate_obs(df: pd.DataFrame, *, metric: Metric) -> pd.DataFrame:
 
 
 _FORECAST_CACHE: dict[tuple[float, float], tuple[float, dict[str, float]]] = {}
+
+# Statisk liste over norske vindstasjoner med sanntidsdata.
+# Oppdater ved å kjøre update_wind_stations.py (sjelden nødvendig).
+_STATIC_WIND_IDS: set[str] = {'SN76930', 'SN92350', 'SN75410', 'SN28380', 'SN10380', 'SN57770', 'SN51530', 'SN36560', 'SN16610', 'SN87110', 'SN88690', 'SN65310', 'SN33890', 'SN96310', 'SN59800', 'SN90800', 'SN43010', 'SN27450', 'SN59110', 'SN71550', 'SN4780', 'SN68860', 'SN58900', 'SN17000', 'SN87640', 'SN90490', 'SN93140', 'SN25830', 'SN24890', 'SN69100', 'SN42160', 'SN17150', 'SN69380', 'SN39100', 'SN20301', 'SN98550', 'SN3190', 'SN12680', 'SN27500', 'SN75550', 'SN23420', 'SN27470', 'SN99370', 'SN20926', 'SN82290', 'SN50500', 'SN76925', 'SN94500', 'SN20925', 'SN76933', 'SN48330', 'SN80610', 'SN76923', 'SN76929', 'SN71000', 'SN6020', 'SN50540', 'SN44560', 'SN9580', 'SN18700', 'SN32060', 'SN98400', 'SN34130', 'SN60990', 'SN90450', 'SN97350', 'SN76956', 'SN37230', 'SN52535', 'SN63420', 'SN76931', 'SN65940', 'SN77035', 'SN89350', 'SN26900', 'SN76920', 'SN8140', 'SN63705', 'SN62480', 'SN13420', 'SN85380', 'SN92750', 'SN40880', 'SN76928', 'SN35860', 'SN71850', 'SN95350', 'SN47300', 'SN39040', 'SN58070', 'SN36200', 'SN76926', 'SN77040', 'SN46510', 'SN76922', 'SN55290', 'SN18950', 'SN96400'}
+
+
 _WIND_SOURCE_CACHE: tuple[float, set[str]] | None = None
 
 
@@ -179,15 +186,16 @@ def _fetch_wind_source_ids(session: requests.Session, *, auth: FrostAuth, timeou
     return ids
 
 
-def _forecast_station(*, lat: float, lon: float, forecast_hours: int = 24, timeout: int = 12) -> Optional[dict[str, float]]:
+def _forecast_station(*, lat: float, lon: float, forecast_hours: int = 24, timeout: int = 12, need_gust: bool = False) -> Optional[dict[str, float]]:
     key = (round(lat, 3), round(lon, 3))
     now_ts = time.time()
     cached = _FORECAST_CACHE.get(key)
     if cached and cached[0] > now_ts:
         return cached[1]
 
+    yr_url = YR_COMPLETE if need_gust else YR_COMPACT
     r = requests.get(
-        YR_COMPACT,
+        yr_url,
         params={'lat': f'{lat:.4f}', 'lon': f'{lon:.4f}'},
         headers={'User-Agent': YR_UA, 'Accept': 'application/json'},
         timeout=timeout,
@@ -281,18 +289,10 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
 
     auth = _env_auth()
     session = requests.Session()
-    try:
-        wind_ids = _fetch_wind_source_ids(session, auth=auth, timeout=timeout)
-        # Viktig: hvis source-filteret blir for aggressivt (API-variant/parameter-endring),
-        # kan nesten alle stasjoner forsvinne. Da faller vi tilbake til full stasjonsliste.
-        if wind_ids:
-            filtered = stations[stations['baseId'].isin(wind_ids)].copy()
-            # Bruk filteret kun når det fortsatt gir fornuftig dekning.
-            if len(filtered) >= 10:
-                stations = filtered
-    except Exception:
-        # Fallback: bruk alle stasjoner i DB dersom kildelisten feiler.
-        pass
+    # Bruk statisk liste over kjente vindstasjoner — slipper Frost /sources-kall.
+    filtered = stations[stations['baseId'].isin(_STATIC_WIND_IDS)].copy()
+    if len(filtered) >= 10:
+        stations = filtered
 
     if mode == 'observed':
         if len(stations) > observed_limit:
@@ -333,7 +333,7 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
         max_workers = 24
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             futures = {
-                ex.submit(_forecast_station, lat=float(st['lat']), lon=float(st['lon']), forecast_hours=forecast_hours): st
+                ex.submit(_forecast_station, lat=float(st['lat']), lon=float(st['lon']), forecast_hours=forecast_hours, need_gust=(metric=='gust')): st
                 for _, st in stations.iterrows()
             }
             for fut in as_completed(futures):
