@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date as _date
 from datetime import datetime, time, timedelta, timezone
 from html import escape
@@ -8,6 +9,8 @@ import json
 from typing import Optional
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+from ver_station_db import load_station_db
 
 _ALLOWED_MODES = {"observed", "forecast"}
 _ALLOWED_PERIODS = {"hour", "day", "month"}
@@ -17,8 +20,16 @@ _ALLOWED_REGIONS = {"all", "south", "mid", "north"}
 _METNO_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
 _HEADERS = {"User-Agent": "prisanalyse.no/1.0 (contact: post@prisanalyse.no)"}
 _TIMEOUT = 10
+_MAX_WORKERS = 20
 
-_REGION_POINTS = {
+_REGION_BBOX = {
+    "south": (57.0, 4.0, 62.5, 12.5),   # south, west, north, east
+    "mid": (62.0, 4.0, 66.7, 16.5),
+    "north": (66.3, 10.0, 71.5, 31.5),
+    "all": (57.0, 4.0, 71.5, 31.5),
+}
+
+_FALLBACK_POINTS = {
     "south": [
         ("Kristiansand", 58.1467, 7.9956),
         ("Stavanger", 58.9690, 5.7331),
@@ -38,7 +49,7 @@ _REGION_POINTS = {
         ("Vadsø", 70.0744, 29.7487),
     ],
 }
-_REGION_POINTS["all"] = _REGION_POINTS["south"] + _REGION_POINTS["mid"] + _REGION_POINTS["north"]
+_FALLBACK_POINTS["all"] = _FALLBACK_POINTS["south"] + _FALLBACK_POINTS["mid"] + _FALLBACK_POINTS["north"]
 
 
 def _sanitize_mode(value: str) -> str:
@@ -65,6 +76,21 @@ def _parse_target_datetime(date_str: Optional[str], hour_offset: int) -> datetim
         except ValueError:
             pass
     return datetime.combine(base_date, time(0, 0), tzinfo=timezone.utc) + timedelta(hours=hour_offset)
+
+
+def _parse_bbox(bbox: Optional[str]) -> Optional[tuple[float, float, float, float]]:
+    if not bbox:
+        return None
+    try:
+        parts = [float(x.strip()) for x in bbox.split(",")]
+        if len(parts) != 4:
+            return None
+        south, west, north, east = parts
+        if south > north or west > east:
+            return None
+        return south, west, north, east
+    except Exception:
+        return None
 
 
 def _fetch_location_forecast(lat: float, lon: float) -> dict:
@@ -95,32 +121,94 @@ def _pick_timeseries(data: dict, target_dt: datetime) -> Optional[dict]:
     return best
 
 
-def _build_points(region: str, target_dt: datetime) -> tuple[list[dict], list[str]]:
+def _fallback_candidates(region: str) -> list[tuple[str, float, float]]:
+    return list(_FALLBACK_POINTS.get(region, _FALLBACK_POINTS["all"]))
+
+
+def _station_candidates(region: str, bbox: Optional[str], top_n: int) -> list[tuple[str, float, float]]:
+    try:
+        df = load_station_db()
+    except Exception:
+        return _fallback_candidates(region)
+
+    if df.empty:
+        return _fallback_candidates(region)
+
+    d = df.copy()
+    d["lat"] = d["lat"].astype(float)
+    d["lon"] = d["lon"].astype(float)
+    d = d.dropna(subset=["lat", "lon", "baseId"])
+
+    clip = _parse_bbox(bbox) or _REGION_BBOX.get(region, _REGION_BBOX["all"])
+    south, west, north, east = clip
+    d = d[(d["lat"].between(south, north)) & (d["lon"].between(west, east))]
+
+    if d.empty:
+        return _fallback_candidates(region)
+
+    d = d.drop_duplicates(subset=["baseId"], keep="first")
+
+    # For vind holder temperatur-capability ofte god dekning, men ikke påkrevd.
+    if "has_temp" in d.columns and bool(d["has_temp"].any()):
+        d_temp = d[d["has_temp"] == True]
+        if len(d_temp) >= 50:
+            d = d_temp
+
+    # Stabil sortering (forutsigbart kart).
+    d = d.sort_values(["lat", "lon"], ascending=[False, True])
+
+    if len(d) > top_n:
+        d = d.head(top_n)
+
+    out: list[tuple[str, float, float]] = []
+    for _, r in d.iterrows():
+        name = str(r.get("shortName") or r.get("name") or r.get("baseId") or "Stasjon")
+        out.append((name, float(r["lat"]), float(r["lon"])))
+    return out
+
+
+def _fetch_one_point(name: str, lat: float, lon: float, target_dt: datetime) -> tuple[Optional[dict], Optional[str]]:
+    try:
+        payload = _fetch_location_forecast(lat, lon)
+        chosen = _pick_timeseries(payload, target_dt)
+        if not chosen:
+            return None, f"{name}: mangler timeserie"
+
+        details = chosen.get("data", {}).get("instant", {}).get("details", {})
+        return (
+            {
+                "name": name,
+                "lat": lat,
+                "lon": lon,
+                "time": chosen.get("time", "ukjent"),
+                "wind_speed": float(details.get("wind_speed") or 0.0),
+                "wind_gust": float(details.get("wind_speed_of_gust") or 0.0),
+                "wind_dir": float(details.get("wind_from_direction") or 0.0),
+            },
+            None,
+        )
+    except Exception as exc:
+        return None, f"{name}: {exc}"
+
+
+def _build_points(region: str, target_dt: datetime, *, bbox: Optional[str], top_n: int) -> tuple[list[dict], list[str]]:
     points: list[dict] = []
     errors: list[str] = []
 
-    for name, lat, lon in _REGION_POINTS[region]:
-        try:
-            payload = _fetch_location_forecast(lat, lon)
-            chosen = _pick_timeseries(payload, target_dt)
-            if not chosen:
-                errors.append(f"{name}: mangler timeserie")
-                continue
-            details = chosen.get("data", {}).get("instant", {}).get("details", {})
-            points.append(
-                {
-                    "name": name,
-                    "lat": lat,
-                    "lon": lon,
-                    "time": chosen.get("time", "ukjent"),
-                    "wind_speed": float(details.get("wind_speed") or 0.0),
-                    "wind_gust": float(details.get("wind_speed_of_gust") or 0.0),
-                    "wind_dir": float(details.get("wind_from_direction") or 0.0),
-                }
-            )
-        except Exception as exc:
-            errors.append(f"{name}: {exc}")
+    candidates = _station_candidates(region, bbox, top_n)
+    if not candidates:
+        return points, errors
 
+    with ThreadPoolExecutor(max_workers=min(_MAX_WORKERS, max(1, len(candidates)))) as ex:
+        futs = [ex.submit(_fetch_one_point, name, lat, lon, target_dt) for name, lat, lon in candidates]
+        for fut in as_completed(futs):
+            p, err = fut.result()
+            if p is not None:
+                points.append(p)
+            if err:
+                errors.append(err)
+
+    points.sort(key=lambda p: (p.get("lat", 0), p.get("lon", 0)), reverse=True)
     return points, errors
 
 
@@ -154,9 +242,10 @@ def build_wind_map_html(
     safe_region = _sanitize_region(region)
     safe_hour = max(0, min(int(hour_offset or 0), 24))
     safe_forecast = max(6, min(int(forecast_hours or 24), 168))
+    safe_top_n = max(20, min(int(top_n or 600), 1500))
 
     target_dt = _parse_target_datetime(date_str, safe_hour)
-    points, errors = _build_points(safe_region, target_dt)
+    points, errors = _build_points(safe_region, target_dt, bbox=bbox, top_n=safe_top_n)
 
     for p in points:
         p["metric_value"] = round(_metric_value(safe_metric, p), 1)
@@ -170,13 +259,15 @@ def build_wind_map_html(
 
     summary = (
         f"Kilde: {'Yr prognose' if safe_mode == 'forecast' else 'Yr/Frost-lignende visning'} · "
-        f"Periode: {safe_period} · Horizon: {safe_forecast}t · Time offset: +{safe_hour}t"
+        f"Periode: {safe_period} · Horizon: {safe_forecast}t · Time offset: +{safe_hour}t · "
+        f"Punkter: {len(points)}"
     )
 
     err_html = ""
     if errors:
         err_text = "<br>".join(escape(e) for e in errors[:5])
-        err_html = f"<div class='warn'>Noen steder feilet: {err_text}</div>"
+        suffix = "" if len(errors) <= 5 else f"<br>… og {len(errors) - 5} til"
+        err_html = f"<div class='warn'>Noen steder feilet: {err_text}{suffix}</div>"
 
     return f"""<!doctype html>
 <html lang="no">
@@ -216,16 +307,18 @@ def build_wind_map_html(
     const bounds = [];
     points.forEach(p => {{
       const val = Number(p.metric_value || 0);
+      const avg = Number(p.wind_speed || 0);
+      const gust = Number(p.wind_gust || 0);
       const color = val >= 20 ? '#dc2626' : val >= 12 ? '#f59e0b' : '#22c55e';
       const marker = L.circleMarker([p.lat, p.lon], {{
-        radius: Math.max(6, Math.min(18, 5 + val / 2)),
+        radius: Math.max(5, Math.min(12, 4 + val / 3)),
         color,
         weight: 2,
         fillColor: color,
-        fillOpacity: 0.65,
+        fillOpacity: 0.7,
       }}).addTo(map);
       marker.bindPopup(
-        `<b>${{p.name}}</b><br/>Tid: ${{p.time}}<br/>Valgt vind: ${{val}} m/s<br/>Snitt: ${{p.wind_speed}} m/s<br/>Kast: ${{p.wind_gust}} m/s` 
+        `<b>${{p.name}}</b><br/>Tid: ${{p.time}}<br/>Valgt vind: ${{val.toFixed(1)}} m/s<br/>Snitt: ${{avg.toFixed(1)}} m/s<br/>Kast: ${{gust.toFixed(1)}} m/s`
       );
       bounds.push([p.lat, p.lon]);
     }});
