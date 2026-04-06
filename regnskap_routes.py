@@ -1256,6 +1256,10 @@ def regnskap_api_companies_filter():
         "sort_dir",
     }
     params = {key: value for key, value in request.args.items() if key in allowed and str(value).strip() != ""}
+    query = str(params.get("q") or "").strip()
+    normalized_query = normalize_orgnr(query)
+    if len(normalized_query) == 9:
+        params["q"] = normalized_query
     return proxy_analysis_api("/analysis-api/companies/filter", params)
 
 
@@ -1323,6 +1327,8 @@ def regnskap_company_detail(orgnr: str):
 
     rows = payload.get("results", []) if isinstance(payload, dict) else []
     records = [row for row in rows if normalize_orgnr(str(row.get("orgnr", ""))) == normalized_orgnr]
+    if not records and rows:
+        records = rows
     records.sort(
         key=lambda row: (
             row.get("regnskapsaar") is None,
