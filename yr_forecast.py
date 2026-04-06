@@ -83,19 +83,27 @@ def _parse_time(item: dict) -> Optional[datetime]:
         return None
 
 
-def _hourly_precip_triplet_mm(item: dict) -> tuple[float, float, float]:
-    data = item.get("data", {})
-    n1 = data.get("next_1_hours", {}).get("details", {})
+def _precip_block_triplet_mm(item: dict) -> tuple[float, float, float, int]:
+    """
+    Returnerer (forventet, min, maks, varighet_timer) for et Yr-forecast-blokk.
 
-    if "precipitation_amount" in n1:
-        exp = float(n1.get("precipitation_amount") or 0.0)
-        low = float(n1.get("precipitation_amount_min") or exp)
-        high = float(n1.get("precipitation_amount_max") or exp)
-        return exp, low, high
+    Yr leverer ofte `next_1_hours` i starten av prognosen, men lenger fremme
+    kun `next_6_hours` og/eller `next_12_hours`. For å støtte 7 døgn må vi
+    derfor lese alle disse blokkene.
+    """
+    data = item.get("data", {})
+
+    for key, hours in (("next_1_hours", 1), ("next_6_hours", 6), ("next_12_hours", 12)):
+        details = data.get(key, {}).get("details", {})
+        if "precipitation_amount" in details:
+            exp = float(details.get("precipitation_amount") or 0.0)
+            low = float(details.get("precipitation_amount_min") or exp)
+            high = float(details.get("precipitation_amount_max") or exp)
+            return exp, low, high, hours
 
     inst = data.get("instant", {}).get("details", {})
     exp = float(inst.get("precipitation_amount") or 0.0)
-    return exp, exp, exp
+    return exp, exp, exp, 1
 
 
 def _instant_temp_c(item: dict) -> Optional[float]:
@@ -140,12 +148,23 @@ def fetch_precip_forecast(
         total_max = 0.0
         for item in ts:
             t = _parse_time(item)
-            if t is None or t < start_utc or t >= end_utc:
+            if t is None:
                 continue
-            exp, low, high = _hourly_precip_triplet_mm(item)
-            total_expected += exp
-            total_min += low
-            total_max += high
+
+            exp, low, high, span_h = _precip_block_triplet_mm(item)
+            block_end = t + timedelta(hours=span_h)
+
+            overlap_start = max(t, start_utc)
+            overlap_end = min(block_end, end_utc)
+            overlap_h = (overlap_end - overlap_start).total_seconds() / 3600.0
+            if overlap_h <= 0:
+                continue
+
+            # Anta jevn fordeling i blokken, og klipp mot valgt vindu.
+            frac = min(1.0, max(0.0, overlap_h / float(span_h)))
+            total_expected += exp * frac
+            total_min += low * frac
+            total_max += high * frac
 
         return {
             "sourceId": base_id,
