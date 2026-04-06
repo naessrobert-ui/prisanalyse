@@ -1394,6 +1394,7 @@ def regnskap_company_detail(orgnr: str):
     postal_place = first_present(entity_payload, "beliggenhetsadresse_poststed", "forretningsadresse_poststed", "poststed")
     lat_value = first_present(entity_payload, "latitude", "lat", "breddegrad")
     lon_value = first_present(entity_payload, "longitude", "lon", "lengdegrad")
+    ansatte_value = first_present(entity_payload, "ansatte")
 
     return render_template(
         "regnskap_company_detail.html",
