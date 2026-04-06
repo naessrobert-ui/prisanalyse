@@ -19,6 +19,12 @@ import folium
 from folium.plugins import HeatMap  # MarkerCluster fjernet
 
 from ver_station_db import load_station_db, stations_in_bbox_swne_with
+from sunshine_forecast import (
+    fetch_sunshine_forecast,
+    FORECAST_MODES,
+    HEAT_CLIP_HOURS,
+    TITLES as FORECAST_TITLES,
+)
 
 # --- .env loading -------------------------------------------------------
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
@@ -35,7 +41,7 @@ ELEMENT_SUN_DAILY = "sum(duration_of_sunshine P1D)"
 ELEMENT_SUN_MONTHLY = "sum(duration_of_sunshine P1M)"
 ELEMENT_SUN_YEARLY = "sum(duration_of_sunshine P1Y)"
 
-Mode = Literal["last24h", "day", "mtd", "ytd"]
+Mode = Literal["last24h", "day", "mtd", "ytd", "next24h", "next48h", "next7d"]
 
 
 # ======================================================================
@@ -652,6 +658,58 @@ def build_sunshine_map_html(
     heat_clip_hours: float = 12.0,
 ) -> str:
     _ = (z, clat, clon)  # eksplisitt: ikke i bruk
+
+    # ------------------------------------------------------------------
+    # PROGNOSE-MODI: next24h / next48h / next7d  — bruker YR, ikke Frost
+    # ------------------------------------------------------------------
+    if mode in FORECAST_MODES:
+        title = FORECAST_TITLES[mode]
+        heat_clip = HEAT_CLIP_HOURS[mode]
+
+        if bbox:
+            bbox_swne = _parse_bbox_swne(bbox)
+            st = stations_in_bbox_swne_with(bbox_swne, require_sun=True)
+        else:
+            st = load_station_db()
+            if not st.empty:
+                st = st[st["has_sun"] == True].copy()
+
+        if st.empty:
+            return make_info_map(
+                title="Ingen solskinn-stasjoner",
+                message="Fant ingen stasjoner med has_sun=True i stasjonsdatabasen.",
+                mode=str(mode),
+                date_str="",
+            )
+
+        st = st.dropna(subset=["baseId", "lat", "lon"]).copy()
+        merged = fetch_sunshine_forecast(st, mode=mode, timeout=timeout)
+
+        if merged.empty:
+            return make_info_map(
+                title="Ingen prognosedata",
+                message="Klarte ikke hente YR-prognose for noen stasjon. Sjekk User-Agent i sunshine_forecast.py.",
+                mode=str(mode),
+                date_str="",
+            )
+
+        return make_map(
+            merged,
+            title=title,
+            out_html=None,
+            cluster=cluster,
+            heatmap_show=show_heatmap,
+            heat_radius=heat_radius,
+            heat_blur=heat_blur,
+            heat_clip_hours=heat_clip,
+            top_n=10,
+            mode=str(mode),
+            date_str="",
+        )
+
+    # ------------------------------------------------------------------
+    # FROST-OBSERVASJONER (eksisterende logikk uendret herfra)
+    # ------------------------------------------------------------------
 
     day_str = date_str or _date.today().isoformat()
     auth = _env_auth()

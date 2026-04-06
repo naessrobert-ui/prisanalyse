@@ -1313,7 +1313,7 @@ body{{margin:0;font-family:system-ui,sans-serif;background:#f5f7fb;}}
     <form id="controls-form" class="controls">
       <label>Dato:</label><input type="date" id="date-input" value="{today_str}" max="{today_str}">
       <label>Periode:</label>
-      <select id="mode-select"><option value="last24h" selected>Siste 24 timer</option><option value="day">Kalenderdøgn</option><option value="mtd">Hittil i måneden</option><option value="ytd">Hittil i året</option></select>
+      <select id="mode-select"><option value="last24h" selected>Siste 24 timer</option><option value="day">Kalenderdøgn</option><option value="mtd">Hittil i måneden</option><option value="ytd">Hittil i året</option><option disabled>── Prognose (Yr) ──</option><option value="next24h">Neste 24 timer</option><option value="next48h">Neste 48 timer</option><option value="next7d">Neste 7 dager</option></select>
       <button type="submit">Vis</button>
     </form>
   </div>
@@ -1328,14 +1328,17 @@ function buildUrl(){{const qs=new URLSearchParams();qs.set("mode",modeSelect.val
 function saveFU(){{try{{const u=new URL(frame.contentWindow.location.href);const b=u.searchParams.get("bbox");if(!b)return;sessionStorage.setItem(STORE_KEY,JSON.stringify({{bbox:b,z:u.searchParams.get("z")||"",clat:u.searchParams.get("clat")||"",clon:u.searchParams.get("clon")||""}}));}}catch(e){{}}}}
 frame.addEventListener("load",saveFU);
 document.getElementById("controls-form").addEventListener("submit",e=>{{e.preventDefault();showLoader();frame.src=buildUrl();}});
-modeSelect.addEventListener("change",()=>{{frame.src=buildUrl();}});
+const FORECAST_MODES=new Set(["next24h","next48h","next7d"]);
+function toggleDateInput(){{const isFc=FORECAST_MODES.has(modeSelect.value);dateInput.style.display=isFc?"none":"";dateInput.previousElementSibling.style.display=isFc?"none":"";}}
+modeSelect.addEventListener("change",()=>{{toggleDateInput();frame.src=buildUrl();}});
+toggleDateInput();
 </script></body></html>"""
 
 
 @ver.route("/solskinn-kart")
 def solskinn_kart() -> str:
     mode = request.args.get("mode", "last24h")
-    if mode not in {"last24h", "day", "mtd", "ytd"}: mode = "last24h"
+    if mode not in {"last24h", "day", "mtd", "ytd", "next24h", "next48h", "next7d"}: mode = "last24h"
     return build_sunshine_map_html(
         date_str=request.args.get("date"), mode=mode,
         bbox=request.args.get("bbox"),
