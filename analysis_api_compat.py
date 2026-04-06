@@ -84,6 +84,11 @@ def get_company_history_payload(orgnr: str) -> dict[str, Any]:
     if len(normalized_orgnr) != 9:
         return {"orgnr": normalized_orgnr, "company": None, "total_returned": 0, "results": []}
 
+    entity_row = fetch_one(
+        "SELECT * FROM entity WHERE orgnr::text = %s LIMIT 1",
+        [normalized_orgnr],
+    ) or {}
+
     rows = fetch_all(
         """
         SELECT
@@ -129,6 +134,7 @@ def get_company_history_payload(orgnr: str) -> dict[str, Any]:
     return {
         "orgnr": normalized_orgnr,
         "company": company_name,
+        "entity": entity_row,
         "total_returned": len(rows),
         "results": rows,
     }

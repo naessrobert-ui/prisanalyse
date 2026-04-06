@@ -218,14 +218,17 @@ def format_percent(value: float | None) -> str:
     return f"{num:,.1f}".replace(",", "\u00a0").replace(".", ",") + " %"
 
 
-def format_percent(value: float | None) -> str:
-    if value is None:
-        return ""
-    try:
-        num = float(value)
-    except (TypeError, ValueError):
-        return ""
-    return f"{num:,.1f}".replace(",", "\u00a0").replace(".", ",") + " %"
+def first_present(data: dict[str, Any] | None, *keys: str) -> Any:
+    if not isinstance(data, dict):
+        return None
+    for key in keys:
+        value = data.get(key)
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        return value
+    return None
 
 
 def try_fetch_payload(sess: requests.Session, url: str) -> dict | None:
@@ -1021,6 +1024,8 @@ def render_regnskap_result_page(
     search_error: str = "",
     search_query: str = "",
 ) -> str:
+    ansatte_value = first_present(entity_payload, "ansatte")
+
     return render_template(
         "regnskap_result.html",
         mode=mode,
@@ -1118,7 +1123,7 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
     else:
         return None
 
-    response = make_response(json.dumps(payload, ensure_ascii=False), 200)
+    response = make_response(json.dumps(payload, ensure_ascii=False, default=str), 200)
     response.headers["Content-Type"] = "application/json; charset=utf-8"
     response.headers["X-Analysis-API-Base"] = "local-compat"
     return response
@@ -1353,6 +1358,7 @@ def regnskap_company_detail(orgnr: str):
         payload = {}
 
     rows = payload.get("results", []) if isinstance(payload, dict) else []
+    entity_payload = payload.get("entity") if isinstance(payload, dict) else {}
     records = [row for row in rows if normalize_orgnr(str(row.get("orgnr", ""))) == normalized_orgnr]
     if not records and rows:
         records = rows
@@ -1376,6 +1382,20 @@ def regnskap_company_detail(orgnr: str):
             format_percent=format_percent,
         )
 
+    address_value = first_present(
+        entity_payload,
+        "beliggenhetsadresse_adresselinje1",
+        "beliggenhetsadresse",
+        "forretningsadresse_adresselinje1",
+        "forretningsadresse",
+        "adresse",
+    )
+    postal_code = first_present(entity_payload, "beliggenhetsadresse_postnummer", "forretningsadresse_postnummer", "postnummer")
+    postal_place = first_present(entity_payload, "beliggenhetsadresse_poststed", "forretningsadresse_poststed", "poststed")
+    lat_value = first_present(entity_payload, "latitude", "lat", "breddegrad")
+    lon_value = first_present(entity_payload, "longitude", "lon", "lengdegrad")
+    ansatte_value = first_present(entity_payload, "ansatte")
+
     return render_template(
         "regnskap_company_detail.html",
         company=company,
@@ -1383,6 +1403,20 @@ def regnskap_company_detail(orgnr: str):
         orgnr=normalized_orgnr,
         error="",
         back_url=url_for("regnskap.regnskap_hub"),
+        company_meta={
+            "orgform": first_present(entity_payload, "orgform", "organisasjonsform") or company.get("orgform"),
+            "kommune": first_present(entity_payload, "kommune", "kommunenummer") or company.get("kommune") or company.get("kommunenummer"),
+            "ansatte": ansatte_value if ansatte_value is not None else company.get("ansatte"),
+            "adresse": address_value,
+            "poststed": " ".join(part for part in [str(postal_code or "").strip(), str(postal_place or "").strip()] if part).strip() or None,
+            "naeringskode": first_present(entity_payload, "naeringskode", "naeringskode1"),
+            "naeringstekst": first_present(entity_payload, "naeringskode_beskrivelse", "naering", "naeringstekst"),
+            "stiftelsesdato": first_present(entity_payload, "stiftelsesdato"),
+            "registreringsdato": first_present(entity_payload, "registreringsdatoenhetsregisteret"),
+            "latitude": lat_value,
+            "longitude": lon_value,
+        },
+        entity_raw=entity_payload if isinstance(entity_payload, dict) else {},
         format_amount=format_amount,
         format_percent=format_percent,
     )
