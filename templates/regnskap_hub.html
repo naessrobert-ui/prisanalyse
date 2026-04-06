@@ -774,7 +774,8 @@
                 if (!code) return;
                 const description = String(item.description || '').trim();
                 const option = document.createElement('option');
-                option.value = description ? `${code} ${description}` : code;
+                option.value = code;
+                if (description) option.label = description;
                 naeringskodeDatalist.appendChild(option);
             });
 

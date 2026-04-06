@@ -244,6 +244,10 @@ def _prefix_match_clause(column_name: str) -> str:
     return f"coalesce(cast(e.{column_name} as text), '') like %s"
 
 
+def _digits_prefix_match_clause(column_name: str) -> str:
+    return f"regexp_replace(coalesce(cast(e.{column_name} as text), ''), '\\D', '', 'g') like %s"
+
+
 def available_address_columns() -> list[str]:
     return existing_columns(
         'entity',
@@ -311,7 +315,7 @@ def industry_suggestions(query: str, limit: int) -> list[dict[str, Any]]:
     params: list[Any] = []
 
     if digit_search and code_columns:
-        where_parts.append("(" + " or ".join(_prefix_match_clause(col) for col in code_columns) + ")")
+        where_parts.append("(" + " or ".join(_digits_prefix_match_clause(col) for col in code_columns) + ")")
         params.extend([f"{digit_search}%"] * len(code_columns))
 
     text_search = f"%{cleaned_query}%"
@@ -499,7 +503,7 @@ def build_company_filter(
         sub_filters: list[str] = []
 
         if digit_search and code_columns:
-            sub_filters.extend(_prefix_match_clause(col) for col in code_columns)
+            sub_filters.extend(_digits_prefix_match_clause(col) for col in code_columns)
             params.extend([f"{digit_search}%"] * len(code_columns))
 
         if text_columns:
