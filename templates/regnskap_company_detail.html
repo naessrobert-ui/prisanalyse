@@ -130,13 +130,13 @@
                         {% for row in records %}
                         <tr>
                             <td>{{ row.regnskapsaar or '—' }}</td>
-                            <td class="right">{{ format_amount(row.sum_driftsinntekter if row.sum_driftsinntekter is not none else row.omsetning) }}</td>
-                            <td class="right">{{ format_amount(row.driftsresultat) }}</td>
-                            <td class="right">{{ format_amount(row.aarsresultat) }}</td>
-                            <td class="right">{{ format_percent(row.netto_margin) }}</td>
-                            <td class="right">{{ format_percent(row.egenkapitalandel) }}</td>
-                            <td class="right">{{ format_amount(row.omsetning_per_ansatt) }}</td>
-                            <td class="right">{{ format_amount(row.resultat_per_ansatt) }}</td>
+                            <td class="right">{{ format_amount(row.get('sum_driftsinntekter') if row.get('sum_driftsinntekter') is not none else row.get('omsetning')) }}</td>
+                            <td class="right">{{ format_amount(row.get('driftsresultat')) }}</td>
+                            <td class="right">{{ format_amount(row.get('aarsresultat')) }}</td>
+                            <td class="right">{{ format_percent(row.get('netto_margin')) }}</td>
+                            <td class="right">{{ format_percent(row.get('egenkapitalandel')) }}</td>
+                            <td class="right">{{ format_amount(row.get('omsetning_per_ansatt')) }}</td>
+                            <td class="right">{{ format_amount(row.get('resultat_per_ansatt')) }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

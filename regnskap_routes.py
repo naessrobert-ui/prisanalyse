@@ -201,7 +201,21 @@ def normalize_orgnr(value: str) -> str:
 def format_amount(value: float | None) -> str:
     if value is None:
         return ""
-    return f"{value:,.0f}".replace(",", "\u00a0")
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return ""
+    return f"{num:,.0f}".replace(",", "\u00a0")
+
+
+def format_percent(value: float | None) -> str:
+    if value is None:
+        return ""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return ""
+    return f"{num:,.1f}".replace(",", "\u00a0").replace(".", ",") + " %"
 
 
 def format_percent(value: float | None) -> str:
@@ -1051,6 +1065,7 @@ def _lookup_from_query(http_session: requests.Session, query: str) -> tuple[Look
 def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None):
     try:
         from analysis_api_compat import (
+            get_company_history_payload,
             get_analysis_health_payload,
             get_companies_filter_meta_payload,
             get_companies_filter_payload,
@@ -1097,6 +1112,9 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
             orgform=params.get("orgform"),
         )
+    elif path.startswith("/analysis-api/company-history/"):
+        orgnr = path.rsplit("/", 1)[-1]
+        payload = get_company_history_payload(orgnr)
     else:
         return None
 
@@ -1290,16 +1308,7 @@ def regnskap_company_detail(orgnr: str):
             format_percent=format_percent,
         )
 
-    response = proxy_analysis_api(
-        "/analysis-api/companies/filter",
-        {
-            "q": normalized_orgnr,
-            "limit": 500,
-            "offset": 0,
-            "sort_by": "regnskapsaar",
-            "sort_dir": "desc",
-        },
-    )
+    response = proxy_analysis_api(f"/analysis-api/company-history/{normalized_orgnr}")
 
     if isinstance(response, tuple):
         flask_response = response[0]
@@ -1307,6 +1316,24 @@ def regnskap_company_detail(orgnr: str):
     else:
         flask_response = response
         status_code = flask_response.status_code
+
+    if status_code == 404:
+        response = proxy_analysis_api(
+            "/analysis-api/companies/filter",
+            {
+                "q": normalized_orgnr,
+                "limit": 500,
+                "offset": 0,
+                "sort_by": "regnskapsaar",
+                "sort_dir": "desc",
+            },
+        )
+        if isinstance(response, tuple):
+            flask_response = response[0]
+            status_code = response[1]
+        else:
+            flask_response = response
+            status_code = flask_response.status_code
 
     if status_code != 200:
         return render_template(
