@@ -218,6 +218,16 @@ def format_percent(value: float | None) -> str:
     return f"{num:,.1f}".replace(",", "\u00a0").replace(".", ",") + " %"
 
 
+def format_percent(value: float | None) -> str:
+    if value is None:
+        return ""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return ""
+    return f"{num:,.1f}".replace(",", "\u00a0").replace(".", ",") + " %"
+
+
 def try_fetch_payload(sess: requests.Session, url: str) -> dict | None:
     """Identisk med Proff_all.py."""
     try:

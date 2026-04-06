@@ -1277,7 +1277,7 @@ def nedbor_index():
 @ver.route("/nedbor-kart")
 def nedbor_kart() -> Response:
     mode = request.args.get("mode", "last24h")
-    if mode not in {"last24h", "day", "mtd", "ytd"}: mode = "last24h"
+    if mode not in {"last24h", "day", "mtd", "ytd", "next24h", "next48h", "next7d"}: mode = "last24h"
     rank = request.args.get("rank", "max")
     if rank not in {"max", "min"}: rank = "max"
     return Response(build_precip_county_map_html(
