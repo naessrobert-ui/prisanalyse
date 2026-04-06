@@ -102,12 +102,42 @@
             <h1>{{ company.navn or 'Ukjent selskap' }}</h1>
             <p class="muted">Organisasjonsnummer: {{ orgnr }}</p>
             <div class="meta">
-                <div class="meta-item"><strong>Organisasjonsform</strong>{{ company.orgform or '—' }}</div>
-                <div class="meta-item"><strong>Kommune</strong>{{ company.kommune or company.kommunenummer or '—' }}</div>
-                <div class="meta-item"><strong>Ansatte</strong>{{ company.ansatte if company.ansatte is not none else '—' }}</div>
+                <div class="meta-item"><strong>Organisasjonsform</strong>{{ company_meta.orgform or '—' }}</div>
+                <div class="meta-item"><strong>Kommune</strong>{{ company_meta.kommune or '—' }}</div>
+                <div class="meta-item"><strong>Ansatte</strong>{{ company_meta.ansatte if company_meta.ansatte is not none else '—' }}</div>
                 <div class="meta-item"><strong>Antall regnskapsår</strong>{{ records|length }}</div>
+                <div class="meta-item"><strong>Adresse</strong>{{ company_meta.adresse or '—' }}</div>
+                <div class="meta-item"><strong>Poststed</strong>{{ company_meta.poststed or '—' }}</div>
+                <div class="meta-item"><strong>Næringskode</strong>{{ company_meta.naeringskode or '—' }}</div>
+                <div class="meta-item"><strong>Næring</strong>{{ company_meta.naeringstekst or '—' }}</div>
+                <div class="meta-item"><strong>Stiftelsesdato</strong>{{ company_meta.stiftelsesdato or '—' }}</div>
+                <div class="meta-item"><strong>Registreringsdato</strong>{{ company_meta.registreringsdato or '—' }}</div>
+                <div class="meta-item"><strong>Breddegrad</strong>{{ company_meta.latitude if company_meta.latitude is not none else '—' }}</div>
+                <div class="meta-item"><strong>Lengdegrad</strong>{{ company_meta.longitude if company_meta.longitude is not none else '—' }}</div>
             </div>
         </section>
+
+        {% if entity_raw %}
+        <section class="card">
+            <h2>Tilgjengelige felter i databasen</h2>
+            <p class="muted">Denne listen viser hvilke råfelt vi har lagret for selskapet (kan brukes for videre utvidelser).</p>
+            <div class="table-wrap">
+                <table style="min-width:620px">
+                    <thead>
+                        <tr><th>Felt</th><th>Verdi</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for key, value in entity_raw.items() %}
+                        <tr>
+                            <td>{{ key }}</td>
+                            <td>{{ value if value is not none and value != '' else '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
 
         <section class="card">
             <h2>Alle tilgjengelige regnskapsår</h2>
