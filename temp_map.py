@@ -14,6 +14,7 @@ from typing import Any, Iterator, Optional, Literal
 
 import pandas as pd
 from ver_station_db import stations_in_county
+from yr_forecast import FORECAST_MODES, TEMP_TITLES, fetch_temp_forecast
 import requests
 from dotenv import load_dotenv
 
@@ -30,7 +31,7 @@ DEFAULT_TIMEOUT = 20
 UNIT_C = "°C"
 
 TempType = Literal["min", "max", "mean"]
-Period = Literal["last", "day", "month", "year"]
+Period = Literal["last", "day", "month", "year", "next24h", "next48h", "next7d"]
 
 # En pragmatisk fylkeliste (etter 2024-endringene).
 NORWAY_COUNTIES: list[str] = [
@@ -396,6 +397,9 @@ def make_empty_map_with_dropdown(
         "day": "Valgt døgn",
         "month": "Valgt måned",
         "year": "Valgt år (hittil nå hvis inneværende år)",
+        "next24h": "Forventet neste 24 timer (Yr)",
+        "next48h": "Forventet neste 48 timer (Yr)",
+        "next7d": "Forventet neste 7 dager (Yr)",
     }
     period_html = "\n".join(
         f'<option value="{k}" {"selected" if k == selected_period else ""}>{v}</option>'
@@ -497,9 +501,10 @@ def make_empty_map_with_dropdown(
 
       function syncPeriodUI() {{
         const p = periodSel.value || "last";
-        dayBox.style.display = (p === "day") ? "block" : "none";
-        monthBox.style.display = (p === "month") ? "block" : "none";
-        yearBox.style.display = (p === "year") ? "block" : "none";
+        const isForecast = ["next24h", "next48h", "next7d"].includes(p);
+        dayBox.style.display = (!isForecast && p === "day") ? "block" : "none";
+        monthBox.style.display = (!isForecast && p === "month") ? "block" : "none";
+        yearBox.style.display = (!isForecast && p === "year") ? "block" : "none";
       }}
       periodSel.addEventListener("change", syncPeriodUI);
       syncPeriodUI();
@@ -627,6 +632,9 @@ def make_temp_map(
         "day": "Valgt døgn",
         "month": "Valgt måned",
         "year": "Valgt år (hittil nå hvis inneværende år)",
+        "next24h": "Forventet neste 24 timer (Yr)",
+        "next48h": "Forventet neste 48 timer (Yr)",
+        "next7d": "Forventet neste 7 dager (Yr)",
     }
     period_html = "\n".join(
         f'<option value="{k}" {"selected" if k == selected_period else ""}>{v}</option>'
@@ -726,9 +734,10 @@ def make_temp_map(
 
       function syncPeriodUI() {{
         const p = periodSel.value || "last";
-        dayBox.style.display = (p === "day") ? "block" : "none";
-        monthBox.style.display = (p === "month") ? "block" : "none";
-        yearBox.style.display = (p === "year") ? "block" : "none";
+        const isForecast = ["next24h", "next48h", "next7d"].includes(p);
+        dayBox.style.display = (!isForecast && p === "day") ? "block" : "none";
+        monthBox.style.display = (!isForecast && p === "month") ? "block" : "none";
+        yearBox.style.display = (!isForecast && p === "year") ? "block" : "none";
       }}
       periodSel.addEventListener("change", syncPeriodUI);
       syncPeriodUI();
@@ -984,7 +993,7 @@ def build_min_temp_map_html(
 
     if temp not in TEMP_TYPES:
         temp = "min"
-    if period not in {"last", "day", "month", "year"}:
+    if period not in {"last", "day", "month", "year", "next24h", "next48h", "next7d"}:
         period = "last"
 
     try:
@@ -993,13 +1002,74 @@ def build_min_temp_map_html(
         top_n = 20
     top_n = max(1, min(top_n, 5000))
 
-    auth = _env_auth()
     now = datetime.now(timezone.utc)
 
     # UI defaults
     ui_date = date_str or _date.today().isoformat()
     ui_month = month_str or now.strftime("%Y-%m")
     ui_year = year_str or now.strftime("%Y")
+
+
+    county_is_all = (county == "ALL")
+    if county_is_all:
+        frames = [stations_in_county(c) for c in NORWAY_COUNTIES]
+        frames = [df for df in frames if df is not None and not df.empty]
+        src_meta = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    else:
+        src_meta = stations_in_county(county)
+
+    if src_meta.empty:
+        return make_empty_map_with_dropdown(
+            selected_county=county,
+            selected_temp=temp,
+            selected_period=period,
+            selected_top_n=top_n,
+        )
+
+    if period in FORECAST_MODES:
+        merged = fetch_temp_forecast(src_meta, mode=period, temp_kind=temp, timeout=timeout)
+        if merged.empty:
+            return make_empty_map_with_dropdown(
+                selected_county=county,
+                selected_temp=temp,
+                selected_period=period,
+                selected_top_n=top_n,
+            )
+
+        if county_is_all:
+            if temp == "min":
+                merged = merged.nsmallest(top_n, "value")
+            else:
+                merged = merged.nlargest(top_n, "value")
+
+        if merged.empty:
+            return make_empty_map_with_dropdown(
+                selected_county=county,
+                selected_temp=temp,
+                selected_period=period,
+                selected_top_n=top_n,
+            )
+
+        updated = now.strftime("%Y-%m-%d %H:%M UTC")
+        title = f"{TEMP_TITLES[temp][period]} – {county}<br><small>Oppdatert ca. {updated}</small>"
+
+        return make_temp_map(
+            merged,
+            title=title,
+            selected_county=county,
+            selected_temp=temp,
+            selected_period=period,
+            selected_date=ui_date,
+            selected_month=ui_month,
+            selected_year=ui_year,
+            selected_top_n=top_n,
+            element_used="YR locationforecast",
+            cluster=True,
+            heatmap_show=True,
+            heat_radius=25,
+            heat_blur=18,
+            top_n=top_n,
+        )
 
     # referencetime + title
     if period == "day":
@@ -1042,25 +1112,9 @@ def build_min_temp_map_html(
     else:
         element_candidates = _elements_for(temp, period)
 
+    auth = _env_auth()
+
     with requests.Session() as sess:
-        # Bruk lokal stasjons-DB (hurtig) i stedet for /sources-kall hver gang
-        county_is_all = (county == "ALL")
-        if county_is_all:
-            frames = [stations_in_county(c) for c in NORWAY_COUNTIES]
-            frames = [df for df in frames if df is not None and not df.empty]
-            src_meta = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-        else:
-            src_meta = stations_in_county(county)
-
-        if src_meta.empty:
-            # fallback: tomt kart med dropdown (du kan evt. re-introdusere /sources her om ønskelig)
-            return make_empty_map_with_dropdown(
-                selected_county=county,
-                selected_temp=temp,
-                selected_period=period,
-                selected_top_n=top_n,
-            )
-
         sources = src_meta["baseId"].astype(str).tolist()
 
         obs = pd.DataFrame()
@@ -1169,7 +1223,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Temperatur-kart (velg fylke).")
     ap.add_argument("--county", default="", help="Fylke, f.eks. 'Innlandet'")
     ap.add_argument("--temp", default="min", choices=["min", "max", "mean"])
-    ap.add_argument("--period", default="last", choices=["last", "day", "month", "year"])
+    ap.add_argument("--period", default="last", choices=["last", "day", "month", "year", "next24h", "next48h", "next7d"])
     ap.add_argument("--date", default="", help="YYYY-MM-DD (for period=day)")
     ap.add_argument("--month", default="", help="YYYY-MM (for period=month)")
     ap.add_argument("--year", default="", help="YYYY (for period=year)")

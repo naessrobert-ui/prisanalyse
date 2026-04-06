@@ -22,6 +22,7 @@ from folium.plugins import HeatMap, MarkerCluster
 
 # Local station DB (same as temperature flow)
 from ver_station_db import stations_in_county
+from yr_forecast import FORECAST_MODES, PRECIP_TITLES, fetch_precip_forecast
 
 # --- .env loading -------------------------------------------------------
 # Load .env next to this script, then fall back to working-directory .env
@@ -32,7 +33,7 @@ FROST_BASE = "https://frost.met.no"
 DEFAULT_TIMEOUT = 20
 
 UNIT_MM = "mm"
-Mode = Literal["last24h", "day", "mtd", "ytd"]
+Mode = Literal["last24h", "day", "mtd", "ytd", "next24h", "next48h", "next7d"]
 Rank = Literal["max", "min"]
 
 WET_DAY_THRESHOLD_MM = 0.1  # antall dager med nedbør >= 0.1 mm
@@ -364,6 +365,9 @@ def make_empty_map_with_dropdown(
         "day": "Kalenderdøgn (valgt dato)",
         "mtd": "Hittil i måneden",
         "ytd": "Hittil i året",
+        "next24h": "Forventet neste 24 timer (Yr)",
+        "next48h": "Forventet neste 48 timer (Yr)",
+        "next7d": "Forventet neste 7 dager (Yr)",
     }
     mode_opts = "\n".join(
         f'<option value="{k}" {"selected" if k == selected_mode else ""}>{v}</option>'
@@ -457,7 +461,8 @@ def make_empty_map_with_dropdown(
 
       function syncModeUI() {{
         const m = modeSel.value || "last24h";
-        dateBox.style.display = (m === "last24h") ? "none" : "block";
+        const isForecast = ["next24h", "next48h", "next7d"].includes(m);
+        dateBox.style.display = (m === "last24h" || isForecast) ? "none" : "block";
       }}
       modeSel.addEventListener("change", syncModeUI);
       syncModeUI();
@@ -479,7 +484,7 @@ def make_empty_map_with_dropdown(
         const rank = document.getElementById('rankSel').value || 'max';
         qs.set('rank', rank);
 
-        if (m !== "last24h") {{
+        if (!["last24h", "next24h", "next48h", "next7d"].includes(m)) {{
           const d = document.getElementById("dateInput").value;
           if (!d) {{ alert("Velg dato"); return; }}
           qs.set("date", d);
@@ -786,95 +791,104 @@ def build_precip_county_map_html(
     if not county:
         return make_empty_map_with_dropdown(**empty_kw)
 
-    if mode not in {"last24h", "day", "mtd", "ytd"}:
+    if mode not in {"last24h", "day", "mtd", "ytd", "next24h", "next48h", "next7d"}:
         mode = "last24h"
 
-    auth = _env_auth()
     day = datetime.strptime(day_str, "%Y-%m-%d").date()
 
-    if mode == "last24h":
-        now = datetime.now(timezone.utc)
-        start_dt = now - timedelta(hours=24)
-        referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
-        elements = ELEMENT_PRECIP_HOURLY
-        title = "Nedbør siste 24 timer (rullerende)"
-        sum_count_col = "n_hours"
-    elif mode == "day":
-        start = day
-        end = day + timedelta(days=1)
-        referencetime = f"{start.isoformat()}/{end.isoformat()}"
-        elements = ELEMENT_PRECIP_DAY
-        title = "Nedbør kalenderdøgn (valgt dato)"
-        sum_count_col = "n_days"
-    elif mode == "mtd":
-        start = _date(day.year, day.month, 1)
-        end = day + timedelta(days=1)
-        referencetime = f"{start.isoformat()}/{end.isoformat()}"
-        elements = ELEMENT_PRECIP_DAY
-        title = f"Nedbør hittil i måneden ({start.isoformat()} → {day.isoformat()})"
-        sum_count_col = "n_days"
-    else:  # ytd
-        start = _date(day.year, 1, 1)
-        end = day + timedelta(days=1)
-        referencetime = f"{start.isoformat()}/{end.isoformat()}"
-        elements = ELEMENT_PRECIP_DAY
-        title = f"Nedbør hittil i året ({start.isoformat()} → {day.isoformat()})"
-        sum_count_col = "n_days"
+    county_is_all = (county == "ALL")
+    if county_is_all:
+        frames = [stations_in_county(c) for c in NORWAY_COUNTIES]
+        frames = [df for df in frames if df is not None and not df.empty]
+        src_meta = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    else:
+        src_meta = stations_in_county(county)
 
-    # Allow caller to pass in a reusable session (avoids new TCP pool per call)
-    owns_session = session is None
-    sess = session or requests.Session()
-    try:
-        county_is_all = (county == "ALL")
-        if county_is_all:
-            frames = [stations_in_county(c) for c in NORWAY_COUNTIES]
-            frames = [df for df in frames if df is not None and not df.empty]
-            src_meta = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-        else:
-            src_meta = stations_in_county(county)
+    if src_meta.empty:
+        return make_empty_map_with_dropdown(**empty_kw)
 
-        if src_meta.empty:
+    if mode in FORECAST_MODES:
+        merged = fetch_precip_forecast(src_meta, mode=mode, timeout=timeout)
+        if merged.empty:
+            return make_empty_map_with_dropdown(**empty_kw)
+        title = PRECIP_TITLES[mode]
+    else:
+        auth = _env_auth()
+
+    if mode not in FORECAST_MODES:
+        if mode == "last24h":
+            now = datetime.now(timezone.utc)
+            start_dt = now - timedelta(hours=24)
+            referencetime = f"{start_dt.isoformat()}/{now.isoformat()}"
+            elements = ELEMENT_PRECIP_HOURLY
+            title = "Nedbør siste 24 timer (rullerende)"
+            sum_count_col = "n_hours"
+        elif mode == "day":
+            start = day
+            end = day + timedelta(days=1)
+            referencetime = f"{start.isoformat()}/{end.isoformat()}"
+            elements = ELEMENT_PRECIP_DAY
+            title = "Nedbør kalenderdøgn (valgt dato)"
+            sum_count_col = "n_days"
+        elif mode == "mtd":
+            start = _date(day.year, day.month, 1)
+            end = day + timedelta(days=1)
+            referencetime = f"{start.isoformat()}/{end.isoformat()}"
+            elements = ELEMENT_PRECIP_DAY
+            title = f"Nedbør hittil i måneden ({start.isoformat()} → {day.isoformat()})"
+            sum_count_col = "n_days"
+        else:  # ytd
+            start = _date(day.year, 1, 1)
+            end = day + timedelta(days=1)
+            referencetime = f"{start.isoformat()}/{end.isoformat()}"
+            elements = ELEMENT_PRECIP_DAY
+            title = f"Nedbør hittil i året ({start.isoformat()} → {day.isoformat()})"
+            sum_count_col = "n_days"
+
+    if mode not in FORECAST_MODES:
+        # Allow caller to pass in a reusable session (avoids new TCP pool per call)
+        owns_session = session is None
+        sess = session or requests.Session()
+        try:
+            sources = src_meta["baseId"].astype(str).tolist()
+            obs = fetch_observations_interval(
+                sess,
+                auth=auth,
+                sources=sources,
+                referencetime=referencetime,
+                elements=elements,
+                timeout=timeout,
+                batch_size=batch_size,
+                limit=limit,
+                qualities=qualities,
+            )
+        finally:
+            if owns_session:
+                sess.close()
+
+        elapsed = time.monotonic() - t0
+        logger.info("Data fetch completed in %.1fs (%d sources, mode=%s)", elapsed, len(sources) if 'sources' in dir() else 0, mode)
+
+        if obs.empty:
             return make_empty_map_with_dropdown(**empty_kw)
 
-        sources = src_meta["baseId"].astype(str).tolist()
-        obs = fetch_observations_interval(
-            sess,
-            auth=auth,
-            sources=sources,
-            referencetime=referencetime,
-            elements=elements,
-            timeout=timeout,
-            batch_size=batch_size,
-            limit=limit,
-            qualities=qualities,
-        )
-    finally:
-        if owns_session:
-            sess.close()
+        if mode == "day":
+            picked = pick_day_value_per_station(obs, day=day)
+            out = picked[["sourceId", "referenceTime", "value", "unit", "qualityCode"]].copy()
+            # Våte dager for "day" blir 0/1 (basert på døgnsummen)
+            out["wet_days"] = (out["value"] >= WET_DAY_THRESHOLD_MM).astype(int)
+        else:
+            out = aggregate_sum_per_station(obs, count_col=sum_count_col)
+            # For last24h ønsker vi ikke å vise "våte dager" (det blir våte timer).
+            if mode == "last24h" and "wet_days" in out.columns:
+                out = out.drop(columns=["wet_days"])
 
-    elapsed = time.monotonic() - t0
-    logger.info("Data fetch completed in %.1fs (%d sources, mode=%s)", elapsed, len(sources) if 'sources' in dir() else 0, mode)
+        out["baseId"] = out["sourceId"].astype(str).map(base_source_id)
+        merged = out.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
+        merged = merged.dropna(subset=["lat", "lon", "value"])
 
-    if obs.empty:
-        return make_empty_map_with_dropdown(**empty_kw)
-
-    if mode == "day":
-        picked = pick_day_value_per_station(obs, day=day)
-        out = picked[["sourceId", "referenceTime", "value", "unit", "qualityCode"]].copy()
-        # Våte dager for "day" blir 0/1 (basert på døgnsummen)
-        out["wet_days"] = (out["value"] >= WET_DAY_THRESHOLD_MM).astype(int)
-    else:
-        out = aggregate_sum_per_station(obs, count_col=sum_count_col)
-        # For last24h ønsker vi ikke å vise "våte dager" (det blir våte timer).
-        if mode == "last24h" and "wet_days" in out.columns:
-            out = out.drop(columns=["wet_days"])
-
-    out["baseId"] = out["sourceId"].astype(str).map(base_source_id)
-    merged = out.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
-    merged = merged.dropna(subset=["lat", "lon", "value"])
-
-    if merged.empty:
-        return make_empty_map_with_dropdown(**empty_kw)
+        if merged.empty:
+            return make_empty_map_with_dropdown(**empty_kw)
 
     # For "Hele landet": plott kun topp N for fart, og la bruker velge mest/minst.
     if county == "ALL":
@@ -889,7 +903,7 @@ def build_precip_county_map_html(
         title=title,
         selected_county=county,
         selected_mode=mode,
-        selected_date=day_str if mode != "last24h" else "",
+        selected_date=day_str if mode not in {"last24h", "next24h", "next48h", "next7d"} else "",
         selected_top_n=top_n_i,
         selected_rank=rank,
         cluster=cluster,
@@ -912,7 +926,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Generate precipitation map HTML")
     parser.add_argument("--county", default=None, help="County name or 'ALL'")
-    parser.add_argument("--mode", default="last24h", choices=["last24h", "day", "mtd", "ytd"])
+    parser.add_argument("--mode", default="last24h", choices=["last24h", "day", "mtd", "ytd", "next24h", "next48h", "next7d"])
     parser.add_argument("--date", default=None, dest="date_str", help="Date (YYYY-MM-DD)")
     parser.add_argument("--top-n", default=50, type=int, help="Top N stations to show")
     parser.add_argument("--rank", default="max", choices=["max", "min"])
