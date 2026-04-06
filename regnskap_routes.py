@@ -1123,7 +1123,7 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
     else:
         return None
 
-    response = make_response(json.dumps(payload, ensure_ascii=False), 200)
+    response = make_response(json.dumps(payload, ensure_ascii=False, default=str), 200)
     response.headers["Content-Type"] = "application/json; charset=utf-8"
     response.headers["X-Analysis-API-Base"] = "local-compat"
     return response
