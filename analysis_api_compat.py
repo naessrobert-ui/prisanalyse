@@ -154,7 +154,7 @@ def get_companies_filter_payload(
         params.append(regnskapsaar)
 
     if innlevert_etter is not None:
-        base_sql += " AND r.oppdatert_dato >= %s"
+        base_sql += " AND r.updated_at >= %s"
         params.append(innlevert_etter)
 
     count_row = fetch_one(f"SELECT COUNT(*)::int AS n {base_sql}", params) or {"n": 0}
