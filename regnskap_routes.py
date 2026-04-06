@@ -28,7 +28,7 @@ from xml.etree import ElementTree as ET
 import requests
 import urllib3
 from bs4 import BeautifulSoup
-from flask import Blueprint, jsonify, make_response, render_template, request, session
+from flask import Blueprint, jsonify, make_response, render_template, request, session, url_for
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -202,6 +202,16 @@ def format_amount(value: float | None) -> str:
     if value is None:
         return ""
     return f"{value:,.0f}".replace(",", "\u00a0")
+
+
+def format_percent(value: float | None) -> str:
+    if value is None:
+        return ""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return ""
+    return f"{num:,.1f}".replace(",", "\u00a0").replace(".", ",") + " %"
 
 
 def try_fetch_payload(sess: requests.Session, url: str) -> dict | None:
@@ -1259,6 +1269,90 @@ def regnskap_api_companies_top_omsetning():
     allowed = {"limit", "min_omsetning", "orgform"}
     params = {key: value for key, value in request.args.items() if key in allowed and str(value).strip() != ""}
     return proxy_analysis_api("/analysis-api/companies/top-omsetning", params)
+
+
+@regnskap_bp.route("/selskap/<orgnr>")
+def regnskap_company_detail(orgnr: str):
+    normalized_orgnr = normalize_orgnr(orgnr)
+    if len(normalized_orgnr) != 9:
+        return render_template(
+            "regnskap_company_detail.html",
+            company=None,
+            records=[],
+            orgnr=orgnr,
+            error="Ugyldig organisasjonsnummer. Bruk 9 siffer.",
+            back_url=url_for("regnskap.regnskap_hub"),
+            format_amount=format_amount,
+            format_percent=format_percent,
+        )
+
+    response = proxy_analysis_api(
+        "/analysis-api/companies/filter",
+        {
+            "q": normalized_orgnr,
+            "limit": 500,
+            "offset": 0,
+            "sort_by": "regnskapsaar",
+            "sort_dir": "desc",
+        },
+    )
+
+    if isinstance(response, tuple):
+        flask_response = response[0]
+        status_code = response[1]
+    else:
+        flask_response = response
+        status_code = flask_response.status_code
+
+    if status_code != 200:
+        return render_template(
+            "regnskap_company_detail.html",
+            company=None,
+            records=[],
+            orgnr=normalized_orgnr,
+            error=f"Klarte ikke hente selskapsdetaljer (HTTP {status_code}).",
+            back_url=url_for("regnskap.regnskap_hub"),
+            format_amount=format_amount,
+            format_percent=format_percent,
+        )
+
+    try:
+        payload = json.loads(flask_response.get_data(as_text=True))
+    except json.JSONDecodeError:
+        payload = {}
+
+    rows = payload.get("results", []) if isinstance(payload, dict) else []
+    records = [row for row in rows if normalize_orgnr(str(row.get("orgnr", ""))) == normalized_orgnr]
+    records.sort(
+        key=lambda row: (
+            row.get("regnskapsaar") is None,
+            -(int(row.get("regnskapsaar")) if str(row.get("regnskapsaar", "")).isdigit() else -1),
+        ),
+    )
+
+    company = records[0] if records else None
+    if company is None:
+        return render_template(
+            "regnskap_company_detail.html",
+            company=None,
+            records=[],
+            orgnr=normalized_orgnr,
+            error="Fant ikke selskapet i analyseplattformen.",
+            back_url=url_for("regnskap.regnskap_hub"),
+            format_amount=format_amount,
+            format_percent=format_percent,
+        )
+
+    return render_template(
+        "regnskap_company_detail.html",
+        company=company,
+        records=records,
+        orgnr=normalized_orgnr,
+        error="",
+        back_url=url_for("regnskap.regnskap_hub"),
+        format_amount=format_amount,
+        format_percent=format_percent,
+    )
 
 
 @regnskap_bp.route("/api/search")

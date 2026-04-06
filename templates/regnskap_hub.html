@@ -625,8 +625,19 @@
         apiResultsBody.innerHTML = '';
         rows.forEach((row) => {
             const tr = document.createElement('tr');
+            const orgnrValue = String(getRowValue(row, ['orgnr']) || '').trim();
+
+            const orgnrTd = document.createElement('td');
+            if (orgnrValue) {
+                const orgLink = document.createElement('a');
+                orgLink.href = `/regnskap/selskap/${encodeURIComponent(orgnrValue)}`;
+                orgLink.textContent = orgnrValue;
+                orgLink.title = `Åpne detaljside for orgnr ${orgnrValue}`;
+                orgnrTd.appendChild(orgLink);
+            }
+            tr.appendChild(orgnrTd);
+
             const cells = [
-                getRowValue(row, ['orgnr']),
                 getRowValue(row, ['navn']),
                 getRowValue(row, ['orgform']),
                 getRowValue(row, ['kommune', 'kommunenummer']),
