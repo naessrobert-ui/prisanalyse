@@ -579,13 +579,20 @@ def make_map(
                 f"<b>{int(r['wet_days'])}</b></small>"
             )
 
+        range_line = ""
+        if pd.notna(r.get("value_min")) and pd.notna(r.get("value_max")):
+            range_line = (
+                f"<br><small>Usikkerhet: "
+                f"<b>{float(r['value_min']):.1f}</b>–<b>{float(r['value_max']):.1f}</b> {UNIT_MM}</small>"
+            )
+
         popup = folium.Popup(
             folium.IFrame(
-                html=f"<b>{name}</b><br>{val:.1f} {UNIT_MM}{wet_days_line}<br><small>{rt_s}</small>",
-                width=270,
-                height=115 if wet_days_line else 90,
+                html=f"<b>{name}</b><br>Forventet: <b>{val:.1f} {UNIT_MM}</b>{range_line}{wet_days_line}<br><small>{rt_s}</small>",
+                width=300,
+                height=135 if (wet_days_line or range_line) else 95,
             ),
-            max_width=310,
+            max_width=330,
         )
 
         mk = folium.CircleMarker(

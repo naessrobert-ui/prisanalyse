@@ -83,14 +83,19 @@ def _parse_time(item: dict) -> Optional[datetime]:
         return None
 
 
-def _hourly_precip_mm(item: dict) -> float:
+def _hourly_precip_triplet_mm(item: dict) -> tuple[float, float, float]:
     data = item.get("data", {})
     n1 = data.get("next_1_hours", {}).get("details", {})
+
     if "precipitation_amount" in n1:
-        return float(n1.get("precipitation_amount") or 0.0)
+        exp = float(n1.get("precipitation_amount") or 0.0)
+        low = float(n1.get("precipitation_amount_min") or exp)
+        high = float(n1.get("precipitation_amount_max") or exp)
+        return exp, low, high
 
     inst = data.get("instant", {}).get("details", {})
-    return float(inst.get("precipitation_amount") or 0.0)
+    exp = float(inst.get("precipitation_amount") or 0.0)
+    return exp, exp, exp
 
 
 def _instant_temp_c(item: dict) -> Optional[float]:
@@ -130,16 +135,23 @@ def fetch_precip_forecast(
         if ts is None:
             return None
 
-        total = 0.0
+        total_expected = 0.0
+        total_min = 0.0
+        total_max = 0.0
         for item in ts:
             t = _parse_time(item)
             if t is None or t < start_utc or t >= end_utc:
                 continue
-            total += _hourly_precip_mm(item)
+            exp, low, high = _hourly_precip_triplet_mm(item)
+            total_expected += exp
+            total_min += low
+            total_max += high
 
         return {
             "sourceId": base_id,
-            "value": round(total, 2),
+            "value": round(total_expected, 2),
+            "value_min": round(total_min, 2),
+            "value_max": round(total_max, 2),
             "referenceTime": end_utc,
             "qualityCode": float("nan"),
             "unit": "mm",
