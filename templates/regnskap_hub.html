@@ -234,7 +234,9 @@
                 </div>
                 <div>
                     <label for="api_naeringskode">Næringskode</label>
-                    <input id="api_naeringskode" type="text" placeholder="Eks. 62 eller eiendom">
+                    <input id="api_naeringskode" type="text" placeholder="Eks. 62 eller eiendom" list="api_naeringskode_suggestions" autocomplete="off">
+                    <datalist id="api_naeringskode_suggestions"></datalist>
+                    <div class="muted" id="apiNaeringskodeHint" style="margin-top:6px;">Tips: Skriv f.eks. «bil», «transport» eller kodeprefix (45, 62).</div>
                 </div>
                 <div>
                     <label for="api_orgform">Organisasjonsform (valgfritt)</label>
@@ -516,8 +518,11 @@
     const sortableHeaders = Array.from(document.querySelectorAll('#apiResultsTable thead th[data-sort-by]'));
     const presetTopRevenueBtn = document.getElementById('presetTopRevenueBtn');
     const resetApiFormBtn = document.getElementById('resetApiFormBtn');
+    const naeringskodeInput = document.getElementById('api_naeringskode');
+    const naeringskodeDatalist = document.getElementById('api_naeringskode_suggestions');
+    const apiNaeringskodeHint = document.getElementById('apiNaeringskodeHint');
 
-    const state = { params: null, offset: 0, meta: null, currentRows: [], total: 0 };
+    const state = { params: null, offset: 0, meta: null, currentRows: [], total: 0, naeringskodeSuggestTimer: null };
 
     function fmtNumber(value) {
         if (value === null || value === undefined || value === '') return '';
@@ -745,6 +750,47 @@
         return { detail: text.slice(0, 200) || 'Ugyldig svarformat.' };
     }
 
+    async function loadNaeringskodeSuggestions(query) {
+        const needle = String(query || '').trim();
+        if (!naeringskodeDatalist) return;
+        if (!needle || needle.length < 2) {
+            naeringskodeDatalist.innerHTML = '';
+            if (apiNaeringskodeHint) {
+                apiNaeringskodeHint.textContent = 'Tips: Skriv f.eks. «bil», «transport» eller kodeprefix (45, 62).';
+            }
+            return;
+        }
+
+        try {
+            const params = new URLSearchParams({ q: needle, limit: '8' });
+            const res = await fetch(`/regnskap/api/naeringskode/suggest?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+            const data = await parseMaybeJson(res);
+            if (!res.ok) throw new Error(data.detail || res.statusText);
+
+            const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+            naeringskodeDatalist.innerHTML = '';
+            suggestions.forEach((item) => {
+                const code = String(item.code || '').trim();
+                if (!code) return;
+                const description = String(item.description || '').trim();
+                const option = document.createElement('option');
+                option.value = description ? `${code} ${description}` : code;
+                naeringskodeDatalist.appendChild(option);
+            });
+
+            if (apiNaeringskodeHint) {
+                apiNaeringskodeHint.textContent = suggestions.length
+                    ? `Fant ${fmtNumber(suggestions.length)} forslag. Velg ett eller skriv videre.`
+                    : 'Ingen forslag akkurat nå. Prøv en bredere tekst (f.eks. «bil») eller kun kodeprefix.';
+            }
+        } catch (_err) {
+            naeringskodeDatalist.innerHTML = '';
+            if (apiNaeringskodeHint) {
+                apiNaeringskodeHint.textContent = 'Klarte ikke hente næringskode-forslag nå.';
+            }
+        }
+    }
+
     async function loadFilterMeta() {
         try {
             const res = await fetch('/regnskap/api/companies/filter-meta', { headers: { 'Accept': 'application/json' } });
@@ -897,6 +943,20 @@
     });
 
     apiResultFilter?.addEventListener('input', applyClientFilter);
+
+    naeringskodeInput?.addEventListener('input', () => {
+        window.clearTimeout(state.naeringskodeSuggestTimer);
+        const value = naeringskodeInput.value || '';
+        state.naeringskodeSuggestTimer = window.setTimeout(() => {
+            loadNaeringskodeSuggestions(value);
+        }, 200);
+    });
+
+    naeringskodeInput?.addEventListener('focus', () => {
+        if ((naeringskodeInput.value || '').trim().length >= 2) {
+            loadNaeringskodeSuggestions(naeringskodeInput.value);
+        }
+    });
 
     presetTopRevenueBtn?.addEventListener('click', () => {
         document.getElementById('api_min_omsetning').value = '1000000000';
