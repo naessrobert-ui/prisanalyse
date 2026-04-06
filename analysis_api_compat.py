@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
-from Fastapi_Backend import MAX_LIMIT, build_search_base_sql, clean_limit, fetch_all, fetch_one
+from Fastapi_Backend import MAX_LIMIT, build_search_base_sql, clean_limit, fetch_all, fetch_one, resolve_naeringskode_prefix
 
 
 router = APIRouter()
@@ -59,6 +59,17 @@ def _normalize_orgnr(value: str | None) -> str:
     return re.sub(r"\D", "", str(value or "").strip())
 
 
+def _normalize_naeringskode_query(value: str | None) -> tuple[str, str]:
+    raw = str(value or "").strip()
+    digits = re.sub(r"\D", "", raw)
+    if not raw:
+        return "", ""
+    leading_code = re.match(r"^(\d[\d\.\-]*)", raw)
+    if leading_code:
+        raw = leading_code.group(1)
+    return raw, digits
+
+
 def get_analysis_root_payload() -> dict[str, Any]:
     return {"ok": True, "service": "analysis-api-compat"}
 
@@ -110,7 +121,7 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
                 NULL::text AS description,
                 COUNT(*)::int AS company_count
             FROM entity e
-            WHERE COALESCE(e.naeringskode::text, '') LIKE %s
+            WHERE regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') LIKE %s
             GROUP BY 1
             HAVING TRIM(COALESCE(e.naeringskode::text, '')) <> ''
             ORDER BY company_count DESC, code ASC
@@ -250,12 +261,14 @@ def get_companies_filter_payload(
     text_query = None if orgnr_query else q
     normalized_kommune = (kommune or "").strip()
     resolved_kommune = _MUNICIPALITY_NAME_TO_NUMBER.get(normalized_kommune.lower(), normalized_kommune) if normalized_kommune else None
+    naeringskode_raw, naeringskode_digits = _normalize_naeringskode_query(naeringskode)
+
     base_sql, params, _regnskap_join = build_search_base_sql(
         orgnr=orgnr_query,
         q=text_query,
         orgform=orgform,
         kommune=resolved_kommune,
-        naeringskode_prefix=naeringskode,
+        naeringskode_prefix=None,
         min_revenue=min_omsetning,
         max_revenue=max_omsetning,
         min_profit=min_resultat,
@@ -263,6 +276,15 @@ def get_companies_filter_payload(
         min_equity_ratio=(min_egenkapitalandel / 100.0) if min_egenkapitalandel is not None else None,
         has_regnskap=has_regnskap,
     )
+
+    if naeringskode_raw:
+        if naeringskode_digits:
+            base_sql += " AND regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g') LIKE %s"
+            params.append(f"{naeringskode_digits}%")
+        else:
+            resolved_prefix = resolve_naeringskode_prefix(naeringskode_raw)
+            base_sql += " AND COALESCE(e.naeringskode::text, '') ILIKE %s"
+            params.append(f"{resolved_prefix}%")
 
     if adresse:
         base_sql += " AND COALESCE(e.adresse, '') ILIKE %s"

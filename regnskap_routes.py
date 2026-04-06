@@ -1024,8 +1024,6 @@ def render_regnskap_result_page(
     search_error: str = "",
     search_query: str = "",
 ) -> str:
-    ansatte_value = first_present(entity_payload, "ansatte")
-
     return render_template(
         "regnskap_result.html",
         mode=mode,
