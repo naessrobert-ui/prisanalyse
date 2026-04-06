@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Selskapsdetaljer · {{ orgnr }}</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0f172a;
+            --card: #13203a;
+            --border: rgba(148, 163, 184, 0.25);
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --link: #60a5fa;
+        }
+
+        body {
+            margin: 0;
+            background: radial-gradient(circle at top, #1e293b 0%, var(--bg) 45%);
+            color: var(--text);
+            font-family: Inter, Segoe UI, Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 28px 18px 40px;
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(19, 32, 58, 0.96), rgba(12, 23, 43, 0.98));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 16px;
+            box-shadow: 0 12px 28px rgba(2, 6, 23, 0.35);
+        }
+
+        h1, h2 { margin: 0 0 10px; }
+
+        .meta {
+            display: grid;
+            gap: 8px 14px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            margin-top: 12px;
+        }
+
+        .meta-item {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            background: rgba(15, 23, 42, 0.55);
+        }
+
+        .meta-item strong {
+            display: block;
+            color: var(--muted);
+            font-size: 0.82rem;
+            margin-bottom: 3px;
+        }
+
+        .table-wrap { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            min-width: 960px;
+        }
+
+        th, td {
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            padding: 9px 8px;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            color: #bfdbfe;
+            font-weight: 700;
+            font-size: 0.92rem;
+        }
+
+        .right { text-align: right; }
+        .muted { color: var(--muted); }
+        .error { color: #fca5a5; }
+        a { color: var(--link); }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <p><a href="{{ back_url }}">← Tilbake til regnskapssøk</a></p>
+
+        {% if error %}
+        <section class="card">
+            <h1>Selskapsdetaljer</h1>
+            <p class="error">{{ error }}</p>
+        </section>
+        {% else %}
+        <section class="card">
+            <h1>{{ company.navn or 'Ukjent selskap' }}</h1>
+            <p class="muted">Organisasjonsnummer: {{ orgnr }}</p>
+            <div class="meta">
+                <div class="meta-item"><strong>Organisasjonsform</strong>{{ company.orgform or '—' }}</div>
+                <div class="meta-item"><strong>Kommune</strong>{{ company.kommune or company.kommunenummer or '—' }}</div>
+                <div class="meta-item"><strong>Ansatte</strong>{{ company.ansatte if company.ansatte is not none else '—' }}</div>
+                <div class="meta-item"><strong>Antall regnskapsår</strong>{{ records|length }}</div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Alle tilgjengelige regnskapsår</h2>
+            <p class="muted">Viser alle rader vi fant for dette organisasjonsnummeret i analyseplattformen.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Regnskapsår</th>
+                            <th class="right">Omsetning</th>
+                            <th class="right">Driftsresultat</th>
+                            <th class="right">Årsresultat</th>
+                            <th class="right">Netto margin</th>
+                            <th class="right">Egenkapitalandel</th>
+                            <th class="right">Omsetning/ansatt</th>
+                            <th class="right">Resultat/ansatt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in records %}
+                        <tr>
+                            <td>{{ row.regnskapsaar or '—' }}</td>
+                            <td class="right">{{ format_amount(row.get('sum_driftsinntekter') if row.get('sum_driftsinntekter') is not none else row.get('omsetning')) }}</td>
+                            <td class="right">{{ format_amount(row.get('driftsresultat')) }}</td>
+                            <td class="right">{{ format_amount(row.get('aarsresultat')) }}</td>
+                            <td class="right">{{ format_percent(row.get('netto_margin')) }}</td>
+                            <td class="right">{{ format_percent(row.get('egenkapitalandel')) }}</td>
+                            <td class="right">{{ format_amount(row.get('omsetning_per_ansatt')) }}</td>
+                            <td class="right">{{ format_amount(row.get('resultat_per_ansatt')) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
+    </main>
+</body>
+</html>

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from fastapi import APIRouter, Query
@@ -46,6 +47,10 @@ def _sort_sql(sort_by: str, sort_dir: str) -> str:
     return f"{column} {direction} NULLS LAST, e.navn ASC, e.orgnr ASC"
 
 
+def _normalize_orgnr(value: str | None) -> str:
+    return re.sub(r"\D", "", str(value or "").strip())
+
+
 def get_analysis_root_payload() -> dict[str, Any]:
     return {"ok": True, "service": "analysis-api-compat"}
 
@@ -71,6 +76,61 @@ def get_companies_filter_meta_payload() -> dict[str, Any]:
         "industry_text_columns": [],
         "municipality_name_columns": [],
         "max_limit": MAX_LIMIT,
+    }
+
+
+def get_company_history_payload(orgnr: str) -> dict[str, Any]:
+    normalized_orgnr = _normalize_orgnr(orgnr)
+    if len(normalized_orgnr) != 9:
+        return {"orgnr": normalized_orgnr, "company": None, "total_returned": 0, "results": []}
+
+    rows = fetch_all(
+        """
+        SELECT
+            e.orgnr::text AS orgnr,
+            e.navn,
+            e.orgform,
+            e.kommunenummer,
+            e.ansatte,
+            r.accounting_year AS regnskapsaar,
+            r.revenue AS omsetning,
+            r.operating_profit AS driftsresultat,
+            r.net_profit AS aarsresultat,
+            r.total_assets AS sum_eiendeler,
+            r.equity AS sum_egenkapital,
+            CASE
+                WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL
+                THEN ROUND((r.net_profit / r.revenue) * 100.0, 2)
+                ELSE NULL
+            END AS netto_margin,
+            CASE
+                WHEN r.equity_ratio IS NOT NULL THEN ROUND(r.equity_ratio * 100.0, 2)
+                ELSE NULL
+            END AS egenkapitalandel,
+            CASE
+                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL
+                THEN ROUND((r.revenue / e.ansatte), 2)
+                ELSE NULL
+            END AS omsetning_per_ansatt,
+            CASE
+                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL
+                THEN ROUND((r.net_profit / e.ansatte), 2)
+                ELSE NULL
+            END AS resultat_per_ansatt,
+            r.oppdatert_dato::text AS oppdatert_dato
+        FROM entity e
+        LEFT JOIN regnskap_metrics r ON r.orgnr = e.orgnr
+        WHERE e.orgnr::text = %s
+        ORDER BY r.accounting_year DESC NULLS LAST, r.oppdatert_dato DESC NULLS LAST
+        """,
+        [normalized_orgnr],
+    )
+    company_name = rows[0].get("navn") if rows else None
+    return {
+        "orgnr": normalized_orgnr,
+        "company": company_name,
+        "total_returned": len(rows),
+        "results": rows,
     }
 
 
@@ -102,10 +162,14 @@ def get_companies_filter_payload(
     sort_dir: str = "desc",
 ) -> dict[str, Any]:
     limit = clean_limit(limit)
+    normalized_orgnr_query = _normalize_orgnr(q)
+    orgnr_query = normalized_orgnr_query if len(normalized_orgnr_query) == 9 else None
+    text_query = None if orgnr_query else q
     normalized_kommune = (kommune or "").strip()
     resolved_kommune = _MUNICIPALITY_NAME_TO_NUMBER.get(normalized_kommune.lower(), normalized_kommune) if normalized_kommune else None
     base_sql, params, _regnskap_join = build_search_base_sql(
-        q=q,
+        orgnr=orgnr_query,
+        q=text_query,
         orgform=orgform,
         kommune=resolved_kommune,
         naeringskode_prefix=naeringskode,
