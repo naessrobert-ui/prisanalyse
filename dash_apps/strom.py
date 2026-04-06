@@ -37,7 +37,10 @@ CHANGE_ALIASES = {
     "nov": ["incr_nov", "INCR_NOV", "incr nov", "increase_nov", "increase nov"],
     "dec": ["incr_dec", "INCR_DEC", "incr dec", "increase_dec", "increase dec"],
     "q4":  ["incr_Q4", "incr_q4", "INCR_Q4", "incr q4", "increase_q4", "increase q4"],
-    "jan": ["incr_jan", "INCR_JAN", "incr jan", "increase_jan", "increase jan"],  # <-- lagt til
+    "jan": ["incr_jan", "INCR_JAN", "incr jan", "increase_jan", "increase jan"],
+    "feb": ["incr_feb", "INCR_FEB", "incr feb", "increase_feb", "increase feb"],
+    "mar": ["incr_mar", "INCR_MAR", "incr mar", "increase_mar", "increase mar"],
+    "q1":  ["incr_Q1", "incr_q1", "INCR_Q1", "incr q1", "increase_q1", "increase q1"],
 }
 
 
@@ -196,7 +199,10 @@ def change_label(change_period: str) -> str:
         "nov": "November",
         "dec": "Desember",
         "q4": "Q4",
-        "jan": "1.–13. januar",   # <-- lagt til
+        "jan": "Januar",
+        "feb": "Februar",
+        "mar": "Mars",
+        "q1": "Q1",
     }.get(change_period, "Q4")
 
 
@@ -573,7 +579,8 @@ def create_dash_app(flask_server):
                         ),
                         html.P(
                             "Her kan du se hvor stor andel av strømforbrukerne i hver kommune som har valgt Norgespris. "
-                            "Du kan også sammenligne forbruket i årets tre siste måneder med samme periode i fjor.",
+                            "Du kan også sammenligne forbruket i oktober–desember (Q4) og januar–mars (Q1) "
+                            "mot samme perioder året før.",
                             style={
                                 "margin": "0 0 10px 0",
                                 "fontSize": "16px",
@@ -583,7 +590,7 @@ def create_dash_app(flask_server):
                         ),
                         html.P(
                             "For at tallene skal være sammenlignbare, er det viktig å sammenligne kommuner med lignende klima. "
-                            "Dataene kommer fra Elhub og er oppdatert per 11. januar 2026.",
+                            "Dataene kommer fra Elhub og er oppdatert med hele Q4 2025 og Q1 2026.",
                             style={
                                 "margin": "0 0 18px 0",
                                 "fontSize": "16px",
@@ -651,9 +658,12 @@ def create_dash_app(flask_server):
                                     {"label": "November", "value": "nov"},
                                     {"label": "Desember", "value": "dec"},
                                     {"label": "Hele Q4", "value": "q4"},
-                                    {"label": "1.–13. januar", "value": "jan"},  # <-- lagt til
+                                    {"label": "Januar", "value": "jan"},
+                                    {"label": "Februar", "value": "feb"},
+                                    {"label": "Mars", "value": "mar"},
+                                    {"label": "Hele Q1", "value": "q1"},
                                 ],
-                                value="q4",  # <-- fortsatt default
+                                value="q4",
                                 clearable=False,
                                 style={"width": "200px", "maxWidth": "100%", "fontSize": "14px"},
                             ),
