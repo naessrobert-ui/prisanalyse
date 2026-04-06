@@ -547,6 +547,14 @@
         params.set(key, normalized);
     }
 
+    function normalizeOrgnrQuery(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+        const digits = raw.replace(/\D/g, '');
+        if (digits.length === 9) return digits;
+        return raw;
+    }
+
     function updateSortHeaderUi() {
         const currentSortBy = document.getElementById('api_sort_by')?.value || '';
         const currentSortDir = document.getElementById('api_sort_dir')?.value || 'desc';
@@ -625,8 +633,19 @@
         apiResultsBody.innerHTML = '';
         rows.forEach((row) => {
             const tr = document.createElement('tr');
+            const orgnrValue = String(getRowValue(row, ['orgnr']) || '').trim();
+
+            const orgnrTd = document.createElement('td');
+            if (orgnrValue) {
+                const orgLink = document.createElement('a');
+                orgLink.href = `/regnskap/selskap/${encodeURIComponent(orgnrValue)}`;
+                orgLink.textContent = orgnrValue;
+                orgLink.title = `Åpne detaljside for orgnr ${orgnrValue}`;
+                orgnrTd.appendChild(orgLink);
+            }
+            tr.appendChild(orgnrTd);
+
             const cells = [
-                getRowValue(row, ['orgnr']),
                 getRowValue(row, ['navn']),
                 getRowValue(row, ['orgform']),
                 getRowValue(row, ['kommune', 'kommunenummer']),
@@ -763,7 +782,8 @@
         const params = new URLSearchParams();
         const limit = Math.max(1, Math.min(Number(document.getElementById('api_limit')?.value || 100), 500));
 
-        addIfPresent(params, 'q', document.getElementById('api_query')?.value);
+        const rawQuery = document.getElementById('api_query')?.value;
+        addIfPresent(params, 'q', normalizeOrgnrQuery(rawQuery));
         addIfPresent(params, 'adresse', document.getElementById('api_adresse')?.value);
         addIfPresent(params, 'kommune', document.getElementById('api_kommune')?.value);
         addIfPresent(params, 'naeringskode', document.getElementById('api_naeringskode')?.value);

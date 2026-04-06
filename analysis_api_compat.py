@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from fastapi import APIRouter, Query
@@ -44,6 +45,10 @@ def _sort_sql(sort_by: str, sort_dir: str) -> str:
     if column == "e.navn":
         return f"{column} {direction} NULLS LAST, e.orgnr ASC"
     return f"{column} {direction} NULLS LAST, e.navn ASC, e.orgnr ASC"
+
+
+def _normalize_orgnr(value: str | None) -> str:
+    return re.sub(r"\D", "", str(value or "").strip())
 
 
 def get_analysis_root_payload() -> dict[str, Any]:
@@ -102,10 +107,14 @@ def get_companies_filter_payload(
     sort_dir: str = "desc",
 ) -> dict[str, Any]:
     limit = clean_limit(limit)
+    normalized_orgnr_query = _normalize_orgnr(q)
+    orgnr_query = normalized_orgnr_query if len(normalized_orgnr_query) == 9 else None
+    text_query = None if orgnr_query else q
     normalized_kommune = (kommune or "").strip()
     resolved_kommune = _MUNICIPALITY_NAME_TO_NUMBER.get(normalized_kommune.lower(), normalized_kommune) if normalized_kommune else None
     base_sql, params, _regnskap_join = build_search_base_sql(
-        q=q,
+        orgnr=orgnr_query,
+        q=text_query,
         orgform=orgform,
         kommune=resolved_kommune,
         naeringskode_prefix=naeringskode,
