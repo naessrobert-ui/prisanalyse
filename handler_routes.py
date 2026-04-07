@@ -806,15 +806,17 @@ def api_eier_oversikt_top_shareholders():
         snapshot_failed = True
         _LOG.warning("Top20 snapshot-spørring feilet, faller tilbake til live-spørring", exc_info=True)
 
-    # Snapshot-databasen kan enkelte ganger ha færre rader enn ønsket limit.
-    # Da prøver vi live-spørring og bruker resultatet med flest rader.
-    if snapshot_failed or len(df.index) < top_n:
+    # Viktig: snapshot-tabellen representerer "topp aksjonærer"-datasettet.
+    # Live-spørringen bygger på position_change og kan derfor i praksis ligne
+    # en "aktive handlere"-liste når grunnlaget er ufullstendig.
+    # Derfor bruker vi live kun når snapshot mangler/feiler helt.
+    if snapshot_failed or df.empty:
         conn = hd.db_connect()
         try:
             live_df = hd.fetch_top_shareholders_with_last_change(conn, isin, as_of, limit=top_n)
         finally:
             conn.close()
-        if len(live_df.index) > len(df.index):
+        if not live_df.empty:
             df = live_df
 
     if df.empty:
