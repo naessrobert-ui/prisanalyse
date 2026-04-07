@@ -9,7 +9,7 @@ from typing import Optional
 import pandas as pd
 import requests
 
-YR_COMPACT_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
+YR_FORECAST_URL = "https://api.met.no/weatherapi/locationforecast/2.0/complete"
 USER_AGENT = "prisanalyse.no/1.0 (kontakt@prisanalyse.no)"
 
 DEFAULT_TIMEOUT = 12
@@ -56,7 +56,7 @@ def _fetch_yr_timeseries(
     for attempt in range(3):
         try:
             r = session.get(
-                YR_COMPACT_URL,
+                YR_FORECAST_URL,
                 params=params,
                 headers=headers,
                 timeout=timeout,
@@ -117,13 +117,17 @@ def _precip_block_triplet_mm(
         high = _to_float(details.get("precipitation_amount_max"), exp)
         return exp, low, high, hours
 
-    # 2) Hvis ingen blokk har min/maks, fall tilbake til forventet verdi.
+    # 2) Hvis ingen blokk har min/maks, bruk forventet med konservativt intervall:
+    #    min=0 og max=forventet (slik Kvamskogen-visning typisk fremstår når
+    #    bare deler av usikkerhetsfeltene er tilgjengelige).
     for key, hours in key_order:
         details = data.get(key, {}).get("details", {})
         if "precipitation_amount" not in details:
             continue
         exp = _to_float(details.get("precipitation_amount"), 0.0)
-        return exp, exp, exp, hours
+        low = _to_float(details.get("precipitation_amount_min"), 0.0)
+        high = _to_float(details.get("precipitation_amount_max"), exp)
+        return exp, low, high, hours
 
     inst = data.get("instant", {}).get("details", {})
     exp = _to_float(inst.get("precipitation_amount"), 0.0)
