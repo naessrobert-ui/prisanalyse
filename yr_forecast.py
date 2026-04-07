@@ -93,16 +93,22 @@ def _precip_block_triplet_mm(item: dict) -> tuple[float, float, float, int]:
     """
     data = item.get("data", {})
 
+    def _to_float(value: object, default: float) -> float:
+        try:
+            return float(value) if value is not None else default
+        except (TypeError, ValueError):
+            return default
+
     for key, hours in (("next_1_hours", 1), ("next_6_hours", 6), ("next_12_hours", 12)):
         details = data.get(key, {}).get("details", {})
         if "precipitation_amount" in details:
-            exp = float(details.get("precipitation_amount") or 0.0)
-            low = float(details.get("precipitation_amount_min") or exp)
-            high = float(details.get("precipitation_amount_max") or exp)
+            exp = _to_float(details.get("precipitation_amount"), 0.0)
+            low = _to_float(details.get("precipitation_amount_min"), exp)
+            high = _to_float(details.get("precipitation_amount_max"), exp)
             return exp, low, high, hours
 
     inst = data.get("instant", {}).get("details", {})
-    exp = float(inst.get("precipitation_amount") or 0.0)
+    exp = _to_float(inst.get("precipitation_amount"), 0.0)
     return exp, exp, exp, 1
 
 
