@@ -897,9 +897,12 @@
             renderActiveFilters(params);
 
             if (!rows.length) {
+                const yearFilter = (params.get('regnskapsaar') || '').trim();
                 apiStatus.textContent = total > 0
                     ? `Ingen rader på denne siden. Totalt ${fmtNumber(total)} treff matcher filteret.`
-                    : 'Ingen treff for valgt filter.';
+                    : (yearFilter
+                        ? `Ingen treff for valgt filter. Prøv uten regnskapsår eller et eldre år enn ${yearFilter}.`
+                        : 'Ingen treff for valgt filter.');
                 return;
             }
 

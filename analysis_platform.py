@@ -207,8 +207,8 @@ select
         then round(r.aarsresultat / e.ansatte::numeric, 2)
         else null
     end as resultat_per_ansatt
-from regnskap_siste r
-join entity e on e.orgnr = r.orgnr
+from entity e
+left join regnskap_siste r on r.orgnr = e.orgnr
 """
 
 
@@ -787,7 +787,8 @@ def filter_companies(
     max_omsetning_per_ansatt: float | None = Query(default=None),
     min_resultat_per_ansatt: float | None = Query(default=None),
     max_resultat_per_ansatt: float | None = Query(default=None),
-    orgform: str | None = Query(default='AS'),
+    orgform: str | None = Query(default=None),
+    has_regnskap: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=MAX_LIMIT),
     offset: int = Query(default=0, ge=0),
     sort_by: str = Query(default='omsetning'),
@@ -814,6 +815,8 @@ def filter_companies(
     )
 
     where_clause = ''
+    if has_regnskap:
+        filters.append("r.regnskapsaar is not null")
     if filters:
         where_clause = '\nwhere ' + ' and '.join(filters)
 
