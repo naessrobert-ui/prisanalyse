@@ -101,6 +101,7 @@ NAERINGSKODE_MAP: dict[str, str] = {
     "skole": "85",
     # Organisasjoner
     "organisasjon": "94",
+    "sport": "93",
     "idrett": "93",
 }
 

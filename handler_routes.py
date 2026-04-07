@@ -62,6 +62,8 @@ def _json_safe_records(df: pd.DataFrame, columns: list[str], round_map: dict | N
     out = df[columns]
     if round_map:
         out = out.round(round_map)
+    out = out.replace([np.inf, -np.inf], np.nan)
+    out = out.astype(object)
     out = out.where(pd.notna(out), None)
     return out.to_dict("records")
 
@@ -796,15 +798,26 @@ def api_eier_oversikt_top_shareholders():
     except Exception:
         top_n = 20
 
+    df = pd.DataFrame()
+    snapshot_failed = False
     try:
         df = hd.fetch_top_shareholders_snapshot(isin, as_of, limit=top_n)
     except Exception:
+        snapshot_failed = True
         _LOG.warning("Top20 snapshot-spørring feilet, faller tilbake til live-spørring", exc_info=True)
+
+    # Viktig: snapshot-tabellen representerer "topp aksjonærer"-datasettet.
+    # Live-spørringen bygger på position_change og kan derfor i praksis ligne
+    # en "aktive handlere"-liste når grunnlaget er ufullstendig.
+    # Derfor bruker vi live kun når snapshot mangler/feiler helt.
+    if snapshot_failed or df.empty:
         conn = hd.db_connect()
         try:
-            df = hd.fetch_top_shareholders_with_last_change(conn, isin, as_of, limit=top_n)
+            live_df = hd.fetch_top_shareholders_with_last_change(conn, isin, as_of, limit=top_n)
         finally:
             conn.close()
+        if not live_df.empty:
+            df = live_df
 
     if df.empty:
         return jsonify({"rows": [], "message": "Ingen data"})
