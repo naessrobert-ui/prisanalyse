@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Any
 
 from fastapi import APIRouter, Query
@@ -44,7 +45,160 @@ _INDUSTRY_HINTS = [
     {"code": "45.20", "description": "Vedlikehold og reparasjon av motorvogner"},
     {"code": "45.31", "description": "Engroshandel med deler og utstyr til motorvogner"},
     {"code": "49.41", "description": "Godstransport på vei"},
+    {"code": "68.200", "description": "Utleie av egen eller leid fast eiendom"},
+    {"code": "47.810", "description": "Butikkhandel med motorvogner, unntatt motorsykler"},
 ]
+
+_INDUSTRY_CODE_DESCRIPTIONS = {
+    "45": "Handel og reparasjon av motorvogner",
+    "45.11": "Handel med biler og lette motorvogner",
+    "45.20": "Vedlikehold og reparasjon av motorvogner",
+    "47.810": "Butikkhandel med motorvogner, unntatt motorsykler",
+    "49.41": "Godstransport på vei",
+    "68.200": "Utleie av egen eller leid fast eiendom",
+}
+
+_TWO_DIGIT_SECTOR_DESCRIPTIONS = {
+    "00": "Uspesifisert næringskode",
+    "01": "Jordbruk og tjenester tilknyttet jordbruk, jakt og viltstell",
+    "02": "Skogbruk og tjenester tilknyttet skogbruk",
+    "03": "Fiske, fangst og akvakultur",
+    "05": "Bryting av steinkull og brunkull",
+    "06": "Utvinning av råolje og naturgass",
+    "07": "Bryting av metallholdig malm",
+    "08": "Annen bergverksdrift",
+    "09": "Tjenester tilknyttet bergverksdrift og utvinning",
+    "10": "Produksjon av nærings- og nytelsesmidler",
+    "11": "Produksjon av drikkevarer",
+    "12": "Produksjon av tobakksvarer",
+    "13": "Produksjon av tekstiler",
+    "14": "Produksjon av klær",
+    "15": "Produksjon av lær og lærvarer",
+    "16": "Produksjon av trelast og varer av tre",
+    "17": "Produksjon av papir og papirvarer",
+    "18": "Trykking og reproduksjon av innspilte opptak",
+    "19": "Produksjon av raffinerte petroleumsprodukter",
+    "20": "Produksjon av kjemikalier og kjemiske produkter",
+    "21": "Produksjon av farmasøytiske råvarer og preparater",
+    "22": "Produksjon av gummi- og plastprodukter",
+    "23": "Produksjon av andre ikke-metallholdige mineralprodukter",
+    "24": "Produksjon av metaller",
+    "25": "Produksjon av metallvarer",
+    "26": "Produksjon av data- og elektroniske produkter",
+    "27": "Produksjon av elektrisk utstyr",
+    "28": "Produksjon av maskiner og utstyr",
+    "29": "Produksjon av motorvogner og tilhengere",
+    "30": "Produksjon av andre transportmidler",
+    "31": "Produksjon av møbler",
+    "32": "Annen industriproduksjon",
+    "33": "Reparasjon og installasjon av maskiner og utstyr",
+    "35": "Elektrisitets-, gass- og varmtvannsforsyning",
+    "36": "Uttak fra kilde, rensing og distribusjon av vann",
+    "37": "Oppsamling og behandling av avløpsvann",
+    "38": "Innsamling, behandling, disponering og gjenvinning av avfall",
+    "39": "Miljørydding, miljørensing og lignende virksomhet",
+    "41": "Oppføring av bygninger",
+    "42": "Anleggsvirksomhet",
+    "43": "Spesialisert bygge- og anleggsvirksomhet",
+    "45": "Handel og reparasjon av motorvogner",
+    "46": "Agentur- og engroshandel, unntatt med motorvogner",
+    "47": "Detaljhandel, unntatt med motorvogner",
+    "49": "Landtransport og transport via rørledninger",
+    "50": "Sjøfart",
+    "51": "Lufttransport",
+    "52": "Lagring og andre tjenester tilknyttet transport",
+    "53": "Post og distribusjonsvirksomhet",
+    "55": "Overnattingsvirksomhet",
+    "56": "Serveringsvirksomhet",
+    "58": "Forlagsvirksomhet",
+    "59": "Film-, video- og musikkproduksjon",
+    "60": "Programskapings- og kringkastingsvirksomhet",
+    "61": "Telekommunikasjon",
+    "62": "Tjenester tilknyttet informasjonsteknologi",
+    "63": "Informasjonstjenester",
+    "64": "Finansieringsvirksomhet",
+    "65": "Forsikring og pensjonskasser",
+    "66": "Tjenester tilknyttet finansierings- og forsikringsvirksomhet",
+    "68": "Omsetning og drift av fast eiendom",
+    "69": "Juridisk og regnskapsmessig tjenesteyting",
+    "70": "Hovedkontortjenester og administrativ rådgivning",
+    "71": "Arkitektvirksomhet og teknisk konsulentvirksomhet",
+    "72": "Forskning og utviklingsarbeid",
+    "73": "Reklame og markedsundersøkelser",
+    "74": "Annen faglig, vitenskapelig og teknisk virksomhet",
+    "75": "Veterinærtjenester",
+    "77": "Utleie- og leasingvirksomhet",
+    "78": "Arbeidskrafttjenester",
+    "79": "Reisebyrå- og reisearrangørvirksomhet",
+    "80": "Vakttjeneste og etterforskning",
+    "81": "Tjenester tilknyttet eiendomsdrift",
+    "82": "Annen forretningsmessig tjenesteyting",
+    "84": "Offentlig administrasjon og forsvar, og trygdeordninger",
+    "85": "Undervisning",
+    "86": "Helsetjenester",
+    "87": "Pleie- og omsorgstjenester i institusjon",
+    "88": "Sosiale omsorgstjenester uten botilbud",
+    "90": "Kunstnerisk virksomhet og underholdningsvirksomhet",
+    "91": "Bibliotek, arkiv, museum og annen kulturvirksomhet",
+    "92": "Lotteri og totalisatorspill",
+    "93": "Sports- og fritidsaktiviteter",
+    "94": "Aktiviteter i medlemsorganisasjoner",
+    "95": "Reparasjon av datamaskiner, husholdningsvarer og varer til personlig bruk",
+    "96": "Annen personlig tjenesteyting",
+    "97": "Lønnet arbeid i private husholdninger",
+    "98": "Private husholdninger som produserer varer/tjenester til eget bruk",
+    "99": "Internasjonale organisasjoner og organer",
+}
+
+
+@lru_cache(maxsize=1)
+def _entity_columns() -> set[str]:
+    rows = fetch_all(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'entity'
+        """,
+        [],
+    )
+    return {str(row.get("column_name")) for row in rows}
+
+
+def _industry_description_expr(alias: str = "e") -> str:
+    columns = _entity_columns()
+    candidates = [
+        "naeringskode_beskrivelse",
+        "naering_beskrivelse",
+        "naering",
+        "bransje",
+        "bransjebeskrivelse",
+        "nace_beskrivelse",
+    ]
+    existing = [col for col in candidates if col in columns]
+    if not existing:
+        return "NULL::text"
+    return "COALESCE(" + ", ".join(f"NULLIF(TRIM({alias}.{col}::text), '')" for col in existing) + ")"
+
+
+def _fallback_description_for_code(code: str, hints: list[dict[str, Any]]) -> str | None:
+    normalized_code = str(code or "").strip()
+    if not normalized_code:
+        return None
+    if normalized_code in _INDUSTRY_CODE_DESCRIPTIONS:
+        return _INDUSTRY_CODE_DESCRIPTIONS[normalized_code]
+    for known_code, known_desc in sorted(_INDUSTRY_CODE_DESCRIPTIONS.items(), key=lambda kv: len(kv[0]), reverse=True):
+        if normalized_code.startswith(known_code):
+            return known_desc
+    two_digit = re.sub(r"\D", "", normalized_code)[:2]
+    if two_digit in _TWO_DIGIT_SECTOR_DESCRIPTIONS:
+        return _TWO_DIGIT_SECTOR_DESCRIPTIONS[two_digit]
+    for hint in hints:
+        if hint["code"] == normalized_code:
+            return str(hint.get("description") or "").strip() or None
+    for hint in hints:
+        if normalized_code.startswith(str(hint["code"])):
+            return str(hint.get("description") or "").strip() or None
+    return None
 
 
 def _sort_sql(sort_by: str, sort_dir: str) -> str:
@@ -113,16 +267,17 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
         if q_lower in haystack or (digits and hint["code"].replace(".", "").startswith(digits)):
             hint_matches.append({**hint, "company_count": 0})
 
+    desc_expr = _industry_description_expr("e")
     if digits:
         rows = fetch_all(
-            """
+            f"""
             SELECT
                 TRIM(COALESCE(e.naeringskode::text, '')) AS code,
-                NULL::text AS description,
+                {desc_expr} AS description,
                 COUNT(*)::int AS company_count
             FROM entity e
             WHERE regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') LIKE %s
-            GROUP BY 1
+            GROUP BY 1, 2
             HAVING TRIM(COALESCE(e.naeringskode::text, '')) <> ''
             ORDER BY company_count DESC, code ASC
             LIMIT %s
@@ -131,14 +286,14 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
         )
     else:
         rows = fetch_all(
-            """
+            f"""
             SELECT
                 TRIM(COALESCE(e.naeringskode::text, '')) AS code,
-                NULL::text AS description,
+                {desc_expr} AS description,
                 COUNT(*)::int AS company_count
             FROM entity e
             WHERE COALESCE(e.naeringskode::text, '') ILIKE %s
-            GROUP BY 1
+            GROUP BY 1, 2
             HAVING TRIM(COALESCE(e.naeringskode::text, '')) <> ''
             ORDER BY company_count DESC, code ASC
             LIMIT %s
@@ -155,7 +310,7 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
         suggestions.append(
             {
                 "code": code,
-                "description": row.get("description") or (hint["description"] if hint else None),
+                "description": row.get("description") or (hint["description"] if hint else _fallback_description_for_code(code, hint_matches)),
                 "company_count": int(row.get("company_count") or 0),
             }
         )
@@ -167,6 +322,33 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
         "limit": safe_limit,
         "suggestions": suggestions[:safe_limit],
     }
+
+
+def get_industry_overview_payload(limit: int = 25) -> dict[str, Any]:
+    safe_limit = max(1, min(int(limit), 100))
+    rows = fetch_all(
+        """
+        SELECT
+            SUBSTRING(regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') FROM 1 FOR 2) AS code,
+            COUNT(*)::int AS company_count
+        FROM entity e
+        WHERE NULLIF(TRIM(COALESCE(e.naeringskode::text, '')), '') IS NOT NULL
+        GROUP BY 1
+        HAVING NULLIF(TRIM(COALESCE(SUBSTRING(regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') FROM 1 FOR 2), '')), '') IS NOT NULL
+        ORDER BY company_count DESC, code ASC
+        LIMIT %s
+        """,
+        [safe_limit],
+    )
+    suggestions = [
+        {
+            "code": str(row.get("code") or ""),
+            "description": _fallback_description_for_code(str(row.get("code") or ""), _INDUSTRY_HINTS),
+            "company_count": int(row.get("company_count") or 0),
+        }
+        for row in rows
+    ]
+    return {"limit": safe_limit, "groups": suggestions}
 
 
 def get_company_history_payload(orgnr: str) -> dict[str, Any]:
@@ -420,6 +602,13 @@ def industry_suggest(
     limit: int = Query(default=8, ge=1, le=25),
 ) -> dict[str, Any]:
     return get_industry_suggest_payload(q=q, limit=limit)
+
+
+@router.get("/analysis-api/industry/overview")
+def industry_overview(
+    limit: int = Query(default=25, ge=1, le=100),
+) -> dict[str, Any]:
+    return get_industry_overview_payload(limit=limit)
 
 
 @router.get("/analysis-api/companies/filter")

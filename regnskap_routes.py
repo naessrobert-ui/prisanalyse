@@ -1074,6 +1074,7 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             get_companies_filter_payload,
             get_companies_top_omsetning_payload,
             get_industry_suggest_payload,
+            get_industry_overview_payload,
         )
     except Exception:
         return None
@@ -1120,6 +1121,10 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
         payload = get_industry_suggest_payload(
             q=str(params.get("q") or ""),
             limit=int(params.get("limit") or 8),
+        )
+    elif path == "/analysis-api/industry/overview":
+        payload = get_industry_overview_payload(
+            limit=int(params.get("limit") or 25),
         )
     elif path.startswith("/analysis-api/company-history/"):
         orgnr = path.rsplit("/", 1)[-1]
@@ -1300,6 +1305,13 @@ def regnskap_api_naeringskode_suggest():
     allowed = {"q", "limit"}
     params = {key: value for key, value in request.args.items() if key in allowed and str(value).strip() != ""}
     return proxy_analysis_api("/analysis-api/industry/suggest", params)
+
+
+@regnskap_bp.route("/api/naeringskode/overview")
+def regnskap_api_naeringskode_overview():
+    allowed = {"limit"}
+    params = {key: value for key, value in request.args.items() if key in allowed and str(value).strip() != ""}
+    return proxy_analysis_api("/analysis-api/industry/overview", params)
 
 
 @regnskap_bp.route("/api/companies/top-omsetning")
