@@ -159,6 +159,18 @@ class CompanyFilterMetaResponse(BaseModel):
     max_limit: int
 
 
+class IndustrySuggestion(BaseModel):
+    code: str
+    description: str | None = None
+    company_count: int
+
+
+class IndustrySuggestResponse(BaseModel):
+    query: str
+    limit: int
+    suggestions: list[IndustrySuggestion]
+
+
 # ----------------------------------------------------------------------------
 # SQL fragments
 # ----------------------------------------------------------------------------
@@ -195,8 +207,8 @@ select
         then round(r.aarsresultat / e.ansatte::numeric, 2)
         else null
     end as resultat_per_ansatt
-from regnskap_siste r
-join entity e on e.orgnr = r.orgnr
+from entity e
+left join regnskap_siste r on r.orgnr = e.orgnr
 """
 
 
@@ -230,6 +242,10 @@ def _text_match_clause(column_name: str) -> str:
 
 def _prefix_match_clause(column_name: str) -> str:
     return f"coalesce(cast(e.{column_name} as text), '') like %s"
+
+
+def _digits_prefix_match_clause(column_name: str) -> str:
+    return f"regexp_replace(coalesce(cast(e.{column_name} as text), ''), '\\D', '', 'g') like %s"
 
 
 def available_address_columns() -> list[str]:
@@ -279,6 +295,66 @@ def available_industry_text_columns() -> list[str]:
         'bransjebeskrivelse',
         'nace_beskrivelse',
     )
+
+
+def industry_suggestions(query: str, limit: int) -> list[dict[str, Any]]:
+    cleaned_query = (query or "").strip()
+    if not cleaned_query:
+        return []
+
+    digit_search = re.sub(r"\D", "", cleaned_query)
+    code_columns = available_industry_code_columns()
+    text_columns = available_industry_text_columns()
+    if not code_columns and not text_columns:
+        return []
+
+    code_expr = "coalesce(" + ", ".join(f"nullif(trim(cast(e.{col} as text)), '')" for col in code_columns) + ")" if code_columns else "null"
+    desc_expr = "coalesce(" + ", ".join(f"nullif(trim(cast(e.{col} as text)), '')" for col in text_columns) + ")" if text_columns else "null"
+
+    where_parts: list[str] = []
+    params: list[Any] = []
+
+    if digit_search and code_columns:
+        where_parts.append("(" + " or ".join(_digits_prefix_match_clause(col) for col in code_columns) + ")")
+        params.extend([f"{digit_search}%"] * len(code_columns))
+
+    text_search = f"%{cleaned_query}%"
+    text_parts: list[str] = []
+    if text_columns:
+        text_parts.extend(_text_match_clause(col) for col in text_columns)
+        params.extend([text_search] * len(text_columns))
+    if code_columns:
+        text_parts.extend(_text_match_clause(col) for col in code_columns)
+        params.extend([text_search] * len(code_columns))
+    if text_parts:
+        where_parts.append("(" + " or ".join(text_parts) + ")")
+
+    if not where_parts:
+        return []
+
+    safe_limit = max(1, min(int(limit), 25))
+    rows = fetch_all_dict(
+        f"""
+        with candidates as (
+            select
+                {code_expr} as code,
+                {desc_expr} as description
+            from entity e
+            where {' or '.join(where_parts)}
+        )
+        select
+            trim(code)::text as code,
+            nullif(trim(description), '')::text as description,
+            count(*)::int as company_count
+        from candidates
+        where nullif(trim(code), '') is not null
+        group by 1, 2
+        order by company_count desc, code asc
+        limit %s
+        """,
+        (*params, safe_limit),
+    )
+    return rows
 
 
 def available_municipality_name_columns() -> list[str]:
@@ -427,7 +503,7 @@ def build_company_filter(
         sub_filters: list[str] = []
 
         if digit_search and code_columns:
-            sub_filters.extend(_prefix_match_clause(col) for col in code_columns)
+            sub_filters.extend(_digits_prefix_match_clause(col) for col in code_columns)
             params.extend([f"{digit_search}%"] * len(code_columns))
 
         if text_columns:
@@ -681,6 +757,18 @@ def company_filter_meta() -> CompanyFilterMetaResponse:
     )
 
 
+@app.get("/analysis-api/industry/suggest", response_model=IndustrySuggestResponse)
+def company_industry_suggest(
+    q: str = Query(min_length=1),
+    limit: int = Query(default=8, ge=1, le=25),
+) -> IndustrySuggestResponse:
+    return IndustrySuggestResponse(
+        query=q.strip(),
+        limit=limit,
+        suggestions=industry_suggestions(q, limit),
+    )
+
+
 @app.get("/analysis-api/companies/filter", response_model=CompanySearchResponse)
 def filter_companies(
     q: str | None = Query(default=None),
@@ -699,7 +787,8 @@ def filter_companies(
     max_omsetning_per_ansatt: float | None = Query(default=None),
     min_resultat_per_ansatt: float | None = Query(default=None),
     max_resultat_per_ansatt: float | None = Query(default=None),
-    orgform: str | None = Query(default='AS'),
+    orgform: str | None = Query(default=None),
+    has_regnskap: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=MAX_LIMIT),
     offset: int = Query(default=0, ge=0),
     sort_by: str = Query(default='omsetning'),
@@ -726,6 +815,8 @@ def filter_companies(
     )
 
     where_clause = ''
+    if has_regnskap:
+        filters.append("r.regnskapsaar is not null")
     if filters:
         where_clause = '\nwhere ' + ' and '.join(filters)
 
