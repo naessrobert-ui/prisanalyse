@@ -134,6 +134,31 @@
             padding: 12px;
         }
         .summary-box strong { display:block; margin-bottom: 6px; color: #cbd5e1; }
+        .insight-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 12px; }
+        .insight-card {
+            background: rgba(15, 23, 42, 0.45);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .insight-card h4 { margin: 0 0 8px; font-size: 0.95rem; color: #cbd5e1; }
+        .insight-list { margin: 0; padding-left: 18px; }
+        .insight-list li { margin-bottom: 6px; }
+        .scatter-wrap {
+            margin-top: 12px;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 10px;
+            background: rgba(15, 23, 42, 0.45);
+        }
+        .scatter-title { margin: 0 0 8px; color: #cbd5e1; font-weight: 700; }
+        .scatter-svg {
+            width: 100%;
+            height: 260px;
+            display: block;
+            border-radius: 8px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.25));
+        }
         .results-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top: 12px; }
         .results-toolbar input { margin: 0; min-width: 240px; }
         .pagination { display:none; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
@@ -356,6 +381,12 @@
         <div id="apiActiveFilters" class="muted" style="margin-top:8px; display:none;"></div>
 
         <div id="apiSummary" class="summary-grid" style="display:none;"></div>
+        <div id="apiInsights" class="insight-grid" style="display:none;"></div>
+        <div id="apiScatterWrap" class="scatter-wrap" style="display:none;">
+            <div class="scatter-title">Scatter: omsetning vs. årsresultat (kun rader som vises nå)</div>
+            <svg id="apiScatter" class="scatter-svg" viewBox="0 0 900 260" preserveAspectRatio="none"></svg>
+            <div id="apiScatterMeta" class="muted" style="margin-top:8px;"></div>
+        </div>
 
         <div class="results-toolbar" id="apiActions" style="display:none;">
             <input id="apiResultFilter" type="text" placeholder="Filtrer i trefflisten som vises nå">
@@ -509,7 +540,9 @@
     const apiForm = document.getElementById('apiSearchForm');
     const apiStatus = document.getElementById('apiStatus');
     const apiMetaInfo = document.getElementById('apiMetaInfo');
+    const apiActiveFilters = document.getElementById('apiActiveFilters');
     const apiSummary = document.getElementById('apiSummary');
+    const apiInsights = document.getElementById('apiInsights');
     const apiActions = document.getElementById('apiActions');
     const apiResultsTable = document.getElementById('apiResultsTable');
     const apiResultsBody = document.getElementById('apiResultsBody');
@@ -518,6 +551,9 @@
     const apiPrevPage = document.getElementById('apiPrevPage');
     const apiNextPage = document.getElementById('apiNextPage');
     const apiPageInfo = document.getElementById('apiPageInfo');
+    const apiScatterWrap = document.getElementById('apiScatterWrap');
+    const apiScatter = document.getElementById('apiScatter');
+    const apiScatterMeta = document.getElementById('apiScatterMeta');
     const sortableHeaders = Array.from(document.querySelectorAll('#apiResultsTable thead th[data-sort-by]'));
     const presetTopRevenueBtn = document.getElementById('presetTopRevenueBtn');
     const resetApiFormBtn = document.getElementById('resetApiFormBtn');
@@ -581,6 +617,11 @@
     function clearResults() {
         apiSummary.style.display = 'none';
         apiSummary.innerHTML = '';
+        apiInsights.style.display = 'none';
+        apiInsights.innerHTML = '';
+        apiScatterWrap.style.display = 'none';
+        apiScatterMeta.textContent = '';
+        apiScatter.innerHTML = '';
         apiActiveFilters.style.display = 'none';
         apiActiveFilters.textContent = '';
         apiActions.style.display = 'none';
@@ -728,9 +769,31 @@
     }
 
     function renderSummary(total, returned, sortBy, sortDir) {
+        const rows = Array.isArray(state.currentRows) ? state.currentRows : [];
+        const revenueValues = rows.map((row) => Number(getRowValue(row, ['omsetning', 'sum_driftsinntekter']))).filter(Number.isFinite);
+        const resultValues = rows.map((row) => Number(getRowValue(row, ['aarsresultat']))).filter(Number.isFinite);
+        const marginValues = rows.map((row) => Number(getRowValue(row, ['netto_margin']))).filter(Number.isFinite);
+        const equityValues = rows.map((row) => Number(getRowValue(row, ['egenkapitalandel']))).filter(Number.isFinite);
+        const profitableCount = resultValues.filter((value) => value > 0).length;
+        const robustCount = rows.filter((row) => {
+            const margin = Number(getRowValue(row, ['netto_margin']));
+            const equity = Number(getRowValue(row, ['egenkapitalandel']));
+            return Number.isFinite(margin) && Number.isFinite(equity) && margin >= 5 && equity >= 25;
+        }).length;
+        const sumRevenue = revenueValues.reduce((acc, value) => acc + value, 0);
+        const sumResult = resultValues.reduce((acc, value) => acc + value, 0);
+        const averageMargin = marginValues.length ? marginValues.reduce((acc, value) => acc + value, 0) / marginValues.length : null;
+        const averageEquity = equityValues.length ? equityValues.reduce((acc, value) => acc + value, 0) / equityValues.length : null;
+
         const summaryItems = [
             ['Totalt treff', fmtNumber(total)],
             ['Vises nå', fmtNumber(returned)],
+            ['Andel med overskudd', resultValues.length ? fmtPct((profitableCount / resultValues.length) * 100) : ''],
+            ['Andel robuste (margin ≥ 5% og EK ≥ 25%)', rows.length ? fmtPct((robustCount / rows.length) * 100) : ''],
+            ['Sum omsetning (visning)', fmtNumber(sumRevenue)],
+            ['Sum årsresultat (visning)', fmtNumber(sumResult)],
+            ['Snitt netto margin (visning)', averageMargin === null ? '' : fmtPct(averageMargin)],
+            ['Snitt EK-andel (visning)', averageEquity === null ? '' : fmtPct(averageEquity)],
             ['Sortering', `${sortBy} · ${sortDir}`],
         ];
         apiSummary.innerHTML = summaryItems.map(([label, value]) => `
@@ -740,6 +803,92 @@
             </div>
         `).join('');
         apiSummary.style.display = '';
+        renderInsights(rows);
+        renderScatter(rows);
+    }
+
+    function renderInsights(rows) {
+        const rowsWithResult = rows
+            .map((row) => ({ row, result: Number(getRowValue(row, ['aarsresultat'])) }))
+            .filter((item) => Number.isFinite(item.result));
+        const topResult = [...rowsWithResult].sort((a, b) => b.result - a.result).slice(0, 5);
+        const worstResult = [...rowsWithResult].sort((a, b) => a.result - b.result).slice(0, 5);
+        const marginRank = rows
+            .map((row) => ({ row, margin: Number(getRowValue(row, ['netto_margin'])) }))
+            .filter((item) => Number.isFinite(item.margin))
+            .sort((a, b) => b.margin - a.margin)
+            .slice(0, 5);
+
+        const toCompanyLabel = (row) => {
+            const name = String(getRowValue(row, ['navn']) || '').trim();
+            const orgnr = String(getRowValue(row, ['orgnr']) || '').trim();
+            return name ? `${name}${orgnr ? ` (${orgnr})` : ''}` : (orgnr || 'Ukjent');
+        };
+
+        const renderList = (title, items, formatter) => `
+            <div class="insight-card">
+                <h4>${title}</h4>
+                ${items.length ? `<ol class="insight-list">${items.map((item) => `<li>${toCompanyLabel(item.row)} · ${formatter(item)}</li>`).join('')}</ol>` : '<div class="muted">Ingen data i utvalget.</div>'}
+            </div>
+        `;
+
+        apiInsights.innerHTML = [
+            renderList('Beste årsresultat (visning)', topResult, (item) => fmtNumber(item.result)),
+            renderList('Svakeste årsresultat (visning)', worstResult, (item) => fmtNumber(item.result)),
+            renderList('Høyeste netto margin (visning)', marginRank, (item) => fmtPct(item.margin)),
+        ].join('');
+        apiInsights.style.display = '';
+    }
+
+    function renderScatter(rows) {
+        const points = rows
+            .map((row) => {
+                const x = Number(getRowValue(row, ['omsetning', 'sum_driftsinntekter']));
+                const y = Number(getRowValue(row, ['aarsresultat']));
+                const label = String(getRowValue(row, ['navn']) || getRowValue(row, ['orgnr']) || 'Ukjent');
+                return { x, y, label };
+            })
+            .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+
+        if (!points.length) {
+            apiScatterWrap.style.display = 'none';
+            return;
+        }
+
+        const width = 900;
+        const height = 260;
+        const padLeft = 60;
+        const padRight = 20;
+        const padTop = 16;
+        const padBottom = 36;
+
+        const minX = 0;
+        const maxX = Math.max(...points.map((p) => p.x), 1);
+        const yValues = points.map((p) => p.y);
+        const minY = Math.min(...yValues, 0);
+        const maxY = Math.max(...yValues, 0, 1);
+        const xScale = (value) => padLeft + ((value - minX) / (maxX - minX || 1)) * (width - padLeft - padRight);
+        const yScale = (value) => padTop + ((maxY - value) / (maxY - minY || 1)) * (height - padTop - padBottom);
+        const zeroY = yScale(0);
+
+        const circles = points.map((point) => {
+            const cx = xScale(point.x).toFixed(2);
+            const cy = yScale(point.y).toFixed(2);
+            const color = point.y >= 0 ? '#34d399' : '#f87171';
+            return `<circle cx="${cx}" cy="${cy}" r="3.6" fill="${color}"><title>${point.label} · Omsetning ${fmtNumber(point.x)} · Resultat ${fmtNumber(point.y)}</title></circle>`;
+        }).join('');
+
+        apiScatter.innerHTML = `
+            <line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${height - padBottom}" stroke="#64748b" stroke-width="1.2"></line>
+            <line x1="${padLeft}" y1="${height - padBottom}" x2="${width - padRight}" y2="${height - padBottom}" stroke="#64748b" stroke-width="1.2"></line>
+            <line x1="${padLeft}" y1="${zeroY.toFixed(2)}" x2="${width - padRight}" y2="${zeroY.toFixed(2)}" stroke="#475569" stroke-dasharray="4 4" stroke-width="1"></line>
+            <text x="${padLeft}" y="${height - 8}" fill="#94a3b8" font-size="11">0</text>
+            <text x="${width - padRight - 90}" y="${height - 8}" fill="#94a3b8" font-size="11">Omsetning →</text>
+            <text x="${padLeft + 6}" y="${padTop + 12}" fill="#94a3b8" font-size="11">↑ Årsresultat</text>
+            ${circles}
+        `;
+        apiScatterMeta.textContent = `Punkter: ${fmtNumber(points.length)} · X-akse maks omsetning: ${fmtNumber(maxX)} · Y-akse: ${fmtNumber(minY)} til ${fmtNumber(maxY)}`;
+        apiScatterWrap.style.display = '';
     }
 
     function applyClientFilter() {
