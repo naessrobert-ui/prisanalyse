@@ -102,14 +102,28 @@ def _precip_block_triplet_mm(
         except (TypeError, ValueError):
             return default
 
+    # 1) Foretrekk blokker som faktisk har min/maks-verdier.
     for key, hours in key_order:
         details = data.get(key, {}).get("details", {})
         if "precipitation_amount" not in details:
+            continue
+        if (
+            details.get("precipitation_amount_min") is None
+            or details.get("precipitation_amount_max") is None
+        ):
             continue
         exp = _to_float(details.get("precipitation_amount"), 0.0)
         low = _to_float(details.get("precipitation_amount_min"), exp)
         high = _to_float(details.get("precipitation_amount_max"), exp)
         return exp, low, high, hours
+
+    # 2) Hvis ingen blokk har min/maks, fall tilbake til forventet verdi.
+    for key, hours in key_order:
+        details = data.get(key, {}).get("details", {})
+        if "precipitation_amount" not in details:
+            continue
+        exp = _to_float(details.get("precipitation_amount"), 0.0)
+        return exp, exp, exp, hours
 
     inst = data.get("instant", {}).get("details", {})
     exp = _to_float(inst.get("precipitation_amount"), 0.0)
