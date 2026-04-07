@@ -583,7 +583,7 @@ def make_map(
         if pd.notna(r.get("value_min")) and pd.notna(r.get("value_max")):
             range_line = (
                 f"<br><small>Usikkerhet: "
-                f"<b>{float(r['value_min']):.1f}</b>–<b>{float(r['value_max']):.1f}</b> {UNIT_MM}</small>"
+                f"<b>{float(r['value_min']):.2f}</b>–<b>{float(r['value_max']):.2f}</b> {UNIT_MM}</small>"
             )
 
         popup = folium.Popup(
