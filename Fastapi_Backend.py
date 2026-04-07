@@ -63,6 +63,11 @@ NAERINGSKODE_MAP: dict[str, str] = {
     "installasjon": "43",
     # Handel / service
     "handel": "45",
+    "bil": "45",
+    "motor": "45",
+    "bilverksted": "45",
+    "bilforhandler": "45",
+    "verksted": "45",
     "detaljhandel": "47",
     "engros": "46",
     "transport": "49",
@@ -108,6 +113,9 @@ def resolve_naeringskode_prefix(value: str) -> str:
     normalized = value.strip().lower()
     if normalized in NAERINGSKODE_MAP:
         return NAERINGSKODE_MAP[normalized]
+    for keyword, prefix in NAERINGSKODE_MAP.items():
+        if keyword and keyword in normalized:
+            return prefix
     # Sannsynligvis allerede en kode – returner som-er (strip whitespace)
     return value.strip()
 

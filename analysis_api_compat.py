@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
-from Fastapi_Backend import MAX_LIMIT, build_search_base_sql, clean_limit, fetch_all, fetch_one
+from Fastapi_Backend import MAX_LIMIT, build_search_base_sql, clean_limit, fetch_all, fetch_one, resolve_naeringskode_prefix
 
 
 router = APIRouter()
@@ -38,6 +38,14 @@ _COMPAT_SORT_MAP = {
     "oppdatert_dato": "r.oppdatert_dato",
 }
 
+_INDUSTRY_HINTS = [
+    {"code": "45", "description": "Handel og reparasjon av motorvogner"},
+    {"code": "45.11", "description": "Handel med biler og lette motorvogner"},
+    {"code": "45.20", "description": "Vedlikehold og reparasjon av motorvogner"},
+    {"code": "45.31", "description": "Engroshandel med deler og utstyr til motorvogner"},
+    {"code": "49.41", "description": "Godstransport på vei"},
+]
+
 
 def _sort_sql(sort_by: str, sort_dir: str) -> str:
     direction = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
@@ -49,6 +57,17 @@ def _sort_sql(sort_by: str, sort_dir: str) -> str:
 
 def _normalize_orgnr(value: str | None) -> str:
     return re.sub(r"\D", "", str(value or "").strip())
+
+
+def _normalize_naeringskode_query(value: str | None) -> tuple[str, str]:
+    raw = str(value or "").strip()
+    digits = re.sub(r"\D", "", raw)
+    if not raw:
+        return "", ""
+    leading_code = re.match(r"^(\d[\d\.\-]*)", raw)
+    if leading_code:
+        raw = leading_code.group(1)
+    return raw, digits
 
 
 def get_analysis_root_payload() -> dict[str, Any]:
@@ -76,6 +95,75 @@ def get_companies_filter_meta_payload() -> dict[str, Any]:
         "industry_text_columns": [],
         "municipality_name_columns": [],
         "max_limit": MAX_LIMIT,
+    }
+
+
+def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
+    query = (q or "").strip()
+    if not query:
+        return {"query": "", "limit": limit, "suggestions": []}
+
+    safe_limit = max(1, min(int(limit), 25))
+    q_lower = query.lower()
+    digits = re.sub(r"\D", "", query)
+
+    suggestions: list[dict[str, Any]] = []
+    for hint in _INDUSTRY_HINTS:
+        haystack = f'{hint["code"]} {hint["description"]}'.lower()
+        if q_lower in haystack or (digits and hint["code"].replace(".", "").startswith(digits)):
+            suggestions.append({**hint, "company_count": 0})
+
+    if digits:
+        rows = fetch_all(
+            """
+            SELECT
+                TRIM(COALESCE(e.naeringskode::text, '')) AS code,
+                NULL::text AS description,
+                COUNT(*)::int AS company_count
+            FROM entity e
+            WHERE regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') LIKE %s
+            GROUP BY 1
+            HAVING TRIM(COALESCE(e.naeringskode::text, '')) <> ''
+            ORDER BY company_count DESC, code ASC
+            LIMIT %s
+            """,
+            [f"{digits}%", safe_limit],
+        )
+    else:
+        rows = fetch_all(
+            """
+            SELECT
+                TRIM(COALESCE(e.naeringskode::text, '')) AS code,
+                NULL::text AS description,
+                COUNT(*)::int AS company_count
+            FROM entity e
+            WHERE COALESCE(e.naeringskode::text, '') ILIKE %s
+            GROUP BY 1
+            HAVING TRIM(COALESCE(e.naeringskode::text, '')) <> ''
+            ORDER BY company_count DESC, code ASC
+            LIMIT %s
+            """,
+            [f"%{query}%", safe_limit],
+        )
+
+    for row in rows:
+        code = str(row.get("code") or "").strip()
+        if not code:
+            continue
+        if any(item["code"] == code for item in suggestions):
+            continue
+        suggestions.append(
+            {
+                "code": code,
+                "description": row.get("description"),
+                "company_count": int(row.get("company_count") or 0),
+            }
+        )
+
+    return {
+        "query": query,
+        "limit": safe_limit,
+        "suggestions": suggestions[:safe_limit],
     }
 
 
@@ -173,12 +261,14 @@ def get_companies_filter_payload(
     text_query = None if orgnr_query else q
     normalized_kommune = (kommune or "").strip()
     resolved_kommune = _MUNICIPALITY_NAME_TO_NUMBER.get(normalized_kommune.lower(), normalized_kommune) if normalized_kommune else None
+    naeringskode_raw, naeringskode_digits = _normalize_naeringskode_query(naeringskode)
+
     base_sql, params, _regnskap_join = build_search_base_sql(
         orgnr=orgnr_query,
         q=text_query,
         orgform=orgform,
         kommune=resolved_kommune,
-        naeringskode_prefix=naeringskode,
+        naeringskode_prefix=None,
         min_revenue=min_omsetning,
         max_revenue=max_omsetning,
         min_profit=min_resultat,
@@ -186,6 +276,15 @@ def get_companies_filter_payload(
         min_equity_ratio=(min_egenkapitalandel / 100.0) if min_egenkapitalandel is not None else None,
         has_regnskap=has_regnskap,
     )
+
+    if naeringskode_raw:
+        if naeringskode_digits:
+            base_sql += " AND regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g') LIKE %s"
+            params.append(f"{naeringskode_digits}%")
+        else:
+            resolved_prefix = resolve_naeringskode_prefix(naeringskode_raw)
+            base_sql += " AND COALESCE(e.naeringskode::text, '') ILIKE %s"
+            params.append(f"{resolved_prefix}%")
 
     if adresse:
         base_sql += " AND COALESCE(e.adresse, '') ILIKE %s"
@@ -311,6 +410,14 @@ def analysis_health() -> dict[str, Any]:
 @router.get("/analysis-api/companies/filter/meta")
 def companies_filter_meta() -> dict[str, Any]:
     return get_companies_filter_meta_payload()
+
+
+@router.get("/analysis-api/industry/suggest")
+def industry_suggest(
+    q: str = Query(min_length=1),
+    limit: int = Query(default=8, ge=1, le=25),
+) -> dict[str, Any]:
+    return get_industry_suggest_payload(q=q, limit=limit)
 
 
 @router.get("/analysis-api/companies/filter")
