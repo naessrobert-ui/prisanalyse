@@ -626,6 +626,212 @@ def get_companies_filter_payload(
     }
 
 
+def get_companies_filter_summary_payload(
+    *,
+    q: str | None = None,
+    kommune: str | None = None,
+    naeringskode: str | None = None,
+    adresse: str | None = None,
+    min_omsetning: float | None = None,
+    max_omsetning: float | None = None,
+    min_resultat: float | None = None,
+    max_resultat: float | None = None,
+    min_egenkapitalandel: float | None = None,
+    min_netto_margin: float | None = None,
+    min_ansatte: int | None = None,
+    max_ansatte: int | None = None,
+    min_omsetning_per_ansatt: float | None = None,
+    max_omsetning_per_ansatt: float | None = None,
+    min_resultat_per_ansatt: float | None = None,
+    max_resultat_per_ansatt: float | None = None,
+    orgform: str | None = None,
+    has_regnskap: bool = False,
+    regnskapsaar: int | None = None,
+    innlevert_etter: str | None = None,
+    top_n: int = 5,
+    scatter_limit: int = 800,
+) -> dict[str, Any]:
+    normalized_orgnr_query = _normalize_orgnr(q)
+    orgnr_query = normalized_orgnr_query if len(normalized_orgnr_query) == 9 else None
+    text_query = None if orgnr_query else q
+    normalized_kommune = (kommune or "").strip()
+    resolved_kommune = _MUNICIPALITY_NAME_TO_NUMBER.get(normalized_kommune.lower(), normalized_kommune) if normalized_kommune else None
+    naeringskode_raw, naeringskode_digits = _normalize_naeringskode_query(naeringskode)
+
+    base_sql, params, _regnskap_join = build_search_base_sql(
+        orgnr=orgnr_query,
+        q=text_query,
+        orgform=orgform,
+        kommune=resolved_kommune,
+        naeringskode_prefix=None,
+        min_revenue=min_omsetning,
+        max_revenue=max_omsetning,
+        min_profit=min_resultat,
+        max_profit=max_resultat,
+        min_equity_ratio=(min_egenkapitalandel / 100.0) if min_egenkapitalandel is not None else None,
+        has_regnskap=has_regnskap,
+    )
+
+    if naeringskode_raw:
+        if naeringskode_digits:
+            base_sql += " AND regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g') LIKE %s"
+            params.append(f"{naeringskode_digits}%")
+        else:
+            resolved_prefix = resolve_naeringskode_prefix(naeringskode_raw)
+            base_sql += " AND COALESCE(e.naeringskode::text, '') ILIKE %s"
+            params.append(f"{resolved_prefix}%")
+
+    if adresse:
+        base_sql += " AND COALESCE(e.adresse, '') ILIKE %s"
+        params.append(f"%{adresse}%")
+
+    if min_netto_margin is not None:
+        base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL AND ((r.net_profit / r.revenue) * 100.0) >= %s"
+        params.append(min_netto_margin)
+
+    if min_ansatte is not None:
+        base_sql += " AND COALESCE(e.ansatte, 0) >= %s"
+        params.append(min_ansatte)
+
+    if max_ansatte is not None:
+        base_sql += " AND COALESCE(e.ansatte, 0) <= %s"
+        params.append(max_ansatte)
+
+    if min_omsetning_per_ansatt is not None:
+        base_sql += " AND e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL AND (r.revenue / e.ansatte) >= %s"
+        params.append(min_omsetning_per_ansatt)
+
+    if max_omsetning_per_ansatt is not None:
+        base_sql += " AND e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL AND (r.revenue / e.ansatte) <= %s"
+        params.append(max_omsetning_per_ansatt)
+
+    if min_resultat_per_ansatt is not None:
+        base_sql += " AND e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL AND (r.net_profit / e.ansatte) >= %s"
+        params.append(min_resultat_per_ansatt)
+
+    if max_resultat_per_ansatt is not None:
+        base_sql += " AND e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL AND (r.net_profit / e.ansatte) <= %s"
+        params.append(max_resultat_per_ansatt)
+
+    if regnskapsaar is not None:
+        base_sql += " AND r.accounting_year = %s"
+        params.append(regnskapsaar)
+
+    if innlevert_etter is not None:
+        base_sql += " AND r.updated_at >= %s"
+        params.append(innlevert_etter)
+
+    safe_top_n = max(1, min(int(top_n), 20))
+    safe_scatter_limit = max(100, min(int(scatter_limit), 2000))
+
+    summary_row = fetch_one(
+        f"""
+        SELECT
+            COUNT(*)::int AS total_companies,
+            COUNT(r.net_profit)::int AS companies_with_result,
+            COUNT(*) FILTER (WHERE r.net_profit > 0)::int AS profitable_count,
+            COUNT(*) FILTER (
+                WHERE r.net_profit IS NOT NULL
+                  AND r.revenue IS NOT NULL
+                  AND r.revenue <> 0
+                  AND ((r.net_profit / r.revenue) * 100.0) >= 5
+                  AND r.equity_ratio IS NOT NULL
+                  AND (r.equity_ratio * 100.0) >= 25
+            )::int AS robust_count,
+            SUM(r.revenue) AS sum_omsetning,
+            SUM(r.net_profit) AS sum_aarsresultat,
+            AVG(
+                CASE
+                    WHEN r.net_profit IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue <> 0
+                    THEN (r.net_profit / r.revenue) * 100.0
+                    ELSE NULL
+                END
+            ) AS avg_netto_margin,
+            AVG(
+                CASE
+                    WHEN r.equity_ratio IS NOT NULL
+                    THEN r.equity_ratio * 100.0
+                    ELSE NULL
+                END
+            ) AS avg_egenkapitalandel
+        {base_sql}
+        """,
+        params,
+    ) or {}
+
+    top_rows = fetch_all(
+        f"""
+        SELECT e.orgnr::text AS orgnr, e.navn, r.net_profit AS aarsresultat
+        {base_sql}
+        ORDER BY r.net_profit DESC NULLS LAST, e.navn ASC
+        LIMIT %s
+        """,
+        [*params, safe_top_n],
+    )
+    bottom_rows = fetch_all(
+        f"""
+        SELECT e.orgnr::text AS orgnr, e.navn, r.net_profit AS aarsresultat
+        {base_sql}
+        ORDER BY r.net_profit ASC NULLS LAST, e.navn ASC
+        LIMIT %s
+        """,
+        [*params, safe_top_n],
+    )
+    margin_rows = fetch_all(
+        f"""
+        SELECT
+            e.orgnr::text AS orgnr,
+            e.navn,
+            ROUND((r.net_profit / r.revenue) * 100.0, 2) AS netto_margin
+        {base_sql}
+        AND r.net_profit IS NOT NULL
+        AND r.revenue IS NOT NULL
+        AND r.revenue <> 0
+        ORDER BY (r.net_profit / r.revenue) DESC NULLS LAST, e.navn ASC
+        LIMIT %s
+        """,
+        [*params, safe_top_n],
+    )
+    scatter_rows = fetch_all(
+        f"""
+        SELECT
+            e.orgnr::text AS orgnr,
+            e.navn,
+            r.revenue AS omsetning,
+            r.net_profit AS aarsresultat
+        {base_sql}
+        AND r.revenue IS NOT NULL
+        AND r.net_profit IS NOT NULL
+        ORDER BY ABS(r.net_profit) DESC NULLS LAST, r.revenue DESC NULLS LAST
+        LIMIT %s
+        """,
+        [*params, safe_scatter_limit],
+    )
+
+    total_companies = int(summary_row.get("total_companies") or 0)
+    companies_with_result = int(summary_row.get("companies_with_result") or 0)
+    profitable_count = int(summary_row.get("profitable_count") or 0)
+    robust_count = int(summary_row.get("robust_count") or 0)
+
+    return {
+        "summary_scope": "full_selection",
+        "total_companies": total_companies,
+        "companies_with_result": companies_with_result,
+        "profitable_count": profitable_count,
+        "robust_count": robust_count,
+        "sum_omsetning": summary_row.get("sum_omsetning"),
+        "sum_aarsresultat": summary_row.get("sum_aarsresultat"),
+        "avg_netto_margin": summary_row.get("avg_netto_margin"),
+        "avg_egenkapitalandel": summary_row.get("avg_egenkapitalandel"),
+        "share_profitable_pct": ((profitable_count / companies_with_result) * 100.0) if companies_with_result else None,
+        "share_robust_pct": ((robust_count / total_companies) * 100.0) if total_companies else None,
+        "top_result": top_rows,
+        "bottom_result": bottom_rows,
+        "top_margin": margin_rows,
+        "scatter_points": scatter_rows,
+    }
+
+
 def get_companies_top_omsetning_payload(
     *,
     limit: int = 100,
@@ -720,12 +926,64 @@ def companies_filter(
         min_resultat_per_ansatt=min_resultat_per_ansatt,
         max_resultat_per_ansatt=max_resultat_per_ansatt,
         orgform=orgform,
+        has_regnskap=has_regnskap,
         regnskapsaar=regnskapsaar,
         innlevert_etter=innlevert_etter,
         limit=limit,
         offset=offset,
         sort_by=sort_by,
         sort_dir=sort_dir,
+    )
+
+
+@router.get("/analysis-api/companies/filter/summary")
+def companies_filter_summary(
+    q: str | None = None,
+    kommune: str | None = None,
+    naeringskode: str | None = None,
+    adresse: str | None = None,
+    min_omsetning: float | None = None,
+    max_omsetning: float | None = None,
+    min_resultat: float | None = None,
+    max_resultat: float | None = None,
+    min_egenkapitalandel: float | None = None,
+    min_netto_margin: float | None = None,
+    min_ansatte: int | None = None,
+    max_ansatte: int | None = None,
+    min_omsetning_per_ansatt: float | None = None,
+    max_omsetning_per_ansatt: float | None = None,
+    min_resultat_per_ansatt: float | None = None,
+    max_resultat_per_ansatt: float | None = None,
+    orgform: str | None = None,
+    has_regnskap: bool = False,
+    regnskapsaar: int | None = None,
+    innlevert_etter: str | None = None,
+    top_n: int = Query(default=5, ge=1, le=20),
+    scatter_limit: int = Query(default=800, ge=100, le=2000),
+) -> dict[str, Any]:
+    return get_companies_filter_summary_payload(
+        q=q,
+        kommune=kommune,
+        naeringskode=naeringskode,
+        adresse=adresse,
+        min_omsetning=min_omsetning,
+        max_omsetning=max_omsetning,
+        min_resultat=min_resultat,
+        max_resultat=max_resultat,
+        min_egenkapitalandel=min_egenkapitalandel,
+        min_netto_margin=min_netto_margin,
+        min_ansatte=min_ansatte,
+        max_ansatte=max_ansatte,
+        min_omsetning_per_ansatt=min_omsetning_per_ansatt,
+        max_omsetning_per_ansatt=max_omsetning_per_ansatt,
+        min_resultat_per_ansatt=min_resultat_per_ansatt,
+        max_resultat_per_ansatt=max_resultat_per_ansatt,
+        orgform=orgform,
+        has_regnskap=has_regnskap,
+        regnskapsaar=regnskapsaar,
+        innlevert_etter=innlevert_etter,
+        top_n=top_n,
+        scatter_limit=scatter_limit,
     )
 
 

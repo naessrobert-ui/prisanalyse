@@ -1072,6 +1072,7 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             get_analysis_health_payload,
             get_companies_filter_meta_payload,
             get_companies_filter_payload,
+            get_companies_filter_summary_payload,
             get_companies_top_omsetning_payload,
             get_industry_suggest_payload,
             get_industry_overview_payload,
@@ -1110,6 +1111,31 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             offset=int(params.get("offset") or 0),
             sort_by=params.get("sort_by") or "omsetning",
             sort_dir=params.get("sort_dir") or "desc",
+        )
+    elif path == "/analysis-api/companies/filter/summary":
+        payload = get_companies_filter_summary_payload(
+            q=params.get("q"),
+            kommune=params.get("kommune"),
+            naeringskode=params.get("naeringskode"),
+            adresse=params.get("adresse"),
+            min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
+            max_omsetning=float(params["max_omsetning"]) if params.get("max_omsetning") else None,
+            min_resultat=float(params["min_resultat"]) if params.get("min_resultat") else None,
+            max_resultat=float(params["max_resultat"]) if params.get("max_resultat") else None,
+            min_egenkapitalandel=float(params["min_egenkapitalandel"]) if params.get("min_egenkapitalandel") else None,
+            min_netto_margin=float(params["min_netto_margin"]) if params.get("min_netto_margin") else None,
+            min_ansatte=int(params["min_ansatte"]) if params.get("min_ansatte") else None,
+            max_ansatte=int(params["max_ansatte"]) if params.get("max_ansatte") else None,
+            min_omsetning_per_ansatt=float(params["min_omsetning_per_ansatt"]) if params.get("min_omsetning_per_ansatt") else None,
+            max_omsetning_per_ansatt=float(params["max_omsetning_per_ansatt"]) if params.get("max_omsetning_per_ansatt") else None,
+            min_resultat_per_ansatt=float(params["min_resultat_per_ansatt"]) if params.get("min_resultat_per_ansatt") else None,
+            max_resultat_per_ansatt=float(params["max_resultat_per_ansatt"]) if params.get("max_resultat_per_ansatt") else None,
+            orgform=params.get("orgform"),
+            has_regnskap=str(params.get("has_regnskap") or "").strip().lower() in {"1", "true", "yes", "on"},
+            regnskapsaar=int(params["regnskapsaar"]) if params.get("regnskapsaar") else None,
+            innlevert_etter=params.get("innlevert_etter") or None,
+            top_n=int(params.get("top_n") or 5),
+            scatter_limit=int(params.get("scatter_limit") or 800),
         )
     elif path == "/analysis-api/companies/top-omsetning":
         payload = get_companies_top_omsetning_payload(
@@ -1298,6 +1324,35 @@ def regnskap_api_companies_filter():
 @regnskap_bp.route("/api/companies/filter-meta")
 def regnskap_api_companies_filter_meta():
     return proxy_analysis_api("/analysis-api/companies/filter/meta")
+
+
+@regnskap_bp.route("/api/companies/filter/summary")
+def regnskap_api_companies_filter_summary():
+    params = {
+        "q": request.args.get("q"),
+        "kommune": request.args.get("kommune"),
+        "naeringskode": request.args.get("naeringskode"),
+        "adresse": request.args.get("adresse"),
+        "min_omsetning": request.args.get("min_omsetning"),
+        "max_omsetning": request.args.get("max_omsetning"),
+        "min_resultat": request.args.get("min_resultat"),
+        "max_resultat": request.args.get("max_resultat"),
+        "min_egenkapitalandel": request.args.get("min_egenkapitalandel"),
+        "min_netto_margin": request.args.get("min_netto_margin"),
+        "min_ansatte": request.args.get("min_ansatte"),
+        "max_ansatte": request.args.get("max_ansatte"),
+        "min_omsetning_per_ansatt": request.args.get("min_omsetning_per_ansatt"),
+        "max_omsetning_per_ansatt": request.args.get("max_omsetning_per_ansatt"),
+        "min_resultat_per_ansatt": request.args.get("min_resultat_per_ansatt"),
+        "max_resultat_per_ansatt": request.args.get("max_resultat_per_ansatt"),
+        "orgform": request.args.get("orgform"),
+        "has_regnskap": request.args.get("has_regnskap"),
+        "regnskapsaar": request.args.get("regnskapsaar"),
+        "innlevert_etter": request.args.get("innlevert_etter"),
+        "top_n": request.args.get("top_n"),
+        "scatter_limit": request.args.get("scatter_limit"),
+    }
+    return proxy_analysis_api("/analysis-api/companies/filter/summary", params)
 
 
 @regnskap_bp.route("/api/naeringskode/suggest")
