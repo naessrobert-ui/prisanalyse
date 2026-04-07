@@ -205,6 +205,18 @@ def change_label(change_period: str) -> str:
         "q1": "Q1",
     }.get(change_period, "Q4")
 
+def infer_change_multiplier(series: pd.Series) -> float:
+    """
+    Returnerer faktor for å få prosent i riktig skala:
+    - 100 når data er andeler (0.023 -> 2,3%)
+    - 1 når data allerede er prosent (14 -> 14%)
+    """
+    s = pd.to_numeric(series, errors="coerce").dropna().astype(float)
+    if s.empty:
+        return 100.0
+    p95_abs = float(s.abs().quantile(0.95))
+    return 100.0 if p95_abs <= 2.5 else 1.0
+
 
 # -----------------------------
 # DATA-LOADING (én gang ved montering)
@@ -246,6 +258,12 @@ def load_resources() -> tuple[pd.DataFrame, dict, dict, list, str, dict, dict]:
 # -----------------------------
 def create_dash_app(flask_server):
     df_raw, change_cols_found, gj, features, geo_nr_key, feature_bbox_by_nr, centroid_by_nr = load_resources()
+    change_multiplier = {}
+    for period, col in change_cols_found.items():
+        if col and col in df_raw.columns:
+            change_multiplier[period] = infer_change_multiplier(to_number(df_raw[col]))
+        else:
+            change_multiplier[period] = 100.0
 
     lon_by_nr = {k: v[0] for k, v in centroid_by_nr.items()}
     lat_by_nr = {k: v[1] for k, v in centroid_by_nr.items()}
@@ -305,7 +323,7 @@ def create_dash_app(flask_server):
         dff = df[keep].copy()
 
         if change_col and change_col in df.columns:
-            dff["change_pct"] = df[change_col] * 100.0
+            dff["change_pct"] = df[change_col] * change_multiplier.get(change_period, 100.0)
         else:
             dff["change_pct"] = float("nan")
         dff["change_pct_str"] = dff["change_pct"].map(fmt_pct)
@@ -424,7 +442,7 @@ def create_dash_app(flask_server):
         dff = df[keep].copy()
 
         if change_col and change_col in df.columns:
-            dff["change_pct"] = df[change_col] * 100.0
+            dff["change_pct"] = df[change_col] * change_multiplier.get(change_period, 100.0)
         else:
             dff["change_pct"] = float("nan")
 
@@ -937,7 +955,7 @@ def create_dash_app(flask_server):
         change_col = change_cols_found.get(change_period)
 
         if change_col and change_col in df.columns:
-            change_pct = df[change_col] * 100.0
+            change_pct = df[change_col] * change_multiplier.get(change_period, 100.0)
         else:
             change_pct = pd.Series([float("nan")] * len(df), index=df.index)
 
