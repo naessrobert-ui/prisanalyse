@@ -62,6 +62,8 @@ def _json_safe_records(df: pd.DataFrame, columns: list[str], round_map: dict | N
     out = df[columns]
     if round_map:
         out = out.round(round_map)
+    out = out.replace([np.inf, -np.inf], np.nan)
+    out = out.astype(object)
     out = out.where(pd.notna(out), None)
     return out.to_dict("records")
 
