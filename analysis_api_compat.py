@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Any
 
 from fastapi import APIRouter, Query
@@ -45,6 +46,48 @@ _INDUSTRY_HINTS = [
     {"code": "45.31", "description": "Engroshandel med deler og utstyr til motorvogner"},
     {"code": "49.41", "description": "Godstransport på vei"},
 ]
+
+
+@lru_cache(maxsize=1)
+def _entity_columns() -> set[str]:
+    rows = fetch_all(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'entity'
+        """,
+        [],
+    )
+    return {str(row.get("column_name")) for row in rows}
+
+
+def _industry_description_expr(alias: str = "e") -> str:
+    columns = _entity_columns()
+    candidates = [
+        "naeringskode_beskrivelse",
+        "naering_beskrivelse",
+        "naering",
+        "bransje",
+        "bransjebeskrivelse",
+        "nace_beskrivelse",
+    ]
+    existing = [col for col in candidates if col in columns]
+    if not existing:
+        return "NULL::text"
+    return "COALESCE(" + ", ".join(f"NULLIF(TRIM({alias}.{col}::text), '')" for col in existing) + ")"
+
+
+def _fallback_description_for_code(code: str, hints: list[dict[str, Any]]) -> str | None:
+    normalized_code = str(code or "").strip()
+    if not normalized_code:
+        return None
+    for hint in hints:
+        if hint["code"] == normalized_code:
+            return str(hint.get("description") or "").strip() or None
+    for hint in hints:
+        if normalized_code.startswith(str(hint["code"])):
+            return str(hint.get("description") or "").strip() or None
+    return None
 
 
 def _sort_sql(sort_by: str, sort_dir: str) -> str:
@@ -113,16 +156,17 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
         if q_lower in haystack or (digits and hint["code"].replace(".", "").startswith(digits)):
             hint_matches.append({**hint, "company_count": 0})
 
+    desc_expr = _industry_description_expr("e")
     if digits:
         rows = fetch_all(
-            """
+            f"""
             SELECT
                 TRIM(COALESCE(e.naeringskode::text, '')) AS code,
-                NULL::text AS description,
+                {desc_expr} AS description,
                 COUNT(*)::int AS company_count
             FROM entity e
             WHERE regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') LIKE %s
-            GROUP BY 1
+            GROUP BY 1, 2
             HAVING TRIM(COALESCE(e.naeringskode::text, '')) <> ''
             ORDER BY company_count DESC, code ASC
             LIMIT %s
@@ -131,14 +175,14 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
         )
     else:
         rows = fetch_all(
-            """
+            f"""
             SELECT
                 TRIM(COALESCE(e.naeringskode::text, '')) AS code,
-                NULL::text AS description,
+                {desc_expr} AS description,
                 COUNT(*)::int AS company_count
             FROM entity e
             WHERE COALESCE(e.naeringskode::text, '') ILIKE %s
-            GROUP BY 1
+            GROUP BY 1, 2
             HAVING TRIM(COALESCE(e.naeringskode::text, '')) <> ''
             ORDER BY company_count DESC, code ASC
             LIMIT %s
@@ -155,7 +199,7 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
         suggestions.append(
             {
                 "code": code,
-                "description": row.get("description") or (hint["description"] if hint else None),
+                "description": row.get("description") or (hint["description"] if hint else _fallback_description_for_code(code, hint_matches)),
                 "company_count": int(row.get("company_count") or 0),
             }
         )
@@ -167,6 +211,33 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
         "limit": safe_limit,
         "suggestions": suggestions[:safe_limit],
     }
+
+
+def get_industry_overview_payload(limit: int = 25) -> dict[str, Any]:
+    safe_limit = max(1, min(int(limit), 100))
+    rows = fetch_all(
+        """
+        SELECT
+            SUBSTRING(regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') FROM 1 FOR 2) AS code,
+            COUNT(*)::int AS company_count
+        FROM entity e
+        WHERE NULLIF(TRIM(COALESCE(e.naeringskode::text, '')), '') IS NOT NULL
+        GROUP BY 1
+        HAVING NULLIF(TRIM(COALESCE(SUBSTRING(regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') FROM 1 FOR 2), '')), '') IS NOT NULL
+        ORDER BY company_count DESC, code ASC
+        LIMIT %s
+        """,
+        [safe_limit],
+    )
+    suggestions = [
+        {
+            "code": str(row.get("code") or ""),
+            "description": _fallback_description_for_code(str(row.get("code") or ""), _INDUSTRY_HINTS),
+            "company_count": int(row.get("company_count") or 0),
+        }
+        for row in rows
+    ]
+    return {"limit": safe_limit, "groups": suggestions}
 
 
 def get_company_history_payload(orgnr: str) -> dict[str, Any]:
@@ -420,6 +491,13 @@ def industry_suggest(
     limit: int = Query(default=8, ge=1, le=25),
 ) -> dict[str, Any]:
     return get_industry_suggest_payload(q=q, limit=limit)
+
+
+@router.get("/analysis-api/industry/overview")
+def industry_overview(
+    limit: int = Query(default=25, ge=1, le=100),
+) -> dict[str, Any]:
+    return get_industry_overview_payload(limit=limit)
 
 
 @router.get("/analysis-api/companies/filter")
