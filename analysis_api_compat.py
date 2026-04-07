@@ -150,6 +150,14 @@ _TWO_DIGIT_SECTOR_DESCRIPTIONS = {
     "99": "Internasjonale organisasjoner og organer",
 }
 
+_INDUSTRY_SYNONYMS = {
+    "sport": ["idrett", "trening", "fritid", "aktivitet"],
+    "idrett": ["sport", "trening", "fritid"],
+    "eiendom": ["utleie", "bygg", "bolig", "næringseiendom"],
+    "bil": ["motor", "verksted", "kjøretøy", "transport"],
+    "transport": ["logistikk", "gods", "frakt", "sjøfart"],
+}
+
 
 @lru_cache(maxsize=1)
 def _entity_columns() -> set[str]:
@@ -178,6 +186,46 @@ def _industry_description_expr(alias: str = "e") -> str:
     if not existing:
         return "NULL::text"
     return "COALESCE(" + ", ".join(f"NULLIF(TRIM({alias}.{col}::text), '')" for col in existing) + ")"
+
+
+def _industry_description_columns() -> list[str]:
+    columns = _entity_columns()
+    candidates = [
+        "naeringskode_beskrivelse",
+        "naering_beskrivelse",
+        "naering",
+        "bransje",
+        "bransjebeskrivelse",
+        "nace_beskrivelse",
+    ]
+    return [col for col in candidates if col in columns]
+
+
+def _expand_industry_terms(query: str) -> list[str]:
+    base_terms = [term for term in re.split(r"\s+", str(query or "").strip().lower()) if term]
+    expanded: list[str] = []
+    for term in base_terms:
+        expanded.append(term)
+        expanded.extend(_INDUSTRY_SYNONYMS.get(term, []))
+    # unique, keep order
+    unique: list[str] = []
+    for term in expanded:
+        if term not in unique:
+            unique.append(term)
+    return unique[:10]
+
+
+def _taxonomy_suggestions(terms: list[str], limit: int) -> list[dict[str, Any]]:
+    if not terms:
+        return []
+    catalog = {**_TWO_DIGIT_SECTOR_DESCRIPTIONS, **_INDUSTRY_CODE_DESCRIPTIONS}
+    rows: list[dict[str, Any]] = []
+    for code, description in catalog.items():
+        haystack = f"{code} {description}".lower()
+        if any(term in haystack for term in terms):
+            rows.append({"code": code, "description": description, "company_count": 0})
+    rows.sort(key=lambda item: (len(str(item["code"])), str(item["code"])))
+    return rows[:limit]
 
 
 def _fallback_description_for_code(code: str, hints: list[dict[str, Any]]) -> str | None:
@@ -285,6 +333,21 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
             [f"{digits}%", safe_limit],
         )
     else:
+        description_columns = _industry_description_columns()
+        terms = _expand_industry_terms(query)
+        clauses: list[str] = []
+        params: list[Any] = []
+        for term in terms or [query.lower()]:
+            term_like = f"%{term}%"
+            clauses.append("COALESCE(e.naeringskode::text, '') ILIKE %s")
+            params.append(term_like)
+            for col in description_columns:
+                clauses.append(f"COALESCE(e.{col}::text, '') ILIKE %s")
+                params.append(term_like)
+        where_clause = " OR ".join(clauses) if clauses else "COALESCE(e.naeringskode::text, '') ILIKE %s"
+        if not clauses:
+            params = [f"%{query}%"]
+        params.append(safe_limit)
         rows = fetch_all(
             f"""
             SELECT
@@ -292,13 +355,13 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
                 {desc_expr} AS description,
                 COUNT(*)::int AS company_count
             FROM entity e
-            WHERE COALESCE(e.naeringskode::text, '') ILIKE %s
+            WHERE {where_clause}
             GROUP BY 1, 2
             HAVING TRIM(COALESCE(e.naeringskode::text, '')) <> ''
             ORDER BY company_count DESC, code ASC
             LIMIT %s
             """,
-            [f"%{query}%", safe_limit],
+            params,
         )
 
     suggestions: list[dict[str, Any]] = []
@@ -315,7 +378,8 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
             }
         )
     if not suggestions:
-        suggestions = hint_matches
+        terms = _expand_industry_terms(query)
+        suggestions = _taxonomy_suggestions(terms, safe_limit) or hint_matches
 
     return {
         "query": query,
