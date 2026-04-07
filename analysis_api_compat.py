@@ -45,7 +45,18 @@ _INDUSTRY_HINTS = [
     {"code": "45.20", "description": "Vedlikehold og reparasjon av motorvogner"},
     {"code": "45.31", "description": "Engroshandel med deler og utstyr til motorvogner"},
     {"code": "49.41", "description": "Godstransport på vei"},
+    {"code": "68.200", "description": "Utleie av egen eller leid fast eiendom"},
+    {"code": "47.810", "description": "Butikkhandel med motorvogner, unntatt motorsykler"},
 ]
+
+_INDUSTRY_CODE_DESCRIPTIONS = {
+    "45": "Handel og reparasjon av motorvogner",
+    "45.11": "Handel med biler og lette motorvogner",
+    "45.20": "Vedlikehold og reparasjon av motorvogner",
+    "47.810": "Butikkhandel med motorvogner, unntatt motorsykler",
+    "49.41": "Godstransport på vei",
+    "68.200": "Utleie av egen eller leid fast eiendom",
+}
 
 
 @lru_cache(maxsize=1)
@@ -81,6 +92,11 @@ def _fallback_description_for_code(code: str, hints: list[dict[str, Any]]) -> st
     normalized_code = str(code or "").strip()
     if not normalized_code:
         return None
+    if normalized_code in _INDUSTRY_CODE_DESCRIPTIONS:
+        return _INDUSTRY_CODE_DESCRIPTIONS[normalized_code]
+    for known_code, known_desc in sorted(_INDUSTRY_CODE_DESCRIPTIONS.items(), key=lambda kv: len(kv[0]), reverse=True):
+        if normalized_code.startswith(known_code):
+            return known_desc
     for hint in hints:
         if hint["code"] == normalized_code:
             return str(hint.get("description") or "").strip() or None
