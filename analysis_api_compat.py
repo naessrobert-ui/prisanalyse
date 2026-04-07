@@ -214,6 +214,12 @@ def _append_kommune_filter(base_sql: str, params: list[Any], kommune: str | None
         sub_filters.extend(f"COALESCE(e.{column_name}::text, '') ILIKE %s" for column_name in name_columns)
         params.extend([like_value] * len(name_columns))
 
+    # Robust fallback: many datasets only have gate/adresse fields populated with poststed,
+    # while kommunenavn columns may be absent or incomplete.
+    if not re.fullmatch(r"\d+", normalized_kommune):
+        sub_filters.append("COALESCE(e.adresse::text, '') ILIKE %s")
+        params.append(f"%{normalized_kommune}%")
+
     if sub_filters:
         base_sql += " AND (" + " OR ".join(sub_filters) + ")"
     else:
