@@ -234,7 +234,12 @@
                 </div>
                 <div>
                     <label for="api_naeringskode">Næringskode</label>
-                    <input id="api_naeringskode" type="text" placeholder="Eks. 62 eller eiendom">
+                    <input id="api_naeringskode" type="text" placeholder="Eks. 62 eller eiendom" list="api_naeringskode_suggestions" autocomplete="off">
+                    <datalist id="api_naeringskode_suggestions"></datalist>
+                    <div class="muted" id="apiNaeringskodeHint" style="margin-top:6px;">Tips: Skriv f.eks. «bil», «transport» eller kodeprefix (45, 62).</div>
+                    <button type="button" class="secondary" id="apiShowIndustryOverviewBtn" style="margin-top:6px;">Vis hovedgrupper</button>
+                    <div id="apiNaeringskodeSuggestionsList" style="margin-top:6px; display:none;"></div>
+                    <div id="apiNaeringskodeOverviewList" style="margin-top:6px; display:none;"></div>
                 </div>
                 <div>
                     <label for="api_orgform">Organisasjonsform (valgfritt)</label>
@@ -516,8 +521,14 @@
     const sortableHeaders = Array.from(document.querySelectorAll('#apiResultsTable thead th[data-sort-by]'));
     const presetTopRevenueBtn = document.getElementById('presetTopRevenueBtn');
     const resetApiFormBtn = document.getElementById('resetApiFormBtn');
+    const naeringskodeInput = document.getElementById('api_naeringskode');
+    const naeringskodeDatalist = document.getElementById('api_naeringskode_suggestions');
+    const apiNaeringskodeHint = document.getElementById('apiNaeringskodeHint');
+    const apiShowIndustryOverviewBtn = document.getElementById('apiShowIndustryOverviewBtn');
+    const apiNaeringskodeSuggestionsList = document.getElementById('apiNaeringskodeSuggestionsList');
+    const apiNaeringskodeOverviewList = document.getElementById('apiNaeringskodeOverviewList');
 
-    const state = { params: null, offset: 0, meta: null, currentRows: [], total: 0 };
+    const state = { params: null, offset: 0, meta: null, currentRows: [], total: 0, naeringskodeSuggestTimer: null, naeringskodeSuggestions: [], naeringskodeOverviewLoaded: false };
 
     function fmtNumber(value) {
         if (value === null || value === undefined || value === '') return '';
@@ -745,6 +756,123 @@
         return { detail: text.slice(0, 200) || 'Ugyldig svarformat.' };
     }
 
+    function renderNaeringskodeSuggestionList(suggestions) {
+        if (!apiNaeringskodeSuggestionsList) return;
+        const rows = Array.isArray(suggestions) ? suggestions : [];
+        if (!rows.length) {
+            apiNaeringskodeSuggestionsList.style.display = 'none';
+            apiNaeringskodeSuggestionsList.innerHTML = '';
+            return;
+        }
+
+        const html = rows.map((item) => {
+            const code = String(item.code || '').trim();
+            const description = String(item.description || '').trim();
+            const companyCount = Number(item.company_count || 0);
+            const countText = companyCount > 0 ? `${fmtNumber(companyCount)} selskaper` : 'ingen selskaper i datasettet';
+            const disabledAttr = code ? '' : 'disabled';
+            return `
+                <button type="button" class="secondary" data-code="${code}" ${disabledAttr}
+                    style="margin:2px 6px 2px 0; padding:4px 10px; border-radius:999px; font-size:0.85rem;">
+                    ${code}${description ? ` · ${description}` : ''} (${countText})
+                </button>
+            `;
+        }).join('');
+
+        apiNaeringskodeSuggestionsList.innerHTML = html;
+        apiNaeringskodeSuggestionsList.style.display = '';
+    }
+
+    function renderIndustryOverview(groups) {
+        if (!apiNaeringskodeOverviewList) return;
+        const rows = Array.isArray(groups) ? groups : [];
+        if (!rows.length) {
+            apiNaeringskodeOverviewList.style.display = 'none';
+            apiNaeringskodeOverviewList.innerHTML = '';
+            return;
+        }
+
+        const html = `
+            <div class="muted" style="margin-bottom:4px;">Hovedgrupper (2-sifret kode):</div>
+            ${rows.map((item) => {
+                const code = String(item.code || '').trim();
+                const description = String(item.description || '').trim();
+                const companyCount = Number(item.company_count || 0);
+                return `<button type="button" class="secondary" data-code="${code}"
+                    style="margin:2px 6px 2px 0; padding:4px 10px; border-radius:999px; font-size:0.85rem;">
+                    ${code}${description ? ` · ${description}` : ''} (${fmtNumber(companyCount)} selskaper)
+                </button>`;
+            }).join('')}
+        `;
+        apiNaeringskodeOverviewList.innerHTML = html;
+        apiNaeringskodeOverviewList.style.display = '';
+    }
+
+    async function loadIndustryOverview() {
+        try {
+            const params = new URLSearchParams({ limit: '20' });
+            const res = await fetch(`/regnskap/api/naeringskode/overview?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+            const data = await parseMaybeJson(res);
+            if (!res.ok) throw new Error(data.detail || res.statusText);
+            renderIndustryOverview(Array.isArray(data.groups) ? data.groups : []);
+            state.naeringskodeOverviewLoaded = true;
+        } catch (_err) {
+            renderIndustryOverview([]);
+            if (apiNaeringskodeHint) {
+                apiNaeringskodeHint.textContent = 'Klarte ikke laste hovedgrupper for næringskode.';
+            }
+        }
+    }
+
+    async function loadNaeringskodeSuggestions(query) {
+        const needle = String(query || '').trim();
+        if (!naeringskodeDatalist) return;
+        if (!needle || needle.length < 2) {
+            naeringskodeDatalist.innerHTML = '';
+            renderNaeringskodeSuggestionList([]);
+            if (apiNaeringskodeHint) {
+                apiNaeringskodeHint.textContent = 'Tips: Skriv f.eks. «bil», «transport» eller kodeprefix (45, 62).';
+            }
+            return;
+        }
+
+        try {
+            const params = new URLSearchParams({ q: needle, limit: '8' });
+            const res = await fetch(`/regnskap/api/naeringskode/suggest?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+            const data = await parseMaybeJson(res);
+            if (!res.ok) throw new Error(data.detail || res.statusText);
+
+            const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+            state.naeringskodeSuggestions = suggestions;
+            naeringskodeDatalist.innerHTML = '';
+            suggestions.forEach((item) => {
+                const code = String(item.code || '').trim();
+                if (!code) return;
+                const description = String(item.description || '').trim();
+                const option = document.createElement('option');
+                option.value = code;
+                if (description) option.label = description;
+                naeringskodeDatalist.appendChild(option);
+            });
+            renderNaeringskodeSuggestionList(suggestions);
+
+            if (apiNaeringskodeHint) {
+                const nonZeroCount = suggestions.filter((item) => Number(item.company_count || 0) > 0).length;
+                apiNaeringskodeHint.textContent = suggestions.length
+                    ? (nonZeroCount > 0
+                        ? `Fant ${fmtNumber(suggestions.length)} forslag (${fmtNumber(nonZeroCount)} med treff). Velg kode med treff for best resultat.`
+                        : 'Fant forslag, men ingen med treff i dette datasettet. Prøv nærliggende sektorer (f.eks. transport/handel) eller åpne hovedgrupper.')
+                    : 'Ingen forslag akkurat nå. Prøv en bredere tekst (f.eks. «bil») eller kun kodeprefix.';
+            }
+        } catch (_err) {
+            naeringskodeDatalist.innerHTML = '';
+            renderNaeringskodeSuggestionList([]);
+            if (apiNaeringskodeHint) {
+                apiNaeringskodeHint.textContent = 'Klarte ikke hente næringskode-forslag nå.';
+            }
+        }
+    }
+
     async function loadFilterMeta() {
         try {
             const res = await fetch('/regnskap/api/companies/filter-meta', { headers: { 'Accept': 'application/json' } });
@@ -850,9 +978,12 @@
             renderActiveFilters(params);
 
             if (!rows.length) {
+                const yearFilter = (params.get('regnskapsaar') || '').trim();
                 apiStatus.textContent = total > 0
                     ? `Ingen rader på denne siden. Totalt ${fmtNumber(total)} treff matcher filteret.`
-                    : 'Ingen treff for valgt filter.';
+                    : (yearFilter
+                        ? `Ingen treff for valgt filter. Prøv uten regnskapsår eller et eldre år enn ${yearFilter}.`
+                        : 'Ingen treff for valgt filter.');
                 return;
             }
 
@@ -898,6 +1029,50 @@
 
     apiResultFilter?.addEventListener('input', applyClientFilter);
 
+    naeringskodeInput?.addEventListener('input', () => {
+        window.clearTimeout(state.naeringskodeSuggestTimer);
+        const value = naeringskodeInput.value || '';
+        state.naeringskodeSuggestTimer = window.setTimeout(() => {
+            loadNaeringskodeSuggestions(value);
+        }, 200);
+    });
+
+    naeringskodeInput?.addEventListener('focus', () => {
+        if ((naeringskodeInput.value || '').trim().length >= 2) {
+            loadNaeringskodeSuggestions(naeringskodeInput.value);
+        }
+    });
+
+    apiNaeringskodeSuggestionsList?.addEventListener('click', (event) => {
+        const target = event.target instanceof HTMLElement ? event.target.closest('button[data-code]') : null;
+        if (!target || !naeringskodeInput) return;
+        const code = String(target.getAttribute('data-code') || '').trim();
+        if (!code) return;
+        naeringskodeInput.value = code;
+        naeringskodeInput.focus();
+    });
+
+    apiShowIndustryOverviewBtn?.addEventListener('click', async () => {
+        if (apiNaeringskodeOverviewList?.style.display === '') {
+            apiNaeringskodeOverviewList.style.display = 'none';
+            return;
+        }
+        if (!state.naeringskodeOverviewLoaded) {
+            await loadIndustryOverview();
+        } else {
+            apiNaeringskodeOverviewList.style.display = '';
+        }
+    });
+
+    apiNaeringskodeOverviewList?.addEventListener('click', (event) => {
+        const target = event.target instanceof HTMLElement ? event.target.closest('button[data-code]') : null;
+        if (!target || !naeringskodeInput) return;
+        const code = String(target.getAttribute('data-code') || '').trim();
+        if (!code) return;
+        naeringskodeInput.value = code;
+        naeringskodeInput.focus();
+    });
+
     presetTopRevenueBtn?.addEventListener('click', () => {
         document.getElementById('api_min_omsetning').value = '1000000000';
         document.getElementById('api_sort_by').value = 'omsetning';
@@ -916,6 +1091,9 @@
         document.getElementById('api_sort_by').value = 'omsetning';
         document.getElementById('api_sort_dir').value = 'desc';
         updateSortHeaderUi();
+        renderNaeringskodeSuggestionList([]);
+        renderIndustryOverview([]);
+        state.naeringskodeOverviewLoaded = false;
         clearResults();
         apiStatus.textContent = 'Filter nullstilt.';
     });
