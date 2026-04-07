@@ -9,7 +9,7 @@ from typing import Optional
 import pandas as pd
 import requests
 
-YR_COMPACT_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
+YR_FORECAST_URL = "https://api.met.no/weatherapi/locationforecast/2.0/complete"
 USER_AGENT = "prisanalyse.no/1.0 (kontakt@prisanalyse.no)"
 
 DEFAULT_TIMEOUT = 12
@@ -56,7 +56,7 @@ def _fetch_yr_timeseries(
     for attempt in range(3):
         try:
             r = session.get(
-                YR_COMPACT_URL,
+                YR_FORECAST_URL,
                 params=params,
                 headers=headers,
                 timeout=timeout,
@@ -83,7 +83,10 @@ def _parse_time(item: dict) -> Optional[datetime]:
         return None
 
 
-def _precip_block_triplet_mm(item: dict) -> tuple[float, float, float, int]:
+def _precip_block_triplet_mm(
+    item: dict,
+    key_order: tuple[tuple[str, int], ...] = (("next_1_hours", 1), ("next_6_hours", 6), ("next_12_hours", 12)),
+) -> tuple[float, float, float, int]:
     """
     Returnerer (forventet, min, maks, varighet_timer) for et Yr-forecast-blokk.
 
@@ -93,16 +96,41 @@ def _precip_block_triplet_mm(item: dict) -> tuple[float, float, float, int]:
     """
     data = item.get("data", {})
 
-    for key, hours in (("next_1_hours", 1), ("next_6_hours", 6), ("next_12_hours", 12)):
+    def _to_float(value: object, default: float) -> float:
+        try:
+            return float(value) if value is not None else default
+        except (TypeError, ValueError):
+            return default
+
+    # 1) Foretrekk blokker som faktisk har min/maks-verdier.
+    for key, hours in key_order:
         details = data.get(key, {}).get("details", {})
-        if "precipitation_amount" in details:
-            exp = float(details.get("precipitation_amount") or 0.0)
-            low = float(details.get("precipitation_amount_min") or exp)
-            high = float(details.get("precipitation_amount_max") or exp)
-            return exp, low, high, hours
+        if "precipitation_amount" not in details:
+            continue
+        if (
+            details.get("precipitation_amount_min") is None
+            or details.get("precipitation_amount_max") is None
+        ):
+            continue
+        exp = _to_float(details.get("precipitation_amount"), 0.0)
+        low = _to_float(details.get("precipitation_amount_min"), exp)
+        high = _to_float(details.get("precipitation_amount_max"), exp)
+        return exp, low, high, hours
+
+    # 2) Hvis ingen blokk har min/maks, bruk forventet med konservativt intervall:
+    #    min=0 og max=forventet (slik Kvamskogen-visning typisk fremstår når
+    #    bare deler av usikkerhetsfeltene er tilgjengelige).
+    for key, hours in key_order:
+        details = data.get(key, {}).get("details", {})
+        if "precipitation_amount" not in details:
+            continue
+        exp = _to_float(details.get("precipitation_amount"), 0.0)
+        low = _to_float(details.get("precipitation_amount_min"), 0.0)
+        high = _to_float(details.get("precipitation_amount_max"), exp)
+        return exp, low, high, hours
 
     inst = data.get("instant", {}).get("details", {})
-    exp = float(inst.get("precipitation_amount") or 0.0)
+    exp = _to_float(inst.get("precipitation_amount"), 0.0)
     return exp, exp, exp, 1
 
 
@@ -143,18 +171,29 @@ def fetch_precip_forecast(
         if ts is None:
             return None
 
+        key_order: tuple[tuple[str, int], ...]
+        if mode == "next7d":
+            # For 7 døgn ønsker vi usikkerhetsintervall som summerer lave/høye
+            # punktverdier i prognosen. Da prioriterer vi blokker som faktisk
+            # leverer min/maks (vanligvis next_6_hours).
+            key_order = (("next_6_hours", 6), ("next_12_hours", 12), ("next_1_hours", 1))
+        else:
+            key_order = (("next_1_hours", 1), ("next_6_hours", 6), ("next_12_hours", 12))
+
         total_expected = 0.0
         total_min = 0.0
         total_max = 0.0
-        for item in ts:
+        cursor = start_utc
+        for item in sorted(ts, key=lambda it: str(it.get("time", ""))):
             t = _parse_time(item)
             if t is None:
                 continue
 
-            exp, low, high, span_h = _precip_block_triplet_mm(item)
+            exp, low, high, span_h = _precip_block_triplet_mm(item, key_order=key_order)
             block_end = t + timedelta(hours=span_h)
 
-            overlap_start = max(t, start_utc)
+            # Unngå overlappende dobbelttelling mellom blokker.
+            overlap_start = max(t, start_utc, cursor)
             overlap_end = min(block_end, end_utc)
             overlap_h = (overlap_end - overlap_start).total_seconds() / 3600.0
             if overlap_h <= 0:
@@ -165,6 +204,9 @@ def fetch_precip_forecast(
             total_expected += exp * frac
             total_min += low * frac
             total_max += high * frac
+            cursor = overlap_end
+            if cursor >= end_utc:
+                break
 
         return {
             "sourceId": base_id,
