@@ -127,22 +127,52 @@ def resolve_naeringskode_prefix(value: str) -> str:
 # ------------------------------------------------------------
 LATEST_REGNSKAP_JOIN = """
     LEFT JOIN LATERAL (
-        SELECT *
-        FROM regnskap_metrics rm
+        SELECT
+            regnskapsaar        AS accounting_year,
+            sum_driftsinntekter AS revenue,
+            driftsresultat      AS operating_profit,
+            aarsresultat        AS net_profit,
+            sum_eiendeler       AS total_assets,
+            sum_egenkapital     AS equity,
+            sum_gjeld           AS total_liabilities,
+            sum_omloepsmidler   AS current_assets,
+            sum_kortsiktig_gjeld AS short_term_liabilities,
+            CASE WHEN sum_eiendeler > 0
+                 THEN sum_egenkapital / sum_eiendeler END AS equity_ratio,
+            CASE WHEN sum_driftsinntekter > 0
+                 THEN driftsresultat / sum_driftsinntekter END AS ebit_margin,
+            CASE WHEN sum_driftsinntekter > 0
+                 THEN aarsresultat / sum_driftsinntekter END AS net_margin,
+            fetched_at::date AS oppdatert_dato
+        FROM regnskap_siste rm
         WHERE rm.orgnr = e.orgnr
-        ORDER BY rm.accounting_year DESC NULLS LAST
         LIMIT 1
     ) r ON true
 """
 
-# Samme, men brukt der vi ønsker et spesifikt år
 def latest_regnskap_join_for_year(year: int) -> str:
     return f"""
     LEFT JOIN LATERAL (
-        SELECT *
-        FROM regnskap_metrics rm
+        SELECT
+            regnskapsaar        AS accounting_year,
+            sum_driftsinntekter AS revenue,
+            driftsresultat      AS operating_profit,
+            aarsresultat        AS net_profit,
+            sum_eiendeler       AS total_assets,
+            sum_egenkapital     AS equity,
+            sum_gjeld           AS total_liabilities,
+            sum_omloepsmidler   AS current_assets,
+            sum_kortsiktig_gjeld AS short_term_liabilities,
+            CASE WHEN sum_eiendeler > 0
+                 THEN sum_egenkapital / sum_eiendeler END AS equity_ratio,
+            CASE WHEN sum_driftsinntekter > 0
+                 THEN driftsresultat / sum_driftsinntekter END AS ebit_margin,
+            CASE WHEN sum_driftsinntekter > 0
+                 THEN aarsresultat / sum_driftsinntekter END AS net_margin,
+            fetched_at::date AS oppdatert_dato
+        FROM regnskap_siste rm
         WHERE rm.orgnr = e.orgnr
-          AND rm.accounting_year = {int(year)}
+          AND rm.regnskapsaar = {int(year)}
         LIMIT 1
     ) r ON true
 """
@@ -355,6 +385,7 @@ class SearchResult(BaseModel):
     lat: float | None = None
     lon: float | None = None
     distance_m: float | None = None
+    matched_bedr_navn: str | None = None  # underenhetsnavn som ga treff
 
 
 class SearchResponse(BaseModel):
@@ -506,8 +537,20 @@ def append_search_filters(
     if q:
         tokens = normalize_search_tokens(q)
         if tokens:
-            sql += " AND " + " AND ".join("e.navn ILIKE %s" for _ in tokens)
-            params.extend(f"%{token}%" for token in tokens)
+            name_conditions = " AND ".join("e.navn ILIKE %s" for _ in tokens)
+            bedr_conditions = " AND ".join("bn.bedr_navn ILIKE %s" for _ in tokens)
+            sql += f"""
+              AND (
+                ({name_conditions})
+                OR e.orgnr IN (
+                    SELECT DISTINCT bn.parent_orgnr
+                    FROM bedr_navn bn
+                    WHERE {bedr_conditions}
+                )
+              )
+            """
+            params.extend(f"%{token}%" for token in tokens)  # for entity.navn
+            params.extend(f"%{token}%" for token in tokens)  # for bedr_navn
         else:
             sql += " AND e.navn ILIKE %s"
             params.append(f"%{q}%")
@@ -580,7 +623,7 @@ def append_search_filters(
 
 
 # SELECT-kolonner som brukes av search og nearby
-_SEARCH_COLS = """
+_SEARCH_COLS_BASE = """
     e.orgnr::text AS orgnr,
     e.navn,
     e.orgform,
@@ -598,6 +641,25 @@ _SEARCH_COLS = """
     r.equity,
     r.equity_ratio
 """
+
+def build_search_cols(q: str | None = None) -> tuple[str, list]:
+    """Returnerer SELECT-kolonner og params. Inkluderer matched_bedr_navn hvis q er satt."""
+    if not q:
+        return _SEARCH_COLS_BASE + ", NULL::text AS matched_bedr_navn", []
+    tokens = normalize_search_tokens(q)
+    if not tokens:
+        return _SEARCH_COLS_BASE + ", NULL::text AS matched_bedr_navn", []
+    bedr_conditions = " AND ".join("bn.bedr_navn ILIKE %s" for _ in tokens)
+    cols = _SEARCH_COLS_BASE + f"""
+    , (
+        SELECT bn.bedr_navn
+        FROM bedr_navn bn
+        WHERE bn.parent_orgnr = e.orgnr
+          AND {bedr_conditions}
+        LIMIT 1
+    ) AS matched_bedr_navn
+"""
+    return cols, [f"%{t}%" for t in tokens]
 
 _SORT_MAP = {
     "revenue":           "r.revenue DESC NULLS LAST, e.navn ASC",
@@ -659,12 +721,12 @@ def db_diagnostics() -> DatabaseDiagnosticsResponse:
                   AND NULLIF(BTRIM(e.adresse), '') IS NOT NULL
                   AND LOWER(BTRIM(e.navn)) = LOWER(BTRIM(e.adresse))
             )::int AS names_equal_address,
-            COALESCE((SELECT COUNT(*)::int FROM regnskap_metrics), 0)::int AS total_regnskap_rows,
+            COALESCE((SELECT COUNT(*)::int FROM regnskap_siste), 0)::int AS total_regnskap_rows,
             COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS entities_with_regnskap
         FROM entity e
         LEFT JOIN LATERAL (
-            SELECT rm.accounting_year
-            FROM regnskap_metrics rm
+            SELECT rm.regnskapsaar AS accounting_year
+            FROM regnskap_siste rm
             WHERE rm.orgnr = e.orgnr
             LIMIT 1
         ) r ON true
@@ -738,11 +800,12 @@ def search(
     total_count: int = count_row["n"]
 
     order_by = _SORT_MAP[sort]
+    search_cols, bedr_params = build_search_cols(q)
     data_sql = (
-        f"SELECT {_SEARCH_COLS}, NULL::double precision AS distance_m {base_sql}"
+        f"SELECT {search_cols}, NULL::double precision AS distance_m {base_sql}"
         f" ORDER BY {order_by} LIMIT %s OFFSET %s"
     )
-    rows = fetch_all(data_sql, [*params, limit, offset])
+    rows = fetch_all(data_sql, [*bedr_params, *params, limit, offset])
 
     return SearchResponse(
         total_count=total_count,
@@ -988,7 +1051,7 @@ def export_search_csv(
         while True:
             rows = fetch_all(
                 f"""
-                SELECT {_SEARCH_COLS}
+                SELECT {_SEARCH_COLS_BASE}, NULL::text AS matched_bedr_navn
                 {base_sql}
                 ORDER BY {order_by}
                 LIMIT %s OFFSET %s
@@ -1082,7 +1145,7 @@ def nearby(
 
     sql = f"""
         SELECT
-            {_SEARCH_COLS},
+            {_SEARCH_COLS_BASE}, NULL::text AS matched_bedr_navn,
             ST_Distance(
                 e.geog,
                 ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
@@ -1288,7 +1351,7 @@ def export_nearby_csv(
             rows = fetch_all(
                 f"""
                 SELECT
-                    {_SEARCH_COLS},
+                    {_SEARCH_COLS_BASE}, NULL::text AS matched_bedr_navn,
                     ST_Distance(
                         e.geog,
                         ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
@@ -1361,7 +1424,7 @@ def toplist(
     count_row = fetch_one(f"SELECT COUNT(*)::int AS n {base_sql}", params) or {"n": 0}
 
     data_sql = (
-        f"SELECT {_SEARCH_COLS}, NULL::double precision AS distance_m {base_sql}"
+        f"SELECT {_SEARCH_COLS_BASE}, NULL::text AS matched_bedr_navn, NULL::double precision AS distance_m {base_sql}"
         f" ORDER BY {metric_col} DESC NULLS LAST, e.navn ASC LIMIT %s OFFSET %s"
     )
     rows = fetch_all(data_sql, [*params, limit, offset])

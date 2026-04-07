@@ -335,7 +335,7 @@ def get_analysis_root_payload() -> dict[str, Any]:
 
 def get_analysis_health_payload() -> dict[str, Any]:
     entity_row = fetch_one("SELECT COUNT(*)::int AS n FROM entity", []) or {"n": 0}
-    regnskap_row = fetch_one("SELECT COUNT(*)::int AS n FROM regnskap_metrics", []) or {"n": 0}
+    regnskap_row = fetch_one("SELECT COUNT(*)::int AS n FROM regnskap_siste", []) or {"n": 0}
     return {
         "ok": True,
         "entity_count": int(entity_row.get("n") or 0),
@@ -490,36 +490,37 @@ def get_company_history_payload(orgnr: str) -> dict[str, Any]:
             e.orgform,
             e.kommunenummer,
             e.ansatte,
-            r.accounting_year AS regnskapsaar,
-            r.revenue AS omsetning,
-            r.operating_profit AS driftsresultat,
-            r.net_profit AS aarsresultat,
-            r.total_assets AS sum_eiendeler,
-            r.equity AS sum_egenkapital,
+            r.regnskapsaar AS regnskapsaar,
+            r.sum_driftsinntekter AS omsetning,
+            r.driftsresultat AS driftsresultat,
+            r.aarsresultat AS aarsresultat,
+            r.sum_eiendeler AS sum_eiendeler,
+            r.sum_egenkapital AS sum_egenkapital,
             CASE
-                WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL
-                THEN ROUND((r.net_profit / r.revenue) * 100.0, 2)
+                WHEN r.sum_driftsinntekter IS NOT NULL AND r.sum_driftsinntekter <> 0 AND r.aarsresultat IS NOT NULL
+                THEN ROUND((r.aarsresultat / r.sum_driftsinntekter) * 100.0, 2)
                 ELSE NULL
             END AS netto_margin,
             CASE
-                WHEN r.equity_ratio IS NOT NULL THEN ROUND(r.equity_ratio * 100.0, 2)
+                WHEN r.sum_eiendeler > 0 AND r.sum_egenkapital IS NOT NULL
+                THEN ROUND((r.sum_egenkapital / r.sum_eiendeler) * 100.0, 2)
                 ELSE NULL
             END AS egenkapitalandel,
             CASE
-                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL
-                THEN ROUND((r.revenue / e.ansatte), 2)
+                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.sum_driftsinntekter IS NOT NULL
+                THEN ROUND((r.sum_driftsinntekter / e.ansatte), 2)
                 ELSE NULL
             END AS omsetning_per_ansatt,
             CASE
-                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL
-                THEN ROUND((r.net_profit / e.ansatte), 2)
+                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.aarsresultat IS NOT NULL
+                THEN ROUND((r.aarsresultat / e.ansatte), 2)
                 ELSE NULL
             END AS resultat_per_ansatt,
-            r.oppdatert_dato::text AS oppdatert_dato
+            r.fetched_at::date::text AS oppdatert_dato
         FROM entity e
-        LEFT JOIN regnskap_metrics r ON r.orgnr = e.orgnr
+        LEFT JOIN regnskap_siste r ON r.orgnr = e.orgnr
         WHERE e.orgnr::text = %s
-        ORDER BY r.accounting_year DESC NULLS LAST, r.oppdatert_dato DESC NULLS LAST
+        ORDER BY r.regnskapsaar DESC NULLS LAST
         """,
         [normalized_orgnr],
     )
@@ -665,12 +666,20 @@ def get_companies_filter_payload(
                 THEN ROUND((r.net_profit / e.ansatte), 2)
                 ELSE NULL
             END AS resultat_per_ansatt,
-            r.oppdatert_dato::text AS oppdatert_dato
+            r.oppdatert_dato::text AS oppdatert_dato,
+            (
+                SELECT bn.bedr_navn
+                FROM bedr_navn bn
+                WHERE bn.parent_orgnr = e.orgnr
+                  AND bn.bedr_navn ILIKE %s
+                LIMIT 1
+            ) AS matched_bedr_navn
         {base_sql}
         ORDER BY {_sort_sql(sort_by, sort_dir)}
         LIMIT %s OFFSET %s
     """
-    rows = fetch_all(data_sql, [*params, limit, offset])
+    bedr_q = f"%{q}%" if q else "%"
+    rows = fetch_all(data_sql, [*params, bedr_q, limit, offset])
 
     return {
         "total_returned": total_count,

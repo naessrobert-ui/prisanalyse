@@ -699,8 +699,24 @@
             }
             tr.appendChild(orgnrTd);
 
+            const navnValue = getRowValue(row, ['navn']);
+            const bedrNavn = getRowValue(row, ['matched_bedr_navn']);
+            const navnTd = document.createElement('td');
+            if (navnValue) {
+                const navnSpan = document.createElement('span');
+                navnSpan.textContent = navnValue;
+                navnTd.appendChild(navnSpan);
+                if (bedrNavn && bedrNavn !== navnValue) {
+                    const sub = document.createElement('div');
+                    sub.textContent = bedrNavn;
+                    sub.style.cssText = 'font-size:0.78rem;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;';
+                    sub.title = bedrNavn;
+                    navnTd.appendChild(sub);
+                }
+            }
+            tr.appendChild(navnTd);
+
             const cells = [
-                getRowValue(row, ['navn']),
                 getRowValue(row, ['orgform']),
                 getRowValue(row, ['kommune', 'kommunenummer']),
                 getRowValue(row, ['ansatte']),
