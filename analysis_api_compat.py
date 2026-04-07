@@ -24,6 +24,18 @@ _MUNICIPALITY_NAME_TO_NUMBER = {
     "drammen": "3301",
 }
 
+_MUNICIPALITY_NAME_COLUMNS_CANDIDATES = [
+    "kommunenavn",
+    "kommune",
+    "kommune_navn",
+    "forretningsadresse_kommune",
+    "postadresse_kommune",
+    "beliggenhetsadresse_kommune",
+    "forretningsadresse_poststed",
+    "postadresse_poststed",
+    "beliggenhetsadresse_poststed",
+]
+
 
 _COMPAT_SORT_MAP = {
     "omsetning": "r.revenue",
@@ -172,6 +184,51 @@ def _entity_columns() -> set[str]:
     return {str(row.get("column_name")) for row in rows}
 
 
+@lru_cache(maxsize=1)
+def _municipality_name_columns() -> list[str]:
+    columns = _entity_columns()
+    return [col for col in _MUNICIPALITY_NAME_COLUMNS_CANDIDATES if col in columns]
+
+
+def _normalize_municipality_name(value: str | None) -> str:
+    return re.sub(r"[^0-9a-zæøå]+", "", str(value or "").strip().lower())
+
+
+def _append_kommune_filter(base_sql: str, params: list[Any], kommune: str | None) -> tuple[str, list[Any]]:
+    normalized_kommune = (kommune or "").strip()
+    if not normalized_kommune:
+        return base_sql, params
+
+    municipality_number = _MUNICIPALITY_NAME_TO_NUMBER.get(_normalize_municipality_name(normalized_kommune))
+    if re.fullmatch(r"\d+", normalized_kommune):
+        municipality_number = normalized_kommune
+
+    sub_filters: list[str] = []
+    if municipality_number:
+        sub_filters.append("e.kommunenummer = %s")
+        params.append(municipality_number)
+
+    name_columns = _municipality_name_columns()
+    if name_columns:
+        like_value = f"%{normalized_kommune}%"
+        sub_filters.extend(f"COALESCE(e.{column_name}::text, '') ILIKE %s" for column_name in name_columns)
+        params.extend([like_value] * len(name_columns))
+
+    # Robust fallback: many datasets only have gate/adresse fields populated with poststed,
+    # while kommunenavn columns may be absent or incomplete.
+    if not re.fullmatch(r"\d+", normalized_kommune):
+        sub_filters.append("COALESCE(e.adresse::text, '') ILIKE %s")
+        params.append(f"%{normalized_kommune}%")
+
+    if sub_filters:
+        base_sql += " AND (" + " OR ".join(sub_filters) + ")"
+    else:
+        # fallback: preserve previous behaviour where kommune matched kommunenummer directly
+        base_sql += " AND e.kommunenummer = %s"
+        params.append(normalized_kommune)
+    return base_sql, params
+
+
 def _industry_description_expr(alias: str = "e") -> str:
     columns = _entity_columns()
     candidates = [
@@ -295,7 +352,7 @@ def get_companies_filter_meta_payload() -> dict[str, Any]:
         "address_columns": ["adresse"],
         "industry_code_columns": ["naeringskode"],
         "industry_text_columns": [],
-        "municipality_name_columns": [],
+        "municipality_name_columns": _municipality_name_columns(),
         "max_limit": MAX_LIMIT,
     }
 
@@ -507,15 +564,13 @@ def get_companies_filter_payload(
     normalized_orgnr_query = _normalize_orgnr(q)
     orgnr_query = normalized_orgnr_query if len(normalized_orgnr_query) == 9 else None
     text_query = None if orgnr_query else q
-    normalized_kommune = (kommune or "").strip()
-    resolved_kommune = _MUNICIPALITY_NAME_TO_NUMBER.get(normalized_kommune.lower(), normalized_kommune) if normalized_kommune else None
     naeringskode_raw, naeringskode_digits = _normalize_naeringskode_query(naeringskode)
 
     base_sql, params, _regnskap_join = build_search_base_sql(
         orgnr=orgnr_query,
         q=text_query,
         orgform=orgform,
-        kommune=resolved_kommune,
+        kommune=None,
         naeringskode_prefix=None,
         min_revenue=min_omsetning,
         max_revenue=max_omsetning,
@@ -537,6 +592,7 @@ def get_companies_filter_payload(
     if adresse:
         base_sql += " AND COALESCE(e.adresse, '') ILIKE %s"
         params.append(f"%{adresse}%")
+    base_sql, params = _append_kommune_filter(base_sql, params, kommune)
 
     if min_netto_margin is not None:
         base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL AND ((r.net_profit / r.revenue) * 100.0) >= %s"
@@ -654,15 +710,13 @@ def get_companies_filter_summary_payload(
     normalized_orgnr_query = _normalize_orgnr(q)
     orgnr_query = normalized_orgnr_query if len(normalized_orgnr_query) == 9 else None
     text_query = None if orgnr_query else q
-    normalized_kommune = (kommune or "").strip()
-    resolved_kommune = _MUNICIPALITY_NAME_TO_NUMBER.get(normalized_kommune.lower(), normalized_kommune) if normalized_kommune else None
     naeringskode_raw, naeringskode_digits = _normalize_naeringskode_query(naeringskode)
 
     base_sql, params, _regnskap_join = build_search_base_sql(
         orgnr=orgnr_query,
         q=text_query,
         orgform=orgform,
-        kommune=resolved_kommune,
+        kommune=None,
         naeringskode_prefix=None,
         min_revenue=min_omsetning,
         max_revenue=max_omsetning,
@@ -684,6 +738,7 @@ def get_companies_filter_summary_payload(
     if adresse:
         base_sql += " AND COALESCE(e.adresse, '') ILIKE %s"
         params.append(f"%{adresse}%")
+    base_sql, params = _append_kommune_filter(base_sql, params, kommune)
 
     if min_netto_margin is not None:
         base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL AND ((r.net_profit / r.revenue) * 100.0) >= %s"
