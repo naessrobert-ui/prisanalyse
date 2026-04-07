@@ -107,11 +107,11 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
     q_lower = query.lower()
     digits = re.sub(r"\D", "", query)
 
-    suggestions: list[dict[str, Any]] = []
+    hint_matches: list[dict[str, Any]] = []
     for hint in _INDUSTRY_HINTS:
         haystack = f'{hint["code"]} {hint["description"]}'.lower()
         if q_lower in haystack or (digits and hint["code"].replace(".", "").startswith(digits)):
-            suggestions.append({**hint, "company_count": 0})
+            hint_matches.append({**hint, "company_count": 0})
 
     if digits:
         rows = fetch_all(
@@ -146,19 +146,21 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
             [f"%{query}%", safe_limit],
         )
 
+    suggestions: list[dict[str, Any]] = []
     for row in rows:
         code = str(row.get("code") or "").strip()
         if not code:
             continue
-        if any(item["code"] == code for item in suggestions):
-            continue
+        hint = next((item for item in hint_matches if item["code"] == code), None)
         suggestions.append(
             {
                 "code": code,
-                "description": row.get("description"),
+                "description": row.get("description") or (hint["description"] if hint else None),
                 "company_count": int(row.get("company_count") or 0),
             }
         )
+    if not suggestions:
+        suggestions = hint_matches
 
     return {
         "query": query,
