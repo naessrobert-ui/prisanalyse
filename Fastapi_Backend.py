@@ -538,7 +538,9 @@ def append_search_filters(
         tokens = normalize_search_tokens(q)
         if tokens:
             name_conditions = " AND ".join("e.navn ILIKE %s" for _ in tokens)
-            bedr_conditions = " AND ".join("bn.bedr_navn ILIKE %s" for _ in tokens)
+            # Bruk %% for å escape % i f-string så psycopg ikke tolker dem som placeholders
+            safe_tokens = [t.replace("'", "''") for t in tokens]
+            bedr_conditions = " AND ".join(f"bn.bedr_navn ILIKE '%%{t}%%'" for t in safe_tokens)
             sql += f"""
               AND (
                 ({name_conditions})
@@ -549,10 +551,19 @@ def append_search_filters(
                 )
               )
             """
-            params.extend(f"%{token}%" for token in tokens)  # for entity.navn
-            params.extend(f"%{token}%" for token in tokens)  # for bedr_navn
+            params.extend(f"%{token}%" for token in tokens)  # kun for entity.navn
         else:
-            sql += " AND e.navn ILIKE %s"
+            safe_q = q.replace("'", "''")
+            sql += f"""
+              AND (
+                e.navn ILIKE %s
+                OR e.orgnr IN (
+                    SELECT DISTINCT bn.parent_orgnr
+                    FROM bedr_navn bn
+                    WHERE bn.bedr_navn ILIKE '%%{safe_q}%%'
+                )
+              )
+            """
             params.append(f"%{q}%")
 
     if orgform:

@@ -634,6 +634,19 @@ def get_companies_filter_payload(
     count_row = fetch_one(f"SELECT COUNT(*)::int AS n {base_sql}", params) or {"n": 0}
     total_count = int(count_row.get("n") or 0)
 
+    # Bygg matched_bedr_navn subquery — bruker escaped literal for å unngå param-rekkefølge-konflikt
+    if q:
+        safe_q = q.replace("'", "''")
+        bedr_subquery = f"""(
+                SELECT bn.bedr_navn
+                FROM bedr_navn bn
+                WHERE bn.parent_orgnr = e.orgnr
+                  AND bn.bedr_navn ILIKE '%%{safe_q}%%'
+                LIMIT 1
+            )"""
+    else:
+        bedr_subquery = "NULL::text"
+
     data_sql = f"""
         SELECT
             e.orgnr::text AS orgnr,
@@ -667,19 +680,12 @@ def get_companies_filter_payload(
                 ELSE NULL
             END AS resultat_per_ansatt,
             r.oppdatert_dato::text AS oppdatert_dato,
-            (
-                SELECT bn.bedr_navn
-                FROM bedr_navn bn
-                WHERE bn.parent_orgnr = e.orgnr
-                  AND bn.bedr_navn ILIKE %s
-                LIMIT 1
-            ) AS matched_bedr_navn
+            {bedr_subquery} AS matched_bedr_navn
         {base_sql}
         ORDER BY {_sort_sql(sort_by, sort_dir)}
         LIMIT %s OFFSET %s
     """
-    bedr_q = f"%{q}%" if q else "%"
-    rows = fetch_all(data_sql, [*params, bedr_q, limit, offset])
+    rows = fetch_all(data_sql, [*params, limit, offset])
 
     return {
         "total_returned": total_count,
