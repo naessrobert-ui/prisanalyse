@@ -146,6 +146,10 @@
 
 {% block extra_js %}
 <script>
+  const linkCss = document.createElement('style');
+  linkCss.textContent = `.bi-name-link { color: var(--pa-accent); text-decoration: underline; }`;
+  document.head.appendChild(linkCss);
+
   // Init date
   const today = new Date();
   document.getElementById('bi-date-to').value = today.toISOString().slice(0,10);
@@ -266,40 +270,23 @@
 
       lastResult = data.rows || [];
 
-      buildTable(lastResult, [
+      const displayRows = lastResult.map((row) => ({
+        ...row,
+        navn: `<span class="bi-name-link">${row.navn || row.investor_id || '–'}</span>`,
+      }));
+
+      buildTable(displayRows, [
         {key:'navn', label:'Navn'},
         {key:'trades', label:'Handler', fmt:'int'},
         {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
         {key:'gevinst_mnok', label:'Gevinst MNOK', fmt:'num', dec:2},
         {key:'gevinst_pct', label:'Gevinst %', fmt:'num', dec:2},
-      ], 'bi-result-table');
-
-      requestAnimationFrame(() => {
-        document.querySelectorAll('#bi-result-table table tbody tr').forEach((tr, i) => {
-          const nameCell = tr.querySelector('td:first-child');
-          if (!nameCell) return;
-          nameCell.innerHTML = `<a href="#" class="bi-name-link" data-row-idx="${i}">${nameCell.textContent}</a>`;
-        });
-
-        document.querySelectorAll('.bi-name-link').forEach((lnk) => {
-          lnk.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            const idx = Number(lnk.dataset.rowIdx);
-            loadTransactions(lastResult[idx]);
-          });
-        });
+      ], 'bi-result-table', {
+        onRowClick: (row) => loadTransactions(lastResult.find((r) => r.investor_id === row.investor_id) || row),
       });
 
       document.getElementById('bi-csv-dl-wrap').style.display = lastResult.length ? '' : 'none';
       document.getElementById('bi-click-hint').style.display = lastResult.length ? '' : 'none';
-
-      // Make rows clickable
-      const rows = document.querySelectorAll('#bi-result-table table tbody tr');
-      rows.forEach((tr, i) => {
-        tr.style.cursor = 'pointer';
-        tr.addEventListener('click', () => loadTransactions(lastResult[i]));
-      });
 
     } catch(e) {
       this.textContent = 'Kjør analyse';
