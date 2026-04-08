@@ -564,6 +564,14 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                     isin,
                     investor_id,
                     date_today,
+                    COALESCE(holding_today, 0) - COALESCE(prev_holding, 0) AS change_qty,
+                    COALESCE(prev_holding, 0) AS prev_holding,
+                    COALESCE(holding_today, 0) AS holding_today,
+                    CASE
+                        WHEN COALESCE(prev_holding, 0) > 0
+                         AND COALESCE(holding_today, 0) = 0 THEN 1
+                        ELSE 0
+                    END AS is_sellout,
                     ROW_NUMBER() OVER (
                         PARTITION BY isin, investor_id
                         ORDER BY date_today DESC
@@ -577,7 +585,11 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                     isin,
                     investor_id,
                     MAX(CASE WHEN rn = 1 THEN date_today END) AS last_trade_date,
-                    MAX(CASE WHEN rn = 2 THEN date_today END) AS previous_trade_date
+                    MAX(CASE WHEN rn = 2 THEN date_today END) AS previous_trade_date,
+                    MAX(CASE WHEN rn = 1 THEN change_qty END) AS last_trade_change_qty,
+                    MAX(CASE WHEN rn = 1 THEN prev_holding END) AS last_trade_prev_holding,
+                    MAX(CASE WHEN rn = 1 THEN holding_today END) AS last_trade_holding_today,
+                    MAX(CASE WHEN rn = 1 THEN is_sellout END) AS last_trade_is_sellout
                 FROM change_events
                 GROUP BY isin, investor_id
             ),
@@ -587,6 +599,10 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                     s.snapshot_date,
                     lc.last_trade_date,
                     lc.previous_trade_date,
+                    lc.last_trade_change_qty,
+                    lc.last_trade_prev_holding,
+                    lc.last_trade_holding_today,
+                    lc.last_trade_is_sellout,
                     ROW_NUMBER() OVER (
                         PARTITION BY c.isin
                         ORDER BY c.ranking ASC, c.holding_today DESC, c.investor_id ASC
@@ -610,12 +626,20 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                 sec.isin_name AS company_name,
                 r.last_trade_date,
                 r.previous_trade_date,
+                r.last_trade_change_qty,
+                r.last_trade_prev_holding,
+                r.last_trade_holding_today,
+                r.last_trade_is_sellout,
                 CAST((julianday(r.snapshot_date) - julianday(r.last_trade_date)) AS INTEGER) AS days_since_last_change,
                 CAST((julianday(r.last_trade_date) - julianday(r.previous_trade_date)) AS INTEGER) AS days_between_trades
             FROM ranked r
             LEFT JOIN investor i ON i.investor_id = r.investor_id
             LEFT JOIN security sec ON sec.isin = r.isin
             WHERE r.rn <= 20
+               OR (
+                    COALESCE(r.last_trade_is_sellout, 0) = 1
+                AND r.last_trade_date = r.snapshot_date
+               )
             ORDER BY r.snapshot_date DESC, r.isin, r.ranking ASC, r.investor_id ASC
             """
         ).fetchall()
@@ -644,6 +668,9 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                 last_trade_date TEXT,
                 previous_trade_date TEXT,
                 days_between_trades INTEGER,
+                last_trade_change_qty REAL,
+                last_trade_share_pct REAL,
+                exited_recently INTEGER,
                 PRIMARY KEY (snapshot_date, isin, investor_id)
             );
             CREATE INDEX idx_top20_isin_snapshot ON top20_snapshot(isin, snapshot_date);
@@ -658,6 +685,9 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
             shares_out = _clean_num(r["shares_out"])
             no_of_stocks = _clean_num(r["no_of_stocks"])
             pct = ((no_of_stocks or 0.0) / shares_out * 100.0) if shares_out and shares_out > 0 else 0.0
+            last_trade_change_qty = _clean_num(r["last_trade_change_qty"])
+            last_trade_share_pct = ((last_trade_change_qty or 0.0) / shares_out * 10000.0) if shares_out and shares_out > 0 else 0.0
+            exited_recently = int(r["last_trade_is_sellout"]) if r["last_trade_is_sellout"] is not None else 0
             payload.append(
                 (
                     r["snapshot_date"],
@@ -675,6 +705,9 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                     r["last_trade_date"],
                     r["previous_trade_date"],
                     int(r["days_between_trades"]) if r["days_between_trades"] is not None else None,
+                    last_trade_change_qty,
+                    last_trade_share_pct,
+                    exited_recently,
                 )
             )
         dst.executemany(
@@ -682,8 +715,9 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
             INSERT INTO top20_snapshot(
                 snapshot_date, isin, investor_id, name, ranking,
                 no_of_stocks, shares_out, percentage, ticker, company_name,
-                last_change_date, days_since_last_change, last_trade_date, previous_trade_date, days_between_trades
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                last_change_date, days_since_last_change, last_trade_date, previous_trade_date, days_between_trades,
+                last_trade_change_qty, last_trade_share_pct, exited_recently
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             payload,
         )
@@ -848,7 +882,14 @@ def _ensure_top20_snapshot_db() -> str:
     try:
         with sqlite3.connect(str(dst)) as chk:
             cols = {str(r[1]).strip().lower() for r in chk.execute("PRAGMA table_info(top20_snapshot)").fetchall()}
-        required_cols = {"last_trade_date", "previous_trade_date", "days_between_trades"}
+        required_cols = {
+            "last_trade_date",
+            "previous_trade_date",
+            "days_between_trades",
+            "last_trade_change_qty",
+            "last_trade_share_pct",
+            "exited_recently",
+        }
         if not required_cols.issubset(cols):
             refresh_top20_snapshot_db(str(src), str(dst))
             _TOP20_DB_REFRESHED.add(refresh_key)
@@ -1394,6 +1435,9 @@ def fetch_top_shareholders_snapshot(
                 last_trade_date,
                 previous_trade_date,
                 days_between_trades,
+                last_trade_change_qty,
+                last_trade_share_pct,
+                exited_recently,
                 snapshot_date,
                 ticker,
                 company_name

@@ -836,11 +836,14 @@ def api_eier_oversikt_top_shareholders():
                 "last_trade_date",
                 "previous_trade_date",
                 "days_between_trades",
+                "last_trade_change_qty",
+                "last_trade_share_pct",
+                "exited_recently",
                 "snapshot_date",
                 "ticker",
                 "company_name",
             ],
-            {"percentage": 4},
+            {"percentage": 1, "last_trade_share_pct": 0},
         )
     })
 
