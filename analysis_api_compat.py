@@ -1085,32 +1085,35 @@ def get_kart_payload(
     from Fastapi_Backend import LATEST_REGNSKAP_JOIN
 
     limit = min(limit, 2000)
-    params: list[Any] = [south, north, west, east]
-    where = [
-        "e.lat IS NOT NULL",
-        "e.lat BETWEEN %s AND %s",
-        "e.lon BETWEEN %s AND %s",
-    ]
+    half = limit // 2
 
-    if naeringskode:
-        where.append("e.naeringskode LIKE %s")
-        params.append(naeringskode + "%")
+    # Bygg filter-betingelser
+    def build_filters(lat_col, lon_col, nk_col, of_col, rev_col):
+        where = [
+            f"{lat_col} IS NOT NULL",
+            f"{lat_col} BETWEEN %s AND %s",
+            f"{lon_col} BETWEEN %s AND %s",
+        ]
+        params = [south, north, west, east]
+        if naeringskode:
+            where.append(f"{nk_col} LIKE %s")
+            params.append(naeringskode + "%")
+        if orgform:
+            where.append(f"{of_col} = %s")
+            params.append(orgform)
+        if min_omsetning is not None:
+            where.append(f"{rev_col} >= %s")
+            params.append(min_omsetning)
+        if max_omsetning is not None:
+            where.append(f"{rev_col} <= %s")
+            params.append(max_omsetning)
+        return where, params
 
-    if orgform:
-        where.append("e.orgform = %s")
-        params.append(orgform)
+    # Del 1: selskaper i entity med egne koordinater
+    where1, params1 = build_filters("e.lat", "e.lon", "e.naeringskode", "e.orgform", "r.revenue")
+    params1.append(half)
 
-    if min_omsetning is not None:
-        where.append("r.revenue >= %s")
-        params.append(min_omsetning)
-
-    if max_omsetning is not None:
-        where.append("r.revenue <= %s")
-        params.append(max_omsetning)
-
-    params.append(limit)
-
-    sql = f"""
+    sql1 = f"""
         SELECT
             e.orgnr,
             e.navn,
@@ -1121,18 +1124,47 @@ def get_kart_payload(
             e.ansatte,
             e.lat,
             e.lon,
-            r.revenue          AS driftsinntekter,
-            r.net_profit       AS aarsresultat,
-            r.equity           AS sum_egenkapital,
-            r.accounting_year  AS regnskapsaar
+            r.revenue         AS driftsinntekter,
+            r.net_profit      AS aarsresultat,
+            r.equity          AS sum_egenkapital,
+            r.accounting_year AS regnskapsaar
         FROM entity e
         {LATEST_REGNSKAP_JOIN}
-        WHERE {" AND ".join(where)}
+        WHERE {" AND ".join(where1)}
         ORDER BY r.revenue DESC NULLS LAST
         LIMIT %s
     """
 
-    rows = fetch_all(sql, params)
+    # Del 2: underenheter i bedr_navn med morselskapet sitt regnskap
+    where2, params2 = build_filters("bn.lat", "bn.lon", "bn.naeringskode", "e.orgform", "r.revenue")
+    params2.append(half)
+
+    sql2 = f"""
+        SELECT
+            bn.bedr_orgnr     AS orgnr,
+            bn.bedr_navn      AS navn,
+            bn.adresse,
+            bn.postnummer,
+            bn.naeringskode,
+            e.orgform,
+            e.ansatte,
+            bn.lat,
+            bn.lon,
+            r.revenue         AS driftsinntekter,
+            r.net_profit      AS aarsresultat,
+            r.equity          AS sum_egenkapital,
+            r.accounting_year AS regnskapsaar
+        FROM bedr_navn bn
+        JOIN entity e ON e.orgnr = bn.parent_orgnr
+        {LATEST_REGNSKAP_JOIN}
+        WHERE {" AND ".join(where2)}
+        ORDER BY r.revenue DESC NULLS LAST
+        LIMIT %s
+    """
+
+    rows1 = fetch_all(sql1, params1)
+    rows2 = fetch_all(sql2, params2)
+    rows = rows1 + rows2
 
     def farge(row: dict) -> str:
         res = row.get("aarsresultat")
@@ -1152,6 +1184,7 @@ def get_kart_payload(
             "properties": {**row, "farge": farge(row)},
         }
         for row in rows
+        if row.get("lat") and row.get("lon")
     ]
 
     return {
