@@ -22,6 +22,8 @@ from regnskap_routes import regnskap_bp
 from dash_apps.strom import create_dash_app
 from scripts.kvamskogen_routes import kvamskogen_bp
 from scripts.sno_routes import sno_bp, start_warmup
+from scripts.kart_routes import kart_bp
+
 
 
 
@@ -124,6 +126,7 @@ def create_app() -> Flask:
     app.register_blueprint(regnskap_bp)
     app.register_blueprint(kvamskogen_bp)
     app.register_blueprint(sno_bp)
+    app.register_blueprint(kart_bp)
 
     # Start bakgrunnsjobb som prefetcher snødybde for hele Norge
     start_warmup()

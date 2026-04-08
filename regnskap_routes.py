@@ -1230,6 +1230,12 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
     elif path.startswith("/analysis-api/company-history/"):
         orgnr = path.rsplit("/", 1)[-1]
         payload = get_company_history_payload(orgnr)
+    elif path == "/analysis-api/kart":
+        import requests as _req
+        resp = _req.get("http://127.0.0.1:8010/api/kart", params=params, timeout=60)
+        response = make_response(resp.text, resp.status_code)
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+        return response
     else:
         return None
 
