@@ -693,6 +693,39 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
     return dst_path
 
 
+def _infer_date_from_filename(filename: str) -> dt.date | None:
+    """
+    Prøver å finne en dato i filnavnet (YYYY-MM-DD, YYYY_MM_DD eller YYYYMMDD).
+    Brukes for stabil ingest-rekkefølge ved historisk backfill (f.eks. månedsfiler fra 2022).
+    """
+    name = (filename or "").strip()
+    if not name:
+        return None
+    stem = Path(name).stem
+    for pattern in (r"(20\d{2})[-_](\d{2})[-_](\d{2})", r"(20\d{2})(\d{2})(\d{2})"):
+        m = re.search(pattern, stem)
+        if not m:
+            continue
+        try:
+            y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            return dt.date(y, mo, d)
+        except Exception:
+            continue
+    return None
+
+
+def _sort_upload_files_for_backfill(files: list[tuple[str, bytes]]) -> list[tuple[str, bytes]]:
+    """
+    Sorterer filer kronologisk når dato kan leses fra filnavn.
+    Filer uten dato legges til slutt i alfabetisk rekkefølge.
+    """
+    indexed: list[tuple[dt.date | None, str, bytes]] = []
+    for filename, content in files:
+        indexed.append((_infer_date_from_filename(filename), filename, content))
+    indexed.sort(key=lambda x: (x[0] is None, x[0] or dt.date.max, x[1].lower()))
+    return [(name, content) for _, name, content in indexed]
+
+
 def apply_csv_updates_and_push_to_s3(files: list[tuple[str, bytes]]) -> dict:
     if not files:
         raise ValueError("Ingen CSV-filer mottatt.")
@@ -709,7 +742,8 @@ def apply_csv_updates_and_push_to_s3(files: list[tuple[str, bytes]]) -> dict:
         processed_rows = 0
         processed_files: list[str] = []
 
-        for filename, content in files:
+        ordered_files = _sort_upload_files_for_backfill(files)
+        for filename, content in ordered_files:
             if not filename.lower().endswith(".csv"):
                 continue
             processed_rows += _ingest_one_csv_bytes(conn, filename, content)
