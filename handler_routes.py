@@ -804,23 +804,23 @@ def api_eier_oversikt_top_shareholders():
         df = hd.fetch_top_shareholders_snapshot(isin, as_of, limit=top_n)
     except Exception:
         snapshot_failed = True
-        _LOG.warning("Top20 snapshot-spørring feilet, faller tilbake til live-spørring", exc_info=True)
+        _LOG.warning("Top20 snapshot-spørring feilet", exc_info=True)
 
-    # Viktig: snapshot-tabellen representerer "topp aksjonærer"-datasettet.
-    # Live-spørringen bygger på position_change og kan derfor i praksis ligne
-    # en "aktive handlere"-liste når grunnlaget er ufullstendig.
-    # Derfor bruker vi live kun når snapshot mangler/feiler helt.
-    if snapshot_failed or df.empty:
-        conn = hd.db_connect()
-        try:
-            live_df = hd.fetch_top_shareholders_with_last_change(conn, isin, as_of, limit=top_n)
-        finally:
-            conn.close()
-        if not live_df.empty:
-            df = live_df
-
+    if snapshot_failed:
+        return jsonify({
+            "error": (
+                "Klarte ikke lese topp-aksjonær-snapshot. "
+                "Last opp/oppdater snapshot-CSV-er og prøv igjen."
+            )
+        }), 500
     if df.empty:
-        return jsonify({"rows": [], "message": "Ingen data"})
+        return jsonify({
+            "rows": [],
+            "message": (
+                "Ingen topp-aksjonær-snapshot funnet for valgt dato/aksje. "
+                "Upload CSV med topp-aksjonærer og hent data på nytt."
+            ),
+        })
 
     return jsonify({
         "rows": _json_safe_records(
