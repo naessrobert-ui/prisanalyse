@@ -984,14 +984,10 @@ def dataset_from_session_payload(raw: dict[str, Any]) -> FinancialDataset | None
 
 
 def build_brreg_annual_report_url(orgnr: str, year: int | None = None) -> str:
+    del year  # Vi bruker virksomhet-oppslag som stabil og riktig lenke i UI.
     normalized = normalize_orgnr(orgnr)
     if len(normalized) != 9:
         return ""
-    if isinstance(year, int) and year > 1900:
-        return (
-            "https://w2.brreg.no/eHandelPortal/ecomsys/hentRegnskap"
-            f"?orgnr={normalized}&regnskapsaar={year}&type=arsregnskap"
-        )
     return f"https://virksomhet.brreg.no/nb/oppslag/enheter/{normalized}"
 
 
