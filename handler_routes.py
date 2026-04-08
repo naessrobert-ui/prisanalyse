@@ -843,7 +843,7 @@ def api_eier_oversikt_top_shareholders():
                 "ticker",
                 "company_name",
             ],
-            {"percentage": 4, "last_trade_share_pct": 4},
+            {"percentage": 1, "last_trade_share_pct": 0},
         )
     })
 

@@ -686,7 +686,7 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
             no_of_stocks = _clean_num(r["no_of_stocks"])
             pct = ((no_of_stocks or 0.0) / shares_out * 100.0) if shares_out and shares_out > 0 else 0.0
             last_trade_change_qty = _clean_num(r["last_trade_change_qty"])
-            last_trade_share_pct = ((last_trade_change_qty or 0.0) / shares_out * 100.0) if shares_out and shares_out > 0 else 0.0
+            last_trade_share_pct = ((last_trade_change_qty or 0.0) / shares_out * 10000.0) if shares_out and shares_out > 0 else 0.0
             exited_recently = int(r["last_trade_is_sellout"]) if r["last_trade_is_sellout"] is not None else 0
             payload.append(
                 (
