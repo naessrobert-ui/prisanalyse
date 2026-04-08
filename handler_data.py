@@ -542,6 +542,10 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                         ORDER BY pc.date_today
                     ) AS prev_holding
                 FROM position_change pc
+                -- Viktig: ingen datofilter her.
+                -- Vi bygger snapshot fra hele historikken i kildedatabasen,
+                -- slik at "siste/forrige handel" finnes også når siste handel
+                -- ligger langt tilbake i tid (f.eks. 2024-04-01).
             ),
             snap AS (
                 SELECT isin, MAX(date_today) AS snapshot_date
@@ -555,21 +559,45 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                   ON s.isin = o.isin
                  AND s.snapshot_date = o.date_today
             ),
+            change_events AS (
+                SELECT
+                    isin,
+                    investor_id,
+                    date_today,
+                    COALESCE(holding_today, 0) AS holding_today,
+                    COALESCE(prev_holding, 0) AS prev_holding,
+                    (COALESCE(holding_today, 0) - COALESCE(prev_holding, 0)) AS trade_qty,
+                    CASE
+                        WHEN COALESCE(prev_holding, 0) = 0 THEN NULL
+                        ELSE ((COALESCE(holding_today, 0) - COALESCE(prev_holding, 0)) / ABS(prev_holding)) * 100.0
+                    END AS trade_pct_of_position,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY isin, investor_id
+                        ORDER BY date_today DESC
+                    ) AS rn
+                FROM obs
+                WHERE prev_holding IS NOT NULL
+                  AND COALESCE(holding_today, 0) <> COALESCE(prev_holding, 0)
+            ),
             last_change AS (
                 SELECT
                     isin,
                     investor_id,
-                    MAX(date_today) AS last_change_date
-                FROM obs
-                WHERE prev_holding IS NOT NULL
-                  AND COALESCE(holding_today, 0) <> COALESCE(prev_holding, 0)
+                    MAX(CASE WHEN rn = 1 THEN date_today END) AS last_trade_date,
+                    MAX(CASE WHEN rn = 2 THEN date_today END) AS previous_trade_date,
+                    MAX(CASE WHEN rn = 1 THEN trade_qty END) AS last_trade_qty,
+                    MAX(CASE WHEN rn = 1 THEN trade_pct_of_position END) AS last_trade_pct_of_position
+                FROM change_events
                 GROUP BY isin, investor_id
             ),
             ranked AS (
                 SELECT
                     c.*,
                     s.snapshot_date,
-                    lc.last_change_date,
+                    lc.last_trade_date,
+                    lc.previous_trade_date,
+                    lc.last_trade_qty,
+                    lc.last_trade_pct_of_position,
                     ROW_NUMBER() OVER (
                         PARTITION BY c.isin
                         ORDER BY c.ranking ASC, c.holding_today DESC, c.investor_id ASC
@@ -591,8 +619,21 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                 sec.issued_shares AS shares_out,
                 sec.ticker,
                 sec.isin_name AS company_name,
-                r.last_change_date,
-                CAST((julianday(r.snapshot_date) - julianday(r.last_change_date)) AS INTEGER) AS days_since_last_change
+                r.last_trade_date,
+                r.previous_trade_date,
+                r.last_trade_qty,
+                r.last_trade_pct_of_position,
+                CASE
+                    WHEN COALESCE(sec.issued_shares, 0) = 0 THEN NULL
+                    ELSE (r.last_trade_qty / sec.issued_shares) * 100.0
+                END AS last_trade_pct_of_company,
+                CASE
+                    WHEN COALESCE(r.last_trade_qty, 0) > 0 THEN 'KJØP'
+                    WHEN COALESCE(r.last_trade_qty, 0) < 0 THEN 'SALG'
+                    ELSE NULL
+                END AS last_trade_direction,
+                CAST((julianday(r.snapshot_date) - julianday(r.last_trade_date)) AS INTEGER) AS days_since_last_change,
+                CAST((julianday(r.last_trade_date) - julianday(r.previous_trade_date)) AS INTEGER) AS days_between_trades
             FROM ranked r
             LEFT JOIN investor i ON i.investor_id = r.investor_id
             LEFT JOIN security sec ON sec.isin = r.isin
@@ -622,6 +663,13 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                 company_name TEXT,
                 last_change_date TEXT,
                 days_since_last_change INTEGER,
+                last_trade_date TEXT,
+                previous_trade_date TEXT,
+                last_trade_qty REAL,
+                last_trade_pct_of_position REAL,
+                last_trade_pct_of_company REAL,
+                last_trade_direction TEXT,
+                days_between_trades INTEGER,
                 PRIMARY KEY (snapshot_date, isin, investor_id)
             );
             CREATE INDEX idx_top20_isin_snapshot ON top20_snapshot(isin, snapshot_date);
@@ -648,8 +696,15 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
                     pct,
                     r["ticker"],
                     r["company_name"],
-                    r["last_change_date"],
+                    r["last_trade_date"],
                     int(r["days_since_last_change"]) if r["days_since_last_change"] is not None else None,
+                    r["last_trade_date"],
+                    r["previous_trade_date"],
+                    _clean_num(r["last_trade_qty"]),
+                    _clean_num(r["last_trade_pct_of_position"]),
+                    _clean_num(r["last_trade_pct_of_company"]),
+                    r["last_trade_direction"],
+                    int(r["days_between_trades"]) if r["days_between_trades"] is not None else None,
                 )
             )
         dst.executemany(
@@ -657,8 +712,10 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
             INSERT INTO top20_snapshot(
                 snapshot_date, isin, investor_id, name, ranking,
                 no_of_stocks, shares_out, percentage, ticker, company_name,
-                last_change_date, days_since_last_change
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                last_change_date, days_since_last_change, last_trade_date, previous_trade_date,
+                last_trade_qty, last_trade_pct_of_position, last_trade_pct_of_company, last_trade_direction,
+                days_between_trades
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             payload,
         )
@@ -666,6 +723,39 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
     finally:
         dst.close()
     return dst_path
+
+
+def _infer_date_from_filename(filename: str) -> dt.date | None:
+    """
+    Prøver å finne en dato i filnavnet (YYYY-MM-DD, YYYY_MM_DD eller YYYYMMDD).
+    Brukes for stabil ingest-rekkefølge ved historisk backfill (f.eks. månedsfiler fra 2022).
+    """
+    name = (filename or "").strip()
+    if not name:
+        return None
+    stem = Path(name).stem
+    for pattern in (r"(20\d{2})[-_](\d{2})[-_](\d{2})", r"(20\d{2})(\d{2})(\d{2})"):
+        m = re.search(pattern, stem)
+        if not m:
+            continue
+        try:
+            y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            return dt.date(y, mo, d)
+        except Exception:
+            continue
+    return None
+
+
+def _sort_upload_files_for_backfill(files: list[tuple[str, bytes]]) -> list[tuple[str, bytes]]:
+    """
+    Sorterer filer kronologisk når dato kan leses fra filnavn.
+    Filer uten dato legges til slutt i alfabetisk rekkefølge.
+    """
+    indexed: list[tuple[dt.date | None, str, bytes]] = []
+    for filename, content in files:
+        indexed.append((_infer_date_from_filename(filename), filename, content))
+    indexed.sort(key=lambda x: (x[0] is None, x[0] or dt.date.max, x[1].lower()))
+    return [(name, content) for _, name, content in indexed]
 
 
 def apply_csv_updates_and_push_to_s3(files: list[tuple[str, bytes]]) -> dict:
@@ -684,7 +774,8 @@ def apply_csv_updates_and_push_to_s3(files: list[tuple[str, bytes]]) -> dict:
         processed_rows = 0
         processed_files: list[str] = []
 
-        for filename, content in files:
+        ordered_files = _sort_upload_files_for_backfill(files)
+        for filename, content in ordered_files:
             if not filename.lower().endswith(".csv"):
                 continue
             processed_rows += _ingest_one_csv_bytes(conn, filename, content)
@@ -785,6 +876,25 @@ def _ensure_top20_snapshot_db() -> str:
         refresh_top20_snapshot_db(str(src), str(dst))
         _TOP20_DB_REFRESHED.add(refresh_key)
         return str(dst)
+
+    try:
+        with sqlite3.connect(str(dst)) as chk:
+            cols = {str(r[1]).strip().lower() for r in chk.execute("PRAGMA table_info(top20_snapshot)").fetchall()}
+        required_cols = {
+            "last_trade_date",
+            "previous_trade_date",
+            "last_trade_qty",
+            "last_trade_pct_of_position",
+            "last_trade_pct_of_company",
+            "last_trade_direction",
+            "days_between_trades",
+        }
+        if not required_cols.issubset(cols):
+            refresh_top20_snapshot_db(str(src), str(dst))
+            _TOP20_DB_REFRESHED.add(refresh_key)
+            return str(dst)
+    except Exception:
+        _LOG.warning("Klarte ikke verifisere top20_snapshot-skjema", exc_info=True)
 
     try:
         src_mtime = src.stat().st_mtime if src.is_file() else 0
@@ -1232,6 +1342,8 @@ def fetch_top_shareholders_with_last_change(
                 ORDER BY pc.date_today
             ) AS prev_holding
         FROM position_change pc
+        -- Live-endepunktet respekterer "as_of", men søker fortsatt i hele
+        -- historikken fram til den datoen (ikke bare "nå").
         WHERE pc.isin = ? AND pc.date_today <= ?
     ),
     snap AS (
@@ -1242,13 +1354,33 @@ def fetch_top_shareholders_with_last_change(
         FROM obs o
         JOIN snap s ON s.d = o.date_today
     ),
-    last_change AS (
+    change_events AS (
         SELECT
             investor_id,
-            MAX(date_today) AS last_change_date
+            date_today,
+            COALESCE(holding_today, 0) AS holding_today,
+            COALESCE(prev_holding, 0) AS prev_holding,
+            (COALESCE(holding_today, 0) - COALESCE(prev_holding, 0)) AS trade_qty,
+            CASE
+                WHEN COALESCE(prev_holding, 0) = 0 THEN NULL
+                ELSE ((COALESCE(holding_today, 0) - COALESCE(prev_holding, 0)) / ABS(prev_holding)) * 100.0
+            END AS trade_pct_of_position,
+            ROW_NUMBER() OVER (
+                PARTITION BY investor_id
+                ORDER BY date_today DESC
+            ) AS rn
         FROM obs
         WHERE prev_holding IS NOT NULL
           AND COALESCE(holding_today, 0) <> COALESCE(prev_holding, 0)
+    ),
+    last_change AS (
+        SELECT
+            investor_id,
+            MAX(CASE WHEN rn = 1 THEN date_today END) AS last_trade_date,
+            MAX(CASE WHEN rn = 2 THEN date_today END) AS previous_trade_date,
+            MAX(CASE WHEN rn = 1 THEN trade_qty END) AS last_trade_qty,
+            MAX(CASE WHEN rn = 1 THEN trade_pct_of_position END) AS last_trade_pct_of_position
+        FROM change_events
         GROUP BY investor_id
     )
     SELECT
@@ -1261,7 +1393,10 @@ def fetch_top_shareholders_with_last_change(
         s.isin_name AS company_name,
         s.issued_shares AS shares_out,
         snap.d AS snapshot_date,
-        lc.last_change_date
+        lc.last_trade_date,
+        lc.previous_trade_date,
+        lc.last_trade_qty,
+        lc.last_trade_pct_of_position
     FROM current_pos c
     LEFT JOIN investor i ON i.investor_id = c.investor_id
     LEFT JOIN security s ON s.isin = c.isin
@@ -1281,8 +1416,17 @@ def fetch_top_shareholders_with_last_change(
     df["percentage"] = ((no_of_stocks / shares_out) * 100).where(shares_out > 0).fillna(0.0)
 
     snap_dt = pd.to_datetime(df["snapshot_date"], errors="coerce")
-    change_dt = pd.to_datetime(df["last_change_date"], errors="coerce")
-    df["days_since_last_change"] = (snap_dt - change_dt).dt.days
+    last_trade_dt = pd.to_datetime(df["last_trade_date"], errors="coerce")
+    prev_trade_dt = pd.to_datetime(df["previous_trade_date"], errors="coerce")
+    df["last_change_date"] = df["last_trade_date"]
+    df["days_since_last_change"] = (snap_dt - last_trade_dt).dt.days
+    df["days_between_trades"] = (last_trade_dt - prev_trade_dt).dt.days
+    df["last_trade_qty"] = pd.to_numeric(df["last_trade_qty"], errors="coerce")
+    df["last_trade_pct_of_position"] = pd.to_numeric(df["last_trade_pct_of_position"], errors="coerce")
+    df["last_trade_pct_of_company"] = ((df["last_trade_qty"] / shares_out) * 100).where(shares_out > 0)
+    df["last_trade_direction"] = df["last_trade_qty"].apply(
+        lambda x: "KJØP" if pd.notna(x) and x > 0 else ("SALG" if pd.notna(x) and x < 0 else None)
+    )
     return df
 
 
@@ -1304,6 +1448,13 @@ def fetch_top_shareholders_snapshot(
                 percentage,
                 last_change_date,
                 days_since_last_change,
+                last_trade_date,
+                previous_trade_date,
+                last_trade_qty,
+                last_trade_pct_of_position,
+                last_trade_pct_of_company,
+                last_trade_direction,
+                days_between_trades,
                 snapshot_date,
                 ticker,
                 company_name
@@ -1318,6 +1469,57 @@ def fetch_top_shareholders_snapshot(
             LIMIT ?
             """,
             (isin, isin, as_of_date.isoformat(), safe_limit),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
+
+
+def fetch_top20_exits_since_previous_snapshot(
+    isin: str, as_of_date: dt.date, limit: int = 20
+) -> pd.DataFrame:
+    safe_limit = max(1, min(int(limit), 50))
+    top20_db_path = _ensure_top20_snapshot_db()
+    conn = sqlite3.connect(top20_db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            WITH curr_snap AS (
+                SELECT MAX(snapshot_date) AS d
+                FROM top20_snapshot
+                WHERE isin = ? AND snapshot_date <= ?
+            ),
+            prev_snap AS (
+                SELECT MAX(snapshot_date) AS d
+                FROM top20_snapshot
+                WHERE isin = ?
+                  AND snapshot_date < (SELECT d FROM curr_snap)
+            ),
+            prev_top AS (
+                SELECT investor_id, name, ranking, no_of_stocks, percentage
+                FROM top20_snapshot
+                WHERE isin = ? AND snapshot_date = (SELECT d FROM prev_snap)
+            ),
+            curr_top AS (
+                SELECT investor_id
+                FROM top20_snapshot
+                WHERE isin = ? AND snapshot_date = (SELECT d FROM curr_snap)
+            )
+            SELECT
+                p.name,
+                p.investor_id,
+                p.ranking AS previous_ranking,
+                p.no_of_stocks AS previous_no_of_stocks,
+                p.percentage AS previous_percentage
+            FROM prev_top p
+            LEFT JOIN curr_top c ON c.investor_id = p.investor_id
+            WHERE c.investor_id IS NULL
+            ORDER BY p.ranking ASC, p.no_of_stocks DESC, p.investor_id ASC
+            LIMIT ?
+            """,
+            (isin, as_of_date.isoformat(), isin, isin, isin, safe_limit),
         ).fetchall()
     finally:
         conn.close()

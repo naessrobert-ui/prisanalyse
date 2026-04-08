@@ -766,6 +766,23 @@ def api_eier_oversikt_per_aksje():
     if df.empty:
         return jsonify({"rows": [], "message": "Ingen data"})
 
+    if "last_trade_pct_of_position" in df.columns and "last_trade_pct_of_position_signed" not in df.columns:
+        def _fmt_signed(v):
+            if pd.isna(v):
+                return None
+            try:
+                n = float(v)
+                return f"{n:+.2f}%"
+            except Exception:
+                return None
+        df["last_trade_pct_of_position_signed"] = df["last_trade_pct_of_position"].map(_fmt_signed)
+
+    exited_df = pd.DataFrame()
+    try:
+        exited_df = hd.fetch_top20_exits_since_previous_snapshot(isin, as_of, limit=top_n)
+    except Exception:
+        _LOG.warning("Klarte ikke hente topp20-utganger siden forrige snapshot", exc_info=True)
+
     return jsonify({
         "rows": _json_safe_records(
             df,
@@ -822,6 +839,23 @@ def api_eier_oversikt_top_shareholders():
     if df.empty:
         return jsonify({"rows": [], "message": "Ingen data"})
 
+    if "last_trade_pct_of_position" in df.columns and "last_trade_pct_of_position_signed" not in df.columns:
+        def _fmt_signed(v):
+            if pd.isna(v):
+                return None
+            try:
+                n = float(v)
+                return f"{n:+.2f}%"
+            except Exception:
+                return None
+        df["last_trade_pct_of_position_signed"] = df["last_trade_pct_of_position"].map(_fmt_signed)
+
+    exited_df = pd.DataFrame()
+    try:
+        exited_df = hd.fetch_top20_exits_since_previous_snapshot(isin, as_of, limit=top_n)
+    except Exception:
+        _LOG.warning("Klarte ikke hente topp20-utganger siden forrige snapshot", exc_info=True)
+
     return jsonify({
         "rows": _json_safe_records(
             df,
@@ -833,12 +867,25 @@ def api_eier_oversikt_top_shareholders():
                 "percentage",
                 "last_change_date",
                 "days_since_last_change",
+                "last_trade_date",
+                "previous_trade_date",
+                "last_trade_qty",
+                "last_trade_pct_of_position",
+                "last_trade_pct_of_company",
+                "last_trade_direction",
+                "last_trade_pct_of_position_signed",
+                "days_between_trades",
                 "snapshot_date",
                 "ticker",
                 "company_name",
             ],
             {"percentage": 4},
-        )
+        ),
+        "exited_rows": _json_safe_records(
+            exited_df,
+            ["name", "investor_id", "previous_ranking", "previous_no_of_stocks", "previous_percentage"],
+            {"previous_percentage": 4},
+        ) if not exited_df.empty else [],
     })
 
 
