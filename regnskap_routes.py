@@ -170,15 +170,16 @@ FIELD_LABELS: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # HTTP-session
 # ---------------------------------------------------------------------------
-def make_session() -> requests.Session:
+def make_session(use_retries: bool = True) -> requests.Session:
     sess = requests.Session()
-    retries = Retry(
-        total=6,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET"],
-    )
-    sess.mount("https://", HTTPAdapter(max_retries=retries))
+    if use_retries:
+        retries = Retry(
+            total=6,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"],
+        )
+        sess.mount("https://", HTTPAdapter(max_retries=retries))
     sess.headers.update(
         {
             "User-Agent": USER_AGENT,
@@ -513,12 +514,12 @@ def _get_nested_amount(obj: dict, *keys: str) -> float | None:
     return None
 
 
-def lookup_orgnr_brreg(http_session: requests.Session, orgnr: str) -> LookupResult | None:
+def lookup_orgnr_brreg(http_session: requests.Session, orgnr: str, timeout: int = TIMEOUT) -> LookupResult | None:
     """Hent siste tilgjengelige regnskap fra Brreg for gitt orgnr."""
     try:
         resp = http_session.get(
             f"{BRREG_REGNSKAP_URL}/{orgnr}",
-            timeout=TIMEOUT,
+            timeout=timeout,
             headers={"Accept": "application/json"},
         )
         if resp.status_code != 200:
@@ -1548,7 +1549,7 @@ def regnskap_company_detail(orgnr: str):
     lon_value = first_present(entity_payload, "longitude", "lon", "lengdegrad")
     ansatte_value = first_present(entity_payload, "ansatte")
 
-    brreg_result = lookup_orgnr_brreg(make_session(), normalized_orgnr)
+    brreg_result = lookup_orgnr_brreg(make_session(use_retries=False), normalized_orgnr, timeout=5)
     metric_comparison = build_metric_comparison(company, brreg_result)
     annual_report_url = build_brreg_annual_report_url(
         normalized_orgnr,
