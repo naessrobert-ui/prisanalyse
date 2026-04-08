@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selskapskartet – prisanalyse.no</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    background: #0f1117;
+    color: #e8e8e8;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Topbar ── */
+  #topbar {
+    background: #171b26;
+    border-bottom: 1px solid #2a2f3e;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    z-index: 1000;
+    flex-shrink: 0;
+  }
+
+  #topbar h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    margin-right: 8px;
+  }
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .filter-group label {
+    font-size: 11px;
+    color: #7a8096;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .filter-input {
+    background: #0f1117;
+    border: 1px solid #2a2f3e;
+    border-radius: 6px;
+    color: #e8e8e8;
+    font-size: 13px;
+    padding: 5px 10px;
+    height: 32px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .filter-input:focus {
+    border-color: #4a6fa5;
+  }
+
+  select.filter-input {
+    cursor: pointer;
+    padding-right: 24px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a8096'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+
+  #btn-sok {
+    background: #4a6fa5;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0 16px;
+    height: 32px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+
+  #btn-sok:hover { background: #5a82bf; }
+  #btn-sok:disabled { background: #2a3a55; cursor: default; }
+
+  #status {
+    font-size: 12px;
+    color: #7a8096;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  /* ── Kart ── */
+  #map {
+    flex: 1;
+    z-index: 1;
+  }
+
+  /* ── Popup ── */
+  .leaflet-popup-content-wrapper {
+    background: #171b26;
+    border: 1px solid #2a2f3e;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    color: #e8e8e8;
+    min-width: 240px;
+  }
+
+  .leaflet-popup-tip { background: #171b26; }
+  .leaflet-popup-close-button { color: #7a8096 !important; }
+
+  .popup-header {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+
+  .popup-orgnr {
+    font-size: 11px;
+    color: #7a8096;
+    margin-bottom: 10px;
+  }
+
+  .popup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 12px;
+    margin-bottom: 10px;
+  }
+
+  .popup-kv label {
+    font-size: 10px;
+    color: #7a8096;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+  }
+
+  .popup-kv span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e8e8e8;
+  }
+
+  .popup-kv span.pos { color: #4caf7d; }
+  .popup-kv span.neg { color: #e05252; }
+  .popup-kv span.neu { color: #f0b429; }
+
+  .popup-link {
+    display: block;
+    text-align: center;
+    background: #4a6fa5;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    padding: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 8px;
+    transition: background 0.15s;
+  }
+
+  .popup-link:hover { background: #5a82bf; }
+
+  /* ── Legend ── */
+  #legend {
+    position: absolute;
+    bottom: 32px;
+    right: 12px;
+    z-index: 999;
+    background: #171b26cc;
+    border: 1px solid #2a2f3e;
+    border-radius: 8px;
+    padding: 10px 14px;
+    backdrop-filter: blur(8px);
+  }
+
+  .legend-title {
+    font-size: 10px;
+    color: #7a8096;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #c8cad8;
+    margin-bottom: 4px;
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── Loading overlay ── */
+  #loading {
+    display: none;
+    position: absolute;
+    top: 60px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+    background: #171b26ee;
+    border: 1px solid #2a2f3e;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+    color: #7a8096;
+  }
+</style>
+</head>
+<body>
+
+<!-- Topbar med filtre -->
+<div id="topbar">
+  <h1>📍 Selskapskartet</h1>
+
+  <div class="filter-group">
+    <label>Næringskode</label>
+    <input id="f-naeringskode" class="filter-input" style="width:90px"
+           placeholder="47, 62…" title="Skriv starten av næringskoden">
+  </div>
+
+  <div class="filter-group">
+    <label>Orgform</label>
+    <select id="f-orgform" class="filter-input" style="width:90px">
+      <option value="">Alle</option>
+      <option value="AS">AS</option>
+      <option value="ENK">ENK</option>
+      <option value="ANS">ANS</option>
+      <option value="SA">SA</option>
+      <option value="NUF">NUF</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>Min omsetning</label>
+    <input id="f-min-omsetning" class="filter-input" style="width:110px"
+           placeholder="1000000" type="number">
+  </div>
+
+  <div class="filter-group">
+    <label>Maks omsetning</label>
+    <input id="f-max-omsetning" class="filter-input" style="width:110px"
+           placeholder="" type="number">
+  </div>
+
+  <button id="btn-sok" onclick="sokSelskaper()">Søk i kartet</button>
+
+  <span id="status">Zoom inn og trykk søk</span>
+</div>
+
+<!-- Kart -->
+<div id="map"></div>
+<div id="loading">Laster selskaper…</div>
+
+<!-- Legend -->
+<div id="legend">
+  <div class="legend-title">Lønnsomhet</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#4caf7d"></div> Positivt resultat</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#f0b429"></div> Marginalt</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#e05252"></div> Negativt resultat</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#7a8096"></div> Ingen regnskap</div>
+</div>
+
+<script>
+// ── Kart-initialisering ──
+const map = L.map('map', { zoomControl: true });
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(map);
+
+// Prøv geolokasjon, fallback til Bergen
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    pos => map.setView([pos.coords.latitude, pos.coords.longitude], 14),
+    ()  => map.setView([60.39, 5.32], 13)
+  );
+} else {
+  map.setView([60.39, 5.32], 13);
+}
+
+// ── Dot-farger ──
+const FARGER = {
+  green:  '#4caf7d',
+  yellow: '#f0b429',
+  red:    '#e05252',
+  gray:   '#7a8096'
+};
+
+function lagDot(farge) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:9px;height:9px;
+      border-radius:50%;
+      background:${FARGER[farge] || FARGER.gray};
+      border:1.5px solid rgba(255,255,255,0.25);
+      box-shadow:0 0 4px ${FARGER[farge]}88;
+    "></div>`,
+    iconSize: [9, 9],
+    iconAnchor: [4.5, 4.5],
+    popupAnchor: [0, -6]
+  });
+}
+
+// ── Formatering ──
+function fmtKr(v) {
+  if (v == null) return '–';
+  const abs = Math.abs(v);
+  let s;
+  if (abs >= 1e9)      s = (v/1e9).toFixed(1) + ' mrd';
+  else if (abs >= 1e6) s = (v/1e6).toFixed(1) + ' mill';
+  else if (abs >= 1e3) s = (v/1e3).toFixed(0) + ' k';
+  else                 s = v.toFixed(0);
+  return s + ' kr';
+}
+
+function resultatKlasse(v) {
+  if (v == null) return '';
+  if (v > 0) return 'pos';
+  if (v < 0) return 'neg';
+  return 'neu';
+}
+
+// ── Layer for prikker ──
+let layer = L.layerGroup().addTo(map);
+
+// ── Søkefunksjon ──
+let sisteSok = 0;
+
+async function sokSelskaper() {
+  const bounds = map.getBounds();
+  const zoom   = map.getZoom();
+
+  if (zoom < 11) {
+    document.getElementById('status').textContent = 'Zoom inn mer (zoom ≥ 11)';
+    return;
+  }
+
+  const now = Date.now();
+  if (now - sisteSok < 500) return;
+  sisteSok = now;
+
+  const btn = document.getElementById('btn-sok');
+  btn.disabled = true;
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('status').textContent = 'Søker…';
+
+  const params = new URLSearchParams({
+    north: bounds.getNorth().toFixed(6),
+    south: bounds.getSouth().toFixed(6),
+    east:  bounds.getEast().toFixed(6),
+    west:  bounds.getWest().toFixed(6),
+  });
+
+  const nk = document.getElementById('f-naeringskode').value.trim();
+  const of = document.getElementById('f-orgform').value;
+  const mn = document.getElementById('f-min-omsetning').value;
+  const mx = document.getElementById('f-max-omsetning').value;
+
+  if (nk) params.set('naeringskode', nk);
+  if (of) params.set('orgform', of);
+  if (mn) params.set('min_omsetning', mn);
+  if (mx) params.set('max_omsetning', mx);
+
+  try {
+    const resp = await fetch(`/kart/api/selskaper?${params}`);
+    const data = await resp.json();
+
+    layer.clearLayers();
+
+    data.features.forEach(f => {
+      const p   = f.properties;
+      const dot = L.marker(
+        [f.geometry.coordinates[1], f.geometry.coordinates[0]],
+        { icon: lagDot(p.farge) }
+      );
+
+      const resKl = resultatKlasse(p.aarsresultat);
+
+      dot.bindPopup(`
+        <div class="popup-header">${p.navn}</div>
+        <div class="popup-orgnr">Orgnr: ${p.orgnr} · ${p.orgform}</div>
+        <div class="popup-grid">
+          <div class="popup-kv">
+            <label>Omsetning</label>
+            <span>${fmtKr(p.driftsinntekter)}</span>
+          </div>
+          <div class="popup-kv">
+            <label>Årsresultat</label>
+            <span class="${resKl}">${fmtKr(p.aarsresultat)}</span>
+          </div>
+          <div class="popup-kv">
+            <label>Egenkapital</label>
+            <span>${fmtKr(p.egenkapital)}</span>
+          </div>
+          <div class="popup-kv">
+            <label>Ansatte</label>
+            <span>${p.ansatte ?? '–'}</span>
+          </div>
+          <div class="popup-kv">
+            <label>Næringskode</label>
+            <span>${p.naeringskode || '–'}</span>
+          </div>
+          <div class="popup-kv">
+            <label>Regnskapsår</label>
+            <span>${p.regnskapsaar ?? '–'}</span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#7a8096;margin-bottom:4px">${p.adresse} ${p.postnummer}</div>
+        <a class="popup-link" href="/regnskap/${p.orgnr}" target="_blank">
+          Åpne selskapsside →
+        </a>
+      `, { maxWidth: 280 });
+
+      layer.addLayer(dot);
+    });
+
+    const n = data.features.length;
+    document.getElementById('status').textContent =
+      n === 0 ? 'Ingen selskaper funnet' :
+      n >= 2000 ? `Viser 2000+ selskaper (zoom inn for mer presist utvalg)` :
+      `${n} selskaper`;
+
+  } catch(e) {
+    document.getElementById('status').textContent = 'Feil ved henting';
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+// Søk automatisk ved zoom/pan (med debounce)
+let debounceTimer;
+map.on('moveend zoomend', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    if (map.getZoom() >= 11) sokSelskaper();
+  }, 600);
+});
+</script>
+</body>
+</html>
