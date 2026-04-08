@@ -1231,9 +1231,19 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
         orgnr = path.rsplit("/", 1)[-1]
         payload = get_company_history_payload(orgnr)
     elif path == "/analysis-api/kart":
-        import requests as _req
-        resp = _req.get("http://127.0.0.1:8010/api/kart", params=params, timeout=60)
-        response = make_response(resp.text, resp.status_code)
+        from analysis_api_compat import get_kart_payload
+        payload = get_kart_payload(
+            north=float(params.get("north", 71)),
+            south=float(params.get("south", 57)),
+            east=float(params.get("east", 31)),
+            west=float(params.get("west", 4)),
+            naeringskode=params.get("naeringskode") or None,
+            orgform=params.get("orgform") or None,
+            min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
+            max_omsetning=float(params["max_omsetning"]) if params.get("max_omsetning") else None,
+            limit=int(params.get("limit") or 500),
+        )
+        response = make_response(json.dumps(payload, ensure_ascii=False, default=str), 200)
         response.headers["Content-Type"] = "application/json; charset=utf-8"
         return response
     else:

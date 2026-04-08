@@ -1070,3 +1070,92 @@ def companies_top_omsetning(
         orgform=orgform,
         has_regnskap=has_regnskap,
     )
+def get_kart_payload(
+    *,
+    north: float,
+    south: float,
+    east: float,
+    west: float,
+    naeringskode: str | None = None,
+    orgform: str | None = None,
+    min_omsetning: float | None = None,
+    max_omsetning: float | None = None,
+    limit: int = 500,
+) -> dict[str, Any]:
+    from Fastapi_Backend import LATEST_REGNSKAP_JOIN
+
+    limit = min(limit, 2000)
+    params: list[Any] = [south, north, west, east]
+    where = [
+        "e.lat IS NOT NULL",
+        "e.lat BETWEEN %s AND %s",
+        "e.lon BETWEEN %s AND %s",
+    ]
+
+    if naeringskode:
+        where.append("e.naeringskode LIKE %s")
+        params.append(naeringskode + "%")
+
+    if orgform:
+        where.append("e.orgform = %s")
+        params.append(orgform)
+
+    if min_omsetning is not None:
+        where.append("r.revenue >= %s")
+        params.append(min_omsetning)
+
+    if max_omsetning is not None:
+        where.append("r.revenue <= %s")
+        params.append(max_omsetning)
+
+    params.append(limit)
+
+    sql = f"""
+        SELECT
+            e.orgnr,
+            e.navn,
+            e.adresse,
+            e.postnummer,
+            e.naeringskode,
+            e.orgform,
+            e.ansatte,
+            e.lat,
+            e.lon,
+            r.revenue          AS driftsinntekter,
+            r.net_profit       AS aarsresultat,
+            r.equity           AS sum_egenkapital,
+            r.accounting_year  AS regnskapsaar
+        FROM entity e
+        {LATEST_REGNSKAP_JOIN}
+        WHERE {" AND ".join(where)}
+        ORDER BY r.revenue DESC NULLS LAST
+        LIMIT %s
+    """
+
+    rows = fetch_all(sql, params)
+
+    def farge(row: dict) -> str:
+        res = row.get("aarsresultat")
+        rev = row.get("driftsinntekter")
+        if res is None:
+            return "gray"
+        if res > 0:
+            return "green"
+        if rev and rev > 0 and res > -(rev * 0.1):
+            return "yellow"
+        return "red"
+
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [row["lon"], row["lat"]]},
+            "properties": {**row, "farge": farge(row)},
+        }
+        for row in rows
+    ]
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "count": len(features),
+    }
