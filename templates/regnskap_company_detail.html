@@ -117,6 +117,48 @@
             </div>
         </section>
 
+        <section class="card">
+            <h2>Brønnøysund (oppdatert kontroll)</h2>
+            <p class="muted">Sammenligning mellom siste år i analyseplattformen og siste publiserte data fra Brønnøysund.</p>
+            <div class="meta">
+                <div class="meta-item"><strong>Kilde</strong>{{ brreg_result.url_used if brreg_result else 'Ingen Brønnøysund-data funnet' }}</div>
+                <div class="meta-item"><strong>Regnskapsperiode (Brreg)</strong>{{ brreg_result.regnskapsperiode if brreg_result else '—' }}</div>
+                <div class="meta-item"><strong>Siste regnskapsår (Brreg)</strong>{{ brreg_result.year if brreg_result and brreg_result.year else '—' }}</div>
+                <div class="meta-item"><strong>Årsregnskap</strong>{% if annual_report_url %}<a href="{{ annual_report_url }}" target="_blank" rel="noopener">Åpne/laste ned</a>{% else %}—{% endif %}</div>
+            </div>
+            {% if metric_comparison %}
+            <div class="table-wrap">
+                <table style="min-width:700px">
+                    <thead>
+                        <tr>
+                            <th>Felt</th>
+                            <th class="right">Analyseplattform</th>
+                            <th class="right">Brønnøysund</th>
+                            <th class="right">Avvik</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in metric_comparison %}
+                        <tr>
+                            <td>{{ row.label }}</td>
+                            <td class="right">{{ format_amount(row.analysis_value) or '—' }}</td>
+                            <td class="right">{{ format_amount(row.brreg_value) or '—' }}</td>
+                            <td class="right">{{ format_amount(row.diff) if row.diff is not none else '—' }}</td>
+                            <td>
+                                {% if row.equal is sameas true %}✅ Identisk
+                                {% elif row.equal is sameas false %}⚠️ Avvik
+                                {% else %}—
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </section>
+
         {% if entity_raw %}
         <section class="card">
             <h2>Tilgjengelige felter i databasen</h2>
