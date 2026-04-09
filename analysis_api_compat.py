@@ -1252,6 +1252,7 @@ def get_kart_payload(
     sql1 = f"""
         SELECT
             e.orgnr,
+            e.orgnr         AS parent_orgnr,
             e.navn,
             e.adresse,
             e.postnummer,
@@ -1287,6 +1288,7 @@ def get_kart_payload(
     sql2 = f"""
         SELECT
             bn.bedr_orgnr     AS orgnr,
+            bn.parent_orgnr   AS parent_orgnr,
             bn.bedr_navn      AS navn,
             bn.adresse,
             bn.postnummer,

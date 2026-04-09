@@ -628,6 +628,9 @@ async function sokSelskaper() {
 
     data.features.forEach(f => {
       const p   = f.properties;
+      const detailOrgnr = String(p.parent_orgnr || p.orgnr || '').trim();
+      const isSubunit = Boolean(p.parent_orgnr && p.parent_orgnr !== p.orgnr);
+      const detailHref = detailOrgnr ? `/regnskap/selskap/${encodeURIComponent(detailOrgnr)}` : '#';
       const dotColor = colorForCompany(p, colorContext);
       const dotSize = sizeForCompany(p);
       const dot = L.marker(
@@ -641,7 +644,10 @@ async function sokSelskaper() {
 
       dot.bindPopup(`
         <div class="popup-header">${p.navn}</div>
-        <div class="popup-orgnr">Orgnr: ${p.orgnr} · ${p.orgform}</div>
+        <div class="popup-orgnr">
+          Orgnr: ${p.orgnr} · ${p.orgform}
+          ${isSubunit ? `<br><span style="font-size:11px;color:#9ca3af">Hovedorgnr: ${detailOrgnr}</span>` : ''}
+        </div>
         <div class="popup-grid">
           <div class="popup-kv">
             <label>Omsetning</label>
@@ -681,7 +687,7 @@ async function sokSelskaper() {
           </div>
         </div>
         <div style="font-size:11px;color:#7a8096;margin-bottom:4px">${p.adresse} ${p.postnummer}</div>
-        <a class="popup-link" href="/regnskap/${p.orgnr}" target="_blank">
+        <a class="popup-link" href="${detailHref}" target="_blank">
           Åpne selskapsside →
         </a>
       `, { maxWidth: 280 });
