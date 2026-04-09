@@ -1459,6 +1459,118 @@ def fetch_top_shareholders_snapshot(
     return pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
 
 
+def scan_top_shareholder_first_trades(
+    as_of_date: dt.date,
+    since_date: dt.date,
+    min_idle_days: int = 20,
+    top_n: int = 20,
+    isins: list[str] | None = None,
+    tickers: list[str] | None = None,
+    direction: str = "both",
+) -> pd.DataFrame:
+    """
+    Finn aksjer der en toppaksjonær (topp-N på snapshot) har gjort en handel etter `since_date`,
+    og hvor dette er første handel på minst `min_idle_days`.
+
+    Parametre:
+      - as_of_date: snapshot-dato (bruker siste snapshot <= denne datoen per aksje)
+      - since_date: handler må være >= denne datoen
+      - min_idle_days: minimum dager mellom siste og forrige handel
+      - top_n: hvilke rangeringer som regnes som "store eiere" (1..50)
+      - isins/tickers: valgfri filtrering til valgt utvalg selskaper
+      - direction: "buy", "sell" eller "both"
+    """
+    safe_top_n = max(1, min(int(top_n), 50))
+    safe_idle_days = max(0, int(min_idle_days))
+    normalized_direction = (direction or "both").strip().lower()
+    if normalized_direction not in {"buy", "sell", "both"}:
+        normalized_direction = "both"
+
+    clean_isins = sorted({str(x).strip().upper() for x in (isins or []) if str(x).strip()})
+    clean_tickers = sorted({str(x).strip().upper() for x in (tickers or []) if str(x).strip()})
+
+    filters: list[str] = []
+    bind_values: list = [as_of_date.isoformat(), safe_top_n, since_date.isoformat(), safe_idle_days]
+
+    if clean_isins:
+        placeholders = ",".join("?" for _ in clean_isins)
+        filters.append(f"UPPER(base.isin) IN ({placeholders})")
+        bind_values.extend(clean_isins)
+
+    if clean_tickers:
+        placeholders = ",".join("?" for _ in clean_tickers)
+        filters.append(f"UPPER(COALESCE(base.ticker,'')) IN ({placeholders})")
+        bind_values.extend(clean_tickers)
+
+    if normalized_direction == "buy":
+        filters.append("COALESCE(base.last_trade_change_qty, 0) > 0")
+    elif normalized_direction == "sell":
+        filters.append("COALESCE(base.last_trade_change_qty, 0) < 0")
+
+    where_tail = f" AND {' AND '.join(filters)}" if filters else ""
+
+    top20_db_path = _ensure_top20_snapshot_db()
+    conn = sqlite3.connect(top20_db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            f"""
+            WITH latest_snapshot AS (
+                SELECT isin, MAX(snapshot_date) AS snapshot_date
+                FROM top20_snapshot
+                WHERE snapshot_date <= ?
+                GROUP BY isin
+            ),
+            base AS (
+                SELECT t.*
+                FROM top20_snapshot t
+                JOIN latest_snapshot ls
+                  ON ls.isin = t.isin
+                 AND ls.snapshot_date = t.snapshot_date
+                WHERE COALESCE(t.ranking, 999999) <= ?
+            )
+            SELECT
+                base.snapshot_date,
+                base.isin,
+                COALESCE(base.ticker, '') AS ticker,
+                COALESCE(base.company_name, '') AS company_name,
+                base.investor_id,
+                COALESCE(base.name, '') AS name,
+                base.ranking,
+                base.no_of_stocks,
+                base.percentage,
+                base.last_trade_date,
+                base.previous_trade_date,
+                base.days_between_trades,
+                base.last_trade_change_qty,
+                base.last_trade_share_pct,
+                CASE
+                    WHEN COALESCE(base.last_trade_change_qty, 0) > 0 THEN 'buy'
+                    WHEN COALESCE(base.last_trade_change_qty, 0) < 0 THEN 'sell'
+                    ELSE 'flat'
+                END AS trade_direction
+            FROM base
+            WHERE base.last_trade_date IS NOT NULL
+              AND base.last_trade_date >= ?
+              AND (
+                    base.previous_trade_date IS NULL
+                    OR COALESCE(base.days_between_trades, 999999) >= ?
+                  )
+              {where_tail}
+            ORDER BY base.last_trade_date DESC,
+                     COALESCE(base.ticker, ''),
+                     COALESCE(base.ranking, 999999),
+                     base.investor_id
+            """
+            ,
+            tuple(bind_values),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame()
+
+
 # =========================================================
 # 4) Handler de beste / viktige
 # =========================================================
