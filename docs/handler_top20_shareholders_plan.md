@@ -31,6 +31,10 @@ Ny endpoint:
 
 `GET /handler/api/eier-oversikt/top-shareholders?isin=<ISIN>&as_of=<YYYY-MM-DD>&limit=20`
 
+Ny screening-endpoint (alle eller utvalg av selskaper):
+
+`GET /handler/api/eier-oversikt/top-shareholders/scan?as_of=<YYYY-MM-DD>&since_date=<YYYY-MM-DD>&top_n=20&min_idle_days=20&direction=both&isins=NO001...,NO00...&tickers=EQNR,NOD`
+
 Responsen inneholder blant annet:
 
 - `name`, `investor_id`, `ranking`,
@@ -42,6 +46,12 @@ Eksempel:
 
 ```bash
 curl "http://localhost:5000/handler/api/eier-oversikt/top-shareholders?isin=NO0010096985&as_of=2026-03-31&limit=20"
+```
+
+Eksempel på scan:
+
+```bash
+curl "http://localhost:5000/handler/api/eier-oversikt/top-shareholders/scan?as_of=2026-04-09&since_date=2026-04-01&top_n=20&min_idle_days=20&direction=both"
 ```
 
 ## Hvor i appen du gjør dette
