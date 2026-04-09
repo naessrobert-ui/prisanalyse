@@ -4,6 +4,7 @@
 from datetime import datetime
 import os
 from pathlib import Path
+import re
 import sqlite3
 import subprocess
 
@@ -38,7 +39,7 @@ def _run_bootstrap(minutes: float = 0.5, max_messages: int = 120):
     max_messages = max(10, min(int(max_messages), 2000))
     cmd = [
         "python", str(COLLECT_SCRIPT), "--db", str(DB_PATH), "--minutes", str(minutes),
-        "--max-messages", str(max_messages), "--include-static",
+        "--max-messages", str(max_messages), "--ws-timeout", "10", "--include-static",
     ]
     try:
         proc = subprocess.run(
@@ -58,7 +59,19 @@ def _run_bootstrap(minutes: float = 0.5, max_messages: int = 120):
         out = {"stderr": proc.stderr[-1200:], "stdout": proc.stdout[-1200:]}
         return False, err, out
 
-    return True, "AIS-data hentet inn", {"stdout": proc.stdout[-1200:]}
+    saved_count = None
+    match = re.search(r"Lagret\s+(\d+)\s+meldinger", proc.stdout)
+    if match:
+        saved_count = int(match.group(1))
+
+    if saved_count == 0:
+        return (
+            False,
+            "Ingen AIS-meldinger mottatt i tidsvinduet. Prøv /hormuz/api/bootstrap?minutes=3 eller vent litt og prøv igjen.",
+            {"stdout": proc.stdout[-1200:]},
+        )
+
+    return True, "AIS-data hentet inn", {"stdout": proc.stdout[-1200:], "saved_messages": saved_count}
 
 
 @hormuz_bp.route("/")

@@ -153,12 +153,15 @@
 
 
   async function bootstrapData() {
-    setStatus('Starter innhenting av ferske AIS-data ... dette kan ta opptil 1-2 min.', 'warn');
-    const res = await fetch('/hormuz/api/bootstrap', { method: 'POST' });
+    setStatus('Starter innhenting av ferske AIS-data ... dette kan ta opptil 2-3 min.', 'warn');
+    const res = await fetch('/hormuz/api/bootstrap?minutes=3&max_messages=400', { method: 'POST' });
     const payload = await res.json();
     document.getElementById('jsonInput').value = JSON.stringify(payload, null, 2);
     if (!res.ok || !payload.ok) {
-      setStatus(`Bootstrap feilet: ${payload.error || res.statusText}`, 'error');
+      const extra = (payload.error || '').toLowerCase().includes('timeout')
+        ? ' (timeout mot AISStream - prøv igjen om 1-2 min)'
+        : '';
+      setStatus(`Bootstrap feilet: ${payload.error || res.statusText}${extra}`, 'error');
       throw new Error(payload.error || res.statusText);
     }
     setStatus('AIS-data hentet. Laster ekte data ...', 'ok');

@@ -30,6 +30,8 @@ Eller fra UI:
 - Trykk **Hent ferske AIS nå**
 
 (Bruker `POST /hormuz/api/bootstrap` under panseret.)
+Tips: Du kan gi lengre innhenting ved å kalle:
+`POST /hormuz/api/bootstrap?minutes=3&max_messages=400`
 
 ## Folium-kart
 Bygg kartfil:
@@ -49,6 +51,7 @@ Visning i app:
 - Sjekk `/hormuz/api/status` for faktisk `db_path`.
 - Sett `HORMUZ_DB_PATH` til persistent disk i produksjon.
 - Kjør innhenting: `python scripts/hormuz/collect_ais.py --minutes 10 --include-static` eller knappen **Hent ferske AIS nå**.
+- Timeout fra AISStream betyr ofte bare at det kom få meldinger i et kort vindu. Prøv `minutes=3` eller vent litt og prøv igjen.
 
 
 ## Slik tester du lenkene

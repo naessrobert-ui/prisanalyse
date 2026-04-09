@@ -16,6 +16,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from websocket import WebSocketConnectionClosedException, create_connection
+from websocket._exceptions import WebSocketTimeoutException
 
 WS_URL = "wss://stream.aisstream.io/v0/stream"
 DEFAULT_DB_PATH = Path("data/hormuz_ais.sqlite")
@@ -57,6 +58,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-lon", type=float, default=DEFAULT_BBOX[0][1])
     parser.add_argument("--max-lat", type=float, default=DEFAULT_BBOX[1][0])
     parser.add_argument("--max-lon", type=float, default=DEFAULT_BBOX[1][1])
+    parser.add_argument(
+        "--ws-timeout",
+        type=float,
+        default=10.0,
+        help="Socket-timeout i sekunder per recv-kall (standard: 10).",
+    )
     return parser.parse_args()
 
 
@@ -207,7 +214,8 @@ def main() -> int:
 
     stop_after = datetime.now(timezone.utc) + timedelta(minutes=args.minutes) if args.minutes is not None else None
     conn = ensure_db(args.db)
-    ws = create_connection(WS_URL, timeout=30)
+    ws_timeout = max(2.0, float(args.ws_timeout))
+    ws = create_connection(WS_URL, timeout=ws_timeout)
     ws.send(json.dumps(build_subscription(args)))
 
     count = 0
@@ -219,7 +227,11 @@ def main() -> int:
             if args.max_messages is not None and count >= args.max_messages:
                 break
 
-            payload = json.loads(ws.recv())
+            try:
+                payload = json.loads(ws.recv())
+            except WebSocketTimeoutException:
+                # Ingen melding i dette intervallet. Fortsett til tidsgrense/max.
+                continue
             if isinstance(payload, dict) and payload.get("error"):
                 raise RuntimeError(f"AISStream-feil: {payload['error']}")
 
@@ -234,6 +246,9 @@ def main() -> int:
         pass
     except WebSocketConnectionClosedException as exc:
         print(f"Tilkoblingen ble lukket: {exc}", file=sys.stderr)
+        return 1
+    except WebSocketTimeoutException:
+        print("WebSocket timeout.", file=sys.stderr)
         return 1
     finally:
         conn.commit()
