@@ -1118,6 +1118,7 @@ def get_kart_payload(
         addr_col: str,
         company_name_expr: str,
         include_subunit_name: bool,
+        entity_alias: str = "e",
     ):
         where = [
             f"{lat_col} IS NOT NULL",
@@ -1204,11 +1205,37 @@ def get_kart_payload(
         if adresse:
             where.append(f"COALESCE({addr_col}::text, '') ILIKE %s")
             params.append(f"%{adresse}%")
+        normalized_kommune = (kommune or "").strip()
+        if normalized_kommune:
+            municipality_number = _MUNICIPALITY_NAME_TO_NUMBER.get(_normalize_municipality_name(normalized_kommune))
+            if re.fullmatch(r"\d+", normalized_kommune):
+                municipality_number = normalized_kommune
 
-        wrapped_sql = "SELECT 1 FROM entity e " + LATEST_REGNSKAP_JOIN + " WHERE " + " AND ".join(where)
-        wrapped_sql, params = _append_kommune_filter(wrapped_sql, params, kommune)
-        where_sql = wrapped_sql.split(" WHERE ", 1)[1]
-        return where_sql, params
+            kommune_sub_filters: list[str] = []
+            if municipality_number:
+                kommune_sub_filters.append(f"{entity_alias}.kommunenummer = %s")
+                params.append(municipality_number)
+
+            name_columns = _municipality_name_columns()
+            if name_columns:
+                like_value = f"%{normalized_kommune}%"
+                kommune_sub_filters.extend(
+                    f"COALESCE({entity_alias}.{column_name}::text, '') ILIKE %s"
+                    for column_name in name_columns
+                )
+                params.extend([like_value] * len(name_columns))
+
+            if not re.fullmatch(r"\d+", normalized_kommune):
+                kommune_sub_filters.append(f"COALESCE({entity_alias}.adresse::text, '') ILIKE %s")
+                params.append(f"%{normalized_kommune}%")
+
+            if kommune_sub_filters:
+                where.append("(" + " OR ".join(kommune_sub_filters) + ")")
+            else:
+                where.append(f"{entity_alias}.kommunenummer = %s")
+                params.append(normalized_kommune)
+
+        return " AND ".join(where), params
 
     # Del 1: selskaper i entity med egne koordinater
     where1, params1 = build_filters(
@@ -1218,6 +1245,7 @@ def get_kart_payload(
         "e.adresse",
         "e.navn",
         include_subunit_name=False,
+        entity_alias="e",
     )
     params1.append(half)
 
@@ -1251,6 +1279,7 @@ def get_kart_payload(
         "bn.adresse",
         "e.navn",
         include_subunit_name=True,
+        entity_alias="e",
     )
     params2.append(half)
 
