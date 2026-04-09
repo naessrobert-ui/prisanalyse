@@ -149,6 +149,12 @@ def _parse_date(s: str | None, default: dt.date) -> dt.date:
         return default
 
 
+def _parse_csv_values(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [x.strip() for x in str(raw).split(",") if x and x.strip()]
+
+
 def _csv_response(df: pd.DataFrame, filename: str) -> Response:
     buf = df.to_csv(index=False, sep=";", decimal=",")
     return Response(
@@ -845,6 +851,92 @@ def api_eier_oversikt_top_shareholders():
             ],
             {"percentage": 1, "last_trade_share_pct": 0},
         )
+    })
+
+
+@handler_bp.route("/api/eier-oversikt/top-shareholders/scan")
+def api_eier_oversikt_top_shareholders_scan():
+    as_of = _parse_date(request.args.get("as_of"), dt.date.today())
+    since_date = _parse_date(request.args.get("since_date"), as_of)
+    try:
+        top_n = int(request.args.get("top_n", "20"))
+    except (TypeError, ValueError):
+        top_n = 20
+    try:
+        min_idle_days = int(request.args.get("min_idle_days", "20"))
+    except (TypeError, ValueError):
+        min_idle_days = 20
+
+    direction = (request.args.get("direction", "both") or "both").strip().lower()
+    if direction not in {"buy", "sell", "both"}:
+        direction = "both"
+
+    isins = _parse_csv_values(request.args.get("isins"))
+    tickers = _parse_csv_values(request.args.get("tickers"))
+
+    try:
+        df = hd.scan_top_shareholder_first_trades(
+            as_of_date=as_of,
+            since_date=since_date,
+            min_idle_days=min_idle_days,
+            top_n=top_n,
+            isins=isins,
+            tickers=tickers,
+            direction=direction,
+        )
+    except Exception as exc:
+        _LOG.exception("Feil i top-shareholders scan")
+        return jsonify({"error": f"Klarte ikke kjøre scan: {exc}"}), 500
+
+    if df.empty:
+        return jsonify({
+            "rows": [],
+            "message": (
+                "Ingen treff for valgt filter (dato, antall dager eller utvalg av selskaper)."
+            ),
+            "meta": {
+                "as_of": as_of.isoformat(),
+                "since_date": since_date.isoformat(),
+                "top_n": max(1, min(top_n, 50)),
+                "min_idle_days": max(0, min_idle_days),
+                "direction": direction,
+                "isins": isins,
+                "tickers": tickers,
+            },
+        })
+
+    return jsonify({
+        "rows": _json_safe_records(
+            df,
+            [
+                "snapshot_date",
+                "last_trade_date",
+                "trade_direction",
+                "ticker",
+                "isin",
+                "company_name",
+                "name",
+                "investor_id",
+                "ranking",
+                "no_of_stocks",
+                "percentage",
+                "last_trade_change_qty",
+                "last_trade_share_pct",
+                "previous_trade_date",
+                "days_between_trades",
+            ],
+            {"percentage": 2, "last_trade_share_pct": 2},
+        ),
+        "meta": {
+            "as_of": as_of.isoformat(),
+            "since_date": since_date.isoformat(),
+            "top_n": max(1, min(top_n, 50)),
+            "min_idle_days": max(0, min_idle_days),
+            "direction": direction,
+            "isins": isins,
+            "tickers": tickers,
+            "hits": int(len(df)),
+        },
     })
 
 
