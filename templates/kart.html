@@ -271,6 +271,7 @@
   <button id="btn-sok" onclick="sokSelskaper()">Søk i kartet</button>
 
   <span id="status">Zoom inn og trykk søk</span>
+  <span id="status-filtre" style="font-size:12px;color:#7a8096;"></span>
 </div>
 
 <!-- Kart -->
@@ -351,6 +352,36 @@ function resultatKlasse(v) {
 
 // ── Layer for prikker ──
 let layer = L.layerGroup().addTo(map);
+const forwardedQuery = new URLSearchParams(window.location.search);
+const FORWARDED_FILTER_KEYS = [
+  'q', 'adresse', 'kommune', 'naeringskode', 'orgform', 'has_regnskap',
+  'min_omsetning', 'max_omsetning', 'min_resultat', 'max_resultat',
+  'min_egenkapitalandel', 'min_netto_margin', 'min_ansatte', 'max_ansatte',
+  'min_omsetning_per_ansatt', 'max_omsetning_per_ansatt',
+  'min_resultat_per_ansatt', 'max_resultat_per_ansatt',
+  'regnskapsaar', 'innlevert_etter',
+];
+
+function prefillFromQuery() {
+  const nk = forwardedQuery.get('naeringskode');
+  const of = forwardedQuery.get('orgform');
+  const mn = forwardedQuery.get('min_omsetning');
+  const mx = forwardedQuery.get('max_omsetning');
+  if (nk) document.getElementById('f-naeringskode').value = nk;
+  if (of) document.getElementById('f-orgform').value = of;
+  if (mn) document.getElementById('f-min-omsetning').value = mn;
+  if (mx) document.getElementById('f-max-omsetning').value = mx;
+
+  const summary = [];
+  if (forwardedQuery.get('q')) summary.push(`Søk: ${forwardedQuery.get('q')}`);
+  if (forwardedQuery.get('kommune')) summary.push(`Kommune: ${forwardedQuery.get('kommune')}`);
+  if (forwardedQuery.get('has_regnskap')) summary.push('Kun med regnskap');
+  const statusFiltre = document.getElementById('status-filtre');
+  if (summary.length) {
+    statusFiltre.textContent = `Aktive filter fra regnskap: ${summary.join(' · ')}`;
+  }
+}
+prefillFromQuery();
 
 // ── Søkefunksjon ──
 let sisteSok = 0;
@@ -389,6 +420,11 @@ async function sokSelskaper() {
   if (of) params.set('orgform', of);
   if (mn) params.set('min_omsetning', mn);
   if (mx) params.set('max_omsetning', mx);
+  FORWARDED_FILTER_KEYS.forEach((key) => {
+    if (params.has(key)) return;
+    const val = forwardedQuery.get(key);
+    if (val !== null && String(val).trim() !== '') params.set(key, val);
+  });
 
   try {
     const resp = await fetch(`/kart/api/selskaper?${params}`);
