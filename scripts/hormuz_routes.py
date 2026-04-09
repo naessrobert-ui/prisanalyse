@@ -14,7 +14,11 @@ hormuz_bp = Blueprint("hormuz", __name__, url_prefix="/hormuz")
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("HORMUZ_DB_PATH", str(BASE_DIR / "data" / "hormuz_ais.sqlite")))
 MAP_PATH = Path(os.getenv("HORMUZ_MAP_PATH", str(BASE_DIR / "data" / "hormuz_map.html")))
-COLLECT_SCRIPT = BASE_DIR / "scripts" / "hormuz" / "collect_ais.py"
+# Sett AIS_COLLECTOR=bw i miljøet for å bruke BarentsWatch (fallback når AISstream er nede)
+_collector = os.getenv("AIS_COLLECTOR", "aisstream").lower()
+COLLECT_SCRIPT = BASE_DIR / "scripts" / "hormuz" / (
+    "collect_ais_bw.py" if _collector == "bw" else "collect_ais.py"
+)
 
 
 def _utc_now_iso() -> str:
@@ -29,9 +33,15 @@ def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
 
 
 def _run_bootstrap(minutes: float = 0.5, max_messages: int = 120):
-    api_key = os.getenv("AISTREAM_API_KEY", "").strip()
-    if not api_key:
-        return False, "Mangler AISTREAM_API_KEY i miljøvariabler", None
+    if _collector == "bw":
+        client_id = os.getenv("BW_CLIENT_ID", "").strip()
+        client_secret = os.getenv("BW_CLIENT_SECRET", "").strip()
+        if not client_id or not client_secret:
+            return False, "Mangler BW_CLIENT_ID eller BW_CLIENT_SECRET i miljøvariabler", None
+    else:
+        api_key = os.getenv("AISTREAM_API_KEY", "").strip()
+        if not api_key:
+            return False, "Mangler AISTREAM_API_KEY i miljøvariabler", None
     if not COLLECT_SCRIPT.exists():
         return False, f"Manglende script: {COLLECT_SCRIPT}", None
 
