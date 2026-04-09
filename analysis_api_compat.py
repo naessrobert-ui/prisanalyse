@@ -1252,6 +1252,7 @@ def get_kart_payload(
     sql1 = f"""
         SELECT
             e.orgnr,
+            e.orgnr         AS parent_orgnr,
             e.navn,
             e.adresse,
             e.postnummer,
@@ -1261,6 +1262,7 @@ def get_kart_payload(
             e.lat,
             e.lon,
             r.revenue         AS driftsinntekter,
+            r.operating_profit AS driftsresultat,
             r.net_profit      AS aarsresultat,
             r.equity          AS sum_egenkapital,
             r.accounting_year AS regnskapsaar
@@ -1286,6 +1288,7 @@ def get_kart_payload(
     sql2 = f"""
         SELECT
             bn.bedr_orgnr     AS orgnr,
+            bn.parent_orgnr   AS parent_orgnr,
             bn.bedr_navn      AS navn,
             bn.adresse,
             bn.postnummer,
@@ -1295,6 +1298,7 @@ def get_kart_payload(
             bn.lat,
             bn.lon,
             r.revenue         AS driftsinntekter,
+            r.operating_profit AS driftsresultat,
             r.net_profit      AS aarsresultat,
             r.equity          AS sum_egenkapital,
             r.accounting_year AS regnskapsaar
@@ -1311,8 +1315,16 @@ def get_kart_payload(
     rows = rows1 + rows2
 
     def farge(row: dict) -> str:
+        driftsresultat = row.get("driftsresultat")
         res = row.get("aarsresultat")
         rev = row.get("driftsinntekter")
+        if driftsresultat is not None and rev and rev > 0:
+            margin = (driftsresultat / rev) * 100.0
+            if margin >= 10:
+                return "green"
+            if margin >= 0:
+                return "yellow"
+            return "red"
         if res is None:
             return "gray"
         if res > 0:
