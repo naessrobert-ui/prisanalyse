@@ -1207,8 +1207,8 @@ def get_kart_payload(
 
         wrapped_sql = "SELECT 1 FROM entity e " + LATEST_REGNSKAP_JOIN + " WHERE " + " AND ".join(where)
         wrapped_sql, params = _append_kommune_filter(wrapped_sql, params, kommune)
-        where = wrapped_sql.split(" WHERE ", 1)[1]
-        return where, params
+        where_sql = wrapped_sql.split(" WHERE ", 1)[1]
+        return where_sql, params
 
     # Del 1: selskaper i entity med egne koordinater
     where1, params1 = build_filters(
@@ -1238,7 +1238,7 @@ def get_kart_payload(
             r.accounting_year AS regnskapsaar
         FROM entity e
         {LATEST_REGNSKAP_JOIN}
-        WHERE {" AND ".join(where1)}
+        WHERE {where1}
         ORDER BY r.revenue DESC NULLS LAST
         LIMIT %s
     """
@@ -1272,7 +1272,7 @@ def get_kart_payload(
         FROM bedr_navn bn
         JOIN entity e ON e.orgnr = bn.parent_orgnr
         {LATEST_REGNSKAP_JOIN}
-        WHERE {" AND ".join(where2)}
+        WHERE {where2}
         ORDER BY r.revenue DESC NULLS LAST
         LIMIT %s
     """
