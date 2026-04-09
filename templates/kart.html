@@ -268,9 +268,45 @@
            placeholder="" type="number">
   </div>
 
+  <div class="filter-group">
+    <label>Farge etter</label>
+    <select id="f-color-mode" class="filter-input" style="width:145px">
+      <option value="driftsmargin" selected>Driftsmargin (standard)</option>
+      <option value="aarsresultat">Årsresultat</option>
+      <option value="nettomargin">Nettomargin</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>Fargeprofil</label>
+    <select id="f-color-profile" class="filter-input" style="width:165px">
+      <option value="auto_quantile" selected>Auto 20/60/20 (standard)</option>
+      <option value="fixed">Fast terskel</option>
+      <option value="custom">Egendefinert</option>
+    </select>
+  </div>
+
+  <div class="filter-group" id="f-custom-thresholds" style="display:none;">
+    <label>Egne grenser (%)</label>
+    <div style="display:flex; gap:6px;">
+      <input id="f-low-threshold" class="filter-input" style="width:78px" type="number" step="0.1" value="0">
+      <input id="f-high-threshold" class="filter-input" style="width:78px" type="number" step="0.1" value="10">
+    </div>
+  </div>
+
+  <div class="filter-group">
+    <label>Størrelse etter</label>
+    <select id="f-size-mode" class="filter-input" style="width:145px">
+      <option value="omsetning" selected>Omsetning (standard)</option>
+      <option value="ansatte">Ansatte</option>
+      <option value="fixed">Fast størrelse</option>
+    </select>
+  </div>
+
   <button id="btn-sok" onclick="sokSelskaper()">Søk i kartet</button>
 
   <span id="status">Zoom inn og trykk søk</span>
+  <span id="status-filtre" style="font-size:12px;color:#7a8096;"></span>
 </div>
 
 <!-- Kart -->
@@ -279,10 +315,10 @@
 
 <!-- Legend -->
 <div id="legend">
-  <div class="legend-title">Lønnsomhet</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#4caf7d"></div> Positivt resultat</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#f0b429"></div> Marginalt</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#e05252"></div> Negativt resultat</div>
+  <div class="legend-title" id="legend-title">Driftsmargin</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#4caf7d"></div> <span id="legend-green">Øverste 20 %</span></div>
+  <div class="legend-row"><div class="legend-dot" style="background:#f0b429"></div> <span id="legend-yellow">Midtre 60 %</span></div>
+  <div class="legend-row"><div class="legend-dot" style="background:#e05252"></div> <span id="legend-red">Nederste 20 %</span></div>
   <div class="legend-row"><div class="legend-dot" style="background:#7a8096"></div> Ingen regnskap</div>
 </div>
 
@@ -314,18 +350,20 @@ const FARGER = {
   gray:   '#7a8096'
 };
 
-function lagDot(farge) {
+function lagDot(farge, size = 9) {
+  const dotSize = Math.max(6, Math.min(Number(size) || 9, 22));
+  const border = Math.max(1, dotSize * 0.16);
   return L.divIcon({
     className: '',
     html: `<div style="
-      width:9px;height:9px;
+      width:${dotSize}px;height:${dotSize}px;
       border-radius:50%;
       background:${FARGER[farge] || FARGER.gray};
-      border:1.5px solid rgba(255,255,255,0.25);
+      border:${border}px solid rgba(255,255,255,0.25);
       box-shadow:0 0 4px ${FARGER[farge]}88;
     "></div>`,
-    iconSize: [9, 9],
-    iconAnchor: [4.5, 4.5],
+    iconSize: [dotSize, dotSize],
+    iconAnchor: [dotSize / 2, dotSize / 2],
     popupAnchor: [0, -6]
   });
 }
@@ -349,8 +387,194 @@ function resultatKlasse(v) {
   return 'neu';
 }
 
+function calcPct(num, den) {
+  const n = Number(num);
+  const d = Number(den);
+  if (!Number.isFinite(n) || !Number.isFinite(d) || d === 0) return null;
+  return (n / d) * 100;
+}
+
+function getColorMode() {
+  return document.getElementById('f-color-mode')?.value || 'driftsmargin';
+}
+
+function getSizeMode() {
+  return document.getElementById('f-size-mode')?.value || 'omsetning';
+}
+
+function quantile(sortedValues, q) {
+  if (!Array.isArray(sortedValues) || !sortedValues.length) return null;
+  const pos = (sortedValues.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  if (sortedValues[base + 1] !== undefined) {
+    return sortedValues[base] + rest * (sortedValues[base + 1] - sortedValues[base]);
+  }
+  return sortedValues[base];
+}
+
+function marginValueForCompany(p, mode) {
+  return mode === 'nettomargin'
+    ? calcPct(p.aarsresultat, p.driftsinntekter)
+    : calcPct(p.driftsresultat, p.driftsinntekter);
+}
+
+function parseThresholdInput(id, fallbackValue) {
+  const raw = document.getElementById(id)?.value ?? '';
+  const val = Number(raw);
+  return Number.isFinite(val) ? val : fallbackValue;
+}
+
+function buildColorContext(features) {
+  const mode = getColorMode();
+  const profile = document.getElementById('f-color-profile')?.value || 'auto_quantile';
+  if (mode === 'aarsresultat') {
+    return { mode, profile, low: null, high: null };
+  }
+
+  let low = 0;
+  let high = 10;
+  if (profile === 'custom') {
+    low = parseThresholdInput('f-low-threshold', 0);
+    high = parseThresholdInput('f-high-threshold', 10);
+  } else if (profile === 'auto_quantile') {
+    const values = (features || [])
+      .map((f) => marginValueForCompany(f.properties || {}, mode))
+      .filter((v) => Number.isFinite(v))
+      .sort((a, b) => a - b);
+    if (values.length >= 5) {
+      low = quantile(values, 0.2);
+      high = quantile(values, 0.8);
+    }
+  }
+
+  if (low > high) {
+    const tmp = low;
+    low = high;
+    high = tmp;
+  }
+  return { mode, profile, low, high };
+}
+
+function colorForCompany(p, colorContext) {
+  const mode = colorContext?.mode || getColorMode();
+  const rev = Number(p.driftsinntekter);
+  if (mode === 'aarsresultat') {
+    const res = Number(p.aarsresultat);
+    if (!Number.isFinite(res)) return 'gray';
+    if (res > 0) return 'green';
+    if (Number.isFinite(rev) && rev > 0 && res > -(rev * 0.1)) return 'yellow';
+    return 'red';
+  }
+  const margin = marginValueForCompany(p, mode);
+  if (margin == null) return 'gray';
+  const low = Number(colorContext?.low);
+  const high = Number(colorContext?.high);
+  if (margin >= high) return 'green';
+  if (margin <= low) return 'red';
+  return 'yellow';
+}
+
+function sizeForCompany(p) {
+  const mode = getSizeMode();
+  if (mode === 'fixed') return 9;
+  if (mode === 'ansatte') {
+    const ansatte = Number(p.ansatte);
+    if (!Number.isFinite(ansatte) || ansatte <= 0) return 7;
+    return Math.max(6, Math.min(22, 6 + Math.sqrt(ansatte) * 0.8));
+  }
+  const omsetning = Number(p.driftsinntekter);
+  if (!Number.isFinite(omsetning) || omsetning <= 0) return 7;
+  const minV = Math.log10(1e5);
+  const maxV = Math.log10(1e10);
+  const scaled = (Math.log10(Math.max(omsetning, 1)) - minV) / (maxV - minV);
+  return Math.max(6, Math.min(22, 6 + scaled * 16));
+}
+
+function updateLegend() {
+  const mode = getColorMode();
+  const profile = document.getElementById('f-color-profile')?.value || 'auto_quantile';
+  const title = document.getElementById('legend-title');
+  const green = document.getElementById('legend-green');
+  const yellow = document.getElementById('legend-yellow');
+  const red = document.getElementById('legend-red');
+  const customThresholds = document.getElementById('f-custom-thresholds');
+  if (customThresholds) {
+    customThresholds.style.display = (mode !== 'aarsresultat' && profile === 'custom') ? '' : 'none';
+  }
+  if (mode === 'aarsresultat') {
+    title.textContent = 'Årsresultat';
+    green.textContent = 'Positivt resultat';
+    yellow.textContent = 'Marginalt';
+    red.textContent = 'Negativt resultat';
+    return;
+  }
+  title.textContent = mode === 'nettomargin' ? 'Nettomargin' : 'Driftsmargin';
+  if (profile === 'auto_quantile') {
+    green.textContent = 'Øverste 20 %';
+    yellow.textContent = 'Midtre 60 %';
+    red.textContent = 'Nederste 20 %';
+    return;
+  }
+  const low = parseThresholdInput('f-low-threshold', 0);
+  const high = parseThresholdInput('f-high-threshold', 10);
+  green.textContent = `≥ ${high.toFixed(1).replace('.', ',')} %`;
+  yellow.textContent = `${low.toFixed(1).replace('.', ',')}–${high.toFixed(1).replace('.', ',')} %`;
+  red.textContent = `≤ ${low.toFixed(1).replace('.', ',')} %`;
+}
+
 // ── Layer for prikker ──
 let layer = L.layerGroup().addTo(map);
+const forwardedQuery = new URLSearchParams(window.location.search);
+const FORWARDED_FILTER_KEYS = [
+  'q', 'adresse', 'kommune', 'naeringskode', 'orgform', 'has_regnskap',
+  'min_omsetning', 'max_omsetning', 'min_resultat', 'max_resultat',
+  'min_egenkapitalandel', 'min_netto_margin', 'min_ansatte', 'max_ansatte',
+  'min_omsetning_per_ansatt', 'max_omsetning_per_ansatt',
+  'min_resultat_per_ansatt', 'max_resultat_per_ansatt',
+  'regnskapsaar', 'innlevert_etter',
+];
+
+function prefillFromQuery() {
+  const nk = forwardedQuery.get('naeringskode');
+  const of = forwardedQuery.get('orgform');
+  const mn = forwardedQuery.get('min_omsetning');
+  const mx = forwardedQuery.get('max_omsetning');
+  if (nk) document.getElementById('f-naeringskode').value = nk;
+  if (of) document.getElementById('f-orgform').value = of;
+  if (mn) document.getElementById('f-min-omsetning').value = mn;
+  if (mx) document.getElementById('f-max-omsetning').value = mx;
+
+  const summary = [];
+  if (forwardedQuery.get('q')) summary.push(`Søk: ${forwardedQuery.get('q')}`);
+  if (forwardedQuery.get('kommune')) summary.push(`Kommune: ${forwardedQuery.get('kommune')}`);
+  if (forwardedQuery.get('has_regnskap')) summary.push('Kun med regnskap');
+  const statusFiltre = document.getElementById('status-filtre');
+  if (summary.length) {
+    statusFiltre.textContent = `Aktive filter fra regnskap: ${summary.join(' · ')}`;
+  }
+}
+prefillFromQuery();
+updateLegend();
+document.getElementById('f-color-mode')?.addEventListener('change', () => {
+  updateLegend();
+  sokSelskaper();
+});
+document.getElementById('f-color-profile')?.addEventListener('change', () => {
+  updateLegend();
+  sokSelskaper();
+});
+document.getElementById('f-size-mode')?.addEventListener('change', () => {
+  sokSelskaper();
+});
+document.getElementById('f-low-threshold')?.addEventListener('change', () => {
+  updateLegend();
+  if ((document.getElementById('f-color-profile')?.value || '') === 'custom') sokSelskaper();
+});
+document.getElementById('f-high-threshold')?.addEventListener('change', () => {
+  updateLegend();
+  if ((document.getElementById('f-color-profile')?.value || '') === 'custom') sokSelskaper();
+});
 
 // ── Søkefunksjon ──
 let sisteSok = 0;
@@ -389,21 +613,31 @@ async function sokSelskaper() {
   if (of) params.set('orgform', of);
   if (mn) params.set('min_omsetning', mn);
   if (mx) params.set('max_omsetning', mx);
+  FORWARDED_FILTER_KEYS.forEach((key) => {
+    if (params.has(key)) return;
+    const val = forwardedQuery.get(key);
+    if (val !== null && String(val).trim() !== '') params.set(key, val);
+  });
 
   try {
     const resp = await fetch(`/kart/api/selskaper?${params}`);
     const data = await resp.json();
 
     layer.clearLayers();
+    const colorContext = buildColorContext(data.features || []);
 
     data.features.forEach(f => {
       const p   = f.properties;
+      const dotColor = colorForCompany(p, colorContext);
+      const dotSize = sizeForCompany(p);
       const dot = L.marker(
         [f.geometry.coordinates[1], f.geometry.coordinates[0]],
-        { icon: lagDot(p.farge) }
+        { icon: lagDot(dotColor, dotSize) }
       );
 
       const resKl = resultatKlasse(p.aarsresultat);
+      const driftsmargin = calcPct(p.driftsresultat, p.driftsinntekter);
+      const nettomargin = calcPct(p.aarsresultat, p.driftsinntekter);
 
       dot.bindPopup(`
         <div class="popup-header">${p.navn}</div>
@@ -418,8 +652,20 @@ async function sokSelskaper() {
             <span class="${resKl}">${fmtKr(p.aarsresultat)}</span>
           </div>
           <div class="popup-kv">
+            <label>Driftsresultat</label>
+            <span>${fmtKr(p.driftsresultat)}</span>
+          </div>
+          <div class="popup-kv">
+            <label>Driftsmargin</label>
+            <span>${driftsmargin == null ? '–' : driftsmargin.toFixed(1).replace('.', ',') + ' %'}</span>
+          </div>
+          <div class="popup-kv">
+            <label>Nettomargin</label>
+            <span>${nettomargin == null ? '–' : nettomargin.toFixed(1).replace('.', ',') + ' %'}</span>
+          </div>
+          <div class="popup-kv">
             <label>Egenkapital</label>
-            <span>${fmtKr(p.egenkapital)}</span>
+            <span>${fmtKr(p.sum_egenkapital)}</span>
           </div>
           <div class="popup-kv">
             <label>Ansatte</label>
