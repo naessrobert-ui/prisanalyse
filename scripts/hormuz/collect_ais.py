@@ -20,7 +20,9 @@ from websocket._exceptions import WebSocketTimeoutException
 
 WS_URL = "wss://stream.aisstream.io/v0/stream"
 DEFAULT_DB_PATH = Path("data/hormuz_ais.sqlite")
-DEFAULT_BBOX = ((24.0, 54.0), (28.5, 58.8))
+# Hormuz-stredet: (min_lat, min_lon), (max_lat, max_lon)
+# AISstream forventer [[min_lat, min_lon], [max_lat, max_lon]]
+DEFAULT_BBOX = ((23.5, 55.5), (27.5, 60.5))
 DEFAULT_MESSAGE_TYPES = [
     "PositionReport",
     "ShipStaticData",
@@ -215,16 +217,30 @@ def main() -> int:
     stop_after = datetime.now(timezone.utc) + timedelta(minutes=args.minutes) if args.minutes is not None else None
     conn = ensure_db(args.db)
     ws_timeout = max(2.0, float(args.ws_timeout))
-    ws = create_connection(WS_URL, timeout=ws_timeout)
+    print(
+        f"Kobler til AISstream.io | bbox=[{args.min_lat},{args.min_lon}]-[{args.max_lat},{args.max_lon}]"
+        f" | timeout={ws_timeout}s",
+        flush=True,
+    )
+    try:
+        ws = create_connection(WS_URL, timeout=ws_timeout)
+    except Exception as exc:
+        print(f"Kunne ikke koble til AISstream: {exc}", file=sys.stderr)
+        conn.close()
+        return 1
+
     ws.send(json.dumps(build_subscription(args)))
+    print("Abonnement sendt, venter på meldinger ...", flush=True)
 
     count = 0
     last_commit = time.monotonic()
     try:
         while True:
             if stop_after and datetime.now(timezone.utc) >= stop_after:
+                print("Tidsgrense nådd.", flush=True)
                 break
             if args.max_messages is not None and count >= args.max_messages:
+                print(f"Maks antall meldinger nådd ({args.max_messages}).", flush=True)
                 break
 
             try:
@@ -237,6 +253,9 @@ def main() -> int:
 
             store_message(conn, normalize_message(payload))
             count += 1
+
+            if count % 25 == 0 or count == 1:
+                print(f"Lagret {count} meldinger ...", flush=True)
 
             now = time.monotonic()
             if now - last_commit > 2:
@@ -258,7 +277,8 @@ def main() -> int:
         except Exception:
             pass
 
-    print(f"Ferdig. Lagret {count} meldinger i {args.db}")
+    # Denne strengen parses av hormuz_routes.py: r"Lagret\s+(\d+)\s+meldinger"
+    print(f"Lagret {count} meldinger i {args.db}")
     return 0
 
 
