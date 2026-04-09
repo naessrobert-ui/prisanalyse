@@ -1076,41 +1076,177 @@ def get_kart_payload(
     south: float,
     east: float,
     west: float,
+    q: str | None = None,
+    kommune: str | None = None,
     naeringskode: str | None = None,
+    adresse: str | None = None,
     orgform: str | None = None,
     min_omsetning: float | None = None,
     max_omsetning: float | None = None,
+    min_resultat: float | None = None,
+    max_resultat: float | None = None,
+    min_egenkapitalandel: float | None = None,
+    min_netto_margin: float | None = None,
+    min_ansatte: int | None = None,
+    max_ansatte: int | None = None,
+    min_omsetning_per_ansatt: float | None = None,
+    max_omsetning_per_ansatt: float | None = None,
+    min_resultat_per_ansatt: float | None = None,
+    max_resultat_per_ansatt: float | None = None,
+    has_regnskap: bool = False,
+    regnskapsaar: int | None = None,
+    innlevert_etter: str | None = None,
     limit: int = 500,
 ) -> dict[str, Any]:
     from Fastapi_Backend import LATEST_REGNSKAP_JOIN
 
     limit = min(limit, 2000)
     half = limit // 2
+    if half <= 0:
+        half = 1
+
+    normalized_orgnr_query = _normalize_orgnr(q)
+    orgnr_query = normalized_orgnr_query if len(normalized_orgnr_query) == 9 else None
+    text_query = str(q or "").strip()
+    naeringskode_raw, naeringskode_digits = _normalize_naeringskode_query(naeringskode)
 
     # Bygg filter-betingelser
-    def build_filters(lat_col, lon_col, nk_col, of_col, rev_col):
+    def build_filters(
+        lat_col: str,
+        lon_col: str,
+        nk_col: str,
+        addr_col: str,
+        company_name_expr: str,
+        include_subunit_name: bool,
+        entity_alias: str = "e",
+    ):
         where = [
             f"{lat_col} IS NOT NULL",
             f"{lat_col} BETWEEN %s AND %s",
             f"{lon_col} BETWEEN %s AND %s",
         ]
         params = [south, north, west, east]
-        if naeringskode:
-            where.append(f"{nk_col} LIKE %s")
-            params.append(naeringskode + "%")
+
+        if orgnr_query:
+            orgnr_filter = ["e.orgnr::text = %s"]
+            params.append(orgnr_query)
+            if include_subunit_name:
+                orgnr_filter.insert(0, "bn.bedr_orgnr::text = %s")
+                params.insert(len(params) - 1, orgnr_query)
+            where.append("(" + " OR ".join(orgnr_filter) + ")")
+        elif text_query:
+            query_like = f"%{text_query}%"
+            query_clauses = [f"COALESCE({company_name_expr}, '') ILIKE %s", "e.orgnr::text ILIKE %s"]
+            query_params = [query_like, f"%{text_query}%"]
+            if include_subunit_name:
+                query_clauses.insert(1, "COALESCE(bn.bedr_navn, '') ILIKE %s")
+                query_params.insert(1, query_like)
+                query_clauses.append("bn.bedr_orgnr::text ILIKE %s")
+                query_params.append(f"%{text_query}%")
+            where.append("(" + " OR ".join(query_clauses) + ")")
+            params.extend(query_params)
+
+        if naeringskode_raw:
+            if naeringskode_digits:
+                where.append(f"regexp_replace(COALESCE({nk_col}::text, ''), '\\D', '', 'g') LIKE %s")
+                params.append(f"{naeringskode_digits}%")
+            else:
+                resolved_prefix = resolve_naeringskode_prefix(naeringskode_raw)
+                where.append(f"COALESCE({nk_col}::text, '') ILIKE %s")
+                params.append(f"{resolved_prefix}%")
+
         if orgform:
-            where.append(f"{of_col} = %s")
+            where.append("e.orgform = %s")
             params.append(orgform)
         if min_omsetning is not None:
-            where.append(f"{rev_col} >= %s")
+            where.append("r.revenue >= %s")
             params.append(min_omsetning)
         if max_omsetning is not None:
-            where.append(f"{rev_col} <= %s")
+            where.append("r.revenue <= %s")
             params.append(max_omsetning)
-        return where, params
+        if min_resultat is not None:
+            where.append("r.net_profit >= %s")
+            params.append(min_resultat)
+        if max_resultat is not None:
+            where.append("r.net_profit <= %s")
+            params.append(max_resultat)
+        if min_egenkapitalandel is not None:
+            where.append("r.equity_ratio IS NOT NULL AND (r.equity_ratio * 100.0) >= %s")
+            params.append(min_egenkapitalandel)
+        if min_netto_margin is not None:
+            where.append("r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL AND ((r.net_profit / r.revenue) * 100.0) >= %s")
+            params.append(min_netto_margin)
+        if min_ansatte is not None:
+            where.append("COALESCE(e.ansatte, 0) >= %s")
+            params.append(min_ansatte)
+        if max_ansatte is not None:
+            where.append("COALESCE(e.ansatte, 0) <= %s")
+            params.append(max_ansatte)
+        if min_omsetning_per_ansatt is not None:
+            where.append("e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL AND (r.revenue / e.ansatte) >= %s")
+            params.append(min_omsetning_per_ansatt)
+        if max_omsetning_per_ansatt is not None:
+            where.append("e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL AND (r.revenue / e.ansatte) <= %s")
+            params.append(max_omsetning_per_ansatt)
+        if min_resultat_per_ansatt is not None:
+            where.append("e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL AND (r.net_profit / e.ansatte) >= %s")
+            params.append(min_resultat_per_ansatt)
+        if max_resultat_per_ansatt is not None:
+            where.append("e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL AND (r.net_profit / e.ansatte) <= %s")
+            params.append(max_resultat_per_ansatt)
+        if has_regnskap:
+            where.append("r.accounting_year IS NOT NULL")
+        if regnskapsaar is not None:
+            where.append("r.accounting_year = %s")
+            params.append(regnskapsaar)
+        if innlevert_etter:
+            where.append("r.updated_at >= %s")
+            params.append(innlevert_etter)
+        if adresse:
+            where.append(f"COALESCE({addr_col}::text, '') ILIKE %s")
+            params.append(f"%{adresse}%")
+        normalized_kommune = (kommune or "").strip()
+        if normalized_kommune:
+            municipality_number = _MUNICIPALITY_NAME_TO_NUMBER.get(_normalize_municipality_name(normalized_kommune))
+            if re.fullmatch(r"\d+", normalized_kommune):
+                municipality_number = normalized_kommune
+
+            kommune_sub_filters: list[str] = []
+            if municipality_number:
+                kommune_sub_filters.append(f"{entity_alias}.kommunenummer = %s")
+                params.append(municipality_number)
+
+            name_columns = _municipality_name_columns()
+            if name_columns:
+                like_value = f"%{normalized_kommune}%"
+                kommune_sub_filters.extend(
+                    f"COALESCE({entity_alias}.{column_name}::text, '') ILIKE %s"
+                    for column_name in name_columns
+                )
+                params.extend([like_value] * len(name_columns))
+
+            if not re.fullmatch(r"\d+", normalized_kommune):
+                kommune_sub_filters.append(f"COALESCE({entity_alias}.adresse::text, '') ILIKE %s")
+                params.append(f"%{normalized_kommune}%")
+
+            if kommune_sub_filters:
+                where.append("(" + " OR ".join(kommune_sub_filters) + ")")
+            else:
+                where.append(f"{entity_alias}.kommunenummer = %s")
+                params.append(normalized_kommune)
+
+        return " AND ".join(where), params
 
     # Del 1: selskaper i entity med egne koordinater
-    where1, params1 = build_filters("e.lat", "e.lon", "e.naeringskode", "e.orgform", "r.revenue")
+    where1, params1 = build_filters(
+        "e.lat",
+        "e.lon",
+        "e.naeringskode",
+        "e.adresse",
+        "e.navn",
+        include_subunit_name=False,
+        entity_alias="e",
+    )
     params1.append(half)
 
     sql1 = f"""
@@ -1125,18 +1261,27 @@ def get_kart_payload(
             e.lat,
             e.lon,
             r.revenue         AS driftsinntekter,
+            r.operating_profit AS driftsresultat,
             r.net_profit      AS aarsresultat,
             r.equity          AS sum_egenkapital,
             r.accounting_year AS regnskapsaar
         FROM entity e
         {LATEST_REGNSKAP_JOIN}
-        WHERE {" AND ".join(where1)}
+        WHERE {where1}
         ORDER BY r.revenue DESC NULLS LAST
         LIMIT %s
     """
 
     # Del 2: underenheter i bedr_navn med morselskapet sitt regnskap
-    where2, params2 = build_filters("bn.lat", "bn.lon", "bn.naeringskode", "e.orgform", "r.revenue")
+    where2, params2 = build_filters(
+        "bn.lat",
+        "bn.lon",
+        "bn.naeringskode",
+        "bn.adresse",
+        "e.navn",
+        include_subunit_name=True,
+        entity_alias="e",
+    )
     params2.append(half)
 
     sql2 = f"""
@@ -1151,13 +1296,14 @@ def get_kart_payload(
             bn.lat,
             bn.lon,
             r.revenue         AS driftsinntekter,
+            r.operating_profit AS driftsresultat,
             r.net_profit      AS aarsresultat,
             r.equity          AS sum_egenkapital,
             r.accounting_year AS regnskapsaar
         FROM bedr_navn bn
         JOIN entity e ON e.orgnr = bn.parent_orgnr
         {LATEST_REGNSKAP_JOIN}
-        WHERE {" AND ".join(where2)}
+        WHERE {where2}
         ORDER BY r.revenue DESC NULLS LAST
         LIMIT %s
     """
@@ -1167,8 +1313,16 @@ def get_kart_payload(
     rows = rows1 + rows2
 
     def farge(row: dict) -> str:
+        driftsresultat = row.get("driftsresultat")
         res = row.get("aarsresultat")
         rev = row.get("driftsinntekter")
+        if driftsresultat is not None and rev and rev > 0:
+            margin = (driftsresultat / rev) * 100.0
+            if margin >= 10:
+                return "green"
+            if margin >= 0:
+                return "yellow"
+            return "red"
         if res is None:
             return "gray"
         if res > 0:

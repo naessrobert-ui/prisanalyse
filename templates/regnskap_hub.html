@@ -373,6 +373,7 @@
 
             <div class="actions-row">
                 <button type="submit">Søk i analyseplattformen</button>
+                <button type="button" class="secondary" id="apiOpenMapBtn">Åpne kartvisning med filtre</button>
             </div>
         </form>
 
@@ -564,6 +565,7 @@
     const apiShowIndustryOverviewBtn = document.getElementById('apiShowIndustryOverviewBtn');
     const apiNaeringskodeSuggestionsList = document.getElementById('apiNaeringskodeSuggestionsList');
     const apiNaeringskodeOverviewList = document.getElementById('apiNaeringskodeOverviewList');
+    const apiOpenMapBtn = document.getElementById('apiOpenMapBtn');
 
     const state = { params: null, offset: 0, meta: null, currentRows: [], total: 0, fullAnalysis: null, naeringskodeSuggestTimer: null, naeringskodeSuggestions: [], naeringskodeOverviewLoaded: false };
 
@@ -1217,6 +1219,13 @@
     apiForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
         await runApiSearch({ resetOffset: true });
+    });
+
+    apiOpenMapBtn?.addEventListener('click', () => {
+        const params = collectSearchParams(true);
+        params.delete('offset');
+        params.set('limit', String(Math.max(1, Math.min(Number(params.get('limit') || '500'), 2000))));
+        window.open(`/kart/?${params.toString()}`, '_blank', 'noopener');
     });
 
     apiPrevPage?.addEventListener('click', async () => {
