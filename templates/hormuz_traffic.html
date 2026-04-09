@@ -12,27 +12,32 @@
     h1 { margin-bottom: 8px; }
     .muted { color: #94a3b8; margin-bottom: 18px; }
     .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
     button { background: #2563eb; color: white; border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
     button.secondary { background: #334155; }
     textarea { width: 100%; min-height: 160px; background: #020617; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 10px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
     th, td { border-bottom: 1px solid #1f2937; padding: 8px; text-align: left; }
     th { color: #93c5fd; }
+    .status { font-size: 0.92rem; color: #cbd5e1; }
+    .status.ok { color: #34d399; }
+    .status.warn { color: #f59e0b; }
+    .status.error { color: #f87171; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Skipstrafikk i Hormuz-stredet</h1>
-    <p class="muted">Grafisk og tabellvisning. Last direkte fra SQLite eller bruk demo-data/egen JSON.</p>
+    <p class="muted">Laster ekte data fra SQLite. Demo brukes kun når du trykker "Last demo-data".</p>
 
     <div class="card">
       <div class="toolbar">
-        <button id="loadLive">Last fra SQLite</button>
+        <button id="loadLive">Last ekte data (SQLite)</button>
         <button id="loadDemo" class="secondary">Last demo-data</button>
         <button id="applyJson" class="secondary">Bruk JSON fra feltet</button>
         <a href="/hormuz/map" style="display:inline-block;padding:10px 14px;background:#0ea5e9;border-radius:8px;color:#fff;text-decoration:none;">Åpne Folium-kart</a>
       </div>
+      <div id="statusLine" class="status">Klar.</div>
       <textarea id="jsonInput" placeholder='{"rows":[{"date":"2026-04-01","northbound":50,"southbound":45,"tankers":35,"lng":10}]}'></textarea>
     </div>
 
@@ -59,6 +64,12 @@
 
 <script>
   let chart;
+
+  function setStatus(text, cls = '') {
+    const el = document.getElementById('statusLine');
+    el.textContent = text;
+    el.className = `status ${cls}`.trim();
+  }
 
   function normalizeRows(rows) {
     return (rows || []).map(row => {
@@ -95,7 +106,6 @@
   function renderChart(rows) {
     const ctx = document.getElementById('trafficChart');
     const labels = rows.map(r => r.date);
-
     if (chart) chart.destroy();
 
     chart = new Chart(ctx, {
@@ -108,10 +118,7 @@
           { label: 'Totalt', data: rows.map(r => r.total), borderColor: '#f59e0b', tension: 0.2 }
         ]
       },
-      options: {
-        responsive: true,
-        scales: { y: { beginAtZero: true } }
-      }
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
   }
 
@@ -122,10 +129,25 @@
   }
 
   async function loadLive(hours = 24) {
+    setStatus('Laster ekte data fra SQLite ...');
     const res = await fetch(`/hormuz/api/traffic?hours=${hours}`);
     const payload = await res.json();
+
     document.getElementById('jsonInput').value = JSON.stringify(payload, null, 2);
+
+    if (!res.ok) {
+      setStatus(`Feil ved lasting av ekte data: ${payload.error || res.statusText}`, 'error');
+      throw new Error(payload.error || res.statusText);
+    }
+
     applyPayload(payload);
+    const rawCount = payload.meta?.raw_messages_in_window ?? 0;
+    const updated = payload.meta?.last_received_at_utc || '-';
+    if (!payload.rows || payload.rows.length === 0) {
+      setStatus(`Ingen rader i valgt vindu (${hours}t). Råmeldinger i vindu: ${rawCount}. Siste melding: ${updated}`, 'warn');
+    } else {
+      setStatus(`Ekte data lastet: ${payload.rows.length} dager, ${rawCount} råmeldinger siste ${hours}t. Siste melding: ${updated}`, 'ok');
+    }
   }
 
   async function loadDemo() {
@@ -133,6 +155,7 @@
     const payload = await res.json();
     document.getElementById('jsonInput').value = JSON.stringify(payload, null, 2);
     applyPayload(payload);
+    setStatus('Viser demo-data (ikke ekte trafikk).', 'warn');
   }
 
   document.getElementById('loadLive').addEventListener('click', () => loadLive(24));
@@ -141,12 +164,15 @@
     try {
       const payload = JSON.parse(document.getElementById('jsonInput').value);
       applyPayload(payload);
+      setStatus('JSON-data lagt inn manuelt.', 'ok');
     } catch (err) {
-      alert('Ugyldig JSON: ' + err.message);
+      setStatus(`Ugyldig JSON: ${err.message}`, 'error');
     }
   });
 
-  loadLive().catch(loadDemo);
+  loadLive().catch(() => {
+    setStatus('Kunne ikke laste ekte data. Bruk "Last demo-data" for testvisning.', 'error');
+  });
 </script>
 </body>
 </html>
