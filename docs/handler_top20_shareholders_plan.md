@@ -58,6 +58,7 @@ curl "http://localhost:5000/handler/api/eier-oversikt/top-shareholders/scan?as_o
 
 - **Last opp CSV-filer**: `Handler Oslo Børs` → forsiden (`/handler/`) → seksjonen **"Oppdater DB med nye CSV-filer"**.
 - **Se resultater i UI**: `Eier oversikt` (`/handler/eier-oversikt`) → tab **Per aksje** → panel **"Topp aksjonærer + siste endring"**.
+- **Kjør markedsscan i UI**: `Eier oversikt` (`/handler/eier-oversikt`) → tab **Per aksje** → panel **"Scan: første handel etter X dager (topp-eiere)"**.
 
 ## Separat database for topp-20
 

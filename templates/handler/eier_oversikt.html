@@ -91,6 +91,53 @@
       <button class="btn btn-primary mt-3" id="eo-top-btn" disabled>Hent topp-aksjonærer</button>
     </div>
     <div id="eo-top-table"></div>
+
+    <div class="panel mt-3">
+      <h5 style="color:var(--pa-text)">Scan: første handel etter X dager (topp-eiere)</h5>
+      <div class="sub" style="margin-bottom:10px;">
+        Finn alle aksjer (eller et utvalg) der en av topp-eierne har gjort første nye handel
+        etter valgt antall dager uten handel.
+      </div>
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label>Snapshot-dato</label>
+          <input type="date" class="form-control" id="eo-scan-asof">
+        </div>
+        <div class="col-md-3">
+          <label>Handler fra dato</label>
+          <input type="date" class="form-control" id="eo-scan-since">
+        </div>
+        <div class="col-md-2">
+          <label>Topp-N eiere</label>
+          <input type="number" min="1" max="50" value="20" class="form-control" id="eo-scan-topn">
+        </div>
+        <div class="col-md-2">
+          <label>Min dager uten handel</label>
+          <input type="number" min="0" max="3650" value="20" class="form-control" id="eo-scan-idle">
+        </div>
+        <div class="col-md-2">
+          <label>Retning</label>
+          <select class="form-control" id="eo-scan-direction">
+            <option value="both" selected>Kjøp + salg</option>
+            <option value="buy">Kun kjøp</option>
+            <option value="sell">Kun salg</option>
+          </select>
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-6">
+          <label>Utvalg tickere (valgfritt, kommaseparert)</label>
+          <input type="text" class="form-control" id="eo-scan-tickers" placeholder="f.eks. EQNR,NOD,AKRBP">
+        </div>
+        <div class="col-md-6">
+          <label>Utvalg ISIN (valgfritt, kommaseparert)</label>
+          <input type="text" class="form-control" id="eo-scan-isins" placeholder="f.eks. NO0010096985,NO0010208051">
+        </div>
+      </div>
+      <button class="btn btn-primary mt-3" id="eo-scan-btn">Kjør scan</button>
+    </div>
+    <div id="eo-scan-meta" class="sub mt-2"></div>
+    <div id="eo-scan-table"></div>
   </div>
 </div>
 {% endblock %}
@@ -99,8 +146,10 @@
 <script>
   const today = new Date();
   const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
+  const ago8 = new Date(today); ago8.setDate(ago8.getDate() - 8);
   ['eo-date-from','eo-sec-date-from'].forEach(id => document.getElementById(id).value = ago30.toISOString().slice(0,10));
-  ['eo-date-to','eo-sec-date-to','eo-top-date'].forEach(id => document.getElementById(id).value = today.toISOString().slice(0,10));
+  ['eo-date-to','eo-sec-date-to','eo-top-date','eo-scan-asof'].forEach(id => document.getElementById(id).value = today.toISOString().slice(0,10));
+  document.getElementById('eo-scan-since').value = ago8.toISOString().slice(0,10);
   function setAksjeRange(days){
     const to = new Date();
     const from = new Date(to);
@@ -222,6 +271,56 @@
       alert(err?.message || 'Klarte ikke hente topp-aksjonærer.');
     } finally {
       btn.textContent = 'Hent topp-aksjonærer';
+    }
+  });
+
+  document.getElementById('eo-scan-btn').addEventListener('click', async function() {
+    const btn = this;
+    btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const params = new URLSearchParams({
+        as_of: document.getElementById('eo-scan-asof').value,
+        since_date: document.getElementById('eo-scan-since').value,
+        top_n: document.getElementById('eo-scan-topn').value || '20',
+        min_idle_days: document.getElementById('eo-scan-idle').value || '20',
+        direction: document.getElementById('eo-scan-direction').value || 'both',
+      });
+
+      const tickers = document.getElementById('eo-scan-tickers').value.trim();
+      const isins = document.getElementById('eo-scan-isins').value.trim();
+      if (tickers) params.set('tickers', tickers);
+      if (isins) params.set('isins', isins);
+
+      const resp = await fetch(`{{ url_for("handler.api_eier_oversikt_top_shareholders_scan") }}?${params.toString()}`);
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Ukjent feil ved scan');
+
+      const meta = data.meta || {};
+      document.getElementById('eo-scan-meta').textContent =
+        `Treff: ${meta.hits || 0} | Snapshot: ${meta.as_of || '-'} | Fra dato: ${meta.since_date || '-'} | Min dager: ${meta.min_idle_days ?? '-'}`;
+
+      buildTable(data.rows || [], [
+        {key:'last_trade_date', label:'Siste handel'},
+        {key:'trade_direction', label:'Retning'},
+        {key:'ticker', label:'Ticker'},
+        {key:'isin', label:'ISIN'},
+        {key:'company_name', label:'Selskap'},
+        {key:'name', label:'Eier'},
+        {key:'investor_id', label:'ID'},
+        {key:'ranking', label:'Rangering', fmt:'int'},
+        {key:'last_trade_change_qty', label:'Siste handel (antall)', fmt:'int'},
+        {key:'last_trade_share_pct', label:'Siste handel andel ‰', fmt:'num', dec:2},
+        {key:'previous_trade_date', label:'Forrige handel'},
+        {key:'days_between_trades', label:'Dager mellom handler', fmt:'int'},
+        {key:'snapshot_date', label:'Snapshot-dato'},
+      ], 'eo-scan-table');
+    } catch (err) {
+      console.error(err);
+      document.getElementById('eo-scan-meta').textContent = '';
+      buildTable([], [], 'eo-scan-table');
+      alert(err?.message || 'Klarte ikke kjøre scan.');
+    } finally {
+      btn.textContent = 'Kjør scan';
     }
   });
 </script>
