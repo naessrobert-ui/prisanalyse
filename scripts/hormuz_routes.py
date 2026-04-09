@@ -2,13 +2,18 @@
 """Routes for visualisering av skipstrafikk gjennom Hormuz-stredet."""
 
 from datetime import datetime
-import sqlite3
+import os
 from pathlib import Path
+import sqlite3
+import subprocess
+
 from flask import Blueprint, jsonify, render_template, request
 
 hormuz_bp = Blueprint("hormuz", __name__, url_prefix="/hormuz")
-DB_PATH = Path("data/hormuz_ais.sqlite")
-MAP_PATH = Path("data/hormuz_map.html")
+BASE_DIR = Path(__file__).resolve().parent.parent
+DB_PATH = Path(os.getenv("HORMUZ_DB_PATH", str(BASE_DIR / "data" / "hormuz_ais.sqlite")))
+MAP_PATH = Path(os.getenv("HORMUZ_MAP_PATH", str(BASE_DIR / "data" / "hormuz_map.html")))
+COLLECT_SCRIPT = BASE_DIR / "scripts" / "hormuz" / "collect_ais.py"
 
 
 def _utc_now_iso() -> str:
@@ -20,6 +25,40 @@ def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
         "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
     ).fetchone()
     return row is not None
+
+
+def _run_bootstrap(minutes: float = 0.5, max_messages: int = 120):
+    api_key = os.getenv("AISTREAM_API_KEY", "").strip()
+    if not api_key:
+        return False, "Mangler AISTREAM_API_KEY i miljøvariabler", None
+    if not COLLECT_SCRIPT.exists():
+        return False, f"Manglende script: {COLLECT_SCRIPT}", None
+
+    minutes = max(0.1, min(float(minutes), 5.0))
+    max_messages = max(10, min(int(max_messages), 2000))
+    cmd = [
+        "python", str(COLLECT_SCRIPT), "--db", str(DB_PATH), "--minutes", str(minutes),
+        "--max-messages", str(max_messages), "--include-static",
+    ]
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+            env=os.environ.copy(),
+        )
+    except subprocess.TimeoutExpired:
+        return False, "Timeout ved innhenting av AIS-data", None
+
+    if proc.returncode != 0:
+        err = "AIS-innhenting feilet"
+        out = {"stderr": proc.stderr[-1200:], "stdout": proc.stdout[-1200:]}
+        return False, err, out
+
+    return True, "AIS-data hentet inn", {"stdout": proc.stdout[-1200:]}
 
 
 @hormuz_bp.route("/")
@@ -37,14 +76,44 @@ def hormuz_map_page():
     return render_template("hormuz_map_embed.html", map_path=f"/{MAP_PATH.as_posix()}")
 
 
+@hormuz_bp.route("/api/bootstrap", methods=["POST"])
+def hormuz_bootstrap():
+    """Forsøk å hente inn ferske AIS-meldinger hvis DB mangler/tom."""
+    minutes = request.args.get("minutes", default=0.5, type=float)
+    max_messages = request.args.get("max_messages", default=120, type=int)
+    ok, message, extra = _run_bootstrap(minutes=minutes, max_messages=max_messages)
+    if not ok:
+        payload = {"ok": False, "generated_at": _utc_now_iso(), "error": message, "db_path": str(DB_PATH)}
+        if extra:
+            payload.update(extra)
+        return jsonify(payload), 500
+
+    payload = {
+        "ok": True,
+        "generated_at": _utc_now_iso(),
+        "message": message,
+        "db_path": str(DB_PATH),
+    }
+    if extra:
+        payload.update(extra)
+    return jsonify(payload)
+
+
 @hormuz_bp.route("/api/status")
 def hormuz_status():
     if not DB_PATH.exists():
-        return jsonify({"ok": False, "generated_at": _utc_now_iso(), "error": f"DB mangler: {DB_PATH}"}), 503
+        return jsonify(
+            {
+                "ok": False,
+                "generated_at": _utc_now_iso(),
+                "error": f"DB mangler: {DB_PATH}",
+                "db_path": str(DB_PATH),
+            }
+        ), 503
 
     with sqlite3.connect(DB_PATH) as conn:
         if not _table_exists(conn, "ais_messages"):
-            return jsonify({"ok": False, "generated_at": _utc_now_iso(), "error": "Tabell 'ais_messages' mangler"}), 503
+            return jsonify({"ok": False, "generated_at": _utc_now_iso(), "error": "Tabell 'ais_messages' mangler", "db_path": str(DB_PATH)}), 503
 
         total_rows = conn.execute("SELECT COUNT(*) FROM ais_messages").fetchone()[0]
         last_received = conn.execute("SELECT MAX(received_at_utc) FROM ais_messages").fetchone()[0]
@@ -60,13 +129,31 @@ def hormuz_status():
     )
 
 
+@hormuz_bp.route("/api/db-path")
+def hormuz_db_path():
+    return jsonify({
+        "generated_at": _utc_now_iso(),
+        "db_path": str(DB_PATH),
+        "db_exists": DB_PATH.exists(),
+        "base_dir": str(BASE_DIR),
+    })
+
+
 @hormuz_bp.route("/api/traffic")
 def hormuz_traffic_data():
     hours = request.args.get("hours", default=24, type=int)
     hours = max(1, min(hours, 24 * 30))
 
     if not DB_PATH.exists():
-        return jsonify({"generated_at": _utc_now_iso(), "source": "sqlite", "rows": [], "error": f"DB mangler: {DB_PATH}"}), 503
+        auto_bootstrap = request.args.get("auto_bootstrap", default="1") == "1"
+        if auto_bootstrap:
+            ok, message, _ = _run_bootstrap(minutes=0.5, max_messages=120)
+            if ok and DB_PATH.exists():
+                pass
+            else:
+                return jsonify({"generated_at": _utc_now_iso(), "source": "sqlite", "rows": [], "error": f"DB mangler: {DB_PATH}. Bootstrap: {message}", "db_path": str(DB_PATH)}), 503
+        else:
+            return jsonify({"generated_at": _utc_now_iso(), "source": "sqlite", "rows": [], "error": f"DB mangler: {DB_PATH}", "db_path": str(DB_PATH)}), 503
 
     sql = """
         SELECT
@@ -89,7 +176,7 @@ def hormuz_traffic_data():
     try:
         with sqlite3.connect(DB_PATH) as conn:
             if not _table_exists(conn, "ais_messages"):
-                return jsonify({"generated_at": _utc_now_iso(), "source": "sqlite", "rows": [], "error": "Tabell 'ais_messages' mangler"}), 503
+                return jsonify({"generated_at": _utc_now_iso(), "source": "sqlite", "rows": [], "error": "Tabell 'ais_messages' mangler", "db_path": str(DB_PATH)}), 503
 
             total_rows = conn.execute(
                 "SELECT COUNT(*) FROM ais_messages WHERE received_at_utc >= datetime('now', ?)",
@@ -112,7 +199,7 @@ def hormuz_traffic_data():
                     }
                 )
     except sqlite3.Error as exc:
-        return jsonify({"generated_at": _utc_now_iso(), "source": "sqlite", "rows": [], "error": f"SQLite-feil: {exc}"}), 500
+        return jsonify({"generated_at": _utc_now_iso(), "source": "sqlite", "rows": [], "error": f"SQLite-feil: {exc}", "db_path": str(DB_PATH)}), 500
 
     return jsonify(
         {
@@ -120,6 +207,7 @@ def hormuz_traffic_data():
             "source": "sqlite",
             "hours": hours,
             "rows": rows,
+            "db_path": str(DB_PATH),
             "meta": {
                 "raw_messages_in_window": int(total_rows or 0),
                 "last_received_at_utc": last_received,

@@ -3,21 +3,33 @@
 Denne appen har en Hormuz-modul på `/hormuz/`.
 
 ## Datakilde
-- SQLite: `data/hormuz_ais.sqlite`
+- SQLite (default): `data/hormuz_ais.sqlite`
 - API i appen: `GET /hormuz/api/traffic?hours=24`
+- Status: `GET /hormuz/api/status`
+
+## Miljøvariabler
+- `AISTREAM_API_KEY` (påkrevd for innhenting)
+- `HORMUZ_DB_PATH` (valgfri, absolutt sti anbefalt i prod)
+- `HORMUZ_MAP_PATH` (valgfri)
+
+Eksempel (Render/produksjon):
+
+```bash
+HORMUZ_DB_PATH=/var/data/hormuz_ais.sqlite
+```
 
 ## Innsamling av AIS-data
-Kjør:
+Kjør manuelt:
 
 ```bash
 python scripts/hormuz/collect_ais.py --minutes 10 --include-static
 ```
 
-Sett API-nøkkel via miljøvariabel:
+Eller fra UI:
+- Åpne `/hormuz/`
+- Trykk **Hent ferske AIS nå**
 
-```bash
-export AISTREAM_API_KEY=din_nokkel
-```
+(Bruker `POST /hormuz/api/bootstrap` under panseret.)
 
 ## Folium-kart
 Bygg kartfil:
@@ -32,9 +44,21 @@ Visning i app:
 ## Merknad om retningstall
 `northbound`/`southbound` i API-et beregnes heuristisk fra COG/heading (<180 / >=180).
 
+## Feilsøking: får ikke ekte data
+- Hvis du ser `DB mangler`, betyr det at filen ikke finnes på den stien appen bruker.
+- Sjekk `/hormuz/api/status` for faktisk `db_path`.
+- Sett `HORMUZ_DB_PATH` til persistent disk i produksjon.
+- Kjør innhenting: `python scripts/hormuz/collect_ais.py --minutes 10 --include-static` eller knappen **Hent ferske AIS nå**.
 
-## Feilsøking: demo i stedet for ekte data
-- `GET /hormuz/api/traffic` returnerer nå feilstatus hvis DB/tabell mangler.
-- Sjekk status-endepunkt: `GET /hormuz/api/status`.
-- Hvis DB er tom, kjør innsamling igjen: `python scripts/hormuz/collect_ais.py --minutes 10 --include-static`.
-- Deretter oppdater siden `/hormuz/` og trykk **Last ekte data (SQLite)**.
+
+## Slik tester du lenkene
+Bruk disse direkte i nettleser eller curl:
+
+```bash
+curl -s https://prisanalyse.no/hormuz/api/db-path
+curl -s https://prisanalyse.no/hormuz/api/status
+curl -s "https://prisanalyse.no/hormuz/api/traffic?hours=24"
+curl -s -X POST https://prisanalyse.no/hormuz/api/bootstrap
+```
+
+Hvis `api/db-path` viser en sti som ikke finnes (`db_exists=false`), sett `HORMUZ_DB_PATH` til riktig persistent disksti.

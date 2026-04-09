@@ -34,6 +34,7 @@
       <div class="toolbar">
         <button id="loadLive">Last ekte data (SQLite)</button>
         <button id="loadDemo" class="secondary">Last demo-data</button>
+        <button id="bootstrapData" class="secondary">Hent ferske AIS nå</button>
         <button id="applyJson" class="secondary">Bruk JSON fra feltet</button>
         <a href="/hormuz/map" style="display:inline-block;padding:10px 14px;background:#0ea5e9;border-radius:8px;color:#fff;text-decoration:none;">Åpne Folium-kart</a>
       </div>
@@ -150,6 +151,20 @@
     }
   }
 
+
+  async function bootstrapData() {
+    setStatus('Starter innhenting av ferske AIS-data ... dette kan ta opptil 1-2 min.', 'warn');
+    const res = await fetch('/hormuz/api/bootstrap', { method: 'POST' });
+    const payload = await res.json();
+    document.getElementById('jsonInput').value = JSON.stringify(payload, null, 2);
+    if (!res.ok || !payload.ok) {
+      setStatus(`Bootstrap feilet: ${payload.error || res.statusText}`, 'error');
+      throw new Error(payload.error || res.statusText);
+    }
+    setStatus('AIS-data hentet. Laster ekte data ...', 'ok');
+    await loadLive(24);
+  }
+
   async function loadDemo() {
     const res = await fetch('/hormuz/api/demo');
     const payload = await res.json();
@@ -160,6 +175,7 @@
 
   document.getElementById('loadLive').addEventListener('click', () => loadLive(24));
   document.getElementById('loadDemo').addEventListener('click', loadDemo);
+  document.getElementById('bootstrapData').addEventListener('click', () => bootstrapData().catch(() => {}));
   document.getElementById('applyJson').addEventListener('click', () => {
     try {
       const payload = JSON.parse(document.getElementById('jsonInput').value);
