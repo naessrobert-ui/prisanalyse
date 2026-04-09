@@ -137,6 +137,12 @@
       <button class="btn btn-primary mt-3" id="eo-scan-btn">Kjør scan</button>
     </div>
     <div id="eo-scan-meta" class="sub mt-2"></div>
+    <div class="sub mt-2">Samlet oversikt per aksje (klikk rad for detaljer):</div>
+    <div id="eo-scan-summary-table"></div>
+    <div class="d-flex align-items-center justify-content-between mt-2">
+      <div id="eo-scan-detail-title" class="sub"></div>
+      <button type="button" class="btn btn-sm btn-outline-light" id="eo-scan-show-all-btn" style="display:none">Vis alle detaljer</button>
+    </div>
     <div id="eo-scan-table"></div>
   </div>
 </div>
@@ -275,6 +281,51 @@
   });
 
   document.getElementById('eo-scan-btn').addEventListener('click', async function() {
+    const detailCols = [
+      {key:'last_trade_date', label:'Siste handel'},
+      {key:'trade_direction', label:'Retning'},
+      {key:'ticker', label:'Ticker'},
+      {key:'isin', label:'ISIN'},
+      {key:'company_name', label:'Selskap'},
+      {key:'name', label:'Eier'},
+      {key:'investor_id', label:'ID'},
+      {key:'ranking', label:'Rangering', fmt:'int'},
+      {key:'last_trade_change_qty', label:'Siste handel (antall)', fmt:'int'},
+      {key:'last_trade_share_pct', label:'Siste handel andel ‰', fmt:'num', dec:2},
+      {key:'previous_trade_date', label:'Forrige handel'},
+      {key:'days_between_trades', label:'Dager mellom handler', fmt:'int'},
+      {key:'snapshot_date', label:'Snapshot-dato'},
+    ];
+
+    function buildScanSummary(rows){
+      const bySecurity = new Map();
+      rows.forEach(r => {
+        const key = `${r.isin || ''}|${r.ticker || ''}`;
+        const existing = bySecurity.get(key) || {
+          isin: r.isin || '',
+          ticker: r.ticker || '',
+          company_name: r.company_name || '',
+          buy_count: 0,
+          sell_count: 0,
+          total_count: 0,
+          latest_trade_date: r.last_trade_date || null,
+        };
+        if (r.trade_direction === 'buy') existing.buy_count += 1;
+        if (r.trade_direction === 'sell') existing.sell_count += 1;
+        existing.total_count += 1;
+        if (!existing.latest_trade_date || String(r.last_trade_date || '') > String(existing.latest_trade_date)) {
+          existing.latest_trade_date = r.last_trade_date || existing.latest_trade_date;
+        }
+        bySecurity.set(key, existing);
+      });
+      return Array.from(bySecurity.values());
+    }
+
+    function renderScanDetails(rows, titleText){
+      document.getElementById('eo-scan-detail-title').textContent = titleText || '';
+      buildTable(rows, detailCols, 'eo-scan-table');
+    }
+
     const btn = this;
     btn.innerHTML = '<span class="spinner"></span>';
     try {
@@ -296,28 +347,41 @@
       if (!resp.ok) throw new Error(data.error || 'Ukjent feil ved scan');
 
       const meta = data.meta || {};
+      const rows = data.rows || [];
       document.getElementById('eo-scan-meta').textContent =
         `Treff: ${meta.hits || 0} | Snapshot: ${meta.as_of || '-'} | Fra dato: ${meta.since_date || '-'} | Min dager: ${meta.min_idle_days ?? '-'}`;
 
-      buildTable(data.rows || [], [
-        {key:'last_trade_date', label:'Siste handel'},
-        {key:'trade_direction', label:'Retning'},
+      const summaryRows = buildScanSummary(rows);
+      buildTable(summaryRows, [
         {key:'ticker', label:'Ticker'},
         {key:'isin', label:'ISIN'},
         {key:'company_name', label:'Selskap'},
-        {key:'name', label:'Eier'},
-        {key:'investor_id', label:'ID'},
-        {key:'ranking', label:'Rangering', fmt:'int'},
-        {key:'last_trade_change_qty', label:'Siste handel (antall)', fmt:'int'},
-        {key:'last_trade_share_pct', label:'Siste handel andel ‰', fmt:'num', dec:2},
-        {key:'previous_trade_date', label:'Forrige handel'},
-        {key:'days_between_trades', label:'Dager mellom handler', fmt:'int'},
-        {key:'snapshot_date', label:'Snapshot-dato'},
-      ], 'eo-scan-table');
+        {key:'buy_count', label:'Antall kjøp', fmt:'int'},
+        {key:'sell_count', label:'Antall salg', fmt:'int'},
+        {key:'total_count', label:'Totalt', fmt:'int'},
+        {key:'latest_trade_date', label:'Siste handelsdato'},
+      ], 'eo-scan-summary-table', {
+        initialSort: {key: 'total_count', asc: false},
+        onRowClick: (row) => {
+          const filtered = rows.filter(r => (r.isin || '') === (row.isin || ''));
+          renderScanDetails(filtered, `Detaljer for ${row.ticker || row.isin} (${row.company_name || ''})`);
+          document.getElementById('eo-scan-show-all-btn').style.display = '';
+        },
+      });
+
+      renderScanDetails([], 'Klikk en aksje i oversikten for å se detaljer.');
+      document.getElementById('eo-scan-show-all-btn').style.display = 'none';
+      document.getElementById('eo-scan-show-all-btn').onclick = () => {
+        renderScanDetails(rows, `Viser alle handler (${rows.length})`);
+        document.getElementById('eo-scan-show-all-btn').style.display = 'none';
+      };
     } catch (err) {
       console.error(err);
       document.getElementById('eo-scan-meta').textContent = '';
+      document.getElementById('eo-scan-detail-title').textContent = '';
+      buildTable([], [], 'eo-scan-summary-table');
       buildTable([], [], 'eo-scan-table');
+      document.getElementById('eo-scan-show-all-btn').style.display = 'none';
       alert(err?.message || 'Klarte ikke kjøre scan.');
     } finally {
       btn.textContent = 'Kjør scan';
