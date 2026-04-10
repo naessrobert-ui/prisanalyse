@@ -207,14 +207,26 @@ def compute_active_bets(
 
 
 def workbook_to_frames(file_bytes: bytes) -> dict[str, pd.DataFrame]:
-    xls = pd.ExcelFile(BytesIO(file_bytes))
+    try:
+        xls = pd.ExcelFile(BytesIO(file_bytes))
+    except ImportError as exc:
+        raise RebalancerError(
+            "Excel-støtte mangler på serveren (openpyxl er ikke installert). "
+            "Be drift installere openpyxl."
+        ) from exc
     return {sheet: pd.read_excel(xls, sheet_name=sheet) for sheet in xls.sheet_names}
 
 
 def export_results_to_excel(result_frames: dict[str, pd.DataFrame]) -> bytes:
     output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        for sheet_name, frame in result_frames.items():
-            frame.to_excel(writer, index=False, sheet_name=sheet_name[:31])
+    try:
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            for sheet_name, frame in result_frames.items():
+                frame.to_excel(writer, index=False, sheet_name=sheet_name[:31])
+    except ImportError as exc:
+        raise RebalancerError(
+            "Excel-eksport er ikke tilgjengelig (openpyxl mangler på serveren). "
+            "Be drift installere openpyxl."
+        ) from exc
     output.seek(0)
     return output.read()

@@ -30,3 +30,4 @@
 ## Environment-specific settings
 - Global upload size is controlled via `HANDLER_DB_UPLOAD_MAX_MB` in app runtime environment (used in `app.py` as `MAX_CONTENT_LENGTH`).
 - App-level environment defaults and deployment-specific values are managed through existing environment mechanisms (`.env` / hosting environment), with examples in `config.example.py`.
+- Excel import/export requires `openpyxl` to be installed in the runtime environment.
