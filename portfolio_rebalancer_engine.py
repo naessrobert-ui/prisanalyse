@@ -56,7 +56,7 @@ def workbook_to_frames(raw_bytes: bytes) -> Dict[str, pd.DataFrame]:
         if not rows:
             frames[sheet_name] = pd.DataFrame()
             continue
-        headers = [_rb.normalize_text(v) for v in rows[0]]
+        headers = [v for v in rows[0]]  # Keep raw headers; extract_holdings normalizes them
         data = [list(row) for row in rows[1:]]
         frames[sheet_name] = pd.DataFrame(data, columns=headers)
     return frames
@@ -70,7 +70,7 @@ def detect_portfolio_sheets(frames: Dict[str, pd.DataFrame]) -> List[str]:
     required = {"portfolio", "security name", "mv"}
     detected = []
     for name, df in frames.items():
-        cols = {c.lower() for c in df.columns if isinstance(c, str)}
+        cols = {_rb.normalize_text(c).lower() for c in df.columns if c is not None}
         if required.issubset(cols):
             detected.append(name)
     return detected
