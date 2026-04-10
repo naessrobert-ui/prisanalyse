@@ -50,7 +50,7 @@ def detect_portfolio_sheets(frames: Dict[str, Any]) -> List[str]:
     required = {"portfolio", "security name", "mv"}
     detected = []
     for name, frame in frames.items():
-        cols = {_rb.normalize_text(h) for h in frame["headers"] if h is not None}
+        cols = {_rb.normalize_text(h).lower() for h in frame["headers"] if h is not None}
         if required.issubset(cols):
             detected.append(name)
     return detected
@@ -70,7 +70,7 @@ def extract_holdings(
     Mirrors read_workbook_holdings() logic from portfolio_rebalancer.py
     but works on in-memory raw rows instead of a file path.
     """
-    exposure_col_norm = _rb.normalize_text(exposure_column)
+    exposure_col_norm = _rb.normalize_text(exposure_column).lower()
     records: List[Dict[str, Any]] = []
 
     for sheet_name in sheets:
@@ -84,7 +84,7 @@ def extract_holdings(
         for idx, h in enumerate(raw_headers):
             norm = _rb.normalize_text(h)
             if norm:  # skip empty/None headers
-                col_map[norm] = idx
+                col_map[norm.lower()] = idx
 
         required = ["portfolio", "security name", "mv", exposure_col_norm]
         missing = [r for r in required if r not in col_map]
