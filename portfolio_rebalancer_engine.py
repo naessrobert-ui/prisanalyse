@@ -244,6 +244,14 @@ def compute_active_bets(
     merged["active_bet_vs_reference_pct"] = merged["current_weight_pct"] - merged["reference_weight_pct"]
     merged["trade_weight_pct"]     = merged["target_weight_pct"] - merged["current_weight_pct"]
     merged["skip_due_to_minimum"]  = merged["trade_weight_pct"].abs() < minimum_trade_threshold
+    # Rename to match HTML template column names
+    merged = merged.rename(columns={
+        "category":                    "asset_class",
+        "current_weight_pct":          "actual_weight",
+        "reference_weight_pct":        "benchmark_weight",
+        "active_bet_vs_reference_pct": "active_bet",
+        "trade_weight_pct":            "suggested_trade",
+    })
     return merged.reset_index(drop=True)
 
 

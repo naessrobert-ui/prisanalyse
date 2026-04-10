@@ -19,10 +19,24 @@ portfolio_rebalancer_bp = Blueprint(
 _UPLOAD_LIMIT_MB = max(1, int((os.environ.get("HANDLER_DB_UPLOAD_MAX_MB", "300") or "300").strip() or "300"))
 
 DEFAULT_MAPPING = {
-    "DNB Norge": "Equity Norway",
-    "KLP AksjeFremvoksende Markeder": "Equity EM",
-    "KLP AksjeGlobal": "Equity International DM",
-    "KLP Obligasjon": "Fixed Income",
+    "Nordea 1 - European Corporate Bond Fund HBCN-NOK": "fi_global",
+    "Nordea 1 - Global High Yield Bond Fund HBCN-NOK": "fi_global",
+    "Nordea 1 - Global Portfolio Fund BF-NOK": "equity_global_developed",
+    "Nordea 1 - US Corporate Bond Fund HBC-NOK": "fi_global",
+    "Nordea 2 - BetaPlus Enhan Global Eq Fd BF-NOK": "equity_global_developed",
+    "Nordea Allokeringsfond Fund C Acc NOK": "allocation",
+    "Nordea Discretionary Global Equity C Acc NOK": "equity_global_developed",
+    "Nordea Emerging Market Equities Fund C Acc NOK": "equity_global_em",
+    "Nordea FRN Pensjon C Acc NOK": "fi_norway_short",
+    "Nordea Kort Obligasjon Pluss C Acc NOK": "fi_norway_short",
+    "Nordea Obligasjon III C Acc NOK": "fi_norway_long",
+    "Nordea PB Norsk Aksje Portefolje B Acc NOK": "equity_norway",
+    "PB Norway: Balanced Global 10%EQ + 90%FI": "cash",
+    "PB Norway: Balanced Global 30%EQ + 70%FI": "cash",
+    "PB Norway: Balanced Global 50%EQ + 50%FI": "cash",
+    "PB Norway: Global Equities": "cash",
+    "PB Norway: Growth Global 65%EQ + 35%FI": "cash",
+    "PB Norway:Balanced Global 80%EQ + 20%FI": "cash",
 }
 
 
