@@ -51,15 +51,20 @@ class UiState:
 
 
 def _default_benchmark(portfolios: list[str]) -> list[dict[str, float | str]]:
-    return [
-        {
+    import portfolio_rebalancer as _rb
+    rows = []
+    for portfolio in portfolios:
+        try:
+            equity_share = _rb.parse_equity_share_from_portfolio_name(portfolio)
+        except _rb.ConfigError:
+            equity_share = 0.60  # fallback for ukjente porteføljenavn
+        rows.append({
             "portfolio": portfolio,
-            "equity_share": 0.60,
-            "norway_share_within_equity": 0.20,
+            "equity_share": equity_share,
+            "norway_share_within_equity": 0.15,
             "em_share_within_international_equity": 0.15,
-        }
-        for portfolio in portfolios
-    ]
+        })
+    return rows
 
 
 @portfolio_rebalancer_bp.errorhandler(RequestEntityTooLarge)
