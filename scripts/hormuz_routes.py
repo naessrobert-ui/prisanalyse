@@ -21,6 +21,13 @@ COLLECT_SCRIPT = BASE_DIR / "scripts" / "hormuz" / (
 )
 
 
+# Omtrentlig boks rundt Hormuz-stredet for å unngå støy fra andre regioner.
+HORMUZ_LAT_MIN = 24.0
+HORMUZ_LAT_MAX = 28.8
+HORMUZ_LON_MIN = 54.0
+HORMUZ_LON_MAX = 58.8
+
+
 def _utc_now_iso() -> str:
     return datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
@@ -191,6 +198,8 @@ def hormuz_traffic_data():
         FROM ais_messages
         WHERE latitude IS NOT NULL
           AND longitude IS NOT NULL
+          AND latitude BETWEEN ? AND ?
+          AND longitude BETWEEN ? AND ?
           AND received_at_utc >= datetime('now', ?)
         GROUP BY date(received_at_utc)
         ORDER BY date(received_at_utc)
@@ -205,10 +214,36 @@ def hormuz_traffic_data():
                 "SELECT COUNT(*) FROM ais_messages WHERE received_at_utc >= datetime('now', ?)",
                 (f"-{hours} hours",),
             ).fetchone()[0]
+
+            hormuz_rows = conn.execute(
+                """
+                SELECT COUNT(*)
+                FROM ais_messages
+                WHERE received_at_utc >= datetime('now', ?)
+                  AND latitude BETWEEN ? AND ?
+                  AND longitude BETWEEN ? AND ?
+                """,
+                (
+                    f"-{hours} hours",
+                    HORMUZ_LAT_MIN,
+                    HORMUZ_LAT_MAX,
+                    HORMUZ_LON_MIN,
+                    HORMUZ_LON_MAX,
+                ),
+            ).fetchone()[0]
             last_received = conn.execute("SELECT MAX(received_at_utc) FROM ais_messages").fetchone()[0]
 
             rows = []
-            for date, northbound, southbound, tankers, lng in conn.execute(sql, (f"-{hours} hours",)).fetchall():
+            for date, northbound, southbound, tankers, lng in conn.execute(
+                sql,
+                (
+                    HORMUZ_LAT_MIN,
+                    HORMUZ_LAT_MAX,
+                    HORMUZ_LON_MIN,
+                    HORMUZ_LON_MAX,
+                    f"-{hours} hours",
+                ),
+            ).fetchall():
                 nb = int(northbound or 0)
                 sb = int(southbound or 0)
                 rows.append(
@@ -233,7 +268,14 @@ def hormuz_traffic_data():
             "db_path": str(DB_PATH),
             "meta": {
                 "raw_messages_in_window": int(total_rows or 0),
+                "hormuz_messages_in_window": int(hormuz_rows or 0),
                 "last_received_at_utc": last_received,
+                "hormuz_bbox": {
+                    "lat_min": HORMUZ_LAT_MIN,
+                    "lat_max": HORMUZ_LAT_MAX,
+                    "lon_min": HORMUZ_LON_MIN,
+                    "lon_max": HORMUZ_LON_MAX,
+                },
             },
         }
     )
