@@ -68,5 +68,25 @@ class TradeLogicTests(unittest.TestCase):
         self.assertAlmostEqual(trade, 0.06)
 
 
+class ParsingLogicTests(unittest.TestCase):
+    def test_extract_holdings_supports_security_name_and_exposure(self):
+        workbook = {
+            "Sheet1": pd.DataFrame(
+                [
+                    {"Security name": "", "Lev. expo. distr. (PF)": "100", "Model portfolio": ""},
+                    {"Security name": "Funds", "Lev. expo. distr. (PF)": "99,74", "Model portfolio": ""},
+                    {"Security name": "Fund A", "Lev. expo. distr. (PF)": "40,0%"},
+                    {"Security name": "Fund B", "Lev. expo. distr. (PF)": "60,0%"},
+                ]
+            )
+        }
+        workbook["Sheet1"]["Model portfolio"] = ["", "", "PBMN EQ", "PBMN FI"]
+        sheets = engine.detect_portfolio_sheets(workbook)
+        holdings = engine.extract_holdings(workbook, sheets)
+
+        self.assertEqual(len(holdings), 2)
+        self.assertAlmostEqual(float(holdings["weight"].sum()), 1.0)
+
+
 if __name__ == "__main__":
     unittest.main()

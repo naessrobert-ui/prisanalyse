@@ -21,6 +21,12 @@
 - UI: `/internal/portfolio-rebalancer/`
 - Export: `/internal/portfolio-rebalancer/export.xlsx`
 
+## Excel parsing notes
+- The parser now accepts several common column names for holdings and weights, including `Fund`, `Security name`, `Weight`, `Exposure`, and `Lev. expo...`.
+- If no portfolio sheet is auto-detected, the tool attempts all workbook sheets.
+- Supported file types: `.xlsx` and `.xlsm`.
+- If upload fails with file-size error, check `HANDLER_DB_UPLOAD_MAX_MB` and any proxy limits in front of Flask.
+
 ## Architecture
 - Calculation engine is isolated in `portfolio_rebalancer_engine.py`.
 - UI + request handling is in `portfolio_rebalancer_routes.py`.

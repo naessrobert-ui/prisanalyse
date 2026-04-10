@@ -7,8 +7,28 @@ from typing import Any
 import pandas as pd
 
 PORTFOLIO_SHEET_KEYWORDS = ("portfolio", "portef", "behold", "holding")
-FUND_NAME_ALIASES = ("fund", "fond", "instrument", "ticker", "name", "navn")
-WEIGHT_ALIASES = ("weight", "vekt", "allocation", "andel")
+FUND_NAME_ALIASES = (
+    "fund",
+    "fond",
+    "instrument",
+    "ticker",
+    "name",
+    "navn",
+    "security",
+    "security name",
+    "model portfolio",
+)
+WEIGHT_ALIASES = (
+    "weight",
+    "vekt",
+    "allocation",
+    "andel",
+    "exposure",
+    "expo",
+    "lev. expo",
+    "lev expo",
+    "lev",
+)
 
 
 @dataclass
@@ -46,20 +66,62 @@ def _pick_column(columns: list[str], aliases: tuple[str, ...]) -> str | None:
     return None
 
 
+def _parse_weight_value(value: Any) -> float | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if text == "":
+        return None
+    text = text.replace("%", "").replace("\u00a0", "").replace(" ", "")
+    if "," in text and "." not in text:
+        text = text.replace(",", ".")
+    else:
+        text = text.replace(",", "")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
 def extract_holdings(workbook: dict[str, pd.DataFrame], sheets: list[str]) -> pd.DataFrame:
     rows: list[PortfolioHolding] = []
+    attempted: list[str] = []
     for sheet in sheets:
         df = workbook[sheet]
-        fund_col = _pick_column(list(df.columns), FUND_NAME_ALIASES)
-        weight_col = _pick_column(list(df.columns), WEIGHT_ALIASES)
+        columns = list(df.columns)
+        normalized_to_source = {_normalize_col(c): c for c in columns}
+
+        # Prefer Nordea-style explicit columns if present.
+        fund_col = normalized_to_source.get("security name")
+        preferred_weight = None
+        for candidate in (
+            "lev. expo. distr. (pf)",
+            "lev. expo. distr.pre-sim.",
+            "lev. expo. distr., sim.",
+        ):
+            if candidate in normalized_to_source:
+                preferred_weight = normalized_to_source[candidate]
+                break
+
+        if not fund_col:
+            fund_col = _pick_column(columns, FUND_NAME_ALIASES)
+        weight_col = preferred_weight or _pick_column(columns, WEIGHT_ALIASES)
         if not fund_col or not weight_col:
+            attempted.append(f"{sheet}: columns={list(df.columns)}")
             continue
 
         subset = df[[fund_col, weight_col]].copy()
+        model_portfolio_col = normalized_to_source.get("model portfolio")
+        if model_portfolio_col and model_portfolio_col in df.columns:
+            subset[model_portfolio_col] = df[model_portfolio_col]
         subset[fund_col] = subset[fund_col].astype(str).str.strip()
-        subset[weight_col] = pd.to_numeric(subset[weight_col], errors="coerce")
+        subset[weight_col] = subset[weight_col].apply(_parse_weight_value)
         subset = subset.dropna(subset=[weight_col])
         subset = subset[subset[fund_col] != ""]
+        if model_portfolio_col and model_portfolio_col in subset.columns:
+            is_cash = subset[fund_col].str.startswith("PB Norway:", na=False)
+            has_model = subset[model_portfolio_col].astype(str).str.strip() != ""
+            subset = subset[is_cash | has_model]
 
         for _, row in subset.iterrows():
             rows.append(
@@ -71,7 +133,12 @@ def extract_holdings(workbook: dict[str, pd.DataFrame], sheets: list[str]) -> pd
             )
 
     if not rows:
-        raise RebalancerError("Fant ingen fond/vekter i valgte ark.")
+        details = "; ".join(attempted[:3])
+        raise RebalancerError(
+            "Fant ingen fond/vekter i valgte ark. Sjekk at arbeidsboken har kolonner som "
+            "f.eks. 'Fund'/'Security name' og 'Weight'/'Exposure'. "
+            f"Debug: {details}"
+        )
 
     holdings = pd.DataFrame([r.__dict__ for r in rows])
     totals = holdings.groupby("portfolio", as_index=False)["weight"].sum()
@@ -214,7 +281,17 @@ def workbook_to_frames(file_bytes: bytes) -> dict[str, pd.DataFrame]:
             "Excel-støtte mangler på serveren (openpyxl er ikke installert). "
             "Be drift installere openpyxl."
         ) from exc
-    return {sheet: pd.read_excel(xls, sheet_name=sheet) for sheet in xls.sheet_names}
+    frames: dict[str, pd.DataFrame] = {}
+    for sheet in xls.sheet_names:
+        df = pd.read_excel(xls, sheet_name=sheet)
+        normalized_cols = [_normalize_col(c) for c in df.columns]
+        if all(col.startswith("unnamed:") or col == "" for col in normalized_cols):
+            df_alt = pd.read_excel(BytesIO(file_bytes), sheet_name=sheet, header=1)
+            alt_cols = [_normalize_col(c) for c in df_alt.columns]
+            if any(any(alias in c for alias in FUND_NAME_ALIASES + WEIGHT_ALIASES) for c in alt_cols):
+                df = df_alt
+        frames[sheet] = df
+    return frames
 
 
 def export_results_to_excel(result_frames: dict[str, pd.DataFrame]) -> bytes:

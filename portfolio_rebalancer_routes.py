@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass
 from io import StringIO
 
 import pandas as pd
 from flask import Blueprint, make_response, render_template, request, session
+from werkzeug.exceptions import RequestEntityTooLarge
 
 import portfolio_rebalancer_engine as engine
 
@@ -14,6 +16,7 @@ portfolio_rebalancer_bp = Blueprint(
     __name__,
     url_prefix="/internal/portfolio-rebalancer",
 )
+_UPLOAD_LIMIT_MB = max(1, int((os.environ.get("HANDLER_DB_UPLOAD_MAX_MB", "300") or "300").strip() or "300"))
 
 DEFAULT_MAPPING = {
     "DNB Norge": "Equity Norway",
@@ -45,6 +48,27 @@ def _default_benchmark(portfolios: list[str]) -> list[dict[str, float | str]]:
     ]
 
 
+@portfolio_rebalancer_bp.errorhandler(RequestEntityTooLarge)
+def handle_too_large(_err):
+    return render_template(
+        "portfolio_rebalancer.html",
+        detected_sheets=[],
+        results_preview=[],
+        export_ready=False,
+        error_message=f"Filen er for stor for opplasting via appen (grense: {_UPLOAD_LIMIT_MB} MB).",
+        ui_state=asdict(
+            UiState(
+                mapping_json=json.dumps(DEFAULT_MAPPING, indent=2, ensure_ascii=False),
+                benchmark_json=json.dumps([], indent=2),
+                active_bets_json=json.dumps([], indent=2),
+                absolute_targets_json=json.dumps([], indent=2),
+                min_trade_threshold=0.01,
+                rebalance_mode="go_to_benchmark",
+            )
+        ),
+    ), 413
+
+
 @portfolio_rebalancer_bp.route("/", methods=["GET", "POST"])
 def index():
     detected_sheets: list[str] = []
@@ -72,10 +96,14 @@ def index():
         upload = request.files.get("workbook")
         if not upload or not upload.filename:
             error_message = "Velg en Excel-fil (.xlsx) før beregning."
+        elif not upload.filename.lower().endswith((".xlsx", ".xlsm")):
+            error_message = "Ugyldig filtype. Bruk .xlsx eller .xlsm."
         else:
             try:
                 workbook = engine.workbook_to_frames(upload.read())
                 detected_sheets = engine.detect_portfolio_sheets(workbook)
+                if not detected_sheets:
+                    detected_sheets = list(workbook.keys())
 
                 holdings = engine.extract_holdings(workbook, detected_sheets)
                 mapping = json.loads(ui_state.mapping_json)
