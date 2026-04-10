@@ -8,22 +8,14 @@
   <style>
     :root { color-scheme: dark; }
     body { font-family: Arial, sans-serif; margin: 0; background: #0b1220; color: #e2e8f0; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
     h1 { margin-bottom: 8px; }
     .muted { color: #94a3b8; margin-bottom: 18px; }
     .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
     .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
-    .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
-    .span-8 { grid-column: span 8; }
-    .span-4 { grid-column: span 4; }
-    .span-12 { grid-column: span 12; }
-    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
-    .kpi { background: #0b172a; border: 1px solid #1e293b; border-radius: 10px; padding: 12px; }
-    .kpi .label { color: #93c5fd; font-size: 0.85rem; }
-    .kpi .value { font-size: 1.35rem; font-weight: 700; margin-top: 6px; }
     button { background: #2563eb; color: white; border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
     button.secondary { background: #334155; }
-    textarea { width: 100%; min-height: 180px; background: #020617; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 10px; }
+    textarea { width: 100%; min-height: 160px; background: #020617; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 10px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
     th, td { border-bottom: 1px solid #1f2937; padding: 8px; text-align: left; }
     th { color: #93c5fd; }
@@ -31,19 +23,12 @@
     .status.ok { color: #34d399; }
     .status.warn { color: #f59e0b; }
     .status.error { color: #f87171; }
-    .small-note { margin-top: 8px; color: #94a3b8; font-size: 0.88rem; }
-    .chart-wrap { position: relative; min-height: 340px; }
-
-    @media (max-width: 960px) {
-      .span-8, .span-4, .span-12 { grid-column: span 12; }
-      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Skipstrafikk i Hormuz-stredet</h1>
-    <p class="muted">Visualisering med filtrering på Hormuz-området. Demo brukes kun når du trykker "Last demo-data".</p>
+    <p class="muted">Laster ekte data fra SQLite. Demo brukes kun når du trykker "Last demo-data".</p>
 
     <div class="card">
       <div class="toolbar">
@@ -54,47 +39,32 @@
         <a href="/hormuz/map" style="display:inline-block;padding:10px 14px;background:#0ea5e9;border-radius:8px;color:#fff;text-decoration:none;">Åpne Folium-kart</a>
       </div>
       <div id="statusLine" class="status">Klar.</div>
-      <div class="small-note" id="metaLine">Ingen data lastet enda.</div>
       <textarea id="jsonInput" placeholder='{"rows":[{"date":"2026-04-01","northbound":50,"southbound":45,"tankers":35,"lng":10}]}'></textarea>
     </div>
 
-    <div class="kpi-grid" id="kpiGrid">
-      <div class="kpi"><div class="label">Totalt skip (vindu)</div><div class="value" id="kpiTotal">-</div></div>
-      <div class="kpi"><div class="label">Nordgående</div><div class="value" id="kpiNorth">-</div></div>
-      <div class="kpi"><div class="label">Sørgående</div><div class="value" id="kpiSouth">-</div></div>
-      <div class="kpi"><div class="label">Andel tank/LNG</div><div class="value" id="kpiEnergy">-</div></div>
+    <div class="card">
+      <canvas id="trafficChart" height="120"></canvas>
     </div>
 
-    <div class="grid">
-      <div class="card span-8">
-        <h3>Trafikk per dag (stacked)</h3>
-        <div class="chart-wrap"><canvas id="trafficChart"></canvas></div>
-      </div>
-      <div class="card span-4">
-        <h3>Sammensetning</h3>
-        <div class="chart-wrap"><canvas id="mixChart"></canvas></div>
-      </div>
-      <div class="card span-12">
-        <table>
-          <thead>
-            <tr>
-              <th>Dato</th>
-              <th>Nordgående</th>
-              <th>Sørgående</th>
-              <th>Totalt</th>
-              <th>Tankskip</th>
-              <th>LNG</th>
-            </tr>
-          </thead>
-          <tbody id="trafficTableBody"></tbody>
-        </table>
-      </div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Dato</th>
+            <th>Nordgående</th>
+            <th>Sørgående</th>
+            <th>Totalt</th>
+            <th>Tankskip</th>
+            <th>LNG</th>
+          </tr>
+        </thead>
+        <tbody id="trafficTableBody"></tbody>
+      </table>
     </div>
   </div>
 
 <script>
-  let trafficChart;
-  let mixChart;
+  let chart;
 
   function setStatus(text, cls = '') {
     const el = document.getElementById('statusLine');
@@ -134,82 +104,29 @@
     });
   }
 
-  function renderTrafficChart(rows) {
+  function renderChart(rows) {
     const ctx = document.getElementById('trafficChart');
     const labels = rows.map(r => r.date);
-    if (trafficChart) trafficChart.destroy();
+    if (chart) chart.destroy();
 
-    trafficChart = new Chart(ctx, {
-      type: 'bar',
+    chart = new Chart(ctx, {
+      type: 'line',
       data: {
         labels,
         datasets: [
-          { label: 'Nordgående', data: rows.map(r => r.northbound), backgroundColor: '#60a5fa99', borderColor: '#60a5fa', borderWidth: 1, stack: 'direction' },
-          { label: 'Sørgående', data: rows.map(r => r.southbound), backgroundColor: '#34d39999', borderColor: '#34d399', borderWidth: 1, stack: 'direction' },
-          { label: 'Totalt (linje)', data: rows.map(r => r.total), type: 'line', borderColor: '#f59e0b', pointRadius: 3, tension: 0.2, yAxisID: 'y' }
+          { label: 'Nordgående', data: rows.map(r => r.northbound), borderColor: '#60a5fa', tension: 0.2 },
+          { label: 'Sørgående', data: rows.map(r => r.southbound), borderColor: '#34d399', tension: 0.2 },
+          { label: 'Totalt', data: rows.map(r => r.total), borderColor: '#f59e0b', tension: 0.2 }
         ]
       },
-      options: {
-        maintainAspectRatio: false,
-        responsive: true,
-        interaction: { mode: 'index', intersect: false },
-        plugins: { legend: { position: 'top' } },
-        scales: {
-          x: { stacked: true },
-          y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Antall skip' } }
-        }
-      }
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
-  }
-
-  function renderMixChart(rows) {
-    const ctx = document.getElementById('mixChart');
-    if (mixChart) mixChart.destroy();
-
-    const totalNorth = rows.reduce((acc, r) => acc + r.northbound, 0);
-    const totalSouth = rows.reduce((acc, r) => acc + r.southbound, 0);
-    const totalTankers = rows.reduce((acc, r) => acc + r.tankers, 0);
-    const totalLng = rows.reduce((acc, r) => acc + r.lng, 0);
-
-    mixChart = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: ['Nordgående', 'Sørgående', 'Tankskip', 'LNG'],
-        datasets: [{
-          data: [totalNorth, totalSouth, totalTankers, totalLng],
-          backgroundColor: ['#60a5fa', '#34d399', '#f59e0b', '#a78bfa']
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom' } }
-      }
-    });
-  }
-
-  function renderKPIs(rows) {
-    const totalNorth = rows.reduce((acc, r) => acc + r.northbound, 0);
-    const totalSouth = rows.reduce((acc, r) => acc + r.southbound, 0);
-    const totalTraffic = rows.reduce((acc, r) => acc + r.total, 0);
-    const totalEnergy = rows.reduce((acc, r) => acc + r.tankers + r.lng, 0);
-    const energyShare = totalTraffic > 0 ? ((totalEnergy / totalTraffic) * 100).toFixed(1) : '0.0';
-
-    document.getElementById('kpiTotal').textContent = totalTraffic;
-    document.getElementById('kpiNorth').textContent = totalNorth;
-    document.getElementById('kpiSouth').textContent = totalSouth;
-    document.getElementById('kpiEnergy').textContent = `${energyShare}%`;
   }
 
   function applyPayload(payload) {
     const rows = normalizeRows(payload.rows || payload);
     renderTable(rows);
-    renderTrafficChart(rows);
-    renderMixChart(rows);
-    renderKPIs(rows);
-
-    const source = payload.source || 'ukjent kilde';
-    const hours = payload.hours ? `${payload.hours}t` : 'valgt periode';
-    document.getElementById('metaLine').textContent = `Kilde: ${source}. Vindu: ${hours}. Dager vist: ${rows.length}.`;
+    renderChart(rows);
   }
 
   async function loadLive(hours = 24) {
@@ -226,12 +143,11 @@
 
     applyPayload(payload);
     const rawCount = payload.meta?.raw_messages_in_window ?? 0;
-    const filteredCount = payload.meta?.hormuz_messages_in_window ?? 0;
     const updated = payload.meta?.last_received_at_utc || '-';
     if (!payload.rows || payload.rows.length === 0) {
-      setStatus(`Ingen Hormuz-rader i valgt vindu (${hours}t). Råmeldinger: ${rawCount}. Hormuz-filter: ${filteredCount}. Siste melding: ${updated}`, 'warn');
+      setStatus(`Ingen rader i valgt vindu (${hours}t). Råmeldinger i vindu: ${rawCount}. Siste melding: ${updated}`, 'warn');
     } else {
-      setStatus(`Ekte data lastet: ${payload.rows.length} dager. Råmeldinger: ${rawCount}, Hormuz-filter: ${filteredCount}. Siste melding: ${updated}`, 'ok');
+      setStatus(`Ekte data lastet: ${payload.rows.length} dager, ${rawCount} råmeldinger siste ${hours}t. Siste melding: ${updated}`, 'ok');
     }
   }
 
