@@ -169,24 +169,34 @@ def compute_benchmark_exposures(benchmark_df: pd.DataFrame) -> pd.DataFrame:
         norway_share = float(r.get("norway_share_within_equity", 0.20))
         em_share = float(r.get("em_share_within_international_equity", 0.15))
 
-        equity_total = equity_share * 100.0
-        equity_norway = equity_total * norway_share
-        international_equity = equity_total - equity_norway
-        equity_em = international_equity * em_share
-        equity_dm = international_equity - equity_em
-        fi_total = 100.0 - equity_total
-        fi_norway = fi_total * 0.5
-        fi_global = fi_total - fi_norway
+        allocation_share      = float(r.get("allocation_share", 0.10))
+        fi_norway_within_fi   = float(r.get("fi_norway_within_fi", 0.50))
+        fi_long_within_norway = float(r.get("fi_long_within_norway_fi", 0.50))
+
+        equity_total    = equity_share * 100.0
+        allocation_pct  = allocation_share * 100.0
+
+        equity_norway       = equity_total * norway_share
+        international_eq    = equity_total - equity_norway
+        equity_em           = international_eq * em_share
+        equity_dm           = international_eq - equity_em
+
+        fi_total        = 100.0 - equity_total - allocation_pct
+        fi_total        = max(fi_total, 0.0)
+        fi_norway       = fi_total * fi_norway_within_fi
+        fi_global       = fi_total - fi_norway
+        fi_norway_long  = fi_norway * fi_long_within_norway
+        fi_norway_short = fi_norway - fi_norway_long
 
         rows.extend([
-            {"portfolio": portfolio, "category": "cash",                   "reference_weight_pct": 0.0},
-            {"portfolio": portfolio, "category": "allocation",             "reference_weight_pct": 0.0},
-            {"portfolio": portfolio, "category": "equity_norway",          "reference_weight_pct": equity_norway},
-            {"portfolio": portfolio, "category": "equity_global_developed","reference_weight_pct": equity_dm},
-            {"portfolio": portfolio, "category": "equity_global_em",       "reference_weight_pct": equity_em},
-            {"portfolio": portfolio, "category": "fi_norway_short",        "reference_weight_pct": fi_norway * 0.5},
-            {"portfolio": portfolio, "category": "fi_norway_long",         "reference_weight_pct": fi_norway * 0.5},
-            {"portfolio": portfolio, "category": "fi_global",              "reference_weight_pct": fi_global},
+            {"portfolio": portfolio, "category": "cash",                    "reference_weight_pct": 0.0},
+            {"portfolio": portfolio, "category": "allocation",              "reference_weight_pct": allocation_pct},
+            {"portfolio": portfolio, "category": "equity_norway",           "reference_weight_pct": equity_norway},
+            {"portfolio": portfolio, "category": "equity_global_developed", "reference_weight_pct": equity_dm},
+            {"portfolio": portfolio, "category": "equity_global_em",        "reference_weight_pct": equity_em},
+            {"portfolio": portfolio, "category": "fi_norway_short",         "reference_weight_pct": fi_norway_short},
+            {"portfolio": portfolio, "category": "fi_norway_long",          "reference_weight_pct": fi_norway_long},
+            {"portfolio": portfolio, "category": "fi_global",               "reference_weight_pct": fi_global},
         ])
     return pd.DataFrame(rows)
 
