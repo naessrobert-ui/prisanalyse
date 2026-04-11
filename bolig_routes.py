@@ -9,7 +9,6 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 import folium
-from folium.plugins import MarkerCluster
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 from collections import Counter
 import re
@@ -1312,6 +1311,9 @@ def bolig_omsetningskart_view():
     unsold_min_days = request.args.get("unsold_min_days", "").strip()
     run_analysis = request.args.get("run_analysis", "0") == "1"
     allow_all_norge = request.args.get("allow_all_norge", "0") == "1"
+    price_basis = request.args.get("price_basis", "m2")
+    if price_basis not in {"m2", "total"}:
+        price_basis = "m2"
 
     sold_limit = int(sold_within_days) if sold_within_days.isdigit() else None
     unsold_limit = int(unsold_min_days) if unsold_min_days.isdigit() else None
@@ -1337,6 +1339,7 @@ def bolig_omsetningskart_view():
                 "unsold_min_days": unsold_min_days,
                 "max_points": str(max_points),
                 "allow_all_norge": "1" if allow_all_norge else "0",
+                "price_basis": price_basis,
             },
             filter_options={
                 "fylker": alle_fylker,
@@ -1364,6 +1367,7 @@ def bolig_omsetningskart_view():
                 "unsold_min_days": unsold_min_days,
                 "max_points": str(max_points),
                 "allow_all_norge": "1" if allow_all_norge else "0",
+                "price_basis": price_basis,
             },
             filter_options={
                 "fylker": alle_fylker,
@@ -1437,6 +1441,8 @@ def bolig_omsetningskart_view():
                 "sold_within_days": sold_within_days,
                 "unsold_min_days": unsold_min_days,
                 "max_points": str(max_points),
+                "allow_all_norge": "1" if allow_all_norge else "0",
+                "price_basis": price_basis,
             },
             filter_options={
                 "fylker": alle_fylker,
@@ -1452,47 +1458,98 @@ def bolig_omsetningskart_view():
     center_lat = filtered["latitude"].mean()
     center_lon = filtered["longitude"].mean()
     m = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles="cartodbpositron")
-    cluster = MarkerCluster(name="Boliger").add_to(m)
+
+    if price_basis == "total":
+        price_series = pd.to_numeric(filtered.get("totalpris"), errors="coerce")
+        price_label = "Totalpris"
+    else:
+        price_series = pd.to_numeric(filtered.get("m2_pris"), errors="coerce")
+        if price_series.notna().sum() < 5:
+            price_series = pd.to_numeric(filtered.get("totalpris"), errors="coerce")
+            price_label = "Totalpris (fallback)"
+        else:
+            price_label = "M²-pris"
+
+    # Farge etter hastighet: laveste 20% (raskt) grønn, høyeste 20% (lang tid) rød.
+    duration_series = np.where(
+        filtered["er_avsluttet"],
+        pd.to_numeric(filtered["dager_total"], errors="coerce"),
+        pd.to_numeric(filtered["dager_aktiv"], errors="coerce"),
+    )
+    duration_series = pd.Series(duration_series, index=filtered.index)
+    dur_q20 = float(duration_series.quantile(0.20)) if duration_series.notna().any() else np.nan
+    dur_q80 = float(duration_series.quantile(0.80)) if duration_series.notna().any() else np.nan
 
     for _, row in filtered.iterrows():
         is_fast = sold_limit is not None and bool(row["er_avsluttet"]) and pd.notna(row["dager_total"]) and row["dager_total"] <= sold_limit
         is_slow = unsold_limit is not None and bool(row["er_aktiv"]) and pd.notna(row["dager_aktiv"]) and row["dager_aktiv"] >= unsold_limit
 
         if is_fast:
-            color = "green"
             status_txt = f"Solgt/fjernet raskt (≤ {sold_limit} dager)"
             dager_txt = int(row["dager_total"])
         elif is_slow:
-            color = "red"
             status_txt = f"Aktiv lenge (≥ {unsold_limit} dager)"
             dager_txt = int(row["dager_aktiv"])
         elif bool(row["er_avsluttet"]):
-            color = "blue"
             status_txt = "Solgt/fjernet"
             dager_txt = int(row["dager_total"]) if pd.notna(row["dager_total"]) else None
         else:
-            color = "orange"
             status_txt = "Aktiv, ikke solgt"
             dager_txt = int(row["dager_aktiv"]) if pd.notna(row["dager_aktiv"]) else None
+
+        price_val = pd.to_numeric(row.get("m2_pris"), errors="coerce")
+        if pd.isna(price_val):
+            price_val = pd.to_numeric(row.get("totalpris"), errors="coerce")
+        if dur_q20 == dur_q20 and dur_q80 == dur_q80:
+            duration_val = row["dager_total"] if bool(row["er_avsluttet"]) else row["dager_aktiv"]
+            if pd.notna(duration_val) and duration_val <= dur_q20:
+                color = "#2EAD4A"   # raskt
+            elif pd.notna(duration_val) and duration_val >= dur_q80:
+                color = "#D94841"   # tregt
+            else:
+                color = "#8f9bb3"   # resten
+        else:
+            color = "#8f9bb3"
+
+        # Størrelse etter prisnivå
+        p10 = float(price_series.quantile(0.10)) if price_series.notna().any() else np.nan
+        p90 = float(price_series.quantile(0.90)) if price_series.notna().any() else np.nan
+        if pd.notna(price_val) and p90 > p10:
+            norm = max(0.0, min(1.0, (float(price_val) - p10) / (p90 - p10)))
+            radius = 2.5 + norm * 7.5
+        else:
+            radius = 4.0
 
         popup_parts = [
             f"<b>{row.get('full_title', 'Uten tittel')}</b>",
             f"Adresse: {row.get('address', 'Ukjent')}",
             f"Status: {status_txt}",
         ]
+        finnkode = str(row.get("finnkode", "")).strip()
+        if finnkode and finnkode.lower() not in {"nan", "none"}:
+            popup_parts.append(f"FINN-kode: {finnkode}")
+            if finnkode.isdigit():
+                popup_parts.append(
+                    f"<a href='https://www.finn.no/realestate/homes/ad.html?finnkode={finnkode}' target='_blank' rel='noopener'>Åpne annonse på FINN</a>"
+                )
         if dager_txt is not None:
             popup_parts.append(f"Dager: {dager_txt}")
         if pd.notna(row.get("totalpris")):
             popup_parts.append(f"Totalpris: {int(row['totalpris']):,} kr".replace(",", " "))
+        if pd.notna(row.get("m2_pris")):
+            popup_parts.append(f"M²-pris: {int(float(row['m2_pris'])):,} kr".replace(",", " "))
+        if pd.notna(price_val):
+            popup_parts.append(f"Størrelse styres av: {price_label}")
 
         folium.CircleMarker(
             location=[row["latitude"], row["longitude"]],
-            radius=5,
+            radius=radius,
             color=color,
             fill=True,
-            fill_opacity=0.8,
+            fill_opacity=0.9,
+            weight=1,
             popup=folium.Popup("<br>".join(popup_parts), max_width=340),
-        ).add_to(cluster)
+        ).add_to(m)
 
     map_html = m._repr_html_()
     stats = {
@@ -1512,10 +1569,11 @@ def bolig_omsetningskart_view():
             "boligtype": valgt_boligtype,
             "nybrukt": valgt_nybrukt,
             "status": valgt_status,
-            "sold_within_days": sold_within_days,
-            "unsold_min_days": unsold_min_days,
-            "max_points": str(max_points),
-        },
+                "sold_within_days": sold_within_days,
+                "unsold_min_days": unsold_min_days,
+                "max_points": str(max_points),
+                "price_basis": price_basis,
+            },
         filter_options={
             "fylker": alle_fylker,
             "boligtyper": alle_typer,

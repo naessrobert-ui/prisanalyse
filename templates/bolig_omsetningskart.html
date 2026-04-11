@@ -30,7 +30,7 @@
     </section>
 
     <div class="row">
-      <div class="col-md-3">
+      <div class="col-md-2">
         <div class="filter-card">
           <h5>Filtre</h5>
           <form method="get">
@@ -88,6 +88,14 @@
               <input type="number" class="form-control" min="500" max="15000" name="max_points" value="{{ filter_values.max_points|default('5000') }}">
             </div>
 
+            <div class="mb-3">
+              <label class="form-label">Prisgrunnlag for markørstørrelse</label>
+              <select class="form-select" name="price_basis">
+                <option value="m2" {% if filter_values.price_basis != "total" %}selected{% endif %}>M²-pris</option>
+                <option value="total" {% if filter_values.price_basis == "total" %}selected{% endif %}>Totalpris</option>
+              </select>
+            </div>
+
             <div class="form-check mb-3">
               <input class="form-check-input" type="checkbox" name="allow_all_norge" value="1" id="allowAllNorge"
                      {% if filter_values.allow_all_norge == "1" %}checked{% endif %}>
@@ -104,7 +112,7 @@
         </div>
       </div>
 
-      <div class="col-md-9">
+      <div class="col-md-10">
         {% if error %}
           <div class="alert alert-warning">{{ error }}</div>
         {% endif %}
@@ -124,11 +132,11 @@
               </div>
             {% endif %}
             {% if using_thresholds %}
-              <p class="hint">Grønn = raskt solgt/fjernet, rød = lenge aktiv uten salg.</p>
+              <p class="hint">Grønn = raskeste 20%, rød = tregeste 20%, grå = resten. Størrelse følger valgt prisgrunnlag.</p>
             {% else %}
-              <p class="hint">Blå = solgt/fjernet, oransje = aktiv ikke solgt.</p>
+              <p class="hint">Grønn = raskeste 20%, rød = tregeste 20%, grå = resten. Størrelse følger valgt prisgrunnlag.</p>
             {% endif %}
-            <div style="height: 680px; width: 100%;">
+            <div style="height: 790px; width: 100%;">
               {{ map_html|safe }}
             </div>
           </div>
