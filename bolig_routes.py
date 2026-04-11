@@ -1310,9 +1310,71 @@ def bolig_omsetningskart_view():
     valgt_status = request.args.get("status", "Alle")
     sold_within_days = request.args.get("sold_within_days", "").strip()
     unsold_min_days = request.args.get("unsold_min_days", "").strip()
+    run_analysis = request.args.get("run_analysis", "0") == "1"
+    allow_all_norge = request.args.get("allow_all_norge", "0") == "1"
 
     sold_limit = int(sold_within_days) if sold_within_days.isdigit() else None
     unsold_limit = int(unsold_min_days) if unsold_min_days.isdigit() else None
+    max_points_raw = request.args.get("max_points", "5000").strip()
+    max_points = int(max_points_raw) if max_points_raw.isdigit() else 5000
+    max_points = max(500, min(max_points, 15000))
+
+    # To-trinns kjøring for bedre responstid:
+    # 1) Velg område/filter
+    # 2) Kjør analyse eksplisitt
+    if not run_analysis:
+        return render_template(
+            "bolig_omsetningskart.html",
+            error=None,
+            map_html=None,
+            stats=None,
+            filter_values={
+                "fylke": valgt_fylke,
+                "boligtype": valgt_boligtype,
+                "nybrukt": valgt_nybrukt,
+                "status": valgt_status,
+                "sold_within_days": sold_within_days,
+                "unsold_min_days": unsold_min_days,
+                "max_points": str(max_points),
+                "allow_all_norge": "1" if allow_all_norge else "0",
+            },
+            filter_options={
+                "fylker": alle_fylker,
+                "boligtyper": alle_typer,
+                "nybrukt": alle_nybrukt,
+                "status": status_options,
+            },
+            using_thresholds=False,
+            sampled=False,
+            needs_run=True,
+        )
+
+    if valgt_fylke == "Alle" and not allow_all_norge:
+        return render_template(
+            "bolig_omsetningskart.html",
+            error="Velg fylke først (anbefalt for fart), eller huk av for Hele Norge og kjør på nytt.",
+            map_html=None,
+            stats=None,
+            filter_values={
+                "fylke": valgt_fylke,
+                "boligtype": valgt_boligtype,
+                "nybrukt": valgt_nybrukt,
+                "status": valgt_status,
+                "sold_within_days": sold_within_days,
+                "unsold_min_days": unsold_min_days,
+                "max_points": str(max_points),
+                "allow_all_norge": "1" if allow_all_norge else "0",
+            },
+            filter_options={
+                "fylker": alle_fylker,
+                "boligtyper": alle_typer,
+                "nybrukt": alle_nybrukt,
+                "status": status_options,
+            },
+            using_thresholds=False,
+            sampled=False,
+            needs_run=True,
+        )
 
     filtered = df.copy()
     if valgt_fylke != "Alle" and "fylke" in filtered.columns:
@@ -1346,6 +1408,14 @@ def bolig_omsetningskart_view():
     filtered["latitude"] = pd.to_numeric(filtered["latitude"], errors="coerce")
     filtered["longitude"] = pd.to_numeric(filtered["longitude"], errors="coerce")
     filtered = filtered.dropna(subset=["latitude", "longitude"])
+    total_match_count = int(len(filtered))
+
+    # Beskyttelse mot timeout/502 i produksjon når veldig mange punkter matches.
+    # Vi viser et representativt utvalg i kartet, men beholder totalantall i stats.
+    sampled = False
+    if len(filtered) > max_points:
+        filtered = filtered.sample(n=max_points, random_state=42).copy()
+        sampled = True
 
     if filtered.empty:
         return render_template(
@@ -1360,6 +1430,7 @@ def bolig_omsetningskart_view():
                 "status": valgt_status,
                 "sold_within_days": sold_within_days,
                 "unsold_min_days": unsold_min_days,
+                "max_points": str(max_points),
             },
             filter_options={
                 "fylker": alle_fylker,
@@ -1368,6 +1439,8 @@ def bolig_omsetningskart_view():
                 "status": status_options,
             },
             using_thresholds=has_thresholds,
+            sampled=sampled,
+            needs_run=False,
         )
 
     center_lat = filtered["latitude"].mean()
@@ -1417,7 +1490,8 @@ def bolig_omsetningskart_view():
 
     map_html = m._repr_html_()
     stats = {
-        "count": int(len(filtered)),
+        "count": total_match_count,
+        "shown_count": int(len(filtered)),
         "sold_removed": int(filtered["er_avsluttet"].sum()),
         "active": int(filtered["er_aktiv"].sum()),
     }
@@ -1434,6 +1508,7 @@ def bolig_omsetningskart_view():
             "status": valgt_status,
             "sold_within_days": sold_within_days,
             "unsold_min_days": unsold_min_days,
+            "max_points": str(max_points),
         },
         filter_options={
             "fylker": alle_fylker,
@@ -1442,6 +1517,8 @@ def bolig_omsetningskart_view():
             "status": status_options,
         },
         using_thresholds=has_thresholds,
+        sampled=sampled,
+        needs_run=False,
     )
 
 # --------------------------------------------------
@@ -1942,7 +2019,7 @@ def bolig_kupp_view():
         group_cols = ["fylke", "boligtype", "eierform", "størrelsesbånd"]
 
         stats = (
-            df_local.groupby(group_cols)["M2-pris"]
+            df_local.groupby(group_cols, observed=False)["M2-pris"]
             .agg(referanse_M2="median", antall_i_segment="size")
             .reset_index()
         )

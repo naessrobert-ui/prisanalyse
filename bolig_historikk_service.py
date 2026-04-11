@@ -297,6 +297,7 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
 
     # M2-pris kan i enkelte masterfiler være feil/skjevt serialisert.
     # Reparer verdier som er tomme eller åpenbart urimelige ved å bruke totalpris/areal.
+    d["m2_pris"] = d["m2_pris"].astype(float)
     area_m2 = _parse_area_m2(d)
     with np.errstate(divide="ignore", invalid="ignore"):
         calc_m2 = d["totalpris"] / area_m2

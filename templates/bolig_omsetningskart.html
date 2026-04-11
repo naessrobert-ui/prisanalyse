@@ -34,6 +34,7 @@
         <div class="filter-card">
           <h5>Filtre</h5>
           <form method="get">
+            <input type="hidden" name="run_analysis" value="1">
             <div class="mb-2">
               <label class="form-label">Fylke</label>
               <select class="form-select" name="fylke">
@@ -82,7 +83,20 @@
               <input type="number" class="form-control" min="0" name="unsold_min_days" value="{{ filter_values.unsold_min_days }}" placeholder="f.eks. 90">
             </div>
 
-            <button class="btn btn-primary w-100" type="submit">Oppdater kart</button>
+            <div class="mb-3">
+              <label class="form-label">Maks punkter i kart</label>
+              <input type="number" class="form-control" min="500" max="15000" name="max_points" value="{{ filter_values.max_points|default('5000') }}">
+            </div>
+
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" name="allow_all_norge" value="1" id="allowAllNorge"
+                     {% if filter_values.allow_all_norge == "1" %}checked{% endif %}>
+              <label class="form-check-label" for="allowAllNorge">
+                Tillat Hele Norge (kan være tregt)
+              </label>
+            </div>
+
+            <button class="btn btn-primary w-100" type="submit">Kjør analyse</button>
           </form>
           <p class="hint mt-3 mb-0">
             Tips: Tøm begge feltene for X/Y for å vise alle boliger (både solgt/fjernet og aktive).
@@ -95,9 +109,20 @@
           <div class="alert alert-warning">{{ error }}</div>
         {% endif %}
 
+        {% if needs_run %}
+          <div class="alert alert-info">
+            Velg område/filter først, og trykk <strong>Kjør analyse</strong>. Dette gir raskere og mer stabil lasting.
+          </div>
+        {% endif %}
+
         {% if map_html %}
           <div class="map-wrapper-card">
             <h5>Kart</h5>
+            {% if sampled %}
+              <div class="alert alert-info py-2">
+                Viser et utvalg i kartet for hastighet. Treff totalt: {{ stats.count }}, vist i kart: {{ stats.shown_count }}.
+              </div>
+            {% endif %}
             {% if using_thresholds %}
               <p class="hint">Grønn = raskt solgt/fjernet, rød = lenge aktiv uten salg.</p>
             {% else %}
@@ -110,9 +135,10 @@
 
           {% if stats %}
             <div class="row mt-3">
-              <div class="col-md-4 mb-2"><div class="card card-body">Totalt: <strong>{{ stats.count }}</strong></div></div>
-              <div class="col-md-4 mb-2"><div class="card card-body">Solgt/fjernet: <strong>{{ stats.sold_removed }}</strong></div></div>
-              <div class="col-md-4 mb-2"><div class="card card-body">Aktive: <strong>{{ stats.active }}</strong></div></div>
+              <div class="col-md-3 mb-2"><div class="card card-body">Totalt: <strong>{{ stats.count }}</strong></div></div>
+              <div class="col-md-3 mb-2"><div class="card card-body">Vist i kart: <strong>{{ stats.shown_count }}</strong></div></div>
+              <div class="col-md-3 mb-2"><div class="card card-body">Solgt/fjernet: <strong>{{ stats.sold_removed }}</strong></div></div>
+              <div class="col-md-3 mb-2"><div class="card card-body">Aktive: <strong>{{ stats.active }}</strong></div></div>
             </div>
           {% endif %}
         {% endif %}
