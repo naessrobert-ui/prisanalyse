@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Omsetningskart – Boliganalyse{% endblock %}
+
+{% block content %}
+<style>
+  .page-wrapper { min-height: calc(100vh - 140px); padding: 40px 16px 60px; }
+  .glass-card-wide {
+    width: 100%; max-width: 1250px; margin: 0 auto;
+    background: radial-gradient(circle at top left, rgba(255,255,255,0.14), rgba(10,20,35,0.97));
+    border-radius: 26px; box-shadow: 0 28px 80px rgba(0, 0, 0, 0.80);
+    border: 1px solid rgba(255, 255, 255, 0.12); padding: 30px 34px; color: #f5f7fb;
+  }
+  .filter-card, .map-wrapper-card {
+    background-color: rgba(3, 14, 25, 0.9); border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06); padding: 16px;
+  }
+  .hint { font-size: 0.9rem; opacity: 0.85; }
+</style>
+
+<div class="page-wrapper">
+  <div class="glass-card-wide">
+    <section class="mb-4">
+      <p class="text-uppercase mb-1" style="letter-spacing: 0.18em; color: #9fb4d6;">BOLIGANALYSE</p>
+      <h1>Omsetningskart: raskt solgt vs lenge til salgs</h1>
+      <p>
+        Kartet bruker historiske boligannonser (inkludert solgt/fjernet) og aktive annonser.
+        Du kan vise boliger som ble solgt/fjernet innen <strong>X dager</strong>,
+        eller boliger som har ligget ute i minst <strong>Y dager</strong> uten å være solgt.
+      </p>
+    </section>
+
+    <div class="row">
+      <div class="col-md-2">
+        <div class="filter-card">
+          <h5>Filtre</h5>
+          <form method="get">
+            <input type="hidden" name="run_analysis" value="1">
+            <div class="mb-2">
+              <label class="form-label">Fylke</label>
+              <select class="form-select" name="fylke">
+                <option value="Alle" {% if filter_values.fylke == "Alle" %}selected{% endif %}>Alle fylker</option>
+                {% for f in filter_options.fylker %}
+                  <option value="{{ f }}" {% if filter_values.fylke == f %}selected{% endif %}>{{ f }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Boligtype</label>
+              <select class="form-select" name="boligtype">
+                <option value="Alle" {% if filter_values.boligtype == "Alle" %}selected{% endif %}>Alle typer</option>
+                {% for t in filter_options.boligtyper %}
+                  <option value="{{ t }}" {% if filter_values.boligtype == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Ny / Brukt</label>
+              <select class="form-select" name="nybrukt">
+                {% for n in filter_options.nybrukt %}
+                  <option value="{{ n }}" {% if filter_values.nybrukt == n %}selected{% endif %}>{{ n }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Status (brukes når X/Y er tomme)</label>
+              <select class="form-select" name="status">
+                {% for s in filter_options.status %}
+                  <option value="{{ s }}" {% if filter_values.status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Solgt/fjernet innen X dager</label>
+              <input type="number" class="form-control" min="0" name="sold_within_days" value="{{ filter_values.sold_within_days }}" placeholder="f.eks. 14">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Ikke solgt, minst Y dager ute</label>
+              <input type="number" class="form-control" min="0" name="unsold_min_days" value="{{ filter_values.unsold_min_days }}" placeholder="f.eks. 90">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Maks punkter i kart</label>
+              <input type="number" class="form-control" min="500" max="15000" name="max_points" value="{{ filter_values.max_points|default('5000') }}">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Prisgrunnlag for markørstørrelse</label>
+              <select class="form-select" name="price_basis">
+                <option value="m2" {% if filter_values.price_basis != "total" %}selected{% endif %}>M²-pris</option>
+                <option value="total" {% if filter_values.price_basis == "total" %}selected{% endif %}>Totalpris</option>
+              </select>
+            </div>
+
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" name="allow_all_norge" value="1" id="allowAllNorge"
+                     {% if filter_values.allow_all_norge == "1" %}checked{% endif %}>
+              <label class="form-check-label" for="allowAllNorge">
+                Tillat Hele Norge (kan være tregt)
+              </label>
+            </div>
+
+            <button class="btn btn-primary w-100" type="submit">Kjør analyse</button>
+          </form>
+          <p class="hint mt-3 mb-0">
+            Tips: Tøm begge feltene for X/Y for å vise alle boliger (både solgt/fjernet og aktive).
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-10">
+        {% if error %}
+          <div class="alert alert-warning">{{ error }}</div>
+        {% endif %}
+
+        {% if needs_run %}
+          <div class="alert alert-info">
+            Velg område/filter først, og trykk <strong>Kjør analyse</strong>. Dette gir raskere og mer stabil lasting.
+          </div>
+        {% endif %}
+
+        {% if map_html %}
+          <div class="map-wrapper-card">
+            <h5>Kart</h5>
+            {% if sampled %}
+              <div class="alert alert-info py-2">
+                Viser et utvalg i kartet for hastighet. Treff totalt: {{ stats.count }}, vist i kart: {{ stats.shown_count }}.
+              </div>
+            {% endif %}
+            {% if using_thresholds %}
+              <p class="hint">Grønn = raskeste 20%, rød = tregeste 20%, grå = resten. Størrelse følger valgt prisgrunnlag.</p>
+            {% else %}
+              <p class="hint">Grønn = raskeste 20%, rød = tregeste 20%, grå = resten. Størrelse følger valgt prisgrunnlag.</p>
+            {% endif %}
+            <div style="height: 790px; width: 100%;">
+              {{ map_html|safe }}
+            </div>
+          </div>
+
+          {% if stats %}
+            <div class="row mt-3">
+              <div class="col-md-3 mb-2"><div class="card card-body">Totalt: <strong>{{ stats.count }}</strong></div></div>
+              <div class="col-md-3 mb-2"><div class="card card-body">Vist i kart: <strong>{{ stats.shown_count }}</strong></div></div>
+              <div class="col-md-3 mb-2"><div class="card card-body">Solgt/fjernet: <strong>{{ stats.sold_removed }}</strong></div></div>
+              <div class="col-md-3 mb-2"><div class="card card-body">Aktive: <strong>{{ stats.active }}</strong></div></div>
+            </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
