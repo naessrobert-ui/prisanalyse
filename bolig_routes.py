@@ -1787,11 +1787,79 @@ def bolig_kupp_view():
 
         return df_local
 
+    def _resolve_sold_flag(df_local: pd.DataFrame) -> pd.Series:
+        """
+        Prøv å finne hvilke annonser som er solgt basert på tilgjengelige tekstfelter.
+        Returnerer boolsk serie med samme index som input.
+        """
+        sold_tokens = ("solgt", "sold", "overtatt")
+        negative_tokens = ("ikke solgt", "usolgt", "for salgs", "til salgs", "aktiv")
+
+        status_candidates = [
+            c for c in df_local.columns
+            if any(k in c.lower() for k in ["status", "state", "utfall", "resultat"])
+        ]
+
+        sold = pd.Series(False, index=df_local.index)
+        for col in status_candidates:
+            s = df_local[col].fillna("").astype(str).str.lower().str.strip()
+            has_sold_word = s.apply(lambda v: any(tok in v for tok in sold_tokens))
+            has_negative_word = s.apply(lambda v: any(tok in v for tok in negative_tokens))
+            sold = sold | (has_sold_word & ~has_negative_word)
+
+        return sold
+
+    def _add_quick_sale_benchmark(
+        df_local: pd.DataFrame,
+        quick_sale_days: int,
+    ) -> pd.DataFrame:
+        """
+        Lager referanse basert på boliger som ser ut til å være solgt raskt.
+        """
+        df_local = df_local.copy()
+        df_local["sold_flag"] = _resolve_sold_flag(df_local)
+
+        if "dager_på_markedet" not in df_local.columns:
+            df_local["dager_på_markedet"] = _resolve_days_on_market(df_local)
+
+        group_cols = ["fylke", "boligtype", "eierform", "størrelsesbånd"]
+        quick_sales = df_local[
+            (df_local["sold_flag"])
+            & (pd.to_numeric(df_local["dager_på_markedet"], errors="coerce").notna())
+            & (pd.to_numeric(df_local["dager_på_markedet"], errors="coerce") <= quick_sale_days)
+        ].copy()
+
+        if quick_sales.empty:
+            df_local["quick_ref_M2"] = np.nan
+            df_local["quick_sale_count"] = 0
+            df_local["quick_discount_pct"] = np.nan
+            return df_local
+
+        quick_stats = (
+            quick_sales.groupby(group_cols)["M2-pris"]
+            .agg(quick_ref_M2="median", quick_sale_count="size")
+            .reset_index()
+        )
+        df_local = df_local.merge(quick_stats, on=group_cols, how="left")
+        df_local["quick_sale_count"] = (
+            pd.to_numeric(df_local["quick_sale_count"], errors="coerce")
+            .fillna(0)
+            .astype(int)
+        )
+        df_local["quick_discount_pct"] = (
+            df_local["quick_ref_M2"] - df_local["M2-pris"]
+        ) / df_local["quick_ref_M2"]
+        return df_local
+
     # ---- Rensing og beregning ----------------------
 
     try:
         df = _clean_kupp_data(df_raw)
         df = _add_segment_underpricing(df)
+        df = _add_quick_sale_benchmark(
+            df,
+            quick_sale_days=int(request.args.get("quick_sale_days", 14)),
+        )
     except Exception as e:
         return render_template(
             "bolig_kupp.html",
@@ -1810,6 +1878,11 @@ def bolig_kupp_view():
     top_n = int(request.args.get("top_n", 50))
     kun_dyre = request.args.get("kun_dyre", "0") == "1"
     min_dyrt_nivå = int(request.args.get("min_dyrt_nivå", 60000))
+    max_days_on_market = int(request.args.get("max_days_on_market", 120))
+    use_quick_sale_ref = request.args.get("use_quick_sale_ref", "1") == "1"
+    quick_sale_days = int(request.args.get("quick_sale_days", 14))
+    min_quick_sale_count = int(request.args.get("min_quick_sale_count", 5))
+    min_quick_discount_pct = float(request.args.get("min_quick_discount_pct", 5.0))
 
     sub = df.copy()
 
@@ -1822,6 +1895,13 @@ def bolig_kupp_view():
     if eierform != "Alle":
         sub = sub[sub["eierform"] == eierform]
 
+    # Tidsfilter (reduserer "støy" fra gamle annonser)
+    if "dager_på_markedet" in sub.columns:
+        sub = sub[
+            pd.to_numeric(sub["dager_på_markedet"], errors="coerce").fillna(9999)
+            <= max_days_on_market
+        ]
+
     # Segment-krav
     sub = sub[
         (sub["antall_i_segment"] >= min_segment_size)
@@ -1830,6 +1910,13 @@ def bolig_kupp_view():
 
     if kun_dyre:
         sub = sub[sub["referanse_M2"] >= min_dyrt_nivå]
+
+    # Ekstra kvalitetssjekk mot raske salg
+    if use_quick_sale_ref:
+        sub = sub[
+            (pd.to_numeric(sub.get("quick_sale_count", 0), errors="coerce").fillna(0) >= min_quick_sale_count)
+            & (pd.to_numeric(sub.get("quick_discount_pct"), errors="coerce") > min_quick_discount_pct / 100.0)
+        ]
 
     if len(sub) == 0:
         return render_template(
@@ -1849,6 +1936,11 @@ def bolig_kupp_view():
             top_n=top_n,
             kun_dyre=kun_dyre,
             min_dyrt_nivå=min_dyrt_nivå,
+            max_days_on_market=max_days_on_market,
+            use_quick_sale_ref=use_quick_sale_ref,
+            quick_sale_days=quick_sale_days,
+            min_quick_sale_count=min_quick_sale_count,
+            min_quick_discount_pct=min_quick_discount_pct,
         )
 
     # Sorter og begrens topp N
@@ -1879,6 +1971,9 @@ def bolig_kupp_view():
         up_kr = row["underpris_kr"]
         areal = row["areal_m2"]
         tot = row.get("totalpris", np.nan)
+        quick_ref = row.get("quick_ref_M2", np.nan)
+        quick_discount = row.get("quick_discount_pct", np.nan)
+        quick_n = row.get("quick_sale_count", 0)
 
         finnkode = row.get("finnkode")
         finnline = ""
@@ -1906,6 +2001,12 @@ def bolig_kupp_view():
 
         if pd.notna(tot):
             popup_html += f"<br>Totalpris: {tot:,.0f} kr".replace(",", " ")
+        if pd.notna(quick_ref):
+            popup_html += (
+                f"<br>Rask-salg ref (≤{quick_sale_days} dager): {quick_ref:,.0f} kr/m²"
+                f"<br>Under rask-salg nivå: {(quick_discount * 100):.1f}% "
+                f"(n={int(quick_n)})"
+            ).replace(",", " ")
 
         popup_html += finnline
 
@@ -1942,15 +2043,23 @@ def bolig_kupp_view():
         "underpris_pct",
         "underpris_kr",
         "antall_i_segment",
+        "quick_ref_M2",
+        "quick_discount_pct",
+        "quick_sale_count",
+        "dager_på_markedet",
         "finnkode",
     ]
     display_cols = [c for c in display_cols if c in sub.columns]
 
     table_df = sub[display_cols].copy()
     table_df["underpris_pct"] = (table_df["underpris_pct"] * 100).round(1)
+    if "quick_discount_pct" in table_df.columns:
+        table_df["quick_discount_pct"] = (table_df["quick_discount_pct"] * 100).round(1)
     for col in ["M2-pris", "referanse_M2", "underpris_kr"]:
         if col in table_df.columns:
             table_df[col] = table_df[col].round(0).astype("Int64")
+    if "quick_ref_M2" in table_df.columns:
+        table_df["quick_ref_M2"] = table_df["quick_ref_M2"].round(0).astype("Int64")
 
      # 🔹 GJØR FINNKODE KLIKKBAR
     if "finnkode" in table_df.columns:
@@ -1990,6 +2099,11 @@ def bolig_kupp_view():
         top_n=top_n,
         kun_dyre=kun_dyre,
         min_dyrt_nivå=min_dyrt_nivå,
+        max_days_on_market=max_days_on_market,
+        use_quick_sale_ref=use_quick_sale_ref,
+        quick_sale_days=quick_sale_days,
+        min_quick_sale_count=min_quick_sale_count,
+        min_quick_discount_pct=min_quick_discount_pct,
         antall_kandidater=len(sub),
         map_html=map_html,
         table_html=table_html,
