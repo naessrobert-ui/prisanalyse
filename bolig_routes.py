@@ -1273,6 +1273,177 @@ def bolig_varmekart_view():
         },
     )
 
+
+@bolig_bp.route("/omsetningskart/")
+def bolig_omsetningskart_view():
+    """
+    Kart over boliger som er solgt/fjernet raskt, eller aktive boliger som har ligget lenge.
+    """
+    base_df = load_normalized_master_cached(HIST_CFG.s3_bucket, HIST_CFG.master_key)
+    if base_df is None or base_df.empty:
+        return render_template(
+            "bolig_omsetningskart.html",
+            error="Fant ingen historiske boligdata å vise.",
+            map_html=None,
+            stats=None,
+            filter_values={},
+            filter_options={},
+        )
+
+    df = base_df.copy()
+    df["start_dato"] = df["publisert_dato"].fillna(df["dato_første"])
+    today = pd.Timestamp.today().normalize()
+    df["er_aktiv"] = (df["start_dato"] <= today) & (df["dato_siste"] >= today)
+    df["er_avsluttet"] = df["dato_siste"] < today
+    df["dager_total"] = (df["dato_siste"] - df["start_dato"]).dt.days
+    df["dager_aktiv"] = (today - df["start_dato"]).dt.days
+
+    # Filtervalg
+    alle_fylker = sorted(df["fylke"].dropna().astype(str).unique().tolist()) if "fylke" in df.columns else []
+    alle_typer = sorted(df["boligtype"].dropna().astype(str).unique().tolist()) if "boligtype" in df.columns else []
+    alle_nybrukt = ["Alle", "Brukt", "Nybygg"]
+    status_options = ["Alle", "Solgt/fjernet", "Aktive ikke solgt"]
+
+    valgt_fylke = request.args.get("fylke", "Alle")
+    valgt_boligtype = request.args.get("boligtype", "Alle")
+    valgt_nybrukt = request.args.get("nybrukt", "Alle")
+    valgt_status = request.args.get("status", "Alle")
+    sold_within_days = request.args.get("sold_within_days", "").strip()
+    unsold_min_days = request.args.get("unsold_min_days", "").strip()
+
+    sold_limit = int(sold_within_days) if sold_within_days.isdigit() else None
+    unsold_limit = int(unsold_min_days) if unsold_min_days.isdigit() else None
+
+    filtered = df.copy()
+    if valgt_fylke != "Alle" and "fylke" in filtered.columns:
+        filtered = filtered[filtered["fylke"] == valgt_fylke]
+    if valgt_boligtype != "Alle" and "boligtype" in filtered.columns:
+        filtered = filtered[filtered["boligtype"] == valgt_boligtype]
+    if valgt_nybrukt == "Brukt":
+        filtered = filtered[filtered["ny_brukt"].astype(str).str.lower() == "brukt"]
+    elif valgt_nybrukt == "Nybygg":
+        filtered = filtered[filtered["ny_brukt"].astype(str).str.lower().isin(["nybygg", "ny", "nytt"])]
+
+    has_thresholds = sold_limit is not None or unsold_limit is not None
+    if has_thresholds:
+        fast_mask = pd.Series(False, index=filtered.index)
+        slow_mask = pd.Series(False, index=filtered.index)
+
+        if sold_limit is not None:
+            fast_mask = filtered["er_avsluttet"] & filtered["dager_total"].notna() & (filtered["dager_total"] <= sold_limit)
+        if unsold_limit is not None:
+            slow_mask = filtered["er_aktiv"] & filtered["dager_aktiv"].notna() & (filtered["dager_aktiv"] >= unsold_limit)
+
+        filtered = filtered[fast_mask | slow_mask].copy()
+    else:
+        if valgt_status == "Solgt/fjernet":
+            filtered = filtered[filtered["er_avsluttet"]].copy()
+        elif valgt_status == "Aktive ikke solgt":
+            filtered = filtered[filtered["er_aktiv"]].copy()
+        else:
+            filtered = filtered[(filtered["er_aktiv"] | filtered["er_avsluttet"])].copy()
+
+    filtered["latitude"] = pd.to_numeric(filtered["latitude"], errors="coerce")
+    filtered["longitude"] = pd.to_numeric(filtered["longitude"], errors="coerce")
+    filtered = filtered.dropna(subset=["latitude", "longitude"])
+
+    if filtered.empty:
+        return render_template(
+            "bolig_omsetningskart.html",
+            error="Ingen boliger matcher filtrene.",
+            map_html=None,
+            stats=None,
+            filter_values={
+                "fylke": valgt_fylke,
+                "boligtype": valgt_boligtype,
+                "nybrukt": valgt_nybrukt,
+                "status": valgt_status,
+                "sold_within_days": sold_within_days,
+                "unsold_min_days": unsold_min_days,
+            },
+            filter_options={
+                "fylker": alle_fylker,
+                "boligtyper": alle_typer,
+                "nybrukt": alle_nybrukt,
+                "status": status_options,
+            },
+            using_thresholds=has_thresholds,
+        )
+
+    center_lat = filtered["latitude"].mean()
+    center_lon = filtered["longitude"].mean()
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles="cartodbpositron")
+    cluster = MarkerCluster(name="Boliger").add_to(m)
+
+    for _, row in filtered.iterrows():
+        is_fast = sold_limit is not None and bool(row["er_avsluttet"]) and pd.notna(row["dager_total"]) and row["dager_total"] <= sold_limit
+        is_slow = unsold_limit is not None and bool(row["er_aktiv"]) and pd.notna(row["dager_aktiv"]) and row["dager_aktiv"] >= unsold_limit
+
+        if is_fast:
+            color = "green"
+            status_txt = f"Solgt/fjernet raskt (≤ {sold_limit} dager)"
+            dager_txt = int(row["dager_total"])
+        elif is_slow:
+            color = "red"
+            status_txt = f"Aktiv lenge (≥ {unsold_limit} dager)"
+            dager_txt = int(row["dager_aktiv"])
+        elif bool(row["er_avsluttet"]):
+            color = "blue"
+            status_txt = "Solgt/fjernet"
+            dager_txt = int(row["dager_total"]) if pd.notna(row["dager_total"]) else None
+        else:
+            color = "orange"
+            status_txt = "Aktiv, ikke solgt"
+            dager_txt = int(row["dager_aktiv"]) if pd.notna(row["dager_aktiv"]) else None
+
+        popup_parts = [
+            f"<b>{row.get('full_title', 'Uten tittel')}</b>",
+            f"Adresse: {row.get('address', 'Ukjent')}",
+            f"Status: {status_txt}",
+        ]
+        if dager_txt is not None:
+            popup_parts.append(f"Dager: {dager_txt}")
+        if pd.notna(row.get("totalpris")):
+            popup_parts.append(f"Totalpris: {int(row['totalpris']):,} kr".replace(",", " "))
+
+        folium.CircleMarker(
+            location=[row["latitude"], row["longitude"]],
+            radius=5,
+            color=color,
+            fill=True,
+            fill_opacity=0.8,
+            popup=folium.Popup("<br>".join(popup_parts), max_width=340),
+        ).add_to(cluster)
+
+    map_html = m._repr_html_()
+    stats = {
+        "count": int(len(filtered)),
+        "sold_removed": int(filtered["er_avsluttet"].sum()),
+        "active": int(filtered["er_aktiv"].sum()),
+    }
+
+    return render_template(
+        "bolig_omsetningskart.html",
+        error=None,
+        map_html=map_html,
+        stats=stats,
+        filter_values={
+            "fylke": valgt_fylke,
+            "boligtype": valgt_boligtype,
+            "nybrukt": valgt_nybrukt,
+            "status": valgt_status,
+            "sold_within_days": sold_within_days,
+            "unsold_min_days": unsold_min_days,
+        },
+        filter_options={
+            "fylker": alle_fylker,
+            "boligtyper": alle_typer,
+            "nybrukt": alle_nybrukt,
+            "status": status_options,
+        },
+        using_thresholds=has_thresholds,
+    )
+
 # --------------------------------------------------
 # BUZZ-ANALYSE – HJELPEFUNKSJONER
 # --------------------------------------------------
