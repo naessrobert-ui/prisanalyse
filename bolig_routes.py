@@ -1408,6 +1408,12 @@ def bolig_omsetningskart_view():
     filtered["latitude"] = pd.to_numeric(filtered["latitude"], errors="coerce")
     filtered["longitude"] = pd.to_numeric(filtered["longitude"], errors="coerce")
     filtered = filtered.dropna(subset=["latitude", "longitude"])
+    filtered = filtered[
+        (filtered["latitude"] >= 57.0)
+        & (filtered["latitude"] <= 72.0)
+        & (filtered["longitude"] >= 4.0)
+        & (filtered["longitude"] <= 32.0)
+    ]
     total_match_count = int(len(filtered))
 
     # Beskyttelse mot timeout/502 i produksjon når veldig mange punkter matches.

@@ -229,6 +229,17 @@ def _parse_number_series(series: pd.Series) -> pd.Series:
 
     return pd.to_numeric(s, errors="coerce")
 
+def _parse_coordinate_series(series: pd.Series) -> pd.Series:
+    """
+    Parser koordinater uten å ødelegge desimalpunkt (f.eks. 59.913).
+    """
+    s = series.astype(str)
+    s = s.str.replace("\u00a0", "", regex=False)
+    s = s.str.replace(" ", "", regex=False)
+    s = s.str.replace(",", ".", regex=False)
+    s = s.str.replace(r"[^0-9\.-]", "", regex=True)
+    return pd.to_numeric(s, errors="coerce")
+
 
 def _parse_area_m2(df: pd.DataFrame) -> pd.Series:
     # NB: "size" i master kan være antall rom (3, 4, 5 ...) og må ikke brukes som areal.
@@ -292,8 +303,10 @@ def normalize_master(df: pd.DataFrame) -> pd.DataFrame:
     d["dato_prisendring"] = _parse_datetime_series(d["dato_prisendring"], normalize=True)
 
     # Numerics
-    for col in ["totalpris", "m2_pris", "latitude", "longitude", "pris_første", "pris_ny"]:
+    for col in ["totalpris", "m2_pris", "pris_første", "pris_ny"]:
         d[col] = _parse_number_series(d[col])
+    d["latitude"] = _parse_coordinate_series(d["latitude"])
+    d["longitude"] = _parse_coordinate_series(d["longitude"])
 
     # M2-pris kan i enkelte masterfiler være feil/skjevt serialisert.
     # Reparer verdier som er tomme eller åpenbart urimelige ved å bruke totalpris/areal.
