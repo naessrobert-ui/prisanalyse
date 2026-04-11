@@ -19,6 +19,22 @@ import numpy as np
 import pandas as pd
 
 GOOD_DEAL_THRESHOLD = 10
+MIN_KM_PER_YEAR_FOR_MODEL = 4_000
+
+
+def _normaliser_kjorelengde_for_modell(alder, kjorelengde):
+    """Hindrer urealistisk lav km fra å gi for høy predikert pris."""
+    alder_arr = np.asarray(alder, dtype=float)
+    km_arr = np.asarray(kjorelengde, dtype=float)
+
+    min_km = np.maximum(alder_arr, 0) * MIN_KM_PER_YEAR_FOR_MODEL
+    # Behold rapportert km for nye biler, men legg gulv for eldre kjøretøy.
+    justert = np.where(alder_arr >= 10, np.maximum(km_arr, min_km), km_arr)
+    justert = np.maximum(justert, 0)
+
+    if np.ndim(justert) == 0:
+        return float(justert)
+    return justert
 
 # ---- Modell-cache (trådsikker, lastes én gang) ----
 _MODEL_LOCK = threading.Lock()
@@ -153,13 +169,15 @@ def prediker_pris(bil: dict, modeller: dict):
     if seg1 in modeller.get("nivaa_1", {}):
         m = modeller["nivaa_1"][seg1]
         hjul_enc = m["hjuldrift_map"].get(bil.get("hjuldrift", "Ukjent"), -1)
-        X = np.array([[bil["alder"], bil["kjørelengde"], hjul_enc]])
+        model_km = _normaliser_kjorelengde_for_modell(bil["alder"], bil["kjørelengde"])
+        X = np.array([[bil["alder"], model_km, hjul_enc]])
         return float(m["model"].predict(X)[0]), "Nivå 1"
 
     if seg2 in modeller.get("nivaa_2", {}):
         m = modeller["nivaa_2"][seg2]
         hjul_enc = m["hjuldrift_map"].get(bil.get("hjuldrift", "Ukjent"), -1)
-        X = np.array([[bil["alder"], bil["kjørelengde"], hjul_enc]])
+        model_km = _normaliser_kjorelengde_for_modell(bil["alder"], bil["kjørelengde"])
+        X = np.array([[bil["alder"], model_km, hjul_enc]])
         return float(m["model"].predict(X)[0]), "Nivå 2"
 
     if modeller.get("generell") is not None:
@@ -168,7 +186,8 @@ def prediker_pris(bil: dict, modeller: dict):
         modell_enc = m["modell_map"].get(bil.get("Modell", "Ukjent"), -1)
         driv_enc = m["driv_map"].get(bil.get("drivstoff", "Ukjent"), -1)
         hjul_enc = m["hjul_map"].get(bil.get("hjuldrift", "Ukjent"), -1)
-        X = np.array([[bil["alder"], bil["kjørelengde"],
+        model_km = _normaliser_kjorelengde_for_modell(bil["alder"], bil["kjørelengde"])
+        X = np.array([[bil["alder"], model_km,
                         prod_enc, modell_enc, driv_enc, hjul_enc]])
         return float(m["model"].predict(X)[0]), "Generell"
 
@@ -233,7 +252,8 @@ def scorer_biler(df: pd.DataFrame, modeller: dict, threshold: int = GOOD_DEAL_TH
             continue
         sub = df.loc[mask]
         hjul_enc = sub["hjuldrift"].map(m["hjuldrift_map"]).fillna(-1).astype(int)
-        X = np.column_stack([sub["alder"].values, sub["kjørelengde"].values, hjul_enc.values])
+        model_km = _normaliser_kjorelengde_for_modell(sub["alder"].values, sub["kjørelengde"].values)
+        X = np.column_stack([sub["alder"].values, model_km, hjul_enc.values])
         df.loc[mask, "forventet_pris"] = m["model"].predict(X)
         df.loc[mask, "modell_nivaa"] = "Nivå 1"
 
@@ -245,7 +265,8 @@ def scorer_biler(df: pd.DataFrame, modeller: dict, threshold: int = GOOD_DEAL_TH
             continue
         sub = df.loc[mask]
         hjul_enc = sub["hjuldrift"].map(m["hjuldrift_map"]).fillna(-1).astype(int)
-        X = np.column_stack([sub["alder"].values, sub["kjørelengde"].values, hjul_enc.values])
+        model_km = _normaliser_kjorelengde_for_modell(sub["alder"].values, sub["kjørelengde"].values)
+        X = np.column_stack([sub["alder"].values, model_km, hjul_enc.values])
         df.loc[mask, "forventet_pris"] = m["model"].predict(X)
         df.loc[mask, "modell_nivaa"] = "Nivå 2"
 
@@ -260,7 +281,7 @@ def scorer_biler(df: pd.DataFrame, modeller: dict, threshold: int = GOOD_DEAL_TH
             driv_enc   = sub["drivstoff"].map(m["driv_map"]).fillna(-1).astype(int)
             hjul_enc   = sub["hjuldrift"].map(m["hjul_map"]).fillna(-1).astype(int)
             X = np.column_stack([
-                sub["alder"].values, sub["kjørelengde"].values,
+                sub["alder"].values, _normaliser_kjorelengde_for_modell(sub["alder"].values, sub["kjørelengde"].values),
                 prod_enc.values, modell_enc.values, driv_enc.values, hjul_enc.values
             ])
             df.loc[ingen_pred, "forventet_pris"] = m["model"].predict(X)
