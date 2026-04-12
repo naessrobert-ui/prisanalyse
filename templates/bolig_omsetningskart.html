@@ -5,7 +5,7 @@
 <style>
   .page-wrapper { min-height: calc(100vh - 140px); padding: 40px 16px 60px; }
   .glass-card-wide {
-    width: 100%; max-width: 1250px; margin: 0 auto;
+    width: 100%; max-width: 1200px; margin: 0 auto;
     background: radial-gradient(circle at top left, rgba(255,255,255,0.14), rgba(10,20,35,0.97));
     border-radius: 26px; box-shadow: 0 28px 80px rgba(0, 0, 0, 0.80);
     border: 1px solid rgba(255, 255, 255, 0.12); padding: 30px 34px; color: #f5f7fb;
@@ -13,6 +13,13 @@
   .filter-card, .map-wrapper-card {
     background-color: rgba(3, 14, 25, 0.9); border-radius: 16px;
     border: 1px solid rgba(255,255,255,0.06); padding: 16px;
+  }
+  .map-container { height: 650px; width: 100%; }
+  @media (max-width: 1200px) {
+    .map-container { height: 620px; }
+  }
+  @media (max-width: 768px) {
+    .map-container { height: 500px; }
   }
   .hint { font-size: 0.9rem; opacity: 0.85; }
 </style>
@@ -30,7 +37,7 @@
     </section>
 
     <div class="row">
-      <div class="col-md-2">
+      <div class="col-md-3">
         <div class="filter-card">
           <h5>Filtre</h5>
           <form method="get">
@@ -112,7 +119,7 @@
         </div>
       </div>
 
-      <div class="col-md-10">
+      <div class="col-md-9">
         {% if error %}
           <div class="alert alert-warning">{{ error }}</div>
         {% endif %}
@@ -136,7 +143,7 @@
             {% else %}
               <p class="hint">Grønn = raskeste 20%, rød = tregeste 20%, grå = resten. Størrelse følger valgt prisgrunnlag.</p>
             {% endif %}
-            <div style="height: 790px; width: 100%;">
+            <div class="map-container">
               {{ map_html|safe }}
             </div>
           </div>
