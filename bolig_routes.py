@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 import folium
+from folium.plugins import MarkerCluster
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 from collections import Counter
 import re
