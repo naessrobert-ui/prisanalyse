@@ -954,7 +954,7 @@
         const yMaxLimit = getOptionalInputNumber(apiScatterYMax);
 
         const sourceRows = Array.isArray(full?.scatter_points) && full.scatter_points.length ? full.scatter_points : rows;
-        const points = sourceRows
+        const allPoints = sourceRows
             .map((row) => {
                 const x = Number(getRowValue(row, ['omsetning', 'sum_driftsinntekter']));
                 const y = getScatterYMetric(row, yAxis);
@@ -970,8 +970,35 @@
                 return true;
             });
 
-        if (!points.length) {
+        const points = allPoints
+            .filter((point) => {
+                if (xMinLimit !== null && point.x < xMinLimit) return false;
+                if (xMaxLimit !== null && point.x > xMaxLimit) return false;
+                if (yMinLimit !== null && point.y < yMinLimit) return false;
+                if (yMaxLimit !== null && point.y > yMaxLimit) return false;
+                return true;
+            });
+
+        if (!allPoints.length) {
             apiScatterWrap.style.display = 'none';
+            return;
+        }
+
+        if (!points.length) {
+            apiScatterTitle.textContent = full
+                ? `Scatter: omsetning vs. ${yAxisLabel.toLowerCase()} (utvalgssample fra hele treffsettet)`
+                : `Scatter: omsetning vs. ${yAxisLabel.toLowerCase()} (kun rader som vises nå)`;
+            apiScatter.innerHTML = `
+                <rect x="0" y="0" width="900" height="260" fill="transparent"></rect>
+                <text x="450" y="130" text-anchor="middle" fill="#94a3b8" font-size="13">
+                    Ingen punkter innenfor valgte min/maks-grenser
+                </text>
+                <text x="450" y="152" text-anchor="middle" fill="#64748b" font-size="11">
+                    Juster X/Y-grensene for å vise punkter igjen
+                </text>
+            `;
+            apiScatterMeta.textContent = `Punkter: 0 av ${fmtNumber(allPoints.length)} etter filtre`;
+            apiScatterWrap.style.display = '';
             return;
         }
 
