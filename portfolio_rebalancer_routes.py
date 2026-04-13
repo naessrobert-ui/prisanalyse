@@ -126,6 +126,7 @@ def index():
                     ui_state.benchmark_json = json.dumps(benchmark_rows, indent=2, ensure_ascii=False)
 
                 classified = engine.classify_holdings(holdings, mapping)
+                classified = engine.clean_classified_holdings(classified)
                 actual = engine.compute_actual_exposures(classified)
                 benchmark = engine.compute_benchmark_exposures(pd.DataFrame(benchmark_rows))
                 active_bets = pd.DataFrame(json.loads(ui_state.active_bets_json)) if ui_state.active_bets_json else pd.DataFrame()

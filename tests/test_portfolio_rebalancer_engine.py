@@ -119,6 +119,18 @@ class ParsingLogicTests(unittest.TestCase):
         self.assertEqual(len(holdings), 1)
         self.assertEqual(str(holdings.iloc[0]["fund"]), "Fund A")
 
+    def test_clean_classified_holdings_removes_nan_and_unclassified(self):
+        classified = pd.DataFrame(
+            [
+                {"portfolio": "P1", "fund": "nan", "weight": 0.25, "asset_class": "Unclassified"},
+                {"portfolio": "P1", "fund": "Fund A", "weight": 0.75, "asset_class": "equity_norway"},
+            ]
+        )
+        cleaned = engine.clean_classified_holdings(classified)
+        self.assertEqual(len(cleaned), 1)
+        self.assertEqual(cleaned.iloc[0]["fund"], "Fund A")
+        self.assertAlmostEqual(float(cleaned.iloc[0]["weight"]), 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

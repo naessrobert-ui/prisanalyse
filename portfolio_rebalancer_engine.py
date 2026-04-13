@@ -116,10 +116,10 @@ def extract_holdings(workbook: dict[str, pd.DataFrame], sheets: list[str]) -> pd
         selected_cols = [fund_col, weight_col] + ([mv_col] if mv_col else []) + ([model_portfolio_col] if model_portfolio_col else [])
         subset = df[selected_cols].copy()
         subset[fund_col] = subset[fund_col].astype(str).str.strip()
+        subset = subset[~subset[fund_col].str.lower().isin({"", "nan", "none"})]
         subset[weight_col] = subset[weight_col].apply(_parse_weight_value)
         if mv_col:
             subset[mv_col] = subset[mv_col].apply(_parse_weight_value)
-        subset = subset[subset[fund_col] != ""]
         # Nordea-ark: behold kun faktiske holdings (Model portfolio utfylt).
         if model_portfolio_col:
             subset = subset[subset[model_portfolio_col].astype(str).str.strip() != ""]
@@ -159,6 +159,19 @@ def classify_holdings(holdings: pd.DataFrame, mapping: dict[str, str]) -> pd.Dat
     classified = holdings.copy()
     classified["asset_class"] = classified["fund"].map(mapping).fillna("Unclassified")
     return classified
+
+
+def clean_classified_holdings(classified_holdings: pd.DataFrame) -> pd.DataFrame:
+    cleaned = classified_holdings.copy()
+    cleaned["fund"] = cleaned["fund"].astype(str).str.strip()
+    cleaned = cleaned[~cleaned["fund"].str.lower().isin({"", "nan", "none"})]
+    cleaned = cleaned[cleaned["asset_class"] != "Unclassified"]
+    if cleaned.empty:
+        raise RebalancerError("Ingen klassifiserte fond igjen etter filtrering av NaN/Unclassified.")
+    totals = cleaned.groupby("portfolio", as_index=False)["weight"].sum().rename(columns={"weight": "portfolio_weight"})
+    cleaned = cleaned.merge(totals, on="portfolio", how="left")
+    cleaned["weight"] = cleaned["weight"] / cleaned["portfolio_weight"]
+    return cleaned.drop(columns=["portfolio_weight"])
 
 
 def compute_actual_exposures(classified_holdings: pd.DataFrame) -> pd.DataFrame:

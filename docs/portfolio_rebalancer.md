@@ -26,6 +26,7 @@
 - Only rows with a non-empty `Security name` are treated as holdings; subtotal/header rows are ignored.
 - For Nordea-style files, rows must also have a value in `Model portfolio` to be included as holdings.
 - `Lev. expo. distr. (PF)` is used as primary weight source, with optional fallback to `MV`-share when exposure values are missing.
+- Rows/funds classified as `Unclassified` (or `nan`/empty fund names) are excluded from final exposure/trade tables.
 - If no portfolio sheet is auto-detected, the tool attempts all workbook sheets.
 - Supported file types: `.xlsx` and `.xlsm`.
 - If upload fails with file-size error, check `HANDLER_DB_UPLOAD_MAX_MB` and any proxy limits in front of Flask.
