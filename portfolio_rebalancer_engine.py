@@ -112,13 +112,17 @@ def extract_holdings(workbook: dict[str, pd.DataFrame], sheets: list[str]) -> pd
             continue
 
         mv_col = _pick_column(columns, MV_ALIASES)
-        selected_cols = [fund_col, weight_col] + ([mv_col] if mv_col else [])
+        model_portfolio_col = normalized_to_source.get("model portfolio")
+        selected_cols = [fund_col, weight_col] + ([mv_col] if mv_col else []) + ([model_portfolio_col] if model_portfolio_col else [])
         subset = df[selected_cols].copy()
         subset[fund_col] = subset[fund_col].astype(str).str.strip()
         subset[weight_col] = subset[weight_col].apply(_parse_weight_value)
         if mv_col:
             subset[mv_col] = subset[mv_col].apply(_parse_weight_value)
         subset = subset[subset[fund_col] != ""]
+        # Nordea-ark: behold kun faktiske holdings (Model portfolio utfylt).
+        if model_portfolio_col:
+            subset = subset[subset[model_portfolio_col].astype(str).str.strip() != ""]
         # Hvis vekt mangler men MV finnes, fyll med MV-andel.
         if mv_col and subset[mv_col].notna().any():
             mv_total = float(subset[mv_col].fillna(0.0).sum())

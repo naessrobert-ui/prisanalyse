@@ -77,8 +77,8 @@ class ParsingLogicTests(unittest.TestCase):
                 [
                     {"Security name": "", "Lev. expo. distr. (PF)": "100", "Model portfolio": ""},
                     {"Security name": "Funds", "Lev. expo. distr. (PF)": "99,74", "Model portfolio": ""},
-                    {"Security name": "Fund A", "Lev. expo. distr. (PF)": "40,0%", "MV": "400"},
-                    {"Security name": "Fund B", "Lev. expo. distr. (PF)": "60,0%", "MV": "600"},
+                    {"Security name": "Fund A", "Lev. expo. distr. (PF)": "40,0%", "MV": "400", "Model portfolio": "PBMN EQ"},
+                    {"Security name": "Fund B", "Lev. expo. distr. (PF)": "60,0%", "MV": "600", "Model portfolio": "PBMN FI"},
                 ]
             )
         }
@@ -97,12 +97,27 @@ class ParsingLogicTests(unittest.TestCase):
                 ]
             )
         }
+        workbook["Sheet1"]["Model portfolio"] = ["PBMN EQ", "PBMN FI"]
         sheets = engine.detect_portfolio_sheets(workbook)
         holdings = engine.extract_holdings(workbook, sheets)
         weights = dict(zip(holdings["fund"], holdings["weight"]))
 
         self.assertAlmostEqual(weights["Fund A"], 0.25)
         self.assertAlmostEqual(weights["Fund B"], 0.75)
+
+    def test_rows_without_model_portfolio_are_ignored(self):
+        workbook = {
+            "Sheet1": pd.DataFrame(
+                [
+                    {"Security name": "PB Norway: Balanced Global 50%EQ + 50%FI", "Lev. expo. distr. (PF)": "50", "Model portfolio": ""},
+                    {"Security name": "Fund A", "Lev. expo. distr. (PF)": "50", "Model portfolio": "PBMN EQ"},
+                ]
+            )
+        }
+        sheets = engine.detect_portfolio_sheets(workbook)
+        holdings = engine.extract_holdings(workbook, sheets)
+        self.assertEqual(len(holdings), 1)
+        self.assertEqual(str(holdings.iloc[0]["fund"]), "Fund A")
 
 
 if __name__ == "__main__":
