@@ -14,18 +14,8 @@ hormuz_bp = Blueprint("hormuz", __name__, url_prefix="/hormuz")
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.getenv("HORMUZ_DB_PATH", str(BASE_DIR / "data" / "hormuz_ais.sqlite")))
 MAP_PATH = Path(os.getenv("HORMUZ_MAP_PATH", str(BASE_DIR / "data" / "hormuz_map.html")))
-# Sett AIS_COLLECTOR=bw i miljøet for å bruke BarentsWatch (fallback når AISstream er nede)
-_collector = os.getenv("AIS_COLLECTOR", "aisstream").lower()
-COLLECT_SCRIPT = BASE_DIR / "scripts" / "hormuz" / (
-    "collect_ais_bw.py" if _collector == "bw" else "collect_ais.py"
-)
-
-
-# Omtrentlig boks rundt Hormuz-stredet for å unngå støy fra andre regioner.
-HORMUZ_LAT_MIN = 24.0
-HORMUZ_LAT_MAX = 28.8
-HORMUZ_LON_MIN = 54.0
-HORMUZ_LON_MAX = 58.8
+COLLECT_SCRIPT = BASE_DIR / "scripts" / "hormuz" / "collect_ais.py"
+BUILD_MAP_SCRIPT = BASE_DIR / "scripts" / "hormuz" / "build_map.py"
 
 
 def _utc_now_iso() -> str:
@@ -40,15 +30,9 @@ def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
 
 
 def _run_bootstrap(minutes: float = 0.5, max_messages: int = 120):
-    if _collector == "bw":
-        client_id = os.getenv("BW_CLIENT_ID", "").strip()
-        client_secret = os.getenv("BW_CLIENT_SECRET", "").strip()
-        if not client_id or not client_secret:
-            return False, "Mangler BW_CLIENT_ID eller BW_CLIENT_SECRET i miljøvariabler", None
-    else:
-        api_key = os.getenv("AISTREAM_API_KEY", "").strip()
-        if not api_key:
-            return False, "Mangler AISTREAM_API_KEY i miljøvariabler", None
+    api_key = os.getenv("AISTREAM_API_KEY", "").strip()
+    if not api_key:
+        return False, "Mangler AISTREAM_API_KEY i miljøvariabler", None
     if not COLLECT_SCRIPT.exists():
         return False, f"Manglende script: {COLLECT_SCRIPT}", None
 
@@ -91,6 +75,38 @@ def _run_bootstrap(minutes: float = 0.5, max_messages: int = 120):
     return True, "AIS-data hentet inn", {"stdout": proc.stdout[-1200:], "saved_messages": saved_count}
 
 
+def _run_build_map(hours: int = 24, latest_only: bool = True, trails: bool = True):
+    if not BUILD_MAP_SCRIPT.exists():
+        return False, f"Manglende script: {BUILD_MAP_SCRIPT}", None
+
+    hours = max(1, min(int(hours), 24 * 30))
+    cmd = [
+        "python", str(BUILD_MAP_SCRIPT), "--db", str(DB_PATH), "--output", str(MAP_PATH), "--hours", str(hours),
+    ]
+    if latest_only:
+        cmd.append("--latest-only")
+    if trails:
+        cmd.append("--trails")
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+            env=os.environ.copy(),
+        )
+    except subprocess.TimeoutExpired:
+        return False, "Timeout ved bygging av kart", None
+
+    if proc.returncode != 0:
+        return False, "Kartbygging feilet", {"stderr": proc.stderr[-1200:], "stdout": proc.stdout[-1200:]}
+
+    return True, "Kart bygget", {"stdout": proc.stdout[-1200:], "map_path": str(MAP_PATH)}
+
+
 @hormuz_bp.route("/")
 def hormuz_dashboard():
     return render_template("hormuz_traffic.html")
@@ -98,11 +114,22 @@ def hormuz_dashboard():
 
 @hormuz_bp.route("/map")
 def hormuz_map_page():
-    if not MAP_PATH.exists():
-        return (
-            "Kartfil finnes ikke enda. Kjør: python scripts/hormuz/build_map.py --hours 12 --latest-only --trails",
-            404,
-        )
+    rebuild = request.args.get("rebuild", default="0") == "1"
+    if rebuild or not MAP_PATH.exists():
+        ok, message, extra = _run_build_map(hours=24, latest_only=True, trails=True)
+        if not ok:
+            payload = {
+                "ok": False,
+                "generated_at": _utc_now_iso(),
+                "error": message,
+                "db_path": str(DB_PATH),
+                "map_path": str(MAP_PATH),
+                "hint": "Sjekk at DB har data via /hormuz/api/status og prøv /hormuz/map?rebuild=1",
+            }
+            if extra:
+                payload.update(extra)
+            return jsonify(payload), 503
+
     return render_template("hormuz_map_embed.html", map_path=f"/{MAP_PATH.as_posix()}")
 
 
@@ -198,8 +225,6 @@ def hormuz_traffic_data():
         FROM ais_messages
         WHERE latitude IS NOT NULL
           AND longitude IS NOT NULL
-          AND latitude BETWEEN ? AND ?
-          AND longitude BETWEEN ? AND ?
           AND received_at_utc >= datetime('now', ?)
         GROUP BY date(received_at_utc)
         ORDER BY date(received_at_utc)
@@ -214,36 +239,10 @@ def hormuz_traffic_data():
                 "SELECT COUNT(*) FROM ais_messages WHERE received_at_utc >= datetime('now', ?)",
                 (f"-{hours} hours",),
             ).fetchone()[0]
-
-            hormuz_rows = conn.execute(
-                """
-                SELECT COUNT(*)
-                FROM ais_messages
-                WHERE received_at_utc >= datetime('now', ?)
-                  AND latitude BETWEEN ? AND ?
-                  AND longitude BETWEEN ? AND ?
-                """,
-                (
-                    f"-{hours} hours",
-                    HORMUZ_LAT_MIN,
-                    HORMUZ_LAT_MAX,
-                    HORMUZ_LON_MIN,
-                    HORMUZ_LON_MAX,
-                ),
-            ).fetchone()[0]
             last_received = conn.execute("SELECT MAX(received_at_utc) FROM ais_messages").fetchone()[0]
 
             rows = []
-            for date, northbound, southbound, tankers, lng in conn.execute(
-                sql,
-                (
-                    HORMUZ_LAT_MIN,
-                    HORMUZ_LAT_MAX,
-                    HORMUZ_LON_MIN,
-                    HORMUZ_LON_MAX,
-                    f"-{hours} hours",
-                ),
-            ).fetchall():
+            for date, northbound, southbound, tankers, lng in conn.execute(sql, (f"-{hours} hours",)).fetchall():
                 nb = int(northbound or 0)
                 sb = int(southbound or 0)
                 rows.append(
@@ -268,14 +267,7 @@ def hormuz_traffic_data():
             "db_path": str(DB_PATH),
             "meta": {
                 "raw_messages_in_window": int(total_rows or 0),
-                "hormuz_messages_in_window": int(hormuz_rows or 0),
                 "last_received_at_utc": last_received,
-                "hormuz_bbox": {
-                    "lat_min": HORMUZ_LAT_MIN,
-                    "lat_max": HORMUZ_LAT_MAX,
-                    "lon_min": HORMUZ_LON_MIN,
-                    "lon_max": HORMUZ_LON_MAX,
-                },
             },
         }
     )

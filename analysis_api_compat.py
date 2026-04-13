@@ -42,7 +42,7 @@ _COMPAT_SORT_MAP = {
     "aarsresultat": "r.net_profit",
     "driftsresultat": "r.operating_profit",
     "egenkapitalandel": "r.equity_ratio",
-    "netto_margin": "CASE WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL THEN (r.net_profit / r.revenue) END",
+    "netto_margin": "CASE WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.operating_profit IS NOT NULL THEN (r.operating_profit / r.revenue) END",
     "ansatte": "e.ansatte",
     "omsetning_per_ansatt": "CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL THEN (r.revenue / e.ansatte) END",
     "resultat_per_ansatt": "CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL THEN (r.net_profit / e.ansatte) END",
@@ -497,8 +497,8 @@ def get_company_history_payload(orgnr: str) -> dict[str, Any]:
             r.sum_eiendeler AS sum_eiendeler,
             r.sum_egenkapital AS sum_egenkapital,
             CASE
-                WHEN r.sum_driftsinntekter IS NOT NULL AND r.sum_driftsinntekter <> 0 AND r.aarsresultat IS NOT NULL
-                THEN ROUND((r.aarsresultat / r.sum_driftsinntekter) * 100.0, 2)
+                WHEN r.sum_driftsinntekter IS NOT NULL AND r.sum_driftsinntekter <> 0 AND r.driftsresultat IS NOT NULL
+                THEN ROUND((r.driftsresultat / r.sum_driftsinntekter) * 100.0, 2)
                 ELSE NULL
             END AS netto_margin,
             CASE
@@ -596,7 +596,7 @@ def get_companies_filter_payload(
     base_sql, params = _append_kommune_filter(base_sql, params, kommune)
 
     if min_netto_margin is not None:
-        base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL AND ((r.net_profit / r.revenue) * 100.0) >= %s"
+        base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.operating_profit IS NOT NULL AND ((r.operating_profit / r.revenue) * 100.0) >= %s"
         params.append(min_netto_margin)
 
     if min_ansatte is not None:
@@ -661,8 +661,8 @@ def get_companies_filter_payload(
             r.total_assets AS sum_eiendeler,
             r.equity AS sum_egenkapital,
             CASE
-                WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL
-                THEN ROUND((r.net_profit / r.revenue) * 100.0, 2)
+                WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.operating_profit IS NOT NULL
+                THEN ROUND((r.operating_profit / r.revenue) * 100.0, 2)
                 ELSE NULL
             END AS netto_margin,
             CASE
@@ -756,7 +756,7 @@ def get_companies_filter_summary_payload(
     base_sql, params = _append_kommune_filter(base_sql, params, kommune)
 
     if min_netto_margin is not None:
-        base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL AND ((r.net_profit / r.revenue) * 100.0) >= %s"
+        base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.operating_profit IS NOT NULL AND ((r.operating_profit / r.revenue) * 100.0) >= %s"
         params.append(min_netto_margin)
 
     if min_ansatte is not None:
@@ -801,19 +801,34 @@ def get_companies_filter_summary_payload(
             COUNT(r.net_profit)::int AS companies_with_result,
             COUNT(*) FILTER (WHERE r.net_profit > 0)::int AS profitable_count,
             COUNT(*) FILTER (
-                WHERE r.net_profit IS NOT NULL
+                WHERE r.operating_profit IS NOT NULL
                   AND r.revenue IS NOT NULL
                   AND r.revenue <> 0
-                  AND ((r.net_profit / r.revenue) * 100.0) >= 5
+                  AND ((r.operating_profit / r.revenue) * 100.0) >= 5
                   AND r.equity_ratio IS NOT NULL
                   AND (r.equity_ratio * 100.0) >= 25
             )::int AS robust_count,
             SUM(r.revenue) AS sum_omsetning,
             SUM(r.net_profit) AS sum_aarsresultat,
-            AVG(
+            CASE
+                WHEN SUM(r.revenue) IS NOT NULL AND SUM(r.revenue) <> 0
+                THEN (SUM(r.net_profit) / SUM(r.revenue)) * 100.0
+                ELSE NULL
+            END AS weighted_netto_margin,
+            PERCENTILE_CONT(0.5) WITHIN GROUP (
+                ORDER BY
                 CASE
                     WHEN r.net_profit IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue <> 0
                     THEN (r.net_profit / r.revenue) * 100.0
+                    ELSE NULL
+                END
+            ) FILTER (
+                WHERE r.net_profit IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue <> 0
+            ) AS median_netto_margin,
+            AVG(
+                CASE
+                    WHEN r.operating_profit IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue <> 0
+                    THEN (r.operating_profit / r.revenue) * 100.0
                     ELSE NULL
                 END
             ) AS avg_netto_margin,
@@ -852,12 +867,12 @@ def get_companies_filter_summary_payload(
         SELECT
             e.orgnr::text AS orgnr,
             e.navn,
-            ROUND((r.net_profit / r.revenue) * 100.0, 2) AS netto_margin
+            ROUND((r.operating_profit / r.revenue) * 100.0, 2) AS netto_margin
         {base_sql}
-        AND r.net_profit IS NOT NULL
+        AND r.operating_profit IS NOT NULL
         AND r.revenue IS NOT NULL
         AND r.revenue <> 0
-        ORDER BY (r.net_profit / r.revenue) DESC NULLS LAST, e.navn ASC
+        ORDER BY (r.operating_profit / r.revenue) DESC NULLS LAST, e.navn ASC
         LIMIT %s
         """,
         [*params, safe_top_n],
@@ -868,11 +883,12 @@ def get_companies_filter_summary_payload(
             e.orgnr::text AS orgnr,
             e.navn,
             r.revenue AS omsetning,
+            r.operating_profit AS driftsresultat,
             r.net_profit AS aarsresultat
         {base_sql}
         AND r.revenue IS NOT NULL
-        AND r.net_profit IS NOT NULL
-        ORDER BY ABS(r.net_profit) DESC NULLS LAST, r.revenue DESC NULLS LAST
+        AND r.operating_profit IS NOT NULL
+        ORDER BY ABS(r.operating_profit) DESC NULLS LAST, r.revenue DESC NULLS LAST
         LIMIT %s
         """,
         [*params, safe_scatter_limit],
@@ -891,6 +907,8 @@ def get_companies_filter_summary_payload(
         "robust_count": robust_count,
         "sum_omsetning": summary_row.get("sum_omsetning"),
         "sum_aarsresultat": summary_row.get("sum_aarsresultat"),
+        "weighted_netto_margin": summary_row.get("weighted_netto_margin"),
+        "median_netto_margin": summary_row.get("median_netto_margin"),
         "avg_netto_margin": summary_row.get("avg_netto_margin"),
         "avg_egenkapitalandel": summary_row.get("avg_egenkapitalandel"),
         "share_profitable_pct": ((profitable_count / companies_with_result) * 100.0) if companies_with_result else None,
@@ -1174,7 +1192,7 @@ def get_kart_payload(
             where.append("r.equity_ratio IS NOT NULL AND (r.equity_ratio * 100.0) >= %s")
             params.append(min_egenkapitalandel)
         if min_netto_margin is not None:
-            where.append("r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL AND ((r.net_profit / r.revenue) * 100.0) >= %s")
+            where.append("r.revenue IS NOT NULL AND r.revenue <> 0 AND r.operating_profit IS NOT NULL AND ((r.operating_profit / r.revenue) * 100.0) >= %s")
             params.append(min_netto_margin)
         if min_ansatte is not None:
             where.append("COALESCE(e.ansatte, 0) >= %s")

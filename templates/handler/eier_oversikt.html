@@ -5,49 +5,22 @@
 {% block content %}
 <div class="page-header">
   <h1>🧭 Eier oversikt</h1>
-  <div class="sub">Oppsummering av eierskap og endringer over tid, per aksje eller per eier.</div>
+  <div class="sub">Oppsummering av eierskap og endringer over tid per aksje, samt analyser av største eiere.</div>
 </div>
 
 <!-- Tab nav -->
 <ul class="nav nav-pills mb-3" role="tablist">
   <li class="nav-item">
-    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-eier" style="color:var(--pa-text)">Per eier</button>
+    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-aksje" style="color:var(--pa-text)">Per aksje</button>
   </li>
   <li class="nav-item">
-    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-aksje" style="color:var(--pa-text)">Per aksje</button>
+    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-storste-eiere" style="color:var(--pa-text)">Største eiere</button>
   </li>
 </ul>
 
 <div class="tab-content">
-  <!-- Per eier -->
-  <div class="tab-pane fade show active" id="tab-eier">
-    <div class="panel">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label>Søk investor (min 4 tegn)</label>
-          <div class="search-wrap">
-            <input type="text" class="form-control" id="eo-inv-search">
-            <div class="search-results" id="eo-inv-results" style="display:none"></div>
-          </div>
-          <input type="hidden" id="eo-inv-id">
-        </div>
-        <div class="col-md-3">
-          <label>Fra dato</label>
-          <input type="date" class="form-control" id="eo-date-from">
-        </div>
-        <div class="col-md-3">
-          <label>Til dato</label>
-          <input type="date" class="form-control" id="eo-date-to">
-        </div>
-      </div>
-      <button class="btn btn-primary mt-3" id="eo-btn" disabled>Hent data</button>
-    </div>
-    <div id="eo-eier-table"></div>
-    <canvas id="eo-chart" style="display:none; max-height:300px; margin-top:16px"></canvas>
-  </div>
-
   <!-- Per aksje -->
-  <div class="tab-pane fade" id="tab-aksje">
+  <div class="tab-pane fade show active" id="tab-aksje">
     <div class="panel">
       <div class="row g-3">
         <div class="col-md-6">
@@ -92,6 +65,10 @@
     </div>
     <div id="eo-top-table"></div>
 
+  </div>
+
+  <!-- Største eiere -->
+  <div class="tab-pane fade" id="tab-storste-eiere">
     <div class="panel mt-3">
       <h5 style="color:var(--pa-text)">Scan: første handel etter X dager (topp-eiere)</h5>
       <div class="sub" style="margin-bottom:10px;">
@@ -153,8 +130,8 @@
   const today = new Date();
   const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
   const ago8 = new Date(today); ago8.setDate(ago8.getDate() - 8);
-  ['eo-date-from','eo-sec-date-from'].forEach(id => document.getElementById(id).value = ago30.toISOString().slice(0,10));
-  ['eo-date-to','eo-sec-date-to','eo-top-date','eo-scan-asof'].forEach(id => document.getElementById(id).value = today.toISOString().slice(0,10));
+  ['eo-sec-date-from'].forEach(id => document.getElementById(id).value = ago30.toISOString().slice(0,10));
+  ['eo-sec-date-to','eo-top-date','eo-scan-asof'].forEach(id => document.getElementById(id).value = today.toISOString().slice(0,10));
   document.getElementById('eo-scan-since').value = ago8.toISOString().slice(0,10);
   function setAksjeRange(days){
     const to = new Date();
@@ -174,35 +151,6 @@
       if(range === '30d') setAksjeRange(30);
       if(range === 'max') setAksjeRange('max');
     });
-  });
-
-  // Per eier
-  let eoInvId = null;
-  setupSearch('eo-inv-search', 'eo-inv-results',
-    '{{ url_for("handler.api_search_investors") }}', 'label', 'investor_id',
-    item => { eoInvId = item.investor_id; document.getElementById('eo-btn').disabled = false; }
-  );
-
-  document.getElementById('eo-btn').addEventListener('click', async function() {
-    if (!eoInvId) return;
-    const btn = this;
-    btn.innerHTML = '<span class="spinner"></span>';
-    try {
-      const resp = await fetch(`{{ url_for("handler.api_eier_oversikt_per_eier") }}?investor_id=${eoInvId}&date_from=${document.getElementById('eo-date-from').value}&date_to=${document.getElementById('eo-date-to').value}`);
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || 'Ukjent feil ved henting av data');
-
-      buildTable(data.rows, [
-        {key:'ticker', label:'Ticker'}, {key:'isin', label:'ISIN'}, {key:'navn', label:'Navn'},
-        {key:'antall_obs', label:'Obs', fmt:'int'}, {key:'netto_antall', label:'Netto ant.', fmt:'int'},
-        {key:'netto_mnok', label:'Netto MNOK', fmt:'num', dec:2}, {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
-      ], 'eo-eier-table');
-    } catch (err) {
-      console.error(err);
-      alert(err?.message || 'Klarte ikke hente data.');
-    } finally {
-      btn.textContent = 'Hent data';
-    }
   });
 
   // Per aksje
