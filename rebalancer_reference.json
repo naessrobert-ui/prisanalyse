@@ -1,0 +1,19 @@
+{
+  "_comment": "Referanseindekser for porteføljerebalansering. Rediger direkte eller via brukergrensesnitt på /internal/portfolio-rebalancer/reference-editor",
+  "global": {
+    "equity_norway_pct": 15.0,
+    "em_within_international_equity_pct": 15.0,
+    "allocation_pct": 10.0,
+    "fi_norway_within_fi_pct": 50.0,
+    "fi_long_within_norway_fi_pct": 50.0
+  },
+  "portfolio_overrides": {
+    "EG": {
+      "equity_norway_pct": 15.0,
+      "em_within_international_equity_pct": 15.0,
+      "allocation_pct": 0.0,
+      "fi_norway_within_fi_pct": 50.0,
+      "fi_long_within_norway_fi_pct": 50.0
+    }
+  }
+}
