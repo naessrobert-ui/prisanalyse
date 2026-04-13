@@ -111,6 +111,7 @@
 
     <div class="card card-body mb-3">
       <h2 class="h5">Resultat (detaljer, %)</h2>
+      <small class="text-muted">Ved valg av fordypningsnivå normaliseres vektene innen valgt gruppe til 100 %.</small>
       <div class="table-responsive">
         <table class="table table-sm table-striped" id="detail_table">
           <thead>
@@ -125,7 +126,7 @@
           </thead>
           <tbody>
           {% for row in results_preview %}
-            <tr data-portfolio="{{ row.portfolio }}" data-asset-class="{{ row.asset_class }}">
+            <tr data-portfolio="{{ row.portfolio }}" data-asset-class="{{ row.asset_class }}" data-actual="{{ row.actual_weight }}" data-benchmark="{{ row.benchmark_weight }}">
               <td>{{ row.portfolio }}</td>
               <td>{{ row.asset_class_label }}</td>
               <td>{{ row.actual_weight }}</td>
@@ -156,7 +157,7 @@
           </thead>
           <tbody>
           {% for row in holdings_preview %}
-            <tr data-portfolio="{{ row.portfolio }}">
+            <tr data-portfolio="{{ row.portfolio }}" data-asset-class="{{ row.asset_class }}" data-weight="{{ row.weight }}">
               <td>{{ row.portfolio }}</td>
               <td>{{ row.fund }}</td>
               <td>{{ row.asset_class_label }}</td>
@@ -192,6 +193,20 @@
       const selectedFocus = focusSelect.value;
       const allowedClasses = focusSets[selectedFocus] || null;
 
+      const detailTotals = {};
+      detailRows.forEach((row) => {
+        const rowPortfolio = row.getAttribute('data-portfolio') || '';
+        const rowClass = row.getAttribute('data-asset-class') || '';
+        const portfolioMatch = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
+        const focusMatch = !allowedClasses || allowedClasses.has(rowClass);
+        const show = portfolioMatch && focusMatch;
+        if (show) {
+          if (!detailTotals[rowPortfolio]) detailTotals[rowPortfolio] = { actual: 0, benchmark: 0 };
+          detailTotals[rowPortfolio].actual += Number(row.getAttribute('data-actual') || 0);
+          detailTotals[rowPortfolio].benchmark += Number(row.getAttribute('data-benchmark') || 0);
+        }
+      });
+
       detailRows.forEach((row) => {
         const rowPortfolio = row.getAttribute('data-portfolio') || '';
         const rowClass = row.getAttribute('data-asset-class') || '';
@@ -199,12 +214,48 @@
         const focusMatch = !allowedClasses || allowedClasses.has(rowClass);
         const show = portfolioMatch && focusMatch;
         row.style.display = show ? '' : 'none';
+        if (!show) return;
+
+        const rawActual = Number(row.getAttribute('data-actual') || 0);
+        const rawBenchmark = Number(row.getAttribute('data-benchmark') || 0);
+        const totals = detailTotals[rowPortfolio] || { actual: 0, benchmark: 0 };
+        const actual = selectedFocus === 'whole' || totals.actual === 0 ? rawActual : (rawActual / totals.actual) * 100;
+        const benchmark = selectedFocus === 'whole' || totals.benchmark === 0 ? rawBenchmark : (rawBenchmark / totals.benchmark) * 100;
+        const active = actual - benchmark;
+        const trade = benchmark - actual;
+
+        row.children[2].textContent = actual.toFixed(2);
+        row.children[3].textContent = benchmark.toFixed(2);
+        row.children[4].textContent = active.toFixed(2);
+        row.children[5].textContent = Math.abs(trade) < 0.005 ? '0.00' : trade.toFixed(2);
+      });
+
+      const holdingTotals = {};
+      holdingRows.forEach((row) => {
+        const rowPortfolio = row.getAttribute('data-portfolio') || '';
+        const rowClass = row.getAttribute('data-asset-class') || '';
+        const portfolioMatch = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
+        const focusMatch = !allowedClasses || allowedClasses.has(rowClass);
+        const show = portfolioMatch && focusMatch;
+        if (show) {
+          if (!holdingTotals[rowPortfolio]) holdingTotals[rowPortfolio] = 0;
+          holdingTotals[rowPortfolio] += Number(row.getAttribute('data-weight') || 0);
+        }
       });
 
       holdingRows.forEach((row) => {
         const rowPortfolio = row.getAttribute('data-portfolio') || '';
-        const show = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
+        const rowClass = row.getAttribute('data-asset-class') || '';
+        const portfolioMatch = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
+        const focusMatch = !allowedClasses || allowedClasses.has(rowClass);
+        const show = portfolioMatch && focusMatch;
         row.style.display = show ? '' : 'none';
+        if (!show) return;
+
+        const rawWeight = Number(row.getAttribute('data-weight') || 0);
+        const total = holdingTotals[rowPortfolio] || 0;
+        const weight = selectedFocus === 'whole' || total === 0 ? rawWeight : (rawWeight / total) * 100;
+        row.children[3].textContent = weight.toFixed(2);
       });
     }
 
