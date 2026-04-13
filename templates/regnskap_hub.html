@@ -294,7 +294,7 @@
                     <input id="api_min_egenkapitalandel" type="number" step="0.1" placeholder="Eks. 25">
                 </div>
                 <div>
-                    <label for="api_min_netto_margin">Min nettomargin (%)</label>
+                    <label for="api_min_netto_margin">Min driftsmargin (%)</label>
                     <input id="api_min_netto_margin" type="number" step="0.1" placeholder="Eks. 5">
                 </div>
                 <div>
@@ -338,7 +338,7 @@
                         <option value="omsetning">Omsetning</option>
                         <option value="aarsresultat">Årsresultat</option>
                         <option value="egenkapitalandel">Egenkapitalandel</option>
-                        <option value="netto_margin">Netto margin</option>
+                        <option value="netto_margin">Driftsmargin</option>
                         <option value="ansatte">Ansatte</option>
                         <option value="omsetning_per_ansatt">Omsetning per ansatt</option>
                         <option value="resultat_per_ansatt">Resultat per ansatt</option>
@@ -384,7 +384,15 @@
         <div id="apiSummary" class="summary-grid" style="display:none;"></div>
         <div id="apiInsights" class="insight-grid" style="display:none;"></div>
         <div id="apiScatterWrap" class="scatter-wrap" style="display:none;">
-            <div class="scatter-title" id="apiScatterTitle">Scatter: omsetning vs. årsresultat</div>
+            <div class="scatter-title" id="apiScatterTitle">Scatter: omsetning vs. driftsmargin</div>
+            <div style="margin-bottom:8px;">
+                <label for="api_scatter_y_axis" style="font-size:0.85rem;color:#cbd5e1;">Y-akse</label>
+                <select id="api_scatter_y_axis" style="margin-left:8px;">
+                    <option value="driftsmargin" selected>Driftsmargin (%)</option>
+                    <option value="driftsresultat">Driftsresultat</option>
+                    <option value="aarsresultat">Årsresultat</option>
+                </select>
+            </div>
             <svg id="apiScatter" class="scatter-svg" viewBox="0 0 900 260" preserveAspectRatio="none"></svg>
             <div id="apiScatterMeta" class="muted" style="margin-top:8px;"></div>
         </div>
@@ -405,7 +413,7 @@
                         <th class="sortable" data-sort-by="regnskapsaar" data-label="År">År</th>
                         <th class="sortable" data-sort-by="omsetning" data-label="Omsetning">Omsetning</th>
                         <th class="sortable" data-sort-by="aarsresultat" data-label="Årsresultat">Årsresultat</th>
-                        <th class="sortable" data-sort-by="netto_margin" data-label="Netto margin">Netto margin</th>
+                        <th class="sortable" data-sort-by="netto_margin" data-label="Driftsmargin">Driftsmargin</th>
                         <th class="sortable" data-sort-by="egenkapitalandel" data-label="Egenkapitalandel">Egenkapitalandel</th>
                         <th class="sortable" data-sort-by="omsetning_per_ansatt" data-label="Omsetning/ansatt">Omsetning/ansatt</th>
                         <th class="sortable" data-sort-by="resultat_per_ansatt" data-label="Resultat/ansatt">Resultat/ansatt</th>
@@ -556,6 +564,7 @@
     const apiScatter = document.getElementById('apiScatter');
     const apiScatterMeta = document.getElementById('apiScatterMeta');
     const apiScatterTitle = document.getElementById('apiScatterTitle');
+    const apiScatterYAxis = document.getElementById('api_scatter_y_axis');
     const sortableHeaders = Array.from(document.querySelectorAll('#apiResultsTable thead th[data-sort-by]'));
     const presetTopRevenueBtn = document.getElementById('presetTopRevenueBtn');
     const resetApiFormBtn = document.getElementById('resetApiFormBtn');
@@ -768,7 +777,7 @@
         pushChip('Min årsresultat', fmtNumber(params.get('min_resultat')));
         pushChip('Maks årsresultat', fmtNumber(params.get('max_resultat')));
         pushChip('Min EK-andel', fmtPct(params.get('min_egenkapitalandel')));
-        pushChip('Min nettomargin', fmtPct(params.get('min_netto_margin')));
+        pushChip('Min driftsmargin', fmtPct(params.get('min_netto_margin')));
         pushChip('Min ansatte', fmtNumber(params.get('min_ansatte')));
         pushChip('Maks ansatte', fmtNumber(params.get('max_ansatte')));
         pushChip('Min omsetning/ansatt', fmtNumber(params.get('min_omsetning_per_ansatt')));
@@ -813,7 +822,7 @@
             ['Andel robuste (margin ≥ 5% og EK ≥ 25%)', full?.share_robust_pct !== undefined && full?.share_robust_pct !== null ? fmtPct(full.share_robust_pct) : (rows.length ? fmtPct((robustCount / rows.length) * 100) : '')],
             ['Sum omsetning', fmtNumber(full?.sum_omsetning ?? sumRevenue)],
             ['Sum årsresultat', fmtNumber(full?.sum_aarsresultat ?? sumResult)],
-            ['Snitt netto margin', full?.avg_netto_margin !== undefined && full?.avg_netto_margin !== null ? fmtPct(full.avg_netto_margin) : (averageMargin === null ? '' : fmtPct(averageMargin))],
+            ['Snitt driftsmargin', full?.avg_netto_margin !== undefined && full?.avg_netto_margin !== null ? fmtPct(full.avg_netto_margin) : (averageMargin === null ? '' : fmtPct(averageMargin))],
             ['Snitt EK-andel', full?.avg_egenkapitalandel !== undefined && full?.avg_egenkapitalandel !== null ? fmtPct(full.avg_egenkapitalandel) : (averageEquity === null ? '' : fmtPct(averageEquity))],
             ['Sortering', `${sortBy} · ${sortDir}`],
         ];
@@ -867,17 +876,32 @@
         apiInsights.innerHTML = [
             renderList(`Beste årsresultat (${full ? 'hele utvalget' : 'visning'})`, topResult, (item) => fmtNumber(item.result)),
             renderList(`Svakeste årsresultat (${full ? 'hele utvalget' : 'visning'})`, worstResult, (item) => fmtNumber(item.result)),
-            renderList(`Høyeste netto margin (${full ? 'hele utvalget' : 'visning'})`, marginRank, (item) => fmtPct(item.margin)),
+            renderList(`Høyeste driftsmargin (${full ? 'hele utvalget' : 'visning'})`, marginRank, (item) => fmtPct(item.margin)),
         ].join('');
         apiInsights.style.display = '';
     }
 
+    function getScatterYMetric(row, yAxis) {
+        const revenue = Number(getRowValue(row, ['omsetning', 'sum_driftsinntekter']));
+        const operatingProfit = Number(getRowValue(row, ['driftsresultat']));
+        const annualResult = Number(getRowValue(row, ['aarsresultat']));
+
+        if (yAxis === 'driftsresultat') return operatingProfit;
+        if (yAxis === 'aarsresultat') return annualResult;
+        if (!Number.isFinite(revenue) || revenue === 0 || !Number.isFinite(operatingProfit)) return NaN;
+        return (operatingProfit / revenue) * 100;
+    }
+
     function renderScatter(rows, full) {
+        const yAxis = apiScatterYAxis?.value || 'driftsmargin';
+        const yAxisLabel = yAxis === 'driftsresultat'
+            ? 'Driftsresultat'
+            : (yAxis === 'aarsresultat' ? 'Årsresultat' : 'Driftsmargin (%)');
         const sourceRows = Array.isArray(full?.scatter_points) && full.scatter_points.length ? full.scatter_points : rows;
         const points = sourceRows
             .map((row) => {
                 const x = Number(getRowValue(row, ['omsetning', 'sum_driftsinntekter']));
-                const y = Number(getRowValue(row, ['aarsresultat']));
+                const y = getScatterYMetric(row, yAxis);
                 const label = String(getRowValue(row, ['navn']) || getRowValue(row, ['orgnr']) || 'Ukjent');
                 return { x, y, label };
             })
@@ -908,7 +932,8 @@
             const cx = xScale(point.x).toFixed(2);
             const cy = yScale(point.y).toFixed(2);
             const color = point.y >= 0 ? '#34d399' : '#f87171';
-            return `<circle cx="${cx}" cy="${cy}" r="3.6" fill="${color}"><title>${point.label} · Omsetning ${fmtNumber(point.x)} · Resultat ${fmtNumber(point.y)}</title></circle>`;
+            const yFormatted = yAxis === 'driftsmargin' ? fmtPct(point.y) : fmtNumber(point.y);
+            return `<circle cx="${cx}" cy="${cy}" r="3.6" fill="${color}"><title>${point.label} · Omsetning ${fmtNumber(point.x)} · ${yAxisLabel} ${yFormatted}</title></circle>`;
         }).join('');
 
         apiScatter.innerHTML = `
@@ -917,13 +942,15 @@
             <line x1="${padLeft}" y1="${zeroY.toFixed(2)}" x2="${width - padRight}" y2="${zeroY.toFixed(2)}" stroke="#475569" stroke-dasharray="4 4" stroke-width="1"></line>
             <text x="${padLeft}" y="${height - 8}" fill="#94a3b8" font-size="11">0</text>
             <text x="${width - padRight - 90}" y="${height - 8}" fill="#94a3b8" font-size="11">Omsetning →</text>
-            <text x="${padLeft + 6}" y="${padTop + 12}" fill="#94a3b8" font-size="11">↑ Årsresultat</text>
+            <text x="${padLeft + 6}" y="${padTop + 12}" fill="#94a3b8" font-size="11">↑ ${yAxisLabel}</text>
             ${circles}
         `;
         apiScatterTitle.textContent = full
-            ? 'Scatter: omsetning vs. årsresultat (utvalgssample fra hele treffsettet)'
-            : 'Scatter: omsetning vs. årsresultat (kun rader som vises nå)';
-        apiScatterMeta.textContent = `Punkter: ${fmtNumber(points.length)} · X-akse maks omsetning: ${fmtNumber(maxX)} · Y-akse: ${fmtNumber(minY)} til ${fmtNumber(maxY)}`;
+            ? `Scatter: omsetning vs. ${yAxisLabel.toLowerCase()} (utvalgssample fra hele treffsettet)`
+            : `Scatter: omsetning vs. ${yAxisLabel.toLowerCase()} (kun rader som vises nå)`;
+        const minYText = yAxis === 'driftsmargin' ? fmtPct(minY) : fmtNumber(minY);
+        const maxYText = yAxis === 'driftsmargin' ? fmtPct(maxY) : fmtNumber(maxY);
+        apiScatterMeta.textContent = `Punkter: ${fmtNumber(points.length)} · X-akse maks omsetning: ${fmtNumber(maxX)} · Y-akse: ${minYText} til ${maxYText}`;
         apiScatterWrap.style.display = '';
     }
 
@@ -1305,6 +1332,7 @@
         document.getElementById('api_limit').value = '100';
         document.getElementById('api_sort_by').value = 'omsetning';
         document.getElementById('api_sort_dir').value = 'desc';
+        if (apiScatterYAxis) apiScatterYAxis.value = 'driftsmargin';
         updateSortHeaderUi();
         renderNaeringskodeSuggestionList([]);
         renderIndustryOverview([]);
@@ -1319,6 +1347,9 @@
     });
     document.getElementById('api_sort_dir')?.addEventListener('change', () => {
         updateSortHeaderUi();
+        applyCurrentSortAndRender();
+    });
+    apiScatterYAxis?.addEventListener('change', () => {
         applyCurrentSortAndRender();
     });
 
