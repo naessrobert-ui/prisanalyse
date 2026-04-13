@@ -21,24 +21,26 @@ class BenchmarkLogicTests(unittest.TestCase):
         benchmark = engine.compute_benchmark_exposures(settings)
         values = dict(zip(benchmark["asset_class"], benchmark["benchmark_weight"]))
 
-        self.assertAlmostEqual(values["Equity Norway"], 0.14)
-        self.assertAlmostEqual(values["Equity International DM"], 0.504)
-        self.assertAlmostEqual(values["Equity EM"], 0.056)
-        self.assertAlmostEqual(values["Fixed Income"], 0.30)
+        self.assertAlmostEqual(values["equity_norway"], 0.14)
+        self.assertAlmostEqual(values["equity_global_developed"], 0.504)
+        self.assertAlmostEqual(values["equity_global_em"], 0.056)
+        self.assertAlmostEqual(values["fi_norway_short"], 0.075)
+        self.assertAlmostEqual(values["fi_norway_long"], 0.075)
+        self.assertAlmostEqual(values["fi_global"], 0.15)
 
 
 class TradeLogicTests(unittest.TestCase):
     def test_trade_threshold_applies_in_threshold_mode(self):
         actual = pd.DataFrame(
             [
-                {"portfolio": "P1", "asset_class": "Equity Norway", "actual_weight": 0.15},
-                {"portfolio": "P1", "asset_class": "Fixed Income", "actual_weight": 0.85},
+                {"portfolio": "P1", "asset_class": "equity_norway", "actual_weight": 0.15},
+                {"portfolio": "P1", "asset_class": "fi_global", "actual_weight": 0.85},
             ]
         )
         benchmark = pd.DataFrame(
             [
-                {"portfolio": "P1", "asset_class": "Equity Norway", "benchmark_weight": 0.14},
-                {"portfolio": "P1", "asset_class": "Fixed Income", "benchmark_weight": 0.86},
+                {"portfolio": "P1", "asset_class": "equity_norway", "benchmark_weight": 0.14},
+                {"portfolio": "P1", "asset_class": "fi_global", "benchmark_weight": 0.86},
             ]
         )
 
@@ -46,16 +48,16 @@ class TradeLogicTests(unittest.TestCase):
         result = engine.compute_active_bets(actual, benchmark, target, minimum_trade_threshold=0.02)
         trades = dict(zip(result["asset_class"], result["suggested_trade"]))
 
-        self.assertEqual(trades["Equity Norway"], 0.0)
-        self.assertEqual(trades["Fixed Income"], 0.0)
+        self.assertEqual(trades["equity_norway"], 0.0)
+        self.assertEqual(trades["fi_global"], 0.0)
 
     def test_reference_plus_active_bets_changes_trade_target(self):
-        actual = pd.DataFrame([{"portfolio": "P1", "asset_class": "Equity Norway", "actual_weight": 0.10}])
+        actual = pd.DataFrame([{"portfolio": "P1", "asset_class": "equity_norway", "actual_weight": 0.10}])
         benchmark = pd.DataFrame(
-            [{"portfolio": "P1", "asset_class": "Equity Norway", "benchmark_weight": 0.14}]
+            [{"portfolio": "P1", "asset_class": "equity_norway", "benchmark_weight": 0.14}]
         )
         active_bets = pd.DataFrame(
-            [{"portfolio": "P1", "asset_class": "Equity Norway", "active_bet_adjustment": 0.02}]
+            [{"portfolio": "P1", "asset_class": "equity_norway", "active_bet_adjustment": 0.02}]
         )
 
         target = engine.compute_target_exposures(

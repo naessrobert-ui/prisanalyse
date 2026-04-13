@@ -179,19 +179,31 @@ def compute_benchmark_exposures(settings: pd.DataFrame) -> pd.DataFrame:
         equity_share = float(row["equity_share"])
         norway_share = float(row["norway_share_within_equity"])
         em_share = float(row["em_share_within_international_equity"])
+        cash_target = float(row.get("cash_target", 0.0) or 0.0)
+        allocation_target = float(row.get("allocation_target", 0.0) or 0.0)
+        fi_norway_within_fi = float(row.get("fi_norway_within_fi", 0.5) or 0.5)
+        fi_long_within_norway_fi = float(row.get("fi_long_within_norway_fi", 0.5) or 0.5)
 
         norway_equity = equity_share * norway_share
         intl_equity = max(0.0, equity_share - norway_equity)
         em_equity = intl_equity * em_share
         developed_equity = max(0.0, intl_equity - em_equity)
-        fixed_income = max(0.0, 1.0 - equity_share)
+        fi_total = max(0.0, 1.0 - equity_share - cash_target - allocation_target)
+        fi_norway_total = fi_total * fi_norway_within_fi
+        fi_global = max(0.0, fi_total - fi_norway_total)
+        fi_norway_long = fi_norway_total * fi_long_within_norway_fi
+        fi_norway_short = max(0.0, fi_norway_total - fi_norway_long)
 
         rows.extend(
             [
-                {"portfolio": portfolio, "asset_class": "Equity Norway", "benchmark_weight": norway_equity},
-                {"portfolio": portfolio, "asset_class": "Equity International DM", "benchmark_weight": developed_equity},
-                {"portfolio": portfolio, "asset_class": "Equity EM", "benchmark_weight": em_equity},
-                {"portfolio": portfolio, "asset_class": "Fixed Income", "benchmark_weight": fixed_income},
+                {"portfolio": portfolio, "asset_class": "cash", "benchmark_weight": cash_target},
+                {"portfolio": portfolio, "asset_class": "allocation", "benchmark_weight": allocation_target},
+                {"portfolio": portfolio, "asset_class": "equity_norway", "benchmark_weight": norway_equity},
+                {"portfolio": portfolio, "asset_class": "equity_global_developed", "benchmark_weight": developed_equity},
+                {"portfolio": portfolio, "asset_class": "equity_global_em", "benchmark_weight": em_equity},
+                {"portfolio": portfolio, "asset_class": "fi_norway_short", "benchmark_weight": fi_norway_short},
+                {"portfolio": portfolio, "asset_class": "fi_norway_long", "benchmark_weight": fi_norway_long},
+                {"portfolio": portfolio, "asset_class": "fi_global", "benchmark_weight": fi_global},
             ]
         )
 

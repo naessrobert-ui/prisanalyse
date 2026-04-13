@@ -19,10 +19,19 @@ portfolio_rebalancer_bp = Blueprint(
 _UPLOAD_LIMIT_MB = max(1, int((os.environ.get("HANDLER_DB_UPLOAD_MAX_MB", "300") or "300").strip() or "300"))
 
 DEFAULT_MAPPING = {
-    "DNB Norge": "Equity Norway",
-    "KLP AksjeFremvoksende Markeder": "Equity EM",
-    "KLP AksjeGlobal": "Equity International DM",
-    "KLP Obligasjon": "Fixed Income",
+    "PB Norway: Balanced Global 10%EQ + 90%FI": "cash",
+    "Nordea PB Norsk Aksje Portefolje B Acc NOK": "equity_norway",
+    "Nordea 1 - Global Portfolio Fund BF-NOK": "equity_global_developed",
+    "Nordea 2 - BetaPlus Enhan Global Eq Fd BF-NOK": "equity_global_developed",
+    "Nordea Discretionary Global Equity C Acc NOK": "equity_global_developed",
+    "Nordea Emerging Market Equities Fund C Acc NOK": "equity_global_em",
+    "Nordea FRN Pensjon C Acc NOK": "fi_norway_short",
+    "Nordea Kort Obligasjon Pluss C Acc NOK": "fi_norway_short",
+    "Nordea Obligasjon III C Acc NOK": "fi_norway_long",
+    "Nordea 1 - European Corporate Bond Fund HBCN-NOK": "fi_global",
+    "Nordea 1 - Global High Yield Bond Fund HBCN-NOK": "fi_global",
+    "Nordea 1 - US Corporate Bond Fund HBC-NOK": "fi_global",
+    "Nordea Allokeringsfond Fund C Acc NOK": "allocation",
 }
 
 
@@ -54,6 +63,7 @@ def handle_too_large(_err):
         "portfolio_rebalancer.html",
         detected_sheets=[],
         results_preview=[],
+        holdings_preview=[],
         portfolio_overview=[],
         export_ready=False,
         error_message=f"Filen er for stor for opplasting via appen (grense: {_UPLOAD_LIMIT_MB} MB).",
@@ -74,6 +84,7 @@ def handle_too_large(_err):
 def index():
     detected_sheets: list[str] = []
     results_preview: list[dict[str, object]] = []
+    holdings_preview: list[dict[str, object]] = []
     portfolio_overview: list[dict[str, object]] = []
     error_message = ""
     export_ready = False
@@ -142,6 +153,11 @@ def index():
                 }
                 export_ready = True
                 results_preview = active.round(4).to_dict(orient="records")
+                holdings_preview = (
+                    classified.sort_values(["portfolio", "asset_class", "fund"])
+                    .round(4)
+                    .to_dict(orient="records")
+                )
                 overview = (
                     active.groupby("portfolio", as_index=False)
                     .agg(
@@ -159,6 +175,7 @@ def index():
         "portfolio_rebalancer.html",
         detected_sheets=detected_sheets,
         results_preview=results_preview,
+        holdings_preview=holdings_preview,
         portfolio_overview=portfolio_overview,
         error_message=error_message,
         export_ready=export_ready,

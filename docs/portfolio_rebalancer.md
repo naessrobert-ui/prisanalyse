@@ -26,6 +26,7 @@
 - If no portfolio sheet is auto-detected, the tool attempts all workbook sheets.
 - Supported file types: `.xlsx` and `.xlsm`.
 - If upload fails with file-size error, check `HANDLER_DB_UPLOAD_MAX_MB` and any proxy limits in front of Flask.
+- Standard category-set uses granular reference buckets: `cash`, `allocation`, `equity_norway`, `equity_global_developed`, `equity_global_em`, `fi_norway_short`, `fi_norway_long`, `fi_global`.
 
 ## Architecture
 - Calculation engine is isolated in `portfolio_rebalancer_engine.py`.

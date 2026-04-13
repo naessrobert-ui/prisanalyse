@@ -21,7 +21,7 @@
     <div class="mb-3">
       <label class="form-label" for="benchmark_json">Benchmark settings (JSON list per portfolio)</label>
       <textarea class="form-control" id="benchmark_json" name="benchmark_json" rows="10">{{ ui_state.benchmark_json }}</textarea>
-      <small class="text-muted">Felter: portfolio, equity_share, norway_share_within_equity, em_share_within_international_equity</small>
+      <small class="text-muted">Felter: portfolio, equity_share, norway_share_within_equity, em_share_within_international_equity (+ valgfritt: cash_target, allocation_target, fi_norway_within_fi, fi_long_within_norway_fi)</small>
     </div>
     <div class="mb-3">
       <label class="form-label" for="active_bets_json">Active bets (JSON, optional)</label>
@@ -130,17 +130,49 @@
         <a class="btn btn-success" href="{{ url_for('portfolio_rebalancer.export_xlsx') }}">Export to Excel</a>
       {% endif %}
     </div>
+
+    <div class="card card-body mb-3">
+      <h2 class="h5">Underliggende fond (ekte navn)</h2>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped" id="holding_table">
+          <thead>
+            <tr>
+              <th>Portefølje</th>
+              <th>Fond</th>
+              <th>Aktivaklasse</th>
+              <th>Vekt</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in holdings_preview %}
+            <tr data-portfolio="{{ row.portfolio }}">
+              <td>{{ row.portfolio }}</td>
+              <td>{{ row.fund }}</td>
+              <td>{{ row.asset_class }}</td>
+              <td>{{ row.weight }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   {% endif %}
 </div>
 {% if results_preview %}
 <script>
   (function () {
     const select = document.getElementById('portfolio_filter');
-    const rows = document.querySelectorAll('#detail_table tbody tr');
-    if (!select || !rows.length) return;
+    const detailRows = document.querySelectorAll('#detail_table tbody tr');
+    const holdingRows = document.querySelectorAll('#holding_table tbody tr');
+    if (!select || !detailRows.length) return;
     select.addEventListener('change', function () {
       const selected = this.value;
-      rows.forEach((row) => {
+      detailRows.forEach((row) => {
+        const rowPortfolio = row.getAttribute('data-portfolio') || '';
+        const show = selected === 'ALL' || rowPortfolio === selected;
+        row.style.display = show ? '' : 'none';
+      });
+      holdingRows.forEach((row) => {
         const rowPortfolio = row.getAttribute('data-portfolio') || '';
         const show = selected === 'ALL' || rowPortfolio === selected;
         row.style.display = show ? '' : 'none';
