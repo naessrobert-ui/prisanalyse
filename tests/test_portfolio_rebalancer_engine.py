@@ -28,6 +28,28 @@ class BenchmarkLogicTests(unittest.TestCase):
         self.assertAlmostEqual(values["fi_norway_long"], 0.075)
         self.assertAlmostEqual(values["fi_global"], 0.15)
 
+    def test_compute_benchmark_exposures_with_fi_bucket_overrides(self):
+        settings = pd.DataFrame(
+            [
+                {
+                    "portfolio": "P1",
+                    "equity_share": 0.30,
+                    "norway_share_within_equity": 0.20,
+                    "em_share_within_international_equity": 0.10,
+                    "allocation_target": 0.10,
+                    "fi_norway_short_within_fi": 0.375,
+                    "fi_norway_long_within_fi": 0.50,
+                    "fi_global_within_fi": 0.375,
+                }
+            ]
+        )
+        benchmark = engine.compute_benchmark_exposures(settings)
+        values = dict(zip(benchmark["asset_class"], benchmark["benchmark_weight"]))
+        # Ratios are normalized internally (sum = 1.25), then applied to FI-total (0.60).
+        self.assertAlmostEqual(values["fi_norway_short"], 0.18)
+        self.assertAlmostEqual(values["fi_norway_long"], 0.24)
+        self.assertAlmostEqual(values["fi_global"], 0.18)
+
 
 class TradeLogicTests(unittest.TestCase):
     def test_trade_threshold_applies_in_threshold_mode(self):

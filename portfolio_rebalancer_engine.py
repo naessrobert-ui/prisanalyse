@@ -210,10 +210,30 @@ def compute_benchmark_exposures(settings: pd.DataFrame) -> pd.DataFrame:
         em_equity = intl_equity * em_share
         developed_equity = max(0.0, intl_equity - em_equity)
         fi_total = max(0.0, 1.0 - equity_share - cash_target - allocation_target)
-        fi_norway_total = fi_total * fi_norway_within_fi
-        fi_global = max(0.0, fi_total - fi_norway_total)
-        fi_norway_long = fi_norway_total * fi_long_within_norway_fi
-        fi_norway_short = max(0.0, fi_norway_total - fi_norway_long)
+
+        fi_short_override = row.get("fi_norway_short_within_fi")
+        fi_long_override = row.get("fi_norway_long_within_fi")
+        fi_global_override = row.get("fi_global_within_fi")
+        if (
+            fi_short_override is not None
+            or fi_long_override is not None
+            or fi_global_override is not None
+        ):
+            short_ratio = float(fi_short_override or 0.0)
+            long_ratio = float(fi_long_override or 0.0)
+            global_ratio = float(fi_global_override or 0.0)
+            ratio_total = short_ratio + long_ratio + global_ratio
+            if ratio_total <= 0:
+                short_ratio, long_ratio, global_ratio = 0.375, 0.375, 0.25
+                ratio_total = 1.0
+            fi_norway_short = fi_total * (short_ratio / ratio_total)
+            fi_norway_long = fi_total * (long_ratio / ratio_total)
+            fi_global = fi_total * (global_ratio / ratio_total)
+        else:
+            fi_norway_total = fi_total * fi_norway_within_fi
+            fi_global = max(0.0, fi_total - fi_norway_total)
+            fi_norway_long = fi_norway_total * fi_long_within_norway_fi
+            fi_norway_short = max(0.0, fi_norway_total - fi_norway_long)
 
         rows.extend(
             [

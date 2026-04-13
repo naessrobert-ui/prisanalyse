@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import asdict, dataclass
 from io import StringIO
 
@@ -46,12 +47,41 @@ class UiState:
 
 
 def _default_benchmark(portfolios: list[str]) -> list[dict[str, float | str]]:
+    allocation_targets = {
+        "G1090": 0.07,
+        "G3070": 0.10,
+        "G5050": 0.10,
+        "G6535": 0.10,
+        "G8020": 0.10,
+        "EG": 0.0,
+    }
+
+    def infer_equity_share(portfolio_name: str) -> float:
+        upper = (portfolio_name or "").upper()
+        if "EG" in upper:
+            return 1.0
+        match = re.search(r"G(\d{2})\d{2}", upper)
+        if match:
+            return int(match.group(1)) / 100.0
+        return 0.60
+
+    def infer_allocation_target(portfolio_name: str) -> float:
+        upper = (portfolio_name or "").upper()
+        for key, value in allocation_targets.items():
+            if key in upper:
+                return value
+        return 0.10
+
     return [
         {
             "portfolio": portfolio,
-            "equity_share": 0.60,
+            "equity_share": infer_equity_share(portfolio),
             "norway_share_within_equity": 0.20,
             "em_share_within_international_equity": 0.15,
+            "allocation_target": infer_allocation_target(portfolio),
+            "fi_norway_short_within_fi": 0.375,
+            "fi_norway_long_within_fi": 0.50,
+            "fi_global_within_fi": 0.375,
         }
         for portfolio in portfolios
     ]
