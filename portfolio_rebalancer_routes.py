@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import asdict, dataclass
 from io import StringIO
-from pathlib import Path
 
 import pandas as pd
-from flask import Blueprint, make_response, render_template, request, session, jsonify
+from flask import Blueprint, make_response, render_template, request, session
 from werkzeug.exceptions import RequestEntityTooLarge
 
-import portfolio_rebalancer as _rb
 import portfolio_rebalancer_engine as engine
 
 portfolio_rebalancer_bp = Blueprint(
@@ -18,90 +17,34 @@ portfolio_rebalancer_bp = Blueprint(
     __name__,
     url_prefix="/internal/portfolio-rebalancer",
 )
-
 _UPLOAD_LIMIT_MB = max(1, int((os.environ.get("HANDLER_DB_UPLOAD_MAX_MB", "300") or "300").strip() or "300"))
 
-# JSON-fil med referanseindekser — ligger ved siden av denne filen i repo
-_REFERENCE_CONFIG_PATH = Path(__file__).parent / "rebalancer_reference.json"
-
 DEFAULT_MAPPING = {
-    "Nordea 1 - European Corporate Bond Fund HBCN-NOK": "fi_global",
-    "Nordea 1 - Global High Yield Bond Fund HBCN-NOK": "fi_global",
+    "PB Norway: Balanced Global 10%EQ + 90%FI": "cash",
+    "Nordea PB Norsk Aksje Portefolje B Acc NOK": "equity_norway",
     "Nordea 1 - Global Portfolio Fund BF-NOK": "equity_global_developed",
-    "Nordea 1 - US Corporate Bond Fund HBC-NOK": "fi_global",
     "Nordea 2 - BetaPlus Enhan Global Eq Fd BF-NOK": "equity_global_developed",
-    "Nordea Allokeringsfond Fund C Acc NOK": "allocation",
     "Nordea Discretionary Global Equity C Acc NOK": "equity_global_developed",
     "Nordea Emerging Market Equities Fund C Acc NOK": "equity_global_em",
     "Nordea FRN Pensjon C Acc NOK": "fi_norway_short",
     "Nordea Kort Obligasjon Pluss C Acc NOK": "fi_norway_short",
     "Nordea Obligasjon III C Acc NOK": "fi_norway_long",
-    "Nordea PB Norsk Aksje Portefolje B Acc NOK": "equity_norway",
-    "PB Norway: Balanced Global 10%EQ + 90%FI": "cash",
-    "PB Norway: Balanced Global 30%EQ + 70%FI": "cash",
-    "PB Norway: Balanced Global 50%EQ + 50%FI": "cash",
-    "PB Norway: Global Equities": "cash",
-    "PB Norway: Growth Global 65%EQ + 35%FI": "cash",
-    "PB Norway:Balanced Global 80%EQ + 20%FI": "cash",
+    "Nordea 1 - European Corporate Bond Fund HBCN-NOK": "fi_global",
+    "Nordea 1 - Global High Yield Bond Fund HBCN-NOK": "fi_global",
+    "Nordea 1 - US Corporate Bond Fund HBC-NOK": "fi_global",
+    "Nordea Allokeringsfond Fund C Acc NOK": "allocation",
+}
+ASSET_CLASS_LABELS = {
+    "allocation": "Allokeringsfondet",
+    "cash": "Kontanter",
+    "equity_global_developed": "Aksjer, Int.-developed",
+    "equity_global_em": "Aksjer, Int.-EM",
+    "equity_norway": "Aksjer Norge",
+    "fi_global": "Renter, internasjonalt",
+    "fi_norway_long": "Renter, Norge lange",
+    "fi_norway_short": "Renter Norge korte",
 }
 
-# ---------------------------------------------------------------------------
-# Reference config helpers
-# ---------------------------------------------------------------------------
-
-def _load_reference_config() -> dict:
-    if _REFERENCE_CONFIG_PATH.exists():
-        with _REFERENCE_CONFIG_PATH.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    return {
-        "global": {
-            "equity_norway_pct": 15.0,
-            "em_within_international_equity_pct": 15.0,
-            "allocation_pct": 10.0,
-            "fi_norway_within_fi_pct": 50.0,
-            "fi_long_within_norway_fi_pct": 50.0,
-        },
-        "portfolio_overrides": {},
-    }
-
-
-def _save_reference_config(cfg: dict) -> None:
-    with _REFERENCE_CONFIG_PATH.open("w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
-        f.write("\n")
-
-
-def _ref_params_for_portfolio(portfolio: str, ref_cfg: dict) -> dict:
-    """Return merged global + portfolio-specific reference parameters."""
-    params = dict(ref_cfg["global"])
-    overrides = ref_cfg.get("portfolio_overrides", {}).get(portfolio, {})
-    params.update(overrides)
-    return params
-
-
-def _default_benchmark(portfolios: list[str], ref_cfg: dict) -> list[dict]:
-    rows = []
-    for portfolio in portfolios:
-        try:
-            equity_share = _rb.parse_equity_share_from_portfolio_name(portfolio)
-        except _rb.ConfigError:
-            equity_share = 0.60
-        params = _ref_params_for_portfolio(portfolio, ref_cfg)
-        rows.append({
-            "portfolio": portfolio,
-            "equity_share": equity_share,
-            "norway_share_within_equity": params["equity_norway_pct"] / 100.0,
-            "em_share_within_international_equity": params["em_within_international_equity_pct"] / 100.0,
-            "allocation_share": params["allocation_pct"] / 100.0,
-            "fi_norway_within_fi": params["fi_norway_within_fi_pct"] / 100.0,
-            "fi_long_within_norway_fi": params["fi_long_within_norway_fi_pct"] / 100.0,
-        })
-    return rows
-
-
-# ---------------------------------------------------------------------------
-# UI state
-# ---------------------------------------------------------------------------
 
 @dataclass
 class UiState:
@@ -113,40 +56,76 @@ class UiState:
     rebalance_mode: str
 
 
-# ---------------------------------------------------------------------------
-# Error handler
-# ---------------------------------------------------------------------------
+def _default_benchmark(portfolios: list[str]) -> list[dict[str, float | str]]:
+    allocation_targets = {
+        "G1090": 0.07,
+        "G3070": 0.10,
+        "G5050": 0.10,
+        "G6535": 0.10,
+        "G8020": 0.10,
+        "EG": 0.0,
+    }
+
+    def infer_equity_share(portfolio_name: str) -> float:
+        upper = (portfolio_name or "").upper()
+        if "EG" in upper:
+            return 1.0
+        match = re.search(r"G(\d{2})\d{2}", upper)
+        if match:
+            return int(match.group(1)) / 100.0
+        return 0.60
+
+    def infer_allocation_target(portfolio_name: str) -> float:
+        upper = (portfolio_name or "").upper()
+        for key, value in allocation_targets.items():
+            if key in upper:
+                return value
+        return 0.10
+
+    return [
+        {
+            "portfolio": portfolio,
+            "equity_share": infer_equity_share(portfolio),
+            "norway_share_within_equity": 0.20,
+            "em_share_within_international_equity": 0.15,
+            "allocation_target": infer_allocation_target(portfolio),
+            "fi_norway_short_within_fi": 0.375,
+            "fi_norway_long_within_fi": 0.50,
+            "fi_global_within_fi": 0.375,
+        }
+        for portfolio in portfolios
+    ]
+
 
 @portfolio_rebalancer_bp.errorhandler(RequestEntityTooLarge)
 def handle_too_large(_err):
-    ref_cfg = _load_reference_config()
     return render_template(
         "portfolio_rebalancer.html",
         detected_sheets=[],
         results_preview=[],
+        holdings_preview=[],
+        portfolio_overview=[],
         export_ready=False,
         error_message=f"Filen er for stor for opplasting via appen (grense: {_UPLOAD_LIMIT_MB} MB).",
-        ui_state=asdict(UiState(
-            mapping_json=json.dumps(DEFAULT_MAPPING, indent=2, ensure_ascii=False),
-            benchmark_json=json.dumps([], indent=2),
-            active_bets_json=json.dumps([], indent=2),
-            absolute_targets_json=json.dumps([], indent=2),
-            min_trade_threshold=0.01,
-            rebalance_mode="go_to_benchmark",
-        )),
-        ref_cfg=ref_cfg,
+        ui_state=asdict(
+            UiState(
+                mapping_json=json.dumps(DEFAULT_MAPPING, indent=2, ensure_ascii=False),
+                benchmark_json=json.dumps([], indent=2),
+                active_bets_json=json.dumps([], indent=2),
+                absolute_targets_json=json.dumps([], indent=2),
+                min_trade_threshold=0.01,
+                rebalance_mode="go_to_benchmark",
+            )
+        ),
     ), 413
 
 
-# ---------------------------------------------------------------------------
-# Main route
-# ---------------------------------------------------------------------------
-
 @portfolio_rebalancer_bp.route("/", methods=["GET", "POST"])
 def index():
-    ref_cfg = _load_reference_config()
     detected_sheets: list[str] = []
-    results_preview: list[dict] = []
+    results_preview: list[dict[str, object]] = []
+    holdings_preview: list[dict[str, object]] = []
+    portfolio_overview: list[dict[str, object]] = []
     error_message = ""
     export_ready = False
 
@@ -181,15 +160,13 @@ def index():
 
                 holdings = engine.extract_holdings(workbook, detected_sheets)
                 mapping = json.loads(ui_state.mapping_json)
-
                 benchmark_rows = json.loads(ui_state.benchmark_json) if ui_state.benchmark_json else []
                 if not benchmark_rows:
-                    benchmark_rows = _default_benchmark(
-                        sorted(holdings["portfolio"].unique().tolist()), ref_cfg
-                    )
+                    benchmark_rows = _default_benchmark(sorted(holdings["portfolio"].unique().tolist()))
                     ui_state.benchmark_json = json.dumps(benchmark_rows, indent=2, ensure_ascii=False)
 
                 classified = engine.classify_holdings(holdings, mapping)
+                classified = engine.clean_classified_holdings(classified)
                 actual = engine.compute_actual_exposures(classified)
                 benchmark = engine.compute_benchmark_exposures(pd.DataFrame(benchmark_rows))
                 active_bets = pd.DataFrame(json.loads(ui_state.active_bets_json)) if ui_state.active_bets_json else pd.DataFrame()
@@ -201,7 +178,9 @@ def index():
                     absolute_targets=absolute_targets if not absolute_targets.empty else None,
                 )
                 active = engine.compute_active_bets(
-                    actual, benchmark, target,
+                    actual,
+                    benchmark,
+                    target,
                     minimum_trade_threshold=ui_state.min_trade_threshold,
                 )
 
@@ -214,42 +193,40 @@ def index():
                     "active": active.to_json(orient="records"),
                 }
                 export_ready = True
-                results_preview = active.round(4).to_dict(orient="records")
-            except Exception as exc:
+                active_display = active.copy()
+                active_display["asset_class_label"] = active_display["asset_class"].map(ASSET_CLASS_LABELS).fillna(active_display["asset_class"])
+                for col in ("actual_weight", "benchmark_weight", "active_bet", "suggested_trade"):
+                    active_display[col] = (active_display[col] * 100.0).round(2)
+                results_preview = active_display.to_dict(orient="records")
+
+                holdings_display = classified.sort_values(["portfolio", "asset_class", "fund"]).copy()
+                holdings_display["asset_class_label"] = holdings_display["asset_class"].map(ASSET_CLASS_LABELS).fillna(holdings_display["asset_class"])
+                holdings_display["weight"] = (holdings_display["weight"] * 100.0).round(2)
+                holdings_preview = holdings_display.to_dict(orient="records")
+                overview = (
+                    active.groupby("portfolio", as_index=False)
+                    .agg(
+                        antall_aktivaklasser=("asset_class", "count"),
+                        sum_abs_active=("active_bet", lambda s: float(s.abs().sum())),
+                        sum_abs_trade=("suggested_trade", lambda s: float(s.abs().sum())),
+                    )
+                    .sort_values("portfolio")
+                )
+                portfolio_overview = overview.round(4).to_dict(orient="records")
+            except Exception as exc:  # noqa: BLE001
                 error_message = f"Kunne ikke behandle workbook: {exc}"
 
     return render_template(
         "portfolio_rebalancer.html",
         detected_sheets=detected_sheets,
         results_preview=results_preview,
+        holdings_preview=holdings_preview,
+        portfolio_overview=portfolio_overview,
         error_message=error_message,
         export_ready=export_ready,
         ui_state=asdict(ui_state),
-        ref_cfg=ref_cfg,
     )
 
-
-# ---------------------------------------------------------------------------
-# Reference config API — called by the interactive editor in the template
-# ---------------------------------------------------------------------------
-
-@portfolio_rebalancer_bp.route("/reference-config", methods=["GET"])
-def get_reference_config():
-    return jsonify(_load_reference_config())
-
-
-@portfolio_rebalancer_bp.route("/reference-config", methods=["POST"])
-def save_reference_config():
-    data = request.get_json(force=True)
-    if not data or "global" not in data:
-        return jsonify({"error": "Ugyldig payload"}), 400
-    _save_reference_config(data)
-    return jsonify({"ok": True})
-
-
-# ---------------------------------------------------------------------------
-# Excel export
-# ---------------------------------------------------------------------------
 
 @portfolio_rebalancer_bp.route("/export.xlsx", methods=["GET"])
 def export_xlsx():
