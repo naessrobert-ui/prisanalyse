@@ -151,6 +151,14 @@
             padding: 10px;
             background: rgba(15, 23, 42, 0.45);
         }
+        .scatter-controls {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: end;
+        }
+        .scatter-controls label { font-size: 0.82rem; color: #cbd5e1; }
         .scatter-title { margin: 0 0 8px; color: #cbd5e1; font-weight: 700; }
         .scatter-svg {
             width: 100%;
@@ -158,6 +166,9 @@
             display: block;
             border-radius: 8px;
             background: linear-gradient(180deg, rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.25));
+        }
+        @media (max-width: 980px) {
+            .scatter-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         .results-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top: 12px; }
         .results-toolbar input { margin: 0; min-width: 240px; }
@@ -385,13 +396,31 @@
         <div id="apiInsights" class="insight-grid" style="display:none;"></div>
         <div id="apiScatterWrap" class="scatter-wrap" style="display:none;">
             <div class="scatter-title" id="apiScatterTitle">Scatter: omsetning vs. driftsmargin</div>
-            <div style="margin-bottom:8px;">
-                <label for="api_scatter_y_axis" style="font-size:0.85rem;color:#cbd5e1;">Y-akse</label>
-                <select id="api_scatter_y_axis" style="margin-left:8px;">
-                    <option value="driftsmargin" selected>Driftsmargin (%)</option>
-                    <option value="driftsresultat">Driftsresultat</option>
-                    <option value="aarsresultat">Årsresultat</option>
-                </select>
+            <div class="scatter-controls">
+                <div>
+                    <label for="api_scatter_y_axis">Y-akse</label>
+                    <select id="api_scatter_y_axis">
+                        <option value="driftsmargin" selected>Driftsmargin (%)</option>
+                        <option value="driftsresultat">Driftsresultat</option>
+                        <option value="aarsresultat">Årsresultat</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="api_scatter_x_min">Min omsetning (X)</label>
+                    <input id="api_scatter_x_min" type="number" step="1" placeholder="Tom = ingen min">
+                </div>
+                <div>
+                    <label for="api_scatter_x_max">Maks omsetning (X)</label>
+                    <input id="api_scatter_x_max" type="number" step="1" placeholder="Tom = ingen maks">
+                </div>
+                <div>
+                    <label for="api_scatter_y_min" id="api_scatter_y_min_label">Min Y-verdi</label>
+                    <input id="api_scatter_y_min" type="number" step="0.1" placeholder="Tom = ingen min">
+                </div>
+                <div>
+                    <label for="api_scatter_y_max" id="api_scatter_y_max_label">Maks Y-verdi</label>
+                    <input id="api_scatter_y_max" type="number" step="0.1" placeholder="Tom = ingen maks">
+                </div>
             </div>
             <svg id="apiScatter" class="scatter-svg" viewBox="0 0 900 260" preserveAspectRatio="none"></svg>
             <div id="apiScatterMeta" class="muted" style="margin-top:8px;"></div>
@@ -565,6 +594,12 @@
     const apiScatterMeta = document.getElementById('apiScatterMeta');
     const apiScatterTitle = document.getElementById('apiScatterTitle');
     const apiScatterYAxis = document.getElementById('api_scatter_y_axis');
+    const apiScatterXMin = document.getElementById('api_scatter_x_min');
+    const apiScatterXMax = document.getElementById('api_scatter_x_max');
+    const apiScatterYMin = document.getElementById('api_scatter_y_min');
+    const apiScatterYMax = document.getElementById('api_scatter_y_max');
+    const apiScatterYMinLabel = document.getElementById('api_scatter_y_min_label');
+    const apiScatterYMaxLabel = document.getElementById('api_scatter_y_max_label');
     const sortableHeaders = Array.from(document.querySelectorAll('#apiResultsTable thead th[data-sort-by]'));
     const presetTopRevenueBtn = document.getElementById('presetTopRevenueBtn');
     const resetApiFormBtn = document.getElementById('resetApiFormBtn');
@@ -892,11 +927,32 @@
         return (operatingProfit / revenue) * 100;
     }
 
+    function getOptionalInputNumber(inputEl) {
+        const raw = String(inputEl?.value || '').trim();
+        if (!raw) return null;
+        const value = Number(raw);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    function updateScatterAxisInputHints() {
+        const yAxis = apiScatterYAxis?.value || 'driftsmargin';
+        const ySuffix = yAxis === 'driftsmargin' ? ' (%)' : '';
+        if (apiScatterYMinLabel) apiScatterYMinLabel.textContent = `Min Y-verdi${ySuffix}`;
+        if (apiScatterYMaxLabel) apiScatterYMaxLabel.textContent = `Maks Y-verdi${ySuffix}`;
+        if (apiScatterYMin) apiScatterYMin.step = yAxis === 'driftsmargin' ? '0.1' : '1';
+        if (apiScatterYMax) apiScatterYMax.step = yAxis === 'driftsmargin' ? '0.1' : '1';
+    }
+
     function renderScatter(rows, full) {
         const yAxis = apiScatterYAxis?.value || 'driftsmargin';
         const yAxisLabel = yAxis === 'driftsresultat'
             ? 'Driftsresultat'
             : (yAxis === 'aarsresultat' ? 'Årsresultat' : 'Driftsmargin (%)');
+        const xMinLimit = getOptionalInputNumber(apiScatterXMin);
+        const xMaxLimit = getOptionalInputNumber(apiScatterXMax);
+        const yMinLimit = getOptionalInputNumber(apiScatterYMin);
+        const yMaxLimit = getOptionalInputNumber(apiScatterYMax);
+
         const sourceRows = Array.isArray(full?.scatter_points) && full.scatter_points.length ? full.scatter_points : rows;
         const points = sourceRows
             .map((row) => {
@@ -905,7 +961,14 @@
                 const label = String(getRowValue(row, ['navn']) || getRowValue(row, ['orgnr']) || 'Ukjent');
                 return { x, y, label };
             })
-            .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+            .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+            .filter((point) => {
+                if (xMinLimit !== null && point.x < xMinLimit) return false;
+                if (xMaxLimit !== null && point.x > xMaxLimit) return false;
+                if (yMinLimit !== null && point.y < yMinLimit) return false;
+                if (yMaxLimit !== null && point.y > yMaxLimit) return false;
+                return true;
+            });
 
         if (!points.length) {
             apiScatterWrap.style.display = 'none';
@@ -1333,6 +1396,11 @@
         document.getElementById('api_sort_by').value = 'omsetning';
         document.getElementById('api_sort_dir').value = 'desc';
         if (apiScatterYAxis) apiScatterYAxis.value = 'driftsmargin';
+        if (apiScatterXMin) apiScatterXMin.value = '';
+        if (apiScatterXMax) apiScatterXMax.value = '';
+        if (apiScatterYMin) apiScatterYMin.value = '';
+        if (apiScatterYMax) apiScatterYMax.value = '';
+        updateScatterAxisInputHints();
         updateSortHeaderUi();
         renderNaeringskodeSuggestionList([]);
         renderIndustryOverview([]);
@@ -1350,7 +1418,13 @@
         applyCurrentSortAndRender();
     });
     apiScatterYAxis?.addEventListener('change', () => {
+        updateScatterAxisInputHints();
         applyCurrentSortAndRender();
+    });
+    [apiScatterXMin, apiScatterXMax, apiScatterYMin, apiScatterYMax].forEach((inputEl) => {
+        inputEl?.addEventListener('input', () => {
+            applyCurrentSortAndRender();
+        });
     });
 
     sortableHeaders.forEach((th) => {
@@ -1372,6 +1446,7 @@
     });
 
     updateSortHeaderUi();
+    updateScatterAxisInputHints();
     loadFilterMeta();
 </script>
 </body>
