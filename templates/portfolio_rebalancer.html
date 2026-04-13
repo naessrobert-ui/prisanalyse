@@ -99,24 +99,24 @@
     </div>
 
     <div class="card card-body mb-3">
-      <h2 class="h5">Result preview (detaljer)</h2>
+      <h2 class="h5">Resultat (detaljer, %)</h2>
       <div class="table-responsive">
         <table class="table table-sm table-striped" id="detail_table">
           <thead>
             <tr>
-              <th>Portfolio</th>
-              <th>Asset class</th>
-              <th>Actual</th>
-              <th>Benchmark</th>
-              <th>Active</th>
-              <th>Suggested trade</th>
+              <th>Portefølje</th>
+              <th>Aktivaklasse</th>
+              <th>Faktisk (%)</th>
+              <th>Referanse (%)</th>
+              <th>Aktivt bet (%-p)</th>
+              <th>Foreslått handel (%-p)</th>
             </tr>
           </thead>
           <tbody>
           {% for row in results_preview %}
             <tr data-portfolio="{{ row.portfolio }}">
               <td>{{ row.portfolio }}</td>
-              <td>{{ row.asset_class }}</td>
+              <td>{{ row.asset_class_label }}</td>
               <td>{{ row.actual_weight }}</td>
               <td>{{ row.benchmark_weight }}</td>
               <td>{{ row.active_bet }}</td>
@@ -140,7 +140,7 @@
               <th>Portefølje</th>
               <th>Fond</th>
               <th>Aktivaklasse</th>
-              <th>Vekt</th>
+              <th>Vekt (%)</th>
             </tr>
           </thead>
           <tbody>
@@ -148,7 +148,7 @@
             <tr data-portfolio="{{ row.portfolio }}">
               <td>{{ row.portfolio }}</td>
               <td>{{ row.fund }}</td>
-              <td>{{ row.asset_class }}</td>
+              <td>{{ row.asset_class_label }}</td>
               <td>{{ row.weight }}</td>
             </tr>
           {% endfor %}

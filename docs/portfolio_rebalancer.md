@@ -32,6 +32,7 @@
 - If upload fails with file-size error, check `HANDLER_DB_UPLOAD_MAX_MB` and any proxy limits in front of Flask.
 - Standard category-set uses granular reference buckets: `cash`, `allocation`, `equity_norway`, `equity_global_developed`, `equity_global_em`, `fi_norway_short`, `fi_norway_long`, `fi_global`.
 - Default benchmark presets now infer equity share from portfolio code (e.g. `G1090` => 10%, `G3070` => 30%), and apply portfolio-specific allocation targets (`G1090`=7%, `G3070/G5050/G6535/G8020`=10%, `EG`=0%).
+- UI displays human-friendly Norwegian category labels and percentage values with two decimals in result/holding tables.
 
 ## Architecture
 - Calculation engine is isolated in `portfolio_rebalancer_engine.py`.

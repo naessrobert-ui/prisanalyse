@@ -34,6 +34,16 @@ DEFAULT_MAPPING = {
     "Nordea 1 - US Corporate Bond Fund HBC-NOK": "fi_global",
     "Nordea Allokeringsfond Fund C Acc NOK": "allocation",
 }
+ASSET_CLASS_LABELS = {
+    "allocation": "Allokeringsfondet",
+    "cash": "Kontanter",
+    "equity_global_developed": "Aksjer, Int.-developed",
+    "equity_global_em": "Aksjer, Int.-EM",
+    "equity_norway": "Aksjer Norge",
+    "fi_global": "Renter, internasjonalt",
+    "fi_norway_long": "Renter, Norge lange",
+    "fi_norway_short": "Renter Norge korte",
+}
 
 
 @dataclass
@@ -183,12 +193,16 @@ def index():
                     "active": active.to_json(orient="records"),
                 }
                 export_ready = True
-                results_preview = active.round(4).to_dict(orient="records")
-                holdings_preview = (
-                    classified.sort_values(["portfolio", "asset_class", "fund"])
-                    .round(4)
-                    .to_dict(orient="records")
-                )
+                active_display = active.copy()
+                active_display["asset_class_label"] = active_display["asset_class"].map(ASSET_CLASS_LABELS).fillna(active_display["asset_class"])
+                for col in ("actual_weight", "benchmark_weight", "active_bet", "suggested_trade"):
+                    active_display[col] = (active_display[col] * 100.0).round(2)
+                results_preview = active_display.to_dict(orient="records")
+
+                holdings_display = classified.sort_values(["portfolio", "asset_class", "fund"]).copy()
+                holdings_display["asset_class_label"] = holdings_display["asset_class"].map(ASSET_CLASS_LABELS).fillna(holdings_display["asset_class"])
+                holdings_display["weight"] = (holdings_display["weight"] * 100.0).round(2)
+                holdings_preview = holdings_display.to_dict(orient="records")
                 overview = (
                     active.groupby("portfolio", as_index=False)
                     .agg(
