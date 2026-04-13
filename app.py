@@ -19,6 +19,7 @@ from bil_import import bil_import_bp
 from gemini_routes import gemini_bp
 from scripts.ver_routes import ver
 from regnskap_routes import regnskap_bp
+from portfolio_rebalancer_routes import portfolio_rebalancer_bp
 from dash_apps.strom import create_dash_app
 from scripts.kvamskogen_routes import kvamskogen_bp
 from scripts.sno_routes import sno_bp, start_warmup
@@ -125,6 +126,7 @@ def create_app() -> Flask:
     app.register_blueprint(ver)
     app.register_blueprint(handler_bp)
     app.register_blueprint(regnskap_bp)
+    app.register_blueprint(portfolio_rebalancer_bp)
     app.register_blueprint(kvamskogen_bp)
     app.register_blueprint(sno_bp)
     app.register_blueprint(kart_bp)
