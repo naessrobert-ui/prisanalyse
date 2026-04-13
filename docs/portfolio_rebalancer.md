@@ -36,7 +36,8 @@
 - UI displays human-friendly Norwegian category labels and percentage values with two decimals in result/holding tables.
 - Result table supports drilldown filter levels: whole portfolio, equity(all), equity(international), fixed income(all), fixed income(Norway), fixed income(international).
 - In drilldown mode, displayed weights are normalized within the selected subgroup to sum to 100% (both for asset-class table and underlying-fund table).
-- Users can enter manual `desired weight` or `desired active bet` per row and export a manual trade sheet.
+- Users can enter manual **new weights per underlying fund** and export only changed funds (`old_weight_pct`, `new_weight_pct`, `change_pct`).
+- Manual inputs are kept in page memory while navigating filters and are reset on browser refresh (new session).
 
 ## Architecture
 - Calculation engine is isolated in `portfolio_rebalancer_engine.py`.

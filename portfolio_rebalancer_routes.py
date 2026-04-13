@@ -268,41 +268,32 @@ def export_manual_xlsx():
         resp.headers["Content-Type"] = "text/plain; charset=utf-8"
         return resp
 
-    active = pd.read_json(StringIO(cached["active"]))
-    active["manual_target_weight"] = active["target_weight"]
-    active["desired_weight_pct"] = None
-    active["desired_active_bet_pct"] = None
+    classified = pd.read_json(StringIO(cached["classified"]))
+    classified["old_weight_pct"] = (classified["weight"] * 100.0).round(4)
+    classified["new_weight_pct"] = classified["old_weight_pct"]
 
     for item in overrides:
         portfolio = str(item.get("portfolio", ""))
-        asset_class = str(item.get("asset_class", ""))
-        mask = (active["portfolio"] == portfolio) & (active["asset_class"] == asset_class)
+        fund = str(item.get("fund", ""))
+        desired_weight_pct = item.get("desired_weight_pct")
+        if desired_weight_pct in (None, ""):
+            continue
+        mask = (classified["portfolio"] == portfolio) & (classified["fund"] == fund)
         if not mask.any():
             continue
+        classified.loc[mask, "new_weight_pct"] = float(desired_weight_pct)
 
-        desired_weight_pct = item.get("desired_weight_pct")
-        desired_active_bet_pct = item.get("desired_active_bet_pct")
-        if desired_weight_pct not in (None, ""):
-            desired_weight = float(desired_weight_pct) / 100.0
-            active.loc[mask, "manual_target_weight"] = desired_weight
-            active.loc[mask, "desired_weight_pct"] = float(desired_weight_pct)
-        elif desired_active_bet_pct not in (None, ""):
-            desired_active = float(desired_active_bet_pct) / 100.0
-            active.loc[mask, "manual_target_weight"] = active.loc[mask, "benchmark_weight"] + desired_active
-            active.loc[mask, "desired_active_bet_pct"] = float(desired_active_bet_pct)
-
-    active["manual_trade"] = active["manual_target_weight"] - active["actual_weight"]
-    manual_export = active.copy()
-    for col in (
-        "actual_weight",
-        "benchmark_weight",
-        "target_weight",
-        "active_bet",
-        "suggested_trade",
-        "manual_target_weight",
-        "manual_trade",
-    ):
-        manual_export[col] = (manual_export[col] * 100.0).round(2)
+    manual_export = classified.copy()
+    manual_export["change_pct"] = (manual_export["new_weight_pct"] - manual_export["old_weight_pct"]).round(4)
+    manual_export = manual_export[manual_export["change_pct"].abs() > 0.00001].copy()
+    if manual_export.empty:
+        resp = make_response("Ingen fond med endringer å eksportere.", 400)
+        resp.headers["Content-Type"] = "text/plain; charset=utf-8"
+        return resp
+    manual_export = manual_export[
+        ["portfolio", "fund", "asset_class", "old_weight_pct", "new_weight_pct", "change_pct"]
+    ].sort_values(["portfolio", "asset_class", "fund"])
+    manual_export = manual_export.round(2)
 
     payload = engine.export_results_to_excel(
         {

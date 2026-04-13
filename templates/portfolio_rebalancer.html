@@ -122,9 +122,6 @@
               <th>Referanse (%)</th>
               <th>Aktivt bet (%-p)</th>
               <th>Foreslått handel (%-p)</th>
-              <th>Ønsket vekt (%)</th>
-              <th>Ønsket aktivt bet (%-p)</th>
-              <th>Manuell handel (%-p)</th>
             </tr>
           </thead>
           <tbody>
@@ -136,9 +133,6 @@
               <td>{{ row.benchmark_weight }}</td>
               <td>{{ row.active_bet }}</td>
               <td>{{ row.suggested_trade }}</td>
-              <td><input type="number" step="0.01" class="form-control form-control-sm desired-weight"></td>
-              <td><input type="number" step="0.01" class="form-control form-control-sm desired-active"></td>
-              <td class="manual-trade">-</td>
             </tr>
           {% endfor %}
           </tbody>
@@ -149,7 +143,7 @@
           <a class="btn btn-success" href="{{ url_for('portfolio_rebalancer.export_xlsx') }}">Export to Excel</a>
           <form method="post" action="{{ url_for('portfolio_rebalancer.export_manual_xlsx') }}" id="manualExportForm">
             <input type="hidden" name="manual_overrides_json" id="manual_overrides_json">
-            <button class="btn btn-outline-success" type="submit">Last ned manuelle handler</button>
+            <button class="btn btn-outline-success" type="submit">Last ned handler i underliggende fond</button>
           </form>
         </div>
       {% endif %}
@@ -165,15 +159,19 @@
               <th>Fond</th>
               <th>Aktivaklasse</th>
               <th>Vekt (%)</th>
+              <th>Ny vekt (%)</th>
+              <th>Endring (%-p)</th>
             </tr>
           </thead>
           <tbody>
           {% for row in holdings_preview %}
-            <tr data-portfolio="{{ row.portfolio }}" data-asset-class="{{ row.asset_class }}" data-weight="{{ row.weight }}">
+            <tr data-portfolio="{{ row.portfolio }}" data-asset-class="{{ row.asset_class }}" data-fund="{{ row.fund }}" data-weight="{{ row.weight }}">
               <td>{{ row.portfolio }}</td>
               <td>{{ row.fund }}</td>
               <td>{{ row.asset_class_label }}</td>
               <td>{{ row.weight }}</td>
+              <td><input type="number" step="0.01" class="form-control form-control-sm desired-fund-weight"></td>
+              <td class="fund-change">-</td>
             </tr>
           {% endfor %}
           </tbody>
@@ -191,6 +189,7 @@
     const manualOverridesInput = document.getElementById('manual_overrides_json');
     const detailRows = document.querySelectorAll('#detail_table tbody tr');
     const holdingRows = document.querySelectorAll('#holding_table tbody tr');
+    const fundEdits = {};
     if (!portfolioSelect || !focusSelect || !detailRows.length) return;
 
     const focusSets = {
@@ -243,32 +242,6 @@
         row.children[4].textContent = active.toFixed(2);
         row.children[5].textContent = Math.abs(trade) < 0.005 ? '0.00' : trade.toFixed(2);
 
-        const desiredWeightInput = row.querySelector('.desired-weight');
-        const desiredActiveInput = row.querySelector('.desired-active');
-        const manualTradeCell = row.querySelector('.manual-trade');
-        const desiredWeightRaw = desiredWeightInput && desiredWeightInput.value !== '' ? Number(desiredWeightInput.value) : null;
-        const desiredActiveRaw = desiredActiveInput && desiredActiveInput.value !== '' ? Number(desiredActiveInput.value) : null;
-        let manualTrade = null;
-        if (desiredWeightRaw !== null && !Number.isNaN(desiredWeightRaw)) {
-          manualTrade = desiredWeightRaw - actual;
-        } else if (desiredActiveRaw !== null && !Number.isNaN(desiredActiveRaw)) {
-          const manualTarget = benchmark + desiredActiveRaw;
-          manualTrade = manualTarget - actual;
-        }
-        manualTradeCell.textContent = manualTrade === null ? '-' : manualTrade.toFixed(2);
-      });
-
-      const holdingTotals = {};
-      holdingRows.forEach((row) => {
-        const rowPortfolio = row.getAttribute('data-portfolio') || '';
-        const rowClass = row.getAttribute('data-asset-class') || '';
-        const portfolioMatch = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
-        const focusMatch = !allowedClasses || allowedClasses.has(rowClass);
-        const show = portfolioMatch && focusMatch;
-        if (show) {
-          if (!holdingTotals[rowPortfolio]) holdingTotals[rowPortfolio] = 0;
-          holdingTotals[rowPortfolio] += Number(row.getAttribute('data-weight') || 0);
-        }
       });
 
       holdingRows.forEach((row) => {
@@ -281,31 +254,45 @@
         if (!show) return;
 
         const rawWeight = Number(row.getAttribute('data-weight') || 0);
-        const total = holdingTotals[rowPortfolio] || 0;
-        const weight = selectedFocus === 'whole' || total === 0 ? rawWeight : (rawWeight / total) * 100;
-        row.children[3].textContent = weight.toFixed(2);
+        row.children[3].textContent = rawWeight.toFixed(2);
+        const key = `${rowPortfolio}||${row.getAttribute('data-fund') || ''}`;
+        const input = row.querySelector('.desired-fund-weight');
+        const changeCell = row.querySelector('.fund-change');
+        if (input && fundEdits[key] !== undefined && input.value === '') {
+          input.value = fundEdits[key];
+        }
+        const desired = input && input.value !== '' ? Number(input.value) : null;
+        const change = desired === null || Number.isNaN(desired) ? null : (desired - rawWeight);
+        changeCell.textContent = change === null ? '-' : change.toFixed(2);
       });
     }
 
     portfolioSelect.addEventListener('change', applyFilter);
     focusSelect.addEventListener('change', applyFilter);
-    document.querySelectorAll('.desired-weight, .desired-active').forEach((input) => {
+    document.querySelectorAll('.desired-fund-weight').forEach((input) => {
       input.addEventListener('input', applyFilter);
+      input.addEventListener('input', function () {
+        const row = this.closest('tr');
+        if (!row) return;
+        const key = `${row.getAttribute('data-portfolio') || ''}||${row.getAttribute('data-fund') || ''}`;
+        if (this.value === '') {
+          delete fundEdits[key];
+        } else {
+          fundEdits[key] = this.value;
+        }
+      });
     });
     if (manualExportForm && manualOverridesInput) {
       manualExportForm.addEventListener('submit', function (e) {
         const overrides = [];
-        detailRows.forEach((row) => {
-          const desiredWeightInput = row.querySelector('.desired-weight');
-          const desiredActiveInput = row.querySelector('.desired-active');
-          const desiredWeight = desiredWeightInput && desiredWeightInput.value !== '' ? Number(desiredWeightInput.value) : null;
-          const desiredActive = desiredActiveInput && desiredActiveInput.value !== '' ? Number(desiredActiveInput.value) : null;
-          if (desiredWeight === null && desiredActive === null) return;
+        holdingRows.forEach((row) => {
+          const input = row.querySelector('.desired-fund-weight');
+          const desiredWeight = input && input.value !== '' ? Number(input.value) : null;
+          if (desiredWeight === null || Number.isNaN(desiredWeight)) return;
           overrides.push({
             portfolio: row.getAttribute('data-portfolio'),
-            asset_class: row.getAttribute('data-asset-class'),
+            fund: row.getAttribute('data-fund'),
             desired_weight_pct: desiredWeight,
-            desired_active_bet_pct: desiredActive,
           });
         });
         if (!overrides.length) {
