@@ -73,6 +73,17 @@
             {% endfor %}
           </select>
         </div>
+        <div class="col-md-4 mb-2">
+          <label class="form-label" for="focus_filter">Fordypningsnivå</label>
+          <select class="form-select" id="focus_filter">
+            <option value="whole">Hele porteføljen</option>
+            <option value="equity_all">Aksjer (alle)</option>
+            <option value="equity_international">Aksjer (internasjonalt)</option>
+            <option value="fi_all">Renter (alle)</option>
+            <option value="fi_norway">Renter (Norge)</option>
+            <option value="fi_international">Renter (internasjonalt)</option>
+          </select>
+        </div>
       </div>
       <div class="table-responsive">
         <table class="table table-sm table-striped">
@@ -114,7 +125,7 @@
           </thead>
           <tbody>
           {% for row in results_preview %}
-            <tr data-portfolio="{{ row.portfolio }}">
+            <tr data-portfolio="{{ row.portfolio }}" data-asset-class="{{ row.asset_class }}">
               <td>{{ row.portfolio }}</td>
               <td>{{ row.asset_class_label }}</td>
               <td>{{ row.actual_weight }}</td>
@@ -161,23 +172,45 @@
 {% if results_preview %}
 <script>
   (function () {
-    const select = document.getElementById('portfolio_filter');
+    const portfolioSelect = document.getElementById('portfolio_filter');
+    const focusSelect = document.getElementById('focus_filter');
     const detailRows = document.querySelectorAll('#detail_table tbody tr');
     const holdingRows = document.querySelectorAll('#holding_table tbody tr');
-    if (!select || !detailRows.length) return;
-    select.addEventListener('change', function () {
-      const selected = this.value;
+    if (!portfolioSelect || !focusSelect || !detailRows.length) return;
+
+    const focusSets = {
+      whole: null,
+      equity_all: new Set(['equity_norway', 'equity_global_developed', 'equity_global_em']),
+      equity_international: new Set(['equity_global_developed', 'equity_global_em']),
+      fi_all: new Set(['fi_norway_short', 'fi_norway_long', 'fi_global']),
+      fi_norway: new Set(['fi_norway_short', 'fi_norway_long']),
+      fi_international: new Set(['fi_global']),
+    };
+
+    function applyFilter() {
+      const selectedPortfolio = portfolioSelect.value;
+      const selectedFocus = focusSelect.value;
+      const allowedClasses = focusSets[selectedFocus] || null;
+
       detailRows.forEach((row) => {
         const rowPortfolio = row.getAttribute('data-portfolio') || '';
-        const show = selected === 'ALL' || rowPortfolio === selected;
+        const rowClass = row.getAttribute('data-asset-class') || '';
+        const portfolioMatch = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
+        const focusMatch = !allowedClasses || allowedClasses.has(rowClass);
+        const show = portfolioMatch && focusMatch;
         row.style.display = show ? '' : 'none';
       });
+
       holdingRows.forEach((row) => {
         const rowPortfolio = row.getAttribute('data-portfolio') || '';
-        const show = selected === 'ALL' || rowPortfolio === selected;
+        const show = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
         row.style.display = show ? '' : 'none';
       });
-    });
+    }
+
+    portfolioSelect.addEventListener('change', applyFilter);
+    focusSelect.addEventListener('change', applyFilter);
+    applyFilter();
   })();
 </script>
 {% endif %}

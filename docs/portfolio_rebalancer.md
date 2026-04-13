@@ -33,6 +33,7 @@
 - Standard category-set uses granular reference buckets: `cash`, `allocation`, `equity_norway`, `equity_global_developed`, `equity_global_em`, `fi_norway_short`, `fi_norway_long`, `fi_global`.
 - Default benchmark presets now infer equity share from portfolio code (e.g. `G1090` => 10%, `G3070` => 30%), and apply portfolio-specific allocation targets (`G1090`=7%, `G3070/G5050/G6535/G8020`=10%, `EG`=0%).
 - UI displays human-friendly Norwegian category labels and percentage values with two decimals in result/holding tables.
+- Result table supports drilldown filter levels: whole portfolio, equity(all), equity(international), fixed income(all), fixed income(Norway), fixed income(international).
 
 ## Architecture
 - Calculation engine is isolated in `portfolio_rebalancer_engine.py`.
