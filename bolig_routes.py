@@ -1273,6 +1273,319 @@ def bolig_varmekart_view():
         },
     )
 
+
+@bolig_bp.route("/omsetningskart/")
+def bolig_omsetningskart_view():
+    """
+    Kart over boliger som er solgt/fjernet raskt, eller aktive boliger som har ligget lenge.
+    """
+    base_df = load_normalized_master_cached(HIST_CFG.s3_bucket, HIST_CFG.master_key)
+    if base_df is None or base_df.empty:
+        return render_template(
+            "bolig_omsetningskart.html",
+            error="Fant ingen historiske boligdata å vise.",
+            map_html=None,
+            stats=None,
+            filter_values={},
+            filter_options={},
+        )
+
+    df = base_df.copy()
+    df["start_dato"] = df["publisert_dato"].fillna(df["dato_første"])
+    today = pd.Timestamp.today().normalize()
+    df["er_aktiv"] = (df["start_dato"] <= today) & (df["dato_siste"] >= today)
+    df["er_avsluttet"] = df["dato_siste"] < today
+    df["dager_total"] = (df["dato_siste"] - df["start_dato"]).dt.days
+    df["dager_aktiv"] = (today - df["start_dato"]).dt.days
+
+    # Filtervalg
+    alle_fylker = sorted(df["fylke"].dropna().astype(str).unique().tolist()) if "fylke" in df.columns else []
+    alle_typer = sorted(df["boligtype"].dropna().astype(str).unique().tolist()) if "boligtype" in df.columns else []
+    alle_nybrukt = ["Alle", "Brukt", "Nybygg"]
+    status_options = ["Alle", "Solgt/fjernet", "Aktive ikke solgt"]
+
+    valgt_fylke = request.args.get("fylke", "Alle")
+    valgt_boligtype = request.args.get("boligtype", "Alle")
+    valgt_nybrukt = request.args.get("nybrukt", "Alle")
+    valgt_status = request.args.get("status", "Alle")
+    sold_within_days = request.args.get("sold_within_days", "").strip()
+    unsold_min_days = request.args.get("unsold_min_days", "").strip()
+    run_analysis = request.args.get("run_analysis", "0") == "1"
+    allow_all_norge = request.args.get("allow_all_norge", "0") == "1"
+    price_basis = request.args.get("price_basis", "m2")
+    if price_basis not in {"m2", "total"}:
+        price_basis = "m2"
+
+    sold_limit = int(sold_within_days) if sold_within_days.isdigit() else None
+    unsold_limit = int(unsold_min_days) if unsold_min_days.isdigit() else None
+    max_points_raw = request.args.get("max_points", "5000").strip()
+    max_points = int(max_points_raw) if max_points_raw.isdigit() else 5000
+    max_points = max(500, min(max_points, 15000))
+
+    # To-trinns kjøring for bedre responstid:
+    # 1) Velg område/filter
+    # 2) Kjør analyse eksplisitt
+    if not run_analysis:
+        return render_template(
+            "bolig_omsetningskart.html",
+            error=None,
+            map_html=None,
+            stats=None,
+            filter_values={
+                "fylke": valgt_fylke,
+                "boligtype": valgt_boligtype,
+                "nybrukt": valgt_nybrukt,
+                "status": valgt_status,
+                "sold_within_days": sold_within_days,
+                "unsold_min_days": unsold_min_days,
+                "max_points": str(max_points),
+                "allow_all_norge": "1" if allow_all_norge else "0",
+                "price_basis": price_basis,
+            },
+            filter_options={
+                "fylker": alle_fylker,
+                "boligtyper": alle_typer,
+                "nybrukt": alle_nybrukt,
+                "status": status_options,
+            },
+            using_thresholds=False,
+            sampled=False,
+            needs_run=True,
+        )
+
+    if valgt_fylke == "Alle" and not allow_all_norge:
+        return render_template(
+            "bolig_omsetningskart.html",
+            error="Velg fylke først (anbefalt for fart), eller huk av for Hele Norge og kjør på nytt.",
+            map_html=None,
+            stats=None,
+            filter_values={
+                "fylke": valgt_fylke,
+                "boligtype": valgt_boligtype,
+                "nybrukt": valgt_nybrukt,
+                "status": valgt_status,
+                "sold_within_days": sold_within_days,
+                "unsold_min_days": unsold_min_days,
+                "max_points": str(max_points),
+                "allow_all_norge": "1" if allow_all_norge else "0",
+                "price_basis": price_basis,
+            },
+            filter_options={
+                "fylker": alle_fylker,
+                "boligtyper": alle_typer,
+                "nybrukt": alle_nybrukt,
+                "status": status_options,
+            },
+            using_thresholds=False,
+            sampled=False,
+            needs_run=True,
+        )
+
+    filtered = df.copy()
+    if valgt_fylke != "Alle" and "fylke" in filtered.columns:
+        filtered = filtered[filtered["fylke"] == valgt_fylke]
+    if valgt_boligtype != "Alle" and "boligtype" in filtered.columns:
+        filtered = filtered[filtered["boligtype"] == valgt_boligtype]
+    if valgt_nybrukt == "Brukt":
+        filtered = filtered[filtered["ny_brukt"].astype(str).str.lower() == "brukt"]
+    elif valgt_nybrukt == "Nybygg":
+        filtered = filtered[filtered["ny_brukt"].astype(str).str.lower().isin(["nybygg", "ny", "nytt"])]
+
+    has_thresholds = sold_limit is not None or unsold_limit is not None
+    if has_thresholds:
+        fast_mask = pd.Series(False, index=filtered.index)
+        slow_mask = pd.Series(False, index=filtered.index)
+
+        if sold_limit is not None:
+            fast_mask = filtered["er_avsluttet"] & filtered["dager_total"].notna() & (filtered["dager_total"] <= sold_limit)
+        if unsold_limit is not None:
+            slow_mask = filtered["er_aktiv"] & filtered["dager_aktiv"].notna() & (filtered["dager_aktiv"] >= unsold_limit)
+
+        filtered = filtered[fast_mask | slow_mask].copy()
+    else:
+        if valgt_status == "Solgt/fjernet":
+            filtered = filtered[filtered["er_avsluttet"]].copy()
+        elif valgt_status == "Aktive ikke solgt":
+            filtered = filtered[filtered["er_aktiv"]].copy()
+        else:
+            filtered = filtered[(filtered["er_aktiv"] | filtered["er_avsluttet"])].copy()
+
+    filtered["latitude"] = pd.to_numeric(filtered["latitude"], errors="coerce")
+    filtered["longitude"] = pd.to_numeric(filtered["longitude"], errors="coerce")
+    filtered = filtered.dropna(subset=["latitude", "longitude"])
+    filtered = filtered[
+        (filtered["latitude"] >= 57.0)
+        & (filtered["latitude"] <= 72.0)
+        & (filtered["longitude"] >= 4.0)
+        & (filtered["longitude"] <= 32.0)
+    ]
+    total_match_count = int(len(filtered))
+
+    # Beskyttelse mot timeout/502 i produksjon når veldig mange punkter matches.
+    # Vi viser et representativt utvalg i kartet, men beholder totalantall i stats.
+    sampled = False
+    if len(filtered) > max_points:
+        filtered = filtered.sample(n=max_points, random_state=42).copy()
+        sampled = True
+
+    if filtered.empty:
+        return render_template(
+            "bolig_omsetningskart.html",
+            error="Ingen boliger matcher filtrene.",
+            map_html=None,
+            stats=None,
+            filter_values={
+                "fylke": valgt_fylke,
+                "boligtype": valgt_boligtype,
+                "nybrukt": valgt_nybrukt,
+                "status": valgt_status,
+                "sold_within_days": sold_within_days,
+                "unsold_min_days": unsold_min_days,
+                "max_points": str(max_points),
+                "allow_all_norge": "1" if allow_all_norge else "0",
+                "price_basis": price_basis,
+            },
+            filter_options={
+                "fylker": alle_fylker,
+                "boligtyper": alle_typer,
+                "nybrukt": alle_nybrukt,
+                "status": status_options,
+            },
+            using_thresholds=has_thresholds,
+            sampled=sampled,
+            needs_run=False,
+        )
+
+    center_lat = filtered["latitude"].mean()
+    center_lon = filtered["longitude"].mean()
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles="cartodbpositron")
+
+    if price_basis == "total":
+        price_series = pd.to_numeric(filtered.get("totalpris"), errors="coerce")
+        price_label = "Totalpris"
+    else:
+        price_series = pd.to_numeric(filtered.get("m2_pris"), errors="coerce")
+        if price_series.notna().sum() < 5:
+            price_series = pd.to_numeric(filtered.get("totalpris"), errors="coerce")
+            price_label = "Totalpris (fallback)"
+        else:
+            price_label = "M²-pris"
+
+    # Farge etter hastighet: laveste 20% (raskt) grønn, høyeste 20% (lang tid) rød.
+    duration_series = np.where(
+        filtered["er_avsluttet"],
+        pd.to_numeric(filtered["dager_total"], errors="coerce"),
+        pd.to_numeric(filtered["dager_aktiv"], errors="coerce"),
+    )
+    duration_series = pd.Series(duration_series, index=filtered.index)
+    dur_q20 = float(duration_series.quantile(0.20)) if duration_series.notna().any() else np.nan
+    dur_q80 = float(duration_series.quantile(0.80)) if duration_series.notna().any() else np.nan
+
+    for _, row in filtered.iterrows():
+        is_fast = sold_limit is not None and bool(row["er_avsluttet"]) and pd.notna(row["dager_total"]) and row["dager_total"] <= sold_limit
+        is_slow = unsold_limit is not None and bool(row["er_aktiv"]) and pd.notna(row["dager_aktiv"]) and row["dager_aktiv"] >= unsold_limit
+
+        if is_fast:
+            status_txt = f"Solgt/fjernet raskt (≤ {sold_limit} dager)"
+            dager_txt = int(row["dager_total"])
+        elif is_slow:
+            status_txt = f"Aktiv lenge (≥ {unsold_limit} dager)"
+            dager_txt = int(row["dager_aktiv"])
+        elif bool(row["er_avsluttet"]):
+            status_txt = "Solgt/fjernet"
+            dager_txt = int(row["dager_total"]) if pd.notna(row["dager_total"]) else None
+        else:
+            status_txt = "Aktiv, ikke solgt"
+            dager_txt = int(row["dager_aktiv"]) if pd.notna(row["dager_aktiv"]) else None
+
+        price_val = pd.to_numeric(row.get("m2_pris"), errors="coerce")
+        if pd.isna(price_val):
+            price_val = pd.to_numeric(row.get("totalpris"), errors="coerce")
+        if dur_q20 == dur_q20 and dur_q80 == dur_q80:
+            duration_val = row["dager_total"] if bool(row["er_avsluttet"]) else row["dager_aktiv"]
+            if pd.notna(duration_val) and duration_val <= dur_q20:
+                color = "#2EAD4A"   # raskt
+            elif pd.notna(duration_val) and duration_val >= dur_q80:
+                color = "#D94841"   # tregt
+            else:
+                color = "#8f9bb3"   # resten
+        else:
+            color = "#8f9bb3"
+
+        # Størrelse etter prisnivå
+        p10 = float(price_series.quantile(0.10)) if price_series.notna().any() else np.nan
+        p90 = float(price_series.quantile(0.90)) if price_series.notna().any() else np.nan
+        if pd.notna(price_val) and p90 > p10:
+            norm = max(0.0, min(1.0, (float(price_val) - p10) / (p90 - p10)))
+            radius = 2.5 + norm * 7.5
+        else:
+            radius = 4.0
+
+        popup_parts = [
+            f"<b>{row.get('full_title', 'Uten tittel')}</b>",
+            f"Adresse: {row.get('address', 'Ukjent')}",
+            f"Status: {status_txt}",
+        ]
+        finnkode = str(row.get("finnkode", "")).strip()
+        if finnkode and finnkode.lower() not in {"nan", "none"}:
+            popup_parts.append(f"FINN-kode: {finnkode}")
+            if finnkode.isdigit():
+                popup_parts.append(
+                    f"<a href='https://www.finn.no/realestate/homes/ad.html?finnkode={finnkode}' target='_blank' rel='noopener'>Åpne annonse på FINN</a>"
+                )
+        if dager_txt is not None:
+            popup_parts.append(f"Dager: {dager_txt}")
+        if pd.notna(row.get("totalpris")):
+            popup_parts.append(f"Totalpris: {int(row['totalpris']):,} kr".replace(",", " "))
+        if pd.notna(row.get("m2_pris")):
+            popup_parts.append(f"M²-pris: {int(float(row['m2_pris'])):,} kr".replace(",", " "))
+        if pd.notna(price_val):
+            popup_parts.append(f"Størrelse styres av: {price_label}")
+
+        folium.CircleMarker(
+            location=[row["latitude"], row["longitude"]],
+            radius=radius,
+            color=color,
+            fill=True,
+            fill_opacity=0.9,
+            weight=1,
+            popup=folium.Popup("<br>".join(popup_parts), max_width=340),
+        ).add_to(m)
+
+    map_html = m._repr_html_()
+    stats = {
+        "count": total_match_count,
+        "shown_count": int(len(filtered)),
+        "sold_removed": int(filtered["er_avsluttet"].sum()),
+        "active": int(filtered["er_aktiv"].sum()),
+    }
+
+    return render_template(
+        "bolig_omsetningskart.html",
+        error=None,
+        map_html=map_html,
+        stats=stats,
+        filter_values={
+            "fylke": valgt_fylke,
+            "boligtype": valgt_boligtype,
+            "nybrukt": valgt_nybrukt,
+            "status": valgt_status,
+                "sold_within_days": sold_within_days,
+                "unsold_min_days": unsold_min_days,
+                "max_points": str(max_points),
+                "price_basis": price_basis,
+            },
+        filter_options={
+            "fylker": alle_fylker,
+            "boligtyper": alle_typer,
+            "nybrukt": alle_nybrukt,
+            "status": status_options,
+        },
+        using_thresholds=has_thresholds,
+        sampled=sampled,
+        needs_run=False,
+    )
+
 # --------------------------------------------------
 # BUZZ-ANALYSE – HJELPEFUNKSJONER
 # --------------------------------------------------
@@ -1771,7 +2084,7 @@ def bolig_kupp_view():
         group_cols = ["fylke", "boligtype", "eierform", "størrelsesbånd"]
 
         stats = (
-            df_local.groupby(group_cols)["M2-pris"]
+            df_local.groupby(group_cols, observed=False)["M2-pris"]
             .agg(referanse_M2="median", antall_i_segment="size")
             .reset_index()
         )
@@ -1787,11 +2100,79 @@ def bolig_kupp_view():
 
         return df_local
 
+    def _resolve_sold_flag(df_local: pd.DataFrame) -> pd.Series:
+        """
+        Prøv å finne hvilke annonser som er solgt basert på tilgjengelige tekstfelter.
+        Returnerer boolsk serie med samme index som input.
+        """
+        sold_tokens = ("solgt", "sold", "overtatt")
+        negative_tokens = ("ikke solgt", "usolgt", "for salgs", "til salgs", "aktiv")
+
+        status_candidates = [
+            c for c in df_local.columns
+            if any(k in c.lower() for k in ["status", "state", "utfall", "resultat"])
+        ]
+
+        sold = pd.Series(False, index=df_local.index)
+        for col in status_candidates:
+            s = df_local[col].fillna("").astype(str).str.lower().str.strip()
+            has_sold_word = s.apply(lambda v: any(tok in v for tok in sold_tokens))
+            has_negative_word = s.apply(lambda v: any(tok in v for tok in negative_tokens))
+            sold = sold | (has_sold_word & ~has_negative_word)
+
+        return sold
+
+    def _add_quick_sale_benchmark(
+        df_local: pd.DataFrame,
+        quick_sale_days: int,
+    ) -> pd.DataFrame:
+        """
+        Lager referanse basert på boliger som ser ut til å være solgt raskt.
+        """
+        df_local = df_local.copy()
+        df_local["sold_flag"] = _resolve_sold_flag(df_local)
+
+        if "dager_på_markedet" not in df_local.columns:
+            df_local["dager_på_markedet"] = _resolve_days_on_market(df_local)
+
+        group_cols = ["fylke", "boligtype", "eierform", "størrelsesbånd"]
+        quick_sales = df_local[
+            (df_local["sold_flag"])
+            & (pd.to_numeric(df_local["dager_på_markedet"], errors="coerce").notna())
+            & (pd.to_numeric(df_local["dager_på_markedet"], errors="coerce") <= quick_sale_days)
+        ].copy()
+
+        if quick_sales.empty:
+            df_local["quick_ref_M2"] = np.nan
+            df_local["quick_sale_count"] = 0
+            df_local["quick_discount_pct"] = np.nan
+            return df_local
+
+        quick_stats = (
+            quick_sales.groupby(group_cols)["M2-pris"]
+            .agg(quick_ref_M2="median", quick_sale_count="size")
+            .reset_index()
+        )
+        df_local = df_local.merge(quick_stats, on=group_cols, how="left")
+        df_local["quick_sale_count"] = (
+            pd.to_numeric(df_local["quick_sale_count"], errors="coerce")
+            .fillna(0)
+            .astype(int)
+        )
+        df_local["quick_discount_pct"] = (
+            df_local["quick_ref_M2"] - df_local["M2-pris"]
+        ) / df_local["quick_ref_M2"]
+        return df_local
+
     # ---- Rensing og beregning ----------------------
 
     try:
         df = _clean_kupp_data(df_raw)
         df = _add_segment_underpricing(df)
+        df = _add_quick_sale_benchmark(
+            df,
+            quick_sale_days=int(request.args.get("quick_sale_days", 14)),
+        )
     except Exception as e:
         return render_template(
             "bolig_kupp.html",
@@ -1810,6 +2191,11 @@ def bolig_kupp_view():
     top_n = int(request.args.get("top_n", 50))
     kun_dyre = request.args.get("kun_dyre", "0") == "1"
     min_dyrt_nivå = int(request.args.get("min_dyrt_nivå", 60000))
+    max_days_on_market = int(request.args.get("max_days_on_market", 120))
+    use_quick_sale_ref = request.args.get("use_quick_sale_ref", "1") == "1"
+    quick_sale_days = int(request.args.get("quick_sale_days", 14))
+    min_quick_sale_count = int(request.args.get("min_quick_sale_count", 5))
+    min_quick_discount_pct = float(request.args.get("min_quick_discount_pct", 5.0))
 
     sub = df.copy()
 
@@ -1822,6 +2208,13 @@ def bolig_kupp_view():
     if eierform != "Alle":
         sub = sub[sub["eierform"] == eierform]
 
+    # Tidsfilter (reduserer "støy" fra gamle annonser)
+    if "dager_på_markedet" in sub.columns:
+        sub = sub[
+            pd.to_numeric(sub["dager_på_markedet"], errors="coerce").fillna(9999)
+            <= max_days_on_market
+        ]
+
     # Segment-krav
     sub = sub[
         (sub["antall_i_segment"] >= min_segment_size)
@@ -1830,6 +2223,13 @@ def bolig_kupp_view():
 
     if kun_dyre:
         sub = sub[sub["referanse_M2"] >= min_dyrt_nivå]
+
+    # Ekstra kvalitetssjekk mot raske salg
+    if use_quick_sale_ref:
+        sub = sub[
+            (pd.to_numeric(sub.get("quick_sale_count", 0), errors="coerce").fillna(0) >= min_quick_sale_count)
+            & (pd.to_numeric(sub.get("quick_discount_pct"), errors="coerce") > min_quick_discount_pct / 100.0)
+        ]
 
     if len(sub) == 0:
         return render_template(
@@ -1849,6 +2249,11 @@ def bolig_kupp_view():
             top_n=top_n,
             kun_dyre=kun_dyre,
             min_dyrt_nivå=min_dyrt_nivå,
+            max_days_on_market=max_days_on_market,
+            use_quick_sale_ref=use_quick_sale_ref,
+            quick_sale_days=quick_sale_days,
+            min_quick_sale_count=min_quick_sale_count,
+            min_quick_discount_pct=min_quick_discount_pct,
         )
 
     # Sorter og begrens topp N
@@ -1879,6 +2284,9 @@ def bolig_kupp_view():
         up_kr = row["underpris_kr"]
         areal = row["areal_m2"]
         tot = row.get("totalpris", np.nan)
+        quick_ref = row.get("quick_ref_M2", np.nan)
+        quick_discount = row.get("quick_discount_pct", np.nan)
+        quick_n = row.get("quick_sale_count", 0)
 
         finnkode = row.get("finnkode")
         finnline = ""
@@ -1906,6 +2314,12 @@ def bolig_kupp_view():
 
         if pd.notna(tot):
             popup_html += f"<br>Totalpris: {tot:,.0f} kr".replace(",", " ")
+        if pd.notna(quick_ref):
+            popup_html += (
+                f"<br>Rask-salg ref (≤{quick_sale_days} dager): {quick_ref:,.0f} kr/m²"
+                f"<br>Under rask-salg nivå: {(quick_discount * 100):.1f}% "
+                f"(n={int(quick_n)})"
+            ).replace(",", " ")
 
         popup_html += finnline
 
@@ -1942,15 +2356,23 @@ def bolig_kupp_view():
         "underpris_pct",
         "underpris_kr",
         "antall_i_segment",
+        "quick_ref_M2",
+        "quick_discount_pct",
+        "quick_sale_count",
+        "dager_på_markedet",
         "finnkode",
     ]
     display_cols = [c for c in display_cols if c in sub.columns]
 
     table_df = sub[display_cols].copy()
     table_df["underpris_pct"] = (table_df["underpris_pct"] * 100).round(1)
+    if "quick_discount_pct" in table_df.columns:
+        table_df["quick_discount_pct"] = (table_df["quick_discount_pct"] * 100).round(1)
     for col in ["M2-pris", "referanse_M2", "underpris_kr"]:
         if col in table_df.columns:
             table_df[col] = table_df[col].round(0).astype("Int64")
+    if "quick_ref_M2" in table_df.columns:
+        table_df["quick_ref_M2"] = table_df["quick_ref_M2"].round(0).astype("Int64")
 
      # 🔹 GJØR FINNKODE KLIKKBAR
     if "finnkode" in table_df.columns:
@@ -1990,6 +2412,11 @@ def bolig_kupp_view():
         top_n=top_n,
         kun_dyre=kun_dyre,
         min_dyrt_nivå=min_dyrt_nivå,
+        max_days_on_market=max_days_on_market,
+        use_quick_sale_ref=use_quick_sale_ref,
+        quick_sale_days=quick_sale_days,
+        min_quick_sale_count=min_quick_sale_count,
+        min_quick_discount_pct=min_quick_discount_pct,
         antall_kandidater=len(sub),
         map_html=map_html,
         table_html=table_html,

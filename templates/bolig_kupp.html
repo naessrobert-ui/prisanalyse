@@ -71,6 +71,12 @@
         </div>
 
         <div class="col-md-3">
+          <label class="form-label text-light">Maks dager på marked</label>
+          <input type="number" name="max_days_on_market" class="form-control form-control-sm input-glass"
+                 value="{{ max_days_on_market }}" min="7" max="365" step="1">
+        </div>
+
+        <div class="col-md-3">
           <label class="form-label text-light">Kun dyre områder</label>
           <div class="form-check">
             <input class="form-check-input" type="checkbox" id="kun_dyre" name="kun_dyre" value="1"
@@ -85,6 +91,37 @@
                    value="{{ min_dyrt_nivå }}" min="20000" max="200000" step="5000">
             kr/m²
           </small>
+        </div>
+      </div>
+
+      <div class="row g-3 align-items-end mt-2">
+        <div class="col-md-3">
+          <label class="form-label text-light">Sammenlign med raske salg</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="use_quick_sale_ref" name="use_quick_sale_ref" value="1"
+                   {% if use_quick_sale_ref %}checked{% endif %}>
+            <label class="form-check-label text-light" for="use_quick_sale_ref">
+              Krev rabatt mot hurtig-solgte objekter
+            </label>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label text-light">Raskt salg = maks dager</label>
+          <input type="number" name="quick_sale_days" class="form-control form-control-sm input-glass"
+                 value="{{ quick_sale_days }}" min="3" max="90" step="1">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label text-light">Min. raske salg i segment</label>
+          <input type="number" name="min_quick_sale_count" class="form-control form-control-sm input-glass"
+                 value="{{ min_quick_sale_count }}" min="1" max="50" step="1">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label text-light">Min. rabatt vs raske salg (%)</label>
+          <input type="number" name="min_quick_discount_pct" class="form-control form-control-sm input-glass"
+                 value="{{ min_quick_discount_pct }}" min="0" max="40" step="1">
         </div>
 
         <div class="col-md-3 text-md-end mt-3 mt-md-0">
@@ -102,7 +139,8 @@
     {% if has_data %}
 
       <p class="text-light mt-3 mb-2">
-        Viser <strong>{{ antall_kandidater }}</strong> kandidater som ser underprisede ut basert på segment-median for m²-pris.
+        Viser <strong>{{ antall_kandidater }}</strong> kandidater som ser underprisede ut basert på segment-median for m²-pris
+        {% if use_quick_sale_ref %}og rabatt mot hurtig-solgte objekter{% endif %}.
       </p>
 
       <!-- KART -->

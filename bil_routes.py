@@ -766,7 +766,7 @@ def get_bil_solgt_data():
 # REKORDRASK (DuckDB) – logikk basert på analyse_rekordsolgt.py
 #
 # Definisjon:
-#   rekordsolgt = (Solgt != "nei") (inkl. "fjernet") AND (Dato_ny - Dato) <= maks_dager
+#   rekordsolgt = (Solgt indikerer faktisk "solgt/fjernet") AND (Dato_ny - Dato) <= maks_dager
 # Filtrering:
 #   - fra/til dato filtrerer på Dato (startdato / publiseringsdato)
 #   - pris_fra/pris_til filtrerer på Pris_ny
@@ -783,6 +783,21 @@ def get_bil_solgt_data():
 def _normalize_str_sql(col_ident: str) -> str:
     """lower(trim(cast(.. as varchar)))"""
     return f"lower(trim(cast({col_ident} as varchar)))"
+
+
+def _solgt_true_expr(solgt_norm_expr: str) -> str:
+    """
+    Returnerer SQL-uttrykk som tolker om "Solgt"-feltet faktisk betyr solgt/fjernet.
+
+    Viktig:
+      - Tom streng / NULL skal IKKE regnes som solgt.
+      - Tidligere logikk brukte `solgt != 'nei'`, som ga falske positive når feltet var tomt.
+    """
+    return f"""
+      (
+        {solgt_norm_expr} IN ('ja', 'true', '1', 'solgt', 'fjernet', 'removed', 'sold')
+      )
+    """
 
 
 def _rekordrask_group_cols(filters: dict, colmap: dict):
@@ -926,6 +941,7 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     dato_ny_ts = _to_timestamp_sql(c_dato_ny)
 
     solgt_norm = _normalize_str_sql(c_solgt)
+    is_solgt = _solgt_true_expr(solgt_norm)
 
     days_to_end = f"(date_diff('second', {dato_ts}, {dato_ny_ts}) / 86400.0)"
 
@@ -938,7 +954,7 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
           {solgt_norm} AS _solgt_norm,
           {days_to_end} AS _days_to_end,
           (
-            {solgt_norm} != 'nei'
+            {is_solgt}
             AND {dato_ts} IS NOT NULL
             AND {dato_ny_ts} IS NOT NULL
             AND {days_to_end} IS NOT NULL

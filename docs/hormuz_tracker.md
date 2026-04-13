@@ -42,6 +42,8 @@ python scripts/hormuz/build_map.py --hours 12 --latest-only --trails
 
 Visning i app:
 - `/hormuz/map`
+- Kartet prøver nå å bygge seg automatisk hvis filen mangler.
+- Tving rebuild: `/hormuz/map?rebuild=1`
 
 ## Merknad om retningstall
 `northbound`/`southbound` i API-et beregnes heuristisk fra COG/heading (<180 / >=180).
