@@ -810,6 +810,21 @@ def get_companies_filter_summary_payload(
             )::int AS robust_count,
             SUM(r.revenue) AS sum_omsetning,
             SUM(r.net_profit) AS sum_aarsresultat,
+            CASE
+                WHEN SUM(r.revenue) IS NOT NULL AND SUM(r.revenue) <> 0
+                THEN (SUM(r.net_profit) / SUM(r.revenue)) * 100.0
+                ELSE NULL
+            END AS weighted_netto_margin,
+            PERCENTILE_CONT(0.5) WITHIN GROUP (
+                ORDER BY
+                CASE
+                    WHEN r.net_profit IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue <> 0
+                    THEN (r.net_profit / r.revenue) * 100.0
+                    ELSE NULL
+                END
+            ) FILTER (
+                WHERE r.net_profit IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue <> 0
+            ) AS median_netto_margin,
             AVG(
                 CASE
                     WHEN r.operating_profit IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue <> 0
@@ -892,6 +907,8 @@ def get_companies_filter_summary_payload(
         "robust_count": robust_count,
         "sum_omsetning": summary_row.get("sum_omsetning"),
         "sum_aarsresultat": summary_row.get("sum_aarsresultat"),
+        "weighted_netto_margin": summary_row.get("weighted_netto_margin"),
+        "median_netto_margin": summary_row.get("median_netto_margin"),
         "avg_netto_margin": summary_row.get("avg_netto_margin"),
         "avg_egenkapitalandel": summary_row.get("avg_egenkapitalandel"),
         "share_profitable_pct": ((profitable_count / companies_with_result) * 100.0) if companies_with_result else None,

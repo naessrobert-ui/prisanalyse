@@ -835,6 +835,14 @@
     function renderSummary(total, returned, sortBy, sortDir) {
         const rows = Array.isArray(state.currentRows) ? state.currentRows : [];
         const full = state.fullAnalysis;
+        const median = (values) => {
+            if (!values.length) return null;
+            const sorted = [...values].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 === 0
+                ? (sorted[mid - 1] + sorted[mid]) / 2
+                : sorted[mid];
+        };
         const revenueValues = rows.map((row) => Number(getRowValue(row, ['omsetning', 'sum_driftsinntekter']))).filter(Number.isFinite);
         const resultValues = rows.map((row) => Number(getRowValue(row, ['aarsresultat']))).filter(Number.isFinite);
         const marginValues = rows.map((row) => Number(getRowValue(row, ['netto_margin']))).filter(Number.isFinite);
@@ -847,7 +855,8 @@
         }).length;
         const sumRevenue = revenueValues.reduce((acc, value) => acc + value, 0);
         const sumResult = resultValues.reduce((acc, value) => acc + value, 0);
-        const averageMargin = marginValues.length ? marginValues.reduce((acc, value) => acc + value, 0) / marginValues.length : null;
+        const weightedMargin = sumRevenue !== 0 ? (sumResult / sumRevenue) * 100 : null;
+        const medianMargin = median(marginValues);
         const averageEquity = equityValues.length ? equityValues.reduce((acc, value) => acc + value, 0) / equityValues.length : null;
 
         const summaryItems = [
@@ -857,7 +866,8 @@
             ['Andel robuste (margin ≥ 5% og EK ≥ 25%)', full?.share_robust_pct !== undefined && full?.share_robust_pct !== null ? fmtPct(full.share_robust_pct) : (rows.length ? fmtPct((robustCount / rows.length) * 100) : '')],
             ['Sum omsetning', fmtNumber(full?.sum_omsetning ?? sumRevenue)],
             ['Sum årsresultat', fmtNumber(full?.sum_aarsresultat ?? sumResult)],
-            ['Snitt driftsmargin', full?.avg_netto_margin !== undefined && full?.avg_netto_margin !== null ? fmtPct(full.avg_netto_margin) : (averageMargin === null ? '' : fmtPct(averageMargin))],
+            ['Driftsmargin (sum resultat / sum omsetning)', full?.weighted_netto_margin !== undefined && full?.weighted_netto_margin !== null ? fmtPct(full.weighted_netto_margin) : (weightedMargin === null ? '' : fmtPct(weightedMargin))],
+            ['Median driftsmargin', full?.median_netto_margin !== undefined && full?.median_netto_margin !== null ? fmtPct(full.median_netto_margin) : (medianMargin === null ? '' : fmtPct(medianMargin))],
             ['Snitt EK-andel', full?.avg_egenkapitalandel !== undefined && full?.avg_egenkapitalandel !== null ? fmtPct(full.avg_egenkapitalandel) : (averageEquity === null ? '' : fmtPct(averageEquity))],
             ['Sortering', `${sortBy} · ${sortDir}`],
         ];
