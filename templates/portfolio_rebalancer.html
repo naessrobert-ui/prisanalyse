@@ -122,6 +122,9 @@
               <th>Referanse (%)</th>
               <th>Aktivt bet (%-p)</th>
               <th>Foreslått handel (%-p)</th>
+              <th>Ønsket vekt (%)</th>
+              <th>Ønsket aktivt bet (%-p)</th>
+              <th>Manuell handel (%-p)</th>
             </tr>
           </thead>
           <tbody>
@@ -133,13 +136,22 @@
               <td>{{ row.benchmark_weight }}</td>
               <td>{{ row.active_bet }}</td>
               <td>{{ row.suggested_trade }}</td>
+              <td><input type="number" step="0.01" class="form-control form-control-sm desired-weight"></td>
+              <td><input type="number" step="0.01" class="form-control form-control-sm desired-active"></td>
+              <td class="manual-trade">-</td>
             </tr>
           {% endfor %}
           </tbody>
         </table>
       </div>
       {% if export_ready %}
-        <a class="btn btn-success" href="{{ url_for('portfolio_rebalancer.export_xlsx') }}">Export to Excel</a>
+        <div class="d-flex gap-2">
+          <a class="btn btn-success" href="{{ url_for('portfolio_rebalancer.export_xlsx') }}">Export to Excel</a>
+          <form method="post" action="{{ url_for('portfolio_rebalancer.export_manual_xlsx') }}" id="manualExportForm">
+            <input type="hidden" name="manual_overrides_json" id="manual_overrides_json">
+            <button class="btn btn-outline-success" type="submit">Last ned manuelle handler</button>
+          </form>
+        </div>
       {% endif %}
     </div>
 
@@ -175,6 +187,8 @@
   (function () {
     const portfolioSelect = document.getElementById('portfolio_filter');
     const focusSelect = document.getElementById('focus_filter');
+    const manualExportForm = document.getElementById('manualExportForm');
+    const manualOverridesInput = document.getElementById('manual_overrides_json');
     const detailRows = document.querySelectorAll('#detail_table tbody tr');
     const holdingRows = document.querySelectorAll('#holding_table tbody tr');
     if (!portfolioSelect || !focusSelect || !detailRows.length) return;
@@ -228,6 +242,20 @@
         row.children[3].textContent = benchmark.toFixed(2);
         row.children[4].textContent = active.toFixed(2);
         row.children[5].textContent = Math.abs(trade) < 0.005 ? '0.00' : trade.toFixed(2);
+
+        const desiredWeightInput = row.querySelector('.desired-weight');
+        const desiredActiveInput = row.querySelector('.desired-active');
+        const manualTradeCell = row.querySelector('.manual-trade');
+        const desiredWeightRaw = desiredWeightInput && desiredWeightInput.value !== '' ? Number(desiredWeightInput.value) : null;
+        const desiredActiveRaw = desiredActiveInput && desiredActiveInput.value !== '' ? Number(desiredActiveInput.value) : null;
+        let manualTrade = null;
+        if (desiredWeightRaw !== null && !Number.isNaN(desiredWeightRaw)) {
+          manualTrade = desiredWeightRaw - actual;
+        } else if (desiredActiveRaw !== null && !Number.isNaN(desiredActiveRaw)) {
+          const manualTarget = benchmark + desiredActiveRaw;
+          manualTrade = manualTarget - actual;
+        }
+        manualTradeCell.textContent = manualTrade === null ? '-' : manualTrade.toFixed(2);
       });
 
       const holdingTotals = {};
@@ -261,6 +289,33 @@
 
     portfolioSelect.addEventListener('change', applyFilter);
     focusSelect.addEventListener('change', applyFilter);
+    document.querySelectorAll('.desired-weight, .desired-active').forEach((input) => {
+      input.addEventListener('input', applyFilter);
+    });
+    if (manualExportForm && manualOverridesInput) {
+      manualExportForm.addEventListener('submit', function (e) {
+        const overrides = [];
+        detailRows.forEach((row) => {
+          const desiredWeightInput = row.querySelector('.desired-weight');
+          const desiredActiveInput = row.querySelector('.desired-active');
+          const desiredWeight = desiredWeightInput && desiredWeightInput.value !== '' ? Number(desiredWeightInput.value) : null;
+          const desiredActive = desiredActiveInput && desiredActiveInput.value !== '' ? Number(desiredActiveInput.value) : null;
+          if (desiredWeight === null && desiredActive === null) return;
+          overrides.push({
+            portfolio: row.getAttribute('data-portfolio'),
+            asset_class: row.getAttribute('data-asset-class'),
+            desired_weight_pct: desiredWeight,
+            desired_active_bet_pct: desiredActive,
+          });
+        });
+        if (!overrides.length) {
+          e.preventDefault();
+          alert('Legg inn minst én ønsket vekt eller aktivt bet før nedlasting.');
+          return;
+        }
+        manualOverridesInput.value = JSON.stringify(overrides);
+      });
+    }
     applyFilter();
   })();
 </script>

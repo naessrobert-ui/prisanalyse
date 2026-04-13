@@ -245,3 +245,71 @@ def export_xlsx():
     resp.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     resp.headers["Content-Disposition"] = "attachment; filename=portfolio_rebalancer_result.xlsx"
     return resp
+
+
+@portfolio_rebalancer_bp.route("/export-manual.xlsx", methods=["POST"])
+def export_manual_xlsx():
+    cached = session.get("portfolio_rebalancer_export")
+    if not cached:
+        resp = make_response("Ingen resultater å eksportere.", 400)
+        resp.headers["Content-Type"] = "text/plain; charset=utf-8"
+        return resp
+
+    overrides_raw = (request.form.get("manual_overrides_json") or "").strip()
+    if not overrides_raw:
+        resp = make_response("Ingen manuelle endringer oppgitt.", 400)
+        resp.headers["Content-Type"] = "text/plain; charset=utf-8"
+        return resp
+
+    try:
+        overrides = json.loads(overrides_raw)
+    except json.JSONDecodeError:
+        resp = make_response("Ugyldig format på manuelle endringer.", 400)
+        resp.headers["Content-Type"] = "text/plain; charset=utf-8"
+        return resp
+
+    active = pd.read_json(StringIO(cached["active"]))
+    active["manual_target_weight"] = active["target_weight"]
+    active["desired_weight_pct"] = None
+    active["desired_active_bet_pct"] = None
+
+    for item in overrides:
+        portfolio = str(item.get("portfolio", ""))
+        asset_class = str(item.get("asset_class", ""))
+        mask = (active["portfolio"] == portfolio) & (active["asset_class"] == asset_class)
+        if not mask.any():
+            continue
+
+        desired_weight_pct = item.get("desired_weight_pct")
+        desired_active_bet_pct = item.get("desired_active_bet_pct")
+        if desired_weight_pct not in (None, ""):
+            desired_weight = float(desired_weight_pct) / 100.0
+            active.loc[mask, "manual_target_weight"] = desired_weight
+            active.loc[mask, "desired_weight_pct"] = float(desired_weight_pct)
+        elif desired_active_bet_pct not in (None, ""):
+            desired_active = float(desired_active_bet_pct) / 100.0
+            active.loc[mask, "manual_target_weight"] = active.loc[mask, "benchmark_weight"] + desired_active
+            active.loc[mask, "desired_active_bet_pct"] = float(desired_active_bet_pct)
+
+    active["manual_trade"] = active["manual_target_weight"] - active["actual_weight"]
+    manual_export = active.copy()
+    for col in (
+        "actual_weight",
+        "benchmark_weight",
+        "target_weight",
+        "active_bet",
+        "suggested_trade",
+        "manual_target_weight",
+        "manual_trade",
+    ):
+        manual_export[col] = (manual_export[col] * 100.0).round(2)
+
+    payload = engine.export_results_to_excel(
+        {
+            "manual_trades": manual_export,
+        }
+    )
+    resp = make_response(payload)
+    resp.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    resp.headers["Content-Disposition"] = "attachment; filename=portfolio_rebalancer_manual_trades.xlsx"
+    return resp
