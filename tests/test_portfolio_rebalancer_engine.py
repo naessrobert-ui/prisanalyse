@@ -77,17 +77,32 @@ class ParsingLogicTests(unittest.TestCase):
                 [
                     {"Security name": "", "Lev. expo. distr. (PF)": "100", "Model portfolio": ""},
                     {"Security name": "Funds", "Lev. expo. distr. (PF)": "99,74", "Model portfolio": ""},
-                    {"Security name": "Fund A", "Lev. expo. distr. (PF)": "40,0%"},
-                    {"Security name": "Fund B", "Lev. expo. distr. (PF)": "60,0%"},
+                    {"Security name": "Fund A", "Lev. expo. distr. (PF)": "40,0%", "MV": "400"},
+                    {"Security name": "Fund B", "Lev. expo. distr. (PF)": "60,0%", "MV": "600"},
                 ]
             )
         }
-        workbook["Sheet1"]["Model portfolio"] = ["", "", "PBMN EQ", "PBMN FI"]
         sheets = engine.detect_portfolio_sheets(workbook)
         holdings = engine.extract_holdings(workbook, sheets)
 
         self.assertEqual(len(holdings), 2)
         self.assertAlmostEqual(float(holdings["weight"].sum()), 1.0)
+
+    def test_extract_holdings_can_fallback_to_mv_when_weight_missing(self):
+        workbook = {
+            "Sheet1": pd.DataFrame(
+                [
+                    {"Security name": "Fund A", "Lev. expo. distr. (PF)": "", "MV": "250"},
+                    {"Security name": "Fund B", "Lev. expo. distr. (PF)": None, "MV": "750"},
+                ]
+            )
+        }
+        sheets = engine.detect_portfolio_sheets(workbook)
+        holdings = engine.extract_holdings(workbook, sheets)
+        weights = dict(zip(holdings["fund"], holdings["weight"]))
+
+        self.assertAlmostEqual(weights["Fund A"], 0.25)
+        self.assertAlmostEqual(weights["Fund B"], 0.75)
 
 
 if __name__ == "__main__":

@@ -29,6 +29,7 @@ WEIGHT_ALIASES = (
     "lev expo",
     "lev",
 )
+MV_ALIASES = ("mv", "market value", "markedsverdi")
 
 
 @dataclass
@@ -110,18 +111,21 @@ def extract_holdings(workbook: dict[str, pd.DataFrame], sheets: list[str]) -> pd
             attempted.append(f"{sheet}: columns={list(df.columns)}")
             continue
 
-        subset = df[[fund_col, weight_col]].copy()
-        model_portfolio_col = normalized_to_source.get("model portfolio")
-        if model_portfolio_col and model_portfolio_col in df.columns:
-            subset[model_portfolio_col] = df[model_portfolio_col]
+        mv_col = _pick_column(columns, MV_ALIASES)
+        selected_cols = [fund_col, weight_col] + ([mv_col] if mv_col else [])
+        subset = df[selected_cols].copy()
         subset[fund_col] = subset[fund_col].astype(str).str.strip()
         subset[weight_col] = subset[weight_col].apply(_parse_weight_value)
-        subset = subset.dropna(subset=[weight_col])
+        if mv_col:
+            subset[mv_col] = subset[mv_col].apply(_parse_weight_value)
         subset = subset[subset[fund_col] != ""]
-        if model_portfolio_col and model_portfolio_col in subset.columns:
-            is_cash = subset[fund_col].str.startswith("PB Norway:", na=False)
-            has_model = subset[model_portfolio_col].astype(str).str.strip() != ""
-            subset = subset[is_cash | has_model]
+        # Hvis vekt mangler men MV finnes, fyll med MV-andel.
+        if mv_col and subset[mv_col].notna().any():
+            mv_total = float(subset[mv_col].fillna(0.0).sum())
+            if mv_total > 0:
+                mv_share = subset[mv_col].fillna(0.0) / mv_total
+                subset[weight_col] = subset[weight_col].where(subset[weight_col].notna(), mv_share)
+        subset = subset.dropna(subset=[weight_col])
 
         for _, row in subset.iterrows():
             rows.append(
