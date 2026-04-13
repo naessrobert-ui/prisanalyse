@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Portfolio Rebalancer{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <h1 class="mb-3">Portfolio Rebalancer (intern)</h1>
+  <p class="text-muted">Fase 1: last opp workbook, juster mapping/benchmark, beregn aktive bet og eksporter til Excel.</p>
+
+  <form method="post" enctype="multipart/form-data" class="card card-body mb-4">
+    <div class="mb-3">
+      <label class="form-label" for="workbook">Upload workbook (.xlsx)</label>
+      <input class="form-control" type="file" id="workbook" name="workbook" accept=".xlsx,.xlsm" required>
+      <small class="text-muted">Støtter .xlsx og .xlsm (ikke .xls).</small>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="mapping_json">Category mapping editor (JSON: fund -> asset class)</label>
+      <textarea class="form-control" id="mapping_json" name="mapping_json" rows="8">{{ ui_state.mapping_json }}</textarea>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="benchmark_json">Benchmark settings (JSON list per portfolio)</label>
+      <textarea class="form-control" id="benchmark_json" name="benchmark_json" rows="10">{{ ui_state.benchmark_json }}</textarea>
+      <small class="text-muted">Felter: portfolio, equity_share, norway_share_within_equity, em_share_within_international_equity (+ valgfritt: cash_target, allocation_target, fi_norway_within_fi, fi_long_within_norway_fi, fi_norway_short_within_fi, fi_norway_long_within_fi, fi_global_within_fi)</small>
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="active_bets_json">Active bets (JSON, optional)</label>
+      <textarea class="form-control" id="active_bets_json" name="active_bets_json" rows="6">{{ ui_state.active_bets_json }}</textarea>
+      <small class="text-muted">Felter: portfolio, asset_class, active_bet_adjustment (brukes i mode=reference_plus_active_bets)</small>
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="absolute_targets_json">Absolute targets (JSON, optional)</label>
+      <textarea class="form-control" id="absolute_targets_json" name="absolute_targets_json" rows="6">{{ ui_state.absolute_targets_json }}</textarea>
+      <small class="text-muted">Felter: portfolio, asset_class, target_weight (brukes i mode=absolute_targets)</small>
+    </div>
+
+    <div class="row">
+      <div class="col-md-4 mb-3">
+        <label class="form-label" for="min_trade_threshold">Minimum trade threshold</label>
+        <input class="form-control" type="number" min="0" step="0.0001" id="min_trade_threshold" name="min_trade_threshold" value="{{ ui_state.min_trade_threshold }}">
+      </div>
+      <div class="col-md-4 mb-3">
+        <label class="form-label" for="rebalance_mode">Rebalance mode</label>
+        <select class="form-select" id="rebalance_mode" name="rebalance_mode">
+          <option value="go_to_benchmark" {% if ui_state.rebalance_mode == 'go_to_benchmark' %}selected{% endif %}>Go to benchmark</option>
+          <option value="reference_plus_active_bets" {% if ui_state.rebalance_mode == 'reference_plus_active_bets' %}selected{% endif %}>Benchmark + active bets</option>
+          <option value="absolute_targets" {% if ui_state.rebalance_mode == 'absolute_targets' %}selected{% endif %}>Absolute targets</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Compute</button>
+  </form>
+
+  {% if error_message %}
+    <div class="alert alert-danger">{{ error_message }}</div>
+  {% endif %}
+
+  {% if detected_sheets %}
+    <div class="alert alert-info">Detected portfolio sheets: {{ detected_sheets|join(', ') }}</div>
+  {% endif %}
+
+  {% if results_preview %}
+    <div class="card card-body mb-3">
+      <h2 class="h5">Porteføljeoversikt</h2>
+      <div class="row align-items-end">
+        <div class="col-md-5 mb-2">
+          <label class="form-label" for="portfolio_filter">Velg portefølje for detaljer</label>
+          <select class="form-select" id="portfolio_filter">
+            <option value="ALL">Alle porteføljer</option>
+            {% for item in portfolio_overview %}
+              <option value="{{ item.portfolio }}">{{ item.portfolio }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4 mb-2">
+          <label class="form-label" for="focus_filter">Fordypningsnivå</label>
+          <select class="form-select" id="focus_filter">
+            <option value="whole">Hele porteføljen</option>
+            <option value="equity_all">Aksjer (alle)</option>
+            <option value="equity_international">Aksjer (internasjonalt)</option>
+            <option value="fi_all">Renter (alle)</option>
+            <option value="fi_norway">Renter (Norge)</option>
+            <option value="fi_international">Renter (internasjonalt)</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped">
+          <thead>
+            <tr>
+              <th>Portefølje</th>
+              <th>Aktivaklasser</th>
+              <th>Sum |Aktivt bet|</th>
+              <th>Sum |Foreslått handel|</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in portfolio_overview %}
+            <tr>
+              <td>{{ row.portfolio }}</td>
+              <td>{{ row.antall_aktivaklasser }}</td>
+              <td>{{ row.sum_abs_active }}</td>
+              <td>{{ row.sum_abs_trade }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card card-body mb-3">
+      <h2 class="h5">Resultat (detaljer, %)</h2>
+      <small class="text-muted">Ved valg av fordypningsnivå normaliseres vektene innen valgt gruppe til 100 %.</small>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped" id="detail_table">
+          <thead>
+            <tr>
+              <th>Portefølje</th>
+              <th>Aktivaklasse</th>
+              <th>Faktisk (%)</th>
+              <th>Referanse (%)</th>
+              <th>Aktivt bet (%-p)</th>
+              <th>Foreslått handel (%-p)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in results_preview %}
+            <tr data-portfolio="{{ row.portfolio }}" data-asset-class="{{ row.asset_class }}" data-actual="{{ row.actual_weight }}" data-benchmark="{{ row.benchmark_weight }}">
+              <td>{{ row.portfolio }}</td>
+              <td>{{ row.asset_class_label }}</td>
+              <td>{{ row.actual_weight }}</td>
+              <td>{{ row.benchmark_weight }}</td>
+              <td>{{ row.active_bet }}</td>
+              <td>{{ row.suggested_trade }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if export_ready %}
+        <a class="btn btn-success" href="{{ url_for('portfolio_rebalancer.export_xlsx') }}">Export to Excel</a>
+      {% endif %}
+    </div>
+
+    <div class="card card-body mb-3">
+      <h2 class="h5">Underliggende fond (ekte navn)</h2>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped" id="holding_table">
+          <thead>
+            <tr>
+              <th>Portefølje</th>
+              <th>Fond</th>
+              <th>Aktivaklasse</th>
+              <th>Vekt (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in holdings_preview %}
+            <tr data-portfolio="{{ row.portfolio }}" data-asset-class="{{ row.asset_class }}" data-weight="{{ row.weight }}">
+              <td>{{ row.portfolio }}</td>
+              <td>{{ row.fund }}</td>
+              <td>{{ row.asset_class_label }}</td>
+              <td>{{ row.weight }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% if results_preview %}
+<script>
+  (function () {
+    const portfolioSelect = document.getElementById('portfolio_filter');
+    const focusSelect = document.getElementById('focus_filter');
+    const detailRows = document.querySelectorAll('#detail_table tbody tr');
+    const holdingRows = document.querySelectorAll('#holding_table tbody tr');
+    if (!portfolioSelect || !focusSelect || !detailRows.length) return;
+
+    const focusSets = {
+      whole: null,
+      equity_all: new Set(['equity_norway', 'equity_global_developed', 'equity_global_em']),
+      equity_international: new Set(['equity_global_developed', 'equity_global_em']),
+      fi_all: new Set(['fi_norway_short', 'fi_norway_long', 'fi_global']),
+      fi_norway: new Set(['fi_norway_short', 'fi_norway_long']),
+      fi_international: new Set(['fi_global']),
+    };
+
+    function applyFilter() {
+      const selectedPortfolio = portfolioSelect.value;
+      const selectedFocus = focusSelect.value;
+      const allowedClasses = focusSets[selectedFocus] || null;
+
+      const detailTotals = {};
+      detailRows.forEach((row) => {
+        const rowPortfolio = row.getAttribute('data-portfolio') || '';
+        const rowClass = row.getAttribute('data-asset-class') || '';
+        const portfolioMatch = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
+        const focusMatch = !allowedClasses || allowedClasses.has(rowClass);
+        const show = portfolioMatch && focusMatch;
+        if (show) {
+          if (!detailTotals[rowPortfolio]) detailTotals[rowPortfolio] = { actual: 0, benchmark: 0 };
+          detailTotals[rowPortfolio].actual += Number(row.getAttribute('data-actual') || 0);
+          detailTotals[rowPortfolio].benchmark += Number(row.getAttribute('data-benchmark') || 0);
+        }
+      });
+
+      detailRows.forEach((row) => {
+        const rowPortfolio = row.getAttribute('data-portfolio') || '';
+        const rowClass = row.getAttribute('data-asset-class') || '';
+        const portfolioMatch = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
+        const focusMatch = !allowedClasses || allowedClasses.has(rowClass);
+        const show = portfolioMatch && focusMatch;
+        row.style.display = show ? '' : 'none';
+        if (!show) return;
+
+        const rawActual = Number(row.getAttribute('data-actual') || 0);
+        const rawBenchmark = Number(row.getAttribute('data-benchmark') || 0);
+        const totals = detailTotals[rowPortfolio] || { actual: 0, benchmark: 0 };
+        const actual = selectedFocus === 'whole' || totals.actual === 0 ? rawActual : (rawActual / totals.actual) * 100;
+        const benchmark = selectedFocus === 'whole' || totals.benchmark === 0 ? rawBenchmark : (rawBenchmark / totals.benchmark) * 100;
+        const active = actual - benchmark;
+        const trade = benchmark - actual;
+
+        row.children[2].textContent = actual.toFixed(2);
+        row.children[3].textContent = benchmark.toFixed(2);
+        row.children[4].textContent = active.toFixed(2);
+        row.children[5].textContent = Math.abs(trade) < 0.005 ? '0.00' : trade.toFixed(2);
+      });
+
+      const holdingTotals = {};
+      holdingRows.forEach((row) => {
+        const rowPortfolio = row.getAttribute('data-portfolio') || '';
+        const rowClass = row.getAttribute('data-asset-class') || '';
+        const portfolioMatch = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
+        const focusMatch = !allowedClasses || allowedClasses.has(rowClass);
+        const show = portfolioMatch && focusMatch;
+        if (show) {
+          if (!holdingTotals[rowPortfolio]) holdingTotals[rowPortfolio] = 0;
+          holdingTotals[rowPortfolio] += Number(row.getAttribute('data-weight') || 0);
+        }
+      });
+
+      holdingRows.forEach((row) => {
+        const rowPortfolio = row.getAttribute('data-portfolio') || '';
+        const rowClass = row.getAttribute('data-asset-class') || '';
+        const portfolioMatch = selectedPortfolio === 'ALL' || rowPortfolio === selectedPortfolio;
+        const focusMatch = !allowedClasses || allowedClasses.has(rowClass);
+        const show = portfolioMatch && focusMatch;
+        row.style.display = show ? '' : 'none';
+        if (!show) return;
+
+        const rawWeight = Number(row.getAttribute('data-weight') || 0);
+        const total = holdingTotals[rowPortfolio] || 0;
+        const weight = selectedFocus === 'whole' || total === 0 ? rawWeight : (rawWeight / total) * 100;
+        row.children[3].textContent = weight.toFixed(2);
+      });
+    }
+
+    portfolioSelect.addEventListener('change', applyFilter);
+    focusSelect.addEventListener('change', applyFilter);
+    applyFilter();
+  })();
+</script>
+{% endif %}
+{% endblock %}
