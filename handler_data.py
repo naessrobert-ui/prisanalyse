@@ -283,6 +283,32 @@ def _normalize_date(value):
         return None
 
 
+def _resolve_file_date_today(date_values: pd.Series, filename: str) -> pd.Series:
+    """
+    Fyller inn manglende DatoIdag for en fil.
+    Prioritet:
+      1) Første gyldige DatoIdag funnet i samme CSV.
+      2) Dato tolket fra filnavn (YYYY-MM-DD / YYYY_MM_DD / YYYYMMDD).
+    """
+    dates = date_values.copy()
+    missing_mask = dates.isna()
+    if not missing_mask.any():
+        return dates
+
+    non_missing = dates[~missing_mask]
+    fallback_date = non_missing.iloc[0] if not non_missing.empty else None
+
+    if fallback_date is None:
+        inferred = _infer_date_from_filename(filename)
+        fallback_date = inferred.isoformat() if inferred else None
+
+    if fallback_date is None:
+        return dates
+
+    dates.loc[missing_mask] = fallback_date
+    return dates
+
+
 def _pick_col(df: pd.DataFrame, *names: str) -> str | None:
     for n in names:
         if n in df.columns:
@@ -483,10 +509,15 @@ def _ingest_one_csv_bytes(conn: sqlite3.Connection, filename: str, content: byte
         sec[["isin", "ticker", "isin_name", "paper_group", "issuer_orgnr", "issuer_name", "registered_country", "market", "sector", "gics_sector", "ask_paper", "issued_shares"]].itertuples(index=False, name=None),
     )
 
+    date_today = _resolve_file_date_today(
+        df[col_date_today].map(_normalize_date),
+        filename=filename,
+    )
+
     facts = pd.DataFrame({
         "isin": df[col_isin].astype(str).str.strip(),
         "investor_id": df[col_investor_id].astype(str).str.strip(),
-        "date_today": df[col_date_today].map(_normalize_date),
+        "date_today": date_today,
         "date_yesterday": df[col_date_yest].map(_normalize_date) if col_date_yest else None,
         "holding_today": df[col_h_today].map(_clean_num) if col_h_today else None,
         "holding_yesterday": df[col_h_yest].map(_clean_num) if col_h_yest else None,
