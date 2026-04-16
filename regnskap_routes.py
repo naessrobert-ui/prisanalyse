@@ -170,16 +170,15 @@ FIELD_LABELS: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # HTTP-session
 # ---------------------------------------------------------------------------
-def make_session(use_retries: bool = True) -> requests.Session:
+def make_session() -> requests.Session:
     sess = requests.Session()
-    if use_retries:
-        retries = Retry(
-            total=6,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET"],
-        )
-        sess.mount("https://", HTTPAdapter(max_retries=retries))
+    retries = Retry(
+        total=6,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+    )
+    sess.mount("https://", HTTPAdapter(max_retries=retries))
     sess.headers.update(
         {
             "User-Agent": USER_AGENT,
@@ -514,12 +513,12 @@ def _get_nested_amount(obj: dict, *keys: str) -> float | None:
     return None
 
 
-def lookup_orgnr_brreg(http_session: requests.Session, orgnr: str, timeout: int = TIMEOUT) -> LookupResult | None:
+def lookup_orgnr_brreg(http_session: requests.Session, orgnr: str) -> LookupResult | None:
     """Hent siste tilgjengelige regnskap fra Brreg for gitt orgnr."""
     try:
         resp = http_session.get(
             f"{BRREG_REGNSKAP_URL}/{orgnr}",
-            timeout=timeout,
+            timeout=TIMEOUT,
             headers={"Accept": "application/json"},
         )
         if resp.status_code != 200:
@@ -982,82 +981,8 @@ def dataset_from_session_payload(raw: dict[str, Any]) -> FinancialDataset | None
         records=records,
         field_labels=(raw.get("field_labels") if isinstance(raw.get("field_labels"), dict) else {}),
     )
-
-
-def build_brreg_annual_report_url(orgnr: str, year: int | None = None) -> str:
-    del year  # Vi bruker virksomhet-oppslag som stabil og riktig lenke i UI.
-    normalized = normalize_orgnr(orgnr)
-    if len(normalized) != 9:
-        return ""
-    return f"https://virksomhet.brreg.no/nb/oppslag/enheter/{normalized}"
-
-
-def build_metric_comparison(analysis_row: dict[str, Any], brreg_result: LookupResult | None) -> list[dict[str, Any]]:
-    if not analysis_row or brreg_result is None:
-        return []
-
-    def _to_float(value: Any) -> float | None:
-        if isinstance(value, (int, float)):
-            return float(value)
-        try:
-            return float(str(value).replace(" ", "").replace(" ", "").replace(",", "."))
-        except (TypeError, ValueError):
-            return None
-
-    analysis_values = {
-        "sum_driftsinntekter": _to_float(analysis_row.get("sum_driftsinntekter") if analysis_row.get("sum_driftsinntekter") is not None else analysis_row.get("omsetning")),
-        "driftsresultat": _to_float(analysis_row.get("driftsresultat")),
-        "aarsresultat": _to_float(analysis_row.get("aarsresultat")),
-        "resultat_for_skatt": _to_float(
-            analysis_row.get("resultat_for_skattekostnad")
-            if analysis_row.get("resultat_for_skattekostnad") is not None
-            else analysis_row.get("resultat_for_skatt")
-        ),
-        "sum_egenkapital": _to_float(analysis_row.get("sum_egenkapital") if analysis_row.get("sum_egenkapital") is not None else analysis_row.get("egenkapital")),
-        "sum_eiendeler": _to_float(analysis_row.get("sum_eiendeler")),
-    }
-
-    brreg_values = {
-        "sum_driftsinntekter": brreg_result.omsetning,
-        "driftsresultat": brreg_result.driftsresultat,
-        "aarsresultat": brreg_result.resultat_etter_skatt,
-        "resultat_for_skatt": brreg_result.resultat_for_skatt,
-        "sum_egenkapital": brreg_result.egenkapital,
-        "sum_eiendeler": brreg_result.sum_eiendeler,
-    }
-
-    labels = {
-        "sum_driftsinntekter": "Sum driftsinntekter",
-        "driftsresultat": "Driftsresultat",
-        "aarsresultat": "Årsresultat",
-        "resultat_for_skatt": "Resultat før skatt",
-        "sum_egenkapital": "Sum egenkapital",
-        "sum_eiendeler": "Sum eiendeler",
-    }
-
-    rows: list[dict[str, Any]] = []
-    for key, label in labels.items():
-        analysis_value = analysis_values.get(key)
-        brreg_value = brreg_values.get(key)
-        equal = None
-        diff = None
-        if analysis_value is not None and brreg_value is not None:
-            diff = analysis_value - brreg_value
-            equal = abs(diff) < 0.5
-        rows.append(
-            {
-                "label": label,
-                "analysis_value": analysis_value,
-                "brreg_value": brreg_value,
-                "equal": equal,
-                "diff": diff,
-            }
-        )
-    return rows
-
-
 def build_detail_rows(result: LookupResult) -> list[tuple[str, str]]:
-    brreg_download_url = build_brreg_annual_report_url(result.orgnr, result.year)
+    brreg_download_url = f"https://virksomhet.brreg.no/nb/oppslag/enheter/{result.orgnr}" if result.orgnr else ""
     return [
         ("Selskap", result.company),
         ("Organisasjonsnummer", result.orgnr),
@@ -1233,35 +1158,19 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
     elif path == "/analysis-api/kart":
         from analysis_api_compat import get_kart_payload
         payload = get_kart_payload(
-            north=float(params.get("north", 71)),
-            south=float(params.get("south", 57)),
-            east=float(params.get("east", 31)),
-            west=float(params.get("west", 4)),
+            north=float(params["north"]) if params.get("north") else 90.0,
+            south=float(params["south"]) if params.get("south") else -90.0,
+            east=float(params["east"])  if params.get("east")  else 180.0,
+            west=float(params["west"])  if params.get("west")  else -180.0,
             q=params.get("q"),
-            kommune=params.get("kommune"),
-            naeringskode=params.get("naeringskode") or None,
-            adresse=params.get("adresse") or None,
-            orgform=params.get("orgform") or None,
+            naeringskode=params.get("naeringskode"),
+            orgform=params.get("orgform"),
             min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
             max_omsetning=float(params["max_omsetning"]) if params.get("max_omsetning") else None,
-            min_resultat=float(params["min_resultat"]) if params.get("min_resultat") else None,
-            max_resultat=float(params["max_resultat"]) if params.get("max_resultat") else None,
-            min_egenkapitalandel=float(params["min_egenkapitalandel"]) if params.get("min_egenkapitalandel") else None,
-            min_netto_margin=float(params["min_netto_margin"]) if params.get("min_netto_margin") else None,
-            min_ansatte=int(params["min_ansatte"]) if params.get("min_ansatte") else None,
-            max_ansatte=int(params["max_ansatte"]) if params.get("max_ansatte") else None,
-            min_omsetning_per_ansatt=float(params["min_omsetning_per_ansatt"]) if params.get("min_omsetning_per_ansatt") else None,
-            max_omsetning_per_ansatt=float(params["max_omsetning_per_ansatt"]) if params.get("max_omsetning_per_ansatt") else None,
-            min_resultat_per_ansatt=float(params["min_resultat_per_ansatt"]) if params.get("min_resultat_per_ansatt") else None,
-            max_resultat_per_ansatt=float(params["max_resultat_per_ansatt"]) if params.get("max_resultat_per_ansatt") else None,
             has_regnskap=str(params.get("has_regnskap") or "").strip().lower() in {"1", "true", "yes", "on"},
             regnskapsaar=int(params["regnskapsaar"]) if params.get("regnskapsaar") else None,
-            innlevert_etter=params.get("innlevert_etter") or None,
             limit=int(params.get("limit") or 500),
         )
-        response = make_response(json.dumps(payload, ensure_ascii=False, default=str), 200)
-        response.headers["Content-Type"] = "application/json; charset=utf-8"
-        return response
     else:
         return None
 
@@ -1581,13 +1490,6 @@ def regnskap_company_detail(orgnr: str):
     lon_value = first_present(entity_payload, "longitude", "lon", "lengdegrad")
     ansatte_value = first_present(entity_payload, "ansatte")
 
-    brreg_result = lookup_orgnr_brreg(make_session(use_retries=False), normalized_orgnr, timeout=5)
-    metric_comparison = build_metric_comparison(company, brreg_result)
-    annual_report_url = build_brreg_annual_report_url(
-        normalized_orgnr,
-        brreg_result.year if brreg_result and brreg_result.year else (int(company.get("regnskapsaar")) if str(company.get("regnskapsaar", "")).isdigit() else None),
-    )
-
     return render_template(
         "regnskap_company_detail.html",
         company=company,
@@ -1609,9 +1511,6 @@ def regnskap_company_detail(orgnr: str):
             "longitude": lon_value,
         },
         entity_raw=entity_payload if isinstance(entity_payload, dict) else {},
-        brreg_result=brreg_result,
-        metric_comparison=metric_comparison,
-        annual_report_url=annual_report_url,
         format_amount=format_amount,
         format_percent=format_percent,
     )

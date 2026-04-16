@@ -42,7 +42,7 @@ _COMPAT_SORT_MAP = {
     "aarsresultat": "r.net_profit",
     "driftsresultat": "r.operating_profit",
     "egenkapitalandel": "r.equity_ratio",
-    "netto_margin": "CASE WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.operating_profit IS NOT NULL THEN (r.operating_profit / r.revenue) END",
+    "netto_margin": "CASE WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL THEN (r.net_profit / r.revenue) END",
     "ansatte": "e.ansatte",
     "omsetning_per_ansatt": "CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL THEN (r.revenue / e.ansatte) END",
     "resultat_per_ansatt": "CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL THEN (r.net_profit / e.ansatte) END",
@@ -335,7 +335,7 @@ def get_analysis_root_payload() -> dict[str, Any]:
 
 def get_analysis_health_payload() -> dict[str, Any]:
     entity_row = fetch_one("SELECT COUNT(*)::int AS n FROM entity", []) or {"n": 0}
-    regnskap_row = fetch_one("SELECT COUNT(*)::int AS n FROM regnskap_siste", []) or {"n": 0}
+    regnskap_row = fetch_one("SELECT COUNT(*)::int AS n FROM regnskap_metrics", []) or {"n": 0}
     return {
         "ok": True,
         "entity_count": int(entity_row.get("n") or 0),
@@ -490,37 +490,36 @@ def get_company_history_payload(orgnr: str) -> dict[str, Any]:
             e.orgform,
             e.kommunenummer,
             e.ansatte,
-            r.regnskapsaar AS regnskapsaar,
-            r.sum_driftsinntekter AS omsetning,
-            r.driftsresultat AS driftsresultat,
-            r.aarsresultat AS aarsresultat,
-            r.sum_eiendeler AS sum_eiendeler,
-            r.sum_egenkapital AS sum_egenkapital,
+            r.accounting_year AS regnskapsaar,
+            r.revenue AS omsetning,
+            r.operating_profit AS driftsresultat,
+            r.net_profit AS aarsresultat,
+            r.total_assets AS sum_eiendeler,
+            r.equity AS sum_egenkapital,
             CASE
-                WHEN r.sum_driftsinntekter IS NOT NULL AND r.sum_driftsinntekter <> 0 AND r.driftsresultat IS NOT NULL
-                THEN ROUND((r.driftsresultat / r.sum_driftsinntekter) * 100.0, 2)
+                WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL
+                THEN ROUND((r.net_profit / r.revenue) * 100.0, 2)
                 ELSE NULL
             END AS netto_margin,
             CASE
-                WHEN r.sum_eiendeler > 0 AND r.sum_egenkapital IS NOT NULL
-                THEN ROUND((r.sum_egenkapital / r.sum_eiendeler) * 100.0, 2)
+                WHEN r.equity_ratio IS NOT NULL THEN ROUND(r.equity_ratio * 100.0, 2)
                 ELSE NULL
             END AS egenkapitalandel,
             CASE
-                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.sum_driftsinntekter IS NOT NULL
-                THEN ROUND((r.sum_driftsinntekter / e.ansatte), 2)
+                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL
+                THEN ROUND((r.revenue / e.ansatte), 2)
                 ELSE NULL
             END AS omsetning_per_ansatt,
             CASE
-                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.aarsresultat IS NOT NULL
-                THEN ROUND((r.aarsresultat / e.ansatte), 2)
+                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL
+                THEN ROUND((r.net_profit / e.ansatte), 2)
                 ELSE NULL
             END AS resultat_per_ansatt,
-            r.fetched_at::date::text AS oppdatert_dato
+            r.oppdatert_dato::text AS oppdatert_dato
         FROM entity e
-        LEFT JOIN regnskap_siste r ON r.orgnr = e.orgnr
+        LEFT JOIN regnskap_metrics r ON r.orgnr = e.orgnr
         WHERE e.orgnr::text = %s
-        ORDER BY r.regnskapsaar DESC NULLS LAST
+        ORDER BY r.accounting_year DESC NULLS LAST, r.oppdatert_dato DESC NULLS LAST
         """,
         [normalized_orgnr],
     )
@@ -596,7 +595,7 @@ def get_companies_filter_payload(
     base_sql, params = _append_kommune_filter(base_sql, params, kommune)
 
     if min_netto_margin is not None:
-        base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.operating_profit IS NOT NULL AND ((r.operating_profit / r.revenue) * 100.0) >= %s"
+        base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL AND ((r.net_profit / r.revenue) * 100.0) >= %s"
         params.append(min_netto_margin)
 
     if min_ansatte is not None:
@@ -634,19 +633,6 @@ def get_companies_filter_payload(
     count_row = fetch_one(f"SELECT COUNT(*)::int AS n {base_sql}", params) or {"n": 0}
     total_count = int(count_row.get("n") or 0)
 
-    # Bygg matched_bedr_navn subquery — bruker escaped literal for å unngå param-rekkefølge-konflikt
-    if q:
-        safe_q = q.replace("'", "''")
-        bedr_subquery = f"""(
-                SELECT bn.bedr_navn
-                FROM bedr_navn bn
-                WHERE bn.parent_orgnr = e.orgnr
-                  AND bn.bedr_navn ILIKE '%%{safe_q}%%'
-                LIMIT 1
-            )"""
-    else:
-        bedr_subquery = "NULL::text"
-
     data_sql = f"""
         SELECT
             e.orgnr::text AS orgnr,
@@ -661,8 +647,8 @@ def get_companies_filter_payload(
             r.total_assets AS sum_eiendeler,
             r.equity AS sum_egenkapital,
             CASE
-                WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.operating_profit IS NOT NULL
-                THEN ROUND((r.operating_profit / r.revenue) * 100.0, 2)
+                WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL
+                THEN ROUND((r.net_profit / r.revenue) * 100.0, 2)
                 ELSE NULL
             END AS netto_margin,
             CASE
@@ -679,8 +665,7 @@ def get_companies_filter_payload(
                 THEN ROUND((r.net_profit / e.ansatte), 2)
                 ELSE NULL
             END AS resultat_per_ansatt,
-            r.oppdatert_dato::text AS oppdatert_dato,
-            {bedr_subquery} AS matched_bedr_navn
+            r.oppdatert_dato::text AS oppdatert_dato
         {base_sql}
         ORDER BY {_sort_sql(sort_by, sort_dir)}
         LIMIT %s OFFSET %s
@@ -756,7 +741,7 @@ def get_companies_filter_summary_payload(
     base_sql, params = _append_kommune_filter(base_sql, params, kommune)
 
     if min_netto_margin is not None:
-        base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.operating_profit IS NOT NULL AND ((r.operating_profit / r.revenue) * 100.0) >= %s"
+        base_sql += " AND r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL AND ((r.net_profit / r.revenue) * 100.0) >= %s"
         params.append(min_netto_margin)
 
     if min_ansatte is not None:
@@ -801,34 +786,19 @@ def get_companies_filter_summary_payload(
             COUNT(r.net_profit)::int AS companies_with_result,
             COUNT(*) FILTER (WHERE r.net_profit > 0)::int AS profitable_count,
             COUNT(*) FILTER (
-                WHERE r.operating_profit IS NOT NULL
+                WHERE r.net_profit IS NOT NULL
                   AND r.revenue IS NOT NULL
                   AND r.revenue <> 0
-                  AND ((r.operating_profit / r.revenue) * 100.0) >= 5
+                  AND ((r.net_profit / r.revenue) * 100.0) >= 5
                   AND r.equity_ratio IS NOT NULL
                   AND (r.equity_ratio * 100.0) >= 25
             )::int AS robust_count,
             SUM(r.revenue) AS sum_omsetning,
             SUM(r.net_profit) AS sum_aarsresultat,
-            CASE
-                WHEN SUM(r.revenue) IS NOT NULL AND SUM(r.revenue) <> 0
-                THEN (SUM(r.net_profit) / SUM(r.revenue)) * 100.0
-                ELSE NULL
-            END AS weighted_netto_margin,
-            PERCENTILE_CONT(0.5) WITHIN GROUP (
-                ORDER BY
+            AVG(
                 CASE
                     WHEN r.net_profit IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue <> 0
                     THEN (r.net_profit / r.revenue) * 100.0
-                    ELSE NULL
-                END
-            ) FILTER (
-                WHERE r.net_profit IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue <> 0
-            ) AS median_netto_margin,
-            AVG(
-                CASE
-                    WHEN r.operating_profit IS NOT NULL AND r.revenue IS NOT NULL AND r.revenue <> 0
-                    THEN (r.operating_profit / r.revenue) * 100.0
                     ELSE NULL
                 END
             ) AS avg_netto_margin,
@@ -867,12 +837,12 @@ def get_companies_filter_summary_payload(
         SELECT
             e.orgnr::text AS orgnr,
             e.navn,
-            ROUND((r.operating_profit / r.revenue) * 100.0, 2) AS netto_margin
+            ROUND((r.net_profit / r.revenue) * 100.0, 2) AS netto_margin
         {base_sql}
-        AND r.operating_profit IS NOT NULL
+        AND r.net_profit IS NOT NULL
         AND r.revenue IS NOT NULL
         AND r.revenue <> 0
-        ORDER BY (r.operating_profit / r.revenue) DESC NULLS LAST, e.navn ASC
+        ORDER BY (r.net_profit / r.revenue) DESC NULLS LAST, e.navn ASC
         LIMIT %s
         """,
         [*params, safe_top_n],
@@ -883,12 +853,11 @@ def get_companies_filter_summary_payload(
             e.orgnr::text AS orgnr,
             e.navn,
             r.revenue AS omsetning,
-            r.operating_profit AS driftsresultat,
             r.net_profit AS aarsresultat
         {base_sql}
         AND r.revenue IS NOT NULL
-        AND r.operating_profit IS NOT NULL
-        ORDER BY ABS(r.operating_profit) DESC NULLS LAST, r.revenue DESC NULLS LAST
+        AND r.net_profit IS NOT NULL
+        ORDER BY ABS(r.net_profit) DESC NULLS LAST, r.revenue DESC NULLS LAST
         LIMIT %s
         """,
         [*params, safe_scatter_limit],
@@ -907,8 +876,6 @@ def get_companies_filter_summary_payload(
         "robust_count": robust_count,
         "sum_omsetning": summary_row.get("sum_omsetning"),
         "sum_aarsresultat": summary_row.get("sum_aarsresultat"),
-        "weighted_netto_margin": summary_row.get("weighted_netto_margin"),
-        "median_netto_margin": summary_row.get("median_netto_margin"),
         "avg_netto_margin": summary_row.get("avg_netto_margin"),
         "avg_egenkapitalandel": summary_row.get("avg_egenkapitalandel"),
         "share_profitable_pct": ((profitable_count / companies_with_result) * 100.0) if companies_with_result else None,
@@ -1088,189 +1055,87 @@ def companies_top_omsetning(
         orgform=orgform,
         has_regnskap=has_regnskap,
     )
+
+
 def get_kart_payload(
     *,
-    north: float,
-    south: float,
-    east: float,
-    west: float,
+    north: float = 90.0,
+    south: float = -90.0,
+    east: float = 180.0,
+    west: float = -180.0,
     q: str | None = None,
-    kommune: str | None = None,
     naeringskode: str | None = None,
-    adresse: str | None = None,
     orgform: str | None = None,
     min_omsetning: float | None = None,
     max_omsetning: float | None = None,
-    min_resultat: float | None = None,
-    max_resultat: float | None = None,
-    min_egenkapitalandel: float | None = None,
-    min_netto_margin: float | None = None,
-    min_ansatte: int | None = None,
-    max_ansatte: int | None = None,
-    min_omsetning_per_ansatt: float | None = None,
-    max_omsetning_per_ansatt: float | None = None,
-    min_resultat_per_ansatt: float | None = None,
-    max_resultat_per_ansatt: float | None = None,
     has_regnskap: bool = False,
     regnskapsaar: int | None = None,
-    innlevert_etter: str | None = None,
     limit: int = 500,
 ) -> dict[str, Any]:
-    from Fastapi_Backend import LATEST_REGNSKAP_JOIN
+    """Henter selskaper innenfor bbox med GeoJSON-format for kartvisning."""
+    from Fastapi_Backend import LATEST_REGNSKAP_JOIN, latest_regnskap_join_for_year, normalize_decimal
 
     limit = min(limit, 2000)
-    half = limit // 2
-    if half <= 0:
-        half = 1
 
-    normalized_orgnr_query = _normalize_orgnr(q)
-    orgnr_query = normalized_orgnr_query if len(normalized_orgnr_query) == 9 else None
-    text_query = str(q or "").strip()
-    naeringskode_raw, naeringskode_digits = _normalize_naeringskode_query(naeringskode)
-
-    # Bygg filter-betingelser
-    def build_filters(
-        lat_col: str,
-        lon_col: str,
-        nk_col: str,
-        addr_col: str,
-        company_name_expr: str,
-        include_subunit_name: bool,
-        entity_alias: str = "e",
-    ):
-        where = [
-            f"{lat_col} IS NOT NULL",
-            f"{lat_col} BETWEEN %s AND %s",
-            f"{lon_col} BETWEEN %s AND %s",
-        ]
-        params = [south, north, west, east]
-
-        if orgnr_query:
-            orgnr_filter = ["e.orgnr::text = %s"]
-            params.append(orgnr_query)
-            if include_subunit_name:
-                orgnr_filter.insert(0, "bn.bedr_orgnr::text = %s")
-                params.insert(len(params) - 1, orgnr_query)
-            where.append("(" + " OR ".join(orgnr_filter) + ")")
-        elif text_query:
-            query_like = f"%{text_query}%"
-            query_clauses = [f"COALESCE({company_name_expr}, '') ILIKE %s", "e.orgnr::text ILIKE %s"]
-            query_params = [query_like, f"%{text_query}%"]
-            if include_subunit_name:
-                query_clauses.insert(1, "COALESCE(bn.bedr_navn, '') ILIKE %s")
-                query_params.insert(1, query_like)
-                query_clauses.append("bn.bedr_orgnr::text ILIKE %s")
-                query_params.append(f"%{text_query}%")
-            where.append("(" + " OR ".join(query_clauses) + ")")
-            params.extend(query_params)
-
-        if naeringskode_raw:
-            if naeringskode_digits:
-                where.append(f"regexp_replace(COALESCE({nk_col}::text, ''), '\\D', '', 'g') LIKE %s")
-                params.append(f"{naeringskode_digits}%")
-            else:
-                resolved_prefix = resolve_naeringskode_prefix(naeringskode_raw)
-                where.append(f"COALESCE({nk_col}::text, '') ILIKE %s")
-                params.append(f"{resolved_prefix}%")
-
-        if orgform:
-            where.append("e.orgform = %s")
-            params.append(orgform)
-        if min_omsetning is not None:
-            where.append("r.revenue >= %s")
-            params.append(min_omsetning)
-        if max_omsetning is not None:
-            where.append("r.revenue <= %s")
-            params.append(max_omsetning)
-        if min_resultat is not None:
-            where.append("r.net_profit >= %s")
-            params.append(min_resultat)
-        if max_resultat is not None:
-            where.append("r.net_profit <= %s")
-            params.append(max_resultat)
-        if min_egenkapitalandel is not None:
-            where.append("r.equity_ratio IS NOT NULL AND (r.equity_ratio * 100.0) >= %s")
-            params.append(min_egenkapitalandel)
-        if min_netto_margin is not None:
-            where.append("r.revenue IS NOT NULL AND r.revenue <> 0 AND r.operating_profit IS NOT NULL AND ((r.operating_profit / r.revenue) * 100.0) >= %s")
-            params.append(min_netto_margin)
-        if min_ansatte is not None:
-            where.append("COALESCE(e.ansatte, 0) >= %s")
-            params.append(min_ansatte)
-        if max_ansatte is not None:
-            where.append("COALESCE(e.ansatte, 0) <= %s")
-            params.append(max_ansatte)
-        if min_omsetning_per_ansatt is not None:
-            where.append("e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL AND (r.revenue / e.ansatte) >= %s")
-            params.append(min_omsetning_per_ansatt)
-        if max_omsetning_per_ansatt is not None:
-            where.append("e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL AND (r.revenue / e.ansatte) <= %s")
-            params.append(max_omsetning_per_ansatt)
-        if min_resultat_per_ansatt is not None:
-            where.append("e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL AND (r.net_profit / e.ansatte) >= %s")
-            params.append(min_resultat_per_ansatt)
-        if max_resultat_per_ansatt is not None:
-            where.append("e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL AND (r.net_profit / e.ansatte) <= %s")
-            params.append(max_resultat_per_ansatt)
-        if has_regnskap:
-            where.append("r.accounting_year IS NOT NULL")
-        if regnskapsaar is not None:
-            where.append("r.accounting_year = %s")
-            params.append(regnskapsaar)
-        if innlevert_etter:
-            where.append("r.updated_at >= %s")
-            params.append(innlevert_etter)
-        if adresse:
-            where.append(f"COALESCE({addr_col}::text, '') ILIKE %s")
-            params.append(f"%{adresse}%")
-        normalized_kommune = (kommune or "").strip()
-        if normalized_kommune:
-            municipality_number = _MUNICIPALITY_NAME_TO_NUMBER.get(_normalize_municipality_name(normalized_kommune))
-            if re.fullmatch(r"\d+", normalized_kommune):
-                municipality_number = normalized_kommune
-
-            kommune_sub_filters: list[str] = []
-            if municipality_number:
-                kommune_sub_filters.append(f"{entity_alias}.kommunenummer = %s")
-                params.append(municipality_number)
-
-            name_columns = _municipality_name_columns()
-            if name_columns:
-                like_value = f"%{normalized_kommune}%"
-                kommune_sub_filters.extend(
-                    f"COALESCE({entity_alias}.{column_name}::text, '') ILIKE %s"
-                    for column_name in name_columns
-                )
-                params.extend([like_value] * len(name_columns))
-
-            if not re.fullmatch(r"\d+", normalized_kommune):
-                kommune_sub_filters.append(f"COALESCE({entity_alias}.adresse::text, '') ILIKE %s")
-                params.append(f"%{normalized_kommune}%")
-
-            if kommune_sub_filters:
-                where.append("(" + " OR ".join(kommune_sub_filters) + ")")
-            else:
-                where.append(f"{entity_alias}.kommunenummer = %s")
-                params.append(normalized_kommune)
-
-        return " AND ".join(where), params
-
-    # Del 1: selskaper i entity med egne koordinater
-    where1, params1 = build_filters(
-        "e.lat",
-        "e.lon",
-        "e.naeringskode",
-        "e.adresse",
-        "e.navn",
-        include_subunit_name=False,
-        entity_alias="e",
+    regnskap_join = (
+        latest_regnskap_join_for_year(regnskapsaar)
+        if regnskapsaar
+        else LATEST_REGNSKAP_JOIN
     )
-    params1.append(half)
 
-    sql1 = f"""
+    params: list[Any] = [south, north, west, east]
+    where = [
+        "e.lat IS NOT NULL",
+        "e.lat BETWEEN %s AND %s",
+        "e.lon BETWEEN %s AND %s",
+    ]
+
+    # Tekstsøk — støtter bedr_navn
+    if q:
+        safe_q = q.replace("'", "''")
+        tokens = [t.strip() for t in q.lower().split() if t.strip()]
+        if tokens:
+            name_conditions = " AND ".join("e.navn ILIKE %s" for _ in tokens)
+            safe_tokens = [t.replace("'", "''") for t in tokens]
+            bedr_conditions = " AND ".join(f"bn.bedr_navn ILIKE '%%{t}%%'" for t in safe_tokens)
+            where.append(f"""(
+                ({name_conditions})
+                OR e.orgnr IN (
+                    SELECT DISTINCT bn.parent_orgnr
+                    FROM bedr_navn bn
+                    WHERE {bedr_conditions}
+                )
+            )""")
+            params.extend(f"%{t}%" for t in tokens)
+        else:
+            where.append("e.navn ILIKE %s")
+            params.append(f"%{q}%")
+
+    if naeringskode:
+        where.append("e.naeringskode LIKE %s")
+        params.append(naeringskode + "%")
+
+    if orgform:
+        where.append("e.orgform = %s")
+        params.append(orgform)
+
+    if min_omsetning is not None:
+        where.append("r.revenue >= %s")
+        params.append(min_omsetning)
+
+    if max_omsetning is not None:
+        where.append("r.revenue <= %s")
+        params.append(max_omsetning)
+
+    if has_regnskap:
+        where.append("r.accounting_year IS NOT NULL")
+
+    params.append(limit)
+
+    sql = f"""
         SELECT
-            e.orgnr,
-            e.orgnr         AS parent_orgnr,
+            e.orgnr::text AS orgnr,
+            e.orgnr::text AS parent_orgnr,
             e.navn,
             e.adresse,
             e.postnummer,
@@ -1279,83 +1144,40 @@ def get_kart_payload(
             e.ansatte,
             e.lat,
             e.lon,
-            r.revenue         AS driftsinntekter,
+            r.revenue          AS driftsinntekter,
             r.operating_profit AS driftsresultat,
-            r.net_profit      AS aarsresultat,
-            r.equity          AS sum_egenkapital,
-            r.accounting_year AS regnskapsaar
+            r.net_profit       AS aarsresultat,
+            r.equity           AS sum_egenkapital,
+            r.accounting_year  AS regnskapsaar
         FROM entity e
-        {LATEST_REGNSKAP_JOIN}
-        WHERE {where1}
+        {regnskap_join}
+        WHERE {" AND ".join(where)}
         ORDER BY r.revenue DESC NULLS LAST
         LIMIT %s
     """
 
-    # Del 2: underenheter i bedr_navn med morselskapet sitt regnskap
-    where2, params2 = build_filters(
-        "bn.lat",
-        "bn.lon",
-        "bn.naeringskode",
-        "bn.adresse",
-        "e.navn",
-        include_subunit_name=True,
-        entity_alias="e",
-    )
-    params2.append(half)
+    rows = fetch_all(sql, params)
 
-    sql2 = f"""
-        SELECT
-            bn.bedr_orgnr     AS orgnr,
-            bn.parent_orgnr   AS parent_orgnr,
-            bn.bedr_navn      AS navn,
-            bn.adresse,
-            bn.postnummer,
-            bn.naeringskode,
-            e.orgform,
-            e.ansatte,
-            bn.lat,
-            bn.lon,
-            r.revenue         AS driftsinntekter,
-            r.operating_profit AS driftsresultat,
-            r.net_profit      AS aarsresultat,
-            r.equity          AS sum_egenkapital,
-            r.accounting_year AS regnskapsaar
-        FROM bedr_navn bn
-        JOIN entity e ON e.orgnr = bn.parent_orgnr
-        {LATEST_REGNSKAP_JOIN}
-        WHERE {where2}
-        ORDER BY r.revenue DESC NULLS LAST
-        LIMIT %s
-    """
-
-    rows1 = fetch_all(sql1, params1)
-    rows2 = fetch_all(sql2, params2)
-    rows = rows1 + rows2
-
-    def farge(row: dict) -> str:
-        driftsresultat = row.get("driftsresultat")
-        res = row.get("aarsresultat")
+    def farge(row):
         rev = row.get("driftsinntekter")
-        if driftsresultat is not None and rev and rev > 0:
-            margin = (driftsresultat / rev) * 100.0
-            if margin >= 10:
-                return "green"
-            if margin >= 0:
-                return "yellow"
-            return "red"
-        if res is None:
+        dri = row.get("driftsresultat")
+        if dri is None or rev is None:
             return "gray"
-        if res > 0:
+        pct = dri / rev if rev else 0
+        if pct >= 0.20:
             return "green"
-        if rev and rev > 0 and res > -(rev * 0.1):
+        if pct >= 0.0:
             return "yellow"
         return "red"
 
     features = [
         {
             "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [row["lon"], row["lat"]]},
-            "properties": {**row, "farge": farge(row)},
+            "geometry": {
+                "type": "Point",
+                "coordinates": [row["lon"], row["lat"]]
+            },
+            "properties": {**row, "farge": farge(row)}
         }
         for row in rows
         if row.get("lat") and row.get("lon")
