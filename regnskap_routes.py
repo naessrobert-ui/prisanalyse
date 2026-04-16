@@ -1155,22 +1155,6 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
     elif path.startswith("/analysis-api/company-history/"):
         orgnr = path.rsplit("/", 1)[-1]
         payload = get_company_history_payload(orgnr)
-    elif path == "/analysis-api/kart":
-        from analysis_api_compat import get_kart_payload
-        payload = get_kart_payload(
-            north=float(params["north"]) if params.get("north") else 90.0,
-            south=float(params["south"]) if params.get("south") else -90.0,
-            east=float(params["east"])  if params.get("east")  else 180.0,
-            west=float(params["west"])  if params.get("west")  else -180.0,
-            q=params.get("q"),
-            naeringskode=params.get("naeringskode"),
-            orgform=params.get("orgform"),
-            min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
-            max_omsetning=float(params["max_omsetning"]) if params.get("max_omsetning") else None,
-            has_regnskap=str(params.get("has_regnskap") or "").strip().lower() in {"1", "true", "yes", "on"},
-            regnskapsaar=int(params["regnskapsaar"]) if params.get("regnskapsaar") else None,
-            limit=int(params.get("limit") or 500),
-        )
     else:
         return None
 
@@ -1405,6 +1389,11 @@ def regnskap_company_detail(orgnr: str):
             back_url=url_for("regnskap.regnskap_hub"),
             format_amount=format_amount,
             format_percent=format_percent,
+            brreg_result=None,
+            annual_report_url=None,
+            metric_comparison=[],
+            entity_raw={},
+            company_meta={},
         )
 
     response = proxy_analysis_api(f"/analysis-api/company-history/{normalized_orgnr}")
@@ -1444,6 +1433,11 @@ def regnskap_company_detail(orgnr: str):
             back_url=url_for("regnskap.regnskap_hub"),
             format_amount=format_amount,
             format_percent=format_percent,
+            brreg_result=None,
+            annual_report_url=None,
+            metric_comparison=[],
+            entity_raw={},
+            company_meta={},
         )
 
     try:
@@ -1474,6 +1468,11 @@ def regnskap_company_detail(orgnr: str):
             back_url=url_for("regnskap.regnskap_hub"),
             format_amount=format_amount,
             format_percent=format_percent,
+            brreg_result=None,
+            annual_report_url=None,
+            metric_comparison=[],
+            entity_raw={},
+            company_meta={},
         )
 
     address_value = first_present(
@@ -1511,12 +1510,80 @@ def regnskap_company_detail(orgnr: str):
             "longitude": lon_value,
         },
         entity_raw=entity_payload if isinstance(entity_payload, dict) else {},
+        brreg_result=None,
+        annual_report_url=f"https://virksomhet.brreg.no/nb/oppslag/enheter/{normalized_orgnr}",
+        metric_comparison=[],
         format_amount=format_amount,
         format_percent=format_percent,
     )
 
 
-@regnskap_bp.route("/api/search")
+@regnskap_bp.route("/api/brreg-sammenlign/<orgnr>")
+def regnskap_brreg_sammenlign(orgnr: str):
+    """Henter live data fra Brreg og sammenligner med det vi har i databasen."""
+    normalized_orgnr = normalize_orgnr(orgnr)
+    if len(normalized_orgnr) != 9:
+        return jsonify({"error": "Ugyldig orgnr"}), 400
+
+    http_session = make_session()
+
+    # Hent fra Brreg
+    brreg_result = lookup_orgnr_brreg(http_session, normalized_orgnr)
+    if not brreg_result:
+        brreg_result = lookup_orgnr(http_session, normalized_orgnr)
+
+    if not brreg_result:
+        return jsonify({"error": "Fant ikke selskapet i Brønnøysund"}), 404
+
+    # Hent våre data
+    response = proxy_analysis_api(f"/analysis-api/company-history/{normalized_orgnr}")
+    if isinstance(response, tuple):
+        flask_response = response[0]
+    else:
+        flask_response = response
+
+    try:
+        payload = json.loads(flask_response.get_data(as_text=True))
+    except Exception:
+        payload = {}
+
+    our_records = payload.get("results", [])
+    our_latest = our_records[0] if our_records else {}
+
+    # Sammenlign nøkkeltall
+    def compare(label, our_val, brreg_val):
+        try:
+            our_f = float(our_val) if our_val is not None else None
+            brreg_f = float(brreg_val) if brreg_val is not None else None
+            diff = our_f - brreg_f if our_f is not None and brreg_f is not None else None
+            equal = abs(diff) < 1 if diff is not None else None
+        except Exception:
+            our_f = brreg_f = diff = equal = None
+        return {
+            "label": label,
+            "analysis_value": our_f,
+            "brreg_value": brreg_f,
+            "diff": diff,
+            "equal": equal,
+        }
+
+    comparison = [
+        compare("Omsetning", our_latest.get("omsetning"), brreg_result.omsetning),
+        compare("Årsresultat", our_latest.get("aarsresultat"), brreg_result.resultat_etter_skatt),
+        compare("Egenkapital", our_latest.get("sum_egenkapital"), brreg_result.egenkapital),
+    ]
+
+    avvik = [c for c in comparison if c["equal"] is False]
+
+    return jsonify({
+        "brreg_year": brreg_result.year,
+        "brreg_periode": brreg_result.regnskapsperiode,
+        "brreg_url": brreg_result.url_used,
+        "our_year": our_latest.get("regnskapsaar"),
+        "comparison": comparison,
+        "har_avvik": len(avvik) > 0,
+        "antall_avvik": len(avvik),
+    })
 def regnskap_api_search():
     query = (request.args.get("q") or request.args.get("orgnr") or "").strip()
     if not query:

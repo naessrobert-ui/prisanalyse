@@ -118,45 +118,42 @@
         </section>
 
         <section class="card">
-            <h2>Brønnøysund (oppdatert kontroll)</h2>
-            <p class="muted">Sammenligning mellom siste år i analyseplattformen og siste publiserte data fra Brønnøysund.</p>
-            <div class="meta">
-                <div class="meta-item"><strong>Kilde</strong>{{ brreg_result.url_used if brreg_result else 'Ingen Brønnøysund-data funnet' }}</div>
-                <div class="meta-item"><strong>Regnskapsperiode (Brreg)</strong>{{ brreg_result.regnskapsperiode if brreg_result else '—' }}</div>
-                <div class="meta-item"><strong>Siste regnskapsår (Brreg)</strong>{{ brreg_result.year if brreg_result and brreg_result.year else '—' }}</div>
-                <div class="meta-item"><strong>Årsregnskap</strong>{% if annual_report_url %}<a href="{{ annual_report_url }}" target="_blank" rel="noopener">Åpne/laste ned</a>{% else %}—{% endif %}</div>
+            <h2>Brønnøysund</h2>
+            <p class="muted">Eksterne lenker og sammenligning mot Brønnøysunds åpne data.</p>
+            <div class="meta" style="margin-bottom:14px">
+                <div class="meta-item">
+                    <strong>Oppslag i Brønnøysund</strong>
+                    <a href="https://virksomhet.brreg.no/nb/oppslag/enheter/{{ orgnr }}" target="_blank" rel="noopener">
+                        Åpne på brreg.no →
+                    </a>
+                </div>
+                <div class="meta-item">
+                    <strong>Kontroller mot Brønnøysund</strong>
+                    <button id="btn-brreg-sammenlign" onclick="hentBrregSammenlign()" style="
+                        padding:6px 12px; border:0; border-radius:8px; font-weight:700;
+                        background:#60a5fa; color:#0f172a; cursor:pointer; margin-top:4px;">
+                        Hent og sammenlign
+                    </button>
+                </div>
             </div>
-            {% if metric_comparison %}
-            <div class="table-wrap">
-                <table style="min-width:700px">
-                    <thead>
-                        <tr>
-                            <th>Felt</th>
-                            <th class="right">Analyseplattform</th>
-                            <th class="right">Brønnøysund</th>
-                            <th class="right">Avvik</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in metric_comparison %}
-                        <tr>
-                            <td>{{ row.label }}</td>
-                            <td class="right">{{ format_amount(row.analysis_value) or '—' }}</td>
-                            <td class="right">{{ format_amount(row.brreg_value) or '—' }}</td>
-                            <td class="right">{{ format_amount(row.diff) if row.diff is not none else '—' }}</td>
-                            <td>
-                                {% if row.equal is sameas true %}✅ Identisk
-                                {% elif row.equal is sameas false %}⚠️ Avvik
-                                {% else %}—
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div id="brreg-resultat" style="display:none">
+                <div class="meta" id="brreg-meta" style="margin-bottom:12px"></div>
+                <div class="table-wrap" id="brreg-table-wrap" style="display:none">
+                    <table style="min-width:700px">
+                        <thead>
+                            <tr>
+                                <th>Felt</th>
+                                <th class="right">Analyseplattform</th>
+                                <th class="right">Brønnøysund</th>
+                                <th class="right">Avvik</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="brreg-table-body"></tbody>
+                    </table>
+                </div>
             </div>
-            {% endif %}
+            <p id="brreg-feil" class="error" style="display:none"></p>
         </section>
 
         {% if entity_raw %}
@@ -217,5 +214,62 @@
         </section>
         {% endif %}
     </main>
+<script>
+function fmtKr(val) {
+    if (val === null || val === undefined) return '—';
+    return new Intl.NumberFormat('nb-NO').format(Math.round(val));
+}
+
+async function hentBrregSammenlign() {
+    const btn = document.getElementById('btn-brreg-sammenlign');
+    const resultat = document.getElementById('brreg-resultat');
+    const feil = document.getElementById('brreg-feil');
+    btn.disabled = true;
+    btn.textContent = 'Henter…';
+    feil.style.display = 'none';
+    resultat.style.display = 'none';
+
+    try {
+        const resp = await fetch('/regnskap/api/brreg-sammenlign/{{ orgnr }}');
+        const data = await resp.json();
+
+        if (!resp.ok) {
+            feil.textContent = data.error || 'Feil ved henting fra Brønnøysund.';
+            feil.style.display = 'block';
+            return;
+        }
+
+        // Vis metadata
+        const meta = document.getElementById('brreg-meta');
+        meta.innerHTML = `
+            <div class="meta-item"><strong>Regnskapsår (Brreg)</strong>${data.brreg_year || '—'}</div>
+            <div class="meta-item"><strong>Regnskapsperiode</strong>${data.brreg_periode || '—'}</div>
+            <div class="meta-item"><strong>Vårt regnskapsår</strong>${data.our_year || '—'}</div>
+            <div class="meta-item"><strong>Avvik funnet</strong>${data.har_avvik ? '⚠️ ' + data.antall_avvik + ' avvik' : '✅ Ingen avvik'}</div>
+        `;
+
+        // Vis sammenligningstabell
+        const tbody = document.getElementById('brreg-table-body');
+        tbody.innerHTML = data.comparison.map(row => `
+            <tr>
+                <td>${row.label}</td>
+                <td class="right">${fmtKr(row.analysis_value)}</td>
+                <td class="right">${fmtKr(row.brreg_value)}</td>
+                <td class="right">${row.diff !== null ? fmtKr(row.diff) : '—'}</td>
+                <td>${row.equal === true ? '✅ Identisk' : row.equal === false ? '⚠️ Avvik' : '—'}</td>
+            </tr>
+        `).join('');
+
+        document.getElementById('brreg-table-wrap').style.display = '';
+        resultat.style.display = 'block';
+        btn.textContent = 'Oppdater sammenligning';
+    } catch(e) {
+        feil.textContent = 'Nettverksfeil ved henting fra Brønnøysund.';
+        feil.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+    }
+}
+</script>
 </body>
 </html>

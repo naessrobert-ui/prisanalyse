@@ -539,34 +539,27 @@ def append_search_filters(
     if q:
         tokens = normalize_search_tokens(q)
         if tokens:
-            name_conditions = " AND ".join("e.navn ILIKE %s" for _ in tokens)
-            # Bruk %% for å escape % i f-string så psycopg ikke tolker dem som placeholders
+            name_conditions = " AND ".join("navn ILIKE %s" for _ in tokens)
             safe_tokens = [t.replace("'", "''") for t in tokens]
             bedr_conditions = " AND ".join(f"bn.bedr_navn ILIKE '%%{t}%%'" for t in safe_tokens)
             sql += f"""
-              AND (
-                ({name_conditions})
-                OR e.orgnr IN (
-                    SELECT DISTINCT bn.parent_orgnr
-                    FROM bedr_navn bn
-                    WHERE {bedr_conditions}
-                )
+              AND e.orgnr IN (
+                SELECT orgnr FROM entity WHERE {name_conditions}
+                UNION
+                SELECT DISTINCT bn.parent_orgnr FROM bedr_navn bn WHERE {bedr_conditions}
               )
             """
-            params.extend(f"%{token}%" for token in tokens)  # kun for entity.navn
+            params.extend(f"%{token}%" for token in tokens)
         else:
             safe_q = q.replace("'", "''")
             sql += f"""
-              AND (
-                e.navn ILIKE %s
-                OR e.orgnr IN (
-                    SELECT DISTINCT bn.parent_orgnr
-                    FROM bedr_navn bn
-                    WHERE bn.bedr_navn ILIKE '%%{safe_q}%%'
-                )
+              AND e.orgnr IN (
+                SELECT orgnr FROM entity WHERE navn ILIKE '%%{safe_q}%%'
+                UNION
+                SELECT DISTINCT bn.parent_orgnr FROM bedr_navn bn
+                WHERE bn.bedr_navn ILIKE '%%{safe_q}%%'
               )
             """
-            params.append(f"%{q}%")
 
     if orgform:
         sql += " AND e.orgform = %s"

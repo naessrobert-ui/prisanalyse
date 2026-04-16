@@ -1091,26 +1091,26 @@ def get_kart_payload(
         "e.lon BETWEEN %s AND %s",
     ]
 
-    # Tekstsøk — støtter bedr_navn
+    # Tekstsøk — bruker UNION for indeksbruk
     if q:
-        safe_q = q.replace("'", "''")
         tokens = [t.strip() for t in q.lower().split() if t.strip()]
         if tokens:
-            name_conditions = " AND ".join("e.navn ILIKE %s" for _ in tokens)
+            name_conditions = " AND ".join("navn ILIKE %s" for _ in tokens)
             safe_tokens = [t.replace("'", "''") for t in tokens]
             bedr_conditions = " AND ".join(f"bn.bedr_navn ILIKE '%%{t}%%'" for t in safe_tokens)
-            where.append(f"""(
-                ({name_conditions})
-                OR e.orgnr IN (
-                    SELECT DISTINCT bn.parent_orgnr
-                    FROM bedr_navn bn
-                    WHERE {bedr_conditions}
-                )
+            where.append(f"""e.orgnr IN (
+                SELECT orgnr FROM entity WHERE {name_conditions}
+                UNION
+                SELECT DISTINCT bn.parent_orgnr FROM bedr_navn bn WHERE {bedr_conditions}
             )""")
             params.extend(f"%{t}%" for t in tokens)
         else:
-            where.append("e.navn ILIKE %s")
-            params.append(f"%{q}%")
+            safe_q = q.replace("'", "''")
+            where.append(f"""e.orgnr IN (
+                SELECT orgnr FROM entity WHERE navn ILIKE '%%{safe_q}%%'
+                UNION
+                SELECT DISTINCT bn.parent_orgnr FROM bedr_navn bn WHERE bn.bedr_navn ILIKE '%%{safe_q}%%'
+            )""")
 
     if naeringskode:
         where.append("e.naeringskode LIKE %s")
