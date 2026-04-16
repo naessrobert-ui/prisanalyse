@@ -1076,6 +1076,7 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             get_companies_top_omsetning_payload,
             get_industry_suggest_payload,
             get_industry_overview_payload,
+            get_kart_payload,
         )
     except Exception:
         return None
@@ -1155,6 +1156,22 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
     elif path.startswith("/analysis-api/company-history/"):
         orgnr = path.rsplit("/", 1)[-1]
         payload = get_company_history_payload(orgnr)
+    elif path == "/analysis-api/kart":
+        from analysis_api_compat import get_kart_payload
+        payload = get_kart_payload(
+            north=float(params["north"]) if params.get("north") else 90.0,
+            south=float(params["south"]) if params.get("south") else -90.0,
+            east=float(params["east"])  if params.get("east")  else 180.0,
+            west=float(params["west"])  if params.get("west")  else -180.0,
+            q=params.get("q"),
+            naeringskode=params.get("naeringskode"),
+            orgform=params.get("orgform"),
+            min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
+            max_omsetning=float(params["max_omsetning"]) if params.get("max_omsetning") else None,
+            has_regnskap=str(params.get("has_regnskap") or "").strip().lower() in {"1", "true", "yes", "on"},
+            regnskapsaar=int(params["regnskapsaar"]) if params.get("regnskapsaar") else None,
+            limit=int(params.get("limit") or 500),
+        )
     else:
         return None
 

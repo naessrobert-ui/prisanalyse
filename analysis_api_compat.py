@@ -363,80 +363,64 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
         return {"query": "", "limit": limit, "suggestions": []}
 
     safe_limit = max(1, min(int(limit), 25))
-    q_lower = query.lower()
     digits = re.sub(r"\D", "", query)
 
-    hint_matches: list[dict[str, Any]] = []
-    for hint in _INDUSTRY_HINTS:
-        haystack = f'{hint["code"]} {hint["description"]}'.lower()
-        if q_lower in haystack or (digits and hint["code"].replace(".", "").startswith(digits)):
-            hint_matches.append({**hint, "company_count": 0})
-
-    desc_expr = _industry_description_expr("e")
     if digits:
+        # Søk på kode-prefix fra naeringskode_stats
         rows = fetch_all(
-            f"""
+            """
             SELECT
-                TRIM(COALESCE(e.naeringskode::text, '')) AS code,
-                {desc_expr} AS description,
-                COUNT(*)::int AS company_count
-            FROM entity e
-            WHERE regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') LIKE %s
-            GROUP BY 1, 2
-            HAVING TRIM(COALESCE(e.naeringskode::text, '')) <> ''
-            ORDER BY company_count DESC, code ASC
+                naeringskode AS code,
+                antall_selskaper AS company_count,
+                antall_med_regnskap
+            FROM naeringskode_stats
+            WHERE regexp_replace(naeringskode, '\D', '', 'g') LIKE %s
+            ORDER BY antall_selskaper DESC, naeringskode ASC
             LIMIT %s
             """,
             [f"{digits}%", safe_limit],
         )
     else:
-        description_columns = _industry_description_columns()
-        terms = _expand_industry_terms(query)
-        clauses: list[str] = []
-        params: list[Any] = []
-        for term in terms or [query.lower()]:
-            term_like = f"%{term}%"
-            clauses.append("COALESCE(e.naeringskode::text, '') ILIKE %s")
-            params.append(term_like)
-            for col in description_columns:
-                clauses.append(f"COALESCE(e.{col}::text, '') ILIKE %s")
-                params.append(term_like)
-        where_clause = " OR ".join(clauses) if clauses else "COALESCE(e.naeringskode::text, '') ILIKE %s"
-        if not clauses:
-            params = [f"%{query}%"]
-        params.append(safe_limit)
-        rows = fetch_all(
-            f"""
-            SELECT
-                TRIM(COALESCE(e.naeringskode::text, '')) AS code,
-                {desc_expr} AS description,
-                COUNT(*)::int AS company_count
-            FROM entity e
-            WHERE {where_clause}
-            GROUP BY 1, 2
-            HAVING TRIM(COALESCE(e.naeringskode::text, '')) <> ''
-            ORDER BY company_count DESC, code ASC
-            LIMIT %s
-            """,
-            params,
-        )
+        # Tekstsøk — bruk _expand_industry_terms og hints
+        terms = _expand_industry_terms(query) or [query.lower()]
+        hint_matches = []
+        for hint in _INDUSTRY_HINTS:
+            haystack = f'{hint["code"]} {hint["description"]}'.lower()
+            if any(t in haystack for t in terms):
+                hint_matches.append(hint)
 
-    suggestions: list[dict[str, Any]] = []
-    for row in rows:
-        code = str(row.get("code") or "").strip()
-        if not code:
-            continue
-        hint = next((item for item in hint_matches if item["code"] == code), None)
-        suggestions.append(
-            {
-                "code": code,
-                "description": row.get("description") or (hint["description"] if hint else _fallback_description_for_code(code, hint_matches)),
-                "company_count": int(row.get("company_count") or 0),
-            }
-        )
+        # Hent stats for matchende koder
+        if hint_matches:
+            codes = [h["code"] for h in hint_matches[:safe_limit]]
+            placeholders = ",".join(["%s"] * len(codes))
+            rows = fetch_all(
+                f"""
+                SELECT naeringskode AS code, antall_selskaper AS company_count, antall_med_regnskap
+                FROM naeringskode_stats
+                WHERE naeringskode IN ({placeholders})
+                ORDER BY antall_selskaper DESC
+                LIMIT %s
+                """,
+                [*codes, safe_limit],
+            )
+        else:
+            rows = []
+
+    hints_by_code = {h["code"]: h for h in _INDUSTRY_HINTS}
+    suggestions = [
+        {
+            "code": str(row.get("code") or "").strip(),
+            "description": hints_by_code.get(str(row.get("code") or "").strip(), {}).get("description")
+                           or _fallback_description_for_code(str(row.get("code") or "").strip(), _INDUSTRY_HINTS),
+            "company_count": int(row.get("company_count") or 0),
+            "antall_med_regnskap": int(row.get("antall_med_regnskap") or 0),
+        }
+        for row in rows
+        if str(row.get("code") or "").strip()
+    ]
+
     if not suggestions:
-        terms = _expand_industry_terms(query)
-        suggestions = _taxonomy_suggestions(terms, safe_limit) or hint_matches
+        suggestions = _taxonomy_suggestions(_expand_industry_terms(query), safe_limit) or []
 
     return {
         "query": query,
@@ -450,13 +434,13 @@ def get_industry_overview_payload(limit: int = 25) -> dict[str, Any]:
     rows = fetch_all(
         """
         SELECT
-            SUBSTRING(regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') FROM 1 FOR 2) AS code,
-            COUNT(*)::int AS company_count
-        FROM entity e
-        WHERE NULLIF(TRIM(COALESCE(e.naeringskode::text, '')), '') IS NOT NULL
-        GROUP BY 1
-        HAVING NULLIF(TRIM(COALESCE(SUBSTRING(regexp_replace(COALESCE(e.naeringskode::text, ''), '\D', '', 'g') FROM 1 FOR 2), '')), '') IS NOT NULL
-        ORDER BY company_count DESC, code ASC
+            prefix AS code,
+            SUM(antall_selskaper)::int AS company_count,
+            SUM(antall_med_regnskap)::int AS antall_med_regnskap
+        FROM naeringskode_stats
+        WHERE prefix IS NOT NULL AND prefix != ''
+        GROUP BY prefix
+        ORDER BY company_count DESC, prefix ASC
         LIMIT %s
         """,
         [safe_limit],
@@ -466,6 +450,7 @@ def get_industry_overview_payload(limit: int = 25) -> dict[str, Any]:
             "code": str(row.get("code") or ""),
             "description": _fallback_description_for_code(str(row.get("code") or ""), _INDUSTRY_HINTS),
             "company_count": int(row.get("company_count") or 0),
+            "antall_med_regnskap": int(row.get("antall_med_regnskap") or 0),
         }
         for row in rows
     ]
