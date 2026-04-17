@@ -783,12 +783,13 @@ async function sokSelskaper() {
     const val = forwardedQuery.get(key);
     if (val !== null && String(val).trim() !== '') params.set(key, val);
   });
+  // Kartvisningen skal ikke arve lav side-limit (f.eks. 100) fra regnskapstabellen.
+  // Vi bruker alltid høy kart-limit, men lar direkte kart-lenke med høyere verdi (opp til 2000) få gjelde.
   const forwardedLimit = Number(forwardedQuery.get('limit'));
-  if (Number.isFinite(forwardedLimit) && forwardedLimit > 0) {
-    params.set('limit', String(Math.min(Math.max(1, Math.round(forwardedLimit)), 2000)));
-  } else {
-    params.set('limit', '2000');
-  }
+  const effectiveLimit = Number.isFinite(forwardedLimit)
+    ? Math.min(2000, Math.max(200, Math.round(forwardedLimit)))
+    : 2000;
+  params.set('limit', String(effectiveLimit));
 
   try {
     const resp = await fetch(`/kart/api/selskaper?${params}`);
