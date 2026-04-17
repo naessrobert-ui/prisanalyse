@@ -1520,6 +1520,32 @@ def regnskap_api_companies_top_omsetning():
     return proxy_analysis_api("/analysis-api/companies/top-omsetning", params)
 
 
+@regnskap_bp.route("/api/companies/sector-breakdown")
+def regnskap_api_companies_sector_breakdown():
+    allowed = {
+        "q",
+        "kommune",
+        "naeringskode",
+        "min_omsetning",
+        "max_omsetning",
+        "min_resultat",
+        "max_resultat",
+        "orgform",
+        "regnskapsaar",
+        "parent_code",
+        "level",
+        "limit",
+        "kommune_limit",
+    }
+    params = {key: value for key, value in request.args.items() if key in allowed and str(value).strip() != ""}
+    return proxy_analysis_api("/analysis-api/companies/sector-breakdown", params)
+
+
+@regnskap_bp.route("/analyse")
+def regnskap_analysis_page():
+    return render_template("regnskap_analyse.html")
+
+
 @regnskap_bp.route("/selskap/<orgnr>")
 def regnskap_company_detail(orgnr: str):
     normalized_orgnr = normalize_orgnr(orgnr)
