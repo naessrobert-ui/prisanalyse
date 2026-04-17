@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <title>Aksjonærsøk – Prisanalyse</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      background: #f6f7f9;
+      color: #111827;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 16px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 28px;
+    }
+
+    form {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    input {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 12px 18px;
+      border: 0;
+      border-radius: 10px;
+      background: #111827;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f9fafb;
+      font-weight: 700;
+    }
+
+    .muted {
+      color: #6b7280;
+    }
+
+    .error {
+      color: #b91c1c;
+      background: #fee2e2;
+      padding: 10px 12px;
+      border-radius: 10px;
+    }
+
+    .right {
+      text-align: right;
+    }
+
+    a {
+      color: #111827;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <p><a href="/">← Til forsiden</a></p>
+
+      <h1>Aksjonærsøk</h1>
+      <p class="muted">
+        Søk på person eller aksjonærnavn og se hvilke selskaper vedkommende eier aksjer i.
+      </p>
+
+      <form method="get" action="/aksjonaer">
+        <input
+          type="search"
+          name="q"
+          value="{{ q }}"
+          placeholder="Søk f.eks. MORTEN AARRESTAD"
+          autofocus
+        >
+        <button type="submit">Søk</button>
+      </form>
+
+      {% if error %}
+        <div class="error">{{ error }}</div>
+      {% endif %}
+
+      {% if q and not error %}
+        <p class="muted">
+          Viser inntil 200 treff for: <strong>{{ q }}</strong>
+        </p>
+      {% endif %}
+
+      {% if rows %}
+        <table>
+          <thead>
+            <tr>
+              <th>Aksjonær</th>
+              <th>Selskap</th>
+              <th>Orgnr</th>
+              <th>Aksjeklasse</th>
+              <th class="right">Aksjer</th>
+              <th class="right">Eierandel</th>
+              <th>Dato</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <td>{{ row.shareholder_name }}</td>
+                <td>{{ row.selskap }}</td>
+                <td>{{ row.orgnr }}</td>
+                <td>{{ row.aksjeklasse or "" }}</td>
+                <td class="right">
+                  {% if row.shares_count is not none %}
+                    {{ "{:,}".format(row.shares_count).replace(",", " ") }}
+                  {% endif %}
+                </td>
+                <td class="right">
+                  {% if row.ownership_pct is not none %}
+                    {{ row.ownership_pct }} %
+                  {% endif %}
+                </td>
+                <td>{{ row.snapshot_date }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% elif q and not error %}
+        <p>Ingen treff.</p>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>
