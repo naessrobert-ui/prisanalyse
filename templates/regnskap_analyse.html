@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="no">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Regnskap analyse | Prisanalyse</title>
+    <style>
+        :root { color-scheme: dark; }
+        body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #07163a; color: #e2e8f0; }
+        .wrap { max-width: 1200px; margin: 0 auto; padding: 28px 16px 56px; }
+        a { color: #93c5fd; }
+        .card { background: #122548; border: 1px solid #27426f; border-radius: 14px; padding: 16px; margin-top: 14px; }
+        .muted { color: #a6b4cf; }
+        .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+        label { display: block; font-size: .9rem; font-weight: 600; margin-bottom: 6px; }
+        input, select, button { width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid #345588; background: #071739; color: #e2e8f0; padding: 10px 12px; }
+        button { cursor: pointer; background: #3b82f6; border-color: #3b82f6; font-weight: 600; }
+        button.alt { background: #122548; border-color: #345588; }
+        .actions { display: flex; gap: 10px; margin-top: 8px; }
+        .actions button { width: auto; min-width: 140px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border-bottom: 1px solid #243d64; padding: 8px; text-align: left; vertical-align: top; }
+        th { color: #c9d8f2; font-size: .88rem; }
+        .right { text-align: right; white-space: nowrap; }
+        .small { font-size: .85rem; }
+        .chip { display: inline-block; background: #1d355b; border: 1px solid #315789; border-radius: 999px; padding: 2px 10px; font-size: .8rem; margin-right: 8px; }
+    </style>
+</head>
+<body>
+<main class="wrap">
+    <p><a href="{{ url_for('regnskap.regnskap_hub') }}">← Til regnskap</a></p>
+    <h1>Analyse av inntjening per næringskode</h1>
+    <p class="muted">Start på overordnede sektorkoder (2 sifre), bor deg ned og sammenlign kommuner for valgt sektor.</p>
+
+    <section class="card">
+        <div class="grid">
+            <div>
+                <label for="naeringskode">Næringskode-filter (valgfritt)</label>
+                <input id="naeringskode" placeholder="Eks. 62, 47.11 eller eiendom">
+            </div>
+            <div>
+                <label for="kommune">Kommune-filter (valgfritt)</label>
+                <input id="kommune" placeholder="Eks. Oslo eller 0301">
+            </div>
+            <div>
+                <label for="regnskapsaar">Regnskapsår (valgfritt)</label>
+                <input id="regnskapsaar" type="number" min="2000" max="2035" placeholder="Eks. 2024">
+            </div>
+            <div>
+                <label for="level">Nivå (antall siffer)</label>
+                <select id="level">
+                    <option value="2" selected>2 (hovedsektor)</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                </select>
+            </div>
+        </div>
+        <div class="actions">
+            <button id="runBtn" type="button">Kjør analyse</button>
+            <button id="upBtn" class="alt" type="button">Gå opp ett nivå</button>
+        </div>
+        <p id="status" class="muted small">Klar.</p>
+        <div id="breadcrumbs" class="small"></div>
+    </section>
+
+    <section class="card">
+        <h2 style="margin:0;">Sektorer</h2>
+        <p class="muted small" id="sektorHint">Viser total omsetning/resultat per kode.</p>
+        <table>
+            <thead>
+            <tr>
+                <th>Kode</th>
+                <th>Beskrivelse</th>
+                <th class="right">Selskaper</th>
+                <th class="right">Sum omsetning</th>
+                <th class="right">Sum årsresultat</th>
+                <th class="right">Snittmargin</th>
+                <th>Handling</th>
+            </tr>
+            </thead>
+            <tbody id="sectorBody">
+            <tr><td colspan="7" class="muted">Ingen data enda.</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="card">
+        <h2 style="margin:0;">Kommuner for valgt nivå</h2>
+        <p class="muted small">Tabellen følger gjeldende filtre/sektornivå.</p>
+        <table>
+            <thead>
+            <tr>
+                <th>Kommune</th>
+                <th class="right">Selskaper</th>
+                <th class="right">Sum omsetning</th>
+                <th class="right">Sum årsresultat</th>
+            </tr>
+            </thead>
+            <tbody id="kommuneBody">
+            <tr><td colspan="4" class="muted">Ingen data enda.</td></tr>
+            </tbody>
+        </table>
+    </section>
+</main>
+
+<script>
+(() => {
+    const state = { parentCode: '', level: 2, stack: [] };
+
+    const fmtNumber = (v) => {
+        if (v === null || v === undefined || v === '') return '—';
+        const n = Number(v);
+        if (!Number.isFinite(n)) return '—';
+        return new Intl.NumberFormat('nb-NO', { maximumFractionDigits: 0 }).format(n);
+    };
+    const fmtPct = (v) => {
+        if (v === null || v === undefined || v === '') return '—';
+        const n = Number(v);
+        if (!Number.isFinite(n)) return '—';
+        return `${new Intl.NumberFormat('nb-NO', { maximumFractionDigits: 2 }).format(n)} %`;
+    };
+    const get = (id) => document.getElementById(id);
+
+    function updateBreadcrumbs() {
+        const bc = get('breadcrumbs');
+        if (!state.stack.length) {
+            bc.innerHTML = '<span class="chip">Rotnivå</span>';
+            return;
+        }
+        bc.innerHTML = state.stack.map(item => `<span class="chip">${item}</span>`).join('');
+    }
+
+    function buildParams() {
+        const params = new URLSearchParams();
+        const naeringskode = get('naeringskode').value.trim();
+        const kommune = get('kommune').value.trim();
+        const regnskapsaar = get('regnskapsaar').value.trim();
+        if (naeringskode) params.set('naeringskode', naeringskode);
+        if (kommune) params.set('kommune', kommune);
+        if (regnskapsaar) params.set('regnskapsaar', regnskapsaar);
+        params.set('level', String(state.level));
+        params.set('limit', '100');
+        params.set('kommune_limit', '75');
+        if (state.parentCode) params.set('parent_code', state.parentCode);
+        return params;
+    }
+
+    function renderSectors(rows) {
+        const tbody = get('sectorBody');
+        if (!rows || !rows.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="muted">Ingen treff på valgt nivå.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map((row) => `
+            <tr>
+                <td><strong>${row.code || '—'}</strong></td>
+                <td>${row.description || 'Ukjent sektor'}</td>
+                <td class="right">${fmtNumber(row.company_count)}</td>
+                <td class="right">${fmtNumber(row.sum_omsetning)}</td>
+                <td class="right">${fmtNumber(row.sum_aarsresultat)}</td>
+                <td class="right">${fmtPct(row.avg_margin)}</td>
+                <td>${state.level < 5 ? `<button class="alt drillBtn" data-code="${row.code}">Se undernivå</button>` : ''}</td>
+            </tr>
+        `).join('');
+        tbody.querySelectorAll('.drillBtn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const nextCode = String(btn.dataset.code || '').trim();
+                if (!nextCode) return;
+                state.stack.push(nextCode);
+                state.parentCode = nextCode;
+                state.level = Math.min(5, state.level + 1);
+                get('level').value = String(state.level);
+                run();
+            });
+        });
+    }
+
+    function renderMunicipalities(rows) {
+        const tbody = get('kommuneBody');
+        if (!rows || !rows.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="muted">Ingen kommunedata på dette utvalget.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map((row) => `
+            <tr>
+                <td>${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
+                <td class="right">${fmtNumber(row.company_count)}</td>
+                <td class="right">${fmtNumber(row.sum_omsetning)}</td>
+                <td class="right">${fmtNumber(row.sum_aarsresultat)}</td>
+            </tr>
+        `).join('');
+    }
+
+    async function run() {
+        state.level = Number(get('level').value || '2');
+        get('status').textContent = 'Henter analyse…';
+        updateBreadcrumbs();
+        try {
+            const res = await fetch(`/regnskap/api/companies/sector-breakdown?${buildParams().toString()}`, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            renderSectors(data.sectors || []);
+            renderMunicipalities(data.municipalities || []);
+            get('status').textContent = `Fant ${fmtNumber((data.sectors || []).length)} sektorrader og ${fmtNumber((data.municipalities || []).length)} kommuner.`;
+            updateBreadcrumbs();
+        } catch (err) {
+            get('status').textContent = `Klarte ikke hente analyse: ${err.message}`;
+        }
+    }
+
+    get('runBtn').addEventListener('click', run);
+    get('upBtn').addEventListener('click', () => {
+        if (!state.stack.length) return;
+        state.stack.pop();
+        state.parentCode = state.stack[state.stack.length - 1] || '';
+        state.level = Math.max(2, state.level - 1);
+        get('level').value = String(state.level);
+        run();
+    });
+
+    run();
+})();
+</script>
+</body>
+</html>

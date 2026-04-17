@@ -883,6 +883,148 @@ def get_companies_filter_summary_payload(
     }
 
 
+def _coalesce_municipality_name_expr(alias: str = "e") -> str:
+    name_columns = _municipality_name_columns()
+    if not name_columns:
+        return "NULL::text"
+    return "COALESCE(" + ", ".join(f"NULLIF(TRIM({alias}.{col}::text), '')" for col in name_columns) + ")"
+
+
+def get_sector_breakdown_payload(
+    *,
+    q: str | None = None,
+    kommune: str | None = None,
+    naeringskode: str | None = None,
+    min_omsetning: float | None = None,
+    max_omsetning: float | None = None,
+    min_resultat: float | None = None,
+    max_resultat: float | None = None,
+    orgform: str | None = None,
+    regnskapsaar: int | None = None,
+    parent_code: str | None = None,
+    level: int = 2,
+    limit: int = 50,
+    kommune_limit: int = 50,
+) -> dict[str, Any]:
+    normalized_orgnr_query = _normalize_orgnr(q)
+    orgnr_query = normalized_orgnr_query if len(normalized_orgnr_query) == 9 else None
+    text_query = None if orgnr_query else q
+    naeringskode_raw, naeringskode_digits = _normalize_naeringskode_query(naeringskode)
+    parent_digits = re.sub(r"\D", "", str(parent_code or ""))
+
+    base_sql, params, _regnskap_join = build_search_base_sql(
+        orgnr=orgnr_query,
+        q=text_query,
+        orgform=orgform,
+        kommune=None,
+        naeringskode_prefix=None,
+        min_revenue=min_omsetning,
+        max_revenue=max_omsetning,
+        min_profit=min_resultat,
+        max_profit=max_resultat,
+        min_equity_ratio=None,
+        has_regnskap=True,
+    )
+    base_sql += " AND r.revenue IS NOT NULL"
+
+    if naeringskode_raw:
+        if naeringskode_digits:
+            base_sql += " AND regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g') LIKE %s"
+            params.append(f"{naeringskode_digits}%")
+        else:
+            resolved_prefix = resolve_naeringskode_prefix(naeringskode_raw)
+            base_sql += " AND COALESCE(e.naeringskode::text, '') ILIKE %s"
+            params.append(f"{resolved_prefix}%")
+
+    if parent_digits:
+        base_sql += " AND regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g') LIKE %s"
+        params.append(f"{parent_digits}%")
+
+    if regnskapsaar is not None:
+        base_sql += " AND r.accounting_year = %s"
+        params.append(regnskapsaar)
+
+    base_sql, params = _append_kommune_filter(base_sql, params, kommune)
+
+    safe_level = max(2, min(int(level), 5))
+    safe_limit = max(1, min(int(limit), 200))
+    safe_kommune_limit = max(1, min(int(kommune_limit), 200))
+
+    code_expr = (
+        "CASE "
+        "WHEN COALESCE(regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g'), '') = '' "
+        "THEN '00' "
+        f"ELSE LPAD(SUBSTRING(regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g') FROM 1 FOR {safe_level}), {safe_level}, '0') "
+        "END"
+    )
+
+    sector_rows = fetch_all(
+        f"""
+        SELECT
+            {code_expr} AS code,
+            COUNT(*)::int AS company_count,
+            SUM(r.revenue) AS sum_omsetning,
+            SUM(r.net_profit) AS sum_aarsresultat,
+            AVG(
+                CASE
+                    WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL
+                    THEN (r.net_profit / r.revenue) * 100.0
+                    ELSE NULL
+                END
+            ) AS avg_margin
+        {base_sql}
+        GROUP BY 1
+        ORDER BY sum_omsetning DESC NULLS LAST, code ASC
+        LIMIT %s
+        """,
+        [*params, safe_limit],
+    )
+
+    municipality_name_expr = _coalesce_municipality_name_expr("e")
+    municipality_rows = fetch_all(
+        f"""
+        SELECT
+            COALESCE(NULLIF(TRIM(e.kommunenummer::text), ''), 'Ukjent') AS kommunenummer,
+            COALESCE({municipality_name_expr}, 'Ukjent') AS kommunenavn,
+            COUNT(*)::int AS company_count,
+            SUM(r.revenue) AS sum_omsetning,
+            SUM(r.net_profit) AS sum_aarsresultat
+        {base_sql}
+        GROUP BY 1, 2
+        ORDER BY sum_omsetning DESC NULLS LAST, company_count DESC, kommunenummer ASC
+        LIMIT %s
+        """,
+        [*params, safe_kommune_limit],
+    )
+
+    sectors = []
+    for row in sector_rows:
+        code = str(row.get("code") or "")
+        sectors.append(
+            {
+                "code": code,
+                "description": _fallback_description_for_code(code, _INDUSTRY_HINTS),
+                "company_count": int(row.get("company_count") or 0),
+                "sum_omsetning": row.get("sum_omsetning"),
+                "sum_aarsresultat": row.get("sum_aarsresultat"),
+                "avg_margin": row.get("avg_margin"),
+            }
+        )
+
+    return {
+        "level": safe_level,
+        "parent_code": parent_digits or None,
+        "filters": {
+            "q": q,
+            "kommune": kommune,
+            "naeringskode": naeringskode,
+            "regnskapsaar": regnskapsaar,
+        },
+        "sectors": sectors,
+        "municipalities": municipality_rows,
+    }
+
+
 def get_companies_top_omsetning_payload(
     *,
     limit: int = 100,
@@ -984,6 +1126,39 @@ def companies_filter(
         offset=offset,
         sort_by=sort_by,
         sort_dir=sort_dir,
+    )
+
+
+@router.get("/analysis-api/companies/sector-breakdown")
+def companies_sector_breakdown(
+    q: str | None = None,
+    kommune: str | None = None,
+    naeringskode: str | None = None,
+    min_omsetning: float | None = None,
+    max_omsetning: float | None = None,
+    min_resultat: float | None = None,
+    max_resultat: float | None = None,
+    orgform: str | None = None,
+    regnskapsaar: int | None = None,
+    parent_code: str | None = None,
+    level: int = Query(default=2, ge=2, le=5),
+    limit: int = Query(default=50, ge=1, le=200),
+    kommune_limit: int = Query(default=50, ge=1, le=200),
+) -> dict[str, Any]:
+    return get_sector_breakdown_payload(
+        q=q,
+        kommune=kommune,
+        naeringskode=naeringskode,
+        min_omsetning=min_omsetning,
+        max_omsetning=max_omsetning,
+        min_resultat=min_resultat,
+        max_resultat=max_resultat,
+        orgform=orgform,
+        regnskapsaar=regnskapsaar,
+        parent_code=parent_code,
+        level=level,
+        limit=limit,
+        kommune_limit=kommune_limit,
     )
 
 
