@@ -1075,6 +1075,7 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             get_companies_filter_meta_payload,
             get_companies_filter_payload,
             get_companies_filter_summary_payload,
+            get_sector_breakdown_payload,
             get_companies_top_omsetning_payload,
             get_industry_suggest_payload,
             get_industry_overview_payload,
@@ -1145,6 +1146,22 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             limit=int(params.get("limit") or 100),
             min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
             orgform=params.get("orgform"),
+        )
+    elif path == "/analysis-api/companies/sector-breakdown":
+        payload = get_sector_breakdown_payload(
+            q=params.get("q"),
+            kommune=params.get("kommune"),
+            naeringskode=params.get("naeringskode"),
+            min_omsetning=float(params["min_omsetning"]) if params.get("min_omsetning") else None,
+            max_omsetning=float(params["max_omsetning"]) if params.get("max_omsetning") else None,
+            min_resultat=float(params["min_resultat"]) if params.get("min_resultat") else None,
+            max_resultat=float(params["max_resultat"]) if params.get("max_resultat") else None,
+            orgform=params.get("orgform"),
+            regnskapsaar=int(params["regnskapsaar"]) if params.get("regnskapsaar") else None,
+            parent_code=params.get("parent_code"),
+            level=int(params.get("level") or 2),
+            limit=int(params.get("limit") or 50),
+            kommune_limit=int(params.get("kommune_limit") or 50),
         )
     elif path == "/analysis-api/industry/suggest":
         payload = get_industry_suggest_payload(
