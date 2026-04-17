@@ -314,6 +314,16 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
         <div class="kort-lenke">Åpne</div>
       </a>
 
+      <a class="kort kort-featured" href="/ver/aktivt-varsel">
+        <div class="kort-topp">
+          <div class="kort-ikon">🏃</div>
+          <span class="kort-badge b-blå">Ny</span>
+        </div>
+        <div class="kort-tittel">Aktivitetsvarsel for alle steder</div>
+        <div class="kort-tekst">Velg nærmeste punkt eller søk sted. Få detaljert 24t-varsel, kvalitetsvurdering og vinduer for fint vær de neste dagene.</div>
+        <div class="kort-lenke">Åpne</div>
+      </a>
+
     </div>
   </div>
 
@@ -1791,3 +1801,339 @@ def vind_kart() -> str:
         show_heatmap=True,
         top_n=600,
     )
+
+
+def _vindretning_txt_general(deg: Optional[float]) -> str:
+    if deg is None:
+        return "Ukjent"
+    dirs = ["N", "NØ", "Ø", "SØ", "S", "SV", "V", "NV"]
+    return dirs[int((float(deg) + 22.5) // 45) % 8]
+
+
+def _hent_yr_komplett(lat: float, lon: float) -> list[dict[str, Any]]:
+    r = requests.get(
+        "https://api.met.no/weatherapi/locationforecast/2.0/complete",
+        params={"lat": f"{lat:.4f}", "lon": f"{lon:.4f}"},
+        headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
+        timeout=20,
+    )
+    r.raise_for_status()
+    return ((r.json() or {}).get("properties") or {}).get("timeseries") or []
+
+
+def _til_aktivitetstype(temp: float, rain: float, wind: float, gust: float) -> str:
+    if rain > 2.0 or gust >= 15:
+        return "Utfordrende utevær"
+    if temp >= 19 and rain < 0.2 and wind <= 6:
+        return "Svært bra for bading/sol"
+    if 10 <= temp <= 22 and rain < 0.6 and wind <= 10:
+        return "Bra for løping og tur"
+    if temp < 3 and rain > 0:
+        return "Kaldt og vått"
+    return "Greit utevær"
+
+
+def _lag_kvalitetsvurdering(temp: float, rain: float, wind: float, gust: float) -> dict[str, str]:
+    if rain <= 0.2 and wind <= 6 and gust <= 10:
+        return {"score": "5/5", "label": "Meget bra", "reason": "Lite nedbør og behagelig vind."}
+    if rain <= 0.8 and gust <= 13:
+        return {"score": "4/5", "label": "Bra", "reason": "Brukbare forhold med begrenset nedbør/vind."}
+    if rain <= 1.8 and gust <= 17:
+        return {"score": "3/5", "label": "Middels", "reason": "Noe regn eller vind trekker ned komforten."}
+    if rain <= 3.0 and gust <= 22:
+        return {"score": "2/5", "label": "Svakt", "reason": "Mye vind eller nedbør i perioder."}
+    return {"score": "1/5", "label": "Dårlig", "reason": "Kraftig vind og/eller nedbør."}
+
+
+@ver.get("/api/sted-sok")
+def api_sted_sok():
+    q = (request.args.get("q") or "").strip()
+    if len(q) < 2:
+        return jsonify({"items": []})
+    r = requests.get(
+        "https://nominatim.openstreetmap.org/search",
+        params={"q": q, "format": "jsonv2", "addressdetails": 1, "limit": 8, "accept-language": "no"},
+        headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
+        timeout=15,
+    )
+    r.raise_for_status()
+    items = []
+    for it in r.json() or []:
+        try:
+            items.append(
+                {
+                    "name": it.get("display_name"),
+                    "lat": float(it.get("lat")),
+                    "lon": float(it.get("lon")),
+                }
+            )
+        except Exception:
+            continue
+    return jsonify({"items": items})
+
+
+@ver.get("/api/aktivt-varsel")
+def api_aktivt_varsel():
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    sted = (request.args.get("sted") or "Valgt sted").strip()
+    if lat is None or lon is None:
+        return jsonify({"error": "lat/lon mangler"}), 400
+
+    ts = _hent_yr_komplett(lat, lon)
+    now = datetime.now(timezone.utc)
+    horizon_24 = now + pd.Timedelta(hours=24)
+    horizon_7d = now + pd.Timedelta(days=7)
+
+    rows_24 = []
+    rows_7d = []
+    for it in ts:
+        t = pd.to_datetime(it.get("time"), utc=True, errors="coerce")
+        if pd.isna(t):
+            continue
+        t_py = t.to_pydatetime()
+        if t_py < now or t_py > horizon_7d.to_pydatetime():
+            continue
+        data = it.get("data") or {}
+        inst = (data.get("instant") or {}).get("details") or {}
+        n1 = (data.get("next_1_hours") or {}).get("details") or {}
+        rec = {
+            "time": t_py.isoformat(),
+            "temp": float(inst.get("air_temperature")) if inst.get("air_temperature") is not None else None,
+            "wind": float(inst.get("wind_speed")) if inst.get("wind_speed") is not None else 0.0,
+            "gust": float(inst.get("wind_speed_of_gust")) if inst.get("wind_speed_of_gust") is not None else 0.0,
+            "wind_deg": float(inst.get("wind_from_direction")) if inst.get("wind_from_direction") is not None else None,
+            "rain": float(n1.get("precipitation_amount")) if n1.get("precipitation_amount") is not None else 0.0,
+            "rain_min": float(n1.get("precipitation_amount_min")) if n1.get("precipitation_amount_min") is not None else None,
+            "rain_max": float(n1.get("precipitation_amount_max")) if n1.get("precipitation_amount_max") is not None else None,
+            "rain_prob": float(n1.get("probability_of_precipitation")) if n1.get("probability_of_precipitation") is not None else None,
+            "symbol": ((data.get("next_1_hours") or {}).get("summary") or {}).get("symbol_code", "cloudy"),
+        }
+        rows_7d.append(rec)
+        if t_py <= horizon_24.to_pydatetime():
+            rows_24.append(rec)
+
+    if not rows_24:
+        return jsonify({"error": "Fant ingen prognosedata"}), 502
+
+    df24 = pd.DataFrame(rows_24)
+    temp_now = float(df24["temp"].dropna().iloc[0]) if not df24["temp"].dropna().empty else 0.0
+    rain_day = float(df24["rain"].sum())
+    max_wind = float(df24["wind"].max())
+    max_gust = float(df24["gust"].max())
+    quality = _lag_kvalitetsvurdering(temp_now, rain_day, max_wind, max_gust)
+
+    best_windows = []
+    current = None
+    for rec in rows_7d:
+        ok = rec["rain"] <= 0.3 and rec["wind"] <= 8 and (rec["gust"] or 0) <= 12 and (rec["temp"] or -99) >= 8
+        t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO)
+        if ok:
+            if current is None:
+                current = {"start": t_local, "end": t_local, "score": 0.0, "hours": 0}
+            current["end"] = t_local
+            current["hours"] += 1
+            current["score"] += (max(0.0, 14 - rec["wind"]) + max(0.0, 0.5 - rec["rain"]) * 10 + max(0.0, (rec["temp"] or 8) - 8))
+        elif current:
+            if current["hours"] >= 2:
+                best_windows.append(current)
+            current = None
+    if current and current["hours"] >= 2:
+        best_windows.append(current)
+
+    best_windows.sort(key=lambda x: (x["score"], x["hours"]), reverse=True)
+    windows = []
+    for w in best_windows[:6]:
+        windows.append(
+            {
+                "start": w["start"].isoformat(),
+                "end": (w["end"] + pd.Timedelta(hours=1)).isoformat(),
+                "hours": w["hours"],
+            }
+        )
+
+    hourly = []
+    for rec in rows_24:
+        t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO)
+        hourly.append(
+            {
+                "time": t_local.isoformat(),
+                "temp": round(float(rec["temp"]), 1) if rec["temp"] is not None else None,
+                "rain": round(float(rec["rain"]), 1),
+                "rain_min": round(float(rec["rain_min"]), 1) if rec["rain_min"] is not None else None,
+                "rain_max": round(float(rec["rain_max"]), 1) if rec["rain_max"] is not None else None,
+                "rain_prob": int(round(rec["rain_prob"])) if rec["rain_prob"] is not None else None,
+                "wind": round(float(rec["wind"]), 1),
+                "gust": round(float(rec["gust"]), 1),
+                "wind_dir": _vindretning_txt_general(rec["wind_deg"]),
+                "activity": _til_aktivitetstype(rec["temp"] or 0.0, rec["rain"], rec["wind"], rec["gust"]),
+                "symbol": rec["symbol"],
+            }
+        )
+
+    daily = {}
+    for rec in rows_7d:
+        t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO)
+        key = t_local.date().isoformat()
+        daily.setdefault(key, []).append(rec)
+
+    daily_out = []
+    for d, vals in sorted(daily.items()):
+        temps = [v["temp"] for v in vals if v["temp"] is not None]
+        rains = [v["rain"] for v in vals]
+        winds = [v["wind"] for v in vals]
+        gusts = [v["gust"] for v in vals]
+        daily_out.append(
+            {
+                "date": d,
+                "temp_min": round(min(temps), 1) if temps else None,
+                "temp_max": round(max(temps), 1) if temps else None,
+                "rain_total": round(sum(rains), 1),
+                "wind_max": round(max(winds), 1) if winds else None,
+                "gust_max": round(max(gusts), 1) if gusts else None,
+            }
+        )
+
+    return jsonify(
+        {
+            "sted": sted,
+            "coords": {"lat": lat, "lon": lon},
+            "quality": quality,
+            "summary": {
+                "temp_now": round(temp_now, 1),
+                "temp_min_24h": round(float(df24["temp"].min()), 1),
+                "temp_max_24h": round(float(df24["temp"].max()), 1),
+                "rain_24h": round(rain_day, 1),
+                "max_wind_24h": round(max_wind, 1),
+                "max_gust_24h": round(max_gust, 1),
+            },
+            "hourly": hourly,
+            "daily": daily_out[:8],
+            "fine_windows": windows,
+            "hentet": datetime.now().isoformat(timespec="seconds"),
+        }
+    )
+
+
+@ver.get("/aktivt-varsel")
+def aktivt_varsel() -> Response:
+    return Response(_AKTIVT_VARSEL_HTML, mimetype="text/html; charset=utf-8")
+
+
+_AKTIVT_VARSEL_HTML = r"""<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Aktivitetsvarsel – prisanalyse.no</title>
+<style>
+body{margin:0;background:#f1f5f9;color:#0f172a;font-family:Inter,system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:22px}
+.card{background:#fff;border-radius:16px;box-shadow:0 12px 30px rgba(15,23,42,.08);padding:18px;margin-bottom:14px}
+h1{margin:0 0 8px}.sub{color:#475569;margin:0 0 10px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+input,button{padding:10px 12px;border-radius:10px;border:1px solid #cbd5e1}
+button{background:#2563eb;color:#fff;border:none;cursor:pointer;font-weight:600}
+button.alt{background:#0f172a}.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px}
+.lbl{font-size:12px;color:#64748b}.val{font-size:24px;font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:left}
+th{color:#475569;font-size:12px;text-transform:uppercase}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:#dbeafe;color:#1e3a8a;padding:5px 9px;border-radius:999px;font-size:12px}
+.muted{color:#64748b}
+#results{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>🌤️ Generell værside for aktiviteter</h1>
+    <p class="sub">Bruk posisjon eller søk sted. Du får detaljer for neste 24 timer + finværsvinduer kommende dager.</p>
+    <div class="row">
+      <button id="geoBtn">📍 Bruk min posisjon</button>
+      <input id="placeInput" placeholder="Søk sted, f.eks. Bergen sentrum" style="min-width:280px;flex:1"/>
+      <button class="alt" id="searchBtn">Søk sted</button>
+    </div>
+    <div id="status" class="muted" style="margin-top:10px"></div>
+    <div id="suggestions" class="chips" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card" id="results">
+    <h2 id="title" style="margin-top:0"></h2>
+    <div id="quality"></div>
+    <div id="kpi" class="kpi" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card" id="windowsCard" style="display:none">
+    <h3 style="margin:0 0 8px">Beste vinduer med fint vær (2+ timer)</h3>
+    <div id="windows" class="chips"></div>
+  </div>
+
+  <div class="card" id="hourlyCard" style="display:none">
+    <h3 style="margin:0 0 8px">Detaljert timesoversikt neste 24 timer</h3>
+    <div style="overflow:auto"><table><thead><tr><th>Tid</th><th>Temp</th><th>Nedbør</th><th>Sjanse</th><th>Vind / kast</th><th>Retning</th><th>Vurdering</th></tr></thead><tbody id="hourlyBody"></tbody></table></div>
+  </div>
+
+  <div class="card" id="dailyCard" style="display:none">
+    <h3 style="margin:0 0 8px">Kort og mellomlang sikt (daglig)</h3>
+    <div style="overflow:auto"><table><thead><tr><th>Dag</th><th>Temp min/maks</th><th>Nedbør</th><th>Maks vind/kast</th></tr></thead><tbody id="dailyBody"></tbody></table></div>
+  </div>
+</div>
+<script>
+const statusEl=document.getElementById('status');
+const suggestionsEl=document.getElementById('suggestions');
+const placeInput=document.getElementById('placeInput');
+function fmtLocal(iso,opt={hour:'2-digit',minute:'2-digit'}){return new Date(iso).toLocaleString('no-NO',opt);}
+function setStatus(t){statusEl.textContent=t||'';}
+async function loadForecast(lat,lon,name){
+  setStatus('Henter varsel …');
+  const r=await fetch(`/ver/api/aktivt-varsel?lat=${lat}&lon=${lon}&sted=${encodeURIComponent(name||'Valgt sted')}`);
+  const d=await r.json();
+  if(!r.ok){setStatus(d.error||'Feil');return;}
+  renderData(d); setStatus(`Oppdatert ${new Date(d.hentet).toLocaleString('no-NO')}`);
+}
+function renderData(d){
+  document.getElementById('results').style.display='block';
+  document.getElementById('title').textContent=`${d.sted} (${d.coords.lat.toFixed(4)}, ${d.coords.lon.toFixed(4)})`;
+  document.getElementById('quality').innerHTML=`<div class="chip">Kvalitet ${d.quality.score} · ${d.quality.label}</div> <span class="muted">${d.quality.reason}</span>`;
+  const k=[['Nåtemp',`${d.summary.temp_now}°C`],['Min/maks 24t',`${d.summary.temp_min_24h}° / ${d.summary.temp_max_24h}°`],['Nedbør 24t',`${d.summary.rain_24h} mm`],['Maks vind',`${d.summary.max_wind_24h} m/s`],['Maks kast',`${d.summary.max_gust_24h} m/s`]];
+  document.getElementById('kpi').innerHTML=k.map(x=>`<div class="box"><div class="lbl">${x[0]}</div><div class="val">${x[1]}</div></div>`).join('');
+
+  document.getElementById('windowsCard').style.display='block';
+  const win=d.fine_windows||[];
+  document.getElementById('windows').innerHTML=win.length?win.map(w=>`<span class="chip">🌤️ ${fmtLocal(w.start,{weekday:'short',hour:'2-digit',minute:'2-digit'})}–${fmtLocal(w.end,{hour:'2-digit',minute:'2-digit'})} (${w.hours}t)</span>`).join(''):'<span class="muted">Ingen tydelige finværsvinduer funnet enda.</span>';
+
+  document.getElementById('hourlyCard').style.display='block';
+  document.getElementById('hourlyBody').innerHTML=(d.hourly||[]).map(h=>`<tr><td>${fmtLocal(h.time,{weekday:'short',hour:'2-digit',minute:'2-digit'})}</td><td>${h.temp??'–'}°C</td><td>${h.rain} mm ${h.rain_min!=null&&h.rain_max!=null?`(${h.rain_min}-${h.rain_max})`:''}</td><td>${h.rain_prob??'–'}%</td><td>${h.wind} (${h.gust}) m/s</td><td>${h.wind_dir}</td><td>${h.activity}</td></tr>`).join('');
+
+  document.getElementById('dailyCard').style.display='block';
+  document.getElementById('dailyBody').innerHTML=(d.daily||[]).map(x=>`<tr><td>${new Date(x.date).toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'short'})}</td><td>${x.temp_min??'–'}° / ${x.temp_max??'–'}°</td><td>${x.rain_total} mm</td><td>${x.wind_max??'–'} / ${x.gust_max??'–'} m/s</td></tr>`).join('');
+}
+async function searchPlace(){
+  const q=placeInput.value.trim();
+  if(q.length<2){setStatus('Skriv minst 2 tegn for stedsøk.');return;}
+  setStatus('Søker sted …');
+  const r=await fetch(`/ver/api/sted-sok?q=${encodeURIComponent(q)}`);
+  const d=await r.json();
+  const items=d.items||[];
+  suggestionsEl.innerHTML=items.map(it=>`<button class="chip" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${it.name.replace(/"/g,'&quot;')}">${it.name}</button>`).join('');
+  if(!items.length){setStatus('Fant ingen treff.');}
+}
+document.getElementById('searchBtn').addEventListener('click',searchPlace);
+suggestionsEl.addEventListener('click',(e)=>{
+  const b=e.target.closest('button[data-lat]'); if(!b) return;
+  loadForecast(Number(b.dataset.lat),Number(b.dataset.lon),b.dataset.name);
+});
+document.getElementById('geoBtn').addEventListener('click',()=>{
+  if(!navigator.geolocation){setStatus('Nettleseren støtter ikke posisjon.'); return;}
+  setStatus('Henter posisjon …');
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>loadForecast(pos.coords.latitude,pos.coords.longitude,'Min posisjon'),
+    ()=>setStatus('Kunne ikke hente posisjon.')
+  );
+});
+</script>
+</body>
+</html>"""
