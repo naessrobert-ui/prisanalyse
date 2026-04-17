@@ -1821,7 +1821,11 @@ def _hent_yr_komplett(lat: float, lon: float) -> list[dict[str, Any]]:
     return ((r.json() or {}).get("properties") or {}).get("timeseries") or []
 
 
-def _til_aktivitetstype(temp: float, rain: float, wind: float, gust: float) -> str:
+def _til_aktivitetstype(temp: float, rain: float, wind: float, gust: float, hour_local: Optional[int] = None) -> str:
+    if hour_local is not None and (hour_local >= 23 or hour_local <= 5):
+        if rain > 2.0 or gust >= 15:
+            return "Natt: krevende forhold ute"
+        return "Natt: rolig tur passer bedre enn løpetur"
     if rain > 2.0 or gust >= 15:
         return "Utfordrende utevær"
     if temp >= 19 and rain < 0.2 and wind <= 6:
@@ -1966,7 +1970,13 @@ def api_aktivt_varsel():
                 "wind": round(float(rec["wind"]), 1),
                 "gust": round(float(rec["gust"]), 1),
                 "wind_dir": _vindretning_txt_general(rec["wind_deg"]),
-                "activity": _til_aktivitetstype(rec["temp"] or 0.0, rec["rain"], rec["wind"], rec["gust"]),
+                "activity": _til_aktivitetstype(
+                    rec["temp"] or 0.0,
+                    rec["rain"],
+                    rec["wind"],
+                    rec["gust"],
+                    t_local.hour,
+                ),
                 "symbol": rec["symbol"],
             }
         )
@@ -2086,6 +2096,31 @@ const statusEl=document.getElementById('status');
 const suggestionsEl=document.getElementById('suggestions');
 const placeInput=document.getElementById('placeInput');
 function fmtLocal(iso,opt={hour:'2-digit',minute:'2-digit'}){return new Date(iso).toLocaleString('no-NO',opt);}
+function weatherEmoji(symbol){
+  const s=String(symbol||'').toLowerCase();
+  if(s.includes('thunder')) return '⛈️';
+  if(s.includes('sleet')) return '🌨️';
+  if(s.includes('snow')) return '❄️';
+  if(s.includes('rainshowers')||s.includes('heavyrain')||s.includes('rain')) return '🌧️';
+  if(s.includes('fog')) return '🌫️';
+  if(s.includes('partlycloudy')) return '⛅';
+  if(s.includes('cloudy')) return '☁️';
+  if(s.includes('clearsky')||s.includes('fair')) return '☀️';
+  return '🌤️';
+}
+function precipEmoji(mm){
+  if(mm == null) return '💧';
+  if(mm >= 2) return '🌧️';
+  if(mm >= 0.3) return '🌦️';
+  if(mm > 0) return '💧';
+  return '☀️';
+}
+function windEmoji(ms){
+  if(ms == null) return '💨';
+  if(ms >= 12) return '🌬️';
+  if(ms >= 7) return '💨';
+  return '🍃';
+}
 function setStatus(t){statusEl.textContent=t||'';}
 async function loadForecast(lat,lon,name){
   setStatus('Henter varsel …');
@@ -2098,15 +2133,15 @@ function renderData(d){
   document.getElementById('results').style.display='block';
   document.getElementById('title').textContent=`${d.sted} (${d.coords.lat.toFixed(4)}, ${d.coords.lon.toFixed(4)})`;
   document.getElementById('quality').innerHTML=`<div class="chip">Kvalitet ${d.quality.score} · ${d.quality.label}</div> <span class="muted">${d.quality.reason}</span>`;
-  const k=[['Nåtemp',`${d.summary.temp_now}°C`],['Min/maks 24t',`${d.summary.temp_min_24h}° / ${d.summary.temp_max_24h}°`],['Nedbør 24t',`${d.summary.rain_24h} mm`],['Maks vind',`${d.summary.max_wind_24h} m/s`],['Maks kast',`${d.summary.max_gust_24h} m/s`]];
+  const k=[['☀️ Nåtemp',`${d.summary.temp_now}°C`],['🌡️ Min/maks 24t',`${d.summary.temp_min_24h}° / ${d.summary.temp_max_24h}°`],['🌧️ Nedbør 24t',`${d.summary.rain_24h} mm`],['💨 Maks vind',`${d.summary.max_wind_24h} m/s`],['🌬️ Maks kast',`${d.summary.max_gust_24h} m/s`]];
   document.getElementById('kpi').innerHTML=k.map(x=>`<div class="box"><div class="lbl">${x[0]}</div><div class="val">${x[1]}</div></div>`).join('');
 
   document.getElementById('windowsCard').style.display='block';
   const win=d.fine_windows||[];
-  document.getElementById('windows').innerHTML=win.length?win.map(w=>`<span class="chip">🌤️ ${fmtLocal(w.start,{weekday:'short',hour:'2-digit',minute:'2-digit'})}–${fmtLocal(w.end,{hour:'2-digit',minute:'2-digit'})} (${w.hours}t)</span>`).join(''):'<span class="muted">Ingen tydelige finværsvinduer funnet enda.</span>';
+  document.getElementById('windows').innerHTML=win.length?win.map(w=>`<span class="chip">☀️ ${fmtLocal(w.start,{weekday:'short',hour:'2-digit',minute:'2-digit'})}–${fmtLocal(w.end,{hour:'2-digit',minute:'2-digit'})} (${w.hours}t)</span>`).join(''):'<span class="muted">Ingen tydelige finværsvinduer funnet enda.</span>';
 
   document.getElementById('hourlyCard').style.display='block';
-  document.getElementById('hourlyBody').innerHTML=(d.hourly||[]).map(h=>`<tr><td>${fmtLocal(h.time,{weekday:'short',hour:'2-digit',minute:'2-digit'})}</td><td>${h.temp??'–'}°C</td><td>${h.rain} mm ${h.rain_min!=null&&h.rain_max!=null?`(${h.rain_min}-${h.rain_max})`:''}</td><td>${h.rain_prob??'–'}%</td><td>${h.wind} (${h.gust}) m/s</td><td>${h.wind_dir}</td><td>${h.activity}</td></tr>`).join('');
+  document.getElementById('hourlyBody').innerHTML=(d.hourly||[]).map(h=>`<tr><td>${weatherEmoji(h.symbol)} ${fmtLocal(h.time,{weekday:'short',hour:'2-digit',minute:'2-digit'})}</td><td>🌡️ ${h.temp??'–'}°C</td><td>${precipEmoji(h.rain)} ${h.rain} mm ${h.rain_min!=null&&h.rain_max!=null?`(${h.rain_min}-${h.rain_max})`:''}</td><td>🎯 ${h.rain_prob??'–'}%</td><td>${windEmoji(h.wind)} ${h.wind} (${h.gust}) m/s</td><td>🧭 ${h.wind_dir}</td><td>${h.activity}</td></tr>`).join('');
 
   document.getElementById('dailyCard').style.display='block';
   document.getElementById('dailyBody').innerHTML=(d.daily||[]).map(x=>`<tr><td>${new Date(x.date).toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'short'})}</td><td>${x.temp_min??'–'}° / ${x.temp_max??'–'}°</td><td>${x.rain_total} mm</td><td>${x.wind_max??'–'} / ${x.gust_max??'–'} m/s</td></tr>`).join('');
