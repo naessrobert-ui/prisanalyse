@@ -109,6 +109,11 @@
         Last opp en eller flere underliggende CSV-filer. Appen oppdaterer lokal DB med filene og laster deretter opp oppdatert DB til S3.
         Før oppdatering sjekkes og returneres siste dato i databasen, slik at du ser om nye data faktisk ble lagt til.
       </p>
+      <div class="small text-warning mb-3">
+        Gjelder <strong>handler/topchanges-format</strong>.<br>
+        Har du CSV med <code>Orgnr / Navn aksjonær / Antall aksjer</code> (eierliste per selskap),
+        importeres den i Postgres med: <code>python scripts/import_shareholders_orgnr_csv.py --csv ... --snapshot-date ...</code>
+      </div>
       <form id="csvUpdateForm" class="row g-2 align-items-center">
         <div class="col-md-7">
           <input type="file" class="form-control" id="csv_files" name="csv_files" accept=".csv" multiple {% if not db_s3_upload_enabled %}disabled{% endif %}>

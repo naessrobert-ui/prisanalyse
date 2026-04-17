@@ -787,15 +787,16 @@ def _normalize_str_sql(col_ident: str) -> str:
 
 def _solgt_true_expr(solgt_norm_expr: str) -> str:
     """
-    Returnerer SQL-uttrykk som tolker om "Solgt"-feltet faktisk betyr solgt/fjernet.
+    Returnerer SQL-uttrykk som tolker om "Solgt"-feltet faktisk betyr faktisk solgt.
 
     Viktig:
       - Tom streng / NULL skal IKKE regnes som solgt.
       - Tidligere logikk brukte `solgt != 'nei'`, som ga falske positive når feltet var tomt.
+      - "fjernet/removed" regnes ikke som solgt, fordi annonser kan fjernes uten salg.
     """
     return f"""
       (
-        {solgt_norm_expr} IN ('ja', 'true', '1', 'solgt', 'fjernet', 'removed', 'sold')
+        {solgt_norm_expr} IN ('ja', 'true', '1', 'solgt', 'sold')
       )
     """
 
