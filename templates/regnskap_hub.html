@@ -428,6 +428,7 @@
 
         <div class="results-toolbar" id="apiActions" style="display:none;">
             <input id="apiResultFilter" type="text" placeholder="Filtrer i trefflisten som vises nå">
+            <button type="button" class="secondary" id="apiDownloadCsvBtn">Last ned alle treff (CSV)</button>
         </div>
 
         <div class="api-table-wrap">
@@ -585,6 +586,7 @@
     const apiResultsTable = document.getElementById('apiResultsTable');
     const apiResultsBody = document.getElementById('apiResultsBody');
     const apiResultFilter = document.getElementById('apiResultFilter');
+    const apiDownloadCsvBtn = document.getElementById('apiDownloadCsvBtn');
     const apiPagination = document.getElementById('apiPagination');
     const apiPrevPage = document.getElementById('apiPrevPage');
     const apiNextPage = document.getElementById('apiNextPage');
@@ -1370,6 +1372,19 @@
     });
 
     apiResultFilter?.addEventListener('input', applyClientFilter);
+
+    apiDownloadCsvBtn?.addEventListener('click', () => {
+        if (!state.params) {
+            apiStatus.textContent = '⚠️ Kjør et søk først før du laster ned CSV.';
+            return;
+        }
+        const params = new URLSearchParams(state.params);
+        params.delete('limit');
+        params.delete('offset');
+        const exportUrl = `/regnskap/api/companies/filter/export.csv?${params.toString()}`;
+        apiStatus.textContent = 'Starter CSV-eksport for hele treffsettet…';
+        window.location.href = exportUrl;
+    });
 
     naeringskodeInput?.addEventListener('input', () => {
         window.clearTimeout(state.naeringskodeSuggestTimer);
