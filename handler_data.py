@@ -287,16 +287,20 @@ def _resolve_file_date_today(date_values: pd.Series, filename: str) -> pd.Series
     """
     Fyller inn manglende DatoIdag for en fil.
     Prioritet:
-      1) Første gyldige DatoIdag funnet i samme CSV.
-      2) Dato tolket fra filnavn (YYYY-MM-DD / YYYY_MM_DD / YYYYMMDD).
+      1) Mest brukte gyldige DatoIdag funnet i samme CSV.
+      2) Dato tolket fra filnavn (YYYY-MM-DD / YYYY_MM_DD / YYYYMMDD / YYMMDD).
     """
-    dates = date_values.copy()
+    dates = date_values.map(_normalize_date)
     missing_mask = dates.isna()
     if not missing_mask.any():
         return dates
 
     non_missing = dates[~missing_mask]
-    fallback_date = non_missing.iloc[0] if not non_missing.empty else None
+    fallback_date = None
+    if not non_missing.empty:
+        # I filer med små avvik i rådata (f.eks. et par "feile" datoer)
+        # vil vi bruke den datoen som forekommer oftest.
+        fallback_date = non_missing.value_counts().index[0]
 
     if fallback_date is None:
         inferred = _infer_date_from_filename(filename)
@@ -509,10 +513,7 @@ def _ingest_one_csv_bytes(conn: sqlite3.Connection, filename: str, content: byte
         sec[["isin", "ticker", "isin_name", "paper_group", "issuer_orgnr", "issuer_name", "registered_country", "market", "sector", "gics_sector", "ask_paper", "issued_shares"]].itertuples(index=False, name=None),
     )
 
-    date_today = _resolve_file_date_today(
-        df[col_date_today].map(_normalize_date),
-        filename=filename,
-    )
+    date_today = _resolve_file_date_today(df[col_date_today], filename=filename)
 
     facts = pd.DataFrame({
         "isin": df[col_isin].astype(str).str.strip(),
@@ -760,7 +761,7 @@ def refresh_top20_snapshot_db(source_db_path: str | None = None, target_db_path:
 
 def _infer_date_from_filename(filename: str) -> dt.date | None:
     """
-    Prøver å finne en dato i filnavnet (YYYY-MM-DD, YYYY_MM_DD eller YYYYMMDD).
+    Prøver å finne en dato i filnavnet (YYYY-MM-DD, YYYY_MM_DD, YYYYMMDD eller YYMMDD).
     Brukes for stabil ingest-rekkefølge ved historisk backfill (f.eks. månedsfiler fra 2022).
     """
     name = (filename or "").strip()
@@ -776,6 +777,13 @@ def _infer_date_from_filename(filename: str) -> dt.date | None:
             return dt.date(y, mo, d)
         except Exception:
             continue
+    m = re.search(r"(?<!\d)(\d{2})(\d{2})(\d{2})(?!\d)", stem)
+    if m:
+        try:
+            y, mo, d = 2000 + int(m.group(1)), int(m.group(2)), int(m.group(3))
+            return dt.date(y, mo, d)
+        except Exception:
+            pass
     return None
 
 
