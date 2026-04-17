@@ -272,7 +272,7 @@
                     <label for="api_naeringskode">Næringskode</label>
                     <input id="api_naeringskode" type="text" placeholder="Eks. 62 eller eiendom" list="api_naeringskode_suggestions" autocomplete="off">
                     <datalist id="api_naeringskode_suggestions"></datalist>
-                    <div class="muted" id="apiNaeringskodeHint" style="margin-top:6px;">Tips: Skriv f.eks. «bil», «transport» eller kodeprefix (45, 62).</div>
+                    <div class="muted" id="apiNaeringskodeHint" style="margin-top:6px;">Tips: Skriv f.eks. «bil», «transport», «advokat» eller kodeprefix (45, 62).</div>
                     <button type="button" class="secondary" id="apiShowIndustryOverviewBtn" style="margin-top:6px;">Vis hovedgrupper</button>
                     <div id="apiNaeringskodeSuggestionsList" style="margin-top:6px; display:none;"></div>
                     <div id="apiNaeringskodeOverviewList" style="margin-top:6px; display:none;"></div>
@@ -1164,7 +1164,7 @@
             naeringskodeDatalist.innerHTML = '';
             renderNaeringskodeSuggestionList([]);
             if (apiNaeringskodeHint) {
-                apiNaeringskodeHint.textContent = 'Tips: Skriv f.eks. «bil», «transport» eller kodeprefix (45, 62).';
+                apiNaeringskodeHint.textContent = 'Tips: Skriv f.eks. «bil», «transport», «advokat» eller kodeprefix (45, 62).';
             }
             return;
         }

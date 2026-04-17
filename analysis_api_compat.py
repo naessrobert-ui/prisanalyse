@@ -57,6 +57,9 @@ _INDUSTRY_HINTS = [
     {"code": "45.20", "description": "Vedlikehold og reparasjon av motorvogner"},
     {"code": "45.31", "description": "Engroshandel med deler og utstyr til motorvogner"},
     {"code": "49.41", "description": "Godstransport på vei"},
+    {"code": "69", "description": "Juridisk og regnskapsmessig tjenesteyting"},
+    {"code": "69.10", "description": "Juridisk tjenesteyting"},
+    {"code": "69.100", "description": "Juridisk tjenesteyting"},
     {"code": "68.200", "description": "Utleie av egen eller leid fast eiendom"},
     {"code": "47.810", "description": "Butikkhandel med motorvogner, unntatt motorsykler"},
 ]
@@ -67,6 +70,9 @@ _INDUSTRY_CODE_DESCRIPTIONS = {
     "45.20": "Vedlikehold og reparasjon av motorvogner",
     "47.810": "Butikkhandel med motorvogner, unntatt motorsykler",
     "49.41": "Godstransport på vei",
+    "69": "Juridisk og regnskapsmessig tjenesteyting",
+    "69.10": "Juridisk tjenesteyting",
+    "69.100": "Juridisk tjenesteyting",
     "68.200": "Utleie av egen eller leid fast eiendom",
 }
 
@@ -168,6 +174,10 @@ _INDUSTRY_SYNONYMS = {
     "eiendom": ["utleie", "bygg", "bolig", "næringseiendom"],
     "bil": ["motor", "verksted", "kjøretøy", "transport"],
     "transport": ["logistikk", "gods", "frakt", "sjøfart"],
+    "advokat": ["juridisk", "jus", "law", "legal", "advokater"],
+    "advokater": ["juridisk", "jus", "law", "legal", "advokat"],
+    "juridisk": ["advokat", "advokater", "jus", "legal"],
+    "jus": ["juridisk", "advokat", "advokater", "legal"],
 }
 
 
