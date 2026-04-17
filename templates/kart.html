@@ -269,6 +269,30 @@
   </div>
 
   <div class="filter-group">
+    <label>Min ansatte (lokalt)</label>
+    <input id="f-local-min-ansatte" class="filter-input js-local-filter" style="width:120px"
+           placeholder="" type="number" min="0">
+  </div>
+
+  <div class="filter-group">
+    <label>Maks ansatte (lokalt)</label>
+    <input id="f-local-max-ansatte" class="filter-input js-local-filter" style="width:120px"
+           placeholder="" type="number" min="0">
+  </div>
+
+  <div class="filter-group">
+    <label>Min margin % (lokalt)</label>
+    <input id="f-local-min-margin" class="filter-input js-local-filter" style="width:120px"
+           placeholder="" type="number" step="0.1">
+  </div>
+
+  <div class="filter-group">
+    <label>Maks margin % (lokalt)</label>
+    <input id="f-local-max-margin" class="filter-input js-local-filter" style="width:120px"
+           placeholder="" type="number" step="0.1">
+  </div>
+
+  <div class="filter-group">
     <label>Farge etter</label>
     <select id="f-color-mode" class="filter-input" style="width:145px">
       <option value="driftsmargin" selected>Driftsmargin (standard)</option>
@@ -525,6 +549,8 @@ function updateLegend() {
 
 // ── Layer for prikker ──
 let layer = L.layerGroup().addTo(map);
+let sistHentedeFeatures = [];
+let sistServerCount = 0;
 const forwardedQuery = new URLSearchParams(window.location.search);
 const FORWARDED_FILTER_KEYS = [
   'q', 'adresse', 'kommune', 'naeringskode', 'orgform', 'has_regnskap',
@@ -555,25 +581,164 @@ function prefillFromQuery() {
   }
 }
 prefillFromQuery();
+
+function parseOptionalNumber(id) {
+  const raw = document.getElementById(id)?.value ?? '';
+  if (raw === null || raw === undefined || String(raw).trim() === '') return null;
+  const val = Number(raw);
+  return Number.isFinite(val) ? val : null;
+}
+
+function getLocalFilterConfig() {
+  let minAnsatte = parseOptionalNumber('f-local-min-ansatte');
+  let maxAnsatte = parseOptionalNumber('f-local-max-ansatte');
+  let minMargin = parseOptionalNumber('f-local-min-margin');
+  let maxMargin = parseOptionalNumber('f-local-max-margin');
+
+  if (minAnsatte != null && maxAnsatte != null && minAnsatte > maxAnsatte) {
+    [minAnsatte, maxAnsatte] = [maxAnsatte, minAnsatte];
+  }
+  if (minMargin != null && maxMargin != null && minMargin > maxMargin) {
+    [minMargin, maxMargin] = [maxMargin, minMargin];
+  }
+
+  return { minAnsatte, maxAnsatte, minMargin, maxMargin };
+}
+
+function filterFeaturesLocally(features) {
+  const cfg = getLocalFilterConfig();
+  return (features || []).filter((feature) => {
+    const p = feature?.properties || {};
+    const ansatte = Number(p.ansatte);
+    const margin = marginValueForCompany(p, getColorMode());
+
+    if (cfg.minAnsatte != null && (!Number.isFinite(ansatte) || ansatte < cfg.minAnsatte)) return false;
+    if (cfg.maxAnsatte != null && (!Number.isFinite(ansatte) || ansatte > cfg.maxAnsatte)) return false;
+    if (cfg.minMargin != null && (!Number.isFinite(margin) || margin < cfg.minMargin)) return false;
+    if (cfg.maxMargin != null && (!Number.isFinite(margin) || margin > cfg.maxMargin)) return false;
+    return true;
+  });
+}
+
+function renderFeatures(rawFeatures, totalFromServer = null) {
+  const localFilteredFeatures = filterFeaturesLocally(rawFeatures);
+  layer.clearLayers();
+  const colorContext = buildColorContext(localFilteredFeatures);
+
+  localFilteredFeatures.forEach(f => {
+    const p   = f.properties;
+    const detailOrgnr = String(p.parent_orgnr || p.orgnr || '').trim();
+    const isSubunit = Boolean(p.parent_orgnr && p.parent_orgnr !== p.orgnr);
+    const detailHref = detailOrgnr ? `/regnskap/selskap/${encodeURIComponent(detailOrgnr)}` : '#';
+    const dotColor = colorForCompany(p, colorContext);
+    const dotSize = sizeForCompany(p);
+    const dot = L.marker(
+      [f.geometry.coordinates[1], f.geometry.coordinates[0]],
+      { icon: lagDot(dotColor, dotSize) }
+    );
+
+    const resKl = resultatKlasse(p.aarsresultat);
+    const driftsmargin = calcPct(p.driftsresultat, p.driftsinntekter);
+    const nettomargin = calcPct(p.aarsresultat, p.driftsinntekter);
+
+    dot.bindPopup(`
+      <div class="popup-header">${p.navn}</div>
+      <div class="popup-orgnr">
+        Orgnr: ${p.orgnr} · ${p.orgform}
+        ${isSubunit ? `<br><span style="font-size:11px;color:#9ca3af">Hovedorgnr: ${detailOrgnr}</span>` : ''}
+      </div>
+      <div class="popup-grid">
+        <div class="popup-kv">
+          <label>Omsetning</label>
+          <span>${fmtKr(p.driftsinntekter)}</span>
+        </div>
+        <div class="popup-kv">
+          <label>Årsresultat</label>
+          <span class="${resKl}">${fmtKr(p.aarsresultat)}</span>
+        </div>
+        <div class="popup-kv">
+          <label>Driftsresultat</label>
+          <span>${fmtKr(p.driftsresultat)}</span>
+        </div>
+        <div class="popup-kv">
+          <label>Driftsmargin</label>
+          <span>${driftsmargin == null ? '–' : driftsmargin.toFixed(1).replace('.', ',') + ' %'}</span>
+        </div>
+        <div class="popup-kv">
+          <label>Nettomargin</label>
+          <span>${nettomargin == null ? '–' : nettomargin.toFixed(1).replace('.', ',') + ' %'}</span>
+        </div>
+        <div class="popup-kv">
+          <label>Egenkapital</label>
+          <span>${fmtKr(p.sum_egenkapital)}</span>
+        </div>
+        <div class="popup-kv">
+          <label>Ansatte</label>
+          <span>${p.ansatte ?? '–'}</span>
+        </div>
+        <div class="popup-kv">
+          <label>Næringskode</label>
+          <span>${p.naeringskode || '–'}</span>
+        </div>
+        <div class="popup-kv">
+          <label>Regnskapsår</label>
+          <span>${p.regnskapsaar ?? '–'}</span>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#7a8096;margin-bottom:4px">${p.adresse} ${p.postnummer}</div>
+      <a class="popup-link" href="${detailHref}" target="_blank">
+        Åpne selskapsside →
+      </a>
+    `, { maxWidth: 280 });
+
+    layer.addLayer(dot);
+  });
+
+  const n = localFilteredFeatures.length;
+  const serverCount = Number.isFinite(totalFromServer) ? totalFromServer : (Number.isFinite(sistServerCount) ? sistServerCount : (rawFeatures || []).length);
+  const localFilteredOut = Math.max(0, serverCount - n);
+  if (n === 0) {
+    document.getElementById('status').textContent = localFilteredOut > 0
+      ? `Ingen selskaper etter lokale filtre (${localFilteredOut} filtrert bort)`
+      : 'Ingen selskaper funnet';
+    return;
+  }
+  if (serverCount >= 2000) {
+    document.getElementById('status').textContent = `${n} vist av ${serverCount}+ (zoom inn for mer presist utvalg)`;
+    return;
+  }
+  document.getElementById('status').textContent = localFilteredOut > 0
+    ? `${n} vist av ${serverCount} (${localFilteredOut} filtrert lokalt)`
+    : `${n} selskaper`;
+}
+
+function applyLocalFiltersOnly() {
+  renderFeatures(sistHentedeFeatures, sistServerCount);
+}
 updateLegend();
 document.getElementById('f-color-mode')?.addEventListener('change', () => {
   updateLegend();
-  sokSelskaper();
+  applyLocalFiltersOnly();
 });
 document.getElementById('f-color-profile')?.addEventListener('change', () => {
   updateLegend();
-  sokSelskaper();
+  applyLocalFiltersOnly();
 });
 document.getElementById('f-size-mode')?.addEventListener('change', () => {
-  sokSelskaper();
+  applyLocalFiltersOnly();
 });
 document.getElementById('f-low-threshold')?.addEventListener('change', () => {
   updateLegend();
-  if ((document.getElementById('f-color-profile')?.value || '') === 'custom') sokSelskaper();
+  if ((document.getElementById('f-color-profile')?.value || '') === 'custom') applyLocalFiltersOnly();
 });
 document.getElementById('f-high-threshold')?.addEventListener('change', () => {
   updateLegend();
-  if ((document.getElementById('f-color-profile')?.value || '') === 'custom') sokSelskaper();
+  if ((document.getElementById('f-color-profile')?.value || '') === 'custom') applyLocalFiltersOnly();
+});
+document.querySelectorAll('.js-local-filter').forEach((el) => {
+  el.addEventListener('input', () => {
+    applyLocalFiltersOnly();
+  });
 });
 
 // ── Søkefunksjon ──
@@ -618,88 +783,22 @@ async function sokSelskaper() {
     const val = forwardedQuery.get(key);
     if (val !== null && String(val).trim() !== '') params.set(key, val);
   });
+  const forwardedLimit = Number(forwardedQuery.get('limit'));
+  if (Number.isFinite(forwardedLimit) && forwardedLimit > 0) {
+    params.set('limit', String(Math.min(Math.max(1, Math.round(forwardedLimit)), 2000)));
+  } else {
+    params.set('limit', '2000');
+  }
 
   try {
     const resp = await fetch(`/kart/api/selskaper?${params}`);
     const data = await resp.json();
-
-    layer.clearLayers();
-    const colorContext = buildColorContext(data.features || []);
-
-    data.features.forEach(f => {
-      const p   = f.properties;
-      const detailOrgnr = String(p.parent_orgnr || p.orgnr || '').trim();
-      const isSubunit = Boolean(p.parent_orgnr && p.parent_orgnr !== p.orgnr);
-      const detailHref = detailOrgnr ? `/regnskap/selskap/${encodeURIComponent(detailOrgnr)}` : '#';
-      const dotColor = colorForCompany(p, colorContext);
-      const dotSize = sizeForCompany(p);
-      const dot = L.marker(
-        [f.geometry.coordinates[1], f.geometry.coordinates[0]],
-        { icon: lagDot(dotColor, dotSize) }
-      );
-
-      const resKl = resultatKlasse(p.aarsresultat);
-      const driftsmargin = calcPct(p.driftsresultat, p.driftsinntekter);
-      const nettomargin = calcPct(p.aarsresultat, p.driftsinntekter);
-
-      dot.bindPopup(`
-        <div class="popup-header">${p.navn}</div>
-        <div class="popup-orgnr">
-          Orgnr: ${p.orgnr} · ${p.orgform}
-          ${isSubunit ? `<br><span style="font-size:11px;color:#9ca3af">Hovedorgnr: ${detailOrgnr}</span>` : ''}
-        </div>
-        <div class="popup-grid">
-          <div class="popup-kv">
-            <label>Omsetning</label>
-            <span>${fmtKr(p.driftsinntekter)}</span>
-          </div>
-          <div class="popup-kv">
-            <label>Årsresultat</label>
-            <span class="${resKl}">${fmtKr(p.aarsresultat)}</span>
-          </div>
-          <div class="popup-kv">
-            <label>Driftsresultat</label>
-            <span>${fmtKr(p.driftsresultat)}</span>
-          </div>
-          <div class="popup-kv">
-            <label>Driftsmargin</label>
-            <span>${driftsmargin == null ? '–' : driftsmargin.toFixed(1).replace('.', ',') + ' %'}</span>
-          </div>
-          <div class="popup-kv">
-            <label>Nettomargin</label>
-            <span>${nettomargin == null ? '–' : nettomargin.toFixed(1).replace('.', ',') + ' %'}</span>
-          </div>
-          <div class="popup-kv">
-            <label>Egenkapital</label>
-            <span>${fmtKr(p.sum_egenkapital)}</span>
-          </div>
-          <div class="popup-kv">
-            <label>Ansatte</label>
-            <span>${p.ansatte ?? '–'}</span>
-          </div>
-          <div class="popup-kv">
-            <label>Næringskode</label>
-            <span>${p.naeringskode || '–'}</span>
-          </div>
-          <div class="popup-kv">
-            <label>Regnskapsår</label>
-            <span>${p.regnskapsaar ?? '–'}</span>
-          </div>
-        </div>
-        <div style="font-size:11px;color:#7a8096;margin-bottom:4px">${p.adresse} ${p.postnummer}</div>
-        <a class="popup-link" href="${detailHref}" target="_blank">
-          Åpne selskapsside →
-        </a>
-      `, { maxWidth: 280 });
-
-      layer.addLayer(dot);
-    });
-
-    const n = data.features.length;
-    document.getElementById('status').textContent =
-      n === 0 ? 'Ingen selskaper funnet' :
-      n >= 2000 ? `Viser 2000+ selskaper (zoom inn for mer presist utvalg)` :
-      `${n} selskaper`;
+    sistHentedeFeatures = Array.isArray(data.features) ? data.features : [];
+    sistServerCount = Number(data.count);
+    if (!Number.isFinite(sistServerCount)) {
+      sistServerCount = sistHentedeFeatures.length;
+    }
+    renderFeatures(sistHentedeFeatures, sistServerCount);
 
   } catch(e) {
     document.getElementById('status').textContent = 'Feil ved henting';
