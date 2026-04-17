@@ -1074,7 +1074,7 @@ def fetch_handler_per_eier(conn, investor_id: str, date_from: dt.date, date_to: 
     ),
     trades AS (
         SELECT pc.isin, pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+               COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0), p2.p) AS trade_price
         FROM position_change pc
         LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
         WHERE pc.investor_id=? AND pc.date_today BETWEEN ? AND ?
@@ -1166,12 +1166,12 @@ def fetch_eier_transactions(conn, investor_id: str, isin: str, date_from: dt.dat
         GROUP BY isin, date(date_today)
     )
     SELECT pc.date_today AS dato, pc.change_qty AS antall,
-           COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS kurs,
-           (COALESCE(pc.change_qty,0)*COALESCE(NULLIF(pc.price_yesterday,0),p2.p)) AS belop
+           COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0), p2.p) AS kurs,
+           (COALESCE(pc.change_qty,0)*COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0), p2.p)) AS belop
     FROM position_change pc
     LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
     WHERE pc.investor_id=? AND pc.isin=? AND pc.date_today BETWEEN ? AND ?
-      AND COALESCE(NULLIF(pc.price_yesterday,0),p2.p)>0
+      AND COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0), p2.p)>0
     ORDER BY pc.date_today ASC
     """
     rows = conn.execute(sql, (investor_id, isin, date_from.isoformat(), date_to.isoformat())).fetchall()
@@ -1218,7 +1218,7 @@ def fetch_handler_per_aksje(conn, isin: str, date_from: dt.date, date_to: dt.dat
     ),
     trades AS (
         SELECT pc.investor_id, pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+               COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0), p2.p) AS trade_price
         FROM position_change pc
         LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
         WHERE pc.isin=? AND pc.date_today BETWEEN ? AND ?
@@ -1265,7 +1265,7 @@ def fetch_eier_oversikt_timeseries(conn, investor_id: str, date_from: dt.date, d
     ),
     trades AS (
         SELECT pc.date_today AS dato, pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+               COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0), p2.p) AS trade_price
         FROM position_change pc
         LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
         WHERE pc.investor_id=? AND pc.date_today BETWEEN ? AND ?
@@ -1751,7 +1751,7 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     trades AS (
         SELECT st.isin,
                st.change_qty,
-               COALESCE(NULLIF(st.price_yesterday,0), p2.p) AS trade_price
+               COALESCE(NULLIF(st.price_yesterday,0), NULLIF(st.price_today,0), p2.p) AS trade_price
         FROM selected_trades st
         LEFT JOIN prices p2 ON p2.isin=st.isin AND p2.d=st.price_d
     )
@@ -1805,7 +1805,7 @@ def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date,
                pc.isin,
                pc.investor_id,
                pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
+               COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0), p2.p) AS trade_price
         FROM position_change pc
         JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
         LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
@@ -1883,7 +1883,7 @@ def fetch_best_viktige_trades_for_isin(
     trades AS (
         SELECT st.investor_id,
                st.change_qty,
-               COALESCE(NULLIF(st.price_yesterday,0), p2.p) AS trade_price
+               COALESCE(NULLIF(st.price_yesterday,0), NULLIF(st.price_today,0), p2.p) AS trade_price
         FROM selected_trades st
         LEFT JOIN prices p2 ON p2.d=st.price_d
     )
