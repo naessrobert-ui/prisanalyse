@@ -47,6 +47,8 @@ USER_AGENT = (
 )
 TIMEOUT = 15
 BATCH_WORKERS = 4
+EXPORT_PAGE_SIZE = 500
+EXPORT_MAX_ROWS = 50000
 
 URL_TEMPLATES = [
     "https://www.proff.no/regnskap/-/{org}",
@@ -1336,6 +1338,131 @@ def regnskap_api_companies_filter():
     if len(normalized_query) == 9:
         params["q"] = normalized_query
     return proxy_analysis_api("/analysis-api/companies/filter", params)
+
+
+def _parse_proxy_json_response(response_obj):
+    if isinstance(response_obj, tuple):
+        flask_response = response_obj[0]
+        status_code = response_obj[1]
+    else:
+        flask_response = response_obj
+        status_code = flask_response.status_code
+    payload: dict[str, Any] | None = None
+    try:
+        payload = json.loads(flask_response.get_data(as_text=True))
+    except Exception:
+        payload = None
+    return flask_response, status_code, payload
+
+
+@regnskap_bp.route("/api/companies/filter/export.csv")
+def regnskap_api_companies_filter_export_csv():
+    allowed = {
+        "q",
+        "kommune",
+        "naeringskode",
+        "adresse",
+        "min_omsetning",
+        "max_omsetning",
+        "min_resultat",
+        "max_resultat",
+        "min_egenkapitalandel",
+        "min_netto_margin",
+        "min_ansatte",
+        "max_ansatte",
+        "min_omsetning_per_ansatt",
+        "max_omsetning_per_ansatt",
+        "min_resultat_per_ansatt",
+        "max_resultat_per_ansatt",
+        "orgform",
+        "has_regnskap",
+        "regnskapsaar",
+        "innlevert_etter",
+        "sort_by",
+        "sort_dir",
+    }
+    params = {key: value for key, value in request.args.items() if key in allowed and str(value).strip() != ""}
+    query = str(params.get("q") or "").strip()
+    normalized_query = normalize_orgnr(query)
+    if len(normalized_query) == 9:
+        params["q"] = normalized_query
+
+    if not params:
+        return jsonify({"detail": "Legg inn minst ett filter før CSV-eksport."}), 400
+
+    offset = 0
+    all_rows: list[dict[str, Any]] = []
+    total_expected: int | None = None
+
+    while True:
+        page_params = dict(params)
+        page_params["limit"] = str(EXPORT_PAGE_SIZE)
+        page_params["offset"] = str(offset)
+
+        response = proxy_analysis_api("/analysis-api/companies/filter", page_params)
+        _, status_code, payload = _parse_proxy_json_response(response)
+        if status_code != 200 or not isinstance(payload, dict):
+            detail = ""
+            if isinstance(payload, dict):
+                detail = str(payload.get("detail") or "")
+            msg = detail or f"Klarte ikke hente data for eksport (HTTP {status_code})."
+            return jsonify({"detail": msg}), 502
+
+        rows = payload.get("results", [])
+        if not isinstance(rows, list):
+            rows = []
+        all_rows.extend(rows)
+
+        if total_expected is None:
+            try:
+                total_expected = int(payload.get("total_returned", len(rows)))
+            except (TypeError, ValueError):
+                total_expected = len(rows)
+            if total_expected > EXPORT_MAX_ROWS:
+                return jsonify({
+                    "detail": (
+                        f"CSV-eksport støtter maks {EXPORT_MAX_ROWS} rader per kjøring. "
+                        f"Søket ga {total_expected} rader – snevre inn filtrene litt."
+                    )
+                }), 400
+
+        if not rows or len(all_rows) >= (total_expected or 0):
+            break
+        offset += EXPORT_PAGE_SIZE
+        if len(all_rows) >= EXPORT_MAX_ROWS:
+            break
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";")
+    columns = [
+        "orgnr",
+        "navn",
+        "orgform",
+        "kommune",
+        "kommunenummer",
+        "regnskapsaar",
+        "ansatte",
+        "omsetning",
+        "sum_driftsinntekter",
+        "aarsresultat",
+        "driftsresultat",
+        "netto_margin",
+        "egenkapitalandel",
+        "omsetning_per_ansatt",
+        "resultat_per_ansatt",
+        "oppdatert_dato",
+        "matched_bedr_navn",
+    ]
+    writer.writerow(columns)
+    for row in all_rows:
+        row_dict = row if isinstance(row, dict) else {}
+        writer.writerow([row_dict.get(col, "") for col in columns])
+
+    csv_content = "\ufeff" + buffer.getvalue()
+    resp = make_response(csv_content)
+    resp.headers["Content-Type"] = "text/csv; charset=utf-8"
+    resp.headers["Content-Disposition"] = "attachment; filename=regnskap_filter_export.csv"
+    return resp
 
 
 @regnskap_bp.route("/api/companies/filter-meta")
