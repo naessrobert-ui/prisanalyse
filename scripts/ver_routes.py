@@ -1892,7 +1892,7 @@ def api_aktivt_varsel():
         if pd.isna(t):
             continue
         t_py = t.to_pydatetime()
-        if t_py < now or t_py > horizon_7d.to_pydatetime():
+        if t_py < now or t_py > horizon_7d:
             continue
         data = it.get("data") or {}
         inst = (data.get("instant") or {}).get("details") or {}
@@ -1910,7 +1910,7 @@ def api_aktivt_varsel():
             "symbol": ((data.get("next_1_hours") or {}).get("summary") or {}).get("symbol_code", "cloudy"),
         }
         rows_7d.append(rec)
-        if t_py <= horizon_24.to_pydatetime():
+        if t_py <= horizon_24:
             rows_24.append(rec)
 
     if not rows_24:
