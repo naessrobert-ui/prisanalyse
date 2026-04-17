@@ -12,7 +12,7 @@ aksjonaer_bp = Blueprint("aksjonaer", __name__)
 def connect_db():
     """
     Bruker IAM-token hvis DB_IAM_AUTH=1.
-    Ellers bruker den DATABASE_URL.
+    Ellers bruker den SHAREHOLDER_DATABASE_URL, med DATABASE_URL som fallback.
     """
     if os.getenv("DB_IAM_AUTH", "").lower() in ("1", "true", "yes"):
         host = os.environ["DBHOST"]
@@ -36,9 +36,12 @@ def connect_db():
             sslmode="require",
         )
 
-    database_url = os.getenv("DATABASE_URL")
+    database_url = os.getenv("SHAREHOLDER_DATABASE_URL") or os.getenv("DATABASE_URL")
     if not database_url:
-        raise RuntimeError("DATABASE_URL mangler, eller sett DB_IAM_AUTH=1 med DBHOST/DBUSER.")
+        raise RuntimeError(
+            "SHAREHOLDER_DATABASE_URL/DATABASE_URL mangler, "
+            "eller sett DB_IAM_AUTH=1 med DBHOST/DBUSER."
+        )
 
     return psycopg.connect(database_url)
 
