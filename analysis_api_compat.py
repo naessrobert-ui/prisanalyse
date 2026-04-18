@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import copy
+import os
 import re
+import threading
+import time
 from functools import lru_cache
 from typing import Any
 
@@ -10,6 +14,19 @@ from Fastapi_Backend import MAX_LIMIT, build_search_base_sql, clean_limit, fetch
 
 
 router = APIRouter()
+_SECTOR_BREAKDOWN_CACHE_TTL_SECONDS = max(
+    60 * 60,
+    int(os.getenv("SECTOR_BREAKDOWN_CACHE_TTL_SECONDS", str(30 * 24 * 60 * 60))),
+)
+_SECTOR_BREAKDOWN_CACHE_STALE_SECONDS = max(
+    _SECTOR_BREAKDOWN_CACHE_TTL_SECONDS,
+    int(os.getenv("SECTOR_BREAKDOWN_CACHE_STALE_SECONDS", str(37 * 24 * 60 * 60))),
+)
+_SECTOR_BREAKDOWN_CACHE_MAX_SIZE = 256
+_sector_breakdown_cache: dict[tuple[Any, ...], tuple[float, float, dict[str, Any]]] = {}
+_sector_breakdown_refreshing: set[tuple[Any, ...]] = set()
+_sector_breakdown_cache_lock = threading.Lock()
+
 _MUNICIPALITY_NAME_TO_NUMBER = {
     "oslo": "0301",
     "bergen": "4601",
@@ -384,7 +401,7 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
                 antall_selskaper AS company_count,
                 antall_med_regnskap
             FROM naeringskode_stats
-            WHERE regexp_replace(naeringskode, '\D', '', 'g') LIKE %s
+            WHERE regexp_replace(naeringskode, '\\D', '', 'g') LIKE %s
             ORDER BY antall_selskaper DESC, naeringskode ASC
             LIMIT %s
             """,
@@ -890,7 +907,57 @@ def _coalesce_municipality_name_expr(alias: str = "e") -> str:
     return "COALESCE(" + ", ".join(f"NULLIF(TRIM({alias}.{col}::text), '')" for col in name_columns) + ")"
 
 
-def get_sector_breakdown_payload(
+def _build_sector_breakdown_cache_key(
+    *,
+    q: str | None,
+    orgnr_query: str | None,
+    kommune: str | None,
+    naeringskode_raw: str | None,
+    naeringskode_digits: str,
+    min_omsetning: float | None,
+    max_omsetning: float | None,
+    min_resultat: float | None,
+    max_resultat: float | None,
+    orgform: str | None,
+    regnskapsaar: int | None,
+    parent_digits: str,
+    level: int,
+    limit: int,
+    kommune_limit: int,
+) -> tuple[Any, ...]:
+    return (
+        (q or "").strip().lower(),
+        orgnr_query,
+        (kommune or "").strip().lower(),
+        naeringskode_raw,
+        naeringskode_digits,
+        min_omsetning,
+        max_omsetning,
+        min_resultat,
+        max_resultat,
+        (orgform or "").strip().upper(),
+        regnskapsaar,
+        parent_digits,
+        max(2, min(int(level), 5)),
+        max(1, min(int(limit), 200)),
+        max(1, min(int(kommune_limit), 200)),
+    )
+
+
+def _store_sector_breakdown_cache_entry(cache_key: tuple[Any, ...], payload: dict[str, Any]) -> None:
+    with _sector_breakdown_cache_lock:
+        now = time.time()
+        _sector_breakdown_cache[cache_key] = (
+            now + _SECTOR_BREAKDOWN_CACHE_TTL_SECONDS,
+            now + _SECTOR_BREAKDOWN_CACHE_STALE_SECONDS,
+            payload,
+        )
+        if len(_sector_breakdown_cache) > _SECTOR_BREAKDOWN_CACHE_MAX_SIZE:
+            oldest_key = min(_sector_breakdown_cache, key=lambda key: _sector_breakdown_cache[key][0])
+            _sector_breakdown_cache.pop(oldest_key, None)
+
+
+def _compute_sector_breakdown_payload(
     *,
     q: str | None = None,
     kommune: str | None = None,
@@ -923,9 +990,8 @@ def get_sector_breakdown_payload(
         min_profit=min_resultat,
         max_profit=max_resultat,
         min_equity_ratio=None,
-        has_regnskap=True,
+        has_regnskap=False,
     )
-    base_sql += " AND r.revenue IS NOT NULL"
 
     if naeringskode_raw:
         if naeringskode_digits:
@@ -963,15 +1029,39 @@ def get_sector_breakdown_payload(
         SELECT
             {code_expr} AS code,
             COUNT(*)::int AS company_count,
+            COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS company_count_with_regnskap,
+            COUNT(*) FILTER (WHERE r.net_profit > 0)::int AS profitable_count,
             SUM(r.revenue) AS sum_omsetning,
             SUM(r.net_profit) AS sum_aarsresultat,
-            AVG(
-                CASE
-                    WHEN r.revenue IS NOT NULL AND r.revenue <> 0 AND r.net_profit IS NOT NULL
-                    THEN (r.net_profit / r.revenue) * 100.0
-                    ELSE NULL
-                END
-            ) AS avg_margin
+            CASE
+                WHEN SUM(r.revenue) IS NOT NULL AND SUM(r.revenue) <> 0
+                THEN (SUM(r.net_profit) / SUM(r.revenue)) * 100.0
+                ELSE NULL
+            END AS avg_margin,
+            CASE
+                WHEN COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL) > 0
+                THEN (
+                    COUNT(*) FILTER (WHERE r.net_profit > 0)::numeric
+                    / COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::numeric
+                ) * 100.0
+                ELSE NULL
+            END AS profitable_share_pct,
+            CASE
+                WHEN SUM(CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL THEN e.ansatte ELSE 0 END) > 0
+                THEN (
+                    SUM(r.revenue)
+                    / SUM(CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL THEN e.ansatte ELSE 0 END)
+                )
+                ELSE NULL
+            END AS omsetning_per_ansatt,
+            CASE
+                WHEN SUM(CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL THEN e.ansatte ELSE 0 END) > 0
+                THEN (
+                    SUM(r.net_profit)
+                    / SUM(CASE WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.net_profit IS NOT NULL THEN e.ansatte ELSE 0 END)
+                )
+                ELSE NULL
+            END AS resultat_per_ansatt
         {base_sql}
         GROUP BY 1
         ORDER BY sum_omsetning DESC NULLS LAST, code ASC
@@ -987,6 +1077,7 @@ def get_sector_breakdown_payload(
             COALESCE(NULLIF(TRIM(e.kommunenummer::text), ''), 'Ukjent') AS kommunenummer,
             COALESCE({municipality_name_expr}, 'Ukjent') AS kommunenavn,
             COUNT(*)::int AS company_count,
+            COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS company_count_with_regnskap,
             SUM(r.revenue) AS sum_omsetning,
             SUM(r.net_profit) AS sum_aarsresultat
         {base_sql}
@@ -1005,13 +1096,18 @@ def get_sector_breakdown_payload(
                 "code": code,
                 "description": _fallback_description_for_code(code, _INDUSTRY_HINTS),
                 "company_count": int(row.get("company_count") or 0),
+                "company_count_with_regnskap": int(row.get("company_count_with_regnskap") or 0),
+                "profitable_count": int(row.get("profitable_count") or 0),
                 "sum_omsetning": row.get("sum_omsetning"),
                 "sum_aarsresultat": row.get("sum_aarsresultat"),
                 "avg_margin": row.get("avg_margin"),
+                "profitable_share_pct": row.get("profitable_share_pct"),
+                "omsetning_per_ansatt": row.get("omsetning_per_ansatt"),
+                "resultat_per_ansatt": row.get("resultat_per_ansatt"),
             }
         )
 
-    return {
+    payload = {
         "level": safe_level,
         "parent_code": parent_digits or None,
         "filters": {
@@ -1023,6 +1119,136 @@ def get_sector_breakdown_payload(
         "sectors": sectors,
         "municipalities": municipality_rows,
     }
+    return payload
+
+
+def _refresh_sector_breakdown_cache_async(cache_key: tuple[Any, ...], kwargs: dict[str, Any]) -> None:
+    def _worker() -> None:
+        try:
+            payload = _compute_sector_breakdown_payload(**kwargs)
+            _store_sector_breakdown_cache_entry(cache_key, payload)
+        finally:
+            with _sector_breakdown_cache_lock:
+                _sector_breakdown_refreshing.discard(cache_key)
+
+    with _sector_breakdown_cache_lock:
+        if cache_key in _sector_breakdown_refreshing:
+            return
+        _sector_breakdown_refreshing.add(cache_key)
+
+    thread = threading.Thread(target=_worker, daemon=True, name="sector-breakdown-cache-refresh")
+    thread.start()
+
+
+def get_sector_breakdown_payload(
+    *,
+    q: str | None = None,
+    kommune: str | None = None,
+    naeringskode: str | None = None,
+    min_omsetning: float | None = None,
+    max_omsetning: float | None = None,
+    min_resultat: float | None = None,
+    max_resultat: float | None = None,
+    orgform: str | None = None,
+    regnskapsaar: int | None = None,
+    parent_code: str | None = None,
+    level: int = 2,
+    limit: int = 50,
+    kommune_limit: int = 50,
+) -> dict[str, Any]:
+    normalized_orgnr_query = _normalize_orgnr(q)
+    orgnr_query = normalized_orgnr_query if len(normalized_orgnr_query) == 9 else None
+    text_query = None if orgnr_query else q
+    naeringskode_raw, naeringskode_digits = _normalize_naeringskode_query(naeringskode)
+    parent_digits = re.sub(r"\D", "", str(parent_code or ""))
+    cache_key = _build_sector_breakdown_cache_key(
+        q=text_query,
+        orgnr_query=orgnr_query,
+        kommune=kommune,
+        naeringskode_raw=naeringskode_raw,
+        naeringskode_digits=naeringskode_digits,
+        min_omsetning=min_omsetning,
+        max_omsetning=max_omsetning,
+        min_resultat=min_resultat,
+        max_resultat=max_resultat,
+        orgform=orgform,
+        regnskapsaar=regnskapsaar,
+        parent_digits=parent_digits,
+        level=level,
+        limit=limit,
+        kommune_limit=kommune_limit,
+    )
+    kwargs = {
+        "q": q,
+        "kommune": kommune,
+        "naeringskode": naeringskode,
+        "min_omsetning": min_omsetning,
+        "max_omsetning": max_omsetning,
+        "min_resultat": min_resultat,
+        "max_resultat": max_resultat,
+        "orgform": orgform,
+        "regnskapsaar": regnskapsaar,
+        "parent_code": parent_code,
+        "level": level,
+        "limit": limit,
+        "kommune_limit": kommune_limit,
+    }
+
+    now = time.time()
+    with _sector_breakdown_cache_lock:
+        cached_entry = _sector_breakdown_cache.get(cache_key)
+
+    if cached_entry:
+        fresh_until, stale_until, payload = cached_entry
+        if fresh_until > now:
+            return copy.deepcopy(payload)
+        if stale_until > now:
+            _refresh_sector_breakdown_cache_async(cache_key, kwargs)
+            return copy.deepcopy(payload)
+
+    payload = _compute_sector_breakdown_payload(**kwargs)
+    _store_sector_breakdown_cache_entry(cache_key, payload)
+    return copy.deepcopy(payload)
+
+
+def _prewarm_default_sector_cache() -> None:
+    _refresh_sector_breakdown_cache_async(
+        _build_sector_breakdown_cache_key(
+            q=None,
+            orgnr_query=None,
+            kommune=None,
+            naeringskode_raw=None,
+            naeringskode_digits="",
+            min_omsetning=None,
+            max_omsetning=None,
+            min_resultat=None,
+            max_resultat=None,
+            orgform=None,
+            regnskapsaar=None,
+            parent_digits="",
+            level=2,
+            limit=100,
+            kommune_limit=75,
+        ),
+        {
+            "q": None,
+            "kommune": None,
+            "naeringskode": None,
+            "min_omsetning": None,
+            "max_omsetning": None,
+            "min_resultat": None,
+            "max_resultat": None,
+            "orgform": None,
+            "regnskapsaar": None,
+            "parent_code": None,
+            "level": 2,
+            "limit": 100,
+            "kommune_limit": 75,
+        },
+    )
+
+
+_prewarm_default_sector_cache()
 
 
 def get_companies_top_omsetning_payload(
