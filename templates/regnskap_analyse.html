@@ -66,21 +66,25 @@
 
     <section class="card">
         <h2 style="margin:0;">Sektorer</h2>
-        <p class="muted small" id="sektorHint">Viser total omsetning/resultat per kode.</p>
+        <p class="muted small" id="sektorHint">Viser hovedsektorer med alle selskaper og nøkkeltall fra siste regnskap.</p>
         <table>
             <thead>
             <tr>
                 <th>Kode</th>
                 <th>Beskrivelse</th>
                 <th class="right">Selskaper</th>
+                <th class="right">Med regnskap</th>
                 <th class="right">Sum omsetning</th>
                 <th class="right">Sum årsresultat</th>
                 <th class="right">Snittmargin</th>
+                <th class="right">Andel overskudd</th>
+                <th class="right">Omsetn./ansatt</th>
+                <th class="right">Resultat/ansatt</th>
                 <th>Handling</th>
             </tr>
             </thead>
             <tbody id="sectorBody">
-            <tr><td colspan="7" class="muted">Ingen data enda.</td></tr>
+            <tr><td colspan="11" class="muted">Ingen data enda.</td></tr>
             </tbody>
         </table>
     </section>
@@ -93,12 +97,13 @@
             <tr>
                 <th>Kommune</th>
                 <th class="right">Selskaper</th>
+                <th class="right">Med regnskap</th>
                 <th class="right">Sum omsetning</th>
                 <th class="right">Sum årsresultat</th>
             </tr>
             </thead>
             <tbody id="kommuneBody">
-            <tr><td colspan="4" class="muted">Ingen data enda.</td></tr>
+            <tr><td colspan="5" class="muted">Ingen data enda.</td></tr>
             </tbody>
         </table>
     </section>
@@ -149,7 +154,7 @@
     function renderSectors(rows) {
         const tbody = get('sectorBody');
         if (!rows || !rows.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="muted">Ingen treff på valgt nivå.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" class="muted">Ingen treff på valgt nivå.</td></tr>';
             return;
         }
         tbody.innerHTML = rows.map((row) => `
@@ -157,9 +162,13 @@
                 <td><strong>${row.code || '—'}</strong></td>
                 <td>${row.description || 'Ukjent sektor'}</td>
                 <td class="right">${fmtNumber(row.company_count)}</td>
+                <td class="right">${fmtNumber(row.company_count_with_regnskap)}</td>
                 <td class="right">${fmtNumber(row.sum_omsetning)}</td>
                 <td class="right">${fmtNumber(row.sum_aarsresultat)}</td>
                 <td class="right">${fmtPct(row.avg_margin)}</td>
+                <td class="right">${fmtPct(row.profitable_share_pct)}</td>
+                <td class="right">${fmtNumber(row.omsetning_per_ansatt)}</td>
+                <td class="right">${fmtNumber(row.resultat_per_ansatt)}</td>
                 <td>${state.level < 5 ? `<button class="alt drillBtn" data-code="${row.code}">Se undernivå</button>` : ''}</td>
             </tr>
         `).join('');
@@ -179,13 +188,14 @@
     function renderMunicipalities(rows) {
         const tbody = get('kommuneBody');
         if (!rows || !rows.length) {
-            tbody.innerHTML = '<tr><td colspan="4" class="muted">Ingen kommunedata på dette utvalget.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="muted">Ingen kommunedata på dette utvalget.</td></tr>';
             return;
         }
         tbody.innerHTML = rows.map((row) => `
             <tr>
                 <td>${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
                 <td class="right">${fmtNumber(row.company_count)}</td>
+                <td class="right">${fmtNumber(row.company_count_with_regnskap)}</td>
                 <td class="right">${fmtNumber(row.sum_omsetning)}</td>
                 <td class="right">${fmtNumber(row.sum_aarsresultat)}</td>
             </tr>
