@@ -2054,10 +2054,40 @@ th{color:#475569;font-size:12px;text-transform:uppercase}
 .chip{background:#dbeafe;color:#1e3a8a;padding:5px 9px;border-radius:999px;font-size:12px}
 .muted{color:#64748b}
 #results{display:none}
+.overview-table th,.overview-table td{padding:10px 8px}
+.overview-table td.temp{text-align:right;white-space:nowrap;font-weight:700}
+.overview-table td.day{text-align:center;white-space:nowrap}
+.risk{padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:5px}
+.risk.ok{background:#dcfce7;color:#166534}
+.risk.mid{background:#fef3c7;color:#92400e}
+.risk.high{background:#fee2e2;color:#991b1b}
 </style>
 </head>
 <body>
 <div class="wrap">
+  <div class="card">
+    <h2 style="margin:0 0 8px">Rask oversikt</h2>
+    <p class="sub">Lignende oppsett som «Mine steder» på Yr: et kjapt blikk på temperatur, dagene fremover og et enkelt aktivitetsvarsel.</p>
+    <div style="overflow:auto">
+      <table class="overview-table">
+        <thead>
+          <tr>
+            <th>Sted</th>
+            <th>Nå</th>
+            <th>I dag</th>
+            <th>I morgen</th>
+            <th>+2 dager</th>
+            <th>+3 dager</th>
+            <th>Vurdering</th>
+          </tr>
+        </thead>
+        <tbody id="overviewBody">
+          <tr><td colspan="7" class="muted">Laster oversikt …</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="card">
     <h1>🌤️ Generell værside for aktiviteter</h1>
     <p class="sub">Bruk posisjon eller søk sted. Du får detaljer for neste 24 timer + finværsvinduer kommende dager.</p>
@@ -2095,6 +2125,14 @@ th{color:#475569;font-size:12px;text-transform:uppercase}
 const statusEl=document.getElementById('status');
 const suggestionsEl=document.getElementById('suggestions');
 const placeInput=document.getElementById('placeInput');
+const overviewBody=document.getElementById('overviewBody');
+const overviewPlaces=[
+  {name:'Bergen',lat:60.39299,lon:5.32415},
+  {name:'Oslo',lat:59.91387,lon:10.75225},
+  {name:'Trondheim',lat:63.4305,lon:10.3951},
+  {name:'Kristiansand',lat:58.1467,lon:7.9956},
+  {name:'Tromsø',lat:69.6492,lon:18.9553},
+];
 function fmtLocal(iso,opt={hour:'2-digit',minute:'2-digit'}){return new Date(iso).toLocaleString('no-NO',opt);}
 function weatherEmoji(symbol){
   const s=String(symbol||'').toLowerCase();
@@ -2121,6 +2159,18 @@ function windEmoji(ms){
   if(ms >= 7) return '💨';
   return '🍃';
 }
+function dayCell(d){
+  if(!d) return '–';
+  const icon=(d.gust_max ?? 0) >= 15 ? '🌬️' : (d.rain_total ?? 0) >= 1.5 ? '🌧️' : '☀️';
+  const maxTemp=d.temp_max ?? '–';
+  return `${icon} ${maxTemp}°`;
+}
+function riskTag(d){
+  const s=d.summary||{};
+  if((s.max_gust_24h ?? 0) >= 16 || (s.rain_24h ?? 0) >= 12) return '<span class="risk high">🔴 Krevende</span>';
+  if((s.max_gust_24h ?? 0) >= 11 || (s.rain_24h ?? 0) >= 5) return '<span class="risk mid">🟡 Følg med</span>';
+  return '<span class="risk ok">🟢 Bra</span>';
+}
 function setStatus(t){statusEl.textContent=t||'';}
 async function loadForecast(lat,lon,name){
   setStatus('Henter varsel …');
@@ -2128,6 +2178,35 @@ async function loadForecast(lat,lon,name){
   const d=await r.json();
   if(!r.ok){setStatus(d.error||'Feil');return;}
   renderData(d); setStatus(`Oppdatert ${new Date(d.hentet).toLocaleString('no-NO')}`);
+}
+async function loadOverview(){
+  overviewBody.innerHTML='<tr><td colspan="7" class="muted">Laster oversikt …</td></tr>';
+  const rows=await Promise.all(overviewPlaces.map(async(p)=>{
+    try{
+      const r=await fetch(`/ver/api/aktivt-varsel?lat=${p.lat}&lon=${p.lon}&sted=${encodeURIComponent(p.name)}`);
+      const d=await r.json();
+      if(!r.ok) throw new Error(d.error||'Feil');
+      return {ok:true,p,d};
+    }catch(_){
+      return {ok:false,p};
+    }
+  }));
+  overviewBody.innerHTML=rows.map(x=>{
+    if(!x.ok){
+      return `<tr><td>${x.p.name}</td><td colspan="5" class="muted">Kunne ikke hente varsel</td><td><span class="risk mid">⚪ Ukjent</span></td></tr>`;
+    }
+    const d=x.d;
+    const daily=d.daily||[];
+    return `<tr>
+      <td><strong>${d.sted}</strong></td>
+      <td class="temp">${d.summary.temp_now}°C</td>
+      <td class="day">${dayCell(daily[0])}</td>
+      <td class="day">${dayCell(daily[1])}</td>
+      <td class="day">${dayCell(daily[2])}</td>
+      <td class="day">${dayCell(daily[3])}</td>
+      <td>${riskTag(d)}</td>
+    </tr>`;
+  }).join('');
 }
 function renderData(d){
   document.getElementById('results').style.display='block';
@@ -2169,6 +2248,7 @@ document.getElementById('geoBtn').addEventListener('click',()=>{
     ()=>setStatus('Kunne ikke hente posisjon.')
   );
 });
+loadOverview();
 </script>
 </body>
 </html>"""

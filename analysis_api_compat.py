@@ -978,6 +978,29 @@ def _compute_sector_breakdown_payload(
     text_query = None if orgnr_query else q
     naeringskode_raw, naeringskode_digits = _normalize_naeringskode_query(naeringskode)
     parent_digits = re.sub(r"\D", "", str(parent_code or ""))
+    cache_key = (
+        (text_query or "").strip().lower(),
+        orgnr_query,
+        (kommune or "").strip().lower(),
+        naeringskode_raw,
+        naeringskode_digits,
+        min_omsetning,
+        max_omsetning,
+        min_resultat,
+        max_resultat,
+        (orgform or "").strip().upper(),
+        regnskapsaar,
+        parent_digits,
+        max(2, min(int(level), 5)),
+        max(1, min(int(limit), 200)),
+        max(1, min(int(kommune_limit), 200)),
+    )
+
+    now = time.time()
+    with _sector_breakdown_cache_lock:
+        cached_entry = _sector_breakdown_cache.get(cache_key)
+        if cached_entry and cached_entry[0] > now:
+            return copy.deepcopy(cached_entry[1])
 
     base_sql, params, _regnskap_join = build_search_base_sql(
         orgnr=orgnr_query,
