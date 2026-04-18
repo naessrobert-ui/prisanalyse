@@ -1217,9 +1217,20 @@ def proxy_analysis_api(path: str, params: dict[str, Any] | None = None):
             )
         except requests.RequestException as exc:
             last_error = f"{base_url}: {exc}"
+            local_response = _proxy_analysis_api_locally(path, params)
+            if local_response is not None:
+                return local_response
             continue
 
+        if resp.status_code >= 500:
+            local_response = _proxy_analysis_api_locally(path, params)
+            if local_response is not None:
+                return local_response
+
         if resp.status_code == 404 and len(ANALYSIS_API_CANDIDATES) > 1:
+            local_response = _proxy_analysis_api_locally(path, params)
+            if local_response is not None:
+                return local_response
             last_error = f"{base_url}: HTTP 404"
             continue
 

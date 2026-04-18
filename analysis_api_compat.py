@@ -401,7 +401,7 @@ def get_industry_suggest_payload(q: str, limit: int = 8) -> dict[str, Any]:
                 antall_selskaper AS company_count,
                 antall_med_regnskap
             FROM naeringskode_stats
-            WHERE regexp_replace(naeringskode, '\D', '', 'g') LIKE %s
+            WHERE regexp_replace(naeringskode, '\\D', '', 'g') LIKE %s
             ORDER BY antall_selskaper DESC, naeringskode ASC
             LIMIT %s
             """,
@@ -1272,14 +1272,6 @@ def _prewarm_default_sector_cache() -> None:
 
 
 _prewarm_default_sector_cache()
-
-    with _sector_breakdown_cache_lock:
-        _sector_breakdown_cache[cache_key] = (time.time() + _SECTOR_BREAKDOWN_CACHE_TTL_SECONDS, payload)
-        if len(_sector_breakdown_cache) > _SECTOR_BREAKDOWN_CACHE_MAX_SIZE:
-            oldest_key = min(_sector_breakdown_cache, key=lambda key: _sector_breakdown_cache[key][0])
-            _sector_breakdown_cache.pop(oldest_key, None)
-
-    return copy.deepcopy(payload)
 
 
 def get_companies_top_omsetning_payload(
