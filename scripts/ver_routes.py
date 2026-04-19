@@ -2296,12 +2296,22 @@ def api_aktivt_varsel():
         }
 
     daily = {}
+    today_key = day_start_local.date().isoformat()
     for rec in rows_7d:
         if rec.get("is_history"):
             continue  # daglig-aggregat skal kun bruke prognose fremover
         t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO)
         key = t_local.date().isoformat()
         daily.setdefault(key, []).append(rec)
+
+    # Behold komplett "i dag"-visning (historikk + prognose) i dag-kortet.
+    # Dette gjør at detaljgraf/-tabell fortsatt viser tidligere timer i dag
+    # med temperatur, nedbør, vind og symboler.
+    if rows_day:
+        daily[today_key] = sorted(
+            rows_day,
+            key=lambda r: pd.to_datetime(r["time"], utc=True),
+        )
 
     daily_out = []
     for d, vals in sorted(daily.items()):
