@@ -315,6 +315,13 @@ def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
         "motor_effekt_kw": pick(["motor_effekt_kw", "effekt_kw", "kw", "power_kw"]),
         "bruktimport": pick(["svv_bruktimportert", "bruktimport", "Bruktimport", "brukt_import", "importert_brukt", "is_imported_used"]),
         "import_land": pick(["svv_importland_navn", "import_land", "importland", "opprinnelsesland", "import_country", "origin_country"]),
+        "svv_registrert_forste_gang_norge": pick([
+            "svv_registrert_forste_gang_norge",
+            "registrert_forste_gang_norge",
+            "forstegangsregistrert_norge",
+            "forste_gang_registrert_norge",
+            "first_registered_norway",
+        ]),
     }
 
     with _PARQUET_CACHE_LOCK:
@@ -479,6 +486,23 @@ def _build_where_sql(filters: dict, colmap: dict):
             if filters["bruktimport"] == "ja":
                 clauses.append("1 = 0")
 
+    # Nylig registrert i Norge (svv_registrert_forste_gang_norge)
+    # Treffer når feltet mangler/tomt (ikke registrert ennå), eller når registreringsdato er nyere enn valgt antall dager.
+    recent_import_days = filters.get("recent_import_days")
+    if recent_import_days not in (None, "") and colmap.get("svv_registrert_forste_gang_norge"):
+        days = max(int(recent_import_days), 0)
+        reg_col = _qident(colmap["svv_registrert_forste_gang_norge"])
+        reg_ts = _safe_timestamp_sql(reg_col)
+        reg_txt = f"trim(cast({reg_col} as varchar))"
+        clauses.append(
+            "(" \
+            f"{reg_col} IS NULL " \
+            f"OR {reg_txt} = '' " \
+            f"OR ({reg_ts} IS NOT NULL AND date_diff('day', date({reg_ts}), current_date) BETWEEN 0 AND ?)" \
+            ")"
+        )
+        params.append(days)
+
     # Importland (multi)
     if colmap.get("import_land") and isinstance(filters.get("import_land"), list) and filters["import_land"]:
         vals = filters["import_land"]
@@ -632,6 +656,7 @@ def bil_solgt_analyse_side():
         'bil_analyse_template.html',
         tittel="Dette ble bilene solgt for",
         preset_bruktimport="",
+        preset_recent_import_days="",
         data_url="/bil/solgt/data",
         produsenter=metadata.get('produsenter', []),
         models_by_prod=metadata.get('models_by_prod', {}),
@@ -651,6 +676,7 @@ def bil_solgt_bruktimport_side():
         'bil_analyse_template.html',
         tittel="Bruktimporterte biler",
         preset_bruktimport="ja",
+        preset_recent_import_days=30,
         data_url="/bil/solgt/data",
         produsenter=metadata.get('produsenter', []),
         models_by_prod=metadata.get('models_by_prod', {}),

@@ -297,6 +297,10 @@
                     <option value="nei">Nei</option>
                 </select>
             </div>
+            <div>
+                <label for="recent_import_days">Nylig reg. i Norge (dager)</label>
+                <input id="recent_import_days" type="number" min="0" step="1" placeholder="f.eks. 30">
+            </div>
 
             <div>
                 <label for="hjuldrift">Hjuldrift</label>
@@ -414,6 +418,7 @@
     const MODELS_BY_PROD_RAW = {{ models_by_prod | tojson }};
     const DATA_URL = "{{ data_url }}";
     const PRESET_BRUKTIMPORT = "{{ preset_bruktimport or '' }}";
+    const PRESET_RECENT_IMPORT_DAYS = "{{ preset_recent_import_days or '' }}";
 
     const MODELS_BY_PROD = {};
     if (MODELS_BY_PROD_RAW && typeof MODELS_BY_PROD_RAW === "object") {
@@ -484,6 +489,7 @@
         const motor_hk_max = document.getElementById("motor_hk_max").value || null;
         const personlig_skilt = document.getElementById("personlig_skilt").value || null;
         const bruktimport = document.getElementById("bruktimport").value || null;
+        const recent_import_days = document.getElementById("recent_import_days").value || null;
         const drivstoff = Array.from(document.getElementById("drivstoff").selectedOptions).map(o => o.value);
         const hjuldrift = Array.from(document.getElementById("hjuldrift").selectedOptions).map(o => o.value);
         const farge = Array.from(document.getElementById("farge").selectedOptions).map(o => o.value);
@@ -495,7 +501,7 @@
             produsent, modell, startdato, modell_sok, seller_sok,
             pris_min, pris_max, km_max, km_min: null,
             year_min, year_max, range_min, range_max,
-            motor_hk_min, motor_hk_max, personlig_skilt, bruktimport,
+            motor_hk_min, motor_hk_max, personlig_skilt, bruktimport, recent_import_days,
             drivstoff, hjuldrift, farge, storrelseklasse, import_land
         };
     }
@@ -817,6 +823,9 @@
         document.getElementById("tableSearch").addEventListener("input", applyTableSearch);
         if (PRESET_BRUKTIMPORT) {
             document.getElementById("bruktimport").value = PRESET_BRUKTIMPORT;
+        }
+        if (PRESET_RECENT_IMPORT_DAYS) {
+            document.getElementById("recent_import_days").value = PRESET_RECENT_IMPORT_DAYS;
         }
         fetchData();
     });
