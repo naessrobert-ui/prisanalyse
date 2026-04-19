@@ -146,6 +146,31 @@
             overflow: hidden;
         }
 
+        .group-row {
+            cursor: pointer;
+        }
+        .group-row.active {
+            background: rgba(30, 64, 175, 0.45) !important;
+        }
+        .group-pill {
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(96, 165, 250, 0.5);
+            background: rgba(30, 64, 175, 0.25);
+            color: #bfdbfe;
+            font-size: 0.72rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .group-pill button {
+            border: none;
+            background: transparent;
+            color: #bfdbfe;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
         .table-header {
             padding: 8px 12px;
             font-size: 0.78rem;
@@ -375,7 +400,30 @@
         </div>
     </div>
 
-    <div class="section-title">2. Utforsk resultater</div>
+    <div class="section-title">2. Grupper produsent + modell</div>
+    <div class="table-wrapper">
+        <div class="table-header">
+            <span id="groupCountLabel">Ingen grupper å vise.</span>
+            <span id="activeGroupPill" style="display:none;" class="group-pill">
+                <span id="activeGroupText"></span>
+                <button id="clearGroupBtn" type="button">Nullstill</button>
+            </span>
+        </div>
+        <div style="max-height: 280px; overflow: auto;">
+            <table id="groupTable">
+                <thead>
+                <tr>
+                    <th data-key="produsent">Produsent</th>
+                    <th data-key="modell">Modell</th>
+                    <th data-key="count">Antall</th>
+                </tr>
+                </thead>
+                <tbody id="groupBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="section-title">3. Utforsk biler i valgt gruppe</div>
     <div class="table-wrapper">
         <div class="table-header">
             <span id="tableCountLabel">Ingen biler i dette utvalget.</span>
@@ -433,6 +481,8 @@
 
     let allRows = [];
     let currentRows = [];
+    let groupedRows = [];
+    let selectedGroupKey = null;
 
     let currentSortKey = "pris_ny";
     let currentSortDir = "asc";
@@ -576,6 +626,81 @@
         });
     }
 
+    function formatGroupKey(produsent, modell) {
+        return `${(produsent || "").trim()}||${(modell || "").trim()}`;
+    }
+
+    function renderGroupTable() {
+        const map = new Map();
+        allRows.forEach(row => {
+            const produsent = (row.produsent || "").trim();
+            const modell = (row.modell || "").trim();
+            if (!produsent && !modell) return;
+            const key = formatGroupKey(produsent, modell);
+            if (!map.has(key)) {
+                map.set(key, { key, produsent, modell, count: 0 });
+            }
+            map.get(key).count += 1;
+        });
+
+        groupedRows = Array.from(map.values()).sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            const ap = (a.produsent || "").toLowerCase();
+            const bp = (b.produsent || "").toLowerCase();
+            if (ap !== bp) return ap.localeCompare(bp, "nb");
+            return (a.modell || "").toLowerCase().localeCompare((b.modell || "").toLowerCase(), "nb");
+        });
+
+        const tbody = document.getElementById("groupBody");
+        tbody.innerHTML = "";
+
+        groupedRows.forEach(group => {
+            const tr = document.createElement("tr");
+            tr.className = "group-row";
+            if (group.key === selectedGroupKey) tr.classList.add("active");
+            tr.innerHTML = `
+                <td>${escapeHtml(group.produsent)}</td>
+                <td>${escapeHtml(group.modell)}</td>
+                <td>${formatNumber(group.count)}</td>
+            `;
+            tr.addEventListener("click", () => {
+                selectedGroupKey = selectedGroupKey === group.key ? null : group.key;
+                updateActiveGroupUi();
+                applyTableSearch();
+                renderGroupTable();
+            });
+            tbody.appendChild(tr);
+        });
+
+        const groupLabel = document.getElementById("groupCountLabel");
+        if (!groupedRows.length) {
+            groupLabel.textContent = "Ingen grupper å vise.";
+        } else {
+            groupLabel.textContent = `Viser ${formatNumber(groupedRows.length)} grupper (produsent + modell).`;
+        }
+    }
+
+    function updateActiveGroupUi() {
+        const pill = document.getElementById("activeGroupPill");
+        const text = document.getElementById("activeGroupText");
+        if (!selectedGroupKey) {
+            pill.style.display = "none";
+            text.textContent = "";
+            return;
+        }
+
+        const match = groupedRows.find(g => g.key === selectedGroupKey);
+        if (!match) {
+            selectedGroupKey = null;
+            pill.style.display = "none";
+            text.textContent = "";
+            return;
+        }
+
+        text.textContent = `${match.produsent} ${match.modell} (${formatNumber(match.count)})`;
+        pill.style.display = "inline-flex";
+    }
+
     function renderTable() {
         sortRows();
         const tbody = document.getElementById("resultBody");
@@ -635,23 +760,30 @@
         const totalFromServer = serverTotalCount || allRows.length;
         const shownInTable = currentRows.length;
         const returned = allRows.length;
+        const selectedGroup = groupedRows.find(g => g.key === selectedGroupKey);
+        const baseCount = selectedGroup ? selectedGroup.count : returned;
 
-        if (totalFromServer === 0) {
+        if (totalFromServer === 0 || baseCount === 0) {
             label.textContent = "Ingen biler i dette utvalget.";
             return;
         }
 
         // Hvis tabellsøk filtrerer ned
-        if (shownInTable !== returned) {
+        if (shownInTable !== baseCount) {
             if (serverTruncated) {
-                label.textContent = `Viser ${formatNumber(shownInTable)} av ${formatNumber(returned)} (tabellsøk). Returnert: ${formatNumber(returned)} billigste av ${formatNumber(totalFromServer)} biler.`;
+                label.textContent = `Viser ${formatNumber(shownInTable)} av ${formatNumber(baseCount)} (tabellsøk). Returnert: ${formatNumber(returned)} billigste av ${formatNumber(totalFromServer)} biler.`;
             } else {
-                label.textContent = `Viser ${formatNumber(shownInTable)} av ${formatNumber(returned)} (tabellsøk).`;
+                label.textContent = `Viser ${formatNumber(shownInTable)} av ${formatNumber(baseCount)} (tabellsøk).`;
             }
             return;
         }
 
-        // Ingen tabellsøk: vis tydelig begrensning hvis aktiv
+        if (selectedGroup) {
+            label.textContent = `Viser ${formatNumber(baseCount)} biler for ${selectedGroup.produsent} ${selectedGroup.modell}.`;
+            return;
+        }
+
+        // Ingen tabellsøk/gruppe: vis tydelig begrensning hvis aktiv
         if (serverTruncated) {
             label.textContent = `Viser ${formatNumber(returned)} billigste av ${formatNumber(totalFromServer)} biler.`;
         } else {
@@ -661,14 +793,18 @@
 
     function applyTableSearch() {
         const q = (document.getElementById("tableSearch").value || "").trim().toLowerCase();
+        const baseRows = selectedGroupKey
+            ? allRows.filter(row => formatGroupKey(row.produsent, row.modell) === selectedGroupKey)
+            : allRows;
+
         if (!q) {
-            currentRows = allRows.slice();
+            currentRows = baseRows.slice();
             renderTable();
             updateTableCountLabel();
             return;
         }
 
-        currentRows = allRows.filter(row =>
+        currentRows = baseRows.filter(row =>
             Object.values(row).some(v => {
                 if (v === null || v === undefined) return false;
                 return String(v).toLowerCase().includes(q);
@@ -703,11 +839,15 @@
                 updateKpis(null, 0);
                 allRows = [];
                 currentRows = [];
+                groupedRows = [];
+                selectedGroupKey = null;
                 serverTotalCount = 0;
                 serverReturnedCount = 0;
                 serverLimit = 300;
                 serverTruncated = false;
                 renderTable();
+                renderGroupTable();
+                updateActiveGroupUi();
                 if (medianChart) medianChart.destroy();
                 if (soldChart) soldChart.destroy();
                 updateTableCountLabel();
@@ -725,8 +865,11 @@
             serverTruncated = Boolean(data.truncated);
 
             allRows = historikk;
+            selectedGroupKey = null;
             currentRows = historikk.slice();
             syncDynamicFilterOptions(historikk);
+            renderGroupTable();
+            updateActiveGroupUi();
 
             currentSortKey = (currentRows.length > 0 && currentRows[0] && currentRows[0].pris_ny === undefined)
                 ? "pris_last"
@@ -821,6 +964,12 @@
         setupSortHandlers();
         document.getElementById("updateBtn").addEventListener("click", fetchData);
         document.getElementById("tableSearch").addEventListener("input", applyTableSearch);
+        document.getElementById("clearGroupBtn").addEventListener("click", () => {
+            selectedGroupKey = null;
+            updateActiveGroupUi();
+            applyTableSearch();
+            renderGroupTable();
+        });
         if (PRESET_BRUKTIMPORT) {
             document.getElementById("bruktimport").value = PRESET_BRUKTIMPORT;
         }
