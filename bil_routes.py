@@ -340,6 +340,24 @@ def _bool_expr(col_ident: str) -> str:
     """
 
 
+def _strict_one_expr(col_ident: str) -> str:
+    """
+    Returnerer true KUN når feltet er eksakt 1 (inkl. tekst som kan castes til 1).
+    Alt annet (inkl. NULL/blank) blir false.
+    """
+    txt = f"trim(cast({col_ident} as varchar))"
+    return f"""
+    (
+      case
+        when {col_ident} is null then false
+        when {txt} = '' then false
+        when try_cast({txt} as BIGINT) = 1 then true
+        else false
+      end
+    )
+    """
+
+
 def _build_where_sql(filters: dict, colmap: dict):
     """
     WHERE + params
@@ -449,7 +467,7 @@ def _build_where_sql(filters: dict, colmap: dict):
 
     # Bruktimport (ja/nei)
     if colmap.get("bruktimport") and filters.get("bruktimport") in ("ja", "nei"):
-        bool_expr = _bool_expr(_qident(colmap["bruktimport"]))
+        bool_expr = _strict_one_expr(_qident(colmap["bruktimport"]))
         if filters["bruktimport"] == "ja":
             clauses.append(f"({bool_expr}) = true")
         else:
@@ -746,7 +764,7 @@ def get_bil_solgt_data():
         finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
         motor_hk_expr = f"coalesce(try_cast({c_motor_hk} AS DOUBLE), try_cast({c_motor_kw} AS DOUBLE) * 1.34102209)"
         personlig_skilt_expr = _bool_expr(c_personlig_skilt) if colmap.get("personlig_skilt") else "NULL"
-        bruktimport_expr = _bool_expr(c_bruktimport) if colmap.get("bruktimport") else "NULL"
+        bruktimport_expr = _strict_one_expr(c_bruktimport) if colmap.get("bruktimport") else "NULL"
 
         solgt_expr = _bool_expr(c_solgt) if colmap.get("solgt") else None
 
