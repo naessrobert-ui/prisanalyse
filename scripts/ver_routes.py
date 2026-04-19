@@ -2054,27 +2054,59 @@ def api_aktivt_varsel():
             }
         )
 
-    hourly = []
+    # Bygg et komplett lokalt døgn (00:00–23:59) med timespunkter.
+    # Hvis API mangler noen timer, fyller vi hull med tomme punkter slik at grafen alltid viser hele døgnet.
+    rows_day_by_hour: dict[pd.Timestamp, dict[str, Any]] = {}
     for rec in rows_day:
+        t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO).floor("h")
+        rows_day_by_hour[t_local] = rec
+
+    full_day_slots = pd.date_range(start=day_start_local, end=day_end_local, inclusive="left", freq="h")
+
+    hourly = []
+    for slot_local in full_day_slots:
+        rec = rows_day_by_hour.get(slot_local)
+        is_history_slot = bool(slot_local.tz_convert("UTC").to_pydatetime() < now)
+
+        if rec is None:
+            hourly.append(
+                {
+                    "time": slot_local.isoformat(),
+                    "is_history": is_history_slot,
+                    "temp": None,
+                    "rain": None,
+                    "rain_min": None,
+                    "rain_max": None,
+                    "rain_prob": None,
+                    "wind": None,
+                    "gust": None,
+                    "wind_dir": "Ukjent",
+                    "cloud": None,
+                    "activity": "Mangler historikk",
+                    "symbol": "unknown",
+                }
+            )
+            continue
+
         t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO)
         hourly.append(
             {
                 "time": t_local.isoformat(),
                 "is_history": rec.get("is_history", False),
                 "temp": round(float(rec["temp"]), 1) if rec["temp"] is not None else None,
-                "rain": round(float(rec["rain"]), 1),
+                "rain": round(float(rec["rain"]), 1) if rec.get("rain") is not None else None,
                 "rain_min": round(float(rec["rain_min"]), 1) if rec["rain_min"] is not None else None,
                 "rain_max": round(float(rec["rain_max"]), 1) if rec["rain_max"] is not None else None,
                 "rain_prob": int(round(rec["rain_prob"])) if rec["rain_prob"] is not None else None,
-                "wind": round(float(rec["wind"]), 1),
-                "gust": round(float(rec["gust"]), 1),
+                "wind": round(float(rec["wind"]), 1) if rec.get("wind") is not None else None,
+                "gust": round(float(rec["gust"]), 1) if rec.get("gust") is not None else None,
                 "wind_dir": _vindretning_txt_general(rec["wind_deg"]),
                 "cloud": round(float(rec["cloud"]), 0) if rec.get("cloud") is not None else None,
                 "activity": _til_aktivitetstype(
                     rec["temp"] or 0.0,
-                    rec["rain"],
-                    rec["wind"],
-                    rec["gust"],
+                    rec["rain"] or 0.0,
+                    rec["wind"] or 0.0,
+                    rec["gust"] or 0.0,
                     t_local.hour,
                 ),
                 "symbol": rec["symbol"],
