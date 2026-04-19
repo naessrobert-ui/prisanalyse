@@ -1854,15 +1854,32 @@ def api_sted_sok():
     q = (request.args.get("q") or "").strip()
     if len(q) < 2:
         return jsonify({"items": []})
-    r = requests.get(
-        "https://nominatim.openstreetmap.org/search",
-        params={"q": q, "format": "jsonv2", "addressdetails": 1, "limit": 8, "accept-language": "no"},
-        headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
-        timeout=15,
-    )
-    r.raise_for_status()
+
+    # Hurtig-fallback for vanlige norske byer hvis tredjeparts geokoding feiler/er treg.
+    by_fallback = {
+        "oslo": (59.91387, 10.75225, "Oslo, Norge"),
+        "bergen": (60.39299, 5.32415, "Bergen, Norge"),
+        "trondheim": (63.4305, 10.3951, "Trondheim, Norge"),
+        "stavanger": (58.97, 5.7331, "Stavanger, Norge"),
+        "kristiansand": (58.1467, 7.9956, "Kristiansand, Norge"),
+        "tromsø": (69.6492, 18.9553, "Tromsø, Norge"),
+        "tromso": (69.6492, 18.9553, "Tromsø, Norge"),
+    }
+
+    try:
+        r = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": q, "format": "jsonv2", "addressdetails": 1, "limit": 8, "accept-language": "no"},
+            headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
+            timeout=8,
+        )
+        r.raise_for_status()
+        raw_items = r.json() or []
+    except Exception:
+        raw_items = []
+
     items = []
-    for it in r.json() or []:
+    for it in raw_items:
         try:
             items.append(
                 {
@@ -1873,7 +1890,46 @@ def api_sted_sok():
             )
         except Exception:
             continue
+
+    if not items:
+        q_lower = q.lower()
+        for key, (lat, lon, label) in by_fallback.items():
+            if q_lower in key or key in q_lower:
+                items.append({"name": label, "lat": lat, "lon": lon})
+
     return jsonify({"items": items})
+
+
+def _reverse_geocode_label(lat: float, lon: float) -> Optional[str]:
+    try:
+        r = requests.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={"lat": lat, "lon": lon, "format": "jsonv2", "accept-language": "no"},
+            headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
+            timeout=6,
+        )
+        r.raise_for_status()
+        payload = r.json() or {}
+        address = payload.get("address") or {}
+
+        locality = (
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+            or address.get("municipality")
+            or address.get("hamlet")
+        )
+        country = address.get("country")
+        if locality and country:
+            return f"{locality}, {country}"
+        if locality:
+            return str(locality)
+        display_name = payload.get("display_name")
+        if display_name:
+            return str(display_name).split(",")[0].strip()
+    except Exception:
+        return None
+    return None
 
 
 @ver.get("/api/aktivt-varsel")
@@ -1883,6 +1939,11 @@ def api_aktivt_varsel():
     sted = (request.args.get("sted") or "Valgt sted").strip()
     if lat is None or lon is None:
         return jsonify({"error": "lat/lon mangler"}), 400
+
+    if sted.lower() in {"min posisjon", "my location", "current location"}:
+        resolved_sted = _reverse_geocode_label(lat, lon)
+        if resolved_sted:
+            sted = resolved_sted
 
     ts = _hent_yr_komplett(lat, lon)
     now = datetime.now(timezone.utc)
@@ -3049,11 +3110,25 @@ async function searchPlace(){
   const q=placeInput.value.trim();
   if(q.length<2){setStatus('Skriv minst 2 tegn for stedsøk.');return;}
   setStatus('Søker sted …');
-  const r=await fetch(`/ver/api/sted-sok?q=${encodeURIComponent(q)}`);
-  const d=await r.json();
-  const items=d.items||[];
-  suggestionsEl.innerHTML=items.map(it=>`<button class="chip" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${it.name.replace(/"/g,'&quot;')}">${it.name}</button>`).join('');
-  if(!items.length){setStatus('Fant ingen treff.');}else{setStatus('');}
+  try{
+    const r=await fetch(`/ver/api/sted-sok?q=${encodeURIComponent(q)}`);
+    const d=await r.json();
+    if(!r.ok){throw new Error(d.error||'Stedsøk feilet');}
+    const items=d.items||[];
+    suggestionsEl.innerHTML=items.map(it=>`<button class="chip" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${it.name.replace(/"/g,'&quot;')}">${it.name}</button>`).join('');
+    if(!items.length){setStatus('Fant ingen treff.');}
+    else{
+      setStatus('');
+      // Velg første treff automatisk når det kun er ett resultat.
+      if(items.length===1){
+        const it=items[0];
+        suggestionsEl.innerHTML='';
+        loadForecast(Number(it.lat),Number(it.lon),it.name);
+      }
+    }
+  }catch(_){
+    setStatus('Kunne ikke søke opp sted akkurat nå.');
+  }
 }
 
 document.getElementById('searchBtn').addEventListener('click',searchPlace);
@@ -3085,4 +3160,3 @@ window.addEventListener('load',()=>{
 </script>
 </body>
 </html>"""
-
