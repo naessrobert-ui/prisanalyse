@@ -1964,19 +1964,24 @@ def api_aktivt_varsel():
 
     ts = _hent_yr_komplett(lat, lon)
     now = datetime.now(timezone.utc)
-    history_start = now - pd.Timedelta(hours=4)  # 4 timer bakover i grafen
+    # `now` er allerede timezone-aware (UTC), så vi må ikke sende `tz=` på nytt.
+    now_local = pd.Timestamp(now).tz_convert(OSLO)
+    day_start_local = now_local.normalize()
+    day_end_local = day_start_local + pd.Timedelta(days=1)
+    day_start_utc = day_start_local.tz_convert("UTC").to_pydatetime()
+    day_end_utc = day_end_local.tz_convert("UTC").to_pydatetime()
     horizon_24 = now + pd.Timedelta(hours=24)
     horizon_7d = now + pd.Timedelta(days=7)
 
-    rows_24 = []   # brukes til KPI + forward-only beregninger
-    rows_graf = [] # -4t til +24t (inkluderer historikk for grafen)
+    rows_24 = []   # brukes til KPI + forward-only beregninger (fremdeles neste 24t)
+    rows_day = []  # dagens døgn (00:00-23:59 lokal tid), inkl historikk/prognose
     rows_7d = []   # -4t til +7d (alt vi har)
     for it in ts:
         t = pd.to_datetime(it.get("time"), utc=True, errors="coerce")
         if pd.isna(t):
             continue
         t_py = t.to_pydatetime()
-        if t_py < history_start or t_py > horizon_7d:
+        if t_py < day_start_utc or t_py > horizon_7d:
             continue
         data = it.get("data") or {}
         inst = (data.get("instant") or {}).get("details") or {}
@@ -1996,19 +2001,26 @@ def api_aktivt_varsel():
             "symbol": ((data.get("next_1_hours") or {}).get("summary") or {}).get("symbol_code", "cloudy"),
         }
         rows_7d.append(rec)
-        if history_start <= t_py <= horizon_24:
-            rows_graf.append(rec)
+        if day_start_utc <= t_py < day_end_utc:
+            rows_day.append(rec)
         if now <= t_py <= horizon_24:
             rows_24.append(rec)
 
-    if not rows_24:
+    if not rows_24 and not rows_day:
         return jsonify({"error": "Fant ingen prognosedata"}), 502
 
-    df24 = pd.DataFrame(rows_24)
-    temp_now = float(df24["temp"].dropna().iloc[0]) if not df24["temp"].dropna().empty else 0.0
-    rain_day = float(df24["rain"].sum())
-    max_wind = float(df24["wind"].max())
-    max_gust = float(df24["gust"].max())
+    # KPI/visning tar utgangspunkt i dagens døgn (lokal tid)
+    if rows_day:
+        df_day = pd.DataFrame(rows_day)
+    else:
+        df_day = pd.DataFrame(rows_24)
+
+    future_now = [r for r in rows_day if not r.get("is_history")] or rows_24
+    df_now = pd.DataFrame(future_now) if future_now else df_day
+    temp_now = float(df_now["temp"].dropna().iloc[0]) if not df_now["temp"].dropna().empty else 0.0
+    rain_day = float(df_day["rain"].sum())
+    max_wind = float(df_day["wind"].max())
+    max_gust = float(df_day["gust"].max())
     quality = _lag_kvalitetsvurdering(temp_now, rain_day, max_wind, max_gust)
 
     best_windows = []
@@ -2043,7 +2055,7 @@ def api_aktivt_varsel():
         )
 
     hourly = []
-    for rec in rows_graf:
+    for rec in rows_day:
         t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO)
         hourly.append(
             {
@@ -2203,8 +2215,8 @@ def api_aktivt_varsel():
             "quality": quality,
             "summary": {
                 "temp_now": round(temp_now, 1),
-                "temp_min_24h": round(float(df24["temp"].min()), 1),
-                "temp_max_24h": round(float(df24["temp"].max()), 1),
+                "temp_min_24h": round(float(df_day["temp"].min()), 1),
+                "temp_max_24h": round(float(df_day["temp"].max()), 1),
                 "rain_24h": round(rain_day, 1),
                 "max_wind_24h": round(max_wind, 1),
                 "max_gust_24h": round(max_gust, 1),
@@ -2315,10 +2327,11 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 /* Verdict-bånd over grafen */
 .verdict-strip{display:flex;height:16px;border-radius:4px;overflow:hidden;margin-bottom:2px}
 .verdict-strip .seg{flex:1;position:relative}
-.verdict-strip .seg.good{background:#86efac}
-.verdict-strip .seg.ok{background:#fde68a}
-.verdict-strip .seg.night{background:#cbd5e1}
-.verdict-strip .seg.bad{background:#fca5a5}
+.verdict-strip .seg.sun{background:#86efac}
+.verdict-strip .seg.partly{background:#fde68a}
+.verdict-strip .seg.cloudy{background:#cbd5e1}
+.verdict-strip .seg.rain{background:#93c5fd}
+.verdict-strip .seg.night{background:#e5e7eb}
 
 .chart-box{position:relative;width:100%;height:260px}
 
@@ -2422,7 +2435,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
   <!-- Søke-kort -->
   <div class="search-card">
     <h1>🌤️ Værvarsel for aktiviteter</h1>
-    <p class="sub">Bruk posisjon eller søk sted. Du får detaljert varsel for neste 24 timer og finværsvinduer kommende uke.</p>
+    <p class="sub">Bruk posisjon eller søk sted. Grafen viser døgnet i dag (00:00–23:59), med historikk fram til nå og prognose videre i døgnet.</p>
     <div class="search-row">
       <button class="btn btn-primary" id="geoBtn">📍 Bruk min posisjon</button>
       <input id="placeInput" placeholder="Søk sted, f.eks. Bergen sentrum"/>
@@ -2460,18 +2473,21 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
     <!-- Hovedgraf: 24 timer -->
     <div class="chart-card">
       <div class="chart-header">
-        <h3>Siste 4 timer + neste 24</h3>
+        <h3>I dag: 00:00–23:59</h3>
         <div class="chart-legend">
+          <span><span class="sw" style="background:#86efac"></span>Sol</span>
+          <span><span class="sw" style="background:#fde68a"></span>Lettskyet</span>
+          <span><span class="sw" style="background:#cbd5e1"></span>Overskyet</span>
+          <span><span class="sw" style="background:#93c5fd"></span>Nedbør</span>
           <span><span class="sw" style="background:var(--temp)"></span>Temperatur</span>
-          <span><span class="sw" style="background:rgba(234,88,12,0.45);border:1px dashed rgba(234,88,12,0.7)"></span>Historikk</span>
           <span><span class="sw" style="background:var(--rain)"></span>Nedbør (forventet)</span>
           <span><span class="sw" style="background:var(--rain-light)"></span>Usikkerhet (maks)</span>
-          <span><span class="sw" style="background:#e5e7eb;border:1px dashed #9ca3af"></span>Sjanse for regn</span>
+          <span><span class="sw" style="background:#e5e7eb;border:1px dashed #64748b"></span>Vind (stiplet linje)</span>
         </div>
       </div>
-      <div class="verdict-strip" id="verdictStrip" title="Verdikt per time"></div>
+      <div class="verdict-strip" id="verdictStrip" title="Værtype per time"></div>
       <div class="chart-box">
-        <canvas id="mainChart" role="img" aria-label="Kombinert graf over temperatur og nedbør for neste 24 timer."></canvas>
+        <canvas id="mainChart" role="img" aria-label="Kombinert graf over temperatur, nedbør og vind for dagens døgn."></canvas>
       </div>
     </div>
 
@@ -2595,6 +2611,25 @@ function windStrengthIcon(speed){
 
 function setStatus(t){statusEl.textContent=t||'';}
 
+function weatherStripBucket(hour){
+  const h=new Date(hour.time).getHours();
+  if(h<6 || h>=22) return 'night';
+  const rain=Number(hour.rain||0);
+  const s=String(hour.symbol||'').toLowerCase();
+  if(rain>=0.2 || s.includes('rain') || s.includes('sleet') || s.includes('snow')) return 'rain';
+  if(s.includes('clearsky') || s.includes('fair')) return 'sun';
+  if(s.includes('partlycloudy')) return 'partly';
+  return 'cloudy';
+}
+
+function weatherStripLabel(bucket){
+  if(bucket==='sun') return 'Sol';
+  if(bucket==='partly') return 'Lettskyet';
+  if(bucket==='cloudy') return 'Overskyet';
+  if(bucket==='rain') return 'Nedbør';
+  return 'Natt';
+}
+
 // Kategoriser en enkelttimes "activity"-tekst til verdict-bøtte
 function verdictBucket(activity, timeIso){
   const a=String(activity||'').toLowerCase();
@@ -2685,14 +2720,13 @@ function renderData(d){
     <div class="kpi-cell"><div class="kpi-lbl">Maks kast</div><div class="kpi-val">${s.max_gust_24h}<small> m/s</small></div></div>
   `;
 
-  // hourly inneholder -4t historikk + 24t prognose.
-  // Grafen bruker alt; verdict-strip og tabell bruker kun prognose.
+  // hourly inneholder døgnet i dag (00-23) med historikk + prognose.
   const hourly=(d.hourly||[]);
   const hourlyForward=hourly.filter(h=>!h.is_history);
   const strip=document.getElementById('verdictStrip');
-  strip.innerHTML=hourlyForward.map(h=>{
-    const b=verdictBucket(h.activity,h.time);
-    const label=`kl ${new Date(h.time).getHours()}:00 – ${h.activity||''}`;
+  strip.innerHTML=hourly.map(h=>{
+    const b=weatherStripBucket(h);
+    const label=`kl ${new Date(h.time).getHours()}:00 – ${weatherStripLabel(b)}`;
     return `<div class="seg ${b}" title="${label}"></div>`;
   }).join('');
 
@@ -2950,7 +2984,7 @@ document.getElementById('dayDetailClose').addEventListener('click',()=>{
 });
 
 // ============================================================
-// Hovedgraf (-4t til +24t)
+// Hovedgraf (dagens døgn)
 // ============================================================
 function drawMainChart(hourly){
   const labels=hourly.map(h=>{
@@ -2982,7 +3016,7 @@ function drawMainChart(hourly){
     const exp=h.rain ?? 0;
     return Math.max(0, mx - exp);
   });
-  const prob=hourly.map(h=>h.rain_prob ?? 0);
+  const wind=hourly.map(h=>h.wind ?? 0);
 
   // Custom plugin: tegn vertikal "nå"-linje
   const nowLinePlugin={
@@ -3044,16 +3078,16 @@ function drawMainChart(hourly){
         },
         {
           type:'line',
-          label:'Sjanse for regn (%)',
-          data:prob.map((p,i)=>i<nowIdx?null:p),
-          borderColor:'rgba(100,116,139,0.7)',
+          label:'Vind (m/s)',
+          data:wind,
+          borderColor:'rgba(100,116,139,0.8)',
           borderDash:[3,3],
           borderWidth:1.5,
           pointRadius:0,
           pointHoverRadius:3,
           tension:0.3,
           fill:false,
-          yAxisID:'yProb',
+          yAxisID:'yWind',
           order:1,
           spanGaps:false
         },
@@ -3114,7 +3148,7 @@ function drawMainChart(hourly){
                 const tot=ctx.parsed.y+(ctx.chart.data.datasets[1].data[ctx.dataIndex]||0);
                 return `Maks regn: ${tot.toFixed(1)} mm`;
               }
-              if(ctx.dataset.label==='Sjanse for regn (%)') return `Sjanse: ${Math.round(ctx.parsed.y)}%`;
+              if(ctx.dataset.label==='Vind (m/s)') return `Vind: ${ctx.parsed.y?.toFixed(1)} m/s`;
               return null;
             }
           }
@@ -3139,10 +3173,14 @@ function drawMainChart(hourly){
           suggestedMax:2,
           ticks:{font:{size:11}}
         },
-        yProb:{
-          display:false,
+        yWind:{
+          position:'right',
+          offset:true,
+          title:{display:true,text:'m/s',font:{size:11}},
+          grid:{display:false},
           min:0,
-          max:100
+          suggestedMax:12,
+          ticks:{font:{size:11}}
         }
       }
     }
