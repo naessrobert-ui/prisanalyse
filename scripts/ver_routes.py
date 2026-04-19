@@ -1854,15 +1854,32 @@ def api_sted_sok():
     q = (request.args.get("q") or "").strip()
     if len(q) < 2:
         return jsonify({"items": []})
-    r = requests.get(
-        "https://nominatim.openstreetmap.org/search",
-        params={"q": q, "format": "jsonv2", "addressdetails": 1, "limit": 8, "accept-language": "no"},
-        headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
-        timeout=15,
-    )
-    r.raise_for_status()
+
+    # Hurtig-fallback for vanlige norske byer hvis tredjeparts geokoding feiler/er treg.
+    by_fallback = {
+        "oslo": (59.91387, 10.75225, "Oslo, Norge"),
+        "bergen": (60.39299, 5.32415, "Bergen, Norge"),
+        "trondheim": (63.4305, 10.3951, "Trondheim, Norge"),
+        "stavanger": (58.97, 5.7331, "Stavanger, Norge"),
+        "kristiansand": (58.1467, 7.9956, "Kristiansand, Norge"),
+        "tromsø": (69.6492, 18.9553, "Tromsø, Norge"),
+        "tromso": (69.6492, 18.9553, "Tromsø, Norge"),
+    }
+
+    try:
+        r = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": q, "format": "jsonv2", "addressdetails": 1, "limit": 8, "accept-language": "no"},
+            headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
+            timeout=8,
+        )
+        r.raise_for_status()
+        raw_items = r.json() or []
+    except Exception:
+        raw_items = []
+
     items = []
-    for it in r.json() or []:
+    for it in raw_items:
         try:
             items.append(
                 {
@@ -1873,7 +1890,46 @@ def api_sted_sok():
             )
         except Exception:
             continue
+
+    if not items:
+        q_lower = q.lower()
+        for key, (lat, lon, label) in by_fallback.items():
+            if q_lower in key or key in q_lower:
+                items.append({"name": label, "lat": lat, "lon": lon})
+
     return jsonify({"items": items})
+
+
+def _reverse_geocode_label(lat: float, lon: float) -> Optional[str]:
+    try:
+        r = requests.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={"lat": lat, "lon": lon, "format": "jsonv2", "accept-language": "no"},
+            headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
+            timeout=6,
+        )
+        r.raise_for_status()
+        payload = r.json() or {}
+        address = payload.get("address") or {}
+
+        locality = (
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+            or address.get("municipality")
+            or address.get("hamlet")
+        )
+        country = address.get("country")
+        if locality and country:
+            return f"{locality}, {country}"
+        if locality:
+            return str(locality)
+        display_name = payload.get("display_name")
+        if display_name:
+            return str(display_name).split(",")[0].strip()
+    except Exception:
+        return None
+    return None
 
 
 @ver.get("/api/aktivt-varsel")
@@ -1884,15 +1940,20 @@ def api_aktivt_varsel():
     if lat is None or lon is None:
         return jsonify({"error": "lat/lon mangler"}), 400
 
+    if sted.lower() in {"min posisjon", "my location", "current location"}:
+        resolved_sted = _reverse_geocode_label(lat, lon)
+        if resolved_sted:
+            sted = resolved_sted
+
     ts = _hent_yr_komplett(lat, lon)
     now = datetime.now(timezone.utc)
-    history_start = now - pd.Timedelta(hours=3)  # 3 timer bakover i grafen
+    history_start = now - pd.Timedelta(hours=4)  # 4 timer bakover i grafen
     horizon_24 = now + pd.Timedelta(hours=24)
     horizon_7d = now + pd.Timedelta(days=7)
 
     rows_24 = []   # brukes til KPI + forward-only beregninger
-    rows_graf = [] # -3t til +24t (inkluderer historikk for grafen)
-    rows_7d = []   # -3t til +7d (alt vi har)
+    rows_graf = [] # -4t til +24t (inkluderer historikk for grafen)
+    rows_7d = []   # -4t til +7d (alt vi har)
     for it in ts:
         t = pd.to_datetime(it.get("time"), utc=True, errors="coerce")
         if pd.isna(t):
@@ -2090,7 +2151,16 @@ def api_aktivt_varsel():
                 "rain_prob": int(round(v["rain_prob"])) if v["rain_prob"] is not None else None,
                 "wind": round(float(v["wind"]), 1),
                 "gust": round(float(v["gust"]), 1),
+                "wind_deg": float(v["wind_deg"]) if v.get("wind_deg") is not None else None,
+                "wind_dir": _vindretning_txt_general(v.get("wind_deg")),
                 "cloud": round(float(v["cloud"]), 0) if v.get("cloud") is not None else None,
+                "activity": _til_aktivitetstype(
+                    v.get("temp") or 0.0,
+                    v.get("rain") or 0.0,
+                    v.get("wind") or 0.0,
+                    v.get("gust") or 0.0,
+                    t_local.hour,
+                ),
                 "symbol": v.get("symbol", ""),
             })
 
@@ -2277,6 +2347,10 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 .best6-banner{background:#dcfce7;border:1px solid #86efac;color:#15803d;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;align-items:center;gap:8px}
 .best6-banner strong{font-weight:600}
 .day-chart-box{position:relative;width:100%;height:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px}
+.day-symbol-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px;margin:10px 0 12px}
+.sym-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;border:1px solid var(--border);border-radius:8px;background:#fff}
+.sym-chip .t{font-size:10px;color:var(--text-2)}
+.sym-chip .w{font-size:11px;color:var(--text-2)}
 
 /* Timesoversikt-tabell (kompakt) */
 .hourly-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
@@ -2369,7 +2443,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
     <!-- Hovedgraf: 24 timer -->
     <div class="chart-card">
       <div class="chart-header">
-        <h3>Siste 3 timer + neste 24</h3>
+        <h3>Siste 4 timer + neste 24</h3>
         <div class="chart-legend">
           <span><span class="sw" style="background:var(--temp)"></span>Temperatur</span>
           <span><span class="sw" style="background:rgba(234,88,12,0.45);border:1px dashed rgba(234,88,12,0.7)"></span>Historikk</span>
@@ -2401,6 +2475,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         </div>
         <div class="best6-banner" id="best6Banner" style="display:none"></div>
         <div class="day-stats" id="dayStats"></div>
+        <div class="day-symbol-strip" id="daySymbols"></div>
         <div class="day-chart-box">
           <canvas id="dayChart" role="img" aria-label="Timesdetaljer for valgt dag"></canvas>
         </div>
@@ -2409,7 +2484,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 
     <!-- Detaljert timesoversikt (beholdt som tabell, mer kompakt) -->
     <div class="hourly-card" id="hourlyCard" style="display:none">
-      <h3>Detaljert timesoversikt</h3>
+      <h3 id="hourlyTitle">Detaljert timesoversikt</h3>
       <div style="overflow:auto">
         <table class="hourly-table">
           <thead><tr>
@@ -2487,6 +2562,20 @@ function weatherEmoji(symbol){
   return '🌤️';
 }
 
+function windArrow(deg){
+  if(deg==null || Number.isNaN(Number(deg))) return '•';
+  const dirs=['↑','↗','→','↘','↓','↙','←','↖'];
+  const idx=Math.round((Number(deg)%360)/45)%8;
+  return dirs[idx];
+}
+
+function windStrengthIcon(speed){
+  const s=Number(speed||0);
+  if(s>=12) return '🌬️';
+  if(s>=7) return '💨';
+  return '🍃';
+}
+
 function setStatus(t){statusEl.textContent=t||'';}
 
 // Kategoriser en enkelttimes "activity"-tekst til verdict-bøtte
@@ -2544,6 +2633,7 @@ async function loadForecast(lat,lon,name){
     const d=await r.json();
     if(!r.ok){setStatus(d.error||'Feil');return;}
     renderData(d);
+    cachePlace(d.coords?.lat ?? lat, d.coords?.lon ?? lon, d.sted || name || 'Valgt sted');
     setStatus('');
   }catch(e){
     setStatus('Kunne ikke hente varsel.');
@@ -2578,7 +2668,7 @@ function renderData(d){
     <div class="kpi-cell"><div class="kpi-lbl">Maks kast</div><div class="kpi-val">${s.max_gust_24h}<small> m/s</small></div></div>
   `;
 
-  // hourly inneholder -3t historikk + 24t prognose.
+  // hourly inneholder -4t historikk + 24t prognose.
   // Grafen bruker alt; verdict-strip og tabell bruker kun prognose.
   const hourly=(d.hourly||[]);
   const hourlyForward=hourly.filter(h=>!h.is_history);
@@ -2651,22 +2741,36 @@ function renderData(d){
       }
       cell.classList.add('active');
       showDayDetail(daily[idx]);
+      const dayLabel=new Date(daily[idx].date).toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'short'});
+      renderHourlyTable(daily[idx].hours||[], dayLabel);
     });
   });
 
   // Timesoversikt (kompakt tabell, beholdt for de som vil ha detaljer)
   document.getElementById('hourlyCard').style.display='block';
-  document.getElementById('hourlyBody').innerHTML=hourlyForward.map(h=>{
+  const defaultDay=daily[0];
+  if(defaultDay){
+    const label=new Date(defaultDay.date).toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'short'});
+    renderHourlyTable(defaultDay.hours||[], label);
+  }else{
+    renderHourlyTable(hourlyForward, 'neste døgn');
+  }
+}
+
+function renderHourlyTable(hours,titleLabel){
+  document.getElementById('hourlyTitle').textContent=`Detaljert timesoversikt – ${titleLabel}`;
+  document.getElementById('hourlyBody').innerHTML=(hours||[]).map(h=>{
     const b=verdictBucket(h.activity,h.time);
     const rowClass=b==='good'?'row-good':(b==='night'?'row-night':'');
-    const rainStr=h.rain_min!=null&&h.rain_max!=null?`${h.rain} mm <span class="muted">(${h.rain_min}–${h.rain_max})</span>`:`${h.rain} mm`;
+    const rainRange=(h.rain_min!=null&&h.rain_max!=null)?` <span class="muted">(${h.rain_min}–${h.rain_max})</span>`:'';
+    const windBadge=`${windStrengthIcon(h.wind)} ${h.wind} <span class="muted">(${h.gust})</span>`;
     return `<tr class="${rowClass}">
       <td class="time-cell">${weatherEmoji(h.symbol)} ${fmtLocal(h.time,{weekday:'short',hour:'2-digit',minute:'2-digit'})}</td>
       <td class="num">${h.temp??'–'}°</td>
-      <td class="num">${rainStr}</td>
+      <td class="num">${h.rain ?? 0} mm${rainRange}</td>
       <td class="num">${h.rain_prob??'–'}%</td>
-      <td class="num">${h.wind} <span class="muted">(${h.gust})</span></td>
-      <td>${h.wind_dir||'–'}</td>
+      <td class="num">${windBadge}</td>
+      <td>${windArrow(h.wind_deg)} ${h.wind_dir||'–'}</td>
       <td>${h.activity||''}</td>
     </tr>`;
   }).join('');
@@ -2691,6 +2795,16 @@ function showDayDetail(day){
     <div class="day-stat"><div class="ds-lbl">Maks kast</div><div class="ds-val">${day.gust_max ?? '–'}<small> m/s</small></div></div>
   `;
 
+  const sym=(day.hours||[]).map(h=>{
+    const hour=String(new Date(h.time).getHours()).padStart(2,'0');
+    return `<div class="sym-chip" title="kl. ${hour}:00 · ${h.wind} m/s (${h.gust} kast)">
+      <div class="t">${hour}</div>
+      <div>${weatherEmoji(h.symbol)}</div>
+      <div class="w">${windArrow(h.wind_deg)} ${windStrengthIcon(h.wind)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('daySymbols').innerHTML=sym;
+
   // Beste 6-timers blokk
   const b6=day.best_6h;
   const banner=document.getElementById('best6Banner');
@@ -2714,6 +2828,7 @@ function drawDayChart(hours,b6){
   const labels=hours.map(h=>String(new Date(h.time).getHours()).padStart(2,'0'));
   const temp=hours.map(h=>h.temp);
   const rain=hours.map(h=>h.rain ?? 0);
+  const wind=hours.map(h=>h.wind ?? 0);
 
   // Custom plugin: marker beste 6t-blokk med grønn bakgrunn
   let startIdx=-1;
@@ -2767,6 +2882,20 @@ function drawDayChart(hours,b6){
           pointHoverRadius:3,
           yAxisID:'yTemp',
           order:1
+        },
+        {
+          type:'line',
+          label:'Vind',
+          data:wind,
+          borderColor:'rgba(2,132,199,0.9)',
+          backgroundColor:'rgba(2,132,199,0.05)',
+          borderWidth:1.8,
+          tension:0.25,
+          fill:false,
+          pointRadius:0,
+          pointHoverRadius:3,
+          yAxisID:'yWind',
+          order:0
         }
       ]
     },
@@ -2782,6 +2911,7 @@ function drawDayChart(hours,b6){
             label:(ctx)=>{
               if(ctx.dataset.label==='Temperatur') return `Temp: ${ctx.parsed.y?.toFixed(1)}°`;
               if(ctx.dataset.label==='Nedbør') return `Regn: ${ctx.parsed.y?.toFixed(1)} mm`;
+              if(ctx.dataset.label==='Vind') return `Vind: ${ctx.parsed.y?.toFixed(1)} m/s`;
               return '';
             }
           }
@@ -2790,7 +2920,8 @@ function drawDayChart(hours,b6){
       scales:{
         x:{grid:{display:false},ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:12,font:{size:10}}},
         yTemp:{position:'left',grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:(v)=>v+'°'}},
-        yRain:{position:'right',grid:{display:false},min:0,suggestedMax:2,ticks:{font:{size:10}}}
+        yRain:{position:'right',offset:true,grid:{display:false},min:0,suggestedMax:2,ticks:{font:{size:10}}},
+        yWind:{position:'right',grid:{display:false},min:0,suggestedMax:12,ticks:{font:{size:10},callback:(v)=>v+' m/s'}}
       }
     }
   });
@@ -2802,7 +2933,7 @@ document.getElementById('dayDetailClose').addEventListener('click',()=>{
 });
 
 // ============================================================
-// Hovedgraf (-3t til +24t)
+// Hovedgraf (-4t til +24t)
 // ============================================================
 function drawMainChart(hourly){
   const labels=hourly.map(h=>{
@@ -3045,15 +3176,50 @@ async function loadOverview(){
 // ============================================================
 // Søk + geolokasjon
 // ============================================================
+const PLACE_CACHE_KEY='aktivt_varsel_last_place_v1';
+const BERGEN_DEFAULT={name:'Bergen, Norge',lat:60.39299,lon:5.32415};
+
+function cachePlace(lat,lon,name){
+  try{
+    localStorage.setItem(PLACE_CACHE_KEY,JSON.stringify({lat:Number(lat),lon:Number(lon),name:String(name||'Valgt sted')}));
+  }catch(_){}
+}
+
+function loadCachedPlace(){
+  try{
+    const raw=localStorage.getItem(PLACE_CACHE_KEY);
+    if(!raw) return null;
+    const p=JSON.parse(raw);
+    if(typeof p?.lat!=='number' || typeof p?.lon!=='number') return null;
+    return {lat:p.lat,lon:p.lon,name:p.name||'Valgt sted'};
+  }catch(_){
+    return null;
+  }
+}
+
 async function searchPlace(){
   const q=placeInput.value.trim();
   if(q.length<2){setStatus('Skriv minst 2 tegn for stedsøk.');return;}
   setStatus('Søker sted …');
-  const r=await fetch(`/ver/api/sted-sok?q=${encodeURIComponent(q)}`);
-  const d=await r.json();
-  const items=d.items||[];
-  suggestionsEl.innerHTML=items.map(it=>`<button class="chip" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${it.name.replace(/"/g,'&quot;')}">${it.name}</button>`).join('');
-  if(!items.length){setStatus('Fant ingen treff.');}else{setStatus('');}
+  try{
+    const r=await fetch(`/ver/api/sted-sok?q=${encodeURIComponent(q)}`);
+    const d=await r.json();
+    if(!r.ok){throw new Error(d.error||'Stedsøk feilet');}
+    const items=d.items||[];
+    suggestionsEl.innerHTML=items.map(it=>`<button class="chip" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${it.name.replace(/"/g,'&quot;')}">${it.name}</button>`).join('');
+    if(!items.length){setStatus('Fant ingen treff.');}
+    else{
+      setStatus('');
+      // Velg første treff automatisk når det kun er ett resultat.
+      if(items.length===1){
+        const it=items[0];
+        suggestionsEl.innerHTML='';
+        loadForecast(Number(it.lat),Number(it.lon),it.name);
+      }
+    }
+  }catch(_){
+    setStatus('Kunne ikke søke opp sted akkurat nå.');
+  }
 }
 
 document.getElementById('searchBtn').addEventListener('click',searchPlace);
@@ -3074,15 +3240,13 @@ document.getElementById('geoBtn').addEventListener('click',()=>{
 
 // Auto-hent posisjon ved sidelast
 window.addEventListener('load',()=>{
-  if(navigator.geolocation){
-    setStatus('Henter posisjon …');
-    navigator.geolocation.getCurrentPosition(
-      (pos)=>loadForecast(pos.coords.latitude,pos.coords.longitude,'Min posisjon'),
-      ()=>setStatus('Trykk «Bruk min posisjon» eller søk et sted.')
-    );
+  const cached=loadCachedPlace();
+  if(cached){
+    loadForecast(cached.lat,cached.lon,cached.name);
+    return;
   }
+  loadForecast(BERGEN_DEFAULT.lat,BERGEN_DEFAULT.lon,BERGEN_DEFAULT.name);
 });
 </script>
 </body>
 </html>"""
-
