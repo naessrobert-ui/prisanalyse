@@ -1886,27 +1886,31 @@ def api_aktivt_varsel():
 
     ts = _hent_yr_komplett(lat, lon)
     now = datetime.now(timezone.utc)
+    history_start = now - pd.Timedelta(hours=3)  # 3 timer bakover i grafen
     horizon_24 = now + pd.Timedelta(hours=24)
     horizon_7d = now + pd.Timedelta(days=7)
 
-    rows_24 = []
-    rows_7d = []
+    rows_24 = []   # brukes til KPI + forward-only beregninger
+    rows_graf = [] # -3t til +24t (inkluderer historikk for grafen)
+    rows_7d = []   # -3t til +7d (alt vi har)
     for it in ts:
         t = pd.to_datetime(it.get("time"), utc=True, errors="coerce")
         if pd.isna(t):
             continue
         t_py = t.to_pydatetime()
-        if t_py < now or t_py > horizon_7d:
+        if t_py < history_start or t_py > horizon_7d:
             continue
         data = it.get("data") or {}
         inst = (data.get("instant") or {}).get("details") or {}
         n1 = (data.get("next_1_hours") or {}).get("details") or {}
         rec = {
             "time": t_py.isoformat(),
+            "is_history": t_py < now,
             "temp": float(inst.get("air_temperature")) if inst.get("air_temperature") is not None else None,
             "wind": float(inst.get("wind_speed")) if inst.get("wind_speed") is not None else 0.0,
             "gust": float(inst.get("wind_speed_of_gust")) if inst.get("wind_speed_of_gust") is not None else 0.0,
             "wind_deg": float(inst.get("wind_from_direction")) if inst.get("wind_from_direction") is not None else None,
+            "cloud": float(inst.get("cloud_area_fraction")) if inst.get("cloud_area_fraction") is not None else None,
             "rain": float(n1.get("precipitation_amount")) if n1.get("precipitation_amount") is not None else 0.0,
             "rain_min": float(n1.get("precipitation_amount_min")) if n1.get("precipitation_amount_min") is not None else None,
             "rain_max": float(n1.get("precipitation_amount_max")) if n1.get("precipitation_amount_max") is not None else None,
@@ -1914,7 +1918,9 @@ def api_aktivt_varsel():
             "symbol": ((data.get("next_1_hours") or {}).get("summary") or {}).get("symbol_code", "cloudy"),
         }
         rows_7d.append(rec)
-        if t_py <= horizon_24:
+        if history_start <= t_py <= horizon_24:
+            rows_graf.append(rec)
+        if now <= t_py <= horizon_24:
             rows_24.append(rec)
 
     if not rows_24:
@@ -1930,6 +1936,8 @@ def api_aktivt_varsel():
     best_windows = []
     current = None
     for rec in rows_7d:
+        if rec.get("is_history"):
+            continue
         ok = rec["rain"] <= 0.3 and rec["wind"] <= 8 and (rec["gust"] or 0) <= 12 and (rec["temp"] or -99) >= 8
         t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO)
         if ok:
@@ -1957,11 +1965,12 @@ def api_aktivt_varsel():
         )
 
     hourly = []
-    for rec in rows_24:
+    for rec in rows_graf:
         t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO)
         hourly.append(
             {
                 "time": t_local.isoformat(),
+                "is_history": rec.get("is_history", False),
                 "temp": round(float(rec["temp"]), 1) if rec["temp"] is not None else None,
                 "rain": round(float(rec["rain"]), 1),
                 "rain_min": round(float(rec["rain_min"]), 1) if rec["rain_min"] is not None else None,
@@ -1970,6 +1979,7 @@ def api_aktivt_varsel():
                 "wind": round(float(rec["wind"]), 1),
                 "gust": round(float(rec["gust"]), 1),
                 "wind_dir": _vindretning_txt_general(rec["wind_deg"]),
+                "cloud": round(float(rec["cloud"]), 0) if rec.get("cloud") is not None else None,
                 "activity": _til_aktivitetstype(
                     rec["temp"] or 0.0,
                     rec["rain"],
@@ -1981,8 +1991,70 @@ def api_aktivt_varsel():
             }
         )
 
+    # Hjelper: klassifiser en time som sol, skyet, eller nedbør basert på symbol
+    def _sol_kategori(symbol: str, rain: float) -> str:
+        s = (symbol or "").lower()
+        if rain >= 0.2:
+            return "rain"
+        if "clearsky" in s or "fair" in s:
+            return "sun"
+        if "partlycloudy" in s:
+            return "partly"
+        return "cloudy"
+
+    # Beste 6-timers blokk for en gitt liste av timesdata (kun dagtimer 06-22)
+    def _beste_6t_blokk(hrs: list[dict]) -> Optional[dict]:
+        # Score-funksjon per time: belønner lite regn, moderat temperatur, lite vind, lite skydekke
+        def _score(h: dict) -> float:
+            t = h.get("temp") or 0.0
+            r = h.get("rain") or 0.0
+            w = h.get("wind") or 0.0
+            g = h.get("gust") or 0.0
+            c = h.get("cloud") or 50.0
+            # Ideell temp = 15-20°C, straff for kulde og varme
+            temp_pts = max(0.0, 10 - abs(t - 17))
+            rain_pts = max(0.0, 5 - r * 3)
+            wind_pts = max(0.0, 8 - w) + max(0.0, 12 - g) * 0.5
+            sun_pts = max(0.0, (100 - c) / 20)  # 0-5 poeng for sol
+            return temp_pts + rain_pts + wind_pts + sun_pts
+
+        # Filtrer dagtimer (06-22 lokal tid)
+        dag = []
+        for h in hrs:
+            t_local = pd.to_datetime(h["time"], utc=True).tz_convert(OSLO)
+            if 6 <= t_local.hour <= 22:
+                dag.append({**h, "_local_hour": t_local.hour, "_local_iso": t_local.isoformat()})
+
+        if len(dag) < 6:
+            return None
+
+        scores = [_score(h) for h in dag]
+        best_sum = -1e9
+        best_idx = 0
+        for i in range(len(dag) - 5):
+            s = sum(scores[i:i + 6])
+            if s > best_sum:
+                best_sum = s
+                best_idx = i
+
+        block = dag[best_idx:best_idx + 6]
+        start_t = pd.to_datetime(block[0]["_local_iso"])
+        end_t = pd.to_datetime(block[-1]["_local_iso"]) + pd.Timedelta(hours=1)
+        return {
+            "start": start_t.isoformat(),
+            "end": end_t.isoformat(),
+            "start_hour": block[0]["_local_hour"],
+            "end_hour": (block[-1]["_local_hour"] + 1) % 24,
+            "avg_temp": round(sum((h.get("temp") or 0) for h in block) / 6, 1),
+            "total_rain": round(sum((h.get("rain") or 0) for h in block), 1),
+            "max_wind": round(max((h.get("wind") or 0) for h in block), 1),
+            "max_gust": round(max((h.get("gust") or 0) for h in block), 1),
+        }
+
     daily = {}
     for rec in rows_7d:
+        if rec.get("is_history"):
+            continue  # daglig-aggregat skal kun bruke prognose fremover
         t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO)
         key = t_local.date().isoformat()
         daily.setdefault(key, []).append(rec)
@@ -1993,6 +2065,35 @@ def api_aktivt_varsel():
         rains = [v["rain"] for v in vals]
         winds = [v["wind"] for v in vals]
         gusts = [v["gust"] for v in vals]
+
+        # Soltimer: tell timer i dagtid (06-22) som er "sun" eller "partly"
+        sol_timer = 0
+        sky_kategorier = {"sun": 0, "partly": 0, "cloudy": 0, "rain": 0}
+        for v in vals:
+            t_local = pd.to_datetime(v["time"], utc=True).tz_convert(OSLO)
+            if 6 <= t_local.hour <= 21:
+                kat = _sol_kategori(v.get("symbol", ""), v.get("rain", 0.0))
+                sky_kategorier[kat] += 1
+                if kat == "sun":
+                    sol_timer += 1.0
+                elif kat == "partly":
+                    sol_timer += 0.5  # delvis skyet regnes som halv soltime
+
+        # Bygg hourly-detaljer for denne dagen (brukes i expand-panel)
+        day_hours = []
+        for v in vals:
+            t_local = pd.to_datetime(v["time"], utc=True).tz_convert(OSLO)
+            day_hours.append({
+                "time": t_local.isoformat(),
+                "temp": round(float(v["temp"]), 1) if v["temp"] is not None else None,
+                "rain": round(float(v["rain"]), 1),
+                "rain_prob": int(round(v["rain_prob"])) if v["rain_prob"] is not None else None,
+                "wind": round(float(v["wind"]), 1),
+                "gust": round(float(v["gust"]), 1),
+                "cloud": round(float(v["cloud"]), 0) if v.get("cloud") is not None else None,
+                "symbol": v.get("symbol", ""),
+            })
+
         daily_out.append(
             {
                 "date": d,
@@ -2001,6 +2102,10 @@ def api_aktivt_varsel():
                 "rain_total": round(sum(rains), 1),
                 "wind_max": round(max(winds), 1) if winds else None,
                 "gust_max": round(max(gusts), 1) if gusts else None,
+                "sun_hours": round(sol_timer, 1),
+                "sky_mix": sky_kategorier,
+                "hours": day_hours,
+                "best_6h": _beste_6t_blokk(day_hours),
             }
         )
 
@@ -2035,40 +2140,301 @@ _AKTIVT_VARSEL_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Aktivitetsvarsel – prisanalyse.no</title>
+<title>Værvarsel for aktiviteter – prisanalyse.no</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-body{margin:0;background:#f1f5f9;color:#0f172a;font-family:Inter,system-ui,sans-serif}
-.wrap{max-width:1180px;margin:0 auto;padding:22px}
-.card{background:#fff;border-radius:16px;box-shadow:0 12px 30px rgba(15,23,42,.08);padding:18px;margin-bottom:14px}
-h1{margin:0 0 8px}.sub{color:#475569;margin:0 0 10px}
-.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-input,button{padding:10px 12px;border-radius:10px;border:1px solid #cbd5e1}
-button{background:#2563eb;color:#fff;border:none;cursor:pointer;font-weight:600}
-button.alt{background:#0f172a}.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
-.box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px}
-.lbl{font-size:12px;color:#64748b}.val{font-size:24px;font-weight:800}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:left}
-th{color:#475569;font-size:12px;text-transform:uppercase}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{background:#dbeafe;color:#1e3a8a;padding:5px 9px;border-radius:999px;font-size:12px}
-.muted{color:#64748b}
+:root{
+  --bg:#f6f7f9;
+  --surface:#ffffff;
+  --border:#e5e7eb;
+  --border-strong:#d1d5db;
+  --text:#111827;
+  --text-2:#4b5563;
+  --text-3:#9ca3af;
+  --accent:#2563eb;
+  --accent-dark:#1e40af;
+  --good:#16a34a;
+  --good-bg:#dcfce7;
+  --good-bg-light:#f0fdf4;
+  --warn:#d97706;
+  --warn-bg:#fef3c7;
+  --bad:#dc2626;
+  --bad-bg:#fee2e2;
+  --night:#64748b;
+  --night-bg:#e2e8f0;
+  --temp:#ea580c;
+  --rain:#2563eb;
+  --rain-light:#93c5fd;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;line-height:1.5;font-size:14px}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+
+/* ---------- SØKEKORT ---------- */
+.search-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.search-card h1{font-size:20px;font-weight:600;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+.search-card .sub{color:var(--text-2);margin:0 0 14px;font-size:13px}
+.search-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.search-row input{flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text)}
+.search-row input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.btn{padding:9px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:500;font-size:14px;transition:opacity .15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-secondary{background:var(--text);color:#fff}
+.btn-secondary:hover{opacity:.9}
+#status{margin-top:10px;font-size:13px;color:var(--text-2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{background:#eff6ff;color:var(--accent-dark);padding:6px 10px;border-radius:6px;font-size:12px;border:1px solid #dbeafe;cursor:pointer}
+.chip:hover{background:#dbeafe}
+
+/* ---------- RESULTAT-SEKSJON ---------- */
 #results{display:none}
-.overview-table th,.overview-table td{padding:10px 8px}
-.overview-table td.temp{text-align:right;white-space:nowrap;font-weight:700}
+
+/* Header */
+.result-header{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.result-header .place-label{font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.result-header .place-name{font-size:22px;font-weight:600;margin-top:2px}
+.result-header .place-coords{font-size:12px;color:var(--text-2);margin-top:2px}
+.result-header .updated{font-size:11px;color:var(--text-3);margin-top:6px}
+.verdict-banner{padding:10px 16px;border-radius:10px;display:flex;align-items:center;gap:10px;min-width:220px}
+.verdict-banner.good{background:var(--good-bg);color:var(--good)}
+.verdict-banner.warn{background:var(--warn-bg);color:var(--warn)}
+.verdict-banner.bad{background:var(--bad-bg);color:var(--bad)}
+.verdict-banner .verdict-icon{font-size:24px}
+.verdict-banner .verdict-label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;opacity:.7;font-weight:600}
+.verdict-banner .verdict-text{font-size:15px;font-weight:600}
+
+/* Kvalitet-badge */
+.quality{font-size:12px;color:var(--text-2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.quality-chip{background:#f3f4f6;color:var(--text);padding:3px 9px;border-radius:6px;font-weight:500;border:1px solid var(--border)}
+
+/* KPI-bånd */
+.kpi-band{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:14px;display:grid;grid-template-columns:repeat(5,1fr);gap:0}
+.kpi-cell{padding:0 14px;border-right:1px solid var(--border)}
+.kpi-cell:first-child{padding-left:0}
+.kpi-cell:last-child{border-right:none;padding-right:0}
+.kpi-lbl{font-size:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.kpi-val{font-size:22px;font-weight:600;margin-top:2px}
+.kpi-val small{font-size:12px;color:var(--text-2);font-weight:400}
+
+/* Graf-kort */
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.chart-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-wrap:wrap;gap:8px}
+.chart-header h3{margin:0;font-size:15px;font-weight:600}
+.chart-legend{font-size:11px;color:var(--text-2);display:flex;gap:12px;flex-wrap:wrap}
+.chart-legend span{display:inline-flex;align-items:center;gap:5px}
+.chart-legend .sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+
+/* Verdict-bånd over grafen */
+.verdict-strip{display:flex;height:16px;border-radius:4px;overflow:hidden;margin-bottom:2px}
+.verdict-strip .seg{flex:1;position:relative}
+.verdict-strip .seg.good{background:#86efac}
+.verdict-strip .seg.ok{background:#fde68a}
+.verdict-strip .seg.night{background:#cbd5e1}
+.verdict-strip .seg.bad{background:#fca5a5}
+
+.chart-box{position:relative;width:100%;height:260px}
+
+/* Beste vinduer */
+.windows-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.windows-card h3{margin:0 0 10px;font-size:15px;font-weight:600}
+.window-row{display:grid;grid-template-columns:60px 130px 1fr 55px;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.window-row:last-child{border-bottom:none}
+.window-row .w-day{font-weight:600;text-transform:capitalize}
+.window-row .w-range{color:var(--text-2)}
+.window-row .w-bar{background:var(--good-bg-light);height:8px;border-radius:4px;overflow:hidden;border:1px solid #bbf7d0}
+.window-row .w-bar .w-fill{height:100%;background:var(--good)}
+.window-row .w-hours{text-align:right;color:var(--text-2);font-size:12px}
+
+/* 7-dagers strip */
+.daily-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.daily-card h3{margin:0 0 10px;font-size:15px;font-weight:600}
+.daily-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.daily-cell{background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .15s;position:relative}
+.daily-cell:hover{border-color:var(--accent);background:#f3f4f6}
+.daily-cell.active{border-color:var(--accent);background:#eff6ff;box-shadow:0 0 0 1px var(--accent)}
+.daily-cell .d-day{font-size:12px;color:var(--text-2);text-transform:capitalize;font-weight:500}
+.daily-cell .d-icon-temp{display:flex;align-items:center;gap:6px;margin:4px 0 2px}
+.daily-cell .d-icon{font-size:20px}
+.daily-cell .d-temp{font-size:18px;font-weight:600}
+.daily-cell .d-meta{font-size:11px;color:var(--text-2);line-height:1.45}
+.daily-cell .d-sun{font-size:11px;color:var(--warn);font-weight:500;margin-top:3px;display:flex;align-items:center;gap:3px}
+.daily-cell .d-arrow{position:absolute;top:10px;right:10px;font-size:10px;color:var(--text-3);transition:transform .2s}
+.daily-cell.active .d-arrow{transform:rotate(180deg);color:var(--accent)}
+
+/* Detalj-panel for valgt dag */
+.day-detail{display:none;margin-top:12px;padding:16px;background:#f9fafb;border:1px solid var(--border);border-radius:10px}
+.day-detail.show{display:block}
+.day-detail-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.day-detail-header h4{margin:0;font-size:15px;font-weight:600}
+.day-detail-close{background:none;border:none;color:var(--text-2);font-size:13px;cursor:pointer;padding:2px 6px;border-radius:4px}
+.day-detail-close:hover{background:#e5e7eb}
+.day-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.day-stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.day-stat .ds-lbl{font-size:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.day-stat .ds-val{font-size:17px;font-weight:600;margin-top:2px}
+.day-stat .ds-val small{font-size:11px;color:var(--text-2);font-weight:400}
+.best6-banner{background:#dcfce7;border:1px solid #86efac;color:#15803d;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;align-items:center;gap:8px}
+.best6-banner strong{font-weight:600}
+.day-chart-box{position:relative;width:100%;height:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px}
+
+/* Timesoversikt-tabell (kompakt) */
+.hourly-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.hourly-card h3{margin:0 0 10px;font-size:15px;font-weight:600}
+.hourly-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.hourly-table th{text-align:left;padding:6px 8px;color:var(--text-2);font-weight:500;text-transform:uppercase;font-size:10.5px;letter-spacing:.04em;border-bottom:1px solid var(--border)}
+.hourly-table td{padding:6px 8px;border-bottom:1px solid #f3f4f6}
+.hourly-table tr:last-child td{border-bottom:none}
+.hourly-table tr.row-good td{background:rgba(134,239,172,.12)}
+.hourly-table tr.row-night td{background:rgba(203,213,225,.14)}
+.hourly-table .time-cell{white-space:nowrap;font-weight:500}
+.hourly-table .num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* Kollapsbar oversikts-seksjon */
+.overview-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:14px;overflow:hidden}
+.overview-summary{padding:12px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text-2);user-select:none}
+.overview-summary:hover{background:#f9fafb}
+.overview-summary .arrow{transition:transform .2s}
+.overview-card[open] .overview-summary .arrow{transform:rotate(90deg)}
+.overview-body{padding:0 18px 16px}
+.overview-table{width:100%;border-collapse:collapse;font-size:13px}
+.overview-table th,.overview-table td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:left}
+.overview-table th{color:var(--text-2);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.overview-table td.temp{text-align:right;white-space:nowrap;font-weight:600}
 .overview-table td.day{text-align:center;white-space:nowrap}
-.risk{padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:5px}
-.risk.ok{background:#dcfce7;color:#166534}
-.risk.mid{background:#fef3c7;color:#92400e}
-.risk.high{background:#fee2e2;color:#991b1b}
+.risk{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.risk.ok{background:var(--good-bg);color:var(--good)}
+.risk.mid{background:var(--warn-bg);color:var(--warn)}
+.risk.high{background:var(--bad-bg);color:var(--bad)}
+.muted{color:var(--text-3)}
+
+@media(max-width:700px){
+  .kpi-band{grid-template-columns:repeat(2,1fr);gap:10px}
+  .kpi-cell{border-right:none;padding:0}
+  .kpi-cell:nth-child(odd){border-right:1px solid var(--border);padding-right:10px}
+  .kpi-cell:nth-child(even){padding-left:10px}
+  .kpi-val{font-size:18px}
+  .window-row{grid-template-columns:48px 1fr 40px;grid-template-rows:auto auto;gap:6px 10px}
+  .window-row .w-range{grid-column:2;grid-row:1}
+  .window-row .w-bar{grid-column:2;grid-row:2}
+  .window-row .w-hours{grid-column:3;grid-row:1/3;align-self:center}
+  .hourly-table th:nth-child(4),.hourly-table td:nth-child(4){display:none}
+  .hourly-table th:nth-child(6),.hourly-table td:nth-child(6){display:none}
+  .result-header{flex-direction:column}
+  .verdict-banner{width:100%}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="card">
-    <h2 style="margin:0 0 8px">Rask oversikt</h2>
-    <p class="sub">Lignende oppsett som «Mine steder» på Yr: et kjapt blikk på temperatur, dagene fremover og et enkelt aktivitetsvarsel.</p>
-    <div style="overflow:auto">
+
+  <!-- Søke-kort -->
+  <div class="search-card">
+    <h1>🌤️ Værvarsel for aktiviteter</h1>
+    <p class="sub">Bruk posisjon eller søk sted. Du får detaljert varsel for neste 24 timer og finværsvinduer kommende uke.</p>
+    <div class="search-row">
+      <button class="btn btn-primary" id="geoBtn">📍 Bruk min posisjon</button>
+      <input id="placeInput" placeholder="Søk sted, f.eks. Bergen sentrum"/>
+      <button class="btn btn-secondary" id="searchBtn">Søk</button>
+    </div>
+    <div id="status"></div>
+    <div id="suggestions" class="chips"></div>
+  </div>
+
+  <!-- Resultater (skjult til data er lastet) -->
+  <div id="results">
+
+    <!-- Header med verdict -->
+    <div class="result-header">
+      <div>
+        <div class="place-label">Posisjon</div>
+        <div class="place-name" id="placeName">—</div>
+        <div class="place-coords" id="placeCoords"></div>
+        <div class="updated" id="updated"></div>
+      </div>
+      <div class="verdict-banner" id="verdictBanner">
+        <div class="verdict-icon" id="verdictIcon">☀️</div>
+        <div>
+          <div class="verdict-label">Verdikt i dag</div>
+          <div class="verdict-text" id="verdictText">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="quality" id="quality"></div>
+
+    <!-- KPI-bånd -->
+    <div class="kpi-band" id="kpiBand"></div>
+
+    <!-- Hovedgraf: 24 timer -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Siste 3 timer + neste 24</h3>
+        <div class="chart-legend">
+          <span><span class="sw" style="background:var(--temp)"></span>Temperatur</span>
+          <span><span class="sw" style="background:rgba(234,88,12,0.45);border:1px dashed rgba(234,88,12,0.7)"></span>Historikk</span>
+          <span><span class="sw" style="background:var(--rain)"></span>Nedbør (forventet)</span>
+          <span><span class="sw" style="background:var(--rain-light)"></span>Usikkerhet (maks)</span>
+          <span><span class="sw" style="background:#e5e7eb;border:1px dashed #9ca3af"></span>Sjanse for regn</span>
+        </div>
+      </div>
+      <div class="verdict-strip" id="verdictStrip" title="Verdikt per time"></div>
+      <div class="chart-box">
+        <canvas id="mainChart" role="img" aria-label="Kombinert graf over temperatur og nedbør for neste 24 timer."></canvas>
+      </div>
+    </div>
+
+    <!-- Beste vinduer -->
+    <div class="windows-card" id="windowsCard" style="display:none">
+      <h3>Beste vinduer med fint vær (2+ timer)</h3>
+      <div id="windowsList"></div>
+    </div>
+
+    <!-- 7-dagers strip -->
+    <div class="daily-card" id="dailyCard" style="display:none">
+      <h3>Kommende dager</h3>
+      <div class="daily-grid" id="dailyGrid"></div>
+      <div class="day-detail" id="dayDetail">
+        <div class="day-detail-header">
+          <h4 id="dayDetailTitle">—</h4>
+          <button class="day-detail-close" id="dayDetailClose">✕ Lukk</button>
+        </div>
+        <div class="best6-banner" id="best6Banner" style="display:none"></div>
+        <div class="day-stats" id="dayStats"></div>
+        <div class="day-chart-box">
+          <canvas id="dayChart" role="img" aria-label="Timesdetaljer for valgt dag"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detaljert timesoversikt (beholdt som tabell, mer kompakt) -->
+    <div class="hourly-card" id="hourlyCard" style="display:none">
+      <h3>Detaljert timesoversikt</h3>
+      <div style="overflow:auto">
+        <table class="hourly-table">
+          <thead><tr>
+            <th>Tid</th>
+            <th class="num">Temp</th>
+            <th class="num">Nedbør</th>
+            <th class="num">Sjanse</th>
+            <th class="num">Vind/kast</th>
+            <th>Retning</th>
+            <th>Vurdering</th>
+          </tr></thead>
+          <tbody id="hourlyBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Rask oversikt (kollapsbar, nederst) -->
+  <details class="overview-card">
+    <summary class="overview-summary">
+      <span>🗺️ Rask oversikt – 5 norske byer</span>
+      <span class="arrow">▶</span>
+    </summary>
+    <div class="overview-body">
       <table class="overview-table">
         <thead>
           <tr>
@@ -2076,8 +2442,8 @@ th{color:#475569;font-size:12px;text-transform:uppercase}
             <th>Nå</th>
             <th>I dag</th>
             <th>I morgen</th>
-            <th>+2 dager</th>
-            <th>+3 dager</th>
+            <th>+2d</th>
+            <th>+3d</th>
             <th>Vurdering</th>
           </tr>
         </thead>
@@ -2086,42 +2452,14 @@ th{color:#475569;font-size:12px;text-transform:uppercase}
         </tbody>
       </table>
     </div>
-  </div>
+  </details>
 
-  <div class="card">
-    <h1>🌤️ Generell værside for aktiviteter</h1>
-    <p class="sub">Bruk posisjon eller søk sted. Du får detaljer for neste 24 timer + finværsvinduer kommende dager.</p>
-    <div class="row">
-      <button id="geoBtn">📍 Bruk min posisjon</button>
-      <input id="placeInput" placeholder="Søk sted, f.eks. Bergen sentrum" style="min-width:280px;flex:1"/>
-      <button class="alt" id="searchBtn">Søk sted</button>
-    </div>
-    <div id="status" class="muted" style="margin-top:10px"></div>
-    <div id="suggestions" class="chips" style="margin-top:8px"></div>
-  </div>
-
-  <div class="card" id="results">
-    <h2 id="title" style="margin-top:0"></h2>
-    <div id="quality"></div>
-    <div id="kpi" class="kpi" style="margin-top:10px"></div>
-  </div>
-
-  <div class="card" id="windowsCard" style="display:none">
-    <h3 style="margin:0 0 8px">Beste vinduer med fint vær (2+ timer)</h3>
-    <div id="windows" class="chips"></div>
-  </div>
-
-  <div class="card" id="hourlyCard" style="display:none">
-    <h3 style="margin:0 0 8px">Detaljert timesoversikt neste 24 timer</h3>
-    <div style="overflow:auto"><table><thead><tr><th>Tid</th><th>Temp</th><th>Nedbør</th><th>Sjanse</th><th>Vind / kast</th><th>Retning</th><th>Vurdering</th></tr></thead><tbody id="hourlyBody"></tbody></table></div>
-  </div>
-
-  <div class="card" id="dailyCard" style="display:none">
-    <h3 style="margin:0 0 8px">Kort og mellomlang sikt (daglig)</h3>
-    <div style="overflow:auto"><table><thead><tr><th>Dag</th><th>Temp min/maks</th><th>Nedbør</th><th>Maks vind/kast</th></tr></thead><tbody id="dailyBody"></tbody></table></div>
-  </div>
 </div>
+
 <script>
+// ============================================================
+// Hjelpefunksjoner
+// ============================================================
 const statusEl=document.getElementById('status');
 const suggestionsEl=document.getElementById('suggestions');
 const placeInput=document.getElementById('placeInput');
@@ -2133,7 +2471,9 @@ const overviewPlaces=[
   {name:'Kristiansand',lat:58.1467,lon:7.9956},
   {name:'Tromsø',lat:69.6492,lon:18.9553},
 ];
+
 function fmtLocal(iso,opt={hour:'2-digit',minute:'2-digit'}){return new Date(iso).toLocaleString('no-NO',opt);}
+
 function weatherEmoji(symbol){
   const s=String(symbol||'').toLowerCase();
   if(s.includes('thunder')) return '⛈️';
@@ -2146,19 +2486,39 @@ function weatherEmoji(symbol){
   if(s.includes('clearsky')||s.includes('fair')) return '☀️';
   return '🌤️';
 }
-function precipEmoji(mm){
-  if(mm == null) return '💧';
-  if(mm >= 2) return '🌧️';
-  if(mm >= 0.3) return '🌦️';
-  if(mm > 0) return '💧';
-  return '☀️';
+
+function setStatus(t){statusEl.textContent=t||'';}
+
+// Kategoriser en enkelttimes "activity"-tekst til verdict-bøtte
+function verdictBucket(activity, timeIso){
+  const a=String(activity||'').toLowerCase();
+  const h=new Date(timeIso).getHours();
+  if(h<6 || h>=22) return 'night';
+  if(a.includes('bra for')||a.includes('fint')||a.includes('flott')) return 'good';
+  if(a.includes('krevende')||a.includes('storm')||a.includes('kraftig')||a.includes('unngå')) return 'bad';
+  return 'ok';
 }
-function windEmoji(ms){
-  if(ms == null) return '💨';
-  if(ms >= 12) return '🌬️';
-  if(ms >= 7) return '💨';
-  return '🍃';
+
+function overallVerdict(hourly){
+  // Bare prognose-timer (ikke historikk) og bare dagtimer (6-22)
+  const day=hourly.filter(h=>{
+    if(h.is_history) return false;
+    const hr=new Date(h.time).getHours();
+    return hr>=6 && hr<22;
+  });
+  const buckets={good:0,ok:0,bad:0};
+  day.forEach(h=>{
+    const b=verdictBucket(h.activity,h.time);
+    if(b==='good') buckets.good++;
+    else if(b==='bad') buckets.bad++;
+    else if(b==='ok') buckets.ok++;
+  });
+  const total=buckets.good+buckets.ok+buckets.bad || 1;
+  if(buckets.bad/total>0.3) return {cls:'bad',icon:'⚠️',text:'Krevende forhold – vurder inne'};
+  if(buckets.good/total>0.4) return {cls:'good',icon:'☀️',text:'Bra for uteaktivitet'};
+  return {cls:'warn',icon:'⛅',text:'Greit utevær – følg med'};
 }
+
 function dayCell(d){
   if(!d) return '–';
   const icon=(d.gust_max ?? 0) >= 15 ? '🌬️' : (d.rain_total ?? 0) >= 1.5 ? '🌧️' : '☀️';
@@ -2171,14 +2531,487 @@ function riskTag(d){
   if((s.max_gust_24h ?? 0) >= 11 || (s.rain_24h ?? 0) >= 5) return '<span class="risk mid">🟡 Følg med</span>';
   return '<span class="risk ok">🟢 Bra</span>';
 }
-function setStatus(t){statusEl.textContent=t||'';}
+
+// ============================================================
+// Hovedrendering
+// ============================================================
+let mainChart=null;
+
 async function loadForecast(lat,lon,name){
   setStatus('Henter varsel …');
-  const r=await fetch(`/ver/api/aktivt-varsel?lat=${lat}&lon=${lon}&sted=${encodeURIComponent(name||'Valgt sted')}`);
-  const d=await r.json();
-  if(!r.ok){setStatus(d.error||'Feil');return;}
-  renderData(d); setStatus(`Oppdatert ${new Date(d.hentet).toLocaleString('no-NO')}`);
+  try{
+    const r=await fetch(`/ver/api/aktivt-varsel?lat=${lat}&lon=${lon}&sted=${encodeURIComponent(name||'Valgt sted')}`);
+    const d=await r.json();
+    if(!r.ok){setStatus(d.error||'Feil');return;}
+    renderData(d);
+    setStatus('');
+  }catch(e){
+    setStatus('Kunne ikke hente varsel.');
+  }
 }
+
+function renderData(d){
+  document.getElementById('results').style.display='block';
+
+  // Header
+  document.getElementById('placeName').textContent=d.sted;
+  document.getElementById('placeCoords').textContent=`${d.coords.lat.toFixed(4)}° N, ${d.coords.lon.toFixed(4)}° Ø`;
+  document.getElementById('updated').textContent=`Oppdatert ${new Date(d.hentet).toLocaleString('no-NO',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}`;
+
+  // Verdict-banner
+  const v=overallVerdict(d.hourly||[]);
+  const banner=document.getElementById('verdictBanner');
+  banner.className='verdict-banner '+v.cls;
+  document.getElementById('verdictIcon').textContent=v.icon;
+  document.getElementById('verdictText').textContent=v.text;
+
+  // Kvalitet
+  document.getElementById('quality').innerHTML=`<span class="quality-chip">Kvalitet ${d.quality.score}/5 · ${d.quality.label}</span><span>${d.quality.reason||''}</span>`;
+
+  // KPI-bånd
+  const s=d.summary;
+  document.getElementById('kpiBand').innerHTML=`
+    <div class="kpi-cell"><div class="kpi-lbl">Nåtemp</div><div class="kpi-val">${s.temp_now}°</div></div>
+    <div class="kpi-cell"><div class="kpi-lbl">Min/maks 24t</div><div class="kpi-val">${s.temp_min_24h}° / ${s.temp_max_24h}°</div></div>
+    <div class="kpi-cell"><div class="kpi-lbl">Nedbør 24t</div><div class="kpi-val">${s.rain_24h}<small> mm</small></div></div>
+    <div class="kpi-cell"><div class="kpi-lbl">Maks vind</div><div class="kpi-val">${s.max_wind_24h}<small> m/s</small></div></div>
+    <div class="kpi-cell"><div class="kpi-lbl">Maks kast</div><div class="kpi-val">${s.max_gust_24h}<small> m/s</small></div></div>
+  `;
+
+  // hourly inneholder -3t historikk + 24t prognose.
+  // Grafen bruker alt; verdict-strip og tabell bruker kun prognose.
+  const hourly=(d.hourly||[]);
+  const hourlyForward=hourly.filter(h=>!h.is_history);
+  const strip=document.getElementById('verdictStrip');
+  strip.innerHTML=hourlyForward.map(h=>{
+    const b=verdictBucket(h.activity,h.time);
+    const label=`kl ${new Date(h.time).getHours()}:00 – ${h.activity||''}`;
+    return `<div class="seg ${b}" title="${label}"></div>`;
+  }).join('');
+
+  drawMainChart(hourly);
+
+  // Beste vinduer (rangert liste)
+  const win=d.fine_windows||[];
+  const winCard=document.getElementById('windowsCard');
+  if(win.length){
+    winCard.style.display='block';
+    const maxHours=Math.max(...win.map(w=>w.hours),1);
+    document.getElementById('windowsList').innerHTML=win.map(w=>{
+      const day=new Date(w.start).toLocaleDateString('no-NO',{weekday:'short'});
+      const range=`${fmtLocal(w.start,{hour:'2-digit',minute:'2-digit'})}–${fmtLocal(w.end,{hour:'2-digit',minute:'2-digit'})}`;
+      const pct=Math.round(w.hours/maxHours*100);
+      return `<div class="window-row">
+        <div class="w-day">${day}</div>
+        <div class="w-range">${range}</div>
+        <div class="w-bar"><div class="w-fill" style="width:${pct}%"></div></div>
+        <div class="w-hours">${w.hours} t</div>
+      </div>`;
+    }).join('');
+  }else{
+    winCard.style.display='block';
+    document.getElementById('windowsList').innerHTML='<div class="muted" style="padding:8px 0">Ingen tydelige finværsvinduer funnet enda.</div>';
+  }
+
+  // 7-dagers strip
+  const daily=d.daily||[];
+  document.getElementById('dailyCard').style.display='block';
+  // Lukk evt. åpen detalj-panel ved ny data-lasting
+  document.getElementById('dayDetail').classList.remove('show');
+  document.querySelectorAll('.daily-cell.active').forEach(el=>el.classList.remove('active'));
+
+  document.getElementById('dailyGrid').innerHTML=daily.map((x,idx)=>{
+    const day=new Date(x.date).toLocaleDateString('no-NO',{weekday:'short',day:'numeric',month:'short'});
+    let icon='☀️';
+    const sun=x.sun_hours ?? 0;
+    if((x.gust_max??0)>=15) icon='🌬️';
+    else if((x.rain_total??0)>=1.5) icon='🌧️';
+    else if(sun<2) icon='☁️';
+    else if(sun<5) icon='⛅';
+    else icon='☀️';
+    const sunStr=sun>0?`☀️ ${sun} soltimer`:`☁️ ingen sol`;
+    return `<div class="daily-cell" data-day-idx="${idx}">
+      <span class="d-arrow">▼</span>
+      <div class="d-day">${day}</div>
+      <div class="d-icon-temp"><span class="d-icon">${icon}</span><span class="d-temp">${x.temp_max??'–'}°</span></div>
+      <div class="d-meta">${x.temp_min??'–'}° · ${x.rain_total} mm</div>
+      <div class="d-sun">${sunStr}</div>
+    </div>`;
+  }).join('');
+
+  // Klikk-handlere for daglig-celler
+  document.querySelectorAll('.daily-cell').forEach(cell=>{
+    cell.addEventListener('click',()=>{
+      const idx=Number(cell.dataset.dayIdx);
+      const wasActive=cell.classList.contains('active');
+      document.querySelectorAll('.daily-cell.active').forEach(el=>el.classList.remove('active'));
+      if(wasActive){
+        document.getElementById('dayDetail').classList.remove('show');
+        return;
+      }
+      cell.classList.add('active');
+      showDayDetail(daily[idx]);
+    });
+  });
+
+  // Timesoversikt (kompakt tabell, beholdt for de som vil ha detaljer)
+  document.getElementById('hourlyCard').style.display='block';
+  document.getElementById('hourlyBody').innerHTML=hourlyForward.map(h=>{
+    const b=verdictBucket(h.activity,h.time);
+    const rowClass=b==='good'?'row-good':(b==='night'?'row-night':'');
+    const rainStr=h.rain_min!=null&&h.rain_max!=null?`${h.rain} mm <span class="muted">(${h.rain_min}–${h.rain_max})</span>`:`${h.rain} mm`;
+    return `<tr class="${rowClass}">
+      <td class="time-cell">${weatherEmoji(h.symbol)} ${fmtLocal(h.time,{weekday:'short',hour:'2-digit',minute:'2-digit'})}</td>
+      <td class="num">${h.temp??'–'}°</td>
+      <td class="num">${rainStr}</td>
+      <td class="num">${h.rain_prob??'–'}%</td>
+      <td class="num">${h.wind} <span class="muted">(${h.gust})</span></td>
+      <td>${h.wind_dir||'–'}</td>
+      <td>${h.activity||''}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
+// Dag-detaljer (expand-panel)
+// ============================================================
+let dayChart=null;
+
+function showDayDetail(day){
+  const panel=document.getElementById('dayDetail');
+  const title=new Date(day.date).toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('dayDetailTitle').textContent=title;
+
+  // Statistikk-kort
+  document.getElementById('dayStats').innerHTML=`
+    <div class="day-stat"><div class="ds-lbl">Temperatur</div><div class="ds-val">${day.temp_min}° – ${day.temp_max}°</div></div>
+    <div class="day-stat"><div class="ds-lbl">Nedbør totalt</div><div class="ds-val">${day.rain_total}<small> mm</small></div></div>
+    <div class="day-stat"><div class="ds-lbl">Soltimer</div><div class="ds-val">${day.sun_hours ?? 0}<small> t</small></div></div>
+    <div class="day-stat"><div class="ds-lbl">Maks vind</div><div class="ds-val">${day.wind_max ?? '–'}<small> m/s</small></div></div>
+    <div class="day-stat"><div class="ds-lbl">Maks kast</div><div class="ds-val">${day.gust_max ?? '–'}<small> m/s</small></div></div>
+  `;
+
+  // Beste 6-timers blokk
+  const b6=day.best_6h;
+  const banner=document.getElementById('best6Banner');
+  if(b6){
+    const sh=String(b6.start_hour).padStart(2,'0');
+    const eh=String(b6.end_hour).padStart(2,'0');
+    banner.innerHTML=`🎯 <strong>Beste 6-timers vindu:</strong> kl. ${sh}:00–${eh}:00 · snitt ${b6.avg_temp}°, ${b6.total_rain} mm nedbør, vind opp til ${b6.max_wind} m/s`;
+    banner.style.display='flex';
+  }else{
+    banner.style.display='none';
+  }
+
+  // Timesgraf for dagen
+  drawDayChart(day.hours||[], b6);
+
+  panel.classList.add('show');
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function drawDayChart(hours,b6){
+  const labels=hours.map(h=>String(new Date(h.time).getHours()).padStart(2,'0'));
+  const temp=hours.map(h=>h.temp);
+  const rain=hours.map(h=>h.rain ?? 0);
+
+  // Custom plugin: marker beste 6t-blokk med grønn bakgrunn
+  let startIdx=-1;
+  if(b6){
+    startIdx=hours.findIndex(h=>new Date(h.time).getHours()===b6.start_hour);
+  }
+  const best6Plugin={
+    id:'best6Box',
+    beforeDatasetsDraw(chart){
+      if(startIdx<0) return;
+      const xScale=chart.scales.x;
+      const yArea=chart.chartArea;
+      const x1=xScale.getPixelForValue(startIdx)-((xScale.getPixelForValue(1)-xScale.getPixelForValue(0))/2);
+      const x2=xScale.getPixelForValue(startIdx+5)+((xScale.getPixelForValue(1)-xScale.getPixelForValue(0))/2);
+      const ctx=chart.ctx;
+      ctx.save();
+      ctx.fillStyle='rgba(134,239,172,0.25)';
+      ctx.fillRect(x1, yArea.top, x2-x1, yArea.bottom-yArea.top);
+      ctx.restore();
+    }
+  };
+
+  const ctx=document.getElementById('dayChart').getContext('2d');
+  if(dayChart) dayChart.destroy();
+
+  dayChart=new Chart(ctx,{
+    plugins:[best6Plugin],
+    data:{
+      labels:labels,
+      datasets:[
+        {
+          type:'bar',
+          label:'Nedbør',
+          data:rain,
+          backgroundColor:'rgba(37,99,235,0.75)',
+          yAxisID:'yRain',
+          order:2,
+          barPercentage:0.9,
+          categoryPercentage:0.9
+        },
+        {
+          type:'line',
+          label:'Temperatur',
+          data:temp,
+          borderColor:'rgba(234,88,12,1)',
+          backgroundColor:'rgba(234,88,12,0.08)',
+          borderWidth:2,
+          tension:0.35,
+          fill:true,
+          pointRadius:0,
+          pointHoverRadius:3,
+          yAxisID:'yTemp',
+          order:1
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            title:(items)=>`kl. ${items[0].label}:00`,
+            label:(ctx)=>{
+              if(ctx.dataset.label==='Temperatur') return `Temp: ${ctx.parsed.y?.toFixed(1)}°`;
+              if(ctx.dataset.label==='Nedbør') return `Regn: ${ctx.parsed.y?.toFixed(1)} mm`;
+              return '';
+            }
+          }
+        }
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:12,font:{size:10}}},
+        yTemp:{position:'left',grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:(v)=>v+'°'}},
+        yRain:{position:'right',grid:{display:false},min:0,suggestedMax:2,ticks:{font:{size:10}}}
+      }
+    }
+  });
+}
+
+document.getElementById('dayDetailClose').addEventListener('click',()=>{
+  document.getElementById('dayDetail').classList.remove('show');
+  document.querySelectorAll('.daily-cell.active').forEach(el=>el.classList.remove('active'));
+});
+
+// ============================================================
+// Hovedgraf (-3t til +24t)
+// ============================================================
+function drawMainChart(hourly){
+  const labels=hourly.map(h=>{
+    const dt=new Date(h.time);
+    return dt.getHours().toString().padStart(2,'0');
+  });
+  // Finn indeks for "nå" – siste historiske time + 0.5 (eller første prognose)
+  let nowIdx=-1;
+  for(let i=0;i<hourly.length;i++){
+    if(!hourly[i].is_history){ nowIdx=i; break; }
+  }
+  if(nowIdx<0) nowIdx=hourly.length;
+
+  // Data-arrays: splitt temp i historikk vs prognose (to datasets for visuelt skille)
+  const tempHist=hourly.map((h,i)=>h.is_history ? h.temp : null);
+  const tempFcst=hourly.map((h,i)=>{
+    if(h.is_history) return null;
+    // Inkluder siste historiske punkt for å koble linjene
+    return h.temp;
+  });
+  // Knytt linjene sammen: duplisér overgangs-punktet
+  if(nowIdx>0 && nowIdx<hourly.length){
+    tempHist[nowIdx]=hourly[nowIdx-1].temp;
+  }
+
+  const rainExp=hourly.map(h=>h.rain ?? 0);
+  const rainUnc=hourly.map(h=>{
+    const mx=h.rain_max ?? h.rain ?? 0;
+    const exp=h.rain ?? 0;
+    return Math.max(0, mx - exp);
+  });
+  const prob=hourly.map(h=>h.rain_prob ?? 0);
+
+  // Custom plugin: tegn vertikal "nå"-linje
+  const nowLinePlugin={
+    id:'nowLine',
+    afterDraw(chart){
+      if(nowIdx<=0 || nowIdx>=hourly.length) return;
+      const xScale=chart.scales.x;
+      const yArea=chart.chartArea;
+      // Plasser linjen mellom nowIdx-1 og nowIdx (dvs. ved grensen)
+      const x=xScale.getPixelForValue(nowIdx)-((xScale.getPixelForValue(nowIdx)-xScale.getPixelForValue(nowIdx-1))/2);
+      const ctx=chart.ctx;
+      ctx.save();
+      ctx.strokeStyle='rgba(220,38,38,0.65)';
+      ctx.lineWidth=1.5;
+      ctx.setLineDash([4,3]);
+      ctx.beginPath();
+      ctx.moveTo(x,yArea.top);
+      ctx.lineTo(x,yArea.bottom);
+      ctx.stroke();
+      // "NÅ"-label
+      ctx.setLineDash([]);
+      ctx.fillStyle='rgba(220,38,38,0.85)';
+      ctx.font='600 10px -apple-system, sans-serif';
+      ctx.textAlign='center';
+      ctx.fillText('NÅ', x, yArea.top+10);
+      ctx.restore();
+    }
+  };
+
+  const ctx=document.getElementById('mainChart').getContext('2d');
+  if(mainChart) mainChart.destroy();
+
+  mainChart=new Chart(ctx,{
+    plugins:[nowLinePlugin],
+    data:{
+      labels:labels,
+      datasets:[
+        {
+          type:'bar',
+          label:'Usikkerhet (maks)',
+          data:rainUnc,
+          backgroundColor:(ctx)=>ctx.dataIndex<nowIdx?'rgba(147,197,253,0.3)':'rgba(147,197,253,0.6)',
+          yAxisID:'yRain',
+          stack:'precip',
+          order:3,
+          barPercentage:1.0,
+          categoryPercentage:0.85
+        },
+        {
+          type:'bar',
+          label:'Nedbør (forventet)',
+          data:rainExp,
+          backgroundColor:(ctx)=>ctx.dataIndex<nowIdx?'rgba(37,99,235,0.45)':'rgba(37,99,235,0.85)',
+          yAxisID:'yRain',
+          stack:'precip',
+          order:2,
+          barPercentage:1.0,
+          categoryPercentage:0.85
+        },
+        {
+          type:'line',
+          label:'Sjanse for regn (%)',
+          data:prob.map((p,i)=>i<nowIdx?null:p),
+          borderColor:'rgba(100,116,139,0.7)',
+          borderDash:[3,3],
+          borderWidth:1.5,
+          pointRadius:0,
+          pointHoverRadius:3,
+          tension:0.3,
+          fill:false,
+          yAxisID:'yProb',
+          order:1,
+          spanGaps:false
+        },
+        {
+          type:'line',
+          label:'Temperatur (historikk)',
+          data:tempHist,
+          borderColor:'rgba(234,88,12,0.45)',
+          backgroundColor:'rgba(234,88,12,0.04)',
+          borderWidth:2,
+          borderDash:[2,3],
+          tension:0.35,
+          fill:true,
+          pointRadius:0,
+          pointHoverRadius:4,
+          yAxisID:'yTemp',
+          order:0,
+          spanGaps:false
+        },
+        {
+          type:'line',
+          label:'Temperatur',
+          data:tempFcst,
+          borderColor:'rgba(234,88,12,1)',
+          backgroundColor:'rgba(234,88,12,0.08)',
+          borderWidth:2.5,
+          tension:0.35,
+          fill:true,
+          pointRadius:0,
+          pointHoverRadius:4,
+          yAxisID:'yTemp',
+          order:0,
+          spanGaps:false
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          filter:(item)=>item.dataset.label!=='Temperatur (historikk)' || item.raw!=null,
+          callbacks:{
+            title:(items)=>{
+              const i=items[0].dataIndex;
+              const prefix=i<nowIdx?'(tidligere) ':'';
+              return `${prefix}kl. ${items[0].label}:00`;
+            },
+            label:(ctx)=>{
+              if(ctx.dataset.label==='Temperatur'||ctx.dataset.label==='Temperatur (historikk)'){
+                if(ctx.parsed.y==null) return null;
+                return `Temp: ${ctx.parsed.y?.toFixed(1)}°`;
+              }
+              if(ctx.dataset.label==='Nedbør (forventet)') return `Regn: ${ctx.parsed.y?.toFixed(1)} mm`;
+              if(ctx.dataset.label==='Usikkerhet (maks)'){
+                const tot=ctx.parsed.y+(ctx.chart.data.datasets[1].data[ctx.dataIndex]||0);
+                return `Maks regn: ${tot.toFixed(1)} mm`;
+              }
+              if(ctx.dataset.label==='Sjanse for regn (%)') return `Sjanse: ${Math.round(ctx.parsed.y)}%`;
+              return null;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{display:false},
+          ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:12,font:{size:11}}
+        },
+        yTemp:{
+          position:'left',
+          title:{display:true,text:'°C',font:{size:11}},
+          grid:{color:'rgba(0,0,0,0.06)'},
+          ticks:{font:{size:11},callback:(v)=>v+'°'}
+        },
+        yRain:{
+          position:'right',
+          title:{display:true,text:'mm',font:{size:11}},
+          grid:{display:false},
+          min:0,
+          suggestedMax:2,
+          ticks:{font:{size:11}}
+        },
+        yProb:{
+          display:false,
+          min:0,
+          max:100
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// Kollapsbar "Rask oversikt" – laster først når man åpner
+// ============================================================
+let overviewLoaded=false;
+document.querySelector('.overview-card').addEventListener('toggle',(e)=>{
+  if(e.target.open && !overviewLoaded){
+    overviewLoaded=true;
+    loadOverview();
+  }
+});
+
 async function loadOverview(){
   overviewBody.innerHTML='<tr><td colspan="7" class="muted">Laster oversikt …</td></tr>';
   const rows=await Promise.all(overviewPlaces.map(async(p)=>{
@@ -2208,23 +3041,10 @@ async function loadOverview(){
     </tr>`;
   }).join('');
 }
-function renderData(d){
-  document.getElementById('results').style.display='block';
-  document.getElementById('title').textContent=`${d.sted} (${d.coords.lat.toFixed(4)}, ${d.coords.lon.toFixed(4)})`;
-  document.getElementById('quality').innerHTML=`<div class="chip">Kvalitet ${d.quality.score} · ${d.quality.label}</div> <span class="muted">${d.quality.reason}</span>`;
-  const k=[['☀️ Nåtemp',`${d.summary.temp_now}°C`],['🌡️ Min/maks 24t',`${d.summary.temp_min_24h}° / ${d.summary.temp_max_24h}°`],['🌧️ Nedbør 24t',`${d.summary.rain_24h} mm`],['💨 Maks vind',`${d.summary.max_wind_24h} m/s`],['🌬️ Maks kast',`${d.summary.max_gust_24h} m/s`]];
-  document.getElementById('kpi').innerHTML=k.map(x=>`<div class="box"><div class="lbl">${x[0]}</div><div class="val">${x[1]}</div></div>`).join('');
 
-  document.getElementById('windowsCard').style.display='block';
-  const win=d.fine_windows||[];
-  document.getElementById('windows').innerHTML=win.length?win.map(w=>`<span class="chip">☀️ ${fmtLocal(w.start,{weekday:'short',hour:'2-digit',minute:'2-digit'})}–${fmtLocal(w.end,{hour:'2-digit',minute:'2-digit'})} (${w.hours}t)</span>`).join(''):'<span class="muted">Ingen tydelige finværsvinduer funnet enda.</span>';
-
-  document.getElementById('hourlyCard').style.display='block';
-  document.getElementById('hourlyBody').innerHTML=(d.hourly||[]).map(h=>`<tr><td>${weatherEmoji(h.symbol)} ${fmtLocal(h.time,{weekday:'short',hour:'2-digit',minute:'2-digit'})}</td><td>🌡️ ${h.temp??'–'}°C</td><td>${precipEmoji(h.rain)} ${h.rain} mm ${h.rain_min!=null&&h.rain_max!=null?`(${h.rain_min}-${h.rain_max})`:''}</td><td>🎯 ${h.rain_prob??'–'}%</td><td>${windEmoji(h.wind)} ${h.wind} (${h.gust}) m/s</td><td>🧭 ${h.wind_dir}</td><td>${h.activity}</td></tr>`).join('');
-
-  document.getElementById('dailyCard').style.display='block';
-  document.getElementById('dailyBody').innerHTML=(d.daily||[]).map(x=>`<tr><td>${new Date(x.date).toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'short'})}</td><td>${x.temp_min??'–'}° / ${x.temp_max??'–'}°</td><td>${x.rain_total} mm</td><td>${x.wind_max??'–'} / ${x.gust_max??'–'} m/s</td></tr>`).join('');
-}
+// ============================================================
+// Søk + geolokasjon
+// ============================================================
 async function searchPlace(){
   const q=placeInput.value.trim();
   if(q.length<2){setStatus('Skriv minst 2 tegn for stedsøk.');return;}
@@ -2233,11 +3053,14 @@ async function searchPlace(){
   const d=await r.json();
   const items=d.items||[];
   suggestionsEl.innerHTML=items.map(it=>`<button class="chip" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${it.name.replace(/"/g,'&quot;')}">${it.name}</button>`).join('');
-  if(!items.length){setStatus('Fant ingen treff.');}
+  if(!items.length){setStatus('Fant ingen treff.');}else{setStatus('');}
 }
+
 document.getElementById('searchBtn').addEventListener('click',searchPlace);
+placeInput.addEventListener('keydown',(e)=>{if(e.key==='Enter') searchPlace();});
 suggestionsEl.addEventListener('click',(e)=>{
   const b=e.target.closest('button[data-lat]'); if(!b) return;
+  suggestionsEl.innerHTML='';
   loadForecast(Number(b.dataset.lat),Number(b.dataset.lon),b.dataset.name);
 });
 document.getElementById('geoBtn').addEventListener('click',()=>{
@@ -2248,7 +3071,18 @@ document.getElementById('geoBtn').addEventListener('click',()=>{
     ()=>setStatus('Kunne ikke hente posisjon.')
   );
 });
-loadOverview();
+
+// Auto-hent posisjon ved sidelast
+window.addEventListener('load',()=>{
+  if(navigator.geolocation){
+    setStatus('Henter posisjon …');
+    navigator.geolocation.getCurrentPosition(
+      (pos)=>loadForecast(pos.coords.latitude,pos.coords.longitude,'Min posisjon'),
+      ()=>setStatus('Trykk «Bruk min posisjon» eller søk et sted.')
+    );
+  }
+});
 </script>
 </body>
 </html>"""
+
