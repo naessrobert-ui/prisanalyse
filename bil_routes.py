@@ -308,6 +308,11 @@ def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
         "rekkevidde": pick(["rekkevidde_str", "rekkevidde"]),
         "drivstoff": pick(["drivstoff"]),
         "hjuldrift": pick(["hjuldrift"]),
+        "farge": pick(["farge", "Farge", "eksteriorfarge", "ExteriorColor"]),
+        "personlig_skilt": pick(["personlig_skilt", "Personlig_skilt", "personligskilt", "har_personlig_skilt"]),
+        "storrelseklasse": pick(["storrelseklasse", "størrelseklasse", "bilstorrelse", "bilstørrelse", "segment"]),
+        "motor_effekt_hk": pick(["motor_effekt_hk", "effekt_hk", "hestekrefter", "hk", "power_hp"]),
+        "motor_effekt_kw": pick(["motor_effekt_kw", "effekt_kw", "kw", "power_kw"]),
     }
 
     with _PARQUET_CACHE_LOCK:
@@ -417,6 +422,47 @@ def _build_where_sql(filters: dict, colmap: dict):
         placeholders = ",".join(["?"] * len(vals))
         clauses.append(f"{_qident(colmap['hjuldrift'])} IN ({placeholders})")
         params.extend(vals)
+
+    # Farge (multi)
+    if colmap.get("farge") and isinstance(filters.get("farge"), list) and filters["farge"]:
+        vals = filters["farge"]
+        placeholders = ",".join(["?"] * len(vals))
+        clauses.append(f"{_qident(colmap['farge'])} IN ({placeholders})")
+        params.extend(vals)
+
+    # Personlig skilt
+    if colmap.get("personlig_skilt") and filters.get("personlig_skilt") in ("ja", "nei"):
+        bool_expr = _bool_expr(_qident(colmap["personlig_skilt"]))
+        if filters["personlig_skilt"] == "ja":
+            clauses.append(f"({bool_expr}) = true")
+        else:
+            clauses.append(f"({bool_expr}) = false")
+
+    # Størrelseklasse
+    if colmap.get("storrelseklasse") and isinstance(filters.get("storrelseklasse"), list) and filters["storrelseklasse"]:
+        vals = filters["storrelseklasse"]
+        placeholders = ",".join(["?"] * len(vals))
+        clauses.append(f"{_qident(colmap['storrelseklasse'])} IN ({placeholders})")
+        params.extend(vals)
+
+    # Motorstyrke i hk (primært), evt. kw fallback
+    c_hk = _qident(colmap["motor_effekt_hk"]) if colmap.get("motor_effekt_hk") else None
+    c_kw = _qident(colmap["motor_effekt_kw"]) if colmap.get("motor_effekt_kw") else None
+    motor_expr = None
+    if c_hk and c_kw:
+        motor_expr = f"coalesce(try_cast({c_hk} AS DOUBLE), try_cast({c_kw} AS DOUBLE) * 1.34102209)"
+    elif c_hk:
+        motor_expr = f"try_cast({c_hk} AS DOUBLE)"
+    elif c_kw:
+        motor_expr = f"(try_cast({c_kw} AS DOUBLE) * 1.34102209)"
+
+    if motor_expr:
+        if filters.get("motor_hk_min") not in (None, ""):
+            clauses.append(f"{motor_expr} >= ?")
+            params.append(float(filters["motor_hk_min"]))
+        if filters.get("motor_hk_max") not in (None, ""):
+            clauses.append(f"{motor_expr} <= ?")
+            params.append(float(filters["motor_hk_max"]))
 
     where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     return where_sql, params
@@ -638,6 +684,11 @@ def get_bil_solgt_data():
         c_pris_ny = col_or_null("pris_ny")
         c_dato_start = col_or_null("dato_start")
         c_finn = col_or_null("finnkode")
+        c_farge = col_or_null("farge")
+        c_personlig_skilt = col_or_null("personlig_skilt")
+        c_storrelseklasse = col_or_null("storrelseklasse")
+        c_motor_hk = col_or_null("motor_effekt_hk")
+        c_motor_kw = col_or_null("motor_effekt_kw")
 
         pris_start_num = f"coalesce(try_cast({c_pris_start} AS BIGINT), 0)"
         pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
@@ -654,6 +705,8 @@ def get_bil_solgt_data():
         pris_endring_expr = f"({pris_ny_num} - {pris_start_num})"
         finnkode_str = f"regexp_replace(cast({c_finn} as varchar), '\\\\.0$', '')"
         finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
+        motor_hk_expr = f"coalesce(try_cast({c_motor_hk} AS DOUBLE), try_cast({c_motor_kw} AS DOUBLE) * 1.34102209)"
+        personlig_skilt_expr = _bool_expr(c_personlig_skilt) if colmap.get("personlig_skilt") else "NULL"
 
         solgt_expr = _bool_expr(c_solgt) if colmap.get("solgt") else None
 
@@ -720,6 +773,10 @@ def get_bil_solgt_data():
             {c_driv} AS drivstoff,
             {c_hjul} AS hjuldrift,
             {c_rekk} AS rekkevidde,
+            {c_farge} AS farge,
+            {c_storrelseklasse} AS storrelseklasse,
+            {motor_hk_expr} AS motor_hk,
+            {personlig_skilt_expr} AS personlig_skilt,
             {c_selger} AS selger,
             {c_over} AS overskrift,
             {dato_start_ts} AS dato_start,
