@@ -308,6 +308,13 @@ def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
         "rekkevidde": pick(["rekkevidde_str", "rekkevidde"]),
         "drivstoff": pick(["drivstoff"]),
         "hjuldrift": pick(["hjuldrift"]),
+        "farge": pick(["farge", "Farge", "eksteriorfarge", "ExteriorColor"]),
+        "personlig_skilt": pick(["personlig_skilt", "Personlig_skilt", "personligskilt", "har_personlig_skilt"]),
+        "storrelseklasse": pick(["storrelseklasse", "størrelseklasse", "bilstorrelse", "bilstørrelse", "segment"]),
+        "motor_effekt_hk": pick(["motor_effekt_hk", "effekt_hk", "hestekrefter", "hk", "power_hp"]),
+        "motor_effekt_kw": pick(["motor_effekt_kw", "effekt_kw", "kw", "power_kw"]),
+        "bruktimport": pick(["svv_bruktimportert", "bruktimport", "Bruktimport", "brukt_import", "importert_brukt", "is_imported_used"]),
+        "import_land": pick(["svv_importland_navn", "import_land", "importland", "opprinnelsesland", "import_country", "origin_country"]),
     }
 
     with _PARQUET_CACHE_LOCK:
@@ -327,6 +334,25 @@ def _bool_expr(col_ident: str) -> str:
         when {col_ident} is null then false
         when try_cast({col_ident} as BOOLEAN) is not null then try_cast({col_ident} as BOOLEAN)
         when lower(trim(cast({col_ident} as varchar))) in ('1','true','t','yes','y','ja') then true
+        else false
+      end
+    )
+    """
+
+
+def _imported_expr(col_ident: str) -> str:
+    """
+    Returnerer true for eksplisitte import-verdier (SANN/TRUE/1/JA).
+    Alt annet (inkl. NULL/blank/manglende) blir false.
+    """
+    txt = f"trim(cast({col_ident} as varchar))"
+    return f"""
+    (
+      case
+        when {col_ident} is null then false
+        when {txt} = '' then false
+        when try_cast({col_ident} as BOOLEAN) is not null then try_cast({col_ident} as BOOLEAN)
+        when lower({txt}) in ('sann','true','t','1','ja','yes','y') then true
         else false
       end
     )
@@ -417,6 +443,67 @@ def _build_where_sql(filters: dict, colmap: dict):
         placeholders = ",".join(["?"] * len(vals))
         clauses.append(f"{_qident(colmap['hjuldrift'])} IN ({placeholders})")
         params.extend(vals)
+
+    # Farge (multi)
+    if colmap.get("farge") and isinstance(filters.get("farge"), list) and filters["farge"]:
+        vals = filters["farge"]
+        placeholders = ",".join(["?"] * len(vals))
+        clauses.append(f"{_qident(colmap['farge'])} IN ({placeholders})")
+        params.extend(vals)
+
+    # Personlig skilt
+    if colmap.get("personlig_skilt") and filters.get("personlig_skilt") in ("ja", "nei"):
+        bool_expr = _bool_expr(_qident(colmap["personlig_skilt"]))
+        if filters["personlig_skilt"] == "ja":
+            clauses.append(f"({bool_expr}) = true")
+        else:
+            clauses.append(f"({bool_expr}) = false")
+
+    # Størrelseklasse
+    if colmap.get("storrelseklasse") and isinstance(filters.get("storrelseklasse"), list) and filters["storrelseklasse"]:
+        vals = filters["storrelseklasse"]
+        placeholders = ",".join(["?"] * len(vals))
+        clauses.append(f"{_qident(colmap['storrelseklasse'])} IN ({placeholders})")
+        params.extend(vals)
+
+    # Bruktimport (ja/nei)
+    if filters.get("bruktimport") in ("ja", "nei"):
+        if colmap.get("bruktimport"):
+            bool_expr = _imported_expr(_qident(colmap["bruktimport"]))
+            if filters["bruktimport"] == "ja":
+                clauses.append(f"({bool_expr}) = true")
+            else:
+                clauses.append(f"({bool_expr}) = false")
+        else:
+            # Manglende felt tolkes som usann: "ja" skal gi 0 treff, "nei" gir ingen ekstra begrensning.
+            if filters["bruktimport"] == "ja":
+                clauses.append("1 = 0")
+
+    # Importland (multi)
+    if colmap.get("import_land") and isinstance(filters.get("import_land"), list) and filters["import_land"]:
+        vals = filters["import_land"]
+        placeholders = ",".join(["?"] * len(vals))
+        clauses.append(f"{_qident(colmap['import_land'])} IN ({placeholders})")
+        params.extend(vals)
+
+    # Motorstyrke i hk (primært), evt. kw fallback
+    c_hk = _qident(colmap["motor_effekt_hk"]) if colmap.get("motor_effekt_hk") else None
+    c_kw = _qident(colmap["motor_effekt_kw"]) if colmap.get("motor_effekt_kw") else None
+    motor_expr = None
+    if c_hk and c_kw:
+        motor_expr = f"coalesce(try_cast({c_hk} AS DOUBLE), try_cast({c_kw} AS DOUBLE) * 1.34102209)"
+    elif c_hk:
+        motor_expr = f"try_cast({c_hk} AS DOUBLE)"
+    elif c_kw:
+        motor_expr = f"(try_cast({c_kw} AS DOUBLE) * 1.34102209)"
+
+    if motor_expr:
+        if filters.get("motor_hk_min") not in (None, ""):
+            clauses.append(f"{motor_expr} >= ?")
+            params.append(float(filters["motor_hk_min"]))
+        if filters.get("motor_hk_max") not in (None, ""):
+            clauses.append(f"{motor_expr} <= ?")
+            params.append(float(filters["motor_hk_max"]))
 
     where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     return where_sql, params
@@ -544,6 +631,26 @@ def bil_solgt_analyse_side():
     return render_template(
         'bil_analyse_template.html',
         tittel="Dette ble bilene solgt for",
+        preset_bruktimport="",
+        data_url="/bil/solgt/data",
+        produsenter=metadata.get('produsenter', []),
+        models_by_prod=metadata.get('models_by_prod', {}),
+        drivstoff_opts=metadata.get('drivstoff_opts', []),
+        hjuldrift_opts=metadata.get('hjuldrift_opts', []),
+        year_min=metadata.get('year_min', 2000),
+        year_max=metadata.get('year_max', datetime.now().year),
+        km_min=metadata.get('km_min', 0),
+        km_max=metadata.get('km_max', 200000),
+    )
+
+
+@bil_bp.route('/solgt/bruktimport')
+def bil_solgt_bruktimport_side():
+    metadata = _get_metadata()
+    return render_template(
+        'bil_analyse_template.html',
+        tittel="Bruktimporterte biler",
+        preset_bruktimport="ja",
         data_url="/bil/solgt/data",
         produsenter=metadata.get('produsenter', []),
         models_by_prod=metadata.get('models_by_prod', {}),
@@ -638,6 +745,13 @@ def get_bil_solgt_data():
         c_pris_ny = col_or_null("pris_ny")
         c_dato_start = col_or_null("dato_start")
         c_finn = col_or_null("finnkode")
+        c_farge = col_or_null("farge")
+        c_personlig_skilt = col_or_null("personlig_skilt")
+        c_storrelseklasse = col_or_null("storrelseklasse")
+        c_motor_hk = col_or_null("motor_effekt_hk")
+        c_motor_kw = col_or_null("motor_effekt_kw")
+        c_bruktimport = col_or_null("bruktimport")
+        c_import_land = col_or_null("import_land")
 
         pris_start_num = f"coalesce(try_cast({c_pris_start} AS BIGINT), 0)"
         pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
@@ -654,6 +768,9 @@ def get_bil_solgt_data():
         pris_endring_expr = f"({pris_ny_num} - {pris_start_num})"
         finnkode_str = f"regexp_replace(cast({c_finn} as varchar), '\\\\.0$', '')"
         finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
+        motor_hk_expr = f"coalesce(try_cast({c_motor_hk} AS DOUBLE), try_cast({c_motor_kw} AS DOUBLE) * 1.34102209)"
+        personlig_skilt_expr = _bool_expr(c_personlig_skilt) if colmap.get("personlig_skilt") else "NULL"
+        bruktimport_expr = _imported_expr(c_bruktimport) if colmap.get("bruktimport") else "false"
 
         solgt_expr = _bool_expr(c_solgt) if colmap.get("solgt") else None
 
@@ -720,6 +837,12 @@ def get_bil_solgt_data():
             {c_driv} AS drivstoff,
             {c_hjul} AS hjuldrift,
             {c_rekk} AS rekkevidde,
+            {c_farge} AS farge,
+            {c_storrelseklasse} AS storrelseklasse,
+            {motor_hk_expr} AS motor_hk,
+            {personlig_skilt_expr} AS personlig_skilt,
+            {bruktimport_expr} AS bruktimport,
+            {c_import_land} AS import_land,
             {c_selger} AS selger,
             {c_over} AS overskrift,
             {dato_start_ts} AS dato_start,

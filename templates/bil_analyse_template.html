@@ -205,7 +205,7 @@
         <a href="/bil">← Til bilanalyse</a>
     </div>
 
-    <h1><span class="highlight">Dette</span> ble bilene solgt for</h1>
+    <h1>{{ tittel or "Dette ble bilene solgt for" }}</h1>
     <div class="subtitle">Se prisendringer, dager i markedet og annonse-historikk.</div>
 
     <div class="card" id="filterCard">
@@ -273,6 +273,30 @@
                 <label for="range_max">Rekkevidde til</label>
                 <input id="range_max" type="number" min="0" step="10" placeholder="valgfritt">
             </div>
+            <div>
+                <label for="motor_hk_min">Motor (hk) fra</label>
+                <input id="motor_hk_min" type="number" min="0" step="5" placeholder="valgfritt">
+            </div>
+            <div>
+                <label for="motor_hk_max">Motor (hk) til</label>
+                <input id="motor_hk_max" type="number" min="0" step="5" placeholder="valgfritt">
+            </div>
+            <div>
+                <label for="personlig_skilt">Personlig skilt</label>
+                <select id="personlig_skilt">
+                    <option value="">Alle</option>
+                    <option value="ja">Ja</option>
+                    <option value="nei">Nei</option>
+                </select>
+            </div>
+            <div>
+                <label for="bruktimport">Bruktimport</label>
+                <select id="bruktimport">
+                    <option value="">Alle</option>
+                    <option value="ja">Ja</option>
+                    <option value="nei">Nei</option>
+                </select>
+            </div>
 
             <div>
                 <label for="hjuldrift">Hjuldrift</label>
@@ -292,6 +316,21 @@
                     {% endfor %}
                 </select>
                 <button type="button" class="btn-mini" onclick="clearMultiSelect('drivstoff')">Nullstill drivstoff</button>
+            </div>
+            <div>
+                <label for="farge">Farge</label>
+                <select id="farge" multiple></select>
+                <button type="button" class="btn-mini" onclick="clearMultiSelect('farge')">Nullstill farge</button>
+            </div>
+            <div>
+                <label for="storrelseklasse">Størrelseklasse</label>
+                <select id="storrelseklasse" multiple></select>
+                <button type="button" class="btn-mini" onclick="clearMultiSelect('storrelseklasse')">Nullstill størrelse</button>
+            </div>
+            <div>
+                <label for="import_land">Importland</label>
+                <select id="import_land" multiple></select>
+                <button type="button" class="btn-mini" onclick="clearMultiSelect('import_land')">Nullstill importland</button>
             </div>
 
             <div></div>
@@ -349,6 +388,12 @@
                     <th data-key="overskrift">Info</th>
                     <th data-key="årstall">År</th>
                     <th data-key="kjørelengde">Km</th>
+                    <th data-key="farge">Farge</th>
+                    <th data-key="storrelseklasse">Størrelse</th>
+                    <th data-key="motor_hk">Motor (hk)</th>
+                    <th data-key="personlig_skilt">Pers. skilt</th>
+                    <th data-key="bruktimport">Bruktimport</th>
+                    <th data-key="import_land">Importland</th>
                     <th data-key="pris_start">Pris start</th>
                     <th data-key="pris_ny">Pris ny</th>
                     <th data-key="pris_endring">Endring</th>
@@ -368,6 +413,7 @@
 <script>
     const MODELS_BY_PROD_RAW = {{ models_by_prod | tojson }};
     const DATA_URL = "{{ data_url }}";
+    const PRESET_BRUKTIMPORT = "{{ preset_bruktimport or '' }}";
 
     const MODELS_BY_PROD = {};
     if (MODELS_BY_PROD_RAW && typeof MODELS_BY_PROD_RAW === "object") {
@@ -434,16 +480,30 @@
         const year_max = document.getElementById("year_max").value || null;
         const range_min = document.getElementById("range_min").value || null;
         const range_max = document.getElementById("range_max").value || null;
+        const motor_hk_min = document.getElementById("motor_hk_min").value || null;
+        const motor_hk_max = document.getElementById("motor_hk_max").value || null;
+        const personlig_skilt = document.getElementById("personlig_skilt").value || null;
+        const bruktimport = document.getElementById("bruktimport").value || null;
         const drivstoff = Array.from(document.getElementById("drivstoff").selectedOptions).map(o => o.value);
         const hjuldrift = Array.from(document.getElementById("hjuldrift").selectedOptions).map(o => o.value);
+        const farge = Array.from(document.getElementById("farge").selectedOptions).map(o => o.value);
+        const storrelseklasse = Array.from(document.getElementById("storrelseklasse").selectedOptions).map(o => o.value);
+        const import_land = Array.from(document.getElementById("import_land").selectedOptions).map(o => o.value);
 
         return {
             status,
             produsent, modell, startdato, modell_sok, seller_sok,
             pris_min, pris_max, km_max, km_min: null,
             year_min, year_max, range_min, range_max,
-            drivstoff, hjuldrift
+            motor_hk_min, motor_hk_max, personlig_skilt, bruktimport,
+            drivstoff, hjuldrift, farge, storrelseklasse, import_land
         };
+    }
+
+    function boolToJaNei(v) {
+        if (v === true) return "Ja";
+        if (v === false) return "Nei";
+        return "";
     }
 
     function updateKpis(kpis, count) {
@@ -537,6 +597,12 @@
                 <td class="info-col" title="${escapeHtml(row.overskrift || "")}">${escapeHtml(row.overskrift || "")}</td>
                 <td>${row["årstall"] != null ? row["årstall"] : ""}</td>
                 <td>${row["kjørelengde"] != null ? formatNumber(row["kjørelengde"]) : ""}</td>
+                <td>${escapeHtml(row.farge || "")}</td>
+                <td>${escapeHtml(row.storrelseklasse || "")}</td>
+                <td>${row.motor_hk != null ? formatNumber(Math.round(Number(row.motor_hk))) : ""}</td>
+                <td>${boolToJaNei(row.personlig_skilt)}</td>
+                <td>${boolToJaNei(row.bruktimport)}</td>
+                <td>${escapeHtml(row.import_land || "")}</td>
                 <td>${prisStart != null ? formatNumber(prisStart) : ""}</td>
                 <td>${prisNy != null ? formatNumber(prisNy) : ""}</td>
                 <td>${endring != null ? formatNumber(endring) : ""}</td>
@@ -654,6 +720,7 @@
 
             allRows = historikk;
             currentRows = historikk.slice();
+            syncDynamicFilterOptions(historikk);
 
             currentSortKey = (currentRows.length > 0 && currentRows[0] && currentRows[0].pris_ny === undefined)
                 ? "pris_last"
@@ -716,11 +783,42 @@
         });
     }
 
+    function syncDynamicFilterOptions(rows) {
+        const fields = [
+            { id: "farge", key: "farge" },
+            { id: "storrelseklasse", key: "storrelseklasse" },
+            { id: "import_land", key: "import_land" }
+        ];
+
+        fields.forEach(({ id, key }) => {
+            const sel = document.getElementById(id);
+            const selected = new Set(Array.from(sel.selectedOptions).map(o => o.value));
+            const values = Array.from(new Set(
+                rows
+                    .map(r => (r[key] ?? "").toString().trim())
+                    .filter(v => v.length > 0)
+            )).sort((a, b) => a.localeCompare(b, "nb"));
+
+            sel.innerHTML = "";
+            values.forEach(v => {
+                const opt = document.createElement("option");
+                opt.value = v;
+                opt.textContent = v;
+                opt.selected = selected.has(v);
+                sel.appendChild(opt);
+            });
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         setupModelDropdown();
         setupSortHandlers();
         document.getElementById("updateBtn").addEventListener("click", fetchData);
         document.getElementById("tableSearch").addEventListener("input", applyTableSearch);
+        if (PRESET_BRUKTIMPORT) {
+            document.getElementById("bruktimport").value = PRESET_BRUKTIMPORT;
+        }
+        fetchData();
     });
 </script>
 
