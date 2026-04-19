@@ -375,6 +375,7 @@
     const custom = [...el("group_cols").selectedOptions].map(o => o.value);
 
     const filters = {
+      date_field: "dato",
       fra_dato: el("fra_dato").value || null,
       til_dato: el("til_dato").value || null,
       max_days: num(el("max_days").value) ?? 3,
