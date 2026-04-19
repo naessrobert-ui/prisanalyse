@@ -2530,13 +2530,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 .day-stat .ds-val small{font-size:11px;color:var(--text-2);font-weight:400}
 .best6-banner{background:#dcfce7;border:1px solid #86efac;color:#15803d;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;align-items:center;gap:8px}
 .best6-banner strong{font-weight:600}
-.day-chart-box{position:relative;width:100%;height:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px}
-.day-symbol-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;margin:10px 0 12px}
-.sym-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 6px;border:1px solid var(--border);border-radius:10px;background:#fff}
-.sym-chip .t{font-size:11px;color:var(--text-2);font-weight:500}
-.sym-chip .wx{font-size:24px;line-height:1}
-.sym-chip .w{font-size:11px;color:var(--text-2);display:flex;align-items:center;gap:4px}
-.sym-chip .dir{font-size:13px;color:#334155}
+.day-chart-box{position:relative;width:100%;height:220px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px}
 
 /* Timesoversikt-tabell (kompakt) */
 .hourly-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
@@ -2664,7 +2658,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         </div>
         <div class="best6-banner" id="best6Banner" style="display:none"></div>
         <div class="day-stats" id="dayStats"></div>
-        <div class="day-symbol-strip" id="daySymbols"></div>
         <div class="day-chart-box">
           <canvas id="dayChart" role="img" aria-label="Timesdetaljer for valgt dag"></canvas>
         </div>
@@ -2740,14 +2733,16 @@ function fmtLocal(iso,opt={hour:'2-digit',minute:'2-digit'}){return new Date(iso
 
 function weatherEmoji(symbol){
   const s=String(symbol||'').toLowerCase();
+  const isNight=s.includes('night') || s.includes('polartwilight');
   if(s.includes('thunder')) return '⛈️';
   if(s.includes('sleet')) return '🌨️';
   if(s.includes('snow')) return '❄️';
   if(s.includes('rainshowers')||s.includes('heavyrain')||s.includes('rain')) return '🌧️';
   if(s.includes('fog')) return '🌫️';
-  if(s.includes('partlycloudy')) return '⛅';
+  if(s.includes('partlycloudy')) return isNight ? '🌙☁️' : '⛅';
   if(s.includes('cloudy')) return '☁️';
-  if(s.includes('clearsky')||s.includes('fair')) return '☀️';
+  if(s.includes('clearsky')||s.includes('fair')) return isNight ? '🌙' : '☀️';
+  if(isNight) return '🌙';
   return '🌤️';
 }
 
@@ -2972,7 +2967,7 @@ function renderHourlyTable(hours,titleLabel){
     const rainRange=(h.rain_min!=null&&h.rain_max!=null)?` <span class="muted">(${h.rain_min}–${h.rain_max})</span>`:'';
     const windBadge=`${windStrengthIcon(h.wind)} ${h.wind} m/s <span class="muted">(kast ${h.gust})</span>`;
     return `<tr class="${rowClass}">
-      <td class="time-cell">${weatherEmoji(h.symbol)} ${fmtLocal(h.time,{weekday:'short',hour:'2-digit',minute:'2-digit'})}</td>
+      <td class="time-cell">${weatherEmoji(h.symbol)} kl. ${fmtLocal(h.time,{hour:'2-digit',minute:'2-digit'})}</td>
       <td class="num">${h.temp??'–'}°</td>
       <td class="num">${h.rain ?? 0} mm${rainRange}</td>
       <td class="num">${h.rain_prob??'–'}%</td>
@@ -3001,16 +2996,6 @@ function showDayDetail(day){
     <div class="day-stat"><div class="ds-lbl">Maks vind</div><div class="ds-val">${day.wind_max ?? '–'}<small> m/s</small></div></div>
     <div class="day-stat"><div class="ds-lbl">Maks kast</div><div class="ds-val">${day.gust_max ?? '–'}<small> m/s</small></div></div>
   `;
-
-  const sym=(day.hours||[]).map(h=>{
-    const hour=String(new Date(h.time).getHours()).padStart(2,'0');
-    return `<div class="sym-chip" title="kl. ${hour}:00 · ${h.wind} m/s (${h.gust} kast)">
-      <div class="t">${hour}</div>
-      <div class="wx">${weatherEmoji(h.symbol)}</div>
-      <div class="w"><span class="dir">${windArrow(h.wind_deg)}</span><span>${h.wind ?? '–'} m/s</span></div>
-    </div>`;
-  }).join('');
-  document.getElementById('daySymbols').innerHTML=sym;
 
   // Beste 6-timers blokk
   const b6=day.best_6h;
@@ -3042,6 +3027,23 @@ function drawDayChart(hours,b6){
   if(b6){
     startIdx=hours.findIndex(h=>new Date(h.time).getHours()===b6.start_hour);
   }
+  const symbolPlugin={
+    id:'weatherSymbols',
+    afterDraw(chart){
+      const xScale=chart.scales.x;
+      const yArea=chart.chartArea;
+      const ctx=chart.ctx;
+      ctx.save();
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.font='16px -apple-system, "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+      hours.forEach((h,idx)=>{
+        const x=xScale.getPixelForValue(idx);
+        ctx.fillText(weatherEmoji(h.symbol), x, yArea.top-12);
+      });
+      ctx.restore();
+    }
+  };
   const best6Plugin={
     id:'best6Box',
     beforeDatasetsDraw(chart){
@@ -3062,7 +3064,7 @@ function drawDayChart(hours,b6){
   if(dayChart) dayChart.destroy();
 
   dayChart=new Chart(ctx,{
-    plugins:[best6Plugin],
+    plugins:[best6Plugin,symbolPlugin],
     data:{
       labels:labels,
       datasets:[
@@ -3110,6 +3112,7 @@ function drawDayChart(hours,b6){
       responsive:true,
       maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
+      layout:{padding:{top:24}},
       plugins:{
         legend:{display:false},
         tooltip:{
