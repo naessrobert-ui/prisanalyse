@@ -2409,10 +2409,12 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 .best6-banner{background:#dcfce7;border:1px solid #86efac;color:#15803d;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;align-items:center;gap:8px}
 .best6-banner strong{font-weight:600}
 .day-chart-box{position:relative;width:100%;height:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px}
-.day-symbol-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px;margin:10px 0 12px}
-.sym-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;border:1px solid var(--border);border-radius:8px;background:#fff}
-.sym-chip .t{font-size:10px;color:var(--text-2)}
-.sym-chip .w{font-size:11px;color:var(--text-2)}
+.day-symbol-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;margin:10px 0 12px}
+.sym-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 6px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.sym-chip .t{font-size:11px;color:var(--text-2);font-weight:500}
+.sym-chip .wx{font-size:24px;line-height:1}
+.sym-chip .w{font-size:11px;color:var(--text-2);display:flex;align-items:center;gap:4px}
+.sym-chip .dir{font-size:13px;color:#334155}
 
 /* Timesoversikt-tabell (kompakt) */
 .hourly-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
@@ -2636,9 +2638,9 @@ function windArrow(deg){
 
 function windStrengthIcon(speed){
   const s=Number(speed||0);
-  if(s>=12) return '🌬️';
-  if(s>=7) return '💨';
-  return '🍃';
+  if(s>=12) return '●';
+  if(s>=7) return '◍';
+  return '◌';
 }
 
 function setStatus(t){statusEl.textContent=t||'';}
@@ -2846,7 +2848,7 @@ function renderHourlyTable(hours,titleLabel){
     const b=verdictBucket(h.activity,h.time);
     const rowClass=b==='good'?'row-good':(b==='night'?'row-night':'');
     const rainRange=(h.rain_min!=null&&h.rain_max!=null)?` <span class="muted">(${h.rain_min}–${h.rain_max})</span>`:'';
-    const windBadge=`${windStrengthIcon(h.wind)} ${h.wind} <span class="muted">(${h.gust})</span>`;
+    const windBadge=`${windStrengthIcon(h.wind)} ${h.wind} m/s <span class="muted">(kast ${h.gust})</span>`;
     return `<tr class="${rowClass}">
       <td class="time-cell">${weatherEmoji(h.symbol)} ${fmtLocal(h.time,{weekday:'short',hour:'2-digit',minute:'2-digit'})}</td>
       <td class="num">${h.temp??'–'}°</td>
@@ -2882,8 +2884,8 @@ function showDayDetail(day){
     const hour=String(new Date(h.time).getHours()).padStart(2,'0');
     return `<div class="sym-chip" title="kl. ${hour}:00 · ${h.wind} m/s (${h.gust} kast)">
       <div class="t">${hour}</div>
-      <div>${weatherEmoji(h.symbol)}</div>
-      <div class="w">${windArrow(h.wind_deg)} ${windStrengthIcon(h.wind)}</div>
+      <div class="wx">${weatherEmoji(h.symbol)}</div>
+      <div class="w"><span class="dir">${windArrow(h.wind_deg)}</span><span>${h.wind ?? '–'} m/s</span></div>
     </div>`;
   }).join('');
   document.getElementById('daySymbols').innerHTML=sym;
