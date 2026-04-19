@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import math
+import os
+import json
 import time
 import traceback
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date as _date
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
@@ -26,6 +31,8 @@ from sunshine_map import build_sunshine_map_html
 from temp_map import build_min_temp_map_html
 from wind_map import build_wind_map_html
 from ver_station_db import load_station_db
+from yr_forecast import fetch_precip_forecast, fetch_temp_forecast
+from sunshine_forecast import fetch_sunshine_forecast
 
 # Snøprognose-logikk fra snow_increase.py
 from snow_increase import (
@@ -311,6 +318,16 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
         </div>
         <div class="kort-tittel">Vind og vindkast</div>
         <div class="kort-tekst">Se høyeste og gjennomsnittlig vind i kartet, eller bytt til forventet vind (Yr) for neste 24 timer.</div>
+        <div class="kort-lenke">Åpne</div>
+      </a>
+
+      <a class="kort kort-featured" href="/ver/klima-toppliste">
+        <div class="kort-topp">
+          <div class="kort-ikon">🏆</div>
+          <span class="kort-badge b-lilla">Auto</span>
+        </div>
+        <div class="kort-tittel">Klima-topplister</div>
+        <div class="kort-tekst">Mest/minst sol, nedbør, vind og høy temperatur for i år, siste måned, siste døgn og forventet neste døgn/syv døgn.</div>
         <div class="kort-lenke">Åpne</div>
       </a>
 
@@ -1854,15 +1871,32 @@ def api_sted_sok():
     q = (request.args.get("q") or "").strip()
     if len(q) < 2:
         return jsonify({"items": []})
-    r = requests.get(
-        "https://nominatim.openstreetmap.org/search",
-        params={"q": q, "format": "jsonv2", "addressdetails": 1, "limit": 8, "accept-language": "no"},
-        headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
-        timeout=15,
-    )
-    r.raise_for_status()
+
+    # Hurtig-fallback for vanlige norske byer hvis tredjeparts geokoding feiler/er treg.
+    by_fallback = {
+        "oslo": (59.91387, 10.75225, "Oslo, Norge"),
+        "bergen": (60.39299, 5.32415, "Bergen, Norge"),
+        "trondheim": (63.4305, 10.3951, "Trondheim, Norge"),
+        "stavanger": (58.97, 5.7331, "Stavanger, Norge"),
+        "kristiansand": (58.1467, 7.9956, "Kristiansand, Norge"),
+        "tromsø": (69.6492, 18.9553, "Tromsø, Norge"),
+        "tromso": (69.6492, 18.9553, "Tromsø, Norge"),
+    }
+
+    try:
+        r = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": q, "format": "jsonv2", "addressdetails": 1, "limit": 8, "accept-language": "no"},
+            headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
+            timeout=8,
+        )
+        r.raise_for_status()
+        raw_items = r.json() or []
+    except Exception:
+        raw_items = []
+
     items = []
-    for it in r.json() or []:
+    for it in raw_items:
         try:
             items.append(
                 {
@@ -1873,7 +1907,46 @@ def api_sted_sok():
             )
         except Exception:
             continue
+
+    if not items:
+        q_lower = q.lower()
+        for key, (lat, lon, label) in by_fallback.items():
+            if q_lower in key or key in q_lower:
+                items.append({"name": label, "lat": lat, "lon": lon})
+
     return jsonify({"items": items})
+
+
+def _reverse_geocode_label(lat: float, lon: float) -> Optional[str]:
+    try:
+        r = requests.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={"lat": lat, "lon": lon, "format": "jsonv2", "accept-language": "no"},
+            headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
+            timeout=6,
+        )
+        r.raise_for_status()
+        payload = r.json() or {}
+        address = payload.get("address") or {}
+
+        locality = (
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+            or address.get("municipality")
+            or address.get("hamlet")
+        )
+        country = address.get("country")
+        if locality and country:
+            return f"{locality}, {country}"
+        if locality:
+            return str(locality)
+        display_name = payload.get("display_name")
+        if display_name:
+            return str(display_name).split(",")[0].strip()
+    except Exception:
+        return None
+    return None
 
 
 @ver.get("/api/aktivt-varsel")
@@ -1884,15 +1957,20 @@ def api_aktivt_varsel():
     if lat is None or lon is None:
         return jsonify({"error": "lat/lon mangler"}), 400
 
+    if sted.lower() in {"min posisjon", "my location", "current location"}:
+        resolved_sted = _reverse_geocode_label(lat, lon)
+        if resolved_sted:
+            sted = resolved_sted
+
     ts = _hent_yr_komplett(lat, lon)
     now = datetime.now(timezone.utc)
-    history_start = now - pd.Timedelta(hours=3)  # 3 timer bakover i grafen
+    history_start = now - pd.Timedelta(hours=4)  # 4 timer bakover i grafen
     horizon_24 = now + pd.Timedelta(hours=24)
     horizon_7d = now + pd.Timedelta(days=7)
 
     rows_24 = []   # brukes til KPI + forward-only beregninger
-    rows_graf = [] # -3t til +24t (inkluderer historikk for grafen)
-    rows_7d = []   # -3t til +7d (alt vi har)
+    rows_graf = [] # -4t til +24t (inkluderer historikk for grafen)
+    rows_7d = []   # -4t til +7d (alt vi har)
     for it in ts:
         t = pd.to_datetime(it.get("time"), utc=True, errors="coerce")
         if pd.isna(t):
@@ -2090,7 +2168,16 @@ def api_aktivt_varsel():
                 "rain_prob": int(round(v["rain_prob"])) if v["rain_prob"] is not None else None,
                 "wind": round(float(v["wind"]), 1),
                 "gust": round(float(v["gust"]), 1),
+                "wind_deg": float(v["wind_deg"]) if v.get("wind_deg") is not None else None,
+                "wind_dir": _vindretning_txt_general(v.get("wind_deg")),
                 "cloud": round(float(v["cloud"]), 0) if v.get("cloud") is not None else None,
+                "activity": _til_aktivitetstype(
+                    v.get("temp") or 0.0,
+                    v.get("rain") or 0.0,
+                    v.get("wind") or 0.0,
+                    v.get("gust") or 0.0,
+                    t_local.hour,
+                ),
                 "symbol": v.get("symbol", ""),
             })
 
@@ -2277,6 +2364,10 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 .best6-banner{background:#dcfce7;border:1px solid #86efac;color:#15803d;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;align-items:center;gap:8px}
 .best6-banner strong{font-weight:600}
 .day-chart-box{position:relative;width:100%;height:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px}
+.day-symbol-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px;margin:10px 0 12px}
+.sym-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;border:1px solid var(--border);border-radius:8px;background:#fff}
+.sym-chip .t{font-size:10px;color:var(--text-2)}
+.sym-chip .w{font-size:11px;color:var(--text-2)}
 
 /* Timesoversikt-tabell (kompakt) */
 .hourly-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
@@ -2369,7 +2460,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
     <!-- Hovedgraf: 24 timer -->
     <div class="chart-card">
       <div class="chart-header">
-        <h3>Siste 3 timer + neste 24</h3>
+        <h3>Siste 4 timer + neste 24</h3>
         <div class="chart-legend">
           <span><span class="sw" style="background:var(--temp)"></span>Temperatur</span>
           <span><span class="sw" style="background:rgba(234,88,12,0.45);border:1px dashed rgba(234,88,12,0.7)"></span>Historikk</span>
@@ -2401,6 +2492,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         </div>
         <div class="best6-banner" id="best6Banner" style="display:none"></div>
         <div class="day-stats" id="dayStats"></div>
+        <div class="day-symbol-strip" id="daySymbols"></div>
         <div class="day-chart-box">
           <canvas id="dayChart" role="img" aria-label="Timesdetaljer for valgt dag"></canvas>
         </div>
@@ -2409,7 +2501,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 
     <!-- Detaljert timesoversikt (beholdt som tabell, mer kompakt) -->
     <div class="hourly-card" id="hourlyCard" style="display:none">
-      <h3>Detaljert timesoversikt</h3>
+      <h3 id="hourlyTitle">Detaljert timesoversikt</h3>
       <div style="overflow:auto">
         <table class="hourly-table">
           <thead><tr>
@@ -2487,6 +2579,20 @@ function weatherEmoji(symbol){
   return '🌤️';
 }
 
+function windArrow(deg){
+  if(deg==null || Number.isNaN(Number(deg))) return '•';
+  const dirs=['↑','↗','→','↘','↓','↙','←','↖'];
+  const idx=Math.round((Number(deg)%360)/45)%8;
+  return dirs[idx];
+}
+
+function windStrengthIcon(speed){
+  const s=Number(speed||0);
+  if(s>=12) return '🌬️';
+  if(s>=7) return '💨';
+  return '🍃';
+}
+
 function setStatus(t){statusEl.textContent=t||'';}
 
 // Kategoriser en enkelttimes "activity"-tekst til verdict-bøtte
@@ -2544,6 +2650,7 @@ async function loadForecast(lat,lon,name){
     const d=await r.json();
     if(!r.ok){setStatus(d.error||'Feil');return;}
     renderData(d);
+    cachePlace(d.coords?.lat ?? lat, d.coords?.lon ?? lon, d.sted || name || 'Valgt sted');
     setStatus('');
   }catch(e){
     setStatus('Kunne ikke hente varsel.');
@@ -2578,7 +2685,7 @@ function renderData(d){
     <div class="kpi-cell"><div class="kpi-lbl">Maks kast</div><div class="kpi-val">${s.max_gust_24h}<small> m/s</small></div></div>
   `;
 
-  // hourly inneholder -3t historikk + 24t prognose.
+  // hourly inneholder -4t historikk + 24t prognose.
   // Grafen bruker alt; verdict-strip og tabell bruker kun prognose.
   const hourly=(d.hourly||[]);
   const hourlyForward=hourly.filter(h=>!h.is_history);
@@ -2651,22 +2758,36 @@ function renderData(d){
       }
       cell.classList.add('active');
       showDayDetail(daily[idx]);
+      const dayLabel=new Date(daily[idx].date).toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'short'});
+      renderHourlyTable(daily[idx].hours||[], dayLabel);
     });
   });
 
   // Timesoversikt (kompakt tabell, beholdt for de som vil ha detaljer)
   document.getElementById('hourlyCard').style.display='block';
-  document.getElementById('hourlyBody').innerHTML=hourlyForward.map(h=>{
+  const defaultDay=daily[0];
+  if(defaultDay){
+    const label=new Date(defaultDay.date).toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'short'});
+    renderHourlyTable(defaultDay.hours||[], label);
+  }else{
+    renderHourlyTable(hourlyForward, 'neste døgn');
+  }
+}
+
+function renderHourlyTable(hours,titleLabel){
+  document.getElementById('hourlyTitle').textContent=`Detaljert timesoversikt – ${titleLabel}`;
+  document.getElementById('hourlyBody').innerHTML=(hours||[]).map(h=>{
     const b=verdictBucket(h.activity,h.time);
     const rowClass=b==='good'?'row-good':(b==='night'?'row-night':'');
-    const rainStr=h.rain_min!=null&&h.rain_max!=null?`${h.rain} mm <span class="muted">(${h.rain_min}–${h.rain_max})</span>`:`${h.rain} mm`;
+    const rainRange=(h.rain_min!=null&&h.rain_max!=null)?` <span class="muted">(${h.rain_min}–${h.rain_max})</span>`:'';
+    const windBadge=`${windStrengthIcon(h.wind)} ${h.wind} <span class="muted">(${h.gust})</span>`;
     return `<tr class="${rowClass}">
       <td class="time-cell">${weatherEmoji(h.symbol)} ${fmtLocal(h.time,{weekday:'short',hour:'2-digit',minute:'2-digit'})}</td>
       <td class="num">${h.temp??'–'}°</td>
-      <td class="num">${rainStr}</td>
+      <td class="num">${h.rain ?? 0} mm${rainRange}</td>
       <td class="num">${h.rain_prob??'–'}%</td>
-      <td class="num">${h.wind} <span class="muted">(${h.gust})</span></td>
-      <td>${h.wind_dir||'–'}</td>
+      <td class="num">${windBadge}</td>
+      <td>${windArrow(h.wind_deg)} ${h.wind_dir||'–'}</td>
       <td>${h.activity||''}</td>
     </tr>`;
   }).join('');
@@ -2691,6 +2812,16 @@ function showDayDetail(day){
     <div class="day-stat"><div class="ds-lbl">Maks kast</div><div class="ds-val">${day.gust_max ?? '–'}<small> m/s</small></div></div>
   `;
 
+  const sym=(day.hours||[]).map(h=>{
+    const hour=String(new Date(h.time).getHours()).padStart(2,'0');
+    return `<div class="sym-chip" title="kl. ${hour}:00 · ${h.wind} m/s (${h.gust} kast)">
+      <div class="t">${hour}</div>
+      <div>${weatherEmoji(h.symbol)}</div>
+      <div class="w">${windArrow(h.wind_deg)} ${windStrengthIcon(h.wind)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('daySymbols').innerHTML=sym;
+
   // Beste 6-timers blokk
   const b6=day.best_6h;
   const banner=document.getElementById('best6Banner');
@@ -2714,6 +2845,7 @@ function drawDayChart(hours,b6){
   const labels=hours.map(h=>String(new Date(h.time).getHours()).padStart(2,'0'));
   const temp=hours.map(h=>h.temp);
   const rain=hours.map(h=>h.rain ?? 0);
+  const wind=hours.map(h=>h.wind ?? 0);
 
   // Custom plugin: marker beste 6t-blokk med grønn bakgrunn
   let startIdx=-1;
@@ -2767,6 +2899,20 @@ function drawDayChart(hours,b6){
           pointHoverRadius:3,
           yAxisID:'yTemp',
           order:1
+        },
+        {
+          type:'line',
+          label:'Vind',
+          data:wind,
+          borderColor:'rgba(2,132,199,0.9)',
+          backgroundColor:'rgba(2,132,199,0.05)',
+          borderWidth:1.8,
+          tension:0.25,
+          fill:false,
+          pointRadius:0,
+          pointHoverRadius:3,
+          yAxisID:'yWind',
+          order:0
         }
       ]
     },
@@ -2782,6 +2928,7 @@ function drawDayChart(hours,b6){
             label:(ctx)=>{
               if(ctx.dataset.label==='Temperatur') return `Temp: ${ctx.parsed.y?.toFixed(1)}°`;
               if(ctx.dataset.label==='Nedbør') return `Regn: ${ctx.parsed.y?.toFixed(1)} mm`;
+              if(ctx.dataset.label==='Vind') return `Vind: ${ctx.parsed.y?.toFixed(1)} m/s`;
               return '';
             }
           }
@@ -2790,7 +2937,8 @@ function drawDayChart(hours,b6){
       scales:{
         x:{grid:{display:false},ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:12,font:{size:10}}},
         yTemp:{position:'left',grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:(v)=>v+'°'}},
-        yRain:{position:'right',grid:{display:false},min:0,suggestedMax:2,ticks:{font:{size:10}}}
+        yRain:{position:'right',offset:true,grid:{display:false},min:0,suggestedMax:2,ticks:{font:{size:10}}},
+        yWind:{position:'right',grid:{display:false},min:0,suggestedMax:12,ticks:{font:{size:10},callback:(v)=>v+' m/s'}}
       }
     }
   });
@@ -2802,7 +2950,7 @@ document.getElementById('dayDetailClose').addEventListener('click',()=>{
 });
 
 // ============================================================
-// Hovedgraf (-3t til +24t)
+// Hovedgraf (-4t til +24t)
 // ============================================================
 function drawMainChart(hourly){
   const labels=hourly.map(h=>{
@@ -3045,15 +3193,50 @@ async function loadOverview(){
 // ============================================================
 // Søk + geolokasjon
 // ============================================================
+const PLACE_CACHE_KEY='aktivt_varsel_last_place_v1';
+const BERGEN_DEFAULT={name:'Bergen, Norge',lat:60.39299,lon:5.32415};
+
+function cachePlace(lat,lon,name){
+  try{
+    localStorage.setItem(PLACE_CACHE_KEY,JSON.stringify({lat:Number(lat),lon:Number(lon),name:String(name||'Valgt sted')}));
+  }catch(_){}
+}
+
+function loadCachedPlace(){
+  try{
+    const raw=localStorage.getItem(PLACE_CACHE_KEY);
+    if(!raw) return null;
+    const p=JSON.parse(raw);
+    if(typeof p?.lat!=='number' || typeof p?.lon!=='number') return null;
+    return {lat:p.lat,lon:p.lon,name:p.name||'Valgt sted'};
+  }catch(_){
+    return null;
+  }
+}
+
 async function searchPlace(){
   const q=placeInput.value.trim();
   if(q.length<2){setStatus('Skriv minst 2 tegn for stedsøk.');return;}
   setStatus('Søker sted …');
-  const r=await fetch(`/ver/api/sted-sok?q=${encodeURIComponent(q)}`);
-  const d=await r.json();
-  const items=d.items||[];
-  suggestionsEl.innerHTML=items.map(it=>`<button class="chip" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${it.name.replace(/"/g,'&quot;')}">${it.name}</button>`).join('');
-  if(!items.length){setStatus('Fant ingen treff.');}else{setStatus('');}
+  try{
+    const r=await fetch(`/ver/api/sted-sok?q=${encodeURIComponent(q)}`);
+    const d=await r.json();
+    if(!r.ok){throw new Error(d.error||'Stedsøk feilet');}
+    const items=d.items||[];
+    suggestionsEl.innerHTML=items.map(it=>`<button class="chip" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${it.name.replace(/"/g,'&quot;')}">${it.name}</button>`).join('');
+    if(!items.length){setStatus('Fant ingen treff.');}
+    else{
+      setStatus('');
+      // Velg første treff automatisk når det kun er ett resultat.
+      if(items.length===1){
+        const it=items[0];
+        suggestionsEl.innerHTML='';
+        loadForecast(Number(it.lat),Number(it.lon),it.name);
+      }
+    }
+  }catch(_){
+    setStatus('Kunne ikke søke opp sted akkurat nå.');
+  }
 }
 
 document.getElementById('searchBtn').addEventListener('click',searchPlace);
@@ -3074,15 +3257,437 @@ document.getElementById('geoBtn').addEventListener('click',()=>{
 
 // Auto-hent posisjon ved sidelast
 window.addEventListener('load',()=>{
-  if(navigator.geolocation){
-    setStatus('Henter posisjon …');
-    navigator.geolocation.getCurrentPosition(
-      (pos)=>loadForecast(pos.coords.latitude,pos.coords.longitude,'Min posisjon'),
-      ()=>setStatus('Trykk «Bruk min posisjon» eller søk et sted.')
-    );
+  const cached=loadCachedPlace();
+  if(cached){
+    loadForecast(cached.lat,cached.lon,cached.name);
+    return;
   }
+  loadForecast(BERGEN_DEFAULT.lat,BERGEN_DEFAULT.lon,BERGEN_DEFAULT.name);
 });
 </script>
 </body>
 </html>"""
 
+# =========================
+# Klima-topplister (precomputet cache)
+# =========================
+_LEADERBOARD_LOCK = threading.Lock()
+_LEADERBOARD_CACHE_PATH = Path(__file__).resolve().parents[1] / "data" / "weather_topplister_cache.json"
+_LEADERBOARD_TTL_SECONDS = int(os.getenv("WEATHER_LEADERBOARD_TTL_SECONDS", "3600"))
+_LEADERBOARD_STATION_LIMIT = int(os.getenv("WEATHER_LEADERBOARD_STATION_LIMIT", "220"))
+_LEADERBOARD_TOP_N = int(os.getenv("WEATHER_LEADERBOARD_TOP_N", "5"))
+
+
+def _as_float(v: Any) -> Optional[float]:
+    try:
+        if v is None:
+            return None
+        return float(v)
+    except Exception:
+        return None
+
+
+def _frost_observations_aggregate(
+    session: requests.Session,
+    station_ids: list[str],
+    *,
+    element: str,
+    referencetime: str,
+    timeout: int = 25,
+    batch_size: int = 60,
+) -> pd.DataFrame:
+    auth = _env_auth()
+    rows: list[dict[str, Any]] = []
+    for i in range(0, len(station_ids), batch_size):
+        batch = station_ids[i: i + batch_size]
+        params = {
+            "sources": ",".join(batch),
+            "referencetime": referencetime,
+            "elements": element,
+            "timeoffsets": "default",
+            "levels": "default",
+            "limit": 1000,
+            "qualities": "0,1,2,3,4",
+        }
+        try:
+            resp = session.get(
+                "https://frost.met.no/observations/v0.jsonld",
+                params=params,
+                auth=(auth.client_id, auth.client_secret),
+                headers={"Accept": "application/json"},
+                timeout=timeout,
+            )
+            if resp.status_code != 200:
+                continue
+            payload = resp.json()
+        except Exception:
+            continue
+
+        for item in payload.get("data", []) or []:
+            source_id = str(item.get("sourceId") or "").split(":")[0]
+            for obs in item.get("observations", []) or []:
+                val = _as_float(obs.get("value"))
+                if val is None:
+                    continue
+                rows.append(
+                    {
+                        "sourceId": source_id,
+                        "value": val,
+                        "referenceTime": obs.get("referenceTime") or item.get("referenceTime"),
+                    }
+                )
+
+    if not rows:
+        return pd.DataFrame()
+
+    out = pd.DataFrame(rows)
+    out["referenceTime"] = pd.to_datetime(out["referenceTime"], errors="coerce", utc=True)
+    out = out.dropna(subset=["sourceId", "value"]).copy()
+    return out.sort_values(["sourceId", "referenceTime"]).groupby("sourceId", as_index=False).tail(1)
+
+
+def _join_station_meta(df: pd.DataFrame, stations: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    keep_cols = [c for c in ["baseId", "name", "county", "lat", "lon"] if c in stations.columns]
+    m = stations[keep_cols].copy().rename(columns={"baseId": "sourceId"})
+    out = df.merge(m, on="sourceId", how="left")
+    return out.dropna(subset=["lat", "lon"]).copy()
+
+
+def _rank_rows(df: pd.DataFrame, *, top_n: int, asc: bool) -> list[dict[str, Any]]:
+    if df.empty:
+        return []
+    ranked = df.sort_values("value", ascending=asc).head(top_n).copy()
+    rows: list[dict[str, Any]] = []
+    for _, row in ranked.iterrows():
+        rows.append(
+            {
+                "station_id": str(row.get("sourceId") or ""),
+                "name": str(row.get("name") or row.get("sourceId") or "Ukjent"),
+                "county": str(row.get("county") or ""),
+                "lat": round(float(row.get("lat")), 5),
+                "lon": round(float(row.get("lon")), 5),
+                "value": round(float(row.get("value")), 2),
+            }
+        )
+    return rows
+
+
+def _fetch_forecast_wind(stations: pd.DataFrame, *, hours: int) -> pd.DataFrame:
+    if stations.empty:
+        return pd.DataFrame()
+
+    start_utc = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    end_utc = start_utc + pd.Timedelta(hours=hours)
+
+    def _one_station(row: dict[str, Any]) -> Optional[dict[str, Any]]:
+        lat = _as_float(row.get("lat"))
+        lon = _as_float(row.get("lon"))
+        if lat is None or lon is None:
+            return None
+        try:
+            r = requests.get(
+                "https://api.met.no/weatherapi/locationforecast/2.0/complete",
+                params={"lat": round(lat, 4), "lon": round(lon, 4)},
+                headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
+                timeout=12,
+            )
+            if r.status_code != 200:
+                return None
+            ts = r.json().get("properties", {}).get("timeseries", [])
+            vals: list[float] = []
+            for item in ts:
+                try:
+                    t = datetime.fromisoformat(str(item.get("time", "")).replace("Z", "+00:00"))
+                except Exception:
+                    continue
+                if t < start_utc or t >= end_utc:
+                    continue
+                inst = item.get("data", {}).get("instant", {}).get("details", {})
+                w = _as_float(inst.get("wind_speed"))
+                if w is not None:
+                    vals.append(w)
+            if not vals:
+                return None
+            return {
+                "sourceId": str(row.get("baseId") or ""),
+                "value": max(vals),
+                "name": row.get("name"),
+                "county": row.get("county"),
+                "lat": lat,
+                "lon": lon,
+            }
+        except Exception:
+            return None
+
+    rows: list[dict[str, Any]] = []
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        futures = [ex.submit(_one_station, row) for row in stations.to_dict("records")]
+        for fut in as_completed(futures):
+            res = fut.result()
+            if res is not None:
+                rows.append(res)
+
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows)
+
+
+def _build_weather_topplister_payload() -> dict[str, Any]:
+    stations = load_station_db().copy()
+    if stations.empty:
+        raise RuntimeError("Stasjonsdatabase er tom")
+
+    stations = stations.dropna(subset=["baseId", "lat", "lon"]).copy()
+    stations = stations.head(max(50, _LEADERBOARD_STATION_LIMIT))
+    station_ids = stations["baseId"].astype(str).tolist()
+
+    with requests.Session() as session:
+        # Historiske aggregater fra Frost
+        sun_day = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="sum(duration_of_sunshine P1D)", referencetime="latest"),
+            stations,
+        )
+        sun_month = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="sum(duration_of_sunshine P1M)", referencetime="latest"),
+            stations,
+        )
+        sun_year = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="sum(duration_of_sunshine P1Y)", referencetime="latest"),
+            stations,
+        )
+
+        rain_day = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="sum(precipitation_amount P1D)", referencetime="latest"),
+            stations,
+        )
+        rain_month = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="sum(precipitation_amount P1M)", referencetime="latest"),
+            stations,
+        )
+        rain_year = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="sum(precipitation_amount P1Y)", referencetime="latest"),
+            stations,
+        )
+
+        temp_day = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="max(air_temperature P1D)", referencetime="latest"),
+            stations,
+        )
+        temp_month = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="max(air_temperature P1M)", referencetime="latest"),
+            stations,
+        )
+        temp_year = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="max(air_temperature P1Y)", referencetime="latest"),
+            stations,
+        )
+
+        wind_day = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="max(wind_speed P1D)", referencetime="latest"),
+            stations,
+        )
+        wind_month = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="max(wind_speed P1M)", referencetime="latest"),
+            stations,
+        )
+        wind_year = _join_station_meta(
+            _frost_observations_aggregate(session, station_ids, element="max(wind_speed P1Y)", referencetime="latest"),
+            stations,
+        )
+
+    # Prognoser fra Yr
+    fc_sun_24 = fetch_sunshine_forecast(stations, mode="next24h")
+    fc_sun_7d = fetch_sunshine_forecast(stations, mode="next7d")
+    fc_rain_24 = fetch_precip_forecast(stations, mode="next24h")
+    fc_rain_7d = fetch_precip_forecast(stations, mode="next7d")
+    fc_temp_24 = fetch_temp_forecast(stations, mode="next24h", temp_kind="max")
+    fc_temp_7d = fetch_temp_forecast(stations, mode="next7d", temp_kind="max")
+    fc_wind_24 = _fetch_forecast_wind(stations, hours=24)
+    fc_wind_7d = _fetch_forecast_wind(stations, hours=168)
+
+    fc_sun_24 = _join_station_meta(fc_sun_24.rename(columns={"sun_hours": "value"}), stations)
+    fc_sun_7d = _join_station_meta(fc_sun_7d.rename(columns={"sun_hours": "value"}), stations)
+    fc_rain_24 = _join_station_meta(fc_rain_24, stations)
+    fc_rain_7d = _join_station_meta(fc_rain_7d, stations)
+    fc_temp_24 = _join_station_meta(fc_temp_24, stations)
+    fc_temp_7d = _join_station_meta(fc_temp_7d, stations)
+
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "ttl_seconds": _LEADERBOARD_TTL_SECONDS,
+        "station_count": int(len(stations)),
+        "top_n": _LEADERBOARD_TOP_N,
+        "metrics": {
+            "sun": {
+                "unit": "timer",
+                "best": {
+                    "year": _rank_rows(sun_year, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "month": _rank_rows(sun_month, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "day": _rank_rows(sun_day, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "next24h": _rank_rows(fc_sun_24, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "next7d": _rank_rows(fc_sun_7d, top_n=_LEADERBOARD_TOP_N, asc=False),
+                },
+            },
+            "precip": {
+                "unit": "mm",
+                "max": {
+                    "year": _rank_rows(rain_year, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "month": _rank_rows(rain_month, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "day": _rank_rows(rain_day, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "next24h": _rank_rows(fc_rain_24, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "next7d": _rank_rows(fc_rain_7d, top_n=_LEADERBOARD_TOP_N, asc=False),
+                },
+                "min": {
+                    "year": _rank_rows(rain_year, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "month": _rank_rows(rain_month, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "day": _rank_rows(rain_day, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "next24h": _rank_rows(fc_rain_24, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "next7d": _rank_rows(fc_rain_7d, top_n=_LEADERBOARD_TOP_N, asc=True),
+                },
+            },
+            "temperature_max": {
+                "unit": "°C",
+                "min": {
+                    "year": _rank_rows(temp_year, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "month": _rank_rows(temp_month, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "day": _rank_rows(temp_day, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "next24h": _rank_rows(fc_temp_24, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "next7d": _rank_rows(fc_temp_7d, top_n=_LEADERBOARD_TOP_N, asc=True),
+                },
+                "max": {
+                    "year": _rank_rows(temp_year, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "month": _rank_rows(temp_month, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "day": _rank_rows(temp_day, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "next24h": _rank_rows(fc_temp_24, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "next7d": _rank_rows(fc_temp_7d, top_n=_LEADERBOARD_TOP_N, asc=False),
+                },
+            },
+            "wind": {
+                "unit": "m/s",
+                "max": {
+                    "year": _rank_rows(wind_year, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "month": _rank_rows(wind_month, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "day": _rank_rows(wind_day, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "next24h": _rank_rows(fc_wind_24, top_n=_LEADERBOARD_TOP_N, asc=False),
+                    "next7d": _rank_rows(fc_wind_7d, top_n=_LEADERBOARD_TOP_N, asc=False),
+                },
+                "min": {
+                    "year": _rank_rows(wind_year, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "month": _rank_rows(wind_month, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "day": _rank_rows(wind_day, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "next24h": _rank_rows(fc_wind_24, top_n=_LEADERBOARD_TOP_N, asc=True),
+                    "next7d": _rank_rows(fc_wind_7d, top_n=_LEADERBOARD_TOP_N, asc=True),
+                },
+            },
+        },
+    }
+    return payload
+
+
+def _cache_is_fresh(path: Path, ttl_seconds: int) -> bool:
+    if not path.exists():
+        return False
+    return (time.time() - path.stat().st_mtime) < ttl_seconds
+
+
+def _read_cached_topplister() -> Optional[dict[str, Any]]:
+    try:
+        if not _LEADERBOARD_CACHE_PATH.exists():
+            return None
+        with _LEADERBOARD_CACHE_PATH.open("r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:
+        return None
+
+
+def _save_cached_topplister(payload: dict[str, Any]) -> None:
+    _LEADERBOARD_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _LEADERBOARD_CACHE_PATH.open("w", encoding="utf-8") as fh:
+        json.dump(payload, fh, ensure_ascii=False)
+
+
+def _get_or_build_topplister(force: bool = False) -> dict[str, Any]:
+    with _LEADERBOARD_LOCK:
+        if not force and _cache_is_fresh(_LEADERBOARD_CACHE_PATH, _LEADERBOARD_TTL_SECONDS):
+            cached = _read_cached_topplister()
+            if cached:
+                return cached
+
+        payload = _build_weather_topplister_payload()
+        _save_cached_topplister(payload)
+        return payload
+
+
+@ver.route("/api/klima-topplister")
+def klima_topplister_api() -> Response:
+    force = request.args.get("force", "").strip().lower() in {"1", "true", "yes"}
+    try:
+        payload = _get_or_build_topplister(force=force)
+        payload["cache_file"] = str(_LEADERBOARD_CACHE_PATH)
+        payload["cache_fresh"] = _cache_is_fresh(_LEADERBOARD_CACHE_PATH, _LEADERBOARD_TTL_SECONDS)
+        return jsonify(payload)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@ver.route("/klima-toppliste")
+def klima_toppliste_page() -> str:
+    return """<!doctype html>
+<html lang=\"no\"><head>
+<meta charset=\"utf-8\"/>
+<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/>
+<title>Klima-topplister</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;background:#0b1220;color:#e2e8f0;margin:0;padding:0}
+.wrap{max-width:1200px;margin:0 auto;padding:24px}
+a{color:#93c5fd}
+.muted{color:#94a3b8;font-size:13px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:16px}
+.card h2{margin:0 0 10px;font-size:18px}
+.card h3{margin:12px 0 8px;font-size:13px;color:#93c5fd;text-transform:uppercase;letter-spacing:.04em}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 6px;border-bottom:1px solid #1e293b;text-align:left}
+tr:last-child td{border-bottom:none}
+.k{font-size:12px;color:#64748b;text-transform:uppercase}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class=\"wrap\">
+  <p><a href=\"/ver/\">← Tilbake til værhub</a></p>
+  <h1>Klima-topplister</h1>
+  <p class=\"muted\">Preberegnes automatisk (standard: hver time) og lagres i filcache, slik at siden åpner raskt.</p>
+  <p id=\"meta\" class=\"muted\">Laster data …</p>
+  <div class=\"grid\" id=\"grid\"></div>
+</div>
+<script>
+function fmt(v){return (v??'–');}
+function placeCell(r){
+  if(!r) return '–';
+  const q = encodeURIComponent(`${r.lat},${r.lon}`);
+  return `<a href=\"/ver/aktivt-varsel?lat=${r.lat}&lon=${r.lon}&sted=${encodeURIComponent(r.name)}\">${r.name}</a><div class=\"muted\">${r.county||''}</div><div class=\"muted\"><a target=\"_blank\" href=\"https://www.google.com/maps/search/?api=1&query=${q}\">Kart</a></div>`;
+}
+function table(title, periods, unit){
+  const labels={year:'I år',month:'Siste måned',day:'Siste døgn',next24h:'Neste døgn',next7d:'Neste 7 døgn'};
+  let html = `<h3>${title}</h3><table><thead><tr><th>Periode</th><th>Sted</th><th>Verdi (${unit})</th></tr></thead><tbody>`;
+  for(const key of ['year','month','day','next24h','next7d']){
+    const row=(periods[key]||[])[0];
+    html += `<tr><td class=\"k\">${labels[key]}</td><td>${placeCell(row)}</td><td>${fmt(row?.value)}</td></tr>`;
+  }
+  return html + '</tbody></table>';
+}
+fetch('/ver/api/klima-topplister').then(r=>r.json()).then(d=>{
+  if(d.error){document.getElementById('meta').textContent='Feil: '+d.error;return;}
+  document.getElementById('meta').textContent=`Oppdatert: ${new Date(d.generated_at).toLocaleString('nb-NO')} · stasjoner: ${d.station_count} · topp ${d.top_n}`;
+  const m=d.metrics||{};
+  const cards=[];
+  cards.push(`<div class=\"card\"><h2>☀️ Sol</h2>${table('Mest sol', m.sun?.best||{}, m.sun?.unit||'timer')}</div>`);
+  cards.push(`<div class=\"card\"><h2>🌧️ Nedbør</h2>${table('Mest nedbør', m.precip?.max||{}, m.precip?.unit||'mm')}${table('Minst nedbør', m.precip?.min||{}, m.precip?.unit||'mm')}</div>`);
+  cards.push(`<div class=\"card\"><h2>🌡️ Høy temperatur</h2>${table('Mest varme', m.temperature_max?.max||{}, m.temperature_max?.unit||'°C')}${table('Lav høy temperatur', m.temperature_max?.min||{}, m.temperature_max?.unit||'°C')}</div>`);
+  cards.push(`<div class=\"card\"><h2>💨 Vind</h2>${table('Mest vind', m.wind?.max||{}, m.wind?.unit||'m/s')}${table('Minst vind', m.wind?.min||{}, m.wind?.unit||'m/s')}</div>`);
+  document.getElementById('grid').innerHTML=cards.join('');
+}).catch(err=>{document.getElementById('meta').textContent='Kunne ikke laste data: '+err;});
+</script>
+</body></html>"""
