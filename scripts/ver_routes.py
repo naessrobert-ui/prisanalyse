@@ -1949,6 +1949,95 @@ def _reverse_geocode_label(lat: float, lon: float) -> Optional[str]:
     return None
 
 
+def _open_meteo_symbol_from_code(weather_code: Optional[float], is_day: Optional[float], rain: Optional[float]) -> str:
+    code = int(weather_code) if weather_code is not None else -1
+    daytime = (is_day or 0) >= 1
+    precip = float(rain or 0.0)
+
+    if code in {0}:
+        return "clearsky_day" if daytime else "clearsky_night"
+    if code in {1}:
+        return "fair_day" if daytime else "fair_night"
+    if code in {2}:
+        return "partlycloudy_day" if daytime else "partlycloudy_night"
+    if code in {3, 45, 48}:
+        return "cloudy"
+    if code in {71, 73, 75, 77, 85, 86}:
+        return "snow"
+    if code in {95, 96, 99}:
+        return "thunder"
+    if code in {61, 63, 65, 80, 81, 82} or precip >= 0.2:
+        return "rain"
+    return "cloudy"
+
+
+def _hent_open_meteo_dagshistorikk(lat: float, lon: float, day_start_local: pd.Timestamp, day_end_local: pd.Timestamp) -> dict[pd.Timestamp, dict[str, Any]]:
+    try:
+        params = {
+            "latitude": lat,
+            "longitude": lon,
+            "timezone": "Europe/Oslo",
+            "hourly": ",".join(
+                [
+                    "temperature_2m",
+                    "precipitation",
+                    "wind_speed_10m",
+                    "wind_gusts_10m",
+                    "wind_direction_10m",
+                    "cloud_cover",
+                    "weather_code",
+                    "is_day",
+                ]
+            ),
+            "start_date": day_start_local.date().isoformat(),
+            "end_date": day_end_local.date().isoformat(),
+        }
+        r = requests.get("https://api.open-meteo.com/v1/forecast", params=params, timeout=8)
+        r.raise_for_status()
+        payload = r.json() or {}
+        hourly = payload.get("hourly") or {}
+        times = hourly.get("time") or []
+        if not times:
+            return {}
+
+        out: dict[pd.Timestamp, dict[str, Any]] = {}
+        for i, t_raw in enumerate(times):
+            t_local = pd.to_datetime(t_raw, errors="coerce")
+            if pd.isna(t_local):
+                continue
+            if t_local.tzinfo is None:
+                t_local = t_local.tz_localize(OSLO)
+            else:
+                t_local = t_local.tz_convert(OSLO)
+            t_local = t_local.floor("h")
+            if t_local < day_start_local or t_local >= day_end_local:
+                continue
+
+            rain_val = (hourly.get("precipitation") or [None])[i]
+            symbol = _open_meteo_symbol_from_code(
+                (hourly.get("weather_code") or [None])[i],
+                (hourly.get("is_day") or [None])[i],
+                rain_val,
+            )
+            out[t_local] = {
+                "time": t_local.tz_convert("UTC").to_pydatetime().isoformat(),
+                "is_history": True,
+                "temp": _as_float((hourly.get("temperature_2m") or [None])[i]),
+                "wind": _as_float((hourly.get("wind_speed_10m") or [None])[i]),
+                "gust": _as_float((hourly.get("wind_gusts_10m") or [None])[i]),
+                "wind_deg": _as_float((hourly.get("wind_direction_10m") or [None])[i]),
+                "cloud": _as_float((hourly.get("cloud_cover") or [None])[i]),
+                "rain": _as_float(rain_val),
+                "rain_min": _as_float(rain_val),
+                "rain_max": _as_float(rain_val),
+                "rain_prob": None,
+                "symbol": symbol,
+            }
+        return out
+    except Exception:
+        return {}
+
+
 @ver.get("/api/aktivt-varsel")
 def api_aktivt_varsel():
     lat = request.args.get("lat", type=float)
@@ -2006,6 +2095,41 @@ def api_aktivt_varsel():
         if now <= t_py <= horizon_24:
             rows_24.append(rec)
 
+    open_meteo_day = _hent_open_meteo_dagshistorikk(lat, lon, day_start_local, day_end_local)
+    rows_day_by_hour: dict[pd.Timestamp, dict[str, Any]] = {}
+    for rec in rows_day:
+        t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO).floor("h")
+        rows_day_by_hour[t_local] = rec
+
+    full_day_slots = pd.date_range(start=day_start_local, end=day_end_local, inclusive="left", freq="h")
+    history_limit = now_local.floor("h")
+    for slot_local in full_day_slots:
+        fallback = open_meteo_day.get(slot_local)
+        if fallback is None:
+            continue
+
+        existing = rows_day_by_hour.get(slot_local)
+        if existing is None and slot_local <= history_limit:
+            rows_day_by_hour[slot_local] = fallback
+            continue
+        if existing is None:
+            continue
+        if not existing.get("is_history"):
+            continue
+
+        for field in ("temp", "wind", "gust", "wind_deg", "cloud"):
+            if existing.get(field) is None and fallback.get(field) is not None:
+                existing[field] = fallback[field]
+        if fallback.get("rain") is not None:
+            if existing.get("rain") is None or (existing.get("rain") == 0.0 and fallback.get("rain", 0.0) > 0.0):
+                existing["rain"] = fallback["rain"]
+                existing["rain_min"] = fallback.get("rain_min")
+                existing["rain_max"] = fallback.get("rain_max")
+        if (existing.get("symbol") or "cloudy") == "cloudy" and fallback.get("symbol"):
+            existing["symbol"] = fallback["symbol"]
+
+    rows_day = [rows_day_by_hour[t] for t in sorted(rows_day_by_hour.keys())]
+
     if not rows_24 and not rows_day:
         return jsonify({"error": "Fant ingen prognosedata"}), 502
 
@@ -2056,12 +2180,10 @@ def api_aktivt_varsel():
 
     # Bygg et komplett lokalt døgn (00:00–23:59) med timespunkter.
     # Hvis API mangler noen timer, fyller vi hull med tomme punkter slik at grafen alltid viser hele døgnet.
-    rows_day_by_hour: dict[pd.Timestamp, dict[str, Any]] = {}
+    rows_day_by_hour = {}
     for rec in rows_day:
         t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO).floor("h")
         rows_day_by_hour[t_local] = rec
-
-    full_day_slots = pd.date_range(start=day_start_local, end=day_end_local, inclusive="left", freq="h")
 
     hourly = []
     for slot_local in full_day_slots:
