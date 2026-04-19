@@ -1964,7 +1964,8 @@ def api_aktivt_varsel():
 
     ts = _hent_yr_komplett(lat, lon)
     now = datetime.now(timezone.utc)
-    now_local = pd.Timestamp(now, tz="UTC").tz_convert(OSLO)
+    # `now` er allerede timezone-aware (UTC), så vi må ikke sende `tz=` på nytt.
+    now_local = pd.Timestamp(now).tz_convert(OSLO)
     day_start_local = now_local.normalize()
     day_end_local = day_start_local + pd.Timedelta(days=1)
     day_start_utc = day_start_local.tz_convert("UTC").to_pydatetime()
