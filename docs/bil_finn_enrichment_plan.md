@@ -8,6 +8,11 @@ I tillegg til pris, km, år, drivstoff og hjuldrift, kan søk også filtreres p�
 - `storrelseklasse` (multivalg)
 - `personlig_skilt` (ja/nei)
 - `motor_hk_min` / `motor_hk_max` (hk, med fallback fra kW til hk)
+- `bruktimport` (ja/nei)
+- `import_land` (multivalg)
+
+I tillegg finnes en dedikert side for bruktimport:
+- `/bil/solgt/bruktimport` (forhåndsfilter `bruktimport=ja`)
 
 ## Foreslått arkitektur for «ikke tregt»
 

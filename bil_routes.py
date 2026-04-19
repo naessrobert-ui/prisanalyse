@@ -313,6 +313,8 @@ def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
         "storrelseklasse": pick(["storrelseklasse", "størrelseklasse", "bilstorrelse", "bilstørrelse", "segment"]),
         "motor_effekt_hk": pick(["motor_effekt_hk", "effekt_hk", "hestekrefter", "hk", "power_hp"]),
         "motor_effekt_kw": pick(["motor_effekt_kw", "effekt_kw", "kw", "power_kw"]),
+        "bruktimport": pick(["bruktimport", "Bruktimport", "brukt_import", "importert_brukt", "is_imported_used"]),
+        "import_land": pick(["import_land", "importland", "opprinnelsesland", "import_country", "origin_country"]),
     }
 
     with _PARQUET_CACHE_LOCK:
@@ -443,6 +445,21 @@ def _build_where_sql(filters: dict, colmap: dict):
         vals = filters["storrelseklasse"]
         placeholders = ",".join(["?"] * len(vals))
         clauses.append(f"{_qident(colmap['storrelseklasse'])} IN ({placeholders})")
+        params.extend(vals)
+
+    # Bruktimport (ja/nei)
+    if colmap.get("bruktimport") and filters.get("bruktimport") in ("ja", "nei"):
+        bool_expr = _bool_expr(_qident(colmap["bruktimport"]))
+        if filters["bruktimport"] == "ja":
+            clauses.append(f"({bool_expr}) = true")
+        else:
+            clauses.append(f"({bool_expr}) = false")
+
+    # Importland (multi)
+    if colmap.get("import_land") and isinstance(filters.get("import_land"), list) and filters["import_land"]:
+        vals = filters["import_land"]
+        placeholders = ",".join(["?"] * len(vals))
+        clauses.append(f"{_qident(colmap['import_land'])} IN ({placeholders})")
         params.extend(vals)
 
     # Motorstyrke i hk (primært), evt. kw fallback
@@ -590,6 +607,26 @@ def bil_solgt_analyse_side():
     return render_template(
         'bil_analyse_template.html',
         tittel="Dette ble bilene solgt for",
+        preset_bruktimport="",
+        data_url="/bil/solgt/data",
+        produsenter=metadata.get('produsenter', []),
+        models_by_prod=metadata.get('models_by_prod', {}),
+        drivstoff_opts=metadata.get('drivstoff_opts', []),
+        hjuldrift_opts=metadata.get('hjuldrift_opts', []),
+        year_min=metadata.get('year_min', 2000),
+        year_max=metadata.get('year_max', datetime.now().year),
+        km_min=metadata.get('km_min', 0),
+        km_max=metadata.get('km_max', 200000),
+    )
+
+
+@bil_bp.route('/solgt/bruktimport')
+def bil_solgt_bruktimport_side():
+    metadata = _get_metadata()
+    return render_template(
+        'bil_analyse_template.html',
+        tittel="Bruktimporterte biler",
+        preset_bruktimport="ja",
         data_url="/bil/solgt/data",
         produsenter=metadata.get('produsenter', []),
         models_by_prod=metadata.get('models_by_prod', {}),
@@ -689,6 +726,8 @@ def get_bil_solgt_data():
         c_storrelseklasse = col_or_null("storrelseklasse")
         c_motor_hk = col_or_null("motor_effekt_hk")
         c_motor_kw = col_or_null("motor_effekt_kw")
+        c_bruktimport = col_or_null("bruktimport")
+        c_import_land = col_or_null("import_land")
 
         pris_start_num = f"coalesce(try_cast({c_pris_start} AS BIGINT), 0)"
         pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
@@ -707,6 +746,7 @@ def get_bil_solgt_data():
         finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
         motor_hk_expr = f"coalesce(try_cast({c_motor_hk} AS DOUBLE), try_cast({c_motor_kw} AS DOUBLE) * 1.34102209)"
         personlig_skilt_expr = _bool_expr(c_personlig_skilt) if colmap.get("personlig_skilt") else "NULL"
+        bruktimport_expr = _bool_expr(c_bruktimport) if colmap.get("bruktimport") else "NULL"
 
         solgt_expr = _bool_expr(c_solgt) if colmap.get("solgt") else None
 
@@ -777,6 +817,8 @@ def get_bil_solgt_data():
             {c_storrelseklasse} AS storrelseklasse,
             {motor_hk_expr} AS motor_hk,
             {personlig_skilt_expr} AS personlig_skilt,
+            {bruktimport_expr} AS bruktimport,
+            {c_import_land} AS import_land,
             {c_selger} AS selger,
             {c_over} AS overskrift,
             {dato_start_ts} AS dato_start,

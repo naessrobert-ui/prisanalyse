@@ -205,7 +205,7 @@
         <a href="/bil">← Til bilanalyse</a>
     </div>
 
-    <h1><span class="highlight">Dette</span> ble bilene solgt for</h1>
+    <h1>{{ tittel or "Dette ble bilene solgt for" }}</h1>
     <div class="subtitle">Se prisendringer, dager i markedet og annonse-historikk.</div>
 
     <div class="card" id="filterCard">
@@ -289,6 +289,14 @@
                     <option value="nei">Nei</option>
                 </select>
             </div>
+            <div>
+                <label for="bruktimport">Bruktimport</label>
+                <select id="bruktimport">
+                    <option value="">Alle</option>
+                    <option value="ja">Ja</option>
+                    <option value="nei">Nei</option>
+                </select>
+            </div>
 
             <div>
                 <label for="hjuldrift">Hjuldrift</label>
@@ -318,6 +326,11 @@
                 <label for="storrelseklasse">Størrelseklasse</label>
                 <select id="storrelseklasse" multiple></select>
                 <button type="button" class="btn-mini" onclick="clearMultiSelect('storrelseklasse')">Nullstill størrelse</button>
+            </div>
+            <div>
+                <label for="import_land">Importland</label>
+                <select id="import_land" multiple></select>
+                <button type="button" class="btn-mini" onclick="clearMultiSelect('import_land')">Nullstill importland</button>
             </div>
 
             <div></div>
@@ -379,6 +392,8 @@
                     <th data-key="storrelseklasse">Størrelse</th>
                     <th data-key="motor_hk">Motor (hk)</th>
                     <th data-key="personlig_skilt">Pers. skilt</th>
+                    <th data-key="bruktimport">Bruktimport</th>
+                    <th data-key="import_land">Importland</th>
                     <th data-key="pris_start">Pris start</th>
                     <th data-key="pris_ny">Pris ny</th>
                     <th data-key="pris_endring">Endring</th>
@@ -398,6 +413,7 @@
 <script>
     const MODELS_BY_PROD_RAW = {{ models_by_prod | tojson }};
     const DATA_URL = "{{ data_url }}";
+    const PRESET_BRUKTIMPORT = "{{ preset_bruktimport or '' }}";
 
     const MODELS_BY_PROD = {};
     if (MODELS_BY_PROD_RAW && typeof MODELS_BY_PROD_RAW === "object") {
@@ -467,18 +483,20 @@
         const motor_hk_min = document.getElementById("motor_hk_min").value || null;
         const motor_hk_max = document.getElementById("motor_hk_max").value || null;
         const personlig_skilt = document.getElementById("personlig_skilt").value || null;
+        const bruktimport = document.getElementById("bruktimport").value || null;
         const drivstoff = Array.from(document.getElementById("drivstoff").selectedOptions).map(o => o.value);
         const hjuldrift = Array.from(document.getElementById("hjuldrift").selectedOptions).map(o => o.value);
         const farge = Array.from(document.getElementById("farge").selectedOptions).map(o => o.value);
         const storrelseklasse = Array.from(document.getElementById("storrelseklasse").selectedOptions).map(o => o.value);
+        const import_land = Array.from(document.getElementById("import_land").selectedOptions).map(o => o.value);
 
         return {
             status,
             produsent, modell, startdato, modell_sok, seller_sok,
             pris_min, pris_max, km_max, km_min: null,
             year_min, year_max, range_min, range_max,
-            motor_hk_min, motor_hk_max, personlig_skilt,
-            drivstoff, hjuldrift, farge, storrelseklasse
+            motor_hk_min, motor_hk_max, personlig_skilt, bruktimport,
+            drivstoff, hjuldrift, farge, storrelseklasse, import_land
         };
     }
 
@@ -583,6 +601,8 @@
                 <td>${escapeHtml(row.storrelseklasse || "")}</td>
                 <td>${row.motor_hk != null ? formatNumber(Math.round(Number(row.motor_hk))) : ""}</td>
                 <td>${boolToJaNei(row.personlig_skilt)}</td>
+                <td>${boolToJaNei(row.bruktimport)}</td>
+                <td>${escapeHtml(row.import_land || "")}</td>
                 <td>${prisStart != null ? formatNumber(prisStart) : ""}</td>
                 <td>${prisNy != null ? formatNumber(prisNy) : ""}</td>
                 <td>${endring != null ? formatNumber(endring) : ""}</td>
@@ -766,7 +786,8 @@
     function syncDynamicFilterOptions(rows) {
         const fields = [
             { id: "farge", key: "farge" },
-            { id: "storrelseklasse", key: "storrelseklasse" }
+            { id: "storrelseklasse", key: "storrelseklasse" },
+            { id: "import_land", key: "import_land" }
         ];
 
         fields.forEach(({ id, key }) => {
@@ -794,6 +815,10 @@
         setupSortHandlers();
         document.getElementById("updateBtn").addEventListener("click", fetchData);
         document.getElementById("tableSearch").addEventListener("input", applyTableSearch);
+        if (PRESET_BRUKTIMPORT) {
+            document.getElementById("bruktimport").value = PRESET_BRUKTIMPORT;
+        }
+        fetchData();
     });
 </script>
 
