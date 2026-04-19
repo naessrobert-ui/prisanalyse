@@ -394,7 +394,7 @@
             </div>
         </div>
 
-        <div class="charts-grid">
+        <div class="charts-grid" id="chartsGrid">
             <div><canvas id="medianPriceChart"></canvas></div>
             <div><canvas id="soldPerDayChart"></canvas></div>
         </div>
@@ -565,6 +565,12 @@
         document.getElementById("kpiAntallBiler").textContent = count != null ? formatNumber(count) : "0";
     }
 
+
+    function setChartsVisibility(shouldShow) {
+        const grid = document.getElementById("chartsGrid");
+        if (!grid) return;
+        grid.style.display = shouldShow ? "grid" : "none";
+    }
     function renderCharts(dailyStats) {
         const ctx1 = document.getElementById("medianPriceChart").getContext("2d");
         const ctx2 = document.getElementById("soldPerDayChart").getContext("2d");
@@ -865,8 +871,14 @@
             // KPI viser total utvalg (alle treff, ikke bare returnert)
             updateKpis(kpis, serverTotalCount || historikk.length);
 
-            if (dailyStats.length > 0) renderCharts(dailyStats);
-            else { if (medianChart) medianChart.destroy(); if (soldChart) soldChart.destroy(); }
+            if (dailyStats.length > 0) {
+                setChartsVisibility(true);
+                renderCharts(dailyStats);
+            } else {
+                setChartsVisibility(false);
+                if (medianChart) medianChart.destroy();
+                if (soldChart) soldChart.destroy();
+            }
 
             renderTable();
             updateTableCountLabel();
@@ -948,6 +960,8 @@
     document.addEventListener("DOMContentLoaded", () => {
         setupModelDropdown();
         setupSortHandlers();
+        setChartsVisibility(false);
+
         document.getElementById("updateBtn").addEventListener("click", fetchData);
         document.getElementById("tableSearch").addEventListener("input", applyTableSearch);
         document.getElementById("clearGroupBtn").addEventListener("click", () => {
