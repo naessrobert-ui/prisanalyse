@@ -488,6 +488,7 @@
     let serverReturnedCount = 0;
     let serverLimit = 300;
     let serverTruncated = false;
+    let serverGroupedRows = [];
 
     function escapeHtml(s) {
         return String(s ?? "")
@@ -627,25 +628,40 @@
     }
 
     function renderGroupTable() {
-        const map = new Map();
-        allRows.forEach(row => {
-            const produsent = (row.produsent || "").trim();
-            const modell = (row.modell || "").trim();
-            if (!produsent && !modell) return;
-            const key = formatGroupKey(produsent, modell);
-            if (!map.has(key)) {
-                map.set(key, { key, produsent, modell, count: 0 });
-            }
-            map.get(key).count += 1;
-        });
+        if (Array.isArray(serverGroupedRows) && serverGroupedRows.length > 0) {
+            groupedRows = serverGroupedRows
+                .map(group => {
+                    const produsent = (group.produsent || "").trim();
+                    const modell = (group.modell || "").trim();
+                    return {
+                        key: formatGroupKey(produsent, modell),
+                        produsent,
+                        modell,
+                        count: Number(group.antall || 0)
+                    };
+                })
+                .filter(group => group.produsent || group.modell);
+        } else {
+            const map = new Map();
+            allRows.forEach(row => {
+                const produsent = (row.produsent || "").trim();
+                const modell = (row.modell || "").trim();
+                if (!produsent && !modell) return;
+                const key = formatGroupKey(produsent, modell);
+                if (!map.has(key)) {
+                    map.set(key, { key, produsent, modell, count: 0 });
+                }
+                map.get(key).count += 1;
+            });
 
-        groupedRows = Array.from(map.values()).sort((a, b) => {
-            if (b.count !== a.count) return b.count - a.count;
-            const ap = (a.produsent || "").toLowerCase();
-            const bp = (b.produsent || "").toLowerCase();
-            if (ap !== bp) return ap.localeCompare(bp, "nb");
-            return (a.modell || "").toLowerCase().localeCompare((b.modell || "").toLowerCase(), "nb");
-        });
+            groupedRows = Array.from(map.values()).sort((a, b) => {
+                if (b.count !== a.count) return b.count - a.count;
+                const ap = (a.produsent || "").toLowerCase();
+                const bp = (b.produsent || "").toLowerCase();
+                if (ap !== bp) return ap.localeCompare(bp, "nb");
+                return (a.modell || "").toLowerCase().localeCompare((b.modell || "").toLowerCase(), "nb");
+            });
+        }
 
         const tbody = document.getElementById("groupBody");
         tbody.innerHTML = "";
@@ -753,7 +769,10 @@
         const shownInTable = currentRows.length;
         const returned = allRows.length;
         const selectedGroup = groupedRows.find(g => g.key === selectedGroupKey);
-        const baseCount = selectedGroup ? selectedGroup.count : returned;
+        const baseRowsForGroup = selectedGroup
+            ? allRows.filter(row => formatGroupKey(row.produsent, row.modell) === selectedGroupKey).length
+            : returned;
+        const baseCount = selectedGroup ? baseRowsForGroup : returned;
 
         if (totalFromServer === 0 || baseCount === 0) {
             label.textContent = "Ingen biler i dette utvalget.";
@@ -771,7 +790,12 @@
         }
 
         if (selectedGroup) {
-            label.textContent = `Viser ${formatNumber(baseCount)} biler for ${selectedGroup.produsent} ${selectedGroup.modell}.`;
+            const totalInGroup = Number(selectedGroup.count || 0);
+            if (serverTruncated && totalInGroup > baseCount) {
+                label.textContent = `Viser ${formatNumber(baseCount)} av ${formatNumber(totalInGroup)} biler for ${selectedGroup.produsent} ${selectedGroup.modell} (begrenset til billigste utvalg).`;
+            } else {
+                label.textContent = `Viser ${formatNumber(baseCount)} biler for ${selectedGroup.produsent} ${selectedGroup.modell}.`;
+            }
             return;
         }
 
@@ -837,6 +861,7 @@
                 serverReturnedCount = 0;
                 serverLimit = 300;
                 serverTruncated = false;
+                serverGroupedRows = [];
                 renderTable();
                 renderGroupTable();
                 updateActiveGroupUi();
@@ -847,6 +872,7 @@
             }
 
             const historikk = data.historikk || [];
+            const groupedStats = data.grouped_stats || [];
             const dailyStats = data.daily_stats || [];
             const kpis = data.kpis || {};
 
@@ -857,6 +883,7 @@
             serverTruncated = Boolean(data.truncated);
 
             allRows = historikk;
+            serverGroupedRows = groupedStats;
             selectedGroupKey = null;
             currentRows = historikk.slice();
             syncDynamicFilterOptions(historikk);
