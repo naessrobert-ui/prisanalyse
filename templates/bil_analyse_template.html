@@ -393,12 +393,8 @@
                     <th data-key="årstall">År</th>
                     <th data-key="kjørelengde">Km</th>
                     <th data-key="farge">Farge</th>
-                    <th data-key="storrelseklasse">Størrelse</th>
                     <th data-key="motor_hk">Motor (hk)</th>
-                    <th data-key="personlig_skilt">Pers. skilt</th>
-                    <th data-key="bruktimport">Bruktimport</th>
                     <th data-key="import_land">Importland</th>
-                    <th data-key="pris_start">Pris start</th>
                     <th data-key="pris_ny">Pris ny</th>
                     <th data-key="pris_endring">Endring</th>
                     <th data-key="dager">Dager</th>
@@ -506,12 +502,6 @@
         };
     }
 
-    function boolToJaNei(v) {
-        if (v === true) return "Ja";
-        if (v === false) return "Nei";
-        return "";
-    }
-
     function updateKpis(kpis, count) {
         const avgDager = kpis && kpis.avg_dager != null ? kpis.avg_dager : null;
         const medianDager = kpis && kpis.median_dager != null ? kpis.median_dager : null;
@@ -604,12 +594,8 @@
                 <td>${row["årstall"] != null ? row["årstall"] : ""}</td>
                 <td>${row["kjørelengde"] != null ? formatNumber(row["kjørelengde"]) : ""}</td>
                 <td>${escapeHtml(row.farge || "")}</td>
-                <td>${escapeHtml(row.storrelseklasse || "")}</td>
                 <td>${row.motor_hk != null ? formatNumber(Math.round(Number(row.motor_hk))) : ""}</td>
-                <td>${boolToJaNei(row.personlig_skilt)}</td>
-                <td>${boolToJaNei(row.bruktimport)}</td>
                 <td>${escapeHtml(row.import_land || "")}</td>
-                <td>${prisStart != null ? formatNumber(prisStart) : ""}</td>
                 <td>${prisNy != null ? formatNumber(prisNy) : ""}</td>
                 <td>${endring != null ? formatNumber(endring) : ""}</td>
                 <td>${row.dager != null ? row.dager : ""}</td>
