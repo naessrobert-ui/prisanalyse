@@ -1001,13 +1001,13 @@ def _rekordrask_where(filters: dict, colmap: dict):
       - date_field bestemmer om fra/til gjelder:
           * "dato"    => Dato (dato_start / publisert)
           * "dato_ny" => Dato_ny (dato_end / solgt/fjernet)
-      - Default: "dato_ny" (gir logisk "solgt i perioden")
+      - Default: "dato" (matcher etiketten i UI: "Fra-dato (Dato)")
     """
     clauses = []
     params = []
 
     # Velg hvilket datofelt som skal brukes for fra/til
-    date_field = (filters.get("date_field") or "dato_ny").strip().lower()
+    date_field = (filters.get("date_field") or "dato").strip().lower()
     if date_field in ("dato", "start", "dato_start"):
         c_dato = colmap.get("dato_start")
     else:
