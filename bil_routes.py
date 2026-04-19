@@ -270,6 +270,11 @@ def _to_timestamp_sql(col_ident: str) -> str:
 
 
 
+def _safe_timestamp_sql(col_ident: str) -> str:
+    """Bakoverkompatibel wrapper brukt i eldre filterkode."""
+    return _to_timestamp_sql(col_ident)
+
+
 def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
     """
     Mapper canonical feltnavn -> faktisk kolonnenavn i parquet.
