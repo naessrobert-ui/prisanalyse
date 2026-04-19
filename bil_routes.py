@@ -313,8 +313,8 @@ def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
         "storrelseklasse": pick(["storrelseklasse", "størrelseklasse", "bilstorrelse", "bilstørrelse", "segment"]),
         "motor_effekt_hk": pick(["motor_effekt_hk", "effekt_hk", "hestekrefter", "hk", "power_hp"]),
         "motor_effekt_kw": pick(["motor_effekt_kw", "effekt_kw", "kw", "power_kw"]),
-        "bruktimport": pick(["bruktimport", "Bruktimport", "brukt_import", "importert_brukt", "is_imported_used"]),
-        "import_land": pick(["import_land", "importland", "opprinnelsesland", "import_country", "origin_country"]),
+        "bruktimport": pick(["svv_bruktimportert", "bruktimport", "Bruktimport", "brukt_import", "importert_brukt", "is_imported_used"]),
+        "import_land": pick(["svv_importland_navn", "import_land", "importland", "opprinnelsesland", "import_country", "origin_country"]),
     }
 
     with _PARQUET_CACHE_LOCK:
@@ -340,10 +340,10 @@ def _bool_expr(col_ident: str) -> str:
     """
 
 
-def _strict_one_expr(col_ident: str) -> str:
+def _imported_expr(col_ident: str) -> str:
     """
-    Returnerer true KUN når feltet er eksakt 1 (inkl. tekst som kan castes til 1).
-    Alt annet (inkl. NULL/blank) blir false.
+    Returnerer true for eksplisitte import-verdier (SANN/TRUE/1/JA).
+    Alt annet (inkl. NULL/blank/manglende) blir false.
     """
     txt = f"trim(cast({col_ident} as varchar))"
     return f"""
@@ -351,7 +351,8 @@ def _strict_one_expr(col_ident: str) -> str:
       case
         when {col_ident} is null then false
         when {txt} = '' then false
-        when try_cast({txt} as BIGINT) = 1 then true
+        when try_cast({col_ident} as BOOLEAN) is not null then try_cast({col_ident} as BOOLEAN)
+        when lower({txt}) in ('sann','true','t','1','ja','yes','y') then true
         else false
       end
     )
@@ -466,12 +467,17 @@ def _build_where_sql(filters: dict, colmap: dict):
         params.extend(vals)
 
     # Bruktimport (ja/nei)
-    if colmap.get("bruktimport") and filters.get("bruktimport") in ("ja", "nei"):
-        bool_expr = _strict_one_expr(_qident(colmap["bruktimport"]))
-        if filters["bruktimport"] == "ja":
-            clauses.append(f"({bool_expr}) = true")
+    if filters.get("bruktimport") in ("ja", "nei"):
+        if colmap.get("bruktimport"):
+            bool_expr = _imported_expr(_qident(colmap["bruktimport"]))
+            if filters["bruktimport"] == "ja":
+                clauses.append(f"({bool_expr}) = true")
+            else:
+                clauses.append(f"({bool_expr}) = false")
         else:
-            clauses.append(f"({bool_expr}) = false")
+            # Manglende felt tolkes som usann: "ja" skal gi 0 treff, "nei" gir ingen ekstra begrensning.
+            if filters["bruktimport"] == "ja":
+                clauses.append("1 = 0")
 
     # Importland (multi)
     if colmap.get("import_land") and isinstance(filters.get("import_land"), list) and filters["import_land"]:
@@ -764,7 +770,7 @@ def get_bil_solgt_data():
         finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
         motor_hk_expr = f"coalesce(try_cast({c_motor_hk} AS DOUBLE), try_cast({c_motor_kw} AS DOUBLE) * 1.34102209)"
         personlig_skilt_expr = _bool_expr(c_personlig_skilt) if colmap.get("personlig_skilt") else "NULL"
-        bruktimport_expr = _strict_one_expr(c_bruktimport) if colmap.get("bruktimport") else "NULL"
+        bruktimport_expr = _imported_expr(c_bruktimport) if colmap.get("bruktimport") else "false"
 
         solgt_expr = _bool_expr(c_solgt) if colmap.get("solgt") else None
 

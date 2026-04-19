@@ -11,9 +11,11 @@ I tillegg til pris, km, år, drivstoff og hjuldrift, kan søk også filtreres p�
 - `bruktimport` (ja/nei)
 - `import_land` (multivalg)
 
-`bruktimport` tolkes strengt:
-- kun verdi `1` regnes som bruktimport
-- blank/NULL/andre verdier regnes som **ikke** bruktimport
+`bruktimport` leses primært fra `svv_bruktimportert`:
+- `SANN` / `TRUE` / `1` regnes som bruktimport
+- `USANN` / blank / NULL / manglende felt regnes som **ikke** bruktimport
+
+`import_land` leses primært fra `svv_importland_navn`.
 
 I tillegg finnes en dedikert side for bruktimport:
 - `/bil/solgt/bruktimport` (forhåndsfilter `bruktimport=ja`)
