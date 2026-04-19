@@ -3546,6 +3546,16 @@ def _join_station_meta(df: pd.DataFrame, stations: pd.DataFrame) -> pd.DataFrame
     keep_cols = [c for c in ["baseId", "name", "county", "lat", "lon"] if c in stations.columns]
     m = stations[keep_cols].copy().rename(columns={"baseId": "sourceId"})
     out = df.merge(m, on="sourceId", how="left")
+    if "lat" not in out.columns:
+        if "lat_y" in out.columns:
+            out["lat"] = out["lat_y"]
+        elif "lat_x" in out.columns:
+            out["lat"] = out["lat_x"]
+    if "lon" not in out.columns:
+        if "lon_y" in out.columns:
+            out["lon"] = out["lon_y"]
+        elif "lon_x" in out.columns:
+            out["lon"] = out["lon_x"]
     return out.dropna(subset=["lat", "lon"]).copy()
 
 
@@ -3607,10 +3617,6 @@ def _fetch_forecast_wind(stations: pd.DataFrame, *, hours: int) -> pd.DataFrame:
             return {
                 "sourceId": str(row.get("baseId") or ""),
                 "value": max(vals),
-                "name": row.get("name"),
-                "county": row.get("county"),
-                "lat": lat,
-                "lon": lon,
             }
         except Exception:
             return None
