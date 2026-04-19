@@ -859,6 +859,23 @@ def get_bil_solgt_data():
             daily_df = daily_df.where(pd.notna(daily_df), None)
             daily_stats = json.loads(daily_df.to_json(orient="records"))
 
+        grouped_stats = []
+        if colmap.get("produsent") and colmap.get("modell"):
+            grouped_sql = f"""
+              SELECT
+                {c_prod} AS produsent,
+                {c_mod} AS modell,
+                COUNT(*) AS antall
+              FROM read_parquet('{path}')
+              {where_sql}
+              {status_sql}
+              GROUP BY 1, 2
+              ORDER BY antall DESC, produsent ASC, modell ASC
+            """
+            grouped_df = con.execute(grouped_sql, params + status_params).df()
+            grouped_df = grouped_df.where(pd.notna(grouped_df), None)
+            grouped_stats = json.loads(grouped_df.to_json(orient="records"))
+
         data_sql = f"""
           SELECT
             {c_prod} AS produsent,
@@ -902,6 +919,7 @@ def get_bil_solgt_data():
         return jsonify({
             'status': 'ok',
             'historikk': historikk,
+            'grouped_stats': grouped_stats,
             'daily_stats': daily_stats,
             'kpis': kpis,
             'total_count': total_count,
