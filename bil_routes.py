@@ -1695,6 +1695,7 @@ def bil_innbytte_side():
     error = None
     regnr = ""
     km_input = ""
+    debug_context = {}
 
     if request.method == "POST":
         regnr = (request.form.get("regnr") or "").strip().upper()
@@ -1722,6 +1723,33 @@ def bil_innbytte_side():
 
                     merke = (flat.get("svv_merke") or "").strip()
                     modell = (flat.get("svv_handelsbetegnelse") or flat.get("svv_typebetegnelse") or "").strip()
+                    drivstoff_svv = (flat.get("svv_drivstoff_navn") or "").strip()
+                    reg_norge = (flat.get("svv_registrert_forste_gang_norge") or "")
+
+                    target_year = None
+                    if reg_norge and len(reg_norge) >= 4 and reg_norge[:4].isdigit():
+                        target_year = int(reg_norge[:4])
+
+                    aksler_med_drift = flat.get("svv_antall_aksler_med_drift")
+                    hjuldrift_filter = None
+                    if aksler_med_drift:
+                        try:
+                            amd = int(aksler_med_drift)
+                        except Exception:
+                            amd = None
+                        if amd is not None:
+                            if amd >= 2:
+                                hjuldrift_filter = "firehjulsdrift (4x4)"
+                            elif amd == 1:
+                                hjuldrift_filter = "tohjulsdrift (2WD)"
+
+                    debug_context = {
+                        "merke": merke or None,
+                        "modell": modell or None,
+                        "år": target_year,
+                        "drivstoff": drivstoff_svv or None,
+                        "hjuldrift": hjuldrift_filter,
+                    }
 
                     if not merke:
                         error = "SVV-oppslaget manglet merke. Klarer ikke hente sammenlignbare biler."
@@ -1759,21 +1787,23 @@ def bil_innbytte_side():
                             modell_tokens = [t for t in re.split(r"\s+", modell) if t]
                             modell_candidates = []
                             if modell:
-                                modell_candidates.append(modell)
+                                modell_candidates.append(str(modell))
                             if len(modell_tokens) >= 2:
-                                modell_candidates.append(" ".join(modell_tokens[:2]))
+                                modell_candidates.append(str(" ".join(modell_tokens[:2])))
                             elif len(modell_tokens) == 1:
-                                modell_candidates.append(modell_tokens[0])
+                                modell_candidates.append(str(modell_tokens[0]))
+                            # dedupliser + behold rekkefølge
+                            modell_candidates = list(dict.fromkeys([m.strip() for m in modell_candidates if str(m).strip()]))
 
                             where_parts = [
-                                f"lower(cast({c_prod} as varchar)) = lower(?)"
+                                f"lower(cast({c_prod} as varchar)) = ?"
                             ]
-                            params = [merke]
+                            params = [merke.lower()]
 
                             if modell_candidates:
-                                mod_like = " OR ".join([f"lower(cast({c_mod} as varchar)) LIKE lower(?)" for _ in modell_candidates])
+                                mod_like = " OR ".join([f"lower(cast({c_mod} as varchar)) LIKE ?" for _ in modell_candidates])
                                 where_parts.append(f"({mod_like})")
-                                params.extend([f"%{m}%" for m in modell_candidates])
+                                params.extend([f"%{m.lower()}%" for m in modell_candidates])
 
                             # Filtrer bort annonser som fortsatt er aktive (samme metodikk som solgt-siden)
                             max_date = None
@@ -1791,13 +1821,12 @@ def bil_innbytte_side():
                             else:
                                 where_parts.append(f"{pris_ny_num} > 1000")
 
-                            target_year = None
-                            reg_norge = (flat.get("svv_registrert_forste_gang_norge") or "")
-                            if reg_norge and len(reg_norge) >= 4 and reg_norge[:4].isdigit():
-                                target_year = int(reg_norge[:4])
+                            if drivstoff_svv and colmap.get("drivstoff"):
+                                c_driv = col_or_null("drivstoff")
+                                where_parts.append("lower(cast(" + c_driv + " as varchar)) LIKE ?")
+                                params.append(f"%{drivstoff_svv.lower()}%")
 
-                            aksler_med_drift = flat.get("svv_antall_aksler_med_drift")
-                            if aksler_med_drift:
+                            if aksler_med_drift and colmap.get("hjuldrift"):
                                 try:
                                     amd = int(aksler_med_drift)
                                 except Exception:
@@ -1867,6 +1896,7 @@ def bil_innbytte_side():
                                             "forstegang_norge": flat.get("svv_registrert_forste_gang_norge"),
                                             "km_input": km_value,
                                         },
+                                        "kriterier_brukt": debug_context,
                                         "innbyttepris": innbyttepris,
                                         "median_pris": median_pris,
                                         "pris_p25": p25_pris,
@@ -1885,4 +1915,5 @@ def bil_innbytte_side():
         error=error,
         regnr=regnr,
         km=km_input,
+        debug_context=debug_context,
     )

@@ -45,6 +45,21 @@
       <div class="card error">{{ error }}</div>
     {% endif %}
 
+    {% if debug_context and (debug_context.merke or debug_context.modell or debug_context.år or debug_context.drivstoff or debug_context.hjuldrift) %}
+      <div class="card">
+        <h3>Kriterier brukt videre i søket</h3>
+        <table>
+          <tbody>
+            <tr><th>Merke</th><td>{{ debug_context.merke or '–' }}</td></tr>
+            <tr><th>Modell</th><td>{{ debug_context.modell or '–' }}</td></tr>
+            <tr><th>År (fra førstegangsregistrering i Norge)</th><td>{{ debug_context.år or '–' }}</td></tr>
+            <tr><th>Drivstoff</th><td>{{ debug_context.drivstoff or '–' }}</td></tr>
+            <tr><th>Hjuldrift</th><td>{{ debug_context.hjuldrift or '–' }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
     {% if result %}
       <div class="card">
         <h2>Resultat</h2>
