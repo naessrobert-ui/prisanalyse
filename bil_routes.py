@@ -124,7 +124,102 @@ def _ensure_local_parquet(s3_key: str) -> str:
         meta["colmap"] = None  # refresh colmap hvis fila endres
 
         return local_path
+# Cache for aktive FinnKoder fra siste daily
+_ACTIVE_FK_CACHE = {
+    "s3_key": None,
+    "etag": None,
+    "registered_in_duckdb": False,
+}
+_ACTIVE_FK_LOCK = threading.Lock()
 
+ACTIVE_FK_TABLE = "active_finnkoder"  # DuckDB-tabellnavn
+
+
+def _find_latest_daily_csv(s3) -> dict | None:
+    """Finn S3-objektet for nyeste daily-CSV."""
+    paginator = s3.get_paginator("list_objects_v2")
+    latest = None
+    for page in paginator.paginate(
+        Bucket=S3_BUCKET_NAME, Prefix="raw/bil-daglig/"
+    ):
+        for obj in page.get("Contents", []):
+            if not obj["Key"].lower().endswith(".csv"):
+                continue
+            if obj.get("Size", 0) < 1024:
+                continue
+            if latest is None or obj["LastModified"] > latest["LastModified"]:
+                latest = obj
+    return latest
+
+
+def _ensure_active_finnkoder_table() -> bool:
+    """
+    Sikrer at DuckDB-tabellen {ACTIVE_FK_TABLE} finnes og inneholder
+    FinnKoder fra nyeste daily-CSV. Returnerer True hvis tabellen er klar.
+    """
+    with _ACTIVE_FK_LOCK:
+        try:
+            s3 = _get_s3_client()
+            obj_meta = _find_latest_daily_csv(s3)
+            if obj_meta is None:
+                print("[rekordrask] Fant ingen daily-CSV. Hopper over cross-check.")
+                return False
+
+            key = obj_meta["Key"]
+            head = s3.head_object(Bucket=S3_BUCKET_NAME, Key=key)
+            etag = (head.get("ETag") or "").strip('"')
+
+            cache = _ACTIVE_FK_CACHE
+            if (
+                cache["s3_key"] == key
+                and cache["etag"] == etag
+                and cache["registered_in_duckdb"]
+            ):
+                return True
+
+            print(f"[rekordrask] Laster daily-CSV for cross-check: {key}")
+            resp = s3.get_object(Bucket=S3_BUCKET_NAME, Key=key)
+            content = resp["Body"].read()
+
+            import io as _io
+            df = pd.read_csv(
+                _io.BytesIO(content),
+                encoding="utf-16",
+                sep=";",
+                dtype=str,
+                usecols=lambda c: c.lower().replace("_", "").replace(" ", "")
+                in ("finnkode", "finnid"),
+            )
+            if df.empty or df.shape[1] == 0:
+                print(f"[rekordrask] Daily-CSV mangler FinnKode-kolonne: {key}")
+                return False
+
+            fk_col = df.columns[0]
+            df["FinnKode"] = (
+                df[fk_col].astype(str).str.extract(r"(\d+)", expand=False)
+            )
+            fk_df = df[["FinnKode"]].dropna().drop_duplicates()
+
+            con = _duckdb_con()
+            con.execute(f"DROP TABLE IF EXISTS {ACTIVE_FK_TABLE}")
+            con.register("_fk_tmp", fk_df)
+            con.execute(
+                f"CREATE TABLE {ACTIVE_FK_TABLE} AS "
+                f"SELECT CAST(FinnKode AS VARCHAR) AS FinnKode FROM _fk_tmp"
+            )
+            con.unregister("_fk_tmp")
+
+            cache["s3_key"] = key
+            cache["etag"] = etag
+            cache["registered_in_duckdb"] = True
+
+            print(f"[rekordrask] Registrerte {len(fk_df):,} aktive FinnKoder i DuckDB")
+            return True
+
+        except Exception as e:
+            print(f"[rekordrask] Klarte ikke laste daily-CSV: {e}")
+            traceback.print_exc()
+            return False
 
 # ------------------ DuckDB connection + colmap ------------------
 
@@ -968,7 +1063,7 @@ def _solgt_true_expr(solgt_norm_expr: str) -> str:
     """
     return f"""
       (
-        {solgt_norm_expr} IN ('ja', 'true', '1', 'solgt', 'sold')
+        {solgt_norm_expr} IN ('ja', 'true', '1', 'solgt', 'sold', 'fjernet', 'removed')
       )
     """
 
@@ -1097,18 +1192,16 @@ def _rekordrask_where(filters: dict, colmap: dict):
     where_sql = " WHERE " + " AND ".join(clauses) if clauses else ""
     return where_sql, params
 
-
 def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     """
-    CTE base:
-      - normaliserer solgt (string)
-      - parser datoer robust (støtter dd.mm.yyyy)
-      - beregner days_to_end
-      - _is_rekord (binder maks_dager én gang)
+    CTE base for rekordrask med cross-check mot nyeste daily-CSV.
+    Hvis en FinnKode finnes i siste daily, er bilen aktiv paa Finn,
+    uansett hva Solgt-kolonnen sier. Fjerner ~0.4% falske positive.
     """
     c_dato = _qident(colmap.get("dato_start"))
     c_dato_ny = _qident(colmap.get("dato_end"))
     c_solgt = _qident(colmap.get("solgt"))
+    c_finnkode = _qident(colmap.get("finnkode"))
 
     dato_ts = _to_timestamp_sql(c_dato)
     dato_ny_ts = _to_timestamp_sql(c_dato_ny)
@@ -1117,6 +1210,18 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     is_solgt = _solgt_true_expr(solgt_norm)
 
     days_to_end = f"(date_diff('second', {dato_ts}, {dato_ny_ts}) / 86400.0)"
+
+    # Cross-check mot aktive FinnKoder. Fail-open hvis tabellen ikke
+    # kan bygges.
+    has_active = _ensure_active_finnkoder_table()
+    if has_active:
+        not_aktiv_sql = (
+            f"CAST({c_finnkode} AS VARCHAR) NOT IN ("
+            f"  SELECT FinnKode FROM {ACTIVE_FK_TABLE}"
+            f")"
+        )
+    else:
+        not_aktiv_sql = "TRUE"
 
     return f"""
       WITH base AS (
@@ -1128,6 +1233,7 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
           {days_to_end} AS _days_to_end,
           (
             {is_solgt}
+            AND ({not_aktiv_sql})
             AND {dato_ts} IS NOT NULL
             AND {dato_ny_ts} IS NOT NULL
             AND {days_to_end} IS NOT NULL
