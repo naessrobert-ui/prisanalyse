@@ -1,7 +1,16 @@
 # rekordrask_parquet.py
-import json
-from datetime import datetime, date
-from typing import Tuple
+# Tilpasset ny datamodell: database_biler.parquet har én rad per FinnKode
+# med kolonnene Dato (første gang sett), Dato_ny (siste gang sett) og Solgt.
+#
+# Solgt-verdier i rå-data: "JA", "NEI", "FJERNET".
+#   "JA"       -> definitivt solgt
+#   "FJERNET"  -> annonsen er borte fra Finn. Tolkes som solgt (matcher
+#                 gammel CSV-logikk "forsvunnet => solgt"), men kan skrus
+#                 av med INKLUDER_FJERNET_SOM_SOLGT = False.
+#   "NEI"      -> aktiv, ikke solgt.
+
+from datetime import date
+from typing import Iterable
 
 import boto3
 import pandas as pd
@@ -11,7 +20,10 @@ import pyarrow.parquet as pq
 from config import AWS_KEY, AWS_SECRET, AWS_REGION, S3_BUCKET_NAME
 
 FINN_BASE_URL = "https://www.finn.no/mobility/item/"
-PARQUET_KEY = "calc/bil/bil_time.parquet"
+PARQUET_KEY = "calc/bil/database_biler.parquet"
+
+# Tolker "FJERNET" som solgt? Matcher gammel CSV-adferd.
+INKLUDER_FJERNET_SOM_SOLGT = True
 
 
 def _get_s3_client():
@@ -23,221 +35,122 @@ def _get_s3_client():
     )
 
 
-def _les_parquet_fra_s3() -> pd.DataFrame:
+def _les_parquet(columns: Iterable[str] | None = None) -> pd.DataFrame:
     """
-    Leser Parquet-filen med time-snapshots av Finn-annonser fra S3.
-    Forventer at den minst inneholder:
-      - FinnKode (eller finnkode)
-      - Merke / Modell / Årstall / Kjørelengde / Drivstoff / Pris / Forhandler type
-      - enten 'snapshot_time' (ISO) eller 'dato' (YYYY-MM-DD)
+    Leser database_biler.parquet fra S3. Hvis columns oppgis, leses bare
+    de kolonnene (472k rader * 102 kolonner er mye aa dra unodig).
     """
     s3 = _get_s3_client()
     obj = s3.get_object(Bucket=S3_BUCKET_NAME, Key=PARQUET_KEY)
-    data = obj["Body"].read()
-
-    table = pq.read_table(pa.BufferReader(data))
+    table = pq.read_table(
+        pa.BufferReader(obj["Body"].read()),
+        columns=list(columns) if columns else None,
+    )
     df = table.to_pandas()
-
-    # Normaliser kolonnenavn litt (f.eks. fra CSV -> Parquet)
     df.columns = [str(c) for c in df.columns]
-
-    # Forsøk å standardisere FinnKode-feltet
-    if "FinnKode" in df.columns:
-        df["FinnKode"] = df["FinnKode"].astype(str)
-    elif "finnkode" in df.columns:
-        df["FinnKode"] = df["finnkode"].astype(str)
-    else:
-        raise ValueError("Parquet mangler kolonne 'FinnKode' / 'finnkode'.")
-
     return df
 
 
-def _ensure_time_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Sørger for at vi har både:
-      - snapshot_time: datetime (når vi så annonsen)
-      - dato: date (YYYY-MM-DD)
-    Vi støtter to varianter:
-      1) df har 'snapshot_time' (ISO-streng)
-      2) df har 'dato' (YYYY-MM-DD) – da lager vi snapshot_time midt på dagen
-    """
-    if "snapshot_time" in df.columns:
-        df["snapshot_time"] = pd.to_datetime(df["snapshot_time"], errors="coerce")
-        df["dato"] = df["snapshot_time"].dt.date
-    elif "dato" in df.columns:
-        df["dato"] = pd.to_datetime(df["dato"], errors="coerce").dt.date
-        df["snapshot_time"] = pd.to_datetime(df["dato"]) + pd.to_timedelta(12, unit="h")
-    else:
-        raise ValueError(
-            "Parquet mangler både 'snapshot_time' og 'dato'. "
-            "Utvid skriptet som lager Parquet til å inkludere minst én av dem."
-        )
-
-    # Sleng ut rader uten gyldig dato
-    df = df[df["snapshot_time"].notna()]
-    df = df[df["dato"].notna()]
-    return df
-
-
-def _is_sold(pris_val) -> bool:
-    """
-    Avgjør om en rad representerer at bilen er 'Solgt'.
-    Vi tolker dette som:
-      - Pris-feltet inneholder teksten 'solgt' (uansett case), eller
-      - Pris (eller pris_num) er 0
-    """
-    if pd.isna(pris_val):
-        return False
-
-    # Tekstvariant – typisk 'Solgt'
-    s = str(pris_val).strip().lower()
-    if "solgt" in s:
-        return True
-
-    # Rent tall (0)
-    try:
-        v = int(s.replace(" ", ""))
-        return v == 0
-    except ValueError:
-        return False
-
-
-def _extract_numeric(val):
-    """Trygg konvertering til heltall (eller None)."""
-    if pd.isna(val):
-        return None
-    s = str(val).strip()
-    s = s.replace(" ", "").replace("\xa0", "")
-    if not s:
-        return None
-    try:
-        return int(s)
-    except ValueError:
-        return None
+def _as_int_series(s: pd.Series) -> pd.Series:
+    return pd.to_numeric(s, errors="coerce").astype("Int64")
 
 
 def bygg_visning_for_solgte_fra_parquet(startdato: date) -> pd.DataFrame:
     """
-    Leser Parquet med alle snapshots og bygger en tabell over biler som faktisk er solgt,
-    med beregnet 'timer_til_salg' per FinnKode.
+    Bygger visning over solgte biler basert paa database_biler.parquet.
 
-    Returnerer DataFrame med kolonner som frontend forventer:
-      - FinnKode
-      - Finn        (lenke til annonsen)
-      - Merke
-      - Modell
-      - Årsmodell
-      - Km
-      - Pris
-      - Drivstoff
-      - "Forhandler type"
-      - timer_til_salg
-      - foerste_gang_sett (ISO)
+    Parametre
+    ---------
+    startdato : date
+        Kun biler der salget (Dato_ny) er >= denne datoen tas med.
+
+    Returnerer
+    ----------
+    DataFrame med kolonnene frontend forventer:
+        FinnKode, Finn, Merke, Modell, Aarsmodell, Km, Pris,
+        Drivstoff, Forhandler type, timer_til_salg, foerste_gang_sett
     """
 
-    df = _les_parquet_fra_s3()
-    df = _ensure_time_columns(df)
+    # Les bare det vi trenger - sparer minne paa Render-instansen
+    ønskede_kolonner = [
+        "FinnKode",
+        "Produsent",
+        "Modell",
+        "årstall",
+        "kjørelengde",
+        "drivstoff",
+        "forhandler_type",
+        "Dato",
+        "Dato_ny",
+        "Pris",
+        "Pris_ny",
+        "Solgt",
+    ]
 
-    # Normaliser noen kolonnenavn vi trenger
-    # (både store/små bokstaver og norsk/engelsk variant)
-    colmap = {}
+    df = _les_parquet(columns=ønskede_kolonner)
 
-    def _first_existing(names):
-        for n in names:
-            if n in df.columns:
-                return n
-        return None
-
-    colmap["Merke"] = _first_existing(["Merke", "produsent", "Produsent"])
-    colmap["Modell"] = _first_existing(["Modell", "modell"])
-    colmap["Årstall"] = _first_existing(["Årstall", "årstall", "Aarstall"])
-    colmap["Kjørelengde"] = _first_existing(["Kjørelengde", "kjørelengde", "Km"])
-    colmap["Drivstoff"] = _first_existing(["Drivstoff", "drivstoff"])
-    colmap["Pris"] = _first_existing(["Pris", "pris", "pris_num"])
-    colmap["Forhandler type"] = _first_existing(
-        ["Forhandler type", "Forhandler", "forhandler_type"]
+    # --- Normaliser Solgt-kolonnen ---
+    df["_solgt_norm"] = (
+        df["Solgt"].astype(str).str.strip().str.upper()
     )
 
-    required_keys = ["Merke", "Modell", "Årstall", "Kjørelengde", "Pris"]
-    for k in required_keys:
-        if colmap[k] is None:
-            print(f"ADVARSEL: Fant ikke kolonne for {k} i Parquet – bruker tomme verdier der.")
-            # vi lar det være None, så fylles det inn som "" senere
+    solgt_verdier = {"JA"}
+    if INKLUDER_FJERNET_SOM_SOLGT:
+        solgt_verdier.add("FJERNET")
 
-    records = []
+    er_solgt = df["_solgt_norm"].isin(solgt_verdier)
 
-    # Gruppér på FinnKode og beregn tid til salg
-    for finnkode, grp in df.groupby("FinnKode"):
-        g = grp.sort_values("snapshot_time").copy()
-        if g.empty:
-            continue
+    # --- Datofilter paa salgstidspunkt ---
+    df["Dato"] = pd.to_datetime(df["Dato"], errors="coerce")
+    df["Dato_ny"] = pd.to_datetime(df["Dato_ny"], errors="coerce")
 
-        # Første gang vi så annonsen
-        first_row = g.iloc[0]
-        first_time = first_row["snapshot_time"]
+    startdato_ts = pd.Timestamp(startdato)
+    innenfor_periode = df["Dato_ny"] >= startdato_ts
 
-        # Finn første rad der vi tolker bilen som 'solgt'
-        pris_col = colmap["Pris"]
-        if pris_col is None or pris_col not in g.columns:
-            continue
+    # Gyldige tidsstempler begge veier
+    gyldig_tid = df["Dato"].notna() & df["Dato_ny"].notna()
 
-        sold_mask = g[pris_col].apply(_is_sold)
-        sold_rows = g[sold_mask]
+    maske = er_solgt & innenfor_periode & gyldig_tid
+    s = df.loc[maske].copy()
 
-        if sold_rows.empty:
-            # Aldri observert som "Solgt" → hopp over (bilen er nok fortsatt aktiv)
-            continue
+    print(
+        f"[parquet] totalt={len(df):,} | "
+        f"solgt({'JA+FJERNET' if INKLUDER_FJERNET_SOM_SOLGT else 'kun JA'})="
+        f"{int(er_solgt.sum()):,} | "
+        f"etter datofilter({startdato})={len(s):,}"
+    )
 
-        sale_row = sold_rows.iloc[0]
-        sale_time = sale_row["snapshot_time"]
-
-        # Hvis salget skjedde før ønsket startdato -> hopp over
-        if sale_time.date() < startdato:
-            continue
-
-        # Timer til salg
-        timer_til_salg = (sale_time - first_time).total_seconds() / 3600.0
-        if timer_til_salg < 0:
-            # Noe rart med rekkefølgen – hopp over
-            continue
-
-        # Plukk ut felter
-        merke = sale_row.get(colmap["Merke"]) if colmap["Merke"] else ""
-        modell = sale_row.get(colmap["Modell"]) if colmap["Modell"] else ""
-        aar = sale_row.get(colmap["Årstall"]) if colmap["Årstall"] else None
-        km = sale_row.get(colmap["Kjørelengde"]) if colmap["Kjørelengde"] else None
-        pris_raw = sale_row.get(colmap["Pris"]) if colmap["Pris"] else None
-        drivstoff = sale_row.get(colmap["Drivstoff"]) if colmap["Drivstoff"] else ""
-        forhandler_type = (
-            sale_row.get(colmap["Forhandler type"]) if colmap["Forhandler type"] else ""
-        )
-
-        # Konverter tall
-        aar_int = _extract_numeric(aar)
-        km_int = _extract_numeric(km)
-        pris_int = _extract_numeric(pris_raw)
-
-        records.append(
-            {
-                "FinnKode": str(finnkode),
-                "Finn": FINN_BASE_URL + str(finnkode),
-                "Merke": merke or "",
-                "Modell": modell or "",
-                "Årsmodell": aar_int,
-                "Km": km_int,
-                "Pris": pris_int,
-                "Drivstoff": drivstoff or "",
-                "Forhandler type": forhandler_type or "",
-                "timer_til_salg": float(timer_til_salg),
-                "foerste_gang_sett": first_time.isoformat(),
-            }
-        )
-
-    if not records:
+    if s.empty:
         return pd.DataFrame()
 
-    vis_df = pd.DataFrame.from_records(records)
+    # --- Tid til salg ---
+    diff = (s["Dato_ny"] - s["Dato"]).dt.total_seconds() / 3600.0
+    s["timer_til_salg"] = diff.clip(lower=0).astype(float)
 
-    # Sorter: raskest først
-    vis_df = vis_df.sort_values("timer_til_salg", ascending=True).reset_index(drop=True)
-    return vis_df
+    # --- Bygg frontend-tabell ---
+    # Solgt-status: "JA" = bekreftet solgt, "FJERNET" = annonse borte (~solgt,
+    # men kan ogsaa vaere trukket tilbake). Lar frontend velge visning.
+    ut = pd.DataFrame(
+        {
+            "FinnKode": s["FinnKode"].astype(str),
+            "Finn": FINN_BASE_URL + s["FinnKode"].astype(str),
+            "Merke": s["Produsent"].fillna("").astype(str),
+            "Modell": s["Modell"].fillna("").astype(str),
+            "Årsmodell": _as_int_series(s["årstall"]),
+            "Km": _as_int_series(s["kjørelengde"]),
+            # Bruk Pris_ny som "faktisk pris" - det er den siste observerte.
+            # Fall tilbake til Pris hvis Pris_ny mangler.
+            "Pris": _as_int_series(
+                s["Pris_ny"].where(s["Pris_ny"].notna(), s["Pris"])
+            ),
+            "Drivstoff": s["drivstoff"].fillna("").astype(str),
+            "Forhandler type": s["forhandler_type"].fillna("").astype(str),
+            "Solgt status": s["_solgt_norm"],  # "JA" eller "FJERNET"
+            "timer_til_salg": s["timer_til_salg"],
+            "foerste_gang_sett": s["Dato"].dt.strftime("%Y-%m-%dT%H:%M:%S"),
+            "siste_gang_sett": s["Dato_ny"].dt.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+    )
+
+    ut = ut.sort_values("timer_til_salg", ascending=True).reset_index(drop=True)
+    return ut
