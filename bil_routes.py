@@ -1575,3 +1575,208 @@ def bil_svv_side():
         eu_status=eu_status,
         eu_dager_igjen=eu_dager_igjen,
     )
+
+
+@bil_bp.route('/innbytte', methods=['GET', 'POST'])
+def bil_innbytte_side():
+    """
+    Foreslår innbyttepris ved å:
+      1) hente kjøretøydata fra SVV (regnr)
+      2) finne sammenlignbare biler i solgt-historikken
+      3) beregne en robust prisindikasjon (median av mest sammenlignbare)
+    """
+    result = None
+    error = None
+    regnr = ""
+    km_input = ""
+
+    if request.method == "POST":
+        regnr = (request.form.get("regnr") or "").strip().upper()
+        km_input = (request.form.get("km") or "").strip()
+
+        if not regnr:
+            error = "Du må oppgi registreringsnummer."
+        elif not km_input:
+            error = "Du må oppgi kjørelengde."
+        else:
+            try:
+                km_value = int(str(km_input).replace(" ", ""))
+                if km_value < 0:
+                    raise ValueError("negativ km")
+            except Exception:
+                error = "Kjørelengde må være et gyldig heltall (km)."
+                km_value = None
+
+            if not error:
+                svv_raw, svv_err = fetch_svv_data(regnr)
+                if svv_err or not svv_raw:
+                    error = svv_err or "Fant ikke kjøretøydata fra SVV."
+                else:
+                    flat = flatten_svv_data(svv_raw)
+
+                    merke = (flat.get("svv_merke") or "").strip()
+                    modell = (flat.get("svv_handelsbetegnelse") or flat.get("svv_typebetegnelse") or "").strip()
+
+                    if not merke:
+                        error = "SVV-oppslaget manglet merke. Klarer ikke hente sammenlignbare biler."
+                    else:
+                        try:
+                            s3_key = PARQUET_KEY_SOLGT
+                            path = _ensure_local_parquet(s3_key)
+                            colmap = _duckdb_get_colmap(path, s3_key)
+                            con = _duckdb_con()
+
+                            def col_or_null(key: str) -> str:
+                                c = colmap.get(key)
+                                return _qident(c) if c else "NULL"
+
+                            c_prod = col_or_null("produsent")
+                            c_mod = col_or_null("modell")
+                            c_aar = col_or_null("aar")
+                            c_km = col_or_null("km")
+                            c_hjul = col_or_null("hjuldrift")
+                            c_pris_ny = col_or_null("pris_ny")
+                            c_dato_end = col_or_null("dato_end")
+                            c_dato_start = col_or_null("dato_start")
+                            c_solgt = col_or_null("solgt")
+                            c_finn = col_or_null("finnkode")
+
+                            pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
+                            km_num = _to_bigint_sql(c_km)
+                            aar_num = f"try_cast({c_aar} AS BIGINT)"
+                            dato_end_ts = _to_timestamp_sql(c_dato_end)
+                            dato_start_ts = _to_timestamp_sql(c_dato_start)
+                            finnkode_str = f"regexp_replace(cast({c_finn} as varchar), '\\\\.0$', '')"
+                            finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
+
+                            # robust modellmatch: bruk de to første ordene når tilgjengelig
+                            modell_tokens = [t for t in re.split(r"\s+", modell) if t]
+                            modell_candidates = []
+                            if modell:
+                                modell_candidates.append(modell)
+                            if len(modell_tokens) >= 2:
+                                modell_candidates.append(" ".join(modell_tokens[:2]))
+                            elif len(modell_tokens) == 1:
+                                modell_candidates.append(modell_tokens[0])
+
+                            where_parts = [
+                                f"lower(cast({c_prod} as varchar)) = lower(?)"
+                            ]
+                            params = [merke]
+
+                            if modell_candidates:
+                                mod_like = " OR ".join([f"lower(cast({c_mod} as varchar)) LIKE lower(?)" for _ in modell_candidates])
+                                where_parts.append(f"({mod_like})")
+                                params.extend([f"%{m}%" for m in modell_candidates])
+
+                            # Filtrer bort annonser som fortsatt er aktive (samme metodikk som solgt-siden)
+                            max_date = None
+                            if colmap.get("dato_end"):
+                                max_date = con.execute(
+                                    f"SELECT max(date({dato_end_ts})) FROM read_parquet('{path}') WHERE {dato_end_ts} IS NOT NULL"
+                                ).fetchone()[0]
+
+                            if max_date is not None:
+                                where_parts.append(f"date({dato_end_ts}) < ?")
+                                params.append(str(max_date))
+
+                            if colmap.get("solgt"):
+                                where_parts.append(f"({_bool_expr(c_solgt)}) = true")
+                            else:
+                                where_parts.append(f"{pris_ny_num} > 1000")
+
+                            target_year = None
+                            reg_norge = (flat.get("svv_registrert_forste_gang_norge") or "")
+                            if reg_norge and len(reg_norge) >= 4 and reg_norge[:4].isdigit():
+                                target_year = int(reg_norge[:4])
+
+                            aksler_med_drift = flat.get("svv_antall_aksler_med_drift")
+                            if aksler_med_drift:
+                                try:
+                                    amd = int(aksler_med_drift)
+                                except Exception:
+                                    amd = None
+                                if amd is not None:
+                                    if amd >= 2:
+                                        where_parts.append(
+                                            f"(lower(cast({c_hjul} as varchar)) LIKE '%fire%' OR lower(cast({c_hjul} as varchar)) LIKE '%4%')"
+                                        )
+                                    elif amd == 1:
+                                        where_parts.append(
+                                            f"(lower(cast({c_hjul} as varchar)) LIKE '%to%' OR lower(cast({c_hjul} as varchar)) LIKE '%2%')"
+                                        )
+
+                            where_sql = " WHERE " + " AND ".join(where_parts)
+
+                            score_sql = f"""
+                              SELECT
+                                {c_prod} AS produsent,
+                                {c_mod} AS modell,
+                                {aar_num} AS arstall,
+                                {km_num} AS kjorelengde,
+                                cast({c_hjul} as varchar) AS hjuldrift,
+                                {pris_ny_num} AS pris,
+                                {dato_start_ts} AS dato_start,
+                                {dato_end_ts} AS dato_end,
+                                {finnkode_str} AS finnkode,
+                                {finn_url_expr} AS finn_url,
+                                (
+                                  coalesce(abs({km_num} - ?), 999999) * 1.0
+                                  + coalesce(abs({aar_num} - ?), 4) * 20000.0
+                                ) AS score
+                              FROM read_parquet('{path}')
+                              {where_sql}
+                              ORDER BY score ASC, pris ASC
+                              LIMIT 40
+                            """
+
+                            score_params = list(params) + [km_value, target_year or datetime.utcnow().year]
+                            rows = con.execute(score_sql, score_params).df()
+                            rows = rows.where(pd.notna(rows), None)
+                            records = json.loads(rows.to_json(orient='records', date_format='iso'))
+
+                            if not records:
+                                error = "Fant ingen gode sammenlignbare biler med dagens kriterier."
+                            else:
+                                topp = records[:10]
+                                priser = [int(r["pris"]) for r in topp if isinstance(r.get("pris"), (int, float)) and r.get("pris")]
+                                if not priser:
+                                    error = "Fant sammenlignbare biler, men manglet prisgrunnlag."
+                                else:
+                                    prisserie = pd.Series(priser)
+                                    median_pris = int(prisserie.median())
+                                    p25_pris = int(prisserie.quantile(0.25))
+                                    p75_pris = int(prisserie.quantile(0.75))
+                                    innbyttepris = int(round(median_pris * 0.92))
+
+                                    result = {
+                                        "svv": {
+                                            "regnr": flat.get("svv_regnr") or regnr,
+                                            "merke": merke,
+                                            "modell": modell or "Ukjent modell",
+                                            "motor_cm3": flat.get("svv_slagvolum_cm3"),
+                                            "motor_kw": flat.get("svv_maks_netto_effekt_kw"),
+                                            "drivstoff": flat.get("svv_drivstoff_navn"),
+                                            "aksler_med_drift": flat.get("svv_antall_aksler_med_drift"),
+                                            "forstegang_norge": flat.get("svv_registrert_forste_gang_norge"),
+                                            "km_input": km_value,
+                                        },
+                                        "innbyttepris": innbyttepris,
+                                        "median_pris": median_pris,
+                                        "pris_p25": p25_pris,
+                                        "pris_p75": p75_pris,
+                                        "antall_sammenlignbare": len(records),
+                                        "sammenlignbare": records,
+                                    }
+
+                        except Exception as e:
+                            traceback.print_exc()
+                            error = f"Klarte ikke beregne innbyttepris: {e}"
+
+    return render_template(
+        "bil_innbytte.html",
+        result=result,
+        error=error,
+        regnr=regnr,
+        km=km_input,
+    )
