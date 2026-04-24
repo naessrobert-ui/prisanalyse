@@ -4,8 +4,9 @@ import os
 
 import boto3
 import psycopg
+import requests
 from psycopg import sql
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, url_for
 
 aksjonaer_bp = Blueprint("aksjonaer", __name__)
 SHAREHOLDER_TABLE = "shareholder_orgnr_import"
@@ -331,6 +332,74 @@ def aksjonaer_sok():
                                         row["company_sum_egenkapital"] = regnskap.get("sum_egenkapital") if regnskap else None
                                         row["regnskap_orgnr_raw"] = regnskap.get("orgnr_raw") if regnskap else None
                                         row["regnskap_orgnr_norm"] = org if regnskap else None
+
+                                    missing_orgnrs = []
+                                    for row in rows:
+                                        if row.get("company_aarsresultat") is None and row.get("company_sum_egenkapital") is None:
+                                            normalized = "".join(ch for ch in str(row.get("orgnr") or "") if ch.isdigit())
+                                            if normalized:
+                                                missing_orgnrs.append(normalized)
+
+                                    for orgnr in sorted(set(missing_orgnrs))[:25]:
+                                        try:
+                                            api_url = url_for("regnskap.regnskap_api_search", _external=True)
+                                            resp = requests.get(
+                                                api_url,
+                                                params={"orgnr": orgnr},
+                                                timeout=6,
+                                                verify=False,
+                                            )
+                                            if not resp.ok:
+                                                continue
+                                            payload = resp.json() or {}
+                                            results = payload.get("results") or []
+                                            if not results:
+                                                continue
+                                            first = results[0] or {}
+                                            regnskap_map[orgnr] = {
+                                                "orgnr_raw": first.get("orgnr") or orgnr,
+                                                "aarsresultat": first.get("net_profit"),
+                                                "sum_egenkapital": first.get("equity"),
+                                            }
+                                        except Exception:
+                                            continue
+
+                                    if missing_orgnrs:
+                                        total_profit_share = 0.0
+                                        total_equity_share = 0.0
+                                        profit_count = 0
+                                        equity_count = 0
+
+                                        for row in rows:
+                                            org = "".join(ch for ch in str(row.get("orgnr") or "") if ch.isdigit())
+                                            regnskap = regnskap_map.get(org) if org else None
+                                            ownership_pct = row.get("ownership_pct")
+                                            owner_profit_share = None
+                                            owner_equity_share = None
+                                            if regnskap and ownership_pct is not None:
+                                                fraction = float(ownership_pct) / 100.0
+                                                if regnskap.get("aarsresultat") is not None:
+                                                    owner_profit_share = float(regnskap["aarsresultat"]) * fraction
+                                                    total_profit_share += owner_profit_share
+                                                    profit_count += 1
+                                                if regnskap.get("sum_egenkapital") is not None:
+                                                    owner_equity_share = float(regnskap["sum_egenkapital"]) * fraction
+                                                    total_equity_share += owner_equity_share
+                                                    equity_count += 1
+                                            row["owner_profit_share"] = owner_profit_share
+                                            row["owner_equity_share"] = owner_equity_share
+                                            row["company_aarsresultat"] = regnskap.get("aarsresultat") if regnskap else None
+                                            row["company_sum_egenkapital"] = regnskap.get("sum_egenkapital") if regnskap else None
+                                            row["regnskap_orgnr_raw"] = regnskap.get("orgnr_raw") if regnskap else None
+                                            row["regnskap_orgnr_norm"] = org if regnskap else None
+
+                                        person_totals = {
+                                            "sum_owner_profit_share": total_profit_share if profit_count else None,
+                                            "sum_owner_equity_share": total_equity_share if equity_count else None,
+                                            "companies_with_profit_data": profit_count,
+                                            "companies_with_equity_data": equity_count,
+                                            "companies_total": len(rows),
+                                        }
 
                                     person_totals = {
                                         "sum_owner_profit_share": total_profit_share if profit_count else None,
