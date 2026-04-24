@@ -266,17 +266,24 @@ def aksjonaer_sok():
                             )
 
                             if rows and regnskap_columns and regnskap_orgnr_col and (regnskap_profit_col or regnskap_equity_col):
-                                selected_orgnrs = sorted({str(r.get("orgnr")) for r in rows if r.get("orgnr")})
+                                selected_orgnrs = sorted(
+                                    {
+                                        "".join(ch for ch in str(r.get("orgnr") or "") if ch.isdigit())
+                                        for r in rows
+                                        if r.get("orgnr")
+                                    }
+                                )
                                 if selected_orgnrs:
                                     regnskap_table_ref = _qualified_table(regnskap_schema, "regnskap_siste")
                                     regnskap_query = sql.SQL(
                                         """
                                         SELECT
                                             {orgnr}::text AS orgnr,
+                                            regexp_replace({orgnr}::text, '\D', '', 'g') AS orgnr_norm,
                                             {profit} AS aarsresultat,
                                             {equity} AS sum_egenkapital
                                         FROM {table}
-                                        WHERE {orgnr}::text = ANY(%s)
+                                        WHERE regexp_replace({orgnr}::text, '\D', '', 'g') = ANY(%s)
                                         """
                                     ).format(
                                         orgnr=sql.Identifier(regnskap_orgnr_col),
@@ -286,11 +293,12 @@ def aksjonaer_sok():
                                     )
                                     cur.execute(regnskap_query, (selected_orgnrs,))
                                     regnskap_map = {
-                                        str(orgnr): {
+                                        str(orgnr_norm): {
+                                            "orgnr_raw": orgnr,
                                             "aarsresultat": aarsresultat,
                                             "sum_egenkapital": sum_egenkapital,
                                         }
-                                        for orgnr, aarsresultat, sum_egenkapital in cur.fetchall()
+                                        for orgnr, orgnr_norm, aarsresultat, sum_egenkapital in cur.fetchall()
                                     }
 
                                     total_profit_share = 0.0
@@ -299,7 +307,8 @@ def aksjonaer_sok():
                                     equity_count = 0
 
                                     for row in rows:
-                                        org = str(row.get("orgnr") or "")
+                                        org_raw = str(row.get("orgnr") or "")
+                                        org = "".join(ch for ch in org_raw if ch.isdigit())
                                         ownership_pct = row.get("ownership_pct")
                                         regnskap = regnskap_map.get(org) if org else None
 
@@ -320,6 +329,8 @@ def aksjonaer_sok():
                                         row["owner_equity_share"] = owner_equity_share
                                         row["company_aarsresultat"] = regnskap.get("aarsresultat") if regnskap else None
                                         row["company_sum_egenkapital"] = regnskap.get("sum_egenkapital") if regnskap else None
+                                        row["regnskap_orgnr_raw"] = regnskap.get("orgnr_raw") if regnskap else None
+                                        row["regnskap_orgnr_norm"] = org if regnskap else None
 
                                     person_totals = {
                                         "sum_owner_profit_share": total_profit_share if profit_count else None,

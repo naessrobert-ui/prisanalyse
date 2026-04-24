@@ -251,8 +251,11 @@
               <th>Aksjeklasse</th>
               <th class="right">Aksjer</th>
               <th class="right">Eierandel</th>
+              <th class="right">Selskap årsresultat</th>
+              <th class="right">Selskap egenkapital</th>
               <th class="right">Andel årsresultat</th>
               <th class="right">Andel egenkapital</th>
+              <th>Regnskap orgnr</th>
               <th>Dato</th>
             </tr>
           </thead>
@@ -273,6 +276,16 @@
                   {% endif %}
                 </td>
                 <td class="right">
+                  {% if row.get('company_aarsresultat') is not none %}
+                    {{ "{:,.0f}".format(row.get('company_aarsresultat')).replace(",", " ") }}
+                  {% endif %}
+                </td>
+                <td class="right">
+                  {% if row.get('company_sum_egenkapital') is not none %}
+                    {{ "{:,.0f}".format(row.get('company_sum_egenkapital')).replace(",", " ") }}
+                  {% endif %}
+                </td>
+                <td class="right">
                   {% if row.get('owner_profit_share') is not none %}
                     {{ "{:,.0f}".format(row.get('owner_profit_share')).replace(",", " ") }}
                   {% endif %}
@@ -280,6 +293,13 @@
                 <td class="right">
                   {% if row.get('owner_equity_share') is not none %}
                     {{ "{:,.0f}".format(row.get('owner_equity_share')).replace(",", " ") }}
+                  {% endif %}
+                </td>
+                <td>
+                  {% if row.get('regnskap_orgnr_raw') %}
+                    {{ row.get('regnskap_orgnr_raw') }}
+                  {% else %}
+                    Ikke treff
                   {% endif %}
                 </td>
                 <td>{{ row.snapshot_date }}</td>
