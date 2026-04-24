@@ -24,17 +24,30 @@ def _qualified_column(column_name: str | None, fallback_literal: str = "NULL") -
     return sql.Identifier(column_name)
 
 
-def _load_table_columns(conn: psycopg.Connection, table_name: str) -> set[str]:
+def _qualified_table(table_schema: str | None, table_name: str) -> sql.Composable:
+    if table_schema:
+        return sql.SQL("{}.{}").format(sql.Identifier(table_schema), sql.Identifier(table_name))
+    return sql.Identifier(table_name)
+
+
+def _load_table_columns(conn: psycopg.Connection, table_name: str) -> tuple[str | None, set[str]]:
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT column_name
+            SELECT table_schema, column_name
             FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = %s
+            WHERE table_name = %s
+              AND table_schema NOT IN ('information_schema', 'pg_catalog')
+            ORDER BY CASE WHEN table_schema = 'public' THEN 0 ELSE 1 END, table_schema
             """,
             (table_name,),
         )
-        return {row[0] for row in cur.fetchall()}
+        rows = cur.fetchall()
+        if not rows:
+            return None, set()
+        selected_schema = rows[0][0]
+        selected_columns = {row[1] for row in rows if row[0] == selected_schema}
+        return selected_schema, selected_columns
 
 
 def connect_db():
@@ -98,10 +111,11 @@ def aksjonaer_sok():
         else:
             try:
                 with connect_db() as conn:
-                    columns = _load_table_columns(conn, SHAREHOLDER_TABLE)
+                    shareholder_schema, columns = _load_table_columns(conn, SHAREHOLDER_TABLE)
 
                     if not columns:
                         raise RuntimeError(f"Fant ingen kolonner i tabellen {SHAREHOLDER_TABLE}.")
+                    shareholder_table_ref = _qualified_table(shareholder_schema, SHAREHOLDER_TABLE)
 
                     shareholder_col = _find_first_column(columns, ["shareholder_name"])
                     orgnr_col = _find_first_column(columns, ["orgnr"])
@@ -143,7 +157,7 @@ def aksjonaer_sok():
                                 orgnr=_qualified_column(orgnr_col),
                                 shares=_qualified_column(shares_col, fallback_literal="0"),
                                 snapshot=_qualified_column(snapshot_col),
-                                table=sql.Identifier(SHAREHOLDER_TABLE),
+                                table=shareholder_table_ref,
                             )
                             cur.execute(person_query, (f"%{q}%",))
                             person_columns = [desc.name for desc in cur.description]
@@ -172,7 +186,7 @@ def aksjonaer_sok():
                                 shareholder=sql.Identifier(shareholder_col),
                                 shares=_qualified_column(shares_col, fallback_literal="0"),
                                 snapshot=_qualified_column(snapshot_col),
-                                table=sql.Identifier(SHAREHOLDER_TABLE),
+                                table=shareholder_table_ref,
                             )
                             like_q = f"%{q}%"
                             cur.execute(company_query, (like_q, like_q))
@@ -233,14 +247,14 @@ def aksjonaer_sok():
                                 shares=_qualified_column(shares_col, fallback_literal="NULL"),
                                 company_total=_qualified_column(company_total_col, fallback_literal="NULL"),
                                 snapshot=_qualified_column(snapshot_col),
-                                table=sql.Identifier(SHAREHOLDER_TABLE),
+                                table=shareholder_table_ref,
                                 where_clause=sql.SQL(" AND ").join(filters),
                             )
                             cur.execute(holdings_query, params)
                             holding_columns = [desc.name for desc in cur.description]
                             rows = [dict(zip(holding_columns, row)) for row in cur.fetchall()]
 
-                            regnskap_columns = _load_table_columns(conn, "regnskap_siste")
+                            regnskap_schema, regnskap_columns = _load_table_columns(conn, "regnskap_siste")
                             regnskap_orgnr_col = _find_first_column(regnskap_columns, ["orgnr"])
                             regnskap_profit_col = _find_first_column(
                                 regnskap_columns,
@@ -254,6 +268,7 @@ def aksjonaer_sok():
                             if rows and regnskap_columns and regnskap_orgnr_col and (regnskap_profit_col or regnskap_equity_col):
                                 selected_orgnrs = sorted({str(r.get("orgnr")) for r in rows if r.get("orgnr")})
                                 if selected_orgnrs:
+                                    regnskap_table_ref = _qualified_table(regnskap_schema, "regnskap_siste")
                                     regnskap_query = sql.SQL(
                                         """
                                         SELECT
@@ -267,7 +282,7 @@ def aksjonaer_sok():
                                         orgnr=sql.Identifier(regnskap_orgnr_col),
                                         profit=_qualified_column(regnskap_profit_col),
                                         equity=_qualified_column(regnskap_equity_col),
-                                        table=sql.Identifier("regnskap_siste"),
+                                        table=regnskap_table_ref,
                                     )
                                     cur.execute(regnskap_query, (selected_orgnrs,))
                                     regnskap_map = {
@@ -351,7 +366,7 @@ def aksjonaer_sok():
                                 shares=_qualified_column(shares_col, fallback_literal="NULL"),
                                 company_total=_qualified_column(company_total_col, fallback_literal="NULL"),
                                 snapshot=_qualified_column(snapshot_col),
-                                table=sql.Identifier(SHAREHOLDER_TABLE),
+                                table=shareholder_table_ref,
                                 where_clause=sql.SQL(" AND ").join(company_filters),
                             )
                             cur.execute(owners_query, company_params)
