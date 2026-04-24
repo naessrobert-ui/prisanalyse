@@ -130,8 +130,11 @@ def aksjonaer_sok():
                     shares_col = _find_first_column(columns, ["shares_count", "shares_owned"])
                     company_total_col = _find_first_column(columns, ["company_shares_count", "company_total_shares"])
                     snapshot_col = _find_first_column(columns, ["snapshot_date"])
-                    identifier_col = _find_first_column(columns, ["shareholder_identifier", "fodselsaar_orgnr"])
-                    postal_col = _find_first_column(columns, ["postal_place", "postnr_sted"])
+                    identifier_col = _find_first_column(
+                        columns,
+                        ["shareholder_identifier", "fodselsaar_orgnr", "shareholder_birth_year_or_orgnr"],
+                    )
+                    postal_col = _find_first_column(columns, ["postal_place", "postnr_sted", "postcode_place"])
                     country_col = _find_first_column(columns, ["country_code", "landkode"])
 
                     if not shareholder_col:
@@ -273,6 +276,7 @@ def aksjonaer_sok():
                                 regnskap_columns,
                                 ["sum_egenkapital", "equity", "egenkapital"],
                             )
+                            regnskap_map: dict[str, dict[str, object]] = {}
 
                             if rows and regnskap_columns and regnskap_orgnr_col and (regnskap_profit_col or regnskap_equity_col):
                                 selected_orgnrs = sorted(
@@ -429,6 +433,79 @@ def aksjonaer_sok():
                                     }
                             elif debug_enabled:
                                 debug_info["regnskap_lookup_status"] = "Ingen regnskapstabell/kolonner tilgjengelig i denne DB-tilkoblingen."
+
+                            if rows and not regnskap_map:
+                                missing_orgnrs = sorted(
+                                    {
+                                        "".join(ch for ch in str(row.get("orgnr") or "") if ch.isdigit())
+                                        for row in rows
+                                        if row.get("orgnr")
+                                    }
+                                )
+                                for orgnr in missing_orgnrs[:25]:
+                                    try:
+                                        api_url = url_for("regnskap.regnskap_api_search", _external=True)
+                                        resp = requests.get(
+                                            api_url,
+                                            params={"orgnr": orgnr},
+                                            timeout=6,
+                                            verify=False,
+                                        )
+                                        if not resp.ok:
+                                            continue
+                                        payload = resp.json() or {}
+                                        results = payload.get("results") or []
+                                        if not results:
+                                            continue
+                                        first = results[0] or {}
+                                        regnskap_map[orgnr] = {
+                                            "orgnr_raw": first.get("orgnr") or orgnr,
+                                            "orgnr_type": "api_fallback",
+                                            "aarsresultat": first.get("net_profit"),
+                                            "sum_egenkapital": first.get("equity"),
+                                        }
+                                    except Exception:
+                                        continue
+                                if debug_enabled:
+                                    debug_info["missing_orgnrs_before_api"] = missing_orgnrs
+                                    debug_info["regnskap_hits_after_api"] = len(regnskap_map)
+
+                                total_profit_share = 0.0
+                                total_equity_share = 0.0
+                                profit_count = 0
+                                equity_count = 0
+
+                                for row in rows:
+                                    org = "".join(ch for ch in str(row.get("orgnr") or "") if ch.isdigit())
+                                    regnskap = regnskap_map.get(org) if org else None
+                                    ownership_pct = row.get("ownership_pct")
+                                    owner_profit_share = None
+                                    owner_equity_share = None
+                                    if regnskap and ownership_pct is not None:
+                                        fraction = float(ownership_pct) / 100.0
+                                        if regnskap.get("aarsresultat") is not None:
+                                            owner_profit_share = float(regnskap["aarsresultat"]) * fraction
+                                            total_profit_share += owner_profit_share
+                                            profit_count += 1
+                                        if regnskap.get("sum_egenkapital") is not None:
+                                            owner_equity_share = float(regnskap["sum_egenkapital"]) * fraction
+                                            total_equity_share += owner_equity_share
+                                            equity_count += 1
+                                    row["owner_profit_share"] = owner_profit_share
+                                    row["owner_equity_share"] = owner_equity_share
+                                    row["company_aarsresultat"] = regnskap.get("aarsresultat") if regnskap else None
+                                    row["company_sum_egenkapital"] = regnskap.get("sum_egenkapital") if regnskap else None
+                                    row["regnskap_orgnr_raw"] = regnskap.get("orgnr_raw") if regnskap else None
+                                    row["regnskap_orgnr_norm"] = org if regnskap else None
+                                    row["regnskap_orgnr_type"] = regnskap.get("orgnr_type") if regnskap else None
+
+                                person_totals = {
+                                    "sum_owner_profit_share": total_profit_share if profit_count else None,
+                                    "sum_owner_equity_share": total_equity_share if equity_count else None,
+                                    "companies_with_profit_data": profit_count,
+                                    "companies_with_equity_data": equity_count,
+                                    "companies_total": len(rows),
+                                }
 
                         if selected_company and company_col:
                             company_filters = [sql.SQL("{company} = %s").format(company=sql.Identifier(company_col))]
