@@ -59,47 +59,79 @@ def _load_table_columns(conn: psycopg.Connection, table_name: str) -> tuple[str 
         return selected_schema, selected_columns
 
 
-def _connect_regnskap_db() -> psycopg.Connection | None:
+def _connect_regnskap_db(debug_info: dict[str, object] | None = None) -> psycopg.Connection | None:
     direct_url = (os.getenv("REGNSKAP_DATABASE_URL") or os.getenv("DATABASE_URL_REGNSKAP") or "").strip()
     if direct_url:
-        return psycopg.connect(direct_url)
+        if debug_info is not None:
+            debug_info["internal_regnskap_connection"] = "direct_url"
+        try:
+            return psycopg.connect(direct_url)
+        except Exception as exc:
+            if debug_info is not None:
+                debug_info["internal_regnskap_error"] = f"direct_url_connect_failed: {exc}"
+            return None
 
     host = (os.getenv("RDS_HOST") or "").strip()
     if not host:
+        if debug_info is not None:
+            debug_info["internal_regnskap_connection"] = "missing REGNSKAP_DATABASE_URL/DATABASE_URL_REGNSKAP/RDS_HOST"
         return None
 
     port = int((os.getenv("RDS_PORT") or "5432").strip())
     dbname = (os.getenv("RDS_DB") or "postgres").strip()
     user = (os.getenv("RDS_USER") or "postgres").strip()
     region = (os.getenv("AWS_REGION") or os.getenv("REGION") or "eu-north-1").strip()
+    if debug_info is not None:
+        debug_info["internal_regnskap_connection"] = "rds_iam"
+        debug_info["internal_regnskap_host"] = host
+        debug_info["internal_regnskap_db"] = dbname
+        debug_info["internal_regnskap_user"] = user
+        debug_info["internal_regnskap_region"] = region
 
-    token = boto3.client("rds", region_name=region).generate_db_auth_token(
-        DBHostname=host,
-        Port=port,
-        DBUsername=user,
-    )
-    return psycopg.connect(
-        host=host,
-        port=port,
-        dbname=dbname,
-        user=user,
-        password=token,
-        sslmode="require",
-    )
+    try:
+        token = boto3.client("rds", region_name=region).generate_db_auth_token(
+            DBHostname=host,
+            Port=port,
+            DBUsername=user,
+        )
+        return psycopg.connect(
+            host=host,
+            port=port,
+            dbname=dbname,
+            user=user,
+            password=token,
+            sslmode="require",
+        )
+    except Exception as exc:
+        if debug_info is not None:
+            debug_info["internal_regnskap_error"] = f"rds_iam_connect_failed: {exc}"
+        return None
 
 
-def _fetch_regnskap_batch_from_internal_db(orgnrs_norm: list[str]) -> dict[str, dict[str, object]]:
+def _fetch_regnskap_batch_from_internal_db(
+    orgnrs_norm: list[str],
+    debug_info: dict[str, object] | None = None,
+) -> dict[str, dict[str, object]]:
     if not orgnrs_norm:
+        if debug_info is not None:
+            debug_info["internal_regnskap_status"] = "no_orgnrs"
         return {}
-    conn = _connect_regnskap_db()
+    conn = _connect_regnskap_db(debug_info=debug_info)
     if not conn:
+        if debug_info is not None and "internal_regnskap_status" not in debug_info:
+            debug_info["internal_regnskap_status"] = "no_connection"
         return {}
     try:
         schema, cols = _load_table_columns(conn, "regnskap_siste")
+        if debug_info is not None:
+            debug_info["internal_regnskap_schema"] = schema
+            debug_info["internal_regnskap_columns"] = sorted(cols)
         orgnr_col = _find_first_column(cols, ["orgnr"])
         profit_col = _find_first_column(cols, ["aarsresultat", "net_profit", "resultat_etter_skatt"])
         equity_col = _find_first_column(cols, ["sum_egenkapital", "equity", "egenkapital"])
         if not schema or not orgnr_col or (not profit_col and not equity_col):
+            if debug_info is not None:
+                debug_info["internal_regnskap_status"] = "missing_table_or_columns"
             return {}
         table_ref = _qualified_table(schema, "regnskap_siste")
         query = sql.SQL(
@@ -120,7 +152,7 @@ def _fetch_regnskap_batch_from_internal_db(orgnrs_norm: list[str]) -> dict[str, 
         )
         with conn.cursor() as cur:
             cur.execute(query, (orgnrs_norm,))
-            return {
+            mapped = {
                 str(orgnr_norm): {
                     "orgnr_raw": orgnr,
                     "orgnr_type": "internal_regnskap_db",
@@ -129,6 +161,14 @@ def _fetch_regnskap_batch_from_internal_db(orgnrs_norm: list[str]) -> dict[str, 
                 }
                 for orgnr, orgnr_norm, aarsresultat, sum_egenkapital in cur.fetchall()
             }
+            if debug_info is not None:
+                debug_info["internal_regnskap_status"] = "ok"
+                debug_info["internal_regnskap_rows"] = len(mapped)
+            return mapped
+    except Exception as exc:
+        if debug_info is not None:
+            debug_info["internal_regnskap_status"] = f"query_failed: {exc}"
+        return {}
     finally:
         conn.close()
 
@@ -524,7 +564,7 @@ def aksjonaer_sok():
                                         if row.get("orgnr")
                                     }
                                 )
-                                regnskap_map.update(_fetch_regnskap_batch_from_internal_db(missing_orgnrs))
+                                regnskap_map.update(_fetch_regnskap_batch_from_internal_db(missing_orgnrs, debug_info))
                                 if debug_enabled:
                                     debug_info["missing_orgnrs_before_internal_db"] = missing_orgnrs
                                     debug_info["regnskap_hits_after_internal_db"] = len(regnskap_map)
