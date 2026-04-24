@@ -122,7 +122,7 @@ def aksjonaer_sok():
                                 MAX({snapshot}) AS latest_snapshot_date
                             FROM {table}
                             WHERE {shareholder} ILIKE %s
-                            GROUP BY {shareholder}, {identifier}, {postal}, {country}
+                            GROUP BY 1, 2, 3, 4
                             ORDER BY {shareholder}, total_shares DESC NULLS LAST
                             LIMIT 200;
                             """
