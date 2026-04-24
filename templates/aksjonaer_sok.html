@@ -223,6 +223,26 @@
         {% if selected_postal_place %}
           <p class="muted">Postnr/sted: <strong>{{ selected_postal_place }}</strong></p>
         {% endif %}
+        {% if person_totals %}
+          <p class="muted">
+            Samlet andel av årsresultat:
+            <strong>
+              {% if person_totals.sum_owner_profit_share is not none %}
+                {{ "{:,.0f}".format(person_totals.sum_owner_profit_share).replace(",", " ") }} kr
+              {% else %}
+                Ikke tilgjengelig
+              {% endif %}
+            </strong>
+            · Samlet andel av bokført egenkapital:
+            <strong>
+              {% if person_totals.sum_owner_equity_share is not none %}
+                {{ "{:,.0f}".format(person_totals.sum_owner_equity_share).replace(",", " ") }} kr
+              {% else %}
+                Ikke tilgjengelig
+              {% endif %}
+            </strong>
+          </p>
+        {% endif %}
         <table>
           <thead>
             <tr>
@@ -231,6 +251,8 @@
               <th>Aksjeklasse</th>
               <th class="right">Aksjer</th>
               <th class="right">Eierandel</th>
+              <th class="right">Andel årsresultat</th>
+              <th class="right">Andel egenkapital</th>
               <th>Dato</th>
             </tr>
           </thead>
@@ -248,6 +270,16 @@
                 <td class="right">
                   {% if row.ownership_pct is not none %}
                     {{ row.ownership_pct }} %
+                  {% endif %}
+                </td>
+                <td class="right">
+                  {% if row.owner_profit_share is not none %}
+                    {{ "{:,.0f}".format(row.owner_profit_share).replace(",", " ") }}
+                  {% endif %}
+                </td>
+                <td class="right">
+                  {% if row.owner_equity_share is not none %}
+                    {{ "{:,.0f}".format(row.owner_equity_share).replace(",", " ") }}
                   {% endif %}
                 </td>
                 <td>{{ row.snapshot_date }}</td>

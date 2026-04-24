@@ -89,6 +89,7 @@ def aksjonaer_sok():
     companies = []
     rows = []
     owners = []
+    person_totals = None
     error = None
 
     if q:
@@ -239,6 +240,80 @@ def aksjonaer_sok():
                             holding_columns = [desc.name for desc in cur.description]
                             rows = [dict(zip(holding_columns, row)) for row in cur.fetchall()]
 
+                            regnskap_columns = _load_table_columns(conn, "regnskap_siste")
+                            regnskap_orgnr_col = _find_first_column(regnskap_columns, ["orgnr"])
+                            regnskap_profit_col = _find_first_column(
+                                regnskap_columns,
+                                ["aarsresultat", "net_profit", "resultat_etter_skatt"],
+                            )
+                            regnskap_equity_col = _find_first_column(
+                                regnskap_columns,
+                                ["sum_egenkapital", "equity", "egenkapital"],
+                            )
+
+                            if rows and regnskap_columns and regnskap_orgnr_col and (regnskap_profit_col or regnskap_equity_col):
+                                selected_orgnrs = sorted({str(r.get("orgnr")) for r in rows if r.get("orgnr")})
+                                if selected_orgnrs:
+                                    regnskap_query = sql.SQL(
+                                        """
+                                        SELECT
+                                            {orgnr}::text AS orgnr,
+                                            {profit} AS aarsresultat,
+                                            {equity} AS sum_egenkapital
+                                        FROM {table}
+                                        WHERE {orgnr}::text = ANY(%s)
+                                        """
+                                    ).format(
+                                        orgnr=sql.Identifier(regnskap_orgnr_col),
+                                        profit=_qualified_column(regnskap_profit_col),
+                                        equity=_qualified_column(regnskap_equity_col),
+                                        table=sql.Identifier("regnskap_siste"),
+                                    )
+                                    cur.execute(regnskap_query, (selected_orgnrs,))
+                                    regnskap_map = {
+                                        str(orgnr): {
+                                            "aarsresultat": aarsresultat,
+                                            "sum_egenkapital": sum_egenkapital,
+                                        }
+                                        for orgnr, aarsresultat, sum_egenkapital in cur.fetchall()
+                                    }
+
+                                    total_profit_share = 0.0
+                                    total_equity_share = 0.0
+                                    profit_count = 0
+                                    equity_count = 0
+
+                                    for row in rows:
+                                        org = str(row.get("orgnr") or "")
+                                        ownership_pct = row.get("ownership_pct")
+                                        regnskap = regnskap_map.get(org) if org else None
+
+                                        owner_profit_share = None
+                                        owner_equity_share = None
+                                        if regnskap and ownership_pct is not None:
+                                            fraction = float(ownership_pct) / 100.0
+                                            if regnskap.get("aarsresultat") is not None:
+                                                owner_profit_share = float(regnskap["aarsresultat"]) * fraction
+                                                total_profit_share += owner_profit_share
+                                                profit_count += 1
+                                            if regnskap.get("sum_egenkapital") is not None:
+                                                owner_equity_share = float(regnskap["sum_egenkapital"]) * fraction
+                                                total_equity_share += owner_equity_share
+                                                equity_count += 1
+
+                                        row["owner_profit_share"] = owner_profit_share
+                                        row["owner_equity_share"] = owner_equity_share
+                                        row["company_aarsresultat"] = regnskap.get("aarsresultat") if regnskap else None
+                                        row["company_sum_egenkapital"] = regnskap.get("sum_egenkapital") if regnskap else None
+
+                                    person_totals = {
+                                        "sum_owner_profit_share": total_profit_share if profit_count else None,
+                                        "sum_owner_equity_share": total_equity_share if equity_count else None,
+                                        "companies_with_profit_data": profit_count,
+                                        "companies_with_equity_data": equity_count,
+                                        "companies_total": len(rows),
+                                    }
+
                         if selected_company and company_col:
                             company_filters = [sql.SQL("{company} = %s").format(company=sql.Identifier(company_col))]
                             company_params = [selected_company]
@@ -299,5 +374,6 @@ def aksjonaer_sok():
         selected_postal_place=selected_postal_place,
         selected_company=selected_company,
         selected_company_orgnr=selected_company_orgnr,
+        person_totals=person_totals,
         error=error,
     )
