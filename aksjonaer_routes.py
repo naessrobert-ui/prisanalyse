@@ -94,6 +94,7 @@ def aksjonaer_sok():
     mode = (request.args.get("mode") or "person").strip().lower()
     if mode not in {"person", "company", "combined"}:
         mode = "person"
+    debug_enabled = (request.args.get("debug") or "").strip().lower() in {"1", "true", "yes", "on"}
     selected_person = (request.args.get("person") or "").strip()
     selected_identifier = (request.args.get("pid") or "").strip()
     selected_postal_place = (request.args.get("pplace") or "").strip()
@@ -104,6 +105,7 @@ def aksjonaer_sok():
     rows = []
     owners = []
     person_totals = None
+    debug_info: dict[str, object] = {"enabled": debug_enabled}
     error = None
 
     if q:
@@ -113,6 +115,9 @@ def aksjonaer_sok():
             try:
                 with connect_db() as conn:
                     shareholder_schema, columns = _load_table_columns(conn, SHAREHOLDER_TABLE)
+                    if debug_enabled:
+                        debug_info["shareholder_schema"] = shareholder_schema
+                        debug_info["shareholder_columns"] = sorted(columns)
 
                     if not columns:
                         raise RuntimeError(f"Fant ingen kolonner i tabellen {SHAREHOLDER_TABLE}.")
@@ -256,6 +261,9 @@ def aksjonaer_sok():
                             rows = [dict(zip(holding_columns, row)) for row in cur.fetchall()]
 
                             regnskap_schema, regnskap_columns = _load_table_columns(conn, "regnskap_siste")
+                            if debug_enabled:
+                                debug_info["regnskap_schema"] = regnskap_schema
+                                debug_info["regnskap_columns"] = sorted(regnskap_columns)
                             regnskap_orgnr_col = _find_first_column(regnskap_columns, ["orgnr"])
                             regnskap_profit_col = _find_first_column(
                                 regnskap_columns,
@@ -274,6 +282,8 @@ def aksjonaer_sok():
                                         if r.get("orgnr")
                                     }
                                 )
+                                if debug_enabled:
+                                    debug_info["selected_orgnrs_norm"] = selected_orgnrs
                                 if selected_orgnrs:
                                     regnskap_table_ref = _qualified_table(regnskap_schema, "regnskap_siste")
                                     regnskap_query = sql.SQL(
@@ -281,6 +291,7 @@ def aksjonaer_sok():
                                         SELECT
                                             {orgnr}::text AS orgnr,
                                             regexp_replace({orgnr}::text, '\D', '', 'g') AS orgnr_norm,
+                                            pg_typeof({orgnr})::text AS orgnr_type,
                                             {profit} AS aarsresultat,
                                             {equity} AS sum_egenkapital
                                         FROM {table}
@@ -296,11 +307,14 @@ def aksjonaer_sok():
                                     regnskap_map = {
                                         str(orgnr_norm): {
                                             "orgnr_raw": orgnr,
+                                            "orgnr_type": orgnr_type,
                                             "aarsresultat": aarsresultat,
                                             "sum_egenkapital": sum_egenkapital,
                                         }
-                                        for orgnr, orgnr_norm, aarsresultat, sum_egenkapital in cur.fetchall()
+                                        for orgnr, orgnr_norm, orgnr_type, aarsresultat, sum_egenkapital in cur.fetchall()
                                     }
+                                    if debug_enabled:
+                                        debug_info["regnskap_db_hits"] = len(regnskap_map)
 
                                     total_profit_share = 0.0
                                     total_equity_share = 0.0
@@ -358,11 +372,15 @@ def aksjonaer_sok():
                                             first = results[0] or {}
                                             regnskap_map[orgnr] = {
                                                 "orgnr_raw": first.get("orgnr") or orgnr,
+                                                "orgnr_type": "api_fallback",
                                                 "aarsresultat": first.get("net_profit"),
                                                 "sum_egenkapital": first.get("equity"),
                                             }
                                         except Exception:
                                             continue
+                                    if debug_enabled:
+                                        debug_info["missing_orgnrs_before_api"] = sorted(set(missing_orgnrs))
+                                        debug_info["regnskap_hits_after_api"] = len(regnskap_map)
 
                                     if missing_orgnrs:
                                         total_profit_share = 0.0
@@ -392,6 +410,7 @@ def aksjonaer_sok():
                                             row["company_sum_egenkapital"] = regnskap.get("sum_egenkapital") if regnskap else None
                                             row["regnskap_orgnr_raw"] = regnskap.get("orgnr_raw") if regnskap else None
                                             row["regnskap_orgnr_norm"] = org if regnskap else None
+                                            row["regnskap_orgnr_type"] = regnskap.get("orgnr_type") if regnskap else None
 
                                         person_totals = {
                                             "sum_owner_profit_share": total_profit_share if profit_count else None,
@@ -408,6 +427,8 @@ def aksjonaer_sok():
                                         "companies_with_equity_data": equity_count,
                                         "companies_total": len(rows),
                                     }
+                            elif debug_enabled:
+                                debug_info["regnskap_lookup_status"] = "Ingen regnskapstabell/kolonner tilgjengelig i denne DB-tilkoblingen."
 
                         if selected_company and company_col:
                             company_filters = [sql.SQL("{company} = %s").format(company=sql.Identifier(company_col))]
@@ -470,5 +491,6 @@ def aksjonaer_sok():
         selected_company=selected_company,
         selected_company_orgnr=selected_company_orgnr,
         person_totals=person_totals,
+        debug_info=debug_info,
         error=error,
     )

@@ -110,6 +110,9 @@
       </p>
 
       <form method="get" action="/aksjonaer">
+        {% if debug_info and debug_info.enabled %}
+          <input type="hidden" name="debug" value="1">
+        {% endif %}
         <select name="mode">
           <option value="person" {% if mode == "person" %}selected{% endif %}>Person</option>
           <option value="company" {% if mode == "company" %}selected{% endif %}>Selskap</option>
@@ -165,7 +168,7 @@
                 </td>
                 <td>{{ person.latest_snapshot_date }}</td>
                 <td>
-                  <a href="{{ url_for('aksjonaer.aksjonaer_sok', q=q, mode=mode, person=person.shareholder_name, pid=person.shareholder_identifier or '', pplace=person.postal_place or '', company=selected_company, corgnr=selected_company_orgnr) }}">
+                  <a href="{{ url_for('aksjonaer.aksjonaer_sok', q=q, mode=mode, person=person.shareholder_name, pid=person.shareholder_identifier or '', pplace=person.postal_place or '', company=selected_company, corgnr=selected_company_orgnr, debug='1' if debug_info.enabled else None) }}">
                     Se beholdning
                   </a>
                 </td>
@@ -203,7 +206,7 @@
                 </td>
                 <td>{{ company.latest_snapshot_date }}</td>
                 <td>
-                  <a href="{{ url_for('aksjonaer.aksjonaer_sok', q=q, mode=mode, company=company.selskap or '', corgnr=company.orgnr or '', person=selected_person, pid=selected_identifier, pplace=selected_postal_place) }}">
+                  <a href="{{ url_for('aksjonaer.aksjonaer_sok', q=q, mode=mode, company=company.selskap or '', corgnr=company.orgnr or '', person=selected_person, pid=selected_identifier, pplace=selected_postal_place, debug='1' if debug_info.enabled else None) }}">
                     Se eiere
                   </a>
                 </td>
@@ -256,6 +259,7 @@
               <th class="right">Andel årsresultat</th>
               <th class="right">Andel egenkapital</th>
               <th>Regnskap orgnr</th>
+              <th>Regnskap orgnr-type</th>
               <th>Dato</th>
             </tr>
           </thead>
@@ -302,6 +306,7 @@
                     Ikke treff
                   {% endif %}
                 </td>
+                <td>{{ row.get('regnskap_orgnr_type') or '' }}</td>
                 <td>{{ row.snapshot_date }}</td>
               </tr>
             {% endfor %}
@@ -352,6 +357,11 @@
         </table>
       {% elif selected_company and not error %}
         <p>Fant ingen eiere for valgt selskap.</p>
+      {% endif %}
+
+      {% if debug_info and debug_info.enabled %}
+        <h3>Debug (orgnr/regnskap)</h3>
+        <pre style="white-space: pre-wrap; background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; font-size:13px;">{{ debug_info | tojson(indent=2) }}</pre>
       {% endif %}
     </div>
   </div>
