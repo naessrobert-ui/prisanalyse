@@ -102,7 +102,7 @@
 
       <h1>Aksjonærsøk</h1>
       <p class="muted">
-        Søk på person eller aksjonærnavn og se hvilke selskaper vedkommende eier aksjer i.
+        Søk på person eller aksjonærnavn. Du får først en personliste, og kan deretter klikke deg inn på beholdningen.
       </p>
 
       <form method="get" action="/aksjonaer">
@@ -122,15 +122,62 @@
 
       {% if q and not error %}
         <p class="muted">
-          Viser inntil 200 treff for: <strong>{{ q }}</strong>
+          Viser inntil 200 personer for: <strong>{{ q }}</strong>
         </p>
       {% endif %}
 
-      {% if rows %}
+      {% if persons %}
         <table>
           <thead>
             <tr>
               <th>Aksjonær</th>
+              <th>Fødselsår/orgnr</th>
+              <th>Postnr/sted</th>
+              <th>Landkode</th>
+              <th class="right">Antall selskaper</th>
+              <th class="right">Sum aksjer</th>
+              <th>Sist oppdatert</th>
+              <th>Handling</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for person in persons %}
+              <tr>
+                <td>{{ person.shareholder_name }}</td>
+                <td>{{ person.shareholder_identifier or "" }}</td>
+                <td>{{ person.postal_place or "" }}</td>
+                <td>{{ person.country_code or "" }}</td>
+                <td class="right">{{ person.company_count or 0 }}</td>
+                <td class="right">
+                  {% if person.total_shares is not none %}
+                    {{ "{:,}".format(person.total_shares).replace(",", " ") }}
+                  {% endif %}
+                </td>
+                <td>{{ person.latest_snapshot_date }}</td>
+                <td>
+                  <a href="{{ url_for('aksjonaer.aksjonaer_sok', q=q, person=person.shareholder_name, pid=person.shareholder_identifier or '', pplace=person.postal_place or '') }}">
+                    Se beholdning
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% elif q and not error %}
+        <p>Ingen personer funnet.</p>
+      {% endif %}
+
+      {% if selected_person and rows %}
+        <h2>Beholdning for {{ selected_person }}</h2>
+        {% if selected_identifier %}
+          <p class="muted">Fødselsår/orgnr: <strong>{{ selected_identifier }}</strong></p>
+        {% endif %}
+        {% if selected_postal_place %}
+          <p class="muted">Postnr/sted: <strong>{{ selected_postal_place }}</strong></p>
+        {% endif %}
+        <table>
+          <thead>
+            <tr>
               <th>Selskap</th>
               <th>Orgnr</th>
               <th>Aksjeklasse</th>
@@ -142,7 +189,6 @@
           <tbody>
             {% for row in rows %}
               <tr>
-                <td>{{ row.shareholder_name }}</td>
                 <td>{{ row.selskap }}</td>
                 <td>{{ row.orgnr }}</td>
                 <td>{{ row.aksjeklasse or "" }}</td>
@@ -161,8 +207,8 @@
             {% endfor %}
           </tbody>
         </table>
-      {% elif q and not error %}
-        <p>Ingen treff.</p>
+      {% elif selected_person and not error %}
+        <p>Fant ingen beholdning for valgt person.</p>
       {% endif %}
     </div>
   </div>
