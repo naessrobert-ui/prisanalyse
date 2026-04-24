@@ -37,12 +37,16 @@
       margin: 20px 0;
     }
 
-    input {
+    input, select {
       flex: 1;
       padding: 12px 14px;
       border: 1px solid #d1d5db;
       border-radius: 10px;
       font-size: 16px;
+    }
+
+    select {
+      flex: 0 0 160px;
     }
 
     button {
@@ -102,15 +106,20 @@
 
       <h1>Aksjonærsøk</h1>
       <p class="muted">
-        Søk på person eller aksjonærnavn. Du får først en personliste, og kan deretter klikke deg inn på beholdningen.
+        Søk på person, selskap eller begge deler. Du kan klikke videre til enten beholdning per person eller eiere per selskap.
       </p>
 
       <form method="get" action="/aksjonaer">
+        <select name="mode">
+          <option value="person" {% if mode == "person" %}selected{% endif %}>Person</option>
+          <option value="company" {% if mode == "company" %}selected{% endif %}>Selskap</option>
+          <option value="combined" {% if mode == "combined" %}selected{% endif %}>Kombinert</option>
+        </select>
         <input
           type="search"
           name="q"
           value="{{ q }}"
-          placeholder="Søk f.eks. MORTEN AARRESTAD"
+          placeholder="Søk f.eks. MORTEN AARRESTAD eller EQUINOR"
           autofocus
         >
         <button type="submit">Søk</button>
@@ -122,11 +131,12 @@
 
       {% if q and not error %}
         <p class="muted">
-          Viser inntil 200 personer for: <strong>{{ q }}</strong>
+          Viser treff for: <strong>{{ q }}</strong>
         </p>
       {% endif %}
 
-      {% if persons %}
+      {% if persons and mode in ["person", "combined"] %}
+        <h2>Personer</h2>
         <table>
           <thead>
             <tr>
@@ -155,7 +165,7 @@
                 </td>
                 <td>{{ person.latest_snapshot_date }}</td>
                 <td>
-                  <a href="{{ url_for('aksjonaer.aksjonaer_sok', q=q, person=person.shareholder_name, pid=person.shareholder_identifier or '', pplace=person.postal_place or '') }}">
+                  <a href="{{ url_for('aksjonaer.aksjonaer_sok', q=q, mode=mode, person=person.shareholder_name, pid=person.shareholder_identifier or '', pplace=person.postal_place or '', company=selected_company, corgnr=selected_company_orgnr) }}">
                     Se beholdning
                   </a>
                 </td>
@@ -163,8 +173,46 @@
             {% endfor %}
           </tbody>
         </table>
-      {% elif q and not error %}
+      {% elif q and not error and mode == "person" %}
         <p>Ingen personer funnet.</p>
+      {% endif %}
+
+      {% if companies and mode in ["company", "combined"] %}
+        <h2>Selskaper</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Selskap</th>
+              <th>Orgnr</th>
+              <th class="right">Antall eiere</th>
+              <th class="right">Sum aksjer</th>
+              <th>Sist oppdatert</th>
+              <th>Handling</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for company in companies %}
+              <tr>
+                <td>{{ company.selskap or "" }}</td>
+                <td>{{ company.orgnr or "" }}</td>
+                <td class="right">{{ company.owner_count or 0 }}</td>
+                <td class="right">
+                  {% if company.total_shares is not none %}
+                    {{ "{:,}".format(company.total_shares).replace(",", " ") }}
+                  {% endif %}
+                </td>
+                <td>{{ company.latest_snapshot_date }}</td>
+                <td>
+                  <a href="{{ url_for('aksjonaer.aksjonaer_sok', q=q, mode=mode, company=company.selskap or '', corgnr=company.orgnr or '', person=selected_person, pid=selected_identifier, pplace=selected_postal_place) }}">
+                    Se eiere
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% elif q and not error and mode == "company" %}
+        <p>Ingen selskaper funnet.</p>
       {% endif %}
 
       {% if selected_person and rows %}
@@ -209,6 +257,49 @@
         </table>
       {% elif selected_person and not error %}
         <p>Fant ingen beholdning for valgt person.</p>
+      {% endif %}
+
+      {% if selected_company and owners %}
+        <h2>Eiere i {{ selected_company }}</h2>
+        {% if selected_company_orgnr %}
+          <p class="muted">Orgnr: <strong>{{ selected_company_orgnr }}</strong></p>
+        {% endif %}
+        <table>
+          <thead>
+            <tr>
+              <th>Aksjonær</th>
+              <th>Fødselsår/orgnr</th>
+              <th>Postnr/sted</th>
+              <th>Landkode</th>
+              <th class="right">Aksjer</th>
+              <th class="right">Eierandel</th>
+              <th>Dato</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for owner in owners %}
+              <tr>
+                <td>{{ owner.shareholder_name }}</td>
+                <td>{{ owner.shareholder_identifier or "" }}</td>
+                <td>{{ owner.postal_place or "" }}</td>
+                <td>{{ owner.country_code or "" }}</td>
+                <td class="right">
+                  {% if owner.shares_count is not none %}
+                    {{ "{:,}".format(owner.shares_count).replace(",", " ") }}
+                  {% endif %}
+                </td>
+                <td class="right">
+                  {% if owner.ownership_pct is not none %}
+                    {{ owner.ownership_pct }} %
+                  {% endif %}
+                </td>
+                <td>{{ owner.snapshot_date }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% elif selected_company and not error %}
+        <p>Fant ingen eiere for valgt selskap.</p>
       {% endif %}
     </div>
   </div>
