@@ -7,6 +7,15 @@ import psycopg
 from psycopg import sql
 from flask import Blueprint, render_template, request
 
+from regnskap_routes import (
+    build_urls,
+    lookup_orgnr,
+    lookup_orgnr_brreg,
+    lookup_proff_url_html,
+    make_session,
+    proff_resolve_regnskap_url,
+)
+
 aksjonaer_bp = Blueprint("aksjonaer", __name__)
 SHAREHOLDER_TABLE = "shareholder_orgnr_import"
 
