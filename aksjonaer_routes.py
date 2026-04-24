@@ -59,42 +59,78 @@ def _load_table_columns(conn: psycopg.Connection, table_name: str) -> tuple[str 
         return selected_schema, selected_columns
 
 
-def _regnskap_entry_from_lookup(result, orgnr: str, source: str) -> dict[str, object]:
-    return {
-        "orgnr_raw": getattr(result, "orgnr", None) or orgnr,
-        "orgnr_type": source,
-        "aarsresultat": getattr(result, "resultat_etter_skatt", None),
-        "sum_egenkapital": getattr(result, "egenkapital", None),
-    }
+def _connect_regnskap_db() -> psycopg.Connection | None:
+    direct_url = (os.getenv("REGNSKAP_DATABASE_URL") or os.getenv("DATABASE_URL_REGNSKAP") or "").strip()
+    if direct_url:
+        return psycopg.connect(direct_url)
+
+    host = (os.getenv("RDS_HOST") or "").strip()
+    if not host:
+        return None
+
+    port = int((os.getenv("RDS_PORT") or "5432").strip())
+    dbname = (os.getenv("RDS_DB") or "postgres").strip()
+    user = (os.getenv("RDS_USER") or "postgres").strip()
+    region = (os.getenv("AWS_REGION") or os.getenv("REGION") or "eu-north-1").strip()
+
+    token = boto3.client("rds", region_name=region).generate_db_auth_token(
+        DBHostname=host,
+        Port=port,
+        DBUsername=user,
+    )
+    return psycopg.connect(
+        host=host,
+        port=port,
+        dbname=dbname,
+        user=user,
+        password=token,
+        sslmode="require",
+    )
 
 
-def _lookup_regnskap_like_regnskap_page(orgnr: str) -> dict[str, object] | None:
-    sess = make_session()
-
-    result = lookup_orgnr(sess, orgnr)
-    if result:
-        return _regnskap_entry_from_lookup(result, orgnr, "proff_json")
-
-    result = lookup_orgnr_brreg(sess, orgnr)
-    if result:
-        return _regnskap_entry_from_lookup(result, orgnr, "brreg")
-
-    urls: list[str] = []
-    resolved = proff_resolve_regnskap_url(sess, orgnr)
-    if resolved:
-        urls.append(resolved)
-    urls.extend(build_urls(orgnr))
-
-    seen: set[str] = set()
-    for url in urls:
-        if not url or url in seen:
-            continue
-        seen.add(url)
-        result = lookup_proff_url_html(sess, url)
-        if result:
-            return _regnskap_entry_from_lookup(result, orgnr, "proff_html")
-
-    return None
+def _fetch_regnskap_batch_from_internal_db(orgnrs_norm: list[str]) -> dict[str, dict[str, object]]:
+    if not orgnrs_norm:
+        return {}
+    conn = _connect_regnskap_db()
+    if not conn:
+        return {}
+    try:
+        schema, cols = _load_table_columns(conn, "regnskap_siste")
+        orgnr_col = _find_first_column(cols, ["orgnr"])
+        profit_col = _find_first_column(cols, ["aarsresultat", "net_profit", "resultat_etter_skatt"])
+        equity_col = _find_first_column(cols, ["sum_egenkapital", "equity", "egenkapital"])
+        if not schema or not orgnr_col or (not profit_col and not equity_col):
+            return {}
+        table_ref = _qualified_table(schema, "regnskap_siste")
+        query = sql.SQL(
+            """
+            SELECT
+                {orgnr}::text AS orgnr,
+                regexp_replace({orgnr}::text, '\D', '', 'g') AS orgnr_norm,
+                {profit} AS aarsresultat,
+                {equity} AS sum_egenkapital
+            FROM {table}
+            WHERE regexp_replace({orgnr}::text, '\D', '', 'g') = ANY(%s)
+            """
+        ).format(
+            orgnr=sql.Identifier(orgnr_col),
+            profit=_qualified_column(profit_col),
+            equity=_qualified_column(equity_col),
+            table=table_ref,
+        )
+        with conn.cursor() as cur:
+            cur.execute(query, (orgnrs_norm,))
+            return {
+                str(orgnr_norm): {
+                    "orgnr_raw": orgnr,
+                    "orgnr_type": "internal_regnskap_db",
+                    "aarsresultat": aarsresultat,
+                    "sum_egenkapital": sum_egenkapital,
+                }
+                for orgnr, orgnr_norm, aarsresultat, sum_egenkapital in cur.fetchall()
+            }
+    finally:
+        conn.close()
 
 
 def connect_db():
@@ -488,16 +524,10 @@ def aksjonaer_sok():
                                         if row.get("orgnr")
                                     }
                                 )
-                                for orgnr in missing_orgnrs[:25]:
-                                    try:
-                                        entry = _lookup_regnskap_like_regnskap_page(orgnr)
-                                        if entry:
-                                            regnskap_map[orgnr] = entry
-                                    except Exception:
-                                        continue
+                                regnskap_map.update(_fetch_regnskap_batch_from_internal_db(missing_orgnrs))
                                 if debug_enabled:
-                                    debug_info["missing_orgnrs_before_api"] = missing_orgnrs
-                                    debug_info["regnskap_hits_after_api"] = len(regnskap_map)
+                                    debug_info["missing_orgnrs_before_internal_db"] = missing_orgnrs
+                                    debug_info["regnskap_hits_after_internal_db"] = len(regnskap_map)
 
                                 total_profit_share = 0.0
                                 total_equity_share = 0.0
