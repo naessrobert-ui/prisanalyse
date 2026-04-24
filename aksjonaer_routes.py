@@ -127,6 +127,42 @@ def _fetch_regnskap_batch_from_internal_db(
     if debug_info is not None:
         debug_info["internal_regnskap_requested_orgnrs"] = orgnrs_norm
         debug_info["internal_regnskap_requested_count"] = len(orgnrs_norm)
+
+    # Try Fastapi_Backend.fetch_all first — it runs in the same process and has
+    # a hardcoded RDS_HOST default, so no extra env-vars are needed.
+    try:
+        from Fastapi_Backend import fetch_all as _fb_fetch_all
+        rows = _fb_fetch_all(
+            """
+            SELECT
+                orgnr::text AS orgnr,
+                regexp_replace(orgnr::text, '\\D', '', 'g') AS orgnr_norm,
+                aarsresultat,
+                sum_egenkapital
+            FROM regnskap_siste
+            WHERE regexp_replace(orgnr::text, '\\D', '', 'g') = ANY(%s)
+            """,
+            [list(orgnrs_norm)],
+        )
+        mapped = {
+            str(r["orgnr_norm"]): {
+                "orgnr_raw": r["orgnr"],
+                "orgnr_type": "fastapi_backend_db",
+                "aarsresultat": r.get("aarsresultat"),
+                "sum_egenkapital": r.get("sum_egenkapital"),
+            }
+            for r in rows
+        }
+        if debug_info is not None:
+            debug_info["internal_regnskap_status"] = "ok"
+            debug_info["internal_regnskap_connection"] = "fastapi_backend"
+            debug_info["internal_regnskap_rows"] = len(mapped)
+        return mapped
+    except Exception as exc:
+        if debug_info is not None:
+            debug_info["internal_regnskap_fastapi_error"] = str(exc)
+
+    # Fallback: direct psycopg connection via _connect_regnskap_db
     conn = _connect_regnskap_db(debug_info=debug_info)
     if not conn:
         if debug_info is not None and "internal_regnskap_status" not in debug_info:
