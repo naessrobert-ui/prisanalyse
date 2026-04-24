@@ -255,6 +255,7 @@
                 <a class="cta cta-primary" href="{{ url_for('bolig.bolig_hub') }}">Start med bolig</a>
                 <a class="cta cta-secondary" href="/strom">Se strømkartet</a>
                 <a class="cta cta-secondary" href="{{ url_for('regnskap.regnskap_hub') }}">Åpne Regnskap</a>
+                <a class="cta cta-secondary" href="{{ url_for('aksjonaer.aksjonaer_sok') }}">Søk aksjonærer</a>
                 <a class="cta cta-secondary" href="/internal/portfolio-rebalancer/">Portfolio Rebalancer</a>
             </div>
         </div>
@@ -364,6 +365,15 @@
                     <div class="card-title">Portfolio Rebalancer</div>
                     <div class="card-desc">
                         Last opp porteføljer, se oversikt per portefølje og drill ned i detaljer.
+                    </div>
+                </div>
+            </a>
+            <a class="card-link" href="{{ url_for('aksjonaer.aksjonaer_sok') }}">
+                <div class="card">
+                    <div class="card-icon">🧑‍💼</div>
+                    <div class="card-title">Aksjonærsøk</div>
+                    <div class="card-desc">
+                        Finn alle aksjene en person eier på tvers av selskaper i én oversikt.
                     </div>
                 </div>
             </a>
