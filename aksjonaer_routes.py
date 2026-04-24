@@ -59,47 +59,91 @@ def _load_table_columns(conn: psycopg.Connection, table_name: str) -> tuple[str 
         return selected_schema, selected_columns
 
 
-def _connect_regnskap_db() -> psycopg.Connection | None:
-    direct_url = (os.getenv("REGNSKAP_DATABASE_URL") or os.getenv("DATABASE_URL_REGNSKAP") or "").strip()
+def _connect_regnskap_db(debug_info: dict[str, object] | None = None) -> psycopg.Connection | None:
+    direct_url = (
+        os.getenv("REGNSKAP_DATABASE_URL")
+        or os.getenv("DATABASE_URL_REGNSKAP")
+        or os.getenv("DATABASE_URL")
+        or ""
+    ).strip()
     if direct_url:
-        return psycopg.connect(direct_url)
+        if debug_info is not None:
+            debug_info["internal_regnskap_connection"] = "direct_url"
+        try:
+            return psycopg.connect(direct_url)
+        except Exception as exc:
+            if debug_info is not None:
+                debug_info["internal_regnskap_error"] = f"direct_url_connect_failed: {exc}"
+            return None
 
     host = (os.getenv("RDS_HOST") or "").strip()
     if not host:
+        if debug_info is not None:
+            debug_info["internal_regnskap_connection"] = "missing REGNSKAP_DATABASE_URL/DATABASE_URL_REGNSKAP/DATABASE_URL/RDS_HOST"
+            debug_info["internal_regnskap_how_to_fix"] = (
+                "Sett REGNSKAP_DATABASE_URL, DATABASE_URL_REGNSKAP eller DATABASE_URL på web-appen, "
+                "evt. RDS_HOST/RDS_PORT/RDS_DB/RDS_USER + AWS_REGION for IAM."
+            )
         return None
 
     port = int((os.getenv("RDS_PORT") or "5432").strip())
     dbname = (os.getenv("RDS_DB") or "postgres").strip()
     user = (os.getenv("RDS_USER") or "postgres").strip()
     region = (os.getenv("AWS_REGION") or os.getenv("REGION") or "eu-north-1").strip()
+    if debug_info is not None:
+        debug_info["internal_regnskap_connection"] = "rds_iam"
+        debug_info["internal_regnskap_host"] = host
+        debug_info["internal_regnskap_db"] = dbname
+        debug_info["internal_regnskap_user"] = user
+        debug_info["internal_regnskap_region"] = region
 
-    token = boto3.client("rds", region_name=region).generate_db_auth_token(
-        DBHostname=host,
-        Port=port,
-        DBUsername=user,
-    )
-    return psycopg.connect(
-        host=host,
-        port=port,
-        dbname=dbname,
-        user=user,
-        password=token,
-        sslmode="require",
-    )
+    try:
+        token = boto3.client("rds", region_name=region).generate_db_auth_token(
+            DBHostname=host,
+            Port=port,
+            DBUsername=user,
+        )
+        return psycopg.connect(
+            host=host,
+            port=port,
+            dbname=dbname,
+            user=user,
+            password=token,
+            sslmode="require",
+        )
+    except Exception as exc:
+        if debug_info is not None:
+            debug_info["internal_regnskap_error"] = f"rds_iam_connect_failed: {exc}"
+        return None
 
 
-def _fetch_regnskap_batch_from_internal_db(orgnrs_norm: list[str]) -> dict[str, dict[str, object]]:
+def _fetch_regnskap_batch_from_internal_db(
+    orgnrs_norm: list[str],
+    debug_info: dict[str, object] | None = None,
+) -> dict[str, dict[str, object]]:
     if not orgnrs_norm:
+        if debug_info is not None:
+            debug_info["internal_regnskap_status"] = "no_orgnrs"
         return {}
-    conn = _connect_regnskap_db()
+    if debug_info is not None:
+        debug_info["internal_regnskap_requested_orgnrs"] = orgnrs_norm
+        debug_info["internal_regnskap_requested_count"] = len(orgnrs_norm)
+    conn = _connect_regnskap_db(debug_info=debug_info)
     if not conn:
+        if debug_info is not None and "internal_regnskap_status" not in debug_info:
+            debug_info["internal_regnskap_status"] = "no_connection"
         return {}
     try:
         schema, cols = _load_table_columns(conn, "regnskap_siste")
+        if debug_info is not None:
+            debug_info["internal_regnskap_schema"] = schema
+            debug_info["internal_regnskap_columns"] = sorted(cols)
         orgnr_col = _find_first_column(cols, ["orgnr"])
         profit_col = _find_first_column(cols, ["aarsresultat", "net_profit", "resultat_etter_skatt"])
         equity_col = _find_first_column(cols, ["sum_egenkapital", "equity", "egenkapital"])
         if not schema or not orgnr_col or (not profit_col and not equity_col):
+            if debug_info is not None:
+                debug_info["internal_regnskap_status"] = "missing_table_or_columns"
             return {}
         table_ref = _qualified_table(schema, "regnskap_siste")
         query = sql.SQL(
@@ -120,7 +164,7 @@ def _fetch_regnskap_batch_from_internal_db(orgnrs_norm: list[str]) -> dict[str, 
         )
         with conn.cursor() as cur:
             cur.execute(query, (orgnrs_norm,))
-            return {
+            mapped = {
                 str(orgnr_norm): {
                     "orgnr_raw": orgnr,
                     "orgnr_type": "internal_regnskap_db",
@@ -129,6 +173,14 @@ def _fetch_regnskap_batch_from_internal_db(orgnrs_norm: list[str]) -> dict[str, 
                 }
                 for orgnr, orgnr_norm, aarsresultat, sum_egenkapital in cur.fetchall()
             }
+            if debug_info is not None:
+                debug_info["internal_regnskap_status"] = "ok"
+                debug_info["internal_regnskap_rows"] = len(mapped)
+            return mapped
+    except Exception as exc:
+        if debug_info is not None:
+            debug_info["internal_regnskap_status"] = f"query_failed: {exc}"
+        return {}
     finally:
         conn.close()
 
@@ -187,7 +239,7 @@ def aksjonaer_sok():
     rows = []
     owners = []
     person_totals = None
-    debug_info: dict[str, object] = {"enabled": debug_enabled}
+    debug_info: dict[str, object] = {"enabled": debug_enabled, "hint": "Legg til ?debug=1 for feilsøking / troubleshooting."}
     error = None
 
     if q:
@@ -433,79 +485,6 @@ def aksjonaer_sok():
                                         row["regnskap_orgnr_raw"] = regnskap.get("orgnr_raw") if regnskap else None
                                         row["regnskap_orgnr_norm"] = org if regnskap else None
 
-                                    missing_orgnrs = []
-                                    for row in rows:
-                                        if row.get("company_aarsresultat") is None and row.get("company_sum_egenkapital") is None:
-                                            normalized = "".join(ch for ch in str(row.get("orgnr") or "") if ch.isdigit())
-                                            if normalized:
-                                                missing_orgnrs.append(normalized)
-
-                                    for orgnr in sorted(set(missing_orgnrs))[:25]:
-                                        try:
-                                            api_url = url_for("regnskap.regnskap_api_search", _external=True)
-                                            resp = requests.get(
-                                                api_url,
-                                                params={"orgnr": orgnr},
-                                                timeout=6,
-                                                verify=False,
-                                            )
-                                            if not resp.ok:
-                                                continue
-                                            payload = resp.json() or {}
-                                            results = payload.get("results") or []
-                                            if not results:
-                                                continue
-                                            first = results[0] or {}
-                                            regnskap_map[orgnr] = {
-                                                "orgnr_raw": first.get("orgnr") or orgnr,
-                                                "orgnr_type": "api_fallback",
-                                                "aarsresultat": first.get("net_profit"),
-                                                "sum_egenkapital": first.get("equity"),
-                                            }
-                                        except Exception:
-                                            continue
-                                    if debug_enabled:
-                                        debug_info["missing_orgnrs_before_api"] = sorted(set(missing_orgnrs))
-                                        debug_info["regnskap_hits_after_api"] = len(regnskap_map)
-
-                                    if missing_orgnrs:
-                                        total_profit_share = 0.0
-                                        total_equity_share = 0.0
-                                        profit_count = 0
-                                        equity_count = 0
-
-                                        for row in rows:
-                                            org = "".join(ch for ch in str(row.get("orgnr") or "") if ch.isdigit())
-                                            regnskap = regnskap_map.get(org) if org else None
-                                            ownership_pct = row.get("ownership_pct")
-                                            owner_profit_share = None
-                                            owner_equity_share = None
-                                            if regnskap and ownership_pct is not None:
-                                                fraction = float(ownership_pct) / 100.0
-                                                if regnskap.get("aarsresultat") is not None:
-                                                    owner_profit_share = float(regnskap["aarsresultat"]) * fraction
-                                                    total_profit_share += owner_profit_share
-                                                    profit_count += 1
-                                                if regnskap.get("sum_egenkapital") is not None:
-                                                    owner_equity_share = float(regnskap["sum_egenkapital"]) * fraction
-                                                    total_equity_share += owner_equity_share
-                                                    equity_count += 1
-                                            row["owner_profit_share"] = owner_profit_share
-                                            row["owner_equity_share"] = owner_equity_share
-                                            row["company_aarsresultat"] = regnskap.get("aarsresultat") if regnskap else None
-                                            row["company_sum_egenkapital"] = regnskap.get("sum_egenkapital") if regnskap else None
-                                            row["regnskap_orgnr_raw"] = regnskap.get("orgnr_raw") if regnskap else None
-                                            row["regnskap_orgnr_norm"] = org if regnskap else None
-                                            row["regnskap_orgnr_type"] = regnskap.get("orgnr_type") if regnskap else None
-
-                                        person_totals = {
-                                            "sum_owner_profit_share": total_profit_share if profit_count else None,
-                                            "sum_owner_equity_share": total_equity_share if equity_count else None,
-                                            "companies_with_profit_data": profit_count,
-                                            "companies_with_equity_data": equity_count,
-                                            "companies_total": len(rows),
-                                        }
-
                                     person_totals = {
                                         "sum_owner_profit_share": total_profit_share if profit_count else None,
                                         "sum_owner_equity_share": total_equity_share if equity_count else None,
@@ -524,7 +503,7 @@ def aksjonaer_sok():
                                         if row.get("orgnr")
                                     }
                                 )
-                                regnskap_map.update(_fetch_regnskap_batch_from_internal_db(missing_orgnrs))
+                                regnskap_map.update(_fetch_regnskap_batch_from_internal_db(missing_orgnrs, debug_info))
                                 if debug_enabled:
                                     debug_info["missing_orgnrs_before_internal_db"] = missing_orgnrs
                                     debug_info["regnskap_hits_after_internal_db"] = len(regnskap_map)
