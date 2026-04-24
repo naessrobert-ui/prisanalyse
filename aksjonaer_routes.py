@@ -251,7 +251,7 @@ def _fetch_regnskap_batch_from_conn(
 ) -> dict[str, dict[str, object]]:
     """
     Prøver å hente regnskap_siste fra samme DB-tilkobling som aksjonærdata.
-    Dette er raskeste vei når tabellen finnes i samme database.
+    RASK variant: bruker WHERE orgnr = ANY(%s), slik at pkey-indeksen brukes.
     """
     if not orgnrs_norm:
         return {}
@@ -285,12 +285,12 @@ def _fetch_regnskap_batch_from_conn(
         """
         SELECT
             {orgnr}::text AS orgnr,
-            regexp_replace({orgnr}::text, '\\D', '', 'g') AS orgnr_norm,
+            {orgnr}::text AS orgnr_norm,
             pg_typeof({orgnr})::text AS orgnr_type,
             {profit} AS aarsresultat,
             {equity} AS sum_egenkapital
         FROM {table}
-        WHERE regexp_replace({orgnr}::text, '\\D', '', 'g') = ANY(%s)
+        WHERE {orgnr} = ANY(%s)
         """
     ).format(
         orgnr=sql.Identifier(regnskap_orgnr_col),
@@ -326,6 +326,7 @@ def _fetch_regnskap_batch_from_internal_db(
 
     Først prøver vi Fastapi_Backend.fetch_all, siden den allerede har fungerende
     RDS/IAM-oppsett i appen. Hvis det feiler, prøver vi egen psycopg-tilkobling.
+    Også her brukes direkte orgnr-oppslag, ikke regexp_replace.
     """
     if not orgnrs_norm:
         if debug_info is not None:
@@ -343,11 +344,11 @@ def _fetch_regnskap_batch_from_internal_db(
             """
             SELECT
                 orgnr::text AS orgnr,
-                regexp_replace(orgnr::text, '\\D', '', 'g') AS orgnr_norm,
+                orgnr::text AS orgnr_norm,
                 aarsresultat,
                 sum_egenkapital
             FROM regnskap_siste
-            WHERE regexp_replace(orgnr::text, '\\D', '', 'g') = ANY(%s)
+            WHERE orgnr = ANY(%s)
             """,
             [list(orgnrs_norm)],
         )
@@ -401,11 +402,11 @@ def _fetch_regnskap_batch_from_internal_db(
             """
             SELECT
                 {orgnr}::text AS orgnr,
-                regexp_replace({orgnr}::text, '\\D', '', 'g') AS orgnr_norm,
+                {orgnr}::text AS orgnr_norm,
                 {profit} AS aarsresultat,
                 {equity} AS sum_egenkapital
             FROM {table}
-            WHERE regexp_replace({orgnr}::text, '\\D', '', 'g') = ANY(%s)
+            WHERE {orgnr} = ANY(%s)
             """
         ).format(
             orgnr=sql.Identifier(orgnr_col),
