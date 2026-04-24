@@ -1782,6 +1782,7 @@ def regnskap_brreg_sammenlign(orgnr: str):
         "har_avvik": len(avvik) > 0,
         "antall_avvik": len(avvik),
     })
+@regnskap_bp.route("/api/search")
 def regnskap_api_search():
     query = (request.args.get("q") or request.args.get("orgnr") or "").strip()
     if not query:

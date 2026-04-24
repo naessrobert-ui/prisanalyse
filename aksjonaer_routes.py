@@ -4,9 +4,17 @@ import os
 
 import boto3
 import psycopg
-import requests
 from psycopg import sql
-from flask import Blueprint, render_template, request, url_for
+from flask import Blueprint, render_template, request
+
+from regnskap_routes import (
+    build_urls,
+    lookup_orgnr,
+    lookup_orgnr_brreg,
+    lookup_proff_url_html,
+    make_session,
+    proff_resolve_regnskap_url,
+)
 
 aksjonaer_bp = Blueprint("aksjonaer", __name__)
 SHAREHOLDER_TABLE = "shareholder_orgnr_import"
@@ -49,6 +57,44 @@ def _load_table_columns(conn: psycopg.Connection, table_name: str) -> tuple[str 
         selected_schema = rows[0][0]
         selected_columns = {row[1] for row in rows if row[0] == selected_schema}
         return selected_schema, selected_columns
+
+
+def _regnskap_entry_from_lookup(result, orgnr: str, source: str) -> dict[str, object]:
+    return {
+        "orgnr_raw": getattr(result, "orgnr", None) or orgnr,
+        "orgnr_type": source,
+        "aarsresultat": getattr(result, "resultat_etter_skatt", None),
+        "sum_egenkapital": getattr(result, "egenkapital", None),
+    }
+
+
+def _lookup_regnskap_like_regnskap_page(orgnr: str) -> dict[str, object] | None:
+    sess = make_session()
+
+    result = lookup_orgnr(sess, orgnr)
+    if result:
+        return _regnskap_entry_from_lookup(result, orgnr, "proff_json")
+
+    result = lookup_orgnr_brreg(sess, orgnr)
+    if result:
+        return _regnskap_entry_from_lookup(result, orgnr, "brreg")
+
+    urls: list[str] = []
+    resolved = proff_resolve_regnskap_url(sess, orgnr)
+    if resolved:
+        urls.append(resolved)
+    urls.extend(build_urls(orgnr))
+
+    seen: set[str] = set()
+    for url in urls:
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        result = lookup_proff_url_html(sess, url)
+        if result:
+            return _regnskap_entry_from_lookup(result, orgnr, "proff_html")
+
+    return None
 
 
 def connect_db():
@@ -444,26 +490,9 @@ def aksjonaer_sok():
                                 )
                                 for orgnr in missing_orgnrs[:25]:
                                     try:
-                                        api_url = url_for("regnskap.regnskap_api_search", _external=True)
-                                        resp = requests.get(
-                                            api_url,
-                                            params={"orgnr": orgnr},
-                                            timeout=6,
-                                            verify=False,
-                                        )
-                                        if not resp.ok:
-                                            continue
-                                        payload = resp.json() or {}
-                                        results = payload.get("results") or []
-                                        if not results:
-                                            continue
-                                        first = results[0] or {}
-                                        regnskap_map[orgnr] = {
-                                            "orgnr_raw": first.get("orgnr") or orgnr,
-                                            "orgnr_type": "api_fallback",
-                                            "aarsresultat": first.get("net_profit"),
-                                            "sum_egenkapital": first.get("equity"),
-                                        }
+                                        entry = _lookup_regnskap_like_regnskap_page(orgnr)
+                                        if entry:
+                                            regnskap_map[orgnr] = entry
                                     except Exception:
                                         continue
                                 if debug_enabled:
