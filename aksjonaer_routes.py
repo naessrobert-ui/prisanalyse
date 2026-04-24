@@ -63,7 +63,6 @@ def _connect_regnskap_db(debug_info: dict[str, object] | None = None) -> psycopg
     direct_url = (
         os.getenv("REGNSKAP_DATABASE_URL")
         or os.getenv("DATABASE_URL_REGNSKAP")
-        or os.getenv("DATABASE_URL")
         or ""
     ).strip()
     if direct_url:
@@ -79,9 +78,9 @@ def _connect_regnskap_db(debug_info: dict[str, object] | None = None) -> psycopg
     host = (os.getenv("RDS_HOST") or "").strip()
     if not host:
         if debug_info is not None:
-            debug_info["internal_regnskap_connection"] = "missing REGNSKAP_DATABASE_URL/DATABASE_URL_REGNSKAP/DATABASE_URL/RDS_HOST"
+            debug_info["internal_regnskap_connection"] = "missing REGNSKAP_DATABASE_URL/DATABASE_URL_REGNSKAP/RDS_HOST"
             debug_info["internal_regnskap_how_to_fix"] = (
-                "Sett REGNSKAP_DATABASE_URL, DATABASE_URL_REGNSKAP eller DATABASE_URL på web-appen, "
+                "Sett REGNSKAP_DATABASE_URL eller DATABASE_URL_REGNSKAP på web-appen, "
                 "evt. RDS_HOST/RDS_PORT/RDS_DB/RDS_USER + AWS_REGION for IAM."
             )
         return None
