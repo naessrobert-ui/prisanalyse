@@ -64,8 +64,6 @@ def _normalize_orgnr(value: object) -> str:
 
 # ---------------------------------------------------------------------------
 # Fritekst-/tokensøk
-# Gjør at "julie næss" treffer "JULIE HELENE HALSE NÆSS"
-# og "julie naess" også treffer "JULIE ... NÆSS".
 # ---------------------------------------------------------------------------
 def _normalize_search_text(value: str) -> str:
     return (
@@ -93,7 +91,6 @@ def _build_token_search_where(column_name: str, tokens: list[str]) -> tuple[sql.
     Bygger:
       normalized_column LIKE %token1%
       AND normalized_column LIKE %token2%
-      ...
 
     Eksempel:
       q = "julie næss"
@@ -110,6 +107,33 @@ def _build_token_search_where(column_name: str, tokens: list[str]) -> tuple[sql.
     ]
     params = [f"%{token}%" for token in tokens]
     return sql.SQL(" AND ").join(conditions), params
+
+
+def _build_company_filter_where(
+    company_col: str,
+    orgnr_col: str | None,
+    value: str,
+) -> tuple[sql.Composable, list[str]]:
+    """
+    Brukes når en person er valgt og man vil filtrere beholdningen på selskap.
+
+    Eksempel:
+      company_filter=ecocar
+      company_filter=912078957
+    """
+    tokens = _search_tokens(value)
+    company_where, company_params = _build_token_search_where(company_col, tokens)
+
+    if orgnr_col:
+        return (
+            sql.SQL("(({company_where}) OR COALESCE({orgnr}::text, '') ILIKE %s)").format(
+                company_where=company_where,
+                orgnr=sql.Identifier(orgnr_col),
+            ),
+            [*company_params, f"%{value}%"],
+        )
+
+    return company_where, company_params
 
 
 # ---------------------------------------------------------------------------
@@ -312,7 +336,6 @@ def _fetch_regnskap_batch_from_internal_db(
         debug_info["internal_regnskap_requested_orgnrs"] = orgnrs_norm
         debug_info["internal_regnskap_requested_count"] = len(orgnrs_norm)
 
-    # 1) Prøv samme DB-funksjon som FastAPI-backend bruker.
     try:
         from Fastapi_Backend import fetch_all as _fb_fetch_all
 
@@ -350,7 +373,6 @@ def _fetch_regnskap_batch_from_internal_db(
         if debug_info is not None:
             debug_info["internal_regnskap_fastapi_error"] = str(exc)
 
-    # 2) Fallback: direkte regnskaps-DB.
     conn = _connect_regnskap_db(debug_info=debug_info)
     if not conn:
         if debug_info is not None and "internal_regnskap_status" not in debug_info:
@@ -423,10 +445,6 @@ def _apply_regnskap_to_rows(
     rows: list[dict[str, object]],
     regnskap_map: dict[str, dict[str, object]],
 ) -> dict[str, object]:
-    """
-    Legger regnskapstall og eierandelberegninger på holdings-radene.
-    Returnerer summer for personen.
-    """
     total_profit_share = 0.0
     total_equity_share = 0.0
     profit_count = 0
@@ -494,6 +512,9 @@ def aksjonaer_sok():
     selected_company = (request.args.get("company") or "").strip()
     selected_company_orgnr = (request.args.get("corgnr") or "").strip()
 
+    company_filter = (request.args.get("company_filter") or "").strip()
+    owner_filter = (request.args.get("owner_filter") or "").strip()
+
     persons: list[dict[str, object]] = []
     companies: list[dict[str, object]] = []
     rows: list[dict[str, object]] = []
@@ -507,8 +528,10 @@ def aksjonaer_sok():
 
     error = None
 
-    if q:
-        if len(q) < 2:
+    should_query = bool(q or selected_person or selected_company)
+
+    if should_query:
+        if q and len(q) < 2:
             error = "Skriv minst 2 tegn."
         else:
             try:
@@ -573,7 +596,7 @@ def aksjonaer_sok():
                         # ---------------------------------------------------
                         # Personsøk
                         # ---------------------------------------------------
-                        if mode in {"person", "combined"}:
+                        if q and mode in {"person", "combined"}:
                             person_tokens = _search_tokens(q)
                             person_where, person_params = _build_token_search_where(
                                 shareholder_col,
@@ -618,7 +641,7 @@ def aksjonaer_sok():
                         # ---------------------------------------------------
                         # Selskapsøk
                         # ---------------------------------------------------
-                        if mode in {"company", "combined"}:
+                        if q and mode in {"company", "combined"}:
                             if not company_col:
                                 raise RuntimeError("Kolonnen selskap/company_name mangler i aksjonærtabellen.")
 
@@ -686,6 +709,19 @@ def aksjonaer_sok():
                                 )
                                 params.append(selected_postal_place)
 
+                            if company_filter and company_col:
+                                company_filter_where, company_filter_params = _build_company_filter_where(
+                                    company_col,
+                                    orgnr_col,
+                                    company_filter,
+                                )
+                                filters.append(company_filter_where)
+                                params.extend(company_filter_params)
+
+                                if debug_enabled:
+                                    debug_info["company_filter"] = company_filter
+                                    debug_info["company_filter_tokens"] = _search_tokens(company_filter)
+
                             holdings_query = sql.SQL(
                                 """
                                 SELECT
@@ -744,7 +780,6 @@ def aksjonaer_sok():
                             regnskap_map: dict[str, dict[str, object]] = {}
 
                             if selected_orgnrs:
-                                # Først: prøv regnskap_siste i samme DB.
                                 regnskap_map.update(
                                     _fetch_regnskap_batch_from_conn(
                                         conn,
@@ -753,7 +788,6 @@ def aksjonaer_sok():
                                     )
                                 )
 
-                                # Fallback: bruk FastAPI/RDS-regnskapsoppslag.
                                 if not regnskap_map:
                                     if debug_enabled:
                                         debug_info["missing_orgnrs_before_internal_db"] = selected_orgnrs
@@ -786,6 +820,18 @@ def aksjonaer_sok():
                                     )
                                 )
                                 company_params.append(selected_company_orgnr)
+
+                            if owner_filter and shareholder_col:
+                                owner_filter_where, owner_filter_params = _build_token_search_where(
+                                    shareholder_col,
+                                    _search_tokens(owner_filter),
+                                )
+                                company_filters.append(owner_filter_where)
+                                company_params.extend(owner_filter_params)
+
+                                if debug_enabled:
+                                    debug_info["owner_filter"] = owner_filter
+                                    debug_info["owner_filter_tokens"] = _search_tokens(owner_filter)
 
                             owners_query = sql.SQL(
                                 """
@@ -840,6 +886,8 @@ def aksjonaer_sok():
         selected_postal_place=selected_postal_place,
         selected_company=selected_company,
         selected_company_orgnr=selected_company_orgnr,
+        company_filter=company_filter,
+        owner_filter=owner_filter,
         person_totals=person_totals,
         debug_info=debug_info,
         error=error,
