@@ -273,13 +273,13 @@
                   {% endif %}
                 </td>
                 <td class="right">
-                  {% if row.owner_profit_share is not none %}
-                    {{ "{:,.0f}".format(row.owner_profit_share).replace(",", " ") }}
+                  {% if row.get('owner_profit_share') is not none %}
+                    {{ "{:,.0f}".format(row.get('owner_profit_share')).replace(",", " ") }}
                   {% endif %}
                 </td>
                 <td class="right">
-                  {% if row.owner_equity_share is not none %}
-                    {{ "{:,.0f}".format(row.owner_equity_share).replace(",", " ") }}
+                  {% if row.get('owner_equity_share') is not none %}
+                    {{ "{:,.0f}".format(row.get('owner_equity_share')).replace(",", " ") }}
                   {% endif %}
                 </td>
                 <td>{{ row.snapshot_date }}</td>
