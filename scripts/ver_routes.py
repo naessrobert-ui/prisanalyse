@@ -3485,6 +3485,33 @@ _LEADERBOARD_STATION_LIMIT = int(os.getenv("WEATHER_LEADERBOARD_STATION_LIMIT", 
 _LEADERBOARD_TOP_N = int(os.getenv("WEATHER_LEADERBOARD_TOP_N", "5"))
 _LEADERBOARD_REFRESH_IN_PROGRESS = False
 _LEADERBOARD_LAST_ERROR: Optional[str] = None
+_LEADERBOARD_MEMCACHE: Optional[dict[str, Any]] = None
+_LEADERBOARD_MEMCACHE_TS: float = 0.0
+_LEADERBOARD_MEMCACHE_TTL = 60.0
+
+
+def _topplister_s3_config() -> Optional[tuple[str, str]]:
+    """Returner (bucket, key) hvis S3-backend er aktivert, ellers None."""
+    bucket = (
+        os.environ.get("WEATHER_TOPPLISTER_S3_BUCKET", "").strip()
+        or os.environ.get("S3_BUCKET_NAME", "").strip()
+    )
+    if not bucket:
+        return None
+    key = os.environ.get(
+        "WEATHER_TOPPLISTER_S3_KEY", "weather-topplister/cache.json"
+    ).strip()
+    return bucket, key
+
+
+def _topplister_s3_client():
+    import boto3  # local import to avoid hard dep when S3 ikke brukes
+    return boto3.client(
+        "s3",
+        region_name=os.environ.get(
+            "AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "eu-north-1")
+        ),
+    )
 
 
 def _as_float(v: Any) -> Optional[float]:
@@ -3813,25 +3840,70 @@ def _build_weather_topplister_payload() -> dict[str, Any]:
 
 
 def _cache_is_fresh(path: Path, ttl_seconds: int) -> bool:
+    """Sjekk om cache er fersk. Bruker S3 hvis konfigurert, ellers lokal fil."""
+    s3 = _topplister_s3_config()
+    if s3 is not None:
+        bucket, key = s3
+        try:
+            head = _topplister_s3_client().head_object(Bucket=bucket, Key=key)
+            last_modified = head["LastModified"].timestamp()
+            return (time.time() - last_modified) < ttl_seconds
+        except Exception:
+            return False
     if not path.exists():
         return False
     return (time.time() - path.stat().st_mtime) < ttl_seconds
 
 
 def _read_cached_topplister() -> Optional[dict[str, Any]]:
-    try:
-        if not _LEADERBOARD_CACHE_PATH.exists():
-            return None
-        with _LEADERBOARD_CACHE_PATH.open("r", encoding="utf-8") as fh:
-            return json.load(fh)
-    except Exception:
-        return None
+    global _LEADERBOARD_MEMCACHE, _LEADERBOARD_MEMCACHE_TS
+    if (
+        _LEADERBOARD_MEMCACHE is not None
+        and (time.time() - _LEADERBOARD_MEMCACHE_TS) < _LEADERBOARD_MEMCACHE_TTL
+    ):
+        return _LEADERBOARD_MEMCACHE
+
+    payload: Optional[dict[str, Any]] = None
+    s3 = _topplister_s3_config()
+    if s3 is not None:
+        bucket, key = s3
+        try:
+            obj = _topplister_s3_client().get_object(Bucket=bucket, Key=key)
+            payload = json.loads(obj["Body"].read().decode("utf-8"))
+        except Exception:
+            payload = None
+    else:
+        try:
+            if _LEADERBOARD_CACHE_PATH.exists():
+                with _LEADERBOARD_CACHE_PATH.open("r", encoding="utf-8") as fh:
+                    payload = json.load(fh)
+        except Exception:
+            payload = None
+
+    if payload is not None:
+        _LEADERBOARD_MEMCACHE = payload
+        _LEADERBOARD_MEMCACHE_TS = time.time()
+    return payload
 
 
 def _save_cached_topplister(payload: dict[str, Any]) -> None:
-    _LEADERBOARD_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with _LEADERBOARD_CACHE_PATH.open("w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False)
+    global _LEADERBOARD_MEMCACHE, _LEADERBOARD_MEMCACHE_TS
+    body = json.dumps(payload, ensure_ascii=False)
+    s3 = _topplister_s3_config()
+    if s3 is not None:
+        bucket, key = s3
+        _topplister_s3_client().put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=body.encode("utf-8"),
+            ContentType="application/json; charset=utf-8",
+        )
+    else:
+        _LEADERBOARD_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _LEADERBOARD_CACHE_PATH.open("w", encoding="utf-8") as fh:
+            fh.write(body)
+    _LEADERBOARD_MEMCACHE = payload
+    _LEADERBOARD_MEMCACHE_TS = time.time()
 
 
 def _refresh_topplister_async(force: bool = False) -> bool:
