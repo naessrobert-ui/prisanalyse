@@ -18,6 +18,11 @@ from yr_forecast import FORECAST_MODES, TEMP_TITLES, fetch_temp_forecast
 import requests
 from dotenv import load_dotenv
 
+try:
+    from scripts.station_metrics_cache import load_metric as _load_station_metric
+except ImportError:  # pragma: no cover - fallback when running as a script
+    _load_station_metric = None  # type: ignore[assignment]
+
 import folium
 from folium.plugins import HeatMap, MarkerCluster
 
@@ -1025,6 +1030,58 @@ def build_min_temp_map_html(
             selected_period=period,
             selected_top_n=top_n,
         )
+
+    # ---- Forsøk å lese fra precomputed station-metrics-cache. -----------
+    # Cachen dekker {last, next24h, next48h, next7d}. Andre perioder
+    # (day/month/year) faller fortsatt tilbake til live API under.
+    if _load_station_metric is not None and period in {"last", "next24h", "next48h", "next7d"}:
+        metric_name = {"min": "temp_min", "max": "temp_max", "mean": "temp_mean"}[temp]
+        wanted_counties = NORWAY_COUNTIES if county_is_all else [county]
+        try:
+            cached = _load_station_metric(metric_name, period, counties=wanted_counties)
+        except Exception:
+            cached = pd.DataFrame()
+        if not cached.empty:
+            cached = cached.dropna(subset=["lat", "lon", "value"]).copy()
+            if county_is_all:
+                if temp == "min":
+                    cached = cached.nsmallest(top_n, "value")
+                else:
+                    cached = cached.nlargest(top_n, "value")
+            if not cached.empty:
+                updated = now.strftime("%Y-%m-%d %H:%M UTC")
+                if period in FORECAST_MODES:
+                    title = (
+                        f"{TEMP_TITLES[temp][period]} – {county}"
+                        f"<br><small>Oppdatert ca. {updated}</small>"
+                    )
+                    element_used_label = "YR locationforecast (cache)"
+                else:
+                    title = (
+                        f'{TEMP_TYPES[temp]["label"]} – siste døgn ({county})'
+                        f"<br><small>Oppdatert ca. {updated}</small>"
+                    )
+                    element_used_label = (
+                        f'{TEMP_TYPES[temp]["fn"]}(air_temperature P1D) (cache)'
+                    )
+                return make_temp_map(
+                    cached,
+                    title=title,
+                    selected_county=county,
+                    selected_temp=temp,
+                    selected_period=period,
+                    selected_date=ui_date,
+                    selected_month=ui_month,
+                    selected_year=ui_year,
+                    selected_top_n=top_n,
+                    element_used=element_used_label,
+                    cluster=True,
+                    heatmap_show=True,
+                    heat_radius=25,
+                    heat_blur=18,
+                    top_n=top_n,
+                )
+        # Cache-miss → faller tilbake til live API under.
 
     if period in FORECAST_MODES:
         merged = fetch_temp_forecast(src_meta, mode=period, temp_kind=temp, timeout=timeout)

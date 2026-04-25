@@ -1,10 +1,10 @@
 services:
   - type: cron
-    name: weather-topplister-refresh
+    name: weather-station-metrics-refresh
     runtime: python
-    schedule: "0 */6 * * *"
+    schedule: "0 */3 * * *"
     buildCommand: pip install -r requirements.txt
-    startCommand: python -m scripts.refresh_weather_topplister
+    startCommand: python -m scripts.refresh_station_metrics
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.10
@@ -18,9 +18,9 @@ services:
         value: eu-north-1
       - key: S3_BUCKET_NAME
         sync: false
-      - key: WEATHER_TOPPLISTER_S3_KEY
-        value: weather-topplister/cache.json
-      - key: WEATHER_LEADERBOARD_STATION_LIMIT
+      - key: WEATHER_STATION_METRICS_S3_KEY
+        value: weather-station-metrics/cache.parquet
+      - key: WEATHER_STATION_METRICS_LIMIT
         value: "220"
-      - key: WEATHER_LEADERBOARD_TOP_N
-        value: "5"
+      - key: WEATHER_STATION_METRICS_TTL_SECONDS
+        value: "10800"
