@@ -1823,10 +1823,10 @@ def bil_innbytte_side():
                                     )
                                     mod_like = " OR ".join([f"{mod_norm_sql} LIKE ?" for _ in modell_candidates])
                                     where_parts.append(f"({mod_like})")
-                                    params.extend([
-                                        f"%{re.sub(r'[\\s\\-]+', '', m.lower())}%"
-                                        for m in modell_candidates
-                                    ])
+                                    mod_norm_pattern = re.compile(r"[\s\-]+")
+                                    for m in modell_candidates:
+                                        normalized = mod_norm_pattern.sub("", m.lower())
+                                        params.append(f"%{normalized}%")
 
                                 # Årsmodell: samme år eller nyere
                                 if target_year and colmap.get("aar"):
