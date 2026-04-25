@@ -1696,6 +1696,7 @@ def bil_innbytte_side():
     regnr = ""
     km_input = ""
     debug_context = {}
+    svv_preview = None
 
     if request.method == "POST":
         regnr = (request.form.get("regnr") or "").strip().upper()
@@ -1743,12 +1744,27 @@ def bil_innbytte_side():
                             elif amd == 1:
                                 hjuldrift_filter = "tohjulsdrift (2WD)"
 
+                    svv_preview = {
+                        "regnr": flat.get("svv_regnr") or regnr,
+                        "merke": merke or None,
+                        "modell": modell or "Ukjent modell",
+                        "drivstoff": flat.get("svv_drivstoff_navn"),
+                        "motor_cm3": flat.get("svv_slagvolum_cm3"),
+                        "motor_kw": flat.get("svv_maks_netto_effekt_kw"),
+                        "aksler_med_drift": flat.get("svv_antall_aksler_med_drift"),
+                        "forstegang_norge": flat.get("svv_registrert_forste_gang_norge"),
+                        "forstegang_utland": flat.get("svv_forstegang_reg_dato_utland"),
+                        "bruktimportert": bool(flat.get("svv_bruktimportert")),
+                        "importland": flat.get("svv_importland_navn") or flat.get("svv_importland_kode"),
+                    }
+
                     debug_context = {
                         "merke": merke or None,
                         "modell": modell or None,
                         "år": target_year,
                         "drivstoff": drivstoff_svv or None,
                         "hjuldrift": hjuldrift_filter,
+                        "km_sokt_til": km_value + 20000,
                     }
 
                     if not merke:
@@ -1809,13 +1825,8 @@ def bil_innbytte_side():
                             # dedupliser + behold rekkefølge
                             modell_candidates = list(dict.fromkeys([m.strip() for m in modell_candidates if str(m).strip()]))
 
-                            # Filtrer bort annonser som fortsatt er aktive (samme metodikk som solgt-siden)
-                            max_date = None
-                            if colmap.get("dato_end"):
-                                max_date = con.execute(
-                                    f"SELECT max(date({dato_end_ts})) FROM read_parquet('{path}') WHERE {dato_end_ts} IS NOT NULL"
-                                ).fetchone()[0]
-
+                            # Unngå tung max()-scan på hele parquet ved hvert oppslag.
+                            # Bruk solgt-flagg når det finnes, ellers krev at dato_end er satt <= i dag.
                             c_driv = col_or_null("drivstoff")
                             km_upper_bound = km_value + 20000
 
@@ -1844,14 +1855,14 @@ def bil_innbytte_side():
                                     where_parts.append(f"{km_num} <= ?")
                                     params.append(km_upper_bound)
 
-                                if max_date is not None:
-                                    where_parts.append(f"date({dato_end_ts}) < ?")
-                                    params.append(str(max_date))
-
                                 if colmap.get("solgt"):
                                     where_parts.append(f"({_bool_expr(c_solgt)}) = true")
                                 else:
-                                    where_parts.append(f"{pris_ny_num} > 1000")
+                                    if colmap.get("dato_end"):
+                                        where_parts.append(f"{dato_end_ts} IS NOT NULL")
+                                        where_parts.append(f"date({dato_end_ts}) <= current_date")
+                                    else:
+                                        where_parts.append(f"{pris_ny_num} > 1000")
 
                                 if drivstoff_svv and colmap.get("drivstoff"):
                                     where_parts.append(f"lower(cast({c_driv} as varchar)) LIKE ?")
@@ -1893,10 +1904,26 @@ def bil_innbytte_side():
                                 score_params = [km_value, target_year or datetime.utcnow().year] + params
                                 return con.execute(score_sql, score_params).df()
 
+                            debug_context["modellvarianter"] = modell_candidates[:8]
+                            debug_context["filtre"] = [
+                                "produsent=SVV merke",
+                                "modell ~ en av modellvarianter",
+                                "år >= førstegangsregistrert i Norge",
+                                "km <= oppgitt km + 20 000",
+                                "kun solgte/fjernede annonser",
+                            ]
+                            if drivstoff_svv:
+                                debug_context["filtre"].append("drivstoff matcher SVV")
+                            if amd is not None and colmap.get("hjuldrift"):
+                                debug_context["filtre"].append("hjuldrift matcher SVV (fallback: uten hjuldrift)")
+
                             rows = run_comparable_query(include_hjuldrift=True)
                             if rows.empty and amd is not None and colmap.get("hjuldrift"):
                                 # Fallback: dropp hjuldrift-filter dersom første søk gir 0 treff.
                                 rows = run_comparable_query(include_hjuldrift=False)
+                                debug_context["fallback_brukt"] = True
+                            else:
+                                debug_context["fallback_brukt"] = False
                             rows = rows.where(pd.notna(rows), None)
                             records = json.loads(rows.to_json(orient='records', date_format='iso'))
 
@@ -1916,14 +1943,7 @@ def bil_innbytte_side():
 
                                     result = {
                                         "svv": {
-                                            "regnr": flat.get("svv_regnr") or regnr,
-                                            "merke": merke,
-                                            "modell": modell or "Ukjent modell",
-                                            "motor_cm3": flat.get("svv_slagvolum_cm3"),
-                                            "motor_kw": flat.get("svv_maks_netto_effekt_kw"),
-                                            "drivstoff": flat.get("svv_drivstoff_navn"),
-                                            "aksler_med_drift": flat.get("svv_antall_aksler_med_drift"),
-                                            "forstegang_norge": flat.get("svv_registrert_forste_gang_norge"),
+                                            **(svv_preview or {}),
                                             "km_input": km_value,
                                         },
                                         "kriterier_brukt": debug_context,
@@ -1946,4 +1966,5 @@ def bil_innbytte_side():
         regnr=regnr,
         km=km_input,
         debug_context=debug_context,
+        svv_preview=svv_preview,
     )

@@ -45,7 +45,26 @@
       <div class="card error">{{ error }}</div>
     {% endif %}
 
-    {% if debug_context and (debug_context.merke or debug_context.modell or debug_context.år or debug_context.drivstoff or debug_context.hjuldrift) %}
+    {% if svv_preview %}
+      <div class="card">
+        <h3>Data fra Statens vegvesen</h3>
+        <table>
+          <tbody>
+            <tr><th>Regnr</th><td>{{ svv_preview.regnr or '–' }}</td></tr>
+            <tr><th>Merke / modell</th><td>{{ svv_preview.merke or '–' }} {{ svv_preview.modell or '' }}</td></tr>
+            <tr><th>Drivstoff</th><td>{{ svv_preview.drivstoff or '–' }}</td></tr>
+            <tr><th>Motor</th><td>{% if svv_preview.motor_cm3 %}{{ svv_preview.motor_cm3 }} cm³{% endif %}{% if svv_preview.motor_kw %} · {{ svv_preview.motor_kw }} kW{% endif %}{% if not svv_preview.motor_cm3 and not svv_preview.motor_kw %}–{% endif %}</td></tr>
+            <tr><th>Aksler med drift</th><td>{{ svv_preview.aksler_med_drift or '–' }}</td></tr>
+            <tr><th>Førstegangsregistrert i Norge</th><td>{{ svv_preview.forstegang_norge or '–' }}</td></tr>
+            <tr><th>Bruktimportert</th><td>{% if svv_preview.bruktimportert %}Ja{% else %}Nei{% endif %}</td></tr>
+            <tr><th>Førstegangsregistrert i utlandet</th><td>{{ svv_preview.forstegang_utland or '–' }}</td></tr>
+            <tr><th>Importland</th><td>{{ svv_preview.importland or '–' }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
+    {% if debug_context and (debug_context.merke or debug_context.modell or debug_context.år or debug_context.drivstoff or debug_context.hjuldrift or debug_context.filtre) %}
       <div class="card">
         <h3>Kriterier brukt videre i søket</h3>
         <table>
@@ -55,6 +74,10 @@
             <tr><th>År (fra førstegangsregistrering i Norge)</th><td>{{ debug_context.år or '–' }}</td></tr>
             <tr><th>Drivstoff</th><td>{{ debug_context.drivstoff or '–' }}</td></tr>
             <tr><th>Hjuldrift</th><td>{{ debug_context.hjuldrift or '–' }}</td></tr>
+            <tr><th>Km søk (øvre grense)</th><td>{% if debug_context.km_sokt_til %}{{ "{:,.0f}".format(debug_context.km_sokt_til).replace(",", " ") }}{% else %}–{% endif %}</td></tr>
+            <tr><th>Modellvarianter</th><td>{% if debug_context.modellvarianter %}{{ debug_context.modellvarianter|join(', ') }}{% else %}–{% endif %}</td></tr>
+            <tr><th>Aktive filtre</th><td>{% if debug_context.filtre %}<ul>{% for f in debug_context.filtre %}<li>{{ f }}</li>{% endfor %}</ul>{% else %}–{% endif %}</td></tr>
+            <tr><th>Fallback uten hjuldrift</th><td>{% if debug_context.fallback_brukt is sameas true %}Ja{% elif debug_context.fallback_brukt is sameas false %}Nei{% else %}–{% endif %}</td></tr>
           </tbody>
         </table>
       </div>
@@ -67,17 +90,6 @@
           <div class="kpi"><div class="t">Anbefalt innbyttepris</div><div class="v">{{ "{:,.0f}".format(result.innbyttepris).replace(",", " ") }} kr</div></div>
           <div class="kpi"><div class="t">Median sammenlignbare</div><div class="v">{{ "{:,.0f}".format(result.median_pris).replace(",", " ") }} kr</div></div>
           <div class="kpi"><div class="t">Prisintervall (25–75%)</div><div class="v">{{ "{:,.0f}".format(result.pris_p25).replace(",", " ") }} – {{ "{:,.0f}".format(result.pris_p75).replace(",", " ") }} kr</div></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Bil fra SVV-oppslag</h3>
-        <div class="muted">
-          {{ result.svv.regnr }} · {{ result.svv.merke }} {{ result.svv.modell }} ·
-          {% if result.svv.motor_cm3 %}{{ result.svv.motor_cm3 }} cm³{% endif %}
-          {% if result.svv.motor_kw %} · {{ result.svv.motor_kw }} kW{% endif %}
-          {% if result.svv.aksler_med_drift %} · aksler med drift: {{ result.svv.aksler_med_drift }}{% endif %}
-          {% if result.svv.forstegang_norge %} · førstegangsregistrert Norge: {{ result.svv.forstegang_norge }}{% endif %}
         </div>
       </div>
 
