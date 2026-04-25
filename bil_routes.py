@@ -1795,16 +1795,6 @@ def bil_innbytte_side():
                             # dedupliser + behold rekkefølge
                             modell_candidates = list(dict.fromkeys([m.strip() for m in modell_candidates if str(m).strip()]))
 
-                            where_parts = [
-                                f"lower(cast({c_prod} as varchar)) = ?"
-                            ]
-                            params = [merke.lower()]
-
-                            if modell_candidates:
-                                mod_like = " OR ".join([f"lower(cast({c_mod} as varchar)) LIKE ?" for _ in modell_candidates])
-                                where_parts.append(f"({mod_like})")
-                                params.extend([f"%{m.lower()}%" for m in modell_candidates])
-
                             # Filtrer bort annonser som fortsatt er aktive (samme metodikk som solgt-siden)
                             max_date = None
                             if colmap.get("dato_end"):
@@ -1812,26 +1802,48 @@ def bil_innbytte_side():
                                     f"SELECT max(date({dato_end_ts})) FROM read_parquet('{path}') WHERE {dato_end_ts} IS NOT NULL"
                                 ).fetchone()[0]
 
-                            if max_date is not None:
-                                where_parts.append(f"date({dato_end_ts}) < ?")
-                                params.append(str(max_date))
+                            c_driv = col_or_null("drivstoff")
+                            km_upper_bound = km_value + 20000
 
-                            if colmap.get("solgt"):
-                                where_parts.append(f"({_bool_expr(c_solgt)}) = true")
-                            else:
-                                where_parts.append(f"{pris_ny_num} > 1000")
+                            try:
+                                amd = int(aksler_med_drift) if aksler_med_drift is not None else None
+                            except Exception:
+                                amd = None
 
-                            if drivstoff_svv and colmap.get("drivstoff"):
-                                c_driv = col_or_null("drivstoff")
-                                where_parts.append("lower(cast(" + c_driv + " as varchar)) LIKE ?")
-                                params.append(f"%{drivstoff_svv.lower()}%")
+                            def run_comparable_query(include_hjuldrift: bool):
+                                where_parts = [f"lower(cast({c_prod} as varchar)) = ?"]
+                                params = [merke.lower()]
 
-                            if aksler_med_drift and colmap.get("hjuldrift"):
-                                try:
-                                    amd = int(aksler_med_drift)
-                                except Exception:
-                                    amd = None
-                                if amd is not None:
+                                if modell_candidates:
+                                    mod_like = " OR ".join([f"lower(cast({c_mod} as varchar)) LIKE ?" for _ in modell_candidates])
+                                    where_parts.append(f"({mod_like})")
+                                    params.extend([f"%{m.lower()}%" for m in modell_candidates])
+
+                                # Årsmodell: samme år eller nyere
+                                if target_year and colmap.get("aar"):
+                                    where_parts.append(f"{aar_num} >= ?")
+                                    params.append(target_year)
+
+                                # Kjørelengde: lavere eller opptil 20 000 km mer enn innsendt km
+                                if colmap.get("km"):
+                                    where_parts.append(f"{km_num} IS NOT NULL")
+                                    where_parts.append(f"{km_num} <= ?")
+                                    params.append(km_upper_bound)
+
+                                if max_date is not None:
+                                    where_parts.append(f"date({dato_end_ts}) < ?")
+                                    params.append(str(max_date))
+
+                                if colmap.get("solgt"):
+                                    where_parts.append(f"({_bool_expr(c_solgt)}) = true")
+                                else:
+                                    where_parts.append(f"{pris_ny_num} > 1000")
+
+                                if drivstoff_svv and colmap.get("drivstoff"):
+                                    where_parts.append(f"lower(cast({c_driv} as varchar)) LIKE ?")
+                                    params.append(f"%{drivstoff_svv.lower()}%")
+
+                                if include_hjuldrift and amd is not None and colmap.get("hjuldrift"):
                                     if amd >= 2:
                                         where_parts.append(
                                             f"(lower(cast({c_hjul} as varchar)) LIKE '%fire%' OR lower(cast({c_hjul} as varchar)) LIKE '%4%')"
@@ -1841,32 +1853,36 @@ def bil_innbytte_side():
                                             f"(lower(cast({c_hjul} as varchar)) LIKE '%to%' OR lower(cast({c_hjul} as varchar)) LIKE '%2%')"
                                         )
 
-                            where_sql = " WHERE " + " AND ".join(where_parts)
+                                where_sql = " WHERE " + " AND ".join(where_parts)
+                                score_sql = f"""
+                                  SELECT
+                                    {c_prod} AS produsent,
+                                    {c_mod} AS modell,
+                                    {aar_num} AS arstall,
+                                    {km_num} AS kjorelengde,
+                                    cast({c_hjul} as varchar) AS hjuldrift,
+                                    {pris_ny_num} AS pris,
+                                    {dato_start_ts} AS dato_start,
+                                    {dato_end_ts} AS dato_end,
+                                    {finnkode_str} AS finnkode,
+                                    {finn_url_expr} AS finn_url,
+                                    (
+                                      coalesce(abs({km_num} - ?), 999999) * 1.0
+                                      + coalesce(abs({aar_num} - ?), 4) * 20000.0
+                                    ) AS score
+                                  FROM read_parquet('{path}')
+                                  {where_sql}
+                                  ORDER BY score ASC, pris ASC
+                                  LIMIT 40
+                                """
+                                # NB: De to første parameterne tilhører score-uttrykket.
+                                score_params = [km_value, target_year or datetime.utcnow().year] + params
+                                return con.execute(score_sql, score_params).df()
 
-                            score_sql = f"""
-                              SELECT
-                                {c_prod} AS produsent,
-                                {c_mod} AS modell,
-                                {aar_num} AS arstall,
-                                {km_num} AS kjorelengde,
-                                cast({c_hjul} as varchar) AS hjuldrift,
-                                {pris_ny_num} AS pris,
-                                {dato_start_ts} AS dato_start,
-                                {dato_end_ts} AS dato_end,
-                                {finnkode_str} AS finnkode,
-                                {finn_url_expr} AS finn_url,
-                                (
-                                  coalesce(abs({km_num} - ?), 999999) * 1.0
-                                  + coalesce(abs({aar_num} - ?), 4) * 20000.0
-                                ) AS score
-                              FROM read_parquet('{path}')
-                              {where_sql}
-                              ORDER BY score ASC, pris ASC
-                              LIMIT 40
-                            """
-
-                            score_params = list(params) + [km_value, target_year or datetime.utcnow().year]
-                            rows = con.execute(score_sql, score_params).df()
+                            rows = run_comparable_query(include_hjuldrift=True)
+                            if rows.empty and amd is not None and colmap.get("hjuldrift"):
+                                # Fallback: dropp hjuldrift-filter dersom første søk gir 0 treff.
+                                rows = run_comparable_query(include_hjuldrift=False)
                             rows = rows.where(pd.notna(rows), None)
                             records = json.loads(rows.to_json(orient='records', date_format='iso'))
 
