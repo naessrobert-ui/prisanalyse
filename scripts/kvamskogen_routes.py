@@ -8,7 +8,8 @@ from __future__ import annotations
 import os
 import json
 import time
-import traceback
+import socket
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -16,6 +17,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
+from urllib3.util import connection as urllib3_connection
 from flask import Blueprint, Response, jsonify, request
 
 # Direkteimport – unngår HTTP self-call som timer ut på Render
@@ -84,6 +86,52 @@ Svar KUN med gyldig JSON (ingen markdown):
 """.strip()
 
 
+_ORIG_CREATE_CONNECTION = urllib3_connection.create_connection
+
+
+def _ipv4_create_connection(address, *args, **kwargs):
+    """Variant av urllib3.create_connection som kun resolver til IPv4."""
+    host, port = address
+    infos = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+    err = None
+    for family, socktype, proto, _canon, sa in infos:
+        sock = None
+        try:
+            sock = socket.socket(family, socktype, proto)
+            timeout = kwargs.get("timeout")
+            if timeout is not None and timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+                sock.settimeout(timeout)
+            source = kwargs.get("source_address")
+            if source:
+                sock.bind(source)
+            sock.connect(sa)
+            return sock
+        except OSError as e:
+            err = e
+            if sock is not None:
+                sock.close()
+    if err is not None:
+        raise err
+    raise OSError("getaddrinfo returned empty list")
+
+
+@contextmanager
+def _force_ipv4_dns_resolution():
+    urllib3_connection.create_connection = _ipv4_create_connection
+    try:
+        yield
+    finally:
+        urllib3_connection.create_connection = _ORIG_CREATE_CONNECTION
+
+
+def _download_image_with_ipv4_fallback(session: requests.Session, url: str, timeout: int = 15):
+    try:
+        return session.get(url, timeout=timeout)
+    except requests.RequestException:
+        with _force_ipv4_dns_resolution():
+            return session.get(url, timeout=timeout)
+
+
 def _analyser_kamera() -> dict:
     """Henter kamerabilder og analyserer dem med Claude Vision."""
     if not ANTHROPIC_API_KEY:
@@ -97,7 +145,7 @@ def _analyser_kamera() -> dict:
 
     for navn, url in KAMERA_URLS.items():
         try:
-            r = session.get(url, timeout=15)
+            r = _download_image_with_ipv4_fallback(session, url, timeout=15)
             if r.status_code != 200:
                 continue
             b64 = base64.b64encode(r.content).decode()
@@ -136,8 +184,8 @@ def _analyser_kamera() -> dict:
             resultater[navn] = json.loads(text)
             resultater[navn]["url"] = url
             resultater[navn]["hentet"] = datetime.now().isoformat(timespec="seconds")
-        except Exception:
-            traceback.print_exc()
+        except Exception as exc:
+            print(f"[kvamskogen] Kamerahenting feilet for {navn} ({url}): {exc}")
             resultater[navn] = {"url": url, "feil": True}
 
     return resultater
