@@ -6,6 +6,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python -m scripts.refresh_weather_topplister
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
       - key: FROST_CLIENT_ID
         sync: false
       - key: AWS_ACCESS_KEY_ID
