@@ -9,6 +9,7 @@ import os
 import json
 import time
 import socket
+import traceback
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
