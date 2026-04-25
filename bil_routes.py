@@ -1815,9 +1815,18 @@ def bil_innbytte_side():
                                 params = [merke.lower()]
 
                                 if modell_candidates:
-                                    mod_like = " OR ".join([f"lower(cast({c_mod} as varchar)) LIKE ?" for _ in modell_candidates])
+                                    # SVV returnerer modellnavn uten mellomrom (f.eks. "IONIQ5"),
+                                    # mens Finn-historikken bruker "Ioniq 5". Strip mellomrom og
+                                    # bindestrek på begge sider så variantene matcher hverandre.
+                                    mod_norm_sql = (
+                                        f"replace(replace(lower(cast({c_mod} as varchar)), ' ', ''), '-', '')"
+                                    )
+                                    mod_like = " OR ".join([f"{mod_norm_sql} LIKE ?" for _ in modell_candidates])
                                     where_parts.append(f"({mod_like})")
-                                    params.extend([f"%{m.lower()}%" for m in modell_candidates])
+                                    params.extend([
+                                        f"%{re.sub(r'[\\s\\-]+', '', m.lower())}%"
+                                        for m in modell_candidates
+                                    ])
 
                                 # Årsmodell: samme år eller nyere
                                 if target_year and colmap.get("aar"):
