@@ -21,6 +21,6 @@ services:
       - key: WEATHER_STATION_METRICS_S3_KEY
         value: weather-station-metrics/cache.parquet
       - key: WEATHER_STATION_METRICS_LIMIT
-        value: "220"
+        value: "0"
       - key: WEATHER_STATION_METRICS_TTL_SECONDS
         value: "10800"
