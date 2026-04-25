@@ -1,5 +1,8 @@
 from datetime import date
 import socket
+import threading
+from contextlib import contextmanager
+
 import requests
 from urllib3.util import connection as urllib3_connection
 
@@ -11,9 +14,6 @@ SVV_ENDPOINT = (
     "https://www.vegvesen.no/ws/no/vegvesen/kjoretoy/felles/datautlevering/"
     "enkeltoppslag/kjoretoydata"
 )
-
-
-_orig_create_connection = urllib3_connection.create_connection
 
 
 def _ipv4_create_connection(address, *args, **kwargs):
@@ -41,6 +41,21 @@ def _ipv4_create_connection(address, *args, **kwargs):
     if err is not None:
         raise err
     raise OSError("getaddrinfo returned empty list")
+
+
+_orig_create_connection = urllib3_connection.create_connection
+_IPV4_PATCH_LOCK = threading.Lock()
+
+
+@contextmanager
+def _force_ipv4_dns_resolution():
+    """Patch urllib3 create_connection midlertidig til IPv4-only (trådsikkert)."""
+    with _IPV4_PATCH_LOCK:
+        urllib3_connection.create_connection = _ipv4_create_connection
+        try:
+            yield
+        finally:
+            urllib3_connection.create_connection = _orig_create_connection
 
 
 # ========================
@@ -87,13 +102,11 @@ def fetch_svv_data(identifier: str):
     except requests.RequestException as e:
         # Errno 101 (Network is unreachable) skjer typisk når serveren får AAAA-record
         # men mangler IPv6-rute. Prøv på nytt med IPv4-only DNS-oppslag.
-        urllib3_connection.create_connection = _ipv4_create_connection
         try:
-            r = requests.get(SVV_ENDPOINT, params=params, headers=headers, timeout=10)
+            with _force_ipv4_dns_resolution():
+                r = requests.get(SVV_ENDPOINT, params=params, headers=headers, timeout=10)
         except requests.RequestException as e2:
             return None, f"Feil ved kall mot SVV: {e2}"
-        finally:
-            urllib3_connection.create_connection = _orig_create_connection
 
     if r.status_code != 200:
         return None, f"SVV svarte med status {r.status_code}. Sjekk reg.nr/VIN."
