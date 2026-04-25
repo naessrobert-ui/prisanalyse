@@ -1792,6 +1792,20 @@ def bil_innbytte_side():
                                 modell_candidates.append(str(" ".join(modell_tokens[:2])))
                             elif len(modell_tokens) == 1:
                                 modell_candidates.append(str(modell_tokens[0]))
+
+                            # SVV gir "IONIQ5" mens Finn bruker "Ioniq 5"/"Ioniq-5".
+                            # Lag varianter med mellomrom/bindestrek på bokstav-tall-grenser
+                            # så LIKE matcher uten per-rad replace (som er tregt på stort parquet).
+                            _expanded = []
+                            for cand in modell_candidates:
+                                _expanded.append(cand)
+                                # sett inn separator mellom bokstaver og tall begge veier
+                                with_space = re.sub(r"(?i)([a-z])(\d)", r"\1 \2", cand)
+                                with_space = re.sub(r"(?i)(\d)([a-z])", r"\1 \2", with_space)
+                                with_dash = re.sub(r"(?i)([a-z])(\d)", r"\1-\2", cand)
+                                with_dash = re.sub(r"(?i)(\d)([a-z])", r"\1-\2", with_dash)
+                                _expanded.extend([with_space, with_dash])
+                            modell_candidates = _expanded
                             # dedupliser + behold rekkefølge
                             modell_candidates = list(dict.fromkeys([m.strip() for m in modell_candidates if str(m).strip()]))
 
@@ -1815,18 +1829,9 @@ def bil_innbytte_side():
                                 params = [merke.lower()]
 
                                 if modell_candidates:
-                                    # SVV returnerer modellnavn uten mellomrom (f.eks. "IONIQ5"),
-                                    # mens Finn-historikken bruker "Ioniq 5". Strip mellomrom og
-                                    # bindestrek på begge sider så variantene matcher hverandre.
-                                    mod_norm_sql = (
-                                        f"replace(replace(lower(cast({c_mod} as varchar)), ' ', ''), '-', '')"
-                                    )
-                                    mod_like = " OR ".join([f"{mod_norm_sql} LIKE ?" for _ in modell_candidates])
+                                    mod_like = " OR ".join([f"lower(cast({c_mod} as varchar)) LIKE ?" for _ in modell_candidates])
                                     where_parts.append(f"({mod_like})")
-                                    mod_norm_pattern = re.compile(r"[\s\-]+")
-                                    for m in modell_candidates:
-                                        normalized = mod_norm_pattern.sub("", m.lower())
-                                        params.append(f"%{normalized}%")
+                                    params.extend([f"%{m.lower()}%" for m in modell_candidates])
 
                                 # Årsmodell: samme år eller nyere
                                 if target_year and colmap.get("aar"):
