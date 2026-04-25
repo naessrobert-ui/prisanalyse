@@ -17,7 +17,7 @@ from fritidsbolig_routes import fritids_bp
 from bil_routes import bil_bp
 from bil_import import bil_import_bp
 from gemini_routes import gemini_bp
-from scripts.ver_routes import ver
+from scripts.ver_routes import ver, start_topplister_warmup
 from regnskap_routes import regnskap_bp
 from portfolio_rebalancer_routes import portfolio_rebalancer_bp
 from dash_apps.strom import create_dash_app
@@ -136,6 +136,9 @@ def create_app() -> Flask:
 
     # Start bakgrunnsjobb som prefetcher snødybde for hele Norge
     start_warmup()
+
+    # Bygg klima-topplister i bakgrunnen og hold cachen oppdatert
+    start_topplister_warmup()
 
 
 

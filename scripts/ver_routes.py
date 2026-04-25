@@ -3857,6 +3857,32 @@ def _refresh_topplister_async(force: bool = False) -> bool:
     return True
 
 
+_TOPPLISTER_WARMUP_STARTED = False
+
+
+def start_topplister_warmup() -> None:
+    """Kalles én gang ved app-oppstart fra app.py. Bygger cachen i bakgrunnen
+    hvis den mangler/er utgått, og planlegger periodisk refresh basert på TTL."""
+    global _TOPPLISTER_WARMUP_STARTED
+    with _LEADERBOARD_LOCK:
+        if _TOPPLISTER_WARMUP_STARTED:
+            return
+        _TOPPLISTER_WARMUP_STARTED = True
+
+    interval = max(300, _LEADERBOARD_TTL_SECONDS)
+
+    def _tick() -> None:
+        try:
+            if not _cache_is_fresh(_LEADERBOARD_CACHE_PATH, _LEADERBOARD_TTL_SECONDS):
+                _refresh_topplister_async()
+        finally:
+            timer = threading.Timer(interval, _tick)
+            timer.daemon = True
+            timer.start()
+
+    threading.Thread(target=_tick, name="weather-topplister-warmup", daemon=True).start()
+
+
 def _get_or_build_topplister(
     force: bool = False,
     *,
