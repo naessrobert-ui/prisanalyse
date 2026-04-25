@@ -1,0 +1,26 @@
+services:
+  - type: cron
+    name: weather-topplister-refresh
+    runtime: python
+    schedule: "0 */6 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.refresh_weather_topplister
+    envVars:
+      - key: FROST_CLIENT_ID
+        sync: false
+      - key: FROST_CLIENT_SECRET
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: eu-north-1
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: WEATHER_TOPPLISTER_S3_KEY
+        value: weather-topplister/cache.json
+      - key: WEATHER_LEADERBOARD_STATION_LIMIT
+        value: "220"
+      - key: WEATHER_LEADERBOARD_TOP_N
+        value: "5"
