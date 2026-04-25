@@ -3577,17 +3577,26 @@ def _join_station_meta(df: pd.DataFrame, stations: pd.DataFrame) -> pd.DataFrame
 def _rank_rows(df: pd.DataFrame, *, top_n: int, asc: bool) -> list[dict[str, Any]]:
     if df.empty:
         return []
+    if "value" not in df.columns:
+        return []
     ranked = df.sort_values("value", ascending=asc).head(top_n).copy()
     rows: list[dict[str, Any]] = []
     for _, row in ranked.iterrows():
+        lat = _as_float(row.get("lat"))
+        lon = _as_float(row.get("lon"))
+        if lat is None or lon is None:
+            continue
+        value = _as_float(row.get("value"))
+        if value is None:
+            continue
         rows.append(
             {
                 "station_id": str(row.get("sourceId") or ""),
                 "name": str(row.get("name") or row.get("sourceId") or "Ukjent"),
                 "county": str(row.get("county") or ""),
-                "lat": round(float(row.get("lat")), 5),
-                "lon": round(float(row.get("lon")), 5),
-                "value": round(float(row.get("value")), 2),
+                "lat": round(lat, 5),
+                "lon": round(lon, 5),
+                "value": round(value, 2),
             }
         )
     return rows
@@ -3728,6 +3737,8 @@ def _build_weather_topplister_payload() -> dict[str, Any]:
     fc_rain_7d = _join_station_meta(fc_rain_7d, stations)
     fc_temp_24 = _join_station_meta(fc_temp_24, stations)
     fc_temp_7d = _join_station_meta(fc_temp_7d, stations)
+    fc_wind_24 = _join_station_meta(fc_wind_24, stations)
+    fc_wind_7d = _join_station_meta(fc_wind_7d, stations)
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
