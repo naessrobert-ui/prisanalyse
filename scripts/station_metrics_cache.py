@@ -34,6 +34,10 @@ import requests
 from ver_station_db import load_station_db
 from yr_forecast import (
     FORECAST_MODES,
+    HOURS_MAP,
+    _fetch_yr_timeseries,
+    _instant_temp_c,
+    _parse_time,
     fetch_precip_forecast,
     fetch_temp_forecast,
 )
@@ -351,55 +355,86 @@ def _temp_last_rows(stations: pd.DataFrame) -> list[dict[str, Any]]:
     return rows
 
 
+_FORECAST_TEMP_MODES = ("next24h", "next48h", "next7d")
+
+
 def _temp_forecast_rows(stations: pd.DataFrame) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
+    """One Yr call per station; derive 9 metric × mode values locally."""
     if stations.empty:
-        return rows
-    src_meta = stations.copy()
-    for metric_name, fn, unit in _TEMP_METRICS:
-        kind = {"temp_min": "min", "temp_max": "max", "temp_mean": "mean"}[metric_name]
-        for mode in ("next24h", "next48h", "next7d"):
-            try:
-                fc = fetch_temp_forecast(
-                    src_meta,
-                    mode=mode,
-                    temp_kind=kind,
-                    max_workers=_FORECAST_WORKERS,
-                )
-            except Exception:
-                fc = pd.DataFrame()
-            if fc.empty:
+        return []
+
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    bounds: dict[str, tuple[datetime, datetime]] = {
+        mode: (now, now + timedelta(hours=HOURS_MAP[mode])) for mode in _FORECAST_TEMP_MODES
+    }
+
+    def _process(record: dict[str, Any]) -> list[dict[str, Any]]:
+        lat = _as_float(record.get("lat"))
+        lon = _as_float(record.get("lon"))
+        if lat is None or lon is None:
+            return []
+        base_id = str(record.get("baseId") or "")
+        if not base_id:
+            return []
+
+        with requests.Session() as sess:
+            ts = _fetch_yr_timeseries(lat, lon, sess)
+        if not ts:
+            return []
+
+        per_mode: dict[str, list[float]] = {mode: [] for mode in _FORECAST_TEMP_MODES}
+        for item in ts:
+            t = _parse_time(item)
+            if t is None:
                 continue
-            fc = fc.rename(columns={"sourceId": "sourceId"})  # noop, explicit
-            joined = _attach_meta(
-                fc[["sourceId", "value", "referenceTime", "qualityCode", "unit"]].copy(),
-                stations,
-            )
-            for _, row in joined.iterrows():
-                lat = _as_float(row.get("lat"))
-                lon = _as_float(row.get("lon"))
-                if lat is None or lon is None:
-                    continue
-                rt = row.get("referenceTime")
+            tv = _instant_temp_c(item)
+            if tv is None:
+                continue
+            for mode, (start, end) in bounds.items():
+                if start <= t < end:
+                    per_mode[mode].append(tv)
+
+        rows: list[dict[str, Any]] = []
+        for mode, vals in per_mode.items():
+            if not vals:
+                continue
+            aggs = {
+                "temp_min": min(vals),
+                "temp_max": max(vals),
+                "temp_mean": sum(vals) / len(vals),
+            }
+            ref_time_iso = bounds[mode][1].isoformat()
+            for metric_name, value in aggs.items():
                 rows.append(
                     {
-                        "sourceId": str(row.get("sourceId") or ""),
-                        "name": str(row.get("name") or ""),
-                        "shortName": str(row.get("shortName") or ""),
-                        "county": str(row.get("county") or ""),
+                        "sourceId": base_id,
+                        "name": str(record.get("name") or ""),
+                        "shortName": str(record.get("shortName") or ""),
+                        "county": str(record.get("county") or ""),
                         "lat": float(lat),
                         "lon": float(lon),
                         "metric": metric_name,
                         "period": mode,
-                        "value": float(row.get("value")),
+                        "value": float(round(value, 2)),
                         "value_min": None,
                         "value_max": None,
-                        "unit": unit,
-                        "reference_time": rt.isoformat() if hasattr(rt, "isoformat") else str(rt or ""),
-                        "quality_code": _as_float(row.get("qualityCode")),
+                        "unit": "degC",
+                        "reference_time": ref_time_iso,
+                        "quality_code": None,
                         "element_used": "yr_locationforecast",
                     }
                 )
+        return rows
+
+    rows: list[dict[str, Any]] = []
+    records = stations.to_dict("records")
+    with ThreadPoolExecutor(max_workers=_FORECAST_WORKERS) as executor:
+        futures = [executor.submit(_process, rec) for rec in records]
+        for fut in as_completed(futures):
+            try:
+                rows.extend(fut.result())
+            except Exception:
+                continue
     return rows
 
 
