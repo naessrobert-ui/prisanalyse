@@ -59,6 +59,15 @@ KVAM_LNG = 5.979590206513535
 KVAM_LOCATION_ID = "kvamskogen"
 
 
+def _as_float(value: Any) -> Optional[float]:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _latlng_to_tile(lat: float, lng: float, z: int) -> Tuple[int, int]:
     n = 2 ** z
     x = int((lng + 180.0) / 360.0 * n)
