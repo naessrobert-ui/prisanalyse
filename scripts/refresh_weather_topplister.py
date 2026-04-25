@@ -23,6 +23,8 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+
+
     started = datetime.now(timezone.utc)
     payload = _build_weather_topplister_payload()
     _save_cached_topplister(payload)
