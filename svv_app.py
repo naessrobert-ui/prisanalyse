@@ -14,6 +14,7 @@ SVV_ENDPOINT = (
     "https://www.vegvesen.no/ws/no/vegvesen/kjoretoy/felles/datautlevering/"
     "enkeltoppslag/kjoretoydata"
 )
+SVV_TIMEOUT = (3.5, 8.0)  # (connect, read)
 
 
 def _ipv4_create_connection(address, *args, **kwargs):
@@ -98,13 +99,13 @@ def fetch_svv_data(identifier: str):
     headers = {"SVV-Authorization": f"Apikey {SVV_API_KEY}"}
 
     try:
-        r = requests.get(SVV_ENDPOINT, params=params, headers=headers, timeout=10)
+        r = requests.get(SVV_ENDPOINT, params=params, headers=headers, timeout=SVV_TIMEOUT)
     except requests.RequestException as e:
         # Errno 101 (Network is unreachable) skjer typisk når serveren får AAAA-record
         # men mangler IPv6-rute. Prøv på nytt med IPv4-only DNS-oppslag.
         try:
             with _force_ipv4_dns_resolution():
-                r = requests.get(SVV_ENDPOINT, params=params, headers=headers, timeout=10)
+                r = requests.get(SVV_ENDPOINT, params=params, headers=headers, timeout=SVV_TIMEOUT)
         except requests.RequestException as e2:
             return None, f"Feil ved kall mot SVV: {e2}"
 
