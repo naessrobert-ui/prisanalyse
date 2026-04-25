@@ -1,5 +1,7 @@
 from datetime import date
+import socket
 import requests
+from urllib3.util import connection as urllib3_connection
 
 # ========================
 # KONFIG
@@ -9,6 +11,36 @@ SVV_ENDPOINT = (
     "https://www.vegvesen.no/ws/no/vegvesen/kjoretoy/felles/datautlevering/"
     "enkeltoppslag/kjoretoydata"
 )
+
+
+_orig_create_connection = urllib3_connection.create_connection
+
+
+def _ipv4_create_connection(address, *args, **kwargs):
+    """Variant av urllib3.create_connection som kun resolver til IPv4."""
+    host, port = address
+    # Hent kun A-records (IPv4)
+    infos = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+    err = None
+    for family, socktype, proto, _canon, sa in infos:
+        sock = None
+        try:
+            sock = socket.socket(family, socktype, proto)
+            timeout = kwargs.get("timeout")
+            if timeout is not None and timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+                sock.settimeout(timeout)
+            source = kwargs.get("source_address")
+            if source:
+                sock.bind(source)
+            sock.connect(sa)
+            return sock
+        except OSError as e:
+            err = e
+            if sock is not None:
+                sock.close()
+    if err is not None:
+        raise err
+    raise OSError("getaddrinfo returned empty list")
 
 
 # ========================
@@ -53,7 +85,15 @@ def fetch_svv_data(identifier: str):
     try:
         r = requests.get(SVV_ENDPOINT, params=params, headers=headers, timeout=10)
     except requests.RequestException as e:
-        return None, f"Feil ved kall mot SVV: {e}"
+        # Errno 101 (Network is unreachable) skjer typisk når serveren får AAAA-record
+        # men mangler IPv6-rute. Prøv på nytt med IPv4-only DNS-oppslag.
+        urllib3_connection.create_connection = _ipv4_create_connection
+        try:
+            r = requests.get(SVV_ENDPOINT, params=params, headers=headers, timeout=10)
+        except requests.RequestException as e2:
+            return None, f"Feil ved kall mot SVV: {e2}"
+        finally:
+            urllib3_connection.create_connection = _orig_create_connection
 
     if r.status_code != 200:
         return None, f"SVV svarte med status {r.status_code}. Sjekk reg.nr/VIN."
