@@ -8,8 +8,6 @@ services:
     envVars:
       - key: FROST_CLIENT_ID
         sync: false
-      - key: FROST_CLIENT_SECRET
-        sync: false
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
