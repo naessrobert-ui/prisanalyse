@@ -3478,11 +3478,13 @@ window.addEventListener('load',()=>{
 # =========================
 # Klima-topplister (precomputet cache)
 # =========================
-_LEADERBOARD_LOCK = threading.Lock()
+_LEADERBOARD_LOCK = threading.RLock()
 _LEADERBOARD_CACHE_PATH = Path(__file__).resolve().parents[1] / "data" / "weather_topplister_cache.json"
 _LEADERBOARD_TTL_SECONDS = int(os.getenv("WEATHER_LEADERBOARD_TTL_SECONDS", "3600"))
 _LEADERBOARD_STATION_LIMIT = int(os.getenv("WEATHER_LEADERBOARD_STATION_LIMIT", "220"))
 _LEADERBOARD_TOP_N = int(os.getenv("WEATHER_LEADERBOARD_TOP_N", "5"))
+_LEADERBOARD_REFRESH_IN_PROGRESS = False
+_LEADERBOARD_LAST_ERROR: Optional[str] = None
 
 
 def _as_float(v: Any) -> Optional[float]:
@@ -3821,12 +3823,46 @@ def _save_cached_topplister(payload: dict[str, Any]) -> None:
         json.dump(payload, fh, ensure_ascii=False)
 
 
-def _get_or_build_topplister(force: bool = False) -> dict[str, Any]:
+def _refresh_topplister_async(force: bool = False) -> bool:
+    global _LEADERBOARD_REFRESH_IN_PROGRESS, _LEADERBOARD_LAST_ERROR
     with _LEADERBOARD_LOCK:
-        if not force and _cache_is_fresh(_LEADERBOARD_CACHE_PATH, _LEADERBOARD_TTL_SECONDS):
-            cached = _read_cached_topplister()
-            if cached:
-                return cached
+        if _LEADERBOARD_REFRESH_IN_PROGRESS:
+            return False
+        _LEADERBOARD_REFRESH_IN_PROGRESS = True
+        _LEADERBOARD_LAST_ERROR = None
+
+    def _runner() -> None:
+        global _LEADERBOARD_REFRESH_IN_PROGRESS, _LEADERBOARD_LAST_ERROR
+        try:
+            payload = _build_weather_topplister_payload()
+            _save_cached_topplister(payload)
+        except Exception as exc:
+            _LEADERBOARD_LAST_ERROR = str(exc)
+        finally:
+            with _LEADERBOARD_LOCK:
+                _LEADERBOARD_REFRESH_IN_PROGRESS = False
+
+    threading.Thread(target=_runner, name="weather-topplister-refresh", daemon=True).start()
+    return True
+
+
+def _get_or_build_topplister(
+    force: bool = False,
+    *,
+    allow_stale: bool = True,
+    background_refresh: bool = True,
+) -> dict[str, Any]:
+    with _LEADERBOARD_LOCK:
+        cached = _read_cached_topplister()
+        cache_fresh = _cache_is_fresh(_LEADERBOARD_CACHE_PATH, _LEADERBOARD_TTL_SECONDS)
+
+        if cached and not force and cache_fresh:
+            return cached
+
+        if cached and not force and allow_stale:
+            if background_refresh and not _LEADERBOARD_REFRESH_IN_PROGRESS:
+                _refresh_topplister_async()
+            return cached
 
         payload = _build_weather_topplister_payload()
         _save_cached_topplister(payload)
@@ -3836,10 +3872,15 @@ def _get_or_build_topplister(force: bool = False) -> dict[str, Any]:
 @ver.route("/api/klima-topplister")
 def klima_topplister_api() -> Response:
     force = request.args.get("force", "").strip().lower() in {"1", "true", "yes"}
+    queue_refresh = request.args.get("refresh", "").strip().lower() in {"1", "true", "yes"}
     try:
-        payload = _get_or_build_topplister(force=force)
+        payload = _get_or_build_topplister(force=force, allow_stale=True, background_refresh=True)
+        if queue_refresh:
+            _refresh_topplister_async(force=True)
         payload["cache_file"] = str(_LEADERBOARD_CACHE_PATH)
         payload["cache_fresh"] = _cache_is_fresh(_LEADERBOARD_CACHE_PATH, _LEADERBOARD_TTL_SECONDS)
+        payload["refreshing"] = _LEADERBOARD_REFRESH_IN_PROGRESS
+        payload["refresh_error"] = _LEADERBOARD_LAST_ERROR
         return jsonify(payload)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
