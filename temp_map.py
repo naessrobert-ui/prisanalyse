@@ -443,7 +443,7 @@ def make_empty_map_with_dropdown(
     selected_county: str = "",
     selected_temp: TempType = "min",
     selected_period: Period = "last",
-    selected_top_n: int = 20,
+    selected_top_n: int = 100,
 ) -> str:
     """Tomt kart med fylke + temperaturtype + periode. Ingen API-kall før 'Hent'."""
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
@@ -594,7 +594,7 @@ def make_empty_map_with_dropdown(
         qs.set('county', c);
         qs.set('temp', t);
         qs.set('period', p);
-        const topN = parseInt(document.getElementById('topSel').value || '20', 10);
+        const topN = parseInt(document.getElementById('topSel').value || '100', 10);
         qs.set('top', String(topN));
 
         if (p === "day") {{
@@ -635,7 +635,7 @@ def make_temp_map(
     selected_date: str,
     selected_month: str,
     selected_year: str,
-    selected_top_n: int = 20,
+    selected_top_n: int = 100,
     element_used: str,
     cluster: bool = True,
     heatmap_show: bool = True,
@@ -818,7 +818,7 @@ def make_temp_map(
         qs.set('county', c);
         qs.set('temp', t);
         qs.set('period', p);
-        const topN = parseInt(document.getElementById('topSel').value || '20', 10);
+        const topN = parseInt(document.getElementById('topSel').value || '100', 10);
         qs.set('top', String(topN));
 
         if (p === "day") {{
@@ -1056,7 +1056,7 @@ def build_min_temp_map_html(
     date_str: Optional[str] = None,   # YYYY-MM-DD for day
     month_str: Optional[str] = None,  # YYYY-MM for month
     year_str: Optional[str] = None,   # YYYY for year
-    top_n: int = 20,
+    top_n: int = 100,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
     limit: int = 1000,
@@ -1073,7 +1073,7 @@ def build_min_temp_map_html(
     try:
         top_n = int(top_n)
     except Exception:
-        top_n = 20
+        top_n = 100
     # 0 = vis alle stasjoner (kun meningsfullt ved county_is_all)
     top_n = max(0, min(top_n, 5000))
 
@@ -1354,7 +1354,7 @@ def main() -> None:
     ap.add_argument("--date", default="", help="YYYY-MM-DD (for period=day)")
     ap.add_argument("--month", default="", help="YYYY-MM (for period=month)")
     ap.add_argument("--year", default="", help="YYYY (for period=year)")
-    ap.add_argument("--top", default="20", help="topp N ved ALL")
+    ap.add_argument("--top", default="100", help="topp N ved ALL")
     args = ap.parse_args()
 
     html = build_min_temp_map_html(
@@ -1364,7 +1364,7 @@ def main() -> None:
         date_str=args.date or None,
         month_str=args.month or None,
         year_str=args.year or None,
-        top_n=int(args.top) if args.top.isdigit() else 20,
+        top_n=int(args.top) if args.top.isdigit() else 100,
     )
     print(html[:700])
 
