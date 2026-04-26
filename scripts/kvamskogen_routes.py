@@ -133,61 +133,75 @@ def _download_image_with_ipv4_fallback(session: requests.Session, url: str, time
             return session.get(url, timeout=timeout)
 
 
+def _hent_og_analyser_ett_kamera(navn: str, url: str) -> dict:
+    import base64
+    session = requests.Session()
+    session.headers.update({"User-Agent": "Mozilla/5.0 (prisanalyse.no weather dashboard)"})
+    try:
+        r = _download_image_with_ipv4_fallback(session, url, timeout=8)
+        if r.status_code != 200:
+            return {"url": url, "feil": True}
+        b64 = base64.b64encode(r.content).decode()
+        ct = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+        if ct not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+            ct = "image/jpeg"
+
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-haiku-4-5",
+                "max_tokens": 200,
+                "system": _KAMERA_SYSTEM,
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "source": {"type": "base64", "media_type": ct, "data": b64}},
+                        {"type": "text", "text": "Analyser dette kamerabildet fra Kvamskogen."},
+                    ],
+                }],
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        text = resp.json()["content"][0]["text"].strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        data = json.loads(text)
+        data["url"] = url
+        data["hentet"] = datetime.now().isoformat(timespec="seconds")
+        return data
+    except Exception as exc:
+        print(f"[kvamskogen] Kamerahenting feilet for {navn} ({url}): {exc}")
+        return {"url": url, "feil": True}
+
+
 def _analyser_kamera() -> dict:
-    """Henter kamerabilder og analyserer dem med Claude Vision."""
+    """Henter kamerabilder parallelt og analyserer dem med Claude Vision."""
     if not ANTHROPIC_API_KEY:
         return {}
 
-    import base64
+    import concurrent.futures
 
-    resultater = {}
-    session = requests.Session()
-    session.headers.update({"User-Agent": "Mozilla/5.0 (prisanalyse.no weather dashboard)"})
-
-    for navn, url in KAMERA_URLS.items():
+    resultater: dict = {navn: {"url": url, "feil": True} for navn, url in KAMERA_URLS.items()}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(KAMERA_URLS)) as ex:
+        futs = {ex.submit(_hent_og_analyser_ett_kamera, navn, url): navn
+                for navn, url in KAMERA_URLS.items()}
         try:
-            r = _download_image_with_ipv4_fallback(session, url, timeout=15)
-            if r.status_code != 200:
-                continue
-            b64 = base64.b64encode(r.content).decode()
-            # Bestem content-type
-            ct = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
-            if ct not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
-                ct = "image/jpeg"
-
-            resp = requests.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-                json={
-                    "model": "claude-haiku-4-5",
-                    "max_tokens": 200,
-                    "system": _KAMERA_SYSTEM,
-                    "messages": [{
-                        "role": "user",
-                        "content": [
-                            {"type": "image", "source": {"type": "base64", "media_type": ct, "data": b64}},
-                            {"type": "text", "text": "Analyser dette kamerabildet fra Kvamskogen."},
-                        ],
-                    }],
-                },
-                timeout=30,
-            )
-            resp.raise_for_status()
-            text = resp.json()["content"][0]["text"].strip()
-            if text.startswith("```"):
-                text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
-            resultater[navn] = json.loads(text)
-            resultater[navn]["url"] = url
-            resultater[navn]["hentet"] = datetime.now().isoformat(timespec="seconds")
-        except Exception as exc:
-            print(f"[kvamskogen] Kamerahenting feilet for {navn} ({url}): {exc}")
-            resultater[navn] = {"url": url, "feil": True}
+            for fut in concurrent.futures.as_completed(futs, timeout=35):
+                navn = futs[fut]
+                try:
+                    resultater[navn] = fut.result()
+                except Exception as exc:
+                    print(f"[kvamskogen] Kamera-future feilet for {navn}: {exc}")
+        except concurrent.futures.TimeoutError:
+            print("[kvamskogen] Kameraanalyse: as_completed timeout – bruker det vi har")
 
     return resultater
 
@@ -636,13 +650,25 @@ def _refresh_cache():
     _STATUS_REFRESHING = True
     try:
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+        # wait=False ved exit slik at en hengende kameratråd ikke blokkerer cachen
+        ex = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+        try:
             fut_sno    = ex.submit(_hent_sno)
             fut_loyper = ex.submit(_hent_loyper)
             fut_kamera = ex.submit(_analyser_kamera)
-            sno_data    = fut_sno.result(timeout=60)
-            loyper_data = fut_loyper.result(timeout=25)
-            kamera_data = fut_kamera.result(timeout=60)
+
+            def _safe(fut, timeout, label):
+                try:
+                    return fut.result(timeout=timeout)
+                except Exception as exc:
+                    print(f"[kvamskogen] {label} feilet/timed out ({exc}) – fortsetter med tom default")
+                    return {}
+
+            sno_data    = _safe(fut_sno,    60, "sno")
+            loyper_data = _safe(fut_loyper, 25, "loyper")
+            kamera_data = _safe(fut_kamera, 45, "kamera")
+        finally:
+            ex.shutdown(wait=False)
 
         tolkning = _ai_tolkning(sno_data, loyper_data, kamera_data)
         s      = sno_data.get("sammendrag", {})
@@ -737,13 +763,11 @@ def api_status():
         threading.Thread(target=_refresh_cache, daemon=True).start()
         return jsonify(hit["payload"])
 
-    # Ingen cache – første gang, må vente
-    _refresh_cache()
-    hit = _STATUS_CACHE.get("status")
-    if hit:
-        return jsonify(hit["payload"])
+    # Ingen cache – start refresh i bakgrunnen og returner placeholder umiddelbart,
+    # slik at siden alltid laster selv om eksterne API-er er trege/nede.
+    threading.Thread(target=_refresh_cache, daemon=True).start()
     return jsonify({"hentet": datetime.now().isoformat(), "tolkning": _fallback_tolkning({}, {}),
-                    "sno": {}, "loyper": {}, "daglig": [], "intervaller": []})
+                    "sno": {}, "loyper": {}, "daglig": [], "intervaller": [], "laster": True})
 
 
 _HISTORIKK_CACHE: dict = {}
