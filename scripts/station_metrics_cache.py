@@ -522,9 +522,9 @@ def load_metric(
         return sub
 
     if counties:
-        wanted = {c for c in counties if c}
+        wanted = {str(c).strip().upper() for c in counties if c}
         if wanted:
-            sub = sub[sub["county"].isin(wanted)].copy()
+            sub = sub[sub["county"].astype(str).str.upper().isin(wanted)].copy()
 
     if sub.empty:
         return sub
