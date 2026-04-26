@@ -363,6 +363,43 @@ def color_for_temp(tc: float) -> str:
     return _rgb_to_hex(_TEMP_COLOR_STOPS[-1][1])
 
 
+def _temp_color_js() -> str:
+    """Eksponer samme fargeskala (stops + interpolasjon) til JS slik at
+    cluster-ikonene kan farges identisk med markørene."""
+    stops_js = json.dumps(
+        [{"t": t, "rgb": list(rgb)} for t, rgb in _TEMP_COLOR_STOPS]
+    )
+    return f"""
+<script>
+  window._tempColorStops = {stops_js};
+  window._rgbToHex = function(rgb) {{
+    return '#' + rgb.map(function(x) {{
+      var v = Math.max(0, Math.min(255, Math.round(x)));
+      var h = v.toString(16);
+      return h.length === 1 ? '0' + h : h;
+    }}).join('');
+  }};
+  window._colorForTemp = function(tc) {{
+    var s = window._tempColorStops;
+    if (tc <= s[0].t) return window._rgbToHex(s[0].rgb);
+    if (tc >= s[s.length - 1].t) return window._rgbToHex(s[s.length - 1].rgb);
+    for (var i = 0; i < s.length - 1; i++) {{
+      var a = s[i], b = s[i + 1];
+      if (a.t <= tc && tc <= b.t) {{
+        var f = (b.t === a.t) ? 0 : (tc - a.t) / (b.t - a.t);
+        return window._rgbToHex([
+          a.rgb[0] + (b.rgb[0] - a.rgb[0]) * f,
+          a.rgb[1] + (b.rgb[1] - a.rgb[1]) * f,
+          a.rgb[2] + (b.rgb[2] - a.rgb[2]) * f
+        ]);
+      }}
+    }}
+    return window._rgbToHex(s[s.length - 1].rgb);
+  }};
+</script>
+"""
+
+
 def _temp_legend_html() -> str:
     """Horisontal fargestolpe-legende (CSS-gradient) plassert nede til høyre."""
     stops = ", ".join(
@@ -672,6 +709,7 @@ def make_temp_map(
     center_lon = float(d["lon"].mean())
     m = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles="OpenStreetMap")
     folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
+    folium.Element(_temp_color_js()).add_to(m.get_root().html)
     folium.Element(_temp_legend_html()).add_to(m.get_root().html)
     map_var = m.get_name()
 
@@ -865,7 +903,66 @@ def make_temp_map(
 
     points_layer = folium.FeatureGroup(name="Stasjoner", show=True)
     points_layer.add_to(m)
-    layer_for_markers = MarkerCluster().add_to(points_layer) if cluster else points_layer
+
+    # Cluster-bobler viser temperatur (min/max/snitt – avhenger av valgt
+    # temperaturtype) og fargelegges med samme skala som markørene.
+    # Antall stasjoner vises som "n=<N>" under temperaturen.
+    cluster_icon_fn = """
+function(cluster) {
+  var children = cluster.getAllChildMarkers();
+  var lookup = window._tempLookup || {};
+  var temps = [];
+  for (var i = 0; i < children.length; i++) {
+    var ll = children[i].getLatLng();
+    var k = ll.lat.toFixed(6) + ',' + ll.lng.toFixed(6);
+    var v = lookup[k];
+    if (typeof v === 'number' && !isNaN(v)) temps.push(v);
+  }
+  var n = cluster.getChildCount();
+  var label, color;
+  if (temps.length === 0) {
+    label = String(n);
+    color = '#94a3b8';
+  } else {
+    var mode = window._tempMode || 'max';
+    var v;
+    if (mode === 'min') {
+      v = Math.min.apply(null, temps);
+    } else if (mode === 'mean') {
+      v = temps.reduce(function(a, b) { return a + b; }, 0) / temps.length;
+    } else {
+      v = Math.max.apply(null, temps);
+    }
+    label = (v >= 0 ? '+' : '') + v.toFixed(1) + '°';
+    color = window._colorForTemp ? window._colorForTemp(v) : '#94a3b8';
+  }
+  var size = Math.min(58, Math.max(38, 34 + Math.log2(n + 1) * 3));
+  var html =
+    '<div style="' +
+      'background:' + color + ';' +
+      'border:2px solid rgba(15,23,42,.85);' +
+      'border-radius:50%;' +
+      'width:' + size + 'px;height:' + size + 'px;' +
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+      'box-shadow:0 4px 12px rgba(0,0,0,.25);' +
+    '">' +
+      '<span style="font-size:13px;font-weight:800;line-height:1;color:#0f172a;' +
+        'text-shadow:0 0 4px rgba(255,255,255,.85);">' + label + '</span>' +
+      '<span style="font-size:9px;line-height:1;margin-top:2px;color:#0f172a;opacity:.7;">' +
+        'n=' + n + '</span>' +
+    '</div>';
+  return L.divIcon({
+    html: html,
+    className: 'temp-cluster-icon',
+    iconSize: L.point(size, size)
+  });
+}
+"""
+    layer_for_markers = (
+        MarkerCluster(icon_create_function=cluster_icon_fn).add_to(points_layer)
+        if cluster
+        else points_layer
+    )
 
     points_js: list[dict[str, Any]] = []
 
@@ -968,6 +1065,16 @@ def make_temp_map(
       }}
 
       window._tempPoints = {points_json};
+      window._tempMode = "{selected_temp}";
+      window._tempLookup = {{}};
+      (function() {{
+        var pts = window._tempPoints || [];
+        for (var i = 0; i < pts.length; i++) {{
+          var p = pts[i];
+          var k = p.lat.toFixed(6) + ',' + p.lon.toFixed(6);
+          window._tempLookup[k] = p.value;
+        }}
+      }})();
 
       function updateToplist(map) {{
         const b = map.getBounds();
