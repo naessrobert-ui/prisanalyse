@@ -475,6 +475,69 @@ def _loading_overlay_js() -> str:
 """
 
 
+_COLLAPSIBLE_PANEL_BREAKPOINT_PX = 768
+
+
+def _collapsible_panel_assets() -> str:
+    """CSS + JS som gjør #ctrlPanel kollapsbart, og som starter kollapset på mobil."""
+    return f"""
+<style>
+  #ctrlPanel .ctrl-panel-header {{
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }}
+  #ctrlPanel .ctrl-panel-toggle {{
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    color: #0f172a;
+    padding: 2px 8px;
+    border-radius: 8px;
+  }}
+  #ctrlPanel .ctrl-panel-toggle:hover {{ background: rgba(15,23,42,.08); }}
+  #ctrlPanel.collapsed .ctrl-panel-body {{ display: none !important; }}
+  @media (max-width: {_COLLAPSIBLE_PANEL_BREAKPOINT_PX}px) {{
+    #ctrlPanel {{
+      max-width: calc(100vw - 24px) !important;
+      left: 12px;
+    }}
+  }}
+</style>
+<script>
+  (function() {{
+    function init() {{
+      var p = document.getElementById('ctrlPanel');
+      var btn = document.getElementById('ctrlPanelToggle');
+      if (!p || !btn) return;
+      if (window.innerWidth <= {_COLLAPSIBLE_PANEL_BREAKPOINT_PX}) {{
+        p.classList.add('collapsed');
+      }}
+      function sync() {{
+        var col = p.classList.contains('collapsed');
+        btn.textContent = col ? '▾' : '▴';
+        btn.setAttribute('aria-label', col ? 'Vis filtre' : 'Skjul filtre');
+      }}
+      sync();
+      btn.addEventListener('click', function() {{
+        p.classList.toggle('collapsed');
+        sync();
+      }});
+    }}
+    if (document.readyState === 'loading') {{
+      document.addEventListener('DOMContentLoaded', init);
+    }} else {{
+      init();
+    }}
+  }})();
+</script>
+"""
+
+
 def make_empty_map_with_dropdown(
     *,
     selected_county: str = "",
@@ -516,16 +579,21 @@ def make_empty_map_with_dropdown(
 
     ui = f"""
     {_loading_overlay_js()}
+    {_collapsible_panel_assets()}
 
-    <div style="
+    <div id="ctrlPanel" style="
       position: fixed; top: 12px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 12px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
       max-width: 380px;
     ">
-      <div style="font-weight:900; margin-bottom:8px;">Temperatur</div>
-      <div style="font-size:13px; color:#334155; margin-bottom:10px;">
+      <div class="ctrl-panel-header">
+        <div style="font-weight:900;">Temperatur</div>
+        <button id="ctrlPanelToggle" type="button" class="ctrl-panel-toggle" aria-label="Skjul filtre">▴</button>
+      </div>
+      <div class="ctrl-panel-body">
+      <div style="font-size:13px; color:#334155; margin: 8px 0 10px;">
         Velg fylke, temperaturtype og periode.
       </div>
 
@@ -600,6 +668,7 @@ def make_empty_map_with_dropdown(
         padding:9px 12px; border:none; border-radius:999px;
         background:#0f172a; color:white; cursor:pointer; font-weight:800;
       ">Hent</button>
+      </div>
     </div>
 
     <script>
@@ -742,15 +811,20 @@ def make_temp_map(
     )
 
     header = f"""
-    <div style="
+    {_collapsible_panel_assets()}
+    <div id="ctrlPanel" style="
       position: fixed; top: 12px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 12px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
       max-width: 430px;
     ">
-      <div style="font-weight:900; margin-bottom:6px;">{title}</div>
-      <div style="font-size:12px; color:#64748b; margin-bottom:10px;">
+      <div class="ctrl-panel-header">
+        <div style="font-weight:900;">{title}</div>
+        <button id="ctrlPanelToggle" type="button" class="ctrl-panel-toggle" aria-label="Skjul filtre">▴</button>
+      </div>
+      <div class="ctrl-panel-body">
+      <div style="font-size:12px; color:#64748b; margin: 8px 0 10px;">
         Element: <code style="font-size:11px;">{element_used}</code>
       </div>
 
@@ -825,6 +899,7 @@ def make_temp_map(
         padding:9px 12px; border:none; border-radius:999px;
         background:#0f172a; color:white; cursor:pointer; font-weight:800;
       ">Oppdater</button>
+      </div>
     </div>
 
     <script>

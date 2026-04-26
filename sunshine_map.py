@@ -355,23 +355,92 @@ def _loading_overlay_js() -> str:
 """
 
 
+_COLLAPSIBLE_PANEL_BREAKPOINT_PX = 768
+
+
+def _collapsible_panel_assets() -> str:
+    """CSS + JS som gjør #ctrlPanel kollapsbart, og som starter kollapset på mobil."""
+    return f"""
+<style>
+  #ctrlPanel .ctrl-panel-header {{
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }}
+  #ctrlPanel .ctrl-panel-toggle {{
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    color: #0f172a;
+    padding: 2px 8px;
+    border-radius: 8px;
+  }}
+  #ctrlPanel .ctrl-panel-toggle:hover {{ background: rgba(15,23,42,.08); }}
+  #ctrlPanel.collapsed .ctrl-panel-body {{ display: none !important; }}
+  @media (max-width: {_COLLAPSIBLE_PANEL_BREAKPOINT_PX}px) {{
+    #ctrlPanel {{
+      max-width: calc(100vw - 24px) !important;
+      left: 12px;
+    }}
+  }}
+</style>
+<script>
+  (function() {{
+    function init() {{
+      var p = document.getElementById('ctrlPanel');
+      var btn = document.getElementById('ctrlPanelToggle');
+      if (!p || !btn) return;
+      if (window.innerWidth <= {_COLLAPSIBLE_PANEL_BREAKPOINT_PX}) {{
+        p.classList.add('collapsed');
+      }}
+      function sync() {{
+        var col = p.classList.contains('collapsed');
+        btn.textContent = col ? '▾' : '▴';
+        btn.setAttribute('aria-label', col ? 'Vis filtre' : 'Skjul filtre');
+      }}
+      sync();
+      btn.addEventListener('click', function() {{
+        p.classList.toggle('collapsed');
+        sync();
+      }});
+    }}
+    if (document.readyState === 'loading') {{
+      document.addEventListener('DOMContentLoaded', init);
+    }} else {{
+      init();
+    }}
+  }})();
+</script>
+"""
+
+
 def make_info_map(*, title: str, message: str, mode: str, date_str: str) -> str:
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
     ui = f"""
     {_loading_overlay_js()}
-    <div style="
+    {_collapsible_panel_assets()}
+    <div id="ctrlPanel" style="
       position: fixed; top: 12px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
       max-width: 420px;
     ">
-      <div style="font-weight:900; margin-bottom:6px;">{title}</div>
-      <div style="font-size:13px; color:#334155; margin-bottom:10px;">{message}</div>
+      <div class="ctrl-panel-header">
+        <div style="font-weight:900;">{title}</div>
+        <button id="ctrlPanelToggle" type="button" class="ctrl-panel-toggle" aria-label="Skjul filtre">▴</button>
+      </div>
+      <div class="ctrl-panel-body">
+      <div style="font-size:13px; color:#334155; margin: 8px 0 10px;">{message}</div>
       <button id="refreshBtn" style="
         padding:8px 12px; border:none; border-radius:999px;
         background:#0f172a; color:white; cursor:pointer;
       ">Oppdater</button>
+      </div>
     </div>
 
     <script>
@@ -454,21 +523,27 @@ def make_map(
     folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
 
     refresh_box = f"""
-    <div style="
+    {_collapsible_panel_assets()}
+    <div id="ctrlPanel" style="
       position: fixed; top: 12px; right: 12px; z-index: 9999;
       background: rgba(255,255,255,.95); padding: 10px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
       max-width: 360px;
     ">
-      <div style="font-weight:900; margin-bottom:6px;">Oppdater</div>
-      <div style="font-size:13px; color:#334155; margin-bottom:10px;">
+      <div class="ctrl-panel-header">
+        <div style="font-weight:900;">Oppdater</div>
+        <button id="ctrlPanelToggle" type="button" class="ctrl-panel-toggle" aria-label="Skjul filtre">▴</button>
+      </div>
+      <div class="ctrl-panel-body">
+      <div style="font-size:13px; color:#334155; margin: 8px 0 10px;">
         Hent nye tall for valgt periode.
       </div>
       <button id="refreshBtn" style="
         padding:8px 12px; border:none; border-radius:999px;
         background:#0f172a; color:white; cursor:pointer;
       ">Oppdater</button>
+      </div>
     </div>
 
     <script>
