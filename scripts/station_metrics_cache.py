@@ -38,6 +38,7 @@ from yr_forecast import (
     _fetch_yr_timeseries,
     _instant_temp_c,
     _parse_time,
+    _precip_block_triplet_mm,
     fetch_precip_forecast,
     fetch_temp_forecast,
 )
@@ -355,18 +356,105 @@ def _temp_last_rows(stations: pd.DataFrame) -> list[dict[str, Any]]:
     return rows
 
 
-_FORECAST_TEMP_MODES = ("next24h", "next48h", "next7d")
+_FORECAST_MODES_LIST = ("next24h", "next48h", "next7d")
 
 
-def _temp_forecast_rows(stations: pd.DataFrame) -> list[dict[str, Any]]:
-    """One Yr call per station; derive 9 metric × mode values locally."""
+def _instant_wind_speed(item: dict) -> Optional[float]:
+    return _as_float(
+        ((item.get("data") or {}).get("instant") or {}).get("details", {}).get("wind_speed")
+    )
+
+
+def _instant_wind_gust(item: dict) -> Optional[float]:
+    return _as_float(
+        ((item.get("data") or {}).get("instant") or {}).get("details", {}).get(
+            "wind_speed_of_gust"
+        )
+    )
+
+
+def _precip_window_sum(
+    timeseries: list[dict],
+    start_utc: datetime,
+    end_utc: datetime,
+    *,
+    long_window: bool,
+) -> Optional[tuple[float, float, float]]:
+    """Sum precipitation over [start_utc, end_utc) using non-overlapping Yr blocks.
+
+    Mirrors yr_forecast.fetch_precip_forecast so we can reuse a single
+    timeseries for all three forecast modes.
+    """
+    if long_window:
+        key_order = (("next_6_hours", 6), ("next_12_hours", 12), ("next_1_hours", 1))
+    else:
+        key_order = (("next_1_hours", 1), ("next_6_hours", 6), ("next_12_hours", 12))
+
+    total_expected = 0.0
+    total_min = 0.0
+    total_max = 0.0
+    cursor = start_utc
+    saw_any = False
+    for item in sorted(timeseries, key=lambda it: str(it.get("time", ""))):
+        t = _parse_time(item)
+        if t is None:
+            continue
+        exp, low, high, span_h = _precip_block_triplet_mm(item, key_order=key_order)
+        block_end = t + timedelta(hours=span_h)
+        overlap_start = max(t, start_utc, cursor)
+        overlap_end = min(block_end, end_utc)
+        overlap_h = (overlap_end - overlap_start).total_seconds() / 3600.0
+        if overlap_h <= 0:
+            continue
+        frac = min(1.0, max(0.0, overlap_h / float(span_h)))
+        total_expected += exp * frac
+        total_min += low * frac
+        total_max += high * frac
+        cursor = overlap_end
+        saw_any = True
+        if cursor >= end_utc:
+            break
+    if not saw_any:
+        return None
+    return total_expected, total_min, total_max
+
+
+def _yr_forecast_rows(stations: pd.DataFrame) -> list[dict[str, Any]]:
+    """One Yr call per station; derive temp/wind/precip metrics for all modes."""
     if stations.empty:
         return []
 
     now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     bounds: dict[str, tuple[datetime, datetime]] = {
-        mode: (now, now + timedelta(hours=HOURS_MAP[mode])) for mode in _FORECAST_TEMP_MODES
+        mode: (now, now + timedelta(hours=HOURS_MAP[mode])) for mode in _FORECAST_MODES_LIST
     }
+
+    def _meta(record: dict[str, Any], lat: float, lon: float, base_id: str) -> dict[str, Any]:
+        return {
+            "sourceId": base_id,
+            "name": str(record.get("name") or ""),
+            "shortName": str(record.get("shortName") or ""),
+            "county": str(record.get("county") or ""),
+            "lat": float(lat),
+            "lon": float(lon),
+        }
+
+    def _row(meta: dict[str, Any], *, metric: str, period: str, value: float,
+             unit: str, ref_iso: str,
+             value_min: Optional[float] = None,
+             value_max: Optional[float] = None) -> dict[str, Any]:
+        return {
+            **meta,
+            "metric": metric,
+            "period": period,
+            "value": float(round(value, 2)),
+            "value_min": None if value_min is None else float(round(value_min, 2)),
+            "value_max": None if value_max is None else float(round(value_max, 2)),
+            "unit": unit,
+            "reference_time": ref_iso,
+            "quality_code": None,
+            "element_used": "yr_locationforecast",
+        }
 
     def _process(record: dict[str, Any]) -> list[dict[str, Any]]:
         lat = _as_float(record.get("lat"))
@@ -382,48 +470,65 @@ def _temp_forecast_rows(stations: pd.DataFrame) -> list[dict[str, Any]]:
         if not ts:
             return []
 
-        per_mode: dict[str, list[float]] = {mode: [] for mode in _FORECAST_TEMP_MODES}
+        per_mode: dict[str, dict[str, list[float]]] = {
+            mode: {"temp": [], "wind": [], "gust": []} for mode in _FORECAST_MODES_LIST
+        }
         for item in ts:
             t = _parse_time(item)
             if t is None:
                 continue
             tv = _instant_temp_c(item)
-            if tv is None:
-                continue
+            wv = _instant_wind_speed(item)
+            gv = _instant_wind_gust(item)
             for mode, (start, end) in bounds.items():
                 if start <= t < end:
-                    per_mode[mode].append(tv)
+                    if tv is not None:
+                        per_mode[mode]["temp"].append(tv)
+                    if wv is not None:
+                        per_mode[mode]["wind"].append(wv)
+                    if gv is not None:
+                        per_mode[mode]["gust"].append(gv)
 
+        meta = _meta(record, lat, lon, base_id)
         rows: list[dict[str, Any]] = []
-        for mode, vals in per_mode.items():
-            if not vals:
-                continue
-            aggs = {
-                "temp_min": min(vals),
-                "temp_max": max(vals),
-                "temp_mean": sum(vals) / len(vals),
-            }
-            ref_time_iso = bounds[mode][1].isoformat()
-            for metric_name, value in aggs.items():
-                rows.append(
-                    {
-                        "sourceId": base_id,
-                        "name": str(record.get("name") or ""),
-                        "shortName": str(record.get("shortName") or ""),
-                        "county": str(record.get("county") or ""),
-                        "lat": float(lat),
-                        "lon": float(lon),
-                        "metric": metric_name,
-                        "period": mode,
-                        "value": float(round(value, 2)),
-                        "value_min": None,
-                        "value_max": None,
-                        "unit": "degC",
-                        "reference_time": ref_time_iso,
-                        "quality_code": None,
-                        "element_used": "yr_locationforecast",
-                    }
-                )
+        for mode, (start, end) in bounds.items():
+            ref_iso = end.isoformat()
+            samples = per_mode[mode]
+
+            temps = samples["temp"]
+            if temps:
+                rows.append(_row(meta, metric="temp_min",
+                                 period=mode, value=min(temps),
+                                 unit="degC", ref_iso=ref_iso))
+                rows.append(_row(meta, metric="temp_max",
+                                 period=mode, value=max(temps),
+                                 unit="degC", ref_iso=ref_iso))
+                rows.append(_row(meta, metric="temp_mean",
+                                 period=mode, value=sum(temps) / len(temps),
+                                 unit="degC", ref_iso=ref_iso))
+
+            winds = samples["wind"]
+            if winds:
+                rows.append(_row(meta, metric="wind_max",
+                                 period=mode, value=max(winds),
+                                 unit="m/s", ref_iso=ref_iso))
+                rows.append(_row(meta, metric="wind_mean",
+                                 period=mode, value=sum(winds) / len(winds),
+                                 unit="m/s", ref_iso=ref_iso))
+
+            gusts = samples["gust"]
+            if gusts:
+                rows.append(_row(meta, metric="wind_gust",
+                                 period=mode, value=max(gusts),
+                                 unit="m/s", ref_iso=ref_iso))
+
+            precip = _precip_window_sum(ts, start, end, long_window=(mode == "next7d"))
+            if precip is not None:
+                exp, lo, hi = precip
+                rows.append(_row(meta, metric="precip_sum",
+                                 period=mode, value=exp,
+                                 unit="mm", ref_iso=ref_iso,
+                                 value_min=lo, value_max=hi))
         return rows
 
     rows: list[dict[str, Any]] = []
@@ -443,7 +548,7 @@ def build_payload() -> pd.DataFrame:
     stations = _stations_for_refresh()
     rows: list[dict[str, Any]] = []
     rows.extend(_temp_last_rows(stations))
-    rows.extend(_temp_forecast_rows(stations))
+    rows.extend(_yr_forecast_rows(stations))
 
     if not rows:
         raise RuntimeError("Ingen rader produsert ved bygging av station-metrics-cachen.")

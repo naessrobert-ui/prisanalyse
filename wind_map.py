@@ -19,6 +19,11 @@ from folium.plugins import HeatMap
 
 from ver_station_db import load_station_db, stations_in_bbox_swne
 
+try:
+    from scripts.station_metrics_cache import load_metric as _load_station_metric
+except ImportError:  # pragma: no cover - fallback when running as script
+    _load_station_metric = None  # type: ignore[assignment]
+
 load_dotenv(dotenv_path=Path(__file__).with_name('.env'))
 load_dotenv()
 
@@ -535,29 +540,45 @@ def build_wind_map_html(*, mode: Mode = 'observed', period: Period = 'hour', met
             merged = pd.DataFrame()
     else:
         stations = stations.head(max(1, int(forecast_limit))).copy()
-        rows: list[dict[str, Any]] = []
-        max_workers = 24
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futures = {
-                ex.submit(_forecast_station, lat=float(st['lat']), lon=float(st['lon']), forecast_hours=forecast_hours): st
-                for _, st in stations.iterrows()
-            }
-            for fut in as_completed(futures):
-                st = futures[fut]
-                try:
-                    fc = fut.result()
-                except Exception:
-                    fc = None
-                if not fc:
-                    continue
-                val = fc.get(metric)
-                if val is None:
-                    continue
-                rows.append({'baseId': st['baseId'], 'value': val, 'points': 1})
-                _LEARNED_WIND_IDS.add(st['baseId'])
-        if rows:
-            fdf = pd.DataFrame(rows)
-            merged = stations.merge(fdf, on='baseId', how='inner')
+
+        cache_mode = {24: "next24h", 48: "next48h", 168: "next7d"}.get(int(forecast_hours or 0))
+        metric_name = {"avg": "wind_mean", "gust": "wind_gust", "peak": "wind_max"}.get(metric)
+        if cache_mode and metric_name and _load_station_metric is not None:
+            try:
+                cached = _load_station_metric(metric_name, cache_mode)
+            except Exception:
+                cached = pd.DataFrame()
+            if not cached.empty:
+                cached = cached.rename(columns={"sourceId": "baseId"})
+                cached = cached[cached["baseId"].isin(stations["baseId"])].copy()
+                if not cached.empty:
+                    merged = cached
+                    _LEARNED_WIND_IDS.update(merged["baseId"].tolist())
+
+        if merged.empty:
+            rows: list[dict[str, Any]] = []
+            max_workers = 24
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futures = {
+                    ex.submit(_forecast_station, lat=float(st['lat']), lon=float(st['lon']), forecast_hours=forecast_hours): st
+                    for _, st in stations.iterrows()
+                }
+                for fut in as_completed(futures):
+                    st = futures[fut]
+                    try:
+                        fc = fut.result()
+                    except Exception:
+                        fc = None
+                    if not fc:
+                        continue
+                    val = fc.get(metric)
+                    if val is None:
+                        continue
+                    rows.append({'baseId': st['baseId'], 'value': val, 'points': 1})
+                    _LEARNED_WIND_IDS.add(st['baseId'])
+            if rows:
+                fdf = pd.DataFrame(rows)
+                merged = stations.merge(fdf, on='baseId', how='inner')
         wind_station_count_note = f'Viser {len(merged)} av {len(stations)} vindstasjoner i utsnittet.'
 
     if merged.empty:

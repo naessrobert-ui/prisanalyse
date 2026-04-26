@@ -24,6 +24,11 @@ from folium.plugins import HeatMap, MarkerCluster
 from ver_station_db import stations_in_county
 from yr_forecast import FORECAST_MODES, PRECIP_TITLES, fetch_precip_forecast
 
+try:
+    from scripts.station_metrics_cache import load_metric as _load_station_metric
+except ImportError:  # pragma: no cover - fallback when running as script
+    _load_station_metric = None  # type: ignore[assignment]
+
 # --- .env loading -------------------------------------------------------
 # Load .env next to this script, then fall back to working-directory .env
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
@@ -815,7 +820,19 @@ def build_precip_county_map_html(
         return make_empty_map_with_dropdown(**empty_kw)
 
     if mode in FORECAST_MODES:
-        merged = fetch_precip_forecast(src_meta, mode=mode, timeout=timeout)
+        merged = pd.DataFrame()
+        if _load_station_metric is not None:
+            wanted_counties = None if county_is_all else [county]
+            try:
+                cached = _load_station_metric(
+                    "precip_sum", mode, counties=wanted_counties
+                )
+            except Exception:
+                cached = pd.DataFrame()
+            if not cached.empty:
+                merged = cached
+        if merged.empty:
+            merged = fetch_precip_forecast(src_meta, mode=mode, timeout=timeout)
         if merged.empty:
             return make_empty_map_with_dropdown(**empty_kw)
         title = PRECIP_TITLES[mode]
