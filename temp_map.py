@@ -328,6 +328,72 @@ def _elements_for(temp: TempType, period: Period) -> list[str]:
 # UI helpers
 # ======================================================================
 
+# Pedagogisk fast skala: temperatur (°C) -> farge. Brukes for både markører
+# og fargestolpe-legenden, slik at samme blåfarge alltid betyr samme grad.
+_TEMP_COLOR_STOPS: list[tuple[float, tuple[int, int, int]]] = [
+    (-30.0, (30, 58, 138)),    # mørk blå
+    (-15.0, (37, 99, 235)),    # blå
+    (-5.0,  (96, 165, 250)),   # lys blå
+    (0.0,   (103, 232, 249)),  # cyan
+    (8.0,   (74, 222, 128)),   # grønn
+    (15.0,  (250, 204, 21)),   # gul
+    (22.0,  (249, 115, 22)),   # oransje
+    (30.0,  (185, 28, 28)),    # rød
+    (38.0,  (127, 29, 29)),    # mørk rød
+]
+
+
+def _rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+    return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+
+def color_for_temp(tc: float) -> str:
+    """Lineær interpolasjon i RGB mellom faste temperaturstopp."""
+    if tc <= _TEMP_COLOR_STOPS[0][0]:
+        return _rgb_to_hex(_TEMP_COLOR_STOPS[0][1])
+    if tc >= _TEMP_COLOR_STOPS[-1][0]:
+        return _rgb_to_hex(_TEMP_COLOR_STOPS[-1][1])
+    for (t1, c1), (t2, c2) in zip(_TEMP_COLOR_STOPS, _TEMP_COLOR_STOPS[1:]):
+        if t1 <= tc <= t2:
+            f = 0.0 if t2 == t1 else (tc - t1) / (t2 - t1)
+            r = int(round(c1[0] + (c2[0] - c1[0]) * f))
+            g = int(round(c1[1] + (c2[1] - c1[1]) * f))
+            b = int(round(c1[2] + (c2[2] - c1[2]) * f))
+            return _rgb_to_hex((r, g, b))
+    return _rgb_to_hex(_TEMP_COLOR_STOPS[-1][1])
+
+
+def _temp_legend_html() -> str:
+    """Horisontal fargestolpe-legende (CSS-gradient) plassert nede til høyre."""
+    stops = ", ".join(
+        f"{_rgb_to_hex(rgb)} {((t - _TEMP_COLOR_STOPS[0][0]) / (_TEMP_COLOR_STOPS[-1][0] - _TEMP_COLOR_STOPS[0][0])) * 100:.1f}%"
+        for t, rgb in _TEMP_COLOR_STOPS
+    )
+    ticks = [-30, -20, -10, 0, 10, 20, 30]
+    tick_html = "".join(
+        f'<span style="position:absolute; left:{((t - _TEMP_COLOR_STOPS[0][0]) / (_TEMP_COLOR_STOPS[-1][0] - _TEMP_COLOR_STOPS[0][0])) * 100:.1f}%; transform:translateX(-50%); top:14px; font-size:11px; color:#334155;">{t:+d}°</span>'
+        for t in ticks
+    )
+    return f"""
+    <div style="
+      position: fixed; bottom: 12px; right: 12px; z-index: 9998;
+      background: rgba(255,255,255,.97); padding: 10px 14px 22px 14px;
+      border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      width: 280px;
+    ">
+      <div style="font-size:12px; font-weight:700; color:#0f172a; margin-bottom:6px;">
+        Temperaturskala
+      </div>
+      <div style="position:relative; height:12px; border-radius:6px;
+        background: linear-gradient(to right, {stops});
+        box-shadow: inset 0 0 0 1px rgba(15,23,42,.1);">
+        {tick_html}
+      </div>
+    </div>
+    """
+
+
 def _loading_overlay_js() -> str:
     return """
 <div id="loadingOverlay" style="
@@ -384,7 +450,7 @@ def make_empty_map_with_dropdown(
 
     county_opts = "\n".join(
         [
-            f'<option value="ALL" {"selected" if selected_county == "ALL" else ""}>Hele landet (tregere)</option>',
+            f'<option value="ALL" {"selected" if selected_county == "ALL" else ""}>Hele landet</option>',
             *[
                 f'<option value="{c}" {"selected" if c == selected_county else ""}>{c}</option>'
                 for c in NORWAY_COUNTIES
@@ -465,6 +531,7 @@ def make_empty_map_with_dropdown(
         <option value="100" {"selected" if selected_top_n == 100 else ""}>100</option>
         <option value="200" {"selected" if selected_top_n == 200 else ""}>200</option>
         <option value="500" {"selected" if selected_top_n == 500 else ""}>500</option>
+        <option value="0" {"selected" if selected_top_n == 0 else ""}>Alle (kun «Hele landet»)</option>
       </select>
 
       <div id="dayBox" style="margin-top:8px; display:none;">
@@ -590,38 +657,28 @@ def make_temp_map(
         raise RuntimeError("Har data, men ingen rader med både koordinater og verdi.")
 
     vals = d["value"].astype(float)
-    q10 = float(vals.quantile(0.10))
-    q20 = float(vals.quantile(0.20))
-    q80 = float(vals.quantile(0.80))
-    q90 = float(vals.quantile(0.90))
 
     def color_for(tc: float) -> str:
-        if tc <= q10:
-            return "#1d4ed8"
-        if tc <= q20:
-            return "#2563eb"
-        if tc >= q90:
-            return "#dc2626"
-        if tc >= q80:
-            return "#ef4444"
-        return "#64748b"
+        return color_for_temp(tc)
 
     def radius_for(tc: float) -> float:
+        # Med fast fargeskala bærer fargen all info — hold radius lik for
+        # ryddig kart, men la outliere være litt større.
         med = float(vals.median())
         strength = abs(tc - med)
-        r = 4.0 + 2.5 * math.sqrt(max(strength, 0.0))
-        return float(max(4.0, min(r, 18.0)))
+        return float(max(5.0, min(5.0 + 0.4 * math.sqrt(max(strength, 0.0)), 9.0)))
 
     center_lat = float(d["lat"].mean())
     center_lon = float(d["lon"].mean())
     m = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles="OpenStreetMap")
     folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
+    folium.Element(_temp_legend_html()).add_to(m.get_root().html)
     map_var = m.get_name()
 
     # Header: fylke + temp + periode + inputs
     county_opts = "\n".join(
         [
-            f'<option value="ALL" {"selected" if selected_county == "ALL" else ""}>Hele landet (tregere)</option>',
+            f'<option value="ALL" {"selected" if selected_county == "ALL" else ""}>Hele landet</option>',
             *[
                 f'<option value="{c}" {"selected" if c == selected_county else ""}>{c}</option>'
                 for c in NORWAY_COUNTIES
@@ -698,6 +755,7 @@ def make_temp_map(
         <option value="100" {"selected" if selected_top_n == 100 else ""}>100</option>
         <option value="200" {"selected" if selected_top_n == 200 else ""}>200</option>
         <option value="500" {"selected" if selected_top_n == 500 else ""}>500</option>
+        <option value="0" {"selected" if selected_top_n == 0 else ""}>Alle (kun «Hele landet»)</option>
       </select>
 
       <div id="dayBox" style="margin-top:8px; display:none;">
@@ -822,13 +880,16 @@ def make_temp_map(
 
         html = f"{name}<br>Temperatur: <b>{tc:.1f} {unit}</b><br>Tid: {t_str}<br>Kvalitet: {qc_str}"
 
+        col = color_for(tc)
         folium.CircleMarker(
             location=[float(r["lat"]), float(r["lon"])],
             radius=radius_for(tc),
-            color=color_for(tc),
+            color="#0f172a",
+            weight=1,
             fill=True,
-            fill_color=color_for(tc),
-            fill_opacity=0.85,
+            fill_color=col,
+            fill_opacity=0.95,
+            opacity=0.6,
             tooltip=folium.Tooltip(html, sticky=True),
             popup=folium.Popup(html, max_width=360),
         ).add_to(layer_for_markers)
@@ -918,14 +979,22 @@ def make_temp_map(
 
         inView.sort((a,b) => desc ? (b.value - a.value) : (a.value - b.value));
 
-        const top = inView.slice(0, {int(top_n)});
+        const TOPN = {int(top_n)};
+        const showAll = TOPN === 0;
+        const limit = showAll ? Math.min(inView.length, 200) : TOPN;
+        const top = inView.slice(0, limit);
         const tb = document.getElementById("toplistTbody");
         const tt = document.getElementById("topTitle");
         if (!tb) return;
 
         if (tt) {{
           const prefix = desc ? "Varmest" : "Kaldest";
-          tt.textContent = prefix + " {int(top_n)} i utsnittet (" + inView.length + " stasjoner)";
+          if (showAll) {{
+            const shownTxt = inView.length > 200 ? " (viser første 200)" : "";
+            tt.textContent = prefix + " · " + inView.length + " stasjoner i utsnittet" + shownTxt;
+          }} else {{
+            tt.textContent = prefix + " " + TOPN + " i utsnittet (" + inView.length + " stasjoner)";
+          }}
         }}
 
         if (top.length === 0) {{
@@ -1005,7 +1074,8 @@ def build_min_temp_map_html(
         top_n = int(top_n)
     except Exception:
         top_n = 20
-    top_n = max(1, min(top_n, 5000))
+    # 0 = vis alle stasjoner (kun meningsfullt ved county_is_all)
+    top_n = max(0, min(top_n, 5000))
 
     now = datetime.now(timezone.utc)
 
@@ -1043,7 +1113,7 @@ def build_min_temp_map_html(
             cached = pd.DataFrame()
         if not cached.empty:
             cached = cached.dropna(subset=["lat", "lon", "value"]).copy()
-            if county_is_all:
+            if county_is_all and top_n > 0:
                 if temp == "min":
                     cached = cached.nsmallest(top_n, "value")
                 else:
@@ -1093,7 +1163,7 @@ def build_min_temp_map_html(
                 selected_top_n=top_n,
             )
 
-        if county_is_all:
+        if county_is_all and top_n > 0:
             if temp == "min":
                 merged = merged.nsmallest(top_n, "value")
             else:
@@ -1234,7 +1304,7 @@ def build_min_temp_map_html(
     merged = picked.merge(src_meta, on="baseId", how="left").drop(columns=["baseId"])
     merged = merged.dropna(subset=["lat", "lon", "value"])
 
-    if county == "ALL":
+    if county == "ALL" and top_n > 0:
         # For "Hele landet": plott kun topp N for å holde kartet raskt
         if temp == "min":
             merged = merged.nsmallest(top_n, "value")
