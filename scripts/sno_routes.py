@@ -317,11 +317,23 @@ def _refresh_status(stasjon_id: str, lat: float, lon: float):
     _REFRESHING.add(stasjon_id)
     try:
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+        # wait=False ved exit slik at en hengende Frost-tråd ikke blokkerer cachen
+        ex = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        try:
             fut_sno    = ex.submit(_hent_snovarsel, lat, lon, stasjon_id)
             fut_sno_na = ex.submit(_hent_frost_sno_na, stasjon_id)
-            sno_data = fut_sno.result(timeout=60)
-            sno_na   = fut_sno_na.result(timeout=20)
+
+            def _safe(fut, timeout, default, label):
+                try:
+                    return fut.result(timeout=timeout)
+                except Exception as exc:
+                    print(f"[sno {stasjon_id}] {label} feilet/timed out ({exc}) – fortsetter med tom default")
+                    return default
+
+            sno_data = _safe(fut_sno,    60, {}, "snovarsel")
+            sno_na   = _safe(fut_sno_na, 20, None, "frost_sno_na")
+        finally:
+            ex.shutdown(wait=False)
 
         s        = sno_data.get("sammendrag", {})
 

@@ -1784,11 +1784,25 @@ def vind_popup():
         from flask import Response as _Resp
         return _Resp(cached[1], mimetype='text/html; charset=utf-8')
     import concurrent.futures as _cf
-    with _cf.ThreadPoolExecutor(max_workers=2) as ex:
+    # wait=False ved exit slik at en hengende Frost/YR-tråd ikke blokkerer popupen
+    ex = _cf.ThreadPoolExecutor(max_workers=2)
+    try:
         fut_obs = ex.submit(_hent_frost_timesdata, station_id) if station_id else None
         fut_fc  = ex.submit(_hent_yr_timesdata, lat, lon, hours) if (lat is not None and lon is not None) else None
-        obs_rows = fut_obs.result() if fut_obs else []
-        fc_rows  = fut_fc.result()  if fut_fc  else []
+
+        def _safe(fut, timeout, label):
+            if not fut:
+                return []
+            try:
+                return fut.result(timeout=timeout)
+            except Exception as exc:
+                print(f"[vind-popup {station_id}] {label} feilet/timed out ({exc})")
+                return []
+
+        obs_rows = _safe(fut_obs, 25, "frost_obs")
+        fc_rows  = _safe(fut_fc,  25, "yr_forecast")
+    finally:
+        ex.shutdown(wait=False)
     # Filter obs to whole hours only
     obs_rows = [r for r in obs_rows if r.get('tid','').endswith(':00')]
     html = _build_popup_html(name, station_id, obs_rows, fc_rows, hours)
