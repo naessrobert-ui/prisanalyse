@@ -68,6 +68,52 @@ def _as_float(value: Any) -> Optional[float]:
         return None
 
 
+def _first_yr_block(data: dict[str, Any], *periods: str) -> dict[str, Any]:
+    """Returnerer første tilgjengelige YR-periodeblokk (next_1/6/12_hours)."""
+    for period in periods:
+        block = data.get(period)
+        if block:
+            return block
+    return {}
+
+
+def _yr_symbol_with_fallback(data: dict[str, Any]) -> str:
+    """
+    Henter værsymbol med fallback:
+    next_1_hours -> next_6_hours -> next_12_hours.
+    """
+    for period in ("next_1_hours", "next_6_hours", "next_12_hours"):
+        symbol = (((data.get(period) or {}).get("summary") or {}).get("symbol_code") or "").strip()
+        if symbol:
+            return symbol
+    return "cloudy"
+
+
+def _symbol_from_cloud_cover(cloud_pct: Optional[float], dt_utc: datetime) -> str:
+    """
+    Fallback når YR ikke sender symbol:
+      - <= 20% skyer: clear/fair
+      - >20% og <=65%: partlycloudy (lettskyet)
+      - >65%: cloudy
+    Dag/natt styres grovt av lokal klokkeslett.
+    """
+    if cloud_pct is None:
+        return "cloudy"
+
+    try:
+        hour_local = pd.Timestamp(dt_utc, tz="UTC").tz_convert(OSLO).hour
+    except Exception:
+        hour_local = dt_utc.hour
+    is_day = 6 <= int(hour_local) < 22
+
+    c = max(0.0, min(100.0, float(cloud_pct)))
+    if c <= 20.0:
+        return "fair_day" if is_day else "fair_night"
+    if c <= 65.0:
+        return "partlycloudy_day" if is_day else "partlycloudy_night"
+    return "cloudy"
+
+
 def _latlng_to_tile(lat: float, lng: float, z: int) -> Tuple[int, int]:
     n = 2 ** z
     x = int((lng + 180.0) / 360.0 * n)
@@ -2077,7 +2123,17 @@ def api_aktivt_varsel():
             continue
         data = it.get("data") or {}
         inst = (data.get("instant") or {}).get("details") or {}
-        n1 = (data.get("next_1_hours") or {}).get("details") or {}
+        precip_block = _first_yr_block(data, "next_1_hours", "next_6_hours", "next_12_hours")
+        precip_details = (precip_block.get("details") or {})
+        symbol = _yr_symbol_with_fallback(data)
+        # Dersom vi bare har default "cloudy" (manglende YR-symbol), estimer symbol fra skydekke.
+        if symbol == "cloudy":
+            has_explicit_symbol = any(
+                (((data.get(period) or {}).get("summary") or {}).get("symbol_code"))
+                for period in ("next_1_hours", "next_6_hours", "next_12_hours")
+            )
+            if not has_explicit_symbol:
+                symbol = _symbol_from_cloud_cover(inst.get("cloud_area_fraction"), t_py)
         rec = {
             "time": t_py.isoformat(),
             "is_history": t_py < now,
@@ -2086,11 +2142,11 @@ def api_aktivt_varsel():
             "gust": float(inst.get("wind_speed_of_gust")) if inst.get("wind_speed_of_gust") is not None else 0.0,
             "wind_deg": float(inst.get("wind_from_direction")) if inst.get("wind_from_direction") is not None else None,
             "cloud": float(inst.get("cloud_area_fraction")) if inst.get("cloud_area_fraction") is not None else None,
-            "rain": float(n1.get("precipitation_amount")) if n1.get("precipitation_amount") is not None else 0.0,
-            "rain_min": float(n1.get("precipitation_amount_min")) if n1.get("precipitation_amount_min") is not None else None,
-            "rain_max": float(n1.get("precipitation_amount_max")) if n1.get("precipitation_amount_max") is not None else None,
-            "rain_prob": float(n1.get("probability_of_precipitation")) if n1.get("probability_of_precipitation") is not None else None,
-            "symbol": ((data.get("next_1_hours") or {}).get("summary") or {}).get("symbol_code", "cloudy"),
+            "rain": float(precip_details.get("precipitation_amount")) if precip_details.get("precipitation_amount") is not None else 0.0,
+            "rain_min": float(precip_details.get("precipitation_amount_min")) if precip_details.get("precipitation_amount_min") is not None else None,
+            "rain_max": float(precip_details.get("precipitation_amount_max")) if precip_details.get("precipitation_amount_max") is not None else None,
+            "rain_prob": float(precip_details.get("probability_of_precipitation")) if precip_details.get("probability_of_precipitation") is not None else None,
+            "symbol": symbol,
         }
         rows_7d.append(rec)
         if day_start_utc <= t_py < day_end_utc:
