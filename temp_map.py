@@ -1198,7 +1198,7 @@ function(cluster) {
         }}
 
         tb.innerHTML = top.map((p, i) => `
-          <tr>
+          <tr class="toplist-row" style="cursor:pointer;" data-lat="${{p.lat}}" data-lon="${{p.lon}}" data-name="${{String(p.name||'').replace(/"/g,'&quot;')}}">
             <td style="padding:6px 8px; color:#64748b;">${{i+1}}</td>
             <td style="padding:6px 8px;">
               ${{p.name}}
@@ -1207,6 +1207,24 @@ function(cluster) {
             <td style="padding:6px 8px; text-align:right; font-weight:900;">${{p.value.toFixed(1)}} °C</td>
           </tr>
         `).join("");
+      }}
+
+      function ensureToplistClickHandler() {{
+        const tb = document.getElementById("toplistTbody");
+        if (!tb || tb.dataset.clickBound === "1") return;
+        tb.dataset.clickBound = "1";
+        tb.addEventListener("click", (ev) => {{
+          const row = ev.target.closest(".toplist-row");
+          if (!row) return;
+          const lat = row.dataset.lat;
+          const lon = row.dataset.lon;
+          const name = row.dataset.name || "Valgt stasjon";
+          if (!lat || !lon) return;
+          const target = "/ver/aktivt-varsel?lat=" + encodeURIComponent(lat) +
+            "&lon=" + encodeURIComponent(lon) +
+            "&sted=" + encodeURIComponent(name);
+          window.location.href = target;
+        }});
       }}
 
       (function attachToplistUpdater() {{
@@ -1224,6 +1242,7 @@ function(cluster) {
 
           map.on("moveend", () => updateToplist(map));
           map.on("zoomend", () => updateToplist(map));
+          ensureToplistClickHandler();
           updateToplist(map);
         }}
         if (document.readyState === "loading") {{
