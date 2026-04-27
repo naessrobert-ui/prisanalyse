@@ -3480,6 +3480,22 @@ function loadCachedPlace(){
   }
 }
 
+function loadPlaceFromUrl(){
+  try{
+    const u=new URL(window.location.href);
+    const latRaw=u.searchParams.get('lat');
+    const lonRaw=u.searchParams.get('lon');
+    if(latRaw==null || lonRaw==null) return null;
+    const lat=Number(latRaw);
+    const lon=Number(lonRaw);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const name=(u.searchParams.get('sted')||u.searchParams.get('name')||'Valgt sted').trim() || 'Valgt sted';
+    return {lat,lon,name};
+  }catch(_){
+    return null;
+  }
+}
+
 async function searchPlace(){
   const q=placeInput.value.trim();
   if(q.length<2){setStatus('Skriv minst 2 tegn for stedsøk.');return;}
@@ -3523,6 +3539,11 @@ document.getElementById('geoBtn').addEventListener('click',()=>{
 
 // Auto-hent posisjon ved sidelast
 window.addEventListener('load',()=>{
+  const fromUrl=loadPlaceFromUrl();
+  if(fromUrl){
+    loadForecast(fromUrl.lat,fromUrl.lon,fromUrl.name);
+    return;
+  }
   const cached=loadCachedPlace();
   if(cached){
     loadForecast(cached.lat,cached.lon,cached.name);

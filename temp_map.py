@@ -6,6 +6,7 @@ import json
 import math
 import os
 import time
+from urllib.parse import quote_plus
 from dataclasses import dataclass
 from datetime import date as _date
 from datetime import datetime, timedelta, timezone
@@ -772,7 +773,7 @@ def make_temp_map(
         # ryddig kart, men la outliere være litt større.
         med = float(vals.median())
         strength = abs(tc - med)
-        return float(max(5.0, min(5.0 + 0.4 * math.sqrt(max(strength, 0.0)), 9.0)))
+        return float(max(7.0, min(7.0 + 0.5 * math.sqrt(max(strength, 0.0)), 11.0)))
 
     center_lat = float(d["lat"].mean())
     center_lon = float(d["lon"].mean())
@@ -1050,7 +1051,22 @@ function(cluster) {
         qc = r.get("qualityCode")
         qc_str = f"{int(qc)}" if pd.notna(qc) else "ukjent"
 
-        html = f"{name}<br>Temperatur: <b>{tc:.1f} {unit}</b><br>Tid: {t_str}<br>Kvalitet: {qc_str}"
+        aktivt_url = (
+            "/ver/aktivt-varsel"
+            f"?lat={float(r['lat']):.6f}"
+            f"&lon={float(r['lon']):.6f}"
+            f"&sted={quote_plus(str(name))}"
+        )
+        html = (
+            f"{name}<br>"
+            f"Temperatur: <b>{tc:.1f} {unit}</b><br>"
+            f"Tid: {t_str}<br>"
+            f"Kvalitet: {qc_str}<br>"
+            f'<a href="{aktivt_url}" style="display:inline-block;margin-top:6px;'
+            f'padding:5px 9px;border-radius:8px;background:#0f172a;color:#fff;'
+            f'text-decoration:none;font-size:12px;font-weight:700;">'
+            f"Åpne aktivitetsvarsel</a>"
+        )
 
         col = color_for(tc)
         folium.CircleMarker(
@@ -1198,7 +1214,7 @@ function(cluster) {
         }}
 
         tb.innerHTML = top.map((p, i) => `
-          <tr>
+          <tr class="toplist-row" style="cursor:pointer;" data-lat="${{p.lat}}" data-lon="${{p.lon}}" data-name="${{String(p.name||'').replace(/"/g,'&quot;')}}">
             <td style="padding:6px 8px; color:#64748b;">${{i+1}}</td>
             <td style="padding:6px 8px;">
               ${{p.name}}
@@ -1207,6 +1223,24 @@ function(cluster) {
             <td style="padding:6px 8px; text-align:right; font-weight:900;">${{p.value.toFixed(1)}} °C</td>
           </tr>
         `).join("");
+      }}
+
+      function ensureToplistClickHandler() {{
+        const tb = document.getElementById("toplistTbody");
+        if (!tb || tb.dataset.clickBound === "1") return;
+        tb.dataset.clickBound = "1";
+        tb.addEventListener("click", (ev) => {{
+          const row = ev.target.closest(".toplist-row");
+          if (!row) return;
+          const lat = row.dataset.lat;
+          const lon = row.dataset.lon;
+          const name = row.dataset.name || "Valgt stasjon";
+          if (!lat || !lon) return;
+          const target = "/ver/aktivt-varsel?lat=" + encodeURIComponent(lat) +
+            "&lon=" + encodeURIComponent(lon) +
+            "&sted=" + encodeURIComponent(name);
+          window.location.href = target;
+        }});
       }}
 
       (function attachToplistUpdater() {{
@@ -1224,6 +1258,7 @@ function(cluster) {
 
           map.on("moveend", () => updateToplist(map));
           map.on("zoomend", () => updateToplist(map));
+          ensureToplistClickHandler();
           updateToplist(map);
         }}
         if (document.readyState === "loading") {{
