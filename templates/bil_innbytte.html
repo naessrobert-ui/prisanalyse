@@ -11,7 +11,7 @@
     h1 { margin: 0 0 8px; }
     .muted { color: #94a3b8; }
     label { display: block; margin-top: 10px; font-weight: 600; }
-    input { width: 100%; padding: 10px; margin-top: 6px; border-radius: 8px; border: 1px solid #475569; background: #0b1220; color: #e2e8f0; }
+    input, select { width: 100%; padding: 10px; margin-top: 6px; border-radius: 8px; border: 1px solid #475569; background: #0b1220; color: #e2e8f0; }
     button { margin-top: 14px; padding: 10px 14px; border: 0; border-radius: 8px; font-weight: 700; background: #2563eb; color: white; cursor: pointer; }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
     th, td { border-bottom: 1px solid #334155; padding: 8px; text-align: left; vertical-align: top; }
@@ -40,6 +40,33 @@
         <button type="submit">Beregn innbyttepris</button>
       </form>
     </div>
+
+    {% if model_selection %}
+      <div class="card">
+        <h3>Velg modell manuelt</h3>
+        <div class="muted">
+          Fant ingen treff med automatisk modellmatch for <strong>{{ model_selection.merke }}</strong>{% if model_selection.svv_modell %} / <strong>{{ model_selection.svv_modell }}</strong>{% endif %}.
+          Velg modell under for å kjøre søket på nytt.
+        </div>
+        <form method="post">
+          <input type="hidden" name="regnr" value="{{ regnr or '' }}" />
+          <input type="hidden" name="km" value="{{ km or '' }}" />
+          <label for="selected_modell">Modell ({{ model_selection.merke }})</label>
+          <select id="selected_modell" name="selected_modell" required>
+            <option value="">Velg modell…</option>
+            {% for m in model_selection.suggested_models %}
+              <option value="{{ m }}">{{ m }} (foreslått)</option>
+            {% endfor %}
+            {% for m in model_selection.all_models %}
+              {% if m not in model_selection.suggested_models %}
+                <option value="{{ m }}">{{ m }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <button type="submit">Beregn med valgt modell</button>
+        </form>
+      </div>
+    {% endif %}
 
     {% if error %}
       <div class="card error">{{ error }}</div>

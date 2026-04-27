@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import threading
+from difflib import SequenceMatcher
 from datetime import datetime, timedelta, date
 
 import boto3
@@ -1697,10 +1698,12 @@ def bil_innbytte_side():
     km_input = ""
     debug_context = {}
     svv_preview = None
+    model_selection = None
 
     if request.method == "POST":
         regnr = (request.form.get("regnr") or "").strip().upper()
         km_input = (request.form.get("km") or "").strip()
+        selected_modell = (request.form.get("selected_modell") or "").strip()
 
         if not regnr:
             error = "Du må oppgi registreringsnummer."
@@ -1760,7 +1763,7 @@ def bil_innbytte_side():
 
                     debug_context = {
                         "merke": merke or None,
-                        "modell": modell or None,
+                        "modell": selected_modell or modell or None,
                         "år": target_year,
                         "drivstoff": drivstoff_svv or None,
                         "hjuldrift": hjuldrift_filter,
@@ -1799,31 +1802,58 @@ def bil_innbytte_side():
                             finnkode_str = f"regexp_replace(cast({c_finn} as varchar), '\\\\.0$', '')"
                             finn_url_expr = f"CASE WHEN {c_finn} IS NULL THEN NULL ELSE '{FINN_BASE_URL}' || {finnkode_str} END"
 
-                            # robust modellmatch: bruk de to første ordene når tilgjengelig
-                            modell_tokens = [t for t in re.split(r"\s+", modell) if t]
-                            modell_candidates = []
-                            if modell:
-                                modell_candidates.append(str(modell))
-                            if len(modell_tokens) >= 2:
-                                modell_candidates.append(str(" ".join(modell_tokens[:2])))
-                            elif len(modell_tokens) == 1:
-                                modell_candidates.append(str(modell_tokens[0]))
+                            def _normalize_model_text(text: str) -> str:
+                                if not text:
+                                    return ""
+                                out = text.lower()
+                                out = out.replace(merke.lower(), " ")
+                                out = re.sub(r"[^a-z0-9]+", " ", out)
+                                return re.sub(r"\s+", " ", out).strip()
 
-                            # SVV gir "IONIQ5" mens Finn bruker "Ioniq 5"/"Ioniq-5".
-                            # Lag varianter med mellomrom/bindestrek på bokstav-tall-grenser
-                            # så LIKE matcher uten per-rad replace (som er tregt på stort parquet).
-                            _expanded = []
-                            for cand in modell_candidates:
-                                _expanded.append(cand)
-                                # sett inn separator mellom bokstaver og tall begge veier
-                                with_space = re.sub(r"(?i)([a-z])(\d)", r"\1 \2", cand)
-                                with_space = re.sub(r"(?i)(\d)([a-z])", r"\1 \2", with_space)
-                                with_dash = re.sub(r"(?i)([a-z])(\d)", r"\1-\2", cand)
-                                with_dash = re.sub(r"(?i)(\d)([a-z])", r"\1-\2", with_dash)
-                                _expanded.extend([with_space, with_dash])
-                            modell_candidates = _expanded
-                            # dedupliser + behold rekkefølge
-                            modell_candidates = list(dict.fromkeys([m.strip() for m in modell_candidates if str(m).strip()]))
+                            def _expand_model_candidates(base_text: str):
+                                model_text = (base_text or "").strip()
+                                model_tokens = [t for t in re.split(r"\s+", model_text) if t]
+                                candidates = []
+                                if model_text:
+                                    candidates.append(model_text)
+                                if len(model_tokens) >= 2:
+                                    candidates.append(str(" ".join(model_tokens[:2])))
+                                elif len(model_tokens) == 1:
+                                    candidates.append(str(model_tokens[0]))
+
+                                expanded = []
+                                for cand in candidates:
+                                    expanded.append(cand)
+                                    with_space = re.sub(r"(?i)([a-z])(\d)", r"\1 \2", cand)
+                                    with_space = re.sub(r"(?i)(\d)([a-z])", r"\1 \2", with_space)
+                                    with_dash = re.sub(r"(?i)([a-z])(\d)", r"\1-\2", cand)
+                                    with_dash = re.sub(r"(?i)(\d)([a-z])", r"\1-\2", with_dash)
+                                    expanded.extend([with_space, with_dash])
+
+                                return list(dict.fromkeys([m.strip() for m in expanded if str(m).strip()]))
+
+                            def _fetch_brand_models():
+                                where_parts = [f"lower(cast({c_prod} as varchar)) = ?"]
+                                params = [merke.lower()]
+                                if colmap.get("solgt"):
+                                    where_parts.append(f"({_bool_expr(c_solgt)}) = true")
+                                elif colmap.get("dato_end"):
+                                    where_parts.append(f"{dato_end_ts} IS NOT NULL")
+                                    where_parts.append(f"date({dato_end_ts}) <= current_date")
+                                where_sql = " WHERE " + " AND ".join(where_parts)
+                                models_sql = f"""
+                                  SELECT cast({c_mod} as varchar) AS modell, count(*) AS antall
+                                  FROM read_parquet('{path}')
+                                  {where_sql}
+                                  AND {c_mod} IS NOT NULL
+                                  GROUP BY 1
+                                  ORDER BY antall DESC, modell ASC
+                                  LIMIT 200
+                                """
+                                return con.execute(models_sql, params).fetchall()
+
+                            svv_model_clean = _normalize_model_text(modell)
+                            modell_candidates = _expand_model_candidates(selected_modell or modell)
 
                             # Unngå tung max()-scan på hele parquet ved hvert oppslag.
                             # Bruk solgt-flagg når det finnes, ellers krev at dato_end er satt <= i dag.
@@ -1924,12 +1954,49 @@ def bil_innbytte_side():
                                 debug_context["fallback_brukt"] = True
                             else:
                                 debug_context["fallback_brukt"] = False
+
+                            if rows.empty and not selected_modell:
+                                brand_models = _fetch_brand_models()
+                                if brand_models:
+                                    ranked = []
+                                    for model_name, count in brand_models:
+                                        candidate = (model_name or "").strip()
+                                        if not candidate:
+                                            continue
+                                        norm_cand = _normalize_model_text(candidate)
+                                        ratio = SequenceMatcher(None, svv_model_clean, norm_cand).ratio() if svv_model_clean else 0.0
+                                        contains_bonus = 0.35 if svv_model_clean and svv_model_clean in norm_cand else 0.0
+                                        token_overlap = 0.0
+                                        if svv_model_clean and norm_cand:
+                                            svv_tokens = set(svv_model_clean.split())
+                                            cand_tokens = set(norm_cand.split())
+                                            if svv_tokens and cand_tokens:
+                                                token_overlap = len(svv_tokens & cand_tokens) / len(svv_tokens)
+                                        score = ratio + contains_bonus + (token_overlap * 0.4)
+                                        ranked.append((score, int(count or 0), candidate))
+
+                                    ranked.sort(key=lambda x: (-x[0], -x[1], x[2]))
+                                    suggested = [r[2] for r in ranked[:12]]
+                                    all_models = [r[2] for r in ranked]
+                                    model_selection = {
+                                        "merke": merke,
+                                        "svv_modell": modell or None,
+                                        "suggested_models": suggested,
+                                        "all_models": all_models,
+                                    }
+                                    debug_context["modellvalg_trengs"] = True
+                                    debug_context["modeller_funnet_for_merke"] = len(all_models)
+                                    error = (
+                                        "Fant ingen treff på automatisk modellmatch. "
+                                        "Velg modell manuelt for dette merket og beregn på nytt."
+                                    )
+
                             rows = rows.where(pd.notna(rows), None)
                             records = json.loads(rows.to_json(orient='records', date_format='iso'))
 
-                            if not records:
+                            if not records and not model_selection:
                                 error = "Fant ingen gode sammenlignbare biler med dagens kriterier."
-                            else:
+                            elif not model_selection:
                                 topp = records[:10]
                                 priser = [int(r["pris"]) for r in topp if isinstance(r.get("pris"), (int, float)) and r.get("pris")]
                                 if not priser:
@@ -1967,4 +2034,5 @@ def bil_innbytte_side():
         km=km_input,
         debug_context=debug_context,
         svv_preview=svv_preview,
+        model_selection=model_selection,
     )
