@@ -1158,13 +1158,13 @@ def min_temp_index():
 @ver.get("/min-temp-kart")
 def min_temp_map():
     try:
-        top_n = int(request.args.get("top", 100))
+        top_n = int(request.args.get("top", 0))
     except (TypeError, ValueError):
-        top_n = 100
+        top_n = 0
     html = build_min_temp_map_html(
-        county=request.args.get("county") or None,
-        temp=request.args.get("temp", "min"),
-        period=request.args.get("period", "last"),
+        county=request.args.get("county") or "ALL",
+        temp=request.args.get("temp", "max"),
+        period=request.args.get("period", "next7d"),
         date_str=request.args.get("date"),
         month_str=request.args.get("month"),
         year_str=request.args.get("year"),

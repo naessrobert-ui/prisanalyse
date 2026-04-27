@@ -1082,8 +1082,21 @@ function(cluster) {
     default_sort = "warm" if selected_temp == "max" else "cold"
 
     topbox_html = f"""
-    <div style="
-      position: fixed; bottom: 12px; left: 12px; z-index: 9999;
+    <style>
+      #toplistPanel {{
+        position: fixed;
+        bottom: 12px;
+        left: 12px;
+        z-index: 9999;
+      }}
+      @media (min-width: 1024px) {{
+        #toplistPanel {{
+          left: auto;
+          right: 12px;
+        }}
+      }}
+    </style>
+    <div id="toplistPanel" style="
       background: rgba(255,255,255,.97); padding: 10px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -1233,12 +1246,12 @@ function(cluster) {
 def build_min_temp_map_html(
     *,
     county: Optional[str] = None,
-    temp: TempType = "min",
-    period: Period = "last",
+    temp: TempType = "max",
+    period: Period = "next7d",
     date_str: Optional[str] = None,   # YYYY-MM-DD for day
     month_str: Optional[str] = None,  # YYYY-MM for month
     year_str: Optional[str] = None,   # YYYY for year
-    top_n: int = 100,
+    top_n: int = 0,
     timeout: int = DEFAULT_TIMEOUT,
     batch_size: int = 80,
     limit: int = 1000,
@@ -1248,14 +1261,14 @@ def build_min_temp_map_html(
         return make_empty_map_with_dropdown(selected_temp=temp, selected_period=period, selected_top_n=top_n)
 
     if temp not in TEMP_TYPES:
-        temp = "min"
+        temp = "max"
     if period not in {"last", "day", "month", "year", "next24h", "next48h", "next7d"}:
-        period = "last"
+        period = "next7d"
 
     try:
         top_n = int(top_n)
     except Exception:
-        top_n = 100
+        top_n = 0
     # 0 = vis alle stasjoner (kun meningsfullt ved county_is_all)
     top_n = max(0, min(top_n, 5000))
 
