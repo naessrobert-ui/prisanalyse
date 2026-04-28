@@ -1461,15 +1461,16 @@ def _get_bilradar_html_template() -> str:
 
 def _lag_json_data_fra_parquet(df: pd.DataFrame) -> str:
     import json as _json
+    today = date.today()
     col_map = {
         "FinnKode": "i", "Produsent": "m", "Modell": "mo",
         "Overskrift": "nf", "årstall": "a", "kjørelengde": "k",
         "girkasse": "g", "drivstoff": "d", "hjuldrift": "hj",
-        "Karosseri": "ka", "Pris_ny": "p", "selger": "s",
-        "sted": "st", "fylke": "fy", "forhandler": "fh",
+        "Karosseri": "ka", "Pris_ny": "p", "Pris": "pf",
+        "selger": "s", "sted": "st", "fylke": "fy", "forhandler": "fh",
         "BildeURL": "im", "forventet_pris": "ep", "rabatt_pct": "r",
     }
-    int_keys = {"i", "a", "k", "p", "ep"}
+    int_keys = {"i", "a", "k", "p", "pf", "ep"}
     cars = []
     for _, row in df.iterrows():
         car = {}
@@ -1493,6 +1494,16 @@ def _lag_json_data_fra_parquet(df: pd.DataFrame) -> str:
                 sv = str(v).strip()
                 if sv and sv.lower() not in ("nan", "none", ""):
                     car[dst] = sv
+        # Dager bilen har vært til salgs (today - Dato). Beregnes ved cache-rebuild.
+        dato = row.get("Dato")
+        if pd.notna(dato):
+            try:
+                d = pd.Timestamp(dato).date()
+                dm = (today - d).days
+                if dm > 0:
+                    car["dm"] = dm
+            except Exception:
+                pass
         if "p" not in car:
             car["p"] = 0
         if "r" not in car:
