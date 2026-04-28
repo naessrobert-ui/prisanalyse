@@ -1097,22 +1097,28 @@ function(cluster) {
     points_json = json.dumps(points_js, ensure_ascii=False)
     default_sort = "warm" if selected_temp == "max" else "cold"
 
+    panel_id = f"toplistPanel_{map_var}"
+    body_id = f"toplistBody_{map_var}"
+    title_id = f"topTitle_{map_var}"
+    sort_id = f"topSortSel_{map_var}"
+    tbody_id = f"toplistTbody_{map_var}"
+
     topbox_html = f"""
     <style>
-      #toplistPanel {{
+      #{panel_id} {{
         position: fixed;
         bottom: 12px;
         left: 12px;
         z-index: 9999;
       }}
       @media (min-width: 1024px) {{
-        #toplistPanel {{
+        #{panel_id} {{
           left: auto;
           right: 12px;
         }}
       }}
     </style>
-    <div id="toplistPanel" style="
+    <div id="{panel_id}" style="
       background: rgba(255,255,255,.97); padding: 10px 12px;
       border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18);
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -1120,11 +1126,11 @@ function(cluster) {
     ">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
         <div style="font-weight:900;">
-          <span id="topTitle">Oppdaterer…</span>
+          <span id="{title_id}">Oppdaterer…</span>
         </div>
 
         <div style="display:flex; gap:8px; align-items:center;">
-          <select id="topSortSel" style="
+          <select id="{sort_id}" style="
             padding:6px 10px; border-radius:999px; border:1px solid #e2e8f0;
             background:white; font-weight:700; font-size:13px; color:#0f172a;
           ">
@@ -1132,13 +1138,13 @@ function(cluster) {
             <option value="warm" {"selected" if default_sort=="warm" else ""}>Varmest først</option>
           </select>
 
-          <button onclick="toggleToplist()" style="border:none;background:#e2e8f0;border-radius:999px;padding:6px 10px;cursor:pointer;">
+          <button onclick="toggleToplist_{map_var}()" style="border:none;background:#e2e8f0;border-radius:999px;padding:6px 10px;cursor:pointer;">
             Vis/skjul
           </button>
         </div>
       </div>
 
-      <div id="toplistBody" style="margin-top:8px; max-height: 240px; overflow:auto;">
+      <div id="{body_id}" style="margin-top:8px; max-height: 240px; overflow:auto;">
         <table style="border-collapse:collapse; width:100%;">
           <thead>
             <tr>
@@ -1147,7 +1153,7 @@ function(cluster) {
               <th style="text-align:right; padding:6px 8px; color:#64748b; font-size:12px;">°C</th>
             </tr>
           </thead>
-          <tbody id="toplistTbody">
+          <tbody id="{tbody_id}">
             <tr><td colspan="3" style="padding:8px; color:#64748b;">Oppdaterer…</td></tr>
           </tbody>
         </table>
@@ -1155,8 +1161,8 @@ function(cluster) {
     </div>
 
     <script>
-      function toggleToplist() {{
-        const el = document.getElementById("toplistBody");
+      function toggleToplist_{map_var}() {{
+        const el = document.getElementById("{body_id}");
         if (!el) return;
         el.style.display = (el.style.display === "none") ? "block" : "none";
       }}
@@ -1184,7 +1190,7 @@ function(cluster) {
         const b = map.getBounds();
         const inView = window._tempPoints.filter(p => b.contains([p.lat, p.lon]));
 
-        const sel = document.getElementById("topSortSel");
+        const sel = document.getElementById("{sort_id}");
         const mode = sel ? (sel.value || "cold") : "cold";
         const desc = (mode === "warm");  // warm => høyeste først
 
@@ -1194,8 +1200,8 @@ function(cluster) {
         const showAll = TOPN === 0;
         const limit = showAll ? Math.min(inView.length, 200) : TOPN;
         const top = inView.slice(0, limit);
-        const tb = document.getElementById("toplistTbody");
-        const tt = document.getElementById("topTitle");
+        const tb = document.getElementById("{tbody_id}");
+        const tt = document.getElementById("{title_id}");
         if (!tb) return;
 
         if (tt) {{
@@ -1226,7 +1232,7 @@ function(cluster) {
       }}
 
       function ensureToplistClickHandler() {{
-        const tb = document.getElementById("toplistTbody");
+        const tb = document.getElementById("{tbody_id}");
         if (!tb || tb.dataset.clickBound === "1") return;
         tb.dataset.clickBound = "1";
         tb.addEventListener("click", (ev) => {{
@@ -1253,7 +1259,7 @@ function(cluster) {
             return;
           }}
 
-          const sel = document.getElementById("topSortSel");
+          const sel = document.getElementById("{sort_id}");
           if (sel) sel.addEventListener("change", () => updateToplist(map));
 
           map.on("moveend", () => updateToplist(map));
