@@ -49,9 +49,11 @@
     .card-specs span { white-space:nowrap; }
     .card-price-row { display:flex; justify-content:space-between; align-items:baseline; margin-top:auto; padding-top:0.4rem; border-top:1px solid var(--border); }
     .card-price { font-size:1.15rem; font-weight:700; color:#fff; }
+    .card-price-orig { font-size:0.75rem; color:var(--text-muted); text-decoration:line-through; margin-left:0.4rem; font-weight:400; }
     .card-expected { font-size:0.78rem; color:var(--text-muted); }
     .card-expected .val { color:var(--green); font-weight:600; }
     .card-location { font-size:0.72rem; color:var(--text-muted); margin-top:0.15rem; }
+    .card-days { color:var(--accent); }
     .results-info { max-width:1400px; margin:0 auto; padding:0 1rem; font-size:0.8rem; color:var(--text-muted); }
     @media(max-width:640px){ .grid{grid-template-columns:1fr} .header h1{font-size:1.25rem} }
     .loading-msg { text-align:center; padding:3rem; color:var(--text-muted); }
@@ -69,6 +71,8 @@
     <input type="text" class="search-input" id="searchInput" placeholder="Sok merke, modell, info...">
     <span class="filter-label">Drivstoff:</span>
     <select id="fuelFilter"><option value="">Alle</option></select>
+    <span class="filter-label">Fylke:</span>
+    <select id="fylkeFilter"><option value="">Alle</option></select>
     <span class="filter-label">Min rabatt:</span>
     <select id="discountFilter">
       <option value="0">Alle</option>
@@ -107,12 +111,14 @@
   function dr(c){return c.d||""}
   function hj(c){return c.hj||""}
   function pr(c){return c.p||0}
+  function pf(c){return c.pf||0}
   function se(c){return c.s||""}
   function st(c){return c.st||""}
   function fy(c){return c.fy||""}
   function im(c){return c.im||""}
   function ep(c){return c.ep||0}
   function rb(c){return c.r||0}
+  function dm(c){return c.dm||0}
   function finnUrl(c){var id=fk(c);return id?"https://www.finn.no/mobility/item/"+id:"#"}
   function fmtKr(n){if(!n)return"–";return n.toLocaleString("nb-NO")+" kr"}
   function fmtKm(n){if(!n)return"–";return n.toLocaleString("nb-NO")+" km"}
@@ -121,6 +127,10 @@
   ALL_CARS.forEach(function(c){var f=dr(c);if(f)fuels[f]=(fuels[f]||0)+1});
   var fuelSel=document.getElementById("fuelFilter");
   Object.keys(fuels).sort().forEach(function(f){var o=document.createElement("option");o.value=f;o.textContent=f+" ("+fuels[f]+")";fuelSel.appendChild(o)});
+  var fylker={};
+  ALL_CARS.forEach(function(c){var f=fy(c);if(f)fylker[f]=(fylker[f]||0)+1});
+  var fylkeSel=document.getElementById("fylkeFilter");
+  Object.keys(fylker).sort().forEach(function(f){var o=document.createElement("option");o.value=f;o.textContent=f+" ("+fylker[f]+")";fylkeSel.appendChild(o)});
   function updateStats(cars){
     var bar=document.getElementById("statsBar");
     var good=cars.filter(function(c){return rb(c)>=THRESHOLD}).length;
@@ -143,12 +153,14 @@
   function getFiltered(){
     var q=(document.getElementById("searchInput").value||"").toLowerCase();
     var fuel=document.getElementById("fuelFilter").value;
+    var fylke=document.getElementById("fylkeFilter").value;
     var minDisc=parseFloat(document.getElementById("discountFilter").value)||0;
     var maxPrice=parseInt(document.getElementById("maxPriceInput").value)||0;
     var minYear=parseInt(document.getElementById("minYearInput").value)||0;
     return ALL_CARS.filter(function(c){
       if(minDisc>0&&rb(c)<minDisc)return false;
       if(fuel&&dr(c)!==fuel)return false;
+      if(fylke&&fy(c)!==fylke)return false;
       if(maxPrice>0&&pr(c)>maxPrice)return false;
       if(minYear>0&&yr(c)<minYear)return false;
       if(q){var h=(mk(c)+" "+mo(c)+" "+nf(c)+" "+se(c)+" "+st(c)+" "+fy(c)).toLowerCase();if(h.indexOf(q)===-1)return false}
@@ -172,8 +184,14 @@
       var sub=esc(nf(c));
       var specs=[];
       if(yr(c))specs.push(yr(c));if(km(c))specs.push(fmtKm(km(c)));if(dr(c))specs.push(esc(dr(c)));if(hj(c))specs.push(esc(hj(c)));if(gi(c))specs.push(esc(gi(c)));
-      var loc=[st(c),fy(c)].filter(Boolean).join(", ");
-      html+='<a class="car-card'+(isGood?' good-deal':'')+'" href="'+finnUrl(c)+'" target="_blank" rel="noopener"><div class="card-img-wrap">'+imgH+'<div class="badge-discount'+bc+'">'+bt+'</div></div><div class="card-body"><div class="card-title">'+title+'</div>'+(sub?'<div class="card-subtitle">'+sub+'</div>':'')+'<div class="card-specs">'+specs.map(function(s){return'<span>'+s+'</span>'}).join("")+'</div><div class="card-price-row"><div class="card-price">'+fmtKr(pr(c))+'</div>'+(ep(c)?'<div class="card-expected">Forventet: <span class="val">'+fmtKr(ep(c))+'</span></div>':'')+'</div>'+(loc?'<div class="card-location">'+esc(loc)+'</div>':'')+'</div></a>';
+      var locParts=[st(c),fy(c)].filter(Boolean);
+      var loc=locParts.join(", ");
+      var days=dm(c);
+      var locHtml=loc?esc(loc):"";
+      if(days>0){locHtml+=(locHtml?' &middot; ':'')+'<span class="card-days">'+days+' dager til salgs</span>'}
+      var origP=pf(c);var curP=pr(c);
+      var priceHtml='<div class="card-price">'+fmtKr(curP)+(origP&&origP>curP?'<span class="card-price-orig">'+fmtKr(origP)+'</span>':'')+'</div>';
+      html+='<a class="car-card'+(isGood?' good-deal':'')+'" href="'+finnUrl(c)+'" target="_blank" rel="noopener"><div class="card-img-wrap">'+imgH+'<div class="badge-discount'+bc+'">'+bt+'</div></div><div class="card-body"><div class="card-title">'+title+'</div>'+(sub?'<div class="card-subtitle">'+sub+'</div>':'')+'<div class="card-specs">'+specs.map(function(s){return'<span>'+s+'</span>'}).join("")+'</div><div class="card-price-row">'+priceHtml+(ep(c)?'<div class="card-expected">Forventet: <span class="val">'+fmtKr(ep(c))+'</span></div>':'')+'</div>'+(locHtml?'<div class="card-location">'+locHtml+'</div>':'')+'</div></a>';
     }
     grid.innerHTML=html;
   }
@@ -181,6 +199,7 @@
   function debounce(fn,ms){var t;return function(){clearTimeout(t);t=setTimeout(fn,ms)}}
   document.getElementById("searchInput").addEventListener("input",debounce(refresh,250));
   document.getElementById("fuelFilter").addEventListener("change",refresh);
+  document.getElementById("fylkeFilter").addEventListener("change",refresh);
   document.getElementById("discountFilter").addEventListener("change",refresh);
   document.getElementById("maxPriceInput").addEventListener("input",debounce(refresh,400));
   document.getElementById("minYearInput").addEventListener("input",debounce(refresh,400));
