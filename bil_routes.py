@@ -15,6 +15,8 @@ import duckdb
 from flask import Blueprint, render_template, jsonify, request
 import traceback
 
+from bilradar_scorer import last_modell_lokal_eller_s3, scorer_biler
+
 from config import (
     AWS_KEY,
     AWS_SECRET,
@@ -1451,6 +1453,10 @@ _BILRADAR_PARQUET_LOCK = threading.Lock()
 BILRADAR_HTML_CACHE = {"alle": {"html": None, "etag": None},
                        "siste": {"html": None, "csv_key": None}}
 BILRADAR_HTML_LOCK = threading.Lock()
+_BILRADAR_MODEL_LOCK = threading.Lock()
+_BILRADAR_MODEL_CACHE = {"modeller": None}
+_BILRADAR_MODEL_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "bil_prismodell_v2.joblib")
+_BILRADAR_MODEL_S3_KEY = "calc/bil/bil_prismodell_v2.joblib"
 
 def _get_bilradar_html_template() -> str:
     """Leser BilRadar HTML-template fra disk."""
@@ -1510,6 +1516,57 @@ def _lag_json_data_fra_parquet(df: pd.DataFrame) -> str:
             car["r"] = 0
         cars.append(car)
     return _json.dumps(cars, ensure_ascii=False, separators=(",", ":"))
+
+
+def _hent_bilradar_modell(s3):
+    with _BILRADAR_MODEL_LOCK:
+        if _BILRADAR_MODEL_CACHE["modeller"] is not None:
+            return _BILRADAR_MODEL_CACHE["modeller"]
+        modeller = last_modell_lokal_eller_s3(
+            local_path=_BILRADAR_MODEL_LOCAL_PATH,
+            s3_client=s3,
+            bucket=S3_BUCKET_NAME,
+            key=_BILRADAR_MODEL_S3_KEY,
+        )
+        _BILRADAR_MODEL_CACHE["modeller"] = modeller
+        return modeller
+
+
+def _normaliser_df_for_scoring(df: pd.DataFrame) -> pd.DataFrame:
+    """Normaliser kolonner slik at scorer_biler kan brukes på både CSV- og parquet-data."""
+    out = df.copy()
+    rename_map = {
+        "fylke": "Fylke",
+        "sted": "Sted",
+        "selger": "Selger",
+        "forhandler": "Forhandler",
+        "girkasse": "Girkasse",
+        "drivstoff": "Drivstoff",
+        "hjuldrift": "Hjuldrift",
+        "årstall": "Årstall",
+        "kjørelengde": "Kjørelengde",
+        "Pris_ny": "Pris",
+    }
+    for src, dst in rename_map.items():
+        if src in out.columns and dst not in out.columns:
+            out = out.rename(columns={src: dst})
+    if "Pris" in out.columns:
+        out["Pris"] = (
+            out["Pris"]
+            .astype(str)
+            .str.replace(r"[^\d]", "", regex=True)
+            .replace("", np.nan)
+        )
+    return out
+
+
+def _score_manglende_biler(df: pd.DataFrame, s3) -> pd.DataFrame:
+    """Kjør live-scoring for biler som mangler forventet_pris/rabatt_pct."""
+    if df.empty:
+        return df
+    modeller = _hent_bilradar_modell(s3)
+    df_norm = _normaliser_df_for_scoring(df)
+    return scorer_biler(df_norm, modeller, threshold=GOOD_DEAL_THRESHOLD)
 
 
 def _les_parquet_aktive(s3) -> tuple:
@@ -1628,6 +1685,19 @@ def bil_radar_siste():
             df_ekstra = df_csv[df_csv["FinnKode"].isin(mangler)].copy()
             df_siste = pd.concat([df_siste, df_ekstra], ignore_index=True)
             print(f"[BilRadar/siste] +{len(mangler)} nye ikke scoret ennå")
+
+        mangler_scoring_mask = df_siste["forventet_pris"].isna() | (pd.to_numeric(df_siste["forventet_pris"], errors="coerce") <= 0)
+        antall_mangler_scoring = int(mangler_scoring_mask.sum())
+        if antall_mangler_scoring > 0:
+            print(f"[BilRadar/siste] Live-scoring av {antall_mangler_scoring} biler uten forventet pris")
+            df_live = _score_manglende_biler(df_siste[mangler_scoring_mask].copy(), s3)
+            oppdatert = df_live.set_index("FinnKode")[["forventet_pris", "rabatt_pct", "modell_nivaa"]]
+            df_siste = df_siste.set_index("FinnKode")
+            for col in ["forventet_pris", "rabatt_pct", "modell_nivaa"]:
+                if col not in df_siste.columns:
+                    df_siste[col] = np.nan
+                df_siste.loc[oppdatert.index, col] = oppdatert[col]
+            df_siste = df_siste.reset_index()
 
         df_scoret = df_siste[df_siste["forventet_pris"].notna() & (df_siste["forventet_pris"] > 0)].copy()
         print(f"[BilRadar/siste] {len(df_scoret)}/{len(df_siste)} biler med scoring")
