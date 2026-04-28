@@ -1438,10 +1438,10 @@ def bil_rekordrask_data():
 
 # ==========================================================
 # BILRADAR  –  leser forventet_pris/rabatt_pct fra parquet
-#              (scoring skjer i konsolider_data.py på Pi)
+#              (scoring skjer i bil_kupp_analyse.py — peer-gruppe-basert)
 # ==========================================================
 
-BILRADAR_PARQUET_KEY = "calc/bil/database_biler.parquet"
+BILRADAR_PARQUET_KEY = "calc/bil/bilradar_aktive.parquet"
 BILRADAR_SISTE_PREFIX = "raw/bil-time/"
 GOOD_DEAL_THRESHOLD = 10  # % rabatt for å regnes som godt kjøp
 
