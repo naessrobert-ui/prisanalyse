@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+  <meta charset="UTF-8" />
+  <title>FINN-søk med BilRadar – prisanalyse.no</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      padding: 24px 16px 40px;
+      color: #f9fafb;
+      background:
+        linear-gradient(rgba(0,0,0,0.78), rgba(0,0,0,0.88)),
+        url('{{ url_for("static", filename="background.jpg") }}') no-repeat center center fixed;
+      background-size: cover;
+    }
+    .shell { width: min(1280px, 100%); margin: 0 auto; }
+    h1 { font-size: 32px; margin-bottom: 4px; font-weight: 800; }
+    h1 .accent { color: #60a5fa; }
+    .sub { opacity: .85; margin-bottom: 18px; }
+
+    .card {
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(10,16,26,0.72);
+      box-shadow: 0 14px 36px rgba(0,0,0,0.45);
+      padding: 18px;
+      backdrop-filter: blur(8px);
+      margin-bottom: 18px;
+    }
+
+    .tabs { display:flex; gap:8px; margin-bottom: 12px; }
+    .tab {
+      padding: 8px 14px; border-radius: 999px; cursor:pointer;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.04); color:#e5e7eb; font-weight:700;
+      font-size: 13px;
+    }
+    .tab.active { background: #2563eb; border-color: #2563eb; color: white; }
+
+    form { display:flex; flex-direction: column; gap: 12px; }
+    .row { display:grid; gap:10px; grid-template-columns: repeat(4, minmax(0,1fr)); }
+    @media (max-width: 880px) { .row { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+
+    label { display:flex; flex-direction: column; gap: 4px; font-size: 12px; opacity: .85; }
+    input, select {
+      background: rgba(0,0,0,0.4); color: #f9fafb;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px; padding: 8px 10px;
+      font: inherit;
+    }
+    .url-box { width: 100%; }
+    .actions { display:flex; gap: 10px; align-items:center; flex-wrap:wrap; }
+    button {
+      background: #2563eb; color: white; border: 0; padding: 10px 18px;
+      border-radius: 999px; font-weight: 700; cursor: pointer; font-size: 14px;
+    }
+    button:hover { background: #1d4ed8; }
+    .reset-btn {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16);
+      color: #e5e7eb; padding: 8px 14px; border-radius: 999px;
+      text-decoration: none; font-weight: 600; font-size: 13px;
+    }
+    .meta { font-size: 12px; opacity: .8; }
+
+    table { width:100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px 10px; text-align:left; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
+    td a { color: #93c5fd; text-decoration: none; }
+    td a:hover { text-decoration: underline; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .badge {
+      display: inline-block; font-size: 10px; padding: 2px 8px;
+      border-radius: 999px; letter-spacing: .04em; text-transform: uppercase;
+    }
+    .badge-import { background: #1e3a8a; color: #dbeafe; }
+    .badge-ny     { background: #4d3a17; color: #fde68a; }
+    .deal-good { color: #34d399; font-weight: 700; }
+    .deal-mid  { color: #d1d5db; }
+    .deal-bad  { color: #f87171; font-weight: 700; }
+    .price-down { color: #34d399; }
+    .price-up   { color: #f87171; }
+    .alert { padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; }
+    .alert-info  { background: rgba(37,99,235,0.18); border: 1px solid rgba(37,99,235,0.4); }
+    .alert-error { background: rgba(220,38,38,0.18); border: 1px solid rgba(220,38,38,0.4); }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <h1><span class="accent">FINN</span>-søk med BilRadar</h1>
+  <div class="sub">Live-søk på FINN, beriket med dager til salgs, førstpris, importstatus og BilRadar-score.</div>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab" id="tab-builder" onclick="visMode('builder')">Bygg søk</div>
+      <div class="tab" id="tab-paste"   onclick="visMode('paste')">Lim inn FINN-URL</div>
+    </div>
+
+    <form method="get" action="/bil/finn-sok">
+      <!-- Mode A: builder -->
+      <div id="mode-builder">
+        <div class="row">
+          <label>Merke / fritekst
+            <input type="text" name="merke" placeholder="BMW X5"
+                   value="{{ form.get('merke','') }}">
+          </label>
+          <label>Drivstoff
+            <select name="drivstoff">
+              <option value="">– alle –</option>
+              {% for d in ['Bensin','Diesel','Elektrisitet','Hybrid','Gass'] %}
+              <option value="{{ d }}" {% if form.get('drivstoff')==d %}selected{% endif %}>{{ d }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Pris min
+            <input type="number" name="pris_min" min="0" step="10000"
+                   value="{{ form.get('pris_min','') }}">
+          </label>
+          <label>Pris maks
+            <input type="number" name="pris_max" min="0" step="10000"
+                   value="{{ form.get('pris_max','') }}">
+          </label>
+          <label>Km min
+            <input type="number" name="km_min" min="0" step="1000"
+                   value="{{ form.get('km_min','') }}">
+          </label>
+          <label>Km maks
+            <input type="number" name="km_max" min="0" step="1000"
+                   value="{{ form.get('km_max','') }}">
+          </label>
+          <label>År fra
+            <input type="number" name="ar_min" min="1990" max="2099"
+                   value="{{ form.get('ar_min','') }}">
+          </label>
+          <label>År til
+            <input type="number" name="ar_max" min="1990" max="2099"
+                   value="{{ form.get('ar_max','') }}">
+          </label>
+          <label style="grid-column: span 4;">Ekstra fritekst (legges til q=)
+            <input type="text" name="q_extra" placeholder="xDrive40e"
+                   value="{{ form.get('q_extra','') }}">
+          </label>
+        </div>
+      </div>
+
+      <!-- Mode B: paste -->
+      <div id="mode-paste" style="display:none;">
+        <label>Lim inn ferdig FINN-URL
+          <input class="url-box" type="text" name="finn_url"
+                 placeholder="https://www.finn.no/mobility/search/car?make=…"
+                 value="{{ form.get('finn_url','') }}">
+        </label>
+        <div class="meta">Tips: bygg ditt søk på finn.no, kopier URL-en, lim inn her.</div>
+      </div>
+
+      <div class="actions">
+        <button type="submit">Søk</button>
+        <a class="reset-btn" href="/bil/finn-sok">Nullstill</a>
+        {% if finn_url %}
+          <span class="meta">FINN-URL i bruk:
+            <a style="color:#93c5fd" href="{{ finn_url }}" target="_blank" rel="noopener">åpne på FINN ↗</a>
+          </span>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+  {% if melding %}
+    <div class="alert alert-info">{{ melding }}</div>
+  {% endif %}
+
+  {% if treff is not none %}
+  <div class="card">
+    <div class="meta" style="margin-bottom:10px;">
+      Viser {{ treff|length }} treff fra FINN (én side, opptil 50). Cache 60s.
+    </div>
+
+    {% if treff|length == 0 %}
+      <div class="meta">Ingen biler å vise.</div>
+    {% else %}
+    <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>FinnKode</th>
+          <th>Bil</th>
+          <th class="num">År</th>
+          <th class="num">Km</th>
+          <th>Drivstoff</th>
+          <th class="num">Pris</th>
+          <th class="num">Førstpris</th>
+          <th class="num">Δ pris</th>
+          <th class="num">Dager</th>
+          <th>Import</th>
+          <th class="num">Forventet</th>
+          <th class="num">BilRadar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in treff %}
+          {% set delta = (t.forstpris - t.pris) if (t.pris and t.forstpris) else None %}
+          {% set delta_pct = (delta * 100.0 / t.forstpris) if (delta and t.forstpris) else None %}
+          {% set deal = t.rabatt_pct %}
+        <tr>
+          <td>
+            <a href="{{ t.url }}" target="_blank" rel="noopener">{{ t.finnkode }}</a>
+            {% if not t.i_db %}<br><span class="badge badge-ny">Ny</span>{% endif %}
+          </td>
+          <td>
+            {% if t.merke or t.modell %}
+              {{ t.merke or '' }} {{ t.modell or '' }}
+            {% else %}
+              <span class="meta">– (ikke i DB ennå)</span>
+            {% endif %}
+          </td>
+          <td class="num">{{ t.aar or '' }}</td>
+          <td class="num">{% if t.km is not none %}{{ '{:,}'.format(t.km).replace(',', ' ') }}{% endif %}</td>
+          <td>{{ t.drivstoff or '' }}</td>
+          <td class="num">{% if t.pris %}{{ '{:,}'.format(t.pris).replace(',', ' ') }} kr{% endif %}</td>
+          <td class="num">{% if t.forstpris %}{{ '{:,}'.format(t.forstpris).replace(',', ' ') }} kr{% endif %}</td>
+          <td class="num">
+            {% if delta_pct is not none %}
+              {% if delta > 0 %}
+                <span class="price-down">−{{ '{:.1f}'.format(delta_pct) }}%</span>
+              {% elif delta < 0 %}
+                <span class="price-up">+{{ '{:.1f}'.format(-delta_pct) }}%</span>
+              {% else %}
+                0%
+              {% endif %}
+            {% endif %}
+          </td>
+          <td class="num">{{ t.dager_for_salg }}</td>
+          <td>
+            {% if t.bruktimport %}
+              <span class="badge badge-import">{{ t.importland or 'Import' }}</span>
+            {% endif %}
+          </td>
+          <td class="num">
+            {% if t.forventet_pris %}{{ '{:,}'.format(t.forventet_pris).replace(',', ' ') }} kr{% endif %}
+          </td>
+          <td class="num">
+            {% if deal is not none %}
+              {% if deal >= 5 %}
+                <span class="deal-good">{{ '{:.1f}'.format(deal) }}% billig</span>
+              {% elif deal <= -5 %}
+                <span class="deal-bad">{{ '{:.1f}'.format(-deal) }}% dyr</span>
+              {% else %}
+                <span class="deal-mid">{{ '{:.1f}'.format(deal) }}%</span>
+              {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  function visMode(name) {
+    const builder = document.getElementById('mode-builder');
+    const paste   = document.getElementById('mode-paste');
+    const tb = document.getElementById('tab-builder');
+    const tp = document.getElementById('tab-paste');
+    if (name === 'paste') {
+      builder.style.display = 'none';
+      paste.style.display   = 'block';
+      tb.classList.remove('active'); tp.classList.add('active');
+    } else {
+      builder.style.display = 'block';
+      paste.style.display   = 'none';
+      tb.classList.add('active'); tp.classList.remove('active');
+    }
+  }
+  // Velg fane basert på initialt innhold
+  (function () {
+    const hasUrl = {{ 'true' if form.get('finn_url') else 'false' }};
+    visMode(hasUrl ? 'paste' : 'builder');
+  })();
+</script>
+</body>
+</html>
