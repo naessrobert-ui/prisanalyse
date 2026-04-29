@@ -1656,6 +1656,9 @@ def bil_radar_siste():
         df_siste = pd.read_parquet(io.BytesIO(resp["Body"].read()))
         if "Solgt" in df_siste.columns:
             df_siste = df_siste[df_siste["Solgt"] == "NEI"].copy()
+        for col in ["forventet_pris", "rabatt_pct", "modell_nivaa"]:
+            if col not in df_siste.columns:
+                df_siste[col] = np.nan
         print(f"[BilRadar/siste] {len(df_siste)} biler i database_biler_siste")
 
         mangler_scoring_mask = df_siste["forventet_pris"].isna() | (pd.to_numeric(df_siste["forventet_pris"], errors="coerce") <= 0)
