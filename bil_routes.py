@@ -1,5 +1,6 @@
 # bil_routes.py (DuckDB + Parquet fra S3 via lokal /tmp-cache, per-file cache)
 import json
+import io
 import os
 import re
 import tempfile
@@ -1635,56 +1636,40 @@ def bil_radar_alle():
 
 @bil_bp.route('/radar/siste')
 def bil_radar_siste():
-    import io as _io
     import time as _time
     from flask import Response
     t0 = _time.perf_counter()
     try:
         s3 = _get_s3_client()
-
-        paginator = s3.get_paginator("list_objects_v2")
-        csv_files = []
-        for page in paginator.paginate(Bucket=S3_BUCKET_NAME, Prefix=BILRADAR_SISTE_PREFIX):
-            for obj in page.get("Contents", []):
-                key = obj["Key"]
-                if key.endswith(".csv") and obj.get("Size", 0) > 0:
-                    csv_files.append((obj["LastModified"], key))
-
-        if not csv_files:
-            from flask import abort
-            abort(404, description="Ingen biler_siste filer funnet i S3.")
-
-        csv_files.sort(reverse=True)
-        latest_key = csv_files[0][1]
+        latest_key = PARQUET_KEY_REKORDRASK
+        head = s3.head_object(Bucket=S3_BUCKET_NAME, Key=latest_key)
+        latest_etag = (head.get("ETag") or "").strip('"')
 
         with BILRADAR_HTML_LOCK:
             cached = BILRADAR_HTML_CACHE["siste"].copy()
-        if cached["html"] and cached["csv_key"] == latest_key:
+        if cached["html"] and cached["csv_key"] == latest_etag:
             print("[BilRadar/siste] Cache – serverer direkte")
             return Response(cached["html"], mimetype='text/html')
 
         print(f"[BilRadar/siste] Leser {latest_key}")
         resp = s3.get_object(Bucket=S3_BUCKET_NAME, Key=latest_key)
-        content = resp["Body"].read().decode("utf-16")
-        df_csv = pd.read_csv(_io.StringIO(content), sep=";", dtype=str)
-
-        df_csv["FinnKode"] = pd.to_numeric(
-            df_csv["FinnKode"].astype(str).str.replace(r"\D", "", regex=True),
-            errors="coerce"
-        )
-        df_csv = df_csv[df_csv["FinnKode"].notna()].copy()
-        df_csv["FinnKode"] = df_csv["FinnKode"].astype("int64")
-        siste_koder = set(df_csv["FinnKode"])
-        print(f"[BilRadar/siste] {len(siste_koder)} biler i CSV")
-
-        df_parquet, _ = _les_parquet_aktive(s3)
-        df_siste = df_parquet[df_parquet["FinnKode"].isin(siste_koder)].copy()
-
-        mangler = siste_koder - set(df_siste["FinnKode"])
-        if mangler:
-            df_ekstra = df_csv[df_csv["FinnKode"].isin(mangler)].copy()
-            df_siste = pd.concat([df_siste, df_ekstra], ignore_index=True)
-            print(f"[BilRadar/siste] +{len(mangler)} nye ikke scoret ennå")
+        df_siste = pd.read_parquet(io.BytesIO(resp["Body"].read()))
+        if "Solgt" in df_siste.columns:
+            solgt_norm = (
+                df_siste["Solgt"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+            )
+            aktiv_mask = solgt_norm.isin(["NEI", "FALSE", "0", "NAN", "NONE", ""])
+            if aktiv_mask.any():
+                df_siste = df_siste[aktiv_mask].copy()
+            else:
+                print("[BilRadar/siste] Ingen kjente 'ikke-solgt'-verdier i Solgt-kolonnen, hopper over Solgt-filter")
+        for col in ["forventet_pris", "rabatt_pct", "modell_nivaa"]:
+            if col not in df_siste.columns:
+                df_siste[col] = np.nan
+        print(f"[BilRadar/siste] {len(df_siste)} biler i database_biler_siste")
 
         mangler_scoring_mask = df_siste["forventet_pris"].isna() | (pd.to_numeric(df_siste["forventet_pris"], errors="coerce") <= 0)
         antall_mangler_scoring = int(mangler_scoring_mask.sum())
@@ -1700,6 +1685,16 @@ def bil_radar_siste():
             df_siste = df_siste.reset_index()
 
         df_scoret = df_siste[df_siste["forventet_pris"].notna() & (df_siste["forventet_pris"] > 0)].copy()
+        if df_scoret.empty and "FinnKode" in df_siste.columns:
+            print("[BilRadar/siste] 0 scorede biler i database_biler_siste, forsøker å hente scoring fra bilradar_aktive.parquet")
+            df_aktive, _ = _les_parquet_aktive(s3)
+            if "FinnKode" in df_aktive.columns:
+                koder = set(pd.to_numeric(df_siste["FinnKode"], errors="coerce").dropna().astype("int64"))
+                df_scoret = df_aktive[
+                    df_aktive["FinnKode"].isin(koder)
+                    & df_aktive["forventet_pris"].notna()
+                    & (df_aktive["forventet_pris"] > 0)
+                ].copy()
         print(f"[BilRadar/siste] {len(df_scoret)}/{len(df_siste)} biler med scoring")
 
         data_json = _lag_json_data_fra_parquet(df_scoret)
@@ -1719,7 +1714,7 @@ def bil_radar_siste():
 
         with BILRADAR_HTML_LOCK:
             BILRADAR_HTML_CACHE["siste"]["html"] = html
-            BILRADAR_HTML_CACHE["siste"]["csv_key"] = latest_key
+            BILRADAR_HTML_CACHE["siste"]["csv_key"] = latest_etag
 
         print(f"[BilRadar/siste] Ferdig: {len(df_scoret)} biler p\u00e5 {elapsed:.1f}s")
         return Response(html, mimetype='text/html')
