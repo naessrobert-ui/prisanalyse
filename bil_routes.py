@@ -1655,7 +1655,17 @@ def bil_radar_siste():
         resp = s3.get_object(Bucket=S3_BUCKET_NAME, Key=latest_key)
         df_siste = pd.read_parquet(io.BytesIO(resp["Body"].read()))
         if "Solgt" in df_siste.columns:
-            df_siste = df_siste[df_siste["Solgt"] == "NEI"].copy()
+            solgt_norm = (
+                df_siste["Solgt"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+            )
+            aktiv_mask = solgt_norm.isin(["NEI", "FALSE", "0", "NAN", "NONE", ""])
+            if aktiv_mask.any():
+                df_siste = df_siste[aktiv_mask].copy()
+            else:
+                print("[BilRadar/siste] Ingen kjente 'ikke-solgt'-verdier i Solgt-kolonnen, hopper over Solgt-filter")
         for col in ["forventet_pris", "rabatt_pct", "modell_nivaa"]:
             if col not in df_siste.columns:
                 df_siste[col] = np.nan
@@ -1675,6 +1685,16 @@ def bil_radar_siste():
             df_siste = df_siste.reset_index()
 
         df_scoret = df_siste[df_siste["forventet_pris"].notna() & (df_siste["forventet_pris"] > 0)].copy()
+        if df_scoret.empty and "FinnKode" in df_siste.columns:
+            print("[BilRadar/siste] 0 scorede biler i database_biler_siste, forsøker å hente scoring fra bilradar_aktive.parquet")
+            df_aktive, _ = _les_parquet_aktive(s3)
+            if "FinnKode" in df_aktive.columns:
+                koder = set(pd.to_numeric(df_siste["FinnKode"], errors="coerce").dropna().astype("int64"))
+                df_scoret = df_aktive[
+                    df_aktive["FinnKode"].isin(koder)
+                    & df_aktive["forventet_pris"].notna()
+                    & (df_aktive["forventet_pris"] > 0)
+                ].copy()
         print(f"[BilRadar/siste] {len(df_scoret)}/{len(df_siste)} biler med scoring")
 
         data_json = _lag_json_data_fra_parquet(df_scoret)
