@@ -2112,3 +2112,293 @@ def bil_innbytte_side():
         svv_preview=svv_preview,
         model_selection=model_selection,
     )
+
+
+# ============================================================
+# /bil/finn-sok – live FINN-søk + DB-berikelse + BilRadar-score
+# ============================================================
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import urlencode
+
+_FINN_LISTING_TTL_SEC = 60
+_FINN_LISTING_CACHE: dict = {}
+_FINN_LISTING_CACHE_LOCK = threading.Lock()
+
+_FINN_FUEL_MAP = {
+    "Bensin": "1",
+    "Diesel": "2",
+    "Elektrisitet": "4",
+    "El": "4",
+    "Hybrid": "6",
+    "Gass": "3",
+}
+
+
+def _to_int_safe(v):
+    try:
+        if v is None:
+            return None
+        if isinstance(v, float) and np.isnan(v):
+            return None
+        return int(float(v))
+    except Exception:
+        return None
+
+
+def _normaliser_finn_sok_url(raw: str) -> str:
+    raw = (raw or "").strip()
+    if not raw:
+        return ""
+    if not raw.startswith("http"):
+        raw = "https://www.finn.no" + ("" if raw.startswith("/") else "/") + raw
+    raw = re.sub(r"[?&]page=\d+", "", raw)
+    return raw
+
+
+def _build_finn_sok_url(merke, drivstoff, pris_min, pris_max,
+                       km_min, km_max, ar_min, ar_max, q_extra) -> str:
+    base = "https://www.finn.no/mobility/search/car"
+    parts = []
+    q_terms = [t.strip() for t in [merke, q_extra] if t and str(t).strip()]
+    if q_terms:
+        parts.append(("q", " ".join(q_terms)))
+    if drivstoff and drivstoff in _FINN_FUEL_MAP:
+        parts.append(("fuel", _FINN_FUEL_MAP[drivstoff]))
+    for key, val in [("price_from", pris_min), ("price_to", pris_max),
+                     ("mileage_from", km_min), ("mileage_to", km_max),
+                     ("year_from", ar_min), ("year_to", ar_max)]:
+        n = _to_int_safe(val)
+        if n is not None:
+            parts.append((key, str(n)))
+    return f"{base}?{urlencode(parts)}" if parts else base
+
+
+def _hent_finn_listing(finn_url: str, max_biler: int = 50) -> list:
+    """TTL-cached fetch av FINN-trefflisten via eksisterende scraper."""
+    now = datetime.now()
+    with _FINN_LISTING_CACHE_LOCK:
+        entry = _FINN_LISTING_CACHE.get(finn_url)
+        if entry and (now - entry["ts"]).total_seconds() < _FINN_LISTING_TTL_SEC:
+            return entry["data"]
+    from bil_import import hent_annonser_fra_søk
+    data = hent_annonser_fra_søk(finn_url, max_biler)
+    with _FINN_LISTING_CACHE_LOCK:
+        _FINN_LISTING_CACHE[finn_url] = {"ts": now, "data": data}
+    return data
+
+
+def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
+    """Henter berikelse fra PARQUET_KEY_SOLGT for gitte FinnKoder."""
+    fk_clean = [str(int(float(fk))) for fk in finnkoder
+                if str(fk).replace(".", "", 1).isdigit()]
+    if not fk_clean:
+        return pd.DataFrame()
+
+    s3_key = PARQUET_KEY_SOLGT
+    local_path = _ensure_local_parquet(s3_key)
+    colmap = _duckdb_get_colmap(local_path, s3_key)
+
+    c_fk     = _qident(colmap.get("finnkode"))
+    c_dato   = _qident(colmap.get("dato_start"))
+    c_dato2  = _qident(colmap.get("dato_end"))
+    c_solgt  = _qident(colmap.get("solgt"))
+    c_pris0  = _qident(colmap.get("pris_start"))
+    c_pris1  = _qident(colmap.get("pris_ny"))
+    c_aar    = _qident(colmap.get("aar"))
+    c_km     = _qident(colmap.get("km"))
+    c_driv   = _qident(colmap.get("drivstoff"))
+    c_hjul   = _qident(colmap.get("hjuldrift"))
+    c_prod   = _qident(colmap.get("produsent"))
+    c_modell = _qident(colmap.get("modell"))
+    c_brukt  = _qident(colmap.get("bruktimport"))
+    c_land   = _qident(colmap.get("import_land"))
+
+    fk_str_expr = f"regexp_replace(cast({c_fk} as varchar), '\\.0$', '')"
+    fk_csv = ",".join(f"'{fk}'" for fk in fk_clean)
+
+    sql = f"""
+      SELECT
+        {fk_str_expr}                              AS FinnKode,
+        {c_prod}                                   AS Merke,
+        {c_modell}                                 AS Modell,
+        {c_aar}                                    AS Årstall,
+        {c_km}                                     AS Kjørelengde,
+        {c_driv}                                   AS Drivstoff,
+        {c_hjul}                                   AS Hjuldrift,
+        {c_pris0}                                  AS Pris_forste,
+        {c_pris1}                                  AS Pris,
+        {c_brukt}                                  AS svv_bruktimportert,
+        {c_land}                                   AS svv_importland_navn,
+        date_diff(
+          'day',
+          cast({c_dato} as date),
+          coalesce(cast({c_dato2} as date), current_date)
+        )                                          AS dager_for_salg
+      FROM read_parquet('{local_path}')
+      WHERE {fk_str_expr} IN ({fk_csv})
+        AND coalesce(try_cast({c_solgt} as boolean), false) = false
+    """
+    con = _duckdb_con()
+    df = con.execute(sql).df()
+    if "FinnKode" in df.columns:
+        df = df.drop_duplicates(subset="FinnKode", keep="last")
+    return df
+
+
+def _hent_finn_detalj_for_ukjent(annonser_ukjent: list) -> dict:
+    """Per-ad detail-fetch (parallell) for biler som mangler i DB."""
+    if not annonser_ukjent:
+        return {}
+    import requests as _requests
+    from bil_import import hent_detaljert_info_fra_annonse
+    out: dict = {}
+    with _requests.Session() as sess:
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            futs = [ex.submit(hent_detaljert_info_fra_annonse, dict(a), sess)
+                    for a in annonser_ukjent]
+            for fut in as_completed(futs):
+                try:
+                    res = fut.result()
+                    if res and res.get("finnkode"):
+                        out[str(res["finnkode"])] = res
+                except Exception:
+                    continue
+    return out
+
+
+@bil_bp.route('/finn-sok', methods=['GET'])
+def bil_finn_sok():
+    finn_url_raw = request.args.get("finn_url", "").strip()
+    merke        = request.args.get("merke", "").strip()
+    drivstoff    = request.args.get("drivstoff", "").strip()
+    pris_min     = request.args.get("pris_min")
+    pris_max     = request.args.get("pris_max")
+    km_min       = request.args.get("km_min")
+    km_max       = request.args.get("km_max")
+    ar_min       = request.args.get("ar_min")
+    ar_max       = request.args.get("ar_max")
+    q_extra      = request.args.get("q_extra", "").strip()
+
+    has_query = bool(finn_url_raw) or any([merke, drivstoff, pris_min, pris_max,
+                                           km_min, km_max, ar_min, ar_max, q_extra])
+    if not has_query:
+        return render_template("bil_finn_sok.html",
+                               treff=None, finn_url="", form=request.args)
+
+    finn_url = (_normaliser_finn_sok_url(finn_url_raw) if finn_url_raw
+                else _build_finn_sok_url(merke, drivstoff, pris_min, pris_max,
+                                         km_min, km_max, ar_min, ar_max, q_extra))
+
+    try:
+        annonser = _hent_finn_listing(finn_url, max_biler=50)
+    except Exception as e:
+        traceback.print_exc()
+        return render_template("bil_finn_sok.html",
+                               treff=[], finn_url=finn_url, form=request.args,
+                               error=f"Kunne ikke lese FINN: {e}")
+
+    if not annonser:
+        return render_template("bil_finn_sok.html",
+                               treff=[], finn_url=finn_url, form=request.args,
+                               melding="Ingen treff på FINN.")
+
+    finnkoder = [str(a["finnkode"]) for a in annonser]
+    df_db = _hent_db_for_finnkoder(finnkoder)
+    matched_set = set(df_db["FinnKode"].astype(str)) if not df_db.empty else set()
+
+    annonser_ukjent = [a for a in annonser if str(a["finnkode"]) not in matched_set]
+    detalj_ukjent = _hent_finn_detalj_for_ukjent(annonser_ukjent)
+
+    rows = []
+    db_by_fk = ({str(r["FinnKode"]): r for _, r in df_db.iterrows()}
+                if not df_db.empty else {})
+    for a in annonser:
+        fk = str(a["finnkode"])
+        if fk in matched_set:
+            r = dict(db_by_fk[fk])
+            r["finnkode"] = fk
+            r["url"] = a["url"]
+            r["i_db"] = True
+            rows.append(r)
+        else:
+            d = detalj_ukjent.get(fk, {})
+            pris_now = d.get("pris")
+            km_now = d.get("km")
+            aar = None
+            reg = d.get("reg_norge")
+            if reg:
+                m = re.search(r"(\d{4})", reg)
+                if m:
+                    aar = int(m.group(1))
+            rows.append({
+                "FinnKode": fk, "finnkode": fk, "url": a["url"],
+                "Merke": None, "Modell": None,
+                "Årstall": aar, "Kjørelengde": km_now,
+                "Drivstoff": None, "Hjuldrift": None,
+                "Pris_forste": pris_now,   # ny → førstpris = dagens pris
+                "Pris": pris_now,
+                "svv_bruktimportert": None,
+                "svv_importland_navn": None,
+                "dager_for_salg": 1,       # ny → ca. 1 dag
+                "i_db": False,
+            })
+
+    score_map: dict = {}
+    if rows:
+        try:
+            df_score = pd.DataFrame(rows)
+            modeller = _hent_bilradar_modell(_get_s3_client())
+            df_norm = _normaliser_df_for_scoring(df_score)
+            df_scored = scorer_biler(df_norm, modeller)
+            for _, sc_row in df_scored.iterrows():
+                fk = str(sc_row.get("FinnKode"))
+                score_map[fk] = {
+                    "forventet_pris": sc_row.get("forventet_pris"),
+                    "rabatt_pct": sc_row.get("rabatt_pct"),
+                    "modell_nivaa": sc_row.get("modell_nivaa"),
+                }
+        except Exception as e:
+            print(f"[finn_sok] BilRadar-scoring feilet: {e}")
+            traceback.print_exc()
+
+    treff = []
+    for r in rows:
+        fk = str(r["finnkode"])
+        sc = score_map.get(fk, {})
+        rab = sc.get("rabatt_pct")
+        rab_val = None
+        if rab is not None and not (isinstance(rab, float) and np.isnan(rab)):
+            try:
+                rab_val = round(float(rab), 1)
+            except Exception:
+                rab_val = None
+        bi = r.get("svv_bruktimportert")
+        if bi is not None and not (isinstance(bi, float) and np.isnan(bi)):
+            try:
+                bi_bool = bool(int(bi)) if str(bi).strip() in ("0", "1") else \
+                          str(bi).strip().lower() in ("true", "ja", "sann", "yes", "y", "t", "1")
+            except Exception:
+                bi_bool = bool(bi)
+        else:
+            bi_bool = None
+        treff.append({
+            "finnkode": fk,
+            "url": r["url"],
+            "merke": r.get("Merke"),
+            "modell": r.get("Modell"),
+            "aar": _to_int_safe(r.get("Årstall")),
+            "km": _to_int_safe(r.get("Kjørelengde")),
+            "drivstoff": r.get("Drivstoff"),
+            "pris": _to_int_safe(r.get("Pris")),
+            "forstpris": _to_int_safe(r.get("Pris_forste")),
+            "dager_for_salg": _to_int_safe(r.get("dager_for_salg")) or 1,
+            "bruktimport": bi_bool,
+            "importland": r.get("svv_importland_navn"),
+            "forventet_pris": _to_int_safe(sc.get("forventet_pris")),
+            "rabatt_pct": rab_val,
+            "modell_nivaa": sc.get("modell_nivaa"),
+            "i_db": r.get("i_db", False),
+        })
+
+    return render_template("bil_finn_sok.html",
+                           treff=treff, finn_url=finn_url, form=request.args)
