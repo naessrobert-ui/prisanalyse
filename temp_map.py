@@ -1067,6 +1067,10 @@ function(cluster) {
             f'text-decoration:none;font-size:12px;font-weight:700;">'
             f"Åpne aktivitetsvarsel</a>"
         )
+        point_label = f"{tc:+.1f}°"
+        place_label = str(name)
+        if len(place_label) > 16:
+            place_label = place_label[:15] + "…"
 
         col = color_for(tc)
         folium.CircleMarker(
@@ -1080,6 +1084,29 @@ function(cluster) {
             opacity=0.6,
             tooltip=folium.Tooltip(html, sticky=True),
             popup=folium.Popup(html, max_width=360),
+        ).add_to(layer_for_markers)
+
+        folium.Marker(
+            location=[float(r["lat"]), float(r["lon"])],
+            icon=folium.DivIcon(
+                html=(
+                    '<a class="temp-point-label" '
+                    f'href="{aktivt_url}" '
+                    'style="transform:translate(-50%,-34px);'
+                    'display:inline-flex;flex-direction:column;gap:1px;'
+                    'padding:2px 7px;'
+                    f'background:{col};'
+                    'border:1px solid rgba(15,23,42,.55);'
+                    'border-radius:10px;'
+                    'font-size:12px;font-weight:800;line-height:1.1;'
+                    'color:#0f172a;text-decoration:none;white-space:nowrap;'
+                    'box-shadow:0 2px 6px rgba(15,23,42,.25);">'
+                    f'<span>{point_label}</span>'
+                    f'<span style="font-size:10px;font-weight:700;opacity:.9;">{place_label}</span>'
+                    '</a>'
+                )
+            ),
+            z_index_offset=1000,
         ).add_to(layer_for_markers)
 
         points_js.append(
@@ -1276,6 +1303,29 @@ function(cluster) {
     </script>
     """
     folium.Element(topbox_html).add_to(m.get_root().html)
+
+    label_zoom_js = """
+    <style>
+      .temp-point-label.hidden-by-zoom { display: none !important; }
+    </style>
+    <script>
+      (function() {
+        var mapObj = window.%s;
+        if (!mapObj) return;
+        function syncTempLabels() {
+          var hide = mapObj.getZoom() < 9;
+          var labels = document.querySelectorAll('.temp-point-label');
+          labels.forEach(function(el){
+            if (hide) el.classList.add('hidden-by-zoom');
+            else el.classList.remove('hidden-by-zoom');
+          });
+        }
+        mapObj.on('zoomend moveend layeradd', syncTempLabels);
+        setTimeout(syncTempLabels, 50);
+      })();
+    </script>
+    """ % map_var
+    folium.Element(label_zoom_js).add_to(m.get_root().html)
 
     return m.get_root().render()
 
