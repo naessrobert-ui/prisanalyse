@@ -1067,6 +1067,7 @@ function(cluster) {
             f'text-decoration:none;font-size:12px;font-weight:700;">'
             f"Åpne aktivitetsvarsel</a>"
         )
+        point_label = f"{tc:+.1f}°"
 
         col = color_for(tc)
         folium.CircleMarker(
@@ -1078,7 +1079,23 @@ function(cluster) {
             fill_color=col,
             fill_opacity=0.95,
             opacity=0.6,
-            tooltip=folium.Tooltip(html, sticky=True),
+            tooltip=folium.Tooltip(
+                point_label,
+                sticky=False,
+                permanent=True,
+                direction="center",
+                opacity=0.92,
+                style=(
+                    "background:rgba(255,255,255,.92);"
+                    "border:1px solid rgba(15,23,42,.45);"
+                    "border-radius:999px;"
+                    "padding:1px 6px;"
+                    "font-weight:800;"
+                    "font-size:12px;"
+                    "color:#0f172a;"
+                    "box-shadow:0 1px 4px rgba(15,23,42,.18);"
+                ),
+            ),
             popup=folium.Popup(html, max_width=360),
         ).add_to(layer_for_markers)
 
