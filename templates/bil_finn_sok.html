@@ -123,14 +123,24 @@
       <form method="get" action="/bil/finn-sok">
         <div id="mode-builder">
           <div class="row">
-            <label>Merke / fritekst
-              <input type="text" name="merke" placeholder="BMW X5"
-                     value="{{ form.get('merke','') }}">
+            <label>Merke
+              <select name="merke" id="merke-select">
+                <option value="">– alle merker –</option>
+                {% for m in (filter_opts.get('merker', []) if filter_opts else []) %}
+                <option value="{{ m }}" {% if form.get('merke')==m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Modell
+              <select name="modell" id="modell-select" data-selected="{{ form.get('modell','') }}">
+                <option value="">– alle modeller –</option>
+              </select>
             </label>
             <label>Drivstoff
               <select name="drivstoff">
                 <option value="">– alle –</option>
-                {% for d in ['Bensin','Diesel','Elektrisitet','Hybrid','Gass'] %}
+                {% set drivstoff_values = filter_opts.get('drivstoff', []) if filter_opts else ['Bensin','Diesel','Elektrisitet','Hybrid','Gass'] %}
+                {% for d in drivstoff_values %}
                 <option value="{{ d }}" {% if form.get('drivstoff')==d %}selected{% endif %}>{{ d }}</option>
                 {% endfor %}
               </select>
@@ -158,6 +168,36 @@
             <label>År til
               <input type="number" name="ar_max" min="1990" max="2099"
                      value="{{ form.get('ar_max','') }}">
+            </label>
+            <label>Alder min
+              <input type="number" name="alder_min" min="0" max="50"
+                     value="{{ form.get('alder_min','') }}">
+            </label>
+            <label>Alder maks
+              <input type="number" name="alder_max" min="0" max="50"
+                     value="{{ form.get('alder_max','') }}">
+            </label>
+            <label>Fylke
+              <input type="text" name="fylke" list="fylke-valg" placeholder="Akershus"
+                     value="{{ form.get('fylke','') }}">
+            </label>
+            <datalist id="fylke-valg">
+              {% for f in (filter_opts.get('fylker', []) if filter_opts else []) %}
+              <option value="{{ f }}"></option>
+              {% endfor %}
+            </datalist>
+            <label>Rabatt min (%)
+              <input type="number" name="rabatt_min" min="0" max="90" step="1"
+                     placeholder="f.eks. 10"
+                     value="{{ form.get('rabatt_min','') }}">
+            </label>
+            <label>Rekkevidde min (km)
+              <input type="number" name="rekkevidde_min" min="0" step="10"
+                     value="{{ form.get('rekkevidde_min','') }}">
+            </label>
+            <label>Rekkevidde maks (km)
+              <input type="number" name="rekkevidde_max" min="0" step="10"
+                     value="{{ form.get('rekkevidde_max','') }}">
             </label>
             <label style="grid-column: span 4;">Ekstra fritekst (legges til q=)
               <input type="text" name="q_extra" placeholder="xDrive40e"
@@ -203,7 +243,7 @@
     {% set avg = (scored | sum(attribute='rabatt_pct') / scored|length) if scored|length else 0 %}
     <div class="stats-bar">
       <div class="stat-badge"><strong>{{ treff|length }}</strong> treff fra FINN</div>
-      <div class="stat-badge"><strong>{{ scored|length }}</strong> i DB / scoret</div>
+      <div class="stat-badge"><strong>{{ scored|length }}</strong> scoret av BilRadar</div>
       <div class="stat-badge"><strong>{{ good_count }}</strong> gode kjøp (≥ 10 %)</div>
       {% if scored|length %}
       <div class="stat-badge">Snitt rabatt: <strong>{{ '%.1f' % avg }} %</strong></div>
@@ -294,6 +334,23 @@
   {% endif %}
 
   <script>
+    const MODELS_BY_MERKE = {{ (filter_opts.get('models_by_merke', {}) if filter_opts else {}) | tojson }};
+    function oppdaterModeller() {
+      var merkeEl = document.getElementById('merke-select');
+      var modellEl = document.getElementById('modell-select');
+      if (!merkeEl || !modellEl) return;
+      var valgtMerke = merkeEl.value || '';
+      var valgtModell = modellEl.getAttribute('data-selected') || modellEl.value || '';
+      var modeller = valgtMerke ? (MODELS_BY_MERKE[valgtMerke] || []) : [];
+      modellEl.innerHTML = '<option value="">– alle modeller –</option>';
+      modeller.forEach(function (m) {
+        var opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        if (m === valgtModell) opt.selected = true;
+        modellEl.appendChild(opt);
+      });
+    }
     function visMode(name) {
       var b = document.getElementById('mode-builder');
       var p = document.getElementById('mode-paste');
@@ -310,6 +367,15 @@
     (function () {
       var hasUrl = {{ 'true' if form.get('finn_url') else 'false' }};
       visMode(hasUrl ? 'paste' : 'builder');
+      oppdaterModeller();
+      var merkeEl = document.getElementById('merke-select');
+      if (merkeEl) {
+        merkeEl.addEventListener('change', function () {
+          var modellEl = document.getElementById('modell-select');
+          if (modellEl) modellEl.setAttribute('data-selected', '');
+          oppdaterModeller();
+        });
+      }
     })();
   </script>
 </body>
