@@ -2198,6 +2198,24 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
     local_path = _ensure_local_parquet(s3_key)
     colmap = _duckdb_get_colmap(local_path, s3_key)
 
+    # Sjekk hvilke ekstra kolonner som finnes i parquet (BildeURL/Sted/Fylke
+    # er ikke i den canonical colmap-en).
+    con = _duckdb_con()
+    actual_cols = [r[0] for r in con.execute(
+        f"DESCRIBE SELECT * FROM read_parquet('{local_path}')"
+    ).fetchall()]
+    lower_actual = {c.lower(): c for c in actual_cols}
+
+    def pick_extra(*cands):
+        for c in cands:
+            if c.lower() in lower_actual:
+                return lower_actual[c.lower()]
+        return None
+
+    c_bilde = pick_extra("BildeURL", "bildeurl", "image_url", "bilde")
+    c_sted  = pick_extra("sted", "Sted")
+    c_fylke = pick_extra("fylke", "Fylke")
+
     c_fk     = _qident(colmap.get("finnkode"))
     c_dato   = _qident(colmap.get("dato_start"))
     c_dato2  = _qident(colmap.get("dato_end"))
@@ -2213,6 +2231,10 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
     c_brukt  = _qident(colmap.get("bruktimport"))
     c_land   = _qident(colmap.get("import_land"))
 
+    sel_bilde = f"{_qident(c_bilde)} AS BildeURL," if c_bilde else "NULL AS BildeURL,"
+    sel_sted  = f"{_qident(c_sted)}  AS Sted,"     if c_sted  else "NULL AS Sted,"
+    sel_fylke = f"{_qident(c_fylke)} AS Fylke,"    if c_fylke else "NULL AS Fylke,"
+
     fk_str_expr = f"regexp_replace(cast({c_fk} as varchar), '\\.0$', '')"
     fk_csv = ",".join(f"'{fk}'" for fk in fk_clean)
 
@@ -2221,14 +2243,17 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
         {fk_str_expr}                              AS FinnKode,
         {c_prod}                                   AS Merke,
         {c_modell}                                 AS Modell,
-        {c_aar}                                    AS Årstall,
-        {c_km}                                     AS Kjørelengde,
+        try_cast({c_aar} as INTEGER)               AS Årstall,
+        try_cast({c_km}  as BIGINT)                AS Kjørelengde,
         {c_driv}                                   AS Drivstoff,
         {c_hjul}                                   AS Hjuldrift,
-        {c_pris0}                                  AS Pris_forste,
-        {c_pris1}                                  AS Pris,
+        try_cast({c_pris0} as BIGINT)              AS Pris_forste,
+        try_cast({c_pris1} as BIGINT)              AS Pris,
         {c_brukt}                                  AS svv_bruktimportert,
         {c_land}                                   AS svv_importland_navn,
+        {sel_bilde}
+        {sel_sted}
+        {sel_fylke}
         date_diff(
           'day',
           cast({c_dato} as date),
@@ -2238,31 +2263,100 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
       WHERE {fk_str_expr} IN ({fk_csv})
         AND coalesce(try_cast({c_solgt} as boolean), false) = false
     """
-    con = _duckdb_con()
     df = con.execute(sql).df()
     if "FinnKode" in df.columns:
         df = df.drop_duplicates(subset="FinnKode", keep="last")
     return df
 
 
+def _parse_finn_detalj(html: str) -> dict:
+    """Trekker ut tittel, bilde-URL, pris, km, år fra en FINN-annonse."""
+    from bs4 import BeautifulSoup
+    out: dict = {}
+    try:
+        soup = BeautifulSoup(html, "lxml")
+    except Exception:
+        soup = BeautifulSoup(html, "html.parser")
+
+    # Tittel: prioriter og:title meta, fallback h1
+    og = soup.find("meta", {"property": "og:title"})
+    if og and og.get("content"):
+        out["title"] = og["content"].strip()
+    else:
+        h1 = soup.find("h1")
+        if h1:
+            out["title"] = h1.get_text(" ", strip=True)
+
+    # Bilde-URL: og:image
+    ogi = soup.find("meta", {"property": "og:image"})
+    if ogi and ogi.get("content"):
+        out["image_url"] = ogi["content"].strip()
+
+    # Pris (Totalpris)
+    p = soup.find("p", string="Totalpris")
+    if p:
+        h2 = p.find_next_sibling("h2")
+        if h2:
+            digits = "".join(filter(str.isdigit, h2.get_text()))
+            if digits:
+                out["pris"] = int(digits)
+
+    # Spesifikasjoner: Kilometerstand, 1. gang registrert
+    for header_tag in ("h2", "h3"):
+        spec_header = soup.find(lambda t, ht=header_tag:
+                                t.name == ht and "Spesifikasjoner" in t.get_text())
+        if spec_header:
+            dl = spec_header.find_next_sibling("dl")
+            if dl:
+                for dt in dl.find_all("dt"):
+                    dd = dt.find_next_sibling("dd")
+                    if not dd:
+                        continue
+                    key = dt.get_text(strip=True)
+                    val = dd.get_text(strip=True)
+                    if "Kilometerstand" in key:
+                        d = "".join(filter(str.isdigit, val))
+                        if d:
+                            out["km"] = int(d)
+                    elif "1. gang registrert" in key:
+                        m = re.search(r"(\d{4})", val)
+                        if m:
+                            out["aar"] = int(m.group(1))
+            break
+    return out
+
+
 def _hent_finn_detalj_for_ukjent(annonser_ukjent: list) -> dict:
-    """Per-ad detail-fetch (parallell) for biler som mangler i DB."""
+    """Per-ad detail-fetch (parallell) for biler som mangler i DB.
+
+    Henter tittel, bilde, pris, km og år fra hver FINN-annonse.
+    """
     if not annonser_ukjent:
         return {}
     import requests as _requests
-    from bil_import import hent_detaljert_info_fra_annonse
+    from bil_import import FINN_HEADERS
+
+    def _hent(a):
+        try:
+            r = _requests.get(a["url"], headers=FINN_HEADERS, timeout=10)
+            r.raise_for_status()
+            data = _parse_finn_detalj(r.text)
+            data["finnkode"] = a["finnkode"]
+            data["url"] = a["url"]
+            return data
+        except Exception:
+            return {"finnkode": a["finnkode"], "url": a["url"]}
+
     out: dict = {}
-    with _requests.Session() as sess:
-        with ThreadPoolExecutor(max_workers=8) as ex:
-            futs = [ex.submit(hent_detaljert_info_fra_annonse, dict(a), sess)
-                    for a in annonser_ukjent]
-            for fut in as_completed(futs):
-                try:
-                    res = fut.result()
-                    if res and res.get("finnkode"):
-                        out[str(res["finnkode"])] = res
-                except Exception:
-                    continue
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futs = [ex.submit(_hent, a) for a in annonser_ukjent]
+        for fut in as_completed(futs):
+            try:
+                res = fut.result()
+                if res and res.get("finnkode"):
+                    out[str(res["finnkode"])] = res
+            except Exception:
+                continue
     return out
 
 
@@ -2319,37 +2413,41 @@ def bil_finn_sok():
             r["finnkode"] = fk
             r["url"] = a["url"]
             r["i_db"] = True
+            r["title"] = None
             rows.append(r)
         else:
             d = detalj_ukjent.get(fk, {})
-            pris_now = d.get("pris")
-            km_now = d.get("km")
-            aar = None
-            reg = d.get("reg_norge")
-            if reg:
-                m = re.search(r"(\d{4})", reg)
-                if m:
-                    aar = int(m.group(1))
+            title = d.get("title")
+            merke_guess, modell_guess = None, None
+            if title:
+                parts = title.split(None, 1)
+                merke_guess = parts[0] if parts else None
+                modell_guess = parts[1] if len(parts) > 1 else None
             rows.append({
                 "FinnKode": fk, "finnkode": fk, "url": a["url"],
-                "Merke": None, "Modell": None,
-                "Årstall": aar, "Kjørelengde": km_now,
+                "Merke": merke_guess, "Modell": modell_guess,
+                "Årstall": d.get("aar"), "Kjørelengde": d.get("km"),
                 "Drivstoff": None, "Hjuldrift": None,
-                "Pris_forste": pris_now,   # ny → førstpris = dagens pris
-                "Pris": pris_now,
+                "Pris_forste": d.get("pris"),  # ny → førstpris = dagens pris
+                "Pris": d.get("pris"),
                 "svv_bruktimportert": None,
                 "svv_importland_navn": None,
-                "dager_for_salg": 1,       # ny → ca. 1 dag
+                "BildeURL": d.get("image_url"),
+                "Sted": None, "Fylke": None,
+                "dager_for_salg": 1,           # ny → ca. 1 dag
                 "i_db": False,
+                "title": title,
             })
 
+    # BilRadar-score: kun for biler som finnes i DB (har tilstrekkelig features).
+    # Ukjente biler får ingen score (ML-input ville vært upålitelig).
     score_map: dict = {}
-    if rows:
+    matched_rows = [r for r in rows if r.get("i_db")]
+    if matched_rows:
         try:
-            df_score = pd.DataFrame(rows)
+            df_score = pd.DataFrame(matched_rows)
             modeller = _hent_bilradar_modell(_get_s3_client())
-            df_norm = _normaliser_df_for_scoring(df_score)
-            df_scored = scorer_biler(df_norm, modeller)
+            df_scored = scorer_biler(df_score, modeller)
             for _, sc_row in df_scored.iterrows():
                 fk = str(sc_row.get("FinnKode"))
                 score_map[fk] = {
@@ -2381,19 +2479,25 @@ def bil_finn_sok():
                 bi_bool = bool(bi)
         else:
             bi_bool = None
+        sted_parts = [p for p in [r.get("Sted"), r.get("Fylke")] if p]
+        sted = ", ".join(sted_parts) if sted_parts else None
         treff.append({
             "finnkode": fk,
             "url": r["url"],
             "merke": r.get("Merke"),
             "modell": r.get("Modell"),
+            "title": r.get("title"),
             "aar": _to_int_safe(r.get("Årstall")),
             "km": _to_int_safe(r.get("Kjørelengde")),
             "drivstoff": r.get("Drivstoff"),
+            "hjuldrift": r.get("Hjuldrift"),
             "pris": _to_int_safe(r.get("Pris")),
             "forstpris": _to_int_safe(r.get("Pris_forste")),
             "dager_for_salg": _to_int_safe(r.get("dager_for_salg")) or 1,
             "bruktimport": bi_bool,
             "importland": r.get("svv_importland_navn"),
+            "image_url": r.get("BildeURL"),
+            "sted": sted,
             "forventet_pris": _to_int_safe(sc.get("forventet_pris")),
             "rabatt_pct": rab_val,
             "modell_nivaa": sc.get("modell_nivaa"),
