@@ -2155,11 +2155,11 @@ def _normaliser_finn_sok_url(raw: str) -> str:
     return raw
 
 
-def _build_finn_sok_url(merke, drivstoff, pris_min, pris_max,
+def _build_finn_sok_url(merke, modell, drivstoff, pris_min, pris_max,
                        km_min, km_max, ar_min, ar_max, q_extra) -> str:
     base = "https://www.finn.no/mobility/search/car"
     parts = []
-    q_terms = [t.strip() for t in [merke, q_extra] if t and str(t).strip()]
+    q_terms = [t.strip() for t in [merke, modell, q_extra] if t and str(t).strip()]
     if q_terms:
         parts.append(("q", " ".join(q_terms)))
     if drivstoff and drivstoff in _FINN_FUEL_MAP:
@@ -2364,23 +2364,27 @@ def _hent_finn_detalj_for_ukjent(annonser_ukjent: list) -> dict:
 def bil_finn_sok():
     finn_url_raw = request.args.get("finn_url", "").strip()
     merke        = request.args.get("merke", "").strip()
+    modell       = request.args.get("modell", "").strip()
     drivstoff    = request.args.get("drivstoff", "").strip()
+    fylke_filter = request.args.get("fylke", "").strip()
     pris_min     = request.args.get("pris_min")
     pris_max     = request.args.get("pris_max")
     km_min       = request.args.get("km_min")
     km_max       = request.args.get("km_max")
     ar_min       = request.args.get("ar_min")
     ar_max       = request.args.get("ar_max")
+    alder_min    = request.args.get("alder_min")
+    alder_max    = request.args.get("alder_max")
     q_extra      = request.args.get("q_extra", "").strip()
 
-    has_query = bool(finn_url_raw) or any([merke, drivstoff, pris_min, pris_max,
-                                           km_min, km_max, ar_min, ar_max, q_extra])
+    has_query = bool(finn_url_raw) or any([merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
+                                           km_min, km_max, ar_min, ar_max, alder_min, alder_max, q_extra])
     if not has_query:
         return render_template("bil_finn_sok.html",
                                treff=None, finn_url="", form=request.args)
 
     finn_url = (_normaliser_finn_sok_url(finn_url_raw) if finn_url_raw
-                else _build_finn_sok_url(merke, drivstoff, pris_min, pris_max,
+                else _build_finn_sok_url(merke, modell, drivstoff, pris_min, pris_max,
                                          km_min, km_max, ar_min, ar_max, q_extra))
 
     try:
@@ -2439,13 +2443,11 @@ def bil_finn_sok():
                 "title": title,
             })
 
-    # BilRadar-score: kun for biler som finnes i DB (har tilstrekkelig features).
-    # Ukjente biler får ingen score (ML-input ville vært upålitelig).
+    # BilRadar-score: forsøk scoring av ALLE biler (både i DB og ikke i DB).
     score_map: dict = {}
-    matched_rows = [r for r in rows if r.get("i_db")]
-    if matched_rows:
+    if rows:
         try:
-            df_score = pd.DataFrame(matched_rows)
+            df_score = pd.DataFrame(rows)
             modeller = _hent_bilradar_modell(_get_s3_client())
             df_scored = scorer_biler(df_score, modeller)
             for _, sc_row in df_scored.iterrows():
@@ -2460,6 +2462,10 @@ def bil_finn_sok():
             traceback.print_exc()
 
     treff = []
+    innev_ar = datetime.now().year
+    alder_min_i = _to_int_safe(alder_min)
+    alder_max_i = _to_int_safe(alder_max)
+    fylke_filter_lc = fylke_filter.lower()
     for r in rows:
         fk = str(r["finnkode"])
         sc = score_map.get(fk, {})
@@ -2503,6 +2509,25 @@ def bil_finn_sok():
             "modell_nivaa": sc.get("modell_nivaa"),
             "i_db": r.get("i_db", False),
         })
+
+    if fylke_filter_lc:
+        treff = [
+            t for t in treff
+            if t.get("sted") and fylke_filter_lc in str(t.get("sted", "")).lower()
+        ]
+
+    if alder_min_i is not None or alder_max_i is not None:
+        filtrert = []
+        for t in treff:
+            if t.get("aar") is None:
+                continue
+            alder = innev_ar - int(t["aar"])
+            if alder_min_i is not None and alder < alder_min_i:
+                continue
+            if alder_max_i is not None and alder > alder_max_i:
+                continue
+            filtrert.append(t)
+        treff = filtrert
 
     return render_template("bil_finn_sok.html",
                            treff=treff, finn_url=finn_url, form=request.args)

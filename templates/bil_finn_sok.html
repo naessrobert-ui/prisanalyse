@@ -127,6 +127,10 @@
               <input type="text" name="merke" placeholder="BMW X5"
                      value="{{ form.get('merke','') }}">
             </label>
+            <label>Modell
+              <input type="text" name="modell" placeholder="iX xDrive40"
+                     value="{{ form.get('modell','') }}">
+            </label>
             <label>Drivstoff
               <select name="drivstoff">
                 <option value="">– alle –</option>
@@ -158,6 +162,18 @@
             <label>År til
               <input type="number" name="ar_max" min="1990" max="2099"
                      value="{{ form.get('ar_max','') }}">
+            </label>
+            <label>Alder min
+              <input type="number" name="alder_min" min="0" max="50"
+                     value="{{ form.get('alder_min','') }}">
+            </label>
+            <label>Alder maks
+              <input type="number" name="alder_max" min="0" max="50"
+                     value="{{ form.get('alder_max','') }}">
+            </label>
+            <label>Fylke
+              <input type="text" name="fylke" placeholder="Akershus"
+                     value="{{ form.get('fylke','') }}">
             </label>
             <label style="grid-column: span 4;">Ekstra fritekst (legges til q=)
               <input type="text" name="q_extra" placeholder="xDrive40e"
@@ -203,7 +219,7 @@
     {% set avg = (scored | sum(attribute='rabatt_pct') / scored|length) if scored|length else 0 %}
     <div class="stats-bar">
       <div class="stat-badge"><strong>{{ treff|length }}</strong> treff fra FINN</div>
-      <div class="stat-badge"><strong>{{ scored|length }}</strong> i DB / scoret</div>
+      <div class="stat-badge"><strong>{{ scored|length }}</strong> scoret av BilRadar</div>
       <div class="stat-badge"><strong>{{ good_count }}</strong> gode kjøp (≥ 10 %)</div>
       {% if scored|length %}
       <div class="stat-badge">Snitt rabatt: <strong>{{ '%.1f' % avg }} %</strong></div>
