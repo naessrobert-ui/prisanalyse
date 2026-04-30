@@ -2136,7 +2136,7 @@ _FINN_FUEL_MAP = {
 
 def _get_finn_sok_filter_options() -> dict:
     """Bygger dropdown-verdier fra samme parquet som /bil/solgt bruker."""
-    out = {"merker": [], "modeller": [], "fylker": [], "drivstoff": []}
+    out = {"merker": [], "modeller": [], "fylker": [], "drivstoff": [], "models_by_merke": {}}
     try:
         path = _ensure_local_parquet(PARQUET_KEY_SOLGT)
         colmap = _duckdb_get_colmap(path, PARQUET_KEY_SOLGT)
@@ -2160,6 +2160,23 @@ def _get_finn_sok_filter_options() -> dict:
         out["modeller"] = _opts_for("modell")
         out["fylker"] = _opts_for("fylke")
         out["drivstoff"] = _opts_for("drivstoff")
+        c_prod = _qident(colmap.get("produsent")) if colmap.get("produsent") else None
+        c_mod = _qident(colmap.get("modell")) if colmap.get("modell") else None
+        if c_prod and c_mod:
+            pairs = con.execute(f"""
+              SELECT trim(cast({c_prod} AS VARCHAR)) AS merke,
+                     trim(cast({c_mod} AS VARCHAR))  AS modell
+              FROM read_parquet('{path}')
+              WHERE {c_prod} IS NOT NULL AND {c_mod} IS NOT NULL
+                AND trim(cast({c_prod} AS VARCHAR)) <> ''
+                AND trim(cast({c_mod} AS VARCHAR)) <> ''
+              GROUP BY 1, 2
+              ORDER BY 1, 2
+            """).fetchall()
+            by_merke = {}
+            for merke, modell in pairs:
+                by_merke.setdefault(merke, []).append(modell)
+            out["models_by_merke"] = by_merke
     except Exception as e:
         print(f"[finn_sok] Klarte ikke å bygge filtervalg fra parquet: {e}")
     return out
@@ -2255,6 +2272,7 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
     c_pris1  = _qident(colmap.get("pris_ny"))
     c_aar    = _qident(colmap.get("aar"))
     c_km     = _qident(colmap.get("km"))
+    c_rekk   = _qident(colmap.get("rekkevidde"))
     c_driv   = _qident(colmap.get("drivstoff"))
     c_hjul   = _qident(colmap.get("hjuldrift"))
     c_prod   = _qident(colmap.get("produsent"))
@@ -2276,6 +2294,7 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
         {c_modell}                                 AS Modell,
         try_cast({c_aar} as INTEGER)               AS Årstall,
         try_cast({c_km}  as BIGINT)                AS Kjørelengde,
+        try_cast({c_rekk} as INTEGER)              AS Rekkevidde,
         {c_driv}                                   AS Drivstoff,
         {c_hjul}                                   AS Hjuldrift,
         try_cast({c_pris0} as BIGINT)              AS Pris_forste,
@@ -2407,11 +2426,14 @@ def bil_finn_sok():
     alder_min    = request.args.get("alder_min")
     alder_max    = request.args.get("alder_max")
     rabatt_min   = request.args.get("rabatt_min")
+    rekkevidde_min = request.args.get("rekkevidde_min")
+    rekkevidde_max = request.args.get("rekkevidde_max")
     q_extra      = request.args.get("q_extra", "").strip()
     filter_opts  = _get_finn_sok_filter_options()
 
     has_query = bool(finn_url_raw) or any([merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
-                                           km_min, km_max, ar_min, ar_max, alder_min, alder_max, q_extra])
+                                           km_min, km_max, ar_min, ar_max, alder_min, alder_max,
+                                           rabatt_min, rekkevidde_min, rekkevidde_max, q_extra])
     if not has_query:
         return render_template("bil_finn_sok.html",
                                treff=None, finn_url="", form=request.args, filter_opts=filter_opts)
@@ -2499,6 +2521,8 @@ def bil_finn_sok():
     alder_min_i = _to_int_safe(alder_min)
     alder_max_i = _to_int_safe(alder_max)
     rabatt_min_i = _to_int_safe(rabatt_min)
+    rekkevidde_min_i = _to_int_safe(rekkevidde_min)
+    rekkevidde_max_i = _to_int_safe(rekkevidde_max)
     fylke_filter_lc = fylke_filter.lower()
     for r in rows:
         fk = str(r["finnkode"])
@@ -2534,6 +2558,7 @@ def bil_finn_sok():
             "pris": _to_int_safe(r.get("Pris")),
             "forstpris": _to_int_safe(r.get("Pris_forste")),
             "dager_for_salg": _to_int_safe(r.get("dager_for_salg")) or 1,
+            "rekkevidde": _to_int_safe(r.get("Rekkevidde")),
             "bruktimport": bi_bool,
             "importland": r.get("svv_importland_navn"),
             "image_url": r.get("BildeURL"),
@@ -2568,6 +2593,19 @@ def bil_finn_sok():
             t for t in treff
             if t.get("rabatt_pct") is not None and float(t.get("rabatt_pct")) >= float(rabatt_min_i)
         ]
+
+    if drivstoff.lower() in ("elektrisitet", "el", "elektrisk") and (rekkevidde_min_i is not None or rekkevidde_max_i is not None):
+        filtrert = []
+        for t in treff:
+            rv = _to_int_safe(t.get("rekkevidde"))
+            if rv is None:
+                continue
+            if rekkevidde_min_i is not None and rv < rekkevidde_min_i:
+                continue
+            if rekkevidde_max_i is not None and rv > rekkevidde_max_i:
+                continue
+            filtrert.append(t)
+        treff = filtrert
 
     return render_template("bil_finn_sok.html",
                            treff=treff, finn_url=finn_url, form=request.args, filter_opts=filter_opts)
