@@ -136,6 +136,20 @@
                 <option value="">– alle modeller –</option>
               </select>
             </label>
+            <datalist id="merke-valg">
+              {% for m in (filter_opts.get('merker', []) if filter_opts else []) %}
+              <option value="{{ m }}"></option>
+              {% endfor %}
+            </datalist>
+            <label>Modell
+              <input type="text" name="modell" list="modell-valg" placeholder="iX xDrive40"
+                     value="{{ form.get('modell','') }}">
+            </label>
+            <datalist id="modell-valg">
+              {% for m in (filter_opts.get('modeller', []) if filter_opts else []) %}
+              <option value="{{ m }}"></option>
+              {% endfor %}
+            </datalist>
             <label>Drivstoff
               <select name="drivstoff">
                 <option value="">– alle –</option>
