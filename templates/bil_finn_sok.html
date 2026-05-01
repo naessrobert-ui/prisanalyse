@@ -139,7 +139,7 @@
             <label>Drivstoff
               <select name="drivstoff">
                 <option value="">– alle –</option>
-                {% set drivstoff_values = filter_opts.get('drivstoff', []) if filter_opts else ['Bensin','Diesel','Elektrisitet','Hybrid','Gass'] %}
+                {% set drivstoff_values = filter_opts.get('drivstoff', []) if filter_opts else ['Bensin','Diesel','El','Hybrid','Gass'] %}
                 {% for d in drivstoff_values %}
                 <option value="{{ d }}" {% if form.get('drivstoff')==d %}selected{% endif %}>{{ d }}</option>
                 {% endfor %}

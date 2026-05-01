@@ -1666,9 +1666,13 @@ def bil_radar_siste():
                 df_siste = df_siste[aktiv_mask].copy()
             else:
                 print("[BilRadar/siste] Ingen kjente 'ikke-solgt'-verdier i Solgt-kolonnen, hopper over Solgt-filter")
-        for col in ["forventet_pris", "rabatt_pct", "modell_nivaa"]:
+        for col in ["forventet_pris", "rabatt_pct"]:
             if col not in df_siste.columns:
                 df_siste[col] = np.nan
+        if "modell_nivaa" not in df_siste.columns:
+            # Skal inneholde tekstverdier ("Nivå 1", "Nivå 2", "Generell"), så bruk objekt-dtype.
+            # Hindrer pandas FutureWarning ved senere df_siste.loc[..., "modell_nivaa"] = <str>.
+            df_siste["modell_nivaa"] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
         print(f"[BilRadar/siste] {len(df_siste)} biler i database_biler_siste")
 
         mangler_scoring_mask = df_siste["forventet_pris"].isna() | (pd.to_numeric(df_siste["forventet_pris"], errors="coerce") <= 0)
@@ -1680,7 +1684,12 @@ def bil_radar_siste():
             df_siste = df_siste.set_index("FinnKode")
             for col in ["forventet_pris", "rabatt_pct", "modell_nivaa"]:
                 if col not in df_siste.columns:
-                    df_siste[col] = np.nan
+                    if col == "modell_nivaa":
+                        df_siste[col] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
+                    else:
+                        df_siste[col] = np.nan
+                if col == "modell_nivaa" and df_siste[col].dtype != "object":
+                    df_siste[col] = df_siste[col].astype("object")
                 df_siste.loc[oppdatert.index, col] = oppdatert[col]
             df_siste = df_siste.reset_index()
 
@@ -2152,6 +2161,7 @@ _FINN_FUEL_MAP = {
     "Bensin": "1",
     "Diesel": "2",
     "Elektrisitet": "4",
+    "Elektrisk": "4",
     "El": "4",
     "Hybrid": "6",
     "Gass": "3",
@@ -2183,7 +2193,17 @@ def _get_finn_sok_filter_options() -> dict:
         out["merker"] = _opts_for("produsent")
         out["modeller"] = _opts_for("modell")
         out["fylker"] = _opts_for("fylke")
-        out["drivstoff"] = _opts_for("drivstoff")
+        raw_drivstoff = _opts_for("drivstoff")
+        canon_drivstoff = []
+        for d in raw_drivstoff:
+            d_norm = (d or "").strip().lower()
+            if d_norm in ("elektrisk", "elektrisitet"):
+                d_clean = "El"
+            else:
+                d_clean = (d or "").strip().title()
+            if d_clean and d_clean not in canon_drivstoff:
+                canon_drivstoff.append(d_clean)
+        out["drivstoff"] = canon_drivstoff
         c_prod = _qident(colmap.get("produsent")) if colmap.get("produsent") else None
         c_mod = _qident(colmap.get("modell")) if colmap.get("modell") else None
         if c_prod and c_mod:
@@ -2201,6 +2221,26 @@ def _get_finn_sok_filter_options() -> dict:
             for merke, modell in pairs:
                 by_merke.setdefault(merke, []).append(modell)
             out["models_by_merke"] = by_merke
+
+        # Fallback: dersom "fylke"-kolonnen mangler/tom, utled fylke fra "sted"
+        # (typisk format: "Sted, Fylke").
+        if not out["fylker"]:
+            c_sted = _qident(colmap.get("sted")) if colmap.get("sted") else None
+            if c_sted:
+                sted_rows = con.execute(f"""
+                  SELECT DISTINCT trim(cast({c_sted} AS VARCHAR)) AS sted
+                  FROM read_parquet('{path}')
+                  WHERE {c_sted} IS NOT NULL AND trim(cast({c_sted} AS VARCHAR)) <> ''
+                  LIMIT 5000
+                """).fetchall()
+                fylker = set()
+                for row in sted_rows:
+                    sted = (row[0] or "").strip() if row else ""
+                    if "," in sted:
+                        maybe_fylke = sted.split(",")[-1].strip()
+                        if maybe_fylke:
+                            fylker.add(maybe_fylke)
+                out["fylker"] = sorted(fylker)
     except Exception as e:
         print(f"[finn_sok] Klarte ikke å bygge filtervalg fra parquet: {e}")
     return out
