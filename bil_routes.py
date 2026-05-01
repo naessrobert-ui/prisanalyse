@@ -2429,6 +2429,9 @@ def bil_finn_sok():
     rekkevidde_min = request.args.get("rekkevidde_min")
     rekkevidde_max = request.args.get("rekkevidde_max")
     q_extra      = request.args.get("q_extra", "").strip()
+    sort_by      = request.args.get("sort", "rabatt_desc").strip()
+    max_biler    = _to_int_safe(request.args.get("max_biler")) or 50
+    max_biler    = max(10, min(max_biler, 200))
     filter_opts  = _get_finn_sok_filter_options()
 
     has_query = bool(finn_url_raw) or any([merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
@@ -2443,7 +2446,7 @@ def bil_finn_sok():
                                          km_min, km_max, ar_min, ar_max, q_extra))
 
     try:
-        annonser = _hent_finn_listing(finn_url, max_biler=50)
+        annonser = _hent_finn_listing(finn_url, max_biler=max_biler)
     except Exception as e:
         traceback.print_exc()
         return render_template("bil_finn_sok.html",
@@ -2606,6 +2609,26 @@ def bil_finn_sok():
                 continue
             filtrert.append(t)
         treff = filtrert
+
+    def _sort_num(v, fallback):
+        return fallback if v is None else v
+
+    if sort_by == "pris_asc":
+        treff.sort(key=lambda t: _sort_num(t.get("pris"), float("inf")))
+    elif sort_by == "pris_desc":
+        treff.sort(key=lambda t: _sort_num(t.get("pris"), -1), reverse=True)
+    elif sort_by == "sist_lagt_ut":
+        treff.sort(key=lambda t: _sort_num(t.get("dager_for_salg"), float("inf")))
+    elif sort_by == "km_asc":
+        treff.sort(key=lambda t: _sort_num(t.get("km"), float("inf")))
+    elif sort_by == "km_desc":
+        treff.sort(key=lambda t: _sort_num(t.get("km"), -1), reverse=True)
+    elif sort_by == "aar_desc":
+        treff.sort(key=lambda t: _sort_num(t.get("aar"), -1), reverse=True)
+    elif sort_by == "aar_asc":
+        treff.sort(key=lambda t: _sort_num(t.get("aar"), float("inf")))
+    else:  # rabatt_desc default
+        treff.sort(key=lambda t: _sort_num(t.get("rabatt_pct"), -999), reverse=True)
 
     return render_template("bil_finn_sok.html",
                            treff=treff, finn_url=finn_url, form=request.args, filter_opts=filter_opts)
