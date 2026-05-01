@@ -409,6 +409,8 @@ def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
         "solgt": pick(["Solgt", "solgt"]),
         "km": pick(["kjørelengde", "km"]),
         "aar": pick(["årstall", "year"]),
+        "fylke": pick(["Fylke", "fylke", "county"]),
+        "sted": pick(["Sted", "sted", "location"]),
         "rekkevidde": pick(["rekkevidde_str", "rekkevidde"]),
         "drivstoff": pick(["drivstoff"]),
         "hjuldrift": pick(["hjuldrift"]),
