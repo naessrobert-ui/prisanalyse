@@ -1666,9 +1666,13 @@ def bil_radar_siste():
                 df_siste = df_siste[aktiv_mask].copy()
             else:
                 print("[BilRadar/siste] Ingen kjente 'ikke-solgt'-verdier i Solgt-kolonnen, hopper over Solgt-filter")
-        for col in ["forventet_pris", "rabatt_pct", "modell_nivaa"]:
+        for col in ["forventet_pris", "rabatt_pct"]:
             if col not in df_siste.columns:
                 df_siste[col] = np.nan
+        if "modell_nivaa" not in df_siste.columns:
+            # Skal inneholde tekstverdier ("Nivå 1", "Nivå 2", "Generell"), så bruk objekt-dtype.
+            # Hindrer pandas FutureWarning ved senere df_siste.loc[..., "modell_nivaa"] = <str>.
+            df_siste["modell_nivaa"] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
         print(f"[BilRadar/siste] {len(df_siste)} biler i database_biler_siste")
 
         mangler_scoring_mask = df_siste["forventet_pris"].isna() | (pd.to_numeric(df_siste["forventet_pris"], errors="coerce") <= 0)
@@ -1680,7 +1684,12 @@ def bil_radar_siste():
             df_siste = df_siste.set_index("FinnKode")
             for col in ["forventet_pris", "rabatt_pct", "modell_nivaa"]:
                 if col not in df_siste.columns:
-                    df_siste[col] = np.nan
+                    if col == "modell_nivaa":
+                        df_siste[col] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
+                    else:
+                        df_siste[col] = np.nan
+                if col == "modell_nivaa" and df_siste[col].dtype != "object":
+                    df_siste[col] = df_siste[col].astype("object")
                 df_siste.loc[oppdatert.index, col] = oppdatert[col]
             df_siste = df_siste.reset_index()
 
