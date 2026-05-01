@@ -2128,6 +2128,7 @@ _FINN_FUEL_MAP = {
     "Bensin": "1",
     "Diesel": "2",
     "Elektrisitet": "4",
+    "Elektrisk": "4",
     "El": "4",
     "Hybrid": "6",
     "Gass": "3",
@@ -2159,7 +2160,17 @@ def _get_finn_sok_filter_options() -> dict:
         out["merker"] = _opts_for("produsent")
         out["modeller"] = _opts_for("modell")
         out["fylker"] = _opts_for("fylke")
-        out["drivstoff"] = _opts_for("drivstoff")
+        raw_drivstoff = _opts_for("drivstoff")
+        canon_drivstoff = []
+        for d in raw_drivstoff:
+            d_norm = (d or "").strip().lower()
+            if d_norm in ("elektrisk", "elektrisitet"):
+                d_clean = "El"
+            else:
+                d_clean = (d or "").strip().title()
+            if d_clean and d_clean not in canon_drivstoff:
+                canon_drivstoff.append(d_clean)
+        out["drivstoff"] = canon_drivstoff
         c_prod = _qident(colmap.get("produsent")) if colmap.get("produsent") else None
         c_mod = _qident(colmap.get("modell")) if colmap.get("modell") else None
         if c_prod and c_mod:
@@ -2177,6 +2188,26 @@ def _get_finn_sok_filter_options() -> dict:
             for merke, modell in pairs:
                 by_merke.setdefault(merke, []).append(modell)
             out["models_by_merke"] = by_merke
+
+        # Fallback: dersom "fylke"-kolonnen mangler/tom, utled fylke fra "sted"
+        # (typisk format: "Sted, Fylke").
+        if not out["fylker"]:
+            c_sted = _qident(colmap.get("sted")) if colmap.get("sted") else None
+            if c_sted:
+                sted_rows = con.execute(f"""
+                  SELECT DISTINCT trim(cast({c_sted} AS VARCHAR)) AS sted
+                  FROM read_parquet('{path}')
+                  WHERE {c_sted} IS NOT NULL AND trim(cast({c_sted} AS VARCHAR)) <> ''
+                  LIMIT 5000
+                """).fetchall()
+                fylker = set()
+                for row in sted_rows:
+                    sted = (row[0] or "").strip() if row else ""
+                    if "," in sted:
+                        maybe_fylke = sted.split(",")[-1].strip()
+                        if maybe_fylke:
+                            fylker.add(maybe_fylke)
+                out["fylker"] = sorted(fylker)
     except Exception as e:
         print(f"[finn_sok] Klarte ikke å bygge filtervalg fra parquet: {e}")
     return out
@@ -2429,6 +2460,9 @@ def bil_finn_sok():
     rekkevidde_min = request.args.get("rekkevidde_min")
     rekkevidde_max = request.args.get("rekkevidde_max")
     q_extra      = request.args.get("q_extra", "").strip()
+    sort_by      = request.args.get("sort", "rabatt_desc").strip()
+    max_biler    = _to_int_safe(request.args.get("max_biler")) or 50
+    max_biler    = max(10, min(max_biler, 200))
     filter_opts  = _get_finn_sok_filter_options()
 
     has_query = bool(finn_url_raw) or any([merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
@@ -2443,7 +2477,7 @@ def bil_finn_sok():
                                          km_min, km_max, ar_min, ar_max, q_extra))
 
     try:
-        annonser = _hent_finn_listing(finn_url, max_biler=50)
+        annonser = _hent_finn_listing(finn_url, max_biler=max_biler)
     except Exception as e:
         traceback.print_exc()
         return render_template("bil_finn_sok.html",
@@ -2606,6 +2640,26 @@ def bil_finn_sok():
                 continue
             filtrert.append(t)
         treff = filtrert
+
+    def _sort_num(v, fallback):
+        return fallback if v is None else v
+
+    if sort_by == "pris_asc":
+        treff.sort(key=lambda t: _sort_num(t.get("pris"), float("inf")))
+    elif sort_by == "pris_desc":
+        treff.sort(key=lambda t: _sort_num(t.get("pris"), -1), reverse=True)
+    elif sort_by == "sist_lagt_ut":
+        treff.sort(key=lambda t: _sort_num(t.get("dager_for_salg"), float("inf")))
+    elif sort_by == "km_asc":
+        treff.sort(key=lambda t: _sort_num(t.get("km"), float("inf")))
+    elif sort_by == "km_desc":
+        treff.sort(key=lambda t: _sort_num(t.get("km"), -1), reverse=True)
+    elif sort_by == "aar_desc":
+        treff.sort(key=lambda t: _sort_num(t.get("aar"), -1), reverse=True)
+    elif sort_by == "aar_asc":
+        treff.sort(key=lambda t: _sort_num(t.get("aar"), float("inf")))
+    else:  # rabatt_desc default
+        treff.sort(key=lambda t: _sort_num(t.get("rabatt_pct"), -999), reverse=True)
 
     return render_template("bil_finn_sok.html",
                            treff=treff, finn_url=finn_url, form=request.args, filter_opts=filter_opts)

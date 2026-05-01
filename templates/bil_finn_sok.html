@@ -136,24 +136,10 @@
                 <option value="">– alle modeller –</option>
               </select>
             </label>
-            <datalist id="merke-valg">
-              {% for m in (filter_opts.get('merker', []) if filter_opts else []) %}
-              <option value="{{ m }}"></option>
-              {% endfor %}
-            </datalist>
-            <label>Modell
-              <input type="text" name="modell" list="modell-valg" placeholder="iX xDrive40"
-                     value="{{ form.get('modell','') }}">
-            </label>
-            <datalist id="modell-valg">
-              {% for m in (filter_opts.get('modeller', []) if filter_opts else []) %}
-              <option value="{{ m }}"></option>
-              {% endfor %}
-            </datalist>
             <label>Drivstoff
               <select name="drivstoff">
                 <option value="">– alle –</option>
-                {% set drivstoff_values = filter_opts.get('drivstoff', []) if filter_opts else ['Bensin','Diesel','Elektrisitet','Hybrid','Gass'] %}
+                {% set drivstoff_values = filter_opts.get('drivstoff', []) if filter_opts else ['Bensin','Diesel','El','Hybrid','Gass'] %}
                 {% for d in drivstoff_values %}
                 <option value="{{ d }}" {% if form.get('drivstoff')==d %}selected{% endif %}>{{ d }}</option>
                 {% endfor %}
@@ -192,18 +178,34 @@
                      value="{{ form.get('alder_max','') }}">
             </label>
             <label>Fylke
-              <input type="text" name="fylke" list="fylke-valg" placeholder="Akershus"
-                     value="{{ form.get('fylke','') }}">
+              <select name="fylke">
+                <option value="">– alle fylker –</option>
+                {% for f in (filter_opts.get('fylker', []) if filter_opts else []) %}
+                <option value="{{ f }}" {% if form.get('fylke')==f %}selected{% endif %}>{{ f }}</option>
+                {% endfor %}
+              </select>
             </label>
-            <datalist id="fylke-valg">
-              {% for f in (filter_opts.get('fylker', []) if filter_opts else []) %}
-              <option value="{{ f }}"></option>
-              {% endfor %}
-            </datalist>
             <label>Rabatt min (%)
               <input type="number" name="rabatt_min" min="0" max="90" step="1"
                      placeholder="f.eks. 10"
                      value="{{ form.get('rabatt_min','') }}">
+            </label>
+            <label>Sorter etter
+              <select name="sort">
+                {% set sortv = form.get('sort','rabatt_desc') %}
+                <option value="rabatt_desc" {% if sortv=='rabatt_desc' %}selected{% endif %}>Rabatt (høyest først)</option>
+                <option value="sist_lagt_ut" {% if sortv=='sist_lagt_ut' %}selected{% endif %}>Sist lagt ut</option>
+                <option value="pris_asc" {% if sortv=='pris_asc' %}selected{% endif %}>Pris (lavest først)</option>
+                <option value="pris_desc" {% if sortv=='pris_desc' %}selected{% endif %}>Pris (høyest først)</option>
+                <option value="km_asc" {% if sortv=='km_asc' %}selected{% endif %}>Km (lavest først)</option>
+                <option value="km_desc" {% if sortv=='km_desc' %}selected{% endif %}>Km (høyest først)</option>
+                <option value="aar_desc" {% if sortv=='aar_desc' %}selected{% endif %}>Årsmodell (nyest først)</option>
+                <option value="aar_asc" {% if sortv=='aar_asc' %}selected{% endif %}>Årsmodell (eldst først)</option>
+              </select>
+            </label>
+            <label>Antall biler (10–200)
+              <input type="number" name="max_biler" min="10" max="200" step="10"
+                     value="{{ form.get('max_biler','50') }}">
             </label>
             <label>Rekkevidde min (km)
               <input type="number" name="rekkevidde_min" min="0" step="10"
@@ -262,7 +264,7 @@
       {% if scored|length %}
       <div class="stat-badge">Snitt rabatt: <strong>{{ '%.1f' % avg }} %</strong></div>
       {% endif %}
-      <div class="stat-badge meta">Cache 60s · én side · opptil 50</div>
+      <div class="stat-badge meta">Cache 60s · én side · opptil {{ form.get('max_biler','50') }}</div>
     </div>
 
     {% if treff|length == 0 %}
