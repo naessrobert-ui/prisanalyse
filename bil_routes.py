@@ -1863,6 +1863,7 @@ def bil_innbytte_side():
                         "drivstoff": drivstoff_svv or None,
                         "hjuldrift": hjuldrift_filter,
                         "km_sokt_til": km_value + 20000,
+                        "datakilde": PARQUET_KEY_SOLGT,
                     }
 
                     if not merke:

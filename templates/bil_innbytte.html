@@ -99,7 +99,7 @@
       </div>
     {% endif %}
 
-    {% if debug_context and (debug_context.merke or debug_context.modell or debug_context.år or debug_context.drivstoff or debug_context.hjuldrift or debug_context.filtre) %}
+    {% if debug_context and (debug_context.merke or debug_context.modell or debug_context.år or debug_context.drivstoff or debug_context.hjuldrift or debug_context.filtre or debug_context.datakilde) %}
       <div class="card">
         <h3>Kriterier brukt videre i søket</h3>
         <table>
@@ -113,6 +113,7 @@
             <tr><th>Modellvarianter</th><td>{% if debug_context.modellvarianter %}{{ debug_context.modellvarianter|join(', ') }}{% else %}–{% endif %}</td></tr>
             <tr><th>Aktive filtre</th><td>{% if debug_context.filtre %}<ul>{% for f in debug_context.filtre %}<li>{{ f }}</li>{% endfor %}</ul>{% else %}–{% endif %}</td></tr>
             <tr><th>Fallback uten hjuldrift</th><td>{% if debug_context.fallback_brukt is sameas true %}Ja{% elif debug_context.fallback_brukt is sameas false %}Nei{% else %}–{% endif %}</td></tr>
+            <tr><th>Datakilde (parquet/S3-key)</th><td>{{ debug_context.datakilde or '–' }}</td></tr>
           </tbody>
         </table>
       </div>
