@@ -2653,9 +2653,11 @@ def bil_finn_sok():
         })
 
     if fylke_filter_lc:
+        # Ikke kast biler som mangler sted/fylke i berikelsen (typisk ny/ukjent i DB),
+        # ellers blir trefflisten kunstig lav sammenlignet med FINN.
         treff = [
             t for t in treff
-            if t.get("sted") and fylke_filter_lc in str(t.get("sted", "")).lower()
+            if (not t.get("sted")) or (fylke_filter_lc in str(t.get("sted", "")).lower())
         ]
 
     if alder_min_i is not None or alder_max_i is not None:
