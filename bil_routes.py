@@ -1873,6 +1873,8 @@ def bil_innbytte_side():
                             c_aar = col_or_null("aar")
                             c_km = col_or_null("km")
                             c_hjul = col_or_null("hjuldrift")
+                            c_rekkevidde = col_or_null("rekkevidde")
+                            c_selger = col_or_null("selger")
                             c_pris_ny = col_or_null("pris_ny")
                             c_pris_start = col_or_null("pris_start")
                             c_dato_end = col_or_null("dato_end")
@@ -2003,6 +2005,8 @@ def bil_innbytte_side():
                                     {aar_num} AS arstall,
                                     {km_num} AS kjorelengde,
                                     cast({c_hjul} as varchar) AS hjuldrift,
+                                    try_cast({c_rekkevidde} AS BIGINT) AS rekkevidde,
+                                    cast({c_selger} as varchar) AS selger,
                                     {pris_ny_num} AS pris,
                                     {pris_start_num} AS pris_start,
                                     {dato_start_ts} AS dato_start,
@@ -2095,7 +2099,11 @@ def bil_innbytte_side():
                                 error = "Fant ingen gode sammenlignbare biler med dagens kriterier."
                             elif not model_selection:
                                 topp = records[:10]
-                                priser = [int(r["pris"]) for r in topp if isinstance(r.get("pris"), (int, float)) and r.get("pris")]
+                                priser = [
+                                    int(r["pris"])
+                                    for r in topp
+                                    if isinstance(r.get("pris"), (int, float)) and int(r.get("pris") or 0) > 0
+                                ]
                                 if not priser:
                                     error = "Fant sammenlignbare biler, men manglet prisgrunnlag."
                                 else:

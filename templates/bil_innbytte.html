@@ -135,25 +135,33 @@
               <th class="sortable" data-sort-type="number">År</th>
               <th class="sortable" data-sort-type="number">Km</th>
               <th class="sortable" data-sort-type="text">Hjuldrift</th>
+              <th class="sortable" data-sort-type="number">Rekkevidde</th>
+              <th class="sortable" data-sort-type="text">Selger</th>
               <th class="sortable" data-sort-type="number">Pris</th>
               <th class="sortable" data-sort-type="number">Prisendring</th>
               <th class="sortable" data-sort-type="number">Dager annonsert</th>
               <th class="sortable" data-sort-type="date">Solgt/fjernet</th>
-              <th>FINN</th>
             </tr>
           </thead>
           <tbody>
             {% for r in result.sammenlignbare %}
             <tr>
-              <td>{{ r.produsent }} {{ r.modell }}</td>
+              <td>
+                {% if r.finn_url %}
+                  <a href="{{ r.finn_url }}" target="_blank" rel="noopener">{{ r.produsent }} {{ r.modell }}</a>
+                {% else %}
+                  {{ r.produsent }} {{ r.modell }}
+                {% endif %}
+              </td>
               <td>{{ r.arstall or '–' }}</td>
               <td>{% if r.kjorelengde is not none %}{{ "{:,.0f}".format(r.kjorelengde).replace(",", " ") }}{% else %}–{% endif %}</td>
               <td>{{ r.hjuldrift or '–' }}</td>
+              <td>{% if r.rekkevidde is not none %}{{ "{:,.0f}".format(r.rekkevidde).replace(",", " ") }} km{% else %}–{% endif %}</td>
+              <td>{{ r.selger or '–' }}</td>
               <td>{% if r.pris is not none %}{{ "{:,.0f}".format(r.pris).replace(",", " ") }} kr{% else %}–{% endif %}</td>
               <td>{% if r.prisendring is not none %}{{ "{:,.0f}".format(r.prisendring).replace(",", " ") }} kr{% else %}–{% endif %}</td>
               <td>{{ r.dager_annonsert if r.dager_annonsert is not none else '–' }}</td>
               <td>{{ r.dato_end[:10] if r.dato_end else '–' }}</td>
-              <td>{% if r.finn_url %}<a href="{{ r.finn_url }}" target="_blank" rel="noopener">Annonse</a>{% else %}–{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>
