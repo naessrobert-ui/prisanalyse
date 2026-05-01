@@ -16,6 +16,10 @@
     table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
     th, td { border-bottom: 1px solid #334155; padding: 8px; text-align: left; vertical-align: top; }
     th { color: #cbd5e1; font-size: 12px; text-transform: uppercase; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable::after { content: " ↕"; color: #64748b; font-size: 11px; }
+    th.sortable.asc::after { content: " ↑"; color: #93c5fd; }
+    th.sortable.desc::after { content: " ↓"; color: #93c5fd; }
     .error { border-color: #b91c1c; background: #3f1d1d; color: #fecaca; }
     .grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0,1fr)); }
     @media (max-width: 880px){ .grid { grid-template-columns: 1fr; } }
@@ -115,6 +119,8 @@
         <h2>Resultat</h2>
         <div class="grid">
           <div class="kpi"><div class="t">Anbefalt innbyttepris</div><div class="v">{{ "{:,.0f}".format(result.innbyttepris).replace(",", " ") }} kr</div></div>
+          <div class="kpi"><div class="t">Median minus 15%</div><div class="v">{{ "{:,.0f}".format(result.median_minus_15).replace(",", " ") }} kr</div></div>
+          <div class="kpi"><div class="t">Laveste salgspris (tak)</div><div class="v">{{ "{:,.0f}".format(result.laveste_salgspris).replace(",", " ") }} kr</div></div>
           <div class="kpi"><div class="t">Median sammenlignbare</div><div class="v">{{ "{:,.0f}".format(result.median_pris).replace(",", " ") }} kr</div></div>
           <div class="kpi"><div class="t">Prisintervall (25–75%)</div><div class="v">{{ "{:,.0f}".format(result.pris_p25).replace(",", " ") }} – {{ "{:,.0f}".format(result.pris_p75).replace(",", " ") }} kr</div></div>
         </div>
@@ -122,28 +128,40 @@
 
       <div class="card">
         <h3>Mest sammenlignbare biler ({{ result.antall_sammenlignbare }})</h3>
-        <table>
+        <table id="sammenlignbare-table">
           <thead>
             <tr>
-              <th>Merke/modell</th>
-              <th>År</th>
-              <th>Km</th>
-              <th>Hjuldrift</th>
-              <th>Pris</th>
-              <th>Solgt/fjernet</th>
-              <th>FINN</th>
+              <th class="sortable" data-sort-type="text">Merke/modell</th>
+              <th class="sortable" data-sort-type="number">År</th>
+              <th class="sortable" data-sort-type="number">Km</th>
+              <th class="sortable" data-sort-type="text">Hjuldrift</th>
+              <th class="sortable" data-sort-type="number">Rekkevidde</th>
+              <th class="sortable" data-sort-type="text">Selger</th>
+              <th class="sortable" data-sort-type="number">Pris</th>
+              <th class="sortable" data-sort-type="number">Prisendring</th>
+              <th class="sortable" data-sort-type="number">Dager annonsert</th>
+              <th class="sortable" data-sort-type="date">Solgt/fjernet</th>
             </tr>
           </thead>
           <tbody>
             {% for r in result.sammenlignbare %}
             <tr>
-              <td>{{ r.produsent }} {{ r.modell }}</td>
+              <td>
+                {% if r.finn_url %}
+                  <a href="{{ r.finn_url }}" target="_blank" rel="noopener">{{ r.produsent }} {{ r.modell }}</a>
+                {% else %}
+                  {{ r.produsent }} {{ r.modell }}
+                {% endif %}
+              </td>
               <td>{{ r.arstall or '–' }}</td>
               <td>{% if r.kjorelengde is not none %}{{ "{:,.0f}".format(r.kjorelengde).replace(",", " ") }}{% else %}–{% endif %}</td>
               <td>{{ r.hjuldrift or '–' }}</td>
+              <td>{% if r.rekkevidde is not none %}{{ "{:,.0f}".format(r.rekkevidde).replace(",", " ") }} km{% else %}–{% endif %}</td>
+              <td>{{ r.selger or '–' }}</td>
               <td>{% if r.pris is not none %}{{ "{:,.0f}".format(r.pris).replace(",", " ") }} kr{% else %}–{% endif %}</td>
+              <td>{% if r.prisendring is not none %}{{ "{:,.0f}".format(r.prisendring).replace(",", " ") }} kr{% else %}–{% endif %}</td>
+              <td>{{ r.dager_annonsert if r.dager_annonsert is not none else '–' }}</td>
               <td>{{ r.dato_end[:10] if r.dato_end else '–' }}</td>
-              <td>{% if r.finn_url %}<a href="{{ r.finn_url }}" target="_blank" rel="noopener">Annonse</a>{% else %}–{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -151,5 +169,43 @@
       </div>
     {% endif %}
   </div>
+  <script>
+    (function () {
+      const table = document.getElementById("sammenlignbare-table");
+      if (!table) return;
+      const headers = table.querySelectorAll("th.sortable");
+      headers.forEach((th, colIndex) => {
+        th.addEventListener("click", () => {
+          const tbody = table.tBodies[0];
+          const rows = Array.from(tbody.querySelectorAll("tr"));
+          const isAsc = !th.classList.contains("asc");
+          headers.forEach(h => h.classList.remove("asc", "desc"));
+          th.classList.add(isAsc ? "asc" : "desc");
+          const type = th.dataset.sortType || "text";
+          rows.sort((a, b) => {
+            const av = (a.children[colIndex]?.innerText || "").trim();
+            const bv = (b.children[colIndex]?.innerText || "").trim();
+            const emptyA = av === "" || av === "–";
+            const emptyB = bv === "" || bv === "–";
+            if (emptyA && emptyB) return 0;
+            if (emptyA) return 1;
+            if (emptyB) return -1;
+            if (type === "number") {
+              const an = Number(av.replace(/[^\d-]/g, ""));
+              const bn = Number(bv.replace(/[^\d-]/g, ""));
+              return isAsc ? an - bn : bn - an;
+            }
+            if (type === "date") {
+              const at = new Date(av).getTime();
+              const bt = new Date(bv).getTime();
+              return isAsc ? at - bt : bt - at;
+            }
+            return isAsc ? av.localeCompare(bv, "no") : bv.localeCompare(av, "no");
+          });
+          rows.forEach(r => tbody.appendChild(r));
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

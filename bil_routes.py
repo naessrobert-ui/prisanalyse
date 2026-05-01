@@ -1864,13 +1864,17 @@ def bil_innbytte_side():
                             c_aar = col_or_null("aar")
                             c_km = col_or_null("km")
                             c_hjul = col_or_null("hjuldrift")
+                            c_rekkevidde = col_or_null("rekkevidde")
+                            c_selger = col_or_null("selger")
                             c_pris_ny = col_or_null("pris_ny")
+                            c_pris_start = col_or_null("pris_start")
                             c_dato_end = col_or_null("dato_end")
                             c_dato_start = col_or_null("dato_start")
                             c_solgt = col_or_null("solgt")
                             c_finn = col_or_null("finnkode")
 
                             pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
+                            pris_start_num = f"try_cast({c_pris_start} AS BIGINT)"
                             km_num = _to_bigint_sql(c_km)
                             aar_num = f"try_cast({c_aar} AS BIGINT)"
                             dato_end_ts = _to_timestamp_sql(c_dato_end)
@@ -1992,9 +1996,21 @@ def bil_innbytte_side():
                                     {aar_num} AS arstall,
                                     {km_num} AS kjorelengde,
                                     cast({c_hjul} as varchar) AS hjuldrift,
+                                    try_cast({c_rekkevidde} AS BIGINT) AS rekkevidde,
+                                    cast({c_selger} as varchar) AS selger,
                                     {pris_ny_num} AS pris,
+                                    {pris_start_num} AS pris_start,
                                     {dato_start_ts} AS dato_start,
                                     {dato_end_ts} AS dato_end,
+                                    CASE
+                                      WHEN {dato_start_ts} IS NULL THEN NULL
+                                      WHEN {dato_end_ts} IS NOT NULL THEN datediff('day', date({dato_start_ts}), date({dato_end_ts}))
+                                      ELSE datediff('day', date({dato_start_ts}), current_date)
+                                    END AS dager_annonsert,
+                                    CASE
+                                      WHEN {pris_start_num} IS NULL OR {pris_ny_num} IS NULL THEN NULL
+                                      ELSE {pris_start_num} - {pris_ny_num}
+                                    END AS prisendring,
                                     {finnkode_str} AS finnkode,
                                     {finn_url_expr} AS finn_url,
                                     (
@@ -2074,7 +2090,11 @@ def bil_innbytte_side():
                                 error = "Fant ingen gode sammenlignbare biler med dagens kriterier."
                             elif not model_selection:
                                 topp = records[:10]
-                                priser = [int(r["pris"]) for r in topp if isinstance(r.get("pris"), (int, float)) and r.get("pris")]
+                                priser = [
+                                    int(r["pris"])
+                                    for r in topp
+                                    if isinstance(r.get("pris"), (int, float)) and int(r.get("pris") or 0) > 0
+                                ]
                                 if not priser:
                                     error = "Fant sammenlignbare biler, men manglet prisgrunnlag."
                                 else:
@@ -2082,7 +2102,9 @@ def bil_innbytte_side():
                                     median_pris = int(prisserie.median())
                                     p25_pris = int(prisserie.quantile(0.25))
                                     p75_pris = int(prisserie.quantile(0.75))
-                                    innbyttepris = int(round(median_pris * 0.92))
+                                    minimum_salgspris = int(min(priser))
+                                    median_minus_15 = int(round(median_pris * 0.85))
+                                    innbyttepris = min(median_minus_15, minimum_salgspris)
 
                                     result = {
                                         "svv": {
@@ -2091,6 +2113,8 @@ def bil_innbytte_side():
                                         },
                                         "kriterier_brukt": debug_context,
                                         "innbyttepris": innbyttepris,
+                                        "median_minus_15": median_minus_15,
+                                        "laveste_salgspris": minimum_salgspris,
                                         "median_pris": median_pris,
                                         "pris_p25": p25_pris,
                                         "pris_p75": p75_pris,
