@@ -1781,6 +1781,7 @@ def bil_innbytte_side():
     error = None
     regnr = ""
     km_input = ""
+    fra_dato_input = ""
     debug_context = {}
     svv_preview = None
     model_selection = None
@@ -1788,7 +1789,14 @@ def bil_innbytte_side():
     if request.method == "POST":
         regnr = (request.form.get("regnr") or "").strip().upper()
         km_input = (request.form.get("km") or "").strip()
+        fra_dato_input = (request.form.get("fra_dato") or "").strip()
         selected_modell = (request.form.get("selected_modell") or "").strip()
+        fra_dato = None
+        if fra_dato_input:
+            try:
+                fra_dato = datetime.strptime(fra_dato_input, "%Y-%m-%d").date()
+            except ValueError:
+                error = "Fra dato må være gyldig dato (YYYY-MM-DD)."
 
         if not regnr:
             error = "Du må oppgi registreringsnummer."
@@ -1982,6 +1990,9 @@ def bil_innbytte_side():
                                         where_parts.append(f"date({dato_end_ts}) <= current_date")
                                     else:
                                         where_parts.append(f"{pris_ny_num} > 1000")
+                                if fra_dato and colmap.get("dato_end"):
+                                    where_parts.append(f"date({dato_end_ts}) >= ?")
+                                    params.append(fra_dato.isoformat())
 
                                 if drivstoff_svv and colmap.get("drivstoff"):
                                     where_parts.append(f"lower(cast({c_driv} as varchar)) LIKE ?")
@@ -2043,6 +2054,8 @@ def bil_innbytte_side():
                                 "km <= oppgitt km + 20 000",
                                 "kun solgte/fjernede annonser",
                             ]
+                            if fra_dato:
+                                debug_context["filtre"].append(f"solgt/fjernet fra og med {fra_dato.isoformat()}")
                             if drivstoff_svv:
                                 debug_context["filtre"].append("drivstoff matcher SVV")
                             if amd is not None and colmap.get("hjuldrift"):
@@ -2141,6 +2154,7 @@ def bil_innbytte_side():
         error=error,
         regnr=regnr,
         km=km_input,
+        fra_dato=fra_dato_input,
         debug_context=debug_context,
         svv_preview=svv_preview,
         model_selection=model_selection,

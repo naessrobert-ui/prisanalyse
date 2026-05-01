@@ -35,6 +35,9 @@
       <h1>Innbyttepris for bil</h1>
       <div class="muted">Oppgi registreringsnummer og kjørelengde. Løsningen henter tekniske data fra Statens vegvesen og finner sammenlignbare solgte biler.</div>
       <form method="post">
+        <label for="fra_dato">Fra dato (solgt/fjernet fra og med)</label>
+        <input id="fra_dato" name="fra_dato" type="date" value="{{ fra_dato or '' }}" />
+
         <label for="regnr">Registreringsnummer</label>
         <input id="regnr" name="regnr" placeholder="f.eks. AB12345" value="{{ regnr or '' }}" required />
 
@@ -55,6 +58,7 @@
         <form method="post">
           <input type="hidden" name="regnr" value="{{ regnr or '' }}" />
           <input type="hidden" name="km" value="{{ km or '' }}" />
+          <input type="hidden" name="fra_dato" value="{{ fra_dato or '' }}" />
           <label for="selected_modell">Modell ({{ model_selection.merke }})</label>
           <select id="selected_modell" name="selected_modell" required>
             <option value="">Velg modell…</option>
