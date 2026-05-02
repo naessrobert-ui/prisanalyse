@@ -1,0 +1,13 @@
+match_type,merke,modell,drivstoff,år_fra,år_til,variant_keyword,justering_type,verdi,kommentar
+variant,Tesla,Model Y,Elektrisk,2020,2024,Long Range,mult,1.18,LR har ca 18% høyere snittpris enn SR
+variant,Tesla,Model Y,Elektrisk,2020,2024,Performance,mult,1.25,Performance ligger over LR
+variant,Tesla,Model Y,Elektrisk,2020,2024,Standard Range,mult,0.92,SR/RWD trekker ned
+variant,Tesla,Model 3,Elektrisk,2019,2024,Long Range,mult,1.15,
+variant,Tesla,Model 3,Elektrisk,2019,2024,Performance,mult,1.22,
+variant,Audi,e-tron,Elektrisk,2019,2023,55,mult,1.10,55 quattro = stort batteri
+variant,Audi,e-tron,Elektrisk,2019,2023,50,mult,0.92,50 quattro = lite batteri
+variant,Volkswagen,ID.4,Elektrisk,2021,2024,GTX,add,60000,GTX-tillegg
+variant,Volkswagen,ID.3,Elektrisk,2020,2024,Pro S,mult,1.08,Pro S = stort batteri
+variant,Mercedes-Benz,EQS,Elektrisk,2022,2024,580,mult,1.20,580 over 450
+variant,BMW,i3,Elektrisk,2014,2017,60Ah,mult,0.85,gammelt 22 kWh-batteri
+variant,BMW,i3,Elektrisk,2017,2022,120Ah,mult,1.10,42 kWh-batteri
