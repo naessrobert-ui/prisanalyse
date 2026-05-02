@@ -1873,10 +1873,15 @@ def bil_innbytte_side():
                         error = "SVV-oppslaget manglet merke. Klarer ikke hente sammenlignbare biler."
                     else:
                         try:
+                            import time as _innbytte_time
+                            _t0 = _innbytte_time.time()
                             s3_key = PARQUET_KEY_SOLGT
                             path = _ensure_local_parquet(s3_key)
+                            print(f"[innbytte] parquet ready in {_innbytte_time.time()-_t0:.2f}s ({regnr})")
+                            _t1 = _innbytte_time.time()
                             colmap = _duckdb_get_colmap(path, s3_key)
                             con = _duckdb_con()
+                            print(f"[innbytte] colmap+con in {_innbytte_time.time()-_t1:.2f}s")
 
                             def col_or_null(key: str) -> str:
                                 c = colmap.get(key)
@@ -2040,7 +2045,10 @@ def bil_innbytte_side():
                                 """
                                 # NB: De to første parameterne tilhører score-uttrykket.
                                 score_params = [km_value, target_year or datetime.utcnow().year] + params
-                                return con.execute(score_sql, score_params).df()
+                                _tq = _innbytte_time.time()
+                                df = con.execute(score_sql, score_params).df()
+                                print(f"[innbytte] query (hjuldrift={include_hjuldrift}) {_innbytte_time.time()-_tq:.2f}s -> {len(df)} rader")
+                                return df
 
                             debug_context["modellvarianter"] = modell_candidates[:8]
                             debug_context["filtre"] = [
