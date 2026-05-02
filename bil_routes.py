@@ -2107,12 +2107,17 @@ def bil_innbytte_side():
                             if not records and not model_selection:
                                 error = "Fant ingen gode sammenlignbare biler med dagens kriterier."
                             elif not model_selection:
-                                topp = records[:10]
-                                priser = [
-                                    int(r["pris"])
-                                    for r in topp
-                                    if isinstance(r.get("pris"), (int, float)) and int(r.get("pris") or 0) > 0
-                                ]
+                                priser = []
+                                for r in records:
+                                    raw = r.get("pris")
+                                    if raw is None:
+                                        continue
+                                    try:
+                                        val = int(raw)
+                                    except (TypeError, ValueError):
+                                        continue
+                                    if val > 0:
+                                        priser.append(val)
                                 if not priser:
                                     error = "Fant sammenlignbare biler, men manglet prisgrunnlag."
                                 else:
@@ -2123,6 +2128,12 @@ def bil_innbytte_side():
                                     minimum_salgspris = int(min(priser))
                                     median_minus_15 = int(round(median_pris * 0.85))
                                     innbyttepris = min(median_minus_15, minimum_salgspris)
+
+                                    # Sorter visningen stigende på pris (default).
+                                    records_sorted = sorted(
+                                        records,
+                                        key=lambda r: (r.get("pris") if isinstance(r.get("pris"), (int, float)) else float("inf"))
+                                    )
 
                                     result = {
                                         "svv": {
@@ -2137,7 +2148,7 @@ def bil_innbytte_side():
                                         "pris_p25": p25_pris,
                                         "pris_p75": p75_pris,
                                         "antall_sammenlignbare": len(records),
-                                        "sammenlignbare": records,
+                                        "sammenlignbare": records_sorted,
                                     }
 
                         except Exception as e:
