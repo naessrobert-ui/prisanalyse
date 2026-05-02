@@ -18,8 +18,11 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+from bilradar_overrides import apply_overrides, last_overrides
+
 GOOD_DEAL_THRESHOLD = 10
 MIN_KM_PER_YEAR_FOR_MODEL = 4_000
+OVERRIDES_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "data", "pris_overstyring.csv")
 
 
 def _normaliser_kjorelengde_for_modell(alder, kjorelengde):
@@ -286,6 +289,9 @@ def scorer_biler(df: pd.DataFrame, modeller: dict, threshold: int = GOOD_DEAL_TH
             ])
             df.loc[ingen_pred, "forventet_pris"] = m["model"].predict(X)
             df.loc[ingen_pred, "modell_nivaa"] = "Generell"
+
+    overrides = last_overrides(local_path=OVERRIDES_LOCAL_PATH)
+    df = apply_overrides(df, overrides)
 
     mask = df["forventet_pris"].notna() & (df["forventet_pris"] > 0)
     df.loc[mask, "rabatt_kr"] = df.loc[mask, "forventet_pris"] - df.loc[mask, "salgspris"]
