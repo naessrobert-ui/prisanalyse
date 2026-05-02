@@ -438,15 +438,18 @@ def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
 
 def _bool_expr(col_ident: str) -> str:
     """
-    Returnerer ALWAYS BOOLEAN.
-    Tåler bool, 0/1, og strenger som 'true'/'ja' osv.
+    Returnerer ALWAYS BOOLEAN for "ute av markedet"-flagget Solgt.
+    Tåler bool, 0/1, og strenger som 'true'/'ja'/'solgt'/'fjernet'.
+    'fjernet' og 'solgt' regnes som true: pipelinen markerer annonser som
+    forsvinner fra FINN uten salgsbekreftelse med 'fjernet', og disse skal
+    telle som "ikke lenger aktiv" på lik linje med 'ja'.
     """
     return f"""
     (
       case
         when {col_ident} is null then false
         when try_cast({col_ident} as BOOLEAN) is not null then try_cast({col_ident} as BOOLEAN)
-        when lower(trim(cast({col_ident} as varchar))) in ('1','true','t','yes','y','ja') then true
+        when lower(trim(cast({col_ident} as varchar))) in ('1','true','t','yes','y','ja','solgt','fjernet') then true
         else false
       end
     )
@@ -1935,11 +1938,6 @@ def bil_innbytte_side():
                             def _fetch_brand_models():
                                 where_parts = [f"lower(cast({c_prod} as varchar)) = ?"]
                                 params = [merke.lower()]
-                                if colmap.get("solgt"):
-                                    where_parts.append(f"({_bool_expr(c_solgt)}) = true")
-                                elif colmap.get("dato_end"):
-                                    where_parts.append(f"{dato_end_ts} IS NOT NULL")
-                                    where_parts.append(f"date({dato_end_ts}) <= current_date")
                                 where_sql = " WHERE " + " AND ".join(where_parts)
                                 models_sql = f"""
                                   SELECT cast({c_mod} as varchar) AS modell, count(*) AS antall
@@ -1985,14 +1983,9 @@ def bil_innbytte_side():
                                     where_parts.append(f"{km_num} <= ?")
                                     params.append(km_upper_bound)
 
-                                if colmap.get("solgt"):
-                                    where_parts.append(f"({_bool_expr(c_solgt)}) = true")
-                                else:
-                                    if colmap.get("dato_end"):
-                                        where_parts.append(f"{dato_end_ts} IS NOT NULL")
-                                        where_parts.append(f"date({dato_end_ts}) <= current_date")
-                                    else:
-                                        where_parts.append(f"{pris_ny_num} > 1000")
+                                # Inkluder alle annonser (solgt, fjernet og aktive).
+                                # Bruk kun en pris-sanity for å luke ut tomme/ugyldige rader.
+                                where_parts.append(f"{pris_ny_num} > 1000")
                                 if fra_dato and colmap.get("dato_end"):
                                     where_parts.append(f"date({dato_end_ts}) >= ?")
                                     params.append(fra_dato.isoformat())
@@ -2055,7 +2048,7 @@ def bil_innbytte_side():
                                 "modell ~ en av modellvarianter",
                                 "år >= førstegangsregistrert i Norge",
                                 "km <= oppgitt km + 20 000",
-                                "kun solgte/fjernede annonser",
+                                "alle annonser (solgte, fjernede og aktive)",
                             ]
                             if fra_dato:
                                 debug_context["filtre"].append(f"solgt/fjernet fra og med {fra_dato.isoformat()}")
