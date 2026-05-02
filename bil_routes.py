@@ -2306,7 +2306,8 @@ def _normaliser_finn_sok_url(raw: str) -> str:
 
 
 def _build_finn_sok_url(merke, modell, drivstoff, fylke, pris_min, pris_max,
-                       km_min, km_max, ar_min, ar_max, q_extra) -> str:
+                       km_min, km_max, ar_min, ar_max, q_extra,
+                       bare_brukt=True, published_last_day=False) -> str:
     base = "https://www.finn.no/mobility/search/car"
     parts = []
     q_terms = [t.strip() for t in [merke, modell, q_extra] if t and str(t).strip()]
@@ -2323,6 +2324,10 @@ def _build_finn_sok_url(merke, modell, drivstoff, fylke, pris_min, pris_max,
         n = _to_int_safe(val)
         if n is not None:
             parts.append((key, str(n)))
+    if bare_brukt:
+        parts.append(("sales_form", "1"))
+    if published_last_day:
+        parts.append(("published", "1"))
     return f"{base}?{urlencode(parts)}" if parts else base
 
 
@@ -2537,6 +2542,15 @@ def bil_finn_sok():
     sort_by      = request.args.get("sort", "rabatt_desc").strip()
     max_biler    = _to_int_safe(request.args.get("max_biler")) or 50
     max_biler    = max(10, min(max_biler, 200))
+    # Hidden marker som skiller "skjema sendt" (avkrysningsbokser respekteres
+    # som angitt) fra "førstegangsbesøk / direkte URL" (defaults gjelder).
+    filter_set = request.args.get("filter_set") == "1"
+    if filter_set:
+        bare_brukt = request.args.get("bare_brukt") == "1"
+        published_last_day = request.args.get("published_last_day") == "1"
+    else:
+        bare_brukt = True
+        published_last_day = False
     filter_opts  = _get_finn_sok_filter_options()
 
     has_query = bool(finn_url_raw) or any([merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
@@ -2544,11 +2558,14 @@ def bil_finn_sok():
                                            rabatt_min, rekkevidde_min, rekkevidde_max, q_extra])
     if not has_query:
         return render_template("bil_finn_sok.html",
-                               treff=None, finn_url="", form=request.args, filter_opts=filter_opts)
+                               treff=None, finn_url="", form=request.args, filter_opts=filter_opts,
+                               bare_brukt=bare_brukt, published_last_day=published_last_day)
 
     finn_url = (_normaliser_finn_sok_url(finn_url_raw) if finn_url_raw
                 else _build_finn_sok_url(merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
-                                         km_min, km_max, ar_min, ar_max, q_extra))
+                                         km_min, km_max, ar_min, ar_max, q_extra,
+                                         bare_brukt=bare_brukt,
+                                         published_last_day=published_last_day))
 
     try:
         annonser = _hent_finn_listing(finn_url, max_biler=max_biler)
@@ -2556,11 +2573,13 @@ def bil_finn_sok():
         traceback.print_exc()
         return render_template("bil_finn_sok.html",
                                treff=[], finn_url=finn_url, form=request.args, filter_opts=filter_opts,
+                               bare_brukt=bare_brukt, published_last_day=published_last_day,
                                error=f"Kunne ikke lese FINN: {e}")
 
     if not annonser:
         return render_template("bil_finn_sok.html",
                                treff=[], finn_url=finn_url, form=request.args, filter_opts=filter_opts,
+                               bare_brukt=bare_brukt, published_last_day=published_last_day,
                                melding="Ingen treff på FINN.")
 
     finnkoder = [str(a["finnkode"]) for a in annonser]
@@ -2738,4 +2757,5 @@ def bil_finn_sok():
         treff.sort(key=lambda t: _sort_num(t.get("rabatt_pct"), -999), reverse=True)
 
     return render_template("bil_finn_sok.html",
-                           treff=treff, finn_url=finn_url, form=request.args, filter_opts=filter_opts)
+                           treff=treff, finn_url=finn_url, form=request.args, filter_opts=filter_opts,
+                           bare_brukt=bare_brukt, published_last_day=published_last_day)

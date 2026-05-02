@@ -35,6 +35,14 @@
     input, select { background:#0f1117; color:var(--text); border:1px solid var(--border);
                     border-radius:var(--radius); padding:0.5rem 0.7rem; font:inherit; outline:none; }
     input:focus, select:focus { border-color:var(--accent); }
+    .checkbox-row { display:flex; gap:1.25rem; flex-wrap:wrap; margin-top:0.75rem;
+                    padding-top:0.75rem; border-top:1px solid var(--border); }
+    .checkbox-label { flex-direction:row; align-items:center; gap:0.5rem;
+                      text-transform:none; letter-spacing:0; font-size:0.85rem;
+                      color:var(--text); cursor:pointer; }
+    .checkbox-label input[type="checkbox"] { width:1.05rem; height:1.05rem;
+                                              accent-color:var(--accent);
+                                              padding:0; margin:0; cursor:pointer; }
     .url-box { width:100%; }
     .actions { display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap; margin-top:0.85rem; }
     button.primary { background:var(--accent); color:#fff; border:0; padding:0.55rem 1.2rem;
@@ -121,6 +129,7 @@
       </div>
 
       <form method="get" action="/bil/finn-sok">
+        <input type="hidden" name="filter_set" value="1">
         <div id="mode-builder">
           <div class="row">
             <label>Merke
@@ -210,6 +219,19 @@
             <label style="grid-column: span 4;">Ekstra fritekst (legges til q=)
               <input type="text" name="q_extra" placeholder="xDrive40e"
                      value="{{ form.get('q_extra','') }}">
+            </label>
+          </div>
+
+          <div class="checkbox-row">
+            <label class="checkbox-label">
+              <input type="checkbox" name="bare_brukt" value="1"
+                     {% if bare_brukt %}checked{% endif %}>
+              <span>Bare bruktbiler (ingen leasing/auksjon)</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="published_last_day" value="1"
+                     {% if published_last_day %}checked{% endif %}>
+              <span>Kun publisert siste døgn</span>
             </label>
           </div>
         </div>
