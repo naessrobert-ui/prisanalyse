@@ -2307,7 +2307,8 @@ def _normaliser_finn_sok_url(raw: str) -> str:
 
 def _build_finn_sok_url(merke, modell, drivstoff, fylke, pris_min, pris_max,
                        km_min, km_max, ar_min, ar_max, q_extra,
-                       bare_brukt=True, published_last_day=False) -> str:
+                       bare_brukt=True, published_last_day=False,
+                       hjuldrift="") -> str:
     base = "https://www.finn.no/mobility/search/car"
     parts = []
     q_terms = [t.strip() for t in [merke, modell, q_extra] if t and str(t).strip()]
@@ -2324,6 +2325,12 @@ def _build_finn_sok_url(merke, modell, drivstoff, fylke, pris_min, pris_max,
         n = _to_int_safe(val)
         if n is not None:
             parts.append((key, str(n)))
+    if hjuldrift == "firehjul":
+        parts.append(("wheel_drive", "2"))
+    elif hjuldrift == "tohjul":
+        # FINN tar både forhjul (1) og bakhjul (3) som to separate parametre
+        parts.append(("wheel_drive", "1"))
+        parts.append(("wheel_drive", "3"))
     if bare_brukt:
         parts.append(("sales_form", "1"))
     if published_last_day:
@@ -2538,6 +2545,7 @@ def bil_finn_sok():
     rabatt_min   = request.args.get("rabatt_min")
     rekkevidde_min = request.args.get("rekkevidde_min")
     rekkevidde_max = request.args.get("rekkevidde_max")
+    hjuldrift_filter = request.args.get("hjuldrift_filter", "").strip()
     q_extra      = request.args.get("q_extra", "").strip()
     sort_by      = request.args.get("sort", "rabatt_desc").strip()
     max_biler    = _to_int_safe(request.args.get("max_biler")) or 50
@@ -2555,7 +2563,8 @@ def bil_finn_sok():
 
     has_query = bool(finn_url_raw) or any([merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
                                            km_min, km_max, ar_min, ar_max, alder_min, alder_max,
-                                           rabatt_min, rekkevidde_min, rekkevidde_max, q_extra])
+                                           rabatt_min, rekkevidde_min, rekkevidde_max, hjuldrift_filter,
+                                           q_extra])
     if not has_query:
         return render_template("bil_finn_sok.html",
                                treff=None, finn_url="", form=request.args, filter_opts=filter_opts,
@@ -2565,7 +2574,8 @@ def bil_finn_sok():
                 else _build_finn_sok_url(merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
                                          km_min, km_max, ar_min, ar_max, q_extra,
                                          bare_brukt=bare_brukt,
-                                         published_last_day=published_last_day))
+                                         published_last_day=published_last_day,
+                                         hjuldrift=hjuldrift_filter))
 
     try:
         annonser = _hent_finn_listing(finn_url, max_biler=max_biler)

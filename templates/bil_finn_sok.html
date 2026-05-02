@@ -208,6 +208,14 @@
               <input type="number" name="max_biler" min="10" max="200" step="10"
                      value="{{ form.get('max_biler','50') }}">
             </label>
+            <label>Hjuldrift
+              <select name="hjuldrift_filter">
+                {% set hjul = form.get('hjuldrift_filter','') %}
+                <option value=""          {% if hjul=='' %}selected{% endif %}>– alle –</option>
+                <option value="firehjul"  {% if hjul=='firehjul' %}selected{% endif %}>Firehjulsdrift</option>
+                <option value="tohjul"    {% if hjul=='tohjul' %}selected{% endif %}>Tohjulsdrift</option>
+              </select>
+            </label>
             <label>Rekkevidde min (km)
               <input type="number" name="rekkevidde_min" min="0" step="10"
                      value="{{ form.get('rekkevidde_min','') }}">
