@@ -1873,15 +1873,10 @@ def bil_innbytte_side():
                         error = "SVV-oppslaget manglet merke. Klarer ikke hente sammenlignbare biler."
                     else:
                         try:
-                            import time as _innbytte_time
-                            _t0 = _innbytte_time.time()
                             s3_key = PARQUET_KEY_SOLGT
                             path = _ensure_local_parquet(s3_key)
-                            print(f"[innbytte] parquet ready in {_innbytte_time.time()-_t0:.2f}s ({regnr})")
-                            _t1 = _innbytte_time.time()
                             colmap = _duckdb_get_colmap(path, s3_key)
                             con = _duckdb_con()
-                            print(f"[innbytte] colmap+con in {_innbytte_time.time()-_t1:.2f}s")
 
                             def col_or_null(key: str) -> str:
                                 c = colmap.get(key)
@@ -2045,10 +2040,7 @@ def bil_innbytte_side():
                                 """
                                 # NB: De to første parameterne tilhører score-uttrykket.
                                 score_params = [km_value, target_year or datetime.utcnow().year] + params
-                                _tq = _innbytte_time.time()
-                                df = con.execute(score_sql, score_params).df()
-                                print(f"[innbytte] query (hjuldrift={include_hjuldrift}) {_innbytte_time.time()-_tq:.2f}s -> {len(df)} rader")
-                                return df
+                                return con.execute(score_sql, score_params).df()
 
                             debug_context["modellvarianter"] = modell_candidates[:8]
                             debug_context["filtre"] = [
@@ -2115,12 +2107,17 @@ def bil_innbytte_side():
                             if not records and not model_selection:
                                 error = "Fant ingen gode sammenlignbare biler med dagens kriterier."
                             elif not model_selection:
-                                topp = records[:10]
-                                priser = [
-                                    int(r["pris"])
-                                    for r in topp
-                                    if isinstance(r.get("pris"), (int, float)) and int(r.get("pris") or 0) > 0
-                                ]
+                                priser = []
+                                for r in records:
+                                    raw = r.get("pris")
+                                    if raw is None:
+                                        continue
+                                    try:
+                                        val = int(raw)
+                                    except (TypeError, ValueError):
+                                        continue
+                                    if val > 0:
+                                        priser.append(val)
                                 if not priser:
                                     error = "Fant sammenlignbare biler, men manglet prisgrunnlag."
                                 else:
@@ -2131,6 +2128,12 @@ def bil_innbytte_side():
                                     minimum_salgspris = int(min(priser))
                                     median_minus_15 = int(round(median_pris * 0.85))
                                     innbyttepris = min(median_minus_15, minimum_salgspris)
+
+                                    # Sorter visningen stigende på pris (default).
+                                    records_sorted = sorted(
+                                        records,
+                                        key=lambda r: (r.get("pris") if isinstance(r.get("pris"), (int, float)) else float("inf"))
+                                    )
 
                                     result = {
                                         "svv": {
@@ -2145,7 +2148,7 @@ def bil_innbytte_side():
                                         "pris_p25": p25_pris,
                                         "pris_p75": p75_pris,
                                         "antall_sammenlignbare": len(records),
-                                        "sammenlignbare": records,
+                                        "sammenlignbare": records_sorted,
                                     }
 
                         except Exception as e:
