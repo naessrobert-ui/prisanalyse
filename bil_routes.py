@@ -2184,6 +2184,23 @@ _FINN_FUEL_MAP = {
     "Gass": "3",
 }
 
+_FINN_FYLKE_LOCATION_MAP = {
+    "agder": "0.20002",
+    "akershus": "0.20003",
+    "buskerud": "0.20004",
+    "finnmark": "0.20006",
+    "innlandet": "0.20034",
+    "møre og romsdal": "0.20015",
+    "nordland": "0.20018",
+    "oslo": "0.20061",
+    "rogaland": "0.20020",
+    "telemark": "0.20039",
+    "troms": "0.20060",
+    "trøndelag": "0.20016",
+    "vestfold": "0.20038",
+    "vestland": "0.22046",
+}
+
 
 def _get_finn_sok_filter_options() -> dict:
     """Bygger dropdown-verdier fra samme parquet som /bil/solgt bruker."""
@@ -2284,7 +2301,7 @@ def _normaliser_finn_sok_url(raw: str) -> str:
     return raw
 
 
-def _build_finn_sok_url(merke, modell, drivstoff, pris_min, pris_max,
+def _build_finn_sok_url(merke, modell, drivstoff, fylke, pris_min, pris_max,
                        km_min, km_max, ar_min, ar_max, q_extra) -> str:
     base = "https://www.finn.no/mobility/search/car"
     parts = []
@@ -2293,6 +2310,9 @@ def _build_finn_sok_url(merke, modell, drivstoff, pris_min, pris_max,
         parts.append(("q", " ".join(q_terms)))
     if drivstoff and drivstoff in _FINN_FUEL_MAP:
         parts.append(("fuel", _FINN_FUEL_MAP[drivstoff]))
+    fylke_key = (fylke or "").strip().lower()
+    if fylke_key in _FINN_FYLKE_LOCATION_MAP:
+        parts.append(("location", _FINN_FYLKE_LOCATION_MAP[fylke_key]))
     for key, val in [("price_from", pris_min), ("price_to", pris_max),
                      ("mileage_from", km_min), ("mileage_to", km_max),
                      ("year_from", ar_min), ("year_to", ar_max)]:
@@ -2523,7 +2543,7 @@ def bil_finn_sok():
                                treff=None, finn_url="", form=request.args, filter_opts=filter_opts)
 
     finn_url = (_normaliser_finn_sok_url(finn_url_raw) if finn_url_raw
-                else _build_finn_sok_url(merke, modell, drivstoff, pris_min, pris_max,
+                else _build_finn_sok_url(merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
                                          km_min, km_max, ar_min, ar_max, q_extra))
 
     try:
