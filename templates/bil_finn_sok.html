@@ -95,7 +95,9 @@
     .card-title { font-size:0.95rem; font-weight:600; color:#fff;
                   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .card-subtitle { font-size:0.78rem; color:var(--text-muted);
-                     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+                     overflow:hidden; text-overflow:ellipsis;
+                     display:-webkit-box; -webkit-line-clamp:2;
+                     -webkit-box-orient:vertical; line-clamp:2; }
     .card-specs { display:flex; gap:0.4rem; flex-wrap:wrap; font-size:0.74rem;
                   color:var(--text-muted); margin-top:0.15rem; }
     .card-specs span { white-space:nowrap; }
@@ -337,8 +339,9 @@
               FinnKode {{ t.finnkode }}
             {% endif %}
           </div>
-          {% if t.title and (t.merke or t.modell) and t.title != ((t.merke or '') ~ ' ' ~ (t.modell or '')) %}
-            <div class="card-subtitle">{{ t.title }}</div>
+          {% set _hdr = ((t.merke or '') ~ ' ' ~ (t.modell or '')) | trim %}
+          {% if t.title and t.title|trim and (t.merke or t.modell) and t.title|trim != _hdr %}
+            <div class="card-subtitle" title="{{ t.title }}">{{ t.title }}</div>
           {% endif %}
           <div class="card-specs">
             {% if t.aar %}<span>{{ t.aar }}</span>{% endif %}
@@ -362,7 +365,6 @@
           <div class="card-location">
             {% if t.sted %}{{ t.sted }} · {% endif %}
             <span class="card-days">{{ t.dager_for_salg }} dager til salgs</span>
-            <span style="float:right;">FinnKode {{ t.finnkode }}</span>
           </div>
         </div>
       </a>

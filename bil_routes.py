@@ -2394,12 +2394,14 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
     c_hjul   = _qident(colmap.get("hjuldrift"))
     c_prod   = _qident(colmap.get("produsent"))
     c_modell = _qident(colmap.get("modell"))
+    c_over   = colmap.get("overskrift")
     c_brukt  = _qident(colmap.get("bruktimport"))
     c_land   = _qident(colmap.get("import_land"))
 
     sel_bilde = f"{_qident(c_bilde)} AS BildeURL," if c_bilde else "NULL AS BildeURL,"
     sel_sted  = f"{_qident(c_sted)}  AS Sted,"     if c_sted  else "NULL AS Sted,"
     sel_fylke = f"{_qident(c_fylke)} AS Fylke,"    if c_fylke else "NULL AS Fylke,"
+    sel_over  = f"{_qident(c_over)} AS Overskrift," if c_over else "NULL AS Overskrift,"
 
     fk_str_expr = f"regexp_replace(cast({c_fk} as varchar), '\\.0$', '')"
     fk_csv = ",".join(f"'{fk}'" for fk in fk_clean)
@@ -2421,6 +2423,7 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
         {sel_bilde}
         {sel_sted}
         {sel_fylke}
+        {sel_over}
         date_diff(
           'day',
           cast({c_dato} as date),
@@ -2609,7 +2612,10 @@ def bil_finn_sok():
             r["finnkode"] = fk
             r["url"] = a["url"]
             r["i_db"] = True
-            r["title"] = None
+            over = r.get("Overskrift")
+            if over is not None and (isinstance(over, float) and np.isnan(over)):
+                over = None
+            r["title"] = (str(over).strip() or None) if over else None
             rows.append(r)
         else:
             d = detalj_ukjent.get(fk, {})
