@@ -259,8 +259,9 @@
         </div>
 
         <div class="actions">
-          <button type="submit" class="primary">Søk</button>
+          <button type="submit" class="primary">Søk på FINN</button>
           <a class="reset-btn" href="/bil/finn-sok">Nullstill</a>
+          <span class="meta">Sortering og rabattfilter justeres uten ny henting.</span>
           {% if finn_url %}
             <span class="meta">FINN-URL i bruk:
               <a href="{{ finn_url }}" target="_blank" rel="noopener">åpne på FINN ↗</a>
@@ -282,20 +283,22 @@
     {% set scored = treff | selectattr('rabatt_pct', 'ne', None) | list %}
     {% set good_count = scored | selectattr('rabatt_pct', '>=', 10) | list | length %}
     {% set avg = (scored | sum(attribute='rabatt_pct') / scored|length) if scored|length else 0 %}
-    <div class="stats-bar">
-      <div class="stat-badge"><strong>{{ treff|length }}</strong> treff fra FINN</div>
-      <div class="stat-badge"><strong>{{ scored|length }}</strong> scoret av BilRadar</div>
-      <div class="stat-badge"><strong>{{ good_count }}</strong> gode kjøp (≥ 10 %)</div>
+    <div class="stats-bar" id="statsBar"
+         data-treff="{{ treff|length }}"
+         data-scored="{{ scored|length }}">
+      <div class="stat-badge"><strong id="statTreff">{{ treff|length }}</strong> treff fra FINN</div>
+      <div class="stat-badge"><strong id="statSynlige">{{ treff|length }}</strong> synlige</div>
+      <div class="stat-badge"><strong id="statGoodCount">{{ good_count }}</strong> gode kjøp (≥ 10 %)</div>
       {% if scored|length %}
-      <div class="stat-badge">Snitt rabatt: <strong>{{ '%.1f' % avg }} %</strong></div>
+      <div class="stat-badge">Snitt rabatt: <strong id="statAvg">{{ '%.1f' % avg }} %</strong></div>
       {% endif %}
-      <div class="stat-badge meta">Cache 60s · én side · opptil {{ form.get('max_biler','50') }}</div>
+      <div class="stat-badge meta">Cache 60s · sortering og rabattfilter justeres lokalt</div>
     </div>
 
     {% if treff|length == 0 %}
     <div class="form-wrap"><div class="alert alert-info">Ingen biler å vise.</div></div>
     {% else %}
-    <div class="grid">
+    <div class="grid" id="carGrid">
       {% for t in treff %}
         {% set rab = t.rabatt_pct %}
         {% set is_good = (rab is not none and rab >= 10) %}
@@ -307,6 +310,10 @@
           {% endif %}
         {% endif %}
       <a class="car-card{% if is_good %} good-deal{% endif %}"
+         data-rabatt="{{ rab if rab is not none else '' }}"
+         data-pris="{{ t.pris or 0 }}"
+         data-km="{{ t.km if t.km is not none else 0 }}"
+         data-aar="{{ t.aar or 0 }}"
          href="{{ t.url }}" target="_blank" rel="noopener">
         <div class="card-img-wrap">
           {% if t.image_url %}
@@ -423,6 +430,108 @@
           oppdaterModeller();
         });
       }
+    })();
+
+    // ---- Klient-side sortering og rabattfilter ------------------------------
+    // Sortering og "Rabatt min" justeres uten å treffe FINN på nytt.
+    // Andre filtre (merke, drivstoff, pris osv.) krever klikk på "Søk på FINN".
+    (function () {
+      var grid = document.getElementById('carGrid');
+      if (!grid) return;
+      var cards = Array.prototype.slice.call(grid.querySelectorAll('.car-card'));
+      if (!cards.length) return;
+
+      function val(c, attr) {
+        var v = c.getAttribute('data-' + attr);
+        if (v === null || v === '') return null;
+        var n = parseFloat(v);
+        return isNaN(n) ? null : n;
+      }
+
+      function cmpNullsLast(a, b) {
+        if (a === null && b === null) return 0;
+        if (a === null) return 1;
+        if (b === null) return -1;
+        return a - b;
+      }
+
+      function sorter(cards, sortKey) {
+        var sorted = cards.slice();
+        switch (sortKey) {
+          case 'rabatt_desc':
+            sorted.sort(function (a, b) { return cmpNullsLast(val(b, 'rabatt'), val(a, 'rabatt')); });
+            break;
+          case 'pris_asc':
+            sorted.sort(function (a, b) { return cmpNullsLast(val(a, 'pris'), val(b, 'pris')); });
+            break;
+          case 'pris_desc':
+            sorted.sort(function (a, b) { return cmpNullsLast(val(b, 'pris'), val(a, 'pris')); });
+            break;
+          case 'km_asc':
+            sorted.sort(function (a, b) { return cmpNullsLast(val(a, 'km'), val(b, 'km')); });
+            break;
+          case 'km_desc':
+            sorted.sort(function (a, b) { return cmpNullsLast(val(b, 'km'), val(a, 'km')); });
+            break;
+          case 'aar_desc':
+            sorted.sort(function (a, b) { return cmpNullsLast(val(b, 'aar'), val(a, 'aar')); });
+            break;
+          case 'aar_asc':
+            sorted.sort(function (a, b) { return cmpNullsLast(val(a, 'aar'), val(b, 'aar')); });
+            break;
+          // 'sist_lagt_ut' kan ikke håndteres lokalt — server-sortering brukes
+          // ved "Søk på FINN". I mellomtiden vises rekkefølgen som kommer.
+          default:
+            return cards;
+        }
+        return sorted;
+      }
+
+      function applyKlientFilter() {
+        var sortEl = document.querySelector('select[name="sort"]');
+        var rabattEl = document.querySelector('input[name="rabatt_min"]');
+        var sortKey = sortEl ? sortEl.value : 'rabatt_desc';
+        var rabattMin = rabattEl && rabattEl.value !== '' ? parseFloat(rabattEl.value) : null;
+
+        var sorted = sorter(cards, sortKey);
+
+        var synlige = 0;
+        var sumRab = 0;
+        var antRab = 0;
+        var goodCount = 0;
+
+        sorted.forEach(function (c) {
+          var rab = val(c, 'rabatt');
+          var match = (rabattMin === null) || (rab !== null && rab >= rabattMin);
+          c.style.display = match ? '' : 'none';
+          if (match) {
+            synlige++;
+            if (rab !== null) {
+              sumRab += rab;
+              antRab++;
+              if (rab >= 10) goodCount++;
+            }
+          }
+        });
+
+        // Re-arrange DOM-rekkefølgen etter sortert array
+        var fragment = document.createDocumentFragment();
+        sorted.forEach(function (c) { fragment.appendChild(c); });
+        grid.appendChild(fragment);
+
+        // Oppdater stats-bar
+        var statSynlige = document.getElementById('statSynlige');
+        var statGood = document.getElementById('statGoodCount');
+        var statAvg = document.getElementById('statAvg');
+        if (statSynlige) statSynlige.textContent = synlige;
+        if (statGood) statGood.textContent = goodCount;
+        if (statAvg && antRab > 0) statAvg.textContent = (sumRab / antRab).toFixed(1) + ' %';
+      }
+
+      var sortEl = document.querySelector('select[name="sort"]');
+      var rabattEl = document.querySelector('input[name="rabatt_min"]');
+      if (sortEl) sortEl.addEventListener('change', applyKlientFilter);
+      if (rabattEl) rabattEl.addEventListener('input', applyKlientFilter);
     })();
   </script>
 </body>
