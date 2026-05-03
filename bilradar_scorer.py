@@ -47,12 +47,26 @@ _MODEL_CACHE = {
 }
 
 
+def _er_joblib(navn: str) -> bool:
+    return navn.lower().endswith(".joblib")
+
+
 def _last_pickle_fra_fil(path: str) -> FlipModels:
+    """Last FlipModels fra disk. Velger joblib eller pickle basert på
+    filendelse — joblib-fila kan være lz4-komprimert."""
+    if _er_joblib(path):
+        import joblib
+        return joblib.load(path)
     with open(path, "rb") as f:
         return pickle.load(f)
 
 
-def _last_pickle_fra_bytes(data: bytes) -> FlipModels:
+def _last_pickle_fra_bytes(data: bytes, navn: str = "") -> FlipModels:
+    """Last FlipModels fra bytes. navn brukes til formatdeteksjon
+    (joblib hvis .joblib-endelse, ellers pickle)."""
+    if _er_joblib(navn):
+        import joblib
+        return joblib.load(io.BytesIO(data))
     return pickle.loads(data)
 
 
@@ -80,7 +94,7 @@ def last_modell_fra_s3(s3_client, bucket: str, key: str) -> FlipModels:
 
         print(f"[BilRadar] Laster prismodell fra s3://{bucket}/{key} ...")
         obj = s3_client.get_object(Bucket=bucket, Key=key)
-        modeller = _last_pickle_fra_bytes(obj["Body"].read())
+        modeller = _last_pickle_fra_bytes(obj["Body"].read(), navn=key)
 
         _logg_modell_info(modeller)
         _MODEL_CACHE["modeller"] = modeller
@@ -114,7 +128,7 @@ def last_modell_lokal_eller_s3(local_path: str, s3_client=None, bucket: str = ""
             except Exception:
                 pass
 
-            modeller = _last_pickle_fra_bytes(data)
+            modeller = _last_pickle_fra_bytes(data, navn=key)
         else:
             raise FileNotFoundError(
                 f"Prismodell ikke funnet: lokal={local_path}, S3={bucket}/{key}"

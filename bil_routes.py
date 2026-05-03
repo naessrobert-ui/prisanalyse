@@ -1461,8 +1461,8 @@ BILRADAR_HTML_CACHE = {"alle": {"html": None, "etag": None},
 BILRADAR_HTML_LOCK = threading.Lock()
 _BILRADAR_MODEL_LOCK = threading.Lock()
 _BILRADAR_MODEL_CACHE = {"modeller": None}
-_BILRADAR_MODEL_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "bil_prismodell.pkl")
-_BILRADAR_MODEL_S3_KEY = "calc/bil/bil_prismodell.pkl"
+_BILRADAR_MODEL_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "bil_prismodell.joblib")
+_BILRADAR_MODEL_S3_KEY = "calc/bil/bil_prismodell.joblib"
 
 def _get_bilradar_html_template() -> str:
     """Leser BilRadar HTML-template fra disk."""
