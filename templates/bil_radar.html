@@ -52,6 +52,9 @@
     .card-price-orig { font-size:0.75rem; color:var(--text-muted); text-decoration:line-through; margin-left:0.4rem; font-weight:400; }
     .card-expected { font-size:0.78rem; color:var(--text-muted); }
     .card-expected .val { color:var(--green); font-weight:600; }
+    .card-fast { font-size:0.72rem; color:var(--text-muted); margin-top:0.15rem; }
+    .card-fast .val { color:#fbbf24; font-weight:600; }
+    .badge-fast { display:inline-block; background:#fbbf24; color:#111; font-weight:700; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:4px; margin-left:0.4rem; vertical-align:middle; }
     .card-location { font-size:0.72rem; color:var(--text-muted); margin-top:0.15rem; }
     .card-days { color:var(--accent); }
     .results-info { max-width:1400px; margin:0 auto; padding:0 1rem; font-size:0.8rem; color:var(--text-muted); }
@@ -117,6 +120,7 @@
   function fy(c){return c.fy||""}
   function im(c){return c.im||""}
   function ep(c){return c.ep||0}
+  function hp(c){return c.hp||0}
   function rb(c){return c.r||0}
   function dm(c){return c.dm||0}
   function finnUrl(c){var id=fk(c);return id?"https://www.finn.no/mobility/item/"+id:"#"}
@@ -191,7 +195,10 @@
       if(days>0){locHtml+=(locHtml?' &middot; ':'')+'<span class="card-days">'+days+' dager til salgs</span>'}
       var origP=pf(c);var curP=pr(c);
       var priceHtml='<div class="card-price">'+fmtKr(curP)+(origP&&origP>curP?'<span class="card-price-orig">'+fmtKr(origP)+'</span>':'')+'</div>';
-      html+='<a class="car-card'+(isGood?' good-deal':'')+'" href="'+finnUrl(c)+'" target="_blank" rel="noopener"><div class="card-img-wrap">'+imgH+'<div class="badge-discount'+bc+'">'+bt+'</div></div><div class="card-body"><div class="card-title">'+title+'</div>'+(sub?'<div class="card-subtitle">'+sub+'</div>':'')+'<div class="card-specs">'+specs.map(function(s){return'<span>'+s+'</span>'}).join("")+'</div><div class="card-price-row">'+priceHtml+(ep(c)?'<div class="card-expected">Forventet: <span class="val">'+fmtKr(ep(c))+'</span></div>':'')+'</div>'+(locHtml?'<div class="card-location">'+locHtml+'</div>':'')+'</div></a>';
+      var hpVal=hp(c);
+      var underFast=hpVal&&curP&&curP<hpVal;
+      var fastHtml=hpVal?'<div class="card-fast">Hurtigpris: <span class="val">'+fmtKr(hpVal)+'</span>'+(underFast?'<span class="badge-fast">UNDER</span>':'')+'</div>':'';
+      html+='<a class="car-card'+(isGood?' good-deal':'')+'" href="'+finnUrl(c)+'" target="_blank" rel="noopener"><div class="card-img-wrap">'+imgH+'<div class="badge-discount'+bc+'">'+bt+'</div></div><div class="card-body"><div class="card-title">'+title+'</div>'+(sub?'<div class="card-subtitle">'+sub+'</div>':'')+'<div class="card-specs">'+specs.map(function(s){return'<span>'+s+'</span>'}).join("")+'</div><div class="card-price-row">'+priceHtml+(ep(c)?'<div class="card-expected">Forventet: <span class="val">'+fmtKr(ep(c))+'</span></div>':'')+'</div>'+fastHtml+(locHtml?'<div class="card-location">'+locHtml+'</div>':'')+'</div></a>';
     }
     grid.innerHTML=html;
   }

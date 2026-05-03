@@ -1481,8 +1481,9 @@ def _lag_json_data_fra_parquet(df: pd.DataFrame) -> str:
         "Karosseri": "ka", "Pris_ny": "p", "Pris": "pf",
         "selger": "s", "sted": "st", "fylke": "fy", "forhandler": "fh",
         "BildeURL": "im", "forventet_pris": "ep", "rabatt_pct": "r",
+        "hurtigpris": "hp",
     }
-    int_keys = {"i", "a", "k", "p", "pf", "ep"}
+    int_keys = {"i", "a", "k", "p", "pf", "ep", "hp"}
     cars = []
     for _, row in df.iterrows():
         car = {}
@@ -1586,7 +1587,7 @@ def _les_parquet_aktive(s3) -> tuple:
         df = pd.read_parquet(_io.BytesIO(obj["Body"].read()))
         if "Solgt" in df.columns:
             df = df[df["Solgt"] == "NEI"].copy()
-        for col in ["forventet_pris", "rabatt_pct"]:
+        for col in ["forventet_pris", "hurtigpris", "rabatt_pct"]:
             if col not in df.columns:
                 df[col] = np.nan
         _BILRADAR_PARQUET_CACHE["etag"] = etag
@@ -1671,7 +1672,7 @@ def bil_radar_siste():
                 df_siste = df_siste[aktiv_mask].copy()
             else:
                 print("[BilRadar/siste] Ingen kjente 'ikke-solgt'-verdier i Solgt-kolonnen, hopper over Solgt-filter")
-        for col in ["forventet_pris", "rabatt_pct"]:
+        for col in ["forventet_pris", "hurtigpris", "rabatt_pct"]:
             if col not in df_siste.columns:
                 df_siste[col] = np.nan
         if "modell_nivaa" not in df_siste.columns:
@@ -1685,9 +1686,10 @@ def bil_radar_siste():
         if antall_mangler_scoring > 0:
             print(f"[BilRadar/siste] Live-scoring av {antall_mangler_scoring} biler uten forventet pris")
             df_live = _score_manglende_biler(df_siste[mangler_scoring_mask].copy(), s3)
-            oppdatert = df_live.set_index("FinnKode")[["forventet_pris", "rabatt_pct", "modell_nivaa"]]
+            kolonner_a_oppdatere = [c for c in ["forventet_pris", "hurtigpris", "rabatt_pct", "modell_nivaa"] if c in df_live.columns]
+            oppdatert = df_live.set_index("FinnKode")[kolonner_a_oppdatere]
             df_siste = df_siste.set_index("FinnKode")
-            for col in ["forventet_pris", "rabatt_pct", "modell_nivaa"]:
+            for col in kolonner_a_oppdatere:
                 if col not in df_siste.columns:
                     if col == "modell_nivaa":
                         df_siste[col] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
@@ -2652,6 +2654,7 @@ def bil_finn_sok():
                 fk = str(sc_row.get("FinnKode"))
                 score_map[fk] = {
                     "forventet_pris": sc_row.get("forventet_pris"),
+                    "hurtigpris": sc_row.get("hurtigpris"),
                     "rabatt_pct": sc_row.get("rabatt_pct"),
                     "modell_nivaa": sc_row.get("modell_nivaa"),
                 }
@@ -2707,6 +2710,7 @@ def bil_finn_sok():
             "image_url": r.get("BildeURL"),
             "sted": sted,
             "forventet_pris": _to_int_safe(sc.get("forventet_pris")),
+            "hurtigpris": _to_int_safe(sc.get("hurtigpris")),
             "rabatt_pct": rab_val,
             "modell_nivaa": sc.get("modell_nivaa"),
             "i_db": r.get("i_db", False),
