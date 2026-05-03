@@ -260,7 +260,7 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
 <div class="hero">
   <div class="hero-badge">🌨️ Sanntidsdata fra Frost &amp; Yr</div>
   <h1>Norge i <em>sanntid</em> —<br>vær, snø og sol</h1>
-  <div class="hero-sub">Snødybde, nedbør, solskinn og temperaturer fra hele landet — pluss skiturplanlegging for Kvamskogen og resten av Norge.</div>
+  <div class="hero-sub">Snødybde, nedbør, solskinn og temperaturer fra hele landet — pluss egne moduler for både skiføre og turvær på Kvamskogen.</div>
 </div>
 
 <div class="stats">
@@ -295,6 +295,16 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
         <div class="kort-tittel">Kvamskogen – Snø og vær</div>
         <div class="kort-tekst">Detaljert snø- og værstatus for Kvamskogen. Historikk, prognose, skituranbefaling og løypestatus direkte fra Frost og Yr.</div>
         <div class="kort-lenke">Åpne Kvamskogen</div>
+      </a>
+
+      <a class="kort kort-featured" href="/kvamskogen-sommer/">
+        <div class="kort-topp">
+          <div class="kort-ikon">🥾</div>
+          <span class="kort-badge b-gul">Turvær</span>
+        </div>
+        <div class="kort-tittel">Kvamskogen sommer – tur i terreng</div>
+        <div class="kort-tekst">Egen modul for turvær uten skiløyper, ski eller snøfokus. Fremhever dager uten regn, med lite vind og minst 5 timer sol.</div>
+        <div class="kort-lenke">Åpne sommermodul</div>
       </a>
 
       <a class="kort" href="/ver/varsel-kvamskogen">
