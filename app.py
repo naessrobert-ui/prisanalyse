@@ -144,10 +144,10 @@ def create_app() -> Flask:
     # /ver/min-temp (og senere /ver/vind, /ver/nedbor) raskt.
     start_station_metrics_warmup()
 
-    # Forhåndlast Bilradar-prismodellen i bakgrunnstråd (~150 MB joblib,
-    # 2-3 min å deserialisere). Uten dette ville første /bil/finn-sok-
-    # request blokkert til workeren risikerer å treffe gunicorn-timeout.
-    start_bilradar_warmup()
+    # Bilradar-warmup deaktivert midlertidig: 150 MB-modellen forårsaket
+    # OOM-loop på 2 GB-instansen. Aktiveres igjen når modellen er retrent
+    # med høyere MIN_OBS_L1 og lavere max_iter (~30-40 MB komprimert).
+    # start_bilradar_warmup()
 
 
 
