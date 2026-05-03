@@ -35,6 +35,14 @@
     input, select { background:#0f1117; color:var(--text); border:1px solid var(--border);
                     border-radius:var(--radius); padding:0.5rem 0.7rem; font:inherit; outline:none; }
     input:focus, select:focus { border-color:var(--accent); }
+    .checkbox-row { display:flex; gap:1.25rem; flex-wrap:wrap; margin-top:0.75rem;
+                    padding-top:0.75rem; border-top:1px solid var(--border); }
+    .checkbox-label { flex-direction:row; align-items:center; gap:0.5rem;
+                      text-transform:none; letter-spacing:0; font-size:0.85rem;
+                      color:var(--text); cursor:pointer; }
+    .checkbox-label input[type="checkbox"] { width:1.05rem; height:1.05rem;
+                                              accent-color:var(--accent);
+                                              padding:0; margin:0; cursor:pointer; }
     .url-box { width:100%; }
     .actions { display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap; margin-top:0.85rem; }
     button.primary { background:var(--accent); color:#fff; border:0; padding:0.55rem 1.2rem;
@@ -87,7 +95,9 @@
     .card-title { font-size:0.95rem; font-weight:600; color:#fff;
                   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .card-subtitle { font-size:0.78rem; color:var(--text-muted);
-                     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+                     overflow:hidden; text-overflow:ellipsis;
+                     display:-webkit-box; -webkit-line-clamp:2;
+                     -webkit-box-orient:vertical; line-clamp:2; }
     .card-specs { display:flex; gap:0.4rem; flex-wrap:wrap; font-size:0.74rem;
                   color:var(--text-muted); margin-top:0.15rem; }
     .card-specs span { white-space:nowrap; }
@@ -99,6 +109,11 @@
     .card-expected { font-size:0.76rem; color:var(--text-muted); text-align:right; }
     .card-expected .val { color:var(--green); font-weight:600; }
     .card-expected.bad .val { color:var(--red); }
+    .card-fast { font-size:0.7rem; color:var(--text-muted); margin-top:0.15rem; text-align:right; }
+    .card-fast .val { color:#fbbf24; font-weight:600; }
+    .badge-fast { display:inline-block; background:#fbbf24; color:#111; font-weight:700;
+                  font-size:0.62rem; padding:0.05rem 0.35rem; border-radius:4px;
+                  margin-left:0.35rem; vertical-align:middle; letter-spacing:0.03em; }
     .card-location { font-size:0.7rem; color:var(--text-muted); margin-top:0.15rem; }
     .card-days { color:var(--accent); }
   </style>
@@ -121,6 +136,7 @@
       </div>
 
       <form method="get" action="/bil/finn-sok">
+        <input type="hidden" name="filter_set" value="1">
         <div id="mode-builder">
           <div class="row">
             <label>Merke
@@ -199,6 +215,14 @@
               <input type="number" name="max_biler" min="10" max="200" step="10"
                      value="{{ form.get('max_biler','50') }}">
             </label>
+            <label>Hjuldrift
+              <select name="hjuldrift_filter">
+                {% set hjul = form.get('hjuldrift_filter','') %}
+                <option value=""          {% if hjul=='' %}selected{% endif %}>– alle –</option>
+                <option value="firehjul"  {% if hjul=='firehjul' %}selected{% endif %}>Firehjulsdrift</option>
+                <option value="tohjul"    {% if hjul=='tohjul' %}selected{% endif %}>Tohjulsdrift</option>
+              </select>
+            </label>
             <label>Rekkevidde min (km)
               <input type="number" name="rekkevidde_min" min="0" step="10"
                      value="{{ form.get('rekkevidde_min','') }}">
@@ -210,6 +234,19 @@
             <label style="grid-column: span 4;">Ekstra fritekst (legges til q=)
               <input type="text" name="q_extra" placeholder="xDrive40e"
                      value="{{ form.get('q_extra','') }}">
+            </label>
+          </div>
+
+          <div class="checkbox-row">
+            <label class="checkbox-label">
+              <input type="checkbox" name="bare_brukt" value="1"
+                     {% if bare_brukt %}checked{% endif %}>
+              <span>Bare bruktbiler (ingen leasing/auksjon)</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="published_last_day" value="1"
+                     {% if published_last_day %}checked{% endif %}>
+              <span>Kun publisert siste døgn</span>
             </label>
           </div>
         </div>
@@ -307,8 +344,9 @@
               FinnKode {{ t.finnkode }}
             {% endif %}
           </div>
-          {% if t.title and (t.merke or t.modell) and t.title != ((t.merke or '') ~ ' ' ~ (t.modell or '')) %}
-            <div class="card-subtitle">{{ t.title }}</div>
+          {% set _hdr = ((t.merke or '') ~ ' ' ~ (t.modell or '')) | trim %}
+          {% if t.title and t.title|trim and (t.merke or t.modell) and t.title|trim != _hdr %}
+            <div class="card-subtitle" title="{{ t.title }}">{{ t.title }}</div>
           {% endif %}
           <div class="card-specs">
             {% if t.aar %}<span>{{ t.aar }}</span>{% endif %}
@@ -329,10 +367,15 @@
             </div>
             {% endif %}
           </div>
+          {% if t.hurtigpris %}
+          <div class="card-fast">
+            Hurtigpris: <span class="val">{{ '{:,}'.format(t.hurtigpris).replace(',', ' ') }} kr</span>
+            {% if t.pris and t.pris < t.hurtigpris %}<span class="badge-fast">UNDER</span>{% endif %}
+          </div>
+          {% endif %}
           <div class="card-location">
             {% if t.sted %}{{ t.sted }} · {% endif %}
             <span class="card-days">{{ t.dager_for_salg }} dager til salgs</span>
-            <span style="float:right;">FinnKode {{ t.finnkode }}</span>
           </div>
         </div>
       </a>

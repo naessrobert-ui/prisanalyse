@@ -438,15 +438,18 @@ def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
 
 def _bool_expr(col_ident: str) -> str:
     """
-    Returnerer ALWAYS BOOLEAN.
-    Tåler bool, 0/1, og strenger som 'true'/'ja' osv.
+    Returnerer ALWAYS BOOLEAN for "ute av markedet"-flagget Solgt.
+    Tåler bool, 0/1, og strenger som 'true'/'ja'/'solgt'/'fjernet'.
+    'fjernet' og 'solgt' regnes som true: pipelinen markerer annonser som
+    forsvinner fra FINN uten salgsbekreftelse med 'fjernet', og disse skal
+    telle som "ikke lenger aktiv" på lik linje med 'ja'.
     """
     return f"""
     (
       case
         when {col_ident} is null then false
         when try_cast({col_ident} as BOOLEAN) is not null then try_cast({col_ident} as BOOLEAN)
-        when lower(trim(cast({col_ident} as varchar))) in ('1','true','t','yes','y','ja') then true
+        when lower(trim(cast({col_ident} as varchar))) in ('1','true','t','yes','y','ja','solgt','fjernet') then true
         else false
       end
     )
@@ -1458,8 +1461,8 @@ BILRADAR_HTML_CACHE = {"alle": {"html": None, "etag": None},
 BILRADAR_HTML_LOCK = threading.Lock()
 _BILRADAR_MODEL_LOCK = threading.Lock()
 _BILRADAR_MODEL_CACHE = {"modeller": None}
-_BILRADAR_MODEL_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "bil_prismodell_v2.joblib")
-_BILRADAR_MODEL_S3_KEY = "calc/bil/bil_prismodell_v2.joblib"
+_BILRADAR_MODEL_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "bil_prismodell.joblib")
+_BILRADAR_MODEL_S3_KEY = "calc/bil/bil_prismodell.joblib"
 
 def _get_bilradar_html_template() -> str:
     """Leser BilRadar HTML-template fra disk."""
@@ -1478,8 +1481,9 @@ def _lag_json_data_fra_parquet(df: pd.DataFrame) -> str:
         "Karosseri": "ka", "Pris_ny": "p", "Pris": "pf",
         "selger": "s", "sted": "st", "fylke": "fy", "forhandler": "fh",
         "BildeURL": "im", "forventet_pris": "ep", "rabatt_pct": "r",
+        "hurtigpris": "hp",
     }
-    int_keys = {"i", "a", "k", "p", "pf", "ep"}
+    int_keys = {"i", "a", "k", "p", "pf", "ep", "hp"}
     cars = []
     for _, row in df.iterrows():
         car = {}
@@ -1583,7 +1587,7 @@ def _les_parquet_aktive(s3) -> tuple:
         df = pd.read_parquet(_io.BytesIO(obj["Body"].read()))
         if "Solgt" in df.columns:
             df = df[df["Solgt"] == "NEI"].copy()
-        for col in ["forventet_pris", "rabatt_pct"]:
+        for col in ["forventet_pris", "hurtigpris", "rabatt_pct"]:
             if col not in df.columns:
                 df[col] = np.nan
         _BILRADAR_PARQUET_CACHE["etag"] = etag
@@ -1668,7 +1672,7 @@ def bil_radar_siste():
                 df_siste = df_siste[aktiv_mask].copy()
             else:
                 print("[BilRadar/siste] Ingen kjente 'ikke-solgt'-verdier i Solgt-kolonnen, hopper over Solgt-filter")
-        for col in ["forventet_pris", "rabatt_pct"]:
+        for col in ["forventet_pris", "hurtigpris", "rabatt_pct"]:
             if col not in df_siste.columns:
                 df_siste[col] = np.nan
         if "modell_nivaa" not in df_siste.columns:
@@ -1682,9 +1686,10 @@ def bil_radar_siste():
         if antall_mangler_scoring > 0:
             print(f"[BilRadar/siste] Live-scoring av {antall_mangler_scoring} biler uten forventet pris")
             df_live = _score_manglende_biler(df_siste[mangler_scoring_mask].copy(), s3)
-            oppdatert = df_live.set_index("FinnKode")[["forventet_pris", "rabatt_pct", "modell_nivaa"]]
+            kolonner_a_oppdatere = [c for c in ["forventet_pris", "hurtigpris", "rabatt_pct", "modell_nivaa"] if c in df_live.columns]
+            oppdatert = df_live.set_index("FinnKode")[kolonner_a_oppdatere]
             df_siste = df_siste.set_index("FinnKode")
-            for col in ["forventet_pris", "rabatt_pct", "modell_nivaa"]:
+            for col in kolonner_a_oppdatere:
                 if col not in df_siste.columns:
                     if col == "modell_nivaa":
                         df_siste[col] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
@@ -2058,7 +2063,7 @@ def bil_innbytte_side():
                                 "modell ~ en av modellvarianter",
                                 "år >= førstegangsregistrert i Norge",
                                 "km <= oppgitt km + 20 000",
-                                "kun solgte/fjernede annonser",
+                                "alle annonser (solgte, fjernede og aktive)",
                             ]
                             if fra_dato:
                                 debug_context["filtre"].append(f"solgt/fjernet fra og med {fra_dato.isoformat()}")
@@ -2117,12 +2122,17 @@ def bil_innbytte_side():
                             if not records and not model_selection:
                                 error = "Fant ingen gode sammenlignbare biler med dagens kriterier."
                             elif not model_selection:
-                                topp = records[:10]
-                                priser = [
-                                    int(r["pris"])
-                                    for r in topp
-                                    if isinstance(r.get("pris"), (int, float)) and int(r.get("pris") or 0) > 0
-                                ]
+                                priser = []
+                                for r in records:
+                                    raw = r.get("pris")
+                                    if raw is None:
+                                        continue
+                                    try:
+                                        val = int(raw)
+                                    except (TypeError, ValueError):
+                                        continue
+                                    if val > 0:
+                                        priser.append(val)
                                 if not priser:
                                     error = "Fant sammenlignbare biler, men manglet prisgrunnlag."
                                 else:
@@ -2133,6 +2143,12 @@ def bil_innbytte_side():
                                     minimum_salgspris = int(min(priser))
                                     median_minus_15 = int(round(median_pris * 0.85))
                                     innbyttepris = min(median_minus_15, minimum_salgspris)
+
+                                    # Sorter visningen stigende på pris (default).
+                                    records_sorted = sorted(
+                                        records,
+                                        key=lambda r: (r.get("pris") if isinstance(r.get("pris"), (int, float)) else float("inf"))
+                                    )
 
                                     result = {
                                         "svv": {
@@ -2147,7 +2163,7 @@ def bil_innbytte_side():
                                         "pris_p25": p25_pris,
                                         "pris_p75": p75_pris,
                                         "antall_sammenlignbare": len(records),
-                                        "sammenlignbare": records,
+                                        "sammenlignbare": records_sorted,
                                     }
 
                         except Exception as e:
@@ -2305,7 +2321,9 @@ def _normaliser_finn_sok_url(raw: str) -> str:
 
 
 def _build_finn_sok_url(merke, modell, drivstoff, fylke, pris_min, pris_max,
-                       km_min, km_max, ar_min, ar_max, q_extra) -> str:
+                       km_min, km_max, ar_min, ar_max, q_extra,
+                       bare_brukt=True, published_last_day=False,
+                       hjuldrift="") -> str:
     base = "https://www.finn.no/mobility/search/car"
     parts = []
     q_terms = [t.strip() for t in [merke, modell, q_extra] if t and str(t).strip()]
@@ -2322,6 +2340,16 @@ def _build_finn_sok_url(merke, modell, drivstoff, fylke, pris_min, pris_max,
         n = _to_int_safe(val)
         if n is not None:
             parts.append((key, str(n)))
+    if hjuldrift == "firehjul":
+        parts.append(("wheel_drive", "2"))
+    elif hjuldrift == "tohjul":
+        # FINN tar både forhjul (1) og bakhjul (3) som to separate parametre
+        parts.append(("wheel_drive", "1"))
+        parts.append(("wheel_drive", "3"))
+    if bare_brukt:
+        parts.append(("sales_form", "1"))
+    if published_last_day:
+        parts.append(("published", "1"))
     return f"{base}?{urlencode(parts)}" if parts else base
 
 
@@ -2381,12 +2409,14 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
     c_hjul   = _qident(colmap.get("hjuldrift"))
     c_prod   = _qident(colmap.get("produsent"))
     c_modell = _qident(colmap.get("modell"))
+    c_over   = colmap.get("overskrift")
     c_brukt  = _qident(colmap.get("bruktimport"))
     c_land   = _qident(colmap.get("import_land"))
 
     sel_bilde = f"{_qident(c_bilde)} AS BildeURL," if c_bilde else "NULL AS BildeURL,"
     sel_sted  = f"{_qident(c_sted)}  AS Sted,"     if c_sted  else "NULL AS Sted,"
     sel_fylke = f"{_qident(c_fylke)} AS Fylke,"    if c_fylke else "NULL AS Fylke,"
+    sel_over  = f"{_qident(c_over)} AS Overskrift," if c_over else "NULL AS Overskrift,"
 
     fk_str_expr = f"regexp_replace(cast({c_fk} as varchar), '\\.0$', '')"
     fk_csv = ",".join(f"'{fk}'" for fk in fk_clean)
@@ -2408,6 +2438,7 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
         {sel_bilde}
         {sel_sted}
         {sel_fylke}
+        {sel_over}
         date_diff(
           'day',
           cast({c_dato} as date),
@@ -2532,22 +2563,37 @@ def bil_finn_sok():
     rabatt_min   = request.args.get("rabatt_min")
     rekkevidde_min = request.args.get("rekkevidde_min")
     rekkevidde_max = request.args.get("rekkevidde_max")
+    hjuldrift_filter = request.args.get("hjuldrift_filter", "").strip()
     q_extra      = request.args.get("q_extra", "").strip()
     sort_by      = request.args.get("sort", "rabatt_desc").strip()
     max_biler    = _to_int_safe(request.args.get("max_biler")) or 50
     max_biler    = max(10, min(max_biler, 200))
+    # Hidden marker som skiller "skjema sendt" (avkrysningsbokser respekteres
+    # som angitt) fra "førstegangsbesøk / direkte URL" (defaults gjelder).
+    filter_set = request.args.get("filter_set") == "1"
+    if filter_set:
+        bare_brukt = request.args.get("bare_brukt") == "1"
+        published_last_day = request.args.get("published_last_day") == "1"
+    else:
+        bare_brukt = True
+        published_last_day = False
     filter_opts  = _get_finn_sok_filter_options()
 
     has_query = bool(finn_url_raw) or any([merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
                                            km_min, km_max, ar_min, ar_max, alder_min, alder_max,
-                                           rabatt_min, rekkevidde_min, rekkevidde_max, q_extra])
+                                           rabatt_min, rekkevidde_min, rekkevidde_max, hjuldrift_filter,
+                                           q_extra])
     if not has_query:
         return render_template("bil_finn_sok.html",
-                               treff=None, finn_url="", form=request.args, filter_opts=filter_opts)
+                               treff=None, finn_url="", form=request.args, filter_opts=filter_opts,
+                               bare_brukt=bare_brukt, published_last_day=published_last_day)
 
     finn_url = (_normaliser_finn_sok_url(finn_url_raw) if finn_url_raw
                 else _build_finn_sok_url(merke, modell, drivstoff, fylke_filter, pris_min, pris_max,
-                                         km_min, km_max, ar_min, ar_max, q_extra))
+                                         km_min, km_max, ar_min, ar_max, q_extra,
+                                         bare_brukt=bare_brukt,
+                                         published_last_day=published_last_day,
+                                         hjuldrift=hjuldrift_filter))
 
     try:
         annonser = _hent_finn_listing(finn_url, max_biler=max_biler)
@@ -2555,11 +2601,13 @@ def bil_finn_sok():
         traceback.print_exc()
         return render_template("bil_finn_sok.html",
                                treff=[], finn_url=finn_url, form=request.args, filter_opts=filter_opts,
+                               bare_brukt=bare_brukt, published_last_day=published_last_day,
                                error=f"Kunne ikke lese FINN: {e}")
 
     if not annonser:
         return render_template("bil_finn_sok.html",
                                treff=[], finn_url=finn_url, form=request.args, filter_opts=filter_opts,
+                               bare_brukt=bare_brukt, published_last_day=published_last_day,
                                melding="Ingen treff på FINN.")
 
     finnkoder = [str(a["finnkode"]) for a in annonser]
@@ -2579,7 +2627,10 @@ def bil_finn_sok():
             r["finnkode"] = fk
             r["url"] = a["url"]
             r["i_db"] = True
-            r["title"] = None
+            over = r.get("Overskrift")
+            if over is not None and (isinstance(over, float) and np.isnan(over)):
+                over = None
+            r["title"] = (str(over).strip() or None) if over else None
             rows.append(r)
         else:
             d = detalj_ukjent.get(fk, {})
@@ -2616,6 +2667,7 @@ def bil_finn_sok():
                 fk = str(sc_row.get("FinnKode"))
                 score_map[fk] = {
                     "forventet_pris": sc_row.get("forventet_pris"),
+                    "hurtigpris": sc_row.get("hurtigpris"),
                     "rabatt_pct": sc_row.get("rabatt_pct"),
                     "modell_nivaa": sc_row.get("modell_nivaa"),
                 }
@@ -2671,6 +2723,7 @@ def bil_finn_sok():
             "image_url": r.get("BildeURL"),
             "sted": sted,
             "forventet_pris": _to_int_safe(sc.get("forventet_pris")),
+            "hurtigpris": _to_int_safe(sc.get("hurtigpris")),
             "rabatt_pct": rab_val,
             "modell_nivaa": sc.get("modell_nivaa"),
             "i_db": r.get("i_db", False),
@@ -2737,4 +2790,5 @@ def bil_finn_sok():
         treff.sort(key=lambda t: _sort_num(t.get("rabatt_pct"), -999), reverse=True)
 
     return render_template("bil_finn_sok.html",
-                           treff=treff, finn_url=finn_url, form=request.args, filter_opts=filter_opts)
+                           treff=treff, finn_url=finn_url, form=request.args, filter_opts=filter_opts,
+                           bare_brukt=bare_brukt, published_last_day=published_last_day)
