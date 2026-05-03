@@ -1,0 +1,68 @@
+name: Retren Bilradar prismodell
+
+on:
+  schedule:
+    # Hver søndag kl 02:00 UTC (04:00 norsk sommertid, 03:00 vintertid).
+    # Tidspunkt valgt fordi trafikken er lav og at dataene fra lørdagen
+    # er ferdig konsolidert. Justeres ved behov.
+    - cron: "0 2 * * 0"
+
+  # Manuell trigger fra Actions-fanen — nyttig for å kjøre på etterspørsel
+  # eller teste etter endringer i scripts/tren_prismodell.py.
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Last opp resultatet til S3"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Sjekk ut kildekode
+        uses: actions/checkout@v4
+
+      - name: Sett opp Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Installer avhengigheter
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Kjør trening (med S3 inn/ut)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'eu-north-1' }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME || 'prisanalyse-data' }}
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          UPLOAD_FLAG=""
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.upload }}" = "true" ]; then
+            UPLOAD_FLAG="--upload"
+          fi
+          python -m scripts.tren_prismodell --s3 $UPLOAD_FLAG
+
+      - name: Last opp lokal modellfil som artifact ved feil
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bil_prismodell-failed-${{ github.run_id }}
+          path: bil_prismodell.joblib
+          if-no-files-found: ignore
+          retention-days: 7
