@@ -1893,6 +1893,9 @@ def bil_innbytte_side():
                             c_solgt = col_or_null("solgt")
                             c_finn = col_or_null("finnkode")
 
+                            solgt_norm_expr = _normalize_str_sql(c_solgt)
+                            solgt_true_expr = _solgt_true_expr(solgt_norm_expr) if colmap.get("solgt") else None
+
                             pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
                             pris_start_num = f"try_cast({c_pris_start} AS BIGINT)"
                             km_num = _to_bigint_sql(c_km)
@@ -1936,7 +1939,7 @@ def bil_innbytte_side():
                                 where_parts = [f"lower(cast({c_prod} as varchar)) = ?"]
                                 params = [merke.lower()]
                                 if colmap.get("solgt"):
-                                    where_parts.append(f"({_bool_expr(c_solgt)}) = true")
+                                    where_parts.append(solgt_true_expr)
                                 elif colmap.get("dato_end"):
                                     where_parts.append(f"{dato_end_ts} IS NOT NULL")
                                     where_parts.append(f"date({dato_end_ts}) <= current_date")
@@ -1986,7 +1989,7 @@ def bil_innbytte_side():
                                     params.append(km_upper_bound)
 
                                 if colmap.get("solgt"):
-                                    where_parts.append(f"({_bool_expr(c_solgt)}) = true")
+                                    where_parts.append(solgt_true_expr)
                                 else:
                                     if colmap.get("dato_end"):
                                         where_parts.append(f"{dato_end_ts} IS NOT NULL")
