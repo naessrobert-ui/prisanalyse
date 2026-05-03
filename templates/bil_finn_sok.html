@@ -211,10 +211,6 @@
                 <option value="aar_asc" {% if sortv=='aar_asc' %}selected{% endif %}>Årsmodell (eldst først)</option>
               </select>
             </label>
-            <label>Antall biler (10–200)
-              <input type="number" name="max_biler" min="10" max="200" step="10"
-                     value="{{ form.get('max_biler','50') }}">
-            </label>
             <label>Hjuldrift
               <select name="hjuldrift_filter">
                 {% set hjul = form.get('hjuldrift_filter','') %}

@@ -2595,8 +2595,8 @@ def bil_finn_sok():
     hjuldrift_filter = request.args.get("hjuldrift_filter", "").strip()
     q_extra      = request.args.get("q_extra", "").strip()
     sort_by      = request.args.get("sort", "rabatt_desc").strip()
-    max_biler    = _to_int_safe(request.args.get("max_biler")) or 50
-    max_biler    = max(10, min(max_biler, 200))
+    max_biler    = _to_int_safe(request.args.get("max_biler")) or 500
+    max_biler    = max(10, min(max_biler, 500))
     # Hidden marker som skiller "skjema sendt" (avkrysningsbokser respekteres
     # som angitt) fra "førstegangsbesøk / direkte URL" (defaults gjelder).
     filter_set = request.args.get("filter_set") == "1"
