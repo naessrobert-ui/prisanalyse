@@ -62,14 +62,24 @@ S3_INPUT_KEY = "calc/bil/database_biler.parquet"
 S3_OUTPUT_KEY = "calc/bil/bil_prismodell.joblib"
 JOBLIB_COMPRESS = ("lz4", 3)  # rask + god kompresjon (typisk ~50-70% reduksjon)
 
-MIN_OBS_L1 = 30   # Produsent | Modell | drivstoff
-MIN_OBS_L2 = 60   # Produsent | drivstoff
+# Minimumsobservasjoner per segment. Høyere tall = færre L1-modeller =
+# mindre minnefotavtrykk. 100 gir typisk ~250 L1-modeller mot ~1000 ved
+# 30 — sjeldne biler faller til L2/GEN, vanlige biler er upåvirket.
+MIN_OBS_L1 = 100  # Produsent | Modell | drivstoff
+MIN_OBS_L2 = 100  # Produsent | drivstoff
 MIN_OBS_GENERAL = 800
 
 HURTIG_DAGER = 3
 MAX_DAGER_FOR_MARKED_TRENING = 120
-MIN_OBS_L1_FAST = 15
-MIN_OBS_L2_FAST = 30
+MIN_OBS_L1_FAST = 50
+MIN_OBS_L2_FAST = 50
+
+# HGB-iterasjoner: 200 gir nesten samme presisjon som 400 men halverer
+# treenes minnefotavtrykk. Nedgang i MAE typisk < 1%.
+HGB_MAX_ITER_SEG = 200
+HGB_MAX_ITER_GEN = 300
+HGB_MAX_DEPTH_SEG = 6
+HGB_MAX_DEPTH_GEN = 8
 
 
 # ---- Datalast / forprosessering ----
@@ -161,9 +171,9 @@ def _build_pipeline(is_general: bool) -> Pipeline:
         remainder="drop",
     )
     model = HistGradientBoostingRegressor(
-        max_depth=8 if is_general else 6,
+        max_depth=HGB_MAX_DEPTH_GEN if is_general else HGB_MAX_DEPTH_SEG,
         learning_rate=0.06,
-        max_iter=600 if is_general else 400,
+        max_iter=HGB_MAX_ITER_GEN if is_general else HGB_MAX_ITER_SEG,
         random_state=42,
     )
     return Pipeline([("pre", pre), ("model", model)])

@@ -5,6 +5,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 from difflib import SequenceMatcher
 from datetime import datetime, timedelta, date
 
@@ -1539,6 +1540,28 @@ def _hent_bilradar_modell(s3):
         return modeller
 
 
+def start_bilradar_warmup():
+    """Last prismodellen i en bakgrunnstråd ved app-oppstart, slik at
+    scorer_biler er rask når første /bil/finn-sok-request kommer.
+
+    Modellen er ~150 MB og deserialisering tar 2-3 minutter — uten
+    warmup ville første request blokkert såpass lenge at gunicorn-
+    workeren risikerer å treffe timeout og dø."""
+    def _warmup():
+        try:
+            print("[BilRadar/warmup] Starter modell-lasting i bakgrunn ...")
+            t0 = time.time()
+            s3 = _get_s3_client()
+            _hent_bilradar_modell(s3)
+            print(f"[BilRadar/warmup] Modell klar etter {time.time() - t0:.1f}s")
+        except Exception as exc:
+            # Logg, men ikke krasje appen — lazy load vil fortsatt funke
+            # selv om warmup feiler.
+            print(f"[BilRadar/warmup] Feilet ({exc!r}) — faller tilbake til lazy load")
+
+    threading.Thread(target=_warmup, name="bilradar-modell-warmup", daemon=True).start()
+
+
 def _normaliser_df_for_scoring(df: pd.DataFrame) -> pd.DataFrame:
     """Normaliser kolonner slik at scorer_biler kan brukes på både CSV- og parquet-data."""
     out = df.copy()
@@ -1685,20 +1708,26 @@ def bil_radar_siste():
         antall_mangler_scoring = int(mangler_scoring_mask.sum())
         if antall_mangler_scoring > 0:
             print(f"[BilRadar/siste] Live-scoring av {antall_mangler_scoring} biler uten forventet pris")
-            df_live = _score_manglende_biler(df_siste[mangler_scoring_mask].copy(), s3)
-            kolonner_a_oppdatere = [c for c in ["forventet_pris", "hurtigpris", "rabatt_pct", "modell_nivaa"] if c in df_live.columns]
-            oppdatert = df_live.set_index("FinnKode")[kolonner_a_oppdatere]
-            df_siste = df_siste.set_index("FinnKode")
-            for col in kolonner_a_oppdatere:
-                if col not in df_siste.columns:
-                    if col == "modell_nivaa":
-                        df_siste[col] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
-                    else:
-                        df_siste[col] = np.nan
-                if col == "modell_nivaa" and df_siste[col].dtype != "object":
-                    df_siste[col] = df_siste[col].astype("object")
-                df_siste.loc[oppdatert.index, col] = oppdatert[col]
-            df_siste = df_siste.reset_index()
+            try:
+                df_live = _score_manglende_biler(df_siste[mangler_scoring_mask].copy(), s3)
+                kolonner_a_oppdatere = [c for c in ["forventet_pris", "hurtigpris", "rabatt_pct", "modell_nivaa"] if c in df_live.columns]
+                oppdatert = df_live.set_index("FinnKode")[kolonner_a_oppdatere]
+                df_siste = df_siste.set_index("FinnKode")
+                for col in kolonner_a_oppdatere:
+                    if col not in df_siste.columns:
+                        if col == "modell_nivaa":
+                            df_siste[col] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
+                        else:
+                            df_siste[col] = np.nan
+                    if col == "modell_nivaa" and df_siste[col].dtype != "object":
+                        df_siste[col] = df_siste[col].astype("object")
+                    df_siste.loc[oppdatert.index, col] = oppdatert[col]
+                df_siste = df_siste.reset_index()
+            except Exception as exc:
+                # Modell-lasting kan feile hvis modellen er for stor for instansen.
+                # Vi vil heller servere uscoret data enn å la worker dø.
+                print(f"[BilRadar/siste] Live-scoring feilet ({exc!r}) – fortsetter uten")
+                traceback.print_exc()
 
         df_scoret = df_siste[df_siste["forventet_pris"].notna() & (df_siste["forventet_pris"] > 0)].copy()
         if df_scoret.empty and "FinnKode" in df_siste.columns:
@@ -1898,6 +1927,9 @@ def bil_innbytte_side():
                             c_solgt = col_or_null("solgt")
                             c_finn = col_or_null("finnkode")
 
+                            solgt_norm_expr = _normalize_str_sql(c_solgt)
+                            solgt_true_expr = _solgt_true_expr(solgt_norm_expr) if colmap.get("solgt") else None
+
                             pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
                             pris_start_num = f"try_cast({c_pris_start} AS BIGINT)"
                             km_num = _to_bigint_sql(c_km)
@@ -1940,6 +1972,11 @@ def bil_innbytte_side():
                             def _fetch_brand_models():
                                 where_parts = [f"lower(cast({c_prod} as varchar)) = ?"]
                                 params = [merke.lower()]
+                                if colmap.get("solgt"):
+                                    where_parts.append(solgt_true_expr)
+                                elif colmap.get("dato_end"):
+                                    where_parts.append(f"{dato_end_ts} IS NOT NULL")
+                                    where_parts.append(f"date({dato_end_ts}) <= current_date")
                                 where_sql = " WHERE " + " AND ".join(where_parts)
                                 models_sql = f"""
                                   SELECT cast({c_mod} as varchar) AS modell, count(*) AS antall
@@ -1985,9 +2022,14 @@ def bil_innbytte_side():
                                     where_parts.append(f"{km_num} <= ?")
                                     params.append(km_upper_bound)
 
-                                # Inkluder alle annonser (solgt, fjernet og aktive).
-                                # Bruk kun en pris-sanity for å luke ut tomme/ugyldige rader.
-                                where_parts.append(f"{pris_ny_num} > 1000")
+                                if colmap.get("solgt"):
+                                    where_parts.append(solgt_true_expr)
+                                else:
+                                    if colmap.get("dato_end"):
+                                        where_parts.append(f"{dato_end_ts} IS NOT NULL")
+                                        where_parts.append(f"date({dato_end_ts}) <= current_date")
+                                    else:
+                                        where_parts.append(f"{pris_ny_num} > 1000")
                                 if fra_dato and colmap.get("dato_end"):
                                     where_parts.append(f"date({dato_end_ts}) >= ?")
                                     params.append(fra_dato.isoformat())
