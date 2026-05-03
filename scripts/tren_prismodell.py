@@ -5,7 +5,7 @@ Trener Bilradar-prismodellen (FlipModels: markedspris + hurtigpris) og
 laster opp pkl-fila til S3.
 
 Kjør lokalt:
-    python -m scripts.tren_prismodell --input database_biler.parquet --output bil_prismodell.pkl
+    python -m scripts.tren_prismodell --input database_biler.parquet --output bil_prismodell.joblib
 
 Kjør mot S3 (anbefalt for ukentlig retrening):
     python -m scripts.tren_prismodell --s3 --upload
@@ -59,7 +59,8 @@ from bilradar_modell_skjema import (  # noqa: E402
 
 # ---- Konfigurasjon ----
 S3_INPUT_KEY = "calc/bil/database_biler.parquet"
-S3_OUTPUT_KEY = "calc/bil/bil_prismodell.pkl"
+S3_OUTPUT_KEY = "calc/bil/bil_prismodell.joblib"
+JOBLIB_COMPRESS = ("lz4", 3)  # rask + god kompresjon (typisk ~50-70% reduksjon)
 
 MIN_OBS_L1 = 30   # Produsent | Modell | drivstoff
 MIN_OBS_L2 = 60   # Produsent | drivstoff
@@ -268,8 +269,15 @@ def upload_modell_til_s3(local_path: str, key: str = S3_OUTPUT_KEY):
 
 
 def lagre_modell(models: FlipModels, path: str):
-    with open(path, "wb") as f:
-        pickle.dump(models, f, protocol=pickle.HIGHEST_PROTOCOL)
+    """Lagrer modellen. Joblib med lz4-komprimering hvis filendelsen er
+    .joblib (mye mindre + raskere lasting), ellers ren pickle."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext == ".joblib":
+        import joblib
+        joblib.dump(models, path, compress=JOBLIB_COMPRESS)
+    else:
+        with open(path, "wb") as f:
+            pickle.dump(models, f, protocol=pickle.HIGHEST_PROTOCOL)
     storrelse_mb = os.path.getsize(path) / 1024 / 1024
     print(f"[SAVE] Lagret {path} ({storrelse_mb:.1f} MB)")
 
@@ -280,7 +288,7 @@ def main():
     parser = argparse.ArgumentParser(description="Tren Bilradar prismodell (FlipModels)")
     parser.add_argument("--input", help="Lokal parquet-fil med biler")
     parser.add_argument("--s3", action="store_true", help="Hent input-data fra S3")
-    parser.add_argument("--output", default="bil_prismodell.pkl", help="Lokal output-pkl")
+    parser.add_argument("--output", default="bil_prismodell.joblib", help="Lokal output-fil (.joblib eller .pkl)")
     parser.add_argument("--upload", action="store_true", help="Last opp pkl til S3 etter trening")
     args = parser.parse_args()
 
