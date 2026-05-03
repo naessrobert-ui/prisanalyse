@@ -5,8 +5,16 @@ Brukes av:
   - bil_routes.py (Flask, live scoring av siste døgn)
   - generer_bilradar.py (batch, scoring av alle biler)
 
-Støtter både joblib (.joblib) og pickle (.pkl) — foretrekker joblib.
-Laster prismodell fra lokal disk (med S3-fallback), cacher i minne.
+Leser FlipModels-pickle (markedspris + hurtigpris) bygget av
+scripts/tren_prismodell.py, og skriver kolonnene:
+
+  forventet_pris  – median markedspris fra peer-gruppen
+  hurtigpris      – pris for salg innen 3 dager (lavbound)
+  peer_konfidens  – antall salg modellen for dette segmentet ble trent på
+  modell_nivaa    – "L1" / "L2" / "GEN" / "Ingen modell"
+
+Modellen lastes fra disk eller S3 én gang og caches i minnet. All
+prediksjon kjøres batch per segment for fart.
 """
 
 import io
@@ -18,26 +26,18 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+from bilradar_modell_skjema import (
+    FlipModels,
+    GEN_FEATURES_CAT,
+    SEG_FEATURES_CAT,
+    SEG_FEATURES_NUM,
+    SegmentModel,
+)
 from bilradar_overrides import apply_overrides, last_overrides
 
 GOOD_DEAL_THRESHOLD = 10
-MIN_KM_PER_YEAR_FOR_MODEL = 4_000
 OVERRIDES_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "data", "pris_overstyring.csv")
-
-
-def _normaliser_kjorelengde_for_modell(alder, kjorelengde):
-    """Hindrer urealistisk lav km fra å gi for høy predikert pris."""
-    alder_arr = np.asarray(alder, dtype=float)
-    km_arr = np.asarray(kjorelengde, dtype=float)
-
-    min_km = np.maximum(alder_arr, 0) * MIN_KM_PER_YEAR_FOR_MODEL
-    # Behold rapportert km for nye biler, men legg gulv for eldre kjøretøy.
-    justert = np.where(alder_arr >= 10, np.maximum(km_arr, min_km), km_arr)
-    justert = np.maximum(justert, 0)
-
-    if np.ndim(justert) == 0:
-        return float(justert)
-    return justert
+MIN_PRIS_FLOOR = 1_000.0  # forhindre at expm1-prediksjon faller til null/negativt
 
 # ---- Modell-cache (trådsikker, lastes én gang) ----
 _MODEL_LOCK = threading.Lock()
@@ -47,55 +47,40 @@ _MODEL_CACHE = {
 }
 
 
-def _last_fra_fil(path: str):
-    """Last modell fra enten .joblib eller .pkl — velger format automatisk."""
-    ext = os.path.splitext(path)[1].lower()
-    if ext == ".joblib":
-        try:
-            import joblib
-            return joblib.load(path)
-        except ImportError:
-            raise ImportError("joblib er ikke installert. Kjør: pip install joblib")
-    else:
-        with open(path, "rb") as f:
-            return pickle.load(f)
+def _last_pickle_fra_fil(path: str) -> FlipModels:
+    with open(path, "rb") as f:
+        return pickle.load(f)
 
 
-def _last_fra_bytes(data: bytes, hint_ext: str = ".pkl"):
-    """Last modell fra bytes-objekt (S3). Velger format basert på hint."""
-    ext = hint_ext.lower()
-    if ext == ".joblib":
-        try:
-            import joblib
-            return joblib.load(io.BytesIO(data))
-        except ImportError:
-            raise ImportError("joblib er ikke installert. Kjør: pip install joblib")
-    else:
-        return pickle.loads(data)
+def _last_pickle_fra_bytes(data: bytes) -> FlipModels:
+    return pickle.loads(data)
 
 
-def _logg_modell_info(modeller):
-    n1 = len(modeller.get("nivaa_1", {}))
-    n2 = len(modeller.get("nivaa_2", {}))
-    har_gen = modeller.get("generell") is not None
-    fmt = "joblib" if modeller.get("_format") == "joblib" else "pickle"
-    print(f"[BilRadar] Modell lastet: Nivå 1: {n1} | Nivå 2: {n2} | Generell: {'Ja' if har_gen else 'Nei'}")
+def _logg_modell_info(modeller: FlipModels):
+    n_m_l1 = len(modeller.market_l1)
+    n_m_l2 = len(modeller.market_l2)
+    n_f_l1 = len(modeller.fast_l1)
+    n_f_l2 = len(modeller.fast_l2)
+    har_m_gen = modeller.market_general is not None
+    har_f_gen = modeller.fast_general is not None
+    print(
+        f"[BilRadar] FlipModels lastet | trent: {modeller.trained_at or '?'} | "
+        f"market L1={n_m_l1} L2={n_m_l2} GEN={'Ja' if har_m_gen else 'Nei'} | "
+        f"fast L1={n_f_l1} L2={n_f_l2} GEN={'Ja' if har_f_gen else 'Nei'}"
+    )
 
 
 # ---- Innlastingsfunksjoner ----
 
-def last_modell_fra_s3(s3_client, bucket: str, key: str):
-    """Last prismodell fra S3. Støtter .joblib og .pkl. Cacher i minne."""
+def last_modell_fra_s3(s3_client, bucket: str, key: str) -> FlipModels:
+    """Last FlipModels-pickle fra S3. Cacher i minne."""
     with _MODEL_LOCK:
         if _MODEL_CACHE["modeller"] is not None:
             return _MODEL_CACHE["modeller"]
 
         print(f"[BilRadar] Laster prismodell fra s3://{bucket}/{key} ...")
         obj = s3_client.get_object(Bucket=bucket, Key=key)
-        data = obj["Body"].read()
-
-        hint_ext = os.path.splitext(key)[1]
-        modeller = _last_fra_bytes(data, hint_ext)
+        modeller = _last_pickle_fra_bytes(obj["Body"].read())
 
         _logg_modell_info(modeller)
         _MODEL_CACHE["modeller"] = modeller
@@ -103,51 +88,37 @@ def last_modell_fra_s3(s3_client, bucket: str, key: str):
         return modeller
 
 
-def last_modell_lokal_eller_s3(local_path: str, s3_client=None, bucket: str = "", key: str = ""):
+def last_modell_lokal_eller_s3(local_path: str, s3_client=None, bucket: str = "", key: str = "") -> FlipModels:
     """
-    Last prismodell — prøver i denne rekkefølgen:
-      1. Oppgitt local_path  (.joblib eller .pkl)
-      2. Samme sti men med .joblib-endelse (automatisk oppgradering)
-      3. Nedlasting fra S3 til /tmp/  (cacher lokalt for neste restart)
+    Last FlipModels-pickle — prøver i denne rekkefølgen:
+      1. Oppgitt local_path
+      2. Nedlasting fra S3 til /tmp/  (cacher lokalt for neste restart)
     """
     with _MODEL_LOCK:
         if _MODEL_CACHE["modeller"] is not None:
             return _MODEL_CACHE["modeller"]
 
-        # 1. Prøv oppgitt sti
         if local_path and os.path.exists(local_path):
             print(f"[BilRadar] Laster fra: {local_path}")
-            modeller = _last_fra_fil(local_path)
+            modeller = _last_pickle_fra_fil(local_path)
+        elif s3_client and bucket and key:
+            print(f"[BilRadar] Laster fra S3: s3://{bucket}/{key}")
+            obj = s3_client.get_object(Bucket=bucket, Key=key)
+            data = obj["Body"].read()
 
-        # 2. Prøv .joblib-variant av samme sti
-        elif local_path:
-            joblib_path = os.path.splitext(local_path)[0] + ".joblib"
-            if os.path.exists(joblib_path):
-                print(f"[BilRadar] Fant joblib-variant: {joblib_path}")
-                modeller = _last_fra_fil(joblib_path)
-            elif s3_client and bucket and key:
-                # 3. Last fra S3 og cache lokalt
-                print(f"[BilRadar] Laster fra S3: s3://{bucket}/{key}")
-                obj = s3_client.get_object(Bucket=bucket, Key=key)
-                data = obj["Body"].read()
+            cache_path = os.path.join("/tmp", os.path.basename(key))
+            try:
+                with open(cache_path, "wb") as f:
+                    f.write(data)
+                print(f"[BilRadar] Cachet til disk: {cache_path}")
+            except Exception:
+                pass
 
-                # Cache til /tmp/ for raskere neste oppstart
-                cache_path = os.path.join("/tmp", os.path.basename(key))
-                try:
-                    with open(cache_path, "wb") as f:
-                        f.write(data)
-                    print(f"[BilRadar] Cachet til disk: {cache_path}")
-                except Exception:
-                    pass  # /tmp ikke tilgjengelig — fortsett uten disk-cache
-
-                hint_ext = os.path.splitext(key)[1]
-                modeller = _last_fra_bytes(data, hint_ext)
-            else:
-                raise FileNotFoundError(
-                    f"Prismodell ikke funnet: lokal={local_path}, S3={bucket}/{key}"
-                )
+            modeller = _last_pickle_fra_bytes(data)
         else:
-            raise FileNotFoundError("Ingen local_path oppgitt og ingen S3-konfigurasjon.")
+            raise FileNotFoundError(
+                f"Prismodell ikke funnet: lokal={local_path}, S3={bucket}/{key}"
+            )
 
         _logg_modell_info(modeller)
         _MODEL_CACHE["modeller"] = modeller
@@ -162,134 +133,236 @@ def reload_modell():
         _MODEL_CACHE["loaded_at"] = None
 
 
-# ---- Prediksjon ----
+# ---- Forprosessering ----
 
-def prediker_pris(bil: dict, modeller: dict):
-    """Prediker forventet pris for én bil. Returnerer (pris, nivå)."""
-    seg1 = bil.get("segment_1", "")
-    seg2 = bil.get("segment_2", "")
-
-    if seg1 in modeller.get("nivaa_1", {}):
-        m = modeller["nivaa_1"][seg1]
-        hjul_enc = m["hjuldrift_map"].get(bil.get("hjuldrift", "Ukjent"), -1)
-        model_km = _normaliser_kjorelengde_for_modell(bil["alder"], bil["kjørelengde"])
-        X = np.array([[bil["alder"], model_km, hjul_enc]])
-        return float(m["model"].predict(X)[0]), "Nivå 1"
-
-    if seg2 in modeller.get("nivaa_2", {}):
-        m = modeller["nivaa_2"][seg2]
-        hjul_enc = m["hjuldrift_map"].get(bil.get("hjuldrift", "Ukjent"), -1)
-        model_km = _normaliser_kjorelengde_for_modell(bil["alder"], bil["kjørelengde"])
-        X = np.array([[bil["alder"], model_km, hjul_enc]])
-        return float(m["model"].predict(X)[0]), "Nivå 2"
-
-    if modeller.get("generell") is not None:
-        m = modeller["generell"]
-        prod_enc = m["prod_map"].get(bil.get("Produsent", "Ukjent"), -1)
-        modell_enc = m["modell_map"].get(bil.get("Modell", "Ukjent"), -1)
-        driv_enc = m["driv_map"].get(bil.get("drivstoff", "Ukjent"), -1)
-        hjul_enc = m["hjul_map"].get(bil.get("hjuldrift", "Ukjent"), -1)
-        model_km = _normaliser_kjorelengde_for_modell(bil["alder"], bil["kjørelengde"])
-        X = np.array([[bil["alder"], model_km,
-                        prod_enc, modell_enc, driv_enc, hjul_enc]])
-        return float(m["model"].predict(X)[0]), "Generell"
-
-    return None, "Ingen modell"
+_RANGE_CACHE_RE = None
 
 
-# ---- Scoring av DataFrame ----
+def _parse_rekkevidde(val) -> float:
+    """Plukker første tall fra strings som '350 km', 'ca 420', 'N/A'. Returnerer 0 ved tom."""
+    if pd.isna(val):
+        return 0.0
+    s = str(val).lower().replace(",", ".")
+    digits = "".join(ch if (ch.isdigit() or ch == ".") else " " for ch in s).split()
+    if not digits:
+        return 0.0
+    try:
+        return float(digits[0])
+    except Exception:
+        return 0.0
 
-def scorer_biler(df: pd.DataFrame, modeller: dict, threshold: int = GOOD_DEAL_THRESHOLD) -> pd.DataFrame:
-    """Scorer alle biler i en DataFrame. Returnerer df med scoring-kolonner."""
+
+def _normaliser_for_scoring(df: pd.DataFrame) -> pd.DataFrame:
+    """Standardiser kolonnenavn og fyll inn features modellen forventer.
+    Returnerer en kopi med alle nødvendige kolonner."""
     df = df.copy()
 
-    # Standardiser kolonnenavn (tåler både daglig- og time-format)
     col_map = {
         "årstall": "Årstall", "kjørelengde": "Kjørelengde", "girkasse": "Girkasse",
         "drivstoff": "Drivstoff", "selger": "Selger", "sted": "Sted",
         "hjuldrift": "Hjuldrift", "garanti": "Garanti", "forhandler": "Forhandler",
         "Garanti (mnd)": "Garanti", "Forhandler type": "Forhandler",
         "Service oppgitt": "Service", "Info": "Info",
+        "Karosseri": "Karosseri", "fylke": "Fylke",
     }
     for old, new in col_map.items():
         if old in df.columns and new not in df.columns:
             df = df.rename(columns={old: new})
 
-    # Fjern duplikater
     if "FinnKode" in df.columns:
         df = df.drop_duplicates(subset="FinnKode", keep="last")
 
-    # Fjern solgte biler
     if "Pris" in df.columns:
         df = df[~df["Pris"].astype(str).str.lower().str.contains("solgt", na=False)]
 
-    # Klargjør features
-    df["Produsent"] = df["Merke"].fillna("Ukjent").astype(str).str.strip() if "Merke" in df.columns else "Ukjent"
-    df["Modell"] = df["Modell"].fillna("Ukjent").astype(str).str.strip() if "Modell" in df.columns else "Ukjent"
-    df["drivstoff"] = df["Drivstoff"].fillna("Ukjent").astype(str).str.strip() if "Drivstoff" in df.columns else "Ukjent"
+    df["Produsent"] = (
+        df["Merke"].fillna("Ukjent").astype(str).str.strip()
+        if "Merke" in df.columns else "Ukjent"
+    )
+    df["Modell"] = (
+        df["Modell"].fillna("Ukjent").astype(str).str.strip()
+        if "Modell" in df.columns else "Ukjent"
+    )
+    df["drivstoff"] = (
+        df["Drivstoff"].fillna("Ukjent").astype(str).str.strip()
+        if "Drivstoff" in df.columns else "Ukjent"
+    )
+    df["hjuldrift"] = (
+        df["Hjuldrift"].fillna("Ukjent").astype(str).str.strip()
+        if "Hjuldrift" in df.columns else "Ukjent"
+    )
+    df["girkasse"] = (
+        df["Girkasse"].fillna("Ukjent").astype(str).str.strip()
+        if "Girkasse" in df.columns else "Ukjent"
+    )
+    df["Karosseri"] = (
+        df["Karosseri"].fillna("Ukjent").astype(str).str.strip()
+        if "Karosseri" in df.columns else "Ukjent"
+    )
+    df["forhandler_type"] = (
+        df["Forhandler"].fillna("Ukjent").astype(str).str.strip()
+        if "Forhandler" in df.columns else "Ukjent"
+    )
+    df["fylke"] = (
+        df["Fylke"].fillna("Ukjent").astype(str).str.strip()
+        if "Fylke" in df.columns else "Ukjent"
+    )
+
     df["kjørelengde"] = pd.to_numeric(df.get("Kjørelengde", 0), errors="coerce").fillna(0)
     df["årstall"] = pd.to_numeric(df.get("Årstall", 0), errors="coerce").fillna(0)
-    df["alder"] = datetime.now().year - df["årstall"]
+    df["alder"] = (datetime.now().year - df["årstall"]).clip(lower=0)
+    df["km_per_aar"] = df["kjørelengde"] / (df["alder"] + 1)
     df["salgspris"] = pd.to_numeric(df.get("Pris", 0), errors="coerce").fillna(0)
-    df["hjuldrift"] = df["Hjuldrift"].fillna("Ukjent").astype(str).str.strip() if "Hjuldrift" in df.columns else "Ukjent"
 
-    # Fjern biler uten pris
+    if "Garanti" in df.columns:
+        df["garanti_mnd"] = pd.to_numeric(df["Garanti"], errors="coerce").fillna(0).clip(lower=0)
+    else:
+        df["garanti_mnd"] = 0.0
+
+    if "rekkevidde_str" in df.columns:
+        df["rekkevidde_km"] = df["rekkevidde_str"].apply(_parse_rekkevidde)
+    elif "rekkevidde_km" in df.columns:
+        df["rekkevidde_km"] = pd.to_numeric(df["rekkevidde_km"], errors="coerce").fillna(0)
+    else:
+        df["rekkevidde_km"] = 0.0
+
     df = df[df["salgspris"] > 0]
 
-    # Segmentnøkler
     df["segment_1"] = df["Produsent"] + " | " + df["Modell"] + " | " + df["drivstoff"]
     df["segment_2"] = df["Produsent"] + " | " + df["drivstoff"]
 
-    # Prediker – batch per segment (50-100x raskere enn iterrows)
-    df["forventet_pris"] = np.nan
-    df["modell_nivaa"] = "Ingen modell"
+    return df
 
-    nivaa_1 = modeller.get("nivaa_1", {})
-    nivaa_2 = modeller.get("nivaa_2", {})
-    generell = modeller.get("generell")
 
-    # Nivå 1: batch per (Produsent | Modell | drivstoff)
-    for seg, m in nivaa_1.items():
-        mask = df["segment_1"] == seg
+# ---- Vektorisert prediksjon ----
+
+def _bygg_X(sub: pd.DataFrame, is_general: bool) -> pd.DataFrame:
+    """Lag input-DataFrame til en sklearn Pipeline. Pipelinen skal ha
+    ColumnTransformer som plukker ut de riktige kolonnene selv."""
+    cat_cols = GEN_FEATURES_CAT if is_general else SEG_FEATURES_CAT
+    cols = SEG_FEATURES_NUM + cat_cols
+    X = sub.reindex(columns=cols).copy()
+    for c in SEG_FEATURES_NUM:
+        X[c] = pd.to_numeric(X[c], errors="coerce").fillna(0.0)
+    for c in cat_cols:
+        X[c] = X[c].fillna("Ukjent").astype(str)
+    return X
+
+
+def _predict_segment_batch(
+    df: pd.DataFrame,
+    seg_models: dict,
+    segment_col: str,
+    only_mask: pd.Series,
+    is_general: bool,
+    target_pris: str,
+    target_n: str,
+):
+    """Skriv prediksjoner inn i df[target_pris] og df[target_n] for alle
+    rader i `only_mask` der segment_col matcher en nøkkel i seg_models.
+    Vektorisert per segment."""
+    for seg_key, seg_model in seg_models.items():
+        mask = only_mask & (df[segment_col] == seg_key)
         if not mask.any():
             continue
         sub = df.loc[mask]
-        hjul_enc = sub["hjuldrift"].map(m["hjuldrift_map"]).fillna(-1).astype(int)
-        model_km = _normaliser_kjorelengde_for_modell(sub["alder"].values, sub["kjørelengde"].values)
-        X = np.column_stack([sub["alder"].values, model_km, hjul_enc.values])
-        df.loc[mask, "forventet_pris"] = m["model"].predict(X)
-        df.loc[mask, "modell_nivaa"] = "Nivå 1"
+        X = _bygg_X(sub, is_general=is_general)
+        log_pred = seg_model.model.predict(X)
+        pris = np.maximum(np.expm1(log_pred), MIN_PRIS_FLOOR)
+        df.loc[mask, target_pris] = pris
+        df.loc[mask, target_n] = seg_model.n_obs
 
-    # Nivå 2: batch per (Produsent | drivstoff) – kun de som ikke fikk nivå 1
-    ingen_pred = df["forventet_pris"].isna()
-    for seg, m in nivaa_2.items():
-        mask = ingen_pred & (df["segment_2"] == seg)
-        if not mask.any():
-            continue
-        sub = df.loc[mask]
-        hjul_enc = sub["hjuldrift"].map(m["hjuldrift_map"]).fillna(-1).astype(int)
-        model_km = _normaliser_kjorelengde_for_modell(sub["alder"].values, sub["kjørelengde"].values)
-        X = np.column_stack([sub["alder"].values, model_km, hjul_enc.values])
-        df.loc[mask, "forventet_pris"] = m["model"].predict(X)
-        df.loc[mask, "modell_nivaa"] = "Nivå 2"
 
-    # Generell: alle som fremdeles mangler prediksjon
-    if generell is not None:
-        ingen_pred = df["forventet_pris"].isna()
-        if ingen_pred.any():
-            m = generell
-            sub = df.loc[ingen_pred]
-            prod_enc   = sub["Produsent"].map(m["prod_map"]).fillna(-1).astype(int)
-            modell_enc = sub["Modell"].map(m["modell_map"]).fillna(-1).astype(int)
-            driv_enc   = sub["drivstoff"].map(m["driv_map"]).fillna(-1).astype(int)
-            hjul_enc   = sub["hjuldrift"].map(m["hjul_map"]).fillna(-1).astype(int)
-            X = np.column_stack([
-                sub["alder"].values, _normaliser_kjorelengde_for_modell(sub["alder"].values, sub["kjørelengde"].values),
-                prod_enc.values, modell_enc.values, driv_enc.values, hjul_enc.values
-            ])
-            df.loc[ingen_pred, "forventet_pris"] = m["model"].predict(X)
-            df.loc[ingen_pred, "modell_nivaa"] = "Generell"
+def _predict_general(
+    df: pd.DataFrame,
+    seg_model: SegmentModel | None,
+    only_mask: pd.Series,
+    target_pris: str,
+    target_n: str,
+):
+    if seg_model is None:
+        return
+    mask = only_mask & df[target_pris].isna()
+    if not mask.any():
+        return
+    sub = df.loc[mask]
+    X = _bygg_X(sub, is_general=True)
+    log_pred = seg_model.model.predict(X)
+    pris = np.maximum(np.expm1(log_pred), MIN_PRIS_FLOOR)
+    df.loc[mask, target_pris] = pris
+    df.loc[mask, target_n] = seg_model.n_obs
 
+
+def _scor_pris_kategori(
+    df: pd.DataFrame,
+    l1: dict,
+    l2: dict,
+    general: SegmentModel | None,
+    target_pris: str,
+    target_n: str,
+    target_nivaa: str | None = None,
+):
+    """Fyll target_pris/target_n for alle rader. Bruk L1 først, så L2, så generell."""
+    df[target_pris] = np.nan
+    df[target_n] = pd.NA
+    if target_nivaa:
+        df[target_nivaa] = "Ingen modell"
+
+    # L1
+    mask_open = df[target_pris].isna()
+    _predict_segment_batch(df, l1, "segment_1", mask_open, False, target_pris, target_n)
+    if target_nivaa:
+        df.loc[df[target_pris].notna() & (df[target_nivaa] == "Ingen modell"), target_nivaa] = "L1"
+
+    # L2 (kun rader L1 ikke traff)
+    mask_open = df[target_pris].isna()
+    _predict_segment_batch(df, l2, "segment_2", mask_open, False, target_pris, target_n)
+    if target_nivaa:
+        df.loc[df[target_pris].notna() & (df[target_nivaa] == "Ingen modell"), target_nivaa] = "L2"
+
+    # Generell
+    mask_open = df[target_pris].isna()
+    _predict_general(df, general, mask_open, target_pris, target_n)
+    if target_nivaa:
+        df.loc[df[target_pris].notna() & (df[target_nivaa] == "Ingen modell"), target_nivaa] = "GEN"
+
+
+# ---- Hovedinngang: scor en DataFrame ----
+
+def scorer_biler(df: pd.DataFrame, modeller: FlipModels, threshold: int = GOOD_DEAL_THRESHOLD) -> pd.DataFrame:
+    """Scorer alle biler i en DataFrame med markedspris + hurtigpris.
+    Returnerer df utvidet med:
+      forventet_pris, hurtigpris, peer_konfidens, peer_konfidens_hurtig,
+      modell_nivaa, rabatt_kr, rabatt_pct, forventet_pris_raa, overstyrt
+    """
+    df = _normaliser_for_scoring(df)
+
+    if df.empty:
+        return df
+
+    # Markedspris
+    _scor_pris_kategori(
+        df,
+        modeller.market_l1,
+        modeller.market_l2,
+        modeller.market_general,
+        target_pris="forventet_pris",
+        target_n="peer_konfidens",
+        target_nivaa="modell_nivaa",
+    )
+
+    # Hurtigpris
+    _scor_pris_kategori(
+        df,
+        modeller.fast_l1,
+        modeller.fast_l2,
+        modeller.fast_general,
+        target_pris="hurtigpris",
+        target_n="peer_konfidens_hurtig",
+        target_nivaa=None,
+    )
+
+    # Manuelle overstyringer på markedspris (hurtigpris berøres ikke)
     overrides = last_overrides(local_path=OVERRIDES_LOCAL_PATH)
     df = apply_overrides(df, overrides)
 
@@ -325,6 +398,7 @@ def lag_json_data(df: pd.DataFrame) -> str:
             "fh": str(row.get("Forhandler", "")) if pd.notna(row.get("Forhandler")) else "",
             "im": str(row.get("BildeURL", "")) if pd.notna(row.get("BildeURL")) else "",
             "ep": round(row["forventet_pris"]) if pd.notna(row.get("forventet_pris")) else 0,
+            "hp": round(row["hurtigpris"]) if pd.notna(row.get("hurtigpris")) else 0,
             "r": round(row["rabatt_pct"], 1) if pd.notna(row.get("rabatt_pct")) else 0,
             "ml": str(row.get("modell_nivaa", "none")) if pd.notna(row.get("modell_nivaa")) else "none",
         }
