@@ -40,6 +40,15 @@ from sklearn.preprocessing import OneHotEncoder
 # skriptet kjøres fra.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# Last .env hvis tilgjengelig — gjør AWS-credentials tilgjengelig for
+# config.py når skriptet kjøres direkte fra terminal. find_dotenv leter
+# oppover slik at en worktree-undermappe også finner repo-rotens .env.
+try:
+    from dotenv import find_dotenv, load_dotenv
+    load_dotenv(find_dotenv(usecwd=True))
+except ImportError:
+    pass  # python-dotenv ikke installert; faller tilbake til shell-env
+
 from bilradar_modell_skjema import (  # noqa: E402
     FlipModels,
     GEN_FEATURES_CAT,
@@ -241,7 +250,7 @@ def hent_parquet_fra_s3(local_cache: str | None = None) -> str:
     if not local_cache:
         local_cache = os.path.join(tempfile.gettempdir(), "database_biler.parquet")
 
-    print(f"[S3] Laster ned s3://{S3_BUCKET_NAME}/{S3_INPUT_KEY} → {local_cache}")
+    print(f"[S3] Laster ned s3://{S3_BUCKET_NAME}/{S3_INPUT_KEY} -> {local_cache}")
     s3.download_file(S3_BUCKET_NAME, S3_INPUT_KEY, local_cache)
     return local_cache
 
@@ -254,7 +263,7 @@ def upload_modell_til_s3(local_path: str, key: str = S3_OUTPUT_KEY):
         "s3", region_name=AWS_REGION,
         aws_access_key_id=AWS_KEY, aws_secret_access_key=AWS_SECRET,
     )
-    print(f"[S3] Laster opp {local_path} → s3://{S3_BUCKET_NAME}/{key}")
+    print(f"[S3] Laster opp {local_path} -> s3://{S3_BUCKET_NAME}/{key}")
     s3.upload_file(local_path, S3_BUCKET_NAME, key)
 
 
