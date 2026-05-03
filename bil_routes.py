@@ -1708,20 +1708,26 @@ def bil_radar_siste():
         antall_mangler_scoring = int(mangler_scoring_mask.sum())
         if antall_mangler_scoring > 0:
             print(f"[BilRadar/siste] Live-scoring av {antall_mangler_scoring} biler uten forventet pris")
-            df_live = _score_manglende_biler(df_siste[mangler_scoring_mask].copy(), s3)
-            kolonner_a_oppdatere = [c for c in ["forventet_pris", "hurtigpris", "rabatt_pct", "modell_nivaa"] if c in df_live.columns]
-            oppdatert = df_live.set_index("FinnKode")[kolonner_a_oppdatere]
-            df_siste = df_siste.set_index("FinnKode")
-            for col in kolonner_a_oppdatere:
-                if col not in df_siste.columns:
-                    if col == "modell_nivaa":
-                        df_siste[col] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
-                    else:
-                        df_siste[col] = np.nan
-                if col == "modell_nivaa" and df_siste[col].dtype != "object":
-                    df_siste[col] = df_siste[col].astype("object")
-                df_siste.loc[oppdatert.index, col] = oppdatert[col]
-            df_siste = df_siste.reset_index()
+            try:
+                df_live = _score_manglende_biler(df_siste[mangler_scoring_mask].copy(), s3)
+                kolonner_a_oppdatere = [c for c in ["forventet_pris", "hurtigpris", "rabatt_pct", "modell_nivaa"] if c in df_live.columns]
+                oppdatert = df_live.set_index("FinnKode")[kolonner_a_oppdatere]
+                df_siste = df_siste.set_index("FinnKode")
+                for col in kolonner_a_oppdatere:
+                    if col not in df_siste.columns:
+                        if col == "modell_nivaa":
+                            df_siste[col] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
+                        else:
+                            df_siste[col] = np.nan
+                    if col == "modell_nivaa" and df_siste[col].dtype != "object":
+                        df_siste[col] = df_siste[col].astype("object")
+                    df_siste.loc[oppdatert.index, col] = oppdatert[col]
+                df_siste = df_siste.reset_index()
+            except Exception as exc:
+                # Modell-lasting kan feile hvis modellen er for stor for instansen.
+                # Vi vil heller servere uscoret data enn å la worker dø.
+                print(f"[BilRadar/siste] Live-scoring feilet ({exc!r}) – fortsetter uten")
+                traceback.print_exc()
 
         df_scoret = df_siste[df_siste["forventet_pris"].notna() & (df_siste["forventet_pris"] > 0)].copy()
         if df_scoret.empty and "FinnKode" in df_siste.columns:
