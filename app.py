@@ -14,7 +14,7 @@ from flask_session import Session
 from handler_routes import handler_bp
 from bolig_routes import bolig_bp
 from fritidsbolig_routes import fritids_bp
-from bil_routes import bil_bp
+from bil_routes import bil_bp, start_bilradar_warmup
 from bil_import import bil_import_bp
 from gemini_routes import gemini_bp
 from scripts.ver_routes import ver
@@ -141,6 +141,11 @@ def create_app() -> Flask:
     # Forhåndsberegn vær-stasjonsmetrikker i bakgrunnen for å gjøre
     # /ver/min-temp (og senere /ver/vind, /ver/nedbor) raskt.
     start_station_metrics_warmup()
+
+    # Forhåndlast Bilradar-prismodellen i bakgrunnstråd (~150 MB joblib,
+    # 2-3 min å deserialisere). Uten dette ville første /bil/finn-sok-
+    # request blokkert til workeren risikerer å treffe gunicorn-timeout.
+    start_bilradar_warmup()
 
 
 

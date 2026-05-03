@@ -5,6 +5,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 from difflib import SequenceMatcher
 from datetime import datetime, timedelta, date
 
@@ -1537,6 +1538,28 @@ def _hent_bilradar_modell(s3):
         )
         _BILRADAR_MODEL_CACHE["modeller"] = modeller
         return modeller
+
+
+def start_bilradar_warmup():
+    """Last prismodellen i en bakgrunnstråd ved app-oppstart, slik at
+    scorer_biler er rask når første /bil/finn-sok-request kommer.
+
+    Modellen er ~150 MB og deserialisering tar 2-3 minutter — uten
+    warmup ville første request blokkert såpass lenge at gunicorn-
+    workeren risikerer å treffe timeout og dø."""
+    def _warmup():
+        try:
+            print("[BilRadar/warmup] Starter modell-lasting i bakgrunn ...")
+            t0 = time.time()
+            s3 = _get_s3_client()
+            _hent_bilradar_modell(s3)
+            print(f"[BilRadar/warmup] Modell klar etter {time.time() - t0:.1f}s")
+        except Exception as exc:
+            # Logg, men ikke krasje appen — lazy load vil fortsatt funke
+            # selv om warmup feiler.
+            print(f"[BilRadar/warmup] Feilet ({exc!r}) — faller tilbake til lazy load")
+
+    threading.Thread(target=_warmup, name="bilradar-modell-warmup", daemon=True).start()
 
 
 def _normaliser_df_for_scoring(df: pd.DataFrame) -> pd.DataFrame:
