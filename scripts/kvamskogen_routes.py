@@ -297,11 +297,16 @@ def _bygg_fremover_tekst(ski_dager: list[dict], today_iso: str) -> str:
     """Bygg tredje avsnitt i detail regelbasert – AI skal bruke dette ordrett."""
     fremtidige = [d for d in ski_dager if d.get("dato", "") >= today_iso]
     if not fremtidige:
-        return "Ingen skidager i prognosen."
+        return "Ingen turdager i prognosen."
 
-    # Finn første dag som er dårlig/regn (score 1-2) og første gode dag (score ≥ 3)
+    # Finn første dag som er dårlig/regn (score 1-2) og første gode turdag.
     forste_darlig = next((d for d in fremtidige if d.get("score", 3) <= 2), None)
-    forste_gode   = next((d for d in fremtidige if d.get("score", 3) >= 3), None)
+    forste_gode   = next((
+        d for d in fremtidige
+        if d.get("score", 3) >= 3
+        and float((d.get("features") or {}).get("regn_timer", 24) or 24) == 0
+        and float((d.get("features") or {}).get("sol_timer", 0) or 0) >= 5
+    ), next((d for d in fremtidige if d.get("score", 3) >= 3), None))
 
     def _dagnavn(d: dict) -> str:
         dato = d.get("dato", "")
@@ -325,16 +330,16 @@ def _bygg_fremover_tekst(ski_dager: list[dict], today_iso: str) -> str:
         gode_score  = forste_gode.get("score", 3)
         if forste_darlig.get("dato") < forste_gode.get("dato", ""):
             # Dårlig dag kommer først
-            return f"{darlig_navn} er regndag – dropp ski. {gode_navn} ser {_score_tekst(gode_score)} ut."
+            return f"{darlig_navn} er regndag – dropp langtur. {gode_navn} ser {_score_tekst(gode_score)} ut for tur."
         else:
             # Gode dag kommer først
-            return f"{gode_navn} ser {_score_tekst(gode_score)} ut."
+            return f"{gode_navn} ser {_score_tekst(gode_score)} ut for tur."
     elif forste_gode:
         gode_navn  = _dagnavn(forste_gode)
         gode_score = forste_gode.get("score", 3)
-        return f"{gode_navn} ser {_score_tekst(gode_score)} ut."
+        return f"{gode_navn} ser {_score_tekst(gode_score)} ut for tur."
     else:
-        return "Ingen gode skidager i nærmeste fremtid."
+        return "Ingen gode turdager i nærmeste fremtid."
 
 
 def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = None) -> dict:
@@ -380,19 +385,23 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
             f"– {kvalitet} (score {score}/5, '{neste_gode.get('kort', '')}')"
         )
     else:
-        neste_gode_skidag = "Ingen gode skidager gjenstår i dag eller de neste dagene"
+        neste_gode_skidag = "Ingen gode turvinduer gjenstår i dag eller de neste dagene"
 
     # ── Regelbasert verdict – ikke overlat dette til AI-skjønn ──────────────────
     def _bygg_verdict(neste: dict | None, now_h: int, today: str) -> str:
         """Bestem overskrift basert på tidspunkt og neste gode dag."""
         if neste is None:
-            return "Ingen gode skidager de neste dagene"
+            return "Ingen gode turdager de neste dagene"
 
         er_i_dag = neste.get("dato") == today
         score = neste.get("score", 3)
         ukedag = neste.get("ukedag", "").capitalize()
         beste_tid = neste.get("beste_tid") or ""
         tid_tekst = _fmt_beste_tid_tekst(beste_tid) or "hele dagen"
+        features = neste.get("features") or {}
+        regn_timer = float(features.get("regn_timer") or 0)
+        sol_timer = float(features.get("sol_timer") or 0)
+        klar_turdag = regn_timer == 0 and sol_timer >= 5
 
         # Etter kl 14: fokuser på neste dag, ikke i dag
         if now_h >= 14:
@@ -400,7 +409,7 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
                 # Det er en luke i dag men vi er i den eller nær slutten
                 slutt_min = _t_til_min(beste_tid.split("–")[-1]) if "–" in beste_tid else 0
                 if slutt_min - now_h * 60 >= 60:
-                    return f"Siste sjanse i dag – {tid_tekst}"
+                    return f"Siste sjanse for tur i dag – {tid_tekst}"
                 # Slutter snart, se fremover
                 neste_fremtidig = next(
                     (d for d in ski_dager if d.get("dato", "") > today and d.get("score", 0) >= 3 and d.get("beste_tid")),
@@ -410,10 +419,10 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
                     nf_score = neste_fremtidig.get("score", 3)
                     nf_dag = neste_fremtidig.get("ukedag", "").capitalize()
                     if nf_score >= 5:
-                        return f"Hold ut – {nf_dag.lower()} blir en drømmedag"
+                        return f"Hold ut – {nf_dag.lower()} blir en topp turdag"
                     elif nf_score >= 4:
-                        return f"Grått nå, men {nf_dag.lower()} lover godt"
-                    return f"Neste mulighet: {nf_dag.lower()}"
+                        return f"Grått nå, men {nf_dag.lower()} lover godt turvær"
+                    return f"Neste turmulighet: {nf_dag.lower()}"
                 return "Dagens luke er snart over"
             else:
                 # Neste gode dag er fremtidig
@@ -425,20 +434,22 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
                 except Exception:
                     pass
                 if score >= 5 and er_i_morgen:
-                    return "Hold ut – i morgen blir en drømmedag"
+                    return "Hold ut – i morgen blir en topp turdag"
                 elif score >= 5:
-                    return f"Hold ut – {ukedag.lower()} blir perfekt"
+                    return f"Hold ut – {ukedag.lower()} blir perfekt for tur"
                 elif score >= 4 and er_i_morgen:
-                    return "Grått nå, men i morgen ser det bra ut"
+                    return "Grått nå, men i morgen ser det bra ut for tur"
                 elif score >= 4:
-                    return f"Grått nå, men {ukedag.lower()} lover godt"
-                return f"Neste brukbare dag: {ukedag.lower()}"
+                    return f"Grått nå, men {ukedag.lower()} lover godt turvær"
+                return f"Neste brukbare turdag: {ukedag.lower()}"
         else:
             # Før kl 14: vurder forholdene nå vs fremover
             if er_i_dag and score >= 4:
-                return f"Bra forhold i dag – {tid_tekst}"
+                if klar_turdag:
+                    return f"Strålende turdag i dag – minst 5 timer sol"
+                return f"Bra turforhold i dag – {tid_tekst}"
             elif er_i_dag and score >= 3:
-                return f"Greit skiføre – best {tid_tekst}"
+                return f"Greit turvær – best {tid_tekst}"
             elif score >= 5:
                 er_i_morgen = False
                 try:
@@ -448,11 +459,11 @@ def _ai_tolkning(sno_data: dict, loyper_data: dict, kamera_data: dict | None = N
                 except Exception:
                     pass
                 if er_i_morgen:
-                    return "Regn i dag – perfekt skivær i morgen"
-                return f"Dårlig nå, men {ukedag.lower()} blir en drømmedag"
+                    return "Regn i dag – perfekt turvær i morgen"
+                return f"Dårlig nå, men {ukedag.lower()} blir en topp turdag"
             elif score >= 4:
-                return f"Variabelt nå – {ukedag.lower()} ser bedre ut"
-            return "Variabelt vær – sjekk prognosen"
+                return f"Variabelt nå – {ukedag.lower()} ser bedre ut for tur"
+            return "Variabelt vær – se etter tørre turvinduer"
 
     ferdig_verdict = _bygg_verdict(neste_gode, now_local.hour, today_iso)
     fremover_tekst_ferdig = _bygg_fremover_tekst(ski_dager, today_iso)
@@ -1176,7 +1187,7 @@ def _lag_dagtekst(features: dict) -> tuple[int, str, str | None, str]:
     sol_timer = features.get("sol_timer", 0)
 
     if not beste:
-        return 1, "Ingen god ski-luke", None, "Ingen sammenhengende luke på minst to timer uten regn og kraftig vind."
+        return 1, "Ingen god tur-luke", None, "Ingen sammenhengende luke på minst to timer uten regn og kraftig vind."
 
     # Regn > 35% av dagslyset → alltid maks score 2, uansett tørr luke.
     # (Tidligere terskel var 0.50 – for høy, lot regndager score 4.)
@@ -1190,10 +1201,10 @@ def _lag_dagtekst(features: dict) -> tuple[int, str, str | None, str]:
                 f"Regn dominerer dagen. Det finnes en marginal luke {tid_tekst}, men forholdene blir våte."
         else:
             return 1, "Regndag – ikke anbefalt", None, \
-                "Regn det meste av dagslyset. Ikke en dag for skitur."
+                "Regn det meste av dagslyset. Ikke en dag for lengre tur."
 
     # Score 4 krever nå at regn er under 15%
-    if beste["kvalitet"] == "perfekt" and beste["timer"] >= 3:
+    if beste["kvalitet"] == "perfekt" and beste["timer"] >= 3 and sol_timer >= 5 and regn_andel == 0:
         score = 5
     elif beste["kvalitet"] in ("perfekt", "god") and beste["timer"] >= 2 and regn_andel < 0.15:
         score = 4
@@ -1208,14 +1219,14 @@ def _lag_dagtekst(features: dict) -> tuple[int, str, str | None, str]:
     if score == 5:
         if tid_tekst:
             kort = f"Best {tid_tekst}"
-            detalj = f"Dagens beste ski-luke er {tid_tekst}. Opphold, sol og lite vind gir svært fine forhold."
+            detalj = f"Dagens beste tur-luke er {tid_tekst}. Opphold, sol og lite vind gir svært fine forhold."
         else:
-            kort = "Perfekt skidag – hele dagen"
+            kort = "Perfekt turdag – hele dagen"
             detalj = "Hele dagen byr på fine forhold – opphold, sol og lite vind fra morgen til kveld."
     elif score == 4:
         if tid_tekst:
             kort = f"Finest {tid_tekst}"
-            detalj = f"Beste tidspunkt for skitur er {tid_tekst}. Det ser stort sett opphold ut og vinden holder seg greit."
+            detalj = f"Beste tidspunkt for tur er {tid_tekst}. Det ser stort sett opphold ut og vinden holder seg greit."
         else:
             kort = "God dag – hele dagen brukbar"
             detalj = "Gode forhold gjennom hele dagen. Vinden holder seg og det er lite nedbør."
@@ -1232,10 +1243,10 @@ def _lag_dagtekst(features: dict) -> tuple[int, str, str | None, str]:
             detalj = f"Mest urolig vær, men {tid_tekst} er den minst dårlige luken. Vær forberedt på våtere forhold."
         else:
             kort = "Marginal dag"
-            detalj = "Begrenset mulighet for skitur. Forholdene er variable og lite ideelle."
+            detalj = "Begrenset mulighet for tur. Forholdene er variable og lite ideelle."
     else:
         kort = "Styr unna i dag"
-        detalj = "Regn eller vind ødelegger mesteparten av dagen, så dette er ingen god skidag."
+        detalj = "Regn eller vind ødelegger mesteparten av dagen, så dette er ingen god turdag."
 
     grov = features.get("grov_prognose", False)
     if grov and score >= 3:
