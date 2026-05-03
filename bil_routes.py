@@ -1898,6 +1898,9 @@ def bil_innbytte_side():
                             c_solgt = col_or_null("solgt")
                             c_finn = col_or_null("finnkode")
 
+                            solgt_norm_expr = _normalize_str_sql(c_solgt)
+                            solgt_true_expr = _solgt_true_expr(solgt_norm_expr) if colmap.get("solgt") else None
+
                             pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
                             pris_start_num = f"try_cast({c_pris_start} AS BIGINT)"
                             km_num = _to_bigint_sql(c_km)
@@ -1940,6 +1943,11 @@ def bil_innbytte_side():
                             def _fetch_brand_models():
                                 where_parts = [f"lower(cast({c_prod} as varchar)) = ?"]
                                 params = [merke.lower()]
+                                if colmap.get("solgt"):
+                                    where_parts.append(solgt_true_expr)
+                                elif colmap.get("dato_end"):
+                                    where_parts.append(f"{dato_end_ts} IS NOT NULL")
+                                    where_parts.append(f"date({dato_end_ts}) <= current_date")
                                 where_sql = " WHERE " + " AND ".join(where_parts)
                                 models_sql = f"""
                                   SELECT cast({c_mod} as varchar) AS modell, count(*) AS antall
@@ -1985,9 +1993,14 @@ def bil_innbytte_side():
                                     where_parts.append(f"{km_num} <= ?")
                                     params.append(km_upper_bound)
 
-                                # Inkluder alle annonser (solgt, fjernet og aktive).
-                                # Bruk kun en pris-sanity for å luke ut tomme/ugyldige rader.
-                                where_parts.append(f"{pris_ny_num} > 1000")
+                                if colmap.get("solgt"):
+                                    where_parts.append(solgt_true_expr)
+                                else:
+                                    if colmap.get("dato_end"):
+                                        where_parts.append(f"{dato_end_ts} IS NOT NULL")
+                                        where_parts.append(f"date({dato_end_ts}) <= current_date")
+                                    else:
+                                        where_parts.append(f"{pris_ny_num} > 1000")
                                 if fra_dato and colmap.get("dato_end"):
                                     where_parts.append(f"date({dato_end_ts}) >= ?")
                                     params.append(fra_dato.isoformat())
