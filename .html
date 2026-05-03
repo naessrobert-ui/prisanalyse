@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}Portfolio Rebalancer{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <h1 class="mb-3">Portfolio Rebalancer (intern)</h1>
+  <p class="text-muted">Last opp workbook, juster referanseindekser og mapping, beregn aktive bet og eksporter til Excel.</p>
+
+  <!-- ================================================================
+       REFERANSEINDEKS-EDITOR
+       ================================================================ -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Referanseindekser</strong>
+      <div>
+        <span id="ref-save-status" class="text-muted small me-2"></span>
+        <button class="btn btn-sm btn-success" onclick="saveReferenceConfig()">Lagre referanseindekser</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <p class="text-muted small mb-3">
+        Disse verdiene gjelder for alle porteføljer med mindre du legger inn en portefølje-spesifikk overstyring nederst.
+        Aksjeandelen hentes automatisk fra porteføljenavnet (f.eks. G6535 → 65% aksjer, EG → 100%).
+      </p>
+
+      <h6>Globale parametere</h6>
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <label class="form-label">Norske aksjer av total aksjeandel (%)</label>
+          <input type="number" class="form-control" id="ref-equity-norway" min="0" max="100" step="0.5"
+                 value="{{ (ref_cfg.global.equity_norway_pct) | round(1) }}">
+          <small class="text-muted">Default: 15%</small>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">EM av internasjonal aksjeandel (%)</label>
+          <input type="number" class="form-control" id="ref-em-intl" min="0" max="100" step="0.5"
+                 value="{{ (ref_cfg.global.em_within_international_equity_pct) | round(1) }}">
+          <small class="text-muted">Default: 15%</small>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Allokeringsfond (%)</label>
+          <input type="number" class="form-control" id="ref-allocation" min="0" max="100" step="0.5"
+                 value="{{ (ref_cfg.global.allocation_pct) | round(1) }}">
+          <small class="text-muted">Default: 10% — inngår i renteandelen</small>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Norske renter av total renteandel (%)</label>
+          <input type="number" class="form-control" id="ref-fi-norway" min="0" max="100" step="0.5"
+                 value="{{ (ref_cfg.global.fi_norway_within_fi_pct) | round(1) }}">
+          <small class="text-muted">Default: 50%</small>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Lange renter av norske renter (%)</label>
+          <input type="number" class="form-control" id="ref-fi-long" min="0" max="100" step="0.5"
+                 value="{{ (ref_cfg.global.fi_long_within_norway_fi_pct) | round(1) }}">
+          <small class="text-muted">Default: 50%</small>
+        </div>
+      </div>
+
+      <!-- Allokering-visualisering -->
+      <h6>Illustrasjon — typisk portefølje med 65% aksjer</h6>
+      <div id="ref-illustration" class="mb-4">
+        <canvas id="ref-chart" height="60"></canvas>
+      </div>
+
+      <!-- Portefølje-overstyringer -->
+      <h6>Portefølje-spesifikke overstyringer <small class="text-muted">(blank = bruk global verdi)</small></h6>
+      <div id="overrides-container"></div>
+      <button class="btn btn-sm btn-outline-secondary mt-2" onclick="addOverrideRow()">+ Legg til overstyring</button>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       WORKBOOK-SKJEMA
+       ================================================================ -->
+  <form method="post" enctype="multipart/form-data" class="card card-body mb-4">
+    <div class="mb-3">
+      <label class="form-label" for="workbook">Last opp workbook (.xlsx)</label>
+      <input class="form-control" type="file" id="workbook" name="workbook" accept=".xlsx,.xlsm" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="mapping_json">Kategori-mapping (JSON: fondsnavn → kategori)</label>
+      <textarea class="form-control font-monospace" id="mapping_json" name="mapping_json" rows="10">{{ ui_state.mapping_json }}</textarea>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="benchmark_json">Benchmark-innstillinger (JSON, genereres automatisk)</label>
+      <textarea class="form-control font-monospace" id="benchmark_json" name="benchmark_json" rows="6">{{ ui_state.benchmark_json }}</textarea>
+      <small class="text-muted">La stå tom for å bruke referanseindeksene ovenfor automatisk.</small>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="active_bets_json">Aktive bet (JSON, valgfritt)</label>
+      <textarea class="form-control font-monospace" id="active_bets_json" name="active_bets_json" rows="4">{{ ui_state.active_bets_json }}</textarea>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="absolute_targets_json">Absolutte målvekter (JSON, valgfritt)</label>
+      <textarea class="form-control font-monospace" id="absolute_targets_json" name="absolute_targets_json" rows="4">{{ ui_state.absolute_targets_json }}</textarea>
+    </div>
+
+    <div class="row">
+      <div class="col-md-4 mb-3">
+        <label class="form-label" for="min_trade_threshold">Minimumshandel (%-poeng)</label>
+        <input class="form-control" type="number" min="0" step="0.001" id="min_trade_threshold"
+               name="min_trade_threshold" value="{{ ui_state.min_trade_threshold }}">
+      </div>
+      <div class="col-md-4 mb-3">
+        <label class="form-label" for="rebalance_mode">Rebalanseringsmodus</label>
+        <select class="form-select" id="rebalance_mode" name="rebalance_mode">
+          <option value="go_to_benchmark" {% if ui_state.rebalance_mode == 'go_to_benchmark' %}selected{% endif %}>Gå til referanse</option>
+          <option value="reference_plus_active_bets" {% if ui_state.rebalance_mode == 'reference_plus_active_bets' %}selected{% endif %}>Referanse + aktive bet</option>
+          <option value="absolute_targets" {% if ui_state.rebalance_mode == 'absolute_targets' %}selected{% endif %}>Absolutte målvekter</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Beregn</button>
+  </form>
+
+  {% if error_message %}
+    <div class="alert alert-danger">{{ error_message }}</div>
+  {% endif %}
+
+  {% if detected_sheets %}
+    <div class="alert alert-info">Detekterte porteføljer: {{ detected_sheets|join(', ') }}</div>
+  {% endif %}
+
+  {% if results_preview %}
+    <div class="card card-body mb-3">
+      <h2 class="h5">Resultatoversikt</h2>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped">
+          <thead>
+            <tr>
+              <th>Portefølje</th>
+              <th>Aktivaklasse</th>
+              <th>Faktisk (%)</th>
+              <th>Referanse (%)</th>
+              <th>Aktivt bet (%-p)</th>
+              <th>Foreslått handel (%-p)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in results_preview %}
+            {% if not row.skip_due_to_minimum %}
+            <tr class="{{ 'table-warning' if row.suggested_trade | abs > 5 else '' }}">
+              <td>{{ row.portfolio }}</td>
+              <td>{{ row.asset_class }}</td>
+              <td>{{ "%.2f"|format(row.actual_weight) }}</td>
+              <td>{{ "%.2f"|format(row.benchmark_weight) }}</td>
+              <td>{{ "%+.2f"|format(row.active_bet) }}</td>
+              <td>{{ "%+.2f"|format(row.suggested_trade) }}</td>
+            </tr>
+            {% endif %}
+          {% endfor %}
+          </tbody>
+        </table>
+        <small class="text-muted">Viser kun handler over minimumsgrensen. Rader med handel &gt; 5%-poeng er markert.</small>
+      </div>
+      {% if export_ready %}
+        <a class="btn btn-success mt-2" href="{{ url_for('portfolio_rebalancer.export_xlsx') }}">Eksporter til Excel</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+<!-- ================================================================
+     JAVASCRIPT — referanseindeks-editor
+     ================================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+// Lastet inn fra Flask ved sidevisning
+let refCfg = {{ ref_cfg | tojson }};
+
+// ---- Illustrasjonsdiagram ----
+let chart = null;
+
+function buildChartData(equityNorwayPct, emIntlPct, allocationPct, fiNorwayPct, fiLongPct, totalEquityPct) {
+  const equity = totalEquityPct;
+  const alloc  = allocationPct;
+  const fi     = 100 - equity - alloc;
+
+  const eqNorway = equity * equityNorwayPct / 100;
+  const eqIntl   = equity - eqNorway;
+  const eqEM     = eqIntl * emIntlPct / 100;
+  const eqDM     = eqIntl - eqEM;
+
+  const fiNorway = fi * fiNorwayPct / 100;
+  const fiGlobal = fi - fiNorway;
+  const fiLong   = fiNorway * fiLongPct / 100;
+  const fiShort  = fiNorway - fiLong;
+
+  return {
+    labels: ['NO Aksjer', 'DM Aksjer', 'EM Aksjer', 'Allokering', 'NO Renter korte', 'NO Renter lange', 'Globale renter'],
+    data:   [eqNorway, eqDM, eqEM, alloc, fiShort, fiLong, fiGlobal],
+    colors: ['#1a5276','#2980b9','#85c1e9','#f39c12','#1e8449','#58d68d','#abebc6'],
+  };
+}
+
+function updateChart() {
+  const eqN  = parseFloat(document.getElementById('ref-equity-norway').value) || 15;
+  const emI  = parseFloat(document.getElementById('ref-em-intl').value) || 15;
+  const aloc = parseFloat(document.getElementById('ref-allocation').value) || 10;
+  const fiN  = parseFloat(document.getElementById('ref-fi-norway').value) || 50;
+  const fiL  = parseFloat(document.getElementById('ref-fi-long').value) || 50;
+
+  const cd = buildChartData(eqN, emI, aloc, fiN, fiL, 65);
+
+  if (chart) {
+    chart.data.labels = cd.labels;
+    chart.data.datasets[0].data = cd.data;
+    chart.data.datasets[0].backgroundColor = cd.colors;
+    chart.update();
+  } else {
+    const ctx = document.getElementById('ref-chart').getContext('2d');
+    chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: cd.labels,
+        datasets: [{
+          data: cd.data,
+          backgroundColor: cd.colors,
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { min: 0, max: 100, ticks: { callback: v => v + '%' } },
+          y: { ticks: { font: { size: 11 } } }
+        },
+        responsive: true,
+        maintainAspectRatio: false,
+      }
+    });
+  }
+}
+
+// Oppdater diagram live ved endringer
+['ref-equity-norway','ref-em-intl','ref-allocation','ref-fi-norway','ref-fi-long'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateChart);
+});
+
+// ---- Portefølje-overstyringer ----
+function renderOverrides() {
+  const container = document.getElementById('overrides-container');
+  container.innerHTML = '';
+  const overrides = refCfg.portfolio_overrides || {};
+  Object.entries(overrides).forEach(([pf, vals]) => addOverrideRow(pf, vals));
+}
+
+function addOverrideRow(portfolio='', vals={}) {
+  const container = document.getElementById('overrides-container');
+  const row = document.createElement('div');
+  row.className = 'row g-2 mb-2 align-items-end override-row';
+  row.innerHTML = `
+    <div class="col-md-2">
+      <label class="form-label small">Portefølje</label>
+      <input type="text" class="form-control form-control-sm of-portfolio" placeholder="f.eks. EG" value="${portfolio}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small">NO aksjer (%)</label>
+      <input type="number" class="form-control form-control-sm of-eq-norway" min="0" max="100" step="0.5"
+             placeholder="${refCfg.global.equity_norway_pct}" value="${vals.equity_norway_pct ?? ''}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small">EM (%)</label>
+      <input type="number" class="form-control form-control-sm of-em-intl" min="0" max="100" step="0.5"
+             placeholder="${refCfg.global.em_within_international_equity_pct}" value="${vals.em_within_international_equity_pct ?? ''}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small">Allokering (%)</label>
+      <input type="number" class="form-control form-control-sm of-alloc" min="0" max="100" step="0.5"
+             placeholder="${refCfg.global.allocation_pct}" value="${vals.allocation_pct ?? ''}">
+    </div>
+    <div class="col-md-1">
+      <button class="btn btn-sm btn-outline-danger w-100" onclick="this.closest('.override-row').remove()">×</button>
+    </div>`;
+  container.appendChild(row);
+}
+
+function collectConfig() {
+  const cfg = {
+    global: {
+      equity_norway_pct:                parseFloat(document.getElementById('ref-equity-norway').value),
+      em_within_international_equity_pct: parseFloat(document.getElementById('ref-em-intl').value),
+      allocation_pct:                   parseFloat(document.getElementById('ref-allocation').value),
+      fi_norway_within_fi_pct:          parseFloat(document.getElementById('ref-fi-norway').value),
+      fi_long_within_norway_fi_pct:     parseFloat(document.getElementById('ref-fi-long').value),
+    },
+    portfolio_overrides: {}
+  };
+  document.querySelectorAll('.override-row').forEach(row => {
+    const pf = row.querySelector('.of-portfolio').value.trim();
+    if (!pf) return;
+    const entry = {};
+    const eqN = row.querySelector('.of-eq-norway').value;
+    const emI = row.querySelector('.of-em-intl').value;
+    const alc = row.querySelector('.of-alloc').value;
+    if (eqN !== '') entry.equity_norway_pct = parseFloat(eqN);
+    if (emI !== '') entry.em_within_international_equity_pct = parseFloat(emI);
+    if (alc !== '') entry.allocation_pct = parseFloat(alc);
+    // Inherit fi-splits from global unless overridden
+    entry.fi_norway_within_fi_pct      = cfg.global.fi_norway_within_fi_pct;
+    entry.fi_long_within_norway_fi_pct = cfg.global.fi_long_within_norway_fi_pct;
+    cfg.portfolio_overrides[pf] = entry;
+  });
+  return cfg;
+}
+
+async function saveReferenceConfig() {
+  const cfg = collectConfig();
+  const status = document.getElementById('ref-save-status');
+  status.textContent = 'Lagrer...';
+  try {
+    const resp = await fetch('{{ url_for("portfolio_rebalancer.save_reference_config") }}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(cfg),
+    });
+    if (resp.ok) {
+      refCfg = cfg;
+      status.textContent = '✓ Lagret';
+      setTimeout(() => status.textContent = '', 3000);
+    } else {
+      status.textContent = '✗ Feil ved lagring';
+    }
+  } catch(e) {
+    status.textContent = '✗ Nettverksfeil';
+  }
+}
+
+// Init
+renderOverrides();
+updateChart();
+</script>
+{% endblock %}

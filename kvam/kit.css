@@ -1,0 +1,325 @@
+/* Local override + layout for the Kvamskogen.no UI kit demo. */
+@import url('colors_and_type.css');
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; padding: 0; min-height: 100%; }
+body { background: var(--color-bg); color: var(--color-fg); font-family: var(--font-body); }
+
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.main { flex: 1; }
+.container { max-width: var(--max-w-content); margin: 0 auto; padding: 0 var(--gutter); }
+
+/* ---------- Header ---------- */
+.kk-header {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 28px;
+  height: 64px; padding: 0 var(--gutter);
+  background: rgba(251,250,246,0.82); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--color-border);
+}
+.kk-header.over-hero {
+  background: linear-gradient(to bottom, rgba(15,42,34,0.55), rgba(15,42,34,0));
+  border-bottom-color: transparent; color: #fff;
+}
+.kk-header.over-hero .kk-nav a,
+.kk-header.over-hero .kk-nav a.active { color: rgba(255,255,255,0.92); }
+.kk-header.over-hero .kk-nav a:hover { color: #fff; }
+.kk-header.over-hero .kk-brand,
+.kk-header.over-hero .kk-brand svg { color: #fff !important; }
+.kk-brand { display:flex; align-items:center; gap:8px; font-family: var(--font-display); font-size: 22px; font-weight: 500; letter-spacing:-0.01em; color: var(--granskog-900); text-decoration: none; }
+.kk-brand svg { width: 24px; height: 24px; }
+.kk-nav { display:flex; gap: 22px; font-size: 14px; font-weight: 500; }
+.kk-nav a { color: var(--color-fg-muted); text-decoration: none; padding: 6px 0; cursor: pointer; }
+.kk-nav a:hover { color: var(--color-fg); }
+.kk-nav a.active { color: var(--color-fg); }
+.spacer { flex: 1; }
+
+/* ---------- Buttons ---------- */
+.btn { font-family: var(--font-body); font-size:14px; font-weight:600; padding: 10px 18px; border-radius: var(--radius-lg); border: 1px solid transparent; cursor: pointer; transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); letter-spacing: -0.005em; }
+.btn-sm { padding: 7px 14px; font-size: 13px; }
+.btn-primary { background: var(--color-brand); color: var(--color-fg-on-dark); }
+.btn-primary:hover { background: var(--color-brand-hover); }
+.btn-secondary { background: transparent; color: var(--color-fg); border-color: var(--color-border-strong); }
+.btn-secondary:hover { background: var(--snø-100); border-color: var(--stein-500); }
+.btn-secondary.on-dark { color: #fff; border-color: rgba(255,255,255,0.4); }
+.btn-secondary.on-dark:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.7); }
+.btn-accent { background: var(--color-accent); color: #fff; }
+.btn-accent:hover { background: var(--color-accent-hover); }
+.btn-ghost { background: transparent; color: var(--color-link); padding: 0; border: 0; cursor: pointer; font-weight: 600; }
+.btn-ghost:hover { text-decoration: underline; text-underline-offset: 4px; }
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative; min-height: 620px; height: 70vh; max-height: 760px;
+  padding: 0 var(--gutter) 32px;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  color: #fff; isolation: isolate;
+}
+@media (max-width: 720px) { .hero { height: auto; min-height: 560px; padding-bottom: 200px; } }
+.hero-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+.hero-bg::after {
+  content: ""; position: absolute; inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(15,42,34,0.65) 0%, rgba(15,42,34,0.15) 30%, rgba(15,42,34,0.25) 55%, rgba(15,42,34,0.85) 100%),
+    linear-gradient(to right, rgba(15,42,34,0.45) 0%, rgba(15,42,34,0) 60%);
+}
+.hero-photo { position: absolute; inset: 0; background-size: cover; background-position: center; transition: opacity 600ms var(--ease-out); }
+.hero-photo.spring { background-image: url('assets/photos/varski-folgefonna.jpg'); background-position: center 40%; }
+.hero-photo.summer { background-image: url('assets/photos/utsikt-fjord.jpg'); background-position: center 35%; }
+.hero-photo.winter { background-image: url('assets/photos/vinter-skispor.jpg'); background-position: center 45%; }
+.hero-photo.autumn { background-image: url('assets/photos/kjelen-haust.jpg'); background-position: center 45%; }
+.hero-content { max-width: 880px; padding-bottom: 130px; }
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(48px, 7vw, 96px);
+  font-weight: 400; line-height: 1.04; letter-spacing: -0.025em;
+  color: #fff; text-wrap: balance; margin: 0 0 36px;
+  padding-bottom: 4px;
+}
+.hero-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.85); margin-bottom: 24px; display:flex; align-items:center; gap:10px; }
+.hero-eyebrow .dot { width: 6px; height: 6px; background: var(--color-accent); border-radius: 50%; display:inline-block; }
+.hero p.lede { font-family: var(--font-display); font-size: clamp(18px, 1.6vw, 22px); line-height: 1.5; color: rgba(255,255,255,0.92); max-width: 620px; margin: 0 0 28px; font-weight: 400; }
+.hero-actions { display: flex; gap: 12px; }
+
+/* ---------- Weather strip ---------- */
+.weather-strip {
+  position: absolute; left: var(--gutter); right: var(--gutter); bottom: 24px;
+  display: flex; align-items: center; gap: 24px;
+  padding: 16px 24px;
+  background: rgba(251,250,246,0.97); backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: var(--radius-lg);
+  color: var(--color-fg);
+  box-shadow: 0 12px 40px rgba(11,36,51,0.28), 0 2px 8px rgba(11,36,51,0.12);
+}
+.weather-strip .weather-cell .eb { color: var(--color-fg-muted); }
+.weather-strip .weather-cell .num { color: var(--color-fg); }
+.weather-cell { display: flex; flex-direction: column; gap: 4px; }
+.weather-cell .eb { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-fg-subtle); }
+.weather-cell .val { display:flex; align-items:baseline; gap:8px; }
+.weather-cell .num { font-family: var(--font-display); font-size: 28px; font-weight: 400; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.weather-cell .num.cold { color: var(--fjord-700); }
+.weather-cell .unit { font-size: 12px; color: var(--color-fg-subtle); }
+.weather-cell .cap { font-family: var(--font-display); font-size: 14px; color: var(--color-fg-muted); }
+.weather-div { width: 1px; align-self: stretch; background: var(--color-border); }
+.weather-foot { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-fg-subtle); }
+.weather-foot a { color: var(--color-link); cursor: pointer; }
+
+/* ---------- Section ---------- */
+.section { padding: 96px 0; }
+.section.tight { padding: 64px 0; }
+.section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 40px; flex-wrap: wrap; }
+.section-head .titles { max-width: 720px; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-fg-subtle); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+.eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; display:inline-block; }
+.eyebrow.spring .dot { background: var(--lav-500); } .eyebrow.spring { color: var(--lav-600); }
+.eyebrow.winter .dot { background: var(--fjord-500); } .eyebrow.winter { color: var(--fjord-700); }
+.eyebrow.summer .dot { background: var(--granskog-500); } .eyebrow.summer { color: var(--granskog-700); }
+.eyebrow.autumn .dot { background: var(--sol-500); } .eyebrow.autumn { color: var(--sol-600); }
+.section h2 { font-family: var(--font-display); font-size: clamp(34px, 4.5vw, 56px); font-weight: 500; line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 14px; }
+.section .lede { font-family: var(--font-display); font-size: 20px; line-height: 1.5; color: var(--color-fg-muted); max-width: 620px; }
+
+/* ---------- Season filter ---------- */
+.season-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+.chip {
+  font-family: var(--font-body); font-size: 13px; font-weight: 600;
+  padding: 8px 14px; border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong); background: var(--snø-0); color: var(--color-fg-muted);
+  cursor: pointer; transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.chip:hover { background: var(--snø-100); }
+.chip.active { background: var(--granskog-900); color: #fff; border-color: var(--granskog-900); }
+
+/* ---------- Activity grid ---------- */
+.activity-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 900px) { .activity-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 620px) { .activity-grid { grid-template-columns: 1fr; } }
+.activity-card {
+  display: flex; flex-direction: column;
+  background: var(--snø-0); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden;
+  cursor: pointer; box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+.activity-card:hover { box-shadow: var(--shadow-md); }
+.activity-card .img { aspect-ratio: 16/10; position: relative; overflow: hidden; }
+.activity-card .img > .photo { position: absolute; inset: 0; transition: transform 420ms var(--ease-out); }
+.activity-card:hover .img > .photo { transform: scale(1.04); }
+.activity-card .img-tag { position: absolute; top: 12px; left: 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; background: rgba(251,250,246,0.92); color: var(--color-fg); padding: 4px 10px; border-radius: var(--radius-pill); backdrop-filter: blur(6px); }
+.activity-card .body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 8px; }
+.activity-card .eb { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-fg-subtle); }
+.activity-card .t { font-family: var(--font-display); font-size: 24px; font-weight: 500; line-height: 1.15; letter-spacing: -0.01em; color: var(--color-fg); }
+.activity-card .meta { display: flex; gap: 10px; font-size: 13px; color: var(--color-fg-subtle); margin-top: 4px; flex-wrap: wrap; }
+.activity-card .meta .sep { color: var(--color-border-strong); }
+
+/* photo classes — backed by real photos */
+.activity-card .img > .photo { background-size: cover; background-position: center; }
+.photo-lavlands  { background-image: url('assets/photos/lavlandsloypa-vaar.jpg'); }
+.photo-modal-s   { background-image: url('assets/photos/modalen-stol.jpg'); }
+.photo-grusvei   { background-image: url('assets/photos/grusvei-stol.jpg'); }
+.photo-ski-fure  { background-image: url('assets/photos/preparerte-loyper.jpg'); }
+.photo-tveita    { background-image: url('assets/photos/tveitakvitingen-varde.jpg'); }
+.photo-saata     { background-image: url('assets/photos/saata-skitur.jpg'); }
+.photo-saata-s   { background-image: url('assets/photos/saata-sommar.jpg'); }
+.photo-isflak    { background-image: url('assets/photos/sommar-fjell-isflak.jpg'); }
+.photo-fjord     { background-image: url('assets/photos/hardangerfjorden.jpg'); }
+.photo-vaarski   { background-image: url('assets/photos/varski-folgefonna.jpg'); }
+
+/* ---------- Året rundt strip ---------- */
+.year-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 32px; }
+@media (max-width: 800px) { .year-strip { grid-template-columns: repeat(2, 1fr); } }
+.year-tile { position: relative; aspect-ratio: 3/4; border-radius: var(--radius-lg); overflow: hidden; background-size: cover; background-position: center; }
+.year-tile::after { content:""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(15,42,34,0.85), rgba(15,42,34,0) 55%); }
+.year-tile .label { position: absolute; left: 16px; right: 16px; bottom: 14px; color: #fff; z-index: 1; }
+.year-tile .eb { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.85; margin-bottom: 4px; }
+.year-tile .nm { font-family: var(--font-display); font-size: 22px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.1; }
+.tile-vinter  { background-image: url('assets/photos/saata-skitur.jpg'); }
+.tile-vaar    { background-image: url('assets/photos/varski-folgefonna.jpg'); }
+.tile-sommer  { background-image: url('assets/photos/sommar-fjell-isflak.jpg'); }
+.tile-haust   { background-image: url('assets/photos/kjelen-haust.jpg'); }
+
+/* ---------- Stemnings-blokk ---------- */
+.mood-block { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }
+@media (max-width: 800px) { .mood-block { grid-template-columns: 1fr; } }
+.mood-photo { aspect-ratio: 4/3; border-radius: var(--radius-lg); background-size: cover; background-position: center; position: relative; overflow: hidden; }
+.mood-photo::after { content:""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(15,42,34,0.7), rgba(15,42,34,0) 55%); }
+.mood-photo .cap { position: absolute; left: 18px; bottom: 16px; right: 18px; color: #fff; font-family: var(--font-display); font-size: 18px; line-height: 1.35; z-index: 1; text-wrap: balance; }
+.mood-photo .cap small { display: block; font-family: var(--font-body); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; margin-bottom: 6px; }
+
+/* ---------- Season collage ---------- */
+.collage-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: 180px;
+  gap: 12px;
+}
+.collage-tile {
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform 300ms var(--ease-out);
+}
+.collage-tile:hover { transform: translateY(-2px); }
+.collage-tile::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(11,36,51,0.55) 0%, rgba(11,36,51,0) 50%);
+  opacity: 0; transition: opacity 220ms var(--ease-out);
+}
+.collage-tile:hover::after { opacity: 1; }
+.collage-tile figcaption {
+  position: absolute;
+  left: 14px; bottom: 12px; right: 14px;
+  color: #fff; font-family: var(--font-display);
+  font-size: 14px; font-weight: 500; letter-spacing: -0.01em;
+  z-index: 1; opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+.collage-tile:hover figcaption { opacity: 1; transform: translateY(0); }
+
+/* Mosaikk-mønster: forskjellige størrelser for visuell rytme */
+.collage-tile-0 { grid-column: span 3; grid-row: span 2; }
+.collage-tile-1 { grid-column: span 3; grid-row: span 1; }
+.collage-tile-2 { grid-column: span 2; grid-row: span 1; }
+.collage-tile-3 { grid-column: span 4; grid-row: span 2; }
+.collage-tile-4 { grid-column: span 2; grid-row: span 1; }
+.collage-tile-5 { grid-column: span 3; grid-row: span 1; }
+
+@media (max-width: 900px) {
+  .collage-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 160px; }
+  .collage-tile-0, .collage-tile-1, .collage-tile-2,
+  .collage-tile-3, .collage-tile-4, .collage-tile-5 {
+    grid-column: span 1; grid-row: span 1;
+  }
+  .collage-tile-0, .collage-tile-3 { grid-column: span 2; }
+}
+
+/* ---------- Trail banner ---------- */
+.trail-banner { aspect-ratio: 21/9; border-radius: var(--radius-lg); background-image: url('assets/photos/loypemaskin-natt.jpg'); background-size: cover; background-position: center; position: relative; overflow: hidden; margin-bottom: 28px; }
+.trail-banner::after { content:""; position: absolute; inset: 0; background: linear-gradient(to right, rgba(11,36,51,0.85), rgba(11,36,51,0.2) 55%, rgba(11,36,51,0)); }
+.trail-banner .quote { position: absolute; left: 32px; bottom: 28px; right: 50%; color: #fff; z-index: 1; }
+.trail-banner .quote small { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.85; display: block; margin-bottom: 8px; }
+.trail-banner .quote p { font-family: var(--font-display); font-size: clamp(20px, 2.4vw, 30px); line-height: 1.2; color: #fff; max-width: none; margin: 0; font-weight: 400; letter-spacing: -0.01em; }
+
+/* ---------- Trails ---------- */
+.trail-card {
+  background: var(--snø-0); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden;
+}
+.trail-row {
+  display: grid; grid-template-columns: 36px 1fr auto auto auto;
+  gap: 18px; align-items: center;
+  padding: 16px 20px; border-bottom: 1px solid var(--color-border);
+  cursor: pointer; transition: background var(--dur-fast) var(--ease-out);
+}
+.trail-row:last-child { border-bottom: 0; }
+.trail-row:hover { background: var(--snø-50); }
+.trail-row .pin { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--granskog-100); color: var(--granskog-700); font-family: var(--font-mono); font-size: 12px; font-weight: 700; }
+.trail-row .name { font-family: var(--font-display); font-size: 18px; font-weight: 500; letter-spacing: -0.01em; color: var(--color-fg); }
+.trail-row .sub { font-size: 13px; color: var(--color-fg-subtle); margin-top: 2px; }
+.trail-row .km { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 17px; color: var(--color-fg-muted); }
+.trail-row .arrow { font-size: 16px; color: var(--color-link); width: 24px; text-align: right; }
+.tag { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-body); font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: var(--radius-pill); border: 1px solid var(--color-border-strong); background: var(--snø-0); color: var(--color-fg-muted); white-space: nowrap; }
+.tag .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.tag-ok { color: var(--lav-600); background: var(--lav-50); border-color: var(--lav-200); }
+.tag-warn { color: var(--sol-600); background: var(--sol-50); border-color: var(--sol-200); }
+.tag-bad { color: var(--rogn-700); background: var(--rogn-50); border-color: var(--rogn-200); }
+
+/* ---------- Map block ---------- */
+.map-block {
+  display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: stretch;
+}
+@media (max-width: 900px) { .map-block { grid-template-columns: 1fr; } }
+.map-frame {
+  aspect-ratio: 4/3; border-radius: var(--radius-lg); border: 1px solid var(--color-border); overflow: hidden; position: relative;
+  background:
+    radial-gradient(circle at 30% 40%, #B9D2C5 0%, transparent 25%),
+    radial-gradient(circle at 70% 60%, #8FB6CC 0%, transparent 30%),
+    repeating-linear-gradient(45deg, rgba(0,0,0,0.04), rgba(0,0,0,0.04) 1px, transparent 1px, transparent 14px),
+    var(--snø-100);
+}
+.map-frame::before { content: ""; position: absolute; left: 12%; top: 30%; width: 65%; height: 4px; background: var(--fjord-600); border-radius: 4px; transform: rotate(-8deg); box-shadow: 0 8px 0 -2px rgba(0,0,0,0.05); }
+.map-frame::after { content: ""; position: absolute; left: 18%; top: 55%; width: 50%; height: 3px; background: var(--lav-600); border-radius: 4px; transform: rotate(6deg); }
+.map-pins { position: absolute; inset: 0; }
+.map-pin { position: absolute; width: 16px; height: 22px; }
+.map-pin svg { width: 100%; height: 100%; }
+.map-attrib { position: absolute; bottom: 8px; right: 10px; font-size: 11px; color: var(--color-fg-subtle); background: rgba(251,250,246,0.85); padding: 3px 8px; border-radius: 4px; }
+.map-text h3 { font-family: var(--font-display); font-size: 32px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 14px; }
+.map-text p { margin: 0 0 18px; }
+.map-text ul { list-style: none; padding: 0; margin: 0 0 24px; display: flex; flex-direction: column; gap: 8px; }
+.map-text li { display: flex; gap: 10px; font-size: 14px; color: var(--color-fg-muted); }
+.map-text li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--granskog-500); margin-top: 8px; flex-shrink: 0; }
+
+/* ---------- Modal ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(15,42,34,0.55); backdrop-filter: blur(4px); z-index: 50; display: grid; place-items: center; padding: 24px; }
+.modal { width: min(560px, 100%); background: var(--snø-50); border-radius: var(--radius-xl); border: 1px solid var(--color-border); box-shadow: var(--shadow-lg); overflow: hidden; }
+.modal header { padding: 22px 24px 6px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.modal header h3 { font-family: var(--font-display); font-size: 24px; font-weight: 500; letter-spacing: -0.01em; margin: 0 0 4px; }
+.modal header p { color: var(--color-fg-subtle); font-size: 13px; margin: 0; }
+.modal .close { background: none; border: 0; font-size: 22px; cursor: pointer; color: var(--color-fg-subtle); padding: 0 4px; line-height: 1; }
+.modal .body { padding: 16px 24px 4px; display: flex; flex-direction: column; gap: 14px; }
+.modal .actions { padding: 16px 24px 22px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--color-border); margin-top: 8px; background: var(--snø-0); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: 600; color: var(--color-fg-muted); }
+.field input, .field select, .field textarea { font-family: var(--font-body); font-size: 15px; padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--color-border-strong); background: var(--snø-0); color: var(--color-fg); outline: none; transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--color-brand); box-shadow: 0 0 0 3px rgba(30,77,63,0.15); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.success { padding: 24px; text-align: center; }
+.success .icon { width: 56px; height: 56px; border-radius: 50%; background: var(--lav-50); color: var(--lav-600); display: grid; place-items: center; margin: 8px auto 12px; }
+
+/* ---------- Footer ---------- */
+.kk-footer { background: var(--granskog-900); color: var(--color-fg-on-dark); padding: 64px 0 36px; margin-top: 96px; }
+.kk-footer .container { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr; gap: 48px; }
+@media (max-width: 800px) { .kk-footer .container { grid-template-columns: 1fr 1fr; } }
+.kk-footer h4 { font-family: var(--font-body); font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.6); margin: 0 0 14px; }
+.kk-footer ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.kk-footer a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 14px; cursor: pointer; }
+.kk-footer a:hover { color: #fff; text-decoration: underline; }
+.kk-footer .blurb { font-family: var(--font-display); font-size: 17px; line-height: 1.5; color: rgba(255,255,255,0.85); max-width: 320px; margin: 12px 0 18px; font-weight: 400; }
+.kk-footer .donate { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: var(--radius-pill); background: var(--rogn-600); color: #fff; text-decoration: none; }
+.kk-footer .donate:hover { background: var(--rogn-700); text-decoration: none; }
+.kk-footer .legal { grid-column: 1 / -1; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; margin-top: 18px; display: flex; gap: 16px; font-size: 12px; color: rgba(255,255,255,0.5); }

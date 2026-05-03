@@ -1,0 +1,265 @@
+/* =========================================================
+   Kvamskogen Design System — Colors & Type
+   Inspired by Hardanger landscape: deep forest green, fjord
+   blue, snow white, granite grey, lichen, rowanberry red.
+   ========================================================= */
+
+/* ---------- Webfonts ---------- */
+/* Display: Fraunces — warm, slightly editorial serif with optical-size
+   variation. Pairs well with the editorial big-photo feel of Engadin/Geilo.
+   Body: Inter — quiet, clear, high-legibility for weather data + Norwegian
+   diacritics (æ, ø, å). */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ============ COLOR — Base palette ============ */
+
+  /* Granskog (spruce forest) — primary brand green, deep & quiet */
+  --granskog-900: #0F2A22;
+  --granskog-800: #163A30;
+  --granskog-700: #1E4D3F;   /* primary */
+  --granskog-600: #2A6552;
+  --granskog-500: #3A8169;
+  --granskog-400: #6CA48E;
+  --granskog-200: #B9D2C5;
+  --granskog-100: #DEE8E1;
+  --granskog-50:  #F1F5F2;
+
+  /* Fjord (deep water) — secondary, used for ski/winter and links */
+  --fjord-900:    #0B2433;
+  --fjord-800:    #0F3247;
+  --fjord-700:    #14445F;
+  --fjord-600:    #1F5C7C;
+  --fjord-500:    #2F7BA0;
+  --fjord-300:    #8FB6CC;
+  --fjord-100:    #D5E3EC;
+
+  /* Snø (snow & paper) — neutrals tinted slightly warm */
+  --snø-0:        #FFFFFF;
+  --snø-50:       #FBFAF6;   /* page background — warm paper */
+  --snø-100:      #F4F1E9;   /* cards on page */
+  --snø-200:      #EAE5D6;   /* dividers */
+
+  /* Stein (granite) — text + neutral chrome */
+  --stein-900:    #14171A;   /* fg primary */
+  --stein-700:    #2E343A;   /* fg secondary */
+  --stein-500:    #5C6770;   /* fg tertiary / meta */
+  --stein-400:    #8A949C;   /* fg disabled */
+  --stein-300:    #C5CAD0;   /* hairlines on dark */
+  --stein-200:    #DDE0E3;   /* borders on light */
+
+  /* Accent — Rognebær (rowanberry) for warmth, alerts, CTAs that need pop.
+     Use sparingly; this is the one warm color in the palette. */
+  --rogn-700:     #8E2A1F;
+  --rogn-600:     #B23A2C;   /* primary accent */
+  --rogn-500:     #D04B3B;
+  --rogn-200:     #F2C9C2;
+  --rogn-50:      #FBEEEB;
+
+  /* Sol (autumn-birch sun) — secondary accent, warning, "varm" highlights */
+  --sol-600:      #C68A2E;
+  --sol-500:      #E0A647;
+  --sol-200:      #F5DDB4;
+  --sol-50:       #FBF1DC;
+
+  /* Lav (lichen) — soft mossy accent for tags, success states */
+  --lav-600:      #6F8A3C;
+  --lav-500:      #8AA651;
+  --lav-200:      #D4DEB6;
+  --lav-50:       #EFF2DF;
+
+  /* ============ COLOR — Semantic ============ */
+  --color-bg:              var(--snø-50);
+  --color-bg-elevated:     var(--snø-0);
+  --color-bg-sunken:       var(--snø-100);
+  --color-bg-inverse:      var(--granskog-900);
+
+  --color-fg:              var(--stein-900);
+  --color-fg-muted:        var(--stein-700);
+  --color-fg-subtle:       var(--stein-500);
+  --color-fg-disabled:     var(--stein-400);
+  --color-fg-on-dark:      var(--snø-50);
+  --color-fg-on-dark-muted:#C9D2CB;
+
+  --color-border:          var(--stein-200);
+  --color-border-strong:   var(--stein-300);
+  --color-border-on-dark:  rgba(255,255,255,0.18);
+
+  --color-brand:           var(--granskog-700);
+  --color-brand-hover:     var(--granskog-800);
+  --color-brand-soft:      var(--granskog-100);
+
+  --color-link:            var(--fjord-700);
+  --color-link-hover:      var(--fjord-800);
+
+  --color-accent:          var(--rogn-600);
+  --color-accent-hover:    var(--rogn-700);
+  --color-accent-soft:     var(--rogn-50);
+
+  --color-success:         var(--lav-600);
+  --color-warning:         var(--sol-600);
+  --color-danger:          var(--rogn-600);
+  --color-info:            var(--fjord-600);
+
+  /* Season-aware (used to tint headers/strips) */
+  --season-winter:         var(--fjord-700);
+  --season-spring:         var(--lav-600);
+  --season-summer:         var(--granskog-600);
+  --season-autumn:         var(--sol-600);
+
+  /* ============ TYPE — Families ============ */
+  --font-display: 'Fraunces', 'Charter', 'Iowan Old Style', Georgia, serif;
+  --font-body:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono:    ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  /* ============ TYPE — Scale ============ */
+  /* Big editorial scale at the top, tight body scale below. */
+  --fs-display-xl: clamp(56px, 8vw, 112px);   /* hero */
+  --fs-display-l:  clamp(44px, 6vw, 80px);    /* section starters */
+  --fs-display-m:  clamp(34px, 4.5vw, 56px);
+  --fs-h1:         clamp(28px, 3.4vw, 40px);
+  --fs-h2:         clamp(22px, 2.4vw, 28px);
+  --fs-h3:         20px;
+  --fs-h4:         17px;
+  --fs-body:       16px;
+  --fs-body-l:     18px;
+  --fs-small:      14px;
+  --fs-eyebrow:    12px;
+  --fs-data-xl:    72px;     /* big temperature numbers */
+  --fs-data-l:     40px;     /* weather/trail count */
+
+  --lh-tight:      1.05;
+  --lh-snug:       1.2;
+  --lh-normal:     1.5;
+  --lh-loose:      1.65;
+
+  --ls-eyebrow:    0.14em;
+  --ls-display:    -0.02em;
+  --ls-tight:      -0.01em;
+
+  /* ============ SPACING ============ */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  24px;
+  --space-6:  32px;
+  --space-7:  48px;
+  --space-8:  64px;
+  --space-9:  96px;
+  --space-10: 128px;
+
+  /* ============ RADII ============ */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  /* ============ SHADOWS ============ */
+  /* Quiet, low-contrast — we lean on subtle borders + warm paper bg. */
+  --shadow-sm: 0 1px 2px rgba(20, 23, 26, 0.06);
+  --shadow-md: 0 4px 14px rgba(20, 23, 26, 0.08), 0 1px 2px rgba(20, 23, 26, 0.04);
+  --shadow-lg: 0 18px 40px rgba(20, 23, 26, 0.12), 0 2px 6px rgba(20, 23, 26, 0.06);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,0.6);
+
+  /* Imagery protection gradient — when text sits on photos */
+  --scrim-bottom: linear-gradient(to top, rgba(15, 42, 34, 0.75) 0%, rgba(15, 42, 34, 0.15) 55%, rgba(15, 42, 34, 0) 100%);
+  --scrim-top:    linear-gradient(to bottom, rgba(15, 42, 34, 0.55) 0%, rgba(15, 42, 34, 0) 60%);
+
+  /* ============ MOTION ============ */
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast:    140ms;
+  --dur-base:    220ms;
+  --dur-slow:    420ms;
+
+  /* ============ LAYOUT ============ */
+  --max-w-content: 1280px;
+  --max-w-prose:   680px;
+  --gutter:        clamp(20px, 4vw, 40px);
+}
+
+/* =========================================================
+   SEMANTIC ELEMENT STYLES
+   ========================================================= */
+
+html { color-scheme: light; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Display & headings — Fraunces does the editorial work */
+.display-xl, .display-l, .display-m,
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: var(--ls-display);
+  line-height: var(--lh-tight);
+  color: var(--color-fg);
+  text-wrap: balance;
+}
+h4, h5, h6 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: var(--ls-tight);
+  line-height: var(--lh-snug);
+}
+
+.display-xl { font-size: var(--fs-display-xl); font-weight: 400; }
+.display-l  { font-size: var(--fs-display-l);  font-weight: 400; }
+.display-m  { font-size: var(--fs-display-m);  font-weight: 500; }
+
+h1 { font-size: var(--fs-h1); }
+h2 { font-size: var(--fs-h2); }
+h3 { font-size: var(--fs-h3); line-height: var(--lh-snug); }
+h4 { font-size: var(--fs-h4); }
+
+p {
+  font-size: var(--fs-body);
+  line-height: var(--lh-loose);
+  color: var(--color-fg-muted);
+  text-wrap: pretty;
+  max-width: var(--max-w-prose);
+}
+
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--fs-eyebrow);
+  font-weight: 600;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
+
+.lede {
+  font-family: var(--font-display);
+  font-size: var(--fs-body-l);
+  line-height: var(--lh-loose);
+  font-weight: 400;
+  color: var(--color-fg-muted);
+}
+
+.data-xl { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-data-xl); line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.data-l  { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-data-l);  line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+.mono { font-family: var(--font-mono); font-size: var(--fs-small); }
+
+a {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+a:hover { color: var(--color-link-hover); text-decoration-thickness: 2px; }
+
+::selection { background: var(--granskog-200); color: var(--granskog-900); }
