@@ -109,6 +109,11 @@
     .card-expected { font-size:0.76rem; color:var(--text-muted); text-align:right; }
     .card-expected .val { color:var(--green); font-weight:600; }
     .card-expected.bad .val { color:var(--red); }
+    .card-fast { font-size:0.7rem; color:var(--text-muted); margin-top:0.15rem; text-align:right; }
+    .card-fast .val { color:#fbbf24; font-weight:600; }
+    .badge-fast { display:inline-block; background:#fbbf24; color:#111; font-weight:700;
+                  font-size:0.62rem; padding:0.05rem 0.35rem; border-radius:4px;
+                  margin-left:0.35rem; vertical-align:middle; letter-spacing:0.03em; }
     .card-location { font-size:0.7rem; color:var(--text-muted); margin-top:0.15rem; }
     .card-days { color:var(--accent); }
   </style>
@@ -362,6 +367,12 @@
             </div>
             {% endif %}
           </div>
+          {% if t.hurtigpris %}
+          <div class="card-fast">
+            Hurtigpris: <span class="val">{{ '{:,}'.format(t.hurtigpris).replace(',', ' ') }} kr</span>
+            {% if t.pris and t.pris < t.hurtigpris %}<span class="badge-fast">UNDER</span>{% endif %}
+          </div>
+          {% endif %}
           <div class="card-location">
             {% if t.sted %}{{ t.sted }} · {% endif %}
             <span class="card-days">{{ t.dager_for_salg }} dager til salgs</span>
