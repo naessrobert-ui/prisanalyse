@@ -23,6 +23,7 @@ from regnskap_routes import regnskap_bp
 from portfolio_rebalancer_routes import portfolio_rebalancer_bp
 from dash_apps.strom import create_dash_app
 from scripts.kvamskogen_routes import kvamskogen_bp
+from scripts.kvamskogen_sommer_routes import kvamskogen_sommer_bp
 from scripts.sno_routes import sno_bp, start_warmup
 from scripts.kart_routes import kart_bp
 from scripts.hormuz_routes import hormuz_bp
@@ -130,6 +131,7 @@ def create_app() -> Flask:
     app.register_blueprint(regnskap_bp)
     app.register_blueprint(portfolio_rebalancer_bp)
     app.register_blueprint(kvamskogen_bp)
+    app.register_blueprint(kvamskogen_sommer_bp)
     app.register_blueprint(sno_bp)
     app.register_blueprint(kart_bp)
     app.register_blueprint(hormuz_bp)
