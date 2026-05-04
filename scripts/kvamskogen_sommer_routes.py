@@ -2438,150 +2438,47 @@ function toggleDetail(btn){
     const open=full.classList.toggle('open');
     btn.textContent=open?'Les mindre ▴':'Les mer ▾';
 }
-function fmtTemp(v){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.toFixed(1
-function fmtDelta(v,u='cm'){if(v==null)return'–';const n=parseFloat(v);return(n>0?'+':'')+n.t
-function fmtAxisTemp(v){const n=Math.round(Number(v)*10)/10;if(Number.isNaN(n))return '';retu
-function fmtAxisMm(v){const n=Math.round(Number(v)*10)/10;if(Number.isNaN(n))return '';return
+function fmtTemp(v){if(v==null)return '–';const n=parseFloat(v);return (n>0?'+':'')+n.toFixed(1)+'°';}
+function fmtDelta(v,u='cm'){if(v==null)return '–';const n=parseFloat(v);return (n>0?'+':'')+n.toFixed(1)+u;}
+function fmtAxisTemp(v){const n=Math.round(Number(v)*10)/10;if(Number.isNaN(n))return '';return (n>0?'+':'')+n+'°';}
+function fmtAxisMm(v){const n=Math.round(Number(v)*10)/10;if(Number.isNaN(n))return '';return n+' mm';}
 function init(){
-    fetch('/kvamskogen-sommer/api/status')
-      .then(r=>r.json())
-      .then(d=>{
-           renderStatus(d);
-           if(!d.ver||d.ver.temp_na_c==null){
-                setTimeout(init, 3000);
-           } else {
-                // Data er klart – sett opp periodisk refresh
-                setTimeout(init, 15*60*1000);
-           }
-      })
-      .catch(()=>setTimeout(init, 5000));
+  fetch('/kvamskogen-sommer/api/status').then(r=>r.json()).then(d=>{renderStatus(d);setTimeout(init,d.ver&&d.ver.temp_na_c!=null?15*60*1000:3000);}).catch(()=>setTimeout(init,5000));
 }
-function renderStatus(d){
-    try{
-    const t=d.tolkning||{},ski=d.tur_summary||{};
-    const bc={'green':'badge-green','amber':'badge-amber','red':'badge-red'}[t.badge_color]||'b
-    const fullDetail = (t.detail||'').replace(/\n/g,'<br>');
-    // Split på dobbel linjeskift for avsnitt
-    const paras = (t.detail||'').split(/\n\n+/).map(x=>x.trim()).filter(Boolean);
-    const firstPara = paras[0] || '';
-    const hasMore = paras.length > 1;
-    const detailHtml = hasMore
-      ? `<span class="hero-detail-short">${firstPara}</span>
-               <span class="hero-detail-full" id="hero-full">${paras.slice(1).join('<br><br>')}</span
-               <button class="les-mer" onclick="toggleDetail(this)">Les mer ▾</button>`
-      : `<span class="hero-detail-short">${fullDetail}</span>`;
-    const skiSummaryHtml = ski.hero_text ? `<div class="hero-ski-summary">${ski.hero_text}</div
-    document.getElementById('hero').innerHTML=`<div class="hero-top"><div class="hero-icon">${t
-    // Værstatus
-    const ver=d.ver||{};
-    const fmtVind=v=>v==null?'–':(Number(v).toFixed(1)+' m/s');
-    document.getElementById('m-temp').textContent=fmtTemp(ver.temp_na_c);
-    document.getElementById('m-temp-sub').textContent='nå';
-    document.getElementById('m-maks').textContent=fmtTemp(ver.maks_temp_c);
-    document.getElementById('m-min').textContent=fmtTemp(ver.min_temp_c);
-    // Vind nå – hent fra første intervall i prognosen
-    const ivNa=(d.intervaller||[])[0]||{};
-    document.getElementById('m-vind').textContent=fmtVind(ivNa.vind_ms);
-    const vindKast=ivNa.vind_kast_ms;
-    document.getElementById('m-vind-sub').textContent=vindKast!=null?'kast '+Number(vindKast).t
-    const forecastEl=document.getElementById('forecast');
-    if(forecastEl) forecastEl.innerHTML=(d.daglig||[]).map(dag=>{
-         const dt=new Date(dag.dato+'T12:00:00');
-         const navn=DAYS[dt.getDay()]+' '+dt.getDate()+'. '+MONTHS[dt.getMonth()];
-         return`<div class="fday"><div class="fday-name">${navn}</div><div class="fday-icon">${dag
-    }).join('');
-    const ts=new Date(d.hentet);
-    document.getElementById('footer').textContent=`Oppdatert: ${ts.toLocaleString('no-NO')} · D
-    if(d.intervaller&&d.intervaller.length){fcastData=d.intervaller;renderFcast();}
-    // Bygg skitur-anbefalinger fra intervaller
-    if(d.intervaller&&d.intervaller.length) buildTur(d.intervaller, d.daglig||[]);
-    if(d.kamera) renderKamera(d.kamera);
-    }catch(e){console.error('renderStatus feil:', e);}
-}
+function renderStatus(d){try{
+  const t=d.tolkning||{},tur=d.tur_summary||{};
+  const bc={'green':'badge-green','amber':'badge-amber','red':'badge-red'}[t.badge_color]||'badge-amber';
+  const fullDetail=(t.detail||'').replace(/\n/g,'<br>');
+  const paras=(t.detail||'').split(/\n\n+/).map(x=>x.trim()).filter(Boolean);
+  const firstPara=paras[0]||'';const hasMore=paras.length>1;
+  const detailHtml=hasMore?`<span class="hero-detail-short">${firstPara}</span><span class="hero-detail-full" id="hero-full">${paras.slice(1).join('<br><br>')}</span><button class="les-mer" onclick="toggleDetail(this)">Les mer ▾</button>`:`<span class="hero-detail-short">${fullDetail}</span>`;
+  const turSummaryHtml=tur.hero_text?`<div class="hero-ski-summary">${tur.hero_text}</div>`:'';
+  document.getElementById('hero').innerHTML=`<div class="hero-top"><div class="hero-icon">${t.icon||'🏔️'}</div><div><div class="hero-title">${t.verdict||'Turvurdering utilgjengelig'}</div><span class="badge ${bc}">${t.tur_quality||'Moderat'}</span></div></div><div class="hero-detail">${detailHtml}</div>${turSummaryHtml}`;
+  const ver=d.ver||{};const fmtVind=v=>v==null?'–':(Number(v).toFixed(1)+' m/s');
+  document.getElementById('m-temp').textContent=fmtTemp(ver.temp_na_c);document.getElementById('m-temp-sub').textContent='nå';
+  document.getElementById('m-maks').textContent=fmtTemp(ver.maks_temp_c);document.getElementById('m-min').textContent=fmtTemp(ver.min_temp_c);
+  const ivNa=(d.intervaller||[])[0]||{};document.getElementById('m-vind').textContent=fmtVind(ivNa.vind_ms);
+  const vindKast=ivNa.vind_kast_ms;document.getElementById('m-vind-sub').textContent=vindKast!=null?'kast '+Number(vindKast).toFixed(1)+' m/s':'nå';
+  if(d.intervaller&&d.intervaller.length){fcastData=d.intervaller;renderFcast();buildTur(d.intervaller,d.daglig||[]);} if(d.kamera)renderKamera(d.kamera);
+}catch(e){console.error('renderStatus feil:',e);}}
 function renderKamera(kamera){
-    const KAMERA_META={
-         vegvesen:      {tittel:'   Vegvesen – Kvamskogen', url:'https://kamera.atlas.vegvesen.no/api/
-         furedalen: {tittel:'       Furedalen skitrekk',    url:'https://furedalen-webcamera.no/bunn/b
-         eikedalen: {tittel:'       Eikedalen skisenter',    url:'https://www.eikedalen.no/wc3/image00
-    };
-    function badgeClass(type){
-         const m={'snø':'kb-sno','regn':'kb-regn','sludd':'kb-sludd','tørt':'kb-tort',
-                     'god':'kb-god','tåke':'kb-taake','dårlig':'kb-darlig'};
-         return m[type]||'kb-ukjent';
-    }
-    for(const [navn,meta] of Object.entries(KAMERA_META)){
-         const el=document.getElementById('kamera-'+navn);
-         if(!el) continue;
-         const data=kamera[navn]||{};
-         const ts=data.hentet?new Date(data.hentet).toLocaleTimeString('no-NO',{hour:'2-digit',min
-         // Legg til cache-buster på bildet så det alltid er ferskt
-         const imgUrl=meta.url+'?t='+Date.now();
-         let aiHtml='';
-         if(!data.feil&&data.sammendrag){
-             aiHtml=`
-               <div class="kamera-ai">
-                 <div class="ai-linje"><span class="ai-label">Nedbør</span><span class="kamera-badge
-                 <div class="ai-linje"><span class="ai-label">Sikt</span><span class="kamera-badge $
-                 <div class="ai-linje"><span class="ai-label">Bakke</span><span class="kamera-badge
-                 <div class="kamera-sammendrag">"${data.sammendrag}"</div>
-               </div>`;
-         } else if(data.feil){
-             aiHtml='<div class="kamera-ai" style="color:#94a3b8">AI-analyse ikke tilgjengelig</div>
-         }
-         el.innerHTML=`
-            <img src="${imgUrl}" alt="${meta.tittel}" loading="lazy" onerror="this.style.display='n
-            <div class="kamera-info">
-                <div class="kamera-tittel">${meta.tittel}</div>
-                ${aiHtml}
-                ${ts?`<div class="kamera-tid">Analysert ${ts}</div>`:''}
-            </div>`;
-    }
+  const KAMERA_META={vegvesen:{tittel:'Vegvesen – Kvamskogen',url:'https://kamera.atlas.vegvesen.no/api/images/1229056_1'},furedalen:{tittel:'Furedalen skitrekk',url:'https://furedalen-webcamera.no/bunn/bilde2.jpg'},eikedalen:{tittel:'Eikedalen skisenter',url:'https://www.eikedalen.no/wc3/image00001.jpg'}};
+  const badgeClass=t=>({'regn':'kb-regn','duskregn':'kb-regn','tåkeregn':'kb-regn','tørt':'kb-tort','god':'kb-god','tåke':'kb-taake','dårlig':'kb-darlig','våt':'kb-regn','tørr':'kb-tort','sølete':'kb-sludd'}[t]||'kb-ukjent');
+  for(const [navn,meta] of Object.entries(KAMERA_META)){
+    const el=document.getElementById('kamera-'+navn);if(!el)continue;const data=kamera[navn]||{};
+    const ts=data.hentet?new Date(data.hentet).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}):'';
+    const imgUrl=meta.url+'?t='+Date.now();let aiHtml='';
+    if(!data.feil&&data.sammendrag){aiHtml=`<div class="kamera-ai"><div class="ai-linje"><span class="ai-label">Nedbør</span><span class="kamera-badge ${badgeClass(data.nedbor_type)}">${data.nedbor_type||'ukjent'}</span></div><div class="ai-linje"><span class="ai-label">Sikt</span><span class="kamera-badge ${badgeClass(data.sikt)}">${data.sikt||'ukjent'}</span></div><div class="ai-linje"><span class="ai-label">Bakke</span><span class="kamera-badge ${badgeClass(data.bakke)}">${data.bakke||'ukjent'}</span></div><div class="kamera-sammendrag">"${data.sammendrag}"</div></div>`;}
+    else if(data.feil){aiHtml='<div class="kamera-ai" style="color:#94a3b8">AI-analyse ikke tilgjengelig</div>';}
+    el.innerHTML=`<img src="${imgUrl}" alt="${meta.tittel}" loading="lazy" onerror="this.style.display='none'"><div class="kamera-info"><div class="kamera-tittel">${meta.tittel}</div>${aiHtml}${ts?`<div class="kamera-tid">Analysert ${ts}</div>`:''}</div>`;
+  }
 }
-async function loadHistorikk(){
-    const msg=document.getElementById('chart-msg');
-    msg.innerHTML='<span class="spinner"></span>';msg.style.display='flex';
-    try{
-        const d=await(await fetch(`/kvamskogen-sommer/api/historikk?hours=${currentHours}`)).json
-        if(d.ok&&d.data.length){histData=d.data;renderChart();msg.style.display='none';}
-        else{msg.textContent='Ingen data';msg.style.display='flex';}
-    }catch(e){msg.textContent='Feil ved lasting';msg.style.display='flex';}
+async function loadHistorikk(){const msg=document.getElementById('chart-msg');msg.innerHTML='<span class="spinner"></span>';msg.style.display='flex';try{const d=await(await fetch(`/kvamskogen-sommer/api/historikk?hours=${currentHours}`)).json();if(d.ok&&d.data.length){histData=d.data;renderChart();msg.style.display='none';}else{msg.textContent='Ingen data';msg.style.display='flex';}}catch(e){msg.textContent='Feil ved lasting';msg.style.display='flex';}}
+function renderChart(){if(!histData.length)return;const hourly=histData.filter(x=>x.temperature!=null);if(!hourly.length)return;const MS=['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];const labels=hourly.map(x=>{const dt=new Date(x.time);const h=dt.getHours();if(h===0)return `${dt.getDate()}. ${MS[dt.getMonth()]}`;return String(h).padStart(2,'0');});
+ const temps=hourly.map(x=>parseFloat(x.temperature));const precip=hourly.map(x=>x.precipitation!=null?parseFloat(x.precipitation):null);const precipColors=hourly.map(x=>parseFloat(x.temperature)<=0?'rgba(96,165,250,.45)':'rgba(34,197,94,.35)');const wind=hourly.map(x=>x.wind_speed!=null?parseFloat(x.wind_speed):null);
+ const ctx=document.getElementById('hist-chart').getContext('2d');if(histChart)histChart.destroy();histChart=new Chart(ctx,{data:{labels,datasets:[{type:'bar',label:'Nedbør (mm)',data:precip,backgroundColor:precipColors,borderRadius:2,yAxisID:'yPrecip'},{type:'line',label:'Temperatur (°C)',data:temps,borderWidth:2,pointRadius:0,borderColor:'rgba(251,191,36,.95)',backgroundColor:'rgba(251,191,36,.25)',tension:.35,yAxisID:'yTemp'},{type:'line',label:'Vind (m/s)',data:wind,borderColor:'rgba(167,139,250,0.8)',backgroundColor:'rgba(167,139,250,.25)',borderWidth:1.5,pointRadius:0,tension:.35,yAxisID:'yWind'}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94a3b8',font:{size:10},maxRotation:30,autoSkip:true,maxTicksLimit:12}},yTemp:{position:'left',ticks:{color:'#94a3b8',font:{size:10},callback:v=>fmtAxisTemp(v)}},yPrecip:{position:'right',min:0,ticks:{color:'#94a3b8',font:{size:10},callback:v=>fmtAxisMm(v)}},yWind:{display:false,min:0}}}});
 }
-function renderChart(){
-    if(!histData.length)return;
-    // Filtrer til kun hele timer (der temperatur finnes)
-    const hourly=histData.filter(x=>x.temperature!=null);
-    if(!hourly.length)return;
-    const MS=['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
-    const labels=hourly.map(x=>{const dt=new Date(x.time);const h=dt.getHours();if(h===0)return
-    const temps=hourly.map(x=>parseFloat(x.temperature));
-    const precip=hourly.map(x=>x.precipitation!=null?parseFloat(x.precipitation):null);
-    const precipColors=hourly.map(x=>{const t=parseFloat(x.temperature);return t<=0?'rgba(96,16
-    const wind=hourly.map(x=>x.wind_speed!=null?parseFloat(x.wind_speed):null);
-    const ctx=document.getElementById('hist-chart').getContext('2d');
-    if(histChart)histChart.destroy();
-    histChart=new Chart(ctx,{
-        data:{labels,datasets:[
-            {type:'bar',label:'Nedbør (mm)',data:precip,backgroundColor:precipColors,borderRadius:2
-            {type:'line',label:'Temperatur (°C)',data:temps,borderWidth:2,pointRadius:0,pointHoverR
-            {type:'line',label:'Vind (m/s)',data:wind,borderColor:'rgba(167,139,250,0.8)',backgroun
-        ]},
-        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:fa
-            plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,.92)',callbacks
-            scales:{
-                x:{ticks:{color:'#94a3b8',font:{size:10},maxRotation:30,autoSkip:true,maxTicksLimit:1
-                yTemp:{position:'left',ticks:{color:'#94a3b8',font:{size:10},callback:v=>fmtAxisTemp(
-                yPrecip:{position:'right',min:0,suggestedMax:1,ticks:{color:'#94a3b8',font:{size:10},
-                yWind:{display:false,min:0}
-            }
-        }
-    });
-}
-function setHours(h,btn){
-    currentHours=h;
-    document.querySelectorAll('.chart-hours button').forEach(el=>el.classList.remove('active'))
-    if(btn)btn.classList.add('active');
-    loadHistorikk();
-}
+function setHours(h,btn){currentHours=h;document.querySelectorAll('.chart-hours button').forEach(el=>el.classList.remove('active'));if(btn)btn.classList.add('active');loadHistorikk();}
 init();
 loadHistorikk();
 </script>
