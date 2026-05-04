@@ -38,7 +38,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-kvamskogen_sommer_bp = Blueprint("kvamskogen_sommer", __name__, url_prefix="/kvamskogen-somme
+kvamskogen_sommer_bp = Blueprint("kvamskogen_sommer", __name__, url_prefix="/kvamskogen-sommer")
 LOCAL_TZ = ZoneInfo("Europe/Oslo")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL         = "claude-haiku-4-5"
@@ -143,7 +143,7 @@ def _force_ipv4_dns_resolution():
            urllib3_connection.create_connection = _ORIG_CREATE_CONNECTION
 
 
-def _download_image_with_ipv4_fallback(session: requests.Session, url: str, timeout: int = 15
+def _download_image_with_ipv4_fallback(session: requests.Session, url: str, timeout: int = 15):
     try:
            return session.get(url, timeout=timeout)
     except requests.RequestException:
@@ -177,8 +177,8 @@ def _hent_og_analyser_ett_kamera(navn: str, url: str) -> dict:
                     "messages": [{
                           "role": "user",
                           "content": [
-                               {"type": "image", "source": {"type": "base64", "media_type": ct, "dat
-                               {"type": "text", "text": "Analyser dette kamerabildet fra Kvamskogen
+                              {"type": "image", "source": {"type": "base64", "media_type": ct, "data": b64}},
+                              {"type": "text", "text": "Analyser dette kamerabildet fra Kvamskogen med fokus på turvær."},
                           ],
                     }],
                },
@@ -204,7 +204,7 @@ def _analyser_kamera() -> dict:
     if not ANTHROPIC_API_KEY:
         return {}
     import concurrent.futures
-    resultater: dict = {navn: {"url": url, "feil": True} for navn, url in KAMERA_URLS.items()
+    resultater: dict = {navn: {"url": url, "feil": True} for navn, url in KAMERA_URLS.items()}
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(KAMERA_URLS)) as ex:
         futs = {ex.submit(_hent_og_analyser_ett_kamera, navn, url): navn
                    for navn, url in KAMERA_URLS.items()}
@@ -216,7 +216,7 @@ def _analyser_kamera() -> dict:
                    except Exception as exc:
                           print(f"[kvamskogen-sommer] Kamera-future feilet for {navn}: {exc}")
         except concurrent.futures.TimeoutError:
-               print("[kvamskogen-sommer] Kameraanalyse: as_completed timeout – bruker det vi ha
+              print("[kvamskogen-sommer] Kameraanalyse: as_completed timeout – bruker det vi har")
     return resultater
 
 
@@ -252,7 +252,7 @@ def _frost_get(session: requests.Session, path: str, params: dict) -> dict:
 
 
 def _iso_z(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 def _clean_value(element_id: str, value: Any) -> Any:
     try:
            n = float(value)
@@ -267,7 +267,7 @@ def hent_historikk(hours: int = 24) -> list:
     end_utc      = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     start_utc = end_utc - timedelta(hours=hours)
     session = _frost_session()
-    all_elements = "air_temperature,max(air_temperature PT1H),min(air_temperature PT1H),sum(p
+    all_elements = "air_temperature,max(air_temperature PT1H),min(air_temperature PT1H),sum(precipitation_amount PT1H),wind_speed"
     payload = _frost_get(session, "/observations/v0.jsonld", {
            "sources":         FROST_SOURCE,
            "referencetime": f"{_iso_z(start_utc)}/{_iso_z(end_utc)}",
@@ -277,13 +277,13 @@ def hent_historikk(hours: int = 24) -> list:
            "qualities":       "0,1,2,3,4",
     })
     def _classify(eid: str):
-           if eid in ("air_temperature", "max(air_temperature PT1H)", "min(air_temperature PT1H)
-               return "temperature"
-           if "precipitation_amount" in eid:
-               return "precipitation"
-           if eid in ("wind_speed", "mean(wind_speed PT1H)"):
-               return "wind_speed"
-           return None
+        if eid in ("air_temperature", "max(air_temperature PT1H)", "min(air_temperature PT1H)"):
+            return "temperature"
+        if "precipitation_amount" in eid:
+            return "precipitation"
+        if eid in ("wind_speed", "mean(wind_speed PT1H)"):
+            return "wind_speed"
+        return None
     rows: dict = {}
     for item in payload.get("data", []):
            ref = item.get("referenceTime")
@@ -363,7 +363,7 @@ def _bygg_fremover_tekst(tur_dager: list[dict], today_iso: str) -> str:
         return f"{navn} har en oppholdsluke som passer for en runde."
     elif forste_crazy:
         navn = _dagnavn(forste_crazy)
-        return f"{navn} blir crazy turvær – mye nedbør og kraftig vind. Dagen for de tøffeste
+        return f"{navn} blir crazy turvær – mye nedbør og kraftig vind. Dagen for de tøffeste."
     else:
         return "Ingen utpregede turdager i nærmeste fremtid – mest variabelt vær."
 
@@ -372,216 +372,220 @@ def _bygg_fremover_tekst(tur_dager: list[dict], today_iso: str) -> str:
 def _ai_tolkning(ver_data: dict, kamera_data: dict | None = None) -> dict:
     if not ANTHROPIC_API_KEY:
         return _fallback_tolkning(ver_data)
-    s       = ver_data.get("sammendrag", {})
+
+    s = ver_data.get("sammendrag", {})
     dag0 = (ver_data.get("daglig") or [{}])[0]
     tur_dager = _compute_local_tur_days(ver_data.get("intervaller", []), limit=5)
-
 
     now_local = datetime.now(LOCAL_TZ)
     now_min = now_local.hour * 60 + now_local.minute
     today_iso = now_local.date().isoformat()
 
-
     def _er_fremdeles_relevant(dag: dict) -> bool:
         """Returner True hvis vinduet har minst 90 min igjen, eller er en fremtidig dag."""
         dato = dag.get("dato", "")
         if dato > today_iso:
-               return True
+            return True
         if dato < today_iso:
-               return False
+            return False
         beste_tid = dag.get("beste_tid") or ""
         if "–" not in beste_tid:
-               return False
+            return False
         _, slutt = beste_tid.split("–", 1)
         slutt_min = _t_til_min(slutt.strip())
         return (slutt_min - now_min) >= 90
 
-
     neste_topp = next(
-        (d for d in tur_dager if d.get("score", 0) >= 4 and d.get("beste_tid") and _er_fremde
-        next((d for d in tur_dager if d.get("score", 0) >= 3 and d.get("beste_tid") and _er_f
+        (d for d in tur_dager if d.get("score", 0) >= 4 and d.get("beste_tid") and _er_fremdeles_relevant(d)),
+        next((d for d in tur_dager if d.get("score", 0) >= 3 and d.get("beste_tid") and _er_fremdeles_relevant(d)), None),
     )
-
 
     if neste_topp:
         er_i_dag = neste_topp.get("dato") == today_iso
-        dag_label = "I dag" if er_i_dag else neste_topp['ukedag'].capitalize()
-    score = neste_topp.get("score", 3)
-    kvalitet = {5: "strålende dag", 4: "bra dag", 3: "brukbar dag med oppholdsluke",
-                2: "marginal dag", 1: "regndag", 0: "crazy turvær"}.get(score, "brukbar d
-    neste_topp_dag = (
-        f"{dag_label} {neste_topp['dato']}: "
-        f"beste tid {neste_topp['beste_tid']} "
-        f"– {kvalitet} (score {score}/5, '{neste_topp.get('kort', '')}')"
-    )
-else:
-    neste_topp_dag = "Ingen gode turvinduer gjenstår i dag eller de neste dagene"
-
-
-# ── Regelbasert verdict – styrer hovedoverskriften ────────────────────
-def _bygg_verdict(neste: dict | None, now_h: int, today: str) -> str:
-    """Bestem overskrift basert på tidspunkt og neste gode turdag."""
-    if neste is None:
-        # Sjekk om det finnes en crazy-dag i prognosen (signal: score == 0)
-        crazy = next((d for d in tur_dager if d.get("score") == 0), None)
-        if crazy and crazy.get("dato") != today:
-            return f"Crazy turvær venter – {crazy.get('ukedag','').lower()}"
-        return "Ingen utpregede turdager de neste dagene"
-
-
-    er_i_dag = neste.get("dato") == today
-    score = neste.get("score", 3)
-    ukedag = neste.get("ukedag", "").capitalize()
-    beste_tid = neste.get("beste_tid") or ""
-    tid_tekst = _fmt_beste_tid_tekst(beste_tid) or "hele dagen"
-    features = neste.get("features") or {}
-    sol_timer = float(features.get("sol_timer") or 0)
-    snitt_vind = float(features.get("snitt_vind") or 0)
-    regn_andel = float(features.get("regn_andel") or 0)
-    klar_turdag = sol_timer >= 5 and snitt_vind < 4 and regn_andel < 0.10
-
-
-    # Etter kl 14: fokuser på neste dag, ikke i dag
-    if now_h >= 14:
-        if er_i_dag:
-            slutt_min = _t_til_min(beste_tid.split("–")[-1]) if "–" in beste_tid else 0
-            if slutt_min - now_h * 60 >= 60:
-                return f"Siste sjanse for tur i dag – {tid_tekst}"
-            neste_fremtidig = next(
-                (d for d in tur_dager if d.get("dato", "") > today and d.get("score", 0)
-                None
-            )
-            if neste_fremtidig:
-                nf_score = neste_fremtidig.get("score", 3)
-                nf_dag = neste_fremtidig.get("ukedag", "").capitalize()
-                if nf_score >= 5:
-                       return f"Hold ut – {nf_dag.lower()} blir en strålende turdag"
-               elif nf_score >= 4:
-                      return f"Grått nå, men {nf_dag.lower()} lover bra turvær"
-               return f"Neste turmulighet: {nf_dag.lower()}"
-        return "Dagens luke er snart over"
+        dag_label = "I dag" if er_i_dag else neste_topp.get("ukedag", "").capitalize()
+        score = neste_topp.get("score", 3)
+        kvalitet = {
+            5: "strålende dag",
+            4: "bra dag",
+            3: "brukbar dag med oppholdsluke",
+            2: "marginal dag",
+            1: "regndag",
+            0: "crazy turvær",
+        }.get(score, "brukbar dag")
+        neste_topp_dag = (
+            f"{dag_label} {neste_topp.get('dato')}: "
+            f"beste tid {neste_topp.get('beste_tid')} "
+            f"– {kvalitet} (score {score}/5, '{neste_topp.get('kort', '')}')"
+        )
     else:
-        er_i_morgen = False
-        try:
-               import datetime as _dt
-               neste_dato = _dt.date.fromisoformat(neste.get("dato", ""))
-               er_i_morgen = (neste_dato - now_local.date()).days == 1
-        except Exception:
-               pass
-        if score >= 5 and er_i_morgen:
-               return "Hold ut – i morgen blir strålende turdag"
-        elif score >= 5:
-               return f"Hold ut – {ukedag.lower()} blir strålende for tur"
-        elif score >= 4 and er_i_morgen:
-               return "Grått nå, men i morgen ser bra ut for tur"
-        elif score >= 4:
-               return f"Grått nå, men {ukedag.lower()} lover bra turvær"
-        return f"Neste brukbare turdag: {ukedag.lower()}"
-else:
-    # Før kl 14: vurder forholdene nå vs fremover
-    if er_i_dag and score >= 5:
-        if klar_turdag:
-               return "Strålende turdag – sol, lite vind, ingen regn"
-        return f"Strålende turdag – best {tid_tekst}"
-    elif er_i_dag and score >= 4:
-        return f"Bra turforhold i dag – {tid_tekst}"
-    elif er_i_dag and score == 3:
-        return f"Fin oppholdsluke – best {tid_tekst}"
-    elif er_i_dag and score == 0:
-        return "Crazy turvær i dag – kraftig vind og mye regn"
-    elif score >= 5:
-        er_i_morgen = False
-        try:
-               import datetime as _dt
-               neste_dato = _dt.date.fromisoformat(neste.get("dato", ""))
-               er_i_morgen = (neste_dato - now_local.date()).days == 1
-        except Exception:
-               pass
-        if er_i_morgen:
-               return "Regnvær i dag – strålende turvær i morgen"
-        return f"Variabelt nå, men {ukedag.lower()} blir strålende"
-    elif score >= 4:
-        return f"Variabelt nå – {ukedag.lower()} ser bedre ut for tur"
-    return "Variabelt vær – se etter tørre turluker"
-ferdig_verdict = _bygg_verdict(neste_topp, now_local.hour, today_iso)
-fremover_tekst_ferdig = _bygg_fremover_tekst(tur_dager, today_iso)
+        neste_topp_dag = "Ingen gode turvinduer gjenstår i dag eller de neste dagene"
 
+    def _bygg_verdict(neste: dict | None, now_h: int, today: str) -> str:
+        """Bestem overskrift basert på tidspunkt og neste gode turdag."""
+        if neste is None:
+            crazy = next((d for d in tur_dager if d.get("score") == 0), None)
+            if crazy and crazy.get("dato") != today:
+                return f"Crazy turvær venter – {crazy.get('ukedag', '').lower()}"
+            return "Ingen utpregede turdager de neste dagene"
 
-# Kompakt per-dag-oversikt – gir AI fasit slik at den ikke kan rose en regndag.
-tur_dager_oversikt = [
-       {
-           "dato":         d["dato"],
-           "ukedag":       d["ukedag"],
-           "score":        d["score"],
-           "kort":         d.get("kort", ""),
-           "beste_tid": d.get("beste_tid"),
-       }
-       for d in tur_dager
-]
+        er_i_dag = neste.get("dato") == today
+        score = neste.get("score", 3)
+        ukedag = neste.get("ukedag", "").capitalize()
+        beste_tid = neste.get("beste_tid") or ""
+        tid_tekst = _fmt_beste_tid_tekst(beste_tid) or "hele dagen"
+        features = neste.get("features") or {}
+        sol_timer = float(features.get("sol_timer") or 0)
+        snitt_vind = float(features.get("snitt_vind") or 0)
+        regn_andel = float(features.get("regn_andel") or 0)
+        klar_turdag = sol_timer >= 5 and snitt_vind < 4 and regn_andel < 0.10
 
+        if now_h >= 14:
+            if er_i_dag:
+                slutt_min = _t_til_min(beste_tid.split("–")[-1]) if "–" in beste_tid else 0
+                if slutt_min - now_h * 60 >= 60:
+                    return f"Siste sjanse for tur i dag – {tid_tekst}"
+                neste_fremtidig = next(
+                    (d for d in tur_dager if d.get("dato", "") > today and d.get("score", 0) >= 3 and d.get("beste_tid")),
+                    None,
+                )
+                if neste_fremtidig:
+                    nf_score = neste_fremtidig.get("score", 3)
+                    nf_dag = neste_fremtidig.get("ukedag", "").capitalize()
+                    if nf_score >= 5:
+                        return f"Hold ut – {nf_dag.lower()} blir en strålende turdag"
+                    if nf_score >= 4:
+                        return f"Grått nå, men {nf_dag.lower()} lover bra turvær"
+                    return f"Neste turmulighet: {nf_dag.lower()}"
+                return "Dagens luke er snart over"
 
-payload_str = json.dumps({
-       "verdict_ferdig":             ferdig_verdict,
-       "fremover_tekst_ferdig": fremover_tekst_ferdig,
-       "tidspunkt_na":              now_local.strftime("%A %H:%M").replace("Monday","mandag").rep
-       "temp_na_c":                 s.get("temperatur_nå_c"),
-       "maks_temp_24t_c":           s.get("maks_temp_c"),
-       "min_temp_24t_c":            s.get("min_temp_c"),
-       "ver_i_dag":                 dag0.get("vær_label"),
-       "neste_topp_dag":            neste_topp_dag,
-       "tur_dager_oversikt":        tur_dager_oversikt,
-}, ensure_ascii=False)
+            er_i_morgen = False
+            try:
+                import datetime as _dt
+                neste_dato = _dt.date.fromisoformat(neste.get("dato", ""))
+                er_i_morgen = (neste_dato - now_local.date()).days == 1
+            except Exception:
+                pass
+            if score >= 5 and er_i_morgen:
+                return "Hold ut – i morgen blir strålende turdag"
+            if score >= 5:
+                return f"Hold ut – {ukedag.lower()} blir strålende for tur"
+            if score >= 4 and er_i_morgen:
+                return "Grått nå, men i morgen ser bra ut for tur"
+            if score >= 4:
+                return f"Grått nå, men {ukedag.lower()} lover bra turvær"
+            return f"Neste brukbare turdag: {ukedag.lower()}"
 
+        if er_i_dag and score >= 5:
+            if klar_turdag:
+                return "Strålende turdag – sol, lite vind, ingen regn"
+            return f"Strålende turdag – best {tid_tekst}"
+        if er_i_dag and score >= 4:
+            return f"Bra turforhold i dag – {tid_tekst}"
+        if er_i_dag and score == 3:
+            return f"Fin oppholdsluke – best {tid_tekst}"
+        if er_i_dag and score == 0:
+            return "Crazy turvær i dag – kraftig vind og mye regn"
+        if score >= 5:
+            er_i_morgen = False
+            try:
+                import datetime as _dt
+                neste_dato = _dt.date.fromisoformat(neste.get("dato", ""))
+                er_i_morgen = (neste_dato - now_local.date()).days == 1
+            except Exception:
+                pass
+            if er_i_morgen:
+                return "Regnvær i dag – strålende turvær i morgen"
+            return f"Variabelt nå, men {ukedag.lower()} blir strålende"
+        if score >= 4:
+            return f"Variabelt nå – {ukedag.lower()} ser bedre ut for tur"
+        return "Variabelt vær – se etter tørre turluker"
 
-img_session = None
-user_content: list = [{"type": "text", "text": payload_str}]
-try:
-       import base64
-       import gc
-       if kamera_data:
-           img_session = requests.Session()
-           img_session.headers.update({"User-Agent": "Mozilla/5.0 (prisanalyse.no)"})
-           kamera_labels = {
-               "vegvesen":       "Vegvesen-kamera (veien til Kvamskogen)",
-               "furedalen": "Furedalen",
-               "eikedalen": "Eikedalen",
-           }
-           for navn, label in kamera_labels.items():
-               url = KAMERA_URLS.get(navn)
-               if not url:
-                      continue
-               try:
-                      img_r = img_session.get(url, timeout=12)
-                          if img_r.status_code != 200:
-                                 continue
-                          ct = img_r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip(
-                          if ct not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
-                                 ct = "image/jpeg"
-                          b64 = base64.b64encode(img_r.content).decode()
-                          img_r.close()
-                          user_content.append({"type": "text", "text": f"Kamerabilde: {label}"})
-                          user_content.append({"type": "image",
-                                                     "source": {"type": "base64", "media_type": ct, "data
-                          del b64
-                      except Exception:
-                          pass
+    ferdig_verdict = _bygg_verdict(neste_topp, now_local.hour, today_iso)
+    fremover_tekst_ferdig = _bygg_fremover_tekst(tur_dager, today_iso)
+
+    tur_dager_oversikt = [
+        {
+            "dato": d["dato"],
+            "ukedag": d["ukedag"],
+            "score": d["score"],
+            "kort": d.get("kort", ""),
+            "beste_tid": d.get("beste_tid"),
+        }
+        for d in tur_dager
+    ]
+
+    payload_str = json.dumps({
+        "verdict_ferdig": ferdig_verdict,
+        "fremover_tekst_ferdig": fremover_tekst_ferdig,
+        "tidspunkt_na": now_local.strftime("%A %H:%M")
+            .replace("Monday", "mandag")
+            .replace("Tuesday", "tirsdag")
+            .replace("Wednesday", "onsdag")
+            .replace("Thursday", "torsdag")
+            .replace("Friday", "fredag")
+            .replace("Saturday", "lørdag")
+            .replace("Sunday", "søndag"),
+        "temp_na_c": s.get("temperatur_nå_c"),
+        "maks_temp_24t_c": s.get("maks_temp_c"),
+        "min_temp_24t_c": s.get("min_temp_c"),
+        "ver_i_dag": dag0.get("vær_label"),
+        "neste_topp_dag": neste_topp_dag,
+        "tur_dager_oversikt": tur_dager_oversikt,
+    }, ensure_ascii=False)
+
+    img_session = None
+    user_content: list = [{"type": "text", "text": payload_str}]
+    try:
+        import base64
+        if kamera_data:
+            img_session = requests.Session()
+            img_session.headers.update({"User-Agent": "Mozilla/5.0 (prisanalyse.no)"})
+            kamera_labels = {
+                "vegvesen": "Vegvesen-kamera (veien til Kvamskogen)",
+                "furedalen": "Furedalen",
+                "eikedalen": "Eikedalen",
+            }
+            for navn, label in kamera_labels.items():
+                url = KAMERA_URLS.get(navn)
+                if not url:
+                    continue
+                try:
+                    img_r = img_session.get(url, timeout=12)
+                    if img_r.status_code != 200:
+                        continue
+                    ct = img_r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+                    if ct not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+                        ct = "image/jpeg"
+                    b64 = base64.b64encode(img_r.content).decode()
+                    img_r.close()
+                    user_content.append({"type": "text", "text": f"Kamerabilde: {label}"})
+                    user_content.append({"type": "image", "source": {"type": "base64", "media_type": ct, "data": b64}})
+                    del b64
+                except Exception:
+                    pass
+
         r = requests.post(
-               "https://api.anthropic.com/v1/messages",
-               headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
-                           "content-type": "application/json"},
-               json={"model": ANTHROPIC_MODEL, "max_tokens": 500,
-                        "system": _SYSTEM_PROMPT,
-                        "messages": [{"role": "user", "content": user_content}]},
-               timeout=60,
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": ANTHROPIC_MODEL,
+                "max_tokens": 500,
+                "system": _SYSTEM_PROMPT,
+                "messages": [{"role": "user", "content": user_content}],
+            },
+            timeout=60,
         )
         r.raise_for_status()
         text = r.json()["content"][0]["text"].strip()
         if text.startswith("```"):
-               text = text.split("```")[1]
-               if text.startswith("json"):
-                      text = text[4:]
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
         result = json.loads(text)
-        # Overstyr alltid verdict med den regelbaserte Python-verdien
         result["verdict"] = ferdig_verdict
         return result
     except Exception:
@@ -589,47 +593,63 @@ try:
         return _fallback_tolkning(ver_data)
     finally:
         if img_session is not None:
-               img_session.close()
+            img_session.close()
         try:
-               del user_content
-               import gc as _gc
-               _gc.collect()
+            del user_content
+            import gc as _gc
+            _gc.collect()
         except Exception:
-               pass
-
-
+            pass
 def _fallback_tolkning(ver_data: dict) -> dict:
     """Regelbasert fallback – uten skiføre/snø-kommentarer."""
-    s              = ver_data.get("sammendrag", {})
-    temp           = s.get("temperatur_nå_c") or 0
-    maks           = s.get("maks_temp_c") or temp
+    s = ver_data.get("sammendrag", {})
+    temp = s.get("temperatur_nå_c") or 0
+    maks = s.get("maks_temp_c") or temp
     intervaller = ver_data.get("intervaller", []) or []
     nedbor_24t = sum(float(iv.get("nedbør_mm") or 0) for iv in intervaller[:24])
-    maks_vind        = max((float(iv.get("vind_ms") or 0) for iv in intervaller[:24]), default=0)
-
+    maks_vind = max((float(iv.get("vind_ms") or 0) for iv in intervaller[:24]), default=0)
 
     if nedbor_24t >= 8 and maks_vind >= 12:
-           return {"verdict": "Crazy turvær – mye nedbør og kraftig vind",
-                      "detail":     f"Det er meldt {nedbor_24t:.0f} mm nedbør og vind opp mot {maks_vi
-                                    f"Dette er dagen for de tøffeste turforholdene.",
-                      "tur_quality": "Crazy", "badge_color": "red", "icon": "      "}
+        return {
+            "verdict": "Crazy turvær – mye nedbør og kraftig vind",
+            "detail": f"Det er meldt {nedbor_24t:.0f} mm nedbør og vind opp mot {maks_vind:.0f} m/s neste døgn. "
+                      f"Dette er dagen for de tøffeste turforholdene.",
+            "tur_quality": "Crazy",
+            "badge_color": "red",
+            "icon": "🌧️",
+        }
     if nedbor_24t < 1 and maks_vind < 4 and maks >= 12:
-           return {"verdict": "Strålende turvær – sol og lite vind",
-                      "detail":     f"Lite eller ingen nedbør neste døgn, vind under {maks_vind:.0f} m
-                                    f"Perfekt for en lengre tur.",
-                      "tur_quality": "Strålende", "badge_color": "green", "icon": "          "}
+        return {
+            "verdict": "Strålende turvær – sol og lite vind",
+            "detail": f"Lite eller ingen nedbør neste døgn, vind under {maks_vind:.0f} m/s og opp mot {maks:.0f}°C. "
+                      f"Perfekt for en lengre tur.",
+            "tur_quality": "Strålende",
+            "badge_color": "green",
+            "icon": "☀️",
+        }
     if nedbor_24t < 2 and maks_vind < 8:
-           return {"verdict": "Bra turvær – stort sett opphold",
-                      "detail":     f"Lite nedbør og moderat vind. Greie forhold for tur.",
-                      "tur_quality": "Bra", "badge_color": "green", "icon": "      "}
+        return {
+            "verdict": "Bra turvær – stort sett opphold",
+            "detail": "Lite nedbør og moderat vind. Greie forhold for tur.",
+            "tur_quality": "Bra",
+            "badge_color": "green",
+            "icon": "🌤️",
+        }
     if nedbor_24t < 6:
-           return {"verdict": "Variabelt – se etter oppholdsluker",
-                      "detail":     f"Det er meldt rundt {nedbor_24t:.0f} mm nedbør neste døgn. "
-                                    f"Sjekk timeprognosen for å finne en luke.",
-                      "tur_quality": "Moderat", "badge_color": "amber", "icon": "       "}
-    return {"verdict": "Mye nedbør – kort tur eller utsett",
-                  "detail":   f"Rundt {nedbor_24t:.0f} mm nedbør neste døgn. Lengre tur er ikke å an
-                  "tur_quality": "Moderat", "badge_color": "amber", "icon": "      "}
+        return {
+            "verdict": "Variabelt – se etter oppholdsluker",
+            "detail": f"Det er meldt rundt {nedbor_24t:.0f} mm nedbør neste døgn. Sjekk timeprognosen for å finne en luke.",
+            "tur_quality": "Moderat",
+            "badge_color": "amber",
+            "icon": "🌦️",
+        }
+    return {
+        "verdict": "Mye nedbør – kort tur eller utsett",
+        "detail": f"Rundt {nedbor_24t:.0f} mm nedbør neste døgn. Lengre tur er ikke å anbefale.",
+        "tur_quality": "Moderat",
+        "badge_color": "amber",
+        "icon": "🌧️",
+    }
 
 
 # ── Datahenting (kun vær – ingen løyper) ────────────────────────────────────
@@ -684,7 +704,7 @@ def _refresh_cache():
                       try:
                              return fut.result(timeout=timeout)
                       except Exception as exc:
-                             print(f"[kvamskogen-sommer] {label} feilet/timed out ({exc}) – fortsetter
+                             print(f"[kvamskogen-sommer] {label} feilet/timed out ({exc}) – fortsetter med tom default")
                              return {}
 
 
@@ -784,7 +804,7 @@ def api_historikk():
                return jsonify(hit["payload"])
            data = hent_historikk(hours)
            payload = {"ok": True, "data": data, "antall": len(data)}
-           _HISTORIKK_CACHE[hours] = {"expires_at": now_ts + _HISTORIKK_CACHE_TTL, "payload": pa
+           _HISTORIKK_CACHE[hours] = {"expires_at": now_ts + _HISTORIKK_CACHE_TTL, "payload": payload}
            expired = [k for k, v in _HISTORIKK_CACHE.items() if v["expires_at"] <= now_ts]
            for k in expired:
                del _HISTORIKK_CACHE[k]
@@ -803,7 +823,7 @@ def _sol_tider(dato_str: str) -> tuple:
     dato = date.fromisoformat(dato_str)
     dag_nr = dato.timetuple().tm_yday
     decl = math.radians(23.45 * math.sin(math.radians(360/365*(dag_nr-81))))
-    cos_ha = (math.sin(math.radians(-0.833)) - math.sin(lat)*math.sin(decl)) / (math.cos(lat)
+    cos_ha = (math.sin(math.radians(-0.833)) - math.sin(lat)*math.sin(decl)) / (math.cos(lat)*math.cos(decl))
     if abs(cos_ha) > 1:
            return None, None
     ha = math.degrees(math.acos(cos_ha))
@@ -970,7 +990,7 @@ def _finn_beste_tur_luke(
     """Finn beste tur-luke i dagslys. Premier sol + lite vind."""
     sol_opp_min = _t_til_min(soloppgang)
     sol_ned_min = _t_til_min(solnedgang)
-    dagslys = _finn_sammenhengende_oppholds_luker(intervaller, sol_opp_min, sol_ned_min, min_
+    dagslys = _finn_sammenhengende_oppholds_luker(intervaller, sol_opp_min, sol_ned_min, min_hours=2)
     if dagslys:
         return max(dagslys, key=lambda x: (x.kind == "strålende", x.score, x.hours))
     return None
@@ -984,20 +1004,18 @@ def _finn_3t_oppholds_luke(
     """For regndager: finn fineste sammenhengende ≥3t opphold midt på dagen."""
     sol_opp_min = _t_til_min(soloppgang)
     sol_ned_min = _t_til_min(solnedgang)
-    luker = _finn_sammenhengende_oppholds_luker(intervaller, sol_opp_min, sol_ned_min, min_ho
+    luker = _finn_sammenhengende_oppholds_luker(intervaller, sol_opp_min, sol_ned_min, min_hours=3)
     if not luker:
         return None
-    # Velg den lengste sammenhengende oppholdsluken
     return max(luker, key=lambda x: (x.hours, x.score))
 
 
 # ── Bygg dag-features for tur ───────────────────────────────────────────────
-def _bygg_dag_features(dato: str, intervaller: list[dict], soloppgang: str, solnedgang: str)
+def _bygg_dag_features(dato: str, intervaller: list[dict], soloppgang: str, solnedgang: str) -> dict:
     sol_opp_min = _t_til_min(soloppgang)
     sol_ned_min = _t_til_min(solnedgang)
     dagslys = [iv for iv in intervaller
-                  if _overlapp_min(_iv_min(iv), _iv_slutt_min(iv), sol_opp_min, sol_ned_min) > 0
-
+               if _overlapp_min(_iv_min(iv), _iv_slutt_min(iv), sol_opp_min, sol_ned_min) > 0] or list(intervaller)
 
     total_minutes = 0
     regn_minutes = 0
@@ -1006,54 +1024,57 @@ def _bygg_dag_features(dato: str, intervaller: list[dict], soloppgang: str, soln
     sol_minutes = 0
     vind_sum = 0.0
     nedbor_sum = 0.0
-vindtall = []
-for iv in dagslys:
-    mins = _overlapp_min(_iv_min(iv), _iv_slutt_min(iv), sol_opp_min, sol_ned_min) or _iv
-    total_minutes += mins
-    vindtall.append(float(iv.get("vind_ms") or 0))
-    vind_sum += float(iv.get("vind_ms") or 0) * mins
-    nedbor_sum += float(iv.get("nedbor_mm") or 0)
-    if _iv_har_nedbor(iv):
-           regn_minutes += mins
-    if _iv_er_brukbar_tur(iv):
-           brukbare_minutes += mins
-    if _iv_er_strålende(iv):
-           strålende_minutes += mins
-    if _iv_er_sol(iv) and float(iv.get("timer") or 1) <= 1:
-           sol_minutes += mins
+    vindtall = []
 
+    for iv in dagslys:
+        mins = _overlapp_min(_iv_min(iv), _iv_slutt_min(iv), sol_opp_min, sol_ned_min) or _iv_varighet_min(iv)
+        total_minutes += mins
+        vindtall.append(float(iv.get("vind_ms") or 0))
+        vind_sum += float(iv.get("vind_ms") or 0) * mins
+        nedbor_sum += float(iv.get("nedbor_mm") or 0)
+        if _iv_har_nedbor(iv):
+            regn_minutes += mins
+        if _iv_er_brukbar_tur(iv):
+            brukbare_minutes += mins
+        if _iv_er_strålende(iv):
+            strålende_minutes += mins
+        if _iv_er_sol(iv) and float(iv.get("timer") or 1) <= 1:
+            sol_minutes += mins
 
-beste = _finn_beste_tur_luke(intervaller, soloppgang, solnedgang)
-luke_3t = _finn_3t_oppholds_luke(intervaller, soloppgang, solnedgang)
+    beste = _finn_beste_tur_luke(intervaller, soloppgang, solnedgang)
+    luke_3t = _finn_3t_oppholds_luke(intervaller, soloppgang, solnedgang)
 
-
-return {
-    "dato": dato,
-    "soloppgang": soloppgang,
-    "solnedgang": solnedgang,
-    "dagslys_timer": round(total_minutes / 60, 1),
-    "regn_timer": round(regn_minutes / 60, 1),
-    "regn_andel": round(regn_minutes / max(total_minutes, 1), 2),
-    "brukbare_timer": round(brukbare_minutes / 60, 1),
-    "strålende_timer": round(strålende_minutes / 60, 1),
-    "maks_vind": round(max(vindtall) if vindtall else 0, 1),
-    "snitt_vind": round(vind_sum / max(total_minutes, 1), 1),
-    "sum_nedbor": round(nedbor_sum, 1),
-    "sol_timer": round(sol_minutes / 60, 1),
-    "grov_prognose": bool(dagslys) and all(float(iv.get("timer") or 1) >= 6 for iv in dag
-    "beste_luke": (
-           {
-               "fra": beste.start, "til": beste.end,
-               "timer": beste.hours, "score": beste.score, "kvalitet": beste.kind,
-           } if beste else None
-    ),
-    "luke_3t": (
-           {
-               "fra": luke_3t.start, "til": luke_3t.end,
-               "timer": luke_3t.hours,
-           } if luke_3t else None
-    ),
-}
+    return {
+        "dato": dato,
+        "soloppgang": soloppgang,
+        "solnedgang": solnedgang,
+        "dagslys_timer": round(total_minutes / 60, 1),
+        "regn_timer": round(regn_minutes / 60, 1),
+        "regn_andel": round(regn_minutes / max(total_minutes, 1), 2),
+        "brukbare_timer": round(brukbare_minutes / 60, 1),
+        "strålende_timer": round(strålende_minutes / 60, 1),
+        "maks_vind": round(max(vindtall) if vindtall else 0, 1),
+        "snitt_vind": round(vind_sum / max(total_minutes, 1), 1),
+        "sum_nedbor": round(nedbor_sum, 1),
+        "sol_timer": round(sol_minutes / 60, 1),
+        "grov_prognose": bool(dagslys) and all(float(iv.get("timer") or 1) >= 6 for iv in dagslys),
+        "beste_luke": (
+            {
+                "fra": beste.start,
+                "til": beste.end,
+                "timer": beste.hours,
+                "score": beste.score,
+                "kvalitet": beste.kind,
+            } if beste else None
+        ),
+        "luke_3t": (
+            {
+                "fra": luke_3t.start,
+                "til": luke_3t.end,
+                "timer": luke_3t.hours,
+            } if luke_3t else None
+        ),
+    }
 # ── Format-hjelpere ─────────────────────────────────────────────────────────
 def _fmt_time_natural(hhmm: str | None) -> str:
     if not hhmm or ":" not in hhmm:
@@ -1103,141 +1124,105 @@ def _fmt_beste_tid_tekst(beste_tid: str | None,
 
 # ── Tekstgenerator for hver dag ─────────────────────────────────────────────
 def _lag_dagtekst(features: dict) -> tuple[int, str, str | None, str, dict]:
-    """Returner (score, kort, beste_tid, detalj, ekstra_flags) for en turdag.
-Score-skala (sommer/turvær):
-  5 = strålende turdag (≥5t sol, vind <4 m/s, ingen regn)
-  4 = bra turdag (lite regn, vind <8 m/s, en del sol)
-  3 = brukbar regndag MED ≥3t sammenhengende oppholdsluke
-  2 = marginal (kort luke eller mye vind)
-  1 = regndag uten god luke
-  0 = "crazy turvær" – mye nedbør + sterk vind
+    """Returner (score, kort, beste_tid, detalj, ekstra_flags) for en turdag."""
+    flags = {"har_oppholdsluke": False, "opphold_vindu": None}
+    beste = features.get("beste_luke")
+    luke_3t = features.get("luke_3t")
+    regn_andel = features.get("regn_andel", 0)
+    maks_vind = features.get("maks_vind", 0)
+    snitt_vind = features.get("snitt_vind", 0)
+    sol_timer = features.get("sol_timer", 0)
+    sum_nedbor = features.get("sum_nedbor", 0)
 
+    if sum_nedbor >= 8 and (maks_vind >= 12 or snitt_vind >= 9):
+        return 0, "Crazy turvær – kraftig regn og vind", None, (
+            f"Det er meldt {sum_nedbor:.0f} mm nedbør og vind opp mot {maks_vind:.0f} m/s. "
+            f"Dette er dagen for de tøffeste turforholdene – hvis du har lyst på det, "
+            f"er det her du finner skikkelig motvind og våtvær."
+        ), flags
 
-Returnerer også et flagg-dict som inneholder bl.a. "har_oppholdsluke"
-og "opphold_vindu" for bruk i fremover-tekst.
-"""
-flags = {"har_oppholdsluke": False, "opphold_vindu": None}
-beste = features.get("beste_luke")
-luke_3t = features.get("luke_3t")
-regn_andel = features.get("regn_andel", 0)
-maks_vind = features.get("maks_vind", 0)
-snitt_vind = features.get("snitt_vind", 0)
-sol_timer = features.get("sol_timer", 0)
-sum_nedbor = features.get("sum_nedbor", 0)
+    sol_opp = features.get("soloppgang")
+    sol_ned = features.get("solnedgang")
 
+    if not beste and not luke_3t:
+        return 1, "Regndag – ingen god luke", None, (
+            "Regn dominerer hele dagen, og det finnes ingen sammenhengende oppholdsluke "
+            "på minst to timer. Dårlig dag for tur."
+        ), flags
 
-# ── 0: Crazy turvær: mye nedbør + sterk vind ──────────────────────────
-if sum_nedbor >= 8 and (maks_vind >= 12 or snitt_vind >= 9):
-      return 0, "Crazy turvær – kraftig regn og vind", None, (
-          f"Det er meldt {sum_nedbor:.0f} mm nedbør og vind opp mot {maks_vind:.0f} m/s. "
-          f"Dette er dagen for de tøffeste turforholdene – hvis du har lyst på det, "
-          f"er det her du finner skikkelig motvind og våtvær."
-      ), flags
-
-
-sol_opp = features.get("soloppgang")
-sol_ned = features.get("solnedgang")
-
-
-# ── 1: Regndag uten luke ────────────────────────────────────────────────
-if not beste and not luke_3t:
-      return 1, "Regndag – ingen god luke", None, (
-          "Regn dominerer hele dagen, og det finnes ingen sammenhengende oppholdsluke "
-          "på minst to timer. Dårlig dag for tur."
-      ), flags
-
-
-# ── 3: Regndag MED ≥3t oppholdsluke ─────────────────────────────────────
-# Hvis hovedvinduet "beste" er marginalt (regn dominerer), men det finnes en
-# konkret 3t-luke i dagslys, fremhev luken som turmulighet.
-if regn_andel > 0.35 and luke_3t:
-      beste_tid = f'{luke_3t["fra"]}–{luke_3t["til"]}'
-      tid_tekst = _fmt_beste_tid_tekst(beste_tid, sol_opp, sol_ned)
-      # Hvis luken dekker (nesten) hele dagslyset, oppgrader til score 4
-      if tid_tekst is None and luke_3t["timer"] >= 6:
+    if regn_andel > 0.35 and luke_3t:
+        beste_tid = f'{luke_3t["fra"]}–{luke_3t["til"]}'
+        tid_tekst = _fmt_beste_tid_tekst(beste_tid, sol_opp, sol_ned)
+        if tid_tekst is None and luke_3t["timer"] >= 6:
+            flags["har_oppholdsluke"] = True
+            flags["opphold_vindu"] = "store deler av dagen"
+            return 4, "Bra dag – fint det meste av dagen", beste_tid, (
+                f"Stort sett opphold gjennom dagen. Det er et lite tidsvindu med regn, "
+                f"men {luke_3t['timer']:.0f} sammenhengende timer er tørre."
+            ), flags
+        tekst_inn = tid_tekst or "i en lang luke midt på dagen"
         flags["har_oppholdsluke"] = True
-        flags["opphold_vindu"] = "store deler av dagen"
-        return 4, "Bra dag – fint det meste av dagen", beste_tid, (
-               f"Stort sett opphold gjennom dagen. Det er et lite tidsvindu med regn, "
-               f"men {luke_3t['timer']:.0f} sammenhengende timer er tørre."
+        flags["opphold_vindu"] = tekst_inn
+        return 3, f"Fin oppholdsluke {tekst_inn}", beste_tid, (
+            f"Regn ellers, men det er meldt minst {luke_3t['timer']:.0f} sammenhengende timer "
+            f"uten nedbør {tekst_inn}. Fin tid for en runde."
         ), flags
-    tekst_inn = tid_tekst or "i en lang luke midt på dagen"
-    flags["har_oppholdsluke"] = True
-    flags["opphold_vindu"] = tekst_inn
-    return 3, f"Fin oppholdsluke {tekst_inn}", beste_tid, (
-        f"Regn ellers, men det er meldt minst {luke_3t['timer']:.0f} sammenhengende timer
-        f"uten nedbør {tekst_inn}. Fin tid for en runde."
-    ), flags
 
+    if regn_andel > 0.35 and not luke_3t:
+        if beste:
+            beste_tid = f'{beste["fra"]}–{beste["til"]}'
+            tid_tekst = _fmt_beste_tid_tekst(beste_tid, sol_opp, sol_ned) or "midt på dagen"
+            return 2, f"Regndag – kort luke {tid_tekst}", beste_tid, (
+                f"Regn dominerer dagen. Det finnes en kort luke {tid_tekst}, men den er "
+                f"ikke lang nok for en skikkelig tur."
+            ), flags
+        return 1, "Regndag – ikke anbefalt", None, "Regn det meste av dagslyset. Ikke en dag for lengre tur.", flags
 
-if regn_andel > 0.35 and not luke_3t:
-    # Regndag uten 3t-luke (kanskje en kort 2t-luke)
-    if beste:
-        beste_tid = f'{beste["fra"]}–{beste["til"]}'
-        tid_tekst = _fmt_beste_tid_tekst(beste_tid, sol_opp, sol_ned) or "midt på dagen"
-        return 2, f"Regndag – kort luke {tid_tekst}", beste_tid, (
-               f"Regn dominerer dagen. Det finnes en kort luke {tid_tekst}, men den er "
-               f"ikke lang nok for en skikkelig tur."
-        ), flags
-    return 1, "Regndag – ikke anbefalt", None, (
-        "Regn det meste av dagslyset. Ikke en dag for lengre tur."
-    ), flags
+    if (beste and beste["kvalitet"] == "strålende"
+            and beste["timer"] >= 4
+            and sol_timer >= 5
+            and snitt_vind < 4
+            and regn_andel < 0.05):
+        score = 5
+    elif (beste and beste["kvalitet"] in ("strålende", "god")
+          and beste["timer"] >= 3
+          and snitt_vind < 8
+          and regn_andel < 0.30):
+        score = 4
+    else:
+        score = 3
 
+    beste_tid = f'{beste["fra"]}–{beste["til"]}' if beste else None
+    tid_tekst = _fmt_beste_tid_tekst(beste_tid, sol_opp, sol_ned) if beste_tid else None
 
-# ── 5: Strålende turdag ─────────────────────────────────────────────────
-if (beste and beste["kvalitet"] == "strålende"
-        and beste["timer"] >= 4
-        and sol_timer >= 5
-        and snitt_vind < 4
-        and regn_andel < 0.05):
-    score = 5
-# ── 4: Bra turdag (litt yr i randene tolereres når luken er lang) ──────
-elif (beste and beste["kvalitet"] in ("strålende", "god")
-        and beste["timer"] >= 3
-        and snitt_vind < 8
-        and regn_andel < 0.30):
-    score = 4
-else:
-    score = 3
-
-
-beste_tid = f'{beste["fra"]}–{beste["til"]}' if beste else None
-tid_tekst = _fmt_beste_tid_tekst(beste_tid, sol_opp, sol_ned) if beste_tid else None
-
-
-if score == 5:
+    if score == 5:
         if tid_tekst:
-               kort = f"Strålende {tid_tekst}"
-               detalj = f"Strålende turvær – mye sol, lite vind og opphold {tid_tekst}. Perfekt
+            kort = f"Strålende {tid_tekst}"
+            detalj = f"Strålende turvær – mye sol, lite vind og opphold {tid_tekst}. Perfekt for lengre tur."
         else:
-               kort = "Strålende dag – sol hele dagen"
-               detalj = "Sol, opphold og lite vind fra morgen til kveld. Perfekt turdag."
+            kort = "Strålende dag – sol hele dagen"
+            detalj = "Sol, opphold og lite vind fra morgen til kveld. Perfekt turdag."
     elif score == 4:
         if tid_tekst:
-               kort = f"Bra {tid_tekst}"
-               detalj = f"Bra turforhold {tid_tekst}. Stort sett opphold, vinden holder seg og d
+            kort = f"Bra {tid_tekst}"
+            detalj = f"Bra turforhold {tid_tekst}. Stort sett opphold, vinden holder seg og det er lett å være ute."
         else:
-               kort = "Bra dag – fint hele dagen"
-               detalj = "Bra turvær gjennom hele dagen. Lite nedbør og moderat vind."
+            kort = "Bra dag – fint hele dagen"
+            detalj = "Bra turvær gjennom hele dagen. Lite nedbør og moderat vind."
     else:
         if tid_tekst:
-               kort = f"Greit {tid_tekst}"
-               detalj = f"Brukbart turvær {tid_tekst}. Vær forberedt på variabelt vær ellers."
+            kort = f"Greit {tid_tekst}"
+            detalj = f"Brukbart turvær {tid_tekst}. Vær forberedt på variabelt vær ellers."
         else:
-               kort = "Brukbart – variabelt"
-               detalj = "Dagen har perioder med brukbare forhold, men forvent litt variabelt vær
-
+            kort = "Brukbart – variabelt"
+            detalj = "Dagen har perioder med brukbare forhold, men forvent litt variabelt vær."
 
     grov = features.get("grov_prognose", False)
     if grov and score >= 3:
-        detalj += " Prognosen er grovere denne dagen, så tidsvinduet bør tolkes litt romslig.
+        detalj += " Prognosen er grovere denne dagen, så tidsvinduet bør tolkes litt romslig."
     if maks_vind >= 10 and score > 0:
-        detalj += f" Merk at vinden kan komme opp i {maks_vind:.0f} m/s utenfor det anbefalte
-
-
+        detalj += f" Merk at vinden kan komme opp i {maks_vind:.0f} m/s utenfor det anbefalte tidsrommet."
     return score, kort, beste_tid, detalj, flags
-
-
 def _fallback_dag(dato: str, intervaller: list, soloppgang: str, solnedgang: str) -> dict:
     """Regelbasert dag-analyse (uten AI)."""
     features = _bygg_dag_features(dato, intervaller, soloppgang, solnedgang)
@@ -1321,12 +1306,15 @@ def _compute_local_tur_days(intervaller_raw: list[dict], limit: int = 8) -> list
     """Beregn lokale turdag-analyser for hver dato i prognosen."""
     from collections import defaultdict
     import datetime as _dt
+
     per_dag: dict = defaultdict(list)
     for iv in intervaller_raw:
         dato = (iv.get("start") or "")[:10]
         if dato:
-             per_dag[dato].append(iv)
+            per_dag[dato].append(iv)
+
     dager: list[dict] = []
+    ukedager = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"]
     for dato in sorted(per_dag.keys())[:limit]:
         sol_opp, sol_ned = _sol_tider(dato)
         sol_opp = sol_opp or "07:00"
@@ -1334,20 +1322,20 @@ def _compute_local_tur_days(intervaller_raw: list[dict], limit: int = 8) -> list
         ivs = per_dag[dato]
         analyse = _fallback_dag(dato, ivs, sol_opp, sol_ned)
         dt = _dt.date.fromisoformat(dato)
-        ukedag = ["mandag","tirsdag","onsdag","torsdag","fredag","lørdag","søndag"][dt.weekda
+        ukedag = ukedager[dt.weekday()]
         dager.append({
-             "dato":               dato,
-             "ukedag":             ukedag,
-             "soloppgang":         sol_opp,
-             "solnedgang":         sol_ned,
-             "score":              analyse.get("score", 3),
-             "kort":               analyse.get("kort", ""),
-             "beste_tid":          analyse.get("beste_tid"),
-             "detalj":             analyse.get("detalj", ""),
-             "features":           analyse.get("features", {}),
-             "har_oppholdsluke":   analyse.get("har_oppholdsluke", False),
-             "opphold_vindu":      analyse.get("opphold_vindu"),
-             "intervaller":        ivs,
+            "dato": dato,
+            "ukedag": ukedag,
+            "soloppgang": sol_opp,
+            "solnedgang": sol_ned,
+            "score": analyse.get("score", 3),
+            "kort": analyse.get("kort", ""),
+            "beste_tid": analyse.get("beste_tid"),
+            "detalj": analyse.get("detalj", ""),
+            "features": analyse.get("features", {}),
+            "har_oppholdsluke": analyse.get("har_oppholdsluke", False),
+            "opphold_vindu": analyse.get("opphold_vindu"),
+            "intervaller": ivs,
         })
     return dager
 
@@ -1357,286 +1345,186 @@ def _build_tur_summary_from_days(dager: list[dict]) -> dict:
     def _first_sentence(text: str) -> str:
         text = (text or "").strip()
         if not text:
-             return ""
-    head = text.split(".")[0].strip()
-    return head or text
+            return ""
+        head = text.split(".")[0].strip()
+        return head or text
 
+    def _name(dag: dict | None) -> str:
+        if not dag:
+            return ""
+        return (dag.get("ukedag") or dag.get("dato") or "").capitalize()
 
-def _parse_range(range_text: str | None) -> tuple[int | None, int | None]:
-    if not range_text or "–" not in range_text:
-        return None, None
-    start, end = range_text.split("–", 1)
-    return _t_til_min(start), _t_til_min(end)
+    today = dager[0] if len(dager) > 0 else None
+    tomorrow = dager[1] if len(dager) > 1 else None
+    upcoming = dager[1:6] if len(dager) > 1 else []
 
-
-def _time_to_phrase(prefix: str, end_min: int | None) -> str:
-    if end_min is None:
-        return prefix
-    hh = f"{end_min // 60:02d}:{end_min % 60:02d}"
-    return f"{prefix} {_fmt_time_natural(hh)}"
-
-
-def _today_urgent_line(dag: dict | None) -> str | None:
-    if not dag:
-        return None
-    beste_tid = dag.get("beste_tid")
-    score = dag.get("score", 3)
-    if score == 0:
-        return "I dag er det crazy turvær – kraftig regn og vind."
-    if not beste_tid:
-        return "I dag er det ingen god turluke."
-    now_local = datetime.now(LOCAL_TZ)
-    now_min = now_local.hour * 60 + now_local.minute
-    start_min, end_min = _parse_range(beste_tid)
-    today_date = dag.get("dato")
-    is_today = False
-    if today_date:
-        try:
-               is_today = datetime.now(LOCAL_TZ).date().isoformat() == today_date
-        except Exception:
-               is_today = False
-    if not is_today:
-        return None
-    # Hvis vinduet dekker hele dagen (≥8t), gi en mer generell tekst
-    sol_opp = dag.get("soloppgang")
-    sol_ned = dag.get("solnedgang")
-    tid_tekst = _fmt_beste_tid_tekst(beste_tid, sol_opp, sol_ned)
-    if start_min is None or end_min is None:
-        return (f"I dag er det fint hele dagen." if tid_tekst is None
-                   else f"I dag er det best {tid_tekst}.")
-    if now_min < start_min:
-        return (f"I dag er det fint hele dagen." if tid_tekst is None
-                   else f"I dag er det best {tid_tekst}.")
-    if start_min <= now_min <= end_min:
-        remaining = end_min - now_min
-        if tid_tekst is None and remaining > 240:
-               return "Nå er det fint turvær – holder ut hele dagen."
-        if remaining <= 90:
-               return _time_to_phrase("Nå haster det – best fram til", end_min) + "."
-        if remaining <= 240:
-               return _time_to_phrase("Nå er det fint å være ute – best fram til", end_min)
-        return _time_to_phrase("Nå er det fint turvær – holder til", end_min) + "."
-    return "Den beste turluken i dag var tidligere."
-
-
-def _short_desc(dag: dict | None, fallback: str) -> str:
-    if not dag:
-        return fallback
-    detalj = _first_sentence(dag.get("detalj") or "")
-    if detalj:
-        return detalj.rstrip(". ")
-    kort = (dag.get("kort") or "").strip()
-    if kort:
-        return kort.rstrip(". ")
-    return fallback
-
-
-def _tomorrow_line(dag: dict | None, fallback: str) -> str | None:
-    if not dag:
-        return None
-    beste_tid = dag.get("beste_tid")
-    score = dag.get("score", 3)
-    kort = (dag.get("kort") or "").strip().rstrip(".")
-    tid_tekst = _fmt_beste_tid_tekst(beste_tid)
-    if score == 0:
-        return "I morgen blir det crazy turvær."
-    if score >= 5:
-        if tid_tekst:
-               return f"I morgen blir strålende turdag – best {tid_tekst}."
+    lines: list[str] = []
+    if today:
+        score = today.get("score", 3)
+        beste_tid = today.get("beste_tid")
+        if score == 0:
+            lines.append("I dag er det crazy turvær – kraftig regn og vind.")
+        elif beste_tid:
+            tid_tekst = _fmt_beste_tid_tekst(beste_tid, today.get("soloppgang"), today.get("solnedgang"))
+            lines.append("I dag er det fint hele dagen." if tid_tekst is None else f"I dag er det best {tid_tekst}.")
         else:
-               return f"I morgen blir strålende turdag – {kort.lower() if kort else 'sol og
-    elif score >= 4:
-        if tid_tekst:
-               return f"I morgen ser bra ut, best {tid_tekst}."
+            lines.append("I dag er det ingen god turluke.")
+
+    if tomorrow:
+        score = tomorrow.get("score", 3)
+        beste_tid = tomorrow.get("beste_tid")
+        tid_tekst = _fmt_beste_tid_tekst(beste_tid)
+        if score == 0:
+            lines.append("I morgen blir det crazy turvær.")
+        elif score >= 5:
+            lines.append(f"I morgen blir strålende turdag{(' – best ' + tid_tekst) if tid_tekst else ''}.")
+        elif score >= 4:
+            lines.append(f"I morgen ser bra ut{(', best ' + tid_tekst) if tid_tekst else ' – fint turvær hele dagen'}.")
+        elif beste_tid and tid_tekst:
+            lines.append(f"I morgen finnes en oppholdsluke {tid_tekst}.")
         else:
-               return "I morgen ser bra ut – fint turvær hele dagen."
-    elif score == 3 and beste_tid:
-        if tid_tekst:
-               return f"I morgen finnes en oppholdsluke {tid_tekst}."
+            desc = _first_sentence(tomorrow.get("detalj") or tomorrow.get("kort") or "ingen god turluke")
+            lines.append(f"I morgen: {desc}.")
+
+    best_days = [d for d in upcoming if d.get("score", 0) >= 4]
+    if not best_days:
+        best_days = [d for d in upcoming if d.get("score", 0) >= 3 and d.get("beste_tid")]
+    best_days = best_days[:2]
+    crazy_day = next((d for d in upcoming if d.get("score") == 0), None)
+
+    future_parts: list[str] = []
+    if best_days:
+        names = []
+        for d in best_days:
+            tid_tekst = _fmt_beste_tid_tekst(d.get("beste_tid"))
+            label = _name(d).lower()
+            if d.get("score", 0) >= 5:
+                names.append(f"{label} (strålende{', best ' + tid_tekst if tid_tekst else ' dag'})")
+            elif d.get("score", 0) >= 4:
+                names.append(f"{label} ({tid_tekst})" if tid_tekst else f"{label} (bra dag)")
+            else:
+                names.append(f"{label} (oppholdsluke {tid_tekst})" if tid_tekst else label)
+        if len(names) == 1:
+            future_parts.append(f"Fremover ser {names[0]} best ut")
         else:
-               return "I morgen finnes en grei oppholdsluke."
-    elif beste_tid:
-        if tid_tekst:
-               return f"I morgen er det begrenset – kort luke {tid_tekst}."
-        return "I morgen er forholdene marginale."
-    return f"I morgen: {_short_desc(dag, fallback)}."
+            future_parts.append(f"Fremover ser {names[0]} og {names[1]} best ut")
+    if crazy_day:
+        future_parts.append(f"crazy turvær på {_name(crazy_day).lower()}")
 
+    future_text = ". ".join(p.rstrip(". ") for p in future_parts).strip()
+    if future_text:
+        future_text += "."
+        lines.append(future_text)
 
-def _pick_best_days(candidates: list[dict], max_items: int = 2) -> list[dict]:
-    ranked = sorted(
-        [d for d in candidates if d and d.get("score") is not None],
-        key=lambda d: (d.get("score", 0), bool(d.get("beste_tid")), -(len(d.get("detalj")
-        reverse=True,
-    )
-    preferred = [d for d in ranked if d.get("score", 0) >= 4]
-    source = preferred if preferred else [d for d in ranked if d.get("score", 0) >= 3]
-    out = []
-    seen = set()
-    for d in source:
-        key = d.get("dato")
-        if key and key not in seen:
-               out.append(d)
-               seen.add(key)
-        if len(out) >= max_items:
-               break
-    return out
-
-
-def _pick_crazy_day(candidates: list[dict]) -> dict | None:
-    crazy = [d for d in candidates if d and d.get("score") == 0]
-    return crazy[0] if crazy else None
-
-
-today    = dager[0] if len(dager) > 0 else None
-tomorrow = dager[1] if len(dager) > 1 else None
-upcoming = dager[1:6] if len(dager) > 1 else []
-
-
-lines = []
-today_line = _today_urgent_line(today)
-if not today_line and today:
-    beste_tid = today.get("beste_tid")
-    today_line = (f"I dag er det best {_fmt_range_natural(beste_tid)}."
-                       if beste_tid else "I dag er det ingen god turluke.")
-tomorrow_line = _tomorrow_line(tomorrow, "ingen god turluke")
-if today_line:
-    lines.append(today_line)
-if tomorrow_line:
-    lines.append(tomorrow_line)
-
-
-best_days = _pick_best_days(upcoming, max_items=2)
-crazy_day = _pick_crazy_day(upcoming)
-future_parts = []
-if best_days:
-    names = []
-    for d in best_days:
-           name = (d.get("ukedag") or "").capitalize() or (d.get("dato") or "")
-           bt = d.get("beste_tid")
-           score = d.get("score", 3)
-           tid_tekst = _fmt_beste_tid_tekst(bt)
-           if score >= 5:
-               names.append(f"{name.lower()} (strålende{', best ' + tid_tekst if tid_tekst e
-           elif score >= 4:
-               names.append(f"{name.lower()} ({tid_tekst})" if tid_tekst else f"{name.lower(
-           elif tid_tekst:
-               names.append(f"{name.lower()} (oppholdsluke {tid_tekst})")
-           else:
-               names.append(name.lower())
-    if len(names) == 1:
-           future_parts.append(f"Fremover ser {names[0]} best ut")
-    else:
-           future_parts.append(f"Fremover ser {names[0]} og {names[1]} best ut")
-if crazy_day:
-    name = (crazy_day.get("ukedag") or "").capitalize() or (crazy_day.get("dato") or "")
-    future_parts.append(f"crazy turvær på {name.lower()}")
-
-
-future_text = ". ".join(p.rstrip(". ") for p in future_parts).strip()
-if future_text:
-    future_text += "."
-    lines.append(future_text)
-
-
-return {
-    "today": {
-           "dato":         today.get("dato"),
-           "score":        today.get("score"),
-           "kort":         today.get("kort"),
-           "beste_tid": today.get("beste_tid"),
-           "detalj":       today.get("detalj"),
-    } if today else None,
-    "tomorrow": {
-           "dato":         tomorrow.get("dato"),
-           "score":        tomorrow.get("score"),
-           "kort":         tomorrow.get("kort"),
-           "beste_tid": tomorrow.get("beste_tid"),
-           "detalj":       tomorrow.get("detalj"),
-    } if tomorrow else None,
-    "next_days": [
-           {
-               "dato":         d.get("dato"),
-               "ukedag":       d.get("ukedag"),
-               "score":        d.get("score"),
-                  "beste_tid": d.get("beste_tid"),
-                  "detalj":       d.get("detalj"),
-             }
-             for d in upcoming
+    return {
+        "today": {
+            "dato": today.get("dato"),
+            "score": today.get("score"),
+            "kort": today.get("kort"),
+            "beste_tid": today.get("beste_tid"),
+            "detalj": today.get("detalj"),
+        } if today else None,
+        "tomorrow": {
+            "dato": tomorrow.get("dato"),
+            "score": tomorrow.get("score"),
+            "kort": tomorrow.get("kort"),
+            "beste_tid": tomorrow.get("beste_tid"),
+            "detalj": tomorrow.get("detalj"),
+        } if tomorrow else None,
+        "next_days": [
+            {
+                "dato": d.get("dato"),
+                "ukedag": d.get("ukedag"),
+                "score": d.get("score"),
+                "beste_tid": d.get("beste_tid"),
+                "detalj": d.get("detalj"),
+            }
+            for d in upcoming
         ],
         "future_text": future_text,
-        "hero_text":       " ".join(lines).strip(),
+        "hero_text": " ".join(lines).strip(),
     }
 
 
 # ── /api/tur-ai og /api/tur ────────────────────────────────────────────────
+# ── /api/tur-ai og /api/tur ────────────────────────────────────────────────
 @kvamskogen_sommer_bp.get("/api/tur-ai")
 def api_tur_ai():
-    """AI-analyse av alle turdager i ett kall. Koden velger vindu, AI formulerer."""
+    """AI-analyse av alle turdager i ett kall. Faller tilbake til regelbasert analyse."""
     now_ts = time.time()
     hit = _TUR_AI_CACHE.get("tur_ai")
     if hit and hit["expires_at"] > now_ts:
         return jsonify(hit["payload"])
+
     status_hit = _STATUS_CACHE.get("status")
     if not status_hit:
         return jsonify({"ok": False, "dager": []})
     intervaller_raw = status_hit["payload"].get("intervaller", [])
     if not intervaller_raw:
         return jsonify({"ok": False, "dager": []})
+
     lokale_dager_raw = _compute_local_tur_days(intervaller_raw, limit=7)
-    lokale_dager = [{k: v for k, v in dag.items()
-                         if k not in ("features", "intervaller")}
-                       for dag in lokale_dager_raw]
-    dager_payload = []
-    for dag in lokale_dager_raw:
-        dager_payload.append({
-             "dato":           dag["dato"],
-             "ukedag":         dag["ukedag"],
-             "soloppgang": dag["soloppgang"],
-             "solnedgang": dag["solnedgang"],
-             "analyse":        dag.get("features", {}),
-             "timer": [
-                  {
-                       "t":      (iv.get("start") or "")[11:16],
-                       "nb":     round(iv.get("nedbor_mm") or 0, 1),
-                       "temp": round(iv.get("temperatur_c") or 0, 1),
-                       "vind": round(iv.get("vind_ms") or 0, 1),
-                       "ikon": iv.get("ver_ikon") or "",
-                  }
-                  for iv in dag.get("intervaller", [])
-             ],
-        })
+    lokale_dager = [
+        {k: v for k, v in dag.items() if k not in ("features", "intervaller")}
+        for dag in lokale_dager_raw
+    ]
+    payload = {"ok": True, "dager": lokale_dager}
+
     if not ANTHROPIC_API_KEY:
-           payload = {"ok": True, "dager": lokale_dager}
-           _TUR_AI_CACHE["tur_ai"] = {"expires_at": now_ts + _TUR_AI_CACHE_TTL, "payload": paylo
-           return jsonify(payload)
+        _TUR_AI_CACHE["tur_ai"] = {"expires_at": now_ts + _TUR_AI_CACHE_TTL, "payload": payload}
+        return jsonify(payload)
+
     try:
-           r = requests.post(
-               "https://api.anthropic.com/v1/messages",
-               headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
-                         "content-type": "application/json"},
-               json={
-                    "model":      "claude-haiku-4-5",
-                    "max_tokens": 1024,
-                    "system":     _TUR_AI_PROMPT,
-                    "messages": [{"role": "user", "content": json.dumps(dager_payload, ensure_asc
-               },
-               timeout=30,
-           )
-           r.raise_for_status()
-           text = r.json()["content"][0]["text"].strip()
-           if "```" in text:
-               text = text.split("```")[1]
-               if text.startswith("json"):
-                    text = text[4:]
-           ai_dager = json.loads(text)
-           ai_map = {d.get("dato"): d for d in ai_dager if isinstance(d, dict)}
-           dager = [_coerce_ai_day(lokal, ai_map.get(lokal["dato"])) for lokal in lokale_dager]
-           payload = {"ok": True, "dager": dager}
-           _TUR_AI_CACHE["tur_ai"] = {"expires_at": now_ts + _TUR_AI_CACHE_TTL, "payload": paylo
-           return jsonify(payload)
+        dager_payload = []
+        for dag in lokale_dager_raw:
+            dager_payload.append({
+                "dato": dag["dato"],
+                "ukedag": dag["ukedag"],
+                "soloppgang": dag["soloppgang"],
+                "solnedgang": dag["solnedgang"],
+                "analyse": dag.get("features", {}),
+                "timer": [
+                    {
+                        "t": (iv.get("start") or "")[11:16],
+                        "nb": round(float(iv.get("nedbor_mm") or 0), 1),
+                        "temp": round(float(iv.get("temperatur_c") or 0), 1),
+                        "vind": round(float(iv.get("vind_ms") or 0), 1),
+                        "ikon": iv.get("ver_ikon") or "",
+                    }
+                    for iv in dag.get("intervaller", [])
+                ],
+            })
+
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-haiku-4-5",
+                "max_tokens": 1024,
+                "system": _TUR_AI_PROMPT,
+                "messages": [{"role": "user", "content": json.dumps(dager_payload, ensure_ascii=False)}],
+            },
+            timeout=30,
+        )
+        r.raise_for_status()
+        text = r.json()["content"][0]["text"].strip()
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        ai_dager = json.loads(text)
+        ai_map = {d.get("dato"): d for d in ai_dager if isinstance(d, dict)}
+        dager = [_coerce_ai_day(lokal, ai_map.get(lokal["dato"])) for lokal in lokale_dager]
+        payload = {"ok": True, "dager": dager}
     except Exception:
-           traceback.print_exc()
-           return jsonify({"ok": True, "dager": lokale_dager})
+        traceback.print_exc()
+
+    _TUR_AI_CACHE["tur_ai"] = {"expires_at": now_ts + _TUR_AI_CACHE_TTL, "payload": payload}
+    return jsonify(payload)
 
 
 _TUR_CACHE: dict = {}
@@ -1649,16 +1537,15 @@ def api_tur():
     now_ts = time.time()
     hit = _TUR_CACHE.get("tur")
     if hit and hit["expires_at"] > now_ts:
-           return jsonify(hit["payload"])
+        return jsonify(hit["payload"])
     status_hit = _STATUS_CACHE.get("status")
     if not status_hit:
-           return jsonify({"ok": False, "dager": []})
+        return jsonify({"ok": False, "dager": []})
     intervaller_raw = status_hit["payload"].get("intervaller", [])
     if not intervaller_raw:
-          return jsonify({"ok": False, "dager": []})
+        return jsonify({"ok": False, "dager": []})
     dager_raw = _compute_local_tur_days(intervaller_raw, limit=8)
-    dager = [{k: v for k, v in dag.items() if k not in ("features", "intervaller")}
-               for dag in dager_raw]
+    dager = [{k: v for k, v in dag.items() if k not in ("features", "intervaller")} for dag in dager_raw]
     payload = {"ok": True, "dager": dager}
     _TUR_CACHE["tur"] = {"expires_at": now_ts + _TUR_CACHE_TTL, "payload": payload}
     return jsonify(payload)
