@@ -2232,6 +2232,20 @@ _FINN_FUEL_MAP = {
     "Gass": "3",
 }
 
+# Mapper skjemaverdier (fra dropdown / URL-parameter) til den kanoniske
+# strengen prismodellen ble trent på. Frontend normaliserer "elektrisk"/
+# "elektrisitet" til "El"; her mappes det tilbake slik at segmentnøkler
+# som "Opel | Corsa | Elektrisitet" matcher i FlipModels.market_l1.
+_DRIVSTOFF_FORM_TIL_MODELL = {
+    "el": "Elektrisitet",
+    "elektrisk": "Elektrisitet",
+    "elektrisitet": "Elektrisitet",
+    "bensin": "Bensin",
+    "diesel": "Diesel",
+    "hybrid": "Hybrid",
+    "gass": "Gass",
+}
+
 _FINN_FYLKE_LOCATION_MAP = {
     "agder": "0.20002",
     "akershus": "0.20003",
@@ -2646,6 +2660,13 @@ def bil_finn_sok():
     annonser_ukjent = [a for a in annonser if str(a["finnkode"]) not in matched_set]
     detalj_ukjent = _hent_finn_detalj_for_ukjent(annonser_ukjent)
 
+    # Bruk brukerens filterverdier som default for biler som mangler i DB —
+    # ellers scores de med Drivstoff/Fylke="Ukjent" og faller til GEN-modellen
+    # med villedende høye prediksjoner. Drivstoff er det viktigste fordi det
+    # inngår i segmentnøkkelen for L1/L2.
+    drivstoff_default = _DRIVSTOFF_FORM_TIL_MODELL.get(drivstoff.lower()) if drivstoff else None
+    fylke_default = fylke_filter.strip() if fylke_filter else None
+
     rows = []
     db_by_fk = ({str(r["FinnKode"]): r for _, r in df_db.iterrows()}
                 if not df_db.empty else {})
@@ -2673,13 +2694,13 @@ def bil_finn_sok():
                 "FinnKode": fk, "finnkode": fk, "url": a["url"],
                 "Merke": merke_guess, "Modell": modell_guess,
                 "Årstall": d.get("aar"), "Kjørelengde": d.get("km"),
-                "Drivstoff": None, "Hjuldrift": None,
+                "Drivstoff": drivstoff_default, "Hjuldrift": None,
                 "Pris_forste": d.get("pris"),  # ny → førstpris = dagens pris
                 "Pris": d.get("pris"),
                 "svv_bruktimportert": None,
                 "svv_importland_navn": None,
                 "BildeURL": d.get("image_url"),
-                "Sted": None, "Fylke": None,
+                "Sted": None, "Fylke": fylke_default,
                 "dager_for_salg": 1,           # ny → ca. 1 dag
                 "i_db": False,
                 "title": title,
