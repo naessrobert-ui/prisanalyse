@@ -84,6 +84,64 @@ def _logg_modell_info(modeller: FlipModels):
     )
 
 
+def _bygg_drivstoff_normalisering(modeller: FlipModels) -> dict:
+    """Inspiser segmentnøklene og lag mapping fra lavere-case-form
+    ("el", "elektrisk", "elektrisitet") til den varianten modellen
+    faktisk er trent på. Velger den formen som dekker flest treningsdata.
+
+    Treningsskriptet normaliserer ikke "Elektrisk" vs "Elektrisitet" før
+    segmentering, så avhengig av hva parquet-en inneholder kan modellen
+    bare ha den ene varianten — eller en blanding der den ene dominerer.
+    Live-scoring må bruke den dominerende formen for å treffe L1/L2.
+    """
+    forms_n_obs: dict = {}  # trent_form -> total n_obs (på tvers av L1/L2)
+
+    def _add(seg_key: str, n_obs: int):
+        parts = seg_key.split(" | ")
+        if not parts:
+            return
+        d = parts[-1].strip()
+        if not d or d.lower() == "ukjent":
+            return
+        if d.lower() in ("elektrisk", "elektrisitet"):
+            forms_n_obs[d] = forms_n_obs.get(d, 0) + n_obs
+
+    for k, sm in modeller.market_l1.items():
+        _add(k, sm.n_obs)
+    for k, sm in modeller.market_l2.items():
+        _add(k, sm.n_obs)
+    for k, sm in modeller.fast_l1.items():
+        _add(k, sm.n_obs)
+    for k, sm in modeller.fast_l2.items():
+        _add(k, sm.n_obs)
+
+    out: dict = {}
+    if forms_n_obs:
+        best = max(forms_n_obs.items(), key=lambda kv: kv[1])[0]
+        out["el"] = best
+        out["elektrisk"] = best
+        out["elektrisitet"] = best
+        print(
+            f"[BilRadar] Drivstoff-normalisering: 'El' → {best!r} "
+            f"(modeller per form: {forms_n_obs})"
+        )
+    return out
+
+
+def _hent_drivstoff_normalisering(modeller: FlipModels) -> dict:
+    """Cachet versjon av _bygg_drivstoff_normalisering — bygges én gang
+    per FlipModels-objekt og lagres som attributt på modellen."""
+    cached = getattr(modeller, "_drivstoff_norm_cache", None)
+    if cached is not None:
+        return cached
+    norm = _bygg_drivstoff_normalisering(modeller)
+    try:
+        modeller._drivstoff_norm_cache = norm  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    return norm
+
+
 # ---- Innlastingsfunksjoner ----
 
 def last_modell_fra_s3(s3_client, bucket: str, key: str) -> FlipModels:
@@ -353,6 +411,18 @@ def scorer_biler(df: pd.DataFrame, modeller: FlipModels, threshold: int = GOOD_D
 
     if df.empty:
         return df
+
+    # Normaliser drivstoff til den varianten modellen er trent på, slik at
+    # segmentnøkler som "Mazda | MX-30 | Elektrisitet" matcher selv om
+    # treningsdata bruker "Elektrisk" (eller omvendt). Bygg segmentene på
+    # nytt etter normalisering.
+    drivstoff_norm = _hent_drivstoff_normalisering(modeller)
+    if drivstoff_norm:
+        df["drivstoff"] = df["drivstoff"].apply(
+            lambda d: drivstoff_norm.get(str(d).strip().lower(), d)
+        )
+        df["segment_1"] = df["Produsent"] + " | " + df["Modell"] + " | " + df["drivstoff"]
+        df["segment_2"] = df["Produsent"] + " | " + df["drivstoff"]
 
     # Markedspris
     _scor_pris_kategori(
