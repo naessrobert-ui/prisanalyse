@@ -2498,7 +2498,14 @@ def _hent_db_for_finnkoder(finnkoder: list) -> pd.DataFrame:
 
 
 def _parse_finn_detalj(html: str) -> dict:
-    """Trekker ut tittel, bilde-URL, pris, km, år fra en FINN-annonse."""
+    """Trekker ut metadata fra en FINN-bilannonse.
+
+    Returnerer: title, image_url, pris, km, aar, drivstoff, hjuldrift,
+    karosseri, girkasse, rekkevidde_km, garanti_mnd. Manglende felter
+    utelates fra dict-en. Brukes for "NY – IKKE I DB"-rader slik at
+    BilRadar-scoreren får et komplett feature-vektor i stedet for å
+    måtte gjette med Hjuldrift/Karosseri="Ukjent" og rekkevidde=0.
+    """
     from bs4 import BeautifulSoup
     out: dict = {}
     try:
@@ -2529,7 +2536,7 @@ def _parse_finn_detalj(html: str) -> dict:
             if digits:
                 out["pris"] = int(digits)
 
-    # Spesifikasjoner: Kilometerstand, 1. gang registrert
+    # Spesifikasjoner: hent alle dt/dd-par i seksjonen
     for header_tag in ("h2", "h3"):
         spec_header = soup.find(lambda t, ht=header_tag:
                                 t.name == ht and "Spesifikasjoner" in t.get_text())
@@ -2541,7 +2548,10 @@ def _parse_finn_detalj(html: str) -> dict:
                     if not dd:
                         continue
                     key = dt.get_text(strip=True)
-                    val = dd.get_text(strip=True)
+                    val = dd.get_text(" ", strip=True)
+                    val_clean = val.strip()
+                    if not val_clean:
+                        continue
                     if "Kilometerstand" in key:
                         d = "".join(filter(str.isdigit, val))
                         if d:
@@ -2550,6 +2560,27 @@ def _parse_finn_detalj(html: str) -> dict:
                         m = re.search(r"(\d{4})", val)
                         if m:
                             out["aar"] = int(m.group(1))
+                    elif key == "Drivstoff":
+                        out["drivstoff"] = val_clean
+                    elif key == "Hjuldrift":
+                        out["hjuldrift"] = val_clean
+                    elif key == "Karosseri":
+                        out["karosseri"] = val_clean
+                    elif key == "Girkasse":
+                        out["girkasse"] = val_clean
+                    elif "Rekkevidde" in key:
+                        # Plukk første tall — verdier som "385 km (WLTP)"
+                        m = re.search(r"(\d{2,4})", val)
+                        if m:
+                            out["rekkevidde_km"] = int(m.group(1))
+                    elif key.startswith("Garanti"):
+                        # Verdier som "24 mnd", "60 mnd" eller "Inntil 5 år"
+                        m_aar = re.search(r"(\d+)\s*[åa]r", val.lower())
+                        m_mnd = re.search(r"(\d+)\s*mnd", val.lower())
+                        if m_mnd:
+                            out["garanti_mnd"] = int(m_mnd.group(1))
+                        elif m_aar:
+                            out["garanti_mnd"] = int(m_aar.group(1)) * 12
             break
     return out
 
@@ -2660,12 +2691,10 @@ def bil_finn_sok():
     annonser_ukjent = [a for a in annonser if str(a["finnkode"]) not in matched_set]
     detalj_ukjent = _hent_finn_detalj_for_ukjent(annonser_ukjent)
 
-    # Bruk brukerens filterverdier som default for biler som mangler i DB —
-    # ellers scores de med Drivstoff/Fylke="Ukjent" og faller til GEN-modellen
-    # med villedende høye prediksjoner. Drivstoff er det viktigste fordi det
-    # inngår i segmentnøkkelen for L1/L2.
-    drivstoff_default = _DRIVSTOFF_FORM_TIL_MODELL.get(drivstoff.lower()) if drivstoff else None
-    fylke_default = fylke_filter.strip() if fylke_filter else None
+    # Filterverdier brukes som fallback når FINN-detaljen ikke gir oss
+    # drivstoff/fylke (f.eks. på dårlig parsede annonser).
+    drivstoff_filter_fb = _DRIVSTOFF_FORM_TIL_MODELL.get(drivstoff.lower()) if drivstoff else None
+    fylke_filter_fb = fylke_filter.strip() if fylke_filter else None
 
     rows = []
     db_by_fk = ({str(r["FinnKode"]): r for _, r in df_db.iterrows()}
@@ -2694,13 +2723,18 @@ def bil_finn_sok():
                 "FinnKode": fk, "finnkode": fk, "url": a["url"],
                 "Merke": merke_guess, "Modell": modell_guess,
                 "Årstall": d.get("aar"), "Kjørelengde": d.get("km"),
-                "Drivstoff": drivstoff_default, "Hjuldrift": None,
+                "Drivstoff": d.get("drivstoff") or drivstoff_filter_fb,
+                "Hjuldrift": d.get("hjuldrift"),
+                "Karosseri": d.get("karosseri"),
+                "Girkasse": d.get("girkasse"),
+                "rekkevidde_km": d.get("rekkevidde_km"),
+                "Garanti": d.get("garanti_mnd"),
                 "Pris_forste": d.get("pris"),  # ny → førstpris = dagens pris
                 "Pris": d.get("pris"),
                 "svv_bruktimportert": None,
                 "svv_importland_navn": None,
                 "BildeURL": d.get("image_url"),
-                "Sted": None, "Fylke": fylke_default,
+                "Sted": None, "Fylke": fylke_filter_fb,
                 "dager_for_salg": 1,           # ny → ca. 1 dag
                 "i_db": False,
                 "title": title,
