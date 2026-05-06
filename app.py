@@ -169,8 +169,14 @@ def create_app() -> Flask:
         return redirect("/stromdash/")
 
 
-    # Dash-apper
-    create_dash_app(app)
+    # Dash-apper: init i bakgrunnen for å unngå treg oppstart/forside-timeout
+    def _init_dash_async() -> None:
+        try:
+            create_dash_app(app)
+        except Exception as exc:
+            app.logger.exception("Dash-init feilet: %s", exc)
+
+    threading.Thread(target=_init_dash_async, daemon=True).start()
 
     return app
 
