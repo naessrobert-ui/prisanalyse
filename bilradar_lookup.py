@@ -34,6 +34,26 @@ _LOOKUP_LOCK = threading.Lock()
 _LOOKUP_CACHE = {"df": None, "loaded_at": None}
 
 
+def _normaliser_hjuldrift(verdi) -> str:
+    """Mapper alle hjuldrift-varianter til "Tohjul"/"Firehjul"/"Ukjent".
+
+    Treningsdata (database_biler.parquet) bruker "Tohjul"/"Firehjul",
+    mens FINN-detaljparseren leverer "Forhjulsdrift"/"Bakhjulsdrift"/
+    "Firehjulsdrift" — uten normalisering matcher lookup-tabellen ingenting
+    paa "NY – IKKE I DB"-biler.
+    """
+    if verdi is None:
+        return "Ukjent"
+    s = str(verdi).strip().lower()
+    if not s or s in ("ukjent", "nan", "none"):
+        return "Ukjent"
+    if "firehjul" in s or "awd" in s or s == "4x4":
+        return "Firehjul"
+    if "tohjul" in s or "forhjul" in s or "bakhjul" in s or "fwd" in s or "rwd" in s:
+        return "Tohjul"
+    return str(verdi).strip()
+
+
 def _les_csv(buf_or_path) -> pd.DataFrame:
     df = pd.read_csv(buf_or_path)
     df.columns = [c.strip() for c in df.columns]
@@ -41,8 +61,9 @@ def _les_csv(buf_or_path) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = np.nan
 
-    for c in ["Produsent", "Modell", "hjuldrift", "drivstoff"]:
+    for c in ["Produsent", "Modell", "drivstoff"]:
         df[c] = df[c].fillna("Ukjent").astype(str).str.strip()
+    df["hjuldrift"] = df["hjuldrift"].map(_normaliser_hjuldrift)
     df["årstall"] = pd.to_numeric(df["årstall"], errors="coerce").astype("Int64")
     for c in ["n_obs", "median_pris", "median_km", "km_slope"]:
         df[c] = pd.to_numeric(df[c], errors="coerce")
@@ -97,9 +118,11 @@ def apply_lookup(df: pd.DataFrame, lookup: pd.DataFrame) -> pd.DataFrame:
 
     # Sikre samme dtype paa beggee sider
     venstre = df.copy()
-    for c in ["Produsent", "Modell", "hjuldrift", "drivstoff"]:
+    for c in ["Produsent", "Modell", "drivstoff"]:
         if c in venstre.columns:
             venstre[c] = venstre[c].fillna("Ukjent").astype(str).str.strip()
+    if "hjuldrift" in venstre.columns:
+        venstre["hjuldrift"] = venstre["hjuldrift"].map(_normaliser_hjuldrift)
     venstre["årstall"] = pd.to_numeric(venstre.get("årstall"), errors="coerce").astype("Int64")
     venstre["_idx"] = np.arange(len(venstre))
 

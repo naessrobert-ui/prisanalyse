@@ -33,6 +33,8 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from bilradar_lookup import _normaliser_hjuldrift  # noqa: E402
+
 try:
     from dotenv import find_dotenv, load_dotenv
     load_dotenv(find_dotenv(usecwd=True))
@@ -83,6 +85,7 @@ def _last_og_klargjor(path: str) -> pd.DataFrame:
         if c not in df.columns:
             df[c] = "Ukjent"
         df[c] = df[c].fillna("Ukjent").astype(str).str.strip()
+    df["hjuldrift"] = df["hjuldrift"].map(_normaliser_hjuldrift)
 
     df = df.dropna(subset=["salgspris", "kjørelengde", "årstall", "Dato_ny"])
     df = df[(df["salgspris"] > 0) & (df["kjørelengde"] >= 0)]

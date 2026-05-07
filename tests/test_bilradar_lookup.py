@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from bilradar_lookup import apply_lookup
+from bilradar_lookup import apply_lookup, _normaliser_hjuldrift
 
 
 def _basis_df():
@@ -91,3 +91,54 @@ def test_lookup_clip_til_minst_1000():
     res = apply_lookup(df, _lookup())
     # Skal ikke gaa under 1000 NOK uansett
     assert res.loc[0, "forventet_pris"] >= 1_000.0
+
+
+def test_normaliser_hjuldrift_alle_varianter():
+    # FINN-detalj-formater
+    assert _normaliser_hjuldrift("Forhjulsdrift") == "Tohjul"
+    assert _normaliser_hjuldrift("Bakhjulsdrift") == "Tohjul"
+    assert _normaliser_hjuldrift("Firehjulsdrift") == "Firehjul"
+    # Database-formater
+    assert _normaliser_hjuldrift("Tohjul") == "Tohjul"
+    assert _normaliser_hjuldrift("Firehjul") == "Firehjul"
+    # Engelske/case-varianter
+    assert _normaliser_hjuldrift("FWD") == "Tohjul"
+    assert _normaliser_hjuldrift("AWD") == "Firehjul"
+    assert _normaliser_hjuldrift("4x4") == "Firehjul"
+    # Tom/manglende
+    assert _normaliser_hjuldrift(None) == "Ukjent"
+    assert _normaliser_hjuldrift("") == "Ukjent"
+    assert _normaliser_hjuldrift("Ukjent") == "Ukjent"
+
+
+def test_lookup_matcher_pa_tvers_av_hjuldrift_format():
+    """En FINN-bil med hjuldrift='Forhjulsdrift' skal matche en lookup-rad
+    med hjuldrift='Tohjul'. Var hovedgrunnen til at lookup ikke virket
+    paa NY-IKKE-I-DB-biler."""
+    df = pd.DataFrame([{
+        "FinnKode": 99,
+        "Produsent": "Mazda",
+        "Modell": "MX-30",
+        "drivstoff": "Elektrisk",
+        "hjuldrift": "Forhjulsdrift",  # FINN-format
+        "årstall": 2022,
+        "kjørelengde": 33_000,
+        "salgspris": 169_900,
+        "forventet_pris": 290_000.0,  # ML-fallback
+        "peer_konfidens": 100,
+        "modell_nivaa": "L1",
+    }])
+    lookup = pd.DataFrame([{
+        "Produsent": "Mazda",
+        "Modell": "MX-30",
+        "hjuldrift": "Tohjul",  # database-format
+        "drivstoff": "Elektrisk",
+        "årstall": 2022,
+        "n_obs": 282,
+        "median_pris": 169_000.0,
+        "median_km": 33_000.0,
+        "km_slope": -0.317,
+    }])
+    res = apply_lookup(df, lookup)
+    assert res.loc[0, "modell_nivaa"] == "LOOKUP"
+    assert res.loc[0, "forventet_pris"] == 169_000  # km == median, ingen justering
