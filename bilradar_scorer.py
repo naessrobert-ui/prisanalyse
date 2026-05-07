@@ -33,10 +33,12 @@ from bilradar_modell_skjema import (
     SEG_FEATURES_NUM,
     SegmentModel,
 )
+from bilradar_lookup import apply_lookup, last_lookup
 from bilradar_overrides import apply_overrides, last_overrides
 
 GOOD_DEAL_THRESHOLD = 10
 OVERRIDES_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "data", "pris_overstyring.csv")
+LOOKUP_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "data", "prislookup.csv")
 MIN_PRIS_FLOOR = 1_000.0  # forhindre at expm1-prediksjon faller til null/negativt
 
 # ---- Modell-cache (trådsikker, lastes én gang) ----
@@ -445,6 +447,13 @@ def scorer_biler(df: pd.DataFrame, modeller: FlipModels, threshold: int = GOOD_D
         target_n="peer_konfidens_hurtig",
         target_nivaa=None,
     )
+
+    # Lookup-priser (transparente median-salg per gruppe). Overskriver
+    # ML-prediksjonen for biler som har match — testkjoringer paa Vestlandet
+    # viste at lookup vinner paa både MAE og bias, og spesielt der ML faller
+    # til GEN-fallback (nye/sjeldne modeller).
+    lookup = last_lookup(local_path=LOOKUP_LOCAL_PATH)
+    df = apply_lookup(df, lookup)
 
     # Manuelle overstyringer på markedspris (hurtigpris berøres ikke)
     overrides = last_overrides(local_path=OVERRIDES_LOCAL_PATH)
