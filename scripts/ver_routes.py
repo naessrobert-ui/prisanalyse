@@ -2651,7 +2651,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
   .window-row .w-range{grid-column:2;grid-row:1}
   .window-row .w-bar{grid-column:2;grid-row:2}
   .window-row .w-hours{grid-column:3;grid-row:1/3;align-self:center}
-  .hourly-table th:nth-child(4),.hourly-table td:nth-child(4){display:none}
+  .hourly-table th:nth-child(5),.hourly-table td:nth-child(5){display:none}
   .hourly-table th:nth-child(6),.hourly-table td:nth-child(6){display:none}
   .result-header{flex-direction:column}
   .verdict-banner{width:100%}
@@ -2696,9 +2696,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 
     <div class="quality" id="quality"></div>
 
-    <!-- KPI-bånd -->
-    <div class="kpi-band" id="kpiBand"></div>
-
     <!-- Hovedgraf: 24 timer -->
     <div class="chart-card">
       <div class="chart-header">
@@ -2719,6 +2716,9 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         <canvas id="mainChart" role="img" aria-label="Kombinert graf over temperatur, nedbør og vind for dagens døgn."></canvas>
       </div>
     </div>
+
+    <!-- KPI-bånd -->
+    <div class="kpi-band" id="kpiBand"></div>
 
     <!-- Beste vinduer -->
     <div class="windows-card" id="windowsCard" style="display:none">
@@ -2752,7 +2752,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
             <th>Tid</th>
             <th class="num">Temp</th>
             <th class="num">Nedbør</th>
-            <th class="num">Sjanse</th>
             <th class="num">Vind/kast</th>
             <th>Retning</th>
             <th>Vurdering</th>
@@ -3039,17 +3038,18 @@ function renderData(d){
 }
 
 function renderHourlyTable(hours,titleLabel){
+  const futureHours=(hours||[]).filter(h=>!h.is_history);
   document.getElementById('hourlyTitle').textContent=`Detaljert timesoversikt – ${titleLabel}`;
-  document.getElementById('hourlyBody').innerHTML=(hours||[]).map(h=>{
+  document.getElementById('hourlyBody').innerHTML=futureHours.map(h=>{
     const b=verdictBucket(h.activity,h.time);
     const rowClass=b==='good'?'row-good':(b==='night'?'row-night':'');
     const rainRange=(h.rain_min!=null&&h.rain_max!=null)?` <span class="muted">(${h.rain_min}–${h.rain_max})</span>`:'';
+    const rainProb=(h.rain_prob!=null && h.rain_prob>0)?` <span class="muted">(${h.rain_prob}%)</span>`:'';
     const windBadge=`${windStrengthIcon(h.wind)} ${h.wind} m/s <span class="muted">(kast ${h.gust})</span>`;
     return `<tr class="${rowClass}">
       <td class="time-cell">${weatherEmoji(h.symbol)} kl. ${fmtLocal(h.time,{hour:'2-digit',minute:'2-digit'})}</td>
       <td class="num">${h.temp??'–'}°</td>
-      <td class="num">${h.rain ?? 0} mm${rainRange}</td>
-      <td class="num">${h.rain_prob??'–'}%</td>
+      <td class="num">${h.rain ?? 0} mm${rainProb}${rainRange}</td>
       <td class="num">${windBadge}</td>
       <td>${windArrow(h.wind_deg)} ${h.wind_dir||'–'}</td>
       <td>${h.activity||''}</td>
@@ -3399,13 +3399,11 @@ function drawMainChart(hourly){
         },
         yTemp:{
           position:'left',
-          title:{display:true,text:'°C',font:{size:11}},
           grid:{color:'rgba(0,0,0,0.06)'},
           ticks:{font:{size:11},callback:(v)=>v+'°'}
         },
         yRain:{
           position:'right',
-          title:{display:true,text:'mm',font:{size:11}},
           grid:{display:false},
           min:0,
           suggestedMax:2,
@@ -3414,7 +3412,6 @@ function drawMainChart(hourly){
         yWind:{
           position:'right',
           offset:true,
-          title:{display:true,text:'m/s',font:{size:11}},
           grid:{display:false},
           min:0,
           suggestedMax:12,
