@@ -28,7 +28,7 @@ except Exception:
 from snow_map import build_snow_map_html
 from precip_map import build_precip_county_map_html
 from sunshine_map import build_sunshine_map_html
-from temp_map import build_min_temp_map_html
+from temp_map import build_min_temp_map_html, build_temp_comparison_map_html
 from wind_map import build_wind_map_html
 from ver_station_db import load_station_db
 from yr_forecast import fetch_precip_forecast, fetch_temp_forecast
@@ -1209,6 +1209,38 @@ def skiloyper_kvamskogen_stats():
 @ver.get("/min-temp")
 def min_temp_index():
     return render_template("ver/min_temp_index.html")
+
+
+@ver.get("/temp-sammenlign")
+def temp_sammenlign_index():
+    return render_template("ver/temp_sammenlign_index.html")
+
+
+@ver.get("/temp-sammenlign-kart")
+def temp_sammenlign_kart():
+    from datetime import date as _date_cls
+    today = _date_cls.today()
+    try:
+        year1 = int(request.args.get("year1", today.year))
+    except (TypeError, ValueError):
+        year1 = today.year
+    try:
+        year2 = int(request.args.get("year2", today.year - 1))
+    except (TypeError, ValueError):
+        year2 = today.year - 1
+
+    html = build_temp_comparison_map_html(
+        county=request.args.get("county") or "ALL",
+        from_md=request.args.get("from_md") or "01-01",
+        to_md=request.args.get("to_md") or "12-31",
+        year1=year1,
+        year2=year2,
+        timeout=30,
+        batch_size=80,
+        limit=1000,
+        qualities="0,1,2,3,4",
+    )
+    return Response(html, mimetype="text/html; charset=utf-8")
 
 
 @ver.get("/min-temp-kart")
