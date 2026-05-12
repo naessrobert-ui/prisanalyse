@@ -1,7 +1,7 @@
 import plotly.express as px
 import streamlit as st
 
-from datahandling._2_Datahandling_Company_Overview import (
+from shipping_datahandling._2_Datahandling_Company_Overview import (
     PRICE_RANGE_LABELS,
     filter_price_history,
     load_price_history,

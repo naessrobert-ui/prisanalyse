@@ -13,8 +13,8 @@ import pandas as pd
 import streamlit as st
 from numpy.linalg import LinAlgError
 
-from datahandling._4_Datahandling_Implicit_Rate import MissingFinancialsDataError
-from datahandling._5_Datahandling_Trading_Algorithm import load_cached_or_refresh_trading_model_data
+from shipping_datahandling._4_Datahandling_Implicit_Rate import MissingFinancialsDataError
+from shipping_datahandling._5_Datahandling_Trading_Algorithm import load_cached_or_refresh_trading_model_data
 from shipping_app.data import get_company_ticker
 from shipping_app.ui import render_sidebar
 

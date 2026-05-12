@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from dataingestion import IngestionPipeline, YFinanceProvider
-from dataingestion.pipeline import IngestionOutcome
+from shipping_dataingestion import IngestionPipeline, YFinanceProvider
+from shipping_dataingestion.pipeline import IngestionOutcome
 from shipping_app.data import get_company_names, get_company_profile
 
 
