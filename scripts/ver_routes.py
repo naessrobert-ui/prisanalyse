@@ -1260,8 +1260,6 @@ def temp_sammenlign_kart():
         year1=year1,
         year2=year2,
         timeout=30,
-        batch_size=80,
-        limit=1000,
         qualities="0,1,2,3,4",
     )
     return Response(html, mimetype="text/html; charset=utf-8")

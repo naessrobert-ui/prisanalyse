@@ -2216,8 +2216,6 @@ def build_temp_comparison_map_html(
     year1: int,
     year2: int,
     timeout: int = 30,
-    batch_size: int = 80,
-    limit: int = 1000,
     qualities: str = "0,1,2,3,4",
 ) -> str:
     """Sammenligner gjennomsnittlig middeltemperatur for et månedsspenn mellom to år.
@@ -2226,6 +2224,8 @@ def build_temp_comparison_map_html(
     to_month   = max(1, min(12, to_month))
     if from_month > to_month:
         from_month, to_month = to_month, from_month
+
+    n_months = to_month - from_month + 1
 
     county_is_all = (county == "ALL")
     if county_is_all:
@@ -2242,6 +2242,17 @@ def build_temp_comparison_map_html(
         src_meta = src_meta[src_meta["has_temp"] == True]  # noqa: E712
     if src_meta.empty:
         return _comparison_empty_map(county=county, from_month=from_month, to_month=to_month, year1=year1, year2=year2)
+
+    # For P1M: store batch-størrelser og sidegrenser for å minimere antall API-kall.
+    # Maks 400 stasjoner for hele landet (nok for et representativt kart).
+    _STATION_CAP = 400
+    if county_is_all and len(src_meta) > _STATION_CAP:
+        src_meta = src_meta.head(_STATION_CAP)
+
+    # batch_size=300 og limit = 300 * n_months passer ett API-svar pr. batch
+    # (300 stasjoner × 5 mnd = 1500 rader, trygt under Frost-grensen).
+    batch_size = 300
+    limit = max(1000, batch_size * n_months + 200)
 
     sources = src_meta["baseId"].astype(str).tolist()
     auth = _env_auth()
