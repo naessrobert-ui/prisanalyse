@@ -1749,9 +1749,7 @@ def _fetch_monthly_means_for_year(
     limit: int,
     qualities: str,
 ) -> pd.DataFrame:
-    """Hent månedlige middeltemperaturer (P1M) for ett år og et månedsspenn.
-    Bruker kun mean(air_temperature P1M) – best_estimate er sjelden tilgjengelig
-    for P1M og fordobler ventetiden ved fallback."""
+    """Hent månedlige middeltemperaturer (P1M) for ett år og et månedsspenn."""
     start = datetime(year, from_month, 1, tzinfo=timezone.utc)
     if to_month == 12:
         end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
@@ -1759,11 +1757,18 @@ def _fetch_monthly_means_for_year(
         end = datetime(year, to_month + 1, 1, tzinfo=timezone.utc)
     referencetime = f"{start.isoformat()}/{end.isoformat()}"
     with requests.Session() as sess:
-        return fetch_observations_interval(
-            sess, auth=auth, sources=sources, referencetime=referencetime,
-            elements="mean(air_temperature P1M)", timeout=timeout,
-            batch_size=batch_size, limit=limit, qualities=qualities,
-        )
+        for el in [
+            "best_estimate_mean(air_temperature P1M)",
+            "mean(air_temperature P1M)",
+        ]:
+            df = fetch_observations_interval(
+                sess, auth=auth, sources=sources, referencetime=referencetime,
+                elements=el, timeout=timeout, batch_size=batch_size,
+                limit=limit, qualities=qualities,
+            )
+            if not df.empty:
+                return df
+    return pd.DataFrame()
 
 
 def _avg_monthly_per_station(df: pd.DataFrame) -> pd.DataFrame:
@@ -2252,6 +2257,11 @@ def build_temp_comparison_map_html(
 
     if df1.empty or df2.empty:
         return _comparison_empty_map(county=county, from_month=from_month, to_month=to_month, year1=year1, year2=year2)
+
+    # Frost returnerer sourceId med sensorsuffiks (SN18700:0); parquet bruker
+    # bare baseId (SN18700). Strip suffikset før merge.
+    for _df in (df1, df2):
+        _df["sourceId"] = _df["sourceId"].astype(str).map(base_source_id)
 
     avg1 = _avg_monthly_per_station(df1).rename(columns={"value": "y1"})
     avg2 = _avg_monthly_per_station(df2).rename(columns={"value": "y2"})
