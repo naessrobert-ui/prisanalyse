@@ -28,7 +28,7 @@ except Exception:
 from snow_map import build_snow_map_html
 from precip_map import build_precip_county_map_html
 from sunshine_map import build_sunshine_map_html
-from temp_map import build_min_temp_map_html, build_temp_comparison_map_html
+from temp_map import build_min_temp_map_html, build_temp_comparison_map_html, _comparison_initial_map
 from wind_map import build_wind_map_html
 from ver_station_db import load_station_db
 from yr_forecast import fetch_precip_forecast, fetch_temp_forecast
@@ -1220,6 +1220,12 @@ def temp_sammenlign_index():
 def temp_sammenlign_kart():
     from datetime import date as _date_cls
     today = _date_cls.today()
+
+    # Vis tomt valgpanel ved første sidelast (ingen parametere = ingen API-kall)
+    if not request.args.get("from_month"):
+        html = _comparison_initial_map(year1=today.year, year2=today.year - 1)
+        return Response(html, mimetype="text/html; charset=utf-8")
+
     try:
         year1 = int(request.args.get("year1", today.year))
     except (TypeError, ValueError):
@@ -1228,11 +1234,19 @@ def temp_sammenlign_kart():
         year2 = int(request.args.get("year2", today.year - 1))
     except (TypeError, ValueError):
         year2 = today.year - 1
+    try:
+        from_month = int(request.args.get("from_month", 1))
+    except (TypeError, ValueError):
+        from_month = 1
+    try:
+        to_month = int(request.args.get("to_month", 5))
+    except (TypeError, ValueError):
+        to_month = 5
 
     html = build_temp_comparison_map_html(
         county=request.args.get("county") or "ALL",
-        from_md=request.args.get("from_md") or "01-01",
-        to_md=request.args.get("to_md") or "12-31",
+        from_month=from_month,
+        to_month=to_month,
         year1=year1,
         year2=year2,
         timeout=30,
