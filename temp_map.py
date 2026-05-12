@@ -1749,9 +1749,7 @@ def _fetch_monthly_means_for_year(
     limit: int,
     qualities: str,
 ) -> pd.DataFrame:
-    """Hent månedlige middeltemperaturer (P1M) for ett år og et månedsspenn.
-    Bruker kun mean(air_temperature P1M) – best_estimate er sjelden tilgjengelig
-    for P1M og fordobler ventetiden ved fallback."""
+    """Hent månedlige middeltemperaturer (P1M) for ett år og et månedsspenn."""
     start = datetime(year, from_month, 1, tzinfo=timezone.utc)
     if to_month == 12:
         end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
@@ -1759,11 +1757,18 @@ def _fetch_monthly_means_for_year(
         end = datetime(year, to_month + 1, 1, tzinfo=timezone.utc)
     referencetime = f"{start.isoformat()}/{end.isoformat()}"
     with requests.Session() as sess:
-        return fetch_observations_interval(
-            sess, auth=auth, sources=sources, referencetime=referencetime,
-            elements="mean(air_temperature P1M)", timeout=timeout,
-            batch_size=batch_size, limit=limit, qualities=qualities,
-        )
+        for el in [
+            "best_estimate_mean(air_temperature P1M)",
+            "mean(air_temperature P1M)",
+        ]:
+            df = fetch_observations_interval(
+                sess, auth=auth, sources=sources, referencetime=referencetime,
+                elements=el, timeout=timeout, batch_size=batch_size,
+                limit=limit, qualities=qualities,
+            )
+            if not df.empty:
+                return df
+    return pd.DataFrame()
 
 
 def _avg_monthly_per_station(df: pd.DataFrame) -> pd.DataFrame:
