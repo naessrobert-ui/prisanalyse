@@ -6,6 +6,7 @@ import json
 import math
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 from dataclasses import dataclass
 from datetime import date as _date
@@ -1737,7 +1738,6 @@ def _diff_legend_html(year1: int, year2: int) -> str:
 
 
 def _fetch_monthly_means_for_year(
-    sess: requests.Session,
     *,
     auth: FrostAuth,
     sources: list[str],
@@ -1749,22 +1749,21 @@ def _fetch_monthly_means_for_year(
     limit: int,
     qualities: str,
 ) -> pd.DataFrame:
-    """Hent månedlige middeltemperaturer (P1M) for ett år og et månedsspenn."""
+    """Hent månedlige middeltemperaturer (P1M) for ett år og et månedsspenn.
+    Bruker kun mean(air_temperature P1M) – best_estimate er sjelden tilgjengelig
+    for P1M og fordobler ventetiden ved fallback."""
     start = datetime(year, from_month, 1, tzinfo=timezone.utc)
     if to_month == 12:
         end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
     else:
         end = datetime(year, to_month + 1, 1, tzinfo=timezone.utc)
     referencetime = f"{start.isoformat()}/{end.isoformat()}"
-    for el in ["best_estimate_mean(air_temperature P1M)", "mean(air_temperature P1M)"]:
-        df = fetch_observations_interval(
+    with requests.Session() as sess:
+        return fetch_observations_interval(
             sess, auth=auth, sources=sources, referencetime=referencetime,
-            elements=el, timeout=timeout, batch_size=batch_size,
-            limit=limit, qualities=qualities,
+            elements="mean(air_temperature P1M)", timeout=timeout,
+            batch_size=batch_size, limit=limit, qualities=qualities,
         )
-        if not df.empty:
-            return df
-    return pd.DataFrame()
 
 
 def _avg_monthly_per_station(df: pd.DataFrame) -> pd.DataFrame:
@@ -2242,17 +2241,14 @@ def build_temp_comparison_map_html(
     sources = src_meta["baseId"].astype(str).tolist()
     auth = _env_auth()
 
-    with requests.Session() as sess:
-        df1 = _fetch_monthly_means_for_year(
-            sess, auth=auth, sources=sources, year=year1,
-            from_month=from_month, to_month=to_month,
-            timeout=timeout, batch_size=batch_size, limit=limit, qualities=qualities,
-        )
-        df2 = _fetch_monthly_means_for_year(
-            sess, auth=auth, sources=sources, year=year2,
-            from_month=from_month, to_month=to_month,
-            timeout=timeout, batch_size=batch_size, limit=limit, qualities=qualities,
-        )
+    fetch_kwargs = dict(
+        auth=auth, sources=sources, from_month=from_month, to_month=to_month,
+        timeout=timeout, batch_size=batch_size, limit=limit, qualities=qualities,
+    )
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f1 = ex.submit(_fetch_monthly_means_for_year, year=year1, **fetch_kwargs)
+        f2 = ex.submit(_fetch_monthly_means_for_year, year=year2, **fetch_kwargs)
+        df1, df2 = f1.result(), f2.result()
 
     if df1.empty or df2.empty:
         return _comparison_empty_map(county=county, from_month=from_month, to_month=to_month, year1=year1, year2=year2)
