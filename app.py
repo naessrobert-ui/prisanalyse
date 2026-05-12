@@ -32,6 +32,7 @@ from scripts.kart_routes import kart_bp
 from scripts.hormuz_routes import hormuz_bp
 from aksjonaer_routes import aksjonaer_bp
 from scripts.kvam_routes import kvam_bp
+from shipping_routes import shipping_bp, start_shipping_streamlit
 
 
 
@@ -142,6 +143,7 @@ def create_app() -> Flask:
     app.register_blueprint(hormuz_bp)
     app.register_blueprint(aksjonaer_bp)
     app.register_blueprint(kvam_bp)
+    app.register_blueprint(shipping_bp)
 
     # Start bakgrunnsjobb som prefetcher snødybde for hele Norge
     start_warmup()
@@ -181,6 +183,14 @@ def create_app() -> Flask:
             app.logger.exception("Dash-init feilet: %s", exc)
 
     threading.Thread(target=_init_dash_async, daemon=True).start()
+
+    def _start_shipping_async() -> None:
+        try:
+            start_shipping_streamlit()
+        except Exception as exc:
+            app.logger.exception("Shipping Streamlit-oppstart feilet: %s", exc)
+
+    threading.Thread(target=_start_shipping_async, daemon=True).start()
 
     return app
 

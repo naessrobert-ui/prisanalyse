@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipping – Prisanalyse</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: rgba(30, 41, 59, 0.85);
+            --brand: #38bdf8;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border: rgba(255,255,255,0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 18px 28px;
+            background: rgba(15,23,42,0.95);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        header a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        header a:hover { color: var(--brand); }
+        header .sep { color: var(--border); }
+        header h1 { font-size: 1.1rem; font-weight: 600; }
+
+        .launch-bar {
+            background: rgba(56,189,248,0.08);
+            border-bottom: 1px solid rgba(56,189,248,0.2);
+            padding: 10px 28px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        .launch-bar span { font-size: 0.9rem; color: var(--text-muted); }
+
+        .btn-open {
+            background: var(--brand);
+            color: #0f172a;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 18px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-open:hover { background: #7dd3fc; }
+
+        #app-frame {
+            flex: 1;
+            border: none;
+            display: block;
+            width: 100%;
+            min-height: 0;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            background: var(--bg);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 42px;
+            height: 42px;
+            border: 4px solid rgba(56,189,248,0.2);
+            border-top-color: var(--brand);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-overlay p { color: var(--text-muted); font-size: 0.95rem; }
+
+        .frame-wrapper {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            padding: 28px;
+        }
+
+        .module-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .module-icon { font-size: 1.8rem; }
+        .module-title { font-size: 1rem; font-weight: 600; }
+        .module-desc { font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; }
+
+        .error-state {
+            padding: 28px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        .error-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+        .error-state p { margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/">Prisanalyse</a>
+        <span class="sep">›</span>
+        <h1>⛴ Shipping Analyse</h1>
+    </header>
+
+    <div class="launch-bar">
+        <span>Shipping-appen kjører på en egen prosess.</span>
+        <a class="btn-open" href="{{ streamlit_url }}" target="_blank" rel="noopener">
+            Åpne i nytt faneblad ↗
+        </a>
+    </div>
+
+    <div class="frame-wrapper">
+        <div class="loading-overlay" id="loading">
+            <div class="spinner"></div>
+            <p>Starter shipping-analyse…</p>
+        </div>
+
+        <iframe
+            id="app-frame"
+            src="{{ streamlit_url }}"
+            title="Shipping Sector Analysis"
+            allow="fullscreen"
+        ></iframe>
+    </div>
+
+    <script>
+        const frame = document.getElementById('app-frame');
+        const overlay = document.getElementById('loading');
+
+        frame.addEventListener('load', () => {
+            overlay.style.display = 'none';
+        });
+
+        // Fallback: hide overlay after 45s even if load event doesn't fire
+        setTimeout(() => { overlay.style.display = 'none'; }, 45000);
+    </script>
+</body>
+</html>
