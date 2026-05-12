@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from datahandling._4_Datahandling_Implicit_Rate import (
+from shipping_datahandling._4_Datahandling_Implicit_Rate import (
     MissingFinancialsDataError,
     build_latest_implicit_rate_snapshot,
     load_fleet_ownership_periods,

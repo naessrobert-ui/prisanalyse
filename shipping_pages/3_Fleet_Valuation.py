@@ -4,7 +4,7 @@ import pandas as pd
 
 from shipping_app.data import get_company_profile
 from shipping_app.ui import render_sidebar
-from datahandling._3_Datahandling_Fleet_Valuation import (
+from shipping_datahandling._3_Datahandling_Fleet_Valuation import (
     PRICE_COLUMN_MAPPING,
     add_ship_to_fleet,
     build_fleet_table,

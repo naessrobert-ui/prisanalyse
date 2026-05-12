@@ -7,7 +7,7 @@ import re
 import pandas as pd
 import streamlit as st
 
-from datahandling._6_Datahandling_Market_Screener import (
+from shipping_datahandling._6_Datahandling_Market_Screener import (
     add_tickers_from_input,
     build_screener_universe,
     custom_tickers_signature,
