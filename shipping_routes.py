@@ -13,9 +13,7 @@ _streamlit_process: subprocess.Popen | None = None
 _streamlit_lock = threading.Lock()
 
 SHIPPING_PORT = int(os.environ.get("SHIPPING_APP_PORT", 8502))
-SHIPPING_APP_URL = os.environ.get(
-    "SHIPPING_APP_URL", f"http://localhost:{SHIPPING_PORT}"
-)
+SHIPPING_APP_URL = os.environ.get("SHIPPING_APP_URL", "/shipping/app")
 
 
 def start_shipping_streamlit() -> None:
@@ -32,6 +30,7 @@ def start_shipping_streamlit() -> None:
             "--server.enableCORS", "false",
             "--server.enableXsrfProtection", "false",
             "--browser.gatherUsageStats", "false",
+            "--server.baseUrlPath", "/shipping/app",
         ]
         _streamlit_process = subprocess.Popen(
             cmd,
