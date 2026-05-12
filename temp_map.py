@@ -1776,17 +1776,12 @@ def _avg_monthly_per_station(df: pd.DataFrame) -> pd.DataFrame:
 def _comparison_panel_html(
     *,
     county: str,
-    from_md: str,
-    to_md: str,
+    from_month: int,
+    to_month: int,
     year1: int,
     year2: int,
     title: str,
 ) -> str:
-    from_m = int(from_md.split("-")[0])
-    from_d = int(from_md.split("-")[1])
-    to_m = int(to_md.split("-")[0])
-    to_d = int(to_md.split("-")[1])
-
     current_year = datetime.now().year
 
     county_opts = "\n".join([
@@ -1795,11 +1790,11 @@ def _comparison_panel_html(
           for c in NORWAY_COUNTIES],
     ])
     month_opts_from = "\n".join(
-        f'<option value="{i}" {"selected" if i == from_m else ""}>{_MONTH_LABELS_NO[i-1]}</option>'
+        f'<option value="{i}" {"selected" if i == from_month else ""}>{_MONTH_LABELS_NO[i-1]}</option>'
         for i in range(1, 13)
     )
     month_opts_to = "\n".join(
-        f'<option value="{i}" {"selected" if i == to_m else ""}>{_MONTH_LABELS_NO[i-1]}</option>'
+        f'<option value="{i}" {"selected" if i == to_month else ""}>{_MONTH_LABELS_NO[i-1]}</option>'
         for i in range(1, 13)
     )
     year_range = list(range(current_year, current_year - 15, -1))
@@ -1814,7 +1809,6 @@ def _comparison_panel_html(
 
     sel_style = "width:100%;margin-top:4px;margin-bottom:10px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:10px;background:white;"
     lbl_style = "font-size:12px;color:#64748b;"
-    inp_style = "width:52px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;text-align:center;font-size:13px;"
 
     return f"""
     {_collapsible_panel_assets()}
@@ -1831,26 +1825,20 @@ def _comparison_panel_html(
       </div>
       <div class="ctrl-panel-body">
 
-      <label style="{lbl_style}">Periode (dag og måned – år velges nedenfor)</label>
-      <div style="display:flex;gap:8px;align-items:flex-end;margin-top:6px;margin-bottom:10px;flex-wrap:wrap;">
-        <div>
-          <div style="font-size:11px;color:#94a3b8;margin-bottom:3px;">Fra</div>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <select id="fromMonth" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-size:13px;">
-              {month_opts_from}
-            </select>
-            <input id="fromDay" type="number" min="1" max="31" value="{from_d}" style="{inp_style}">
-          </div>
+      <label style="{lbl_style}">Periode (måneder – år velges nedenfor)</label>
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-top:6px;margin-bottom:10px;">
+        <div style="flex:1;">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:3px;">Fra måned</div>
+          <select id="fromMonth" style="width:100%;padding:7px 9px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-size:13px;">
+            {month_opts_from}
+          </select>
         </div>
-        <div style="padding-bottom:6px;color:#94a3b8;">–</div>
-        <div>
-          <div style="font-size:11px;color:#94a3b8;margin-bottom:3px;">Til</div>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <select id="toMonth" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-size:13px;">
-              {month_opts_to}
-            </select>
-            <input id="toDay" type="number" min="1" max="31" value="{to_d}" style="{inp_style}">
-          </div>
+        <div style="padding-bottom:8px;color:#94a3b8;">–</div>
+        <div style="flex:1;">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:3px;">Til måned</div>
+          <select id="toMonth" style="width:100%;padding:7px 9px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-size:13px;">
+            {month_opts_to}
+          </select>
         </div>
       </div>
 
@@ -1874,15 +1862,13 @@ def _comparison_panel_html(
         margin-top:2px;width:100%;padding:9px 12px;border:none;
         border-radius:999px;background:#0f172a;color:white;
         cursor:pointer;font-weight:800;
-      ">Oppdater</button>
+      ">Hent data</button>
       </div>
     </div>
     <script>
       document.getElementById('refreshBtn').addEventListener('click', function() {{
         var fromM = parseInt(document.getElementById('fromMonth').value || '1');
-        var fromD = parseInt(document.getElementById('fromDay').value || '1');
         var toM   = parseInt(document.getElementById('toMonth').value || '12');
-        var toD   = parseInt(document.getElementById('toDay').value || '31');
         var y1    = document.getElementById('year1Sel').value;
         var y2    = document.getElementById('year2Sel').value;
         var c     = document.getElementById('countySel').value;
@@ -1894,14 +1880,13 @@ def _comparison_panel_html(
           alert('År 1 og År 2 må være forskjellige.');
           return;
         }}
-        var pad2 = function(n) {{ return String(n).padStart(2,'0'); }};
         if (window.showLoading) window.showLoading();
         window.location.href = '/ver/temp-sammenlign-kart?' +
-          'from_md=' + pad2(fromM) + '-' + pad2(fromD) +
-          '&to_md='  + pad2(toM)  + '-' + pad2(toD)  +
-          '&year1='  + y1 +
-          '&year2='  + y2 +
-          '&county=' + encodeURIComponent(c);
+          'from_month=' + fromM +
+          '&to_month='  + toM  +
+          '&year1='     + y1   +
+          '&year2='     + y2   +
+          '&county='    + encodeURIComponent(c);
       }});
     </script>
     """
@@ -1911,17 +1896,15 @@ def _make_comparison_map(
     df: pd.DataFrame,
     *,
     county: str,
-    from_md: str,
-    to_md: str,
+    from_month: int,
+    to_month: int,
     year1: int,
     year2: int,
 ) -> str:
-    from_m_lbl = _MONTH_LABELS_NO[int(from_md.split("-")[0]) - 1]
-    to_m_lbl   = _MONTH_LABELS_NO[int(to_md.split("-")[0]) - 1]
-    from_day   = int(from_md.split("-")[1])
-    to_day     = int(to_md.split("-")[1])
+    from_m_lbl = _MONTH_LABELS_NO[from_month - 1]
+    to_m_lbl   = _MONTH_LABELS_NO[to_month - 1]
     county_lbl = "Hele landet" if county == "ALL" else county
-    period_lbl = f"{from_day}. {from_m_lbl} – {to_day}. {to_m_lbl}"
+    period_lbl = f"{from_m_lbl}–{to_m_lbl}"
     title      = f"Temperatursammenligning {year1} vs {year2}"
 
     center_lat = float(df["lat"].mean())
@@ -1934,7 +1917,7 @@ def _make_comparison_map(
 
     panel_title = f"{title}<br><small style='font-weight:600;color:#64748b;'>{period_lbl} · {county_lbl}</small>"
     panel_html = _comparison_panel_html(
-        county=county, from_md=from_md, to_md=to_md,
+        county=county, from_month=from_month, to_month=to_month,
         year1=year1, year2=year2, title=panel_title,
     )
     folium.Element(panel_html).add_to(m.get_root().html)
@@ -2171,18 +2154,40 @@ function(cluster) {
     return m._repr_html_()
 
 
+def _comparison_initial_map(year1: int, year2: int) -> str:
+    """Tomt kart med valgpanel – vises ved første sidelast (ingen API-kall)."""
+    m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
+    panel_html = _comparison_panel_html(
+        county="ALL", from_month=1, to_month=5,
+        year1=year1, year2=year2,
+        title="Temperatursammenligning – to år",
+    )
+    folium.Element(panel_html).add_to(m.get_root().html)
+    folium.Element("""
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9998;
+      background:rgba(255,255,255,.92);padding:24px 32px;border-radius:16px;
+      box-shadow:0 10px 30px rgba(15,23,42,.15);font-family:system-ui,sans-serif;text-align:center;
+      pointer-events:none;">
+      <div style="font-size:32px;margin-bottom:10px;">🗓️</div>
+      <div style="font-weight:800;font-size:16px;margin-bottom:6px;">Velg periode og år</div>
+      <div style="color:#64748b;font-size:13px;">Fyll inn feltene øverst til høyre og klikk «Hent data».</div>
+    </div>
+    """).add_to(m.get_root().html)
+    return m._repr_html_()
+
+
 def _comparison_empty_map(
     *,
     county: str,
-    from_md: str,
-    to_md: str,
+    from_month: int,
+    to_month: int,
     year1: int,
     year2: int,
 ) -> str:
     m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
     folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
     panel_html = _comparison_panel_html(
-        county=county, from_md=from_md, to_md=to_md,
+        county=county, from_month=from_month, to_month=to_month,
         year1=year1, year2=year2,
         title=f"Temperatursammenligning {year1} vs {year2}",
     )
@@ -2191,7 +2196,7 @@ def _comparison_empty_map(
     <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;
       background:rgba(255,255,255,.95);padding:24px 32px;border-radius:16px;
       box-shadow:0 10px 30px rgba(15,23,42,.2);font-family:system-ui,sans-serif;text-align:center;">
-      <div style="font-size:28px;margin-bottom:10px;">\U0001F4ED</div>
+      <div style="font-size:28px;margin-bottom:10px;">📭</div>
       <div style="font-weight:800;font-size:16px;margin-bottom:6px;">Ingen data</div>
       <div style="color:#64748b;font-size:13px;">Frost-API returnerte ingen observasjoner for valgt periode og fylke.</div>
     </div>
@@ -2202,8 +2207,8 @@ def _comparison_empty_map(
 def build_temp_comparison_map_html(
     *,
     county: str = "ALL",
-    from_md: str = "01-01",
-    to_md: str = "05-31",
+    from_month: int = 1,
+    to_month: int = 5,
     year1: int,
     year2: int,
     timeout: int = 30,
@@ -2211,13 +2216,8 @@ def build_temp_comparison_map_html(
     limit: int = 1000,
     qualities: str = "0,1,2,3,4",
 ) -> str:
-    """Bygger kart som sammenligner gjennomsnittlig middeltemperatur for en datoperiode
-    mellom to år. Bruker månedlige P1M-midler fra Frost for effektiv datahenting."""
-    try:
-        from_month = int(from_md.split("-")[0])
-        to_month   = int(to_md.split("-")[0])
-    except (ValueError, IndexError):
-        from_month, to_month = 1, 12
+    """Sammenligner gjennomsnittlig middeltemperatur for et månedsspenn mellom to år.
+    Bruker månedlige P1M-midler fra Frost – raskt nok for hele landet uten fylkefilter."""
     from_month = max(1, min(12, from_month))
     to_month   = max(1, min(12, to_month))
     if from_month > to_month:
@@ -2232,13 +2232,12 @@ def build_temp_comparison_map_html(
         src_meta = stations_in_county(county)
 
     if src_meta is None or src_meta.empty:
-        return _comparison_empty_map(county=county, from_md=from_md, to_md=to_md, year1=year1, year2=year2)
+        return _comparison_empty_map(county=county, from_month=from_month, to_month=to_month, year1=year1, year2=year2)
 
-    # Behold kun stasjoner med temperaturdata
     if "has_temp" in src_meta.columns:
         src_meta = src_meta[src_meta["has_temp"] == True]  # noqa: E712
     if src_meta.empty:
-        return _comparison_empty_map(county=county, from_md=from_md, to_md=to_md, year1=year1, year2=year2)
+        return _comparison_empty_map(county=county, from_month=from_month, to_month=to_month, year1=year1, year2=year2)
 
     sources = src_meta["baseId"].astype(str).tolist()
     auth = _env_auth()
@@ -2256,7 +2255,7 @@ def build_temp_comparison_map_html(
         )
 
     if df1.empty or df2.empty:
-        return _comparison_empty_map(county=county, from_md=from_md, to_md=to_md, year1=year1, year2=year2)
+        return _comparison_empty_map(county=county, from_month=from_month, to_month=to_month, year1=year1, year2=year2)
 
     avg1 = _avg_monthly_per_station(df1).rename(columns={"value": "y1"})
     avg2 = _avg_monthly_per_station(df2).rename(columns={"value": "y2"})
@@ -2271,13 +2270,13 @@ def build_temp_comparison_map_html(
     merged = merged.dropna(subset=["lat", "lon", "diff"])
 
     if merged.empty:
-        return _comparison_empty_map(county=county, from_md=from_md, to_md=to_md, year1=year1, year2=year2)
+        return _comparison_empty_map(county=county, from_month=from_month, to_month=to_month, year1=year1, year2=year2)
 
     return _make_comparison_map(
         merged,
         county=county,
-        from_md=from_md,
-        to_md=to_md,
+        from_month=from_month,
+        to_month=to_month,
         year1=year1,
         year2=year2,
     )
