@@ -2258,6 +2258,11 @@ def build_temp_comparison_map_html(
     if df1.empty or df2.empty:
         return _comparison_empty_map(county=county, from_month=from_month, to_month=to_month, year1=year1, year2=year2)
 
+    # Frost returnerer sourceId med sensorsuffiks (SN18700:0); parquet bruker
+    # bare baseId (SN18700). Strip suffikset før merge.
+    for _df in (df1, df2):
+        _df["sourceId"] = _df["sourceId"].astype(str).map(base_source_id)
+
     avg1 = _avg_monthly_per_station(df1).rename(columns={"value": "y1"})
     avg2 = _avg_monthly_per_station(df2).rename(columns={"value": "y2"})
     merged = avg1.merge(avg2, on="sourceId")
