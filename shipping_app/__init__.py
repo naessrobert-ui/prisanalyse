@@ -1,0 +1,1 @@
+"""Shipping sector app package."""
