@@ -6,7 +6,10 @@ import threading
 import time
 from typing import Optional
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    load_dotenv = None
 from flask import Flask, render_template, redirect, request, abort, Response
 from flask_session import Session
 
@@ -34,7 +37,8 @@ from scripts.kvam_routes import kvam_bp
 
 
 
-load_dotenv()
+if load_dotenv is not None:
+    load_dotenv()
 
 BLOCKED_BOTS = [
     'SemrushBot', 'AhrefsBot', 'MJ12bot', 'DotBot',
