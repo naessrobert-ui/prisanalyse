@@ -375,6 +375,16 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
         <div class="kort-lenke">Åpne</div>
       </a>
 
+      <a class="kort" href="/ver/temp-sammenlign">
+        <div class="kort-topp">
+          <div class="kort-ikon">📊</div>
+          <span class="kort-badge b-lilla">Nytt</span>
+        </div>
+        <div class="kort-tittel">Sammenlign to år</div>
+        <div class="kort-tekst">Velg en datoperiode (f.eks. jan–mai) og sammenlign gjennomsnittlig middeltemperatur mellom to år, stasjon for stasjon.</div>
+        <div class="kort-lenke">Åpne</div>
+      </a>
+
       <a class="kort" href="/ver/vind">
         <div class="kort-topp">
           <div class="kort-ikon">💨</div>
