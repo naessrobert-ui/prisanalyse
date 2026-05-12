@@ -1645,6 +1645,645 @@ def build_min_temp_map_html(
 
 
 # ======================================================================
+# Temperatursammenligning (to år, same datoperiode)
+# ======================================================================
+
+_DIFF_COLOR_STOPS: list[tuple[float, tuple[int, int, int]]] = [
+    (-6.0, (29,  78, 216)),
+    (-3.0, (96, 165, 250)),
+    (-1.0, (191, 219, 254)),
+    ( 0.0, (241, 245, 249)),
+    ( 1.0, (254, 202, 202)),
+    ( 3.0, (248, 113, 113)),
+    ( 6.0, (185,  28,  28)),
+]
+
+_MONTH_LABELS_NO = ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun",
+                    "Jul", "Aug", "Sep", "Okt", "Nov", "Des"]
+
+
+def color_for_diff(diff: float) -> str:
+    """Divergerende fargeskala: blå (år1 kaldere) → hvit (likt) → rød (år1 varmere)."""
+    stops = _DIFF_COLOR_STOPS
+    if diff <= stops[0][0]:
+        return _rgb_to_hex(stops[0][1])
+    if diff >= stops[-1][0]:
+        return _rgb_to_hex(stops[-1][1])
+    for (t1, c1), (t2, c2) in zip(stops, stops[1:]):
+        if t1 <= diff <= t2:
+            f = 0.0 if t2 == t1 else (diff - t1) / (t2 - t1)
+            r = int(round(c1[0] + (c2[0] - c1[0]) * f))
+            g = int(round(c1[1] + (c2[1] - c1[1]) * f))
+            b = int(round(c1[2] + (c2[2] - c1[2]) * f))
+            return _rgb_to_hex((r, g, b))
+    return _rgb_to_hex(stops[-1][1])
+
+
+def _diff_color_js() -> str:
+    stops_js = json.dumps([{"t": t, "rgb": list(rgb)} for t, rgb in _DIFF_COLOR_STOPS])
+    return f"""<script>
+  window._diffColorStops = {stops_js};
+  window._colorForDiff = function(diff) {{
+    var s = window._diffColorStops;
+    if (!window._rgbToHex) return '#94a3b8';
+    if (diff <= s[0].t) return window._rgbToHex(s[0].rgb);
+    if (diff >= s[s.length-1].t) return window._rgbToHex(s[s.length-1].rgb);
+    for (var i = 0; i < s.length-1; i++) {{
+      var a = s[i], b = s[i+1];
+      if (a.t <= diff && diff <= b.t) {{
+        var f = (b.t===a.t) ? 0 : (diff-a.t)/(b.t-a.t);
+        return window._rgbToHex([
+          a.rgb[0]+(b.rgb[0]-a.rgb[0])*f,
+          a.rgb[1]+(b.rgb[1]-a.rgb[1])*f,
+          a.rgb[2]+(b.rgb[2]-a.rgb[2])*f
+        ]);
+      }}
+    }}
+    return window._rgbToHex(s[s.length-1].rgb);
+  }};
+</script>
+"""
+
+
+def _diff_legend_html(year1: int, year2: int) -> str:
+    stops = _DIFF_COLOR_STOPS
+    min_t, max_t = stops[0][0], stops[-1][0]
+    gradient_stops = ", ".join(
+        f"{_rgb_to_hex(rgb)} {((t - min_t) / (max_t - min_t)) * 100:.1f}%"
+        for t, rgb in stops
+    )
+    ticks = [-6, -4, -2, 0, 2, 4, 6]
+    tick_html = "".join(
+        f'<span style="position:absolute;left:{((t - min_t) / (max_t - min_t)) * 100:.1f}%;'
+        f'transform:translateX(-50%);top:14px;font-size:11px;color:#334155;">{t:+d}°</span>'
+        for t in ticks
+    )
+    return f"""
+    <div style="position:fixed;bottom:12px;right:12px;z-index:9998;
+      background:rgba(255,255,255,.97);padding:10px 14px 26px 14px;
+      border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.18);
+      font-family:system-ui,-apple-system,'Segoe UI',sans-serif;min-width:300px;">
+      <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:4px;">
+        Avvik i middeltemperatur: {year1} minus {year2} (°C)
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-bottom:4px;">
+        <span>← Kaldere i {year1}</span><span>Likt</span><span>Varmere i {year1} →</span>
+      </div>
+      <div style="position:relative;height:14px;border-radius:7px;
+        background:linear-gradient(to right,{gradient_stops});"></div>
+      <div style="position:relative;height:20px;">{tick_html}</div>
+    </div>
+    """
+
+
+def _fetch_monthly_means_for_year(
+    sess: requests.Session,
+    *,
+    auth: FrostAuth,
+    sources: list[str],
+    year: int,
+    from_month: int,
+    to_month: int,
+    timeout: int,
+    batch_size: int,
+    limit: int,
+    qualities: str,
+) -> pd.DataFrame:
+    """Hent månedlige middeltemperaturer (P1M) for ett år og et månedsspenn."""
+    start = datetime(year, from_month, 1, tzinfo=timezone.utc)
+    if to_month == 12:
+        end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end = datetime(year, to_month + 1, 1, tzinfo=timezone.utc)
+    referencetime = f"{start.isoformat()}/{end.isoformat()}"
+    for el in ["best_estimate_mean(air_temperature P1M)", "mean(air_temperature P1M)"]:
+        df = fetch_observations_interval(
+            sess, auth=auth, sources=sources, referencetime=referencetime,
+            elements=el, timeout=timeout, batch_size=batch_size,
+            limit=limit, qualities=qualities,
+        )
+        if not df.empty:
+            return df
+    return pd.DataFrame()
+
+
+def _avg_monthly_per_station(df: pd.DataFrame) -> pd.DataFrame:
+    d = df.dropna(subset=["sourceId", "value"]).copy()
+    d["value"] = pd.to_numeric(d["value"], errors="coerce")
+    return d.dropna(subset=["value"]).groupby("sourceId", as_index=False)["value"].mean()
+
+
+def _comparison_panel_html(
+    *,
+    county: str,
+    from_md: str,
+    to_md: str,
+    year1: int,
+    year2: int,
+    title: str,
+) -> str:
+    from_m = int(from_md.split("-")[0])
+    from_d = int(from_md.split("-")[1])
+    to_m = int(to_md.split("-")[0])
+    to_d = int(to_md.split("-")[1])
+
+    current_year = datetime.now().year
+
+    county_opts = "\n".join([
+        f'<option value="ALL" {"selected" if county == "ALL" else ""}>Hele landet</option>',
+        *[f'<option value="{c}" {"selected" if c == county else ""}>{c}</option>'
+          for c in NORWAY_COUNTIES],
+    ])
+    month_opts_from = "\n".join(
+        f'<option value="{i}" {"selected" if i == from_m else ""}>{_MONTH_LABELS_NO[i-1]}</option>'
+        for i in range(1, 13)
+    )
+    month_opts_to = "\n".join(
+        f'<option value="{i}" {"selected" if i == to_m else ""}>{_MONTH_LABELS_NO[i-1]}</option>'
+        for i in range(1, 13)
+    )
+    year_range = list(range(current_year, current_year - 15, -1))
+    year1_opts = "\n".join(
+        f'<option value="{y}" {"selected" if y == year1 else ""}>{y}</option>'
+        for y in year_range
+    )
+    year2_opts = "\n".join(
+        f'<option value="{y}" {"selected" if y == year2 else ""}>{y}</option>'
+        for y in year_range
+    )
+
+    sel_style = "width:100%;margin-top:4px;margin-bottom:10px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:10px;background:white;"
+    lbl_style = "font-size:12px;color:#64748b;"
+    inp_style = "width:52px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;text-align:center;font-size:13px;"
+
+    return f"""
+    {_collapsible_panel_assets()}
+    <div id="ctrlPanel" style="
+      position:fixed;top:12px;right:12px;z-index:9999;
+      background:rgba(255,255,255,.95);padding:12px;
+      border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.18);
+      font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+      max-width:360px;
+    ">
+      <div class="ctrl-panel-header">
+        <div style="font-weight:900;font-size:14px;">{title}</div>
+        <button id="ctrlPanelToggle" type="button" class="ctrl-panel-toggle" aria-label="Skjul filtre">▴</button>
+      </div>
+      <div class="ctrl-panel-body">
+
+      <label style="{lbl_style}">Periode (dag og måned – år velges nedenfor)</label>
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-top:6px;margin-bottom:10px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:3px;">Fra</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <select id="fromMonth" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-size:13px;">
+              {month_opts_from}
+            </select>
+            <input id="fromDay" type="number" min="1" max="31" value="{from_d}" style="{inp_style}">
+          </div>
+        </div>
+        <div style="padding-bottom:6px;color:#94a3b8;">–</div>
+        <div>
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:3px;">Til</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <select id="toMonth" style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;background:white;font-size:13px;">
+              {month_opts_to}
+            </select>
+            <input id="toDay" type="number" min="1" max="31" value="{to_d}" style="{inp_style}">
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <div style="flex:1;">
+          <label style="{lbl_style}">År 1</label>
+          <select id="year1Sel" style="{sel_style}margin-bottom:0;">{year1_opts}</select>
+        </div>
+        <div style="flex:1;">
+          <label style="{lbl_style}">År 2</label>
+          <select id="year2Sel" style="{sel_style}margin-bottom:0;">{year2_opts}</select>
+        </div>
+      </div>
+
+      <label style="{lbl_style}">Fylke</label>
+      <select id="countySel" style="{sel_style}">
+        {county_opts}
+      </select>
+
+      <button id="refreshBtn" style="
+        margin-top:2px;width:100%;padding:9px 12px;border:none;
+        border-radius:999px;background:#0f172a;color:white;
+        cursor:pointer;font-weight:800;
+      ">Oppdater</button>
+      </div>
+    </div>
+    <script>
+      document.getElementById('refreshBtn').addEventListener('click', function() {{
+        var fromM = parseInt(document.getElementById('fromMonth').value || '1');
+        var fromD = parseInt(document.getElementById('fromDay').value || '1');
+        var toM   = parseInt(document.getElementById('toMonth').value || '12');
+        var toD   = parseInt(document.getElementById('toDay').value || '31');
+        var y1    = document.getElementById('year1Sel').value;
+        var y2    = document.getElementById('year2Sel').value;
+        var c     = document.getElementById('countySel').value;
+        if (fromM > toM) {{
+          alert('Fra-måneden kan ikke være etter til-måneden.');
+          return;
+        }}
+        if (y1 === y2) {{
+          alert('År 1 og År 2 må være forskjellige.');
+          return;
+        }}
+        var pad2 = function(n) {{ return String(n).padStart(2,'0'); }};
+        if (window.showLoading) window.showLoading();
+        window.location.href = '/ver/temp-sammenlign-kart?' +
+          'from_md=' + pad2(fromM) + '-' + pad2(fromD) +
+          '&to_md='  + pad2(toM)  + '-' + pad2(toD)  +
+          '&year1='  + y1 +
+          '&year2='  + y2 +
+          '&county=' + encodeURIComponent(c);
+      }});
+    </script>
+    """
+
+
+def _make_comparison_map(
+    df: pd.DataFrame,
+    *,
+    county: str,
+    from_md: str,
+    to_md: str,
+    year1: int,
+    year2: int,
+) -> str:
+    from_m_lbl = _MONTH_LABELS_NO[int(from_md.split("-")[0]) - 1]
+    to_m_lbl   = _MONTH_LABELS_NO[int(to_md.split("-")[0]) - 1]
+    from_day   = int(from_md.split("-")[1])
+    to_day     = int(to_md.split("-")[1])
+    county_lbl = "Hele landet" if county == "ALL" else county
+    period_lbl = f"{from_day}. {from_m_lbl} – {to_day}. {to_m_lbl}"
+    title      = f"Temperatursammenligning {year1} vs {year2}"
+
+    center_lat = float(df["lat"].mean())
+    center_lon = float(df["lon"].mean())
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles="OpenStreetMap")
+    folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
+    folium.Element(_temp_color_js()).add_to(m.get_root().html)
+    folium.Element(_diff_color_js()).add_to(m.get_root().html)
+    folium.Element(_diff_legend_html(year1, year2)).add_to(m.get_root().html)
+
+    panel_title = f"{title}<br><small style='font-weight:600;color:#64748b;'>{period_lbl} · {county_lbl}</small>"
+    panel_html = _comparison_panel_html(
+        county=county, from_md=from_md, to_md=to_md,
+        year1=year1, year2=year2, title=panel_title,
+    )
+    folium.Element(panel_html).add_to(m.get_root().html)
+
+    map_var = m.get_name()
+
+    cluster_icon_fn = """
+function(cluster) {
+  var children = cluster.getAllChildMarkers();
+  var lookup = window._diffLookup || {};
+  var diffs = [];
+  for (var i = 0; i < children.length; i++) {
+    var ll = children[i].getLatLng();
+    var k = ll.lat.toFixed(6) + ',' + ll.lng.toFixed(6);
+    var v = lookup[k];
+    if (typeof v === 'number' && !isNaN(v)) diffs.push(v);
+  }
+  var n = cluster.getChildCount();
+  var label, color;
+  if (diffs.length === 0) {
+    label = String(n); color = '#94a3b8';
+  } else {
+    var avg = diffs.reduce(function(a,b){return a+b;},0) / diffs.length;
+    label = (avg >= 0 ? '+' : '') + avg.toFixed(1) + '°';
+    color = window._colorForDiff ? window._colorForDiff(avg) : '#94a3b8';
+  }
+  var size = Math.min(58, Math.max(38, 34 + Math.log2(n+1)*3));
+  return L.divIcon({
+    html: '<div style="background:'+color+';border:2px solid rgba(15,23,42,.85);border-radius:50%;width:'+size+'px;height:'+size+'px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.25);"><span style="font-size:13px;font-weight:800;line-height:1;color:#0f172a;text-shadow:0 0 4px rgba(255,255,255,.85);">'+label+'</span><span style="font-size:9px;line-height:1;margin-top:2px;color:#0f172a;opacity:.7;">n='+n+'</span></div>',
+    className: 'diff-cluster-icon',
+    iconSize: L.point(size, size)
+  });
+}
+"""
+    points_layer = folium.FeatureGroup(name="Stasjoner", show=True)
+    cluster = MarkerCluster(icon_create_function=cluster_icon_fn).add_to(points_layer)
+    points_layer.add_to(m)
+
+    points_js: list[dict] = []
+
+    for _, r in df.iterrows():
+        diff  = float(r["diff"])
+        y1_val = float(r["y1"])
+        y2_val = float(r["y2"])
+        name  = r.get("name") or r.get("shortName") or r["sourceId"]
+        col   = color_for_diff(diff)
+        diff_label  = f"{diff:+.1f}°"
+        place_label = str(name)[:15] + ("…" if len(str(name)) > 15 else "")
+
+        popup_html = (
+            f"<b>{name}</b><br>"
+            f"Middeltemp. {year1}: <b>{y1_val:.1f} °C</b><br>"
+            f"Middeltemp. {year2}: <b>{y2_val:.1f} °C</b><br>"
+            f"Avvik ({year1}–{year2}): <b>{diff:+.1f} °C</b>"
+        )
+
+        folium.CircleMarker(
+            location=[float(r["lat"]), float(r["lon"])],
+            radius=8,
+            color="#0f172a",
+            weight=1,
+            fill=True,
+            fill_color=col,
+            fill_opacity=0.95,
+            opacity=0.6,
+            tooltip=folium.Tooltip(
+                diff_label,
+                sticky=False,
+                permanent=True,
+                direction="center",
+                opacity=0.92,
+                style=(
+                    "background:rgba(255,255,255,.92);"
+                    "border:1px solid rgba(15,23,42,.45);"
+                    "border-radius:999px;"
+                    "padding:1px 6px;"
+                    "font-weight:800;"
+                    "font-size:12px;"
+                    "color:#0f172a;"
+                    "box-shadow:0 1px 4px rgba(15,23,42,.18);"
+                ),
+            ),
+            popup=folium.Popup(popup_html, max_width=280),
+        ).add_to(cluster)
+
+        folium.Marker(
+            location=[float(r["lat"]), float(r["lon"])],
+            icon=folium.DivIcon(
+                html=(
+                    '<span style="transform:translate(-50%,-34px);'
+                    'display:inline-flex;flex-direction:column;gap:1px;'
+                    'padding:2px 7px;'
+                    f'background:{col};'
+                    'border:1px solid rgba(15,23,42,.55);'
+                    'border-radius:10px;'
+                    'font-size:12px;font-weight:800;line-height:1.1;'
+                    'color:#0f172a;white-space:nowrap;'
+                    'box-shadow:0 2px 6px rgba(15,23,42,.25);">'
+                    f'<span>{diff_label}</span>'
+                    f'<span style="font-size:10px;font-weight:700;opacity:.9;">{place_label}</span>'
+                    '</span>'
+                )
+            ),
+            z_index_offset=1000,
+        ).add_to(cluster)
+
+        points_js.append({
+            "sid":  str(r["sourceId"]),
+            "name": str(name),
+            "lat":  float(r["lat"]),
+            "lon":  float(r["lon"]),
+            "diff": round(diff, 2),
+            "y1":   round(y1_val, 1),
+            "y2":   round(y2_val, 1),
+        })
+
+    folium.LayerControl().add_to(m)
+
+    points_json = json.dumps(points_js, ensure_ascii=False)
+    panel_id = f"cmpPanel_{map_var}"
+    body_id  = f"cmpBody_{map_var}"
+    tbody_id = f"cmpTbody_{map_var}"
+    sort_id  = f"cmpSort_{map_var}"
+
+    list_html = f"""
+    <style>
+      #{panel_id} {{
+        position: fixed; bottom: 12px; left: 12px; z-index: 9999;
+      }}
+      @media (min-width: 1024px) {{
+        #{panel_id} {{ left: auto; right: 12px; }}
+      }}
+    </style>
+    <div id="{panel_id}" style="
+      background:rgba(255,255,255,.97);padding:10px 12px;
+      border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.18);
+      font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+      max-width:520px;
+    ">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="font-weight:900;font-size:13px;" id="{sort_id}_title">Stasjoner i utsnitt</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="{sort_id}" style="padding:6px 10px;border-radius:999px;border:1px solid #e2e8f0;background:white;font-weight:700;font-size:13px;">
+            <option value="warm">Varmest ({year1}) først</option>
+            <option value="cold">Kaldest ({year1}) først</option>
+          </select>
+          <button onclick="(function(){{var el=document.getElementById('{body_id}');el.style.display=el.style.display==='none'?'block':'none';}})()"
+            style="border:none;background:#e2e8f0;border-radius:999px;padding:6px 10px;cursor:pointer;">
+            Vis/skjul
+          </button>
+        </div>
+      </div>
+      <div id="{body_id}" style="margin-top:8px;max-height:240px;overflow:auto;">
+        <table style="border-collapse:collapse;width:100%;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:4px 6px;color:#64748b;font-size:11px;">#</th>
+              <th style="text-align:left;padding:4px 6px;color:#64748b;font-size:11px;">Stasjon</th>
+              <th style="text-align:right;padding:4px 6px;color:#64748b;font-size:11px;">{year1}</th>
+              <th style="text-align:right;padding:4px 6px;color:#64748b;font-size:11px;">{year2}</th>
+              <th style="text-align:right;padding:4px 6px;color:#64748b;font-size:11px;">Avvik</th>
+            </tr>
+          </thead>
+          <tbody id="{tbody_id}">
+            <tr><td colspan="5" style="padding:8px;color:#64748b;">Oppdaterer…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <script>
+      window._cmpPoints = {points_json};
+      window._diffLookup = {{}};
+      (function() {{
+        var pts = window._cmpPoints || [];
+        for (var i = 0; i < pts.length; i++) {{
+          var p = pts[i];
+          window._diffLookup[p.lat.toFixed(6)+','+p.lon.toFixed(6)] = p.diff;
+        }}
+      }})();
+
+      function updateCmpList(map) {{
+        var b = map.getBounds();
+        var inView = (window._cmpPoints||[]).filter(function(p) {{
+          return b.contains([p.lat, p.lon]);
+        }});
+        var sortSel = document.getElementById("{sort_id}");
+        var desc = !sortSel || sortSel.value !== 'cold';
+        inView.sort(function(a,b) {{ return desc ? b.diff-a.diff : a.diff-b.diff; }});
+        var shown = inView.slice(0, 200);
+        var tbody = document.getElementById("{tbody_id}");
+        if (!tbody) return;
+        var titleEl = document.getElementById("{sort_id}_title");
+        if (titleEl) titleEl.textContent = 'Viser ' + Math.min(shown.length, inView.length) + ' av ' + inView.length + ' stasjoner';
+        if (shown.length === 0) {{
+          tbody.innerHTML = '<tr><td colspan="5" style="padding:8px;color:#64748b;">Ingen stasjoner i utsnitt.</td></tr>';
+          return;
+        }}
+        tbody.innerHTML = shown.map(function(p, i) {{
+          var col = window._colorForDiff ? window._colorForDiff(p.diff) : '#94a3b8';
+          var sign = p.diff >= 0 ? '+' : '';
+          return '<tr>' +
+            '<td style="padding:4px 6px;color:#94a3b8;font-size:12px;">'+(i+1)+'</td>'+
+            '<td style="padding:4px 6px;font-size:13px;">'+
+              '<div style="font-weight:700;">'+p.name+'</div>'+
+              '<div style="font-size:10px;color:#94a3b8;">'+p.sid+'</div>'+
+            '</td>'+
+            '<td style="padding:4px 6px;text-align:right;font-size:13px;">'+p.y1.toFixed(1)+'°</td>'+
+            '<td style="padding:4px 6px;text-align:right;font-size:13px;">'+p.y2.toFixed(1)+'°</td>'+
+            '<td style="padding:4px 6px;text-align:right;font-size:13px;font-weight:800;color:'+col+';'+
+              'text-shadow:0 0 3px rgba(0,0,0,.1);">'+sign+p.diff.toFixed(1)+'°</td>'+
+            '</tr>';
+        }}).join('');
+      }}
+
+      function initCmpList() {{
+        var map = null;
+        try {{ map = {map_var}; }} catch(e) {{ }}
+        if (!map) {{ setTimeout(initCmpList, 300); return; }}
+        updateCmpList(map);
+        map.on('moveend zoomend', function() {{ updateCmpList(map); }});
+        document.getElementById("{sort_id}").addEventListener('change', function() {{
+          updateCmpList(map);
+        }});
+      }}
+      if (document.readyState === 'loading') {{
+        document.addEventListener('DOMContentLoaded', initCmpList);
+      }} else {{
+        initCmpList();
+      }}
+    </script>
+    """
+
+    folium.Element(list_html).add_to(m.get_root().html)
+    return m._repr_html_()
+
+
+def _comparison_empty_map(
+    *,
+    county: str,
+    from_md: str,
+    to_md: str,
+    year1: int,
+    year2: int,
+) -> str:
+    m = folium.Map(location=[64.5, 11.0], zoom_start=5, tiles="OpenStreetMap")
+    folium.Element(_loading_overlay_js()).add_to(m.get_root().html)
+    panel_html = _comparison_panel_html(
+        county=county, from_md=from_md, to_md=to_md,
+        year1=year1, year2=year2,
+        title=f"Temperatursammenligning {year1} vs {year2}",
+    )
+    folium.Element(panel_html).add_to(m.get_root().html)
+    folium.Element("""
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;
+      background:rgba(255,255,255,.95);padding:24px 32px;border-radius:16px;
+      box-shadow:0 10px 30px rgba(15,23,42,.2);font-family:system-ui,sans-serif;text-align:center;">
+      <div style="font-size:28px;margin-bottom:10px;">\U0001F4ED</div>
+      <div style="font-weight:800;font-size:16px;margin-bottom:6px;">Ingen data</div>
+      <div style="color:#64748b;font-size:13px;">Frost-API returnerte ingen observasjoner for valgt periode og fylke.</div>
+    </div>
+    """).add_to(m.get_root().html)
+    return m._repr_html_()
+
+
+def build_temp_comparison_map_html(
+    *,
+    county: str = "ALL",
+    from_md: str = "01-01",
+    to_md: str = "05-31",
+    year1: int,
+    year2: int,
+    timeout: int = 30,
+    batch_size: int = 80,
+    limit: int = 1000,
+    qualities: str = "0,1,2,3,4",
+) -> str:
+    """Bygger kart som sammenligner gjennomsnittlig middeltemperatur for en datoperiode
+    mellom to år. Bruker månedlige P1M-midler fra Frost for effektiv datahenting."""
+    try:
+        from_month = int(from_md.split("-")[0])
+        to_month   = int(to_md.split("-")[0])
+    except (ValueError, IndexError):
+        from_month, to_month = 1, 12
+    from_month = max(1, min(12, from_month))
+    to_month   = max(1, min(12, to_month))
+    if from_month > to_month:
+        from_month, to_month = to_month, from_month
+
+    county_is_all = (county == "ALL")
+    if county_is_all:
+        frames = [stations_in_county(c) for c in NORWAY_COUNTIES]
+        frames = [df for df in frames if df is not None and not df.empty]
+        src_meta = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    else:
+        src_meta = stations_in_county(county)
+
+    if src_meta is None or src_meta.empty:
+        return _comparison_empty_map(county=county, from_md=from_md, to_md=to_md, year1=year1, year2=year2)
+
+    # Behold kun stasjoner med temperaturdata
+    if "has_temp" in src_meta.columns:
+        src_meta = src_meta[src_meta["has_temp"] == True]  # noqa: E712
+    if src_meta.empty:
+        return _comparison_empty_map(county=county, from_md=from_md, to_md=to_md, year1=year1, year2=year2)
+
+    sources = src_meta["baseId"].astype(str).tolist()
+    auth = _env_auth()
+
+    with requests.Session() as sess:
+        df1 = _fetch_monthly_means_for_year(
+            sess, auth=auth, sources=sources, year=year1,
+            from_month=from_month, to_month=to_month,
+            timeout=timeout, batch_size=batch_size, limit=limit, qualities=qualities,
+        )
+        df2 = _fetch_monthly_means_for_year(
+            sess, auth=auth, sources=sources, year=year2,
+            from_month=from_month, to_month=to_month,
+            timeout=timeout, batch_size=batch_size, limit=limit, qualities=qualities,
+        )
+
+    if df1.empty or df2.empty:
+        return _comparison_empty_map(county=county, from_md=from_md, to_md=to_md, year1=year1, year2=year2)
+
+    avg1 = _avg_monthly_per_station(df1).rename(columns={"value": "y1"})
+    avg2 = _avg_monthly_per_station(df2).rename(columns={"value": "y2"})
+    merged = avg1.merge(avg2, on="sourceId")
+    merged["diff"] = merged["y1"] - merged["y2"]
+
+    meta_cols = [c for c in ["baseId", "lat", "lon", "name", "shortName", "county"] if c in src_meta.columns]
+    meta = src_meta[meta_cols].rename(columns={"baseId": "sourceId"})
+    merged = merged.merge(meta, on="sourceId", how="left")
+    merged["lat"] = pd.to_numeric(merged["lat"], errors="coerce")
+    merged["lon"] = pd.to_numeric(merged["lon"], errors="coerce")
+    merged = merged.dropna(subset=["lat", "lon", "diff"])
+
+    if merged.empty:
+        return _comparison_empty_map(county=county, from_md=from_md, to_md=to_md, year1=year1, year2=year2)
+
+    return _make_comparison_map(
+        merged,
+        county=county,
+        from_md=from_md,
+        to_md=to_md,
+        year1=year1,
+        year2=year2,
+    )
+
+
+# ======================================================================
 # CLI (valgfritt)
 # ======================================================================
 
