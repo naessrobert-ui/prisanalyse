@@ -1757,18 +1757,12 @@ def _fetch_monthly_means_for_year(
         end = datetime(year, to_month + 1, 1, tzinfo=timezone.utc)
     referencetime = f"{start.isoformat()}/{end.isoformat()}"
     with requests.Session() as sess:
-        for el in [
-            "best_estimate_mean(air_temperature P1M)",
-            "mean(air_temperature P1M)",
-        ]:
-            df = fetch_observations_interval(
-                sess, auth=auth, sources=sources, referencetime=referencetime,
-                elements=el, timeout=timeout, batch_size=batch_size,
-                limit=limit, qualities=qualities,
-            )
-            if not df.empty:
-                return df
-    return pd.DataFrame()
+        df = fetch_observations_interval(
+            sess, auth=auth, sources=sources, referencetime=referencetime,
+            elements="mean(air_temperature P1M)", timeout=timeout,
+            batch_size=batch_size, limit=limit, qualities=qualities,
+        )
+    return df
 
 
 def _avg_monthly_per_station(df: pd.DataFrame) -> pd.DataFrame:
