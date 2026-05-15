@@ -118,12 +118,44 @@
       text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px;
     }
     .empty.error { color: var(--red); }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 6px; padding: 6px;
+      background: var(--pill); border-radius: 14px;
+      width: fit-content; margin-bottom: 18px;
+    }
+    .tabs button {
+      border: none; background: transparent; cursor: pointer;
+      padding: 8px 16px; border-radius: 10px; font-weight: 700;
+      font-size: 13px; color: var(--muted);
+    }
+    .tabs button.active { background: white; color: var(--blue2); box-shadow: 0 2px 6px rgba(15,23,42,.08); }
+    .pane { display: none; }
+    .pane.active { display: block; }
+
+    /* Langtid: klimastats */
+    .klima-rad {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+      background: #f8fafc; padding: 10px 12px; border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .klima-celle { text-align: center; }
+    .klima-celle .stor { font-size: 18px; font-weight: 800; color: var(--ink); }
+    .klima-celle .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+    .klima-celle.temp .stor { color: var(--amber); }
+    .klima-celle.sol .stor { color: var(--blue); }
+    .klima-celle.regn .stor { color: #0284c7; }
+
+    .info-merknad {
+      font-size: 11px; color: var(--muted); margin-top: 12px; line-height: 1.5;
+    }
   </style>
 </head>
 <body>
 
 <div class="topbar">
-  <div><b>🌴 Ferieplanlegger</b> – neste 7 dager</div>
+  <div><b>🌴 Ferieplanlegger</b></div>
   <a href="{{ url_for('ver.ver_hub') }}">← Tilbake til Vær</a>
 </div>
 
@@ -131,35 +163,83 @@
 
   <div class="card">
     <h1>Hvor skal jeg dra?</h1>
-    <p class="sub">
+    <p class="sub" id="hovedsub">
       Velg kriterier, så finner vi destinasjoner blant {{ antall_destinasjoner }} steder
-      i Europa og Norge der prognosen treffer de neste 7 dagene. Prognosen kommer fra met.no/Yr.
+      i Europa og Norge der været treffer.
     </p>
 
-    <div class="controls">
-      <div class="field">
-        <label>Min. temperatur (°C)</label>
-        <input type="number" id="min_temp" value="20" min="-5" max="40" step="1" />
+    <div class="tabs" role="tablist">
+      <button type="button" id="tab-korttid" class="active">📅 Neste 7 dager</button>
+      <button type="button" id="tab-langtid">🗓️ Velg måned</button>
+    </div>
+
+    <!-- KORTTID-PANEL -->
+    <div class="pane active" id="pane-korttid">
+      <div class="controls">
+        <div class="field">
+          <label>Min. temperatur (°C)</label>
+          <input type="number" id="min_temp" value="20" min="-5" max="40" step="1" />
+        </div>
+        <div class="field">
+          <label>Maks nedbør (mm/dag)</label>
+          <input type="number" id="maks_nedbor" value="3" min="0" max="50" step="0.5" />
+        </div>
+        <div class="field">
+          <label>Maks skydekke (%)</label>
+          <input type="number" id="maks_sky" value="60" min="0" max="100" step="5" />
+        </div>
+        <div class="field">
+          <label>Antall dager må treffe</label>
+          <select id="min_dager">
+            <option value="1">Minst 1 av 7</option>
+            <option value="2">Minst 2 av 7</option>
+            <option value="3" selected>Minst 3 av 7</option>
+            <option value="4">Minst 4 av 7</option>
+            <option value="5">Minst 5 av 7</option>
+            <option value="7">Alle 7 dager</option>
+          </select>
+        </div>
       </div>
-      <div class="field">
-        <label>Maks nedbør (mm/dag)</label>
-        <input type="number" id="maks_nedbor" value="3" min="0" max="50" step="0.5" />
+      <p class="info-merknad">Bruker prognose fra met.no/Yr. Første søk tar 10-20 sek mens prognosene hentes.</p>
+    </div>
+
+    <!-- LANGTID-PANEL -->
+    <div class="pane" id="pane-langtid">
+      <div class="controls">
+        <div class="field">
+          <label>Reisemåned</label>
+          <select id="lt_maaned">
+            <option value="1">Januar</option>
+            <option value="2">Februar</option>
+            <option value="3">Mars</option>
+            <option value="4">April</option>
+            <option value="5">Mai</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Min. snitt-temp (°C)</label>
+          <input type="number" id="lt_min_temp" value="18" min="-5" max="35" step="1" />
+        </div>
+        <div class="field">
+          <label>Min. sol (kWh/m²/dag)</label>
+          <input type="number" id="lt_min_sol" value="4" min="0" max="8" step="0.5" />
+        </div>
+        <div class="field">
+          <label>Maks nedbør (mm/måned)</label>
+          <input type="number" id="lt_maks_nedbor" value="80" min="0" max="500" step="10" />
+        </div>
       </div>
-      <div class="field">
-        <label>Maks skydekke (%)</label>
-        <input type="number" id="maks_sky" value="60" min="0" max="100" step="5" />
-      </div>
-      <div class="field">
-        <label>Antall dager må treffe</label>
-        <select id="min_dager">
-          <option value="1">Minst 1 av 7</option>
-          <option value="2">Minst 2 av 7</option>
-          <option value="3" selected>Minst 3 av 7</option>
-          <option value="4">Minst 4 av 7</option>
-          <option value="5">Minst 5 av 7</option>
-          <option value="7">Alle 7 dager</option>
-        </select>
-      </div>
+      <p class="info-merknad">
+        Klimanormaler 1991-2020 fra NASA POWER. Snittemperatur 18 °C ≈ daglig maks 22-25 °C.
+        Sol-skala: ~1 (vinter nord), 4 (vår/høst), 7+ (sommer Middelhavet).
+      </p>
     </div>
 
     <div class="row-toggles">
@@ -283,15 +363,81 @@ function lagDestKort(treff) {
   return kort;
 }
 
-async function sokDestinasjoner() {
-  const btn = $("sok-btn");
-  const resWrap = $("resultater");
-  const emptyEl = $("empty");
-  btn.disabled = true;
-  setStatus("Henter prognoser for alle destinasjoner …");
-  resWrap.innerHTML = "";
-  emptyEl.style.display = "none";
+function lagLangtidKort(treff) {
+  const kort = document.createElement("div");
+  kort.className = "dest-kort";
 
+  const k = treff.klima;
+  const topp = document.createElement("div");
+  topp.className = "dest-topp";
+  topp.innerHTML = `
+    <div>
+      <div class="dest-navn">${treff.navn}</div>
+      <div class="dest-land">${treff.region} · ${treff.land}</div>
+    </div>
+    <div class="dest-score" style="background:rgba(245,158,11,.12);color:#d97706;">score ${treff.score.toFixed(0)}</div>
+  `;
+  kort.appendChild(topp);
+
+  if (treff.tags && treff.tags.length) {
+    const tagWrap = document.createElement("div");
+    tagWrap.className = "dest-tags";
+    treff.tags.forEach((t) => {
+      const el = document.createElement("span");
+      el.className = "dest-tag";
+      el.textContent = t;
+      tagWrap.appendChild(el);
+    });
+    kort.appendChild(tagWrap);
+  }
+
+  const stats = document.createElement("div");
+  stats.className = "klima-rad";
+  stats.innerHTML = `
+    <div class="klima-celle temp">
+      <div class="stor">${k.temp_mean.toFixed(1)}°</div>
+      <div class="lbl">Snitt-temp</div>
+    </div>
+    <div class="klima-celle sol">
+      <div class="stor">${k.solar_kwh_day.toFixed(1)}</div>
+      <div class="lbl">Sol kWh/m²/d</div>
+    </div>
+    <div class="klima-celle regn">
+      <div class="stor">${k.precip_mm_month.toFixed(0)}</div>
+      <div class="lbl">Nedbør mm</div>
+    </div>
+  `;
+  kort.appendChild(stats);
+
+  const meta = document.createElement("div");
+  meta.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
+  meta.innerHTML = `Ekstremverdier i normalperioden: ${k.temp_min.toFixed(1)}° til ${k.temp_max.toFixed(1)}°`;
+  kort.appendChild(meta);
+
+  return kort;
+}
+
+let aktivModus = "korttid";
+
+function bytteModus(modus) {
+  aktivModus = modus;
+  $("tab-korttid").classList.toggle("active", modus === "korttid");
+  $("tab-langtid").classList.toggle("active", modus === "langtid");
+  $("pane-korttid").classList.toggle("active", modus === "korttid");
+  $("pane-langtid").classList.toggle("active", modus === "langtid");
+  $("resultater").innerHTML = "";
+  $("empty").style.display = "none";
+  if (modus === "korttid") {
+    setStatus(`Klar. Trykk søk for å hente Yr-prognoser.`);
+  } else {
+    setStatus(`Klar. Klimanormaler er forhåndsbygget — søk er øyeblikkelig.`);
+  }
+}
+
+$("tab-korttid").addEventListener("click", () => bytteModus("korttid"));
+$("tab-langtid").addEventListener("click", () => bytteModus("langtid"));
+
+async function sokKorttid() {
   const params = new URLSearchParams();
   params.set("min_temp", $("min_temp").value || "20");
   params.set("maks_nedbor", $("maks_nedbor").value || "3");
@@ -301,17 +447,43 @@ async function sokDestinasjoner() {
   const tags = activeTags();
   if (tags.length) params.set("tags", tags.join(","));
 
+  setStatus("Henter prognoser for alle destinasjoner …");
+  const r = await fetch("/ver/ferieplanlegger/korttid?" + params.toString());
+  if (!r.ok) throw new Error("HTTP " + r.status + ": " + (await r.text()).slice(0, 200));
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.feil || "Ukjent feil");
+  return { data, kortBygger: lagDestKort };
+}
+
+async function sokLangtid() {
+  const params = new URLSearchParams();
+  params.set("maaned", $("lt_maaned").value || "7");
+  params.set("min_temp", $("lt_min_temp").value || "18");
+  params.set("min_sol", $("lt_min_sol").value || "4");
+  params.set("maks_nedbor", $("lt_maks_nedbor").value || "80");
+  if ($("kun_norge").checked) params.set("kun_norge", "1");
+  const tags = activeTags();
+  if (tags.length) params.set("tags", tags.join(","));
+
+  setStatus("Leser klimanormaler …");
+  const r = await fetch("/ver/ferieplanlegger/langtid?" + params.toString());
+  if (!r.ok) throw new Error("HTTP " + r.status + ": " + (await r.text()).slice(0, 200));
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.feil || "Ukjent feil");
+  return { data, kortBygger: lagLangtidKort };
+}
+
+async function sokDestinasjoner() {
+  const btn = $("sok-btn");
+  const resWrap = $("resultater");
+  const emptyEl = $("empty");
+  btn.disabled = true;
+  resWrap.innerHTML = "";
+  emptyEl.style.display = "none";
+
   const tStart = performance.now();
   try {
-    const r = await fetch("/ver/ferieplanlegger/korttid?" + params.toString());
-    if (!r.ok) {
-      const body = await r.text();
-      throw new Error("HTTP " + r.status + ": " + body.slice(0, 200));
-    }
-    const data = await r.json();
-    if (!data.ok) {
-      throw new Error(data.feil || "Ukjent feil");
-    }
+    const { data, kortBygger } = aktivModus === "korttid" ? await sokKorttid() : await sokLangtid();
 
     const dt = Math.round((performance.now() - tStart) / 100) / 10;
     setStatus(`${data.antall} destinasjoner traff (${dt}s).`);
@@ -319,9 +491,9 @@ async function sokDestinasjoner() {
     if (!data.treff.length) {
       emptyEl.style.display = "block";
       emptyEl.className = "empty";
-      emptyEl.textContent = "Ingen destinasjoner traff kriteriene. Prøv å løsne på temp/nedbør/sky.";
+      emptyEl.textContent = "Ingen destinasjoner traff kriteriene. Prøv å løsne på temp/nedbør/sol.";
     } else {
-      data.treff.forEach((t) => resWrap.appendChild(lagDestKort(t)));
+      data.treff.forEach((t) => resWrap.appendChild(kortBygger(t)));
     }
   } catch (e) {
     emptyEl.style.display = "block";
@@ -335,8 +507,10 @@ async function sokDestinasjoner() {
 
 $("sok-btn").addEventListener("click", sokDestinasjoner);
 
-// Hint: ikke autostart — kan ta 10-20 sek å hente prognoser for 130+ destinasjoner.
-setStatus(`Klar. Trykk søk for å hente prognoser for opptil ${ {{ antall_destinasjoner }} } destinasjoner.`);
+// Velg gjeldende måned som default i langtid.
+$("lt_maaned").value = String(new Date().getMonth() + 1);
+
+bytteModus("korttid");
 </script>
 </body>
 </html>

@@ -34,7 +34,13 @@ from ver_station_db import load_station_db
 from yr_forecast import fetch_precip_forecast, fetch_temp_forecast
 
 from scripts.ferie_destinasjoner import DESTINASJONER, alle_tags
-from scripts.ferieplanlegger import Kriterier, planlegg_korttid, resultat_til_dict
+from scripts.ferieplanlegger import (
+    Kriterier,
+    LangtidKriterier,
+    planlegg_korttid,
+    planlegg_langtid,
+    resultat_til_dict,
+)
 
 # Snøprognose-logikk fra snow_increase.py
 from snow_increase import (
@@ -3684,6 +3690,45 @@ def ferieplanlegger_korttid():
             "treff": [resultat_til_dict(r) for r in resultater],
         }
         return jsonify(payload)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "feil": str(e)}), 500
+
+
+@ver.route("/ferieplanlegger/langtid")
+def ferieplanlegger_langtid():
+    """JSON-endepunkt som rangerer destinasjoner etter klimanormaler (1991-2020)."""
+    tags_param = (request.args.get("tags") or "").strip()
+    tags = [t for t in (s.strip() for s in tags_param.split(",")) if t]
+
+    måned = max(1, min(12, _int_arg("maaned", _date.today().month)))
+
+    kriterier = LangtidKriterier(
+        måned=måned,
+        min_temp_mean=_float_arg("min_temp", 18.0),
+        min_sol=_float_arg("min_sol", 4.0),
+        maks_nedbor_mm=_float_arg("maks_nedbor", 80.0),
+        kun_norge=_bool_arg("kun_norge", False),
+        tags=tags,
+    )
+
+    try:
+        treff = planlegg_langtid(kriterier)
+        return jsonify({
+            "ok": True,
+            "antall": len(treff),
+            "kriterier": {
+                "maaned": kriterier.måned,
+                "min_temp_mean": kriterier.min_temp_mean,
+                "min_sol": kriterier.min_sol,
+                "maks_nedbor_mm": kriterier.maks_nedbor_mm,
+                "kun_norge": kriterier.kun_norge,
+                "tags": kriterier.tags,
+            },
+            "treff": treff,
+        })
+    except FileNotFoundError as e:
+        return jsonify({"ok": False, "feil": str(e)}), 503
     except Exception as e:
         traceback.print_exc()
         return jsonify({"ok": False, "feil": str(e)}), 500

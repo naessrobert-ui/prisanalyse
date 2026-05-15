@@ -377,3 +377,111 @@ def resultat_til_dict(r: DestinasjonResultat) -> dict:
         "beste_dag": dag_til_dict(r.beste_dag) if r.beste_dag else None,
         "dager": [dag_til_dict(x) for x in r.dager],
     }
+
+
+# =========================================================
+# LANGTID (klimanormaler fra NASA POWER, 1991-2020)
+# =========================================================
+
+from pathlib import Path
+
+import pandas as pd
+
+from scripts.ferie_destinasjoner import DESTINASJONER_BY_ID
+
+KLIMA_NORMALER_FIL = Path(__file__).resolve().parent.parent / "data" / "klima_normaler.parquet"
+
+
+@dataclass
+class LangtidKriterier:
+    måned: int                       # 1-12
+    min_temp_mean: float = 18.0      # månedssnitt °C
+    min_sol: float = 4.0             # kWh/m²/dag
+    maks_nedbor_mm: float = 80.0     # mm/måned
+    kun_norge: bool = False
+    tags: list[str] = field(default_factory=list)
+
+
+_KLIMA_DF: Optional[pd.DataFrame] = None
+_KLIMA_LOCK = threading.Lock()
+
+
+def _last_klima_normaler() -> pd.DataFrame:
+    """Lazy-load parquet med klimanormaler. Cachet i prosessens levetid."""
+    global _KLIMA_DF
+    if _KLIMA_DF is not None:
+        return _KLIMA_DF
+    with _KLIMA_LOCK:
+        if _KLIMA_DF is None:
+            if not KLIMA_NORMALER_FIL.exists():
+                raise FileNotFoundError(
+                    f"Mangler klimanormaler. Kjør først: "
+                    f"python -m scripts.bygg_klima_normaler  "
+                    f"(forventet fil: {KLIMA_NORMALER_FIL})"
+                )
+            _KLIMA_DF = pd.read_parquet(KLIMA_NORMALER_FIL)
+    return _KLIMA_DF
+
+
+def _scor_klima_rad(temp: float, sol: float, nedbor: float) -> float:
+    """Enkel score: temperatur + 2·sol – 0.1·nedbør_mm."""
+    return float(temp) + 2.0 * float(sol) - 0.1 * float(nedbor)
+
+
+def planlegg_langtid(kriterier: LangtidKriterier) -> list[dict]:
+    """Returnerer destinasjoner som matcher klimanormaler, sortert etter score."""
+    if not (1 <= kriterier.måned <= 12):
+        raise ValueError(f"Ugyldig måned: {kriterier.måned}")
+
+    df = _last_klima_normaler()
+    df = df[df["month"] == kriterier.måned].copy()
+
+    if kriterier.kun_norge:
+        df = df[df["land"] == "NO"]
+
+    if kriterier.tags:
+        valid_ids = {
+            d["id"] for d in DESTINASJONER_BY_ID.values()
+            if any(t in d["tags"] for t in kriterier.tags)
+        }
+        df = df[df["dest_id"].isin(valid_ids)]
+
+    # Hardfiltrer på brukerens kriterier.
+    df = df[df["temp_mean"] >= kriterier.min_temp_mean]
+    df = df[df["solar_kwh_day"] >= kriterier.min_sol]
+    df = df[df["precip_mm_month"] <= kriterier.maks_nedbor_mm]
+
+    if df.empty:
+        return []
+
+    df["score"] = df.apply(
+        lambda r: _scor_klima_rad(r["temp_mean"], r["solar_kwh_day"], r["precip_mm_month"]),
+        axis=1,
+    ).round(2)
+    df = df.sort_values("score", ascending=False)
+
+    resultater: list[dict] = []
+    for _, r in df.iterrows():
+        dest = DESTINASJONER_BY_ID.get(r["dest_id"])
+        if not dest:
+            continue
+        resultater.append({
+            "id": dest["id"],
+            "navn": dest["navn"],
+            "land": dest["land"],
+            "region": dest["region"],
+            "lat": dest["lat"],
+            "lon": dest["lon"],
+            "tags": dest["tags"],
+            "score": float(r["score"]),
+            "klima": {
+                "month": int(r["month"]),
+                "temp_mean": float(r["temp_mean"]),
+                "temp_min": float(r["temp_min"]),
+                "temp_max": float(r["temp_max"]),
+                "precip_mm_day": float(r["precip_mm_day"]),
+                "precip_mm_month": float(r["precip_mm_month"]),
+                "solar_kwh_day": float(r["solar_kwh_day"]),
+            },
+        })
+    return resultater
