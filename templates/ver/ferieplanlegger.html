@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8" />
+  <title>Ferieplanlegger – korttid</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #fff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --border: #e2e8f0;
+      --pill: #eef2ff;
+      --blue: #2563eb;
+      --blue2: #1d4ed8;
+      --green: #16a34a;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --shadow: 0 18px 45px rgba(15, 23, 42, .10);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+    .topbar {
+      padding: 12px 16px; background: #0f172a; color: white;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .topbar a { color: #93c5fd; text-decoration: none; font-weight: 600; }
+    .topbar b { letter-spacing: -0.01em; }
+    .page { max-width: 1200px; margin: 28px auto; padding: 0 16px 40px; }
+    .card {
+      background: var(--card); border-radius: 18px; padding: 18px 22px;
+      box-shadow: var(--shadow); border: 1px solid rgba(226, 232, 240, .8);
+      margin-bottom: 16px;
+    }
+    h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: -0.01em; }
+    .sub { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .controls {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px; margin-top: 18px;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    .field input[type="number"], .field select {
+      padding: 9px 10px; border-radius: 12px; border: 1px solid var(--border); background: white; font-size: 14px;
+    }
+    .field .val { font-size: 13px; color: var(--ink); font-weight: 600; }
+
+    .row-toggles { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: center; }
+    .check {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
+      background: white; cursor: pointer; font-size: 13px; font-weight: 600;
+      user-select: none;
+    }
+    .check input { accent-color: var(--blue); }
+    .check.active { background: var(--pill); border-color: var(--blue); color: var(--blue2); }
+
+    .tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .tag {
+      padding: 6px 13px; border-radius: 999px; border: 1px solid var(--border);
+      background: white; font-size: 13px; cursor: pointer; user-select: none;
+      font-weight: 600; color: var(--muted);
+    }
+    .tag.on { background: var(--blue); color: white; border-color: var(--blue); }
+
+    .actions { display: flex; gap: 10px; margin-top: 18px; align-items: center; flex-wrap: wrap; }
+    .btn {
+      padding: 11px 22px; border-radius: 999px; border: none; background: var(--blue);
+      color: white; font-weight: 800; cursor: pointer; font-size: 14px;
+      box-shadow: 0 10px 25px rgba(37, 99, 235, .25);
+    }
+    .btn:hover { background: var(--blue2); }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .status { color: var(--muted); font-size: 13px; }
+
+    /* Resultater */
+    .resultater { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 8px; }
+    .dest-kort {
+      background: white; border-radius: 16px; padding: 16px 18px;
+      box-shadow: var(--shadow); border: 1px solid rgba(226, 232, 240, .8);
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .dest-topp { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .dest-navn { font-size: 16px; font-weight: 800; }
+    .dest-land { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .dest-score {
+      font-size: 11px; padding: 4px 9px; border-radius: 999px;
+      background: rgba(22,163,74,.12); color: var(--green); font-weight: 800;
+      white-space: nowrap;
+    }
+    .dest-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+    .dest-tag { font-size: 10px; padding: 2px 8px; border-radius: 999px; background: var(--pill); color: var(--blue2); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+
+    .beste-dag {
+      display: flex; gap: 10px; align-items: center;
+      background: linear-gradient(135deg, rgba(245, 158, 11, .08) 0%, rgba(245, 158, 11, .02) 100%);
+      border: 1px solid rgba(245, 158, 11, .25);
+      padding: 10px 12px; border-radius: 12px;
+    }
+    .beste-dag .stor { font-size: 22px; font-weight: 800; color: var(--amber); }
+    .beste-dag .info { font-size: 12px; color: var(--muted); }
+    .beste-dag .info b { color: var(--ink); }
+
+    .dager { display: flex; gap: 4px; margin-top: 2px; }
+    .dag {
+      flex: 1; text-align: center; padding: 6px 4px; border-radius: 8px;
+      background: #f1f5f9; font-size: 11px; line-height: 1.3;
+      border: 1px solid transparent;
+    }
+    .dag.treff { background: rgba(22,163,74,.12); border-color: rgba(22,163,74,.25); }
+    .dag .ukedag { font-weight: 700; color: var(--muted); }
+    .dag .temp { font-weight: 800; color: var(--ink); margin-top: 2px; }
+    .dag .nedbor { color: #0284c7; font-size: 10px; margin-top: 1px; }
+
+    .empty {
+      text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px;
+    }
+    .empty.error { color: var(--red); }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 6px; padding: 6px;
+      background: var(--pill); border-radius: 14px;
+      width: fit-content; margin-bottom: 18px;
+    }
+    .tabs button {
+      border: none; background: transparent; cursor: pointer;
+      padding: 8px 16px; border-radius: 10px; font-weight: 700;
+      font-size: 13px; color: var(--muted);
+    }
+    .tabs button.active { background: white; color: var(--blue2); box-shadow: 0 2px 6px rgba(15,23,42,.08); }
+    .pane { display: none; }
+    .pane.active { display: block; }
+
+    /* Langtid: klimastats */
+    .klima-rad {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+      background: #f8fafc; padding: 10px 12px; border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .klima-celle { text-align: center; }
+    .klima-celle .stor { font-size: 18px; font-weight: 800; color: var(--ink); }
+    .klima-celle .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+    .klima-celle.temp .stor { color: var(--amber); }
+    .klima-celle.sol .stor { color: var(--blue); }
+    .klima-celle.regn .stor { color: #0284c7; }
+
+    .info-merknad {
+      font-size: 11px; color: var(--muted); margin-top: 12px; line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div><b>🌴 Ferieplanlegger</b></div>
+  <a href="{{ url_for('ver.ver_hub') }}">← Tilbake til Vær</a>
+</div>
+
+<div class="page">
+
+  <div class="card">
+    <h1>Hvor skal jeg dra?</h1>
+    <p class="sub" id="hovedsub">
+      Velg kriterier, så finner vi destinasjoner blant {{ antall_destinasjoner }} steder
+      i Europa og Norge der været treffer.
+    </p>
+
+    <div class="tabs" role="tablist">
+      <button type="button" id="tab-korttid" class="active">📅 Neste 7 dager</button>
+      <button type="button" id="tab-langtid">🗓️ Velg måned</button>
+    </div>
+
+    <!-- KORTTID-PANEL -->
+    <div class="pane active" id="pane-korttid">
+      <div class="controls">
+        <div class="field">
+          <label>Min. temperatur (°C)</label>
+          <input type="number" id="min_temp" value="20" min="-5" max="40" step="1" />
+        </div>
+        <div class="field">
+          <label>Maks nedbør (mm/dag)</label>
+          <input type="number" id="maks_nedbor" value="3" min="0" max="50" step="0.5" />
+        </div>
+        <div class="field">
+          <label>Maks skydekke (%)</label>
+          <input type="number" id="maks_sky" value="60" min="0" max="100" step="5" />
+        </div>
+        <div class="field">
+          <label>Antall dager må treffe</label>
+          <select id="min_dager">
+            <option value="1">Minst 1 av 7</option>
+            <option value="2">Minst 2 av 7</option>
+            <option value="3" selected>Minst 3 av 7</option>
+            <option value="4">Minst 4 av 7</option>
+            <option value="5">Minst 5 av 7</option>
+            <option value="7">Alle 7 dager</option>
+          </select>
+        </div>
+      </div>
+      <p class="info-merknad">Bruker prognose fra met.no/Yr. Første søk tar 10-20 sek mens prognosene hentes.</p>
+    </div>
+
+    <!-- LANGTID-PANEL -->
+    <div class="pane" id="pane-langtid">
+      <div class="controls">
+        <div class="field">
+          <label>Reisemåned</label>
+          <select id="lt_maaned">
+            <option value="1">Januar</option>
+            <option value="2">Februar</option>
+            <option value="3">Mars</option>
+            <option value="4">April</option>
+            <option value="5">Mai</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Min. snitt-temp (°C)</label>
+          <input type="number" id="lt_min_temp" value="18" min="-5" max="35" step="1" />
+        </div>
+        <div class="field">
+          <label>Min. sol (kWh/m²/dag)</label>
+          <input type="number" id="lt_min_sol" value="4" min="0" max="8" step="0.5" />
+        </div>
+        <div class="field">
+          <label>Maks nedbør (mm/måned)</label>
+          <input type="number" id="lt_maks_nedbor" value="80" min="0" max="500" step="10" />
+        </div>
+      </div>
+      <p class="info-merknad">
+        Klimanormaler 1991-2020 fra NASA POWER. Snittemperatur 18 °C ≈ daglig maks 22-25 °C.
+        Sol-skala: ~1 (vinter nord), 4 (vår/høst), 7+ (sommer Middelhavet).
+      </p>
+    </div>
+
+    <div class="row-toggles">
+      <label class="check" id="norge-toggle">
+        <input type="checkbox" id="kun_norge" />
+        <span>Kun Norge</span>
+      </label>
+    </div>
+
+    <div class="tag-row" id="tag-row">
+      {% for tag in tags %}
+      <button type="button" class="tag" data-tag="{{ tag }}">{{ tag }}</button>
+      {% endfor %}
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="sok-btn">Søk destinasjoner</button>
+      <span class="status" id="status">Klar.</span>
+    </div>
+  </div>
+
+  <div id="resultater" class="resultater"></div>
+  <div id="empty" class="empty" style="display:none;"></div>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+// UKEDAG_NB[0]=mandag, .getDay()=0=søndag
+const UKEDAG_NB = ["søn", "man", "tir", "ons", "tor", "fre", "lør"];
+const tagButtons = Array.from(document.querySelectorAll(".tag[data-tag]"));
+
+tagButtons.forEach((btn) => {
+  btn.addEventListener("click", () => btn.classList.toggle("on"));
+});
+
+const norgeToggle = $("norge-toggle");
+$("kun_norge").addEventListener("change", (e) => {
+  norgeToggle.classList.toggle("active", e.target.checked);
+});
+
+function activeTags() {
+  return tagButtons.filter(b => b.classList.contains("on")).map(b => b.dataset.tag);
+}
+
+function setStatus(msg) { $("status").textContent = msg; }
+
+function formaterDato(iso) {
+  const d = new Date(iso + "T00:00:00Z");
+  const u = UKEDAG_NB[d.getUTCDay()];
+  const dd = d.getUTCDate();
+  const mm = d.getUTCMonth() + 1;
+  return `${u} ${dd}.${mm}`;
+}
+
+function lagDestKort(treff) {
+  const kort = document.createElement("div");
+  kort.className = "dest-kort";
+
+  const topp = document.createElement("div");
+  topp.className = "dest-topp";
+  topp.innerHTML = `
+    <div>
+      <div class="dest-navn">${treff.navn}</div>
+      <div class="dest-land">${treff.region} · ${treff.land}</div>
+    </div>
+    <div class="dest-score">${treff.treff_dager}/7 dager</div>
+  `;
+  kort.appendChild(topp);
+
+  if (treff.tags && treff.tags.length) {
+    const tagWrap = document.createElement("div");
+    tagWrap.className = "dest-tags";
+    treff.tags.forEach((t) => {
+      const el = document.createElement("span");
+      el.className = "dest-tag";
+      el.textContent = t;
+      tagWrap.appendChild(el);
+    });
+    kort.appendChild(tagWrap);
+  }
+
+  if (treff.beste_dag && treff.beste_dag.temp_max !== null) {
+    const beste = document.createElement("div");
+    beste.className = "beste-dag";
+    const t = Math.round(treff.beste_dag.temp_max);
+    const nedbor = treff.beste_dag.nedbor_mm;
+    const sky = treff.beste_dag.sky_pct;
+    beste.innerHTML = `
+      <div class="stor">${t}°</div>
+      <div class="info">
+        Beste dag: <b>${formaterDato(treff.beste_dag.dato)}</b><br/>
+        Nedbør ${nedbor} mm · Sky ${sky !== null ? sky + "%" : "ukjent"}
+      </div>
+    `;
+    kort.appendChild(beste);
+  }
+
+  // 7-dagers oversikt
+  if (treff.dager && treff.dager.length) {
+    const dagerEl = document.createElement("div");
+    dagerEl.className = "dager";
+    treff.dager.forEach((dag) => {
+      const d = document.createElement("div");
+      d.className = "dag" + (dag.treff ? " treff" : "");
+      const dt = new Date(dag.dato + "T00:00:00Z");
+      const u = UKEDAG_NB[dt.getUTCDay()];
+      const temp = (dag.temp_max !== null) ? `${Math.round(dag.temp_max)}°` : "–";
+      const nedbor = (dag.nedbor_mm && dag.nedbor_mm >= 0.5) ? `${dag.nedbor_mm}mm` : "";
+      d.innerHTML = `
+        <div class="ukedag">${u}</div>
+        <div class="temp">${temp}</div>
+        <div class="nedbor">${nedbor}</div>
+      `;
+      dagerEl.appendChild(d);
+    });
+    kort.appendChild(dagerEl);
+  }
+
+  return kort;
+}
+
+function lagLangtidKort(treff) {
+  const kort = document.createElement("div");
+  kort.className = "dest-kort";
+
+  const k = treff.klima;
+  const topp = document.createElement("div");
+  topp.className = "dest-topp";
+  topp.innerHTML = `
+    <div>
+      <div class="dest-navn">${treff.navn}</div>
+      <div class="dest-land">${treff.region} · ${treff.land}</div>
+    </div>
+    <div class="dest-score" style="background:rgba(245,158,11,.12);color:#d97706;">score ${treff.score.toFixed(0)}</div>
+  `;
+  kort.appendChild(topp);
+
+  if (treff.tags && treff.tags.length) {
+    const tagWrap = document.createElement("div");
+    tagWrap.className = "dest-tags";
+    treff.tags.forEach((t) => {
+      const el = document.createElement("span");
+      el.className = "dest-tag";
+      el.textContent = t;
+      tagWrap.appendChild(el);
+    });
+    kort.appendChild(tagWrap);
+  }
+
+  const stats = document.createElement("div");
+  stats.className = "klima-rad";
+  stats.innerHTML = `
+    <div class="klima-celle temp">
+      <div class="stor">${k.temp_mean.toFixed(1)}°</div>
+      <div class="lbl">Snitt-temp</div>
+    </div>
+    <div class="klima-celle sol">
+      <div class="stor">${k.solar_kwh_day.toFixed(1)}</div>
+      <div class="lbl">Sol kWh/m²/d</div>
+    </div>
+    <div class="klima-celle regn">
+      <div class="stor">${k.precip_mm_month.toFixed(0)}</div>
+      <div class="lbl">Nedbør mm</div>
+    </div>
+  `;
+  kort.appendChild(stats);
+
+  const meta = document.createElement("div");
+  meta.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
+  meta.innerHTML = `Ekstremverdier i normalperioden: ${k.temp_min.toFixed(1)}° til ${k.temp_max.toFixed(1)}°`;
+  kort.appendChild(meta);
+
+  return kort;
+}
+
+let aktivModus = "korttid";
+
+function bytteModus(modus) {
+  aktivModus = modus;
+  $("tab-korttid").classList.toggle("active", modus === "korttid");
+  $("tab-langtid").classList.toggle("active", modus === "langtid");
+  $("pane-korttid").classList.toggle("active", modus === "korttid");
+  $("pane-langtid").classList.toggle("active", modus === "langtid");
+  $("resultater").innerHTML = "";
+  $("empty").style.display = "none";
+  if (modus === "korttid") {
+    setStatus(`Klar. Trykk søk for å hente Yr-prognoser.`);
+  } else {
+    setStatus(`Klar. Klimanormaler er forhåndsbygget — søk er øyeblikkelig.`);
+  }
+}
+
+$("tab-korttid").addEventListener("click", () => bytteModus("korttid"));
+$("tab-langtid").addEventListener("click", () => bytteModus("langtid"));
+
+async function sokKorttid() {
+  const params = new URLSearchParams();
+  params.set("min_temp", $("min_temp").value || "20");
+  params.set("maks_nedbor", $("maks_nedbor").value || "3");
+  params.set("maks_sky", $("maks_sky").value || "60");
+  params.set("min_dager", $("min_dager").value || "3");
+  if ($("kun_norge").checked) params.set("kun_norge", "1");
+  const tags = activeTags();
+  if (tags.length) params.set("tags", tags.join(","));
+
+  setStatus("Henter prognoser for alle destinasjoner …");
+  const r = await fetch("/ver/ferieplanlegger/korttid?" + params.toString());
+  if (!r.ok) throw new Error("HTTP " + r.status + ": " + (await r.text()).slice(0, 200));
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.feil || "Ukjent feil");
+  return { data, kortBygger: lagDestKort };
+}
+
+async function sokLangtid() {
+  const params = new URLSearchParams();
+  params.set("maaned", $("lt_maaned").value || "7");
+  params.set("min_temp", $("lt_min_temp").value || "18");
+  params.set("min_sol", $("lt_min_sol").value || "4");
+  params.set("maks_nedbor", $("lt_maks_nedbor").value || "80");
+  if ($("kun_norge").checked) params.set("kun_norge", "1");
+  const tags = activeTags();
+  if (tags.length) params.set("tags", tags.join(","));
+
+  setStatus("Leser klimanormaler …");
+  const r = await fetch("/ver/ferieplanlegger/langtid?" + params.toString());
+  if (!r.ok) throw new Error("HTTP " + r.status + ": " + (await r.text()).slice(0, 200));
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.feil || "Ukjent feil");
+  return { data, kortBygger: lagLangtidKort };
+}
+
+async function sokDestinasjoner() {
+  const btn = $("sok-btn");
+  const resWrap = $("resultater");
+  const emptyEl = $("empty");
+  btn.disabled = true;
+  resWrap.innerHTML = "";
+  emptyEl.style.display = "none";
+
+  const tStart = performance.now();
+  try {
+    const { data, kortBygger } = aktivModus === "korttid" ? await sokKorttid() : await sokLangtid();
+
+    const dt = Math.round((performance.now() - tStart) / 100) / 10;
+    setStatus(`${data.antall} destinasjoner traff (${dt}s).`);
+
+    if (!data.treff.length) {
+      emptyEl.style.display = "block";
+      emptyEl.className = "empty";
+      emptyEl.textContent = "Ingen destinasjoner traff kriteriene. Prøv å løsne på temp/nedbør/sol.";
+    } else {
+      data.treff.forEach((t) => resWrap.appendChild(kortBygger(t)));
+    }
+  } catch (e) {
+    emptyEl.style.display = "block";
+    emptyEl.className = "empty error";
+    emptyEl.textContent = "Klarte ikke å hente: " + e.message;
+    setStatus("Feil under henting.");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$("sok-btn").addEventListener("click", sokDestinasjoner);
+
+// Velg gjeldende måned som default i langtid.
+$("lt_maaned").value = String(new Date().getMonth() + 1);
+
+bytteModus("korttid");
+</script>
+</body>
+</html>
