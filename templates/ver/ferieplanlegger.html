@@ -2,8 +2,11 @@
 <html lang="no">
 <head>
   <meta charset="utf-8" />
-  <title>Ferieplanlegger – korttid</title>
+  <title>Ferieplanlegger</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="" />
   <style>
     :root {
       --bg: #f5f7fb;
@@ -150,6 +153,67 @@
     .info-merknad {
       font-size: 11px; color: var(--muted); margin-top: 12px; line-height: 1.5;
     }
+
+    /* Sort + visning */
+    .resultat-topp {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      margin: 8px 0 14px;
+    }
+    .resultat-topp label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--muted); font-weight: 700;
+    }
+    .resultat-topp select {
+      padding: 6px 10px; border-radius: 10px; border: 1px solid var(--border);
+      background: white; font-size: 13px;
+    }
+    .vis-toggle {
+      display: flex; gap: 4px; padding: 4px;
+      background: var(--pill); border-radius: 10px;
+      margin-left: auto;
+    }
+    .vis-toggle button {
+      border: none; background: transparent; cursor: pointer;
+      padding: 6px 12px; border-radius: 8px; font-weight: 700;
+      font-size: 12px; color: var(--muted);
+    }
+    .vis-toggle button.active { background: white; color: var(--blue2); box-shadow: 0 1px 4px rgba(15,23,42,.08); }
+
+    .dest-avstand {
+      font-size: 11px; color: var(--muted); margin-top: 4px;
+    }
+
+    /* Kart */
+    #kart {
+      width: 100%; height: 70vh; min-height: 480px;
+      border-radius: 16px; box-shadow: var(--shadow);
+      border: 1px solid rgba(226, 232, 240, .8);
+      background: #e5e7eb;
+      display: none;
+    }
+    #kart.aktiv { display: block; }
+    #resultater.skjult { display: none; }
+
+    /* Nummererte markører */
+    .rank-marker {
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 800; font-size: 13px;
+      border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    }
+    .rank-marker.r-top   { background: #16a34a; }
+    .rank-marker.r-mid   { background: #f59e0b; }
+    .rank-marker.r-low   { background: #64748b; }
+    .meg-marker {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--blue); border: 3px solid white;
+      box-shadow: 0 0 0 2px var(--blue), 0 2px 6px rgba(0,0,0,.3);
+    }
+    .leaflet-popup-content {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 13px; min-width: 180px;
+    }
+    .leaflet-popup-content b { color: var(--ink); }
   </style>
 </head>
 <body>
@@ -261,11 +325,33 @@
     </div>
   </div>
 
+  <div class="resultat-topp" id="resultat-topp" style="display:none;">
+    <label>
+      Sortér:
+      <select id="sort-by">
+        <option value="avstand">Avstand fra meg</option>
+        <option value="score">Score</option>
+        <option value="temp">Temperatur (høyest først)</option>
+        <option value="sol">Sol (mest først)</option>
+        <option value="navn">Navn (A–Å)</option>
+      </select>
+    </label>
+    <span id="geo-status" style="font-size:11px;color:var(--muted);"></span>
+    <div class="vis-toggle">
+      <button type="button" id="vis-liste" class="active">📋 Liste</button>
+      <button type="button" id="vis-kart">🗺️ Kart</button>
+    </div>
+  </div>
+
   <div id="resultater" class="resultater"></div>
+  <div id="kart"></div>
   <div id="empty" class="empty" style="display:none;"></div>
 
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -473,27 +559,225 @@ async function sokLangtid() {
   return { data, kortBygger: lagLangtidKort };
 }
 
+// ----- Avstand / geolokasjon / sortering / kart -----
+let userLoc = null;            // {lat, lon} eller null
+let aktiveTreff = [];          // siste resultatliste
+let aktivKortBygger = null;    // lagDestKort eller lagLangtidKort
+let aktivVisning = "liste";    // "liste" | "kart"
+let kartInstans = null;
+let kartLag = null;            // L.LayerGroup for markører
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const toRad = (d) => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function tempKey(t) {
+  if (t.beste_dag && t.beste_dag.temp_max != null) return t.beste_dag.temp_max;
+  if (t.klima && t.klima.temp_mean != null) return t.klima.temp_mean;
+  return -999;
+}
+function solKey(t) {
+  if (t.klima && t.klima.solar_kwh_day != null) return t.klima.solar_kwh_day;
+  if (t.beste_dag && t.beste_dag.sky_pct != null) return 100 - t.beste_dag.sky_pct; // proxy
+  return -999;
+}
+
+function sorter(treff, sortBy) {
+  const sortert = [...treff];
+  if (sortBy === "avstand" && userLoc) {
+    sortert.sort((a, b) => (a._avstand ?? 9e9) - (b._avstand ?? 9e9));
+  } else if (sortBy === "temp") {
+    sortert.sort((a, b) => tempKey(b) - tempKey(a));
+  } else if (sortBy === "sol") {
+    sortert.sort((a, b) => solKey(b) - solKey(a));
+  } else if (sortBy === "navn") {
+    sortert.sort((a, b) => a.navn.localeCompare(b.navn, "no"));
+  } else {
+    // score (default)
+    sortert.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  }
+  return sortert;
+}
+
+function rangBucket(idx, total) {
+  if (idx < Math.min(10, total / 3)) return "r-top";
+  if (idx < Math.min(30, (total * 2) / 3)) return "r-mid";
+  return "r-low";
+}
+
+function lagAvstandsLinje(treff) {
+  if (treff._avstand == null) return null;
+  const el = document.createElement("div");
+  el.className = "dest-avstand";
+  el.textContent = `📍 ${Math.round(treff._avstand).toLocaleString("no")} km fra deg`;
+  return el;
+}
+
+function lagDestKortMedRangering(treff, rang) {
+  const kort = aktivKortBygger(treff);
+  // Sett inn rang-badge i topp-elementet
+  const score = kort.querySelector(".dest-score");
+  if (score) {
+    const rangBadge = document.createElement("span");
+    rangBadge.textContent = `#${rang}`;
+    rangBadge.style.cssText = "font-size:10px;font-weight:800;background:var(--pill);color:var(--blue2);padding:2px 7px;border-radius:999px;margin-right:6px;";
+    score.parentNode.insertBefore(rangBadge, score);
+  }
+  const av = lagAvstandsLinje(treff);
+  if (av) {
+    const land = kort.querySelector(".dest-land");
+    if (land) land.parentNode.appendChild(av);
+  }
+  return kort;
+}
+
+function popupHtml(t, rang) {
+  let stats = "";
+  if (t.klima) {
+    const k = t.klima;
+    stats = `<div>🌡️ Snitt ${k.temp_mean.toFixed(1)}°  ·  ☀️ ${k.solar_kwh_day.toFixed(1)} kWh  ·  💧 ${k.precip_mm_month.toFixed(0)} mm</div>`;
+  } else if (t.beste_dag && t.beste_dag.temp_max != null) {
+    stats = `<div>🌡️ Beste dag: ${Math.round(t.beste_dag.temp_max)}°  ·  💧 ${t.beste_dag.nedbor_mm} mm</div>`;
+  }
+  const av = t._avstand != null ? `<div style="margin-top:4px;color:#64748b;">📍 ${Math.round(t._avstand).toLocaleString("no")} km</div>` : "";
+  return `<b>#${rang} ${t.navn}</b><br/><span style="color:#64748b;font-size:12px;">${t.region} · ${t.land}</span>${stats}${av}`;
+}
+
+function initKart() {
+  if (kartInstans) return;
+  kartInstans = L.map("kart", { worldCopyJump: true }).setView([55, 15], 4);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 11,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(kartInstans);
+  kartLag = L.layerGroup().addTo(kartInstans);
+}
+
+function oppdaterKart(sortertListe) {
+  initKart();
+  kartLag.clearLayers();
+  if (!sortertListe.length) return;
+
+  const total = sortertListe.length;
+  const bounds = [];
+
+  sortertListe.forEach((t, i) => {
+    const rang = i + 1;
+    const klass = rangBucket(i, total);
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="rank-marker ${klass}">${rang}</div>`,
+      iconSize: [30, 30], iconAnchor: [15, 15],
+    });
+    const m = L.marker([t.lat, t.lon], { icon }).bindPopup(popupHtml(t, rang));
+    kartLag.addLayer(m);
+    bounds.push([t.lat, t.lon]);
+  });
+
+  if (userLoc) {
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="meg-marker"></div>`,
+      iconSize: [22, 22], iconAnchor: [11, 11],
+    });
+    L.marker([userLoc.lat, userLoc.lon], { icon })
+      .bindPopup("<b>Min posisjon</b>")
+      .addTo(kartLag);
+    bounds.push([userLoc.lat, userLoc.lon]);
+  }
+
+  if (bounds.length) kartInstans.fitBounds(bounds, { padding: [30, 30] });
+  setTimeout(() => kartInstans.invalidateSize(), 50);
+}
+
+function tegnResultater() {
+  const sortBy = $("sort-by").value;
+  const sortert = sorter(aktiveTreff, sortBy);
+  const resWrap = $("resultater");
+  resWrap.innerHTML = "";
+  sortert.forEach((t, i) => resWrap.appendChild(lagDestKortMedRangering(t, i + 1)));
+  if (aktivVisning === "kart") oppdaterKart(sortert);
+}
+
+function settVisning(visning) {
+  aktivVisning = visning;
+  $("vis-liste").classList.toggle("active", visning === "liste");
+  $("vis-kart").classList.toggle("active", visning === "kart");
+  $("resultater").classList.toggle("skjult", visning === "kart");
+  $("kart").classList.toggle("aktiv", visning === "kart");
+  if (visning === "kart" && aktiveTreff.length) oppdaterKart(sorter(aktiveTreff, $("sort-by").value));
+}
+
+function settGeoStatus(tekst) { $("geo-status").textContent = tekst; }
+
+function spørGeolokasjon() {
+  if (!navigator.geolocation) {
+    settGeoStatus("(nettleseren støtter ikke posisjon)");
+    $("sort-by").value = "score";
+    return;
+  }
+  settGeoStatus("(spør om posisjon …)");
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      userLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      settGeoStatus(`(posisjon: ${userLoc.lat.toFixed(2)}, ${userLoc.lon.toFixed(2)})`);
+      // Beregn avstander for evt. eksisterende treff
+      if (aktiveTreff.length) {
+        aktiveTreff.forEach((t) => { t._avstand = haversineKm(userLoc.lat, userLoc.lon, t.lat, t.lon); });
+        tegnResultater();
+      }
+    },
+    () => {
+      settGeoStatus("(posisjon avvist — sortert etter score)");
+      $("sort-by").value = "score";
+      if (aktiveTreff.length) tegnResultater();
+    },
+    { timeout: 8000, maximumAge: 5 * 60 * 1000 },
+  );
+}
+
 async function sokDestinasjoner() {
   const btn = $("sok-btn");
-  const resWrap = $("resultater");
   const emptyEl = $("empty");
   btn.disabled = true;
-  resWrap.innerHTML = "";
+  $("resultater").innerHTML = "";
+  $("kart").classList.remove("aktiv");
   emptyEl.style.display = "none";
+  $("resultat-topp").style.display = "none";
 
   const tStart = performance.now();
   try {
     const { data, kortBygger } = aktivModus === "korttid" ? await sokKorttid() : await sokLangtid();
+    aktivKortBygger = kortBygger;
+    aktiveTreff = data.treff;
+
+    // Sett default sortering basert på om vi har posisjon
+    if (!userLoc && $("sort-by").value === "avstand") {
+      $("sort-by").value = "score";
+    }
+
+    // Beregn avstander hvis vi har posisjon
+    if (userLoc) {
+      aktiveTreff.forEach((t) => { t._avstand = haversineKm(userLoc.lat, userLoc.lon, t.lat, t.lon); });
+    }
 
     const dt = Math.round((performance.now() - tStart) / 100) / 10;
     setStatus(`${data.antall} destinasjoner traff (${dt}s).`);
 
-    if (!data.treff.length) {
+    if (!aktiveTreff.length) {
       emptyEl.style.display = "block";
       emptyEl.className = "empty";
       emptyEl.textContent = "Ingen destinasjoner traff kriteriene. Prøv å løsne på temp/nedbør/sol.";
     } else {
-      data.treff.forEach((t) => resWrap.appendChild(kortBygger(t)));
+      $("resultat-topp").style.display = "flex";
+      tegnResultater();
+      if (aktivVisning === "kart") oppdaterKart(sorter(aktiveTreff, $("sort-by").value));
     }
   } catch (e) {
     emptyEl.style.display = "block";
@@ -506,11 +790,17 @@ async function sokDestinasjoner() {
 }
 
 $("sok-btn").addEventListener("click", sokDestinasjoner);
+$("sort-by").addEventListener("change", () => {
+  if (aktiveTreff.length) tegnResultater();
+});
+$("vis-liste").addEventListener("click", () => settVisning("liste"));
+$("vis-kart").addEventListener("click", () => settVisning("kart"));
 
 // Velg gjeldende måned som default i langtid.
 $("lt_maaned").value = String(new Date().getMonth() + 1);
 
 bytteModus("korttid");
+spørGeolokasjon();
 </script>
 </body>
 </html>
