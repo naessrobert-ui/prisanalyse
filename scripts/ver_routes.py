@@ -417,6 +417,24 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
     </div>
   </div>
 
+  <!-- Ferie og reise -->
+  <div class="seksjon">
+    <div class="seksjon-tittel">🌴 Ferie og reise</div>
+    <div class="grid grid-wide">
+
+      <a class="kort kort-featured" href="/ver/ferieplanlegger">
+        <div class="kort-topp">
+          <div class="kort-ikon">✈️</div>
+          <span class="kort-badge b-gul">Ferie</span>
+        </div>
+        <div class="kort-tittel">Ferieplanlegger – Hvor er det sol?</div>
+        <div class="kort-tekst">Sjekk Yr-prognosen for neste 7 dager, eller klimanormaler måned for måned, for ~190 destinasjoner i Norge og Europa. Filtrer på temperatur, nedbør, sol og type ferie (strand, by, fjell).</div>
+        <div class="kort-lenke">Åpne ferieplanlegger</div>
+      </a>
+
+    </div>
+  </div>
+
 </div>
 
 <script>
