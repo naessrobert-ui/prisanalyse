@@ -289,11 +289,11 @@
         </div>
         <div class="field">
           <label>Min. snitt-temp (°C)</label>
-          <input type="number" id="lt_min_temp" value="18" min="-5" max="35" step="1" />
+          <input type="number" id="lt_min_temp" value="16" min="-5" max="35" step="1" />
         </div>
         <div class="field">
           <label>Min. sol (kWh/m²/dag)</label>
-          <input type="number" id="lt_min_sol" value="4" min="0" max="8" step="0.5" />
+          <input type="number" id="lt_min_sol" value="3" min="0" max="8" step="0.5" />
         </div>
         <div class="field">
           <label>Maks nedbør (mm/måned)</label>
@@ -301,8 +301,9 @@
         </div>
       </div>
       <p class="info-merknad">
-        Klimanormaler 1991-2020 fra NASA POWER. Snittemperatur 18 °C ≈ daglig maks 22-25 °C.
-        Sol-skala: ~1 (vinter nord), 4 (vår/høst), 7+ (sommer Middelhavet).
+        Klimanormaler 1991-2020 fra NASA POWER. Snittemperatur 16 °C ≈ daglig maks 20-23 °C.
+        Sol-skala: ~1 (vinter nord), 3–4 (vår/høst Middelhav), 6–7 (sommer Middelhavet).
+        Tips for høstferie (sep–nov): bruk 14–17 °C og 2.5–3.5 kWh/m²/dag.
       </p>
     </div>
 
@@ -773,7 +774,13 @@ async function sokDestinasjoner() {
     if (!aktiveTreff.length) {
       emptyEl.style.display = "block";
       emptyEl.className = "empty";
-      emptyEl.textContent = "Ingen destinasjoner traff kriteriene. Prøv å løsne på temp/nedbør/sol.";
+      const maaned = aktivModus === "langtid" ? parseInt($("lt_maaned").value) : 0;
+      const erHøst = maaned >= 9 && maaned <= 11;
+      const erVinter = maaned === 12 || maaned <= 2;
+      let tips = "Prøv å senke min. temperatur eller sol, eller øke maks nedbør.";
+      if (erHøst) tips = "Høstmåneder har typisk 2.5–3.5 kWh sol/dag og 14–18 °C. Prøv min. sol 2.5 og temp 14–16 °C.";
+      else if (erVinter) tips = "Vintermåneder i Europa har lite sol. Prøv Kanariøyene (tag: øy) med sol 4–5 kWh og temp 18–20 °C.";
+      emptyEl.textContent = `Ingen destinasjoner traff kriteriene. ${tips}`;
     } else {
       $("resultat-topp").style.display = "flex";
       tegnResultater();
