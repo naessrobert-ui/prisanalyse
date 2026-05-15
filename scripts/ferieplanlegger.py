@@ -29,7 +29,7 @@ USER_AGENT = "prisanalyse.no/1.0 (kontakt@prisanalyse.no)"
 DEFAULT_TIMEOUT = 12
 MAX_WORKERS = 24
 RETRY_WAIT = 2.0
-PROGNOSE_DAGER = 7
+PROGNOSE_DAGER = 10  # met.no Locationforecast leverer ~10 dager; siste dager er mindre presise
 
 CACHE_TTL_S = 60 * 60  # 1 time
 
