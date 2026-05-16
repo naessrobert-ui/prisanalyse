@@ -1215,7 +1215,6 @@ def bolig_varmekart_view():
             },
             filter_options={
                 "fylker": alle_fylker,
-                "kommuner": alle_kommuner,
                 "boligtyper": alle_typer,
                 "nybrukt": alle_nybrukt,
                 "pris_min_data": pris_min_data,
