@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 import requests
-from flask import Blueprint, request, render_template, Response, jsonify
+from flask import Blueprint, request, render_template, Response, jsonify, redirect
 from mapbox_vector_tile import decode as mvt_decode
 from metno_locationforecast import Place
 
@@ -439,20 +439,21 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
   <div class="seksjon">
     <div class="seksjon-tittel">🌍 Byvær – detaljert prognose</div>
     <div class="grid">
-
-      <a class="kort" href="/ver/byvarsel/london"><div class="kort-topp"><div class="kort-ikon">🇬🇧</div><span class="kort-badge b-blå">UK</span></div><div class="kort-tittel">London</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/paris"><div class="kort-topp"><div class="kort-ikon">🇫🇷</div><span class="kort-badge b-blå">FR</span></div><div class="kort-tittel">Paris</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/roma"><div class="kort-topp"><div class="kort-ikon">🇮🇹</div><span class="kort-badge b-blå">IT</span></div><div class="kort-tittel">Roma</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/barcelona"><div class="kort-topp"><div class="kort-ikon">🇪🇸</div><span class="kort-badge b-blå">ES</span></div><div class="kort-tittel">Barcelona</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/amsterdam"><div class="kort-topp"><div class="kort-ikon">🇳🇱</div><span class="kort-badge b-blå">NL</span></div><div class="kort-tittel">Amsterdam</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/berlin"><div class="kort-topp"><div class="kort-ikon">🇩🇪</div><span class="kort-badge b-blå">DE</span></div><div class="kort-tittel">Berlin</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/nice"><div class="kort-topp"><div class="kort-ikon">🇫🇷</div><span class="kort-badge b-gul">Strand</span></div><div class="kort-tittel">Nice</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/palma"><div class="kort-topp"><div class="kort-ikon">🇪🇸</div><span class="kort-badge b-gul">Strand</span></div><div class="kort-tittel">Palma</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/athen"><div class="kort-topp"><div class="kort-ikon">🇬🇷</div><span class="kort-badge b-gul">Strand</span></div><div class="kort-tittel">Athen</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/tenerife"><div class="kort-topp"><div class="kort-ikon">🇪🇸</div><span class="kort-badge b-gul">Sol</span></div><div class="kort-tittel">Tenerife</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/antalya"><div class="kort-topp"><div class="kort-ikon">🇹🇷</div><span class="kort-badge b-gul">Sol</span></div><div class="kort-tittel">Antalya</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-      <a class="kort" href="/ver/byvarsel/dubai"><div class="kort-topp"><div class="kort-ikon">🇦🇪</div><span class="kort-badge b-rød">Varmt</span></div><div class="kort-tittel">Dubai</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
-
+      <div class="kort" style="cursor:default;grid-column:1/-1;max-width:560px;">
+        <div class="kort-topp">
+          <div class="kort-ikon">🌦</div>
+          <span class="kort-badge b-blå">BYVÆR</span>
+        </div>
+        <div class="kort-tittel">Søk opp et sted</div>
+        <div class="kort-tekst" style="margin-bottom:6px;">10-dagers prognose og time-for-time for et valgfritt sted i verden.</div>
+        <form action="/ver/byvarsel" method="get" style="display:flex;gap:8px;">
+          <input name="q" type="text" placeholder="By, sted eller flyplass …"
+            style="flex:1;padding:8px 12px;border-radius:10px;border:1px solid #1e293b;background:#0a0f1e;color:#e2e8f0;font-size:14px;outline:none;"
+            autocomplete="off"/>
+          <button type="submit"
+            style="padding:8px 18px;border-radius:10px;border:none;background:#3b82f6;color:white;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap;">Vis vær</button>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -3969,11 +3970,56 @@ def _bv_openmeteo_historikk(lat: float, lon: float) -> Optional[list]:
         return None
 
 
+def _country_flag(code: str) -> str:
+    """Konverterer to-bokstavs landkode til flagg-emoji."""
+    try:
+        return "".join(chr(0x1F1E6 + ord(c.upper()) - ord("A")) for c in code[:2])
+    except Exception:
+        return "🌍"
+
+
+@ver.route("/byvarsel")
+def byvarsel_search():
+    q = (request.args.get("q") or "").strip()
+    if not q:
+        return redirect("/ver/")
+
+    try:
+        r = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": q, "format": "jsonv2", "addressdetails": 1, "limit": 1},
+            headers={"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"},
+            timeout=8,
+        )
+        r.raise_for_status()
+        items = r.json() or []
+    except Exception:
+        items = []
+
+    if not items:
+        feil_html = f"""<!DOCTYPE html><html lang="no"><head><meta charset="utf-8"/><title>Fant ikke stedet</title>
+<style>*{{box-sizing:border-box;margin:0;padding:0;}}body{{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;}}.boks{{text-align:center;padding:40px 24px;}}.boks h2{{font-size:22px;margin-bottom:10px;}}a{{color:#3b82f6;text-decoration:none;}}</style></head>
+<body><div class="boks"><h2>Fant ikke «{q}»</h2><p style="color:#64748b;margin:12px 0 20px;">Prøv et annet stedsnavn eller sjekk stavingen.</p><a href="/ver/">&larr; Tilbake</a></div></body></html>"""
+        return feil_html, 404
+
+    item = items[0]
+    addr = item.get("address") or {}
+    by_ = {
+        "id": "search",
+        "navn": item["display_name"].split(",")[0].strip(),
+        "lat": float(item["lat"]),
+        "lon": float(item["lon"]),
+        "land": addr.get("country", ""),
+        "flag": _country_flag(addr.get("country_code", "")),
+    }
+    return render_template("ver/byvarsel.html", by=by_)
+
+
 @ver.route("/byvarsel/<by_id>")
 def byvarsel_by(by_id: str):
     by_ = next((b for b in BYVAER_BYER if b["id"] == by_id), None)
     if by_ is None:
-        return render_template("ver/ver_hub.html"), 404
+        return redirect("/ver/")
     return render_template("ver/byvarsel.html", by=by_)
 
 
