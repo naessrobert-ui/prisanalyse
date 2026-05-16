@@ -103,6 +103,16 @@
         </div>
 
         <div class="mb-2">
+          <label class="form-label">Kommune</label>
+          <select class="form-select" name="kommune">
+            <option value="Alle" {% if filter_values.kommune == "Alle" %}selected{% endif %}>Alle kommuner</option>
+            {% for k in filter_options.kommuner %}
+              <option value="{{ k }}" {% if filter_values.kommune == k %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-2">
           <label class="form-label">Boligtype</label>
           <select class="form-select" name="boligtype">
             <option value="Alle" {% if filter_values.boligtype == "Alle" %}selected{% endif %}>Alle typer</option>

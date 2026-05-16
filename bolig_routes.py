@@ -1159,6 +1159,7 @@ def bolig_varmekart_view():
     # 3) Les filter fra query-parametre (med defaults)
     valgt_fylke = request.args.get("fylke", "Alle")
     valgt_boligtype = request.args.get("boligtype", "Alle")
+    valgt_kommune = request.args.get("kommune", "Alle")
     valgt_nybrukt = request.args.get("nybrukt", "Alle")
 
     # Prisintervall – faller tilbake på data-min/max hvis ikke satt
@@ -1206,12 +1207,14 @@ def bolig_varmekart_view():
             filter_values={
                 "fylke": valgt_fylke,
                 "boligtype": valgt_boligtype,
+                "kommune": valgt_kommune,
                 "nybrukt": valgt_nybrukt,
                 "pris_min": pris_min,
                 "pris_max": pris_max,
             },
             filter_options={
                 "fylker": alle_fylker,
+                "kommuner": alle_kommuner,
                 "boligtyper": alle_typer,
                 "nybrukt": alle_nybrukt,
                 "pris_min_data": pris_min_data,
@@ -1304,8 +1307,12 @@ def bolig_omsetningskart_view():
     alle_nybrukt = ["Alle", "Brukt", "Nybygg"]
     status_options = ["Alle", "Solgt/fjernet", "Aktive ikke solgt"]
 
+    # Kommunevalg: begrens liste til valgt fylke for bedre oversikt.
+    kommune_source = df.copy()
+
     valgt_fylke = request.args.get("fylke", "Alle")
     valgt_boligtype = request.args.get("boligtype", "Alle")
+    valgt_kommune = request.args.get("kommune", "Alle")
     valgt_nybrukt = request.args.get("nybrukt", "Alle")
     valgt_status = request.args.get("status", "Alle")
     sold_within_days = request.args.get("sold_within_days", "").strip()
@@ -1315,6 +1322,23 @@ def bolig_omsetningskart_view():
     price_basis = request.args.get("price_basis", "m2")
     if price_basis not in {"m2", "total"}:
         price_basis = "m2"
+
+    if valgt_fylke != "Alle" and "fylke" in kommune_source.columns:
+        kommune_source = kommune_source[kommune_source["fylke"] == valgt_fylke]
+
+    kommune_col = None
+    for cand in ["kommune_navn", "kommune", "kommunenavn", "sted"]:
+        if cand in kommune_source.columns:
+            kommune_col = cand
+            break
+
+    alle_kommuner = []
+    if kommune_col is not None:
+        alle_kommuner = sorted(
+            kommune_source[kommune_col].dropna().astype(str).loc[lambda s: s.str.strip() != ""].unique().tolist()
+        )
+    if valgt_kommune != "Alle" and valgt_kommune not in alle_kommuner:
+        valgt_kommune = "Alle"
 
     sold_limit = int(sold_within_days) if sold_within_days.isdigit() else None
     unsold_limit = int(unsold_min_days) if unsold_min_days.isdigit() else None
@@ -1334,6 +1358,7 @@ def bolig_omsetningskart_view():
             filter_values={
                 "fylke": valgt_fylke,
                 "boligtype": valgt_boligtype,
+                "kommune": valgt_kommune,
                 "nybrukt": valgt_nybrukt,
                 "status": valgt_status,
                 "sold_within_days": sold_within_days,
@@ -1344,6 +1369,7 @@ def bolig_omsetningskart_view():
             },
             filter_options={
                 "fylker": alle_fylker,
+                "kommuner": alle_kommuner,
                 "boligtyper": alle_typer,
                 "nybrukt": alle_nybrukt,
                 "status": status_options,
@@ -1362,6 +1388,7 @@ def bolig_omsetningskart_view():
             filter_values={
                 "fylke": valgt_fylke,
                 "boligtype": valgt_boligtype,
+                "kommune": valgt_kommune,
                 "nybrukt": valgt_nybrukt,
                 "status": valgt_status,
                 "sold_within_days": sold_within_days,
@@ -1372,6 +1399,7 @@ def bolig_omsetningskart_view():
             },
             filter_options={
                 "fylker": alle_fylker,
+                "kommuner": alle_kommuner,
                 "boligtyper": alle_typer,
                 "nybrukt": alle_nybrukt,
                 "status": status_options,
@@ -1384,6 +1412,8 @@ def bolig_omsetningskart_view():
     filtered = df.copy()
     if valgt_fylke != "Alle" and "fylke" in filtered.columns:
         filtered = filtered[filtered["fylke"] == valgt_fylke]
+    if valgt_kommune != "Alle" and kommune_col is not None:
+        filtered = filtered[filtered[kommune_col] == valgt_kommune]
     if valgt_boligtype != "Alle" and "boligtype" in filtered.columns:
         filtered = filtered[filtered["boligtype"] == valgt_boligtype]
     if valgt_nybrukt == "Brukt":
@@ -1437,6 +1467,7 @@ def bolig_omsetningskart_view():
             filter_values={
                 "fylke": valgt_fylke,
                 "boligtype": valgt_boligtype,
+                "kommune": valgt_kommune,
                 "nybrukt": valgt_nybrukt,
                 "status": valgt_status,
                 "sold_within_days": sold_within_days,
@@ -1447,6 +1478,7 @@ def bolig_omsetningskart_view():
             },
             filter_options={
                 "fylker": alle_fylker,
+                "kommuner": alle_kommuner,
                 "boligtyper": alle_typer,
                 "nybrukt": alle_nybrukt,
                 "status": status_options,
