@@ -330,8 +330,8 @@
     <label>
       Sortér:
       <select id="sort-by">
-        <option value="avstand">Avstand fra startsted</option>
-        <option value="score">Score</option>
+        <option value="score">Beste treff</option>
+        <option value="avstand">Nærmest startsted</option>
         <option value="temp">Temperatur (høyest først)</option>
         <option value="sol">Sol (mest først)</option>
         <option value="navn">Navn (A–Å)</option>
@@ -740,19 +740,18 @@ async function sokFraBy() {
   try {
     const r = await fetch("/ver/api/sted-sok?q=" + encodeURIComponent(q));
     const data = await r.json();
-    if (!data || !data.length) {
+    const items = data.items || (Array.isArray(data) ? data : []);
+    if (!items.length) {
       settGeoStatus("Fant ikke stedet.");
       return;
     }
-    const treff = data[0];
-    fraSted = { lat: parseFloat(treff.lat), lon: parseFloat(treff.lon), navn: treff.display_name.split(",")[0] };
+    const treff = items[0];
+    fraSted = { lat: parseFloat(treff.lat), lon: parseFloat(treff.lon), navn: (treff.name || "").split(",")[0] };
     userLoc = fraSted;
     settGeoStatus(`Fra: ${fraSted.navn}`);
     $("sort-by").value = "avstand";
-    if (aktiveTreff.length) {
-      aktiveTreff.forEach((t) => { t._avstand = haversineKm(userLoc.lat, userLoc.lon, t.lat, t.lon); });
-      tegnResultater();
-    }
+    aktiveTreff.forEach((t) => { t._avstand = haversineKm(userLoc.lat, userLoc.lon, t.lat, t.lon); });
+    if (aktiveTreff.length) tegnResultater();
   } catch (e) {
     settGeoStatus("Søkefeil: " + e.message);
   }
