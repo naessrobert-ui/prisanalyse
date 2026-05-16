@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Byvær – {{ by.navn }}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;}
+
+    .topnav{padding:13px 24px;display:flex;align-items:center;gap:16px;border-bottom:1px solid #1e293b;}
+    .topnav a{color:#64748b;text-decoration:none;font-size:13px;}
+    .topnav a:hover{color:#e2e8f0;}
+    .topnav-brand{font-weight:800;font-size:15px;color:#e2e8f0;margin-left:auto;}
+    .topnav-brand span{color:#3b82f6;}
+
+    .hero{
+      padding:36px 24px 28px;text-align:center;
+      background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(59,130,246,.13) 0%,transparent 70%);
+      border-bottom:1px solid #1e293b;
+    }
+    .hero-flag{font-size:42px;line-height:1;margin-bottom:10px;}
+    .hero-navn{font-size:clamp(28px,5vw,44px);font-weight:800;letter-spacing:-.5px;}
+    .hero-dato{margin-top:6px;font-size:14px;color:#64748b;}
+    .hero-land{font-size:14px;color:#475569;margin-top:2px;}
+
+    /* Spinner */
+    .loader{display:flex;flex-direction:column;align-items:center;padding:60px 20px;gap:14px;color:#475569;}
+    .spinner{width:36px;height:36px;border:3px solid #1e293b;border-top-color:#3b82f6;border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    .main{max-width:1100px;margin:0 auto;padding:28px 18px 60px;}
+
+    /* Seksjoner */
+    .seksjon{margin-bottom:32px;}
+    .seksjon-tittel{
+      font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;
+      color:#475569;margin-bottom:14px;display:flex;align-items:center;gap:10px;
+    }
+    .seksjon-tittel::after{content:'';flex:1;height:1px;background:#1e293b;}
+    .seksjon-merknad{font-size:11px;color:#475569;margin-top:8px;font-style:italic;}
+
+    /* Dag-grid */
+    .dag-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
+      gap:8px;
+    }
+    .dag-kort{
+      background:#111827;border:1px solid #1e293b;border-radius:14px;
+      padding:12px 8px;text-align:center;
+      transition:border-color .15s;
+    }
+    .dag-kort.historikk{border-color:rgba(99,102,241,.25);}
+    .dag-kort.prognose{}
+    .dag-kort.idag{background:#141e33;border-color:rgba(59,130,246,.4);}
+    .dag-kort:hover{border-color:#3b82f6;}
+
+    .dag-dato{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;line-height:1.3;}
+    .dag-emoji{font-size:22px;line-height:1;margin:4px 0;}
+    .dag-temp{font-size:18px;font-weight:800;margin-top:4px;}
+    .dag-tmin{font-size:12px;color:#64748b;margin-top:1px;}
+    .dag-extra{font-size:10px;color:#475569;margin-top:4px;line-height:1.4;}
+
+    /* Dagsprognose-bar: temp visuell */
+    .temp-bar-wrap{height:3px;background:#1e293b;border-radius:2px;margin:6px 4px 0;}
+    .temp-bar{height:3px;border-radius:2px;background:linear-gradient(90deg,#60a5fa,#f97316);}
+
+    /* Hourly timeline */
+    .timer-rad{
+      display:flex;overflow-x:auto;gap:7px;
+      padding:2px 0 10px;scrollbar-width:thin;scrollbar-color:#1e293b transparent;
+    }
+    .timer-rad::-webkit-scrollbar{height:4px;}
+    .timer-rad::-webkit-scrollbar-track{background:transparent;}
+    .timer-rad::-webkit-scrollbar-thumb{background:#1e293b;border-radius:4px;}
+    .time-slot{
+      flex-shrink:0;width:58px;background:#111827;border:1px solid #1e293b;
+      border-radius:12px;padding:8px 4px;text-align:center;
+    }
+    .time-slot.naa{background:#141e33;border-color:rgba(59,130,246,.4);}
+    .slot-tid{font-size:10px;font-weight:700;color:#64748b;letter-spacing:.04em;}
+    .slot-emoji{font-size:18px;line-height:1;margin:3px 0;}
+    .slot-temp{font-size:14px;font-weight:800;margin-top:2px;}
+    .slot-nedbor{font-size:9px;color:#38bdf8;margin-top:2px;}
+    .slot-vind{font-size:9px;color:#64748b;margin-top:1px;}
+
+    /* Feil / info */
+    .feil-panel{
+      background:#1e1a2e;border:1px solid rgba(239,68,68,.25);
+      border-radius:14px;padding:16px 20px;color:#f87171;font-size:13px;
+    }
+    .info-panel{
+      background:#111827;border:1px solid #1e293b;
+      border-radius:14px;padding:14px 18px;color:#64748b;font-size:12px;
+    }
+
+    /* Nåværende summary */
+    .naa-strip{
+      display:flex;justify-content:center;flex-wrap:wrap;gap:0;
+      border-bottom:1px solid #1e293b;background:rgba(15,23,42,.5);
+    }
+    .naa-cell{
+      padding:14px 22px;text-align:center;border-right:1px solid #1e293b;
+    }
+    .naa-cell:last-child{border-right:none;}
+    .naa-val{font-size:22px;font-weight:800;}
+    .naa-lbl{font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.07em;margin-top:2px;}
+
+    @media(max-width:600px){
+      .hero{padding:24px 14px 20px;}
+      .main{padding:18px 12px 48px;}
+      .dag-grid{grid-template-columns:repeat(auto-fill,minmax(72px,1fr));}
+      .naa-cell{padding:10px 14px;}
+      .naa-val{font-size:18px;}
+    }
+  </style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="/ver/">← Vær</a>
+  <a href="/ver/">Byvær</a>
+  <div class="topnav-brand">pris<span>analyse</span>.no</div>
+</nav>
+
+<div class="hero">
+  <div class="hero-flag">{{ by.flag }}</div>
+  <div class="hero-navn">{{ by.navn }}</div>
+  <div class="hero-land">{{ by.land }}</div>
+  <div class="hero-dato" id="hero-dato"></div>
+</div>
+
+<div id="naa-strip" class="naa-strip" style="display:none;"></div>
+
+<div id="loader" class="loader">
+  <div class="spinner"></div>
+  <div>Henter prognose fra Yr …</div>
+</div>
+
+<div id="feil-panel" class="main" style="display:none;"></div>
+
+<div id="innhold" style="display:none;">
+  <div class="main">
+
+    <div class="seksjon" id="seksjon-historikk" style="display:none;">
+      <div class="seksjon-tittel">📅 Siste 7 dager</div>
+      <div class="dag-grid" id="grid-historikk"></div>
+      <div class="seksjon-merknad">Historikk fra Open-Meteo/ERA5.</div>
+    </div>
+
+    <div class="seksjon" id="seksjon-ingen-historikk" style="display:none;">
+      <div class="seksjon-tittel">📅 Siste dager</div>
+      <div class="info-panel">Historiske data er ikke tilgjengelig fra denne enheten. Prognosen vises under.</div>
+    </div>
+
+    <div class="seksjon">
+      <div class="seksjon-tittel">🗓️ Prognose 10 dager</div>
+      <div class="dag-grid" id="grid-prognose"></div>
+      <div class="seksjon-merknad">Kilde: Yr/met.no. Dag 8–10 er mindre presise.</div>
+    </div>
+
+    <div class="seksjon">
+      <div class="seksjon-tittel">🕐 Time for time – i dag og i morgen</div>
+      <div class="timer-rad" id="timer-rad"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const BY_LAT = {{ by.lat }};
+const BY_LON = {{ by.lon }};
+
+const UKEDAG = ["søn","man","tir","ons","tor","fre","lør"];
+const MAANED_LANG = ["januar","februar","mars","april","mai","juni","juli","august","september","oktober","november","desember"];
+const MAANED_KORT = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
+
+function $ (id) { return document.getElementById(id); }
+
+// Sett dagens dato i hero
+(function () {
+  const d = new Date();
+  const u = UKEDAG[d.getDay()];
+  $("hero-dato").textContent = u.charAt(0).toUpperCase() + u.slice(1) + " " +
+    d.getDate() + ". " + MAANED_LANG[d.getMonth()] + " " + d.getFullYear();
+})();
+
+function tempFarge(t) {
+  if (t === null || t === undefined) return "#64748b";
+  if (t <= 0) return "#93c5fd";
+  if (t <= 10) return "#6ee7b7";
+  if (t <= 18) return "#fde68a";
+  if (t <= 27) return "#fb923c";
+  return "#f87171";
+}
+
+function vindRetning(grader) {
+  if (grader === null || grader === undefined) return "";
+  const ret = ["N","NØ","Ø","SØ","S","SV","V","NV"];
+  return ret[Math.round(grader / 45) % 8];
+}
+
+function kortDatoLabel(iso) {
+  const d = new Date(iso + "T12:00:00Z");
+  return UKEDAG[d.getUTCDay()].toUpperCase() + "<br>" +
+         d.getUTCDate() + "." + (d.getUTCMonth() + 1) + ".";
+}
+
+function timeLabelFraIso(isoStr) {
+  const d = new Date(isoStr);
+  return d.getUTCHours().toString().padStart(2,"0") + ":00";
+}
+
+function visNaaStrip(dager) {
+  if (!dager || !dager.length) return;
+  const dag = dager[0];
+  const strip = $("naa-strip");
+  const temp = dag.temp_max !== null ? dag.temp_max.toFixed(0) + "°" : "–";
+  const sky = dag.sky_pct !== null ? dag.sky_pct + "%" : "–";
+  const nedb = dag.nedbor_mm !== null ? dag.nedbor_mm.toFixed(1) + " mm" : "–";
+  strip.innerHTML = `
+    <div class="naa-cell"><div class="naa-val" style="font-size:28px;">${dag.emoji || "🌤️"}</div><div class="naa-lbl">I dag</div></div>
+    <div class="naa-cell"><div class="naa-val" style="color:${tempFarge(dag.temp_max)}">${temp}</div><div class="naa-lbl">Maks temp</div></div>
+    <div class="naa-cell"><div class="naa-val" style="color:#38bdf8">${nedb}</div><div class="naa-lbl">Nedbør</div></div>
+    <div class="naa-cell"><div class="naa-val">${sky}</div><div class="naa-lbl">Skydekke</div></div>
+  `;
+  strip.style.display = "flex";
+}
+
+function visHistorikk(hist) {
+  if (!hist || !hist.length) {
+    $("seksjon-ingen-historikk").style.display = "block";
+    return;
+  }
+  const grid = $("grid-historikk");
+  hist.forEach(dag => {
+    const tmax = dag.temp_max !== null ? dag.temp_max.toFixed(0) : "–";
+    const tmin = dag.temp_min !== null ? dag.temp_min.toFixed(0) : "–";
+    const nedb = dag.nedbor_mm !== null && dag.nedbor_mm >= 0.1
+      ? dag.nedbor_mm.toFixed(1) + " mm" : "";
+    const sol = dag.sol_timer !== null && dag.sol_timer > 0
+      ? dag.sol_timer.toFixed(1) + "t ☀️" : "";
+    const el = document.createElement("div");
+    el.className = "dag-kort historikk";
+    el.innerHTML = `
+      <div class="dag-dato">${kortDatoLabel(dag.dato)}</div>
+      <div class="dag-emoji">${dag.emoji || "🌤️"}</div>
+      <div class="dag-temp" style="color:${tempFarge(dag.temp_max)}">${tmax}°</div>
+      <div class="dag-tmin">${tmin}°</div>
+      <div class="dag-extra">${nedb}${nedb && sol ? "<br>" : ""}${sol}</div>
+    `;
+    grid.appendChild(el);
+  });
+  $("seksjon-historikk").style.display = "block";
+}
+
+function visPrognose(dager) {
+  const grid = $("grid-prognose");
+  const totalDager = dager.length;
+  const maxTemp = Math.max(...dager.map(d => d.temp_max ?? -999));
+  const minTemp = Math.min(...dager.map(d => d.temp_min ?? 999));
+  const spenn = maxTemp - minTemp || 1;
+
+  dager.forEach((dag, idx) => {
+    const tmax = dag.temp_max !== null ? dag.temp_max.toFixed(0) : "–";
+    const tmin = dag.temp_min !== null ? dag.temp_min.toFixed(0) : "–";
+    const nedb = dag.nedbor_mm > 0 ? dag.nedbor_mm.toFixed(1) + " mm" : "";
+    let label;
+    if (idx === 0) label = "I DAG";
+    else if (idx === 1) label = "I MORGEN";
+    else label = kortDatoLabel(dag.dato);
+
+    const barW = dag.temp_max !== null
+      ? Math.max(5, Math.round(((dag.temp_max - minTemp) / spenn) * 100)) : 0;
+
+    const el = document.createElement("div");
+    el.className = "dag-kort prognose" + (idx === 0 ? " idag" : "");
+    el.innerHTML = `
+      <div class="dag-dato">${label}</div>
+      <div class="dag-emoji">${dag.emoji || "🌤️"}</div>
+      <div class="dag-temp" style="color:${tempFarge(dag.temp_max)}">${tmax}°</div>
+      <div class="dag-tmin">${tmin}°</div>
+      <div class="dag-extra">${nedb}</div>
+      <div class="temp-bar-wrap"><div class="temp-bar" style="width:${barW}%"></div></div>
+    `;
+    grid.appendChild(el);
+  });
+}
+
+function visTimer(timer) {
+  const rad = $("timer-rad");
+  const nowH = new Date().getUTCHours();
+
+  timer.slice(0, 48).forEach((t, idx) => {
+    const dt = new Date(t.time);
+    const erNaa = idx === 0;
+    const tid = dt.getUTCHours().toString().padStart(2,"0") + ":00";
+    const temp = t.temp !== null ? t.temp.toFixed(0) + "°" : "–";
+    const nedb = t.precip_1h > 0.1 ? `<div class="slot-nedbor">${t.precip_1h}mm</div>` : "";
+    const vind = t.wind !== null
+      ? `<div class="slot-vind">${t.wind.toFixed(0)}m/s ${vindRetning(t.wdir)}</div>` : "";
+
+    const slot = document.createElement("div");
+    slot.className = "time-slot" + (erNaa ? " naa" : "");
+    slot.innerHTML = `
+      <div class="slot-tid">${tid}</div>
+      <div class="slot-emoji">${t.emoji || "🌤️"}</div>
+      <div class="slot-temp" style="color:${tempFarge(t.temp)}">${temp}</div>
+      ${nedb}${vind}
+    `;
+    rad.appendChild(slot);
+  });
+
+  // Scroll til første slot etter midnatt (start av inneværende dag)
+  if (rad.children.length > 0) {
+    requestAnimationFrame(() => {
+      const slot0 = rad.children[0];
+      if (slot0) slot0.scrollIntoView({ block: "nearest", inline: "start" });
+    });
+  }
+}
+
+async function lastData() {
+  try {
+    const r = await fetch(`/ver/api/byvarsel-data?lat=${BY_LAT}&lon=${BY_LON}`);
+    const data = await r.json();
+    $("loader").style.display = "none";
+
+    if (!data.ok) {
+      $("feil-panel").innerHTML = `<div class="feil-panel">⚠️ Kunne ikke hente prognose: ${data.feil || "ukjent feil"}</div>`;
+      $("feil-panel").style.display = "block";
+      return;
+    }
+
+    $("innhold").style.display = "block";
+    visNaaStrip(data.prognose.dager);
+    visHistorikk(data.historikk);
+    visPrognose(data.prognose.dager);
+    visTimer(data.prognose.timer);
+
+  } catch (e) {
+    $("loader").style.display = "none";
+    $("feil-panel").innerHTML = `<div class="feil-panel">⚠️ Nettverksfeil: ${e.message}</div>`;
+    $("feil-panel").style.display = "block";
+  }
+}
+
+window.addEventListener("DOMContentLoaded", lastData);
+</script>
+</body>
+</html>

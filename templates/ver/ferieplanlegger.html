@@ -330,7 +330,7 @@
     <label>
       Sortér:
       <select id="sort-by">
-        <option value="avstand">Avstand fra meg</option>
+        <option value="avstand">Avstand fra startsted</option>
         <option value="score">Score</option>
         <option value="temp">Temperatur (høyest først)</option>
         <option value="sol">Sol (mest først)</option>
@@ -338,6 +338,12 @@
       </select>
     </label>
     <span id="geo-status" style="font-size:11px;color:var(--muted);"></span>
+    <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:200px;">
+      <input type="text" id="fra-sted-input" placeholder="📍 Fra by/flyplass …"
+        style="flex:1;padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:white;font-size:13px;" />
+      <button type="button" id="fra-sted-btn"
+        style="padding:6px 12px;border-radius:10px;border:none;background:var(--blue);color:white;font-weight:700;font-size:12px;cursor:pointer;">Sett</button>
+    </div>
     <div class="vis-toggle">
       <button type="button" id="vis-liste" class="active">📋 Liste</button>
       <button type="button" id="vis-kart">🗺️ Kart</button>
@@ -621,7 +627,8 @@ function lagAvstandsLinje(treff) {
   if (treff._avstand == null) return null;
   const el = document.createElement("div");
   el.className = "dest-avstand";
-  el.textContent = `📍 ${Math.round(treff._avstand).toLocaleString("no")} km fra deg`;
+  const stedNavn = fraSted ? fraSted.navn : "startsted";
+  el.textContent = `📍 ${Math.round(treff._avstand).toLocaleString("no")} km fra ${stedNavn}`;
   return el;
 }
 
@@ -652,7 +659,8 @@ function popupHtml(t, rang) {
   } else if (t.beste_dag && t.beste_dag.temp_max != null) {
     stats = `<div>🌡️ Beste dag: ${Math.round(t.beste_dag.temp_max)}°  ·  💧 ${t.beste_dag.nedbor_mm} mm</div>`;
   }
-  const av = t._avstand != null ? `<div style="margin-top:4px;color:#64748b;">📍 ${Math.round(t._avstand).toLocaleString("no")} km</div>` : "";
+  const stedNavn2 = fraSted ? fraSted.navn : "startsted";
+  const av = t._avstand != null ? `<div style="margin-top:4px;color:#64748b;">📍 ${Math.round(t._avstand).toLocaleString("no")} km fra ${stedNavn2}</div>` : "";
   return `<b>#${rang} ${t.navn}</b><br/><span style="color:#64748b;font-size:12px;">${t.region} · ${t.land}</span>${stats}${av}`;
 }
 
@@ -723,31 +731,35 @@ function settVisning(visning) {
 
 function settGeoStatus(tekst) { $("geo-status").textContent = tekst; }
 
-function spørGeolokasjon() {
-  if (!navigator.geolocation) {
-    settGeoStatus("(nettleseren støtter ikke posisjon)");
-    $("sort-by").value = "score";
-    return;
+let fraSted = null;  // {lat, lon, navn} – startsted for avstandssortering
+
+async function sokFraBy() {
+  const q = ($("fra-sted-input").value || "").trim();
+  if (!q) return;
+  settGeoStatus("Søker …");
+  try {
+    const r = await fetch("/ver/api/sted-sok?q=" + encodeURIComponent(q));
+    const data = await r.json();
+    if (!data || !data.length) {
+      settGeoStatus("Fant ikke stedet.");
+      return;
+    }
+    const treff = data[0];
+    fraSted = { lat: parseFloat(treff.lat), lon: parseFloat(treff.lon), navn: treff.display_name.split(",")[0] };
+    userLoc = fraSted;
+    settGeoStatus(`Fra: ${fraSted.navn}`);
+    $("sort-by").value = "avstand";
+    if (aktiveTreff.length) {
+      aktiveTreff.forEach((t) => { t._avstand = haversineKm(userLoc.lat, userLoc.lon, t.lat, t.lon); });
+      tegnResultater();
+    }
+  } catch (e) {
+    settGeoStatus("Søkefeil: " + e.message);
   }
-  settGeoStatus("(spør om posisjon …)");
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      userLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-      settGeoStatus(`(posisjon: ${userLoc.lat.toFixed(2)}, ${userLoc.lon.toFixed(2)})`);
-      // Beregn avstander for evt. eksisterende treff
-      if (aktiveTreff.length) {
-        aktiveTreff.forEach((t) => { t._avstand = haversineKm(userLoc.lat, userLoc.lon, t.lat, t.lon); });
-        tegnResultater();
-      }
-    },
-    () => {
-      settGeoStatus("(posisjon avvist — sortert etter score)");
-      $("sort-by").value = "score";
-      if (aktiveTreff.length) tegnResultater();
-    },
-    { timeout: 8000, maximumAge: 5 * 60 * 1000 },
-  );
 }
+
+$("fra-sted-btn").addEventListener("click", sokFraBy);
+$("fra-sted-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sokFraBy(); });
 
 async function sokDestinasjoner() {
   const btn = $("sok-btn");

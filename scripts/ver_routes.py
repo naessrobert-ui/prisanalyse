@@ -435,6 +435,27 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
     </div>
   </div>
 
+  <!-- Byvær -->
+  <div class="seksjon">
+    <div class="seksjon-tittel">🌍 Byvær – detaljert prognose</div>
+    <div class="grid">
+
+      <a class="kort" href="/ver/byvarsel/london"><div class="kort-topp"><div class="kort-ikon">🇬🇧</div><span class="kort-badge b-blå">UK</span></div><div class="kort-tittel">London</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/paris"><div class="kort-topp"><div class="kort-ikon">🇫🇷</div><span class="kort-badge b-blå">FR</span></div><div class="kort-tittel">Paris</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/roma"><div class="kort-topp"><div class="kort-ikon">🇮🇹</div><span class="kort-badge b-blå">IT</span></div><div class="kort-tittel">Roma</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/barcelona"><div class="kort-topp"><div class="kort-ikon">🇪🇸</div><span class="kort-badge b-blå">ES</span></div><div class="kort-tittel">Barcelona</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/amsterdam"><div class="kort-topp"><div class="kort-ikon">🇳🇱</div><span class="kort-badge b-blå">NL</span></div><div class="kort-tittel">Amsterdam</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/berlin"><div class="kort-topp"><div class="kort-ikon">🇩🇪</div><span class="kort-badge b-blå">DE</span></div><div class="kort-tittel">Berlin</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/nice"><div class="kort-topp"><div class="kort-ikon">🇫🇷</div><span class="kort-badge b-gul">Strand</span></div><div class="kort-tittel">Nice</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/palma"><div class="kort-topp"><div class="kort-ikon">🇪🇸</div><span class="kort-badge b-gul">Strand</span></div><div class="kort-tittel">Palma</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/athen"><div class="kort-topp"><div class="kort-ikon">🇬🇷</div><span class="kort-badge b-gul">Strand</span></div><div class="kort-tittel">Athen</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/tenerife"><div class="kort-topp"><div class="kort-ikon">🇪🇸</div><span class="kort-badge b-gul">Sol</span></div><div class="kort-tittel">Tenerife</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/antalya"><div class="kort-topp"><div class="kort-ikon">🇹🇷</div><span class="kort-badge b-gul">Sol</span></div><div class="kort-tittel">Antalya</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+      <a class="kort" href="/ver/byvarsel/dubai"><div class="kort-topp"><div class="kort-ikon">🇦🇪</div><span class="kort-badge b-rød">Varmt</span></div><div class="kort-tittel">Dubai</div><div class="kort-tekst">10-dagers prognose + historikk</div><div class="kort-lenke">Åpne</div></a>
+
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -3750,3 +3771,226 @@ def ferieplanlegger_langtid():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"ok": False, "feil": str(e)}), 500
+
+
+# ─── BYVÆR ────────────────────────────────────────────────────────────────────
+
+_BV_YR = "https://api.met.no/weatherapi/locationforecast/2.0/complete"
+_BV_OM = "https://api.open-meteo.com/v1/forecast"
+_BV_UA = "prisanalyse.no/1.0 (kontakt@prisanalyse.no)"
+
+BYVAER_BYER: list[dict] = [
+    # Europa
+    {"id": "london",     "navn": "London",       "land": "GB", "flag": "🇬🇧", "lat": 51.5074, "lon":  -0.1278},
+    {"id": "paris",      "navn": "Paris",         "land": "FR", "flag": "🇫🇷", "lat": 48.8566, "lon":   2.3522},
+    {"id": "roma",       "navn": "Roma",           "land": "IT", "flag": "🇮🇹", "lat": 41.9028, "lon":  12.4964},
+    {"id": "barcelona",  "navn": "Barcelona",     "land": "ES", "flag": "🇪🇸", "lat": 41.3851, "lon":   2.1734},
+    {"id": "madrid",     "navn": "Madrid",        "land": "ES", "flag": "🇪🇸", "lat": 40.4168, "lon":  -3.7038},
+    {"id": "amsterdam",  "navn": "Amsterdam",     "land": "NL", "flag": "🇳🇱", "lat": 52.3676, "lon":   4.9041},
+    {"id": "berlin",     "navn": "Berlin",        "land": "DE", "flag": "🇩🇪", "lat": 52.5200, "lon":  13.4050},
+    {"id": "wien",       "navn": "Wien",          "land": "AT", "flag": "🇦🇹", "lat": 48.2082, "lon":  16.3738},
+    {"id": "praha",      "navn": "Praha",         "land": "CZ", "flag": "🇨🇿", "lat": 50.0755, "lon":  14.4378},
+    {"id": "stockholm",  "navn": "Stockholm",     "land": "SE", "flag": "🇸🇪", "lat": 59.3293, "lon":  18.0686},
+    {"id": "kobenhavn",  "navn": "København",     "land": "DK", "flag": "🇩🇰", "lat": 55.6761, "lon":  12.5683},
+    {"id": "istanbul",   "navn": "Istanbul",      "land": "TR", "flag": "🇹🇷", "lat": 41.0082, "lon":  28.9784},
+    {"id": "lisboa",     "navn": "Lisboa",        "land": "PT", "flag": "🇵🇹", "lat": 38.7223, "lon":  -9.1393},
+    # Strand og sol
+    {"id": "nice",        "navn": "Nice",         "land": "FR", "flag": "🇫🇷", "lat": 43.7102, "lon":   7.2620},
+    {"id": "palma",       "navn": "Palma",        "land": "ES", "flag": "🇪🇸", "lat": 39.5696, "lon":   2.6502},
+    {"id": "dubrovnik",   "navn": "Dubrovnik",    "land": "HR", "flag": "🇭🇷", "lat": 42.6507, "lon":  18.0944},
+    {"id": "athen",       "navn": "Athen",        "land": "GR", "flag": "🇬🇷", "lat": 37.9838, "lon":  23.7275},
+    {"id": "tenerife",    "navn": "Tenerife",     "land": "ES", "flag": "🇪🇸", "lat": 28.2916, "lon": -16.6291},
+    {"id": "gran_canaria","navn": "Gran Canaria", "land": "ES", "flag": "🇪🇸", "lat": 28.1235, "lon": -15.4363},
+    {"id": "antalya",     "navn": "Antalya",      "land": "TR", "flag": "🇹🇷", "lat": 36.8969, "lon":  30.7133},
+    {"id": "hurghada",    "navn": "Hurghada",     "land": "EG", "flag": "🇪🇬", "lat": 27.2579, "lon":  33.8116},
+    {"id": "dubai",       "navn": "Dubai",        "land": "AE", "flag": "🇦🇪", "lat": 25.2048, "lon":  55.2708},
+]
+
+_BV_YR_EMOJI_BASE: dict[str, str] = {
+    "clearsky": "☀️", "fair": "🌤️", "partlycloudy": "⛅", "cloudy": "☁️", "fog": "🌫️",
+    "lightrain": "🌦️", "rain": "🌧️", "heavyrain": "🌧️",
+    "lightrainshowers": "🌦️", "rainshowers": "🌧️", "heavyrainshowers": "🌧️",
+    "lightsnow": "🌨️", "snow": "❄️", "heavysnow": "❄️",
+    "lightsleet": "🌨️", "sleet": "🌨️", "heavysleet": "🌧️",
+    "lightrainandthunder": "⛈️", "thunder": "⛈️", "rainandthunder": "⛈️",
+}
+
+_BV_WMO_EMOJI: dict[int, str] = {
+    0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
+    45: "🌫️", 48: "🌫️",
+    51: "🌦️", 53: "🌦️", 55: "🌧️",
+    61: "🌦️", 63: "🌧️", 65: "🌧️",
+    71: "🌨️", 73: "❄️", 75: "❄️", 77: "🌨️",
+    80: "🌦️", 81: "🌧️", 82: "🌧️",
+    85: "🌨️", 86: "❄️",
+    95: "⛈️", 96: "⛈️", 99: "⛈️",
+}
+
+
+def _bv_yr_emoji(symbol: str) -> str:
+    base = symbol.split("_")[0] if symbol else ""
+    return _BV_YR_EMOJI_BASE.get(base, "🌤️")
+
+
+def _bv_yr_fetch(lat: float, lon: float) -> Optional[list]:
+    try:
+        r = requests.get(
+            _BV_YR,
+            params={"lat": round(lat, 4), "lon": round(lon, 4)},
+            headers={"User-Agent": _BV_UA},
+            timeout=14,
+        )
+        if r.status_code == 200:
+            return r.json().get("properties", {}).get("timeseries", []) or []
+    except Exception:
+        pass
+    return None
+
+
+def _bv_aggreger(ts: list) -> dict:
+    from datetime import timedelta as _td
+    today = datetime.now(timezone.utc).date()
+    now_utc = datetime.now(timezone.utc)
+    cutoff = now_utc + _td(hours=49)
+
+    per_dag: dict = {}
+    timer: list = []
+
+    for item in ts:
+        try:
+            t = datetime.fromisoformat(item["time"].replace("Z", "+00:00"))
+        except (ValueError, KeyError):
+            continue
+        d = t.date()
+        if d < today:
+            continue
+
+        det = (item.get("data") or {}).get("instant", {}).get("details", {})
+        temp = det.get("air_temperature")
+        cloud = det.get("cloud_area_fraction")
+        wind = det.get("wind_speed")
+        wdir = det.get("wind_from_direction")
+
+        bucket = per_dag.setdefault(d, {"t": [], "c": [], "sym": [], "prec": {}})
+        if temp is not None:
+            bucket["t"].append(float(temp))
+        if cloud is not None:
+            bucket["c"].append(float(cloud))
+
+        sym, precip = "", 0.0
+        for key, hrs in (("next_1_hours", 1), ("next_6_hours", 6)):
+            blk = (item.get("data") or {}).get(key) or {}
+            if not blk:
+                continue
+            sym = (blk.get("summary") or {}).get("symbol_code", "")
+            p = (blk.get("details") or {}).get("precipitation_amount") or 0.0
+            precip = float(p)
+            if sym and 6 <= t.hour <= 21:
+                bucket["sym"].append(sym)
+            for k in range(hrs):
+                slot = (t + _td(hours=k)).isoformat()
+                if slot not in bucket["prec"]:
+                    bucket["prec"][slot] = precip / hrs
+            break
+
+        if now_utc <= t <= cutoff:
+            timer.append({
+                "time": item["time"],
+                "temp": round(float(temp), 1) if temp is not None else None,
+                "cloud": round(float(cloud)) if cloud is not None else None,
+                "wind": round(float(wind), 1) if wind is not None else None,
+                "wdir": round(float(wdir)) if wdir is not None else None,
+                "precip_1h": round(precip, 1),
+                "symbol": sym,
+                "emoji": _bv_yr_emoji(sym),
+            })
+
+    dager = []
+    for i in range(10):
+        d = today + _td(days=i)
+        b = per_dag.get(d)
+        if not b:
+            continue
+        temps, clouds, syms = b["t"], b["c"], b["sym"]
+        p_tot = sum(b["prec"].values())
+        dom_sym = max(set(syms), key=syms.count) if syms else ""
+        dager.append({
+            "dato": d.isoformat(),
+            "temp_max": round(max(temps), 1) if temps else None,
+            "temp_min": round(min(temps), 1) if temps else None,
+            "sky_pct": round(sum(clouds) / len(clouds)) if clouds else None,
+            "nedbor_mm": round(p_tot, 1),
+            "symbol": dom_sym,
+            "emoji": _bv_yr_emoji(dom_sym),
+        })
+
+    return {"dager": dager, "timer": timer}
+
+
+def _bv_openmeteo_historikk(lat: float, lon: float) -> Optional[list]:
+    try:
+        r = requests.get(
+            _BV_OM,
+            params={
+                "latitude": round(lat, 4),
+                "longitude": round(lon, 4),
+                "past_days": 7,
+                "forecast_days": 1,
+                "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,weathercode",
+                "timezone": "auto",
+            },
+            headers={"User-Agent": _BV_UA},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return None
+        daily = r.json().get("daily", {})
+        dates = daily.get("time", [])
+        if not dates:
+            return None
+        today_s = datetime.now(timezone.utc).date().isoformat()
+        result = []
+        n = len(dates)
+        for i, d in enumerate(dates):
+            if d >= today_s:
+                continue
+            code = (daily.get("weathercode") or [None] * n)[i]
+            sun = (daily.get("sunshine_duration") or [None] * n)[i]
+            result.append({
+                "dato": d,
+                "temp_max": (daily.get("temperature_2m_max") or [None] * n)[i],
+                "temp_min": (daily.get("temperature_2m_min") or [None] * n)[i],
+                "nedbor_mm": (daily.get("precipitation_sum") or [None] * n)[i],
+                "sol_timer": round(sun / 3600, 1) if sun is not None else None,
+                "emoji": _BV_WMO_EMOJI.get(code, "🌤️") if code is not None else "🌤️",
+            })
+        return result or None
+    except Exception:
+        return None
+
+
+@ver.route("/byvarsel/<by_id>")
+def byvarsel_by(by_id: str):
+    by_ = next((b for b in BYVAER_BYER if b["id"] == by_id), None)
+    if by_ is None:
+        return render_template("ver/ver_hub.html"), 404
+    return render_template("ver/byvarsel.html", by=by_)
+
+
+@ver.route("/api/byvarsel-data")
+def byvarsel_data():
+    try:
+        lat = float(request.args["lat"])
+        lon = float(request.args["lon"])
+    except (KeyError, ValueError, TypeError):
+        return jsonify({"ok": False, "feil": "Mangler eller ugyldig lat/lon"}), 400
+
+    ts = _bv_yr_fetch(lat, lon)
+    if ts is None:
+        return jsonify({"ok": False, "feil": "Kunne ikke hente prognose fra Yr"}), 503
+
+    prognose = _bv_aggreger(ts)
+    historikk = _bv_openmeteo_historikk(lat, lon)
+
+    return jsonify({"ok": True, "prognose": prognose, "historikk": historikk})
+
