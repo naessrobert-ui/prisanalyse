@@ -1325,9 +1325,18 @@ def bolig_omsetningskart_view():
 
     if valgt_fylke != "Alle" and "fylke" in kommune_source.columns:
         kommune_source = kommune_source[kommune_source["fylke"] == valgt_fylke]
-    alle_kommuner = sorted(
-        kommune_source["kommune"].dropna().astype(str).loc[lambda s: s.str.strip() != ""].unique().tolist()
-    ) if "kommune" in kommune_source.columns else []
+
+    kommune_col = None
+    for cand in ["kommune_navn", "kommune", "kommunenavn", "sted"]:
+        if cand in kommune_source.columns:
+            kommune_col = cand
+            break
+
+    alle_kommuner = []
+    if kommune_col is not None:
+        alle_kommuner = sorted(
+            kommune_source[kommune_col].dropna().astype(str).loc[lambda s: s.str.strip() != ""].unique().tolist()
+        )
     if valgt_kommune != "Alle" and valgt_kommune not in alle_kommuner:
         valgt_kommune = "Alle"
 
@@ -1403,8 +1412,8 @@ def bolig_omsetningskart_view():
     filtered = df.copy()
     if valgt_fylke != "Alle" and "fylke" in filtered.columns:
         filtered = filtered[filtered["fylke"] == valgt_fylke]
-    if valgt_kommune != "Alle" and "kommune" in filtered.columns:
-        filtered = filtered[filtered["kommune"] == valgt_kommune]
+    if valgt_kommune != "Alle" and kommune_col is not None:
+        filtered = filtered[filtered[kommune_col] == valgt_kommune]
     if valgt_boligtype != "Alle" and "boligtype" in filtered.columns:
         filtered = filtered[filtered["boligtype"] == valgt_boligtype]
     if valgt_nybrukt == "Brukt":
