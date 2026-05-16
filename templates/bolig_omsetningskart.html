@@ -176,6 +176,24 @@
       <p class="hint mt-3 mb-0">
         Tips: Tøm begge feltene for X/Y for å vise alle boliger (både solgt/fjernet og aktive).
       </p>
+
+      {% if viewport_stats %}
+        <div class="card card-body mt-3" style="background: rgba(255,255,255,0.06);">
+          <strong>Snitt i utvalg</strong>
+          <small>Totalt synlige: {{ stats.shown_count if stats else 0 }}</small>
+          <div>Totalpris: <strong>{{ "{:,.0f}".format(viewport_stats.snitt_totalpris).replace(",", " ") if viewport_stats.snitt_totalpris is not none else "–" }}{{ " kr" if viewport_stats.snitt_totalpris is not none else "" }}</strong></div>
+          <div>M²-pris: <strong>{{ "{:,.0f}".format(viewport_stats.snitt_m2).replace(",", " ") if viewport_stats.snitt_m2 is not none else "–" }}{{ " kr" if viewport_stats.snitt_m2 is not none else "" }}</strong></div>
+          <div>Dager: <strong>{{ "{:,.0f}".format(viewport_stats.snitt_dager) if viewport_stats.snitt_dager is not none else "–" }}</strong></div>
+        </div>
+
+        <div class="card card-body mt-2" style="background: rgba(255,255,255,0.06);">
+          <strong>Median i utvalg</strong>
+          <div>Totalpris: <strong>{{ "{:,.0f}".format(viewport_stats.median_totalpris).replace(",", " ") if viewport_stats.median_totalpris is not none else "–" }}{{ " kr" if viewport_stats.median_totalpris is not none else "" }}</strong></div>
+          <div>M²-pris: <strong>{{ "{:,.0f}".format(viewport_stats.median_m2).replace(",", " ") if viewport_stats.median_m2 is not none else "–" }}{{ " kr" if viewport_stats.median_m2 is not none else "" }}</strong></div>
+          <div>Dager: <strong>{{ "{:,.0f}".format(viewport_stats.median_dager) if viewport_stats.median_dager is not none else "–" }}</strong></div>
+        </div>
+      {% endif %}
+
     </aside>
 
     <section class="map-panel">

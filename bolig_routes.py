@@ -1183,7 +1183,8 @@ def bolig_varmekart_view():
     filtered = df.copy()
 
     if valgt_fylke != "Alle" and "fylke" in filtered.columns:
-        filtered = filtered[filtered["fylke"] == valgt_fylke]
+        fylke_series = filtered["fylke"].fillna("").astype(str).str.strip().str.casefold()
+        filtered = filtered[fylke_series == valgt_fylke.strip().casefold()]
 
     if valgt_boligtype != "Alle" and "boligtype" in filtered.columns:
         filtered = filtered[filtered["boligtype"].isin([valgt_boligtype])]
@@ -1324,7 +1325,8 @@ def bolig_omsetningskart_view():
         price_basis = "m2"
 
     if valgt_fylke != "Alle" and "fylke" in kommune_source.columns:
-        kommune_source = kommune_source[kommune_source["fylke"] == valgt_fylke]
+        fylke_series = kommune_source["fylke"].fillna("").astype(str).str.strip().str.casefold()
+        kommune_source = kommune_source[fylke_series == valgt_fylke.strip().casefold()]
 
     kommune_col = None
     for cand in ["kommune_navn", "kommune", "kommunenavn", "sted"]:
@@ -1411,9 +1413,11 @@ def bolig_omsetningskart_view():
 
     filtered = df.copy()
     if valgt_fylke != "Alle" and "fylke" in filtered.columns:
-        filtered = filtered[filtered["fylke"] == valgt_fylke]
+        fylke_series = filtered["fylke"].fillna("").astype(str).str.strip().str.casefold()
+        filtered = filtered[fylke_series == valgt_fylke.strip().casefold()]
     if valgt_kommune != "Alle" and kommune_col is not None:
-        filtered = filtered[filtered[kommune_col] == valgt_kommune]
+        kommune_series = filtered[kommune_col].fillna("").astype(str).str.strip().str.casefold()
+        filtered = filtered[kommune_series == valgt_kommune.strip().casefold()]
     if valgt_boligtype != "Alle" and "boligtype" in filtered.columns:
         filtered = filtered[filtered["boligtype"] == valgt_boligtype]
     if valgt_nybrukt == "Brukt":
@@ -1574,6 +1578,19 @@ def bolig_omsetningskart_view():
         if pd.notna(price_val):
             popup_parts.append(f"Størrelse styres av: {price_label}")
 
+        image_url = None
+        for image_col in ["bilde_url", "image_url", "BildeURL", "thumbnail"]:
+            raw_val = row.get(image_col)
+            if pd.notna(raw_val):
+                url_candidate = str(raw_val).strip()
+                if url_candidate and url_candidate.lower() not in {"nan", "none"}:
+                    image_url = url_candidate
+                    break
+        if image_url:
+            popup_parts.append(
+                f"<img src='{image_url}' loading='lazy' alt='Boligbilde' style='max-width:220px;width:100%;height:auto;border-radius:6px;margin-top:6px;'/>"
+            )
+
         folium.CircleMarker(
             location=[row["latitude"], row["longitude"]],
             radius=radius,
@@ -1592,6 +1609,18 @@ def bolig_omsetningskart_view():
         "active": int(filtered["er_aktiv"].sum()),
     }
 
+    totalpris_vals = pd.to_numeric(filtered.get("totalpris"), errors="coerce")
+    m2_vals = pd.to_numeric(filtered.get("m2_pris"), errors="coerce")
+    days_vals = pd.to_numeric(duration_series.reindex(filtered.index), errors="coerce")
+    viewport_stats = {
+        "snitt_totalpris": float(totalpris_vals.mean()) if totalpris_vals.notna().any() else None,
+        "median_totalpris": float(totalpris_vals.median()) if totalpris_vals.notna().any() else None,
+        "snitt_m2": float(m2_vals.mean()) if m2_vals.notna().any() else None,
+        "median_m2": float(m2_vals.median()) if m2_vals.notna().any() else None,
+        "snitt_dager": float(days_vals.mean()) if days_vals.notna().any() else None,
+        "median_dager": float(days_vals.median()) if days_vals.notna().any() else None,
+    }
+
     return render_template(
         "bolig_omsetningskart.html",
         error=None,
@@ -1599,20 +1628,24 @@ def bolig_omsetningskart_view():
         stats=stats,
         filter_values={
             "fylke": valgt_fylke,
+            "kommune": valgt_kommune,
             "boligtype": valgt_boligtype,
             "nybrukt": valgt_nybrukt,
             "status": valgt_status,
-                "sold_within_days": sold_within_days,
-                "unsold_min_days": unsold_min_days,
-                "max_points": str(max_points),
-                "price_basis": price_basis,
-            },
+            "sold_within_days": sold_within_days,
+            "unsold_min_days": unsold_min_days,
+            "max_points": str(max_points),
+            "allow_all_norge": "1" if allow_all_norge else "0",
+            "price_basis": price_basis,
+        },
         filter_options={
             "fylker": alle_fylker,
+            "kommuner": alle_kommuner,
             "boligtyper": alle_typer,
             "nybrukt": alle_nybrukt,
             "status": status_options,
         },
+        viewport_stats=viewport_stats,
         using_thresholds=has_thresholds,
         sampled=sampled,
         needs_run=False,
