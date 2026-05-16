@@ -388,16 +388,17 @@ from pathlib import Path
 import pandas as pd
 
 from scripts.ferie_destinasjoner import DESTINASJONER_BY_ID
+from scripts.klima_tmax_sst import tmax_avg, sst
 
 KLIMA_NORMALER_FIL = Path(__file__).resolve().parent.parent / "data" / "klima_normaler.parquet"
 
 
 @dataclass
 class LangtidKriterier:
-    måned: int                       # 1-12
-    min_temp_mean: float = 18.0      # månedssnitt °C
-    min_sol: float = 4.0             # kWh/m²/dag
-    maks_nedbor_mm: float = 80.0     # mm/måned
+    måned: int                        # 1-12
+    min_temp_max: float = 22.0        # gjennomsnittlig daglig maks-temp °C
+    min_sol: float = 3.0              # kWh/m²/dag
+    maks_nedbor_mm: float = 80.0      # mm/måned
     kun_norge: bool = False
     tags: list[str] = field(default_factory=list)
 
@@ -446,8 +447,12 @@ def planlegg_langtid(kriterier: LangtidKriterier) -> list[dict]:
         }
         df = df[df["dest_id"].isin(valid_ids)]
 
-    # Hardfiltrer på brukerens kriterier.
-    df = df[df["temp_mean"] >= kriterier.min_temp_mean]
+    # Beregn estimert daglig maks-temp for hvert sted og filtrer på den.
+    df = df.copy()
+    df["tmax_avg"] = df.apply(
+        lambda r: tmax_avg(r["dest_id"], r["temp_mean"], int(r["month"])), axis=1
+    )
+    df = df[df["tmax_avg"] >= kriterier.min_temp_max]
     df = df[df["solar_kwh_day"] >= kriterier.min_sol]
     df = df[df["precip_mm_month"] <= kriterier.maks_nedbor_mm]
 
@@ -465,6 +470,7 @@ def planlegg_langtid(kriterier: LangtidKriterier) -> list[dict]:
         dest = DESTINASJONER_BY_ID.get(r["dest_id"])
         if not dest:
             continue
+        sst_val = sst(dest["id"], kriterier.måned)
         resultater.append({
             "id": dest["id"],
             "navn": dest["navn"],
@@ -476,12 +482,14 @@ def planlegg_langtid(kriterier: LangtidKriterier) -> list[dict]:
             "score": float(r["score"]),
             "klima": {
                 "month": int(r["month"]),
+                "tmax_avg": float(r["tmax_avg"]),
                 "temp_mean": float(r["temp_mean"]),
                 "temp_min": float(r["temp_min"]),
                 "temp_max": float(r["temp_max"]),
                 "precip_mm_day": float(r["precip_mm_day"]),
                 "precip_mm_month": float(r["precip_mm_month"]),
                 "solar_kwh_day": float(r["solar_kwh_day"]),
+                "sst_c": sst_val,
             },
         })
     return resultater
