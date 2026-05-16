@@ -329,9 +329,9 @@
   <div class="resultat-topp" id="resultat-topp" style="display:none;">
     <label>
       Sortér:
-      <select id="sort-by">
-        <option value="score">Beste treff</option>
+      <select id="sort-by" autocomplete="off">
         <option value="avstand">Nærmest startsted</option>
+        <option value="score">Beste treff</option>
         <option value="temp">Temperatur (høyest først)</option>
         <option value="sol">Sol (mest først)</option>
         <option value="navn">Navn (A–Å)</option>
@@ -602,7 +602,8 @@ function solKey(t) {
 
 function sorter(treff, sortBy) {
   const sortert = [...treff];
-  if (sortBy === "avstand" && userLoc) {
+  if (sortBy === "avstand") {
+    if (!userLoc) settGeoStatus("Sett et startsted for avstandssortering.");
     sortert.sort((a, b) => (a._avstand ?? 9e9) - (b._avstand ?? 9e9));
   } else if (sortBy === "temp") {
     sortert.sort((a, b) => tempKey(b) - tempKey(a));
@@ -611,7 +612,6 @@ function sorter(treff, sortBy) {
   } else if (sortBy === "navn") {
     sortert.sort((a, b) => a.navn.localeCompare(b.navn, "no"));
   } else {
-    // score (default)
     sortert.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   }
   return sortert;
@@ -775,11 +775,6 @@ async function sokDestinasjoner() {
     aktivKortBygger = kortBygger;
     aktiveTreff = data.treff;
 
-    // Sett default sortering basert på om vi har posisjon
-    if (!userLoc && $("sort-by").value === "avstand") {
-      $("sort-by").value = "score";
-    }
-
     // Beregn avstander hvis vi har posisjon
     if (userLoc) {
       aktiveTreff.forEach((t) => { t._avstand = haversineKm(userLoc.lat, userLoc.lon, t.lat, t.lon); });
@@ -824,7 +819,6 @@ $("vis-kart").addEventListener("click", () => settVisning("kart"));
 $("lt_maaned").value = String(new Date().getMonth() + 1);
 
 bytteModus("korttid");
-spørGeolokasjon();
 </script>
 </body>
 </html>
