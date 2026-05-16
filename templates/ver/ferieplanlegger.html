@@ -288,8 +288,8 @@
           </select>
         </div>
         <div class="field">
-          <label>Min. snitt-temp (°C)</label>
-          <input type="number" id="lt_min_temp" value="16" min="-5" max="35" step="1" />
+          <label>Min. daglig maks-temp (°C)</label>
+          <input type="number" id="lt_min_temp" value="22" min="-5" max="40" step="1" />
         </div>
         <div class="field">
           <label>Min. sol (kWh/m²/dag)</label>
@@ -301,9 +301,9 @@
         </div>
       </div>
       <p class="info-merknad">
-        Klimanormaler 1991-2020 fra NASA POWER. Snittemperatur 16 °C ≈ daglig maks 20-23 °C.
-        Sol-skala: ~1 (vinter nord), 3–4 (vår/høst Middelhav), 6–7 (sommer Middelhavet).
-        Tips for høstferie (sep–nov): bruk 14–17 °C og 2.5–3.5 kWh/m²/dag.
+        Klimanormaler 1991-2020 fra NASA POWER. Temperaturfilter er gjennomsnittlig daglig maksimum —
+        typisk "varmt på det varmeste" midt på dagen. Sol: ~3 kWh = sol/lettskyet dag, 6+ = klar sommer.
+        Tips for høstferie (okt–nov): senk maks-temp til 18–20 °C og sol til 2.5–3 kWh/m²/dag.
       </p>
     </div>
 
@@ -482,8 +482,8 @@ function lagLangtidKort(treff) {
   stats.className = "klima-rad";
   stats.innerHTML = `
     <div class="klima-celle temp">
-      <div class="stor">${k.temp_mean.toFixed(1)}°</div>
-      <div class="lbl">Snitt-temp</div>
+      <div class="stor">${k.tmax_avg.toFixed(1)}°</div>
+      <div class="lbl">Daglig maks</div>
     </div>
     <div class="klima-celle sol">
       <div class="stor">${k.solar_kwh_day.toFixed(1)}</div>
@@ -498,7 +498,11 @@ function lagLangtidKort(treff) {
 
   const meta = document.createElement("div");
   meta.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
-  meta.innerHTML = `Ekstremverdier i normalperioden: ${k.temp_min.toFixed(1)}° til ${k.temp_max.toFixed(1)}°`;
+  let metaParts = [`Snitttemp ${k.temp_mean.toFixed(1)}°`];
+  if (k.sst_c !== null && k.sst_c !== undefined) {
+    metaParts.push(`🌊 Sjøtemp ${k.sst_c}°`);
+  }
+  meta.textContent = metaParts.join(" · ");
   kort.appendChild(meta);
 
   return kort;
@@ -545,7 +549,7 @@ async function sokKorttid() {
 async function sokLangtid() {
   const params = new URLSearchParams();
   params.set("maaned", $("lt_maaned").value || "7");
-  params.set("min_temp", $("lt_min_temp").value || "18");
+  params.set("min_temp", $("lt_min_temp").value || "22");
   params.set("min_sol", $("lt_min_sol").value || "4");
   params.set("maks_nedbor", $("lt_maks_nedbor").value || "80");
   if ($("kun_norge").checked) params.set("kun_norge", "1");
@@ -580,6 +584,7 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 
 function tempKey(t) {
   if (t.beste_dag && t.beste_dag.temp_max != null) return t.beste_dag.temp_max;
+  if (t.klima && t.klima.tmax_avg != null) return t.klima.tmax_avg;
   if (t.klima && t.klima.temp_mean != null) return t.klima.temp_mean;
   return -999;
 }
@@ -642,7 +647,8 @@ function popupHtml(t, rang) {
   let stats = "";
   if (t.klima) {
     const k = t.klima;
-    stats = `<div>🌡️ Snitt ${k.temp_mean.toFixed(1)}°  ·  ☀️ ${k.solar_kwh_day.toFixed(1)} kWh  ·  💧 ${k.precip_mm_month.toFixed(0)} mm</div>`;
+    const sst = (k.sst_c !== null && k.sst_c !== undefined) ? `  ·  🌊 ${k.sst_c}°` : "";
+    stats = `<div>🌡️ Maks ${k.tmax_avg.toFixed(1)}°  ·  ☀️ ${k.solar_kwh_day.toFixed(1)} kWh  ·  💧 ${k.precip_mm_month.toFixed(0)} mm${sst}</div>`;
   } else if (t.beste_dag && t.beste_dag.temp_max != null) {
     stats = `<div>🌡️ Beste dag: ${Math.round(t.beste_dag.temp_max)}°  ·  💧 ${t.beste_dag.nedbor_mm} mm</div>`;
   }

@@ -3723,8 +3723,8 @@ def ferieplanlegger_langtid():
 
     kriterier = LangtidKriterier(
         måned=måned,
-        min_temp_mean=_float_arg("min_temp", 18.0),
-        min_sol=_float_arg("min_sol", 4.0),
+        min_temp_max=_float_arg("min_temp", 22.0),
+        min_sol=_float_arg("min_sol", 3.0),
         maks_nedbor_mm=_float_arg("maks_nedbor", 80.0),
         kun_norge=_bool_arg("kun_norge", False),
         tags=tags,
@@ -3737,7 +3737,7 @@ def ferieplanlegger_langtid():
             "antall": len(treff),
             "kriterier": {
                 "maaned": kriterier.måned,
-                "min_temp_mean": kriterier.min_temp_mean,
+                "min_temp_max": kriterier.min_temp_max,
                 "min_sol": kriterier.min_sol,
                 "maks_nedbor_mm": kriterier.maks_nedbor_mm,
                 "kun_norge": kriterier.kun_norge,
