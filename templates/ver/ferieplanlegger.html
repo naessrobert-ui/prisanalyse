@@ -339,10 +339,12 @@
     </label>
     <span id="geo-status" style="font-size:11px;color:var(--muted);"></span>
     <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:200px;">
-      <input type="text" id="fra-sted-input" placeholder="📍 Fra by/flyplass …"
+      <input type="text" id="fra-sted-input" placeholder="Fra by/flyplass …"
         style="flex:1;padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:white;font-size:13px;" />
       <button type="button" id="fra-sted-btn"
         style="padding:6px 12px;border-radius:10px;border:none;background:var(--blue);color:white;font-weight:700;font-size:12px;cursor:pointer;">Sett</button>
+      <button type="button" id="geo-btn" title="Bruk min posisjon"
+        style="padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:white;font-size:14px;cursor:pointer;line-height:1;">📍</button>
     </div>
     <div class="vis-toggle">
       <button type="button" id="vis-liste" class="active">📋 Liste</button>
@@ -759,6 +761,25 @@ async function sokFraBy() {
 
 $("fra-sted-btn").addEventListener("click", sokFraBy);
 $("fra-sted-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sokFraBy(); });
+
+function brukGeolokasjon() {
+  if (!navigator.geolocation) { settGeoStatus("Nettleseren støtter ikke geolokasjon."); return; }
+  settGeoStatus("Finner posisjon …");
+  $("geo-btn").disabled = true;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      fraSted = { lat: pos.coords.latitude, lon: pos.coords.longitude, navn: "din posisjon" };
+      userLoc = fraSted;
+      settGeoStatus("Fra: din posisjon");
+      $("sort-by").value = "avstand";
+      $("geo-btn").disabled = false;
+      aktiveTreff.forEach((t) => { t._avstand = haversineKm(userLoc.lat, userLoc.lon, t.lat, t.lon); });
+      if (aktiveTreff.length) tegnResultater();
+    },
+    () => { settGeoStatus("Posisjon ikke tilgjengelig – skriv inn by."); $("geo-btn").disabled = false; }
+  );
+}
+$("geo-btn").addEventListener("click", brukGeolokasjon);
 
 async function sokDestinasjoner() {
   const btn = $("sok-btn");
