@@ -194,16 +194,16 @@
     #kart.aktiv { display: block; }
     #resultater.skjult { display: none; }
 
-    /* Nummererte markører */
-    .rank-marker {
-      width: 30px; height: 30px; border-radius: 50%;
+    /* Værmarkører — farge = sol/skydekke, tekst = temperatur */
+    .vaer-marker {
+      width: 34px; height: 34px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      color: white; font-weight: 800; font-size: 13px;
+      color: white; font-weight: 800; font-size: 12px;
       border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,.3);
     }
-    .rank-marker.r-top   { background: #16a34a; }
-    .rank-marker.r-mid   { background: #f59e0b; }
-    .rank-marker.r-low   { background: #64748b; }
+    .vaer-marker.v-sol       { background: #f59e0b; }  /* sol — gul/oransje */
+    .vaer-marker.v-delvis    { background: #16a34a; }  /* delvis skyet — grønn */
+    .vaer-marker.v-overskyet { background: #64748b; }  /* overskyet — grå */
     .meg-marker {
       width: 22px; height: 22px; border-radius: 50%;
       background: var(--blue); border: 3px solid white;
@@ -619,10 +619,28 @@ function sorter(treff, sortBy) {
   return sortert;
 }
 
-function rangBucket(idx, total) {
-  if (idx < Math.min(10, total / 3)) return "r-top";
-  if (idx < Math.min(30, (total * 2) / 3)) return "r-mid";
-  return "r-low";
+function vaerKlass(t) {
+  // Solindikator: bruker solar_kwh_day for langtid, sky_pct for korttid.
+  if (t.klima && t.klima.solar_kwh_day != null) {
+    const s = t.klima.solar_kwh_day;
+    if (s >= 5) return "v-sol";
+    if (s >= 3) return "v-delvis";
+    return "v-overskyet";
+  }
+  if (t.beste_dag && t.beste_dag.sky_pct != null) {
+    const sky = t.beste_dag.sky_pct;
+    if (sky <= 30) return "v-sol";
+    if (sky <= 60) return "v-delvis";
+    return "v-overskyet";
+  }
+  return "v-delvis";
+}
+
+function vaerTekst(t) {
+  let temp = null;
+  if (t.beste_dag && t.beste_dag.temp_max != null) temp = t.beste_dag.temp_max;
+  else if (t.klima && t.klima.tmax_avg != null) temp = t.klima.tmax_avg;
+  return temp != null ? Math.round(temp) + "°" : "–";
 }
 
 function lagAvstandsLinje(treff) {
@@ -681,16 +699,16 @@ function oppdaterKart(sortertListe) {
   kartLag.clearLayers();
   if (!sortertListe.length) return;
 
-  const total = sortertListe.length;
   const bounds = [];
 
   sortertListe.forEach((t, i) => {
     const rang = i + 1;
-    const klass = rangBucket(i, total);
+    const klass = vaerKlass(t);
+    const tekst = vaerTekst(t);
     const icon = L.divIcon({
       className: "",
-      html: `<div class="rank-marker ${klass}">${rang}</div>`,
-      iconSize: [30, 30], iconAnchor: [15, 15],
+      html: `<div class="vaer-marker ${klass}">${tekst}</div>`,
+      iconSize: [34, 34], iconAnchor: [17, 17],
     });
     const m = L.marker([t.lat, t.lon], { icon }).bindPopup(popupHtml(t, rang));
     kartLag.addLayer(m);
