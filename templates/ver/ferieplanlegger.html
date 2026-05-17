@@ -781,6 +781,14 @@ function brukGeolokasjon() {
 }
 $("geo-btn").addEventListener("click", brukGeolokasjon);
 
+async function autoSettStartsted() {
+  if (!navigator.geolocation || !navigator.permissions || !navigator.permissions.query) return;
+  try {
+    const status = await navigator.permissions.query({ name: "geolocation" });
+    if (status.state === "granted") brukGeolokasjon();
+  } catch (e) { /* mangler støtte — la 📍-knappen håndtere det */ }
+}
+
 async function sokDestinasjoner() {
   const btn = $("sok-btn");
   const emptyEl = $("empty");
@@ -840,6 +848,7 @@ $("vis-kart").addEventListener("click", () => settVisning("kart"));
 $("lt_maaned").value = String(new Date().getMonth() + 1);
 
 bytteModus("korttid");
+autoSettStartsted();
 </script>
 </body>
 </html>
