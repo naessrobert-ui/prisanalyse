@@ -1821,6 +1821,17 @@ def bil_innbytte_side():
     debug_context = {}
     svv_preview = None
     model_selection = None
+    auto_submit = False
+
+    if request.method == "GET":
+        q_regnr = (request.args.get("regnr") or "").strip().upper()
+        q_km_raw = request.args.get("km") or request.args.get("kjorelengde") or ""
+        q_km = str(q_km_raw).strip().replace(" ", "")
+        if q_regnr:
+            regnr = q_regnr
+        if q_km:
+            km_input = q_km
+        auto_submit = bool(q_regnr and q_km and q_km.isdigit())
 
     if request.method == "POST":
         regnr = (request.form.get("regnr") or "").strip().upper()
@@ -2209,6 +2220,7 @@ def bil_innbytte_side():
         debug_context=debug_context,
         svv_preview=svv_preview,
         model_selection=model_selection,
+        auto_submit=auto_submit,
     )
 
 

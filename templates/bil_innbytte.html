@@ -34,7 +34,7 @@
     <div class="card">
       <h1>Innbyttepris for bil</h1>
       <div class="muted">Oppgi registreringsnummer og kjørelengde. Løsningen henter tekniske data fra Statens vegvesen og finner sammenlignbare solgte biler.</div>
-      <form method="post">
+      <form method="post" id="innbytte-form">
         <label for="fra_dato">Fra dato (solgt/fjernet fra og med)</label>
         <input id="fra_dato" name="fra_dato" type="date" value="{{ fra_dato or '' }}" />
 
@@ -46,6 +46,18 @@
 
         <button type="submit">Beregn innbyttepris</button>
       </form>
+      {% if auto_submit %}
+      <script>
+        (function () {
+          var form = document.getElementById("innbytte-form");
+          if (!form) return;
+          if (history.replaceState) {
+            history.replaceState(null, "", window.location.pathname);
+          }
+          form.submit();
+        })();
+      </script>
+      {% endif %}
     </div>
 
     {% if model_selection %}
