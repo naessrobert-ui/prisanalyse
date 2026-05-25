@@ -152,17 +152,36 @@ def _coerce_int(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce")
 
 
+def _ensure_kolonne(df: pd.DataFrame, mal: str, kandidater: tuple[str, ...]) -> None:
+    """Sikre at df har 'mal'-kolonnen ved aa kopiere fra foerste matchende
+    kandidat hvis 'mal' mangler. CSV-en fra raw/bil-daglig/ bruker 'Merke'
+    der konsolidert parquet bruker 'Produsent', osv."""
+    if mal in df.columns:
+        return
+    for kand in kandidater:
+        if kand in df.columns:
+            df[mal] = df[kand]
+            return
+
+
 def klargjor_for_aggregering(df: pd.DataFrame, katalog: pd.DataFrame) -> pd.DataFrame:
     """Tilfor variant_id og km_bin, og normaliser kategorifelter."""
     df = df.copy()
 
-    # aarstall kan vaere baade 'aarstall' og 'årstall' avhengig av kilde
-    if "aarstall" not in df.columns and "årstall" in df.columns:
-        df["aarstall"] = df["årstall"]
+    # Daglige CSV-er bruker andre kolonnenavn enn konsolidert parquet.
+    # Bygg om til konsolidert form foer videre behandling.
+    _ensure_kolonne(df, "Produsent", ("Merke", "merke", "produsent", "Manufacturer", "Brand"))
+    _ensure_kolonne(df, "Modell", ("modell", "Modellnavn", "Model"))
+    _ensure_kolonne(df, "aarstall", ("årstall", "year", "Aarstall", "Årsmodell"))
+    _ensure_kolonne(df, "Overskrift", ("overskrift", "Info", "info", "Tittel", "tittel"))
+    _ensure_kolonne(df, "drivstoff", ("Drivstoff",))
+    _ensure_kolonne(df, "hjuldrift", ("Hjuldrift",))
+    _ensure_kolonne(df, "Karosseri", ("karosseri", "Karosseritype"))
+    _ensure_kolonne(df, "batterikapasitet_kwh", ("batteri_kwh", "Batterikapasitet", "battery_kwh"))
 
     # kjorelengde-tilsvarende
     km_kol = None
-    for kand in ("kjørelengde", "kjorelengde", "Km", "km"):
+    for kand in ("kjørelengde", "kjorelengde", "Km", "km", "Kilometerstand", "kilometerstand"):
         if kand in df.columns:
             km_kol = kand
             break
@@ -279,8 +298,19 @@ def prosesser_en_dag(s3, csv_objekt: dict, dag: date, katalog: pd.DataFrame) -> 
         return False
     print(f"  Rader: {len(df):,}")
 
+    # Logg hvilke noekkelkolonner som faktisk finnes i raa CSV - hjelper aa
+    # diagnostisere "Produsent ble Ukjent paa alle rader"-bugs.
+    noekkel_kandidater = ["Produsent", "Merke", "Modell", "modell", "Pris", "Pris_ny", "årstall", "aarstall", "kjørelengde", "Karosseri", "batterikapasitet_kwh"]
+    funnet = [k for k in noekkel_kandidater if k in df.columns]
+    print(f"  Funnet noekkelkolonner i raa CSV: {funnet}")
+
     df = klargjor_for_aggregering(df, katalog)
     n_klassifisert = (df["variant_id"] != "ikke_klassifisert").sum()
+    n_produsent = (df["Produsent"] != "Ukjent").sum()
+    print(
+        f"  Produsent satt: {n_produsent:,} / {len(df):,} "
+        f"({100*n_produsent/max(1,len(df)):.1f}%)"
+    )
     print(
         f"  Variant-klassifisering: {n_klassifisert:,} / {len(df):,} "
         f"({100*n_klassifisert/max(1,len(df)):.1f}%)"
