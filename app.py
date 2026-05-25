@@ -15,11 +15,13 @@ from handler_routes import handler_bp
 from bolig_routes import bolig_bp
 from fritidsbolig_routes import fritids_bp
 from bil_routes import bil_bp, start_bilradar_warmup
+from bil_prisanalyse_routes import bil_prisanalyse_bp
 from bil_import import bil_import_bp
 from gemini_routes import gemini_bp
 from scripts.ver_routes import ver
 from scripts.station_metrics_cache import start_warmup as start_station_metrics_warmup
 from regnskap_routes import regnskap_bp
+from regnskap_kart_routes import regnskap_kart_bp
 from portfolio_rebalancer_routes import portfolio_rebalancer_bp
 from dash_apps.strom import create_dash_app
 from scripts.kvamskogen_routes import kvamskogen_bp
@@ -125,11 +127,13 @@ def create_app() -> Flask:
     app.register_blueprint(bolig_bp)
     app.register_blueprint(fritids_bp)
     app.register_blueprint(bil_bp)
+    app.register_blueprint(bil_prisanalyse_bp)
     app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
     app.register_blueprint(gemini_bp)
     app.register_blueprint(ver)
     app.register_blueprint(handler_bp)
     app.register_blueprint(regnskap_bp)
+    app.register_blueprint(regnskap_kart_bp)
     app.register_blueprint(portfolio_rebalancer_bp)
     app.register_blueprint(kvamskogen_bp)
     app.register_blueprint(kvamskogen_sommer_bp)
