@@ -24,3 +24,24 @@ services:
         value: "0"
       - key: WEATHER_STATION_METRICS_TTL_SECONDS
         value: "10800"
+
+  - type: cron
+    name: bil-daglig-aggregat
+    runtime: python
+    # Daglig kl 04:00 UTC (06:00 norsk sommertid). Velges etter at scraperen
+    # er ferdig med gaarsdagens CSV. Backfill kan kjores manuelt med
+    # `python -m scripts.bygg_daglig_aggregat --backfill`.
+    schedule: "0 4 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.bygg_daglig_aggregat
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: eu-north-1
+      - key: S3_BUCKET_NAME
+        sync: false
