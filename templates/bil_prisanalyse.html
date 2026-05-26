@@ -4,17 +4,26 @@
 {% block content %}
 <div class="container-fluid" style="padding: 24px;">
   <div class="card-content" style="margin-bottom: 18px;">
-    <h3 class="mb-1">Bil-prisanalyse</h3>
-    <p class="text-muted mb-0">
-      Filtrer en biltype og se hvordan median pris og antall annonser har
-      utviklet seg over tid. Datasettet bygges hver natt fra daglige
-      annonse-snapshots.
-      {% if har_data %}
-        <small class="ml-2">({{ "{:,}".format(antall_rader).replace(",", " ") }} aggregat-rader paa tvers av {{ antall_dager }} dager)</small>
-      {% else %}
-        <span class="badge badge-warning ml-2">Ingen aggregat tilgjengelig - kjor scripts/bygg_daglig_aggregat.py</span>
-      {% endif %}
-    </p>
+    <div class="d-flex justify-content-between align-items-start flex-wrap">
+      <div>
+        <h3 class="mb-1">Bil-prisanalyse</h3>
+        <p class="text-muted mb-0">
+          Filtrer en biltype og se hvordan median pris og antall annonser har
+          utviklet seg over tid. Datasettet bygges hver natt fra daglige
+          annonse-snapshots.
+          {% if har_data %}
+            <small class="ml-2">({{ "{:,}".format(antall_rader).replace(",", " ") }} aggregat-rader paa tvers av {{ antall_dager }} dager)</small>
+          {% else %}
+            <span class="badge badge-warning ml-2">Ingen aggregat tilgjengelig - kjor scripts/bygg_daglig_aggregat.py</span>
+          {% endif %}
+        </p>
+      </div>
+      <div class="mt-2">
+        <a href="/bil/prisanalyse/marked" class="btn btn-outline-primary btn-sm">
+          <i class="fas fa-chart-line"></i> Se markedsbevegelser &rarr;
+        </a>
+      </div>
+    </div>
   </div>
 
   <div class="row">
@@ -310,8 +319,50 @@
   $('btn-oppdater').addEventListener('click', oppdater);
   $('btn-nullstill').addEventListener('click', nullstill);
 
-  // Initial last
-  lastFilteralternativer().then(oppdater);
+  // Foer initial-last, sjekk om URL har query-params og forhandsfyll skjemaet.
+  // Lenker fra /bil/prisanalyse/marked sender hit med Produsent, Modell, variant_id.
+  function lesUrlParams() {
+    const p = new URLSearchParams(window.location.search);
+    const mappings = {
+      'f-produsent': 'Produsent',
+      'f-modell': 'Modell',
+      'f-variant': 'variant_id',
+      'f-drivstoff': 'drivstoff',
+      'f-hjuldrift': 'hjuldrift',
+      'f-karosseri': 'Karosseri',
+      'f-km': 'km_bin',
+    };
+    Object.entries(mappings).forEach(([id, key]) => {
+      const v = p.get(key);
+      if (v && [...$(id).options].some(o => o.value === v)) {
+        $(id).value = v;
+      } else if (v) {
+        // Verdien finnes i URL men ikke i dropdownen ennaa - legg den til
+        const o = document.createElement('option');
+        o.value = v; o.textContent = v; o.selected = true;
+        $(id).appendChild(o);
+      }
+    });
+    const aarFra = p.get('aarstall_fra');
+    const aarTil = p.get('aarstall_til');
+    if (aarFra) $('f-aar-fra').value = aarFra;
+    if (aarTil) $('f-aar-til').value = aarTil;
+  }
+
+  // Initial last - filteralternativer, sa URL-parsing, sa oppdater
+  lastFilteralternativer().then(() => {
+    lesUrlParams();
+    // Hvis vi fikk Produsent fra URL, oppdater Modell-listen og deretter Variant
+    if ($('f-produsent').value !== 'alle') {
+      oppdaterModellerForProdusent();
+      lesUrlParams();  // Re-set Modell etter at listen er oppdatert
+      if ($('f-modell').value !== 'alle') {
+        oppdaterVarianterForModell();
+        lesUrlParams();  // Re-set variant_id etter at listen er oppdatert
+      }
+    }
+    oppdater();
+  });
 })();
 </script>
 {% endblock %}

@@ -8,9 +8,13 @@ brukeren filtrere paa Produsent, Modell, aarstall, drivstoff, hjuldrift,
 Karosseri, variant og km-bin for aa se prisutvikling og volum over tid.
 
 Endepunkter:
-  GET /bil/prisanalyse                       - HTML-side
+  GET /bil/prisanalyse                       - hovedside med filter og grafer
+  GET /bil/prisanalyse/marked                - markedsoversikt (topplister)
   GET /bil/prisanalyse/api/filteralternativer  - distinct verdier per kolonne
   GET /bil/prisanalyse/api/tidsserie?...     - aggregert tidsserie + endringer
+  GET /bil/prisanalyse/api/markedsbevegelser?dager=N
+                                             - topp 20 prisfallere/-okere og
+                                             volumeksplosjoner/-fall
 
 Datasettet caches i minnet og refresheses hver time. Hele aggregatet er
 typisk under 50 MB - lett aa holde i RAM paa en Render web-instans.
@@ -293,6 +297,177 @@ def api_tidsserie():
         if not delsett.empty else 0
     )
     return jsonify(serie)
+
+
+# ---- Markedsbevegelser (topplister) ----
+
+MARKED_GRUPPENOKLER = ["Produsent", "Modell", "variant_id"]
+MARKED_MIN_VOLUM = 5  # min antall annonser i hver av de to dagene
+MARKED_TOPP_N = 20
+
+
+def _vektet_median_per_gruppe_dag(df: pd.DataFrame) -> pd.DataFrame:
+    """Reduser aggregat til en rad per (Produsent, Modell, variant_id, dato)
+    med vektet median (vekt=n_annonser) og samlet n_annonser. Bruker pre-
+    beregnet vekting saa sortering paa endring blir konsistent."""
+    if df.empty:
+        return df
+
+    g = df.groupby(MARKED_GRUPPENOKLER + ["dato"], dropna=False, observed=True)
+
+    sum_n = g["n_annonser"].sum()
+    sum_vektet = (df["median_pris"].astype(float) * df["n_annonser"]).groupby(
+        [df[k] for k in MARKED_GRUPPENOKLER] + [df["dato"]]
+    ).sum()
+
+    ut = pd.DataFrame({
+        "n": sum_n,
+        "vektet_median": sum_vektet / sum_n.replace(0, np.nan),
+    }).reset_index()
+    return ut
+
+
+def _sparkline_for_gruppe(per_dag: pd.DataFrame, prod: str, mod: str, var: str,
+                          fra: Any, til: Any) -> list[dict]:
+    """Returner [{"dato": "...", "median": int, "n": int}, ...] for en
+    spesifikk gruppe i intervallet."""
+    s = per_dag[
+        (per_dag["Produsent"] == prod)
+        & (per_dag["Modell"] == mod)
+        & (per_dag["variant_id"] == var)
+        & (per_dag["dato"] >= fra)
+        & (per_dag["dato"] <= til)
+    ].sort_values("dato")
+    if s.empty:
+        return []
+    return [
+        {
+            "dato": d.isoformat() if hasattr(d, "isoformat") else str(d),
+            "median": int(round(m)) if pd.notna(m) else None,
+            "n": int(n),
+        }
+        for d, m, n in zip(s["dato"], s["vektet_median"], s["n"])
+    ]
+
+
+def _bygg_markedsbevegelser(df: pd.DataFrame, dager: int) -> dict[str, Any]:
+    """Returner fire topplister: prisfallere, prisoekere, volumeksplosjoner,
+    volumfall - basert paa endring mellom siste dato og naermeste dato dager
+    tilbake."""
+    tomt = {
+        "dager": dager,
+        "siste_dato": None,
+        "ref_dato": None,
+        "antall_grupper_med_data": 0,
+        "prisfallere": [],
+        "prisokere": [],
+        "volumeksplosjoner": [],
+        "volumfall": [],
+    }
+    if df.empty or "dato" not in df.columns:
+        return tomt
+
+    per_dag = _vektet_median_per_gruppe_dag(df)
+    if per_dag.empty:
+        return tomt
+
+    datoer = sorted(per_dag["dato"].unique())
+    if not datoer:
+        return tomt
+
+    siste = datoer[-1]
+    maal = siste - timedelta(days=dager)
+    # Naermeste tilgjengelige ref-dato (<= maal); fall til foerste hvis ingen
+    eldre = [d for d in datoer if d <= maal]
+    if not eldre:
+        return tomt
+    ref = eldre[-1]
+
+    siste_df = per_dag[per_dag["dato"] == siste].copy()
+    ref_df = per_dag[per_dag["dato"] == ref].copy()
+
+    samlet = pd.merge(
+        siste_df, ref_df,
+        on=MARKED_GRUPPENOKLER,
+        suffixes=("_siste", "_ref"),
+        how="inner",
+    )
+    samlet = samlet[
+        (samlet["n_siste"] >= MARKED_MIN_VOLUM)
+        & (samlet["n_ref"] >= MARKED_MIN_VOLUM)
+        & samlet["vektet_median_siste"].notna()
+        & samlet["vektet_median_ref"].notna()
+        & (samlet["vektet_median_ref"] > 0)
+    ].copy()
+
+    if samlet.empty:
+        tomt["siste_dato"] = siste.isoformat()
+        tomt["ref_dato"] = ref.isoformat()
+        return tomt
+
+    samlet["endring_pris_pct"] = (
+        (samlet["vektet_median_siste"] - samlet["vektet_median_ref"])
+        / samlet["vektet_median_ref"] * 100
+    )
+    samlet["endring_volum_pct"] = (
+        (samlet["n_siste"] - samlet["n_ref"]) / samlet["n_ref"] * 100
+    )
+
+    def _rad_til_dict(row: pd.Series, sparkline: bool = True) -> dict[str, Any]:
+        prod, mod, var = row["Produsent"], row["Modell"], row["variant_id"]
+        d = {
+            "produsent": str(prod),
+            "modell": str(mod),
+            "variant_id": str(var),
+            "median_siste": int(round(row["vektet_median_siste"])),
+            "median_ref": int(round(row["vektet_median_ref"])),
+            "endring_pris_pct": round(float(row["endring_pris_pct"]), 2),
+            "n_siste": int(row["n_siste"]),
+            "n_ref": int(row["n_ref"]),
+            "endring_volum_pct": round(float(row["endring_volum_pct"]), 1),
+        }
+        if sparkline:
+            d["sparkline"] = _sparkline_for_gruppe(per_dag, prod, mod, var, ref, siste)
+        return d
+
+    prisfall = samlet.sort_values("endring_pris_pct", ascending=True).head(MARKED_TOPP_N)
+    prisoke = samlet.sort_values("endring_pris_pct", ascending=False).head(MARKED_TOPP_N)
+    voleks = samlet.sort_values("endring_volum_pct", ascending=False).head(MARKED_TOPP_N)
+    volfall = samlet.sort_values("endring_volum_pct", ascending=True).head(MARKED_TOPP_N)
+
+    return {
+        "dager": dager,
+        "siste_dato": siste.isoformat(),
+        "ref_dato": ref.isoformat(),
+        "antall_grupper_med_data": int(len(samlet)),
+        "prisfallere": [_rad_til_dict(r) for _, r in prisfall.iterrows()],
+        "prisokere": [_rad_til_dict(r) for _, r in prisoke.iterrows()],
+        "volumeksplosjoner": [_rad_til_dict(r) for _, r in voleks.iterrows()],
+        "volumfall": [_rad_til_dict(r) for _, r in volfall.iterrows()],
+    }
+
+
+@bil_prisanalyse_bp.route("/api/markedsbevegelser")
+def api_markedsbevegelser():
+    df = _hent_cache()
+    if df.empty:
+        return jsonify({"feil": "Ingen aggregat tilgjengelig"}), 503
+    try:
+        dager = int(request.args.get("dager", "30"))
+    except ValueError:
+        dager = 30
+    dager = max(7, min(dager, 365))
+    return jsonify(_bygg_markedsbevegelser(df, dager))
+
+
+@bil_prisanalyse_bp.route("/marked")
+def vis_marked():
+    df = _hent_cache()
+    har_data = not df.empty
+    return render_template(
+        "bil_prisanalyse_marked.html",
+        har_data=har_data,
+    )
 
 
 @bil_prisanalyse_bp.route("/api/refresh", methods=["POST"])
