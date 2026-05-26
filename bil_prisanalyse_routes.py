@@ -10,8 +10,10 @@ Karosseri, variant og km-bin for aa se prisutvikling og volum over tid.
 Endepunkter:
   GET /bil/prisanalyse                       - hovedside med filter og grafer
   GET /bil/prisanalyse/marked                - markedsoversikt (topplister)
+  GET /bil/prisanalyse/sammenligning         - sammenlign to biltyper side om side
   GET /bil/prisanalyse/api/filteralternativer  - distinct verdier per kolonne
   GET /bil/prisanalyse/api/tidsserie?...     - aggregert tidsserie + endringer
+  GET /bil/prisanalyse/api/eksport.csv?...   - last ned tidsserie som CSV
   GET /bil/prisanalyse/api/markedsbevegelser?dager=N
                                              - topp 20 prisfallere/-okere og
                                              volumeksplosjoner/-fall
@@ -32,7 +34,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, Response, jsonify, render_template, request
 
 from config import AWS_KEY, AWS_REGION, AWS_SECRET, S3_BUCKET_NAME
 
@@ -299,6 +301,78 @@ def api_tidsserie():
     return jsonify(serie)
 
 
+def _filter_etikett(args) -> str:
+    """Bygg et kompakt navn paa det filtrerte settet for filnavn/label.
+    Eks. 'Tesla_Model3_tesla-m3-lr' eller 'alle' hvis ingen filter."""
+    biter = []
+    for kol in ("Produsent", "Modell", "variant_id"):
+        v = args.get(kol)
+        if v and v != "alle":
+            biter.append(str(v).replace(" ", "").replace("/", "-"))
+    aar_fra = args.get("aarstall_fra")
+    aar_til = args.get("aarstall_til")
+    if aar_fra or aar_til:
+        biter.append(f"{aar_fra or ''}-{aar_til or ''}")
+    return "_".join(biter) if biter else "alle"
+
+
+@bil_prisanalyse_bp.route("/api/eksport.csv")
+def api_eksport_csv():
+    """Returner CSV med daglig tidsserie for det filtrerte settet. Samme
+    filter-params som /api/tidsserie. Inkluderer metadata-header med hvilket
+    filter som ble brukt og hvor mange undergrupper som matchet."""
+    df = _hent_cache()
+    if df.empty:
+        return Response("# Ingen aggregat tilgjengelig\n", mimetype="text/csv", status=503)
+
+    delsett = _bruk_filter(df, request.args)
+    if delsett.empty:
+        return Response(
+            "# Ingen rader matchet filteret\n",
+            mimetype="text/csv",
+            status=200,
+        )
+
+    serie = _bygg_tidsserie(delsett)
+    if not serie["datoer"]:
+        return Response("# Ingen tidsserie kunne bygges\n", mimetype="text/csv", status=200)
+
+    # Bygg DataFrame for ren CSV-utskrift
+    ut = pd.DataFrame({
+        "dato": serie["datoer"],
+        "median_pris": serie["median_pris"],
+        "p25_pris": serie["p25_pris"],
+        "p75_pris": serie["p75_pris"],
+        "n_annonser": serie["n_annonser"],
+    })
+
+    # Header-kommentarer med hvilke filtre som ble brukt
+    filter_tekst = []
+    for k in FILTER_KOLONNER + ["aarstall_fra", "aarstall_til"]:
+        v = request.args.get(k)
+        if v and v != "alle":
+            filter_tekst.append(f"{k}={v}")
+    n_grupper = int(delsett[FILTER_KOLONNER + ["aarstall"]].drop_duplicates().shape[0])
+
+    head = [
+        f"# Bil-prisanalyse eksport",
+        f"# Filter: {', '.join(filter_tekst) if filter_tekst else '(ingen)'}",
+        f"# Undergrupper matchet: {n_grupper}",
+        f"# Endring 30 dager: {serie.get('endring_30d_pct')}",
+        f"# Endring 90 dager: {serie.get('endring_90d_pct')}",
+    ]
+    csv_body = ut.to_csv(index=False, sep=";", decimal=",")
+    body = "\n".join(head) + "\n" + csv_body
+
+    etikett = _filter_etikett(request.args)
+    fn = f"prisanalyse_{etikett}_{datetime.utcnow():%Y%m%d}.csv"
+    return Response(
+        body,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{fn}"'},
+    )
+
+
 # ---- Markedsbevegelser (topplister) ----
 
 MARKED_GRUPPENOKLER = ["Produsent", "Modell", "variant_id"]
@@ -466,6 +540,16 @@ def vis_marked():
     har_data = not df.empty
     return render_template(
         "bil_prisanalyse_marked.html",
+        har_data=har_data,
+    )
+
+
+@bil_prisanalyse_bp.route("/sammenligning")
+def vis_sammenligning():
+    df = _hent_cache()
+    har_data = not df.empty
+    return render_template(
+        "bil_prisanalyse_sammenligning.html",
         har_data=har_data,
     )
 

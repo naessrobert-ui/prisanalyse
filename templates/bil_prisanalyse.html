@@ -19,8 +19,11 @@
         </p>
       </div>
       <div class="mt-2">
-        <a href="/bil/prisanalyse/marked" class="btn btn-outline-primary btn-sm">
-          <i class="fas fa-chart-line"></i> Se markedsbevegelser &rarr;
+        <a href="/bil/prisanalyse/sammenligning" class="btn btn-outline-secondary btn-sm">
+          <i class="fas fa-balance-scale"></i> Sammenlign biler
+        </a>
+        <a href="/bil/prisanalyse/marked" class="btn btn-outline-primary btn-sm ml-1">
+          <i class="fas fa-chart-line"></i> Markedsbevegelser &rarr;
         </a>
       </div>
     </div>
@@ -91,6 +94,9 @@
         </div>
 
         <button id="btn-oppdater" class="btn btn-primary btn-block">Oppdater</button>
+        <a id="btn-csv" class="btn btn-outline-primary btn-sm btn-block mt-1" href="#" download>
+          <i class="fas fa-download"></i> Last ned CSV
+        </a>
         <button id="btn-nullstill" class="btn btn-link btn-sm btn-block mt-1">Nullstill filter</button>
       </div>
     </div>
@@ -293,6 +299,7 @@
   async function oppdater() {
     $('status').textContent = 'Henter...';
     const p = bygFilter();
+    $('btn-csv').href = '/bil/prisanalyse/api/eksport.csv?' + p.toString();
     const r = await fetch('/bil/prisanalyse/api/tidsserie?' + p.toString());
     if (!r.ok) {
       $('status').textContent = 'Feil: ' + r.status;
