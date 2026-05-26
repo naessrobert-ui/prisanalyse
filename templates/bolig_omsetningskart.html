@@ -88,12 +88,6 @@
                         <option value="Aktive ikke solgt">Aktive ikke solgt</option>
                     </select>
                 </div>
-                <div class="form-group"><label for="sold-within-input">Solgt/fjernet innen X dager</label>
-                    <input type="number" id="sold-within-input" min="0" placeholder="f.eks. 14">
-                </div>
-                <div class="form-group"><label for="unsold-min-input">Ikke solgt, minst Y dager ute</label>
-                    <input type="number" id="unsold-min-input" min="0" placeholder="f.eks. 90">
-                </div>
                 <div class="form-group"><label for="max-points-input">Maks punkter i kart</label>
                     <input type="number" id="max-points-input" min="500" max="15000" value="5000">
                 </div>
@@ -125,18 +119,18 @@
             <button id="menu-close-btn" type="button" aria-label="Lukk meny">✕</button>
             <h3>Analysevalg</h3>
             <p id="bolig-count"></p>
-            <div class="form-group"><label for="fast-days-input">Grønn hvis solgt innen ≤ dager</label>
+            <div class="form-group"><label for="fast-days-input">Grønn hvis ≤ dager på markedet</label>
                 <input type="number" id="fast-days-input" min="0" placeholder="f.eks. 14">
             </div>
-            <div class="form-group"><label for="slow-days-input">Rød hvis aktiv ≥ dager</label>
+            <div class="form-group"><label for="slow-days-input">Rød hvis ≥ dager på markedet</label>
                 <input type="number" id="slow-days-input" min="0" placeholder="f.eks. 90">
             </div>
             <button id="update-map-btn">Oppdater kart</button>
             <div class="legend-box">
-                <div><span class="dot" style="background:#2EAD4A"></span> Solgt raskt</div>
-                <div><span class="dot" style="background:#D94841"></span> Aktiv lenge</div>
+                <div><span class="dot" style="background:#2EAD4A"></span> Kort tid på markedet</div>
+                <div><span class="dot" style="background:#D94841"></span> Lang tid på markedet</div>
                 <div><span class="dot" style="background:#8f9bb3"></span> Resten</div>
-                <div style="margin-top:6px;">Størrelse følger valgt prisgrunnlag.</div>
+                <div style="margin-top:6px;">Gjelder både solgte og aktive boliger. Størrelse følger valgt prisgrunnlag.</div>
             </div>
             <div id="map-stats-container" style="display: none;">
                 <div id="map-stats-avg" class="map-stats-box">
@@ -216,8 +210,6 @@
                 boligtype: document.getElementById('boligtype-select').value,
                 nybrukt: document.getElementById('nybrukt-select').value,
                 status: document.getElementById('status-select').value,
-                sold_within_days: document.getElementById('sold-within-input').value,
-                unsold_min_days: document.getElementById('unsold-min-input').value,
                 max_points: document.getElementById('max-points-input').value,
                 price_basis: document.getElementById('price-basis-select').value,
                 allow_all_norge: document.getElementById('allow-norge-input').checked ? '1' : '0',
@@ -244,11 +236,16 @@
                     hideLoading(); return;
                 }
 
-                // Forhåndsutfyll terskler fra landingssidens X/Y, fall tilbake til persentil
-                const soldX = parseFloat(filters.sold_within_days);
-                const unsoldY = parseFloat(filters.unsold_min_days);
-                elements.fastInput.value = Number.isFinite(soldX) ? soldX : Math.round(percentile(durationValues(boligData), 0.20));
-                elements.slowInput.value = Number.isFinite(unsoldY) ? unsoldY : Math.round(percentile(durationValues(boligData), 0.80));
+                // Forhåndsutfyll terskler fra varighetspersentiler i datasettet
+                const allDurations = boligData
+                    .map(b => b.duration_days)
+                    .filter(v => v != null && !isNaN(v));
+                elements.fastInput.value = allDurations.length
+                    ? Math.round(percentile(allDurations, 0.20))
+                    : 14;
+                elements.slowInput.value = allDurations.length
+                    ? Math.round(percentile(allDurations, 0.80))
+                    : 90;
 
                 elements.landingView.style.display = 'none';
                 elements.analysisView.style.display = 'flex';
@@ -312,9 +309,10 @@
                 boligData.forEach(b => {
                     if (b.latitude == null || b.longitude == null) return;
                     let color = '#8f9bb3';
-                    if (b.er_avsluttet && Number.isFinite(fastDays) && b.dager_total != null && b.dager_total <= fastDays) {
+                    const dur = b.duration_days;
+                    if (Number.isFinite(fastDays) && dur != null && !isNaN(dur) && dur <= fastDays) {
                         color = '#2EAD4A';
-                    } else if (b.er_aktiv && Number.isFinite(slowDays) && b.dager_aktiv != null && b.dager_aktiv >= slowDays) {
+                    } else if (Number.isFinite(slowDays) && dur != null && !isNaN(dur) && dur >= slowDays) {
                         color = '#D94841';
                     }
 
