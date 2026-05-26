@@ -1342,8 +1342,6 @@ def bolig_omsetningskart_data():
     valgt_boligtype = filters.get("boligtype") or "Alle"
     valgt_nybrukt = filters.get("nybrukt") or "Alle"
     valgt_status = filters.get("status") or "Alle"
-    sold_within_days = str(filters.get("sold_within_days") or "").strip()
-    unsold_min_days = str(filters.get("unsold_min_days") or "").strip()
     allow_all_norge = str(filters.get("allow_all_norge") or "0") == "1"
     max_points_raw = str(filters.get("max_points") or "5000").strip()
     max_points = int(max_points_raw) if max_points_raw.isdigit() else 5000
@@ -1368,24 +1366,14 @@ def bolig_omsetningskart_data():
     elif valgt_nybrukt == "Nybygg":
         df = df[df["ny_brukt"].astype(str).str.lower().isin(["nybygg", "ny", "nytt"])]
 
-    sold_limit = int(sold_within_days) if sold_within_days.isdigit() else None
-    unsold_limit = int(unsold_min_days) if unsold_min_days.isdigit() else None
-    has_thresholds = sold_limit is not None or unsold_limit is not None
-    if has_thresholds:
-        fast_mask = pd.Series(False, index=df.index)
-        slow_mask = pd.Series(False, index=df.index)
-        if sold_limit is not None:
-            fast_mask = df["er_avsluttet"] & df["dager_total"].notna() & (df["dager_total"] <= sold_limit)
-        if unsold_limit is not None:
-            slow_mask = df["er_aktiv"] & df["dager_aktiv"].notna() & (df["dager_aktiv"] >= unsold_limit)
-        df = df[fast_mask | slow_mask].copy()
+    # Status-filter: bestemmer om vi inkluderer solgte, aktive eller begge.
+    # Grønn/rød-tersklene settes nå av klient-side fargeleggingen, ikke her.
+    if valgt_status == "Solgt/fjernet":
+        df = df[df["er_avsluttet"]].copy()
+    elif valgt_status == "Aktive ikke solgt":
+        df = df[df["er_aktiv"]].copy()
     else:
-        if valgt_status == "Solgt/fjernet":
-            df = df[df["er_avsluttet"]].copy()
-        elif valgt_status == "Aktive ikke solgt":
-            df = df[df["er_aktiv"]].copy()
-        else:
-            df = df[(df["er_aktiv"] | df["er_avsluttet"])].copy()
+        df = df[(df["er_aktiv"] | df["er_avsluttet"])].copy()
 
     df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")

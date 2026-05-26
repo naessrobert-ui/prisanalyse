@@ -88,12 +88,6 @@
                         <option value="Aktive ikke solgt">Aktive ikke solgt</option>
                     </select>
                 </div>
-                <div class="form-group"><label for="sold-within-input">Solgt/fjernet innen X dager</label>
-                    <input type="number" id="sold-within-input" min="0" placeholder="f.eks. 14">
-                </div>
-                <div class="form-group"><label for="unsold-min-input">Ikke solgt, minst Y dager ute</label>
-                    <input type="number" id="unsold-min-input" min="0" placeholder="f.eks. 90">
-                </div>
                 <div class="form-group"><label for="max-points-input">Maks punkter i kart</label>
                     <input type="number" id="max-points-input" min="500" max="15000" value="5000">
                 </div>
@@ -112,7 +106,7 @@
             </div>
             <button id="start-analysis-btn">Start analyse</button>
             <p style="font-size: 13px; color: #666; margin-top: 12px;">
-                Tips: Tøm begge feltene for X/Y for å vise alle boliger (både solgt/fjernet og aktive).
+                Tips: Velg utvalg her — du justerer grønn/rød-terskler fritt etterpå i sidemenyen.
             </p>
         </div>
     </div>
@@ -216,8 +210,6 @@
                 boligtype: document.getElementById('boligtype-select').value,
                 nybrukt: document.getElementById('nybrukt-select').value,
                 status: document.getElementById('status-select').value,
-                sold_within_days: document.getElementById('sold-within-input').value,
-                unsold_min_days: document.getElementById('unsold-min-input').value,
                 max_points: document.getElementById('max-points-input').value,
                 price_basis: document.getElementById('price-basis-select').value,
                 allow_all_norge: document.getElementById('allow-norge-input').checked ? '1' : '0',
@@ -244,11 +236,19 @@
                     hideLoading(); return;
                 }
 
-                // Forhåndsutfyll terskler fra landingssidens X/Y, fall tilbake til persentil
-                const soldX = parseFloat(filters.sold_within_days);
-                const unsoldY = parseFloat(filters.unsold_min_days);
-                elements.fastInput.value = Number.isFinite(soldX) ? soldX : Math.round(percentile(durationValues(boligData), 0.20));
-                elements.slowInput.value = Number.isFinite(unsoldY) ? unsoldY : Math.round(percentile(durationValues(boligData), 0.80));
+                // Forhåndsutfyll terskler fra persentiler i datasettet
+                const soldDurations = boligData
+                    .filter(b => b.er_avsluttet && b.dager_total != null)
+                    .map(b => b.dager_total);
+                const activeDurations = boligData
+                    .filter(b => b.er_aktiv && b.dager_aktiv != null)
+                    .map(b => b.dager_aktiv);
+                elements.fastInput.value = soldDurations.length
+                    ? Math.round(percentile(soldDurations, 0.20))
+                    : 14;
+                elements.slowInput.value = activeDurations.length
+                    ? Math.round(percentile(activeDurations, 0.80))
+                    : 90;
 
                 elements.landingView.style.display = 'none';
                 elements.analysisView.style.display = 'flex';
