@@ -21,14 +21,26 @@
           <a href="/bil/prisanalyse/sammenligning" class="text-muted small">Sammenligning</a>
         </div>
       </div>
-      <div class="mt-3 mt-lg-0 form-inline">
-        <label for="dager" class="mr-2 mb-0 mt-2">Tidsvindu</label>
-        <select id="dager" class="form-control form-control-sm mt-2">
-          <option value="7">Siste 7 dager</option>
-          <option value="30" selected>Siste 30 dager</option>
-          <option value="60">Siste 60 dager</option>
-          <option value="90">Siste 90 dager</option>
-        </select>
+      <div class="mt-3 mt-lg-0 form-inline" style="gap: 12px;">
+        <div>
+          <label for="dager" class="mr-2 mb-0 mt-2">Tidsvindu</label>
+          <select id="dager" class="form-control form-control-sm mt-2">
+            <option value="7">Siste 7 dager</option>
+            <option value="30" selected>Siste 30 dager</option>
+            <option value="60">Siste 60 dager</option>
+            <option value="90">Siste 90 dager</option>
+          </select>
+        </div>
+        <div>
+          <label for="min-volum" class="mr-2 mb-0 mt-2">Min annonser</label>
+          <select id="min-volum" class="form-control form-control-sm mt-2" title="Minimum antall annonser i hver av de to datoene for at en biltype skal vises. Hoyere = mindre stoey, faerre biltyper.">
+            <option value="5">5 (mer stoey)</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100 (kun store volum)</option>
+          </select>
+        </div>
       </div>
     </div>
     <div id="periode-info" class="text-muted small mt-3"></div>
@@ -226,8 +238,11 @@
 
   async function lastData() {
     const dager = $('dager').value;
+    const minVolum = $('min-volum').value;
     $('status').textContent = 'Henter...';
-    const r = await fetch(`/bil/prisanalyse/api/markedsbevegelser?dager=${dager}`);
+    const r = await fetch(
+      `/bil/prisanalyse/api/markedsbevegelser?dager=${dager}&min_volum=${minVolum}`
+    );
     if (!r.ok) {
       $('status').textContent = 'Feil: ' + r.status;
       return;
@@ -239,7 +254,7 @@
     }
 
     $('periode-info').textContent =
-      `Sammenligner ${data.ref_dato} mot ${data.siste_dato} (${data.antall_grupper_med_data} grupper med >= 5 annonser i begge endepunkter)`;
+      `Sammenligner ${data.ref_dato} mot ${data.siste_dato} - ${data.antall_grupper_med_data} biltyper med >= ${data.min_volum} annonser i begge endepunkter`;
 
     fyllTabell('tab-prisfallere', data.prisfallere, 'pris');
     fyllTabell('tab-prisokere', data.prisokere, 'pris');
@@ -250,6 +265,7 @@
   }
 
   $('dager').addEventListener('change', lastData);
+  $('min-volum').addEventListener('change', lastData);
   lastData();
 })();
 </script>

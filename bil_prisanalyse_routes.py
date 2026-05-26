@@ -381,7 +381,9 @@ def api_eksport_csv():
 # skapte "merkelige verdier" naar miksen av aarganger endret seg over tid
 # (Simpsons paradoks).
 MARKED_GRUPPENOKLER = ["Produsent", "Modell", "variant_id", "aarstall", "hjuldrift"]
-MARKED_MIN_VOLUM = 3  # min antall annonser i hver av de to dagene
+MARKED_MIN_VOLUM_DEFAULT = 10  # default min antall annonser i hver av de to dagene
+MARKED_MIN_VOLUM_MIN = 3       # nedre grense for justerbar min_volum
+MARKED_MIN_VOLUM_MAX = 200     # ovre grense
 MARKED_TOPP_N = 20
 
 
@@ -427,12 +429,19 @@ def _sparkline_for_gruppe(per_dag: pd.DataFrame, gruppe: dict[str, Any],
     ]
 
 
-def _bygg_markedsbevegelser(df: pd.DataFrame, dager: int) -> dict[str, Any]:
+def _bygg_markedsbevegelser(
+    df: pd.DataFrame,
+    dager: int,
+    min_volum: int = MARKED_MIN_VOLUM_DEFAULT,
+) -> dict[str, Any]:
     """Returner fire topplister: prisfallere, prisoekere, volumeksplosjoner,
     volumfall - basert paa endring mellom siste dato og naermeste dato dager
-    tilbake."""
+    tilbake. `min_volum` er minimum antall annonser i baade siste og ref-dato
+    for at en gruppe skal vaere med - hoyere verdi gir mindre stoey men
+    faerre biltyper i listene."""
     tomt = {
         "dager": dager,
+        "min_volum": min_volum,
         "siste_dato": None,
         "ref_dato": None,
         "antall_grupper_med_data": 0,
@@ -470,8 +479,8 @@ def _bygg_markedsbevegelser(df: pd.DataFrame, dager: int) -> dict[str, Any]:
         how="inner",
     )
     samlet = samlet[
-        (samlet["n_siste"] >= MARKED_MIN_VOLUM)
-        & (samlet["n_ref"] >= MARKED_MIN_VOLUM)
+        (samlet["n_siste"] >= min_volum)
+        & (samlet["n_ref"] >= min_volum)
         & samlet["vektet_median_siste"].notna()
         & samlet["vektet_median_ref"].notna()
         & (samlet["vektet_median_ref"] > 0)
@@ -519,6 +528,7 @@ def _bygg_markedsbevegelser(df: pd.DataFrame, dager: int) -> dict[str, Any]:
 
     return {
         "dager": dager,
+        "min_volum": min_volum,
         "siste_dato": siste.isoformat(),
         "ref_dato": ref.isoformat(),
         "antall_grupper_med_data": int(len(samlet)),
@@ -539,7 +549,12 @@ def api_markedsbevegelser():
     except ValueError:
         dager = 30
     dager = max(7, min(dager, 365))
-    return jsonify(_bygg_markedsbevegelser(df, dager))
+    try:
+        min_volum = int(request.args.get("min_volum", str(MARKED_MIN_VOLUM_DEFAULT)))
+    except ValueError:
+        min_volum = MARKED_MIN_VOLUM_DEFAULT
+    min_volum = max(MARKED_MIN_VOLUM_MIN, min(min_volum, MARKED_MIN_VOLUM_MAX))
+    return jsonify(_bygg_markedsbevegelser(df, dager, min_volum))
 
 
 @bil_prisanalyse_bp.route("/marked")
