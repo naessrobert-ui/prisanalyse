@@ -8,9 +8,12 @@
       <div>
         <h3 class="mb-1">Markedsbevegelser</h3>
         <p class="text-muted mb-0">
-          Hvilke biltyper stuper i pris? Hvilke har plutselig
-          mange flere annonser ute (volumeksplosjon - ofte et tidlig signal
-          om kommende prisfall)?
+          Hvilke biltyper stuper i pris? Hvilke har plutselig mange flere
+          annonser ute (volumeksplosjon - ofte et tidlig signal om kommende
+          prisfall)? Gruppert paa
+          <strong>(produsent, modell, variant, aarstall, hjuldrift)</strong>
+          slik at vi sammenligner like biler over tid - ikke en miks av
+          aarsmodeller.
           <a href="/bil/prisanalyse" class="ml-2">&larr; Detaljanalyse</a>
           <a href="/bil/prisanalyse/sammenligning" class="ml-2">&middot; Sammenligning</a>
         </p>
@@ -135,10 +138,27 @@
     return `<span class="${farge}">${fortegn}${v.toFixed(1)} %</span>`;
   }
 
-  function biltypeUrl(prod, mod, variant) {
-    const p = new URLSearchParams({Produsent: prod, Modell: mod});
-    if (variant && variant !== 'ikke_klassifisert') p.set('variant_id', variant);
+  function biltypeUrl(r) {
+    const p = new URLSearchParams({Produsent: r.produsent, Modell: r.modell});
+    if (r.variant_id && r.variant_id !== 'ikke_klassifisert') p.set('variant_id', r.variant_id);
+    if (r.aarstall) {
+      p.set('aarstall_fra', r.aarstall);
+      p.set('aarstall_til', r.aarstall);
+    }
+    if (r.hjuldrift) p.set('hjuldrift', r.hjuldrift);
     return '/bil/prisanalyse?' + p.toString();
+  }
+
+  function biltypeLabel(r) {
+    // "Hyundai Kona 2022 / hyundai-kona-64 / Firehjul"
+    const hoved = `${r.produsent} ${r.modell}`;
+    const detaljer = [];
+    if (r.aarstall) detaljer.push(r.aarstall);
+    if (r.variant_id && r.variant_id !== 'ikke_klassifisert') detaljer.push(r.variant_id);
+    if (r.hjuldrift) detaljer.push(r.hjuldrift);
+    return detaljer.length
+      ? `${hoved} <small class="text-muted">${detaljer.join(' &middot; ')}</small>`
+      : hoved;
   }
 
   function lagSparkline(divId, sparkline, retning = 'pris') {
@@ -170,10 +190,8 @@
     const fragmenter = [];
     rader.forEach((r, i) => {
       const sparkId = `${tabId}-spark-${i}`;
-      const lenke = biltypeUrl(r.produsent, r.modell, r.variant_id);
-      const navn = r.variant_id && r.variant_id !== 'ikke_klassifisert'
-        ? `${r.produsent} ${r.modell} <small class="text-muted">${r.variant_id}</small>`
-        : `${r.produsent} ${r.modell}`;
+      const lenke = biltypeUrl(r);
+      const navn = biltypeLabel(r);
       let kol1, kol2, kol3, sparkRetning;
       if (kolonner === 'pris') {
         kol1 = fmtKr(r.median_siste) + ' kr';
