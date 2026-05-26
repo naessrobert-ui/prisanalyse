@@ -2,20 +2,22 @@
 {% block title %}Sammenligning - bil{% endblock %}
 
 {% block content %}
-<div class="container-fluid" style="padding: 24px;">
-  <div class="card-content" style="margin-bottom: 18px;">
+{% include "_prisanalyse_style.html" %}
+<div class="container-fluid pa-container">
+  <div class="pa-hero">
     <div class="d-flex justify-content-between align-items-start flex-wrap">
       <div>
-        <h3 class="mb-1">Sammenlign biltyper</h3>
-        <p class="text-muted mb-0">
+        <div class="brand">Analyse av bruktmarkedet</div>
+        <h1 class="m-0"><span class="accent">Sammen</span>ligning</h1>
+        <div class="sub mt-2">
           Velg to biltyper og se prisutvikling og volum side om side.
           Bytt mellom absolutte priser og indeksert visning (start = 100)
           for aa sammenligne prisbevegelser uavhengig av prisnivaa.
-        </p>
+        </div>
       </div>
-      <div class="mt-2">
+      <div class="mt-3 mt-lg-0">
         <a href="/bil/prisanalyse" class="btn btn-outline-secondary btn-sm">&larr; Detaljanalyse</a>
-        <a href="/bil/prisanalyse/marked" class="btn btn-outline-secondary btn-sm">Markedsbevegelser &rarr;</a>
+        <a href="/bil/prisanalyse/marked" class="btn btn-outline-secondary btn-sm ml-1">Markedsbevegelser &rarr;</a>
       </div>
     </div>
   </div>
@@ -230,20 +232,33 @@
       });
     });
 
+    const dark_layout_base = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: {color: '#cbd5e1', family: 'Montserrat, sans-serif'},
+    };
+    const dark_axes = {
+      gridcolor: 'rgba(255,255,255,0.07)',
+      tickfont: {color: '#cbd5e1'},
+      titlefont: {color: '#cbd5e1'},
+    };
+
     Plotly.newPlot('graf-pris', traserPris, {
+      ...dark_layout_base,
       margin: {l: 70, r: 16, t: 8, b: 40},
-      yaxis: {title: visIndeks ? 'Indeks (start=100)' : 'Pris (kr)', tickformat: ',.0f'},
-      xaxis: {title: ''},
+      yaxis: {...dark_axes, title: visIndeks ? 'Indeks (start=100)' : 'Pris (kr)', tickformat: ',.0f'},
+      xaxis: {...dark_axes, title: ''},
       hovermode: 'x unified',
-      legend: {orientation: 'h', y: -0.18},
+      legend: {orientation: 'h', y: -0.18, font: {color: '#cbd5e1'}},
     }, {displayModeBar: false, responsive: true});
 
     Plotly.newPlot('graf-volum', traserVolum, {
+      ...dark_layout_base,
       margin: {l: 60, r: 16, t: 8, b: 40},
-      yaxis: {title: 'Antall annonser'},
-      xaxis: {title: ''},
+      yaxis: {...dark_axes, title: 'Antall annonser'},
+      xaxis: {...dark_axes, title: ''},
       hovermode: 'x unified',
-      legend: {orientation: 'h', y: -0.22},
+      legend: {orientation: 'h', y: -0.22, font: {color: '#cbd5e1'}},
     }, {displayModeBar: false, responsive: true});
   }
 

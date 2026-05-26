@@ -2,25 +2,27 @@
 {% block title %}Prisanalyse - bil{% endblock %}
 
 {% block content %}
-<div class="container-fluid" style="padding: 24px;">
-  <div class="card-content" style="margin-bottom: 18px;">
+{% include "_prisanalyse_style.html" %}
+<div class="container-fluid pa-container">
+  <div class="pa-hero">
     <div class="d-flex justify-content-between align-items-start flex-wrap">
       <div>
-        <h3 class="mb-1">Bil-prisanalyse</h3>
-        <p class="text-muted mb-0">
+        <div class="brand">Analyse av bruktmarkedet</div>
+        <h1 class="m-0"><span class="accent">Detalj</span>analyse</h1>
+        <div class="sub mt-2">
           Filtrer en biltype og se hvordan median pris og antall annonser har
           utviklet seg over tid. Datasettet bygges hver natt fra daglige
           annonse-snapshots.
           {% if har_data %}
-            <small class="ml-2">({{ "{:,}".format(antall_rader).replace(",", " ") }} aggregat-rader paa tvers av {{ antall_dager }} dager)</small>
+            <small class="ml-2 text-muted">{{ "{:,}".format(antall_rader).replace(",", " ") }} aggregat-rader &middot; {{ antall_dager }} dager</small>
           {% else %}
-            <span class="badge badge-warning ml-2">Ingen aggregat tilgjengelig - kjor scripts/bygg_daglig_aggregat.py</span>
+            <span class="badge badge-warning ml-2">Ingen aggregat tilgjengelig</span>
           {% endif %}
-        </p>
+        </div>
       </div>
-      <div class="mt-2">
+      <div class="mt-3 mt-lg-0">
         <a href="/bil/prisanalyse/sammenligning" class="btn btn-outline-secondary btn-sm">
-          <i class="fas fa-balance-scale"></i> Sammenlign biler
+          <i class="fas fa-balance-scale"></i> Sammenlign
         </a>
         <a href="/bil/prisanalyse/marked" class="btn btn-outline-primary btn-sm ml-1">
           <i class="fas fa-chart-line"></i> Markedsbevegelser &rarr;
@@ -105,29 +107,32 @@
     <div class="col-lg-9 col-md-8">
       <!-- Endrings-kort -->
       <div class="row mb-3" id="metrikker">
-        <div class="col-md-3">
-          <div class="card-content text-center" style="padding: 14px;">
-            <div class="text-muted small">Siste medianpris</div>
-            <div id="m-siste" class="h4 mb-0">-</div>
-            <div id="m-siste-dato" class="text-muted small">-</div>
+        <div class="col-md-3 mb-2">
+          <div class="card-content pa-metric">
+            <div class="label">Siste medianpris</div>
+            <div id="m-siste" class="value">-</div>
+            <div id="m-siste-dato" class="sub">-</div>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="card-content text-center" style="padding: 14px;">
-            <div class="text-muted small">Annonser i dag</div>
-            <div id="m-n" class="h4 mb-0">-</div>
+        <div class="col-md-3 mb-2">
+          <div class="card-content pa-metric">
+            <div class="label">Annonser i dag</div>
+            <div id="m-n" class="value">-</div>
+            <div class="sub">&nbsp;</div>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="card-content text-center" style="padding: 14px;">
-            <div class="text-muted small">Endring 30 dager</div>
-            <div id="m-30d" class="h4 mb-0">-</div>
+        <div class="col-md-3 mb-2">
+          <div class="card-content pa-metric">
+            <div class="label">Endring 30 dager</div>
+            <div id="m-30d" class="value">-</div>
+            <div class="sub">&nbsp;</div>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="card-content text-center" style="padding: 14px;">
-            <div class="text-muted small">Endring 90 dager</div>
-            <div id="m-90d" class="h4 mb-0">-</div>
+        <div class="col-md-3 mb-2">
+          <div class="card-content pa-metric">
+            <div class="label">Endring 90 dager</div>
+            <div id="m-90d" class="value">-</div>
+            <div class="sub">&nbsp;</div>
           </div>
         </div>
       </div>
@@ -275,10 +280,13 @@
     };
     Plotly.newPlot('graf-pris', [overP75, underP25, median], {
       margin: {l: 60, r: 16, t: 8, b: 40},
-      yaxis: {title: 'Pris (kr)', tickformat: ',.0f'},
-      xaxis: {title: ''},
+      yaxis: {title: 'Pris (kr)', tickformat: ',.0f', gridcolor: 'rgba(255,255,255,0.07)', tickfont: {color: '#cbd5e1'}, titlefont: {color: '#cbd5e1'}},
+      xaxis: {title: '', gridcolor: 'rgba(255,255,255,0.07)', tickfont: {color: '#cbd5e1'}},
       hovermode: 'x unified',
-      legend: {orientation: 'h', y: -0.18},
+      legend: {orientation: 'h', y: -0.18, font: {color: '#cbd5e1'}},
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: {color: '#cbd5e1', family: 'Montserrat, sans-serif'},
     }, {displayModeBar: false, responsive: true});
 
     const volum = {
@@ -289,8 +297,11 @@
     };
     Plotly.newPlot('graf-volum', [volum], {
       margin: {l: 60, r: 16, t: 8, b: 40},
-      yaxis: {title: 'Antall annonser'},
-      xaxis: {title: ''},
+      yaxis: {title: 'Antall annonser', gridcolor: 'rgba(255,255,255,0.07)', tickfont: {color: '#cbd5e1'}, titlefont: {color: '#cbd5e1'}},
+      xaxis: {title: '', gridcolor: 'rgba(255,255,255,0.07)', tickfont: {color: '#cbd5e1'}},
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: {color: '#cbd5e1', family: 'Montserrat, sans-serif'},
     }, {displayModeBar: false, responsive: true});
 
     $('status').textContent = `Matchet ${serie.antall_undergrupper_matchet || 0} undergrupper paa tvers av ${datoer.length} dager.`;
