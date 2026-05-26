@@ -1,235 +1,404 @@
-{% extends "base.html" %}
-{% block title %}Omsetningskart – Boliganalyse{% endblock %}
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omsetningskart – raskt solgt vs lenge til salgs</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
-{% block content %}
-<style>
-  .omsetning-page {
-    min-height: calc(100vh - 140px);
-    padding: 18px 12px 24px;
-  }
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f4f6f8; color: #333; display: flex; flex-direction: column; min-height: 100vh; }
+        .main-container { flex: 1; display: flex; position: relative; }
+        .side-menu { width: 280px; padding: 20px; background-color: #fff; box-shadow: 2px 0 5px rgba(0,0,0,0.1); display: none; z-index: 10; }
+        #map { flex: 1; }
+        .landing-page { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://images.unsplash.com/photo-1582407947304-fd86f028f716?q=80&w=1992') no-repeat center center; background-size: cover; color: white; padding: 20px; }
+        .filter-box { background: rgba(255, 255, 255, 0.95); color: #333; padding: 30px; border-radius: 10px; max-width: 900px; width: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; text-align: left; }
+        h1, h2, h3 { margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        select, button, input { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+        .checkbox-row { display: flex; align-items: center; gap: 8px; }
+        .checkbox-row input[type="checkbox"] { width: auto; }
+        .checkbox-row label { margin: 0; font-weight: normal; }
+        button { background-color: #0063fb; color: white; cursor: pointer; border: none; font-weight: bold; margin-top: 20px; }
+        #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); display: none; align-items: center; justify-content: center; font-size: 24px; z-index: 10000; }
+        #home-btn { position: fixed; top: 20px; left: 20px; z-index: 1000; width: auto; padding: 10px 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .map-stats-box { margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6; }
+        .map-stats-box h4 { margin-top: 0; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; }
+        .map-stats-box p { margin: 0 0 5px 0; font-size: 14px; display: flex; justify-content: space-between; }
+        .legend-box { margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6; font-size: 13px; }
+        .legend-box .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 
-  .omsetning-header {
-    max-width: 1700px;
-    margin: 0 auto 10px;
-  }
+        #menu-toggle-btn { display: none; position: fixed; top: 15px; right: 15px; z-index: 1600; width: 46px; height: 46px; border-radius: 50%; background: #0063fb; color: white; align-items: center; justify-content: center; font-size: 22px; line-height: 1; border: none; box-shadow: 0 2px 6px rgba(0,0,0,0.25); cursor: pointer; padding: 0; }
+        #menu-close-btn { display: none; position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 50%; background: #eee; border: none; cursor: pointer; font-size: 18px; line-height: 1; padding: 0; }
+        #menu-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1400; }
+        body.menu-open #menu-backdrop { display: block; }
 
-  .omsetning-header h1 {
-    margin-bottom: 0.2rem;
-    font-size: 2rem;
-  }
-
-  .omsetning-header p {
-    margin-bottom: 0;
-    color: #d8e1ee;
-  }
-
-  .analysis-layout {
-    max-width: 1700px;
-    margin: 0 auto;
-    display: flex;
-    gap: 12px;
-    align-items: stretch;
-  }
-
-  .filter-panel {
-    width: 300px;
-    flex: 0 0 300px;
-    background: rgba(3, 14, 25, 0.95);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 14px;
-  }
-
-  .map-panel {
-    flex: 1;
-    min-width: 0;
-    background: rgba(3, 14, 25, 0.95);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .map-container {
-    width: 100%;
-    height: calc(100vh - 235px);
-    min-height: 680px;
-  }
-
-  .hint { font-size: 0.9rem; opacity: 0.85; }
-
-  @media (max-width: 992px) {
-    .analysis-layout {
-      flex-direction: column;
-    }
-
-    .filter-panel {
-      width: 100%;
-      flex: 1 1 auto;
-    }
-
-    .map-container {
-      height: 70vh;
-      min-height: 500px;
-    }
-  }
-</style>
-
-<div class="omsetning-page">
-  <section class="omsetning-header">
-    <p class="text-uppercase mb-1" style="letter-spacing: 0.18em; color: #9fb4d6;">BOLIGANALYSE</p>
-    <h1>Omsetningskart: raskt solgt vs lenge til salgs</h1>
-    <p>
-      Kartet bruker historiske boligannonser (inkludert solgt/fjernet) og aktive annonser.
-      Du kan vise boliger som ble solgt/fjernet innen <strong>X dager</strong>,
-      eller boliger som har ligget ute i minst <strong>Y dager</strong> uten å være solgt.
-    </p>
-  </section>
-
-  <div class="analysis-layout">
-    <aside class="filter-panel">
-      <h5>Filtre</h5>
-      <form method="get">
-        <input type="hidden" name="run_analysis" value="1">
-        <div class="mb-2">
-          <label class="form-label">Fylke</label>
-          <select class="form-select" name="fylke">
-            <option value="Alle" {% if filter_values.fylke == "Alle" %}selected{% endif %}>Alle fylker</option>
-            {% for f in filter_options.fylker %}
-              <option value="{{ f }}" {% if filter_values.fylke == f %}selected{% endif %}>{{ f }}</option>
-            {% endfor %}
-          </select>
+        @media (max-width: 768px) {
+            .side-menu { position: fixed; top: 0; left: 0; bottom: 0; width: 85%; max-width: 320px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1500; overflow-y: auto; box-shadow: 2px 0 8px rgba(0,0,0,0.3); padding-top: 56px; }
+            body.menu-open .side-menu { transform: translateX(0); }
+            #menu-toggle-btn { display: flex; }
+            #menu-close-btn { display: flex; align-items: center; justify-content: center; }
+            #home-btn { top: 15px; left: 15px; padding: 8px 12px; font-size: 14px; }
+            .filter-box { padding: 20px; }
+            .filter-grid { grid-template-columns: 1fr; gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="landing-view" class="landing-page">
+        <div class="filter-box">
+            <h1>Omsetningskart: raskt solgt vs lenge til salgs</h1>
+            <p>Kartet bruker historiske og aktive boligannonser. Sett opp utvalget og start analysen.</p>
+            <div class="filter-grid">
+                <div class="form-group"><label for="fylke-select">Fylke</label>
+                    <select id="fylke-select">
+                        <option value="Alle">Alle fylker</option>
+                        {% for f in filter_options.fylker %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group"><label for="kommune-select">Kommune</label>
+                    <select id="kommune-select">
+                        <option value="Alle">Alle kommuner</option>
+                        {% for k in filter_options.kommuner %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group"><label for="boligtype-select">Boligtype</label>
+                    <select id="boligtype-select">
+                        <option value="Alle">Alle typer</option>
+                        {% for t in filter_options.boligtyper %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group"><label for="nybrukt-select">Ny / Brukt</label>
+                    <select id="nybrukt-select">
+                        <option value="Alle">Alle</option>
+                        <option value="Brukt">Brukt</option>
+                        <option value="Nybygg">Nybygg</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="status-select">Status</label>
+                    <select id="status-select">
+                        <option value="Alle">Alle</option>
+                        <option value="Solgt/fjernet">Solgt/fjernet</option>
+                        <option value="Aktive ikke solgt">Aktive ikke solgt</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="sold-within-input">Solgt/fjernet innen X dager</label>
+                    <input type="number" id="sold-within-input" min="0" placeholder="f.eks. 14">
+                </div>
+                <div class="form-group"><label for="unsold-min-input">Ikke solgt, minst Y dager ute</label>
+                    <input type="number" id="unsold-min-input" min="0" placeholder="f.eks. 90">
+                </div>
+                <div class="form-group"><label for="max-points-input">Maks punkter i kart</label>
+                    <input type="number" id="max-points-input" min="500" max="15000" value="5000">
+                </div>
+                <div class="form-group"><label for="price-basis-select">Prisgrunnlag for markørstørrelse</label>
+                    <select id="price-basis-select">
+                        <option value="m2" selected>M²-pris</option>
+                        <option value="total">Totalpris</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <div class="checkbox-row">
+                        <input type="checkbox" id="allow-norge-input">
+                        <label for="allow-norge-input">Tillat Hele Norge (kan være tregt)</label>
+                    </div>
+                </div>
+            </div>
+            <button id="start-analysis-btn">Start analyse</button>
+            <p style="font-size: 13px; color: #666; margin-top: 12px;">
+                Tips: Tøm begge feltene for X/Y for å vise alle boliger (både solgt/fjernet og aktive).
+            </p>
         </div>
+    </div>
 
-        <div class="mb-2">
-          <label class="form-label">Kommune</label>
-          <select class="form-select" name="kommune">
-            <option value="Alle" {% if filter_values.kommune == "Alle" %}selected{% endif %}>Alle kommuner</option>
-            {% for k in filter_options.kommuner %}
-              <option value="{{ k }}" {% if filter_values.kommune == k %}selected{% endif %}>{{ k }}</option>
-            {% endfor %}
-          </select>
+    <div id="analysis-view" class="main-container" style="display: none;">
+        <a href="/" id="home-btn" class="btn btn-secondary">← Tilbake til forsiden</a>
+        <button id="menu-toggle-btn" type="button" aria-label="Vis analysevalg">☰</button>
+        <div id="menu-backdrop"></div>
+        <div class="side-menu">
+            <button id="menu-close-btn" type="button" aria-label="Lukk meny">✕</button>
+            <h3>Analysevalg</h3>
+            <p id="bolig-count"></p>
+            <div class="form-group"><label for="fast-days-input">Grønn hvis solgt innen ≤ dager</label>
+                <input type="number" id="fast-days-input" min="0" placeholder="f.eks. 14">
+            </div>
+            <div class="form-group"><label for="slow-days-input">Rød hvis aktiv ≥ dager</label>
+                <input type="number" id="slow-days-input" min="0" placeholder="f.eks. 90">
+            </div>
+            <button id="update-map-btn">Oppdater kart</button>
+            <div class="legend-box">
+                <div><span class="dot" style="background:#2EAD4A"></span> Solgt raskt</div>
+                <div><span class="dot" style="background:#D94841"></span> Aktiv lenge</div>
+                <div><span class="dot" style="background:#8f9bb3"></span> Resten</div>
+                <div style="margin-top:6px;">Størrelse følger valgt prisgrunnlag.</div>
+            </div>
+            <div id="map-stats-container" style="display: none;">
+                <div id="map-stats-avg" class="map-stats-box">
+                    <h4>Gjennomsnitt i utsnitt</h4>
+                    <p><strong>Antall synlige:</strong> <span id="stats-count-avg">0</span></p>
+                    <p><strong>Totalpris:</strong> <span id="stats-avg-totalpris">N/A</span></p>
+                    <p><strong>m²-pris:</strong> <span id="stats-avg-m2pris">N/A</span></p>
+                    <p><strong>Dager:</strong> <span id="stats-avg-dager">N/A</span></p>
+                </div>
+                <div id="map-stats-median" class="map-stats-box">
+                    <h4>Median i utsnitt</h4>
+                    <p><strong>Totalpris:</strong> <span id="stats-median-totalpris">N/A</span></p>
+                    <p><strong>m²-pris:</strong> <span id="stats-median-m2pris">N/A</span></p>
+                    <p><strong>Dager:</strong> <span id="stats-median-dager">N/A</span></p>
+                </div>
+            </div>
         </div>
+        <div id="map"></div>
+    </div>
+    <div id="loading-overlay">Laster...</div>
 
-        <div class="mb-2">
-          <label class="form-label">Boligtype</label>
-          <select class="form-select" name="boligtype">
-            <option value="Alle" {% if filter_values.boligtype == "Alle" %}selected{% endif %}>Alle typer</option>
-            {% for t in filter_options.boligtyper %}
-              <option value="{{ t }}" {% if filter_values.boligtype == t %}selected{% endif %}>{{ t }}</option>
-            {% endfor %}
-          </select>
-        </div>
+    <script>
+        let map;
+        let boligData = [];
+        let markerClusterGroup;
+        let priceBasis = 'm2';
 
-        <div class="mb-2">
-          <label class="form-label">Ny / Brukt</label>
-          <select class="form-select" name="nybrukt">
-            {% for n in filter_options.nybrukt %}
-              <option value="{{ n }}" {% if filter_values.nybrukt == n %}selected{% endif %}>{{ n }}</option>
-            {% endfor %}
-          </select>
-        </div>
+        const elements = {
+            startBtn: document.getElementById('start-analysis-btn'),
+            updateBtn: document.getElementById('update-map-btn'),
+            homeBtn: document.getElementById('home-btn'),
+            fastInput: document.getElementById('fast-days-input'),
+            slowInput: document.getElementById('slow-days-input'),
+            loadingOverlay: document.getElementById('loading-overlay'),
+            landingView: document.getElementById('landing-view'),
+            analysisView: document.getElementById('analysis-view'),
+            sideMenu: document.querySelector('.side-menu'),
+            boligCountEl: document.getElementById('bolig-count'),
+            fylkeSelect: document.getElementById('fylke-select'),
+            kommuneSelect: document.getElementById('kommune-select')
+        };
 
-        <div class="mb-2">
-          <label class="form-label">Status (brukes når X/Y er tomme)</label>
-          <select class="form-select" name="status">
-            {% for s in filter_options.status %}
-              <option value="{{ s }}" {% if filter_values.status == s %}selected{% endif %}>{{ s }}</option>
-            {% endfor %}
-          </select>
-        </div>
+        const fylkeKoordinater = {
+            'Agder': { lat: 58.45, lng: 7.8, zoom: 8 }, 'Akershus': { lat: 60.0, lng: 11.0, zoom: 9 },
+            'Buskerud': { lat: 60.5, lng: 9.5, zoom: 8 }, 'Finnmark': { lat: 70.1, lng: 25.0, zoom: 6 },
+            'Innlandet': { lat: 61.5, lng: 11.0, zoom: 7 }, 'Møre og Romsdal': { lat: 62.7, lng: 7.5, zoom: 8 },
+            'Nordland': { lat: 66.8, lng: 14.8, zoom: 6 }, 'Oslo': { lat: 59.91, lng: 10.75, zoom: 11 },
+            'Rogaland': { lat: 59.1, lng: 6.0, zoom: 8 }, 'Telemark': { lat: 59.5, lng: 8.5, zoom: 8 },
+            'Troms': { lat: 69.3, lng: 19.5, zoom: 7 }, 'Trøndelag': { lat: 63.8, lng: 11.5, zoom: 7 },
+            'Vestfold': { lat: 59.2, lng: 10.2, zoom: 9 }, 'Vestland': { lat: 61.0, lng: 6.5, zoom: 7 },
+            'Østfold': { lat: 59.3, lng: 11.3, zoom: 9 }
+        };
 
-        <div class="mb-2">
-          <label class="form-label">Solgt/fjernet innen X dager</label>
-          <input type="number" class="form-control" min="0" name="sold_within_days" value="{{ filter_values.sold_within_days }}" placeholder="f.eks. 14">
-        </div>
+        elements.startBtn.addEventListener('click', fetchInitialData);
+        elements.updateBtn.addEventListener('click', () => { drawMarkers(false); closeMobileMenu(); });
+        elements.homeBtn.addEventListener('click', (e) => { e.preventDefault(); goToHome(); });
 
-        <div class="mb-3">
-          <label class="form-label">Ikke solgt, minst Y dager ute</label>
-          <input type="number" class="form-control" min="0" name="unsold_min_days" value="{{ filter_values.unsold_min_days }}" placeholder="f.eks. 90">
-        </div>
+        const menuToggleBtn = document.getElementById('menu-toggle-btn');
+        const menuCloseBtn = document.getElementById('menu-close-btn');
+        const menuBackdrop = document.getElementById('menu-backdrop');
+        function openMobileMenu() {
+            document.body.classList.add('menu-open');
+            if (map) setTimeout(() => map.invalidateSize(), 260);
+        }
+        function closeMobileMenu() {
+            document.body.classList.remove('menu-open');
+            if (map) setTimeout(() => map.invalidateSize(), 260);
+        }
+        menuToggleBtn.addEventListener('click', openMobileMenu);
+        menuCloseBtn.addEventListener('click', closeMobileMenu);
+        menuBackdrop.addEventListener('click', closeMobileMenu);
 
-        <div class="mb-3">
-          <label class="form-label">Maks punkter i kart</label>
-          <input type="number" class="form-control" min="500" max="15000" name="max_points" value="{{ filter_values.max_points|default('5000') }}">
-        </div>
+        async function fetchInitialData() {
+            const filters = {
+                fylke: elements.fylkeSelect.value,
+                kommune: elements.kommuneSelect.value,
+                boligtype: document.getElementById('boligtype-select').value,
+                nybrukt: document.getElementById('nybrukt-select').value,
+                status: document.getElementById('status-select').value,
+                sold_within_days: document.getElementById('sold-within-input').value,
+                unsold_min_days: document.getElementById('unsold-min-input').value,
+                max_points: document.getElementById('max-points-input').value,
+                price_basis: document.getElementById('price-basis-select').value,
+                allow_all_norge: document.getElementById('allow-norge-input').checked ? '1' : '0',
+            };
+            priceBasis = filters.price_basis;
 
-        <div class="mb-3">
-          <label class="form-label">Prisgrunnlag for markørstørrelse</label>
-          <select class="form-select" name="price_basis">
-            <option value="m2" {% if filter_values.price_basis != "total" %}selected{% endif %}>M²-pris</option>
-            <option value="total" {% if filter_values.price_basis == "total" %}selected{% endif %}>Totalpris</option>
-          </select>
-        </div>
+            showLoading("Laster og filtrerer data...");
+            try {
+                const response = await fetch('/bolig/omsetningskart/data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filters })
+                });
+                const payload = await response.json();
+                if (!response.ok) {
+                    alert(payload.error || `Server svarte med status ${response.status}`);
+                    hideLoading();
+                    return;
+                }
+                boligData = (payload.rows || []).filter(b => b.latitude != null && b.longitude != null);
 
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" name="allow_all_norge" value="1" id="allowAllNorge"
-                 {% if filter_values.allow_all_norge == "1" %}checked{% endif %}>
-          <label class="form-check-label" for="allowAllNorge">
-            Tillat Hele Norge (kan være tregt)
-          </label>
-        </div>
+                if (!boligData.length) {
+                    alert("Fant ingen boliger som matchet dine filterkriterier.");
+                    hideLoading(); return;
+                }
 
-        <button class="btn btn-primary w-100" type="submit">Kjør analyse</button>
-      </form>
-      <p class="hint mt-3 mb-0">
-        Tips: Tøm begge feltene for X/Y for å vise alle boliger (både solgt/fjernet og aktive).
-      </p>
+                // Forhåndsutfyll terskler fra landingssidens X/Y, fall tilbake til persentil
+                const soldX = parseFloat(filters.sold_within_days);
+                const unsoldY = parseFloat(filters.unsold_min_days);
+                elements.fastInput.value = Number.isFinite(soldX) ? soldX : Math.round(percentile(durationValues(boligData), 0.20));
+                elements.slowInput.value = Number.isFinite(unsoldY) ? unsoldY : Math.round(percentile(durationValues(boligData), 0.80));
 
-      {% if viewport_stats %}
-        <div class="card card-body mt-3" style="background: rgba(255,255,255,0.06);">
-          <strong>Snitt i utvalg</strong>
-          <small>Totalt synlige: {{ stats.shown_count if stats else 0 }}</small>
-          <div>Totalpris: <strong>{{ "{:,.0f}".format(viewport_stats.snitt_totalpris).replace(",", " ") if viewport_stats.snitt_totalpris is not none else "–" }}{{ " kr" if viewport_stats.snitt_totalpris is not none else "" }}</strong></div>
-          <div>M²-pris: <strong>{{ "{:,.0f}".format(viewport_stats.snitt_m2).replace(",", " ") if viewport_stats.snitt_m2 is not none else "–" }}{{ " kr" if viewport_stats.snitt_m2 is not none else "" }}</strong></div>
-          <div>Dager: <strong>{{ "{:,.0f}".format(viewport_stats.snitt_dager) if viewport_stats.snitt_dager is not none else "–" }}</strong></div>
-        </div>
+                elements.landingView.style.display = 'none';
+                elements.analysisView.style.display = 'flex';
+                elements.sideMenu.style.display = 'block';
 
-        <div class="card card-body mt-2" style="background: rgba(255,255,255,0.06);">
-          <strong>Median i utvalg</strong>
-          <div>Totalpris: <strong>{{ "{:,.0f}".format(viewport_stats.median_totalpris).replace(",", " ") if viewport_stats.median_totalpris is not none else "–" }}{{ " kr" if viewport_stats.median_totalpris is not none else "" }}</strong></div>
-          <div>M²-pris: <strong>{{ "{:,.0f}".format(viewport_stats.median_m2).replace(",", " ") if viewport_stats.median_m2 is not none else "–" }}{{ " kr" if viewport_stats.median_m2 is not none else "" }}</strong></div>
-          <div>Dager: <strong>{{ "{:,.0f}".format(viewport_stats.median_dager) if viewport_stats.median_dager is not none else "–" }}</strong></div>
-        </div>
-      {% endif %}
+                if (!map) {
+                    map = L.map('map').setView([65.0, 15.0], 5);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    }).addTo(map);
+                }
+                setTimeout(() => map.invalidateSize(), 10);
+                drawMarkers(true);
+                map.on('moveend', updateMapStats);
+                updateMapStats();
+            } catch (err) {
+                console.error("Feil ved henting av data:", err);
+                alert("Kunne ikke laste data.");
+            } finally {
+                hideLoading();
+            }
+        }
 
-    </aside>
+        function durationValues(rows) {
+            return rows.map(r => r.duration_days).filter(v => v != null && !isNaN(v));
+        }
 
-    <section class="map-panel">
-      {% if error %}
-        <div class="alert alert-warning">{{ error }}</div>
-      {% endif %}
+        function priceValues(rows) {
+            return rows.map(r => priceBasis === 'total' ? r.totalpris : (r.m2_pris ?? r.totalpris))
+                .filter(v => v != null && !isNaN(v));
+        }
 
-      {% if needs_run %}
-        <div class="alert alert-info">
-          Velg område/filter først, og trykk <strong>Kjør analyse</strong>. Dette gir raskere og mer stabil lasting.
-        </div>
-      {% endif %}
+        function percentile(arr, p) {
+            if (!arr.length) return NaN;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor(sorted.length * p)));
+            return sorted[idx];
+        }
 
-      {% if map_html %}
-        <h5>Kart</h5>
-        {% if sampled %}
-          <div class="alert alert-info py-2">
-            Viser et utvalg i kartet for hastighet. Treff totalt: {{ stats.count }}, vist i kart: {{ stats.shown_count }}.
-          </div>
-        {% endif %}
-        <p class="hint">Grønn = raskeste 20%, rød = tregeste 20%, grå = resten. Størrelse følger valgt prisgrunnlag.</p>
+        function calculateMedian(arr) {
+            if (!arr.length) return 0;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        }
 
-        <div class="map-container">
-          {{ map_html|safe }}
-        </div>
+        function drawMarkers(resetView = false) {
+            showLoading("Tegner kart...");
+            elements.updateBtn.disabled = true;
+            setTimeout(() => {
+                if (markerClusterGroup) { markerClusterGroup.clearLayers(); } else {
+                    markerClusterGroup = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
+                    map.addLayer(markerClusterGroup);
+                }
+                const fastDays = parseFloat(elements.fastInput.value);
+                const slowDays = parseFloat(elements.slowInput.value);
+                const prices = priceValues(boligData);
+                const p10 = prices.length ? percentile(prices, 0.10) : NaN;
+                const p90 = prices.length ? percentile(prices, 0.90) : NaN;
 
-        {% if stats %}
-          <div class="row mt-3">
-            <div class="col-md-3 mb-2"><div class="card card-body">Totalt: <strong>{{ stats.count }}</strong></div></div>
-            <div class="col-md-3 mb-2"><div class="card card-body">Vist i kart: <strong>{{ stats.shown_count }}</strong></div></div>
-            <div class="col-md-3 mb-2"><div class="card card-body">Solgt/fjernet: <strong>{{ stats.sold_removed }}</strong></div></div>
-            <div class="col-md-3 mb-2"><div class="card card-body">Aktive: <strong>{{ stats.active }}</strong></div></div>
-          </div>
-        {% endif %}
-      {% endif %}
-    </section>
-  </div>
-</div>
-{% endblock %}
+                boligData.forEach(b => {
+                    if (b.latitude == null || b.longitude == null) return;
+                    let color = '#8f9bb3';
+                    if (b.er_avsluttet && Number.isFinite(fastDays) && b.dager_total != null && b.dager_total <= fastDays) {
+                        color = '#2EAD4A';
+                    } else if (b.er_aktiv && Number.isFinite(slowDays) && b.dager_aktiv != null && b.dager_aktiv >= slowDays) {
+                        color = '#D94841';
+                    }
+
+                    const priceVal = priceBasis === 'total' ? b.totalpris : (b.m2_pris ?? b.totalpris);
+                    let radius = 5;
+                    if (Number.isFinite(priceVal) && Number.isFinite(p10) && Number.isFinite(p90) && p90 > p10) {
+                        const norm = Math.max(0, Math.min(1, (priceVal - p10) / (p90 - p10)));
+                        radius = 3 + norm * 8;
+                    }
+
+                    const statusTxt = b.er_avsluttet ? `Solgt/fjernet (${b.dager_total ?? '?'} dager)` :
+                                       b.er_aktiv ? `Aktiv, ikke solgt (${b.dager_aktiv ?? '?'} dager)` : 'Ukjent';
+                    const totalprisStr = b.totalpris ? `${Math.round(b.totalpris).toLocaleString('nb-NO')} kr` : 'N/A';
+                    const m2prisStr = b.m2_pris ? `${Math.round(b.m2_pris).toLocaleString('nb-NO')} kr` : 'N/A';
+                    const finnUrl = b.finnkode ? `https://www.finn.no/realestate/homes/ad.html?finnkode=${b.finnkode}` : null;
+                    let popupHtml = `<b>${b.full_title || 'Uten tittel'}</b>`;
+                    if (b.address) popupHtml += `<br>${b.address}`;
+                    popupHtml += `<br><hr><b>Status:</b> ${statusTxt}` +
+                                 `<br><b>Totalpris:</b> ${totalprisStr}` +
+                                 `<br><b>M²-pris:</b> ${m2prisStr}`;
+                    if (finnUrl) popupHtml += `<br><b>Finnkode:</b> <a href="${finnUrl}" target="_blank" rel="noopener">${b.finnkode}</a>`;
+
+                    const circle = L.circleMarker([b.latitude, b.longitude],
+                        { radius: radius, color: color, fillColor: color, fillOpacity: 0.85, weight: 1 })
+                        .bindPopup(popupHtml);
+                    markerClusterGroup.addLayer(circle);
+                });
+
+                if (resetView && boligData.length > 0) {
+                    const valgtFylke = elements.fylkeSelect.value;
+                    if (valgtFylke && valgtFylke !== 'Alle' && fylkeKoordinater[valgtFylke]) {
+                        const f = fylkeKoordinater[valgtFylke];
+                        map.setView([f.lat, f.lng], f.zoom);
+                    } else {
+                        const bounds = markerClusterGroup.getBounds();
+                        if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50] });
+                        else map.setView([65.0, 15.0], 5);
+                    }
+                }
+                elements.boligCountEl.textContent = `Viser ${boligData.length} boliger.`;
+                hideLoading();
+                elements.updateBtn.disabled = false;
+                updateMapStats();
+            }, 50);
+        }
+
+        function updateMapStats() {
+            if (!map || !boligData.length) return;
+            const bounds = map.getBounds();
+            const visible = boligData.filter(b => bounds.contains([b.latitude, b.longitude]));
+            const container = document.getElementById('map-stats-container');
+            if (!visible.length) { container.style.display = 'none'; return; }
+            container.style.display = 'block';
+
+            const totals = visible.map(b => b.totalpris).filter(v => v != null && !isNaN(v) && v > 0);
+            const m2s = visible.map(b => b.m2_pris).filter(v => v != null && !isNaN(v) && v > 0);
+            const dager = visible.map(b => b.duration_days).filter(v => v != null && !isNaN(v));
+
+            const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+            document.getElementById('stats-count-avg').textContent = visible.length;
+            document.getElementById('stats-avg-totalpris').textContent = totals.length ? `${(avg(totals)/1000000).toFixed(1)} MNOK` : 'N/A';
+            document.getElementById('stats-avg-m2pris').textContent = m2s.length ? `${Math.round(avg(m2s)/1000)} 000 kr` : 'N/A';
+            document.getElementById('stats-avg-dager').textContent = dager.length ? avg(dager).toFixed(0) : 'N/A';
+            document.getElementById('stats-median-totalpris').textContent = totals.length ? `${(calculateMedian(totals)/1000000).toFixed(1)} MNOK` : 'N/A';
+            document.getElementById('stats-median-m2pris').textContent = m2s.length ? `${Math.round(calculateMedian(m2s)/1000)} 000 kr` : 'N/A';
+            document.getElementById('stats-median-dager').textContent = dager.length ? calculateMedian(dager).toFixed(0) : 'N/A';
+        }
+
+        function goToHome() {
+            elements.analysisView.style.display = 'none';
+            elements.landingView.style.display = 'flex';
+            if (map) { map.remove(); map = null; }
+            if (markerClusterGroup) { markerClusterGroup = null; }
+            boligData = [];
+            window.location.href = "/";
+        }
+
+        function showLoading(message) {
+            elements.loadingOverlay.textContent = message;
+            elements.loadingOverlay.style.display = 'flex';
+        }
+        function hideLoading() {
+            elements.loadingOverlay.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
