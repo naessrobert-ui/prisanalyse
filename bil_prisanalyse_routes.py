@@ -375,8 +375,13 @@ def api_eksport_csv():
 
 # ---- Markedsbevegelser (topplister) ----
 
-MARKED_GRUPPENOKLER = ["Produsent", "Modell", "variant_id"]
-MARKED_MIN_VOLUM = 5  # min antall annonser i hver av de to dagene
+# Finere gruppenoekler enn bare (Produsent, Modell, variant_id) - inkluderer
+# aarstall og hjuldrift slik at vi sammenligner like biler mellom de to
+# datoene. Tidligere ble 2018-Kona og 2024-Kona slaatt sammen, hvilket
+# skapte "merkelige verdier" naar miksen av aarganger endret seg over tid
+# (Simpsons paradoks).
+MARKED_GRUPPENOKLER = ["Produsent", "Modell", "variant_id", "aarstall", "hjuldrift"]
+MARKED_MIN_VOLUM = 3  # min antall annonser i hver av de to dagene
 MARKED_TOPP_N = 20
 
 
@@ -401,17 +406,15 @@ def _vektet_median_per_gruppe_dag(df: pd.DataFrame) -> pd.DataFrame:
     return ut
 
 
-def _sparkline_for_gruppe(per_dag: pd.DataFrame, prod: str, mod: str, var: str,
+def _sparkline_for_gruppe(per_dag: pd.DataFrame, gruppe: dict[str, Any],
                           fra: Any, til: Any) -> list[dict]:
     """Returner [{"dato": "...", "median": int, "n": int}, ...] for en
-    spesifikk gruppe i intervallet."""
-    s = per_dag[
-        (per_dag["Produsent"] == prod)
-        & (per_dag["Modell"] == mod)
-        & (per_dag["variant_id"] == var)
-        & (per_dag["dato"] >= fra)
-        & (per_dag["dato"] <= til)
-    ].sort_values("dato")
+    spesifikk gruppe i intervallet. `gruppe` skal ha samtlige
+    MARKED_GRUPPENOKLER-verdier."""
+    mask = (per_dag["dato"] >= fra) & (per_dag["dato"] <= til)
+    for kol in MARKED_GRUPPENOKLER:
+        mask = mask & (per_dag[kol] == gruppe[kol])
+    s = per_dag.loc[mask].sort_values("dato")
     if s.empty:
         return []
     return [
@@ -488,11 +491,16 @@ def _bygg_markedsbevegelser(df: pd.DataFrame, dager: int) -> dict[str, Any]:
     )
 
     def _rad_til_dict(row: pd.Series, sparkline: bool = True) -> dict[str, Any]:
-        prod, mod, var = row["Produsent"], row["Modell"], row["variant_id"]
+        gruppe = {kol: row[kol] for kol in MARKED_GRUPPENOKLER}
+        # Tom aarstall -> None (gjør JSON renere enn pd.NA / NaN)
+        aar = row["aarstall"]
+        aar_int = int(aar) if pd.notna(aar) else None
         d = {
-            "produsent": str(prod),
-            "modell": str(mod),
-            "variant_id": str(var),
+            "produsent": str(row["Produsent"]),
+            "modell": str(row["Modell"]),
+            "variant_id": str(row["variant_id"]),
+            "aarstall": aar_int,
+            "hjuldrift": str(row["hjuldrift"]) if pd.notna(row["hjuldrift"]) else None,
             "median_siste": int(round(row["vektet_median_siste"])),
             "median_ref": int(round(row["vektet_median_ref"])),
             "endring_pris_pct": round(float(row["endring_pris_pct"]), 2),
@@ -501,7 +509,7 @@ def _bygg_markedsbevegelser(df: pd.DataFrame, dager: int) -> dict[str, Any]:
             "endring_volum_pct": round(float(row["endring_volum_pct"]), 1),
         }
         if sparkline:
-            d["sparkline"] = _sparkline_for_gruppe(per_dag, prod, mod, var, ref, siste)
+            d["sparkline"] = _sparkline_for_gruppe(per_dag, gruppe, ref, siste)
         return d
 
     prisfall = samlet.sort_values("endring_pris_pct", ascending=True).head(MARKED_TOPP_N)
