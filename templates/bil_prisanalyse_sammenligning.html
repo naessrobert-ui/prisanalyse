@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}Sammenligning - bil{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="padding: 24px;">
+  <div class="card-content" style="margin-bottom: 18px;">
+    <div class="d-flex justify-content-between align-items-start flex-wrap">
+      <div>
+        <h3 class="mb-1">Sammenlign biltyper</h3>
+        <p class="text-muted mb-0">
+          Velg to biltyper og se prisutvikling og volum side om side.
+          Bytt mellom absolutte priser og indeksert visning (start = 100)
+          for aa sammenligne prisbevegelser uavhengig av prisnivaa.
+        </p>
+      </div>
+      <div class="mt-2">
+        <a href="/bil/prisanalyse" class="btn btn-outline-secondary btn-sm">&larr; Detaljanalyse</a>
+        <a href="/bil/prisanalyse/marked" class="btn btn-outline-secondary btn-sm">Markedsbevegelser &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  {% if not har_data %}
+    <div class="alert alert-warning">Ingen aggregat tilgjengelig. Kjor scripts/bygg_daglig_aggregat.py forst.</div>
+  {% endif %}
+
+  <div class="row">
+    {% for n in [1, 2] %}
+    <div class="col-md-6">
+      <div class="card-content" style="margin-bottom: 12px;">
+        <h5 class="mb-2">Bil {{ n }} <span id="b{{ n }}-etikett" class="text-muted small ml-2"></span></h5>
+
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label for="b{{ n }}-produsent" class="small mb-1">Produsent</label>
+            <select id="b{{ n }}-produsent" class="form-control form-control-sm" data-felt="Produsent">
+              <option value="alle">Alle</option>
+            </select>
+          </div>
+          <div class="form-group col-md-6">
+            <label for="b{{ n }}-modell" class="small mb-1">Modell</label>
+            <select id="b{{ n }}-modell" class="form-control form-control-sm" data-felt="Modell">
+              <option value="alle">Alle</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label for="b{{ n }}-variant" class="small mb-1">Variant</label>
+            <select id="b{{ n }}-variant" class="form-control form-control-sm" data-felt="variant_id">
+              <option value="alle">Alle</option>
+            </select>
+          </div>
+          <div class="form-group col-md-6">
+            <label for="b{{ n }}-km" class="small mb-1">Km</label>
+            <select id="b{{ n }}-km" class="form-control form-control-sm" data-felt="km_bin">
+              <option value="alle">Alle</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label class="small mb-1">Aarstall (fra-til)</label>
+            <div class="d-flex" style="gap: 4px;">
+              <input id="b{{ n }}-aar-fra" type="number" class="form-control form-control-sm" placeholder="fra">
+              <input id="b{{ n }}-aar-til" type="number" class="form-control form-control-sm" placeholder="til">
+            </div>
+          </div>
+          <div class="form-group col-md-6">
+            <label class="small mb-1">&nbsp;</label>
+            <a id="b{{ n }}-csv" class="btn btn-outline-primary btn-sm btn-block" href="#" download>
+              <i class="fas fa-download"></i> Last ned CSV
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="card-content mb-3">
+    <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
+      <h6 class="mb-0">Prisutvikling</h6>
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" id="vis-absolutt" class="btn btn-outline-secondary active">Absolutt pris</button>
+        <button type="button" id="vis-indeks" class="btn btn-outline-secondary">Indeksert (start=100)</button>
+      </div>
+    </div>
+    <div id="graf-pris" style="width: 100%; height: 420px;"></div>
+  </div>
+
+  <div class="card-content">
+    <h6>Antall annonser ute for salg</h6>
+    <div id="graf-volum" style="width: 100%; height: 240px;"></div>
+  </div>
+
+  <div id="status" class="text-muted small mt-2"></div>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<script>
+(function() {
+  const $ = (id) => document.getElementById(id);
+  const FARGER = {1: 'rgb(40, 90, 170)', 2: 'rgb(200, 80, 50)'};
+  let filteralternativer = {};
+  let seneste = {1: null, 2: null};
+  let visIndeks = false;
+
+  function settOpsjonene(selectId, verdier) {
+    const sel = $(selectId);
+    const naa = sel.value;
+    sel.innerHTML = '<option value="alle">Alle</option>';
+    (verdier || []).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+    if ([...sel.options].some(o => o.value === naa)) sel.value = naa;
+  }
+
+  async function lastFilteralternativer() {
+    const r = await fetch('/bil/prisanalyse/api/filteralternativer');
+    filteralternativer = await r.json();
+    [1, 2].forEach(n => {
+      settOpsjonene(`b${n}-produsent`, filteralternativer.Produsent);
+      oppdaterModellerFor(n);
+      settOpsjonene(`b${n}-km`, filteralternativer.km_bin);
+    });
+  }
+
+  function oppdaterModellerFor(n) {
+    const prod = $(`b${n}-produsent`).value;
+    let modeller;
+    if (prod === 'alle' || !filteralternativer.modeller_per_produsent) {
+      modeller = filteralternativer.Modell;
+    } else {
+      modeller = filteralternativer.modeller_per_produsent[prod] || [];
+    }
+    settOpsjonene(`b${n}-modell`, modeller);
+    oppdaterVarianterFor(n);
+  }
+
+  function oppdaterVarianterFor(n) {
+    const prod = $(`b${n}-produsent`).value;
+    const mod = $(`b${n}-modell`).value;
+    const key = prod + '::' + mod;
+    let varianter;
+    if (prod === 'alle' || mod === 'alle' || !filteralternativer.varianter_per_modell) {
+      varianter = filteralternativer.variant_id;
+    } else {
+      varianter = filteralternativer.varianter_per_modell[key] || [];
+    }
+    settOpsjonene(`b${n}-variant`, varianter);
+  }
+
+  function bygFilterFor(n) {
+    const p = new URLSearchParams();
+    [
+      ['produsent', 'Produsent'],
+      ['modell', 'Modell'],
+      ['variant', 'variant_id'],
+      ['km', 'km_bin'],
+    ].forEach(([k, urlk]) => {
+      const v = $(`b${n}-${k}`).value;
+      if (v && v !== 'alle') p.set(urlk, v);
+    });
+    const aarFra = $(`b${n}-aar-fra`).value;
+    const aarTil = $(`b${n}-aar-til`).value;
+    if (aarFra) p.set('aarstall_fra', aarFra);
+    if (aarTil) p.set('aarstall_til', aarTil);
+    return p;
+  }
+
+  function etikettFor(n) {
+    const biter = [];
+    [['produsent'], ['modell'], ['variant']].forEach(([k]) => {
+      const v = $(`b${n}-${k}`).value;
+      if (v && v !== 'alle') biter.push(v);
+    });
+    return biter.length ? biter.join(' / ') : 'Alle biler';
+  }
+
+  function oppdaterCsvLenker() {
+    [1, 2].forEach(n => {
+      const p = bygFilterFor(n);
+      $(`b${n}-csv`).href = '/bil/prisanalyse/api/eksport.csv?' + p.toString();
+      $(`b${n}-etikett`).textContent = etikettFor(n);
+    });
+  }
+
+  function indekserSerie(verdier) {
+    // Skaler slik at forste ikke-null/ikke-NaN verdi blir 100
+    const forste = verdier.find(v => v !== null && v !== undefined && !isNaN(v));
+    if (!forste) return verdier;
+    return verdier.map(v => (v === null || v === undefined || isNaN(v)) ? null : (v / forste * 100));
+  }
+
+  function tegnGrafer() {
+    const traserPris = [];
+    const traserVolum = [];
+
+    [1, 2].forEach(n => {
+      const s = seneste[n];
+      if (!s || !s.datoer || s.datoer.length === 0) return;
+      const label = etikettFor(n);
+      const farge = FARGER[n];
+
+      const yPris = visIndeks ? indekserSerie(s.median_pris) : s.median_pris;
+      const yLabel = visIndeks ? 'Indeks (start=100)' : 'Pris (kr)';
+
+      traserPris.push({
+        x: s.datoer, y: yPris,
+        type: 'scatter', mode: 'lines+markers',
+        line: {color: farge, width: 2.5}, marker: {size: 4},
+        name: label,
+        hovertemplate: visIndeks
+          ? `${label}<br>%{x}<br>Indeks: %{y:.1f}<extra></extra>`
+          : `${label}<br>%{x}<br>Median: %{y:,.0f} kr<extra></extra>`,
+      });
+
+      traserVolum.push({
+        x: s.datoer, y: s.n_annonser,
+        type: 'scatter', mode: 'lines',
+        line: {color: farge, width: 2}, fill: 'tozeroy',
+        fillcolor: farge.replace('rgb', 'rgba').replace(')', ', 0.15)'),
+        name: label,
+        hovertemplate: `${label}<br>%{x}<br>%{y} annonser<extra></extra>`,
+      });
+    });
+
+    Plotly.newPlot('graf-pris', traserPris, {
+      margin: {l: 70, r: 16, t: 8, b: 40},
+      yaxis: {title: visIndeks ? 'Indeks (start=100)' : 'Pris (kr)', tickformat: ',.0f'},
+      xaxis: {title: ''},
+      hovermode: 'x unified',
+      legend: {orientation: 'h', y: -0.18},
+    }, {displayModeBar: false, responsive: true});
+
+    Plotly.newPlot('graf-volum', traserVolum, {
+      margin: {l: 60, r: 16, t: 8, b: 40},
+      yaxis: {title: 'Antall annonser'},
+      xaxis: {title: ''},
+      hovermode: 'x unified',
+      legend: {orientation: 'h', y: -0.22},
+    }, {displayModeBar: false, responsive: true});
+  }
+
+  async function hentFor(n) {
+    const p = bygFilterFor(n);
+    const r = await fetch('/bil/prisanalyse/api/tidsserie?' + p.toString());
+    if (!r.ok) return;
+    seneste[n] = await r.json();
+  }
+
+  async function oppdater() {
+    $('status').textContent = 'Henter...';
+    oppdaterCsvLenker();
+    await Promise.all([hentFor(1), hentFor(2)]);
+    tegnGrafer();
+    const n1 = seneste[1]?.antall_undergrupper_matchet || 0;
+    const n2 = seneste[2]?.antall_undergrupper_matchet || 0;
+    const d1 = seneste[1]?.datoer?.length || 0;
+    $('status').textContent =
+      `Bil 1: ${n1} undergrupper, ${d1} dager. Bil 2: ${n2} undergrupper, ${seneste[2]?.datoer?.length || 0} dager.`;
+  }
+
+  // Auto-oppdater paa filterendringer
+  [1, 2].forEach(n => {
+    $(`b${n}-produsent`).addEventListener('change', () => { oppdaterModellerFor(n); oppdater(); });
+    $(`b${n}-modell`).addEventListener('change', () => { oppdaterVarianterFor(n); oppdater(); });
+    ['variant', 'km', 'aar-fra', 'aar-til'].forEach(k => {
+      $(`b${n}-${k}`).addEventListener('change', oppdater);
+    });
+  });
+
+  // Toggle absolutt/indeks
+  $('vis-absolutt').addEventListener('click', () => {
+    visIndeks = false;
+    $('vis-absolutt').classList.add('active');
+    $('vis-indeks').classList.remove('active');
+    tegnGrafer();
+  });
+  $('vis-indeks').addEventListener('click', () => {
+    visIndeks = true;
+    $('vis-indeks').classList.add('active');
+    $('vis-absolutt').classList.remove('active');
+    tegnGrafer();
+  });
+
+  // Initial: forhandsfyll med to populaere biler for aa vise hvordan det funker
+  lastFilteralternativer().then(() => {
+    // Bil 1: Tesla Model Y LR (hvis i katalog)
+    if (filteralternativer.Produsent && filteralternativer.Produsent.includes('Tesla')) {
+      $('b1-produsent').value = 'Tesla';
+      oppdaterModellerFor(1);
+      if (filteralternativer.modeller_per_produsent?.['Tesla']?.includes('Model Y')) {
+        $('b1-modell').value = 'Model Y';
+        oppdaterVarianterFor(1);
+      }
+    }
+    // Bil 2: Hyundai Kona (hvis i katalog)
+    if (filteralternativer.Produsent && filteralternativer.Produsent.includes('Hyundai')) {
+      $('b2-produsent').value = 'Hyundai';
+      oppdaterModellerFor(2);
+      if (filteralternativer.modeller_per_produsent?.['Hyundai']?.includes('Kona')) {
+        $('b2-modell').value = 'Kona';
+        oppdaterVarianterFor(2);
+      }
+    }
+    oppdater();
+  });
+})();
+</script>
+{% endblock %}
