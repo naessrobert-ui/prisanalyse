@@ -29,6 +29,21 @@
         .map-stats-box { margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6; }
         .map-stats-box h4 { margin-top: 0; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; }
         .map-stats-box p { margin: 0 0 5px 0; font-size: 14px; display: flex; justify-content: space-between; }
+
+        #menu-toggle-btn { display: none; position: fixed; top: 15px; right: 15px; z-index: 1600; width: 46px; height: 46px; border-radius: 50%; background: #0063fb; color: white; align-items: center; justify-content: center; font-size: 22px; line-height: 1; border: none; box-shadow: 0 2px 6px rgba(0,0,0,0.25); cursor: pointer; padding: 0; }
+        #menu-close-btn { display: none; position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 50%; background: #eee; border: none; cursor: pointer; font-size: 18px; line-height: 1; padding: 0; }
+        #menu-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1400; }
+        body.menu-open #menu-backdrop { display: block; }
+
+        @media (max-width: 768px) {
+            .side-menu { position: fixed; top: 0; left: 0; bottom: 0; width: 85%; max-width: 320px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1500; overflow-y: auto; box-shadow: 2px 0 8px rgba(0,0,0,0.3); padding-top: 56px; }
+            body.menu-open .side-menu { transform: translateX(0); }
+            #menu-toggle-btn { display: flex; }
+            #menu-close-btn { display: flex; align-items: center; justify-content: center; }
+            #home-btn { top: 15px; left: 15px; padding: 8px 12px; font-size: 14px; }
+            .filter-box { padding: 20px; }
+            .filter-grid { grid-template-columns: 1fr; gap: 12px; }
+        }
     </style>
 </head>
 <body>
@@ -62,7 +77,10 @@
 
     <div id="analysis-view" class="main-container" style="display: none;">
         <a href="/" id="home-btn" class="btn btn-secondary">← Tilbake til forsiden</a>
+        <button id="menu-toggle-btn" type="button" aria-label="Vis analysevalg">☰</button>
+        <div id="menu-backdrop"></div>
         <div class="side-menu">
+            <button id="menu-close-btn" type="button" aria-label="Lukk meny">✕</button>
             <h3>Analysevalg</h3>
             <p id="bolig-count"></p>
             <div class="form-group"><label for="color-by-select">Fargelegg etter:</label><select id="color-by-select"><option value="totalpris" selected>Totalpris</option><option value="M2-pris">M²-pris</option><option value="dager_paa_markedet">Dager på markedet</option></select></div>
@@ -121,9 +139,24 @@
         };
 
         elements.startBtn.addEventListener('click', fetchInitialData);
-        elements.updateBtn.addEventListener('click', () => drawMarkers(false));
+        elements.updateBtn.addEventListener('click', () => { drawMarkers(false); closeMobileMenu(); });
         elements.colorBySelect.addEventListener('change', updateThresholdPlaceholders);
         elements.homeBtn.addEventListener('click', (e) => { e.preventDefault(); goToHome(); });
+
+        const menuToggleBtn = document.getElementById('menu-toggle-btn');
+        const menuCloseBtn = document.getElementById('menu-close-btn');
+        const menuBackdrop = document.getElementById('menu-backdrop');
+        function openMobileMenu() {
+            document.body.classList.add('menu-open');
+            if (map) setTimeout(() => map.invalidateSize(), 260);
+        }
+        function closeMobileMenu() {
+            document.body.classList.remove('menu-open');
+            if (map) setTimeout(() => map.invalidateSize(), 260);
+        }
+        menuToggleBtn.addEventListener('click', openMobileMenu);
+        menuCloseBtn.addEventListener('click', closeMobileMenu);
+        menuBackdrop.addEventListener('click', closeMobileMenu);
 
 async function fetchInitialData() {
             showLoading("Laster og filtrerer data...");
