@@ -103,6 +103,19 @@
                         <label for="allow-norge-input">Tillat Hele Norge (kan være tregt)</label>
                     </div>
                 </div>
+                <div class="form-group" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0; font-weight: bold;">
+                        <input type="checkbox" id="near-me-input" style="width: auto;"> I nærheten av meg
+                    </label>
+                    <label for="radius-select" style="margin: 0;">Radius:</label>
+                    <select id="radius-select" style="width: auto; padding: 6px 10px;">
+                        <option value="2">2 km</option>
+                        <option value="5" selected>5 km</option>
+                        <option value="10">10 km</option>
+                        <option value="25">25 km</option>
+                    </select>
+                    <span style="font-size: 13px; color: #666;">Overstyrer fylke når aktiv. Krever lokasjonstilgang.</span>
+                </div>
             </div>
             <button id="start-analysis-btn">Start analyse</button>
             <p style="font-size: 13px; color: #666; margin-top: 12px;">
@@ -215,6 +228,30 @@
                 allow_all_norge: document.getElementById('allow-norge-input').checked ? '1' : '0',
             };
             priceBasis = filters.price_basis;
+
+            const nearMe = document.getElementById('near-me-input').checked;
+            if (nearMe) {
+                if (!navigator.geolocation) {
+                    alert("Nettleseren din støtter ikke posisjonshenting.");
+                    return;
+                }
+                showLoading("Henter din posisjon...");
+                try {
+                    const pos = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000, maximumAge: 60000 });
+                    });
+                    filters.near_me = '1';
+                    filters.user_lat = pos.coords.latitude;
+                    filters.user_lng = pos.coords.longitude;
+                    filters.radius_km = parseFloat(document.getElementById('radius-select').value);
+                    filters.fylke = 'Alle';
+                    filters.allow_all_norge = '1';
+                } catch (err) {
+                    hideLoading();
+                    alert("Kunne ikke hente posisjonen din. Tillat lokasjonstilgang i nettleseren, eller fjern haken for 'I nærheten av meg'.");
+                    return;
+                }
+            }
 
             showLoading("Laster og filtrerer data...");
             try {
