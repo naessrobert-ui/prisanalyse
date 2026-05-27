@@ -41,6 +41,40 @@ def _parse_date(s: str):
         return None
     return pd.to_datetime(s, errors="coerce")
 
+
+def _apply_near_me_filter(df, filters):
+    """Filtrer datasettet til boliger innen `radius_km` fra brukerposisjon.
+
+    Forventer at filters har `near_me=='1'`, `user_lat`, `user_lng`, `radius_km`.
+    Returnerer DataFrame uendret hvis felt mangler eller `near_me` ikke er aktiv.
+    """
+    if str(filters.get("near_me") or "0") != "1":
+        return df
+    try:
+        user_lat = float(filters.get("user_lat"))
+        user_lng = float(filters.get("user_lng"))
+        radius_km = float(filters.get("radius_km") or 5)
+    except (TypeError, ValueError):
+        return df
+    if radius_km <= 0:
+        return df
+
+    lat = pd.to_numeric(df.get("latitude"), errors="coerce")
+    lng = pd.to_numeric(df.get("longitude"), errors="coerce")
+    if lat is None or lng is None:
+        return df
+
+    R = 6371.0  # jordens radius i km
+    phi1 = np.radians(user_lat)
+    phi2 = np.radians(lat)
+    dphi = np.radians(lat - user_lat)
+    dlam = np.radians(lng - user_lng)
+    a = np.sin(dphi / 2.0) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlam / 2.0) ** 2
+    dist_km = 2.0 * R * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+
+    mask = dist_km <= radius_km
+    return df[mask.fillna(False)]
+
 @bolig_bp.route("/historikk/")
 def bolig_historikk_view():
     level = request.args.get("level", "Fylke")
@@ -1093,6 +1127,9 @@ def get_bolig_data():
                     .str.contains(search_term, case=False, na=False)
                 ]
 
+        # "I nærheten av meg" – filtrer på Haversine-avstand fra brukerposisjon.
+        df = _apply_near_me_filter(df, filters)
+
         df = df.where(pd.notna(df), None)
         return jsonify(json.loads(df.to_json(orient="records")))
 
@@ -1343,11 +1380,13 @@ def bolig_omsetningskart_data():
     valgt_nybrukt = filters.get("nybrukt") or "Alle"
     valgt_status = filters.get("status") or "Alle"
     allow_all_norge = str(filters.get("allow_all_norge") or "0") == "1"
+    near_me = str(filters.get("near_me") or "0") == "1"
     max_points_raw = str(filters.get("max_points") or "5000").strip()
     max_points = int(max_points_raw) if max_points_raw.isdigit() else 5000
     max_points = max(500, min(max_points, 15000))
 
-    if valgt_fylke == "Alle" and not allow_all_norge:
+    # "I nærheten av meg" overstyrer fylke-kravet – radius gir naturlig avgrensning.
+    if not near_me and valgt_fylke == "Alle" and not allow_all_norge:
         return jsonify({"error": "Velg fylke først, eller huk av for Hele Norge."}), 400
 
     df = _prepare_omsetning_df(base_df)
@@ -1383,6 +1422,8 @@ def bolig_omsetningskart_data():
         (df["latitude"] >= 57.0) & (df["latitude"] <= 72.0)
         & (df["longitude"] >= 4.0) & (df["longitude"] <= 32.0)
     ]
+    # "I nærheten av meg" – filtrer på Haversine-avstand fra brukerposisjon.
+    df = _apply_near_me_filter(df, filters)
     total_match = int(len(df))
     sampled = False
     if len(df) > max_points:
