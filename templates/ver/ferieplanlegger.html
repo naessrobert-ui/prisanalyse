@@ -330,7 +330,7 @@
     <label>
       Sortér:
       <select id="sort-by" autocomplete="off">
-        <option value="avstand">Nærmest startsted</option>
+        <option value="avstand" selected>Nærmest startsted</option>
         <option value="score">Beste treff</option>
         <option value="temp">Temperatur (høyest først)</option>
         <option value="sol">Sol (mest først)</option>
@@ -794,17 +794,26 @@ function brukGeolokasjon() {
       aktiveTreff.forEach((t) => { t._avstand = haversineKm(userLoc.lat, userLoc.lon, t.lat, t.lon); });
       if (aktiveTreff.length) tegnResultater();
     },
-    () => { settGeoStatus("Posisjon ikke tilgjengelig – skriv inn by."); $("geo-btn").disabled = false; }
+    (err) => {
+      if (err.code === 1) settGeoStatus("Posisjonstilgang avslått – skriv inn by manuelt.");
+      else settGeoStatus("Posisjon ikke tilgjengelig – skriv inn by manuelt.");
+      $("geo-btn").disabled = false;
+    }
   );
 }
 $("geo-btn").addEventListener("click", brukGeolokasjon);
 
 async function autoSettStartsted() {
-  if (!navigator.geolocation || !navigator.permissions || !navigator.permissions.query) return;
+  if (!navigator.geolocation) { settGeoStatus("Skriv inn by for avstandssortering."); return; }
+  if (!navigator.permissions || !navigator.permissions.query) {
+    brukGeolokasjon();
+    return;
+  }
   try {
     const status = await navigator.permissions.query({ name: "geolocation" });
-    if (status.state === "granted") brukGeolokasjon();
-  } catch (e) { /* mangler støtte — la 📍-knappen håndtere det */ }
+    if (status.state === "granted" || status.state === "prompt") brukGeolokasjon();
+    else settGeoStatus("Posisjonstilgang blokkert – skriv inn by manuelt.");
+  } catch (e) { brukGeolokasjon(); }
 }
 
 async function sokDestinasjoner() {
