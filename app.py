@@ -32,7 +32,6 @@ from scripts.sno_routes import sno_bp, start_warmup
 from scripts.kart_routes import kart_bp
 from scripts.hormuz_routes import hormuz_bp
 from aksjonaer_routes import aksjonaer_bp
-from scripts.kvam_routes import kvam_bp
 from shipping_routes import shipping_bp, start_shipping_streamlit
 
 
@@ -144,7 +143,6 @@ def create_app() -> Flask:
     app.register_blueprint(kart_bp)
     app.register_blueprint(hormuz_bp)
     app.register_blueprint(aksjonaer_bp)
-    app.register_blueprint(kvam_bp)
     app.register_blueprint(shipping_bp)
 
     # Start bakgrunnsjobb som prefetcher snødybde for hele Norge
