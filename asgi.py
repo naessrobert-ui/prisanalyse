@@ -15,6 +15,8 @@ from shipping_routes import start_shipping_streamlit
 
 logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+
 
 def _build_api_fallback(*, title: str, service: str, reason: str, hint: str, route_prefix: str = "") -> FastAPI:
     fallback = FastAPI(title=title)
