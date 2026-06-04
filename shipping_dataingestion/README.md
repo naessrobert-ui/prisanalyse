@@ -76,7 +76,7 @@ Company datasets:
 Describe all targets without calling any API:
 
 ```python
-from dataingestion import IngestionPipeline, StubProvider
+from shipping_dataingestion import IngestionPipeline, StubProvider
 
 pipeline = IngestionPipeline(StubProvider())
 targets = pipeline.describe_targets(tickers=["FRO"])
@@ -87,7 +87,7 @@ for target in targets:
 Later, when a provider exists:
 
 ```python
-from dataingestion.pipeline import IngestionPipeline
+from shipping_dataingestion.pipeline import IngestionPipeline
 
 provider = YourYFinanceOrBloombergProvider()
 pipeline = IngestionPipeline(provider)
@@ -102,7 +102,7 @@ pipeline.ingest_company_dataset("FRO", "company_prices", dry_run=False)
 Using the included yfinance provider for stock prices:
 
 ```python
-from dataingestion import IngestionPipeline, YFinanceProvider
+from shipping_dataingestion import IngestionPipeline, YFinanceProvider
 
 provider = YFinanceProvider()
 pipeline = IngestionPipeline(provider)
@@ -132,7 +132,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
-from dataingestion.providers import ProviderResult
+from shipping_dataingestion.providers import ProviderResult
 
 
 class ExamplePriceProvider:

@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
-from dataingestion.providers import ProviderResult, StubProvider
-from dataingestion.schemas import PRICE_COLUMNS
+from shipping_dataingestion.providers import ProviderResult, StubProvider
+from shipping_dataingestion.schemas import PRICE_COLUMNS
 
 
 def _flatten_yfinance_columns(frame: pd.DataFrame, source_ticker: str) -> pd.DataFrame:
@@ -87,6 +87,7 @@ class YFinanceProvider(StubProvider):
     end: str | None = None
     period: str | None = None
     interval: str = "1d"
+    timeout: int = 10
 
     name = "yfinance"
 
@@ -118,6 +119,7 @@ class YFinanceProvider(StubProvider):
             "progress": False,
             "threads": False,
             "group_by": "column",
+            "timeout": self.timeout,
         }
         requested_period = self.period if period is None else period
         requested_start = self.start if start is None else start

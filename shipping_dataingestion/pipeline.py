@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from dataingestion.providers import MarketDataProvider
-from dataingestion.schemas import DATASET_SPECS, DatasetSpec, company_dataset_specs
-from dataingestion.transforms import transform_provider_result
-from dataingestion.writers import write_dataset
+from shipping_dataingestion.providers import MarketDataProvider
+from shipping_dataingestion.schemas import DATASET_SPECS, DatasetSpec, company_dataset_specs
+from shipping_dataingestion.transforms import transform_provider_result
+from shipping_dataingestion.writers import write_dataset
 
 
 @dataclass(frozen=True)

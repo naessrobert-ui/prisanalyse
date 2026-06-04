@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from dataingestion.providers import ProviderResult
-from dataingestion.schemas import DatasetSpec
+from shipping_dataingestion.providers import ProviderResult
+from shipping_dataingestion.schemas import DatasetSpec
 
 
 def validate_frame(frame: pd.DataFrame, required_columns: tuple[str, ...], dataset_name: str) -> None:

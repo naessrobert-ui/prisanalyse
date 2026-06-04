@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import streamlit as st
 from shipping_app.data import get_company_names
 from shipping_app.price_refresh import refresh_all_company_prices
@@ -7,14 +9,30 @@ from shipping_app.price_refresh import refresh_all_company_prices
 
 SELECTED_COMPANY_KEY = "selected_company"
 COMPANY_SELECTBOX_KEY = "_selected_company"
+AUTO_PRICE_REFRESH_ENV = "SHIPPING_AUTO_PRICE_REFRESH"
+
+
+def auto_price_refresh_enabled() -> bool:
+    return os.environ.get(AUTO_PRICE_REFRESH_ENV, "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def ensure_incremental_price_refresh() -> None:
-    """Run one lightweight stale-price check per Streamlit session."""
+    """Optionally run one stale-price check per Streamlit session.
+
+    The app must render from local files even when outbound finance-data calls are
+    slow or blocked. Automatic refresh is therefore opt-in; users can still run a
+    full refresh from the home page after the UI has loaded.
+    """
     if st.session_state.get("auto_price_refresh_checked"):
         return
 
     st.session_state["auto_price_refresh_checked"] = True
+    if not auto_price_refresh_enabled():
+        st.session_state["auto_price_refresh_status"] = (
+            f"disabled (set {AUTO_PRICE_REFRESH_ENV}=1 to enable stale-price checks)."
+        )
+        return
+
     try:
         summary = refresh_all_company_prices(full_refresh=False)
     except Exception as exc:
