@@ -14,7 +14,7 @@ _streamlit_stderr_log: list[str] = []
 _streamlit_lock = threading.Lock()
 
 SHIPPING_PORT = int(os.environ.get("SHIPPING_APP_PORT", 8502))
-SHIPPING_APP_URL = os.environ.get("SHIPPING_APP_URL", "/shipping/app")
+SHIPPING_APP_URL = os.environ.get("SHIPPING_APP_URL", "/shipping/app/")
 
 
 def _tail_stderr(proc: subprocess.Popen) -> None:
