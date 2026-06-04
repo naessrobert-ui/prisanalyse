@@ -6,11 +6,14 @@ import logging
 
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import RedirectResponse, Response, StreamingResponse
 from starlette.requests import Request
 from a2wsgi import WSGIMiddleware
 
 from app import app as flask_app
+from shipping_routes import start_shipping_streamlit
+
+logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +100,7 @@ async def _connect_streamlit_websocket(target: str):
 
 @app.websocket("/shipping/app/{path:path}")
 async def _shipping_ws_proxy(websocket: WebSocket, path: str):
+    start_shipping_streamlit()
     query = websocket.scope.get("query_string", b"")
     qs = f"?{query.decode()}" if query else ""
     target = f"{_STREAMLIT_WS}/shipping/app/{path}{qs}"
@@ -159,6 +163,11 @@ async def _shipping_ws_proxy(websocket: WebSocket, path: str):
 async def _shipping_http_proxy(request: Request, path: str = ""):
     query = request.scope.get("query_string", b"")
     qs = f"?{query.decode()}" if query else ""
+
+    if path == "" and not request.url.path.endswith("/"):
+        return RedirectResponse(url=f"/shipping/app/{qs}", status_code=307)
+
+    start_shipping_streamlit()
     target = f"{_STREAMLIT_HTTP}/shipping/app/{path}{qs}"
 
     fwd_headers = {
