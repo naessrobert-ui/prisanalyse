@@ -169,8 +169,9 @@ with refresh_col:
 
 with refresh_note_col:
     st.caption(
-        "Price data is checked automatically once per session. "
-        "Use the full refresh only when you want to rebuild the entire local price history."
+        "The app opens from local data so the dashboard is available even if market-data "
+        "providers are slow or blocked. Use full refresh when you want to rebuild the "
+        "local price history."
     )
 
 with st.expander("Add company", icon=":material/add_business:"):

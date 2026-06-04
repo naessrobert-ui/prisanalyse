@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from dataingestion.paths import data_path
+from shipping_dataingestion.paths import data_path
 
 
 @dataclass(frozen=True)

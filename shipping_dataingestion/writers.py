@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from dataingestion.paths import ensure_data_dir
-from dataingestion.schemas import DatasetSpec
+from shipping_dataingestion.paths import ensure_data_dir
+from shipping_dataingestion.schemas import DatasetSpec
 
 
 def write_csv(frame: pd.DataFrame, path: Path) -> Path:

@@ -1,14 +1,19 @@
 """ASGI entrypoint that serves Flask + mounted FastAPI APIs."""
 
 import asyncio
+import contextlib
+import logging
 
 import httpx
-from fastapi import FastAPI, WebSocket
-from fastapi.responses import Response, StreamingResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import RedirectResponse, Response, StreamingResponse
 from starlette.requests import Request
 from a2wsgi import WSGIMiddleware
 
 from app import app as flask_app
+from shipping_routes import start_shipping_streamlit
+
+logger = logging.getLogger(__name__)
 
 
 def _build_api_fallback(*, title: str, service: str, reason: str, hint: str, route_prefix: str = "") -> FastAPI:
@@ -77,39 +82,72 @@ _STREAMLIT_WS = "ws://localhost:8502"
 _SKIP_HEADERS = {"transfer-encoding", "content-encoding", "content-length", "connection"}
 
 
+@contextlib.asynccontextmanager
+async def _connect_streamlit_websocket(target: str):
+    """Connect to Streamlit across supported websockets versions."""
+    import websockets as _ws
+
+    try:
+        async with _ws.connect(target, additional_headers={"origin": _STREAMLIT_HTTP}) as upstream:
+            yield upstream
+    except TypeError:
+        # websockets < 14 used ``extra_headers`` instead of ``additional_headers``.
+        async with _ws.connect(target, extra_headers={"origin": _STREAMLIT_HTTP}) as upstream:
+            yield upstream
+
+
 @app.websocket("/shipping/app/{path:path}")
 async def _shipping_ws_proxy(websocket: WebSocket, path: str):
-    await websocket.accept()
+    start_shipping_streamlit()
     query = websocket.scope.get("query_string", b"")
     qs = f"?{query.decode()}" if query else ""
     target = f"{_STREAMLIT_WS}/shipping/app/{path}{qs}"
+
     try:
-        import websockets as _ws
-        async with _ws.connect(target, additional_headers={"origin": _STREAMLIT_HTTP}) as upstream:
-            async def _up():
-                async for msg in websocket.iter_bytes():
-                    await upstream.send(msg)
+        async with _connect_streamlit_websocket(target) as upstream:
+            await websocket.accept()
 
-            async def _down():
-                async for msg in upstream:
-                    if isinstance(msg, bytes):
-                        await websocket.send_bytes(msg)
+            async def _client_to_streamlit():
+                while True:
+                    message = await websocket.receive()
+                    if message.get("type") == "websocket.disconnect":
+                        break
+                    if message.get("bytes") is not None:
+                        await upstream.send(message["bytes"])
+                    elif message.get("text") is not None:
+                        await upstream.send(message["text"])
+
+            async def _streamlit_to_client():
+                async for message in upstream:
+                    if isinstance(message, bytes):
+                        await websocket.send_bytes(message)
                     else:
-                        await websocket.send_text(msg)
+                        await websocket.send_text(message)
 
-            done, pending = await asyncio.wait(
-                [asyncio.ensure_future(_up()), asyncio.ensure_future(_down())],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for task in pending:
-                task.cancel()
-    except Exception:
+            tasks = [
+                asyncio.create_task(_client_to_streamlit()),
+                asyncio.create_task(_streamlit_to_client()),
+            ]
+            try:
+                done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    with contextlib.suppress(WebSocketDisconnect):
+                        task.result()
+                for task in pending:
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
+            finally:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+    except WebSocketDisconnect:
         pass
+    except Exception:
+        logger.exception("Shipping websocket proxy failed: %s", target)
     finally:
-        try:
+        with contextlib.suppress(Exception):
             await websocket.close()
-        except Exception:
-            pass
 
 
 @app.api_route(
@@ -123,6 +161,11 @@ async def _shipping_ws_proxy(websocket: WebSocket, path: str):
 async def _shipping_http_proxy(request: Request, path: str = ""):
     query = request.scope.get("query_string", b"")
     qs = f"?{query.decode()}" if query else ""
+
+    if path == "" and not request.url.path.endswith("/"):
+        return RedirectResponse(url=f"/shipping/app/{qs}", status_code=307)
+
+    start_shipping_streamlit()
     target = f"{_STREAMLIT_HTTP}/shipping/app/{path}{qs}"
 
     fwd_headers = {

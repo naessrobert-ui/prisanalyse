@@ -6,10 +6,10 @@ while the dataset contracts here keep outputs compatible with the existing
 Data folder.
 """
 
-from dataingestion.pipeline import IngestionPipeline
-from dataingestion.providers import StubProvider
-from dataingestion.schemas import DATASET_SPECS, DatasetSpec
-from dataingestion.yfinance_provider import YFinanceProvider
+from shipping_dataingestion.pipeline import IngestionPipeline
+from shipping_dataingestion.providers import StubProvider
+from shipping_dataingestion.schemas import DATASET_SPECS, DatasetSpec
+from shipping_dataingestion.yfinance_provider import YFinanceProvider
 
 __all__ = [
     "DATASET_SPECS",
