@@ -256,6 +256,7 @@
                 <a class="cta cta-secondary" href="/strom">Se strømkartet</a>
                 <a class="cta cta-secondary" href="{{ url_for('regnskap.regnskap_hub') }}">Åpne Regnskap</a>
                 <a class="cta cta-secondary" href="{{ url_for('aksjonaer.aksjonaer_sok') }}">Søk aksjonærer</a>
+                <a class="cta cta-secondary" href="{{ url_for('media_mentions.robert_naess_page') }}">Medieovervåking</a>
                 <a class="cta cta-secondary" href="/internal/portfolio-rebalancer/">Portfolio Rebalancer</a>
             </div>
         </div>
@@ -383,6 +384,15 @@
                     <div class="card-title">Shipping</div>
                     <div class="card-desc">
                         Fraktrateprognoser, flåteverdier, implisitte rater og handelssignaler for shippingselskaper.
+                    </div>
+                </div>
+            </a>
+            <a class="card-link" href="{{ url_for('media_mentions.robert_naess_page') }}">
+                <div class="card">
+                    <div class="card-icon">NY</div>
+                    <div class="card-title">Medieovervåking</div>
+                    <div class="card-desc">
+                        Følg omtale av Robert Næss i nyheter, se trender over tid og finn de viktigste treffene.
                     </div>
                 </div>
             </a>
