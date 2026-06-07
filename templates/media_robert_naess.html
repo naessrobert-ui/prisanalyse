@@ -544,6 +544,18 @@
         return `${value} døgn`;
     }
 
+    function xStatusLabel(data) {
+        const status = data.x_status || {};
+        if (Number(data.days || 0) > Number(data.x_recent_days || 7)) return "";
+        if (!status.enabled) return " X krever token.";
+        if (status.state === "ok") return ` X aktiv (${status.post_count || 0} treff).`;
+        if (status.state === "ok_no_results") return " X aktiv, ingen treff siste 7 døgn.";
+        if (status.state === "http_401" || status.state === "http_403") return " X-token mangler tilgang.";
+        if (status.state === "http_429") return " X rate limit.";
+        if (status.state === "request_error" || status.state === "error") return " X-feil ved henting.";
+        return " X aktiv.";
+    }
+
     function articleMarkup(article) {
         return `
             <article class="mention-card">
@@ -686,9 +698,7 @@
 
         drawChart(data.trend || []);
         const warning = data.errors?.length ? ` Delvis henting feilet (${data.errors.length} kilde).` : "";
-        const xStatus = Number(data.days || 0) <= Number(data.x_recent_days || 7)
-            ? (data.x_recent_enabled ? " X aktiv." : " X krever token.")
-            : "";
+        const xStatus = xStatusLabel(data);
         document.getElementById("statusText").textContent = `Klar.${xStatus}${warning}`;
     }
 
