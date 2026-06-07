@@ -111,6 +111,38 @@
         text-decoration: none;
     }
 
+    .custom-period {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 38px;
+        padding: 4px 6px 4px 10px;
+        border-radius: 8px;
+        background: #eef2f7;
+        border: 1px solid #d9e0ea;
+        color: #334155;
+        font-weight: 800;
+    }
+
+    .custom-period input {
+        width: 64px;
+        min-height: 30px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 0 8px;
+        font-weight: 800;
+    }
+
+    .custom-period button {
+        min-height: 30px;
+        border: 0;
+        border-radius: 6px;
+        background: #0f766e;
+        color: white;
+        padding: 0 10px;
+        font-weight: 800;
+    }
+
     .metric-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(160px, 1fr));
@@ -364,7 +396,15 @@
                 <button type="button" data-days="3">3 døgn</button>
                 <button type="button" data-days="7">7 døgn</button>
                 <button type="button" data-days="30">30 døgn</button>
+                <button type="button" data-days="{{ ytd_days }}">I år</button>
+                <button type="button" data-days="365">1 år</button>
+                <button type="button" data-days="1095">3 år</button>
             </div>
+            <label class="custom-period">
+                <span>X år</span>
+                <input id="customYears" type="number" min="1" max="10" step="1" value="2" aria-label="Antall år">
+                <button type="button" id="customYearsButton">Vis</button>
+            </label>
             <button class="refresh-button" type="button" id="refreshMentions">
                 <i class="fas fa-sync-alt" aria-hidden="true"></i>
                 Oppdater
@@ -380,6 +420,15 @@
             </a>
             <a href="https://www.google.com/search?q=robert+naess&tbs=qdr:d" target="_blank" rel="noopener noreferrer">
                 Google Naess siste døgn
+            </a>
+            <a href="https://trends.google.com/trends/explore?date=today%2012-m&geo=NO&q=Robert%20N%C3%A6ss,Robert%20Naess" target="_blank" rel="noopener noreferrer">
+                Google Trends
+            </a>
+            <a href="https://x.com/search?q=%22Robert%20N%C3%A6ss%22%20OR%20%22Robert%20Naess%22&f=live" target="_blank" rel="noopener noreferrer">
+                X-søk
+            </a>
+            <a href="https://www.facebook.com/search/posts/?q=Robert%20N%C3%A6ss" target="_blank" rel="noopener noreferrer">
+                Facebook-søk
             </a>
         </div>
     </section>
@@ -451,7 +500,10 @@
                 <div class="note-box">
                     Automatisk innhenting bruker Google News RSS, som finner norske artikler best med “Robert Naess”.
                     Knappene øverst åpner samme type manuelle Google-søk som du bruker med “Robert Næss”.
-                    Facebook og X krever innlogging/API eller en overvåkingstjeneste.
+                    X hentes automatisk for perioder opp til 7 døgn når `X_BEARER_TOKEN` er satt i miljøet.
+                    Google Trends og Facebook ligger foreløpig som direkte søkelenker. Automatisk henting fra
+                    Facebook krever Meta-tilgang, innlogging eller en overvåkingstjeneste som Retriever,
+                    Meltwater, Notified eller Brandwatch.
                 </div>
             </section>
         </aside>
@@ -482,6 +534,14 @@
             dateStyle: mode,
             timeStyle: mode === "short" ? "short" : undefined
         }).format(date);
+    }
+
+    function periodLabel(days) {
+        const value = Number(days || 0);
+        if (value === 1) return "1 døgn";
+        if (value === 365) return "1 år";
+        if (value > 365 && value % 365 === 0) return `${value / 365} år`;
+        return `${value} døgn`;
     }
 
     function articleMarkup(article) {
@@ -593,7 +653,7 @@
         });
         document.getElementById("totalMentions").textContent = data.total_mentions || 0;
         document.getElementById("sourceCount").textContent = (data.sources || []).length;
-        document.getElementById("periodDays").textContent = `${data.days || 0}d`;
+        document.getElementById("periodDays").textContent = periodLabel(data.days);
         document.getElementById("articleDays").textContent = data.days || 0;
         document.getElementById("updatedAt").textContent = `Oppdatert ${formatDate(data.updated_at)}`;
         document.getElementById("latestMention").textContent = data.articles?.length ? formatDate(data.articles[0].published_at, "medium") : "-";
@@ -626,7 +686,10 @@
 
         drawChart(data.trend || []);
         const warning = data.errors?.length ? ` Delvis henting feilet (${data.errors.length} kilde).` : "";
-        document.getElementById("statusText").textContent = `Klar.${warning}`;
+        const xStatus = Number(data.days || 0) <= Number(data.x_recent_days || 7)
+            ? (data.x_recent_enabled ? " X aktiv." : " X krever token.")
+            : "";
+        document.getElementById("statusText").textContent = `Klar.${xStatus}${warning}`;
     }
 
     async function loadMentions(days, forceRefresh = false) {
@@ -641,6 +704,13 @@
         button.addEventListener("click", () => loadMentions(button.dataset.days).catch((error) => {
             document.getElementById("statusText").textContent = `Kunne ikke hente: ${error.message}`;
         }));
+    });
+
+    document.getElementById("customYearsButton").addEventListener("click", () => {
+        const years = Math.max(1, Math.min(10, Number(document.getElementById("customYears").value || 1)));
+        loadMentions(Math.round(years * 365)).catch((error) => {
+            document.getElementById("statusText").textContent = `Kunne ikke hente: ${error.message}`;
+        });
     });
 
     document.getElementById("refreshMentions").addEventListener("click", () => {
