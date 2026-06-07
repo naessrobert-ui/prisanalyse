@@ -34,6 +34,12 @@ SOURCE_DOMAINS = [
 CACHE_TTL_SECONDS = 15 * 60
 _CACHE: dict[tuple[int, str], tuple[float, dict[str, Any]]] = {}
 X_RECENT_MAX_DAYS = 7
+X_QUERIES = [
+    '"Robert Næss" -is:retweet',
+    '"Robert Naess" -is:retweet',
+    'Robert Næss -is:retweet',
+    'Robert Naess -is:retweet',
+]
 
 
 def _parse_date(value: str | None) -> datetime | None:
@@ -181,80 +187,123 @@ def _fetch_gdelt(days: int) -> list[dict[str, Any]]:
     return articles
 
 
-def _fetch_x_recent(days: int) -> list[dict[str, Any]]:
-    bearer_token = os.environ.get("X_BEARER_TOKEN")
-    if not bearer_token or days > X_RECENT_MAX_DAYS:
-        return []
-
-    query = '("Robert Næss" OR "Robert Naess") -is:retweet'
-    response = requests.get(
-        "https://api.x.com/2/tweets/search/recent",
-        params={
-            "query": query,
-            "max_results": "50",
-            "tweet.fields": "created_at,public_metrics,author_id",
-            "expansions": "author_id",
-            "user.fields": "username,name",
-        },
-        timeout=10,
-        headers={"Authorization": f"Bearer {bearer_token}"},
-    )
-    if response.status_code in {401, 403, 429}:
-        return []
-    response.raise_for_status()
-    payload = response.json()
-    users = {
-        user.get("id"): user
-        for user in payload.get("includes", {}).get("users", [])
+def _empty_x_status(days: int) -> dict[str, Any]:
+    if not os.environ.get("X_BEARER_TOKEN"):
+        state = "missing_token"
+    elif days > X_RECENT_MAX_DAYS:
+        state = "period_too_long"
+    else:
+        state = "not_checked"
+    return {
+        "enabled": bool(os.environ.get("X_BEARER_TOKEN")) and days <= X_RECENT_MAX_DAYS,
+        "state": state,
+        "recent_days": X_RECENT_MAX_DAYS,
+        "post_count": 0,
+        "count_total": 0,
+        "http_statuses": [],
+        "queries": X_QUERIES,
     }
 
+
+def _fetch_x_recent(days: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    bearer_token = os.environ.get("X_BEARER_TOKEN")
+    status = _empty_x_status(days)
+    if not bearer_token or days > X_RECENT_MAX_DAYS:
+        return [], status
+
     articles: list[dict[str, Any]] = []
-    for post in payload.get("data", []):
-        user = users.get(post.get("author_id"), {})
-        username = user.get("username") or post.get("author_id") or "x"
-        title = _clean_text(post.get("text"))
-        created_at = _parse_date(post.get("created_at"))
-        metrics = post.get("public_metrics") or {}
-        engagement = sum(int(metrics.get(key, 0) or 0) for key in ("like_count", "retweet_count", "reply_count", "quote_count"))
-        articles.append(
-            {
-                "title": title[:180],
-                "url": f"https://x.com/{username}/status/{post.get('id')}",
-                "source": f"@{username}",
-                "domain": "x.com",
-                "published_at": created_at,
-                "snippet": title,
-                "origin": "X",
-                "matched_query": query,
-                "engagement": engagement,
-            }
-        )
-    return articles
+    for query in X_QUERIES:
+        try:
+            response = requests.get(
+                "https://api.x.com/2/tweets/search/recent",
+                params={
+                    "query": query,
+                    "max_results": "50",
+                    "tweet.fields": "created_at,public_metrics,author_id",
+                    "expansions": "author_id",
+                    "user.fields": "username,name",
+                },
+                timeout=10,
+                headers={"Authorization": f"Bearer {bearer_token}"},
+            )
+        except requests.RequestException as exc:
+            status["state"] = "request_error"
+            status["last_error"] = str(exc)
+            continue
+
+        status["http_statuses"].append(response.status_code)
+        if response.status_code in {401, 403, 429}:
+            status["state"] = f"http_{response.status_code}"
+            continue
+        response.raise_for_status()
+
+        payload = response.json()
+        meta_count = int((payload.get("meta") or {}).get("result_count") or 0)
+        status["post_count"] += meta_count
+        users = {
+            user.get("id"): user
+            for user in payload.get("includes", {}).get("users", [])
+        }
+        for post in payload.get("data", []):
+            user = users.get(post.get("author_id"), {})
+            username = user.get("username") or post.get("author_id") or "x"
+            title = _clean_text(post.get("text"))
+            created_at = _parse_date(post.get("created_at"))
+            metrics = post.get("public_metrics") or {}
+            engagement = sum(int(metrics.get(key, 0) or 0) for key in ("like_count", "retweet_count", "reply_count", "quote_count"))
+            articles.append(
+                {
+                    "title": title[:180],
+                    "url": f"https://x.com/{username}/status/{post.get('id')}",
+                    "source": f"@{username}",
+                    "domain": "x.com",
+                    "published_at": created_at,
+                    "snippet": title,
+                    "origin": "X",
+                    "matched_query": query,
+                    "engagement": engagement,
+                }
+            )
+
+    if articles:
+        status["state"] = "ok"
+    elif status["state"] == "not_checked":
+        status["state"] = "ok_no_results"
+    return articles, status
 
 
-def _fetch_x_counts(days: int) -> Counter[str]:
+def _fetch_x_counts(days: int, status: dict[str, Any]) -> Counter[str]:
     bearer_token = os.environ.get("X_BEARER_TOKEN")
     if not bearer_token or days > X_RECENT_MAX_DAYS:
         return Counter()
 
-    response = requests.get(
-        "https://api.x.com/2/tweets/counts/recent",
-        params={
-            "query": '("Robert Næss" OR "Robert Naess") -is:retweet',
-            "granularity": "day",
-        },
-        timeout=10,
-        headers={"Authorization": f"Bearer {bearer_token}"},
-    )
-    if response.status_code in {401, 403, 429}:
-        return Counter()
-    response.raise_for_status()
-
     counts: Counter[str] = Counter()
-    for bucket in response.json().get("data", []):
-        day = (bucket.get("start") or "")[:10]
-        if day:
-            counts[day] += int(bucket.get("tweet_count") or 0)
+    for query in X_QUERIES:
+        try:
+            response = requests.get(
+                "https://api.x.com/2/tweets/counts/recent",
+                params={
+                    "query": query,
+                    "granularity": "day",
+                },
+                timeout=10,
+                headers={"Authorization": f"Bearer {bearer_token}"},
+            )
+        except requests.RequestException as exc:
+            status["last_count_error"] = str(exc)
+            continue
+
+        if response.status_code in {401, 403, 429}:
+            status["count_status"] = f"http_{response.status_code}"
+            continue
+        response.raise_for_status()
+
+        for bucket in response.json().get("data", []):
+            day = (bucket.get("start") or "")[:10]
+            if day:
+                tweet_count = int(bucket.get("tweet_count") or 0)
+                counts[day] += tweet_count
+                status["count_total"] += tweet_count
     return counts
 
 
@@ -283,11 +332,18 @@ def _build_payload(days: int, force_refresh: bool = False) -> dict[str, Any]:
 
     errors: list[str] = []
     articles: list[dict[str, Any]] = []
-    for fetcher in (_fetch_google_news, _fetch_gdelt, _fetch_x_recent):
+    for fetcher in (_fetch_google_news, _fetch_gdelt):
         try:
             articles.extend(fetcher(days))
         except Exception as exc:  # pragma: no cover - external service resilience
             errors.append(f"{fetcher.__name__}: {exc}")
+    try:
+        x_articles, x_status = _fetch_x_recent(days)
+        articles.extend(x_articles)
+    except Exception as exc:  # pragma: no cover - external service resilience
+        x_status = _empty_x_status(days)
+        x_status["state"] = "error"
+        x_status["last_error"] = str(exc)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     articles = [
@@ -302,7 +358,7 @@ def _build_payload(days: int, force_refresh: bool = False) -> dict[str, Any]:
         daily_counts[day] += 1
         source_counts[article["domain"]] += 1
 
-    social_counts = _fetch_x_counts(days)
+    social_counts = _fetch_x_counts(days, x_status)
 
     trend = []
     start_date = (datetime.now(timezone.utc) - timedelta(days=days - 1)).date()
@@ -330,8 +386,9 @@ def _build_payload(days: int, force_refresh: bool = False) -> dict[str, Any]:
         "days": days,
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "total_mentions": len(articles),
-        "x_recent_enabled": bool(os.environ.get("X_BEARER_TOKEN")) and days <= X_RECENT_MAX_DAYS,
+        "x_recent_enabled": x_status["enabled"],
         "x_recent_days": X_RECENT_MAX_DAYS,
+        "x_status": x_status,
         "articles": [_serialize_article(article) for article in articles],
         "trend": trend,
         "sources": [{"source": key, "mentions": value} for key, value in source_counts.most_common()],
