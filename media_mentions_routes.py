@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import email.utils
 import html
+import os
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -32,6 +33,7 @@ SOURCE_DOMAINS = [
 ]
 CACHE_TTL_SECONDS = 15 * 60
 _CACHE: dict[tuple[int, str], tuple[float, dict[str, Any]]] = {}
+X_RECENT_MAX_DAYS = 7
 
 
 def _parse_date(value: str | None) -> datetime | None:
@@ -179,6 +181,83 @@ def _fetch_gdelt(days: int) -> list[dict[str, Any]]:
     return articles
 
 
+def _fetch_x_recent(days: int) -> list[dict[str, Any]]:
+    bearer_token = os.environ.get("X_BEARER_TOKEN")
+    if not bearer_token or days > X_RECENT_MAX_DAYS:
+        return []
+
+    query = '("Robert Næss" OR "Robert Naess") -is:retweet'
+    response = requests.get(
+        "https://api.x.com/2/tweets/search/recent",
+        params={
+            "query": query,
+            "max_results": "50",
+            "tweet.fields": "created_at,public_metrics,author_id",
+            "expansions": "author_id",
+            "user.fields": "username,name",
+        },
+        timeout=10,
+        headers={"Authorization": f"Bearer {bearer_token}"},
+    )
+    if response.status_code in {401, 403, 429}:
+        return []
+    response.raise_for_status()
+    payload = response.json()
+    users = {
+        user.get("id"): user
+        for user in payload.get("includes", {}).get("users", [])
+    }
+
+    articles: list[dict[str, Any]] = []
+    for post in payload.get("data", []):
+        user = users.get(post.get("author_id"), {})
+        username = user.get("username") or post.get("author_id") or "x"
+        title = _clean_text(post.get("text"))
+        created_at = _parse_date(post.get("created_at"))
+        metrics = post.get("public_metrics") or {}
+        engagement = sum(int(metrics.get(key, 0) or 0) for key in ("like_count", "retweet_count", "reply_count", "quote_count"))
+        articles.append(
+            {
+                "title": title[:180],
+                "url": f"https://x.com/{username}/status/{post.get('id')}",
+                "source": f"@{username}",
+                "domain": "x.com",
+                "published_at": created_at,
+                "snippet": title,
+                "origin": "X",
+                "matched_query": query,
+                "engagement": engagement,
+            }
+        )
+    return articles
+
+
+def _fetch_x_counts(days: int) -> Counter[str]:
+    bearer_token = os.environ.get("X_BEARER_TOKEN")
+    if not bearer_token or days > X_RECENT_MAX_DAYS:
+        return Counter()
+
+    response = requests.get(
+        "https://api.x.com/2/tweets/counts/recent",
+        params={
+            "query": '("Robert Næss" OR "Robert Naess") -is:retweet',
+            "granularity": "day",
+        },
+        timeout=10,
+        headers={"Authorization": f"Bearer {bearer_token}"},
+    )
+    if response.status_code in {401, 403, 429}:
+        return Counter()
+    response.raise_for_status()
+
+    counts: Counter[str] = Counter()
+    for bucket in response.json().get("data", []):
+        day = (bucket.get("start") or "")[:10]
+        if day:
+            counts[day] += int(bucket.get("tweet_count") or 0)
+    return counts
+
+
 def _dedupe_articles(articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen: set[str] = set()
     deduped: list[dict[str, Any]] = []
@@ -204,7 +283,7 @@ def _build_payload(days: int, force_refresh: bool = False) -> dict[str, Any]:
 
     errors: list[str] = []
     articles: list[dict[str, Any]] = []
-    for fetcher in (_fetch_google_news, _fetch_gdelt):
+    for fetcher in (_fetch_google_news, _fetch_gdelt, _fetch_x_recent):
         try:
             articles.extend(fetcher(days))
         except Exception as exc:  # pragma: no cover - external service resilience
@@ -223,11 +302,20 @@ def _build_payload(days: int, force_refresh: bool = False) -> dict[str, Any]:
         daily_counts[day] += 1
         source_counts[article["domain"]] += 1
 
+    social_counts = _fetch_x_counts(days)
+
     trend = []
     start_date = (datetime.now(timezone.utc) - timedelta(days=days - 1)).date()
     for offset in range(days):
         day = (start_date + timedelta(days=offset)).isoformat()
-        trend.append({"date": day, "mentions": daily_counts.get(day, 0)})
+        news_mentions = daily_counts.get(day, 0)
+        x_mentions = social_counts.get(day, 0)
+        trend.append({
+            "date": day,
+            "mentions": news_mentions + x_mentions,
+            "news_mentions": news_mentions,
+            "x_mentions": x_mentions,
+        })
 
     ranked_articles = sorted(
         articles,
@@ -242,6 +330,8 @@ def _build_payload(days: int, force_refresh: bool = False) -> dict[str, Any]:
         "days": days,
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "total_mentions": len(articles),
+        "x_recent_enabled": bool(os.environ.get("X_BEARER_TOKEN")) and days <= X_RECENT_MAX_DAYS,
+        "x_recent_days": X_RECENT_MAX_DAYS,
         "articles": [_serialize_article(article) for article in articles],
         "trend": trend,
         "sources": [{"source": key, "mentions": value} for key, value in source_counts.most_common()],
@@ -263,7 +353,13 @@ def _serialize_article(article: dict[str, Any]) -> dict[str, Any]:
 @media_mentions_bp.route("/robert-naess/")
 def robert_naess_page():
     days = _requested_days()
-    return render_template("media_robert_naess.html", initial_data=_build_payload(days), days=days)
+    ytd_days = (datetime.now(timezone.utc).date() - datetime(datetime.now(timezone.utc).year, 1, 1).date()).days + 1
+    return render_template(
+        "media_robert_naess.html",
+        initial_data=_build_payload(days),
+        days=days,
+        ytd_days=ytd_days,
+    )
 
 
 @media_mentions_bp.route("/api/robert-naess")
@@ -277,4 +373,4 @@ def _requested_days() -> int:
         days = int(request.args.get("days", "7"))
     except ValueError:
         days = 7
-    return max(1, min(days, 90))
+    return max(1, min(days, 3650))
