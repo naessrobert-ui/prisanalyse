@@ -26,6 +26,66 @@ services:
         value: "10800"
 
   - type: cron
+    name: media-arkiv-robert-naess
+    runtime: python
+    # Hver 6. time: henter alle kilder, merger nye treff inn i parquet-
+    # arkivet paa S3 og beriker nye rader (sentiment/tema via Anthropic,
+    # og:image + sitat fra artikkelsidene). Backfill manuelt med
+    # `python -m scripts.oppdater_media_arkiv --days 365`.
+    schedule: "0 */6 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.oppdater_media_arkiv
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: eu-north-1
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: X_BEARER_TOKEN
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+
+  - type: cron
+    name: media-digest-robert-naess
+    runtime: python
+    # Mandager kl 06:00 UTC: ukentlig e-postdigest fra media-arkivet.
+    # Sender bare naar SMTP_HOST og MEDIA_DIGEST_TO er satt.
+    schedule: "0 6 * * 1"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.media_digest
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: eu-north-1
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: MEDIA_DIGEST_TO
+        sync: false
+      - key: MEDIA_DIGEST_FROM
+        sync: false
+
+  - type: cron
     name: bil-daglig-aggregat
     runtime: python
     # Daglig kl 04:00 UTC (06:00 norsk sommertid). Velges etter at scraperen

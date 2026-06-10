@@ -174,6 +174,12 @@
         margin-top: 6px;
     }
 
+    .metric-sub {
+        margin-top: 6px;
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+
     .media-layout {
         display: grid;
         grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
@@ -205,6 +211,37 @@
         font-size: 0.9rem;
     }
 
+    .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
+    .filter-row button {
+        border: 1px solid #d9e0ea;
+        background: #ffffff;
+        border-radius: 999px;
+        min-height: 32px;
+        padding: 0 14px;
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: #334155;
+        cursor: pointer;
+    }
+
+    .filter-row button.active {
+        background: #0f766e;
+        border-color: #0f766e;
+        color: white;
+    }
+
+    .filter-row .filter-sep {
+        width: 1px;
+        background: #e2e8f0;
+        margin: 4px 4px;
+    }
+
     .mention-list {
         display: grid;
         gap: 10px;
@@ -217,7 +254,7 @@
 
     .lead-story {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 128px;
+        grid-template-columns: minmax(0, 1fr) 180px;
         gap: 18px;
         padding: 18px;
         border-radius: 8px;
@@ -225,18 +262,18 @@
         border: 1px solid #dbe4ee;
     }
 
-    .lead-story a {
+    .lead-story a.story-link {
         display: block;
         color: #07111f;
-        font-size: clamp(1.5rem, 2.2vw, 2.25rem);
+        font-size: clamp(1.5rem, 2.2vw, 2.1rem);
         line-height: 1.05;
         font-weight: 900;
         text-decoration: none;
         letter-spacing: 0;
     }
 
-    .lead-story a:hover,
-    .story-card a:hover {
+    .lead-story a.story-link:hover,
+    .story-card a.story-link:hover {
         color: #0f766e;
         text-decoration: underline;
     }
@@ -253,6 +290,15 @@
         letter-spacing: 0;
     }
 
+    .story-image {
+        width: 100%;
+        height: 100%;
+        min-height: 128px;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #0f172a;
+    }
+
     .story-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -264,10 +310,9 @@
         border-radius: 8px;
         background: #ffffff;
         border: 1px solid #e2e8f0;
-        min-height: 158px;
     }
 
-    .story-card a {
+    .story-card a.story-link {
         color: #0f172a;
         font-weight: 900;
         font-size: 1.06rem;
@@ -293,6 +338,7 @@
     .source-pill {
         display: inline-flex;
         align-items: center;
+        gap: 6px;
         min-height: 24px;
         padding: 2px 8px;
         border-radius: 999px;
@@ -301,14 +347,36 @@
         font-weight: 800;
     }
 
-    .mention-card a {
+    .source-pill img {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        padding: 1px 9px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .badge-positiv { background: #dcfce7; color: #166534; }
+    .badge-negativ { background: #fee2e2; color: #991b1b; }
+    .badge-noytral { background: #f1f5f9; color: #475569; }
+    .badge-tema { background: #ede9fe; color: #5b21b6; }
+    .badge-kategori { background: #fef3c7; color: #92400e; }
+
+    .mention-card a.story-link {
         color: #0f172a;
         font-weight: 800;
         font-size: 1.02rem;
         text-decoration: none;
     }
 
-    .mention-card a:hover {
+    .mention-card a.story-link:hover {
         color: #0f766e;
         text-decoration: underline;
     }
@@ -319,6 +387,40 @@
         font-size: 0.93rem;
     }
 
+    .quote {
+        margin: 8px 0 0;
+        padding-left: 10px;
+        border-left: 3px solid #99f6e4;
+        color: #334155;
+        font-size: 0.95rem;
+        font-style: italic;
+    }
+
+    .also-in {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        margin-top: 10px;
+        font-size: 0.82rem;
+        color: #64748b;
+    }
+
+    .also-in span.chip {
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #475569;
+        font-weight: 700;
+    }
+
+    .engagement {
+        margin-top: 8px;
+        font-size: 0.84rem;
+        color: #64748b;
+        font-weight: 700;
+    }
+
     .chart-wrap {
         height: 260px;
         position: relative;
@@ -327,6 +429,42 @@
     #mentionsChart {
         width: 100%;
         height: 100%;
+    }
+
+    .heatmap {
+        display: none;
+        overflow-x: auto;
+        padding-bottom: 6px;
+    }
+
+    .heatmap-grid {
+        display: grid;
+        grid-auto-flow: column;
+        grid-template-rows: repeat(7, 11px);
+        gap: 2px;
+    }
+
+    .heatmap-grid div {
+        width: 11px;
+        height: 11px;
+        border-radius: 2px;
+        background: #e2e8f0;
+    }
+
+    .heatmap-legend {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-top: 8px;
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+
+    .heatmap-legend i {
+        width: 11px;
+        height: 11px;
+        border-radius: 2px;
+        display: inline-block;
     }
 
     .source-row {
@@ -350,6 +488,24 @@
         height: 100%;
         border-radius: inherit;
         background: #0f766e;
+    }
+
+    .sentiment-bars {
+        display: flex;
+        height: 12px;
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 8px 0 4px;
+        background: #f1f5f9;
+    }
+
+    .sentiment-bars div { height: 100%; }
+    .sentiment-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 0.82rem;
+        color: #64748b;
     }
 
     .note-box {
@@ -377,7 +533,8 @@
             grid-template-columns: 1fr;
         }
 
-        .story-mark {
+        .story-mark,
+        .story-image {
             min-height: 76px;
         }
     }
@@ -387,8 +544,9 @@
     <section class="media-hero">
         <h1>Medieovervåkning for Robert Næss</h1>
         <p>
-            Siden søker etter “Robert Næss” og “Robert Naess” i åpne nyhetsindekser, samler treff siste valgte periode,
-            og viser utvikling, kilder og artikler som går igjen i dekningen.
+            Siden søker etter “Robert Næss” og “Robert Naess” i nyhetsindekser (Google, Bing, GDELT, norske RSS-feeds),
+            sosiale medier (X, Bluesky, Reddit), podkaster og YouTube. Treffene lagres i et eget arkiv som bygger
+            historikk over tid, og nye treff vurderes automatisk for sentiment og tema.
         </p>
         <div class="controls-row">
             <div class="days-control" aria-label="Velg periode">
@@ -411,21 +569,21 @@
             </button>
             <span class="status-text" id="statusText">Klar</span>
         </div>
-        <div class="manual-searches" aria-label="Manuelle Google-søk">
+        <div class="manual-searches" aria-label="Manuelle søk">
             <a href="https://www.google.com/search?q=robert+n%C3%A6ss&tbm=nws" target="_blank" rel="noopener noreferrer">
                 Google Nyheter
             </a>
             <a href="https://www.google.com/search?q=robert+n%C3%A6ss&tbs=qdr:d" target="_blank" rel="noopener noreferrer">
                 Google siste døgn
             </a>
-            <a href="https://www.google.com/search?q=robert+naess&tbs=qdr:d" target="_blank" rel="noopener noreferrer">
-                Google Naess siste døgn
-            </a>
             <a href="https://trends.google.com/trends/explore?date=today%2012-m&geo=NO&q=Robert%20N%C3%A6ss,Robert%20Naess" target="_blank" rel="noopener noreferrer">
                 Google Trends
             </a>
             <a href="https://x.com/search?q=%22Robert%20N%C3%A6ss%22%20OR%20%22Robert%20Naess%22&f=live" target="_blank" rel="noopener noreferrer">
                 X-søk
+            </a>
+            <a href="https://bsky.app/search?q=%22Robert%20N%C3%A6ss%22" target="_blank" rel="noopener noreferrer">
+                Bluesky-søk
             </a>
             <a href="https://www.facebook.com/search/posts/?q=Robert%20N%C3%A6ss" target="_blank" rel="noopener noreferrer">
                 Facebook-søk
@@ -437,6 +595,7 @@
         <div class="metric">
             <div class="metric-label">Treff i perioden</div>
             <div class="metric-value" id="totalMentions">0</div>
+            <div class="metric-sub" id="categorySummary"></div>
         </div>
         <div class="metric">
             <div class="metric-label">Kilder</div>
@@ -447,8 +606,9 @@
             <div class="metric-value" id="latestMention">-</div>
         </div>
         <div class="metric">
-            <div class="metric-label">Periode</div>
-            <div class="metric-value" id="periodDays">{{ days }}d</div>
+            <div class="metric-label">Arkiv</div>
+            <div class="metric-value" id="archiveRows">0</div>
+            <div class="metric-sub" id="archiveInfo"></div>
         </div>
     </section>
 
@@ -458,6 +618,17 @@
                 <div class="panel-title">
                     <h2>Nyhetsbildet siste <span id="articleDays">{{ days }}</span> døgn</h2>
                     <span id="updatedAt"></span>
+                </div>
+                <div class="filter-row" id="categoryFilters" aria-label="Filtrer på type">
+                    <button type="button" data-category="alle" class="active">Alle</button>
+                    <button type="button" data-category="nyheter">Nyheter</button>
+                    <button type="button" data-category="sosialt">Sosialt</button>
+                    <button type="button" data-category="podkast">Podkast</button>
+                    <button type="button" data-category="video">Video</button>
+                    <div class="filter-sep" aria-hidden="true"></div>
+                    <button type="button" data-sentiment="positiv">Positiv</button>
+                    <button type="button" data-sentiment="nøytral">Nøytral</button>
+                    <button type="button" data-sentiment="negativ">Negativ</button>
                 </div>
                 <div class="news-front">
                     <div id="topStory"></div>
@@ -470,11 +641,20 @@
             <section class="media-panel">
                 <div class="panel-title">
                     <h2>Omtaler over tid</h2>
-                    <span>daglig antall</span>
+                    <span id="trendMode">daglig antall</span>
                 </div>
-                <div class="chart-wrap">
+                <div class="chart-wrap" id="chartWrap">
                     <canvas id="mentionsChart" width="520" height="260"></canvas>
                 </div>
+                <div class="heatmap" id="heatmap"></div>
+            </section>
+
+            <section class="media-panel">
+                <div class="panel-title">
+                    <h2>Sentiment</h2>
+                    <span>automatisk vurdert</span>
+                </div>
+                <div id="sentimentPanel"></div>
             </section>
 
             <section class="media-panel">
@@ -488,22 +668,22 @@
             <section class="media-panel">
                 <div class="panel-title">
                     <h2>Mest omtalt</h2>
-                    <span>dekning/proxy</span>
+                    <span>bredest dekning</span>
                 </div>
                 <div class="mention-list" id="rankedList"></div>
             </section>
 
             <section class="media-panel">
                 <div class="panel-title">
-                    <h2>Flere kilder</h2>
+                    <h2>Kilder og arkiv</h2>
                 </div>
                 <div class="note-box">
-                    Automatisk innhenting bruker Google News RSS, som finner norske artikler best med “Robert Naess”.
-                    Knappene øverst åpner samme type manuelle Google-søk som du bruker med “Robert Næss”.
-                    X hentes automatisk for perioder opp til 7 døgn når `X_BEARER_TOKEN` er satt i miljøet.
-                    Google Trends og Facebook ligger foreløpig som direkte søkelenker. Automatisk henting fra
-                    Facebook krever Meta-tilgang, innlogging eller en overvåkingstjeneste som Retriever,
-                    Meltwater, Notified eller Brandwatch.
+                    Automatisk innhenting: Google News, Bing News, GDELT, direkte RSS fra norske medier,
+                    Bluesky, Reddit og podkast-episoder (iTunes). X hentes for perioder opp til 7 døgn når
+                    <code>X_BEARER_TOKEN</code> er satt, YouTube når <code>YOUTUBE_API_KEY</code> er satt.
+                    En cron-jobb lagrer alle treff i et parquet-arkiv på S3 hver 6. time og vurderer nye treff
+                    for sentiment/tema, slik at lange perioder bygger reell historikk over tid.
+                    Saker som dekkes av flere medier klynges til ett kort («også omtalt i»).
                 </div>
             </section>
         </aside>
@@ -515,6 +695,8 @@
 {% block scripts %}
 <script>
     let currentData = JSON.parse(document.getElementById("initialMentionData").textContent || "{}");
+    let categoryFilter = "alle";
+    let sentimentFilter = null;
 
     function escapeHtml(value) {
         return String(value || "").replace(/[&<>"']/g, (char) => ({
@@ -556,18 +738,63 @@
         return " X aktiv.";
     }
 
-    function articleMarkup(article) {
+    function faviconUrl(domain) {
+        return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain || "")}&sz=32`;
+    }
+
+    function sentimentBadge(article) {
+        const value = article.sentiment;
+        if (!value) return "";
+        const cls = value === "positiv" ? "badge-positiv" : value === "negativ" ? "badge-negativ" : "badge-noytral";
+        const label = value.charAt(0).toUpperCase() + value.slice(1);
+        return `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
+    }
+
+    function temaBadge(article) {
+        return article.tema ? `<span class="badge badge-tema">${escapeHtml(article.tema)}</span>` : "";
+    }
+
+    function categoryBadge(article) {
+        const labels = { podkast: "Podkast", video: "Video", sosialt: "" };
+        const label = labels[article.category];
+        return label ? `<span class="badge badge-kategori">${escapeHtml(label)}</span>` : "";
+    }
+
+    function toplineMarkup(article, cluster) {
         return `
-            <article class="mention-card">
-                <div class="mention-topline">
-                    <span class="source-pill">${escapeHtml(article.domain || article.source)}</span>
-                    <span>${formatDate(article.published_at)}</span>
-                    <span>${escapeHtml(article.origin || "")}</span>
-                </div>
-                <a href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(article.title)}</a>
-                ${article.snippet ? `<p class="snippet">${escapeHtml(article.snippet)}</p>` : ""}
-            </article>
+            <div class="mention-topline">
+                <span class="source-pill">
+                    <img src="${faviconUrl(article.domain)}" alt="" loading="lazy" onerror="this.style.display='none'">
+                    ${escapeHtml(article.domain || article.source)}
+                </span>
+                ${sentimentBadge(article)}
+                ${temaBadge(article)}
+                ${categoryBadge(article)}
+                <span>${formatDate(article.published_at)}</span>
+            </div>
         `;
+    }
+
+    function bodyMarkup(article) {
+        if (article.sitat) {
+            return `<p class="quote">«${escapeHtml(article.sitat)}»</p>`;
+        }
+        if (article.snippet && article.snippet !== article.title) {
+            return `<p class="snippet">${escapeHtml(article.snippet)}</p>`;
+        }
+        return "";
+    }
+
+    function alsoInMarkup(cluster) {
+        if (!cluster || !cluster.also_in || !cluster.also_in.length) return "";
+        const chips = cluster.also_in.slice(0, 5).map((domain) => `<span class="chip">${escapeHtml(domain)}</span>`).join("");
+        const more = cluster.also_in.length > 5 ? `<span class="chip">+${cluster.also_in.length - 5}</span>` : "";
+        return `<div class="also-in"><span>også omtalt i</span>${chips}${more}</div>`;
+    }
+
+    function engagementMarkup(article) {
+        if (!article.engagement || article.category !== "sosialt") return "";
+        return `<div class="engagement">♥ ${article.engagement} interaksjoner</div>`;
     }
 
     function sourceInitials(article) {
@@ -575,34 +802,64 @@
         return source.split(/\s+/).map((part) => part[0]).join("").slice(0, 3).toUpperCase() || "NY";
     }
 
-    function leadStoryMarkup(article) {
+    function leadStoryMarkup(cluster) {
+        const article = cluster.primary;
+        const visual = article.image
+            ? `<img class="story-image" src="${escapeHtml(article.image)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=&quot;story-mark&quot;>${escapeHtml(sourceInitials(article))}</div>'">`
+            : `<div class="story-mark" aria-hidden="true">${escapeHtml(sourceInitials(article))}</div>`;
         return `
             <article class="lead-story">
                 <div>
-                    <div class="mention-topline">
-                        <span class="source-pill">${escapeHtml(article.domain || article.source)}</span>
-                        <span>${formatDate(article.published_at)}</span>
-                        <span>${escapeHtml(article.matched_query || article.origin || "")}</span>
-                    </div>
-                    <a href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(article.title)}</a>
-                    ${article.snippet ? `<p class="snippet">${escapeHtml(article.snippet)}</p>` : ""}
+                    ${toplineMarkup(article, cluster)}
+                    <a class="story-link" href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(article.title)}</a>
+                    ${bodyMarkup(article)}
+                    ${alsoInMarkup(cluster)}
+                    ${engagementMarkup(article)}
                 </div>
-                <div class="story-mark" aria-hidden="true">${escapeHtml(sourceInitials(article))}</div>
+                ${visual}
             </article>
         `;
     }
 
-    function storyCardMarkup(article) {
+    function storyCardMarkup(cluster) {
+        const article = cluster.primary;
         return `
             <article class="story-card">
-                <div class="mention-topline">
-                    <span class="source-pill">${escapeHtml(article.domain || article.source)}</span>
-                    <span>${formatDate(article.published_at)}</span>
-                </div>
-                <a href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(article.title)}</a>
-                ${article.snippet ? `<p class="snippet">${escapeHtml(article.snippet)}</p>` : ""}
+                ${toplineMarkup(article, cluster)}
+                <a class="story-link" href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(article.title)}</a>
+                ${bodyMarkup(article)}
+                ${alsoInMarkup(cluster)}
+                ${engagementMarkup(article)}
             </article>
         `;
+    }
+
+    function rankedMarkup(cluster) {
+        const article = cluster.primary;
+        const coverage = cluster.count > 1 ? `<span class="badge badge-kategori">${cluster.count} kilder</span>` : "";
+        return `
+            <article class="mention-card">
+                <div class="mention-topline">
+                    <span class="source-pill">
+                        <img src="${faviconUrl(article.domain)}" alt="" loading="lazy" onerror="this.style.display='none'">
+                        ${escapeHtml(article.domain || article.source)}
+                    </span>
+                    ${coverage}
+                    <span>${formatDate(article.published_at)}</span>
+                </div>
+                <a class="story-link" href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(article.title)}</a>
+            </article>
+        `;
+    }
+
+    function filteredClusters(data) {
+        return (data.clusters || []).filter((cluster) => {
+            const article = cluster.primary || {};
+            const category = article.category || "nyheter";
+            if (categoryFilter !== "alle" && category !== categoryFilter) return false;
+            if (sentimentFilter && (article.sentiment || "") !== sentimentFilter) return false;
+            return true;
+        });
     }
 
     function drawChart(trend) {
@@ -658,6 +915,88 @@
         }
     }
 
+    const HEAT_COLORS = ["#e2e8f0", "#99f6e4", "#2dd4bf", "#0f766e", "#134e4a"];
+
+    function heatLevel(value, maxValue) {
+        if (!value) return 0;
+        const ratio = value / Math.max(1, maxValue);
+        if (ratio <= 0.25) return 1;
+        if (ratio <= 0.5) return 2;
+        if (ratio <= 0.75) return 3;
+        return 4;
+    }
+
+    function drawHeatmap(trend) {
+        const container = document.getElementById("heatmap");
+        const maxValue = Math.max(1, ...trend.map((row) => row.mentions));
+        const firstDate = new Date(trend[0].date);
+        const leadingBlanks = (firstDate.getDay() + 6) % 7;
+        const cells = [];
+        for (let i = 0; i < leadingBlanks; i += 1) {
+            cells.push('<div style="background: transparent"></div>');
+        }
+        trend.forEach((row) => {
+            const color = HEAT_COLORS[heatLevel(row.mentions, maxValue)];
+            cells.push(`<div style="background:${color}" title="${row.date}: ${row.mentions} treff"></div>`);
+        });
+        container.innerHTML = `
+            <div class="heatmap-grid">${cells.join("")}</div>
+            <div class="heatmap-legend">
+                <span>Færre</span>
+                ${HEAT_COLORS.map((color) => `<i style="background:${color}"></i>`).join("")}
+                <span>Flere</span>
+            </div>
+        `;
+    }
+
+    function renderTrend(data) {
+        const trend = data.trend || [];
+        const useHeatmap = Number(data.days || 0) > 120 && trend.length > 0;
+        document.getElementById("chartWrap").style.display = useHeatmap ? "none" : "block";
+        document.getElementById("heatmap").style.display = useHeatmap ? "block" : "none";
+        document.getElementById("trendMode").textContent = useHeatmap ? "kalender-heatmap" : "daglig antall";
+        if (useHeatmap) drawHeatmap(trend);
+        else drawChart(trend);
+    }
+
+    function renderSentiment(data) {
+        const sentiments = data.sentiments || {};
+        const positive = sentiments["positiv"] || 0;
+        const neutral = sentiments["nøytral"] || 0;
+        const negative = sentiments["negativ"] || 0;
+        const unknown = sentiments["ukjent"] || 0;
+        const rated = positive + neutral + negative;
+        const panel = document.getElementById("sentimentPanel");
+        if (!rated) {
+            panel.innerHTML = `<div class="empty-state">Ingen vurderte treff ennå. Sentiment settes av arkiv-jobben (krever <code>ANTHROPIC_API_KEY</code>).</div>`;
+            return;
+        }
+        const pct = (value) => Math.round((value / rated) * 100);
+        panel.innerHTML = `
+            <div class="sentiment-bars">
+                <div style="width:${pct(positive)}%; background:#22c55e"></div>
+                <div style="width:${pct(neutral)}%; background:#cbd5e1"></div>
+                <div style="width:${pct(negative)}%; background:#ef4444"></div>
+            </div>
+            <div class="sentiment-legend">
+                <span>● ${positive} positive</span>
+                <span>● ${neutral} nøytrale</span>
+                <span>● ${negative} negative</span>
+                ${unknown ? `<span>${unknown} uvurderte</span>` : ""}
+            </div>
+        `;
+    }
+
+    function renderArticles(data) {
+        const clusters = filteredClusters(data);
+        const topStory = document.getElementById("topStory");
+        const articleList = document.getElementById("articleList");
+        topStory.innerHTML = clusters.length ? leadStoryMarkup(clusters[0]) : "";
+        articleList.innerHTML = clusters.length
+            ? clusters.slice(1).map(storyCardMarkup).join("")
+            : `<div class="empty-state">Ingen treff for valgt filter/periode. Prøv «Alle» eller en lengre periode.</div>`;
+    }
+
     function render(data) {
         currentData = data;
         document.querySelectorAll("[data-days]").forEach((button) => {
@@ -665,27 +1004,34 @@
         });
         document.getElementById("totalMentions").textContent = data.total_mentions || 0;
         document.getElementById("sourceCount").textContent = (data.sources || []).length;
-        document.getElementById("periodDays").textContent = periodLabel(data.days);
         document.getElementById("articleDays").textContent = data.days || 0;
-        document.getElementById("updatedAt").textContent = `Oppdatert ${formatDate(data.updated_at)}`;
+        document.getElementById("updatedAt").textContent = `Oppdatert ${formatDate(data.updated_at)} · ${periodLabel(data.days)}`;
         document.getElementById("latestMention").textContent = data.articles?.length ? formatDate(data.articles[0].published_at, "medium") : "-";
 
-        const articles = data.articles || [];
-        const topStory = document.getElementById("topStory");
-        const articleList = document.getElementById("articleList");
-        topStory.innerHTML = articles.length ? leadStoryMarkup(articles[0]) : "";
-        articleList.innerHTML = articles.length
-            ? articles.slice(1).map(storyCardMarkup).join("")
-            : `<div class="empty-state">Ingen åpne treff funnet i perioden. Prøv 30 døgn eller legg til en betalt kilde/API for mer komplett dekning.</div>`;
+        const categories = data.categories || {};
+        const parts = [];
+        if (categories.nyheter) parts.push(`${categories.nyheter} nyheter`);
+        if (categories.sosialt) parts.push(`${categories.sosialt} sosialt`);
+        if (categories.podkast) parts.push(`${categories.podkast} podkast`);
+        if (categories.video) parts.push(`${categories.video} video`);
+        document.getElementById("categorySummary").textContent = parts.join(" · ");
+
+        const archive = data.archive || {};
+        document.getElementById("archiveRows").textContent = archive.rows || 0;
+        document.getElementById("archiveInfo").textContent = archive.last_updated
+            ? `sist oppdatert ${formatDate(archive.last_updated)}`
+            : "venter på første cron-kjøring";
+
+        renderArticles(data);
 
         const rankedList = document.getElementById("rankedList");
         rankedList.innerHTML = data.ranked_articles?.length
-            ? data.ranked_articles.slice(0, 5).map(articleMarkup).join("")
+            ? data.ranked_articles.map(rankedMarkup).join("")
             : `<div class="empty-state">Ingen artikler å rangere ennå.</div>`;
 
         const sourceMax = Math.max(1, ...(data.sources || []).map((row) => row.mentions));
         document.getElementById("sourceList").innerHTML = data.sources?.length
-            ? data.sources.map((row) => `
+            ? data.sources.slice(0, 14).map((row) => `
                 <div class="source-row">
                     <div>
                         <strong>${escapeHtml(row.source)}</strong>
@@ -696,10 +1042,10 @@
             `).join("")
             : `<div class="empty-state">Ingen kilder i perioden.</div>`;
 
-        drawChart(data.trend || []);
+        renderTrend(data);
+        renderSentiment(data);
         const warning = data.errors?.length ? ` Delvis henting feilet (${data.errors.length} kilde).` : "";
-        const xStatus = xStatusLabel(data);
-        document.getElementById("statusText").textContent = `Klar.${xStatus}${warning}`;
+        document.getElementById("statusText").textContent = `Klar.${xStatusLabel(data)}${warning}`;
     }
 
     async function loadMentions(days, forceRefresh = false) {
@@ -709,6 +1055,26 @@
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         render(await response.json());
     }
+
+    document.querySelectorAll("#categoryFilters [data-category]").forEach((button) => {
+        button.addEventListener("click", () => {
+            categoryFilter = button.dataset.category;
+            document.querySelectorAll("#categoryFilters [data-category]").forEach((other) => {
+                other.classList.toggle("active", other === button);
+            });
+            renderArticles(currentData);
+        });
+    });
+
+    document.querySelectorAll("#categoryFilters [data-sentiment]").forEach((button) => {
+        button.addEventListener("click", () => {
+            sentimentFilter = sentimentFilter === button.dataset.sentiment ? null : button.dataset.sentiment;
+            document.querySelectorAll("#categoryFilters [data-sentiment]").forEach((other) => {
+                other.classList.toggle("active", other.dataset.sentiment === sentimentFilter);
+            });
+            renderArticles(currentData);
+        });
+    });
 
     document.querySelectorAll("[data-days]").forEach((button) => {
         button.addEventListener("click", () => loadMentions(button.dataset.days).catch((error) => {
