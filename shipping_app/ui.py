@@ -71,7 +71,7 @@ def render_sidebar() -> str:
 
     with st.sidebar:
         st.subheader("Navigation")
-        st.page_link("app.py", label="Home", icon=":material/home:")
+        st.page_link("shipping_home.py", label="Home", icon=":material/home:")
         st.page_link(
             "shipping_pages/1_Spot_Rate_Predictions.py",
             label="Spot Rate Predictions",

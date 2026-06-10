@@ -5,7 +5,7 @@ import streamlit as st
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-DATA_DIR = BASE_DIR / "Data"
+DATA_DIR = BASE_DIR / "shipping_app" / "Data"
 
 PRICE_RANGE_LABELS = ("3M", "6M", "1Y", "3Y", "Max")
 PRICE_RANGE_OFFSETS = {

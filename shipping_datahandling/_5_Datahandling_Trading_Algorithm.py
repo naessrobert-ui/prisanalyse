@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from datahandling._4_Datahandling_Implicit_Rate import (
+from shipping_datahandling._4_Datahandling_Implicit_Rate import (
     load_fleet_master,
     load_fleet_ownership_periods,
     load_or_update_implicit_rate_output,
@@ -13,7 +13,7 @@ from shipping_app.data import get_company_profile, load_spot_rate_prediction_bun
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-OUTPUT_DIR = BASE_DIR / "Output" / "Trading_Algorithm"
+OUTPUT_DIR = BASE_DIR / "shipping_app" / "Output" / "Trading_Algorithm"
 TRADING_CACHE_SCHEMA_VERSION = 2
 VESSEL_ORDER = ["Aframax/LR2", "MR", "Suezmax", "VLCC"]
 HORIZONS = ("3m", "6m", "12m")
@@ -83,7 +83,7 @@ def get_trading_data_paths(company: str) -> dict[str, str]:
     """Get file paths for trading model data based on company name."""
     ticker = get_company_profile(company).ticker
     return {
-        "prices": str(BASE_DIR / "Data" / f"{ticker}_Prices.csv"),
+        "prices": str(BASE_DIR / "shipping_app" / "Data" / f"{ticker}_Prices.csv"),
     }
 
 
