@@ -83,16 +83,17 @@ _SKIP_HEADERS = {"transfer-encoding", "content-encoding", "content-length", "con
 
 
 @contextlib.asynccontextmanager
-async def _connect_streamlit_websocket(target: str):
+async def _connect_streamlit_websocket(target: str, subprotocols: list[str] | None = None):
     """Connect to Streamlit across supported websockets versions."""
     import websockets as _ws
 
+    kwargs = {"subprotocols": subprotocols} if subprotocols else {}
     try:
-        async with _ws.connect(target, additional_headers={"origin": _STREAMLIT_HTTP}) as upstream:
+        async with _ws.connect(target, additional_headers={"origin": _STREAMLIT_HTTP}, **kwargs) as upstream:
             yield upstream
     except TypeError:
         # websockets < 14 used ``extra_headers`` instead of ``additional_headers``.
-        async with _ws.connect(target, extra_headers={"origin": _STREAMLIT_HTTP}) as upstream:
+        async with _ws.connect(target, extra_headers={"origin": _STREAMLIT_HTTP}, **kwargs) as upstream:
             yield upstream
 
 
@@ -103,9 +104,17 @@ async def _shipping_ws_proxy(websocket: WebSocket, path: str):
     qs = f"?{query.decode()}" if query else ""
     target = f"{_STREAMLIT_WS}/shipping/app/{path}{qs}"
 
+    # Streamlit's frontend offers subprotocols ("streamlit" plus session/auth
+    # tokens) and browsers abort the connection unless the server echoes one
+    # back, so they must be forwarded upstream and the selected one returned.
+    subprotocols = list(websocket.scope.get("subprotocols") or [])
+
     try:
-        async with _connect_streamlit_websocket(target) as upstream:
-            await websocket.accept()
+        async with _connect_streamlit_websocket(target, subprotocols) as upstream:
+            selected = upstream.subprotocol
+            if selected is None and subprotocols:
+                selected = subprotocols[0]
+            await websocket.accept(subprotocol=selected)
 
             async def _client_to_streamlit():
                 while True:
