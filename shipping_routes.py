@@ -25,10 +25,27 @@ def _tail_stderr(proc: subprocess.Popen) -> None:
             _streamlit_stderr_log.pop(0)
 
 
+def _streamlit_responding(timeout: float = 1.0) -> bool:
+    import urllib.request
+    try:
+        urllib.request.urlopen(
+            f"http://localhost:{SHIPPING_PORT}/shipping/app/_stcore/health",
+            timeout=timeout,
+        )
+        return True
+    except Exception:
+        return False
+
+
 def start_shipping_streamlit() -> None:
     global _streamlit_process
     with _streamlit_lock:
         if _streamlit_process is not None and _streamlit_process.poll() is None:
+            return
+        # Another gunicorn worker (or an orphan from a restarted worker) may
+        # already serve the port; spawning again would just loop on
+        # "Port 8502 is not available".
+        if _streamlit_responding():
             return
         cmd = [
             sys.executable, "-m", "streamlit", "run",
