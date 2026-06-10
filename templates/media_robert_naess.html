@@ -775,14 +775,21 @@
         `;
     }
 
+    function normalizedText(value) {
+        return String(value || "").toLowerCase().replace(/[^a-z0-9æøå]+/g, "");
+    }
+
     function bodyMarkup(article) {
         if (article.sitat) {
             return `<p class="quote">«${escapeHtml(article.sitat)}»</p>`;
         }
-        if (article.snippet && article.snippet !== article.title) {
-            return `<p class="snippet">${escapeHtml(article.snippet)}</p>`;
+        const snippet = article.snippet || "";
+        const normSnippet = normalizedText(snippet);
+        const normTitle = normalizedText(article.title);
+        if (!normSnippet || normSnippet.startsWith(normTitle) || normTitle.startsWith(normSnippet)) {
+            return "";
         }
-        return "";
+        return `<p class="snippet">${escapeHtml(snippet)}</p>`;
     }
 
     function alsoInMarkup(cluster) {
