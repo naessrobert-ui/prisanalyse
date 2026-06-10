@@ -306,7 +306,9 @@ def _enrich_sentiment_llm(df: pd.DataFrame, max_items: int = _MAX_LLM_PER_RUN) -
         return 0
 
     pending = df[(df["sentiment"].astype(str) == "") & (df["title"].astype(str) != "")]
-    pending = pending.sort_values("first_seen_at", ascending=False).head(max_items)
+    # Nyeste publiserte først - first_seen_at er identisk for alle rader i
+    # samme kjøring og ga vilkårlig (eldste-først) prioritering.
+    pending = pending.sort_values("published_at", ascending=False).head(max_items)
     if not len(pending):
         return 0
 
@@ -380,7 +382,7 @@ def _enrich_page_details(df: pd.DataFrame, max_items: int = _MAX_PAGE_FETCH_PER_
         & df["url"].astype(str).str.startswith("http")
         & ~df["url"].astype(str).str.contains("news.google.com")
     ]
-    pending = pending.sort_values("first_seen_at", ascending=False).head(max_items)
+    pending = pending.sort_values("published_at", ascending=False).head(max_items)
 
     updated = 0
     for index, row in pending.iterrows():
