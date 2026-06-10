@@ -9,7 +9,7 @@ import streamlit as st
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-DATA_DIR = BASE_DIR / "Data"
+DATA_DIR = BASE_DIR / "shipping_app" / "Data"
 
 FLEET_VALUES_FILE = DATA_DIR / "FleetValues.xlsx"
 

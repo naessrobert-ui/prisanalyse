@@ -11,8 +11,8 @@ import numpy as np
 import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-DATA_PATH = BASE_DIR / "Data" / "monthly_tce_history.csv"
-OUTPUT_DIR = BASE_DIR / "Output" / "Spot_Rate_Pred"
+DATA_PATH = BASE_DIR / "shipping_app" / "Data" / "monthly_tce_history.csv"
+OUTPUT_DIR = BASE_DIR / "shipping_app" / "Output" / "Spot_Rate_Pred"
 OUTPUT_PATH = OUTPUT_DIR / "spot_rate_predictions_from_2015.xlsx"
 METADATA_PATH = OUTPUT_DIR / "spot_rate_predictions_from_2015.meta.json"
 START_FORECAST_MONTH = pd.Timestamp("2015-01-01")

@@ -7,8 +7,8 @@ import re
 import pandas as pd
 import yfinance as yf
 
-from datahandling._4_Datahandling_Implicit_Rate import build_latest_implicit_rate_snapshot, load_financials
-from dataingestion import IngestionPipeline, YFinanceProvider
+from shipping_datahandling._4_Datahandling_Implicit_Rate import build_latest_implicit_rate_snapshot, load_financials
+from shipping_dataingestion import IngestionPipeline, YFinanceProvider
 from shipping_app.data import (
     CompanyProfile,
     add_company_profile,
@@ -17,7 +17,7 @@ from shipping_app.data import (
     remove_company_profile,
 )
 
-DATA_DIR = Path("Data")
+DATA_DIR = Path(__file__).resolve().parents[1] / "shipping_app" / "Data"
 _IMPLICIT_VESSEL_TO_FIELD = {
     "VLCC": "implicit_rate_vlcc",
     "Suezmax": "implicit_rate_suezmax",

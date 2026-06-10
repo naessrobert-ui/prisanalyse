@@ -9,8 +9,9 @@ import numpy_financial as npf
 import pandas as pd
 
 
-DATA_DIR = Path("Data")
-OUTPUT_DIR = Path("Output") / "Implicit_Rate"
+_BASE_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = _BASE_DIR / "shipping_app" / "Data"
+OUTPUT_DIR = _BASE_DIR / "shipping_app" / "Output" / "Implicit_Rate"
 CACHE_SCHEMA_VERSION = 3
 DEFENSE_CACHE_SCHEMA_VERSION = 2
 INCREMENTAL_OVERLAP_DAYS = 31
