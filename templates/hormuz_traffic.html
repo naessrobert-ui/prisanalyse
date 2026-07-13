@@ -3,195 +3,80 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hormuz-trafikk</title>
+  <title>Global oljeflyt – Prisanalyse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root { color-scheme: dark; }
-    body { font-family: Arial, sans-serif; margin: 0; background: #0b1220; color: #e2e8f0; }
-    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    h1 { margin-bottom: 8px; }
-    .muted { color: #94a3b8; margin-bottom: 18px; }
-    .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
-    button { background: #2563eb; color: white; border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
-    button.secondary { background: #334155; }
-    textarea { width: 100%; min-height: 160px; background: #020617; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 10px; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
-    th, td { border-bottom: 1px solid #1f2937; padding: 8px; text-align: left; }
-    th { color: #93c5fd; }
-    .status { font-size: 0.92rem; color: #cbd5e1; }
-    .status.ok { color: #34d399; }
-    .status.warn { color: #f59e0b; }
-    .status.error { color: #f87171; }
+    :root { color-scheme: dark; --bg:#07111f; --panel:#0f1c2e; --line:#24344b; --text:#f3f7fb; --muted:#96a6bb; --blue:#60a5fa; --green:#34d399; --orange:#f59e0b; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Montserrat,system-ui,sans-serif; background:radial-gradient(circle at 80% 0,#12345a 0,transparent 38%),var(--bg); color:var(--text); }
+    .page { max-width:1240px; margin:auto; padding:28px 20px 56px; }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:24px; }
+    .eyebrow { color:var(--blue); text-transform:uppercase; letter-spacing:.18em; font-size:.72rem; font-weight:700; }
+    h1 { margin:8px 0 8px; font-size:clamp(2rem,5vw,3.5rem); }
+    .lead { color:var(--muted); max-width:760px; line-height:1.55; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .button { color:var(--text); text-decoration:none; border:1px solid var(--line); padding:10px 14px; border-radius:999px; background:#101e31; white-space:nowrap; }
+    .button.primary { background:var(--blue); color:#06111f; border-color:var(--blue); font-weight:700; }
+    .status { color:var(--muted); font-size:.85rem; margin:14px 0 20px; }
+    .status.error { color:#fb7185; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:18px; }
+    .card,.panel { background:linear-gradient(145deg,rgba(22,40,64,.95),rgba(12,25,43,.96)); border:1px solid var(--line); border-radius:16px; box-shadow:0 16px 45px rgba(0,0,0,.2); }
+    .card { padding:16px; }
+    .label { color:var(--muted); font-size:.82rem; }
+    .value { font-size:1.7rem; font-weight:700; margin:7px 0 4px; }
+    .sub { color:var(--muted); font-size:.75rem; }
+    .grid { display:grid; grid-template-columns:1.6fr 1fr; gap:18px; }
+    .panel { padding:18px; overflow:hidden; }
+    .panel h2 { font-size:1rem; margin:0 0 14px; }
+    .chart-wrap { min-height:330px; }
+    table { width:100%; border-collapse:collapse; font-size:.84rem; }
+    th,td { padding:10px 7px; border-bottom:1px solid var(--line); text-align:right; }
+    th:first-child,td:first-child { text-align:left; }
+    th { color:var(--muted); font-weight:600; }
+    .note { color:var(--muted); font-size:.76rem; line-height:1.55; margin-top:18px; }
+    @media(max-width:850px){ .top{display:block}.actions{margin-top:16px}.grid{grid-template-columns:1fr}.chart-wrap{min-height:260px}.panel{overflow-x:auto} }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Skipstrafikk i Hormuz-stredet</h1>
-    <p class="muted">Laster ekte data fra SQLite. Demo brukes kun når du trykker "Last demo-data".</p>
-
-    <div class="card">
-      <div class="toolbar">
-        <button id="loadLive">Last ekte data (SQLite)</button>
-        <button id="loadDemo" class="secondary">Last demo-data</button>
-        <button id="bootstrapData" class="secondary">Hent ferske AIS nå</button>
-        <button id="applyJson" class="secondary">Bruk JSON fra feltet</button>
-        <a href="/hormuz/map" style="display:inline-block;padding:10px 14px;background:#0ea5e9;border-radius:8px;color:#fff;text-decoration:none;">Åpne Folium-kart</a>
-      </div>
-      <div id="statusLine" class="status">Klar.</div>
-      <textarea id="jsonInput" placeholder='{"rows":[{"date":"2026-04-01","northbound":50,"southbound":45,"tankers":35,"lng":10}]}'></textarea>
+<main class="page">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Sjøbåren råolje</div>
+      <h1>Global oljeflyt</h1>
+      <div class="lead">Følg lastede råoljetankere mot verdens viktigste importmarkeder. Tallene oppdateres gjennom dagen og bygger på observerte AIS-destinasjoner.</div>
     </div>
-
-    <div class="card">
-      <canvas id="trafficChart" height="120"></canvas>
+    <div class="actions">
+      <a class="button" href="/">Prisanalyse</a>
+      <a class="button primary" href="/hormuz/map">Åpne kart</a>
     </div>
-
-    <div class="card">
-      <table>
-        <thead>
-          <tr>
-            <th>Dato</th>
-            <th>Nordgående</th>
-            <th>Sørgående</th>
-            <th>Totalt</th>
-            <th>Tankskip</th>
-            <th>LNG</th>
-          </tr>
-        </thead>
-        <tbody id="trafficTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-
+  </header>
+  <div id="status" class="status">Laster siste oljeflytdata …</div>
+  <section id="cards" class="cards"></section>
+  <section class="grid">
+    <div class="panel chart-wrap"><h2>Estimert olje om bord mot markedet</h2><canvas id="flowChart"></canvas></div>
+    <div class="panel"><h2>Siste observasjon</h2><table><thead><tr><th>Marked</th><th>Lastet</th><th>Mill. fat</th><th>Alle skip</th></tr></thead><tbody id="latestBody"></tbody></table></div>
+  </section>
+  <p class="note">Dette er en markedsindikator, ikke offisiell importstatistikk. Destinasjoner er fritekst fra AIS og kan være mangelfulle eller endres underveis. Lasten estimeres fra skipets DWT og standard råoljetetthet. «Alle skip» omfatter også ballast og ukjent lastestatus.</p>
+</main>
 <script>
-  let chart;
-
-  function setStatus(text, cls = '') {
-    const el = document.getElementById('statusLine');
-    el.textContent = text;
-    el.className = `status ${cls}`.trim();
+  const colors={China:'#ef4444',India:'#f59e0b',Japan:'#a78bfa','South Korea':'#34d399',Europe:'#60a5fa',USA:'#f472b6'};
+  const names={China:'Kina',India:'India',Japan:'Japan','South Korea':'Sør-Korea',Europe:'Europa',USA:'USA'};
+  const fmt=n=>new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}).format(n);
+  function render(payload){
+    const latest=payload.latest.filter(r=>r.destination_region!=='Unclassified').sort((a,b)=>b.estimated_barrels-a.estimated_barrels);
+    document.getElementById('status').textContent=`Sist oppdatert ${new Date(payload.last_updated).toLocaleString('nb-NO')} · ${payload.meta.observations} målinger`;
+    const cards=document.getElementById('cards'); cards.innerHTML='';
+    latest.forEach(r=>{const el=document.createElement('article');el.className='card';el.innerHTML=`<div class="label">${names[r.destination_region]||r.destination_region}</div><div class="value">${fmt(r.estimated_barrels/1e6)} mill.</div><div class="sub">fat · ${r.loaded_count} lastede tankere</div>`;cards.appendChild(el)});
+    const body=document.getElementById('latestBody'); body.innerHTML='';
+    latest.forEach(r=>{const tr=document.createElement('tr');[names[r.destination_region]||r.destination_region,r.loaded_count,fmt(r.estimated_barrels/1e6),r.vessel_count].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td)});body.appendChild(tr)});
+    const regions=Object.keys(payload.history);
+    const labels=[...new Set(regions.flatMap(k=>payload.history[k].map(r=>r.collected_at)))].sort();
+    new Chart(document.getElementById('flowChart'),{type:'line',data:{labels:labels.map(x=>new Date(x).toLocaleString('nb-NO',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})),datasets:regions.map(region=>{const lookup=Object.fromEntries(payload.history[region].map(r=>[r.collected_at,r.estimated_barrels/1e6]));return{label:names[region]||region,data:labels.map(x=>lookup[x]??null),borderColor:colors[region]||'#94a3b8',pointRadius:2,tension:.25,spanGaps:true}})},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},scales:{x:{ticks:{color:'#96a6bb',maxTicksLimit:9},grid:{color:'#17283d'}},y:{title:{display:true,text:'Millioner fat',color:'#96a6bb'},ticks:{color:'#96a6bb'},grid:{color:'#17283d'}}},plugins:{legend:{labels:{color:'#dbe7f3'}}}}});
   }
-
-  function normalizeRows(rows) {
-    return (rows || []).map(row => {
-      const north = Number(row.northbound || 0);
-      const south = Number(row.southbound || 0);
-      return {
-        date: row.date || '-',
-        northbound: north,
-        southbound: south,
-        total: Number(row.total || (north + south)),
-        tankers: Number(row.tankers || 0),
-        lng: Number(row.lng || 0),
-      };
-    });
-  }
-
-  function renderTable(rows) {
-    const tbody = document.getElementById('trafficTableBody');
-    tbody.innerHTML = '';
-    rows.forEach(row => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${row.date}</td>
-        <td>${row.northbound}</td>
-        <td>${row.southbound}</td>
-        <td>${row.total}</td>
-        <td>${row.tankers}</td>
-        <td>${row.lng}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-  function renderChart(rows) {
-    const ctx = document.getElementById('trafficChart');
-    const labels = rows.map(r => r.date);
-    if (chart) chart.destroy();
-
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [
-          { label: 'Nordgående', data: rows.map(r => r.northbound), borderColor: '#60a5fa', tension: 0.2 },
-          { label: 'Sørgående', data: rows.map(r => r.southbound), borderColor: '#34d399', tension: 0.2 },
-          { label: 'Totalt', data: rows.map(r => r.total), borderColor: '#f59e0b', tension: 0.2 }
-        ]
-      },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-  }
-
-  function applyPayload(payload) {
-    const rows = normalizeRows(payload.rows || payload);
-    renderTable(rows);
-    renderChart(rows);
-  }
-
-  async function loadLive(hours = 24) {
-    setStatus('Laster ekte data fra SQLite ...');
-    const res = await fetch(`/hormuz/api/traffic?hours=${hours}`);
-    const payload = await res.json();
-
-    document.getElementById('jsonInput').value = JSON.stringify(payload, null, 2);
-
-    if (!res.ok) {
-      setStatus(`Feil ved lasting av ekte data: ${payload.error || res.statusText}`, 'error');
-      throw new Error(payload.error || res.statusText);
-    }
-
-    applyPayload(payload);
-    const rawCount = payload.meta?.raw_messages_in_window ?? 0;
-    const updated = payload.meta?.last_received_at_utc || '-';
-    if (!payload.rows || payload.rows.length === 0) {
-      setStatus(`Ingen rader i valgt vindu (${hours}t). Råmeldinger i vindu: ${rawCount}. Siste melding: ${updated}`, 'warn');
-    } else {
-      setStatus(`Ekte data lastet: ${payload.rows.length} dager, ${rawCount} råmeldinger siste ${hours}t. Siste melding: ${updated}`, 'ok');
-    }
-  }
-
-
-  async function bootstrapData() {
-    setStatus('Starter innhenting av ferske AIS-data ... dette kan ta opptil 2-3 min.', 'warn');
-    const res = await fetch('/hormuz/api/bootstrap?minutes=3&max_messages=400', { method: 'POST' });
-    const payload = await res.json();
-    document.getElementById('jsonInput').value = JSON.stringify(payload, null, 2);
-    if (!res.ok || !payload.ok) {
-      const extra = (payload.error || '').toLowerCase().includes('timeout')
-        ? ' (timeout mot AISStream - prøv igjen om 1-2 min)'
-        : '';
-      setStatus(`Bootstrap feilet: ${payload.error || res.statusText}${extra}`, 'error');
-      throw new Error(payload.error || res.statusText);
-    }
-    setStatus('AIS-data hentet. Laster ekte data ...', 'ok');
-    await loadLive(24);
-  }
-
-  async function loadDemo() {
-    const res = await fetch('/hormuz/api/demo');
-    const payload = await res.json();
-    document.getElementById('jsonInput').value = JSON.stringify(payload, null, 2);
-    applyPayload(payload);
-    setStatus('Viser demo-data (ikke ekte trafikk).', 'warn');
-  }
-
-  document.getElementById('loadLive').addEventListener('click', () => loadLive(24));
-  document.getElementById('loadDemo').addEventListener('click', loadDemo);
-  document.getElementById('bootstrapData').addEventListener('click', () => bootstrapData().catch(() => {}));
-  document.getElementById('applyJson').addEventListener('click', () => {
-    try {
-      const payload = JSON.parse(document.getElementById('jsonInput').value);
-      applyPayload(payload);
-      setStatus('JSON-data lagt inn manuelt.', 'ok');
-    } catch (err) {
-      setStatus(`Ugyldig JSON: ${err.message}`, 'error');
-    }
-  });
-
-  loadLive().catch(() => {
-    setStatus('Kunne ikke laste ekte data. Bruk "Last demo-data" for testvisning.', 'error');
-  });
+  fetch('/hormuz/api/flows').then(async r=>{const p=await r.json();if(!r.ok)throw new Error(p.detail||p.error);return p}).then(render).catch(err=>{const s=document.getElementById('status');s.textContent=`Kunne ikke laste data: ${err.message}`;s.className='status error'});
 </script>
 </body>
 </html>
