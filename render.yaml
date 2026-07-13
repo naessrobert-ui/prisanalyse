@@ -1,5 +1,25 @@
 services:
   - type: cron
+    name: global-oil-flow-refresh
+    runtime: python
+    schedule: "17 */3 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.oil_flow_collector
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: eu-north-1
+      - key: S3_BUCKET_NAME
+        value: prisanalyse-data
+      - key: OIL_TRACKER_S3_PREFIX
+        value: oil-tanker-data
+
+  - type: cron
     name: weather-station-metrics-refresh
     runtime: python
     schedule: "0 */3 * * *"
