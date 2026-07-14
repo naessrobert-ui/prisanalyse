@@ -31,13 +31,14 @@
     .grid { display:grid; grid-template-columns:1.6fr 1fr; gap:18px; }
     .panel { padding:18px; overflow:hidden; }
     .panel h2 { font-size:1rem; margin:0 0 14px; }
-    .chart-wrap { min-height:330px; }
+    .chart-canvas { position:relative; width:100%; height:360px; }
+    .chart-hint { color:var(--muted); font-size:.74rem; margin:10px 0 0; }
     table { width:100%; border-collapse:collapse; font-size:.84rem; }
     th,td { padding:10px 7px; border-bottom:1px solid var(--line); text-align:right; }
     th:first-child,td:first-child { text-align:left; }
     th { color:var(--muted); font-weight:600; }
     .note { color:var(--muted); font-size:.76rem; line-height:1.55; margin-top:18px; }
-    @media(max-width:850px){ .top{display:block}.actions{margin-top:16px}.grid{grid-template-columns:1fr}.chart-wrap{min-height:260px}.panel{overflow-x:auto} }
+    @media(max-width:850px){ .top{display:block}.actions{margin-top:16px}.grid{grid-template-columns:1fr}.chart-canvas{height:300px}.panel{overflow-x:auto} }
   </style>
 </head>
 <body>
@@ -56,7 +57,7 @@
   <div id="status" class="status">Laster siste oljeflytdata …</div>
   <section id="cards" class="cards"></section>
   <section class="grid">
-    <div class="panel chart-wrap"><h2>Estimert olje om bord mot markedet</h2><canvas id="flowChart"></canvas></div>
+    <div class="panel"><h2>Estimert olje om bord mot markedet</h2><div class="chart-canvas"><canvas id="flowChart"></canvas></div><p id="chartHint" class="chart-hint"></p></div>
     <div class="panel"><h2>Siste observasjon</h2><table><thead><tr><th>Marked</th><th>Lastet</th><th>Mill. fat</th><th>Alle skip</th></tr></thead><tbody id="latestBody"></tbody></table></div>
   </section>
   <p class="note">Dette er en markedsindikator, ikke offisiell importstatistikk. Destinasjoner er fritekst fra AIS og kan være mangelfulle eller endres underveis. Lasten estimeres fra skipets DWT og standard råoljetetthet. «Alle skip» omfatter også ballast og ukjent lastestatus.</p>
@@ -74,7 +75,8 @@
     latest.forEach(r=>{const tr=document.createElement('tr');[names[r.destination_region]||r.destination_region,r.loaded_count,fmt(r.estimated_barrels/1e6),r.vessel_count].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td)});body.appendChild(tr)});
     const regions=Object.keys(payload.history);
     const labels=[...new Set(regions.flatMap(k=>payload.history[k].map(r=>r.collected_at)))].sort();
-    new Chart(document.getElementById('flowChart'),{type:'line',data:{labels:labels.map(x=>new Date(x).toLocaleString('nb-NO',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})),datasets:regions.map(region=>{const lookup=Object.fromEntries(payload.history[region].map(r=>[r.collected_at,r.estimated_barrels/1e6]));return{label:names[region]||region,data:labels.map(x=>lookup[x]??null),borderColor:colors[region]||'#94a3b8',pointRadius:2,tension:.25,spanGaps:true}})},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},scales:{x:{ticks:{color:'#96a6bb',maxTicksLimit:9},grid:{color:'#17283d'}},y:{title:{display:true,text:'Millioner fat',color:'#96a6bb'},ticks:{color:'#96a6bb'},grid:{color:'#17283d'}}},plugins:{legend:{labels:{color:'#dbe7f3'}}}}});
+    document.getElementById('chartHint').textContent=labels.length<8?`Historikken bygges opp. Diagrammet viser foreløpig ${labels.length} målinger.`:'';
+    new Chart(document.getElementById('flowChart'),{type:'line',data:{labels:labels.map(x=>new Date(x).toLocaleString('nb-NO',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})),datasets:regions.map(region=>{const lookup=Object.fromEntries(payload.history[region].map(r=>[r.collected_at,r.estimated_barrels/1e6]));const color=colors[region]||'#94a3b8';return{label:names[region]||region,data:labels.map(x=>lookup[x]??null),borderColor:color,backgroundColor:color,borderWidth:2,pointRadius:labels.length<10?3:1.5,pointHoverRadius:5,pointBackgroundColor:color,pointBorderWidth:0,tension:.25,spanGaps:true}})},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},scales:{x:{ticks:{color:'#96a6bb',maxTicksLimit:9,maxRotation:0},grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'Millioner fat',color:'#96a6bb'},ticks:{color:'#96a6bb'},grid:{color:'#24344b'}}},plugins:{legend:{labels:{color:'#dbe7f3',usePointStyle:true,boxWidth:8}}}}});
   }
   fetch('/hormuz/api/flows').then(async r=>{const p=await r.json();if(!r.ok)throw new Error(p.detail||p.error);return p}).then(render).catch(err=>{const s=document.getElementById('status');s.textContent=`Kunne ikke laste data: ${err.message}`;s.className='status error'});
 </script>
