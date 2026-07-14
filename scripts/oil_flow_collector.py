@@ -17,7 +17,6 @@ from pathlib import Path
 
 import boto3
 import folium
-from folium.plugins import MarkerCluster
 
 API = "https://tankermap.com/api"
 USER_AGENT = "PrisanalyseOilFlow/1.0 (low-frequency analytical use)"
@@ -34,6 +33,24 @@ DESTINATION_ALIASES = {
     "South Korea": ("KOREA", "ULSAN", "YEOSU", "DAESAN", "ONSAN", "INCHEON"),
     "USA": ("USA", "US GULF", "HOUSTON", "CORPUS CHRISTI", "LOOP", "NEW ORLEANS", "PORT ARTHUR", "BEAUMONT"),
     "Europe": ("ROTTERDAM", "EUROPOORT", "ANTWERP", "LE HAVRE", "FOS", "TRIESTE", "AUGUSTA", "MILFORD HAVEN", "WILHELMSHAVEN", "GDANSK"),
+}
+DESTINATION_COLORS = {
+    "China": "#d73027",
+    "India": "#f28e2b",
+    "Japan": "#b07aa1",
+    "South Korea": "#e15759",
+    "Europe": "#4e79a7",
+    "USA": "#59a14f",
+    "Unclassified": "#8a8f98",
+}
+DESTINATION_LABELS = {
+    "China": "Kina",
+    "India": "India",
+    "Japan": "Japan",
+    "South Korea": "Sør-Korea",
+    "Europe": "Europa",
+    "USA": "USA",
+    "Unclassified": "Annen / ukjent destinasjon",
 }
 FLOW_FIELDS = ["collected_at", "destination_region", "vessel_count", "loaded_count", "estimated_barrels", "total_dwt"]
 
@@ -131,42 +148,62 @@ def nearest_china_port(vessel: dict, ports: list[dict]) -> str | None:
 
 
 def build_map(vessels: list[dict], ports: list[dict], output: Path) -> dict:
-    m = folium.Map(location=[25, 105], zoom_start=3, tiles="CartoDB positron", control_scale=True)
-    definitions = {
-        "Ved kinesisk oljeterminal": ("green", True), "Lastet, mot Kina": ("red", True),
-        "Andre lastede tankere": ("orange", False), "Ballast / ukjent": ("blue", False),
+    m = folium.Map(location=[25, 105], zoom_start=3, tiles="CartoDB positron", control_scale=True,
+                   prefer_canvas=True)
+    layers = {
+        region: folium.FeatureGroup(name=DESTINATION_LABELS[region], show=True).add_to(m)
+        for region in DESTINATION_COLORS
     }
-    layers, clusters, counts = {}, {}, {name: 0 for name in definitions}
-    for name, (_, show) in definitions.items():
-        layers[name] = folium.FeatureGroup(name=name, show=show).add_to(m)
-        clusters[name] = MarkerCluster(control=False).add_to(layers[name])
+    counts = {DESTINATION_LABELS[region]: 0 for region in DESTINATION_COLORS}
+    counts.update({"Lastet": 0, "Ballast / ukjent": 0, "Ved kinesisk oljeterminal": 0})
     for vessel in vessels:
         lat, lon = vessel.get("latitude"), vessel.get("longitude")
         if lat is None or lon is None:
             continue
         at_port = nearest_china_port(vessel, ports)
+        region = destination_region(vessel) or ("China" if at_port else "Unclassified")
+        color = DESTINATION_COLORS[region]
+        loaded = vessel.get("cargo_state") == "loaded"
+        capacity = estimate_barrels(vessel)
+        radius = 3.5 + 5.5 * math.sqrt(min(capacity, 2_200_000) / 2_200_000) if capacity else 3.5
+        counts[DESTINATION_LABELS[region]] += 1
+        counts["Lastet" if loaded else "Ballast / ukjent"] += 1
         if at_port:
-            group = "Ved kinesisk oljeterminal"
-        elif vessel.get("cargo_state") == "loaded" and destination_region(vessel) == "China":
-            group = "Lastet, mot Kina"
-        elif vessel.get("cargo_state") == "loaded":
-            group = "Andre lastede tankere"
-        else:
-            group = "Ballast / ukjent"
-        color = definitions[group][0]
-        counts[group] += 1
+            counts["Ved kinesisk oljeterminal"] += 1
+        volume_label = "Estimert oljevolum" if loaded else "Estimert kapasitet (last ikke bekreftet)"
         popup = "<br>".join((f"<b>{vessel.get('name') or 'Ukjent navn'}</b>", f"IMO: {vessel.get('imo')}",
                              f"DWT: {float(vessel.get('deadweight') or 0):,.0f}",
-                             f"Estimert kapasitet: {estimate_barrels(vessel)/1e6:.2f} mill. fat",
+                             f"{volume_label}: {capacity/1e6:.2f} mill. fat",
                              f"Lastestatus: {vessel.get('cargo_state') or 'ukjent'}",
-                             f"Destinasjon: {vessel.get('destination') or '-'}", f"Fart: {float(vessel.get('speed_knots') or 0):.1f} knop"))
-        folium.CircleMarker([lat, lon], radius=5, color=color, weight=1, fill=True, fill_color=color,
-                            fill_opacity=.8, popup=folium.Popup(popup, max_width=360),
-                            tooltip=f"{vessel.get('name') or 'Ukjent'} – {vessel.get('destination') or '-'}").add_to(clusters[group])
+                             f"Destinasjonsregion: {DESTINATION_LABELS[region]}",
+                             f"Destinasjon: {vessel.get('destination') or '-'}",
+                             f"Fart: {float(vessel.get('speed_knots') or 0):.1f} knop",
+                             f"Ved kinesisk terminal: {at_port}" if at_port else ""))
+        folium.CircleMarker(
+            [lat, lon], radius=radius, color=color, weight=1.5 if loaded else 1,
+            fill=True, fill_color=color, fill_opacity=.78 if loaded else .08,
+            opacity=.95 if loaded else .5, popup=folium.Popup(popup, max_width=360),
+            tooltip=(f"{vessel.get('name') or 'Ukjent'} – {DESTINATION_LABELS[region]} – "
+                     f"{capacity/1e6:.2f} mill. fat"),
+        ).add_to(layers[region])
     port_layer = folium.FeatureGroup(name="Kinesiske oljeterminaler", show=True).add_to(m)
     for port in ports:
         folium.Marker([port["lat"], port["lon"]], tooltip=port["name"], icon=folium.Icon(color="darkgreen", icon="industry", prefix="fa")).add_to(port_layer)
     folium.LayerControl(collapsed=False).add_to(m)
+    colors = "".join(
+        f'<div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;'
+        f'background:{color};margin-right:6px"></span>{DESTINATION_LABELS[region]}</div>'
+        for region, color in DESTINATION_COLORS.items()
+    )
+    legend = f'''<div style="position:fixed;bottom:24px;left:12px;z-index:9999;background:white;
+        padding:10px 12px;border:1px solid #aaa;border-radius:4px;font:12px/1.45 Arial;box-shadow:0 1px 4px #999">
+        <b>Råoljetankere</b><br>Farge = destinasjonsregion<br>{colors}
+        <div style="margin-top:7px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;
+        background:#555;margin-right:6px"></span>Fylt = lastet</div>
+        <div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid #555;
+        margin-right:6px"></span>Hul = ballast / ukjent</div>
+        <div style="margin-top:7px">Størrelse = estimert kapasitet</div></div>'''
+    m.get_root().html.add_child(folium.Element(legend))
     m.save(str(output))
     return counts
 
