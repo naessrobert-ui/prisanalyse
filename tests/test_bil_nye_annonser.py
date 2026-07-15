@@ -131,6 +131,31 @@ def test_estimat_fordeler_hull_jevnt():
     assert abs(sum(d["total"] for d in serie[1:]) - 40.0) < 0.05
 
 
+def test_estimat_utelat_forste_dag():
+    # Foerste dag er oppstarts-/census-dag med kunstig hoeyt antall.
+    counts = _counts({
+        date(2026, 1, 1): (50000, 8000),   # census-topp
+        date(2026, 1, 2): (30, 20),
+        date(2026, 1, 3): (25, 15),
+    })
+    dekket = [date(2026, 1, 1), date(2026, 1, 2), date(2026, 1, 3)]
+
+    med = bygg_serie_med_estimat(counts, dekket, utelat_forste_dag=False)
+    assert med[0]["dato"] == "2026-01-01" and med[0]["total"] == 58000
+    assert len(med) == 3
+
+    uten = bygg_serie_med_estimat(counts, dekket, utelat_forste_dag=True)
+    assert [d["dato"] for d in uten] == ["2026-01-02", "2026-01-03"]
+    assert max(d["total"] for d in uten) == 50  # census-toppen er borte
+
+
+def test_estimat_utelat_forste_dag_tom_naar_bare_en():
+    counts = _counts({date(2026, 1, 1): (10, 5)})
+    serie = bygg_serie_med_estimat(counts, [date(2026, 1, 1)], utelat_forste_dag=True)
+    # Med bare én dag beholder vi den (ellers hadde vi mistet alt).
+    assert len(serie) == 1
+
+
 def test_estimat_markerer_lange_hull_usikre():
     counts = _counts({date(2026, 1, 1): (5, 5), date(2026, 1, 20): (10, 10)})
     dekket = [date(2026, 1, 1), date(2026, 1, 20)]

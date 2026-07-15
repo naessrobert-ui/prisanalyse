@@ -33,6 +33,16 @@
           </select>
         </div>
         <div>
+          <label for="ma-vindu" class="mr-2 mb-0 mt-2" title="Glidende gjennomsnitt av totalt antall nye annonser, tegnet som linje oppaa soeylene.">Glidende snitt</label>
+          <select id="ma-vindu" class="form-control form-control-sm mt-2">
+            <option value="0">Av</option>
+            <option value="7">7 dager</option>
+            <option value="10" selected>10 dager</option>
+            <option value="14">14 dager</option>
+            <option value="30">30 dager</option>
+          </select>
+        </div>
+        <div>
           <a id="last-csv" href="/bil/prisanalyse/api/nye-annonser.csv" class="btn btn-outline-secondary btn-sm mt-2">
             <i class="fas fa-download"></i> CSV
           </a>
@@ -100,16 +110,31 @@
 (function() {
   const $ = (id) => document.getElementById(id);
   const nf = new Intl.NumberFormat('nb-NO');
+  let sisteSerie = [];   // siste hentede serie, for redraw ved endret snitt-vindu
 
   function fmt(v, dec = 0) {
     if (v === null || v === undefined || isNaN(v)) return '-';
     return new Intl.NumberFormat('nb-NO', {maximumFractionDigits: dec}).format(v);
   }
 
+  // Trailing glidende gjennomsnitt. Bruker det som finnes av foregaaende dager
+  // helt fra start (ingen "tomme" ledd), saa linja starter paa dag 1.
+  function glidendeSnitt(verdier, vindu) {
+    const ut = [];
+    for (let i = 0; i < verdier.length; i++) {
+      const start = Math.max(0, i - vindu + 1);
+      let sum = 0;
+      for (let j = start; j <= i; j++) sum += verdier[j];
+      ut.push(sum / (i - start + 1));
+    }
+    return ut;
+  }
+
   function tegnGraf(serie) {
     const x = serie.map(d => d.dato);
     const privat = serie.map(d => d.privat);
     const bedrift = serie.map(d => d.bedrift);
+    const total = serie.map(d => d.total);
     const estimert = serie.map(d => d.estimert);
 
     // Markér estimerte dager med et diagonalt moenster slik at de skiller seg ut.
@@ -136,6 +161,17 @@
         text: hover('Bedrift'), hoverinfo: 'text+y',
       },
     ];
+
+    // Glidende snitt av total (linje oppaa soeylene).
+    const vindu = parseInt($('ma-vindu').value, 10);
+    if (vindu > 0 && serie.length) {
+      spor.push({
+        x, y: glidendeSnitt(total, vindu),
+        name: `${vindu}-dagers snitt`, type: 'scatter', mode: 'lines',
+        line: {color: 'rgb(230, 232, 236)', width: 2.5},
+        hovertemplate: `%{x}<br>${vindu}-dg snitt: %{y:.0f}<extra></extra>`,
+      });
+    }
 
     Plotly.newPlot('graf-nye', spor, {
       barmode: 'stack',
@@ -203,8 +239,9 @@
       return;
     }
     try {
-      tegnGraf(data.serie || []);
-      tegnAndel(data.serie || []);
+      sisteSerie = data.serie || [];
+      tegnGraf(sisteSerie);
+      tegnAndel(sisteSerie);
     } catch (e) {
       $('status').innerHTML =
         '<span class="text-warning">Klarte ikke tegne grafene: ' + e.message + '</span>';
@@ -219,6 +256,10 @@
   }
 
   $('maks-gap').addEventListener('change', lastData);
+  // Bytte av glidende-snitt-vindu trenger ikke ny henting - bare tegn paa nytt.
+  $('ma-vindu').addEventListener('change', () => {
+    if (typeof Plotly !== 'undefined' && sisteSerie.length) tegnGraf(sisteSerie);
+  });
   lastData();
 })();
 </script>

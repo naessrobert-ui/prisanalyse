@@ -158,6 +158,7 @@ def bygg_serie_med_estimat(
     raw_counts: pd.DataFrame,
     dekkede_dager: Iterable[date],
     maks_gap: int = STANDARD_MAKS_GAP,
+    utelat_forste_dag: bool = False,
 ) -> list[dict[str, Any]]:
     """Bygg en sammenhengende daglig serie med estimering over hull.
 
@@ -170,6 +171,11 @@ def bygg_serie_med_estimat(
                  ``raw_counts`` som fallback (ingen hull-fylling da).
     maks_gap : hull opp til denne lengden fylles uten ekstra advarsel; lengre
                  hull fylles fortsatt, men markeres ``usikker=True``.
+    utelat_forste_dag : dropp den aller foerste dagen i serien. Den foerste
+                 innsamlingsdagen er en oppstarts-/census-dag der *hele* den
+                 eksisterende beholdningen faar "foerste gang sett" = den dagen,
+                 og gir en kunstig topp (titusener) som ikke er reelle nye
+                 annonser. Settes True i produksjon.
 
     Returnerer
     ----------
@@ -227,7 +233,10 @@ def bygg_serie_med_estimat(
             }
         forrige = cur
 
-    return [resultat[d] for d in sorted(resultat)]
+    serie = [resultat[d] for d in sorted(resultat)]
+    if utelat_forste_dag and len(serie) > 1:
+        serie = serie[1:]
+    return serie
 
 
 def oppsummer_serie(serie: list[dict[str, Any]]) -> dict[str, Any]:
@@ -444,7 +453,9 @@ def bygg_nye_annonser(s3=None, maks_gap: int = STANDARD_MAKS_GAP) -> dict[str, A
         print(f"[nye-annonser] Klarte ikke liste innsamlingsdager: {e}")
         dekkede = set()
 
-    serie = bygg_serie_med_estimat(raw_counts, dekkede, maks_gap=maks_gap)
+    serie = bygg_serie_med_estimat(
+        raw_counts, dekkede, maks_gap=maks_gap, utelat_forste_dag=True
+    )
     return {
         "serie": serie,
         "oppsummering": oppsummer_serie(serie),
