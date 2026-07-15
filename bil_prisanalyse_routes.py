@@ -664,7 +664,7 @@ def api_nye_annonser_csv():
         return Response("# Ingen data\n", mimetype="text/csv", status=200)
 
     ut = pd.DataFrame(serie)[
-        ["dato", "privat", "bedrift", "ukjent", "total", "estimert", "usikker", "gap_lengde"]
+        ["dato", "privat", "bedrift", "total", "estimert", "usikker", "gap_lengde"]
     ]
     opp = data.get("oppsummering", {})
     head = [

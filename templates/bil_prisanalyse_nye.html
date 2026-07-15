@@ -110,7 +110,6 @@
     const x = serie.map(d => d.dato);
     const privat = serie.map(d => d.privat);
     const bedrift = serie.map(d => d.bedrift);
-    const ukjent = serie.map(d => d.ukjent);
     const estimert = serie.map(d => d.estimert);
 
     // Markér estimerte dager med et diagonalt moenster slik at de skiller seg ut.
@@ -137,14 +136,6 @@
         text: hover('Bedrift'), hoverinfo: 'text+y',
       },
     ];
-    // Ukjent-selgertype vises kun hvis den faktisk forekommer.
-    if (ukjent.some(v => v > 0)) {
-      spor.push({
-        x, y: ukjent, name: 'Ukjent', type: 'bar',
-        marker: {color: 'rgb(170, 170, 170)', pattern: {shape: monster, size: 5, solidity: 0.35}},
-        text: hover('Ukjent'), hoverinfo: 'text+y',
-      });
-    }
 
     Plotly.newPlot('graf-nye', spor, {
       barmode: 'stack',
