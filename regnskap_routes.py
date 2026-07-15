@@ -47,6 +47,33 @@ USER_AGENT = (
 )
 TIMEOUT = 15
 BATCH_WORKERS = 4
+
+
+def _detect_accept_encoding() -> str:
+    """Bygg Accept-Encoding ut fra hva requests faktisk kan dekode.
+
+    Proff serverer br-komprimert (brotli) innhold når det annonseres. Uten
+    brotli/brotlicffi installert klarer ikke requests å pakke ut svaret, og
+    r.text blir råbyte-søppel der __NEXT_DATA__ og HTML-tabellene mangler –
+    som ga feilen «Ingen __NEXT_DATA__ på siden». Vi tar derfor bare med "br"
+    når en brotli-dekoder er tilgjengelig.
+    """
+    encodings = ["gzip", "deflate"]
+    try:
+        import brotli  # noqa: F401
+
+        encodings.append("br")
+    except ImportError:
+        try:
+            import brotlicffi  # noqa: F401
+
+            encodings.append("br")
+        except ImportError:
+            pass
+    return ", ".join(encodings)
+
+
+_ACCEPT_ENCODING = _detect_accept_encoding()
 EXPORT_PAGE_SIZE = 500
 EXPORT_MAX_ROWS = 50000
 
@@ -186,7 +213,10 @@ def make_session() -> requests.Session:
             "User-Agent": USER_AGENT,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "nb-NO,nb;q=0.9,no;q=0.8,en;q=0.7",
-            "Accept-Encoding": "gzip, deflate, br",
+            # Ikke annonser "br" (brotli) med mindre brotli-pakken er installert;
+            # ellers returnerer Proff br-komprimert innhold som requests ikke kan
+            # dekode, og __NEXT_DATA__/HTML-tabellene blir borte.
+            "Accept-Encoding": _ACCEPT_ENCODING,
             "Connection": "keep-alive",
         }
     )
@@ -409,7 +439,7 @@ def build_dataset_from_payload(payload: dict, regnskap_url: str) -> FinancialDat
     records_sorted = sorted(records, key=lambda r: (r.get("year", 0) or 0, str(r.get("period") or "")))
     return FinancialDataset(
         company=get_company_name(payload),
-        orgnr=normalize_orgnr(company_data.get("orgNumber", "")),
+        orgnr=normalize_orgnr(first_present(company_data, "orgnr", "orgNumber") or ""),
         url_used=regnskap_url,
         currency=currency,
         records=records_sorted,
@@ -713,7 +743,7 @@ def lookup_orgnr(
     period = latest.get("period")
 
     company_data = payload.get("props", {}).get("pageProps", {}).get("company", {})
-    found_orgnr = normalize_orgnr(company_data.get("orgNumber", orgnr))
+    found_orgnr = normalize_orgnr(first_present(company_data, "orgnr", "orgNumber") or orgnr)
 
     return LookupResult(
         company=get_company_name(payload),
