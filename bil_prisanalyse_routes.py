@@ -668,14 +668,34 @@ def api_nye_annonser_csv():
 
     ut = pd.DataFrame(serie)[
         ["dato", "privat", "bedrift", "total", "estimert", "usikker", "gap_lengde"]
-    ]
+    ].rename(columns={"privat": "nye_privat", "bedrift": "nye_bedrift", "total": "nye_total"})
+
+    # Ta ogsaa med aktive annonser (privat/bedrift/total) per dag, koblet paa
+    # dato. Aktiv-serien dekker kun dager med snapshot, saa estimerte nye-dager
+    # faar blanke aktiv-kolonner.
+    try:
+        aktive = _hent_aktive_annonser().get("serie", [])
+    except Exception as e:
+        print(f"[nye-annonser.csv] Klarte ikke hente aktive: {e}")
+        aktive = []
+    if aktive:
+        akt = pd.DataFrame(aktive)[["dato", "privat", "bedrift", "total"]].rename(
+            columns={
+                "privat": "aktive_privat",
+                "bedrift": "aktive_bedrift",
+                "total": "aktive_total",
+            }
+        )
+        ut = ut.merge(akt, on="dato", how="left")
+
     opp = data.get("oppsummering", {})
     head = [
-        "# Nye bil-annonser per dag (privat vs. bedrift)",
+        "# Nye bil-annonser per dag (privat vs. bedrift) + aktive annonser per dag",
         f"# Maks gap for estimering: {maks_gap} dager",
         f"# Dager totalt: {opp.get('antall_dager')}  (estimerte: {opp.get('antall_estimerte_dager')})",
-        f"# Andel privat: {opp.get('andel_privat_pct')} %",
-        "# estimert=True: dagen ligger i et innsamlingshull og er jevnt fordelt",
+        f"# Andel privat (nye): {opp.get('andel_privat_pct')} %",
+        "# nye_*   = nye annonser den dagen (estimert=True: jevnt fordelt over innsamlingshull)",
+        "# aktive_* = annonser til salgs den dagen (tomt paa estimerte/ikke-snapshot-dager)",
     ]
     body = "\n".join(head) + "\n" + ut.to_csv(index=False, sep=";", decimal=",")
     fn = f"nye_annonser_{datetime.utcnow():%Y%m%d}.csv"
