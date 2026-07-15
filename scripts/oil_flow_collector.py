@@ -18,6 +18,8 @@ from pathlib import Path
 import boto3
 import folium
 
+from scripts.hormuz_tracker import update_hormuz_tracker
+
 API = "https://tankermap.com/api"
 USER_AGENT = "PrisanalyseOilFlow/1.0 (low-frequency analytical use)"
 BUCKET = os.getenv("OIL_TRACKER_S3_BUCKET") or os.getenv("S3_BUCKET_NAME") or "prisanalyse-data"
@@ -217,6 +219,24 @@ def main() -> int:
     relevant = [v for v in vessels if destination_region(v) or nearest_china_port(v, ports)]
     s3 = s3_client()
 
+    # Hormuz tracking is deliberately isolated: a tracker failure must not
+    # interrupt the established global oil-flow publication.
+    try:
+        hormuz_payload = update_hormuz_tracker(
+            s3=s3,
+            bucket=BUCKET,
+            prefix=PREFIX,
+            vessels=vessels,
+            collected_at=collected_at,
+        )
+        hormuz_summary = hormuz_payload["summary"]
+        print(
+            f"Hormuz: {hormuz_summary['current_vessels']} vessels in corridor, "
+            f"{hormuz_summary['crossings_24h']} observed crossings in 24h."
+        )
+    except Exception as exc:
+        print(f"WARNING: Hormuz tracker failed without stopping global flow: {exc}")
+
     stamp = utcnow()
     intraday_key = f"{PREFIX}/aggregates/intraday/year={stamp:%Y}/month={stamp:%m}/day={stamp:%d}/flows_{stamp:%Y%m%dT%H%M%SZ}.json"
     s3.put_object(Bucket=BUCKET, Key=intraday_key,
@@ -238,3 +258,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
