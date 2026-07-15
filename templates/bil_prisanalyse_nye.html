@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Nye annonser per dag - bil{% endblock %}
+
+{% block content %}
+{% include "_prisanalyse_style.html" %}
+<div class="container-fluid pa-container">
+  <div class="pa-hero">
+    <div class="d-flex justify-content-between align-items-start flex-wrap">
+      <div>
+        <div class="brand">Analyse av bruktmarkedet</div>
+        <h1 class="m-0"><span class="accent">Nye</span> annonser per dag</h1>
+        <div class="sub mt-2">
+          Hvor mange nye bilannonser dukker opp paa Finn hver dag, og hvordan
+          fordeler de seg mellom private selgere og bedrifter/forhandlere?
+          En annonse teller paa dagen den ble sett foerste gang.
+        </div>
+        <div class="mt-2">
+          <a href="/bil/prisanalyse" class="text-muted small">&larr; Detaljanalyse</a>
+          <span class="text-muted small mx-1">&middot;</span>
+          <a href="/bil/prisanalyse/marked" class="text-muted small">Markedsbevegelser</a>
+          <span class="text-muted small mx-1">&middot;</span>
+          <a href="/bil/prisanalyse/sammenligning" class="text-muted small">Sammenligning</a>
+        </div>
+      </div>
+      <div class="mt-3 mt-lg-0 form-inline" style="gap: 12px;">
+        <div>
+          <label for="maks-gap" class="mr-2 mb-0 mt-2" title="Innsamlingshull opp til dette fylles ved aa fordele antallet jevnt over hullet. Lengre hull markeres som usikre.">Maks hull</label>
+          <select id="maks-gap" class="form-control form-control-sm mt-2">
+            <option value="3">3 dager</option>
+            <option value="7">7 dager</option>
+            <option value="14" selected>14 dager</option>
+            <option value="30">30 dager</option>
+          </select>
+        </div>
+        <div>
+          <a id="last-csv" href="/bil/prisanalyse/api/nye-annonser.csv" class="btn btn-outline-secondary btn-sm mt-2">
+            <i class="fas fa-download"></i> CSV
+          </a>
+        </div>
+      </div>
+    </div>
+    <div id="status" class="text-muted small mt-3">Henter...</div>
+  </div>
+
+  <div class="row" id="kpi-rad">
+    <div class="col-6 col-md-3 mb-3">
+      <div class="card-content">
+        <div class="text-muted small">Snitt nye per dag</div>
+        <div class="h4 m-0" id="kpi-snitt">-</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 mb-3">
+      <div class="card-content">
+        <div class="text-muted small">Andel private</div>
+        <div class="h4 m-0" id="kpi-andel-privat">-</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 mb-3">
+      <div class="card-content">
+        <div class="text-muted small">Nye totalt (periode)</div>
+        <div class="h4 m-0" id="kpi-total">-</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3 mb-3">
+      <div class="card-content">
+        <div class="text-muted small">Dager (estimerte)</div>
+        <div class="h4 m-0" id="kpi-dager">-</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-12 mb-3">
+      <div class="card-content">
+        <h5 class="mb-1">Nye annonser per dag</h5>
+        <div class="text-muted small mb-2">
+          Stablet: private + bedrift. Skraverte/markerte soeyler er
+          <strong>estimerte</strong> dager (innsamlingshull der antallet er
+          fordelt jevnt utover).
+        </div>
+        <div id="graf-nye" style="width: 100%; height: 460px;"></div>
+      </div>
+    </div>
+
+    <div class="col-lg-12 mb-3">
+      <div class="card-content">
+        <h5 class="mb-1">Andel private (%) per dag</h5>
+        <div class="text-muted small mb-2">
+          Rullerende bilde av hvor stor andel av de nye annonsene som er fra
+          private selgere.
+        </div>
+        <div id="graf-andel" style="width: 100%; height: 280px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<script>
+(function() {
+  const $ = (id) => document.getElementById(id);
+  const nf = new Intl.NumberFormat('nb-NO');
+
+  function fmt(v, dec = 0) {
+    if (v === null || v === undefined || isNaN(v)) return '-';
+    return new Intl.NumberFormat('nb-NO', {maximumFractionDigits: dec}).format(v);
+  }
+
+  function tegnGraf(serie) {
+    const x = serie.map(d => d.dato);
+    const privat = serie.map(d => d.privat);
+    const bedrift = serie.map(d => d.bedrift);
+    const ukjent = serie.map(d => d.ukjent);
+    const estimert = serie.map(d => d.estimert);
+
+    // Markér estimerte dager med et diagonalt moenster slik at de skiller seg ut.
+    const monster = estimert.map(e => e ? '/' : '');
+
+    function hover(navn) {
+      return serie.map(d =>
+        `<b>${d.dato}</b><br>${navn}<br>` +
+        (d.estimert
+          ? `<i>estimert (hull paa ${d.gap_lengde} dg${d.usikker ? ', usikker' : ''})</i>`
+          : 'observert')
+      );
+    }
+
+    const spor = [
+      {
+        x, y: privat, name: 'Privat', type: 'bar',
+        marker: {color: 'rgb(40, 90, 170)', pattern: {shape: monster, size: 5, solidity: 0.35}},
+        text: hover('Privat'), hoverinfo: 'text+y',
+      },
+      {
+        x, y: bedrift, name: 'Bedrift', type: 'bar',
+        marker: {color: 'rgb(210, 140, 40)', pattern: {shape: monster, size: 5, solidity: 0.35}},
+        text: hover('Bedrift'), hoverinfo: 'text+y',
+      },
+    ];
+    // Ukjent-selgertype vises kun hvis den faktisk forekommer.
+    if (ukjent.some(v => v > 0)) {
+      spor.push({
+        x, y: ukjent, name: 'Ukjent', type: 'bar',
+        marker: {color: 'rgb(170, 170, 170)', pattern: {shape: monster, size: 5, solidity: 0.35}},
+        text: hover('Ukjent'), hoverinfo: 'text+y',
+      });
+    }
+
+    Plotly.newPlot('graf-nye', spor, {
+      barmode: 'stack',
+      margin: {l: 50, r: 20, t: 10, b: 40},
+      legend: {orientation: 'h', y: 1.12},
+      xaxis: {type: 'category', tickangle: -45, automargin: true},
+      yaxis: {title: 'Antall nye annonser', rangemode: 'tozero'},
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+    }, {displayModeBar: false, responsive: true});
+  }
+
+  function tegnAndel(serie) {
+    const x = serie.map(d => d.dato);
+    const andel = serie.map(d => {
+      const kjent = d.privat + d.bedrift;
+      return kjent > 0 ? (100 * d.privat / kjent) : null;
+    });
+    Plotly.newPlot('graf-andel', [{
+      x, y: andel, type: 'scatter', mode: 'lines',
+      line: {color: 'rgb(40, 90, 170)', width: 2},
+      name: 'Andel privat',
+      hovertemplate: '%{x}<br>%{y:.0f} %<extra></extra>',
+    }], {
+      margin: {l: 50, r: 20, t: 10, b: 40},
+      xaxis: {type: 'category', tickangle: -45, automargin: true},
+      yaxis: {title: '% private', range: [0, 100]},
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+    }, {displayModeBar: false, responsive: true});
+  }
+
+  async function lastData() {
+    const maksGap = $('maks-gap').value;
+    $('status').textContent = 'Henter...';
+    $('last-csv').href = `/bil/prisanalyse/api/nye-annonser.csv?maks_gap=${maksGap}`;
+    let data;
+    try {
+      const r = await fetch(`/bil/prisanalyse/api/nye-annonser?maks_gap=${maksGap}`);
+      data = await r.json();
+      if (!r.ok || data.feil) {
+        $('status').textContent = data.feil || ('Feil: ' + r.status);
+        return;
+      }
+    } catch (e) {
+      $('status').textContent = 'Nettverksfeil: ' + e;
+      return;
+    }
+
+    const o = data.oppsummering || {};
+    $('kpi-snitt').textContent = fmt(o.snitt_per_dag, 1);
+    $('kpi-andel-privat').textContent =
+      (o.andel_privat_pct === null || o.andel_privat_pct === undefined)
+        ? '-' : fmt(o.andel_privat_pct, 1) + ' %';
+    $('kpi-total').textContent = fmt(o.sum_total, 0);
+    $('kpi-dager').textContent = `${fmt(o.antall_dager)} (${fmt(o.antall_estimerte_dager)})`;
+
+    tegnGraf(data.serie || []);
+    tegnAndel(data.serie || []);
+
+    const gen = data.generert ? data.generert.replace('T', ' ').slice(0, 16) : '';
+    $('status').textContent =
+      `${fmt(o.antall_dager)} dager, ${fmt(o.antall_estimerte_dager)} estimerte ` +
+      `(hull opp til ${data.maks_gap} dg fylt) · ${fmt(data.antall_annonser_totalt)} annonser totalt` +
+      (gen ? ` · generert ${gen} UTC` : '');
+  }
+
+  $('maks-gap').addEventListener('change', lastData);
+  lastData();
+})();
+</script>
+{% endblock %}
