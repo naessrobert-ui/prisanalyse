@@ -36,6 +36,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from flask import Blueprint, Response, jsonify, render_template, request
 
+import bil_nye_annonser
 from config import AWS_KEY, AWS_REGION, AWS_SECRET, S3_BUCKET_NAME
 
 bil_prisanalyse_bp = Blueprint(
@@ -583,8 +584,103 @@ def api_refresh():
     with _CACHE_LOCK:
         _CACHE["df"] = None
         _CACHE["loaded_at"] = None
+    with _NYE_CACHE_LOCK:
+        _NYE_CACHE["data"] = None
+        _NYE_CACHE["loaded_at"] = None
     _hent_cache()
     return jsonify({"ok": True, "loaded_at": _CACHE["loaded_at"].isoformat()})
+
+
+# ---- Nye annonser per dag (privat vs. bedrift) ----
+
+# Egen cache: dette datasettet bygges fra database_biler.parquet +
+# bil_time.parquet og er uavhengig av pris-aggregatet over.
+_NYE_CACHE: dict[str, Any] = {"data": None, "loaded_at": None, "maks_gap": None}
+_NYE_CACHE_LOCK = threading.Lock()
+NYE_MAKS_GAP_MIN = 1
+NYE_MAKS_GAP_MAX = 60
+
+
+def _hent_nye_annonser(maks_gap: int) -> dict[str, Any]:
+    """Returner nye-annonser-datasettet fra cache, bygg paa nytt hvis stale
+    eller hvis maks_gap er endret siden forrige bygg."""
+    with _NYE_CACHE_LOCK:
+        now = datetime.utcnow()
+        loaded_at = _NYE_CACHE.get("loaded_at")
+        if (
+            _NYE_CACHE.get("data") is not None
+            and loaded_at is not None
+            and _NYE_CACHE.get("maks_gap") == maks_gap
+            and (now - loaded_at).total_seconds() < CACHE_TTL_SEKUNDER
+        ):
+            return _NYE_CACHE["data"]
+
+        print(f"[nye-annonser] Bygger datasett (maks_gap={maks_gap})...")
+        data = bil_nye_annonser.bygg_nye_annonser(maks_gap=maks_gap)
+        _NYE_CACHE["data"] = data
+        _NYE_CACHE["loaded_at"] = now
+        _NYE_CACHE["maks_gap"] = maks_gap
+        print(
+            f"[nye-annonser] Ferdig: {data['oppsummering']['antall_dager']} dager, "
+            f"{data['oppsummering']['antall_estimerte_dager']} estimerte"
+        )
+        return data
+
+
+@bil_prisanalyse_bp.route("/nye")
+def vis_nye_annonser():
+    return render_template("bil_prisanalyse_nye.html")
+
+
+@bil_prisanalyse_bp.route("/api/nye-annonser")
+def api_nye_annonser():
+    try:
+        maks_gap = int(request.args.get("maks_gap", str(bil_nye_annonser.STANDARD_MAKS_GAP)))
+    except ValueError:
+        maks_gap = bil_nye_annonser.STANDARD_MAKS_GAP
+    maks_gap = max(NYE_MAKS_GAP_MIN, min(maks_gap, NYE_MAKS_GAP_MAX))
+    try:
+        data = _hent_nye_annonser(maks_gap)
+    except Exception as e:
+        print(f"[nye-annonser] FEIL under bygging: {e}")
+        return jsonify({"feil": f"Klarte ikke bygge datasettet: {e}"}), 503
+    return jsonify(data)
+
+
+@bil_prisanalyse_bp.route("/api/nye-annonser.csv")
+def api_nye_annonser_csv():
+    try:
+        maks_gap = int(request.args.get("maks_gap", str(bil_nye_annonser.STANDARD_MAKS_GAP)))
+    except ValueError:
+        maks_gap = bil_nye_annonser.STANDARD_MAKS_GAP
+    maks_gap = max(NYE_MAKS_GAP_MIN, min(maks_gap, NYE_MAKS_GAP_MAX))
+    try:
+        data = _hent_nye_annonser(maks_gap)
+    except Exception as e:
+        return Response(f"# Klarte ikke bygge datasettet: {e}\n", mimetype="text/csv", status=503)
+
+    serie = data.get("serie", [])
+    if not serie:
+        return Response("# Ingen data\n", mimetype="text/csv", status=200)
+
+    ut = pd.DataFrame(serie)[
+        ["dato", "privat", "bedrift", "ukjent", "total", "estimert", "usikker", "gap_lengde"]
+    ]
+    opp = data.get("oppsummering", {})
+    head = [
+        "# Nye bil-annonser per dag (privat vs. bedrift)",
+        f"# Maks gap for estimering: {maks_gap} dager",
+        f"# Dager totalt: {opp.get('antall_dager')}  (estimerte: {opp.get('antall_estimerte_dager')})",
+        f"# Andel privat: {opp.get('andel_privat_pct')} %",
+        "# estimert=True: dagen ligger i et innsamlingshull og er jevnt fordelt",
+    ]
+    body = "\n".join(head) + "\n" + ut.to_csv(index=False, sep=";", decimal=",")
+    fn = f"nye_annonser_{datetime.utcnow():%Y%m%d}.csv"
+    return Response(
+        body,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{fn}"'},
+    )
 
 
 @bil_prisanalyse_bp.route("/api/debug")
