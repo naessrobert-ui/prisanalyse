@@ -587,6 +587,9 @@ def api_refresh():
     with _NYE_CACHE_LOCK:
         _NYE_CACHE["data"] = None
         _NYE_CACHE["loaded_at"] = None
+    with _AKTIVE_CACHE_LOCK:
+        _AKTIVE_CACHE["data"] = None
+        _AKTIVE_CACHE["loaded_at"] = None
     _hent_cache()
     return jsonify({"ok": True, "loaded_at": _CACHE["loaded_at"].isoformat()})
 
@@ -676,6 +679,70 @@ def api_nye_annonser_csv():
     ]
     body = "\n".join(head) + "\n" + ut.to_csv(index=False, sep=";", decimal=",")
     fn = f"nye_annonser_{datetime.utcnow():%Y%m%d}.csv"
+    return Response(
+        body,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{fn}"'},
+    )
+
+
+# ---- Aktive annonser over tid (privat vs. bedrift) ----
+
+_AKTIVE_CACHE: dict[str, Any] = {"data": None, "loaded_at": None}
+_AKTIVE_CACHE_LOCK = threading.Lock()
+
+
+def _hent_aktive_annonser() -> dict[str, Any]:
+    """Aktiv-serien fra cache; bygg paa nytt hvis stale."""
+    with _AKTIVE_CACHE_LOCK:
+        now = datetime.utcnow()
+        loaded_at = _AKTIVE_CACHE.get("loaded_at")
+        if (
+            _AKTIVE_CACHE.get("data") is not None
+            and loaded_at is not None
+            and (now - loaded_at).total_seconds() < CACHE_TTL_SEKUNDER
+        ):
+            return _AKTIVE_CACHE["data"]
+
+        print("[aktive-annonser] Bygger datasett...")
+        data = bil_nye_annonser.bygg_aktive_annonser()
+        _AKTIVE_CACHE["data"] = data
+        _AKTIVE_CACHE["loaded_at"] = now
+        print(
+            f"[aktive-annonser] Ferdig: {data['oppsummering']['antall_dager']} dager, "
+            f"na aktive={data['oppsummering']['na_total']}"
+        )
+        return data
+
+
+@bil_prisanalyse_bp.route("/api/aktive-annonser")
+def api_aktive_annonser():
+    try:
+        data = _hent_aktive_annonser()
+    except Exception as e:
+        print(f"[aktive-annonser] FEIL under bygging: {e}")
+        return jsonify({"feil": f"Klarte ikke bygge datasettet: {e}"}), 503
+    return jsonify(data)
+
+
+@bil_prisanalyse_bp.route("/api/aktive-annonser.csv")
+def api_aktive_annonser_csv():
+    try:
+        data = _hent_aktive_annonser()
+    except Exception as e:
+        return Response(f"# Klarte ikke bygge datasettet: {e}\n", mimetype="text/csv", status=503)
+    serie = data.get("serie", [])
+    if not serie:
+        return Response("# Ingen data\n", mimetype="text/csv", status=200)
+    ut = pd.DataFrame(serie)[["dato", "privat", "bedrift", "total"]]
+    opp = data.get("oppsummering", {})
+    head = [
+        "# Aktive bil-annonser over tid (privat vs. bedrift)",
+        f"# Dager med data: {opp.get('antall_dager')}",
+        f"# Naa aktive: {opp.get('na_total')} (andel privat {opp.get('na_andel_privat_pct')} %)",
+    ]
+    body = "\n".join(head) + "\n" + ut.to_csv(index=False, sep=";", decimal=",")
+    fn = f"aktive_annonser_{datetime.utcnow():%Y%m%d}.csv"
     return Response(
         body,
         mimetype="text/csv",
