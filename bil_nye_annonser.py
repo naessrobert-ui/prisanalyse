@@ -10,13 +10,20 @@ Definisjon
 En annonse regnes som "ny paa dag D" dersom foerste gang vi observerte den
 (FinnKode) faller paa dag D. Grunnkilden er ``calc/bil/database_biler.parquet``
 som har akkurat én rad per FinnKode med kolonnen ``Dato`` (foerste gang sett)
-og ``forhandler_type`` (selgertype). Fordi filen allerede er de-duplisert paa
-FinnKode slipper vi aa telle samme annonse to ganger.
+og ``Selger``. Fordi filen allerede er de-duplisert paa FinnKode slipper vi aa
+telle samme annonse to ganger.
+
+Selgertype
+----------
+Selgertype avgjoeres av ``Selger``-kolonnen: er den **tom** er annonsen fra en
+**privat** selger; har den en verdi (et forhandler-/bedriftsnavn) er den fra en
+**bedrift**. (Tidligere brukte vi ``forhandler_type``, men den kolonnen var tom
+for de fleste radene og ga nesten bare "ukjent".)
 
 Datakilder (i prioritert rekkefoelge)
 -------------------------------------
 1. ``calc/bil/database_biler.parquet``  - hovedkilde, én rad per FinnKode med
-   ``Dato`` = foerste gang sett og ``forhandler_type``.
+   ``Dato`` = foerste gang sett og ``Selger``.
 2. ``calc/bil/bil_time.parquet``        - timesopploest historikk. Fanger opp
    annonser som ble lagt ut og forsvant igjen *innen samme doegn*, og som
    derfor aldri rakk aa komme med i en daglig snapshot. FinnKoder som ikke
@@ -56,7 +63,7 @@ RAW_DAGLIG_PREFIX = "raw/bil-daglig/"
 RAW_TIME_PREFIX = "raw/bil-time/"
 
 # Buckets vi fordeler annonsene paa
-BUCKETS = ["privat", "bedrift", "ukjent"]
+BUCKETS = ["privat", "bedrift"]
 
 # Default: hull opp til denne lengden (i dager) fylles med jevn fordeling uten
 # ekstra advarsel. Lengre hull fylles fortsatt, men markeres usikre.
@@ -68,37 +75,33 @@ STANDARD_MAKS_GAP = 14
 # =====================================================================
 
 def klassifiser_selgertype(serie: pd.Series) -> pd.Series:
-    """Kartlegg raa ``forhandler_type`` til {privat, bedrift, ukjent}.
+    """Avgjoer selgertype ut fra ``Selger``-kolonnen: {privat, bedrift}.
 
-    - "privat" (uansett store/smaa bokstaver, med whitespace) -> ``privat``
-    - tom / NaN / "nan"                                        -> ``ukjent``
-    - alt annet (forhandler, merkeforhandler, ...)             -> ``bedrift``
+    - tom / NaN / bare whitespace  -> ``privat``   (ingen selgernavn oppgitt)
+    - en hvilken som helst verdi   -> ``bedrift``  (forhandler-/bedriftsnavn)
     """
     s = serie.astype(str).str.strip().str.lower()
-    resultat = np.where(s.eq("privat"), "privat", "bedrift")
-    # Baade ekte NaN/None (som blir NaN etter .astype(str)) og tomme/tekstlige
-    # "mangler"-verdier skal telle som ukjent.
     tom = serie.isna() | s.isna() | s.isin(["", "nan", "none", "<na>"])
-    resultat = np.where(tom.to_numpy(), "ukjent", resultat)
+    resultat = np.where(tom.to_numpy(), "privat", "bedrift")
     return pd.Series(resultat, index=serie.index)
 
 
 def tell_nye_per_dag(
     df: pd.DataFrame,
     dato_kol: str = "Dato",
-    selger_kol: str = "forhandler_type",
+    selger_kol: str = "Selger",
 ) -> pd.DataFrame:
     """Tell nye annonser per (foerste-sett-dato, selgertype).
 
     Parametre
     ---------
     df : DataFrame med én rad per FinnKode. Maa ha ``dato_kol`` (foerste gang
-         sett) og ``selger_kol`` (selgertype).
+         sett) og ``selger_kol`` (``Selger`` - tom = privat, verdi = bedrift).
 
     Returnerer
     ----------
-    DataFrame indeksert paa ``date`` med kolonnene ``privat``, ``bedrift``,
-    ``ukjent`` og ``total`` (heltall). Rader uten gyldig dato droppes.
+    DataFrame indeksert paa ``date`` med kolonnene ``privat``, ``bedrift`` og
+    ``total`` (heltall). Rader uten gyldig dato droppes.
     """
     tom_ramme = pd.DataFrame(columns=BUCKETS + ["total"])
     tom_ramme.index.name = "dag"
@@ -113,7 +116,8 @@ def tell_nye_per_dag(
     if selger_kol in df.columns:
         bucket = klassifiser_selgertype(df.loc[gyldig, selger_kol])
     else:
-        bucket = pd.Series("ukjent", index=df.index[gyldig])
+        # Uten Selger-kolonne kan vi ikke skille; anta privat (ingen navn).
+        bucket = pd.Series("privat", index=df.index[gyldig])
 
     tmp = pd.DataFrame(
         {
@@ -160,7 +164,7 @@ def bygg_serie_med_estimat(
     Parametre
     ---------
     raw_counts : DataFrame indeksert paa ``date`` med kolonnene privat/bedrift/
-                 ukjent/total (typisk fra :func:`tell_nye_per_dag`).
+                 total (typisk fra :func:`tell_nye_per_dag`).
     dekkede_dager : dagene der innsamlingen faktisk kjorte. Definerer tidslinjen
                  og hvilke hull som skal fylles. Er den tom brukes datoene i
                  ``raw_counts`` som fallback (ingen hull-fylling da).
@@ -170,7 +174,7 @@ def bygg_serie_med_estimat(
     Returnerer
     ----------
     Liste av dict (én per dag, kronologisk):
-        {dato, privat, bedrift, ukjent, total, estimert, usikker, gap_lengde}
+        {dato, privat, bedrift, total, estimert, usikker, gap_lengde}
     Verdier for estimerte dager er floats (jevnt fordelt); ellers heltall.
     """
     counts = raw_counts.copy()
@@ -235,24 +239,20 @@ def oppsummer_serie(serie: list[dict[str, Any]]) -> dict[str, Any]:
             "sum_total": 0,
             "sum_privat": 0,
             "sum_bedrift": 0,
-            "sum_ukjent": 0,
             "snitt_per_dag": 0.0,
             "andel_privat_pct": None,
         }
     sum_privat = sum(d["privat"] for d in serie)
     sum_bedrift = sum(d["bedrift"] for d in serie)
-    sum_ukjent = sum(d["ukjent"] for d in serie)
     sum_total = sum(d["total"] for d in serie)
-    kjent = sum_privat + sum_bedrift
     return {
         "antall_dager": len(serie),
         "antall_estimerte_dager": sum(1 for d in serie if d["estimert"]),
         "sum_total": round(sum_total, 1),
         "sum_privat": round(sum_privat, 1),
         "sum_bedrift": round(sum_bedrift, 1),
-        "sum_ukjent": round(sum_ukjent, 1),
         "snitt_per_dag": round(sum_total / len(serie), 1),
-        "andel_privat_pct": round(100 * sum_privat / kjent, 1) if kjent else None,
+        "andel_privat_pct": round(100 * sum_privat / sum_total, 1) if sum_total else None,
     }
 
 
@@ -323,9 +323,9 @@ def _les_parquet_kolonner(s3, key: str, kandidat_kolonner: dict[str, list[str]])
 
 
 def last_forstesett_df(s3) -> pd.DataFrame:
-    """Bygg DataFrame med én rad per FinnKode: {Dato (foerste sett),
-    forhandler_type}. Kombinerer hovedparquet med timesparquet for aa fange opp
-    kortlivde annonser som aldri kom med i en daglig snapshot."""
+    """Bygg DataFrame med én rad per FinnKode: {Dato (foerste sett), Selger}.
+    Kombinerer hovedparquet med timesparquet for aa fange opp kortlivde
+    annonser som aldri kom med i en daglig snapshot."""
     # --- Hovedkilde ---
     hoved, colmap = _les_parquet_kolonner(
         s3,
@@ -333,12 +333,17 @@ def last_forstesett_df(s3) -> pd.DataFrame:
         {
             "finnkode": ["FinnKode", "finnkode"],
             "dato": ["Dato", "dato"],
-            "forhandler_type": ["forhandler_type", "Forhandler type", "Forhandlertype"],
+            "selger": ["Selger", "selger"],
         },
     )
     if "dato" not in colmap:
         raise RuntimeError(
             f"{HOVED_PARQUET_KEY} mangler en Dato-kolonne (foerste gang sett)"
+        )
+    if "selger" not in colmap:
+        print(
+            f"[nye-annonser] ADVARSEL: {HOVED_PARQUET_KEY} mangler Selger-kolonne "
+            "- alt telles som privat"
         )
 
     ut = pd.DataFrame(
@@ -349,9 +354,9 @@ def last_forstesett_df(s3) -> pd.DataFrame:
                 else hoved.index.astype(str)
             ),
             "Dato": pd.to_datetime(hoved[colmap["dato"]], errors="coerce"),
-            "forhandler_type": (
-                hoved[colmap["forhandler_type"]]
-                if "forhandler_type" in colmap
+            "Selger": (
+                hoved[colmap["selger"]]
+                if "selger" in colmap
                 else ""
             ),
         }
@@ -382,17 +387,17 @@ def _hent_kortlivde_fra_time(s3, kjente_finnkoder: set[str]) -> pd.DataFrame:
         {
             "finnkode": ["FinnKode", "finnkode"],
             "tid": ["snapshot_time", "tidspunkt", "dato", "Dato", "timestamp"],
-            "forhandler_type": ["forhandler_type", "Forhandler type", "Forhandlertype"],
+            "selger": ["Selger", "selger"],
         },
     )
     if "finnkode" not in colmap or "tid" not in colmap:
-        return pd.DataFrame(columns=["FinnKode", "Dato", "forhandler_type"])
+        return pd.DataFrame(columns=["FinnKode", "Dato", "Selger"])
 
     df["FinnKode"] = df[colmap["finnkode"]].astype(str)
     df["_tid"] = pd.to_datetime(df[colmap["tid"]], errors="coerce")
     df = df[df["_tid"].notna() & ~df["FinnKode"].isin(kjente_finnkoder)]
     if df.empty:
-        return pd.DataFrame(columns=["FinnKode", "Dato", "forhandler_type"])
+        return pd.DataFrame(columns=["FinnKode", "Dato", "Selger"])
 
     # Tidligste observasjon per FinnKode = foerste gang sett
     idx = df.groupby("FinnKode")["_tid"].idxmin()
@@ -401,9 +406,9 @@ def _hent_kortlivde_fra_time(s3, kjente_finnkoder: set[str]) -> pd.DataFrame:
         {
             "FinnKode": forste["FinnKode"].values,
             "Dato": forste["_tid"].values,
-            "forhandler_type": (
-                forste[colmap["forhandler_type"]].values
-                if "forhandler_type" in colmap
+            "Selger": (
+                forste[colmap["selger"]].values
+                if "selger" in colmap
                 else ""
             ),
         }

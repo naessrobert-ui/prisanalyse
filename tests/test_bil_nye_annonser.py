@@ -18,12 +18,13 @@ from bil_nye_annonser import (
 )
 
 
-# ---- klassifiser_selgertype ----
+# ---- klassifiser_selgertype (basert paa Selger-kolonnen) ----
 
-def test_klassifiser_selgertype_privat_bedrift_ukjent():
-    s = pd.Series(["privat", "Privat", " PRIVAT ", "Forhandler", "merkeforhandler", "", None])
+def test_klassifiser_selgertype_tom_er_privat_verdi_er_bedrift():
+    s = pd.Series(["", None, "   ", "Bilforhandler AS", "Bertel O. Steen", "nan"])
     ut = klassifiser_selgertype(s).tolist()
-    assert ut == ["privat", "privat", "privat", "bedrift", "bedrift", "ukjent", "ukjent"]
+    # tom / NaN / whitespace / "nan" -> privat; ekte navn -> bedrift
+    assert ut == ["privat", "privat", "privat", "bedrift", "bedrift", "privat"]
 
 
 # ---- tell_nye_per_dag ----
@@ -39,7 +40,8 @@ def test_tell_nye_per_dag_grupperer_og_splitter():
                 "2026-01-02 10:00",
                 "2026-01-02 11:00",
             ],
-            "forhandler_type": ["privat", "Forhandler", "privat", "privat", ""],
+            # tom Selger = privat, navn = bedrift
+            "Selger": ["", "Bilhuset AS", "", "", "Auto AS"],
         }
     )
     ut = tell_nye_per_dag(df)
@@ -48,13 +50,13 @@ def test_tell_nye_per_dag_grupperer_og_splitter():
     assert ut.loc[date(2026, 1, 1), "bedrift"] == 1
     assert ut.loc[date(2026, 1, 1), "total"] == 2
     assert ut.loc[date(2026, 1, 2), "privat"] == 2
-    assert ut.loc[date(2026, 1, 2), "ukjent"] == 1
+    assert ut.loc[date(2026, 1, 2), "bedrift"] == 1
     assert ut.loc[date(2026, 1, 2), "total"] == 3
 
 
 def test_tell_nye_per_dag_dropper_ugyldig_dato():
     df = pd.DataFrame(
-        {"Dato": ["2026-01-01", "tull", None], "forhandler_type": ["privat", "privat", "privat"]}
+        {"Dato": ["2026-01-01", "tull", None], "Selger": ["", "", ""]}
     )
     ut = tell_nye_per_dag(df)
     assert ut["total"].sum() == 1
@@ -84,10 +86,9 @@ def _counts(rader: dict[date, tuple[int, int]]) -> pd.DataFrame:
     data = {
         "privat": [rader[d][0] for d in idx],
         "bedrift": [rader[d][1] for d in idx],
-        "ukjent": [0 for _ in idx],
     }
     df = pd.DataFrame(data, index=idx)
-    df["total"] = df[["privat", "bedrift", "ukjent"]].sum(axis=1)
+    df["total"] = df[["privat", "bedrift"]].sum(axis=1)
     return df
 
 
