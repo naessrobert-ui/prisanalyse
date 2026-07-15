@@ -12,7 +12,9 @@
         <div class="sub mt-2">
           Hvor mange nye bilannonser dukker opp paa Finn hver dag, og hvordan
           fordeler de seg mellom private selgere og bedrifter/forhandlere?
-          En annonse teller paa dagen den ble sett foerste gang.
+          En annonse teller paa dagen den ble sett foerste gang. Nederst vises
+          ogsaa <strong>aktive annonser over tid</strong> &mdash; et mer robust
+          tall som ikke paavirkes av dager scraperen ikke kjorte.
         </div>
         <div class="mt-2">
           <a href="/bil/prisanalyse" class="text-muted small">&larr; Detaljanalyse</a>
@@ -100,6 +102,28 @@
           private selgere.
         </div>
         <div id="graf-andel" style="width: 100%; height: 280px;"></div>
+      </div>
+    </div>
+
+    <div class="col-lg-12 mb-3">
+      <div class="card-content">
+        <div class="d-flex justify-content-between align-items-start flex-wrap">
+          <div>
+            <h5 class="mb-1">Aktive annonser over tid</h5>
+            <div class="text-muted small mb-2">
+              Antall annonser som var <strong>aktive</strong> (til salgs) hver dag,
+              stablet paa privat og bedrift. Et mer robust tall enn nye per dag:
+              vi tar bare med dager vi faktisk har snapshot for og hopper over
+              resten &mdash; ingen estimering.
+            </div>
+          </div>
+          <a id="last-aktive-csv" href="/bil/prisanalyse/api/aktive-annonser.csv"
+             class="btn btn-outline-secondary btn-sm mt-1">
+            <i class="fas fa-download"></i> CSV
+          </a>
+        </div>
+        <div id="aktive-info" class="text-muted small mb-1">Henter...</div>
+        <div id="graf-aktive" style="width: 100%; height: 380px;"></div>
       </div>
     </div>
   </div>
@@ -255,12 +279,71 @@
       (gen ? ` · generert ${gen} UTC` : '');
   }
 
+  function tegnAktive(serie) {
+    const x = serie.map(d => d.dato);
+    Plotly.newPlot('graf-aktive', [
+      {
+        x, y: serie.map(d => d.privat), name: 'Privat', type: 'scatter',
+        mode: 'lines', stackgroup: 'en', line: {width: 0},
+        fillcolor: 'rgba(40, 90, 170, 0.75)',
+        hovertemplate: '%{x}<br>Privat aktive: %{y}<extra></extra>',
+      },
+      {
+        x, y: serie.map(d => d.bedrift), name: 'Bedrift', type: 'scatter',
+        mode: 'lines', stackgroup: 'en', line: {width: 0},
+        fillcolor: 'rgba(210, 140, 40, 0.75)',
+        hovertemplate: '%{x}<br>Bedrift aktive: %{y}<extra></extra>',
+      },
+    ], {
+      margin: {l: 55, r: 20, t: 10, b: 40},
+      legend: {orientation: 'h', y: 1.15},
+      xaxis: {type: 'category', tickangle: -45, automargin: true},
+      yaxis: {title: 'Aktive annonser', rangemode: 'tozero'},
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+    }, {displayModeBar: false, responsive: true});
+  }
+
+  async function lastAktive() {
+    let data;
+    try {
+      const r = await fetch('/bil/prisanalyse/api/aktive-annonser');
+      data = await r.json();
+      if (!r.ok || data.feil) {
+        $('aktive-info').textContent = data.feil || ('Feil: ' + r.status);
+        return;
+      }
+    } catch (e) {
+      $('aktive-info').textContent = 'Nettverksfeil: ' + e;
+      return;
+    }
+    const o = data.oppsummering || {};
+    const andel = (o.na_andel_privat_pct === null || o.na_andel_privat_pct === undefined)
+      ? '-' : fmt(o.na_andel_privat_pct, 1) + ' %';
+    $('aktive-info').textContent =
+      `Naa aktive: ${fmt(o.na_total)} (${fmt(o.na_privat)} privat / ${fmt(o.na_bedrift)} bedrift, ` +
+      `${andel} privat) · ${fmt(o.antall_dager)} dager med data`;
+
+    if (typeof Plotly === 'undefined') {
+      $('aktive-info').innerHTML +=
+        ' <span class="text-warning">- kunne ikke laste graf-biblioteket.</span>';
+      return;
+    }
+    try {
+      tegnAktive(data.serie || []);
+    } catch (e) {
+      $('aktive-info').innerHTML +=
+        ' <span class="text-warning">- klarte ikke tegne grafen: ' + e.message + '</span>';
+    }
+  }
+
   $('maks-gap').addEventListener('change', lastData);
   // Bytte av glidende-snitt-vindu trenger ikke ny henting - bare tegn paa nytt.
   $('ma-vindu').addEventListener('change', () => {
     if (typeof Plotly !== 'undefined' && sisteSerie.length) tegnGraf(sisteSerie);
   });
   lastData();
+  lastAktive();
 })();
 </script>
 {% endblock %}

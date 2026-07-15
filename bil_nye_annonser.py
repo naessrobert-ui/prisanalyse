@@ -463,3 +463,149 @@ def bygg_nye_annonser(s3=None, maks_gap: int = STANDARD_MAKS_GAP) -> dict[str, A
         "antall_annonser_totalt": int(len(df)),
         "generert": datetime.utcnow().isoformat(),
     }
+
+
+# =====================================================================
+#  Aktive annonser over tid (en STOCK, ikke en flyt)
+# =====================================================================
+#
+# En annonse er "aktiv paa dag D" dersom Dato <= D <= Dato_ny (foerste og siste
+# gang sett). Fordi database_biler.parquet holder Dato_ny oppdatert til siste
+# observasjon for aktive annonser (verifisert i verify_datony_hypothesis.py),
+# rekonstruerer dette den aktive beholdningen over tid fra én enkelt fil.
+#
+# I motsetning til "nye per dag" trenger vi ingen hull-estimering: et aktivt
+# antall er et nivaa, saa en manglende innsamlingsdag hopper vi bare over -
+# intervallet [Dato, Dato_ny] spenner uansett over hullet.
+
+
+def bygg_aktive_serie(
+    df: pd.DataFrame,
+    dager: Iterable[date] | None = None,
+    dato_kol: str = "Dato",
+    slutt_kol: str = "Dato_ny",
+    selger_kol: str = "Selger",
+) -> list[dict[str, Any]]:
+    """Tell aktive annonser per dag, fordelt privat/bedrift.
+
+    Parametre
+    ---------
+    df : DataFrame med én rad per FinnKode og kolonnene ``Dato`` (foerste sett),
+         ``Dato_ny`` (siste sett) og ``Selger``.
+    dager : evalueringsdager (dager vi faktisk har snapshot for). Er den None
+         utledes den fra unionen av distinkte Dato- og Dato_ny-datoer i ``df`` -
+         dvs. nettopp "dager vi har informasjon". Dager uten data hoppes over.
+
+    Returnerer
+    ----------
+    Liste av dict (én per dag, kronologisk): {dato, privat, bedrift, total}.
+    """
+    if df is None or df.empty or dato_kol not in df.columns or slutt_kol not in df.columns:
+        return []
+
+    start = pd.to_datetime(df[dato_kol], errors="coerce")
+    slutt = pd.to_datetime(df[slutt_kol], errors="coerce")
+    gyldig = start.notna()
+    if not gyldig.any():
+        return []
+    start = start[gyldig]
+    slutt = slutt[gyldig]
+
+    if selger_kol in df.columns:
+        bucket = klassifiser_selgertype(df.loc[gyldig, selger_kol]).to_numpy()
+    else:
+        bucket = np.full(len(start), "privat")
+
+    # Manglende Dato_ny -> antatt fortsatt aktiv (bruk siste kjente dag).
+    maks_slutt = slutt.max()
+    slutt = slutt.fillna(maks_slutt)
+
+    start_d = start.dt.normalize().to_numpy().astype("datetime64[D]")
+    slutt_d = slutt.dt.normalize().to_numpy().astype("datetime64[D]")
+
+    # Evalueringsdager: gitt, ellers unionen av distinkte start-/sluttdager.
+    if dager is None:
+        unike = sorted(set(pd.to_datetime(start_d).date) | set(pd.to_datetime(slutt_d).date))
+    else:
+        unike = sorted({_som_date(d) for d in dager})
+    if not unike:
+        return []
+
+    # Begrens til [foerste start, siste slutt] - dropp ledende/etterfoelgende
+    # dager helt uten aktive annonser.
+    min_d = start_d.min()
+    maks_d = slutt_d.max()
+    eval_dates = [d for d in unike if np.datetime64(d) >= min_d and np.datetime64(d) <= maks_d]
+    if not eval_dates:
+        return []
+    eval_np = np.array([np.datetime64(d) for d in eval_dates], dtype="datetime64[D]")
+
+    # Aktiv(D) = (#start <= D) - (#slutt < D), per selgertype via searchsorted.
+    kolonner: dict[str, np.ndarray] = {}
+    for b in ("privat", "bedrift"):
+        mask = bucket == b
+        s = np.sort(start_d[mask])
+        e = np.sort(slutt_d[mask])
+        startet = np.searchsorted(s, eval_np, side="right")
+        sluttet = np.searchsorted(e, eval_np, side="left")
+        kolonner[b] = startet - sluttet
+
+    ut: list[dict[str, Any]] = []
+    for i, d in enumerate(eval_dates):
+        p = int(kolonner["privat"][i])
+        bd = int(kolonner["bedrift"][i])
+        ut.append({"dato": d.isoformat(), "privat": p, "bedrift": bd, "total": p + bd})
+    return ut
+
+
+def oppsummer_aktive(serie: list[dict[str, Any]]) -> dict[str, Any]:
+    """Noekkeltall for aktiv-serien: siste nivaa og andel privat naa."""
+    if not serie:
+        return {"antall_dager": 0, "na_total": 0, "na_privat": 0,
+                "na_bedrift": 0, "na_andel_privat_pct": None}
+    siste = serie[-1]
+    tot = siste["total"]
+    return {
+        "antall_dager": len(serie),
+        "na_total": tot,
+        "na_privat": siste["privat"],
+        "na_bedrift": siste["bedrift"],
+        "na_andel_privat_pct": round(100 * siste["privat"] / tot, 1) if tot else None,
+    }
+
+
+def last_aktive_df(s3) -> pd.DataFrame:
+    """Les {Dato, Dato_ny, Selger} per FinnKode fra hovedparquet."""
+    df, colmap = _les_parquet_kolonner(
+        s3,
+        HOVED_PARQUET_KEY,
+        {
+            "dato": ["Dato", "dato"],
+            "dato_ny": ["Dato_ny", "dato_ny"],
+            "selger": ["Selger", "selger"],
+        },
+    )
+    if "dato" not in colmap or "dato_ny" not in colmap:
+        raise RuntimeError(
+            f"{HOVED_PARQUET_KEY} mangler Dato/Dato_ny for aktiv-beregning"
+        )
+    return pd.DataFrame(
+        {
+            "Dato": pd.to_datetime(df[colmap["dato"]], errors="coerce"),
+            "Dato_ny": pd.to_datetime(df[colmap["dato_ny"]], errors="coerce"),
+            "Selger": df[colmap["selger"]] if "selger" in colmap else "",
+        }
+    )
+
+
+def bygg_aktive_annonser(s3=None) -> dict[str, Any]:
+    """Full pipeline for aktive annonser over tid."""
+    if s3 is None:
+        s3 = _s3_client()
+    df = last_aktive_df(s3)
+    serie = bygg_aktive_serie(df)
+    return {
+        "serie": serie,
+        "oppsummering": oppsummer_aktive(serie),
+        "generert": datetime.utcnow().isoformat(),
+    }

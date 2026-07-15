@@ -10,9 +10,11 @@ from datetime import date
 import pandas as pd
 
 from bil_nye_annonser import (
+    bygg_aktive_serie,
     bygg_serie_med_estimat,
     finn_manglende_dager,
     klassifiser_selgertype,
+    oppsummer_aktive,
     oppsummer_serie,
     tell_nye_per_dag,
 )
@@ -173,3 +175,48 @@ def test_oppsummering():
     assert opp["sum_total"] == 20
     assert opp["sum_privat"] == 8
     assert opp["andel_privat_pct"] == 40.0  # 8 / 20
+
+
+# ---- bygg_aktive_serie (stock: aktiv paa dag D iff Dato <= D <= Dato_ny) ----
+
+def test_aktive_serie_intervall_og_splitt():
+    df = pd.DataFrame(
+        {
+            # privat (tom Selger), aktiv 01-01 .. 01-03
+            "Dato": ["2026-01-01", "2026-01-02", "2026-01-01"],
+            "Dato_ny": ["2026-01-03", "2026-01-04", "2026-01-01"],
+            "Selger": ["", "Bilhuset AS", ""],
+        }
+    )
+    serie = bygg_aktive_serie(df)
+    per_dag = {d["dato"]: d for d in serie}
+    # 01-01: FinnKode 1 (privat) aktiv, 3 (privat) aktiv, 2 ikke enda -> 2 privat
+    assert per_dag["2026-01-01"] == {"dato": "2026-01-01", "privat": 2, "bedrift": 0, "total": 2}
+    # 01-02: 1 (privat) + 2 (bedrift) aktiv, 3 utloept -> 1 privat, 1 bedrift
+    assert per_dag["2026-01-02"] == {"dato": "2026-01-02", "privat": 1, "bedrift": 1, "total": 2}
+    # 01-03: 1 (privat, siste dag) + 2 (bedrift) -> 1 privat, 1 bedrift
+    assert per_dag["2026-01-03"] == {"dato": "2026-01-03", "privat": 1, "bedrift": 1, "total": 2}
+    # 01-04: kun 2 (bedrift) igjen
+    assert per_dag["2026-01-04"] == {"dato": "2026-01-04", "privat": 0, "bedrift": 1, "total": 1}
+
+
+def test_aktive_serie_hopper_over_dager_uten_data():
+    # Kun 01-01 og 01-05 har data (start/slutt). Ingen rader "spenner" hullet,
+    # saa 01-02..01-04 skal ikke dukke opp i serien.
+    df = pd.DataFrame(
+        {"Dato": ["2026-01-01", "2026-01-05"], "Dato_ny": ["2026-01-01", "2026-01-05"], "Selger": ["", ""]}
+    )
+    serie = bygg_aktive_serie(df)
+    assert [d["dato"] for d in serie] == ["2026-01-01", "2026-01-05"]
+
+
+def test_oppsummer_aktive():
+    serie = [
+        {"dato": "2026-01-01", "privat": 5, "bedrift": 5, "total": 10},
+        {"dato": "2026-01-02", "privat": 3, "bedrift": 9, "total": 12},
+    ]
+    opp = oppsummer_aktive(serie)
+    assert opp["antall_dager"] == 2
+    assert opp["na_total"] == 12
+    assert opp["na_privat"] == 3
+    assert opp["na_andel_privat_pct"] == 25.0  # 3/12
