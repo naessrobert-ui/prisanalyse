@@ -95,7 +95,7 @@
   </div>
 </div>
 
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js" charset="utf-8"></script>
 <script>
 (function() {
   const $ = (id) => document.getElementById(id);
@@ -202,8 +202,23 @@
     $('kpi-total').textContent = fmt(o.sum_total, 0);
     $('kpi-dager').textContent = `${fmt(o.antall_dager)} (${fmt(o.antall_estimerte_dager)})`;
 
-    tegnGraf(data.serie || []);
-    tegnAndel(data.serie || []);
+    // Grafene skal aldri kunne henge siden paa "Henter..." - fanger feil
+    // (f.eks. hvis Plotly-biblioteket ikke lastet) og viser en tydelig melding.
+    if (typeof Plotly === 'undefined') {
+      $('status').innerHTML =
+        '<span class="text-warning">Kunne ikke laste graf-biblioteket (Plotly). ' +
+        'Nettverket blokkerer sannsynligvis kildeadressen. KPI-ene og CSV-en over ' +
+        'fungerer fortsatt.</span>';
+      return;
+    }
+    try {
+      tegnGraf(data.serie || []);
+      tegnAndel(data.serie || []);
+    } catch (e) {
+      $('status').innerHTML =
+        '<span class="text-warning">Klarte ikke tegne grafene: ' + e.message + '</span>';
+      return;
+    }
 
     const gen = data.generert ? data.generert.replace('T', ' ').slice(0, 16) : '';
     $('status').textContent =
