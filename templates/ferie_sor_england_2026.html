@@ -8,525 +8,58 @@
     <title>{{ trip_title }}</title>
     <style>
         :root {
-            --ink: #173036;
-            --muted: #64797d;
-            --paper: #f8f4ec;
-            --card: rgba(255, 255, 255, .9);
-            --line: rgba(23, 48, 54, .13);
-            --sea: #1b6872;
-            --sea-dark: #123a42;
-            --sun: #eaa85a;
-            --sage: #9bb7a4;
-            --shadow: 0 18px 55px rgba(16, 48, 55, .14);
-            --radius: 24px;
+            --ink:#173036; --muted:#64797d; --paper:#f8f4ec; --card:rgba(255,255,255,.9);
+            --line:rgba(23,48,54,.13); --sea:#1b6872; --sea-dark:#123a42; --sun:#eaa85a;
+            --sage:#eaf1ed; --shadow:0 18px 55px rgba(16,48,55,.14); --radius:24px;
         }
-
-        * { box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-        body {
-            margin: 0;
-            color: var(--ink);
-            background:
-                radial-gradient(circle at 8% 1%, rgba(234, 168, 90, .22), transparent 31rem),
-                radial-gradient(circle at 93% 15%, rgba(27, 104, 114, .16), transparent 32rem),
-                var(--paper);
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            line-height: 1.55;
-        }
-
-        a { color: inherit; }
-        button, input, select, textarea { font: inherit; }
-        .shell { width: min(1180px, calc(100% - 28px)); margin: 0 auto; }
-
-        .hero {
-            min-height: 530px;
-            color: white;
-            display: flex;
-            align-items: flex-end;
-            position: relative;
-            overflow: hidden;
-            background:
-                linear-gradient(120deg, rgba(8, 35, 42, .97), rgba(17, 78, 87, .78)),
-                linear-gradient(180deg, #2d7981, #133b42);
-        }
-        .hero::before,
-        .hero::after {
-            content: "";
-            position: absolute;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, .16);
-        }
-        .hero::before { width: 540px; height: 540px; right: -160px; top: -220px; }
-        .hero::after { width: 340px; height: 340px; right: 70px; top: -105px; }
-        .cliffs {
-            position: absolute;
-            inset: auto 0 0 0;
-            height: 210px;
-            opacity: .2;
-            background:
-                linear-gradient(155deg, transparent 0 26%, #fff 26.2% 37%, transparent 37.2% 46%, #fff 46.2% 56%, transparent 56.2% 66%, #fff 66.2% 77%, transparent 77.2%);
-            transform: translateY(85px);
-        }
-        .hero-inner { position: relative; z-index: 2; padding: 64px 0 72px; }
-        .eyebrow {
-            text-transform: uppercase;
-            letter-spacing: .19em;
-            font-size: .78rem;
-            font-weight: 760;
-            color: rgba(255, 255, 255, .72);
-        }
-        h1 {
-            margin: 10px 0 12px;
-            max-width: 780px;
-            font-family: Georgia, "Times New Roman", serif;
-            font-weight: 500;
-            font-size: clamp(3.2rem, 8vw, 6.8rem);
-            line-height: .92;
-            letter-spacing: -.045em;
-        }
-        .hero-copy { max-width: 760px; font-size: clamp(1rem, 2vw, 1.28rem); color: rgba(255,255,255,.84); }
-        .route-pills { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 26px; }
-        .route-pills span {
-            padding: 9px 14px;
-            border: 1px solid rgba(255,255,255,.24);
-            border-radius: 999px;
-            background: rgba(255,255,255,.08);
-            backdrop-filter: blur(8px);
-            font-weight: 650;
-        }
-        .share-btn {
-            margin-top: 28px;
-            border: 0;
-            border-radius: 999px;
-            padding: 12px 18px;
-            background: white;
-            color: var(--sea-dark);
-            font-weight: 780;
-            cursor: pointer;
-            box-shadow: 0 10px 30px rgba(0,0,0,.18);
-        }
-
-        .nav-wrap {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            border-bottom: 1px solid rgba(23,48,54,.08);
-            background: rgba(248, 244, 236, .88);
-            backdrop-filter: blur(14px);
-        }
-        .nav {
-            min-height: 60px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            overflow-x: auto;
-            scrollbar-width: none;
-        }
-        .nav::-webkit-scrollbar { display: none; }
-        .nav a {
-            white-space: nowrap;
-            text-decoration: none;
-            padding: 9px 13px;
-            border-radius: 999px;
-            font-weight: 700;
-            color: var(--muted);
-        }
-        .nav a:hover { background: white; color: var(--ink); }
-        .nav .brand { margin-right: auto; color: var(--ink); font-family: Georgia, serif; font-size: 1.05rem; }
-
-        main { padding: 38px 0 84px; }
-        section { scroll-margin-top: 78px; margin-top: 72px; }
-        .section-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 24px; }
-        .section-head h2 { margin: 0; font: 500 clamp(2rem, 5vw, 3.4rem)/1 Georgia, serif; letter-spacing: -.035em; }
-        .section-head p { max-width: 550px; margin: 0; color: var(--muted); }
-
-        .now-card {
-            margin-top: -54px;
-            position: relative;
-            z-index: 5;
-            display: grid;
-            grid-template-columns: 1.2fr .8fr;
-            gap: 24px;
-            padding: clamp(24px, 5vw, 42px);
-            border-radius: 30px;
-            background: var(--card);
-            box-shadow: var(--shadow);
-            border: 1px solid rgba(255,255,255,.7);
-            backdrop-filter: blur(16px);
-        }
-        .now-label { display: inline-flex; align-items: center; gap: 8px; color: var(--sea); font-weight: 820; text-transform: uppercase; letter-spacing: .13em; font-size: .74rem; }
-        .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--sun); box-shadow: 0 0 0 7px rgba(234,168,90,.16); }
-        .now-card h2 { margin: 12px 0 8px; font: 500 clamp(2.15rem, 5vw, 4.1rem)/1 Georgia, serif; letter-spacing: -.04em; }
-        .now-card p { margin: 0; color: var(--muted); font-size: 1.06rem; }
-        .stay-box { align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 22px; border-radius: 20px; background: #eef4f1; }
-        .stay-box small { color: var(--muted); text-transform: uppercase; font-weight: 800; letter-spacing: .12em; }
-        .stay-box strong { margin-top: 6px; font-size: 1.25rem; }
-
-        .overview { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
-        .overview-item {
-            min-height: 130px;
-            padding: 18px;
-            border-radius: 18px;
-            background: rgba(255,255,255,.72);
-            border: 1px solid var(--line);
-            position: relative;
-        }
-        .overview-item::after {
-            content: "";
-            position: absolute;
-            top: 31px;
-            right: -11px;
-            width: 12px;
-            border-top: 2px dotted rgba(23,48,54,.25);
-        }
-        .overview-item:last-child::after { display: none; }
-        .overview-date { color: var(--sea); font-size: .76rem; font-weight: 850; text-transform: uppercase; letter-spacing: .1em; }
-        .overview-place { margin-top: 9px; font-family: Georgia, serif; font-size: 1.1rem; line-height: 1.15; }
-        .overview-stay { margin-top: 8px; color: var(--muted); font-size: .83rem; }
-
-        .timeline { display: grid; gap: 20px; }
-        .day-card {
-            display: grid;
-            grid-template-columns: 205px 1fr;
-            overflow: hidden;
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            background: rgba(255,255,255,.76);
-            box-shadow: 0 8px 28px rgba(25,55,61,.06);
-        }
-        .day-card.is-active { border-color: rgba(27,104,114,.48); box-shadow: 0 15px 45px rgba(27,104,114,.15); }
-        .day-side { padding: 26px; background: #eaf1ed; }
-        .day-card.is-active .day-side { color: white; background: linear-gradient(155deg, var(--sea), var(--sea-dark)); }
-        .day-side .weekday { font-size: .75rem; font-weight: 850; text-transform: uppercase; letter-spacing: .13em; opacity: .72; }
-        .day-side .date { margin: 9px 0 18px; font: 500 2.2rem/1 Georgia, serif; }
-        .day-side .place { font-weight: 780; line-height: 1.2; }
-        .day-side .stay { margin-top: 10px; font-size: .85rem; opacity: .76; }
-        .day-main { padding: 26px clamp(20px, 4vw, 38px) 30px; }
-        .day-summary { margin: 0 0 20px; color: var(--muted); font-size: 1.03rem; }
-        .agenda-list { list-style: none; padding: 0; margin: 0; }
-        .agenda-item { display: grid; grid-template-columns: 90px 1fr; gap: 15px; padding: 15px 0; border-top: 1px solid var(--line); }
-        .agenda-time { color: var(--sea); font-weight: 850; font-variant-numeric: tabular-nums; }
-        .agenda-text strong { display: block; margin-bottom: 3px; }
-        .agenda-text span { color: var(--muted); font-size: .92rem; }
-        .link-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 19px; }
-        .map-link {
-            text-decoration: none;
-            padding: 8px 12px;
-            border-radius: 999px;
-            border: 1px solid var(--line);
-            background: white;
-            color: var(--sea-dark);
-            font-weight: 740;
-            font-size: .86rem;
-        }
-        .map-link:hover { border-color: var(--sea); transform: translateY(-1px); }
-
-        .booking-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-        .booking-card { padding: 21px; border-radius: 20px; background: rgba(255,255,255,.8); border: 1px solid var(--line); }
-        .booking-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .category { color: var(--muted); font-size: .72rem; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
-        .status { padding: 5px 9px; border-radius: 999px; background: #e6f2ea; color: #28603b; font-size: .73rem; font-weight: 850; }
-        .status[data-status="Kontroller"], .status[data-status="Planlagt"] { background: #fff1dc; color: #89510d; }
-        .booking-card h3 { margin: 16px 0 6px; font: 500 1.35rem/1.15 Georgia, serif; }
-        .booking-date { color: var(--sea); font-weight: 760; }
-        .booking-note { margin: 12px 0 0; color: var(--muted); font-size: .9rem; }
-        .privacy-note { margin-top: 18px; padding: 15px 18px; border-radius: 16px; background: rgba(27,104,114,.08); color: var(--muted); }
-
-        .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-        .photo-card { margin: 0; overflow: hidden; border-radius: 18px; background: white; border: 1px solid var(--line); box-shadow: 0 8px 25px rgba(22,48,54,.08); }
-        .photo-card button { display: block; width: 100%; border: 0; padding: 0; background: transparent; cursor: zoom-in; }
-        .photo-card img { display: block; width: 100%; aspect-ratio: 4/3; object-fit: cover; }
-        .photo-card figcaption { padding: 12px 14px 14px; }
-        .photo-place { color: var(--sea); font-size: .76rem; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; }
-        .photo-caption { margin-top: 4px; }
-        .empty-gallery { padding: 34px; border: 1px dashed rgba(23,48,54,.25); border-radius: 20px; text-align: center; color: var(--muted); background: rgba(255,255,255,.46); }
-
-        .upload-panel { margin-top: 22px; padding: clamp(20px, 4vw, 30px); border-radius: 22px; color: white; background: linear-gradient(145deg, var(--sea-dark), var(--sea)); }
-        .upload-panel h3 { margin: 0 0 6px; font: 500 1.8rem/1.1 Georgia, serif; }
-        .upload-panel p { margin: 0 0 20px; color: rgba(255,255,255,.74); }
-        .upload-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 12px; }
-        .field label { display: block; margin-bottom: 6px; font-size: .75rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 800; color: rgba(255,255,255,.72); }
-        .field input {
-            width: 100%; min-height: 46px; border: 1px solid rgba(255,255,255,.24); border-radius: 12px; padding: 10px 12px; color: white; background: rgba(255,255,255,.1); outline: none;
-        }
-        .field input::placeholder { color: rgba(255,255,255,.48); }
-        .field input:focus { border-color: white; }
-        .upload-actions { margin-top: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .upload-submit { border: 0; border-radius: 999px; padding: 11px 18px; color: var(--sea-dark); background: white; font-weight: 850; cursor: pointer; }
-        .upload-submit:disabled { opacity: .5; cursor: not-allowed; }
-        .upload-help { color: rgba(255,255,255,.64); font-size: .84rem; }
-
-        .flash-stack { position: fixed; z-index: 50; top: 76px; right: 16px; width: min(380px, calc(100% - 32px)); }
-        .flash { margin-bottom: 8px; padding: 13px 15px; border-radius: 14px; color: #173036; background: white; box-shadow: var(--shadow); border-left: 5px solid var(--sea); }
-        .flash.danger { border-color: #b84a43; }
-        .flash.warning { border-color: var(--sun); }
-
-        .lightbox { position: fixed; inset: 0; z-index: 100; display: none; place-items: center; padding: 20px; background: rgba(4,17,20,.91); }
-        .lightbox.open { display: grid; }
-        .lightbox img { max-width: min(1100px, 96vw); max-height: 86vh; border-radius: 14px; box-shadow: 0 25px 90px rgba(0,0,0,.45); }
-        .lightbox-close { position: absolute; top: 16px; right: 18px; width: 44px; height: 44px; border: 0; border-radius: 50%; color: white; background: rgba(255,255,255,.14); font-size: 1.7rem; cursor: pointer; }
-
-        footer { padding: 36px 0 50px; color: var(--muted); border-top: 1px solid var(--line); }
-        footer .shell { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
-        footer a { color: var(--sea); font-weight: 750; text-decoration: none; }
-
-        @media (max-width: 940px) {
-            .overview { grid-template-columns: repeat(3, 1fr); }
-            .overview-item:nth-child(3)::after { display: none; }
-            .booking-grid { grid-template-columns: repeat(2, 1fr); }
-            .upload-grid { grid-template-columns: 1fr 1fr; }
-            .upload-grid .field:first-child { grid-column: 1 / -1; }
-        }
-        @media (max-width: 720px) {
-            .hero { min-height: 500px; }
-            .hero-inner { padding-bottom: 90px; }
-            .nav .brand { display: none; }
-            .now-card { grid-template-columns: 1fr; margin-top: -65px; }
-            .overview { grid-template-columns: repeat(2, 1fr); }
-            .overview-item:nth-child(3)::after { display: block; }
-            .overview-item:nth-child(even)::after { display: none; }
-            .day-card { grid-template-columns: 1fr; }
-            .day-side { padding: 20px 22px; }
-            .day-side .date { margin: 5px 0 10px; font-size: 1.7rem; }
-            .agenda-item { grid-template-columns: 76px 1fr; }
-            .booking-grid, .gallery-grid { grid-template-columns: 1fr; }
-            .section-head { display: block; }
-            .section-head p { margin-top: 10px; }
-        }
-        @media (max-width: 500px) {
-            .shell { width: min(100% - 20px, 1180px); }
-            .route-pills span { font-size: .84rem; }
-            .overview { grid-template-columns: 1fr; }
-            .overview-item::after { display: none !important; }
-            .upload-grid { grid-template-columns: 1fr; }
-            .upload-grid .field:first-child { grid-column: auto; }
-            .agenda-item { grid-template-columns: 1fr; gap: 4px; }
-            .day-main { padding: 21px 18px 24px; }
-        }
+        *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;color:var(--ink);background:radial-gradient(circle at 8% 1%,rgba(234,168,90,.22),transparent 31rem),radial-gradient(circle at 93% 15%,rgba(27,104,114,.16),transparent 32rem),var(--paper);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55}
+        a{color:inherit} button,input,textarea{font:inherit}.shell{width:min(1180px,calc(100% - 28px));margin:0 auto}
+        .hero{min-height:530px;color:#fff;display:flex;align-items:flex-end;position:relative;overflow:hidden;background:linear-gradient(120deg,rgba(8,35,42,.97),rgba(17,78,87,.78)),linear-gradient(180deg,#2d7981,#133b42)}
+        .hero:before,.hero:after{content:"";position:absolute;border-radius:50%;border:1px solid rgba(255,255,255,.16)}.hero:before{width:540px;height:540px;right:-160px;top:-220px}.hero:after{width:340px;height:340px;right:70px;top:-105px}
+        .cliffs{position:absolute;inset:auto 0 0;height:210px;opacity:.2;background:linear-gradient(155deg,transparent 0 26%,#fff 26.2% 37%,transparent 37.2% 46%,#fff 46.2% 56%,transparent 56.2% 66%,#fff 66.2% 77%,transparent 77.2%);transform:translateY(85px)}
+        .hero-inner{position:relative;z-index:2;padding:64px 0 72px}.eyebrow{text-transform:uppercase;letter-spacing:.19em;font-size:.78rem;font-weight:760;color:rgba(255,255,255,.72)}
+        h1{margin:10px 0 12px;max-width:780px;font-family:Georgia,"Times New Roman",serif;font-weight:500;font-size:clamp(3.2rem,8vw,6.8rem);line-height:.92;letter-spacing:-.045em}.hero-copy{max-width:760px;font-size:clamp(1rem,2vw,1.28rem);color:rgba(255,255,255,.84)}
+        .route-pills{display:flex;flex-wrap:wrap;gap:9px;margin-top:26px}.route-pills span{padding:9px 14px;border:1px solid rgba(255,255,255,.24);border-radius:999px;background:rgba(255,255,255,.08);backdrop-filter:blur(8px);font-weight:650}
+        .share-btn{margin-top:28px;border:0;border-radius:999px;padding:12px 18px;background:#fff;color:var(--sea-dark);font-weight:780;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+        .nav-wrap{position:sticky;top:0;z-index:20;border-bottom:1px solid rgba(23,48,54,.08);background:rgba(248,244,236,.88);backdrop-filter:blur(14px)}.nav{min-height:60px;display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}.nav::-webkit-scrollbar{display:none}.nav a{white-space:nowrap;text-decoration:none;padding:9px 13px;border-radius:999px;font-weight:700;color:var(--muted)}.nav a:hover{background:#fff;color:var(--ink)}.nav .brand{margin-right:auto;color:var(--ink);font-family:Georgia,serif;font-size:1.05rem}
+        main{padding:38px 0 84px}section{scroll-margin-top:78px;margin-top:72px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:24px}.section-head h2{margin:0;font:500 clamp(2rem,5vw,3.4rem)/1 Georgia,serif;letter-spacing:-.035em}.section-head p{max-width:550px;margin:0;color:var(--muted)}
+        .now-card{margin-top:-54px;position:relative;z-index:5;display:grid;grid-template-columns:1.2fr .8fr;gap:24px;padding:clamp(24px,5vw,42px);border-radius:30px;background:var(--card);box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.7);backdrop-filter:blur(16px)}.now-label{display:inline-flex;align-items:center;gap:8px;color:var(--sea);font-weight:820;text-transform:uppercase;letter-spacing:.13em;font-size:.74rem}.pulse{width:9px;height:9px;border-radius:50%;background:var(--sun);box-shadow:0 0 0 7px rgba(234,168,90,.16)}.now-card h2{margin:12px 0 8px;font:500 clamp(2.15rem,5vw,4.1rem)/1 Georgia,serif;letter-spacing:-.04em}.now-card p{margin:0;color:var(--muted);font-size:1.06rem}.stay-box{align-self:stretch;display:flex;flex-direction:column;justify-content:center;padding:22px;border-radius:20px;background:#eef4f1}.stay-box small{color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.12em}.stay-box strong{margin-top:6px;font-size:1.25rem}
+        .overview{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}.overview-item{min-height:130px;padding:18px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid var(--line);position:relative}.overview-item:after{content:"";position:absolute;top:31px;right:-11px;width:12px;border-top:2px dotted rgba(23,48,54,.25)}.overview-item:last-child:after{display:none}.overview-date{color:var(--sea);font-size:.76rem;font-weight:850;text-transform:uppercase;letter-spacing:.1em}.overview-place{margin-top:9px;font-family:Georgia,serif;font-size:1.1rem;line-height:1.15}.overview-stay{margin-top:8px;color:var(--muted);font-size:.83rem}
+        .timeline{display:grid;gap:20px}.day-card{display:grid;grid-template-columns:205px 1fr;overflow:hidden;border:1px solid var(--line);border-radius:var(--radius);background:rgba(255,255,255,.76);box-shadow:0 8px 28px rgba(25,55,61,.06)}.day-card.is-active{border-color:rgba(27,104,114,.48);box-shadow:0 15px 45px rgba(27,104,114,.15)}.day-side{padding:26px;background:var(--sage)}.day-card.is-active .day-side{color:#fff;background:linear-gradient(155deg,var(--sea),var(--sea-dark))}.day-side .weekday{font-size:.75rem;font-weight:850;text-transform:uppercase;letter-spacing:.13em;opacity:.72}.day-side .date{margin:9px 0 18px;font:500 2.2rem/1 Georgia,serif}.day-side .place{font-weight:780;line-height:1.2}.day-side .stay{margin-top:10px;font-size:.85rem;opacity:.76}.day-main{padding:26px clamp(20px,4vw,38px) 30px}.day-summary{margin:0 0 20px;color:var(--muted);font-size:1.03rem}.agenda-list{list-style:none;padding:0;margin:0}.agenda-item{display:grid;grid-template-columns:90px 1fr;gap:15px;padding:15px 0;border-top:1px solid var(--line)}.agenda-time{color:var(--sea);font-weight:850;font-variant-numeric:tabular-nums}.agenda-text strong{display:block;margin-bottom:3px}.agenda-text span{color:var(--muted);font-size:.92rem}.link-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:19px}.pill-link{text-decoration:none;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--sea-dark);font-weight:740;font-size:.86rem}.pill-link:hover{border-color:var(--sea);transform:translateY(-1px)}
+        .hotel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.hotel-card{padding:25px;border-radius:24px;background:rgba(255,255,255,.82);border:1px solid var(--line);box-shadow:0 10px 32px rgba(22,48,54,.07);display:flex;flex-direction:column}.hotel-place,.place-period{color:var(--sea);font-size:.73rem;font-weight:850;letter-spacing:.12em;text-transform:uppercase}.hotel-card h3,.place-card h3{margin:10px 0 5px;font:500 1.65rem/1.08 Georgia,serif}.hotel-dates{color:var(--muted);font-weight:720}.hotel-booking{margin:16px 0;padding:12px 14px;border-radius:14px;background:#eef4f1;font-weight:690}.hotel-history{color:var(--muted);font-size:.94rem}.tag-row{display:flex;flex-wrap:wrap;gap:7px;margin:15px 0}.tag{padding:6px 9px;border-radius:999px;background:#fff5e9;border:1px solid rgba(234,168,90,.28);font-size:.78rem;font-weight:740}.hotel-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:8px}
+        .place-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.place-card{padding:22px;border-radius:20px;background:rgba(255,255,255,.72);border:1px solid var(--line)}.place-card p{color:var(--muted);font-size:.92rem}.place-fact{padding:12px 14px;border-left:3px solid var(--sun);background:#fffaf2;border-radius:0 12px 12px 0;color:var(--ink)!important}
+        .assistant-panel{padding:clamp(24px,5vw,42px);border-radius:28px;color:#fff;background:linear-gradient(145deg,var(--sea-dark),var(--sea));box-shadow:var(--shadow)}.assistant-panel h3{margin:0;font:500 clamp(2rem,4vw,3.2rem)/1 Georgia,serif}.assistant-panel>p{max-width:760px;color:rgba(255,255,255,.72)}.suggestions{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.suggestion{border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:8px 12px;color:#fff;background:rgba(255,255,255,.08);cursor:pointer}.ask-row{display:grid;grid-template-columns:1fr auto;gap:10px}.ask-row input{width:100%;min-height:50px;border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:12px 14px;color:#fff;background:rgba(255,255,255,.1);outline:none}.ask-row input::placeholder{color:rgba(255,255,255,.48)}.ask-row button{border:0;border-radius:14px;padding:0 20px;color:var(--sea-dark);background:#fff;font-weight:850;cursor:pointer}.ask-row button:disabled{opacity:.55;cursor:not-allowed}.answer-box{display:none;margin-top:16px;padding:17px 19px;border-radius:16px;color:var(--ink);background:#fff;white-space:pre-wrap}.answer-box.show{display:block}.assistant-note{display:block;margin-top:12px;color:rgba(255,255,255,.62);font-size:.8rem}
+        .booking-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.booking-card{padding:21px;border-radius:20px;background:rgba(255,255,255,.8);border:1px solid var(--line)}.booking-card.is-link{transition:.2s}.booking-card.is-link:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(22,48,54,.1)}.booking-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.category{color:var(--muted);font-size:.72rem;font-weight:850;letter-spacing:.12em;text-transform:uppercase}.status{padding:5px 9px;border-radius:999px;background:#e6f2ea;color:#28603b;font-size:.73rem;font-weight:850}.status[data-status="Kontroller"],.status[data-status="Planlagt"]{background:#fff1dc;color:#89510d}.booking-card h3{margin:16px 0 6px;font:500 1.35rem/1.15 Georgia,serif}.booking-date{color:var(--sea);font-weight:760}.booking-note{margin:12px 0 0;color:var(--muted);font-size:.9rem}.privacy-note{margin-top:18px;padding:15px 18px;border-radius:16px;background:rgba(27,104,114,.08);color:var(--muted)}
+        .gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.photo-card{margin:0;overflow:hidden;border-radius:18px;background:#fff;border:1px solid var(--line);box-shadow:0 8px 25px rgba(22,48,54,.08)}.photo-card button{display:block;width:100%;border:0;padding:0;background:transparent;cursor:zoom-in}.photo-card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}.photo-card figcaption{padding:12px 14px 14px}.photo-place{color:var(--sea);font-size:.76rem;font-weight:850;text-transform:uppercase;letter-spacing:.08em}.photo-caption{margin-top:4px}.empty-gallery{padding:34px;border:1px dashed rgba(23,48,54,.25);border-radius:20px;text-align:center;color:var(--muted);background:rgba(255,255,255,.46)}
+        .upload-panel{margin-top:22px;padding:clamp(20px,4vw,30px);border-radius:22px;color:#fff;background:linear-gradient(145deg,var(--sea-dark),var(--sea))}.upload-panel h3{margin:0 0 6px;font:500 1.8rem/1.1 Georgia,serif}.upload-panel p{margin:0 0 20px;color:rgba(255,255,255,.74)}.upload-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px}.field label{display:block;margin-bottom:6px;font-size:.75rem;text-transform:uppercase;letter-spacing:.09em;font-weight:800;color:rgba(255,255,255,.72)}.field input{width:100%;min-height:46px;border:1px solid rgba(255,255,255,.24);border-radius:12px;padding:10px 12px;color:#fff;background:rgba(255,255,255,.1);outline:none}.field input::placeholder{color:rgba(255,255,255,.48)}.upload-actions{margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.upload-submit{border:0;border-radius:999px;padding:11px 18px;color:var(--sea-dark);background:#fff;font-weight:850;cursor:pointer}.upload-submit:disabled{opacity:.5;cursor:not-allowed}.upload-help{color:rgba(255,255,255,.64);font-size:.84rem}
+        .flash-stack{position:fixed;z-index:50;top:76px;right:16px;width:min(380px,calc(100% - 32px))}.flash{margin-bottom:8px;padding:13px 15px;border-radius:14px;color:var(--ink);background:#fff;box-shadow:var(--shadow);border-left:5px solid var(--sea)}.flash.danger{border-color:#b84a43}.flash.warning{border-color:var(--sun)}
+        .lightbox{position:fixed;inset:0;z-index:100;display:none;place-items:center;padding:20px;background:rgba(4,17,20,.91)}.lightbox.open{display:grid}.lightbox img{max-width:min(1100px,96vw);max-height:86vh;border-radius:14px;box-shadow:0 25px 90px rgba(0,0,0,.45)}.lightbox-close{position:absolute;top:16px;right:18px;width:44px;height:44px;border:0;border-radius:50%;color:#fff;background:rgba(255,255,255,.14);font-size:1.7rem;cursor:pointer}
+        footer{padding:36px 0 50px;color:var(--muted);border-top:1px solid var(--line)}footer .shell{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}footer a{color:var(--sea);font-weight:750;text-decoration:none}
+        @media(max-width:940px){.overview{grid-template-columns:repeat(3,1fr)}.overview-item:nth-child(3):after{display:none}.hotel-grid,.place-grid{grid-template-columns:repeat(2,1fr)}.booking-grid{grid-template-columns:repeat(2,1fr)}.upload-grid{grid-template-columns:1fr 1fr}.upload-grid .field:first-child{grid-column:1/-1}}
+        @media(max-width:720px){.hero{min-height:500px}.hero-inner{padding-bottom:90px}.nav .brand{display:none}.now-card{grid-template-columns:1fr;margin-top:-65px}.overview{grid-template-columns:repeat(2,1fr)}.overview-item:nth-child(3):after{display:block}.overview-item:nth-child(even):after{display:none}.day-card{grid-template-columns:1fr}.day-side{padding:20px 22px}.day-side .date{margin:5px 0 10px;font-size:1.7rem}.agenda-item{grid-template-columns:76px 1fr}.hotel-grid,.place-grid,.booking-grid,.gallery-grid{grid-template-columns:1fr}.section-head{display:block}.section-head p{margin-top:10px}.ask-row{grid-template-columns:1fr}.ask-row button{min-height:48px}}
+        @media(max-width:500px){.shell{width:min(100% - 20px,1180px)}.route-pills span{font-size:.84rem}.overview{grid-template-columns:1fr}.overview-item:after{display:none!important}.upload-grid{grid-template-columns:1fr}.upload-grid .field:first-child{grid-column:auto}.agenda-item{grid-template-columns:1fr;gap:4px}.day-main{padding:21px 18px 24px}}
     </style>
 </head>
 <body>
-    <header class="hero">
-        <div class="cliffs" aria-hidden="true"></div>
-        <div class="shell hero-inner">
-            <div class="eyebrow">Robert &amp; Helene · 19.–24. juli</div>
-            <h1>Sør-England<br>2026</h1>
-            <p class="hero-copy">En rolig kystreise med Seven Sisters, historiske Rye, engelsk vin, familietid i Brighton og London til slutt.</p>
-            <div class="route-pills" aria-label="Reiserute">
-                <span>Gatwick</span><span>Eastbourne</span><span>Rye</span><span>Brighton</span><span>London</span>
-            </div>
-            <button class="share-btn" id="shareTrip" type="button">Del reisesiden</button>
-        </div>
-    </header>
-
-    <div class="nav-wrap">
-        <nav class="shell nav" aria-label="Innhold">
-            <a class="brand" href="#top">Sør-England</a>
-            <a href="#plan">Plan</a>
-            <a href="#agenda">Dag for dag</a>
-            <a href="#reservasjoner">Reservasjoner</a>
-            <a href="#bilder">Bilder</a>
-        </nav>
-    </div>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-stack" aria-live="polite">
-                {% for category, message in messages %}
-                    <div class="flash {{ category }}">{{ message }}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-
-    <main id="top">
-        <div class="shell">
-            <article class="now-card" aria-label="Aktuell reisedag">
-                <div>
-                    <div class="now-label"><span class="pulse"></span>{{ "I dag" if active_is_today else "Aktuell plan" }} · {{ active_day.weekday }}</div>
-                    <h2>{{ active_day.place }}</h2>
-                    <p>{{ active_day.summary }}</p>
-                </div>
-                <div class="stay-box">
-                    <small>Overnatting</small>
-                    <strong>{{ active_day.stay }}</strong>
-                </div>
-            </article>
-
-            <section id="plan">
-                <div class="section-head">
-                    <h2>Reisen på ett blikk</h2>
-                    <p>Fem steder, tre hotellopphold og én leiebil – uten å gjøre dagene unødvendig travle.</p>
-                </div>
-                <div class="overview">
-                    {% for day in itinerary %}
-                        <article class="overview-item">
-                            <div class="overview-date">{{ day.weekday }} {{ day.date[8:10] }}. juli</div>
-                            <div class="overview-place">{{ day.place }}</div>
-                            <div class="overview-stay">{{ day.stay }}</div>
-                        </article>
-                    {% endfor %}
-                </div>
-            </section>
-
-            <section id="agenda">
-                <div class="section-head">
-                    <h2>Dag for dag</h2>
-                    <p>Tidene er en praktisk ramme. Tog, vær og dagsform kan justeres uten at hovedplanen ryker.</p>
-                </div>
-                <div class="timeline">
-                    {% for day in itinerary %}
-                        <article class="day-card {{ 'is-active' if day.date == active_day.date else '' }}">
-                            <div class="day-side">
-                                <div class="weekday">{{ day.weekday }}</div>
-                                <div class="date">{{ day.date[8:10] }}. juli</div>
-                                <div class="place">{{ day.place }}</div>
-                                <div class="stay">Natt: {{ day.stay }}</div>
-                            </div>
-                            <div class="day-main">
-                                <p class="day-summary">{{ day.summary }}</p>
-                                <ol class="agenda-list">
-                                    {% for item in day['items'] %}
-                                        <li class="agenda-item">
-                                            <div class="agenda-time">{{ item.time }}</div>
-                                            <div class="agenda-text"><strong>{{ item.title }}</strong><span>{{ item.detail }}</span></div>
-                                        </li>
-                                    {% endfor %}
-                                </ol>
-                                <div class="link-row">
-                                    {% for link in day.links %}
-                                        <a class="map-link" href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }} ↗</a>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </article>
-                    {% endfor %}
-                </div>
-            </section>
-
-            <section id="reservasjoner">
-                <div class="section-head">
-                    <h2>Reservasjoner</h2>
-                    <p>En rask kontrolliste uten bestillingsnumre eller andre private opplysninger.</p>
-                </div>
-                <div class="booking-grid">
-                    {% for booking in bookings %}
-                        <article class="booking-card">
-                            <div class="booking-top">
-                                <span class="category">{{ booking.category }}</span>
-                                <span class="status" data-status="{{ booking.status }}">{{ booking.status }}</span>
-                            </div>
-                            <h3>{{ booking.name }}</h3>
-                            <div class="booking-date">{{ booking.dates }}</div>
-                            <p class="booking-note">{{ booking.note }}</p>
-                        </article>
-                    {% endfor %}
-                </div>
-                <div class="privacy-note">Bestillingsnumre, flynummer, betalingsinformasjon og private dokumenter skal ikke legges på den delbare siden.</div>
-            </section>
-
-            <section id="bilder">
-                <div class="section-head">
-                    <h2>Feriebilder</h2>
-                    <p>Bildene lagres i det private S3-arkivet til prisanalyse og vises her via tidsbegrensede lenker.</p>
-                </div>
-
-                {% if photos %}
-                    <div class="gallery-grid">
-                        {% for photo in photos %}
-                            <figure class="photo-card">
-                                <button type="button" class="open-photo" data-src="{{ photo.url }}" aria-label="Åpne bilde">
-                                    <img src="{{ photo.url }}" alt="{{ photo.caption or photo.place or 'Feriebilde' }}" loading="lazy">
-                                </button>
-                                {% if photo.caption or photo.place %}
-                                    <figcaption>
-                                        {% if photo.place %}<div class="photo-place">{{ photo.place }}</div>{% endif %}
-                                        {% if photo.caption %}<div class="photo-caption">{{ photo.caption }}</div>{% endif %}
-                                    </figcaption>
-                                {% endif %}
-                            </figure>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <div class="empty-gallery">{{ gallery_message or "Ingen bilder er lastet opp ennå. Det første bildet kan legges inn direkte fra mobilen." }}</div>
-                {% endif %}
-
-                <form class="upload-panel" action="{{ url_for('ferie.upload_trip_photos') }}" method="post" enctype="multipart/form-data">
-                    <h3>Legg til bilder</h3>
-                    <p>Velg opptil åtte bilder fra mobilen. De skaleres ned, roteres riktig og lagres som JPEG uten opprinnelige metadata.</p>
-                    <div class="upload-grid">
-                        <div class="field">
-                            <label for="photos">Bilder</label>
-                            <input id="photos" name="photos" type="file" accept="image/*" multiple required {{ 'disabled' if not upload_enabled else '' }}>
-                        </div>
-                        <div class="field">
-                            <label for="place">Sted</label>
-                            <input id="place" name="place" type="text" maxlength="80" placeholder="F.eks. Seven Sisters" {{ 'disabled' if not upload_enabled else '' }}>
-                        </div>
-                        <div class="field">
-                            <label for="upload_code">Opplastingskode</label>
-                            <input id="upload_code" name="upload_code" type="password" autocomplete="off" required {{ 'disabled' if not upload_enabled else '' }}>
-                        </div>
-                        <div class="field" style="grid-column: 1 / -1;">
-                            <label for="caption">Kort tekst</label>
-                            <input id="caption" name="caption" type="text" maxlength="180" placeholder="Hva skjedde her?" {{ 'disabled' if not upload_enabled else '' }}>
-                        </div>
-                    </div>
-                    <div class="upload-actions">
-                        <button class="upload-submit" type="submit" {{ 'disabled' if not upload_enabled else '' }}>Last opp bilder</button>
-                        <span class="upload-help">{% if upload_enabled %}Koden deles bare med familie som skal kunne laste opp.{% else %}Opplasting aktiveres med FERIE_UPLOAD_CODE i Render.{% endif %}</span>
-                    </div>
-                </form>
-            </section>
-        </div>
-    </main>
-
-    <footer>
-        <div class="shell">
-            <span>Sør-England 2026 · Robert &amp; Helene</span>
-            <a href="/">prisanalyse.no</a>
-        </div>
-    </footer>
-
-    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Bildevisning">
-        <button class="lightbox-close" type="button" aria-label="Lukk">×</button>
-        <img id="lightboxImage" alt="Stort feriebilde">
-    </div>
-
-    <script>
-        const shareButton = document.getElementById('shareTrip');
-        shareButton.addEventListener('click', async () => {
-            const data = { title: document.title, text: 'Reiseplanen vår for Sør-England', url: window.location.href };
-            try {
-                if (navigator.share) await navigator.share(data);
-                else {
-                    await navigator.clipboard.writeText(window.location.href);
-                    shareButton.textContent = 'Lenken er kopiert';
-                    setTimeout(() => shareButton.textContent = 'Del reisesiden', 1800);
-                }
-            } catch (error) {
-                if (error && error.name !== 'AbortError') window.prompt('Kopier denne lenken:', window.location.href);
-            }
-        });
-
-        const lightbox = document.getElementById('lightbox');
-        const lightboxImage = document.getElementById('lightboxImage');
-        document.querySelectorAll('.open-photo').forEach(button => {
-            button.addEventListener('click', () => {
-                lightboxImage.src = button.dataset.src;
-                lightbox.classList.add('open');
-                document.body.style.overflow = 'hidden';
-            });
-        });
-        function closeLightbox() {
-            lightbox.classList.remove('open');
-            lightboxImage.removeAttribute('src');
-            document.body.style.overflow = '';
-        }
-        lightbox.addEventListener('click', event => { if (event.target === lightbox) closeLightbox(); });
-        document.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
-        document.addEventListener('keydown', event => { if (event.key === 'Escape') closeLightbox(); });
-        setTimeout(() => document.querySelectorAll('.flash').forEach(el => el.remove()), 5000);
-    </script>
-</body>
-</html>
+<header class="hero"><div class="cliffs" aria-hidden="true"></div><div class="shell hero-inner"><div class="eyebrow">Robert &amp; Helene · 19.–24. juli</div><h1>Sør-England<br>2026</h1><p class="hero-copy">En rolig kystreise med Seven Sisters, historiske Rye, engelsk vin, familietid i Brighton og London til slutt.</p><div class="route-pills"><span>Gatwick</span><span>Eastbourne</span><span>Rye</span><span>Brighton</span><span>London</span></div><button class="share-btn" id="shareTrip" type="button">Del reisesiden</button></div></header>
+<div class="nav-wrap"><nav class="shell nav"><a class="brand" href="#top">Sør-England</a><a href="#plan">Plan</a><a href="#agenda">Dag for dag</a><a href="#hoteller">Hoteller</a><a href="#historie">Historie</a><a href="#sporsmal">Spør</a><a href="#reservasjoner">Reservasjoner</a><a href="#bilder">Bilder</a></nav></div>
+{% with messages=get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack" aria-live="polite">{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
+<main id="top"><div class="shell">
+<article class="now-card"><div><div class="now-label"><span class="pulse"></span>{{ "I dag" if active_is_today else "Aktuell plan" }} · {{ active_day.weekday }}</div><h2>{{ active_day.place }}</h2><p>{{ active_day.summary }}</p></div><div class="stay-box"><small>Overnatting</small><strong>{{ active_day.stay }}</strong></div></article>
+<section id="plan"><div class="section-head"><h2>Reisen på ett blikk</h2><p>Fem steder, tre hotellopphold og én leiebil – uten å gjøre dagene unødvendig travle.</p></div><div class="overview">{% for day in itinerary %}<article class="overview-item"><div class="overview-date">{{ day.weekday }} {{ day.date[8:10] }}. juli</div><div class="overview-place">{{ day.place }}</div><div class="overview-stay">{{ day.stay }}</div></article>{% endfor %}</div></section>
+<section id="agenda"><div class="section-head"><h2>Dag for dag</h2><p>Tidene er en praktisk ramme. Tog, vær og dagsform kan justeres uten at hovedplanen ryker.</p></div><div class="timeline">{% for day in itinerary %}<article class="day-card {{ 'is-active' if day.date==active_day.date else '' }}"><div class="day-side"><div class="weekday">{{ day.weekday }}</div><div class="date">{{ day.date[8:10] }}. juli</div><div class="place">{{ day.place }}</div><div class="stay">Natt: {{ day.stay }}</div></div><div class="day-main"><p class="day-summary">{{ day.summary }}</p><ol class="agenda-list">{% for item in day['items'] %}<li class="agenda-item"><div class="agenda-time">{{ item.time }}</div><div class="agenda-text"><strong>{{ item.title }}</strong><span>{{ item.detail }}</span></div></li>{% endfor %}</ol><div class="link-row">{% for link in day.links %}<a class="pill-link" href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }} ↗</a>{% endfor %}</div></div></article>{% endfor %}</div></section>
+<section id="hoteller"><div class="section-head"><h2>Hotellene</h2><p>Direkte lenker, kart, det som er bestilt og litt om bygningenes historie.</p></div><div class="hotel-grid">{% for hotel in hotels %}<article class="hotel-card"><div class="hotel-place">{{ hotel.place }}</div><h3>{{ hotel.name }}</h3><div class="hotel-dates">{{ hotel.dates }}</div><div class="hotel-booking">{{ hotel.booking }}</div><p class="hotel-history">{{ hotel.history }}</p><div class="tag-row">{% for item in hotel.highlights %}<span class="tag">{{ item }}</span>{% endfor %}</div><div class="hotel-actions">{% if hotel.official_url %}<a class="pill-link" href="{{ hotel.official_url }}" target="_blank" rel="noopener">Hotellets nettside ↗</a>{% endif %}<a class="pill-link" href="{{ hotel.maps_url }}" target="_blank" rel="noopener">Kart ↗</a>{% if hotel.source_url %}<a class="pill-link" href="{{ hotel.source_url }}" target="_blank" rel="noopener">Historie ↗</a>{% endif %}</div></article>{% endfor %}</div></section>
+<section id="historie"><div class="section-head"><h2>Stedene og historien</h2><p>Korte introduksjoner som kan leses før eller under besøket.</p></div><div class="place-grid">{% for place in places %}<article class="place-card"><div class="place-period">{{ place.period }}</div><h3>{{ place.name }}</h3><p>{{ place.intro }}</p><p class="place-fact">{{ place.fact }}</p><a class="pill-link" href="{{ place.url }}" target="_blank" rel="noopener">Les mer ↗</a></article>{% endfor %}</div></section>
+<section id="sporsmal"><div class="assistant-panel"><h3>Spør reiseassistenten</h3><p>Spør om planen, hotellene, historien, kjøreruten eller hva som passer best en bestemt dag. Aktuelle tog, vær og åpningstider må alltid kontrolleres live.</p><div class="suggestions"><button class="suggestion" type="button">Hva gjør vi tirsdag morgen?</button><button class="suggestion" type="button">Fortell kort om slaget i 1066</button><button class="suggestion" type="button">Hvor parkerer vi i Rye?</button><button class="suggestion" type="button">Hva bør vi se i Brighton med familien?</button></div><div class="ask-row"><input id="tripQuestion" maxlength="350" placeholder="Skriv et spørsmål om reisen …" {{ 'disabled' if not ask_enabled else '' }}><button id="askTrip" type="button" {{ 'disabled' if not ask_enabled else '' }}>Spør</button></div><div class="answer-box" id="tripAnswer" aria-live="polite"></div><small class="assistant-note">{% if ask_enabled %}Maksimalt noen få spørsmål per bruker for å beskytte API-kostnaden.{% else %}Reiseassistenten aktiveres når AI-nøkkelen er tilgjengelig på serveren.{% endif %}</small></div></section>
+<section id="reservasjoner"><div class="section-head"><h2>Reservasjoner</h2><p>En rask kontrolliste uten bookingnumre, kortnummer eller andre private opplysninger.</p></div><div class="booking-grid">{% for booking in bookings %}<article class="booking-card {{ 'is-link' if booking.url else '' }}"><div class="booking-top"><span class="category">{{ booking.category }}</span><span class="status" data-status="{{ booking.status }}">{{ booking.status }}</span></div><h3>{{ booking.name }}</h3><div class="booking-date">{{ booking.dates }}</div><p class="booking-note">{{ booking.note }}</p>{% if booking.url %}<div class="link-row"><a class="pill-link" href="{{ booking.url }}" target="_blank" rel="noopener">Åpne ↗</a></div>{% endif %}</article>{% endfor %}</div><div class="privacy-note">Bekreftelsesnumre, betalingsinformasjon, passdetaljer og private dokumenter ligger ikke på den delbare siden.</div></section>
+<section id="bilder"><div class="section-head"><h2>Feriebilder</h2><p>Familien kan se bildene her. De som kjenner opplastingskoden, kan også legge inn bilder direkte fra mobilen.</p></div>{% if photos %}<div class="gallery-grid">{% for photo in photos %}<figure class="photo-card"><button type="button" class="open-photo" data-src="{{ photo.url }}"><img src="{{ photo.url }}" alt="{{ photo.caption or photo.place or 'Feriebilde' }}" loading="lazy"></button>{% if photo.caption or photo.place %}<figcaption>{% if photo.place %}<div class="photo-place">{{ photo.place }}</div>{% endif %}{% if photo.caption %}<div class="photo-caption">{{ photo.caption }}</div>{% endif %}</figcaption>{% endif %}</figure>{% endfor %}</div>{% else %}<div class="empty-gallery">{{ gallery_message or "Ingen bilder er lastet opp ennå. Det første bildet kan legges inn direkte fra mobilen." }}</div>{% endif %}
+<form class="upload-panel" action="{{ url_for('ferie.upload_trip_photos') }}" method="post" enctype="multipart/form-data"><h3>Legg til bilder</h3><p>Velg opptil åtte bilder fra mobilen. De skaleres ned, roteres riktig og lagres som JPEG uten opprinnelige metadata.</p><div class="upload-grid"><div class="field"><label for="photos">Bilder</label><input id="photos" name="photos" type="file" accept="image/*" multiple required {{ 'disabled' if not upload_enabled else '' }}></div><div class="field"><label for="place">Sted</label><input id="place" name="place" type="text" maxlength="80" placeholder="F.eks. Seven Sisters" {{ 'disabled' if not upload_enabled else '' }}></div><div class="field"><label for="upload_code">Opplastingskode</label><input id="upload_code" name="upload_code" type="password" autocomplete="off" required {{ 'disabled' if not upload_enabled else '' }}></div><div class="field" style="grid-column:1/-1"><label for="caption">Kort tekst</label><input id="caption" name="caption" type="text" maxlength="180" placeholder="Hva skjedde her?" {{ 'disabled' if not upload_enabled else '' }}></div></div><div class="upload-actions"><button class="upload-submit" type="submit" {{ 'disabled' if not upload_enabled else '' }}>Last opp bilder</button><span class="upload-help">{% if upload_enabled %}Koden deles bare med familie som skal kunne laste opp.{% else %}Opplasting aktiveres med FERIE_UPLOAD_CODE i Render.{% endif %}</span></div></form></section>
+</div></main>
+<footer><div class="shell"><span>Sør-England 2026 · Robert &amp; Helene</span><a href="/">prisanalyse.no</a></div></footer>
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true"><button class="lightbox-close" type="button" aria-label="Lukk">×</button><img id="lightboxImage" alt="Stort feriebilde"></div>
+<script>
+const shareButton=document.getElementById('shareTrip');shareButton.addEventListener('click',async()=>{const data={title:document.title,text:'Reiseplanen vår for Sør-England',url:location.href};try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(location.href);shareButton.textContent='Lenken er kopiert';setTimeout(()=>shareButton.textContent='Del reisesiden',1800)}}catch(error){if(error&&error.name!=='AbortError')window.prompt('Kopier denne lenken:',location.href)}});
+const q=document.getElementById('tripQuestion'),ask=document.getElementById('askTrip'),answer=document.getElementById('tripAnswer');document.querySelectorAll('.suggestion').forEach(btn=>btn.addEventListener('click',()=>{if(!q.disabled){q.value=btn.textContent;q.focus()}}));async function askQuestion(){const question=q.value.trim();if(!question)return;ask.disabled=true;answer.classList.add('show');answer.textContent='Tenker …';try{const response=await fetch("{{ url_for('ferie.ask_about_trip') }}",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question})});const data=await response.json();answer.textContent=data.answer||data.error||'Kunne ikke svare akkurat nå.'}catch(error){answer.textContent='Kunne ikke kontakte reiseassistenten.'}finally{ask.disabled=false}}ask.addEventListener('click',askQuestion);q.addEventListener('keydown',event=>{if(event.key==='Enter')askQuestion()});
+const lightbox=document.getElementById('lightbox'),lightboxImage=document.getElementById('lightboxImage');document.querySelectorAll('.open-photo').forEach(button=>button.addEventListener('click',()=>{lightboxImage.src=button.dataset.src;lightbox.classList.add('open');document.body.style.overflow='hidden'}));function closeLightbox(){lightbox.classList.remove('open');lightboxImage.removeAttribute('src');document.body.style.overflow=''}lightbox.addEventListener('click',event=>{if(event.target===lightbox)closeLightbox()});document.querySelector('.lightbox-close').addEventListener('click',closeLightbox);document.addEventListener('keydown',event=>{if(event.key==='Escape')closeLightbox()});setTimeout(()=>document.querySelectorAll('.flash').forEach(el=>el.remove()),5000);
+</script>
+</body></html>

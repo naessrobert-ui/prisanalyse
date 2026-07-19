@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Public trip page and private photo upload for South England 2026."""
+"""Public trip page, family photo upload and trip Q&A for South England 2026."""
 
 from __future__ import annotations
 
@@ -8,13 +8,16 @@ import hmac
 import io
 import json
 import os
+import threading
+import time
 import uuid
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
+import anthropic
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 ferie_bp = Blueprint("ferie", __name__, url_prefix="/ferie")
@@ -27,6 +30,11 @@ MANIFEST_FILE = "manifest.json"
 MAX_FILES_PER_UPLOAD = 8
 MAX_PHOTO_BYTES = 15 * 1024 * 1024
 MAX_IMAGE_EDGE = 2000
+QUESTION_WINDOW_SECONDS = 30 * 60
+QUESTION_MAX_PER_WINDOW = 6
+QUESTION_MAX_LENGTH = 350
+_QUESTION_BUCKETS: dict[str, list[float]] = {}
+_QUESTION_LOCK = threading.Lock()
 
 
 def _maps_url(query: str) -> str:
@@ -54,7 +62,7 @@ ITINERARY = [
         ],
         "links": [
             {"label": "Gatwick Airport", "url": _maps_url("Gatwick Airport railway station")},
-            {"label": "Hydro Hotel", "url": _maps_url("Hydro Hotel Eastbourne")},
+            {"label": "Hydro Hotel", "url": "https://www.hydrohotel.com/"},
             {"label": "Toginformasjon", "url": "https://www.southernrailway.com/journey/gatwick-airport-to-eastbourne"},
         ],
     },
@@ -82,19 +90,20 @@ ITINERARY = [
         "weekday": "Tirsdag",
         "place": "Eastbourne → Brighton → Battle → Rye",
         "stay": "The Hope Anchor, Rye",
-        "summary": "Løpetur og tog til Brighton, hente leiebil og sightseeing på vei til Rye.",
+        "summary": "Tidlig løpetur og tog til Brighton, fast leiebilhenting kl. 10 og sightseeing på vei til Rye.",
         "items": [
-            {"time": "07:00", "title": "Robert løper mot Brighton", "detail": "Forslag: kysten til Seaford, omtrent 20–22 km og kupert. Tog videre fra Seaford til Brighton."},
-            {"time": "10:00", "title": "Utsjekking fra Hydro", "detail": "Helene tar bagasjen med tog fra Eastbourne til Brighton."},
-            {"time": "ca. 11:30", "title": "Hent leiebilen i Brighton", "detail": "Møtes ved utleiekontoret. Husk førerkort, pass og betalingskort i hovedsjåførens navn."},
-            {"time": "13:00–15:30", "title": "Battle Abbey", "detail": "Slagmarken fra 1066, klosterruinene og portbygningen. Beregn rundt to timer."},
-            {"time": "16:00", "title": "Hastings – valgfritt stopp", "detail": "Kort rusletur og kaffe i Old Town. Dropp stoppet dersom dagen har blitt lang."},
-            {"time": "17:30–18:30", "title": "Ankomst Rye", "detail": "Innsjekking på The Hope Anchor. Deluxe Double Room med frokost."},
+            {"time": "06:15", "title": "Robert løper til Seaford", "detail": "Omtrent 20–22 kuperte kilometer langs kysten. Skift til tørre klær og ta tog videre til Brighton."},
+            {"time": "ca. 08:30", "title": "Helene reiser med bagasjen", "detail": "Tidlig utsjekking og tog fra Eastbourne til Brighton. Avtal konkret møtested ved Dollar."},
+            {"time": "10:00", "title": "Hent leiebilen hos Dollar", "detail": "Russell Road, Brighton BN1 2DX. Compact Vauxhall Astra eller tilsvarende, manuell girkasse og aircondition."},
+            {"time": "12:00–14:30", "title": "Battle Abbey", "detail": "Slagmarken fra 1066, klosterruinene og portbygningen. Beregn rundt to timer."},
+            {"time": "15:00", "title": "Hastings – valgfritt stopp", "detail": "Kort rusletur og kaffe i Old Town. Dropp stoppet dersom dagen har blitt lang."},
+            {"time": "17:00–18:00", "title": "Ankomst Rye", "detail": "Innsjekking på The Hope Anchor. Deluxe Double Room med frokost."},
         ],
         "links": [
             {"label": "Løpemål Seaford", "url": _maps_url("Seaford railway station East Sussex")},
-            {"label": "Battle Abbey", "url": _maps_url("1066 Battle of Hastings Abbey and Battlefield")},
-            {"label": "Kjørerute", "url": _directions_url("Brighton", "The Hope Anchor Rye")},
+            {"label": "Dollar Brighton", "url": _maps_url("Dollar Car Rental Russell Road Brighton BN1 2DX")},
+            {"label": "Battle Abbey", "url": "https://www.english-heritage.org.uk/visit/places/1066-battle-of-hastings-abbey-and-battlefield/"},
+            {"label": "The Hope Anchor", "url": "https://thehopeanchor.com/"},
         ],
     },
     {
@@ -105,15 +114,15 @@ ITINERARY = [
         "summary": "Middelalderslott om formiddagen, engelsk vin og rolig ettermiddag i gamlebyen.",
         "items": [
             {"time": "08:30", "title": "Frokost", "detail": "Kjør fra Rye rundt 09:20."},
-            {"time": "10:00–11:45", "title": "Bodiam Castle", "detail": "Slott med vollgrav. Åpent 10–17; forhåndsbestilling er normalt ikke nødvendig."},
+            {"time": "10:00–11:45", "title": "Bodiam Castle", "detail": "Slott med vollgrav. Kontroller åpningstid live før avreise."},
             {"time": "12:15", "title": "Tilbake til Rye", "detail": "Parker bilen for resten av dagen."},
-            {"time": "13:00", "title": "Charles Palmer Wine & Cheese", "detail": "Fire viner og fire oster. Må forhåndsbestilles. Ta taxi begge veier slik at begge kan smake."},
+            {"time": "13:00", "title": "Charles Palmer Wine & Cheese", "detail": "Fire viner og fire oster. Ta taxi begge veier slik at begge kan smake."},
             {"time": "15:00–18:00", "title": "Rye gamleby", "detail": "Mermaid Street, St Mary’s Church, småbutikker og utsikt over Rother-landskapet."},
             {"time": "19:30", "title": "Middag i Rye", "detail": "Bestill bord og avklar cøliaki og krysskontaminering på forhånd."},
         ],
         "links": [
-            {"label": "Bodiam Castle", "url": _maps_url("Bodiam Castle")},
-            {"label": "Charles Palmer", "url": "https://charlespalmer-vineyards.co.uk/pages/wine-tastings"},
+            {"label": "Bodiam Castle", "url": "https://www.nationaltrust.org.uk/visit/sussex/bodiam-castle"},
+            {"label": "Charles Palmer", "url": "https://www.charlespalmer-vineyards.co.uk/wine-tastings/"},
             {"label": "Mermaid Street", "url": _maps_url("Mermaid Street Rye")},
         ],
     },
@@ -121,18 +130,19 @@ ITINERARY = [
         "date": "2026-07-23",
         "weekday": "Torsdag",
         "place": "Rye → Brighton",
-        "stay": "Brighton – balkong og sjøutsikt",
-        "summary": "Rolig morgen, retur langs kysten, bilinnlevering kl. 15 og familien i Brighton.",
+        "stay": "Mercure Brighton Seafront Hotel",
+        "summary": "Rolig morgen, retur til Brighton, bagasje på hotellet og bilinnlevering kl. 15.",
         "items": [
-            {"time": "08:30", "title": "Frokost og utsjekking", "detail": "Avreise rundt 10. Det er god margin til innleveringen."},
+            {"time": "08:30", "title": "Frokost og utsjekking", "detail": "Avreise rundt 10 gir god margin til Brighton."},
             {"time": "10:00–13:15", "title": "Kjør mot Brighton", "detail": "Valgfri kort pause i Lewes dersom trafikken og dagsformen tillater det."},
-            {"time": "13:30", "title": "Bagasje til hotellet", "detail": "Sjekk inn hvis rommet er klart, ellers sett fra dere bagasjen."},
-            {"time": "15:00", "title": "Lever leiebilen", "detail": "Fast frist. Legg inn 30–45 minutters sikkerhetsmargin."},
+            {"time": "13:30–14:15", "title": "Mercure Brighton Seafront", "detail": "Sett fra dere bagasjen. Innsjekking 14–15 er ønsket, men hotellet har bare lovet å gjøre sitt beste dersom rommet er klart."},
+            {"time": "15:00", "title": "Lever leiebilen hos Dollar", "detail": "Samme adresse i Russell Road. Kontoret er åpent til 16:30, men reservasjonen har fast levering kl. 15."},
             {"time": "fra 15:30", "title": "Brighton med familien", "detail": "Balkong, sjøutsikt, The Lanes og middag sammen."},
         ],
         "links": [
-            {"label": "Kjørerute til Brighton", "url": _directions_url("The Hope Anchor Rye", "Brighton")},
-            {"label": "Lewes – valgfritt", "url": _maps_url("Lewes East Sussex")},
+            {"label": "Mercure Brighton", "url": "https://www.mercurebrighton.co.uk/"},
+            {"label": "Dollar Brighton", "url": _maps_url("Dollar Car Rental Russell Road Brighton BN1 2DX")},
+            {"label": "Visit Brighton", "url": "https://www.visitbrighton.com/"},
             {"label": "The Lanes", "url": _maps_url("The Lanes Brighton")},
         ],
     },
@@ -154,13 +164,94 @@ ITINERARY = [
     },
 ]
 
+HOTELS = [
+    {
+        "name": "Hydro Hotel",
+        "place": "Eastbourne",
+        "dates": "19.–21. juli · 2 netter",
+        "official_url": "https://www.hydrohotel.com/",
+        "maps_url": _maps_url("Hydro Hotel Eastbourne"),
+        "booking": "Hage, oppvarmet utendørsbasseng og frokost.",
+        "history": "Hotellet åpnet i 1895. Det ligger høyt over sjøen og ble bygget som et sted for ro, luft og rekreasjon, med private hager, terrasser og vid utsikt mot Den engelske kanal og Beachy Head.",
+        "highlights": ["Privat hage", "Utendørsbasseng", "Panoramautsikt", "Glutenfrie retter ved forhåndsvarsel"],
+        "source_url": "https://www.hydrohotel.com/history/",
+    },
+    {
+        "name": "The Hope Anchor",
+        "place": "Rye",
+        "dates": "21.–23. juli · 2 netter",
+        "official_url": "https://thehopeanchor.com/",
+        "maps_url": _maps_url("The Hope Anchor Rye"),
+        "booking": "Deluxe Double Room, 30 m² og frokost inkludert.",
+        "history": "Bygningen ble reist omkring 1750 for lokale sjøfolk og skipsbyggere. Hotellet ligger høyt i gamlebyen og er knyttet til Ryes lange sjøfarts- og smuglerhistorie.",
+        "highlights": ["Midt i gamlebyen", "Panoramautsikt", "Historisk bygning", "Kort vei til Mermaid Street"],
+        "source_url": "https://thehopeanchor.com/",
+    },
+    {
+        "name": "Mercure Brighton Seafront Hotel",
+        "place": "Brighton",
+        "dates": "23.–24. juli · 1 natt",
+        "official_url": "https://www.mercurebrighton.co.uk/",
+        "maps_url": _maps_url("Mercure Brighton Seafront Hotel 149 Kings Road Brighton BN1 2PP"),
+        "booking": "Rom med balkong og sjøutsikt. Ønsket innsjekking kl. 14–15 er registrert, men avhenger av at rommet er klart.",
+        "history": "Det tidligere Norfolk Hotel ble oppført i 1864–65 og er et vernet viktoriansk landemerke ved strandpromenaden. Bygningen har en Regency-inspirert stukkfasade, originale speil og lysekroner.",
+        "highlights": ["149 Kings Road", "Balkong og sjøutsikt", "Grade II-vernet", "Rett ved strandpromenaden"],
+        "source_url": "https://www.mercurebrighton.co.uk/hotel-highlights/",
+    },
+]
+
+PLACES = [
+    {
+        "name": "Eastbourne",
+        "period": "Viktoriansk badeby",
+        "intro": "Eastbourne utviklet seg raskt som ferie- og kursted på 1800-tallet, men områdets historie går langt tilbake før den elegante strandpromenaden og de store hotellene.",
+        "fact": "Byens kulturarv spenner fra forhistoriske funn og romerske spor til Napoleons-forsvar, viktoriansk arkitektur og kunstmiljøet rundt South Downs.",
+        "url": "https://www.visiteastbourne.com/explore/heritage",
+    },
+    {
+        "name": "Seven Sisters",
+        "period": "Krittklipper og naturreservat",
+        "intro": "De bølgende, hvite klippene ligger mellom Seaford og Eastbourne og er en del av Sussex Heritage Coast og South Downs.",
+        "fact": "Klippene er levende geologi: kritt brytes gradvis ned av vær og sjø. Derfor må man holde god avstand til kanten, også når bakken ser stabil ut.",
+        "url": "https://www.sevensisters.org.uk/about/",
+    },
+    {
+        "name": "Battle Abbey",
+        "period": "1066 og normannernes England",
+        "intro": "Slaget ved Hastings ble utkjempet 14. oktober 1066. William Erobrerens seier over Harald Godwinson endret England politisk, språklig og kulturelt.",
+        "fact": "Klosteret ble grunnlagt som et minnesmerke etter slaget. Høyalteret skal ha blitt plassert på stedet der kong Harald falt.",
+        "url": "https://www.english-heritage.org.uk/visit/places/1066-battle-of-hastings-abbey-and-battlefield/history-and-stories/history/",
+    },
+    {
+        "name": "Rye",
+        "period": "Havn, Cinque Ports og smuglere",
+        "intro": "Rye ligger nå inne i landet, men var tidligere en viktig havneby. Middelaldergater, bindingsverkshus og utsikt over myrområdene viser hvordan landskapet og sjøen har formet byen.",
+        "fact": "Byen var knyttet til Cinque Ports og har en sterk smuglerhistorie. St Mary’s Church, Mermaid Street og Ypres Tower er gode steder å forstå historien.",
+        "url": "https://visitrye.co.uk/rye-history",
+    },
+    {
+        "name": "Bodiam Castle",
+        "period": "Slutten av 1300-tallet",
+        "intro": "Bodiam er et av Englands mest fotogene slott, bygget med firkantet plan, hjørnetårn og en bred vollgrav.",
+        "fact": "Sir Edward Dalyngrigge fikk tillatelse til å befeste eiendommen i 1385. Slottet var både forsvarsverk, statussymbol og komfortabel bolig.",
+        "url": "https://www.nationaltrust.org.uk/visit/sussex/bodiam-castle/history-of-bodiam-castle",
+    },
+    {
+        "name": "Brighton",
+        "period": "Regency, kongehus og moderne kystby",
+        "intro": "Brighton ble forvandlet da den senere George IV forelsket seg i byen på slutten av 1700-tallet. Regency-arkitekturen og Royal Pavilion ble symboler på byens nye rolle som fornøyelsessted.",
+        "fact": "I dag kombinerer Brighton historiske plasser og pirer med kunst, musikk, uavhengige butikker og en tydelig åpen og kreativ identitet.",
+        "url": "https://www.visitbrighton.com/about",
+    },
+]
+
 BOOKINGS = [
-    {"category": "Fly", "name": "Gatwick", "dates": "Søn. 19. juli kl. 20:20", "status": "Bekreftet", "note": "Flynummer kan legges inn senere."},
-    {"category": "Hotell", "name": "Hydro Hotel, Eastbourne", "dates": "19.–21. juli · 2 netter", "status": "Bestilt", "note": "Hage og oppvarmet utendørsbasseng."},
-    {"category": "Hotell", "name": "The Hope Anchor, Rye", "dates": "21.–23. juli · 2 netter", "status": "Bestilt", "note": "Deluxe Double Room, 30 m², frokost inkludert."},
-    {"category": "Bil", "name": "Leiebil fra Brighton", "dates": "21.–23. juli", "status": "Planlagt", "note": "Leveres i Brighton torsdag senest kl. 15:00."},
-    {"category": "Hotell", "name": "Brighton", "dates": "23.–24. juli · 1 natt", "status": "Bestilt", "note": "Balkong og sjøutsikt. Hotellnavn kan legges inn."},
-    {"category": "Opplevelse", "name": "Charles Palmer Vineyards", "dates": "Ons. 22. juli kl. 13:00", "status": "Kontroller", "note": "Wine & Cheese Experience må forhåndsbestilles."},
+    {"category": "Fly", "name": "Gatwick", "dates": "Søn. 19. juli kl. 20:20", "status": "Bekreftet", "note": "Flynummer kan legges inn senere.", "url": "https://www.gatwickairport.com/"},
+    {"category": "Hotell", "name": "Hydro Hotel, Eastbourne", "dates": "19.–21. juli · 2 netter", "status": "Bestilt", "note": "Hage og oppvarmet utendørsbasseng.", "url": "https://www.hydrohotel.com/"},
+    {"category": "Hotell", "name": "The Hope Anchor, Rye", "dates": "21.–23. juli · 2 netter", "status": "Bestilt", "note": "Deluxe Double Room, 30 m², frokost inkludert.", "url": "https://thehopeanchor.com/"},
+    {"category": "Bil", "name": "Dollar, Brighton", "dates": "Henting tir. 21. juli kl. 10 · levering tor. 23. juli kl. 15", "status": "Bestilt", "note": "Russell Road, BN1 2DX. Vauxhall Astra eller tilsvarende, kompakt, manuell og aircondition. Kontortid 08:00–16:30.", "url": _maps_url("Dollar Car Rental Russell Road Brighton BN1 2DX")},
+    {"category": "Hotell", "name": "Mercure Brighton Seafront Hotel", "dates": "23.–24. juli · 1 natt", "status": "Bestilt", "note": "149 Kings Road. Balkong og sjøutsikt; innsjekking 14–15 er ønsket, ikke garantert.", "url": "https://www.mercurebrighton.co.uk/"},
+    {"category": "Opplevelse", "name": "Charles Palmer Vineyards", "dates": "Ons. 22. juli kl. 13:00", "status": "Kontroller", "note": "Wine & Cheese Experience må være bekreftet før avreise.", "url": "https://www.charlespalmer-vineyards.co.uk/wine-tastings/"},
 ]
 
 
@@ -260,6 +351,40 @@ def _upload_enabled() -> bool:
     return bool((os.getenv("FERIE_UPLOAD_CODE") or "").strip() and _s3_bucket())
 
 
+def _ask_enabled() -> bool:
+    value = (os.getenv("FERIE_CHAT_ENABLED") or "1").strip().lower()
+    return bool(os.getenv("ANTHROPIC_API_KEY")) and value not in {"0", "false", "no", "off"}
+
+
+def _question_allowed(ip: str) -> bool:
+    now = time.monotonic()
+    cutoff = now - QUESTION_WINDOW_SECONDS
+    with _QUESTION_LOCK:
+        hits = [hit for hit in _QUESTION_BUCKETS.get(ip, []) if hit >= cutoff]
+        if len(hits) >= QUESTION_MAX_PER_WINDOW:
+            _QUESTION_BUCKETS[ip] = hits
+            return False
+        hits.append(now)
+        _QUESTION_BUCKETS[ip] = hits
+        return True
+
+
+def _question_context() -> str:
+    compact = {
+        "reiseplan": ITINERARY,
+        "hoteller": HOTELS,
+        "steder_og_historie": PLACES,
+        "reservasjoner": BOOKINGS,
+        "viktige_hensyn": [
+            "Robert har cøliaki og må ha glutenfri mat uten krysskontaminering.",
+            "Leiebilen hentes hos Dollar i Brighton tirsdag kl. 10 og leveres samme sted torsdag kl. 15.",
+            "Vinsmaking bør gjennomføres med taxi, ikke kjøring etterpå.",
+            "Siden viser ikke bookingnumre eller betalingsinformasjon.",
+        ],
+    }
+    return json.dumps(compact, ensure_ascii=False)
+
+
 def _current_day() -> tuple[dict, bool]:
     today = dt.datetime.now(LONDON_TZ).date()
     parsed = [(dt.date.fromisoformat(item["date"]), item) for item in ITINERARY]
@@ -270,8 +395,7 @@ def _current_day() -> tuple[dict, bool]:
         return parsed[0][1], False
     if today > parsed[-1][0]:
         return parsed[-1][1], False
-    future = next(item for day, item in parsed if day > today)
-    return future, False
+    return next(item for day, item in parsed if day > today), False
 
 
 @ferie_bp.route(f"/{TRIP_SLUG}/")
@@ -282,13 +406,57 @@ def south_england_trip():
         "ferie_sor_england_2026.html",
         trip_title=TRIP_TITLE,
         itinerary=ITINERARY,
+        hotels=HOTELS,
+        places=PLACES,
         bookings=BOOKINGS,
         photos=photos,
         gallery_message=gallery_message,
         active_day=active_day,
         active_is_today=is_today,
         upload_enabled=_upload_enabled(),
+        ask_enabled=_ask_enabled(),
     )
+
+
+@ferie_bp.post(f"/{TRIP_SLUG}/sporsmal")
+def ask_about_trip():
+    if not _ask_enabled():
+        return jsonify({"error": "Reiseassistenten er ikke aktivert ennå."}), 503
+
+    ip = (request.headers.get("X-Forwarded-For", "") or request.remote_addr or "unknown").split(",")[0].strip()
+    if not _question_allowed(ip):
+        return jsonify({"error": "For mange spørsmål på kort tid. Vent litt og prøv igjen."}), 429
+
+    payload = request.get_json(silent=True) or {}
+    question = str(payload.get("question") or "").strip()
+    if len(question) < 3:
+        return jsonify({"error": "Skriv et litt mer utfyllende spørsmål."}), 400
+    if len(question) > QUESTION_MAX_LENGTH:
+        return jsonify({"error": f"Spørsmålet kan være maksimalt {QUESTION_MAX_LENGTH} tegn."}), 400
+
+    system_prompt = (
+        "Du er en kortfattet norsk reiseassistent for Robert og Helenes Sør-England-tur i juli 2026. "
+        "Svar først og fremst ut fra reiseinformasjonen du får. Ikke finn på bookingnumre, hotellnavn eller bekreftelser. "
+        "Når brukeren spør om åpningstider, tog, vær eller andre opplysninger som kan endres, si tydelig at dette må kontrolleres live. "
+        "Ta alltid hensyn til cøliaki når mat er relevant. Svar vennlig og konkret, normalt på 3–8 setninger."
+    )
+    user_prompt = f"REISEINFORMASJON:\n{_question_context()}\n\nSPØRSMÅL:\n{question}"
+
+    try:
+        client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        response = client.messages.create(
+            model=(os.getenv("FERIE_CHAT_MODEL") or "claude-sonnet-4-6").strip(),
+            max_tokens=500,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        answer = "".join(getattr(block, "text", "") for block in response.content).strip()
+        if not answer:
+            raise ValueError("Tomt svar fra modellen")
+        return jsonify({"answer": answer})
+    except Exception as exc:
+        current_app.logger.warning("Reiseassistenten feilet: %s", exc)
+        return jsonify({"error": "Kunne ikke svare akkurat nå. Prøv igjen senere."}), 503
 
 
 @ferie_bp.post(f"/{TRIP_SLUG}/bilder")
