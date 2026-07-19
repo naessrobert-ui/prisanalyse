@@ -13,6 +13,7 @@ def _app(monkeypatch) -> Flask:
     monkeypatch.delenv("FERIE_S3_BUCKET", raising=False)
     monkeypatch.delenv("S3_BUCKET_NAME", raising=False)
     monkeypatch.delenv("FERIE_UPLOAD_CODE", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
     root = Path(__file__).resolve().parents[1]
     app = Flask(__name__, template_folder=str(root / "templates"))
@@ -31,8 +32,11 @@ def test_trip_page_renders_without_s3(monkeypatch):
     body = response.get_data(as_text=True)
     assert "Sør-England" in body
     assert "The Hope Anchor" in body
+    assert "Mercure Brighton Seafront Hotel" in body
     assert "Seven Sisters" in body
+    assert "Dollar, Brighton" in body
     assert "FERIE_UPLOAD_CODE" in body
+    assert "Reiseassistenten aktiveres" in body
 
 
 def test_upload_rejects_missing_code(monkeypatch):
@@ -46,6 +50,18 @@ def test_upload_rejects_missing_code(monkeypatch):
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/ferie/sor-england-2026/#bilder")
+
+
+def test_question_endpoint_is_disabled_without_api_key(monkeypatch):
+    app = _app(monkeypatch)
+
+    response = app.test_client().post(
+        "/ferie/sor-england-2026/sporsmal",
+        json={"question": "Hva gjør vi i Rye?"},
+    )
+
+    assert response.status_code == 503
+    assert "ikke aktivert" in response.get_json()["error"]
 
 
 def test_prepare_jpeg_resizes_and_converts():
