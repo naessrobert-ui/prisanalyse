@@ -14,16 +14,28 @@ Siden er merket `noindex,nofollow`, slik at den ikke er ment å dukke opp i søk
 
 - aktuell reisedag og overnattingssted
 - full dag-for-dag-plan med kart- og informasjonslenker
+- egne hotellkort med direkte lenke, kart, bestilt rom og historikk
+- korte historier om Eastbourne, Seven Sisters, Battle, Rye, Bodiam og Brighton
 - offentlig reservasjonssammendrag uten bestillingsnumre
+- begrenset AI-reiseassistent som svarer ut fra sidens reiseinformasjon
 - delingsknapp for mobil og skrivebord
 - privat S3-basert bildegalleri
 - bildeopplasting beskyttet med en egen familiekode
 
 ## Miljøvariabler
 
-### Påkrevd for bildeopplasting
+### Bildeopplasting
 
 - `FERIE_UPLOAD_CODE`: kode familien må skrive inn for å laste opp bilder
+
+### Reiseassistent
+
+- bruker eksisterende `ANTHROPIC_API_KEY`
+- `FERIE_CHAT_ENABLED`: sett til `0` for å slå assistenten av; standard er på når API-nøkkel finnes
+- `FERIE_CHAT_MODEL`: valgfri modelloverstyring; standard er `claude-sonnet-4-6`
+- endepunktet tillater maksimalt seks spørsmål per IP-adresse per 30 minutter
+
+Assistenten er instruert til ikke å finne på reservasjoner eller bookingnumre, og til å si fra når vær, tog, åpningstider eller annen ferskvare må kontrolleres live.
 
 ### S3
 
