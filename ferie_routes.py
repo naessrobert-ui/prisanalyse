@@ -90,20 +90,20 @@ ITINERARY = [
         "weekday": "Tirsdag",
         "place": "Eastbourne → Brighton → Battle → Rye",
         "stay": "The Hope Anchor, Rye",
-        "summary": "Løpetur og tog til Brighton, hente leiebil og sightseeing på vei til Rye.",
+        "summary": "Tidlig løpetur og tog til Brighton, fast leiebilhenting kl. 10 og sightseeing på vei til Rye.",
         "items": [
-            {"time": "07:00", "title": "Robert løper mot Brighton", "detail": "Forslag: kysten til Seaford, omtrent 20–22 km og kupert. Tog videre fra Seaford til Brighton."},
-            {"time": "10:00", "title": "Utsjekking fra Hydro", "detail": "Helene tar bagasjen med tog fra Eastbourne til Brighton."},
-            {"time": "ca. 11:30", "title": "Hent leiebilen i Brighton", "detail": "Møtes ved utleiekontoret. Husk førerkort, pass og betalingskort i hovedsjåførens navn."},
-            {"time": "13:00–15:30", "title": "Battle Abbey", "detail": "Slagmarken fra 1066, klosterruinene og portbygningen. Beregn rundt to timer."},
-            {"time": "16:00", "title": "Hastings – valgfritt stopp", "detail": "Kort rusletur og kaffe i Old Town. Dropp stoppet dersom dagen har blitt lang."},
-            {"time": "17:30–18:30", "title": "Ankomst Rye", "detail": "Innsjekking på The Hope Anchor. Deluxe Double Room med frokost."},
+            {"time": "06:15", "title": "Robert løper til Seaford", "detail": "Omtrent 20–22 kuperte kilometer langs kysten. Skift til tørre klær og ta tog videre til Brighton."},
+            {"time": "ca. 08:30", "title": "Helene reiser med bagasjen", "detail": "Tidlig utsjekking og tog fra Eastbourne til Brighton. Avtal konkret møtested ved Dollar."},
+            {"time": "10:00", "title": "Hent leiebilen hos Dollar", "detail": "Russell Road, Brighton BN1 2DX. Compact Vauxhall Astra eller tilsvarende, manuell girkasse og aircondition."},
+            {"time": "12:00–14:30", "title": "Battle Abbey", "detail": "Slagmarken fra 1066, klosterruinene og portbygningen. Beregn rundt to timer."},
+            {"time": "15:00", "title": "Hastings – valgfritt stopp", "detail": "Kort rusletur og kaffe i Old Town. Dropp stoppet dersom dagen har blitt lang."},
+            {"time": "17:00–18:00", "title": "Ankomst Rye", "detail": "Innsjekking på The Hope Anchor. Deluxe Double Room med frokost."},
         ],
         "links": [
             {"label": "Løpemål Seaford", "url": _maps_url("Seaford railway station East Sussex")},
+            {"label": "Dollar Brighton", "url": _maps_url("Dollar Car Rental Russell Road Brighton BN1 2DX")},
             {"label": "Battle Abbey", "url": "https://www.english-heritage.org.uk/visit/places/1066-battle-of-hastings-abbey-and-battlefield/"},
             {"label": "The Hope Anchor", "url": "https://thehopeanchor.com/"},
-            {"label": "Kjørerute", "url": _directions_url("Brighton", "The Hope Anchor Rye")},
         ],
     },
     {
@@ -114,9 +114,9 @@ ITINERARY = [
         "summary": "Middelalderslott om formiddagen, engelsk vin og rolig ettermiddag i gamlebyen.",
         "items": [
             {"time": "08:30", "title": "Frokost", "detail": "Kjør fra Rye rundt 09:20."},
-            {"time": "10:00–11:45", "title": "Bodiam Castle", "detail": "Slott med vollgrav. Åpent 10–17; forhåndsbestilling er normalt ikke nødvendig."},
+            {"time": "10:00–11:45", "title": "Bodiam Castle", "detail": "Slott med vollgrav. Kontroller åpningstid live før avreise."},
             {"time": "12:15", "title": "Tilbake til Rye", "detail": "Parker bilen for resten av dagen."},
-            {"time": "13:00", "title": "Charles Palmer Wine & Cheese", "detail": "Fire viner og fire oster. Må forhåndsbestilles. Ta taxi begge veier slik at begge kan smake."},
+            {"time": "13:00", "title": "Charles Palmer Wine & Cheese", "detail": "Fire viner og fire oster. Ta taxi begge veier slik at begge kan smake."},
             {"time": "15:00–18:00", "title": "Rye gamleby", "detail": "Mermaid Street, St Mary’s Church, småbutikker og utsikt over Rother-landskapet."},
             {"time": "19:30", "title": "Middag i Rye", "detail": "Bestill bord og avklar cøliaki og krysskontaminering på forhånd."},
         ],
@@ -130,18 +130,18 @@ ITINERARY = [
         "date": "2026-07-23",
         "weekday": "Torsdag",
         "place": "Rye → Brighton",
-        "stay": "Brighton – balkong og sjøutsikt",
-        "summary": "Rolig morgen, retur langs kysten, bilinnlevering kl. 15 og familien i Brighton.",
+        "stay": "Mercure Brighton Seafront Hotel",
+        "summary": "Rolig morgen, retur til Brighton, bagasje på hotellet og bilinnlevering kl. 15.",
         "items": [
-            {"time": "08:30", "title": "Frokost og utsjekking", "detail": "Avreise rundt 10. Det er god margin til innleveringen."},
+            {"time": "08:30", "title": "Frokost og utsjekking", "detail": "Avreise rundt 10 gir god margin til Brighton."},
             {"time": "10:00–13:15", "title": "Kjør mot Brighton", "detail": "Valgfri kort pause i Lewes dersom trafikken og dagsformen tillater det."},
-            {"time": "13:30", "title": "Bagasje til hotellet", "detail": "Sjekk inn hvis rommet er klart, ellers sett fra dere bagasjen."},
-            {"time": "15:00", "title": "Lever leiebilen", "detail": "Fast frist. Legg inn 30–45 minutters sikkerhetsmargin."},
+            {"time": "13:30–14:15", "title": "Mercure Brighton Seafront", "detail": "Sett fra dere bagasjen. Innsjekking 14–15 er ønsket, men hotellet har bare lovet å gjøre sitt beste dersom rommet er klart."},
+            {"time": "15:00", "title": "Lever leiebilen hos Dollar", "detail": "Samme adresse i Russell Road. Kontoret er åpent til 16:30, men reservasjonen har fast levering kl. 15."},
             {"time": "fra 15:30", "title": "Brighton med familien", "detail": "Balkong, sjøutsikt, The Lanes og middag sammen."},
         ],
         "links": [
-            {"label": "Kjørerute til Brighton", "url": _directions_url("The Hope Anchor Rye", "Brighton")},
-            {"label": "Lewes – valgfritt", "url": _maps_url("Lewes East Sussex")},
+            {"label": "Mercure Brighton", "url": "https://www.mercurebrighton.co.uk/"},
+            {"label": "Dollar Brighton", "url": _maps_url("Dollar Car Rental Russell Road Brighton BN1 2DX")},
             {"label": "Visit Brighton", "url": "https://www.visitbrighton.com/"},
             {"label": "The Lanes", "url": _maps_url("The Lanes Brighton")},
         ],
@@ -183,20 +183,20 @@ HOTELS = [
         "official_url": "https://thehopeanchor.com/",
         "maps_url": _maps_url("The Hope Anchor Rye"),
         "booking": "Deluxe Double Room, 30 m² og frokost inkludert.",
-        "history": "Bygningen ble reist omkring 1750 for lokale sjøfolk og skipsbyggere. Hotellet ligger høyt i gamlebyen, har vært knyttet til Ryes smuglerhistorie og skal ha hatt hemmelige ganger brukt av Tenterden-gjengen.",
+        "history": "Bygningen ble reist omkring 1750 for lokale sjøfolk og skipsbyggere. Hotellet ligger høyt i gamlebyen og er knyttet til Ryes lange sjøfarts- og smuglerhistorie.",
         "highlights": ["Midt i gamlebyen", "Panoramautsikt", "Historisk bygning", "Kort vei til Mermaid Street"],
         "source_url": "https://thehopeanchor.com/",
     },
     {
-        "name": "Brighton-hotell",
+        "name": "Mercure Brighton Seafront Hotel",
         "place": "Brighton",
         "dates": "23.–24. juli · 1 natt",
-        "official_url": "",
-        "maps_url": _maps_url("Brighton seafront hotels"),
-        "booking": "Fint rom med balkong og sjøutsikt. Hotellnavnet mangler foreløpig på siden.",
-        "history": "Når hotellnavnet legges inn, får kortet direkte lenke, kart, adresse, innsjekking og informasjon om bygningen og området.",
-        "highlights": ["Balkong", "Sjøutsikt", "Familien i Brighton", "Kort opphold før London"],
-        "source_url": "",
+        "official_url": "https://www.mercurebrighton.co.uk/",
+        "maps_url": _maps_url("Mercure Brighton Seafront Hotel 149 Kings Road Brighton BN1 2PP"),
+        "booking": "Rom med balkong og sjøutsikt. Ønsket innsjekking kl. 14–15 er registrert, men avhenger av at rommet er klart.",
+        "history": "Det tidligere Norfolk Hotel ble oppført i 1864–65 og er et vernet viktoriansk landemerke ved strandpromenaden. Bygningen har en Regency-inspirert stukkfasade, originale speil og lysekroner.",
+        "highlights": ["149 Kings Road", "Balkong og sjøutsikt", "Grade II-vernet", "Rett ved strandpromenaden"],
+        "source_url": "https://www.mercurebrighton.co.uk/hotel-highlights/",
     },
 ]
 
@@ -226,7 +226,7 @@ PLACES = [
         "name": "Rye",
         "period": "Havn, Cinque Ports og smuglere",
         "intro": "Rye ligger nå inne i landet, men var tidligere en viktig havneby. Middelaldergater, bindingsverkshus og utsikt over myrområdene viser hvordan landskapet og sjøen har formet byen.",
-        "fact": "Byen var knyttet til Cinque Ports og har en sterk smuglerhistorie. St Mary’s Church, Mermaid Street og det gamle vakttårnet Ypres Tower er gode steder å forstå historien.",
+        "fact": "Byen var knyttet til Cinque Ports og har en sterk smuglerhistorie. St Mary’s Church, Mermaid Street og Ypres Tower er gode steder å forstå historien.",
         "url": "https://visitrye.co.uk/rye-history",
     },
     {
@@ -249,9 +249,9 @@ BOOKINGS = [
     {"category": "Fly", "name": "Gatwick", "dates": "Søn. 19. juli kl. 20:20", "status": "Bekreftet", "note": "Flynummer kan legges inn senere.", "url": "https://www.gatwickairport.com/"},
     {"category": "Hotell", "name": "Hydro Hotel, Eastbourne", "dates": "19.–21. juli · 2 netter", "status": "Bestilt", "note": "Hage og oppvarmet utendørsbasseng.", "url": "https://www.hydrohotel.com/"},
     {"category": "Hotell", "name": "The Hope Anchor, Rye", "dates": "21.–23. juli · 2 netter", "status": "Bestilt", "note": "Deluxe Double Room, 30 m², frokost inkludert.", "url": "https://thehopeanchor.com/"},
-    {"category": "Bil", "name": "Leiebil fra Brighton", "dates": "21.–23. juli", "status": "Planlagt", "note": "Leveres i Brighton torsdag senest kl. 15:00.", "url": ""},
-    {"category": "Hotell", "name": "Brighton", "dates": "23.–24. juli · 1 natt", "status": "Bestilt", "note": "Balkong og sjøutsikt. Hotellnavn kan legges inn.", "url": ""},
-    {"category": "Opplevelse", "name": "Charles Palmer Vineyards", "dates": "Ons. 22. juli kl. 13:00", "status": "Kontroller", "note": "Wine & Cheese Experience må forhåndsbestilles.", "url": "https://www.charlespalmer-vineyards.co.uk/wine-tastings/"},
+    {"category": "Bil", "name": "Dollar, Brighton", "dates": "Henting tir. 21. juli kl. 10 · levering tor. 23. juli kl. 15", "status": "Bestilt", "note": "Russell Road, BN1 2DX. Vauxhall Astra eller tilsvarende, kompakt, manuell og aircondition. Kontortid 08:00–16:30.", "url": _maps_url("Dollar Car Rental Russell Road Brighton BN1 2DX")},
+    {"category": "Hotell", "name": "Mercure Brighton Seafront Hotel", "dates": "23.–24. juli · 1 natt", "status": "Bestilt", "note": "149 Kings Road. Balkong og sjøutsikt; innsjekking 14–15 er ønsket, ikke garantert.", "url": "https://www.mercurebrighton.co.uk/"},
+    {"category": "Opplevelse", "name": "Charles Palmer Vineyards", "dates": "Ons. 22. juli kl. 13:00", "status": "Kontroller", "note": "Wine & Cheese Experience må være bekreftet før avreise.", "url": "https://www.charlespalmer-vineyards.co.uk/wine-tastings/"},
 ]
 
 
@@ -377,7 +377,7 @@ def _question_context() -> str:
         "reservasjoner": BOOKINGS,
         "viktige_hensyn": [
             "Robert har cøliaki og må ha glutenfri mat uten krysskontaminering.",
-            "Leiebilen leveres i Brighton torsdag senest kl. 15:00.",
+            "Leiebilen hentes hos Dollar i Brighton tirsdag kl. 10 og leveres samme sted torsdag kl. 15.",
             "Vinsmaking bør gjennomføres med taxi, ikke kjøring etterpå.",
             "Siden viser ikke bookingnumre eller betalingsinformasjon.",
         ],
@@ -395,8 +395,7 @@ def _current_day() -> tuple[dict, bool]:
         return parsed[0][1], False
     if today > parsed[-1][0]:
         return parsed[-1][1], False
-    future = next(item for day, item in parsed if day > today)
-    return future, False
+    return next(item for day, item in parsed if day > today), False
 
 
 @ferie_bp.route(f"/{TRIP_SLUG}/")
