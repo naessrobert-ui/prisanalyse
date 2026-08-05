@@ -39,6 +39,9 @@
     th,td { padding:9px 8px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
     th:first-child,td:first-child { text-align:left; }
     th { color:var(--muted); font-weight:600; }
+    th.sortable { cursor:pointer; user-select:none; }
+    th.sortable:hover { color:var(--text); }
+    th .arrow { font-size:.72em; margin-left:4px; color:var(--blue); }
     .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:.72rem; font-weight:700; }
     .pill.up { background:rgba(251,113,133,.16); color:var(--red); }
     .pill.down { background:rgba(52,211,153,.16); color:var(--green); }
@@ -85,7 +88,13 @@
       <div class="panel">
         <h2>Norwegian vs. billigste konkurrent</h2>
         <p class="hint">Negativt gap = Norwegian billigst. Positivt = konkurrent billigere. Siste henting.</p>
-        <div class="table-wrap"><table id="gap"><thead><tr><th>Rute</th><th>Norwegian</th><th>Konkurrent</th><th>Gap</th></tr></thead><tbody></tbody></table></div>
+        <div class="table-wrap"><table id="gap"><thead><tr>
+          <th class="sortable" data-key="navn" data-type="txt">Rute</th>
+          <th class="sortable" data-key="norwegian" data-type="num">Norwegian</th>
+          <th class="sortable" data-key="konkurrent" data-type="num">Konkurrent</th>
+          <th class="sortable" data-key="gap_pst" data-type="num">Gap</th>
+        </tr></thead><tbody></tbody></table></div>
+        <p class="hint" style="margin-top:10px">Klikk på en kolonneoverskrift for å sortere. Klikk «Gap» to ganger for å se hvor Norwegian er dyrest øverst.</p>
         <div class="empty-note" id="gap-tom" style="display:none"></div>
       </div>
     </div>
@@ -173,16 +182,44 @@
           <td><span class="pill ${cls}">${a.endring_pst>0?'+':''}${a.endring_pst}%</span></td></tr>`;
       }).join("");
     }
-    function tegnGap(rows){
-      const tb = document.querySelector("#gap tbody"); const tom = document.getElementById("gap-tom");
-      if (!rows.length){ document.getElementById("gap").style.display="none"; tom.style.display="block";
-        tom.textContent="Ingen sammenlignbare ruter med både Norwegian og konkurrent ennå."; return; }
-      tb.innerHTML = rows.slice(0,14).map(g=>{
+    let gapData = [];
+    let gapSort = { key: "gap_pst", dir: 1 };  // dir: 1 = stigende, -1 = synkende
+    function renderGap(){
+      const tb = document.querySelector("#gap tbody");
+      const rows = [...gapData].sort((a,b)=>{
+        const va = a[gapSort.key], vb = b[gapSort.key];
+        const c = (typeof va === "string") ? va.localeCompare(vb, "nb") : (va - vb);
+        return gapSort.dir * c;
+      }).slice(0,14);
+      tb.innerHTML = rows.map(g=>{
         const cls = g.gap_pst<=0?"down":"up";
         return `<tr><td>${g.navn}</td><td>${kr(g.norwegian)}</td><td>${kr(g.konkurrent)} <span class="sub">${g.konkurrent_navn}</span></td>
           <td><span class="pill ${cls}">${g.gap_pst>0?'+':''}${g.gap_pst}%</span></td></tr>`;
       }).join("");
+      document.querySelectorAll('#gap thead th.sortable').forEach(th=>{
+        const old = th.querySelector('.arrow'); if (old) old.remove();
+        if (th.dataset.key === gapSort.key){
+          const s = document.createElement('span'); s.className='arrow';
+          s.textContent = gapSort.dir === 1 ? '▲' : '▼'; th.appendChild(s);
+        }
+      });
     }
+    function tegnGap(rows){
+      const tom = document.getElementById("gap-tom");
+      gapData = rows || [];
+      if (!gapData.length){ document.getElementById("gap").style.display="none"; tom.style.display="block";
+        tom.textContent="Ingen sammenlignbare ruter med både Norwegian og konkurrent ennå."; return; }
+      renderGap();
+    }
+    // Klikkbare overskrifter: samme kolonne -> snu retning, ny kolonne -> stigende
+    document.querySelectorAll('#gap thead th.sortable').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const key = th.dataset.key;
+        if (gapSort.key === key) gapSort.dir *= -1;
+        else gapSort = { key, dir: 1 };
+        renderGap();
+      });
+    });
 
     const METRIKK_NAVN = {passasjerer:"Passasjerer", ask_mill:"ASK (mill)", rpk_mill:"RPK (mill)", kabinfaktor_pst:"Kabinfaktor", punktlighet_pst:"Punktlighet"};
     function trafKort(navn, blokk, erpst){
