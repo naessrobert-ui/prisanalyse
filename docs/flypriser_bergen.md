@@ -51,13 +51,35 @@ Flagg:
 - `data/flypriser_bergen_beste.csv` – billigste tilbud per destinasjon og
   måned ved siste kjøring.
 
-## Følge prisutvikling
+## Web-side
 
-Kjør skriptet regelmessig (f.eks. daglig) for å bygge historikk:
+Blueprinten `scripts/flypriser_routes.py` (registrert i `app.py`) viser data
+på **`/flypriser`**:
+
+- **Prismatrise** – billigste pris per destinasjon × avreisemåned, med
+  fargekoding (grønt = billigst) og klikkbare lenker til søket.
+- **Prisutvikling** – graf (Chart.js) som viser laveste tilgjengelige pris
+  per destinasjon for hver gang skriptet er kjørt. JSON på `/flypriser/api/data`.
+
+Siden bygger seg opp etter hvert som `data/flypriser_bergen*.csv` fylles.
+
+## Følge prisutvikling / automatisering
+
+### Lokalt via cron
 
 ```bash
 0 7 * * *  cd /sti/til/prisanalyse && TRAVELPAYOUTS_TOKEN=... python -m scripts.flypriser_bergen
 ```
+
+### I skyen via GitHub Actions
+
+`.github/workflows/flypriser-bergen.yml` kjører innsamlingen daglig (05:00 UTC)
+og committer oppdaterte CSV-er. Krever ett repo-secret:
+
+> **Settings → Secrets and variables → Actions → New repository secret**
+> Navn: `TRAVELPAYOUTS_TOKEN`, verdi: tokenet ditt.
+
+Kan også kjøres manuelt fra **Actions**-fanen (*workflow_dispatch*).
 
 Destinasjonslista ligger i `DESTINASJONER` øverst i
 `scripts/flypriser_bergen.py` og kan enkelt utvides.
