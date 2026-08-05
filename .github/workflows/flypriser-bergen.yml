@@ -13,6 +13,14 @@ on:
         description: "Antall måneder framover"
         required: false
         default: "9"
+      test_epost:
+        description: "Send kun en test-e-post (verifiser SMTP-oppsett)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: write
@@ -43,6 +51,7 @@ jobs:
           pip install requests
 
       - name: Hent priser
+        if: github.event.inputs.test_epost != 'true'
         env:
           TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
           PYTHONIOENCODING: "utf-8"
@@ -55,6 +64,7 @@ jobs:
           python -m scripts.flypriser_bergen --months "$MONTHS"
 
       - name: Commit oppdaterte priser
+        if: github.event.inputs.test_epost != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -76,4 +86,9 @@ jobs:
           FLYPRIS_VARSEL_TIL: ${{ secrets.FLYPRIS_VARSEL_TIL }}
           FLYPRIS_VARSEL_FRA: ${{ secrets.FLYPRIS_VARSEL_FRA }}
           PYTHONIOENCODING: "utf-8"
-        run: python -m scripts.flypris_varsel
+        run: |
+          if [ "${{ github.event.inputs.test_epost }}" = "true" ]; then
+            python -m scripts.flypris_varsel --test
+          else
+            python -m scripts.flypris_varsel
+          fi

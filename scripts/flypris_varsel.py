@@ -87,22 +87,21 @@ def bygg_html(varsel: dict) -> str:
     )
 
 
-def send_epost(varsel: dict) -> bool:
+def _send_mail(subject: str, html_body: str) -> bool:
     smtp_host = os.environ.get("SMTP_HOST", "").strip()
     mottakere = _mottakere()
     if not smtp_host or not mottakere:
-        print("Varsel hoppet over: SMTP_HOST/FLYPRIS_VARSEL_TIL ikke satt.")
+        print("Sending hoppet over: SMTP_HOST/FLYPRIS_VARSEL_TIL ikke satt.")
         return False
 
     smtp_user = os.environ.get("SMTP_USER", "")
     sender = os.environ.get("FLYPRIS_VARSEL_FRA") or os.environ.get("MEDIA_DIGEST_FROM") or smtp_user
 
     msg = MIMEMultipart("alternative")
-    n = len(varsel["avvik"])
-    msg["Subject"] = f"✈️ Flypris-signal Norwegian ({n} avvik)" if n else "✈️ Flypris-signal Norwegian"
+    msg["Subject"] = subject
     msg["From"] = sender
     msg["To"] = ", ".join(mottakere)
-    msg.attach(MIMEText(bygg_html(varsel), "html", "utf-8"))
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     port = int(os.environ.get("SMTP_PORT", "587"))
     with smtplib.SMTP(smtp_host, port, timeout=30) as server:
@@ -110,12 +109,35 @@ def send_epost(varsel: dict) -> bool:
         if smtp_user:
             server.login(smtp_user, os.environ.get("SMTP_PASSWORD", ""))
         server.sendmail(sender, mottakere, msg.as_string())
-    print(f"Varsel sendt til {', '.join(mottakere)}.")
+    print(f"E-post sendt til {', '.join(mottakere)} (fra {sender}).")
     return True
 
 
+def send_epost(varsel: dict) -> bool:
+    n = len(varsel["avvik"])
+    subject = f"✈️ Flypris-signal Norwegian ({n} avvik)" if n else "✈️ Flypris-signal Norwegian"
+    return _send_mail(subject, bygg_html(varsel))
+
+
+def send_test() -> bool:
+    """Send en bekreftelses-e-post for å verifisere SMTP-oppsettet."""
+    html_body = (
+        "<h2>✈️ Flypris-varsel – oppsettet virker</h2>"
+        "<p>Dette er en testmelding. SMTP/Resend-oppsettet er korrekt, og du vil nå få "
+        "e-post automatisk <strong>når modellen fanger et prissignal</strong> "
+        "(flagget avvik, stort indeks-hopp eller markant endring i prisspredning).</p>"
+        "<p><a href='https://prisanalyse.no/flypriser/norwegian/'>Åpne investor-dashbordet</a></p>"
+    )
+    return _send_mail("✈️ Flypris-varsel – testoppsett", html_body)
+
+
 def main(argv: list[str] | None = None) -> int:
-    dry = "--dry-run" in (argv or sys.argv[1:])
+    args = argv if argv is not None else sys.argv[1:]
+    if "--test" in args:
+        print("Sender test-e-post …")
+        send_test()
+        return 0
+    dry = "--dry-run" in args
     analyse = full_analyse()
     varsel = vurder(analyse)
     if varsel is None:

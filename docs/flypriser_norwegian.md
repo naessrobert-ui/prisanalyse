@@ -80,7 +80,15 @@ Gjenbruker appens SMTP-oppsett. Legg til som repo-secrets:
 | `FLYPRIS_VARSEL_FRA` | Avsender (valgfritt, default `SMTP_USER`) |
 
 Er `SMTP_HOST` eller `FLYPRIS_VARSEL_TIL` ikke satt, hopper steget stille over.
-Test lokalt uten å sende: `python -m scripts.flypris_varsel --dry-run`.
+
+**Resend som SMTP:** `SMTP_HOST=smtp.resend.com`, `SMTP_PORT=587`,
+`SMTP_USER=resend`, `SMTP_PASSWORD=<API-nøkkel re_…>`. Avsender
+(`FLYPRIS_VARSEL_FRA`) må ligge på et domene verifisert i Resend.
+
+**Verifiser oppsettet:** kjør workflowen manuelt (Actions → *Run workflow*)
+med **`test_epost = true`** – da sendes én «oppsettet virker»-e-post uten
+å hente priser. Lokalt: `python -m scripts.flypris_varsel --test`.
+Test uten å sende: `python -m scripts.flypris_varsel --dry-run`.
 
 ## Prishorisont
 
