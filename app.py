@@ -31,6 +31,7 @@ from scripts.kvamskogen_sommer_routes import kvamskogen_sommer_bp
 from scripts.sno_routes import sno_bp, start_warmup
 from scripts.kart_routes import kart_bp
 from scripts.hormuz_routes import hormuz_bp
+from scripts.flypriser_routes import flypriser_bp
 from aksjonaer_routes import aksjonaer_bp
 from shipping_routes import shipping_bp, start_shipping_streamlit
 from media_mentions_routes import media_mentions_bp
@@ -144,6 +145,7 @@ def create_app() -> Flask:
     app.register_blueprint(sno_bp)
     app.register_blueprint(kart_bp)
     app.register_blueprint(hormuz_bp)
+    app.register_blueprint(flypriser_bp)
     app.register_blueprint(aksjonaer_bp)
     app.register_blueprint(shipping_bp)
     app.register_blueprint(media_mentions_bp)
