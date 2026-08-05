@@ -1,0 +1,67 @@
+name: Hent flypriser fra Bergen
+
+on:
+  schedule:
+    # Hver dag kl 05:00 UTC (07:00 norsk sommertid, 06:00 vintertid).
+    # Tidlig på døgnet for å fange dagens priser før trafikken tar seg opp.
+    - cron: "0 5 * * *"
+
+  # Manuell trigger fra Actions-fanen.
+  workflow_dispatch:
+    inputs:
+      months:
+        description: "Antall måneder framover"
+        required: false
+        default: "6"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flypriser-bergen
+  cancel-in-progress: false
+
+jobs:
+  hent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Sjekk ut kildekode
+        uses: actions/checkout@v4
+
+      - name: Sett opp Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Installer avhengigheter
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Hent priser
+        env:
+          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          if [ -z "$TRAVELPAYOUTS_TOKEN" ]; then
+            echo "::error::Mangler repo-secret TRAVELPAYOUTS_TOKEN. Legg det til under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          MONTHS="${{ github.event.inputs.months || '6' }}"
+          python -m scripts.flypriser_bergen --months "$MONTHS"
+
+      - name: Commit oppdaterte priser
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/flypriser_bergen.csv data/flypriser_bergen_beste.csv
+          if git diff --cached --quiet; then
+            echo "Ingen endringer i prisdata."
+          else
+            git commit -m "Oppdater flypriser fra Bergen ($(date -u +%Y-%m-%d))"
+            git push
+          fi

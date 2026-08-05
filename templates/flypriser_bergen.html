@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flypriser fra Bergen – Prisanalyse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { color-scheme: dark; --bg:#07111f; --panel:#0f1c2e; --line:#24344b; --text:#f3f7fb; --muted:#96a6bb; --blue:#60a5fa; --green:#34d399; --orange:#f59e0b; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Montserrat,system-ui,sans-serif; background:radial-gradient(circle at 80% 0,#12345a 0,transparent 38%),var(--bg); color:var(--text); }
+    .page { max-width:1240px; margin:auto; padding:28px 20px 56px; }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:16px; flex-wrap:wrap; }
+    .eyebrow { color:var(--blue); text-transform:uppercase; letter-spacing:.18em; font-size:.72rem; font-weight:700; }
+    h1 { margin:8px 0 8px; font-size:clamp(2rem,5vw,3.2rem); }
+    .lead { color:var(--muted); max-width:760px; line-height:1.55; }
+    .status { color:var(--muted); font-size:.85rem; margin:12px 0 20px; }
+    .status.error { color:#fb7185; }
+    .panel { background:linear-gradient(145deg,rgba(22,40,64,.95),rgba(12,25,43,.96)); border:1px solid var(--line); border-radius:16px; box-shadow:0 16px 45px rgba(0,0,0,.2); padding:18px; margin-bottom:18px; }
+    .panel h2 { font-size:1rem; margin:0 0 14px; }
+    .chart-canvas { position:relative; width:100%; height:380px; }
+    .chart-hint { color:var(--muted); font-size:.74rem; margin:10px 0 0; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:.84rem; min-width:640px; }
+    th,td { padding:9px 8px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+    th:first-child,td:first-child { text-align:left; position:sticky; left:0; background:#0f1c2e; }
+    th { color:var(--muted); font-weight:600; }
+    td a { color:var(--text); text-decoration:none; }
+    td a:hover { text-decoration:underline; }
+    .cheap { color:var(--green); font-weight:700; }
+    .mid { color:var(--text); }
+    .pricey { color:var(--orange); }
+    .empty { color:#42566f; }
+    .badge { display:inline-block; background:#101e31; border:1px solid var(--line); border-radius:999px; padding:2px 9px; font-size:.72rem; color:var(--muted); }
+    .legend { color:var(--muted); font-size:.76rem; margin-top:8px; }
+    .note { color:var(--muted); font-size:.76rem; line-height:1.55; margin-top:18px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="top">
+      <div>
+        <div class="eyebrow">Reise · Bergen (BGO)</div>
+        <h1>Flypriser fra Bergen</h1>
+        <p class="lead">Billigste flybilletter ut fra Bergen per destinasjon og avreisemåned, på tvers av
+          flyselskap. Følg med på hvordan prisene utvikler seg over tid.</p>
+      </div>
+      <div class="badge" id="meta">Laster …</div>
+    </div>
+
+    <div class="status" id="status">Henter prisdata …</div>
+
+    <div class="panel">
+      <h2>Billigste pris per destinasjon og måned <span class="badge" id="valuta"></span></h2>
+      <div class="table-wrap">
+        <table id="matrise">
+          <thead><tr id="matrise-head"></tr></thead>
+          <tbody id="matrise-body"></tbody>
+        </table>
+      </div>
+      <div class="legend">Grønt = laveste rad-pris · klikk på en pris for å åpne søket. Tomt = ingen tilbud funnet.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Prisutvikling – billigste tilgjengelige billett per henting</h2>
+      <div class="chart-canvas"><canvas id="graf"></canvas></div>
+      <p class="chart-hint">Hver linje viser laveste pris (på tvers av alle måneder) hver gang skriptet er kjørt.
+        Bygger seg opp etter hvert som du samler inn data over tid.</p>
+    </div>
+
+    <p class="note">Kilde: Travelpayouts/Aviasales pris-API (cachede lavpriser på tvers av flyselskap, inkl. Norwegian).
+      Data oppdateres av <code>scripts/flypriser_bergen.py</code>.</p>
+  </div>
+
+  <script>
+    const kr = n => (n == null ? "" : n.toLocaleString("nb-NO"));
+    const PALETTE = ["#60a5fa","#34d399","#f59e0b","#f472b6","#a78bfa","#22d3ee","#fb7185","#4ade80","#facc15","#38bdf8","#c084fc","#fca5a5"];
+
+    function klasse(pris, min, maks) {
+      if (pris == null) return "empty";
+      if (maks === min) return "mid";
+      const t = (pris - min) / (maks - min);
+      if (t <= 0.34) return "cheap";
+      if (t >= 0.67) return "pricey";
+      return "mid";
+    }
+
+    function tegnMatrise(data) {
+      const head = document.getElementById("matrise-head");
+      const body = document.getElementById("matrise-body");
+      head.innerHTML = "<th>Destinasjon</th>" + data.maaneder.map(m => `<th>${m}</th>`).join("") + "<th>Min</th>";
+      body.innerHTML = "";
+      for (const rad of data.matrise) {
+        const priser = data.maaneder.map(m => (rad.celler[m] ? rad.celler[m].pris : null)).filter(p => p != null);
+        const min = priser.length ? Math.min(...priser) : null;
+        const maks = priser.length ? Math.max(...priser) : null;
+        let celler = "";
+        for (const m of data.maaneder) {
+          const c = rad.celler[m];
+          if (!c) { celler += `<td class="empty">–</td>`; continue; }
+          const cls = klasse(c.pris, min, maks);
+          const inner = c.lenke ? `<a href="${c.lenke}" target="_blank" rel="noopener">${kr(c.pris)}</a>` : kr(c.pris);
+          celler += `<td class="${cls}">${inner}</td>`;
+        }
+        body.innerHTML += `<tr><td>${rad.navn}</td>${celler}<td class="cheap">${kr(rad.min)}</td></tr>`;
+      }
+    }
+
+    let graf;
+    function tegnGraf(data) {
+      const ctx = document.getElementById("graf");
+      const datasets = data.historikk.map((s, i) => ({
+        label: s.navn,
+        data: s.punkter.map(p => ({ x: p.dato, y: p.pris })),
+        borderColor: PALETTE[i % PALETTE.length],
+        backgroundColor: PALETTE[i % PALETTE.length],
+        tension: 0.25, pointRadius: 2, borderWidth: 2, spanGaps: true,
+      }));
+      if (graf) graf.destroy();
+      graf = new Chart(ctx, {
+        type: "line",
+        data: { datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: "nearest", intersect: false },
+          scales: {
+            x: { type: "category", ticks: { color: "#96a6bb" }, grid: { color: "#1b2a40" } },
+            y: { ticks: { color: "#96a6bb", callback: v => kr(v) }, grid: { color: "#1b2a40" } },
+          },
+          plugins: {
+            legend: { labels: { color: "#c7d3e2", boxWidth: 12, font: { size: 11 } } },
+            tooltip: { callbacks: { label: c => `${c.dataset.label}: ${kr(c.parsed.y)} ${data.valuta}` } },
+          },
+        },
+      });
+    }
+
+    fetch("api/data")
+      .then(r => r.json())
+      .then(data => {
+        const status = document.getElementById("status");
+        if (!data.ok) {
+          status.className = "status error";
+          status.textContent = data.error || "Kunne ikke laste data.";
+          document.getElementById("meta").textContent = "Ingen data";
+          return;
+        }
+        document.getElementById("valuta").textContent = data.valuta;
+        document.getElementById("meta").textContent =
+          `${data.antall_destinasjoner} destinasjoner · sist hentet ${data.sist_hentet || "?"}`;
+        status.textContent = `Viser billigste priser for ${data.maaneder.length} måneder framover.`;
+        tegnMatrise(data);
+        tegnGraf(data);
+      })
+      .catch(err => {
+        const status = document.getElementById("status");
+        status.className = "status error";
+        status.textContent = "Feil ved lasting: " + err;
+      });
+  </script>
+</body>
+</html>
