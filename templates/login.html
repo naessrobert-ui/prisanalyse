@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Tilgang – Prisanalyse</title>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            color-scheme: dark;
+            --brand: #60a5fa;
+            --brand-soft: rgba(96, 165, 250, 0.18);
+            --panel: rgba(15, 23, 42, 0.82);
+            --text: #f8fafc;
+            --text-muted: #d1d5db;
+            --danger: #f87171;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            color: var(--text);
+            background:
+                linear-gradient(140deg, rgba(2, 6, 23, 0.93), rgba(15, 23, 42, 0.95)),
+                url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1920') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--panel);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 18px;
+            padding: 36px 32px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.35rem;
+            letter-spacing: 0.02em;
+            margin-bottom: 6px;
+        }
+
+        h1 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        p.lead {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 22px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 13px 15px;
+            font-size: 1rem;
+            color: var(--text);
+            background: rgba(2, 6, 23, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 10px;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        input[type="password"]:focus {
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px var(--brand-soft);
+        }
+
+        button {
+            width: 100%;
+            margin-top: 18px;
+            padding: 13px 15px;
+            font-size: 1rem;
+            font-weight: 600;
+            font-family: inherit;
+            color: #05122b;
+            background: var(--brand);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: filter 0.15s ease;
+        }
+
+        button:hover { filter: brightness(1.08); }
+
+        .error {
+            margin-top: 16px;
+            padding: 10px 12px;
+            font-size: 0.85rem;
+            color: var(--danger);
+            background: rgba(248, 113, 113, 0.12);
+            border: 1px solid rgba(248, 113, 113, 0.35);
+            border-radius: 8px;
+        }
+
+        .contact {
+            margin-top: 24px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(148, 163, 184, 0.18);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .contact a { color: var(--brand); text-decoration: none; }
+        .contact a:hover { text-decoration: underline; }
+
+        .back { display: inline-block; margin-top: 18px; font-size: 0.82rem; }
+        .back a { color: var(--text-muted); text-decoration: none; }
+        .back a:hover { color: var(--text); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">Prisanalyse</div>
+        <h1>Tilgang kreves</h1>
+        <p class="lead">Skriv inn tilgangskoden for å fortsette.</p>
+
+        <form method="POST" action="{{ url_for('login') }}" autocomplete="off">
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <label for="code">Tilgangskode</label>
+            <input type="password" id="code" name="code" autofocus required>
+            <button type="submit">Logg inn</button>
+        </form>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+
+        {% if contact %}
+        <div class="contact">
+            Ønsker du tilgang? Send en e-post til
+            <a href="mailto:{{ contact }}">{{ contact }}</a>.
+        </div>
+        {% endif %}
+
+        <div class="back"><a href="/">← Til forsiden</a></div>
+    </div>
+</body>
+</html>

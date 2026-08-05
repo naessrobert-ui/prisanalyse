@@ -2,15 +2,26 @@
 """Main Flask entrypoint for prisanalyse."""
 
 import os
+import secrets
 import threading
 import time
+from datetime import timedelta
 from typing import Optional
 
 try:
     from dotenv import load_dotenv
 except ModuleNotFoundError:
     load_dotenv = None
-from flask import Flask, render_template, redirect, request, abort, Response
+from flask import (
+    Flask,
+    render_template,
+    redirect,
+    request,
+    abort,
+    Response,
+    session,
+    url_for,
+)
 from flask_session import Session
 
 # Blueprints
@@ -49,6 +60,49 @@ BLOCKED_BOTS = [
     'BLEXBot', 'PetalBot', 'Bytespider',
 ]
 
+# =========================================================
+# Tilgangskode (felles kode som deles ut til utvalgte brukere)
+# =========================================================
+# Alternativ 2: forsiden er offentlig, ALT annet krever kode.
+# Koden settes som miljøvariabel `SITE_ACCESS_CODE` (f.eks. i Render).
+# Er den ikke satt, er tilgangssperren AV (siden fungerer som før),
+# slik at ingen blir låst ute før du bevisst aktiverer den.
+SITE_ACCESS_CODE = (os.environ.get("SITE_ACCESS_CODE", "") or "").strip()
+
+# Kontakt-e-post som vises på innloggingssiden.
+SITE_ACCESS_CONTACT = (
+    os.environ.get("SITE_ACCESS_CONTACT", "naessrobert@gmail.com") or ""
+).strip()
+
+# Stier som alltid er åpne uten kode.
+# Forsiden "/" er med her (Alternativ 2). Fjern "/" for å stenge alt.
+_PUBLIC_PATHS = {
+    "/",
+    "/login",
+    "/logout",
+    "/robots.txt",
+    "/sitemap.xml",
+    "/favicon.ico",
+}
+# Alt under disse prefiksene er åpent (statiske filer forsiden trenger).
+_PUBLIC_PREFIXES = ("/static/", "/assets/")
+
+
+def _is_public_path(path: str) -> bool:
+    p = path or "/"
+    if p in _PUBLIC_PATHS:
+        return True
+    return p.startswith(_PUBLIC_PREFIXES)
+
+
+def _safe_next(target: str | None) -> str | None:
+    """Kun lokale stier tillates som redirect-mål (unngår open redirect)."""
+    if not target:
+        return None
+    if target.startswith("/") and not target.startswith("//"):
+        return target
+    return None
+
 # Enkel in-memory rate-limit for tunge endepunkt.
 # Nøkkel: "<ip>|<gruppe>" -> liste med request-tidspunkter (sekunder).
 _RATE_LIMIT_BUCKETS: dict[str, list[float]] = {}
@@ -72,6 +126,8 @@ def create_app() -> Flask:
     )
     app.config["SESSION_PERMANENT"] = False
     app.config["SESSION_TYPE"] = "filesystem"
+    # "Husk meg": innlogging varer i 30 dager når session.permanent settes.
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
     upload_limit_raw = (os.environ.get("HANDLER_DB_UPLOAD_MAX_MB", "300") or "300").strip()
     try:
         upload_limit_mb = int(upload_limit_raw)
@@ -104,6 +160,22 @@ def create_app() -> Flask:
                     abort(429)
                 hits.append(now)
                 _RATE_LIMIT_BUCKETS[bucket_key] = hits
+
+    # --- Tilgangskode: forsiden er åpen, alt annet krever kode ---
+    @app.before_request
+    def require_access_code():
+        # Sperren er av hvis ingen kode er konfigurert.
+        if not SITE_ACCESS_CODE:
+            return None
+        # Allerede innlogget i denne sesjonen.
+        if session.get("access_granted"):
+            return None
+        # Åpne stier (forside, login, statiske filer osv.).
+        if _is_public_path(request.path or "/"):
+            return None
+        # Send til innlogging, og husk hvor brukeren egentlig skulle.
+        nxt = (request.full_path or request.path or "/").rstrip("?")
+        return redirect(url_for("login", next=nxt))
 
     # --- robots.txt for å be botter holde seg unna ---
     @app.route("/robots.txt")
@@ -171,6 +243,35 @@ def create_app() -> Flask:
     @app.route("/")
     def forside():
         return render_template("landing_page.html")
+
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        # Ingen kode konfigurert => ingen sperre, send til forsiden.
+        if not SITE_ACCESS_CODE:
+            return redirect("/")
+        if session.get("access_granted"):
+            return redirect(_safe_next(request.args.get("next")) or "/")
+
+        error = None
+        next_url = _safe_next(request.values.get("next")) or ""
+        if request.method == "POST":
+            code = (request.form.get("code") or "").strip()
+            if code and secrets.compare_digest(code, SITE_ACCESS_CODE):
+                session["access_granted"] = True
+                session.permanent = True  # husk innlogging (30 dager)
+                return redirect(_safe_next(request.form.get("next")) or "/")
+            error = "Feil kode. Prøv igjen."
+        return render_template(
+            "login.html",
+            error=error,
+            next_url=next_url,
+            contact=SITE_ACCESS_CONTACT,
+        )
+
+    @app.route("/logout")
+    def logout():
+        session.pop("access_granted", None)
+        return redirect("/")
 
     @app.route("/jobb/")
     def jobb_side():
