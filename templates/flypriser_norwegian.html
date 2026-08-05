@@ -69,8 +69,9 @@
 
     <div class="panel">
       <h2>Prisindeks – Norwegian vs. markedet</h2>
-      <p class="hint">Indeks = 100 ved første observasjon (median av pris-relativer på tvers av ruter).
-        Stigende Norwegian-linje = høyere priser (sterkere prising / mer press). Bygger seg ut for hver dag data samles inn.</p>
+      <p class="hint">Indeks = 100 ved første observasjon. <strong>Laveste</strong> = inngangsprisen (renest signal);
+        <strong>median</strong> = typisk billettpris (yield-proxy). Når de to nærmer seg hverandre stiger prispresset.
+        Bygger seg ut for hver dag data samles inn.</p>
       <div class="chart-canvas"><canvas id="indeks"></canvas></div>
     </div>
 
@@ -123,10 +124,15 @@
     function tegnCards(s) {
       const ni = endringTxt(s.norwegian_indeks_endring);
       const mi = endringTxt(s.marked_indeks_endring);
+      const disp = s.dispersjon_gap_pst;
+      const de = endringTxt(s.dispersjon_endring);
+      // Lavere gap = prispress (billige billetter spist opp) -> rødt; høyere = mer billig kapasitet -> grønt
+      const dispSub = de.t ? `${de.t} vs forrige` : "median vs laveste";
       document.getElementById("cards").innerHTML =
-        kort("Norwegian prisindeks", s.norwegian_indeks ?? "–", ni.t ? `${ni.t} vs forrige` : "basis 100", ni.c) +
-        kort("Markedsindeks", s.marked_indeks ?? "–", mi.t ? `${mi.t} vs forrige` : "basis 100", mi.c) +
-        kort("Median Norwegian-pris", kr(s.median_norwegian_pris) + " kr", "billigste, siste henting") +
+        kort("Norwegian prisindeks", s.norwegian_indeks ?? "–", ni.t ? `${ni.t} vs forrige` : "basis 100 (laveste)", ni.c) +
+        kort("Median-indeks (typisk pris)", s.norwegian_median_indeks ?? "–", endringTxt(s.norwegian_median_indeks_endring).t ? `${endringTxt(s.norwegian_median_indeks_endring).t} vs forrige` : "basis 100 (median)", endringTxt(s.norwegian_median_indeks_endring).c) +
+        kort("Prisspredning (median−laveste)", disp == null ? "–" : disp + " %", dispSub, de.c ? (de.c==='up'?'down':'up') : "") +
+        kort("Median Norwegian-pris", kr(s.median_norwegian_pris) + " kr", "typisk billettpris nå") +
         kort("Ruter der DY er billigst", `${s.ruter_dy_billigst}/${s.ruter_med_gap}`, "mot beste konkurrent") +
         kort("Datapunkter i tidsserien", s.antall_datoer, s.antall_datoer < 4 ? "trenger flere dager" : "dager samlet");
     }
@@ -135,8 +141,9 @@
     function tegnIndeks(idx) {
       const ctx = document.getElementById("indeks");
       const ds = [
-        {label:"Norwegian", data: idx.norwegian.map(p=>({x:p.dato,y:p.indeks})), borderColor:"#60a5fa", backgroundColor:"#60a5fa"},
-        {label:"Marked", data: idx.marked.map(p=>({x:p.dato,y:p.indeks})), borderColor:"#96a6bb", backgroundColor:"#96a6bb", borderDash:[5,4]},
+        {label:"Norwegian – laveste", data: idx.norwegian.map(p=>({x:p.dato,y:p.indeks})), borderColor:"#60a5fa", backgroundColor:"#60a5fa"},
+        {label:"Norwegian – median", data: (idx.norwegian_median||[]).map(p=>({x:p.dato,y:p.indeks})), borderColor:"#a78bfa", backgroundColor:"#a78bfa"},
+        {label:"Marked – laveste", data: idx.marked.map(p=>({x:p.dato,y:p.indeks})), borderColor:"#96a6bb", backgroundColor:"#96a6bb", borderDash:[5,4]},
       ].map(d=>({...d, tension:.25, pointRadius:3, borderWidth:2, spanGaps:true}));
       if (indeksChart) indeksChart.destroy();
       indeksChart = new Chart(ctx, {type:"line", data:{datasets:ds}, options:baseOpts("indeks")});

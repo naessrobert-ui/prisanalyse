@@ -56,14 +56,14 @@ def _rute_navn(r: dict) -> str:
     return f"{r.get('origin_navn', r['origin'])} → {r.get('destinasjon_navn', r['destinasjon'])}"
 
 
-def _billigst_per(rader: list[dict], bare_norwegian: bool | None = None):
-    """Billigste pris per (dato, rute) – evt. filtrert på Norwegian / konkurrent.
+def _samle_per(rader: list[dict], bare_norwegian: bool | None = None):
+    """Samle ALLE priser per (dato, rute) som lister – filtrert på selskap.
 
     bare_norwegian=True  -> kun DY/D8
     bare_norwegian=False -> kun konkurrenter
     bare_norwegian=None  -> alle selskap (markedet)
     """
-    ut: dict[str, dict[str, float]] = defaultdict(dict)
+    ut: dict[str, dict[str, list]] = defaultdict(lambda: defaultdict(list))
     navn: dict[str, str] = {}
     for r in rader:
         er_dy = r.get("selskap") in NORWEGIAN_KODER
@@ -73,12 +73,30 @@ def _billigst_per(rader: list[dict], bare_norwegian: bool | None = None):
             continue
         rute = _rute(r)
         navn[rute] = _rute_navn(r)
-        dato = r["hentet_dato"]
-        p = r["pris_f"]
-        d = ut[dato]
-        if rute not in d or p < d[rute]:
-            d[rute] = p
+        ut[r["hentet_dato"]][rute].append(r["pris_f"])
     return ut, navn
+
+
+def _reduser(samlet: dict[str, dict[str, list]], aggfun) -> dict[str, dict[str, float]]:
+    """Reduser lister per (dato, rute) til én verdi med aggfun (min/median/…)."""
+    ut: dict[str, dict[str, float]] = defaultdict(dict)
+    for dato, ruter in samlet.items():
+        for rute, priser in ruter.items():
+            if priser:
+                ut[dato][rute] = aggfun(priser)
+    return ut
+
+
+def _billigst_per(rader: list[dict], bare_norwegian: bool | None = None):
+    """Billigste pris per (dato, rute)."""
+    samlet, navn = _samle_per(rader, bare_norwegian)
+    return _reduser(samlet, min), navn
+
+
+def _median_per(rader: list[dict], bare_norwegian: bool | None = None):
+    """Medianpris per (dato, rute) – 'typisk' prisnivå (yield-proxy)."""
+    samlet, navn = _samle_per(rader, bare_norwegian)
+    return _reduser(samlet, statistics.median), navn
 
 
 def prisindeks(rader: list[dict]) -> dict:
@@ -109,9 +127,52 @@ def prisindeks(rader: list[dict]) -> dict:
             })
         return serie
 
-    dy, _ = _billigst_per(rader, bare_norwegian=True)
-    marked, _ = _billigst_per(rader, bare_norwegian=None)
-    return {"norwegian": bygg(dy), "marked": bygg(marked)}
+    dy_min, _ = _billigst_per(rader, bare_norwegian=True)
+    mk_min, _ = _billigst_per(rader, bare_norwegian=None)
+    dy_med, _ = _median_per(rader, bare_norwegian=True)
+    mk_med, _ = _median_per(rader, bare_norwegian=None)
+    return {
+        "norwegian": bygg(dy_min),
+        "norwegian_median": bygg(dy_med),
+        "marked": bygg(mk_min),
+        "marked_median": bygg(mk_med),
+    }
+
+
+def dispersjon(rader: list[dict]) -> dict:
+    """Prisspredning for Norwegian: gap mellom median og laveste pris.
+
+    Lite gap = de billigste billettene er 'spist opp' (prispress/høy etterspørsel).
+    Stort gap = mye billig kapasitet igjen. Rapporterer aggregat for siste dato
+    samt en tidsserie av median-gap i prosent.
+    """
+    dy_min, navn = _billigst_per(rader, bare_norwegian=True)
+    dy_med, _ = _median_per(rader, bare_norwegian=True)
+    datoer = sorted(dy_min)
+    if not datoer:
+        return {"serie": [], "siste": None, "ruter": []}
+
+    serie = []
+    for dato in datoer:
+        gaps = [
+            dy_med[dato][rute] / dy_min[dato][rute] - 1
+            for rute in dy_min[dato]
+            if rute in dy_med[dato] and dy_min[dato][rute] > 0
+        ]
+        if gaps:
+            serie.append({"dato": dato, "gap_pst": round(100 * statistics.median(gaps), 1),
+                          "antall_ruter": len(gaps)})
+
+    siste = datoer[-1]
+    ruter = []
+    for rute, mn in dy_min[siste].items():
+        md = dy_med[siste].get(rute)
+        if md is None or mn <= 0:
+            continue
+        ruter.append({"rute": rute, "navn": navn.get(rute, rute), "laveste": round(mn),
+                      "median": round(md), "gap_pst": round(100 * (md / mn - 1), 1)})
+    ruter.sort(key=lambda x: x["gap_pst"])
+    return {"serie": serie, "siste": serie[-1] if serie else None, "ruter": ruter}
 
 
 def avvik(rader: list[dict], terskel: float = AVVIK_TERSKEL) -> list[dict]:
@@ -209,19 +270,30 @@ def sammendrag(rader: list[dict]) -> dict:
             return None
         return round(serie[-1]["indeks"] - serie[-2]["indeks"], 1)
 
+    dy_med_serie = idx["norwegian_median"]
+    disp = dispersjon(rader)
     dy_billigere = sum(1 for g in gap if g["gap_pst"] <= 0)
     median_dy = None
     if siste and dy_per_dato[siste]:
         median_dy = round(statistics.median(dy_per_dato[siste].values()))
+
+    disp_gap = disp["siste"]["gap_pst"] if disp["siste"] else None
+    disp_endring = None
+    if len(disp["serie"]) >= 2:
+        disp_endring = round(disp["serie"][-1]["gap_pst"] - disp["serie"][-2]["gap_pst"], 1)
 
     return {
         "sist_hentet": siste,
         "antall_datoer": len(dy_serie),
         "norwegian_indeks": dy_serie[-1]["indeks"] if dy_serie else None,
         "norwegian_indeks_endring": endring(dy_serie),
+        "norwegian_median_indeks": dy_med_serie[-1]["indeks"] if dy_med_serie else None,
+        "norwegian_median_indeks_endring": endring(dy_med_serie),
         "marked_indeks": mk_serie[-1]["indeks"] if mk_serie else None,
         "marked_indeks_endring": endring(mk_serie),
         "median_norwegian_pris": median_dy,
+        "dispersjon_gap_pst": disp_gap,
+        "dispersjon_endring": disp_endring,
         "ruter_dy_billigst": dy_billigere,
         "ruter_med_gap": len(gap),
     }
@@ -238,4 +310,5 @@ def full_analyse(sti: Path = HISTORIKK_CSV) -> dict:
         "avvik": avvik(rader),
         "konkurrent_gap": konkurrent_gap(rader),
         "booking_kurve": booking_kurve(rader),
+        "dispersjon": dispersjon(rader),
     }

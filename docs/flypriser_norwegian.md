@@ -11,7 +11,8 @@ Norwegians egne priser fra konkurrentene. Ut av det bygger vi:
 
 | Komponent | Hva det viser |
 |-----------|---------------|
-| **Norwegian prisindeks** | Prisnivå over tid (basis 100), Norwegian vs. markedet. Stigende = høyere priser / mer prispress. |
+| **Norwegian prisindeks** | Prisnivå over tid (basis 100), Norwegian vs. markedet. To linjer: **laveste** (inngangspris, renest signal) og **median** (typisk billettpris, yield-proxy). |
+| **Prisspredning** | Gap mellom median og laveste pris. Krympende gap = de billigste billettene selges ut → prispress/høy etterspørsel. |
 | **Prisavvik** | Ruter der prisen plutselig avviker unormalt fra egen basislinje (median tidligere) – flagg opp/ned. |
 | **Konkurrent-gap** | Norwegians pris vs. billigste konkurrent (SAS/Wizz/Ryanair …) per rute. |
 | **Booking-kurve** | Hvordan billigste pris stiger mot avreise – proxy for etterspørsel/fyllingsgrad. |
