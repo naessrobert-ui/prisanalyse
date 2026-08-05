@@ -12,7 +12,7 @@ on:
       months:
         description: "Antall måneder framover"
         required: false
-        default: "6"
+        default: "9"
 
 permissions:
   contents: write
@@ -51,7 +51,7 @@ jobs:
             echo "::error::Mangler repo-secret TRAVELPAYOUTS_TOKEN. Legg det til under Settings > Secrets and variables > Actions."
             exit 1
           fi
-          MONTHS="${{ github.event.inputs.months || '6' }}"
+          MONTHS="${{ github.event.inputs.months || '9' }}"
           python -m scripts.flypriser_bergen --months "$MONTHS"
 
       - name: Commit oppdaterte priser
@@ -65,3 +65,15 @@ jobs:
             git commit -m "Oppdater flypriser ($(date -u +%Y-%m-%d))"
             git push
           fi
+
+      - name: Send e-postvarsel ved signal
+        # Sender KUN hvis modellen finner noe av betydning OG SMTP/mottaker er satt.
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          FLYPRIS_VARSEL_TIL: ${{ secrets.FLYPRIS_VARSEL_TIL }}
+          FLYPRIS_VARSEL_FRA: ${{ secrets.FLYPRIS_VARSEL_FRA }}
+          PYTHONIOENCODING: "utf-8"
+        run: python -m scripts.flypris_varsel

@@ -236,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
         "--gruppe", nargs="+", choices=["bergen", "innenriks", "norwegian_intl"],
         help="Begrens til rutegrupper (standard: alle).",
     )
-    parser.add_argument("--months", type=int, default=6, help="Antall måneder fremover (standard 6).")
+    parser.add_argument("--months", type=int, default=9, help="Antall måneder fremover (standard 9).")
     parser.add_argument("--currency", default=CURRENCY, help="Valuta (standard nok).")
     parser.add_argument("--pause", type=float, default=0.35, help="Sekunders pause mellom kall.")
     args = parser.parse_args(argv)
