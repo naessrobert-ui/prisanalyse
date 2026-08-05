@@ -123,7 +123,7 @@ def flypriser_data():
     return jsonify(_cached("bergen", _bygg_bergen))
 
 
-@flypriser_bp.route("/norwegian")
+@flypriser_bp.route("/norwegian/")
 def norwegian_side():
     return render_template("flypriser_norwegian.html")
 
