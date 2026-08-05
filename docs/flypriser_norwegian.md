@@ -58,6 +58,35 @@ Tomme felt er greit – panelet viser det som finnes. Automatisk henting fra
 NewsWeb/IR er en mulig senere utvidelse (kilden er PDF/børsmelding, så det
 krever egen parser).
 
+## E-postvarsel (kun ved signal)
+
+`scripts/flypris_varsel.py` kjøres av workflowen etter hver innsamling og
+sender e-post **kun** når modellen finner noe av betydning:
+
+- ett eller flere prisavvik er flagget, eller
+- Norwegian-prisindeksen har flyttet seg ≥ 3 poeng siden forrige måling, eller
+- prisspredningen (median−laveste) har endret seg ≥ 5 prosentpoeng.
+
+Ellers sendes ingenting. Terskler kan justeres øverst i modulen
+(`INDEKS_HOPP`, `DISPERSJON_ENDRING`).
+
+### Oppsett
+Gjenbruker appens SMTP-oppsett. Legg til som repo-secrets:
+
+| Secret | Beskrivelse |
+|--------|-------------|
+| `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` | SMTP-server (samme som media-digesten) |
+| `FLYPRIS_VARSEL_TIL` | **Mottaker(e), kommaseparert** – f.eks. `meg@firma.no, kollega@firma.no` |
+| `FLYPRIS_VARSEL_FRA` | Avsender (valgfritt, default `SMTP_USER`) |
+
+Er `SMTP_HOST` eller `FLYPRIS_VARSEL_TIL` ikke satt, hopper steget stille over.
+Test lokalt uten å sende: `python -m scripts.flypris_varsel --dry-run`.
+
+## Prishorisont
+
+Innsamlingen henter nå **9 måneder** framover (var 6) for et lengre
+booking-vindu. Justeres med `--months` eller workflow-input.
+
 ## Justere rutenettet
 
 Rutene ligger i `_RUTER_RAW` øverst i `scripts/flypriser_bergen.py` som
