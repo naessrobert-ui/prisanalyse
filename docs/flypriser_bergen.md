@@ -3,6 +3,11 @@
 Samler inn lavpriser på flybilletter fra Bergen (BGO) til utvalgte
 destinasjoner, per avreisemåned, og bygger opp en prishistorikk.
 
+> 📈 For den investor-vinklede analysen (Norwegian-prisindeks, avviksdeteksjon,
+> konkurrent-gap, booking-kurve og trafikktall) på `/flypriser/norwegian`,
+> se [flypriser_norwegian.md](flypriser_norwegian.md). Innsamlingen deles –
+> samme skript henter både Bergen-rutene og Norwegians kjernenett.
+
 ## Hvorfor ikke Norwegian direkte?
 
 Eksempel-URL-en (`norwegian.com/no/lavpriskalender/...`) er en frontend-side.
@@ -27,41 +32,41 @@ flyselskap** (inkludert Norwegian). Det er nettopp en lavpriskalender.
 ## Bruk
 
 ```bash
-# Alle standarddestinasjoner, 6 måneder frem:
+# Hele rutenettet (Bergen + Norwegians kjernenett), 6 måneder frem:
 python -m scripts.flypriser_bergen
 
-# Utvalgte destinasjoner, direktefly, 12 måneder:
-python -m scripts.flypriser_bergen --dest NCE ALC LGW --months 12 --direct
+# Bare Bergen-rutene, 12 måneder:
+python -m scripts.flypriser_bergen --gruppe bergen --months 12
 ```
 
 Flagg:
 
-| Flagg         | Beskrivelse                                   | Standard |
-|---------------|-----------------------------------------------|----------|
-| `--dest`      | IATA-koder (f.eks. `NCE ALC`)                 | hele lista |
-| `--months`    | Antall måneder fremover                        | 6        |
-| `--direct`    | Kun direktefly                                 | av       |
-| `--currency`  | Valuta                                          | nok      |
-| `--pause`     | Pause (sek) mellom API-kall                     | 0.4      |
+| Flagg         | Beskrivelse                                     | Standard |
+|---------------|-------------------------------------------------|----------|
+| `--gruppe`    | `bergen` / `innenriks` / `norwegian_intl`       | alle     |
+| `--months`    | Antall måneder fremover                          | 6        |
+| `--currency`  | Valuta                                           | nok      |
+| `--pause`     | Pause (sek) mellom API-kall                      | 0.35     |
 
 ## Resultat
 
-- `data/flypriser_bergen.csv` – full historikk, én rad per henting
+- `data/flypriser_historikk.csv` – full historikk, én rad per tilbud
   (kolonnen `hentet_dato` gjør at du kan følge prisutvikling over tid).
-- `data/flypriser_bergen_beste.csv` – billigste tilbud per destinasjon og
-  måned ved siste kjøring.
+- `data/flypriser_beste.csv` – billigste tilbud per rute og måned ved siste
+  kjøring.
 
 ## Web-side
 
 Blueprinten `scripts/flypriser_routes.py` (registrert i `app.py`) viser data
-på **`/flypriser`**:
+på **`/flypriser`** (reiser ut fra Bergen, `origin=BGO`):
 
 - **Prismatrise** – billigste pris per destinasjon × avreisemåned, med
   fargekoding (grønt = billigst) og klikkbare lenker til søket.
 - **Prisutvikling** – graf (Chart.js) som viser laveste tilgjengelige pris
   per destinasjon for hver gang skriptet er kjørt. JSON på `/flypriser/api/data`.
+- Lenke til **investor-dashbordet** på `/flypriser/norwegian`.
 
-Siden bygger seg opp etter hvert som `data/flypriser_bergen*.csv` fylles.
+Siden bygger seg opp etter hvert som `data/flypriser_*.csv` fylles.
 
 ## Følge prisutvikling / automatisering
 
@@ -81,5 +86,6 @@ og committer oppdaterte CSV-er. Krever ett repo-secret:
 
 Kan også kjøres manuelt fra **Actions**-fanen (*workflow_dispatch*).
 
-Destinasjonslista ligger i `DESTINASJONER` øverst i
-`scripts/flypriser_bergen.py` og kan enkelt utvides.
+Rutenettet ligger i `_RUTER_RAW` øverst i `scripts/flypriser_bergen.py`
+(par `(A, B, gruppe)`, hentes i begge retninger) og kan enkelt utvides.
+Kjør en delmengde med `--gruppe bergen` / `innenriks` / `norwegian_intl`.

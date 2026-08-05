@@ -19,6 +19,8 @@
     .lead { color:var(--muted); max-width:760px; line-height:1.55; }
     .status { color:var(--muted); font-size:.85rem; margin:12px 0 20px; }
     .status.error { color:#fb7185; }
+    .button { color:var(--text); text-decoration:none; border:1px solid var(--line); padding:9px 13px; border-radius:999px; background:#101e31; white-space:nowrap; font-size:.85rem; }
+    .button.primary { background:var(--blue); color:#06111f; border-color:var(--blue); font-weight:700; }
     .panel { background:linear-gradient(145deg,rgba(22,40,64,.95),rgba(12,25,43,.96)); border:1px solid var(--line); border-radius:16px; box-shadow:0 16px 45px rgba(0,0,0,.2); padding:18px; margin-bottom:18px; }
     .panel h2 { font-size:1rem; margin:0 0 14px; }
     .chart-canvas { position:relative; width:100%; height:380px; }
@@ -48,7 +50,10 @@
         <p class="lead">Billigste flybilletter ut fra Bergen per destinasjon og avreisemåned, på tvers av
           flyselskap. Følg med på hvordan prisene utvikler seg over tid.</p>
       </div>
-      <div class="badge" id="meta">Laster …</div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        <a class="button primary" href="norwegian/">📈 Norwegian investor-dashboard →</a>
+        <span class="badge" id="meta">Laster …</span>
+      </div>
     </div>
 
     <div class="status" id="status">Henter prisdata …</div>

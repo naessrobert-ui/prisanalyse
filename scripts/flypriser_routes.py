@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Web-side for flypriser ut fra Bergen.
+"""Web-sider for flypriser.
 
-Leser CSV-ene som scripts/flypriser_bergen.py produserer i data/ og
-serverer en prismatrise (destinasjon × avreisemåned) samt prisutvikling
-over tid (billigste tilgjengelige billett pr. henting).
+  /flypriser            – prismatrise ut fra Bergen (destinasjon × måned)
+  /flypriser/norwegian  – investor-dashboard for Norwegian (DY):
+                          prisindeks, avviksdeteksjon, konkurrent-gap, booking-kurve
 """
 
 from __future__ import annotations
@@ -17,15 +17,18 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, render_template
 
+from scripts.flypriser_analyse import full_analyse
+from scripts.norwegian_trafikk import analyse as trafikk_analyse
+
 flypriser_bp = Blueprint("flypriser", __name__, url_prefix="/flypriser")
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-HISTORIKK_CSV = DATA_DIR / "flypriser_bergen.csv"
-BESTE_CSV = DATA_DIR / "flypriser_bergen_beste.csv"
+HISTORIKK_CSV = DATA_DIR / "flypriser_historikk.csv"
+BESTE_CSV = DATA_DIR / "flypriser_beste.csv"
 
 CACHE_SECONDS = 300
-_cache: dict = {"loaded_at": 0.0, "payload": None}
-_cache_lock = threading.Lock()
+_cache: dict = {"bergen": (0.0, None), "norwegian": (0.0, None)}
+_lock = threading.Lock()
 
 
 def _utc_now_iso() -> str:
@@ -39,98 +42,74 @@ def _les_csv(sti: Path) -> list[dict]:
         return list(csv.DictReader(f))
 
 
-def _til_int(verdi) -> int | None:
+def _int(v):
     try:
-        return int(round(float(verdi)))
+        return int(round(float(v)))
     except (TypeError, ValueError):
         return None
 
 
-def _bygg_payload() -> dict:
-    beste = _les_csv(BESTE_CSV)
-    historikk = _les_csv(HISTORIKK_CSV)
-
+def _bygg_bergen() -> dict:
+    """Prismatrise for reiser UT fra Bergen (origin=BGO)."""
+    beste = [r for r in _les_csv(BESTE_CSV) if r.get("origin") == "BGO"]
+    historikk = [r for r in _les_csv(HISTORIKK_CSV) if r.get("origin") == "BGO"]
     if not beste:
-        return {
-            "ok": False,
-            "generated_at": _utc_now_iso(),
-            "error": "Ingen prisdata ennå. Kjør «python -m scripts.flypriser_bergen».",
-            "destinasjoner": [],
-            "maaneder": [],
-            "matrise": [],
-            "historikk": [],
-        }
+        return {"ok": False, "generated_at": _utc_now_iso(),
+                "error": "Ingen prisdata ennå. Kjør «python -m scripts.flypriser_bergen».",
+                "maaneder": [], "matrise": [], "historikk": []}
 
-    # --- Prismatrise: destinasjon × avreisemåned (billigste tilbud) ---
     maaneder = sorted({r["avreise_maaned"] for r in beste})
-    # billigste pris pr. (destinasjon, måned) med lenke
     pris: dict[str, dict[str, dict]] = defaultdict(dict)
-    dest_navn: dict[str, str] = {}
+    navn: dict[str, str] = {}
     for r in beste:
-        d = r["destinasjon_kode"]
-        dest_navn[d] = r.get("destinasjon_navn") or d
-        p = _til_int(r.get("pris"))
+        d = r["destinasjon"]
+        navn[d] = r.get("destinasjon_navn") or d
+        p = _int(r.get("pris"))
         if p is None:
             continue
-        celle = {"pris": p, "lenke": r.get("lenke") or None, "avreise": r.get("avreise")}
-        eksisterende = pris[d].get(r["avreise_maaned"])
-        if eksisterende is None or p < eksisterende["pris"]:
+        celle = {"pris": p, "lenke": r.get("lenke") or None}
+        if r["avreise_maaned"] not in pris[d] or p < pris[d][r["avreise_maaned"]]["pris"]:
             pris[d][r["avreise_maaned"]] = celle
 
     matrise = []
-    for d in sorted(dest_navn, key=lambda x: dest_navn[x]):
-        rad_priser = [p["pris"] for p in pris[d].values()]
-        matrise.append({
-            "kode": d,
-            "navn": dest_navn[d],
-            "celler": {m: pris[d].get(m) for m in maaneder},
-            "min": min(rad_priser) if rad_priser else None,
-        })
+    for d in sorted(navn, key=lambda x: navn[x]):
+        rp = [c["pris"] for c in pris[d].values()]
+        matrise.append({"kode": d, "navn": navn[d],
+                        "celler": {m: pris[d].get(m) for m in maaneder},
+                        "min": min(rp) if rp else None})
 
-    # --- Prisutvikling: billigste tilgjengelige billett pr. henting, pr. destinasjon ---
-    # (min pris på tvers av alle måneder for hver hentet_dato)
     per_dato: dict[str, dict[str, int]] = defaultdict(dict)
     for r in historikk:
-        p = _til_int(r.get("pris"))
+        p = _int(r.get("pris"))
         if p is None:
             continue
-        d = r["destinasjon_kode"]
-        dato = r.get("hentet_dato")
+        d, dato = r["destinasjon"], r.get("hentet_dato")
         if not dato:
             continue
-        naa = per_dato[d].get(dato)
-        if naa is None or p < naa:
-            per_dato[d][dato] = p
+        if d not in per_dato[dato] or p < per_dato[dato][d]:
+            per_dato[dato][d] = p
+    serier = []
+    for d in sorted(navn, key=lambda x: navn[x]):
+        punkter = sorted((dato, per_dato[dato][d]) for dato in per_dato if d in per_dato[dato])
+        if punkter:
+            serier.append({"kode": d, "navn": navn[d],
+                           "punkter": [{"dato": dt, "pris": p} for dt, p in punkter]})
 
-    historikk_serier = []
-    for d in sorted(per_dato, key=lambda x: dest_navn.get(x, x)):
-        punkter = sorted(per_dato[d].items())
-        historikk_serier.append({
-            "kode": d,
-            "navn": dest_navn.get(d, d),
-            "punkter": [{"dato": dato, "pris": p} for dato, p in punkter],
-        })
-
-    sist_hentet = max((r.get("hentet_dato", "") for r in beste), default="")
-    return {
-        "ok": True,
-        "generated_at": _utc_now_iso(),
-        "sist_hentet": sist_hentet,
-        "valuta": (beste[0].get("valuta") or "nok").upper(),
-        "maaneder": maaneder,
-        "matrise": matrise,
-        "historikk": historikk_serier,
-        "antall_destinasjoner": len(matrise),
-    }
+    return {"ok": True, "generated_at": _utc_now_iso(),
+            "sist_hentet": max((r.get("hentet_dato", "") for r in beste), default=""),
+            "valuta": (beste[0].get("valuta") or "nok").upper(),
+            "maaneder": maaneder, "matrise": matrise, "historikk": serier,
+            "antall_destinasjoner": len(matrise)}
 
 
-def _payload(force: bool = False) -> dict:
+def _cached(key: str, bygg):
     now = time.monotonic()
-    with _cache_lock:
-        if not force and _cache["payload"] and now - _cache["loaded_at"] < CACHE_SECONDS:
-            return _cache["payload"]
-        payload = _bygg_payload()
-        _cache.update({"loaded_at": now, "payload": payload})
+    with _lock:
+        ts, payload = _cache[key]
+        if payload and now - ts < CACHE_SECONDS:
+            return payload
+        payload = bygg()
+        _cache[key] = (now, payload)
         return payload
 
 
@@ -141,4 +120,16 @@ def flypriser_side():
 
 @flypriser_bp.route("/api/data")
 def flypriser_data():
-    return jsonify(_payload())
+    return jsonify(_cached("bergen", _bygg_bergen))
+
+
+@flypriser_bp.route("/norwegian")
+def norwegian_side():
+    return render_template("flypriser_norwegian.html")
+
+
+@flypriser_bp.route("/norwegian/api")
+def norwegian_data():
+    payload = _cached("norwegian", lambda: {
+        **full_analyse(), "trafikk": trafikk_analyse(), "generated_at": _utc_now_iso()})
+    return jsonify(payload)
