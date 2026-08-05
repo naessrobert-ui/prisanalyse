@@ -89,6 +89,20 @@ def test_outside_bounds_and_implausible_gap_do_not_create_crossings():
     assert payload["summary"]["crossings_24h"] == 0
 
 
+def test_track_points_are_retained_for_thirty_days():
+    s3 = FakeS3()
+    run(s3, "2026-07-01T00:00:00+00:00", [vessel(6006, 57.2)])
+
+    # 20 days on: the original point is well past the old 7-day window but must survive.
+    twenty = run(s3, "2026-07-21T00:00:00+00:00", [vessel(6006, 57.2)])
+    assert len(twenty["tracks"]["6006"]) == 2
+
+    # 40 days after the first fix: only the point older than 30 days is pruned.
+    forty = run(s3, "2026-08-10T00:00:00+00:00", [vessel(6006, 57.2)])
+    observed = [point["observed_at"] for point in forty["tracks"]["6006"]]
+    assert observed == ["2026-07-21T00:00:00+00:00", "2026-08-10T00:00:00+00:00"]
+
+
 def test_public_payload_and_csv_are_written():
     s3 = FakeS3()
     payload = run(s3, "2026-07-15T00:00:00+00:00", [vessel(5005, 57.2)])
