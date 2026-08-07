@@ -33,8 +33,19 @@ LOOKUP_COLUMNS = LOOKUP_KEYS + LOOKUP_VALS
 # Innbyttepris = forventet_pris * (1 - INNBYTTE_RABATT), gulvet mot hurtigpris.
 INNBYTTE_RABATT = 0.15
 
+# S3-kilde for lookup-tabellen. Gjør at en cron kan regenerere tabellen og
+# laste opp til S3, og at appen plukker den opp uten ny deploy. Den committede
+# fila (LOOKUP_LOCAL_PATH i scoreren) brukes som fallback hvis S3 er utilgjengelig.
+LOOKUP_S3_BUCKET = os.getenv("S3_BUCKET_NAME", "")
+LOOKUP_S3_KEY = os.getenv("BILRADAR_LOOKUP_S3_KEY", "calc/bil/prislookup.csv")
+# TTL: hvor lenge en lastet tabell caches før neste kall relaster fra kilden.
+# 0 = last én gang (gammel oppførsel). Default 6t gir deploy-fri oppdatering.
+LOOKUP_TTL_SECONDS = int(os.getenv("BILRADAR_LOOKUP_TTL_SECONDS", "21600") or 0)
+
 _LOOKUP_LOCK = threading.Lock()
-_LOOKUP_CACHE = {"df": None, "loaded_at": None}
+# source huskes slik at TTL-relasting treffer samme kilde selv når kallet
+# (f.eks. fra scorer_biler) ikke sender med S3-argumenter.
+_LOOKUP_CACHE = {"df": None, "loaded_at": None, "source": None}
 
 
 def _normaliser_hjuldrift(verdi) -> str:
@@ -100,35 +111,86 @@ def _les_csv(buf_or_path) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
+def _maybe_s3_client(s3_client, bucket: str):
+    """Returner et S3-klientobjekt: bruk et eksplisitt oppgitt, ellers bygg et
+    fra miljøet når en bucket er konfigurert. Returnerer None hvis boto3 eller
+    credentials mangler — da faller last_lookup tilbake på lokal fil."""
+    if s3_client is not None:
+        return s3_client
+    if not bucket:
+        return None
+    try:
+        import boto3
+        return boto3.client("s3")
+    except Exception:
+        return None
+
+
+def _les_lookup_fra_kilde(source: dict) -> pd.DataFrame:
+    """Last tabellen fra kilden i `source`: S3 først (ferskest), lokal fil som
+    fallback. Returnerer tom DataFrame hvis ingen kilde gir data."""
+    df = pd.DataFrame(columns=LOOKUP_COLUMNS)
+    client = _maybe_s3_client(source.get("s3_client"), source.get("bucket", ""))
+    bucket = source.get("bucket", "")
+    key = source.get("key", "")
+    local_path = source.get("local_path", "")
+
+    if client and bucket and key:
+        try:
+            obj = client.get_object(Bucket=bucket, Key=key)
+            df = _les_csv(io.BytesIO(obj["Body"].read()))
+            print(f"[BilRadar] Lookup lastet ({len(df)} grupper) fra s3://{bucket}/{key}")
+            return df
+        except Exception as e:
+            print(f"[BilRadar] Ingen lookup fra S3 ({e}) – prøver lokal fil")
+
+    if local_path and os.path.exists(local_path):
+        try:
+            df = _les_csv(local_path)
+            print(f"[BilRadar] Lookup lastet ({len(df)} grupper) fra {local_path}")
+        except Exception as e:
+            print(f"[BilRadar] Klarte ikke lese {local_path}: {e}")
+
+    return df
+
+
 def last_lookup(local_path: str = "", s3_client=None, bucket: str = "", key: str = "") -> pd.DataFrame:
-    """Last lookup-tabell. Returnerer tom DataFrame hvis intet finnes (ikke en feil)."""
+    """Last lookup-tabell (S3 først, lokal fil som fallback). Cacher resultatet;
+    relaster fra samme kilde når cachen er eldre enn LOOKUP_TTL_SECONDS. Kilden
+    huskes slik at TTL-relasting virker selv når kallet (f.eks. fra
+    scorer_biler) ikke sender med S3-argumenter. Returnerer tom DataFrame hvis
+    intet finnes (ikke en feil)."""
     with _LOOKUP_LOCK:
-        if _LOOKUP_CACHE["df"] is not None:
-            return _LOOKUP_CACHE["df"]
+        # Oppdater husket kilde når nye argumenter oppgis, men behold tidligere
+        # verdier (særlig warmup-ens eksplisitte s3_client/bucket) når et senere
+        # kall — typisk fra scorer_biler — bare sender local_path.
+        prev = _LOOKUP_CACHE["source"] or {}
+        if not prev or s3_client is not None or bucket or key or local_path:
+            _LOOKUP_CACHE["source"] = {
+                "local_path": local_path or prev.get("local_path", ""),
+                "s3_client": s3_client if s3_client is not None else prev.get("s3_client"),
+                "bucket": bucket or prev.get("bucket") or LOOKUP_S3_BUCKET,
+                "key": key or prev.get("key") or LOOKUP_S3_KEY,
+            }
+        source = _LOOKUP_CACHE["source"]
 
-        df = pd.DataFrame(columns=LOOKUP_COLUMNS)
+        cached = _LOOKUP_CACHE["df"]
+        loaded_at = _LOOKUP_CACHE["loaded_at"]
+        if cached is not None and loaded_at is not None:
+            fersk = LOOKUP_TTL_SECONDS <= 0 or (
+                (datetime.now() - loaded_at).total_seconds() < LOOKUP_TTL_SECONDS
+            )
+            if fersk:
+                return cached
 
-        if local_path and os.path.exists(local_path):
-            try:
-                df = _les_csv(local_path)
-                print(f"[BilRadar] Lookup lastet ({len(df)} grupper) fra {local_path}")
-            except Exception as e:
-                print(f"[BilRadar] Klarte ikke lese {local_path}: {e}")
-        elif s3_client and bucket and key:
-            try:
-                obj = s3_client.get_object(Bucket=bucket, Key=key)
-                df = _les_csv(io.BytesIO(obj["Body"].read()))
-                print(f"[BilRadar] Lookup lastet ({len(df)} grupper) fra s3://{bucket}/{key}")
-            except Exception as e:
-                print(f"[BilRadar] Ingen lookup fra S3 ({e}) – fortsetter uten")
-
+        df = _les_lookup_fra_kilde(source)
         _LOOKUP_CACHE["df"] = df
         _LOOKUP_CACHE["loaded_at"] = datetime.now()
         return df
 
 
 def reload_lookup():
-    """Tving re-lasting ved neste kall (etter at CSV er endret)."""
+    """Tving re-lasting ved neste kall (etter at CSV er endret/lastet opp)."""
     with _LOOKUP_LOCK:
         _LOOKUP_CACHE["df"] = None
         _LOOKUP_CACHE["loaded_at"] = None

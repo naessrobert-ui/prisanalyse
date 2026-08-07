@@ -17,7 +17,8 @@ import duckdb
 from flask import Blueprint, render_template, jsonify, request
 import traceback
 
-from bilradar_scorer import last_modell_lokal_eller_s3, scorer_biler
+from bilradar_scorer import last_modell_lokal_eller_s3, scorer_biler, LOOKUP_LOCAL_PATH
+from bilradar_lookup import last_lookup
 
 from config import (
     AWS_KEY,
@@ -1482,9 +1483,9 @@ def _lag_json_data_fra_parquet(df: pd.DataFrame) -> str:
         "Karosseri": "ka", "Pris_ny": "p", "Pris": "pf",
         "selger": "s", "sted": "st", "fylke": "fy", "forhandler": "fh",
         "BildeURL": "im", "forventet_pris": "ep", "rabatt_pct": "r",
-        "hurtigpris": "hp",
+        "hurtigpris": "hp", "innbyttepris": "ib",
     }
-    int_keys = {"i", "a", "k", "p", "pf", "ep", "hp"}
+    int_keys = {"i", "a", "k", "p", "pf", "ep", "hp", "ib"}
     cars = []
     for _, row in df.iterrows():
         car = {}
@@ -1552,6 +1553,13 @@ def start_bilradar_warmup():
             print("[BilRadar/warmup] Starter modell-lasting i bakgrunn ...")
             t0 = time.time()
             s3 = _get_s3_client()
+            # Lookup-tabellen først (liten, rask): S3 med committed fil som
+            # fallback. Populerer cachen slik at scorer_biler treffer S3-data.
+            try:
+                last_lookup(local_path=LOOKUP_LOCAL_PATH, s3_client=s3, bucket=S3_BUCKET_NAME)
+                print("[BilRadar/warmup] Lookup-tabell klar")
+            except Exception as exc:
+                print(f"[BilRadar/warmup] Lookup feilet ({exc!r}) — bruker lokal/ingen")
             _hent_bilradar_modell(s3)
             print(f"[BilRadar/warmup] Modell klar etter {time.time() - t0:.1f}s")
         except Exception as exc:
@@ -1560,6 +1568,39 @@ def start_bilradar_warmup():
             print(f"[BilRadar/warmup] Feilet ({exc!r}) — faller tilbake til lazy load")
 
     threading.Thread(target=_warmup, name="bilradar-modell-warmup", daemon=True).start()
+
+
+@bil_bp.route('/reload', methods=['POST', 'GET'])
+def bil_reload():
+    """Tøm cachene for lookup-tabell (+ variantkatalog) og re-last fra S3, slik
+    at ny verdsettelse slår inn uten ny deploy. Kjøres av cron/GitHub Action
+    etter at ny prislookup.csv er lastet opp til S3.
+
+    Prismodellen (~150 MB) relastes kun med ?modell=1, siden det er tungt."""
+    from bilradar_lookup import reload_lookup
+    from bilradar_scorer import reload_modell
+
+    reloaded = {"lookup": True}
+    reload_lookup()
+    try:
+        from bil_variant_klassifiserer import reload_variantkatalog
+        reload_variantkatalog()
+        reloaded["variantkatalog"] = True
+    except Exception:
+        reloaded["variantkatalog"] = False
+
+    if request.args.get("modell") == "1":
+        reload_modell()
+        with _BILRADAR_MODEL_LOCK:
+            _BILRADAR_MODEL_CACHE["modeller"] = None
+        reloaded["modell"] = True
+
+    try:
+        s3 = _get_s3_client()
+        lookup = last_lookup(local_path=LOOKUP_LOCAL_PATH, s3_client=s3, bucket=S3_BUCKET_NAME)
+        return jsonify({"ok": True, "reloaded": reloaded, "lookup_grupper": int(len(lookup))})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 def _normaliser_df_for_scoring(df: pd.DataFrame) -> pd.DataFrame:
