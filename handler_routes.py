@@ -689,6 +689,8 @@ def _portfolio_position_rows(est) -> list[dict]:
             "sist_sett": p.last_seen,
             "eldste_obs": p.oldest_seen,
             "dager_siden": p.days_since,
+            "dager_siden_sett": ep._days_between(p.last_seen, est.reference_date),
+            "dager_siden_handel": ep._days_between(p.last_trade_any, est.reference_date),
             "foreldet": bool(stale),
             "antall_kontoer": len(p.accounts),
         })
