@@ -1,20 +1,23 @@
 """
 bil_kupp_analyse.py — Finner underprisede biler i markedet.
 
-Erstatter bilradar_scorer.py med en peer-gruppe-basert tilnærming uten
-pretrent joblib-modell — kjøres direkte mot database_biler.parquet på S3
-(s3://prisanalyse-data/calc/bil/database_biler.parquet).
+Skriver bilradar_aktive.parquet (kilde for /radar) med SAMME motor som
+/finn-sok og /innbytte: lookup/variant-tabellen er primær, peer-gruppe-WLS
+er fallback for biler uten lookup-treff.
 
 Algoritme:
-  1. Aktive biler (Solgt=NEI) prises mot tidsvektet historikk av JA+FJERNET
-  2. Tier 1 peer-gruppe: (Produsent, Modell, drivstoff, hjuldrift)
-     -> WLS log(pris) ~ alder + km_norm
-  3. Tier 2 fallback: (Produsent, Modell, drivstoff) — for små grupper
-  4. Etterspørselssignal: median dager fra Dato_ny til Dato per peer-gruppe
+  0. Tier 0 (primær): lookup/variant-tabellen (bilradar_lookup) — riktig
+     batteripakke/rekkevidde for elbil, prosentvis km-justering, hurtigpris
+     og innbyttepris. Dekker det lookup-tabellen har data for.
+  1. Tier 1 fallback: (Produsent, Modell, drivstoff, hjuldrift)
+     -> WLS log(pris) ~ alder + km_norm, mot tidsvektet historikk (JA+FJERNET)
+  2. Tier 2 fallback: (Produsent, Modell, drivstoff) — for små grupper
+  + Manuelle overstyringer (bilradar_overrides) som i live-scoringen.
 
 Output:
-  - parquet med forventet_pris, rabatt_kr, rabatt_pct, peer_n, peer_tier,
-    peer_konfidens, peer_dager_til_salg_median for alle aktive biler
+  - parquet med forventet_pris, hurtigpris, innbyttepris, rabatt_kr,
+    rabatt_pct, modell_nivaa, peer_n, peer_tier, peer_konfidens,
+    peer_dager_til_salg_median for alle aktive biler
   - CSV topplist sortert på rabatt_pct (filtrert på konfidens 1-2)
 
 Kjøring:
@@ -35,11 +38,20 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from bilradar_lookup import apply_lookup, last_lookup
+from bilradar_overrides import apply_overrides, last_overrides
+
 S3_KEY_INPUT = "calc/bil/database_biler.parquet"
 S3_KEY_OUTPUT = "calc/bil/bilradar_aktive.parquet"
 DEFAULT_OUTPUT_PARQUET = r"C:\Users\Rober\Downloads\bilradar_aktive.parquet"
 DEFAULT_OUTPUT_CSV = r"C:\Users\Rober\Downloads\bil_kupp_topplist.csv"
 DEFAULT_TOP = 200
+
+# Lokale kilder for lookup/overrides (committed fallback; S3 foretrekkes i drift).
+_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+LOOKUP_LOCAL_PATH = os.path.join(_DATA_DIR, "prislookup.csv")
+OVERRIDES_LOCAL_PATH = os.path.join(_DATA_DIR, "pris_overstyring.csv")
+INNBYTTE_RABATT = 0.15  # innbyttepris = forventet_pris * (1 - INNBYTTE_RABATT)
 
 MIN_PEERS = 8
 MAX_HISTORIE_DAGER = 365
@@ -168,6 +180,35 @@ def _features(sub: pd.DataFrame) -> np.ndarray:
     ])
 
 
+def kjor_lookup(df_aktive: pd.DataFrame) -> int:
+    """Tier 0 (primær): scor aktive biler med lookup/variant-tabellen — samme
+    motor som /finn-sok og /innbytte. Setter forventet_pris, hurtigpris og
+    modell_nivaa='LOOKUP' for biler med treff. Returnerer antall dekket.
+
+    Rører kun forventet_pris/hurtigpris/modell_nivaa på df_aktive — peer_n/
+    peer_tier/peer_konfidens (WLS-semantikk) berøres ikke, selv om apply_lookup
+    internt setter peer_konfidens på sin egen kopi."""
+    lookup = last_lookup(local_path=LOOKUP_LOCAL_PATH)
+    if lookup is None or lookup.empty:
+        print("      Ingen lookup-tabell tilgjengelig — hopper over Tier 0")
+        return 0
+
+    # apply_lookup klassifiserer variant live og leser Produsent/Modell/
+    # drivstoff/hjuldrift/årstall/kjørelengde (+ rekkevidde/Overskrift/kWh for
+    # variant). Alle finnes allerede på df_aktive fra parquet-en.
+    scored = apply_lookup(df_aktive.copy(), lookup)
+    if "modell_nivaa" not in scored.columns:
+        return 0
+    mask = (scored["modell_nivaa"] == "LOOKUP").values
+
+    idx = df_aktive.index[mask]
+    df_aktive.loc[idx, "forventet_pris"] = scored.loc[mask, "forventet_pris"].values
+    if "hurtigpris" in scored.columns:
+        df_aktive.loc[idx, "hurtigpris"] = scored.loc[mask, "hurtigpris"].values
+    df_aktive.loc[idx, "modell_nivaa"] = "LOOKUP"
+    return int(mask.sum())
+
+
 def kjor_tier(
     df_aktive: pd.DataFrame,
     df_train: pd.DataFrame,
@@ -255,28 +296,41 @@ def kjor_analyse(
         & df_aktive["alder"].notna()
     ].copy()
     df_aktive["forventet_pris"] = np.nan
+    df_aktive["hurtigpris"] = np.nan
+    df_aktive["innbyttepris"] = np.nan
+    df_aktive["modell_nivaa"] = pd.Series("Ingen modell", index=df_aktive.index, dtype="object")
     df_aktive["peer_n"] = 0
     df_aktive["peer_tier"] = 0
     df_aktive["peer_dager_til_salg_median"] = np.nan
     print(f"      {len(df_aktive):,} aktive biler")
 
-    print("[4/6] Tier 1: Produsent + Modell + drivstoff + hjuldrift ...")
+    print("[4/6] Tier 0: lookup/variant (primær motor) ...")
+    n0 = kjor_lookup(df_aktive)
+    print(f"      Tier 0 (lookup) dekket {n0:,} biler")
+
+    print("      Tier 1: Produsent + Modell + drivstoff + hjuldrift (WLS-fallback) ...")
     n1 = kjor_tier(
         df_aktive, df_train,
         ["Produsent", "Modell", "drivstoff", "hjuldrift"], tier_nr=1,
-        bare_uforklarte=False,
+        bare_uforklarte=True,
     )
-    print(f"      Tier 1 dekket {n1:,} biler")
+    print(f"      Tier 1 dekket {n1:,} ekstra biler")
 
-    print("[5/6] Tier 2: Produsent + Modell + drivstoff (fallback) ...")
+    print("[5/6] Tier 2: Produsent + Modell + drivstoff (WLS-fallback) ...")
     n2 = kjor_tier(
         df_aktive, df_train,
         ["Produsent", "Modell", "drivstoff"], tier_nr=2,
         bare_uforklarte=True,
     )
     print(f"      Tier 2 dekket {n2:,} ekstra biler")
+    # WLS-fallback får modell_nivaa satt fra peer_tier (LOOKUP-rader beholdes).
+    wls_mask = (df_aktive["peer_tier"].isin([1, 2])) & (df_aktive["modell_nivaa"] != "LOOKUP")
+    df_aktive.loc[wls_mask, "modell_nivaa"] = "PEER-WLS-T" + df_aktive.loc[wls_mask, "peer_tier"].astype(str)
 
-    print("[6/6] Beregner rabatt og lagrer ...")
+    print("[6/6] Overstyringer, rabatt og innbytte, lagrer ...")
+    # Manuelle overstyringer på forventet_pris — samme lag som live-scoringen.
+    df_aktive = apply_overrides(df_aktive, last_overrides(local_path=OVERRIDES_LOCAL_PATH))
+
     mask = df_aktive["forventet_pris"].notna() & (df_aktive["forventet_pris"] > 0)
     df_aktive["rabatt_kr"] = np.nan
     df_aktive["rabatt_pct"] = np.nan
@@ -287,6 +341,12 @@ def kjor_analyse(
         df_aktive.loc[mask, "rabatt_kr"] / df_aktive.loc[mask, "forventet_pris"] * 100
     )
 
+    # Innbyttepris uniformt (som i scorer_biler): 15 % under (evt. overstyrt)
+    # forventet pris, gulvet mot hurtigpris når den finnes.
+    innbytte = df_aktive["forventet_pris"] * (1 - INNBYTTE_RABATT)
+    innbytte = pd.concat([innbytte, df_aktive["hurtigpris"]], axis=1).min(axis=1)
+    df_aktive["innbyttepris"] = innbytte.where(mask)
+
     konf = pd.Series(0, index=df_aktive.index, dtype="int8")
     t1 = df_aktive["peer_tier"] == 1
     t2 = df_aktive["peer_tier"] == 2
@@ -294,6 +354,8 @@ def kjor_analyse(
     konf[t1 & (df_aktive["peer_n"] >= KONF_OK_N) & (df_aktive["peer_n"] < KONF_HOY_N)] = 2
     konf[t2 & (df_aktive["peer_n"] >= KONF_HOY_N)] = 2
     konf[t2 & (df_aktive["peer_n"] >= KONF_OK_N) & (df_aktive["peer_n"] < KONF_HOY_N)] = 3
+    # Lookup/variant er den betrodde primærmotoren -> høy konfidens.
+    konf[df_aktive["modell_nivaa"] == "LOOKUP"] = 1
     df_aktive["peer_konfidens"] = konf
 
     # Flag mistenkelig høy "rabatt" — typisk feil-listinger eller bait
@@ -309,7 +371,8 @@ def kjor_analyse(
         "Dato", "Dato_ny",
         "fylke", "sted", "selger", "forhandler", "BildeURL", "url",
         "Solgt",
-        "forventet_pris", "rabatt_kr", "rabatt_pct",
+        "forventet_pris", "hurtigpris", "innbyttepris",
+        "rabatt_kr", "rabatt_pct", "modell_nivaa",
         "peer_n", "peer_tier", "peer_konfidens",
         "peer_dager_til_salg_median", "mistenkelig_pris",
     ]
@@ -333,9 +396,11 @@ def kjor_analyse(
     print("===== SAMMENDRAG =====")
     print(f"Aktive biler totalt:     {len(df_aktive):,}")
     print(f"Med forventet pris:      {df_aktive['forventet_pris'].notna().sum():,}")
-    print(f"  - Tier 1:              {(df_aktive['peer_tier'] == 1).sum():,}")
-    print(f"  - Tier 2:              {(df_aktive['peer_tier'] == 2).sum():,}")
-    print(f"  - Uten match:          {(df_aktive['peer_tier'] == 0).sum():,}")
+    print(f"  - Tier 0 (lookup):     {(df_aktive['modell_nivaa'] == 'LOOKUP').sum():,}")
+    print(f"  - Tier 1 (WLS):        {(df_aktive['peer_tier'] == 1).sum():,}")
+    print(f"  - Tier 2 (WLS):        {(df_aktive['peer_tier'] == 2).sum():,}")
+    print(f"  - Uten match:          {df_aktive['forventet_pris'].isna().sum():,}")
+    print(f"Med hurtigpris/innbytte: {df_aktive['innbyttepris'].notna().sum():,}")
     print()
     print("Konfidens-fordeling (0=ingen, 1=høy, 2=ok, 3=lav):")
     print(df_aktive["peer_konfidens"].value_counts().sort_index().to_string())

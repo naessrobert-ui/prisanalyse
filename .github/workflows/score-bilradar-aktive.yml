@@ -1,0 +1,78 @@
+name: Scor Bilradar aktive biler
+
+# Scorer alle aktive biler med den samlede motoren (lookup/variant primær,
+# peer-WLS fallback) og skriver s3://.../calc/bil/bilradar_aktive.parquet —
+# kilden for /radar. Kjøres:
+#   - repository_dispatch (event_type: database-updated): trigges av
+#     Raspberry Pi-en rett etter at konsolider_data har lastet opp ny
+#     database_biler.parquet. Da scores nye biler så snart de er lagt inn.
+#     Pi-en sender (med en PAT som har repo-scope):
+#       curl -X POST \
+#         -H "Authorization: token $GH_TOKEN" \
+#         -H "Accept: application/vnd.github+json" \
+#         https://api.github.com/repos/naessrobert-ui/prisanalyse/dispatches \
+#         -d '{"event_type":"database-updated"}'
+#   - schedule: hver time som sikkerhetsnett hvis en dispatch skulle feile.
+#   - workflow_dispatch: manuell kjøring fra Actions-fanen.
+
+on:
+  repository_dispatch:
+    types: [database-updated]
+  schedule:
+    - cron: "15 * * * *"
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Last opp resultatet til S3"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+
+# Unngå overlappende kjøringer; siste dispatch vinner.
+concurrency:
+  group: score-bilradar-aktive
+  cancel-in-progress: true
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Sjekk ut kildekode
+        uses: actions/checkout@v4
+
+      - name: Sett opp Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Installer avhengigheter
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Scor aktive biler (S3 inn/ut)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'eu-north-1' }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME || 'prisanalyse-data' }}
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          UPLOAD_ARG=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.upload }}" = "false" ]; then
+            UPLOAD_ARG="--no-upload"
+          fi
+          python bil_kupp_analyse.py \
+            --output-parquet /tmp/bilradar_aktive.parquet \
+            --output-csv /tmp/bil_kupp_topplist.csv \
+            $UPLOAD_ARG
