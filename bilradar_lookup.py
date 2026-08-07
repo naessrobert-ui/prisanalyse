@@ -230,6 +230,11 @@ def apply_lookup(df: pd.DataFrame, lookup: pd.DataFrame) -> pd.DataFrame:
 
     # Sikre samme dtype paa begge sider
     venstre = df.copy()
+    # Kolonner kan komme som 'category' (database_biler.parquet). fillna/map med
+    # nye verdier feiler paa Categorical, saa konverter til object foerst.
+    cat_cols = [c for c in venstre.columns if isinstance(venstre[c].dtype, pd.CategoricalDtype)]
+    if cat_cols:
+        venstre[cat_cols] = venstre[cat_cols].astype(object)
     # Dropp evt. forhaandseksisterende lookup-verdikolonner (median_pris,
     # hurtigpris, innbyttepris, km_slope_pct, ...) fra venstre side. Ellers gir
     # merge dem suffiks ("_lu") og vi leser feilaktig den innkommende (typisk
