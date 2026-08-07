@@ -149,6 +149,16 @@ def test_lookup_ignorerer_forhandseksisterende_verdikolonner():
     assert pd.notna(res.loc[0, "innbyttepris"])
 
 
+def test_lookup_taaler_kategoriske_kolonner():
+    """Regresjon: database_biler.parquet lagrer strengkolonner som 'category'.
+    apply_lookup må ikke kaste 'Cannot setitem on a Categorical' på fillna/map."""
+    df = _basis_df()
+    for c in ["Produsent", "Modell", "drivstoff", "hjuldrift"]:
+        df[c] = df[c].astype("category")
+    res = apply_lookup(df, _lookup())  # skal ikke kaste
+    assert res.loc[0, "modell_nivaa"] == "LOOKUP"
+
+
 def test_lookup_lar_ikke_matchende_biler_uendret():
     df = _basis_df()
     res = apply_lookup(df, _lookup())

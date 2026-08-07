@@ -132,6 +132,12 @@ def les_og_klargjor(path: str | None, ref_dato: pd.Timestamp) -> pd.DataFrame:
     df = pd.read_parquet(path)
     print(f"      {len(df):,} rader, {df.shape[1]} kolonner ({path})")
 
+    # database_biler.parquet lagrer mange strengkolonner som 'category'. fillna/
+    # map med nye verdier feiler paa Categorical, saa konverter til object foerst.
+    cat_cols = [c for c in df.columns if isinstance(df[c].dtype, pd.CategoricalDtype)]
+    if cat_cols:
+        df[cat_cols] = df[cat_cols].astype(object)
+
     for col in ["Produsent", "Modell", "drivstoff", "hjuldrift"]:
         df[col] = (
             df[col].fillna("Ukjent").astype(str).str.strip()

@@ -125,6 +125,13 @@ def _last_og_klargjor(path: str) -> pd.DataFrame:
     paa askingspriser, som typisk ligger over realisert pris."""
     df = pd.read_parquet(path)
 
+    # database_biler.parquet lagrer mange strengkolonner som 'category' (satt i
+    # konsolider_data). fillna/map med nye verdier feiler paa Categorical, saa
+    # konverter dem tilbake til vanlige object-kolonner foer bearbeiding.
+    cat_cols = [c for c in df.columns if isinstance(df[c].dtype, pd.CategoricalDtype)]
+    if cat_cols:
+        df[cat_cols] = df[cat_cols].astype(object)
+
     for c in ["Pris", "Pris_ny", "kjørelengde", "årstall", "batterikapasitet_kwh"]:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
