@@ -121,6 +121,7 @@
   function im(c){return c.im||""}
   function ep(c){return c.ep||0}
   function hp(c){return c.hp||0}
+  function ib(c){return c.ib||0}
   function rb(c){return c.r||0}
   function dm(c){return c.dm||0}
   function finnUrl(c){var id=fk(c);return id?"https://www.finn.no/mobility/item/"+id:"#"}
@@ -198,7 +199,9 @@
       var hpVal=hp(c);
       var underFast=hpVal&&curP&&curP<hpVal;
       var fastHtml=hpVal?'<div class="card-fast">Hurtigpris: <span class="val">'+fmtKr(hpVal)+'</span>'+(underFast?'<span class="badge-fast">UNDER</span>':'')+'</div>':'';
-      html+='<a class="car-card'+(isGood?' good-deal':'')+'" href="'+finnUrl(c)+'" target="_blank" rel="noopener"><div class="card-img-wrap">'+imgH+'<div class="badge-discount'+bc+'">'+bt+'</div></div><div class="card-body"><div class="card-title">'+title+'</div>'+(sub?'<div class="card-subtitle">'+sub+'</div>':'')+'<div class="card-specs">'+specs.map(function(s){return'<span>'+s+'</span>'}).join("")+'</div><div class="card-price-row">'+priceHtml+(ep(c)?'<div class="card-expected">Forventet: <span class="val">'+fmtKr(ep(c))+'</span></div>':'')+'</div>'+fastHtml+(locHtml?'<div class="card-location">'+locHtml+'</div>':'')+'</div></a>';
+      var ibVal=ib(c);
+      var innbytteHtml=ibVal?'<div class="card-fast">Innbyttepris: <span class="val">'+fmtKr(ibVal)+'</span></div>':'';
+      html+='<a class="car-card'+(isGood?' good-deal':'')+'" href="'+finnUrl(c)+'" target="_blank" rel="noopener"><div class="card-img-wrap">'+imgH+'<div class="badge-discount'+bc+'">'+bt+'</div></div><div class="card-body"><div class="card-title">'+title+'</div>'+(sub?'<div class="card-subtitle">'+sub+'</div>':'')+'<div class="card-specs">'+specs.map(function(s){return'<span>'+s+'</span>'}).join("")+'</div><div class="card-price-row">'+priceHtml+(ep(c)?'<div class="card-expected">Forventet: <span class="val">'+fmtKr(ep(c))+'</span></div>':'')+'</div>'+fastHtml+innbytteHtml+(locHtml?'<div class="card-location">'+locHtml+'</div>':'')+'</div></a>';
     }
     grid.innerHTML=html;
   }

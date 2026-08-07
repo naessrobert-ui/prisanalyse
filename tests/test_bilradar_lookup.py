@@ -3,7 +3,57 @@ import io
 import numpy as np
 import pandas as pd
 
-from bilradar_lookup import apply_lookup, _les_csv, _normaliser_hjuldrift
+from bilradar_lookup import apply_lookup, last_lookup, reload_lookup, _les_csv, _normaliser_hjuldrift
+
+
+_NY_SKJEMA_HEADER = (
+    "Produsent,Modell,variant_id,hjuldrift,drivstoff,årstall,"
+    "n_obs,median_pris,median_km,hurtigpris,innbyttepris,km_slope_pct\n"
+)
+
+
+class _FakeS3:
+    """Minimal S3-klient for last_lookup-testene."""
+
+    def __init__(self, csv_bytes: bytes | None = None, raise_exc: bool = False):
+        self._csv = csv_bytes
+        self._raise = raise_exc
+
+    def get_object(self, Bucket, Key):  # noqa: N803 (matcher boto3-signaturen)
+        if self._raise:
+            raise RuntimeError("NoSuchKey")
+        return {"Body": io.BytesIO(self._csv)}
+
+
+def test_last_lookup_foretrekker_s3():
+    reload_lookup()
+    try:
+        csv = (_NY_SKJEMA_HEADER +
+               "Tesla,Model Y,ikke_klassifisert,Firehjul,Elektrisk,2022,10,350000,60000,320000,297500,-2e-6\n"
+               ).encode("utf-8")
+        fake = _FakeS3(csv_bytes=csv)
+        df = last_lookup(local_path="/finnes/ikke.csv", s3_client=fake, bucket="b", key="k")
+        assert len(df) == 1
+        assert int(df.iloc[0]["median_pris"]) == 350_000
+    finally:
+        reload_lookup()
+
+
+def test_last_lookup_faller_tilbake_til_lokal_ved_s3_feil(tmp_path):
+    reload_lookup()
+    try:
+        p = tmp_path / "lu.csv"
+        p.write_text(
+            _NY_SKJEMA_HEADER +
+            "Kia,EV6,ikke_klassifisert,Firehjul,Elektrisk,2022,10,400000,50000,380000,340000,-2e-6\n",
+            encoding="utf-8",
+        )
+        fake = _FakeS3(raise_exc=True)  # S3 feiler -> skal bruke lokal fil
+        df = last_lookup(local_path=str(p), s3_client=fake, bucket="b", key="k")
+        assert len(df) == 1
+        assert df.iloc[0]["Modell"] == "EV6"
+    finally:
+        reload_lookup()
 
 
 def _basis_df():

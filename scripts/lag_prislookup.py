@@ -69,9 +69,11 @@ MIN_OBS_HURTIG = 3
 INNBYTTE_RABATT = 0.15
 
 S3_INPUT_KEY = "calc/bil/database_biler.parquet"
+# Må matche BILRADAR_LOOKUP_S3_KEY-defaulten i bilradar_lookup.py.
+S3_OUTPUT_KEY = os.getenv("BILRADAR_LOOKUP_S3_KEY", "calc/bil/prislookup.csv")
 
 
-def _hent_fra_s3() -> str:
+def _s3_klient_og_bucket():
     import boto3
     from config import S3_BUCKET_NAME, AWS_KEY, AWS_SECRET, AWS_REGION
 
@@ -79,10 +81,22 @@ def _hent_fra_s3() -> str:
         "s3", region_name=AWS_REGION,
         aws_access_key_id=AWS_KEY, aws_secret_access_key=AWS_SECRET,
     )
+    return s3, S3_BUCKET_NAME
+
+
+def _hent_fra_s3() -> str:
+    s3, bucket = _s3_klient_og_bucket()
     local = os.path.join(tempfile.gettempdir(), "database_biler.parquet")
-    print(f"[S3] Laster ned s3://{S3_BUCKET_NAME}/{S3_INPUT_KEY} -> {local}")
-    s3.download_file(S3_BUCKET_NAME, S3_INPUT_KEY, local)
+    print(f"[S3] Laster ned s3://{bucket}/{S3_INPUT_KEY} -> {local}")
+    s3.download_file(bucket, S3_INPUT_KEY, local)
     return local
+
+
+def _last_opp_til_s3(local_path: str):
+    s3, bucket = _s3_klient_og_bucket()
+    print(f"[S3] Laster opp {local_path} -> s3://{bucket}/{S3_OUTPUT_KEY}")
+    s3.upload_file(local_path, bucket, S3_OUTPUT_KEY)
+    print("[S3] Opplasting ferdig")
 
 
 def _tilfor_variant(df: pd.DataFrame) -> pd.DataFrame:
@@ -270,8 +284,10 @@ def bygg_lookup(df: pd.DataFrame) -> tuple[pd.DataFrame, float]:
 def main():
     parser = argparse.ArgumentParser(description="Bygg prislookup-tabell fra salgsdata.")
     parser.add_argument("--input", help="Lokal parquet (database_biler.parquet)")
-    parser.add_argument("--s3", action="store_true", help="Hent fra S3")
+    parser.add_argument("--s3", action="store_true", help="Hent input fra S3")
     parser.add_argument("--output", default="data/prislookup.csv")
+    parser.add_argument("--upload", action="store_true",
+                        help="Last opp resultatet til S3 (calc/bil/prislookup.csv)")
     args = parser.parse_args()
 
     if args.s3:
@@ -295,6 +311,10 @@ def main():
     lookup.to_csv(args.output, index=False, encoding="utf-8-sig")
 
     print(f"[SAVE] Skrev {len(lookup):,} grupper til {args.output}")
+
+    if args.upload:
+        _last_opp_til_s3(args.output)
+
     print()
     print("Topp 15 grupper etter datagrunnlag:")
     print(
