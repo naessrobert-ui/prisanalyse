@@ -233,6 +233,19 @@ def test_net_buys_fallback_to_holding_delta(tmp_path):
     c.close()
 
 
+def test_last_trade_any_over_full_history(conn):
+    investors = ep.resolve_investors(conn, investor_ids=["1001"])
+    # Kort periode i august: siste transaksjon skal likevel regnes over hele
+    # historikken, ikke bare innenfor perioden.
+    est = ep.estimate_portfolio(
+        conn, investors, trade_from="2026-08-01", trade_to="2026-08-06"
+    )
+    pos = _by_isin(est)
+    assert pos["NO0010096985"].last_trade_any == "2026-08-06"
+    # MOWI handlet 2026-05-01 (utenfor perioden) men er fortsatt siste handel.
+    assert pos["NO0003054108"].last_trade_any == "2026-05-01"
+
+
 def test_net_buys_absent_without_period(conn):
     investors = ep.resolve_investors(conn, investor_ids=["1001"])
     est = ep.estimate_portfolio(conn, investors)

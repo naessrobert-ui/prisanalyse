@@ -102,6 +102,7 @@ class Position:
     net_buy_mnok: Optional[float] = None     # netto kjøpsbeløp i MNOK (positiv = netto kjøp)
     n_trades: int = 0                         # antall handelsdager med endring i perioden
     last_trade: Optional[str] = None          # siste handelsdato i perioden
+    last_trade_any: Optional[str] = None       # siste handelsdato over hele historikken
 
     @property
     def value(self) -> Optional[float]:
@@ -345,6 +346,41 @@ def _net_buys(
     return out
 
 
+def _last_trade_dates(
+    conn: sqlite3.Connection, ids: list[str], as_of: Optional[str]
+) -> dict[str, str]:
+    """Siste faktiske handelsdato per ISIN over hele historikken (til as_of).
+
+    Uavhengig av visnings-/nettokjøpsperioden — svarer på «når handlet
+    investoren sist i denne aksjen», ikke bare innenfor et valgt vindu.
+    """
+    if not ids:
+        return {}
+    placeholders = ",".join("?" for _ in ids)
+    date_filter = "AND date_today <= ?" if as_of else ""
+    params = list(ids) + ([as_of] if as_of else [])
+    sql = f"""
+        WITH t AS (
+            SELECT
+                isin,
+                date_today,
+                COALESCE(change_qty, holding_today - holding_yesterday, 0) AS chg
+            FROM position_change
+            WHERE investor_id IN ({placeholders})
+              {date_filter}
+        )
+        SELECT isin, MAX(date_today) AS last_trade
+        FROM t
+        WHERE chg <> 0
+        GROUP BY isin
+    """
+    out: dict[str, str] = {}
+    for r in conn.execute(sql, params).fetchall():
+        if r["last_trade"]:
+            out[str(r["isin"])] = str(r["last_trade"])[:10]
+    return out
+
+
 # =========================================================
 # Kjerne: estimer portefølje
 # =========================================================
@@ -408,6 +444,7 @@ def estimate_portfolio(
     prices = _latest_prices(conn, as_of)
     meta = _security_meta(conn)
     net_buys = _net_buys(conn, ids, trade_from, trade_to)
+    last_trades = _last_trade_dates(conn, ids, as_of)
 
     # Aggreger per ISIN på tvers av kontoer.
     agg: dict[str, dict] = {}
@@ -460,6 +497,7 @@ def estimate_portfolio(
                 net_buy_mnok=nb["net_mnok"] if nb else None,
                 n_trades=nb["n_trades"] if nb else 0,
                 last_trade=nb["last_trade"] if nb else None,
+                last_trade_any=last_trades.get(isin),
             )
         )
 

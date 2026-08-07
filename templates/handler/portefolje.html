@@ -176,12 +176,7 @@
         return;
       }
 
-      const displayRows = lastRows.map(r => ({
-        ...r,
-        merknad: r.foreldet ? '⚠︎ foreldet' : '',
-      }));
-
-      buildTable(displayRows, [
+      buildTable(lastRows, [
         { key: 'ticker', label: 'Ticker' },
         { key: 'navn', label: 'Navn' },
         { key: 'antall', label: 'Antall aksjer', fmt: 'int' },
@@ -189,11 +184,9 @@
         { key: 'verdi_mnok', label: 'Verdi MNOK', fmt: 'num', dec: 1 },
         { key: 'andel_pct', label: 'Andel %', fmt: 'int' },
         { key: 'nettokjop_mnok', label: 'Nettokjøp MNOK', fmt: 'num', dec: 1 },
-        { key: 'siste_handel', label: 'Siste handel' },
-        { key: 'sist_sett', label: 'Sist sett' },
-        { key: 'dager_siden', label: 'Dager siden', fmt: 'int' },
+        { key: 'dager_siden_handel', label: 'Dager siden handel', fmt: 'int' },
+        { key: 'dager_siden_sett', label: 'Dager siden sett', fmt: 'int' },
         { key: 'antall_kontoer', label: 'Kontoer', fmt: 'int' },
-        { key: 'merknad', label: 'Merknad' },
       ], 'result-area', {
         defaultPageSize: 50,
         initialSort: { key: 'verdi_mnok', asc: false },
@@ -218,8 +211,8 @@
       : `${s.reference_date || '–'} (siste i DB)`;
     let staleNote = '';
     if (s.n_stale) {
-      staleNote = `<div class="note mt-2">⚠︎ ${s.n_stale} posisjon(er) er eldre enn
-        ${s.stale_days} dager (markert «foreldet») — usikkert estimat.</div>`;
+      staleNote = `<div class="note mt-2">⚠︎ ${s.n_stale} posisjon(er) har ikke vært
+        sett på over ${s.stale_days} dager — usikkert estimat (se «Dager siden sett»).</div>`;
     }
     let unpricedNote = '';
     if (s.n_unpriced) {
