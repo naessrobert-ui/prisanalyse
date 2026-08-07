@@ -71,8 +71,6 @@ def _segmenter_til_df(modeller) -> pd.DataFrame:
     for kategori, seg_dict, niv in [
         ("market", modeller.market_l1, "L1"),
         ("market", modeller.market_l2, "L2"),
-        ("fast", modeller.fast_l1, "L1"),
-        ("fast", modeller.fast_l2, "L2"),
     ]:
         for key, sm in seg_dict.items():
             rad = {

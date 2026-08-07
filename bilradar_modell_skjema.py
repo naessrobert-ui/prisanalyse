@@ -52,15 +52,16 @@ class SegmentModel:
 
 @dataclass
 class FlipModels:
-    """Pakken som lagres til disk og lastes ved scoring."""
+    """Pakken som lagres til disk og lastes ved scoring.
+
+    Modellen predikerer kun markedspris. Hurtigpris kommer nå fra den
+    transparente lookup-tabellen (median blant biler solgt raskt), så den
+    tidligere separate hurtig-ML-modellen (fast_l1/l2/general) er fjernet.
+    Gamle pickles med fast_*-felter lastes fortsatt — ekstra attributter
+    ignoreres av scoreren."""
     market_l1: dict[str, SegmentModel] = field(default_factory=dict)
     market_l2: dict[str, SegmentModel] = field(default_factory=dict)
     market_general: SegmentModel | None = None
 
-    fast_l1: dict[str, SegmentModel] = field(default_factory=dict)
-    fast_l2: dict[str, SegmentModel] = field(default_factory=dict)
-    fast_general: SegmentModel | None = None
-
     trained_at: str = ""
     n_market_train: int = 0
-    n_fast_train: int = 0
