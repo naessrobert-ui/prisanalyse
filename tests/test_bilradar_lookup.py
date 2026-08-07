@@ -1,7 +1,9 @@
+import io
+
 import numpy as np
 import pandas as pd
 
-from bilradar_lookup import apply_lookup, _normaliser_hjuldrift
+from bilradar_lookup import apply_lookup, _les_csv, _normaliser_hjuldrift
 
 
 def _basis_df():
@@ -10,6 +12,7 @@ def _basis_df():
             "FinnKode": 1,
             "Produsent": "Tesla",
             "Modell": "Model Y",
+            "variant_id": "ikke_klassifisert",
             "drivstoff": "Elektrisk",
             "hjuldrift": "Firehjul",
             "årstall": 2022,
@@ -23,6 +26,7 @@ def _basis_df():
             "FinnKode": 2,
             "Produsent": "Ukjent-Merke",
             "Modell": "Sjelden",
+            "variant_id": "ikke_klassifisert",
             "drivstoff": "Elektrisk",
             "hjuldrift": "Tohjul",
             "årstall": 2022,
@@ -39,25 +43,45 @@ def _lookup():
     return pd.DataFrame([{
         "Produsent": "Tesla",
         "Modell": "Model Y",
+        "variant_id": "ikke_klassifisert",
         "hjuldrift": "Firehjul",
         "drivstoff": "Elektrisk",
         "årstall": 2022,
         "n_obs": 1382,
         "median_pris": 350_000.0,
         "median_km": 60_000.0,
-        "km_slope": -0.7,
+        "hurtigpris": 320_000.0,
+        "innbyttepris": 297_500.0,
+        "km_slope_pct": -2e-6,
     }])
 
 
-def test_lookup_overskriver_ml_for_match():
+def _forventet(median_pris, median_km, pct, km):
+    return median_pris * np.exp(pct * (km - median_km))
+
+
+def test_lookup_overskriver_ml_med_prosentvis_km_justering():
     df = _basis_df()
     res = apply_lookup(df, _lookup())
 
-    # Bil 1 (Tesla Model Y) skal få lookup-pris med km-justering:
-    # 350000 + (-0.7) * (50000 - 60000) = 350000 + 7000 = 357000
-    assert res.loc[0, "forventet_pris"] == 357_000
+    # Bil 1: km 50k < median 60k -> lavere km skal gi hoyere pris (negativ slope).
+    forv = _forventet(350_000, 60_000, -2e-6, 50_000)
+    assert np.isclose(res.loc[0, "forventet_pris"], forv)
+    assert res.loc[0, "forventet_pris"] > 350_000  # under median-km => over median-pris
     assert res.loc[0, "modell_nivaa"] == "LOOKUP"
     assert res.loc[0, "peer_konfidens"] == 1382
+
+
+def test_lookup_setter_hurtig_og_innbyttepris():
+    df = _basis_df()
+    res = apply_lookup(df, _lookup())
+
+    forv = _forventet(350_000, 60_000, -2e-6, 50_000)
+    hurtig = _forventet(320_000, 60_000, -2e-6, 50_000)  # samme km-faktor
+    assert np.isclose(res.loc[0, "hurtigpris"], hurtig)
+    # Innbytte = 15 % under forventet, gulvet mot hurtig. 0.85*forventet < hurtig her.
+    assert np.isclose(res.loc[0, "innbyttepris"], forv * 0.85)
+    assert res.loc[0, "innbyttepris"] < res.loc[0, "forventet_pris"]
 
 
 def test_lookup_lar_ikke_matchende_biler_uendret():
@@ -79,10 +103,10 @@ def test_tom_lookup_endrer_ingenting():
 
 def test_kmjustering_med_negativ_slope_oker_pris_for_lavere_km():
     df = _basis_df()
-    df.loc[0, "kjørelengde"] = 30_000  # mindre enn median 60k
+    df.loc[0, "kjørelengde"] = 30_000  # godt under median 60k
     res = apply_lookup(df, _lookup())
-    # 350000 + (-0.7) * (30000 - 60000) = 350000 + 21000 = 371000
-    assert res.loc[0, "forventet_pris"] == 371_000
+    forv = _forventet(350_000, 60_000, -2e-6, 30_000)
+    assert np.isclose(res.loc[0, "forventet_pris"], forv)
 
 
 def test_lookup_clip_til_minst_1000():
@@ -91,6 +115,61 @@ def test_lookup_clip_til_minst_1000():
     res = apply_lookup(df, _lookup())
     # Skal ikke gaa under 1000 NOK uansett
     assert res.loc[0, "forventet_pris"] >= 1_000.0
+    assert res.loc[0, "innbyttepris"] >= 1_000.0
+
+
+def test_variant_id_ruter_til_riktig_batteripakke():
+    """To Kona-varianter (39 vs 64 kWh) med ulik pris. Bilen med eksplisitt
+    variant_id skal matche riktig rad og ikke blande batteripakkene."""
+    df = pd.DataFrame([{
+        "FinnKode": 7,
+        "Produsent": "Hyundai",
+        "Modell": "Kona",
+        "variant_id": "hyundai-kona-64",  # stort batteri
+        "drivstoff": "Elektrisk",
+        "hjuldrift": "Tohjul",
+        "årstall": 2021,
+        "kjørelengde": 40_000,
+        "salgspris": 250_000,
+        "forventet_pris": 999_999.0,
+        "peer_konfidens": 1,
+        "modell_nivaa": "GEN",
+    }])
+    lookup = pd.DataFrame([
+        {
+            "Produsent": "Hyundai", "Modell": "Kona", "variant_id": "hyundai-kona-39",
+            "hjuldrift": "Tohjul", "drivstoff": "Elektrisk", "årstall": 2021,
+            "n_obs": 40, "median_pris": 200_000.0, "median_km": 40_000.0,
+            "hurtigpris": 190_000.0, "innbyttepris": 170_000.0, "km_slope_pct": -3e-6,
+        },
+        {
+            "Produsent": "Hyundai", "Modell": "Kona", "variant_id": "hyundai-kona-64",
+            "hjuldrift": "Tohjul", "drivstoff": "Elektrisk", "årstall": 2021,
+            "n_obs": 60, "median_pris": 260_000.0, "median_km": 40_000.0,
+            "hurtigpris": 245_000.0, "innbyttepris": 221_000.0, "km_slope_pct": -3e-6,
+        },
+    ])
+    res = apply_lookup(df, lookup)
+    # km == median -> ingen justering, skal treffe 64-raden (260k), ikke 39 (200k)
+    assert res.loc[0, "forventet_pris"] == 260_000.0
+    assert res.loc[0, "peer_konfidens"] == 60
+
+
+def test_les_csv_bakoverkompatibel_med_gammelt_skjema():
+    """Gammel CSV uten variant_id/km_slope_pct/hurtigpris/innbyttepris skal
+    fortsatt lastes og degradere til fornuftige defaults."""
+    gammel = (
+        "Produsent,Modell,hjuldrift,drivstoff,årstall,n_obs,median_pris,median_km,"
+        "p25_pris,p75_pris,std_pris,km_slope,km_slope_kilde\n"
+        "Tesla,Model 3,Firehjul,Elektrisk,2022,100,300000,50000,270000,330000,20000,-0.7,lokal\n"
+    )
+    df = _les_csv(io.StringIO(gammel))
+    rad = df.iloc[0]
+    assert rad["variant_id"] == "ikke_klassifisert"
+    # km_slope_pct utledet fra lineaer slope / median_pris
+    assert np.isclose(rad["km_slope_pct"], -0.7 / 300000)
+    assert rad["hurtigpris"] == 270_000  # fra p25_pris
+    assert np.isclose(rad["innbyttepris"], 300_000 * 0.85)
 
 
 def test_normaliser_hjuldrift_alle_varianter():
@@ -119,6 +198,7 @@ def test_lookup_matcher_pa_tvers_av_hjuldrift_format():
         "FinnKode": 99,
         "Produsent": "Mazda",
         "Modell": "MX-30",
+        "variant_id": "ikke_klassifisert",
         "drivstoff": "Elektrisk",
         "hjuldrift": "Forhjulsdrift",  # FINN-format
         "årstall": 2022,
@@ -131,13 +211,16 @@ def test_lookup_matcher_pa_tvers_av_hjuldrift_format():
     lookup = pd.DataFrame([{
         "Produsent": "Mazda",
         "Modell": "MX-30",
+        "variant_id": "ikke_klassifisert",
         "hjuldrift": "Tohjul",  # database-format
         "drivstoff": "Elektrisk",
         "årstall": 2022,
         "n_obs": 282,
         "median_pris": 169_000.0,
         "median_km": 33_000.0,
-        "km_slope": -0.317,
+        "hurtigpris": 160_000.0,
+        "innbyttepris": 143_650.0,
+        "km_slope_pct": -3e-6,
     }])
     res = apply_lookup(df, lookup)
     assert res.loc[0, "modell_nivaa"] == "LOOKUP"

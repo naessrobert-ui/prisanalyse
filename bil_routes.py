@@ -2159,6 +2159,49 @@ def bil_innbytte_side():
                             rows = rows.where(pd.notna(rows), None)
                             records = json.loads(rows.to_json(orient='records', date_format='iso'))
 
+                            # Variant-bevisst filtrering for elbil: hold de
+                            # sammenlignbare bilene til samme batteripakke/
+                            # utstyrsvariant som målbilen når vi klarer å
+                            # klassifisere. Uendret for bensin/diesel (ingen
+                            # katalog → ingen variant → ingen filtrering).
+                            if records:
+                                try:
+                                    from bil_variant_klassifiserer import (
+                                        klassifiser_varianter,
+                                        last_variantkatalog,
+                                    )
+                                    katalog = last_variantkatalog()
+                                    svv_rekkevidde = _to_int_safe(
+                                        flat.get("svv_elektrisk_rekkevidde_km")
+                                    )
+                                    mal_df = pd.DataFrame([{
+                                        "Produsent": merke,
+                                        "Modell": selected_modell or modell,
+                                        "årstall": target_year,
+                                        "rekkevidde_km": svv_rekkevidde,
+                                    }])
+                                    mal_vid = klassifiser_varianter(mal_df, katalog)[0].iloc[0]
+                                    if mal_vid:
+                                        comp_df = pd.DataFrame([{
+                                            "Produsent": r.get("produsent"),
+                                            "Modell": r.get("modell"),
+                                            "årstall": r.get("arstall"),
+                                            "rekkevidde_km": r.get("rekkevidde"),
+                                        } for r in records])
+                                        comp_vid = klassifiser_varianter(comp_df, katalog)[0].tolist()
+                                        same = [rec for rec, v in zip(records, comp_vid) if v == mal_vid]
+                                        debug_context["variant_id"] = mal_vid
+                                        debug_context["antall_for_variant"] = len(records)
+                                        debug_context["antall_etter_variant"] = len(same)
+                                        # Krev nok igjen til at medianen er meningsfull;
+                                        # ellers behold alle (bedre bredt enn tomt).
+                                        if len(same) >= 3:
+                                            records = same
+                                        else:
+                                            debug_context["variant_for_faa_treff"] = True
+                                except Exception:
+                                    traceback.print_exc()
+
                             if not records and not model_selection:
                                 error = "Fant ingen gode sammenlignbare biler med dagens kriterier."
                             elif not model_selection:
@@ -2181,8 +2224,31 @@ def bil_innbytte_side():
                                     p25_pris = int(prisserie.quantile(0.25))
                                     p75_pris = int(prisserie.quantile(0.75))
                                     minimum_salgspris = int(min(priser))
+
+                                    # Hurtigpris = markedsklarende pris: median
+                                    # blant biler solgt innen 3 dager. For få
+                                    # hurtigsalg → bruk p25 som proxy. Dette
+                                    # erstatter den outlier-sårbare "billigste
+                                    # enkeltbil" som gulv for innbyttet.
+                                    fast_priser = []
+                                    for r in records:
+                                        d = r.get("dager_annonsert")
+                                        pr = r.get("pris")
+                                        if d is None or pr is None:
+                                            continue
+                                        try:
+                                            if int(d) <= 3 and int(pr) > 0:
+                                                fast_priser.append(int(pr))
+                                        except (TypeError, ValueError):
+                                            continue
+                                    if len(fast_priser) >= 3:
+                                        hurtigpris = int(pd.Series(fast_priser).median())
+                                    else:
+                                        hurtigpris = p25_pris
+                                    hurtigpris = min(hurtigpris, median_pris)
+
                                     median_minus_15 = int(round(median_pris * 0.85))
-                                    innbyttepris = min(median_minus_15, minimum_salgspris)
+                                    innbyttepris = min(median_minus_15, hurtigpris)
 
                                     # Sorter visningen stigende på pris (default).
                                     records_sorted = sorted(
@@ -2198,6 +2264,7 @@ def bil_innbytte_side():
                                         "kriterier_brukt": debug_context,
                                         "innbyttepris": innbyttepris,
                                         "median_minus_15": median_minus_15,
+                                        "hurtigpris": hurtigpris,
                                         "laveste_salgspris": minimum_salgspris,
                                         "median_pris": median_pris,
                                         "pris_p25": p25_pris,
@@ -2764,6 +2831,7 @@ def bil_finn_sok():
                 score_map[fk] = {
                     "forventet_pris": sc_row.get("forventet_pris"),
                     "hurtigpris": sc_row.get("hurtigpris"),
+                    "innbyttepris": sc_row.get("innbyttepris"),
                     "rabatt_pct": sc_row.get("rabatt_pct"),
                     "modell_nivaa": sc_row.get("modell_nivaa"),
                 }
@@ -2820,6 +2888,7 @@ def bil_finn_sok():
             "sted": sted,
             "forventet_pris": _to_int_safe(sc.get("forventet_pris")),
             "hurtigpris": _to_int_safe(sc.get("hurtigpris")),
+            "innbyttepris": _to_int_safe(sc.get("innbyttepris")),
             "rabatt_pct": rab_val,
             "modell_nivaa": sc.get("modell_nivaa"),
             "i_db": r.get("i_db", False),

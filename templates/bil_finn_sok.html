@@ -376,6 +376,11 @@
             {% if t.pris and t.pris < t.hurtigpris %}<span class="badge-fast">UNDER</span>{% endif %}
           </div>
           {% endif %}
+          {% if t.innbyttepris %}
+          <div class="card-fast">
+            Innbyttepris: <span class="val">{{ '{:,}'.format(t.innbyttepris).replace(',', ' ') }} kr</span>
+          </div>
+          {% endif %}
           <div class="card-location">
             {% if t.sted %}{{ t.sted }} · {% endif %}
             <span class="card-days">{{ t.dager_for_salg }} dager til salgs</span>
