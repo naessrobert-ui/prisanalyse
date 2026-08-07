@@ -230,6 +230,12 @@ def apply_lookup(df: pd.DataFrame, lookup: pd.DataFrame) -> pd.DataFrame:
 
     # Sikre samme dtype paa begge sider
     venstre = df.copy()
+    # Dropp evt. forhaandseksisterende lookup-verdikolonner (median_pris,
+    # hurtigpris, innbyttepris, km_slope_pct, ...) fra venstre side. Ellers gir
+    # merge dem suffiks ("_lu") og vi leser feilaktig den innkommende (typisk
+    # NaN) kolonnen i stedet for lookup-verdien — det nullet ut hurtigprisen for
+    # biler der scorer_biler hadde initialisert kolonnen paa forhaand.
+    venstre = venstre.drop(columns=[c for c in LOOKUP_VALS if c in venstre.columns])
     for c in ["Produsent", "Modell", "drivstoff"]:
         if c in venstre.columns:
             venstre[c] = venstre[c].fillna("Ukjent").astype(str).str.strip()

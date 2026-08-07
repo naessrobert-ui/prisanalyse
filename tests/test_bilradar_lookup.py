@@ -134,6 +134,21 @@ def test_lookup_setter_hurtig_og_innbyttepris():
     assert res.loc[0, "innbyttepris"] < res.loc[0, "forventet_pris"]
 
 
+def test_lookup_ignorerer_forhandseksisterende_verdikolonner():
+    """Regresjon: når df alt har (typisk NaN) hurtigpris/innbyttepris-kolonner
+    — som scorer_biler initialiserer — skal apply_lookup fortsatt bruke
+    lookup-verdiene, ikke de innkommende NaN-kolonnene (merge-suffiks-fella)."""
+    df = _basis_df()
+    df["hurtigpris"] = np.nan       # forhåndsinitialisert av kalleren
+    df["innbyttepris"] = np.nan
+    df["median_pris"] = np.nan      # skal heller ikke lekke inn
+    res = apply_lookup(df, _lookup())
+    hurtig = _forventet(320_000, 60_000, -2e-6, 50_000)
+    assert np.isclose(res.loc[0, "hurtigpris"], hurtig)
+    assert res.loc[0, "hurtigpris"] > 0
+    assert pd.notna(res.loc[0, "innbyttepris"])
+
+
 def test_lookup_lar_ikke_matchende_biler_uendret():
     df = _basis_df()
     res = apply_lookup(df, _lookup())
