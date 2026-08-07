@@ -1,8 +1,9 @@
 """
 scripts/tren_prismodell.py
 ==========================
-Trener Bilradar-prismodellen (FlipModels: markedspris + hurtigpris) og
-laster opp pkl-fila til S3.
+Trener Bilradar-prismodellen (FlipModels: markedspris) og laster opp
+pkl-fila til S3. Hurtigpris/innbyttepris kommer fra lookup-tabellen
+(scripts/lag_prislookup.py), ikke fra en egen ML-modell.
 
 Kjør lokalt:
     python -m scripts.tren_prismodell --input database_biler.parquet --output bil_prismodell.joblib
@@ -69,10 +70,7 @@ MIN_OBS_L1 = 100  # Produsent | Modell | drivstoff
 MIN_OBS_L2 = 100  # Produsent | drivstoff
 MIN_OBS_GENERAL = 800
 
-HURTIG_DAGER = 3
 MAX_DAGER_FOR_MARKED_TRENING = 120
-MIN_OBS_L1_FAST = 50
-MIN_OBS_L2_FAST = 50
 
 # HGB-iterasjoner: 200 gir nesten samme presisjon som 400 men halverer
 # treenes minnefotavtrykk. Nedgang i MAE typisk < 1%.
@@ -226,24 +224,13 @@ def train_all(df: pd.DataFrame) -> FlipModels:
         f"[TRAIN] Market modeller: L1={len(market_l1)} L2={len(market_l2)} "
         f"GEN={'JA' if market_gen else 'NEI'}"
     )
-
-    df_fast = df_sold[df_sold["dager_paa_markedet"] <= HURTIG_DAGER].copy()
-    n_fast = len(df_fast)
-    print(f"[TRAIN] Hurtigsalg treningssett (<= {HURTIG_DAGER}d): {n_fast}")
-
-    fast_l1, fast_l2, fast_gen = train_hierarchical(
-        df_fast, MIN_OBS_L1_FAST, MIN_OBS_L2_FAST, "FAST"
-    )
-    print(
-        f"[TRAIN] Fast modeller: L1={len(fast_l1)} L2={len(fast_l2)} "
-        f"GEN={'JA' if fast_gen else 'NEI'}"
-    )
+    # Hurtigpris trenes ikke lenger som egen ML-modell — den hentes fra den
+    # transparente lookup-tabellen (scripts/lag_prislookup.py).
 
     return FlipModels(
         market_l1=market_l1, market_l2=market_l2, market_general=market_gen,
-        fast_l1=fast_l1, fast_l2=fast_l2, fast_general=fast_gen,
         trained_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        n_market_train=n_market, n_fast_train=n_fast,
+        n_market_train=n_market,
     )
 
 

@@ -1,11 +1,17 @@
-"""Tester for FlipModels-baserte bilradar_scorer."""
+"""Tester for FlipModels-baserte bilradar_scorer.
+
+Modellen predikerer nå kun markedspris (forventet_pris). Hurtigpris og
+innbyttepris kommer fra lookup-tabellen — den separate hurtig-ML-modellen er
+fjernet. I disse testene finnes BMW 3-Serie ikke i lookup-tabellen, så
+hurtigpris blir NaN og innbyttepris utledes som 15 % under forventet_pris.
+"""
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
 from bilradar_modell_skjema import FlipModels, SegmentModel
-from bilradar_scorer import scorer_biler
+from bilradar_scorer import INNBYTTE_RABATT, scorer_biler
 
 
 class DummyPipeline:
@@ -25,12 +31,10 @@ class DummyPipeline:
         return np.log1p(pris)
 
 
-def _bygg_modell(market_base: float, fast_base: float) -> FlipModels:
+def _bygg_modell(market_base: float) -> FlipModels:
     market = SegmentModel(model=DummyPipeline(market_base), n_obs=42, label="market test")
-    fast = SegmentModel(model=DummyPipeline(fast_base), n_obs=18, label="fast test")
     return FlipModels(
         market_l1={"BMW | 3-Serie | Bensin": market},
-        fast_l1={"BMW | 3-Serie | Bensin": fast},
         trained_at="2026-05-03 12:00:00",
     )
 
@@ -54,41 +58,43 @@ def _bygg_df():
     ])
 
 
-def test_scorer_gir_bade_markedspris_og_hurtigpris():
+def test_scorer_gir_markedspris_fra_ml():
     df = _bygg_df()
-    modeller = _bygg_modell(market_base=400_000, fast_base=370_000)
+    modeller = _bygg_modell(market_base=400_000)
     res = scorer_biler(df, modeller)
 
     rad = res.iloc[0]
     assert rad["modell_nivaa"] == "L1"
     assert rad["forventet_pris"] > 0
-    assert rad["hurtigpris"] > 0
-    # Hurtigpris (rask salg) skal være lavere enn markedspris fordi base er lavere
-    assert rad["hurtigpris"] < rad["forventet_pris"]
     # peer_konfidens reflekterer n_obs i den brukte modellen
     assert int(rad["peer_konfidens"]) == 42
-    assert int(rad["peer_konfidens_hurtig"]) == 18
+
+
+def test_hurtigpris_er_nan_uten_lookup_treff():
+    """BMW 3-Serie finnes ikke i lookup-tabellen -> ingen hurtigpris."""
+    df = _bygg_df()
+    modeller = _bygg_modell(market_base=400_000)
+    res = scorer_biler(df, modeller)
+    assert pd.isna(res.iloc[0]["hurtigpris"])
+
+
+def test_innbyttepris_utledes_fra_forventet_nar_hurtig_mangler():
+    df = _bygg_df()
+    modeller = _bygg_modell(market_base=400_000)
+    res = scorer_biler(df, modeller)
+    rad = res.iloc[0]
+    # Uten hurtigpris skal innbytte = forventet * (1 - rabatt)
+    assert np.isclose(rad["innbyttepris"], rad["forventet_pris"] * (1 - INNBYTTE_RABATT))
 
 
 def test_uten_treff_faller_tilbake_til_ingen_modell():
     df = _bygg_df()
     df.loc[0, "Merke"] = "Ukjent merke"
-    modeller = _bygg_modell(market_base=400_000, fast_base=370_000)
+    modeller = _bygg_modell(market_base=400_000)
     res = scorer_biler(df, modeller)
 
     rad = res.iloc[0]
     assert rad["modell_nivaa"] == "Ingen modell"
     assert pd.isna(rad["forventet_pris"])
     assert pd.isna(rad["hurtigpris"])
-
-
-def test_overstyringsregler_pavirker_kun_markedspris():
-    """Hvis overstyringen treffer skal forventet_pris justeres mens
-    hurtigpris forblir uendret."""
-    df = _bygg_df()
-    modeller = _bygg_modell(market_base=400_000, fast_base=370_000)
-    res = scorer_biler(df, modeller)
-    # Ingen overstyringsregel matcher BMW i dagens CSV — hurtigpris og
-    # forventet_pris skal være forskjellige (fra ulike modeller).
-    rad = res.iloc[0]
-    assert rad["forventet_pris"] != rad["hurtigpris"]
+    assert pd.isna(rad["innbyttepris"])

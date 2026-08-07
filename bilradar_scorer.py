@@ -37,6 +37,7 @@ from bilradar_lookup import apply_lookup, last_lookup
 from bilradar_overrides import apply_overrides, last_overrides
 
 GOOD_DEAL_THRESHOLD = 10
+INNBYTTE_RABATT = 0.15  # innbyttepris = forventet_pris * (1 - INNBYTTE_RABATT)
 OVERRIDES_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "data", "pris_overstyring.csv")
 LOOKUP_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "data", "prislookup.csv")
 MIN_PRIS_FLOOR = 1_000.0  # forhindre at expm1-prediksjon faller til null/negativt
@@ -75,14 +76,11 @@ def _last_pickle_fra_bytes(data: bytes, navn: str = "") -> FlipModels:
 def _logg_modell_info(modeller: FlipModels):
     n_m_l1 = len(modeller.market_l1)
     n_m_l2 = len(modeller.market_l2)
-    n_f_l1 = len(modeller.fast_l1)
-    n_f_l2 = len(modeller.fast_l2)
     har_m_gen = modeller.market_general is not None
-    har_f_gen = modeller.fast_general is not None
     print(
         f"[BilRadar] FlipModels lastet | trent: {modeller.trained_at or '?'} | "
         f"market L1={n_m_l1} L2={n_m_l2} GEN={'Ja' if har_m_gen else 'Nei'} | "
-        f"fast L1={n_f_l1} L2={n_f_l2} GEN={'Ja' if har_f_gen else 'Nei'}"
+        f"hurtigpris: lookup-tabell"
     )
 
 
@@ -111,10 +109,6 @@ def _bygg_drivstoff_normalisering(modeller: FlipModels) -> dict:
     for k, sm in modeller.market_l1.items():
         _add(k, sm.n_obs)
     for k, sm in modeller.market_l2.items():
-        _add(k, sm.n_obs)
-    for k, sm in modeller.fast_l1.items():
-        _add(k, sm.n_obs)
-    for k, sm in modeller.fast_l2.items():
         _add(k, sm.n_obs)
 
     out: dict = {}
@@ -405,8 +399,11 @@ def _scor_pris_kategori(
 
 def scorer_biler(df: pd.DataFrame, modeller: FlipModels, threshold: int = GOOD_DEAL_THRESHOLD) -> pd.DataFrame:
     """Scorer alle biler i en DataFrame med markedspris + hurtigpris.
+    Markedspris (forventet_pris) predikeres av ML-modellen og overstyres av
+    lookup-tabellen der den har data. Hurtigpris og innbyttepris kommer fra
+    lookup-tabellen (transparent kvantil), ikke lenger fra en egen ML-modell.
     Returnerer df utvidet med:
-      forventet_pris, hurtigpris, peer_konfidens, peer_konfidens_hurtig,
+      forventet_pris, hurtigpris, innbyttepris, peer_konfidens,
       modell_nivaa, rabatt_kr, rabatt_pct, forventet_pris_raa, overstyrt
     """
     df = _normaliser_for_scoring(df)
@@ -437,16 +434,9 @@ def scorer_biler(df: pd.DataFrame, modeller: FlipModels, threshold: int = GOOD_D
         target_nivaa="modell_nivaa",
     )
 
-    # Hurtigpris
-    _scor_pris_kategori(
-        df,
-        modeller.fast_l1,
-        modeller.fast_l2,
-        modeller.fast_general,
-        target_pris="hurtigpris",
-        target_n="peer_konfidens_hurtig",
-        target_nivaa=None,
-    )
+    # Hurtigpris settes av lookup-tabellen nedenfor. Init som tom slik at
+    # biler uten lookup-treff (ML-fallback) rett og slett ikke får hurtigpris.
+    df["hurtigpris"] = np.nan
 
     # Lookup-priser (transparente median-salg per gruppe). Overskriver
     # ML-prediksjonen for biler som har match — testkjoringer paa Vestlandet
@@ -462,6 +452,15 @@ def scorer_biler(df: pd.DataFrame, modeller: FlipModels, threshold: int = GOOD_D
     mask = df["forventet_pris"].notna() & (df["forventet_pris"] > 0)
     df.loc[mask, "rabatt_kr"] = df.loc[mask, "forventet_pris"] - df.loc[mask, "salgspris"]
     df.loc[mask, "rabatt_pct"] = (df.loc[mask, "rabatt_kr"] / df.loc[mask, "forventet_pris"]) * 100
+
+    # Innbyttepris: 15 % under (den evt. overstyrte) forventede prisen, men
+    # aldri over hurtigprisen. Regnes for alle rader med et prisanslag, slik
+    # at både lookup- og ML-fallback-biler får et innbytteanslag.
+    if "hurtigpris" not in df.columns:
+        df["hurtigpris"] = np.nan
+    innbytte = df["forventet_pris"] * (1 - INNBYTTE_RABATT)
+    innbytte = pd.concat([innbytte, df["hurtigpris"]], axis=1).min(axis=1)
+    df["innbyttepris"] = innbytte.where(mask).clip(lower=MIN_PRIS_FLOOR)
 
     return df
 
@@ -492,6 +491,7 @@ def lag_json_data(df: pd.DataFrame) -> str:
             "im": str(row.get("BildeURL", "")) if pd.notna(row.get("BildeURL")) else "",
             "ep": round(row["forventet_pris"]) if pd.notna(row.get("forventet_pris")) else 0,
             "hp": round(row["hurtigpris"]) if pd.notna(row.get("hurtigpris")) else 0,
+            "ib": round(row["innbyttepris"]) if pd.notna(row.get("innbyttepris")) else 0,
             "r": round(row["rabatt_pct"], 1) if pd.notna(row.get("rabatt_pct")) else 0,
             "ml": str(row.get("modell_nivaa", "none")) if pd.notna(row.get("modell_nivaa")) else "none",
         }

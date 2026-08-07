@@ -26,9 +26,12 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-LOOKUP_KEYS = ["Produsent", "Modell", "hjuldrift", "drivstoff", "årstall"]
-LOOKUP_VALS = ["n_obs", "median_pris", "median_km", "km_slope"]
+LOOKUP_KEYS = ["Produsent", "Modell", "variant_id", "hjuldrift", "drivstoff", "årstall"]
+LOOKUP_VALS = ["n_obs", "median_pris", "median_km", "hurtigpris", "innbyttepris", "km_slope_pct"]
 LOOKUP_COLUMNS = LOOKUP_KEYS + LOOKUP_VALS
+
+# Innbyttepris = forventet_pris * (1 - INNBYTTE_RABATT), gulvet mot hurtigpris.
+INNBYTTE_RABATT = 0.15
 
 _LOOKUP_LOCK = threading.Lock()
 _LOOKUP_CACHE = {"df": None, "loaded_at": None}
@@ -57,18 +60,43 @@ def _normaliser_hjuldrift(verdi) -> str:
 def _les_csv(buf_or_path) -> pd.DataFrame:
     df = pd.read_csv(buf_or_path)
     df.columns = [c.strip() for c in df.columns]
+
+    # Bakoverkompatibilitet med tabeller bygget foer variant/hurtigpris/log-slope:
+    #  - mangler variant_id  -> alt "ikke_klassifisert" (grov nøkkel som foer)
+    #  - mangler km_slope_pct -> utled fra lineaer km_slope / median_pris
+    #  - mangler hurtigpris   -> p25_pris hvis vi har den, ellers median_pris
+    #  - mangler innbyttepris -> median_pris * (1 - INNBYTTE_RABATT)
+    if "variant_id" not in df.columns:
+        df["variant_id"] = "ikke_klassifisert"
+    if "km_slope_pct" not in df.columns:
+        median_pris_tmp = pd.to_numeric(df.get("median_pris"), errors="coerce")
+        lin = pd.to_numeric(df.get("km_slope"), errors="coerce")
+        df["km_slope_pct"] = (lin / median_pris_tmp).where(median_pris_tmp > 0, 0.0)
+    if "hurtigpris" not in df.columns:
+        df["hurtigpris"] = pd.to_numeric(
+            df.get("p25_pris", df.get("median_pris")), errors="coerce"
+        )
+    if "innbyttepris" not in df.columns:
+        df["innbyttepris"] = pd.to_numeric(df.get("median_pris"), errors="coerce") * (
+            1 - INNBYTTE_RABATT
+        )
+
     for col in LOOKUP_COLUMNS:
         if col not in df.columns:
             df[col] = np.nan
 
     for c in ["Produsent", "Modell", "drivstoff"]:
         df[c] = df[c].fillna("Ukjent").astype(str).str.strip()
+    df["variant_id"] = df["variant_id"].fillna("ikke_klassifisert").astype(str).str.strip()
     df["hjuldrift"] = df["hjuldrift"].map(_normaliser_hjuldrift)
     df["årstall"] = pd.to_numeric(df["årstall"], errors="coerce").astype("Int64")
-    for c in ["n_obs", "median_pris", "median_km", "km_slope"]:
+    for c in ["n_obs", "median_pris", "median_km", "hurtigpris", "innbyttepris", "km_slope_pct"]:
         df[c] = pd.to_numeric(df[c], errors="coerce")
 
-    df = df.dropna(subset=["median_pris", "median_km", "km_slope", "årstall"])
+    df = df.dropna(subset=["median_pris", "median_km", "km_slope_pct", "årstall"])
+    # Fyll hurtig/innbytte defensivt hvis enkeltrader mangler dem.
+    df["hurtigpris"] = df["hurtigpris"].fillna(df["median_pris"])
+    df["innbyttepris"] = df["innbyttepris"].fillna(df["median_pris"] * (1 - INNBYTTE_RABATT))
     return df.reset_index(drop=True)
 
 
@@ -106,23 +134,46 @@ def reload_lookup():
         _LOOKUP_CACHE["loaded_at"] = None
 
 
+def _klassifiser_variant_kolonne(df: pd.DataFrame) -> pd.Series:
+    """Gi hver rad en variant_id slik at oppslaget treffer riktig
+    batteripakke/utstyrsvariant for elbil. Biler uten katalogtreff (all
+    bensin/diesel + elbiler utenfor katalogen) faar "ikke_klassifisert" og
+    matcher da de grove gruppene i lookup-tabellen. Faller stille tilbake til
+    "ikke_klassifisert" hvis klassifisereren ikke kan importeres."""
+    if "variant_id" in df.columns and df["variant_id"].notna().any():
+        return df["variant_id"].fillna("ikke_klassifisert").astype(str).str.strip()
+    try:
+        from bil_variant_klassifiserer import (
+            klassifiser_varianter,
+            last_variantkatalog,
+        )
+        vid, _kilde = klassifiser_varianter(df, last_variantkatalog())
+        return pd.Series(vid, index=df.index).fillna("ikke_klassifisert").astype(str).str.strip()
+    except Exception as e:  # pragma: no cover - defensiv
+        print(f"[BilRadar] Variant-klassifisering hoppet over ({e})")
+        return pd.Series(["ikke_klassifisert"] * len(df), index=df.index)
+
+
 def apply_lookup(df: pd.DataFrame, lookup: pd.DataFrame) -> pd.DataFrame:
-    """Overskriv forventet_pris/peer_konfidens/modell_nivaa for biler som
-    matcher en (merke, modell, hjuldrift, drivstoff, aarstall)-gruppe i
-    lookup. Biler uten match beholder ML-prediksjon. Idempotent: tom
+    """Overskriv forventet_pris/hurtigpris/innbyttepris/peer_konfidens/
+    modell_nivaa for biler som matcher en (merke, modell, variant_id,
+    hjuldrift, drivstoff, aarstall)-gruppe i lookup. Prisen km-justeres
+    prosentvis (log-rom): pris = median_pris * exp(km_slope_pct * (km -
+    median_km)). Biler uten match beholder ML-prediksjon. Idempotent: tom
     lookup = ingen endring."""
     if lookup is None or lookup.empty:
         return df
 
     df = df.copy()
 
-    # Sikre samme dtype paa beggee sider
+    # Sikre samme dtype paa begge sider
     venstre = df.copy()
     for c in ["Produsent", "Modell", "drivstoff"]:
         if c in venstre.columns:
             venstre[c] = venstre[c].fillna("Ukjent").astype(str).str.strip()
     if "hjuldrift" in venstre.columns:
         venstre["hjuldrift"] = venstre["hjuldrift"].map(_normaliser_hjuldrift)
+    venstre["variant_id"] = _klassifiser_variant_kolonne(venstre).values
     venstre["årstall"] = pd.to_numeric(venstre.get("årstall"), errors="coerce").astype("Int64")
     venstre["_idx"] = np.arange(len(venstre))
 
@@ -131,23 +182,35 @@ def apply_lookup(df: pd.DataFrame, lookup: pd.DataFrame) -> pd.DataFrame:
     )
     merged = merged.sort_values("_idx").set_index("_idx")
 
-    mask = merged["median_pris"].notna() & merged["km_slope"].notna()
+    mask = merged["median_pris"].notna() & merged["km_slope_pct"].notna()
     if not mask.any():
         return df
 
     km = pd.to_numeric(merged.get("kjørelengde"), errors="coerce").fillna(0)
-    lookup_pris = (
-        merged["median_pris"]
-        + merged["km_slope"] * (km - merged["median_km"])
-    )
-    # Sikkerhet: ikke la km-justering trekke prisen under 1000 NOK
-    lookup_pris = lookup_pris.clip(lower=1_000.0)
+    # Prosentvis (log-rom) km-justering: felles faktor for markeds- og hurtigpris.
+    km_faktor = np.exp(merged["km_slope_pct"] * (km - merged["median_km"]))
 
-    df.loc[mask.values, "forventet_pris"] = lookup_pris[mask].values
-    df.loc[mask.values, "peer_konfidens"] = merged.loc[mask, "n_obs"].values
+    forventet = (merged["median_pris"] * km_faktor).clip(lower=1_000.0)
+    hurtig = (merged["hurtigpris"] * km_faktor).clip(lower=1_000.0)
+    # Innbytte: 15 %% under forventet, men aldri over den km-justerte hurtigprisen.
+    innbytte = pd.concat(
+        [forventet * (1 - INNBYTTE_RABATT), hurtig], axis=1
+    ).min(axis=1).clip(lower=1_000.0)
+
+    m = mask.values
+    df.loc[m, "forventet_pris"] = forventet[mask].values
+    df.loc[m, "peer_konfidens"] = merged.loc[mask, "n_obs"].values
+
+    if "hurtigpris" not in df.columns:
+        df["hurtigpris"] = np.nan
+    df.loc[m, "hurtigpris"] = hurtig[mask].values
+
+    if "innbyttepris" not in df.columns:
+        df["innbyttepris"] = np.nan
+    df.loc[m, "innbyttepris"] = innbytte[mask].values
 
     if "modell_nivaa" not in df.columns:
         df["modell_nivaa"] = "Ingen modell"
-    df.loc[mask.values, "modell_nivaa"] = "LOOKUP"
+    df.loc[m, "modell_nivaa"] = "LOOKUP"
 
     return df
