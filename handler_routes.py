@@ -33,6 +33,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 import handler_data as hd
 import handler_data_beste as hdb
+from scripts import estimer_portefolje as ep
 
 _LOG = logging.getLogger(__name__)
 
@@ -658,6 +659,132 @@ def api_per_eier_csv():
         if conn is not None:
             conn.close()
     return _csv_response(df, f"handler_per_eier_{investor_id}.csv")
+
+
+# =========================================================
+# 1b) Estimert portefølje
+# =========================================================
+def _parse_investor_ids_arg() -> list[str]:
+    raw = request.args.get("investor_ids") or request.args.get("investor_id") or ""
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
+def _portfolio_position_rows(est) -> list[dict]:
+    rows = []
+    for p in est.positions:
+        stale = p.days_since is not None and p.days_since > est.stale_days
+        rows.append({
+            "ticker": p.ticker,
+            "isin": p.isin,
+            "navn": p.name,
+            "antall": p.shares,
+            "kurs": None if p.price is None else round(p.price, 4),
+            "kurs_kilde": p.price_source,
+            "verdi_mnok": None if p.value_mnok is None else round(p.value_mnok, 2),
+            "sist_sett": p.last_seen,
+            "eldste_obs": p.oldest_seen,
+            "dager_siden": p.days_since,
+            "foreldet": bool(stale),
+            "antall_kontoer": len(p.accounts),
+        })
+    return rows
+
+
+@handler_bp.route("/portefolje")
+def portefolje_page():
+    return render_template("handler/portefolje.html")
+
+
+@handler_bp.route("/api/portefolje")
+def api_portefolje():
+    investor_ids = _parse_investor_ids_arg()
+    if not investor_ids:
+        return jsonify({"error": "Velg minst én investor"}), 400
+
+    as_of = (request.args.get("as_of") or "").strip() or None
+    if as_of:
+        try:
+            dt.date.fromisoformat(as_of)
+        except ValueError:
+            return jsonify({"error": f"Ugyldig dato: {as_of}"}), 400
+
+    include_zero = request.args.get("include_zero", "").lower() in {"1", "true", "yes", "on"}
+    try:
+        stale_days = int(request.args.get("stale_days", 120))
+    except (TypeError, ValueError):
+        stale_days = 120
+
+    err = _check_db()
+    if err:
+        return jsonify({"error": err}), 503
+
+    conn = None
+    try:
+        conn = hd.db_connect()
+        investors = ep.resolve_investors(conn, investor_ids=investor_ids)
+        est = ep.estimate_portfolio(
+            conn, investors, as_of=as_of,
+            include_zero=include_zero, stale_days=stale_days,
+        )
+    except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
+        _LOG.exception("DB-feil i api_portefolje investor_ids=%s", investor_ids)
+        return jsonify({"error": _db_runtime_error_message(exc)}), 503
+    finally:
+        if conn is not None:
+            conn.close()
+
+    rows = _portfolio_position_rows(est)
+    n_priced = sum(1 for r in rows if r["verdi_mnok"] is not None)
+    n_stale = sum(1 for r in rows if r["foreldet"])
+    return jsonify({
+        "investors": [
+            {"investor_id": i.investor_id, "name": i.name, "investor_type": i.investor_type}
+            for i in investors
+        ],
+        "rows": rows,
+        "summary": {
+            "total_value_mnok": round(est.total_value_mnok, 2),
+            "n_positions": len(rows),
+            "n_priced": n_priced,
+            "n_unpriced": len(rows) - n_priced,
+            "n_stale": n_stale,
+            "reference_date": est.reference_date,
+            "db_max_date": est.db_max_date,
+            "as_of": est.as_of,
+            "stale_days": est.stale_days,
+        },
+    })
+
+
+@handler_bp.route("/api/portefolje/csv")
+def api_portefolje_csv():
+    investor_ids = _parse_investor_ids_arg()
+    if not investor_ids:
+        return jsonify({"error": "Velg minst én investor"}), 400
+    as_of = (request.args.get("as_of") or "").strip() or None
+    include_zero = request.args.get("include_zero", "").lower() in {"1", "true", "yes", "on"}
+    try:
+        stale_days = int(request.args.get("stale_days", 120))
+    except (TypeError, ValueError):
+        stale_days = 120
+
+    conn = None
+    try:
+        conn = hd.db_connect()
+        investors = ep.resolve_investors(conn, investor_ids=investor_ids)
+        est = ep.estimate_portfolio(
+            conn, investors, as_of=as_of,
+            include_zero=include_zero, stale_days=stale_days,
+        )
+    except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
+        _LOG.exception("DB-feil i api_portefolje_csv investor_ids=%s", investor_ids)
+        return jsonify({"error": _db_runtime_error_message(exc)}), 503
+    finally:
+        if conn is not None:
+            conn.close()
+
+    df = pd.DataFrame(_portfolio_position_rows(est))
+    return _csv_response(df, f"portefolje_{'_'.join(investor_ids)}.csv")
 
 
 # =========================================================
