@@ -185,6 +185,54 @@ def test_net_buys_over_period(conn):
     assert pos["NO0003054108"].net_buy_shares is None
 
 
+def test_net_buys_swaps_inverted_period(conn):
+    investors = ep.resolve_investors(conn, investor_ids=["1001"])
+    # Omvendt rekkefølge (fra > til) skal gi samme resultat og normaliseres.
+    est = ep.estimate_portfolio(
+        conn, investors, trade_from="2026-08-06", trade_to="2026-07-01"
+    )
+    eqnr = _by_isin(est)["NO0010096985"]
+    assert eqnr.net_buy_shares == 150_000
+    assert est.trade_from == "2026-07-01"
+    assert est.trade_to == "2026-08-06"
+
+
+def test_net_buys_fallback_to_holding_delta(tmp_path):
+    # change_qty er NULL -> nettokjøp skal utledes av (beh. idag − beh. igår).
+    db = tmp_path / "fb.db"
+    c = sqlite3.connect(str(db))
+    c.executescript(
+        """
+        CREATE TABLE investor (investor_id TEXT PRIMARY KEY, investor_type TEXT,
+            first_name TEXT, last_name TEXT, country_code TEXT, raw_id TEXT);
+        CREATE TABLE security (isin TEXT PRIMARY KEY, ticker TEXT,
+            isin_name TEXT, last_price REAL);
+        CREATE TABLE position_change (isin TEXT, investor_id TEXT, date_today TEXT,
+            holding_today REAL, holding_yesterday REAL, price_today REAL,
+            price_yesterday REAL, change_qty REAL,
+            PRIMARY KEY (isin, investor_id, date_today));
+        """
+    )
+    c.execute("INSERT INTO investor(investor_id, first_name) VALUES ('7', 'X')")
+    c.execute("INSERT INTO security(isin, ticker, isin_name, last_price) "
+              "VALUES ('ISIN1', 'AAA', 'Aksje A', 10.0)")
+    c.execute(
+        "INSERT INTO position_change(isin,investor_id,date_today,holding_today,"
+        "holding_yesterday,price_today,price_yesterday,change_qty) "
+        "VALUES ('ISIN1','7','2026-03-01',100,60,10.0,10.0,NULL)"
+    )
+    c.commit()
+    c.row_factory = sqlite3.Row
+    investors = ep.resolve_investors(c, investor_ids=["7"])
+    est = ep.estimate_portfolio(
+        c, investors, trade_from="2026-01-01", trade_to="2026-06-30"
+    )
+    pos = _by_isin(est)["ISIN1"]
+    assert pos.net_buy_shares == 40   # 100 − 60
+    assert pos.n_trades == 1
+    c.close()
+
+
 def test_net_buys_absent_without_period(conn):
     investors = ep.resolve_investors(conn, investor_ids=["1001"])
     est = ep.estimate_portfolio(conn, investors)
