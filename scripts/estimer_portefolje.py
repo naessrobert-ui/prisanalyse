@@ -308,20 +308,30 @@ def _net_buys(
     """
     if not ids or not trade_from or not trade_to:
         return {}
+    # Tåle omvendt periode (fra > til): bytt om, så BETWEEN ikke blir tomt.
+    if trade_from > trade_to:
+        trade_from, trade_to = trade_to, trade_from
     placeholders = ",".join("?" for _ in ids)
+    # ``chg`` faller tilbake på (beh. idag − beh. igår) når change_qty mangler,
+    # slik at nettokjøp virker selv om kildefilene ikke har en Change-kolonne.
     sql = f"""
+        WITH t AS (
+            SELECT
+                isin,
+                date_today,
+                COALESCE(change_qty, holding_today - holding_yesterday, 0) AS chg,
+                COALESCE(NULLIF(price_yesterday, 0), NULLIF(price_today, 0), 0) AS px
+            FROM position_change
+            WHERE investor_id IN ({placeholders})
+              AND date_today BETWEEN ? AND ?
+        )
         SELECT
             isin,
-            SUM(COALESCE(change_qty, 0)) AS net_shares,
-            SUM(
-                COALESCE(change_qty, 0)
-                * COALESCE(NULLIF(price_yesterday, 0), NULLIF(price_today, 0), 0)
-            ) AS net_value,
-            SUM(CASE WHEN COALESCE(change_qty, 0) <> 0 THEN 1 ELSE 0 END) AS n_trades,
-            MAX(CASE WHEN COALESCE(change_qty, 0) <> 0 THEN date_today END) AS last_trade
-        FROM position_change
-        WHERE investor_id IN ({placeholders})
-          AND date_today BETWEEN ? AND ?
+            SUM(chg) AS net_shares,
+            SUM(chg * px) AS net_value,
+            SUM(CASE WHEN chg <> 0 THEN 1 ELSE 0 END) AS n_trades,
+            MAX(CASE WHEN chg <> 0 THEN date_today END) AS last_trade
+        FROM t
         GROUP BY isin
     """
     out: dict[str, dict] = {}
@@ -358,6 +368,10 @@ def estimate_portfolio(
     """
     db_max_date = get_db_max_date(conn)
     ref_date = as_of or db_max_date
+
+    # Normaliser omvendt handelsperiode slik at visning/lagring blir riktig vei.
+    if trade_from and trade_to and trade_from > trade_to:
+        trade_from, trade_to = trade_to, trade_from
 
     ids = [inv.investor_id for inv in investors]
     if not ids:

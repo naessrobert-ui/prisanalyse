@@ -79,8 +79,10 @@
     </div>
   </div>
   <small class="note d-block mt-1">
-    «Handel fra/til» styrer perioden for kolonnen <em>Nettokjøp MNOK</em> (netto kjøp − salg).
-    Standard er siste 30 dager. Klikk på en kolonneoverskrift for å sortere.
+    «Handel fra/til» styrer perioden for kolonnen <em>Nettokjøp MNOK</em> —
+    <span class="text-pos">grønt</span> ved netto kjøp,
+    <span class="text-neg">rødt</span> ved netto salg. Standard er 1. januar til i dag.
+    Klikk på en kolonneoverskrift for å sortere.
   </small>
   <div class="mt-3">
     <button class="btn btn-primary" id="btn-fetch" disabled>Beregn portefølje</button>
@@ -94,12 +96,15 @@
 
 {% block extra_js %}
 <script>
-  // Standard handelsperiode: siste 30 dager.
+  // Standard handelsperiode: 1. januar i år → i dag.
   (function initTradeDates() {
+    const ymd = (d) => `${d.getFullYear()}-`
+      + `${String(d.getMonth() + 1).padStart(2, '0')}-`
+      + `${String(d.getDate()).padStart(2, '0')}`;
     const today = new Date();
-    const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
-    document.getElementById('trade-to').value = today.toISOString().slice(0, 10);
-    document.getElementById('trade-from').value = ago30.toISOString().slice(0, 10);
+    const jan1 = new Date(today.getFullYear(), 0, 1);
+    document.getElementById('trade-from').value = ymd(jan1);
+    document.getElementById('trade-to').value = ymd(today);
   })();
 
   // Valgte investorer (kan være flere kontoer for samme fond) -> summeres i estimatet.
