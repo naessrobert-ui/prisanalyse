@@ -1,0 +1,218 @@
+{# templates/handler/portefolje.html #}
+{% extends "handler/_shell.html" %}
+{% block title %}Estimert portefølje{% endblock %}
+
+{% block extra_head %}
+<style>
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(231,76,138,0.15); border: 1px solid var(--pa-accent);
+    color: var(--pa-text); border-radius: 999px; padding: 4px 12px;
+    font-size: 0.85rem; margin: 4px 6px 0 0;
+  }
+  .chip button {
+    background: none; border: none; color: var(--pa-muted);
+    cursor: pointer; font-size: 1rem; line-height: 1; padding: 0;
+  }
+  .chip button:hover { color: var(--pa-accent); }
+  .stat-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+  .stat-box {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--pa-border);
+    border-radius: 12px; padding: 14px 18px; min-width: 150px;
+  }
+  .stat-box .val { font-size: 1.4rem; font-weight: 700; }
+  .stat-box .lbl { color: var(--pa-muted); font-size: 0.78rem; margin-top: 2px; }
+  .note { color: var(--pa-muted); font-size: 0.82rem; }
+  .badge-stale {
+    background: rgba(248,113,113,0.15); color: #f87171;
+    border-radius: 6px; padding: 2px 8px; font-size: 0.78rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>💼 Estimert portefølje</h1>
+  <div class="sub">
+    Beste estimat på dagens beholdning per aksje for en investor, satt sammen av
+    siste observerte beholdning fra eier-snapshots og handelsdata. Legg til flere
+    kontoer for å slå sammen et fond.
+  </div>
+</div>
+
+<div class="panel">
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label>Søk investor (min 3 tegn) — legg til én eller flere kontoer</label>
+      <div class="search-wrap">
+        <input type="text" class="form-control" id="inv-search" placeholder="Eks: Holberg, Salt Value, Folketrygdfondet…">
+        <div class="search-results" id="inv-results" style="display:none"></div>
+      </div>
+      <div id="inv-chips" class="mt-1"></div>
+    </div>
+    <div class="col-md-3">
+      <label>Estimer pr. dato (valgfritt)</label>
+      <input type="date" class="form-control" id="as-of">
+      <small class="note">Tomt = siste tilgjengelige dato i DB.</small>
+    </div>
+    <div class="col-md-3">
+      <label>Foreld-terskel (dager)</label>
+      <input type="number" class="form-control" id="stale-days" value="120" min="1">
+      <div class="form-check mt-2">
+        <input class="form-check-input" type="checkbox" id="include-zero">
+        <label class="form-check-label note" for="include-zero" style="display:inline">
+          Ta med avviklede (beholdning 0)
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="mt-3">
+    <button class="btn btn-primary" id="btn-fetch" disabled>Beregn portefølje</button>
+    <button class="btn btn-outline-secondary ms-2" id="btn-csv" style="display:none">Last ned CSV</button>
+  </div>
+</div>
+
+<div id="summary-area" style="display:none" class="panel"></div>
+<div id="result-area"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Valgte investorer (kan være flere kontoer for samme fond) -> summeres i estimatet.
+  let selectedInvestors = [];  // {investor_id, label}
+  let lastRows = [];
+
+  function renderChips() {
+    const el = document.getElementById('inv-chips');
+    el.innerHTML = selectedInvestors.map((inv, i) =>
+      `<span class="chip">${inv.label}<button data-idx="${i}" title="Fjern">×</button></span>`
+    ).join('');
+    el.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        selectedInvestors.splice(Number(b.dataset.idx), 1);
+        renderChips();
+        document.getElementById('btn-fetch').disabled = selectedInvestors.length === 0;
+      });
+    });
+  }
+
+  setupSearch('inv-search', 'inv-results',
+    '{{ url_for("handler.api_search_investors") }}',
+    'label', 'investor_id',
+    function(item) {
+      if (!selectedInvestors.some(x => x.investor_id === item.investor_id)) {
+        selectedInvestors.push({ investor_id: item.investor_id, label: item.label });
+        renderChips();
+        document.getElementById('btn-fetch').disabled = false;
+      }
+      document.getElementById('inv-search').value = '';
+    }
+  );
+
+  function buildQuery() {
+    const ids = selectedInvestors.map(x => x.investor_id).join(',');
+    const params = new URLSearchParams({ investor_ids: ids });
+    const asOf = document.getElementById('as-of').value;
+    if (asOf) params.set('as_of', asOf);
+    params.set('stale_days', document.getElementById('stale-days').value || '120');
+    if (document.getElementById('include-zero').checked) params.set('include_zero', '1');
+    return params.toString();
+  }
+
+  document.getElementById('btn-fetch').addEventListener('click', async function() {
+    if (selectedInvestors.length === 0) return;
+    this.innerHTML = '<span class="spinner"></span> Beregner…';
+    try {
+      const resp = await fetch(`{{ url_for("handler.api_portefolje") }}?${buildQuery()}`);
+      const data = await resp.json();
+
+      if (data.error) {
+        document.getElementById('result-area').innerHTML = `<div class="panel">${data.error}</div>`;
+        document.getElementById('summary-area').style.display = 'none';
+        document.getElementById('btn-csv').style.display = 'none';
+        return;
+      }
+
+      lastRows = data.rows || [];
+      renderSummary(data.summary || {});
+
+      if (lastRows.length === 0) {
+        document.getElementById('result-area').innerHTML =
+          '<div class="empty-msg">Ingen posisjoner funnet for valgt(e) investor(er).</div>';
+        document.getElementById('btn-csv').style.display = 'none';
+        return;
+      }
+
+      const displayRows = lastRows.map(r => ({
+        ...r,
+        merknad: r.foreldet ? '⚠︎ foreldet' : '',
+      }));
+
+      buildTable(displayRows, [
+        { key: 'ticker', label: 'Ticker' },
+        { key: 'navn', label: 'Navn' },
+        { key: 'antall', label: 'Antall aksjer', fmt: 'int' },
+        { key: 'kurs', label: 'Kurs', fmt: 'num', dec: 2 },
+        { key: 'verdi_mnok', label: 'Verdi MNOK', fmt: 'num', dec: 1 },
+        { key: 'sist_sett', label: 'Sist sett' },
+        { key: 'dager_siden', label: 'Dager siden', fmt: 'int' },
+        { key: 'antall_kontoer', label: 'Kontoer', fmt: 'int' },
+        { key: 'merknad', label: 'Merknad' },
+      ], 'result-area', {
+        defaultPageSize: 50,
+        initialSort: { key: 'verdi_mnok', asc: false },
+      });
+
+      document.getElementById('btn-csv').style.display = 'inline-block';
+    } catch (e) {
+      document.getElementById('result-area').innerHTML =
+        '<div class="panel">Teknisk feil ved beregning. Prøv igjen.</div>';
+      document.getElementById('summary-area').style.display = 'none';
+      console.error('api/portefolje fetch failed', e);
+    } finally {
+      this.textContent = 'Beregn portefølje';
+    }
+  });
+
+  function renderSummary(s) {
+    const el = document.getElementById('summary-area');
+    el.style.display = 'block';
+    const refText = s.as_of
+      ? `${s.reference_date || '–'} (valgt dato)`
+      : `${s.reference_date || '–'} (siste i DB)`;
+    let staleNote = '';
+    if (s.n_stale) {
+      staleNote = `<div class="note mt-2">⚠︎ ${s.n_stale} posisjon(er) er eldre enn
+        ${s.stale_days} dager (markert «foreldet») — usikkert estimat.</div>`;
+    }
+    let unpricedNote = '';
+    if (s.n_unpriced) {
+      unpricedNote = `<div class="note">${s.n_unpriced} posisjon(er) mangler kurs og
+        inngår ikke i sum-verdien.</div>`;
+    }
+    el.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="val">${fmtNum(s.total_value_mnok, 1)}</div>
+          <div class="lbl">Sum verdi (MNOK)</div>
+        </div>
+        <div class="stat-box">
+          <div class="val">${fmtInt(s.n_positions)}</div>
+          <div class="lbl">Posisjoner</div>
+        </div>
+        <div class="stat-box">
+          <div class="val">${refText}</div>
+          <div class="lbl">Estimat pr.</div>
+        </div>
+      </div>
+      ${staleNote}
+      ${unpricedNote}
+    `;
+  }
+
+  document.getElementById('btn-csv').addEventListener('click', function() {
+    if (selectedInvestors.length === 0) return;
+    window.open(`{{ url_for("handler.api_portefolje_csv") }}?${buildQuery()}`);
+  });
+</script>
+{% endblock %}
