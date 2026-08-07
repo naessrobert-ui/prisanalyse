@@ -169,6 +169,41 @@ def test_as_of_reconstructs_history(conn):
     assert pos["NO0010063308"].shares == 300_000
 
 
+def test_net_buys_over_period(conn):
+    investors = ep.resolve_investors(conn, investor_ids=["1001"])
+    est = ep.estimate_portfolio(
+        conn, investors, trade_from="2026-07-01", trade_to="2026-08-06"
+    )
+    pos = _by_isin(est)
+    eqnr = pos["NO0010096985"]
+    # Kjøp 50 000 (2026-07-01) + 100 000 (2026-08-06) = 150 000
+    assert eqnr.net_buy_shares == 150_000
+    assert eqnr.net_buy_mnok == pytest.approx((50000 * 294 + 100000 * 300) / 1e6)
+    assert eqnr.n_trades == 2
+    assert eqnr.last_trade == "2026-08-06"
+    # MOWI ble ikke handlet i perioden -> ingen nettokjøpsdata
+    assert pos["NO0003054108"].net_buy_shares is None
+
+
+def test_net_buys_absent_without_period(conn):
+    investors = ep.resolve_investors(conn, investor_ids=["1001"])
+    est = ep.estimate_portfolio(conn, investors)
+    assert all(p.net_buy_shares is None for p in est.positions)
+    assert all(p.n_trades == 0 for p in est.positions)
+
+
+def test_share_pct_no_decimals(conn):
+    investors = ep.resolve_investors(conn, investor_ids=["1001"])
+    est = ep.estimate_portfolio(conn, investors)
+    pos = _by_isin(est)
+    # Total (priset) = 305 (EQNR) + 35 (MOWI) = 340 MNOK
+    assert est.share_pct(pos["NO0010096985"]) == 90   # 305/340
+    assert est.share_pct(pos["NO0003054108"]) == 10    # 35/340
+    assert isinstance(est.share_pct(pos["NO0010096985"]), int)
+    # Upriset posisjon har ingen andel
+    assert est.share_pct(pos["NO0010823131"]) is None
+
+
 def test_sorted_by_value_desc(conn):
     investors = ep.resolve_investors(conn, investor_ids=["1001"])
     est = ep.estimate_portfolio(conn, investors)

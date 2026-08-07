@@ -47,6 +47,9 @@ Bruk
     python scripts/estimer_portefolje.py --search "Salt Value" \
         --as-of 2026-06-30 --csv portefolje.csv
 
+    # Ta med netto kjøp/salg siste 30 dager som egen kolonne
+    python scripts/estimer_portefolje.py --search "Holberg Norge" --trade-days 30
+
     # Peke direkte på en DB-fil (uten handler_data / S3)
     python scripts/estimer_portefolje.py --db-path /sti/topchanges.db --search Tycoon
 
@@ -94,6 +97,11 @@ class Position:
     oldest_seen: str          # eldste observasjonsdato blant bidragskontoene
     days_since: Optional[int]  # dager fra oldest_seen til referansedato (verst tilfelle)
     accounts: list[str] = field(default_factory=list)
+    # Handelsaktivitet i valgt periode (None når ingen periode er angitt).
+    net_buy_shares: Optional[float] = None  # netto endring i antall aksjer (kjøp − salg)
+    net_buy_mnok: Optional[float] = None     # netto kjøpsbeløp i MNOK (positiv = netto kjøp)
+    n_trades: int = 0                         # antall handelsdager med endring i perioden
+    last_trade: Optional[str] = None          # siste handelsdato i perioden
 
     @property
     def value(self) -> Optional[float]:
@@ -114,6 +122,8 @@ class PortfolioEstimate:
     db_max_date: Optional[str]
     as_of: Optional[str]
     stale_days: int
+    trade_from: Optional[str] = None
+    trade_to: Optional[str] = None
 
     @property
     def reference_date(self) -> Optional[str]:
@@ -123,6 +133,13 @@ class PortfolioEstimate:
     @property
     def total_value_mnok(self) -> float:
         return sum((p.value_mnok or 0.0) for p in self.positions)
+
+    def share_pct(self, p: Position) -> Optional[int]:
+        """Andel av porteføljens (prisede) totalverdi i hele prosent."""
+        total = self.total_value_mnok
+        if p.value_mnok is None or total <= 0:
+            return None
+        return round(p.value_mnok / total * 100)
 
     def stale_positions(self) -> list[Position]:
         return [
@@ -275,6 +292,50 @@ def _security_meta(conn: sqlite3.Connection) -> dict[str, dict]:
 
 
 # =========================================================
+# Handelsaktivitet i periode (nettokjøp)
+# =========================================================
+def _net_buys(
+    conn: sqlite3.Connection,
+    ids: list[str],
+    trade_from: Optional[str],
+    trade_to: Optional[str],
+) -> dict[str, dict]:
+    """Netto kjøp/salg per ISIN i perioden [trade_from, trade_to].
+
+    Summerer ``change_qty`` (positiv = kjøp, negativ = salg) på tvers av
+    kontoer, og verdsetter hver handel med handelsdagens kurs
+    (``price_yesterday`` foretrukket, ellers ``price_today``).
+    """
+    if not ids or not trade_from or not trade_to:
+        return {}
+    placeholders = ",".join("?" for _ in ids)
+    sql = f"""
+        SELECT
+            isin,
+            SUM(COALESCE(change_qty, 0)) AS net_shares,
+            SUM(
+                COALESCE(change_qty, 0)
+                * COALESCE(NULLIF(price_yesterday, 0), NULLIF(price_today, 0), 0)
+            ) AS net_value,
+            SUM(CASE WHEN COALESCE(change_qty, 0) <> 0 THEN 1 ELSE 0 END) AS n_trades,
+            MAX(CASE WHEN COALESCE(change_qty, 0) <> 0 THEN date_today END) AS last_trade
+        FROM position_change
+        WHERE investor_id IN ({placeholders})
+          AND date_today BETWEEN ? AND ?
+        GROUP BY isin
+    """
+    out: dict[str, dict] = {}
+    for r in conn.execute(sql, list(ids) + [trade_from, trade_to]).fetchall():
+        out[str(r["isin"])] = {
+            "net_shares": float(r["net_shares"] or 0.0),
+            "net_mnok": float(r["net_value"] or 0.0) / 1_000_000.0,
+            "n_trades": int(r["n_trades"] or 0),
+            "last_trade": str(r["last_trade"])[:10] if r["last_trade"] else None,
+        }
+    return out
+
+
+# =========================================================
 # Kjerne: estimer portefølje
 # =========================================================
 def estimate_portfolio(
@@ -283,19 +344,26 @@ def estimate_portfolio(
     as_of: Optional[str] = None,
     include_zero: bool = False,
     stale_days: int = 120,
+    trade_from: Optional[str] = None,
+    trade_to: Optional[str] = None,
 ) -> PortfolioEstimate:
     """Estimer beholdning per ISIN som sist observerte ``holding_today``.
 
     Beholdningene summeres på tvers av alle oppgitte investor-id-er (nyttig for
     fond med flere kontoer). Sett kun én investor i ``investors`` for å unngå
     sammenblanding.
+
+    Er ``trade_from``/``trade_to`` satt, beregnes i tillegg netto kjøp/salg per
+    posisjon i den perioden.
     """
     db_max_date = get_db_max_date(conn)
     ref_date = as_of or db_max_date
 
     ids = [inv.investor_id for inv in investors]
     if not ids:
-        return PortfolioEstimate([], [], db_max_date, as_of, stale_days)
+        return PortfolioEstimate(
+            [], [], db_max_date, as_of, stale_days, trade_from, trade_to
+        )
 
     placeholders = ",".join("?" for _ in ids)
     date_filter = "AND date_today <= ?" if as_of else ""
@@ -325,6 +393,7 @@ def estimate_portfolio(
 
     prices = _latest_prices(conn, as_of)
     meta = _security_meta(conn)
+    net_buys = _net_buys(conn, ids, trade_from, trade_to)
 
     # Aggreger per ISIN på tvers av kontoer.
     agg: dict[str, dict] = {}
@@ -359,6 +428,7 @@ def estimate_portfolio(
             price = m["last_price"]
             price_source = "security.last_price"
 
+        nb = net_buys.get(isin)
         positions.append(
             Position(
                 isin=isin,
@@ -372,6 +442,10 @@ def estimate_portfolio(
                 # Alder måles fra eldste bidrag (mest konservativt) til referansedato.
                 days_since=_days_between(b["oldest_seen"], ref_date),
                 accounts=sorted(set(b["accounts"])),
+                net_buy_shares=nb["net_shares"] if nb else None,
+                net_buy_mnok=nb["net_mnok"] if nb else None,
+                n_trades=nb["n_trades"] if nb else 0,
+                last_trade=nb["last_trade"] if nb else None,
             )
         )
 
@@ -387,6 +461,8 @@ def estimate_portfolio(
         db_max_date=db_max_date,
         as_of=as_of,
         stale_days=stale_days,
+        trade_from=trade_from,
+        trade_to=trade_to,
     )
 
 
@@ -415,6 +491,8 @@ def print_estimate(est: PortfolioEstimate, top: Optional[int] = None) -> None:
     print(f"Siste dato i DB : {est.db_max_date or '-'}")
     print(f"Estimat pr.     : {est.reference_date or '-'}"
           + ("  (as-of)" if est.as_of else "  (siste tilgjengelige)"))
+    if est.trade_from and est.trade_to:
+        print(f"Handelsperiode  : {est.trade_from} – {est.trade_to} (nettokjøp)")
     print(f"Alder-terskel   : {est.stale_days} dager")
     print("-" * 78)
 
@@ -423,23 +501,28 @@ def print_estimate(est: PortfolioEstimate, top: Optional[int] = None) -> None:
         print("Ingen posisjoner funnet for valgt(e) investor(er).")
         return
 
+    show_trades = bool(est.trade_from and est.trade_to)
+    trade_hdr = f"{'NettokjøpMNOK':>15}" if show_trades else ""
     header = (
-        f"{'Ticker':<10}{'ISIN':<15}{'Antall':>15}{'Kurs':>10}"
-        f"{'Verdi MNOK':>13}{'Sist sett':>12}{'Dager':>7}  Navn"
+        f"{'Ticker':<9}{'Antall':>14}{'Kurs':>10}"
+        f"{'Verdi MNOK':>13}{'Andel%':>8}{trade_hdr}"
+        f"{'Sist sett':>12}{'Dager':>7}  Navn"
     )
     print(header)
     print("-" * len(header))
     for p in rows:
         flag = " *" if (p.days_since is not None and p.days_since > est.stale_days) else ""
+        pct = est.share_pct(p)
+        trade_col = f"{_fmt_num(p.net_buy_mnok, 1):>15}" if show_trades else ""
         print(
-            f"{p.ticker:<10}{p.isin:<15}{_fmt_int(p.shares):>15}"
+            f"{p.ticker:<9}{_fmt_int(p.shares):>14}"
             f"{_fmt_num(p.price, 3):>10}{_fmt_num(p.value_mnok, 1):>13}"
+            f"{('-' if pct is None else str(pct)):>8}{trade_col}"
             f"{p.last_seen:>12}{('-' if p.days_since is None else str(p.days_since)):>7}"
             f"  {p.name}{flag}"
         )
 
     print("-" * len(header))
-    priced = [p for p in est.positions if p.value_mnok is not None]
     unpriced = [p for p in est.positions if p.value_mnok is None]
     print(f"Antall posisjoner : {len(est.positions)}"
           + (f"  (vist: {len(rows)})" if top and len(rows) < len(est.positions) else ""))
@@ -457,11 +540,13 @@ def write_csv(est: PortfolioEstimate, path: str) -> None:
         w = csv.writer(fh, delimiter=";")
         w.writerow([
             "ticker", "isin", "navn", "antall_aksjer", "kurs", "kurs_kilde",
-            "verdi_mnok", "sist_sett", "eldste_obs", "dager_siden",
-            "foreldet", "antall_kontoer", "kontoer",
+            "verdi_mnok", "andel_pct", "nettokjop_antall", "nettokjop_mnok",
+            "antall_handler", "siste_handel", "sist_sett", "eldste_obs",
+            "dager_siden", "foreldet", "antall_kontoer", "kontoer",
         ])
         for p in est.positions:
             stale = p.days_since is not None and p.days_since > est.stale_days
+            pct = est.share_pct(p)
             w.writerow([
                 p.ticker,
                 p.isin,
@@ -470,6 +555,11 @@ def write_csv(est: PortfolioEstimate, path: str) -> None:
                 "" if p.price is None else f"{p.price:.4f}".replace(".", ","),
                 p.price_source,
                 "" if p.value_mnok is None else f"{p.value_mnok:.2f}".replace(".", ","),
+                "" if pct is None else pct,
+                "" if p.net_buy_shares is None else f"{p.net_buy_shares:.0f}",
+                "" if p.net_buy_mnok is None else f"{p.net_buy_mnok:.2f}".replace(".", ","),
+                p.n_trades,
+                p.last_trade or "",
                 p.last_seen,
                 p.oldest_seen,
                 "" if p.days_since is None else p.days_since,
@@ -530,6 +620,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--db-path", help="Sti til topchanges.db (overstyrer handler_data).")
     p.add_argument("--as-of", help="Estimer portefølje pr. denne datoen (YYYY-MM-DD).")
     p.add_argument(
+        "--trade-from", help="Startdato for nettokjøp-beregning (YYYY-MM-DD).",
+    )
+    p.add_argument(
+        "--trade-to", help="Sluttdato for nettokjøp-beregning (YYYY-MM-DD).",
+    )
+    p.add_argument(
+        "--trade-days", type=int, default=None,
+        help="Beregn nettokjøp for de siste N dagene fram til estimatdatoen.",
+    )
+    p.add_argument(
         "--stale-days", type=int, default=120,
         help="Flagg posisjoner eldre enn N dager (default 120).",
     )
@@ -566,12 +666,15 @@ def main(argv: Optional[list[str]] = None) -> int:
         print("Oppgi minst --search eller --investor-id.", file=sys.stderr)
         return 2
 
-    if args.as_of:
-        try:
-            dt.date.fromisoformat(args.as_of)
-        except ValueError:
-            print(f"Ugyldig --as-of dato: {args.as_of}", file=sys.stderr)
-            return 2
+    for label, value in (("--as-of", args.as_of),
+                         ("--trade-from", args.trade_from),
+                         ("--trade-to", args.trade_to)):
+        if value:
+            try:
+                dt.date.fromisoformat(value)
+            except ValueError:
+                print(f"Ugyldig {label} dato: {value}", file=sys.stderr)
+                return 2
 
     conn = _connect(args.db_path)
     try:
@@ -600,12 +703,24 @@ def main(argv: Optional[list[str]] = None) -> int:
             for inv in investors:
                 print(f"  - {inv.label}", file=sys.stderr)
 
+        trade_from, trade_to = args.trade_from, args.trade_to
+        if args.trade_days is not None and not (trade_from and trade_to):
+            ref = args.as_of or get_db_max_date(conn)
+            if ref:
+                ref_d = dt.date.fromisoformat(ref)
+                trade_to = trade_to or ref
+                trade_from = trade_from or (
+                    ref_d - dt.timedelta(days=args.trade_days)
+                ).isoformat()
+
         est = estimate_portfolio(
             conn,
             investors,
             as_of=args.as_of,
             include_zero=args.include_zero,
             stale_days=args.stale_days,
+            trade_from=trade_from,
+            trade_to=trade_to,
         )
 
         if args.drop_stale:

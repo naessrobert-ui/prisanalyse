@@ -681,6 +681,11 @@ def _portfolio_position_rows(est) -> list[dict]:
             "kurs": None if p.price is None else round(p.price, 4),
             "kurs_kilde": p.price_source,
             "verdi_mnok": None if p.value_mnok is None else round(p.value_mnok, 2),
+            "andel_pct": est.share_pct(p),
+            "nettokjop_antall": p.net_buy_shares,
+            "nettokjop_mnok": None if p.net_buy_mnok is None else round(p.net_buy_mnok, 2),
+            "antall_handler": p.n_trades,
+            "siste_handel": p.last_trade,
             "sist_sett": p.last_seen,
             "eldste_obs": p.oldest_seen,
             "dager_siden": p.days_since,
@@ -688,6 +693,22 @@ def _portfolio_position_rows(est) -> list[dict]:
             "antall_kontoer": len(p.accounts),
         })
     return rows
+
+
+def _portfolio_common_args():
+    """Felles parsing av valgfrie parametre for portefølje-endepunktene."""
+    as_of = (request.args.get("as_of") or "").strip() or None
+    trade_from = (request.args.get("trade_from") or "").strip() or None
+    trade_to = (request.args.get("trade_to") or "").strip() or None
+    for value in (as_of, trade_from, trade_to):
+        if value:
+            dt.date.fromisoformat(value)  # ValueError => 400 hos kaller
+    include_zero = request.args.get("include_zero", "").lower() in {"1", "true", "yes", "on"}
+    try:
+        stale_days = int(request.args.get("stale_days", 120))
+    except (TypeError, ValueError):
+        stale_days = 120
+    return as_of, trade_from, trade_to, include_zero, stale_days
 
 
 @handler_bp.route("/portefolje")
@@ -701,18 +722,10 @@ def api_portefolje():
     if not investor_ids:
         return jsonify({"error": "Velg minst én investor"}), 400
 
-    as_of = (request.args.get("as_of") or "").strip() or None
-    if as_of:
-        try:
-            dt.date.fromisoformat(as_of)
-        except ValueError:
-            return jsonify({"error": f"Ugyldig dato: {as_of}"}), 400
-
-    include_zero = request.args.get("include_zero", "").lower() in {"1", "true", "yes", "on"}
     try:
-        stale_days = int(request.args.get("stale_days", 120))
-    except (TypeError, ValueError):
-        stale_days = 120
+        as_of, trade_from, trade_to, include_zero, stale_days = _portfolio_common_args()
+    except ValueError:
+        return jsonify({"error": "Ugyldig dato (forventet YYYY-MM-DD)"}), 400
 
     err = _check_db()
     if err:
@@ -725,6 +738,7 @@ def api_portefolje():
         est = ep.estimate_portfolio(
             conn, investors, as_of=as_of,
             include_zero=include_zero, stale_days=stale_days,
+            trade_from=trade_from, trade_to=trade_to,
         )
     except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
         _LOG.exception("DB-feil i api_portefolje investor_ids=%s", investor_ids)
@@ -752,6 +766,8 @@ def api_portefolje():
             "db_max_date": est.db_max_date,
             "as_of": est.as_of,
             "stale_days": est.stale_days,
+            "trade_from": est.trade_from,
+            "trade_to": est.trade_to,
         },
     })
 
@@ -761,12 +777,10 @@ def api_portefolje_csv():
     investor_ids = _parse_investor_ids_arg()
     if not investor_ids:
         return jsonify({"error": "Velg minst én investor"}), 400
-    as_of = (request.args.get("as_of") or "").strip() or None
-    include_zero = request.args.get("include_zero", "").lower() in {"1", "true", "yes", "on"}
     try:
-        stale_days = int(request.args.get("stale_days", 120))
-    except (TypeError, ValueError):
-        stale_days = 120
+        as_of, trade_from, trade_to, include_zero, stale_days = _portfolio_common_args()
+    except ValueError:
+        return jsonify({"error": "Ugyldig dato (forventet YYYY-MM-DD)"}), 400
 
     conn = None
     try:
@@ -775,6 +789,7 @@ def api_portefolje_csv():
         est = ep.estimate_portfolio(
             conn, investors, as_of=as_of,
             include_zero=include_zero, stale_days=stale_days,
+            trade_from=trade_from, trade_to=trade_to,
         )
     except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
         _LOG.exception("DB-feil i api_portefolje_csv investor_ids=%s", investor_ids)
