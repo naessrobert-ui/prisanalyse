@@ -67,11 +67,23 @@ journalctl -u kupp-vakt.service -n 80     # logg fra siste kjøringer
 journalctl -u kupp-vakt.service -f        # følg live
 ```
 
-### Endre terskler
+### Endre terskler og filtre
 
-Rediger `/etc/kupp-vakt/kupp-vakt.env` (`KUPP_RABATT_MIN`, `KUPP_RABATT_KR_MIN`,
-`KUPP_UNDER_HURTIG`) og lagre. Ingen restart trengs – hver kjøring leser fila på
-nytt.
+Rediger env-fila (`/etc/kupp-vakt/kupp-vakt.env`, eller `~/projects/kupp_env`
+ved cron-oppsett) og lagre. Ingen restart trengs – hver kjøring leser fila på nytt.
+
+| Variabel | Hva |
+|----------|-----|
+| `KUPP_RABATT_TRAPP` | Trappetrinns rabattkrav etter pris. Default `50000:30,100000:20,150000:15,250000:10,:7` = <50k krever 30 %, <100k 20 %, <150k 15 %, <250k 10 %, ellers 7 %. |
+| `KUPP_RABATT_KR_MIN` | Valgfri flat kroneterskel i tillegg (0 = av). |
+| `KUPP_UNDER_HURTIG` | `1` = varsle også hvis pris < hurtigpris (default `0`). |
+| `KUPP_DRIVSTOFF` | Kun disse drivstoffene, f.eks. `Elektrisk` eller `Elektrisk,Hybrid`. Tom = alle. |
+| `KUPP_FYLKE` | Kun disse fylkene, f.eks. `Vestland,Rogaland` (eller rå FINN-kode `0.22046`). Tom = hele landet. Server-side filter. |
+| `KUPP_STED` | Delstreng på poststed/område, f.eks. `Bergen,Voss`. Finere enn fylke. |
+
+Gyldige fylkesnavn: Østfold, Akershus, Oslo, Innlandet, Buskerud, Vestfold,
+Telemark, Agder, Rogaland, Vestland, Møre og Romsdal, Trøndelag, Nordland,
+Troms, Finnmark.
 
 ### Endre tidsvindu
 

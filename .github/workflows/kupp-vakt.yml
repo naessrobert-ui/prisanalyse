@@ -74,8 +74,13 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           KUPP_VARSEL_TO: ${{ secrets.KUPP_VARSEL_TO }}
           KUPP_VARSEL_FROM: ${{ secrets.KUPP_VARSEL_FROM }}
+          KUPP_RABATT_TRAPP: ${{ vars.KUPP_RABATT_TRAPP || '50000:30,100000:20,150000:15,250000:10,:7' }}
           KUPP_RABATT_MIN: ${{ vars.KUPP_RABATT_MIN || '15' }}
-          KUPP_RABATT_KR_MIN: ${{ vars.KUPP_RABATT_KR_MIN || '50000' }}
+          KUPP_RABATT_KR_MIN: ${{ vars.KUPP_RABATT_KR_MIN || '0' }}
+          KUPP_UNDER_HURTIG: ${{ vars.KUPP_UNDER_HURTIG || '0' }}
+          KUPP_DRIVSTOFF: ${{ vars.KUPP_DRIVSTOFF }}
+          KUPP_FYLKE: ${{ vars.KUPP_FYLKE }}
+          KUPP_STED: ${{ vars.KUPP_STED }}
           PYTHONIOENCODING: "utf-8"
         run: |
           ARG=""
