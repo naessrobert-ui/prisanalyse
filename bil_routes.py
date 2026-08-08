@@ -140,11 +140,18 @@ _ACTIVE_FK_LOCK = threading.Lock()
 
 ACTIVE_FK_TABLE = "active_finnkoder"  # DuckDB-tabellnavn
 
+# Hvor mange av de nyeste daily-CSV-ene som slaas sammen til "aktiv"-settet.
+# En bil regnes som fortsatt aktiv (og dermed IKKE rekordsolgt) hvis den er sett
+# i minst en av de siste N daglige kjoringene. Union over flere dager gjoer at en
+# enkelt manglende/ufullstendig scraping ikke feilaktig "gjenoppliver" en aktiv
+# bil som solgt.
+ACTIVE_FK_DAILY_LOOKBACK = 3
 
-def _find_latest_daily_csv(s3) -> dict | None:
-    """Finn S3-objektet for nyeste daily-CSV."""
+
+def _find_recent_daily_csvs(s3, n: int = 1) -> list[dict]:
+    """Finn S3-objektene for de {n} nyeste daily-CSV-ene (nyeste foerst)."""
     paginator = s3.get_paginator("list_objects_v2")
-    latest = None
+    objs = []
     for page in paginator.paginate(
         Bucket=S3_BUCKET_NAME, Prefix="raw/bil-daglig/"
     ):
@@ -153,25 +160,48 @@ def _find_latest_daily_csv(s3) -> dict | None:
                 continue
             if obj.get("Size", 0) < 1024:
                 continue
-            if latest is None or obj["LastModified"] > latest["LastModified"]:
-                latest = obj
-    return latest
+            objs.append(obj)
+    objs.sort(key=lambda o: o["LastModified"], reverse=True)
+    return objs[: max(1, n)]
+
+
+def _find_latest_daily_csv(s3) -> dict | None:
+    """Finn S3-objektet for nyeste daily-CSV."""
+    recent = _find_recent_daily_csvs(s3, 1)
+    return recent[0] if recent else None
+
+
+def _finnkode_norm_sql(col_ident: str) -> str:
+    """
+    Normaliser en FinnKode-kolonne til rene siffer i SQL.
+
+    Viktig: parquet lagrer ofte FinnKode som flyttall, slik at
+    ``CAST(FinnKode AS VARCHAR)`` gir ``'123456.0'``. Cross-check-tabellen
+    inneholder rene siffer (``'123456'``), saa uten normalisering matcher
+    ingenting og cross-checken blir en stille no-op. regexp_extract henter
+    foerste siffergruppe og speiler pandas ``str.extract(r"(\\d+)")`` som
+    brukes naar aktiv-tabellen bygges.
+    """
+    return f"regexp_extract(cast({col_ident} as varchar), '[0-9]+')"
 
 
 def _ensure_active_finnkoder_table() -> bool:
     """
     Sikrer at DuckDB-tabellen {ACTIVE_FK_TABLE} finnes og inneholder
-    FinnKoder fra nyeste daily-CSV. Returnerer True hvis tabellen er klar.
+    FinnKoder fra de siste {ACTIVE_FK_DAILY_LOOKBACK} daily-CSV-ene (union).
+    Returnerer True hvis tabellen er klar.
     """
     with _ACTIVE_FK_LOCK:
         try:
             s3 = _get_s3_client()
-            obj_meta = _find_latest_daily_csv(s3)
-            if obj_meta is None:
+            recent = _find_recent_daily_csvs(s3, ACTIVE_FK_DAILY_LOOKBACK)
+            if not recent:
                 print("[rekordrask] Fant ingen daily-CSV. Hopper over cross-check.")
                 return False
 
-            key = obj_meta["Key"]
+            # Cache-signatur bygges paa nyeste fil (key+etag). Endres nyeste
+            # daily, bygges hele unionen paa nytt.
+            key = recent[0]["Key"]
             head = s3.head_object(Bucket=S3_BUCKET_NAME, Key=key)
             etag = (head.get("ETag") or "").strip('"')
 
@@ -183,28 +213,44 @@ def _ensure_active_finnkoder_table() -> bool:
             ):
                 return True
 
-            print(f"[rekordrask] Laster daily-CSV for cross-check: {key}")
-            resp = s3.get_object(Bucket=S3_BUCKET_NAME, Key=key)
-            content = resp["Body"].read()
-
             import io as _io
-            df = pd.read_csv(
-                _io.BytesIO(content),
-                encoding="utf-16",
-                sep=";",
-                dtype=str,
-                usecols=lambda c: c.lower().replace("_", "").replace(" ", "")
-                in ("finnkode", "finnid"),
-            )
-            if df.empty or df.shape[1] == 0:
-                print(f"[rekordrask] Daily-CSV mangler FinnKode-kolonne: {key}")
+
+            fk_frames = []
+            for obj_meta in recent:
+                k = obj_meta["Key"]
+                try:
+                    resp = s3.get_object(Bucket=S3_BUCKET_NAME, Key=k)
+                    content = resp["Body"].read()
+                    df = pd.read_csv(
+                        _io.BytesIO(content),
+                        encoding="utf-16",
+                        sep=";",
+                        dtype=str,
+                        usecols=lambda c: c.lower().replace("_", "").replace(" ", "")
+                        in ("finnkode", "finnid"),
+                    )
+                    if df.empty or df.shape[1] == 0:
+                        print(f"[rekordrask] Daily-CSV mangler FinnKode-kolonne: {k}")
+                        continue
+                    fk_col = df.columns[0]
+                    fk = df[fk_col].astype(str).str.extract(r"(\d+)", expand=False)
+                    fk_frames.append(fk.dropna())
+                except Exception as e:
+                    # Fail-open per fil: en daarlig daily skal ikke velte hele
+                    # cross-checken saa lenge minst en fil er lesbar.
+                    print(f"[rekordrask] Klarte ikke lese daily-CSV {k}: {e}")
+                    continue
+
+            if not fk_frames:
+                print("[rekordrask] Ingen lesbare daily-CSV-er for cross-check.")
                 return False
 
-            fk_col = df.columns[0]
-            df["FinnKode"] = (
-                df[fk_col].astype(str).str.extract(r"(\d+)", expand=False)
+            fk_df = (
+                pd.concat(fk_frames, ignore_index=True)
+                .rename("FinnKode")
+                .to_frame()
+                .drop_duplicates()
             )
-            fk_df = df[["FinnKode"]].dropna().drop_duplicates()
 
             con = _duckdb_con()
             con.execute(f"DROP TABLE IF EXISTS {ACTIVE_FK_TABLE}")
@@ -219,7 +265,10 @@ def _ensure_active_finnkoder_table() -> bool:
             cache["etag"] = etag
             cache["registered_in_duckdb"] = True
 
-            print(f"[rekordrask] Registrerte {len(fk_df):,} aktive FinnKoder i DuckDB")
+            print(
+                f"[rekordrask] Registrerte {len(fk_df):,} aktive FinnKoder i DuckDB "
+                f"(union av {len(fk_frames)} daily-fil(er))"
+            )
             return True
 
         except Exception as e:
@@ -1224,10 +1273,16 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
 
     # Cross-check mot aktive FinnKoder. Fail-open hvis tabellen ikke
     # kan bygges.
+    # NB: FinnKode normaliseres til rene siffer paa begge sider. Parquet
+    # lagrer ofte FinnKode som flyttall ('123456.0'), mens aktiv-tabellen
+    # har rene siffer ('123456'). Uten normalisering matcher ingenting og
+    # cross-checken blir en stille no-op som slipper gjennom biler som
+    # fortsatt er aktive paa Finn.
     has_active = _ensure_active_finnkoder_table()
     if has_active:
+        finnkode_norm = _finnkode_norm_sql(c_finnkode)
         not_aktiv_sql = (
-            f"CAST({c_finnkode} AS VARCHAR) NOT IN ("
+            f"{finnkode_norm} NOT IN ("
             f"  SELECT FinnKode FROM {ACTIVE_FK_TABLE}"
             f")"
         )
