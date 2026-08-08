@@ -13,7 +13,11 @@ name: Kupp-vakt (ferske underprisede biler)
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Hvert 10. min på dagtid. Cron er i UTC: 04-21 UTC ≈ 06-24 norsk sommertid
+    # (CEST). Vakten står stille om natten. NB: om vinteren (CET) forskyves
+    # vinduet én time – vil du ha eksakt lokaltid hele året, kjør fra Pi-en
+    # (deploy/pi) der systemd bruker lokal tidssone automatisk.
+    - cron: "*/10 4-21 * * *"
   workflow_dispatch:
     inputs:
       seed:

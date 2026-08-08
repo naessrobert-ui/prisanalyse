@@ -1,0 +1,19 @@
+# systemd-tjeneste for kupp-vakt (oneshot – startes av kupp-vakt.timer).
+# Placeholder __REPO_DIR__, __PYTHON__ og __USER__ fylles inn av
+# install-kupp-vakt.sh. Rediger manuelt hvis du installerer for hånd.
+[Unit]
+Description=Kupp-vakt: scrap ferske FINN-annonser og varsle om underprisede biler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__REPO_DIR__
+EnvironmentFile=/etc/kupp-vakt/kupp-vakt.env
+ExecStart=__PYTHON__ -m scripts.kupp_vakt
+# Ikke la én kjøring henge evig (nettverk/FINN kan tregne).
+TimeoutStartSec=300
+# Litt herding – tjenesten trenger verken root-skriving eller nye privilegier.
+NoNewPrivileges=true
+PrivateTmp=true
