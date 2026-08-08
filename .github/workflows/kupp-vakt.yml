@@ -71,6 +71,7 @@ jobs:
           KUPP_VARSEL_TO: ${{ secrets.KUPP_VARSEL_TO }}
           KUPP_VARSEL_FROM: ${{ secrets.KUPP_VARSEL_FROM }}
           KUPP_RABATT_MIN: ${{ vars.KUPP_RABATT_MIN || '15' }}
+          KUPP_RABATT_KR_MIN: ${{ vars.KUPP_RABATT_KR_MIN || '50000' }}
           PYTHONIOENCODING: "utf-8"
         run: |
           ARG=""
