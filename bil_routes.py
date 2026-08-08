@@ -1128,6 +1128,52 @@ def _solgt_true_expr(solgt_norm_expr: str) -> str:
     """
 
 
+def _privat_selger_expr(selger_ident: str) -> str:
+    """
+    SANN for private selgere. Speiler klassifiser_selgertype() i
+    bil_nye_annonser.py: Selger tom / NULL / whitespace / 'nan'/'none'/'<na>'
+    => privat; en hvilken som helst annen verdi (forhandler-/bedriftsnavn)
+    => forhandler/bedrift.
+
+    NB: forhandler_type-kolonnen er tom i dataene og ubrukelig som kilde -
+    Selger-navnet er det paalitelige signalet paa selger-type.
+    """
+    if selger_ident == "NULL":
+        # Ingen selger-kolonne i datasettet -> kan ikke skille, anta privat
+        # (bevarer gammel adferd der FJERNET talte som solgt for alle).
+        return "TRUE"
+    norm = f"lower(trim(cast({selger_ident} as varchar)))"
+    return f"({selger_ident} IS NULL OR {norm} IN ('', 'nan', 'none', '<na>'))"
+
+
+def _solgt_true_seller_aware_expr(solgt_norm_expr: str, selger_ident: str) -> str:
+    """
+    Som _solgt_true_expr, men skiller mellom bekreftet salg og forsvunnet annonse:
+
+      - 'ja'/'solgt'/'sold'/'true'/'1'  => bekreftet solgt (uansett selger-type).
+      - 'fjernet'/'removed'             => annonse forsvunnet. Regnes som solgt
+                                           KUN for private selgere. Forhandlere
+                                           re-publiserer stadig annonser, saa en
+                                           forsvunnet forhandler-annonse er ikke
+                                           paalitelig 'solgt' - den ville ellers
+                                           feilaktig telle som "solgt rekordraskt"
+                                           selv om bilen fortsatt er til salgs.
+
+    Speiler den gamle CSV-logikken (rekordrask_logic.py): "Forsvunnet + PRIVAT
+    => solgt. Forsvunnet + forhandler => IKKE solgt".
+    """
+    er_privat = _privat_selger_expr(selger_ident)
+    return f"""
+      (
+        {solgt_norm_expr} IN ('ja', 'true', '1', 'solgt', 'sold')
+        OR (
+          {solgt_norm_expr} IN ('fjernet', 'removed')
+          AND {er_privat}
+        )
+      )
+    """
+
+
 def _rekordrask_group_cols(filters: dict, colmap: dict):
     """Returner (group_cols_sql, group_cols_names) der names er feltnavn i JSON."""
     choice = (filters.get("group_choice") or "").strip()
@@ -1262,12 +1308,17 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     c_dato_ny = _qident(colmap.get("dato_end"))
     c_solgt = _qident(colmap.get("solgt"))
     c_finnkode = _qident(colmap.get("finnkode"))
+    c_selger = _qident(colmap.get("selger"))
 
     dato_ts = _to_timestamp_sql(c_dato)
     dato_ny_ts = _to_timestamp_sql(c_dato_ny)
 
+    # Selger-bevisst "solgt": 'fjernet' (annonse forsvunnet) regnes som solgt
+    # kun for private selgere. Forhandlere re-publiserer annonser stadig, saa en
+    # forsvunnet forhandler-annonse er ikke paalitelig solgt og skal ikke telle
+    # som "solgt rekordraskt". Bekreftet salg ('ja'/'solgt') teller uansett.
     solgt_norm = _normalize_str_sql(c_solgt)
-    is_solgt = _solgt_true_expr(solgt_norm)
+    is_solgt = _solgt_true_seller_aware_expr(solgt_norm, c_selger)
 
     days_to_end = f"(date_diff('second', {dato_ts}, {dato_ny_ts}) / 86400.0)"
 
