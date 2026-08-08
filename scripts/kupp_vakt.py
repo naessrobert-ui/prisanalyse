@@ -625,7 +625,31 @@ def _er_kupp(row) -> bool:
     return False
 
 
-def kjor(seed: bool = False, dry_run: bool = False) -> int:
+def _vis_alle() -> int:
+    """Tuning-modus: scor ALLE nåværende kandidater (uansett state), sortert
+    etter rabatt, med [KUPP]-markering. Sender ingenting og rører ikke state."""
+    print(f"[kupp_vakt] Scraper nyeste (maks {MAX_PAGES} sider per hjuldrift) ...")
+    biler = scrape_nyeste()
+    print(f"[kupp_vakt] {len(biler)} annonser hentet")
+    kand = [b for b in biler if _match_filtre(b)]
+    print(f"[kupp_vakt] {len(kand)} kandidater etter drivstoff/sted-filter (viser alle)")
+    scoret = _score(kand)
+    rader = [row.to_dict() for _, row in scoret.iterrows()] if not scoret.empty else []
+    rader.sort(key=lambda d: -(float(d.get("rabatt_pct"))
+                               if d.get("rabatt_pct") == d.get("rabatt_pct") else -999))
+    n_kupp = 0
+    for d in rader:
+        er = _er_kupp(d)
+        n_kupp += 1 if er else 0
+        print(("[KUPP] " if er else "       ") + _formater_bil(d))
+    print(f"[kupp_vakt] {n_kupp} av {len(rader)} kandidater over terskel")
+    return n_kupp
+
+
+def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> int:
+    if vis_alle:
+        return _vis_alle()
+
     s3 = _s3()
     state = last_state(s3)
     forste_gang = len(state) == 0
@@ -724,12 +748,16 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Score og skriv ut, ikke send/lagre")
     parser.add_argument("--test", action="store_true",
                         help="Send ett demo-varsel (verifiser Pushover/SMTP) og avslutt")
+    parser.add_argument("--vis-alle", dest="vis_alle", action="store_true",
+                        help="Tuning: scor og vis ALLE nåværende kandidater "
+                             "(uansett state), marker [KUPP]. Sender/lagrer ikke.")
     args = parser.parse_args()
     if args.test:
         send_testvarsel()
         return
-    antall = kjor(seed=args.seed, dry_run=args.dry_run)
-    print(f"[kupp_vakt] Ferdig ({antall} kupp).")
+    antall = kjor(seed=args.seed, dry_run=args.dry_run, vis_alle=args.vis_alle)
+    if not args.vis_alle:
+        print(f"[kupp_vakt] Ferdig ({antall} kupp).")
 
 
 if __name__ == "__main__":
