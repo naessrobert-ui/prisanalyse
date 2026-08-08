@@ -2837,25 +2837,64 @@ def bil_finn_sok():
                 "title": title,
             })
 
-    # BilRadar-score: forsøk scoring av ALLE biler (både i DB og ikke i DB).
+    # BilRadar-score: gjenbruk ferdige scorer fra bilradar_aktive.parquet der vi
+    # har bilen (raskt, og samme tall som /radar), og live-score kun resten.
+    # Rabatt regnes mot den LIVE FINN-prisen (den kan ha endret seg siden batch).
     score_map: dict = {}
     if rows:
+        want = {str(r["finnkode"]) for r in rows}
+        pris_by_fk = {str(r["finnkode"]): _to_int_safe(r.get("Pris")) for r in rows}
+
+        # 1) Ferdige scorer fra bilradar_aktive.parquet
+        aktive_scores: dict = {}
         try:
-            df_score = pd.DataFrame(rows)
-            modeller = _hent_bilradar_modell(_get_s3_client())
-            df_scored = scorer_biler(df_score, modeller)
-            for _, sc_row in df_scored.iterrows():
-                fk = str(sc_row.get("FinnKode"))
-                score_map[fk] = {
-                    "forventet_pris": sc_row.get("forventet_pris"),
-                    "hurtigpris": sc_row.get("hurtigpris"),
-                    "innbyttepris": sc_row.get("innbyttepris"),
-                    "rabatt_pct": sc_row.get("rabatt_pct"),
-                    "modell_nivaa": sc_row.get("modell_nivaa"),
-                }
+            df_aktive, _ = _les_parquet_aktive(_get_s3_client())
+            if df_aktive is not None and not df_aktive.empty and "FinnKode" in df_aktive.columns:
+                a = df_aktive.copy()
+                a["_fk"] = a["FinnKode"].astype(str).str.replace(r"\.0$", "", regex=True)
+                a = a[a["_fk"].isin(want)].drop_duplicates("_fk", keep="last")
+                for _, ar in a.iterrows():
+                    fk = ar["_fk"]
+                    forv = ar.get("forventet_pris")
+                    live_pris = pris_by_fk.get(fk)
+                    rab = None
+                    try:
+                        fv = float(forv)
+                        if fv > 0 and live_pris and live_pris > 0:
+                            rab = round((fv - live_pris) / fv * 100, 1)
+                    except (TypeError, ValueError):
+                        pass
+                    aktive_scores[fk] = {
+                        "forventet_pris": forv,
+                        "hurtigpris": ar.get("hurtigpris"),
+                        "innbyttepris": ar.get("innbyttepris"),
+                        "rabatt_pct": rab,
+                        "modell_nivaa": ar.get("modell_nivaa"),
+                    }
         except Exception as e:
-            print(f"[finn_sok] BilRadar-scoring feilet: {e}")
-            traceback.print_exc()
+            print(f"[finn_sok] Klarte ikke hente ferdige scorer fra bilradar_aktive: {e}")
+        score_map.update(aktive_scores)
+
+        # 2) Live-score kun biler uten ferdig score (nye/ukjente annonser)
+        rows_to_score = [r for r in rows if str(r["finnkode"]) not in aktive_scores]
+        if rows_to_score:
+            try:
+                df_score = pd.DataFrame(rows_to_score)
+                modeller = _hent_bilradar_modell(_get_s3_client())
+                df_scored = scorer_biler(df_score, modeller)
+                for _, sc_row in df_scored.iterrows():
+                    fk = str(sc_row.get("FinnKode"))
+                    score_map[fk] = {
+                        "forventet_pris": sc_row.get("forventet_pris"),
+                        "hurtigpris": sc_row.get("hurtigpris"),
+                        "innbyttepris": sc_row.get("innbyttepris"),
+                        "rabatt_pct": sc_row.get("rabatt_pct"),
+                        "modell_nivaa": sc_row.get("modell_nivaa"),
+                    }
+            except Exception as e:
+                print(f"[finn_sok] BilRadar-scoring feilet: {e}")
+                traceback.print_exc()
+        print(f"[finn_sok] {len(aktive_scores)} fra bilradar_aktive, {len(rows_to_score)} live-scoret")
 
     treff = []
     innev_ar = datetime.now().year
