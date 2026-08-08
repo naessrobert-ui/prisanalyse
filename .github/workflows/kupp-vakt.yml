@@ -22,6 +22,12 @@ on:
         default: "false"
         type: choice
         options: ["false", "true"]
+      test:
+        description: "Send ett demo-varsel (verifiser Pushover/SMTP)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
 
 permissions:
   contents: read
@@ -67,8 +73,10 @@ jobs:
           KUPP_RABATT_MIN: ${{ vars.KUPP_RABATT_MIN || '15' }}
           PYTHONIOENCODING: "utf-8"
         run: |
-          SEED_ARG=""
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.seed }}" = "true" ]; then
-            SEED_ARG="--seed"
+          ARG=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.test }}" = "true" ]; then
+            ARG="--test"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.seed }}" = "true" ]; then
+            ARG="--seed"
           fi
-          python -m scripts.kupp_vakt $SEED_ARG
+          python -m scripts.kupp_vakt $ARG

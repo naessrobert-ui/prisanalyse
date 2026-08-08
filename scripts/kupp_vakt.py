@@ -493,11 +493,34 @@ def kjor(seed: bool = False, dry_run: bool = False) -> int:
     return len(kupp)
 
 
+def send_testvarsel() -> bool:
+    """Send ett demo-varsel gjennom alle konfigurerte kanaler, for å bekrefte at
+    Pushover/SMTP-oppsettet virker. Rører ikke FINN eller state."""
+    demo = [{
+        "Merke": "Kupp-vakt", "Modell": "testvarsel", "Årstall": datetime.now().year,
+        "Kjørelengde": 0, "Pris": 1, "forventet_pris": 2, "rabatt_pct": 50.0,
+        "hurtigpris": 1, "innbyttepris": 1,
+        "url": "https://prisanalyse.no/bil/radar",
+    }]
+    push = _send_pushover(demo)
+    epost = _send_epost(demo)
+    print(f"[kupp_vakt] Testvarsel: pushover={push}, epost={epost}")
+    if not (push or epost):
+        print("[kupp_vakt] Ingen kanal svarte OK – sjekk PUSHOVER_TOKEN/PUSHOVER_USER "
+              "(eller SMTP_*/KUPP_VARSEL_TO).")
+    return push or epost
+
+
 def main():
     parser = argparse.ArgumentParser(description="Kupp-vakt: varsle om ferske underprisede biler.")
     parser.add_argument("--seed", action="store_true", help="Bare seed state, ingen varsler")
     parser.add_argument("--dry-run", action="store_true", help="Score og skriv ut, ikke send/lagre")
+    parser.add_argument("--test", action="store_true",
+                        help="Send ett demo-varsel (verifiser Pushover/SMTP) og avslutt")
     args = parser.parse_args()
+    if args.test:
+        send_testvarsel()
+        return
     antall = kjor(seed=args.seed, dry_run=args.dry_run)
     print(f"[kupp_vakt] Ferdig ({antall} kupp).")
 
