@@ -13,9 +13,9 @@ nye annonser – én gang hver.
 
 Terskel – trappetrinn etter pris (env, kan overstyres):
     KUPP_RABATT_TRAPP  – "maxpris:minprosent,..." (default
-                         "50000:30,100000:20,150000:15,250000:10,:7"):
+                         "50000:30,100000:20,150000:15,250000:7,:6"):
                          < 50k krever 30 %, < 100k 20 %, < 150k 15 %,
-                         < 250k 10 %, ellers 7 %. Tom = bruk flat KUPP_RABATT_MIN.
+                         < 250k 7 %, ellers 6 %. Tom = bruk flat KUPP_RABATT_MIN.
     KUPP_RABATT_KR_MIN – valgfri flat kroneterskel i tillegg (0 = av, default).
     KUPP_UNDER_HURTIG  – "1": varsle også hvis pris < hurtigpris (default "0").
 
@@ -82,8 +82,8 @@ STATE_TTL_DAYS = int(os.getenv("KUPP_VAKT_TTL_DAYS", "7") or 7)
 # med pris < maxpris må ha minst minprosent rabatt. Tom maxpris (siste ledd) =
 # uendelig (gjelder alle dyrere biler). Standard følger avtalt trappetrinn:
 #   < 50 000 -> 30 %,  < 100 000 -> 20 %,  < 150 000 -> 15 %,
-#   < 250 000 -> 10 %,  >= 250 000 -> 7 %
-RABATT_TRAPP_DEFAULT = "50000:30,100000:20,150000:15,250000:10,:7"
+#   < 250 000 -> 7 %,  >= 250 000 -> 6 %
+RABATT_TRAPP_DEFAULT = "50000:30,100000:20,150000:15,250000:7,:6"
 
 
 def _parse_trapp(spec: str):
