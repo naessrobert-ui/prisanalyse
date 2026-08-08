@@ -11,11 +11,19 @@ husker hvilke FinnKoder som allerede er varslet. Første kjøring seeder (ingen
 varsler) slik at du ikke får en flom av gamle annonser; deretter varsles bare
 nye annonser – én gang hver.
 
-Terskel (env, kan overstyres) – ELLER-kombineres:
-    KUPP_RABATT_MIN    – varsle hvis rabatt_pct >= denne (default 15)
-    KUPP_RABATT_KR_MIN – varsle hvis rabatt i kroner >= denne (default 50000;
-                         fanger dyre biler der lav prosent likevel er mye penger). 0 = av.
-    KUPP_UNDER_HURTIG  – "1" (default): varsle også hvis pris < hurtigpris
+Terskel – trappetrinn etter pris (env, kan overstyres):
+    KUPP_RABATT_TRAPP  – "maxpris:minprosent,..." (default
+                         "50000:30,100000:20,150000:15,250000:10,:7"):
+                         < 50k krever 30 %, < 100k 20 %, < 150k 15 %,
+                         < 250k 10 %, ellers 7 %. Tom = bruk flat KUPP_RABATT_MIN.
+    KUPP_RABATT_KR_MIN – valgfri flat kroneterskel i tillegg (0 = av, default).
+    KUPP_UNDER_HURTIG  – "1": varsle også hvis pris < hurtigpris (default "0").
+
+Filtre (env, valgfrie):
+    KUPP_DRIVSTOFF     – f.eks. "Elektrisk" el. "Elektrisk,Hybrid". Tom = alle.
+    KUPP_FYLKE         – fylkesnavn ("Vestland,Rogaland") el. rå FINN-kode
+                         ("0.22046"). Tom = hele landet. Server-side filter.
+    KUPP_STED          – delstreng på poststed/område ("Bergen,Voss"). Tom = alle.
 
 Varsling (bruk én eller begge – sender bare via de som er konfigurert):
   Pushover (anbefalt – push til mobil):
@@ -65,12 +73,146 @@ S3_BUCKET = os.getenv("S3_BUCKET_NAME", "prisanalyse-data")
 STATE_KEY = os.getenv("KUPP_VAKT_STATE_KEY", "calc/bil/kupp_vakt_state.json")
 STATE_TTL_DAYS = int(os.getenv("KUPP_VAKT_TTL_DAYS", "7") or 7)
 
+# --- Rabattkrav: trappetrinn etter pris ---------------------------------
+# Dyrere bil -> lavere prosentkrav (en billig bil må ned mye i prosent for at
+# kronebeløpet skal bety noe; en dyr bil trenger bare noen få prosent).
+# Format i KUPP_RABATT_TRAPP: "maxpris:minprosent" adskilt med komma, der en bil
+# med pris < maxpris må ha minst minprosent rabatt. Tom maxpris (siste ledd) =
+# uendelig (gjelder alle dyrere biler). Standard følger avtalt trappetrinn:
+#   < 50 000 -> 30 %,  < 100 000 -> 20 %,  < 150 000 -> 15 %,
+#   < 250 000 -> 10 %,  >= 250 000 -> 7 %
+RABATT_TRAPP_DEFAULT = "50000:30,100000:20,150000:15,250000:10,:7"
+
+
+def _parse_trapp(spec: str):
+    """Tolk trappespec til sortert liste av (øvre_grense, min_prosent)."""
+    bands = []
+    for ledd in (spec or "").split(","):
+        ledd = ledd.strip()
+        if not ledd or ":" not in ledd:
+            continue
+        pmax, pct = ledd.split(":", 1)
+        pmax, pct = pmax.strip(), pct.strip()
+        try:
+            pct_f = float(pct)
+        except ValueError:
+            continue
+        if pmax in ("", "inf", "*"):
+            upper = float("inf")
+        else:
+            try:
+                upper = float(pmax)
+            except ValueError:
+                continue
+        bands.append((upper, pct_f))
+    bands.sort(key=lambda b: b[0])
+    return bands
+
+
+RABATT_TRAPP = _parse_trapp(os.getenv("KUPP_RABATT_TRAPP", RABATT_TRAPP_DEFAULT))
+
+
+def _min_rabatt_for_pris(pris: float, bands=None) -> float:
+    """Påkrevd minste rabatt-prosent for en gitt salgspris."""
+    bands = RABATT_TRAPP if bands is None else bands
+    if not bands:
+        return RABATT_MIN
+    for upper, pct in bands:
+        if pris < upper:
+            return pct
+    return bands[-1][1]
+
+
+# Legacy flat terskel – brukes bare hvis trappa er tom (KUPP_RABATT_TRAPP="").
 RABATT_MIN = float(os.getenv("KUPP_RABATT_MIN", "15") or 15)
-# Absolutt kronerabatt: fanger dyre biler der en lav prosent likevel er mye
-# penger (8 % av 600k = 48k). 0 = av. ELLER-kombineres med prosent-terskelen.
-RABATT_KR_MIN = float(os.getenv("KUPP_RABATT_KR_MIN", "50000") or 0)
-UNDER_HURTIG = os.getenv("KUPP_UNDER_HURTIG", "1").strip() not in ("0", "false", "")
+RABATT_KR_MIN = float(os.getenv("KUPP_RABATT_KR_MIN", "0") or 0)
+# "Under hurtigpris" som ekstra ELLER-signal. Default AV nå som trappa styrer –
+# ellers ville en billig bil så vidt under hurtigpris varsle tross høyt %-krav.
+UNDER_HURTIG = os.getenv("KUPP_UNDER_HURTIG", "0").strip() not in ("0", "false", "")
 MAX_VARSLER = int(os.getenv("KUPP_MAX_VARSLER", "40") or 40)
+
+
+# --- Drivstoff-filter ----------------------------------------------------
+def _norm_driv(s: str) -> str:
+    s = (s or "").strip().lower()
+    if s in ("el", "elektrisk", "elbil", "bev"):
+        return "elektrisk"
+    if "plug" in s or "ladbar" in s or "phev" in s:
+        return "plug-in hybrid"
+    if "hybrid" in s or s in ("hev", "mhev"):
+        return "hybrid"
+    if s in ("diesel",):
+        return "diesel"
+    if s in ("bensin", "petrol"):
+        return "bensin"
+    return s
+
+
+# KUPP_DRIVSTOFF: komma-separert, f.eks. "Elektrisk" eller "Elektrisk,Hybrid".
+# Tom = alle drivstoff. Biler uten gjenkjent drivstoff filtreres bort når satt.
+DRIVSTOFF_FILTER = {
+    _norm_driv(x) for x in os.getenv("KUPP_DRIVSTOFF", "").split(",") if x.strip()
+}
+
+# KUPP_STED: komma-separert delstreng-filter på annonsens sted (poststed/område),
+# f.eks. "Bergen,Voss". Tom = hele landet. Case-uavhengig delstreng-match.
+STED_FILTER = [s.strip().lower() for s in os.getenv("KUPP_STED", "").split(",") if s.strip()]
+
+
+# --- Fylke-filter (server-side via FINN sin location-kode) ----------------
+# Verifiserte koder for gjeldende (2024) fylkesinndeling. Brukeren kan skrive
+# fylkesnavn i KUPP_FYLKE (mappes her) ELLER lime inn en rå kode "0.xxxxx".
+FYLKE_LOCATION = {
+    "østfold": "0.20002", "ostfold": "0.20002",
+    "akershus": "0.20003",
+    "oslo": "0.20061",
+    "innlandet": "0.22034",
+    "buskerud": "0.20007",
+    "vestfold": "0.20008",
+    "telemark": "0.20009",
+    "agder": "0.22042",
+    "rogaland": "0.20012",
+    "vestland": "0.22046",
+    "møre og romsdal": "0.20015", "more og romsdal": "0.20015", "møre": "0.20015",
+    "trøndelag": "0.20016", "trondelag": "0.20016",
+    "nordland": "0.20018",
+    "troms": "0.20019",
+    "finnmark": "0.20020",
+}
+
+
+def _location_codes():
+    out = []
+    for tok in os.getenv("KUPP_FYLKE", "").split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        if re.match(r"^\d+\.\d+$", tok):
+            out.append(tok)
+        else:
+            code = FYLKE_LOCATION.get(tok.lower())
+            if code:
+                out.append(code)
+            else:
+                print(f"[kupp_vakt] Ukjent fylke: {tok!r} "
+                      "(bruk navn som 'Vestland' eller kode '0.22046')")
+    return out
+
+
+LOCATION_CODES = _location_codes()
+LOCATION_SUFFIX = "".join(f"&location={c}" for c in LOCATION_CODES)
+
+
+def _match_filtre(b: dict) -> bool:
+    """Klient-side filtre (drivstoff + sted) på en rå annonse fra scraperen."""
+    if DRIVSTOFF_FILTER and _norm_driv(b.get("Drivstoff")) not in DRIVSTOFF_FILTER:
+        return False
+    if STED_FILTER:
+        sted = (b.get("sted") or "").lower()
+        if not any(f in sted for f in STED_FILTER):
+            return False
+    return True
+
 
 FINN_ITEM_URL = "https://www.finn.no/mobility/item/{}"
 BASE_URL = (
@@ -102,7 +244,7 @@ def _s3():
 # ======================================================
 
 def _build_url(page: int, drift_code: str) -> str:
-    return f"{BASE_URL}&wheel_drive={drift_code}&page={page}"
+    return f"{BASE_URL}&wheel_drive={drift_code}&page={page}{LOCATION_SUFFIX}"
 
 
 def _make_session():
@@ -161,6 +303,16 @@ def _title_info(card, link_tag):
     bilmerke = " ".join(bilmerke.split())
     parts = bilmerke.split(maxsplit=1)
     return (parts[0] if parts else ""), (parts[1] if len(parts) > 1 else ""), bilmerke
+
+
+def _sted(card) -> str:
+    """Poststed/område fra kortet. FINN viser 'Sted ∙ Selger' i første
+    span.truncate.block; vi tar delen før skilletegnet."""
+    sp = card.select_one("span.truncate.block")
+    if not sp:
+        return ""
+    txt = sp.get_text(" ", strip=True).replace("\xa0", " ")
+    return re.split(r"[∙•·]", txt)[0].strip()
 
 
 def _meta_text(card) -> str:
@@ -253,6 +405,7 @@ def scrape_nyeste() -> list[dict]:
                     "Hjuldrift": drift_key,
                     "rekkevidde_km": rekkevidde or None,
                     "Pris": pris,
+                    "sted": _sted(card),
                     "url": FINN_ITEM_URL.format(fk),
                 }
         session.close()
@@ -298,9 +451,12 @@ def _formater_bil(b: dict) -> str:
             return f"{int(round(float(v))):,}".replace(",", " ") + " kr"
         except Exception:
             return "?"
+    sted = (b.get("sted") or "").strip()
+    stedtekst = f" – {sted}" if sted else ""
     linje = (
         f"{(b.get('Merke') or '').strip()} {(b.get('Modell') or '').strip()}".strip()
-        + f" ({b.get('Årstall') or '?'}, {kr(b.get('Kjørelengde')).replace(' kr', ' km')})\n"
+        + f" ({b.get('Årstall') or '?'}, {kr(b.get('Kjørelengde')).replace(' kr', ' km')})"
+        f"{stedtekst}\n"
         f"  Pris: {kr(b.get('Pris'))}  |  Forventet: {kr(b.get('forventet_pris'))}"
         f"  |  Rabatt: {b.get('rabatt_pct')} %\n"
         f"  Hurtigpris: {kr(b.get('hurtigpris'))}  |  Innbytte: {kr(b.get('innbyttepris'))}\n"
@@ -354,8 +510,10 @@ def _pushover_melding(kupp: list[dict]) -> str:
         rab_s = f"-{abs(float(rab)):.0f}%" if rab is not None and not pd.isna(rab) else "?"
         rab_kr = b.get("rabatt_kr")
         kr_s = f" / -{kr(rab_kr)} kr" if rab_kr is not None and not pd.isna(rab_kr) else ""
+        sted = (b.get("sted") or "").strip()
+        sted_s = f" – {sted}" if sted else ""
         linje = (
-            f"{navn} {b.get('Årstall') or '?'}, {kr(b.get('Kjørelengde'))} km\n"
+            f"{navn} {b.get('Årstall') or '?'}, {kr(b.get('Kjørelengde'))} km{sted_s}\n"
             f"{kr(b.get('Pris'))} kr ({rab_s}{kr_s} mot {kr(b.get('forventet_pris'))})\n"
             f"{b.get('url')}"
         )
@@ -428,15 +586,18 @@ def _er_kupp(row) -> bool:
     forv = row.get("forventet_pris")
     if forv is None or pd.isna(forv) or forv <= 0:
         return False
+    pris = row.get("salgspris")
     rab = row.get("rabatt_pct")
-    if rab is not None and not pd.isna(rab) and float(rab) >= RABATT_MIN:
-        return True
+    if (rab is not None and not pd.isna(rab)
+            and pris is not None and not pd.isna(pris)):
+        if float(rab) >= _min_rabatt_for_pris(float(pris)):
+            return True
+    # Legacy flat kroneterskel (kun hvis eksplisitt satt via KUPP_RABATT_KR_MIN)
     rab_kr = row.get("rabatt_kr")
     if RABATT_KR_MIN > 0 and rab_kr is not None and not pd.isna(rab_kr) and float(rab_kr) >= RABATT_KR_MIN:
         return True
     if UNDER_HURTIG:
         hurtig = row.get("hurtigpris")
-        pris = row.get("salgspris")
         if hurtig is not None and not pd.isna(hurtig) and pris is not None and float(pris) < float(hurtig):
             return True
     return False
@@ -470,7 +631,14 @@ def kjor(seed: bool = False, dry_run: bool = False) -> int:
     if not nye:
         return 0
 
-    scoret = _score(nye)
+    # Klient-side filtre (drivstoff/sted) før scoring. Vi scorer/varsler kun
+    # kandidatene, men markerer ALLE nye som sett lenger nede – så et endret
+    # filter senere ikke dumper et helt baklogg av "nye" biler.
+    kandidater = [b for b in nye if _match_filtre(b)]
+    if DRIVSTOFF_FILTER or STED_FILTER:
+        print(f"[kupp_vakt] {len(kandidater)} kandidater etter drivstoff/sted-filter")
+
+    scoret = _score(kandidater)
     kupp = []
     if not scoret.empty:
         for _, row in scoret.iterrows():
@@ -485,7 +653,13 @@ def kjor(seed: bool = False, dry_run: bool = False) -> int:
 
     kupp.sort(key=lambda d: (-(float(d.get("rabatt_pct") or 0))))
     kupp = kupp[:MAX_VARSLER]
-    print(f"[kupp_vakt] {len(kupp)} kupp over terskel (rabatt >= {RABATT_MIN}%"
+    if RABATT_TRAPP:
+        terskel = "trappetrinn " + ", ".join(
+            (f"<{int(u)}k:{p:g}%" if u != float("inf") else f"ellers:{p:g}%")
+            for u, p in RABATT_TRAPP)
+    else:
+        terskel = f"rabatt >= {RABATT_MIN}%"
+    print(f"[kupp_vakt] {len(kupp)} kupp over terskel ({terskel}"
           + (" eller under hurtigpris" if UNDER_HURTIG else "") + ")")
 
     if dry_run:
@@ -510,7 +684,8 @@ def send_testvarsel() -> bool:
         "Merke": "TEST", "Modell": "testvarsel", "Årstall": datetime.now().year,
         "Kjørelengde": 50000, "Pris": 250000, "forventet_pris": 310000,
         "rabatt_pct": 19.4, "rabatt_kr": 60000, "hurtigpris": 290000, "innbyttepris": 263500,
-        "url": "https://www.finn.no/mobility/search/car",
+        "sted": "Testby",
+        "url": FINN_ITEM_URL.format("000000000"),
     }]
     push = _send_pushover(demo)
     epost = _send_epost(demo)
