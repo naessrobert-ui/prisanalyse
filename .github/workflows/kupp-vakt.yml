@@ -78,6 +78,7 @@ jobs:
           KUPP_RABATT_MIN: ${{ vars.KUPP_RABATT_MIN || '15' }}
           KUPP_RABATT_KR_MIN: ${{ vars.KUPP_RABATT_KR_MIN || '0' }}
           KUPP_UNDER_HURTIG: ${{ vars.KUPP_UNDER_HURTIG || '0' }}
+          KUPP_SELGER: ${{ vars.KUPP_SELGER || 'privat' }}
           KUPP_DRIVSTOFF: ${{ vars.KUPP_DRIVSTOFF }}
           KUPP_FYLKE: ${{ vars.KUPP_FYLKE }}
           KUPP_STED: ${{ vars.KUPP_STED }}

@@ -108,6 +108,13 @@ def test_location_codes_ukjent_hoppes_over(monkeypatch):
     assert k._location_codes() == ["0.22046"]
 
 
+def test_selger_segment_bygges_i_url(monkeypatch):
+    # privat -> dealer_segment=3 skal ligge i søke-URL
+    assert k.SELGER_SEGMENT["privat"] == "3"
+    monkeypatch.setattr(k, "SELGER_SUFFIX", "&dealer_segment=3")
+    assert "dealer_segment=3" in k._build_url(1, "3")
+
+
 def test_formater_bil_viser_sted_uansett_kolonnenavn():
     # Scoreren døper om "sted" -> "Sted"; formatereren må vise begge.
     rad_raa = {"Merke": "Kia", "Modell": "EV6", "Årstall": 2023, "Kjørelengde": 20000,
