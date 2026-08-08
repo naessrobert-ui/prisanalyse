@@ -15,12 +15,14 @@ Terskel (env, kan overstyres):
     KUPP_RABATT_MIN   – varsle hvis rabatt_pct >= denne (default 15)
     KUPP_UNDER_HURTIG – "1" (default): varsle også hvis pris < hurtigpris
 
-E-post (gjenbruker samme SMTP som media-digest):
+Varsling (bruk én eller begge – sender bare via de som er konfigurert):
+  Pushover (anbefalt – push til mobil):
+    PUSHOVER_TOKEN    – applikasjonens API-token (fra pushover.net)
+    PUSHOVER_USER     – user key, group key, ELLER flere user keys komma-separert
+  E-post (gjenbruker samme SMTP som media-digest):
     SMTP_HOST, SMTP_PORT (587), SMTP_USER, SMTP_PASSWORD
-    KUPP_VARSEL_TO    – mottaker(e), komma-separert (påkrevd for å sende)
+    KUPP_VARSEL_TO    – mottaker(e), komma-separert
     KUPP_VARSEL_FROM  – avsender (default SMTP_USER)
-
-SMS: _send_sms() er en stub – koble på en gateway (Twilio/Sveve/LINK) senere.
 
 Kjøring:
     python -m scripts.kupp_vakt            # normal kjøring
@@ -331,10 +333,67 @@ def _send_epost(kupp: list[dict]) -> bool:
     return True
 
 
-def _send_sms(tekst: str) -> bool:
-    """Stub for SMS. Koble på en gateway (Twilio/Sveve/LINK) her senere ved å
-    lese f.eks. SMS_API_KEY / SMS_TO fra env og gjøre et POST-kall."""
-    return False
+def _pushover_melding(kupp: list[dict]) -> str:
+    """Kompakt melding for Pushover (maks 1024 tegn)."""
+    def kr(v):
+        try:
+            return f"{int(round(float(v))):,}".replace(",", " ")
+        except Exception:
+            return "?"
+
+    linjer, brukt = [], 0
+    vist = 0
+    for b in kupp:
+        navn = f"{(b.get('Merke') or '').strip()} {(b.get('Modell') or '').strip()}".strip()
+        rab = b.get("rabatt_pct")
+        rab_s = f"-{abs(float(rab)):.0f}%" if rab is not None and not pd.isna(rab) else "?"
+        linje = (
+            f"{navn} {b.get('Årstall') or '?'}, {kr(b.get('Kjørelengde'))} km\n"
+            f"{kr(b.get('Pris'))} kr ({rab_s} mot {kr(b.get('forventet_pris'))})\n"
+            f"{b.get('url')}"
+        )
+        if brukt + len(linje) + 2 > 980:
+            break
+        linjer.append(linje)
+        brukt += len(linje) + 2
+        vist += 1
+    if vist < len(kupp):
+        linjer.append(f"… +{len(kupp) - vist} flere")
+    return "\n\n".join(linjer)
+
+
+def _send_pushover(kupp: list[dict]) -> bool:
+    """Send push-varsel via Pushover. PUSHOVER_USER kan være én user key, en
+    delivery-group-nøkkel, eller flere user keys komma-separert (én melding per
+    mottaker). Sender ingenting hvis token/bruker ikke er satt."""
+    token = os.environ.get("PUSHOVER_TOKEN", "").strip()
+    brukere = [u.strip() for u in os.environ.get("PUSHOVER_USER", "").split(",") if u.strip()]
+    if not token or not brukere:
+        return False
+
+    melding = _pushover_melding(kupp)
+    tittel = f"🚗 Kupp-vakt: {len(kupp)} nye gode kjøp"
+    topp_url = kupp[0].get("url") if kupp else None
+
+    ok = False
+    for bruker in brukere:
+        data = {"token": token, "user": bruker, "title": tittel, "message": melding}
+        if topp_url:
+            data["url"] = topp_url
+            data["url_title"] = "Åpne på FINN"
+        try:
+            resp = requests.post(
+                "https://api.pushover.net/1/messages.json", data=data, timeout=15
+            )
+            if resp.status_code == 200:
+                ok = True
+            else:
+                print(f"[kupp_vakt] Pushover-feil ({resp.status_code}): {resp.text[:200]}")
+        except requests.RequestException as e:
+            print(f"[kupp_vakt] Pushover-kall feilet: {e}")
+    if ok:
+        print(f"[kupp_vakt] Sendte Pushover-varsel til {len(brukere)} mottaker(e)")
+    return ok
 
 
 # ======================================================
@@ -425,7 +484,11 @@ def kjor(seed: bool = False, dry_run: bool = False) -> int:
         return len(kupp)
 
     if kupp:
-        _send_epost(kupp)
+        sendt_push = _send_pushover(kupp)
+        sendt_epost = _send_epost(kupp)
+        if not (sendt_push or sendt_epost):
+            print("[kupp_vakt] Ingen varslingskanal konfigurert (Pushover/SMTP) – "
+                  "fant kupp, men sendte ingenting")
     lagre_state(s3, state)
     return len(kupp)
 
