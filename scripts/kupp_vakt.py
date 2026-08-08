@@ -11,9 +11,11 @@ husker hvilke FinnKoder som allerede er varslet. Første kjøring seeder (ingen
 varsler) slik at du ikke får en flom av gamle annonser; deretter varsles bare
 nye annonser – én gang hver.
 
-Terskel (env, kan overstyres):
-    KUPP_RABATT_MIN   – varsle hvis rabatt_pct >= denne (default 15)
-    KUPP_UNDER_HURTIG – "1" (default): varsle også hvis pris < hurtigpris
+Terskel (env, kan overstyres) – ELLER-kombineres:
+    KUPP_RABATT_MIN    – varsle hvis rabatt_pct >= denne (default 15)
+    KUPP_RABATT_KR_MIN – varsle hvis rabatt i kroner >= denne (default 50000;
+                         fanger dyre biler der lav prosent likevel er mye penger). 0 = av.
+    KUPP_UNDER_HURTIG  – "1" (default): varsle også hvis pris < hurtigpris
 
 Varsling (bruk én eller begge – sender bare via de som er konfigurert):
   Pushover (anbefalt – push til mobil):
@@ -64,6 +66,9 @@ STATE_KEY = os.getenv("KUPP_VAKT_STATE_KEY", "calc/bil/kupp_vakt_state.json")
 STATE_TTL_DAYS = int(os.getenv("KUPP_VAKT_TTL_DAYS", "7") or 7)
 
 RABATT_MIN = float(os.getenv("KUPP_RABATT_MIN", "15") or 15)
+# Absolutt kronerabatt: fanger dyre biler der en lav prosent likevel er mye
+# penger (8 % av 600k = 48k). 0 = av. ELLER-kombineres med prosent-terskelen.
+RABATT_KR_MIN = float(os.getenv("KUPP_RABATT_KR_MIN", "50000") or 0)
 UNDER_HURTIG = os.getenv("KUPP_UNDER_HURTIG", "1").strip() not in ("0", "false", "")
 MAX_VARSLER = int(os.getenv("KUPP_MAX_VARSLER", "40") or 40)
 
@@ -347,9 +352,11 @@ def _pushover_melding(kupp: list[dict]) -> str:
         navn = f"{(b.get('Merke') or '').strip()} {(b.get('Modell') or '').strip()}".strip()
         rab = b.get("rabatt_pct")
         rab_s = f"-{abs(float(rab)):.0f}%" if rab is not None and not pd.isna(rab) else "?"
+        rab_kr = b.get("rabatt_kr")
+        kr_s = f" / -{kr(rab_kr)} kr" if rab_kr is not None and not pd.isna(rab_kr) else ""
         linje = (
             f"{navn} {b.get('Årstall') or '?'}, {kr(b.get('Kjørelengde'))} km\n"
-            f"{kr(b.get('Pris'))} kr ({rab_s} mot {kr(b.get('forventet_pris'))})\n"
+            f"{kr(b.get('Pris'))} kr ({rab_s}{kr_s} mot {kr(b.get('forventet_pris'))})\n"
             f"{b.get('url')}"
         )
         if brukt + len(linje) + 2 > 980:
@@ -424,6 +431,9 @@ def _er_kupp(row) -> bool:
     rab = row.get("rabatt_pct")
     if rab is not None and not pd.isna(rab) and float(rab) >= RABATT_MIN:
         return True
+    rab_kr = row.get("rabatt_kr")
+    if RABATT_KR_MIN > 0 and rab_kr is not None and not pd.isna(rab_kr) and float(rab_kr) >= RABATT_KR_MIN:
+        return True
     if UNDER_HURTIG:
         hurtig = row.get("hurtigpris")
         pris = row.get("salgspris")
@@ -497,10 +507,10 @@ def send_testvarsel() -> bool:
     """Send ett demo-varsel gjennom alle konfigurerte kanaler, for å bekrefte at
     Pushover/SMTP-oppsettet virker. Rører ikke FINN eller state."""
     demo = [{
-        "Merke": "Kupp-vakt", "Modell": "testvarsel", "Årstall": datetime.now().year,
-        "Kjørelengde": 0, "Pris": 1, "forventet_pris": 2, "rabatt_pct": 50.0,
-        "hurtigpris": 1, "innbyttepris": 1,
-        "url": "https://prisanalyse.no/bil/radar",
+        "Merke": "TEST", "Modell": "testvarsel", "Årstall": datetime.now().year,
+        "Kjørelengde": 50000, "Pris": 250000, "forventet_pris": 310000,
+        "rabatt_pct": 19.4, "rabatt_kr": 60000, "hurtigpris": 290000, "innbyttepris": 263500,
+        "url": "https://www.finn.no/mobility/search/car",
     }]
     push = _send_pushover(demo)
     epost = _send_epost(demo)
