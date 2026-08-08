@@ -98,3 +98,13 @@ def test_uten_treff_faller_tilbake_til_ingen_modell():
     assert pd.isna(rad["forventet_pris"])
     assert pd.isna(rad["hurtigpris"])
     assert pd.isna(rad["innbyttepris"])
+
+
+def test_scorer_uten_ml_modell_krasjer_ikke():
+    """modeller=None: /finn-sok-stien. Uten lookup/peer-treff blir forventet_pris
+    NaN, men scoringen skal ikke kaste (ingen tung ML-modell lastes)."""
+    df = _bygg_df()  # BMW 3-Serie finnes ikke i lookup/peer i testmiljøet
+    res = scorer_biler(df, modeller=None)
+    rad = res.iloc[0]
+    assert "forventet_pris" in res.columns
+    assert pd.isna(rad["forventet_pris"])
