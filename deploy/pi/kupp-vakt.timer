@@ -1,0 +1,17 @@
+# systemd-timer: kjør kupp-vakt hvert 10. minutt mellom 06:00 og 23:59.
+# Om natten (00:00–05:59) står vakten stille – da kommer det uansett ~ingen
+# nye annonser på FINN.
+[Unit]
+Description=Kjør kupp-vakt hvert 10. minutt (06-24)
+
+[Timer]
+# 06:00, 06:10, ... 23:50. Ingen kjøringer 00:00-05:59.
+OnCalendar=06..23:0/10
+# Kjør en gang ved oppstart hvis en planlagt kjøring ble hoppet over (Pi var av).
+Persistent=true
+# Litt spredning så vi ikke treffer FINN på identisk sekund hver gang.
+RandomizedDelaySec=30
+Unit=kupp-vakt.service
+
+[Install]
+WantedBy=timers.target
