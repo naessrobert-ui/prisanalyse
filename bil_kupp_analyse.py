@@ -43,6 +43,9 @@ from bilradar_overrides import apply_overrides, last_overrides
 
 S3_KEY_INPUT = "calc/bil/database_biler.parquet"
 S3_KEY_OUTPUT = "calc/bil/bilradar_aktive.parquet"
+# Peer-WLS koeffisient-tabell (live-fallback for /finn-sok). Må matche
+# BILRADAR_PEER_S3_KEY-defaulten i bilradar_peer.py.
+S3_KEY_PEER = os.getenv("BILRADAR_PEER_S3_KEY", "calc/bil/peer_koeffisienter.csv")
 DEFAULT_OUTPUT_PARQUET = r"C:\Users\Rober\Downloads\bilradar_aktive.parquet"
 DEFAULT_OUTPUT_CSV = r"C:\Users\Rober\Downloads\bil_kupp_topplist.csv"
 DEFAULT_TOP = 200
@@ -186,6 +189,57 @@ def _features(sub: pd.DataFrame) -> np.ndarray:
     ])
 
 
+def bygg_peer_koef_tabell(df_train: pd.DataFrame) -> pd.DataFrame:
+    """Eksporter peer-WLS-koeffisienter per gruppe til en liten tabell som
+    /finn-sok bruker som live-fallback (uten aa laste ML-modellen). Samme fit
+    som kjor_tier, men lagret som beta0/beta1/beta2 med normaliserte noekler
+    slik at live FINN-data matcher treningen."""
+    from bilradar_lookup import _normaliser_hjuldrift
+
+    d = df_train.copy()
+    d["prod_key"] = d["Produsent"].astype(str).str.strip().str.lower()
+    d["modell_key"] = d["Modell"].astype(str).str.strip().str.lower()
+    d["driv_key"] = d["drivstoff"].astype(str).str.strip().str.lower()
+    d["hjul_key"] = (
+        d["hjuldrift"].map(_normaliser_hjuldrift).astype(str).str.strip().str.lower()
+    )
+
+    tiers = [
+        (1, ["prod_key", "modell_key", "driv_key", "hjul_key"]),
+        (2, ["prod_key", "modell_key", "driv_key"]),
+    ]
+    rader: list[dict] = []
+    for tier_nr, keys in tiers:
+        for key, sub in d.groupby(keys, sort=False, observed=True):
+            if len(sub) < MIN_PEERS:
+                continue
+            X = _features(sub)
+            y = np.log(sub["salgspris"].values)
+            w = sub["vekt"].values
+            if not np.all(np.isfinite(y)) or w.sum() <= 0:
+                continue
+            try:
+                beta = fit_wls(X, y, w)
+            except np.linalg.LinAlgError:
+                continue
+            if not np.all(np.isfinite(beta)):
+                continue
+            kv = key if isinstance(key, tuple) else (key,)
+            row = dict(zip(keys, kv))
+            row.setdefault("hjul_key", "")
+            row.update(
+                tier=tier_nr, n_obs=int(len(sub)),
+                beta0=round(float(beta[0]), 6),
+                beta1=round(float(beta[1]), 6),
+                beta2=round(float(beta[2]), 6),
+            )
+            rader.append(row)
+
+    cols = ["prod_key", "modell_key", "driv_key", "hjul_key",
+            "tier", "n_obs", "beta0", "beta1", "beta2"]
+    return pd.DataFrame(rader, columns=cols)
+
+
 def kjor_lookup(df_aktive: pd.DataFrame) -> int:
     """Tier 0 (primær): scor aktive biler med lookup/variant-tabellen — samme
     motor som /finn-sok og /innbytte. Setter forventet_pris, hurtigpris og
@@ -293,6 +347,18 @@ def kjor_analyse(
     ].copy()
     df_train["vekt"] = beregn_vekter(df_train, ref_dato)
     print(f"      {len(df_train):,} treningsbiler")
+
+    # Eksporter peer-WLS-koeffisienter som /finn-sok bruker som live-fallback.
+    try:
+        peer_koef = bygg_peer_koef_tabell(df_train)
+        peer_local = os.path.join(_DATA_DIR, "peer_koeffisienter.csv")
+        os.makedirs(_DATA_DIR, exist_ok=True)
+        peer_koef.to_csv(peer_local, index=False, encoding="utf-8-sig")
+        print(f"      Peer-koeff: {len(peer_koef):,} grupper -> {peer_local}")
+        if last_opp:
+            _last_opp_til_s3(peer_local, S3_KEY_PEER)
+    except Exception as e:
+        print(f"      [peer] klarte ikke bygge/laste opp koeffisienter: {e}")
 
     print("[3/6] Klargjør aktive biler (Solgt=NEI) ...")
     df_aktive = df[df["Solgt"] == "NEI"].copy()

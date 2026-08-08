@@ -397,11 +397,15 @@ def _scor_pris_kategori(
 
 # ---- Hovedinngang: scor en DataFrame ----
 
-def scorer_biler(df: pd.DataFrame, modeller: FlipModels, threshold: int = GOOD_DEAL_THRESHOLD) -> pd.DataFrame:
+def scorer_biler(df: pd.DataFrame, modeller: FlipModels | None = None, threshold: int = GOOD_DEAL_THRESHOLD) -> pd.DataFrame:
     """Scorer alle biler i en DataFrame med markedspris + hurtigpris.
-    Markedspris (forventet_pris) predikeres av ML-modellen og overstyres av
-    lookup-tabellen der den har data. Hurtigpris og innbyttepris kommer fra
-    lookup-tabellen (transparent kvantil), ikke lenger fra en egen ML-modell.
+
+    Prioritet på forventet_pris: lookup/variant-tabellen (primær) → peer-WLS
+    koeffisient-tabell (lett fallback) → ML-modellen `modeller` (valgfri).
+    Send modeller=None for å score uten den tunge ML-modellen (brukes av
+    /finn-sok) — da dekkes den lange halen av peer-WLS i stedet.
+    Hurtigpris/innbyttepris kommer fra lookup-tabellen.
+
     Returnerer df utvidet med:
       forventet_pris, hurtigpris, innbyttepris, peer_konfidens,
       modell_nivaa, rabatt_kr, rabatt_pct, forventet_pris_raa, overstyrt
@@ -411,31 +415,37 @@ def scorer_biler(df: pd.DataFrame, modeller: FlipModels, threshold: int = GOOD_D
     if df.empty:
         return df
 
-    # Normaliser drivstoff til den varianten modellen er trent på, slik at
-    # segmentnøkler som "Mazda | MX-30 | Elektrisitet" matcher selv om
-    # treningsdata bruker "Elektrisk" (eller omvendt). Bygg segmentene på
-    # nytt etter normalisering.
-    drivstoff_norm = _hent_drivstoff_normalisering(modeller)
-    if drivstoff_norm:
-        df["drivstoff"] = df["drivstoff"].apply(
-            lambda d: drivstoff_norm.get(str(d).strip().lower(), d)
-        )
-        df["segment_1"] = df["Produsent"] + " | " + df["Modell"] + " | " + df["drivstoff"]
-        df["segment_2"] = df["Produsent"] + " | " + df["drivstoff"]
+    if modeller is not None:
+        # Normaliser drivstoff til den varianten modellen er trent på, slik at
+        # segmentnøkler som "Mazda | MX-30 | Elektrisitet" matcher selv om
+        # treningsdata bruker "Elektrisk" (eller omvendt). Bygg segmentene på
+        # nytt etter normalisering.
+        drivstoff_norm = _hent_drivstoff_normalisering(modeller)
+        if drivstoff_norm:
+            df["drivstoff"] = df["drivstoff"].apply(
+                lambda d: drivstoff_norm.get(str(d).strip().lower(), d)
+            )
+            df["segment_1"] = df["Produsent"] + " | " + df["Modell"] + " | " + df["drivstoff"]
+            df["segment_2"] = df["Produsent"] + " | " + df["drivstoff"]
 
-    # Markedspris
-    _scor_pris_kategori(
-        df,
-        modeller.market_l1,
-        modeller.market_l2,
-        modeller.market_general,
-        target_pris="forventet_pris",
-        target_n="peer_konfidens",
-        target_nivaa="modell_nivaa",
-    )
+        # Markedspris (ML)
+        _scor_pris_kategori(
+            df,
+            modeller.market_l1,
+            modeller.market_l2,
+            modeller.market_general,
+            target_pris="forventet_pris",
+            target_n="peer_konfidens",
+            target_nivaa="modell_nivaa",
+        )
+    else:
+        # Ingen ML-modell: init kolonnene, la lookup + peer-WLS fylle dem.
+        df["forventet_pris"] = np.nan
+        df["peer_konfidens"] = pd.NA
+        df["modell_nivaa"] = "Ingen modell"
 
     # Hurtigpris settes av lookup-tabellen nedenfor. Init som tom slik at
-    # biler uten lookup-treff (ML-fallback) rett og slett ikke får hurtigpris.
+    # biler uten lookup-treff rett og slett ikke får hurtigpris.
     df["hurtigpris"] = np.nan
 
     # Lookup-priser (transparente median-salg per gruppe). Overskriver
@@ -444,6 +454,14 @@ def scorer_biler(df: pd.DataFrame, modeller: FlipModels, threshold: int = GOOD_D
     # til GEN-fallback (nye/sjeldne modeller).
     lookup = last_lookup(local_path=LOOKUP_LOCAL_PATH)
     df = apply_lookup(df, lookup)
+
+    # Peer-WLS fallback for biler som fortsatt mangler forventet_pris (dekker
+    # den lange halen når ML-modellen ikke er lastet, f.eks. på /finn-sok).
+    try:
+        from bilradar_peer import apply_peer
+        df = apply_peer(df)
+    except Exception as e:  # pragma: no cover - defensiv
+        print(f"[BilRadar] Peer-fallback hoppet over ({e})")
 
     # Manuelle overstyringer på markedspris (hurtigpris berøres ikke)
     overrides = last_overrides(local_path=OVERRIDES_LOCAL_PATH)

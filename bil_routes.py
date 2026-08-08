@@ -1549,25 +1549,30 @@ def start_bilradar_warmup():
     warmup ville første request blokkert såpass lenge at gunicorn-
     workeren risikerer å treffe timeout og dø."""
     def _warmup():
+        # Varmer opp de lette tabellene scorer_biler bruker (lookup/variant +
+        # peer-WLS). Den tunge ML-modellen lastes IKKE lenger — /finn-sok scorer
+        # med modeller=None (lookup + peer), og /radar leser ferdig-scoret parquet.
         try:
-            print("[BilRadar/warmup] Starter modell-lasting i bakgrunn ...")
+            print("[BilRadar/warmup] Varmer opp pris-tabeller i bakgrunn ...")
             t0 = time.time()
             s3 = _get_s3_client()
-            # Lookup-tabellen først (liten, rask): S3 med committed fil som
-            # fallback. Populerer cachen slik at scorer_biler treffer S3-data.
             try:
                 last_lookup(local_path=LOOKUP_LOCAL_PATH, s3_client=s3, bucket=S3_BUCKET_NAME)
                 print("[BilRadar/warmup] Lookup-tabell klar")
             except Exception as exc:
                 print(f"[BilRadar/warmup] Lookup feilet ({exc!r}) — bruker lokal/ingen")
-            _hent_bilradar_modell(s3)
-            print(f"[BilRadar/warmup] Modell klar etter {time.time() - t0:.1f}s")
+            try:
+                from bilradar_peer import last_peer_koef, PEER_LOCAL_PATH
+                last_peer_koef(local_path=PEER_LOCAL_PATH, s3_client=s3, bucket=S3_BUCKET_NAME)
+                print("[BilRadar/warmup] Peer-koeffisienter klare")
+            except Exception as exc:
+                print(f"[BilRadar/warmup] Peer-koeff feilet ({exc!r}) — bruker lokal/ingen")
+            print(f"[BilRadar/warmup] Ferdig etter {time.time() - t0:.1f}s")
         except Exception as exc:
-            # Logg, men ikke krasje appen — lazy load vil fortsatt funke
-            # selv om warmup feiler.
+            # Logg, men ikke krasje appen — lazy load vil fortsatt funke.
             print(f"[BilRadar/warmup] Feilet ({exc!r}) — faller tilbake til lazy load")
 
-    threading.Thread(target=_warmup, name="bilradar-modell-warmup", daemon=True).start()
+    threading.Thread(target=_warmup, name="bilradar-warmup", daemon=True).start()
 
 
 @bil_bp.route('/reload', methods=['POST', 'GET'])
@@ -2880,8 +2885,10 @@ def bil_finn_sok():
         if rows_to_score:
             try:
                 df_score = pd.DataFrame(rows_to_score)
-                modeller = _hent_bilradar_modell(_get_s3_client())
-                df_scored = scorer_biler(df_score, modeller)
+                # Uten ML-modell (modeller=None): lookup/variant primær +
+                # peer-WLS fallback. Slipper å laste den ~150 MB store modellen
+                # på web-requesten — samme motor som /radar.
+                df_scored = scorer_biler(df_score, modeller=None)
                 for _, sc_row in df_scored.iterrows():
                     fk = str(sc_row.get("FinnKode"))
                     score_map[fk] = {
