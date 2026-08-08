@@ -41,6 +41,10 @@ LOOKUP_S3_KEY = os.getenv("BILRADAR_LOOKUP_S3_KEY", "calc/bil/prislookup.csv")
 # TTL: hvor lenge en lastet tabell caches før neste kall relaster fra kilden.
 # 0 = last én gang (gammel oppførsel). Default 6t gir deploy-fri oppdatering.
 LOOKUP_TTL_SECONDS = int(os.getenv("BILRADAR_LOOKUP_TTL_SECONDS", "21600") or 0)
+# Når fallback til den committede lokale fila brukes og den er eldre enn dette,
+# logges det som en ADVARSEL (ellers bare informativt). Fanger stille bruk av en
+# utdatert tabell, typisk på en Pi-cron uten AWS-credentials.
+LOOKUP_STALE_DAGER = float(os.getenv("BILRADAR_LOOKUP_STALE_DAGER", "7") or 7)
 
 _LOOKUP_LOCK = threading.Lock()
 # source huskes slik at TTL-relasting treffer samme kilde selv når kallet
@@ -126,9 +130,27 @@ def _maybe_s3_client(s3_client, bucket: str):
         return None
 
 
+def _lokal_fil_alder_dager(path: str, naa: datetime | None = None) -> float | None:
+    """Alder i dager på en lokal fil (basert på mtime). None hvis den ikke
+    finnes. Ren funksjon, enkel å teste."""
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return None
+    if naa is None:
+        naa = datetime.now()
+    return max(0.0, (naa.timestamp() - mtime) / 86400.0)
+
+
 def _les_lookup_fra_kilde(source: dict) -> pd.DataFrame:
     """Last tabellen fra kilden i `source`: S3 først (ferskest), lokal fil som
-    fallback. Returnerer tom DataFrame hvis ingen kilde gir data."""
+    fallback. Returnerer tom DataFrame hvis ingen kilde gir data.
+
+    Fallback til den lokale, committede fila logges tydelig – med filens alder –
+    slik at en stille overgang til en utdatert tabell ikke går ubemerket. Den
+    farligste varianten er når S3 aldri forsøkes fordi credentials/boto3 mangler
+    (typisk en feilkonfigurert Pi-cron); da bruker vi lokal fil helt lydløst i
+    dag. Nå roper vi tydelig fra."""
     df = pd.DataFrame(columns=LOOKUP_COLUMNS)
     client = _maybe_s3_client(source.get("s3_client"), source.get("bucket", ""))
     bucket = source.get("bucket", "")
@@ -142,14 +164,32 @@ def _les_lookup_fra_kilde(source: dict) -> pd.DataFrame:
             print(f"[BilRadar] Lookup lastet ({len(df)} grupper) fra s3://{bucket}/{key}")
             return df
         except Exception as e:
-            print(f"[BilRadar] Ingen lookup fra S3 ({e}) – prøver lokal fil")
+            print(f"[BilRadar] ADVARSEL: ingen lookup fra S3 ({e}) – faller tilbake på lokal fil")
+    else:
+        # S3 ble aldri forsøkt: mangler klient/bucket/credentials. Dette er den
+        # stille fella – logg det tydelig så manglende AWS-config oppdages.
+        print(
+            "[BilRadar] ADVARSEL: S3 ikke tilgjengelig for lookup "
+            f"(bucket={bucket!r}, credentials/boto3 mangler?) – bruker lokal fallback"
+        )
 
     if local_path and os.path.exists(local_path):
         try:
             df = _les_csv(local_path)
-            print(f"[BilRadar] Lookup lastet ({len(df)} grupper) fra {local_path}")
+            alder = _lokal_fil_alder_dager(local_path)
+            alder_txt = f"{alder:.0f} dager gammel" if alder is not None else "ukjent alder"
+            stale = alder is not None and alder >= LOOKUP_STALE_DAGER
+            nivaa = "ADVARSEL: utdatert " if stale else ""
+            print(
+                f"[BilRadar] {nivaa}Lookup lastet ({len(df)} grupper) fra lokal "
+                f"fallback {local_path} ({alder_txt})"
+            )
         except Exception as e:
             print(f"[BilRadar] Klarte ikke lese {local_path}: {e}")
+    else:
+        print(
+            f"[BilRadar] ADVARSEL: ingen lokal lookup-fil å falle tilbake på ({local_path!r})"
+        )
 
     return df
 
