@@ -1454,6 +1454,7 @@ def bil_rekordrask_data():
 BILRADAR_PARQUET_KEY = "calc/bil/bilradar_aktive.parquet"
 BILRADAR_SISTE_PREFIX = "raw/bil-time/"
 GOOD_DEAL_THRESHOLD = 10  # % rabatt for å regnes som godt kjøp
+RADAR_SISTE_TIMER = 24  # /radar/siste viser kun biler først sett innen så mange timer
 
 _BILRADAR_PARQUET_CACHE = {"etag": None, "df": None}
 _BILRADAR_PARQUET_LOCK = threading.Lock()
@@ -1709,6 +1710,38 @@ def bil_radar_alle():
         abort(500, description=f"Feil i BilRadar (alle): {e}")
 
 
+def _filtrer_ferske_biler(df, timer=RADAR_SISTE_TIMER, naa=None):
+    """Behold kun rader der bilen er *ny det siste døgnet* — dvs. første gang
+    observert (kolonnen ``Dato``) innen de siste ``timer`` timene.
+
+    Ren funksjon (ingen S3/Flask) slik at den er enkel å teste. Rader uten
+    gyldig ``Dato`` droppes: vi kan da ikke vite at bilen er fersk. Mangler
+    ``Dato``-kolonnen helt, returneres df uendret (med en advarsel) framfor å
+    tømme siden på grunn av et dataproblem.
+    """
+    if df is None or df.empty:
+        return df
+    if "Dato" not in df.columns:
+        print(
+            "[BilRadar/siste] ADVARSEL: mangler Dato-kolonne — "
+            "kan ikke begrense til siste døgn, viser alle scorede biler"
+        )
+        return df
+
+    dato_sett = pd.to_datetime(df["Dato"], errors="coerce")
+    # Datoene lagres tidssone-naivt (konsolider_data bruker naive datetime).
+    # Skulle de likevel være tz-bevisste, fjern tz så sammenligningen mot en
+    # naiv "nå" ikke feiler.
+    if getattr(dato_sett.dtype, "tz", None) is not None:
+        dato_sett = dato_sett.dt.tz_localize(None)
+
+    if naa is None:
+        naa = pd.Timestamp.now()
+    grense = naa - pd.Timedelta(hours=timer)
+    fersk_mask = dato_sett.notna() & (dato_sett >= grense)
+    return df[fersk_mask].copy()
+
+
 @bil_bp.route('/radar/siste')
 def bil_radar_siste():
     import time as _time
@@ -1720,9 +1753,16 @@ def bil_radar_siste():
         head = s3.head_object(Bucket=S3_BUCKET_NAME, Key=latest_key)
         latest_etag = (head.get("ETag") or "").strip('"')
 
+        # Cache-nøkkelen inkluderer en time-bøtte i tillegg til etag, slik at
+        # ferskhetsfilteret (Dato innen siste RADAR_SISTE_TIMER timer) regnes på
+        # nytt minst hver time – ellers ville en cachet side vist biler som har
+        # falt ut av 24-timers-vinduet så lenge parquet-filen var uendret.
+        time_bucket = int(pd.Timestamp.now().timestamp() // 3600)
+        cache_key = f"{latest_etag}:{time_bucket}"
+
         with BILRADAR_HTML_LOCK:
             cached = BILRADAR_HTML_CACHE["siste"].copy()
-        if cached["html"] and cached["csv_key"] == latest_etag:
+        if cached["html"] and cached["csv_key"] == cache_key:
             print("[BilRadar/siste] Cache – serverer direkte")
             return Response(cached["html"], mimetype='text/html')
 
@@ -1765,6 +1805,18 @@ def bil_radar_siste():
             df_scoret = df_aktive.iloc[0:0].copy()
         print(f"[BilRadar/siste] {len(df_scoret)}/{len(df_siste)} biler med scoring (fra bilradar_aktive)")
 
+        # Ferskhetsfilter: "Siste døgn" skal KUN vise biler som er nye det siste
+        # døgnet, dvs. første gang observert (Dato) innen de siste
+        # RADAR_SISTE_TIMER timene. Uten dette listet siden alle aktive annonser
+        # (samme utvalg som /radar/alle), stikk i strid med lovnaden på
+        # velgersiden: "Scorer kun nye biler fra siste 24 timer".
+        antall_for = len(df_scoret)
+        df_scoret = _filtrer_ferske_biler(df_scoret, RADAR_SISTE_TIMER)
+        print(
+            f"[BilRadar/siste] Ferskhetsfilter (siste {RADAR_SISTE_TIMER} t): "
+            f"{len(df_scoret)}/{antall_for} biler"
+        )
+
         data_json = _lag_json_data_fra_parquet(df_scoret)
         elapsed = _time.perf_counter() - t0
         dato = datetime.now().strftime("%d. %b %Y kl. %H:%M") + f" (lest på {elapsed:.1f}s)"
@@ -1782,7 +1834,7 @@ def bil_radar_siste():
 
         with BILRADAR_HTML_LOCK:
             BILRADAR_HTML_CACHE["siste"]["html"] = html
-            BILRADAR_HTML_CACHE["siste"]["csv_key"] = latest_etag
+            BILRADAR_HTML_CACHE["siste"]["csv_key"] = cache_key
 
         print(f"[BilRadar/siste] Ferdig: {len(df_scoret)} biler p\u00e5 {elapsed:.1f}s")
         return Response(html, mimetype='text/html')
