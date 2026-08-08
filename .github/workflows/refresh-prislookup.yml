@@ -20,7 +20,7 @@ on:
           - "false"
 
 permissions:
-  contents: read
+  contents: write  # committer fersk data/prislookup.csv tilbake (fallback holdes fersk)
 
 jobs:
   refresh-lookup:
@@ -56,6 +56,32 @@ jobs:
             UPLOAD_FLAG="--upload"
           fi
           python -m scripts.lag_prislookup --s3 --output data/prislookup.csv $UPLOAD_FLAG
+
+      - name: Commit oppdatert prislookup (fersk lokal fallback)
+        # Bygg-steget over skriver den ferske tabellen til data/prislookup.csv.
+        # Vi committer den tilbake slik at den committede fallback-fila (brukt
+        # når S3 er utilgjengelig, f.eks. Pi-cron uten AWS-creds) ikke blir
+        # måneder gammel. For å begrense repo-churn (CSV ~0.7 MB) committes den
+        # kun ukentlig (søndag) ved planlagt kjøring; manuell kjøring committer
+        # alltid.
+        if: >-
+          success() &&
+          (github.event_name == 'workflow_dispatch' && inputs.upload == 'true'
+           || github.event_name == 'schedule')
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%u)" != "7" ]; then
+            echo "Planlagt hverdag – S3 er oppdatert, hopper over commit av lokal fallback."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/prislookup.csv
+          if git diff --cached --quiet; then
+            echo "Ingen endringer i prislookup."
+          else
+            git commit -m "Oppdater prislookup ($(date -u +%Y-%m-%d))"
+            git push
+          fi
 
       - name: Last opp prislookup som artifact ved feil
         if: failure()
