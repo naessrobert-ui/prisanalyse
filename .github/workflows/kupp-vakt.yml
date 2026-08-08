@@ -1,0 +1,72 @@
+name: Kupp-vakt (ferske underprisede biler)
+
+# Scraper de nyeste FINN-annonsene hvert 10. minutt, scorer dem med den samlede
+# motoren (lookup/variant + peer-WLS, ingen tung ML-modell) og sender e-post om
+# biler som er billige mot modellen. Kun HELT NYE annonser varsles (state i S3).
+#
+# Sender ingenting før KUPP_VARSEL_TO (+ SMTP-secrets) er satt. Første kjøring
+# seeder state uten å varsle.
+#
+# NB: GitHub sine schedulerte kjøringer kan bli noen minutter forsinket ved høy
+# last. Trenger du presis 10-min-kadens, kjør scriptet fra Pi-en via cron i
+# stedet (python -m scripts.kupp_vakt).
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "Bare seed state (ingen varsler)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kupp-vakt
+  cancel-in-progress: false
+
+jobs:
+  vakt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Sjekk ut kildekode
+        uses: actions/checkout@v4
+
+      - name: Sett opp Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Installer avhengigheter
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Kjør kupp-vakt
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'eu-north-1' }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME || 'prisanalyse-data' }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT || '587' }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          KUPP_VARSEL_TO: ${{ secrets.KUPP_VARSEL_TO }}
+          KUPP_VARSEL_FROM: ${{ secrets.KUPP_VARSEL_FROM }}
+          KUPP_RABATT_MIN: ${{ vars.KUPP_RABATT_MIN || '15' }}
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          SEED_ARG=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.seed }}" = "true" ]; then
+            SEED_ARG="--seed"
+          fi
+          python -m scripts.kupp_vakt $SEED_ARG
