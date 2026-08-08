@@ -451,7 +451,7 @@ def _formater_bil(b: dict) -> str:
             return f"{int(round(float(v))):,}".replace(",", " ") + " kr"
         except Exception:
             return "?"
-    sted = (b.get("sted") or "").strip()
+    sted = (b.get("sted") or b.get("Sted") or "").strip()
     stedtekst = f" – {sted}" if sted else ""
     linje = (
         f"{(b.get('Merke') or '').strip()} {(b.get('Modell') or '').strip()}".strip()
@@ -510,7 +510,7 @@ def _pushover_melding(kupp: list[dict]) -> str:
         rab_s = f"-{abs(float(rab)):.0f}%" if rab is not None and not pd.isna(rab) else "?"
         rab_kr = b.get("rabatt_kr")
         kr_s = f" / -{kr(rab_kr)} kr" if rab_kr is not None and not pd.isna(rab_kr) else ""
-        sted = (b.get("sted") or "").strip()
+        sted = (b.get("sted") or b.get("Sted") or "").strip()
         sted_s = f" – {sted}" if sted else ""
         linje = (
             f"{navn} {b.get('Årstall') or '?'}, {kr(b.get('Kjørelengde'))} km{sted_s}\n"

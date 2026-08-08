@@ -108,6 +108,20 @@ def test_location_codes_ukjent_hoppes_over(monkeypatch):
     assert k._location_codes() == ["0.22046"]
 
 
+def test_formater_bil_viser_sted_uansett_kolonnenavn():
+    # Scoreren døper om "sted" -> "Sted"; formatereren må vise begge.
+    rad_raa = {"Merke": "Kia", "Modell": "EV6", "Årstall": 2023, "Kjørelengde": 20000,
+               "Pris": 400000, "forventet_pris": 450000, "rabatt_pct": 11.1,
+               "hurtigpris": 440000, "innbyttepris": 380000, "sted": "Bergen",
+               "url": "u"}
+    rad_scoret = dict(rad_raa)
+    rad_scoret.pop("sted")
+    rad_scoret["Sted"] = "Bergen"
+    assert "Bergen" in k._formater_bil(rad_raa)
+    assert "Bergen" in k._formater_bil(rad_scoret)
+    assert "Bergen" in k._pushover_melding([rad_scoret])
+
+
 def test_alle_femten_fylker_har_kode():
     # 15 fylker (2024) + ascii-aliaser skal alle finnes
     for navn in ["Østfold", "Akershus", "Oslo", "Innlandet", "Buskerud",
