@@ -17,7 +17,7 @@ import duckdb
 from flask import Blueprint, render_template, jsonify, request
 import traceback
 
-from bilradar_scorer import last_modell_lokal_eller_s3, scorer_biler, LOOKUP_LOCAL_PATH
+from bilradar_scorer import scorer_biler, LOOKUP_LOCAL_PATH
 from bilradar_lookup import last_lookup
 
 from config import (
@@ -1462,10 +1462,6 @@ _BILRADAR_PARQUET_LOCK = threading.Lock()
 BILRADAR_HTML_CACHE = {"alle": {"html": None, "etag": None},
                        "siste": {"html": None, "csv_key": None}}
 BILRADAR_HTML_LOCK = threading.Lock()
-_BILRADAR_MODEL_LOCK = threading.Lock()
-_BILRADAR_MODEL_CACHE = {"modeller": None}
-_BILRADAR_MODEL_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "bil_prismodell.joblib")
-_BILRADAR_MODEL_S3_KEY = "calc/bil/bil_prismodell.joblib"
 
 def _get_bilradar_html_template() -> str:
     """Leser BilRadar HTML-template fra disk."""
@@ -1528,27 +1524,14 @@ def _lag_json_data_fra_parquet(df: pd.DataFrame) -> str:
     return _json.dumps(cars, ensure_ascii=False, separators=(",", ":"))
 
 
-def _hent_bilradar_modell(s3):
-    with _BILRADAR_MODEL_LOCK:
-        if _BILRADAR_MODEL_CACHE["modeller"] is not None:
-            return _BILRADAR_MODEL_CACHE["modeller"]
-        modeller = last_modell_lokal_eller_s3(
-            local_path=_BILRADAR_MODEL_LOCAL_PATH,
-            s3_client=s3,
-            bucket=S3_BUCKET_NAME,
-            key=_BILRADAR_MODEL_S3_KEY,
-        )
-        _BILRADAR_MODEL_CACHE["modeller"] = modeller
-        return modeller
-
-
 def start_bilradar_warmup():
-    """Last prismodellen i en bakgrunnstråd ved app-oppstart, slik at
-    scorer_biler er rask når første /bil/finn-sok-request kommer.
+    """Varm opp pris-tabellene (lookup/variant + peer-WLS) i en bakgrunnstråd
+    ved app-oppstart, slik at scorer_biler er rask når første
+    /bil/finn-sok-request kommer.
 
-    Modellen er ~150 MB og deserialisering tar 2-3 minutter — uten
-    warmup ville første request blokkert såpass lenge at gunicorn-
-    workeren risikerer å treffe timeout og dø."""
+    Merk: den tunge ML-modellen (~150 MB) lastes ikke lenger — all scoring
+    bruker lookup + peer-WLS (modeller=None), og /radar leser ferdig-scoret
+    parquet."""
     def _warmup():
         # Varmer opp de lette tabellene scorer_biler bruker (lookup/variant +
         # peer-WLS). Den tunge ML-modellen lastes IKKE lenger — /finn-sok scorer
@@ -1580,11 +1563,8 @@ def start_bilradar_warmup():
 def bil_reload():
     """Tøm cachene for lookup-tabell (+ variantkatalog) og re-last fra S3, slik
     at ny verdsettelse slår inn uten ny deploy. Kjøres av cron/GitHub Action
-    etter at ny prislookup.csv er lastet opp til S3.
-
-    Prismodellen (~150 MB) relastes kun med ?modell=1, siden det er tungt."""
+    etter at ny prislookup.csv er lastet opp til S3."""
     from bilradar_lookup import reload_lookup
-    from bilradar_scorer import reload_modell
 
     reloaded = {"lookup": True}
     reload_lookup()
@@ -1595,55 +1575,12 @@ def bil_reload():
     except Exception:
         reloaded["variantkatalog"] = False
 
-    if request.args.get("modell") == "1":
-        reload_modell()
-        with _BILRADAR_MODEL_LOCK:
-            _BILRADAR_MODEL_CACHE["modeller"] = None
-        reloaded["modell"] = True
-
     try:
         s3 = _get_s3_client()
         lookup = last_lookup(local_path=LOOKUP_LOCAL_PATH, s3_client=s3, bucket=S3_BUCKET_NAME)
         return jsonify({"ok": True, "reloaded": reloaded, "lookup_grupper": int(len(lookup))})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
-
-
-def _normaliser_df_for_scoring(df: pd.DataFrame) -> pd.DataFrame:
-    """Normaliser kolonner slik at scorer_biler kan brukes på både CSV- og parquet-data."""
-    out = df.copy()
-    rename_map = {
-        "fylke": "Fylke",
-        "sted": "Sted",
-        "selger": "Selger",
-        "forhandler": "Forhandler",
-        "girkasse": "Girkasse",
-        "drivstoff": "Drivstoff",
-        "hjuldrift": "Hjuldrift",
-        "årstall": "Årstall",
-        "kjørelengde": "Kjørelengde",
-        "Pris_ny": "Pris",
-    }
-    for src, dst in rename_map.items():
-        if src in out.columns and dst not in out.columns:
-            out = out.rename(columns={src: dst})
-    if "Pris" in out.columns:
-        out["Pris"] = (
-            out["Pris"]
-            .astype(str)
-            .str.replace(r"[^\d]", "", regex=True)
-            .replace("", np.nan)
-        )
-    return out
-
-
-def _score_manglende_biler(df: pd.DataFrame, s3) -> pd.DataFrame:
-    """Kjør live-scoring for biler som mangler forventet_pris/rabatt_pct."""
-    if df.empty:
-        return df
-    modeller = _hent_bilradar_modell(s3)
-    df_norm = _normaliser_df_for_scoring(df)
-    return scorer_biler(df_norm, modeller, threshold=GOOD_DEAL_THRESHOLD)
 
 
 def _les_parquet_aktive(s3) -> tuple:
