@@ -20,6 +20,8 @@ Terskel – trappetrinn etter pris (env, kan overstyres):
     KUPP_UNDER_HURTIG  – "1": varsle også hvis pris < hurtigpris (default "0").
 
 Filtre (env, valgfrie):
+    KUPP_SELGER        – "privat" (default), "merkeforhandler", "annet" el.
+                         "alle". Server-side. Kupp finnes hos private.
     KUPP_DRIVSTOFF     – f.eks. "Elektrisk" el. "Elektrisk,Hybrid". Tom = alle.
     KUPP_FYLKE         – fylkesnavn ("Vestland,Rogaland") el. rå FINN-kode
                          ("0.22046"). Tom = hele landet. Server-side filter.
@@ -203,6 +205,25 @@ LOCATION_CODES = _location_codes()
 LOCATION_SUFFIX = "".join(f"&location={c}" for c in LOCATION_CODES)
 
 
+# --- Selger-type (server-side via FINN sitt dealer_segment) ---------------
+# Kupp finnes hos private – forhandlere priser til marked med margin/garanti,
+# så "kjøp av forhandler og selg med gevinst" er nesten umulig. Default: privat.
+#   privat = 3, merkeforhandler = 1, annet bilutsalg = 2, alle = ingen filter
+SELGER_SEGMENT = {"privat": "3", "merkeforhandler": "1",
+                  "annet": "2", "bilutsalg": "2", "forhandler": "2"}
+_selger = os.getenv("KUPP_SELGER", "privat").strip().lower()
+if _selger in ("", "alle", "all"):
+    SELGER_SUFFIX = ""
+else:
+    _kode = SELGER_SEGMENT.get(_selger)
+    if _kode:
+        SELGER_SUFFIX = f"&dealer_segment={_kode}"
+    else:
+        SELGER_SUFFIX = ""
+        print(f"[kupp_vakt] Ukjent KUPP_SELGER: {_selger!r} "
+              "(bruk 'privat', 'merkeforhandler', 'annet' eller 'alle') – tar alle")
+
+
 def _match_filtre(b: dict) -> bool:
     """Klient-side filtre (drivstoff + sted) på en rå annonse fra scraperen."""
     if DRIVSTOFF_FILTER and _norm_driv(b.get("Drivstoff")) not in DRIVSTOFF_FILTER:
@@ -244,7 +265,8 @@ def _s3():
 # ======================================================
 
 def _build_url(page: int, drift_code: str) -> str:
-    return f"{BASE_URL}&wheel_drive={drift_code}&page={page}{LOCATION_SUFFIX}"
+    return (f"{BASE_URL}&wheel_drive={drift_code}&page={page}"
+            f"{LOCATION_SUFFIX}{SELGER_SUFFIX}")
 
 
 def _make_session():
