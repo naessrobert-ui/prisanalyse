@@ -1736,52 +1736,29 @@ def bil_radar_siste():
                 df_siste = df_siste[aktiv_mask].copy()
             else:
                 print("[BilRadar/siste] Ingen kjente 'ikke-solgt'-verdier i Solgt-kolonnen, hopper over Solgt-filter")
-        for col in ["forventet_pris", "hurtigpris", "rabatt_pct"]:
-            if col not in df_siste.columns:
-                df_siste[col] = np.nan
-        if "modell_nivaa" not in df_siste.columns:
-            # Skal inneholde tekstverdier ("Nivå 1", "Nivå 2", "Generell"), så bruk objekt-dtype.
-            # Hindrer pandas FutureWarning ved senere df_siste.loc[..., "modell_nivaa"] = <str>.
-            df_siste["modell_nivaa"] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
+        recent_koder = set()
+        if "FinnKode" in df_siste.columns:
+            recent_koder = set(
+                pd.to_numeric(df_siste["FinnKode"], errors="coerce").dropna().astype("int64")
+            )
         print(f"[BilRadar/siste] {len(df_siste)} biler i database_biler_siste")
 
-        mangler_scoring_mask = df_siste["forventet_pris"].isna() | (pd.to_numeric(df_siste["forventet_pris"], errors="coerce") <= 0)
-        antall_mangler_scoring = int(mangler_scoring_mask.sum())
-        if antall_mangler_scoring > 0:
-            print(f"[BilRadar/siste] Live-scoring av {antall_mangler_scoring} biler uten forventet pris")
-            try:
-                df_live = _score_manglende_biler(df_siste[mangler_scoring_mask].copy(), s3)
-                kolonner_a_oppdatere = [c for c in ["forventet_pris", "hurtigpris", "rabatt_pct", "modell_nivaa"] if c in df_live.columns]
-                oppdatert = df_live.set_index("FinnKode")[kolonner_a_oppdatere]
-                df_siste = df_siste.set_index("FinnKode")
-                for col in kolonner_a_oppdatere:
-                    if col not in df_siste.columns:
-                        if col == "modell_nivaa":
-                            df_siste[col] = pd.Series(pd.NA, index=df_siste.index, dtype="object")
-                        else:
-                            df_siste[col] = np.nan
-                    if col == "modell_nivaa" and df_siste[col].dtype != "object":
-                        df_siste[col] = df_siste[col].astype("object")
-                    df_siste.loc[oppdatert.index, col] = oppdatert[col]
-                df_siste = df_siste.reset_index()
-            except Exception as exc:
-                # Modell-lasting kan feile hvis modellen er for stor for instansen.
-                # Vi vil heller servere uscoret data enn å la worker dø.
-                print(f"[BilRadar/siste] Live-scoring feilet ({exc!r}) – fortsetter uten")
-                traceback.print_exc()
-
-        df_scoret = df_siste[df_siste["forventet_pris"].notna() & (df_siste["forventet_pris"] > 0)].copy()
-        if df_scoret.empty and "FinnKode" in df_siste.columns:
-            print("[BilRadar/siste] 0 scorede biler i database_biler_siste, forsøker å hente scoring fra bilradar_aktive.parquet")
-            df_aktive, _ = _les_parquet_aktive(s3)
-            if "FinnKode" in df_aktive.columns:
-                koder = set(pd.to_numeric(df_siste["FinnKode"], errors="coerce").dropna().astype("int64"))
-                df_scoret = df_aktive[
-                    df_aktive["FinnKode"].isin(koder)
-                    & df_aktive["forventet_pris"].notna()
-                    & (df_aktive["forventet_pris"] > 0)
-                ].copy()
-        print(f"[BilRadar/siste] {len(df_scoret)}/{len(df_siste)} biler med scoring")
+        # Scorene hentes fra den ferdig-scorede bilradar_aktive.parquet (skrevet
+        # av scoring-jobben: lookup/variant + peer-WLS). Vi live-scorer IKKE her
+        # lenger — det lastet den tunge ML-modellen (~150 MB) på selve
+        # web-requesten og kunne henge i minutter → timeout. Ferske biler dukker
+        # opp så snart neste scoring-kjøring (timevis / ved innlegging fra Pi)
+        # har tatt dem med. Samme motor/tall som /radar/alle.
+        df_aktive, _ = _les_parquet_aktive(s3)
+        if "FinnKode" in df_aktive.columns and recent_koder:
+            df_scoret = df_aktive[
+                df_aktive["FinnKode"].isin(recent_koder)
+                & df_aktive["forventet_pris"].notna()
+                & (df_aktive["forventet_pris"] > 0)
+            ].copy()
+        else:
+            df_scoret = df_aktive.iloc[0:0].copy()
+        print(f"[BilRadar/siste] {len(df_scoret)}/{len(df_siste)} biler med scoring (fra bilradar_aktive)")
 
         data_json = _lag_json_data_fra_parquet(df_scoret)
         elapsed = _time.perf_counter() - t0
