@@ -737,10 +737,12 @@ def bil_solgt_oversikt_data():
 
         prod = _qident(colmap["produsent"])
         solgt_col = _qident(colmap["solgt"])
+        sel_col = _qident(colmap["selger"]) if colmap.get("selger") else "NULL"
         driv = _qident(colmap["drivstoff"]) if colmap.get("drivstoff") else None
         aar = _qident(colmap["aar"]) if colmap.get("aar") else None
 
-        where_parts = [f"{_bool_expr(solgt_col)} = true"]
+        # Selger-bevisst: forsvunne forhandler-annonser (FJERNET) teller ikke som solgt.
+        where_parts = [f"{_solgt_bool_seller_aware(solgt_col, sel_col)} = true"]
         params = []
 
         if driv and isinstance(filters.get("drivstoff"), list) and filters["drivstoff"]:
@@ -875,6 +877,7 @@ def get_bil_solgt_data():
 
         c_dato_end = col_or_null("dato_end")
         c_solgt = col_or_null("solgt")
+        c_selger = col_or_null("selger")
         dato_end_ts = f"try_cast({c_dato_end} AS TIMESTAMP)"
 
         status = (filters.get("status") or "solgt_fjernet").strip()  # default: solgt/fjernet
@@ -892,7 +895,7 @@ def get_bil_solgt_data():
                 status_sql = f" AND date({dato_end_ts}) = ?"
                 status_params.append(str(max_date))
                 if colmap.get("solgt"):
-                    status_sql += f" AND ({_bool_expr(c_solgt)}) = false"
+                    status_sql += f" AND ({_solgt_bool_seller_aware(c_solgt, c_selger)}) = false"
             elif status == "solgt_fjernet":
                 status_sql = f" AND date({dato_end_ts}) < ?"
                 status_params.append(str(max_date))
@@ -925,7 +928,6 @@ def get_bil_solgt_data():
         c_driv = col_or_null("drivstoff")
         c_hjul = col_or_null("hjuldrift")
         c_rekk = col_or_null("rekkevidde")
-        c_selger = col_or_null("selger")
         c_over = col_or_null("overskrift")
         c_pris_start = col_or_null("pris_start")
         c_pris_ny = col_or_null("pris_ny")
@@ -958,7 +960,7 @@ def get_bil_solgt_data():
         personlig_skilt_expr = _bool_expr(c_personlig_skilt) if colmap.get("personlig_skilt") else "NULL"
         bruktimport_expr = _imported_expr(c_bruktimport) if colmap.get("bruktimport") else "false"
 
-        solgt_expr = _bool_expr(c_solgt) if colmap.get("solgt") else None
+        solgt_expr = _solgt_bool_seller_aware(c_solgt, c_selger) if colmap.get("solgt") else None
 
         solgt_filter_sql = ""
         solgt_filter_params = []
@@ -1171,6 +1173,34 @@ def _solgt_true_seller_aware_expr(solgt_norm_expr: str, selger_ident: str) -> st
           AND {er_privat}
         )
       )
+    """
+
+
+def _solgt_bool_seller_aware(col_ident: str, selger_ident: str) -> str:
+    """
+    BOOLEAN "er bilen solgt", selger-bevisst. Som _bool_expr for Solgt-kolonnen,
+    men 'fjernet' (annonse forsvunnet) regnes som solgt KUN for private selgere.
+    Forhandlere re-publiserer annonser uten salg, saa en forsvunnet forhandler-
+    annonse er ikke paalitelig solgt. Bekreftet salg ('ja'/'solgt' m.fl.) teller
+    uansett selger-type.
+
+    Fail-open: mangler selger-kolonnen faller vi tilbake til _bool_expr
+    (gammel adferd der 'fjernet' talte som solgt for alle).
+    """
+    if selger_ident == "NULL":
+        return _bool_expr(col_ident)
+    norm = f"lower(trim(cast({col_ident} as varchar)))"
+    er_privat = _privat_selger_expr(selger_ident)
+    return f"""
+    (
+      case
+        when {col_ident} is null then false
+        when try_cast({col_ident} as BOOLEAN) is not null then try_cast({col_ident} as BOOLEAN)
+        when {norm} in ('1','true','t','yes','y','ja','solgt','sold') then true
+        when {norm} in ('fjernet','removed') then ({er_privat})
+        else false
+      end
+    )
     """
 
 
