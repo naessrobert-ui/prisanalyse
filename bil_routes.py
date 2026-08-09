@@ -978,7 +978,7 @@ def get_bil_solgt_data():
             CAST(median({dager_expr}) AS BIGINT) AS median_dager,
             CAST(avg({pris_ny_num}) AS BIGINT) AS avg_pris,
             CAST(median({pris_ny_num}) AS BIGINT) AS median_pris,
-            CAST(min({pris_ny_num}) AS BIGINT) AS laveste_pris,
+            CAST(min({pris_ny_num}) FILTER (WHERE {pris_ny_num} > 0) AS BIGINT) AS laveste_pris,
             COUNT(*) AS antall
           FROM read_parquet('{path}')
           {where_sql}
@@ -1063,7 +1063,9 @@ def get_bil_solgt_data():
           FROM read_parquet('{path}')
           {where_sql}
           {status_sql}
-          ORDER BY {pris_ny_num} ASC
+          -- Biler uten gyldig pris (Pris_ny mangler -> coalesce 0) skal IKKE
+          -- regnes som "billigst". Sorter dem sist, ekte priser stigende foerst.
+          ORDER BY ({pris_ny_num} <= 0), {pris_ny_num} ASC
           LIMIT {MAX_ROWS_LIMIT}
         """
 
