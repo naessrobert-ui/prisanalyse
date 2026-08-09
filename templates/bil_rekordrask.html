@@ -236,6 +236,36 @@
         </div>
 
         <div>
+          <label for="selger_type">Selger</label>
+          <select id="selger_type">
+            <option value="Alle">Alle</option>
+            <option value="Privat">Kun privat</option>
+            <option value="Forhandler">Kun forhandler</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="fylke">Fylke</label>
+          <select id="fylke">
+            <option value="Alle">Alle</option>
+            {% for v in fylker %}
+              <option value="{{ v }}">{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label for="inkluder_fjernet_forhandler">Forsvunne forhandler-annonser</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; opacity:1; padding:9px 0; margin:0;">
+            <input id="inkluder_fjernet_forhandler" type="checkbox" style="width:auto; margin:0;" />
+            Tell som solgt
+          </label>
+          <div class="note" style="margin-top:2px;">
+            Av: forsvunne annonser teller kun som solgt for private. På: teller også for forhandlere.
+          </div>
+        </div>
+
+        <div>
           <label for="group_choice">Gruppering</label>
           <select id="group_choice">
             <option>Produsent + Modell</option>
@@ -387,6 +417,9 @@
       drivstoff: el("drivstoff").value || "Alle",
       hjuldrift: el("hjuldrift").value || "Alle",
       produsent: el("produsent").value || "Alle",
+      selger_type: el("selger_type").value || "Alle",
+      fylke: el("fylke").value || "Alle",
+      inkluder_fjernet_forhandler: el("inkluder_fjernet_forhandler").checked,
       group_choice: groupChoice,
       group_cols: (groupChoice === "Egendefinert") ? custom : null
     };

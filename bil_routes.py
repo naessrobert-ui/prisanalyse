@@ -300,6 +300,15 @@ def _qident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
+def _truthy(v) -> bool:
+    """Tolker JSON/skjema-verdier som boolean (tåler bool og strenger)."""
+    if isinstance(v, bool):
+        return v
+    if v is None:
+        return False
+    return str(v).strip().lower() in ("1", "true", "ja", "on", "yes")
+
+
 
 
 def _normalize_date_input(s: str | int | float | None) -> str | None:
@@ -1280,6 +1289,9 @@ def _rekordrask_where(filters: dict, colmap: dict):
     c_aar  = colmap.get("aar")
     c_driv = colmap.get("drivstoff")
     c_hjul = colmap.get("hjuldrift")
+    c_sel  = colmap.get("selger")
+    c_fylke = colmap.get("fylke")
+    c_sted = colmap.get("sted")
 
     # Dato-filter
     if c_dato:
@@ -1338,14 +1350,48 @@ def _rekordrask_where(filters: dict, colmap: dict):
         clauses.append(f"{_qident(c_hjul)} = ?")
         params.append(hjuldrift)
 
+    # Selger-type (privat / forhandler). Speiler _privat_selger_expr():
+    # tom/NULL Selger => privat, ellers forhandler/bedrift.
+    selger_type = (filters.get("selger_type") or "Alle").strip().lower()
+    if c_sel and selger_type in ("privat", "private"):
+        clauses.append(_privat_selger_expr(_qident(c_sel)))
+    elif c_sel and selger_type in ("forhandler", "bedrift", "dealer", "forhandler/bedrift"):
+        clauses.append(f"NOT ({_privat_selger_expr(_qident(c_sel))})")
+
+    # Fylke. Bruker Fylke-kolonnen når den finnes, og faller tilbake til å
+    # utlede fra Sted ("Sted, Fylke"). Matcher begge når begge finnes, så
+    # filteret virker uansett hvor fylket faktisk er lagret.
+    fylke = (filters.get("fylke") or "Alle").strip()
+    if fylke and fylke != "Alle":
+        fylke_parts = []
+        if c_fylke:
+            fylke_parts.append(
+                f"lower(trim(cast({_qident(c_fylke)} as varchar))) = lower(trim(?))"
+            )
+            params.append(fylke)
+        if c_sted:
+            fylke_parts.append(
+                f"lower(trim(cast({_qident(c_sted)} as varchar))) LIKE '%, ' || lower(trim(?))"
+            )
+            params.append(fylke)
+        if fylke_parts:
+            clauses.append("(" + " OR ".join(fylke_parts) + ")")
+
     where_sql = " WHERE " + " AND ".join(clauses) if clauses else ""
     return where_sql, params
 
-def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
+def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str,
+                         inkluder_fjernet_forhandler: bool = False):
     """
     CTE base for rekordrask med cross-check mot nyeste daily-CSV.
     Hvis en FinnKode finnes i siste daily, er bilen aktiv paa Finn,
     uansett hva Solgt-kolonnen sier. Fjerner ~0.4% falske positive.
+
+    inkluder_fjernet_forhandler:
+      False (default) -> selger-bevisst: 'fjernet' teller som solgt KUN for
+                         private. Forsvunne forhandler-annonser teller ikke.
+      True            -> 'fjernet'/'removed' teller som solgt for ALLE selgere,
+                         inkludert forhandlere.
     """
     c_dato = _qident(colmap.get("dato_start"))
     c_dato_ny = _qident(colmap.get("dato_end"))
@@ -1356,12 +1402,18 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     dato_ts = _to_timestamp_sql(c_dato)
     dato_ny_ts = _to_timestamp_sql(c_dato_ny)
 
-    # Selger-bevisst "solgt": 'fjernet' (annonse forsvunnet) regnes som solgt
-    # kun for private selgere. Forhandlere re-publiserer annonser stadig, saa en
-    # forsvunnet forhandler-annonse er ikke paalitelig solgt og skal ikke telle
-    # som "solgt rekordraskt". Bekreftet salg ('ja'/'solgt') teller uansett.
+    # "solgt"-tolkning. Bekreftet salg ('ja'/'solgt') teller alltid. Forskjellen
+    # gjelder forsvunne annonser ('fjernet'/'removed'):
+    #   - selger-bevisst (default): teller kun for private, fordi forhandlere
+    #     re-publiserer annonser stadig -> forsvunnet forhandler-annonse er ikke
+    #     paalitelig solgt.
+    #   - inkluder_fjernet_forhandler=True: teller ogsaa forsvunne forhandler-
+    #     annonser som solgt.
     solgt_norm = _normalize_str_sql(c_solgt)
-    is_solgt = _solgt_true_seller_aware_expr(solgt_norm, c_selger)
+    if inkluder_fjernet_forhandler:
+        is_solgt = _solgt_true_expr(solgt_norm)
+    else:
+        is_solgt = _solgt_true_seller_aware_expr(solgt_norm, c_selger)
 
     days_to_end = f"(date_diff('second', {dato_ts}, {dato_ny_ts}) / 86400.0)"
 
@@ -1405,6 +1457,54 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     """
 
 
+def _get_fylke_options() -> list:
+    """
+    Distinkte fylker fra samme parquet som rekordrask bruker. Faller tilbake
+    til å utlede fylke fra 'Sted' ("Sted, Fylke") hvis Fylke-kolonnen mangler
+    eller er tom. Speiler fylke-logikken i _get_finn_sok_filter_options().
+    """
+    try:
+        path = _ensure_local_parquet(PARQUET_KEY_SOLGT)
+        colmap = _duckdb_get_colmap(path, PARQUET_KEY_SOLGT)
+        con = _duckdb_con()
+
+        c_fylke = colmap.get("fylke")
+        if c_fylke:
+            c = _qident(c_fylke)
+            rows = con.execute(f"""
+              SELECT DISTINCT trim(cast({c} AS VARCHAR)) AS v
+              FROM read_parquet('{path}')
+              WHERE {c} IS NOT NULL AND trim(cast({c} AS VARCHAR)) <> ''
+              ORDER BY 1
+              LIMIT 1000
+            """).fetchall()
+            fylker = [r[0] for r in rows if r and r[0]]
+            if fylker:
+                return fylker
+
+        # Fallback: utled fra 'Sted' ("Sted, Fylke")
+        c_sted = colmap.get("sted")
+        if c_sted:
+            c = _qident(c_sted)
+            rows = con.execute(f"""
+              SELECT DISTINCT trim(cast({c} AS VARCHAR)) AS sted
+              FROM read_parquet('{path}')
+              WHERE {c} IS NOT NULL AND trim(cast({c} AS VARCHAR)) <> ''
+              LIMIT 5000
+            """).fetchall()
+            fylker = set()
+            for row in rows:
+                sted = (row[0] or "").strip() if row else ""
+                if "," in sted:
+                    maybe = sted.split(",")[-1].strip()
+                    if maybe:
+                        fylker.add(maybe)
+            return sorted(fylker)
+    except Exception as e:
+        print(f"[rekordrask] Klarte ikke bygge fylke-valg: {e}")
+    return []
+
+
 @bil_bp.route('/rekordrask')
 def bil_rekordrask_side():
     """
@@ -1426,6 +1526,7 @@ def bil_rekordrask_side():
         produsenter=metadata.get('produsenter', []),
         drivstoff=metadata.get('drivstoff_opts', []),
         hjuldrift=metadata.get('hjuldrift_opts', []),
+        fylker=_get_fylke_options(),
         default_from=default_from,
         default_to=default_to,
         default_max_days=3,
@@ -1441,6 +1542,7 @@ def bil_rekordrask_grupper():
 
         max_days = float(filters.get("max_days") or 3)
         min_obs = int(filters.get("min_obs") or 30)
+        inkluder_fjernet_forhandler = _truthy(filters.get("inkluder_fjernet_forhandler"))
 
         s3_key = PARQUET_KEY_SOLGT
         path = _ensure_local_parquet(s3_key)
@@ -1456,7 +1558,8 @@ def bil_rekordrask_grupper():
         if not group_cols_sql:
             return jsonify({"status": "error", "message": "Ingen gyldige grupperingskolonner valgt."}), 400
 
-        base = _rekordrask_base_sql(path, colmap, where_sql)
+        base = _rekordrask_base_sql(path, colmap, where_sql,
+                                    inkluder_fjernet_forhandler=inkluder_fjernet_forhandler)
 
         select_group = []
         group_by = []
@@ -1518,6 +1621,7 @@ def bil_rekordrask_data():
         group = payload.get('group', {}) or {}
 
         max_days = float(filters.get("max_days") or 3)
+        inkluder_fjernet_forhandler = _truthy(filters.get("inkluder_fjernet_forhandler"))
 
         s3_key = PARQUET_KEY_SOLGT
         path = _ensure_local_parquet(s3_key)
@@ -1527,7 +1631,8 @@ def bil_rekordrask_data():
         where_sql, params = _rekordrask_where(filters, colmap)
         group_cols_sql, group_cols_names = _rekordrask_group_cols(filters, colmap)
 
-        base = _rekordrask_base_sql(path, colmap, where_sql)
+        base = _rekordrask_base_sql(path, colmap, where_sql,
+                                    inkluder_fjernet_forhandler=inkluder_fjernet_forhandler)
 
         c_prod = _qident(colmap.get("produsent"))
         c_mod  = _qident(colmap.get("modell"))
