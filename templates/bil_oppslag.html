@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ tittel }} – prisanalyse.no</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh; display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px 16px 40px; color: #f9fafb;
+      background:
+        linear-gradient(rgba(0,0,0,0.78), rgba(0,0,0,0.88)),
+        url('{{ url_for("static", filename="background.jpg") }}') no-repeat center center fixed;
+      background-size: cover;
+    }
+    .shell {
+      width: min(1100px, 100%); background: rgba(10,16,26,0.82);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.55); padding: 22px; backdrop-filter: blur(10px);
+    }
+    .topline { display:flex; align-items:center; justify-content: space-between; gap:12px; margin-bottom: 6px; }
+    .brand { letter-spacing: .18em; text-transform: uppercase; font-size: 12px; opacity: .8; }
+    .backlink a { color: rgba(255,255,255,.88); text-decoration:none; font-size: 13px; opacity:.9; }
+    .backlink a:hover { text-decoration: underline; }
+    h1 { font-size: 34px; line-height: 1.05; margin: 8px 0; font-weight: 800; }
+    h1 .accent { color: #60a5fa; }
+    .subtitle { opacity: .9; margin-bottom: 8px; font-size: 14px; }
+    .panel { border-radius: 16px; border: 1px solid rgba(255,255,255,0.12); background: rgba(2,6,23,0.55); padding: 14px; margin-top: 12px; }
+    label { display:block; font-size: 12px; opacity:.85; margin-bottom: 6px; }
+    input[type=text] {
+      width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.06); color: #fff; font-size: 16px;
+    }
+    .searchrow { display:flex; gap: 10px; align-items:flex-end; }
+    .searchrow > div { flex: 1; }
+    .btn {
+      padding: 12px 22px; border-radius: 999px; border: none; cursor: pointer;
+      background: #16a34a; color: white; font-weight: 700; font-size: 15px; white-space: nowrap;
+    }
+    .btn:hover { background: #15803d; }
+    .error { margin-top: 10px; color: #fecaca; background: rgba(127,29,29,.5); border:1px solid rgba(248,113,113,.5); padding: 10px 12px; border-radius: 10px; display:none; }
+    .note { font-size: 12px; opacity:.7; margin-top: 6px; }
+
+    .badges { display:flex; flex-wrap:wrap; gap: 8px; margin: 4px 0 10px; }
+    .badge { padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; border:1px solid rgba(255,255,255,.15); }
+    .b-green { background: rgba(22,163,74,.22); color:#86efac; border-color: rgba(134,239,172,.4); }
+    .b-red   { background: rgba(220,38,38,.22); color:#fca5a5; border-color: rgba(252,165,165,.4); }
+    .b-amber { background: rgba(217,119,6,.22); color:#fcd34d; border-color: rgba(252,211,77,.4); }
+    .b-gray  { background: rgba(148,163,184,.18); color:#cbd5e1; }
+
+    .kv { display:grid; grid-template-columns: 220px 1fr; gap: 4px 14px; font-size: 14px; }
+    .kv .k { opacity:.7; }
+    .kv .v { word-break: break-word; }
+    .forklaring { list-style: none; margin-top: 8px; }
+    .forklaring li { padding: 8px 12px; border-left: 3px solid #60a5fa; background: rgba(96,165,250,.08); margin-bottom: 6px; border-radius: 0 8px 8px 0; font-size: 13.5px; }
+    a.finn { color:#60a5fa; text-decoration:none; }
+    a.finn:hover { text-decoration: underline; }
+
+    table { width:100%; border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+    th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
+    th { position: sticky; top: 0; background: rgba(2,6,23,0.95); }
+    td.key { opacity:.75; white-space: nowrap; width: 260px; }
+    td.val { word-break: break-word; }
+    .tablewrap { max-height: 520px; overflow: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-top: 8px; }
+    .fieldsearch { margin-top: 8px; }
+    h2 { font-size: 18px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topline">
+      <div class="brand">prisanalyse.no</div>
+      <div class="backlink"><a href="/bil/">← Til bilanalyse</a></div>
+    </div>
+    <h1><span class="accent">Bil</span>-oppslag</h1>
+    <div class="subtitle">Lim inn et FinnKode-nummer (eller hel Finn-URL) og hent alt vi har lagret om bilen, pluss hvordan systemet tolker den.</div>
+
+    <div class="panel">
+      <div class="searchrow">
+        <div>
+          <label for="finnkode">FinnKode</label>
+          <input id="finnkode" type="text" placeholder="f.eks. 471343742" />
+        </div>
+        <button id="btnRun" class="btn">Slå opp</button>
+      </div>
+      <div class="note">Tips: du kan lime inn hele annonse-URL-en – tallet plukkes ut automatisk.</div>
+      <div id="err" class="error"></div>
+    </div>
+
+    <div id="result" style="display:none;">
+      <div class="panel">
+        <h2>Tolkning</h2>
+        <div class="badges" id="badges"></div>
+        <ul class="forklaring" id="forklaring"></ul>
+        <div class="kv" id="tolkKv"></div>
+        <div style="margin-top:10px;"><a class="finn" id="finnLink" target="_blank" rel="noopener">Åpne på Finn ↗</a></div>
+      </div>
+
+      <div class="panel">
+        <h2>Alle felt (database_biler.parquet)</h2>
+        <div class="fieldsearch">
+          <input id="fieldSearch" type="text" placeholder="Filtrer felt … (f.eks. dato, pris, svv)" />
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Felt</th><th>Verdi</th></tr></thead>
+            <tbody id="fieldsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="notfound" class="panel" style="display:none;">
+      <h2>Ikke funnet</h2>
+      <div id="notfoundMsg" class="subtitle"></div>
+      <div style="margin-top:8px;"><a class="finn" id="finnLink2" target="_blank" rel="noopener">Sjekk på Finn ↗</a></div>
+    </div>
+  </div>
+
+  <script>
+    const el = id => document.getElementById(id);
+    let lastFields = {};
+
+    function showError(msg) {
+      const e = el("err");
+      e.textContent = msg || "";
+      e.style.display = msg ? "block" : "none";
+    }
+
+    function badge(text, cls) { return `<span class="badge ${cls}">${text}</span>`; }
+
+    function fmtVal(v) {
+      if (v === null || v === undefined || v === "") return "<em style='opacity:.5'>(tom)</em>";
+      return String(v);
+    }
+
+    function renderFields(filterText) {
+      const q = (filterText || "").trim().toLowerCase();
+      const body = el("fieldsBody");
+      body.innerHTML = "";
+      const keys = Object.keys(lastFields).sort((a, b) => a.localeCompare(b, "nb"));
+      for (const k of keys) {
+        if (q && !k.toLowerCase().includes(q) && !String(lastFields[k] ?? "").toLowerCase().includes(q)) continue;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td class="key">${k}</td><td class="val">${fmtVal(lastFields[k])}</td>`;
+        body.appendChild(tr);
+      }
+    }
+
+    function boolBadge(val, trueTxt, falseTxt, nullTxt) {
+      if (val === true) return badge(trueTxt.txt, trueTxt.cls);
+      if (val === false) return badge(falseTxt.txt, falseTxt.cls);
+      return badge(nullTxt || "ukjent", "b-gray");
+    }
+
+    async function run() {
+      showError("");
+      el("result").style.display = "none";
+      el("notfound").style.display = "none";
+      const raw = el("finnkode").value.trim();
+      if (!raw) { showError("Skriv inn et FinnKode-nummer."); return; }
+
+      el("btnRun").textContent = "Henter …";
+      el("btnRun").disabled = true;
+      try {
+        const resp = await fetch("/bil/oppslag/data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ finnkode: raw })
+        });
+        const data = await resp.json();
+        if (data.status !== "ok") { showError(data.message || "Noe gikk galt."); return; }
+
+        if (!data.funnet) {
+          el("notfound").style.display = "block";
+          el("notfoundMsg").textContent = data.message || "Fant ingen rad.";
+          el("finnLink2").href = data.finn_url;
+          return;
+        }
+
+        const t = data.tolkning || {};
+        // Badges
+        const badges = [];
+        badges.push(boolBadge(t.regnes_som_rekordsolgt,
+          { txt: "Regnes som REKORDSOLGT", cls: "b-red" },
+          { txt: "Ikke rekordsolgt", cls: "b-green" }));
+        badges.push(boolBadge(t.regnes_som_solgt,
+          { txt: "Regnes som solgt", cls: "b-amber" },
+          { txt: "Ikke solgt", cls: "b-green" }));
+        badges.push(boolBadge(t.aktiv_i_siste_daily,
+          { txt: "Aktiv i siste daily", cls: "b-green" },
+          { txt: "Ikke i siste daily", cls: "b-amber" }));
+        badges.push(boolBadge(t.er_privat_selger,
+          { txt: "Privat selger", cls: "b-gray" },
+          { txt: "Forhandler", cls: "b-gray" }));
+        el("badges").innerHTML = badges.join("");
+
+        // Forklaring
+        el("forklaring").innerHTML = (data.forklaring || []).map(f => `<li>${f}</li>`).join("");
+
+        // Tolknings-KV
+        const kv = [
+          ["Solgt (rå verdi)", t.solgt_rå],
+          ["Selger", t.selger],
+          ["Dato (parsed)", t.dato_parsed],
+          ["Dato_ny (parsed)", t.dato_ny_parsed],
+          ["Dager (Dato → Dato_ny)", t.dager_dato_til_dato_ny],
+          ["Maks dager brukt (rekordsolgt)", t.maks_dager_brukt],
+        ];
+        el("tolkKv").innerHTML = kv.map(([k, v]) =>
+          `<div class="k">${k}</div><div class="v">${fmtVal(v)}</div>`).join("");
+
+        el("finnLink").href = data.finn_url;
+
+        lastFields = data.alle_felt || {};
+        el("fieldSearch").value = "";
+        renderFields("");
+        el("result").style.display = "block";
+      } catch (e) {
+        showError("Nettverksfeil: " + e.message);
+      } finally {
+        el("btnRun").textContent = "Slå opp";
+        el("btnRun").disabled = false;
+      }
+    }
+
+    el("btnRun").addEventListener("click", run);
+    el("finnkode").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+    el("fieldSearch").addEventListener("input", e => renderFields(e.target.value));
+
+    // Auto-oppslag hvis ?finnkode= i URL
+    const params = new URLSearchParams(location.search);
+    const pre = params.get("finnkode") || params.get("finn");
+    if (pre) { el("finnkode").value = pre; run(); }
+  </script>
+</body>
+</html>

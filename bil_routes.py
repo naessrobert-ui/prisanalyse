@@ -1582,6 +1582,156 @@ def bil_rekordrask_data():
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
+# ==========================================================
+# OPPSLAG (debug) – all info vi har om én FinnKode
+#
+#   GET  /bil/oppslag         -> siden (input for FinnKode)
+#   POST /bil/oppslag/data     -> hele parquet-raden + tolkning
+#
+# Bygget for å jakte på "rusk": hvorfor havner en bil som solgt/rekordsolgt?
+# ==========================================================
+
+@bil_bp.route('/oppslag')
+def bil_oppslag_side():
+    return render_template(
+        'bil_oppslag.html',
+        tittel="Bil-oppslag (FinnKode)",
+    )
+
+
+@bil_bp.route('/oppslag/data', methods=['POST'])
+def bil_oppslag_data():
+    try:
+        payload = request.get_json() or {}
+        raw_input = str(payload.get("finnkode") or "").strip()
+        # Trekk ut rene siffer (tåler hele Finn-URL-er også)
+        m = re.search(r"(\d{3,})", raw_input)
+        if not m:
+            return jsonify({"status": "error", "message": "Oppgi et gyldig FinnKode-nummer."}), 400
+        finnkode = m.group(1)
+
+        s3_key = PARQUET_KEY_SOLGT
+        path = _ensure_local_parquet(s3_key)
+        colmap = _duckdb_get_colmap(path, s3_key)
+        con = _duckdb_con()
+
+        c_finn = colmap.get("finnkode")
+        if not c_finn:
+            return jsonify({"status": "error", "message": "Datasettet mangler FinnKode-kolonne."}), 500
+
+        finn_norm = _finnkode_norm_sql(_qident(c_finn))
+
+        # Hele raden (alle kolonner)
+        row_df = con.execute(
+            f"SELECT * FROM read_parquet('{path}') WHERE {finn_norm} = ? LIMIT 5",
+            [finnkode],
+        ).df()
+
+        if row_df.empty:
+            return jsonify({
+                "status": "ok",
+                "finnkode": finnkode,
+                "funnet": False,
+                "finn_url": FINN_BASE_URL + finnkode,
+                "message": "Fant ingen rad for denne FinnKoden i database_biler.parquet.",
+            })
+
+        row_df = row_df.where(pd.notna(row_df), None)
+        # Hele raden som ordnet key/value (første treff)
+        alle_felt = json.loads(row_df.head(1).to_json(orient="records"))[0]
+
+        # ---- Tolkning ----
+        c_solgt = _qident(colmap.get("solgt")) if colmap.get("solgt") else "NULL"
+        c_selger = _qident(colmap.get("selger")) if colmap.get("selger") else "NULL"
+        c_dato = _qident(colmap.get("dato_start")) if colmap.get("dato_start") else "NULL"
+        c_dato_ny = _qident(colmap.get("dato_end")) if colmap.get("dato_end") else "NULL"
+
+        solgt_norm = _normalize_str_sql(c_solgt)
+        is_solgt_expr = _solgt_true_seller_aware_expr(solgt_norm, c_selger)
+        er_privat_expr = _privat_selger_expr(c_selger)
+        dato_ts = _to_timestamp_sql(c_dato)
+        dato_ny_ts = _to_timestamp_sql(c_dato_ny)
+        days_expr = f"(date_diff('second', {dato_ts}, {dato_ny_ts}) / 86400.0)"
+
+        # Aktiv i siste daglige snapshots (samme kilde som rekordrask-cross-check)
+        has_active = _ensure_active_finnkoder_table()
+        if has_active:
+            aktiv_expr = (
+                f"CASE WHEN {finn_norm} IN (SELECT FinnKode FROM {ACTIVE_FK_TABLE}) "
+                f"THEN true ELSE false END"
+            )
+        else:
+            aktiv_expr = "NULL"
+
+        tolk_sql = f"""
+          SELECT
+            {aktiv_expr} AS aktiv_i_siste_daily,
+            {er_privat_expr} AS er_privat_selger,
+            ({is_solgt_expr}) AS regnes_som_solgt,
+            {days_expr} AS dager_dato_til_dato_ny,
+            CAST({dato_ts} AS VARCHAR) AS dato_parsed,
+            CAST({dato_ny_ts} AS VARCHAR) AS dato_ny_parsed
+          FROM read_parquet('{path}')
+          WHERE {finn_norm} = ?
+          LIMIT 1
+        """
+        t = con.execute(tolk_sql, [finnkode]).df()
+        t = t.where(pd.notna(t), None)
+        tolk = json.loads(t.to_json(orient="records"))[0] if not t.empty else {}
+
+        aktiv = bool(tolk.get("aktiv_i_siste_daily")) if tolk.get("aktiv_i_siste_daily") is not None else None
+        regnes_solgt = bool(tolk.get("regnes_som_solgt"))
+        dager = tolk.get("dager_dato_til_dato_ny")
+        # Rekordsolgt (gjeldende logikk): solgt + ikke aktiv + gyldige datoer + dager <= maks (3)
+        MAKS_DAGER_DEFAULT = 3
+        regnes_rekordsolgt = bool(
+            regnes_solgt
+            and aktiv is False
+            and dager is not None
+            and 0 <= dager <= MAKS_DAGER_DEFAULT
+        )
+
+        tolkning = {
+            "aktiv_i_siste_daily": aktiv,
+            "er_privat_selger": bool(tolk.get("er_privat_selger")) if tolk.get("er_privat_selger") is not None else None,
+            "solgt_rå": alle_felt.get(colmap.get("solgt")) if colmap.get("solgt") else None,
+            "selger": alle_felt.get(colmap.get("selger")) if colmap.get("selger") else None,
+            "regnes_som_solgt": regnes_solgt,
+            "regnes_som_rekordsolgt": regnes_rekordsolgt,
+            "maks_dager_brukt": MAKS_DAGER_DEFAULT,
+            "dager_dato_til_dato_ny": round(dager, 3) if isinstance(dager, (int, float)) else None,
+            "dato_parsed": tolk.get("dato_parsed"),
+            "dato_ny_parsed": tolk.get("dato_ny_parsed"),
+        }
+
+        # Kort forklaring på hvorfor
+        forklaring = []
+        if aktiv:
+            forklaring.append("Bilen ligger i siste daglige snapshot → tolkes som fortsatt aktiv på Finn (skal ikke telle som solgt/rekordsolgt).")
+        else:
+            forklaring.append("Bilen ligger IKKE i siste daglige snapshot (borte fra Finn eller ikke fanget av scraper).")
+        if tolkning["er_privat_selger"] is True:
+            forklaring.append("Selger tolkes som PRIVAT → 'FJERNET' regnes som solgt.")
+        elif tolkning["er_privat_selger"] is False:
+            forklaring.append("Selger tolkes som FORHANDLER → 'FJERNET' regnes IKKE som solgt (kun bekreftet 'JA').")
+
+        return jsonify({
+            "status": "ok",
+            "finnkode": finnkode,
+            "funnet": True,
+            "finn_url": FINN_BASE_URL + finnkode,
+            "flere_rader": len(row_df) > 1,
+            "tolkning": tolkning,
+            "forklaring": forklaring,
+            "alle_felt": alle_felt,
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 # ==========================================================
 # BILRADAR  –  leser forventet_pris/rabatt_pct fra parquet
 #              (scoring skjer i bil_kupp_analyse.py — peer-gruppe-basert)
