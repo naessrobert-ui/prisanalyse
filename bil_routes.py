@@ -878,7 +878,14 @@ def get_bil_solgt_data():
         c_dato_end = col_or_null("dato_end")
         c_solgt = col_or_null("solgt")
         c_selger = col_or_null("selger")
+        c_pris_ny = col_or_null("pris_ny")
         dato_end_ts = f"try_cast({c_dato_end} AS TIMESTAMP)"
+        pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
+
+        # Biler uten gyldig pris (Pris_ny mangler/0 - typisk annonser som viste
+        # "Solgt" eller hadde tom pris) skal ikke telle med i solgt-analysen:
+        # verken i lista, KPI-ene (snitt/median/laveste) eller antall.
+        gyldig_pris_sql = f" AND {pris_ny_num} > 0" if colmap.get("pris_ny") else ""
 
         status = (filters.get("status") or "solgt_fjernet").strip()  # default: solgt/fjernet
 
@@ -899,6 +906,9 @@ def get_bil_solgt_data():
             elif status == "solgt_fjernet":
                 status_sql = f" AND date({dato_end_ts}) < ?"
                 status_params.append(str(max_date))
+
+        # Ekskluder biler uten gyldig pris fra count/grouped/liste.
+        status_sql += gyldig_pris_sql
 
         exclude_maxdate_sql = ""
         exclude_maxdate_params = []
@@ -930,7 +940,6 @@ def get_bil_solgt_data():
         c_rekk = col_or_null("rekkevidde")
         c_over = col_or_null("overskrift")
         c_pris_start = col_or_null("pris_start")
-        c_pris_ny = col_or_null("pris_ny")
         c_dato_start = col_or_null("dato_start")
         c_finn = col_or_null("finnkode")
         c_farge = col_or_null("farge")
@@ -942,7 +951,6 @@ def get_bil_solgt_data():
         c_import_land = col_or_null("import_land")
 
         pris_start_num = f"coalesce(try_cast({c_pris_start} AS BIGINT), 0)"
-        pris_ny_num = f"coalesce(try_cast({c_pris_ny} AS BIGINT), 0)"
 
         dato_start_ts = f"try_cast({c_dato_start} AS TIMESTAMP)"
 
@@ -969,6 +977,9 @@ def get_bil_solgt_data():
         else:
             solgt_filter_sql = f" AND ({pris_ny_num}) > 1000"
 
+        # Ekskluder biler uten gyldig pris fra KPI-ene (snitt/median/laveste)
+        # og daily_stats, i tråd med lista/telling.
+        solgt_filter_sql += gyldig_pris_sql
         solgt_filter_sql += exclude_maxdate_sql
         solgt_filter_params.extend(exclude_maxdate_params)
 
@@ -978,7 +989,7 @@ def get_bil_solgt_data():
             CAST(median({dager_expr}) AS BIGINT) AS median_dager,
             CAST(avg({pris_ny_num}) AS BIGINT) AS avg_pris,
             CAST(median({pris_ny_num}) AS BIGINT) AS median_pris,
-            CAST(min({pris_ny_num}) AS BIGINT) AS laveste_pris,
+            CAST(min({pris_ny_num}) FILTER (WHERE {pris_ny_num} > 0) AS BIGINT) AS laveste_pris,
             COUNT(*) AS antall
           FROM read_parquet('{path}')
           {where_sql}
@@ -1063,7 +1074,9 @@ def get_bil_solgt_data():
           FROM read_parquet('{path}')
           {where_sql}
           {status_sql}
-          ORDER BY {pris_ny_num} ASC
+          -- Biler uten gyldig pris (Pris_ny mangler -> coalesce 0) skal IKKE
+          -- regnes som "billigst". Sorter dem sist, ekte priser stigende foerst.
+          ORDER BY ({pris_ny_num} <= 0), {pris_ny_num} ASC
           LIMIT {MAX_ROWS_LIMIT}
         """
 
