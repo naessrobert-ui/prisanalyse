@@ -1280,6 +1280,9 @@ def _rekordrask_where(filters: dict, colmap: dict):
     c_aar  = colmap.get("aar")
     c_driv = colmap.get("drivstoff")
     c_hjul = colmap.get("hjuldrift")
+    c_sel  = colmap.get("selger")
+    c_fylke = colmap.get("fylke")
+    c_sted = colmap.get("sted")
 
     # Dato-filter
     if c_dato:
@@ -1337,6 +1340,33 @@ def _rekordrask_where(filters: dict, colmap: dict):
     if hjuldrift != "Alle" and c_hjul:
         clauses.append(f"{_qident(c_hjul)} = ?")
         params.append(hjuldrift)
+
+    # Selger-type (privat / forhandler). Speiler _privat_selger_expr():
+    # tom/NULL Selger => privat, ellers forhandler/bedrift.
+    selger_type = (filters.get("selger_type") or "Alle").strip().lower()
+    if c_sel and selger_type in ("privat", "private"):
+        clauses.append(_privat_selger_expr(_qident(c_sel)))
+    elif c_sel and selger_type in ("forhandler", "bedrift", "dealer", "forhandler/bedrift"):
+        clauses.append(f"NOT ({_privat_selger_expr(_qident(c_sel))})")
+
+    # Fylke. Bruker Fylke-kolonnen når den finnes, og faller tilbake til å
+    # utlede fra Sted ("Sted, Fylke"). Matcher begge når begge finnes, så
+    # filteret virker uansett hvor fylket faktisk er lagret.
+    fylke = (filters.get("fylke") or "Alle").strip()
+    if fylke and fylke != "Alle":
+        fylke_parts = []
+        if c_fylke:
+            fylke_parts.append(
+                f"lower(trim(cast({_qident(c_fylke)} as varchar))) = lower(trim(?))"
+            )
+            params.append(fylke)
+        if c_sted:
+            fylke_parts.append(
+                f"lower(trim(cast({_qident(c_sted)} as varchar))) LIKE '%, ' || lower(trim(?))"
+            )
+            params.append(fylke)
+        if fylke_parts:
+            clauses.append("(" + " OR ".join(fylke_parts) + ")")
 
     where_sql = " WHERE " + " AND ".join(clauses) if clauses else ""
     return where_sql, params
@@ -1405,6 +1435,54 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     """
 
 
+def _get_fylke_options() -> list:
+    """
+    Distinkte fylker fra samme parquet som rekordrask bruker. Faller tilbake
+    til å utlede fylke fra 'Sted' ("Sted, Fylke") hvis Fylke-kolonnen mangler
+    eller er tom. Speiler fylke-logikken i _get_finn_sok_filter_options().
+    """
+    try:
+        path = _ensure_local_parquet(PARQUET_KEY_SOLGT)
+        colmap = _duckdb_get_colmap(path, PARQUET_KEY_SOLGT)
+        con = _duckdb_con()
+
+        c_fylke = colmap.get("fylke")
+        if c_fylke:
+            c = _qident(c_fylke)
+            rows = con.execute(f"""
+              SELECT DISTINCT trim(cast({c} AS VARCHAR)) AS v
+              FROM read_parquet('{path}')
+              WHERE {c} IS NOT NULL AND trim(cast({c} AS VARCHAR)) <> ''
+              ORDER BY 1
+              LIMIT 1000
+            """).fetchall()
+            fylker = [r[0] for r in rows if r and r[0]]
+            if fylker:
+                return fylker
+
+        # Fallback: utled fra 'Sted' ("Sted, Fylke")
+        c_sted = colmap.get("sted")
+        if c_sted:
+            c = _qident(c_sted)
+            rows = con.execute(f"""
+              SELECT DISTINCT trim(cast({c} AS VARCHAR)) AS sted
+              FROM read_parquet('{path}')
+              WHERE {c} IS NOT NULL AND trim(cast({c} AS VARCHAR)) <> ''
+              LIMIT 5000
+            """).fetchall()
+            fylker = set()
+            for row in rows:
+                sted = (row[0] or "").strip() if row else ""
+                if "," in sted:
+                    maybe = sted.split(",")[-1].strip()
+                    if maybe:
+                        fylker.add(maybe)
+            return sorted(fylker)
+    except Exception as e:
+        print(f"[rekordrask] Klarte ikke bygge fylke-valg: {e}")
+    return []
+
+
 @bil_bp.route('/rekordrask')
 def bil_rekordrask_side():
     """
@@ -1426,6 +1504,7 @@ def bil_rekordrask_side():
         produsenter=metadata.get('produsenter', []),
         drivstoff=metadata.get('drivstoff_opts', []),
         hjuldrift=metadata.get('hjuldrift_opts', []),
+        fylker=_get_fylke_options(),
         default_from=default_from,
         default_to=default_to,
         default_max_days=3,

@@ -236,6 +236,25 @@
         </div>
 
         <div>
+          <label for="selger_type">Selger</label>
+          <select id="selger_type">
+            <option value="Alle">Alle</option>
+            <option value="Privat">Kun privat</option>
+            <option value="Forhandler">Kun forhandler</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="fylke">Fylke</label>
+          <select id="fylke">
+            <option value="Alle">Alle</option>
+            {% for v in fylker %}
+              <option value="{{ v }}">{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
           <label for="group_choice">Gruppering</label>
           <select id="group_choice">
             <option>Produsent + Modell</option>
@@ -387,6 +406,8 @@
       drivstoff: el("drivstoff").value || "Alle",
       hjuldrift: el("hjuldrift").value || "Alle",
       produsent: el("produsent").value || "Alle",
+      selger_type: el("selger_type").value || "Alle",
+      fylke: el("fylke").value || "Alle",
       group_choice: groupChoice,
       group_cols: (groupChoice === "Egendefinert") ? custom : null
     };
