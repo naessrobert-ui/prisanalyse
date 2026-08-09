@@ -300,6 +300,15 @@ def _qident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
+def _truthy(v) -> bool:
+    """Tolker JSON/skjema-verdier som boolean (tåler bool og strenger)."""
+    if isinstance(v, bool):
+        return v
+    if v is None:
+        return False
+    return str(v).strip().lower() in ("1", "true", "ja", "on", "yes")
+
+
 
 
 def _normalize_date_input(s: str | int | float | None) -> str | None:
@@ -1371,11 +1380,18 @@ def _rekordrask_where(filters: dict, colmap: dict):
     where_sql = " WHERE " + " AND ".join(clauses) if clauses else ""
     return where_sql, params
 
-def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
+def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str,
+                         inkluder_fjernet_forhandler: bool = False):
     """
     CTE base for rekordrask med cross-check mot nyeste daily-CSV.
     Hvis en FinnKode finnes i siste daily, er bilen aktiv paa Finn,
     uansett hva Solgt-kolonnen sier. Fjerner ~0.4% falske positive.
+
+    inkluder_fjernet_forhandler:
+      False (default) -> selger-bevisst: 'fjernet' teller som solgt KUN for
+                         private. Forsvunne forhandler-annonser teller ikke.
+      True            -> 'fjernet'/'removed' teller som solgt for ALLE selgere,
+                         inkludert forhandlere.
     """
     c_dato = _qident(colmap.get("dato_start"))
     c_dato_ny = _qident(colmap.get("dato_end"))
@@ -1386,12 +1402,18 @@ def _rekordrask_base_sql(path: str, colmap: dict, where_sql: str):
     dato_ts = _to_timestamp_sql(c_dato)
     dato_ny_ts = _to_timestamp_sql(c_dato_ny)
 
-    # Selger-bevisst "solgt": 'fjernet' (annonse forsvunnet) regnes som solgt
-    # kun for private selgere. Forhandlere re-publiserer annonser stadig, saa en
-    # forsvunnet forhandler-annonse er ikke paalitelig solgt og skal ikke telle
-    # som "solgt rekordraskt". Bekreftet salg ('ja'/'solgt') teller uansett.
+    # "solgt"-tolkning. Bekreftet salg ('ja'/'solgt') teller alltid. Forskjellen
+    # gjelder forsvunne annonser ('fjernet'/'removed'):
+    #   - selger-bevisst (default): teller kun for private, fordi forhandlere
+    #     re-publiserer annonser stadig -> forsvunnet forhandler-annonse er ikke
+    #     paalitelig solgt.
+    #   - inkluder_fjernet_forhandler=True: teller ogsaa forsvunne forhandler-
+    #     annonser som solgt.
     solgt_norm = _normalize_str_sql(c_solgt)
-    is_solgt = _solgt_true_seller_aware_expr(solgt_norm, c_selger)
+    if inkluder_fjernet_forhandler:
+        is_solgt = _solgt_true_expr(solgt_norm)
+    else:
+        is_solgt = _solgt_true_seller_aware_expr(solgt_norm, c_selger)
 
     days_to_end = f"(date_diff('second', {dato_ts}, {dato_ny_ts}) / 86400.0)"
 
@@ -1520,6 +1542,7 @@ def bil_rekordrask_grupper():
 
         max_days = float(filters.get("max_days") or 3)
         min_obs = int(filters.get("min_obs") or 30)
+        inkluder_fjernet_forhandler = _truthy(filters.get("inkluder_fjernet_forhandler"))
 
         s3_key = PARQUET_KEY_SOLGT
         path = _ensure_local_parquet(s3_key)
@@ -1535,7 +1558,8 @@ def bil_rekordrask_grupper():
         if not group_cols_sql:
             return jsonify({"status": "error", "message": "Ingen gyldige grupperingskolonner valgt."}), 400
 
-        base = _rekordrask_base_sql(path, colmap, where_sql)
+        base = _rekordrask_base_sql(path, colmap, where_sql,
+                                    inkluder_fjernet_forhandler=inkluder_fjernet_forhandler)
 
         select_group = []
         group_by = []
@@ -1597,6 +1621,7 @@ def bil_rekordrask_data():
         group = payload.get('group', {}) or {}
 
         max_days = float(filters.get("max_days") or 3)
+        inkluder_fjernet_forhandler = _truthy(filters.get("inkluder_fjernet_forhandler"))
 
         s3_key = PARQUET_KEY_SOLGT
         path = _ensure_local_parquet(s3_key)
@@ -1606,7 +1631,8 @@ def bil_rekordrask_data():
         where_sql, params = _rekordrask_where(filters, colmap)
         group_cols_sql, group_cols_names = _rekordrask_group_cols(filters, colmap)
 
-        base = _rekordrask_base_sql(path, colmap, where_sql)
+        base = _rekordrask_base_sql(path, colmap, where_sql,
+                                    inkluder_fjernet_forhandler=inkluder_fjernet_forhandler)
 
         c_prod = _qident(colmap.get("produsent"))
         c_mod  = _qident(colmap.get("modell"))
