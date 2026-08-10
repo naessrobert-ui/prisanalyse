@@ -33,8 +33,9 @@
     label { display:block; font-size: 12px; opacity:.85; margin-bottom: 6px; }
     input[type=text] {
       width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18);
-      background: rgba(255,255,255,0.06); color: #fff; font-size: 16px;
+      background: rgba(255,255,255,0.06); color: #fff; font: inherit; font-size: 16px; outline: none;
     }
+    input[type=text]:focus { border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.12); }
     .searchrow { display:flex; gap: 10px; align-items:flex-end; }
     .searchrow > div { flex: 1; }
     .btn {
@@ -42,6 +43,7 @@
       background: #16a34a; color: white; font-weight: 700; font-size: 15px; white-space: nowrap;
     }
     .btn:hover { background: #15803d; }
+    .btn:disabled { cursor: wait; opacity: .65; }
     .error { margin-top: 10px; color: #fecaca; background: rgba(127,29,29,.5); border:1px solid rgba(248,113,113,.5); padding: 10px 12px; border-radius: 10px; display:none; }
     .note { font-size: 12px; opacity:.7; margin-top: 6px; }
 
@@ -59,6 +61,11 @@
     .forklaring li { padding: 8px 12px; border-left: 3px solid #60a5fa; background: rgba(96,165,250,.08); margin-bottom: 6px; border-radius: 0 8px 8px 0; font-size: 13.5px; }
     a.finn { color:#60a5fa; text-decoration:none; }
     a.finn:hover { text-decoration: underline; }
+    .matches { display:grid; gap:7px; margin-top:9px; }
+    .match { padding:9px 11px; border:1px solid rgba(255,255,255,.09); border-radius:10px; font-size:13px; background:rgba(255,255,255,.035); }
+    .match-title { margin-bottom:2px; color:#cbd5e1; }
+    .match-meta { opacity:.7; font-size:12px; }
+    .empty { opacity:.5; font-style:italic; }
 
     table { width:100%; border-collapse: collapse; margin-top: 6px; font-size: 13px; }
     th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
@@ -68,6 +75,14 @@
     .tablewrap { max-height: 520px; overflow: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-top: 8px; }
     .fieldsearch { margin-top: 8px; }
     h2 { font-size: 18px; margin-top: 6px; }
+    @media (max-width: 650px) {
+      .shell { padding:16px; }
+      .searchrow { align-items:stretch; flex-direction:column; }
+      .btn { width:100%; }
+      .kv { grid-template-columns:1fr; gap:2px; }
+      .kv .v { margin-bottom:8px; }
+      td.key { width:42%; white-space:normal; }
+    }
   </style>
 </head>
 <body>
@@ -77,27 +92,41 @@
       <div class="backlink"><a href="/bil/">← Til bilanalyse</a></div>
     </div>
     <h1><span class="accent">Bil</span>-oppslag</h1>
-    <div class="subtitle">Lim inn et FinnKode-nummer (eller hel Finn-URL) og hent alt vi har lagret om bilen, pluss hvordan systemet tolker den.</div>
+    <div class="subtitle">Søk med FinnKode, registreringsnummer eller understellsnummer (VIN), og hent alt vi har lagret om bilen.</div>
 
     <div class="panel">
-      <div class="searchrow">
-        <div>
-          <label for="finnkode">FinnKode</label>
-          <input id="finnkode" type="text" placeholder="f.eks. 471343742" />
+      <form id="lookupForm">
+        <div class="searchrow">
+          <div>
+            <label for="identifier">FinnKode, reg.nr. eller VIN</label>
+            <input id="identifier" name="identifier" type="text" autocomplete="off"
+                   placeholder="f.eks. 471343742, EE24350 eller 17-tegns VIN" />
+          </div>
+          <button id="btnRun" class="btn" type="submit">Slå opp</button>
         </div>
-        <button id="btnRun" class="btn">Slå opp</button>
-      </div>
-      <div class="note">Tips: du kan lime inn hele annonse-URL-en – tallet plukkes ut automatisk.</div>
-      <div id="err" class="error"></div>
+      </form>
+      <div class="note">Du kan også lime inn hele Finn-URL-en. Mellomrom og bindestrek i reg.nr. håndteres automatisk.</div>
+      <div id="err" class="error" role="alert"></div>
     </div>
 
     <div id="result" style="display:none;">
+      <div class="panel">
+        <h2>Identifikasjon</h2>
+        <div class="kv" id="identifierKv"></div>
+      </div>
+
       <div class="panel">
         <h2>Tolkning</h2>
         <div class="badges" id="badges"></div>
         <ul class="forklaring" id="forklaring"></ul>
         <div class="kv" id="tolkKv"></div>
-        <div style="margin-top:10px;"><a class="finn" id="finnLink" target="_blank" rel="noopener">Åpne på Finn ↗</a></div>
+        <div id="finnLinkWrap" style="margin-top:10px; display:none;"><a class="finn" id="finnLink" target="_blank" rel="noopener">Åpne på Finn ↗</a></div>
+      </div>
+
+      <div id="matchesPanel" class="panel" style="display:none;">
+        <h2>Finn-annonser for samme bil</h2>
+        <div id="matchesIntro" class="note"></div>
+        <div id="matches" class="matches"></div>
       </div>
 
       <div class="panel">
@@ -117,7 +146,7 @@
     <div id="notfound" class="panel" style="display:none;">
       <h2>Ikke funnet</h2>
       <div id="notfoundMsg" class="subtitle"></div>
-      <div style="margin-top:8px;"><a class="finn" id="finnLink2" target="_blank" rel="noopener">Sjekk på Finn ↗</a></div>
+      <div id="notfoundFinnWrap" style="margin-top:8px; display:none;"><a class="finn" id="finnLink2" target="_blank" rel="noopener">Sjekk på Finn ↗</a></div>
     </div>
   </div>
 
@@ -125,17 +154,26 @@
     const el = id => document.getElementById(id);
     let lastFields = {};
 
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
     function showError(msg) {
       const e = el("err");
       e.textContent = msg || "";
       e.style.display = msg ? "block" : "none";
     }
 
-    function badge(text, cls) { return `<span class="badge ${cls}">${text}</span>`; }
+    function badge(text, cls) { return `<span class="badge ${cls}">${escapeHtml(text)}</span>`; }
 
     function fmtVal(v) {
-      if (v === null || v === undefined || v === "") return "<em style='opacity:.5'>(tom)</em>";
-      return String(v);
+      if (v === null || v === undefined || v === "") return '<span class="empty">(tom)</span>';
+      return escapeHtml(v);
     }
 
     function renderFields(filterText) {
@@ -146,9 +184,42 @@
       for (const k of keys) {
         if (q && !k.toLowerCase().includes(q) && !String(lastFields[k] ?? "").toLowerCase().includes(q)) continue;
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td class="key">${k}</td><td class="val">${fmtVal(lastFields[k])}</td>`;
+        const keyCell = document.createElement("td");
+        const valueCell = document.createElement("td");
+        keyCell.className = "key";
+        valueCell.className = "val";
+        keyCell.textContent = k;
+        const value = lastFields[k];
+        if (value === null || value === undefined || value === "") {
+          valueCell.innerHTML = '<span class="empty">(tom)</span>';
+        } else {
+          valueCell.textContent = String(value);
+        }
+        tr.append(keyCell, valueCell);
         body.appendChild(tr);
       }
+    }
+
+    function renderKv(targetId, rows) {
+      el(targetId).innerHTML = rows.map(([key, value]) =>
+        `<div class="k">${escapeHtml(key)}</div><div class="v">${fmtVal(value)}</div>`
+      ).join("");
+    }
+
+    function renderMatches(data) {
+      const matches = data.matchende_annonser || [];
+      const show = data.flere_rader && matches.length > 1;
+      el("matchesPanel").style.display = show ? "block" : "none";
+      if (!show) return;
+      el("matchesIntro").textContent = `${data.antall_treff} lagrede annonser ble funnet. Nyeste brukes som hovedtreff.`;
+      el("matches").innerHTML = matches.map(match => {
+        const title = match.overskrift || (match.finnkode ? `FinnKode ${match.finnkode}` : "Ukjent annonse");
+        const linkedTitle = match.finn_url
+          ? `<a class="finn" href="${escapeHtml(match.finn_url)}" target="_blank" rel="noopener">${escapeHtml(title)}</a>`
+          : escapeHtml(title);
+        const dates = [match.dato, match.dato_ny].filter(Boolean).map(escapeHtml).join(" → ");
+        return `<div class="match"><div class="match-title">${linkedTitle}</div><div class="match-meta">${dates}</div></div>`;
+      }).join("");
     }
 
     function boolBadge(val, trueTxt, falseTxt, nullTxt) {
@@ -161,8 +232,8 @@
       showError("");
       el("result").style.display = "none";
       el("notfound").style.display = "none";
-      const raw = el("finnkode").value.trim();
-      if (!raw) { showError("Skriv inn et FinnKode-nummer."); return; }
+      const raw = el("identifier").value.trim();
+      if (!raw) { showError("Skriv inn FinnKode, registreringsnummer eller understellsnummer."); return; }
 
       el("btnRun").textContent = "Henter …";
       el("btnRun").disabled = true;
@@ -170,17 +241,27 @@
         const resp = await fetch("/bil/oppslag/data", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ finnkode: raw })
+          body: JSON.stringify({ identifier: raw })
         });
         const data = await resp.json();
-        if (data.status !== "ok") { showError(data.message || "Noe gikk galt."); return; }
+        if (!resp.ok || data.status !== "ok") { showError(data.message || "Noe gikk galt."); return; }
 
         if (!data.funnet) {
           el("notfound").style.display = "block";
           el("notfoundMsg").textContent = data.message || "Fant ingen rad.";
-          el("finnLink2").href = data.finn_url;
+          el("notfoundFinnWrap").style.display = data.finn_url ? "block" : "none";
+          if (data.finn_url) el("finnLink2").href = data.finn_url;
           return;
         }
+
+        const identifiers = data.identifikatorer || {};
+        renderKv("identifierKv", [
+          ["Søkt med", `${data.soketype_label}: ${data.sokeverdi}`],
+          ["FinnKode", data.finnkode],
+          ["Registreringsnummer", identifiers.regnr],
+          ["Personlig skilt", identifiers.personlig_skilt],
+          ["Understellsnummer (VIN)", identifiers.vin]
+        ]);
 
         const t = data.tolkning || {};
         // Badges
@@ -200,7 +281,7 @@
         el("badges").innerHTML = badges.join("");
 
         // Forklaring
-        el("forklaring").innerHTML = (data.forklaring || []).map(f => `<li>${f}</li>`).join("");
+        el("forklaring").innerHTML = (data.forklaring || []).map(f => `<li>${escapeHtml(f)}</li>`).join("");
 
         // Tolknings-KV
         const kv = [
@@ -211,10 +292,11 @@
           ["Dager (Dato → Dato_ny)", t.dager_dato_til_dato_ny],
           ["Maks dager brukt (rekordsolgt)", t.maks_dager_brukt],
         ];
-        el("tolkKv").innerHTML = kv.map(([k, v]) =>
-          `<div class="k">${k}</div><div class="v">${fmtVal(v)}</div>`).join("");
+        renderKv("tolkKv", kv);
 
-        el("finnLink").href = data.finn_url;
+        el("finnLinkWrap").style.display = data.finn_url ? "block" : "none";
+        if (data.finn_url) el("finnLink").href = data.finn_url;
+        renderMatches(data);
 
         lastFields = data.alle_felt || {};
         el("fieldSearch").value = "";
@@ -228,14 +310,16 @@
       }
     }
 
-    el("btnRun").addEventListener("click", run);
-    el("finnkode").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+    el("lookupForm").addEventListener("submit", event => {
+      event.preventDefault();
+      run();
+    });
     el("fieldSearch").addEventListener("input", e => renderFields(e.target.value));
 
-    // Auto-oppslag hvis ?finnkode= i URL
+    // Auto-oppslag for støttede query-parametere.
     const params = new URLSearchParams(location.search);
-    const pre = params.get("finnkode") || params.get("finn");
-    if (pre) { el("finnkode").value = pre; run(); }
+    const pre = params.get("identifier") || params.get("finnkode") || params.get("finn") || params.get("regnr") || params.get("vin");
+    if (pre) { el("identifier").value = pre; run(); }
   </script>
 </body>
 </html>
