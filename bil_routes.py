@@ -386,6 +386,14 @@ def _to_bigint_sql(col_ident: str) -> str:
     return f"try_cast(regexp_replace(cast({col_ident} as varchar), '[^0-9]', '', 'g') as BIGINT)"
 
 
+def _vehicle_identifier_norm_sql(col_ident: str) -> str:
+    """Normaliser reg.nr./VIN for eksakt, formatuavhengig sammenligning."""
+    return (
+        f"regexp_replace(upper(trim(cast({col_ident} as varchar))), "
+        "'[^A-Z0-9]', '', 'g')"
+    )
+
+
 def _to_timestamp_sql(col_ident: str) -> str:
     """
     Robust timestamp-parse i DuckDB.
@@ -466,6 +474,11 @@ def _duckdb_get_colmap(local_path: str, s3_key: str) -> dict:
         "dato_start": pick(["Dato", "dato"]),
         "dato_end": pick(["Dato_ny", "dato_ny"]),
         "finnkode": pick(["FinnKode", "finnkode"]),
+        "regnr": pick(["regnr", "registreringsnummer", "registreringsnr"]),
+        "svv_regnr": pick(["svv_regnr"]),
+        "svv_vin": pick(["svv_vin", "understellsnummer", "vin", "chassis_nr"]),
+        "svv_kjennemerke_ordinart": pick(["svv_kjennemerke_ordinart"]),
+        "svv_kjennemerke_personlig": pick(["svv_kjennemerke_personlig"]),
         "solgt": pick(["Solgt", "solgt"]),
         "km": pick(["kjørelengde", "km"]),
         "aar": pick(["årstall", "year"]),
@@ -1701,63 +1714,151 @@ def bil_rekordrask_data():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+def _parse_bil_oppslag_input(raw_input):
+    """Returner ``(type, normalisert verdi, feil)`` for bil-oppslag."""
+    raw = str(raw_input or "").strip()
+    if not raw:
+        return None, None, "Oppgi FinnKode, registreringsnummer eller understellsnummer."
+
+    finn_url_match = re.search(
+        r"(?:[?&]finnkode=|/item/)([0-9]{3,})",
+        raw,
+        flags=re.IGNORECASE,
+    )
+    if finn_url_match:
+        return "finnkode", finn_url_match.group(1), None
+
+    compact = re.sub(r"[^A-Za-z0-9]", "", raw).upper()
+    if compact.isdigit() and 3 <= len(compact) <= 10:
+        return "finnkode", compact, None
+    if len(compact) == 17:
+        return "vin", compact, None
+    if 2 <= len(compact) <= 12 and any(ch.isalpha() for ch in compact):
+        return "regnr", compact, None
+    if 11 <= len(compact) <= 25:
+        # Eldre/uvanlige understellsnumre er ikke alltid nøyaktig 17 tegn.
+        return "vin", compact, None
+
+    return None, None, (
+        "Oppgi en gyldig FinnKode, et registreringsnummer eller "
+        "et understellsnummer."
+    )
+
+
 # ==========================================================
-# OPPSLAG (debug) – all info vi har om én FinnKode
+# OPPSLAG – all info vi har om én bil
 #
-#   GET  /bil/oppslag         -> siden (input for FinnKode)
-#   POST /bil/oppslag/data     -> hele parquet-raden + tolkning
+#   GET  /bil/oppslag         -> søkesiden
+#   POST /bil/oppslag/data    -> treff på FinnKode, reg.nr. eller VIN
 #
 # Bygget for å jakte på "rusk": hvorfor havner en bil som solgt/rekordsolgt?
 # ==========================================================
 
 @bil_bp.route('/oppslag')
 def bil_oppslag_side():
-    return render_template(
-        'bil_oppslag.html',
-        tittel="Bil-oppslag (FinnKode)",
-    )
+    return render_template('bil_oppslag.html', tittel="Bil-oppslag")
 
 
 @bil_bp.route('/oppslag/data', methods=['POST'])
 def bil_oppslag_data():
     try:
-        payload = request.get_json() or {}
-        raw_input = str(payload.get("finnkode") or "").strip()
-        # Trekk ut rene siffer (tåler hele Finn-URL-er også)
-        m = re.search(r"(\d{3,})", raw_input)
-        if not m:
-            return jsonify({"status": "error", "message": "Oppgi et gyldig FinnKode-nummer."}), 400
-        finnkode = m.group(1)
+        payload = request.get_json(silent=True) or {}
+        raw_input = payload.get("identifier", payload.get("finnkode"))
+        search_type, search_value, input_error = _parse_bil_oppslag_input(raw_input)
+        if input_error:
+            return jsonify({"status": "error", "message": input_error}), 400
 
         s3_key = PARQUET_KEY_SOLGT
         path = _ensure_local_parquet(s3_key)
         colmap = _duckdb_get_colmap(path, s3_key)
         con = _duckdb_con()
 
-        c_finn = colmap.get("finnkode")
-        if not c_finn:
+        c_finn_name = colmap.get("finnkode")
+        if not c_finn_name:
             return jsonify({"status": "error", "message": "Datasettet mangler FinnKode-kolonne."}), 500
 
-        finn_norm = _finnkode_norm_sql(_qident(c_finn))
+        if search_type == "finnkode":
+            lookup_where = f"{_finnkode_norm_sql(_qident(c_finn_name))} = ?"
+            lookup_params = [search_value]
+        else:
+            identifier_keys = (
+                "regnr",
+                "svv_regnr",
+                "svv_vin",
+                "svv_kjennemerke_ordinart",
+                "svv_kjennemerke_personlig",
+            )
+            identifier_cols = list(dict.fromkeys(
+                colmap.get(key) for key in identifier_keys if colmap.get(key)
+            ))
+            if not identifier_cols:
+                return jsonify({
+                    "status": "error",
+                    "message": "Datasettet mangler kolonner for registreringsnummer og understellsnummer.",
+                }), 500
+            lookup_where = " OR ".join(
+                f"{_vehicle_identifier_norm_sql(_qident(column))} = ?"
+                for column in identifier_cols
+            )
+            lookup_where = f"({lookup_where})"
+            lookup_params = [search_value] * len(identifier_cols)
 
-        # Hele raden (alle kolonner)
+        order_parts = []
+        if colmap.get("dato_end"):
+            order_parts.append(f"{_to_timestamp_sql(_qident(colmap['dato_end']))} DESC NULLS LAST")
+        if colmap.get("dato_start"):
+            order_parts.append(f"{_to_timestamp_sql(_qident(colmap['dato_start']))} DESC NULLS LAST")
+        order_sql = f" ORDER BY {', '.join(order_parts)}" if order_parts else ""
+
+        # Reg.nr./VIN kan være knyttet til flere Finn-annonser over tid. Nyeste
+        # observasjon brukes som hovedtreff, og de øvrige sendes med til UI-et.
         row_df = con.execute(
-            f"SELECT * FROM read_parquet('{path}') WHERE {finn_norm} = ? LIMIT 5",
-            [finnkode],
+            f"SELECT * FROM read_parquet('{path}') "
+            f"WHERE {lookup_where}{order_sql} LIMIT 20",
+            lookup_params,
         ).df()
 
+        search_labels = {
+            "finnkode": "FinnKode",
+            "regnr": "registreringsnummer",
+            "vin": "understellsnummer",
+        }
+        not_found_messages = {
+            "finnkode": "Fant ingen bil med denne FinnKoden i database_biler.parquet.",
+            "regnr": "Fant ingen bil med dette registreringsnummeret i database_biler.parquet.",
+            "vin": "Fant ingen bil med dette understellsnummeret i database_biler.parquet.",
+        }
+        search_label = search_labels[search_type]
         if row_df.empty:
+            finn_url = FINN_BASE_URL + search_value if search_type == "finnkode" else None
             return jsonify({
                 "status": "ok",
-                "finnkode": finnkode,
+                "soketype": search_type,
+                "sokeverdi": search_value,
                 "funnet": False,
-                "finn_url": FINN_BASE_URL + finnkode,
-                "message": "Fant ingen rad for denne FinnKoden i database_biler.parquet.",
+                "finn_url": finn_url,
+                "message": not_found_messages[search_type],
             })
 
         row_df = row_df.where(pd.notna(row_df), None)
-        # Hele raden som ordnet key/value (første treff)
-        alle_felt = json.loads(row_df.head(1).to_json(orient="records"))[0]
+        records = json.loads(row_df.to_json(orient="records", date_format="iso"))
+        alle_felt = records[0]
+
+        def feltverdi(record, *canonical_keys):
+            for canonical_key in canonical_keys:
+                actual_name = colmap.get(canonical_key)
+                value = record.get(actual_name) if actual_name else None
+                if value not in (None, ""):
+                    return value
+            return None
+
+        def normalisert_finnkode(record):
+            value = record.get(c_finn_name)
+            match = re.search(r"[0-9]+", str(value or ""))
+            return match.group(0) if match else None
+
+        selected_finnkode = normalisert_finnkode(alle_felt)
+        finn_url = FINN_BASE_URL + selected_finnkode if selected_finnkode else None
 
         # ---- Tolkning ----
         c_solgt = _qident(colmap.get("solgt")) if colmap.get("solgt") else "NULL"
@@ -1774,10 +1875,10 @@ def bil_oppslag_data():
 
         # Aktiv i siste daglige snapshots (samme kilde som rekordrask-cross-check)
         has_active = _ensure_active_finnkoder_table()
-        if has_active:
+        if has_active and selected_finnkode:
             aktiv_expr = (
-                f"CASE WHEN {finn_norm} IN (SELECT FinnKode FROM {ACTIVE_FK_TABLE}) "
-                f"THEN true ELSE false END"
+                f"CASE WHEN '{selected_finnkode}' IN "
+                f"(SELECT FinnKode FROM {ACTIVE_FK_TABLE}) THEN true ELSE false END"
             )
         else:
             aktiv_expr = "NULL"
@@ -1791,10 +1892,11 @@ def bil_oppslag_data():
             CAST({dato_ts} AS VARCHAR) AS dato_parsed,
             CAST({dato_ny_ts} AS VARCHAR) AS dato_ny_parsed
           FROM read_parquet('{path}')
-          WHERE {finn_norm} = ?
+          WHERE {lookup_where}
+          {order_sql}
           LIMIT 1
         """
-        t = con.execute(tolk_sql, [finnkode]).df()
+        t = con.execute(tolk_sql, lookup_params).df()
         t = t.where(pd.notna(t), None)
         tolk = json.loads(t.to_json(orient="records"))[0] if not t.empty else {}
 
@@ -1813,8 +1915,8 @@ def bil_oppslag_data():
         tolkning = {
             "aktiv_i_siste_daily": aktiv,
             "er_privat_selger": bool(tolk.get("er_privat_selger")) if tolk.get("er_privat_selger") is not None else None,
-            "solgt_rå": alle_felt.get(colmap.get("solgt")) if colmap.get("solgt") else None,
-            "selger": alle_felt.get(colmap.get("selger")) if colmap.get("selger") else None,
+            "solgt_rå": feltverdi(alle_felt, "solgt"),
+            "selger": feltverdi(alle_felt, "selger"),
             "regnes_som_solgt": regnes_solgt,
             "regnes_som_rekordsolgt": regnes_rekordsolgt,
             "maks_dager_brukt": MAKS_DAGER_DEFAULT,
@@ -1825,21 +1927,49 @@ def bil_oppslag_data():
 
         # Kort forklaring på hvorfor
         forklaring = []
-        if aktiv:
-            forklaring.append("Bilen ligger i siste daglige snapshot → tolkes som fortsatt aktiv på Finn (skal ikke telle som solgt/rekordsolgt).")
+        if aktiv is True:
+            forklaring.append("Bilen ligger i siste daglige snapshot og tolkes som fortsatt aktiv på Finn.")
+        elif aktiv is False:
+            forklaring.append("Bilen ligger ikke i siste daglige snapshot (borte fra Finn eller ikke fanget av scraper).")
         else:
-            forklaring.append("Bilen ligger IKKE i siste daglige snapshot (borte fra Finn eller ikke fanget av scraper).")
+            forklaring.append("Aktiv-status kunne ikke kontrolleres mot siste daglige snapshot.")
         if tolkning["er_privat_selger"] is True:
-            forklaring.append("Selger tolkes som PRIVAT → 'FJERNET' regnes som solgt.")
+            forklaring.append("Selger tolkes som privat; 'FJERNET' regnes derfor som solgt.")
         elif tolkning["er_privat_selger"] is False:
-            forklaring.append("Selger tolkes som FORHANDLER → 'FJERNET' regnes IKKE som solgt (kun bekreftet 'JA').")
+            forklaring.append("Selger tolkes som forhandler; 'FJERNET' regnes ikke som bekreftet solgt.")
+
+        matchende_annonser = []
+        for record in records:
+            fk = normalisert_finnkode(record)
+            matchende_annonser.append({
+                "finnkode": fk,
+                "finn_url": FINN_BASE_URL + fk if fk else None,
+                "overskrift": feltverdi(record, "overskrift"),
+                "dato": feltverdi(record, "dato_start"),
+                "dato_ny": feltverdi(record, "dato_end"),
+            })
 
         return jsonify({
             "status": "ok",
-            "finnkode": finnkode,
+            "soketype": search_type,
+            "sokeverdi": search_value,
+            "soketype_label": search_label,
             "funnet": True,
-            "finn_url": FINN_BASE_URL + finnkode,
-            "flere_rader": len(row_df) > 1,
+            "finnkode": selected_finnkode,
+            "finn_url": finn_url,
+            "flere_rader": len(records) > 1,
+            "antall_treff": len(records),
+            "matchende_annonser": matchende_annonser,
+            "identifikatorer": {
+                "regnr": feltverdi(
+                    alle_felt,
+                    "svv_kjennemerke_ordinart",
+                    "svv_regnr",
+                    "regnr",
+                ),
+                "personlig_skilt": feltverdi(alle_felt, "svv_kjennemerke_personlig"),
+                "vin": feltverdi(alle_felt, "svv_vin"),
+            },
             "tolkning": tolkning,
             "forklaring": forklaring,
             "alle_felt": alle_felt,
