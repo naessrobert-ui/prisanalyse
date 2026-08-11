@@ -13,6 +13,7 @@ Alt tåler sparsom historikk (få snapshots) og degraderer pent.
 from __future__ import annotations
 
 import csv
+import math
 import statistics
 from collections import defaultdict
 from pathlib import Path
@@ -32,6 +33,19 @@ def _f(verdi) -> float | None:
         return float(verdi)
     except (TypeError, ValueError):
         return None
+
+
+def _geomsnitt(verdier) -> float | None:
+    """Geometrisk snitt (Jevons) av positive tall, ellers None.
+
+    Brukes for å aggregere pris-relativene til indeksen. Median låser seg på
+    1,0 når mange ruter har uendret pris (billigste billett er «klebrig»);
+    geometrisk snitt fanger den faktiske bevegelsen og demper ekstreme ruter.
+    """
+    positive = [v for v in verdier if v and v > 0]
+    if not positive:
+        return None
+    return math.exp(statistics.fmean(math.log(v) for v in positive))
 
 
 def les_historikk(sti: Path = HISTORIKK_CSV) -> list[dict]:
@@ -100,10 +114,16 @@ def _median_per(rader: list[dict], bare_norwegian: bool | None = None):
 
 
 def prisindeks(rader: list[dict]) -> dict:
-    """Prisindeks (median av pris-relativer, basis=100 ved første observasjon).
+    """Prisindeks (geometrisk snitt av pris-relativer, basis=100 ved første obs.).
 
     Egen indeks for Norwegian og for markedet. Robust mot at rute-utvalget
     endrer seg mellom datoer, siden vi bruker per-rute-relativer.
+
+    Vi bruker geometrisk snitt (Jevons-indeks) framfor median: median låser seg
+    på 1,0 så snart mange ruter har uendret pris (billigste billett er ofte
+    «klebrig» i kroner), slik at indeksen ble stående på 100 selv når enkeltruter
+    beveget seg kraftig. Geometrisk snitt fanger den faktiske bevegelsen og
+    demper ekstreme enkeltruter mer enn et aritmetisk snitt ville gjort.
     """
     def bygg(per_dato: dict[str, dict[str, float]]) -> list[dict]:
         datoer = sorted(per_dato)
@@ -118,11 +138,12 @@ def prisindeks(rader: list[dict]) -> dict:
                 for rute in per_dato[dato]
                 if basis.get(rute)
             ]
-            if not relativer:
+            snitt = _geomsnitt(relativer)
+            if snitt is None:
                 continue
             serie.append({
                 "dato": dato,
-                "indeks": round(100 * statistics.median(relativer), 1),
+                "indeks": round(100 * snitt, 1),
                 "antall_ruter": len(relativer),
             })
         return serie
