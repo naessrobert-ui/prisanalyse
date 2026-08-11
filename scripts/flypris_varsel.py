@@ -14,6 +14,12 @@ Miljøvariabler (gjenbruker appens SMTP-oppsett):
     FLYPRIS_VARSEL_TIL  - mottaker(e), kommaseparert (fallback: MEDIA_DIGEST_TO)
     FLYPRIS_VARSEL_FRA  - avsender (default SMTP_USER / MEDIA_DIGEST_FROM)
 
+Terskler (kan finjusteres uten kodeendring):
+    FLYPRIS_MIN_AVVIK       - antall flaggede ruter som kreves (default 8)
+    FLYPRIS_STORT_AVVIK     - ett enkelt avvik ≥ dette (%) utløser alene (default 50)
+    FLYPRIS_INDEKS_HOPP     - indekspoeng-hopp som utløser (default 3)
+    FLYPRIS_DISPERSJON      - endring i median−laveste-gap i pp som utløser (default 5)
+
 Mangler SMTP/mottaker avsluttes jobben stille (exit 0).
 """
 
@@ -28,9 +34,23 @@ from email.mime.text import MIMEText
 
 from scripts.flypriser_analyse import full_analyse
 
-# Terskler for hva som er «av betydning»
-INDEKS_HOPP = 3.0          # indekspoeng siden forrige måling
-DISPERSJON_ENDRING = 5.0   # prosentpoeng endring i median−laveste-gap
+
+def _terskel(navn: str, default: float) -> float:
+    """Les en numerisk terskel fra miljøet, med trygt fallback til default."""
+    try:
+        return float(os.environ.get(navn, "").strip() or default)
+    except (TypeError, ValueError):
+        return default
+
+
+# Terskler for hva som er «av betydning». Enkeltruter svinger mye fra dag til
+# dag, så ett flagget avvik er IKKE et signal – vi krever enten en opphopning
+# av avvik eller ett svært stort enkeltavvik. Standardverdiene kan overstyres
+# via miljøvariabler over.
+MIN_AVVIK = int(_terskel("FLYPRIS_MIN_AVVIK", 8))       # antall flaggede ruter
+STORT_AVVIK_PST = _terskel("FLYPRIS_STORT_AVVIK", 50.0)  # ett enkeltavvik (%) alene
+INDEKS_HOPP = _terskel("FLYPRIS_INDEKS_HOPP", 3.0)       # indekspoeng siden forrige
+DISPERSJON_ENDRING = _terskel("FLYPRIS_DISPERSJON", 5.0)  # pp endring i median−laveste
 
 
 def _mottakere() -> list[str]:
@@ -46,10 +66,16 @@ def vurder(analyse: dict) -> dict | None:
     avvik = analyse.get("avvik", [])
     grunner: list[str] = []
 
-    if avvik:
+    # Ett flagget avvik er støy – krev en opphopning (≥ MIN_AVVIK ruter) eller
+    # ett svært stort enkeltavvik (≥ STORT_AVVIK_PST) før dette teller som signal.
+    stort = [a for a in avvik if abs(a["endring_pst"]) >= STORT_AVVIK_PST]
+    if len(avvik) >= MIN_AVVIK or stort:
         opp = sum(1 for a in avvik if a["retning"] == "opp")
         ned = len(avvik) - opp
-        grunner.append(f"{len(avvik)} prisavvik flagget ({opp} opp, {ned} ned)")
+        grunn = f"{len(avvik)} prisavvik flagget ({opp} opp, {ned} ned)"
+        if stort:
+            grunn += f", største {max(abs(a['endring_pst']) for a in stort):.0f}%"
+        grunner.append(grunn)
 
     idx_endr = s.get("norwegian_indeks_endring")
     if idx_endr is not None and abs(idx_endr) >= INDEKS_HOPP:
