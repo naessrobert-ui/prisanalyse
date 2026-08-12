@@ -236,6 +236,29 @@ else:
               "(bruk 'privat', 'merkeforhandler', 'annet' eller 'alle') – tar alle")
 
 
+# --- Hjemfylke-vekting: biler utenfor hjemfylket krever større rabatt --------
+# Vi kan hente biler fra hele landet, men utenfor hjemfylket koster frakt/henting,
+# så der krever vi et tillegg (prosentpoeng) i rabattkravet. Biler i hjemfylket
+# beholder trappa uendret. Krever at KUPP_FYLKE står tom (hele landet); ellers
+# er alt allerede i ett fylke. Sett KUPP_UTENFOR_TILLEGG_PP=0 for å skru av.
+_HJEMFYLKE = os.getenv("KUPP_HJEMFYLKE", "Vestland").strip()
+if re.match(r"^\d+\.\d+$", _HJEMFYLKE):
+    HJEMFYLKE_KODE, HJEMFYLKE_NAVN = _HJEMFYLKE, _HJEMFYLKE
+else:
+    HJEMFYLKE_KODE = FYLKE_LOCATION.get(_HJEMFYLKE.lower(), "")
+    HJEMFYLKE_NAVN = _HJEMFYLKE or "(ingen)"
+    if _HJEMFYLKE and not HJEMFYLKE_KODE:
+        print(f"[kupp_vakt] Ukjent KUPP_HJEMFYLKE: {_HJEMFYLKE!r} – hjemfylke-vekting av")
+UTENFOR_TILLEGG_PP = float(os.getenv("KUPP_UTENFOR_TILLEGG_PP", "8") or 8)
+
+# --- Kurante modeller: lettere krav (lette å omsette) ------------------------
+# Komma-separert liste med "Merke Modell"-fragmenter, f.eks. "Volkswagen Golf,
+# Toyota RAV4". Match = delstreng i "Merke Modell" (case-uavhengig). For disse
+# senkes rabattkravet med KUPP_KURANT_LETTELSE_PP prosentpoeng.
+KURANTE = [s.strip().lower() for s in os.getenv("KUPP_KURANTE", "").split(",") if s.strip()]
+KURANT_LETTELSE_PP = float(os.getenv("KUPP_KURANT_LETTELSE_PP", "3") or 3)
+
+
 def _match_filtre(b: dict) -> bool:
     """Klient-side filtre (drivstoff + sted) på en rå annonse fra scraperen."""
     if DRIVSTOFF_FILTER and _norm_driv(b.get("Drivstoff")) not in DRIVSTOFF_FILTER:
@@ -446,6 +469,44 @@ def scrape_nyeste() -> list[dict]:
     return list(biler.values())
 
 
+def _scrape_hjemfylke_koder() -> set:
+    """FinnKoder blant de nyeste annonsene i hjemfylket (server-side location-
+    filter). Brukes til å avgjøre hvilke biler som er 'hjemme'. Tom ved feil –
+    da faller vi tilbake til ingen frakt-vekting (ingen biler straffes)."""
+    if not HJEMFYLKE_KODE or not UTENFOR_TILLEGG_PP:
+        return set()
+    koder = set()
+    for _, drift_code in DRIFT_SEARCHES.items():
+        session = _make_session()
+        for page in range(1, MAX_PAGES + 1):
+            url = (f"{BASE_URL}&wheel_drive={drift_code}&page={page}"
+                   f"&location={HJEMFYLKE_KODE}{SELGER_SUFFIX}")
+            resp = _fetch(session, url)
+            if not resp:
+                break
+            soup = BeautifulSoup(resp.text, "lxml")
+            cards = _find_cards(soup)
+            if not cards:
+                break
+            for a, _card in cards:
+                fk = _finnkode(a.get("href", ""))
+                if fk:
+                    koder.add(fk)
+        session.close()
+    return koder
+
+
+def _hjem_sett(biler: list[dict]):
+    """Sett med FinnKoder som ligger i hjemfylket, eller None hvis vektingen er
+    av / ikke lot seg avgjøre. Er hovedsøket allerede låst til hjemfylket
+    (KUPP_FYLKE), er alle hentede biler hjemme – da slipper vi et ekstra søk."""
+    if not HJEMFYLKE_KODE or not UTENFOR_TILLEGG_PP:
+        return None
+    if LOCATION_CODES == [HJEMFYLKE_KODE]:
+        return {b["FinnKode"] for b in biler}
+    return _scrape_hjemfylke_koder() or None
+
+
 # ======================================================
 # State (S3): hvilke FinnKoder er allerede varslet
 # ======================================================
@@ -507,6 +568,7 @@ def _logg_record(b: dict, naa: str) -> dict:
         "modell_nivaa": b.get("modell_nivaa"),
         "selger_filter": _selger or "alle",
         "fylke_filter": os.getenv("KUPP_FYLKE", "").strip() or "hele landet",
+        "i_hjemfylke": b.get("i_hjemfylke"),
         "url": b.get("url"),
     }
 
@@ -691,7 +753,26 @@ def _score(biler: list[dict]) -> pd.DataFrame:
     return scoret
 
 
-def _er_kupp(row) -> bool:
+def _er_kurant(row) -> bool:
+    """Er bilen en «kurant» modell (lett å omsette) som får lettere krav?"""
+    if not KURANTE:
+        return False
+    navn = f"{(row.get('Merke') or '').strip()} {(row.get('Modell') or '').strip()}".lower()
+    return any(k in navn for k in KURANTE)
+
+
+def _terskel_delta(row, hjem_koder) -> float:
+    """Justering av rabattkravet (prosentpoeng) for én bil: +tillegg for biler
+    utenfor hjemfylket (frakt), -lettelse for kurante modeller."""
+    delta = 0.0
+    if hjem_koder is not None and str(row.get("FinnKode") or "") not in hjem_koder:
+        delta += UTENFOR_TILLEGG_PP
+    if _er_kurant(row):
+        delta -= KURANT_LETTELSE_PP
+    return delta
+
+
+def _er_kupp(row, terskel_delta: float = 0.0) -> bool:
     forv = row.get("forventet_pris")
     if forv is None or pd.isna(forv) or forv <= 0:
         return False
@@ -699,7 +780,7 @@ def _er_kupp(row) -> bool:
     rab = row.get("rabatt_pct")
     if (rab is not None and not pd.isna(rab)
             and pris is not None and not pd.isna(pris)):
-        if float(rab) >= _min_rabatt_for_pris(float(pris)):
+        if float(rab) >= _min_rabatt_for_pris(float(pris)) + terskel_delta:
             return True
     # Legacy flat kroneterskel (kun hvis eksplisitt satt via KUPP_RABATT_KR_MIN)
     rab_kr = row.get("rabatt_kr")
@@ -720,15 +801,23 @@ def _vis_alle() -> int:
     print(f"[kupp_vakt] {len(biler)} annonser hentet")
     kand = [b for b in biler if _match_filtre(b)]
     print(f"[kupp_vakt] {len(kand)} kandidater etter drivstoff/sted-filter (viser alle)")
+    hjem = _hjem_sett(biler)
     scoret = _score(kand)
     rader = [row.to_dict() for _, row in scoret.iterrows()] if not scoret.empty else []
     rader.sort(key=lambda d: -(float(d.get("rabatt_pct"))
                                if d.get("rabatt_pct") == d.get("rabatt_pct") else -999))
     n_kupp = 0
     for d in rader:
-        er = _er_kupp(d)
+        delta = _terskel_delta(d, hjem)
+        er = _er_kupp(d, delta)
         n_kupp += 1 if er else 0
-        print(("[KUPP] " if er else "       ") + _formater_bil(d))
+        merke = []
+        if hjem is not None and str(d.get("FinnKode") or "") not in hjem:
+            merke.append(f"utenfor {HJEMFYLKE_NAVN} +{UTENFOR_TILLEGG_PP:g}pp")
+        if _er_kurant(d):
+            merke.append(f"kurant -{KURANT_LETTELSE_PP:g}pp")
+        tag = f"  [{', '.join(merke)}]" if merke else ""
+        print(("[KUPP] " if er else "       ") + _formater_bil(d) + tag)
     print(f"[kupp_vakt] {n_kupp} av {len(rader)} kandidater over terskel")
     return n_kupp
 
@@ -771,13 +860,19 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
     if DRIVSTOFF_FILTER or STED_FILTER:
         print(f"[kupp_vakt] {len(kandidater)} kandidater etter drivstoff/sted-filter")
 
+    hjem = _hjem_sett(biler) if kandidater else None
+    if hjem is not None:
+        print(f"[kupp_vakt] {len(hjem)} av de nyeste ligger i hjemfylket "
+              f"({HJEMFYLKE_NAVN}); utenfor krever +{UTENFOR_TILLEGG_PP:g} pp rabatt")
     scoret = _score(kandidater)
     kupp = []
     if not scoret.empty:
         for _, row in scoret.iterrows():
-            if _er_kupp(row):
-                d = row.to_dict()
-                # ta med url fra input (scorer beholder kolonnen)
+            d = row.to_dict()
+            delta = _terskel_delta(d, hjem)
+            if _er_kupp(d, delta):
+                d["i_hjemfylke"] = (hjem is None
+                                    or str(d.get("FinnKode") or "") in hjem)
                 kupp.append(d)
 
     # Marker ALLE nye som sett (også de som ikke var kupp) så vi ikke re-vurderer.
@@ -792,8 +887,13 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
             for u, p in RABATT_TRAPP)
     else:
         terskel = f"rabatt >= {RABATT_MIN}%"
+    vekting = ""
+    if hjem is not None:
+        vekting += f"; utenfor {HJEMFYLKE_NAVN} +{UTENFOR_TILLEGG_PP:g}pp"
+    if KURANTE:
+        vekting += f"; kurante -{KURANT_LETTELSE_PP:g}pp"
     print(f"[kupp_vakt] {len(kupp)} kupp over terskel ({terskel}"
-          + (" eller under hurtigpris" if UNDER_HURTIG else "") + ")")
+          + (" eller under hurtigpris" if UNDER_HURTIG else "") + vekting + ")")
 
     if dry_run:
         for b in kupp:

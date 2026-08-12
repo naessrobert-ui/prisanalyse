@@ -135,3 +135,53 @@ def test_alle_femten_fylker_har_kode():
                  "Vestfold", "Telemark", "Agder", "Rogaland", "Vestland",
                  "Møre og Romsdal", "Trøndelag", "Nordland", "Troms", "Finnmark"]:
         assert navn.lower() in k.FYLKE_LOCATION
+
+
+# ---------------------------------------------------------------------------
+# Hjemfylke-vekting + kurante modeller
+# ---------------------------------------------------------------------------
+def _rad_geo(pris, rabatt_pct, fk="1", merke="BMW", modell="320"):
+    r = _rad(pris, rabatt_pct)
+    r.update({"FinnKode": fk, "Merke": merke, "Modell": modell})
+    return r
+
+
+def _sett_vekting(monkeypatch, tillegg=8.0, kurante=None, lettelse=3.0):
+    monkeypatch.setattr(k, "RABATT_TRAPP",
+                        k._parse_trapp("50000:30,100000:20,150000:15,250000:7,:6"))
+    monkeypatch.setattr(k, "RABATT_KR_MIN", 0.0)
+    monkeypatch.setattr(k, "UNDER_HURTIG", False)
+    monkeypatch.setattr(k, "UTENFOR_TILLEGG_PP", tillegg)
+    monkeypatch.setattr(k, "KURANTE", kurante if kurante is not None else [])
+    monkeypatch.setattr(k, "KURANT_LETTELSE_PP", lettelse)
+
+
+def test_utenfor_hjemfylke_krever_storre_rabatt(monkeypatch):
+    _sett_vekting(monkeypatch, tillegg=8.0)
+    hjem = {"1"}  # bil 1 hjemme, bil 2 utenfor
+    # 300k -> basekrav 6 %
+    assert k._er_kupp(_rad_geo(300_000, 7, "1"), k._terskel_delta(_rad_geo(300_000, 7, "1"), hjem)) is True
+    r_ute = _rad_geo(300_000, 7, "2")
+    assert k._er_kupp(r_ute, k._terskel_delta(r_ute, hjem)) is False   # krav 6+8=14 %
+    r_ute15 = _rad_geo(300_000, 15, "2")
+    assert k._er_kupp(r_ute15, k._terskel_delta(r_ute15, hjem)) is True
+
+
+def test_kurant_modell_faar_lettere_krav(monkeypatch):
+    _sett_vekting(monkeypatch, tillegg=8.0, kurante=["volkswagen golf"])
+    hjem = {"1"}
+    # 120k -> basekrav 15 %. Golf hjemme: 15-3=12 %.
+    g = _rad_geo(120_000, 13, "1", merke="Volkswagen", modell="Golf GTI")
+    assert k._er_kupp(g, k._terskel_delta(g, hjem)) is True
+    # Golf utenfor: 15+8-3=20 %.
+    g_ute = _rad_geo(120_000, 13, "2", merke="Volkswagen", modell="Golf GTI")
+    assert k._er_kupp(g_ute, k._terskel_delta(g_ute, hjem)) is False
+    g_ute21 = _rad_geo(120_000, 21, "2", merke="Volkswagen", modell="Golf GTI")
+    assert k._er_kupp(g_ute21, k._terskel_delta(g_ute21, hjem)) is True
+
+
+def test_hjem_ukjent_gir_ingen_frakt_straff(monkeypatch):
+    # hjem=None (vektingen kunne ikke avgjøres) -> ingen bil straffes
+    _sett_vekting(monkeypatch, tillegg=8.0)
+    r = _rad_geo(300_000, 7, "2")
+    assert k._er_kupp(r, k._terskel_delta(r, None)) is True

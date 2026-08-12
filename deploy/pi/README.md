@@ -79,12 +79,24 @@ ved cron-oppsett) og lagre. Ingen restart trengs – hver kjøring leser fila p�
 | `KUPP_UNDER_HURTIG` | `1` = varsle også hvis pris < hurtigpris (default `0`). |
 | `KUPP_SELGER` | Selger-type: `privat` (default), `merkeforhandler`, `annet` eller `alle`. Kupp finnes hos private. Server-side. |
 | `KUPP_DRIVSTOFF` | Kun disse drivstoffene, f.eks. `Elektrisk` eller `Elektrisk,Hybrid`. Tom = alle. |
-| `KUPP_FYLKE` | Kun disse fylkene, f.eks. `Vestland,Rogaland` (eller rå FINN-kode `0.22046`). Tom = hele landet. Server-side filter. |
+| `KUPP_FYLKE` | Kun disse fylkene, f.eks. `Vestland,Rogaland` (eller rå FINN-kode `0.22046`). Tom = hele landet. Server-side hardt filter. |
 | `KUPP_STED` | Delstreng på poststed/område, f.eks. `Bergen,Voss`. Finere enn fylke. |
+| `KUPP_HJEMFYLKE` | Fylket der vanlig terskel gjelder (default `Vestland`). Biler *utenfor* krever større rabatt (se under). |
+| `KUPP_UTENFOR_TILLEGG_PP` | Ekstra rabattkrav i prosentpoeng for biler utenfor hjemfylket (default `8`, `0` = av). Krever `KUPP_FYLKE` tom. |
+| `KUPP_KURANTE` | «Merke Modell»-fragmenter (komma-sep.) som får lavere krav fordi de er lette å omsette, f.eks. `Volkswagen Golf,Toyota RAV4`. |
+| `KUPP_KURANT_LETTELSE_PP` | Hvor mye lavere rabattkrav (prosentpoeng) kurante modeller får (default `3`). |
 
 Gyldige fylkesnavn: Østfold, Akershus, Oslo, Innlandet, Buskerud, Vestfold,
 Telemark, Agder, Rogaland, Vestland, Møre og Romsdal, Trøndelag, Nordland,
 Troms, Finnmark.
+
+**Hjemfylke vs. hardt fylkesfilter:** `KUPP_FYLKE=Vestland` gir *bare* Vestland-biler.
+Vil du heller se hele landet, men slippe færre langvekksbiler gjennom, la `KUPP_FYLKE`
+stå tom og bruk `KUPP_HJEMFYLKE=Vestland` + `KUPP_UTENFOR_TILLEGG_PP`. Da beholder
+Vestland-biler trappa, mens biler utenfor må ned et ekstra hakk i pris (dekker frakt).
+Eksempel: en bil til 300 000 krever 6 % i Vestland, men 6 + 8 = 14 % utenfor. En kurant
+Golf til 120 000 krever 15 % normalt, men 12 % siden den er lett å selge videre. Vekten
+per bil vises i loggen og i `--vis-alle`.
 
 ### Se hva som kjennetegner biler som blir solgt (tuning-grunnlag)
 

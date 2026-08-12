@@ -248,6 +248,9 @@ def rapport(rader: list[dict], grunnlag: str, dager_span):
     _skriv_gruppe("Etter RABATT (viktigst):", rader, lambda r: _rabatt_band(r.get("rabatt_pct")))
     _skriv_gruppe("Etter PRIS:", rader, lambda r: _pris_band(r.get("pris")))
     _skriv_gruppe("Etter DRIVSTOFF:", rader, lambda r: (r.get("Drivstoff") or "ukjent"))
+    _skriv_gruppe("Etter HJEMFYLKE:", rader, lambda r: (
+        "ukjent" if r.get("i_hjemfylke") is None
+        else ("hjemfylke" if r.get("i_hjemfylke") else "utenfor")))
     _skriv_gruppe("Etter SELGER-filter:", rader, lambda r: (r.get("selger_filter") or "ukjent"))
     _skriv_gruppe("Etter FYLKE-filter:", rader, lambda r: (r.get("fylke_filter") or "ukjent"))
     _skriv_gruppe("Etter STED (topp 12):", rader, lambda r: (r.get("sted") or "ukjent"),
@@ -262,7 +265,8 @@ def rapport(rader: list[dict], grunnlag: str, dager_span):
 def _skriv_csv(s3, rader, key="calc/bil/kupp_vakt_analyse.csv"):
     kol = ["FinnKode", "status", "dager", "flagget", "Merke", "Modell", "Årstall",
            "Kjørelengde", "Drivstoff", "sted", "pris", "forventet_pris",
-           "rabatt_pct", "rabatt_kr", "selger_filter", "fylke_filter", "url"]
+           "rabatt_pct", "rabatt_kr", "selger_filter", "fylke_filter",
+           "i_hjemfylke", "url"]
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=kol, extrasaction="ignore")
     w.writeheader()
