@@ -11,6 +11,10 @@ husker hvilke FinnKoder som allerede er varslet. Første kjøring seeder (ingen
 varsler) slik at du ikke får en flom av gamle annonser; deretter varsles bare
 nye annonser – én gang hver.
 
+Hver varslede bil logges også til S3 (calc/bil/kupp_vakt_logg.json) med
+egenskapene sine, slik at scripts/kupp_analyse.py senere kan se hva som
+kjennetegner biler som faktisk blir solgt – grunnlag for å tune tersklene.
+
 Terskel – trappetrinn etter pris (env, kan overstyres):
     KUPP_RABATT_TRAPP  – "maxpris:minprosent,..." (default
                          "50000:30,100000:20,150000:15,250000:7,:6"):
@@ -74,6 +78,14 @@ except ImportError:
 S3_BUCKET = os.getenv("S3_BUCKET_NAME", "prisanalyse-data")
 STATE_KEY = os.getenv("KUPP_VAKT_STATE_KEY", "calc/bil/kupp_vakt_state.json")
 STATE_TTL_DAYS = int(os.getenv("KUPP_VAKT_TTL_DAYS", "7") or 7)
+
+# Persistent kupp-logg (til etteranalyse: hva kjennetegner biler som blir
+# solgt?). Nøklet på FinnKode -> egenskaper ved varslingstidspunktet, slik at
+# scripts/kupp_analyse.py senere kan sjekke solgt-status og bryte ned treffene.
+# State-fila glemmer alt annet enn FinnKoden, så uten denne loggen finnes det
+# ikke noe grunnlag å tune tersklene på.
+LOGG_KEY = os.getenv("KUPP_VAKT_LOGG_KEY", "calc/bil/kupp_vakt_logg.json")
+LOGG_TTL_DAYS = int(os.getenv("KUPP_VAKT_LOGG_TTL_DAYS", "120") or 120)
 
 # --- Rabattkrav: trappetrinn etter pris ---------------------------------
 # Dyrere bil -> lavere prosentkrav (en billig bil må ned mye i prosent for at
@@ -464,6 +476,81 @@ def lagre_state(s3, state: dict):
 
 
 # ======================================================
+# Kupp-logg (S3): egenskaper for hver varslede bil, til etteranalyse
+# ======================================================
+
+def _logg_record(b: dict, naa: str) -> dict:
+    """Plukk ut de egenskapene vi vil kunne analysere senere. Numeriske felt
+    renses (NaN -> None) så loggen blir gyldig JSON."""
+    def num(v):
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return None
+        return f if f == f else None  # NaN != NaN
+
+    return {
+        "flagget": naa,
+        "Merke": (b.get("Merke") or "").strip() or None,
+        "Modell": (b.get("Modell") or "").strip() or None,
+        "Årstall": b.get("Årstall"),
+        "Kjørelengde": num(b.get("Kjørelengde")),
+        "Drivstoff": b.get("Drivstoff"),
+        "Hjuldrift": b.get("Hjuldrift"),
+        "sted": (b.get("sted") or b.get("Sted") or "").strip() or None,
+        "pris": num(b.get("salgspris") if b.get("salgspris") is not None else b.get("Pris")),
+        "forventet_pris": num(b.get("forventet_pris")),
+        "hurtigpris": num(b.get("hurtigpris")),
+        "innbyttepris": num(b.get("innbyttepris")),
+        "rabatt_pct": num(b.get("rabatt_pct")),
+        "rabatt_kr": num(b.get("rabatt_kr")),
+        "modell_nivaa": b.get("modell_nivaa"),
+        "selger_filter": _selger or "alle",
+        "fylke_filter": os.getenv("KUPP_FYLKE", "").strip() or "hele landet",
+        "url": b.get("url"),
+    }
+
+
+def logg_kupp(s3, kupp: list[dict], naa: str):
+    """Legg de varslede kuppene til den persistente S3-loggen (nøklet på
+    FinnKode, så gjentatte treff dedupliseres og beholder første tidspunkt).
+    Prunes etter LOGG_TTL_DAYS. En feil her skal aldri stoppe varslingen."""
+    if not kupp:
+        return
+    try:
+        try:
+            obj = s3.get_object(Bucket=S3_BUCKET, Key=LOGG_KEY)
+            logg = json.loads(obj["Body"].read().decode("utf-8"))
+            if not isinstance(logg, dict):
+                logg = {}
+        except Exception:
+            logg = {}
+
+        for b in kupp:
+            fk = str(b.get("FinnKode") or "")
+            if fk and fk not in logg:  # behold første gang bilen ble flagget
+                logg[fk] = _logg_record(b, naa)
+
+        grense = datetime.now(timezone.utc) - timedelta(days=LOGG_TTL_DAYS)
+        renset = {}
+        for fk, rec in logg.items():
+            try:
+                if datetime.fromisoformat(rec.get("flagget", "")) >= grense:
+                    renset[fk] = rec
+            except Exception:
+                renset[fk] = rec
+
+        s3.put_object(
+            Bucket=S3_BUCKET, Key=LOGG_KEY,
+            Body=json.dumps(renset, ensure_ascii=False).encode("utf-8"),
+            ContentType="application/json",
+        )
+        print(f"[kupp_vakt] Logget kupp (loggen har nå {len(renset)} biler)")
+    except Exception as e:
+        print(f"[kupp_vakt] Advarsel: klarte ikke skrive kupp-logg: {e}")
+
+
+# ======================================================
 # Varsling
 # ======================================================
 
@@ -719,6 +806,7 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
         if not (sendt_push or sendt_epost):
             print("[kupp_vakt] Ingen varslingskanal konfigurert (Pushover/SMTP) – "
                   "fant kupp, men sendte ingenting")
+        logg_kupp(s3, kupp, naa)
     lagre_state(s3, state)
     return len(kupp)
 
