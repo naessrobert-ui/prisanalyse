@@ -112,6 +112,23 @@ strengere terskel eller å filtreres bort.
 > ny logging. Analysen kan kjøres når som helst, f.eks. manuelt eller en gang i
 > uka via en egen timer.
 
+#### Bakfyll gamle varsler fra Pushover
+
+Varsler sendt før loggingen ble slått på finnes bare som Pushover-meldinger på
+telefonen. Teksten inneholder likevel FinnKode, merke/modell, år, km, sted, pris,
+rabatt og forventet pris. Lim inn meldingene i en tekstfil (sett gjerne en
+`== 2026-08-08 ==`-datolinje foran gruppene fra samme dag) og importer dem inn i
+loggen – eksisterende rader røres ikke:
+
+```bash
+python -m scripts.kupp_import_pushover meldinger.txt --dry-run   # forhåndsvis
+python -m scripts.kupp_import_pushover meldinger.txt             # skriv til S3
+```
+
+Pushover har ingen bulk-eksport / historikk-API for allerede leverte varsler, så
+teksten må kopieres ut av appen manuelt. Trenger du ikke akkurat de dagene, er det
+enkleste bare å la den nye loggen bygge seg opp.
+
 ### Endre tidsvindu
 
 Rediger `OnCalendar` i `/etc/systemd/system/kupp-vakt.timer`, så:
