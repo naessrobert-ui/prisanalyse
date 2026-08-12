@@ -9,11 +9,12 @@ vakten treffer best.
 Grunnlag
 --------
 Leser den persistente loggen `calc/bil/kupp_vakt_logg.json` som kupp_vakt.py
-skriver (nøklet på FinnKode -> egenskaper ved varslingstidspunktet). Har du ikke
-loggen ennå (den bygges fra og med denne oppdateringen), faller skriptet tilbake
-til state-fila `calc/bil/kupp_vakt_state.json` og henter det lille som fortsatt
-lar seg lese av annonsen (merke/modell/år/km) – uten rabatt/pris, som er borte
-når bilen er solgt. Full nytte får du derfor etter noen dager med logging.
+skriver (nøklet på FinnKode -> egenskaper ved varslingstidspunktet). Loggen
+bygges fra og med logge-oppdateringen, så de første dagene er den tynn; kjør
+igjen når den har vokst. Har du ikke loggen ennå, sier skriptet fra og stopper –
+det bruker med vilje IKKE state-fila som fallback, for den inneholder alle
+annonser vakten har *sett*, ikke bare kuppene. Vil du ha med gamle varsler,
+importer dem fra Pushover med scripts/kupp_import_pushover.py.
 
 For hver bil hentes FINN-annonsen og status avgjøres: solgt / aktiv / borte.
 `dager` er tiden fra varsel til vi *oppdaget* at den var solgt (øvre grense –
@@ -50,7 +51,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from scripts.kupp_vakt import (  # noqa: E402
     FINN_ITEM_URL,
     LOGG_KEY,
-    STATE_KEY,
     S3_BUCKET,
     _fetch,
     _make_session,
@@ -110,49 +110,10 @@ def _hent_status(session, fk: str):
     return "ukjent", "ingen markør"
 
 
-# ---- Enkel spec-gjenvinning fra annonsen (fallback uten logg) ----------------
-def _specs_fra_html(html: str) -> dict:
-    """Best-effort: hent merke/modell/år/km fra annonsen når loggen mangler
-    disse (typisk for biler flagget før logging ble slått på)."""
-    out: dict = {}
-    m = re.search(r'og:title" content="([^"]+)"', html, re.I)
-    tittel = (m.group(1) if m else "").strip()
-    if tittel:
-        deler = tittel.split(maxsplit=1)
-        out["Merke"] = deler[0] if deler else None
-        out["Modell"] = deler[1].split(" – ")[0].split(" - ")[0].strip() if len(deler) > 1 else None
-    ym = re.search(r'"year"\s*:\s*"?(\d{4})"?', html)
-    aar = ym.group(1) if ym else None
-    if not aar:
-        ym2 = re.search(r"\b((?:19|20)\d{2})\b", tittel)
-        aar = ym2.group(1) if ym2 else None
-    if aar:
-        try:
-            out["Årstall"] = int(aar)
-        except Exception:
-            pass
-    m = re.search(r'"mileage"\s*:\s*"?(\d[\d\s]*)"?', html)
-    if m:
-        try:
-            out["Kjørelengde"] = float(re.sub(r"\D", "", m.group(1)))
-        except Exception:
-            pass
-    return out
-
-
-# ---- Grunnlag: logg (rik) eller state (kun FinnKode) -------------------------
+# ---- Grunnlag: kupp-loggen (calc/bil/kupp_vakt_logg.json) --------------------
 def _last_logg(s3) -> dict:
     try:
         obj = s3.get_object(Bucket=S3_BUCKET, Key=LOGG_KEY)
-        data = json.loads(obj["Body"].read().decode("utf-8"))
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-
-
-def _last_state(s3) -> dict:
-    try:
-        obj = s3.get_object(Bucket=S3_BUCKET, Key=STATE_KEY)
         data = json.loads(obj["Body"].read().decode("utf-8"))
         return data if isinstance(data, dict) else {}
     except Exception:
@@ -321,18 +282,17 @@ def main():
 
     s3 = _s3()
     logg = _last_logg(s3)
-    if logg:
-        grunnlag = f"logg ({len(logg)} biler) fra s3://{S3_BUCKET}/{LOGG_KEY}"
-        poster = {fk: dict(rec, FinnKode=fk) for fk, rec in logg.items()}
-    else:
-        state = _last_state(s3)
-        grunnlag = (f"state ({len(state)} FinnKoder) – ingen logg ennå, så "
-                    "rabatt/pris mangler; kjør igjen om noen dager")
-        poster = {fk: {"FinnKode": fk, "flagget": ts} for fk, ts in state.items()}
-
-    if not poster:
-        print("[kupp_analyse] Fant verken logg eller state med biler – ingenting å analysere.")
+    if not logg:
+        # Merk: state-fila er IKKE et gyldig grunnlag – den inneholder alle
+        # annonser vakten har *sett* (hundrevis–tusenvis), ikke bare kuppene.
+        print(f"[kupp_analyse] Ingen kupp-logg ennå i s3://{S3_BUCKET}/{LOGG_KEY}.")
+        print("  Loggen fylles etter hvert som vakten varsler om kupp – prøv igjen")
+        print("  om en dag eller to. Vil du ha med gamle varsler nå, importer dem")
+        print("  fra Pushover: python -m scripts.kupp_import_pushover meldinger.txt")
         return
+
+    grunnlag = f"logg ({len(logg)} biler) fra s3://{S3_BUCKET}/{LOGG_KEY}"
+    poster = {fk: dict(rec, FinnKode=fk) for fk, rec in logg.items()}
 
     # Nyeste først (etter flagget-tidspunkt)
     ordnet = sorted(poster.values(), key=lambda r: r.get("flagget") or "", reverse=True)
@@ -344,7 +304,6 @@ def main():
     if tstamps:
         dager_span = (min(tstamps)[:10], max(tstamps)[:10])
 
-    har_logg = bool(logg)
     session = _make_session()
     rader = []
     print(f"[kupp_analyse] Sjekker status på {len(ordnet)} biler mot FINN ...")
@@ -353,14 +312,6 @@ def main():
         status, signal = _hent_status(session, fk)
         rec["status"] = status
         rec["dager"] = _dager_siden(rec.get("flagget")) if status == "solgt" else None
-
-        # Fallback-berikelse fra annonsen når loggen mangler egenskaper
-        if not har_logg and status in ("solgt", "aktiv"):
-            resp = _fetch(session, FINN_ITEM_URL.format(fk))
-            if resp is not None and resp.status_code == 200:
-                for k, v in _specs_fra_html(resp.text).items():
-                    rec.setdefault(k, v)
-
         rader.append(rec)
         if args.verbose:
             print(f"  [{i}/{len(ordnet)}] {fk}: {status} ({signal})")

@@ -106,11 +106,12 @@ pris, drivstoff, selger, fylke, sted, merke, årsmodell og kjørelengde. Høy
 solgt-andel i en gruppe = vakten finner ekte kupp der; lav andel = kandidat for
 strengere terskel eller å filtreres bort.
 
-> Loggen bygges fra og med denne oppdateringen. Har du kjørt en stund fra før,
-> gir første analyse bare en grov status (rabatt/pris mangler for de gamle, siden
-> bare FinnKoden ble tatt vare på) – full nedbrytning kommer etter noen dager med
-> ny logging. Analysen kan kjøres når som helst, f.eks. manuelt eller en gang i
-> uka via en egen timer.
+> Loggen bygges fra og med denne oppdateringen, og inneholder kun bilene vakten
+> faktisk varsler om. Er den fortsatt tom, sier analysen fra og stopper – den
+> bruker *ikke* state-fila som grunnlag (den teller alle sette annonser, ikke
+> bare kupp). Full nedbrytning kommer etter noen dager med logging; kjør analysen
+> når som helst, f.eks. manuelt eller en gang i uka via en egen timer. Vil du ha
+> med varsler fra før loggingen, se «Bakfyll fra Pushover» under.
 
 #### Bakfyll gamle varsler fra Pushover
 
