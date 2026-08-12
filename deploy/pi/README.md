@@ -86,6 +86,32 @@ Gyldige fylkesnavn: Østfold, Akershus, Oslo, Innlandet, Buskerud, Vestfold,
 Telemark, Agder, Rogaland, Vestland, Møre og Romsdal, Trøndelag, Nordland,
 Troms, Finnmark.
 
+### Se hva som kjennetegner biler som blir solgt (tuning-grunnlag)
+
+Hver bil vakten varsler om logges nå til S3 (`calc/bil/kupp_vakt_logg.json`) med
+egenskapene sine (rabatt, pris, merke, fylke, selger, drivstoff, km, år). Kjør
+etteranalysen for å se hvilke av disse som faktisk blir solgt på FINN – da vet du
+hvilke terskler/filtre som treffer, og hvilke som bare gir støy:
+
+```bash
+cd ~/prisanalyse
+sudo -u pi env $(grep -v '^#' /etc/kupp-vakt/kupp-vakt.env | xargs) \
+  .venv-kupp/bin/python -m scripts.kupp_analyse            # rapport til skjerm
+  # --csv  skriver også per-bil CSV til S3 (calc/bil/kupp_vakt_analyse.csv)
+  # --limit 30  tester på et utvalg;  --verbose  viser status per bil
+```
+
+Rapporten bryter ned **solgt-andel** og **median dager til solgt** etter rabatt,
+pris, drivstoff, selger, fylke, sted, merke, årsmodell og kjørelengde. Høy
+solgt-andel i en gruppe = vakten finner ekte kupp der; lav andel = kandidat for
+strengere terskel eller å filtreres bort.
+
+> Loggen bygges fra og med denne oppdateringen. Har du kjørt en stund fra før,
+> gir første analyse bare en grov status (rabatt/pris mangler for de gamle, siden
+> bare FinnKoden ble tatt vare på) – full nedbrytning kommer etter noen dager med
+> ny logging. Analysen kan kjøres når som helst, f.eks. manuelt eller en gang i
+> uka via en egen timer.
+
 ### Endre tidsvindu
 
 Rediger `OnCalendar` i `/etc/systemd/system/kupp-vakt.timer`, så:
