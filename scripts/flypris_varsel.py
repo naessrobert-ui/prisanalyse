@@ -15,8 +15,7 @@ Miljøvariabler (gjenbruker appens SMTP-oppsett):
     FLYPRIS_VARSEL_FRA  - avsender (default SMTP_USER / MEDIA_DIGEST_FROM)
 
 Terskler (kan finjusteres uten kodeendring):
-    FLYPRIS_MIN_AVVIK       - antall flaggede ruter som kreves (default 8)
-    FLYPRIS_STORT_AVVIK     - ett enkelt avvik ≥ dette (%) utløser alene (default 50)
+    FLYPRIS_NETTO_TERSKEL   - |antall opp − antall ned| ≥ dette utløser (default 10)
     FLYPRIS_INDEKS_HOPP     - indekspoeng-hopp som utløser (default 3)
     FLYPRIS_DISPERSJON      - endring i median−laveste-gap i pp som utløser (default 5)
 
@@ -43,12 +42,11 @@ def _terskel(navn: str, default: float) -> float:
         return default
 
 
-# Terskler for hva som er «av betydning». Enkeltruter svinger mye fra dag til
-# dag, så ett flagget avvik er IKKE et signal – vi krever enten en opphopning
-# av avvik eller ett svært stort enkeltavvik. Standardverdiene kan overstyres
-# via miljøvariabler over.
-MIN_AVVIK = int(_terskel("FLYPRIS_MIN_AVVIK", 8))       # antall flaggede ruter
-STORT_AVVIK_PST = _terskel("FLYPRIS_STORT_AVVIK", 50.0)  # ett enkeltavvik (%) alene
+# Terskler for hva som er «av betydning». Enkeltruter svinger mye opp og ned
+# fra dag til dag; selve churnet (mange opp OG mange ned) er ikke et signal.
+# Det som teller er NETTO retning – antall opp minus antall ned. Standard-
+# verdiene kan overstyres via miljøvariabler over.
+NETTO_TERSKEL = int(_terskel("FLYPRIS_NETTO_TERSKEL", 10))  # |opp − ned|
 INDEKS_HOPP = _terskel("FLYPRIS_INDEKS_HOPP", 3.0)       # indekspoeng siden forrige
 DISPERSJON_ENDRING = _terskel("FLYPRIS_DISPERSJON", 5.0)  # pp endring i median−laveste
 
@@ -66,16 +64,16 @@ def vurder(analyse: dict) -> dict | None:
     avvik = analyse.get("avvik", [])
     grunner: list[str] = []
 
-    # Ett flagget avvik er støy – krev en opphopning (≥ MIN_AVVIK ruter) eller
-    # ett svært stort enkeltavvik (≥ STORT_AVVIK_PST) før dette teller som signal.
-    stort = [a for a in avvik if abs(a["endring_pst"]) >= STORT_AVVIK_PST]
-    if len(avvik) >= MIN_AVVIK or stort:
-        opp = sum(1 for a in avvik if a["retning"] == "opp")
-        ned = len(avvik) - opp
-        grunn = f"{len(avvik)} prisavvik flagget ({opp} opp, {ned} ned)"
-        if stort:
-            grunn += f", største {max(abs(a['endring_pst']) for a in stort):.0f}%"
-        grunner.append(grunn)
+    # Churn (mange opp OG mange ned samtidig) er ikke et signal – kun NETTO
+    # retning teller. Utløs når |antall opp − antall ned| ≥ NETTO_TERSKEL.
+    opp = sum(1 for a in avvik if a["retning"] == "opp")
+    ned = len(avvik) - opp
+    netto = opp - ned
+    if abs(netto) >= NETTO_TERSKEL:
+        retning = "opp" if netto > 0 else "ned"
+        grunner.append(
+            f"Netto {netto:+d} ruter {retning} ({opp} opp, {ned} ned av {len(avvik)} flaggede)"
+        )
 
     idx_endr = s.get("norwegian_indeks_endring")
     if idx_endr is not None and abs(idx_endr) >= INDEKS_HOPP:
@@ -140,8 +138,10 @@ def _send_mail(subject: str, html_body: str) -> bool:
 
 
 def send_epost(varsel: dict) -> bool:
-    n = len(varsel["avvik"])
-    subject = f"✈️ Flypris-signal Norwegian ({n} avvik)" if n else "✈️ Flypris-signal Norwegian"
+    avvik = varsel["avvik"]
+    opp = sum(1 for a in avvik if a["retning"] == "opp")
+    netto = opp - (len(avvik) - opp)
+    subject = f"✈️ Flypris-signal Norwegian (netto {netto:+d} ruter)" if avvik else "✈️ Flypris-signal Norwegian"
     return _send_mail(subject, bygg_html(varsel))
 
 
