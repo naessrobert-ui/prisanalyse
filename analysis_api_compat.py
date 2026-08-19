@@ -11,7 +11,15 @@ from typing import Any
 from fastapi import APIRouter, Query
 
 from Fastapi_Backend import MAX_LIMIT, build_search_base_sql, clean_limit, fetch_all, fetch_one, resolve_naeringskode_prefix
-from fylke_registry import list_fylker, nace_seksjon, resolve_fylke
+from fylke_registry import (
+    har_innbyggertall,
+    kommune_innbyggere,
+    kommune_navn,
+    list_fylker,
+    nace_seksjon,
+    nace_seksjon_intervall,
+    resolve_fylke,
+)
 
 
 router = APIRouter()
@@ -1398,10 +1406,12 @@ def get_fylke_aggregat_payload(
         """,
         [*kommune_params, safe_kommune_limit],
     )
+    _berik_kommuner(kommune_rows)
 
     return {
         "fylke": info,
         "filters": {"orgform": orgform, "regnskapsaar": regnskapsaar},
+        "har_innbyggertall": har_innbyggertall(),
         "totaler": {
             "antall_bedrifter": int(totals.get("antall_bedrifter") or 0),
             "antall_med_regnskap": int(totals.get("antall_med_regnskap") or 0),
@@ -1445,6 +1455,131 @@ def _rull_opp_sektorer(divisjon_rows: list[dict[str, Any]]) -> list[dict[str, An
         key=lambda b: (b["total_omsetning"] is not None, b["total_omsetning"] or 0.0),
         reverse=True,
     )
+
+
+def _berik_kommuner(rader: list[dict[str, Any]]) -> None:
+    """Fyller inn kommunenavn (fra registeret) og folketall der vi har dem."""
+    for rad in rader:
+        nr = str(rad.get("kommunenummer") or "").strip()
+        navn = kommune_navn(nr)
+        if navn:
+            # Overstyr bare når DB ikke ga et reelt navn.
+            if not rad.get("kommunenavn") or str(rad.get("kommunenavn")).strip().lower() in {"", "ukjent"}:
+                rad["kommunenavn"] = navn
+        rad["innbyggere"] = kommune_innbyggere(nr)
+
+
+def _fylke_sektor_filter(sektor: str | None) -> tuple[str, list[Any], dict[str, Any] | None]:
+    """
+    Bygger et SQL-filter for en sektor. Godtar:
+      - NACE-hovedområde (bokstav A–U) -> intervall på to-sifret divisjon
+      - siffer (f.eks. 68 eller 6820) -> prefiks-match på næringskode
+    Returnerer (sql_bit, params, meta) der meta beskriver tolkningen.
+    """
+    verdi = str(sektor or "").strip()
+    if not verdi:
+        return "", [], None
+
+    digits = re.sub(r"\D", "", verdi)
+    if not digits:
+        intervall = nace_seksjon_intervall(verdi)
+        if intervall:
+            navn, lav, hoy = intervall
+            sql_bit = (
+                " AND NULLIF(regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g'), '') IS NOT NULL"
+                " AND SUBSTRING(regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g') FROM 1 FOR 2)::int"
+                " BETWEEN %s AND %s"
+            )
+            return sql_bit, [lav, hoy], {"type": "seksjon", "navn": navn, "intervall": [lav, hoy]}
+        # ukjent bokstav/navn -> ingen match, men ikke krasj
+        return " AND FALSE", [], {"type": "ukjent", "verdi": verdi}
+
+    sql_bit = " AND regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g') LIKE %s"
+    return sql_bit, [f"{digits}%"], {"type": "naeringskode", "prefiks": digits}
+
+
+def get_fylke_toppselskaper_payload(
+    *,
+    fylke: str | None,
+    sektor: str | None = None,
+    kommune: str | None = None,
+    orgform: str | None = "AS",
+    regnskapsaar: int | None = None,
+    limit: int = 25,
+) -> dict[str, Any]:
+    """
+    De største selskapene (på omsetning) i et fylke, valgfritt avgrenset til en
+    sektor og/eller én kommune. Tar med antall ansatte der vi har tallet.
+    """
+    info = resolve_fylke(fylke)
+    if not info:
+        return {
+            "error": "ukjent_fylke",
+            "detail": f"Ukjent fylke: {fylke!r}.",
+            "fylker": list_fylker(),
+        }
+
+    safe_limit = max(1, min(int(limit), 200))
+    fylke_clause, fylke_params = _fylke_where_clause(info["kommune_prefikser"])
+
+    base_sql, params, _ = build_search_base_sql(orgform=orgform, has_regnskap=False)
+    base_sql += " AND r.revenue IS NOT NULL"
+    if regnskapsaar is not None:
+        base_sql += " AND r.accounting_year = %s"
+        params.append(regnskapsaar)
+    base_sql += f" AND {fylke_clause}"
+    params.extend(fylke_params)
+
+    kommune_nr = re.sub(r"\D", "", str(kommune or ""))
+    if kommune_nr:
+        base_sql += " AND regexp_replace(COALESCE(e.kommunenummer::text, ''), '\\D', '', 'g') = %s"
+        params.append(kommune_nr)
+
+    sektor_sql, sektor_params, sektor_meta = _fylke_sektor_filter(sektor)
+    base_sql += sektor_sql
+    params.extend(sektor_params)
+
+    rows = fetch_all(
+        f"""
+        SELECT
+            e.orgnr,
+            e.navn,
+            e.orgform,
+            e.kommunenummer,
+            e.ansatte,
+            e.naeringskode,
+            r.revenue AS omsetning,
+            r.operating_profit AS driftsresultat,
+            r.net_profit AS aarsresultat,
+            r.accounting_year AS regnskapsaar,
+            CASE
+                WHEN e.ansatte IS NOT NULL AND e.ansatte > 0 AND r.revenue IS NOT NULL
+                THEN r.revenue / e.ansatte
+                ELSE NULL
+            END AS omsetning_per_ansatt
+        {base_sql}
+        ORDER BY r.revenue DESC NULLS LAST, e.navn ASC
+        LIMIT %s
+        """,
+        [*params, safe_limit],
+    )
+
+    for rad in rows:
+        rad["kommunenavn"] = kommune_navn(rad.get("kommunenummer"))
+        rad["innbyggere"] = kommune_innbyggere(rad.get("kommunenummer"))
+
+    return {
+        "fylke": info,
+        "filters": {
+            "sektor": sektor,
+            "sektor_tolkning": sektor_meta,
+            "kommune": kommune or None,
+            "orgform": orgform,
+            "regnskapsaar": regnskapsaar,
+            "limit": safe_limit,
+        },
+        "selskaper": rows,
+    }
 
 
 def get_companies_top_omsetning_payload(
