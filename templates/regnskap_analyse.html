@@ -24,6 +24,9 @@
         .right { text-align: right; white-space: nowrap; }
         .small { font-size: .85rem; }
         .chip { display: inline-block; background: #1d355b; border: 1px solid #315789; border-radius: 999px; padding: 2px 10px; font-size: .8rem; margin-right: 8px; }
+        th.sorterbar { cursor: pointer; user-select: none; }
+        th.sorterbar:hover { color: #fff; }
+        .sortpil { font-size: .75em; opacity: .8; margin-left: 4px; }
     </style>
 </head>
 <body>
@@ -165,7 +168,7 @@
                 <th class="right">Andel overskudd</th>
                 <th class="right">Omsetn./ansatt</th>
                 <th class="right">Resultat/ansatt</th>
-                <th>Handling</th>
+                <th data-nosort>Handling</th>
             </tr>
             </thead>
             <tbody id="sectorBody">
@@ -244,7 +247,7 @@
         }
         tbody.innerHTML = rows.map((row) => `
             <tr>
-                <td><strong>${row.code || '—'}</strong></td>
+                <td data-sort="${row.code || ''}"><strong>${row.code || '—'}</strong></td>
                 <td>${row.description || 'Ukjent sektor'}</td>
                 <td class="right">${fmtNumber(row.company_count)}</td>
                 <td class="right">${fmtNumber(row.company_count_with_regnskap)}</td>
@@ -278,7 +281,7 @@
         }
         tbody.innerHTML = rows.map((row) => `
             <tr>
-                <td>${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
+                <td data-sort="${row.kommunenavn || row.kommunenummer || ''}">${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
                 <td class="right">${fmtNumber(row.company_count)}</td>
                 <td class="right">${fmtNumber(row.company_count_with_regnskap)}</td>
                 <td class="right">${fmtNumber(row.sum_omsetning)}</td>
@@ -418,7 +421,7 @@
             ` : '';
             return `
             <tr class="klikkbar" data-kommune="${row.kommunenummer || ''}" data-label="${row.kommunenavn || row.kommunenummer || ''}" style="cursor:pointer;">
-                <td>${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
+                <td data-sort="${row.kommunenavn || row.kommunenummer || ''}">${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
                 <td class="right">${fmtNumber(row.antall_bedrifter)}</td>
                 <td class="right">${fmtNumber(row.antall_med_omsetning)}</td>
                 <td class="right">${fmtMillion(row.total_omsetning)}</td>
@@ -443,9 +446,9 @@
         }
         tbody.innerHTML = rows.map((row) => `
             <tr>
-                <td><a href="/regnskap/selskap/${row.orgnr}">${row.navn || row.orgnr}</a></td>
-                <td>${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
-                <td>${row.naeringskode || '—'}</td>
+                <td data-sort="${row.navn || row.orgnr}"><a href="/regnskap/selskap/${row.orgnr}">${row.navn || row.orgnr}</a></td>
+                <td data-sort="${row.kommunenavn || row.kommunenummer || ''}">${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
+                <td data-sort="${row.naeringskode || ''}">${row.naeringskode || '—'}</td>
                 <td class="right">${fmtMillion(row.omsetning)}</td>
                 <td class="right">${fmtMillion(row.aarsresultat)}</td>
                 <td class="right">${fmtNumber(row.ansatte)}</td>
@@ -509,6 +512,81 @@
 
     get('fylkeBtn').addEventListener('click', hentFylke);
     loadFylker();
+})();
+</script>
+
+<script>
+// Generisk klikkbar kolonnesortering for alle tabeller på siden.
+(() => {
+    // Robust parser for norsk-formaterte tall: "425 304,9 mill.", "1 442 396",
+    // "75,9", "−2 211,7 mill." (ekte minustegn). Returnerer tall eller null.
+    function parseNorNum(s) {
+        // \u2212 er norsk (ekte) minustegn; normaliser til bindestrek. Andre
+        // ikke-numeriske tegn (mellomrom, 'mill.') fjernes av tegnklassen under.
+        let t = String(s).toLowerCase().replace(/\u2212/g, '-');
+        let mult = 1;
+        if (/mrd|milliard/.test(t)) mult = 1e9;
+        else if (/mill/.test(t)) mult = 1e6;
+        let cleaned = t.replace(/[^0-9.,-]/g, '');
+        if (!/[0-9]/.test(cleaned)) return null;
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.'); // norsk: . tusen, , desimal
+        const n = parseFloat(cleaned);
+        return Number.isFinite(n) ? n * mult : null;
+    }
+
+    function sortNokkel(cell) {
+        const harData = cell.dataset.sort !== undefined;
+        const raw = harData ? cell.dataset.sort : cell.textContent;
+        const s = String(raw).trim();
+        if (s === '' || s === '—') return { n: null, s: '' };
+        const n = harData ? Number(s) : parseNorNum(s);
+        return { n: (n !== null && Number.isFinite(n)) ? n : null, s: s.toLowerCase() };
+    }
+
+    function aktiverSortering(table) {
+        const thead = table.tHead;
+        if (!thead || !thead.rows.length) return;
+        const ths = Array.from(thead.rows[0].cells);
+        ths.forEach((th, idx) => {
+            if (th.dataset.nosort !== undefined) return;
+            th.classList.add('sorterbar');
+            th.addEventListener('click', () => {
+                const tbody = table.tBodies[0];
+                if (!tbody) return;
+                const rows = Array.from(tbody.rows).filter((r) => r.cells.length > idx);
+                if (rows.length < 2) return;
+
+                let dir = 'asc';
+                if (String(table.dataset.sortCol) === String(idx)) {
+                    dir = table.dataset.sortDir === 'asc' ? 'desc' : 'asc';
+                }
+                table.dataset.sortCol = String(idx);
+                table.dataset.sortDir = dir;
+
+                const par = rows.map((r) => ({ r, k: sortNokkel(r.cells[idx]) }));
+                const numerisk = par.every((o) => o.k.s === '' || o.k.n !== null);
+                par.sort((a, b) => {
+                    const aTom = numerisk ? a.k.n === null : a.k.s === '';
+                    const bTom = numerisk ? b.k.n === null : b.k.s === '';
+                    if (aTom && bTom) return 0;
+                    if (aTom) return 1;          // tomme/manglende alltid nederst
+                    if (bTom) return -1;
+                    const cmp = numerisk ? (a.k.n - b.k.n) : a.k.s.localeCompare(b.k.s, 'nb');
+                    return dir === 'asc' ? cmp : -cmp;
+                });
+                par.forEach((o) => tbody.appendChild(o.r));
+
+                // Pil-indikator på aktiv kolonne
+                thead.querySelectorAll('.sortpil').forEach((el) => el.remove());
+                const pil = document.createElement('span');
+                pil.className = 'sortpil';
+                pil.textContent = dir === 'asc' ? '▲' : '▼';
+                th.appendChild(pil);
+            });
+        });
+    }
+
+    document.querySelectorAll('main table').forEach(aktiverSortering);
 })();
 </script>
 </body>
