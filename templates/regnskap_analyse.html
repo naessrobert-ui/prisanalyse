@@ -79,7 +79,7 @@
 
     <section class="card" id="fylkeKommuneCard" style="display:none;">
         <h2 style="margin:0;">Kommuner i fylket</h2>
-        <p class="muted small">Sortert på samlet omsetning.</p>
+        <p class="muted small">Sortert på samlet omsetning. Klikk en rad for å se de største selskapene i kommunen.</p>
         <table>
             <thead>
             <tr>
@@ -88,9 +88,32 @@
                 <th class="right">Med omsetning</th>
                 <th class="right">Sum omsetning</th>
                 <th class="right">Sum årsresultat</th>
+                <th class="right innb-kol" style="display:none;">Innbyggere</th>
+                <th class="right innb-kol" style="display:none;">Oms./innb.</th>
+                <th class="right innb-kol" style="display:none;">Res./innb.</th>
+                <th class="right innb-kol" style="display:none;">Bedr./1000 innb.</th>
             </tr>
             </thead>
             <tbody id="fylkeKommuneBody"></tbody>
+        </table>
+    </section>
+
+    <section class="card" id="fylkeToppCard" style="display:none;">
+        <h2 style="margin:0;">Største selskaper</h2>
+        <p class="muted small" id="fylkeToppHint">Klikk en sektor eller kommune over.</p>
+        <table>
+            <thead>
+            <tr>
+                <th>Selskap</th>
+                <th>Kommune</th>
+                <th>Næringskode</th>
+                <th class="right">Omsetning</th>
+                <th class="right">Årsresultat</th>
+                <th class="right">Ansatte</th>
+                <th class="right">Omsetn./ansatt</th>
+            </tr>
+            </thead>
+            <tbody id="fylkeToppBody"></tbody>
         </table>
     </section>
 
@@ -297,6 +320,7 @@
 
 <script>
 (() => {
+    const fstate = { fylke: '46', fylkeNavn: 'Vestland', orgform: 'AS', aar: '' };
     const get = (id) => document.getElementById(id);
     const fmtNumber = (v) => {
         if (v === null || v === undefined || v === '') return '—';
@@ -352,7 +376,7 @@
         if (!rows || !rows.length) { card.style.display = 'none'; return; }
         card.style.display = '';
         tbody.innerHTML = rows.map((row) => `
-            <tr>
+            <tr class="klikkbar" data-sektor="${row.seksjon || ''}" data-label="${row.navn || ''}" style="cursor:pointer;">
                 <td><strong>${row.seksjon || '—'}</strong></td>
                 <td>${row.navn || 'Ukjent'}</td>
                 <td class="right">${fmtNumber(row.antall_bedrifter)}</td>
@@ -361,32 +385,110 @@
                 <td class="right">${fmtMillion(row.total_aarsresultat)}</td>
             </tr>
         `).join('');
+        tbody.querySelectorAll('tr.klikkbar').forEach((tr) => {
+            tr.addEventListener('click', () => {
+                const sektor = tr.dataset.sektor;
+                if (!sektor || sektor === '?') return;
+                hentToppselskaper({ sektor, label: `sektor ${sektor} – ${tr.dataset.label}` });
+            });
+        });
     }
 
-    function renderKommuner(rows) {
+    // Avledede nøkkeltall per innbygger (regnes i frontend fra tall vi allerede har).
+    const perInnb = (sum, innb) => {
+        const s = Number(sum), i = Number(innb);
+        if (!Number.isFinite(s) || !Number.isFinite(i) || i <= 0) return null;
+        return s / i;
+    };
+
+    function renderKommuner(rows, harInnbyggertall) {
         const card = get('fylkeKommuneCard');
         const tbody = get('fylkeKommuneBody');
+        document.querySelectorAll('#fylkeKommuneCard .innb-kol').forEach((el) => {
+            el.style.display = harInnbyggertall ? '' : 'none';
+        });
         if (!rows || !rows.length) { card.style.display = 'none'; return; }
         card.style.display = '';
-        tbody.innerHTML = rows.map((row) => `
-            <tr>
+        tbody.innerHTML = rows.map((row) => {
+            const innbCeller = harInnbyggertall ? `
+                <td class="right">${fmtNumber(row.innbyggere)}</td>
+                <td class="right">${fmtNumber(perInnb(row.total_omsetning, row.innbyggere))}</td>
+                <td class="right">${fmtNumber(perInnb(row.total_aarsresultat, row.innbyggere))}</td>
+                <td class="right">${(() => { const v = perInnb(row.antall_bedrifter, row.innbyggere); return v === null ? '—' : new Intl.NumberFormat('nb-NO', { maximumFractionDigits: 1 }).format(v * 1000); })()}</td>
+            ` : '';
+            return `
+            <tr class="klikkbar" data-kommune="${row.kommunenummer || ''}" data-label="${row.kommunenavn || row.kommunenummer || ''}" style="cursor:pointer;">
                 <td>${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
                 <td class="right">${fmtNumber(row.antall_bedrifter)}</td>
                 <td class="right">${fmtNumber(row.antall_med_omsetning)}</td>
                 <td class="right">${fmtMillion(row.total_omsetning)}</td>
                 <td class="right">${fmtMillion(row.total_aarsresultat)}</td>
+                ${innbCeller}
+            </tr>`;
+        }).join('');
+        tbody.querySelectorAll('tr.klikkbar').forEach((tr) => {
+            tr.addEventListener('click', () => {
+                const kommune = tr.dataset.kommune;
+                if (!kommune) return;
+                hentToppselskaper({ kommune, label: `${tr.dataset.label} (${kommune})` });
+            });
+        });
+    }
+
+    function renderToppselskaper(rows) {
+        const tbody = get('fylkeToppBody');
+        if (!rows || !rows.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="muted">Ingen selskaper på dette utvalget.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map((row) => `
+            <tr>
+                <td><a href="/regnskap/selskap/${row.orgnr}">${row.navn || row.orgnr}</a></td>
+                <td>${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
+                <td>${row.naeringskode || '—'}</td>
+                <td class="right">${fmtMillion(row.omsetning)}</td>
+                <td class="right">${fmtMillion(row.aarsresultat)}</td>
+                <td class="right">${fmtNumber(row.ansatte)}</td>
+                <td class="right">${fmtNumber(row.omsetning_per_ansatt)}</td>
             </tr>
         `).join('');
+    }
+
+    async function hentToppselskaper({ sektor, kommune, label }) {
+        const card = get('fylkeToppCard');
+        card.style.display = '';
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        get('fylkeToppHint').textContent = `Henter de største selskapene i ${fstate.fylkeNavn} – ${label}…`;
+        const params = new URLSearchParams();
+        params.set('fylke', fstate.fylke);
+        params.set('orgform', fstate.orgform);
+        if (fstate.aar) params.set('regnskapsaar', fstate.aar);
+        if (sektor) params.set('sektor', sektor);
+        if (kommune) params.set('kommune', kommune);
+        params.set('limit', '25');
+        try {
+            const res = await fetch(`/regnskap/api/fylke/toppselskaper?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+            renderToppselskaper(data.selskaper || []);
+            get('fylkeToppHint').textContent = `${fstate.fylkeNavn} – ${label}: viser ${fmtNumber((data.selskaper || []).length)} største (på omsetning).`;
+        } catch (err) {
+            get('fylkeToppHint').textContent = `Klarte ikke hente selskaper: ${err.message}`;
+        }
     }
 
     async function hentFylke() {
         const fylke = get('fylkeSelect').value;
         const fylkeNavn = get('fylkeSelect').selectedOptions[0]?.textContent || fylke;
+        fstate.fylke = fylke;
+        fstate.fylkeNavn = fylkeNavn;
+        fstate.orgform = get('fylkeOrgform').value;
+        fstate.aar = get('fylkeAar').value.trim();
+        get('fylkeToppCard').style.display = 'none'; // nullstill drilldown ved nytt fylke
         const params = new URLSearchParams();
         params.set('fylke', fylke);
-        params.set('orgform', get('fylkeOrgform').value);
-        const aar = get('fylkeAar').value.trim();
-        if (aar) params.set('regnskapsaar', aar);
+        params.set('orgform', fstate.orgform);
+        if (fstate.aar) params.set('regnskapsaar', fstate.aar);
         get('fylkeStatus').textContent = `Henter tall for ${fylkeNavn}…`;
         try {
             const res = await fetch(`/regnskap/api/fylke/aggregat?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
@@ -395,7 +497,7 @@
             const t = data.totaler || {};
             renderKpis(t, data.fylke?.navn || fylkeNavn);
             renderSektorer(data.sektorer || []);
-            renderKommuner(data.kommuner || []);
+            renderKommuner(data.kommuner || [], !!data.har_innbyggertall);
             const dekning = (t.antall_bedrifter && t.antall_med_naeringskode !== undefined)
                 ? ` Næringskode finnes for ${fmtNumber(t.antall_med_naeringskode)} av ${fmtNumber(t.antall_bedrifter)} bedrifter.`
                 : '';

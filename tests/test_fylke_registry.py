@@ -6,7 +6,14 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fylke_registry import list_fylker, nace_seksjon, resolve_fylke
+from fylke_registry import (
+    kommune_innbyggere,
+    kommune_navn,
+    list_fylker,
+    nace_seksjon,
+    nace_seksjon_intervall,
+    resolve_fylke,
+)
 
 
 def test_resolve_vestland_via_nummer():
@@ -66,3 +73,23 @@ def test_nace_seksjon_ukjent():
     assert nace_seksjon("")[0] == "?"
     assert nace_seksjon(None)[0] == "?"
     assert nace_seksjon("04")[0] == "?"  # ingen divisjon 04
+
+
+def test_nace_seksjon_intervall():
+    assert nace_seksjon_intervall("L") == ("Omsetning og drift av fast eiendom", 68, 68)
+    assert nace_seksjon_intervall("G")[1:] == (45, 47)
+    assert nace_seksjon_intervall("c")[1:] == (10, 33)  # store/små bokstaver
+    assert nace_seksjon_intervall("Å") is None
+    assert nace_seksjon_intervall("") is None
+
+
+def test_kommune_navn_vestland():
+    assert kommune_navn("4601") == "Bergen"
+    assert kommune_navn(4651) == "Stryn"   # tåler int
+    assert kommune_navn("301") == "Oslo"   # zero-pad til 0301
+    assert kommune_navn("9999") is None
+
+
+def test_kommune_innbyggere_mangler_gir_none():
+    # Datafilen er valgfri; uten den skal oppslag gi None, ikke krasje.
+    assert kommune_innbyggere("4601") is None or isinstance(kommune_innbyggere("4601"), int)

@@ -22,8 +22,13 @@ prefikset deres ikke peker entydig til ett av dagens fylker.
 
 from __future__ import annotations
 
+import json
+import os
+from functools import lru_cache
 import re
 from typing import Any
+
+_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
 # ---------------------------------------------------------------------------
@@ -159,3 +164,74 @@ def nace_seksjon(divisjon: Any) -> tuple[str, str]:
         if lav <= nr <= hoy:
             return bokstav, navn
     return _UOPPGITT
+
+
+def nace_seksjon_intervall(seksjon: Any) -> tuple[str, int, int] | None:
+    """
+    Slår opp intervallet av to-sifrede divisjoner for et næringshovedområde.
+
+    Godtar bokstaven (f.eks. "L") eller navnet. Returnerer (navn, lav, hoy)
+    eller None. Brukes til å filtrere selskaper på en hel sektor i SQL.
+    """
+    key = str(seksjon or "").strip()
+    if not key:
+        return None
+    key_upper = key.upper()
+    key_norm = _normaliser(key)
+    for bokstav, navn, lav, hoy in _NACE_SEKSJONER:
+        if key_upper == bokstav or key_norm == _normaliser(navn):
+            return navn, lav, hoy
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Kommunenavn og folketall (innbyggere)
+#   Navn ligger som committed datafil (data/kommunenavn.json).
+#   Folketall er valgfritt (data/kommune_innbyggere.json) – fylles av
+#   scripts/hent_innbyggere_ssb.py der nett mot SSB er åpent. Mangler filen,
+#   returneres None, i tråd med «kun dersom vi har tallene».
+# ---------------------------------------------------------------------------
+def _normaliser_kommunenr(nr: Any) -> str:
+    digits = re.sub(r"\D", "", str(nr or ""))
+    return digits.zfill(4) if digits else ""
+
+
+@lru_cache(maxsize=1)
+def _kommunenavn_kart() -> dict[str, str]:
+    return _les_json_kart(os.path.join(_DATA_DIR, "kommunenavn.json"))
+
+
+@lru_cache(maxsize=1)
+def _innbyggere_kart() -> dict[str, int]:
+    rå = _les_json_kart(os.path.join(_DATA_DIR, "kommune_innbyggere.json"))
+    kart: dict[str, int] = {}
+    for nr, verdi in rå.items():
+        try:
+            kart[_normaliser_kommunenr(nr)] = int(verdi)
+        except (TypeError, ValueError):
+            continue
+    return kart
+
+
+def _les_json_kart(sti: str) -> dict[str, Any]:
+    try:
+        with open(sti, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {_normaliser_kommunenr(k): v for k, v in data.items()}
+
+
+def kommune_navn(nr: Any) -> str | None:
+    return _kommunenavn_kart().get(_normaliser_kommunenr(nr))
+
+
+def kommune_innbyggere(nr: Any) -> int | None:
+    return _innbyggere_kart().get(_normaliser_kommunenr(nr))
+
+
+def har_innbyggertall() -> bool:
+    """Om folketall-datafilen finnes og har innhold."""
+    return bool(_innbyggere_kart())

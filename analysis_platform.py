@@ -16,7 +16,15 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from fylke_registry import list_fylker, nace_seksjon, resolve_fylke
+from fylke_registry import (
+    har_innbyggertall,
+    kommune_innbyggere,
+    kommune_navn,
+    list_fylker,
+    nace_seksjon,
+    nace_seksjon_intervall,
+    resolve_fylke,
+)
 
 
 # ----------------------------------------------------------------------------
@@ -855,10 +863,17 @@ def fylke_aggregat(
         """,
         tuple(params + [kommune_limit]),
     )
+    for row in kommune_rows:
+        nr = str(row.get("kommunenummer") or "").strip()
+        navn = kommune_navn(nr)
+        if navn:
+            row["kommunenavn"] = navn
+        row["innbyggere"] = kommune_innbyggere(nr)
 
     return {
         "fylke": info,
         "filters": {"orgform": orgform, "regnskapsaar": regnskapsaar},
+        "har_innbyggertall": har_innbyggertall(),
         "totaler": {
             "antall_bedrifter": int(totals.get("antall_bedrifter") or 0),
             "antall_med_regnskap": int(totals.get("antall_med_regnskap") or 0),
@@ -902,6 +917,97 @@ def _rull_opp_sektorer(division_rows: list[dict[str, Any]]) -> list[dict[str, An
         key=lambda b: (b["total_omsetning"] is not None, b["total_omsetning"] or 0.0),
         reverse=True,
     )
+
+
+@app.get("/analysis-api/fylke/toppselskaper")
+def fylke_toppselskaper(
+    fylke: str = Query(..., description="Fylkesnummer (f.eks. 46) eller navn"),
+    sektor: str | None = Query(default=None, description="NACE-hovedområde (A–U) eller næringskode-prefiks"),
+    kommune: str | None = Query(default=None, description="Kommunenummer for å avgrense til én kommune"),
+    orgform: str | None = Query(default="AS"),
+    regnskapsaar: int | None = Query(default=None),
+    limit: int = Query(default=25, ge=1, le=200),
+) -> dict[str, Any]:
+    info = resolve_fylke(fylke)
+    if not info:
+        raise HTTPException(status_code=400, detail=f"Ukjent fylke: {fylke!r}.")
+
+    if orgform is not None and str(orgform).strip().lower() in {"alle", "all", "*"}:
+        orgform = None
+
+    fylke_clause, fylke_params = _fylke_kommune_prefix_clause(info["kommune_prefikser"])
+    filters = [fylke_clause, "r.sum_driftsinntekter is not null"]
+    params: list[Any] = list(fylke_params)
+    if orgform:
+        filters.append("e.orgform = %s")
+        params.append(orgform)
+    if regnskapsaar is not None:
+        filters.append("r.regnskapsaar = %s")
+        params.append(regnskapsaar)
+
+    kommune_nr = re.sub(r"\D", "", str(kommune or ""))
+    if kommune_nr:
+        filters.append("regexp_replace(coalesce(cast(e.kommunenummer as text), ''), '\\D', '', 'g') = %s")
+        params.append(kommune_nr)
+
+    sektor_meta: dict[str, Any] | None = None
+    sektor_verdi = str(sektor or "").strip()
+    if sektor_verdi:
+        sektor_digits = re.sub(r"\D", "", sektor_verdi)
+        if sektor_digits:
+            filters.append("regexp_replace(coalesce(cast(e.naeringskode as text), ''), '\\D', '', 'g') like %s")
+            params.append(f"{sektor_digits}%")
+            sektor_meta = {"type": "naeringskode", "prefiks": sektor_digits}
+        else:
+            intervall = nace_seksjon_intervall(sektor_verdi)
+            if intervall:
+                navn, lav, hoy = intervall
+                filters.append(
+                    "nullif(regexp_replace(coalesce(cast(e.naeringskode as text), ''), '\\D', '', 'g'), '') is not null"
+                    " and substring(regexp_replace(coalesce(cast(e.naeringskode as text), ''), '\\D', '', 'g') from 1 for 2)::int"
+                    " between %s and %s"
+                )
+                params.extend([lav, hoy])
+                sektor_meta = {"type": "seksjon", "navn": navn, "intervall": [lav, hoy]}
+            else:
+                filters.append("false")
+                sektor_meta = {"type": "ukjent", "verdi": sektor_verdi}
+
+    where_clause = "where " + " and ".join(filters)
+    rows = fetch_all_dict(
+        f"""
+        select
+            e.orgnr, e.navn, e.orgform, e.kommunenummer, e.ansatte, e.naeringskode,
+            r.sum_driftsinntekter::float as omsetning,
+            r.driftsresultat::float as driftsresultat,
+            r.aarsresultat::float as aarsresultat,
+            r.regnskapsaar as regnskapsaar,
+            case when e.ansatte is not null and e.ansatte > 0 and r.sum_driftsinntekter is not null
+                 then round(r.sum_driftsinntekter / e.ansatte::numeric, 0)::float end as omsetning_per_ansatt
+        from entity e
+        left join regnskap_siste r on r.orgnr = e.orgnr
+        {where_clause}
+        order by r.sum_driftsinntekter desc nulls last, e.navn asc
+        limit %s
+        """,
+        tuple(params + [limit]),
+    )
+    for row in rows:
+        row["kommunenavn"] = kommune_navn(row.get("kommunenummer"))
+        row["innbyggere"] = kommune_innbyggere(row.get("kommunenummer"))
+
+    return {
+        "fylke": info,
+        "filters": {
+            "sektor": sektor,
+            "sektor_tolkning": sektor_meta,
+            "kommune": kommune or None,
+            "orgform": orgform,
+            "regnskapsaar": regnskapsaar,
+            "limit": limit,
+        },
+        "selskaper": rows,
+    }
 
 
 @app.get("/analysis-api/companies/filter/meta", response_model=CompanyFilterMetaResponse)

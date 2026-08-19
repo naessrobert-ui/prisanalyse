@@ -1112,6 +1112,7 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             get_kart_payload,
             get_fylke_aggregat_payload,
             get_fylke_list_payload,
+            get_fylke_toppselskaper_payload,
         )
     except Exception:
         return None
@@ -1210,6 +1211,22 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             orgform=_orgform,
             regnskapsaar=int(params["regnskapsaar"]) if params.get("regnskapsaar") else None,
             kommune_limit=int(params.get("kommune_limit") or 60),
+        )
+    elif path == "/analysis-api/fylke/toppselskaper":
+        _orgform_raw = params.get("orgform")
+        if "orgform" not in params:
+            _orgform = "AS"
+        elif str(_orgform_raw or "").strip().lower() in {"alle", "all", "*"}:
+            _orgform = None
+        else:
+            _orgform = _orgform_raw
+        payload = get_fylke_toppselskaper_payload(
+            fylke=params.get("fylke"),
+            sektor=params.get("sektor"),
+            kommune=params.get("kommune"),
+            orgform=_orgform,
+            regnskapsaar=int(params["regnskapsaar"]) if params.get("regnskapsaar") else None,
+            limit=int(params.get("limit") or 25),
         )
     elif path == "/analysis-api/industry/suggest":
         payload = get_industry_suggest_payload(
@@ -1628,6 +1645,17 @@ def regnskap_api_fylke_aggregat():
     params = {key: value for key, value in request.args.items() if key in allowed and str(value).strip() != ""}
     response_obj = proxy_analysis_api("/analysis-api/fylke/aggregat", params)
     # Gjør ukjent fylke om til en tydelig 400 i stedet for 200-med-feilfelt.
+    flask_response, status_code, payload = _parse_proxy_json_response(response_obj)
+    if status_code == 200 and isinstance(payload, dict) and payload.get("error") == "ukjent_fylke":
+        flask_response.status_code = 400
+    return flask_response
+
+
+@regnskap_bp.route("/api/fylke/toppselskaper")
+def regnskap_api_fylke_toppselskaper():
+    allowed = {"fylke", "sektor", "kommune", "orgform", "regnskapsaar", "limit"}
+    params = {key: value for key, value in request.args.items() if key in allowed and str(value).strip() != ""}
+    response_obj = proxy_analysis_api("/analysis-api/fylke/toppselskaper", params)
     flask_response, status_code, payload = _parse_proxy_json_response(response_obj)
     if status_code == 200 and isinstance(payload, dict) and payload.get("error") == "ukjent_fylke":
         flask_response.status_code = 400
