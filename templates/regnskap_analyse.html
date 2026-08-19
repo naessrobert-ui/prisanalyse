@@ -88,7 +88,10 @@
                 <th class="right">Med omsetning</th>
                 <th class="right">Sum omsetning</th>
                 <th class="right">Sum årsresultat</th>
-                <th class="right" id="fylkeKommuneInnbHead" style="display:none;">Innbyggere</th>
+                <th class="right innb-kol" style="display:none;">Innbyggere</th>
+                <th class="right innb-kol" style="display:none;">Oms./innb.</th>
+                <th class="right innb-kol" style="display:none;">Res./innb.</th>
+                <th class="right innb-kol" style="display:none;">Bedr./1000 innb.</th>
             </tr>
             </thead>
             <tbody id="fylkeKommuneBody"></tbody>
@@ -391,22 +394,38 @@
         });
     }
 
+    // Avledede nøkkeltall per innbygger (regnes i frontend fra tall vi allerede har).
+    const perInnb = (sum, innb) => {
+        const s = Number(sum), i = Number(innb);
+        if (!Number.isFinite(s) || !Number.isFinite(i) || i <= 0) return null;
+        return s / i;
+    };
+
     function renderKommuner(rows, harInnbyggertall) {
         const card = get('fylkeKommuneCard');
         const tbody = get('fylkeKommuneBody');
-        get('fylkeKommuneInnbHead').style.display = harInnbyggertall ? '' : 'none';
+        document.querySelectorAll('#fylkeKommuneCard .innb-kol').forEach((el) => {
+            el.style.display = harInnbyggertall ? '' : 'none';
+        });
         if (!rows || !rows.length) { card.style.display = 'none'; return; }
         card.style.display = '';
-        tbody.innerHTML = rows.map((row) => `
+        tbody.innerHTML = rows.map((row) => {
+            const innbCeller = harInnbyggertall ? `
+                <td class="right">${fmtNumber(row.innbyggere)}</td>
+                <td class="right">${fmtNumber(perInnb(row.total_omsetning, row.innbyggere))}</td>
+                <td class="right">${fmtNumber(perInnb(row.total_aarsresultat, row.innbyggere))}</td>
+                <td class="right">${(() => { const v = perInnb(row.antall_bedrifter, row.innbyggere); return v === null ? '—' : new Intl.NumberFormat('nb-NO', { maximumFractionDigits: 1 }).format(v * 1000); })()}</td>
+            ` : '';
+            return `
             <tr class="klikkbar" data-kommune="${row.kommunenummer || ''}" data-label="${row.kommunenavn || row.kommunenummer || ''}" style="cursor:pointer;">
                 <td>${row.kommunenavn || 'Ukjent'} <span class="muted">(${row.kommunenummer || '—'})</span></td>
                 <td class="right">${fmtNumber(row.antall_bedrifter)}</td>
                 <td class="right">${fmtNumber(row.antall_med_omsetning)}</td>
                 <td class="right">${fmtMillion(row.total_omsetning)}</td>
                 <td class="right">${fmtMillion(row.total_aarsresultat)}</td>
-                ${harInnbyggertall ? `<td class="right">${fmtNumber(row.innbyggere)}</td>` : ''}
-            </tr>
-        `).join('');
+                ${innbCeller}
+            </tr>`;
+        }).join('');
         tbody.querySelectorAll('tr.klikkbar').forEach((tr) => {
             tr.addEventListener('click', () => {
                 const kommune = tr.dataset.kommune;
