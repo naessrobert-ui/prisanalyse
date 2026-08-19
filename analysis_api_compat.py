@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Query
 
 from Fastapi_Backend import MAX_LIMIT, build_search_base_sql, clean_limit, fetch_all, fetch_one, resolve_naeringskode_prefix
+from fylke_registry import list_fylker, nace_seksjon, resolve_fylke
 
 
 router = APIRouter()
@@ -1272,6 +1273,178 @@ def _prewarm_default_sector_cache() -> None:
 
 
 _prewarm_default_sector_cache()
+
+
+# ---------------------------------------------------------------------------
+# Fylkesaggregat
+#   Geografi lagres som kommunenummer; fylke utledes fra de to første sifrene.
+#   Se fylke_registry for reform-håndtering (f.eks. Vestland = 46/12/14).
+# ---------------------------------------------------------------------------
+
+# NACE-divisjon (to siffer) trukket ut av e.naeringskode. Tom/manglende kode → ''.
+_FYLKE_DIVISJON_EXPR = (
+    "NULLIF("
+    "LPAD(SUBSTRING(regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g') FROM 1 FOR 2), 2, '0'),"
+    " '00')"
+)
+
+
+def _fylke_where_clause(prefikser: list[str]) -> tuple[str, list[Any]]:
+    """Bygger `LEFT(kommunenummer, 2) IN (...)`-filter fra fylkesprefikser."""
+    placeholders = ", ".join(["%s"] * len(prefikser))
+    clause = f"LEFT(COALESCE(e.kommunenummer::text, ''), 2) IN ({placeholders})"
+    return clause, list(prefikser)
+
+
+def get_fylke_list_payload() -> dict[str, Any]:
+    """Alle fylker – nyttig for nedtrekksmeny/validering i frontend."""
+    return {"fylker": list_fylker()}
+
+
+def get_fylke_aggregat_payload(
+    *,
+    fylke: str | None,
+    orgform: str | None = "AS",
+    regnskapsaar: int | None = None,
+    kommune_limit: int = 60,
+) -> dict[str, Any]:
+    """
+    Aggregerte regnskapstall for ett fylke:
+      - antall bedrifter (og hvor mange som har levert regnskap)
+      - samlet omsetning, drifts- og årsresultat
+      - fordeling på næringshovedområder (NACE-seksjoner A–U)
+      - fordeling per kommune i fylket
+
+    Returnerer {"error": ...} ved ukjent fylke i stedet for å kaste, slik at
+    kallere (Flask-proxy og FastAPI) kan gjøre om til en pen 400.
+    """
+    info = resolve_fylke(fylke)
+    if not info:
+        return {
+            "error": "ukjent_fylke",
+            "detail": (
+                f"Ukjent fylke: {fylke!r}. Oppgi fylkesnummer (f.eks. 46) "
+                "eller navn (f.eks. Vestland)."
+            ),
+            "fylker": list_fylker(),
+        }
+
+    prefikser = info["kommune_prefikser"]
+    fylke_clause, fylke_params = _fylke_where_clause(prefikser)
+
+    def _base() -> tuple[str, list[Any]]:
+        base_sql, params, _ = build_search_base_sql(orgform=orgform, has_regnskap=False)
+        if regnskapsaar is not None:
+            base_sql += " AND r.accounting_year = %s"
+            params.append(regnskapsaar)
+        base_sql += f" AND {fylke_clause}"
+        params.extend(fylke_params)
+        return base_sql, params
+
+    # ── Totaler ──────────────────────────────────────────────────────────────
+    totals_sql_from, totals_params = _base()
+    totals = fetch_one(
+        f"""
+        SELECT
+            COUNT(*)::int AS antall_bedrifter,
+            COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS antall_med_regnskap,
+            COUNT(*) FILTER (WHERE r.revenue IS NOT NULL)::int AS antall_med_omsetning,
+            COUNT(*) FILTER (WHERE r.net_profit > 0)::int AS antall_med_overskudd,
+            COUNT(*) FILTER (
+                WHERE NULLIF(regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g'), '') IS NOT NULL
+            )::int AS antall_med_naeringskode,
+            SUM(r.revenue) AS total_omsetning,
+            SUM(r.operating_profit) AS total_driftsresultat,
+            SUM(r.net_profit) AS total_aarsresultat
+        {totals_sql_from}
+        """,
+        totals_params,
+    ) or {}
+
+    # ── Sektorer (grupperes på to-sifret NACE-divisjon, rulles opp til seksjon) ─
+    sektor_sql_from, sektor_params = _base()
+    divisjon_rows = fetch_all(
+        f"""
+        SELECT
+            COALESCE({_FYLKE_DIVISJON_EXPR}, '') AS divisjon,
+            COUNT(*)::int AS antall_bedrifter,
+            COUNT(*) FILTER (WHERE r.revenue IS NOT NULL)::int AS antall_med_omsetning,
+            SUM(r.revenue) AS total_omsetning,
+            SUM(r.net_profit) AS total_aarsresultat
+        {sektor_sql_from}
+        GROUP BY 1
+        """,
+        sektor_params,
+    )
+    sektorer = _rull_opp_sektorer(divisjon_rows)
+
+    # ── Kommuner i fylket ─────────────────────────────────────────────────────
+    kommune_sql_from, kommune_params = _base()
+    safe_kommune_limit = max(1, min(int(kommune_limit), 200))
+    municipality_name_expr = _coalesce_municipality_name_expr("e")
+    kommune_rows = fetch_all(
+        f"""
+        SELECT
+            COALESCE(NULLIF(TRIM(e.kommunenummer::text), ''), 'Ukjent') AS kommunenummer,
+            COALESCE({municipality_name_expr}, 'Ukjent') AS kommunenavn,
+            COUNT(*)::int AS antall_bedrifter,
+            COUNT(*) FILTER (WHERE r.revenue IS NOT NULL)::int AS antall_med_omsetning,
+            SUM(r.revenue) AS total_omsetning,
+            SUM(r.net_profit) AS total_aarsresultat
+        {kommune_sql_from}
+        GROUP BY 1, 2
+        ORDER BY total_omsetning DESC NULLS LAST, antall_bedrifter DESC, kommunenummer ASC
+        LIMIT %s
+        """,
+        [*kommune_params, safe_kommune_limit],
+    )
+
+    return {
+        "fylke": info,
+        "filters": {"orgform": orgform, "regnskapsaar": regnskapsaar},
+        "totaler": {
+            "antall_bedrifter": int(totals.get("antall_bedrifter") or 0),
+            "antall_med_regnskap": int(totals.get("antall_med_regnskap") or 0),
+            "antall_med_omsetning": int(totals.get("antall_med_omsetning") or 0),
+            "antall_med_overskudd": int(totals.get("antall_med_overskudd") or 0),
+            "antall_med_naeringskode": int(totals.get("antall_med_naeringskode") or 0),
+            "total_omsetning": totals.get("total_omsetning"),
+            "total_driftsresultat": totals.get("total_driftsresultat"),
+            "total_aarsresultat": totals.get("total_aarsresultat"),
+        },
+        "sektorer": sektorer,
+        "kommuner": kommune_rows,
+    }
+
+
+def _rull_opp_sektorer(divisjon_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Ruller to-sifrede NACE-divisjoner opp til næringshovedområder (A–U)."""
+    buckets: dict[str, dict[str, Any]] = {}
+    for row in divisjon_rows:
+        seksjon, navn = nace_seksjon(row.get("divisjon"))
+        bucket = buckets.setdefault(
+            seksjon,
+            {
+                "seksjon": seksjon,
+                "navn": navn,
+                "antall_bedrifter": 0,
+                "antall_med_omsetning": 0,
+                "total_omsetning": None,
+                "total_aarsresultat": None,
+            },
+        )
+        bucket["antall_bedrifter"] += int(row.get("antall_bedrifter") or 0)
+        bucket["antall_med_omsetning"] += int(row.get("antall_med_omsetning") or 0)
+        for felt, kilde in (("total_omsetning", "total_omsetning"), ("total_aarsresultat", "total_aarsresultat")):
+            verdi = row.get(kilde)
+            if verdi is not None:
+                bucket[felt] = (bucket[felt] or 0.0) + float(verdi)
+
+    return sorted(
+        buckets.values(),
+        key=lambda b: (b["total_omsetning"] is not None, b["total_omsetning"] or 0.0),
+        reverse=True,
+    )
 
 
 def get_companies_top_omsetning_payload(
