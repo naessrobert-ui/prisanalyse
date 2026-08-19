@@ -16,6 +16,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from fylke_registry import list_fylker, nace_seksjon, resolve_fylke
+
 
 # ----------------------------------------------------------------------------
 # Configuration
@@ -744,6 +746,162 @@ def companies_by_kommune(
     """
     params.append(limit)
     return fetch_all_dict(sql, tuple(params))
+
+
+@app.get("/analysis-api/fylke/list")
+def fylke_list() -> dict[str, Any]:
+    return {"fylker": list_fylker()}
+
+
+def _fylke_kommune_prefix_clause(prefixes: list[str]) -> tuple[str, list[Any]]:
+    placeholders = ", ".join(["%s"] * len(prefixes))
+    clause = f"left(coalesce(cast(e.kommunenummer as text), ''), 2) in ({placeholders})"
+    return clause, list(prefixes)
+
+
+def _fylke_division_expr() -> str | None:
+    """To-sifret NACE-divisjon fra første tilgjengelige næringskode-kolonne."""
+    code_columns = available_industry_code_columns()
+    if not code_columns:
+        return None
+    code_expr = "coalesce(" + ", ".join(
+        f"nullif(regexp_replace(coalesce(cast(e.{col} as text), ''), '\\D', '', 'g'), '')"
+        for col in code_columns
+    ) + ")"
+    return f"left(coalesce({code_expr}, ''), 2)"
+
+
+@app.get("/analysis-api/fylke/aggregat")
+def fylke_aggregat(
+    fylke: str = Query(..., description="Fylkesnummer (f.eks. 46) eller navn (f.eks. Vestland)"),
+    orgform: str | None = Query(default="AS"),
+    regnskapsaar: int | None = Query(default=None),
+    kommune_limit: int = Query(default=60, ge=1, le=200),
+) -> dict[str, Any]:
+    info = resolve_fylke(fylke)
+    if not info:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Ukjent fylke: {fylke!r}. Oppgi fylkesnummer (f.eks. 46) "
+                "eller navn (f.eks. Vestland)."
+            ),
+        )
+
+    prefixes = info["kommune_prefikser"]
+    fylke_clause, fylke_params = _fylke_kommune_prefix_clause(prefixes)
+
+    # "alle"/"all"/"*" betyr «ikke filtrer på selskapsform».
+    if orgform is not None and str(orgform).strip().lower() in {"alle", "all", "*"}:
+        orgform = None
+
+    filters = [fylke_clause]
+    params: list[Any] = list(fylke_params)
+    if orgform:
+        filters.append("e.orgform = %s")
+        params.append(orgform)
+    if regnskapsaar is not None:
+        filters.append("r.regnskapsaar = %s")
+        params.append(regnskapsaar)
+    where_clause = "where " + " and ".join(filters)
+
+    from_join = "from entity e\nleft join regnskap_siste r on r.orgnr = e.orgnr\n"
+
+    totals = fetch_one_dict(
+        f"""
+        select
+            count(*)::int as antall_bedrifter,
+            count(*) filter (where r.regnskapsaar is not null)::int as antall_med_regnskap,
+            count(*) filter (where r.sum_driftsinntekter is not null)::int as antall_med_omsetning,
+            count(*) filter (where r.aarsresultat > 0)::int as antall_med_overskudd,
+            sum(r.sum_driftsinntekter)::float as total_omsetning,
+            sum(r.driftsresultat)::float as total_driftsresultat,
+            sum(r.aarsresultat)::float as total_aarsresultat
+        {from_join}{where_clause}
+        """,
+        tuple(params),
+    ) or {}
+
+    division_expr = _fylke_division_expr()
+    sektorer: list[dict[str, Any]] = []
+    if division_expr is not None:
+        division_rows = fetch_all_dict(
+            f"""
+            select
+                {division_expr} as divisjon,
+                count(*)::int as antall_bedrifter,
+                count(*) filter (where r.sum_driftsinntekter is not null)::int as antall_med_omsetning,
+                sum(r.sum_driftsinntekter)::float as total_omsetning,
+                sum(r.aarsresultat)::float as total_aarsresultat
+            {from_join}{where_clause}
+            group by 1
+            """,
+            tuple(params),
+        )
+        sektorer = _rull_opp_sektorer(division_rows)
+
+    kommune_rows = fetch_all_dict(
+        f"""
+        select
+            coalesce(nullif(trim(cast(e.kommunenummer as text)), ''), 'Ukjent') as kommunenummer,
+            count(*)::int as antall_bedrifter,
+            count(*) filter (where r.sum_driftsinntekter is not null)::int as antall_med_omsetning,
+            sum(r.sum_driftsinntekter)::float as total_omsetning,
+            sum(r.aarsresultat)::float as total_aarsresultat
+        {from_join}{where_clause}
+        group by 1
+        order by total_omsetning desc nulls last, antall_bedrifter desc, kommunenummer asc
+        limit %s
+        """,
+        tuple(params + [kommune_limit]),
+    )
+
+    return {
+        "fylke": info,
+        "filters": {"orgform": orgform, "regnskapsaar": regnskapsaar},
+        "totaler": {
+            "antall_bedrifter": int(totals.get("antall_bedrifter") or 0),
+            "antall_med_regnskap": int(totals.get("antall_med_regnskap") or 0),
+            "antall_med_omsetning": int(totals.get("antall_med_omsetning") or 0),
+            "antall_med_overskudd": int(totals.get("antall_med_overskudd") or 0),
+            "total_omsetning": totals.get("total_omsetning"),
+            "total_driftsresultat": totals.get("total_driftsresultat"),
+            "total_aarsresultat": totals.get("total_aarsresultat"),
+        },
+        "naeringskode_tilgjengelig": division_expr is not None,
+        "sektorer": sektorer,
+        "kommuner": kommune_rows,
+    }
+
+
+def _rull_opp_sektorer(division_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Ruller to-sifrede NACE-divisjoner opp til næringshovedområder (A–U)."""
+    buckets: dict[str, dict[str, Any]] = {}
+    for row in division_rows:
+        seksjon, navn = nace_seksjon(row.get("divisjon"))
+        bucket = buckets.setdefault(
+            seksjon,
+            {
+                "seksjon": seksjon,
+                "navn": navn,
+                "antall_bedrifter": 0,
+                "antall_med_omsetning": 0,
+                "total_omsetning": None,
+                "total_aarsresultat": None,
+            },
+        )
+        bucket["antall_bedrifter"] += int(row.get("antall_bedrifter") or 0)
+        bucket["antall_med_omsetning"] += int(row.get("antall_med_omsetning") or 0)
+        for felt in ("total_omsetning", "total_aarsresultat"):
+            verdi = row.get(felt)
+            if verdi is not None:
+                bucket[felt] = (bucket[felt] or 0.0) + float(verdi)
+
+    return sorted(
+        buckets.values(),
+        key=lambda b: (b["total_omsetning"] is not None, b["total_omsetning"] or 0.0),
+        reverse=True,
+    )
 
 
 @app.get("/analysis-api/companies/filter/meta", response_model=CompanyFilterMetaResponse)
