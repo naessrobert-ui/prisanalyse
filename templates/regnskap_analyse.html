@@ -57,8 +57,10 @@
         </div>
         <div class="actions">
             <button id="fylkeBtn" type="button">Hent fylkestall</button>
+            <button id="fylkeOppdaterBtn" class="alt" type="button" title="Beregner tallene på nytt for alle fylker">Oppdater underliggende tall</button>
         </div>
         <p id="fylkeStatus" class="muted small">Velg fylke og hent tall.</p>
+        <p id="fylkeFerskhet" class="muted small"></p>
         <div id="fylkeKpis" class="grid" style="margin-top:12px;"></div>
     </section>
 
@@ -517,13 +519,62 @@
                 ? ` Næringskode finnes for ${fmtNumber(t.antall_med_naeringskode)} av ${fmtNumber(t.antall_bedrifter)} bedrifter.`
                 : '';
             get('fylkeStatus').textContent = `${data.fylke?.navn || fylkeNavn}: ${fmtNumber(t.antall_bedrifter)} bedrifter.${dekning}`;
+            visFerskhet(data.oppdatert);
         } catch (err) {
             get('fylkeStatus').textContent = `Klarte ikke hente fylkestall: ${err.message}`;
         }
     }
 
+    function fmtTidspunkt(iso) {
+        if (!iso) return null;
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return null;
+        return d.toLocaleString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    function visFerskhet(iso) {
+        const el = get('fylkeFerskhet');
+        const t = fmtTidspunkt(iso);
+        el.textContent = t ? `Tall sist oppdatert: ${t}` : 'Live-beregnet (ingen lagret oppdatering ennå).';
+    }
+
+    async function oppdaterUnderliggende() {
+        const btn = get('fylkeOppdaterBtn');
+        btn.disabled = true;
+        const opprinnelig = btn.textContent;
+        btn.textContent = 'Oppdaterer …';
+        get('fylkeFerskhet').textContent = 'Beregner tallene på nytt for alle fylker … dette tar normalt noen sekunder.';
+        try {
+            await fetch('/regnskap/api/fylke/oppdater', { method: 'POST', headers: { 'Accept': 'application/json' } });
+            // Poll status til jobben er ferdig (maks ~2 min).
+            for (let i = 0; i < 60; i++) {
+                await new Promise((r) => setTimeout(r, 2000));
+                let s;
+                try { s = await hentJson('/regnskap/api/fylke/oppdater/status'); } catch (_) { continue; }
+                if (!s.kjorer) {
+                    visFerskhet(s.sist_oppdatert);
+                    await hentFylke(); // hent ferske tall for valgt fylke
+                    break;
+                }
+            }
+        } catch (err) {
+            get('fylkeFerskhet').textContent = `Klarte ikke oppdatere: ${err.message}`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = opprinnelig;
+        }
+    }
+
+    async function visInitiellFerskhet() {
+        try {
+            const s = await hentJson('/regnskap/api/fylke/oppdater/status');
+            if (s.sist_oppdatert) visFerskhet(s.sist_oppdatert);
+        } catch (_) { /* ignorer */ }
+    }
+
     get('fylkeBtn').addEventListener('click', hentFylke);
+    get('fylkeOppdaterBtn').addEventListener('click', oppdaterUnderliggende);
     loadFylker();
+    visInitiellFerskhet();
 })();
 </script>
 

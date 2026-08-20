@@ -1662,6 +1662,25 @@ def regnskap_api_fylke_toppselskaper():
     return flask_response
 
 
+@regnskap_bp.route("/api/fylke/oppdater", methods=["POST"])
+def regnskap_api_fylke_oppdater():
+    """Starter forhåndsberegning av fylkestall i bakgrunnen (åpen knapp)."""
+    try:
+        from analysis_api_compat import start_fylke_snapshot_oppdatering
+    except Exception as exc:
+        return jsonify({"status": "feil", "detail": str(exc)}), 500
+    return jsonify(start_fylke_snapshot_oppdatering())
+
+
+@regnskap_bp.route("/api/fylke/oppdater/status")
+def regnskap_api_fylke_oppdater_status():
+    try:
+        from analysis_api_compat import fylke_snapshot_status
+    except Exception as exc:
+        return jsonify({"kjorer": False, "sist_oppdatert": None, "detail": str(exc)}), 500
+    return jsonify(fylke_snapshot_status())
+
+
 @regnskap_bp.route("/analyse")
 def regnskap_analysis_page():
     return render_template("regnskap_analyse.html")
