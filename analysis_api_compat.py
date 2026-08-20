@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import os
 import re
 import threading
@@ -10,7 +11,17 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
-from Fastapi_Backend import MAX_LIMIT, build_search_base_sql, clean_limit, fetch_all, fetch_one, resolve_naeringskode_prefix
+from psycopg.types.json import Json
+
+from Fastapi_Backend import (
+    MAX_LIMIT,
+    build_search_base_sql,
+    clean_limit,
+    fetch_all,
+    fetch_one,
+    get_conn,
+    resolve_naeringskode_prefix,
+)
 from fylke_registry import (
     har_innbyggertall,
     kommune_innbyggere,
@@ -1323,6 +1334,129 @@ _fylke_aggregat_cache: dict[tuple[Any, ...], tuple[float, dict[str, Any]]] = {}
 _fylke_aggregat_cache_lock = threading.Lock()
 
 
+# ── Forhåndsberegnet snapshot i databasen ─────────────────────────────────────
+# Delt på tvers av web-instanser og overlever omstart (til forskjell fra
+# in-memory-cachen). Oppdateres ukentlig av cron og på forespørsel via knapp.
+_SNAPSHOT_TABELL = "fylke_aggregat_snapshot"
+_SNAPSHOT_ORGFORMER: tuple[str | None, ...] = ("AS", None)  # None = alle former
+_snapshot_lock = threading.Lock()
+_snapshot_status: dict[str, Any] = {"kjorer": False, "startet": None}
+
+
+def _orgform_key(orgform: str | None) -> str:
+    key = (orgform or "").strip().upper()
+    return key or "ALLE"
+
+
+def _ensure_snapshot_tabell(cur) -> None:
+    cur.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS {_SNAPSHOT_TABELL} (
+            fylke_nummer text        NOT NULL,
+            orgform_key  text        NOT NULL,
+            payload      jsonb       NOT NULL,
+            oppdatert    timestamptz NOT NULL DEFAULT now(),
+            PRIMARY KEY (fylke_nummer, orgform_key)
+        )
+        """
+    )
+
+
+def _les_fylke_snapshot(fylke_nummer: str, orgform: str | None) -> dict[str, Any] | None:
+    """Henter et ferdigberegnet fylkesaggregat fra snapshot-tabellen, ellers None."""
+    try:
+        row = fetch_one(
+            f"SELECT payload, oppdatert FROM {_SNAPSHOT_TABELL} "
+            f"WHERE fylke_nummer = %s AND orgform_key = %s",
+            [fylke_nummer, _orgform_key(orgform)],
+        )
+    except Exception:
+        # Tabellen finnes kanskje ikke ennå (før første oppdatering) – fall
+        # tilbake til live-beregning.
+        return None
+    if not row or not row.get("payload"):
+        return None
+
+    payload = row["payload"]
+    if not isinstance(payload, dict):
+        try:
+            payload = json.loads(payload)
+        except (TypeError, ValueError):
+            return None
+
+    payload = copy.deepcopy(payload)
+    oppdatert = row.get("oppdatert")
+    payload["oppdatert"] = oppdatert.isoformat() if hasattr(oppdatert, "isoformat") else oppdatert
+    payload["kilde"] = "snapshot"
+    return payload
+
+
+def oppdater_fylke_snapshot(orgformer: tuple[str | None, ...] = _SNAPSHOT_ORGFORMER) -> dict[str, Any]:
+    """
+    Beregner fylkesaggregat for alle fylker (og de valgte selskapsformene) og
+    lagrer dem i snapshot-tabellen. Kjøres av cron og av «Oppdater»-knappen.
+    Én kjøring om gangen (lås).
+    """
+    with _snapshot_lock:
+        if _snapshot_status["kjorer"]:
+            return {"status": "pågår", "startet": _snapshot_status["startet"]}
+        _snapshot_status["kjorer"] = True
+        _snapshot_status["startet"] = time.time()
+
+    antall = 0
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                _ensure_snapshot_tabell(cur)
+                for fylke in list_fylker():
+                    for orgform in orgformer:
+                        payload = _beregn_fylke_aggregat(fylke, orgform, None, 200)
+                        cur.execute(
+                            f"""
+                            INSERT INTO {_SNAPSHOT_TABELL} (fylke_nummer, orgform_key, payload, oppdatert)
+                            VALUES (%s, %s, %s, now())
+                            ON CONFLICT (fylke_nummer, orgform_key) DO UPDATE
+                                SET payload = EXCLUDED.payload, oppdatert = now()
+                            """,
+                            [fylke["nummer"], _orgform_key(orgform), Json(payload)],
+                        )
+                        antall += 1
+        # Tøm in-memory-cachen så evt. lokale kall også ser de nye tallene.
+        with _fylke_aggregat_cache_lock:
+            _fylke_aggregat_cache.clear()
+        return {"status": "ok", "oppdaterte_kombinasjoner": antall}
+    finally:
+        with _snapshot_lock:
+            _snapshot_status["kjorer"] = False
+
+
+def start_fylke_snapshot_oppdatering() -> dict[str, Any]:
+    """Starter en snapshot-oppdatering i bakgrunnen (returnerer umiddelbart)."""
+    with _snapshot_lock:
+        if _snapshot_status["kjorer"]:
+            return {"status": "pågår"}
+
+    threading.Thread(
+        target=oppdater_fylke_snapshot,
+        name="fylke-snapshot-oppdatering",
+        daemon=True,
+    ).start()
+    return {"status": "startet"}
+
+
+def fylke_snapshot_status() -> dict[str, Any]:
+    """Om en oppdatering kjører nå, og når tallene sist ble oppdatert."""
+    sist = None
+    try:
+        row = fetch_one(f"SELECT max(oppdatert) AS sist FROM {_SNAPSHOT_TABELL}", [])
+        if row and row.get("sist") is not None:
+            verdi = row["sist"]
+            sist = verdi.isoformat() if hasattr(verdi, "isoformat") else verdi
+    except Exception:
+        sist = None
+    return {"kjorer": bool(_snapshot_status["kjorer"]), "sist_oppdatert": sist}
+
+
 def get_fylke_aggregat_payload(
     *,
     fylke: str | None,
@@ -1352,16 +1486,37 @@ def get_fylke_aggregat_payload(
         }
 
     safe_kommune_limit = max(1, min(int(kommune_limit), 200))
-    cache_key = (info["nummer"], (orgform or "").strip().upper(), regnskapsaar, safe_kommune_limit)
 
+    # 1) Forhåndsberegnet snapshot (kun standardtilfellet uten årsfilter). Gir
+    #    umiddelbart svar, delt på tvers av instanser, og overlever omstart.
+    if regnskapsaar is None:
+        snapshot = _les_fylke_snapshot(info["nummer"], orgform)
+        if snapshot is not None:
+            return snapshot
+
+    # 2) In-memory TTL-cache for øvrige tilfeller (f.eks. årsfiltrerte).
+    cache_key = (info["nummer"], (orgform or "").strip().upper(), regnskapsaar, safe_kommune_limit)
     now = time.time()
     with _fylke_aggregat_cache_lock:
         cached = _fylke_aggregat_cache.get(cache_key)
         if cached and cached[0] > now:
             return copy.deepcopy(cached[1])
 
-    prefikser = info["kommune_prefikser"]
-    fylke_clause, fylke_params = _fylke_where_clause(prefikser)
+    payload = _beregn_fylke_aggregat(info, orgform, regnskapsaar, safe_kommune_limit)
+
+    with _fylke_aggregat_cache_lock:
+        _fylke_aggregat_cache[cache_key] = (now + _FYLKE_AGGREGAT_CACHE_TTL, payload)
+    return copy.deepcopy(payload)
+
+
+def _beregn_fylke_aggregat(
+    info: dict[str, Any],
+    orgform: str | None,
+    regnskapsaar: int | None,
+    safe_kommune_limit: int,
+) -> dict[str, Any]:
+    """Kjører selve DB-spørringene og bygger aggregat-payloaden (uten cache)."""
+    fylke_clause, fylke_params = _fylke_where_clause(info["kommune_prefikser"])
 
     def _base() -> tuple[str, list[Any]]:
         base_sql, params, _ = build_search_base_sql(orgform=orgform, has_regnskap=False)
@@ -1416,7 +1571,7 @@ def get_fylke_aggregat_payload(
     )
     _berik_kommuner(kommune_rows)
 
-    payload = {
+    return {
         "fylke": info,
         "filters": {"orgform": orgform, "regnskapsaar": regnskapsaar},
         "har_innbyggertall": har_innbyggertall(),
@@ -1424,10 +1579,6 @@ def get_fylke_aggregat_payload(
         "sektorer": sektorer,
         "kommuner": kommune_rows,
     }
-
-    with _fylke_aggregat_cache_lock:
-        _fylke_aggregat_cache[cache_key] = (now + _FYLKE_AGGREGAT_CACHE_TTL, payload)
-    return copy.deepcopy(payload)
 
 
 def _summer_fylke_totaler(divisjon_rows: list[dict[str, Any]]) -> dict[str, Any]:
