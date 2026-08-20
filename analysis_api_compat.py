@@ -1298,7 +1298,14 @@ _FYLKE_DIVISJON_EXPR = (
 
 
 def _fylke_where_clause(prefikser: list[str]) -> tuple[str, list[Any]]:
-    """Bygger `LEFT(kommunenummer, 2) IN (...)`-filter fra fylkesprefikser."""
+    """
+    Bygger `LEFT(kommunenummer, 2) IN (...)`-filter fra fylkesprefikser.
+
+    Merk: uttrykket er indeks-vennlig KUN med en funksjonell indeks som
+    matcher det, se scripts/sql/idx_entity_kommune_prefix.sql. Uten den
+    fører filteret til full scan av entity, som er hovedgrunnen til at
+    fylkes-uttrekk kan være tregt.
+    """
     placeholders = ", ".join(["%s"] * len(prefikser))
     clause = f"LEFT(COALESCE(e.kommunenummer::text, ''), 2) IN ({placeholders})"
     return clause, list(prefikser)
@@ -1307,6 +1314,13 @@ def _fylke_where_clause(prefikser: list[str]) -> tuple[str, list[Any]]:
 def get_fylke_list_payload() -> dict[str, Any]:
     """Alle fylker – nyttig for nedtrekksmeny/validering i frontend."""
     return {"fylker": list_fylker()}
+
+
+# Enkel TTL-cache for fylkesaggregat. Etter første (potensielt trege) uttrekk
+# svarer gjentatte kall momentant, og DB-lasten faller kraftig.
+_FYLKE_AGGREGAT_CACHE_TTL = max(60, int(os.getenv("FYLKE_AGGREGAT_CACHE_TTL_SECONDS", str(15 * 60))))
+_fylke_aggregat_cache: dict[tuple[Any, ...], tuple[float, dict[str, Any]]] = {}
+_fylke_aggregat_cache_lock = threading.Lock()
 
 
 def get_fylke_aggregat_payload(
@@ -1337,6 +1351,15 @@ def get_fylke_aggregat_payload(
             "fylker": list_fylker(),
         }
 
+    safe_kommune_limit = max(1, min(int(kommune_limit), 200))
+    cache_key = (info["nummer"], (orgform or "").strip().upper(), regnskapsaar, safe_kommune_limit)
+
+    now = time.time()
+    with _fylke_aggregat_cache_lock:
+        cached = _fylke_aggregat_cache.get(cache_key)
+        if cached and cached[0] > now:
+            return copy.deepcopy(cached[1])
+
     prefikser = info["kommune_prefikser"]
     fylke_clause, fylke_params = _fylke_where_clause(prefikser)
 
@@ -1349,46 +1372,31 @@ def get_fylke_aggregat_payload(
         params.extend(fylke_params)
         return base_sql, params
 
-    # ── Totaler ──────────────────────────────────────────────────────────────
-    totals_sql_from, totals_params = _base()
-    totals = fetch_one(
-        f"""
-        SELECT
-            COUNT(*)::int AS antall_bedrifter,
-            COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS antall_med_regnskap,
-            COUNT(*) FILTER (WHERE r.revenue IS NOT NULL)::int AS antall_med_omsetning,
-            COUNT(*) FILTER (WHERE r.net_profit > 0)::int AS antall_med_overskudd,
-            COUNT(*) FILTER (
-                WHERE NULLIF(regexp_replace(COALESCE(e.naeringskode::text, ''), '\\D', '', 'g'), '') IS NOT NULL
-            )::int AS antall_med_naeringskode,
-            SUM(r.revenue) AS total_omsetning,
-            SUM(r.operating_profit) AS total_driftsresultat,
-            SUM(r.net_profit) AS total_aarsresultat
-        {totals_sql_from}
-        """,
-        totals_params,
-    ) or {}
-
-    # ── Sektorer (grupperes på to-sifret NACE-divisjon, rulles opp til seksjon) ─
+    # ── Sektorer + totaler i ÉN scan ──────────────────────────────────────────
+    # Grupperer på to-sifret NACE-divisjon. Totalene utledes i Python ved å
+    # summere divisjonsradene, så vi slipper en egen full scan for totaler.
     sektor_sql_from, sektor_params = _base()
     divisjon_rows = fetch_all(
         f"""
         SELECT
             COALESCE({_FYLKE_DIVISJON_EXPR}, '') AS divisjon,
             COUNT(*)::int AS antall_bedrifter,
+            COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS antall_med_regnskap,
             COUNT(*) FILTER (WHERE r.revenue IS NOT NULL)::int AS antall_med_omsetning,
+            COUNT(*) FILTER (WHERE r.net_profit > 0)::int AS antall_med_overskudd,
             SUM(r.revenue) AS total_omsetning,
+            SUM(r.operating_profit) AS total_driftsresultat,
             SUM(r.net_profit) AS total_aarsresultat
         {sektor_sql_from}
         GROUP BY 1
         """,
         sektor_params,
     )
+    totals = _summer_fylke_totaler(divisjon_rows)
     sektorer = _rull_opp_sektorer(divisjon_rows)
 
     # ── Kommuner i fylket ─────────────────────────────────────────────────────
     kommune_sql_from, kommune_params = _base()
-    safe_kommune_limit = max(1, min(int(kommune_limit), 200))
     municipality_name_expr = _coalesce_municipality_name_expr("e")
     kommune_rows = fetch_all(
         f"""
@@ -1408,23 +1416,46 @@ def get_fylke_aggregat_payload(
     )
     _berik_kommuner(kommune_rows)
 
-    return {
+    payload = {
         "fylke": info,
         "filters": {"orgform": orgform, "regnskapsaar": regnskapsaar},
         "har_innbyggertall": har_innbyggertall(),
-        "totaler": {
-            "antall_bedrifter": int(totals.get("antall_bedrifter") or 0),
-            "antall_med_regnskap": int(totals.get("antall_med_regnskap") or 0),
-            "antall_med_omsetning": int(totals.get("antall_med_omsetning") or 0),
-            "antall_med_overskudd": int(totals.get("antall_med_overskudd") or 0),
-            "antall_med_naeringskode": int(totals.get("antall_med_naeringskode") or 0),
-            "total_omsetning": totals.get("total_omsetning"),
-            "total_driftsresultat": totals.get("total_driftsresultat"),
-            "total_aarsresultat": totals.get("total_aarsresultat"),
-        },
+        "totaler": totals,
         "sektorer": sektorer,
         "kommuner": kommune_rows,
     }
+
+    with _fylke_aggregat_cache_lock:
+        _fylke_aggregat_cache[cache_key] = (now + _FYLKE_AGGREGAT_CACHE_TTL, payload)
+    return copy.deepcopy(payload)
+
+
+def _summer_fylke_totaler(divisjon_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Utleder fylkestotaler ved å summere divisjonsradene (sparer en scan)."""
+    totaler = {
+        "antall_bedrifter": 0,
+        "antall_med_regnskap": 0,
+        "antall_med_omsetning": 0,
+        "antall_med_overskudd": 0,
+        "antall_med_naeringskode": 0,
+        "total_omsetning": None,
+        "total_driftsresultat": None,
+        "total_aarsresultat": None,
+    }
+    for row in divisjon_rows:
+        antall = int(row.get("antall_bedrifter") or 0)
+        totaler["antall_bedrifter"] += antall
+        totaler["antall_med_regnskap"] += int(row.get("antall_med_regnskap") or 0)
+        totaler["antall_med_omsetning"] += int(row.get("antall_med_omsetning") or 0)
+        totaler["antall_med_overskudd"] += int(row.get("antall_med_overskudd") or 0)
+        # Divisjon '' = manglende næringskode; alt annet teller som "med næringskode".
+        if str(row.get("divisjon") or "") != "":
+            totaler["antall_med_naeringskode"] += antall
+        for felt in ("total_omsetning", "total_driftsresultat", "total_aarsresultat"):
+            verdi = row.get(felt)
+            if verdi is not None:
+                totaler[felt] = (totaler[felt] or 0.0) + float(verdi)
+    return totaler
 
 
 def _rull_opp_sektorer(divisjon_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

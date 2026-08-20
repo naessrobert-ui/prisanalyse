@@ -325,6 +325,22 @@
 (() => {
     const fstate = { fylke: '46', fylkeNavn: 'Vestland', orgform: 'AS', aar: '' };
     const get = (id) => document.getElementById(id);
+
+    // Robust JSON-henting: håndterer HTML-feilsider (typisk gateway-timeout) og
+    // 5xx pent, i stedet for «Unexpected token '<'».
+    async function hentJson(url) {
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        const tekst = await res.text();
+        let data = null;
+        try { data = JSON.parse(tekst); } catch (_) { /* ikke JSON */ }
+        if (!res.ok) {
+            if (data && data.detail) throw new Error(data.detail);
+            if (res.status >= 500) throw new Error(`Serverfeil (HTTP ${res.status}) – spørringen kan ha brukt for lang tid. Prøv igjen om litt.`);
+            throw new Error(`HTTP ${res.status}`);
+        }
+        if (data === null) throw new Error('Serveren svarte ikke med gyldige data (mulig tidsavbrudd). Prøv igjen om litt.');
+        return data;
+    }
     const fmtNumber = (v) => {
         if (v === null || v === undefined || v === '') return '—';
         const n = Number(v);
@@ -470,9 +486,7 @@
         if (kommune) params.set('kommune', kommune);
         params.set('limit', '25');
         try {
-            const res = await fetch(`/regnskap/api/fylke/toppselskaper?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+            const data = await hentJson(`/regnskap/api/fylke/toppselskaper?${params.toString()}`);
             renderToppselskaper(data.selskaper || []);
             get('fylkeToppHint').textContent = `${fstate.fylkeNavn} – ${label}: viser ${fmtNumber((data.selskaper || []).length)} største (på omsetning).`;
         } catch (err) {
@@ -492,11 +506,9 @@
         params.set('fylke', fylke);
         params.set('orgform', fstate.orgform);
         if (fstate.aar) params.set('regnskapsaar', fstate.aar);
-        get('fylkeStatus').textContent = `Henter tall for ${fylkeNavn}…`;
+        get('fylkeStatus').textContent = `Henter tall for ${fylkeNavn}… (kan ta noen sekunder første gang)`;
         try {
-            const res = await fetch(`/regnskap/api/fylke/aggregat?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+            const data = await hentJson(`/regnskap/api/fylke/aggregat?${params.toString()}`);
             const t = data.totaler || {};
             renderKpis(t, data.fylke?.navn || fylkeNavn);
             renderSektorer(data.sektorer || []);
