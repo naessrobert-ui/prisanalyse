@@ -125,3 +125,24 @@ services:
         value: eu-north-1
       - key: S3_BUCKET_NAME
         sync: false
+
+  - type: cron
+    name: opprett-fylke-indekser
+    runtime: python
+    # Engangsjobb: oppretter DB-indeksene som gjoer fylkes-uttrekk raske
+    # (scripts/sql/idx_entity_kommune_prefix.sql). Kjoeres manuelt via
+    # "Trigger Run" i Render-dashbordet. Idempotent (IF NOT EXISTS), saa den
+    # rare aarlige planen er bare for aa ha en gyldig schedule; kan slettes
+    # naar indeksene er paa plass. Bruker appens IAM-tilkobling mot RDS.
+    schedule: "0 4 1 1 *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.opprett_fylke_indekser
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: eu-north-1
