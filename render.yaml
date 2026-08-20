@@ -129,22 +129,19 @@ services:
   - type: cron
     name: oppdater-fylke-snapshot
     runtime: python
-    # Ukentlig (mandag 03:30 UTC): forhaandsberegner fylkestall for alle fylker
-    # og lagrer dem i snapshot-tabellen, saa uttrekk paa nettsiden er
-    # umiddelbare. Kan ogsaa trigges paa forespoersel via "Oppdater
-    # underliggende tall"-knappen. Bruker appens IAM-tilkobling mot RDS.
+    # Ukentlig (mandag 03:30 UTC): ber web-tjenesten om aa forhaandsberegne
+    # fylkestallene, via et HTTPS-kall til det aapne endepunktet. Web-tjenesten
+    # gjoer selve DB-jobben. Denne cron-tjenesten trenger derfor hverken
+    # DB-tilgang eller AWS-noekler (dens egen utgaaende IP naar ikke RDS -> gav
+    # ConnectionTimeout ved direkte tilkobling). Bare vanlig utgaaende HTTPS.
     schedule: "30 3 * * 1"
-    buildCommand: pip install -r requirements.txt
-    startCommand: python -m scripts.oppdater_fylke_snapshot
+    buildCommand: python --version
+    startCommand: python scripts/trigg_fylke_oppdatering.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.10
-      - key: AWS_ACCESS_KEY_ID
-        sync: false
-      - key: AWS_SECRET_ACCESS_KEY
-        sync: false
-      - key: AWS_REGION
-        value: eu-north-1
+      - key: FYLKE_OPPDATER_URL
+        value: https://prisanalyse.no/regnskap/api/fylke/oppdater
 
   - type: cron
     name: opprett-fylke-indekser
