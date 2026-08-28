@@ -33,6 +33,20 @@
         .map-stats-box p { margin: 0 0 5px 0; font-size: 14px; display: flex; justify-content: space-between; }
         .legend-box { margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6; font-size: 13px; }
         .legend-box .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+        .cluster-legend { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #dee2e6; }
+        .cluster-legend-bubble { width: 42px; height: 42px; flex: 0 0 42px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #8f9bb3; color: #172033; border: 3px solid rgba(255,255,255,0.95); box-shadow: 0 1px 5px rgba(23,32,51,0.32); font-weight: 800; line-height: 1; }
+        .cluster-legend-bubble small { font-size: 9px; margin-left: 1px; }
+        .cluster-legend-copy { line-height: 1.35; }
+        .housing-cluster-icon { background: transparent; border: 0; }
+        .housing-cluster-bubble { width: 100%; height: 100%; display: flex; align-items: baseline; justify-content: center; border-radius: 50%; border: 3px solid rgba(255,255,255,0.95); box-sizing: border-box; box-shadow: 0 2px 8px rgba(23,32,51,0.38), inset 0 0 0 1px rgba(23,32,51,0.2); font-variant-numeric: tabular-nums; }
+        .housing-cluster-value { align-self: center; font-size: 16px; font-weight: 800; line-height: 1; letter-spacing: -0.4px; }
+        .housing-cluster-unit { align-self: center; font-size: 9px; font-weight: 800; line-height: 1; margin: 5px 0 0 2px; }
+        .cluster-summary-tooltip { min-width: 210px; padding: 10px 12px; border: 0; border-radius: 8px; box-shadow: 0 4px 16px rgba(23,32,51,0.2); color: #172033; }
+        .cluster-summary-tooltip::before { border-top-color: #fff; }
+        .cluster-summary-title { font-size: 14px; font-weight: 800; margin-bottom: 7px; }
+        .cluster-summary-row { display: flex; justify-content: space-between; gap: 16px; margin-top: 3px; }
+        .cluster-summary-row strong { white-space: nowrap; }
+        .cluster-summary-hint { margin-top: 8px; padding-top: 7px; border-top: 1px solid #e4e8ee; color: #5f6b7a; font-size: 11px; }
 
         #menu-toggle-btn { display: none; position: fixed; top: 15px; right: 15px; z-index: 1600; width: 46px; height: 46px; border-radius: 50%; background: #0063fb; color: white; align-items: center; justify-content: center; font-size: 22px; line-height: 1; border: none; box-shadow: 0 2px 6px rgba(0,0,0,0.25); cursor: pointer; padding: 0; }
         #menu-close-btn { display: none; position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 50%; background: #eee; border: none; cursor: pointer; font-size: 18px; line-height: 1; padding: 0; }
@@ -143,7 +157,12 @@
                 <div><span class="dot" style="background:#2EAD4A"></span> Kort tid på markedet</div>
                 <div><span class="dot" style="background:#D94841"></span> Lang tid på markedet</div>
                 <div><span class="dot" style="background:#8f9bb3"></span> Resten</div>
-                <div style="margin-top:6px;">Gjelder både solgte og aktive boliger. Størrelse følger valgt prisgrunnlag.</div>
+                <div style="margin-top:6px;">Gjelder både solgte og aktive boliger.</div>
+                <div class="cluster-legend">
+                    <span class="cluster-legend-bubble">42<small>d</small></span>
+                    <span class="cluster-legend-copy"><strong>Klynger:</strong> Tallet er median dager. Størrelsen viser antall boliger. Hold over for detaljer.</span>
+                </div>
+                <div style="margin-top:8px;">Enkeltboliger: Størrelsen følger valgt prisgrunnlag.</div>
             </div>
             <div id="map-stats-container" style="display: none;">
                 <div id="map-stats-avg" class="map-stats-box">
@@ -329,12 +348,117 @@
             return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
         }
 
+        function clusterRows(cluster) {
+            return cluster.getAllChildMarkers()
+                .map(marker => marker.boligData)
+                .filter(Boolean);
+        }
+
+        function calculateClusterStats(cluster) {
+            const rows = clusterRows(cluster);
+            const durations = durationValues(rows);
+            const totalPrices = rows.map(row => row.totalpris)
+                .filter(value => value != null && !isNaN(value) && value > 0);
+            const m2Prices = rows.map(row => row.m2_pris)
+                .filter(value => value != null && !isNaN(value) && value > 0);
+            return {
+                count: rows.length,
+                medianDays: durations.length ? calculateMedian(durations) : null,
+                medianTotalPrice: totalPrices.length ? calculateMedian(totalPrices) : null,
+                medianM2Price: m2Prices.length ? calculateMedian(m2Prices) : null,
+            };
+        }
+
+        function clusterColor(medianDays) {
+            const fastDays = parseFloat(elements.fastInput.value);
+            const slowDays = parseFloat(elements.slowInput.value);
+            if (medianDays == null || !Number.isFinite(medianDays)) return '#8f9bb3';
+            if (Number.isFinite(fastDays) && medianDays <= fastDays) return '#2EAD4A';
+            if (Number.isFinite(slowDays) && medianDays >= slowDays) return '#D94841';
+            return '#8f9bb3';
+        }
+
+        function clusterDiameter(count) {
+            return Math.round(Math.min(72, 40 + Math.sqrt(Math.max(1, count)) * 0.75));
+        }
+
+        function formatInteger(value) {
+            return Math.round(value).toLocaleString('nb-NO');
+        }
+
+        function formatClusterTotalPrice(value) {
+            return value == null ? 'N/A' : `${(value / 1000000).toLocaleString('nb-NO', { maximumFractionDigits: 1 })} mill. kr`;
+        }
+
+        function formatClusterM2Price(value) {
+            return value == null ? 'N/A' : `${formatInteger(value)} kr`;
+        }
+
+        function clusterTooltipHtml(stats, includeZoomHint = true) {
+            const medianDays = stats.medianDays == null ? 'N/A' : `${formatInteger(stats.medianDays)} dager`;
+            const zoomHint = includeZoomHint
+                ? `<div class="cluster-summary-hint">Klikk på klyngen for å zoome inn.</div>`
+                : '';
+            return `<div class="cluster-summary-title">Boliger i dette området</div>` +
+                   `<div class="cluster-summary-row"><span>Antall boliger</span><strong>${formatInteger(stats.count)}</strong></div>` +
+                   `<div class="cluster-summary-row"><span>Median dager</span><strong>${medianDays}</strong></div>` +
+                   `<div class="cluster-summary-row"><span>Median totalpris</span><strong>${formatClusterTotalPrice(stats.medianTotalPrice)}</strong></div>` +
+                   `<div class="cluster-summary-row"><span>Median m²-pris</span><strong>${formatClusterM2Price(stats.medianM2Price)}</strong></div>` +
+                   zoomHint;
+        }
+
+        function createClusterIcon(cluster) {
+            const stats = calculateClusterStats(cluster);
+            const diameter = clusterDiameter(stats.count);
+            const color = clusterColor(stats.medianDays);
+            const textColor = color === '#D94841' ? '#ffffff' : '#172033';
+            const value = stats.medianDays == null ? '–' : formatInteger(stats.medianDays);
+            const unit = stats.medianDays == null ? '' : 'd';
+            const ariaLabel = stats.medianDays == null
+                ? `${formatInteger(stats.count)} boliger, median dager ikke tilgjengelig`
+                : `${formatInteger(stats.count)} boliger, median ${formatInteger(stats.medianDays)} dager`;
+
+            const tooltip = cluster.getTooltip();
+            if (tooltip) {
+                cluster.setTooltipContent(clusterTooltipHtml(stats));
+            } else {
+                cluster.bindTooltip(clusterTooltipHtml(stats), {
+                    direction: 'top',
+                    opacity: 1,
+                    className: 'cluster-summary-tooltip',
+                });
+            }
+
+            return L.divIcon({
+                html: `<div class="housing-cluster-bubble" style="background:${color};color:${textColor}" role="img" aria-label="${ariaLabel}">` +
+                      `<span class="housing-cluster-value">${value}</span><span class="housing-cluster-unit">${unit}</span></div>`,
+                className: 'housing-cluster-icon',
+                iconSize: L.point(diameter, diameter),
+                iconAnchor: L.point(diameter / 2, diameter / 2),
+                tooltipAnchor: L.point(0, -diameter / 2),
+            });
+        }
+
         function drawMarkers(resetView = false) {
             showLoading("Tegner kart...");
             elements.updateBtn.disabled = true;
             setTimeout(() => {
                 if (markerClusterGroup) { markerClusterGroup.clearLayers(); } else {
-                    markerClusterGroup = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
+                    markerClusterGroup = L.markerClusterGroup({
+                        disableClusteringAtZoom: 13,
+                        iconCreateFunction: createClusterIcon,
+                    });
+                    markerClusterGroup.on('clusterclick', event => {
+                        const popupLatLng = event.layer.getLatLng();
+                        const popupContent = clusterTooltipHtml(calculateClusterStats(event.layer), false);
+                        setTimeout(() => {
+                            if (!map) return;
+                            L.popup({ maxWidth: 280 })
+                                .setLatLng(popupLatLng)
+                                .setContent(popupContent)
+                                .openOn(map);
+                        }, 300);
+                    });
                     map.addLayer(markerClusterGroup);
                 }
                 const fastDays = parseFloat(elements.fastInput.value);
@@ -375,6 +499,7 @@
                     const circle = L.circleMarker([b.latitude, b.longitude],
                         { radius: radius, color: color, fillColor: color, fillOpacity: 0.85, weight: 1 })
                         .bindPopup(popupHtml);
+                    circle.boligData = b;
                     markerClusterGroup.addLayer(circle);
                 });
 
