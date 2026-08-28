@@ -15,6 +15,8 @@ import pandas as pd
 import boto3
 from botocore.config import Config
 
+from bolig_price_validation import plausible_price_change
+
 
 Level = Literal["Fylke", "Kommune", "Sted"]
 
@@ -437,7 +439,12 @@ def _prepare_price_change_market(
     market["dato_prisendring"] = _parse_datetime_series(
         market.get("dato_prisendring"), normalize=True
     )
-    valid_price = market["pris_første"].gt(0) & market["pris_ny"].notna()
+    # Avvis plassholderpriser og ekstreme sprang, for eksempel 1 kr eller
+    # noen få tusen kroner. Slike observasjoner skyldes normalt feil i
+    # kildedata eller en midlertidig ufullstendig annonse.
+    valid_price = plausible_price_change(
+        market["pris_første"], market["pris_ny"]
+    )
     market["endring_pct"] = np.where(
         valid_price,
         (market["pris_ny"] - market["pris_første"]) / market["pris_første"] * 100.0,

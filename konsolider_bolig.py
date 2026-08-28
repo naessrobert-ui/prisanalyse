@@ -38,6 +38,8 @@ import boto3
 import numpy as np
 import pandas as pd
 
+from bolig_price_validation import plausible_price, plausible_price_change
+
 from pathlib import Path
 import os
 
@@ -516,13 +518,53 @@ def update_master(master: pd.DataFrame, df_today: pd.DataFrame, snapshot_dt: dat
         # Koordinater
         update_latlon_if_better(master_idx, today_idx, in_master)
 
-        # Prisendring: første gang totalpris avviker fra pris_første
+        # Prisendring: første gang en rimelig totalpris avviker fra pris_første.
+        # Midlertidige plassholderpriser skal verken opprette eller låse en
+        # prisendring i historikken.
         tp_today = today_idx.loc[in_master, "totalpris"]
         tp_first = master_idx.loc[in_master, "pris_første"]
 
         tp_today, tp_first = tp_today.align(tp_first, join="inner")
 
-        changed = tp_today.notna() & tp_first.notna() & tp_today.ne(tp_first)
+        # Hvis første observasjon var en åpenbar plassholderpris, bruk den
+        # første senere realistiske observasjonen som startpris.
+        repair_first = ~plausible_price(tp_first) & plausible_price(tp_today)
+        if repair_first.any():
+            ids = repair_first.index[repair_first]
+            master_idx.loc[ids, "pris_første"] = tp_today.loc[ids].values
+            master_idx.loc[ids, "pris_ny"] = tp_today.loc[ids].values
+            master_idx.loc[ids, "dato_prisendring"] = master_idx.loc[ids, "dato_første"].values
+
+        tp_first = master_idx.loc[tp_today.index, "pris_første"]
+        tp_recorded = master_idx.loc[tp_today.index, "pris_ny"]
+
+        # Reparer historiske plassholderendringer når annonsen senere igjen
+        # viser en realistisk pris. Hvis prisen er tilbake på startnivået,
+        # nullstilles prisendringen.
+        dp = master_idx.loc[tp_today.index, "dato_prisendring"]
+        dfirst = master_idx.loc[tp_today.index, "dato_første"]
+        recorded_change = dp.ne(dfirst)
+        repair_recorded = (
+            recorded_change
+            & ~plausible_price_change(tp_first, tp_recorded)
+            & plausible_price_change(tp_first, tp_today)
+        )
+        if repair_recorded.any():
+            ids = repair_recorded.index[repair_recorded]
+            master_idx.loc[ids, "pris_ny"] = tp_today.loc[ids].values
+            unchanged_ids = ids[tp_today.loc[ids].eq(tp_first.loc[ids])]
+            changed_ids = ids.difference(unchanged_ids)
+            if len(unchanged_ids) > 0:
+                master_idx.loc[unchanged_ids, "dato_prisendring"] = master_idx.loc[
+                    unchanged_ids, "dato_første"
+                ].values
+            if len(changed_ids) > 0:
+                master_idx.loc[changed_ids, "dato_prisendring"] = snap_ts
+
+        changed = (
+            tp_today.ne(tp_first)
+            & plausible_price_change(tp_first, tp_today)
+        )
 
         dp = master_idx.loc[tp_today.index, "dato_prisendring"]
         dfirst = master_idx.loc[tp_today.index, "dato_første"]
