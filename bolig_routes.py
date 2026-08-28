@@ -27,6 +27,8 @@ from bolig_historikk_service import (
     filter_by_level,
     daily_series_fast,
     _parse_datetime_series,
+    build_price_change_analysis,
+    build_price_change_details,
 )
 
 import base64
@@ -161,6 +163,185 @@ def bolig_historikk_view():
         metric=metric,
         metric_options=metric_options,
         available_dates_js=available_dates_js,
+    )
+
+
+@bolig_bp.route("/prisendringer/")
+def bolig_prisendringer_view():
+    """Antall og andel annonser med prisjustering i valgt periode."""
+    level = request.args.get("level", "Fylke")
+    if level not in {"Fylke", "Kommune", "Sted"}:
+        level = "Fylke"
+
+    ny_brukt = request.args.get("ny_brukt", "Begge")
+    if ny_brukt not in {"Begge", "Brukt", "Nybygg"}:
+        ny_brukt = "Begge"
+
+    direction = request.args.get("direction", "Ned")
+    if direction not in {"Ned", "Opp"}:
+        direction = "Ned"
+
+    threshold_raw = str(request.args.get("threshold", "1")).replace(",", ".")
+    try:
+        threshold = float(threshold_raw)
+    except (TypeError, ValueError):
+        threshold = 1.0
+    threshold = min(100.0, max(0.0, threshold))
+
+    start = _parse_date(request.args.get("start", ""))
+    end = _parse_date(request.args.get("end", ""))
+    published_from = _parse_date(request.args.get("published_from", ""))
+    if published_from is not None and pd.isna(published_from):
+        published_from = None
+    selected_area = str(request.args.get("area", "")).strip()
+    detail_segment = request.args.get("detail_segment", "")
+    if detail_segment not in {"Brukt", "Nybygg"}:
+        detail_segment = ""
+
+    base_df = load_normalized_master_cached(HIST_CFG.s3_bucket, HIST_CFG.master_key).copy()
+    start_dates = _parse_datetime_series(base_df.get("publisert_dato"), normalize=True)
+    start_dates = start_dates.fillna(
+        _parse_datetime_series(base_df.get("dato_første"), normalize=True)
+    )
+    end_dates = _parse_datetime_series(base_df.get("dato_siste"), normalize=True)
+    min_day = start_dates.min()
+    max_day = end_dates.max()
+
+    if pd.isna(min_day) or pd.isna(max_day):
+        table = pd.DataFrame()
+        summary = {
+            "endret_antall": 0,
+            "annonser_i_perioden": 0,
+            "andel_pct": 0.0,
+            "aktive_ved_slutt": 0,
+        }
+        start_text = end_text = min_text = max_text = None
+        details = pd.DataFrame()
+    else:
+        today = pd.Timestamp.today().normalize()
+        if start is None or pd.isna(start):
+            start = today - pd.Timedelta(days=30)
+        if end is None or pd.isna(end):
+            end = today
+
+        min_normalized = pd.to_datetime(min_day).normalize()
+        max_normalized = pd.to_datetime(max_day).normalize()
+        start = min(max(pd.to_datetime(start).normalize(), min_normalized), max_normalized)
+        end = min(max(pd.to_datetime(end).normalize(), min_normalized), max_normalized)
+        if end < start:
+            end = start
+
+        table, summary = build_price_change_analysis(
+            base_df,
+            level=level,
+            start_day=start,
+            end_day=end,
+            direction=direction,
+            threshold_pct=threshold,
+            segment_choice=ny_brukt,
+            published_from=published_from,
+        )
+        details = pd.DataFrame()
+        if selected_area:
+            details = build_price_change_details(
+                base_df,
+                level=level,
+                area=selected_area,
+                start_day=start,
+                end_day=end,
+                direction=direction,
+                threshold_pct=threshold,
+                segment_choice=ny_brukt,
+                detail_segment=detail_segment or None,
+                published_from=published_from,
+            )
+        start_text = str(start.date())
+        end_text = str(end.date())
+        min_text = str(pd.to_datetime(min_day).date())
+        max_text = str(pd.to_datetime(max_day).date())
+
+    def _format_count(value) -> str:
+        return f"{int(value):,}".replace(",", " ")
+
+    def _format_price(value) -> str:
+        if pd.isna(value):
+            return "–"
+        return f"{int(round(float(value))):,}".replace(",", " ")
+
+    rows = []
+    if not table.empty:
+        for row in table.to_dict(orient="records"):
+            rows.append({
+                "område": row["område"],
+                "segment": row["segment"],
+                "endret_antall": _format_count(row["endret_antall"]),
+                "annonser_i_perioden": _format_count(row["annonser_i_perioden"]),
+                "andel_pct": f"{float(row['andel_pct']):.1f}".replace(".", ","),
+                "aktive_ved_slutt": _format_count(row["aktive_ved_slutt"]),
+                "detail_url": url_for(
+                    "bolig.bolig_prisendringer_view",
+                    level=level,
+                    ny_brukt=ny_brukt,
+                    direction=direction,
+                    threshold=f"{threshold:g}",
+                    start=start_text,
+                    end=end_text,
+                    published_from=(str(published_from.date()) if published_from is not None else None),
+                    area=row["område"],
+                    detail_segment=row["segment"],
+                ),
+            })
+
+    detail_rows = []
+    if not details.empty:
+        for detail in details.to_dict(orient="records"):
+            finnkode = str(detail["finnkode"])
+            detail_rows.append({
+                "finnkode": finnkode,
+                "title": detail["full_title"] or f"FINN-annonse {finnkode}",
+                "address": detail["address"] or "Adresse mangler",
+                "segment": detail["segment"],
+                "published": str(pd.to_datetime(detail["start_dato"]).date()),
+                "changed": str(pd.to_datetime(detail["dato_prisendring"]).date()),
+                "price_first": _format_price(detail["pris_første"]),
+                "price_now": _format_price(detail["pris_ny"]),
+                "change_pct": f"{float(detail['endring_pct']):.1f}".replace(".", ","),
+                "finn_url": f"https://www.finn.no/realestate/homes/ad.html?finnkode={finnkode}",
+            })
+
+    summary_view = {
+        "endret_antall": _format_count(summary["endret_antall"]),
+        "annonser_i_perioden": _format_count(summary["annonser_i_perioden"]),
+        "andel_pct": f"{float(summary['andel_pct']):.1f}".replace(".", ","),
+        "aktive_ved_slutt": _format_count(summary["aktive_ved_slutt"]),
+    }
+
+    return render_template(
+        "bolig_prisendringer.html",
+        level=level,
+        ny_brukt=ny_brukt,
+        direction=direction,
+        threshold=f"{threshold:g}".replace(".", ","),
+        start=start_text,
+        end=end_text,
+        published_from=(str(published_from.date()) if published_from is not None else ""),
+        min_day=min_text,
+        max_day=max_text,
+        rows=rows,
+        summary=summary_view,
+        selected_area=selected_area,
+        detail_segment=detail_segment,
+        detail_rows=detail_rows,
+        clear_detail_url=url_for(
+            "bolig.bolig_prisendringer_view",
+            level=level,
+            ny_brukt=ny_brukt,
+            direction=direction,
+            threshold=f"{threshold:g}",
+            start=start_text,
+            end=end_text,
+            published_from=(str(published_from.date()) if published_from is not None else None),
+        ),
     )
 
 

@@ -362,6 +362,220 @@ def filter_by_level(df: pd.DataFrame, level: Level, value: str) -> pd.DataFrame:
     return df[df["sted"].fillna("").astype(str) == value].copy()
 
 
+def _normalize_price_segment(values: pd.Series) -> pd.Series:
+    """Normaliser ny/brukt til de to segmentene som brukes i analysen."""
+    source = values.fillna("").astype(str).str.strip().str.lower()
+    result = pd.Series(pd.NA, index=source.index, dtype="object")
+    result.loc[source.eq("brukt")] = "Brukt"
+    result.loc[source.isin(["nybygg", "ny", "nytt"])] = "Nybygg"
+    return result
+
+
+def _prepare_price_change_market(
+    df: pd.DataFrame,
+    level: Level,
+    start_day: pd.Timestamp,
+    end_day: pd.Timestamp,
+    direction: str = "Ned",
+    threshold_pct: float = 1.0,
+    segment_choice: str = "Begge",
+    published_from: Optional[pd.Timestamp] = None,
+) -> pd.DataFrame:
+    """Normaliser og filtrer annonsegrunnlaget som brukes i oversikt og kontrolliste."""
+    if df.empty:
+        return pd.DataFrame()
+
+    start_day = pd.to_datetime(start_day).normalize()
+    end_day = pd.to_datetime(end_day).normalize()
+    if end_day < start_day:
+        start_day, end_day = end_day, start_day
+
+    direction = "Opp" if str(direction).strip().lower() == "opp" else "Ned"
+    threshold_pct = max(0.0, float(threshold_pct))
+
+    d = df.copy()
+    for column in [
+        "finnkode", "fylke", "kommune_navn", "sted", "ny_brukt",
+        "publisert_dato", "dato_første", "dato_siste",
+        "pris_første", "pris_ny", "dato_prisendring",
+        "full_title", "address",
+    ]:
+        if column not in d.columns:
+            d[column] = pd.NA
+
+    d["finnkode"] = d["finnkode"].astype(str).str.strip()
+    d = d[d["finnkode"].ne("")].drop_duplicates("finnkode", keep="last").copy()
+    d["start_dato"] = _parse_datetime_series(d["publisert_dato"], normalize=True)
+    d["start_dato"] = d["start_dato"].fillna(
+        _parse_datetime_series(d["dato_første"], normalize=True)
+    )
+    d["dato_siste"] = _parse_datetime_series(d["dato_siste"], normalize=True)
+    d["segment"] = _normalize_price_segment(d["ny_brukt"])
+    d["område"] = group_key(d, level).str.strip()
+
+    d = d[
+        d["segment"].notna()
+        & d["område"].ne("")
+        & d["start_dato"].notna()
+        & d["dato_siste"].notna()
+    ].copy()
+    if segment_choice in {"Brukt", "Nybygg"}:
+        d = d[d["segment"].eq(segment_choice)].copy()
+
+    if published_from is not None and not pd.isna(published_from):
+        published_from = pd.to_datetime(published_from).normalize()
+        d = d[d["start_dato"].ge(published_from)].copy()
+
+    market = d[
+        d["start_dato"].le(end_day) & d["dato_siste"].ge(start_day)
+    ].copy()
+    if market.empty:
+        return market
+
+    market["pris_første"] = pd.to_numeric(market.get("pris_første"), errors="coerce")
+    market["pris_ny"] = pd.to_numeric(market.get("pris_ny"), errors="coerce")
+    market["dato_prisendring"] = _parse_datetime_series(
+        market.get("dato_prisendring"), normalize=True
+    )
+    valid_price = market["pris_første"].gt(0) & market["pris_ny"].notna()
+    market["endring_pct"] = np.where(
+        valid_price,
+        (market["pris_ny"] - market["pris_første"]) / market["pris_første"] * 100.0,
+        np.nan,
+    )
+    in_period = market["dato_prisendring"].between(start_day, end_day, inclusive="both")
+    if direction == "Opp":
+        market["endret"] = (
+            in_period
+            & market["endring_pct"].gt(0)
+            & market["endring_pct"].ge(threshold_pct)
+        )
+    else:
+        market["endret"] = (
+            in_period
+            & market["endring_pct"].lt(0)
+            & market["endring_pct"].le(-threshold_pct)
+        )
+    market["aktiv_ved_slutt"] = (
+        market["start_dato"].le(end_day) & market["dato_siste"].ge(end_day)
+    )
+    return market
+
+
+def build_price_change_analysis(
+    df: pd.DataFrame,
+    level: Level,
+    start_day: pd.Timestamp,
+    end_day: pd.Timestamp,
+    direction: str = "Ned",
+    threshold_pct: float = 1.0,
+    segment_choice: str = "Begge",
+    published_from: Optional[pd.Timestamp] = None,
+) -> tuple[pd.DataFrame, dict[str, float | int]]:
+    """
+    Bygg geografisk oversikt over annonser med prisendring i en periode.
+
+    Nevneren er unike annonser som var aktive minst én dag i perioden. Når
+    ``segment_choice`` er ``Begge``, vises brukt og nybygg som separate rader.
+    """
+    result_columns = [
+        "område", "segment", "endret_antall", "annonser_i_perioden",
+        "andel_pct", "aktive_ved_slutt",
+    ]
+    empty_summary = {
+        "endret_antall": 0,
+        "annonser_i_perioden": 0,
+        "andel_pct": 0.0,
+        "aktive_ved_slutt": 0,
+    }
+    market = _prepare_price_change_market(
+        df,
+        level=level,
+        start_day=start_day,
+        end_day=end_day,
+        direction=direction,
+        threshold_pct=threshold_pct,
+        segment_choice=segment_choice,
+        published_from=published_from,
+    )
+    if market.empty:
+        return pd.DataFrame(columns=result_columns), empty_summary
+
+    table = market.groupby(["område", "segment"], observed=True).agg(
+        endret_antall=("endret", "sum"),
+        annonser_i_perioden=("finnkode", "nunique"),
+        aktive_ved_slutt=("aktiv_ved_slutt", "sum"),
+    ).reset_index()
+    table["andel_pct"] = np.where(
+        table["annonser_i_perioden"].gt(0),
+        table["endret_antall"] / table["annonser_i_perioden"] * 100.0,
+        0.0,
+    )
+    for column in ["endret_antall", "annonser_i_perioden", "aktive_ved_slutt"]:
+        table[column] = table[column].astype(int)
+    table = table[result_columns].sort_values(
+        ["andel_pct", "endret_antall", "område", "segment"],
+        ascending=[False, False, True, True],
+    ).reset_index(drop=True)
+
+    total_ads = int(market["finnkode"].nunique())
+    total_changed = int(market.loc[market["endret"], "finnkode"].nunique())
+    total_active_end = int(market.loc[market["aktiv_ved_slutt"], "finnkode"].nunique())
+    summary = {
+        "endret_antall": total_changed,
+        "annonser_i_perioden": total_ads,
+        "andel_pct": (total_changed / total_ads * 100.0) if total_ads else 0.0,
+        "aktive_ved_slutt": total_active_end,
+    }
+    return table, summary
+
+
+def build_price_change_details(
+    df: pd.DataFrame,
+    level: Level,
+    area: str,
+    start_day: pd.Timestamp,
+    end_day: pd.Timestamp,
+    direction: str = "Ned",
+    threshold_pct: float = 1.0,
+    segment_choice: str = "Begge",
+    detail_segment: Optional[str] = None,
+    published_from: Optional[pd.Timestamp] = None,
+) -> pd.DataFrame:
+    """Returner annonser bak én geografisk rad for kontroll av aggregatet."""
+    columns = [
+        "finnkode", "full_title", "address", "segment", "start_dato",
+        "dato_prisendring", "pris_første", "pris_ny", "endring_pct",
+    ]
+    market = _prepare_price_change_market(
+        df,
+        level=level,
+        start_day=start_day,
+        end_day=end_day,
+        direction=direction,
+        threshold_pct=threshold_pct,
+        segment_choice=segment_choice,
+        published_from=published_from,
+    )
+    if market.empty:
+        return pd.DataFrame(columns=columns)
+
+    details = market[market["område"].eq(str(area)) & market["endret"]].copy()
+    if detail_segment in {"Brukt", "Nybygg"}:
+        details = details[details["segment"].eq(detail_segment)].copy()
+    if details.empty:
+        return pd.DataFrame(columns=columns)
+
+    details["full_title"] = details["full_title"].fillna("").astype(str)
+    details["address"] = details["address"].fillna("").astype(str)
+    details["_abs_change"] = details["endring_pct"].abs()
+    details = details.sort_values(
+        ["_abs_change", "dato_prisendring", "finnkode"],
+        ascending=[False, False, True],
+    )
+    return details[columns].reset_index(drop=True)
+
+
 def snapshot_metrics(df: pd.DataFrame, day: pd.Timestamp, level: Level) -> pd.DataFrame:
     day = pd.to_datetime(day).normalize()
     d = df.dropna(subset=["dato_siste"]).copy()
