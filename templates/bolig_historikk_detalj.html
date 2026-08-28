@@ -148,6 +148,18 @@
       <div>
         <button type="submit" class="btn btn-primary" style="padding:8px 14px;border-radius:10px;">Oppdater</button>
       </div>
+
+      {% if start and end %}
+        <div>
+          <button type="submit"
+                  formaction="{{ url_for('bolig.bolig_historikk_detalj_csv') }}"
+                  formmethod="get"
+                  class="btn btn-secondary"
+                  style="padding:8px 14px;border-radius:10px;">
+            ↓ Last ned CSV
+          </button>
+        </div>
+      {% endif %}
     </form>
   </div>
 

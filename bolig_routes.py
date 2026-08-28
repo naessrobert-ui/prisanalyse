@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import folium
 from folium.plugins import MarkerCluster
-from flask import Blueprint, render_template, jsonify, request, redirect, url_for
+from flask import Blueprint, Response, render_template, jsonify, request, redirect, url_for
 from collections import Counter
 import re
 
@@ -165,38 +165,19 @@ def bolig_historikk_view():
 
 
 
-@bolig_bp.route("/historikk/detalj/")
-def bolig_historikk_detalj():
-    """Detaljside for valgt gruppe fra tabellen."""
-    level = request.args.get("level", "Fylke")
-    value = request.args.get("value", "")
-    ny_brukt = request.args.get("ny_brukt", "Brukt")
-
-    start = _parse_date(request.args.get("start", ""))
-    end = _parse_date(request.args.get("end", ""))
-
+def _build_historikk_detail_data(level, value, ny_brukt, start, end):
+    """Bygg felles datagrunnlag for detaljsiden og CSV-eksporten."""
     base_df = load_normalized_master_cached(HIST_CFG.s3_bucket, HIST_CFG.master_key)
     df = apply_ny_brukt_filter(base_df, ny_brukt)
     df = filter_by_level(df, level, value)
 
     if df.empty or start is None or end is None or pd.isna(start) or pd.isna(end):
-        return render_template(
-            "bolig_historikk_detalj.html",
-            level=level,
-            value=value,
-            ny_brukt=ny_brukt,
-            start=None,
-            end=None,
-            plot_png=None,
-            stats=None,
-            detail_columns=[],
-            detail_rows=[],
-            removed_columns=[],
-            removed_rows=[],
-        )
+        return None
 
     start_n = pd.to_datetime(start).normalize()
     end_n = pd.to_datetime(end).normalize()
+    if end_n < start_n:
+        return None
 
     # Sørg for konsistente datoer + start_dato
     df = df.copy()
@@ -242,6 +223,102 @@ def bolig_historikk_detalj():
     flow = pd.DataFrame({"dato": days})
     flow = flow.merge(daily_new.rename(columns={"day": "dato"}), on="dato", how="left")
     flow = flow.merge(daily_gone.rename(columns={"day": "dato"}), on="dato", how="left")
+
+    return df, start_n, end_n, ser, d_period, flow
+
+
+def _historikk_detail_csv_frame(ser, flow):
+    """Gjør grafdataene om til én rad per dato for CSV-eksport."""
+    export = ser[
+        ["dato", "active_count", "median_m2", "median_totalpris", "mean_days_on_market"]
+    ].merge(
+        flow[
+            ["dato", "new_count", "new_m2_median", "gone_count", "gone_m2_median"]
+        ],
+        on="dato",
+        how="left",
+    )
+    for count_column in ["active_count", "new_count", "gone_count"]:
+        export[count_column] = pd.to_numeric(export[count_column], errors="coerce").astype("Int64")
+    export = export.rename(columns={
+        "dato": "Dato",
+        "active_count": "Aktive annonser",
+        "median_m2": "Median m²-pris (aktive)",
+        "median_totalpris": "Median totalpris (aktive)",
+        "mean_days_on_market": "Median dager på markedet (aktive)",
+        "new_count": "Nye annonser",
+        "new_m2_median": "Median m²-pris (nye)",
+        "gone_count": "Forsvunne annonser",
+        "gone_m2_median": "Median m²-pris (forsvunne)",
+    })
+    export["Dato"] = pd.to_datetime(export["Dato"]).dt.strftime("%Y-%m-%d")
+    return export
+
+
+@bolig_bp.route("/historikk/detalj/eksport.csv")
+def bolig_historikk_detalj_csv():
+    """Last ned de daglige verdiene bak grafene på detaljsiden."""
+    level = request.args.get("level", "Fylke")
+    value = request.args.get("value", "")
+    ny_brukt = request.args.get("ny_brukt", "Brukt")
+    start = _parse_date(request.args.get("start", ""))
+    end = _parse_date(request.args.get("end", ""))
+
+    detail_data = _build_historikk_detail_data(level, value, ny_brukt, start, end)
+    if detail_data is None:
+        return Response(
+            "\ufeffIngen data matchet de valgte filtrene.\n",
+            content_type="text/csv; charset=utf-8",
+            status=200,
+        )
+
+    _, start_n, end_n, ser, _, flow = detail_data
+    export = _historikk_detail_csv_frame(ser, flow)
+    csv_body = "\ufeff" + export.to_csv(
+        index=False,
+        sep=";",
+        decimal=",",
+        na_rep="",
+        lineterminator="\n",
+    )
+
+    safe_value = re.sub(r"[^A-Za-z0-9_-]+", "_", str(value)).strip("_")[:60] or "omrade"
+    filename = f"bolighistorikk_{safe_value}_{start_n:%Y%m%d}_{end_n:%Y%m%d}.csv"
+    return Response(
+        csv_body,
+        content_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@bolig_bp.route("/historikk/detalj/")
+def bolig_historikk_detalj():
+    """Detaljside for valgt gruppe fra tabellen."""
+    level = request.args.get("level", "Fylke")
+    value = request.args.get("value", "")
+    ny_brukt = request.args.get("ny_brukt", "Brukt")
+
+    start = _parse_date(request.args.get("start", ""))
+    end = _parse_date(request.args.get("end", ""))
+
+    detail_data = _build_historikk_detail_data(level, value, ny_brukt, start, end)
+    if detail_data is None:
+        return render_template(
+            "bolig_historikk_detalj.html",
+            level=level,
+            value=value,
+            ny_brukt=ny_brukt,
+            start=None,
+            end=None,
+            plot_png=None,
+            stats=None,
+            detail_columns=[],
+            detail_rows=[],
+            removed_columns=[],
+            removed_rows=[],
+        )
+
+    df, start_n, end_n, ser, d_period, flow = detail_data
 
     # ---------- 3) Plot: 3x2 (aktive + flow) ----------
     fig, axes = plt.subplots(3, 2, figsize=(18, 11))
