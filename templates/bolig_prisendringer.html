@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}Prisjusteringer – boliganalyse{% endblock %}
+
+{% block content %}
+<style>
+  .price-page {
+    --accent: {% if direction == 'Opp' %}#f59e0b{% else %}#38bdf8{% endif %};
+    --accent-soft: {% if direction == 'Opp' %}rgba(245,158,11,.14){% else %}rgba(56,189,248,.14){% endif %};
+    max-width: 1460px;
+    margin: 0 auto;
+    padding: 18px 10px 54px;
+    color: #edf5ff;
+  }
+  .price-hero { display:flex; justify-content:space-between; gap:24px; align-items:end; margin-bottom:22px; }
+  .price-kicker { color:var(--accent); font-size:.76rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+  .price-hero h1 { margin:5px 0 6px; font-size:clamp(2rem,4vw,3.25rem); line-height:1.05; letter-spacing:-.035em; }
+  .price-hero p { margin:0; color:#b9c9da; max-width:760px; }
+  .back-link { color:#c9d8e7; text-decoration:none; white-space:nowrap; }
+  .back-link:hover { color:#fff; text-decoration:none; }
+
+  .filter-panel {
+    display:grid;
+    grid-template-columns:repeat(8,minmax(112px,1fr));
+    gap:12px;
+    padding:16px;
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:18px;
+    background:rgba(6,18,30,.58);
+    box-shadow:0 18px 55px rgba(0,0,0,.18);
+  }
+  .filter-field label { display:block; margin-bottom:6px; color:#aebfd0; font-size:.78rem; font-weight:700; }
+  .filter-field select, .filter-field input {
+    width:100%; height:42px; border-radius:10px; border:1px solid rgba(255,255,255,.17);
+    background:#10283a; color:#fff; padding:0 11px; outline:none;
+  }
+  .filter-field input:focus, .filter-field select:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .filter-action { display:flex; align-items:end; }
+  .filter-action button {
+    width:100%; height:42px; border:0; border-radius:10px; background:var(--accent);
+    color:#06141f; font-weight:850; cursor:pointer;
+  }
+
+  .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:18px 0; }
+  .stat-card { padding:17px 18px; border:1px solid rgba(255,255,255,.1); border-radius:16px; background:rgba(8,23,36,.66); }
+  .stat-label { display:block; color:#9eb1c3; font-size:.76rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+  .stat-value { display:block; margin-top:4px; font-size:1.8rem; font-weight:850; letter-spacing:-.03em; }
+  .stat-card.primary { border-color:color-mix(in srgb, var(--accent) 55%, transparent); background:var(--accent-soft); }
+  .definition {
+    margin:0 0 18px; padding:13px 15px; border-left:3px solid var(--accent);
+    border-radius:0 10px 10px 0; background:rgba(255,255,255,.055); color:#c5d3e1; font-size:.9rem;
+  }
+
+  .table-tools { display:flex; justify-content:space-between; gap:14px; align-items:center; margin-bottom:10px; }
+  .table-tools h2 { margin:0; font-size:1.15rem; }
+  .table-search {
+    width:min(360px,100%); height:40px; border:1px solid rgba(255,255,255,.14); border-radius:10px;
+    background:rgba(4,15,25,.55); color:#fff; padding:0 12px;
+  }
+  .result-wrap { overflow:auto; max-height:610px; border:1px solid rgba(255,255,255,.11); border-radius:16px; }
+  .result-table { width:100%; min-width:850px; margin:0; border-collapse:separate; border-spacing:0; }
+  .result-table thead th {
+    position:sticky; top:0; z-index:2; padding:13px 14px; background:#102536 !important;
+    color:#eaf4fc !important; border:0 !important; font-size:.78rem; text-transform:uppercase;
+    letter-spacing:.04em; cursor:pointer; white-space:nowrap;
+  }
+  .result-table tbody td { padding:12px 14px; border-top:1px solid rgba(6,20,31,.09) !important; vertical-align:middle; }
+  .result-table tbody tr:hover td { background:#e8f5fc !important; }
+  .segment-badge { display:inline-flex; padding:4px 9px; border-radius:999px; font-size:.76rem; font-weight:750; background:#e7eef5; color:#173044; }
+  .area-link { color:#075985; font-weight:800; text-decoration:underline; text-underline-offset:3px; }
+  .area-link:hover { color:#0c4a6e; }
+  .share { font-weight:850; color:#075985; }
+  .empty-state { padding:42px 20px; text-align:center; color:#b9c9da; border:1px dashed rgba(255,255,255,.18); border-radius:16px; }
+  .sort-arrow { opacity:.6; margin-left:4px; }
+  .detail-panel { margin-top:24px; padding:18px; border:1px solid rgba(56,189,248,.28); border-radius:18px; background:rgba(5,19,31,.72); scroll-margin-top:90px; }
+  .detail-head { display:flex; justify-content:space-between; gap:18px; align-items:start; margin-bottom:14px; }
+  .detail-head h2 { margin:0 0 4px; font-size:1.25rem; }
+  .detail-head p { margin:0; color:#aebfd0; font-size:.9rem; }
+  .detail-close { color:#c8d8e6; text-decoration:none; white-space:nowrap; }
+  .detail-close:hover { color:#fff; }
+  .detail-wrap { overflow:auto; max-height:560px; border-radius:13px; border:1px solid rgba(255,255,255,.1); }
+  .detail-table { width:100%; min-width:1100px; margin:0; }
+  .detail-table th { position:sticky; top:0; z-index:1; padding:12px; background:#102536 !important; color:#eaf4fc !important; white-space:nowrap; }
+  .detail-table td { padding:11px 12px; vertical-align:top; }
+  .home-title { display:block; max-width:340px; color:#0c4a6e; font-weight:800; }
+  .home-address { display:block; max-width:340px; color:#526575; font-size:.8rem; margin-top:2px; }
+  .change-value { font-weight:850; color:#075985; white-space:nowrap; }
+
+  @media (max-width:1050px) { .filter-panel { grid-template-columns:repeat(4,1fr); } .stat-grid { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:650px) {
+    .price-hero { display:block; } .back-link { display:inline-block; margin-top:12px; }
+    .filter-panel { grid-template-columns:1fr 1fr; } .filter-action { grid-column:1/-1; }
+    .stat-grid { grid-template-columns:1fr 1fr; gap:9px; } .stat-value { font-size:1.45rem; }
+    .table-tools { align-items:stretch; flex-direction:column; } .table-search { width:100%; }
+  }
+</style>
+
+<main class="price-page">
+  <header class="price-hero">
+    <div>
+      <div class="price-kicker">Boligmarkedet</div>
+      <h1>Prisjusteringer</h1>
+      <p>Sammenlign prisen da boligen ble registrert med den nyeste registrerte prisen.</p>
+    </div>
+    <a class="back-link" href="{{ url_for('bolig.bolig_hub') }}">← Til boliganalyse</a>
+  </header>
+
+  <form method="get" class="filter-panel">
+    <div class="filter-field">
+      <label for="level">Geografisk nivå</label>
+      <select id="level" name="level">
+        {% for option in ['Fylke','Kommune','Sted'] %}<option value="{{ option }}" {% if level == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filter-field">
+      <label for="ny_brukt">Boligsegment</label>
+      <select id="ny_brukt" name="ny_brukt">
+        <option value="Begge" {% if ny_brukt == 'Begge' %}selected{% endif %}>Brukt og nybygg, separat</option>
+        <option value="Brukt" {% if ny_brukt == 'Brukt' %}selected{% endif %}>Kun brukt</option>
+        <option value="Nybygg" {% if ny_brukt == 'Nybygg' %}selected{% endif %}>Kun nybygg</option>
+      </select>
+    </div>
+    <div class="filter-field">
+      <label for="direction">Prisretning</label>
+      <select id="direction" name="direction">
+        <option value="Ned" {% if direction == 'Ned' %}selected{% endif %}>Satt ned</option>
+        <option value="Opp" {% if direction == 'Opp' %}selected{% endif %}>Satt opp</option>
+      </select>
+    </div>
+    <div class="filter-field">
+      <label for="threshold">Minst endring (%)</label>
+      <input id="threshold" name="threshold" inputmode="decimal" value="{{ threshold }}" aria-describedby="threshold-help">
+    </div>
+    <div class="filter-field">
+      <label for="start">Prisendret fra</label>
+      <input id="start" type="date" name="start" value="{{ start or '' }}" {% if min_day %}min="{{ min_day }}"{% endif %} {% if max_day %}max="{{ max_day }}"{% endif %}>
+    </div>
+    <div class="filter-field">
+      <label for="end">Prisendret til</label>
+      <input id="end" type="date" name="end" value="{{ end or '' }}" {% if min_day %}min="{{ min_day }}"{% endif %} {% if max_day %}max="{{ max_day }}"{% endif %}>
+    </div>
+    <div class="filter-field">
+      <label for="published_from">Lagt ut tidligst</label>
+      <input id="published_from" type="date" name="published_from" value="{{ published_from }}" {% if min_day %}min="{{ min_day }}"{% endif %} {% if max_day %}max="{{ max_day }}"{% endif %}>
+    </div>
+    <div class="filter-action"><button type="submit">Oppdater analyse</button></div>
+  </form>
+
+  <section class="stat-grid" aria-label="Nøkkeltall">
+    <div class="stat-card primary"><span class="stat-label">Prisjusterte</span><strong class="stat-value">{{ summary.endret_antall }}</strong></div>
+    <div class="stat-card"><span class="stat-label">Annonser i perioden</span><strong class="stat-value">{{ summary.annonser_i_perioden }}</strong></div>
+    <div class="stat-card primary"><span class="stat-label">Andel prisjusterte</span><strong class="stat-value">{{ summary.andel_pct }} %</strong></div>
+    <div class="stat-card"><span class="stat-label">Aktive ved periodens slutt</span><strong class="stat-value">{{ summary.aktive_ved_slutt }}</strong></div>
+  </section>
+
+  <p class="definition" id="threshold-help">
+    Andelen er unike annonser som ble satt {{ 'opp' if direction == 'Opp' else 'ned' }} minst {{ threshold }} % i perioden,
+    delt på unike annonser som var ute minst én dag i samme periode. Brukt og nybygg vises separat.
+    {% if published_from %}Kun boliger lagt ut {{ published_from }} eller senere er med.{% endif %}
+  </p>
+
+  {% if rows %}
+  <section aria-labelledby="result-heading">
+    <div class="table-tools">
+      <h2 id="result-heading">Resultat per {{ level|lower }}</h2>
+      <input id="resultSearch" class="table-search" type="search" placeholder="Søk etter område…" aria-label="Søk etter område">
+    </div>
+    <div class="result-wrap">
+      <table id="priceTable" class="table result-table">
+        <thead><tr>
+          <th>Endrede annonser <span class="sort-arrow"></span></th>
+          <th>Område <span class="sort-arrow"></span></th>
+          <th>Segment <span class="sort-arrow"></span></th>
+          <th>Annonser i perioden <span class="sort-arrow"></span></th>
+          <th>Andel <span class="sort-arrow"></span></th>
+          <th>Aktive ved slutt <span class="sort-arrow"></span></th>
+        </tr></thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td><strong>{{ row.endret_antall }}</strong></td>
+            <td><a class="area-link" href="{{ row.detail_url }}#kontrolliste">{{ row.område }}</a></td>
+            <td><span class="segment-badge">{{ row.segment }}</span></td>
+            <td>{{ row.annonser_i_perioden }}</td>
+            <td class="share">{{ row.andel_pct }} %</td>
+            <td>{{ row.aktive_ved_slutt }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% if selected_area %}
+  <section id="kontrolliste" class="detail-panel" aria-labelledby="detail-heading">
+    <div class="detail-head">
+      <div>
+        <h2 id="detail-heading">Kontrolliste: {{ selected_area }}{% if detail_segment %} · {{ detail_segment }}{% endif %}</h2>
+        <p>Alle {{ detail_rows|length }} annonser bak tallet «endrede annonser» for denne raden.</p>
+      </div>
+      <a class="detail-close" href="{{ clear_detail_url }}">Lukk kontrolliste ×</a>
+    </div>
+    {% if detail_rows %}
+    <div class="detail-wrap">
+      <table class="table detail-table">
+        <thead><tr>
+          <th>Bolig</th><th>Segment</th><th>Lagt ut</th><th>Prisendret</th>
+          <th>Opprinnelig pris</th><th>Nyeste pris</th><th>Endring</th><th>FINN-kode</th>
+        </tr></thead>
+        <tbody>
+          {% for home in detail_rows %}
+          <tr>
+            <td><span class="home-title">{{ home.title }}</span><span class="home-address">{{ home.address }}</span></td>
+            <td><span class="segment-badge">{{ home.segment }}</span></td>
+            <td>{{ home.published }}</td><td>{{ home.changed }}</td>
+            <td>{{ home.price_first }} kr</td><td>{{ home.price_now }} kr</td>
+            <td class="change-value">{{ home.change_pct }} %</td>
+            <td><a href="{{ home.finn_url }}" target="_blank" rel="noopener noreferrer">{{ home.finnkode }} ↗</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <div class="empty-state">Ingen prisjusterte annonser matchet denne raden.</div>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% else %}
+    <div class="empty-state">Ingen annonser matchet det valgte området og tidsrommet.</div>
+  {% endif %}
+</main>
+
+{% if rows %}
+<script>
+(() => {
+  const table = document.getElementById('priceTable');
+  const body = table.querySelector('tbody');
+  const headers = [...table.querySelectorAll('th')];
+  const search = document.getElementById('resultSearch');
+  let activeColumn = -1;
+  let direction = 1;
+  const number = value => {
+    const cleaned = String(value).replace(/\s/g, '').replace('%', '').replace(',', '.');
+    return cleaned !== '' && Number.isFinite(Number(cleaned)) ? Number(cleaned) : null;
+  };
+  search.addEventListener('input', () => {
+    const query = search.value.trim().toLocaleLowerCase('nb-NO');
+    [...body.rows].forEach(row => row.hidden = !row.cells[1].textContent.toLocaleLowerCase('nb-NO').includes(query));
+  });
+  headers.forEach((header, index) => header.addEventListener('click', () => {
+    direction = activeColumn === index ? -direction : 1;
+    activeColumn = index;
+    headers.forEach((item, itemIndex) => item.querySelector('.sort-arrow').textContent = itemIndex === index ? (direction === 1 ? '▲' : '▼') : '');
+    [...body.rows].sort((a, b) => {
+      const aText = a.cells[index].textContent.trim();
+      const bText = b.cells[index].textContent.trim();
+      const aNumber = number(aText); const bNumber = number(bText);
+      return direction * (aNumber !== null && bNumber !== null ? aNumber - bNumber : aText.localeCompare(bText, 'nb', {sensitivity:'base'}));
+    }).forEach(row => body.appendChild(row));
+  }));
+})();
+</script>
+{% endif %}
+{% endblock %}
