@@ -250,6 +250,26 @@ def format_percent(value: float | None) -> str:
     return f"{num:,.1f}".replace(",", "\u00a0").replace(".", ",") + " %"
 
 
+def csv_number(value: Any) -> str:
+    """Format a numeric value for CSV export.
+
+    Uses a period as decimal separator and no thousands separator (no space),
+    so the numbers are clean and machine-readable. Non-numeric values are
+    returned unchanged.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str) and value.strip() == "":
+        return ""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if num == int(num):
+        return str(int(num))
+    return f"{num:.2f}".rstrip("0").rstrip(".")
+
+
 def first_present(data: dict[str, Any] | None, *keys: str) -> Any:
     if not isinstance(data, dict):
         return None
@@ -1343,9 +1363,9 @@ def batch_download_csv():
                 row.company,
                 row.regnskapsperiode or "",
                 row.year or "",
-                format_amount(row.omsetning),
-                format_amount(row.resultat_etter_skatt),
-                format_amount(row.egenkapital),
+                csv_number(row.omsetning),
+                csv_number(row.resultat_etter_skatt),
+                csv_number(row.egenkapital),
                 row.url_used,
                 row.error,
                 row.debug,
@@ -1374,7 +1394,7 @@ def detailed_download_csv():
         for col in dataset.columns:
             val = rec.get(col, "")
             if isinstance(val, float):
-                row.append(f"{val:.2f}")
+                row.append(csv_number(val))
             else:
                 row.append(val)
         writer.writerow(row)
@@ -1546,10 +1566,26 @@ def regnskap_api_companies_filter_export_csv():
         "oppdatert_dato",
         "matched_bedr_navn",
     ]
+    numeric_columns = {
+        "ansatte",
+        "omsetning",
+        "sum_driftsinntekter",
+        "aarsresultat",
+        "driftsresultat",
+        "netto_margin",
+        "egenkapitalandel",
+        "omsetning_per_ansatt",
+        "resultat_per_ansatt",
+    }
     writer.writerow(columns)
     for row in all_rows:
         row_dict = row if isinstance(row, dict) else {}
-        writer.writerow([row_dict.get(col, "") for col in columns])
+        writer.writerow(
+            [
+                csv_number(row_dict.get(col, "")) if col in numeric_columns else row_dict.get(col, "")
+                for col in columns
+            ]
+        )
 
     csv_content = "\ufeff" + buffer.getvalue()
     resp = make_response(csv_content)
