@@ -425,6 +425,56 @@ def terskel_sweep(seg: pd.DataFrame, terskler: list[float], solgt_col: str,
     return pd.DataFrame(rader), meta
 
 
+def per_gruppe_sweep(seg: pd.DataFrame, gruppe_kol: str, terskler: list[float],
+                     solgt_col: str, min_n: int = 30, kun_privat: bool = True,
+                     maks_rabatt_pct: float | None = 70.0) -> pd.DataFrame:
+    """Kjoerer terskel_sweep separat per gruppe (f.eks. Produsent eller Modell).
+    Tar bare med grupper med minst `min_n` biler i segmentet (unngaar stoey).
+    Returnerer én lang tabell med gruppe + basisrate + sweep-radene."""
+    if gruppe_kol not in seg.columns:
+        return pd.DataFrame()
+    biter = []
+    for verdi, sub in seg.groupby(seg[gruppe_kol].astype(str)):
+        if len(sub) < min_n:
+            continue
+        df, meta = terskel_sweep(sub, terskler, solgt_col,
+                                 kun_privat=kun_privat, maks_rabatt_pct=maks_rabatt_pct)
+        df.insert(0, "gruppe", str(verdi))
+        df.insert(1, "n_segment", meta["n_segment"])
+        df.insert(2, "n_raske", meta["n_raske"])
+        df.insert(3, "basisrate_pct", meta["basisrate_pct"])
+        biter.append(df)
+    if not biter:
+        return pd.DataFrame()
+    ut = pd.concat(biter, ignore_index=True)
+    # Sorter grupper etter stoerrelse (flest biler foerst), terskel stigende
+    rekkefolge = (ut.groupby("gruppe")["n_segment"].first()
+                  .sort_values(ascending=False).index.tolist())
+    ut["_ord"] = ut["gruppe"].map({g: i for i, g in enumerate(rekkefolge)})
+    ut = ut.sort_values(["_ord", "terskel_pct"]).drop(columns="_ord")
+    return ut.reset_index(drop=True)
+
+
+def kompakt_per_gruppe(langt: pd.DataFrame, ref_terskler: list[float]) -> pd.DataFrame:
+    """Bygg en lettlest oversikt: én rad per gruppe med basisrate + presisjon/
+    recall ved noen referanse-terskler."""
+    if langt.empty:
+        return langt
+    rader = []
+    for gruppe, sub in langt.groupby("gruppe", sort=False):
+        rad = {"gruppe": gruppe,
+               "n": int(sub["n_segment"].iloc[0]),
+               "raske": int(sub["n_raske"].iloc[0]),
+               "basis%": sub["basisrate_pct"].iloc[0]}
+        for t in ref_terskler:
+            r = sub[sub["terskel_pct"] == t]
+            if not r.empty:
+                rad[f"P@{int(t)}"] = r["presisjon_pct"].iloc[0]
+                rad[f"R@{int(t)}"] = r["recall_pct"].iloc[0]
+        rader.append(rad)
+    return pd.DataFrame(rader)
+
+
 # ======================================================================
 # Orkestrering
 # ======================================================================
@@ -444,6 +494,8 @@ def kjor_backtest(
     min_pris: float | None = None,
     sweep: bool = False,
     terskler: list[float] | None = None,
+    per: str | None = None,
+    per_min_n: int = 30,
 ) -> dict:
     ref_dato = pd.Timestamp(datetime.now().date())
     df = motor.les_og_klargjor(input_path, ref_dato)
@@ -582,14 +634,17 @@ def kjor_backtest(
     print(f"  - {os.path.basename(p_bommet)}    (bommede hurtigsolgte elbiler)")
 
     sweep_df = None
-    if sweep:
+    per_df = None
+    if sweep or per:
         terskler = terskler or [-2, 0, 2, 4, 6, 8, 10, 12, 15, 20]
+        seg_txt = ", ".join(filterbits) if filterbits else "hele utvalget"
+
+    if sweep:
         sweep_df, sweep_meta = terskel_sweep(
             elig, terskler, "solgt_innen",
             kun_privat=kun_privat, maks_rabatt_pct=maks_rabatt_pct)
         p_sweep = os.path.join(utdir, "terskel_sweep.csv")
         sweep_df.to_csv(p_sweep, index=False, sep=";", encoding="utf-8-sig")
-        seg_txt = ", ".join(filterbits) if filterbits else "hele utvalget"
         print()
         print("-" * 64)
         print(f"TERSKEL-SWEEP  (segment: {seg_txt})")
@@ -603,11 +658,34 @@ def kjor_backtest(
             print(sweep_df.to_string(index=False))
         print(f"  -> {os.path.basename(p_sweep)}")
 
+    if per:
+        gruppe_kol = {"produsent": "Produsent", "modell": "Modell"}.get(per, per)
+        per_df = per_gruppe_sweep(
+            elig, gruppe_kol, terskler, "solgt_innen",
+            min_n=per_min_n, kun_privat=kun_privat, maks_rabatt_pct=maks_rabatt_pct)
+        p_per = os.path.join(utdir, f"sweep_per_{per}.csv")
+        if not per_df.empty:
+            per_df.to_csv(p_per, index=False, sep=";", encoding="utf-8-sig")
+        ref = [t for t in (0, 2, 6, 10) if t in terskler]
+        kompakt = kompakt_per_gruppe(per_df, ref)
+        print()
+        print("-" * 64)
+        print(f"PER-{per.upper()}-SWEEP  (segment: {seg_txt}, min {per_min_n} biler/gruppe)")
+        print("-" * 64)
+        print(f"P@t = presisjon ved terskel t %, R@t = recall. Basis% = 2-doegnsrate for gruppen.")
+        if kompakt.empty:
+            print(f"(Ingen grupper med minst {per_min_n} biler i segmentet.)")
+        else:
+            with pd.option_context("display.max_rows", 200, "display.width", 220):
+                print(kompakt.to_string(index=False))
+            print(f"  -> {os.path.basename(p_per)} (full sweep per gruppe)")
+
     return {
         "kupp_rate": kupp_rate, "ikke_rate": ikke_rate, "lift": lift,
         "ev_profil": ev_profil, "n_kandidater": int(len(cand)),
         "n_eligible": int(len(elig)),
         "sweep": sweep_df.to_dict("records") if sweep_df is not None else None,
+        "per": per_df.to_dict("records") if per_df is not None and not per_df.empty else None,
     }
 
 
@@ -639,7 +717,12 @@ def main():
     p.add_argument("--sweep", action="store_true",
                    help="Vis terskel-sweep (presisjon/recall vs rabatt-terskel) for segmentet.")
     p.add_argument("--terskler", default=None,
-                   help="Komma-separerte terskler for sweep, f.eks. '-2,0,2,4,6,8,10,15,20'.")
+                   help="Komma-separerte terskler for sweep. Bruk =-form pga. minus: "
+                        "--terskler=-2,0,2,4,6,8,10,15,20.")
+    p.add_argument("--per", choices=["produsent", "modell"], default=None,
+                   help="Kjoer terskel-sweep separat per merke eller modell.")
+    p.add_argument("--per-min-n", type=int, default=30,
+                   help="Minste antall biler i en gruppe for aa ta den med (default 30).")
     args = p.parse_args()
 
     ref = date.today()
@@ -665,6 +748,8 @@ def main():
         min_pris=args.min_pris,
         sweep=args.sweep,
         terskler=terskler,
+        per=args.per,
+        per_min_n=args.per_min_n,
     )
 
 

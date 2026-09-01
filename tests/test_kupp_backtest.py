@@ -114,6 +114,37 @@ def test_terskel_sweep():
 
 # ---------------------------------------------------------------- end-to-end
 
+def test_per_gruppe_sweep():
+    # To merker: Tesla selger fort ved lav rabatt, Audi trenger hoey rabatt
+    rows = []
+    # 40 Tesla: de med rabatt>=0 selger ofte fort
+    for i in range(40):
+        rab = -5 + (i % 20)
+        solgt = rab >= 0 and (i % 2 == 0)
+        rows.append({"Produsent": "Tesla", "rabatt_pct": float(rab),
+                     "solgt_innen": bool(solgt), "Selger": ""})
+    # 40 Audi: selger sjelden fort, og bare ved hoey rabatt
+    for i in range(40):
+        rab = -5 + (i % 20)
+        solgt = rab >= 12 and (i % 3 == 0)
+        rows.append({"Produsent": "Audi", "rabatt_pct": float(rab),
+                     "solgt_innen": bool(solgt), "Selger": ""})
+    # 5 BMW: for faa -> skal filtreres bort med min_n=30
+    for i in range(5):
+        rows.append({"Produsent": "BMW", "rabatt_pct": 10.0,
+                     "solgt_innen": True, "Selger": ""})
+    seg = pd.DataFrame(rows)
+
+    langt = kb.per_gruppe_sweep(seg, "Produsent", [0, 6, 12], "solgt_innen",
+                                min_n=30, kun_privat=True)
+    merker = set(langt["gruppe"].unique())
+    assert merker == {"Tesla", "Audi"}          # BMW (n=5) utelatt
+    kompakt = kb.kompakt_per_gruppe(langt, [0, 6, 12])
+    assert set(kompakt["gruppe"]) == {"Tesla", "Audi"}
+    # Kolonner for referanse-tersklene finnes
+    assert "P@0" in kompakt.columns and "R@12" in kompakt.columns
+
+
 def _syntetisk_db(tmp_path) -> str:
     """Bygg en liten database_biler.parquet med én peer-gruppe: nok solgte
     treningsbiler + kandidater (kupp, ikke-kupp, bommet elbil)."""
