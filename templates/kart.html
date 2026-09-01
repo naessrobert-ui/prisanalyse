@@ -110,6 +110,13 @@
   #map {
     flex: 1;
     z-index: 1;
+    background: #0f1117;
+  }
+
+  /* Gjør de nøkkelfrie OSM-flisene mørke slik at de matcher temaet.
+     Filteret treffer bare flis-panelet, ikke markører/sirkler (egne paneler). */
+  .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.7);
   }
 
   /* ── Popup ── */
@@ -350,9 +357,10 @@
 // ── Kart-initialisering ──
 const map = L.map('map', { zoomControl: true });
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '© OpenStreetMap © CARTO',
-  subdomains: 'abcd',
+// OpenStreetMap-fliser (nøkkelfrie) gjort mørke via CSS-filter på flis-panelet.
+// Tidligere brukte vi CARTO dark_all, men de krever nå API-nøkkel.
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap',
   maxZoom: 19
 }).addTo(map);
 
