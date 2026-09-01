@@ -416,9 +416,11 @@ def terskel_sweep(seg: pd.DataFrame, terskler: list[float], solgt_col: str,
             "terskel_pct": t,
             "n_flagget": n_flag,
             "n_solgt_innen": n_flag_solgt,
-            "presisjon_pct": round(100 * pres, 1) if pres is not None else None,
-            "recall_pct": round(100 * rec, 1) if rec is not None else None,
-            "loeft": round(loeft, 2) if loeft is not None else None,
+            # np.nan (ikke None) -> float-kolonner, saa pd.concat i per_gruppe_sweep
+            # slipper FutureWarning om all-NA object-kolonner.
+            "presisjon_pct": round(100 * pres, 1) if pres is not None else np.nan,
+            "recall_pct": round(100 * rec, 1) if rec is not None else np.nan,
+            "loeft": round(loeft, 2) if loeft is not None else np.nan,
         })
     meta = {"n_segment": n_total, "n_raske": n_fast,
             "basisrate_pct": round(100 * base, 1) if n_total else None}

@@ -251,6 +251,69 @@ else:
         print(f"[kupp_vakt] Ukjent KUPP_HJEMFYLKE: {_HJEMFYLKE!r} – hjemfylke-vekting av")
 UTENFOR_TILLEGG_PP = float(os.getenv("KUPP_UTENFOR_TILLEGG_PP", "8") or 8)
 
+# Nabofylke-nivå: mellom hjemfylket (+0) og resten (+UTENFOR_TILLEGG_PP) kan vi
+# legge inn nabofylker med et mindre tillegg (kortere reise). Backtesten viste at
+# modellens treffsikkerhet er jevn paa tvers av fylker, saa dette er en ren
+# reise-/logistikk-vekting: Vestland +0, nabo +NABO_TILLEGG_PP, resten +UTENFOR.
+_NABOFYLKE = os.getenv("KUPP_NABOFYLKE", "Rogaland,Møre og Romsdal")
+NABO_KODER = [FYLKE_LOCATION[t.strip().lower()]
+              for t in _NABOFYLKE.split(",")
+              if t.strip() and t.strip().lower() in FYLKE_LOCATION]
+NABO_LOCATION_SUFFIX = "".join(f"&location={c}" for c in NABO_KODER)
+NABO_TILLEGG_PP = float(os.getenv("KUPP_NABO_TILLEGG_PP", "5") or 5)
+
+# --- Elbil: merke-tiered rabattkrav ------------------------------------------
+# Backtesten (scripts/kupp_backtest.py --per produsent) viste at elbil-merker
+# oppfoerer seg svaert ulikt: Tesla/Kia/Nissan/Renault/VW/MG selger raskt selv
+# ved lav rabatt (taaler lav terskel), mens Volvo/Toyota/Skoda/premium trenger
+# stoerre rabatt. Naar KUPP_EL_TIER=1 erstattes pris-trappa av en merke-terskel
+# for elbiler. Ukjent/nisje-merke faar HOY terskel (var svakest i analysen).
+EL_TIER_ON = os.getenv("KUPP_EL_TIER", "0").strip().lower() not in ("0", "false", "")
+
+
+def _merkeliste(env_navn: str, default: str) -> set:
+    return {m.strip().lower() for m in os.getenv(env_navn, default).split(",") if m.strip()}
+
+
+EL_MERKER_LAV = _merkeliste(
+    "KUPP_EL_MERKER_LAV", "Tesla,Kia,Nissan,Renault,Volkswagen,MG,Hyundai,Peugeot")
+EL_MERKER_MEDIUM = _merkeliste("KUPP_EL_MERKER_MEDIUM", "BMW,Audi,Polestar,Ford")
+EL_MERKER_HOY = _merkeliste(
+    "KUPP_EL_MERKER_HOY", "Volvo,Toyota,Skoda,Mercedes-Benz,Porsche,BYD")
+EL_TERSKEL_LAV = float(os.getenv("KUPP_EL_TERSKEL_LAV", "2") or 2)
+EL_TERSKEL_MEDIUM = float(os.getenv("KUPP_EL_TERSKEL_MEDIUM", "6") or 6)
+EL_TERSKEL_HOY = float(os.getenv("KUPP_EL_TERSKEL_HOY", "12") or 12)
+EL_TERSKEL_DEFAULT = float(os.getenv("KUPP_EL_TERSKEL_DEFAULT", "12") or 12)
+
+_MERKE_ALIAS = {"vw": "volkswagen", "mercedes": "mercedes-benz", "mb": "mercedes-benz"}
+
+
+def _el_merke_terskel(merke) -> float:
+    """Rabatt-terskel (prosent) for et elbil-merke, fra tier-listene."""
+    m = (merke or "").strip().lower()
+    m = _MERKE_ALIAS.get(m, m)
+    if m in EL_MERKER_LAV:
+        return EL_TERSKEL_LAV
+    if m in EL_MERKER_MEDIUM:
+        return EL_TERSKEL_MEDIUM
+    if m in EL_MERKER_HOY:
+        return EL_TERSKEL_HOY
+    return EL_TERSKEL_DEFAULT
+
+
+def _basis_terskel(row) -> float:
+    """Grunnkrav til rabatt (prosent) foer fylke-/kurant-justering.
+    Elbil (naar KUPP_EL_TIER=1): merke-terskel. Ellers: pris-trappa."""
+    pris = float(row.get("salgspris") or 0)
+    if EL_TIER_ON:
+        driv = _norm_driv(row.get("Drivstoff"))
+        # Naar hele soeket allerede er laast til elbil (KUPP_DRIVSTOFF=Elektrisk)
+        # regnes alt som elbil selv om Drivstoff-kolonnen skulle mangle.
+        er_el = driv == "elektrisk" or DRIVSTOFF_FILTER == {"elektrisk"}
+        if er_el:
+            return _el_merke_terskel(row.get("Merke"))
+    return _min_rabatt_for_pris(pris)
+
 # --- Kurante modeller: lettere krav (lette å omsette) ------------------------
 # Komma-separert liste med "Merke Modell"-fragmenter, f.eks. "Volkswagen Golf,
 # Toyota RAV4". Match = delstreng i "Merke Modell" (case-uavhengig). For disse
@@ -469,18 +532,17 @@ def scrape_nyeste() -> list[dict]:
     return list(biler.values())
 
 
-def _scrape_hjemfylke_koder() -> set:
-    """FinnKoder blant de nyeste annonsene i hjemfylket (server-side location-
-    filter). Brukes til å avgjøre hvilke biler som er 'hjemme'. Tom ved feil –
-    da faller vi tilbake til ingen frakt-vekting (ingen biler straffes)."""
-    if not HJEMFYLKE_KODE or not UTENFOR_TILLEGG_PP:
+def _scrape_koder_for_location(location_suffix: str) -> set:
+    """FinnKoder blant de nyeste annonsene for et gitt location-filter (server-
+    side). Tom ved feil – da straffes ingen biler ekstra."""
+    if not location_suffix:
         return set()
     koder = set()
     for _, drift_code in DRIFT_SEARCHES.items():
         session = _make_session()
         for page in range(1, MAX_PAGES + 1):
             url = (f"{BASE_URL}&wheel_drive={drift_code}&page={page}"
-                   f"&location={HJEMFYLKE_KODE}{SELGER_SUFFIX}")
+                   f"{location_suffix}{SELGER_SUFFIX}")
             resp = _fetch(session, url)
             if not resp:
                 break
@@ -496,6 +558,13 @@ def _scrape_hjemfylke_koder() -> set:
     return koder
 
 
+def _scrape_hjemfylke_koder() -> set:
+    """FinnKoder i hjemfylket (bakoverkompatibel wrapper)."""
+    if not HJEMFYLKE_KODE or not UTENFOR_TILLEGG_PP:
+        return set()
+    return _scrape_koder_for_location(f"&location={HJEMFYLKE_KODE}")
+
+
 def _hjem_sett(biler: list[dict]):
     """Sett med FinnKoder som ligger i hjemfylket, eller None hvis vektingen er
     av / ikke lot seg avgjøre. Er hovedsøket allerede låst til hjemfylket
@@ -505,6 +574,16 @@ def _hjem_sett(biler: list[dict]):
     if LOCATION_CODES == [HJEMFYLKE_KODE]:
         return {b["FinnKode"] for b in biler}
     return _scrape_hjemfylke_koder() or None
+
+
+def _nabo_sett():
+    """Sett med FinnKoder i nabofylkene (mindre tillegg), eller None. Kun
+    relevant naar hovedsoeket ikke allerede er laast til hjemfylket."""
+    if not HJEMFYLKE_KODE or not UTENFOR_TILLEGG_PP or not NABO_LOCATION_SUFFIX:
+        return None
+    if LOCATION_CODES == [HJEMFYLKE_KODE]:
+        return None
+    return _scrape_koder_for_location(NABO_LOCATION_SUFFIX) or None
 
 
 # ======================================================
@@ -761,15 +840,32 @@ def _er_kurant(row) -> bool:
     return any(k in navn for k in KURANTE)
 
 
-def _terskel_delta(row, hjem_koder) -> float:
-    """Justering av rabattkravet (prosentpoeng) for én bil: +tillegg for biler
-    utenfor hjemfylket (frakt), -lettelse for kurante modeller."""
+def _terskel_delta(row, hjem_koder, nabo_koder=None) -> float:
+    """Justering av rabattkravet (prosentpoeng) for én bil:
+      + nabo-tillegg for biler i nabofylkene (kortere reise),
+      + utenfor-tillegg for resten av landet (lengre reise),
+      - lettelse for kurante modeller.
+    Biler i hjemfylket beholder grunnkravet (delta 0)."""
     delta = 0.0
     if hjem_koder is not None and str(row.get("FinnKode") or "") not in hjem_koder:
-        delta += UTENFOR_TILLEGG_PP
+        fk = str(row.get("FinnKode") or "")
+        if nabo_koder is not None and fk in nabo_koder:
+            delta += NABO_TILLEGG_PP
+        else:
+            delta += UTENFOR_TILLEGG_PP
     if _er_kurant(row):
         delta -= KURANT_LETTELSE_PP
     return delta
+
+
+def _fylke_tag(row, hjem_koder, nabo_koder=None) -> str:
+    """Kort merkelapp om fylke-vekting for visning/logg."""
+    if hjem_koder is None or str(row.get("FinnKode") or "") in hjem_koder:
+        return ""
+    fk = str(row.get("FinnKode") or "")
+    if nabo_koder is not None and fk in nabo_koder:
+        return f"nabofylke +{NABO_TILLEGG_PP:g}pp"
+    return f"utenfor {HJEMFYLKE_NAVN} +{UTENFOR_TILLEGG_PP:g}pp"
 
 
 def _er_kupp(row, terskel_delta: float = 0.0) -> bool:
@@ -780,7 +876,7 @@ def _er_kupp(row, terskel_delta: float = 0.0) -> bool:
     rab = row.get("rabatt_pct")
     if (rab is not None and not pd.isna(rab)
             and pris is not None and not pd.isna(pris)):
-        if float(rab) >= _min_rabatt_for_pris(float(pris)) + terskel_delta:
+        if float(rab) >= _basis_terskel(row) + terskel_delta:
             return True
     # Legacy flat kroneterskel (kun hvis eksplisitt satt via KUPP_RABATT_KR_MIN)
     rab_kr = row.get("rabatt_kr")
@@ -802,18 +898,20 @@ def _vis_alle() -> int:
     kand = [b for b in biler if _match_filtre(b)]
     print(f"[kupp_vakt] {len(kand)} kandidater etter drivstoff/sted-filter (viser alle)")
     hjem = _hjem_sett(biler)
+    nabo = _nabo_sett() if hjem is not None else None
     scoret = _score(kand)
     rader = [row.to_dict() for _, row in scoret.iterrows()] if not scoret.empty else []
     rader.sort(key=lambda d: -(float(d.get("rabatt_pct"))
                                if d.get("rabatt_pct") == d.get("rabatt_pct") else -999))
     n_kupp = 0
     for d in rader:
-        delta = _terskel_delta(d, hjem)
+        delta = _terskel_delta(d, hjem, nabo)
         er = _er_kupp(d, delta)
         n_kupp += 1 if er else 0
         merke = []
-        if hjem is not None and str(d.get("FinnKode") or "") not in hjem:
-            merke.append(f"utenfor {HJEMFYLKE_NAVN} +{UTENFOR_TILLEGG_PP:g}pp")
+        fylke_tag = _fylke_tag(d, hjem, nabo)
+        if fylke_tag:
+            merke.append(fylke_tag)
         if _er_kurant(d):
             merke.append(f"kurant -{KURANT_LETTELSE_PP:g}pp")
         tag = f"  [{', '.join(merke)}]" if merke else ""
@@ -861,15 +959,17 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
         print(f"[kupp_vakt] {len(kandidater)} kandidater etter drivstoff/sted-filter")
 
     hjem = _hjem_sett(biler) if kandidater else None
+    nabo = _nabo_sett() if hjem is not None else None
     if hjem is not None:
+        nabo_txt = (f", nabofylke +{NABO_TILLEGG_PP:g} pp" if nabo else "")
         print(f"[kupp_vakt] {len(hjem)} av de nyeste ligger i hjemfylket "
-              f"({HJEMFYLKE_NAVN}); utenfor krever +{UTENFOR_TILLEGG_PP:g} pp rabatt")
+              f"({HJEMFYLKE_NAVN}); resten krever +{UTENFOR_TILLEGG_PP:g} pp rabatt{nabo_txt}")
     scoret = _score(kandidater)
     kupp = []
     if not scoret.empty:
         for _, row in scoret.iterrows():
             d = row.to_dict()
-            delta = _terskel_delta(d, hjem)
+            delta = _terskel_delta(d, hjem, nabo)
             if _er_kupp(d, delta):
                 d["i_hjemfylke"] = (hjem is None
                                     or str(d.get("FinnKode") or "") in hjem)
@@ -888,8 +988,12 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
     else:
         terskel = f"rabatt >= {RABATT_MIN}%"
     vekting = ""
+    if EL_TIER_ON:
+        vekting += "; elbil merke-tiered terskel"
     if hjem is not None:
-        vekting += f"; utenfor {HJEMFYLKE_NAVN} +{UTENFOR_TILLEGG_PP:g}pp"
+        vekting += f"; resten +{UTENFOR_TILLEGG_PP:g}pp"
+        if nabo:
+            vekting += f", nabo +{NABO_TILLEGG_PP:g}pp"
     if KURANTE:
         vekting += f"; kurante -{KURANT_LETTELSE_PP:g}pp"
     print(f"[kupp_vakt] {len(kupp)} kupp over terskel ({terskel}"
