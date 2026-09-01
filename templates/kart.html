@@ -751,12 +751,32 @@ document.querySelectorAll('.js-local-filter').forEach((el) => {
 
 // ── Søkefunksjon ──
 let sisteSok = 0;
+let nasjonaltAlleredeSokt = false;
+
+// Med et aktivt tekstsøk (q) eller næringskode-filter søker vi i hele landet,
+// ikke bare i kartutsnittet. Da vises alle treff, uansett zoom-nivå.
+function harNasjonaltFilter() {
+  const nk = (document.getElementById('f-naeringskode')?.value || '').trim();
+  const qForwarded = (forwardedQuery.get('q') || '').trim();
+  return Boolean(qForwarded || nk);
+}
+
+// Zoom kartet slik at alle treff-punktene vises.
+function fitTilFeatures(features) {
+  const punkter = (features || [])
+    .filter((f) => f?.geometry?.coordinates)
+    .map((f) => [f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+  if (!punkter.length) return;
+  map.fitBounds(L.latLngBounds(punkter), { padding: [40, 40], maxZoom: 13 });
+}
 
 async function sokSelskaper() {
-  const bounds = map.getBounds();
-  const zoom   = map.getZoom();
+  const nasjonalt = harNasjonaltFilter();
+  const zoom = map.getZoom();
 
-  if (zoom < 11) {
+  // Zoom-sperren gjelder bare fri utforsking uten filter – ved nasjonalt
+  // søk henter vi hele landet uavhengig av zoom.
+  if (!nasjonalt && zoom < 11) {
     document.getElementById('status').textContent = 'Zoom inn mer (zoom ≥ 11)';
     return;
   }
@@ -770,12 +790,14 @@ async function sokSelskaper() {
   document.getElementById('loading').style.display = 'block';
   document.getElementById('status').textContent = 'Søker…';
 
-  const params = new URLSearchParams({
-    north: bounds.getNorth().toFixed(6),
-    south: bounds.getSouth().toFixed(6),
-    east:  bounds.getEast().toFixed(6),
-    west:  bounds.getWest().toFixed(6),
-  });
+  const params = new URLSearchParams();
+  if (!nasjonalt) {
+    const bounds = map.getBounds();
+    params.set('north', bounds.getNorth().toFixed(6));
+    params.set('south', bounds.getSouth().toFixed(6));
+    params.set('east',  bounds.getEast().toFixed(6));
+    params.set('west',  bounds.getWest().toFixed(6));
+  }
 
   const nk = document.getElementById('f-naeringskode').value.trim();
   const of = document.getElementById('f-orgform').value;
@@ -792,11 +814,13 @@ async function sokSelskaper() {
     if (val !== null && String(val).trim() !== '') params.set(key, val);
   });
   // Kartvisningen skal ikke arve lav side-limit (f.eks. 100) fra regnskapstabellen.
-  // Vi bruker alltid høy kart-limit, men lar direkte kart-lenke med høyere verdi (opp til 2000) få gjelde.
+  // Nasjonalt søk bruker alltid maks limit så vi ikke kutter treff.
   const forwardedLimit = Number(forwardedQuery.get('limit'));
-  const effectiveLimit = Number.isFinite(forwardedLimit)
-    ? Math.min(2000, Math.max(200, Math.round(forwardedLimit)))
-    : 2000;
+  const effectiveLimit = nasjonalt
+    ? 2000
+    : (Number.isFinite(forwardedLimit)
+        ? Math.min(2000, Math.max(200, Math.round(forwardedLimit)))
+        : 2000);
   params.set('limit', String(effectiveLimit));
 
   try {
@@ -808,6 +832,11 @@ async function sokSelskaper() {
       sistServerCount = sistHentedeFeatures.length;
     }
     renderFeatures(sistHentedeFeatures, sistServerCount);
+
+    if (nasjonalt) {
+      nasjonaltAlleredeSokt = true;
+      fitTilFeatures(filterFeaturesLocally(sistHentedeFeatures));
+    }
 
   } catch(e) {
     document.getElementById('status').textContent = 'Feil ved henting';
@@ -823,7 +852,13 @@ let debounceTimer;
 map.on('moveend zoomend', () => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    if (map.getZoom() >= 11) sokSelskaper();
+    if (harNasjonaltFilter()) {
+      // Nasjonale treff er uavhengige av utsnittet – hent bare første gang,
+      // slik at panorering/zoom ikke laster på nytt eller rykker kartet.
+      if (!nasjonaltAlleredeSokt) sokSelskaper();
+    } else if (map.getZoom() >= 11) {
+      sokSelskaper();
+    }
   }, 600);
 });
 </script>
