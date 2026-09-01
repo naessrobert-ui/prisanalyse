@@ -255,7 +255,9 @@ UTENFOR_TILLEGG_PP = float(os.getenv("KUPP_UTENFOR_TILLEGG_PP", "8") or 8)
 # legge inn nabofylker med et mindre tillegg (kortere reise). Backtesten viste at
 # modellens treffsikkerhet er jevn paa tvers av fylker, saa dette er en ren
 # reise-/logistikk-vekting: Vestland +0, nabo +NABO_TILLEGG_PP, resten +UTENFOR.
-_NABOFYLKE = os.getenv("KUPP_NABOFYLKE", "Rogaland,Møre og Romsdal")
+# Tom som kode-default => ingen adferdsendring ved merge; settes i env (se
+# env.example for anbefalt "Rogaland,Møre og Romsdal").
+_NABOFYLKE = os.getenv("KUPP_NABOFYLKE", "")
 NABO_KODER = [FYLKE_LOCATION[t.strip().lower()]
               for t in _NABOFYLKE.split(",")
               if t.strip() and t.strip().lower() in FYLKE_LOCATION]
