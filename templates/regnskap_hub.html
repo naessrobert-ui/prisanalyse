@@ -976,15 +976,11 @@
                 const label = String(getRowValue(row, ['navn']) || getRowValue(row, ['orgnr']) || 'Ukjent');
                 return { x, y, label };
             })
-            .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
-            .filter((point) => {
-                if (xMinLimit !== null && point.x < xMinLimit) return false;
-                if (xMaxLimit !== null && point.x > xMaxLimit) return false;
-                if (yMinLimit !== null && point.y < yMinLimit) return false;
-                if (yMaxLimit !== null && point.y > yMaxLimit) return false;
-                return true;
-            });
+            .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
 
+        // Min/maks-grensene brukes KUN her, ikke på allPoints. Slik kan vi skille
+        // mellom «ingen data i det hele tatt» (skjul grafen) og «filtrene traff ingen
+        // punkter» (vis grafen med en forklarende melding i stedet for å forsvinne).
         const points = allPoints
             .filter((point) => {
                 if (xMinLimit !== null && point.x < xMinLimit) return false;
@@ -1024,28 +1020,64 @@
         const padTop = 16;
         const padBottom = 36;
 
-        const minX = 0;
-        const maxX = Math.max(...points.map((p) => p.x), 1);
-        const yValues = points.map((p) => p.y);
-        const minY = Math.min(...yValues, 0);
-        const maxY = Math.max(...yValues, 0, 1);
-        const xScale = (value) => padLeft + ((value - minX) / (maxX - minX || 1)) * (width - padLeft - padRight);
-        const yScale = (value) => padTop + ((maxY - value) / (maxY - minY || 1)) * (height - padTop - padBottom);
-        const zeroY = yScale(0);
+        // Robust akseskalering: ekstremverdier (f.eks. en milliardbedrift eller en
+        // mikrobedrift med 8000 % margin fordi omsetningen i nevneren er nær null) skal
+        // ikke strekke aksene slik at alle andre punkter klemmes inn i et hjørne.
+        // Vi lar aksene dekke persentil-området (2–98 %) av datamaterialet, og klemmer
+        // punkter utenfor inn til kanten slik at de fortsatt vises uten å dominere skalaen.
+        // Har brukeren satt en egen min/maks-grense, styrer den grensen direkte.
+        const quantile = (sorted, q) => {
+            if (!sorted.length) return 0;
+            if (sorted.length === 1) return sorted[0];
+            const pos = (sorted.length - 1) * q;
+            const base = Math.floor(pos);
+            const rest = pos - base;
+            const next = sorted[base + 1] !== undefined ? sorted[base + 1] : sorted[base];
+            return sorted[base] + rest * (next - sorted[base]);
+        };
 
+        const xsSorted = points.map((p) => p.x).sort((a, b) => a - b);
+        const ysSorted = points.map((p) => p.y).sort((a, b) => a - b);
+
+        const minX = xMinLimit !== null ? xMinLimit : 0;
+        let maxX = xMaxLimit !== null ? xMaxLimit : quantile(xsSorted, 0.98);
+        if (!(maxX > minX)) maxX = Math.max(...xsSorted, minX + 1);
+
+        let minY = yMinLimit !== null ? yMinLimit : Math.min(quantile(ysSorted, 0.02), 0);
+        let maxY = yMaxLimit !== null ? yMaxLimit : Math.max(quantile(ysSorted, 0.98), 0);
+        if (!(maxY > minY)) { minY = Math.min(...ysSorted, 0); maxY = Math.max(...ysSorted, minY + 1); }
+
+        const clamp = (value, lo, hi) => Math.min(Math.max(value, lo), hi);
+        const xScale = (value) => padLeft + ((clamp(value, minX, maxX) - minX) / (maxX - minX || 1)) * (width - padLeft - padRight);
+        const yScale = (value) => padTop + ((maxY - clamp(value, minY, maxY)) / (maxY - minY || 1)) * (height - padTop - padBottom);
+        const zeroY = yScale(0);
+        const showZeroLine = 0 >= minY && 0 <= maxY;
+
+        let clampedCount = 0;
         const circles = points.map((point) => {
+            const isClamped = point.x < minX || point.x > maxX || point.y < minY || point.y > maxY;
+            if (isClamped) clampedCount += 1;
             const cx = xScale(point.x).toFixed(2);
             const cy = yScale(point.y).toFixed(2);
             const color = point.y >= 0 ? '#34d399' : '#f87171';
             const yFormatted = yAxis === 'driftsmargin' ? fmtPct(point.y) : fmtNumber(point.y);
-            return `<circle cx="${cx}" cy="${cy}" r="3.6" fill="${color}"><title>${point.label} · Omsetning ${fmtNumber(point.x)} · ${yAxisLabel} ${yFormatted}</title></circle>`;
+            // Uteliggere som klemmes til kanten tegnes litt mindre og halvgjennomsiktige
+            // slik at de er synlige, men ikke forveksles med punkter innenfor skalaen.
+            const extra = isClamped ? ' fill-opacity="0.55"' : '';
+            const radius = isClamped ? '2.6' : '3.6';
+            const clampNote = isClamped ? ' · utenfor skala (vist på kanten)' : '';
+            return `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${color}"${extra}><title>${point.label} · Omsetning ${fmtNumber(point.x)} · ${yAxisLabel} ${yFormatted}${clampNote}</title></circle>`;
         }).join('');
+
+        const zeroLine = showZeroLine
+            ? `<line x1="${padLeft}" y1="${zeroY.toFixed(2)}" x2="${width - padRight}" y2="${zeroY.toFixed(2)}" stroke="#475569" stroke-dasharray="4 4" stroke-width="1"></line>`
+            : '';
 
         apiScatter.innerHTML = `
             <line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${height - padBottom}" stroke="#64748b" stroke-width="1.2"></line>
             <line x1="${padLeft}" y1="${height - padBottom}" x2="${width - padRight}" y2="${height - padBottom}" stroke="#64748b" stroke-width="1.2"></line>
-            <line x1="${padLeft}" y1="${zeroY.toFixed(2)}" x2="${width - padRight}" y2="${zeroY.toFixed(2)}" stroke="#475569" stroke-dasharray="4 4" stroke-width="1"></line>
-            <text x="${padLeft}" y="${height - 8}" fill="#94a3b8" font-size="11">0</text>
+            ${zeroLine}
+            <text x="${padLeft}" y="${height - 8}" fill="#94a3b8" font-size="11">${fmtNumber(minX)}</text>
             <text x="${width - padRight - 90}" y="${height - 8}" fill="#94a3b8" font-size="11">Omsetning →</text>
             <text x="${padLeft + 6}" y="${padTop + 12}" fill="#94a3b8" font-size="11">↑ ${yAxisLabel}</text>
             ${circles}
@@ -1055,7 +1087,8 @@
             : `Scatter: omsetning vs. ${yAxisLabel.toLowerCase()} (kun rader som vises nå)`;
         const minYText = yAxis === 'driftsmargin' ? fmtPct(minY) : fmtNumber(minY);
         const maxYText = yAxis === 'driftsmargin' ? fmtPct(maxY) : fmtNumber(maxY);
-        apiScatterMeta.textContent = `Punkter: ${fmtNumber(points.length)} · X-akse maks omsetning: ${fmtNumber(maxX)} · Y-akse: ${minYText} til ${maxYText}`;
+        const clampText = clampedCount > 0 ? ` · ${fmtNumber(clampedCount)} uteligger(e) vist på kanten` : '';
+        apiScatterMeta.textContent = `Punkter: ${fmtNumber(points.length)} · X-akse: ${fmtNumber(minX)}–${fmtNumber(maxX)} · Y-akse: ${minYText} til ${maxYText}${clampText}`;
         apiScatterWrap.style.display = '';
     }
 
