@@ -579,6 +579,14 @@ function prefillFromQuery() {
   if (mn) document.getElementById('f-min-omsetning').value = mn;
   if (mx) document.getElementById('f-max-omsetning').value = mx;
 
+  // Videresendte ansatte-/margingrenser fra regnskapstabellen forfylles i de
+  // lokale feltene. Backend for kartet støtter ikke disse, så uten dette ble
+  // filteret stille borte når man åpnet kartet fra et filtrert treffsett.
+  const minA = forwardedQuery.get('min_ansatte');
+  const maxA = forwardedQuery.get('max_ansatte');
+  if (minA) document.getElementById('f-local-min-ansatte').value = minA;
+  if (maxA) document.getElementById('f-local-max-ansatte').value = maxA;
+
   const summary = [];
   if (forwardedQuery.get('q')) summary.push(`Søk: ${forwardedQuery.get('q')}`);
   if (forwardedQuery.get('kommune')) summary.push(`Kommune: ${forwardedQuery.get('kommune')}`);
@@ -592,8 +600,13 @@ prefillFromQuery();
 
 function parseOptionalNumber(id) {
   const raw = document.getElementById(id)?.value ?? '';
-  if (raw === null || raw === undefined || String(raw).trim() === '') return null;
-  const val = Number(raw);
+  const s = String(raw).trim();
+  if (s === '') return null;
+  // Godta norsk tallformat: mellomrom/NBSP som tusenskille og komma som
+  // desimaltegn. Tidligere ga f.eks. «1 000» eller «5,0» NaN, og filteret ble
+  // stille ignorert – det så ut som om filteret ikke virket.
+  const normalized = s.replace(/[\s ]/g, '').replace(',', '.');
+  const val = Number(normalized);
   return Number.isFinite(val) ? val : null;
 }
 
@@ -748,6 +761,17 @@ document.querySelectorAll('.js-local-filter').forEach((el) => {
     applyLocalFiltersOnly();
   });
 });
+
+// Server-filtrene (næringskode, orgform, min/maks omsetning) krever et nytt
+// databaseoppslag. De virket tidligere bare når man trykket «Søk i kartet», så
+// de opplevdes som «døde». Nå utløser Enter i tekst-/tallfeltene og endring av
+// orgform et søk automatisk.
+['f-naeringskode', 'f-min-omsetning', 'f-max-omsetning'].forEach((id) => {
+  document.getElementById(id)?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); sokSelskaper(); }
+  });
+});
+document.getElementById('f-orgform')?.addEventListener('change', () => sokSelskaper());
 
 // ── Søkefunksjon ──
 let sisteSok = 0;
