@@ -120,6 +120,29 @@ def er_privat_mask(df: pd.DataFrame) -> pd.Series:
     return klassifiser_selgertype(df[col]).eq("privat")
 
 
+def filtrer_fylke(df: pd.DataFrame, fylke: str) -> pd.Series:
+    """Bool-serie: rader i oppgitt fylke. Bruker Fylke-kolonnen og faller
+    tilbake til Sted ("Sted, Fylke"). Tom fylke = alt."""
+    if not fylke or fylke.strip().lower() in ("", "alle", "hele landet"):
+        return pd.Series(True, index=df.index)
+    maal = fylke.strip().lower()
+    treff = pd.Series(False, index=df.index)
+    if "fylke" in df.columns:
+        treff = treff | df["fylke"].astype(str).str.strip().str.lower().eq(maal)
+    if "sted" in df.columns:
+        sted = df["sted"].astype(str).str.strip().str.lower()
+        treff = treff | sted.str.endswith(", " + maal)
+    return treff
+
+
+def filtrer_drivstoff(df: pd.DataFrame, drivstoff: str) -> pd.Series:
+    """Bool-serie: rader med oppgitt (normalisert) drivstoff. Tom = alt."""
+    if not drivstoff or drivstoff.strip().lower() in ("", "alle"):
+        return pd.Series(True, index=df.index)
+    maal = norm_drivstoff(drivstoff)
+    return df["drivstoff"].map(norm_drivstoff).eq(maal)
+
+
 def beregn_rabatt(df: pd.DataFrame) -> pd.DataFrame:
     """Legg til rabatt_kr / rabatt_pct der forventet_pris finnes og er positiv.
     rabatt = (forventet_pris - salgspris) / forventet_pris * 100."""
@@ -357,6 +380,51 @@ def _med(s) -> float | None:
     return round(float(v), 1) if pd.notna(v) else None
 
 
+def terskel_sweep(seg: pd.DataFrame, terskler: list[float], solgt_col: str,
+                  kun_privat: bool = True,
+                  maks_rabatt_pct: float | None = 70.0) -> tuple[pd.DataFrame, dict]:
+    """For et segment (allerede filtrert paa fylke/drivstoff/pris + sensurert):
+    hvordan endrer presisjon og recall seg naar rabatt-terskelen (flat prosent)
+    varieres?
+
+    Presisjon = andel av flaggede som ble solgt innen vinduet.
+    Recall    = andel av ALLE raske salg i segmentet vi fanger.
+    Loeft     = presisjon / segmentets basisrate.
+
+    NB: Bruker en FLAT rabatt-terskel (ikke pris-trappa), saa én knapp styrer –
+    det gjoer avveiningen lett aa lese for et homogent segment (f.eks. elbil).
+    """
+    rab = pd.to_numeric(seg.get("rabatt_pct"), errors="coerce")
+    solgt = seg[solgt_col].astype(bool)
+    privat = er_privat_mask(seg) if kun_privat else pd.Series(True, index=seg.index)
+
+    n_total = int(len(seg))
+    n_fast = int(solgt.sum())
+    base = (n_fast / n_total) if n_total else 0.0
+
+    rader = []
+    for t in terskler:
+        flagg = rab.notna() & (rab >= t) & privat
+        if maks_rabatt_pct is not None:
+            flagg = flagg & (rab <= maks_rabatt_pct)
+        n_flag = int(flagg.sum())
+        n_flag_solgt = int((flagg & solgt).sum())
+        pres = (n_flag_solgt / n_flag) if n_flag else None
+        rec = (n_flag_solgt / n_fast) if n_fast else None
+        loeft = (pres / base) if (pres and base) else None
+        rader.append({
+            "terskel_pct": t,
+            "n_flagget": n_flag,
+            "n_solgt_innen": n_flag_solgt,
+            "presisjon_pct": round(100 * pres, 1) if pres is not None else None,
+            "recall_pct": round(100 * rec, 1) if rec is not None else None,
+            "loeft": round(loeft, 2) if loeft is not None else None,
+        })
+    meta = {"n_segment": n_total, "n_raske": n_fast,
+            "basisrate_pct": round(100 * base, 1) if n_total else None}
+    return pd.DataFrame(rader), meta
+
+
 # ======================================================================
 # Orkestrering
 # ======================================================================
@@ -371,6 +439,11 @@ def kjor_backtest(
     kun_ja: bool = False,
     maks_rabatt_pct: float | None = 70.0,
     bruk_overrides: bool = True,
+    fylke: str | None = None,
+    drivstoff: str | None = None,
+    min_pris: float | None = None,
+    sweep: bool = False,
+    terskler: list[float] | None = None,
 ) -> dict:
     ref_dato = pd.Timestamp(datetime.now().date())
     df = motor.les_og_klargjor(input_path, ref_dato)
@@ -402,6 +475,15 @@ def kjor_backtest(
     # ---- Kandidater: alt lagt ut siden fra-datoen ----
     cand = df[df["Dato"].notna() & (df["Dato"] >= fra_ts)].copy()
     print(f"      Kandidater lagt ut siden {fra}: {len(cand):,}")
+
+    # ---- Segment-filtre (fylke / drivstoff) ----
+    if fylke:
+        cand = cand[filtrer_fylke(cand, fylke)].copy()
+        print(f"      Etter fylke={fylke}: {len(cand):,}")
+    if drivstoff:
+        cand = cand[filtrer_drivstoff(cand, drivstoff)].copy()
+        print(f"      Etter drivstoff={drivstoff}: {len(cand):,}")
+
     cand = scor_kandidater(cand, df_train, bruk_overrides=bruk_overrides)
     cand = beregn_rabatt(cand)
 
@@ -412,12 +494,13 @@ def kjor_backtest(
     cand["er_privat"] = er_privat_mask(cand)
 
     # ---- Sensurering: kun biler som fikk minst `dager` doegn paa aa selge ----
+    pris_gulv = float(min_pris) if min_pris else float(motor.MIN_SALGSPRIS)
     siste_dato = df["Dato_ny"].max()
     cutoff = siste_dato - pd.Timedelta(days=dager)
     cand["_eligible"] = (
         (cand["Dato"] <= cutoff)
         & cand["salgspris"].notna()
-        & (cand["salgspris"] >= motor.MIN_SALGSPRIS)
+        & (cand["salgspris"] >= pris_gulv)
     )
     elig = cand[cand["_eligible"]].copy()
     print(f"      Kvalifiserte for {dager}-doegns maaling (lagt ut <= {cutoff.date()}): "
@@ -456,6 +539,15 @@ def kjor_backtest(
     print("=" * 64)
     print(f"KUPP-FASIT  ({fra} -> {siste_dato.date()},  solgt innen {dager} doegn)")
     print("=" * 64)
+    filterbits = []
+    if fylke:
+        filterbits.append(f"fylke={fylke}")
+    if drivstoff:
+        filterbits.append(f"drivstoff={drivstoff}")
+    if min_pris:
+        filterbits.append(f"pris>={int(pris_gulv):,}")
+    if filterbits:
+        print("Filtre:                            " + ", ".join(filterbits))
     print(f"Kandidater lagt ut i perioden:     {len(cand):,}")
     print(f"  - kvalifiserte for maaling:      {len(elig):,}")
     print(f"  - flagget som kupp:              {int(elig['er_kupp'].sum()):,}")
@@ -489,10 +581,33 @@ def kjor_backtest(
     print(f"  - {os.path.basename(p_moenster)}     (rate per dimensjon)")
     print(f"  - {os.path.basename(p_bommet)}    (bommede hurtigsolgte elbiler)")
 
+    sweep_df = None
+    if sweep:
+        terskler = terskler or [-2, 0, 2, 4, 6, 8, 10, 12, 15, 20]
+        sweep_df, sweep_meta = terskel_sweep(
+            elig, terskler, "solgt_innen",
+            kun_privat=kun_privat, maks_rabatt_pct=maks_rabatt_pct)
+        p_sweep = os.path.join(utdir, "terskel_sweep.csv")
+        sweep_df.to_csv(p_sweep, index=False, sep=";", encoding="utf-8-sig")
+        seg_txt = ", ".join(filterbits) if filterbits else "hele utvalget"
+        print()
+        print("-" * 64)
+        print(f"TERSKEL-SWEEP  (segment: {seg_txt})")
+        print("-" * 64)
+        print(f"Segment: {sweep_meta['n_segment']:,} biler, "
+              f"hvorav {sweep_meta['n_raske']:,} solgt innen {dager} doegn "
+              f"(basisrate {sweep_meta['basisrate_pct']} %).")
+        print("Flat rabatt-terskel -> presisjon (andel av flaggede solgt), "
+              "recall (andel av raske fanget), loeft:")
+        with pd.option_context("display.max_rows", 60, "display.width", 200):
+            print(sweep_df.to_string(index=False))
+        print(f"  -> {os.path.basename(p_sweep)}")
+
     return {
         "kupp_rate": kupp_rate, "ikke_rate": ikke_rate, "lift": lift,
         "ev_profil": ev_profil, "n_kandidater": int(len(cand)),
         "n_eligible": int(len(elig)),
+        "sweep": sweep_df.to_dict("records") if sweep_df is not None else None,
     }
 
 
@@ -515,12 +630,25 @@ def main():
                    help="Drop kupp med rabatt over dette (mistenkelig). 0 = av.")
     p.add_argument("--ingen-overrides", action="store_true",
                    help="Ikke bruk manuelle pris-overstyringer.")
+    p.add_argument("--fylke", default=None,
+                   help="Kun dette fylket, f.eks. 'Vestland'. Tom = hele landet.")
+    p.add_argument("--drivstoff", default=None,
+                   help="Kun dette drivstoffet, f.eks. 'Elektrisk'. Tom = alle.")
+    p.add_argument("--min-pris", type=float, default=None,
+                   help="Prisgulv: hopp over biler under dette (f.eks. 50000).")
+    p.add_argument("--sweep", action="store_true",
+                   help="Vis terskel-sweep (presisjon/recall vs rabatt-terskel) for segmentet.")
+    p.add_argument("--terskler", default=None,
+                   help="Komma-separerte terskler for sweep, f.eks. '-2,0,2,4,6,8,10,15,20'.")
     args = p.parse_args()
 
     ref = date.today()
     fra = (datetime.strptime(args.fra, "%Y-%m-%d").date()
            if args.fra else standard_fra_dato(ref))
     maks = None if args.maks_rabatt in (0, 0.0) else args.maks_rabatt
+    terskler = None
+    if args.terskler:
+        terskler = [float(x) for x in args.terskler.split(",") if x.strip() != ""]
 
     kjor_backtest(
         input_path=args.input,
@@ -532,6 +660,11 @@ def main():
         kun_ja=args.kun_ja,
         maks_rabatt_pct=maks,
         bruk_overrides=not args.ingen_overrides,
+        fylke=args.fylke,
+        drivstoff=args.drivstoff,
+        min_pris=args.min_pris,
+        sweep=args.sweep,
+        terskler=terskler,
     )
 
 

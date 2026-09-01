@@ -74,6 +74,44 @@ def test_standard_fra_dato():
     assert kb.standard_fra_dato(date(2026, 3, 1)) == date(2025, 8, 1)
 
 
+def test_filtrer_fylke():
+    df = pd.DataFrame({
+        "fylke": ["Vestland", "Oslo", None, ""],
+        "sted": ["Bergen, Vestland", "Oslo, Oslo", "Voss, Vestland", "Ukjent"],
+    })
+    m = kb.filtrer_fylke(df, "Vestland")
+    # rad0 via fylke-kolonnen, rad2 via sted-fallback
+    assert list(m) == [True, False, True, False]
+    # Tom fylke = alt
+    assert kb.filtrer_fylke(df, "").all()
+
+
+def test_filtrer_drivstoff():
+    df = pd.DataFrame({"drivstoff": ["Elektrisk", "El", "Bensin", "Diesel"]})
+    assert list(kb.filtrer_drivstoff(df, "Elektrisk")) == [True, True, False, False]
+    assert kb.filtrer_drivstoff(df, "").all()
+
+
+def test_terskel_sweep():
+    # 4 elbiler: to solgt raskt (rabatt 10% og 3%), to ikke solgt (rabatt 8%, 0%)
+    seg = pd.DataFrame({
+        "rabatt_pct": [10.0, 3.0, 8.0, 0.0],
+        "solgt_innen": [True, True, False, False],
+        "Selger": ["", "", "", ""],
+    })
+    df, meta = kb.terskel_sweep(seg, [5.0, 2.0], "solgt_innen",
+                                kun_privat=True, maks_rabatt_pct=70.0)
+    assert meta["n_segment"] == 4 and meta["n_raske"] == 2
+    r5 = df[df["terskel_pct"] == 5.0].iloc[0]
+    # terskel 5%: flagger rabatt>=5 -> {10%(solgt), 8%(ikke)} = 2 flagget, 1 solgt
+    assert r5["n_flagget"] == 2 and r5["n_solgt_innen"] == 1
+    assert r5["presisjon_pct"] == 50.0 and r5["recall_pct"] == 50.0
+    r2 = df[df["terskel_pct"] == 2.0].iloc[0]
+    # terskel 2%: flagger {10,3,8} = 3 flagget, 2 solgt (10% og 3%)
+    assert r2["n_flagget"] == 3 and r2["n_solgt_innen"] == 2
+    assert r2["recall_pct"] == 100.0
+
+
 # ---------------------------------------------------------------- end-to-end
 
 def _syntetisk_db(tmp_path) -> str:
@@ -153,6 +191,24 @@ def test_ende_til_ende(tmp_path):
     kupp = pd.read_csv(os.path.join(utdir, "kupp_flagget.csv"), sep=";")
     assert 2005 not in set(kupp["FinnKode"].astype(int))
     assert 2001 in set(kupp["FinnKode"].astype(int))
+
+
+def test_ende_til_ende_fylke_og_sweep(tmp_path):
+    path = _syntetisk_db(str(tmp_path))
+    utdir = os.path.join(str(tmp_path), "ut2")
+    fra = (pd.Timestamp.now().normalize() - pd.Timedelta(days=25)).date()
+
+    res = kb.kjor_backtest(
+        input_path=path, fra=fra, dager=2, utdir=utdir,
+        frys=False, kun_privat=True, bruk_overrides=False,
+        fylke="Vestland", min_pris=50_000, drivstoff="Elektrisk",
+        sweep=True, terskler=[0, 5, 10, 20],
+    )
+    # Sweep-resultat finnes og har en rad per terskel
+    assert res["sweep"] is not None and len(res["sweep"]) == 4
+    assert os.path.exists(os.path.join(utdir, "terskel_sweep.csv"))
+    # Alle syntetiske biler er i Vestland og >= 50k -> segmentet er ikke tomt
+    assert res["n_eligible"] >= 1
 
 
 if __name__ == "__main__":
