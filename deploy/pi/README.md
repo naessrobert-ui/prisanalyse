@@ -82,7 +82,12 @@ ved cron-oppsett) og lagre. Ingen restart trengs – hver kjøring leser fila p�
 | `KUPP_FYLKE` | Kun disse fylkene, f.eks. `Vestland,Rogaland` (eller rå FINN-kode `0.22046`). Tom = hele landet. Server-side hardt filter. |
 | `KUPP_STED` | Delstreng på poststed/område, f.eks. `Bergen,Voss`. Finere enn fylke. |
 | `KUPP_HJEMFYLKE` | Fylket der vanlig terskel gjelder (default `Vestland`). Biler *utenfor* krever større rabatt (se under). |
-| `KUPP_UTENFOR_TILLEGG_PP` | Ekstra rabattkrav i prosentpoeng for biler utenfor hjemfylket (default `8`, `0` = av). Krever `KUPP_FYLKE` tom. |
+| `KUPP_UTENFOR_TILLEGG_PP` | Ekstra rabattkrav i prosentpoeng for biler i *resten* av landet (default `8`, `0` = av). Krever `KUPP_FYLKE` tom. |
+| `KUPP_NABOFYLKE` | Nabofylker med kortere reise som får et *mindre* tillegg enn resten, f.eks. `Rogaland,Møre og Romsdal`. Tom = ingen nabo-nivå. |
+| `KUPP_NABO_TILLEGG_PP` | Ekstra rabattkrav (prosentpoeng) for nabofylkene (default `5`). |
+| `KUPP_EL_TIER` | `1` slår på merke-tiered rabattkrav for elbiler (erstatter pris-trappa for EV). Fra `kupp_backtest --per produsent`. Default av. |
+| `KUPP_EL_MERKER_LAV` / `_MEDIUM` / `_HOY` | Elbil-merker per tier (komma-sep.). Sterke merker → lav terskel. |
+| `KUPP_EL_TERSKEL_LAV` / `_MEDIUM` / `_HOY` / `_DEFAULT` | Rabattkrav i % per tier (default `2`/`6`/`12`/`12`). Ukjent EV-merke → DEFAULT. |
 | `KUPP_KURANTE` | «Merke Modell»-fragmenter (komma-sep.) som får lavere krav fordi de er lette å omsette, f.eks. `Volkswagen Golf,Toyota RAV4`. |
 | `KUPP_KURANT_LETTELSE_PP` | Hvor mye lavere rabattkrav (prosentpoeng) kurante modeller får (default `3`). |
 
