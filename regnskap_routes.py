@@ -270,6 +270,44 @@ def csv_number(value: Any) -> str:
     return f"{num:.2f}".rstrip("0").rstrip(".")
 
 
+def csv_integer(value: Any) -> str:
+    """Format a numeric value as a whole number for CSV export.
+
+    Rounds to the nearest integer and uses no thousands separator, so large
+    amounts come out as clean integers. Non-numeric values are returned
+    unchanged.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str) and value.strip() == "":
+        return ""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    return str(int(round(num)))
+
+
+def csv_decimal_comma(value: Any) -> str:
+    """Format a decimal value for CSV export using a comma as decimal separator.
+
+    Keeps up to two decimals (no thousands separator) and uses a comma as the
+    decimal separator, matching Norwegian convention. Non-numeric values are
+    returned unchanged.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str) and value.strip() == "":
+        return ""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if num == int(num):
+        return str(int(num))
+    return f"{num:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
 def first_present(data: dict[str, Any] | None, *keys: str) -> Any:
     if not isinstance(data, dict):
         return None
@@ -1363,9 +1401,9 @@ def batch_download_csv():
                 row.company,
                 row.regnskapsperiode or "",
                 row.year or "",
-                csv_number(row.omsetning),
-                csv_number(row.resultat_etter_skatt),
-                csv_number(row.egenkapital),
+                csv_integer(row.omsetning),
+                csv_integer(row.resultat_etter_skatt),
+                csv_integer(row.egenkapital),
                 row.url_used,
                 row.error,
                 row.debug,
@@ -1566,26 +1604,33 @@ def regnskap_api_companies_filter_export_csv():
         "oppdatert_dato",
         "matched_bedr_navn",
     ]
-    numeric_columns = {
+    # Large amounts are exported as whole integers; the two percentage columns
+    # keep decimals but use a comma as the decimal separator (Norwegian convention).
+    integer_columns = {
         "ansatte",
         "omsetning",
         "sum_driftsinntekter",
         "aarsresultat",
         "driftsresultat",
-        "netto_margin",
-        "egenkapitalandel",
         "omsetning_per_ansatt",
         "resultat_per_ansatt",
     }
+    decimal_comma_columns = {
+        "netto_margin",
+        "egenkapitalandel",
+    }
+
+    def _format_cell(col: str, value: Any) -> Any:
+        if col in integer_columns:
+            return csv_integer(value)
+        if col in decimal_comma_columns:
+            return csv_decimal_comma(value)
+        return value
+
     writer.writerow(columns)
     for row in all_rows:
         row_dict = row if isinstance(row, dict) else {}
-        writer.writerow(
-            [
-                csv_number(row_dict.get(col, "")) if col in numeric_columns else row_dict.get(col, "")
-                for col in columns
-            ]
-        )
+        writer.writerow([_format_cell(col, row_dict.get(col, "")) for col in columns])
 
     csv_content = "\ufeff" + buffer.getvalue()
     resp = make_response(csv_content)
