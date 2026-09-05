@@ -1,7 +1,7 @@
 """Prisfallvakt for rene elbiler, kjørt etter Bilradars eksisterende scoring.
 
 Leser hele bilradar_aktive.parquet, ikke topplisten eller bare nye annonser.
-Ingen nye FINN-oppslag. Egen S3-state; første kjøring lagrer kun grunnpriser.
+Ingen nye FINN-oppslag. Sammenligner de to siste komplette dagsfilene i S3.
 Se docs/prisfall_vakt.md for drift, terskler og begrensninger.
 """
 from __future__ import annotations
@@ -12,6 +12,8 @@ import io
 import json
 import math
 import os
+import re
+from datetime import date
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -21,6 +23,8 @@ from scripts import kupp_vakt as kupp
 
 STATE_KEY = os.getenv("PRISFALL_STATE_KEY", "calc/bil/prisfall_vakt_state.json")
 INPUT_KEY = os.getenv("PRISFALL_INPUT_KEY", "calc/bil/bilradar_aktive.parquet")
+DAILY_PREFIX = os.getenv("PRISFALL_DAILY_PREFIX", "raw/bil-daglig/")
+DAILY_PATTERN = re.compile(r"biler_alle_(\d{2})-(\d{2})-(\d{4})\.csv$")
 MIN_KR = float(os.getenv("PRISFALL_MIN_KR", "10000"))
 MIN_PCT = float(os.getenv("PRISFALL_MIN_PCT", "3"))
 MAX_VARSLER = int(os.getenv("PRISFALL_MAX_VARSLER", "40"))
@@ -52,6 +56,112 @@ def _kode(value) -> str:
 def _fylkekode(value) -> str:
     name = _tekst(value).lower()
     return kupp.FYLKE_LOCATION.get(name, name)
+
+
+def _dagsdato(key: str) -> date | None:
+    match = DAILY_PATTERN.search(key.rsplit("/", 1)[-1])
+    if not match:
+        return None
+    day, month, year = map(int, match.groups())
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def hent_siste_dagspar(s3):
+    """Finn de to nyeste, ulike komplette dagsfilene i S3."""
+    files = {}
+    token = None
+    while True:
+        kwargs = {"Bucket": kupp.S3_BUCKET, "Prefix": DAILY_PREFIX}
+        if token:
+            kwargs["ContinuationToken"] = token
+        response = s3.list_objects_v2(**kwargs)
+        for obj in response.get("Contents", []):
+            key = obj.get("Key", "")
+            day = _dagsdato(key)
+            if day and obj.get("Size", 1) > 0:
+                files[day] = key
+        if not response.get("IsTruncated"):
+            break
+        token = response.get("NextContinuationToken")
+        if not token:
+            raise RuntimeError("S3-listing var trunkert uten fortsettelsestoken")
+    days = sorted(files)
+    if len(days) < 2:
+        return None
+    previous, current = days[-2:]
+    return {"previous_date": previous, "previous_key": files[previous],
+            "current_date": current, "current_key": files[current]}
+
+
+def les_dagspriser(s3, key: str) -> dict[str, float]:
+    """Les FinnKode -> gyldig pris fra scraperens UTF-16/semikolon-fil."""
+    body = s3.get_object(Bucket=kupp.S3_BUCKET, Key=key)["Body"].read()
+    text = body.decode("utf-16")
+    frame = pd.read_csv(io.StringIO(text), sep=";", dtype=str, on_bad_lines="warn")
+    frame.columns = [str(col).strip().lower() for col in frame.columns]
+    code_col = "finnkode" if "finnkode" in frame.columns else None
+    price_col = "pris" if "pris" in frame.columns else (
+        "pris_ny" if "pris_ny" in frame.columns else None)
+    if not code_col or not price_col:
+        raise ValueError(f"Dagsfilen {key} mangler FinnKode eller Pris")
+    codes = (frame[code_col].astype(str).str.replace(r"\D", "", regex=True)
+             .str.lstrip("0"))
+    prices = pd.to_numeric(
+        frame[price_col].astype(str).str.replace(r"[^\d]", "", regex=True),
+        errors="coerce",
+    )
+    valid = codes.ne("") & prices.notna() & (prices >= 1500)
+    clean = pd.DataFrame({"code": codes[valid], "price": prices[valid]})
+    clean = clean.drop_duplicates("code", keep="last")
+    return {row.code: float(row.price) for row in clean.itertuples(index=False)}
+
+
+def _state_fra_dagspar(state: dict | None, previous: dict[str, float],
+                       current: dict[str, float], pair: dict) -> dict:
+    """Legg gårsdagens priser inn som grunnlag, men behold varslingshistorikk."""
+    result = copy.deepcopy(state) if state is not None else {"version": 1, "cars": {}}
+    cars = result["cars"]
+    observed = pd.Timestamp(pair["previous_date"], tz="UTC") + pd.Timedelta(hours=7)
+    for code, current_price in current.items():
+        old_price = previous.get(code)
+        if old_price is None:
+            continue
+        existing = cars.get(code, {})
+        pending = existing.get("pending")
+        # Et usendt varsel for samme nye pris må fortsatt kunne prøves igjen.
+        if pending and _tall(pending.get("new_price")) == current_price:
+            continue
+        cars[code] = {
+            "price": old_price,
+            "observed_at": observed.isoformat(),
+            "alerted_prices": list(existing.get("alerted_prices", [])),
+        }
+    return result
+
+
+def sammenlign_dagspar(df: pd.DataFrame, state: dict | None, s3, pair: dict,
+                       now=None, *, seed=False):
+    """Sammenlign gårsdagens og dagens råpriser, vurder dagens Bilradar-rader."""
+    previous = les_dagspriser(s3, pair["previous_key"])
+    current = les_dagspriser(s3, pair["current_key"])
+    if seed:
+        prepared = state
+    else:
+        prepared = _state_fra_dagspar(state, previous, current, pair)
+    rows = df.copy()
+    rows["_fk_daily"] = rows["FinnKode"].map(_kode)
+    rows = rows[rows["_fk_daily"].isin(current)].copy()
+    rows["salgspris"] = rows["_fk_daily"].map(current)
+    rows["Dato_ny"] = (
+        pd.Timestamp(pair["current_date"], tz="UTC") + pd.Timedelta(hours=7)
+    )
+    result, candidates = finn_prisfall(rows, prepared, now, seed=seed)
+    result["last_daily_pair"] = {
+        "previous": pair["previous_key"], "current": pair["current_key"]}
+    return result, candidates, len(previous), len(current)
 
 
 def _varselrad(row: dict) -> dict:
@@ -214,10 +324,24 @@ def kjor(input_path=None, *, seed=False, dry_run=False, s3=None, now=None):
     else:
         obj = s3.get_object(Bucket=kupp.S3_BUCKET, Key=INPUT_KEY)
         df = pd.read_parquet(io.BytesIO(obj["Body"].read()))
-    next_state, candidates = finn_prisfall(df, state, now, seed=seed)
+    pair = hent_siste_dagspar(s3)
+    pair_id = ({"previous": pair["previous_key"], "current": pair["current_key"]}
+               if pair else None)
+    new_pair = bool(pair and pair_id != (state or {}).get("last_daily_pair"))
+    if new_pair:
+        next_state, candidates, old_count, new_count = sammenlign_dagspar(
+            df, state, s3, pair, now, seed=seed)
+        print(f"[prisfall_vakt] Sammenlignet {pair['previous_key']} ({old_count} priser) "
+              f"med {pair['current_key']} ({new_count} priser)")
+    else:
+        next_state, candidates = finn_prisfall(df, state, now, seed=seed)
+        if pair:
+            print(f"[prisfall_vakt] Dagspar allerede behandlet: {pair['current_key']}")
+        else:
+            print("[prisfall_vakt] Færre enn to dagsfiler; bruker lagret grunnpris")
     print(f"[prisfall_vakt] {len(next_state['cars'])} elbiler i state; "
           f"{len(candidates)} attraktive prisfall")
-    if state is None or seed:
+    if seed or (state is None and not new_pair):
         print("[prisfall_vakt] Grunnpriser lagret uten varsling" if not dry_run
               else "[prisfall_vakt] Ville etablert grunnpriser uten varsling")
     if dry_run:
