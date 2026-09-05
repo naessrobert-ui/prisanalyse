@@ -779,7 +779,8 @@ def _pushover_melding(kupp: list[dict]) -> str:
     return "\n\n".join(linjer)
 
 
-def _send_pushover(kupp: list[dict]) -> bool:
+def _send_pushover(kupp: list[dict], *, melding: str | None = None,
+                   tittel: str | None = None) -> bool:
     """Send push-varsel via Pushover. PUSHOVER_USER kan være én user key, en
     delivery-group-nøkkel, eller flere user keys komma-separert (én melding per
     mottaker). Sender ingenting hvis token/bruker ikke er satt."""
@@ -788,8 +789,8 @@ def _send_pushover(kupp: list[dict]) -> bool:
     if not token or not brukere:
         return False
 
-    melding = _pushover_melding(kupp)
-    tittel = f"🚗 Kupp-vakt: {len(kupp)} nye gode kjøp"
+    melding = _pushover_melding(kupp) if melding is None else melding
+    tittel = tittel or f"🚗 Kupp-vakt: {len(kupp)} nye gode kjøp"
     topp_url = kupp[0].get("url") if kupp else None
 
     ok = False
