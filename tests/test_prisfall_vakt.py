@@ -162,6 +162,81 @@ class FakeS3:
         self.objects[Key] = Body
         self.puts += 1
 
+    def list_objects_v2(self, Bucket, Prefix, **kwargs):
+        contents = [{"Key": key, "Size": len(value)}
+                    for key, value in self.objects.items() if key.startswith(Prefix)]
+        return {"Contents": contents, "IsTruncated": False}
+
+
+def daily_csv(rows):
+    frame = pd.DataFrame(rows)
+    return frame.to_csv(index=False, sep=";").encode("utf-16")
+
+
+def test_daily_pair_listing_and_reading():
+    s3 = FakeS3()
+    s3.objects["raw/bil-daglig/ignore.txt"] = b"x"
+    s3.objects["raw/bil-daglig/biler_alle_03-09-2026.csv"] = daily_csv(
+        [{"FinnKode": "000123", "Pris": "330 000 kr"}])
+    s3.objects["raw/bil-daglig/biler_alle_04-09-2026.csv"] = daily_csv(
+        [{"FinnKode": "123", "Pris": "320 000 kr"}])
+    s3.objects["raw/bil-daglig/biler_alle_05-09-2026.csv"] = daily_csv(
+        [{"FinnKode": "123", "Pris": "300 000 kr"},
+         {"FinnKode": "456", "Pris": "Solgt"}])
+    pair = p.hent_siste_dagspar(s3)
+    assert pair["previous_key"].endswith("04-09-2026.csv")
+    assert pair["current_key"].endswith("05-09-2026.csv")
+    assert p.les_dagspriser(s3, pair["current_key"]) == {"123": 300000.0}
+
+
+def test_existing_first_version_state_is_migrated_to_yesterday_and_alerts(tmp_path, monkeypatch):
+    s3 = FakeS3()
+    # Dette tilsvarer state som produksjonens første versjon allerede opprettet:
+    # dagens pris ligger som baseline, men dagspar er ikke markert som behandlet.
+    p.lagre_state(s3, seed(car(300000, DAY2)))
+    s3.objects["raw/bil-daglig/biler_alle_04-09-2026.csv"] = daily_csv(
+        [{"FinnKode": 123, "Pris": 330000}])
+    s3.objects["raw/bil-daglig/biler_alle_05-09-2026.csv"] = daily_csv(
+        [{"FinnKode": 123, "Pris": 300000}])
+    path = tmp_path / "biler.parquet"
+    pd.DataFrame([car(300000, DAY2, forventet_pris=340000)]).to_parquet(path)
+    sent = []
+    monkeypatch.setattr(p.kupp, "_send_pushover", lambda rows, **kw: sent.extend(rows) or True)
+    daily_now = "2026-09-05T08:00:00Z"
+    assert p.kjor(path, s3=s3, now=daily_now) == 0
+    assert len(sent) == 1
+    assert sent[0]["pris_for"] == 330000
+    assert sent[0]["Pris"] == 300000
+    state = p.last_state(s3)
+    assert state["last_daily_pair"]["current"].endswith("05-09-2026.csv")
+    # Samme dagspar og pris skal ikke varsles på nytt.
+    assert p.kjor(path, s3=s3, now=daily_now) == 0
+    assert len(sent) == 1
+
+
+def test_new_daily_pair_compares_previous_and_current(tmp_path, monkeypatch):
+    s3 = FakeS3()
+    s3.objects["raw/bil-daglig/biler_alle_04-09-2026.csv"] = daily_csv(
+        [{"FinnKode": 123, "Pris": 330000}])
+    s3.objects["raw/bil-daglig/biler_alle_05-09-2026.csv"] = daily_csv(
+        [{"FinnKode": 123, "Pris": 330000}, {"FinnKode": 999, "Pris": 200000}])
+    path = tmp_path / "biler.parquet"
+    pd.DataFrame([car(330000, DAY2, forventet_pris=350000),
+                  car(200000, DAY2, FinnKode=999, forventet_pris=260000)]).to_parquet(path)
+    sent = []
+    monkeypatch.setattr(p.kupp, "_send_pushover", lambda rows, **kw: sent.extend(rows) or True)
+    p.kjor(path, s3=s3, now=NOW)
+    assert sent == []  # ny kode 999 mangler gårsdagspris
+
+    s3.objects["raw/bil-daglig/biler_alle_06-09-2026.csv"] = daily_csv(
+        [{"FinnKode": 123, "Pris": 300000}, {"FinnKode": 999, "Pris": 180000}])
+    later = "2026-09-06T08:00:00Z"
+    pd.DataFrame([car(300000, "2026-09-06T07:00:00Z", forventet_pris=350000),
+                  car(180000, "2026-09-06T07:00:00Z", FinnKode=999,
+                      forventet_pris=230000)]).to_parquet(path)
+    p.kjor(path, s3=s3, now=later)
+    assert {row["FinnKode"] for row in sent} == {"123", "999"}
+
 
 def test_full_lifecycle_failure_retry_dedupe_and_further_drop(tmp_path, monkeypatch):
     s3 = FakeS3()
