@@ -1,10 +1,10 @@
 # Prisfallvakt for elbiler
 
 `scripts/prisfall_vakt.py` bruker hele resultatet fra «Scor Bilradar aktive
-biler». Denne jobben utløses etter at innhentingen har oppdatert databasen,
-og kjører dessuten hver time. Prisvakten gjør ingen ekstra FINN-oppslag.
-Gamle annonser får derfor først oppdaget prisfall når innhentingen ser dem
-igjen, normalt ved den daglige gjennomgangen.
+biler» til verdsettelsen, og sammenligner samtidig de to nyeste komplette
+dagsfilene i `raw/bil-daglig/`. Denne jobben utløses etter at innhentingen har
+oppdatert databasen, og kjører dessuten etter timeplan. Prisvakten gjør ingen
+ekstra FINN-oppslag.
 
 ## Hva som varsles
 
@@ -14,13 +14,16 @@ igjen, normalt ved den daglige gjennomgangen.
   salgspris på minst 15 000 kr før bilen inngår i resultatfilen.
 - Både private og forhandlere inngår. Prisvakten bruker ikke kuppvaktens
   server-side selgerfilter, siden den leser hele Bilradar-datasettet.
-- Prisen må ha falt minst 10 000 kr **eller** 3 prosent siden siste gyldige
-  observasjon i prisvaktens egen state. Opprinnelig annonsepris brukes ikke.
+- Prisen må ha falt minst 10 000 kr **eller** 3 prosent fra den nest nyeste
+  komplette dagsfilen til den nyeste. Filene trenger ikke være på to
+  påfølgende kalenderdager; de to siste tilgjengelige brukes.
 - Bilradars ferske forventede pris brukes til å beregne rabatt på nytt.
   Kuppvaktens eksisterende pris-/merkegrenser og fylkesjustering gjenbrukes.
   `KUPP_FYLKE` og `KUPP_STED` respekteres; elbilfilteret er alltid på.
-- Første kjøring og nye FINN-koder lagrer bare grunnpriser. Ingen historiske
-  prisfall varsles ved oppstart. Prisfall fra før oppstart fanges ikke opp.
+- Første kjøring sammenligner gårsdagens og dagens fil med en gang. Den
+  eksisterende state-filen fra den første versjonen migreres automatisk fordi
+  den mangler markøren `last_daily_pair`. Nye FINN-koder uten gårsdagspris
+  etablerer bare en grunnpris og varsles ikke som prisfall.
 - Et vellykket varsel huskes per FINN-kode og ny pris. Ytterligere prisfall
   kan varsles; opp og ned til en allerede varslet pris varsles ikke igjen.
 - Hver bil får eget Pushover-varsel med gammel/ny pris, prisfall, beregnet
@@ -47,9 +50,9 @@ Kopier eventuelle egne terskler til GitHub-variablene hvis begge skal være
 identiske. Kode-defaultene endres ikke av denne utvidelsen.
 
 Egen state ligger i `calc/bil/prisfall_vakt_state.json` i samme S3-bøtte som
-Bilradar. Den er adskilt fra kuppvakten for nye annonser. Gamle state-rader
-beholdes i 120 dager etter siste observasjon. Ingen grunnpris settes fra
-tomme/ugyldige priser eller priser under 1 500 kr.
+Bilradar. Den er adskilt fra kuppvakten for nye annonser og husker hvilket
+dagspar som er behandlet. Gamle state-rader beholdes i 120 dager etter siste
+observasjon. Tomme/ugyldige priser og priser under 1 500 kr brukes ikke.
 
 ## Manuell kontroll
 
@@ -78,11 +81,11 @@ kvitteres i state straks etterpå. Manglende Pushover-oppsett eller mislykket
 sending gir feilstatus og nytt forsøk ved neste kjøring. Manglende verdsettelse
 beholder også prisfallet for ny vurdering.
 
-Varsler krever at bilen finnes i det gjeldende resultatet, har en observasjon
-fra siste to døgn og at prisfallet er høyst to døgn gammelt. Endret pris
-erstatter tidligere ventende hendelse. Eldre snapshots kan ikke spole tilbake
-lagret pris. Et kort avbrudd mellom vellykket Pushover-sending og lagring av
-kvittering kan likevel gi et duplikat; Pushover og S3 er separate systemer.
+Varsler krever at bilen finnes i dagens Bilradar-resultat og i den nyeste
+dagsfilen. Endret pris erstatter tidligere ventende hendelse. Samme dagspar
+leses bare én gang, mens usendte varsler fortsatt kan prøves på nytt. Et kort
+avbrudd mellom vellykket Pushover-sending og lagring av kvittering kan likevel
+gi et duplikat; Pushover og S3 er separate systemer.
 Ved flere Pushover-mottakere følger sendingen kuppvaktens eksisterende regel:
 minst én vellykket mottaker regnes som sendt.
 
