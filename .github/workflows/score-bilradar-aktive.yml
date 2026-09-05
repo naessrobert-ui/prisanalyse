@@ -34,10 +34,10 @@ on:
 permissions:
   contents: read
 
-# Unngå overlappende kjøringer; siste dispatch vinner.
+# Samme lås dekker scoring og prisfall-state/varsling. Ikke avbryt en sending.
 concurrency:
   group: score-bilradar-aktive
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   score:
@@ -76,3 +76,39 @@ jobs:
             --output-parquet /tmp/bilradar_aktive.parquet \
             --output-csv /tmp/bil_kupp_topplist.csv \
             $UPLOAD_ARG
+
+      - name: Sjekk prisfall på elbiler og varsle attraktive kjøp
+        # En manuell kjøring uten opplasting skal heller ikke sende eller lagre state.
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.upload != 'false' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'eu-north-1' }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME || 'prisanalyse-data' }}
+          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
+          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
+          PRISFALL_MIN_KR: ${{ vars.PRISFALL_MIN_KR || '10000' }}
+          PRISFALL_MIN_PCT: ${{ vars.PRISFALL_MIN_PCT || '3' }}
+          PRISFALL_MAX_VARSLER: ${{ vars.PRISFALL_MAX_VARSLER || '40' }}
+          KUPP_RABATT_TRAPP: ${{ vars.KUPP_RABATT_TRAPP || '50000:30,100000:20,150000:15,250000:7,:6' }}
+          KUPP_RABATT_MIN: ${{ vars.KUPP_RABATT_MIN || '15' }}
+          KUPP_RABATT_KR_MIN: ${{ vars.KUPP_RABATT_KR_MIN || '0' }}
+          KUPP_UNDER_HURTIG: ${{ vars.KUPP_UNDER_HURTIG || '0' }}
+          KUPP_HJEMFYLKE: ${{ vars.KUPP_HJEMFYLKE || 'Vestland' }}
+          KUPP_UTENFOR_TILLEGG_PP: ${{ vars.KUPP_UTENFOR_TILLEGG_PP || '8' }}
+          KUPP_NABOFYLKE: ${{ vars.KUPP_NABOFYLKE }}
+          KUPP_NABO_TILLEGG_PP: ${{ vars.KUPP_NABO_TILLEGG_PP || '5' }}
+          KUPP_FYLKE: ${{ vars.KUPP_FYLKE }}
+          KUPP_STED: ${{ vars.KUPP_STED }}
+          KUPP_EL_TIER: ${{ vars.KUPP_EL_TIER || '0' }}
+          KUPP_EL_MERKER_LAV: ${{ vars.KUPP_EL_MERKER_LAV || 'Tesla,Kia,Nissan,Renault,Volkswagen,MG,Hyundai,Peugeot' }}
+          KUPP_EL_MERKER_MEDIUM: ${{ vars.KUPP_EL_MERKER_MEDIUM || 'BMW,Audi,Polestar,Ford' }}
+          KUPP_EL_MERKER_HOY: ${{ vars.KUPP_EL_MERKER_HOY || 'Volvo,Toyota,Skoda,Mercedes-Benz,Porsche,BYD' }}
+          KUPP_EL_TERSKEL_LAV: ${{ vars.KUPP_EL_TERSKEL_LAV || '2' }}
+          KUPP_EL_TERSKEL_MEDIUM: ${{ vars.KUPP_EL_TERSKEL_MEDIUM || '6' }}
+          KUPP_EL_TERSKEL_HOY: ${{ vars.KUPP_EL_TERSKEL_HOY || '12' }}
+          KUPP_EL_TERSKEL_DEFAULT: ${{ vars.KUPP_EL_TERSKEL_DEFAULT || '12' }}
+          KUPP_KURANTE: ${{ vars.KUPP_KURANTE }}
+          KUPP_KURANT_LETTELSE_PP: ${{ vars.KUPP_KURANT_LETTELSE_PP || '3' }}
+          PYTHONIOENCODING: "utf-8"
+        run: python -m scripts.prisfall_vakt --input /tmp/bilradar_aktive.parquet
