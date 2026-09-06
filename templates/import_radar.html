@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ImportRadar – Søk etter biler</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='import_radar.css') }}">
+</head><body>
+<main>
+  <header><a href="/bil">← Bilanalyse</a><span>PRISANALYSE.NO</span></header>
+  <section class="intro"><p class="eyebrow">TYSKLAND + SVERIGE</p><h1>ImportRadar</h1>
+    <p>Finn elbiler og sammenlign importkostnaden med norsk hurtigpris.</p></section>
+  <form id="search-form" data-csrf="{{ csrf }}">
+    <section class="panel"><h2>Hvilken bil ser du etter?</h2><div class="fields">
+      <label>Merke<input name="make" value="Kia" required maxlength="50" list="makes" autocomplete="off"></label>
+      <datalist id="makes"><option>Kia</option><option>Hyundai</option><option>Tesla</option><option>Volkswagen</option><option>Audi</option><option>BMW</option><option>Mercedes-Benz</option><option>Volvo</option><option>Polestar</option><option>Nissan</option><option>Skoda</option><option>Porsche</option></datalist>
+      <label>Modell<input name="model" value="EV6" required maxlength="50" autocomplete="off"></label>
+      <label>Fra år<input name="year_from" type="number" value="2022" min="1990" max="{{ year + 1 }}" required></label>
+      <label>Til år<input name="year_to" type="number" value="{{ year }}" min="1990" max="{{ year + 1 }}" required></label>
+      <label>Maks kilometerstand<input name="max_km" type="number" value="90000" min="1" max="500000" step="1" required></label>
+      <label>Hjuldrift<select name="drive"><option value="ANY">Alle</option><option value="AWD">Firehjulsdrift</option><option value="2WD">Tohjulsdrift</option></select></label>
+      <label>Minst batteri (kWh)<input name="min_battery_kwh" type="number" value="0" min="0" max="250" step="0.1"></label>
+      <label>Biler per land<select name="per_source"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option></select></label>
+    </div><label class="check"><input type="checkbox" name="vat_only" checked> Bare annonser med oppgitt fradragsberettiget moms</label>
+    <p class="hint">Mobile.de bruker registreringsår; Bytbil bruker modellår. Søket leser et begrenset antall annonser fra første resultatside. Sverige: pris fra 50 000 SEK.</p></section>
+    <section class="panel"><h2>Din importkalkyle <span>NOK</span></h2><div class="fields">
+      <label>Frakt fra Tyskland<input name="freight_de_nok" type="number" value="13000" min="0" required></label>
+      <label>Frakt fra Sverige<input name="freight_se_nok" type="number" value="8000" min="0" required></label>
+      <label>Ønsket margin<input name="target_margin_nok" type="number" value="30000" min="0" required></label>
+      <label>Øvrige kostnader<input name="other_costs_nok" type="number" placeholder="Ikke avklart" min="0"></label>
+    </div><details><summary>Valuta og flere forutsetninger</summary><div class="fields advanced">
+      <label>NOK per euro<input name="eur_nok" type="number" min="0.000001" step="any" placeholder="Hentes automatisk"></label>
+      <label>NOK per svensk krone<input name="sek_nok" type="number" min="0.000001" step="any" placeholder="Hentes automatisk"></label>
+      <label>Valutapåslag (%)<input name="fx_buffer_pct" type="number" value="0" min="0" max="25" step="0.1"></label>
+      <label>Reserve (NOK)<input name="reserve_nok" type="number" value="0" min="0"></label>
+      <label>Registrering i Norge<input name="registration_date" type="date" value="{{ today }}" min="2026-01-01" max="2026-12-31" required></label>
+      <label>Egenvekt hvis ukjent (kg)<input name="assumed_weight_kg" type="number" min="500" max="5000" placeholder="Valgfritt anslag"></label>
+    </div><p class="hint">Tomme kursfelt henter ECBs siste referansekurser. Oppgi begge felt for egne bankkurser. Anslått vekt brukes bare der annonsen mangler egenvekt og merkes for kontroll.</p></details>
+    <p class="hint">Kalkylen gjelder mva-registrert bilforhandler med bilen som salgsvare. Margin er etter oppgitte kostnader og moms, før faste driftskostnader og selskapsskatt. Avgiftsregler for 2026.</p></section>
+    <div class="actions"><button id="submit" type="submit">Søk nå i begge land <span>→</span></button><span class="hint">Vanligvis rundt 30–120 sekunder.</span></div>
+  </form>
+  <div id="status" role="status" aria-live="polite"></div>
+  <section id="results" hidden>
+    <div class="result-head"><h2>Treff fra søket</h2><a id="download" class="secondary" href="#">Last ned kalkyler</a></div>
+    <p id="fx-note" class="hint"></p><div id="sources" class="sources"></div>
+    <p class="hint">Prisene under bruker annonsert nettopris når den finnes. Dette er et ubekreftet eksportscenario. Detaljene viser også bruttoprisen. Manglende avgifter vises aldri som null.</p>
+    <label class="sort">Sorter etter<select id="sort"><option value="purchase">Lavest innkjøp + frakt</option><option value="margin">Høyest beregnet margin</option></select></label>
+    <div id="cars"></div>
+    <p class="hint">Norske priser er modellanslag. Utstyr, garanti, importhistorikk og faktisk oppnåelig salgspris må kontrolleres.</p>
+  </section>
+</main><script src="{{ url_for('static', filename='import_radar.js') }}" defer></script></body></html>
