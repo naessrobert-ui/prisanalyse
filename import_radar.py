@@ -227,7 +227,7 @@ def normalize_listing(raw):
         if net > float(row["price_amount"]):
             raise ValueError("Annonsert nettopris overstiger bruttopris")
     for key in ("export_price_confirmed", "vat_reclaimable", "damage_free", "variant_confirmed",
-                "model_year_estimated"):
+                "model_year_estimated", "registration_date_estimated", "weight_estimated"):
         if key in row and row[key] is not None and not isinstance(row[key], bool):
             raise ValueError(f"{key} må være true, false eller null")
     return row
@@ -295,6 +295,10 @@ def evaluate_listings(raw_rows, settings: Settings, *, scorer=score_norwegian_pr
             reasons.append("Variant og utstyr mot norsk prisgrunnlag må kontrolleres")
         if row.get("model_year_estimated") is True:
             reasons.append("Modellår er anslått fra registreringsår og må bekreftes")
+        if row.get("registration_date_estimated") is True:
+            reasons.append("Eksakt registreringsdato mangler; siste dag i måneden er brukt")
+        if row.get("weight_estimated") is True:
+            reasons.append("Egenvekt er ditt anslag og må bekreftes")
         if row.get("damage_free") is not True:
             reasons.append("Skadehistorikk er ukjent eller bilen er skadet")
         if str(row.get("drive", "")).upper() not in {"AWD", "4WD", "ALL_WHEEL", "FWD", "RWD", "2WD"}:
@@ -326,7 +330,9 @@ def evaluate_listings(raw_rows, settings: Settings, *, scorer=score_norwegian_pr
                 result["status"] = "for_dyr"
         except (ValueError, KeyError, TypeError) as exc:
             result["status"] = "mangler_kalkyledata"
-            reasons.append(str(exc))
+            missing = {"weight_kg": "Avgiftsrelevant egenvekt mangler",
+                       "first_registration": "Eksakt førstegangsregistrering mangler"}
+            reasons.append(missing.get(exc.args[0], str(exc)) if isinstance(exc, KeyError) else str(exc))
         results.append(result)
     results.sort(key=lambda r: (r["status"] != "kandidat",
                                -r.get("calculation", {}).get("surplus_after_target_nok", -1e20)))
