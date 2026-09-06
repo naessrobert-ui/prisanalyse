@@ -1,4 +1,4 @@
-# ImportRadar – første kalkyleversjon
+# ImportRadar – Søk nå og importkalkyle
 
 ImportRadar sammenligner normaliserte utenlandske annonser med eksisterende
 BilRadar-priser. Frakt er satt til **13 000 NOK fra Tyskland**, **8 000 NOK fra
@@ -8,21 +8,82 @@ før selskapsskatt og faste driftskostnader. Innstillingene kan endres i
 
 ## Status og avgrensning
 
-Kalkylen og BilRadar-koblingen er kjørbare. De fire opprinnelige søkelenkene
-er bevart i konfigurasjonen med `collection_status=not_connected`.
-**Denne versjonen henter ikke annonser, følger ikke søkefiltrene automatisk,
-oppdaterer ikke valutakurser og sender ikke varsler.** Den leser en JSON-liste
-med annonser fra et separat uttrekk. Ingen workflow, produksjonsrute eller
-eksisterende kupp-vakt er endret. Rapporten viser alltid denne statusen.
+Siden **`/bil/import-radar/`** er lagt til i Flask-appen med lenke fra bilmenyen.
+Oppgi merke, modell, år, maks km, hjuldrift og eventuelt minste batteristørrelse.
+«Søk nå» starter en jobb som leser offentlige søkeresultater og enkeltannonser
+fra begge land og sammenligner dem med BilRadar. Resultatet viser kildestatus,
+innkjøp/frakt, norsk hurtigpris, nødvendige kundepriser og marginer når dataene
+er tilstrekkelige. Annonsert nettopris behandles som et **ubekreftet scenario**.
+
+Begge tomme kursfelt gir automatisk henting av ECBs siste referansekurser.
+Oppgi begge kursfeltene for å bruke bankkurser; valutapåslag kan legges til.
+Frakt og kostnader i nettskjemaet gjelder det enkelte søket. JSON-kalkylens
+konfigurasjonsfil endres ikke av skjemaet.
+
+Søket leser første resultatside og kontrollerer høyst 20 detaljer per land,
+med maks 95 sekunder per kilde. Antall ønskede treff er 1–10 per land (UI: 3, 5
+eller 10). Det er **ikke en uttømmende søking av hele markedet**. Bytbil har
+prisgulv på 50 000 SEK for å redusere månedsprisannonser. Detaljfeltene sjekkes
+mot filtrene; ukjent batteri/hjuldrift blir ikke godkjent mot et aktivt krav.
+Tysk modellår anslås fra registreringsåret og merkes for kontroll.
+
+De fire opprinnelige søkelenkene er bevart i konfigurasjonen med
+`collection_status=not_connected`; det nye skjemaet lager egne søk.
+**Ingen daglig tidsplan eller varsling er aktivert.** Eksisterende kupp-vakt
+og workflows er uendret. Den gamle JSON-kalkylen kan fortsatt kjøres separat.
 
 Live nettlesertest 6. september 2026 bekreftet at begge nettsteder kunne leses
 uten innlogging, inklusive filtrering, stigende prissortering og enkeltannonser.
-Dette dokumenterer agentstyrt nettlesertilgang på testtidspunktet. Det er ennå
-ikke implementert en selvkjørende annonsehenter i repoet. Mobile.de Search API
-er en egen integrasjonsvei som krever særskilt aktivering; vanlig brukerkonto
-er ikke dokumentasjon på at Search API er aktivert.
+Direkte HTTP-lesing av begge søkeresultater og detaljsider ga også HTTP 200.
+Parserne er prøvd på disse faktisk hentede HTML-sidene, og hele dataløpet er
+kjørt på et gjenspilt uttrekk med ekte BilRadar-oppslag. En senere, fersk full
+kjøring av den ferdige nettverksjobben ble avbrutt av testmiljøets nettverks-
+godkjenning. Den lokale visuelle forhåndsvisningen ble sperret av nettleser-
+miljøet. Flask-endepunkter, bakgrunnsjobber, HTML-rendering og JavaScript-syntaks
+er testet separat. **Full nettverkskjøring og visuell kontroll på målserveren
+gjenstår før løsningen er produksjonsverifisert.** Kia EV6 er referansemodellen
+som er kontrollert; andre modellnavn er ikke live-verifisert.
+
+Mobile.de-modellfilteret løses fra én offentlig modellside og bekreftes mot
+sidens modellnavn. Ukjent modell eller endret HTML gir en synlig kildefeil.
+HTTP-feil og botkontroll gir stopp, uten omgåelser, nye identiteter eller
+automatisk gjentakelse. Mobile.de Search API er en separat mulig integrasjon.
 Kildene må levere faktisk selgerland, kontantpris og valuta; Mobile.de har
 også annonser utenfor Tyskland. Mobile-søk 2 mangler momsfilter.
+
+## Drift og kjøring uten nettsiden
+
+Nettjobber lagres i SQLite, delt mellom Flask-workerne. Maks to jobber kan være
+aktive samtidig, én per nettleserøkt. CSRF-token og økteierskap beskytter søk,
+polling og nedlasting; eksisterende tilgangskode i hovedappen gjelder siden.
+Jobber eldre enn 24 timer slettes ved neste søk. Avbrutte jobber får feilstatus
+etter fire minutter. Standard database er `/tmp/prisanalyse-import-radar/jobs.sqlite3`;
+sett `IMPORT_RADAR_DB_PATH` til en skrivbar fil på samme disk for alle workers.
+Ved flere serverinstanser trengs delt jobb-/kølagring. Ingen nye pakker er
+nødvendige utover eksisterende requirements (requests, BeautifulSoup, Flask,
+pandas/numpy og eksisterende BilRadar-avhengigheter).
+
+Samme søk kan kjøres fra terminalen og senere fra en tidsplanlegger:
+
+```bash
+python -m scripts.import_radar_search --make Kia --model EV6 \
+  --year-from 2022 --max-km 90000 --drive AWD --min-battery-kwh 77 \
+  --per-source 5 --output rapporter/import-radar
+```
+
+Kommandoen henter valutakurser automatisk og skriver HTML/JSON. `--help` viser
+frakt, margin, øvrige kostnader og egne valutakurser. Begge kildefeil gir exit
+1; delvis resultat lagres med kildefeil i rapporten. Rapporten har ingen
+garantert lagring mellom kjøringer dersom samme filnavn brukes. Varsling,
+VIN-deduplisering mellom land og lagret prishistorikk er ikke implementert.
+
+Der bare registreringsmåned er kjent, bruker søkejobben siste dag i måneden
+som konservativt anslag og setter `registration_date_estimated=true`.
+Valgfri anslått egenvekt brukes bare ved manglende egenvekt og setter
+`weight_estimated=true`. Begge markeringene gir alltid kontrollbehov også ved
+senere bruk av JSON-kalkylen. Totalvekt brukes aldri som egenvekt.
+`net_scenario_calculation` viser margin ved annonsert nettopris uten å endre
+den ordinære brutto-/bekreftet-eksportkalkylen eller gi et kjøpsklart flagg.
 
 ## Verifisert annonsetest
 
@@ -69,8 +130,8 @@ lookup, ikke dokumentasjon på oppnåelig salgspris i dag.
 
 Begge beholder status `mangler_kalkyledata`: tysk eksakt registreringsdato og
 svensk egenvekt mangler. Testen gir ingen kjøpsklare kandidater og starter ingen
-daglig jobb. Oppfølgingen trenger en annonsehenter som leverer kontrakten under,
-planlagte kjøringer, valutahenting og lagring av nye/endret-pris-treff.
+daglig jobb. Dette gjelder den opprinnelige JSON-filen; den nye søkejobben
+kan også beregne et eksplisitt anslag fra registreringsmåned som beskrevet over.
 
 ## Kjøring
 
