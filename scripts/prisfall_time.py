@@ -53,17 +53,36 @@ def scrape(url=SEARCH_URL, max_pages=500):
                 raise RuntimeError(f'FINN side {page} feilet; beholder gamle filer')
             soup = BeautifulSoup(response.text, 'lxml')
             cards = kupp._find_cards(soup)
+            if page == 1:
+                match = re.search(r'(\d[\d\s\xa0]*)\s+(?:treff|resultater)\b',
+                                  soup.get_text(' ', strip=True), re.I)
+                if match:
+                    total = int(re.sub(r'\D', '', match[1]))
+                if total == 0:
+                    return {}
             if not cards:
                 raise RuntimeError(f'Ingen annonsekort på side {page}; beholder gamle filer')
             fingerprint = tuple(sorted(kupp._finnkode(a.get('href')) for a, _ in cards))
             if fingerprint in seen_pages:
                 raise RuntimeError('FINN gjentok en resultatside; avbryter')
             seen_pages.add(fingerprint)
-            if page == 1:
-                match = re.search(r'(\d[\d\s\xa0]*)\s+(?:treff|annonser|biler)\b',
-                                  soup.get_text(' ', strip=True), re.I)
-                if match:
-                    total = int(re.sub(r'\D', '', match[1]))
+            pagination = soup.select_one('w-pagination[pages]')
+            page_count = int(pagination['pages']) if pagination else None
+            if page == 1 and page_count and total and total > page_count * len(cards):
+                # FINN begrenser antall sider. Del samme søk i disjunkte km-bånd.
+                lower = int(query.get('mileage_from', '0'))
+                upper = int(query.get('mileage_to', '140000'))
+                if lower >= upper:
+                    raise RuntimeError('For mange treff selv innen ett km-bånd')
+                middle = (lower + upper) // 2
+                combined = {}
+                for start, stop in ((lower, middle), (middle + 1, upper)):
+                    subset = dict(query, mileage_from=str(start), mileage_to=str(stop))
+                    subset.pop('page', None)
+                    combined.update(scrape(parsed._replace(query=urlencode(subset)).geturl(), max_pages))
+                if len(combined) < total * 0.95:
+                    raise RuntimeError('Oppdelte søk mangler for mange treff')
+                return combined
             for link, card in cards:
                 code = kupp._finnkode(link.get('href'))
                 raw_price = kupp._price(card)
@@ -80,6 +99,8 @@ def scrape(url=SEARCH_URL, max_pages=500):
             next_page = any(
                 dict(parse_qsl(urlparse(a.get('href', '')).query)).get('page') == str(page + 1)
                 for a in soup.select('a[href]'))
+            if page_count:
+                next_page = page < page_count
             if not next_page:
                 # Et manglende pagineringsfelt må ikke tolkes som komplett søk.
                 if total is None or len(cars) < total * 0.95:
