@@ -59,10 +59,9 @@ Timeren kjører klokken syv minutter over hver time, hele døgnet. Første
 senere prisreduksjon kan varsles. Opptil nesten én time pluss kjøretid kan
 gå før oppdagelse; salg mellom to oppslag kan fortsatt gå tapt.
 
-Den eksisterende GitHub-dagsvakten har separat varslingshistorikk. Slå av
-bare prisfallsteget der etter verifisert overgang for å unngå dobbeltvarsler.
-Behold Bilradar-scoring og den eksisterende kuppvakten for nye annonser.
-Installasjonen endrer ingen eksisterende jobber.
+Det tidligere prisfallsteget i GitHub-jobben er slått av etter verifisert
+overgang. Bilradar-scoring og den eksisterende kuppvakten for nye annonser
+kjører fortsatt som før.
 
 Manuell kontroll uten sending/endring av snapshots:
 
