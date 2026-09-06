@@ -1,0 +1,10 @@
+[Unit]
+Description=Sjekk prisfall hver time
+
+[Timer]
+OnCalendar=*-*-* *:07:00
+Persistent=true
+Unit=prisfall-time.service
+
+[Install]
+WantedBy=timers.target

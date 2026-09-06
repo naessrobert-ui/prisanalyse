@@ -304,8 +304,11 @@ def _melding(row):
     def kr(value):
         return f"{value:,.0f}".replace(",", " ")
     name = f"{row['Merke']} {row['Modell']}"[:140]
+    km = _tall(row.get('Kjørelengde'))
+    mileage = f"{kr(km)} km" if km is not None and km >= 0 else "km-stand ukjent"
     return (
         f"{name} {_tekst(row.get('Årstall'))} · {row['sted'][:80]}\n"
+        f"{mileage}\n"
         f"Pris: {kr(row['pris_for'])} → {kr(row['Pris'])} kr\n"
         f"Ned {kr(row['prisfall_kr'])} kr ({row['prisfall_pct']:.1f} %)\n"
         f"Beregnet verdi: {kr(row['forventet_pris'])} kr\n"

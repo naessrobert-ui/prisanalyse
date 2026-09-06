@@ -1,0 +1,16 @@
+[Unit]
+Description=Timevis prisfallvakt for FINN-elbiler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__REPO_DIR__
+EnvironmentFile=-/etc/kupp-vakt/kupp-vakt.env
+EnvironmentFile=-/etc/prisfall-time.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=__PYTHON__ -m scripts.prisfall_time --state-dir __STATE_DIR__
+TimeoutStartSec=45min
+NoNewPrivileges=true
+PrivateTmp=true
