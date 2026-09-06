@@ -1,4 +1,4 @@
-# ImportRadar – første kalkyleversjon
+# ImportRadar – Søk nå og importkalkyle
 
 ImportRadar sammenligner normaliserte utenlandske annonser med eksisterende
 BilRadar-priser. Frakt er satt til **13 000 NOK fra Tyskland**, **8 000 NOK fra
@@ -8,19 +8,130 @@ før selskapsskatt og faste driftskostnader. Innstillingene kan endres i
 
 ## Status og avgrensning
 
-Kalkylen og BilRadar-koblingen er kjørbare. De fire opprinnelige søkelenkene
-er bevart i konfigurasjonen med `collection_status=not_connected`.
-**Denne versjonen henter ikke annonser, følger ikke søkefiltrene automatisk,
-oppdaterer ikke valutakurser og sender ikke varsler.** Den leser en JSON-liste
-med annonser fra et separat uttrekk. Ingen workflow, produksjonsrute eller
-eksisterende kupp-vakt er endret. Rapporten viser alltid denne statusen.
+Siden **`/bil/import-radar/`** er lagt til i Flask-appen med lenke fra bilmenyen.
+Oppgi merke, modell, år, maks km, hjuldrift og eventuelt minste batteristørrelse.
+«Søk nå» starter en jobb som leser offentlige søkeresultater og enkeltannonser
+fra begge land og sammenligner dem med BilRadar. Resultatet viser kildestatus,
+innkjøp/frakt, norsk hurtigpris, nødvendige kundepriser og marginer når dataene
+er tilstrekkelige. Annonsert nettopris behandles som et **ubekreftet scenario**.
 
-Neste integrasjonstrinn er autorisert annonsetilgang: Mobile.de Search API
-krever særskilt aktivering, og Bytbil-datakilden må avklares. E-postvarsler
-fra lagrede søk kan også være en kilde etter at format og felter er kontrollert.
-Vanlig brukerkonto er ikke dokumentasjon på at Search API er aktivert.
+Begge tomme kursfelt gir automatisk henting av ECBs siste referansekurser.
+Oppgi begge kursfeltene for å bruke bankkurser; valutapåslag kan legges til.
+Frakt og kostnader i nettskjemaet gjelder det enkelte søket. JSON-kalkylens
+konfigurasjonsfil endres ikke av skjemaet.
+
+Søket leser første resultatside og kontrollerer høyst 20 detaljer per land,
+med maks 95 sekunder per kilde. Antall ønskede treff er 1–10 per land (UI: 3, 5
+eller 10). Det er **ikke en uttømmende søking av hele markedet**. Bytbil har
+prisgulv på 50 000 SEK for å redusere månedsprisannonser. Detaljfeltene sjekkes
+mot filtrene; ukjent batteri/hjuldrift blir ikke godkjent mot et aktivt krav.
+Tysk modellår anslås fra registreringsåret og merkes for kontroll.
+
+De fire opprinnelige søkelenkene er bevart i konfigurasjonen med
+`collection_status=not_connected`; det nye skjemaet lager egne søk.
+**Ingen daglig tidsplan eller varsling er aktivert.** Eksisterende kupp-vakt
+og workflows er uendret. Den gamle JSON-kalkylen kan fortsatt kjøres separat.
+
+Live nettlesertest 6. september 2026 bekreftet at begge nettsteder kunne leses
+uten innlogging, inklusive filtrering, stigende prissortering og enkeltannonser.
+Direkte HTTP-lesing av begge søkeresultater og detaljsider ga også HTTP 200.
+Parserne er prøvd på disse faktisk hentede HTML-sidene, og hele dataløpet er
+kjørt på et gjenspilt uttrekk med ekte BilRadar-oppslag. En senere, fersk full
+kjøring av den ferdige nettverksjobben ble avbrutt av testmiljøets nettverks-
+godkjenning. Den lokale visuelle forhåndsvisningen ble sperret av nettleser-
+miljøet. Flask-endepunkter, bakgrunnsjobber, HTML-rendering og JavaScript-syntaks
+er testet separat. **Full nettverkskjøring og visuell kontroll på målserveren
+gjenstår før løsningen er produksjonsverifisert.** Kia EV6 er referansemodellen
+som er kontrollert; andre modellnavn er ikke live-verifisert.
+
+Mobile.de-modellfilteret løses fra én offentlig modellside og bekreftes mot
+sidens modellnavn. Ukjent modell eller endret HTML gir en synlig kildefeil.
+HTTP-feil og botkontroll gir stopp, uten omgåelser, nye identiteter eller
+automatisk gjentakelse. Mobile.de Search API er en separat mulig integrasjon.
 Kildene må levere faktisk selgerland, kontantpris og valuta; Mobile.de har
 også annonser utenfor Tyskland. Mobile-søk 2 mangler momsfilter.
+
+## Drift og kjøring uten nettsiden
+
+Nettjobber lagres i SQLite, delt mellom Flask-workerne. Maks to jobber kan være
+aktive samtidig, én per nettleserøkt. CSRF-token og økteierskap beskytter søk,
+polling og nedlasting; eksisterende tilgangskode i hovedappen gjelder siden.
+Jobber eldre enn 24 timer slettes ved neste søk. Avbrutte jobber får feilstatus
+etter fire minutter. Standard database er `/tmp/prisanalyse-import-radar/jobs.sqlite3`;
+sett `IMPORT_RADAR_DB_PATH` til en skrivbar fil på samme disk for alle workers.
+Ved flere serverinstanser trengs delt jobb-/kølagring. Ingen nye pakker er
+nødvendige utover eksisterende requirements (requests, BeautifulSoup, Flask,
+pandas/numpy og eksisterende BilRadar-avhengigheter).
+
+Samme søk kan kjøres fra terminalen og senere fra en tidsplanlegger:
+
+```bash
+python -m scripts.import_radar_search --make Kia --model EV6 \
+  --year-from 2022 --max-km 90000 --drive AWD --min-battery-kwh 77 \
+  --per-source 5 --output rapporter/import-radar
+```
+
+Kommandoen henter valutakurser automatisk og skriver HTML/JSON. `--help` viser
+frakt, margin, øvrige kostnader og egne valutakurser. Begge kildefeil gir exit
+1; delvis resultat lagres med kildefeil i rapporten. Rapporten har ingen
+garantert lagring mellom kjøringer dersom samme filnavn brukes. Varsling,
+VIN-deduplisering mellom land og lagret prishistorikk er ikke implementert.
+
+Der bare registreringsmåned er kjent, bruker søkejobben siste dag i måneden
+som konservativt anslag og setter `registration_date_estimated=true`.
+Valgfri anslått egenvekt brukes bare ved manglende egenvekt og setter
+`weight_estimated=true`. Begge markeringene gir alltid kontrollbehov også ved
+senere bruk av JSON-kalkylen. Totalvekt brukes aldri som egenvekt.
+`net_scenario_calculation` viser margin ved annonsert nettopris uten å endre
+den ordinære brutto-/bekreftet-eksportkalkylen eller gi et kjøpsklart flagg.
+
+## Verifisert annonsetest
+
+`examples/import_radar_observed_2026-09-06.json` inneholder to faktiske annonser
+lest fra detaljsidene i nettleseren. Dette er et historisk testuttrekk, ikke
+en oppdatert anbefalingsliste. Søket var Kia EV6, fra 2022, maks 90 000 km,
+alle hjuldrifter. Den tyske 58 kWh RWD-bilen oppfyller derfor ikke AWD-kravet
+i brukerens opprinnelige EV6-søk. Bytbil-søket brukte også momsfilter.
+
+Observerte forhold som annonsehenteren må håndtere:
+
+- Bytbil viser primærpris uten moms i søkeresultatet når momsfilteret er på,
+  men enkeltannonsen viste bruttopris først. Les prisetikettene, ikke rekkefølgen.
+- Leasing, leasingovertakelse, månedsbeløp og sponsede plasseringer må skilles
+  fra ordinære kontanttilbud før sortering og rangering.
+- Svenske mil ganges med 10. Totalvikt er ikke avgiftsrelevant egenvekt.
+- Mobile viste registreringsmåned, ikke dag. Modellår må skilles fra
+  registreringsår. Bytbil viste modellår 2023 og kjøretøyår 2022 som ulike felter.
+
+Ny `purchase_observation` i rapporten viser bruttoinnkjøp og frakt i NOK selv
+om avgiftsdata mangler. Valgfri `advertised_net_amount` gir et separat
+ubekreftet nettoscenario. Denne nettoprisen bekrefter ikke eksportvilkår og
+påvirker aldri margin- eller kandidatberegningen. Tallene inkluderer ikke
+norske avgifter, øvrige kostnader eller margin.
+
+Gjenskaping med ECBs referansekurser 4. september 2026 (ikke bankens kjøpskurs):
+1 EUR = 10,8035 NOK og 11,1005 SEK; dermed 1 SEK = 0,9732444484 NOK.
+Kilder: [ECB NOK](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/eurofxref-graph-nok.en.html)
+og [ECB SEK](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/eurofxref-graph-sek.en.html).
+
+```bash
+python -m scripts.import_radar examples/import_radar_observed_2026-09-06.json \
+  --eur-nok 10.8035 --sek-nok 0.9732444484 \
+  --registration-date 2026-09-06 --output /tmp/import-radar-observed
+```
+
+Begge biler matches til riktig batterivariant i lokal BilRadar-tabell. Tysk bil
+har hurtigpris ca. 247 596 NOK og nettoinnkjøp + frakt ca. 239 506 NOK, som ikke
+gir rom for marginmålet selv før norske avgifter og øvrige kostnader. Svensk
+bil har hurtigpris ca. 375 235 NOK og nettoinnkjøp + frakt ca. 271 944 NOK.
+Svensk eksportpris, egenvekt, utstyr/garanti og øvrige kostnader må avklares
+før lønnsomhet kan fastslås. Modellprisene er testresultater fra innsjekket
+lookup, ikke dokumentasjon på oppnåelig salgspris i dag.
+
+Begge beholder status `mangler_kalkyledata`: tysk eksakt registreringsdato og
+svensk egenvekt mangler. Testen gir ingen kjøpsklare kandidater og starter ingen
+daglig jobb. Dette gjelder den opprinnelige JSON-filen; den nye søkejobben
+kan også beregne et eksplisitt anslag fra registreringsmåned som beskrevet over.
 
 ## Kjøring
 

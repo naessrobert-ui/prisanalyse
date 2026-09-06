@@ -160,6 +160,35 @@ def _timestamp(value):
     return d.astimezone(timezone.utc)
 
 
+def purchase_observation(row, settings):
+    """Vis innkjøp/frakt selv om data til avgiftskalkylen mangler.
+
+    Annonsert nettopris er et separat, ubekreftet scenario og påvirker aldri
+    calculate(), kandidatstatus eller maksimal kjøpspris.
+    """
+    fx = settings.eur_nok if row["country"] == "DE" else settings.sek_nok
+    fx *= 1 + settings.fx_buffer_pct / 100
+    freight = number(row.get("freight_nok", settings.freight_de_nok
+                            if row["country"] == "DE" else settings.freight_se_nok), "freight_nok")
+    gross = number(row["price_amount"], "price_amount", minimum=1)
+    result = {"currency": row["currency"], "advertised_gross_amount": gross,
+              "fx_with_buffer": fx, "freight_nok": freight,
+              "gross_purchase_nok": round(gross * fx, 2),
+              "gross_plus_freight_nok": round(gross * fx + freight, 2),
+              "includes_norwegian_taxes": False,
+              "includes_other_costs": False}
+    if row.get("advertised_net_amount") is not None:
+        net = number(row["advertised_net_amount"], "advertised_net_amount", minimum=1)
+        if net > gross:
+            raise ValueError("Annonsert nettopris overstiger bruttopris")
+        result["unconfirmed_net_scenario"] = {
+            "amount": net, "purchase_nok": round(net * fx, 2),
+            "plus_freight_nok": round(net * fx + freight, 2),
+            "export_price_confirmed": False,
+        }
+    return result
+
+
 def normalize_listing(raw):
     """Valider kontrakten før scoring; ukjent km må aldri bli null km."""
     row = dict(raw)
@@ -193,7 +222,12 @@ def normalize_listing(raw):
     if row.get("currency") != {"DE": "EUR", "SE": "SEK"}[row["country"]]:
         raise ValueError("Valuta stemmer ikke med landet")
     number(row.get("price_amount"), "price_amount", minimum=1)
-    for key in ("export_price_confirmed", "vat_reclaimable", "damage_free", "variant_confirmed"):
+    if row.get("advertised_net_amount") is not None:
+        net = number(row["advertised_net_amount"], "advertised_net_amount", minimum=1)
+        if net > float(row["price_amount"]):
+            raise ValueError("Annonsert nettopris overstiger bruttopris")
+    for key in ("export_price_confirmed", "vat_reclaimable", "damage_free", "variant_confirmed",
+                "model_year_estimated", "registration_date_estimated", "weight_estimated"):
         if key in row and row[key] is not None and not isinstance(row[key], bool):
             raise ValueError(f"{key} må være true, false eller null")
     return row
@@ -259,6 +293,12 @@ def evaluate_listings(raw_rows, settings: Settings, *, scorer=score_norwegian_pr
             reasons.append("Øvrige kostnader er ikke satt; foreløpig beregnet som 0")
         if row.get("variant_confirmed") is not True:
             reasons.append("Variant og utstyr mot norsk prisgrunnlag må kontrolleres")
+        if row.get("model_year_estimated") is True:
+            reasons.append("Modellår er anslått fra registreringsår og må bekreftes")
+        if row.get("registration_date_estimated") is True:
+            reasons.append("Eksakt registreringsdato mangler; siste dag i måneden er brukt")
+        if row.get("weight_estimated") is True:
+            reasons.append("Egenvekt er ditt anslag og må bekreftes")
         if row.get("damage_free") is not True:
             reasons.append("Skadehistorikk er ukjent eller bilen er skadet")
         if str(row.get("drive", "")).upper() not in {"AWD", "4WD", "ALL_WHEEL", "FWD", "RWD", "2WD"}:
@@ -278,6 +318,7 @@ def evaluate_listings(raw_rows, settings: Settings, *, scorer=score_norwegian_pr
                   "price_basis": settings.price_basis,
                   "valuation": score, "review_reasons": reasons}
         try:
+            result["purchase_observation"] = purchase_observation(row, settings)
             result["calculation"] = calculate(row, settings, price)
             if price is None:
                 result["status"] = "mangler_norsk_pris"
@@ -289,7 +330,9 @@ def evaluate_listings(raw_rows, settings: Settings, *, scorer=score_norwegian_pr
                 result["status"] = "for_dyr"
         except (ValueError, KeyError, TypeError) as exc:
             result["status"] = "mangler_kalkyledata"
-            reasons.append(str(exc))
+            missing = {"weight_kg": "Avgiftsrelevant egenvekt mangler",
+                       "first_registration": "Eksakt førstegangsregistrering mangler"}
+            reasons.append(missing.get(exc.args[0], str(exc)) if isinstance(exc, KeyError) else str(exc))
         results.append(result)
     results.sort(key=lambda r: (r["status"] != "kandidat",
                                -r.get("calculation", {}).get("surplus_after_target_nok", -1e20)))
