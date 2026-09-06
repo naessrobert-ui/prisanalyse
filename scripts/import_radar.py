@@ -28,10 +28,16 @@ def render_html(report):
             money(net.get("plus_freight_nok")),
             money(v.get("forventet_pris")), money(v.get("hurtigpris")),
             money(c.get("required_customer_price_nok")), money(c.get("margin_nok")),
+            money(r.get("net_scenario_calculation", {}).get("margin_nok")),
             money(c.get("max_purchase_amount")) + " " + escape(c.get("purchase_currency", "")),
             "<br>".join(escape(x) for x in r["review_reasons"]),
         ]) + "</tr>")
     settings = report["settings"]
+    source_summary = ""
+    for source in report.get("sources", []):
+        source_summary += "<p><strong>" + escape(source["source"]) + ": " + escape(source["status"]) \
+            + "</strong> · " + str(source.get("matched", 0)) + " treff. " \
+            + escape("; ".join(source.get("errors", []))) + "</p>"
     return """<!doctype html><html lang="nb"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ImportRadar – kalkyle</title><style>
@@ -40,8 +46,10 @@ h1{margin-bottom:8px}table{border-collapse:collapse;background:white;width:100%}
 th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd;vertical-align:top}
 th{background:#16364a;color:white}a{color:#17608a}.scroll{overflow-x:auto}
 details{margin-top:24px}pre{white-space:pre-wrap;font-size:12px}</style>
-<h1>ImportRadar</h1><p>Prøvekalkyle fra innleste annonser. Ingen løpende annonsehenting er aktiv.</p>
-""" + f"<p>Frakt: Tyskland {money(settings['freight_de_nok'])} kr · Sverige " \
+<h1>ImportRadar</h1>
+""" + ("<p>Live søk. Se kildestatus og dekningsomfang i rapportdataene. Ingen daglig tidsplan er aktivert av denne kjøringen.</p>" if report.get("live_collection") else "<p>Prøvekalkyle fra innleste annonser. Ingen løpende annonsehenting er aktiv.</p>") \
+        + source_summary \
+        + f"<p>Frakt: Tyskland {money(settings['freight_de_nok'])} kr · Sverige " \
         f"{money(settings['freight_se_nok'])} kr. Marginmål: {money(settings['target_margin_nok'])} kr. " \
         f"Prisgrunnlag: {escape(settings['price_basis'])}. Registrering: {escape(report['registration_date'])}.</p>" \
         + "<p>Alle norske priser er i NOK. Margin er etter oppgitte kostnader og utgående moms, " \
@@ -52,6 +60,7 @@ details{margin-top:24px}pre{white-space:pre-wrap;font-size:12px}</style>
         + "".join(f"<th>{t}</th>" for t in ["Bil", "Status", "Bruttoinnkjøp + frakt",
                                              "Nettoscenario + frakt (ubekreftet)", "Markedspris", "Hurtigpris",
                                              "Kundepris for marginmål", "Beregnet margin",
+                                             "Margin ved oppgitt nettopris (ubekreftet)",
                                              "Maks kjøpspris", "Kontrollpunkter"]) \
         + "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>" \
         + f"<p>{report['input_count']} innleste rader · {report['unique_count']} unike annonser · " \
