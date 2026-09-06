@@ -15,12 +15,62 @@ oppdaterer ikke valutakurser og sender ikke varsler.** Den leser en JSON-liste
 med annonser fra et separat uttrekk. Ingen workflow, produksjonsrute eller
 eksisterende kupp-vakt er endret. Rapporten viser alltid denne statusen.
 
-Neste integrasjonstrinn er autorisert annonsetilgang: Mobile.de Search API
-krever særskilt aktivering, og Bytbil-datakilden må avklares. E-postvarsler
-fra lagrede søk kan også være en kilde etter at format og felter er kontrollert.
-Vanlig brukerkonto er ikke dokumentasjon på at Search API er aktivert.
+Live nettlesertest 6. september 2026 bekreftet at begge nettsteder kunne leses
+uten innlogging, inklusive filtrering, stigende prissortering og enkeltannonser.
+Dette dokumenterer agentstyrt nettlesertilgang på testtidspunktet. Det er ennå
+ikke implementert en selvkjørende annonsehenter i repoet. Mobile.de Search API
+er en egen integrasjonsvei som krever særskilt aktivering; vanlig brukerkonto
+er ikke dokumentasjon på at Search API er aktivert.
 Kildene må levere faktisk selgerland, kontantpris og valuta; Mobile.de har
 også annonser utenfor Tyskland. Mobile-søk 2 mangler momsfilter.
+
+## Verifisert annonsetest
+
+`examples/import_radar_observed_2026-09-06.json` inneholder to faktiske annonser
+lest fra detaljsidene i nettleseren. Dette er et historisk testuttrekk, ikke
+en oppdatert anbefalingsliste. Søket var Kia EV6, fra 2022, maks 90 000 km,
+alle hjuldrifter. Den tyske 58 kWh RWD-bilen oppfyller derfor ikke AWD-kravet
+i brukerens opprinnelige EV6-søk. Bytbil-søket brukte også momsfilter.
+
+Observerte forhold som annonsehenteren må håndtere:
+
+- Bytbil viser primærpris uten moms i søkeresultatet når momsfilteret er på,
+  men enkeltannonsen viste bruttopris først. Les prisetikettene, ikke rekkefølgen.
+- Leasing, leasingovertakelse, månedsbeløp og sponsede plasseringer må skilles
+  fra ordinære kontanttilbud før sortering og rangering.
+- Svenske mil ganges med 10. Totalvikt er ikke avgiftsrelevant egenvekt.
+- Mobile viste registreringsmåned, ikke dag. Modellår må skilles fra
+  registreringsår. Bytbil viste modellår 2023 og kjøretøyår 2022 som ulike felter.
+
+Ny `purchase_observation` i rapporten viser bruttoinnkjøp og frakt i NOK selv
+om avgiftsdata mangler. Valgfri `advertised_net_amount` gir et separat
+ubekreftet nettoscenario. Denne nettoprisen bekrefter ikke eksportvilkår og
+påvirker aldri margin- eller kandidatberegningen. Tallene inkluderer ikke
+norske avgifter, øvrige kostnader eller margin.
+
+Gjenskaping med ECBs referansekurser 4. september 2026 (ikke bankens kjøpskurs):
+1 EUR = 10,8035 NOK og 11,1005 SEK; dermed 1 SEK = 0,9732444484 NOK.
+Kilder: [ECB NOK](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/eurofxref-graph-nok.en.html)
+og [ECB SEK](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/eurofxref-graph-sek.en.html).
+
+```bash
+python -m scripts.import_radar examples/import_radar_observed_2026-09-06.json \
+  --eur-nok 10.8035 --sek-nok 0.9732444484 \
+  --registration-date 2026-09-06 --output /tmp/import-radar-observed
+```
+
+Begge biler matches til riktig batterivariant i lokal BilRadar-tabell. Tysk bil
+har hurtigpris ca. 247 596 NOK og nettoinnkjøp + frakt ca. 239 506 NOK, som ikke
+gir rom for marginmålet selv før norske avgifter og øvrige kostnader. Svensk
+bil har hurtigpris ca. 375 235 NOK og nettoinnkjøp + frakt ca. 271 944 NOK.
+Svensk eksportpris, egenvekt, utstyr/garanti og øvrige kostnader må avklares
+før lønnsomhet kan fastslås. Modellprisene er testresultater fra innsjekket
+lookup, ikke dokumentasjon på oppnåelig salgspris i dag.
+
+Begge beholder status `mangler_kalkyledata`: tysk eksakt registreringsdato og
+svensk egenvekt mangler. Testen gir ingen kjøpsklare kandidater og starter ingen
+daglig jobb. Oppfølgingen trenger en annonsehenter som leverer kontrakten under,
+planlagte kjøringer, valutahenting og lagring av nye/endret-pris-treff.
 
 ## Kjøring
 
