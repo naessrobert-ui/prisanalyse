@@ -1,0 +1,38 @@
+{
+  "calculation": {
+    "freight_de_nok": 13000,
+    "freight_se_nok": 8000,
+    "target_margin_nok": 30000,
+    "fx_buffer_pct": 0,
+    "other_costs_nok": null,
+    "reserve_nok": 0,
+    "price_basis": "hurtigpris"
+  },
+  "searches": [
+    {
+      "id": "mobile_1",
+      "source": "mobile_de",
+      "url": "https://suchen.mobile.de/fahrzeuge/search.html?p=%3A18000&pw=147&ml=%3A60000&s=Car&ft=ELECTRICITY&vc=Car&dam=0&vat=1&fr=1-2022&od=down&sb=doc&isSearchRequest=true&ssid=116494531031617&ref=ess&refId=116494531031617",
+      "collection_status": "not_connected"
+    },
+    {
+      "id": "mobile_2",
+      "source": "mobile_de",
+      "url": "https://suchen.mobile.de/fahrzeuge/search.html?dam=0&dt=ALL_WHEEL&ft=ELECTRICITY&isSearchRequest=true&ml=%3A90000&ms=13200%3B52&od=down&p=%3A30000&ref=ess&refId=115622552805490&s=Car&sb=doc&ssid=115622552805490&vc=Car",
+      "collection_status": "not_connected",
+      "note": "Søket har ikke vat=1. Momsstatus må leses per annonse."
+    },
+    {
+      "id": "mobile_3",
+      "source": "mobile_de",
+      "url": "https://suchen.mobile.de/fahrzeuge/search.html?bc=60&dam=0&fr=1-2020&ft=ELECTRICITY&isSearchRequest=true&ml=%3A90000&ms=19000%3B46&ms=19000%3B7&ms=19000%3B30&od=down&p=%3A28000&ref=ess&refId=115070394819315&s=Car&sb=doc&sc=5&ssid=115070394819315&vat=1&vc=Car",
+      "collection_status": "not_connected"
+    },
+    {
+      "id": "bytbil_1",
+      "source": "bytbil",
+      "url": "https://www.bytbil.com/bil?VehicleType=bil&Makes=&FreeText=&PriceRange.From=50000&PriceRange.To=&ModelYearRange.From=&ModelYearRange.To=&MilageRange.From=&MilageRange.To=10000&BodyTypes=&Fuels=El&Gearboxes=&EnginePowerRange.From=&EnginePowerRange.To=&OnlyDeductibleVAT=true&ShowLeasingOffers=&ShowImportedOffers=&ElectricRangeRange.From=150&ElectricRangeRange.To=&SortParams.SortField=publishedDate&SortParams.IsAscending=False",
+      "collection_status": "not_connected"
+    }
+  ]
+}
