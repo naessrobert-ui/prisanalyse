@@ -18,10 +18,14 @@ def render_html(report):
     rows = []
     for r in report["results"]:
         c, v = r.get("calculation", {}), r["valuation"]
+        observation = r.get("purchase_observation", {})
+        net = observation.get("unconfirmed_net_scenario", {})
         rows.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in [
             f'<a href="{escape(r["url"], quote=True)}">{escape(r["make"])} {escape(r["model"])}</a>'
             f'<br>{r["model_year"]} · {money(r["mileage_km"])} km',
             escape(r["status"].replace("_", " ")),
+            money(observation.get("gross_plus_freight_nok")),
+            money(net.get("plus_freight_nok")),
             money(v.get("forventet_pris")), money(v.get("hurtigpris")),
             money(c.get("required_customer_price_nok")), money(c.get("margin_nok")),
             money(c.get("max_purchase_amount")) + " " + escape(c.get("purchase_currency", "")),
@@ -42,8 +46,11 @@ details{margin-top:24px}pre{white-space:pre-wrap;font-size:12px}</style>
         f"Prisgrunnlag: {escape(settings['price_basis'])}. Registrering: {escape(report['registration_date'])}.</p>" \
         + "<p>Alle norske priser er i NOK. Margin er etter oppgitte kostnader og utgående moms, " \
         "før selskapsskatt og faste driftskostnader. Maks kjøpspris gjelder eksportbeløpet som faktisk betales.</p>" \
+        + "<p>Innkjøp + frakt inkluderer ikke norske avgifter, klargjøring eller margin. " \
+        "Nettoscenario bruker oppgitt nettopris fra annonsen; eksportvilkår er ikke bekreftet.</p>" \
         + '<div class="scroll"><table><thead><tr>' \
-        + "".join(f"<th>{t}</th>" for t in ["Bil", "Status", "Markedspris", "Hurtigpris",
+        + "".join(f"<th>{t}</th>" for t in ["Bil", "Status", "Bruttoinnkjøp + frakt",
+                                             "Nettoscenario + frakt (ubekreftet)", "Markedspris", "Hurtigpris",
                                              "Kundepris for marginmål", "Beregnet margin",
                                              "Maks kjøpspris", "Kontrollpunkter"]) \
         + "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>" \
