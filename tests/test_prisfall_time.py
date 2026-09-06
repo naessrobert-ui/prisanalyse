@@ -77,6 +77,26 @@ def test_failed_scrape_preserves_both_snapshots(tmp_path, monkeypatch):
     assert (tmp_path / 'prisfall_gml.json').read_bytes() == before
 
 
+def test_finn_web_component_pagination(monkeypatch):
+    pages = iter([html('123') + '<w-pagination pages="2" current-page="1"></w-pagination>',
+                  html('456') + '<w-pagination pages="2" current-page="2"></w-pagination>'])
+    monkeypatch.setattr(p.kupp, '_fetch', lambda *a: SimpleNamespace(text=next(pages)))
+    assert set(p.scrape()) == {'123', '456'}
+
+
+def test_capped_search_is_split_without_losing_cars(monkeypatch):
+    seen = []
+    pages = iter([html('123', total=2) + '<w-pagination pages="1"></w-pagination>',
+                  html('123', total=1), html('456', total=1)])
+    def fetch(session, url):
+        seen.append(dict(p.parse_qsl(p.urlparse(url).query)))
+        return SimpleNamespace(text=next(pages))
+    monkeypatch.setattr(p.kupp, '_fetch', fetch)
+    assert set(p.scrape()) == {'123', '456'}
+    assert seen[1]['mileage_to'] == '70000'
+    assert seen[2]['mileage_from'] == '70001'
+
+
 def test_database_scoring_uses_fresh_price_km_and_history(monkeypatch):
     state = p.compare(p.compare(None, prices(300000), NOW), prices(280000), LATER)
     db = pd.DataFrame([{'FinnKode': 123, 'Produsent': 'Kia', 'Modell': 'EV6',
