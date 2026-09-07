@@ -11,7 +11,7 @@ import time
 from flask import Blueprint, current_app, jsonify, render_template, request, session, Response
 
 from import_radar import Settings, number
-from import_radar_search import Search, SourceError, fx_rates, run_search
+from import_radar_search import Search, SourceError, fx_rates, mobile_detail_urls, run_search
 from import_vehicle_weights import weight_catalog
 
 import_radar_bp = Blueprint("import_radar", __name__, url_prefix="/bil/import-radar")
@@ -65,16 +65,17 @@ def parse_request(data):
     weight = num("assumed_weight_kg")
     if weight is not None and not 500 <= weight <= 5000:
         raise ValueError("Anslått egenvekt må være mellom 500 og 5000 kg")
-    return search, options, eur, sek, weight
+    urls = mobile_detail_urls(data.get("mobile_urls"))
+    return search, options, eur, sek, weight, urls
 
 
 def perform(path, job_id, parsed):
     try:
-        search, options, eur, sek, weight = parsed
+        search, options, eur, sek, weight, urls = parsed
         fx = fx_rates() if eur is None else {"eur_nok": eur, "sek_nok": sek,
                                           "date": date.today().isoformat(), "kind": "Egne kurser"}
         settings = Settings(eur_nok=fx["eur_nok"], sek_nok=fx["sek_nok"], **options)
-        report = run_search(search, settings, fx_info=fx, assumed_weight_kg=weight)
+        report = run_search(search, settings, fx_info=fx, assumed_weight_kg=weight, mobile_urls=urls)
         payload = json.dumps(report, ensure_ascii=False, allow_nan=False)
         with connect(path) as db:
             db.execute("UPDATE jobs SET status='done', payload=? WHERE id=? AND status='running'", (payload, job_id))

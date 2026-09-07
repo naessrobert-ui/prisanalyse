@@ -30,6 +30,30 @@ class SourceError(ValueError):
     pass
 
 
+def mobile_detail_urls(value):
+    """Validate and canonicalize up to ten pasted Mobile.de detail URLs."""
+    if value in (None, ""):
+        return []
+    if not isinstance(value, str) or len(value) > 5000:
+        raise ValueError("Mobile-lenkene er for lange")
+    raw_urls = [part.strip() for part in re.split(r"[\r\n,]+", value) if part.strip()]
+    if len(raw_urls) > 10:
+        raise ValueError("Lim inn maksimalt 10 Mobile-lenker om gangen")
+    urls = []
+    for raw in raw_urls:
+        parsed = urlparse(raw)
+        ids = parse_qs(parsed.query).get("id", [])
+        if (parsed.scheme != "https" or parsed.hostname != "suchen.mobile.de"
+                or parsed.username or parsed.password or parsed.port not in (None, 443)
+                or parsed.path != "/fahrzeuge/details.html" or len(ids) != 1
+                or not re.fullmatch(r"\d{1,20}", ids[0])):
+            raise ValueError("Bruk komplette Mobile.de-annonselenker fra suchen.mobile.de")
+        canonical = "https://suchen.mobile.de/fahrzeuge/details.html?" + urlencode({"id": ids[0]})
+        if canonical not in urls:
+            urls.append(canonical)
+    return urls
+
+
 def words(value):
     return re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode().lower())
 
@@ -335,12 +359,40 @@ def collect_source(source, search, fetch=fetch_html):
         return rows, {"source": source, "status": "error", "url": url, "matched": len(rows), "errors": [str(exc)]}
 
 
+def collect_mobile_details(urls, search, fetch=fetch_html):
+    """Read only explicitly pasted ads; stop immediately if Mobile rejects access."""
+    deadline = time.monotonic() + 95
+    rows, errors, scanned = [], [], 0
+    for url in urls:
+        try:
+            scanned += 1
+            html = fetch(url, deadline=deadline) if fetch is fetch_html else fetch(url)
+            row = parse_detail("mobile_de", html, url, search)
+            if matches(row, search):
+                rows.append(row)
+            else:
+                errors.append(f"Annonsen {parse_qs(urlparse(url).query)['id'][0]} passer ikke søkefiltrene")
+        except (SourceError, ValueError, KeyError) as exc:
+            errors.append(str(exc))
+            if isinstance(exc, SourceError) and any(x in str(exc) for x in ("HTTP", "avviser", "Tidsgrensen", "tidsgrense")):
+                break
+    status = "partial" if errors and rows else "error" if errors and not rows else "ok"
+    return rows, {"source": "mobile_de", "status": status, "url": urls[0] if len(urls) == 1 else None,
+                  "cards_seen": len(urls), "details_checked": scanned, "matched": len(rows),
+                  "errors": errors[:5], "input_mode": "pasted",
+                  "coverage": "Kun innlimte Mobile.de-annonser"}
+
+
 def run_search(search, settings, *, fx_info=None, collector=collect_source, evaluator=evaluate_listings,
-               assumed_weight_kg=None):
+               assumed_weight_kg=None, mobile_urls=None, mobile_detail_collector=collect_mobile_details):
     started = datetime.now(timezone.utc).isoformat()
     rows, sources = [], []
     with ThreadPoolExecutor(max_workers=2) as pool:
-        futures = {pool.submit(collector, source, search): source for source in ("mobile_de", "bytbil")}
+        futures = {pool.submit(collector, "bytbil", search): "bytbil"}
+        if mobile_urls:
+            futures[pool.submit(mobile_detail_collector, mobile_urls, search)] = "mobile_de"
+        else:
+            futures[pool.submit(collector, "mobile_de", search)] = "mobile_de"
         for future in as_completed(futures):
             try:
                 found, status = future.result()
