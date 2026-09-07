@@ -31,6 +31,7 @@ from fritidsbolig_routes import fritids_bp
 from bil_routes import bil_bp, start_bilradar_warmup
 from bil_prisanalyse_routes import bil_prisanalyse_bp
 from bil_import import bil_import_bp
+from import_radar_routes import import_radar_bp
 from gemini_routes import gemini_bp
 from scripts.ver_routes import ver
 from scripts.station_metrics_cache import start_warmup as start_station_metrics_warmup
@@ -207,6 +208,7 @@ def create_app() -> Flask:
     app.register_blueprint(bil_bp)
     app.register_blueprint(bil_prisanalyse_bp)
     app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
+    app.register_blueprint(import_radar_bp)
     app.register_blueprint(gemini_bp)
     app.register_blueprint(ver)
     app.register_blueprint(handler_bp)
