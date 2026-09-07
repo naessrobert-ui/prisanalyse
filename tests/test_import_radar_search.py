@@ -11,6 +11,7 @@ from import_radar import Settings, evaluate_listings
 from import_radar_search import (Search, SourceError, cards, collect_source, fx_rates,
                                 matches, mobile_model_code, parse_detail, run_search, search_url)
 import import_radar_routes as routes
+from import_vehicle_weights import estimate_weight, weight_catalog
 
 
 MOBILE = '''<div><div><h2 data-testid="vip-ad-title">Kia EV6</h2></div><div>58 kWh 2WD</div></div>
@@ -30,6 +31,35 @@ SE_URL = "https://www.bytbil.com/stockholm/personbil-ev6-123"
 
 
 class SearchTests(unittest.TestCase):
+    def test_weight_catalog_matches_only_precise_non_gt_variant(self):
+        listing = {"make": "Kia", "model": "EV6", "model_year": 2023,
+                   "battery_kwh": 77.4, "drive": "AWD",
+                   "variant_text": "Kia EV6 77.4 kWh AWD 325hk Base"}
+        self.assertEqual(estimate_weight(listing)["weight_kg"], 2090)
+        self.assertEqual(estimate_weight(dict(listing, variant_text="Kia EV6 GT AWD"))["weight_kg"], 2175)
+        self.assertIsNone(estimate_weight(dict(listing, battery_kwh=None)))
+        self.assertIsNone(estimate_weight(dict(listing, model="Niro")))
+
+    def test_catalog_weight_completes_calculation_but_keeps_review(self):
+        row = parse_detail("bytbil", SWEDISH, SE_URL, Search())
+        def collector(source, search):
+            return ([row], {"source": source, "status": "ok", "matched": 1}) if source == "bytbil" else ([], {"source": source, "status": "ok", "matched": 0})
+        def scorer(rows):
+            return [{"_import_key": "bytbil:123", "hurtigpris": 375176, "forventet_pris": 384130,
+                     "variant_id": "kia-ev6-774", "variant_kilde": "kwh", "modell_nivaa": "LOOKUP"}]
+        report = run_search(Search(), Settings(date(2026, 9, 6), 10, 1), collector=collector,
+                            evaluator=lambda r, s: evaluate_listings(r, s, scorer=scorer))
+        result = report["results"][0]
+        self.assertEqual(result["weight_kg"], 2090)
+        self.assertTrue(result["weight_estimated"])
+        self.assertIsNotNone(result["calculation"])
+        self.assertTrue(any("vekttabellen" in reason for reason in result["review_reasons"]))
+
+    def test_catalog_has_sources_and_unique_rules(self):
+        rows = weight_catalog()
+        self.assertEqual(len({row["rule_id"] for row in rows}), len(rows))
+        self.assertTrue(all(row["source_url"].startswith("https://") for row in rows))
+
     def test_observed_price_formats_dates_and_country(self):
         de = parse_detail("mobile_de", MOBILE, DE_URL, Search())
         se = parse_detail("bytbil", SWEDISH, SE_URL, Search())

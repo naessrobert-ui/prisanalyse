@@ -32,10 +32,15 @@
       <label>Reserve (NOK)<input name="reserve_nok" type="number" value="0" min="0"></label>
       <label>Registrering i Norge<input name="registration_date" type="date" value="{{ today }}" min="2026-01-01" max="2026-12-31" required></label>
       <label>Egenvekt hvis ukjent (kg)<input name="assumed_weight_kg" type="number" min="500" max="5000" placeholder="Valgfritt anslag"></label>
-    </div><p class="hint">Tomme kursfelt henter ECBs siste referansekurser. Oppgi begge felt for egne bankkurser. Anslått vekt brukes bare der annonsen mangler egenvekt og merkes for kontroll.</p></details>
+    </div><p class="hint">Tomme kursfelt henter ECBs siste referansekurser. Oppgi begge felt for egne bankkurser. Vekt hentes automatisk fra vekttabellen ved et sikkert varianttreff. Et manuelt anslag overstyrer tabellen.</p></details>
     <p class="hint">Kalkylen gjelder mva-registrert bilforhandler med bilen som salgsvare. Margin er etter oppgitte kostnader og moms, før faste driftskostnader og selskapsskatt. Avgiftsregler for 2026.</p></section>
     <div class="actions"><button id="submit" type="submit">Søk nå i begge land <span>→</span></button><span class="hint">Vanligvis rundt 30–120 sekunder.</span></div>
   </form>
+  <details class="panel"><summary>Se vekttabellen ({{ weight_catalog|length }} varianter)</summary>
+    <div class="table-wrap"><table><thead><tr><th>Bil</th><th>År</th><th>Batteri</th><th>Drift</th><th>Egenvekt</th><th>Kilde</th></tr></thead><tbody>
+    {% for item in weight_catalog %}<tr><td>{{ item.make }} {{ item.model }}{% if item.required_text %} {{ item.required_text }}{% endif %}</td><td>{{ item.year_from }}–{{ item.year_to }}</td><td>{{ item.battery_min_kwh|round(1) }}–{{ item.battery_max_kwh|round(1) }} kWh</td><td>{{ item.drive }}</td><td>{{ item.weight_kg }} kg</td><td><a href="{{ item.source_url }}" target="_blank" rel="noopener noreferrer">{{ item.source_name }}</a></td></tr>{% endfor %}
+    </tbody></table></div><p class="hint">Tabellen brukes bare ved eksakt treff på modell, år, batteri og hjuldrift. Estimert vekt må bekreftes mot bilens dokumentasjon før kjøp.</p>
+  </details>
   <div id="status" role="status" aria-live="polite"></div>
   <section id="results" hidden>
     <div class="result-head"><h2>Treff fra søket</h2><a id="download" class="secondary" href="#">Last ned kalkyler</a></div>

@@ -37,8 +37,8 @@ function showCars() {
     if(q.unconfirmed_net_scenario) card.append(el('p','* Forutsetter kjøp til annonsert nettopris. Eksportvilkårene er ikke bekreftet.','hint'));
     const detail=el('details');detail.append(el('summary','Se kostnader og kontrollpunkter'));
     const breakdown=el('div',null,'breakdown');
-    for(const [label,value] of [['Bruttoinnkjøp + frakt',q.gross_plus_freight_nok],['Frakt',q.freight_nok],['Vektavgift',c.weight_tax_nok],['Vrakpant',c.scrappage_tax_nok],['Øvrige kostnader',c.other_costs_nok],['Reserve',c.reserve_nok],['Moms ved modellens kundepris',c.output_vat_nok],['Markedspris fra modellen',r.valuation?.forventet_pris]]) {
-      const row=el('div');row.append(el('span',label),el('strong',money(value)));breakdown.append(row);
+    for(const [label,value] of [[r.weight_estimated?'Estimert egenvekt':'Egenvekt',r.weight_kg == null?null:`${new Intl.NumberFormat('nb-NO').format(r.weight_kg)} kg`],['Bruttoinnkjøp + frakt',q.gross_plus_freight_nok],['Frakt',q.freight_nok],['Vektavgift',c.weight_tax_nok],['Vrakpant',c.scrappage_tax_nok],['Øvrige kostnader',c.other_costs_nok],['Reserve',c.reserve_nok],['Moms ved modellens kundepris',c.output_vat_nok],['Markedspris fra modellen',r.valuation?.forventet_pris]]) {
+      const row=el('div');row.append(el('span',label),el('strong',typeof value==='string'?value:money(value)));breakdown.append(row);
     }detail.append(breakdown);
     const ul=el('ul');for(const reason of r.review_reasons || [])ul.append(el('li',reason));detail.append(ul);card.append(detail);target.append(card);
   }

@@ -12,6 +12,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request, ses
 
 from import_radar import Settings, number
 from import_radar_search import Search, SourceError, fx_rates, run_search
+from import_vehicle_weights import weight_catalog
 
 import_radar_bp = Blueprint("import_radar", __name__, url_prefix="/bil/import-radar")
 _POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix="import-radar")
@@ -90,7 +91,8 @@ def index():
     if "import_radar_csrf" not in session:
         session["import_radar_csrf"] = secrets.token_urlsafe(24)
     return render_template("import_radar.html", csrf=session["import_radar_csrf"],
-                           today=date.today().isoformat(), year=date.today().year)
+                           today=date.today().isoformat(), year=date.today().year,
+                           weight_catalog=weight_catalog())
 
 
 @import_radar_bp.post("/api/search")

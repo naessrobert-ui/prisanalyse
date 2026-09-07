@@ -298,7 +298,10 @@ def evaluate_listings(raw_rows, settings: Settings, *, scorer=score_norwegian_pr
         if row.get("registration_date_estimated") is True:
             reasons.append("Eksakt registreringsdato mangler; siste dag i måneden er brukt")
         if row.get("weight_estimated") is True:
-            reasons.append("Egenvekt er ditt anslag og må bekreftes")
+            if row.get("weight_estimate_source") == "catalog":
+                reasons.append(f"Egenvekt {row.get('weight_kg'):,.0f} kg er estimert fra vekttabellen og må bekreftes".replace(",", " "))
+            else:
+                reasons.append("Egenvekt er ditt anslag og må bekreftes")
         if row.get("damage_free") is not True:
             reasons.append("Skadehistorikk er ukjent eller bilen er skadet")
         if str(row.get("drive", "")).upper() not in {"AWD", "4WD", "ALL_WHEEL", "FWD", "RWD", "2WD"}:
