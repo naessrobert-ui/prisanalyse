@@ -13,6 +13,7 @@ from import_radar_search import (Search, SourceError, cards, collect_source, fx_
                                 mobile_model_code, parse_detail, run_search, search_url)
 import import_radar_routes as routes
 from import_vehicle_weights import estimate_weight, weight_catalog
+from import_vehicle_models import vehicle_model_catalog
 
 
 MOBILE = '''<div><div><h2 data-testid="vip-ad-title">Kia EV6</h2></div><div>58 kWh 2WD</div></div>
@@ -32,6 +33,14 @@ SE_URL = "https://www.bytbil.com/stockholm/personbil-ev6-123"
 
 
 class SearchTests(unittest.TestCase):
+    def test_vehicle_model_catalog_covers_price_model(self):
+        catalog = vehicle_model_catalog()
+        self.assertIn("EV6", catalog["Kia"])
+        self.assertIn("Model Y", catalog["Tesla"])
+        self.assertIn("ID.4", catalog["Volkswagen"])
+        self.assertNotIn("Andre", {model for models in catalog.values() for model in models})
+        self.assertGreater(len(catalog), 50)
+        self.assertGreater(sum(map(len, catalog.values())), 300)
     def test_pasted_mobile_urls_are_canonical_limited_and_safe(self):
         raw = DE_URL + "&ref=share\n" + DE_URL
         self.assertEqual(mobile_detail_urls(raw), [DE_URL])
