@@ -3,13 +3,19 @@ const form = document.querySelector('#search-form');
 const statusBox = document.querySelector('#status');
 const submitButton = document.querySelector('#submit');
 const base = '/bil/import-radar/api/search';
+const vehicleModels = JSON.parse(document.querySelector('#vehicle-models').textContent);
 let currentReport = null;
 let polling = false;
 const money = value => value == null ? 'Mangler data' : new Intl.NumberFormat('nb-NO', {maximumFractionDigits:0}).format(value) + ' kr';
 function el(tag, text, className) { const n=document.createElement(tag); if(text!=null)n.textContent=text; if(className)n.className=className; return n; }
 function setStatus(text, kind='') {statusBox.textContent=text;statusBox.className=kind;}
-function quote(r) {return r.purchase_observation?.unconfirmed_net_scenario?.plus_freight_nok ?? r.purchase_observation?.gross_plus_freight_nok;}
+function quote(r) {return calc(r).cost_net_nok;}
 function calc(r) {return r.net_scenario_calculation || r.calculation || {};}
+function updateModels(preferred) {
+  const select=form.elements.model, models=vehicleModels[form.elements.make.value] || [];
+  select.replaceChildren(...models.map(model=>{const option=el('option',model);option.value=model;return option;}));
+  if(preferred && models.includes(preferred))select.value=preferred;
+}
 function safeLink(url) {try {const u=new URL(url); return u.protocol==='https:' && ['suchen.mobile.de','www.bytbil.com','bytbil.com'].includes(u.hostname) ? u.href : null;}catch{return null;}}
 function showCars() {
   const target=document.querySelector('#cars');target.replaceChildren();
@@ -28,7 +34,7 @@ function showCars() {
     const metrics=el('div',null,'metrics');
     const net=Boolean(r.net_scenario_calculation);
     for(const [label,value,isMargin] of [
-      [q.unconfirmed_net_scenario?'Nettoinnkjøp + frakt*':'Bruttoinnkjøp + frakt',quote(r),false],
+      [net?'Samlet kostpris i Norge*':'Samlet kostpris i Norge',c.cost_net_nok,false],
       ['Norsk hurtigpris',r.valuation?.hurtigpris,false],
       [net?'Kundepris for marginmålet*':'Kundepris for marginmålet',c.required_customer_price_nok,false],
       [net?'Margin i nettoscenario*':'Margin med bruttoinnkjøp',c.margin_nok,true]]) {
@@ -37,7 +43,7 @@ function showCars() {
     if(q.unconfirmed_net_scenario) card.append(el('p','* Forutsetter kjøp til annonsert nettopris. Eksportvilkårene er ikke bekreftet.','hint'));
     const detail=el('details');detail.append(el('summary','Se kostnader og kontrollpunkter'));
     const breakdown=el('div',null,'breakdown');
-    for(const [label,value] of [[r.weight_estimated?'Estimert egenvekt':'Egenvekt',r.weight_kg == null?null:`${new Intl.NumberFormat('nb-NO').format(r.weight_kg)} kg`],['Bruttoinnkjøp + frakt',q.gross_plus_freight_nok],['Frakt',q.freight_nok],['Vektavgift',c.weight_tax_nok],['Vrakpant',c.scrappage_tax_nok],['Øvrige kostnader',c.other_costs_nok],['Reserve',c.reserve_nok],['Moms ved modellens kundepris',c.output_vat_nok],['Markedspris fra modellen',r.valuation?.forventet_pris]]) {
+    for(const [label,value] of [[r.weight_estimated?'Estimert egenvekt':'Egenvekt',r.weight_kg == null?null:`${new Intl.NumberFormat('nb-NO').format(r.weight_kg)} kg`],[net?'Bilpris eks. utenlandsk mva, i NOK*':'Bilpris i NOK',c.purchase_nok],['Frakt',c.freight_nok],['Vektavgift',c.weight_tax_nok],['Vrakpant',c.scrappage_tax_nok],['Øvrige kostnader',c.other_costs_nok],['Reserve',c.reserve_nok],['Samlet kostpris i Norge',c.cost_net_nok],['Bruttopris + frakt til kontroll',q.gross_plus_freight_nok],['Moms ved modellens kundepris',c.output_vat_nok],['Markedspris fra modellen',r.valuation?.forventet_pris]]) {
       const row=el('div');row.append(el('span',label),el('strong',typeof value==='string'?value:money(value)));breakdown.append(row);
     }detail.append(breakdown);
     const ul=el('ul');for(const reason of r.review_reasons || [])ul.append(el('li',reason));detail.append(ul);card.append(detail);target.append(card);
@@ -85,8 +91,9 @@ form.addEventListener('submit',async event=>{
   }catch(error){setStatus(error.message,'error');}finally{submitButton.disabled=false;}
 });
 document.querySelector('#sort').addEventListener('change',showCars);
+form.elements.make.addEventListener('change',()=>updateModels());
 try {
   const saved=JSON.parse(localStorage.getItem('import-radar-form') || 'null');
-  if(saved)for(const [k,v]of Object.entries(saved)){const field=form.elements.namedItem(k);if(!field||k==='registration_date')continue;if(field.type==='checkbox')field.checked=Boolean(v);else field.value=v;}
+  if(saved){if(saved.make && vehicleModels[saved.make])form.elements.make.value=saved.make;updateModels(saved.model);for(const [k,v]of Object.entries(saved)){const field=form.elements.namedItem(k);if(!field||['registration_date','make','model'].includes(k))continue;if(field.type==='checkbox')field.checked=Boolean(v);else field.value=v;}}
   const id=sessionStorage.getItem('import-radar-job');if(id)poll(id);
 }catch{}

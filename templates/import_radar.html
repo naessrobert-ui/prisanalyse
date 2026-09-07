@@ -9,9 +9,8 @@
     <p>Finn elbiler og sammenlign importkostnaden med norsk hurtigpris.</p></section>
   <form id="search-form" data-csrf="{{ csrf }}">
     <section class="panel"><h2>Hvilken bil ser du etter?</h2><div class="fields">
-      <label>Merke<input name="make" value="Kia" required maxlength="50" list="makes" autocomplete="off"></label>
-      <datalist id="makes"><option>Kia</option><option>Hyundai</option><option>Tesla</option><option>Volkswagen</option><option>Audi</option><option>BMW</option><option>Mercedes-Benz</option><option>Volvo</option><option>Polestar</option><option>Nissan</option><option>Skoda</option><option>Porsche</option></datalist>
-      <label>Modell<input name="model" value="EV6" required maxlength="50" autocomplete="off"></label>
+      <label>Merke<select name="make" id="make" required>{% for make in vehicle_models %}<option value="{{ make }}"{% if make == 'Kia' %} selected{% endif %}>{{ make }}</option>{% endfor %}</select></label>
+      <label>Modell<select name="model" id="model" required>{% for model in vehicle_models.get('Kia', []) %}<option value="{{ model }}"{% if model == 'EV6' %} selected{% endif %}>{{ model }}</option>{% endfor %}</select></label>
       <label>Fra år<input name="year_from" type="number" value="2022" min="1990" max="{{ year + 1 }}" required></label>
       <label>Til år<input name="year_to" type="number" value="{{ year }}" min="1990" max="{{ year + 1 }}" required></label>
       <label>Maks kilometerstand<input name="max_km" type="number" value="90000" min="1" max="500000" step="1" required></label>
@@ -54,4 +53,4 @@
     <div id="cars"></div>
     <p class="hint">Norske priser er modellanslag. Utstyr, garanti, importhistorikk og faktisk oppnåelig salgspris må kontrolleres.</p>
   </section>
-</main><script src="{{ url_for('static', filename='import_radar.js') }}" defer></script></body></html>
+</main><script id="vehicle-models" type="application/json">{{ vehicle_models|tojson }}</script><script src="{{ url_for('static', filename='import_radar.js') }}" defer></script></body></html>
