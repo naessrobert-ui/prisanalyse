@@ -19,6 +19,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from import_radar import Settings, evaluate_listings, calculate, number
+from import_vehicle_weights import estimate_weight
 
 ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
 HOSTS = {"www.bytbil.com", "bytbil.com", "suchen.mobile.de", "www.ecb.europa.eu"}
@@ -354,9 +355,16 @@ def run_search(search, settings, *, fx_info=None, collector=collect_source, eval
             year, month = map(int, row["first_registration_month"].split("-"))
             row["first_registration"] = date(year, month, calendar.monthrange(year, month)[1]).isoformat()
             row["registration_date_estimated"] = True
-        if not row.get("weight_kg") and assumed_weight_kg is not None:
-            row["weight_kg"] = number(assumed_weight_kg, "Anslått egenvekt", minimum=500)
-            row["weight_estimated"] = True
+        if not row.get("weight_kg"):
+            match = estimate_weight(row) if assumed_weight_kg is None else None
+            if match:
+                row.update(weight_kg=match["weight_kg"], weight_estimated=True,
+                           weight_estimate_source="catalog", weight_estimate_rule_id=match["rule_id"],
+                           weight_estimate_reference=match["source_url"],
+                           weight_estimate_note=match["note"])
+            elif assumed_weight_kg is not None:
+                row.update(weight_kg=number(assumed_weight_kg, "Anslått egenvekt", minimum=500),
+                           weight_estimated=True, weight_estimate_source="user")
     report = evaluator(rows, settings)
     by_key = {r["source"] + ":" + str(r["listing_id"]): r for r in rows}
     for result in report["results"]:
@@ -365,6 +373,10 @@ def run_search(search, settings, *, fx_info=None, collector=collect_source, eval
         result["source"] = row["source"]
         result["battery_kwh"] = row.get("battery_kwh")
         result["drive"] = row.get("drive")
+        result["weight_kg"] = row.get("weight_kg")
+        result["weight_estimated"] = row.get("weight_estimated", False)
+        result["weight_estimate_source"] = row.get("weight_estimate_source")
+        result["weight_estimate_reference"] = row.get("weight_estimate_reference")
         if row.get("advertised_net_amount") is not None and result.get("calculation"):
             scenario = calculate(dict(row, export_price_amount=row["advertised_net_amount"],
                                       export_price_confirmed=True), settings,
