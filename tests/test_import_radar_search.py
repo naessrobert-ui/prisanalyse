@@ -9,7 +9,8 @@ from urllib.parse import parse_qs, urlparse
 from flask import Flask
 from import_radar import Settings, evaluate_listings
 from import_radar_search import (Search, SourceError, cards, collect_source, fx_rates,
-                                matches, mobile_model_code, parse_detail, run_search, search_url)
+                                collect_mobile_details, matches, mobile_detail_urls,
+                                mobile_model_code, parse_detail, run_search, search_url)
 import import_radar_routes as routes
 from import_vehicle_weights import estimate_weight, weight_catalog
 
@@ -31,6 +32,48 @@ SE_URL = "https://www.bytbil.com/stockholm/personbil-ev6-123"
 
 
 class SearchTests(unittest.TestCase):
+    def test_pasted_mobile_urls_are_canonical_limited_and_safe(self):
+        raw = DE_URL + "&ref=share\n" + DE_URL
+        self.assertEqual(mobile_detail_urls(raw), [DE_URL])
+        for bad in ("http://suchen.mobile.de/fahrzeuge/details.html?id=123",
+                    "https://evil.test/fahrzeuge/details.html?id=123",
+                    "https://suchen.mobile.de/fahrzeuge/search.html?id=123",
+                    "https://suchen.mobile.de/fahrzeuge/details.html?id=abc"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                mobile_detail_urls(bad)
+        with self.assertRaises(ValueError):
+            mobile_detail_urls("\n".join(f"{DE_URL}{i}" for i in range(11)))
+
+    def test_pasted_mobile_ads_replace_only_mobile_search(self):
+        calls = []
+        def collector(source, search):
+            calls.append(source)
+            return [], {"source": source, "status": "ok", "matched": 0}
+        def pasted(urls, search):
+            calls.append("pasted")
+            return [parse_detail("mobile_de", MOBILE, urls[0], search)], {"source": "mobile_de", "status": "ok", "matched": 1, "input_mode": "pasted"}
+        def scorer(rows):
+            return [{"_import_key": "mobile_de:123", "hurtigpris": 450000, "forventet_pris": 460000,
+                     "variant_id": "kia-ev6-58", "variant_kilde": "kwh", "modell_nivaa": "LOOKUP"}]
+        report = run_search(Search(), Settings(date(2026, 9, 6), 10, 1), collector=collector,
+                            mobile_urls=[DE_URL], mobile_detail_collector=pasted,
+                            evaluator=lambda r, s: evaluate_listings(r, s, scorer=scorer))
+        self.assertEqual(sorted(calls), ["bytbil", "pasted"])
+        self.assertEqual(report["results"][0]["source"], "mobile_de")
+
+    def test_pasted_mobile_collection_reports_filter_mismatch_and_stops_on_403(self):
+        rows, status = collect_mobile_details([DE_URL], Search(max_km=100), lambda _: MOBILE)
+        self.assertFalse(rows)
+        self.assertEqual(status["status"], "error")
+        self.assertIn("passer ikke", status["errors"][0])
+        calls = []
+        def blocked(url):
+            calls.append(url)
+            raise SourceError("Kilden svarte HTTP 403; søket er stoppet")
+        rows, status = collect_mobile_details([DE_URL, DE_URL.replace("123", "124")], Search(), blocked)
+        self.assertFalse(rows)
+        self.assertEqual(len(calls), 1)
+
     def test_weight_catalog_matches_only_precise_non_gt_variant(self):
         listing = {"make": "Kia", "model": "EV6", "model_year": 2023,
                    "battery_kwh": 77.4, "drive": "AWD",
@@ -187,7 +230,8 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(self.client.post("/bil/import-radar/api/search", json=self.payload()).status_code, 403)
         for extra in ({"year_from": 2025, "year_to": 2022}, {"max_km": -1}, {"eur_nok": 0},
                       {"sek_nok": ""}, {"per_source": 1000}, {"freight_se_nok": -1},
-                      {"make": "http://localhost"}, {"registration_date": "2027-01-01"}):
+                      {"make": "http://localhost"}, {"registration_date": "2027-01-01"},
+                      {"mobile_urls": "https://example.com/fahrzeuge/details.html?id=123"}):
             with self.subTest(extra=extra):
                 self.assertEqual(self.post(dict(self.payload(), **extra)).status_code, 400)
 

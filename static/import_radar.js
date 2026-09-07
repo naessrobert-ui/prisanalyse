@@ -50,7 +50,7 @@ function render(report,id) {
   const sources=document.querySelector('#sources');sources.replaceChildren();
   for(const s of report.sources || []) {
     const box=el('div',null,'source'+(s.status!=='ok'?' problem':''));
-    box.append(el('strong',s.source==='mobile_de'?'Mobile.de · Tyskland':'Bytbil · Sverige'));
+    box.append(el('strong',s.source==='mobile_de'?(s.input_mode==='pasted'?'Mobile.de · innlimte annonser':'Mobile.de · Tyskland'):'Bytbil · Sverige'));
     box.append(el('p',`${s.matched || 0} treff · ${s.details_checked || 0} detaljannonser kontrollert${s.status==='error'?' · Kilden kunne ikke fullføres':s.status==='partial'?' · Delvis resultat':''}`));
     for(const error of s.errors || [])box.append(el('p',error));
     const u=safeLink(s.url);if(u){const a=el('a','Åpne søket hos kilden');a.href=u;a.target='_blank';a.rel='noopener noreferrer';box.append(a);}sources.append(box);

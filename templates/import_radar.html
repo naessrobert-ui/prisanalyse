@@ -20,6 +20,10 @@
       <label>Biler per land<select name="per_source"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option></select></label>
     </div><label class="check"><input type="checkbox" name="vat_only" checked> Bare annonser med oppgitt fradragsberettiget moms</label>
     <p class="hint">Mobile.de bruker registreringsår; Bytbil bruker modellår. Søket leser et begrenset antall annonser fra første resultatside. Sverige: pris fra 50 000 SEK.</p></section>
+    <section class="panel"><h2>Mobile.de-lenker <span>VALGFRITT</span></h2>
+      <label>Lim inn én eller flere annonser<textarea name="mobile_urls" rows="4" maxlength="5000" placeholder="https://suchen.mobile.de/fahrzeuge/details.html?id=…"></textarea></label>
+      <p class="hint">Én lenke per linje, maksimalt 10. Når du limer inn lenker, brukes disse i stedet for det automatiske Mobile-søket. Bytbil-søket kjører som før.</p>
+    </section>
     <section class="panel"><h2>Din importkalkyle <span>NOK</span></h2><div class="fields">
       <label>Frakt fra Tyskland<input name="freight_de_nok" type="number" value="13000" min="0" required></label>
       <label>Frakt fra Sverige<input name="freight_se_nok" type="number" value="8000" min="0" required></label>
