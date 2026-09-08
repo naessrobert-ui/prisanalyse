@@ -106,6 +106,10 @@ def start_search():
         parsed = parse_request(request.get_json(silent=True))
     except (ValueError, TypeError, KeyError) as exc:
         return jsonify(error=str(exc)), 400
+    return enqueue(parsed, perform)
+
+
+def enqueue(parsed, worker):
     path, owner, now = db_path(), session["import_radar_owner"], time.time()
     job_id = secrets.token_urlsafe(24)
     with connect(path) as db:
@@ -120,7 +124,7 @@ def start_search():
             return jsonify(error="Vent litt før du starter flere søk"), 429
         db.execute("INSERT INTO jobs (id, owner, created, status) VALUES (?, ?, ?, 'running')", (job_id, owner, now))
     try:
-        _POOL.submit(perform, path, job_id, parsed)
+        _POOL.submit(worker, path, job_id, parsed)
     except RuntimeError:
         with connect(path) as db:
             db.execute("UPDATE jobs SET status='error', error='Tjenesten starter på nytt' WHERE id=?", (job_id,))
@@ -156,3 +160,67 @@ def download(job_id):
         return jsonify(error="Rapporten er ikke tilgjengelig"), 404
     return Response(row["payload"], mimetype="application/json", headers={
         "Content-Disposition": 'attachment; filename="import-radar.json"', "Cache-Control": "no-store"})
+
+
+@import_radar_bp.get("/mobile")
+def mobile_index():
+    from mobile_search_export import DEFAULT_SEARCH
+    session.setdefault("import_radar_owner", secrets.token_urlsafe(24))
+    session.setdefault("import_radar_csrf", secrets.token_urlsafe(24))
+    return render_template("mobile_search_export.html", csrf=session["import_radar_csrf"], default_search=DEFAULT_SEARCH)
+
+
+def perform_mobile(path, job_id, parsed):
+    from mobile_search_export import collect
+    def checkpoint(report):
+        with connect(path) as db:
+            db.execute("UPDATE jobs SET payload=? WHERE id=? AND status='running'",
+                       (json.dumps(report, ensure_ascii=False, allow_nan=False), job_id))
+    try:
+        report = collect(*parsed, checkpoint=checkpoint)
+        checkpoint(report)
+        with connect(path) as db:
+            db.execute("UPDATE jobs SET status='done' WHERE id=? AND status='running'", (job_id,))
+    except Exception:
+        with connect(path) as db:
+            db.execute("UPDATE jobs SET status='error', error='Innhentingen ble avbrutt. Hentede data kan lastes ned.' WHERE id=? AND status='running'", (job_id,))
+
+
+@import_radar_bp.post("/api/mobile")
+def start_mobile():
+    from mobile_search_export import validate_url
+    expected = session.get("import_radar_csrf", "")
+    if not expected or not secrets.compare_digest(request.headers.get("X-CSRF-Token", ""), expected):
+        return jsonify(error="Last siden på nytt før du henter biler"), 403
+    data = request.get_json(silent=True)
+    try:
+        if not isinstance(data, dict):
+            raise ValueError("Oppgi et søk")
+        url = validate_url(data.get("url"))
+        limit = data.get("limit", 20)
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
+            raise ValueError("Velg mellom 1 og 50 annonser")
+    except (ValueError, TypeError) as exc:
+        return jsonify(error=str(exc)), 400
+    return enqueue((url, limit), perform_mobile)
+
+
+@import_radar_bp.get("/api/mobile/<job_id>/download/<kind>")
+def mobile_download(job_id, kind):
+    import tempfile
+    from scripts.mobile_hent import save_results
+    row = owned_job(job_id)
+    if not row or not row["payload"] or kind not in {"json", "csv", "xlsx"}:
+        return jsonify(error="Uttrekket er ikke tilgjengelig"), 404
+    report = json.loads(row["payload"])
+    if report.get("report_type") != "mobile_export":
+        return jsonify(error="Dette er ikke et Mobile-uttrekk"), 404
+    if kind == "json":
+        content, mime = row["payload"], "application/json"
+    else:
+        with tempfile.TemporaryDirectory(prefix="mobile-export-") as tmp:
+            save_results(Path(tmp), report, excel=kind == "xlsx")
+            content = (Path(tmp) / ("biler." + kind)).read_bytes()
+        mime = "text/csv; charset=utf-8" if kind == "csv" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    return Response(content, content_type=mime, headers={
+        "Content-Disposition": f'attachment; filename="mobile-biler.{kind}"', "Cache-Control":"no-store"})

@@ -20,6 +20,7 @@
     </div><label class="check"><input type="checkbox" name="vat_only" checked> Bare annonser med oppgitt fradragsberettiget moms</label>
     <p class="hint">Mobile.de bruker registreringsår; Bytbil bruker modellår. Søket leser et begrenset antall annonser fra første resultatside. Sverige: pris fra 50 000 SEK.</p></section>
     <section class="panel"><h2>Mobile.de-lenker <span>VALGFRITT</span></h2>
+      <p><a href="{{ url_for('import_radar.mobile_index') }}">Hent bildata fra et helt Mobile.de-søk og last ned Excel →</a></p>
       <label>Lim inn én eller flere annonser<textarea name="mobile_urls" rows="4" maxlength="5000" placeholder="https://suchen.mobile.de/fahrzeuge/details.html?id=…"></textarea></label>
       <p class="hint">Én lenke per linje, maksimalt 10. Når du limer inn lenker, brukes disse i stedet for det automatiske Mobile-søket. Bytbil-søket kjører som før.</p>
     </section>

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mobile.de – hent bildata | Prisanalyse</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='import_radar.css') }}">
+<style>body{font-size:16px}label,.hint,.secondary,header,th{font-size:14px}.intro{padding:28px 0}.downloads{display:flex;gap:18px;flex-wrap:wrap}.url-field{margin-bottom:18px}td:first-child{white-space:normal;min-width:210px}td{font-size:14px}.result-head{gap:16px;flex-wrap:wrap}#scope{overflow-wrap:anywhere}</style>
+</head><body><main>
+<header><a href="{{ url_for('import_radar.index') }}">← ImportRadar</a><span>PRISANALYSE.NO</span></header>
+<section class="intro"><h1>Hent biler fra mobile.de</h1><p>Lim inn søkelenken og last ned bildata til Excel.</p></section>
+<form id="mobile-form" class="panel" data-csrf="{{ csrf }}">
+<label class="url-field">Søkelenke fra mobile.de<textarea name="url" rows="3" maxlength="5000" required>{{ default_search }}</textarea></label>
+<div class="actions"><label>Maks annonser<select name="limit"><option value="10">10</option><option value="20" selected>20</option><option value="50">50</option></select></label><button id="run" type="submit">Hent bildata</button></div>
+<p class="hint">Leser inntil fem søkesider i opptil tre minutter. Søket ditt er ferdig lagt inn. Hvis mobile.de avviser tilgangen, stopper innhentingen og viser årsaken.</p>
+</form>
+<div id="status" role="status" aria-live="polite"></div>
+<section id="results" class="panel" hidden><div class="result-head"><h2 id="result-title">Bildata</h2><nav class="downloads" aria-label="Last ned bildata"><a id="xlsx" href="#">Excel</a><a id="csv" href="#">CSV</a><a id="json" href="#">JSON</a></nav></div>
+<p id="scope" class="hint"></p><ul id="warnings"></ul>
+<div class="table-wrap"><table><thead><tr><th>Bil</th><th>Pris EUR</th><th>Nettopris EUR</th><th>Km</th><th>Førstegangsreg.</th><th>Batteri kWh</th><th>Rekkevidde km</th><th>Vekt kg</th><th>Selger</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+<p class="hint">Prisene er annonsert bilpris i euro. Norsk frakt og avgifter er ikke med i dette datauttrekket; importkalkylen finnes i <a href="{{ url_for('import_radar.index') }}">ImportRadar</a>. Bare oppgitt nettopris tas med. Tomme felter betyr manglende opplysninger; vekt estimeres ikke. Eksportfilene inneholder også effekt, utstyr og øvrige tilgjengelige data.</p>
+</main><script src="{{ url_for('static', filename='mobile_search_export.js') }}" defer></script></body></html>
