@@ -80,6 +80,13 @@
 </div>
 <script>
 (function(){
+  var wrap=document.getElementById('kontakt');
+  var resultArea=document.getElementById('resultat');
+  if(wrap&&resultArea){
+    var anchor=resultArea.querySelector('.details-card, .comparables-card');
+    if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(wrap,anchor);
+  }
+
   var MAX_FILES=8, MAX_BYTES=10*1024*1024;
   document.querySelectorAll('.lead-toggle').forEach(function(btn){
     btn.addEventListener('click',function(){
