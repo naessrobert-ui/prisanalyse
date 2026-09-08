@@ -613,7 +613,7 @@
         <div class="detail-grid">
           <div class="detail-item"><div class="detail-label">Registreringsnummer</div><div class="detail-value">{{ svv_preview.regnr or regnr }}</div></div>
           <div class="detail-item"><div class="detail-label">Drivstoff</div><div class="detail-value">{{ svv_preview.drivstoff or '–' }}</div></div>
-          <div class="detail-item"><div class="detail-label">Førstegangsregistrert</div><div class="detail-value">{{ svv_preview.forstegang_norge or '–' }}</div></div>
+          <div class="detail-item"><div class="detail-label">Førstegangsregistrert</div><div class="detail-value">{{ svv_preview.forstegang or svv_preview.forstegang_norge or '–' }}</div></div>
           <div class="detail-item"><div class="detail-label">Bruktimportert</div><div class="detail-value">{% if svv_preview.bruktimportert %}Ja{% else %}Nei{% endif %}</div></div>
         </div>
       </div>
@@ -671,6 +671,8 @@
         </details>
         {% endif %}
       </div>
+
+      {% include "_innbytte_lead_capture.html" %}
     </section>
     {% elif svv_preview and error and not model_selection %}
     <section class="result-area">

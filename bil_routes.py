@@ -2415,10 +2415,11 @@ def bil_innbytte_side():
                     modell = (flat.get("svv_handelsbetegnelse") or flat.get("svv_typebetegnelse") or "").strip()
                     drivstoff_svv = (flat.get("svv_drivstoff_navn") or "").strip()
                     reg_norge = (flat.get("svv_registrert_forste_gang_norge") or "")
+                    reg_forste = (flat.get("svv_registrert_forste_gang") or reg_norge)
 
                     target_year = None
-                    if reg_norge and len(reg_norge) >= 4 and reg_norge[:4].isdigit():
-                        target_year = int(reg_norge[:4])
+                    if reg_forste and len(reg_forste) >= 4 and reg_forste[:4].isdigit():
+                        target_year = int(reg_forste[:4])
 
                     aksler_med_drift = flat.get("svv_antall_aksler_med_drift")
                     hjuldrift_filter = None
@@ -2441,6 +2442,7 @@ def bil_innbytte_side():
                         "motor_cm3": flat.get("svv_slagvolum_cm3"),
                         "motor_kw": flat.get("svv_maks_netto_effekt_kw"),
                         "aksler_med_drift": flat.get("svv_antall_aksler_med_drift"),
+                        "forstegang": reg_forste or None,
                         "forstegang_norge": flat.get("svv_registrert_forste_gang_norge"),
                         "forstegang_utland": flat.get("svv_forstegang_reg_dato_utland"),
                         "bruktimportert": bool(flat.get("svv_bruktimportert")),

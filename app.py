@@ -48,6 +48,7 @@ from aksjonaer_routes import aksjonaer_bp
 from shipping_routes import shipping_bp, start_shipping_streamlit
 from media_mentions_routes import media_mentions_bp
 from ferie_routes import ferie_bp
+from innbytte_leads import innbytte_leads_bp
 
 
 
@@ -81,6 +82,7 @@ _PUBLIC_PATHS = {
     "/",
     "/innbytte",
     "/innbytte/",
+    "/innbytte/lead",
     "/login",
     "/logout",
     "/robots.txt",
@@ -210,6 +212,7 @@ def create_app() -> Flask:
     app.register_blueprint(bolig_bp)
     app.register_blueprint(fritids_bp)
     app.register_blueprint(bil_bp)
+    app.register_blueprint(innbytte_leads_bp)
     # Offentlig alias som gjenbruker nøyaktig samme beregningsmotor som /bil/innbytte.
     app.add_url_rule(
         "/innbytte",
