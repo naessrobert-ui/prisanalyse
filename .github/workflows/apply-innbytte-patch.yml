@@ -1,0 +1,76 @@
+name: Apply innbytte patch
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Apply targeted changes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("bil_routes.py")
+          s = p.read_text(encoding="utf-8")
+          old = '                    reg_norge = (flat.get("svv_registrert_forste_gang_norge") or "")\n\n                    target_year = None\n                    if reg_norge and len(reg_norge) >= 4 and reg_norge[:4].isdigit():\n                        target_year = int(reg_norge[:4])\n'
+          new = '                    reg_norge = (flat.get("svv_registrert_forste_gang_norge") or "")\n                    reg_forste = (flat.get("svv_registrert_forste_gang") or reg_norge)\n\n                    target_year = None\n                    if reg_forste and len(reg_forste) >= 4 and reg_forste[:4].isdigit():\n                        target_year = int(reg_forste[:4])\n'
+          if old not in s:
+              raise SystemExit("Fant ikke registreringsblokken i bil_routes.py")
+          s = s.replace(old, new, 1)
+          old = '                        "forstegang_norge": flat.get("svv_registrert_forste_gang_norge"),\n                        "forstegang_utland": flat.get("svv_forstegang_reg_dato_utland"),\n'
+          new = '                        "forstegang": reg_forste or None,\n                        "forstegang_norge": flat.get("svv_registrert_forste_gang_norge"),\n                        "forstegang_utland": flat.get("svv_forstegang_reg_dato_utland"),\n'
+          if old not in s:
+              raise SystemExit("Fant ikke svv_preview-blokken i bil_routes.py")
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding="utf-8")
+
+          p = Path("app.py")
+          s = p.read_text(encoding="utf-8")
+          old = 'from ferie_routes import ferie_bp\n'
+          new = 'from ferie_routes import ferie_bp\nfrom innbytte_leads import innbytte_leads_bp\n'
+          if old not in s:
+              raise SystemExit("Fant ikke importpunkt i app.py")
+          s = s.replace(old, new, 1)
+          old = '    "/innbytte",\n    "/innbytte/",\n    "/login",\n'
+          new = '    "/innbytte",\n    "/innbytte/",\n    "/innbytte/lead",\n    "/login",\n'
+          if old not in s:
+              raise SystemExit("Fant ikke PUBLIC_PATHS i app.py")
+          s = s.replace(old, new, 1)
+          old = '    app.register_blueprint(bil_bp)\n    # Offentlig alias som gjenbruker nøyaktig samme beregningsmotor som /bil/innbytte.\n'
+          new = '    app.register_blueprint(bil_bp)\n    app.register_blueprint(innbytte_leads_bp)\n    # Offentlig alias som gjenbruker nøyaktig samme beregningsmotor som /bil/innbytte.\n'
+          if old not in s:
+              raise SystemExit("Fant ikke blueprint-punkt i app.py")
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding="utf-8")
+
+          p = Path("templates/bil_innbytte.html")
+          s = p.read_text(encoding="utf-8")
+          old = '<div class="detail-item"><div class="detail-label">Førstegangsregistrert</div><div class="detail-value">{{ svv_preview.forstegang_norge or \'–\' }}</div></div>'
+          new = '<div class="detail-item"><div class="detail-label">Førstegangsregistrert</div><div class="detail-value">{{ svv_preview.forstegang or svv_preview.forstegang_norge or \'–\' }}</div></div>'
+          if old not in s:
+              raise SystemExit("Fant ikke førstegangsregistrert-feltet i template")
+          s = s.replace(old, new, 1)
+          marker = '      </div>\n    </section>\n    {% elif svv_preview and error and not model_selection %}'
+          replacement = '      </div>\n\n      {% include "_innbytte_lead_capture.html" %}\n    </section>\n    {% elif svv_preview and error and not model_selection %}'
+          if marker not in s:
+              raise SystemExit("Fant ikke innsettingspunkt for kontaktboksene")
+          s = s.replace(marker, replacement, 1)
+          p.write_text(s, encoding="utf-8")
+          PY
+
+          git rm .github/workflows/apply-innbytte-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py bil_routes.py templates/bil_innbytte.html
+          git commit -m "Aktiver kontakt og prisfeedback på innbytte"
+          git push origin HEAD:main
