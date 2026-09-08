@@ -1,0 +1,98 @@
+<style>
+  .lead-capture-wrap{margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .lead-card{border:1px solid #2b414d;border-radius:18px;padding:24px;background:#0c1921}
+  .lead-card.offer{border-color:#628d3d;background:linear-gradient(145deg,rgba(167,239,90,.07),#0c1921 70%)}
+  .lead-card h3{margin:5px 0 9px;font-size:22px}.lead-card p{margin:0;color:#9fb4c0;line-height:1.55;font-size:14px}
+  .lead-card .lead-kicker{color:#a7ef5a;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+  .lead-card .lead-toggle{margin-top:18px;max-width:260px}
+  .lead-form{display:none;margin-top:18px;border-top:1px solid #263943;padding-top:4px}.lead-form.open{display:block}
+  .lead-form .lead-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.lead-form label{font-size:12px}
+  .lead-form input,.lead-form textarea{width:100%;border:1px solid #425966;border-radius:9px;background:#09151c;color:#eef4f7;padding:12px;font:inherit;outline:0}
+  .lead-form textarea{min-height:90px;resize:vertical}.lead-form input:focus,.lead-form textarea:focus{border-color:#a7ef5a;box-shadow:0 0 0 3px rgba(167,239,90,.1)}
+  .lead-form .full{grid-column:1/-1}.lead-consent{display:flex;gap:9px;align-items:flex-start;margin-top:14px;color:#8fa7b3;font-size:11px;line-height:1.4}
+  .lead-consent input{width:auto;margin-top:2px}.lead-status{margin-top:12px;font-size:13px;line-height:1.4}.lead-status.ok{color:#a7ef5a}.lead-status.err{color:#ffb3b3}
+  .lead-hp{position:absolute;left:-9999px;opacity:0}.lead-price-hint{color:#7f98a6;font-size:11px;margin-top:5px}
+  @media(max-width:760px){.lead-capture-wrap{grid-template-columns:1fr}.lead-form .lead-grid{grid-template-columns:1fr}.lead-form .full{grid-column:auto}}
+</style>
+<div class="lead-capture-wrap" id="kontakt">
+  <div class="lead-card offer">
+    <div class="lead-kicker">Kan dette være interessant?</div>
+    <h3>Få et uforpliktende pristilbud</h3>
+    <p>Ta kontakt, så kan vi se nærmere på bilen og sende deg et uforpliktende pristilbud.</p>
+    <button type="button" class="lead-toggle" data-target="lead-tilbud"><span>Ja, kontakt meg</span><span>→</span></button>
+    <form class="lead-form" id="lead-tilbud" action="/innbytte/lead" method="post">
+      <input type="hidden" name="kind" value="tilbud">
+      <input type="hidden" name="regnr" value="{{ svv_preview.regnr or regnr }}">
+      <input type="hidden" name="km" value="{{ result.svv.km_input }}">
+      <input type="hidden" name="bil" value="{{ (svv_preview.merke or '')|upper }} {{ svv_preview.modell or '' }}">
+      <input type="hidden" name="estimat" value="{{ result.innbyttepris }}">
+      <input type="hidden" name="markedsniva" value="{{ result.median_pris }}">
+      <input type="hidden" name="side" value="/innbytte">
+      <input class="lead-hp" type="text" name="website" tabindex="-1" autocomplete="off">
+      <div class="lead-grid">
+        <div><label>Navn</label><input name="navn" autocomplete="name" required></div>
+        <div><label>Telefon</label><input name="telefon" type="tel" autocomplete="tel" required></div>
+        <div class="full"><label>E-post</label><input name="email" type="email" autocomplete="email" required></div>
+        <div class="full"><label>Kommentar <span style="font-weight:400;color:#718996">(valgfritt)</span></label><textarea name="kommentar" placeholder="For eksempel når du ønsker å selge bilen."></textarea></div>
+      </div>
+      <label class="lead-consent"><input type="checkbox" name="samtykke" value="ja" required><span>Jeg samtykker til at opplysningene brukes for å kontakte meg om denne henvendelsen.</span></label>
+      <button type="submit"><span>Send kontaktinformasjon</span><span>→</span></button>
+      <div class="lead-status" aria-live="polite"></div>
+    </form>
+  </div>
+
+  <div class="lead-card">
+    <div class="lead-kicker">Ble prisen feil?</div>
+    <h3>Fortell oss hvor vi bommet</h3>
+    <p>Si hvilket prisnivå du mener er riktig for bilen. Tilbakemeldingen hjelper oss å forbedre modellen.</p>
+    <button type="button" class="lead-toggle" data-target="lead-feedback"><span>Gi tilbakemelding</span><span>→</span></button>
+    <form class="lead-form" id="lead-feedback" action="/innbytte/lead" method="post">
+      <input type="hidden" name="kind" value="prisfeedback">
+      <input type="hidden" name="regnr" value="{{ svv_preview.regnr or regnr }}">
+      <input type="hidden" name="km" value="{{ result.svv.km_input }}">
+      <input type="hidden" name="bil" value="{{ (svv_preview.merke or '')|upper }} {{ svv_preview.modell or '' }}">
+      <input type="hidden" name="estimat" value="{{ result.innbyttepris }}">
+      <input type="hidden" name="markedsniva" value="{{ result.median_pris }}">
+      <input type="hidden" name="side" value="/innbytte">
+      <input class="lead-hp" type="text" name="website" tabindex="-1" autocomplete="off">
+      <div class="lead-grid">
+        <div><label>Navn</label><input name="navn" autocomplete="name" required></div>
+        <div><label>Telefon</label><input name="telefon" type="tel" autocomplete="tel" required></div>
+        <div class="full"><label>E-post</label><input name="email" type="email" autocomplete="email" required></div>
+        <div class="full"><label>Hva mener du er riktig prisnivå?</label><input name="forventet_pris" inputmode="numeric" placeholder="f.eks. 245 000 kr" required><div class="lead-price-hint">Du kan oppgi omtrentlige tall.</div></div>
+        <div class="full"><label>Hva tror du vi har oversett?</label><textarea name="kommentar" placeholder="For eksempel utstyr, batteri, variant, importhistorikk eller lokale markedspriser."></textarea></div>
+      </div>
+      <label class="lead-consent"><input type="checkbox" name="samtykke" value="ja" required><span>Jeg samtykker til at opplysningene brukes for å kontakte meg om denne henvendelsen.</span></label>
+      <button type="submit"><span>Send tilbakemelding</span><span>→</span></button>
+      <div class="lead-status" aria-live="polite"></div>
+    </form>
+  </div>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.lead-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var form=document.getElementById(btn.dataset.target);
+      if(!form)return;
+      form.classList.toggle('open');
+      if(form.classList.contains('open')){var first=form.querySelector('input[name="navn"]');if(first)first.focus();}
+    });
+  });
+  document.querySelectorAll('.lead-form').forEach(function(form){
+    form.addEventListener('submit',async function(ev){
+      ev.preventDefault();
+      var status=form.querySelector('.lead-status');
+      var submit=form.querySelector('button[type="submit"]');
+      status.className='lead-status';status.textContent='Sender …';submit.disabled=true;
+      try{
+        var response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'X-Requested-With':'fetch'}});
+        var data=await response.json();
+        if(!response.ok||!data.ok)throw new Error(data.error||'Kunne ikke sende.');
+        status.className='lead-status ok';status.textContent=data.message||'Takk! Henvendelsen er mottatt.';
+        form.querySelectorAll('input:not([type="hidden"]):not([name="website"]), textarea').forEach(function(el){if(el.type==='checkbox')el.checked=false;else el.value='';});
+      }catch(err){status.className='lead-status err';status.textContent=err.message||'Noe gikk galt. Prøv igjen.';}
+      finally{submit.disabled=false;}
+    });
+  });
+})();
+</script>
