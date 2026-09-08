@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 import html
 import json
+import os
 import re
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 import boto3
 from flask import Blueprint, Response, jsonify, request
@@ -12,6 +15,8 @@ from config import AWS_KEY, AWS_SECRET, AWS_REGION, S3_BUCKET_NAME
 
 innbytte_leads_bp = Blueprint("innbytte_leads", __name__)
 LEAD_PREFIX = "calc/bil/innbytte_leads/"
+PUSHOVER_API_URL = "https://api.pushover.net/1/messages.json"
+LEADS_URL = "https://prisanalyse.no/bil/innbytte/leads"
 
 
 def _s3():
@@ -29,6 +34,75 @@ def _clean(value, max_len=500):
 
 def _valid_email(value):
     return bool(re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", value or ""))
+
+
+def _send_pushover_lead(payload):
+    """Send push-varsel om ny henvendelse. Feil her skal aldri miste leadet."""
+    token = (os.environ.get("PUSHOVER_TOKEN") or "").strip()
+    users_raw = (os.environ.get("PUSHOVER_USER") or "").strip()
+    users = [user.strip() for user in users_raw.split(",") if user.strip()]
+
+    if not token or not users:
+        print("[innbytte-lead] Pushover er ikke konfigurert i Render (PUSHOVER_TOKEN/PUSHOVER_USER).")
+        return False
+
+    regnr = payload.get("regnr") or "ukjent regnr"
+    kind = payload.get("type")
+    if kind == "tilbud":
+        title = f"🚗 Ny forespørsel om pristilbud – {regnr}"
+    else:
+        title = f"💬 Prisfeedback – {regnr}"
+
+    lines = []
+    bil = payload.get("bil") or "Bil"
+    km = payload.get("km")
+    lines.append(f"{bil} · {regnr}" + (f" · {km} km" if km else ""))
+
+    if payload.get("estimert_innbyttepris"):
+        lines.append(f"Vårt estimat: {payload['estimert_innbyttepris']} kr")
+    if payload.get("markedsniva"):
+        lines.append(f"Markedsnivå: {payload['markedsniva']} kr")
+    if payload.get("forventet_pris"):
+        lines.append(f"Bruker mener riktig pris er: {payload['forventet_pris']} kr")
+
+    lines.extend([
+        f"Navn: {payload.get('navn') or '–'}",
+        f"Telefon: {payload.get('telefon') or '–'}",
+        f"E-post: {payload.get('email') or '–'}",
+    ])
+
+    kommentar = (payload.get("kommentar") or "").strip()
+    if kommentar:
+        lines.append(f"Kommentar: {kommentar}")
+
+    message = "\n".join(lines)[:1024]
+    title = title[:250]
+    ok = True
+
+    for user in users:
+        data = urlencode({
+            "token": token,
+            "user": user,
+            "title": title,
+            "message": message,
+            "url": LEADS_URL,
+            "url_title": "Åpne innbyttehenvendelser",
+        }).encode("utf-8")
+        try:
+            req = Request(
+                PUSHOVER_API_URL,
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                method="POST",
+            )
+            with urlopen(req, timeout=8) as resp:
+                if not 200 <= int(resp.status) < 300:
+                    raise RuntimeError(f"Pushover HTTP {resp.status}")
+        except Exception as exc:
+            ok = False
+            print(f"[innbytte-lead] Pushover-varsel feilet: {exc!r}")
+
+    return ok
 
 
 @innbytte_leads_bp.post("/innbytte/lead")
@@ -89,6 +163,9 @@ def submit_innbytte_lead():
     except Exception as exc:
         print(f"[innbytte-lead] Kunne ikke lagre lead: {exc!r}")
         return jsonify({"ok": False, "error": "Kunne ikke sende henvendelsen akkurat nå. Prøv igjen litt senere."}), 500
+
+    # Leadet er trygt lagret før vi varsler. Pushover-feil påvirker derfor ikke kunden.
+    _send_pushover_lead(payload)
 
     if kind == "tilbud":
         msg = "Takk! Vi har mottatt kontaktinformasjonen din og kan følge opp med et uforpliktende pristilbud."
