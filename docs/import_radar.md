@@ -1,5 +1,35 @@
 # ImportRadar – Søk nå og importkalkyle
 
+## Mobile.de: søkelenke til bildata
+
+`/bil/import-radar/mobile` lar brukeren lime inn et helt Mobile.de-søk og
+laste ned Excel, CSV og JSON. Den opprinnelige søkelenken fra 8. september 2026
+er forhåndsutfylt. Lenken til siden finnes ved Mobile.de-feltet i ImportRadar.
+
+`scripts/mobile_hent.py` inneholder den selvstendige datatolkeren og den lokale
+nettleserklienten. `mobile_search_export.py` tilpasser denne til serverens
+eksisterende, avgrensede HTTP-henting; nettserveren starter ikke en synlig
+nettleser og trenger ikke Playwright. Nettversjonen følger inntil fem sider,
+maksimalt 50 valgte annonser og en tidsgrense på 180 sekunder, med to sekunder
+mellom sidehentinger. HTTP-feil og tilgangskontroller stanser uttrekket.
+Hentede rader lagres underveis og kan lastes ned også etter delvis feil.
+
+Uttrekket viser oppgitt pris i EUR og eksplisitt nettopris. Ingen norsk
+importkalkyle, anslått vekt eller modellår fra registreringsår legges til.
+Den eksisterende ImportRadar-kalkylen og dens vektanslag er uendret.
+Ukjente felter er tomme. Resultatomfang og eventuelt uklart skille mellom
+søketreff og anbefalte annonser vises i rapporten.
+
+Nettjobbene bruker samme økt, CSRF-beskyttelse, felles samtidighetsgrense og
+24-timers jobboppbevaring som øvrig ImportRadar. Eksport er bare tilgjengelig
+i eierens økt. UI viser fremdrift og kildefeil uten å gjøre feil til tomme treff.
+
+Tester: `python -m unittest discover -s tests -p test_mobile_search_export.py -v`
+dekker HTML/pris, paginering, deduplisering, bevaring ved blokkering, tilgang og
+alle eksportformatene. Eksisterende `test_import_radar_search.py` er også kjørt.
+Live innhenting fra dette utviklingsmiljøet kunne ikke fullføres; nettsidens
+tilgang til mobile.de må bekreftes fra målserveren.
+
 ImportRadar sammenligner normaliserte utenlandske annonser med eksisterende
 BilRadar-priser. Frakt er satt til **13 000 NOK fra Tyskland**, **8 000 NOK fra
 Sverige**, og marginmålet er **30 000 NOK etter oppgitte kostnader og moms**,
