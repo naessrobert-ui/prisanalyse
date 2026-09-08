@@ -28,7 +28,7 @@ from flask_session import Session
 from handler_routes import handler_bp
 from bolig_routes import bolig_bp
 from fritidsbolig_routes import fritids_bp
-from bil_routes import bil_bp, start_bilradar_warmup
+from bil_routes import bil_bp, bil_innbytte_side, start_bilradar_warmup
 from bil_prisanalyse_routes import bil_prisanalyse_bp
 from bil_import import bil_import_bp
 from import_radar_routes import import_radar_bp
@@ -79,6 +79,8 @@ SITE_ACCESS_CONTACT = (
 # Forsiden "/" er med her (Alternativ 2). Fjern "/" for å stenge alt.
 _PUBLIC_PATHS = {
     "/",
+    "/innbytte",
+    "/innbytte/",
     "/login",
     "/logout",
     "/robots.txt",
@@ -111,6 +113,8 @@ _RATE_LIMIT_LOCK = threading.Lock()
 _HEAVY_RATE_LIMIT_RULES = [
     # Mange bots prøver /bolig/priser-sted i loop med ulike query-parametere.
     {"prefix": "/bolig/priser-sted/", "window_sec": 60, "max_requests": 35},
+    # Den offentlige innbyttekalkulatoren gjør SVV-oppslag og historikksøk.
+    {"prefix": "/innbytte", "window_sec": 60, "max_requests": 20},
     # Datatung beregning som kan trigges gjentatte ganger av samme klient.
     {"prefix": "/handler-oslo-bors/api/beste-investorer/run", "window_sec": 60, "max_requests": 8},
 ]
@@ -206,6 +210,14 @@ def create_app() -> Flask:
     app.register_blueprint(bolig_bp)
     app.register_blueprint(fritids_bp)
     app.register_blueprint(bil_bp)
+    # Offentlig alias som gjenbruker nøyaktig samme beregningsmotor som /bil/innbytte.
+    app.add_url_rule(
+        "/innbytte",
+        endpoint="public_innbytte",
+        view_func=bil_innbytte_side,
+        methods=["GET", "POST"],
+        strict_slashes=False,
+    )
     app.register_blueprint(bil_prisanalyse_bp)
     app.register_blueprint(bil_import_bp, url_prefix="/bil/import")
     app.register_blueprint(import_radar_bp)
