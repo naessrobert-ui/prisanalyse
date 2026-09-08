@@ -2,27 +2,26 @@ name: Fix innbytte first registration
 
 on:
   push:
-    branches:
-      - chatgpt/fix-innbytte-first-reg
+    branches: ["chatgpt/fix-innbytte-first-reg"]
 
 permissions:
   contents: write
 
 jobs:
   fix:
-    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: chatgpt/fix-innbytte-first-reg
       - name: Apply targeted fix
+        shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          p = Path('bil_routes.py')
-          s = p.read_text(encoding='utf-8')
+          p = Path("bil_routes.py")
+          s = p.read_text(encoding="utf-8")
           old = '''                    reg_norge = (flat.get("svv_registrert_forste_gang_norge") or "")
 
                     target_year = None
@@ -30,43 +29,33 @@ jobs:
                         target_year = int(reg_norge[:4])
 '''
           new = '''                    reg_norge = (flat.get("svv_registrert_forste_gang_norge") or "")
-                    reg_utland = (flat.get("svv_forstegang_reg_dato_utland") or "")
-                    bruktimportert = bool(flat.get("svv_bruktimportert"))
-                    forstegangsregistrert = reg_utland if bruktimportert and reg_utland else reg_norge
+                    reg_forste = (flat.get("svv_registrert_forste_gang") or reg_norge)
 
                     target_year = None
-                    if forstegangsregistrert and len(forstegangsregistrert) >= 4 and forstegangsregistrert[:4].isdigit():
-                        target_year = int(forstegangsregistrert[:4])
+                    if reg_forste and len(reg_forste) >= 4 and reg_forste[:4].isdigit():
+                        target_year = int(reg_forste[:4])
 '''
-          if old not in s:
-              raise SystemExit('Fant ikke target_year-blokken i bil_routes.py')
-          s = s.replace(old, new, 1)
+          if old in s:
+              s = s.replace(old, new, 1)
+              p.write_text(s, encoding="utf-8")
+          elif new not in s:
+              raise SystemExit("Fant ikke forventet target_year-blokk")
 
-          old2 = '''                        "forstegang_norge": flat.get("svv_registrert_forste_gang_norge"),
-                        "forstegang_utland": flat.get("svv_forstegang_reg_dato_utland"),
-                        "bruktimportert": bool(flat.get("svv_bruktimportert")),
-'''
-          new2 = '''                        "forstegang": forstegangsregistrert or None,
-                        "forstegang_norge": reg_norge or None,
-                        "forstegang_utland": reg_utland or None,
-                        "bruktimportert": bruktimportert,
-'''
-          if old2 not in s:
-              raise SystemExit('Fant ikke svv_preview-blokken i bil_routes.py')
-          s = s.replace(old2, new2, 1)
-          p.write_text(s, encoding='utf-8')
-
-          t = Path('templates/bil_innbytte.html')
-          html = t.read_text(encoding='utf-8')
-          old3 = '''<div class="detail-item"><div class="detail-label">Førstegangsregistrert</div><div class="detail-value">{{ svv_preview.forstegang_norge or '–' }}</div></div>'''
-          new3 = '''<div class="detail-item"><div class="detail-label">Førstegangsregistrert</div><div class="detail-value">{{ svv_preview.forstegang or svv_preview.forstegang_norge or '–' }}</div></div>'''
-          if old3 not in html:
-              raise SystemExit('Fant ikke førstegangsregistrert-feltet i template')
-          html = html.replace(old3, new3, 1)
-          t.write_text(html, encoding='utf-8')
+          t = Path("templates/bil_innbytte.html")
+          html = t.read_text(encoding="utf-8")
+          old_html = '''<div class="detail-item"><div class="detail-label">Førstegangsregistrert</div><div class="detail-value">{{ svv_preview.forstegang_norge or '–' }}</div></div>'''
+          new_html = '''<div class="detail-item"><div class="detail-label">Førstegangsregistrert</div><div class="detail-value">{% if svv_preview.bruktimportert and svv_preview.forstegang_utland %}{{ svv_preview.forstegang_utland }}{% else %}{{ svv_preview.forstegang_norge or '–' }}{% endif %}</div></div>'''
+          if old_html in html:
+              html = html.replace(old_html, new_html, 1)
+              t.write_text(html, encoding="utf-8")
+          elif new_html not in html:
+              raise SystemExit("Fant ikke forventet førstegangsregistrert-felt")
           PY
 
-          git rm .github/workflows/fix-innbytte-first-reg.yml
+          if git diff --quiet; then
+            echo "Ingen endringer nødvendig"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add bil_routes.py templates/bil_innbytte.html
