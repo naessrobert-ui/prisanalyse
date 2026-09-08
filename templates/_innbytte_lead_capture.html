@@ -1,5 +1,5 @@
 <style>
-  .lead-capture-wrap{margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .lead-capture-wrap{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .lead-card{border:1px solid #2b414d;border-radius:18px;padding:24px;background:#0c1921}
   .lead-card.offer{border-color:#628d3d;background:linear-gradient(145deg,rgba(167,239,90,.07),#0c1921 70%)}
   .lead-card h3{margin:5px 0 9px;font-size:22px}.lead-card p{margin:0;color:#9fb4c0;line-height:1.55;font-size:14px}
@@ -8,19 +8,22 @@
   .lead-form{display:none;margin-top:18px;border-top:1px solid #263943;padding-top:4px}.lead-form.open{display:block}
   .lead-form .lead-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.lead-form label{font-size:12px}
   .lead-form input,.lead-form textarea{width:100%;border:1px solid #425966;border-radius:9px;background:#09151c;color:#eef4f7;padding:12px;font:inherit;outline:0}
-  .lead-form textarea{min-height:90px;resize:vertical}.lead-form input:focus,.lead-form textarea:focus{border-color:#a7ef5a;box-shadow:0 0 0 3px rgba(167,239,90,.1)}
+  .lead-form textarea{min-height:82px;resize:vertical}.lead-form input:focus,.lead-form textarea:focus{border-color:#a7ef5a;box-shadow:0 0 0 3px rgba(167,239,90,.1)}
+  .lead-form input[type="file"]{padding:10px;background:#0a161d;cursor:pointer}
+  .lead-form input[type="file"]::file-selector-button{border:0;border-radius:7px;background:#233842;color:#edf4f7;padding:9px 12px;margin-right:10px;font-weight:700;cursor:pointer}
   .lead-form .full{grid-column:1/-1}.lead-consent{display:flex;gap:9px;align-items:flex-start;margin-top:14px;color:#8fa7b3;font-size:11px;line-height:1.4}
   .lead-consent input{width:auto;margin-top:2px}.lead-status{margin-top:12px;font-size:13px;line-height:1.4}.lead-status.ok{color:#a7ef5a}.lead-status.err{color:#ffb3b3}
-  .lead-hp{position:absolute;left:-9999px;opacity:0}.lead-price-hint{color:#7f98a6;font-size:11px;margin-top:5px}
+  .lead-hp{position:absolute;left:-9999px;opacity:0}.lead-price-hint,.lead-file-hint{color:#7f98a6;font-size:11px;margin-top:5px;line-height:1.45}
+  .lead-more-title{margin:20px 0 0;color:#a7ef5a;font-size:12px;font-weight:900;letter-spacing:.035em}
   @media(max-width:760px){.lead-capture-wrap{grid-template-columns:1fr}.lead-form .lead-grid{grid-template-columns:1fr}.lead-form .full{grid-column:auto}}
 </style>
 <div class="lead-capture-wrap" id="kontakt">
   <div class="lead-card offer">
     <div class="lead-kicker">Kan dette være interessant?</div>
     <h3>Få et uforpliktende pristilbud</h3>
-    <p>Ta kontakt, så kan vi se nærmere på bilen og sende deg et uforpliktende pristilbud.</p>
+    <p>Fortell litt mer om bilen, så kan vi vurdere den mer presist og sende deg et uforpliktende pristilbud.</p>
     <button type="button" class="lead-toggle" data-target="lead-tilbud"><span>Ja, kontakt meg</span><span>→</span></button>
-    <form class="lead-form" id="lead-tilbud" action="/innbytte/lead" method="post">
+    <form class="lead-form" id="lead-tilbud" action="/innbytte/lead" method="post" enctype="multipart/form-data">
       <input type="hidden" name="kind" value="tilbud">
       <input type="hidden" name="regnr" value="{{ svv_preview.regnr or regnr }}">
       <input type="hidden" name="km" value="{{ result.svv.km_input }}">
@@ -33,9 +36,15 @@
         <div><label>Navn</label><input name="navn" autocomplete="name" required></div>
         <div><label>Telefon</label><input name="telefon" type="tel" autocomplete="tel" required></div>
         <div class="full"><label>E-post</label><input name="email" type="email" autocomplete="email" required></div>
-        <div class="full"><label>Kommentar <span style="font-weight:400;color:#718996">(valgfritt)</span></label><textarea name="kommentar" placeholder="For eksempel når du ønsker å selge bilen."></textarea></div>
+
+        <div class="full lead-more-title">Litt mer om bilen</div>
+        <div class="full"><label>Ekstrautstyr og utstyrsnivå <span style="font-weight:400;color:#718996">(valgfritt)</span></label><textarea name="ekstrautstyr" placeholder="For eksempel skinn, soltak, hengerfeste, premium lyd, vinterhjul eller annen relevant utrustning."></textarea></div>
+        <div class="full"><label>Skader, feil eller mangler <span style="font-weight:400;color:#718996">(valgfritt)</span></label><textarea name="skader" placeholder="Fortell gjerne om riper, bulker, skader, varsellamper eller ting som bør repareres."></textarea></div>
+        <div class="full"><label>Service, batteri og annet <span style="font-weight:400;color:#718996">(valgfritt)</span></label><textarea name="serviceinfo" placeholder="For eksempel servicehistorikk, batteritilstand, nylige reparasjoner eller andre opplysninger som påvirker verdien."></textarea></div>
+        <div class="full"><label>Bilder av bilen <span style="font-weight:400;color:#718996">(valgfritt)</span></label><input name="bilder" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple><div class="lead-file-hint">Du kan legge ved opptil 8 bilder, maks 10 MB per bilde. JPEG, PNG, WebP og HEIC/HEIF støttes.</div></div>
+        <div class="full"><label>Annen kommentar <span style="font-weight:400;color:#718996">(valgfritt)</span></label><textarea name="kommentar" placeholder="For eksempel når du ønsker å selge bilen."></textarea></div>
       </div>
-      <label class="lead-consent"><input type="checkbox" name="samtykke" value="ja" required><span>Jeg samtykker til at opplysningene brukes for å kontakte meg om denne henvendelsen.</span></label>
+      <label class="lead-consent"><input type="checkbox" name="samtykke" value="ja" required><span>Jeg samtykker til at opplysningene og eventuelle bilder brukes for å vurdere bilen og kontakte meg om denne henvendelsen.</span></label>
       <button type="submit"><span>Send kontaktinformasjon</span><span>→</span></button>
       <div class="lead-status" aria-live="polite"></div>
     </form>
@@ -46,7 +55,7 @@
     <h3>Fortell oss hvor vi bommet</h3>
     <p>Si hvilket prisnivå du mener er riktig for bilen. Tilbakemeldingen hjelper oss å forbedre modellen.</p>
     <button type="button" class="lead-toggle" data-target="lead-feedback"><span>Gi tilbakemelding</span><span>→</span></button>
-    <form class="lead-form" id="lead-feedback" action="/innbytte/lead" method="post">
+    <form class="lead-form" id="lead-feedback" action="/innbytte/lead" method="post" enctype="multipart/form-data">
       <input type="hidden" name="kind" value="prisfeedback">
       <input type="hidden" name="regnr" value="{{ svv_preview.regnr or regnr }}">
       <input type="hidden" name="km" value="{{ result.svv.km_input }}">
@@ -60,9 +69,10 @@
         <div><label>Telefon</label><input name="telefon" type="tel" autocomplete="tel" required></div>
         <div class="full"><label>E-post</label><input name="email" type="email" autocomplete="email" required></div>
         <div class="full"><label>Hva mener du er riktig prisnivå?</label><input name="forventet_pris" inputmode="numeric" placeholder="f.eks. 245 000 kr" required><div class="lead-price-hint">Du kan oppgi omtrentlige tall.</div></div>
-        <div class="full"><label>Hva tror du vi har oversett?</label><textarea name="kommentar" placeholder="For eksempel utstyr, batteri, variant, importhistorikk eller lokale markedspriser."></textarea></div>
+        <div class="full"><label>Hva tror du vi har oversett?</label><textarea name="kommentar" placeholder="For eksempel utstyr, batteri, variant, importhistorikk, skader eller lokale markedspriser."></textarea></div>
+        <div class="full"><label>Bilder som forklarer tilbakemeldingen <span style="font-weight:400;color:#718996">(valgfritt)</span></label><input name="bilder" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple><div class="lead-file-hint">Opptil 8 bilder, maks 10 MB per bilde.</div></div>
       </div>
-      <label class="lead-consent"><input type="checkbox" name="samtykke" value="ja" required><span>Jeg samtykker til at opplysningene brukes for å kontakte meg om denne henvendelsen.</span></label>
+      <label class="lead-consent"><input type="checkbox" name="samtykke" value="ja" required><span>Jeg samtykker til at opplysningene og eventuelle bilder brukes for å kontakte meg om denne henvendelsen.</span></label>
       <button type="submit"><span>Send tilbakemelding</span><span>→</span></button>
       <div class="lead-status" aria-live="polite"></div>
     </form>
@@ -70,6 +80,7 @@
 </div>
 <script>
 (function(){
+  var MAX_FILES=8, MAX_BYTES=10*1024*1024;
   document.querySelectorAll('.lead-toggle').forEach(function(btn){
     btn.addEventListener('click',function(){
       var form=document.getElementById(btn.dataset.target);
@@ -83,6 +94,13 @@
       ev.preventDefault();
       var status=form.querySelector('.lead-status');
       var submit=form.querySelector('button[type="submit"]');
+      var fileInput=form.querySelector('input[type="file"]');
+      if(fileInput&&fileInput.files){
+        if(fileInput.files.length>MAX_FILES){status.className='lead-status err';status.textContent='Du kan laste opp maksimalt 8 bilder.';return;}
+        for(var i=0;i<fileInput.files.length;i++){
+          if(fileInput.files[i].size>MAX_BYTES){status.className='lead-status err';status.textContent='Hvert bilde kan være maksimalt 10 MB.';return;}
+        }
+      }
       status.className='lead-status';status.textContent='Sender …';submit.disabled=true;
       try{
         var response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'X-Requested-With':'fetch'}});
