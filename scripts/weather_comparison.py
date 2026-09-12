@@ -153,6 +153,17 @@ def _fetch(place, provider):
             "expires_at": _iso(fetched + timedelta(seconds=_TTL)), "error": None}
 
 
+def fetch_forecast(place, provider):
+    """Ferskt varsel utenom prosesscachen. Brukes av treffsikkerhetsloggen.
+
+    Timeloggen må hente på nytt hver time; et cachet svar ville blitt lagret som
+    om det var et nytt varsel. Normalisering og enheter er de samme som siden.
+    """
+    if place not in PLACES or provider not in ("yr", "google"):
+        raise ForecastError("Ukjent sted eller leverandør.")
+    return _fetch(place, provider)
+
+
 def _expire(key, entry):
     with _LOCKS[key]:
         if _CACHE.get(key) is entry:

@@ -34,7 +34,11 @@ utgående IP-adresser. Nettsteds-/referrerbegrensning passer ikke til serverkall
 - Google oppgir ikke modellens oppdateringstid i dette svaret. Hentetid merkes
   derfor separat fra METs `updated_at`. Ingen bestemt WeatherNext-versjon loves.
 - Google-data ligger bare i prosessminne, med utløp etter 55 minutter og en
-  timer som fjerner dem også uten nye forespørsler. Ingen historisk lagring.
+  timer som fjerner dem også uten nye forespørsler. Selve *siden* lagrer ingen
+  historikk. Cron-jobben `vaer-treffsikkerhet` gjør det derimot: den lagrer
+  begge varslene time for time for å kunne score dem mot observasjoner i
+  ettertid. Se `docs/weather-scoreboard.md`, inkludert det åpne spørsmålet om
+  hvor lenge Googles varsler kan oppbevares.
 - JSON-svar bruker `Cache-Control: no-store`. Klienten laster på nytt ved utløp
   og fjerner gamle data dersom neste forespørsel feiler. Ingen localStorage.
 - Ved feil hos én leverandør vises den andre fortsatt. Feil caches i ett minutt
