@@ -414,6 +414,13 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
         <div class="kort-lenke">Åpne</div>
       </a>
 
+      <a class="kort" href="/ver/sammenlign">
+        <div class="kort-topp"><div class="kort-ikon">🌦️</div><span class="kort-badge b-blå">Nytt</span></div>
+        <div class="kort-tittel">Yr og Google – enige om været?</div>
+        <div class="kort-tekst">Sammenlign temperatur, nedbør, vind og vindkast time for time for Bergen og Kvamskogen.</div>
+        <div class="kort-lenke">Sammenlign varsler</div>
+      </a>
+
     </div>
   </div>
 
@@ -2799,6 +2806,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 
     <div class="quality" id="quality"></div>
 
+    <p style="margin:12px 0 20px"><a href="/ver/sammenlign" style="color:inherit">🌦️ Sammenlign Yr og Google for Bergen og Kvamskogen →</a></p>
+
     <!-- Hovedgraf: 24 timer -->
     <div class="chart-card">
       <div class="chart-header">
@@ -4039,4 +4048,3 @@ def byvarsel_data():
     historikk = _bv_openmeteo_historikk(lat, lon)
 
     return jsonify({"ok": True, "prognose": prognose, "historikk": historikk})
-
