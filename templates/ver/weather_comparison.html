@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yr og Google · Værsammenligning</title>
+  <style>
+    :root {color-scheme: light; --ink:#17352e; --muted:#566c64; --border:#dce5de; --yr:#1769aa; --google:#a84a12}
+    * {box-sizing:border-box}
+    body {margin:0; background:#f5f7f2; color:var(--ink); font:15px/1.55 system-ui,sans-serif}
+    main {max-width:1100px; margin:auto; padding:28px 22px 36px}
+    h1 {font-size:clamp(27px,4vw,42px); letter-spacing:-1.2px; line-height:1.15; margin:8px 0 12px}
+    h2 {margin:0; font-size:19px} p {margin:8px 0} a {color:var(--ink)}
+    .eyebrow {font-size:11px; letter-spacing:2px; text-transform:uppercase; font-weight:700; color:var(--muted)}
+    .muted {color:var(--muted); font-size:13px}
+    .toolbar {display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin:22px 0}
+    .group {display:flex; gap:5px; flex-wrap:wrap}
+    button,select {font:inherit; padding:9px 15px; border:1px solid var(--border); border-radius:8px; background:white; color:var(--ink); cursor:pointer}
+    button[aria-pressed=true] {color:white; background:var(--ink); border-color:var(--ink)}
+    button:focus-visible,select:focus-visible,summary:focus-visible {outline:3px solid #58a88b; outline-offset:3px}
+    .cards {display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:18px 0}
+    .card,.panel {border:1px solid var(--border); background:#fff; border-radius:13px; padding:19px}
+    .card h2 {font-size:12px; font-weight:500; color:var(--muted)}
+    .big {font-size:24px; font-weight:650; margin:10px 0 4px; letter-spacing:-.4px}
+    .yr {color:var(--yr)} .google {color:var(--google)}
+    .legend {display:flex; flex-wrap:wrap; gap:20px; font-size:13px; margin:12px 0}
+    .legend span:before {content:''; display:inline-block; width:22px; margin-right:6px; vertical-align:middle; border-top:3px solid currentColor}
+    .legend .google:before {border-top-style:dashed}
+    .chart {width:100%; display:block; height:auto; min-height:175px}
+    .warning {border-left:3px solid #b66c25; padding:10px 14px; background:#fff3e5; margin:12px 0}
+    #status {min-height:24px; color:var(--muted)}
+    details {margin:18px 0} summary {cursor:pointer; font-weight:600}
+    .scroll {overflow:auto; max-height:390px; margin-top:12px}
+    table {border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; white-space:nowrap; font-size:13px}
+    th,td {text-align:right; padding:10px 13px; border-bottom:1px solid var(--border)}
+    th:first-child,td:first-child {text-align:left} th {position:sticky; top:0; background:#f5f7f2}
+    .source {margin-top:18px; border-top:1px solid var(--border); padding-top:14px; font-size:12px; color:var(--muted)}
+    .attribution {font-family:Arial,sans-serif; font-size:13px; color:#1f1f1f}
+    [hidden] {display:none!important}
+    @media(max-width:580px) {main {padding:20px 12px} .cards {grid-template-columns:1fr} .card {padding:13px 16px} .big {font-size:21px; margin:5px 0} .panel {padding:14px 10px} button,select {padding:8px 11px} .chart {min-height:155px}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Bergen &amp; Kvamskogen · Værmelding</div>
+  <h1>Enige om været?</h1>
+  <p class="muted">Se hvor Yr og Google er enige, og hvor varslene spriker. Alle klokkeslett er norsk lokal tid.</p>
+  <div class="toolbar">
+    <div class="group" aria-label="Velg sted">
+      <button type="button" data-place="kvamskogen" aria-pressed="true">Kvamskogen</button>
+      <button type="button" data-place="bergen" aria-pressed="false">Bergen</button>
+    </div>
+    <label>Vis <select id="duration"><option value="24">24 timer</option><option value="48">48 timer</option></select></label>
+  </div>
+  <p id="status" role="status" aria-live="polite">Henter værvarsler …</p>
+  <div id="warnings"></div>
+  <div id="content" hidden>
+    <div class="cards">
+      <section class="card"><h2 id="rain-label">Nedbør de første 24 timene</h2><div class="big" id="rain-value"></div><p class="muted">Yr / Google · mm vann</p></section>
+      <section class="card"><h2>Største temperaturforskjell i valgt periode</h2><div class="big" id="temp-value"></div><p class="muted" id="temp-detail"></p></section>
+      <section class="card"><h2>Første felles turvindu i valgt periode</h2><div class="big" id="window-value"></div><p class="muted">Minst 2 timer, kl. 08–21, begge under 0,1 mm/t og 6 m/s.</p></section>
+    </div>
+    <section class="panel">
+      <div class="toolbar" style="margin:0 0 12px">
+        <h2 id="chart-title">Temperatur · °C</h2>
+        <div class="group" aria-label="Velg værdata">
+          <button type="button" data-metric="temp" aria-pressed="true">Temperatur</button>
+          <button type="button" data-metric="rain" aria-pressed="false">Nedbør</button>
+          <button type="button" data-metric="wind" aria-pressed="false">Vind</button>
+          <button type="button" data-metric="gust" aria-pressed="false">Vindkast</button>
+        </div>
+      </div>
+      <div class="legend"><span class="yr">Yr / MET</span><span class="google">Google Maps</span></div>
+      <svg id="chart" class="chart" viewBox="0 0 1000 285" role="img" aria-labelledby="chart-title"></svg>
+      <p class="muted" id="chart-note"></p>
+      <details><summary>Time for time og forskjeller</summary><div class="scroll"><table>
+        <thead><tr><th>Tidsrom</th><th>Yr</th><th>Google</th><th>Google − Yr</th></tr></thead>
+        <tbody id="table-body"></tbody>
+      </table></div></details>
+    </section>
+    <div class="source">
+      <p id="source-times"></p>
+      <p>Samme koordinater og tidsrom for begge leverandører. Strek betyr at data mangler. Dette sammenligner varsler; det avgjør ikke hvem som treffer best.</p>
+      <p>Nedbør gjelder angitt timeintervall, inkludert inneværende time. Temperatur og vind fra MET gjelder tidspunktet ved starten av intervallet; Google leverer verdier for timeintervallet.</p>
+      <p><a href="https://www.met.no/" target="_blank" rel="noopener">Værdata fra MET Norway</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></p>
+      <p class="attribution"><span translate="no">Google Maps</span> · Source: Includes weather data from Google</p>
+    </div>
+  </div>
+</main>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const units = {temp:'°C',rain:'mm',wind:'m/s',gust:'m/s'};
+  const names = {temp:'Temperatur',rain:'Nedbør per time',wind:'Vind',gust:'Vindkast'};
+  const colors = {yr:'#1769aa',google:'#a84a12'};
+  const hour = iso => new Date(iso).toLocaleString('nb-NO',{timeZone:'Europe/Oslo',hour:'2-digit',minute:'2-digit'});
+  const dateTime = iso => new Date(iso).toLocaleString('nb-NO',{timeZone:'Europe/Oslo',weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  const fmt = value => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('nb-NO',{maximumFractionDigits:1,minimumFractionDigits:1}) : '–';
+  const value = (row,provider,key) => row[provider]?.[key] ?? null;
+  let place = new URLSearchParams(location.search).get('sted') === 'bergen' ? 'bergen' : 'kvamskogen';
+  let metric = 'temp', payload = null, timer, controller, generation = 0;
+  function svg(tag,attrs,text) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg',tag);
+    Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
+    if(text !== undefined) el.textContent = text;
+    $('chart').append(el); return el;
+  }
+  function render() {
+    if(!payload) return;
+    const rows = payload.hours.slice(0,Number($('duration').value));
+    $('content').hidden = false;
+    $('chart-title').textContent = names[metric]+' · '+units[metric];
+    document.querySelectorAll('[data-metric]').forEach(b => b.setAttribute('aria-pressed',String(b.dataset.metric===metric)));
+    const firstDay = payload.hours.slice(0,24);
+    const total = p => firstDay.length===24 && firstDay.every(r => value(r,p,'rain')!==null)
+      ? firstDay.reduce((sum,r)=>sum+value(r,p,'rain'),0) : null;
+    $('rain-label').textContent = 'Nedbør · 24 timer fra kl. '+hour(firstDay[0].start);
+    $('rain-value').textContent = fmt(total('yr'))+' / '+fmt(total('google'));
+    const paired = rows.filter(r => value(r,'yr','temp')!==null && value(r,'google','temp')!==null);
+    const max = paired.reduce((best,r) => !best || Math.abs(r.google.temp-r.yr.temp)>Math.abs(best.google.temp-best.yr.temp) ? r : best,null);
+    $('temp-value').textContent = max ? fmt(Math.abs(max.google.temp-max.yr.temp))+' °C' : '–';
+    $('temp-detail').textContent = max ? dateTime(max.start)+' · '+paired.length+' felles timer' : 'Venter på sammenlignbare data';
+    let run=[],found=[];
+    for(const r of rows) {
+      const localHour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Oslo',hour:'2-digit',hourCycle:'h23'}).format(new Date(r.start)));
+      const good = Date.parse(r.start)>=Date.now() && localHour>=8 && localHour<21 && ['yr','google'].every(p => value(r,p,'rain')!==null && value(r,p,'wind')!==null && r[p].rain<0.1 && r[p].wind<6);
+      if(good) run.push(r);
+      else if(run.length>=2) {found=run;break;} else run=[];
+    }
+    if(!found.length && run.length>=2) found=run;
+    const complete=rows.every(r=>['yr','google'].every(p=>value(r,p,'rain')!==null && value(r,p,'wind')!==null));
+    $('window-value').textContent = found.length ? dateTime(found[0].start)+'–'+hour(found.at(-1).end) : complete ? 'Ingen felles periode' : 'For lite data';
+    draw(rows);
+    $('table-body').replaceChildren();
+    rows.forEach(r => {
+      const tr=document.createElement('tr'), y=value(r,'yr',metric),g=value(r,'google',metric);
+      [dateTime(r.start)+'–'+hour(r.end),fmt(y),fmt(g),y!==null&&g!==null?fmt(g-y):'–'].forEach((s,i) => {
+        const td=document.createElement('td');td.textContent=s;if(i===1)td.className='yr';if(i===2)td.className='google';tr.append(td);
+      });
+      $('table-body').append(tr);
+    });
+    $('chart-note').textContent = 'Verdier i '+units[metric]+'. Hold pekeren over et punkt eller en stolpe, eller åpne timetabellen. Hull i grafen betyr manglende data.';
+  }
+  function draw(rows) {
+    $('chart').replaceChildren();
+    const values = rows.flatMap(r => ['yr','google'].map(p=>value(r,p,metric))).filter(v=>v!==null);
+    if(!values.length) {svg('text',{x:500,y:130,'text-anchor':'middle',fill:'#566c64'},'Ingen data for denne variabelen');return;}
+    let min=metric==='temp'?Math.floor(Math.min(...values)-1):0;
+    let max=Math.ceil(Math.max(...values)+ (metric==='temp'?1:0));max=Math.max(max,min+1);
+    const left=52,right=984,top=18,bottom=241,step=(right-left)/rows.length;
+    const x=i=>left+(i+.5)*step,y=v=>bottom-(v-min)/(max-min)*(bottom-top);
+    for(let i=0;i<=4;i++) {
+      const v=min+(max-min)*i/4,yy=y(v);
+      svg('line',{x1:left,x2:right,y1:yy,y2:yy,stroke:'#e2e8e2'});
+      svg('text',{x:left-10,y:yy+4,'text-anchor':'end',fill:'#566c64','font-size':13},fmt(v));
+    }
+    rows.forEach((r,i)=>{if(i%Math.ceil(rows.length/6)===0) svg('text',{x:x(i),y:268,'text-anchor':'middle',fill:'#566c64','font-size':12},dateTime(r.start));});
+    for(const [pi,p] of ['yr','google'].entries()) {
+      let segment=[];
+      const flush=()=>{if(segment.length>1)svg('polyline',{points:segment.join(' '),fill:'none',stroke:colors[p],'stroke-width':2.5,'stroke-dasharray':p==='google'?'7 4':''});segment=[];};
+      rows.forEach((r,i)=> {
+        const v=value(r,p,metric);if(v===null){flush();return;}
+        let mark;
+        if(metric==='rain') mark=svg('rect',{x:left+i*step+step*(pi===0?.12:.52),y:y(v),width:step*.35,height:Math.max(0,bottom-y(v)),fill:colors[p],rx:1});
+        else {segment.push(x(i)+','+y(v));mark=svg('circle',{cx:x(i),cy:y(v),r:3.5,fill:colors[p]});}
+        const title=document.createElementNS('http://www.w3.org/2000/svg','title');title.textContent=(p==='yr'?'Yr':'Google')+' · '+dateTime(r.start)+'–'+hour(r.end)+': '+fmt(v)+' '+units[metric];mark.append(title);
+      });flush();
+    }
+  }
+  function clearData() {payload=null;$('content').hidden=true;$('chart').replaceChildren();$('table-body').replaceChildren();}
+  async function load() {
+    clearTimeout(timer);if(controller)controller.abort();controller=new AbortController();
+    const current=++generation;clearData();$('warnings').replaceChildren();$('status').textContent='Henter Yr og Google …';
+    document.querySelectorAll('[data-place]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.place===place)));
+    try {
+      const response=await fetch('/ver/api/sammenlign?sted='+place,{cache:'no-store',signal:controller.signal});
+      if(!response.ok)throw new Error('Kunne ikke hente varslene.');
+      const next=await response.json();if(current!==generation)return;
+      if(!Array.isArray(next.hours)||!next.providers||!Number.isFinite(Date.parse(next.expires_at)))throw new Error('Ugyldig svar.');
+      payload=next;
+      for(const [p,s] of Object.entries(payload.providers))if(s.error) {const el=document.createElement('p');el.className='warning';el.textContent=(p==='yr'?'Yr: ':'Google: ')+s.error;$('warnings').append(el);}
+      $('status').textContent=payload.place.name+' · '+payload.place.lat.toFixed(4)+'° N, '+payload.place.lon.toFixed(4)+'° Ø';
+      $('source-times').textContent=Object.entries(payload.providers).map(([p,s]) => {
+        if(!s.fetched_at)return (p==='yr'?'Yr':'Google')+': utilgjengelig';
+        return (p==='yr'?'Yr':'Google')+' hentet '+dateTime(s.fetched_at)+(s.updated_at?' · varsel oppdatert '+dateTime(s.updated_at):' · oppdateringstid ikke oppgitt');
+      }).join(' | ');
+      render();timer=setTimeout(load,Math.max(1000,Date.parse(payload.expires_at)-Date.now()));
+    } catch(error) {
+      if(current!==generation||error.name==='AbortError')return;
+      clearData();$('status').textContent='Kunne ikke hente varslene. Prøver igjen om ett minutt.';timer=setTimeout(load,60000);
+    }
+  }
+  document.querySelectorAll('[data-place]').forEach(b=>b.addEventListener('click',()=>{place=b.dataset.place;load();}));
+  document.querySelectorAll('[data-metric]').forEach(b=>b.addEventListener('click',()=>{metric=b.dataset.metric;render();}));
+  $('duration').addEventListener('change',render);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&payload&&Date.parse(payload.expires_at)<=Date.now())load();});
+  load();
+})();
+</script>
+</body>
+</html>
