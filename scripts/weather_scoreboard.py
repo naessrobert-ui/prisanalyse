@@ -468,7 +468,8 @@ def observation_table(observations: pd.DataFrame, basis: str = "instant") -> pd.
     return table.reindex(columns=columns)
 
 
-def paired(start: datetime, end: datetime, basis: str = "instant") -> pd.DataFrame:
+def paired(start: datetime, end: datetime, basis: str = "instant",
+           forecast_shift: int = 0) -> pd.DataFrame:
     """Bygg den parede tabellen: én rad per varsel, element og fasitverdi.
 
     Bare timer der *begge* leverandørene har en verdi og fasiten finnes blir med.
@@ -494,6 +495,10 @@ def paired(start: datetime, end: datetime, basis: str = "instant") -> pd.DataFra
         if missing:
             continue
         wide = wide.dropna(subset=list(PROVIDERS)).reset_index()
+        if forecast_shift:
+            # Brukes bare av `lag_scan`: lat som varselet gjaldt en annen time,
+            # for å se om en leverandør er systematisk forskjøvet.
+            wide["valid_start"] = wide["valid_start"] + pd.Timedelta(hours=forecast_shift)
         part = wide.merge(truth[["place", "valid_start", name]], on=["place", "valid_start"], how="inner")
         part = part.rename(columns={name: "observed"}).dropna(subset=["observed"])
         if part.empty:
@@ -636,7 +641,45 @@ def rain_skill(pairs: pd.DataFrame, threshold: float = RAIN_THRESHOLD_MM) -> pd.
     return pd.DataFrame(rows, columns=columns)
 
 
-def report(days: int = 14, now: Optional[datetime] = None, basis: str = "instant") -> dict[str, Any]:
+def lag_scan(start: datetime, end: datetime, basis: str = "instant",
+             lags: tuple[int, ...] = (-1, 0, 1)) -> pd.DataFrame:
+    """Er en leverandørs timeverdier systematisk forskjøvet en time?
+
+    Svarer på det ved å score varslene som om de gjaldt timen før eller etter,
+    og se om det treffer bedre. Ligger bunnpunktet på 0, er timene riktig
+    innrettet. Ligger det på ±1 for én leverandør, er det en reell forskyvning –
+    og da måler hovedrapporten delvis konvensjon i stedet for treffsikkerhet.
+
+    Merk at fasiten selv har en konvensjon: nedbør og vindkast pares mot
+    `valid_start + 1t`. Slår dette ut på *begge* leverandørene likt, er det
+    fasiten som er feil innrettet, ikke leverandøren.
+    """
+    columns = ["place", "element", "provider", *[f"mae_{lag:+d}" for lag in lags], "best_lag", "n"]
+    rows: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for lag in lags:
+        pairs = paired(start, end, basis=basis, forecast_shift=lag)
+        if pairs.empty:
+            continue
+        for (place, element), group in pairs.groupby(["place", "element"], sort=True):
+            for provider in PROVIDERS:
+                entry = rows.setdefault((place, element, provider), {
+                    "place": place, "element": element, "provider": provider, "n": int(len(group)),
+                })
+                entry[f"mae_{lag:+d}"] = float(group[f"err_{provider}"].abs().mean())
+                if lag == 0:
+                    entry["n"] = int(len(group))
+    if not rows:
+        return pd.DataFrame(columns=columns)
+    frame = pd.DataFrame(list(rows.values()))
+    lag_of = {f"mae_{lag:+d}": lag for lag in lags if f"mae_{lag:+d}" in frame.columns}
+    frame["best_lag"] = frame[list(lag_of)].idxmin(axis=1).map(lag_of)
+    frame["_order"] = frame["element"].map({name: i for i, name in enumerate(ELEMENTS)})
+    frame = frame.sort_values(["place", "_order", "provider"])
+    return frame.reindex(columns=columns).reset_index(drop=True)
+
+
+def report(days: int = 14, now: Optional[datetime] = None, basis: str = "instant",
+           with_lag: bool = False) -> dict[str, Any]:
     """Alt en rapport trenger: scoretabell, nedbørstreff og datagrunnlag."""
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     end = _floor_hour(now)
@@ -655,5 +698,6 @@ def report(days: int = 14, now: Optional[datetime] = None, basis: str = "instant
         "coverage": coverage,
         "score": score(pairs),
         "rain": rain_skill(pairs),
+        "lag": lag_scan(start, end, basis=basis) if with_lag else None,
         "pairs": pairs,
     }

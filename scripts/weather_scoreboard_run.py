@@ -25,6 +25,7 @@ if load_dotenv is not None:
 from scripts.weather_scoreboard import (
     BASES,
     ELEMENTS,
+    lag_scan,
     STATIONS,
     collect_observations,
     report,
@@ -106,6 +107,23 @@ def _print_report(data: dict[str, Any]) -> None:
                   f"{_fmt(row.far * 100, 0) + '%':>7}")
         print()
 
+    lag = data.get("lag")
+    if lag is not None and not lag.empty:
+        print("Er timene riktig innrettet? (MAE når varselet flyttes en time)")
+        print(f"  {'sted':>12} {'element':>9} {'kilde':>8} {'-1t':>7} {'0':>7} {'+1t':>7}  beste")
+        # Kolonnene heter mae_-1/mae_+0/mae_+1 og kan ikke leses som attributter.
+        for row in lag.to_dict(orient="records"):
+            best = row["best_lag"]
+            note = "" if best == 0 else f"  <- {best:+d}t treffer bedre"
+            print(f"  {row['place']:>12} {row['element']:>9} {row['provider']:>8} "
+                  f"{_fmt(row.get('mae_-1')):>7} {_fmt(row.get('mae_+0')):>7} "
+                  f"{_fmt(row.get('mae_+1')):>7}  {best:+d}t{note}")
+        print()
+        print("Bunnpunkt på 0 betyr riktig innrettet. Slår ±1 ut for begge")
+        print("leverandørene likt, er det fasitens konvensjon som er feil, ikke")
+        print("leverandøren. Slår det ut for bare én, er den forskjøvet.")
+        print()
+
     print("MAE = gjennomsnittlig avvik, lavest er best. Bias = systematisk avvik,")
     print("positiv betyr for høyt varsel. Klammene er et 95 %-intervall for")
     print("forskjellen (Google minus Yr) med døgn som blokker; når det spenner")
@@ -126,18 +144,21 @@ def main(argv: list[str] | None = None) -> int:
                         help="Fasitgrunnlag for temperatur og vind: øyeblikksverdi ved timens "
                              "start (instant, Yrs konvensjon) eller snitt over timen "
                              "(interval, Googles konvensjon). Standard instant.")
+    parser.add_argument("--lag", action="store_true",
+                        help="Sjekk om en leverandørs timeverdier er forskjøvet en time.")
     parser.add_argument("--json", action="store_true", help="Skriv rapporten som JSON.")
     args = parser.parse_args(argv)
 
     if not args.rapport:
         return _log(args.timer_tilbake)
 
-    data = report(days=args.dager, basis=args.fasit)
+    data = report(days=args.dager, basis=args.fasit, with_lag=args.lag)
     if args.json:
         print(json.dumps({
             "coverage": data["coverage"],
             "score": data["score"].to_dict(orient="records"),
             "rain": data["rain"].to_dict(orient="records"),
+            "lag": data["lag"].to_dict(orient="records") if data.get("lag") is not None else None,
         }, ensure_ascii=False, default=str))
     else:
         _print_report(data)

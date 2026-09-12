@@ -297,6 +297,31 @@ def test_head_to_head_names_a_winner_when_the_gap_holds_across_days():
     assert verdict.low > 0
 
 
+def test_lag_scan_finds_a_provider_shifted_by_one_hour():
+    """Er Googles nedbør en time foran? Da skal skanningen peke på det."""
+    rows, truth = [], []
+    observed = [0.0, 4.0, 0.0, 0.0, 4.0, 0.0, 0.0, 4.0]
+    for offset, value in enumerate(observed, start=1):
+        valid = RUN + timedelta(hours=offset)
+        truth.append({"element": "rain", "valid": valid, "value": value})
+        rows.append({"run": RUN, "provider": "yr", "valid": valid, "rain": value})
+        # Google varsler timen før sin egen verdi: en times forskyvning.
+        shifted = observed[offset] if offset < len(observed) else 0.0
+        rows.append({"run": RUN, "provider": "google", "valid": valid, "rain": shifted})
+    seed(rows, truth)
+
+    scan = sb.lag_scan(RUN, RUN + timedelta(hours=12)).set_index("provider")
+
+    assert scan.loc["yr", "best_lag"] == 0
+    assert scan.loc["google", "best_lag"] == 1
+    assert scan.loc["google", "mae_+1"] < scan.loc["google", "mae_+0"]
+
+
+def test_lag_scan_is_absent_unless_asked_for():
+    assert sb.report(days=3, now=RUN)["lag"] is None
+    assert sb.report(days=3, now=RUN, with_lag=True)["lag"] is not None
+
+
 def test_rain_skill_counts_hits_and_false_alarms():
     pairs = pd.DataFrame({
         "element": ["rain"] * 4,

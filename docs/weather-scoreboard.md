@@ -12,6 +12,7 @@ python -m scripts.weather_scoreboard_run                      # logg (cron, 20 o
 python -m scripts.weather_scoreboard_run --rapport            # scoretabell, siste 14 døgn
 python -m scripts.weather_scoreboard_run --rapport --dager 60
 python -m scripts.weather_scoreboard_run --rapport --fasit interval
+python -m scripts.weather_scoreboard_run --rapport --lag
 python -m scripts.weather_scoreboard_run --rapport --json
 ```
 
@@ -136,6 +137,24 @@ For nedbør kommer i tillegg en kategorisk score på terskelen 0,1 mm: andel
 riktige timer, POD (andelen nedbørstimer som ble varslet) og FAR (andelen
 varslede nedbørstimer som ble tørre). Millimeteravvik alene skjuler dette, fordi
 en leverandør som alltid varsler null får lav MAE i et tørt klima.
+
+## Er timene riktig innrettet?
+
+`--rapport --lag` scorer varslene som om de gjaldt timen før eller etter, og
+viser hvor MAE bunner ut. Ligger bunnpunktet på 0 for begge, er timene riktig
+innrettet. Ligger det på ±1 for bare én leverandør, er den systematisk
+forskjøvet – og da måler hovedrapporten delvis konvensjon i stedet for
+treffsikkerhet. Slår ±1 ut likt for begge, er det fasitens egen konvensjon
+(nedbør og vindkast pares mot `valid_start + 1t`) som er feil innrettet.
+
+Bakgrunn: `/ver/sammenlign` kan ikke ha en times forskyvning fra Frost, siden
+siden aldri kaller Frost – begge sidene er varsler nøklet på samme UTC-intervall.
+Et øyeblikksbilde fra produksjons-APIet 12. september 2026 viste ingen
+forskyvning på temperatur (MAE praktisk talt flat over lag −2 til +2), men et
+hint om at Googles nedbør kunne ligge en time foran (MAE 0,08 ved lag −1 mot
+0,17 ved 0). Verdiene var nær null og målingen ett øyeblikksbilde, så det er for
+tynt til å konkludere. Det er nettopp det denne skanningen skal avgjøre når
+loggen har gått noen døgn mot ekte observasjoner.
 
 ## Lagring
 
