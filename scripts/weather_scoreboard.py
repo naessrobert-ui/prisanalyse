@@ -169,6 +169,19 @@ def _s3_config() -> Optional[tuple[str, str]]:
     return bucket, (prefix or _DEFAULT_S3_PREFIX).strip("/")
 
 
+def storage_location() -> str:
+    """Hvor loggen faktisk leser og skriver. Vises i rapporten.
+
+    Uten `S3_BUCKET_NAME` faller lagringen tilbake til en lokal mappe. Kjører du
+    rapporten et sted uten den variabelen, leser du en tom mappe og ikke Renders
+    historikk – og en tom rapport ser ut som «ingen forskjell».
+    """
+    s3 = _s3_config()
+    if s3 is not None:
+        return "s3://{0}/{1}".format(*s3)
+    return str(_local_root())
+
+
 def _s3_client():
     import boto3  # lokal import holder boto3 valgfri utenfor Render
 
@@ -630,7 +643,9 @@ def report(days: int = 14, now: Optional[datetime] = None, basis: str = "instant
     start = end - timedelta(days=max(1, days))
     pairs = paired(start, end, basis=basis)
     coverage: dict[str, Any] = {"comparisons": int(len(pairs)), "hours": 0, "runs": 0,
-                                "days": days, "basis": basis, "from": _iso(start), "to": _iso(end)}
+                                "days": days, "basis": basis, "storage": storage_location(),
+                                "forecast_rows": int(len(load_forecasts(start, end))),
+                                "from": _iso(start), "to": _iso(end)}
     if not pairs.empty:
         # `comparisons` teller hver (varsel, element)-sammenligning; `hours`
         # teller hvor mange faktiske klokketimer som har fasit.

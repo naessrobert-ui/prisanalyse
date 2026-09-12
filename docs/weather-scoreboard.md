@@ -15,6 +15,34 @@ python -m scripts.weather_scoreboard_run --rapport --fasit interval
 python -m scripts.weather_scoreboard_run --rapport --json
 ```
 
+### Hvor rapporten kjøres
+
+Dataene ligger på S3, ikke på disk. Rapporten må derfor kjøres et sted som har
+`S3_BUCKET_NAME` og AWS-nøklene.
+
+**På Render** – enkleste vei. Åpne Shell på web-tjenesten for prisanalyse, der
+variablene allerede er satt, og kjør kommandoen fra prosjektroten.
+
+**Lokalt** – fra roten av prisanalyse-repoet, med prosjektets virtuelle miljø:
+
+```
+python -m scripts.weather_scoreboard_run --rapport --dager 7
+```
+
+Kommandoen laster `.env` selv. Men `.env` har i dag ikke `S3_BUCKET_NAME`, og
+uten den leser rapporten en tom lokal mappe i stedet for Renders historikk. Legg
+til samme bøttenavn som Render bruker:
+
+```
+S3_BUCKET_NAME=<samme bøtte som Render>
+```
+
+Rapporten skriver alltid ut hvor den leser fra, og sier fra når den ikke fant
+noen lagrede varsler i det hele tatt – slik at en tom bøtte ikke kan forveksles
+med «ingen forskjell mellom leverandørene».
+
+### Cron
+
 Cron-tjenesten `vaer-treffsikkerhet` i `render.yaml` kjører `20 * * * *`. Tjue
 over er valgt fordi MET da har lagt ut timens varsel, og Frost har rukket å
 publisere observasjonen for forrige hele time. Ved :00 finnes den ikke ennå.

@@ -314,12 +314,41 @@ def test_rain_skill_counts_hits_and_false_alarms():
     assert result.loc["google", "far"] == 0.5
 
 
-def test_report_without_data_is_empty_but_valid():
+def test_report_without_data_is_empty_but_valid(local_store):
     data = sb.report(days=3, now=RUN)
 
     assert data["coverage"]["comparisons"] == 0
     assert data["coverage"]["hours"] == 0
+    # Rapporten må kunne skille tom lagring fra «ingen forskjell».
+    assert data["coverage"]["forecast_rows"] == 0
+    assert data["coverage"]["storage"] == str(local_store)
     assert data["score"].empty and data["rain"].empty
+
+
+def test_empty_storage_and_missing_pairs_print_different_reasons(capsys, local_store):
+    """Tom rapport kan bety tom lagring eller manglende par. Ikke la dem se like ut."""
+    from scripts import weather_scoreboard_run as run
+
+    run._print_report(sb.report(days=3, now=RUN + timedelta(hours=6)))
+    empty = capsys.readouterr().out
+    assert "Fant ingen lagrede varsler" in empty
+    assert "S3_BUCKET_NAME" in empty  # lokal mappe: si hvorfor den er tom
+
+    # Bare Yr lagret: varsler finnes, men ingen time kan pares.
+    valid = RUN + timedelta(hours=2)
+    seed([{"run": RUN, "provider": "yr", "valid": valid, "temp": 10}],
+         [{"element": "temp", "valid": valid, "value": 10}])
+    run._print_report(sb.report(days=3, now=RUN + timedelta(hours=6)))
+    lonely = capsys.readouterr().out
+    assert "Fant ingen lagrede varsler" not in lonely
+    assert "begge leverandørene" in lonely
+
+
+def test_storage_prefers_s3_when_configured(monkeypatch):
+    monkeypatch.setenv("S3_BUCKET_NAME", "min-boette")
+    monkeypatch.setenv("WEATHER_SCOREBOARD_S3_PREFIX", "weather-scoreboard")
+
+    assert sb.storage_location() == "s3://min-boette/weather-scoreboard"
 
 
 # ---------------------------------------------------------------------------

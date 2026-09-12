@@ -14,6 +14,14 @@ from typing import Any
 
 import pandas as pd
 
+try:  # samme mønster som app.py: .env er valgfri, men gjør lokal kjøring mulig
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
+
 from scripts.weather_scoreboard import (
     BASES,
     ELEMENTS,
@@ -47,6 +55,7 @@ def _print_report(data: dict[str, Any]) -> None:
         for place, s in STATIONS.items()
     )
     print(f"Fasit: {stations}")
+    print(f"Leser fra: {coverage['storage']}")
     print(f"{coverage['comparisons']} sammenligninger over {coverage['hours']} varselstimer "
           f"fra {coverage['runs']} kjøringer")
     if coverage["basis"] == "instant":
@@ -59,8 +68,16 @@ def _print_report(data: dict[str, Any]) -> None:
 
     score = data["score"]
     if score.empty:
-        print("Ingen parede timer ennå. Loggen trenger minst noen timer med både")
-        print("varsel og observasjon før det går an å si hvem som er best.")
+        # En tom rapport kan bety to helt ulike ting. Ikke la dem se like ut.
+        if coverage["forecast_rows"] == 0:
+            print(f"Fant ingen lagrede varsler i {coverage['storage']}.")
+            if not coverage["storage"].startswith("s3://"):
+                print("Loggen på Render skriver til S3. Sett S3_BUCKET_NAME (eller")
+                print("WEATHER_SCOREBOARD_S3_BUCKET) til samme bøtte for å lese den")
+                print("herfra – uten den leser du en tom lokal mappe.")
+        else:
+            print(f"{coverage['forecast_rows']} varselrader i {coverage['storage']}, men ingen")
+            print("av timene har både begge leverandørene og en observasjon ennå.")
         return
 
     # `score` kommer allerede sortert per sted og i elementenes egen rekkefølge.
