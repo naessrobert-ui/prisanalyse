@@ -163,3 +163,31 @@ services:
         sync: false
       - key: AWS_REGION
         value: eu-north-1
+
+  - type: cron
+    name: vaer-treffsikkerhet
+    runtime: python
+    # 20 over hver time: MET har lagt ut timens varsel, og Frost har rukket å
+    # publisere observasjonen for forrige hele time.
+    schedule: "20 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.weather_scoreboard_run
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: GOOGLE_WEATHER_API_KEY
+        sync: false
+      - key: FROST_CLIENT_ID
+        sync: false
+      - key: FROST_CLIENT_SECRET
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: eu-north-1
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: WEATHER_SCOREBOARD_S3_PREFIX
+        value: weather-scoreboard
