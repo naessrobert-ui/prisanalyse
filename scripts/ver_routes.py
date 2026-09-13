@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 import requests
-from flask import Blueprint, request, render_template, Response, jsonify, redirect
+from flask import Blueprint, request, render_template, Response, jsonify, redirect, url_for
 from mapbox_vector_tile import decode as mvt_decode
 from metno_locationforecast import Place
 
@@ -371,6 +371,16 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
         </div>
         <div class="kort-tittel">Solskinn</div>
         <div class="kort-tekst">Soltimer siste 24 timer (rullerende) pluss dag-, måneds- og årsakkumulering.</div>
+        <div class="kort-lenke">Åpne</div>
+      </a>
+
+      <a class="kort" href="/ver/normaler">
+        <div class="kort-topp">
+          <div class="kort-ikon">🗺️</div>
+          <span class="kort-badge b-lilla">Nytt</span>
+        </div>
+        <div class="kort-tittel">Værnormaler på kart</div>
+        <div class="kort-tekst">Årsnedbør, nedbørdager og månedsnormaler for temperatur – rundt 900 stasjoner. Zoom inn for rangering, eller filtrer til kun byer.</div>
         <div class="kort-lenke">Åpne</div>
       </a>
 
@@ -1280,6 +1290,20 @@ def min_temp_index():
 @ver.get("/temp-sammenlign")
 def temp_sammenlign_index():
     return render_template("ver/temp_sammenlign_index.html")
+
+
+# =========================
+# KLIMANORMALER
+# =========================
+# Datafila er statisk og bygges av scripts/bygg_vaernormaler.py. Hele kartet
+# kjører i nettleseren på den ene JSON-en, så ruta gjør ingenting annet enn å
+# levere HTML-et.
+@ver.get("/normaler")
+def normaler_index():
+    return render_template(
+        "ver/normaler.html",
+        data_url=url_for("static", filename="data/vaernormaler.json"),
+    )
 
 
 @ver.get("/temp-sammenlign-kart")
