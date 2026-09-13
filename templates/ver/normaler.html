@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="utf-8" />
+    <title>Værnormaler i Norge – Væranalyse</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --kort: #ffffff;
+        --kant: #e2e8f0;
+        --tekst: #0f172a;
+        --dempet: #64748b;
+        --blaa: #2563eb;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--tekst);
+      }
+
+      .page { max-width: 1500px; margin: 0 auto; padding: 20px 16px 32px; }
+
+      .topp { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+      .topp h1 { margin: 0; font-size: 24px; }
+      .topp .undertekst { color: var(--dempet); font-size: 14px; }
+      .topp a.tilbake { color: var(--blaa); text-decoration: none; font-size: 14px; }
+
+      .kort {
+        background: var(--kort);
+        border-radius: 16px;
+        padding: 14px 18px;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        margin-bottom: 14px;
+      }
+
+      .kontroller { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+      .felt { display: flex; flex-direction: column; gap: 4px; }
+      .felt label { font-size: 12px; font-weight: 600; color: var(--dempet); text-transform: uppercase; letter-spacing: .03em; }
+      .felt select, .felt input[type="text"] {
+        padding: 7px 10px; border-radius: 10px; border: 1px solid #d1d5db;
+        font-size: 14px; background: #fff; color: var(--tekst); min-width: 150px;
+      }
+      .felt input[type="range"] { width: 150px; }
+
+      .bryter { display: flex; align-items: center; gap: 7px; font-size: 14px; padding-bottom: 7px; }
+      .bryter input { width: 16px; height: 16px; accent-color: var(--blaa); }
+
+      .layout { display: grid; grid-template-columns: 1fr 340px; gap: 14px; align-items: start; }
+      @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+
+      #kart {
+        height: 76vh; min-height: 480px; border-radius: 16px;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.1); background: #dbe3ef;
+      }
+
+      .panel { background: var(--kort); border-radius: 16px; box-shadow: 0 18px 45px rgba(15,23,42,.08);
+               display: flex; flex-direction: column; max-height: 76vh; }
+      .panel-topp { padding: 14px 16px 10px; border-bottom: 1px solid var(--kant); }
+      .panel-topp h2 { margin: 0 0 2px; font-size: 15px; }
+      .panel-topp p { margin: 0; font-size: 12px; color: var(--dempet); }
+      .panel-verktoy { display: flex; gap: 8px; margin-top: 10px; }
+      .panel-verktoy select { flex: 1; padding: 5px 8px; border-radius: 8px; border: 1px solid #d1d5db; font-size: 13px; }
+
+      .liste { overflow-y: auto; flex: 1; }
+      .rad {
+        display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center;
+        padding: 8px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 13px;
+      }
+      .rad:hover { background: #f8fafc; }
+      .rad .nr { color: var(--dempet); font-variant-numeric: tabular-nums; font-size: 12px; }
+      .rad .navn { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .rad .sted { font-weight: 400; color: var(--dempet); font-size: 11px; display: block; }
+      .rad .verdi { font-variant-numeric: tabular-nums; font-weight: 700; }
+      .tom { padding: 24px 16px; color: var(--dempet); font-size: 13px; text-align: center; }
+
+      .legend {
+        background: rgba(255,255,255,.95); padding: 9px 12px; border-radius: 10px;
+        box-shadow: 0 4px 14px rgba(15,23,42,.18); font-size: 12px; line-height: 1.5;
+      }
+      .legend .bitter { display: flex; gap: 2px; margin-top: 6px; }
+      .legend .bit { display: flex; flex-direction: column; align-items: stretch; min-width: 30px; }
+      .legend .bit i { height: 10px; border-radius: 2px; }
+      .legend .bit b {
+        font-weight: 500; font-size: 10px; color: var(--dempet);
+        text-align: center; font-variant-numeric: tabular-nums; margin-top: 3px;
+      }
+
+      .popup h3 { margin: 0 0 2px; font-size: 15px; }
+      .popup .meta { color: var(--dempet); font-size: 12px; margin-bottom: 8px; }
+      .popup table { border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+      .popup th, .popup td { padding: 2px 5px; text-align: right; }
+      .popup th { color: var(--dempet); font-weight: 600; }
+      .popup td:first-child, .popup th:first-child { text-align: left; }
+      .popup tbody tr:nth-child(odd) { background: #f8fafc; }
+      .popup .aarsrad { font-weight: 700; border-top: 1px solid var(--kant); }
+
+      .laster { padding: 60px 20px; text-align: center; color: var(--dempet); }
+      .feil { color: #b91c1c; }
+    </style>
+  </head>
+
+  <body>
+    <div class="page">
+      <div class="topp">
+        <h1>Værnormaler i Norge</h1>
+        <span class="undertekst" id="undertekst">Laster …</span>
+        <a class="tilbake" href="/ver/">← Alle værverktøy</a>
+      </div>
+
+      <div class="kort kontroller">
+        <div class="felt">
+          <label for="metrikk">Vis</label>
+          <select id="metrikk"></select>
+        </div>
+        <div class="felt" id="maaned-felt">
+          <label for="maaned">Måned</label>
+          <select id="maaned">
+            <option value="0">Hele året</option>
+            <option value="1">Januar</option>
+            <option value="2">Februar</option>
+            <option value="3">Mars</option>
+            <option value="4">April</option>
+            <option value="5">Mai</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+        </div>
+        <div class="felt">
+          <label for="sok">Søk stasjon</label>
+          <input type="text" id="sok" placeholder="f.eks. Blindern" autocomplete="off" />
+        </div>
+        <div class="felt">
+          <label for="minaar">Minst <span id="minaar-tall">10</span> år</label>
+          <input type="range" id="minaar" min="10" max="35" value="10" step="1" />
+        </div>
+        <label class="bryter"><input type="checkbox" id="kun-byer" /> Kun byer</label>
+        <label class="bryter"><input type="checkbox" id="kun-aktive" checked /> Kun aktive stasjoner</label>
+      </div>
+
+      <div class="layout">
+        <div id="kart"></div>
+        <div class="panel">
+          <div class="panel-topp">
+            <h2 id="panel-tittel">Rangering</h2>
+            <p id="panel-info">Zoom og panorer – lista viser stasjonene i kartutsnittet.</p>
+            <div class="panel-verktoy">
+              <select id="sortering">
+                <option value="desc">Høyest først</option>
+                <option value="asc">Lavest først</option>
+              </select>
+            </div>
+          </div>
+          <div class="liste" id="liste"><div class="laster">Laster data …</div></div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script>
+      "use strict";
+
+      const DATA_URL = "{{ data_url }}";
+
+      const MAANEDER = ["jan", "feb", "mar", "apr", "mai", "jun",
+                        "jul", "aug", "sep", "okt", "nov", "des"];
+
+      // Fargeramper. "seq" er ensidig (lite -> mye), "div" er tosidig rundt 0.
+      const RAMPE_BLAA = ["#f7fbff", "#d6e6f5", "#a8cbe6", "#6fadd6", "#3d87c2", "#1f5fa0", "#123f73"];
+      const RAMPE_TEMP = ["#4a5fa8", "#7d9fd0", "#b9d4e8", "#f3f0e4", "#f6cf9a", "#e89154", "#c1441f"];
+
+      // Hver metrikk peker på et felt i JSON-en. `maanedlig` styrer om
+      // måned-velgeren har noe å si.
+      const METRIKKER = {
+        nedbor: { navn: "Nedbør", felt: "nedbor", enhet: "mm", rampe: RAMPE_BLAA, desimaler: 0 },
+        nedbordager: { navn: "Nedbørdager ≥1 mm", felt: "nedbordager", enhet: "dager", rampe: RAMPE_BLAA, desimaler: 0 },
+        temp: { navn: "Middeltemperatur", felt: "temp", enhet: "°C", rampe: RAMPE_TEMP, desimaler: 1 },
+        tmax: { navn: "Døgnmaks", felt: "tmax", enhet: "°C", rampe: RAMPE_TEMP, desimaler: 1 },
+        tmin: { navn: "Døgnmin", felt: "tmin", enhet: "°C", rampe: RAMPE_TEMP, desimaler: 1 },
+      };
+
+      const el = (id) => document.getElementById(id);
+      const $metrikk = el("metrikk");
+      const $maaned = el("maaned");
+      const $sok = el("sok");
+      const $minaar = el("minaar");
+      const $kunByer = el("kun-byer");
+      const $kunAktive = el("kun-aktive");
+      const $sortering = el("sortering");
+      const $liste = el("liste");
+
+      let STASJONER = [];
+      let META = {};
+      let synlige = [];          // stasjoner som passerer filtrene
+      let skala = null;          // {min, max, rampe, type}
+      const lag = new Map();     // id -> CircleMarker
+
+      const kart = L.map("kart", {
+        preferCanvas: true,      // canvas gjør 1000+ sirkler flytende å panorere
+        zoomControl: true,
+        minZoom: 3,
+      }).setView([64.8, 13.5], 5);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
+          '| Normaler: <a href="https://frost.met.no/">MET Norway</a>',
+      }).addTo(kart);
+
+      const forklaring = L.control({ position: "bottomright" });
+      forklaring.onAdd = function () {
+        this._div = L.DomUtil.create("div", "legend");
+        return this._div;
+      };
+      forklaring.addTo(kart);
+
+      // ---------------------------------------------------------------
+      // Hjelpere
+      // ---------------------------------------------------------------
+
+      function aktivMetrikk() {
+        return METRIKKER[$metrikk.value] || METRIKKER.nedbor;
+      }
+
+      function aktivMaaned() {
+        return parseInt($maaned.value, 10) || 0;
+      }
+
+      /** Verdien som vises for en stasjon med gjeldende valg. */
+      function verdiFor(st) {
+        const m = aktivMetrikk();
+        const mnd = aktivMaaned();
+        if (mnd === 0) {
+          const v = st[m.felt + "_aar"];
+          return v === undefined ? null : v;
+        }
+        const serie = st[m.felt];
+        if (!serie) return null;
+        const v = serie[mnd - 1];
+        return v === undefined ? null : v;
+      }
+
+      /**
+       * Byen stasjonen representerer for *gjeldende* metrikk, eller null.
+       * Koblingen er per element fordi den nærmeste stasjonen til et sentrum
+       * sjelden måler alt: i Oslo er Tøyen nedbørstasjonen og Blindern
+       * temperaturstasjonen.
+       */
+      function byFor(st) {
+        return (st.by && st.by[aktivMetrikk().felt]) || null;
+      }
+
+      function formater(v) {
+        const m = aktivMetrikk();
+        if (v === null || v === undefined) return "–";
+        return v.toFixed(m.desimaler).replace(".", ",");
+      }
+
+      function persentil(tall, p) {
+        if (!tall.length) return 0;
+        const i = (tall.length - 1) * p;
+        const lav = Math.floor(i), hoy = Math.ceil(i);
+        return lav === hoy ? tall[lav] : tall[lav] + (tall[hoy] - tall[lav]) * (i - lav);
+      }
+
+      /**
+       * Fargeskala med kvantilinndeling: like mange stasjoner i hver farge.
+       *
+       * En lineær skala fungerer dårlig her fordi årsnedbør er sterkt
+       * høyreskjev - Vestlandets 3000 mm strekker skalaen slik at hele
+       * Østlandet havner i samme bleke tone. Kvantilbøtter gir kontrast der
+       * stasjonene faktisk ligger, og forklaringen viser de reelle
+       * grenseverdiene så kartet fortsatt er til å lese tall ut av.
+       */
+      function byggSkala() {
+        const m = aktivMetrikk();
+        const tall = synlige.map(verdiFor).filter((v) => v !== null).sort((a, b) => a - b);
+        if (!tall.length) { skala = null; return; }
+
+        const n = m.rampe.length;
+        const grenser = [];
+        for (let i = 1; i < n; i++) grenser.push(persentil(tall, i / n));
+        skala = { grenser, rampe: m.rampe, lav: tall[0], hoy: tall[tall.length - 1] };
+      }
+
+      function farge(v) {
+        if (v === null || v === undefined || !skala) return "#cbd5e1";
+        let i = 0;
+        while (i < skala.grenser.length && v >= skala.grenser[i]) i++;
+        return skala.rampe[i];
+      }
+
+      function radius() {
+        const z = kart.getZoom();
+        if (z <= 5) return 4.5;
+        if (z <= 7) return 6;
+        if (z <= 9) return 8;
+        return 10;
+      }
+
+      // ---------------------------------------------------------------
+      // Popup
+      // ---------------------------------------------------------------
+
+      function popupHtml(st) {
+        const m = aktivMetrikk();
+        const kolonner = ["nedbor", "nedbordager", "temp", "tmax", "tmin"]
+          .filter((f) => st[f]);
+        const overskrift = {
+          nedbor: "mm", nedbordager: "dag ≥1mm", temp: "snitt °C",
+          tmax: "maks °C", tmin: "min °C",
+        };
+        const des = { nedbor: 0, nedbordager: 1, temp: 1, tmax: 1, tmin: 1 };
+
+        let rader = "";
+        for (let i = 0; i < 12; i++) {
+          rader += "<tr><td>" + MAANEDER[i] + "</td>";
+          for (const f of kolonner) {
+            const v = st[f][i];
+            rader += "<td>" + (v === null || v === undefined ? "–" : v.toFixed(des[f]).replace(".", ",")) + "</td>";
+          }
+          rader += "</tr>";
+        }
+        let aarsrad = "<tr class='aarsrad'><td>År</td>";
+        for (const f of kolonner) {
+          const v = st[f + "_aar"];
+          aarsrad += "<td>" + (v === undefined ? "–" : v.toFixed(des[f]).replace(".", ",")) + "</td>";
+        }
+        aarsrad += "</tr>";
+
+        const n = st[m.felt + "_n"];
+        const periode = st[m.felt + "_periode"];
+        const moh = st.moh === null || st.moh === undefined ? "" : st.moh + " moh · ";
+        const status = st.aktiv ? "" : " · nedlagt " + (st.nedlagt || "").slice(0, 4);
+        // En stasjon kan være bystasjon for noen elementer og ikke andre.
+        // Samle dem opp: «Målestasjon for Oslo (temperatur, 3,5 km)».
+        const roller = new Map();
+        for (const [f, info] of Object.entries(st.by || {})) {
+          const navn = METRIKKER[f] ? METRIKKER[f].navn.toLowerCase() : f;
+          const n = info.navn + "|" + info.km;
+          if (!roller.has(n)) roller.set(n, []);
+          roller.get(n).push(navn);
+        }
+        const by = roller.size
+          ? "<br>" + [...roller.entries()].map(([n, felter]) => {
+              const [navn, km] = n.split("|");
+              return "Målestasjon for " + navn + " – " + felter.join(", ") +
+                     " (" + km.replace(".", ",") + " km fra sentrum)";
+            }).join("<br>")
+          : "";
+
+        return (
+          "<div class='popup'>" +
+          "<h3>" + st.navn + "</h3>" +
+          "<div class='meta'>" + moh + (st.kommune || st.fylke || "") + status +
+          (n ? "<br>" + n + " år per måned (" + periode[0] + "–" + periode[1] + ")" : "") +
+          by +
+          "</div>" +
+          "<table><thead><tr><th></th>" +
+          kolonner.map((f) => "<th>" + overskrift[f] + "</th>").join("") +
+          "</tr></thead><tbody>" + rader + aarsrad + "</tbody></table></div>"
+        );
+      }
+
+      // ---------------------------------------------------------------
+      // Tegning
+      // ---------------------------------------------------------------
+
+      function filtrer() {
+        const minAar = parseInt($minaar.value, 10);
+        const felt = aktivMetrikk().felt;
+        const kunByer = $kunByer.checked;
+        const kunAktive = $kunAktive.checked;
+        const sok = $sok.value.trim().toLowerCase();
+
+        synlige = STASJONER.filter((st) => {
+          if (st[felt] === undefined) return false;
+          if (st[felt + "_n"] < minAar) return false;
+          const by = byFor(st);
+          if (kunByer && !by) return false;
+          if (kunAktive && !st.aktiv) return false;
+          if (sok && !(st.navn + " " + (st.kommune || "") + " " + (by ? by.navn : ""))
+                       .toLowerCase().includes(sok)) return false;
+          return verdiFor(st) !== null;
+        });
+      }
+
+      function tegn() {
+        filtrer();
+        byggSkala();
+
+        const r = radius();
+        const beholdt = new Set();
+
+        for (const st of synlige) {
+          beholdt.add(st.id);
+          const v = verdiFor(st);
+          let mark = lag.get(st.id);
+          if (!mark) {
+            mark = L.circleMarker([st.lat, st.lon], {
+              radius: r, weight: 1, color: "#334155", opacity: 0.55, fillOpacity: 0.9,
+            });
+            mark.on("click", () => mark.bindPopup(popupHtml(st), { maxWidth: 380 }).openPopup());
+            lag.set(st.id, mark);
+            mark.addTo(kart);
+          } else if (!kart.hasLayer(mark)) {
+            mark.addTo(kart);
+          }
+          mark.setStyle({ fillColor: farge(v) });
+          mark.setRadius(r);
+          mark.stasjon = st;
+        }
+
+        for (const [id, mark] of lag) {
+          if (!beholdt.has(id) && kart.hasLayer(mark)) kart.removeLayer(mark);
+        }
+
+        tegnForklaring();
+        oppdaterListe();
+      }
+
+      function tegnForklaring() {
+        const m = aktivMetrikk();
+        if (!skala) { forklaring._div.innerHTML = ""; return; }
+
+        // Én kolonne per fargebøtte, med bøttas nedre grense under seg. Det
+        // leser lettere enn en glidende stolpe med grenseverdier klemt inn
+        // mellom seg.
+        const kolonner = m.rampe.map((c, i) => {
+          const nedre = i === 0 ? skala.lav : skala.grenser[i - 1];
+          return "<div class='bit'><i style='background:" + c + "'></i>" +
+                 "<b>" + formater(nedre) + "</b></div>";
+        }).join("");
+
+        forklaring._div.innerHTML =
+          "<strong>" + tittelTekst() + " (" + m.enhet + ")</strong>" +
+          "<div class='bitter'>" + kolonner + "</div>";
+      }
+
+      function tittelTekst() {
+        const m = aktivMetrikk();
+        const mnd = aktivMaaned();
+        const nar = mnd ? MAANEDER[mnd - 1] : (m.felt === "nedbor" || m.felt === "nedbordager"
+          ? "hele året" : "årssnitt");
+        return m.navn + " – " + nar;
+      }
+
+      // ---------------------------------------------------------------
+      // Rangeringspanel
+      // ---------------------------------------------------------------
+
+      function oppdaterListe() {
+        const utsnitt = kart.getBounds();
+        const iUtsnitt = synlige.filter((st) => utsnitt.contains([st.lat, st.lon]));
+        const stigende = $sortering.value === "asc";
+
+        iUtsnitt.sort((a, b) => {
+          const d = verdiFor(a) - verdiFor(b);
+          return stigende ? d : -d;
+        });
+
+        const m = aktivMetrikk();
+        el("panel-tittel").textContent = tittelTekst();
+        el("panel-info").textContent =
+          iUtsnitt.length + " stasjoner i kartutsnittet" +
+          ($kunByer.checked ? " (kun byer)" : "") + " · enhet " + m.enhet;
+
+        if (!iUtsnitt.length) {
+          $liste.innerHTML = "<div class='tom'>Ingen stasjoner her. Zoom ut, eller senk kravet til antall år.</div>";
+          return;
+        }
+
+        // Bygg med streng + én innsetting: raskere enn 1000 DOM-kall ved zoom.
+        const biter = [];
+        const tak = Math.min(iUtsnitt.length, 500);
+        for (let i = 0; i < tak; i++) {
+          const st = iUtsnitt[i];
+          const by = byFor(st);
+          const sted = by ? by.navn : (st.kommune || st.fylke || "");
+          biter.push(
+            "<div class='rad' data-id='" + st.id + "'>" +
+            "<span class='nr'>" + (i + 1) + "</span>" +
+            "<span class='navn'>" + st.navn +
+            "<span class='sted'>" + sted + (st.moh != null ? " · " + st.moh + " moh" : "") + "</span></span>" +
+            "<span class='verdi'>" + formater(verdiFor(st)) + "</span></div>"
+          );
+        }
+        if (iUtsnitt.length > tak) {
+          biter.push("<div class='tom'>… og " + (iUtsnitt.length - tak) + " til. Zoom inn for å se dem.</div>");
+        }
+        $liste.innerHTML = biter.join("");
+        $liste.scrollTop = 0;
+      }
+
+      $liste.addEventListener("click", (e) => {
+        const rad = e.target.closest(".rad");
+        if (!rad) return;
+        const mark = lag.get(rad.dataset.id);
+        if (!mark) return;
+        kart.setView(mark.getLatLng(), Math.max(kart.getZoom(), 9));
+        mark.bindPopup(popupHtml(mark.stasjon), { maxWidth: 380 }).openPopup();
+      });
+
+      // ---------------------------------------------------------------
+      // Hendelser
+      // ---------------------------------------------------------------
+
+      let utsettelse = null;
+      function utsattListe() {
+        clearTimeout(utsettelse);
+        utsettelse = setTimeout(oppdaterListe, 120);
+      }
+
+      kart.on("moveend", utsattListe);
+      kart.on("zoomend", () => { tegn(); });
+
+      $metrikk.addEventListener("change", tegn);
+      $maaned.addEventListener("change", tegn);
+      $sortering.addEventListener("change", oppdaterListe);
+      $kunByer.addEventListener("change", tegn);
+      $kunAktive.addEventListener("change", tegn);
+      $minaar.addEventListener("input", () => {
+        el("minaar-tall").textContent = $minaar.value;
+        tegn();
+      });
+
+      let sokUtsettelse = null;
+      $sok.addEventListener("input", () => {
+        clearTimeout(sokUtsettelse);
+        sokUtsettelse = setTimeout(tegn, 200);
+      });
+
+      // ---------------------------------------------------------------
+      // Oppstart
+      // ---------------------------------------------------------------
+
+      fetch(DATA_URL)
+        .then((r) => {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then((data) => {
+          STASJONER = data.stasjoner || [];
+          META = data;
+
+          // Bare vis metrikker som faktisk finnes i datasettet.
+          for (const [nokkel, m] of Object.entries(METRIKKER)) {
+            const antall = STASJONER.filter((s) => s[m.felt] !== undefined).length;
+            if (!antall) continue;
+            const o = document.createElement("option");
+            o.value = nokkel;
+            o.textContent = m.navn + " (" + antall + " stasjoner)";
+            $metrikk.appendChild(o);
+          }
+
+          const maksAar = META.periode[1] - META.periode[0] + 1;
+          $minaar.max = String(maksAar);
+
+          el("undertekst").textContent =
+            STASJONER.length + " stasjoner · normalperiode " + META.periode[0] + "–" +
+            META.periode[1] + " · minst " + META.min_aar + " år per måned · oppdatert " + META.oppdatert;
+
+          // Tilpass utsnittet til fastlandet. Datasettet inneholder også
+          // Svalbard og MET sin stasjon i Antarktis; tar vi dem med blir
+          // startvisningen et verdenskart.
+          const fastland = STASJONER.filter((s) => s.lat > 56 && s.lat < 72);
+          if (fastland.length) {
+            kart.fitBounds(L.latLngBounds(fastland.map((s) => [s.lat, s.lon])), {
+              padding: [20, 20],
+            });
+          }
+
+          tegn();
+        })
+        .catch((err) => {
+          $liste.innerHTML = "<div class='laster feil'>Klarte ikke laste normaldata: " + err.message + "</div>";
+          el("undertekst").textContent = "Datafil mangler – kjør scripts/bygg_vaernormaler.py";
+        });
+    </script>
+  </body>
+</html>
