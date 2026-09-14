@@ -217,7 +217,22 @@
                         "jul", "aug", "sep", "okt", "nov", "des"];
 
       // Fargeramper. "seq" er ensidig (lite -> mye), "div" er tosidig rundt 0.
-      const RAMPE_BLAA = ["#f7fbff", "#d6e6f5", "#a8cbe6", "#6fadd6", "#3d87c2", "#1f5fa0", "#123f73"];
+      /**
+       * Nedbørsrampe: lys gul (tørt) gjennom oransje til mørk rød (vått).
+       *
+       * Rødt i den våte enden, som ønsket, men gult og ikke grønt i den
+       * tørre. Rød-grønn er den ene kombinasjonen som svikter for rundt 8 %
+       * av menn, og på en *skala* er den ekstra ille: endene kan falle
+       * sammen, så det våteste og det tørreste blir umulig å skille.
+       *
+       * Her synker lysheten jevnt fra tørt til vått. Da kan mengden leses av
+       * lysstyrken alene - også i svart-hvitt, og uansett fargesyn.
+       */
+      const RAMPE_NEDBOR = ["#fff2b2", "#ffe08a", "#fec44f", "#fe9929",
+                            "#f06d20", "#d7301f", "#8c0d0d"];
+
+      // Temperatur beholder blått til rødt. Kaldt = blått er så innarbeidet
+      // at grønt for frost ville lest som feil.
       const RAMPE_TEMP = ["#4a5fa8", "#7d9fd0", "#b9d4e8", "#f3f0e4", "#f6cf9a", "#e89154", "#c1441f"];
 
       // Hver metrikk peker på et felt i JSON-en. `maanedlig` styrer om
@@ -225,10 +240,10 @@
       // `hoy` og `lav` er hva ytterpunktene heter for denne metrikken, brukt i
       // tre-klasse-forklaringen. «Våtest» gir ingen mening for temperatur.
       const METRIKKER = {
-        nedbor: { navn: "Nedbør", felt: "nedbor", enhet: "mm", rampe: RAMPE_BLAA,
+        nedbor: { navn: "Nedbør", felt: "nedbor", enhet: "mm", rampe: RAMPE_NEDBOR,
                   desimaler: 0, hoy: "Våtest", lav: "Tørrest", skaler: true },
         nedbordager: { navn: "Nedbørdager ≥1 mm", felt: "nedbordager", enhet: "dager",
-                  rampe: RAMPE_BLAA, desimaler: 0, hoy: "Våtest", lav: "Tørrest", skaler: true },
+                  rampe: RAMPE_NEDBOR, desimaler: 0, hoy: "Våtest", lav: "Tørrest", skaler: true },
         temp: { navn: "Middeltemperatur", felt: "temp", enhet: "°C", rampe: RAMPE_TEMP,
                   desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false },
         tmax: { navn: "Døgnmaks", felt: "tmax", enhet: "°C", rampe: RAMPE_TEMP,
@@ -237,14 +252,16 @@
                   desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false },
       };
 
-      // Tre-klasse-paletten. Rød for de våteste er motsatt av kartkonvensjon
-      // (blått = vann), men det var det som ble bestilt, og for temperatur
-      // leser rød = varmest helt naturlig.
-      const KLASSE_HOY = "#e01b12";   // knallrød
-      // Nøytral grå-blå. Sand eller beige forsvinner mot OSM sin landfarge og
-      // får midtklassen til å se ut som tomme ringer.
-      const KLASSE_MIDT = "#bcc8d4";
-      const KLASSE_LAV = "#1f9d55";   // grønn
+      // Tre-klasse-paletten: rød mot blå. Her er det ingen rekkefølge å lese
+      // ut av lysheten - du skal bare aldri kunne forveksle de to
+      // ytterpunktene - og rød mot blå holder for alle typer fargesyn.
+      // Paret fungerer for begge metrikkgruppene: rød er både våtest og
+      // varmest, blå både tørrest og kaldest.
+      const KLASSE_HOY = "#d81e12";   // knallrød
+      // Nøytral grå. Sand eller beige forsvinner mot OSM sin landfarge og får
+      // midtklassen til å se ut som tomme ringer.
+      const KLASSE_MIDT = "#c9d0d8";
+      const KLASSE_LAV = "#1f6fb5";   // blå
 
       const el = (id) => document.getElementById(id);
       const $metrikk = el("metrikk");
