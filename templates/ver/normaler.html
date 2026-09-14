@@ -53,6 +53,9 @@
       }
       .felt input[type="range"] { width: 150px; }
 
+      .felt .kutt { font-weight: 700; color: var(--tekst); text-transform: none; letter-spacing: 0; }
+      .klassefelt[hidden] { display: none; }
+
       .bryter { display: flex; align-items: center; gap: 7px; font-size: 14px; padding-bottom: 7px; }
       .bryter input { width: 16px; height: 16px; accent-color: var(--blaa); }
 
@@ -96,6 +99,11 @@
       .legend .bit { display: flex; flex-direction: column; align-items: stretch; min-width: 30px; }
       .legend .bit i { height: 10px; border-radius: 2px; }
       .legend .fotnote { margin-top: 5px; color: var(--dempet); font-size: 10px; }
+      .legend .klasser { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+      .legend .klasse { display: flex; align-items: center; gap: 7px; font-size: 11px; }
+      .legend .klasse i { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid rgba(51,65,85,.45); }
+      .legend .klasse span { flex: 1; }
+      .legend .klasse b { font-variant-numeric: tabular-nums; }
       .legend .bit b {
         font-weight: 500; font-size: 10px; color: var(--dempet);
         text-align: center; font-variant-numeric: tabular-nums; margin-top: 3px;
@@ -158,6 +166,25 @@
         <label class="bryter"><input type="checkbox" id="kun-aktive" checked /> Kun aktive stasjoner</label>
       </div>
 
+      <div class="kort kontroller">
+        <div class="felt">
+          <label for="farger">Fargelegging</label>
+          <select id="farger">
+            <option value="skala">Jevn skala (7 trinn)</option>
+            <option value="klasser">Tre klasser: høy / middels / lav</option>
+          </select>
+        </div>
+        <div class="felt klassefelt">
+          <label for="topp">Høyeste <span id="topp-tall">10</span> % <span class="kutt" id="topp-kutt"></span></label>
+          <input type="range" id="topp" min="1" max="45" value="10" step="1" />
+        </div>
+        <div class="felt klassefelt">
+          <label for="bunn">Laveste <span id="bunn-tall">10</span> % <span class="kutt" id="bunn-kutt"></span></label>
+          <input type="range" id="bunn" min="1" max="45" value="10" step="1" />
+        </div>
+        <label class="bryter"><input type="checkbox" id="skaler" /> Størrelse etter verdi</label>
+      </div>
+
       <div class="layout">
         <div id="kart"></div>
         <div class="panel">
@@ -195,13 +222,29 @@
 
       // Hver metrikk peker på et felt i JSON-en. `maanedlig` styrer om
       // måned-velgeren har noe å si.
+      // `hoy` og `lav` er hva ytterpunktene heter for denne metrikken, brukt i
+      // tre-klasse-forklaringen. «Våtest» gir ingen mening for temperatur.
       const METRIKKER = {
-        nedbor: { navn: "Nedbør", felt: "nedbor", enhet: "mm", rampe: RAMPE_BLAA, desimaler: 0 },
-        nedbordager: { navn: "Nedbørdager ≥1 mm", felt: "nedbordager", enhet: "dager", rampe: RAMPE_BLAA, desimaler: 0 },
-        temp: { navn: "Middeltemperatur", felt: "temp", enhet: "°C", rampe: RAMPE_TEMP, desimaler: 1 },
-        tmax: { navn: "Døgnmaks", felt: "tmax", enhet: "°C", rampe: RAMPE_TEMP, desimaler: 1 },
-        tmin: { navn: "Døgnmin", felt: "tmin", enhet: "°C", rampe: RAMPE_TEMP, desimaler: 1 },
+        nedbor: { navn: "Nedbør", felt: "nedbor", enhet: "mm", rampe: RAMPE_BLAA,
+                  desimaler: 0, hoy: "Våtest", lav: "Tørrest", skaler: true },
+        nedbordager: { navn: "Nedbørdager ≥1 mm", felt: "nedbordager", enhet: "dager",
+                  rampe: RAMPE_BLAA, desimaler: 0, hoy: "Våtest", lav: "Tørrest", skaler: true },
+        temp: { navn: "Middeltemperatur", felt: "temp", enhet: "°C", rampe: RAMPE_TEMP,
+                  desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false },
+        tmax: { navn: "Døgnmaks", felt: "tmax", enhet: "°C", rampe: RAMPE_TEMP,
+                  desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false },
+        tmin: { navn: "Døgnmin", felt: "tmin", enhet: "°C", rampe: RAMPE_TEMP,
+                  desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false },
       };
+
+      // Tre-klasse-paletten. Rød for de våteste er motsatt av kartkonvensjon
+      // (blått = vann), men det var det som ble bestilt, og for temperatur
+      // leser rød = varmest helt naturlig.
+      const KLASSE_HOY = "#e01b12";   // knallrød
+      // Nøytral grå-blå. Sand eller beige forsvinner mot OSM sin landfarge og
+      // får midtklassen til å se ut som tomme ringer.
+      const KLASSE_MIDT = "#bcc8d4";
+      const KLASSE_LAV = "#1f9d55";   // grønn
 
       const el = (id) => document.getElementById(id);
       const $metrikk = el("metrikk");
@@ -212,6 +255,10 @@
       const $kunAktive = el("kun-aktive");
       const $sortering = el("sortering");
       const $liste = el("liste");
+      const $farger = el("farger");
+      const $topp = el("topp");
+      const $bunn = el("bunn");
+      const $skaler = el("skaler");
 
       let STASJONER = [];
       let META = {};
@@ -303,25 +350,67 @@
         const tall = synlige.map(verdiFor).filter((v) => v !== null).sort((a, b) => a - b);
         if (!tall.length) { skala = null; return; }
 
-        const n = m.rampe.length;
-        const grenser = [];
-        for (let i = 1; i < n; i++) grenser.push(persentil(tall, i / n));
-        skala = { grenser, rampe: m.rampe, lav: tall[0], hoy: tall[tall.length - 1] };
+        const lav = tall[0];
+        const hoy = tall[tall.length - 1];
+
+        if ($farger.value === "klasser") {
+          // Grensene er persentiler av det som er synlig, ikke faste tall, så
+          // de følger med når du bytter metrikk eller måned.
+          const toppP = parseInt($topp.value, 10) / 100;
+          const bunnP = parseInt($bunn.value, 10) / 100;
+          skala = {
+            modus: "klasser",
+            toppKutt: persentil(tall, 1 - toppP),
+            bunnKutt: persentil(tall, bunnP),
+            lav, hoy,
+          };
+        } else {
+          const n = m.rampe.length;
+          const grenser = [];
+          for (let i = 1; i < n; i++) grenser.push(persentil(tall, i / n));
+          skala = { modus: "skala", grenser, rampe: m.rampe, lav, hoy };
+        }
       }
 
       function farge(v) {
         if (v === null || v === undefined || !skala) return "#cbd5e1";
+        if (skala.modus === "klasser") {
+          if (v >= skala.toppKutt) return KLASSE_HOY;
+          if (v <= skala.bunnKutt) return KLASSE_LAV;
+          return KLASSE_MIDT;
+        }
         let i = 0;
         while (i < skala.grenser.length && v >= skala.grenser[i]) i++;
         return skala.rampe[i];
       }
 
+      /** Grunnradius, styrt av zoom alene. */
       function radius() {
         const z = kart.getZoom();
         if (z <= 5) return 4.5;
         if (z <= 7) return 6;
         if (z <= 9) return 8;
         return 10;
+      }
+
+      /**
+       * Radius for én stasjon når «Størrelse etter verdi» er på.
+       *
+       * Skalerer på kvadratrota av normalisert verdi, så *arealet* følger
+       * verdien - det er slik øyet leser proporsjonale symboler. Normalisert
+       * mot synlig min/maks framfor mot null, fordi en temperaturskala som
+       * går gjennom null ellers gir sirkler med negativ radius.
+       */
+      function radiusFor(v) {
+        const r = radius();
+        if (!skalerStorrelse() || !skala || v === null) return r;
+        const spenn = skala.hoy - skala.lav;
+        const t = spenn > 1e-9 ? (v - skala.lav) / spenn : 0.5;
+        return r * (0.45 + 1.45 * Math.sqrt(Math.max(0, Math.min(1, t))));
+      }
+
+      function skalerStorrelse() {
+        return $skaler.checked;
       }
 
       // ---------------------------------------------------------------
@@ -415,7 +504,6 @@
         filtrer();
         byggSkala();
 
-        const r = radius();
         const beholdt = new Set();
 
         for (const st of synlige) {
@@ -424,7 +512,7 @@
           let mark = lag.get(st.id);
           if (!mark) {
             mark = L.circleMarker([st.lat, st.lon], {
-              radius: r, weight: 1, color: "#334155", opacity: 0.55, fillOpacity: 0.9,
+              weight: 1, color: "#334155", opacity: 0.55, fillOpacity: 0.9,
             });
             mark.on("click", () => mark.bindPopup(popupHtml(st), { maxWidth: 380 }).openPopup());
             lag.set(st.id, mark);
@@ -435,13 +523,16 @@
           // Korte serier tegnes blekere og med kraftigere ring, så de ikke
           // leses som like sikre som en 35-årsnormal.
           const kort = st[aktivMetrikk().felt + "_n"] < ANBEFALT;
+          // Store sirkler dekker hverandre, så fyllet blir litt mer
+          // gjennomsiktig når størrelsesskalering er på.
+          const tett = skalerStorrelse() ? 0.72 : 0.9;
           mark.setStyle({
             fillColor: farge(v),
-            fillOpacity: kort ? 0.35 : 0.9,
+            fillOpacity: kort ? 0.35 : tett,
             weight: kort ? 1.6 : 1,
             opacity: kort ? 0.9 : 0.55,
           });
-          mark.setRadius(r);
+          mark.setRadius(radiusFor(v));
           mark.stasjon = st;
         }
 
@@ -450,6 +541,7 @@
         }
 
         tegnForklaring();
+        oppdaterKlasseUI();
         oppdaterListe();
       }
 
@@ -460,6 +552,27 @@
         // Én kolonne per fargebøtte, med bøttas nedre grense under seg. Det
         // leser lettere enn en glidende stolpe med grenseverdier klemt inn
         // mellom seg.
+        if (skala.modus === "klasser") {
+          const rader = [
+            [KLASSE_HOY, m.hoy + " " + $topp.value + " %",
+             "≥ " + formater(skala.toppKutt)],
+            // «til» framfor tankestrek: med negative grader blir «-5,2–4,4»
+            // umulig å lese.
+            [KLASSE_MIDT, "Midt på treet",
+             formater(skala.bunnKutt) + " til " + formater(skala.toppKutt)],
+            [KLASSE_LAV, m.lav + " " + $bunn.value + " %",
+             "≤ " + formater(skala.bunnKutt)],
+          ].map(([c, navn, tall]) =>
+            "<div class='klasse'><i style='background:" + c + "'></i>" +
+            "<span>" + navn + "</span><b>" + tall + "</b></div>").join("");
+          forklaring._div.innerHTML =
+            "<strong>" + tittelTekst() + " (" + m.enhet + ")</strong>" +
+            "<div class='klasser'>" + rader + "</div>" +
+            "<div class='fotnote'>Blek prikk = under " + ANBEFALT + " år med data" +
+            (skalerStorrelse() ? " · størrelse følger verdi" : "") + "</div>";
+          return;
+        }
+
         // Merk bare bøtter der grensen faktisk er en ny verdi. Med få
         // stasjoner i utsnittet faller flere kvantiler på samme tall, og
         // uten dette gjentas «4140» syv ganger.
@@ -476,7 +589,8 @@
         forklaring._div.innerHTML =
           "<strong>" + tittelTekst() + " (" + m.enhet + ")</strong>" +
           "<div class='bitter'>" + kolonner + "</div>" +
-          "<div class='fotnote'>Blek prikk = under " + ANBEFALT + " år med data</div>";
+          "<div class='fotnote'>Blek prikk = under " + ANBEFALT + " år med data" +
+          (skalerStorrelse() ? " · størrelse følger verdi" : "") + "</div>";
       }
 
       function tittelTekst() {
@@ -560,8 +674,40 @@
       kart.on("moveend", utsattListe);
       kart.on("zoomend", () => { tegn(); });
 
-      $metrikk.addEventListener("change", tegn);
+      /** Vis klasse-glidebryterne bare i klassemodus, og oppdater kuttverdiene. */
+      function oppdaterKlasseUI() {
+        const klasser = $farger.value === "klasser";
+        for (const node of document.querySelectorAll(".klassefelt")) {
+          node.hidden = !klasser;
+        }
+        el("topp-tall").textContent = $topp.value;
+        el("bunn-tall").textContent = $bunn.value;
+        const m = aktivMetrikk();
+        el("topp-kutt").textContent =
+          klasser && skala && skala.modus === "klasser"
+            ? "(≥ " + formater(skala.toppKutt) + " " + m.enhet + ")" : "";
+        el("bunn-kutt").textContent =
+          klasser && skala && skala.modus === "klasser"
+            ? "(≤ " + formater(skala.bunnKutt) + " " + m.enhet + ")" : "";
+      }
+
+      /**
+       * Metrikkbytte setter størrelsesskalering til det som er fornuftig for
+       * den metrikken: på for nedbør, av for temperatur. Proporsjonale
+       * sirkler for grader gir et kart der Karasjok i januar blir et
+       * punktum. Bryteren er fortsatt brukerens å overstyre etterpå.
+       */
+      function byttMetrikk() {
+        $skaler.checked = aktivMetrikk().skaler;
+        tegn();
+      }
+
+      $metrikk.addEventListener("change", byttMetrikk);
       $maaned.addEventListener("change", tegn);
+      $farger.addEventListener("change", tegn);
+      $skaler.addEventListener("change", tegn);
+      $topp.addEventListener("input", tegn);
+      $bunn.addEventListener("input", tegn);
       $sortering.addEventListener("change", oppdaterListe);
       $kunByer.addEventListener("change", tegn);
       $kunAktive.addEventListener("change", tegn);
@@ -623,6 +769,7 @@
             });
           }
 
+          $skaler.checked = aktivMetrikk().skaler;
           tegn();
         })
         .catch((err) => {
