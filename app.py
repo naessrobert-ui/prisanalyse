@@ -6,6 +6,7 @@ import secrets
 import threading
 import time
 from datetime import timedelta
+from html import escape
 from typing import Optional
 
 try:
@@ -105,6 +106,43 @@ _PUBLIC_PATHS = {
 _PUBLIC_PREFIXES = ("/static/", "/assets/", "/ver/")
 
 
+# Kanonisk adresse, brukt i robots.txt og sitemap.xml. Kan ikke leses fra
+# request.url_root, for da ville et treff via Render sin interne adresse gi et
+# sitemap fullt av URL-er ingen kan åpne.
+SITE_BASE_URL = (
+    os.environ.get("SITE_BASE_URL", "https://prisanalyse.no") or ""
+).strip().rstrip("/")
+
+# Sidene som skal ligge i sitemap.xml.
+#
+# Dette er en bevisst liste og ikke en automatisk uttrekk fra url_map. Et
+# forsøk på det siste ga 20 treff der 5 var feil: /ver/ferieplanlegger/korttid
+# og /langtid er JSON, /ver/skiloyper-kvamskogen/stats er JSON, /ver/vind-popup
+# er et kartfragment, og /ver/byvarsel er et søkeendepunkt som redirecter til
+# /ver/ uten ?q=. Et sitemap er en påstand om hvilke sider folk skal lande på,
+# så her er det bedre å liste dem enn å gjette.
+#
+# Legger du til en ny offentlig side: legg den inn her også.
+_SITEMAP_SIDER = (
+    "/",
+    "/innbytte",
+    "/ver/",
+    "/ver/aktivt-varsel",
+    "/ver/ferieplanlegger",
+    "/ver/min-temp",
+    "/ver/nedbor",
+    "/ver/normaler",
+    "/ver/skiloyper-kvamskogen",
+    "/ver/sno",
+    "/ver/solskinn",
+    "/ver/temp-sammenlign",
+    "/ver/varsel-kvamskogen",
+    "/ver/vind",
+    # /ver/sammenlign er utelatt med vilje: den er laget for å bygges inn i
+    # iframe på den offentlige værsiden til Visitkvamskogen, og har ingen
+    # navigasjon. Flytt den hit hvis den skal kunne nås fra søk.
+)
+
 # Kart-endepunktene under /ver/ leveres i iframe og er ikke noe folk skal
 # lande på fra Google. Brukes i robots.txt.
 _VER_KART_DISALLOW = [
@@ -115,6 +153,9 @@ _VER_KART_DISALLOW = [
     "Disallow: /ver/vind-kart",
     "Disallow: /ver/temp-sammenlign-kart",
     "Disallow: /ver/skiloyper-kvamskogen/tiles/",
+    # Kartfragment for vindmarkørene. Uten gyldige parametere svarer den 500,
+    # så en crawler som finner den vil bare produsere feil i loggen.
+    "Disallow: /ver/vind-popup",
 ]
 
 
@@ -250,9 +291,30 @@ def create_app() -> Flask:
             # sperrene må gjentas her for å ha effekt på den største crawleren.
             *_VER_KART_DISALLOW,
             "",
-            "Sitemap: https://prisanalyse.no/sitemap.xml",
+            f"Sitemap: {SITE_BASE_URL}/sitemap.xml",
         ]
         return Response("\n".join(lines), mimetype="text/plain")
+
+    # --- sitemap.xml over sidene som faktisk er offentlige ---
+    @app.route("/sitemap.xml")
+    def sitemap_xml():
+        """Sitemap over de offentlige sidene.
+
+        ``_is_public_path`` kjøres som sikkerhetsnett, så en side som er bak
+        tilgangskoden aldri kan havne i sitemapet ved en feil - da ville vi
+        invitert Google til en lang rekke redirects til /login.
+
+        Bare <loc> tas med. Google ignorerer <changefreq> og <priority>, og
+        en <lastmod> vi ikke kan regne ut riktig er verre enn ingen.
+        """
+        linjer = ['<?xml version="1.0" encoding="UTF-8"?>',
+                  '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+        for sti in _SITEMAP_SIDER:
+            if not _is_public_path(sti):
+                continue
+            linjer.append(f"  <url><loc>{escape(SITE_BASE_URL + sti)}</loc></url>")
+        linjer.append("</urlset>")
+        return Response("\n".join(linjer), mimetype="application/xml")
 
     # Registrer seksjonene (blueprints)
     app.register_blueprint(bolig_bp)
