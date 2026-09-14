@@ -91,7 +91,13 @@ SUMMERES = {"nedbor", "nedbordager"}
 
 # --- Parametre -------------------------------------------------------------
 START_AAR = 1991
-MIN_AAR = 10
+
+# Nedre grense for å komme med i datasettet. Bevisst lav: kartet har en
+# glidebryter for antall år, så det er bedre å ta med korte serier og merke
+# dem enn å utelate dem. Gullfjellet (fra 2016) har 8 år og forsvant helt med
+# et krav på 10. Stasjoner under ANBEFALT_AAR tegnes med hul ring i kartet.
+MIN_AAR = 5
+ANBEFALT_AAR = 10
 BATCH = 20          # stasjoner per Frost-kall (målt: 20 st. x 35 år ~ 17 MB)
 WORKERS = 5
 MAKS_FORSOK = 5
@@ -101,6 +107,10 @@ MAKS_FORSOK = 5
 # de to siste, men begynner samtidig å merke stasjoner som «Elverum» når de
 # egentlig står to kommuner unna.
 BY_MAKS_KM = 15.0
+
+# Avveining mellom nærhet og serielengde i bymatchingen: hver kilometer fra
+# sentrum «koster» så mange år av serien. Se koble_byer.
+KM_KOSTNAD = 3.0
 
 PARQUET_UT = ROOT / "data" / "vaernormaler.parquet"
 JSON_UT = ROOT / "static" / "data" / "vaernormaler.json"
@@ -207,6 +217,12 @@ def hent_stasjoner(session: requests.Session, auth) -> dict[str, dict]:
         geo = rad.get("geometry") or {}
         koord = geo.get("coordinates") or []
         if not sid or len(koord) < 2:
+            continue
+        # MET driver også stasjoner på Bouvetøya og i Antarktis. De er norske,
+        # men hører ikke hjemme i et norgeskart - Troll ville ellers toppet
+        # lista over tørreste steder med 86 mm i året. Svalbard og Jan Mayen
+        # beholdes.
+        if float(koord[1]) < 50:
             continue
         ut[sid] = {
             "id": sid,
@@ -374,7 +390,7 @@ def _km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def koble_byer(stasjoner: dict[str, dict],
-               har_element: dict[str, set[str]]) -> dict[str, dict[str, dict]]:
+               aar_per_element: dict[str, dict[str, int]]) -> dict[str, dict[str, dict]]:
     """Finn målestasjonen som representerer hvert tettsted - per element.
 
     Matchingen må gjøres separat for hvert element. I Oslo er den nærmeste
@@ -383,24 +399,32 @@ def koble_byer(stasjoner: dict[str, dict],
     temperatur. Blindern skal representere Oslo for temperatur, Tøyen for
     nedbør.
 
-    Innenfor hvert element vinner nærmeste stasjon, men aktive går foran
-    nedlagte: en stasjon i drift 12 km unna er mer nyttig som byens stasjon
-    enn en som ble lagt ned i 1998 selv om den lå 2 km unna.
+    Rangeringen av kandidater er (lang nok serie, aktiv, beste poengsum):
+
+    * Stasjoner med minst ``ANBEFALT_AAR`` år går foran alle kortere. Poenget
+      med byfilteret er å sammenligne byer med hverandre, og en 30-årsnormal
+      6 km fra sentrum sier mer om byens klima enn en 5-årsnormal 1 km unna.
+    * Aktive går foran nedlagte innenfor samme nivå.
+    * Deretter ``n_aar - KM_KOSTNAD * avstand``: hver kilometer fra sentrum
+      koster tre år av serien. Ren avstandssortering ga feil svar to steder -
+      Bergen fikk Florida UIB (1,0 km, 16 år) framfor Florida (1,1 km, 35 år)
+      på hundre meters margin, og Oslo fikk Tøyen (1,3 km, 10 år) framfor
+      Blindern (3,6 km, 35 år).
 
     Tildelingen er grådig i folketallsrekkefølge, og hver stasjon kan bare
     representere ett tettsted per element. Uten det ville Askøy «stjålet»
     Bergen - Florida fra Bergen, siden den også er Askøys nærmeste stasjon;
     nå får Bergen den, og Askøy sin nest nærmeste.
 
-    Returnerer {stasjons-id: {element: {navn, rang, km}}}.
+    Returnerer {stasjons-id: {element: {navn, rang, km, aar}}}.
     """
     ut: dict[str, dict[str, dict]] = defaultdict(dict)
 
-    for element, kilder in har_element.items():
+    for element, aar_for in aar_per_element.items():
         brukt: set[str] = set()
         for by in TETTSTEDER:  # allerede sortert på folketall
-            beste: Optional[tuple[int, float, str]] = None
-            for sid in kilder:
+            beste: Optional[tuple[int, int, float, float, str]] = None
+            for sid, n_aar in aar_for.items():
                 if sid in brukt:
                     continue
                 st = stasjoner.get(sid)
@@ -409,17 +433,24 @@ def koble_byer(stasjoner: dict[str, dict],
                 d = _km(by["lat"], by["lon"], st["lat"], st["lon"])
                 if d > BY_MAKS_KM:
                     continue
-                kandidat = (0 if st.get("aktiv") else 1, d, sid)
+                kandidat = (
+                    0 if n_aar >= ANBEFALT_AAR else 1,
+                    0 if st.get("aktiv") else 1,
+                    -(n_aar - KM_KOSTNAD * d),
+                    d,
+                    sid,
+                )
                 if beste is None or kandidat < beste:
                     beste = kandidat
             if beste is None:
                 continue
-            _, avstand, sid = beste
+            *_, avstand, sid = beste
             brukt.add(sid)
             ut[sid][element] = {
                 "navn": by["navn"],
                 "rang": by["rang"],
                 "km": round(avstand, 1),
+                "aar": aar_for[sid],
             }
 
     return dict(ut)
@@ -485,6 +516,7 @@ def bygg_json(normaler: pd.DataFrame, stasjoner: dict[str, dict],
         "oppdatert": date.today().isoformat(),
         "periode": [START_AAR, slutt_aar],
         "min_aar": MIN_AAR,
+        "anbefalt_aar": ANBEFALT_AAR,
         "kilde": "MET Norway / Frost",
         "stasjoner": ut_stasjoner,
     }
@@ -556,11 +588,14 @@ def main() -> int:
 
 def _skriv_json(full: pd.DataFrame, stasjoner: dict[str, dict], slutt_aar: int) -> int:
     """Bymatching + skriv kartfila. Delt mellom full kjøring og --fra-parquet."""
-    har_element = {
-        kort: set(full[full["element"] == kort]["stasjon"].unique())
+    # Bymatchingen trenger serielengden per stasjon, ikke bare hvilke
+    # stasjoner som har elementet.
+    aar_per_element = {
+        kort: (full[full["element"] == kort]
+               .groupby("stasjon")["n_aar"].max().astype(int).to_dict())
         for kort in KORTNAVN.values()
     }
-    byer = koble_byer(stasjoner, har_element)
+    byer = koble_byer(stasjoner, aar_per_element)
     dekket = {info["navn"] for per_el in byer.values() for info in per_el.values()}
     print(f"Koblet {len(dekket)} av {len(TETTSTEDER)} tettsteder "
           f"({len(byer)} stasjoner er bystasjon for minst ett element)")
