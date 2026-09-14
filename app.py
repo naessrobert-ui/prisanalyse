@@ -92,9 +92,30 @@ _PUBLIC_PATHS = {
     # Sammenligningen brukes også på den offentlige værsiden på Visitkvamskogen.
     "/ver/sammenlign",
     "/ver/api/sammenlign",
+    # Uten denne havner "/ver" på innloggingssiden, fordi Flask sin redirect
+    # til "/ver/" skjer etter at before_request har kjørt.
+    "/ver",
 }
-# Alt under disse prefiksene er åpent (statiske filer forsiden trenger).
-_PUBLIC_PREFIXES = ("/static/", "/assets/")
+# Alt under disse prefiksene er åpent.
+#   /static/, /assets/ - filene forsiden trenger
+#   /ver/              - hele værseksjonen er åpen for alle. Den inneholder
+#                        bare værverktøy, ingen skriveoperasjoner. Merk at
+#                        kart- og API-endepunktene der henter live data fra
+#                        Frost og Yr, og derfor er rate-limitet nedenfor.
+_PUBLIC_PREFIXES = ("/static/", "/assets/", "/ver/")
+
+
+# Kart-endepunktene under /ver/ leveres i iframe og er ikke noe folk skal
+# lande på fra Google. Brukes i robots.txt.
+_VER_KART_DISALLOW = [
+    "Disallow: /ver/nedbor-kart",
+    "Disallow: /ver/snomengde-kart",
+    "Disallow: /ver/solskinn-kart",
+    "Disallow: /ver/min-temp-kart",
+    "Disallow: /ver/vind-kart",
+    "Disallow: /ver/temp-sammenlign-kart",
+    "Disallow: /ver/skiloyper-kvamskogen/tiles/",
+]
 
 
 def _is_public_path(path: str) -> bool:
@@ -123,6 +144,20 @@ _HEAVY_RATE_LIMIT_RULES = [
     {"prefix": "/innbytte", "window_sec": 60, "max_requests": 20},
     # Datatung beregning som kan trigges gjentatte ganger av samme klient.
     {"prefix": "/handler-oslo-bors/api/beste-investorer/run", "window_sec": 60, "max_requests": 8},
+    # Værseksjonen er åpen uten kode. Kartendepunktene bygger folium-HTML med
+    # live Frost-oppslag per request, så de er det som koster mest hvis noen
+    # looper dem. Grensene er satt godt over normal bruk: et kart lastes én
+    # gang per sidevisning, pluss én gang for hvert valg brukeren endrer.
+    {"prefix": "/ver/nedbor-kart", "window_sec": 60, "max_requests": 30},
+    {"prefix": "/ver/snomengde-kart", "window_sec": 60, "max_requests": 30},
+    {"prefix": "/ver/solskinn-kart", "window_sec": 60, "max_requests": 30},
+    {"prefix": "/ver/min-temp-kart", "window_sec": 60, "max_requests": 30},
+    {"prefix": "/ver/vind-kart", "window_sec": 60, "max_requests": 30},
+    {"prefix": "/ver/temp-sammenlign-kart", "window_sec": 60, "max_requests": 30},
+    {"prefix": "/ver/api/", "window_sec": 60, "max_requests": 90},
+    # Løypekartet proxyer en ekstern tile-tjeneste, og et slippy map henter
+    # gjerne 30-40 fliser per utsnitt. Grensen må derfor være høy.
+    {"prefix": "/ver/skiloyper-kvamskogen/tiles/", "window_sec": 60, "max_requests": 400},
 ]
 
 
@@ -204,9 +239,16 @@ def create_app() -> Flask:
             "User-agent: *",
             "Disallow: /bolig/priser-sted/",
             "Disallow: /bolig/priser-gate/",
+            # Værsidene er åpne og bør indekseres, men *-kart-endepunktene er
+            # bare iframe-innhold: de har ingen verdi som søketreff, og hvert
+            # treff koster et Frost-oppslag. Tile-proxyen likedan.
+            *_VER_KART_DISALLOW,
             "",
             "User-agent: Googlebot",
             "Allow: /",
+            # Googlebot ignorerer "*"-gruppa når den har sin egen, så
+            # sperrene må gjentas her for å ha effekt på den største crawleren.
+            *_VER_KART_DISALLOW,
             "",
             "Sitemap: https://prisanalyse.no/sitemap.xml",
         ]
