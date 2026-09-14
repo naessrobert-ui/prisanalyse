@@ -81,6 +81,10 @@
       .rad .nr { color: var(--dempet); font-variant-numeric: tabular-nums; font-size: 12px; }
       .rad .navn { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .rad .sted { font-weight: 400; color: var(--dempet); font-size: 11px; display: block; }
+      .rad .kort {
+        font-style: normal; font-size: 10px; margin-left: 6px; padding: 0 4px;
+        border: 1px solid #cbd5e1; border-radius: 4px; color: #7c6114; background: #fdf6e3;
+      }
       .rad .verdi { font-variant-numeric: tabular-nums; font-weight: 700; }
       .tom { padding: 24px 16px; color: var(--dempet); font-size: 13px; text-align: center; }
 
@@ -91,6 +95,7 @@
       .legend .bitter { display: flex; gap: 2px; margin-top: 6px; }
       .legend .bit { display: flex; flex-direction: column; align-items: stretch; min-width: 30px; }
       .legend .bit i { height: 10px; border-radius: 2px; }
+      .legend .fotnote { margin-top: 5px; color: var(--dempet); font-size: 10px; }
       .legend .bit b {
         font-weight: 500; font-size: 10px; color: var(--dempet);
         text-align: center; font-variant-numeric: tabular-nums; margin-top: 3px;
@@ -146,8 +151,8 @@
           <input type="text" id="sok" placeholder="f.eks. Blindern" autocomplete="off" />
         </div>
         <div class="felt">
-          <label for="minaar">Minst <span id="minaar-tall">10</span> år</label>
-          <input type="range" id="minaar" min="10" max="35" value="10" step="1" />
+          <label for="minaar">Minst <span id="minaar-tall">5</span> år</label>
+          <input type="range" id="minaar" min="5" max="35" value="5" step="1" />
         </div>
         <label class="bryter"><input type="checkbox" id="kun-byer" /> Kun byer</label>
         <label class="bryter"><input type="checkbox" id="kun-aktive" checked /> Kun aktive stasjoner</label>
@@ -210,6 +215,7 @@
 
       let STASJONER = [];
       let META = {};
+      let ANBEFALT = 10;        // under dette regnes serien som kort
       let synlige = [];          // stasjoner som passerer filtrene
       let skala = null;          // {min, max, rampe, type}
       const lag = new Map();     // id -> CircleMarker
@@ -426,7 +432,15 @@
           } else if (!kart.hasLayer(mark)) {
             mark.addTo(kart);
           }
-          mark.setStyle({ fillColor: farge(v) });
+          // Korte serier tegnes blekere og med kraftigere ring, så de ikke
+          // leses som like sikre som en 35-årsnormal.
+          const kort = st[aktivMetrikk().felt + "_n"] < ANBEFALT;
+          mark.setStyle({
+            fillColor: farge(v),
+            fillOpacity: kort ? 0.35 : 0.9,
+            weight: kort ? 1.6 : 1,
+            opacity: kort ? 0.9 : 0.55,
+          });
           mark.setRadius(r);
           mark.stasjon = st;
         }
@@ -446,15 +460,23 @@
         // Én kolonne per fargebøtte, med bøttas nedre grense under seg. Det
         // leser lettere enn en glidende stolpe med grenseverdier klemt inn
         // mellom seg.
+        // Merk bare bøtter der grensen faktisk er en ny verdi. Med få
+        // stasjoner i utsnittet faller flere kvantiler på samme tall, og
+        // uten dette gjentas «4140» syv ganger.
+        let forrige = null;
         const kolonner = m.rampe.map((c, i) => {
           const nedre = i === 0 ? skala.lav : skala.grenser[i - 1];
+          const merke = formater(nedre);
+          const vis = merke === forrige ? "" : merke;
+          forrige = merke;
           return "<div class='bit'><i style='background:" + c + "'></i>" +
-                 "<b>" + formater(nedre) + "</b></div>";
+                 "<b>" + vis + "</b></div>";
         }).join("");
 
         forklaring._div.innerHTML =
           "<strong>" + tittelTekst() + " (" + m.enhet + ")</strong>" +
-          "<div class='bitter'>" + kolonner + "</div>";
+          "<div class='bitter'>" + kolonner + "</div>" +
+          "<div class='fotnote'>Blek prikk = under " + ANBEFALT + " år med data</div>";
       }
 
       function tittelTekst() {
@@ -497,11 +519,15 @@
           const st = iUtsnitt[i];
           const by = byFor(st);
           const sted = by ? by.navn : (st.kommune || st.fylke || "");
+          // Vis årstallet bare når serien er kort. Ellers er det støy.
+          const n = st[m.felt + "_n"];
+          const kort = n < ANBEFALT ? "<em class='kort'>" + n + " år</em>" : "";
           biter.push(
             "<div class='rad' data-id='" + st.id + "'>" +
             "<span class='nr'>" + (i + 1) + "</span>" +
             "<span class='navn'>" + st.navn +
-            "<span class='sted'>" + sted + (st.moh != null ? " · " + st.moh + " moh" : "") + "</span></span>" +
+            "<span class='sted'>" + sted + (st.moh != null ? " · " + st.moh + " moh" : "") +
+            kort + "</span></span>" +
             "<span class='verdi'>" + formater(verdiFor(st)) + "</span></div>"
           );
         }
@@ -562,6 +588,7 @@
         .then((data) => {
           STASJONER = data.stasjoner || [];
           META = data;
+          ANBEFALT = data.anbefalt_aar || 10;
 
           // Bare vis metrikker som faktisk finnes i datasettet.
           for (const [nokkel, m] of Object.entries(METRIKKER)) {
@@ -573,12 +600,18 @@
             $metrikk.appendChild(o);
           }
 
+          // Glidebryteren starter på datasettets nedre grense, så alt er med
+          // som standard. Korte serier tegnes med hul ring i stedet for å
+          // skjules - de er ofte de mest interessante fjellstasjonene.
           const maksAar = META.periode[1] - META.periode[0] + 1;
+          $minaar.min = String(META.min_aar);
           $minaar.max = String(maksAar);
+          $minaar.value = String(META.min_aar);
+          el("minaar-tall").textContent = String(META.min_aar);
 
           el("undertekst").textContent =
             STASJONER.length + " stasjoner · normalperiode " + META.periode[0] + "–" +
-            META.periode[1] + " · minst " + META.min_aar + " år per måned · oppdatert " + META.oppdatert;
+            META.periode[1] + " · oppdatert " + META.oppdatert;
 
           // Tilpass utsnittet til fastlandet. Datasettet inneholder også
           // Svalbard og MET sin stasjon i Antarktis; tar vi dem med blir
