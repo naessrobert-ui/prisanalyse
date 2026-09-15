@@ -1454,11 +1454,13 @@ def kart_selskaper(
     orgform:      str | None = None,
     min_omsetning: float | None = None,
     max_omsetning: float | None = None,
-    limit: int = 500,
+    limit: int | None = None,
 ) -> dict:
-    """Henter selskaper innenfor kartets bbox med nøkkeltall."""
-    limit = min(limit, 2000)
+    """Henter selskaper innenfor kartets bbox med nøkkeltall.
 
+    ``limit`` er valgfri: uten verdi (eller med 0/negativ verdi) returneres alle
+    selskaper i utsnittet, uten øvre tak på antall kartpunkter.
+    """
     params: list[Any] = [south, north, west, east]
     where = [
         "e.lat IS NOT NULL",
@@ -1482,7 +1484,10 @@ def kart_selskaper(
         where.append("r.revenue <= %s")
         params.append(max_omsetning)
 
-    params.append(limit)
+    limit_clause = ""
+    if limit is not None and int(limit) > 0:
+        limit_clause = "LIMIT %s"
+        params.append(int(limit))
 
     sql = f"""
         SELECT
@@ -1503,7 +1508,7 @@ def kart_selskaper(
         {LATEST_REGNSKAP_JOIN}
         WHERE {" AND ".join(where)}
         ORDER BY r.revenue DESC NULLS LAST
-        LIMIT %s
+        {limit_clause}
     """
 
     rows = fetch_all(sql, params)

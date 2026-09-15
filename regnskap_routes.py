@@ -1312,7 +1312,8 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             max_omsetning=float(params["max_omsetning"]) if params.get("max_omsetning") else None,
             has_regnskap=str(params.get("has_regnskap") or "").strip().lower() in {"1", "true", "yes", "on"},
             regnskapsaar=int(params["regnskapsaar"]) if params.get("regnskapsaar") else None,
-            limit=int(params.get("limit") or 500),
+            # Ingen limit sendt = ingen tak på antall kartpunkter.
+            limit=int(params["limit"]) if params.get("limit") else None,
         )
     else:
         return None
