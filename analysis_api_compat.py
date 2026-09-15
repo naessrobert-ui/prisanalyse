@@ -1980,12 +1980,14 @@ def get_kart_payload(
     max_omsetning: float | None = None,
     has_regnskap: bool = False,
     regnskapsaar: int | None = None,
-    limit: int = 500,
+    limit: int | None = None,
 ) -> dict[str, Any]:
-    """Henter selskaper innenfor bbox med GeoJSON-format for kartvisning."""
-    from Fastapi_Backend import LATEST_REGNSKAP_JOIN, latest_regnskap_join_for_year, normalize_decimal
+    """Henter selskaper innenfor bbox med GeoJSON-format for kartvisning.
 
-    limit = min(limit, 2000)
+    ``limit`` er valgfri: uten verdi (eller med 0/negativ verdi) returneres alle
+    selskaper som treffer filtrene, uten øvre tak på antall kartpunkter.
+    """
+    from Fastapi_Backend import LATEST_REGNSKAP_JOIN, latest_regnskap_join_for_year, normalize_decimal
 
     regnskap_join = (
         latest_regnskap_join_for_year(regnskapsaar)
@@ -2040,7 +2042,10 @@ def get_kart_payload(
     if has_regnskap:
         where.append("r.accounting_year IS NOT NULL")
 
-    params.append(limit)
+    limit_clause = ""
+    if limit is not None and int(limit) > 0:
+        limit_clause = "LIMIT %s"
+        params.append(int(limit))
 
     sql = f"""
         SELECT
@@ -2063,7 +2068,7 @@ def get_kart_payload(
         {regnskap_join}
         WHERE {" AND ".join(where)}
         ORDER BY r.revenue DESC NULLS LAST
-        LIMIT %s
+        {limit_clause}
     """
 
     rows = fetch_all(sql, params)

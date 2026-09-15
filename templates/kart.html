@@ -336,7 +336,7 @@
 
   <button id="btn-sok" onclick="sokSelskaper()">Søk i kartet</button>
 
-  <span id="status">Zoom inn og trykk søk</span>
+  <span id="status">Panorer eller trykk søk</span>
   <span id="status-filtre" style="font-size:12px;color:#7a8096;"></span>
 </div>
 
@@ -382,22 +382,20 @@ const FARGER = {
   gray:   '#7a8096'
 };
 
-function lagDot(farge, size = 9) {
+// Prikkene tegnes på canvas (ikke ett DOM-element per selskap), slik at kartet
+// takler ubegrenset antall selskaper uten at nettleseren henger.
+const punktRenderer = L.canvas({ padding: 0.3 });
+
+function dotStil(farge, size = 9) {
   const dotSize = Math.max(6, Math.min(Number(size) || 9, 22));
-  const border = Math.max(1, dotSize * 0.16);
-  return L.divIcon({
-    className: '',
-    html: `<div style="
-      width:${dotSize}px;height:${dotSize}px;
-      border-radius:50%;
-      background:${FARGER[farge] || FARGER.gray};
-      border:${border}px solid rgba(255,255,255,0.25);
-      box-shadow:0 0 4px ${FARGER[farge]}88;
-    "></div>`,
-    iconSize: [dotSize, dotSize],
-    iconAnchor: [dotSize / 2, dotSize / 2],
-    popupAnchor: [0, -6]
-  });
+  return {
+    renderer: punktRenderer,
+    radius: dotSize / 2,
+    fillColor: FARGER[farge] || FARGER.gray,
+    fillOpacity: 1,
+    color: 'rgba(255,255,255,0.25)',
+    weight: Math.max(1, dotSize * 0.16),
+  };
 }
 
 // ── Formatering ──
@@ -641,28 +639,17 @@ function filterFeaturesLocally(features) {
   });
 }
 
-function renderFeatures(rawFeatures, totalFromServer = null) {
-  const localFilteredFeatures = filterFeaturesLocally(rawFeatures);
-  layer.clearLayers();
-  const colorContext = buildColorContext(localFilteredFeatures);
+// Popup-innholdet bygges først når prikken klikkes. Med ubegrenset antall
+// selskaper i utvalget ville én ferdig HTML-streng per selskap vært dyrt.
+function popupHtml(p) {
+  const detailOrgnr = String(p.parent_orgnr || p.orgnr || '').trim();
+  const isSubunit = Boolean(p.parent_orgnr && p.parent_orgnr !== p.orgnr);
+  const detailHref = detailOrgnr ? `/regnskap/selskap/${encodeURIComponent(detailOrgnr)}` : '#';
+  const resKl = resultatKlasse(p.aarsresultat);
+  const driftsmargin = calcPct(p.driftsresultat, p.driftsinntekter);
+  const nettomargin = calcPct(p.aarsresultat, p.driftsinntekter);
 
-  localFilteredFeatures.forEach(f => {
-    const p   = f.properties;
-    const detailOrgnr = String(p.parent_orgnr || p.orgnr || '').trim();
-    const isSubunit = Boolean(p.parent_orgnr && p.parent_orgnr !== p.orgnr);
-    const detailHref = detailOrgnr ? `/regnskap/selskap/${encodeURIComponent(detailOrgnr)}` : '#';
-    const dotColor = colorForCompany(p, colorContext);
-    const dotSize = sizeForCompany(p);
-    const dot = L.marker(
-      [f.geometry.coordinates[1], f.geometry.coordinates[0]],
-      { icon: lagDot(dotColor, dotSize) }
-    );
-
-    const resKl = resultatKlasse(p.aarsresultat);
-    const driftsmargin = calcPct(p.driftsresultat, p.driftsinntekter);
-    const nettomargin = calcPct(p.aarsresultat, p.driftsinntekter);
-
-    dot.bindPopup(`
+  return `
       <div class="popup-header">${p.navn}</div>
       <div class="popup-orgnr">
         Orgnr: ${p.orgnr} · ${p.orgform}
@@ -710,10 +697,30 @@ function renderFeatures(rawFeatures, totalFromServer = null) {
       <a class="popup-link" href="${detailHref}" target="_blank">
         Åpne selskapsside →
       </a>
-    `, { maxWidth: 280 });
+  `;
+}
 
-    layer.addLayer(dot);
+function renderFeatures(rawFeatures, totalFromServer = null) {
+  const localFilteredFeatures = filterFeaturesLocally(rawFeatures);
+  const colorContext = buildColorContext(localFilteredFeatures);
+
+  const prikker = [];
+  localFilteredFeatures.forEach((f) => {
+    const koord = f?.geometry?.coordinates;
+    if (!Number.isFinite(Number(koord?.[0])) || !Number.isFinite(Number(koord?.[1]))) return;
+    const p = f.properties || {};
+    const dot = L.circleMarker(
+      [Number(koord[1]), Number(koord[0])],
+      dotStil(colorForCompany(p, colorContext), sizeForCompany(p))
+    );
+    dot.bindPopup(() => popupHtml(p), { maxWidth: 280 });
+    prikker.push(dot);
   });
+
+  // Hele laget byttes i én operasjon. Å legge til prikk for prikk i et lag som
+  // allerede ligger på kartet koster en tegnerunde per prikk.
+  map.removeLayer(layer);
+  layer = L.layerGroup(prikker).addTo(map);
 
   const n = localFilteredFeatures.length;
   const serverCount = Number.isFinite(totalFromServer) ? totalFromServer : (Number.isFinite(sistServerCount) ? sistServerCount : (rawFeatures || []).length);
@@ -722,10 +729,6 @@ function renderFeatures(rawFeatures, totalFromServer = null) {
     document.getElementById('status').textContent = localFilteredOut > 0
       ? `Ingen selskaper etter lokale filtre (${localFilteredOut} filtrert bort)`
       : 'Ingen selskaper funnet';
-    return;
-  }
-  if (serverCount >= 2000) {
-    document.getElementById('status').textContent = `${n} vist av ${serverCount}+ (zoom inn for mer presist utvalg)`;
     return;
   }
   document.getElementById('status').textContent = localFilteredOut > 0
@@ -796,15 +799,8 @@ function fitTilFeatures(features) {
 
 async function sokSelskaper() {
   const nasjonalt = harNasjonaltFilter();
-  const zoom = map.getZoom();
 
-  // Zoom-sperren gjelder bare fri utforsking uten filter – ved nasjonalt
-  // søk henter vi hele landet uavhengig av zoom.
-  if (!nasjonalt && zoom < 11) {
-    document.getElementById('status').textContent = 'Zoom inn mer (zoom ≥ 11)';
-    return;
-  }
-
+  // Ingen zoom-sperre: alle selskaper i utsnittet hentes uansett zoom-nivå.
   const now = Date.now();
   if (now - sisteSok < 500) return;
   sisteSok = now;
@@ -837,15 +833,10 @@ async function sokSelskaper() {
     const val = forwardedQuery.get(key);
     if (val !== null && String(val).trim() !== '') params.set(key, val);
   });
-  // Kartvisningen skal ikke arve lav side-limit (f.eks. 100) fra regnskapstabellen.
-  // Nasjonalt søk bruker alltid maks limit så vi ikke kutter treff.
-  const forwardedLimit = Number(forwardedQuery.get('limit'));
-  const effectiveLimit = nasjonalt
-    ? 2000
-    : (Number.isFinite(forwardedLimit)
-        ? Math.min(2000, Math.max(200, Math.round(forwardedLimit)))
-        : 2000);
-  params.set('limit', String(effectiveLimit));
+  // Kartet har ingen øvre grense for antall selskaper: vi sender ingen limit,
+  // og arver heller ikke side-limit (f.eks. 100) fra regnskapstabellen.
+  // Backend tolker manglende limit som «hent alt som treffer filtrene».
+  params.delete('limit');
 
   try {
     const resp = await fetch(`/kart/api/selskaper?${params}`);
@@ -880,7 +871,7 @@ map.on('moveend zoomend', () => {
       // Nasjonale treff er uavhengige av utsnittet – hent bare første gang,
       // slik at panorering/zoom ikke laster på nytt eller rykker kartet.
       if (!nasjonaltAlleredeSokt) sokSelskaper();
-    } else if (map.getZoom() >= 11) {
+    } else {
       sokSelskaper();
     }
   }, 600);

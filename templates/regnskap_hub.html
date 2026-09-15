@@ -1389,7 +1389,8 @@
     apiOpenMapBtn?.addEventListener('click', () => {
         const params = collectSearchParams(true);
         params.delete('offset');
-        params.set('limit', String(Math.max(1, Math.min(Number(params.get('limit') || '500'), 2000))));
+        // Kartet skal vise hele treffsettet, så vi sender ingen limit videre.
+        params.delete('limit');
         window.open(`/kart/?${params.toString()}`, '_blank', 'noopener');
     });
 
