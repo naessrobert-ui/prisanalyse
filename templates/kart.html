@@ -839,8 +839,25 @@ async function sokSelskaper() {
   params.delete('limit');
 
   try {
-    const resp = await fetch(`/kart/api/selskaper?${params}`);
+    const resp = await fetch(`/kart/api/selskaper?${params}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (resp.redirected && new URL(resp.url).pathname === '/login') {
+      throw new Error('Innloggingen er utløpt. Last siden på nytt og logg inn.');
+    }
+    if (!(resp.headers.get('content-type') || '').includes('application/json')) {
+      throw new Error(`Serveren returnerte en feilside (HTTP ${resp.status}). Prøv igjen.`);
+    }
     const data = await resp.json();
+    if (!resp.ok) {
+      const code = data.error_code ? ` – ${data.error_code}` : '';
+      const ref = data.reference ? ` (ref. ${data.reference})` : '';
+      throw new Error(`Kartdata kunne ikke hentes (HTTP ${resp.status})${code}${ref}`);
+    }
+    if (data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+      throw new Error('Serveren returnerte et ugyldig kartdatasvar.');
+    }
     sistHentedeFeatures = Array.isArray(data.features) ? data.features : [];
     sistServerCount = Number(data.count);
     if (!Number.isFinite(sistServerCount)) {
@@ -854,7 +871,7 @@ async function sokSelskaper() {
     }
 
   } catch(e) {
-    document.getElementById('status').textContent = 'Feil ved henting';
+    document.getElementById('status').textContent = e.message || 'Feil ved henting';
     console.error(e);
   } finally {
     btn.disabled = false;
