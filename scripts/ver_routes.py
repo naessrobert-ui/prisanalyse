@@ -1858,8 +1858,9 @@ def _vind_verdict(fc_rows: list, obs_rows: list) -> str:
 
 
 def _build_popup_html(name: str, station_id: str, obs_rows: list, fc_rows: list, hours: int) -> str:
-    max_vind_obs = max((r.get('vind') or 0) for r in obs_rows) or 1
-    max_vind_fc  = max((r.get('vind') or 0) for r in fc_rows) or 1
+    # default=0 slik at tomme lister ikke gir ValueError; `or 1` hindrer divisjon på 0
+    max_vind_obs = max(((r.get('vind') or 0) for r in obs_rows), default=0) or 1
+    max_vind_fc  = max(((r.get('vind') or 0) for r in fc_rows), default=0) or 1
 
     def _vc(v, mx):
         if v is None: return '#64748b'
@@ -1968,7 +1969,17 @@ def vind_popup():
     lon        = request.args.get('lon', type=float)
     name       = request.args.get('name', station_id)
     hours      = request.args.get('hours', 48, type=int)
-    cache_key  = (station_id, mode, hours)
+    # Endepunktet er offentlig, så kall uten brukbare parametere (crawlere o.l.)
+    # skal gi 400 med en forklaring – ikke en tom popup eller en 500.
+    if not station_id and (lat is None or lon is None):
+        from flask import Response as _Resp
+        return _Resp(
+            '<div style="padding:12px;font:12px/1.4 system-ui;color:#475569">'
+            'Mangler parametere: oppgi <code>id</code> (Frost-stasjon) '
+            'og/eller <code>lat</code> + <code>lon</code>.'
+            '</div>',
+            status=400, mimetype='text/html; charset=utf-8')
+    cache_key  = (station_id, mode, hours, lat, lon)
     cached     = _VIND_POPUP_CACHE.get(cache_key)
     if cached and cached[0] > _time.time():
         from flask import Response as _Resp
@@ -1982,7 +1993,10 @@ def vind_popup():
     # Filter obs to whole hours only
     obs_rows = [r for r in obs_rows if r.get('tid','').endswith(':00')]
     html = _build_popup_html(name, station_id, obs_rows, fc_rows, hours)
-    _VIND_POPUP_CACHE[cache_key] = (_time.time() + 1800, html)
+    # Ikke cache et tomt resultat i 30 min – det kan skyldes en forbigående
+    # feil hos Frost/YR, og da får neste kall en ny sjanse.
+    if obs_rows or fc_rows:
+        _VIND_POPUP_CACHE[cache_key] = (_time.time() + 1800, html)
     from flask import Response as _Resp
     return _Resp(html, mimetype='text/html; charset=utf-8')
 
