@@ -1,0 +1,118 @@
+name: Bygg værnormaler
+
+on:
+  schedule:
+    # Normalene er et rullerende vindu fra 1991 til siste hele kalenderår, så
+    # de trenger bare én kjøring i året. 15. januar gir MET tid til å få inn
+    # desember og etterslepende månedsobservasjoner.
+    - cron: "0 4 15 1 *"
+
+  # Manuell trigger fra Actions-fanen — brukes når elementlista eller
+  # normalparametrene i scripts/bygg_vaernormaler.py er endret.
+  workflow_dispatch:
+    inputs:
+      slutt_aar:
+        description: "Siste hele kalenderår (tomt = i fjor)"
+        required: false
+        type: string
+
+permissions:
+  contents: write  # committer data/vaernormaler.parquet + static/data/vaernormaler.json
+
+jobs:
+  bygg-normaler:
+    runs-on: ubuntu-latest
+    # Full kjøring laster ned månedsobservasjoner for ~1500 stasjoner x 35 år
+    # x sju elementer. Taket er satt høyt nok til at en treg dag mot Frost
+    # ikke dreper jobben halvveis.
+    timeout-minutes: 90
+
+    steps:
+      - name: Sjekk ut kildekode
+        uses: actions/checkout@v4
+
+      - name: Sett opp Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Installer avhengigheter
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Bygg normaler fra Frost
+        env:
+          FROST_CLIENT_ID: ${{ secrets.FROST_CLIENT_ID }}
+          FROST_CLIENT_SECRET: ${{ secrets.FROST_CLIENT_SECRET }}
+          # Interpoleres ikke inn i skriptet under: input går via miljøet, så
+          # en dispatch ikke kan smugle inn shell-kommandoer.
+          SLUTT_AAR: ${{ inputs.slutt_aar }}
+          PYTHONIOENCODING: "utf-8"
+          PYTHONUNBUFFERED: "1"
+        run: |
+          if [ -z "$FROST_CLIENT_ID" ]; then
+            echo "::error::Mangler repo-secret FROST_CLIENT_ID. Legg den inn under Settings -> Secrets and variables -> Actions (nøkkelen fås gratis på https://frost.met.no/auth/requestCredentials.html)."
+            exit 1
+          fi
+          if [ -n "$SLUTT_AAR" ]; then
+            case "$SLUTT_AAR" in
+              [0-9][0-9][0-9][0-9]) ;;
+              *) echo "::error::slutt_aar må være fire siffer, fikk '$SLUTT_AAR'."; exit 1 ;;
+            esac
+            python -m scripts.bygg_vaernormaler --slutt-aar "$SLUTT_AAR"
+          else
+            python -m scripts.bygg_vaernormaler
+          fi
+
+      - name: Oppsummer dekning per element
+        # Leser fila som faktisk ble skrevet, og legger tabellen i
+        # kjøringssammendraget slik at dekningen kan leses uten å grave i
+        # loggen. Stopper også en åpenbart amputert fil fra å bli committet:
+        # normalt ligger datasettet på 1200+ stasjoner, så under 500 betyr at
+        # noe gikk galt mot Frost - da er den gamle fila bedre enn den nye.
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          data = json.loads(pathlib.Path("static/data/vaernormaler.json").read_text(encoding="utf-8"))
+          stasjoner = data["stasjoner"]
+          felter = ["nedbor", "nedbordager", "temp", "tmax", "tmin", "vind", "vindkast"]
+          linjer = [
+              f"### Værnormaler {data['periode'][0]}–{data['periode'][1]}",
+              "",
+              f"{len(stasjoner)} stasjoner totalt, oppdatert {data['oppdatert']}.",
+              "",
+              "| Element | Stasjoner med normal |",
+              "| --- | --- |",
+          ]
+          for felt in felter:
+              antall = sum(1 for s in stasjoner if felt in s)
+              linjer.append(f"| {felt} | {antall} |")
+
+          sammendrag = os.environ.get("GITHUB_STEP_SUMMARY")
+          if sammendrag:
+              with open(sammendrag, "a", encoding="utf-8") as fil:
+                  fil.write("\n".join(linjer) + "\n")
+          print("\n".join(linjer))
+
+          if len(stasjoner) < 500:
+              raise SystemExit(f"Bare {len(stasjoner)} stasjoner i fila - committer ikke.")
+          PY
+
+      - name: Commit oppdaterte normaler
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/vaernormaler.parquet static/data/vaernormaler.json
+          if git diff --cached --quiet; then
+            echo "Ingen endringer i normalene."
+          else
+            git commit -m "Oppdater værnormaler ($(date -u +%Y-%m-%d))"
+            git push
+          fi
