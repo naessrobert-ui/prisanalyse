@@ -380,7 +380,7 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
           <span class="kort-badge b-lilla">Nytt</span>
         </div>
         <div class="kort-tittel">Værnormaler på kart</div>
-        <div class="kort-tekst">Årsnedbør, nedbørdager og månedsnormaler for temperatur – rundt 900 stasjoner. Zoom inn for rangering, eller filtrer til kun byer.</div>
+        <div class="kort-tekst">Årsnedbør, nedbørdager, vind og månedsnormaler for temperatur – rundt 900 stasjoner. Zoom inn for rangering, eller filtrer til kun byer.</div>
         <div class="kort-lenke">Åpne</div>
       </a>
 
