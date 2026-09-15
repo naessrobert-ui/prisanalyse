@@ -235,21 +235,51 @@
       // at grønt for frost ville lest som feil.
       const RAMPE_TEMP = ["#4a5fa8", "#7d9fd0", "#b9d4e8", "#f3f0e4", "#f6cf9a", "#e89154", "#c1441f"];
 
+      /**
+       * Vind: lys grønn (stille) til mørk blågrønn (mest vind).
+       *
+       * Egen ramp, ikke gjenbruk av nedbør eller temperatur - to kart med
+       * samme farger inviterer til å lese det ene som det andre, og «rødt =
+       * mye» er allerede opptatt av nedbør. Lysheten synker jevnt her også,
+       * så styrken kan leses uten farger i det hele tatt.
+       */
+      const RAMPE_VIND = ["#edf8f2", "#cdeadd", "#9fd8c4", "#6fc0ab",
+                          "#45a08f", "#2b7a74", "#1b4f55"];
+
       // Hver metrikk peker på et felt i JSON-en. `maanedlig` styrer om
       // måned-velgeren har noe å si.
       // `hoy` og `lav` er hva ytterpunktene heter for denne metrikken, brukt i
       // tre-klasse-forklaringen. «Våtest» gir ingen mening for temperatur.
+      // `aarsnavn` er hva «måned = 0» betyr: nedbør summeres over året,
+      // temperatur og middelvind midles, og vindkastnormalen er den verste
+      // måneden - se aarsverdier() i scripts/bygg_vaernormaler.py.
+      // `fotnote` henges på forklaringen for metrikker som trenger forbehold.
       const METRIKKER = {
         nedbor: { navn: "Nedbør", felt: "nedbor", enhet: "mm", rampe: RAMPE_NEDBOR,
-                  desimaler: 0, hoy: "Våtest", lav: "Tørrest", skaler: true },
+                  desimaler: 0, hoy: "Våtest", lav: "Tørrest", skaler: true,
+                  aarsnavn: "hele året" },
         nedbordager: { navn: "Nedbørdager ≥1 mm", felt: "nedbordager", enhet: "dager",
-                  rampe: RAMPE_NEDBOR, desimaler: 0, hoy: "Våtest", lav: "Tørrest", skaler: true },
+                  rampe: RAMPE_NEDBOR, desimaler: 0, hoy: "Våtest", lav: "Tørrest", skaler: true,
+                  aarsnavn: "hele året" },
         temp: { navn: "Middeltemperatur", felt: "temp", enhet: "°C", rampe: RAMPE_TEMP,
-                  desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false },
+                  desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false,
+                  aarsnavn: "årssnitt" },
         tmax: { navn: "Døgnmaks", felt: "tmax", enhet: "°C", rampe: RAMPE_TEMP,
-                  desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false },
+                  desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false,
+                  aarsnavn: "årssnitt" },
         tmin: { navn: "Døgnmin", felt: "tmin", enhet: "°C", rampe: RAMPE_TEMP,
-                  desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false },
+                  desimaler: 1, hoy: "Varmest", lav: "Kaldest", skaler: false,
+                  aarsnavn: "årssnitt" },
+        vind: { navn: "Middelvind", felt: "vind", enhet: "m/s", rampe: RAMPE_VIND,
+                  desimaler: 1, hoy: "Mest vind", lav: "Minst vind", skaler: true,
+                  aarsnavn: "årssnitt",
+                  fotnote: "Vind måles i 10 m mast der terrenget tillater det – "
+                         + "eksponering og mastehøyde varierer, så nabostasjoner kan skille mye" },
+        vindkast: { navn: "Vindkast (månedsmaks)", felt: "vindkast", enhet: "m/s",
+                  rampe: RAMPE_VIND, desimaler: 1, hoy: "Kraftigst", lav: "Svakest", skaler: true,
+                  aarsnavn: "verste måned",
+                  fotnote: "Snittet av det sterkeste kastet hver måned – ikke rekorden. "
+                         + "Årstallet er den verste måneden, normalt januar" },
       };
 
       // Tre-klasse-paletten: rød mot blå. Her er det ingen rekkefølge å lese
@@ -436,13 +466,14 @@
 
       function popupHtml(st) {
         const m = aktivMetrikk();
-        const kolonner = ["nedbor", "nedbordager", "temp", "tmax", "tmin"]
+        const kolonner = ["nedbor", "nedbordager", "temp", "tmax", "tmin", "vind", "vindkast"]
           .filter((f) => st[f]);
         const overskrift = {
           nedbor: "mm", nedbordager: "dag ≥1mm", temp: "snitt °C",
-          tmax: "maks °C", tmin: "min °C",
+          tmax: "maks °C", tmin: "min °C", vind: "vind m/s", vindkast: "kast m/s",
         };
-        const des = { nedbor: 0, nedbordager: 1, temp: 1, tmax: 1, tmin: 1 };
+        const des = { nedbor: 0, nedbordager: 1, temp: 1, tmax: 1, tmin: 1,
+                      vind: 1, vindkast: 1 };
 
         let rader = "";
         for (let i = 0; i < 12; i++) {
@@ -531,7 +562,7 @@
             mark = L.circleMarker([st.lat, st.lon], {
               weight: 1, color: "#334155", opacity: 0.55, fillOpacity: 0.9,
             });
-            mark.on("click", () => mark.bindPopup(popupHtml(st), { maxWidth: 380 }).openPopup());
+            mark.on("click", () => mark.bindPopup(popupHtml(st), { maxWidth: 440 }).openPopup());
             lag.set(st.id, mark);
             mark.addTo(kart);
           } else if (!kart.hasLayer(mark)) {
@@ -584,9 +615,7 @@
             "<span>" + navn + "</span><b>" + tall + "</b></div>").join("");
           forklaring._div.innerHTML =
             "<strong>" + tittelTekst() + " (" + m.enhet + ")</strong>" +
-            "<div class='klasser'>" + rader + "</div>" +
-            "<div class='fotnote'>Blek prikk = under " + ANBEFALT + " år med data" +
-            (skalerStorrelse() ? " · størrelse følger verdi" : "") + "</div>";
+            "<div class='klasser'>" + rader + "</div>" + fotnote();
           return;
         }
 
@@ -605,16 +634,21 @@
 
         forklaring._div.innerHTML =
           "<strong>" + tittelTekst() + " (" + m.enhet + ")</strong>" +
-          "<div class='bitter'>" + kolonner + "</div>" +
-          "<div class='fotnote'>Blek prikk = under " + ANBEFALT + " år med data" +
-          (skalerStorrelse() ? " · størrelse følger verdi" : "") + "</div>";
+          "<div class='bitter'>" + kolonner + "</div>" + fotnote();
+      }
+
+      /** Fotnoten under forklaringen, lik for begge fargemodusene. */
+      function fotnote() {
+        const m = aktivMetrikk();
+        return "<div class='fotnote'>Blek prikk = under " + ANBEFALT + " år med data" +
+          (skalerStorrelse() ? " · størrelse følger verdi" : "") +
+          (m.fotnote ? "<br>" + m.fotnote : "") + "</div>";
       }
 
       function tittelTekst() {
         const m = aktivMetrikk();
         const mnd = aktivMaaned();
-        const nar = mnd ? MAANEDER[mnd - 1] : (m.felt === "nedbor" || m.felt === "nedbordager"
-          ? "hele året" : "årssnitt");
+        const nar = mnd ? MAANEDER[mnd - 1] : (m.aarsnavn || "årssnitt");
         return m.navn + " – " + nar;
       }
 
@@ -675,7 +709,7 @@
         const mark = lag.get(rad.dataset.id);
         if (!mark) return;
         kart.setView(mark.getLatLng(), Math.max(kart.getZoom(), 9));
-        mark.bindPopup(popupHtml(mark.stasjon), { maxWidth: 380 }).openPopup();
+        mark.bindPopup(popupHtml(mark.stasjon), { maxWidth: 440 }).openPopup();
       });
 
       // ---------------------------------------------------------------

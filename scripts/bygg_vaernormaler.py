@@ -21,8 +21,21 @@ langt flere stasjoner. Vi henter disse og regner normalene selv:
     mean(air_temperature P1M)                                  ~1028 stasjoner
     mean(max(air_temperature P1D) P1M)                          ~646 stasjoner
     mean(min(air_temperature P1D) P1M)                          ~672 stasjoner
+    mean(wind_speed P1M)                                       se VIND_KANDIDATER
+    max(wind_speed_of_gust P1M)                                se VIND_KANDIDATER
 
 (tallene er stasjoner med minst 10 års dekning)
+
+Vind
+----
+Vindnormaler er ikke like sammenlignbare som temperatur og nedbør, og bør
+leses med det i bakhodet: målingene henger tett sammen med mastehøyde (10 m
+er standarden, men langt fra alle følger den), le og eksponering på stedet,
+og med instrumentbytter - overgangen fra kopp- til ultralydsensor gir hopp i
+serien. To stasjoner få kilometer fra hverandre kan derfor skille mye på
+middelvind uten at klimaet skiller tilsvarende. Derfor er kartteksten
+forsiktig formulert, og stasjonens serielengde vises som for de andre
+elementene.
 
 Normalperiode
 -------------
@@ -86,8 +99,43 @@ KORTNAVN = {
     EL_TMIN: "tmin",
 }
 
+# Vind. To normaler, fordi de svarer på hvert sitt spørsmål:
+#
+#   vind      - middelvind, altså hvor luftig stedet er til vanlig. Dette er
+#               den egentlige klimanormalen for vind, og den som lar seg
+#               sammenligne mellom steder på samme måte som temperatur.
+#   vindkast  - månedens sterkeste kast, midlet over årene: «hvor ille blir
+#               det en vanlig januar her». Et *snitt* av alle kast ville vært
+#               meningsløst - kast er per definisjon ytterpunkter.
+#
+# De månedsaggregerte vindelementene er dårligere dokumentert enn nedbør og
+# temperatur, og hvilke varianter Frost faktisk fører er ikke opplagt. Derfor
+# listes kandidater i prioritert rekkefølge, og ``velg_vindelementer``
+# beholder den første Frost svarer på. Uten den sjekken ville ett elementnavn
+# Frost ikke kjenner gitt 400 på *hele* observasjonskallet og drept
+# kjøringen - også for de fem elementene som virker.
+VIND_KANDIDATER = {
+    "vind": [
+        "mean(wind_speed P1M)",
+        "mean(mean(wind_speed P1D) P1M)",
+    ],
+    "vindkast": [
+        "max(wind_speed_of_gust P1M)",
+        "max(max(wind_speed_of_gust PT1H) P1M)",
+        "max(max(wind_speed_of_gust P1D) P1M)",
+    ],
+}
+
 # Elementer der årsverdien er summen av månedene, ikke snittet.
 SUMMERES = {"nedbor", "nedbordager"}
+
+# Elementer der årsverdien er den høyeste måneden. For vindkast er hverken
+# sum eller snitt et tall noen kan bruke: årsnormalen er kastet i den verste
+# måneden - typisk januar. (Strengt tatt er det gjennomsnittet av månedsmaks
+# for den måneden, ikke gjennomsnittet av årsmaks, som ligger litt høyere
+# fordi den verste måneden varierer fra år til år. Forskjellen er små
+# prosenter, og denne varianten faller ut av samme pipeline som resten.)
+MAKSIMERES = {"vindkast"}
 
 # --- Parametre -------------------------------------------------------------
 START_AAR = 1991
@@ -98,7 +146,10 @@ START_AAR = 1991
 # et krav på 10. Stasjoner under ANBEFALT_AAR tegnes med hul ring i kartet.
 MIN_AAR = 5
 ANBEFALT_AAR = 10
-BATCH = 20          # stasjoner per Frost-kall (målt: 20 st. x 35 år ~ 17 MB)
+# Stasjoner per Frost-kall. Målt til ~17 MB for 20 stasjoner x 35 år med fem
+# elementer; med vind er det sju, så batchen er satt ned tilsvarende for å
+# holde svarene på samme størrelse.
+BATCH = 15
 WORKERS = 5
 MAKS_FORSOK = 5
 
@@ -154,6 +205,39 @@ def _parse_tid(verdi: Optional[str]) -> Optional[datetime]:
         return datetime.fromisoformat(verdi.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+# ===========================================================================
+# 0. Velg vindelementer
+# ===========================================================================
+
+def velg_vindelementer(session: requests.Session, auth) -> None:
+    """Legg til de vindelementene Frost faktisk tilbyr i ``ELEMENTER``.
+
+    Prøver kandidatene i ``VIND_KANDIDATER`` i rekkefølge og beholder den
+    første som gir treff. Et element Frost ikke kjenner gir 400, og et som
+    ingen stasjon rapporterer gir tom liste - begge deler hoppes over med en
+    linje i loggen, slik at resten av kjøringen går som før.
+    """
+    for kort, kandidater in VIND_KANDIDATER.items():
+        for element in kandidater:
+            try:
+                data = _get(session, "/observations/availableTimeSeries/v0.jsonld",
+                            {"elements": element}, auth).get("data", [])
+            except RuntimeError as exc:
+                print(f"  {kort:12s} ikke tilgjengelig: {element} ({exc})")
+                continue
+            stasjoner = {str(r.get("sourceId", "")).split(":")[0] for r in data}
+            stasjoner.discard("")
+            if not stasjoner:
+                print(f"  {kort:12s} ingen stasjoner: {element}")
+                continue
+            ELEMENTER.append(element)
+            KORTNAVN[element] = kort
+            print(f"  {kort:12s} bruker {element} ({len(stasjoner)} stasjoner)")
+            break
+        else:
+            print(f"  {kort:12s} droppes - ingen av kandidatene finnes i Frost")
 
 
 # ===========================================================================
@@ -356,18 +440,21 @@ def regn_normaler(obs: pd.DataFrame) -> pd.DataFrame:
 
 
 def aarsverdier(normaler: pd.DataFrame) -> pd.DataFrame:
-    """Årsnormal: sum for nedbør og nedbørdager, snitt for temperatur.
+    """Årsnormal: sum for nedbør og nedbørdager, maks for vindkast, ellers snitt.
 
     ``regn_normaler`` garanterer allerede at alle 12 månedene er til stede.
     """
     if normaler.empty:
         return pd.DataFrame()
 
-    sum_del = (normaler[normaler["element"].isin(SUMMERES)]
-               .groupby(["stasjon", "element"])["verdi"].sum())
-    snitt_del = (normaler[~normaler["element"].isin(SUMMERES)]
+    er_sum = normaler["element"].isin(SUMMERES)
+    er_maks = normaler["element"].isin(MAKSIMERES)
+
+    sum_del = normaler[er_sum].groupby(["stasjon", "element"])["verdi"].sum()
+    maks_del = normaler[er_maks].groupby(["stasjon", "element"])["verdi"].max()
+    snitt_del = (normaler[~er_sum & ~er_maks]
                  .groupby(["stasjon", "element"])["verdi"].mean())
-    aar = pd.concat([sum_del, snitt_del]).rename("verdi").reset_index()
+    aar = pd.concat([sum_del, maks_del, snitt_del]).rename("verdi").reset_index()
     aar["maaned"] = 0  # 0 = årsverdi
 
     meta = normaler[["stasjon", "element", "n_aar", "fra", "til"]].drop_duplicates()
@@ -466,7 +553,12 @@ def bygg_json(normaler: pd.DataFrame, stasjoner: dict[str, dict],
 
     Månedsverdiene ligger som lister med 12 tall (jan..des) slik at JSON-en
     holder seg liten. null betyr at måneden mangler.
+
+    Elementene leses ut av tabellen, ikke av ``KORTNAVN``. Ellers ville
+    ``--fra-parquet`` tape vindkolonnene, siden vindelementene bare føres inn
+    i ``KORTNAVN`` av ``velg_vindelementer`` under en full kjøring.
     """
+    elementer = sorted(normaler["element"].unique())
     mnd_kart: dict[tuple[str, str], list[Optional[float]]] = {}
     meta_kart: dict[tuple[str, str], tuple[int, int, int]] = {}
     for (sid, el), del_df in normaler[normaler["maaned"] > 0].groupby(["stasjon", "element"]):
@@ -497,7 +589,7 @@ def bygg_json(normaler: pd.DataFrame, stasjoner: dict[str, dict],
         }
         if st.get("til"):
             post["nedlagt"] = st["til"]
-        for el in KORTNAVN.values():
+        for el in elementer:
             serie = mnd_kart.get((sid, el))
             if serie is None:
                 continue
@@ -549,6 +641,9 @@ def main() -> int:
 
     print(f"Normalvindu {START_AAR}-{slutt_aar}, krever {MIN_AAR} aar per maaned.")
     with requests.Session() as s:
+        print("Sjekker hvilke vindelementer Frost tilbyr...")
+        velg_vindelementer(s, auth)
+
         print("Finner kandidatstasjoner...")
         kandidater = finn_kandidater(s, auth, slutt_aar)
         print(f"  -> {len(kandidater)} unike kandidater")
@@ -575,7 +670,7 @@ def main() -> int:
         return 1
     full = pd.concat([normaler, aarsverdier(normaler)], ignore_index=True)
 
-    for kort in KORTNAVN.values():
+    for kort in sorted(full["element"].unique()):
         n = full[(full["element"] == kort) & (full["maaned"] == 0)]["stasjon"].nunique()
         print(f"  {kort:12s} {n:5d} stasjoner med normal")
 
@@ -593,7 +688,7 @@ def _skriv_json(full: pd.DataFrame, stasjoner: dict[str, dict], slutt_aar: int) 
     aar_per_element = {
         kort: (full[full["element"] == kort]
                .groupby("stasjon")["n_aar"].max().astype(int).to_dict())
-        for kort in KORTNAVN.values()
+        for kort in sorted(full["element"].unique())
     }
     byer = koble_byer(stasjoner, aar_per_element)
     dekket = {info["navn"] for per_el in byer.values() for info in per_el.values()}
