@@ -1123,8 +1123,10 @@
     async function parseMaybeJson(res) {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) return await res.json();
-        const text = await res.text();
-        return { detail: text.slice(0, 200) || 'Ugyldig svarformat.' };
+        if (res.redirected && new URL(res.url).pathname === '/login') {
+            throw new Error('Innloggingen er utløpt. Last siden på nytt og logg inn igjen.');
+        }
+        throw new Error('Datatjenesten returnerte en nettside i stedet for regnskapsdata. Prøv igjen om litt.');
     }
 
     function renderNaeringskodeSuggestionList(suggestions) {

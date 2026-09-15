@@ -1346,6 +1346,17 @@ def proxy_analysis_api(path: str, params: dict[str, Any] | None = None):
                 return local_response
             continue
 
+        # A proxy/login/challenge page is not an API response, even with HTTP 200.
+        # Use the existing local data path rather than forwarding HTML to clients.
+        try:
+            json.loads(resp.text)
+        except (ValueError, TypeError):
+            last_error = f"{base_url}: Ugyldig JSON-svar (HTTP {resp.status_code})"
+            local_response = _proxy_analysis_api_locally(path, params)
+            if local_response is not None:
+                return local_response
+            continue
+
         if resp.status_code >= 500:
             local_response = _proxy_analysis_api_locally(path, params)
             if local_response is not None:
