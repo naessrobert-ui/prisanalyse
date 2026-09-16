@@ -19,6 +19,7 @@ import json
 import os
 import re
 import time
+import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -28,7 +29,16 @@ from xml.etree import ElementTree as ET
 import requests
 import urllib3
 from bs4 import BeautifulSoup
-from flask import Blueprint, jsonify, make_response, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    jsonify,
+    make_response,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -1323,7 +1333,46 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
     response.headers["X-Analysis-API-Base"] = "local-compat"
     return response
 
+def safe_api_error_response(exc: BaseException, detail: str, *, status: int = 500):
+    """Gjør en uventet feil om til et JSON-svar klienten kan vise.
+
+    Uten dette bobler f.eks. HTTPException fra datalaget (``DB error: ...``) helt
+    ut av Flask, og nettleseren får HTML-feilsiden – som bare kan vises som
+    «datatjenesten returnerte en nettside». Referansen knytter meldingen i
+    nettleseren til stakksporet i serverloggen, og vi sender aldri SQL,
+    tilkoblingsstrenger eller andre databasedetaljer videre: bare navnet på
+    unntaksklassen, som er nok til å skille tidsavbrudd fra nedetid.
+    """
+    reference = uuid.uuid4().hex[:12]
+    try:
+        current_app.logger.exception("Analysis-API feilet, referanse %s", reference)
+    except Exception:
+        pass
+
+    error_code = type(exc).__name__
+    raw_detail = getattr(exc, "detail", "")
+    match = re.match(r"DB error: ([A-Za-z][A-Za-z0-9_]*)\(", raw_detail if isinstance(raw_detail, str) else "")
+    if match:
+        error_code = match.group(1)
+
+    return jsonify({
+        "detail": detail,
+        "error_code": error_code,
+        "reference": reference,
+    }), status
+
+
 def proxy_analysis_api(path: str, params: dict[str, Any] | None = None):
+    try:
+        return _proxy_analysis_api(path, params)
+    except Exception as exc:
+        return safe_api_error_response(
+            exc,
+            "Serveren klarte ikke å hente regnskapsdata fra databasen.",
+        )
+
+
+def _proxy_analysis_api(path: str, params: dict[str, Any] | None = None):
     if not (os.environ.get("ANALYSIS_API_URL") or "").strip():
         local_response = _proxy_analysis_api_locally(path, params)
         if local_response is not None:

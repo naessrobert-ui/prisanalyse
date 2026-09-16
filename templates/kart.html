@@ -797,6 +797,11 @@ function fitTilFeatures(features) {
   map.fitBounds(L.latLngBounds(punkter), { padding: [40, 40], maxZoom: 13 });
 }
 
+// Panorering utløser nye søk, og uten grense på antall selskaper er hvert søk
+// tungt for serveren. Forrige søk avbrytes derfor når et nytt starter, slik at
+// bare utsnittet brukeren faktisk ser holder en spørring i gang.
+let aktivtSok = null;
+
 async function sokSelskaper() {
   const nasjonalt = harNasjonaltFilter();
 
@@ -804,6 +809,10 @@ async function sokSelskaper() {
   const now = Date.now();
   if (now - sisteSok < 500) return;
   sisteSok = now;
+
+  if (aktivtSok) aktivtSok.abort();
+  const sok = new AbortController();
+  aktivtSok = sok;
 
   const btn = document.getElementById('btn-sok');
   btn.disabled = true;
@@ -842,6 +851,7 @@ async function sokSelskaper() {
     const resp = await fetch(`/kart/api/selskaper?${params}`, {
       headers: { Accept: 'application/json' },
       cache: 'no-store',
+      signal: sok.signal,
     });
     if (resp.redirected && new URL(resp.url).pathname === '/login') {
       throw new Error('Innloggingen er utløpt. Last siden på nytt og logg inn.');
@@ -871,11 +881,17 @@ async function sokSelskaper() {
     }
 
   } catch(e) {
+    // Et avbrutt søk er erstattet av et nyere – da skal status og knapp stå
+    // som det nye søket satte dem, ikke overskrives med en feilmelding.
+    if (e.name === 'AbortError') return;
     document.getElementById('status').textContent = e.message || 'Feil ved henting';
     console.error(e);
   } finally {
-    btn.disabled = false;
-    document.getElementById('loading').style.display = 'none';
+    if (aktivtSok === sok) {
+      aktivtSok = null;
+      btn.disabled = false;
+      document.getElementById('loading').style.display = 'none';
+    }
   }
 }
 

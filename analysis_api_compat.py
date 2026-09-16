@@ -43,6 +43,8 @@ _SECTOR_BREAKDOWN_CACHE_STALE_SECONDS = max(
     int(os.getenv("SECTOR_BREAKDOWN_CACHE_STALE_SECONDS", str(37 * 24 * 60 * 60))),
 )
 _SECTOR_BREAKDOWN_CACHE_MAX_SIZE = 256
+# Tak på hvor lenge databasen får bruke på et kartuttrekk (0 = ingen grense).
+_KART_STATEMENT_TIMEOUT_MS = max(0, int(os.getenv("KART_STATEMENT_TIMEOUT_MS", "60000")))
 _sector_breakdown_cache: dict[tuple[Any, ...], tuple[float, float, dict[str, Any]]] = {}
 _sector_breakdown_refreshing: set[tuple[Any, ...]] = set()
 _sector_breakdown_cache_lock = threading.Lock()
@@ -2071,7 +2073,11 @@ def get_kart_payload(
         {limit_clause}
     """
 
-    rows = fetch_all(sql, params)
+    # Kartsøket har ingen øvre grense på antall selskaper, så et bredt utsnitt
+    # uten filtre kan bli en svært tung spørring. Tidsavbruddet gjør at en slik
+    # spørring blir kansellert i stedet for å holde DB-tilkoblingen og en tråd i
+    # web-prosessen opptatt i minutter – ellers rammer den også andre kall.
+    rows = fetch_all(sql, params, statement_timeout_ms=_KART_STATEMENT_TIMEOUT_MS)
 
     def farge(row):
         rev = row.get("driftsinntekter")

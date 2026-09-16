@@ -332,10 +332,27 @@ def get_conn() -> psycopg.Connection:
     )
 
 
-def fetch_all(sql: str, params: list[Any] | tuple[Any, ...]) -> list[dict[str, Any]]:
+def fetch_all(
+    sql: str,
+    params: list[Any] | tuple[Any, ...],
+    *,
+    statement_timeout_ms: int | None = None,
+) -> list[dict[str, Any]]:
+    """Kjører en spørring og returnerer alle radene.
+
+    ``statement_timeout_ms`` setter et tak på hvor lenge databasen får bruke på
+    spørringen (lokalt i transaksjonen). Brukes for ubegrensede uttrekk, der en
+    spørring ellers kan holde både en DB-tilkobling og en av web-prosessens
+    tråder opptatt i minutter.
+    """
     try:
         with get_conn() as conn:
             with conn.cursor() as cur:
+                if statement_timeout_ms and int(statement_timeout_ms) > 0:
+                    cur.execute(
+                        "SELECT set_config('statement_timeout', %s, true)",
+                        [str(int(statement_timeout_ms))],
+                    )
                 print("SQL:", sql)
                 print("PARAMS:", params)
                 cur.execute(sql, params)
