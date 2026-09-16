@@ -1126,7 +1126,9 @@
         if (res.redirected && new URL(res.url).pathname === '/login') {
             throw new Error('Innloggingen er utløpt. Last siden på nytt og logg inn igjen.');
         }
-        throw new Error('Datatjenesten returnerte en nettside i stedet for regnskapsdata. Prøv igjen om litt.');
+        // HTTP-koden skiller en feilside fra appen (500) fra en feilside foran
+        // den (502/504 = prosessen svarte ikke) – det avgjør hvor feilen ligger.
+        throw new Error(`Datatjenesten returnerte en nettside i stedet for regnskapsdata (HTTP ${res.status}). Prøv igjen om litt.`);
     }
 
     function renderNaeringskodeSuggestionList(suggestions) {
@@ -1338,7 +1340,12 @@
             const res = await fetch(`/regnskap/api/companies/filter?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
             const data = await parseMaybeJson(res);
             if (!res.ok) {
-                apiStatus.textContent = `❌ Søket feilet: ${data.detail || res.statusText}`;
+                // error_code/reference kommer fra serveren ved uventede feil, og er
+                // det eneste sporet vi kan lese av i nettleseren når noe feiler i
+                // databasen. Vis dem, slik at feilen kan spores i serverloggen.
+                const code = data.error_code ? ` – ${data.error_code}` : '';
+                const ref = data.reference ? ` (ref. ${data.reference})` : '';
+                apiStatus.textContent = `❌ Søket feilet: ${data.detail || res.statusText}${code}${ref}`;
                 return;
             }
 

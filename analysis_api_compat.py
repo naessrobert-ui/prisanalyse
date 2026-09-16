@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import os
 import re
 import threading
@@ -43,6 +44,12 @@ _SECTOR_BREAKDOWN_CACHE_STALE_SECONDS = max(
     int(os.getenv("SECTOR_BREAKDOWN_CACHE_STALE_SECONDS", str(37 * 24 * 60 * 60))),
 )
 _SECTOR_BREAKDOWN_CACHE_MAX_SIZE = 256
+# Tak på hvor lenge databasen får bruke på et kartuttrekk (0 = ingen grense).
+_KART_STATEMENT_TIMEOUT_MS = max(0, int(os.getenv("KART_STATEMENT_TIMEOUT_MS", "60000")))
+# Over dette antallet treff sendes klynger i stedet for enkeltselskaper. Ingen
+# selskaper faller utenfor – de aggregeres, og enkeltselskapene kommer fram når
+# man zoomer inn nok til at utsnittet har færre treff enn grensen.
+_KART_DETALJ_GRENSE = max(1, int(os.getenv("KART_DETALJ_GRENSE", "20000")))
 _sector_breakdown_cache: dict[tuple[Any, ...], tuple[float, float, dict[str, Any]]] = {}
 _sector_breakdown_refreshing: set[tuple[Any, ...]] = set()
 _sector_breakdown_cache_lock = threading.Lock()
@@ -1981,11 +1988,18 @@ def get_kart_payload(
     has_regnskap: bool = False,
     regnskapsaar: int | None = None,
     limit: int | None = None,
+    zoom: float | None = None,
 ) -> dict[str, Any]:
     """Henter selskaper innenfor bbox med GeoJSON-format for kartvisning.
 
     ``limit`` er valgfri: uten verdi (eller med 0/negativ verdi) returneres alle
     selskaper som treffer filtrene, uten øvre tak på antall kartpunkter.
+
+    Er treffsettet større enn ``_KART_DETALJ_GRENSE`` returneres klynger i
+    stedet for enkeltselskaper: hvert treff er fortsatt med i tallene, men
+    aggregert per rutenettcelle for ``zoom``, slik at svaret holder seg lite
+    nok å sende og tegne. ``mode`` i svaret sier hva som ble returnert, og
+    ``total`` hvor mange selskaper klyngene dekker.
     """
     from Fastapi_Backend import LATEST_REGNSKAP_JOIN, latest_regnskap_join_for_year, normalize_decimal
 
@@ -2042,8 +2056,33 @@ def get_kart_payload(
     if has_regnskap:
         where.append("r.accounting_year IS NOT NULL")
 
+    where_sql = " AND ".join(where)
+    where_params = list(params)
+
+    # Tell først. En COUNT over samme filtre er langt billigere enn å hente alle
+    # radene, og avgjør om utsnittet kan tegnes som enkeltselskaper i det hele
+    # tatt. Uten dette ble et bredt utsnitt et uttrekk av hele datasettet.
+    total_row = fetch_one(
+        f"SELECT COUNT(*)::int AS n FROM entity e {regnskap_join} WHERE {where_sql}",
+        where_params,
+        statement_timeout_ms=_KART_STATEMENT_TIMEOUT_MS,
+    ) or {}
+    total = int(total_row.get("n") or 0)
+
+    explicit_limit = limit is not None and int(limit) > 0
+    if total > _KART_DETALJ_GRENSE and not explicit_limit:
+        return _kart_klynge_payload(
+            regnskap_join=regnskap_join,
+            where_sql=where_sql,
+            where_params=where_params,
+            total=total,
+            zoom=zoom,
+            north=north,
+            south=south,
+        )
+
     limit_clause = ""
-    if limit is not None and int(limit) > 0:
+    if explicit_limit:
         limit_clause = "LIMIT %s"
         params.append(int(limit))
 
@@ -2071,7 +2110,11 @@ def get_kart_payload(
         {limit_clause}
     """
 
-    rows = fetch_all(sql, params)
+    # Kartsøket har ingen øvre grense på antall selskaper, så et bredt utsnitt
+    # uten filtre kan bli en svært tung spørring. Tidsavbruddet gjør at en slik
+    # spørring blir kansellert i stedet for å holde DB-tilkoblingen og en tråd i
+    # web-prosessen opptatt i minutter – ellers rammer den også andre kall.
+    rows = fetch_all(sql, params, statement_timeout_ms=_KART_STATEMENT_TIMEOUT_MS)
 
     def farge(row):
         rev = row.get("driftsinntekter")
@@ -2100,6 +2143,88 @@ def get_kart_payload(
 
     return {
         "type": "FeatureCollection",
+        "mode": "punkter",
         "features": features,
         "count": len(features),
+        "total": total,
+    }
+
+
+def _kart_cellestorrelse(zoom: float | None, *, north: float, south: float) -> tuple[float, float]:
+    """Rutenettets cellestørrelse i grader for gitt zoom-nivå.
+
+    Lengdegrader deles i fire celler per flis, så antall klynger på skjermen er
+    omtrent det samme uansett zoom. Breddegrad-cellen skaleres med cos(bredde),
+    fordi en breddegrad dekker flere skjermpiksler enn en lengdegrad i Norge –
+    uten det blir cellene dobbelt så høye som de er brede.
+    """
+    try:
+        z = float(zoom)
+    except (TypeError, ValueError):
+        z = 5.0
+    z = max(0.0, min(z, 20.0))
+
+    lon_cell = 360.0 / ((2.0 ** z) * 4.0)
+    senter_lat = max(-85.0, min(85.0, (float(north) + float(south)) / 2.0))
+    lat_cell = lon_cell * max(0.15, math.cos(math.radians(senter_lat)))
+    return lon_cell, lat_cell
+
+
+def _kart_klynge_payload(
+    *,
+    regnskap_join: str,
+    where_sql: str,
+    where_params: list[Any],
+    total: int,
+    zoom: float | None,
+    north: float,
+    south: float,
+) -> dict[str, Any]:
+    """Aggregerer treffsettet til klynger per rutenettcelle."""
+    lon_cell, lat_cell = _kart_cellestorrelse(zoom, north=north, south=south)
+
+    sql = f"""
+        SELECT
+            MIN(e.lat) AS lat_min,
+            MAX(e.lat) AS lat_max,
+            MIN(e.lon) AS lon_min,
+            MAX(e.lon) AS lon_max,
+            AVG(e.lat) AS lat,
+            AVG(e.lon) AS lon,
+            COUNT(*)::int AS antall,
+            COUNT(*) FILTER (WHERE r.accounting_year IS NOT NULL)::int AS antall_med_regnskap,
+            SUM(r.revenue)          AS driftsinntekter,
+            SUM(r.operating_profit) AS driftsresultat,
+            SUM(r.net_profit)       AS aarsresultat,
+            SUM(e.ansatte)::int     AS ansatte
+        FROM entity e
+        {regnskap_join}
+        WHERE {where_sql}
+        GROUP BY floor(e.lon / %s), floor(e.lat / %s)
+        ORDER BY antall DESC
+    """
+
+    rows = fetch_all(
+        sql,
+        [*where_params, lon_cell, lat_cell],
+        statement_timeout_ms=_KART_STATEMENT_TIMEOUT_MS,
+    )
+
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [row["lon"], row["lat"]]},
+            "properties": {**row, "klynge": True},
+        }
+        for row in rows
+        if row.get("lat") is not None and row.get("lon") is not None
+    ]
+
+    return {
+        "type": "FeatureCollection",
+        "mode": "klynger",
+        "features": features,
+        "count": len(features),
+        "total": total,
+        "detalj_grense": _KART_DETALJ_GRENSE,
     }
