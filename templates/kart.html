@@ -557,6 +557,11 @@ function updateLegend() {
 let layer = L.layerGroup().addTo(map);
 let sistHentedeFeatures = [];
 let sistServerCount = 0;
+// Serveren sender klynger i stedet for enkeltselskaper når utsnittet har for
+// mange treff å tegne. Da er hvert selskap fortsatt med i tallene, men
+// aggregert per rutenettcelle.
+let sistModus = 'punkter';
+let sistTotal = 0;
 const forwardedQuery = new URLSearchParams(window.location.search);
 const FORWARDED_FILTER_KEYS = [
   'q', 'adresse', 'kommune', 'naeringskode', 'orgform', 'has_regnskap',
@@ -700,7 +705,105 @@ function popupHtml(p) {
   `;
 }
 
-function renderFeatures(rawFeatures, totalFromServer = null) {
+function fmtAntall(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '–';
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.', ',') + ' mill';
+  if (n >= 1e4) return Math.round(n / 1e3) + 'k';
+  return n.toLocaleString('nb-NO');
+}
+
+function klyngeIkon(farge, antall) {
+  const n = Math.max(1, Number(antall) || 1);
+  const size = Math.max(30, Math.min(64, 26 + Math.log10(n) * 13));
+  const bg = FARGER[farge] || FARGER.gray;
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:${size}px;height:${size}px;
+      border-radius:50%;
+      background:${bg}d9;
+      border:2px solid rgba(255,255,255,0.55);
+      box-shadow:0 0 10px ${bg}88;
+      display:flex;align-items:center;justify-content:center;
+      color:#0f1117;font-weight:700;
+      font-size:${Math.max(10, Math.min(15, size * 0.28))}px;
+      white-space:nowrap;
+    ">${fmtAntall(n)}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
+}
+
+function klyngePopupHtml(p) {
+  const driftsmargin = calcPct(p.driftsresultat, p.driftsinntekter);
+  const nettomargin = calcPct(p.aarsresultat, p.driftsinntekter);
+  return `
+      <div class="popup-header">${fmtAntall(p.antall)} selskaper i dette området</div>
+      <div class="popup-orgnr">${fmtAntall(p.antall_med_regnskap)} med regnskap</div>
+      <div class="popup-grid">
+        <div class="popup-kv"><label>Sum omsetning</label><span>${fmtKr(p.driftsinntekter)}</span></div>
+        <div class="popup-kv"><label>Sum årsresultat</label><span class="${resultatKlasse(p.aarsresultat)}">${fmtKr(p.aarsresultat)}</span></div>
+        <div class="popup-kv"><label>Sum driftsresultat</label><span>${fmtKr(p.driftsresultat)}</span></div>
+        <div class="popup-kv"><label>Driftsmargin</label><span>${driftsmargin == null ? '–' : driftsmargin.toFixed(1).replace('.', ',') + ' %'}</span></div>
+        <div class="popup-kv"><label>Nettomargin</label><span>${nettomargin == null ? '–' : nettomargin.toFixed(1).replace('.', ',') + ' %'}</span></div>
+        <div class="popup-kv"><label>Ansatte</label><span>${p.ansatte == null ? '–' : fmtAntall(p.ansatte)}</span></div>
+      </div>
+      <div style="font-size:11px;color:#7a8096">Klikk klyngen for å zoome inn. Enkeltselskapene vises når utsnittet har få nok treff.</div>
+  `;
+}
+
+function renderKlynger(rawFeatures, totalFromServer) {
+  // Klyngene er summer, så de lokale filtrene (ansatte/margin per selskap) kan
+  // ikke brukes på dem – de gjelder først når enkeltselskapene vises.
+  const features = (rawFeatures || []).filter((f) => f?.geometry?.coordinates);
+  const colorContext = buildColorContext(features);
+
+  const markers = features.map((f) => {
+    const p = f.properties || {};
+    const lat = Number(f.geometry.coordinates[1]);
+    const lon = Number(f.geometry.coordinates[0]);
+    const marker = L.marker([lat, lon], {
+      icon: klyngeIkon(colorForCompany(p, colorContext), p.antall),
+    });
+    marker.bindPopup(() => klyngePopupHtml(p), { maxWidth: 280 });
+    marker.on('click', () => {
+      const harUtstrekning = [p.lat_min, p.lat_max, p.lon_min, p.lon_max]
+        .every((v) => Number.isFinite(Number(v)));
+      const kanZoomeTilUtstrekning = harUtstrekning
+        && (Number(p.lat_max) > Number(p.lat_min) || Number(p.lon_max) > Number(p.lon_min));
+      if (kanZoomeTilUtstrekning) {
+        map.fitBounds(
+          L.latLngBounds([Number(p.lat_min), Number(p.lon_min)], [Number(p.lat_max), Number(p.lon_max)]),
+          { padding: [40, 40] }
+        );
+      } else {
+        map.setView([lat, lon], Math.min(map.getZoom() + 3, 16));
+      }
+    });
+    return marker;
+  });
+
+  map.removeLayer(layer);
+  layer = L.layerGroup(markers).addTo(map);
+
+  const total = Number.isFinite(totalFromServer) ? totalFromServer : null;
+  const cfg = getLocalFilterConfig();
+  const harLokaleFiltre = Object.values(cfg).some((v) => v != null);
+  const totalTekst = total == null ? '' : ` · ${fmtAntall(total)} selskaper`;
+  const filterTekst = harLokaleFiltre ? ' · lokale filtre gjelder bare enkeltselskaper' : '';
+  document.getElementById('status').textContent = markers.length
+    ? `${fmtAntall(markers.length)} klynger${totalTekst} · zoom inn for enkeltselskaper${filterTekst}`
+    : 'Ingen selskaper funnet';
+}
+
+function renderFeatures(rawFeatures, totalFromServer = null, modus = 'punkter') {
+  if (modus === 'klynger') {
+    renderKlynger(rawFeatures, totalFromServer);
+    return;
+  }
+
   const localFilteredFeatures = filterFeaturesLocally(rawFeatures);
   const colorContext = buildColorContext(localFilteredFeatures);
 
@@ -737,7 +840,11 @@ function renderFeatures(rawFeatures, totalFromServer = null) {
 }
 
 function applyLocalFiltersOnly() {
-  renderFeatures(sistHentedeFeatures, sistServerCount);
+  renderFeatures(
+    sistHentedeFeatures,
+    sistModus === 'klynger' ? sistTotal : sistServerCount,
+    sistModus,
+  );
 }
 updateLegend();
 document.getElementById('f-color-mode')?.addEventListener('change', () => {
@@ -803,7 +910,12 @@ function fitTilFeatures(features) {
 let aktivtSok = null;
 
 async function sokSelskaper() {
+  const zoom = map.getZoom();
   const nasjonalt = harNasjonaltFilter();
+  // Nasjonalt søk ser bort fra utsnittet. Men måtte serveren klynge forrige
+  // treffsett, blir utsnittet relevant igjen: ellers kunne man aldri zoome seg
+  // ned til enkeltselskapene i et stort nasjonalt treff.
+  const heleLandet = nasjonalt && sistModus !== 'klynger';
 
   // Ingen zoom-sperre: alle selskaper i utsnittet hentes uansett zoom-nivå.
   const now = Date.now();
@@ -820,7 +932,7 @@ async function sokSelskaper() {
   document.getElementById('status').textContent = 'Søker…';
 
   const params = new URLSearchParams();
-  if (!nasjonalt) {
+  if (!heleLandet) {
     const bounds = map.getBounds();
     params.set('north', bounds.getNorth().toFixed(6));
     params.set('south', bounds.getSouth().toFixed(6));
@@ -846,6 +958,9 @@ async function sokSelskaper() {
   // og arver heller ikke side-limit (f.eks. 100) fra regnskapstabellen.
   // Backend tolker manglende limit som «hent alt som treffer filtrene».
   params.delete('limit');
+  // Zoom-nivået styrer bare hvor store klyngene blir når treffsettet er for
+  // stort å tegne selskap for selskap. Det begrenser ikke hva som er med.
+  params.set('zoom', String(zoom));
 
   try {
     const resp = await fetch(`/kart/api/selskaper?${params}`, {
@@ -873,11 +988,19 @@ async function sokSelskaper() {
     if (!Number.isFinite(sistServerCount)) {
       sistServerCount = sistHentedeFeatures.length;
     }
-    renderFeatures(sistHentedeFeatures, sistServerCount);
+    sistModus = data.mode === 'klynger' ? 'klynger' : 'punkter';
+    sistTotal = Number.isFinite(Number(data.total)) ? Number(data.total) : sistServerCount;
+    renderFeatures(
+      sistHentedeFeatures,
+      sistModus === 'klynger' ? sistTotal : sistServerCount,
+      sistModus,
+    );
 
-    if (nasjonalt) {
+    if (heleLandet) {
       nasjonaltAlleredeSokt = true;
-      fitTilFeatures(filterFeaturesLocally(sistHentedeFeatures));
+      fitTilFeatures(
+        sistModus === 'klynger' ? sistHentedeFeatures : filterFeaturesLocally(sistHentedeFeatures)
+      );
     }
 
   } catch(e) {
@@ -900,13 +1023,12 @@ let debounceTimer;
 map.on('moveend zoomend', () => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    if (harNasjonaltFilter()) {
-      // Nasjonale treff er uavhengige av utsnittet – hent bare første gang,
-      // slik at panorering/zoom ikke laster på nytt eller rykker kartet.
-      if (!nasjonaltAlleredeSokt) sokSelskaper();
-    } else {
-      sokSelskaper();
-    }
+    // Nasjonale treff er uavhengige av utsnittet – hent bare første gang, slik
+    // at panorering/zoom ikke laster på nytt eller rykker kartet. Vises treffet
+    // som klynger, må vi likevel hente på nytt, ellers kommer man aldri ned til
+    // enkeltselskapene.
+    if (harNasjonaltFilter() && nasjonaltAlleredeSokt && sistModus !== 'klynger') return;
+    sokSelskaper();
   }, 600);
 });
 </script>

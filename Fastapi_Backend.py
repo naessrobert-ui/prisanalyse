@@ -366,10 +366,24 @@ def fetch_all(
         raise HTTPException(status_code=500, detail=f"DB error: {repr(e)}")
 
 
-def fetch_one(sql: str, params: list[Any] | tuple[Any, ...]) -> dict[str, Any] | None:
+def fetch_one(
+    sql: str,
+    params: list[Any] | tuple[Any, ...],
+    *,
+    statement_timeout_ms: int | None = None,
+) -> dict[str, Any] | None:
+    """Kjører en spørring og returnerer første rad.
+
+    ``statement_timeout_ms`` virker som i :func:`fetch_all`.
+    """
     try:
         with get_conn() as conn:
             with conn.cursor() as cur:
+                if statement_timeout_ms and int(statement_timeout_ms) > 0:
+                    cur.execute(
+                        "SELECT set_config('statement_timeout', %s, true)",
+                        [str(int(statement_timeout_ms))],
+                    )
                 print("SQL:", sql)
                 print("PARAMS:", params)
                 cur.execute(sql, params)

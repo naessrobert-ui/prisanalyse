@@ -1324,6 +1324,9 @@ def _proxy_analysis_api_locally(path: str, params: dict[str, Any] | None = None)
             regnskapsaar=int(params["regnskapsaar"]) if params.get("regnskapsaar") else None,
             # Ingen limit sendt = ingen tak på antall kartpunkter.
             limit=int(params["limit"]) if params.get("limit") else None,
+            # Zoom bestemmer hvor store klyngene blir når utvalget er for stort
+            # å tegne som enkeltselskaper.
+            zoom=float(params["zoom"]) if params.get("zoom") else None,
         )
     else:
         return None
