@@ -85,8 +85,12 @@
       <option value="20">&ge; 20 %</option>
       <option value="30">&ge; 30 %</option>
     </select>
+    <span class="filter-label">Min pris:</span>
+    <input type="number" id="minPriceInput" placeholder="Min pris" style="width:110px;" min="0" step="10000">
     <span class="filter-label">Maks pris:</span>
-    <input type="number" id="maxPriceInput" placeholder="Maks pris" style="width:110px;">
+    <input type="number" id="maxPriceInput" placeholder="Maks pris" style="width:110px;" min="0" step="10000">
+    <span class="filter-label">Maks km:</span>
+    <input type="number" id="maxKmInput" placeholder="F.eks. 100000" style="width:120px;" min="0" step="10000">
     <span class="filter-label">Min ar:</span>
     <input type="number" id="minYearInput" placeholder="F.eks. 2018" style="width:100px;">
   </div>
@@ -160,13 +164,17 @@
     var fuel=document.getElementById("fuelFilter").value;
     var fylke=document.getElementById("fylkeFilter").value;
     var minDisc=parseFloat(document.getElementById("discountFilter").value)||0;
+    var minPrice=parseInt(document.getElementById("minPriceInput").value)||0;
     var maxPrice=parseInt(document.getElementById("maxPriceInput").value)||0;
+    var maxKm=parseInt(document.getElementById("maxKmInput").value)||0;
     var minYear=parseInt(document.getElementById("minYearInput").value)||0;
     return ALL_CARS.filter(function(c){
       if(minDisc>0&&rb(c)<minDisc)return false;
       if(fuel&&dr(c)!==fuel)return false;
       if(fylke&&fy(c)!==fylke)return false;
+      if(minPrice>0&&pr(c)<minPrice)return false;
       if(maxPrice>0&&pr(c)>maxPrice)return false;
+      if(maxKm>0&&km(c)>maxKm)return false;
       if(minYear>0&&yr(c)<minYear)return false;
       if(q){var h=(mk(c)+" "+mo(c)+" "+nf(c)+" "+se(c)+" "+st(c)+" "+fy(c)).toLowerCase();if(h.indexOf(q)===-1)return false}
       return true;
@@ -211,7 +219,9 @@
   document.getElementById("fuelFilter").addEventListener("change",refresh);
   document.getElementById("fylkeFilter").addEventListener("change",refresh);
   document.getElementById("discountFilter").addEventListener("change",refresh);
+  document.getElementById("minPriceInput").addEventListener("input",debounce(refresh,400));
   document.getElementById("maxPriceInput").addEventListener("input",debounce(refresh,400));
+  document.getElementById("maxKmInput").addEventListener("input",debounce(refresh,400));
   document.getElementById("minYearInput").addEventListener("input",debounce(refresh,400));
   document.querySelectorAll(".sort-btn").forEach(function(btn){
     btn.addEventListener("click",function(){
