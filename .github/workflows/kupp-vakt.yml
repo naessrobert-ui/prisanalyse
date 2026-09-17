@@ -77,6 +77,8 @@ jobs:
           KUPP_RABATT_TRAPP: ${{ vars.KUPP_RABATT_TRAPP || '50000:30,100000:20,150000:15,250000:7,:6' }}
           KUPP_RABATT_MIN: ${{ vars.KUPP_RABATT_MIN || '15' }}
           KUPP_RABATT_KR_MIN: ${{ vars.KUPP_RABATT_KR_MIN || '0' }}
+          KUPP_KR_MIN_HJEM: ${{ vars.KUPP_KR_MIN_HJEM || '0' }}
+          KUPP_KR_MIN_UTENFOR: ${{ vars.KUPP_KR_MIN_UTENFOR || '0' }}
           KUPP_UNDER_HURTIG: ${{ vars.KUPP_UNDER_HURTIG || '0' }}
           KUPP_SELGER: ${{ vars.KUPP_SELGER || 'privat' }}
           KUPP_DRIVSTOFF: ${{ vars.KUPP_DRIVSTOFF }}
