@@ -11,13 +11,13 @@ name: Kupp-vakt (ferske underprisede biler)
 # last. Trenger du presis 10-min-kadens, kjør scriptet fra Pi-en via cron i
 # stedet (python -m scripts.kupp_vakt).
 
+# Kjøres nå fra Raspberry Pi-en via cron (deploy/pi) — som er enerådende og har
+# den finjusterte konfigurasjonen (merke-terskler, kronegulv, fylke-vekting).
+# Den planlagte GitHub-kjøringen er derfor skrudd av, så vi ikke får to vakter
+# som deler samme S3-state og sender ulike varsler. Manuell kjøring (--test /
+# --seed) beholdes via workflow_dispatch.
+
 on:
-  schedule:
-    # Hvert 10. min på dagtid. Cron er i UTC: 04-21 UTC ≈ 06-24 norsk sommertid
-    # (CEST). Vakten står stille om natten. NB: om vinteren (CET) forskyves
-    # vinduet én time – vil du ha eksakt lokaltid hele året, kjør fra Pi-en
-    # (deploy/pi) der systemd bruker lokal tidssone automatisk.
-    - cron: "*/10 4-21 * * *"
   workflow_dispatch:
     inputs:
       seed:
