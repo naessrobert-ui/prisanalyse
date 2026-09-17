@@ -76,6 +76,7 @@ ved cron-oppsett) og lagre. Ingen restart trengs – hver kjøring leser fila p�
 |----------|-----|
 | `KUPP_RABATT_TRAPP` | Trappetrinns rabattkrav etter pris. Default `50000:30,100000:20,150000:15,250000:7,:6` = <50k krever 30 %, <100k 20 %, <150k 15 %, <250k 7 %, ellers 6 %. |
 | `KUPP_RABATT_KR_MIN` | Valgfri flat kroneterskel i tillegg (0 = av). |
+| `KUPP_KR_MIN_HJEM` / `KUPP_KR_MIN_UTENFOR` | Kronegulv (AND-krav på toppen av prosent): minste rabatt i kroner i / utenfor hjemfylket. 0 = av. |
 | `KUPP_UNDER_HURTIG` | `1` = varsle også hvis pris < hurtigpris (default `0`). |
 | `KUPP_SELGER` | Selger-type: `privat` (default), `merkeforhandler`, `annet` eller `alle`. Kupp finnes hos private. Server-side. |
 | `KUPP_DRIVSTOFF` | Kun disse drivstoffene, f.eks. `Elektrisk` eller `Elektrisk,Hybrid`. Tom = alle. |

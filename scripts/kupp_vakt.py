@@ -21,6 +21,9 @@ Terskel – trappetrinn etter pris (env, kan overstyres):
                          < 50k krever 30 %, < 100k 20 %, < 150k 15 %,
                          < 250k 7 %, ellers 6 %. Tom = bruk flat KUPP_RABATT_MIN.
     KUPP_RABATT_KR_MIN – valgfri flat kroneterskel i tillegg (0 = av, default).
+    KUPP_KR_MIN_HJEM    – minste rabatt i KRONER for biler i hjemfylket (AND-krav
+                         på toppen av prosent). 0 = av.
+    KUPP_KR_MIN_UTENFOR – minste rabatt i KRONER utenfor hjemfylket. 0 = av.
     KUPP_UNDER_HURTIG  – "1": varsle også hvis pris < hurtigpris (default "0").
 
 Filtre (env, valgfrie):
@@ -263,6 +266,15 @@ NABO_KODER = [FYLKE_LOCATION[t.strip().lower()]
               if t.strip() and t.strip().lower() in FYLKE_LOCATION]
 NABO_LOCATION_SUFFIX = "".join(f"&location={c}" for c in NABO_KODER)
 NABO_TILLEGG_PP = float(os.getenv("KUPP_NABO_TILLEGG_PP", "5") or 5)
+
+# --- Kronegulv: minste rabatt i KRONER, i tillegg til prosentkravet ----------
+# En liten prosent på en dyr bil kan være mye penger, men en liten kroneverdi er
+# ikke verdt bryet. Krav (AND) på toppen av prosent-/merke-terskelen:
+#   KUPP_KR_MIN_HJEM     – minste rabatt (kr) for biler i hjemfylket
+#   KUPP_KR_MIN_UTENFOR  – minste rabatt (kr) for biler utenfor hjemfylket
+# 0 = av (ingen kronekrav). Nabofylke regnes som "utenfor".
+KR_MIN_HJEM = float(os.getenv("KUPP_KR_MIN_HJEM", "0") or 0)
+KR_MIN_UTENFOR = float(os.getenv("KUPP_KR_MIN_UTENFOR", "0") or 0)
 
 # --- Elbil: merke-tiered rabattkrav ------------------------------------------
 # Backtesten (scripts/kupp_backtest.py --per produsent) viste at elbil-merker
@@ -871,18 +883,30 @@ def _fylke_tag(row, hjem_koder, nabo_koder=None) -> str:
     return f"utenfor {HJEMFYLKE_NAVN} +{UTENFOR_TILLEGG_PP:g}pp"
 
 
-def _er_kupp(row, terskel_delta: float = 0.0) -> bool:
+def _kr_gulv(row, hjem_koder) -> float:
+    """Påkrevd minste rabatt i KRONER for én bil, etter region.
+    Hjemfylke (eller vekting av) -> KR_MIN_HJEM; ellers KR_MIN_UTENFOR."""
+    if hjem_koder is not None and str(row.get("FinnKode") or "") not in hjem_koder:
+        return KR_MIN_UTENFOR
+    return KR_MIN_HJEM
+
+
+def _er_kupp(row, terskel_delta: float = 0.0, kr_min: float = 0.0) -> bool:
     forv = row.get("forventet_pris")
     if forv is None or pd.isna(forv) or forv <= 0:
         return False
     pris = row.get("salgspris")
     rab = row.get("rabatt_pct")
+    rab_kr = row.get("rabatt_kr")
+    # Hardt kronegulv: må alltid være oppfylt når satt (>0).
+    if kr_min > 0:
+        if rab_kr is None or pd.isna(rab_kr) or float(rab_kr) < kr_min:
+            return False
     if (rab is not None and not pd.isna(rab)
             and pris is not None and not pd.isna(pris)):
         if float(rab) >= _basis_terskel(row) + terskel_delta:
             return True
     # Legacy flat kroneterskel (kun hvis eksplisitt satt via KUPP_RABATT_KR_MIN)
-    rab_kr = row.get("rabatt_kr")
     if RABATT_KR_MIN > 0 and rab_kr is not None and not pd.isna(rab_kr) and float(rab_kr) >= RABATT_KR_MIN:
         return True
     if UNDER_HURTIG:
@@ -909,7 +933,8 @@ def _vis_alle() -> int:
     n_kupp = 0
     for d in rader:
         delta = _terskel_delta(d, hjem, nabo)
-        er = _er_kupp(d, delta)
+        kr_min = _kr_gulv(d, hjem)
+        er = _er_kupp(d, delta, kr_min)
         n_kupp += 1 if er else 0
         merke = []
         fylke_tag = _fylke_tag(d, hjem, nabo)
@@ -917,6 +942,15 @@ def _vis_alle() -> int:
             merke.append(fylke_tag)
         if _er_kurant(d):
             merke.append(f"kurant -{KURANT_LETTELSE_PP:g}pp")
+        # Vis når prosenten holder, men kronegulvet stopper den (for tuning)
+        if not er and kr_min > 0:
+            rab = d.get("rabatt_pct")
+            rab_kr = d.get("rabatt_kr")
+            pct_ok = (rab is not None and not pd.isna(rab)
+                      and float(rab) >= _basis_terskel(d) + delta)
+            kr_verdi = 0.0 if (rab_kr is None or pd.isna(rab_kr)) else float(rab_kr)
+            if pct_ok and kr_verdi < kr_min:
+                merke.append(f"under kr-gulv ({kr_verdi:,.0f}<{kr_min:,.0f})".replace(",", " "))
         tag = f"  [{', '.join(merke)}]" if merke else ""
         print(("[KUPP] " if er else "       ") + _formater_bil(d) + tag)
     print(f"[kupp_vakt] {n_kupp} av {len(rader)} kandidater over terskel")
@@ -973,7 +1007,7 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
         for _, row in scoret.iterrows():
             d = row.to_dict()
             delta = _terskel_delta(d, hjem, nabo)
-            if _er_kupp(d, delta):
+            if _er_kupp(d, delta, _kr_gulv(d, hjem)):
                 d["i_hjemfylke"] = (hjem is None
                                     or str(d.get("FinnKode") or "") in hjem)
                 kupp.append(d)

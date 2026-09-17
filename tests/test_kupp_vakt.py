@@ -115,6 +115,28 @@ def test_selger_segment_bygges_i_url(monkeypatch):
     assert "dealer_segment=3" in k._build_url(1, "3")
 
 
+def test_kr_gulv_som_hardt_krav(monkeypatch):
+    # Prosentkravet holder, men kronegulvet må også oppfylles (AND).
+    monkeypatch.setattr(k, "RABATT_TRAPP",
+                        k._parse_trapp("50000:30,100000:20,150000:15,250000:7,:6"))
+    monkeypatch.setattr(k, "EL_TIER_ON", False)
+    monkeypatch.setattr(k, "RABATT_KR_MIN", 0.0)
+    monkeypatch.setattr(k, "UNDER_HURTIG", False)
+    rad = _rad(300_000, 10)          # 300k, 10 % => ~33k under, tier-krav 6 % ok
+    assert k._er_kupp(rad, 0.0, kr_min=0) is True          # uten gulv
+    assert k._er_kupp(rad, 0.0, kr_min=25_000) is True     # 33k >= 25k
+    assert k._er_kupp(rad, 0.0, kr_min=40_000) is False    # 33k < 40k -> stoppes
+
+
+def test_kr_gulv_region(monkeypatch):
+    monkeypatch.setattr(k, "KR_MIN_HJEM", 20_000.0)
+    monkeypatch.setattr(k, "KR_MIN_UTENFOR", 25_000.0)
+    hjem = {"1"}
+    assert k._kr_gulv({"FinnKode": "1"}, hjem) == 20_000.0   # i hjemfylket
+    assert k._kr_gulv({"FinnKode": "2"}, hjem) == 25_000.0   # utenfor
+    assert k._kr_gulv({"FinnKode": "2"}, None) == 20_000.0   # vekting av -> hjem
+
+
 def test_formater_bil_viser_sted_uansett_kolonnenavn():
     # Scoreren døper om "sted" -> "Sted"; formatereren må vise begge.
     rad_raa = {"Merke": "Kia", "Modell": "EV6", "Årstall": 2023, "Kjørelengde": 20000,
