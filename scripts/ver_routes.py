@@ -2184,6 +2184,9 @@ def _hent_open_meteo_dagshistorikk(lat: float, lon: float, day_start_local: pd.T
             "latitude": lat,
             "longitude": lon,
             "timezone": "Europe/Oslo",
+            # Open-Meteo svarer i km/t hvis vi ikke sier fra; YR gir m/s, og
+            # resten av siden regner i m/s.
+            "wind_speed_unit": "ms",
             "hourly": ",".join(
                 [
                     "temperature_2m",
@@ -2199,7 +2202,7 @@ def _hent_open_meteo_dagshistorikk(lat: float, lon: float, day_start_local: pd.T
             "start_date": day_start_local.date().isoformat(),
             "end_date": day_end_local.date().isoformat(),
         }
-        r = requests.get("https://api.open-meteo.com/v1/forecast", params=params, timeout=8)
+        r = requests.get("https://api.open-meteo.com/v1/forecast", params=params, timeout=6)
         r.raise_for_status()
         payload = r.json() or {}
         hourly = payload.get("hourly") or {}
@@ -2321,13 +2324,168 @@ def _hent_open_meteo_forrige_kjoring(
     return out
 
 
+# Faktiske måledata fra nærmeste Frost-stasjon. Open-Meteo sine historiske timer
+# er modellanalyse, ikke målinger, og kan bomme grovt på nedbør – derfor henter vi
+# observasjonene når vi har dem, og faller tilbake på modellen ellers.
+_FROST_OBS_CACHE: Dict[tuple, _CacheEntry] = {}
+_FROST_OBS_LOCK = threading.Lock()
+_FROST_OBS_TTL = 600.0       # 10 min – observasjonene oppdateres én gang i timen
+_FROST_OBS_TTL_FEIL = 120.0
+_FROST_MAKS_KM = 25.0        # lenger unna enn dette sier lite om været der brukeren er
+_FROST_ANTALL_STASJONER = 4  # be om flere i samme kall, bruk den nærmeste med data
+
+
+def _avstand_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    r = 6371.0
+    f1, f2 = math.radians(lat1), math.radians(lat2)
+    df, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
+    a = math.sin(df / 2) ** 2 + math.cos(f1) * math.cos(f2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def _naermeste_nedborstasjoner(lat: float, lon: float) -> list[dict[str, Any]]:
+    """Nærmeste stasjoner med nedbør, fra den lokale stasjons-DB-en (ingen nettkall)."""
+    try:
+        df = load_station_db()
+        if df.empty or "has_precip" not in df.columns:
+            return []
+        kand = df[df["has_precip"] == True].dropna(subset=["lat", "lon"])  # noqa: E712
+        treff = []
+        for rad in kand.itertuples():
+            km = _avstand_km(lat, lon, float(rad.lat), float(rad.lon))
+            if km <= _FROST_MAKS_KM:
+                navn = str(rad.name)
+                if navn.isupper():
+                    # "SAMNANGER II" -> "Samnanger II", ikke "Samnanger Ii"
+                    navn = " ".join(
+                        ledd if all(c in "IVXL" for c in ledd) else ledd.title()
+                        for ledd in navn.split(" ")
+                    )
+                treff.append({"id": str(rad.baseId), "navn": navn, "km": round(km, 1)})
+        treff.sort(key=lambda s: s["km"])
+        return treff[:_FROST_ANTALL_STASJONER]
+    except Exception:
+        return []
+
+
+def _hent_frost_observasjoner(
+    lat: float,
+    lon: float,
+    day_start_local: pd.Timestamp,
+    day_end_local: pd.Timestamp,
+) -> dict[str, Any]:
+    """Målt nedbør og temperatur per time i dag fra nærmeste Frost-stasjon.
+
+    Best effort: uten FROST_CLIENT_ID, uten stasjon i nærheten eller ved feil
+    returneres {}, og kalleren beholder Open-Meteo-verdiene.
+    """
+    tomt: dict[str, Any] = {}
+    client_id = os.getenv("FROST_CLIENT_ID")
+    if not client_id:
+        return tomt
+
+    cache_key = (round(lat, 2), round(lon, 2), day_start_local.date().isoformat())
+    now_ts = time.time()
+    with _FROST_OBS_LOCK:
+        entry = _FROST_OBS_CACHE.get(cache_key)
+        if entry is not None and entry.expires_at > now_ts:
+            return entry.payload
+
+    resultat: dict[str, Any] = tomt
+    try:
+        stasjoner = _naermeste_nedborstasjoner(lat, lon)
+        if not stasjoner:
+            raise ValueError("ingen nedbørstasjon i nærheten")
+
+        start_utc = day_start_local.tz_convert("UTC")
+        slutt_utc = min(pd.Timestamp.now(tz="UTC"), day_end_local.tz_convert("UTC"))
+        referencetime = (
+            f"{start_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}/"
+            f"{slutt_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        )
+        r = requests.get(
+            "https://frost.met.no/observations/v0.jsonld",
+            params={
+                "sources": ",".join(s["id"] for s in stasjoner),
+                "referencetime": referencetime,
+                "elements": (
+                    "sum(precipitation_amount PT1H),air_temperature,"
+                    "wind_speed,max(wind_speed_of_gust PT1H)"
+                ),
+                "limit": 1000,
+            },
+            auth=(client_id, os.getenv("FROST_CLIENT_SECRET", "")),
+            headers={"Accept": "application/json"},
+            timeout=7,
+        )
+        r.raise_for_status()
+
+        # Per stasjon: time -> målinger. Frost merker hver time med sin egen
+        # referenceTime (UTC), på samme måte som Yr viser den i tabellen sin.
+        per_stasjon: dict[str, dict[pd.Timestamp, dict[str, Any]]] = {}
+        for item in (r.json() or {}).get("data") or []:
+            sid = str(item.get("sourceId") or "").split(":")[0]
+            if not sid:
+                continue
+            t = pd.to_datetime(item.get("referenceTime"), utc=True, errors="coerce")
+            if pd.isna(t):
+                continue
+            slot = t.tz_convert(OSLO).floor("h")
+            if slot < day_start_local or slot >= day_end_local:
+                continue
+            bøtte = per_stasjon.setdefault(sid, {}).setdefault(slot, {})
+            for obs in item.get("observations") or []:
+                verdi = _as_float(obs.get("value"))
+                if verdi is None:
+                    continue
+                eid = obs.get("elementId")
+                if eid == "sum(precipitation_amount PT1H)":
+                    bøtte["rain"] = verdi
+                elif eid == "max(wind_speed_of_gust PT1H)":
+                    bøtte["gust"] = verdi
+                elif t.minute == 0:
+                    # kun hele timer, så vi ikke blander inn 10-minutters-verdier
+                    if eid == "air_temperature":
+                        bøtte["temp"] = verdi
+                    elif eid == "wind_speed":
+                        bøtte["wind"] = verdi
+
+        # Bruk den nærmeste stasjonen som faktisk har nedbørstall i dag.
+        for stasjon in stasjoner:
+            timer = per_stasjon.get(stasjon["id"]) or {}
+            if not any("rain" in v for v in timer.values()):
+                continue
+            resultat = {
+                "stasjon": {"id": stasjon["id"], "navn": stasjon["navn"], "km": stasjon["km"]},
+                "timer": timer,
+            }
+            break
+    except Exception:
+        resultat = tomt
+
+    with _FROST_OBS_LOCK:
+        _FROST_OBS_CACHE[cache_key] = _CacheEntry(
+            expires_at=now_ts + (_FROST_OBS_TTL if resultat else _FROST_OBS_TTL_FEIL),
+            payload=resultat,
+        )
+        if len(_FROST_OBS_CACHE) > 200:
+            for stale in [k for k, v in _FROST_OBS_CACHE.items() if v.expires_at <= now_ts]:
+                _FROST_OBS_CACHE.pop(stale, None)
+    return resultat
+
+
 def _lag_nedbortrend(hourly: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
     """Sammenlign faktisk nedbør hittil i dag mot det gårsdagens varsel lovet."""
-    par = [
-        (float(h.get("rain") or 0.0), float(h["rain_expected"]))
+    alle = [
+        (float(h.get("rain") or 0.0), float(h["rain_expected"]), h.get("rain_source"))
         for h in hourly
         if h.get("is_history") and h.get("rain_expected") is not None and h.get("rain") is not None
     ]
+    # Har vi målinger, sammenligner vi kun timene som faktisk er målt. Å blande
+    # målte og modellerte timer i samme sum ville gjort avviket meningsløst.
+    malte = [p for p in alle if p[2] == "obs"]
+    par = malte if len(malte) >= 3 else alle
+    malt = bool(malte) and par is malte
     if len(par) < 3:
         return None
 
@@ -2337,18 +2495,20 @@ def _lag_nedbortrend(hourly: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
 
     # Terskel: både absolutt (mm) og relativ, så små tall ikke gir falske utslag.
     grense = max(0.5, varslet * 0.25)
+    kilde = "Målt" if malt else "Beregnet"
     if diff >= grense:
         retning, label = "over", "Mer nedbør enn varslet"
-        tekst = "Det har kommet mer regn enn varselet lovet – godt mulig resten av døgnet også blir våtere."
+        tekst = f"{kilde} nedbør ligger over det varselet lovet – godt mulig resten av døgnet også blir våtere."
     elif diff <= -grense:
         retning, label = "under", "Mindre nedbør enn varslet"
-        tekst = "Det har kommet mindre regn enn varselet lovet – resten av døgnet kan bli tørrere enn grafen viser."
+        tekst = f"{kilde} nedbør ligger under det varselet lovet – resten av døgnet kan bli tørrere enn grafen viser."
     else:
         retning, label = "treff", "Omtrent som varslet"
         tekst = "Varselet har truffet bra hittil i dag."
 
     return {
         "hours": len(par),
+        "measured": malt,
         "actual_mm": faktisk,
         "expected_mm": varslet,
         "diff_mm": diff,
@@ -2385,13 +2545,18 @@ def api_aktivt_varsel():
     # kall bruker omtrent like lang tid som det tregeste av dem, så det nye
     # "varslet"-laget koster ingen ekstra ventetid (før var YR + historikk
     # sekvensielle).
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         fut_yr = pool.submit(_hent_yr_komplett, lat, lon)
         fut_hist = pool.submit(_hent_open_meteo_dagshistorikk, lat, lon, day_start_local, day_end_local)
         fut_forventet = pool.submit(_hent_open_meteo_forrige_kjoring, lat, lon, day_start_local, day_end_local)
+        fut_obs = pool.submit(_hent_frost_observasjoner, lat, lon, day_start_local, day_end_local)
         ts = fut_yr.result()
         open_meteo_day = fut_hist.result()
         forventet_day = fut_forventet.result()
+        frost_obs = fut_obs.result()
+
+    obs_stasjon = frost_obs.get("stasjon") if frost_obs else None
+    obs_timer: dict[pd.Timestamp, dict[str, Any]] = (frost_obs.get("timer") or {}) if frost_obs else {}
 
     rows_24 = []   # brukes til KPI + forward-only beregninger (fremdeles neste 24t)
     rows_day = []  # dagens døgn (00:00-23:59 lokal tid), inkl historikk/prognose
@@ -2468,6 +2633,46 @@ def api_aktivt_varsel():
         if (existing.get("symbol") or "cloudy") == "cloudy" and fallback.get("symbol"):
             existing["symbol"] = fallback["symbol"]
 
+    # Målte verdier slår modellen på timene som har vært. Dette skjer før KPI,
+    # kvalitetsvurdering og graf, slik at hele siden viser samme tall.
+    for slot_local, malt in obs_timer.items():
+        if slot_local > history_limit:
+            continue
+        rec = rows_day_by_hour.get(slot_local)
+        if rec is None:
+            # Ingen modelldata for timen (f.eks. Open-Meteo nede). Målingene
+            # klarer seg fint alene – da er det de vi har.
+            rec = {
+                "time": slot_local.tz_convert("UTC").to_pydatetime().isoformat(),
+                "is_history": True,
+                "temp": None,
+                "wind": None,
+                "gust": None,
+                "wind_deg": None,
+                "cloud": None,
+                "rain": None,
+                "rain_min": None,
+                "rain_max": None,
+                "rain_prob": None,
+                "symbol": "cloudy",
+            }
+            rows_day_by_hour[slot_local] = rec
+        elif not rec.get("is_history"):
+            continue
+        if malt.get("rain") is not None:
+            rec["rain"] = malt["rain"]
+            # målt verdi har ingen usikkerhetsspenn
+            rec["rain_min"] = malt["rain"]
+            rec["rain_max"] = malt["rain"]
+            rec["rain_source"] = "obs"
+        if malt.get("temp") is not None:
+            rec["temp"] = malt["temp"]
+            rec["temp_source"] = "obs"
+        if malt.get("wind") is not None:
+            rec["wind"] = malt["wind"]
+        if malt.get("gust") is not None:
+            rec["gust"] = malt["gust"]
+
     rows_day = [rows_day_by_hour[t] for t in sorted(rows_day_by_hour.keys())]
 
     if not rows_24 and not rows_day:
@@ -2542,6 +2747,7 @@ def api_aktivt_varsel():
                     "temp": None,
                     "temp_expected": round(float(temp_expected), 1) if temp_expected is not None else None,
                     "rain": None,
+                    "rain_source": "model",
                     "rain_expected": round(float(rain_expected), 1) if rain_expected is not None else None,
                     "rain_min": None,
                     "rain_max": None,
@@ -2563,6 +2769,7 @@ def api_aktivt_varsel():
                 "is_history": rec.get("is_history", False),
                 "temp": round(float(rec["temp"]), 1) if rec["temp"] is not None else None,
                 "temp_expected": round(float(temp_expected), 1) if temp_expected is not None else None,
+                "rain_source": rec.get("rain_source", "model"),
                 "rain": round(float(rec["rain"]), 1) if rec.get("rain") is not None else None,
                 "rain_expected": round(float(rain_expected), 1) if rain_expected is not None else None,
                 "rain_min": round(float(rec["rain_min"]), 1) if rec["rain_min"] is not None else None,
@@ -2664,9 +2871,9 @@ def api_aktivt_varsel():
     daily_out = []
     for d, vals in sorted(daily.items()):
         temps = [v["temp"] for v in vals if v["temp"] is not None]
-        rains = [v["rain"] for v in vals]
-        winds = [v["wind"] for v in vals]
-        gusts = [v["gust"] for v in vals]
+        rains = [v["rain"] for v in vals if v.get("rain") is not None]
+        winds = [v["wind"] for v in vals if v.get("wind") is not None]
+        gusts = [v["gust"] for v in vals if v.get("gust") is not None]
 
         # Soltimer: tell timer i dagtid (06-22) som er "sun" eller "partly"
         sol_timer = 0
@@ -2688,10 +2895,10 @@ def api_aktivt_varsel():
             day_hours.append({
                 "time": t_local.isoformat(),
                 "temp": round(float(v["temp"]), 1) if v["temp"] is not None else None,
-                "rain": round(float(v["rain"]), 1),
+                "rain": round(float(v["rain"]), 1) if v.get("rain") is not None else None,
                 "rain_prob": int(round(v["rain_prob"])) if v["rain_prob"] is not None else None,
-                "wind": round(float(v["wind"]), 1),
-                "gust": round(float(v["gust"]), 1),
+                "wind": round(float(v["wind"]), 1) if v.get("wind") is not None else None,
+                "gust": round(float(v["gust"]), 1) if v.get("gust") is not None else None,
                 "wind_deg": float(v["wind_deg"]) if v.get("wind_deg") is not None else None,
                 "wind_dir": _vindretning_txt_general(v.get("wind_deg")),
                 "cloud": round(float(v["cloud"]), 0) if v.get("cloud") is not None else None,
@@ -2728,6 +2935,7 @@ def api_aktivt_varsel():
             "coords": {"lat": lat, "lon": lon},
             "quality": quality,
             "precip_trend": nedbor_trend,
+            "obs_station": obs_stasjon,
             "summary": {
                 "temp_now": round(temp_now, 1),
                 "temp_min_24h": round(float(df_day["temp"].min()), 1),
@@ -3001,7 +3209,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
           <span><span class="sw" style="background:#e5e7eb;border:1px dashed #64748b"></span>Vind (stiplet linje)</span>
         </div>
       </div>
-      <p class="chart-note">Før NÅ-linjen viser søylene hva som faktisk kom; den lilla linjen viser hva varselet sa i går for de samme timene. Etter NÅ-linjen er søylene prognose.</p>
+      <p class="chart-note" id="chartNote">Før NÅ-linjen viser søylene hva som faktisk kom; den lilla linjen viser hva varselet sa i går for de samme timene. Etter NÅ-linjen er søylene prognose.</p>
       <div class="verdict-strip" id="verdictStrip" title="Værtype per time"></div>
       <div class="chart-box">
         <canvas id="mainChart" role="img" aria-label="Kombinert graf over temperatur, nedbør og vind for dagens døgn."></canvas>
@@ -3237,6 +3445,13 @@ function renderData(d){
     trendChip=`<span class="trend-chip ${cls}" title="${pt.text}">${pil} ${pt.label}: ${pt.actual_mm} mm hittil i dag mot ${pt.expected_mm} mm varslet (${fortegn}${pt.diff_mm} mm)</span>`;
   }
   document.getElementById('quality').innerHTML=`<span class="quality-chip">Kvalitet ${d.quality.score}/5 · ${d.quality.label}</span>${trendChip}<span>${d.quality.reason||''}</span>`;
+
+  // Si tydelig hvor «faktisk»-tallene kommer fra: målestasjon eller modell.
+  const st=d.obs_station;
+  const kilde=st
+    ? `Før NÅ-linjen viser søylene <strong>målt</strong> nedbør fra ${st.navn} (${st.km} km unna). Den lilla linjen viser hva varselet sa i går for de samme timene. Etter NÅ-linjen er søylene prognose.`
+    : 'Før NÅ-linjen viser søylene beregnet nedbør (ingen målestasjon i nærheten). Den lilla linjen viser hva varselet sa i går for de samme timene. Etter NÅ-linjen er søylene prognose.';
+  document.getElementById('chartNote').innerHTML=kilde;
 
   // KPI-bånd
   const s=d.summary;
@@ -3557,7 +3772,8 @@ function drawMainChart(hourly){
     const exp=h.rain ?? 0;
     return Math.max(0, mx - exp);
   });
-  const wind=hourly.map(h=>h.wind ?? 0);
+  // null (ikke 0) for ukjent vind – ellers tegner grafen en falsk 0 m/s
+  const wind=hourly.map(h=>h.wind ?? null);
 
   // Custom plugin: tegn vertikal "nå"-linje
   const nowLinePlugin={
@@ -3691,7 +3907,7 @@ function drawMainChart(hourly){
       plugins:{
         legend:{display:false},
         tooltip:{
-          filter:(item)=>!(['Temperatur (historikk)','Varslet i går'].includes(item.dataset.label) && item.raw==null),
+          filter:(item)=>!(['Temperatur (historikk)','Varslet i går','Vind (m/s)'].includes(item.dataset.label) && item.raw==null),
           callbacks:{
             title:(items)=>{
               const i=items[0].dataIndex;
@@ -3706,21 +3922,28 @@ function drawMainChart(hourly){
                 return `Temp: ${ctx.parsed.y?.toFixed(1)}°${varslet}`;
               }
               if(ctx.dataset.label==='Nedbør'){
-                const past=ctx.dataIndex<nowIdx;
-                return `${past?'Faktisk regn':'Varslet regn'}: ${ctx.parsed.y?.toFixed(1)} mm`;
+                const h=hourly[ctx.dataIndex];
+                if(ctx.dataIndex>=nowIdx) return `Varslet regn: ${ctx.parsed.y?.toFixed(1)} mm`;
+                const merke=(h?.rain_source==='obs')?'Målt regn':'Beregnet regn';
+                return `${merke}: ${ctx.parsed.y?.toFixed(1)} mm`;
               }
               if(ctx.dataset.label==='Varslet i går'){
                 if(ctx.parsed.y==null) return null;
                 const faktisk=hourly[ctx.dataIndex]?.rain;
                 const diff=(faktisk!=null)?(faktisk-ctx.parsed.y):null;
-                const avvik=(diff==null)?'':` (${diff>=0?'+':''}${diff.toFixed(1)} mm mot faktisk)`;
+                const merket=(hourly[ctx.dataIndex]?.rain_source==='obs')?'målt':'beregnet';
+                const avvik=(diff==null)?'':` (${diff>=0?'+':''}${diff.toFixed(1)} mm mot ${merket})`;
                 return `Varslet i går: ${ctx.parsed.y.toFixed(1)} mm${avvik}`;
               }
               if(ctx.dataset.label==='Usikkerhet (maks)'){
+                if(!ctx.parsed.y) return null;
                 const tot=ctx.parsed.y+(ctx.chart.data.datasets.find(ds=>ds.label==='Nedbør')?.data[ctx.dataIndex]||0);
                 return `Maks regn: ${tot.toFixed(1)} mm`;
               }
-              if(ctx.dataset.label==='Vind (m/s)') return `Vind: ${ctx.parsed.y?.toFixed(1)} m/s`;
+              if(ctx.dataset.label==='Vind (m/s)'){
+                if(ctx.parsed.y==null) return null;
+                return `Vind: ${ctx.parsed.y.toFixed(1)} m/s`;
+              }
               return null;
             }
           }
