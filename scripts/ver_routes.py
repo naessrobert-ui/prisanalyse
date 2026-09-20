@@ -2245,6 +2245,119 @@ def _hent_open_meteo_dagshistorikk(lat: float, lon: float, day_start_local: pd.T
         return {}
 
 
+# Gårsdagens varsel for dagens døgn (Open-Meteo "previous runs").
+# Brukes til å vise "varslet" ved siden av "faktisk" på de historiske timene,
+# slik at man ser om det har kommet mer eller mindre nedbør enn ventet.
+_FORRIGE_KJORING_CACHE: Dict[tuple, _CacheEntry] = {}
+_FORRIGE_KJORING_LOCK = threading.Lock()
+_FORRIGE_KJORING_TTL = 1800.0      # 30 min – tallene endrer seg kun ved ny modellkjøring
+_FORRIGE_KJORING_TTL_FEIL = 120.0  # kort TTL ved feil, så vi ikke hamrer på APIet
+
+
+def _hent_open_meteo_forrige_kjoring(
+    lat: float,
+    lon: float,
+    day_start_local: pd.Timestamp,
+    day_end_local: pd.Timestamp,
+) -> dict[pd.Timestamp, dict[str, Any]]:
+    """Hva varselet sa i går for hver time i dagens døgn.
+
+    Best effort med cache: returnerer {} hvis APIet er nede eller tregt, slik at
+    resten av siden er upåvirket.
+    """
+    cache_key = (round(lat, 2), round(lon, 2), day_start_local.date().isoformat())
+    now_ts = time.time()
+    with _FORRIGE_KJORING_LOCK:
+        entry = _FORRIGE_KJORING_CACHE.get(cache_key)
+        if entry is not None and entry.expires_at > now_ts:
+            return entry.payload
+
+    out: dict[pd.Timestamp, dict[str, Any]] = {}
+    try:
+        r = requests.get(
+            "https://previous-runs-api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "timezone": "Europe/Oslo",
+                "hourly": "precipitation_previous_day1,temperature_2m_previous_day1",
+                "start_date": day_start_local.date().isoformat(),
+                "end_date": day_start_local.date().isoformat(),
+            },
+            timeout=6,
+        )
+        r.raise_for_status()
+        hourly = ((r.json() or {}).get("hourly") or {})
+        times = hourly.get("time") or []
+        rains = hourly.get("precipitation_previous_day1") or []
+        temps = hourly.get("temperature_2m_previous_day1") or []
+        for i, t_raw in enumerate(times):
+            t_local = pd.to_datetime(t_raw, errors="coerce")
+            if pd.isna(t_local):
+                continue
+            if t_local.tzinfo is None:
+                t_local = t_local.tz_localize(OSLO)
+            else:
+                t_local = t_local.tz_convert(OSLO)
+            t_local = t_local.floor("h")
+            if t_local < day_start_local or t_local >= day_end_local:
+                continue
+            rain_exp = _as_float(rains[i]) if i < len(rains) else None
+            temp_exp = _as_float(temps[i]) if i < len(temps) else None
+            if rain_exp is None and temp_exp is None:
+                continue
+            out[t_local] = {"rain_expected": rain_exp, "temp_expected": temp_exp}
+    except Exception:
+        out = {}
+
+    with _FORRIGE_KJORING_LOCK:
+        _FORRIGE_KJORING_CACHE[cache_key] = _CacheEntry(
+            expires_at=now_ts + (_FORRIGE_KJORING_TTL if out else _FORRIGE_KJORING_TTL_FEIL),
+            payload=out,
+        )
+        if len(_FORRIGE_KJORING_CACHE) > 200:
+            for stale in [k for k, v in _FORRIGE_KJORING_CACHE.items() if v.expires_at <= now_ts]:
+                _FORRIGE_KJORING_CACHE.pop(stale, None)
+    return out
+
+
+def _lag_nedbortrend(hourly: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """Sammenlign faktisk nedbør hittil i dag mot det gårsdagens varsel lovet."""
+    par = [
+        (float(h.get("rain") or 0.0), float(h["rain_expected"]))
+        for h in hourly
+        if h.get("is_history") and h.get("rain_expected") is not None and h.get("rain") is not None
+    ]
+    if len(par) < 3:
+        return None
+
+    faktisk = round(sum(p[0] for p in par), 1)
+    varslet = round(sum(p[1] for p in par), 1)
+    diff = round(faktisk - varslet, 1)
+
+    # Terskel: både absolutt (mm) og relativ, så små tall ikke gir falske utslag.
+    grense = max(0.5, varslet * 0.25)
+    if diff >= grense:
+        retning, label = "over", "Mer nedbør enn varslet"
+        tekst = "Det har kommet mer regn enn varselet lovet – godt mulig resten av døgnet også blir våtere."
+    elif diff <= -grense:
+        retning, label = "under", "Mindre nedbør enn varslet"
+        tekst = "Det har kommet mindre regn enn varselet lovet – resten av døgnet kan bli tørrere enn grafen viser."
+    else:
+        retning, label = "treff", "Omtrent som varslet"
+        tekst = "Varselet har truffet bra hittil i dag."
+
+    return {
+        "hours": len(par),
+        "actual_mm": faktisk,
+        "expected_mm": varslet,
+        "diff_mm": diff,
+        "direction": retning,
+        "label": label,
+        "text": tekst,
+    }
+
+
 @ver.get("/api/aktivt-varsel")
 def api_aktivt_varsel():
     lat = request.args.get("lat", type=float)
@@ -2258,7 +2371,6 @@ def api_aktivt_varsel():
         if resolved_sted:
             sted = resolved_sted
 
-    ts = _hent_yr_komplett(lat, lon)
     now = datetime.now(timezone.utc)
     # `now` er allerede timezone-aware (UTC), så vi må ikke sende `tz=` på nytt.
     now_local = pd.Timestamp(now).tz_convert(OSLO)
@@ -2268,6 +2380,18 @@ def api_aktivt_varsel():
     day_end_utc = day_end_local.tz_convert("UTC").to_pydatetime()
     horizon_24 = now + pd.Timedelta(hours=24)
     horizon_7d = now + pd.Timedelta(days=7)
+
+    # Hent YR, Open-Meteo-historikk og gårsdagens varsel samtidig. Tre parallelle
+    # kall bruker omtrent like lang tid som det tregeste av dem, så det nye
+    # "varslet"-laget koster ingen ekstra ventetid (før var YR + historikk
+    # sekvensielle).
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        fut_yr = pool.submit(_hent_yr_komplett, lat, lon)
+        fut_hist = pool.submit(_hent_open_meteo_dagshistorikk, lat, lon, day_start_local, day_end_local)
+        fut_forventet = pool.submit(_hent_open_meteo_forrige_kjoring, lat, lon, day_start_local, day_end_local)
+        ts = fut_yr.result()
+        open_meteo_day = fut_hist.result()
+        forventet_day = fut_forventet.result()
 
     rows_24 = []   # brukes til KPI + forward-only beregninger (fremdeles neste 24t)
     rows_day = []  # dagens døgn (00:00-23:59 lokal tid), inkl historikk/prognose
@@ -2312,7 +2436,6 @@ def api_aktivt_varsel():
         if now <= t_py <= horizon_24:
             rows_24.append(rec)
 
-    open_meteo_day = _hent_open_meteo_dagshistorikk(lat, lon, day_start_local, day_end_local)
     rows_day_by_hour: dict[pd.Timestamp, dict[str, Any]] = {}
     for rec in rows_day:
         t_local = pd.to_datetime(rec["time"], utc=True).tz_convert(OSLO).floor("h")
@@ -2407,13 +2530,19 @@ def api_aktivt_varsel():
         rec = rows_day_by_hour.get(slot_local)
         is_history_slot = bool(slot_local.tz_convert("UTC").to_pydatetime() < now)
 
+        forventet = forventet_day.get(slot_local) if is_history_slot else None
+        rain_expected = forventet.get("rain_expected") if forventet else None
+        temp_expected = forventet.get("temp_expected") if forventet else None
+
         if rec is None:
             hourly.append(
                 {
                     "time": slot_local.isoformat(),
                     "is_history": is_history_slot,
                     "temp": None,
+                    "temp_expected": round(float(temp_expected), 1) if temp_expected is not None else None,
                     "rain": None,
+                    "rain_expected": round(float(rain_expected), 1) if rain_expected is not None else None,
                     "rain_min": None,
                     "rain_max": None,
                     "rain_prob": None,
@@ -2433,7 +2562,9 @@ def api_aktivt_varsel():
                 "time": t_local.isoformat(),
                 "is_history": rec.get("is_history", False),
                 "temp": round(float(rec["temp"]), 1) if rec["temp"] is not None else None,
+                "temp_expected": round(float(temp_expected), 1) if temp_expected is not None else None,
                 "rain": round(float(rec["rain"]), 1) if rec.get("rain") is not None else None,
+                "rain_expected": round(float(rain_expected), 1) if rain_expected is not None else None,
                 "rain_min": round(float(rec["rain_min"]), 1) if rec["rain_min"] is not None else None,
                 "rain_max": round(float(rec["rain_max"]), 1) if rec["rain_max"] is not None else None,
                 "rain_prob": int(round(rec["rain_prob"])) if rec["rain_prob"] is not None else None,
@@ -2589,11 +2720,14 @@ def api_aktivt_varsel():
             }
         )
 
+    nedbor_trend = _lag_nedbortrend(hourly)
+
     return jsonify(
         {
             "sted": sted,
             "coords": {"lat": lat, "lon": lon},
             "quality": quality,
+            "precip_trend": nedbor_trend,
             "summary": {
                 "temp_now": round(temp_now, 1),
                 "temp_min_24h": round(float(df_day["temp"].min()), 1),
@@ -2645,6 +2779,7 @@ _AKTIVT_VARSEL_HTML = r"""<!DOCTYPE html>
   --temp:#ea580c;
   --rain:#2563eb;
   --rain-light:#93c5fd;
+  --rain-exp:#7c3aed;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;line-height:1.5;font-size:14px}
@@ -2687,6 +2822,10 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 /* Kvalitet-badge */
 .quality{font-size:12px;color:var(--text-2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .quality-chip{background:#f3f4f6;color:var(--text);padding:3px 9px;border-radius:6px;font-weight:500;border:1px solid var(--border)}
+.trend-chip{padding:3px 9px;border-radius:6px;font-weight:500;border:1px solid var(--border);background:#f3f4f6;color:var(--text)}
+.trend-chip.trend-over{background:var(--warn-bg);border-color:#fde68a;color:#92400e}
+.trend-chip.trend-under{background:var(--good-bg);border-color:#bbf7d0;color:#166534}
+.chart-note{font-size:11px;color:var(--text-3);margin:6px 0 0}
 
 /* KPI-bånd */
 .kpi-band{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:14px;display:grid;grid-template-columns:repeat(5,1fr);gap:0}
@@ -2856,11 +2995,13 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
           <span><span class="sw" style="background:#cbd5e1"></span>Overskyet</span>
           <span><span class="sw" style="background:#93c5fd"></span>Nedbør</span>
           <span><span class="sw" style="background:var(--temp)"></span>Temperatur</span>
-          <span><span class="sw" style="background:var(--rain)"></span>Nedbør (forventet)</span>
+          <span><span class="sw" style="background:var(--rain)"></span>Nedbør (mm)</span>
           <span><span class="sw" style="background:var(--rain-light)"></span>Usikkerhet (maks)</span>
+          <span><span class="sw" style="background:var(--rain-exp);border-radius:50%"></span>Varslet i går</span>
           <span><span class="sw" style="background:#e5e7eb;border:1px dashed #64748b"></span>Vind (stiplet linje)</span>
         </div>
       </div>
+      <p class="chart-note">Før NÅ-linjen viser søylene hva som faktisk kom; den lilla linjen viser hva varselet sa i går for de samme timene. Etter NÅ-linjen er søylene prognose.</p>
       <div class="verdict-strip" id="verdictStrip" title="Værtype per time"></div>
       <div class="chart-box">
         <canvas id="mainChart" role="img" aria-label="Kombinert graf over temperatur, nedbør og vind for dagens døgn."></canvas>
@@ -3087,7 +3228,15 @@ function renderData(d){
   document.getElementById('verdictText').textContent=v.text;
 
   // Kvalitet
-  document.getElementById('quality').innerHTML=`<span class="quality-chip">Kvalitet ${d.quality.score}/5 · ${d.quality.label}</span><span>${d.quality.reason||''}</span>`;
+  const pt=d.precip_trend;
+  let trendChip='';
+  if(pt){
+    const cls=pt.direction==='over'?'trend-over':(pt.direction==='under'?'trend-under':'');
+    const pil=pt.direction==='over'?'▲':(pt.direction==='under'?'▼':'≈');
+    const fortegn=pt.diff_mm>0?'+':'';
+    trendChip=`<span class="trend-chip ${cls}" title="${pt.text}">${pil} ${pt.label}: ${pt.actual_mm} mm hittil i dag mot ${pt.expected_mm} mm varslet (${fortegn}${pt.diff_mm} mm)</span>`;
+  }
+  document.getElementById('quality').innerHTML=`<span class="quality-chip">Kvalitet ${d.quality.score}/5 · ${d.quality.label}</span>${trendChip}<span>${d.quality.reason||''}</span>`;
 
   // KPI-bånd
   const s=d.summary;
@@ -3399,6 +3548,10 @@ function drawMainChart(hourly){
   }
 
   const rainExp=hourly.map(h=>h.rain ?? 0);
+  // Hva varselet sa i går for de timene som allerede har vært – null ellers,
+  // slik at linjen kun tegnes på den historiske delen av døgnet.
+  const rainForecastPrev=hourly.map(h=>(h.is_history && h.rain_expected!=null) ? h.rain_expected : null);
+  const hasForecastPrev=rainForecastPrev.some(v=>v!=null);
   const rainUnc=hourly.map(h=>{
     const mx=h.rain_max ?? h.rain ?? 0;
     const exp=h.rain ?? 0;
@@ -3455,7 +3608,7 @@ function drawMainChart(hourly){
         },
         {
           type:'bar',
-          label:'Nedbør (forventet)',
+          label:'Nedbør',
           data:rainExp,
           backgroundColor:(ctx)=>ctx.dataIndex<nowIdx?'rgba(37,99,235,0.45)':'rgba(37,99,235,0.85)',
           yAxisID:'yRain',
@@ -3463,6 +3616,25 @@ function drawMainChart(hourly){
           order:2,
           barPercentage:1.0,
           categoryPercentage:0.85
+        },
+        {
+          type:'line',
+          label:'Varslet i går',
+          data:rainForecastPrev,
+          hidden:!hasForecastPrev,
+          borderColor:'rgba(124,58,237,0.9)',
+          borderWidth:1.8,
+          borderDash:[5,3],
+          stepped:'middle',
+          pointRadius:2.5,
+          pointHoverRadius:4,
+          pointBackgroundColor:'rgba(124,58,237,0.9)',
+          pointBorderWidth:0,
+          fill:false,
+          tension:0,
+          yAxisID:'yRain',
+          order:1,
+          spanGaps:false
         },
         {
           type:'line',
@@ -3519,7 +3691,7 @@ function drawMainChart(hourly){
       plugins:{
         legend:{display:false},
         tooltip:{
-          filter:(item)=>item.dataset.label!=='Temperatur (historikk)' || item.raw!=null,
+          filter:(item)=>!(['Temperatur (historikk)','Varslet i går'].includes(item.dataset.label) && item.raw==null),
           callbacks:{
             title:(items)=>{
               const i=items[0].dataIndex;
@@ -3529,11 +3701,23 @@ function drawMainChart(hourly){
             label:(ctx)=>{
               if(ctx.dataset.label==='Temperatur'||ctx.dataset.label==='Temperatur (historikk)'){
                 if(ctx.parsed.y==null) return null;
-                return `Temp: ${ctx.parsed.y?.toFixed(1)}°`;
+                const tExp=hourly[ctx.dataIndex]?.temp_expected;
+                const varslet=(ctx.dataIndex<nowIdx && tExp!=null)?` (varslet i går: ${tExp.toFixed(1)}°)`:'';
+                return `Temp: ${ctx.parsed.y?.toFixed(1)}°${varslet}`;
               }
-              if(ctx.dataset.label==='Nedbør (forventet)') return `Regn: ${ctx.parsed.y?.toFixed(1)} mm`;
+              if(ctx.dataset.label==='Nedbør'){
+                const past=ctx.dataIndex<nowIdx;
+                return `${past?'Faktisk regn':'Varslet regn'}: ${ctx.parsed.y?.toFixed(1)} mm`;
+              }
+              if(ctx.dataset.label==='Varslet i går'){
+                if(ctx.parsed.y==null) return null;
+                const faktisk=hourly[ctx.dataIndex]?.rain;
+                const diff=(faktisk!=null)?(faktisk-ctx.parsed.y):null;
+                const avvik=(diff==null)?'':` (${diff>=0?'+':''}${diff.toFixed(1)} mm mot faktisk)`;
+                return `Varslet i går: ${ctx.parsed.y.toFixed(1)} mm${avvik}`;
+              }
               if(ctx.dataset.label==='Usikkerhet (maks)'){
-                const tot=ctx.parsed.y+(ctx.chart.data.datasets[1].data[ctx.dataIndex]||0);
+                const tot=ctx.parsed.y+(ctx.chart.data.datasets.find(ds=>ds.label==='Nedbør')?.data[ctx.dataIndex]||0);
                 return `Maks regn: ${tot.toFixed(1)} mm`;
               }
               if(ctx.dataset.label==='Vind (m/s)') return `Vind: ${ctx.parsed.y?.toFixed(1)} m/s`;
