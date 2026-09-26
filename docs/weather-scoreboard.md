@@ -180,7 +180,7 @@ Referanser:
 ## Google WeatherNext 3
 
 Samme cron-jobb henter også WeatherNext 3 (0.1°, ca. 11 km) fra Earth Engine for
-Bergen og Kvamskogen (`scripts/weathernext.py`). Hver time:
+Bergen (`FASTE_STEDER` i `scripts/weathernext.py`). Hver time:
 
 1. Nyeste komplette 6-timerskjøring (360 t) og nyeste timeskjøring (48 t) hentes
    for punktet. Nyeste kjøring vinner per time.
@@ -192,7 +192,7 @@ Bergen og Kvamskogen (`scripts/weathernext.py`). Hver time:
    bruker fortsatt bare Yr og Google, men dataene samles fra nå av, slik at WN3
    kan scores når det finnes nok historikk.
 
-Andre steder hentes live via `/ver/api/weathernext` og caches én time per
+Andre steder, også Kvamskogen, hentes live via `/ver/api/weathernext` og caches én time per
 0.1°-celle (rate-limit 15/min per IP).
 
 Tidskonvensjon: øyeblikksverdier (temp, vind, skydekke) er verdien ved timens

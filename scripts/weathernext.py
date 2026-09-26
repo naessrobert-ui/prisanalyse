@@ -3,7 +3,7 @@
 
 Brukes på to måter:
 
-* **Faste steder** (Bergen, Kvamskogen i `weather_comparison.PLACES`): cron-jobben
+* **Faste steder** (`FASTE_STEDER`, i dag bare Bergen): cron-jobben
   `vaer-treffsikkerhet` kaller `collect()` hver time. Siste varsel lagres som JSON
   (rask lesing for nettsiden), hver ny modellkjøring arkiveres med alle 114 bånd,
   og timene 0-48 legges i treffsikkerhetsloggen som leverandør `weathernext`.
@@ -65,6 +65,9 @@ _FAST_MAKS_ALDER = timedelta(hours=3)
 _CACHE_TTL = 3600
 #: Et oppslag regnes som et fast sted når det er innenfor dette (grader).
 _FAST_RADIUS = 0.06
+#: Steder (nøkler i `weather_comparison.PLACES`) som hentes hver time av cron.
+#: Alle andre, også Kvamskogen, hentes live ved søk og caches i én time.
+FASTE_STEDER: tuple[str, ...] = ("bergen",)
 
 
 def _k(v: float) -> float:
@@ -493,7 +496,7 @@ def collect(places: Optional[Iterable[str]] = None, now: Optional[datetime] = No
         return resultat
 
     alle_rader: list[dict[str, Any]] = []
-    for place in (list(places) if places else list(PLACES)):
+    for place in (list(places) if places else list(FASTE_STEDER)):
         coords = PLACES[place]
         try:
             kjoringer = hent_kjoringer(coords["lat"], coords["lon"], now=now)
@@ -535,7 +538,8 @@ _CELLE_LAASER: dict[tuple[float, float], threading.Lock] = {}
 def _fast_sted(lat: float, lon: float) -> Optional[str]:
     from scripts.weather_comparison import PLACES
 
-    for place, c in PLACES.items():
+    for place in FASTE_STEDER:
+        c = PLACES[place]
         if abs(c["lat"] - lat) <= _FAST_RADIUS and abs(c["lon"] - lon) <= _FAST_RADIUS:
             return place
     return None
