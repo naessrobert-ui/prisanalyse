@@ -3290,6 +3290,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
           <button class="day-detail-close" id="dayDetailClose">✕ Lukk</button>
         </div>
         <div class="best6-banner" id="best6Banner" style="display:none"></div>
+        <div class="enighet" id="dagEnighet"></div>
         <div class="day-stats" id="dayStats"></div>
         <div class="day-chart-box">
           <canvas id="dayChart" role="img" aria-label="Timesdetaljer for valgt dag"></canvas>
@@ -3682,10 +3683,23 @@ function showDayDetail(day){
   const title=new Date(day.date).toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'long'});
   document.getElementById('dayDetailTitle').textContent=title;
 
-  // Statistikk-kort
+  // Statistikk-kort. Med Google: samme snitt som grafen, med Yr og Google under.
+  let tempTxt=`${day.temp_min}° – ${day.temp_max}°`, regnTxt=`${day.rain_total}<small> mm</small>`, tempKilde='', regnKilde='';
+  const hs=(day.hours||[]);
+  const sm=hs.map(h=>({h,s:sammenlign(h)}));
+  if(sm.some(x=>x.s)){
+    const temps=sm.map(x=>x.s?x.s.komb.temp:x.h.temp).filter(v=>v!=null);
+    const regn=sm.reduce((a,x)=>a+(x.s?x.s.komb.regn:(x.h.rain??0)),0);
+    const yrR=sm.reduce((a,x)=>a+(x.s?x.s.yr.regn:0),0), gR=sm.reduce((a,x)=>a+(x.s?(x.s.g.regn??0):0),0);
+    const yrT=sm.filter(x=>x.s).map(x=>x.s.yr.temp), gT=sm.filter(x=>x.s).map(x=>x.s.g.temp);
+    tempTxt=`${f1(Math.min(...temps))}° – ${f1(Math.max(...temps))}°`;
+    regnTxt=`${f1(regn)}<small> mm</small>`;
+    tempKilde=`<div class="muted" style="font-size:11px">Yr maks ${f1(Math.max(...yrT))}° · Google ${f1(Math.max(...gT))}°</div>`;
+    regnKilde=`<div class="muted" style="font-size:11px">Yr ${f1(yrR)} · Google ${f1(gR)} mm</div>`;
+  }
   document.getElementById('dayStats').innerHTML=`
-    <div class="day-stat"><div class="ds-lbl">Temperatur</div><div class="ds-val">${day.temp_min}° – ${day.temp_max}°</div></div>
-    <div class="day-stat"><div class="ds-lbl">Nedbør totalt</div><div class="ds-val">${day.rain_total}<small> mm</small></div></div>
+    <div class="day-stat"><div class="ds-lbl">Temperatur</div><div class="ds-val">${tempTxt}</div>${tempKilde}</div>
+    <div class="day-stat"><div class="ds-lbl">Nedbør totalt</div><div class="ds-val">${regnTxt}</div>${regnKilde}</div>
     <div class="day-stat"><div class="ds-lbl">Soltimer</div><div class="ds-val">${day.sun_hours ?? 0}<small> t</small></div></div>
     <div class="day-stat"><div class="ds-lbl">Maks vind</div><div class="ds-val">${day.wind_max ?? '–'}<small> m/s</small></div></div>
     <div class="day-stat"><div class="ds-lbl">Maks kast</div><div class="ds-val">${day.gust_max ?? '–'}<small> m/s</small></div></div>
@@ -3704,6 +3718,8 @@ function showDayDetail(day){
   }
 
   // Timesgraf for dagen
+  lastDay=day;
+  renderDagDetaljEnighet();
   drawDayChart(day.hours||[], b6);
 
   panel.classList.add('show');
@@ -3712,8 +3728,11 @@ function showDayDetail(day){
 
 function drawDayChart(hours,b6){
   const labels=hours.map(h=>String(new Date(h.time).getHours()).padStart(2,'0'));
-  const temp=hours.map(h=>h.temp);
-  const rain=hours.map(h=>h.rain ?? 0);
+  // Samme sammenslåing som hovedgrafen: snitt av Yr og Google der begge finnes.
+  const samm=hours.map(h=>sammenlign(h));
+  const temp=hours.map((h,i)=>samm[i]?samm[i].komb.temp:h.temp);
+  const rain=hours.map((h,i)=>samm[i]?samm[i].komb.regn:(h.rain ?? 0));
+  const rainTopp=hours.map((h,i)=>(samm[i]&&samm[i].uenigRegn)?Math.max(0,Math.max(samm[i].yr.regn,samm[i].g.regn)-rain[i]):0);
   const wind=hours.map(h=>h.wind ?? 0);
 
   // Custom plugin: marker beste 6t-blokk med grønn bakgrunn
@@ -3768,7 +3787,19 @@ function drawDayChart(hours,b6){
           data:rain,
           backgroundColor:'rgba(37,99,235,0.75)',
           yAxisID:'yRain',
+          stack:'r',
           order:2,
+          barPercentage:0.9,
+          categoryPercentage:0.9
+        },
+        {
+          type:'bar',
+          label:'Høyeste varsel',
+          data:rainTopp,
+          backgroundColor:'rgba(245,158,11,0.45)',
+          yAxisID:'yRain',
+          stack:'r',
+          order:3,
           barPercentage:0.9,
           categoryPercentage:0.9
         },
@@ -3799,7 +3830,8 @@ function drawDayChart(hours,b6){
           pointHoverRadius:3,
           yAxisID:'yWind',
           order:0
-        }
+        },
+        ...wn3MainDatasets(hours)
       ]
     },
     options:{
@@ -3810,11 +3842,13 @@ function drawDayChart(hours,b6){
       plugins:{
         legend:{display:false},
         tooltip:{
+          filter:(item)=>['Temperatur','Nedbør','Vind'].includes(item.dataset.label),
           callbacks:{
             title:(items)=>`kl. ${items[0].label}:00`,
             label:(ctx)=>{
-              if(ctx.dataset.label==='Temperatur') return `Temp: ${ctx.parsed.y?.toFixed(1)}°`;
-              if(ctx.dataset.label==='Nedbør') return `Regn: ${ctx.parsed.y?.toFixed(1)} mm`;
+              const sm=samm[ctx.dataIndex];
+              if(ctx.dataset.label==='Temperatur') return `Temp: ${ctx.parsed.y?.toFixed(1)}°`+(sm?` (Yr ${sm.yr.temp.toFixed(1)}°, Google ${sm.g.temp.toFixed(1)}°${sm.uenigTemp?', uenige':''})`:'');
+              if(ctx.dataset.label==='Nedbør') return `Regn: ${ctx.parsed.y?.toFixed(1)} mm`+((sm&&sm.g.regn!=null)?` (Yr ${sm.yr.regn.toFixed(1)}, Google ${sm.g.regn.toFixed(1)}${sm.uenigRegn?', uenige':''})`:'');
               if(ctx.dataset.label==='Vind') return `Vind: ${ctx.parsed.y?.toFixed(1)} m/s`;
               return '';
             }
@@ -3859,6 +3893,8 @@ function yrVekt(iso){
 }
 function sammenlign(h){
   if(!h || h.is_history || h.temp==null) return null;
+  // Timer som har vært, viser målt vær, ikke varsel.
+  if(new Date(h.time).getTime() < Date.now()-3600000) return null;
   const w=wn3At(h.time);
   if(!w || !w.temp) return null;
   const yr={temp:h.temp, regn:h.rain??0};
@@ -3888,23 +3924,18 @@ function enighetCell(h){
   return `<td class="uenig-cell">⚠ ${deler.join(' · ')}</td>`;
 }
 
-function renderEnighet(){
-  const el=document.getElementById('enighet');
-  if(!wn3ByHour || !lastData){ el.style.display='none'; return; }
-  const nå=Date.now(), slutt=nå+24*3600000;
+function fyllEnighet(el, hours, periodeTekst, visOppsummering){
   const timer=[];
   const sett=new Set();
-  for(const d of (lastData.daily||[])){
-    for(const h of (d.hours||[])){
-      const t=new Date(h.time).getTime();
-      if(t<nå-3600000 || t>=slutt || sett.has(t)) continue;
-      sett.add(t);
-      const s=sammenlign({...h,is_history:t<nå-3600000});
-      if(s) timer.push({t,h,s});
-    }
+  for(const h of hours){
+    const t=new Date(h.time).getTime();
+    if(sett.has(t)) continue;
+    sett.add(t);
+    const s=sammenlign(h);
+    if(s) timer.push({t,h,s});
   }
   timer.sort((a,b)=>a.t-b.t);
-  if(timer.length<6){ el.style.display='none'; return; }
+  if(timer.length<4){ el.style.display='none'; return; }
 
   // Slå sammen påfølgende uenige timer til perioder.
   const perioder=[];
@@ -3918,15 +3949,16 @@ function renderEnighet(){
   const kl=t=>new Date(t).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
   const dag=t=>new Date(t).toLocaleDateString('no-NO',{weekday:'long'});
   const iDag=new Date().toDateString();
+  const flereDager=new Set(timer.map(x=>new Date(x.t).toDateString())).size>1;
   const når=p=>{
-    const d=new Date(p.start).toDateString()===iDag?'':`${dag(p.start)} `;
+    const d=(flereDager && new Date(p.start).toDateString()!==iDag)?`${dag(p.start)} `:'';
     return `${d}kl. ${kl(p.start)}–${kl(p.slutt+3600000)}`;
   };
   const kombRegn=timer.reduce((s,x)=>s+x.s.komb.regn,0);
   const tmin=Math.min(...timer.map(x=>x.s.komb.temp)), tmax=Math.max(...timer.map(x=>x.s.komb.temp));
-  const oppsummering=`Neste døgn: ${f1(tmin)}° til ${f1(tmax)}°, ${kombRegn<0.2?'opphold':f1(kombRegn)+' mm nedbør'}.`;
+  const oppsummering=visOppsummering?` ${periodeTekst[0].toUpperCase()+periodeTekst.slice(1)}: ${f1(tmin)}° til ${f1(tmax)}°, ${kombRegn<0.2?'opphold':f1(kombRegn)+' mm nedbør'}.`:'';
 
-  // Bare perioder som betyr noe for folk: minst 2 timer, eller regn uenighet.
+  // Bare perioder som betyr noe for folk: minst 2 timer, eller uenighet om regn.
   const viktige=perioder
     .filter(p=>p.timer.length>=2 || p.timer.some(x=>x.s.uenigRegn))
     .map(p=>{
@@ -3949,14 +3981,34 @@ function renderEnighet(){
   el.style.display='flex';
   if(!viktige.length){
     el.className='enighet enig';
-    el.innerHTML=`<span class="ik">✔</span><div><strong>Yr og Google er enige.</strong> ${oppsummering}
+    el.innerHTML=`<span class="ik">✔</span><div><strong>Yr og Google er enige ${periodeTekst}.</strong>${oppsummering}
       <div class="kilde">Tallene i grafen er et snitt av de to varslene.</div></div>`;
   }else{
     el.className='enighet uenig';
-    el.innerHTML=`<span class="ik">⚠</span><div><strong>Yr og Google er uenige ${viktige.length===1?'én gang':'noen ganger'} det neste døgnet.</strong> ${oppsummering}
+    el.innerHTML=`<span class="ik">⚠</span><div><strong>Yr og Google er uenige ${periodeTekst}.</strong>${oppsummering}
       <ul>${viktige.map(v=>`<li>${v.tekst}</li>`).join('')}</ul>
-      <div class="kilde">Grafen viser snittet. Der de er uenige, er området mellom dem skravert gult.</div></div>`;
+      <div class="kilde">Grafen viser snittet. Der de er uenige, er området mellom dem gult.</div></div>`;
   }
+}
+
+function renderEnighet(){
+  const el=document.getElementById('enighet');
+  if(!wn3ByHour || !lastData){ el.style.display='none'; return; }
+  const nå=Date.now(), slutt=nå+24*3600000;
+  const hours=[];
+  for(const d of (lastData.daily||[])) for(const h of (d.hours||[])){
+    const t=new Date(h.time).getTime();
+    if(t>=nå-3600000 && t<slutt) hours.push(h);
+  }
+  fyllEnighet(el, hours, 'det neste døgnet', true);
+}
+
+let lastDay=null;
+function renderDagDetaljEnighet(){
+  const el=document.getElementById('dagEnighet');
+  if(!wn3ByHour || !lastDay){ el.style.display='none'; return; }
+  const iDag=new Date(lastDay.date+'T12:00:00').toDateString()===new Date().toDateString();
+  fyllEnighet(el, lastDay.hours||[], iDag?'resten av dagen':'denne dagen', false);
 }
 
 function renderDagEnighet(){
@@ -3966,25 +4018,28 @@ function renderDagEnighet(){
     const d=daily[Number(cell.dataset.dayIdx)];
     cell.querySelector('.d-enig')?.remove();
     if(!d) return;
-    let gR=0, gTmax=-99, n=0, yrR=0, yrTmax=-99;
-    for(const h of (d.hours||[])){
-      if(new Date(h.time).getTime()<Date.now()-3600000) continue;
-      const w=wn3At(h.time);
-      if(!w||!w.temp) continue;
-      n++; gR+=w.regn?w.regn.mean:0; gTmax=Math.max(gTmax,w.temp.mean);
-      yrR+=h.rain??0; if(h.temp!=null) yrTmax=Math.max(yrTmax,h.temp);
-    }
-    if(n<4) return;
+    const sm=(d.hours||[]).map(h=>({h,s:sammenlign(h)}));
+    const med=sm.filter(x=>x.s);
+    if(med.length<4) return;
+    // Kortet viser samme snitt som grafen: Google der den finnes, ellers Yr.
+    const temps=sm.map(x=>x.s?x.s.komb.temp:x.h.temp).filter(v=>v!=null);
+    const regn=sm.reduce((a,x)=>a+(x.s?x.s.komb.regn:(x.h.rain??0)),0);
+    const tEl=cell.querySelector('.d-temp'), mEl=cell.querySelector('.d-meta');
+    if(tEl && temps.length) tEl.textContent=`${Math.round(Math.max(...temps))}°`;
+    if(mEl && temps.length) mEl.textContent=`${Math.round(Math.min(...temps))}° · ${f1(regn)} mm`;
+
+    const yrR=med.reduce((a,x)=>a+x.s.yr.regn,0), gR=med.reduce((a,x)=>a+(x.s.g.regn??0),0);
+    const yrT=Math.max(...med.map(x=>x.s.yr.temp)), gT=Math.max(...med.map(x=>x.s.g.temp));
     const regnUenig=Math.abs(yrR-gR)>2 && Math.max(yrR,gR)>=1;
-    const tempUenig=yrTmax>-99 && Math.abs(yrTmax-gTmax)>2;
+    const tempUenig=Math.abs(yrT-gT)>2;
     const div=document.createElement('div');
+    div.title=`Yr: ${f1(yrR)} mm, maks ${f1(yrT)}°. Google: ${f1(gR)} mm, maks ${f1(gT)}°.`;
     if(regnUenig||tempUenig){
       div.className='d-enig uenig';
       const deler=[];
-      if(regnUenig) deler.push(`${f1(gR)} mm`);
-      if(tempUenig) deler.push(`${Math.round(gTmax)}°`);
-      div.textContent=`⚠ Google: ${deler.join(', ')}`;
-      div.title=`Yr: ${f1(yrR)} mm, maks ${Math.round(yrTmax)}°. Google: ${f1(gR)} mm, maks ${Math.round(gTmax)}°.`;
+      if(regnUenig) deler.push(`Yr ${f1(yrR)} / Google ${f1(gR)} mm`);
+      if(tempUenig) deler.push(`Yr ${Math.round(yrT)}° / Google ${Math.round(gT)}°`);
+      div.innerHTML=`⚠ Uenige<br>${deler.join('<br>')}`;
     }else{
       div.className='d-enig';
       div.textContent='✔ Yr og Google enige';
@@ -4018,6 +4073,7 @@ async function loadWN3(lat,lon){
   if(lastHourly) drawMainChart(lastHourly);
   renderEnighet();
   renderDagEnighet();
+  if(lastDay && document.getElementById('dayDetail').classList.contains('show')) showDayDetail(lastDay);
   if(lastTable) renderHourlyTable(lastTable.hours,lastTable.titleLabel);
   renderWN3Card();
 }
