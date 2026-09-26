@@ -3153,6 +3153,22 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 .wn3-days td.num,.wn3-days th.num{text-align:right}
 .wn3-bar{display:inline-block;height:6px;border-radius:3px;background:var(--wn3-light);vertical-align:middle;margin-left:6px}
 .wn3-foot{font-size:11px;color:var(--text-3);margin:10px 0 0}
+/* ---------- YR + GOOGLE SAMMEN ---------- */
+.enighet{display:none;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:10px;margin:0 0 14px;font-size:13px;border:1px solid var(--border);background:var(--surface)}
+.enighet.enig{border-color:#bbf7d0;background:var(--good-bg-light);color:#166534}
+.enighet.uenig{border-color:#fde68a;background:#fffbeb;color:#92400e}
+.enighet .ik{font-size:16px;line-height:1.2}
+.enighet ul{margin:4px 0 0;padding-left:18px}
+.enighet .kilde{font-size:11px;color:var(--text-3);margin-top:4px}
+.d-enig{font-size:11px;margin-top:4px;color:var(--good)}
+.d-enig.uenig{color:#b45309}
+.hourly-table .uenig-cell{color:#b45309;white-space:nowrap}
+.hourly-table .enig-cell{color:var(--good)}
+#wn3Card summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+#wn3Card summary::-webkit-details-marker{display:none}
+#wn3Card summary h3{margin:0;font-size:15px;font-weight:600}
+#wn3Card summary .pil{color:var(--text-3);font-size:12px;transition:transform .15s}
+#wn3Card details[open] summary .pil{transform:rotate(90deg)}
 
 /* Kollapsbar oversikts-seksjon */
 .overview-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:14px;overflow:hidden}
@@ -3227,6 +3243,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 
     <div class="quality" id="quality"></div>
 
+    <div class="enighet" id="enighet"></div>
+
     <p style="margin:12px 0 20px"><a href="/ver/sammenlign" style="color:inherit">🌦️ Sammenlign Yr og Google for Bergen og Kvamskogen →</a></p>
 
     <!-- Hovedgraf: 24 timer -->
@@ -3243,8 +3261,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
           <span><span class="sw" style="background:var(--rain-light)"></span>Usikkerhet (maks)</span>
           <span><span class="sw" style="background:var(--rain-exp);border-radius:50%"></span>Varslet i går</span>
           <span><span class="sw" style="background:#e5e7eb;border:1px dashed #64748b"></span>Vind (stiplet linje)</span>
-          <span id="wn3Legend" style="display:none"><span class="sw" style="background:var(--wn3)"></span>Google WN3 (bånd = p10–p90)</span>
-          <label class="wn3-toggle" id="wn3ToggleWrap" style="display:none"><input type="checkbox" id="wn3Toggle" checked/>Vis Google</label>
+          <span id="uenigLegend" style="display:none"><span class="sw" style="background:rgba(245,158,11,.35)"></span>Yr og Google uenige</span>
         </div>
       </div>
       <p class="chart-note" id="chartNote">Før NÅ-linjen viser søylene hva som faktisk kom; den lilla linjen viser hva varselet sa i går for de samme timene. Etter NÅ-linjen er søylene prognose.</p>
@@ -3282,8 +3299,9 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 
     <!-- Google WeatherNext 3: 15 døgn med usikkerhet -->
     <div class="chart-card" id="wn3Card" style="display:none">
-      <div class="chart-header">
-        <h3>Google WeatherNext 3: 15 døgn</h3>
+     <details id="wn3Details">
+      <summary><span class="pil">▶</span><h3>Google sitt varsel i detalj: 15 døgn med usikkerhet</h3></summary>
+      <div class="chart-header" style="margin-top:10px">
         <div class="chart-legend">
           <span><span class="sw" style="background:var(--wn3)"></span>Temperatur (snitt)</span>
           <span><span class="sw" style="background:rgba(13,148,136,.35)"></span>50 % sikker (p25–p75)</span>
@@ -3311,6 +3329,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         </table>
       </div>
       <p class="wn3-foot" id="wn3Foot"></p>
+     </details>
     </div>
 
     <!-- Detaljert timesoversikt (beholdt som tabell, mer kompakt) -->
@@ -3325,7 +3344,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
             <th class="num">Vind/kast</th>
             <th>Retning</th>
             <th>Vurdering</th>
-            <th class="wn3-col" style="display:none">Google WN3</th>
+            <th class="wn3-col" style="display:none">Yr mot Google</th>
           </tr></thead>
           <tbody id="hourlyBody"></tbody>
         </table>
@@ -3494,6 +3513,7 @@ async function loadForecast(lat,lon,name){
 }
 
 function renderData(d){
+  lastData=d;
   document.getElementById('results').style.display='block';
 
   // Header
@@ -3597,6 +3617,9 @@ function renderData(d){
     </div>`;
   }).join('');
 
+  renderDagEnighet();
+  renderEnighet();
+
   // Klikk-handlere for daglig-celler
   document.querySelectorAll('.daily-cell').forEach(cell=>{
     cell.addEventListener('click',()=>{
@@ -3644,7 +3667,7 @@ function renderHourlyTable(hours,titleLabel){
       <td class="num">${windBadge}</td>
       <td>${windArrow(h.wind_deg)} ${h.wind_dir||'–'}</td>
       <td>${h.activity||''}</td>
-      ${visWn3?`<td class="wn3-cell">${wn3Cell(h.time)}</td>`:''}
+      ${visWn3?enighetCell(h):''}
     </tr>`;
   }).join('');
 }
@@ -3816,16 +3839,158 @@ document.getElementById('dayDetailClose').addEventListener('click',()=>{
 // ============================================================
 // Google WeatherNext 3
 // ============================================================
-let lastHourly=null, lastTable=null;
+let lastHourly=null, lastTable=null, lastData=null;
 let wn3=null, wn3ByHour=null, wn3Req=0, wn3Chart=null;
 
 function wn3At(iso){
   if(!wn3ByHour || !iso) return null;
   return wn3ByHour.get(new Date(iso).getTime()) || null;
 }
-function wn3Show(){
-  const el=document.getElementById('wn3Toggle');
-  return !!wn3ByHour && (!el || el.checked);
+function wn3Show(){ return !!wn3ByHour; }
+
+// ---------- Yr + Google til ett varsel ----------
+// Yr (MET Nordic, 1 km) er best de første døgnene i norsk terreng, så Yr veier
+// tyngst der. Lenger ut veier de likt. Vektene kan justeres når treffsikkerhets-
+// loggen har nok data til å si hvem som faktisk treffer best per ledetid.
+const GRENSE={temp:1.5, regn:1.0, vått:0.3, tørt:0.1};
+function yrVekt(iso){
+  const t=(new Date(iso).getTime()-Date.now())/3600000;
+  return t<48 ? 0.65 : 0.5;
+}
+function sammenlign(h){
+  if(!h || h.is_history || h.temp==null) return null;
+  const w=wn3At(h.time);
+  if(!w || !w.temp) return null;
+  const yr={temp:h.temp, regn:h.rain??0};
+  const g={temp:w.temp.mean, regn:w.regn?w.regn.mean:null};
+  const a=yrVekt(h.time);
+  const komb={
+    temp:a*yr.temp+(1-a)*g.temp,
+    regn:g.regn==null ? yr.regn : a*yr.regn+(1-a)*g.regn
+  };
+  const uenigTemp=Math.abs(yr.temp-g.temp)>GRENSE.temp;
+  const uenigRegn=g.regn!=null && (
+    Math.abs(yr.regn-g.regn)>GRENSE.regn ||
+    (yr.regn>=GRENSE.vått && g.regn<GRENSE.tørt) ||
+    (g.regn>=GRENSE.vått && yr.regn<GRENSE.tørt)
+  );
+  return {yr,g,komb,uenigTemp,uenigRegn,uenig:uenigTemp||uenigRegn};
+}
+const f1=v=>v.toFixed(1).replace('.',',');
+
+function enighetCell(h){
+  const s=sammenlign(h);
+  if(!s) return '<td class="muted">–</td>';
+  if(!s.uenig) return '<td class="enig-cell">✔ enige</td>';
+  const deler=[];
+  if(s.uenigTemp) deler.push(`Google ${f1(s.g.temp)}°`);
+  if(s.uenigRegn) deler.push(`Google ${f1(s.g.regn)} mm`);
+  return `<td class="uenig-cell">⚠ ${deler.join(' · ')}</td>`;
+}
+
+function renderEnighet(){
+  const el=document.getElementById('enighet');
+  if(!wn3ByHour || !lastData){ el.style.display='none'; return; }
+  const nå=Date.now(), slutt=nå+24*3600000;
+  const timer=[];
+  const sett=new Set();
+  for(const d of (lastData.daily||[])){
+    for(const h of (d.hours||[])){
+      const t=new Date(h.time).getTime();
+      if(t<nå-3600000 || t>=slutt || sett.has(t)) continue;
+      sett.add(t);
+      const s=sammenlign({...h,is_history:t<nå-3600000});
+      if(s) timer.push({t,h,s});
+    }
+  }
+  timer.sort((a,b)=>a.t-b.t);
+  if(timer.length<6){ el.style.display='none'; return; }
+
+  // Slå sammen påfølgende uenige timer til perioder.
+  const perioder=[];
+  let cur=null;
+  for(const x of timer){
+    if(x.s.uenig){
+      if(cur && x.t-cur.slutt<=3600000){ cur.slutt=x.t; cur.timer.push(x); }
+      else { cur={start:x.t,slutt:x.t,timer:[x]}; perioder.push(cur); }
+    }else cur=null;
+  }
+  const kl=t=>new Date(t).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
+  const dag=t=>new Date(t).toLocaleDateString('no-NO',{weekday:'long'});
+  const iDag=new Date().toDateString();
+  const når=p=>{
+    const d=new Date(p.start).toDateString()===iDag?'':`${dag(p.start)} `;
+    return `${d}kl. ${kl(p.start)}–${kl(p.slutt+3600000)}`;
+  };
+  const kombRegn=timer.reduce((s,x)=>s+x.s.komb.regn,0);
+  const tmin=Math.min(...timer.map(x=>x.s.komb.temp)), tmax=Math.max(...timer.map(x=>x.s.komb.temp));
+  const oppsummering=`Neste døgn: ${f1(tmin)}° til ${f1(tmax)}°, ${kombRegn<0.2?'opphold':f1(kombRegn)+' mm nedbør'}.`;
+
+  // Bare perioder som betyr noe for folk: minst 2 timer, eller regn uenighet.
+  const viktige=perioder
+    .filter(p=>p.timer.length>=2 || p.timer.some(x=>x.s.uenigRegn))
+    .map(p=>{
+      const yrR=p.timer.reduce((s,x)=>s+x.s.yr.regn,0);
+      const gR=p.timer.reduce((s,x)=>s+(x.s.g.regn??0),0);
+      const dT=p.timer.reduce((s,x)=>s+(x.s.g.temp-x.s.yr.temp),0)/p.timer.length;
+      const regnUenig=p.timer.some(x=>x.s.uenigRegn);
+      let tekst;
+      if(regnUenig){
+        const hvem=yrR>gR ? `Yr venter ${f1(yrR)} mm, Google bare ${f1(gR)} mm` : `Google venter ${f1(gR)} mm, Yr bare ${f1(yrR)} mm`;
+        tekst=`${når(p)}: uenige om regn. ${hvem}.`;
+      }else{
+        tekst=`${når(p)}: Google er ${f1(Math.abs(dT))}° ${dT>0?'varmere':'kaldere'} enn Yr.`;
+      }
+      return {tekst,start:p.start,vekt:Math.abs(yrR-gR)+Math.abs(dT)};
+    })
+    .sort((a,b)=>b.vekt-a.vekt).slice(0,3)
+    .sort((a,b)=>a.start-b.start);
+
+  el.style.display='flex';
+  if(!viktige.length){
+    el.className='enighet enig';
+    el.innerHTML=`<span class="ik">✔</span><div><strong>Yr og Google er enige.</strong> ${oppsummering}
+      <div class="kilde">Tallene i grafen er et snitt av de to varslene.</div></div>`;
+  }else{
+    el.className='enighet uenig';
+    el.innerHTML=`<span class="ik">⚠</span><div><strong>Yr og Google er uenige ${viktige.length===1?'én gang':'noen ganger'} det neste døgnet.</strong> ${oppsummering}
+      <ul>${viktige.map(v=>`<li>${v.tekst}</li>`).join('')}</ul>
+      <div class="kilde">Grafen viser snittet. Der de er uenige, er området mellom dem skravert gult.</div></div>`;
+  }
+}
+
+function renderDagEnighet(){
+  if(!wn3ByHour || !lastData) return;
+  const daily=lastData.daily||[];
+  document.querySelectorAll('.daily-cell').forEach(cell=>{
+    const d=daily[Number(cell.dataset.dayIdx)];
+    cell.querySelector('.d-enig')?.remove();
+    if(!d) return;
+    let gR=0, gTmax=-99, n=0, yrR=0, yrTmax=-99;
+    for(const h of (d.hours||[])){
+      if(new Date(h.time).getTime()<Date.now()-3600000) continue;
+      const w=wn3At(h.time);
+      if(!w||!w.temp) continue;
+      n++; gR+=w.regn?w.regn.mean:0; gTmax=Math.max(gTmax,w.temp.mean);
+      yrR+=h.rain??0; if(h.temp!=null) yrTmax=Math.max(yrTmax,h.temp);
+    }
+    if(n<4) return;
+    const regnUenig=Math.abs(yrR-gR)>2 && Math.max(yrR,gR)>=1;
+    const tempUenig=yrTmax>-99 && Math.abs(yrTmax-gTmax)>2;
+    const div=document.createElement('div');
+    if(regnUenig||tempUenig){
+      div.className='d-enig uenig';
+      const deler=[];
+      if(regnUenig) deler.push(`${f1(gR)} mm`);
+      if(tempUenig) deler.push(`${Math.round(gTmax)}°`);
+      div.textContent=`⚠ Google: ${deler.join(', ')}`;
+      div.title=`Yr: ${f1(yrR)} mm, maks ${Math.round(yrTmax)}°. Google: ${f1(gR)} mm, maks ${Math.round(gTmax)}°.`;
+    }else{
+      div.className='d-enig';
+      div.textContent='✔ Yr og Google enige';
+    }
+    cell.appendChild(div);
+  });
 }
 function wn3Cell(iso){
   const w=wn3At(iso);
@@ -3839,8 +4004,8 @@ async function loadWN3(lat,lon){
   const req=++wn3Req;
   wn3=null; wn3ByHour=null;
   document.getElementById('wn3Card').style.display='none';
-  document.getElementById('wn3Legend').style.display='none';
-  document.getElementById('wn3ToggleWrap').style.display='none';
+  document.getElementById('uenigLegend').style.display='none';
+  document.getElementById('enighet').style.display='none';
   try{
     const r=await fetch(`/ver/api/weathernext?lat=${lat}&lon=${lon}`);
     if(!r.ok) return;  // ikke aktivert eller feil: siden fungerer som før
@@ -3849,23 +4014,31 @@ async function loadWN3(lat,lon){
     wn3=d;
     wn3ByHour=new Map(d.timer.map(h=>[new Date(h.t).getTime(),h]));
   }catch(e){ return; }
-  document.getElementById('wn3Legend').style.display='';
-  document.getElementById('wn3ToggleWrap').style.display='';
+  document.getElementById('uenigLegend').style.display='';
   if(lastHourly) drawMainChart(lastHourly);
+  renderEnighet();
+  renderDagEnighet();
   if(lastTable) renderHourlyTable(lastTable.hours,lastTable.titleLabel);
   renderWN3Card();
 }
 
-document.getElementById('wn3Toggle').addEventListener('change',()=>{ if(lastHourly) drawMainChart(lastHourly); });
+document.getElementById('wn3Details').addEventListener('toggle',(e)=>{
+  if(e.target.open && wn3) drawWN3Chart(wn3.timer);
+});
 
 function wn3MainDatasets(hourly){
   if(!wn3Show()) return [];
-  const pick=(f)=>hourly.map(h=>{const w=wn3At(h.time); const v=f(w); return v==null?null:v;});
+  // Skravert område mellom Yr og Google der de er uenige om temperaturen.
+  const lav=[], hoy=[];
+  hourly.forEach((h,i)=>{
+    const s=sammenlign(h);
+    const nabo=[hourly[i-1],hourly[i+1]].map(sammenlign).some(x=>x&&x.uenigTemp);
+    if(s && (s.uenigTemp || (nabo && s))){ lav.push(Math.min(s.yr.temp,s.g.temp)); hoy.push(Math.max(s.yr.temp,s.g.temp)); }
+    else { lav.push(null); hoy.push(null); }
+  });
   return [
-    {type:'line',label:'Google p10',data:pick(w=>w?.temp?.p10),borderWidth:0,pointRadius:0,pointHoverRadius:0,fill:false,tension:0.35,yAxisID:'yTemp',order:0,spanGaps:false},
-    {type:'line',label:'Google p90',data:pick(w=>w?.temp?.p90),borderWidth:0,pointRadius:0,pointHoverRadius:0,fill:'-1',backgroundColor:'rgba(13,148,136,0.13)',tension:0.35,yAxisID:'yTemp',order:0,spanGaps:false},
-    {type:'line',label:'Google temp',data:pick(w=>w?.temp?.mean),borderColor:'rgba(13,148,136,0.95)',borderWidth:2,pointRadius:0,pointHoverRadius:4,fill:false,tension:0.35,yAxisID:'yTemp',order:0,spanGaps:false},
-    {type:'line',label:'Google regn',data:pick(w=>w?.regn?.mean),borderColor:'rgba(13,148,136,0.9)',borderWidth:1.6,borderDash:[2,2],stepped:'middle',pointRadius:0,pointHoverRadius:3,fill:false,yAxisID:'yRain',order:1,spanGaps:false}
+    {type:'line',label:'Uenig lav',data:lav,borderWidth:0,pointRadius:0,pointHoverRadius:0,fill:false,tension:0.35,yAxisID:'yTemp',order:0,spanGaps:false},
+    {type:'line',label:'Uenig høy',data:hoy,borderWidth:0,pointRadius:0,pointHoverRadius:0,fill:'-1',backgroundColor:'rgba(245,158,11,0.28)',tension:0.35,yAxisID:'yTemp',order:0,spanGaps:false}
   ];
 }
 
@@ -3891,7 +4064,7 @@ function renderWN3Card(){
     `<span>Rekker til: <b>${horisont} døgn</b> frem</span>`,
     modus?`<span class="muted">${modus}</span>`:''
   ].join('');
-  drawWN3Chart(timer);
+  if(document.getElementById('wn3Details').open) drawWN3Chart(timer);
   renderWN3Days(timer);
   document.getElementById('wn3Foot').textContent=
     `Kilde: ${wn3.kilde}. ${wn3.attribusjon} Tallene er snittet av 64 ensemble-medlemmer. ` +
@@ -4045,24 +4218,27 @@ function drawMainChart(hourly){
 
   // Data-arrays: splitt temp i historikk vs prognose (to datasets for visuelt skille)
   const tempHist=hourly.map((h,i)=>h.is_history ? h.temp : null);
+  // Med Google tilgjengelig er prognosen et vektet snitt av Yr og Google.
+  const samm=hourly.map(h=>sammenlign(h));
   const tempFcst=hourly.map((h,i)=>{
     if(h.is_history) return null;
-    // Inkluder siste historiske punkt for å koble linjene
-    return h.temp;
+    return samm[i] ? samm[i].komb.temp : h.temp;
   });
   // Knytt linjene sammen: duplisér overgangs-punktet
   if(nowIdx>0 && nowIdx<hourly.length){
     tempHist[nowIdx]=hourly[nowIdx-1].temp;
   }
 
-  const rainExp=hourly.map(h=>h.rain ?? 0);
+  const rainExp=hourly.map((h,i)=>samm[i] ? samm[i].komb.regn : (h.rain ?? 0));
   // Hva varselet sa i går for de timene som allerede har vært – null ellers,
   // slik at linjen kun tegnes på den historiske delen av døgnet.
   const rainForecastPrev=hourly.map(h=>(h.is_history && h.rain_expected!=null) ? h.rain_expected : null);
   const hasForecastPrev=rainForecastPrev.some(v=>v!=null);
-  const rainUnc=hourly.map(h=>{
+  const rainUnc=hourly.map((h,i)=>{
+    const exp=rainExp[i];
+    // Uenige om regn: den lyse delen går opp til det høyeste av de to varslene.
+    if(samm[i] && samm[i].uenigRegn) return Math.max(0, Math.max(samm[i].yr.regn, samm[i].g.regn) - exp);
     const mx=h.rain_max ?? h.rain ?? 0;
-    const exp=h.rain ?? 0;
     return Math.max(0, mx - exp);
   });
   // null (ikke 0) for ukjent vind – ellers tegner grafen en falsk 0 m/s
@@ -4108,7 +4284,7 @@ function drawMainChart(hourly){
           type:'bar',
           label:'Usikkerhet (maks)',
           data:rainUnc,
-          backgroundColor:(ctx)=>ctx.dataIndex<nowIdx?'rgba(147,197,253,0.3)':'rgba(147,197,253,0.6)',
+          backgroundColor:(ctx)=>ctx.dataIndex<nowIdx?'rgba(147,197,253,0.3)':(samm[ctx.dataIndex]?.uenigRegn?'rgba(245,158,11,0.45)':'rgba(147,197,253,0.6)'),
           yAxisID:'yRain',
           stack:'precip',
           order:3,
@@ -4201,7 +4377,7 @@ function drawMainChart(hourly){
       plugins:{
         legend:{display:false},
         tooltip:{
-          filter:(item)=>!(['Temperatur (historikk)','Varslet i går','Vind (m/s)','Google temp','Google regn'].includes(item.dataset.label) && item.raw==null) && !['Google p10','Google p90'].includes(item.dataset.label),
+          filter:(item)=>!(['Temperatur (historikk)','Varslet i går','Vind (m/s)'].includes(item.dataset.label) && item.raw==null) && !['Uenig lav','Uenig høy'].includes(item.dataset.label),
           callbacks:{
             title:(items)=>{
               const i=items[0].dataIndex;
@@ -4213,11 +4389,17 @@ function drawMainChart(hourly){
                 if(ctx.parsed.y==null) return null;
                 const tExp=hourly[ctx.dataIndex]?.temp_expected;
                 const varslet=(ctx.dataIndex<nowIdx && tExp!=null)?` (varslet i går: ${tExp.toFixed(1)}°)`:'';
-                return `Temp: ${ctx.parsed.y?.toFixed(1)}°${varslet}`;
+                const sm=samm[ctx.dataIndex];
+                const kilder=sm?` (Yr ${sm.yr.temp.toFixed(1)}°, Google ${sm.g.temp.toFixed(1)}°${sm.uenigTemp?', uenige':''})`:'';
+                return `Temp: ${ctx.parsed.y?.toFixed(1)}°${varslet}${kilder}`;
               }
               if(ctx.dataset.label==='Nedbør'){
                 const h=hourly[ctx.dataIndex];
-                if(ctx.dataIndex>=nowIdx) return `Varslet regn: ${ctx.parsed.y?.toFixed(1)} mm`;
+                if(ctx.dataIndex>=nowIdx){
+                  const sm=samm[ctx.dataIndex];
+                  const kilder=(sm&&sm.g.regn!=null)?` (Yr ${sm.yr.regn.toFixed(1)}, Google ${sm.g.regn.toFixed(1)}${sm.uenigRegn?', uenige':''})`:'';
+                  return `Varslet regn: ${ctx.parsed.y?.toFixed(1)} mm${kilder}`;
+                }
                 const merke=(h?.rain_source==='obs')?'Målt regn':'Beregnet regn';
                 return `${merke}: ${ctx.parsed.y?.toFixed(1)} mm`;
               }
@@ -4232,23 +4414,11 @@ function drawMainChart(hourly){
               if(ctx.dataset.label==='Usikkerhet (maks)'){
                 if(!ctx.parsed.y) return null;
                 const tot=ctx.parsed.y+(ctx.chart.data.datasets.find(ds=>ds.label==='Nedbør')?.data[ctx.dataIndex]||0);
-                return `Maks regn: ${tot.toFixed(1)} mm`;
+                return samm[ctx.dataIndex]?.uenigRegn ? `Høyeste varsel: ${tot.toFixed(1)} mm` : `Maks regn: ${tot.toFixed(1)} mm`;
               }
               if(ctx.dataset.label==='Vind (m/s)'){
                 if(ctx.parsed.y==null) return null;
                 return `Vind: ${ctx.parsed.y.toFixed(1)} m/s`;
-              }
-              if(ctx.dataset.label==='Google temp'){
-                const w=wn3At(hourly[ctx.dataIndex]?.time);
-                const t=w?.temp;
-                if(!t) return null;
-                const band=(t.p10!=null&&t.p90!=null)?` (${t.p10.toFixed(1)} til ${t.p90.toFixed(1)})`:'';
-                return `Google WN3: ${t.mean.toFixed(1)}°${band}`;
-              }
-              if(ctx.dataset.label==='Google regn'){
-                const r=wn3At(hourly[ctx.dataIndex]?.time)?.regn;
-                if(!r) return null;
-                return `Google regn: ${r.mean.toFixed(1)} mm (p90 ${(r.p90??r.mean).toFixed(1)})`;
               }
               return null;
             }
