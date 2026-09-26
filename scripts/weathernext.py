@@ -415,9 +415,14 @@ def _s3() -> Optional[tuple[Any, str, str]]:
     from scripts import weather_scoreboard as ws
 
     cfg = ws._s3_config()
-    if cfg is None:
+    if cfg is not None:
+        bucket = cfg[0]
+    elif os.environ.get("AWS_ACCESS_KEY_ID", "").strip():
+        # Web-tjenesten har AWS-nøkler, men ikke nødvendigvis S3_BUCKET_NAME.
+        # Samme standardbøtte som config.py bruker.
+        bucket = "prisanalyse-data"
+    else:
         return None
-    bucket, _ = cfg
     prefix = os.environ.get("WEATHERNEXT_S3_PREFIX", "weathernext").strip("/") or "weathernext"
     return ws._s3_client(), bucket, prefix
 
