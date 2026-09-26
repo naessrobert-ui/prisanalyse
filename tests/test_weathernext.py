@@ -99,6 +99,7 @@ def test_lagring_og_fast_sted(tmp_path, monkeypatch):
     monkeypatch.setenv("WEATHERNEXT_DIR", str(tmp_path))
     monkeypatch.delenv("S3_BUCKET_NAME", raising=False)
     monkeypatch.delenv("WEATHER_SCOREBOARD_S3_BUCKET", raising=False)
+    monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
     monkeypatch.delenv("EE_PROJECT", raising=False)
     rader = wn.rader_fra_tabell(tabell([1, 2, 3]), INIT_MS)
     now = datetime.now(timezone.utc)
