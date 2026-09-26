@@ -2518,6 +2518,27 @@ def _lag_nedbortrend(hourly: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
     }
 
 
+@ver.get("/api/weathernext")
+def api_weathernext():
+    """WeatherNext 3 for et punkt. Hentes separat av aktivt-varsel, slik at Yr
+    vises med én gang og WN3 fylles inn når Earth Engine har svart."""
+    from scripts import weathernext as wn
+
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return jsonify({"error": "lat/lon mangler"}), 400
+    try:
+        varsel = wn.for_punkt(lat, lon)
+    except wn.WeatherNextError as exc:
+        return jsonify({"error": str(exc), "aktiv": wn.konfigurert()}), 503
+    # Fra midnatt lokal tid, så dagens graf også får timene som har vært.
+    fra = pd.Timestamp.now(tz=OSLO).normalize().tz_convert("UTC").to_pydatetime()
+    svar = jsonify(wn.kompakt(varsel, fra=fra))
+    svar.headers["Cache-Control"] = "public, max-age=900"
+    return svar
+
+
 @ver.get("/api/aktivt-varsel")
 def api_aktivt_varsel():
     lat = request.args.get("lat", type=float)
@@ -2988,6 +3009,8 @@ _AKTIVT_VARSEL_HTML = r"""<!DOCTYPE html>
   --rain:#2563eb;
   --rain-light:#93c5fd;
   --rain-exp:#7c3aed;
+  --wn3:#0d9488;
+  --wn3-light:#99f6e4;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;line-height:1.5;font-size:14px}
@@ -3117,6 +3140,19 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 .hourly-table tr.row-night td{background:rgba(203,213,225,.14)}
 .hourly-table .time-cell{white-space:nowrap;font-weight:500}
 .hourly-table .num{text-align:right;font-variant-numeric:tabular-nums}
+.hourly-table .wn3-cell{color:var(--wn3);white-space:nowrap}
+/* ---------- WEATHERNEXT ---------- */
+.wn3-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);cursor:pointer;user-select:none}
+.wn3-toggle input{accent-color:var(--wn3);margin:0}
+.wn3-meta{font-size:12px;color:var(--text-2);margin:4px 0 10px;display:flex;flex-wrap:wrap;gap:6px 14px}
+.wn3-meta b{color:var(--text);font-weight:600}
+.wn3-box{position:relative;width:100%;height:300px}
+.wn3-days{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:14px}
+.wn3-days th{text-align:left;padding:6px 8px;color:var(--text-2);font-weight:500;text-transform:uppercase;font-size:10.5px;letter-spacing:.04em;border-bottom:1px solid var(--border)}
+.wn3-days td{padding:6px 8px;border-bottom:1px solid #f3f4f6;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wn3-days td.num,.wn3-days th.num{text-align:right}
+.wn3-bar{display:inline-block;height:6px;border-radius:3px;background:var(--wn3-light);vertical-align:middle;margin-left:6px}
+.wn3-foot{font-size:11px;color:var(--text-3);margin:10px 0 0}
 
 /* Kollapsbar oversikts-seksjon */
 .overview-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:14px;overflow:hidden}
@@ -3207,6 +3243,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
           <span><span class="sw" style="background:var(--rain-light)"></span>Usikkerhet (maks)</span>
           <span><span class="sw" style="background:var(--rain-exp);border-radius:50%"></span>Varslet i går</span>
           <span><span class="sw" style="background:#e5e7eb;border:1px dashed #64748b"></span>Vind (stiplet linje)</span>
+          <span id="wn3Legend" style="display:none"><span class="sw" style="background:var(--wn3)"></span>Google WN3 (bånd = p10–p90)</span>
+          <label class="wn3-toggle" id="wn3ToggleWrap" style="display:none"><input type="checkbox" id="wn3Toggle" checked/>Vis Google</label>
         </div>
       </div>
       <p class="chart-note" id="chartNote">Før NÅ-linjen viser søylene hva som faktisk kom; den lilla linjen viser hva varselet sa i går for de samme timene. Etter NÅ-linjen er søylene prognose.</p>
@@ -3242,6 +3280,39 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
       </div>
     </div>
 
+    <!-- Google WeatherNext 3: 15 døgn med usikkerhet -->
+    <div class="chart-card" id="wn3Card" style="display:none">
+      <div class="chart-header">
+        <h3>Google WeatherNext 3: 15 døgn</h3>
+        <div class="chart-legend">
+          <span><span class="sw" style="background:var(--wn3)"></span>Temperatur (snitt)</span>
+          <span><span class="sw" style="background:rgba(13,148,136,.35)"></span>50 % sikker (p25–p75)</span>
+          <span><span class="sw" style="background:rgba(13,148,136,.14)"></span>80 % sikker (p10–p90)</span>
+          <span><span class="sw" style="background:var(--rain)"></span>Nedbør (snitt)</span>
+          <span><span class="sw" style="background:var(--rain-light)"></span>Nedbør p90</span>
+          <span><span class="sw" style="background:#e5e7eb;border:1px dashed #64748b"></span>Vind</span>
+        </div>
+      </div>
+      <div class="wn3-meta" id="wn3Meta"></div>
+      <div class="wn3-box"><canvas id="wn3Chart" role="img" aria-label="WeatherNext 3: temperatur med usikkerhetsbånd, nedbør og vind for 15 døgn."></canvas></div>
+      <div style="overflow:auto">
+        <table class="wn3-days">
+          <thead><tr>
+            <th>Dag</th>
+            <th class="num">Temp min–maks</th>
+            <th class="num">Nedbør</th>
+            <th class="num">Høyt anslag</th>
+            <th class="num">Maks vind</th>
+            <th class="num">Skydekke dag</th>
+            <th class="num">Sol</th>
+            <th class="num">Trykk</th>
+          </tr></thead>
+          <tbody id="wn3DaysBody"></tbody>
+        </table>
+      </div>
+      <p class="wn3-foot" id="wn3Foot"></p>
+    </div>
+
     <!-- Detaljert timesoversikt (beholdt som tabell, mer kompakt) -->
     <div class="hourly-card" id="hourlyCard" style="display:none">
       <h3 id="hourlyTitle">Detaljert timesoversikt</h3>
@@ -3254,6 +3325,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
             <th class="num">Vind/kast</th>
             <th>Retning</th>
             <th>Vurdering</th>
+            <th class="wn3-col" style="display:none">Google WN3</th>
           </tr></thead>
           <tbody id="hourlyBody"></tbody>
         </table>
@@ -3415,6 +3487,7 @@ async function loadForecast(lat,lon,name){
     renderData(d);
     cachePlace(d.coords?.lat ?? lat, d.coords?.lon ?? lon, d.sted || name || 'Valgt sted');
     setStatus('');
+    loadWN3(d.coords?.lat ?? lat, d.coords?.lon ?? lon);
   }catch(e){
     setStatus('Kunne ikke hente varsel.');
   }
@@ -3473,6 +3546,7 @@ function renderData(d){
     return `<div class="seg ${b}" title="${label}"></div>`;
   }).join('');
 
+  lastHourly=hourly;
   drawMainChart(hourly);
 
   // Beste vinduer (rangert liste)
@@ -3552,7 +3626,10 @@ function renderData(d){
 }
 
 function renderHourlyTable(hours,titleLabel){
+  lastTable={hours,titleLabel};
   const futureHours=(hours||[]).filter(h=>!h.is_history);
+  const visWn3=!!wn3ByHour;
+  document.querySelectorAll('.wn3-col').forEach(el=>el.style.display=visWn3?'':'none');
   document.getElementById('hourlyTitle').textContent=`Detaljert timesoversikt – ${titleLabel}`;
   document.getElementById('hourlyBody').innerHTML=futureHours.map(h=>{
     const b=verdictBucket(h.activity,h.time);
@@ -3567,6 +3644,7 @@ function renderHourlyTable(hours,titleLabel){
       <td class="num">${windBadge}</td>
       <td>${windArrow(h.wind_deg)} ${h.wind_dir||'–'}</td>
       <td>${h.activity||''}</td>
+      ${visWn3?`<td class="wn3-cell">${wn3Cell(h.time)}</td>`:''}
     </tr>`;
   }).join('');
 }
@@ -3736,6 +3814,221 @@ document.getElementById('dayDetailClose').addEventListener('click',()=>{
 });
 
 // ============================================================
+// Google WeatherNext 3
+// ============================================================
+let lastHourly=null, lastTable=null;
+let wn3=null, wn3ByHour=null, wn3Req=0, wn3Chart=null;
+
+function wn3At(iso){
+  if(!wn3ByHour || !iso) return null;
+  return wn3ByHour.get(new Date(iso).getTime()) || null;
+}
+function wn3Show(){
+  const el=document.getElementById('wn3Toggle');
+  return !!wn3ByHour && (!el || el.checked);
+}
+function wn3Cell(iso){
+  const w=wn3At(iso);
+  if(!w || !w.temp) return '–';
+  const regn=w.regn?`${w.regn.mean.toFixed(1)} mm`:'– mm';
+  const vind=w.vind?`${w.vind.mean.toFixed(1)} m/s`:'';
+  return `${w.temp.mean.toFixed(1)}° · ${regn}${vind?' · '+vind:''}`;
+}
+
+async function loadWN3(lat,lon){
+  const req=++wn3Req;
+  wn3=null; wn3ByHour=null;
+  document.getElementById('wn3Card').style.display='none';
+  document.getElementById('wn3Legend').style.display='none';
+  document.getElementById('wn3ToggleWrap').style.display='none';
+  try{
+    const r=await fetch(`/ver/api/weathernext?lat=${lat}&lon=${lon}`);
+    if(!r.ok) return;  // ikke aktivert eller feil: siden fungerer som før
+    const d=await r.json();
+    if(req!==wn3Req || !d.timer || !d.timer.length) return;
+    wn3=d;
+    wn3ByHour=new Map(d.timer.map(h=>[new Date(h.t).getTime(),h]));
+  }catch(e){ return; }
+  document.getElementById('wn3Legend').style.display='';
+  document.getElementById('wn3ToggleWrap').style.display='';
+  if(lastHourly) drawMainChart(lastHourly);
+  if(lastTable) renderHourlyTable(lastTable.hours,lastTable.titleLabel);
+  renderWN3Card();
+}
+
+document.getElementById('wn3Toggle').addEventListener('change',()=>{ if(lastHourly) drawMainChart(lastHourly); });
+
+function wn3MainDatasets(hourly){
+  if(!wn3Show()) return [];
+  const pick=(f)=>hourly.map(h=>{const w=wn3At(h.time); const v=f(w); return v==null?null:v;});
+  return [
+    {type:'line',label:'Google p10',data:pick(w=>w?.temp?.p10),borderWidth:0,pointRadius:0,pointHoverRadius:0,fill:false,tension:0.35,yAxisID:'yTemp',order:0,spanGaps:false},
+    {type:'line',label:'Google p90',data:pick(w=>w?.temp?.p90),borderWidth:0,pointRadius:0,pointHoverRadius:0,fill:'-1',backgroundColor:'rgba(13,148,136,0.13)',tension:0.35,yAxisID:'yTemp',order:0,spanGaps:false},
+    {type:'line',label:'Google temp',data:pick(w=>w?.temp?.mean),borderColor:'rgba(13,148,136,0.95)',borderWidth:2,pointRadius:0,pointHoverRadius:4,fill:false,tension:0.35,yAxisID:'yTemp',order:0,spanGaps:false},
+    {type:'line',label:'Google regn',data:pick(w=>w?.regn?.mean),borderColor:'rgba(13,148,136,0.9)',borderWidth:1.6,borderDash:[2,2],stepped:'middle',pointRadius:0,pointHoverRadius:3,fill:false,yAxisID:'yRain',order:1,spanGaps:false}
+  ];
+}
+
+function fmtInit(iso){
+  if(!iso) return '–';
+  return new Date(iso).toLocaleString('no-NO',{weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
+function renderWN3Card(){
+  if(!wn3) return;
+  const card=document.getElementById('wn3Card');
+  card.style.display='block';
+  const nå=Date.now();
+  const timer=wn3.timer;
+  const siste=timer[timer.length-1];
+  const horisont=Math.round((new Date(siste.t).getTime()-nå)/86400000*10)/10;
+  const modus={fast:'lagret varsel, oppdateres hver time',cache:'hentet nylig',live:'hentet nå'}[wn3.modus]||'';
+  const alderT=wn3.init_lang?Math.round((nå-new Date(wn3.init_lang).getTime())/3600000):null;
+  document.getElementById('wn3Meta').innerHTML=[
+    `<span>Modellkjøring 15 døgn: <b>${fmtInit(wn3.init_lang)}</b>${alderT!=null?` (${alderT} t gammel)`:''}</span>`,
+    wn3.init_kort?`<span>Nyeste timeskjøring: <b>${fmtInit(wn3.init_kort)}</b></span>`:'',
+    `<span>Rutenett: <b>${wn3.celle.lat.toFixed(1)}° N, ${wn3.celle.lon.toFixed(1)}° Ø</b> (ca. 11 km)</span>`,
+    `<span>Rekker til: <b>${horisont} døgn</b> frem</span>`,
+    modus?`<span class="muted">${modus}</span>`:''
+  ].join('');
+  drawWN3Chart(timer);
+  renderWN3Days(timer);
+  document.getElementById('wn3Foot').textContent=
+    `Kilde: ${wn3.kilde}. ${wn3.attribusjon} Tallene er snittet av 64 ensemble-medlemmer. ` +
+    `«Høyt anslag» er summen av timenes p90 og er et øvre anslag, ikke p90 for hele døgnet. ` +
+    `Timesummer (nedbør, sol) gjelder timen som starter på klokkeslettet.`;
+}
+
+function renderWN3Days(timer){
+  const dager=new Map();
+  for(const h of timer){
+    const d=new Date(h.t);
+    const key=d.toLocaleDateString('sv-SE',{timeZone:'Europe/Oslo'});
+    const hour=Number(d.toLocaleString('en-GB',{timeZone:'Europe/Oslo',hour:'2-digit',hour12:false}));
+    if(!dager.has(key)) dager.set(key,[]);
+    dager.get(key).push({...h,_hour:hour});
+  }
+  const rows=[];
+  let maksRegn=0;
+  for(const [key,hrs] of dager){
+    const tm=hrs.map(h=>h.temp?.mean).filter(v=>v!=null);
+    const regn=hrs.reduce((s,h)=>s+(h.regn?.mean??0),0);
+    const regnHoy=hrs.reduce((s,h)=>s+(h.regn?.p90??h.regn?.mean??0),0);
+    const vind=hrs.map(h=>h.vind?.mean).filter(v=>v!=null);
+    const dag=hrs.filter(h=>h._hour>=8&&h._hour<=20);
+    const sky=dag.map(h=>h.sky?.mean).filter(v=>v!=null);
+    const sol=hrs.reduce((s,h)=>s+(h.sol?.mean??0),0)/1000;
+    const trykk=hrs.map(h=>h.trykk?.mean).filter(v=>v!=null);
+    maksRegn=Math.max(maksRegn,regn);
+    rows.push({key,n:hrs.length,tmin:tm.length?Math.min(...tm):null,tmax:tm.length?Math.max(...tm):null,regn,regnHoy,
+      vind:vind.length?Math.max(...vind):null,sky:sky.length?sky.reduce((a,b)=>a+b,0)/sky.length:null,sol,
+      trykk:trykk.length?trykk.reduce((a,b)=>a+b,0)/trykk.length:null});
+  }
+  const f=(v,d=1)=>v==null?'–':v.toFixed(d);
+  document.getElementById('wn3DaysBody').innerHTML=rows.map(r=>{
+    const dato=new Date(r.key+'T12:00:00').toLocaleDateString('no-NO',{weekday:'short',day:'numeric',month:'short'});
+    const delvis=r.n<20?` <span class="muted">(${r.n} t)</span>`:'';
+    const bar=maksRegn>0?`<span class="wn3-bar" style="width:${Math.round(r.regn/maksRegn*40)}px"></span>`:'';
+    return `<tr>
+      <td>${dato}${delvis}</td>
+      <td class="num">${f(r.tmin)}° – ${f(r.tmax)}°</td>
+      <td class="num">${f(r.regn)} mm${bar}</td>
+      <td class="num muted">${f(r.regnHoy)} mm</td>
+      <td class="num">${f(r.vind)} m/s</td>
+      <td class="num">${f(r.sky,0)} %</td>
+      <td class="num">${f(r.sol,1)} kWh/m²</td>
+      <td class="num">${f(r.trykk,0)} hPa</td>
+    </tr>`;
+  }).join('');
+}
+
+function drawWN3Chart(timer){
+  const osloHour=(iso)=>Number(new Date(iso).toLocaleString('en-GB',{timeZone:'Europe/Oslo',hour:'2-digit',hour12:false}));
+  const labels=timer.map(h=>h.t);
+  const g=(f)=>timer.map(h=>{const v=f(h); return v==null?null:v;});
+  const regnMean=g(h=>h.regn?.mean ?? 0);
+  const regnTopp=timer.map(h=>Math.max(0,(h.regn?.p90??0)-(h.regn?.mean??0)));
+  const nå=Date.now();
+  let nowIdx=timer.findIndex(h=>new Date(h.t).getTime()>nå);
+  const nightPlugin={
+    id:'wn3Night',
+    beforeDatasetsDraw(chart){
+      const x=chart.scales.x, a=chart.chartArea, c=chart.ctx;
+      const w=(x.getPixelForValue(1)-x.getPixelForValue(0));
+      c.save(); c.fillStyle='rgba(100,116,139,0.06)';
+      timer.forEach((h,i)=>{const hr=osloHour(h.t); if(hr<6||hr>=22){c.fillRect(x.getPixelForValue(i)-w/2,a.top,w,a.bottom-a.top);}});
+      if(nowIdx>0){
+        const px=x.getPixelForValue(nowIdx)-w/2;
+        c.strokeStyle='rgba(220,38,38,0.65)'; c.lineWidth=1.5; c.setLineDash([4,3]);
+        c.beginPath(); c.moveTo(px,a.top); c.lineTo(px,a.bottom); c.stroke();
+        c.setLineDash([]); c.fillStyle='rgba(220,38,38,0.85)'; c.font='600 10px -apple-system, sans-serif'; c.textAlign='center';
+        c.fillText('NÅ',px,a.top+10);
+      }
+      c.restore();
+    }
+  };
+  const smal=window.innerWidth<600;
+  const ctx=document.getElementById('wn3Chart').getContext('2d');
+  if(wn3Chart) wn3Chart.destroy();
+  wn3Chart=new Chart(ctx,{
+    plugins:[nightPlugin],
+    data:{labels,datasets:[
+      {type:'line',label:'p10',data:g(h=>h.temp?.p10),borderWidth:0,pointRadius:0,fill:false,tension:0.3,yAxisID:'yTemp',order:1},
+      {type:'line',label:'p90',data:g(h=>h.temp?.p90),borderWidth:0,pointRadius:0,fill:'-1',backgroundColor:'rgba(13,148,136,0.14)',tension:0.3,yAxisID:'yTemp',order:1},
+      {type:'line',label:'p25',data:g(h=>h.temp?.p25),borderWidth:0,pointRadius:0,fill:false,tension:0.3,yAxisID:'yTemp',order:1},
+      {type:'line',label:'p75',data:g(h=>h.temp?.p75),borderWidth:0,pointRadius:0,fill:'-1',backgroundColor:'rgba(13,148,136,0.30)',tension:0.3,yAxisID:'yTemp',order:1},
+      {type:'line',label:'Temperatur',data:g(h=>h.temp?.mean),borderColor:'rgba(13,148,136,1)',borderWidth:2,pointRadius:0,pointHoverRadius:4,fill:false,tension:0.3,yAxisID:'yTemp',order:0},
+      {type:'line',label:'Vind',data:g(h=>h.vind?.mean),borderColor:'rgba(100,116,139,0.8)',borderDash:[3,3],borderWidth:1.3,pointRadius:0,pointHoverRadius:3,fill:false,tension:0.3,yAxisID:'yWind',order:0},
+      {type:'bar',label:'Nedbør',data:regnMean,backgroundColor:'rgba(37,99,235,0.85)',yAxisID:'yRain',stack:'r',order:2,barPercentage:1.0,categoryPercentage:1.0},
+      {type:'bar',label:'Nedbør p90',data:regnTopp,backgroundColor:'rgba(147,197,253,0.6)',yAxisID:'yRain',stack:'r',order:3,barPercentage:1.0,categoryPercentage:1.0}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          filter:(item)=>['Temperatur','Vind','Nedbør'].includes(item.dataset.label),
+          callbacks:{
+            title:(items)=>new Date(items[0].label).toLocaleString('no-NO',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}),
+            label:(ctx)=>{
+              const h=timer[ctx.dataIndex];
+              if(ctx.dataset.label==='Temperatur'&&h.temp) return `Temp: ${h.temp.mean.toFixed(1)}° (80 %: ${h.temp.p10?.toFixed(1)} til ${h.temp.p90?.toFixed(1)})`;
+              if(ctx.dataset.label==='Nedbør'&&h.regn) return `Nedbør: ${h.regn.mean.toFixed(1)} mm (p90 ${(h.regn.p90??0).toFixed(1)})`;
+              if(ctx.dataset.label==='Vind'&&h.vind) return `Vind: ${h.vind.mean.toFixed(1)} m/s${h.vindretning!=null?' fra '+Math.round(h.vindretning)+'°':''}${h.vind100?` (100 m: ${h.vind100.mean.toFixed(1)})`:''}`;
+              return null;
+            },
+            afterBody:(items)=>{
+              const h=timer[items[0].dataIndex];
+              const l=[];
+              if(h.sky) l.push(`Skydekke: ${Math.round(h.sky.mean)} %`+(h.sky_lav?` (lav ${Math.round(h.sky_lav.mean)}, mid ${Math.round(h.sky_mid?.mean??0)}, høy ${Math.round(h.sky_hoy?.mean??0)})`:''));
+              if(h.sol && h.sol.mean>1) l.push(`Sol: ${Math.round(h.sol.mean)} W/m²`);
+              if(h.trykk) l.push(`Trykk: ${Math.round(h.trykk.mean)} hPa`);
+              if(h.fukt!=null) l.push(`Fuktighet: ${h.fukt} %`);
+              l.push(`Kjøring: ${fmtInit(h.init)}, ledetid ${h.ledetid} t`);
+              return l;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{autoSkip:false,maxRotation:0,font:{size:10},
+          callback:function(v,i){
+            const iso=labels[i];
+            if(osloHour(iso)!==12) return null;
+            // Smal skjerm: bare hver tredje dag, ellers renner etikettene sammen.
+            if(smal && Math.round((new Date(iso).getTime()-new Date(labels[0]).getTime())/86400000)%3!==0) return null;
+            return new Date(iso).toLocaleDateString('no-NO',smal?{day:'numeric',month:'numeric'}:{weekday:'short',day:'numeric'});
+          }}},
+        yTemp:{position:'left',grid:{color:'rgba(0,0,0,0.06)'},ticks:{font:{size:11},callback:(v)=>v+'°'}},
+        yRain:{position:'right',grid:{display:false},min:0,suggestedMax:2,ticks:{font:{size:11},callback:(v)=>v+' mm'}},
+        yWind:{position:'right',offset:true,display:!smal,grid:{display:false},min:0,suggestedMax:12,ticks:{font:{size:11},callback:(v)=>v+' m/s'}}
+      }
+    }
+  });
+}
+
+// ============================================================
 // Hovedgraf (dagens døgn)
 // ============================================================
 function drawMainChart(hourly){
@@ -3897,7 +4190,8 @@ function drawMainChart(hourly){
           yAxisID:'yTemp',
           order:0,
           spanGaps:false
-        }
+        },
+        ...wn3MainDatasets(hourly)
       ]
     },
     options:{
@@ -3907,7 +4201,7 @@ function drawMainChart(hourly){
       plugins:{
         legend:{display:false},
         tooltip:{
-          filter:(item)=>!(['Temperatur (historikk)','Varslet i går','Vind (m/s)'].includes(item.dataset.label) && item.raw==null),
+          filter:(item)=>!(['Temperatur (historikk)','Varslet i går','Vind (m/s)','Google temp','Google regn'].includes(item.dataset.label) && item.raw==null) && !['Google p10','Google p90'].includes(item.dataset.label),
           callbacks:{
             title:(items)=>{
               const i=items[0].dataIndex;
@@ -3943,6 +4237,18 @@ function drawMainChart(hourly){
               if(ctx.dataset.label==='Vind (m/s)'){
                 if(ctx.parsed.y==null) return null;
                 return `Vind: ${ctx.parsed.y.toFixed(1)} m/s`;
+              }
+              if(ctx.dataset.label==='Google temp'){
+                const w=wn3At(hourly[ctx.dataIndex]?.time);
+                const t=w?.temp;
+                if(!t) return null;
+                const band=(t.p10!=null&&t.p90!=null)?` (${t.p10.toFixed(1)} til ${t.p90.toFixed(1)})`:'';
+                return `Google WN3: ${t.mean.toFixed(1)}°${band}`;
+              }
+              if(ctx.dataset.label==='Google regn'){
+                const r=wn3At(hourly[ctx.dataIndex]?.time)?.regn;
+                if(!r) return null;
+                return `Google regn: ${r.mean.toFixed(1)} mm (p90 ${(r.p90??r.mean).toFixed(1)})`;
               }
               return null;
             }

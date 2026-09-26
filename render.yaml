@@ -191,3 +191,9 @@ services:
         sync: false
       - key: WEATHER_SCOREBOARD_S3_PREFIX
         value: weather-scoreboard
+      # WeatherNext 3 (Earth Engine). Uten EE_PROJECT hoppes WN3 over.
+      # Nøkkelen er hele service-account-JSON-en limt inn som verdi.
+      - key: EE_PROJECT
+        sync: false
+      - key: EE_SERVICE_ACCOUNT_KEY
+        sync: false

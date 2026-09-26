@@ -30,6 +30,8 @@ google-api-core==2.28.1
 google-api-python-client==2.187.0
 google-auth==2.43.0
 google-auth-httplib2==0.2.1
+# WeatherNext 3 via Earth Engine. 1.7.x krever nyere httplib2/google-auth-httplib2 enn pinnet over.
+earthengine-api==1.6.15
 anthropic
 googleapis-common-protos==1.72.0
 grpcio==1.76.0
