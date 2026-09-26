@@ -196,6 +196,8 @@ _HEAVY_RATE_LIMIT_RULES = [
     {"prefix": "/ver/vind-kart", "window_sec": 60, "max_requests": 30},
     {"prefix": "/ver/temp-sammenlign-kart", "window_sec": 60, "max_requests": 30},
     {"prefix": "/ver/api/", "window_sec": 60, "max_requests": 90},
+    # Oppslag utenom de faste stedene går live mot Earth Engine (kvote).
+    {"prefix": "/ver/api/weathernext", "window_sec": 60, "max_requests": 15},
     # Løypekartet proxyer en ekstern tile-tjeneste, og et slippy map henter
     # gjerne 30-40 fliser per utsnitt. Grensen må derfor være høy.
     {"prefix": "/ver/skiloyper-kvamskogen/tiles/", "window_sec": 60, "max_requests": 400},

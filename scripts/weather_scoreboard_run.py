@@ -27,7 +27,16 @@ from scripts.weather_scoreboard import (
 def _log(hours_back: int) -> int:
     forecasts = snapshot()
     observations = collect_observations(hours_back=hours_back)
-    print(json.dumps({"prognoser": forecasts, "observasjoner": observations}, ensure_ascii=False))
+    # WeatherNext 3 for de faste stedene: siste varsel til nettsiden, arkiv av
+    # hver modellkjøring og rader i loggen. Feil her skal aldri felle Yr/Google.
+    try:
+        from scripts.weathernext import collect as collect_weathernext
+
+        weathernext = collect_weathernext()
+    except Exception as exc:  # noqa: BLE001 - logges og ignoreres bevisst
+        weathernext = {"feil": {"uventet": str(exc)}}
+    print(json.dumps({"prognoser": forecasts, "observasjoner": observations,
+                      "weathernext": weathernext}, ensure_ascii=False, default=str))
     # Google kan mangle nøkkel lokalt; det skal ikke felle cron-jobben så lenge
     # minst én leverandør ble lagret.
     return 0 if forecasts["rows"] or observations["rows"] else 1

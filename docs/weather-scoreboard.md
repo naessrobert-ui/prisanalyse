@@ -176,3 +176,36 @@ Referanser:
 - https://frost.met.no/api.html
 - https://docs.api.met.no/doc/ForecastJSON.html
 - https://developers.google.com/maps/documentation/weather/reference/rest/v1/forecast.hours/lookup
+
+## Google WeatherNext 3
+
+Samme cron-jobb henter også WeatherNext 3 (0.1°, ca. 11 km) fra Earth Engine for
+Bergen og Kvamskogen (`scripts/weathernext.py`). Hver time:
+
+1. Nyeste komplette 6-timerskjøring (360 t) og nyeste timeskjøring (48 t) hentes
+   for punktet. Nyeste kjøring vinner per time.
+2. Siste varsel lagres som `weathernext/siste/<sted>.json`. Aktivt-varsel leser
+   denne for de faste stedene, så de koster ingen Earth Engine-kall per sidevisning.
+3. Hver ny kjøring arkiveres med alle 114 bånd som
+   `weathernext/kjoringer/<sted>/<init>.parquet`.
+4. Timene 0–48 legges i prognoseloggen med `provider = weathernext`. Scoren
+   bruker fortsatt bare Yr og Google, men dataene samles fra nå av, slik at WN3
+   kan scores når det finnes nok historikk.
+
+Andre steder hentes live via `/ver/api/weathernext` og caches én time per
+0.1°-celle (rate-limit 15/min per IP).
+
+Tidskonvensjon: øyeblikksverdier (temp, vind, skydekke) er verdien ved timens
+start. Timesummer (`*_1hr`: nedbør, sol) antas å gjelde timen som *slutter* ved
+gyldighetstiden, slik ECMWF-akkumuleringer gjør, og timen `[t, t+1)` hentes derfor
+fra bildet med gyldighetstid `t+1`. Bekreft mot Frost når data har kommet inn.
+
+WN3 har ingen vindkast. Data ligger i Earth Engine ca. 8 timer etter kjøringens
+starttid, så «nyeste» kjøring er alltid 8–14 timer gammel.
+
+Oppsett (både cron-jobben og web-tjenesten på Render):
+
+- `EE_PROJECT`: GCP-prosjekt registrert for Earth Engine (ikke-kommersielt).
+- `EE_SERVICE_ACCOUNT_KEY`: hele JSON-nøkkelen til en service account med rollen
+  «Earth Engine Resource Viewer» og «Service Usage Consumer» i prosjektet. Service
+  account-e-posten må også ha WeatherNext-tilgang (samme skjema som for egen konto).
