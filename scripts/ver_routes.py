@@ -3292,6 +3292,14 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         <div class="best6-banner" id="best6Banner" style="display:none"></div>
         <div class="enighet" id="dagEnighet"></div>
         <div class="day-stats" id="dayStats"></div>
+        <div class="chart-legend" id="dayLegend" style="display:none;margin:0 0 6px">
+          <span><span class="sw" style="background:#ea580c"></span>Yr temp</span>
+          <span><span class="sw" style="background:#0d9488"></span>Google temp</span>
+          <span><span class="sw" style="background:rgba(13,148,136,.2)"></span>Google 80 % sikker</span>
+          <span><span class="sw" style="background:rgba(37,99,235,.75)"></span>Yr regn</span>
+          <span><span class="sw" style="background:rgba(13,148,136,.7)"></span>Google regn</span>
+          <span><span class="sw" style="background:rgba(245,158,11,.85)"></span>Uenige</span>
+        </div>
         <div class="day-chart-box">
           <canvas id="dayChart" role="img" aria-label="Timesdetaljer for valgt dag"></canvas>
         </div>
@@ -3340,12 +3348,12 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         <table class="hourly-table">
           <thead><tr>
             <th>Tid</th>
-            <th class="num">Temp</th>
-            <th class="num">Nedbør</th>
+            <th class="num"><span class="yr-lbl">Yr </span>Temp</th>
+            <th class="num"><span class="yr-lbl">Yr </span>Nedbør</th>
             <th class="num">Vind/kast</th>
             <th>Retning</th>
             <th>Vurdering</th>
-            <th class="wn3-col" style="display:none">Yr mot Google</th>
+            <th class="wn3-col" style="display:none">Google</th>
           </tr></thead>
           <tbody id="hourlyBody"></tbody>
         </table>
@@ -3654,6 +3662,7 @@ function renderHourlyTable(hours,titleLabel){
   const futureHours=(hours||[]).filter(h=>!h.is_history);
   const visWn3=!!wn3ByHour;
   document.querySelectorAll('.wn3-col').forEach(el=>el.style.display=visWn3?'':'none');
+  document.querySelectorAll('.yr-lbl').forEach(el=>el.style.display=visWn3?'':'none');
   document.getElementById('hourlyTitle').textContent=`Detaljert timesoversikt – ${titleLabel}`;
   document.getElementById('hourlyBody').innerHTML=futureHours.map(h=>{
     const b=verdictBucket(h.activity,h.time);
@@ -3728,12 +3737,19 @@ function showDayDetail(day){
 
 function drawDayChart(hours,b6){
   const labels=hours.map(h=>String(new Date(h.time).getHours()).padStart(2,'0'));
-  // Samme sammenslåing som hovedgrafen: snitt av Yr og Google der begge finnes.
+  // På en enkelt dag vises Yr og Google side om side time for time: avstanden
+  // mellom dem, og Googles eget usikkerhetsbånd, sier noe om hvor sikkert varselet er.
   const samm=hours.map(h=>sammenlign(h));
-  const temp=hours.map((h,i)=>samm[i]?samm[i].komb.temp:h.temp);
-  const rain=hours.map((h,i)=>samm[i]?samm[i].komb.regn:(h.rain ?? 0));
-  const rainTopp=hours.map((h,i)=>(samm[i]&&samm[i].uenigRegn)?Math.max(0,Math.max(samm[i].yr.regn,samm[i].g.regn)-rain[i]):0);
+  const medGoogle=samm.some(Boolean);
+  const gw=hours.map(h=>{const t=new Date(h.time).getTime(); return t>=Date.now()-3600000?wn3At(h.time):null;});
+  const temp=hours.map(h=>h.temp);
+  const rain=hours.map(h=>h.rain ?? 0);
   const wind=hours.map(h=>h.wind ?? 0);
+  const gTemp=gw.map(w=>w?.temp?.mean ?? null);
+  const gP10=gw.map(w=>w?.temp?.p10 ?? null);
+  const gP90=gw.map(w=>w?.temp?.p90 ?? null);
+  const gRain=gw.map(w=>w?.regn ? w.regn.mean : null);
+  document.getElementById('dayLegend').style.display=medGoogle?'flex':'none';
 
   // Custom plugin: marker beste 6t-blokk med grønn bakgrunn
   let startIdx=-1;
@@ -3760,21 +3776,38 @@ function drawDayChart(hours,b6){
   const best6Plugin={
     id:'best6Box',
     beforeDatasetsDraw(chart){
-      if(startIdx<0) return;
       const xScale=chart.scales.x;
       const yArea=chart.chartArea;
-      const x1=xScale.getPixelForValue(startIdx)-((xScale.getPixelForValue(1)-xScale.getPixelForValue(0))/2);
-      const x2=xScale.getPixelForValue(startIdx+5)+((xScale.getPixelForValue(1)-xScale.getPixelForValue(0))/2);
+      const bredde=(xScale.getPixelForValue(1)-xScale.getPixelForValue(0));
       const ctx=chart.ctx;
       ctx.save();
-      ctx.fillStyle='rgba(134,239,172,0.25)';
-      ctx.fillRect(x1, yArea.top, x2-x1, yArea.bottom-yArea.top);
+      if(startIdx>=0){
+        const x1=xScale.getPixelForValue(startIdx)-bredde/2;
+        const x2=xScale.getPixelForValue(startIdx+5)+bredde/2;
+        ctx.fillStyle='rgba(134,239,172,0.25)';
+        ctx.fillRect(x1, yArea.top, x2-x1, yArea.bottom-yArea.top);
+      }
+      // Timer der Yr og Google er uenige: gul stripe nederst i grafen.
+      samm.forEach((sm,i)=>{
+        if(!sm||!sm.uenig) return;
+        ctx.fillStyle='rgba(245,158,11,0.85)';
+        ctx.fillRect(xScale.getPixelForValue(i)-bredde/2+1, yArea.bottom-4, bredde-2, 4);
+        ctx.fillStyle='rgba(245,158,11,0.10)';
+        ctx.fillRect(xScale.getPixelForValue(i)-bredde/2, yArea.top, bredde, yArea.bottom-yArea.top-4);
+      });
       ctx.restore();
     }
   };
 
   const ctx=document.getElementById('dayChart').getContext('2d');
   if(dayChart) dayChart.destroy();
+
+  const googleSett=medGoogle?[
+    {type:'line',label:'Google p10',data:gP10,borderWidth:0,pointRadius:0,pointHoverRadius:0,fill:false,tension:0.35,yAxisID:'yTemp',order:1,spanGaps:false},
+    {type:'line',label:'Google p90',data:gP90,borderWidth:0,pointRadius:0,pointHoverRadius:0,fill:'-1',backgroundColor:'rgba(13,148,136,0.13)',tension:0.35,yAxisID:'yTemp',order:1,spanGaps:false},
+    {type:'line',label:'Google temp',data:gTemp,borderColor:'rgba(13,148,136,1)',borderWidth:2,pointRadius:0,pointHoverRadius:3,fill:false,tension:0.35,yAxisID:'yTemp',order:1,spanGaps:false},
+    {type:'bar',label:'Google regn',data:gRain,backgroundColor:'rgba(13,148,136,0.7)',yAxisID:'yRain',order:2,barPercentage:0.9,categoryPercentage:0.8}
+  ]:[];
 
   dayChart=new Chart(ctx,{
     plugins:[best6Plugin,symbolPlugin],
@@ -3787,22 +3820,11 @@ function drawDayChart(hours,b6){
           data:rain,
           backgroundColor:'rgba(37,99,235,0.75)',
           yAxisID:'yRain',
-          stack:'r',
           order:2,
           barPercentage:0.9,
-          categoryPercentage:0.9
+          categoryPercentage:medGoogle?0.8:0.9
         },
-        {
-          type:'bar',
-          label:'Høyeste varsel',
-          data:rainTopp,
-          backgroundColor:'rgba(245,158,11,0.45)',
-          yAxisID:'yRain',
-          stack:'r',
-          order:3,
-          barPercentage:0.9,
-          categoryPercentage:0.9
-        },
+        ...googleSett.filter(d=>d.type==='bar'),
         {
           type:'line',
           label:'Temperatur',
@@ -3811,7 +3833,7 @@ function drawDayChart(hours,b6){
           backgroundColor:'rgba(234,88,12,0.08)',
           borderWidth:2,
           tension:0.35,
-          fill:true,
+          fill:!medGoogle,
           pointRadius:0,
           pointHoverRadius:3,
           yAxisID:'yTemp',
@@ -3821,9 +3843,9 @@ function drawDayChart(hours,b6){
           type:'line',
           label:'Vind',
           data:wind,
-          borderColor:'rgba(2,132,199,0.9)',
-          backgroundColor:'rgba(2,132,199,0.05)',
-          borderWidth:1.8,
+          borderColor:'rgba(100,116,139,0.8)',
+          borderDash:[3,3],
+          borderWidth:1.5,
           tension:0.25,
           fill:false,
           pointRadius:0,
@@ -3831,7 +3853,7 @@ function drawDayChart(hours,b6){
           yAxisID:'yWind',
           order:0
         },
-        ...wn3MainDatasets(hours)
+        ...googleSett.filter(d=>d.type==='line')
       ]
     },
     options:{
@@ -3844,12 +3866,22 @@ function drawDayChart(hours,b6){
         tooltip:{
           filter:(item)=>['Temperatur','Nedbør','Vind'].includes(item.dataset.label),
           callbacks:{
-            title:(items)=>`kl. ${items[0].label}:00`,
+            title:(items)=>{
+              const sm=samm[items[0].dataIndex];
+              return `kl. ${items[0].label}:00`+(sm&&sm.uenig?'  ⚠ uenige':'');
+            },
             label:(ctx)=>{
-              const sm=samm[ctx.dataIndex];
-              if(ctx.dataset.label==='Temperatur') return `Temp: ${ctx.parsed.y?.toFixed(1)}°`+(sm?` (Yr ${sm.yr.temp.toFixed(1)}°, Google ${sm.g.temp.toFixed(1)}°${sm.uenigTemp?', uenige':''})`:'');
-              if(ctx.dataset.label==='Nedbør') return `Regn: ${ctx.parsed.y?.toFixed(1)} mm`+((sm&&sm.g.regn!=null)?` (Yr ${sm.yr.regn.toFixed(1)}, Google ${sm.g.regn.toFixed(1)}${sm.uenigRegn?', uenige':''})`:'');
-              if(ctx.dataset.label==='Vind') return `Vind: ${ctx.parsed.y?.toFixed(1)} m/s`;
+              const i=ctx.dataIndex, w=gw[i];
+              if(ctx.dataset.label==='Temperatur'){
+                const yr=temp[i]!=null?`Yr ${temp[i].toFixed(1)}°`:'Yr –';
+                const g=w?.temp?`, Google ${w.temp.mean.toFixed(1)}° (80 %: ${w.temp.p10.toFixed(1)} til ${w.temp.p90.toFixed(1)})`:'';
+                return `Temp: ${yr}${g}`;
+              }
+              if(ctx.dataset.label==='Nedbør'){
+                const g=w?.regn?`, Google ${w.regn.mean.toFixed(1)} mm (opptil ${(w.regn.p90??w.regn.mean).toFixed(1)})`:'';
+                return `Regn: Yr ${(rain[i]??0).toFixed(1)} mm${g}`;
+              }
+              if(ctx.dataset.label==='Vind') return `Vind: ${ctx.parsed.y?.toFixed(1)} m/s`+(w?.vind?`, Google ${w.vind.mean.toFixed(1)}`:'');
               return '';
             }
           }
@@ -3916,15 +3948,16 @@ const f1=v=>v.toFixed(1).replace('.',',');
 
 function enighetCell(h){
   const s=sammenlign(h);
-  if(!s) return '<td class="muted">–</td>';
-  if(!s.uenig) return '<td class="enig-cell">✔ enige</td>';
-  const deler=[];
-  if(s.uenigTemp) deler.push(`Google ${f1(s.g.temp)}°`);
-  if(s.uenigRegn) deler.push(`Google ${f1(s.g.regn)} mm`);
-  return `<td class="uenig-cell">⚠ ${deler.join(' · ')}</td>`;
+  const w=s?wn3At(h.time):null;
+  if(!s||!w) return '<td class="muted">–</td>';
+  const band=(w.temp.p10!=null&&w.temp.p90!=null)?` <span class="muted">(${Math.round(w.temp.p10)}–${Math.round(w.temp.p90)})</span>`:'';
+  const regn=s.g.regn!=null?` · ${f1(s.g.regn)} mm`:'';
+  const tekst=`${f1(s.g.temp)}°${band}${regn}`;
+  if(!s.uenig) return `<td class="enig-cell">✔ ${tekst}</td>`;
+  return `<td class="uenig-cell" title="Yr og Google er uenige denne timen">⚠ ${tekst}</td>`;
 }
 
-function fyllEnighet(el, hours, periodeTekst, visOppsummering){
+function fyllEnighet(el, hours, periodeTekst, visOppsummering, fotnote){
   const timer=[];
   const sett=new Set();
   for(const h of hours){
@@ -3982,12 +4015,12 @@ function fyllEnighet(el, hours, periodeTekst, visOppsummering){
   if(!viktige.length){
     el.className='enighet enig';
     el.innerHTML=`<span class="ik">✔</span><div><strong>Yr og Google er enige ${periodeTekst}.</strong>${oppsummering}
-      <div class="kilde">Tallene i grafen er et snitt av de to varslene.</div></div>`;
+      <div class="kilde">${fotnote.enig}</div></div>`;
   }else{
     el.className='enighet uenig';
     el.innerHTML=`<span class="ik">⚠</span><div><strong>Yr og Google er uenige ${periodeTekst}.</strong>${oppsummering}
       <ul>${viktige.map(v=>`<li>${v.tekst}</li>`).join('')}</ul>
-      <div class="kilde">Grafen viser snittet. Der de er uenige, er området mellom dem gult.</div></div>`;
+      <div class="kilde">${fotnote.uenig}</div></div>`;
   }
 }
 
@@ -4000,7 +4033,9 @@ function renderEnighet(){
     const t=new Date(h.time).getTime();
     if(t>=nå-3600000 && t<slutt) hours.push(h);
   }
-  fyllEnighet(el, hours, 'det neste døgnet', true);
+  fyllEnighet(el, hours, 'det neste døgnet', true, {
+    enig:'Tallene i grafen er et snitt av de to varslene.',
+    uenig:'Grafen viser snittet. Der de er uenige, er området mellom dem gult.'});
 }
 
 let lastDay=null;
@@ -4008,7 +4043,9 @@ function renderDagDetaljEnighet(){
   const el=document.getElementById('dagEnighet');
   if(!wn3ByHour || !lastDay){ el.style.display='none'; return; }
   const iDag=new Date(lastDay.date+'T12:00:00').toDateString()===new Date().toDateString();
-  fyllEnighet(el, lastDay.hours||[], iDag?'resten av dagen':'denne dagen', false);
+  fyllEnighet(el, lastDay.hours||[], iDag?'resten av dagen':'denne dagen', false, {
+    enig:'Grafen og tabellen under viser Yr og Google time for time.',
+    uenig:'Grafen og tabellen under viser Yr og Google time for time. Uenige timer er merket gult.'});
 }
 
 function renderDagEnighet(){
