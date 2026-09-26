@@ -140,3 +140,18 @@ def test_endepunkt_svarer_503_uten_oppsett(monkeypatch):
         svar = client.get("/ver/api/weathernext?lat=59.91&lon=10.75")
         assert svar.status_code == 503
         assert svar.get_json()["aktiv"] is False
+
+
+def test_init_med_egen_innlogging(monkeypatch):
+    import ee
+
+    fanget = {}
+    monkeypatch.setattr(ee, "Initialize", lambda creds=None, project=None: fanget.update(creds=creds, project=project))
+    monkeypatch.setattr(wn, "_EE_KLAR", False)
+    monkeypatch.setenv("EE_PROJECT", "mitt-prosjekt")
+    monkeypatch.delenv("EE_SERVICE_ACCOUNT_KEY", raising=False)
+    monkeypatch.setenv("EE_USER_CREDENTIALS", '{"refresh_token": "abc", "project": "mitt-prosjekt"}')
+    wn._init_ee()
+    assert fanget["project"] == "mitt-prosjekt"
+    assert fanget["creds"].refresh_token == "abc"
+    monkeypatch.setattr(wn, "_EE_KLAR", False)

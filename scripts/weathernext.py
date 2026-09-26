@@ -151,12 +151,30 @@ def _init_ee():
         if not prosjekt:
             raise WeatherNextError("WeatherNext er ikke aktivert (EE_PROJECT mangler).")
         nokkel = os.environ.get("EE_SERVICE_ACCOUNT_KEY", "").strip()
+        bruker = os.environ.get("EE_USER_CREDENTIALS", "").strip()
         try:
             if nokkel:
                 if not nokkel.lstrip().startswith("{"):
                     nokkel = Path(nokkel).read_text(encoding="utf-8")
                 epost = json.loads(nokkel)["client_email"]
                 creds = ee.ServiceAccountCredentials(epost, key_data=nokkel)
+                ee.Initialize(creds, project=prosjekt)
+            elif bruker:
+                # Innholdet i ~/.config/earthengine/credentials fra
+                # `earthengine authenticate` på egen PC. Serveren logger da inn
+                # som deg, og bruker dermed din WeatherNext-tilgang.
+                from google.oauth2.credentials import Credentials
+                from ee import oauth
+
+                lagret = json.loads(bruker)
+                creds = Credentials(
+                    None,
+                    refresh_token=lagret["refresh_token"],
+                    token_uri=oauth.TOKEN_URI,
+                    client_id=lagret.get("client_id", oauth.CLIENT_ID),
+                    client_secret=lagret.get("client_secret", oauth.CLIENT_SECRET),
+                    scopes=lagret.get("scopes", oauth.SCOPES),
+                )
                 ee.Initialize(creds, project=prosjekt)
             else:
                 ee.Initialize(project=prosjekt)

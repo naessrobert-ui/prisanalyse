@@ -206,6 +206,10 @@ starttid, så «nyeste» kjøring er alltid 8–14 timer gammel.
 Oppsett (både cron-jobben og web-tjenesten på Render):
 
 - `EE_PROJECT`: GCP-prosjekt registrert for Earth Engine (ikke-kommersielt).
-- `EE_SERVICE_ACCOUNT_KEY`: hele JSON-nøkkelen til en service account med rollen
-  «Earth Engine Resource Viewer» og «Service Usage Consumer» i prosjektet. Service
-  account-e-posten må også ha WeatherNext-tilgang (samme skjema som for egen konto).
+- `EE_USER_CREDENTIALS`: innholdet i `~/.config/earthengine/credentials`
+  (Windows: `C:\Users\<navn>\.config\earthengine\credentials`) etter
+  `earthengine authenticate` på egen PC. Serveren logger da inn som kontoen som
+  har fått WeatherNext-tilgang. Filen gir tilgang til Google-kontoen, så den skal
+  bare ligge som hemmelig miljøvariabel, aldri i repoet.
+- Alternativ: `EE_SERVICE_ACCOUNT_KEY` med en service-account-nøkkel. Da må
+  service-account-e-posten få egen WeatherNext-tilgang via søknadsskjemaet.
