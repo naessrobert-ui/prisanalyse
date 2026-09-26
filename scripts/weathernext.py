@@ -56,9 +56,6 @@ ATTRIBUSJON = (
     "for bruk i virkeligheten."
 )
 
-#: Hvor langt bak vi leter etter kjøringer. Data ankommer ~8 t etter start, og
-#: en 6-timerskjøring kan i verste fall være ~14 t gammel når den er nyest.
-_SOKEVINDU = timedelta(hours=36)
 #: Siste varsel for et fast sted regnes som ferskt i så lang tid.
 _FAST_MAKS_ALDER = timedelta(hours=3)
 #: Cache for oppslag etter behov.
@@ -184,26 +181,28 @@ def _init_ee():
     return ee
 
 
-def _nyeste_init_ms(ee, col, fra_ms: int, til_ms: int, full_lengde: int) -> Optional[int]:
-    """Nyeste starttid der kjøringen er komplett (siste ledetid er på plass)."""
-    verdi = (
-        col.filterDate(fra_ms, til_ms)
-        .filter(ee.Filter.eq("forecast_hour", full_lengde))
-        .aggregate_max("system:time_start")
-        .getInfo()
+def _start_tid(verdi: str) -> datetime:
+    return datetime.fromisoformat(str(verdi).replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def _nyeste_init(ee, vindu, full_lengde: int) -> Optional[str]:
+    """Nyeste `start_time` der kjøringen er komplett (siste ledetid er på plass)."""
+    liste = (
+        vindu.filter(ee.Filter.eq("forecast_hour", full_lengde))
+        .aggregate_array("start_time").distinct().getInfo()
     )
-    return int(verdi) if verdi is not None else None
+    return max(liste, key=_start_tid) if liste else None
 
 
-def _hent_kjoring(ee, col, init_ms: int, lat: float, lon: float) -> list[dict[str, Any]]:
+def _hent_kjoring(ee, vindu, start_time: str, lat: float, lon: float) -> list[dict[str, Any]]:
     """Alle bånd for én kjøring i ett punkt, i én forespørsel."""
     def med_ledetid(img):
         ledetid = ee.Image.constant(ee.Number(img.get("forecast_hour"))).rename("ledetid").toFloat()
         return img.toFloat().addBands(ledetid)
 
-    bilder = col.filterDate(init_ms, init_ms + 60_000).map(med_ledetid)
+    bilder = vindu.filter(ee.Filter.eq("start_time", start_time)).map(med_ledetid)
     tabell = bilder.getRegion(ee.Geometry.Point([lon, lat]), PIXEL_M).getInfo()
-    return rader_fra_tabell(tabell, init_ms)
+    return rader_fra_tabell(tabell, int(_start_tid(start_time).timestamp() * 1000))
 
 
 def rader_fra_tabell(tabell: list[list[Any]], init_ms: int) -> list[dict[str, Any]]:
@@ -232,21 +231,24 @@ def rader_fra_tabell(tabell: list[list[Any]], init_ms: int) -> list[dict[str, An
 
 
 def hent_kjoringer(lat: float, lon: float, now: Optional[datetime] = None) -> dict[str, Any]:
-    """Nyeste mellomkjøring (48 t) og nyeste 6-timerskjøring (360 t) for et punkt."""
+    """Nyeste mellomkjøring (48 t) og nyeste 6-timerskjøring (360 t) for et punkt.
+
+    Kjøringene identifiseres med egenskapen `start_time` innenfor et datovindu,
+    samme oppslag som ble verifisert mot Earth Engine med testskriptet.
+    """
     ee = _init_ee()
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    til_ms = int(now.timestamp() * 1000)
-    fra_ms = int((now - _SOKEVINDU).timestamp() * 1000)
     col = ee.ImageCollection(ASSET)
+    vindu = col.filterDate(ee.Date(now - timedelta(days=3)), ee.Date(now + timedelta(days=16)))
     try:
-        kort_ms = _nyeste_init_ms(ee, col, fra_ms, til_ms, 48)
-        lang_ms = _nyeste_init_ms(ee, col, fra_ms, til_ms, 360)
-        if kort_ms is None and lang_ms is None:
-            raise WeatherNextError("Fant ingen komplette WeatherNext-kjøringer siste 36 timer.")
-        lang = _hent_kjoring(ee, col, lang_ms, lat, lon) if lang_ms else []
+        kort_init = _nyeste_init(ee, vindu, 48)
+        lang_init = _nyeste_init(ee, vindu, 360)
+        if kort_init is None and lang_init is None:
+            raise WeatherNextError("Fant ingen komplette WeatherNext-kjøringer siste tre døgn.")
+        lang = _hent_kjoring(ee, vindu, lang_init, lat, lon) if lang_init else []
         kort: list[dict[str, Any]] = []
-        if kort_ms and kort_ms != lang_ms and (lang_ms is None or kort_ms > lang_ms):
-            kort = _hent_kjoring(ee, col, kort_ms, lat, lon)
+        if kort_init and (lang_init is None or _start_tid(kort_init) > _start_tid(lang_init)):
+            kort = _hent_kjoring(ee, vindu, kort_init, lat, lon)
     except WeatherNextError:
         raise
     except Exception as exc:
