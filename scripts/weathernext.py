@@ -575,6 +575,14 @@ def for_punkt(lat: float, lon: float, now: Optional[datetime] = None) -> dict[st
     if not konfigurert():
         raise WeatherNextError("WeatherNext er ikke aktivert på serveren.")
 
+    # Et direkte Earth Engine-oppslag tar 45 s eller mer, og holder en
+    # web-forespørsel oppe så lenge. Derfor er det av som standard: nettsiden
+    # viser bare de faste stedene, som cron-jobben lagrer hver time.
+    if os.environ.get("WEATHERNEXT_LIVE", "").strip().lower() not in {"1", "true", "ja"}:
+        if place:
+            raise WeatherNextError("WeatherNext-varselet er ikke hentet ennå. Kommer ved neste timeskjøring.")
+        raise WeatherNextError("WeatherNext vises bare for Bergen.")
+
     celle = (round(lat, 1), round(lon, 1))
     with _CACHE_LOCK:
         treff = _CACHE.get(celle)

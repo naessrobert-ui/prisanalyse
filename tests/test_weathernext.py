@@ -115,6 +115,7 @@ def test_lagring_og_fast_sted(tmp_path, monkeypatch):
 
 def test_live_oppslag_caches_per_celle(monkeypatch):
     monkeypatch.setenv("EE_PROJECT", "test")
+    monkeypatch.setenv("WEATHERNEXT_LIVE", "1")
     wn._CACHE.clear()
     kall = []
 
@@ -155,3 +156,14 @@ def test_init_med_egen_innlogging(monkeypatch):
     assert fanget["project"] == "mitt-prosjekt"
     assert fanget["creds"].refresh_token == "abc"
     monkeypatch.setattr(wn, "_EE_KLAR", False)
+
+
+def test_live_er_av_som_standard(monkeypatch):
+    monkeypatch.setenv("EE_PROJECT", "test")
+    monkeypatch.delenv("WEATHERNEXT_LIVE", raising=False)
+    monkeypatch.setattr(wn, "les_siste", lambda place: None)
+    monkeypatch.setattr(wn, "hent_kjoringer", lambda *a, **k: pytest.fail("skal ikke hente live"))
+    with pytest.raises(wn.WeatherNextError, match="ikke hentet ennå"):
+        wn.for_punkt(60.39299, 5.32415)
+    with pytest.raises(wn.WeatherNextError, match="bare for Bergen"):
+        wn.for_punkt(59.91, 10.75)
