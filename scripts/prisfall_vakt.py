@@ -1,7 +1,8 @@
 """Prisfallvakt for rene elbiler, kjørt etter Bilradars eksisterende scoring.
 
 Leser hele bilradar_aktive.parquet, ikke topplisten eller bare nye annonser.
-Ingen nye FINN-oppslag. Sammenligner de to siste komplette dagsfilene i S3.
+Sammenligner de to siste komplette dagsfilene i S3. Eneste FINN-oppslag er
+antall favoritter for bilene som faktisk varsles (KUPP_FAVORITTER=0 slår av).
 Se docs/prisfall_vakt.md for drift, terskler og begrensninger.
 """
 from __future__ import annotations
@@ -313,7 +314,8 @@ def _melding(row):
         f"Ned {kr(row['prisfall_kr'])} kr ({row['prisfall_pct']:.1f} %)\n"
         f"Beregnet verdi: {kr(row['forventet_pris'])} kr\n"
         f"{row['rabatt_pct']:.1f} % under beregnet verdi\n"
-        f"{row['url']}"
+        + (f"{kupp._fav_tekst(row)} har lagret annonsen\n" if kupp._fav_tekst(row) else "")
+        + f"{row['url']}"
     )
 
 
@@ -347,6 +349,7 @@ def kjor(input_path=None, *, seed=False, dry_run=False, s3=None, now=None):
     if seed or (state is None and not new_pair):
         print("[prisfall_vakt] Grunnpriser lagret uten varsling" if not dry_run
               else "[prisfall_vakt] Ville etablert grunnpriser uten varsling")
+    kupp.berik_favoritter(candidates[:MAX_VARSLER])
     if dry_run:
         for row in candidates[:MAX_VARSLER]:
             print(_melding(row))

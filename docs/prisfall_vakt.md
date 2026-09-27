@@ -3,8 +3,9 @@
 `scripts/prisfall_vakt.py` bruker hele resultatet fra «Scor Bilradar aktive
 biler» til verdsettelsen, og sammenligner samtidig de to nyeste komplette
 dagsfilene i `raw/bil-daglig/`. Denne jobben utløses etter at innhentingen har
-oppdatert databasen, og kjører dessuten etter timeplan. Prisvakten gjør ingen
-ekstra FINN-oppslag.
+oppdatert databasen, og kjører dessuten etter timeplan. Eneste FINN-oppslag er
+ett kall per varslet bil for å hente antall favoritter (`KUPP_FAVORITTER=0`
+slår det av).
 
 ## Hva som varsles
 
@@ -27,7 +28,8 @@ ekstra FINN-oppslag.
 - Et vellykket varsel huskes per FINN-kode og ny pris. Ytterligere prisfall
   kan varsles; opp og ned til en allerede varslet pris varsles ikke igjen.
 - Hver bil får eget Pushover-varsel med gammel/ny pris, prisfall, beregnet
-  verdi og FINN-lenke. Ingen e-post sendes fra prisvakten.
+  verdi, antall som har lagret annonsen (❤, når det kan leses) og FINN-lenke.
+  Ingen e-post sendes fra prisvakten.
 
 ## Oppsett
 
