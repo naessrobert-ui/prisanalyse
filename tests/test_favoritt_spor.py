@@ -28,9 +28,11 @@ def kjor(spor, nye, naa, favs, **kw):
     return spor, pop, ferdige, kall
 
 
-def varm_spor(t=T0):
-    """Spor der forrige kjøring var for 10 min siden (alder er kjent)."""
-    return {"biler": {}, "sist_kjort": (t - timedelta(minutes=10)).isoformat()}
+def varm_spor(t=T0, gammel_maks=0):
+    """Spor der forrige kjøring var for 10 min siden (alder er kjent), og
+    høyeste FINN-kode for 2 t siden var gammel_maks."""
+    return {"biler": {}, "sist_kjort": (t - timedelta(minutes=10)).isoformat(),
+            "kode_historikk": [[(t - timedelta(hours=2)).isoformat(), gammel_maks]]}
 
 
 def test_parse_regler():
@@ -170,3 +172,40 @@ def test_kjor_feil_stopper_ikke(monkeypatch):
     monkeypatch.setattr(f.kupp, "FAVORITTER_ON", True)
     monkeypatch.setattr(f, "oppdater", lambda *a, **kw: 1 / 0)
     assert f.kjor(FakeS3(), [bil("1")], T0.isoformat()) == 0
+
+
+# --- Gamle annonser publisert på nytt (FINN-kode) ---------------------------
+
+def test_gammel_annonse_publisert_paa_nytt_varsles_ikke():
+    """439350123 lå ute fra 6. sept, dukket opp som «ny» med 35 favoritter."""
+    spor = varm_spor(gammel_maks=477_000_000)
+    spor, pop, _, _ = kjor(spor, [bil("439350123"), bil("477400000")], T0,
+                           {"439350123": 35, "477400000": 35})
+    assert [fk for fk, _, _ in pop] == ["477400000"]
+    assert spor["biler"]["439350123"]["kode_fersk"] is False
+    assert spor["biler"]["439350123"]["alder_kjent"] is False
+
+
+def test_kode_fersk():
+    hist = [[(T0 - timedelta(minutes=90)).isoformat(), 1000],
+            [(T0 - timedelta(minutes=30)).isoformat(), 2000]]
+    assert f.kode_fersk("1500", hist, T0) is True    # nyere enn det vi så for >60 min siden
+    assert f.kode_fersk("900", hist, T0) is False
+    assert f.kode_fersk("1000", hist, T0) is False
+    assert f.kode_fersk("abc", hist, T0) is None
+    kort = [[(T0 - timedelta(minutes=30)).isoformat(), 2000]]
+    assert f.kode_fersk("5000", kort, T0) is None      # for kort historikk = ukjent
+
+
+def test_uten_kodehistorikk_ingen_populaer():
+    spor = {"biler": {}, "sist_kjort": (T0 - timedelta(minutes=10)).isoformat()}
+    spor, pop, _, _ = kjor(spor, [bil("5")], T0, {"5": 50})
+    assert pop == [] and spor["biler"]["5"]["kode_fersk"] is None
+
+
+def test_kodehistorikk_lagres_og_prunes():
+    spor = varm_spor()
+    spor["kode_historikk"].insert(0, [(T0 - timedelta(hours=30)).isoformat(), 1])
+    spor, _, _ = f.oppdater(spor, [], T0, lambda fk: None, maks_kode=12345)
+    assert spor["kode_historikk"][-1] == [T0.isoformat(), 12345]
+    assert all(m != 1 for _, m in spor["kode_historikk"])

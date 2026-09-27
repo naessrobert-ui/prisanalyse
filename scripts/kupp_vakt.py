@@ -1042,6 +1042,10 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
     if not biler:
         _favoritt_spor(s3, [], naa, dry_run=dry_run)
         return 0
+    # Høyeste FINN-kode i søket – brukes til å kjenne igjen gamle annonser
+    # som er publisert på nytt (favoritt_spor.kode_fersk).
+    koder = [int(b["FinnKode"]) for b in biler if str(b.get("FinnKode", "")).isdigit()]
+    maks_kode = max(koder) if koder else None
 
     # Seed / første kjøring: marker alt som sett, ikke varsle (unngå flom).
     if seed or forste_gang:
@@ -1056,7 +1060,7 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
     nye = [b for b in biler if b["FinnKode"] not in state]
     print(f"[kupp_vakt] {len(nye)} helt nye annonser siden sist")
     if not nye:
-        _favoritt_spor(s3, [], naa, dry_run=dry_run)
+        _favoritt_spor(s3, [], naa, dry_run=dry_run, maks_kode=maks_kode)
         return 0
 
     # Klient-side filtre (drivstoff/sted) før scoring. Vi scorer/varsler kun
@@ -1121,7 +1125,7 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
         for b in kupp:
             print(_formater_bil(b))
         _favoritt_spor(s3, spor_nye, naa, dry_run=True, kupp_koder=kupp_koder,
-                       forhaandsmaalt=forhaandsmaalt)
+                       forhaandsmaalt=forhaandsmaalt, maks_kode=maks_kode)
         return len(kupp)
 
     if kupp:
@@ -1133,7 +1137,7 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
         logg_kupp(s3, kupp, naa)
     lagre_state(s3, state)
     _favoritt_spor(s3, spor_nye, naa, kupp_koder=kupp_koder,
-                   forhaandsmaalt=forhaandsmaalt)
+                   forhaandsmaalt=forhaandsmaalt, maks_kode=maks_kode)
     return len(kupp)
 
 

@@ -15,6 +15,11 @@ Alder måles fra første gang kuppvakten så annonsen (0–10 min etter
 publisering). Kom annonsen etter et opphold i kjøringene (f.eks. natt), er
 alderen ukjent – den spores, men gir ikke populær-varsel.
 
+Gamle annonser som publiseres på nytt/løftes havner også øverst i «nyeste».
+FINN-koder deles ut fortløpende, så vi lagrer høyeste kode per kjøring: er
+koden ikke høyere enn det vi så for over KUPP_POPULAER_KODE_MIN minutter
+siden, er annonsen ikke fersk og gir ikke populær-varsel.
+
 Ferdige spor flyttes til en logg (S3) for å kalibrere nivåene senere.
 
 Env:
@@ -23,6 +28,7 @@ Env:
                            Tom = ingen populær-varsler (sporing fortsetter).
     KUPP_FAV_MAKS_KALL   – maks favoritt-oppslag per kjøring (default 150).
     KUPP_POPULAER_MAKS   – maks populær-varsler per kjøring (default 10).
+    KUPP_POPULAER_KODE_MIN – maks alder (min) ut fra FINN-koden (default 60).
     KUPP_FAVORITTER=0    – slår av både sporing og varsler.
 """
 from __future__ import annotations
@@ -40,6 +46,8 @@ MAKS_VARSLER = int(os.getenv("KUPP_POPULAER_MAKS", "10") or 10)
 MAALEPUNKT_MIN = (180, 1440)       # ekstra målinger etter ≈ 3 t og ≈ 24 t
 SPOR_MAKS_MIN = 30 * 60            # gi opp sporet etter 30 t
 OPPHOLD_MIN = 25                   # lengre siden forrige kjøring = ukjent alder
+KODE_MAKS_MIN = int(os.getenv("KUPP_POPULAER_KODE_MIN", "60") or 60)
+KODE_HISTORIKK_TIMER = 24
 
 
 def parse_regler(spec: str) -> list[tuple[int, int]]:
@@ -110,6 +118,25 @@ def ny_post(b: dict, naa: str, alder_kjent: bool) -> dict:
     }
 
 
+def _kode(fk) -> int | None:
+    try:
+        return int(str(fk))
+    except (TypeError, ValueError):
+        return None
+
+
+def kode_fersk(fk, historikk: list, naa: datetime,
+               maks_min: int = KODE_MAKS_MIN) -> bool | None:
+    """Er FINN-koden nyere enn alt vi så for mer enn maks_min minutter siden?
+    None = ukjent (for kort historikk eller ugyldig kode)."""
+    kode = _kode(fk)
+    grense = naa - timedelta(minutes=maks_min)
+    gamle = [m for t, m in historikk if _tid(t) <= grense]
+    if kode is None or not gamle:
+        return None
+    return kode > max(gamle)
+
+
 def _vindu_min(regler) -> int:
     return max((m for _, m in regler), default=0)
 
@@ -134,8 +161,10 @@ def _ferdig(post: dict, naa: datetime) -> bool:
 
 def oppdater(spor: dict, nye: list[dict], naa: datetime, hent, *,
              regler=REGLER, maks_kall: int = MAKS_KALL,
-             kupp_koder=(), forhaandsmaalt: dict | None = None):
+             kupp_koder=(), forhaandsmaalt: dict | None = None,
+             maks_kode: int | None = None):
     """Ren logikk (uten S3/varsling). hent(finnkode) -> int|None.
+    maks_kode = høyeste FINN-kode i denne kjøringens søk (alle annonser).
 
     Returnerer (spor, populaere, ferdige) der populaere er poster som skal
     varsles nå og ferdige er poster som skal flyttes til loggen."""
@@ -144,11 +173,14 @@ def oppdater(spor: dict, nye: list[dict], naa: datetime, hent, *,
     sist = spor.get("sist_kjort")
     alder_kjent = bool(sist) and (naa - _tid(sist)) <= timedelta(minutes=OPPHOLD_MIN)
     naa_s = naa.isoformat()
+    historikk = spor.get("kode_historikk", [])
 
     for b in nye:
         fk = str(b.get("FinnKode") or "")
         if fk and fk not in biler:
-            biler[fk] = ny_post(b, naa_s, alder_kjent)
+            fersk = kode_fersk(fk, historikk, naa)
+            biler[fk] = ny_post(b, naa_s, alder_kjent and fersk is True)
+            biler[fk]["kode_fersk"] = fersk
     for fk in kupp_koder:
         if fk in biler:
             biler[fk]["kupp"] = True
@@ -181,6 +213,11 @@ def oppdater(spor: dict, nye: list[dict], naa: datetime, hent, *,
     for fk in ferdige:
         del biler[fk]
     spor["sist_kjort"] = naa_s
+    grense = naa - timedelta(hours=KODE_HISTORIKK_TIMER)
+    historikk = [[t, m] for t, m in historikk if _tid(t) >= grense]
+    if maks_kode is not None:
+        historikk.append([naa_s, int(maks_kode)])
+    spor["kode_historikk"] = historikk
     populaere.sort(key=lambda x: -x[1]["maalinger"][-1]["fav"])
     return spor, populaere[:MAKS_VARSLER], ferdige
 
@@ -242,7 +279,8 @@ def _logg_ferdige(s3, ferdige: dict, naa: datetime):
 
 
 def kjor(s3, nye: list[dict], naa: str, *, dry_run: bool = False,
-         kupp_koder=(), forhaandsmaalt: dict | None = None) -> int:
+         kupp_koder=(), forhaandsmaalt: dict | None = None,
+         maks_kode: int | None = None) -> int:
     """Oppdater sporing, send populær-varsler. Feil stopper aldri kuppvakten."""
     if not kupp.FAVORITTER_ON:
         return 0
@@ -253,7 +291,8 @@ def kjor(s3, nye: list[dict], naa: str, *, dry_run: bool = False,
         try:
             spor, populaere, ferdige = oppdater(
                 spor, nye, naa_dt, lambda fk: kupp.hent_favoritter(fk, session),
-                kupp_koder=kupp_koder, forhaandsmaalt=forhaandsmaalt)
+                kupp_koder=kupp_koder, forhaandsmaalt=forhaandsmaalt,
+                maks_kode=maks_kode)
         finally:
             session.close()
         print(f"[favoritt_spor] {len(spor['biler'])} biler spores, "
