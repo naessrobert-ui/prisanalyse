@@ -205,7 +205,30 @@ def test_uten_kodehistorikk_ingen_populaer():
 
 def test_kodehistorikk_lagres_og_prunes():
     spor = varm_spor()
-    spor["kode_historikk"].insert(0, [(T0 - timedelta(hours=30)).isoformat(), 1])
+    spor["kode_historikk"].insert(0, [(T0 - timedelta(hours=50)).isoformat(), 1])
     spor, _, _ = f.oppdater(spor, [], T0, lambda fk: None, maks_kode=12345)
     assert spor["kode_historikk"][-1] == [T0.isoformat(), 12345]
     assert all(m != 1 for _, m in spor["kode_historikk"])
+
+
+# --- Kuppvakten: eldre annonser publisert på nytt ---------------------------
+
+def test_kuppvakt_hopper_over_gamle_annonser(monkeypatch):
+    from scripts import kupp_vakt as k
+    naa = T0
+    hist = [[(naa - timedelta(hours=13)).isoformat(), 477_200_000],
+            [(naa - timedelta(minutes=10)).isoformat(), 477_440_000]]
+    monkeypatch.setattr(f, "les_kode_historikk", lambda s3: hist)
+    monkeypatch.setattr(k, "MAKS_ANNONSEALDER_T", 12)
+    biler = [{"FinnKode": "475748478"}, {"FinnKode": "477445406"}, {"FinnKode": "abc"}]
+    assert k._gamle_annonser(None, biler, naa.isoformat()) == {"475748478"}
+
+
+def test_kuppvakt_kort_historikk_stopper_ingenting(monkeypatch):
+    from scripts import kupp_vakt as k
+    hist = [[(T0 - timedelta(hours=2)).isoformat(), 477_000_000]]
+    monkeypatch.setattr(f, "les_kode_historikk", lambda s3: hist)
+    monkeypatch.setattr(k, "MAKS_ANNONSEALDER_T", 12)
+    assert k._gamle_annonser(None, [{"FinnKode": "400000000"}], T0.isoformat()) == set()
+    monkeypatch.setattr(k, "MAKS_ANNONSEALDER_T", 0)
+    assert k._gamle_annonser(None, [{"FinnKode": "400000000"}], T0.isoformat()) == set()

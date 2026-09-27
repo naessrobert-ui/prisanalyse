@@ -47,7 +47,7 @@ MAALEPUNKT_MIN = (180, 1440)       # ekstra målinger etter ≈ 3 t og ≈ 24 t
 SPOR_MAKS_MIN = 30 * 60            # gi opp sporet etter 30 t
 OPPHOLD_MIN = 25                   # lengre siden forrige kjøring = ukjent alder
 KODE_MAKS_MIN = int(os.getenv("KUPP_POPULAER_KODE_MIN", "60") or 60)
-KODE_HISTORIKK_TIMER = 24
+KODE_HISTORIKK_TIMER = 48         # kuppvakten ser opptil KUPP_MAKS_ANNONSEALDER_T bakover
 
 
 def parse_regler(spec: str) -> list[tuple[int, int]]:
@@ -251,6 +251,11 @@ def melding(post: dict) -> str:
 # ======================================================
 # S3 + kjøring
 # ======================================================
+
+def les_kode_historikk(s3) -> list:
+    """Høyeste FINN-kode per kjøring (fra sporings-state), for kuppvakten."""
+    return _les(s3, SPOR_KEY).get("kode_historikk", [])
+
 
 def _les(s3, key: str) -> dict:
     try:
