@@ -3519,6 +3519,9 @@ async function loadForecast(lat,lon,name){
     const r=await fetch(`/ver/api/aktivt-varsel?lat=${lat}&lon=${lon}&sted=${encodeURIComponent(name||'Valgt sted')}`);
     const d=await r.json();
     if(!r.ok){setStatus(d.error||'Feil');return;}
+    // Glem Google-varselet for forrige sted FØR nytt sted tegnes. Ellers ble
+    // WeatherNext for Bergen sammenlignet med Yr for f.eks. Alicante time for time.
+    wn3Req++; wn3=null; wn3ByHour=null;
     renderData(d);
     cachePlace(d.coords?.lat ?? lat, d.coords?.lon ?? lon, d.sted || name || 'Valgt sted');
     setStatus('');
