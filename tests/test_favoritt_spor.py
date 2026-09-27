@@ -232,3 +232,19 @@ def test_kuppvakt_kort_historikk_stopper_ingenting(monkeypatch):
     assert k._gamle_annonser(None, [{"FinnKode": "400000000"}], T0.isoformat()) == set()
     monkeypatch.setattr(k, "MAKS_ANNONSEALDER_T", 0)
     assert k._gamle_annonser(None, [{"FinnKode": "400000000"}], T0.isoformat()) == set()
+
+
+def test_kuppvakt_bruker_state_som_kodehistorikk(monkeypatch):
+    """Uten kodehistorikk: annonser vi så for over en time siden (state) er
+    referansen, så gamle annonser stoppes med en gang."""
+    from scripts import kupp_vakt as k
+    monkeypatch.setattr(f, "les_kode_historikk", lambda s3: [])
+    monkeypatch.setattr(k, "MAKS_ANNONSEALDER_T", 1)
+    state = {"477440000": (T0 - timedelta(minutes=70)).isoformat(),
+             "477450000": (T0 - timedelta(minutes=20)).isoformat(),
+             "470000000": (T0 - timedelta(minutes=5)).isoformat()}  # løftet, lav kode
+    biler = [{"FinnKode": "475748478"}, {"FinnKode": "477445000"},
+             {"FinnKode": "477440000"}]
+    assert k._gamle_annonser(None, biler, T0.isoformat(), state) == {
+        "475748478", "477440000"}
+    assert k._gamle_annonser(None, biler, T0.isoformat(), {}) == set()
