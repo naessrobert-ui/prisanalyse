@@ -424,6 +424,13 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
         <div class="kort-lenke">Åpne</div>
       </a>
 
+      <a class="kort" href="/ver/varsel/bergen">
+        <div class="kort-topp"><div class="kort-ikon">☂️</div><span class="kort-badge b-blå">Ny</span></div>
+        <div class="kort-tittel">Været i Bergen</div>
+        <div class="kort-tekst">Regner det de neste to timene? Radar, resten av dagen, i natt og åtte dager fremover, med Yr og Google side om side.</div>
+        <div class="kort-lenke">Åpne værsiden</div>
+      </a>
+
       <a class="kort" href="/ver/sammenlign">
         <div class="kort-topp"><div class="kort-ikon">🌦️</div><span class="kort-badge b-blå">Nytt</span></div>
         <div class="kort-tittel">Yr og Google – enige om været?</div>

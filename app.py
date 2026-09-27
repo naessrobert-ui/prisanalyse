@@ -36,6 +36,7 @@ from import_radar_routes import import_radar_bp
 from gemini_routes import gemini_bp
 from scripts.ver_routes import ver
 from scripts.weather_comparison import weather_comparison
+from scripts.vaer_varsel import vaer_varsel
 from scripts.station_metrics_cache import start_warmup as start_station_metrics_warmup
 from regnskap_routes import regnskap_bp
 from portfolio_rebalancer_routes import portfolio_rebalancer_bp
@@ -337,6 +338,7 @@ def create_app() -> Flask:
     app.register_blueprint(gemini_bp)
     app.register_blueprint(ver)
     app.register_blueprint(weather_comparison)
+    app.register_blueprint(vaer_varsel)
     app.register_blueprint(handler_bp)
     app.register_blueprint(regnskap_bp)
     app.register_blueprint(portfolio_rebalancer_bp)
