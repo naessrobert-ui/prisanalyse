@@ -2050,6 +2050,18 @@ def _lag_json_data_fra_parquet(df: pd.DataFrame) -> str:
                     car["dm"] = dm
             except Exception:
                 pass
+        # Popularitet (bil_favoritter): 0 er en gyldig verdi, i motsetning til
+        # pris/km over, så disse tas med når de er målt.
+        for src, dst, desimaler in (("Favoritter_ny", "fv", 0), ("fav_per_dag", "fpd", 1),
+                                    ("fav_1t", "f1", 0), ("fav_24t", "f24", 0)):
+            v = row.get(src)
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                continue
+            if np.isnan(fv):
+                continue
+            car[dst] = round(fv, desimaler) if desimaler else int(round(fv))
         if "p" not in car:
             car["p"] = 0
         if "r" not in car:
@@ -2156,7 +2168,7 @@ def bil_radar_alle():
             print("[BilRadar/alle] Cache – serverer direkte")
             return Response(cached["html"], mimetype='text/html')
 
-        df_scoret = df[df["forventet_pris"].notna() & (df["forventet_pris"] > 0)].copy()
+        df_scoret = df[_radar_utvalg(df)].copy()
         print(f"[BilRadar/alle] {len(df_scoret)}/{len(df)} biler med scoring")
 
         data_json = _lag_json_data_fra_parquet(df_scoret)
@@ -2179,6 +2191,15 @@ def bil_radar_alle():
         traceback.print_exc()
         from flask import abort
         abort(500, description=f"Feil i BilRadar (alle): {e}")
+
+
+def _radar_utvalg(df: pd.DataFrame) -> pd.Series:
+    """Biler BilRadar viser: de med beregnet verdi, pluss de som har
+    favoritter (så «mest lagret» også tar med biler modellen ikke dekker)."""
+    scoret = pd.to_numeric(df["forventet_pris"], errors="coerce").fillna(0) > 0
+    if "Favoritter_ny" in df.columns:
+        scoret |= pd.to_numeric(df["Favoritter_ny"], errors="coerce").fillna(0) > 0
+    return scoret
 
 
 def _filtrer_ferske_biler(df, timer=RADAR_SISTE_TIMER, naa=None):
@@ -2269,8 +2290,7 @@ def bil_radar_siste():
         if "FinnKode" in df_aktive.columns and recent_koder:
             df_scoret = df_aktive[
                 df_aktive["FinnKode"].isin(recent_koder)
-                & df_aktive["forventet_pris"].notna()
-                & (df_aktive["forventet_pris"] > 0)
+                & _radar_utvalg(df_aktive)
             ].copy()
         else:
             df_scoret = df_aktive.iloc[0:0].copy()

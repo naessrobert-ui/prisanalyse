@@ -38,6 +38,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import bil_favoritter
 from bilradar_lookup import apply_lookup, last_lookup
 from bilradar_overrides import apply_overrides, last_overrides
 
@@ -435,6 +436,19 @@ def kjor_analyse(
         df_aktive["rabatt_pct"].fillna(0) > MISTENKELIG_RABATT_PCT
     ).astype("int8")
 
+    # Popularitet: favoritter per dag og økning siste time/døgn (bil_favoritter).
+    try:
+        from config import S3_BUCKET_NAME
+        s3, bucket = _s3_klient(), S3_BUCKET_NAME
+    except Exception as e:
+        print(f"      [favoritter] Ingen S3-tilgang, hopper over historikk: {e}")
+        s3, bucket = None, ""
+    hist = bil_favoritter.last_historikk(s3, bucket)
+    bil_favoritter.berik(df_aktive, hist)
+    print(f"      Favoritter: {df_aktive.get('Favoritter_ny', pd.Series(dtype=float)).notna().sum():,} målt, "
+          f"{df_aktive['fav_24t'].notna().sum():,} med døgnendring, "
+          f"{df_aktive['fav_1t'].notna().sum():,} med timeendring")
+
     out_cols = [
         "FinnKode", "Produsent", "Modell", "Overskrift",
         "årstall", "kjørelengde",
@@ -447,6 +461,7 @@ def kjor_analyse(
         "rabatt_kr", "rabatt_pct", "modell_nivaa",
         "peer_n", "peer_tier", "peer_konfidens",
         "peer_dager_til_salg_median", "mistenkelig_pris",
+        "Favoritter_ny", "Favoritter_dato", "fav_per_dag", "fav_1t", "fav_24t",
     ]
     out_cols = [c for c in out_cols if c in df_aktive.columns]
     df_aktive[out_cols].to_parquet(output_parquet, index=False)
