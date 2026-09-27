@@ -46,7 +46,9 @@ Varsling (bruk én eller begge – sender bare via de som er konfigurert):
 Favoritter (hvor mange som har lagret annonsen):
     KUPP_FAVORITTER   – "1" (default): slå opp annonsesiden for hver varslede
                          bil og ta med antall favoritter i varsel og logg.
-                         "0" = av. Nye annonser har naturlig få favoritter.
+                         "0" = av (også favoritt-sporing og populær-varsel).
+    KUPP_POPULAER_REGLER – populær-varsel: "favoritter:minutter,..." (default
+                         "10:10,30:60"). Se scripts/favoritt_spor.py.
 
 Kjøring:
     python -m scripts.kupp_vakt            # normal kjøring
@@ -1036,10 +1038,10 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
     print(f"[kupp_vakt] Scraper nyeste (maks {MAX_PAGES} sider per hjuldrift) ...")
     biler = scrape_nyeste()
     print(f"[kupp_vakt] {len(biler)} annonser hentet")
-    if not biler:
-        return 0
-
     naa = datetime.now(timezone.utc).isoformat()
+    if not biler:
+        _favoritt_spor(s3, [], naa, dry_run=dry_run)
+        return 0
 
     # Seed / første kjøring: marker alt som sett, ikke varsle (unngå flom).
     if seed or forste_gang:
@@ -1054,6 +1056,7 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
     nye = [b for b in biler if b["FinnKode"] not in state]
     print(f"[kupp_vakt] {len(nye)} helt nye annonser siden sist")
     if not nye:
+        _favoritt_spor(s3, [], naa, dry_run=dry_run)
         return 0
 
     # Klient-side filtre (drivstoff/sted) før scoring. Vi scorer/varsler kun
@@ -1106,9 +1109,19 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
 
     berik_favoritter(kupp)
 
+    # Favoritt-sporing: alle kandidater, med scoring der den finnes.
+    scoret_map = ({str(r.get("FinnKode")): r for r in scoret.to_dict("records")}
+                  if not scoret.empty else {})
+    spor_nye = [{**b, **scoret_map.get(b["FinnKode"], {})} for b in kandidater]
+    kupp_koder = [str(b.get("FinnKode")) for b in kupp]
+    forhaandsmaalt = {str(b.get("FinnKode")): b.get("favoritter") for b in kupp
+                      if b.get("favoritter") is not None}
+
     if dry_run:
         for b in kupp:
             print(_formater_bil(b))
+        _favoritt_spor(s3, spor_nye, naa, dry_run=True, kupp_koder=kupp_koder,
+                       forhaandsmaalt=forhaandsmaalt)
         return len(kupp)
 
     if kupp:
@@ -1119,7 +1132,15 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
                   "fant kupp, men sendte ingenting")
         logg_kupp(s3, kupp, naa)
     lagre_state(s3, state)
+    _favoritt_spor(s3, spor_nye, naa, kupp_koder=kupp_koder,
+                   forhaandsmaalt=forhaandsmaalt)
     return len(kupp)
+
+
+def _favoritt_spor(s3, nye, naa, **kw) -> int:
+    """Favoritt-sporing og populær-varsel (scripts/favoritt_spor.py)."""
+    from scripts import favoritt_spor
+    return favoritt_spor.kjor(s3, nye, naa, **kw)
 
 
 def send_testvarsel() -> bool:
