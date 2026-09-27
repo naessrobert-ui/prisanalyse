@@ -2622,6 +2622,9 @@ def api_aktivt_varsel():
             "rain_max": float(precip_details.get("precipitation_amount_max")) if precip_details.get("precipitation_amount_max") is not None else None,
             "rain_prob": float(precip_details.get("probability_of_precipitation")) if precip_details.get("probability_of_precipitation") is not None else None,
             "symbol": symbol,
+            # Hvor mange timer symbol og nedbør gjelder: 1 de første ~2,5 døgnene,
+            # deretter 6 (eller 12). Trengs for å telle soltimer riktig.
+            "block_hours": 1 if data.get("next_1_hours") else 6 if data.get("next_6_hours") else 12 if data.get("next_12_hours") else 1,
         }
         rows_7d.append(rec)
         if day_start_utc <= t_py < day_end_utc:
@@ -2903,18 +2906,23 @@ def api_aktivt_varsel():
         winds = [v["wind"] for v in vals if v.get("wind") is not None]
         gusts = [v["gust"] for v in vals if v.get("gust") is not None]
 
-        # Soltimer: tell timer i dagtid (06-22) som er "sun" eller "partly"
+        # Soltimer: tell timer i dagtid (06-22) som er "sun" eller "partly".
+        # Lenger frem gir Yr én rad per seks timer. Hver rad teller da for alle
+        # dagtimene den dekker, ellers ble det bare 0,5-1,5 soltimer per dag.
         sol_timer = 0
         sky_kategorier = {"sun": 0, "partly": 0, "cloudy": 0, "rain": 0}
         for v in vals:
             t_local = pd.to_datetime(v["time"], utc=True).tz_convert(OSLO)
-            if 6 <= t_local.hour <= 21:
-                kat = _sol_kategori(v.get("symbol", ""), v.get("rain", 0.0))
-                sky_kategorier[kat] += 1
-                if kat == "sun":
-                    sol_timer += 1.0
-                elif kat == "partly":
-                    sol_timer += 0.5  # delvis skyet regnes som halv soltime
+            varighet = int(v.get("block_hours") or 1)
+            dagtimer = sum(1 for k in range(varighet) if 6 <= (t_local.hour + k) % 24 <= 21)
+            if not dagtimer:
+                continue
+            kat = _sol_kategori(v.get("symbol", ""), (v.get("rain") or 0.0) / varighet)
+            sky_kategorier[kat] += dagtimer
+            if kat == "sun":
+                sol_timer += 1.0 * dagtimer
+            elif kat == "partly":
+                sol_timer += 0.5 * dagtimer  # delvis skyet regnes som halv soltime
 
         # Bygg hourly-detaljer for denne dagen (brukes i expand-panel)
         day_hours = []
