@@ -115,3 +115,11 @@ def test_radar_json_tar_med_favoritter():
     biler = json.loads(_lag_json_data_fra_parquet(df))
     assert biler[0]["fv"] == 0 and biler[0]["f24"] == 0 and "f1" not in biler[0]
     assert biler[1]["fv"] == 12 and biler[1]["fpd"] == 2.4 and biler[1]["f1"] == 3
+
+
+def test_radar_utvalg_tar_med_populaere_uten_verdsettelse():
+    from bil_routes import _radar_utvalg
+    df = pd.DataFrame({"forventet_pris": [300000, np.nan, np.nan, 0],
+                       "Favoritter_ny": [0, 25, 0, np.nan]})
+    assert _radar_utvalg(df).tolist() == [True, True, False, False]
+    assert _radar_utvalg(df.drop(columns="Favoritter_ny")).tolist() == [True, False, False, False]

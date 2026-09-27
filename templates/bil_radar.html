@@ -217,7 +217,7 @@
     if(!cars.length){grid.innerHTML='<div class="loading-msg">Ingen biler matcher filtrene.</div>';return}
     var html="";
     for(var i=0;i<display.length;i++){
-      var c=display[i];var discount=rb(c);var isGood=discount>=THRESHOLD;
+      var c=display[i];var discount=rb(c);var isGood=ep(c)>0&&discount>=THRESHOLD;
       var bc=discount>=THRESHOLD?"":(discount>0?" neutral":" bad");
       var bt=discount>0?("-"+discount.toFixed(1)+" %"):(discount<0?("+"+Math.abs(discount).toFixed(1)+" %"):"0 %");
       var imgH=im(c)?'<img src="'+esc(im(c))+'" alt="" loading="lazy">':'<div class="no-img">Ingen bilde</div>';
@@ -245,7 +245,7 @@
       }
       var ibVal=ib(c);
       var innbytteHtml=ibVal?'<div class="card-fast">Innbyttepris: <span class="val">'+fmtKr(ibVal)+'</span></div>':'';
-      html+='<a class="car-card'+(isGood?' good-deal':'')+'" href="'+finnUrl(c)+'" target="_blank" rel="noopener"><div class="card-img-wrap">'+imgH+'<div class="badge-discount'+bc+'">'+bt+'</div></div><div class="card-body"><div class="card-title">'+title+'</div>'+(sub?'<div class="card-subtitle">'+sub+'</div>':'')+'<div class="card-specs">'+specs.map(function(s){return'<span>'+s+'</span>'}).join("")+'</div><div class="card-price-row">'+priceHtml+(ep(c)?'<div class="card-expected">Forventet: <span class="val">'+fmtKr(ep(c))+'</span></div>':'')+'</div>'+fastHtml+innbytteHtml+favHtml+(locHtml?'<div class="card-location">'+locHtml+'</div>':'')+'</div></a>';
+      html+='<a class="car-card'+(isGood?' good-deal':'')+'" href="'+finnUrl(c)+'" target="_blank" rel="noopener"><div class="card-img-wrap">'+imgH+(ep(c)?'<div class="badge-discount'+bc+'">'+bt+'</div>':'')+'</div><div class="card-body"><div class="card-title">'+title+'</div>'+(sub?'<div class="card-subtitle">'+sub+'</div>':'')+'<div class="card-specs">'+specs.map(function(s){return'<span>'+s+'</span>'}).join("")+'</div><div class="card-price-row">'+priceHtml+(ep(c)?'<div class="card-expected">Forventet: <span class="val">'+fmtKr(ep(c))+'</span></div>':'')+'</div>'+fastHtml+innbytteHtml+favHtml+(locHtml?'<div class="card-location">'+locHtml+'</div>':'')+'</div></a>';
     }
     grid.innerHTML=html;
   }
@@ -264,7 +264,10 @@
   document.querySelectorAll(".sort-btn").forEach(function(btn){
     btn.addEventListener("click",function(){
       document.querySelectorAll(".sort-btn").forEach(function(b){b.classList.remove("active")});
-      btn.classList.add("active");currentSort=btn.getAttribute("data-sort");refresh();
+      btn.classList.add("active");currentSort=btn.getAttribute("data-sort");
+      // Popularitet vises uansett rabatt.
+      if(currentSort.indexOf("fav")===0)document.getElementById("discountFilter").value="0";
+      refresh();
     });
   });
   refresh();
