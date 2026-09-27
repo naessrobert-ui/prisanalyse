@@ -2050,6 +2050,18 @@ def _lag_json_data_fra_parquet(df: pd.DataFrame) -> str:
                     car["dm"] = dm
             except Exception:
                 pass
+        # Popularitet (bil_favoritter): 0 er en gyldig verdi, i motsetning til
+        # pris/km over, så disse tas med når de er målt.
+        for src, dst, desimaler in (("Favoritter_ny", "fv", 0), ("fav_per_dag", "fpd", 1),
+                                    ("fav_1t", "f1", 0), ("fav_24t", "f24", 0)):
+            v = row.get(src)
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                continue
+            if np.isnan(fv):
+                continue
+            car[dst] = round(fv, desimaler) if desimaler else int(round(fv))
         if "p" not in car:
             car["p"] = 0
         if "r" not in car:

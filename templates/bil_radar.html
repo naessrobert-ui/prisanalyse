@@ -60,6 +60,9 @@
     .results-info { max-width:1400px; margin:0 auto; padding:0 1rem; font-size:0.8rem; color:var(--text-muted); }
     @media(max-width:640px){ .grid{grid-template-columns:1fr} .header h1{font-size:1.25rem} }
     .loading-msg { text-align:center; padding:3rem; color:var(--text-muted); }
+    .card-fav { font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem; }
+    .card-fav .hjerte { color:#e5484d; font-weight:600; }
+    .card-fav .opp { color:#30a46c; font-weight:600; }
   </style>
 </head>
 <body>
@@ -72,6 +75,8 @@
   <div class="stats-bar" id="statsBar"></div>
   <div class="filters">
     <input type="text" class="search-input" id="searchInput" placeholder="Sok merke, modell, info...">
+    <span class="filter-label">Merke:</span>
+    <select id="brandFilter"><option value="">Alle</option></select>
     <span class="filter-label">Drivstoff:</span>
     <select id="fuelFilter"><option value="">Alle</option></select>
     <span class="filter-label">Fylke:</span>
@@ -93,6 +98,8 @@
     <input type="number" id="maxKmInput" placeholder="F.eks. 100000" style="width:120px;" min="0" step="10000">
     <span class="filter-label">Min ar:</span>
     <input type="number" id="minYearInput" placeholder="F.eks. 2018" style="width:100px;">
+    <span class="filter-label">Min &#10084;:</span>
+    <input type="number" id="minFavInput" placeholder="Favoritter" style="width:100px;" min="0" step="5">
   </div>
   <div class="sort-bar">
     <button class="sort-btn active" data-sort="discount">Storst rabatt</button>
@@ -100,6 +107,10 @@
     <button class="sort-btn" data-sort="price-desc">Hoyest pris</button>
     <button class="sort-btn" data-sort="year-desc">Nyest</button>
     <button class="sort-btn" data-sort="km-asc">Lavest km</button>
+    <button class="sort-btn" data-sort="fav" title="Flest har lagret annonsen">&#10084; Mest lagret</button>
+    <button class="sort-btn" data-sort="fav-dag" title="Favoritter delt på dager annonsen har ligget ute">&#10084; Per dag</button>
+    <button class="sort-btn" data-sort="fav-24t" title="Økning i favoritter siste døgn">&#10084; Siste døgn</button>
+    <button class="sort-btn" data-sort="fav-1t" title="Økning i favoritter siste time (nye annonser)">&#10084; Siste time</button>
   </div>
   <div class="results-info" id="resultsInfo"></div>
   <div class="grid" id="carGrid"><div class="loading-msg">Laster biler...</div></div>
@@ -128,6 +139,11 @@
   function ib(c){return c.ib||0}
   function rb(c){return c.r||0}
   function dm(c){return c.dm||0}
+  // Favoritter: -1 = ikke målt (sorteres sist), ellers antall.
+  function fv(c){return c.fv==null?-1:c.fv}
+  function fpd(c){return c.fpd==null?-1:c.fpd}
+  function f1(c){return c.f1==null?-1:c.f1}
+  function f24(c){return c.f24==null?-1:c.f24}
   function finnUrl(c){var id=fk(c);return id?"https://www.finn.no/mobility/item/"+id:"#"}
   function fmtKr(n){if(!n)return"–";return n.toLocaleString("nb-NO")+" kr"}
   function fmtKm(n){if(!n)return"–";return n.toLocaleString("nb-NO")+" km"}
@@ -136,6 +152,10 @@
   ALL_CARS.forEach(function(c){var f=dr(c);if(f)fuels[f]=(fuels[f]||0)+1});
   var fuelSel=document.getElementById("fuelFilter");
   Object.keys(fuels).sort().forEach(function(f){var o=document.createElement("option");o.value=f;o.textContent=f+" ("+fuels[f]+")";fuelSel.appendChild(o)});
+  var brands={};
+  ALL_CARS.forEach(function(c){var b=mk(c);if(b)brands[b]=(brands[b]||0)+1});
+  var brandSel=document.getElementById("brandFilter");
+  Object.keys(brands).sort().forEach(function(b){var o=document.createElement("option");o.value=b;o.textContent=b+" ("+brands[b]+")";brandSel.appendChild(o)});
   var fylker={};
   ALL_CARS.forEach(function(c){var f=fy(c);if(f)fylker[f]=(fylker[f]||0)+1});
   var fylkeSel=document.getElementById("fylkeFilter");
@@ -156,12 +176,18 @@
       case"price-desc":s.sort(function(a,b){return pr(b)-pr(a)});break;
       case"year-desc":s.sort(function(a,b){return yr(b)-yr(a)||rb(b)-rb(a)});break;
       case"km-asc":s.sort(function(a,b){return(km(a)||999999)-(km(b)||999999)});break;
+      case"fav":s.sort(function(a,b){return fv(b)-fv(a)||rb(b)-rb(a)});break;
+      case"fav-dag":s.sort(function(a,b){return fpd(b)-fpd(a)||fv(b)-fv(a)});break;
+      case"fav-24t":s.sort(function(a,b){return f24(b)-f24(a)||fv(b)-fv(a)});break;
+      case"fav-1t":s.sort(function(a,b){return f1(b)-f1(a)||fv(b)-fv(a)});break;
     }
     return s;
   }
   function getFiltered(){
     var q=(document.getElementById("searchInput").value||"").toLowerCase();
     var fuel=document.getElementById("fuelFilter").value;
+    var brand=document.getElementById("brandFilter").value;
+    var minFav=parseInt(document.getElementById("minFavInput").value)||0;
     var fylke=document.getElementById("fylkeFilter").value;
     var minDisc=parseFloat(document.getElementById("discountFilter").value)||0;
     var minPrice=parseInt(document.getElementById("minPriceInput").value)||0;
@@ -171,6 +197,8 @@
     return ALL_CARS.filter(function(c){
       if(minDisc>0&&rb(c)<minDisc)return false;
       if(fuel&&dr(c)!==fuel)return false;
+      if(brand&&mk(c)!==brand)return false;
+      if(minFav>0&&fv(c)<minFav)return false;
       if(fylke&&fy(c)!==fylke)return false;
       if(minPrice>0&&pr(c)<minPrice)return false;
       if(maxPrice>0&&pr(c)>maxPrice)return false;
@@ -207,9 +235,17 @@
       var hpVal=hp(c);
       var underFast=hpVal&&curP&&curP<hpVal;
       var fastHtml=hpVal?'<div class="card-fast">Hurtigpris: <span class="val">'+fmtKr(hpVal)+'</span>'+(underFast?'<span class="badge-fast">UNDER</span>':'')+'</div>':'';
+      var favHtml="";
+      if(fv(c)>=0){
+        var fp=['<span class="hjerte">&#10084; '+fv(c)+'</span>'];
+        if(fpd(c)>=0)fp.push(fpd(c).toLocaleString("nb-NO")+"/dag");
+        if(f24(c)>0)fp.push('<span class="opp">+'+f24(c)+'</span> siste døgn');
+        if(f1(c)>0)fp.push('<span class="opp">+'+f1(c)+'</span> siste time');
+        favHtml='<div class="card-fav">'+fp.join(" &middot; ")+'</div>';
+      }
       var ibVal=ib(c);
       var innbytteHtml=ibVal?'<div class="card-fast">Innbyttepris: <span class="val">'+fmtKr(ibVal)+'</span></div>':'';
-      html+='<a class="car-card'+(isGood?' good-deal':'')+'" href="'+finnUrl(c)+'" target="_blank" rel="noopener"><div class="card-img-wrap">'+imgH+'<div class="badge-discount'+bc+'">'+bt+'</div></div><div class="card-body"><div class="card-title">'+title+'</div>'+(sub?'<div class="card-subtitle">'+sub+'</div>':'')+'<div class="card-specs">'+specs.map(function(s){return'<span>'+s+'</span>'}).join("")+'</div><div class="card-price-row">'+priceHtml+(ep(c)?'<div class="card-expected">Forventet: <span class="val">'+fmtKr(ep(c))+'</span></div>':'')+'</div>'+fastHtml+innbytteHtml+(locHtml?'<div class="card-location">'+locHtml+'</div>':'')+'</div></a>';
+      html+='<a class="car-card'+(isGood?' good-deal':'')+'" href="'+finnUrl(c)+'" target="_blank" rel="noopener"><div class="card-img-wrap">'+imgH+'<div class="badge-discount'+bc+'">'+bt+'</div></div><div class="card-body"><div class="card-title">'+title+'</div>'+(sub?'<div class="card-subtitle">'+sub+'</div>':'')+'<div class="card-specs">'+specs.map(function(s){return'<span>'+s+'</span>'}).join("")+'</div><div class="card-price-row">'+priceHtml+(ep(c)?'<div class="card-expected">Forventet: <span class="val">'+fmtKr(ep(c))+'</span></div>':'')+'</div>'+fastHtml+innbytteHtml+favHtml+(locHtml?'<div class="card-location">'+locHtml+'</div>':'')+'</div></a>';
     }
     grid.innerHTML=html;
   }
@@ -217,6 +253,8 @@
   function debounce(fn,ms){var t;return function(){clearTimeout(t);t=setTimeout(fn,ms)}}
   document.getElementById("searchInput").addEventListener("input",debounce(refresh,250));
   document.getElementById("fuelFilter").addEventListener("change",refresh);
+  document.getElementById("brandFilter").addEventListener("change",refresh);
+  document.getElementById("minFavInput").addEventListener("input",debounce(refresh,400));
   document.getElementById("fylkeFilter").addEventListener("change",refresh);
   document.getElementById("discountFilter").addEventListener("change",refresh);
   document.getElementById("minPriceInput").addEventListener("input",debounce(refresh,400));
