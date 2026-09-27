@@ -738,16 +738,29 @@ def _fetch_radar(area: str) -> bytes:
 def _fetch_google_days(place: str) -> list[dict[str, Any]]:
     """Googles dagsvarsel (10 dager). Samme cachetid som timesvarselet, som
     Googles vilkår krever at slettes innen en time."""
+    if place not in GOOGLE_DAYS_PLACES:
+        return []
+    p = PLACES[place]
+    return _google_days_at(p["lat"], p["lon"], ("google_days", place))
+
+
+def _google_days_at(lat: float, lon: float, cache_key: Any,
+                    on_call: Optional[Callable[[], None]] = None) -> list[dict[str, Any]]:
     import os
 
     key = os.environ.get("GOOGLE_WEATHER_API_KEY", "").strip()
-    if not key or place not in GOOGLE_DAYS_PLACES:
+    if not key:
         return []
-    p = PLACES[place]
-    return _CACHE.get(("google_days", place), 3300, lambda: parse_google_days(_get(
-        "https://weather.googleapis.com/v1/forecast/days:lookup",
-        **{"location.latitude": p["lat"], "location.longitude": p["lon"], "days": 10, "pageSize": 10,
-           "unitsSystem": "METRIC", "languageCode": "no", "key": key}).json()))
+
+    def load():
+        if on_call is not None:
+            on_call()
+        return parse_google_days(_get(
+            "https://weather.googleapis.com/v1/forecast/days:lookup",
+            **{"location.latitude": lat, "location.longitude": lon, "days": 10, "pageSize": 10,
+               "unitsSystem": "METRIC", "languageCode": "no", "key": key}).json())
+
+    return _CACHE.get(cache_key, 3300, load)
 
 
 def _fetch_reference(place: str, now: datetime) -> tuple[Optional[datetime], dict[datetime, dict[str, Any]]]:
@@ -971,12 +984,22 @@ def google_point(lat: float, lon: float) -> dict[str, Any]:
                                lambda: fetch_google_hours(cell[0], cell[1], on_call=_count_google_call))
         except ForecastError:
             raise RuntimeError("Google svarte ikke.") from None
+    # Dagsvarselet (10 dager, ett kall) er valgfritt: feiler det, vises bare timene.
+    try:
+        if place:
+            dager = _fetch_google_days(place)
+        else:
+            dager = _google_days_at(cell[0], cell[1], ("google_days_point", cell), on_call=_count_google_call)
+    except GoogleQuotaExceeded:
+        dager = []
+    except Exception:  # noqa: BLE001
+        dager = []
     timer = [{"t": h["start"],
               "temp": {"mean": h["temp"]} if h.get("temp") is not None else None,
               "regn": {"mean": h["rain"]} if h.get("rain") is not None else None,
               "vind": {"mean": h["wind"]} if h.get("wind") is not None else None}
              for h in hours]
-    return {"kilde": "google-api", "celle": {"lat": cell[0], "lon": cell[1]}, "timer": timer}
+    return {"kilde": "google-api", "celle": {"lat": cell[0], "lon": cell[1]}, "timer": timer, "dager": dager}
 
 
 @vaer_varsel.get("/ver/api/google-punkt")

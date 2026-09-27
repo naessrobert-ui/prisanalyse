@@ -3177,6 +3177,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 .enighet .kilde{font-size:11px;color:var(--text-3);margin-top:4px}
 .d-enig{font-size:11px;margin-top:4px;color:var(--good)}
 .d-enig.uenig{color:#b45309}
+.d-enig.google{color:#0d9488}
 .hourly-table .uenig-cell{color:#b45309;white-space:nowrap}
 .hourly-table .enig-cell{color:var(--good)}
 #wn3Card summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
@@ -4075,7 +4076,18 @@ function renderDagEnighet(){
     if(!d) return;
     const sm=(d.hours||[]).map(h=>({h,s:sammenlign(h)}));
     const med=sm.filter(x=>x.s);
-    if(med.length<4) return;
+    if(med.length<4){
+      // Lenger frem enn Googles timesvarsel: vis Googles dagsvarsel hvis det finnes.
+      const gd=(wn3?.dager||[]).find(g=>g.date===String(d.date).slice(0,10));
+      if(!gd || gd.tmax==null) return;
+      const mm=(gd.day_rain??0)+(gd.night_rain??0);
+      const div=document.createElement('div');
+      div.className='d-enig google';
+      div.title=`Googles dagsvarsel: dag (07-19) ${f1(gd.day_rain??0)} mm, natt (19-07) ${f1(gd.night_rain??0)} mm${gd.day_text?'. '+gd.day_text:''}`;
+      div.textContent=`Google: ${Math.round(gd.tmax)}°/${Math.round(gd.tmin)}° · ${f1(mm)} mm`;
+      cell.appendChild(div);
+      return;
+    }
     // Kortet viser samme snitt som grafen: Google der den finnes, ellers Yr.
     const temps=sm.map(x=>x.s?x.s.komb.temp:x.h.temp).filter(v=>v!=null);
     const regn=sm.reduce((a,x)=>a+(x.s?x.s.komb.regn:(x.h.rain??0)),0);

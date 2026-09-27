@@ -320,11 +320,18 @@ def test_google_point_caches_per_cell_and_counts_calls(monkeypatch):
         return _g_hours()
 
     monkeypatch.setattr(wc, "fetch_google_hours", fake)
+    monkeypatch.setenv("GOOGLE_WEATHER_API_KEY", "k")
+    day_json = {"forecastDays": [{"displayDate": {"year": 2026, "month": 10, "day": 3},
+                                  "maxTemperature": {"degrees": 27.4}, "minTemperature": {"degrees": 19.8}}]}
+    get = patch.object(vv, "_get", return_value=type("R", (), {"json": lambda self: day_json})()).start()
     a = vv.google_point(38.3436, -0.4882)
     b = vv.google_point(38.3301, -0.5102)  # samme rute på 0,1 grad
+    patch.stopall()
     assert calls == [(38.3, -0.5)]
-    assert vv._QUOTA["calls"] == 2
+    assert get.call_count == 1  # dagsvarselet også cachet per rute
+    assert vv._QUOTA["calls"] == 3  # 2 for timene + 1 for dagene
     assert a["kilde"] == "google-api" and a["timer"][0]["temp"] == {"mean": 20.0} and b == a
+    assert a["dager"][0]["date"] == "2026-10-03" and a["dager"][0]["tmax"] == 27.4
     vv._CACHE.clear()
 
 
