@@ -77,7 +77,14 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .more{font-size:12px;color:var(--blue);font-weight:600}
 .radar{display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
 .radar.open{display:grid}
-.radar img{width:100%;border-radius:10px;background:var(--blue-ghost);min-height:180px;display:block}
+.rviewer{position:relative;overflow:hidden;border-radius:10px;background:var(--blue-ghost);min-height:180px;touch-action:none;cursor:grab;user-select:none}
+.rviewer.drag{cursor:grabbing}
+.rviewer img{position:absolute;left:0;top:0;width:100%;transform-origin:0 0;display:block;-webkit-user-drag:none;image-rendering:auto}
+.rmark{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;border:2px solid #fff;background:var(--warm);box-shadow:0 0 0 1px rgba(0,0,0,.35);pointer-events:none}
+.rctl{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:4px;z-index:2}
+.rctl button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:600 18px/1 system-ui;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.rctl button.home{font-size:15px}
+.rzoom{position:absolute;left:8px;bottom:8px;background:var(--card);border-radius:6px;padding:2px 6px;font-size:11px;color:var(--muted);z-index:2}
 .radar .fallback{display:none;padding:24px;border-radius:10px;background:var(--blue-ghost);font-size:13px;color:var(--muted)}
 .nctab{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
 .nctab td{padding:3px 4px;border-bottom:1px solid var(--line)}
@@ -215,10 +222,19 @@ a.pill{text-decoration:none;display:inline-block}
     </div>
     <div class="radar" id="radar">
       <div>
-        <div class="q small muted panel-h">Radar Vestlandet, siste 3 timer</div>
-        <img id="radarImg" alt="Radaranimasjon for Vestlandet fra MET">
+        <div class="q small muted panel-h" id="radarTitle">Radar</div>
+        <div class="rviewer" id="rviewer">
+          <img id="radarImg" alt="Radaranimasjon for Vestlandet fra MET" draggable="false">
+          <span class="rmark" id="rmark" title=""></span>
+          <div class="rctl">
+            <button type="button" id="rIn" aria-label="Zoom inn">+</button>
+            <button type="button" id="rOut" aria-label="Zoom ut">−</button>
+            <button type="button" class="home" id="rHome" aria-label="Tilbake til stedet">⌖</button>
+          </div>
+          <span class="rzoom" id="rzoom"></span>
+        </div>
         <div class="fallback" id="radarFail">Radaren er ikke tilgjengelig akkurat nå.</div>
-        <div class="small muted" style="margin-top:6px">Kilde: MET Norway radar, oppdateres hvert 5. minutt.</div>
+        <div class="small muted" style="margin-top:6px">Dra for å flytte, bruk + og − eller knip for å zoome, ⌖ tar deg tilbake. Kilde: MET Norway radar, siste 3 timer, oppdateres hvert 5. minutt.</div>
       </div>
       <div>
         <div class="q small muted panel-h" id="ncTabTitle">Neste 2 timer</div>
@@ -357,6 +373,8 @@ function renderNowcast(d){
 function renderNcTable(d){
   const steps=d.nowcast.steps||[];
   $('ncTabTitle').textContent=`${d.place.name}, neste 2 timer`;
+  $('radarTitle').textContent=`Radar rundt ${d.place.name.split(' ')[0]}`;
+  $('rmark').title=d.place.name;
   $('ncTab').innerHTML=steps.length?steps.map(x=>`<tr><td>${x.time}</td><td class="b">${x.rate>0?`<span style="width:${Math.min(100,x.rate/3*100)}%"></span>`:''}</td><td class="${x.rate>0?'':'zero'}" style="text-align:right">${fmt(x.rate)} mm/t</td></tr>`).join(''):'<tr><td class="zero">Ingen radardata.</td></tr>';
 }
 function toggleRadar(){
@@ -366,14 +384,50 @@ function toggleRadar(){
   $('moreTxt').textContent=open?'Skjul radar ‹':'Radar og detaljer ›';
   if(open){
     const img=$('radarImg');
-    img.style.display='';$('radarFail').style.display='none';
-    img.onerror=()=>{img.style.display='none';$('radarFail').style.display='block'};
+    $('rviewer').style.display='';$('radarFail').style.display='none';
+    img.onerror=()=>{$('rviewer').style.display='none';$('radarFail').style.display='block'};
+    img.onload=()=>RV.reset();
     img.src=`/ver/api/radar/${STED}.gif?t=${Math.floor(Date.now()/300000)}`;
     if(DATA) renderNcTable(DATA);
   }
 }
 $('ansNow').addEventListener('click',toggleRadar);
 $('ansNow').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleRadar()}});
+
+/* ---------- Zoombar radar ---------- */
+// Stedets posisjon i MET-bildet for western_norway, som andel av bredde og høyde.
+const RADAR_FOCUS={bergen:[0.300,0.555],kvamskogen:[0.365,0.560]};
+const RV=(()=>{
+  const view=$('rviewer'), img=$('radarImg'), mark=$('rmark');
+  const [fx,fy]=RADAR_FOCUS[STED]||[.5,.5];
+  const MIN=1, MAX=6, START=3;
+  let s=START, tx=0, ty=0, W=0, H=0;
+  const size=()=>{W=view.clientWidth; H=img.naturalWidth?W*img.naturalHeight/img.naturalWidth:W*.8; view.style.height=H+'px'};
+  const clamp=()=>{tx=Math.min(0,Math.max(W-W*s,tx)); ty=Math.min(0,Math.max(H-H*s,ty))};
+  const apply=()=>{clamp(); img.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;
+    mark.style.left=(tx+fx*W*s)+'px'; mark.style.top=(ty+fy*H*s)+'px';
+    $('rzoom').textContent=s>1.01?`${s.toFixed(1).replace('.',',')}×`:'Hele Vestlandet'};
+  const zoomAt=(ns,px,py)=>{ns=Math.min(MAX,Math.max(MIN,ns)); tx=px-(px-tx)*ns/s; ty=py-(py-ty)*ns/s; s=ns; apply()};
+  const reset=()=>{size(); s=START; tx=W/2-fx*W*s; ty=H/2-fy*H*s; apply()};
+  $('rIn').onclick=e=>{e.stopPropagation();zoomAt(s*1.5,W/2,H/2)};
+  $('rOut').onclick=e=>{e.stopPropagation();zoomAt(s/1.5,W/2,H/2)};
+  $('rHome').onclick=e=>{e.stopPropagation();reset()};
+  view.addEventListener('wheel',e=>{e.preventDefault();const r=view.getBoundingClientRect();zoomAt(s*(e.deltaY<0?1.2:1/1.2),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  view.addEventListener('dblclick',e=>{const r=view.getBoundingClientRect();zoomAt(s*1.8,e.clientX-r.left,e.clientY-r.top)});
+  const pts=new Map(); let last=null;
+  view.addEventListener('pointerdown',e=>{if(e.target.closest('.rctl'))return;view.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);view.classList.add('drag')});
+  view.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId))return;
+    const prev=pts.get(e.pointerId); pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===1){tx+=e.clientX-prev[0]; ty+=e.clientY-prev[1]; apply()}
+    else if(pts.size===2){const [a,b]=[...pts.values()], d=Math.hypot(a[0]-b[0],a[1]-b[1]), r=view.getBoundingClientRect();
+      if(last) zoomAt(s*d/last,(a[0]+b[0])/2-r.left,(a[1]+b[1])/2-r.top); last=d}
+  });
+  const up=e=>{pts.delete(e.pointerId); if(pts.size<2) last=null; if(!pts.size) view.classList.remove('drag')};
+  view.addEventListener('pointerup',up); view.addEventListener('pointercancel',up);
+  window.addEventListener('resize',()=>{if(img.naturalWidth){const k=s;size();s=k;apply()}});
+  return {reset};
+})();
 
 /* ---------- Svarkort ---------- */
 function renderAnswers(d){
