@@ -223,3 +223,73 @@ def test_days_report_max_wind_and_gust():
     rows = vv.parse_yr(yr_payload(wind=9.4))
     day = vv.build_days(rows, [], {}, NOW)[0]
     assert day["wind_max"] == 9
+
+
+MIDNIGHT = datetime(2026, 9, 26, 22, 0, tzinfo=timezone.utc)  # 27.9. kl. 00 lokal
+
+
+def _obs_rows():
+    rows = []
+    for h in range(8):  # lokal 00-07, målt
+        t = MIDNIGHT + timedelta(hours=h)
+        rows.append({"element": "air_temperature", "reference_time": t.isoformat(), "value": 10.0 + h / 2})
+        rows.append({"element": "sum(precipitation_amount PT1H)",
+                     "reference_time": (t + timedelta(hours=1)).isoformat(), "value": 0.2 if h < 3 else 0.0})
+    return rows
+
+
+def _ref_rows():
+    rows = []
+    for run, bias in ((MIDNIGHT - timedelta(hours=1), 5.0), (MIDNIGHT, 1.0), (MIDNIGHT + timedelta(hours=1), 9.0)):
+        for h in range(24):
+            t = MIDNIGHT + timedelta(hours=h)
+            for provider, extra in (("yr", 0.0), ("google", -1.0)):
+                rows.append({"run_hour": run.isoformat(), "place": "bergen", "provider": provider,
+                             "valid_start": t.isoformat(), "temp": 10.0 + h / 2 + bias + extra, "rain": 0.1})
+    rows.append({"run_hour": MIDNIGHT.isoformat(), "place": "kvamskogen", "provider": "yr",
+                 "valid_start": MIDNIGHT.isoformat(), "temp": 0, "rain": 0})
+    return rows
+
+
+def test_reference_forecast_uses_last_run_before_midnight():
+    run, ref = vv.reference_forecast(_ref_rows(), "bergen", MIDNIGHT)
+    assert run == MIDNIGHT
+    assert ref[MIDNIGHT]["yr"]["temp"] == 11.0 and ref[MIDNIGHT]["google"]["temp"] == 10.0
+    assert vv.reference_forecast([], "bergen", MIDNIGHT) == (None, {})
+
+
+def test_today_combines_observed_past_and_forecast_future():
+    rows = vv.parse_yr(yr_payload({3: 0.8}))
+    _, ref = vv.reference_forecast(_ref_rows(), "bergen", MIDNIGHT)
+    obs = vv.observations_by_hour(_obs_rows())
+    today = vv.build_today(rows, google({3: 0.5}), obs, ref, NOW)
+    assert len(today) == 24 and today[0]["hour"] == 0
+    past = [h for h in today if h["past"]]
+    assert len(past) == 8  # 00-07 er ferdige kl. 08:19
+    assert past[0]["obs_rain"] == 0.2 and past[0]["ref_rain"] == 0.1 and past[0]["obs_temp"] == 10.0
+    assert past[0]["ref_temp"] == 11.0
+    now_hour = today[8]
+    assert now_hour["past"] is False and now_hour["hour"] == 8 and now_hour["symbol"] == "cloudy"
+    assert today[11]["rain"] == 0.8 and today[11]["g_rain"] == 0.5
+    score = vv.today_score(today, MIDNIGHT)
+    assert score["text"] == ("Målt hittil i dag: 0,6 mm. Varslet ved midnatt: Yr 0,8 mm, Google 0,8 mm. "
+                             "Temperaturen bommet i snitt med 1,0° hos Yr og 0,0° hos Google.")
+
+
+def test_today_extends_into_night_in_the_evening():
+    rows = vv.parse_yr(yr_payload())
+    evening = datetime(2026, 9, 27, 17, 30, tzinfo=timezone.utc)  # 19:30 lokal
+    assert len(vv.build_today(rows, [], {}, {}, evening)) == 32
+
+
+def test_parse_google_days():
+    payload = {"forecastDays": [{
+        "displayDate": {"year": 2026, "month": 10, "day": 1},
+        "daytimeForecast": {"precipitation": {"qpf": {"quantity": 6.2, "unit": "MILLIMETERS"},
+                                              "probability": {"percent": 90}},
+                            "weatherCondition": {"description": {"text": "Regn"}}},
+        "nighttimeForecast": {"precipitation": {"qpf": {"quantity": 0.1, "unit": "INCHES"}}},
+        "maxTemperature": {"degrees": 16.4}, "minTemperature": {"degrees": 12.1}}]}
+    day = vv.parse_google_days(payload)[0]
+    assert day["date"] == "2026-10-01" and day["day_rain"] == 6.2 and day["night_rain"] == 2.54
+    assert day["tmax"] == 16.4 and day["day_pop"] == 90 and day["day_text"] == "Regn"

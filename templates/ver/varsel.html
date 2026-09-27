@@ -11,12 +11,14 @@
   --blue:#2f7fd8; --blue-soft:#cfe2f8; --blue-ghost:#e7f0fb; --warm:#e8590c; --warm-soft:#fde8da;
   --ok:#1f8a4c; --ok-soft:#e3f5ea; --warn:#b7791f; --warn-soft:#fdf3dc; --google:#7a52c7;
   --sun:#f4b400; --cloud:#c3ccd6; --cloud-dark:#8f9aa6; --moon:#9fb3d1;
+  --obs:#1f3b57; --past:#f3f5f8; --nowline:#d64545;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#0f1720; --card:#17212c; --ink:#e7edf3; --muted:#9aa8b6; --line:#263341;
     --blue:#5aa2ef; --blue-soft:#24415f; --blue-ghost:#1b2c3e; --warm:#ff8a4c; --warm-soft:#3a2518;
     --ok:#4cc27d; --ok-soft:#173226; --warn:#e0b050; --warn-soft:#3a3018; --google:#a98ae6;
+    --obs:#d6e2ee; --past:#121c26; --nowline:#ff6b6b;
     --cloud:#7d8a98; --cloud-dark:#5b6775; --moon:#b8c8e2;
   }
 }
@@ -105,10 +107,29 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
 .stripsum{font-size:13px;color:var(--muted);margin-top:8px}
 .stripsum .yrc{color:var(--blue)} .stripsum .gc{color:var(--google)}
+.stripsum .score{color:var(--ink);margin-bottom:2px}
+.days .drow{display:contents;cursor:pointer}
+.days .drow:hover .cell{background:var(--blue-ghost)}
+.days .drow.open .cell{background:var(--blue-ghost)}
+.days .dfull{grid-column:1/-1;padding:4px 0 14px}
+.chev{color:var(--blue);font-size:12px;margin-left:2px}
+.ddetail{margin-top:10px;border-top:1px solid var(--line);padding-top:10px;cursor:default}
+.dd-h{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.dd-blocks{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.dd-b{border:1px solid var(--line);border-radius:10px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.dd-t{font-size:12px;color:var(--muted)}
+.dd-temp{font-weight:600}
+.dd-mm{color:var(--blue);font-weight:600;font-size:13px}
+.dd-mm.dry{color:var(--muted);font-weight:400}
+.gday{margin-top:8px;font-size:13px;color:var(--google)}
+.dc{cursor:pointer;display:block}
+.dc-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.dc-more{font-size:12px;color:var(--blue);text-align:right;margin-top:2px}
+.dc.open{box-shadow:0 0 0 2px var(--blue-soft)}
 .stripsvg{display:block;overflow:visible}
 .dc-hdr{display:flex;justify-content:flex-end;gap:0;padding:0 12px 6px}
 .dc-hdr span{width:46px;text-align:center;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
-.dc{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card);border-radius:14px;padding:12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(20,40,60,.06)}
+.dc{display:block;background:var(--card);border-radius:14px;padding:12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(20,40,60,.06)}
 .dc-l{min-width:0}
 .dc-n{font-weight:700;font-size:15.5px;white-space:nowrap}
 .dc-n span{font-weight:400;font-size:12.5px;color:var(--muted)}
@@ -269,17 +290,12 @@ a.pill{text-decoration:none;display:inline-block}
   <!-- 2. Time for time -->
   <section class="card">
     <div class="strip-head">
-      <h2>Neste 24 timer</h2>
+      <h2 id="stripTitle">I dag</h2>
       <label class="toggle" id="gToggle"><input type="checkbox" id="showG" checked> Vis Google også</label>
     </div>
     <div class="scroller"><div class="strip" id="strip"></div></div>
     <div class="stripsum" id="stripSum"></div>
-    <div class="legend">
-      <span class="wetleg"><i style="background:var(--blue)"></i>Yr</span>
-      <span class="wetleg"><i style="background:var(--blue-soft)"></i>Kan bli opptil</span>
-      <span class="gleg"><i style="border:2px solid var(--google);background:none"></i>Google</span>
-      <span class="gleg"><i style="background:var(--warn);border-radius:50%;width:8px;height:8px"></i>Uenige</span>
-    </div>
+    <div class="legend" id="stripLegend"></div>
   </section>
 
   <!-- 3. Fremover -->
@@ -477,77 +493,134 @@ function renderAnswers(d){
     :`<span>${icon('rain',22)}</span><span><b>Lite opphold ${b.label}.</b> Ingen lengre tørre perioder mellom kl. 07 og 22.</span>`;
 }
 
-/* ---------- Timestripe: hele døgnet i bredden ---------- */
-function drawStrip(){
-  const H=DATA.hours, n=H.length, showG=$('showG').checked&&DATA.google_available;
-  const strip=$('strip'), Wc=strip.parentElement.clientWidth;
-  const dry=H.every(h=>Math.max(h.rain||0,h.rain_max||0)<.1&&(!showG||(h.g_rain||0)<.05));
-  document.querySelectorAll('.gleg').forEach(e=>e.hidden=!showG);
-  document.querySelectorAll('.wetleg').forEach(e=>e.hidden=dry);
-  const yr=H.reduce((a,h)=>a+(h.rain||0),0), g=H.reduce((a,h)=>a+(h.g_rain||0),0);
-  $('stripSum').innerHTML=dry?'Ingen nedbør ventet det neste døgnet.'
-    :`Neste 24 timer: <b class="yrc">Yr ${fmt1(yr)} mm</b>${showG?` · <b class="gc">Google ${fmt1(g)} mm</b>`:''}`;
-  const temps=H.flatMap(h=>[h.temp,showG?h.g_temp:null]).filter(v=>v!=null);
+/* ---------- Timesgraf (brukes for i dag og for dagene fremover) ---------- */
+// Timer med past=true har målt verdi (obs_*) og det som ble varslet ved midnatt (ref_*, g_*).
+function chartSVG(H, Wc, showG){
+  const n=H.length, PAD=14, COL=(Wc-2*PAD)/n;
+  const nowIdx=H.findIndex(h=>!h.past), nPast=nowIdx<0?n:nowIdx;
+  const val=(h,k)=>h[k]==null?null:h[k];
+  const rainOf=h=>h.past?val(h,'obs_rain'):val(h,'rain');
+  const dry=H.every(h=>Math.max(rainOf(h)||0,h.rain_max||0,h.ref_rain||0)<.1&&(!showG||(h.g_rain||0)<.05));
+  const temps=H.flatMap(h=>[h.obs_temp,h.ref_temp,h.temp,showG?h.g_temp:null]).filter(v=>v!=null);
+  if(!temps.length) return {svg:'',dry};
   const tMin=Math.floor(Math.min(...temps))-1, tMax=Math.ceil(Math.max(...temps))+1;
-  const PAD=14, COL=(Wc-2*PAD)/n;
-  const hourLabel=(h,i)=>i===0?'Nå':h.hour===0?DAYS_SHORT[new Date(h.time).getDay()]:String(h.hour).padStart(2,'0');
-  const step=COL>=34?1:COL*3>=34?3:4;
-  // Merk hele klokkeslett delelig med steget (så midnatt alltid får etikett), og ikke rett ved «Nå».
-  const show=i=>i===0||step===1||(H[i].hour%step===0&&i>=2);
+  const step=COL>=34?1:COL*3>=34?3:COL*4>=34?4:6;
+  const first=nowIdx>0?nowIdx:0;
+  const show=i=>i===first||step===1||(H[i].hour%step===0&&Math.abs(i-first)>=2);
   const labeled=H.map((h,i)=>i).filter(show);
-  const RMAX=5, TOP=24, ICON=Math.min(40,Math.max(26,COL*step-8));
-  const iy=TOP, t0=iy+ICON+22, t1=t0+(step===1?46:40);
+  const RMAX=5, ICON=Math.min(40,Math.max(26,COL*step-8));
+  const iy=24, t0=iy+ICON+22, t1=t0+(step===1?46:40);
   const r0=t1+14, RH=dry?0:(step===1?56:48), rb=r0+RH;
   const mmY=rb+13, gY=rb+26, popY=rb+(showG?39:26), wY=dry?t1+22:(step===1?popY+18:rb+32), HEIGHT=wY+10;
   const ty=t=>t0+(tMax-t)/(tMax-tMin)*(t1-t0);
   const cx=i=>PAD+i*COL+COL/2;
-  let s=`<svg width="${Wc}" height="${HEIGHT}" class="stripsvg" role="img" aria-label="Varsel time for time">`;
-  s+=`<rect x="${PAD+COL/2-Math.max(COL,22)/2}" y="0" width="${Math.max(COL,22)}" height="${HEIGHT}" rx="8" fill="var(--blue-ghost)"/>`;
+  const isNow=i=>i===nowIdx&&(nowIdx>0||(DATA.hours[0]&&H[0].time===DATA.hours[0].time));
+  const hourLabel=(h,i)=>isNow(i)?'Nå':h.hour===0?DAYS_SHORT[new Date(h.time).getDay()]:String(h.hour).padStart(2,'0');
+  let s=`<svg width="${Wc}" height="${HEIGHT}" class="stripsvg" role="img" aria-label="Været time for time">`;
+  if(nPast>0){ s+=`<rect x="${PAD}" y="20" width="${nPast*COL}" height="${HEIGHT-20}" rx="6" fill="var(--past)"/>`;
+    if(nPast*COL>44) s+=`<text x="${PAD+nPast*COL/2}" y="${iy+ICON/2+4}" text-anchor="middle" font-size="11" font-weight="700" letter-spacing=".08em" fill="var(--muted)">MÅLT</text>`; }
   H.forEach((h,i)=>{ if(h.hour===0&&i>0) s+=`<line x1="${PAD+i*COL}" y1="20" x2="${PAD+i*COL}" y2="${HEIGHT}" stroke="var(--muted)" stroke-opacity=".45" stroke-dasharray="3 3"/>`});
-  H.forEach((h,i)=>{ if(!show(i)) return; const x=cx(i);
-    s+=`<text x="${x}" y="15" text-anchor="middle" font-size="12" ${i===0?'font-weight="700" fill="var(--blue)"':h.hour===0?'font-weight="700" fill="var(--ink)"':'fill="var(--muted)"'}>${hourLabel(h,i)}</text>`;
-    s+=icon(h.symbol,ICON).replace('<svg ',`<svg x="${x-ICON/2}" y="${iy}" `);
+  if(nowIdx>0) s+=`<line x1="${PAD+nowIdx*COL}" y1="20" x2="${PAD+nowIdx*COL}" y2="${HEIGHT}" stroke="var(--nowline)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+  labeled.forEach(i=>{ const h=H[i], x=cx(i);
+    s+=`<text x="${x}" y="15" text-anchor="middle" font-size="12" ${isNow(i)?'font-weight="700" fill="var(--nowline)"':h.hour===0?'font-weight="700" fill="var(--ink)"':'fill="var(--muted)"'}>${hourLabel(h,i)}</text>`;
+    if(!h.past&&h.symbol) s+=icon(h.symbol,ICON).replace('<svg ',`<svg x="${x-ICON/2}" y="${iy}" `);
   });
-  const line=(key,dash,color)=>`<polyline points="${H.map((h,i)=>h[key]==null?null:`${cx(i)},${ty(h[key])}`).filter(Boolean).join(' ')}" fill="none" stroke="${color}" stroke-width="2.5" ${dash?'stroke-dasharray="4 4"':''} stroke-linejoin="round" stroke-linecap="round"/>`;
-  if(showG) s+=line('g_temp',true,'var(--google)');
-  s+=line('temp',false,'var(--warm)');
-  H.forEach((h,i)=>{ if(h.temp==null||!show(i)) return; const x=cx(i), y=ty(h.temp);
-    s+=`<circle cx="${x}" cy="${y}" r="3" fill="var(--warm)"/><text x="${x}" y="${y-8}" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">${Math.round(h.temp)}°</text>`});
+  const line=(pick,dash,color,w=2.5)=>{const pts=H.map((h,i)=>{const v=pick(h);return v==null?null:`${cx(i)},${ty(v)}`}).filter(Boolean);
+    return pts.length>1?`<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="${w}" ${dash?`stroke-dasharray="${dash}"`:''} stroke-linejoin="round" stroke-linecap="round"/>`:''};
+  if(showG) s+=line(h=>h.g_temp,'4 4','var(--google)');
+  s+=line(h=>h.past?h.ref_temp:null,'2 4','var(--warm)',2);
+  s+=line(h=>h.past?h.obs_temp:(H.indexOf(h)===nowIdx&&nowIdx>0?null:null),'','var(--obs)');
+  s+=line(h=>h.past?null:h.temp,'','var(--warm)');
+  labeled.forEach(i=>{ const h=H[i], v=h.past?h.obs_temp:h.temp; if(v==null) return; const x=cx(i), y=ty(v);
+    s+=`<circle cx="${x}" cy="${y}" r="3" fill="${h.past?'var(--obs)':'var(--warm)'}"/><text x="${x}" y="${y-8}" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">${Math.round(v)}°</text>`});
   if(!dry){
-    s+=`<line x1="0" y1="${rb}" x2="${Wc}" y2="${rb}" stroke="var(--line)"/>`;
-    const bw=Math.max(3,Math.min(26,COL-3));
-    H.forEach((h,i)=>{ const x=cx(i)-bw/2, hh=v=>Math.max(3,Math.min(v,RMAX)/RMAX*RH);
-      if(h.rain_max>0) s+=`<rect x="${x}" y="${rb-hh(h.rain_max)}" width="${bw}" height="${hh(h.rain_max)}" rx="2" fill="var(--blue-soft)"/>`;
-      if(h.rain>0) s+=`<rect x="${x}" y="${rb-hh(h.rain)}" width="${bw}" height="${hh(h.rain)}" rx="2" fill="var(--blue)"/>`;
+    s+=`<line x1="${PAD}" y1="${rb}" x2="${Wc-PAD}" y2="${rb}" stroke="var(--line)"/>`;
+    const bw=Math.max(3,Math.min(26,COL-3)), hh=v=>Math.max(3,Math.min(v,RMAX)/RMAX*RH);
+    H.forEach((h,i)=>{ const x=cx(i)-bw/2;
+      if(h.past){
+        if(h.obs_rain>0) s+=`<rect x="${x}" y="${rb-hh(h.obs_rain)}" width="${bw}" height="${hh(h.obs_rain)}" rx="2" fill="var(--obs)"/>`;
+        if(h.ref_rain>0) s+=`<rect x="${x+1}" y="${rb-hh(h.ref_rain)}" width="${bw-2}" height="${hh(h.ref_rain)}" fill="none" stroke="var(--blue)" stroke-width="1.6" stroke-dasharray="3 2"/>`;
+      }else{
+        if(h.rain_max>0) s+=`<rect x="${x}" y="${rb-hh(h.rain_max)}" width="${bw}" height="${hh(h.rain_max)}" rx="2" fill="var(--blue-soft)"/>`;
+        if(h.rain>0) s+=`<rect x="${x}" y="${rb-hh(h.rain)}" width="${bw}" height="${hh(h.rain)}" rx="2" fill="var(--blue)"/>`;
+      }
       if(showG&&h.g_rain>0){const gw=Math.max(2,bw*.35);s+=`<rect x="${cx(i)-gw/2}" y="${rb-hh(h.g_rain)}" width="${gw}" height="${hh(h.g_rain)}" fill="none" stroke="var(--google)" stroke-width="1.6"/>`}
       if(showG&&h.disagree) s+=`<circle cx="${cx(i)}" cy="${r0-4}" r="3.5" fill="var(--warn)"><title>Yr og Google er uenige denne timen</title></circle>`;
       if(step===1){
-        if(h.rain>=.1) s+=`<text x="${cx(i)}" y="${mmY}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--blue)">${fmt(h.rain)}</text>`;
+        const r=rainOf(h);
+        if(r!=null&&r>=.1) s+=`<text x="${cx(i)}" y="${mmY}" text-anchor="middle" font-size="11" font-weight="600" fill="${h.past?'var(--obs)':'var(--blue)'}">${fmt(r)}</text>`;
         if(showG&&h.g_rain!=null&&h.g_rain>=.02) s+=`<text x="${cx(i)}" y="${gY}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--google)">${fmtSmall(h.g_rain)}</text>`;
-        if(h.pop!=null&&h.pop>=10) s+=`<text x="${cx(i)}" y="${popY}" text-anchor="middle" font-size="11" fill="var(--muted)">${Math.round(h.pop)}%</text>`;
+        if(!h.past&&h.pop!=null&&h.pop>=10) s+=`<text x="${cx(i)}" y="${popY}" text-anchor="middle" font-size="11" fill="var(--muted)">${Math.round(h.pop)}%</text>`;
       }
     });
-    if(step>1){ // på smal skjerm: skriv bare mengden i den våteste timen i hver blokk
-      labeled.forEach((b,k)=>{ const e=k+1<labeled.length?labeled[k+1]:n, blk=H.slice(b,e), tot=blk.reduce((a,h)=>a+(h.rain||0),0);
-        if(tot>=.1) s+=`<text x="${(cx(b)+cx(e-1))/2}" y="${mmY}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--blue)">${fmt(tot)}</text>`;});
-    }
+    if(step>1) labeled.forEach((b,k)=>{ const e=k+1<labeled.length?labeled[k+1]:n, blk=H.slice(b,e), tot=blk.reduce((a,h)=>a+(rainOf(h)||0),0);
+      if(tot>=.1) s+=`<text x="${(cx(b)+cx(e-1))/2}" y="${mmY}" text-anchor="middle" font-size="11" font-weight="600" fill="${blk[0].past?'var(--obs)':'var(--blue)'}">${fmt(tot)}</text>`;});
   }
-  H.forEach((h,i)=>{ if(!show(i)||h.wind==null) return; const x=cx(i);
-    s+=`<g transform="translate(${x-9} ${wY-5}) rotate(${(h.wind_dir??0)+180} 0 0)"><path d="M0 -5 L3.5 4 L0 2 L-3.5 4 Z" fill="var(--muted)"/></g><text x="${x-2}" y="${wY}" font-size="12" fill="var(--muted)">${Math.round(h.wind)}</text>`});
+  labeled.forEach(i=>{ const h=H[i], x=cx(i), w=h.past?h.obs_wind:h.wind; if(w==null) return;
+    s+=(h.past||h.wind_dir==null?'':`<g transform="translate(${x-9} ${wY-5}) rotate(${h.wind_dir+180} 0 0)"><path d="M0 -5 L3.5 4 L0 2 L-3.5 4 Z" fill="var(--muted)"/></g>`)
+      +`<text x="${h.past?x:x-2}" y="${wY}" ${h.past?'text-anchor="middle"':''} font-size="12" fill="var(--muted)">${Math.round(w)}</text>`});
   s+='</svg>';
-  strip.style.width=Wc+'px';
-  strip.innerHTML=s;
+  return {svg:s,dry,hasPast:nPast>0};
+}
+function legendHTML(o){
+  const it=(style,txt)=>`<span><i style="${style}"></i>${txt}</span>`;
+  let s='';
+  if(o.hasPast) s+=it('background:var(--obs)','Målt')+it('border:2px dashed var(--blue);background:none','Yr varslet ved midnatt');
+  if(!o.dry) s+=it('background:var(--blue)','Yr')+it('background:var(--blue-soft)','Kan bli opptil');
+  if(o.showG) s+=it('border:2px solid var(--google);background:none','Google')+it('background:var(--warn);border-radius:50%;width:8px;height:8px','Uenige');
+  return s;
+}
+function drawStrip(){
+  const H=DATA.today||[], showG=$('showG').checked&&DATA.google_available, strip=$('strip');
+  const Wc=strip.parentElement.clientWidth, r=chartSVG(H,Wc,showG);
+  strip.style.width=Wc+'px'; strip.innerHTML=r.svg;
+  $('stripTitle').textContent=H.length>24?'I dag og i natt':'I dag';
+  const future=H.filter(h=>!h.past), yr=future.reduce((a,h)=>a+(h.rain||0),0), g=future.reduce((a,h)=>a+(h.g_rain||0),0);
+  const rest=r.dry?'Ingen nedbør ventet resten av døgnet.':`Resten av døgnet: <b class="yrc">Yr ${fmt1(yr)} mm</b>${showG?` · <b class="gc">Google ${fmt1(g)} mm</b>`:''}.`;
+  $('stripSum').innerHTML=(DATA.today_score?`<div class="score">${DATA.today_score.text}</div>`:'')+rest;
+  $('stripLegend').innerHTML=legendHTML({...r,showG});
 }
 $('showG').onchange=drawStrip;
 
-/* ---------- Dagsliste ---------- */
+/* ---------- Dagsliste med detaljer ---------- */
 const MOBILE=window.matchMedia('(max-width:760px)');
 const tcol=t=>t>0?'var(--warm)':'var(--blue)';
+let OPEN_DAY=null;
 function dayDate(d){const dt=new Date(d.date+'T12:00:00');
   return d.label===d.weekday?`${dt.getDate()}.${dt.getMonth()+1}.`:`${DAYS_SHORT[dt.getDay()]} ${dt.getDate()}.${dt.getMonth()+1}.`}
+const localDate=iso=>iso.slice(0,10);
+function googleDayLine(date){
+  const g=(DATA.google_days||[]).find(x=>x.date===date); if(!g) return '';
+  const part=(lbl,v)=>v==null?'':`${lbl} ${fmt1(v)} mm`;
+  const bits=[part('dag (07–19)',g.day_rain),part('natt (19–07)',g.night_rain)].filter(Boolean).join(', ');
+  const t=g.tmax!=null&&g.tmin!=null?` · ${Math.round(g.tmax)}°/${Math.round(g.tmin)}°`:'';
+  return `<div class="gday"><b>Google:</b> ${bits}${t}${g.day_text?` · ${g.day_text}`:''}</div>`;
+}
+function dayDetail(d){
+  const hours=(d.label==='I dag'?(DATA.today||[]):(DATA.detail_hours||[]).filter(h=>localDate(h.time)===d.date));
+  const showG=DATA.google_available;
+  let s='<div class="ddetail">';
+  if(hours.length>=6){
+    const w=Math.max(260,$('days').clientWidth-(MOBILE.matches?24:8));
+    const r=chartSVG(hours,w,showG);
+    const hasG=hours.some(h=>h.g_rain!=null);
+    s+=`<div class="dd-h">Time for time${hours.length<24&&d.label!=='I dag'?` (Yr har timesvarsel ${hours.length} timer denne dagen)`:''}</div>${r.svg}<div class="legend">${legendHTML({...r,showG:showG&&hasG})}</div>`;
+    if(showG&&!hasG) s+=googleDayLine(d.date);
+  }else{
+    const blocks=(DATA.blocks||[]).filter(b=>localDate(b.start)===d.date||(localDate(b.end)===d.date&&b.end.slice(11,13)!=='00'));
+    s+='<div class="dd-h">Yr i bolker på seks timer</div><div class="dd-blocks">';
+    blocks.forEach(b=>{const t0=b.start.slice(11,13), t1=b.end.slice(11,13);
+      s+=`<div class="dd-b"><div class="dd-t">${t0}–${t1}</div>${icon(b.symbol,44)}<div class="dd-temp">${b.tmin!=null?Math.round(b.tmin)+'–':''}${b.tmax!=null?Math.round(b.tmax)+'°':''}</div><div class="dd-mm${b.rain>=.1?'':' dry'}">${b.rain>=.1?fmt1(b.rain)+' mm':'0 mm'}</div></div>`});
+    s+='</div>'+googleDayLine(d.date);
+  }
+  return s+'</div>';
+}
+function toggleDay(date){OPEN_DAY=OPEN_DAY===date?null:date; renderDays();
+  const el=document.querySelector(`[data-day="${date}"]`); if(el&&OPEN_DAY) el.scrollIntoView({block:'nearest',behavior:'smooth'})}
 function renderDays(){
   const D=DATA.days.filter(d=>d.tmin!=null);
   const box=$('days');
+  const chev=d=>`<span class="chev">${OPEN_DAY===d.date?'▴':'▾'}</span>`;
   if(MOBILE.matches){
     box.className='dcards';
     let s=`<div class="dc-hdr"><span>Natt</span><span>Morg.</span><span>Ettm.</span><span>Kveld</span></div>`;
@@ -555,34 +628,45 @@ function renderDays(){
       const wind=d.wind_max==null?'':`${d.wind_max}${d.gust_max!=null&&d.gust_max>d.wind_max?` (${d.gust_max})`:''} m/s`;
       const rain=d.rain>=.1?`${fmt1(d.rain)} mm${d.observed?` <span class="muted">(${fmt1(d.observed)} målt)</span>`:''}`:'';
       const g=d.g_rain!=null&&(d.g_rain>=.1||d.rain>=.1)?`<div class="dc-g">Google ${fmt1(d.g_rain)} mm</div>`:'';
-      s+=`<div class="dc"><div class="dc-l"><div class="dc-n">${d.label} <span>${dayDate(d)}</span></div>
+      s+=`<div class="dc${OPEN_DAY===d.date?' open':''}" data-day="${d.date}" role="button" tabindex="0" aria-expanded="${OPEN_DAY===d.date}">
+        <div class="dc-row"><div class="dc-l"><div class="dc-n">${d.label} <span>${dayDate(d)}</span></div>
         <div class="dc-t"><span style="color:${tcol(d.tmax)}">${d.tmax}°</span><span class="sl">/</span><span style="color:${tcol(d.tmin)}">${d.tmin}°</span></div>
         ${rain?`<div class="dc-r">${rain}</div>`:''}${g}<div class="dc-w">${wind}</div></div>
-        <div class="dc-i">${d.periods.map(p=>`<div class="dc-p">${p.symbol?icon(p.symbol,44):'<span class="dash">–</span>'}<small>${p.symbol&&p.rain>=.1?fmt(p.rain):''}</small></div>`).join('')}</div></div>`;
+        <div class="dc-i">${d.periods.map(p=>`<div class="dc-p">${p.symbol?icon(p.symbol,44):'<span class="dash">–</span>'}<small>${p.symbol&&p.rain>=.1?fmt(p.rain):''}</small></div>`).join('')}</div></div>
+        <div class="dc-more">${OPEN_DAY===d.date?'Skjul detaljer':'Vis detaljer'} ${chev(d)}</div>
+        ${OPEN_DAY===d.date?dayDetail(d):''}</div>`;
     });
-    box.innerHTML=s; return;
+    box.innerHTML=s;
+  }else{
+    box.className='days';
+    const lo=Math.min(...D.map(d=>d.tmin)), hi=Math.max(...D.map(d=>d.tmax)), span=Math.max(1,hi-lo);
+    const rmax=Math.max(1,...D.map(d=>Math.max(d.rain,d.g_rain||0)));
+    let s=`<div class="hdr"></div><div class="hdr">Natt</div><div class="hdr">Morg.</div><div class="hdr">Ettm.</div><div class="hdr">Kveld</div><div class="hdr">Temp.</div><div class="hdr rain-h">Nedbør (mm)</div>`;
+    D.forEach(d=>{
+      const open=OPEN_DAY===d.date;
+      s+=`<div class="drow${open?' open':''}" data-day="${d.date}" role="button" tabindex="0" aria-expanded="${open}">`;
+      s+=`<div class="cell dname">${d.label}<span>${chev(d)} ${dayDate(d)}${d.wind_max!=null?` · ${d.wind_max} m/s`:''}</span></div>`;
+      d.periods.forEach(p=>{
+        if(p.symbol) s+=`<div class="cell per">${icon(p.symbol,38)}<small>${p.rain>=.1?fmt(p.rain):''}</small></div>`;
+        else s+=`<div class="cell per past"><span class="dash">–</span></div>`;
+      });
+      const l=(d.tmin-lo)/span*100, w=(d.tmax-d.tmin)/span*100;
+      s+=`<div class="cell"><div class="range"><span class="lo">${d.tmin}°</span><span class="track"><span class="fill" style="left:${l}%;width:${Math.max(w,3)}%"></span></span><span class="hi">${d.tmax}°</span></div></div>`;
+      let r=`<span class="track2">${d.rain>0?`<span class="rb" style="width:${Math.max(2,d.rain/rmax*100)}%"></span>`:''}</span><span class="v${d.rain>0?'':' dry'}">${d.rain>0?fmt1(d.rain):'0'}</span>`;
+      if(d.g_rain!=null) r+=`<span class="track2 g">${d.g_rain>0?`<span class="rb g" style="width:${Math.max(2,d.g_rain/rmax*100)}%"></span>`:''}</span><span class="v g">${fmt1(d.g_rain)}</span>`;
+      if(d.observed) r+=`<span class="note">Inkludert ${fmt1(d.observed)} mm målt i natt</span>`;
+      s+=`<div class="cell"><div class="rain-tot">${r}</div></div></div>`;
+      if(open) s+=`<div class="dfull">${dayDetail(d)}</div>`;
+    });
+    box.innerHTML=s;
   }
-  box.className='days';
-  const lo=Math.min(...D.map(d=>d.tmin)), hi=Math.max(...D.map(d=>d.tmax)), span=Math.max(1,hi-lo);
-  const rmax=Math.max(1,...D.map(d=>Math.max(d.rain,d.g_rain||0)));
-  let s=`<div class="hdr"></div><div class="hdr">Natt</div><div class="hdr">Morg.</div><div class="hdr">Ettm.</div><div class="hdr">Kveld</div><div class="hdr">Temp.</div><div class="hdr rain-h">Nedbør (mm)</div>`;
-  D.forEach(d=>{
-    s+=`<div class="cell dname">${d.label}<span>${dayDate(d)}${d.wind_max!=null?` · ${d.wind_max} m/s`:''}</span></div>`;
-    d.periods.forEach(p=>{
-      if(p.symbol) s+=`<div class="cell per">${icon(p.symbol,38)}<small>${p.rain>=.1?fmt(p.rain):''}</small></div>`;
-      else s+=`<div class="cell per past"><span class="dash">–</span></div>`;
-    });
-    const l=(d.tmin-lo)/span*100, w=(d.tmax-d.tmin)/span*100;
-    s+=`<div class="cell"><div class="range"><span class="lo">${d.tmin}°</span><span class="track"><span class="fill" style="left:${l}%;width:${Math.max(w,3)}%"></span></span><span class="hi">${d.tmax}°</span></div></div>`;
-    let r=`<span class="track2">${d.rain>0?`<span class="rb" style="width:${Math.max(2,d.rain/rmax*100)}%"></span>`:''}</span><span class="v${d.rain>0?'':' dry'}">${d.rain>0?fmt1(d.rain):'0'}</span>`;
-    if(d.g_rain!=null) r+=`<span class="track2 g">${d.g_rain>0?`<span class="rb g" style="width:${Math.max(2,d.g_rain/rmax*100)}%"></span>`:''}</span><span class="v g">${fmt1(d.g_rain)}</span>`;
-    if(d.observed) r+=`<span class="note">Inkludert ${fmt1(d.observed)} mm målt i natt</span>`;
-    s+=`<div class="cell"><div class="rain-tot">${r}</div></div>`;
+  box.querySelectorAll('[data-day]').forEach(el=>{
+    el.addEventListener('click',e=>{if(e.target.closest('.ddetail'))return; toggleDay(el.dataset.day)});
+    el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleDay(el.dataset.day)}});
   });
-  box.innerHTML=s;
 }
 MOBILE.addEventListener('change',()=>{if(DATA)renderDays()});
-let _rs;window.addEventListener('resize',()=>{clearTimeout(_rs);_rs=setTimeout(()=>{if(DATA)drawStrip()},150)});
+let _rs;window.addEventListener('resize',()=>{clearTimeout(_rs);_rs=setTimeout(()=>{if(DATA){drawStrip();if(OPEN_DAY)renderDays()}},150)});
 
 /* ---------- Tillit ---------- */
 function renderTrust(d){

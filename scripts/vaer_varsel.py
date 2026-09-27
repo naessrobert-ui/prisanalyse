@@ -524,6 +524,158 @@ def trust_text(score_rows: list[dict[str, Any]], place: str, days: int) -> Optio
     return {"title": title, "text": f"Siste {days} dager: " + ", og ".join(parts) + ". Resten er uavgjort."}
 
 
+def observations_by_hour(rows: list[dict[str, Any]]) -> dict[datetime, dict[str, float]]:
+    """Frost-rader -> {timens start (UTC): {temp, wind, rain, gust}}.
+
+    Samme konvensjon som scoreboardet: temperatur og vind er øyeblikksverdier
+    ved referansetiden og hører til timen som starter da. Nedbør og vindkast
+    gjelder timen som slutter ved referansetiden.
+    """
+    keys = {"air_temperature": ("temp", 0), "wind_speed": ("wind", 0),
+            "sum(precipitation_amount PT1H)": ("rain", 1), "max(wind_speed_of_gust PT1H)": ("gust", 1)}
+    result: dict[datetime, dict[str, float]] = {}
+    for row in rows:
+        spec = keys.get(row.get("element"))
+        ref = _parse_time(row.get("reference_time"))
+        value = _num(row.get("value"))
+        if spec is None or ref is None or value is None:
+            continue
+        name, shift = spec
+        result.setdefault(ref - timedelta(hours=shift), {})[name] = value
+    return result
+
+
+def reference_forecast(frame_rows: list[dict[str, Any]], place: str,
+                       day_start: datetime) -> tuple[Optional[datetime], dict[datetime, dict[str, Any]]]:
+    """Varselet slik det så ut ved midnatt: siste lagrede kjøring før døgnet startet.
+
+    Mangler den (cron nede), brukes den tidligste kjøringen i døgnet.
+    Returnerer (kjøretime, {valid_start: {"yr": {...}, "google": {...}}}).
+    """
+    rows = [r for r in frame_rows if r.get("place") == place]
+    runs = sorted({t for t in (_parse_time(r.get("run_hour")) for r in rows) if t is not None})
+    if not runs:
+        return None, {}
+    before = [r for r in runs if r <= day_start]
+    run = before[-1] if before else runs[0]
+    result: dict[datetime, dict[str, Any]] = {}
+    for r in rows:
+        if _parse_time(r.get("run_hour")) != run:
+            continue
+        start = _parse_time(r.get("valid_start"))
+        if start is None:
+            continue
+        result.setdefault(start, {})[r.get("provider")] = {"temp": _num(r.get("temp")), "rain": _num(r.get("rain"))}
+    return run, result
+
+
+def build_today(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
+                observed: dict[datetime, dict[str, float]], reference: dict[datetime, dict[str, Any]],
+                now: datetime) -> list[dict[str, Any]]:
+    """Inneværende døgn time for time: målt og varslet ved midnatt for timene som
+    er gått, og gjeldende varsel for resten. Etter kl. 18 tas natten med til kl. 08."""
+    local = _local(now)
+    day_start = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = day_start + timedelta(days=1, hours=8 if local.hour >= 18 else 0)
+    yr = {r["time"]: r for r in yr_hours(rows)}
+    google = _google_index(google_hours)
+    result = []
+    t = day_start.astimezone(timezone.utc)
+    while t < end.astimezone(timezone.utc):
+        lt = _local(t)
+        past = t + timedelta(hours=1) <= now
+        ref = reference.get(t) or {}
+        obs = observed.get(t) or {}
+        item: dict[str, Any] = {"time": lt.isoformat(), "hour": lt.hour, "past": past}
+        if past:
+            item.update({
+                "obs_temp": obs.get("temp"), "obs_rain": obs.get("rain"), "obs_wind": obs.get("wind"),
+                "obs_gust": obs.get("gust"),
+                "ref_temp": (ref.get("yr") or {}).get("temp"), "ref_rain": (ref.get("yr") or {}).get("rain"),
+                "g_temp": (ref.get("google") or {}).get("temp"), "g_rain": (ref.get("google") or {}).get("rain"),
+            })
+        else:
+            row = yr.get(t)
+            g = google.get(t) or {}
+            if row is not None:
+                n1 = row["n1"]
+                item.update({"symbol": n1["symbol"], "temp": row["temp"], "rain": n1["rain"],
+                             "rain_max": n1["rain_max"], "pop": n1["pop"], "wind": row["wind"],
+                             "gust": row["gust"], "wind_dir": row["wind_dir"]})
+            item.update({"g_temp": _num(g.get("temp")), "g_rain": _num(g.get("rain"))})
+            if row is not None and item["g_rain"] is not None:
+                item["disagree"] = (abs(item["rain"] - item["g_rain"]) >= 1.0 or (
+                    item["g_temp"] is not None and item["temp"] is not None and abs(item["temp"] - item["g_temp"]) >= 2.5))
+        result.append(item)
+        t += timedelta(hours=1)
+    return result
+
+
+def today_score(today: list[dict[str, Any]], run: Optional[datetime]) -> Optional[dict[str, str]]:
+    """Kort fasit for timene som er gått: målt mot varslet ved midnatt."""
+    past = [h for h in today if h["past"]]
+    rain_hours = [h for h in past if h.get("obs_rain") is not None]
+    if not rain_hours and not any(h.get("obs_temp") is not None for h in past):
+        return None
+    when = "ved midnatt"
+    if run is not None:
+        run_local = _local(run)
+        day = datetime.fromisoformat(today[0]["time"]).date()
+        if run_local.hour != 0 or run_local.date() != day:
+            when = ("i går " if run_local.date() < day else "") + f"kl. {run_local.hour:02d}"
+    parts = []
+    if rain_hours:
+        measured = sum(h["obs_rain"] for h in rain_hours)
+        yr = [h["ref_rain"] for h in rain_hours if h.get("ref_rain") is not None]
+        g = [h["g_rain"] for h in rain_hours if h.get("g_rain") is not None]
+        text = f"Målt hittil i dag: {mm_text(measured)} mm."
+        if len(yr) == len(rain_hours):
+            text += f" Varslet {when}: Yr {mm_text(sum(yr))} mm"
+            text += f", Google {mm_text(sum(g))} mm." if len(g) == len(rain_hours) else "."
+        parts.append(text)
+
+    def mae(key: str) -> Optional[float]:
+        pairs = [(h["obs_temp"], h[key]) for h in past if h.get("obs_temp") is not None and h.get(key) is not None]
+        return sum(abs(a - b) for a, b in pairs) / len(pairs) if len(pairs) >= 3 else None
+
+    yr_t, g_t = mae("ref_temp"), mae("g_temp")
+    if yr_t is not None:
+        def deg(v: float) -> str:
+            return f"{v:.1f}".replace(".", ",")
+        text = f"Temperaturen bommet i snitt med {deg(yr_t)}° hos Yr"
+        text += f" og {deg(g_t)}° hos Google." if g_t is not None else "."
+        parts.append(text)
+    return {"text": " ".join(parts)} if parts else None
+
+
+def parse_google_days(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Google days:lookup -> dag (07-19) og natt (19-07) per dato."""
+    def qpf(part: dict[str, Any]) -> Optional[float]:
+        q = ((part or {}).get("precipitation") or {}).get("qpf") or {}
+        value = _num(q.get("quantity"))
+        if value is None:
+            return None
+        return value * 25.4 if q.get("unit") == "INCHES" else value
+
+    result = []
+    for day in payload.get("forecastDays") or []:
+        d = day.get("displayDate") or {}
+        try:
+            date = datetime(int(d["year"]), int(d["month"]), int(d["day"])).date().isoformat()
+        except (KeyError, TypeError, ValueError):
+            continue
+        dt, nt = day.get("daytimeForecast") or {}, day.get("nighttimeForecast") or {}
+        result.append({
+            "date": date,
+            "day_rain": qpf(dt), "night_rain": qpf(nt),
+            "day_pop": _num(((dt.get("precipitation") or {}).get("probability") or {}).get("percent")),
+            "tmax": _num((day.get("maxTemperature") or {}).get("degrees")),
+            "tmin": _num((day.get("minTemperature") or {}).get("degrees")),
+            "day_text": ((dt.get("weatherCondition") or {}).get("description") or {}).get("text"),
+        })
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Henting med cache
 # ---------------------------------------------------------------------------
@@ -581,6 +733,34 @@ def _fetch_radar(area: str) -> bytes:
         f"{MET}/radar/2.0/", type="5level_reflectivity", area=area, content="animation").content)
 
 
+def _fetch_google_days(place: str) -> list[dict[str, Any]]:
+    """Googles dagsvarsel (10 dager). Samme cachetid som timesvarselet, som
+    Googles vilkår krever at slettes innen en time."""
+    import os
+
+    key = os.environ.get("GOOGLE_WEATHER_API_KEY", "").strip()
+    if not key:
+        return []
+    p = PLACES[place]
+    return _CACHE.get(("google_days", place), 3300, lambda: parse_google_days(_get(
+        "https://weather.googleapis.com/v1/forecast/days:lookup",
+        **{"location.latitude": p["lat"], "location.longitude": p["lon"], "days": 10, "pageSize": 10,
+           "unitsSystem": "METRIC", "languageCode": "no", "key": key}).json()))
+
+
+def _fetch_reference(place: str, now: datetime) -> tuple[Optional[datetime], dict[datetime, dict[str, Any]]]:
+    """Lagret varsel fra scoreboardet (S3) for inneværende døgn."""
+    from scripts.weather_scoreboard import FORECAST_COLUMNS, _FORECASTS, _load
+
+    day_start = _local(now).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+
+    def load():
+        frame = _load(_FORECASTS, day_start - timedelta(hours=2), now, FORECAST_COLUMNS)
+        return reference_forecast(frame.to_dict("records"), place, day_start)
+
+    return _CACHE.get(("reference", place, day_start), 1800, load)
+
+
 def _fetch_google(place: str) -> list[dict[str, Any]]:
     payload = _comparison_provider(place, "google")
     return payload.get("hours") or []
@@ -633,18 +813,22 @@ def _safe(fn: Callable[[], Any]) -> Any:
 
 def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=6) as pool:
         f_yr = pool.submit(_safe, lambda: _fetch_yr(place))
         f_nc = pool.submit(_safe, lambda: _fetch_nowcast(place))
         f_g = pool.submit(_safe, lambda: _fetch_google(place))
+        f_gd = pool.submit(_safe, lambda: _fetch_google_days(place))
         f_obs = pool.submit(_safe, lambda: _fetch_observations(place, now))
+        f_ref = pool.submit(_safe, lambda: _fetch_reference(place, now))
         yr_payload, nc_payload, google, obs = f_yr.result(), f_nc.result(), f_g.result(), f_obs.result()
+        google_days, (ref_run, reference) = f_gd.result() or [], f_ref.result() or (None, {})
     if not yr_payload:
         raise RuntimeError("Fikk ikke hentet varselet fra Yr.")
     rows = parse_yr(yr_payload)
     google = google or []
     obs_rows, station = obs if obs else ([], None)
     observed = observed_rain(obs_rows, now)
+    today = build_today(rows, google, observations_by_hour(obs_rows), reference, now)
     hour_now = now.replace(minute=0, second=0, microsecond=0)
     hours = build_hours(rows, google, hour_now)
     nowcast = parse_nowcast(nc_payload, now) if nc_payload else {"available": False, "steps": []}
@@ -674,6 +858,13 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
         "best": best_window(rows, now),
         "hours": hours,
         "days": build_days(rows, google, observed, now),
+        "today": today,
+        "today_score": today_score(today, ref_run),
+        "detail_hours": build_hours(rows, google, hour_now, count=100),
+        "blocks": [{"start": _local(p["start"]).isoformat(), "end": _local(p["end"]).isoformat(),
+                    "symbol": p["symbol"], "rain": p["rain"], "tmax": p["tmax"], "tmin": p["tmin"]}
+                   for p in slices(rows) if p["end"] - p["start"] > timedelta(hours=1)],
+        "google_days": google_days,
         "agreement": agreement(hours),
         "trust": trust_text(trust_rows, place, _TRUST["days"]) if trust_rows else None,
         "google_available": bool(google),
