@@ -293,3 +293,10 @@ def test_parse_google_days():
     day = vv.parse_google_days(payload)[0]
     assert day["date"] == "2026-10-01" and day["day_rain"] == 6.2 and day["night_rain"] == 2.54
     assert day["tmax"] == 16.4 and day["day_pop"] == 90 and day["day_text"] == "Regn"
+
+
+def test_google_days_only_for_bergen(monkeypatch):
+    monkeypatch.setenv("GOOGLE_WEATHER_API_KEY", "k")
+    with patch.object(vv, "_get") as get:
+        assert vv._fetch_google_days("kvamskogen") == []
+        get.assert_not_called()

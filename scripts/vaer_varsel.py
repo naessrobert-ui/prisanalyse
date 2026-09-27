@@ -34,6 +34,8 @@ OSLO = ZoneInfo("Europe/Oslo")
 MET = "https://api.met.no/weatherapi"
 HEADERS = {"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"}
 RADAR_AREA = {"bergen": "western_norway", "kvamskogen": "western_norway"}
+#: Steder som får Googles dagsvarsel (ett ekstra Google-kall i timen per sted).
+GOOGLE_DAYS_PLACES = {"bergen"}
 
 #: Timer med minst så mye nedbør regnes som "regn" i tekstene.
 WET_MM = 0.1
@@ -739,7 +741,7 @@ def _fetch_google_days(place: str) -> list[dict[str, Any]]:
     import os
 
     key = os.environ.get("GOOGLE_WEATHER_API_KEY", "").strip()
-    if not key:
+    if not key or place not in GOOGLE_DAYS_PLACES:
         return []
     p = PLACES[place]
     return _CACHE.get(("google_days", place), 3300, lambda: parse_google_days(_get(
