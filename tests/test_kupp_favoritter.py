@@ -1,45 +1,40 @@
-"""Parsing av antall favoritter fra FINN-annonsesiden (ingen nettverk)."""
+"""Antall favoritter fra FINNs favoritt-endepunkt (ingen nettverk)."""
 from scripts import kupp_vakt as k
 
 
-def test_span_pl4_ved_favorittknapp():
-    html = """
-    <div class="flex items-center">
-      <button aria-label="Legg til i favoritter"><svg><title>Hjerte</title></svg></button>
-      <span class="pl-4 text-s">37</span>
-    </div>"""
-    assert k.parse_favoritter(html) == 37
+def test_parse_counter_fra_api():
+    data = {"item": {"itemType": "Ad", "itemId": 476830592}, "counter": 12}
+    assert k.parse_favoritter(data) == 12
+    assert k.parse_favoritter({"counter": 0}) == 0
 
 
-def test_span_pl4_uten_favoritthint_ignoreres():
-    html = '<div><span class="pl-4">2019</span></div><p>Ingen favoritter her?</p>'
-    # "favoritter" i fritekst uten tall foran skal ikke gi treff
-    assert k.parse_favoritter(html) is None
+def test_parse_ugyldig_svar():
+    for data in (None, [], {}, {"counter": None}, {"counter": "12"},
+                 {"counter": -1}, {"counter": True}):
+        assert k.parse_favoritter(data) is None
 
 
-def test_tusenskille_i_tallet():
-    html = ('<div data-testid="favorite-button"><svg></svg>'
-            '<span class="pl-4">1\xa0204</span></div>')
-    assert k.parse_favoritter(html) == 1204
+class _Resp:
+    def __init__(self, data):
+        self._data = data
+
+    def json(self):
+        return self._data
 
 
-def test_aria_label_tekst():
-    html = '<button aria-label="12 personer har lagret annonsen"></button>'
-    assert k.parse_favoritter(html) == 12
+def test_hent_favoritter_bruker_api_url(monkeypatch):
+    kall = []
+    monkeypatch.setattr(k, "_fetch", lambda s, url, **kw: kall.append(url) or _Resp({"counter": 7}))
+    assert k.hent_favoritter("476830592") == 7
+    assert kall == ["https://www.finn.no/favorite-frontend-api/Ad/476830592/counter"]
 
 
-def test_synlig_tekst():
-    assert k.parse_favoritter("<p>5 har lagret denne annonsen</p>") == 5
-
-
-def test_json_fallback():
-    html = '<script>{"adId":1,"favoriteCount":9}</script>'
-    assert k.parse_favoritter(html) == 9
-
-
-def test_tom_side():
-    assert k.parse_favoritter("") is None
-    assert k.parse_favoritter("<html><body>Ingenting</body></html>") is None
+def test_hent_favoritter_ugyldig_json_gir_none(monkeypatch):
+    class Feil:
+        def json(self):
+            raise ValueError("ikke json")
+    monkeypatch.setattr(k, "_fetch", lambda *a, **kw: Feil())
+    assert k.hent_favoritter("1") is None
 
 
 def test_berik_favoritter_feil_gir_none(monkeypatch):
