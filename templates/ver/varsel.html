@@ -102,7 +102,26 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .bar.max{left:13px;width:26px;background:var(--blue-soft)}
 .bar.g{left:22px;width:8px;background:none;border:2px solid var(--google);border-bottom:0}
 .disagree{position:absolute;top:2px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--warn)}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.stripsum{font-size:13px;color:var(--muted);margin-top:8px}
+.stripsum .yrc{color:var(--blue)} .stripsum .gc{color:var(--google)}
+.stripsvg{display:block;overflow:visible}
+.dc-hdr{display:flex;justify-content:flex-end;gap:0;padding:0 12px 6px}
+.dc-hdr span{width:46px;text-align:center;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.dc{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card);border-radius:14px;padding:12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(20,40,60,.06)}
+.dc-l{min-width:0}
+.dc-n{font-weight:700;font-size:15.5px;white-space:nowrap}
+.dc-n span{font-weight:400;font-size:12.5px;color:var(--muted)}
+.dc-t{font-size:19px;font-weight:600;margin-top:2px}
+.dc-t .sl{color:var(--line);margin:0 3px;font-weight:300}
+.dc-r{color:var(--blue);font-weight:600;font-size:14.5px}
+.dc-r .muted{font-weight:400;font-size:12px}
+.dc-g{color:var(--google);font-size:12.5px;font-weight:600}
+.dc-w{font-size:13.5px;color:var(--ink)}
+.dc-i{display:flex;flex:0 0 auto}
+.dc-p{width:46px;display:flex;flex-direction:column;align-items:center}
+.dc-p small{font-size:11.5px;color:var(--blue);font-weight:600;height:14px}
+.dc-p .dash{color:var(--line);font-size:20px;height:44px;line-height:44px}
 .legend i{display:inline-block;width:12px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 
 /* Dager */
@@ -161,6 +180,7 @@ footer a{color:inherit}
 a.pill{text-decoration:none;display:inline-block}
 .gtext{color:var(--google)}
 .days .hdr.rain-h{text-align:left;padding-left:14px}
+@media (max-width:760px){ #daysCard{background:none;box-shadow:none;padding:4px 0 0}#daysCard h2{padding:0 4px}}
 @media (max-width:760px){.days .hdr.rain-h{text-align:right;padding-left:0;font-size:0}.days .hdr.rain-h::after{content:"mm";font-size:9.5px}}
 .panel-h{font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .card.error{background:var(--warn-soft);color:var(--ink)}
@@ -193,6 +213,7 @@ a.pill{text-decoration:none;display:inline-block}
       <div class="now">
         <div class="row"><span id="nowIcon"></span><span class="temp" id="nowTemp">–</span></div>
         <div class="desc" id="nowText"></div>
+        <div class="small muted" id="nowFeels"></div>
         <div class="wind" id="nowWind"></div>
         <div class="small muted" style="margin-top:6px" id="nowObs"></div>
       </div>
@@ -252,16 +273,17 @@ a.pill{text-decoration:none;display:inline-block}
       <label class="toggle" id="gToggle"><input type="checkbox" id="showG" checked> Vis Google også</label>
     </div>
     <div class="scroller"><div class="strip" id="strip"></div></div>
+    <div class="stripsum" id="stripSum"></div>
     <div class="legend">
-      <span><i style="background:var(--blue)"></i>Nedbør (Yr)</span>
-      <span><i style="background:var(--blue-soft)"></i>Kan bli opptil</span>
-      <span class="gleg"><i style="border:2px solid var(--google);background:none"></i>Google (lilla tall)</span>
-      <span class="gleg"><i style="background:var(--warn);border-radius:50%;width:8px;height:8px"></i>Yr og Google uenige</span>
+      <span class="wetleg"><i style="background:var(--blue)"></i>Yr</span>
+      <span class="wetleg"><i style="background:var(--blue-soft)"></i>Kan bli opptil</span>
+      <span class="gleg"><i style="border:2px solid var(--google);background:none"></i>Google</span>
+      <span class="gleg"><i style="background:var(--warn);border-radius:50%;width:8px;height:8px"></i>Uenige</span>
     </div>
   </section>
 
   <!-- 3. Fremover -->
-  <section class="card">
+  <section class="card" id="daysCard">
     <h2>Neste dager</h2>
     <div class="days" id="days"></div>
   </section>
@@ -333,7 +355,9 @@ function renderNow(d){
   $('nowIcon').innerHTML=icon(n.symbol,58);
   $('nowTemp').textContent=n.temp==null?'–':Math.round(n.temp)+'°';
   $('nowText').textContent=n.text||'';
-  $('nowWind').innerHTML=n.wind==null?'':`${arrow(n.wind_dir,16)} ${Math.round(n.wind)} m/s fra ${dirText(n.wind_dir)}`;
+  const gust=n.gust!=null&&Math.round(n.gust)>Math.round(n.wind)?` (${Math.round(n.gust)})`:'';
+  $('nowWind').innerHTML=n.wind==null?'':`${arrow(n.wind_dir,16)} ${Math.round(n.wind)}${gust} m/s fra ${dirText(n.wind_dir)}`;
+  $('nowFeels').textContent=n.feels_like!=null&&n.temp!=null&&Math.round(n.feels_like)!==Math.round(n.temp)?`Føles som ${Math.round(n.feels_like)}°`:'';
   const st=(d.observed.station||'').split(' - ').pop();
   $('nowObs').textContent=d.observed.today!=null&&st?`${st} har målt ${fmt1(d.observed.today)} mm i dag`:'';
 }
@@ -396,11 +420,12 @@ $('ansNow').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.pr
 
 /* ---------- Zoombar radar ---------- */
 // Stedets posisjon i MET-bildet for western_norway, som andel av bredde og høyde.
-const RADAR_FOCUS={bergen:[0.300,0.555],kvamskogen:[0.365,0.560]};
+// Målt i MET sitt bilde 27.9.2026 (bykartets prikk for Bergen; Kvamskogen regnet ut fra Bergen, Voss og Haugesund).
+const RADAR_FOCUS={bergen:[0.451,0.599],kvamskogen:[0.514,0.599]};
 const RV=(()=>{
   const view=$('rviewer'), img=$('radarImg'), mark=$('rmark');
   const [fx,fy]=RADAR_FOCUS[STED]||[.5,.5];
-  const MIN=1, MAX=6, START=3;
+  const MIN=1, MAX=6, START=3.5;
   let s=START, tx=0, ty=0, W=0, H=0;
   const size=()=>{W=view.clientWidth; H=img.naturalWidth?W*img.naturalHeight/img.naturalWidth:W*.8; view.style.height=H+'px'};
   const clamp=()=>{tx=Math.min(0,Math.max(W-W*s,tx)); ty=Math.min(0,Math.max(H-H*s,ty))};
@@ -408,7 +433,7 @@ const RV=(()=>{
     mark.style.left=(tx+fx*W*s)+'px'; mark.style.top=(ty+fy*H*s)+'px';
     $('rzoom').textContent=s>1.01?`${s.toFixed(1).replace('.',',')}×`:'Hele Vestlandet'};
   const zoomAt=(ns,px,py)=>{ns=Math.min(MAX,Math.max(MIN,ns)); tx=px-(px-tx)*ns/s; ty=py-(py-ty)*ns/s; s=ns; apply()};
-  const reset=()=>{size(); s=START; tx=W/2-fx*W*s; ty=H/2-fy*H*s; apply()};
+  const reset=()=>{size(); s=START; tx=W*.5-fx*W*s; ty=H*.4-fy*H*s; apply()};  // stedet litt over midten, så mer av det som kommer sørvestfra vises
   $('rIn').onclick=e=>{e.stopPropagation();zoomAt(s*1.5,W/2,H/2)};
   $('rOut').onclick=e=>{e.stopPropagation();zoomAt(s/1.5,W/2,H/2)};
   $('rHome').onclick=e=>{e.stopPropagation();reset()};
@@ -452,65 +477,112 @@ function renderAnswers(d){
     :`<span>${icon('rain',22)}</span><span><b>Lite opphold ${b.label}.</b> Ingen lengre tørre perioder mellom kl. 07 og 22.</span>`;
 }
 
-/* ---------- Timestripe ---------- */
+/* ---------- Timestripe: hele døgnet i bredden ---------- */
 function drawStrip(){
-  const H=DATA.hours, showG=$('showG').checked&&DATA.google_available;
+  const H=DATA.hours, n=H.length, showG=$('showG').checked&&DATA.google_available;
+  const strip=$('strip'), Wc=strip.parentElement.clientWidth;
+  const dry=H.every(h=>Math.max(h.rain||0,h.rain_max||0)<.1&&(!showG||(h.g_rain||0)<.05));
   document.querySelectorAll('.gleg').forEach(e=>e.hidden=!showG);
-  const COL=52, RMAX=5;
+  document.querySelectorAll('.wetleg').forEach(e=>e.hidden=dry);
+  const yr=H.reduce((a,h)=>a+(h.rain||0),0), g=H.reduce((a,h)=>a+(h.g_rain||0),0);
+  $('stripSum').innerHTML=dry?'Ingen nedbør ventet det neste døgnet.'
+    :`Neste 24 timer: <b class="yrc">Yr ${fmt1(yr)} mm</b>${showG?` · <b class="gc">Google ${fmt1(g)} mm</b>`:''}`;
   const temps=H.flatMap(h=>[h.temp,showG?h.g_temp:null]).filter(v=>v!=null);
   const tMin=Math.floor(Math.min(...temps))-1, tMax=Math.ceil(Math.max(...temps))+1;
-  const ty=t=>20+(tMax-t)/(tMax-tMin)*46;
-  const bar=(v,cls)=>v>0?`<div class="bar ${cls}" style="height:${Math.max(3,Math.min(v,RMAX)/RMAX*54)}px"></div>`:'';
-  let cols='';
-  H.forEach((h,i)=>{
-    const d=new Date(h.time), dayLabel=DAYS_SHORT[d.getDay()];
-    cols+=`<div class="col${i===0?' now-col':''}${h.hour===0&&i>0?' midnight':''}">
-      <div class="h">${i===0?'Nå':h.hour===0?`<b style="color:var(--ink)">${dayLabel}</b>`:String(h.hour).padStart(2,'0')}</div>
-      <div class="ic">${icon(h.symbol,40)}</div>
-      <div class="t"></div>
-      <div class="rbox">${bar(h.rain_max,'max')}${bar(h.rain,'yr')}${showG?bar(h.g_rain,'g'):''}${showG&&h.disagree?'<span class="disagree" title="Yr og Google er uenige denne timen"></span>':''}</div>
-      <div class="mm">${h.rain>=.1?fmt(h.rain):''}</div>
-      <div class="gmm">${showG&&h.g_rain!=null&&h.g_rain>=.02?fmtSmall(h.g_rain):''}</div>
-      <div class="pop">${h.pop!=null&&h.pop>=10?Math.round(h.pop)+'%':''}</div>
-      <div class="w">${arrow(h.wind_dir,12)}${h.wind==null?'':Math.round(h.wind)}</div>
-    </div>`;
+  const PAD=14, COL=(Wc-2*PAD)/n;
+  const hourLabel=(h,i)=>i===0?'Nå':h.hour===0?DAYS_SHORT[new Date(h.time).getDay()]:String(h.hour).padStart(2,'0');
+  const step=COL>=34?1:COL*3>=34?3:4;
+  // Merk hele klokkeslett delelig med steget (så midnatt alltid får etikett), og ikke rett ved «Nå».
+  const show=i=>i===0||step===1||(H[i].hour%step===0&&i>=2);
+  const labeled=H.map((h,i)=>i).filter(show);
+  const RMAX=5, TOP=24, ICON=Math.min(40,Math.max(26,COL*step-8));
+  const iy=TOP, t0=iy+ICON+22, t1=t0+(step===1?46:40);
+  const r0=t1+14, RH=dry?0:(step===1?56:48), rb=r0+RH;
+  const mmY=rb+13, gY=rb+26, popY=rb+(showG?39:26), wY=dry?t1+22:(step===1?popY+18:rb+32), HEIGHT=wY+10;
+  const ty=t=>t0+(tMax-t)/(tMax-tMin)*(t1-t0);
+  const cx=i=>PAD+i*COL+COL/2;
+  let s=`<svg width="${Wc}" height="${HEIGHT}" class="stripsvg" role="img" aria-label="Varsel time for time">`;
+  s+=`<rect x="${PAD+COL/2-Math.max(COL,22)/2}" y="0" width="${Math.max(COL,22)}" height="${HEIGHT}" rx="8" fill="var(--blue-ghost)"/>`;
+  H.forEach((h,i)=>{ if(h.hour===0&&i>0) s+=`<line x1="${PAD+i*COL}" y1="20" x2="${PAD+i*COL}" y2="${HEIGHT}" stroke="var(--muted)" stroke-opacity=".45" stroke-dasharray="3 3"/>`});
+  H.forEach((h,i)=>{ if(!show(i)) return; const x=cx(i);
+    s+=`<text x="${x}" y="15" text-anchor="middle" font-size="12" ${i===0?'font-weight="700" fill="var(--blue)"':h.hour===0?'font-weight="700" fill="var(--ink)"':'fill="var(--muted)"'}>${hourLabel(h,i)}</text>`;
+    s+=icon(h.symbol,ICON).replace('<svg ',`<svg x="${x-ICON/2}" y="${iy}" `);
   });
-  const width=H.length*COL;
-  const line=(key,dash,color)=>{const pts=H.filter(h=>h[key]!=null).map(h=>`${H.indexOf(h)*COL+COL/2},${ty(h[key])}`).join(' ');return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" ${dash?'stroke-dasharray="4 4"':''} stroke-linejoin="round" stroke-linecap="round"/>`};
-  let svg=`<svg class="tempsvg" width="${width}" height="70">`;
-  if(showG) svg+=line('g_temp',true,'var(--google)');
-  svg+=line('temp',false,'var(--warm)');
-  H.forEach((h,i)=>{if(h.temp==null)return;const x=i*COL+COL/2,y=ty(h.temp);svg+=`<circle cx="${x}" cy="${y}" r="3" fill="var(--warm)"/><text x="${x}" y="${y-8}" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">${Math.round(h.temp)}°</text>`});
-  svg+='</svg>';
-  const strip=$('strip');
-  strip.style.width=width+'px';
-  strip.innerHTML=`<div class="cols">${cols}</div>${svg}`;
+  const line=(key,dash,color)=>`<polyline points="${H.map((h,i)=>h[key]==null?null:`${cx(i)},${ty(h[key])}`).filter(Boolean).join(' ')}" fill="none" stroke="${color}" stroke-width="2.5" ${dash?'stroke-dasharray="4 4"':''} stroke-linejoin="round" stroke-linecap="round"/>`;
+  if(showG) s+=line('g_temp',true,'var(--google)');
+  s+=line('temp',false,'var(--warm)');
+  H.forEach((h,i)=>{ if(h.temp==null||!show(i)) return; const x=cx(i), y=ty(h.temp);
+    s+=`<circle cx="${x}" cy="${y}" r="3" fill="var(--warm)"/><text x="${x}" y="${y-8}" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">${Math.round(h.temp)}°</text>`});
+  if(!dry){
+    s+=`<line x1="0" y1="${rb}" x2="${Wc}" y2="${rb}" stroke="var(--line)"/>`;
+    const bw=Math.max(3,Math.min(26,COL-3));
+    H.forEach((h,i)=>{ const x=cx(i)-bw/2, hh=v=>Math.max(3,Math.min(v,RMAX)/RMAX*RH);
+      if(h.rain_max>0) s+=`<rect x="${x}" y="${rb-hh(h.rain_max)}" width="${bw}" height="${hh(h.rain_max)}" rx="2" fill="var(--blue-soft)"/>`;
+      if(h.rain>0) s+=`<rect x="${x}" y="${rb-hh(h.rain)}" width="${bw}" height="${hh(h.rain)}" rx="2" fill="var(--blue)"/>`;
+      if(showG&&h.g_rain>0){const gw=Math.max(2,bw*.35);s+=`<rect x="${cx(i)-gw/2}" y="${rb-hh(h.g_rain)}" width="${gw}" height="${hh(h.g_rain)}" fill="none" stroke="var(--google)" stroke-width="1.6"/>`}
+      if(showG&&h.disagree) s+=`<circle cx="${cx(i)}" cy="${r0-4}" r="3.5" fill="var(--warn)"><title>Yr og Google er uenige denne timen</title></circle>`;
+      if(step===1){
+        if(h.rain>=.1) s+=`<text x="${cx(i)}" y="${mmY}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--blue)">${fmt(h.rain)}</text>`;
+        if(showG&&h.g_rain!=null&&h.g_rain>=.02) s+=`<text x="${cx(i)}" y="${gY}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--google)">${fmtSmall(h.g_rain)}</text>`;
+        if(h.pop!=null&&h.pop>=10) s+=`<text x="${cx(i)}" y="${popY}" text-anchor="middle" font-size="11" fill="var(--muted)">${Math.round(h.pop)}%</text>`;
+      }
+    });
+    if(step>1){ // på smal skjerm: skriv bare mengden i den våteste timen i hver blokk
+      labeled.forEach((b,k)=>{ const e=k+1<labeled.length?labeled[k+1]:n, blk=H.slice(b,e), tot=blk.reduce((a,h)=>a+(h.rain||0),0);
+        if(tot>=.1) s+=`<text x="${(cx(b)+cx(e-1))/2}" y="${mmY}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--blue)">${fmt(tot)}</text>`;});
+    }
+  }
+  H.forEach((h,i)=>{ if(!show(i)||h.wind==null) return; const x=cx(i);
+    s+=`<g transform="translate(${x-9} ${wY-5}) rotate(${(h.wind_dir??0)+180} 0 0)"><path d="M0 -5 L3.5 4 L0 2 L-3.5 4 Z" fill="var(--muted)"/></g><text x="${x-2}" y="${wY}" font-size="12" fill="var(--muted)">${Math.round(h.wind)}</text>`});
+  s+='</svg>';
+  strip.style.width=Wc+'px';
+  strip.innerHTML=s;
 }
 $('showG').onchange=drawStrip;
 
 /* ---------- Dagsliste ---------- */
+const MOBILE=window.matchMedia('(max-width:760px)');
+const tcol=t=>t>0?'var(--warm)':'var(--blue)';
+function dayDate(d){const dt=new Date(d.date+'T12:00:00');
+  return d.label===d.weekday?`${dt.getDate()}.${dt.getMonth()+1}.`:`${DAYS_SHORT[dt.getDay()]} ${dt.getDate()}.${dt.getMonth()+1}.`}
 function renderDays(){
   const D=DATA.days.filter(d=>d.tmin!=null);
+  const box=$('days');
+  if(MOBILE.matches){
+    box.className='dcards';
+    let s=`<div class="dc-hdr"><span>Natt</span><span>Morg.</span><span>Ettm.</span><span>Kveld</span></div>`;
+    D.forEach(d=>{
+      const wind=d.wind_max==null?'':`${d.wind_max}${d.gust_max!=null&&d.gust_max>d.wind_max?` (${d.gust_max})`:''} m/s`;
+      const rain=d.rain>=.1?`${fmt1(d.rain)} mm${d.observed?` <span class="muted">(${fmt1(d.observed)} målt)</span>`:''}`:'';
+      const g=d.g_rain!=null&&(d.g_rain>=.1||d.rain>=.1)?`<div class="dc-g">Google ${fmt1(d.g_rain)} mm</div>`:'';
+      s+=`<div class="dc"><div class="dc-l"><div class="dc-n">${d.label} <span>${dayDate(d)}</span></div>
+        <div class="dc-t"><span style="color:${tcol(d.tmax)}">${d.tmax}°</span><span class="sl">/</span><span style="color:${tcol(d.tmin)}">${d.tmin}°</span></div>
+        ${rain?`<div class="dc-r">${rain}</div>`:''}${g}<div class="dc-w">${wind}</div></div>
+        <div class="dc-i">${d.periods.map(p=>`<div class="dc-p">${p.symbol?icon(p.symbol,44):'<span class="dash">–</span>'}<small>${p.symbol&&p.rain>=.1?fmt(p.rain):''}</small></div>`).join('')}</div></div>`;
+    });
+    box.innerHTML=s; return;
+  }
+  box.className='days';
   const lo=Math.min(...D.map(d=>d.tmin)), hi=Math.max(...D.map(d=>d.tmax)), span=Math.max(1,hi-lo);
   const rmax=Math.max(1,...D.map(d=>Math.max(d.rain,d.g_rain||0)));
   let s=`<div class="hdr"></div><div class="hdr">Natt</div><div class="hdr">Morg.</div><div class="hdr">Ettm.</div><div class="hdr">Kveld</div><div class="hdr">Temp.</div><div class="hdr rain-h">Nedbør (mm)</div>`;
   D.forEach(d=>{
-    const dt=new Date(d.date+'T12:00:00');
-    const sub=d.label===d.weekday?`${dt.getDate()}.${dt.getMonth()+1}.`:`${DAYS_SHORT[dt.getDay()]} ${dt.getDate()}.${dt.getMonth()+1}.`;
-    s+=`<div class="cell dname">${d.label}<span>${sub}</span></div>`;
+    s+=`<div class="cell dname">${d.label}<span>${dayDate(d)}${d.wind_max!=null?` · ${d.wind_max} m/s`:''}</span></div>`;
     d.periods.forEach(p=>{
       if(p.symbol) s+=`<div class="cell per">${icon(p.symbol,38)}<small>${p.rain>=.1?fmt(p.rain):''}</small></div>`;
-      else s+=`<div class="cell per past">${p.observed?`<small class="obs">${fmt1(p.rain)}</small><span class="obs-l">målt</span>`:'<span class="dash">–</span>'}</div>`;
+      else s+=`<div class="cell per past"><span class="dash">–</span></div>`;
     });
     const l=(d.tmin-lo)/span*100, w=(d.tmax-d.tmin)/span*100;
     s+=`<div class="cell"><div class="range"><span class="lo">${d.tmin}°</span><span class="track"><span class="fill" style="left:${l}%;width:${Math.max(w,3)}%"></span></span><span class="hi">${d.tmax}°</span></div></div>`;
     let r=`<span class="track2">${d.rain>0?`<span class="rb" style="width:${Math.max(2,d.rain/rmax*100)}%"></span>`:''}</span><span class="v${d.rain>0?'':' dry'}">${d.rain>0?fmt1(d.rain):'0'}</span>`;
     if(d.g_rain!=null) r+=`<span class="track2 g">${d.g_rain>0?`<span class="rb g" style="width:${Math.max(2,d.g_rain/rmax*100)}%"></span>`:''}</span><span class="v g">${fmt1(d.g_rain)}</span>`;
-    if(d.observed) r+=`<span class="note">${fmt1(d.observed)} mm målt hittil i dag er tatt med</span>`;
+    if(d.observed) r+=`<span class="note">Inkludert ${fmt1(d.observed)} mm målt i natt</span>`;
     s+=`<div class="cell"><div class="rain-tot">${r}</div></div>`;
   });
-  $('days').innerHTML=s;
+  box.innerHTML=s;
 }
+MOBILE.addEventListener('change',()=>{if(DATA)renderDays()});
+let _rs;window.addEventListener('resize',()=>{clearTimeout(_rs);_rs=setTimeout(()=>{if(DATA)drawStrip()},150)});
 
 /* ---------- Tillit ---------- */
 function renderTrust(d){

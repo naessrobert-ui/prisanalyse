@@ -113,6 +113,20 @@ SYMBOL_TEXT = [
 ]
 
 
+def feels_like(temp: Optional[float], wind: Optional[float]) -> Optional[float]:
+    """Effektiv temperatur med vindavkjøling (JAG/TI), slik Yr viser «Føles som».
+
+    Yr bruker formelen også over 10 grader. Over 20 grader og i svak vind
+    (under 1,34 m/s = 4,8 km/t) gir formelen ingen mening, og vi viser lufttemperaturen.
+    """
+    if temp is None:
+        return None
+    if wind is None or wind < 1.34 or temp > 20:
+        return temp
+    v = (wind * 3.6) ** 0.16
+    return min(temp, 13.12 + 0.6215 * temp - 11.37 * v + 0.3965 * temp * v)
+
+
 def symbol_text(symbol: Optional[str]) -> str:
     for key, text in SYMBOL_TEXT:
         if symbol and symbol.startswith(key):
@@ -261,7 +275,10 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
                 "rain": round(sum(p["rain"] for p in chunk) + obs, 1),
                 "observed": bool(obs) and not chunk,
             })
-        temps = [r["temp"] for r in rows if r["temp"] is not None and day_start <= _local(r["time"]) < day_end]
+        day_rows = [r for r in rows if day_start <= _local(r["time"]) < day_end]
+        winds = [r["wind"] for r in day_rows if r["wind"] is not None]
+        gusts = [r["gust"] for r in day_rows if r["gust"] is not None]
+        temps = [r["temp"] for r in day_rows if r["temp"] is not None]
         temps += [v for p in in_day for v in (p["tmax"], p["tmin"]) if v is not None]
         observed_today = round(sum(observed.values()), 1) if offset == 0 else None
         yr_rain = sum(p["rain"] for p in in_day) + (observed_today or 0.0)
@@ -287,6 +304,8 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
             "rain": round(yr_rain, 1),
             "g_rain": g_rain,
             "observed": observed_today,
+            "wind_max": round(max(winds)) if winds else None,
+            "gust_max": round(max(gusts)) if gusts else None,
         })
     return days
 
@@ -635,9 +654,11 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
         "temp": nowcast.get("temp") if nowcast.get("temp") is not None else current.get("temp"),
         "wind": nowcast.get("wind") if nowcast.get("wind") is not None else current.get("wind"),
         "wind_dir": nowcast.get("wind_dir") if nowcast.get("wind_dir") is not None else current.get("wind_dir"),
+        "gust": current.get("gust"),
         "symbol": current.get("symbol"),
         "text": symbol_text(current.get("symbol")),
     }
+    now_block["feels_like"] = feels_like(now_block["temp"], now_block["wind"])
     trust_rows = _trust_rows()
     meta = (yr_payload.get("properties") or {}).get("meta") or {}
     return {

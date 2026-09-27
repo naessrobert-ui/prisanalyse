@@ -209,3 +209,17 @@ def test_page_and_radar_routes():
         radar = client.get("/ver/api/radar/bergen.gif")
     assert radar.status_code == 200 and radar.mimetype == "image/gif"
     assert client.get("/ver/api/radar/oslo.gif").status_code == 404
+
+
+def test_feels_like_matches_yr_example():
+    # Yr viste «Føles som 11°» ved 13° og 7 m/s.
+    assert round(vv.feels_like(13, 7)) == 11
+    assert vv.feels_like(13, 1.0) == 13
+    assert vv.feels_like(24, 8) == 24
+    assert vv.feels_like(None, 5) is None
+
+
+def test_days_report_max_wind_and_gust():
+    rows = vv.parse_yr(yr_payload(wind=9.4))
+    day = vv.build_days(rows, [], {}, NOW)[0]
+    assert day["wind_max"] == 9
