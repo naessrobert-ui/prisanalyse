@@ -43,8 +43,14 @@ Varsling (bruk én eller begge – sender bare via de som er konfigurert):
     KUPP_VARSEL_TO    – mottaker(e), komma-separert
     KUPP_VARSEL_FROM  – avsender (default SMTP_USER)
 
+Favoritter (hvor mange som har lagret annonsen):
+    KUPP_FAVORITTER   – "1" (default): slå opp annonsesiden for hver varslede
+                         bil og ta med antall favoritter i varsel og logg.
+                         "0" = av. Nye annonser har naturlig få favoritter.
+
 Kjøring:
     python -m scripts.kupp_vakt            # normal kjøring
+    python -m scripts.kupp_vakt --favoritter 123456789  # test favoritt-parser
     python -m scripts.kupp_vakt --seed     # bare seed state, ingen varsler
     python -m scripts.kupp_vakt --dry-run  # score + skriv ut, ikke send/lagre
 """
@@ -508,6 +514,119 @@ def _price(card) -> str:
     return re.sub(r"[\s ]+", "", m.group(1)) if m else ""
 
 
+# ======================================================
+# Antall favoritter (hvor mange som har lagret annonsen)
+# ======================================================
+# Tallet står på annonsesiden ved hjerte-/favorittknappen, som et rent tall i
+# en <span class="pl-4 ...">. pl-4 er en generisk Tailwind-klasse, så vi krever
+# i tillegg et favoritt-hint (aria-label/tekst/klasse) i nærheten av spanen.
+# Faller tilbake på tekst ("12 har lagret") og JSON i sidedata. None = ukjent.
+
+FAVORITTER_ON = os.getenv("KUPP_FAVORITTER", "1").strip() != "0"
+_FAV_HINT = re.compile(r"favorit|favourite|favorite|lagre|lagret|hjerte|heart", re.I)
+_FAV_TEKST = re.compile(
+    r"(\d[\d\s\xa0]*)\s*(?:personer\s+|stk\.?\s+)?(?:har\s+)?"
+    r"(?:lagret|favoritt|lagt\s+til\s+i\s+favoritter)", re.I)
+_FAV_JSON = re.compile(
+    r'"(?:favou?rites?(?:Count)?|favou?rite_?count|numberOfFavou?rites|'
+    r'favou?ritedCount|savedCount)"\s*:\s*(\d+)', re.I)
+
+
+def _heltall(txt: str) -> int | None:
+    t = re.sub(r"[\s\xa0 ]+", "", txt or "")
+    return int(t) if t.isdigit() else None
+
+
+def _har_fav_hint(node, dybde: int = 40) -> bool:
+    """Sjekk node + et begrenset antall etterkommere for favoritt-hint i
+    attributter (aria-label, title, class, data-*) eller svg-<title>."""
+    if node is None or not hasattr(node, "attrs"):
+        return False
+    kandidater = [node] + node.find_all(True, limit=dybde)
+    for el in kandidater:
+        for key, val in el.attrs.items():
+            if key == "href":
+                continue
+            v = " ".join(val) if isinstance(val, list) else str(val)
+            if _FAV_HINT.search(v):
+                return True
+        if el.name == "title" and _FAV_HINT.search(el.get_text(" ", strip=True)):
+            return True
+    return False
+
+
+def parse_favoritter(html: str) -> int | None:
+    """Antall personer som har lagret annonsen, fra HTML på annonsesiden."""
+    if not html:
+        return None
+    soup = BeautifulSoup(html, "lxml")
+
+    # 1) <span class="pl-4 ...">N</span> ved en favorittknapp/hjerteikon
+    for sp in soup.select("span.pl-4"):
+        n = _heltall(sp.get_text(strip=True))
+        if n is None:
+            continue
+        node = sp
+        for _ in range(3):
+            node = node.parent
+            if node is None:
+                break
+            if _har_fav_hint(node):
+                return n
+
+    # 2) Knapp/element med aria-label som "12 personer har lagret annonsen"
+    for el in soup.find_all(attrs={"aria-label": True}):
+        m = _FAV_TEKST.search(str(el.get("aria-label")))
+        if m and _heltall(m.group(1)) is not None:
+            return _heltall(m.group(1))
+
+    # 3) Synlig tekst, f.eks. "12 har lagret annonsen"
+    m = _FAV_TEKST.search(soup.get_text(" ", strip=True))
+    if m and _heltall(m.group(1)) is not None:
+        return _heltall(m.group(1))
+
+    # 4) Hydreringsdata / JSON i sida
+    m = _FAV_JSON.search(html)
+    return int(m.group(1)) if m else None
+
+
+def hent_favoritter(finnkode: str, session=None) -> int | None:
+    """Slå opp annonsesiden og returner antall favoritter (None ved feil)."""
+    if not FAVORITTER_ON or not finnkode:
+        return None
+    eie = session is None
+    session = session or _make_session()
+    try:
+        resp = _fetch(session, FINN_ITEM_URL.format(finnkode))
+        return parse_favoritter(resp.text) if resp is not None else None
+    except Exception as e:
+        print(f"[kupp_vakt] Klarte ikke hente favoritter for {finnkode}: {e}")
+        return None
+    finally:
+        if eie:
+            session.close()
+
+
+def berik_favoritter(biler: list[dict]) -> None:
+    """Sett b["favoritter"] for hver bil (kun for varslede biler – ett ekstra
+    FINN-oppslag per bil). Feil gir None og stopper aldri varslingen."""
+    if not FAVORITTER_ON or not biler:
+        return
+    session = _make_session()
+    try:
+        for b in biler:
+            b["favoritter"] = hent_favoritter(str(b.get("FinnKode") or ""), session)
+    finally:
+        session.close()
+
+
+def _fav_tekst(b: dict) -> str:
+    n = b.get("favoritter")
+    if n is None or (isinstance(n, float) and n != n):
+        return ""
+    return f"❤ {int(n)}"
+
+
 def scrape_nyeste() -> list[dict]:
     """Hent de nyeste annonsene (begge hjuldrift-søk, få sider)."""
     biler: dict[str, dict] = {}
@@ -662,6 +781,7 @@ def _logg_record(b: dict, naa: str) -> dict:
         "selger_filter": _selger or "alle",
         "fylke_filter": os.getenv("KUPP_FYLKE", "").strip() or "hele landet",
         "i_hjemfylke": b.get("i_hjemfylke"),
+        "favoritter": num(b.get("favoritter")),
         "url": b.get("url"),
     }
 
@@ -722,7 +842,8 @@ def _formater_bil(b: dict) -> str:
         + f" ({b.get('Årstall') or '?'}, {kr(b.get('Kjørelengde')).replace(' kr', ' km')})"
         f"{stedtekst}\n"
         f"  Pris: {kr(b.get('Pris'))}  |  Forventet: {kr(b.get('forventet_pris'))}"
-        f"  |  Rabatt: {b.get('rabatt_pct')} %\n"
+        f"  |  Rabatt: {b.get('rabatt_pct')} %"
+        + (f"  |  Favoritter: {int(b['favoritter'])}" if _fav_tekst(b) else "") + "\n"
         f"  Hurtigpris: {kr(b.get('hurtigpris'))}  |  Innbytte: {kr(b.get('innbyttepris'))}\n"
         f"  {b.get('url')}"
     )
@@ -776,8 +897,9 @@ def _pushover_melding(kupp: list[dict]) -> str:
         kr_s = f" / -{kr(rab_kr)} kr" if rab_kr is not None and not pd.isna(rab_kr) else ""
         sted = (b.get("sted") or b.get("Sted") or "").strip()
         sted_s = f" – {sted}" if sted else ""
+        fav_s = f" · {_fav_tekst(b)}" if _fav_tekst(b) else ""
         linje = (
-            f"{navn} {b.get('Årstall') or '?'}, {kr(b.get('Kjørelengde'))} km{sted_s}\n"
+            f"{navn} {b.get('Årstall') or '?'}, {kr(b.get('Kjørelengde'))} km{sted_s}{fav_s}\n"
             f"{kr(b.get('Pris'))} kr ({rab_s}{kr_s} mot {kr(b.get('forventet_pris'))})\n"
             f"{b.get('url')}"
         )
@@ -1036,6 +1158,8 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
     print(f"[kupp_vakt] {len(kupp)} kupp over terskel ({terskel}"
           + (" eller under hurtigpris" if UNDER_HURTIG else "") + vekting + ")")
 
+    berik_favoritter(kupp)
+
     if dry_run:
         for b in kupp:
             print(_formater_bil(b))
@@ -1080,7 +1204,13 @@ def main():
     parser.add_argument("--vis-alle", dest="vis_alle", action="store_true",
                         help="Tuning: scor og vis ALLE nåværende kandidater "
                              "(uansett state), marker [KUPP]. Sender/lagrer ikke.")
+    parser.add_argument("--favoritter", metavar="FINNKODE",
+                        help="Debug: hent og vis antall favoritter for én annonse")
     args = parser.parse_args()
+    if args.favoritter:
+        print(f"[kupp_vakt] {args.favoritter}: favoritter = "
+              f"{hent_favoritter(args.favoritter)}")
+        return
     if args.test:
         send_testvarsel()
         return

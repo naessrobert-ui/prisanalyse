@@ -25,6 +25,7 @@ def thresholds(monkeypatch):
     monkeypatch.setattr(p.kupp, "HJEMFYLKE_KODE", "0.22046")
     monkeypatch.setattr(p.kupp, "UTENFOR_TILLEGG_PP", 8)
     monkeypatch.setattr(p.kupp, "NABO_KODER", [])
+    monkeypatch.setattr(p.kupp, "hent_favoritter", lambda *a, **kw: None)
 
 
 def car(price=300000, date=DAY1, **kwargs):
