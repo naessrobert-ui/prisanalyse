@@ -155,8 +155,9 @@ RABATT_KR_MIN = float(os.getenv("KUPP_RABATT_KR_MIN", "0") or 0)
 # ellers ville en billig bil så vidt under hurtigpris varsle tross høyt %-krav.
 UNDER_HURTIG = os.getenv("KUPP_UNDER_HURTIG", "0").strip() not in ("0", "false", "")
 MAX_VARSLER = int(os.getenv("KUPP_MAX_VARSLER", "40") or 40)
-# Eldre annonser publisert på nytt varsles ikke (se _gamle_annonser). 0 = av.
-MAKS_ANNONSEALDER_T = float(os.getenv("KUPP_MAKS_ANNONSEALDER_T", "12") or 0)
+# Eldre annonser publisert på nytt varsles ikke (se _gamle_annonser): FINN-
+# koden må være høyere enn alt vi så for over så mange timer siden. 0 = av.
+MAKS_ANNONSEALDER_T = float(os.getenv("KUPP_MAKS_ANNONSEALDER_T", "1") or 0)
 
 
 # --- Drivstoff-filter ----------------------------------------------------
@@ -1071,10 +1072,11 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
     kandidater = [b for b in nye if _match_filtre(b)]
     if DRIVSTOFF_FILTER or STED_FILTER:
         print(f"[kupp_vakt] {len(kandidater)} kandidater etter drivstoff/sted-filter")
-    gamle = _gamle_annonser(s3, kandidater, naa)
+    gamle = _gamle_annonser(s3, kandidater, naa, state)
     if gamle:
         print(f"[kupp_vakt] {len(gamle)} eldre annonser publisert på nytt – varsles ikke "
-              f"(FINN-kode eldre enn {MAKS_ANNONSEALDER_T} t)")
+              f"(FINN-kode eldre enn {MAKS_ANNONSEALDER_T:g} t)")
+        kandidater = [b for b in kandidater if str(b.get("FinnKode") or "") not in gamle]
 
     hjem = _hjem_sett(biler) if kandidater else None
     nabo = _nabo_sett() if hjem is not None else None
@@ -1087,8 +1089,6 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
     if not scoret.empty:
         for _, row in scoret.iterrows():
             d = row.to_dict()
-            if str(d.get("FinnKode") or "") in gamle:
-                continue
             delta = _terskel_delta(d, hjem, nabo)
             if _er_kupp(d, delta, _kr_gulv(d, hjem)):
                 d["i_hjemfylke"] = (hjem is None
@@ -1149,24 +1149,33 @@ def kjor(seed: bool = False, dry_run: bool = False, vis_alle: bool = False) -> i
     return len(kupp)
 
 
-def _gamle_annonser(s3, biler: list[dict], naa: str) -> set:
-    """FinnKoder som er eldre annonser publisert på nytt. Slike havner øverst
-    i «nyeste» og ser nye ut når de har falt ut av state (7 dager). FINN-koder
-    deles ut fortløpende: er koden ikke høyere enn det vi så for over
-    MAKS_ANNONSEALDER_T timer siden, er annonsen eldre enn det. For kort
-    historikk (ukjent) stopper ingenting."""
+def _gamle_annonser(s3, biler: list[dict], naa: str, state: dict | None = None) -> set:
+    """FinnKoder som er eldre annonser publisert på nytt/løftet. Slike havner
+    øverst i «nyeste» og ser nye ut. FINN-koder deles ut fortløpende: er koden
+    ikke høyere enn den høyeste vi så for over MAKS_ANNONSEALDER_T timer
+    siden, er annonsen eldre enn det. Referansen er kodehistorikken fra
+    favoritt-sporingen pluss alle annonser i state (FinnKode -> først sett),
+    så sjekken virker uten oppvarming. For kort historikk stopper ingenting."""
     if MAKS_ANNONSEALDER_T <= 0 or not biler:
         return set()
     from scripts import favoritt_spor
     try:
-        historikk = favoritt_spor.les_kode_historikk(s3)
+        historikk = list(favoritt_spor.les_kode_historikk(s3))
     except Exception as e:
         print(f"[kupp_vakt] Klarte ikke lese kodehistorikk: {e}")
-        return set()
+        historikk = []
+    for fk, ts in (state or {}).items():
+        if str(fk).isdigit() and isinstance(ts, str):
+            historikk.append([ts, int(fk)])
     naa_dt = datetime.fromisoformat(naa)
-    return {str(b["FinnKode"]) for b in biler
-            if favoritt_spor.kode_fersk(b.get("FinnKode"), historikk, naa_dt,
-                                        maks_min=MAKS_ANNONSEALDER_T * 60) is False}
+    maks_min = MAKS_ANNONSEALDER_T * 60
+    try:
+        return {str(b["FinnKode"]) for b in biler
+                if favoritt_spor.kode_fersk(b.get("FinnKode"), historikk, naa_dt,
+                                            maks_min=maks_min) is False}
+    except Exception as e:
+        print(f"[kupp_vakt] Klarte ikke sjekke FINN-koder: {e}")
+        return set()
 
 
 def _favoritt_spor(s3, nye, naa, **kw) -> int:

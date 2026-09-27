@@ -47,7 +47,7 @@ MAALEPUNKT_MIN = (180, 1440)       # ekstra målinger etter ≈ 3 t og ≈ 24 t
 SPOR_MAKS_MIN = 30 * 60            # gi opp sporet etter 30 t
 OPPHOLD_MIN = 25                   # lengre siden forrige kjøring = ukjent alder
 KODE_MAKS_MIN = int(os.getenv("KUPP_POPULAER_KODE_MIN", "60") or 60)
-KODE_HISTORIKK_TIMER = 48         # kuppvakten ser opptil KUPP_MAKS_ANNONSEALDER_T bakover
+KODE_HISTORIKK_TIMER = 48         # rikelig for KUPP_MAKS_ANNONSEALDER_T
 
 
 def parse_regler(spec: str) -> list[tuple[int, int]]:
