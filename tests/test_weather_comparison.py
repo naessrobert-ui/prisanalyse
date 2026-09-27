@@ -70,6 +70,21 @@ def test_google_pagination_uses_two_pages_and_preserves_parameters(monkeypatch):
     assert "test-private-key" not in str(result)
 
 
+def test_google_extra_page_token_keeps_first_two_pages(monkeypatch):
+    monkeypatch.setenv("GOOGLE_WEATHER_API_KEY", "test-private-key")
+    calls = []
+
+    def respond(url, **kwargs):
+        calls.append(dict(kwargs["params"]))
+        return {"forecastHours": [google_hour()], "nextPageToken": f"side{len(calls) + 1}"}
+
+    with patch.object(wc, "_get_json", side_effect=respond):
+        result = wc._fetch("bergen", "google")
+    assert len(calls) == 2
+    assert len(result["hours"]) == 2
+    assert result["error"] is None
+
+
 def test_upstream_errors_do_not_disclose_key():
     response = Mock(status_code=403)
     response.json.return_value = {"error": "secret-in-upstream-error"}

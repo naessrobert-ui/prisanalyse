@@ -133,10 +133,8 @@ def _fetch(place, provider):
             payload = _get_json("https://weather.googleapis.com/v1/forecast/hours:lookup", params=params)
             rows.extend(payload.get("forecastHours") or [])
             token = payload.get("nextPageToken")
-            if not token:
-                break
-            if page == 1:
-                raise ForecastError("Google returnerte et ufullstendig timevarsel.")
+            if not token or page == 1:
+                break  # To sider à 24 timer dekker 48 timer; eventuelle flere sider trengs ikke.
             params["pageToken"] = token
         rows = normalize_google(rows)
     else:
