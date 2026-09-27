@@ -912,6 +912,95 @@ def varsel_api(sted: str):
     return response
 
 
+# ---------------------------------------------------------------------------
+# Google for vilkårlige punkter (aktivt varsel)
+# ---------------------------------------------------------------------------
+
+class GoogleQuotaExceeded(Exception):
+    pass
+
+
+_QUOTA = {"day": None, "calls": 0}
+_QUOTA_LOCK = threading.Lock()
+
+
+def _google_quota() -> int:
+    import os
+
+    try:
+        return max(0, int(os.environ.get("GOOGLE_PUNKT_MAKS_PER_DOGN", "200")))
+    except ValueError:
+        return 200
+
+
+def _count_google_call() -> None:
+    """Teller kall mot Google for vilkårlige steder og stopper ved dagens tak."""
+    today = datetime.now(timezone.utc).date()
+    with _QUOTA_LOCK:
+        if _QUOTA["day"] != today:
+            _QUOTA.update(day=today, calls=0)
+        if _QUOTA["calls"] >= _google_quota():
+            raise GoogleQuotaExceeded()
+        _QUOTA["calls"] += 1
+
+
+def _fixed_place(lat: float, lon: float) -> Optional[str]:
+    for place, p in PLACES.items():
+        if abs(p["lat"] - lat) <= 0.05 and abs(p["lon"] - lon) <= 0.05:
+            return place
+    return None
+
+
+def google_point(lat: float, lon: float) -> dict[str, Any]:
+    """Googles timesvarsel for et punkt, i samme form som WeatherNext-API-et.
+
+    Faste steder bruker den felles cachen. Andre steder deles i ruter på
+    0,1 grad (ca. 11 x 6 km her til lands) med én time cache per rute, slik at
+    flere oppslag i samme område bare koster ett sett kall.
+    """
+    from scripts.weather_comparison import ForecastError, fetch_google_hours
+
+    place = _fixed_place(lat, lon)
+    if place:
+        hours = _fetch_google(place)
+        cell = (PLACES[place]["lat"], PLACES[place]["lon"])
+    else:
+        cell = (round(lat, 1), round(lon, 1))
+        try:
+            hours = _CACHE.get(("google_point", cell), 3300,
+                               lambda: fetch_google_hours(cell[0], cell[1], on_call=_count_google_call))
+        except ForecastError:
+            raise RuntimeError("Google svarte ikke.") from None
+    timer = [{"t": h["start"],
+              "temp": {"mean": h["temp"]} if h.get("temp") is not None else None,
+              "regn": {"mean": h["rain"]} if h.get("rain") is not None else None,
+              "vind": {"mean": h["wind"]} if h.get("wind") is not None else None}
+             for h in hours]
+    return {"kilde": "google-api", "celle": {"lat": cell[0], "lon": cell[1]}, "timer": timer}
+
+
+@vaer_varsel.get("/ver/api/google-punkt")
+def google_point_api():
+    from flask import request
+
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return jsonify(error="lat/lon mangler"), 400
+    try:
+        payload = google_point(lat, lon)
+    except GoogleQuotaExceeded:
+        return jsonify(error="Dagens kvote for Google-oppslag er brukt opp."), 429
+    except RuntimeError as exc:
+        return jsonify(error=str(exc)), 503
+    if not payload["timer"]:
+        return jsonify(error="Google returnerte ingen timer."), 503
+    response = jsonify(payload)
+    # Nettleseren kan gjenbruke svaret en stund, men ikke lenger enn Googles vilkår tillater.
+    response.headers["Cache-Control"] = "private, max-age=900"
+    return response
+
+
 @vaer_varsel.get("/ver/api/radar/<sted>.gif")
 def radar_gif(sted: str):
     area = RADAR_AREA.get(sted)

@@ -300,3 +300,50 @@ def test_google_days_only_for_bergen(monkeypatch):
     with patch.object(vv, "_get") as get:
         assert vv._fetch_google_days("kvamskogen") == []
         get.assert_not_called()
+
+
+def _g_hours(n=48):
+    return [{"start": (START + timedelta(hours=i)).isoformat().replace("+00:00", "Z"),
+             "temp": 20.0, "rain": 0.0, "wind": 3.0} for i in range(n)]
+
+
+def test_google_point_caches_per_cell_and_counts_calls(monkeypatch):
+    from scripts import weather_comparison as wc
+    vv._CACHE.clear()
+    vv._QUOTA.update(day=None, calls=0)
+    calls = []
+
+    def fake(lat, lon, on_call=None):
+        on_call()
+        on_call()
+        calls.append((lat, lon))
+        return _g_hours()
+
+    monkeypatch.setattr(wc, "fetch_google_hours", fake)
+    a = vv.google_point(38.3436, -0.4882)
+    b = vv.google_point(38.3301, -0.5102)  # samme rute på 0,1 grad
+    assert calls == [(38.3, -0.5)]
+    assert vv._QUOTA["calls"] == 2
+    assert a["kilde"] == "google-api" and a["timer"][0]["temp"] == {"mean": 20.0} and b == a
+    vv._CACHE.clear()
+
+
+def test_google_point_uses_shared_cache_for_fixed_places():
+    with patch.object(vv, "_fetch_google", return_value=_g_hours()) as fetch:
+        result = vv.google_point(60.39, 5.33)
+    fetch.assert_called_once_with("bergen")
+    assert result["celle"] == {"lat": 60.393, "lon": 5.3242}
+
+
+def test_google_point_api_quota_and_validation(monkeypatch):
+    from scripts import weather_comparison as wc
+    vv._CACHE.clear()
+    monkeypatch.setenv("GOOGLE_PUNKT_MAKS_PER_DOGN", "1")
+    vv._QUOTA.update(day=None, calls=0)
+    monkeypatch.setattr(wc, "fetch_google_hours", lambda lat, lon, on_call=None: (on_call(), on_call(), _g_hours())[2])
+    client = _app()
+    assert client.get("/ver/api/google-punkt?lat=x").status_code == 400
+    res = client.get("/ver/api/google-punkt?lat=41.39&lon=2.17")
+    assert res.status_code == 429
+    assert "kvote" in res.json["error"]
+    vv._CACHE.clear()

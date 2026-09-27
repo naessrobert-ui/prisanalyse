@@ -4109,8 +4109,11 @@ async function loadWN3(lat,lon){
   document.getElementById('uenigLegend').style.display='none';
   document.getElementById('enighet').style.display='none';
   try{
-    const r=await fetch(`/ver/api/weathernext?lat=${lat}&lon=${lon}`);
-    if(!r.ok) return;  // ikke aktivert eller feil: siden fungerer som før
+    let r=await fetch(`/ver/api/weathernext?lat=${lat}&lon=${lon}`);
+    // WeatherNext finnes bare for de faste stedene. Ellers: Googles vær-API for
+    // akkurat dette stedet (48 timer, begrenset antall oppslag per døgn).
+    if(!r.ok) r=await fetch(`/ver/api/google-punkt?lat=${lat}&lon=${lon}`);
+    if(!r.ok) return;  // ikke tilgjengelig: siden viser bare Yr
     const d=await r.json();
     if(req!==wn3Req || !d.timer || !d.timer.length) return;
     wn3=d;
@@ -4153,6 +4156,7 @@ function fmtInit(iso){
 function renderWN3Card(){
   if(!wn3) return;
   const card=document.getElementById('wn3Card');
+  if(wn3.kilde==='google-api'){ card.style.display='none'; return; }  // WeatherNext-detaljer gjelder ikke
   card.style.display='block';
   const nå=Date.now();
   const timer=wn3.timer;

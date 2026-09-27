@@ -116,27 +116,37 @@ def _get_json(url, **kwargs):
         raise ForecastError("Kunne ikke hente et gyldig værvarsel. Prøv igjen senere.") from None
 
 
+def fetch_google_hours(lat, lon, on_call=None):
+    """Googles timesvarsel 48 timer frem for et punkt, normalisert. To kall.
+
+    `on_call` kalles før hvert kall mot Google (brukes til å telle kvote).
+    """
+    key = os.environ.get("GOOGLE_WEATHER_API_KEY", "").strip()
+    if not key:
+        raise ForecastError("Google-varselet er ikke aktivert på serveren ennå.")
+    params = {
+        "location.latitude": lat, "location.longitude": lon,
+        "hours": 48, "pageSize": 24, "unitsSystem": "METRIC", "key": key,
+    }
+    rows = []
+    for page in range(2):
+        if on_call is not None:
+            on_call()
+        payload = _get_json("https://weather.googleapis.com/v1/forecast/hours:lookup", params=params)
+        rows.extend(payload.get("forecastHours") or [])
+        token = payload.get("nextPageToken")
+        if not token or page == 1:
+            break  # To sider à 24 timer dekker 48 timer; eventuelle flere sider trengs ikke.
+        params["pageToken"] = token
+    return normalize_google(rows)
+
+
 def _fetch(place, provider):
     coords = PLACES[place]
     fetched = datetime.now(timezone.utc)
     updated = None
     if provider == "google":
-        key = os.environ.get("GOOGLE_WEATHER_API_KEY", "").strip()
-        if not key:
-            raise ForecastError("Google-varselet er ikke aktivert på serveren ennå.")
-        params = {
-            "location.latitude": coords["lat"], "location.longitude": coords["lon"],
-            "hours": 48, "pageSize": 24, "unitsSystem": "METRIC", "key": key,
-        }
-        rows = []
-        for page in range(2):
-            payload = _get_json("https://weather.googleapis.com/v1/forecast/hours:lookup", params=params)
-            rows.extend(payload.get("forecastHours") or [])
-            token = payload.get("nextPageToken")
-            if not token or page == 1:
-                break  # To sider à 24 timer dekker 48 timer; eventuelle flere sider trengs ikke.
-            params["pageToken"] = token
-        rows = normalize_google(rows)
+        rows = fetch_google_hours(coords["lat"], coords["lon"])
     else:
         payload = _get_json(
             "https://api.met.no/weatherapi/locationforecast/2.0/complete",
