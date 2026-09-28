@@ -168,3 +168,15 @@ def test_live_er_av_som_standard(monkeypatch):
         wn.for_punkt(60.39299, 5.32415)
     with pytest.raises(wn.WeatherNextError, match="bare for Bergen"):
         wn.for_punkt(59.91, 10.75)
+
+
+def test_velg_kjoringer_krever_komplette_kjoringer():
+    kort, lang = wn.velg_kjoringer({
+        "2026-09-28T06:00:00Z": 124,   # 6-timerskjøring under innlegging
+        "2026-09-28T00:00:00Z": 360,
+        "2026-09-28T09:00:00Z": 48,
+        "2026-09-28T10:00:00Z": 30,    # timeskjøring under innlegging
+    })
+    assert lang == datetime(2026, 9, 28, 0, tzinfo=timezone.utc)
+    assert kort == datetime(2026, 9, 28, 9, tzinfo=timezone.utc)
+    assert wn.velg_kjoringer({}) == (None, None)

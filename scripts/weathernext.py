@@ -184,15 +184,25 @@ def _init_ee():
     return ee
 
 
-def _nyeste_init_ms(ee, col, fra_ms: int, til_ms: int, full_lengde: int) -> Optional[int]:
-    """Nyeste starttid der kjøringen er komplett (siste ledetid er på plass)."""
-    verdi = (
-        col.filterDate(fra_ms, til_ms)
-        .filter(ee.Filter.eq("forecast_hour", full_lengde))
-        .aggregate_max("system:time_start")
-        .getInfo()
-    )
-    return int(verdi) if verdi is not None else None
+def _start_tid(verdi: str) -> datetime:
+    return datetime.fromisoformat(str(verdi).replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def velg_kjoringer(antall_per_init: dict[str, int]) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Nyeste komplette timeskjøring (48 bilder) og 6-timerskjøring (360 bilder).
+
+    Bildene i en kjøring legges ikke nødvendigvis inn i rekkefølge, så at siste
+    ledetid finnes, betyr ikke at kjøringen er komplett. Vi teller derfor bildene.
+    En 6-timerskjøring med minst 48 bilder kan også brukes som timeskjøring.
+    """
+    kjoringer = sorted(((_start_tid(k), int(v)) for k, v in antall_per_init.items()), reverse=True)
+    lang = next((t for t, n in kjoringer if n >= 360), None)
+    kort = next((t for t, n in kjoringer if n >= 48 and (n >= 360 or n == 48)), None)
+    return kort, lang
+
+
+def _antall_per_init(ee, col, fra_ms: int, til_ms: int) -> dict[str, int]:
+    return col.filterDate(fra_ms, til_ms).aggregate_histogram("start_time").getInfo() or {}
 
 
 def _hent_kjoring(ee, col, init_ms: int, lat: float, lon: float) -> list[dict[str, Any]]:
@@ -232,21 +242,21 @@ def rader_fra_tabell(tabell: list[list[Any]], init_ms: int) -> list[dict[str, An
 
 
 def hent_kjoringer(lat: float, lon: float, now: Optional[datetime] = None) -> dict[str, Any]:
-    """Nyeste mellomkjøring (48 t) og nyeste 6-timerskjøring (360 t) for et punkt."""
+    """Nyeste komplette timeskjøring (48 t) og 6-timerskjøring (360 t) for et punkt."""
     ee = _init_ee()
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     til_ms = int(now.timestamp() * 1000)
     fra_ms = int((now - _SOKEVINDU).timestamp() * 1000)
     col = ee.ImageCollection(ASSET)
     try:
-        kort_ms = _nyeste_init_ms(ee, col, fra_ms, til_ms, 48)
-        lang_ms = _nyeste_init_ms(ee, col, fra_ms, til_ms, 360)
-        if kort_ms is None and lang_ms is None:
+        kort_t, lang_t = velg_kjoringer(_antall_per_init(ee, col, fra_ms, til_ms))
+        if kort_t is None and lang_t is None:
             raise WeatherNextError("Fant ingen komplette WeatherNext-kjøringer siste 36 timer.")
-        lang = _hent_kjoring(ee, col, lang_ms, lat, lon) if lang_ms else []
+        ms = lambda t: int(t.timestamp() * 1000)
+        lang = _hent_kjoring(ee, col, ms(lang_t), lat, lon) if lang_t else []
         kort: list[dict[str, Any]] = []
-        if kort_ms and kort_ms != lang_ms and (lang_ms is None or kort_ms > lang_ms):
-            kort = _hent_kjoring(ee, col, kort_ms, lat, lon)
+        if kort_t and (lang_t is None or kort_t > lang_t):
+            kort = _hent_kjoring(ee, col, ms(kort_t), lat, lon)
     except WeatherNextError:
         raise
     except Exception as exc:
@@ -490,7 +500,8 @@ def arkiver_kjoring(place: str, kjoring: list[dict[str, Any]]) -> Optional[str]:
     import pandas as pd
 
     init = kjoring[0]["init"]
-    nokkel = f"kjoringer/{place}/{init.strftime('%Y-%m-%dT%HZ')}.parquet"
+    # Antall timer i navnet: en ufullstendig kjøring skal ikke hindre at den komplette lagres.
+    nokkel = f"kjoringer/{place}/{init.strftime('%Y-%m-%dT%HZ')}_{len(kjoring)}t.parquet"
     if _finnes(nokkel):
         return None
     frame = pd.DataFrame([
