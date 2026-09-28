@@ -30,9 +30,9 @@ def kjor(spor, nye, naa, favs, **kw):
 
 def varm_spor(t=T0, gammel_maks=0):
     """Spor der forrige kjøring var for 10 min siden (alder er kjent), og
-    høyeste FINN-kode for 2 t siden var gammel_maks."""
+    høyeste FINN-kode for 50 min siden var gammel_maks."""
     return {"biler": {}, "sist_kjort": (t - timedelta(minutes=10)).isoformat(),
-            "kode_historikk": [[(t - timedelta(hours=2)).isoformat(), gammel_maks]]}
+            "kode_historikk": [[(t - timedelta(minutes=50)).isoformat(), gammel_maks]]}
 
 
 def test_parse_regler():
@@ -195,6 +195,28 @@ def test_kode_fersk():
     assert f.kode_fersk("abc", hist, T0) is None
     kort = [[(T0 - timedelta(minutes=30)).isoformat(), 2000]]
     assert f.kode_fersk("5000", kort, T0) is None      # for kort historikk = ukjent
+
+
+def test_kode_sikkert_ny():
+    hist = [[(T0 - timedelta(minutes=90)).isoformat(), 1000],
+            [(T0 - timedelta(minutes=55)).isoformat(), 1500],
+            [(T0 - timedelta(minutes=5)).isoformat(), 2000]]
+    assert f.kode_sikkert_ny("1600", hist, T0) is True    # opprettet etter målingen for 55 min siden
+    assert f.kode_sikkert_ny("1500", hist, T0) is False
+    assert f.kode_sikkert_ny("1200", hist, T0) is False   # kode_fersk ville sagt True her
+    assert f.kode_sikkert_ny("abc", hist, T0) is None
+
+
+def test_etter_natta_passerer_ingenting():
+    """Kl. 07: siste måling eldre enn en time er fra kl. 22:50 i går. Annonser
+    lagt ut i natt har høyere kode, men kan ha ligget ute i timevis."""
+    kveld = [[(T0 - timedelta(hours=8)).isoformat(), 477_000_000]]
+    assert f.kode_fersk("477200000", kveld, T0) is True
+    assert f.kode_sikkert_ny("477200000", kveld, T0) is None
+    spor = {"biler": {}, "sist_kjort": (T0 - timedelta(minutes=10)).isoformat(),
+            "kode_historikk": kveld}
+    spor, pop, _, _ = kjor(spor, [bil("477200000")], T0, {"477200000": 60})
+    assert pop == [] and spor["biler"]["477200000"]["alder_kjent"] is False
 
 
 def test_uten_kodehistorikk_ingen_populaer():
