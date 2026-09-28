@@ -3124,6 +3124,9 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 .daily-cell .d-icon{font-size:20px}
 .daily-cell .d-temp{font-size:18px;font-weight:600}
 .daily-cell .d-meta{font-size:11px;color:var(--text-2);line-height:1.45}
+.daily-cell.google-dag{background:#fff;border-style:dashed}
+.daily-cell.google-dag .d-temp{color:var(--wn3)}
+.daily-cell .d-kilde{font-size:10.5px;color:var(--text-3);margin-top:4px}
 .daily-cell .d-sun{font-size:11px;color:var(--warn);font-weight:500;margin-top:3px;display:flex;align-items:center;gap:3px}
 .daily-cell .d-arrow{position:absolute;top:10px;right:10px;font-size:10px;color:var(--text-3);transition:transform .2s}
 .daily-cell.active .d-arrow{transform:rotate(180deg);color:var(--accent)}
@@ -3309,12 +3312,12 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         <div class="enighet" id="dagEnighet"></div>
         <div class="day-stats" id="dayStats"></div>
         <div class="chart-legend" id="dayLegend" style="display:none;margin:0 0 6px">
-          <span><span class="sw" style="background:#ea580c"></span>Yr temp</span>
+          <span class="yr-leg"><span class="sw" style="background:#ea580c"></span>Yr temp</span>
           <span><span class="sw" style="background:#0d9488"></span>Google temp</span>
           <span><span class="sw" style="background:rgba(13,148,136,.2)"></span>Google 80 % sikker</span>
-          <span><span class="sw" style="background:rgba(37,99,235,.75)"></span>Yr regn</span>
+          <span class="yr-leg"><span class="sw" style="background:rgba(37,99,235,.75)"></span>Yr regn</span>
           <span><span class="sw" style="background:rgba(13,148,136,.7)"></span>Google regn</span>
-          <span><span class="sw" style="background:rgba(245,158,11,.85)"></span>Uenige</span>
+          <span class="yr-leg"><span class="sw" style="background:rgba(245,158,11,.85)"></span>Uenige</span>
         </div>
         <div class="day-chart-box">
           <canvas id="dayChart" role="img" aria-label="Timesdetaljer for valgt dag"></canvas>
@@ -3542,6 +3545,7 @@ async function loadForecast(lat,lon,name){
 
 function renderData(d){
   lastData=d;
+  yrDagAntall=null;
   document.getElementById('results').style.display='block';
 
   // Header
@@ -3679,7 +3683,8 @@ function renderData(d){
 function renderHourlyTable(hours,titleLabel){
   lastTable={hours,titleLabel};
   const futureHours=(hours||[]).filter(h=>!h.is_history);
-  const visWn3=!!wn3ByHour;
+  const kunGoogle=futureHours.length>0 && futureHours.every(h=>h.kilde==='google');
+  const visWn3=!!wn3ByHour && !kunGoogle;
   document.querySelectorAll('.wn3-col').forEach(el=>el.style.display=visWn3?'':'none');
   document.querySelectorAll('.yr-lbl').forEach(el=>el.style.display=visWn3?'':'none');
   document.getElementById('hourlyTitle').textContent=`Detaljert timesoversikt – ${titleLabel}`;
@@ -3688,7 +3693,7 @@ function renderHourlyTable(hours,titleLabel){
     const rowClass=b==='good'?'row-good':(b==='night'?'row-night':'');
     const rainRange=(h.rain_min!=null&&h.rain_max!=null)?` <span class="muted">(${h.rain_min}–${h.rain_max})</span>`:'';
     const rainProb=(h.rain_prob!=null && h.rain_prob>0)?` <span class="muted">(${h.rain_prob}%)</span>`:'';
-    const windBadge=`${windStrengthIcon(h.wind)} ${h.wind} m/s <span class="muted">(kast ${h.gust})</span>`;
+    const windBadge=`${windStrengthIcon(h.wind)} ${h.wind} m/s`+(h.gust!=null?` <span class="muted">(kast ${h.gust})</span>`:'');
     return `<tr class="${rowClass}">
       <td class="time-cell">${weatherEmoji(h.symbol)} kl. ${fmtLocal(h.time,{hour:'2-digit',minute:'2-digit'})}</td>
       <td class="num">${h.temp??'–'}°</td>
@@ -3728,7 +3733,7 @@ function showDayDetail(day){
   document.getElementById('dayStats').innerHTML=`
     <div class="day-stat"><div class="ds-lbl">Temperatur</div><div class="ds-val">${tempTxt}</div>${tempKilde}</div>
     <div class="day-stat"><div class="ds-lbl">Nedbør totalt</div><div class="ds-val">${regnTxt}</div>${regnKilde}</div>
-    <div class="day-stat"><div class="ds-lbl">Soltimer</div><div class="ds-val">${day.sun_hours ?? 0}<small> t</small></div></div>
+    <div class="day-stat"><div class="ds-lbl">Soltimer</div><div class="ds-val">${day.sun_hours ?? '–'}<small> t</small></div></div>
     <div class="day-stat"><div class="ds-lbl">Maks vind</div><div class="ds-val">${day.wind_max ?? '–'}<small> m/s</small></div></div>
     <div class="day-stat"><div class="ds-lbl">Maks kast</div><div class="ds-val">${day.gust_max ?? '–'}<small> m/s</small></div></div>
   `;
@@ -3759,16 +3764,18 @@ function drawDayChart(hours,b6){
   // På en enkelt dag vises Yr og Google side om side time for time: avstanden
   // mellom dem, og Googles eget usikkerhetsbånd, sier noe om hvor sikkert varselet er.
   const samm=hours.map(h=>sammenlign(h));
-  const medGoogle=samm.some(Boolean);
+  const kunGoogle=hours.length>0 && hours.every(h=>h.kilde==='google');
   const gw=hours.map(h=>{const t=new Date(h.time).getTime(); return t>=Date.now()-3600000?wn3At(h.time):null;});
-  const temp=hours.map(h=>h.temp);
-  const rain=hours.map(h=>h.rain ?? 0);
+  const medGoogle=samm.some(Boolean) || kunGoogle;
+  const temp=hours.map(h=>kunGoogle?null:h.temp);
+  const rain=hours.map(h=>kunGoogle?null:(h.rain ?? 0));
   const wind=hours.map(h=>h.wind ?? 0);
   const gTemp=gw.map(w=>w?.temp?.mean ?? null);
   const gP10=gw.map(w=>w?.temp?.p10 ?? null);
   const gP90=gw.map(w=>w?.temp?.p90 ?? null);
   const gRain=gw.map(w=>w?.regn ? w.regn.mean : null);
   document.getElementById('dayLegend').style.display=medGoogle?'flex':'none';
+  document.querySelectorAll('#dayLegend .yr-leg').forEach(el=>el.style.display=kunGoogle?'none':'');
 
   // Custom plugin: marker beste 6t-blokk med grønn bakgrunn
   let startIdx=-1;
@@ -3943,7 +3950,7 @@ function yrVekt(iso){
   return t<48 ? 0.65 : 0.5;
 }
 function sammenlign(h){
-  if(!h || h.is_history || h.temp==null) return null;
+  if(!h || h.is_history || h.temp==null || h.kilde==='google') return null;
   // Timer som har vært, viser målt vær, ikke varsel.
   if(new Date(h.time).getTime() < Date.now()-3600000) return null;
   const w=wn3At(h.time);
@@ -4067,6 +4074,87 @@ function renderDagDetaljEnighet(){
     uenig:'Grafen og tabellen under viser Yr og Google time for time. Uenige timer er merket gult.'});
 }
 
+// Dagene etter at Yr slutter: bare Google, tydelig merket som usikre.
+let yrDagAntall=null;
+function renderGoogleDager(){
+  if(!wn3 || !lastData) return;
+  const grid=document.getElementById('dailyGrid');
+  grid.querySelectorAll('.google-dag').forEach(el=>el.remove());
+  const daily=lastData.daily||[];
+  if(yrDagAntall==null || daily.length<yrDagAntall) yrDagAntall=daily.filter(d=>!d.kunGoogle).length;
+  daily.length=yrDagAntall;
+  const sisteYr=daily.length?daily[daily.length-1].date:'';
+
+  const dager=new Map();
+  for(const h of wn3.timer){
+    const key=new Date(h.t).toLocaleDateString('sv-SE',{timeZone:'Europe/Oslo'});
+    if(key<=sisteYr) continue;
+    if(!dager.has(key)) dager.set(key,[]);
+    dager.get(key).push(h);
+  }
+  const osloTime=iso=>Number(new Date(iso).toLocaleString('en-GB',{timeZone:'Europe/Oslo',hour:'2-digit',hour12:false}));
+  for(const [key,hrs] of dager){
+    if(hrs.length<12) continue;  // siste, halve døgn tas ikke med
+    const tm=hrs.map(h=>h.temp?.mean).filter(v=>v!=null);
+    const p10=hrs.map(h=>h.temp?.p10).filter(v=>v!=null);
+    const p90=hrs.map(h=>h.temp?.p90).filter(v=>v!=null);
+    const regn=hrs.reduce((a,h)=>a+(h.regn?.mean??0),0);
+    const dag=hrs.filter(h=>{const t=osloTime(h.t); return t>=8&&t<=20;});
+    const sky=dag.map(h=>h.sky?.mean).filter(v=>v!=null);
+    const skySnitt=sky.length?sky.reduce((a,b)=>a+b,0)/sky.length:70;
+    const vind=hrs.map(h=>h.vind?.mean).filter(v=>v!=null);
+    const timer=hrs.map(h=>({
+      time:h.t, kilde:'google',
+      temp:h.temp?Math.round(h.temp.mean*10)/10:null,
+      rain:h.regn?Math.round(h.regn.mean*10)/10:0,
+      wind:h.vind?Math.round(h.vind.mean*10)/10:null,
+      gust:null,
+      wind_deg:h.vindretning??null,
+      wind_dir:h.vindretning!=null?['N','NØ','Ø','SØ','S','SV','V','NV'][Math.round(h.vindretning/45)%8]:'',
+      cloud:h.sky?.mean??null,
+      activity:'',
+      symbol:(h.regn&&h.regn.mean>=0.3)?'rain':(h.sky&&h.sky.mean<40?'clearsky_day':(h.sky&&h.sky.mean<70?'partlycloudy_day':'cloudy'))
+    }));
+    daily.push({
+      date:key, kunGoogle:true,
+      temp_min:tm.length?Math.round(Math.min(...tm)*10)/10:null,
+      temp_max:tm.length?Math.round(Math.max(...tm)*10)/10:null,
+      rain_total:Math.round(regn*10)/10,
+      wind_max:vind.length?Math.round(Math.max(...vind)*10)/10:null,
+      gust_max:null, sun_hours:null, best_6h:null, hours:timer,
+      _spenn:[p10.length?Math.min(...p10):null, p90.length?Math.max(...p90):null],
+      _sky:skySnitt
+    });
+  }
+
+  daily.forEach((x,idx)=>{
+    if(!x.kunGoogle) return;
+    const dato=new Date(x.date+'T12:00:00').toLocaleDateString('no-NO',{weekday:'short',day:'numeric',month:'short'});
+    const icon=x.rain_total>=1.5?'🌧️':(x._sky<40?'☀️':(x._sky<70?'⛅':'☁️'));
+    const [lo,hi]=x._spenn;
+    const cell=document.createElement('div');
+    cell.className='daily-cell google-dag';
+    cell.dataset.dayIdx=idx;
+    cell.title='Yr varsler ikke så langt frem. Tallene er fra Google WeatherNext, og usikkerheten er stor så langt ut.';
+    cell.innerHTML=`<span class="d-arrow">▼</span>
+      <div class="d-day">${dato}</div>
+      <div class="d-icon-temp"><span class="d-icon">${icon}</span><span class="d-temp">${Math.round(x.temp_max)}°</span></div>
+      <div class="d-meta">${Math.round(x.temp_min)}° · ${f1(x.rain_total)} mm</div>
+      ${lo!=null&&hi!=null?`<div class="d-meta">80 %: ${Math.round(lo)}–${Math.round(hi)}°</div>`:''}
+      <div class="d-kilde">Bare Google · usikkert</div>`;
+    cell.addEventListener('click',()=>{
+      const wasActive=cell.classList.contains('active');
+      document.querySelectorAll('.daily-cell.active').forEach(el=>el.classList.remove('active'));
+      if(wasActive){ document.getElementById('dayDetail').classList.remove('show'); return; }
+      cell.classList.add('active');
+      showDayDetail(x);
+      const dayLabel=new Date(x.date+'T12:00:00').toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'short'});
+      renderHourlyTable(x.hours, dayLabel+' (bare Google)');
+    });
+    grid.appendChild(cell);
+  });
+}
+
 function renderDagEnighet(){
   if(!wn3ByHour || !lastData) return;
   const daily=lastData.daily||[];
@@ -4143,6 +4231,7 @@ async function loadWN3(lat,lon){
   if(lastHourly) drawMainChart(lastHourly);
   renderEnighet();
   renderDagEnighet();
+  renderGoogleDager();
   if(lastDay && document.getElementById('dayDetail').classList.contains('show')) showDayDetail(lastDay);
   if(lastTable) renderHourlyTable(lastTable.hours,lastTable.titleLabel);
   renderWN3Card();
