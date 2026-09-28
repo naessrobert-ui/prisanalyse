@@ -16,9 +16,10 @@ publisering). Kom annonsen etter et opphold i kjøringene (f.eks. natt), er
 alderen ukjent – den spores, men gir ikke populær-varsel.
 
 Gamle annonser som publiseres på nytt/løftes havner også øverst i «nyeste».
-FINN-koder deles ut fortløpende, så vi lagrer høyeste kode per kjøring: er
-koden ikke høyere enn det vi så for over KUPP_POPULAER_KODE_MIN minutter
-siden, er annonsen ikke fersk og gir ikke populær-varsel.
+FINN-koder deles ut fortløpende, så vi lagrer høyeste kode per kjøring. For
+populær-varsel må koden være høyere enn det vi så ved en måling i løpet av
+de siste KUPP_POPULAER_KODE_MIN minuttene – da er annonsen garantert lagt ut
+innenfor det vinduet. Uten slik måling (første time etter natta) varsles ikke.
 
 Ferdige spor flyttes til en logg (S3) for å kalibrere nivåene senere.
 
@@ -137,6 +138,23 @@ def kode_fersk(fk, historikk: list, naa: datetime,
     return kode > max(gamle)
 
 
+def kode_sikkert_ny(fk, historikk: list, naa: datetime,
+                    maks_min: int = KODE_MAKS_MIN) -> bool | None:
+    """Er annonsen garantert opprettet de siste maks_min minuttene?
+
+    True krever en måling *innenfor* vinduet der koden er høyere enn den
+    høyeste koden vi så da. Uten måling i vinduet (f.eks. første time etter
+    nattopphold) er svaret None: vi kan ikke være sikre. Strengere enn
+    kode_fersk, som sammenligner mot siste måling *eldre* enn vinduet – etter
+    natta er den fra kvelden før, og da passerer alt som ble lagt ut i natt."""
+    kode = _kode(fk)
+    grense = naa - timedelta(minutes=maks_min)
+    i_vinduet = [m for t, m in historikk if grense <= _tid(t) < naa]
+    if kode is None or not i_vinduet:
+        return None
+    return kode > min(i_vinduet)
+
+
 def _vindu_min(regler) -> int:
     return max((m for _, m in regler), default=0)
 
@@ -178,7 +196,7 @@ def oppdater(spor: dict, nye: list[dict], naa: datetime, hent, *,
     for b in nye:
         fk = str(b.get("FinnKode") or "")
         if fk and fk not in biler:
-            fersk = kode_fersk(fk, historikk, naa)
+            fersk = kode_sikkert_ny(fk, historikk, naa)
             biler[fk] = ny_post(b, naa_s, alder_kjent and fersk is True)
             biler[fk]["kode_fersk"] = fersk
     for fk in kupp_koder:
