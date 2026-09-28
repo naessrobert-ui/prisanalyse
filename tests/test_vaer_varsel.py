@@ -354,3 +354,32 @@ def test_google_point_api_quota_and_validation(monkeypatch):
     assert res.status_code == 429
     assert "kvote" in res.json["error"]
     vv._CACHE.clear()
+
+
+def test_weathernext_dager_etter_yr():
+    from datetime import datetime, timedelta, timezone
+    from scripts import vaer_varsel as vv
+
+    now = datetime(2026, 9, 28, 18, tzinfo=timezone.utc)
+    timer = []
+    for i in range(24 * 12):
+        t = now + timedelta(hours=i)
+        timer.append({
+            "t": t.isoformat().replace("+00:00", "Z"),
+            "temp": {"mean": 10.0 + (i % 24) / 4, "p10": 8.0, "p90": 14.0},
+            "regn": {"mean": 0.5 if i % 24 in (14, 15) else 0.0, "p90": 1.0},
+            "vind": {"mean": 5.0}, "sky": {"mean": 90.0},
+        })
+    per_dag = vv.weathernext_by_day({"timer": timer}, now)
+    dato = "2026-10-05"
+    assert per_dag[dato]["lo"] == 8 and per_dag[dato]["hi"] == 14
+    assert per_dag[dato]["rain"] == 1.0
+    assert [p["name"] for p in per_dag[dato]["periods"]] == ["natt", "morgen", "ettermiddag", "kveld"]
+    assert per_dag[dato]["periods"][1]["symbol"] == "lightrain"  # 08-09 UTC = 10-11 lokal
+    assert per_dag[dato]["periods"][0]["symbol"] == "cloudy"
+
+    ekstra = vv.weathernext_extra_days(per_dag, "2026-10-05")
+    assert ekstra[0]["date"] == "2026-10-06"
+    assert all(d["source"] == "weathernext" for d in ekstra)
+    assert ekstra[-1]["date"] <= "2026-10-10"  # siste, halve døgn er utelatt
+    assert vv.weathernext_by_day(None, now) == {}

@@ -9,7 +9,7 @@
 :root{
   --bg:#eef3f8; --card:#ffffff; --ink:#15212e; --muted:#5f6f80; --line:#e2e8ef;
   --blue:#2f7fd8; --blue-soft:#cfe2f8; --blue-ghost:#e7f0fb; --warm:#e8590c; --warm-soft:#fde8da;
-  --ok:#1f8a4c; --ok-soft:#e3f5ea; --warn:#b7791f; --warn-soft:#fdf3dc; --google:#7a52c7;
+  --ok:#1f8a4c; --ok-soft:#e3f5ea; --warn:#b7791f; --warn-soft:#fdf3dc; --google:#7a52c7; --wn:#0d8a7e;
   --sun:#f4b400; --cloud:#c3ccd6; --cloud-dark:#8f9aa6; --moon:#9fb3d1;
   --obs:#1f3b57; --past:#f3f5f8; --nowline:#d64545;
 }
@@ -17,7 +17,7 @@
   :root:not([data-theme="light"]){
     --bg:#0f1720; --card:#17212c; --ink:#e7edf3; --muted:#9aa8b6; --line:#263341;
     --blue:#5aa2ef; --blue-soft:#24415f; --blue-ghost:#1b2c3e; --warm:#ff8a4c; --warm-soft:#3a2518;
-    --ok:#4cc27d; --ok-soft:#173226; --warn:#e0b050; --warn-soft:#3a3018; --google:#a98ae6;
+    --ok:#4cc27d; --ok-soft:#173226; --warn:#e0b050; --warn-soft:#3a3018; --google:#a98ae6; --wn:#3cc9b6;
     --obs:#d6e2ee; --past:#121c26; --nowline:#ff6b6b;
     --cloud:#7d8a98; --cloud-dark:#5b6775; --moon:#b8c8e2;
   }
@@ -122,6 +122,14 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .dd-mm{color:var(--blue);font-weight:600;font-size:13px}
 .dd-mm.dry{color:var(--muted);font-weight:400}
 .gday{margin-top:8px;font-size:13px;color:var(--google)}
+.wnday{margin-top:6px;font-size:13px;color:var(--wn)}
+.wn-tag{display:inline-block;font-size:10.5px;font-weight:600;color:var(--wn);border:1px solid var(--wn);border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:1px}
+.days .drow.wn .cell{border-top-style:dashed}
+.days .drow.wn .per svg{opacity:.8}
+.range .spenn{font-size:11px;color:var(--wn);white-space:nowrap}
+.rain-tot .rb.wn{background:var(--wn);opacity:.75}
+.dc.wn{border-style:dashed}
+.wn-note{font-size:12px;color:var(--muted);margin-top:10px}
 .dc{cursor:pointer;display:block}
 .dc-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .dc-more{font-size:12px;color:var(--blue);text-align:right;margin-top:2px}
@@ -311,6 +319,7 @@ a.pill{text-decoration:none;display:inline-block}
   </section>
 
   <footer>Varsel og radar: <a href="https://www.met.no/">MET Norway</a> (Yr), CC BY 4.0. Sammenligning: Google Weather. Målinger: Frost.
+    <span id="wnKilde" hidden>Dager etter Yr: Google DeepMind WeatherNext 3, eksperimentelle data, ikke validert for bruk i virkeligheten.</span>
     <a href="/ver/sammenlign">Sammenlign Yr og Google</a></footer>
 </div>
 
@@ -596,7 +605,23 @@ function googleDayLine(date){
   const t=g.tmax!=null&&g.tmin!=null?` · ${Math.round(g.tmax)}°/${Math.round(g.tmin)}°`:'';
   return `<div class="gday"><b>Google:</b> ${bits}${t}${g.day_text?` · ${g.day_text}`:''}</div>`;
 }
+function wnDayLine(date){
+  const w=(DATA.wn_days||{})[date]; if(!w) return '';
+  const spenn=w.lo!=null&&w.hi!=null?` (80 % sikker: ${w.lo}–${w.hi}°)`:'';
+  return `<div class="wnday"><b>WeatherNext:</b> ${w.tmin}°/${w.tmax}°${spenn} · ${fmt1(w.rain)} mm, opptil ${fmt1(w.rain_hi)} mm</div>`;
+}
+function wnDetail(d){
+  let s='<div class="ddetail"><div class="dd-h">WeatherNext i bolker på seks timer</div><div class="dd-blocks">';
+  const tider={natt:'00–06',morgen:'06–12',ettermiddag:'12–18',kveld:'18–24'};
+  d.periods.forEach(p=>{
+    s+=`<div class="dd-b"><div class="dd-t">${tider[p.name]||p.name}</div>${p.symbol?icon(p.symbol,44):'<span class="dash">–</span>'}<div class="dd-temp">${p.tmin!=null?p.tmin+'–':''}${p.tmax!=null?p.tmax+'°':''}</div><div class="dd-mm${p.rain>=.1?'':' dry'}">${p.rain>=.1?fmt1(p.rain)+' mm':'0 mm'}</div></div>`;
+  });
+  s+='</div>'+wnDayLine(d.date);
+  s+=`<div class="wn-note">Yr varsler ikke så langt frem. Dette er Google DeepMind WeatherNext, og så langt ut er usikkerheten stor: temperaturen havner med 80 % sannsynlighet mellom ${d.lo}° og ${d.hi}°.</div>`;
+  return s+'</div>';
+}
 function dayDetail(d){
+  if(d.source==='weathernext') return wnDetail(d);
   const hours=(d.label==='I dag'?(DATA.today||[]):(DATA.detail_hours||[]).filter(h=>localDate(h.time)===d.date));
   const showG=DATA.google_available;
   let s='<div class="ddetail">';
@@ -613,11 +638,12 @@ function dayDetail(d){
       s+=`<div class="dd-b"><div class="dd-t">${t0}–${t1}</div>${icon(b.symbol,44)}<div class="dd-temp">${b.tmin!=null?Math.round(b.tmin)+'–':''}${b.tmax!=null?Math.round(b.tmax)+'°':''}</div><div class="dd-mm${b.rain>=.1?'':' dry'}">${b.rain>=.1?fmt1(b.rain)+' mm':'0 mm'}</div></div>`});
     s+='</div>'+googleDayLine(d.date);
   }
-  return s+'</div>';
+  return s+wnDayLine(d.date)+'</div>';
 }
 function toggleDay(date){OPEN_DAY=OPEN_DAY===date?null:date; renderDays();
   const el=document.querySelector(`[data-day="${date}"]`); if(el&&OPEN_DAY) el.scrollIntoView({block:'nearest',behavior:'smooth'})}
 function renderDays(){
+  const wk=$('wnKilde'); if(wk) wk.hidden=!DATA.weathernext;
   const D=DATA.days.filter(d=>d.tmin!=null);
   const box=$('days');
   const chev=d=>`<span class="chev">${OPEN_DAY===d.date?'▴':'▾'}</span>`;
@@ -628,9 +654,11 @@ function renderDays(){
       const wind=d.wind_max==null?'':`${d.wind_max}${d.gust_max!=null&&d.gust_max>d.wind_max?` (${d.gust_max})`:''} m/s`;
       const rain=d.rain>=.1?`${fmt1(d.rain)} mm${d.observed?` <span class="muted">(${fmt1(d.observed)} målt)</span>`:''}`:'';
       const g=d.g_rain!=null&&(d.g_rain>=.1||d.rain>=.1)?`<div class="dc-g">Google ${fmt1(d.g_rain)} mm</div>`:'';
-      s+=`<div class="dc${OPEN_DAY===d.date?' open':''}" data-day="${d.date}" role="button" tabindex="0" aria-expanded="${OPEN_DAY===d.date}">
-        <div class="dc-row"><div class="dc-l"><div class="dc-n">${d.label} <span>${dayDate(d)}</span></div>
+      const wn=d.source==='weathernext';
+      s+=`<div class="dc${OPEN_DAY===d.date?' open':''}${wn?' wn':''}" data-day="${d.date}" role="button" tabindex="0" aria-expanded="${OPEN_DAY===d.date}">
+        <div class="dc-row"><div class="dc-l"><div class="dc-n">${d.label} <span>${dayDate(d)}</span>${wn?'<span class="wn-tag">WeatherNext</span>':''}</div>
         <div class="dc-t"><span style="color:${tcol(d.tmax)}">${d.tmax}°</span><span class="sl">/</span><span style="color:${tcol(d.tmin)}">${d.tmin}°</span></div>
+        ${wn&&d.lo!=null?`<div class="dc-w" style="color:var(--wn)">80 %: ${d.lo}–${d.hi}°</div>`:''}
         ${rain?`<div class="dc-r">${rain}</div>`:''}${g}<div class="dc-w">${wind}</div></div>
         <div class="dc-i">${d.periods.map(p=>`<div class="dc-p">${p.symbol?icon(p.symbol,44):'<span class="dash">–</span>'}<small>${p.symbol&&p.rain>=.1?fmt(p.rain):''}</small></div>`).join('')}</div></div>
         <div class="dc-more">${OPEN_DAY===d.date?'Skjul detaljer':'Vis detaljer'} ${chev(d)}</div>
@@ -643,16 +671,16 @@ function renderDays(){
     const rmax=Math.max(1,...D.map(d=>Math.max(d.rain,d.g_rain||0)));
     let s=`<div class="hdr"></div><div class="hdr">Natt</div><div class="hdr">Morg.</div><div class="hdr">Ettm.</div><div class="hdr">Kveld</div><div class="hdr">Temp.</div><div class="hdr rain-h">Nedbør (mm)</div>`;
     D.forEach(d=>{
-      const open=OPEN_DAY===d.date;
-      s+=`<div class="drow${open?' open':''}" data-day="${d.date}" role="button" tabindex="0" aria-expanded="${open}">`;
-      s+=`<div class="cell dname">${d.label}<span>${chev(d)} ${dayDate(d)}${d.wind_max!=null?` · ${d.wind_max} m/s`:''}</span></div>`;
+      const open=OPEN_DAY===d.date, wn=d.source==='weathernext';
+      s+=`<div class="drow${open?' open':''}${wn?' wn':''}" data-day="${d.date}" role="button" tabindex="0" aria-expanded="${open}"${wn?' title="Yr varsler ikke så langt frem. Tallene er fra WeatherNext og er usikre."':''}>`;
+      s+=`<div class="cell dname">${d.label}${wn?'<span class="wn-tag">WeatherNext</span>':''}<span>${chev(d)} ${dayDate(d)}${d.wind_max!=null?` · ${d.wind_max} m/s`:''}</span></div>`;
       d.periods.forEach(p=>{
         if(p.symbol) s+=`<div class="cell per">${icon(p.symbol,38)}<small>${p.rain>=.1?fmt(p.rain):''}</small></div>`;
         else s+=`<div class="cell per past"><span class="dash">–</span></div>`;
       });
       const l=(d.tmin-lo)/span*100, w=(d.tmax-d.tmin)/span*100;
-      s+=`<div class="cell"><div class="range"><span class="lo">${d.tmin}°</span><span class="track"><span class="fill" style="left:${l}%;width:${Math.max(w,3)}%"></span></span><span class="hi">${d.tmax}°</span></div></div>`;
-      let r=`<span class="track2">${d.rain>0?`<span class="rb" style="width:${Math.max(2,d.rain/rmax*100)}%"></span>`:''}</span><span class="v${d.rain>0?'':' dry'}">${d.rain>0?fmt1(d.rain):'0'}</span>`;
+      s+=`<div class="cell"><div class="range"><span class="lo">${d.tmin}°</span><span class="track"><span class="fill" style="left:${l}%;width:${Math.max(w,3)}%"></span></span><span class="hi">${d.tmax}°</span>${wn&&d.lo!=null?`<span class="spenn">${d.lo}–${d.hi}°</span>`:''}</div></div>`;
+      let r=`<span class="track2">${d.rain>0?`<span class="rb${wn?' wn':''}" style="width:${Math.max(2,d.rain/rmax*100)}%"></span>`:''}</span><span class="v${d.rain>0?'':' dry'}">${d.rain>0?fmt1(d.rain):'0'}</span>`;
       if(d.g_rain!=null) r+=`<span class="track2 g">${d.g_rain>0?`<span class="rb g" style="width:${Math.max(2,d.g_rain/rmax*100)}%"></span>`:''}</span><span class="v g">${fmt1(d.g_rain)}</span>`;
       if(d.observed) r+=`<span class="note">Inkludert ${fmt1(d.observed)} mm målt i natt</span>`;
       s+=`<div class="cell"><div class="rain-tot">${r}</div></div></div>`;

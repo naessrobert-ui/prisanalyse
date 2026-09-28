@@ -37,6 +37,12 @@ RADAR_AREA = {"bergen": "western_norway", "kvamskogen": "western_norway"}
 #: Steder som får Googles dagsvarsel (ett ekstra Google-kall i timen per sted).
 GOOGLE_DAYS_PLACES = {"bergen"}
 
+#: Steder med WeatherNext 3. Cron-jobben lagrer varselet hver time, så siden
+#: leser bare det lagrede og gjør ingen egne Earth Engine-kall.
+WEATHERNEXT_PLACES = {"bergen"}
+#: Eldre lagret WeatherNext-varsel enn dette vises ikke.
+WEATHERNEXT_MAX_AGE = timedelta(hours=12)
+
 #: Timer med minst så mye nedbør regnes som "regn" i tekstene.
 WET_MM = 0.1
 #: Google oppgir ofte hundredeler. Fra denne grensen omtales det som "litt yr".
@@ -310,6 +316,99 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
             "gust_max": round(max(gusts)) if gusts else None,
         })
     return days
+
+
+def _wn_symbol(rain: float, sky: Optional[float], night: bool) -> str:
+    """Yr-symbolkode fra WeatherNext-nedbør (mm per seksjon) og skydekke (%)."""
+    if rain >= 6:
+        return "heavyrain"
+    if rain >= 1.5:
+        return "rain"
+    if rain >= 0.3:
+        return "lightrain"
+    sky = 70.0 if sky is None else sky
+    suffix = "_night" if night else "_day"
+    if sky < 20:
+        return "clearsky" + suffix
+    if sky < 45:
+        return "fair" + suffix
+    if sky < 75:
+        return "partlycloudy" + suffix
+    return "cloudy"
+
+
+def weathernext_by_day(varsel: Optional[dict[str, Any]], now: datetime) -> dict[str, dict[str, Any]]:
+    """WeatherNext per lokal dato: temperatur med 80 %-spenn, nedbør og fire seksjoner.
+
+    Timesummer i WeatherNext gjelder timen som starter på klokkeslettet (se
+    `scripts.weathernext`), så timene kan summeres rett per seksjon.
+    """
+    if not varsel:
+        return {}
+    by_date: dict[str, list[tuple[datetime, dict[str, Any]]]] = {}
+    for h in varsel.get("timer") or []:
+        t = _parse_time(h.get("t", ""))
+        if t is None or t < now - timedelta(hours=1):
+            continue
+        by_date.setdefault(_local(t).date().isoformat(), []).append((_local(t), h))
+
+    def mean(h: dict[str, Any], key: str, stat: str = "mean") -> Optional[float]:
+        return _num((h.get(key) or {}).get(stat))
+
+    result: dict[str, dict[str, Any]] = {}
+    for date, hrs in by_date.items():
+        temps = [v for _, h in hrs if (v := mean(h, "temp")) is not None]
+        if not temps:
+            continue
+        lows = [v for _, h in hrs if (v := mean(h, "temp", "p10")) is not None]
+        highs = [v for _, h in hrs if (v := mean(h, "temp", "p90")) is not None]
+        winds = [v for _, h in hrs if (v := mean(h, "vind")) is not None]
+        periods = []
+        for name, start in PERIODS:
+            chunk = [h for t, h in hrs if start <= t.hour < start + 6]
+            if not chunk:
+                periods.append({"name": name, "symbol": None, "rain": 0.0, "observed": False})
+                continue
+            rain = sum(mean(h, "regn") or 0.0 for h in chunk)
+            skies = [v for h in chunk if (v := mean(h, "sky")) is not None]
+            ptemps = [v for h in chunk if (v := mean(h, "temp")) is not None]
+            periods.append({
+                "name": name,
+                "symbol": _wn_symbol(rain, sum(skies) / len(skies) if skies else None, name in ("natt", "kveld")),
+                "rain": round(rain, 1), "observed": False,
+                "tmin": round(min(ptemps)) if ptemps else None,
+                "tmax": round(max(ptemps)) if ptemps else None,
+            })
+        result[date] = {
+            "hours": len(hrs),
+            "tmin": round(min(temps)), "tmax": round(max(temps)),
+            "lo": round(min(lows)) if lows else None, "hi": round(max(highs)) if highs else None,
+            "rain": round(sum(mean(h, "regn") or 0.0 for _, h in hrs), 1),
+            "rain_hi": round(sum(mean(h, "regn", "p90") or 0.0 for _, h in hrs), 1),
+            "wind_max": round(max(winds)) if winds else None,
+            "periods": periods,
+        }
+    return result
+
+
+def weathernext_extra_days(wn_days: dict[str, dict[str, Any]], last_yr_date: Optional[str],
+                           min_hours: int = 18) -> list[dict[str, Any]]:
+    """Dager etter at Yr slutter, i samme form som `build_days`, merket som WeatherNext."""
+    extra = []
+    for date in sorted(wn_days):
+        if last_yr_date and date <= last_yr_date:
+            continue
+        d = wn_days[date]
+        if d["hours"] < min_hours:
+            continue
+        weekday = WEEKDAYS[datetime.fromisoformat(date).weekday()]
+        extra.append({
+            "date": date, "label": weekday, "weekday": weekday, "source": "weathernext",
+            "periods": d["periods"], "tmin": d["tmin"], "tmax": d["tmax"],
+            "lo": d["lo"], "hi": d["hi"], "rain": d["rain"], "rain_hi": d["rain_hi"],
+            "g_rain": None, "observed": None, "wind_max": d["wind_max"], "gust_max": None,
+        })
+    return extra
 
 
 def _window(rows: list[dict[str, Any]], start: datetime, end: datetime) -> list[dict[str, Any]]:
@@ -763,6 +862,20 @@ def _google_days_at(lat: float, lon: float, cache_key: Any,
     return _CACHE.get(cache_key, 3300, load)
 
 
+def _fetch_weathernext(place: str, now: datetime) -> Optional[dict[str, Any]]:
+    if place not in WEATHERNEXT_PLACES:
+        return None
+    from scripts import weathernext
+
+    varsel = _CACHE.get(("weathernext", place), 300, lambda: weathernext.les_siste(place))
+    if not varsel:
+        return None
+    hentet = _parse_time(varsel.get("hentet", ""))
+    if hentet is None or now - hentet > WEATHERNEXT_MAX_AGE:
+        return None
+    return varsel
+
+
 def _fetch_reference(place: str, now: datetime) -> tuple[Optional[datetime], dict[datetime, dict[str, Any]]]:
     """Lagret varsel fra scoreboardet (S3) for inneværende døgn."""
     from scripts.weather_scoreboard import FORECAST_COLUMNS, _FORECASTS, _load
@@ -835,8 +948,10 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
         f_gd = pool.submit(_safe, lambda: _fetch_google_days(place))
         f_obs = pool.submit(_safe, lambda: _fetch_observations(place, now))
         f_ref = pool.submit(_safe, lambda: _fetch_reference(place, now))
+        f_wn = pool.submit(_safe, lambda: _fetch_weathernext(place, now))
         yr_payload, nc_payload, google, obs = f_yr.result(), f_nc.result(), f_g.result(), f_obs.result()
         google_days, (ref_run, reference) = f_gd.result() or [], f_ref.result() or (None, {})
+        wn_varsel = f_wn.result()
     if not yr_payload:
         raise RuntimeError("Fikk ikke hentet varselet fra Yr.")
     rows = parse_yr(yr_payload)
@@ -860,6 +975,10 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
     now_block["feels_like"] = feels_like(now_block["temp"], now_block["wind"])
     trust_rows = _trust_rows()
     meta = (yr_payload.get("properties") or {}).get("meta") or {}
+    days = build_days(rows, google, observed, now)
+    wn_days = weathernext_by_day(wn_varsel, now)
+    yr_dates = [d["date"] for d in days if d.get("tmin") is not None]
+    days += weathernext_extra_days(wn_days, yr_dates[-1] if yr_dates else None)
     return {
         "place": {"id": place, **PLACES[place]},
         "generated_at": _local(now).isoformat(),
@@ -872,7 +991,11 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
         "later": night_or_tomorrow(rows, google, now),
         "best": best_window(rows, now),
         "hours": hours,
-        "days": build_days(rows, google, observed, now),
+        "days": days,
+        "wn_days": {k: {kk: v[kk] for kk in ("tmin", "tmax", "lo", "hi", "rain", "rain_hi")}
+                    for k, v in wn_days.items()},
+        "weathernext": ({"init": wn_varsel.get("init_lang"), "kilde": wn_varsel.get("kilde"),
+                         "attribusjon": wn_varsel.get("attribusjon")} if wn_varsel else None),
         "today": today,
         "today_score": today_score(today, ref_run),
         "detail_hours": build_hours(rows, google, hour_now, count=100),
