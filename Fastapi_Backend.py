@@ -319,6 +319,9 @@ def get_iam_token() -> str:
 
 
 def get_conn() -> psycopg.Connection:
+    url = os.getenv("DATABASE_URL", "").strip()
+    if url:
+        return psycopg.connect(url, row_factory=dict_row, connect_timeout=10)
     token = get_iam_token()
     return psycopg.connect(
         host=RDS_HOST,
