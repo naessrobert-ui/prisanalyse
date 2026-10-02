@@ -8,7 +8,9 @@ Kilder:
 * MET Locationforecast (Yr): timesvarsel, symboler og dagsvarsel.
 * MET Nowcast: radarbasert nedbør i 5-minutterssteg de neste to timene.
 * MET Radar: animasjon for landsdelen, proxet via serveren.
-* Google Weather: gjenbruker cachen i `weather_comparison` (48 timer).
+* Google Weather: gjenbruker cachen i `weather_comparison` (48 timer). Værsøket
+  og dager uten fullt timesvarsel fra Yr henter i tillegg 240 timer ved behov
+  (`/ver/api/timeserie/<sted>`).
 * Frost: målt nedbør hittil i dag på stasjonen scoreboardet bruker.
 
 Alle tekster lages her, så siden kan testes uten nettleser. Byggefunksjonene
@@ -161,6 +163,7 @@ def parse_yr(payload: dict[str, Any]) -> list[dict[str, Any]]:
             "wind": _num(inst.get("wind_speed")),
             "gust": _num(inst.get("wind_speed_of_gust")),
             "wind_dir": _num(inst.get("wind_from_direction")),
+            "cloud": _num(inst.get("cloud_area_fraction")),
             "n1": None, "n6": None,
         }
         for key, hours in (("next_1_hours", "n1"), ("next_6_hours", "n6")):
@@ -749,6 +752,145 @@ def today_score(today: list[dict[str, Any]], run: Optional[datetime]) -> Optiona
     return {"text": " ".join(parts)} if parts else None
 
 
+# ---------------------------------------------------------------------------
+# Samlet timeserie (Yr + Google) for værsøket og timesvarsel langt frem
+# ---------------------------------------------------------------------------
+
+def sun_elevation(lat: float, lon: float, when: datetime) -> float:
+    """Solhøyde i grader (NOAA sin forenklede formel, nøyaktig til ca. en kvart grad)."""
+    import math
+
+    t = when.astimezone(timezone.utc)
+    doy = t.timetuple().tm_yday
+    hour = t.hour + t.minute / 60 + t.second / 3600
+    g = 2 * math.pi / 365 * (doy - 1 + (hour - 12) / 24)
+    eqtime = 229.18 * (0.000075 + 0.001868 * math.cos(g) - 0.032077 * math.sin(g)
+                       - 0.014615 * math.cos(2 * g) - 0.040849 * math.sin(2 * g))
+    decl = (0.006918 - 0.399912 * math.cos(g) + 0.070257 * math.sin(g) - 0.006758 * math.cos(2 * g)
+            + 0.000907 * math.sin(2 * g) - 0.002697 * math.cos(3 * g) + 0.00148 * math.sin(3 * g))
+    tst = hour * 60 + eqtime + 4 * lon
+    ha = math.radians(tst / 4 - 180)
+    phi = math.radians(lat)
+    cos_zen = math.sin(phi) * math.sin(decl) + math.cos(phi) * math.cos(decl) * math.cos(ha)
+    return 90 - math.degrees(math.acos(max(-1.0, min(1.0, cos_zen))))
+
+
+def _hour_symbol(rain: Optional[float], cloud: Optional[float], day: bool) -> str:
+    """Yr-symbolkode for én time ut fra nedbør (mm) og skydekke (%)."""
+    rain = rain or 0.0
+    if rain >= 4:
+        return "heavyrain"
+    if rain >= 1:
+        return "rain"
+    if rain >= WET_MM:
+        return "lightrain"
+    cloud = 70.0 if cloud is None else cloud
+    suffix = "_day" if day else "_night"
+    if cloud < 20:
+        return "clearsky" + suffix
+    if cloud < 45:
+        return "fair" + suffix
+    if cloud < 75:
+        return "partlycloudy" + suffix
+    return "cloudy"
+
+
+def _interpolate(points: list[tuple[datetime, Optional[float]]], t: datetime) -> Optional[float]:
+    """Lineær interpolasjon mellom Yr sine øyeblikksverdier (hver sjette time langt frem)."""
+    known = [(pt, v) for pt, v in points if v is not None]
+    before = [(pt, v) for pt, v in known if pt <= t]
+    after = [(pt, v) for pt, v in known if pt >= t]
+    if not before or not after:
+        # Siste blokk har ingen verdi etter seg: hold nærmeste kjente verdi.
+        edge = before[-1:] or after[:1]
+        return edge[0][1] if edge else None
+    (t0, v0), (t1, v1) = before[-1], after[0]
+    if t1 == t0:
+        return v0
+    return v0 + (v1 - v0) * (t - t0).total_seconds() / (t1 - t0).total_seconds()
+
+
+def _previous(points: list[tuple[datetime, Optional[float]]], t: datetime) -> Optional[float]:
+    """Siste kjente verdi før eller ved t (vindretning kan ikke interpoleres lineært over nord)."""
+    known = [v for pt, v in points if v is not None and pt <= t]
+    return known[-1] if known else None
+
+
+def _r(value: Optional[float], digits: int = 2) -> Optional[float]:
+    return None if value is None else round(value, digits)
+
+
+def build_series(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]], now: datetime,
+                 lat: float, lon: float, max_hours: int = 240) -> list[dict[str, Any]]:
+    """Én rad per time fra inneværende time og så langt Yr eller Google rekker.
+
+    Kilden står i `src`:
+    * "yr": Yr har eget timesvarsel (de første ~60 timene).
+    * "yr6": Yr har bare seks-timersblokker. Blokkens nedbør fordeles på timene
+      etter Googles timeprofil, så totalen er Yr sin. Mangler Google, eller
+      venter Google tørt, fordeles den jevnt. Temperatur, vind og skydekke er
+      Googles timeverdier, eller interpolert fra Yr når Google mangler.
+    * "google": etter at Yr slutter, bare Google.
+
+    Feltnavnene er de samme som i `build_hours`, så siden kan tegne radene med
+    samme timesgraf.
+    """
+    hour_now = now.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    yr = {r["time"]: r for r in yr_hours(rows)}
+    google = _google_index(google_hours)
+    instants = {k: [(r["time"], r.get(k)) for r in rows] for k in ("temp", "wind", "gust", "cloud", "wind_dir")}
+
+    # Seks-timersblokker: fordel nedbøren time for time.
+    six: dict[datetime, tuple[dict[str, Any], float]] = {}
+    for part in slices(rows):
+        length = int((part["end"] - part["start"]).total_seconds() // 3600)
+        if length <= 1:
+            continue
+        hours = [part["start"] + timedelta(hours=i) for i in range(length)]
+        weights = [max(0.0, _num((google.get(h) or {}).get("rain")) or 0.0) for h in hours]
+        total = sum(weights)
+        for h, w in zip(hours, weights):
+            share = w / total if total > 0 else 1 / length
+            six[h] = (part, part["rain"] * share)
+
+    last = max([max(yr, default=hour_now)] + [h for h in six] + [h for h in google], default=hour_now)
+    result = []
+    t = hour_now
+    while t <= last and len(result) < max_hours:
+        g = google.get(t) or {}
+        g_rain, g_temp = _num(g.get("rain")), _num(g.get("temp"))
+        g_wind, g_gust, g_cloud = _num(g.get("wind")), _num(g.get("gust")), _num(g.get("cloud"))
+        day = sun_elevation(lat, lon, t + timedelta(minutes=30)) > 0
+        local = _local(t)
+        item: dict[str, Any] = {"time": local.isoformat(), "hour": local.hour, "day": day,
+                                "g_rain": _r(g_rain), "g_temp": _r(g_temp, 1), "g_wind": _r(g_wind, 1),
+                                "g_cloud": _r(g_cloud, 0), "rain_max": None, "pop": None, "disagree": False}
+        row = yr.get(t)
+        if row is not None:
+            n1 = row["n1"]
+            item.update(src="yr", symbol=n1["symbol"], rain=n1["rain"], rain_max=n1["rain_max"], pop=n1["pop"],
+                        temp=_r(row["temp"], 1), wind=row["wind"], gust=row["gust"], wind_dir=row["wind_dir"],
+                        cloud=row.get("cloud") if row.get("cloud") is not None else g_cloud)
+            if g_rain is not None:
+                item["disagree"] = abs(n1["rain"] - g_rain) >= 1.0 or (
+                    g_temp is not None and row["temp"] is not None and abs(row["temp"] - g_temp) >= 2.5)
+        elif t in six or g:
+            src = "yr6" if t in six else "google"
+            rain = six[t][1] if t in six else g_rain
+            pick = {k: (gv if gv is not None else _interpolate(instants[k], t))
+                    for k, gv in (("temp", g_temp), ("wind", g_wind), ("gust", g_gust), ("cloud", g_cloud))}
+            item.update(src=src, rain=_r(rain), temp=_r(pick["temp"], 1), wind=_r(pick["wind"], 1),
+                        gust=_r(pick["gust"], 1), cloud=_r(pick["cloud"], 0),
+                        wind_dir=_previous(instants["wind_dir"], t) if src == "yr6" else None)
+            item["symbol"] = _hour_symbol(item["rain"], item["cloud"], day)
+        else:
+            t += timedelta(hours=1)
+            continue
+        result.append(item)
+        t += timedelta(hours=1)
+    return result
+
+
 def parse_google_days(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """Google days:lookup -> dag (07-19) og natt (19-07) per dato."""
     def qpf(part: dict[str, Any]) -> Optional[float]:
@@ -892,6 +1034,28 @@ def _fetch_reference(place: str, now: datetime) -> tuple[Optional[datetime], dic
 def _fetch_google(place: str) -> list[dict[str, Any]]:
     payload = _comparison_provider(place, "google")
     return payload.get("hours") or []
+
+
+def _google_long_hours() -> int:
+    import os
+
+    try:
+        return max(48, min(240, int(os.environ.get("GOOGLE_LANG_TIMER", "240"))))
+    except ValueError:
+        return 240
+
+
+def _fetch_google_long(place: str) -> list[dict[str, Any]]:
+    """Googles timesvarsel så langt det rekker (240 timer = ti kall).
+
+    Hentes bare når noen åpner værsøket eller en dag uten fullt timesvarsel
+    fra Yr, og holdes under en time som Googles vilkår krever.
+    """
+    from scripts.weather_comparison import fetch_google_hours
+
+    p = PLACES[place]
+    return _CACHE.get(("google_long", place), 3300,
+                      lambda: fetch_google_hours(p["lat"], p["lon"], hours=_google_long_hours()))
 
 
 def _fetch_observations(place: str, now: datetime) -> tuple[list[dict[str, Any]], Optional[str]]:
@@ -1045,6 +1209,42 @@ def varsel_api(sted: str):
         return jsonify(error=str(exc)), 503
     response = jsonify(payload)
     response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def build_series_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
+    now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        f_yr = pool.submit(_safe, lambda: _fetch_yr(place))
+        f_g = pool.submit(_safe, lambda: _fetch_google_long(place))
+        yr_payload, google = f_yr.result(), f_g.result() or []
+    if not yr_payload:
+        raise RuntimeError("Fikk ikke hentet varselet fra Yr.")
+    p = PLACES[place]
+    hours = build_series(parse_yr(yr_payload), google, now, p["lat"], p["lon"])
+    last = {src: next((h["time"] for h in reversed(hours) if h["src"] == src), None)
+            for src in ("yr", "yr6", "google")}
+    return {
+        "place": {"id": place, **p},
+        "generated_at": _local(now).isoformat(),
+        "google_available": bool(google),
+        "yr_hourly_until": last["yr"],
+        "hours": hours,
+    }
+
+
+@vaer_varsel.get("/ver/api/timeserie/<sted>")
+def timeserie_api(sted: str):
+    """Samlet timeserie for værsøket: Yr der Yr har timer, Google-fordelt ellers."""
+    if sted not in PLACES:
+        return jsonify(error="Ukjent sted."), 404
+    try:
+        payload = build_series_payload(sted)
+    except RuntimeError as exc:
+        return jsonify(error=str(exc)), 503
+    response = jsonify(payload)
+    # Kort nettlesercache: Googles timedata skal ikke ligge lenger enn en time.
+    response.headers["Cache-Control"] = "private, max-age=600"
     return response
 
 

@@ -217,6 +217,39 @@ a.pill{text-decoration:none;display:inline-block}
 .days .per .obs{color:var(--muted)}
 .days .per .obs-l{font-size:10px;color:var(--muted)}
 .days .per .dash{color:var(--line);font-size:18px}
+
+/* Værsøk */
+button.pill{font:inherit;font-size:13px}
+.pill.sok{border-color:var(--ok);color:var(--ok);font-weight:600}
+.pill.sok.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.best.click{cursor:pointer}
+.best.click:hover,.best.click:focus-visible{box-shadow:0 0 0 2px var(--warn)}
+.best .more{margin-left:auto;white-space:nowrap;color:var(--warn)}
+.sok-form{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:13.5px}
+.sok-form label{display:flex;align-items:center;gap:6px;color:var(--muted);white-space:nowrap}
+.sok-form select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 6px}
+.sok-sum{margin-top:12px;font-size:14px}
+.sgrid{display:grid;grid-template-columns:84px repeat(24,minmax(0,1fr));gap:2px;margin-top:10px;font-size:11.5px;align-items:center}
+.sgrid .lbl{white-space:nowrap;padding-right:6px;cursor:pointer;overflow:hidden;text-overflow:ellipsis}
+.sgrid .lbl:hover{color:var(--blue)}
+.sgrid .hh{color:var(--muted);grid-column:span 6}
+.sc{height:18px;border-radius:3px;background:var(--line)}
+.sc.wet{background:var(--blue-soft)}
+.sc.ok{background:color-mix(in srgb,var(--ok) 30%,transparent)}
+.sc.hit{background:var(--ok)}
+.sc.out{opacity:.3}
+.sc.na{background:none}
+.sc.est{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 2px,transparent 2px 5px)}
+.sl{margin-top:12px}
+.sl-i{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+.sl-i:hover .sl-t{color:var(--blue)}
+.sl-t{font-weight:600}
+.sl-d{font-size:13px;color:var(--muted)}
+.sl-n{font-size:20px;font-weight:700;color:var(--ok);white-space:nowrap}
+.sl-n small{font-size:12px;font-weight:400;color:var(--muted)}
+.stag{display:inline-block;font-size:10.5px;font-weight:600;border:1px solid var(--muted);color:var(--muted);border-radius:4px;padding:0 4px;margin-left:6px;vertical-align:1px}
+.sok-more{margin-top:8px}
+@media (max-width:760px){.sgrid{grid-template-columns:64px repeat(24,minmax(0,1fr));gap:1px}.sgrid .lbl{font-size:10.5px}.sc{height:16px}}
 </style>
 
 </head>
@@ -231,6 +264,7 @@ a.pill{text-decoration:none;display:inline-block}
     <div class="pills">
       {% for p in places %}<a class="pill{% if p.id == sted %} on{% endif %}" href="/ver/varsel/{{ p.id }}">{{ p.name }}</a>{% endfor %}
       <a class="pill" href="/ver/aktivt-varsel">Annet sted</a>
+      <button type="button" class="pill sok" id="sokBtn" aria-expanded="false" aria-controls="sokCard">Finn værluke</button>
     </div>
   </div>
 
@@ -293,6 +327,38 @@ a.pill{text-decoration:none;display:inline-block}
       </div>
     </div>
     <div class="best" id="best" hidden></div>
+  </section>
+
+  <!-- Værsøk: finn luker som oppfyller kravene -->
+  <section class="card" id="sokCard" hidden>
+    <div class="strip-head">
+      <h2>Finn værluke</h2>
+      <button type="button" class="linkbtn" id="sokLukk">Lukk</button>
+    </div>
+    <div class="sok-form" id="sokForm">
+      <label>Nedbør <select id="sNedbor">
+        <option value="0.1">Tørt</option><option value="0.5">Maks 0,5 mm/t</option>
+        <option value="1">Maks 1 mm/t</option><option value="99">Uansett</option></select></label>
+      <label>Vind maks <select id="sVind">
+        <option value="3">3 m/s</option><option value="5">5 m/s</option><option value="8">8 m/s</option>
+        <option value="10">10 m/s</option><option value="15">15 m/s</option><option value="99">Uansett</option></select></label>
+      <label>Sol <select id="sSol">
+        <option value="">Uansett</option><option value="50">Delvis sol</option><option value="25">Sol</option></select></label>
+      <label>Minst <select id="sTemp">
+        <option value="">Uansett</option><option value="0">0°</option><option value="5">5°</option>
+        <option value="10">10°</option><option value="15">15°</option><option value="20">20°</option></select></label>
+      <label>Mellom kl. <select id="sFra"></select> og <select id="sTil"></select></label>
+      <label>Minst <select id="sTimer"></select></label>
+      <label class="toggle"><input type="checkbox" id="sBegge" checked> Yr og Google må være enige</label>
+      <label>Sorter <select id="sSort">
+        <option value="tidligst">Tidligst</option><option value="lengst">Lengst</option><option value="best">Best vær</option></select></label>
+    </div>
+    <div class="sok-sum" id="sokSum">Henter timesvarsel for de neste dagene …</div>
+    <div class="sgrid" id="sokGrid"></div>
+    <div class="sl" id="sokList"></div>
+    <div class="legend" id="sokLegend"></div>
+    <div class="small muted" style="margin-top:8px">Tørt betyr under 0,1 mm i timen. Sol krever at sola er oppe og at skydekket er under 25 % (delvis sol: 50 %).
+      Skraverte timer har ikke eget timesvarsel fra Yr: der er Yr sin nedbør for seks timer fordelt etter Google sin timeprofil, og etter at Yr slutter brukes bare Google.</div>
   </section>
 
   <!-- 2. Time for time -->
@@ -497,10 +563,17 @@ function renderAnswers(d){
   }
   const b=d.best;
   $('best').hidden=!b;
-  if(b) $('best').innerHTML=b.text
+  if(b) $('best').innerHTML=(b.text
     ?`<span>${icon('partlycloudy_day',22)}</span><span><b>Beste tid ute ${b.label}:</b> ${b.text}</span>`
-    :`<span>${icon('rain',22)}</span><span><b>Lite opphold ${b.label}.</b> Ingen lengre tørre perioder mellom kl. 07 og 22.</span>`;
+    :`<span>${icon('rain',22)}</span><span><b>Lite opphold ${b.label}.</b> Ingen lengre tørre perioder mellom kl. 07 og 22.</span>`)
+    +`<span class="more">Finn flere luker ›</span>`;
 }
+const BEST_PRESET={nedbor:'0.1',vind:'8',sol:'',temp:'',fra:'7',til:'22',timer:'2',begge:'1',sort:'tidligst'};
+$('best').classList.add('click');
+$('best').tabIndex=0;
+$('best').setAttribute('role','button');
+$('best').addEventListener('click',()=>openSok(BEST_PRESET));
+$('best').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openSok(BEST_PRESET)}});
 
 /* ---------- Timesgraf (brukes for i dag og for dagene fremover) ---------- */
 // Timer med past=true har målt verdi (obs_*) og det som ble varslet ved midnatt (ref_*, g_*).
@@ -529,6 +602,13 @@ function chartSVG(H, Wc, showG){
   if(nPast>0){ s+=`<rect x="${PAD}" y="20" width="${nPast*COL}" height="${HEIGHT-20}" rx="6" fill="var(--past)"/>`;
     if(nPast*COL>44) s+=`<text x="${PAD+nPast*COL/2}" y="${iy+ICON/2+4}" text-anchor="middle" font-size="11" font-weight="700" letter-spacing=".08em" fill="var(--muted)">MÅLT</text>`; }
   H.forEach((h,i)=>{ if(h.hour===0&&i>0) s+=`<line x1="${PAD+i*COL}" y1="20" x2="${PAD+i*COL}" y2="${HEIGHT}" stroke="var(--muted)" stroke-opacity=".45" stroke-dasharray="3 3"/>`});
+  // Timer uten eget timesvarsel fra Yr (src yr6/google) skraveres.
+  const est=H.map((h,i)=>h.src&&h.src!=='yr'?i:-1).filter(i=>i>=0);
+  if(est.length){ const pid=`estHatch${++HATCH}`;
+    s+=`<defs><pattern id="${pid}" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="var(--muted)" stroke-opacity=".16" stroke-width="3"/></pattern></defs>`;
+    let a=est[0];
+    est.forEach((i,k)=>{ if(k+1===est.length||est[k+1]!==i+1){ s+=`<rect x="${PAD+a*COL}" y="20" width="${(i-a+1)*COL}" height="${HEIGHT-20}" fill="url(#${pid})"><title>Uten eget timesvarsel fra Yr: fordelt etter Google sin timeprofil</title></rect>`; a=est[k+1]; }});
+  }
   if(nowIdx>0) s+=`<line x1="${PAD+nowIdx*COL}" y1="20" x2="${PAD+nowIdx*COL}" y2="${HEIGHT}" stroke="var(--nowline)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
   labeled.forEach(i=>{ const h=H[i], x=cx(i);
     s+=`<text x="${x}" y="15" text-anchor="middle" font-size="12" ${isNow(i)?'font-weight="700" fill="var(--nowline)"':h.hour===0?'font-weight="700" fill="var(--ink)"':'fill="var(--muted)"'}>${hourLabel(h,i)}</text>`;
@@ -569,14 +649,16 @@ function chartSVG(H, Wc, showG){
     s+=(h.past||h.wind_dir==null?'':`<g transform="translate(${x-9} ${wY-5}) rotate(${h.wind_dir+180} 0 0)"><path d="M0 -5 L3.5 4 L0 2 L-3.5 4 Z" fill="var(--muted)"/></g>`)
       +`<text x="${h.past?x:x-2}" y="${wY}" ${h.past?'text-anchor="middle"':''} font-size="12" fill="var(--muted)">${Math.round(w)}</text>`});
   s+='</svg>';
-  return {svg:s,dry,hasPast:nPast>0};
+  return {svg:s,dry,hasPast:nPast>0,est:est.length>0};
 }
+let HATCH=0;
 function legendHTML(o){
   const it=(style,txt)=>`<span><i style="${style}"></i>${txt}</span>`;
   let s='';
   if(o.hasPast) s+=it('background:var(--obs)','Målt')+it('border:2px dashed var(--blue);background:none','Yr varslet ved midnatt');
   if(!o.dry) s+=it('background:var(--blue)','Yr')+it('background:var(--blue-soft)','Kan bli opptil');
   if(o.showG) s+=it('border:2px solid var(--google);background:none','Google')+it('background:var(--warn);border-radius:50%;width:8px;height:8px','Uenige');
+  if(o.est) s+=it('background:repeating-linear-gradient(135deg,var(--line) 0 2px,transparent 2px 5px);border:1px solid var(--line)','Fordelt etter Google sin timeprofil');
   return s;
 }
 function drawStrip(){
@@ -622,14 +704,22 @@ function wnDetail(d){
 }
 function dayDetail(d){
   if(d.source==='weathernext') return wnDetail(d);
-  const hours=(d.label==='I dag'?(DATA.today||[]):(DATA.detail_hours||[]).filter(h=>localDate(h.time)===d.date));
+  let hours=(d.label==='I dag'?(DATA.today||[]):(DATA.detail_hours||[]).filter(h=>localDate(h.time)===d.date));
+  // Har ikke Yr timer for hele døgnet, brukes den samlede timeserien (Yr fordelt etter Google).
+  let note='';
+  if(d.label!=='I dag'&&hours.length<24){
+    const full=SERIES?SERIES.hours.filter(h=>localDate(h.time)===d.date):[];
+    if(full.length>hours.length){ hours=full;
+      if(full.some(h=>h.src!=='yr')) note=' (skraverte timer: Yr sine seks-timersblokker fordelt etter Google sin timeprofil)';
+    }else if(!SERIES){ ensureSeries().then(()=>{if(OPEN_DAY===d.date) renderDays()}).catch(()=>{}); note=' (henter timer for resten av døgnet …)'; }
+  }
   const showG=DATA.google_available;
   let s='<div class="ddetail">';
   if(hours.length>=6){
     const w=Math.max(260,$('days').clientWidth-(MOBILE.matches?24:8));
     const r=chartSVG(hours,w,showG);
     const hasG=hours.some(h=>h.g_rain!=null);
-    s+=`<div class="dd-h">Time for time${hours.length<24&&d.label!=='I dag'?` (Yr har timesvarsel ${hours.length} timer denne dagen)`:''}</div>${r.svg}<div class="legend">${legendHTML({...r,showG:showG&&hasG})}</div>`;
+    s+=`<div class="dd-h">Time for time${note||(hours.length<24&&d.label!=='I dag'?` (Yr har timesvarsel ${hours.length} timer denne dagen)`:'')}</div>${r.svg}<div class="legend">${legendHTML({...r,showG:showG&&hasG})}</div>`;
     if(showG&&!hasG) s+=googleDayLine(d.date);
   }else{
     const blocks=(DATA.blocks||[]).filter(b=>localDate(b.start)===d.date||(localDate(b.end)===d.date&&b.end.slice(11,13)!=='00'));
@@ -696,6 +786,156 @@ function renderDays(){
 MOBILE.addEventListener('change',()=>{if(DATA)renderDays()});
 let _rs;window.addEventListener('resize',()=>{clearTimeout(_rs);_rs=setTimeout(()=>{if(DATA){drawStrip();if(OPEN_DAY)renderDays()}},150)});
 
+/* ---------- Samlet timeserie og værsøk ---------- */
+let SERIES=null, SERIES_P=null;
+function ensureSeries(){
+  if(SERIES&&Date.now()-SERIES._at>30*60*1000){SERIES=null;SERIES_P=null}
+  if(!SERIES_P) SERIES_P=fetch(`/ver/api/timeserie/${STED}`).then(async r=>{const d=await r.json(); if(!r.ok) throw new Error(d.error||'Feil'); d._at=Date.now(); SERIES=d; return d})
+    .catch(e=>{SERIES_P=null; throw e});
+  return SERIES_P;
+}
+const WEEKDAYS_FULL=['søndag','mandag','tirsdag','onsdag','torsdag','fredag','lørdag'];
+const SOK_FIELDS={nedbor:'sNedbor',vind:'sVind',sol:'sSol',temp:'sTemp',fra:'sFra',til:'sTil',timer:'sTimer',sort:'sSort'};
+const SOK_DEFAULT={nedbor:'0.1',vind:'8',sol:'',temp:'',fra:'9',til:'16',timer:'2',begge:'1',sort:'tidligst'};
+(()=>{ const hh=h=>String(h).padStart(2,'0');
+  $('sFra').innerHTML=Array.from({length:24},(_,h)=>`<option value="${h}">${hh(h)}</option>`).join('');
+  $('sTil').innerHTML=Array.from({length:24},(_,h)=>`<option value="${h+1}">${hh(h+1)}</option>`).join('');
+  $('sTimer').innerHTML=[1,2,3,4,5,6,8,10,12].map(n=>`<option value="${n}">${n} ${n===1?'time':'timer'}</option>`).join('');
+})();
+function sokSet(k){
+  Object.entries(SOK_FIELDS).forEach(([key,id])=>{const el=$(id), v=String(k[key]??SOK_DEFAULT[key]);
+    el.value=[...el.options].some(o=>o.value===v)?v:SOK_DEFAULT[key]});
+  $('sBegge').checked=String(k.begge??SOK_DEFAULT.begge)!=='0';
+}
+function sokGet(){
+  const k={}; Object.entries(SOK_FIELDS).forEach(([key,id])=>k[key]=$(id).value);
+  k.begge=$('sBegge').checked?'1':'0'; return k;
+}
+function sokUrl(k){
+  const u=new URL(location.href);
+  [...u.searchParams.keys()].forEach(x=>u.searchParams.delete(x));
+  if(k){u.searchParams.set('sok','1'); Object.entries(k).forEach(([a,b])=>{if(b!==SOK_DEFAULT[a]) u.searchParams.set(a,b)})}
+  history.replaceState(null,'',u.pathname+(u.search||''));
+}
+function hourOk(h,k){
+  const lim=+k.nedbor, vind=+k.vind, begge=k.begge==='1';
+  const both=(v,g,test)=>v!=null&&test(v)&&(!begge||g==null||test(g));
+  if(lim<99&&!both(h.rain,h.g_rain,x=>x<lim)) return false;
+  if(vind<99&&!both(h.wind,h.g_wind,x=>x<=vind)) return false;
+  if(k.sol!==''&&!(h.day&&both(h.cloud,h.g_cloud,x=>x<=+k.sol))) return false;
+  if(k.temp!==''&&!both(h.temp,h.g_temp,x=>x>=+k.temp)) return false;
+  return true;
+}
+function finnLuker(H,k){
+  const fra=+k.fra, til=+k.til, begge=k.begge==='1';
+  const inWin=H.map(h=>h.hour>=fra&&h.hour+1<=til), ok=H.map(h=>hourOk(h,k));
+  const runs=[]; let cur=null;
+  H.forEach((h,i)=>{
+    const t=new Date(h.time).getTime();
+    if(!(ok[i]&&inWin[i])){cur=null;return}
+    if(cur&&t-cur.last===3600e3){cur.idx.push(i);cur.last=t}
+    else{cur={idx:[i],last:t};runs.push(cur)}
+  });
+  const luker=runs.filter(r=>r.idx.length>=+k.timer).map(r=>{
+    const hs=r.idx.map(i=>H[i]), temps=hs.map(h=>h.temp).filter(v=>v!=null);
+    const winds=hs.flatMap(h=>[h.wind,begge?h.g_wind:null]).filter(v=>v!=null);
+    const clouds=hs.map(h=>h.cloud).filter(v=>v!=null);
+    const l={idx:r.idx,start:hs[0].time,end:new Date(r.last+3600e3),timer:hs.length,
+      tmin:temps.length?Math.round(Math.min(...temps)):null,tmax:temps.length?Math.round(Math.max(...temps)):null,
+      vind:winds.length?Math.round(Math.max(...winds)):null,sky:clouds.length?Math.round(clouds.reduce((a,b)=>a+b,0)/clouds.length):null,
+      est:hs.some(h=>h.src!=='yr'),google:hs.every(h=>h.src==='google'),sun:hs.filter(h=>h.day&&(h.cloud??100)<=40).length};
+    l.score=l.timer-0.2*(l.vind||0)-0.02*(l.sky??70);
+    return l;
+  });
+  if(k.sort==='lengst') luker.sort((a,b)=>b.timer-a.timer||a.start.localeCompare(b.start));
+  else if(k.sort==='best') luker.sort((a,b)=>b.score-a.score);
+  return {ok,inWin,luker};
+}
+function dagDiff(iso){
+  const today=(DATA?DATA.generated_at:new Date().toISOString()).slice(0,10);
+  return Math.round((new Date(iso.slice(0,10)+'T12:00:00')-new Date(today+'T12:00:00'))/864e5);
+}
+function dagNavn(iso){
+  const d=new Date(iso.slice(0,10)+'T12:00:00'), diff=dagDiff(iso);
+  const navn=diff===0?'I dag':diff===1?'I morgen':WEEKDAYS_FULL[d.getDay()][0].toUpperCase()+WEEKDAYS_FULL[d.getDay()].slice(1);
+  return `${navn} ${d.getDate()}.${d.getMonth()+1}.`;
+}
+function dagKort(iso){
+  const d=new Date(iso.slice(0,10)+'T12:00:00');
+  return dagDiff(iso)===0?'I dag':`${DAYS_SHORT[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}.`;
+}
+const kl=l=>{const a=l.start.slice(11,13), e=l.end.getHours(); return `kl. ${a}–${e===0?'24':String(e).padStart(2,'0')}`};
+let SOK_ALL=false;
+function renderSok(){
+  const k=sokGet(); sokUrl(k);
+  if(!SERIES){$('sokSum').textContent='Henter timesvarsel for de neste dagene …';$('sokGrid').innerHTML='';$('sokList').innerHTML='';return}
+  const H=SERIES.hours, r=finnLuker(H,k), hit=new Set(r.luker.flatMap(l=>l.idx));
+  const dager=new Set(H.map(h=>h.time.slice(0,10))).size;
+  const lengst=r.luker.reduce((a,l)=>!a||l.timer>a.timer?l:a,null);
+  $('sokSum').innerHTML=r.luker.length
+    ?`Fant <b>${r.luker.length} ${r.luker.length===1?'luke':'luker'}</b> de neste ${dager} dagene. Lengst: <b>${dagNavn(lengst.start).toLowerCase()} ${kl(lengst)}</b> (${lengst.timer} t).`
+    :`Ingen luker oppfyller kravene de neste ${dager} dagene. Prøv å løsne på vind, tidsvindu eller antall timer.`;
+  if(!SERIES.google_available) $('sokSum').innerHTML+=' <span class="muted small">Google mangler nå, så bare Yr brukes.</span>';
+  // Oversikt: én rad per dag, én rute per time.
+  const byDate=new Map();
+  H.forEach((h,i)=>{const d=h.time.slice(0,10); if(!byDate.has(d)) byDate.set(d,Array(24).fill(-1)); byDate.get(d)[h.hour]=i});
+  let g='<div></div>'+['00','06','12','18'].map(x=>`<div class="hh">${x}</div>`).join('');
+  byDate.forEach((cells,d)=>{
+    g+=`<div class="lbl" data-goto="${d}" title="Vis dagen">${dagKort(d)}</div>`;
+    cells.forEach((i,hr)=>{
+      if(i<0){g+='<div class="sc na"></div>';return}
+      const h=H[i], cls=['sc'];
+      cls.push(hit.has(i)?'hit':r.ok[i]?'ok':(h.rain||0)>=.1?'wet':'');
+      if(!r.inWin[i]) cls.push('out');
+      if(h.src!=='yr') cls.push('est');
+      const tip=`${String(hr).padStart(2,'0')}: ${h.temp!=null?Math.round(h.temp)+'°, ':''}${fmt(h.rain||0)} mm${h.g_rain!=null?` (Google ${fmtSmall(h.g_rain)})`:''}, ${h.wind!=null?Math.round(h.wind)+' m/s':''}${h.cloud!=null?`, ${Math.round(h.cloud)} % skyer`:''}`;
+      g+=`<div class="${cls.join(' ')}" title="${tip}"></div>`;
+    });
+  });
+  $('sokGrid').innerHTML=g;
+  const MAX=8, vis=SOK_ALL?r.luker:r.luker.slice(0,MAX);
+  $('sokList').innerHTML=vis.map(l=>{
+    const det=[l.tmin!=null?(l.tmin===l.tmax?`${l.tmax}°`:`${l.tmin}–${l.tmax}°`):'',l.vind!=null?`vind opptil ${l.vind} m/s`:'',
+      l.sun?`sol ${l.sun} t`:(l.sky!=null?`${l.sky} % skyer`:'')].filter(Boolean).join(' · ');
+    const tag=l.google?'<span class="stag" title="Etter at Yr slutter: bare Google">Bare Google</span>':l.est?'<span class="stag" title="Yr har bare seks-timersblokker her; timene er fordelt etter Google">Fordelt</span>':'';
+    return `<div class="sl-i" data-goto="${l.start.slice(0,10)}" role="button" tabindex="0"><div><div class="sl-t">${dagNavn(l.start)} ${kl(l)}${tag}</div><div class="sl-d">${det}</div></div><div class="sl-n">${l.timer}<small> t</small></div></div>`;
+  }).join('')+(r.luker.length>MAX?`<div class="sok-more"><button type="button" class="linkbtn" id="sokAlle">${SOK_ALL?'Vis færre':`Vis alle ${r.luker.length}`}</button></div>`:'');
+  if($('sokAlle')) $('sokAlle').onclick=()=>{SOK_ALL=!SOK_ALL;renderSok()};
+  const it=(style,txt)=>`<span><i style="${style}"></i>${txt}</span>`;
+  $('sokLegend').innerHTML=it('background:var(--ok)','Luke')+it('background:color-mix(in srgb,var(--ok) 30%,transparent)','Oppfyller kravene, men for kort')
+    +it('background:var(--blue-soft)','Nedbør')+it('background:var(--line);opacity:.4','Utenfor tidsvinduet')
+    +it('background:var(--ok);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 2px,transparent 2px 5px)','Uten eget Yr-timesvarsel');
+  document.querySelectorAll('#sokCard [data-goto]').forEach(el=>{
+    const go=()=>gotoDay(el.dataset.goto);
+    el.onclick=go; el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}};
+  });
+}
+function gotoDay(date){
+  if(!DATA) return;
+  const day=DATA.days.find(d=>d.date===date&&d.tmin!=null);
+  if(!day){$('daysCard').scrollIntoView({behavior:'smooth'});return}
+  if(day.label==='I dag'){$('strip').scrollIntoView({behavior:'smooth',block:'center'});return}
+  if(OPEN_DAY!==date) toggleDay(date);
+  const el=document.querySelector(`[data-day="${date}"]`); if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function openSok(preset){
+  if(preset) sokSet(preset);
+  $('sokCard').hidden=false; $('sokBtn').classList.add('on'); $('sokBtn').setAttribute('aria-expanded','true');
+  renderSok();
+  $('sokCard').scrollIntoView({behavior:'smooth',block:'start'});
+  ensureSeries().then(renderSok).catch(()=>{$('sokSum').textContent='Fikk ikke hentet timesvarselet akkurat nå. Prøv igjen om litt.'});
+}
+function closeSok(){
+  $('sokCard').hidden=true; $('sokBtn').classList.remove('on'); $('sokBtn').setAttribute('aria-expanded','false'); sokUrl(null);
+}
+$('sokBtn').onclick=()=>$('sokCard').hidden?openSok():closeSok();
+$('sokLukk').onclick=closeSok;
+$('sokForm').addEventListener('change',()=>{SOK_ALL=false;renderSok()});
+(()=>{const q=new URLSearchParams(location.search);
+  if(q.get('sok')==='1'){const k={};Object.keys(SOK_DEFAULT).forEach(a=>{if(q.has(a))k[a]=q.get(a)});sokSet(k);setTimeout(()=>openSok(),0)}
+  else sokSet({});
+})();
+
 /* ---------- Tillit ---------- */
 function renderTrust(d){
   const items=[];
@@ -718,6 +958,7 @@ async function load(){
     $('gToggle').hidden=!d.google_available;
     renderNow(d); renderNowcast(d); renderAnswers(d); drawStrip(); renderDays(); renderTrust(d);
     if($('radar').classList.contains('open')) renderNcTable(d);
+    if(!$('sokCard').hidden) ensureSeries().then(renderSok).catch(()=>{});
   }catch(e){
     $('error').hidden=false;
     $('error').textContent='Fikk ikke hentet varselet akkurat nå. Prøver igjen om litt.';
