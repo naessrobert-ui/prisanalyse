@@ -19,13 +19,22 @@
       <small class="text-muted" id="inv-selected-label"></small>
       <input type="hidden" id="inv-id">
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
       <label>Fra dato</label>
       <input type="date" class="form-control" id="date-from">
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
       <label>Til dato</label>
       <input type="date" class="form-control" id="date-to">
+    </div>
+    <div class="col-md-2">
+      <label title="En handelsrekke brytes når det går lenger enn dette mellom to handler i samme retning">Maks opphold i rekke</label>
+      <select class="form-select" id="max-gap">
+        <option value="3">3 dager</option>
+        <option value="7" selected>7 dager</option>
+        <option value="14">14 dager</option>
+        <option value="30">30 dager</option>
+      </select>
     </div>
   </div>
   <div class="mt-3">
@@ -44,9 +53,13 @@
   <hr style="border-color: var(--pa-border)">
   <h5>Detaljer per aksje</h5>
   <div class="mb-2">
-    <label>Velg verdipapir</label>
+    <label>Velg verdipapir (eller klikk en rad i tabellen over)</label>
     <select class="form-select" id="detail-select"></select>
   </div>
+  <h6 class="mt-3">Handelsrekker</h6>
+  <div class="text-muted mb-2" style="font-size:0.85em">Sammenhengende kjøp eller salg. ● / Pågår betyr at siste handel i rekken er nyere enn valgt maks opphold, regnet fra siste dato i databasen.</div>
+  <div id="detail-runs"></div>
+  <h6 class="mt-3">Enkelthandler</h6>
   <div id="detail-table"></div>
   <div id="detail-sum" class="mt-2" style="font-weight:600"></div>
 </div>
@@ -81,7 +94,8 @@
     this.innerHTML = '<span class="spinner"></span> Henter…';
 
     try {
-      const resp = await fetch(`{{ url_for("handler.api_per_eier") }}?investor_id=${selectedInvestorId}&date_from=${df}&date_to=${dt}`);
+      const gap = document.getElementById('max-gap').value;
+      const resp = await fetch(`{{ url_for("handler.api_per_eier") }}?investor_id=${selectedInvestorId}&date_from=${df}&date_to=${dt}&max_gap=${gap}`);
       const data = await resp.json();
 
       if (data.error) { document.getElementById('result-area').innerHTML = `<div class="panel">${data.error}</div>`; return; }
@@ -100,13 +114,25 @@
       {key:'antall_obs', label:'Obs', fmt:'int'},
       {key:'netto_mnok', label:'Netto kjøp/salg MNOK', fmt:'num', dec:2},
       {key:'gevinst_mnok', label:'Gevinst/tap MNOK', fmt:'num', dec:2},
+      {key:'gevinst_pct', label:'Gevinst %', fmt:'num', dec:1},
+      {key:'realisert_mnok', label:'Realisert MNOK', fmt:'num', dec:2},
+      {key:'urealisert_mnok', label:'Urealisert MNOK', fmt:'num', dec:2},
+      {key:'siste_kurs', label:'Siste kurs', fmt:'num', dec:2},
+      {key:'rekke_tekst', label:'Siste rekke'},
+      {key:'rekke_start', label:'Rekke fra'},
+      {key:'rekke_mnok', label:'Rekke MNOK', fmt:'num', dec:2},
       {key:'kjop_antall', label:'Kjøp antall', fmt:'int'},
       {key:'salg_antall', label:'Salg antall', fmt:'int'},
       {key:'kjop_snitt_kurs', label:'Kurs kjøp', fmt:'num', dec:2},
       {key:'salg_snitt_kurs', label:'Kurs salg', fmt:'num', dec:2},
       {key:'kjop_mnok', label:'Samlet kjøpssum MNOK', fmt:'num', dec:2},
       {key:'salg_mnok', label:'Samlet salgssum MNOK', fmt:'num', dec:2},
-    ], 'result-area');
+    ], 'result-area', {onRowClick: (row) => {
+        const sel = document.getElementById('detail-select');
+        sel.value = row.isin;
+        loadDetail();
+        document.getElementById('detail-area').scrollIntoView({behavior: 'smooth'});
+      }});
 
       document.getElementById('btn-csv').style.display = 'inline-block';
 
@@ -133,18 +159,44 @@
     if (!isin || !selectedInvestorId) return;
     const df = document.getElementById('date-from').value;
     const dt = document.getElementById('date-to').value;
+    const gap = document.getElementById('max-gap').value;
+    const tableEl = document.getElementById('detail-table');
+    const runsEl = document.getElementById('detail-runs');
+    const sumEl = document.getElementById('detail-sum');
+    tableEl.innerHTML = '<span class="spinner"></span> Henter…';
+    runsEl.innerHTML = '';
+    sumEl.textContent = '';
 
-    const resp = await fetch(`{{ url_for("handler.api_per_eier_detaljer") }}?investor_id=${selectedInvestorId}&isin=${isin}&date_from=${df}&date_to=${dt}`);
-    const data = await resp.json();
+    try {
+      const resp = await fetch(`{{ url_for("handler.api_per_eier_detaljer") }}?investor_id=${encodeURIComponent(selectedInvestorId)}&isin=${encodeURIComponent(isin)}&date_from=${df}&date_to=${dt}&max_gap=${gap}`);
+      const data = await resp.json();
+      if (data.error) { tableEl.innerHTML = `<div class="panel">${data.error}</div>`; return; }
 
-    buildTable(data.rows, [
-      {key:'dato', label:'Dato'},
-      {key:'antall', label:'Antall', fmt:'int'},
-      {key:'kurs', label:'Kurs', fmt:'num', dec:2},
-      {key:'belop_mnok', label:'Beløp MNOK', fmt:'num', dec:2},
-    ], 'detail-table');
+      buildTable(data.runs || [], [
+        {key:'retning', label:'Retning'},
+        {key:'start', label:'Fra'},
+        {key:'slutt', label:'Til'},
+        {key:'handelsdager', label:'Handelsdager', fmt:'int'},
+        {key:'kalenderdager', label:'Kalenderdager', fmt:'int'},
+        {key:'antall', label:'Antall', fmt:'int'},
+        {key:'belop_mnok', label:'Beløp MNOK', fmt:'num', dec:2},
+        {key:'snitt_kurs', label:'Snittkurs', fmt:'num', dec:2},
+        {key:'pagar_tekst', label:'Status'},
+      ], 'detail-runs');
 
-    document.getElementById('detail-sum').textContent = data.sum_mnok ? `Sum: ${fmtNum(data.sum_mnok, 2)} MNOK` : '';
+      buildTable(data.rows || [], [
+        {key:'dato', label:'Dato'},
+        {key:'antall', label:'Antall', fmt:'int'},
+        {key:'kurs', label:'Kurs', fmt:'num', dec:2},
+        {key:'belop_mnok', label:'Beløp MNOK', fmt:'num', dec:2},
+        {key:'kum_antall', label:'Kumulativ endring', fmt:'int'},
+      ], 'detail-table', {defaultPageSize: 30});
+
+      sumEl.textContent = (data.rows && data.rows.length) ? `Sum: ${fmtNum(data.sum_mnok, 2)} MNOK` : '';
+    } catch (e) {
+      tableEl.innerHTML = '<div class="panel">Teknisk feil ved henting av detaljer. Prøv igjen.</div>';
+      console.error('api/per-eier/detaljer fetch failed', e);
+    }
   }
 
 
@@ -167,6 +219,9 @@
     const kjopGevinst = summary.kjop_gevinst_mnok || 0;
     const salgGevinst = summary.salg_gevinst_mnok || 0;
     const nettoGevinst = summary.samlet_gevinst_mnok || 0;
+    const realisert = summary.realisert_mnok || 0;
+    const urealisert = summary.urealisert_mnok || 0;
+    const gevinstPct = summary.gevinst_pct || 0;
 
     el.innerHTML = `
       <h5 class="mb-2">Oppsummering (MNOK)</h5>
@@ -197,6 +252,14 @@
             </tr>
           </tbody>
         </table>
+      </div>
+      <div class="mt-2" style="font-size:0.9em">
+        Pågående rekker: <strong>${summary.pagaende_salg || 0}</strong> aksjer med salg, <strong>${summary.pagaende_kjop || 0}</strong> med kjøp
+      </div>
+      <div class="mt-1" style="font-size:0.9em">
+        Herav realisert: ${summaryCell(realisert)} &nbsp;|&nbsp;
+        urealisert: ${summaryCell(urealisert)} &nbsp;|&nbsp;
+        gevinst i % av omsetning: <span class="${signClass(gevinstPct)}" style="font-weight:700">${fmtSummaryNum(gevinstPct,1)} %</span>
       </div>
     `;
   }

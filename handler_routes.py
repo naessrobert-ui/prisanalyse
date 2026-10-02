@@ -550,9 +550,17 @@ def per_eier_page():
     return render_template("handler/per_eier.html")
 
 
+def _parse_max_gap() -> int:
+    try:
+        return max(1, min(60, int(request.args.get("max_gap", 7))))
+    except (TypeError, ValueError):
+        return 7
+
+
 @handler_bp.route("/api/per-eier")
 def api_per_eier():
     investor_id = request.args.get("investor_id", "").strip()
+    max_gap = _parse_max_gap()
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
 
@@ -567,6 +575,13 @@ def api_per_eier():
     try:
         conn = hd.db_connect()
         df = hd.fetch_handler_per_eier(conn, investor_id, date_from, date_to)
+        runs = pd.DataFrame()
+        if not df.empty:
+            try:
+                tx = hd.fetch_eier_transactions(conn, investor_id, None, date_from, date_to)
+                runs = hd.compute_trade_runs(tx, max_gap_days=max_gap, last_data_date=hd.get_last_data_date(conn))
+            except Exception:
+                _LOG.warning("Klarte ikke beregne handelsrekker investor_id=%s", investor_id, exc_info=True)
     except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
         _LOG.exception("DB-feil i api_per_eier investor_id=%s", investor_id)
         return jsonify({"error": _db_runtime_error_message(exc)}), 503
@@ -577,10 +592,20 @@ def api_per_eier():
     if df.empty:
         return jsonify({"rows": [], "message": "Ingen handler i perioden"})
 
+    latest_runs = hd.summarize_latest_runs(runs)
+    df = df.merge(latest_runs, on="isin", how="left")
+    df["rekke_pagar"] = df["rekke_pagar"].fillna(False).astype(bool)
+    df["rekke_mnok"] = pd.to_numeric(df["rekke_mnok"], errors="coerce").round(2)
+    df["rekke_tekst"] = [
+        (f"{r} {int(n)} d" + (" ●" if p else "")) if isinstance(r, str) else ""
+        for r, n, p in zip(df["rekke_retning"], df["rekke_dager"].fillna(0), df["rekke_pagar"])
+    ]
+
     # Round for display
     display_cols = [
         "kjop_mnok", "salg_mnok", "netto_mnok", "brutto_mnok",
         "gevinst_mnok", "kjop_gevinst_mnok", "salg_gevinst_mnok",
+        "realisert_mnok", "urealisert_mnok", "gevinst_pct",
         "siste_kurs", "netto_snitt_kurs", "kjop_snitt_kurs", "salg_snitt_kurs",
     ]
     for c in display_cols:
@@ -594,7 +619,15 @@ def api_per_eier():
         "samlet_gevinst_mnok": _safe_summary_value(df["gevinst_mnok"].sum()),
         "kjop_gevinst_mnok": _safe_summary_value(df["kjop_gevinst_mnok"].sum()),
         "salg_gevinst_mnok": _safe_summary_value(df["salg_gevinst_mnok"].sum()),
+        "realisert_mnok": _safe_summary_value(df["realisert_mnok"].sum()),
+        "urealisert_mnok": _safe_summary_value(df["urealisert_mnok"].sum()),
+        "pagaende_salg": int(((df["rekke_retning"] == "Salg") & df["rekke_pagar"]).sum()),
+        "pagaende_kjop": int(((df["rekke_retning"] == "Kjøp") & df["rekke_pagar"]).sum()),
     }
+    brutto_sum = df["brutto_mnok"].sum()
+    summary["gevinst_pct"] = _safe_summary_value(
+        df["gevinst_mnok"].sum() / brutto_sum * 100 if brutto_sum else 0
+    )
 
     # Unngå NaN/Infinity i JSON-respons (kan gi parse-feil i browser og hengende spinner)
     df = _json_safe_df(df)
@@ -606,6 +639,8 @@ def api_per_eier():
             "netto_snitt_kurs","kjop_snitt_kurs","salg_snitt_kurs","siste_kurs",
             "kjop_mnok","salg_mnok","netto_mnok","brutto_mnok",
             "gevinst_mnok","kjop_gevinst_mnok","salg_gevinst_mnok",
+            "realisert_mnok","urealisert_mnok","gevinst_pct",
+            "rekke_retning","rekke_dager","rekke_start","rekke_mnok","rekke_pagar","rekke_tekst","antall_rekker",
         ]].to_dict("records"),
         "count": len(df),
         "summary": summary,
@@ -618,14 +653,20 @@ def api_per_eier_detaljer():
     isin = request.args.get("isin", "").strip()
     date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
     date_to = _parse_date(request.args.get("date_to"), dt.date.today())
+    max_gap = _parse_max_gap()
 
     if not investor_id or not isin:
         return jsonify({"error": "Mangler investor_id eller isin"}), 400
+
+    err = _check_db()
+    if err:
+        return jsonify({"error": err}), 503
 
     conn = None
     try:
         conn = hd.db_connect()
         df = hd.fetch_eier_transactions(conn, investor_id, isin, date_from, date_to)
+        last_date = hd.get_last_data_date(conn)
     except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
         _LOG.exception("DB-feil i api_per_eier_detaljer investor_id=%s isin=%s", investor_id, isin)
         return jsonify({"error": _db_runtime_error_message(exc)}), 503
@@ -634,12 +675,20 @@ def api_per_eier_detaljer():
             conn.close()
 
     if df.empty:
-        return jsonify({"rows": [], "sum_mnok": 0})
+        return jsonify({"rows": [], "runs": [], "sum_mnok": 0})
 
+    runs = hd.compute_trade_runs(df, max_gap_days=max_gap, last_data_date=last_date)
+    df["dato"] = df["dato"].astype(str).str[:10]
     df["belop_mnok"] = df["belop_mnok"].round(2)
+    df["kurs"] = df["kurs"].round(2)
+    runs = runs.sort_values("rekke_nr", ascending=False)
+    runs["belop_mnok"] = runs["belop_mnok"].round(2)
+    runs["snitt_kurs"] = runs["snitt_kurs"].round(2)
+    runs["pagar_tekst"] = runs["pagar"].map({True: "Pågår", False: ""})
     return jsonify({
-        "rows": df[["dato","antall","kurs","belop_mnok"]].to_dict("records"),
-        "sum_mnok": round(df["belop"].sum() / 1_000_000, 2),
+        "rows": _json_safe_df(df.sort_values("dato", ascending=False))[["dato","antall","kurs","belop_mnok","kum_antall"]].to_dict("records"),
+        "runs": _json_safe_df(runs)[["retning","start","slutt","handelsdager","kalenderdager","antall","belop_mnok","snitt_kurs","pagar_tekst"]].to_dict("records"),
+        "sum_mnok": round(float(df["belop"].sum()) / 1_000_000, 2),
     })
 
 
