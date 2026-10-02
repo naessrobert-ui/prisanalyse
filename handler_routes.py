@@ -856,6 +856,107 @@ def api_portefolje_csv():
 # =========================================================
 # 2) Handler per aksje
 # =========================================================
+# =========================================================
+# 1c) Rekkeskanner: pågående kjøps- og salgsrekker blant store eiere
+# =========================================================
+@handler_bp.route("/rekker")
+def rekker_page():
+    return render_template("handler/rekker.html")
+
+
+def _rekker_filtered() -> tuple[pd.DataFrame | None, tuple | None]:
+    date_to = _parse_date(request.args.get("date_to"), dt.date.today())
+    date_from = _parse_date(request.args.get("date_from"), date_to - dt.timedelta(days=120))
+    max_gap = _parse_max_gap()
+    retning = (request.args.get("retning") or "salg").lower()
+    kun_pagar = request.args.get("kun_pagar", "1") != "0"
+    try:
+        min_dager = max(1, int(request.args.get("min_dager", 3)))
+    except ValueError:
+        min_dager = 3
+    try:
+        min_mnok = max(0.0, float(str(request.args.get("min_mnok", 10)).replace(",", ".")))
+    except ValueError:
+        min_mnok = 10.0
+    inv_type = (request.args.get("investor_type") or "").strip()
+
+    err = _check_db()
+    if err:
+        return None, (jsonify({"error": err}), 503)
+
+    conn = None
+    t0 = time.time()
+    try:
+        conn = hd.db_connect()
+        runs = hd.scan_trade_runs(conn, date_from, date_to, max_gap_days=max_gap)
+    except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
+        _LOG.exception("DB-feil i rekkeskanner")
+        return None, (jsonify({"error": _db_runtime_error_message(exc)}), 503)
+    finally:
+        if conn is not None:
+            conn.close()
+    _emit_timing("rekker scan", seconds=round(time.time() - t0, 2), rows=len(runs))
+
+    if runs.empty:
+        return runs, None
+    m = (runs["handelsdager"] >= min_dager) & (runs["belop_mnok"].abs() >= min_mnok)
+    if kun_pagar:
+        m &= runs["pagar"]
+    if retning == "salg":
+        m &= runs["retning"] == "Salg"
+    elif retning == "kjop":
+        m &= runs["retning"] == "Kjøp"
+    if inv_type:
+        m &= runs["investor_type"].astype(str).str.upper() == inv_type.upper()
+    return runs[m].copy(), None
+
+
+_REKKE_COLS = [
+    "investor_id", "investor", "investor_type", "ticker", "navn", "isin", "retning",
+    "start", "slutt", "handelsdager", "kalenderdager", "antall", "belop_mnok",
+    "snitt_kurs", "siste_kurs", "kurs_endring_pct", "beholdning_start", "beholdning_na",
+    "andel_av_beholdning_pct", "ut_av_topp20", "pagar",
+]
+
+
+@handler_bp.route("/api/rekker")
+def api_rekker():
+    runs, err = _rekker_filtered()
+    if err:
+        return err
+    if runs is None or runs.empty:
+        return jsonify({"rows": [], "per_aksje": [], "count": 0, "message": "Ingen rekker med valgte filtre"})
+
+    runs = runs.sort_values("belop_mnok", key=lambda x: x.abs(), ascending=False)
+    per_aksje = hd.summarize_runs_per_security(runs)
+    for c in ("belop_mnok", "snitt_kurs", "siste_kurs", "kurs_endring_pct", "andel_av_beholdning_pct"):
+        if c in runs.columns:
+            runs[c] = pd.to_numeric(runs[c], errors="coerce").round(2)
+    for c in ("salg_mnok", "kjop_mnok", "netto_mnok", "siste_kurs"):
+        per_aksje[c] = per_aksje[c].round(2)
+    runs["status"] = [
+        ("Pågår" if p else "Avsluttet") + (" · ute av topp 20" if u else "")
+        for p, u in zip(runs["pagar"], runs["ut_av_topp20"])
+    ]
+    cols = [c for c in _REKKE_COLS if c in runs.columns] + ["status"]
+    return jsonify({
+        "rows": _json_safe_df(runs.head(1000))[cols].to_dict("records"),
+        "per_aksje": _json_safe_df(per_aksje).to_dict("records"),
+        "count": int(len(runs)),
+    })
+
+
+@handler_bp.route("/api/rekker/csv")
+def api_rekker_csv():
+    runs, err = _rekker_filtered()
+    if err:
+        return err
+    if runs is None or runs.empty:
+        runs = pd.DataFrame(columns=_REKKE_COLS)
+    cols = [c for c in _REKKE_COLS if c in runs.columns]
+    return _csv_response(runs[cols], "handelsrekker.csv")
+
+
 @handler_bp.route("/per-aksje")
 def per_aksje_page():
     return render_template("handler/per_aksje.html")

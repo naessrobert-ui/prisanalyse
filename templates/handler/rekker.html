@@ -1,0 +1,189 @@
+{# templates/handler/rekker.html #}
+{% extends "handler/_shell.html" %}
+{% block title %}Rekkeskanner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>🔁 Rekkeskanner</h1>
+  <div class="sub">Store eiere (topp 20) som selger eller kjøper over mange dager på rad. En rekke brytes når retningen snur, eller når det går lenger enn valgt opphold mellom to handler.</div>
+</div>
+
+<div class="panel">
+  <div class="row g-3">
+    <div class="col-md-2">
+      <label>Fra dato</label>
+      <input type="date" class="form-control" id="date-from">
+    </div>
+    <div class="col-md-2">
+      <label>Til dato</label>
+      <input type="date" class="form-control" id="date-to">
+    </div>
+    <div class="col-md-2">
+      <label>Retning</label>
+      <select class="form-select" id="retning">
+        <option value="salg" selected>Salg</option>
+        <option value="kjop">Kjøp</option>
+        <option value="alle">Begge</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label>Maks opphold i rekke</label>
+      <select class="form-select" id="max-gap">
+        <option value="3">3 dager</option>
+        <option value="7" selected>7 dager</option>
+        <option value="14">14 dager</option>
+        <option value="30">30 dager</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label>Min handelsdager</label>
+      <input type="number" class="form-control" id="min-dager" value="3" min="1">
+    </div>
+    <div class="col-md-2">
+      <label>Min beløp MNOK</label>
+      <input type="number" class="form-control" id="min-mnok" value="10" min="0" step="1">
+    </div>
+  </div>
+  <div class="form-check mt-3">
+    <input class="form-check-input" type="checkbox" id="kun-pagar" checked>
+    <label class="form-check-label" for="kun-pagar">Bare pågående rekker (siste handel nyere enn maks opphold fra siste dato i databasen)</label>
+  </div>
+  <div class="mt-3">
+    <button class="btn btn-primary" id="btn-scan">Skann</button>
+    <button class="btn btn-outline-secondary ms-2" id="btn-csv" style="display:none">Last ned CSV</button>
+    <span class="text-muted ms-3" id="scan-info"></span>
+  </div>
+</div>
+
+<div id="aksje-wrap" style="display:none">
+  <h5 class="mt-3">Per aksje</h5>
+  <div class="text-muted mb-2" style="font-size:0.85em">Klikk en aksje for å se bare rekkene i den.</div>
+  <div id="aksje-table"></div>
+</div>
+
+<div id="rekke-wrap" style="display:none">
+  <h5 class="mt-4">Rekker <span id="rekke-filter" class="text-muted" style="font-size:0.8em"></span></h5>
+  <div class="text-muted mb-2" style="font-size:0.85em">Klikk en rad for å åpne investoren i Handler per eier. Andel av beholdning er antall i rekken delt på beholdningen før første handel.</div>
+  <div id="rekke-table"></div>
+</div>
+
+<div id="result-msg"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const today = new Date();
+  const ago = new Date(today); ago.setDate(ago.getDate() - 120);
+  document.getElementById('date-from').value = ago.toISOString().slice(0,10);
+  document.getElementById('date-to').value = today.toISOString().slice(0,10);
+
+  let allRows = [];
+
+  const rekkeCols = [
+    {key:'investor', label:'Investor'},
+    {key:'ticker', label:'Ticker'},
+    {key:'retning', label:'Retning'},
+    {key:'start', label:'Fra'},
+    {key:'slutt', label:'Siste handel'},
+    {key:'handelsdager', label:'Handelsdager', fmt:'int'},
+    {key:'kalenderdager', label:'Kalenderdager', fmt:'int'},
+    {key:'belop_mnok', label:'Beløp MNOK', fmt:'num', dec:1},
+    {key:'andel_av_beholdning_pct', label:'Andel av beholdning %', fmt:'num', dec:1},
+    {key:'snitt_kurs', label:'Snittkurs', fmt:'num', dec:2},
+    {key:'siste_kurs', label:'Siste kurs', fmt:'num', dec:2},
+    {key:'kurs_endring_pct', label:'Kurs siden start %', fmt:'num', dec:1},
+    {key:'beholdning_na', label:'Beholdning nå', fmt:'int'},
+    {key:'status', label:'Status'},
+  ];
+
+  function params() {
+    const p = new URLSearchParams({
+      date_from: document.getElementById('date-from').value,
+      date_to: document.getElementById('date-to').value,
+      retning: document.getElementById('retning').value,
+      max_gap: document.getElementById('max-gap').value,
+      min_dager: document.getElementById('min-dager').value,
+      min_mnok: document.getElementById('min-mnok').value,
+      kun_pagar: document.getElementById('kun-pagar').checked ? '1' : '0',
+    });
+    return p.toString();
+  }
+
+  function openInvestor(row) {
+    const p = new URLSearchParams({
+      investor_id: row.investor_id,
+      label: `${row.investor} (${row.investor_id})`,
+      date_from: row.start,
+      date_to: document.getElementById('date-to').value,
+      max_gap: document.getElementById('max-gap').value,
+      isin: row.isin,
+    });
+    window.open(`{{ url_for("handler.per_eier_page") }}?${p.toString()}`, '_blank');
+  }
+
+  function renderRekker(rows, filterLabel) {
+    document.getElementById('rekke-filter').textContent = filterLabel || '';
+    buildTable(rows, rekkeCols, 'rekke-table', {
+      onRowClick: openInvestor,
+      defaultPageSize: 30,
+    });
+  }
+
+  document.getElementById('btn-scan').addEventListener('click', async function() {
+    const btn = this;
+    btn.innerHTML = '<span class="spinner"></span> Skanner…';
+    btn.disabled = true;
+    document.getElementById('result-msg').innerHTML = '';
+    document.getElementById('scan-info').textContent = '';
+    try {
+      const resp = await fetch(`{{ url_for("handler.api_rekker") }}?${params()}`);
+      const data = await resp.json();
+      if (data.error) {
+        document.getElementById('result-msg').innerHTML = `<div class="panel">${data.error}</div>`;
+        return;
+      }
+      if (!data.rows || data.rows.length === 0) {
+        document.getElementById('aksje-wrap').style.display = 'none';
+        document.getElementById('rekke-wrap').style.display = 'none';
+        document.getElementById('result-msg').innerHTML = `<div class="empty-msg">${data.message || 'Ingen rekker'}</div>`;
+        return;
+      }
+      allRows = data.rows;
+      document.getElementById('scan-info').textContent =
+        `${data.count} rekker` + (data.count > data.rows.length ? ` (viser de ${data.rows.length} største)` : '');
+
+      document.getElementById('aksje-wrap').style.display = 'block';
+      buildTable(data.per_aksje, [
+        {key:'ticker', label:'Ticker'},
+        {key:'navn', label:'Navn'},
+        {key:'eiere_salg', label:'Eiere som selger', fmt:'int'},
+        {key:'eiere_kjop', label:'Eiere som kjøper', fmt:'int'},
+        {key:'salg_mnok', label:'Salg MNOK', fmt:'num', dec:1},
+        {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num', dec:1},
+        {key:'netto_mnok', label:'Netto MNOK', fmt:'num', dec:1},
+        {key:'lengste_rekke', label:'Lengste rekke (dager)', fmt:'int'},
+        {key:'siste_kurs', label:'Siste kurs', fmt:'num', dec:2},
+      ], 'aksje-table', {
+        onRowClick: (row) => {
+          renderRekker(allRows.filter(r => r.isin === row.isin), `· ${row.ticker} (klikk Skann for alle)`);
+          document.getElementById('rekke-wrap').scrollIntoView({behavior: 'smooth'});
+        },
+      });
+
+      document.getElementById('rekke-wrap').style.display = 'block';
+      renderRekker(allRows, '');
+      document.getElementById('btn-csv').style.display = 'inline-block';
+    } catch (e) {
+      document.getElementById('result-msg').innerHTML = '<div class="panel">Teknisk feil ved skanning. Prøv igjen.</div>';
+      console.error('api/rekker failed', e);
+    } finally {
+      btn.textContent = 'Skann';
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('btn-csv').addEventListener('click', function() {
+    window.open(`{{ url_for("handler.api_rekker_csv") }}?${params()}`);
+  });
+</script>
+{% endblock %}

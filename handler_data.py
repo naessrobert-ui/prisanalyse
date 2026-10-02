@@ -10,6 +10,7 @@ import sqlite3
 import datetime as dt
 import logging
 import re
+import time
 import io
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
@@ -1188,30 +1189,43 @@ def compute_trade_runs(tx: pd.DataFrame, max_gap_days: int = 7, last_data_date: 
     En rekke brytes når retningen snur eller det går mer enn max_gap_days kalenderdager
     mellom to handler. Store investorer som begynner å selge gjør det gjerne over mange
     dager/uker, og en rekke som fortsatt pågår er det mest interessante signalet.
+
+    Grupperer per isin, eller per (investor_id, isin) når tx har kolonnen investor_id.
+    Har tx holding_yesterday/holding_today/flag_exit_source, tas beholdning med.
     """
-    cols = ["isin", "rekke_nr", "retning", "start", "slutt", "handelsdager", "kalenderdager",
-            "antall", "belop_mnok", "snitt_kurs", "pagar"]
+    keys = ["investor_id", "isin"] if (tx is not None and "investor_id" in tx.columns) else ["isin"]
+    cols = keys + ["rekke_nr", "retning", "start", "slutt", "handelsdager", "kalenderdager",
+                   "antall", "belop_mnok", "snitt_kurs", "forste_kurs", "pagar"]
     if tx is None or tx.empty:
         return pd.DataFrame(columns=cols)
 
-    d = tx[["isin", "dato", "antall", "kurs", "belop"]].copy()
+    extra = [c for c in ("holding_yesterday", "holding_today", "flag_exit_source") if c in tx.columns]
+    d = tx[keys + ["dato", "antall", "kurs", "belop"] + extra].copy()
     d["dato"] = pd.to_datetime(d["dato"].astype(str).str[:10])
-    d = d.sort_values(["isin", "dato"]).reset_index(drop=True)
+    d = d.sort_values(keys + ["dato"]).reset_index(drop=True)
     d["sign"] = (d["antall"] > 0).astype(int) * 2 - 1
-    prev_sign = d.groupby("isin")["sign"].shift()
-    gap = d.groupby("isin")["dato"].diff().dt.days
+    grp = d.groupby(keys, sort=False)
+    prev_sign = grp["sign"].shift()
+    gap = grp["dato"].diff().dt.days
     ny = prev_sign.isna() | (d["sign"] != prev_sign) | (gap > max_gap_days)
-    d["rekke_nr"] = ny.groupby(d["isin"]).cumsum().astype(int)
+    d["rekke_nr"] = ny.astype(int).groupby([d[k] for k in keys]).cumsum().astype(int)
 
-    g = d.groupby(["isin", "rekke_nr"])
-    runs = g.agg(
+    aggs = dict(
         sign=("sign", "first"),
         start=("dato", "min"),
         slutt=("dato", "max"),
         handelsdager=("dato", "nunique"),
         antall=("antall", "sum"),
         belop=("belop", "sum"),
-    ).reset_index()
+        forste_kurs=("kurs", "first"),
+    )
+    if "holding_yesterday" in extra:
+        aggs["beholdning_start"] = ("holding_yesterday", "first")
+    if "holding_today" in extra:
+        aggs["beholdning_na"] = ("holding_today", "last")
+    if "flag_exit_source" in extra:
+        aggs["ut_av_topp20"] = ("flag_exit_source", "last")
+    runs = d.groupby(keys + ["rekke_nr"], sort=False).agg(**aggs).reset_index()
     runs["retning"] = runs["sign"].map({1: "Kjøp", -1: "Salg"})
     runs["kalenderdager"] = (runs["slutt"] - runs["start"]).dt.days + 1
     runs["belop_mnok"] = runs["belop"] / 1_000_000
@@ -1220,7 +1234,8 @@ def compute_trade_runs(tx: pd.DataFrame, max_gap_days: int = 7, last_data_date: 
     runs["pagar"] = (ref - runs["slutt"]).dt.days <= max_gap_days
     runs["start"] = runs["start"].dt.date.astype(str)
     runs["slutt"] = runs["slutt"].dt.date.astype(str)
-    return runs[cols]
+    out_cols = cols + [c for c in ("beholdning_start", "beholdning_na", "ut_av_topp20") if c in runs.columns]
+    return runs[out_cols]
 
 
 def summarize_latest_runs(runs: pd.DataFrame) -> pd.DataFrame:
@@ -1243,6 +1258,135 @@ def get_last_data_date(conn) -> dt.date | None:
         return _normalize_date(r[0]) if r and r[0] else None
     except sqlite3.DatabaseError:
         return None
+
+
+_SCAN_CACHE: dict[tuple, tuple[float, pd.DataFrame]] = {}
+_SCAN_CACHE_TTL_SECONDS = 15 * 60
+
+
+def scan_trade_runs(conn, date_from: dt.date, date_to: dt.date, max_gap_days: int = 7) -> pd.DataFrame:
+    """Handelsrekker for alle investorer i topp-20-listene i perioden.
+
+    Én spørring over perioden, rekkene beregnes i pandas. Resultatet caches i 15 minutter
+    per (periode, opphold, databasefil-endringstid).
+    """
+    try:
+        db_mtime = os.path.getmtime(HANDLER_DB_PATH)
+    except OSError:
+        db_mtime = 0.0
+    key = (date_from.isoformat(), date_to.isoformat(), int(max_gap_days), db_mtime)
+    hit = _SCAN_CACHE.get(key)
+    if hit and (time.time() - hit[0]) < _SCAN_CACHE_TTL_SECONDS:
+        return hit[1].copy()
+
+    pc_cols = {r[1] for r in conn.execute("PRAGMA table_info(position_change)").fetchall()}
+    h_y = "pc.holding_yesterday" if "holding_yesterday" in pc_cols else "NULL"
+    h_t = "pc.holding_today" if "holding_today" in pc_cols else "NULL"
+    f_x = "pc.flag_exit_source" if "flag_exit_source" in pc_cols else "NULL"
+    sql = f"""
+    SELECT pc.investor_id, pc.isin, pc.date_today AS dato, pc.change_qty AS antall,
+           COALESCE(
+               NULLIF(pc.price_yesterday,0),
+               NULLIF(pc.price_today,0),
+               (
+                 SELECT MAX(p2.price_yesterday)
+                 FROM position_change p2
+                 WHERE p2.isin=pc.isin
+                   AND p2.date_today >= date(pc.date_today,'+1 day')
+                   AND p2.date_today <  date(pc.date_today,'+2 day')
+                   AND p2.price_yesterday>0
+               )
+           ) AS kurs,
+           {h_y} AS holding_yesterday, {h_t} AS holding_today, {f_x} AS flag_exit_source
+    FROM position_change pc
+    WHERE pc.date_today BETWEEN ? AND ?
+      AND COALESCE(pc.change_qty,0)<>0
+    """
+    tx = pd.read_sql_query(sql, conn, params=(date_from.isoformat(), date_to.isoformat()))
+    if tx.empty:
+        _SCAN_CACHE[key] = (time.time(), tx)
+        return tx
+    tx["kurs"] = pd.to_numeric(tx["kurs"], errors="coerce")
+    tx = tx[tx["kurs"] > 0].copy()
+    tx["antall"] = pd.to_numeric(tx["antall"], errors="coerce").fillna(0)
+    for c in ("holding_yesterday", "holding_today", "flag_exit_source"):
+        tx[c] = pd.to_numeric(tx[c], errors="coerce")
+    tx["belop"] = tx["antall"] * tx["kurs"]
+    tx["investor_id"] = tx["investor_id"].astype(str).str.strip()
+
+    runs = compute_trade_runs(tx, max_gap_days=max_gap_days, last_data_date=get_last_data_date(conn))
+    if runs.empty:
+        _SCAN_CACHE[key] = (time.time(), runs)
+        return runs
+
+    # Navn på aksje og investor, siste kurs per aksje
+    isins = runs["isin"].unique().tolist()
+    sec = pd.read_sql_query(
+        "SELECT isin, COALESCE(ticker,'') AS ticker, COALESCE(isin_name,'') AS navn FROM security", conn
+    )
+    runs = runs.merge(sec, on="isin", how="left")
+    inv_ids = runs["investor_id"].unique().tolist()
+    inv_rows = []
+    for i in range(0, len(inv_ids), 900):
+        chunk = inv_ids[i:i + 900]
+        ph = ",".join("?" * len(chunk))
+        inv_rows += conn.execute(
+            f"SELECT investor_id, investor_type, first_name, last_name FROM investor WHERE TRIM(investor_id) IN ({ph})",
+            chunk,
+        ).fetchall()
+    inv = pd.DataFrame(
+        [{
+            "investor_id": str(r["investor_id"]).strip(),
+            "investor": clean_name(r["first_name"] or "", r["last_name"] or "", str(r["investor_id"])),
+            "investor_type": r["investor_type"] or "",
+        } for r in inv_rows],
+        columns=["investor_id", "investor", "investor_type"],
+    ).drop_duplicates("investor_id")
+    runs = runs.merge(inv, on="investor_id", how="left")
+    runs["investor"] = runs["investor"].fillna(runs["investor_id"])
+
+    last_px = {}
+    for isin in isins:
+        r = conn.execute(
+            "SELECT price_yesterday FROM position_change WHERE isin=? AND price_yesterday>0 "
+            "ORDER BY date_today DESC, price_yesterday DESC LIMIT 1",
+            (isin,),
+        ).fetchone()
+        last_px[isin] = float(r[0]) if r else None
+    runs["siste_kurs"] = runs["isin"].map(last_px)
+
+    # Kursutvikling siden rekken startet og andel av beholdning som er omsatt i rekken
+    runs["kurs_endring_pct"] = (runs["siste_kurs"] / runs["forste_kurs"] - 1) * 100
+    if "beholdning_start" in runs.columns:
+        bs = runs["beholdning_start"].where(runs["beholdning_start"] > 0)
+        runs["andel_av_beholdning_pct"] = runs["antall"].abs() / bs * 100
+    runs["ut_av_topp20"] = runs.get("ut_av_topp20", pd.Series(0, index=runs.index)).fillna(0).astype(int) == 1
+
+    _SCAN_CACHE.clear()
+    _SCAN_CACHE[key] = (time.time(), runs)
+    return runs.copy()
+
+
+def summarize_runs_per_security(runs: pd.DataFrame) -> pd.DataFrame:
+    """Salgspress per aksje: pågående rekker fordelt på kjøp og salg."""
+    if runs is None or runs.empty:
+        return pd.DataFrame()
+    r = runs.copy()
+    r["salg"] = (r["retning"] == "Salg").astype(int)
+    r["kjop"] = (r["retning"] == "Kjøp").astype(int)
+    r["salg_mnok"] = r["belop_mnok"].where(r["retning"] == "Salg", 0)
+    r["kjop_mnok"] = r["belop_mnok"].where(r["retning"] == "Kjøp", 0)
+    g = r.groupby(["isin", "ticker", "navn"], dropna=False).agg(
+        eiere_salg=("salg", "sum"),
+        eiere_kjop=("kjop", "sum"),
+        salg_mnok=("salg_mnok", "sum"),
+        kjop_mnok=("kjop_mnok", "sum"),
+        netto_mnok=("belop_mnok", "sum"),
+        lengste_rekke=("handelsdager", "max"),
+        siste_kurs=("siste_kurs", "first"),
+    ).reset_index()
+    g["netto_eiere"] = g["eiere_kjop"] - g["eiere_salg"]
+    return g.sort_values("netto_mnok")
 
 
 # =========================================================

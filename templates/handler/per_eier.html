@@ -139,6 +139,11 @@
       // Build detail dropdown
       const sel = document.getElementById('detail-select');
       sel.innerHTML = data.rows.map(r => `<option value="${r.isin}">${r.ticker} | ${r.navn} | ${r.isin}</option>`).join('');
+      if (pendingIsin && data.rows.some(r => r.isin === pendingIsin)) {
+        sel.value = pendingIsin;
+        pendingIsin = null;
+        setTimeout(() => document.getElementById('detail-area').scrollIntoView({behavior: 'smooth'}), 300);
+      }
       document.getElementById('detail-area').style.display = 'block';
       loadDetail();
     } catch (e) {
@@ -263,6 +268,25 @@
       </div>
     `;
   }
+
+  // Forhåndsutfylling fra URL (brukes av rekkeskanneren)
+  let pendingIsin = null;
+  (function prefillFromUrl() {
+    const q = new URLSearchParams(window.location.search);
+    const inv = q.get('investor_id');
+    if (!inv) return;
+    selectedInvestorId = inv;
+    document.getElementById('inv-id').value = inv;
+    const label = q.get('label') || inv;
+    document.getElementById('inv-search').value = label;
+    document.getElementById('inv-selected-label').textContent = '✓ ' + label;
+    document.getElementById('btn-fetch').disabled = false;
+    if (q.get('date_from')) document.getElementById('date-from').value = q.get('date_from');
+    if (q.get('date_to')) document.getElementById('date-to').value = q.get('date_to');
+    if (q.get('max_gap')) document.getElementById('max-gap').value = q.get('max_gap');
+    pendingIsin = q.get('isin');
+    document.getElementById('btn-fetch').click();
+  })();
 
   // CSV download
   document.getElementById('btn-csv').addEventListener('click', function() {
