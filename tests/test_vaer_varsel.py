@@ -383,3 +383,85 @@ def test_weathernext_dager_etter_yr():
     assert all(d["source"] == "weathernext" for d in ekstra)
     assert ekstra[-1]["date"] <= "2026-10-10"  # siste, halve døgn er utelatt
     assert vv.weathernext_by_day(None, now) == {}
+
+
+# ---------------------------------------------------------------------------
+# Samlet timeserie for værsøket
+# ---------------------------------------------------------------------------
+
+BERGEN = (60.393, 5.3242)
+
+
+def test_sun_elevation_bergen():
+    noon = datetime(2026, 9, 27, 11, 20, tzinfo=timezone.utc)  # sol i sør i Bergen
+    assert 25 < vv.sun_elevation(*BERGEN, noon) < 32
+    assert vv.sun_elevation(*BERGEN, datetime(2026, 9, 27, 23, 0, tzinfo=timezone.utc)) < -20
+
+
+def test_series_uses_yr_hours_then_google_profile_for_six_hour_blocks():
+    rows = vv.parse_yr(yr_payload({2: 0.7}))
+    blocks = [p for p in vv.slices(rows) if p["end"] - p["start"] > timedelta(hours=1)]
+    first = blocks[0]
+    peak = int((first["start"] - START).total_seconds() // 3600) + 2
+    g = google({peak: 3.0}, hours=240)
+    series = vv.build_series(rows, g, NOW, *BERGEN)
+
+    assert series[0]["src"] == "yr" and series[2]["rain"] == 0.7
+    assert series[0]["time"].startswith("2026-09-27T08:00")
+    in_block = [h for h in series if first["start"] <= datetime.fromisoformat(h["time"]) < first["end"]]
+    assert len(in_block) == 6 and all(h["src"] == "yr6" for h in in_block)
+    # Yr sin totale blokknedbør beholdes, men legges der Google har regnet.
+    assert abs(sum(h["rain"] for h in in_block) - 1.5) < 1e-6
+    assert in_block[2]["rain"] == 1.5 and in_block[2]["symbol"] == "rain"
+    assert all(h["rain"] == 0 for i, h in enumerate(in_block) if i != 2)
+    # Etter at Yr slutter: bare Google.
+    assert series[-1]["src"] == "google" and len(series) <= 240
+
+
+def test_series_spreads_evenly_without_google():
+    rows = vv.parse_yr(yr_payload())
+    series = vv.build_series(rows, [], NOW, *BERGEN)
+    six = [h for h in series if h["src"] == "yr6"]
+    assert six and all(abs(h["rain"] - 0.25) < 1e-6 for h in six)
+    assert all(h["temp"] is not None for h in six)  # interpolert fra Yr
+    assert not any(h["src"] == "google" for h in series)
+
+
+def test_series_marks_daylight():
+    rows = vv.parse_yr(yr_payload())
+    series = vv.build_series(rows, [], NOW, *BERGEN)
+    by_hour = {h["hour"]: h["day"] for h in series[:24]}
+    assert by_hour[13] is True and by_hour[2] is False
+
+
+def test_fetch_google_hours_follows_pages(monkeypatch):
+    from scripts import weather_comparison as wc
+
+    monkeypatch.setenv("GOOGLE_WEATHER_API_KEY", "x")
+    calls = []
+
+    def fake(url, params):
+        calls.append(dict(params))
+        return {"forecastHours": [], "nextPageToken": f"p{len(calls)}"}
+
+    monkeypatch.setattr(wc, "_get_json", fake)
+    wc.fetch_google_hours(60, 5, hours=240)
+    assert len(calls) == 10 and calls[-1]["pageToken"] == "p9" and calls[0]["hours"] == 240
+    calls.clear()
+    wc.fetch_google_hours(60, 5)
+    assert len(calls) == 2  # standard er fortsatt 48 timer
+
+
+def test_timeserie_api():
+    client = _app()
+    assert client.get("/ver/api/timeserie/oslo").status_code == 404
+    with patch.object(vv, "_fetch_yr", return_value=yr_payload()), \
+         patch.object(vv, "_fetch_google_long", return_value=google(hours=240)):
+        res = client.get("/ver/api/timeserie/kvamskogen")
+    assert res.status_code == 200
+    data = res.json
+    assert data["google_available"] is True and data["hours"]
+    assert {"src", "rain", "g_rain", "wind", "cloud", "day", "symbol"} <= set(data["hours"][0])
+    with patch.object(vv, "_fetch_yr", side_effect=RuntimeError), \
+         patch.object(vv, "_fetch_google_long", return_value=[]):
+        assert client.get("/ver/api/timeserie/bergen").status_code == 503
