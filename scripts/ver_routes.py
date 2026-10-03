@@ -2052,6 +2052,20 @@ def _hent_yr_komplett(lat: float, lon: float) -> list[dict[str, Any]]:
     return ((r.json() or {}).get("properties") or {}).get("timeseries") or []
 
 
+def _hent_prognose(lat: float, lon: float) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Yr i Norge, Open-Meteo ellers. Faller tilbake på Yr hvis Open-Meteo feiler."""
+    from scripts import open_meteo_varsel as om
+
+    if not om.i_norge(lat, lon):
+        try:
+            ts = om.hent_timeserie(lat, lon)
+            if ts:
+                return ts, om.KILDE_OM
+        except Exception:
+            traceback.print_exc()
+    return _hent_yr_komplett(lat, lon), om.KILDE_YR
+
+
 def _til_aktivitetstype(temp: float, rain: float, wind: float, gust: float, hour_local: Optional[int] = None) -> str:
     if hour_local is not None and (hour_local >= 23 or hour_local <= 5):
         if rain > 2.0 or gust >= 15:
@@ -2574,11 +2588,11 @@ def api_aktivt_varsel():
     # "varslet"-laget koster ingen ekstra ventetid (før var YR + historikk
     # sekvensielle).
     with ThreadPoolExecutor(max_workers=4) as pool:
-        fut_yr = pool.submit(_hent_yr_komplett, lat, lon)
+        fut_yr = pool.submit(_hent_prognose, lat, lon)
         fut_hist = pool.submit(_hent_open_meteo_dagshistorikk, lat, lon, day_start_local, day_end_local)
         fut_forventet = pool.submit(_hent_open_meteo_forrige_kjoring, lat, lon, day_start_local, day_end_local)
         fut_obs = pool.submit(_hent_frost_observasjoner, lat, lon, day_start_local, day_end_local)
-        ts = fut_yr.result()
+        ts, kilde = fut_yr.result()
         open_meteo_day = fut_hist.result()
         forventet_day = fut_forventet.result()
         frost_obs = fut_obs.result()
@@ -2969,6 +2983,7 @@ def api_aktivt_varsel():
         {
             "sted": sted,
             "coords": {"lat": lat, "lon": lon},
+            "kilde": kilde,
             "quality": quality,
             "precip_trend": nedbor_trend,
             "obs_station": obs_stasjon,
@@ -3250,6 +3265,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         <div class="place-name" id="placeName">—</div>
         <div class="place-coords" id="placeCoords"></div>
         <div class="updated" id="updated"></div>
+        <div class="updated" id="kildeInfo"></div>
       </div>
       <div class="verdict-banner" id="verdictBanner">
         <div class="verdict-icon" id="verdictIcon">☀️</div>
@@ -3280,7 +3296,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
           <span><span class="sw" style="background:var(--rain-light)"></span>Usikkerhet (maks)</span>
           <span><span class="sw" style="background:var(--rain-exp);border-radius:50%"></span>Varslet i går</span>
           <span><span class="sw" style="background:#e5e7eb;border:1px dashed #64748b"></span>Vind (stiplet linje)</span>
-          <span id="uenigLegend" style="display:none"><span class="sw" style="background:rgba(245,158,11,.35)"></span>Yr og Google uenige</span>
+          <span id="uenigLegend" style="display:none"><span class="sw" style="background:rgba(245,158,11,.35)"></span><span class="kilde-navn">Yr</span> og Google uenige</span>
         </div>
       </div>
       <p class="chart-note" id="chartNote">Før NÅ-linjen viser søylene hva som faktisk kom; den lilla linjen viser hva varselet sa i går for de samme timene. Etter NÅ-linjen er søylene prognose.</p>
@@ -3312,10 +3328,10 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         <div class="enighet" id="dagEnighet"></div>
         <div class="day-stats" id="dayStats"></div>
         <div class="chart-legend" id="dayLegend" style="display:none;margin:0 0 6px">
-          <span class="yr-leg"><span class="sw" style="background:#ea580c"></span>Yr temp</span>
+          <span class="yr-leg"><span class="sw" style="background:#ea580c"></span><span class="kilde-navn">Yr</span> temp</span>
           <span><span class="sw" style="background:#0d9488"></span>Google temp</span>
           <span><span class="sw" style="background:rgba(13,148,136,.2)"></span>Google 80 % sikker</span>
-          <span class="yr-leg"><span class="sw" style="background:rgba(37,99,235,.75)"></span>Yr regn</span>
+          <span class="yr-leg"><span class="sw" style="background:rgba(37,99,235,.75)"></span><span class="kilde-navn">Yr</span> regn</span>
           <span><span class="sw" style="background:rgba(13,148,136,.7)"></span>Google regn</span>
           <span class="yr-leg"><span class="sw" style="background:rgba(245,158,11,.85)"></span>Uenige</span>
         </div>
@@ -3367,8 +3383,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
         <table class="hourly-table">
           <thead><tr>
             <th>Tid</th>
-            <th class="num"><span class="yr-lbl">Yr </span>Temp</th>
-            <th class="num"><span class="yr-lbl">Yr </span>Nedbør</th>
+            <th class="num"><span class="yr-lbl"><span class="kilde-navn">Yr</span> </span>Temp</th>
+            <th class="num"><span class="yr-lbl"><span class="kilde-navn">Yr</span> </span>Nedbør</th>
             <th class="num">Vind/kast</th>
             <th>Retning</th>
             <th>Vurdering</th>
@@ -3524,6 +3540,7 @@ function riskTag(d){
 // Hovedrendering
 // ============================================================
 let mainChart=null;
+let KILDE='Yr';
 
 async function loadForecast(lat,lon,name){
   setStatus('Henter varsel …');
@@ -3550,6 +3567,10 @@ function renderData(d){
 
   // Header
   document.getElementById('placeName').textContent=d.sted;
+  KILDE=(d.kilde&&d.kilde.navn)||'Yr';
+  document.querySelectorAll('.kilde-navn').forEach(e=>e.textContent=KILDE);
+  const kEl=document.getElementById('kildeInfo');
+  if(kEl) kEl.textContent=d.kilde?`Varsel: ${d.kilde.navn} (${d.kilde.modell})`:'';
   document.getElementById('placeCoords').textContent=`${d.coords.lat.toFixed(4)}° N, ${d.coords.lon.toFixed(4)}° Ø`;
   document.getElementById('updated').textContent=`Oppdatert ${new Date(d.hentet).toLocaleString('no-NO',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}`;
 
@@ -3727,8 +3748,8 @@ function showDayDetail(day){
     const yrT=sm.filter(x=>x.s).map(x=>x.s.yr.temp), gT=sm.filter(x=>x.s).map(x=>x.s.g.temp);
     tempTxt=`${f1(Math.min(...temps))}° – ${f1(Math.max(...temps))}°`;
     regnTxt=`${f1(regn)}<small> mm</small>`;
-    tempKilde=`<div class="muted" style="font-size:11px">Yr maks ${f1(Math.max(...yrT))}° · Google ${f1(Math.max(...gT))}°</div>`;
-    regnKilde=`<div class="muted" style="font-size:11px">Yr ${f1(yrR)} · Google ${f1(gR)} mm</div>`;
+    tempKilde=`<div class="muted" style="font-size:11px">${KILDE} maks ${f1(Math.max(...yrT))}° · Google ${f1(Math.max(...gT))}°</div>`;
+    regnKilde=`<div class="muted" style="font-size:11px">${KILDE} ${f1(yrR)} · Google ${f1(gR)} mm</div>`;
   }
   document.getElementById('dayStats').innerHTML=`
     <div class="day-stat"><div class="ds-lbl">Temperatur</div><div class="ds-val">${tempTxt}</div>${tempKilde}</div>
@@ -3899,13 +3920,13 @@ function drawDayChart(hours,b6){
             label:(ctx)=>{
               const i=ctx.dataIndex, w=gw[i];
               if(ctx.dataset.label==='Temperatur'){
-                const yr=temp[i]!=null?`Yr ${temp[i].toFixed(1)}°`:'Yr –';
+                const yr=temp[i]!=null?`${KILDE} ${temp[i].toFixed(1)}°`:`${KILDE} –`;
                 const g=w?.temp?`, Google ${w.temp.mean.toFixed(1)}° (80 %: ${w.temp.p10.toFixed(1)} til ${w.temp.p90.toFixed(1)})`:'';
                 return `Temp: ${yr}${g}`;
               }
               if(ctx.dataset.label==='Nedbør'){
                 const g=w?.regn?`, Google ${w.regn.mean.toFixed(1)} mm (opptil ${(w.regn.p90??w.regn.mean).toFixed(1)})`:'';
-                return `Regn: Yr ${(rain[i]??0).toFixed(1)} mm${g}`;
+                return `Regn: ${KILDE} ${(rain[i]??0).toFixed(1)} mm${g}`;
               }
               if(ctx.dataset.label==='Vind') return `Vind: ${ctx.parsed.y?.toFixed(1)} m/s`+(w?.vind?`, Google ${w.vind.mean.toFixed(1)}`:'');
               return '';
@@ -3980,7 +4001,7 @@ function enighetCell(h){
   const regn=s.g.regn!=null?` · ${f1(s.g.regn)} mm`:'';
   const tekst=`${f1(s.g.temp)}°${band}${regn}`;
   if(!s.uenig) return `<td class="enig-cell">✔ ${tekst}</td>`;
-  return `<td class="uenig-cell" title="Yr og Google er uenige denne timen">⚠ ${tekst}</td>`;
+  return `<td class="uenig-cell" title="${KILDE} og Google er uenige denne timen">⚠ ${tekst}</td>`;
 }
 
 function fyllEnighet(el, hours, periodeTekst, visOppsummering, fotnote){
@@ -4027,10 +4048,10 @@ function fyllEnighet(el, hours, periodeTekst, visOppsummering, fotnote){
       const regnUenig=p.timer.some(x=>x.s.uenigRegn);
       let tekst;
       if(regnUenig){
-        const hvem=yrR>gR ? `Yr venter ${f1(yrR)} mm, Google bare ${f1(gR)} mm` : `Google venter ${f1(gR)} mm, Yr bare ${f1(yrR)} mm`;
+        const hvem=yrR>gR ? `${KILDE} venter ${f1(yrR)} mm, Google bare ${f1(gR)} mm` : `Google venter ${f1(gR)} mm, ${KILDE} bare ${f1(yrR)} mm`;
         tekst=`${når(p)}: uenige om regn. ${hvem}.`;
       }else{
-        tekst=`${når(p)}: Google er ${f1(Math.abs(dT))}° ${dT>0?'varmere':'kaldere'} enn Yr.`;
+        tekst=`${når(p)}: Google er ${f1(Math.abs(dT))}° ${dT>0?'varmere':'kaldere'} enn ${KILDE}.`;
       }
       return {tekst,start:p.start,vekt:Math.abs(yrR-gR)+Math.abs(dT)};
     })
@@ -4040,11 +4061,11 @@ function fyllEnighet(el, hours, periodeTekst, visOppsummering, fotnote){
   el.style.display='flex';
   if(!viktige.length){
     el.className='enighet enig';
-    el.innerHTML=`<span class="ik">✔</span><div><strong>Yr og Google er enige ${periodeTekst}.</strong>${oppsummering}
+    el.innerHTML=`<span class="ik">✔</span><div><strong>${KILDE} og Google er enige ${periodeTekst}.</strong>${oppsummering}
       <div class="kilde">${fotnote.enig}</div></div>`;
   }else{
     el.className='enighet uenig';
-    el.innerHTML=`<span class="ik">⚠</span><div><strong>Yr og Google er uenige ${periodeTekst}.</strong>${oppsummering}
+    el.innerHTML=`<span class="ik">⚠</span><div><strong>${KILDE} og Google er uenige ${periodeTekst}.</strong>${oppsummering}
       <ul>${viktige.map(v=>`<li>${v.tekst}</li>`).join('')}</ul>
       <div class="kilde">${fotnote.uenig}</div></div>`;
   }
@@ -4070,8 +4091,8 @@ function renderDagDetaljEnighet(){
   if(!wn3ByHour || !lastDay){ el.style.display='none'; return; }
   const iDag=new Date(lastDay.date+'T12:00:00').toDateString()===new Date().toDateString();
   fyllEnighet(el, lastDay.hours||[], iDag?'resten av dagen':'denne dagen', false, {
-    enig:'Grafen og tabellen under viser Yr og Google time for time.',
-    uenig:'Grafen og tabellen under viser Yr og Google time for time. Uenige timer er merket gult.'});
+    enig:`Grafen og tabellen under viser ${KILDE} og Google time for time.`,
+    uenig:`Grafen og tabellen under viser ${KILDE} og Google time for time. Uenige timer er merket gult.`});
 }
 
 // Dagene etter at Yr slutter: bare Google, tydelig merket som usikre.
@@ -4135,7 +4156,7 @@ function renderGoogleDager(){
     const cell=document.createElement('div');
     cell.className='daily-cell google-dag';
     cell.dataset.dayIdx=idx;
-    cell.title='Yr varsler ikke så langt frem. Tallene er fra Google WeatherNext, og usikkerheten er stor så langt ut.';
+    cell.title=`${KILDE} varsler ikke så langt frem. Tallene er fra Google WeatherNext, og usikkerheten er stor så langt ut.`;
     cell.innerHTML=`<span class="d-arrow">▼</span>
       <div class="d-day">${dato}</div>
       <div class="d-icon-temp"><span class="d-icon">${icon}</span><span class="d-temp">${Math.round(x.temp_max)}°</span></div>
@@ -4188,16 +4209,16 @@ function renderDagEnighet(){
     const regnUenig=Math.abs(yrR-gR)>2 && Math.max(yrR,gR)>=1;
     const tempUenig=Math.abs(yrT-gT)>2;
     const div=document.createElement('div');
-    div.title=`Yr: ${f1(yrR)} mm, maks ${f1(yrT)}°. Google: ${f1(gR)} mm, maks ${f1(gT)}°.`;
+    div.title=`${KILDE}: ${f1(yrR)} mm, maks ${f1(yrT)}°. Google: ${f1(gR)} mm, maks ${f1(gT)}°.`;
     if(regnUenig||tempUenig){
       div.className='d-enig uenig';
       const deler=[];
-      if(regnUenig) deler.push(`Yr ${f1(yrR)} / Google ${f1(gR)} mm`);
-      if(tempUenig) deler.push(`Yr ${Math.round(yrT)}° / Google ${Math.round(gT)}°`);
+      if(regnUenig) deler.push(`${KILDE} ${f1(yrR)} / Google ${f1(gR)} mm`);
+      if(tempUenig) deler.push(`${KILDE} ${Math.round(yrT)}° / Google ${Math.round(gT)}°`);
       div.innerHTML=`⚠ Uenige<br>${deler.join('<br>')}`;
     }else{
       div.className='d-enig';
-      div.textContent='✔ Yr og Google enige';
+      div.textContent=`✔ ${KILDE} og Google enige`;
     }
     cell.appendChild(div);
   });
@@ -4606,14 +4627,14 @@ function drawMainChart(hourly){
                 const tExp=hourly[ctx.dataIndex]?.temp_expected;
                 const varslet=(ctx.dataIndex<nowIdx && tExp!=null)?` (varslet i går: ${tExp.toFixed(1)}°)`:'';
                 const sm=samm[ctx.dataIndex];
-                const kilder=sm?` (Yr ${sm.yr.temp.toFixed(1)}°, Google ${sm.g.temp.toFixed(1)}°${sm.uenigTemp?', uenige':''})`:'';
+                const kilder=sm?` (${KILDE} ${sm.yr.temp.toFixed(1)}°, Google ${sm.g.temp.toFixed(1)}°${sm.uenigTemp?', uenige':''})`:'';
                 return `Temp: ${ctx.parsed.y?.toFixed(1)}°${varslet}${kilder}`;
               }
               if(ctx.dataset.label==='Nedbør'){
                 const h=hourly[ctx.dataIndex];
                 if(ctx.dataIndex>=nowIdx){
                   const sm=samm[ctx.dataIndex];
-                  const kilder=(sm&&sm.g.regn!=null)?` (Yr ${sm.yr.regn.toFixed(1)}, Google ${sm.g.regn.toFixed(1)}${sm.uenigRegn?', uenige':''})`:'';
+                  const kilder=(sm&&sm.g.regn!=null)?` (${KILDE} ${sm.yr.regn.toFixed(1)}, Google ${sm.g.regn.toFixed(1)}${sm.uenigRegn?', uenige':''})`:'';
                   return `Varslet regn: ${ctx.parsed.y?.toFixed(1)} mm${kilder}`;
                 }
                 const merke=(h?.rain_source==='obs')?'Målt regn':'Beregnet regn';
@@ -5177,11 +5198,14 @@ def byvarsel_data():
     except (KeyError, ValueError, TypeError):
         return jsonify({"ok": False, "feil": "Mangler eller ugyldig lat/lon"}), 400
 
-    ts = _bv_yr_fetch(lat, lon)
-    if ts is None:
-        return jsonify({"ok": False, "feil": "Kunne ikke hente prognose fra Yr"}), 503
+    try:
+        ts, kilde = _hent_prognose(lat, lon)
+    except Exception:
+        ts, kilde = _bv_yr_fetch(lat, lon), {"id": "yr", "navn": "Yr"}
+    if not ts:
+        return jsonify({"ok": False, "feil": "Kunne ikke hente prognose"}), 503
 
     prognose = _bv_aggreger(ts)
     historikk = _bv_openmeteo_historikk(lat, lon)
 
-    return jsonify({"ok": True, "prognose": prognose, "historikk": historikk})
+    return jsonify({"ok": True, "prognose": prognose, "historikk": historikk, "kilde": kilde})

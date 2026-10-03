@@ -135,7 +135,7 @@
 
 <div id="loader" class="loader">
   <div class="spinner"></div>
-  <div>Henter prognose fra Yr …</div>
+  <div>Henter prognose …</div>
 </div>
 
 <div id="feil-panel" class="main" style="display:none;"></div>
@@ -157,7 +157,7 @@
     <div class="seksjon">
       <div class="seksjon-tittel">🗓️ Prognose 10 dager</div>
       <div class="dag-grid" id="grid-prognose"></div>
-      <div class="seksjon-merknad">Kilde: Yr/met.no. Dag 8–10 er mindre presise.</div>
+      <div class="seksjon-merknad">Kilde: <span id="kilde-navn">Yr/met.no</span>. Dag 8–10 er mindre presise.</div>
     </div>
 
     <div class="seksjon">
@@ -336,6 +336,8 @@ async function lastData() {
     $("innhold").style.display = "block";
     visNaaStrip(data.prognose.dager);
     visHistorikk(data.historikk);
+    if (data.kilde) document.getElementById('kilde-navn').textContent =
+      data.kilde.id === 'yr' ? 'Yr/met.no' : `${data.kilde.navn} (${data.kilde.modell})`;
     visPrognose(data.prognose.dager);
     visTimer(data.prognose.timer);
 
