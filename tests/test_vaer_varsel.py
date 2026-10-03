@@ -325,9 +325,9 @@ def test_google_point_caches_per_cell_and_counts_calls(monkeypatch):
                                   "maxTemperature": {"degrees": 27.4}, "minTemperature": {"degrees": 19.8}}]}
     get = patch.object(vv, "_get", return_value=type("R", (), {"json": lambda self: day_json})()).start()
     a = vv.google_point(38.3436, -0.4882)
-    b = vv.google_point(38.3301, -0.5102)  # samme rute på 0,1 grad
+    b = vv.google_point(38.3401, -0.4802)  # samme rute på 0,02 grad
     patch.stopall()
-    assert calls == [(38.3, -0.5)]
+    assert calls == [(38.34, -0.48)]
     assert get.call_count == 1  # dagsvarselet også cachet per rute
     assert vv._QUOTA["calls"] == 3  # 2 for timene + 1 for dagene
     assert a["kilde"] == "google-api" and a["timer"][0]["temp"] == {"mean": 20.0} and b == a

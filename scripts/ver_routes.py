@@ -2631,6 +2631,8 @@ def api_aktivt_varsel():
             "gust": float(inst.get("wind_speed_of_gust")) if inst.get("wind_speed_of_gust") is not None else 0.0,
             "wind_deg": float(inst.get("wind_from_direction")) if inst.get("wind_from_direction") is not None else None,
             "cloud": float(inst.get("cloud_area_fraction")) if inst.get("cloud_area_fraction") is not None else None,
+            # Bare Open-Meteo har dette (sekunder sol i timen); Yr gir None.
+            "sun_s": float(inst.get("sunshine_duration")) if inst.get("sunshine_duration") is not None else None,
             "rain": float(precip_details.get("precipitation_amount")) if precip_details.get("precipitation_amount") is not None else 0.0,
             "rain_min": float(precip_details.get("precipitation_amount_min")) if precip_details.get("precipitation_amount_min") is not None else None,
             "rain_max": float(precip_details.get("precipitation_amount_max")) if precip_details.get("precipitation_amount_max") is not None else None,
@@ -2924,10 +2926,19 @@ def api_aktivt_varsel():
         # Lenger frem gir Yr én rad per seks timer. Hver rad teller da for alle
         # dagtimene den dekker, ellers ble det bare 0,5-1,5 soltimer per dag.
         sol_timer = 0
+        vate_timer = 0  # dagtimer med minst 0,2 mm, styrer om dagen får regnsymbol
         sky_kategorier = {"sun": 0, "partly": 0, "cloudy": 0, "rain": 0}
         for v in vals:
             t_local = pd.to_datetime(v["time"], utc=True).tz_convert(OSLO)
             varighet = int(v.get("block_hours") or 1)
+            if (v.get("rain") or 0.0) / varighet >= 0.2:
+                vate_timer += sum(1 for k in range(varighet) if 6 <= (t_local.hour + k) % 24 <= 21)
+            if v.get("sun_s") is not None:
+                # Open-Meteo: faktisk beregnet solskinnstid, uavhengig av klokkeslett.
+                sol_timer += min(3600.0, max(0.0, v["sun_s"])) / 3600.0
+                if 6 <= t_local.hour <= 21:
+                    sky_kategorier[_sol_kategori(v.get("symbol", ""), v.get("rain") or 0.0)] += 1
+                continue
             dagtimer = sum(1 for k in range(varighet) if 6 <= (t_local.hour + k) % 24 <= 21)
             if not dagtimer:
                 continue
@@ -2971,6 +2982,7 @@ def api_aktivt_varsel():
                 "wind_max": round(max(winds), 1) if winds else None,
                 "gust_max": round(max(gusts), 1) if gusts else None,
                 "sun_hours": round(sol_timer, 1),
+                "wet_hours": vate_timer,
                 "sky_mix": sky_kategorier,
                 "hours": day_hours,
                 "best_6h": _beste_6t_blokk(day_hours),
@@ -3449,6 +3461,7 @@ function weatherEmoji(symbol){
   if(s.includes('thunder')) return '⛈️';
   if(s.includes('sleet')) return '🌨️';
   if(s.includes('snow')) return '❄️';
+  if(!isNight && (s.startsWith('lightrainshowers')||s.startsWith('rainshowers'))) return '🌦️';
   if(s.includes('rainshowers')||s.includes('heavyrain')||s.includes('rain')) return '🌧️';
   if(s.includes('fog')) return '🌫️';
   if(s.includes('partlycloudy')) return isNight ? '🌙☁️' : '⛅';
@@ -3456,6 +3469,21 @@ function weatherEmoji(symbol){
   if(s.includes('clearsky')||s.includes('fair')) return isNight ? '🌙' : '☀️';
   if(isNight) return '🌙';
   return '🌤️';
+}
+
+// Dagssymbol. Litt regn på en ellers solrik dag skal ikke se ut som en regnværsdag:
+// regnsymbol først når det regner mye eller lenge, ellers sol med byger.
+function dagIkon(x){
+  const sun=x.sun_hours ?? 0;
+  const regn=x.rain_total ?? 0;
+  const vate=x.wet_hours ?? 0;
+  if((x.gust_max??0)>=15) return '🌬️';
+  if(regn>=5 || vate>=5 || (regn>=1 && sun<3)) return '🌧️';
+  if(regn>=0.5) return sun>=3 ? '🌦️' : '🌧️';
+  if(sun>=7) return '☀️';
+  if(sun>=4) return '🌤️';
+  if(sun>=2) return '⛅';
+  return '☁️';
 }
 
 function windArrow(deg){
@@ -3653,13 +3681,8 @@ function renderData(d){
 
   document.getElementById('dailyGrid').innerHTML=daily.map((x,idx)=>{
     const day=new Date(x.date).toLocaleDateString('no-NO',{weekday:'short',day:'numeric',month:'short'});
-    let icon='☀️';
     const sun=x.sun_hours ?? 0;
-    if((x.gust_max??0)>=15) icon='🌬️';
-    else if((x.rain_total??0)>=1.5) icon='🌧️';
-    else if(sun<2) icon='☁️';
-    else if(sun<5) icon='⛅';
-    else icon='☀️';
+    const icon=dagIkon(x);
     const sunStr=sun>0?`☀️ ${sun} soltimer`:`☁️ ingen sol`;
     return `<div class="daily-cell" data-day-idx="${idx}">
       <span class="d-arrow">▼</span>

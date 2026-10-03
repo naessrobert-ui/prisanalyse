@@ -70,6 +70,10 @@ def _symbol(kode: Optional[float], er_dag: Optional[float], regn: Optional[float
     dag = (er_dag or 0) >= 1
     sfx = "_day" if dag else "_night"
     r = float(regn or 0.0)
+    # Modellen setter ofte en byge-/yrkode selv om timen gir under 0,1 mm.
+    # Det ser ut som regn på kartet uten å være det, så vis skyer i stedet.
+    if r < 0.1 and k in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82):
+        return "partlycloudy" + sfx
     if k == 0:
         return "clearsky" + sfx
     if k == 1:
@@ -108,7 +112,7 @@ def _symbol(kode: Optional[float], er_dag: Optional[float], regn: Optional[float
 _FELT = (
     "temperature_2m", "precipitation", "precipitation_probability",
     "wind_speed_10m", "wind_gusts_10m", "wind_direction_10m",
-    "cloud_cover", "weather_code", "is_day",
+    "cloud_cover", "weather_code", "is_day", "sunshine_duration",
 )
 
 
@@ -155,6 +159,9 @@ def til_yr_timeserie(payload: dict[str, Any]) -> list[dict[str, Any]]:
                     "wind_speed_of_gust": hoved("wind_gusts_10m"),
                     "wind_from_direction": hoved("wind_direction_10m"),
                     "cloud_area_fraction": hoved("cloud_cover"),
+                    # Ikke en del av Yr-formatet: sekunder med direkte sol denne timen.
+                    # Gir langt bedre soltimer enn å telle symboler.
+                    "sunshine_duration": hoved("sunshine_duration"),
                 }},
                 "next_1_hours": {
                     "summary": {"symbol_code": _symbol(hoved("weather_code"), hoved("is_day"), regn)},

@@ -42,3 +42,18 @@ def test_til_yr_timeserie_en_modell_uten_suffiks():
     payload = {"hourly": {"time": ["2026-10-03T12:00"], "temperature_2m": [20.0], "precipitation": [0.0]}}
     ts = om.til_yr_timeserie(payload)
     assert ts[0]["data"]["instant"]["details"]["air_temperature"] == 20.0
+
+
+def test_soltimer_og_byge_uten_nedbor():
+    payload = {"hourly": {
+        "time": ["2026-10-08T12:00", "2026-10-08T13:00"],
+        "temperature_2m": [24.0, 24.5],
+        "precipitation": [0.0, 0.0],
+        "weather_code": [80, 3],
+        "is_day": [1, 1],
+        "sunshine_duration": [3600.0, 1800.0],
+    }}
+    ts = om.til_yr_timeserie(payload)
+    assert ts[0]["data"]["instant"]["details"]["sunshine_duration"] == 3600.0
+    # Bygekode, men 0 mm: ikke regnsymbol.
+    assert ts[0]["data"]["next_1_hours"]["summary"]["symbol_code"] == "partlycloudy_day"

@@ -1310,7 +1310,7 @@ def google_point(lat: float, lon: float) -> dict[str, Any]:
     """Googles timesvarsel for et punkt, i samme form som WeatherNext-API-et.
 
     Faste steder bruker den felles cachen. Andre steder deles i ruter på
-    0,1 grad (ca. 11 x 6 km her til lands) med én time cache per rute, slik at
+    0,02 grad (ca. 2 km) med én time cache per rute, slik at
     flere oppslag i samme område bare koster ett sett kall.
     """
     from scripts.weather_comparison import ForecastError, fetch_google_hours
@@ -1320,7 +1320,9 @@ def google_point(lat: float, lon: float) -> dict[str, Any]:
         hours = _fetch_google(place)
         cell = (PLACES[place]["lat"], PLACES[place]["lon"])
     else:
-        cell = (round(lat, 1), round(lon, 1))
+        # Ruter på 0,02 grad (ca. 2 km). Med 0,1 grad kunne punktet havne 5-6 km
+        # unna, og ved kysten gir det merkbart andre nattetemperaturer.
+        cell = (round(round(lat / 0.02) * 0.02, 2), round(round(lon / 0.02) * 0.02, 2))
         try:
             hours = _CACHE.get(("google_point", cell), 3300,
                                lambda: fetch_google_hours(cell[0], cell[1], on_call=_count_google_call))
