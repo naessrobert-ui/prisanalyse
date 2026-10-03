@@ -1185,6 +1185,25 @@ def _frame_headers(response: Response) -> Response:
     return response
 
 
+#: visitkvamskogen.no bygger sin egen værside på disse API-ene.
+CORS_ORIGINS = {
+    "https://visitkvamskogen.no", "https://www.visitkvamskogen.no",
+    "https://visitkvamskogen.onrender.com", "http://localhost:5173",
+}
+CORS_PATHS = ("/ver/api/varsel/", "/ver/api/timeserie/")
+
+
+@vaer_varsel.after_request
+def _cors(response: Response) -> Response:
+    from flask import request
+
+    origin = request.headers.get("Origin")
+    if origin in CORS_ORIGINS and request.path.startswith(CORS_PATHS):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers.add("Vary", "Origin")
+    return response
+
+
 @vaer_varsel.get("/ver/varsel")
 def varsel_default():
     return redirect("/ver/varsel/bergen")
