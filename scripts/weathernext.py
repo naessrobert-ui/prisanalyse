@@ -3,7 +3,7 @@
 
 Brukes på to måter:
 
-* **Faste steder** (`FASTE_STEDER`, i dag bare Bergen): cron-jobben
+* **Faste steder** (`FASTE_STEDER`, Bergen og Kvamskogen): cron-jobben
   `vaer-treffsikkerhet` kaller `collect()` hver time. Siste varsel lagres som JSON
   (rask lesing for nettsiden), hver ny modellkjøring arkiveres med alle 114 bånd,
   og timene 0-48 legges i treffsikkerhetsloggen som leverandør `weathernext`.
@@ -66,8 +66,9 @@ _CACHE_TTL = 3600
 #: Et oppslag regnes som et fast sted når det er innenfor dette (grader).
 _FAST_RADIUS = 0.06
 #: Steder (nøkler i `weather_comparison.PLACES`) som hentes hver time av cron.
-#: Alle andre, også Kvamskogen, hentes live ved søk og caches i én time.
-FASTE_STEDER: tuple[str, ...] = ("bergen",)
+#: Alle andre hentes live ved søk og caches i én time. Kvamskogen er med fordi
+#: visitkvamskogen.no viser 15 døgn derfra.
+FASTE_STEDER: tuple[str, ...] = ("bergen", "kvamskogen")
 
 
 def _k(v: float) -> float:
@@ -597,7 +598,7 @@ def for_punkt(lat: float, lon: float, now: Optional[datetime] = None) -> dict[st
     if os.environ.get("WEATHERNEXT_LIVE", "").strip().lower() not in {"1", "true", "ja"}:
         if place:
             raise WeatherNextError("WeatherNext-varselet er ikke hentet ennå. Kommer ved neste timeskjøring.")
-        raise WeatherNextError("WeatherNext vises bare for Bergen.")
+        raise WeatherNextError("WeatherNext vises bare for Bergen og Kvamskogen.")
 
     celle = (round(lat, 1), round(lon, 1))
     with _CACHE_LOCK:

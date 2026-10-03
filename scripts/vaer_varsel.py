@@ -41,7 +41,7 @@ GOOGLE_DAYS_PLACES = {"bergen"}
 
 #: Steder med WeatherNext 3. Cron-jobben lagrer varselet hver time, så siden
 #: leser bare det lagrede og gjør ingen egne Earth Engine-kall.
-WEATHERNEXT_PLACES = {"bergen"}
+WEATHERNEXT_PLACES = {"bergen", "kvamskogen"}
 #: Eldre lagret WeatherNext-varsel enn dette vises ikke.
 WEATHERNEXT_MAX_AGE = timedelta(hours=12)
 
