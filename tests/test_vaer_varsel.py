@@ -465,3 +465,14 @@ def test_timeserie_api():
     with patch.object(vv, "_fetch_yr", side_effect=RuntimeError), \
          patch.object(vv, "_fetch_google_long", return_value=[]):
         assert client.get("/ver/api/timeserie/bergen").status_code == 503
+
+
+def test_cors_only_for_visitkvamskogen_on_forecast_apis():
+    client = _app()
+    ok = client.get("/ver/api/varsel/oslo", headers={"Origin": "https://visitkvamskogen.no"})
+    assert ok.headers["Access-Control-Allow-Origin"] == "https://visitkvamskogen.no"
+    fremmed = client.get("/ver/api/varsel/oslo", headers={"Origin": "https://example.com"})
+    assert "Access-Control-Allow-Origin" not in fremmed.headers
+    with patch.object(vv, "_fetch_radar", return_value=b"GIF89a"):
+        radar = client.get("/ver/api/radar/bergen.gif", headers={"Origin": "https://visitkvamskogen.no"})
+    assert "Access-Control-Allow-Origin" not in radar.headers
