@@ -476,3 +476,34 @@ def test_cors_only_for_visitkvamskogen_on_forecast_apis():
     with patch.object(vv, "_fetch_radar", return_value=b"GIF89a"):
         radar = client.get("/ver/api/radar/bergen.gif", headers={"Origin": "https://visitkvamskogen.no"})
     assert "Access-Control-Allow-Origin" not in radar.headers
+
+
+def test_api_answers_when_optional_source_hangs():
+    import threading
+    import time
+
+    slipp = threading.Event()
+
+    def henger(*_args, **_kwargs):
+        slipp.wait(10)
+        return None
+
+    client = _app()
+    try:
+        with patch.object(vv, "_fetch_yr", return_value=yr_payload()), \
+             patch.object(vv, "_fetch_nowcast", return_value=None), \
+             patch.object(vv, "_fetch_google", return_value=[]), \
+             patch.object(vv, "_fetch_google_days", return_value=[]), \
+             patch.object(vv, "_fetch_observations", side_effect=henger), \
+             patch.object(vv, "_fetch_reference", side_effect=henger), \
+             patch.object(vv, "_fetch_weathernext", return_value=None), \
+             patch.object(vv, "_trust_rows", return_value=None), \
+             patch.object(vv, "EKSTRA_FRIST", 0.3):
+            start = time.monotonic()
+            res = client.get("/ver/api/varsel/kvamskogen")
+            brukt = time.monotonic() - start
+    finally:
+        slipp.set()
+    assert res.status_code == 200
+    assert brukt < 3
+    assert res.json["observed"]["available"] is False
