@@ -21,7 +21,8 @@ from __future__ import annotations
 import threading
 import time
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 from zoneinfo import ZoneInfo
@@ -1103,9 +1104,28 @@ def _safe(fn: Callable[[], Any]) -> Any:
         return None
 
 
+#: Yr er påkrevd. requests-timeouten (4 + 12 s) avgjør i praksis, dette er et tak.
+YR_FRIST = 20.0
+#: Felles frist for de valgfrie kildene, regnet fra Yr er klar. Det som ikke er
+#: ferdig da, utelates fra svaret i stedet for å holde det.
+EKSTRA_FRIST = 6.0
+
+
+def _innen(future: Future, sekunder: Optional[float] = None, frist: Optional[float] = None) -> Any:
+    if frist is not None:
+        sekunder = max(0.0, frist - time.monotonic())
+    try:
+        return future.result(timeout=sekunder)
+    except FutureTimeout:
+        return None
+
+
 def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    # Ingen with-blokk: den venter på alle tråder ved utgang, og da holder én
+    # hengende kilde (S3, Frost) hele svaret, mens nettleseren viser tomme kort.
+    pool = ThreadPoolExecutor(max_workers=7)
+    try:
         f_yr = pool.submit(_safe, lambda: _fetch_yr(place))
         f_nc = pool.submit(_safe, lambda: _fetch_nowcast(place))
         f_g = pool.submit(_safe, lambda: _fetch_google(place))
@@ -1113,9 +1133,14 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
         f_obs = pool.submit(_safe, lambda: _fetch_observations(place, now))
         f_ref = pool.submit(_safe, lambda: _fetch_reference(place, now))
         f_wn = pool.submit(_safe, lambda: _fetch_weathernext(place, now))
-        yr_payload, nc_payload, google, obs = f_yr.result(), f_nc.result(), f_g.result(), f_obs.result()
-        google_days, (ref_run, reference) = f_gd.result() or [], f_ref.result() or (None, {})
-        wn_varsel = f_wn.result()
+        yr_payload = _innen(f_yr, YR_FRIST)
+        frist = time.monotonic() + EKSTRA_FRIST
+        nc_payload, google, obs = _innen(f_nc, frist=frist), _innen(f_g, frist=frist), _innen(f_obs, frist=frist)
+        google_days = _innen(f_gd, frist=frist) or []
+        ref_run, reference = _innen(f_ref, frist=frist) or (None, {})
+        wn_varsel = _innen(f_wn, frist=frist)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
     if not yr_payload:
         raise RuntimeError("Fikk ikke hentet varselet fra Yr.")
     rows = parse_yr(yr_payload)
