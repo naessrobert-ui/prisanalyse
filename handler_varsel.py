@@ -69,6 +69,20 @@ TYPE_TEKST = {
 _TYPE_PRIORITET = {"ut": 0, "snur_salg": 1, "forste_salg": 2, "ny_posisjon": 3, "snur_kjop": 4, "forste_kjop": 5}
 
 
+def som_dato(v) -> dt.date | None:
+    """Godta date, datetime eller ISO-tekst. handler_data returnerer datoer som tekst flere steder."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, dt.datetime):
+        return v.date()
+    if isinstance(v, dt.date):
+        return v
+    try:
+        return dt.date.fromisoformat(str(v)[:10])
+    except ValueError:
+        return None
+
+
 def _env_float(navn: str, default: float) -> float:
     try:
         return float(os.environ.get(navn, "").strip() or default)
@@ -206,6 +220,20 @@ def klassifiser(tx: pd.DataFrame, fra: dt.date, til: dt.date,
     return s[cols]
 
 
+def _tall(v):
+    """Tall eller None. Pandas gjør manglende verdier om til NaN, som ikke kan formateres som heltall."""
+    if v is None:
+        return None
+    try:
+        return None if pd.isna(v) else v
+    except (TypeError, ValueError):
+        return v
+
+
+def _rens(rad: dict) -> dict:
+    return {k: _tall(v) for k, v in rad.items()}
+
+
 def _over_terskel(s: pd.DataFrame, cfg: Innstillinger) -> pd.Series:
     if s.empty:
         return pd.Series(dtype=bool)
@@ -285,6 +313,9 @@ def _flinke_ids(conn, til: dt.date, cfg: Innstillinger) -> list[str]:
 # =========================================================
 def finn_signaler(conn, fra: dt.date, til: dt.date, cfg: Innstillinger | None = None) -> dict:
     cfg = cfg or Innstillinger()
+    fra, til = som_dato(fra), som_dato(til)
+    if fra is None or til is None:
+        raise ValueError("Mangler gyldig periode for handler-varsel")
     lookback_fra = fra - dt.timedelta(days=cfg.lookback_dager)
     kl = dict(maks_opphold=cfg.maks_opphold, pause_dager=cfg.pause_dager)
 
@@ -347,7 +378,7 @@ def finn_signaler(conn, fra: dt.date, til: dt.date, cfg: Innstillinger | None = 
     def berik(rader: list[dict]) -> list[dict]:
         out = []
         for r in rader:
-            r = dict(r)
+            r = _rens(dict(r))
             r["investor"] = navn.get(r["investor_id"], r["investor_id"])
             r["ticker"], r["aksje"] = aksjer.get(r["isin"], ("", ""))
             r["lenke"] = lenke(r["investor_id"], r["investor"], r["isin"], r["start"], til)
@@ -416,12 +447,14 @@ def _rad_html(r: dict, vis_type: bool = True, ekstra: str = "") -> str:
     if r.get("ut") and typ != "ut":
         typ_txt = (typ_txt + ", helt ute") if typ_txt else "Helt ute"
     detaljer = []
-    if r.get("andel_pct") and r["andel_pct"] == r["andel_pct"]:
-        detaljer.append(f"{_fmt(r['andel_pct'], 0)} % av beholdningen")
-    if r.get("pause_dager"):
-        detaljer.append(f"første handel på {int(r['pause_dager'])} dager")
-    if r.get("handelsdager", 1) > 1:
-        detaljer.append(f"{r['handelsdager']} handelsdager")
+    andel, pause = _tall(r.get("andel_pct")), _tall(r.get("pause_dager"))
+    dager = _tall(r.get("handelsdager")) or 1
+    if andel:
+        detaljer.append(f"{_fmt(andel, 0)} % av beholdningen")
+    if pause:
+        detaljer.append(f"første handel på {int(pause)} dager")
+    if dager > 1:
+        detaljer.append(f"{int(dager)} handelsdager")
     if ekstra:
         detaljer.append(ekstra)
     return (
@@ -443,6 +476,7 @@ def _rad_html(r: dict, vis_type: bool = True, ekstra: str = "") -> str:
 def _seksjon(tittel: str, forklaring: str, rader: list[dict], vis_type: bool = True, ekstra=None) -> str:
     if not rader:
         return ""
+    rader = [_rens(r) for r in rader]
     body = "".join(_rad_html(r, vis_type, ekstra(r) if ekstra else "") for r in rader[:40])
     mer = f"<p style='color:#6b7280'>… og {len(rader) - 40} til.</p>" if len(rader) > 40 else ""
     return (
@@ -543,6 +577,7 @@ def _merk_sendt(fra: dt.date, til: dt.date) -> None:
 
 def kjor(fra: dt.date, til: dt.date, send: bool = True, db_path: str | None = None) -> dict:
     """Finn signaler for vinduet og send e-post hvis det er noe. Returnerer et sammendrag."""
+    fra, til = som_dato(fra), som_dato(til)
     with _LOCK:
         conn = sqlite3.connect(db_path or hd.HANDLER_DB_PATH, timeout=60)
         conn.row_factory = sqlite3.Row
@@ -562,6 +597,7 @@ def kjor(fra: dt.date, til: dt.date, send: bool = True, db_path: str | None = No
 
 def kjor_etter_opplasting(datoer_for: dt.date | None, datoer_etter: dt.date | None) -> bool:
     """Start varsling i bakgrunnen når en opplasting har gitt nye datoer. Returnerer True hvis startet."""
+    datoer_for, datoer_etter = som_dato(datoer_for), som_dato(datoer_etter)
     if os.environ.get("HANDLER_VARSEL_AV", "").strip() in {"1", "true", "ja"}:
         return False
     if datoer_etter is None or (datoer_for is not None and datoer_etter <= datoer_for):
@@ -600,7 +636,7 @@ def main(argv: list[str] | None = None) -> int:
 
     hd.ensure_local_db(hd.HANDLER_DB_PATH)
     conn = hd.db_connect()
-    til = a.til or hd.get_max_date_today(conn)
+    til = a.til or som_dato(hd.get_max_date_today(conn))
     conn.close()
     fra = a.fra or til
     if a.send:
