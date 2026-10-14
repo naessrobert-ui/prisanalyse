@@ -81,6 +81,7 @@
     </div>
   </div>
   <div id="bv-details-info" class="mb-2" style="color:var(--pa-muted)"></div>
+  <div class="mb-2" style="color:var(--pa-muted); font-size:0.85em">Klikk en eier for kursgraf med eierens kjøp og salg.</div>
   <div id="bv-details-table"></div>
 </div>
 {% endblock %}
@@ -209,6 +210,14 @@
       defaultPageSize: 10,
       pageSizes: [10, 20, 30, 50, 100],
       initialSort: { key: 'kjop_mnok', asc: false },
+      onRowClick: (row) => {
+        if (!row || !row.investor_id) return;
+        const { dateFrom, dateTo } = currentQueryParams();
+        const sel = document.getElementById('bv-detail-isin');
+        const aksje = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : isin;
+        openKursgraf({investor_id: row.investor_id, isin, date_from: dateFrom, date_to: dateTo,
+                      title: `${row.eier || row.investor_id} · ${aksje}`});
+      },
     });
   }
 

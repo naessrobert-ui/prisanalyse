@@ -1183,6 +1183,89 @@ def fetch_eier_transactions(conn, investor_id: str, isin: str | None, date_from:
     return df
 
 
+def kursgraf_pad_days(date_from: dt.date, date_to: dt.date) -> int:
+    """Hvor mange dager før periodestart kursgrafen skal vise, for kontekst."""
+    span = max(1, (date_to - date_from).days)
+    return int(max(14, min(90, round(span * 0.2))))
+
+
+def fetch_kursgraf(conn, investor_id: str, isin: str, date_from: dt.date, date_to: dt.date,
+                   pad_days: int | None = None) -> dict:
+    """Kursserie for en aksje og en investors handler i den, til kursgrafen.
+
+    Kursen er price_yesterday per date_today, samme kurs som enkelthandlene prises med,
+    slik at markørene havner på kurslinjen. Kursserien starter pad_days før date_from.
+    """
+    if pad_days is None:
+        pad_days = kursgraf_pad_days(date_from, date_to)
+    price_from = date_from - dt.timedelta(days=pad_days)
+
+    price_rows = conn.execute(
+        """
+        SELECT substr(date_today,1,10) AS d, MAX(price_yesterday) AS p
+        FROM position_change
+        WHERE isin=? AND date_today BETWEEN ? AND ? AND price_yesterday>0
+        GROUP BY substr(date_today,1,10)
+        ORDER BY d
+        """,
+        (isin, price_from.isoformat(), date_to.isoformat()),
+    ).fetchall()
+    prices = [{"d": r[0], "p": round(float(r[1]), 4)} for r in price_rows]
+
+    tx = fetch_eier_transactions(conn, investor_id, isin, date_from, date_to)
+    trades: list[dict] = []
+    if not tx.empty:
+        hold_rows = conn.execute(
+            """
+            SELECT substr(date_today,1,10) AS d,
+                   SUM(COALESCE(holding_yesterday,0)) AS hy,
+                   SUM(COALESCE(holding_today,0)) AS ht
+            FROM position_change
+            WHERE investor_id=? AND isin=? AND date_today BETWEEN ? AND ?
+            GROUP BY substr(date_today,1,10)
+            """,
+            (investor_id, isin, date_from.isoformat(), date_to.isoformat()),
+        ).fetchall()
+        hold = {r[0]: (r[1], r[2]) for r in hold_rows}
+
+        d = tx.copy()
+        d["dato"] = d["dato"].astype(str).str[:10]
+        g = d.groupby("dato", sort=True).agg(antall=("antall", "sum"), belop=("belop", "sum")).reset_index()
+        g = g[g["antall"] != 0]
+        for r in g.itertuples(index=False):
+            hy, ht = hold.get(r.dato, (None, None))
+            trades.append({
+                "dato": r.dato,
+                "antall": float(r.antall),
+                "kurs": round(float(r.belop / r.antall), 4),
+                "belop_mnok": round(float(r.belop) / 1_000_000, 3),
+                "beholdning_for": float(hy) if hy is not None else None,
+                "beholdning": float(ht) if ht is not None else None,
+            })
+
+    sec = conn.execute(
+        "SELECT COALESCE(ticker,'') AS ticker, COALESCE(isin_name,'') AS navn FROM security WHERE isin=?",
+        (isin,),
+    ).fetchone()
+    inv = conn.execute(
+        "SELECT COALESCE(first_name,'') AS f, COALESCE(last_name,'') AS l FROM investor WHERE investor_id=?",
+        (investor_id,),
+    ).fetchone()
+
+    return {
+        "isin": isin,
+        "ticker": sec[0] if sec else "",
+        "navn": sec[1] if sec else "",
+        "investor_id": investor_id,
+        "investor": clean_name(inv[0], inv[1], investor_id) if inv else investor_id,
+        "date_from": date_from.isoformat(),
+        "date_to": date_to.isoformat(),
+        "price_from": price_from.isoformat(),
+        "prices": prices,
+        "trades": trades,
+    }
+
+
 def compute_trade_runs(tx: pd.DataFrame, max_gap_days: int = 7, last_data_date: dt.date | None = None) -> pd.DataFrame:
     """Grupperer enkelthandler i sammenhengende rekker med samme retning (kjøp/salg).
 

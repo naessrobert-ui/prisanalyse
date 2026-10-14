@@ -139,6 +139,8 @@
 <div id="bi-tx-section" style="display:none" class="mt-4">
   <hr style="border-color:var(--pa-border)">
   <h5 style="color:var(--pa-text)">Transaksjoner for <span id="bi-tx-name"></span></h5>
+  <div id="bi-tx-chart"></div>
+  <div class="mb-2" style="color:var(--pa-muted); font-size:0.85em">Klikk en transaksjon for kursgraf med investorens handler i den aksjen.</div>
   <div id="bi-tx-table"></div>
   <div class="row g-3 mt-2" id="bi-tx-totals"></div>
 </div>
@@ -295,7 +297,11 @@
   });
 
   // Transaction drilldown
+  let txInvestor = null;
+  let txDates = {};
+
   async function loadTransactions(investor) {
+    txInvestor = investor;
     const sec = document.getElementById('bi-tx-section');
     sec.style.display = 'block';
     document.getElementById('bi-tx-name').textContent = investor.navn || investor.investor_id;
@@ -305,6 +311,13 @@
     params.set('date_from', lastParams.date_from || '2022-01-01');
     params.set('date_to', lastParams.date_to || new Date().toISOString().slice(0,10));
     if (lastParams.isin) params.set('isin_filter', lastParams.isin);
+    txDates = {date_from: params.get('date_from'), date_to: params.get('date_to')};
+    // Én valgt aksje: vis kursgrafen direkte over transaksjonene
+    if (lastParams.isin) {
+      loadKursgraf('bi-tx-chart', {investor_id: investor.investor_id, isin: lastParams.isin, ...txDates});
+    } else {
+      document.getElementById('bi-tx-chart').innerHTML = '';
+    }
 
     const txCacheKey = params.toString();
     if (txCache.has(txCacheKey)) {
@@ -331,7 +344,11 @@
       {key:'last_price', label:'Siste kurs', fmt:'num', dec:2},
       {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
       {key:'gevinst_mnok', label:'Gevinst MNOK', fmt:'num', dec:2},
-    ], 'bi-tx-table');
+    ], 'bi-tx-table', {onRowClick: (row) => {
+      if (!row || !row.isin || !txInvestor) return;
+      openKursgraf({investor_id: txInvestor.investor_id, isin: row.isin, ...txDates,
+                    title: `${txInvestor.navn || txInvestor.investor_id} · ${row.ticker || row.isin}`});
+    }});
 
     const t = data.totals || {};
     document.getElementById('bi-tx-totals').innerHTML = `

@@ -1,0 +1,395 @@
+{# templates/handler/_kursgraf.html
+   Gjenbrukbar kursgraf med investorens kjøp (blå ▲) og salg (rød ▼) i én aksje.
+   Inkluderes i handler/_shell.html, så den er tilgjengelig på alle handler-sider.
+
+   Bruk:
+     loadKursgraf('container-id', {investor_id, isin, date_from, date_to})   // inline
+     openKursgraf({investor_id, isin, date_from, date_to})                   // i et modalvindu
+
+   Data: GET /handler-oslo-bors/api/kursgraf (se handler_data.fetch_kursgraf).
+#}
+<style>
+  .kg-wrap { position: relative; margin: 8px 0 4px; }
+  .kg-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; margin-bottom: 4px; }
+  .kg-title { font-weight: 600; font-size: 0.95rem; }
+  .kg-legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--pa-muted); font-size: 0.78rem; align-items: center; }
+  .kg-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .kg-svg { display: block; width: 100%; overflow: visible; touch-action: pan-y; }
+  .kg-svg text { font-family: system-ui, -apple-system, sans-serif; }
+  .kg-tip {
+    position: absolute; pointer-events: none; display: none; z-index: 5;
+    background: #1b1f38; border: 1px solid var(--pa-border); border-radius: 8px;
+    padding: 7px 10px; font-size: 0.78rem; color: var(--pa-text); line-height: 1.45;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4); white-space: nowrap;
+  }
+  .kg-tip .kg-tip-d { color: var(--pa-muted); }
+  .kg-tip .kg-sw { display: inline-block; width: 0; height: 0; margin-right: 5px; vertical-align: 1px; }
+  .kg-note { color: var(--pa-muted); font-size: 0.75rem; margin-top: 2px; }
+  .kg-modal .modal-content { background: var(--pa-dark); color: var(--pa-text); border: 1px solid var(--pa-border); }
+  .kg-modal .modal-header { border-bottom: 1px solid var(--pa-border); }
+  .kg-modal .btn-close { filter: invert(1); }
+</style>
+
+<script>
+(function () {
+  const C = {
+    buy: '#4f8ff7', sell: '#f05252',
+    line: '#cbd5e1', area: 'rgba(203,213,225,0.07)',
+    grid: 'rgba(255,255,255,0.06)', axis: '#94a3b8', text: '#e2e8f0',
+    hold: '#94a3b8', holdArea: 'rgba(148,163,184,0.12)',
+    pre: 'rgba(0,0,0,0.18)', surface: '#161a30',
+  };
+  const DAY = 86400000;
+  const MND = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const toMs = (d) => Date.UTC(+d.slice(0,4), +d.slice(5,7) - 1, +d.slice(8,10));
+  const fmtDate = (ms) => { const d = new Date(ms); return `${d.getUTCDate()}. ${MND[d.getUTCMonth()]} ${d.getUTCFullYear()}`; };
+  const nb = (v, dec) => Number(v).toLocaleString('nb-NO', {minimumFractionDigits: dec, maximumFractionDigits: dec});
+
+  /** Kompakt antall: 1,2 mill / 350k / 900, med fortegn. */
+  function fmtQty(q, signed = true) {
+    const a = Math.abs(q);
+    let s;
+    if (a >= 1e6) s = nb(a / 1e6, a >= 1e7 ? 1 : 2).replace(/,?0+$/, '') + ' mill';
+    else if (a >= 1e4) s = nb(Math.round(a / 1e3), 0) + 'k';
+    else if (a >= 1e3) s = nb(a / 1e3, 1).replace(/,0$/, '') + 'k';
+    else s = nb(a, 0);
+    if (!signed) return s;
+    return (q > 0 ? '+' : '−') + s;
+  }
+
+  function niceTicks(min, max, count) {
+    if (!(max > min)) { const p = Math.abs(min) * 0.05 || 1; min -= p; max += p; }
+    const raw = (max - min) / Math.max(1, count);
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) || 10 * mag;
+    const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+    const ticks = [];
+    for (let v = lo; v <= hi + step / 2; v += step) ticks.push(+v.toFixed(10));
+    return {lo, hi, step, ticks};
+  }
+
+  function timeTicks(t0, t1, maxTicks) {
+    const spanDays = (t1 - t0) / DAY;
+    const out = [];
+    if (spanDays <= 70) {
+      const steps = [1, 2, 7, 14];
+      const st = steps.find((s) => spanDays / s <= maxTicks) || 14;
+      let t = Math.ceil(t0 / DAY) * DAY;
+      if (st >= 7) { while (new Date(t).getUTCDay() !== 1) t += DAY; }
+      for (; t <= t1; t += st * DAY) {
+        const d = new Date(t);
+        out.push({t, label: `${d.getUTCDate()}.${d.getUTCMonth() + 1}`});
+      }
+      return out;
+    }
+    const months = spanDays / 30.4;
+    const st = [1, 2, 3, 6, 12].find((s) => months / s <= maxTicks) || 12;
+    const d0 = new Date(t0);
+    let y = d0.getUTCFullYear(), m = d0.getUTCMonth() + 1;
+    if (m > 11) { m = 0; y++; }
+    while (m % st !== 0) { m++; if (m > 11) { m = 0; y++; } }
+    for (;;) {
+      const t = Date.UTC(y, m, 1);
+      if (t > t1) break;
+      out.push({t, label: (m === 0 || st >= 12) ? String(y) : MND[m]});
+      m += st; while (m > 11) { m -= 12; y++; }
+    }
+    return out;
+  }
+
+  function tri(x, y, s, up) {
+    // Likesidet trekant med tyngdepunkt-ish i (x,y). up=true peker opp.
+    const h = s * 0.95;
+    return up
+      ? `M${x},${y - h * 0.62} L${x + s * 0.55},${y + h * 0.38} L${x - s * 0.55},${y + h * 0.38} Z`
+      : `M${x},${y + h * 0.62} L${x + s * 0.55},${y - h * 0.38} L${x - s * 0.55},${y - h * 0.38} Z`;
+  }
+
+  function render(el, data) {
+    const W = Math.max(300, el.clientWidth || 600);
+    const mobile = W < 520;
+    const P = {l: mobile ? 44 : 56, r: mobile ? 10 : 18, t: 22, b: 26};
+    const H1 = mobile ? 230 : 300;   // kurspanel
+    const H2 = mobile ? 74 : 86;     // beholdningspanel
+    const GAP = 30;
+    const H = P.t + H1 + GAP + H2 + P.b;
+    const pw = W - P.l - P.r;
+
+    const prices = (data.prices || []).map((p) => ({t: toMs(p.d), p: p.p}));
+    const trades = (data.trades || []).map((r) => ({...r, t: toMs(r.dato)}));
+    const tStart = toMs(data.price_from || data.date_from);
+    const tFrom = toMs(data.date_from);
+    const tEnd = Math.max(toMs(data.date_to), prices.length ? prices[prices.length - 1].t : 0);
+    const t0 = Math.min(tStart, prices.length ? prices[0].t : tStart);
+    const t1 = tEnd > t0 ? tEnd : t0 + DAY;
+    const X = (t) => P.l + (t - t0) / (t1 - t0) * pw;
+
+    const pv = prices.map((p) => p.p).concat(trades.map((r) => r.kurs)).filter((v) => v > 0);
+    const yt = niceTicks(Math.min(...pv), Math.max(...pv), mobile ? 4 : 5);
+    const Y = (v) => P.t + (1 - (v - yt.lo) / (yt.hi - yt.lo)) * H1;
+
+    // Beholdning: steg-serie fra første handel
+    const holdPts = [];
+    let cum = null;
+    trades.forEach((r, i) => {
+      if (i === 0) {
+        const before = r.beholdning_for != null ? r.beholdning_for : (r.beholdning != null ? r.beholdning - r.antall : 0);
+        holdPts.push({t: r.t, v: before});
+        cum = before;
+      }
+      cum = r.beholdning != null ? r.beholdning : cum + r.antall;
+      r._hold = cum;
+      holdPts.push({t: r.t, v: cum});
+    });
+    const hMax = Math.max(1, ...holdPts.map((h) => h.v));
+    const ht = niceTicks(0, hMax, 2);
+    const y2top = P.t + H1 + GAP;
+    const Y2 = (v) => y2top + (1 - (v - 0) / (ht.hi || 1)) * H2;
+
+    let s = `<svg class="kg-svg" viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Kursgraf ${esc(data.ticker)} med kjøp og salg">`;
+
+    // Område før valgt periode
+    if (tFrom > t0) {
+      s += `<rect x="${P.l}" y="${P.t}" width="${X(tFrom) - P.l}" height="${H1}" fill="${C.pre}"/>`;
+      s += `<rect x="${P.l}" y="${y2top}" width="${X(tFrom) - P.l}" height="${H2}" fill="${C.pre}"/>`;
+    }
+
+    // Rutenett + y-akse kurs
+    yt.ticks.forEach((v) => {
+      const y = Y(v);
+      s += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" stroke="${C.grid}"/>`;
+      s += `<text x="${P.l - 6}" y="${y + 3.5}" text-anchor="end" font-size="10.5" fill="${C.axis}">${nb(v, yt.step < 1 ? 2 : (yt.step < 10 && v % 1 ? 1 : 0))}</text>`;
+    });
+    s += `<text x="${P.l}" y="${P.t - 8}" font-size="10.5" fill="${C.axis}">Kurs (NOK)</text>`;
+
+    // x-akse
+    const xt = timeTicks(t0, t1, Math.max(3, Math.floor(pw / (mobile ? 58 : 72))));
+    xt.forEach((k) => {
+      const x = X(k.t);
+      s += `<line x1="${x}" x2="${x}" y1="${P.t + H1}" y2="${P.t + H1 + 4}" stroke="${C.axis}"/>`;
+      s += `<line x1="${x}" x2="${x}" y1="${y2top + H2}" y2="${y2top + H2 + 4}" stroke="${C.axis}"/>`;
+      s += `<text x="${x}" y="${y2top + H2 + 17}" text-anchor="middle" font-size="10.5" fill="${C.axis}">${k.label}</text>`;
+    });
+    s += `<line x1="${P.l}" x2="${W - P.r}" y1="${P.t + H1}" y2="${P.t + H1}" stroke="${C.axis}" stroke-opacity="0.5"/>`;
+
+    // Periodestart
+    if (tFrom > t0) {
+      const x = X(tFrom);
+      s += `<line x1="${x}" x2="${x}" y1="${P.t}" y2="${y2top + H2}" stroke="${C.axis}" stroke-dasharray="3 4" stroke-opacity="0.6"/>`;
+      s += `<text x="${x + 4}" y="${P.t + 11}" font-size="10" fill="${C.axis}">Periodestart</text>`;
+    }
+
+    // Kurslinje
+    if (prices.length) {
+      const path = prices.map((p, i) => `${i ? 'L' : 'M'}${X(p.t).toFixed(1)},${Y(p.p).toFixed(1)}`).join(' ');
+      s += `<path d="${path} L${X(prices[prices.length - 1].t).toFixed(1)},${P.t + H1} L${X(prices[0].t).toFixed(1)},${P.t + H1} Z" fill="${C.area}"/>`;
+      s += `<path d="${path}" fill="none" stroke="${C.line}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    } else {
+      s += `<text x="${P.l + pw / 2}" y="${P.t + H1 / 2}" text-anchor="middle" font-size="12" fill="${C.axis}">Ingen kursdata i perioden</text>`;
+    }
+
+    // Markører: areal ∝ antall (side ∝ √antall)
+    const maxQ = Math.max(1, ...trades.map((r) => Math.abs(r.antall)));
+    const sMin = mobile ? 9 : 10, sMax = mobile ? 26 : 32;
+    trades.forEach((r) => {
+      r._x = X(r.t); r._y = Y(r.kurs);
+      r._s = sMin + (sMax - sMin) * Math.sqrt(Math.abs(r.antall) / maxQ);
+      r._buy = r.antall > 0;
+      // Kjøp under kurslinjen (pil peker opp mot den), salg over (peker ned)
+      r._my = r._buy ? r._y + r._s * 0.62 + 1 : r._y - r._s * 0.62 - 1;
+    });
+    // Små over store, så ingen forsvinner
+    [...trades].sort((a, b) => Math.abs(b.antall) - Math.abs(a.antall)).forEach((r) => {
+      const col = r._buy ? C.buy : C.sell;
+      s += `<path d="${tri(r._x, r._my, r._s, r._buy)}" fill="${col}" fill-opacity="0.9" stroke="${C.surface}" stroke-width="1.5" stroke-linejoin="round"/>`;
+    });
+
+    // Etiketter med antall, største først, hopper over de som kolliderer
+    const boxes = [];
+    const fs = mobile ? 10 : 11;
+    const overlaps = (b) => boxes.some((o) => b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1);
+    trades.forEach((r) => boxes.push({x1: r._x - r._s * 0.55, x2: r._x + r._s * 0.55, y1: r._my - r._s * 0.62, y2: r._my + r._s * 0.62}));
+    let skipped = 0;
+    [...trades].sort((a, b) => Math.abs(b.antall) - Math.abs(a.antall)).forEach((r) => {
+      const txt = fmtQty(r.antall);
+      const w = txt.length * fs * 0.58 + 4;
+      const off = r._s * 0.62 + 4;
+      const tries = r._buy ? [r._my + off + fs, r._my - off - r._s * 0.9] : [r._my - off, r._my + off + fs + r._s * 0.9];
+      let placed = false;
+      for (const ty of tries) {
+        let cx = Math.min(Math.max(r._x, P.l + w / 2), W - P.r - w / 2);
+        const b = {x1: cx - w / 2, x2: cx + w / 2, y1: ty - fs, y2: ty + 2};
+        if (b.y1 < P.t || b.y2 > P.t + H1 || overlaps(b)) continue;
+        boxes.push(b);
+        s += `<text x="${cx}" y="${ty}" text-anchor="middle" font-size="${fs}" font-weight="600" fill="${C.text}" paint-order="stroke" stroke="${C.surface}" stroke-width="3">${txt}</text>`;
+        placed = true;
+        break;
+      }
+      if (!placed) skipped++;
+    });
+
+    // Beholdningspanel
+    s += `<text x="${P.l}" y="${y2top - 8}" font-size="10.5" fill="${C.axis}">Beholdning (aksjer)</text>`;
+    ht.ticks.forEach((v) => {
+      const y = Y2(v);
+      s += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" stroke="${C.grid}"/>`;
+      s += `<text x="${P.l - 6}" y="${y + 3.5}" text-anchor="end" font-size="10.5" fill="${C.axis}">${fmtQty(v, false)}</text>`;
+    });
+    if (holdPts.length) {
+      let d = `M${X(holdPts[0].t).toFixed(1)},${Y2(holdPts[0].v).toFixed(1)}`;
+      for (let i = 1; i < holdPts.length; i++) {
+        d += ` H${X(holdPts[i].t).toFixed(1)} V${Y2(holdPts[i].v).toFixed(1)}`;
+      }
+      const last = holdPts[holdPts.length - 1];
+      d += ` H${X(t1).toFixed(1)}`;
+      s += `<path d="${d} V${y2top + H2} H${X(holdPts[0].t).toFixed(1)} Z" fill="${C.holdArea}"/>`;
+      s += `<path d="${d}" fill="none" stroke="${C.hold}" stroke-width="2" stroke-linejoin="round"/>`;
+      const lbl = fmtQty(last.v, false);
+      s += `<text x="${W - P.r}" y="${Math.max(y2top + 10, Y2(last.v) - 5)}" text-anchor="end" font-size="10.5" font-weight="600" fill="${C.text}" paint-order="stroke" stroke="${C.surface}" stroke-width="3">${lbl}</text>`;
+    }
+
+    // Crosshair (fylles ved hover)
+    s += `<line class="kg-cross" x1="0" x2="0" y1="${P.t}" y2="${y2top + H2}" stroke="${C.text}" stroke-opacity="0.35" visibility="hidden"/>`;
+    s += `<circle class="kg-dot" r="4" fill="${C.line}" stroke="${C.surface}" stroke-width="2" visibility="hidden"/>`;
+    s += `<rect class="kg-hit" x="${P.l}" y="${P.t}" width="${pw}" height="${y2top + H2 - P.t}" fill="transparent"/>`;
+    s += `</svg>`;
+
+    const nKjop = trades.filter((r) => r.antall > 0).length;
+    const nSalg = trades.length - nKjop;
+    el.innerHTML = `
+      <div class="kg-wrap">
+        <div class="kg-head">
+          <div class="kg-title">${esc(data.ticker || data.isin)} ${data.navn ? '· ' + esc(data.navn) : ''}</div>
+          <div class="kg-legend">
+            <span><svg width="12" height="12"><path d="${tri(6, 6.5, 11, true)}" fill="${C.buy}"/></svg>Kjøp (${nKjop})</span>
+            <span><svg width="12" height="12"><path d="${tri(6, 5.5, 11, false)}" fill="${C.sell}"/></svg>Salg (${nSalg})</span>
+            <span>Størrelse ∝ antall aksjer</span>
+          </div>
+        </div>
+        ${s}
+        <div class="kg-tip"></div>
+        ${skipped ? `<div class="kg-note">${skipped} etiketter skjult for å unngå overlapp. Pek på grafen for detaljer.</div>` : ''}
+        ${trades.length ? '' : '<div class="kg-note">Ingen handler for investoren i valgt periode.</div>'}
+      </div>`;
+
+    // Hover / trykk: nærmeste dato
+    const svg = el.querySelector('svg.kg-svg');
+    const tip = el.querySelector('.kg-tip');
+    const cross = svg.querySelector('.kg-cross');
+    const dot = svg.querySelector('.kg-dot');
+    const wrap = el.querySelector('.kg-wrap');
+    const byDate = new Map(trades.map((r) => [r.t, r]));
+    const holdAt = (t) => { let v = null; for (const h of holdPts) { if (h.t <= t) v = h.v; else break; } return v; };
+
+    function show(evt) {
+      const rect = svg.getBoundingClientRect();
+      const sx = (evt.clientX - rect.left) * (W / rect.width);
+      const t = t0 + (sx - P.l) / pw * (t1 - t0);
+      // Foretrekk en handel innenfor markørens bredde, ellers nærmeste kurs
+      let tr = null, best = Infinity;
+      trades.forEach((r) => { const dx = Math.abs(r._x - sx); if (dx < Math.max(8, r._s * 0.6) && dx < best) { best = dx; tr = r; } });
+      let pt = null; best = Infinity;
+      prices.forEach((p) => { const dx = Math.abs(p.t - t); if (dx < best) { best = dx; pt = p; } });
+      const tt = tr ? tr.t : (pt ? pt.t : null);
+      if (tt == null) return hide();
+      const r = tr || byDate.get(tt);
+      const kurs = r ? r.kurs : pt.p;
+      const x = X(tt);
+      cross.setAttribute('x1', x); cross.setAttribute('x2', x); cross.setAttribute('visibility', 'visible');
+      dot.setAttribute('cx', x); dot.setAttribute('cy', Y(kurs)); dot.setAttribute('visibility', 'visible');
+      let html = `<div class="kg-tip-d">${fmtDate(tt)}</div><div>Kurs: <b>${nb(kurs, 2)}</b></div>`;
+      if (r) {
+        const col = r.antall > 0 ? C.buy : C.sell;
+        const sw = r.antall > 0
+          ? `border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid ${col}`
+          : `border-left:5px solid transparent;border-right:5px solid transparent;border-top:9px solid ${col}`;
+        html += `<div><span class="kg-sw" style="${sw}"></span><b>${r.antall > 0 ? 'Kjøp' : 'Salg'} ${nb(Math.abs(r.antall), 0)}</b> aksjer</div>`;
+        html += `<div>Beløp: ${nb(Math.abs(r.belop_mnok), 2)} MNOK</div>`;
+      }
+      const h = r ? r._hold : holdAt(tt);
+      if (h != null) html += `<div>Beholdning: ${nb(h, 0)}</div>`;
+      tip.innerHTML = html;
+      tip.style.display = 'block';
+      const scale = rect.width / W;
+      const wr = wrap.getBoundingClientRect();
+      const left = x * scale, tw = tip.offsetWidth;
+      tip.style.left = (rect.left - wr.left + (left + 12 + tw > rect.width ? Math.max(0, left - tw - 12) : left + 12)) + 'px';
+      tip.style.top = (rect.top - wr.top + (P.t + 6) * scale) + 'px';
+    }
+    function hide() {
+      tip.style.display = 'none';
+      cross.setAttribute('visibility', 'hidden');
+      dot.setAttribute('visibility', 'hidden');
+    }
+    svg.addEventListener('pointermove', show);
+    svg.addEventListener('pointerdown', show);
+    svg.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hide(); });
+    wrap._kgHide = hide;
+  }
+
+  function attach(el, data) {
+    el._kgData = data;
+    render(el, data);
+    if (!el._kgRO && 'ResizeObserver' in window) {
+      let lastW = el.clientWidth;
+      el._kgRO = new ResizeObserver(debounce(() => {
+        if (el._kgData && Math.abs(el.clientWidth - lastW) > 4) { lastW = el.clientWidth; render(el, el._kgData); }
+      }, 150));
+      el._kgRO.observe(el);
+    }
+  }
+
+  const KURSGRAF_URL = '{{ url_for("handler.api_kursgraf") }}';
+  let reqSeq = 0;
+
+  window.loadKursgraf = async function (containerId, params) {
+    const el = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    if (!el || !params || !params.investor_id || !params.isin) return;
+    const seq = ++reqSeq;
+    el._kgSeq = seq;
+    el.innerHTML = '<div class="text-muted" style="padding:16px 0"><span class="spinner"></span> Henter kursgraf…</div>';
+    const q = new URLSearchParams({investor_id: params.investor_id, isin: params.isin});
+    if (params.date_from) q.set('date_from', params.date_from);
+    if (params.date_to) q.set('date_to', params.date_to);
+    try {
+      const resp = await fetch(`${KURSGRAF_URL}?${q.toString()}`);
+      const data = await resp.json();
+      if (el._kgSeq !== seq) return;          // et nyere kall har tatt over
+      if (data.error) { el.innerHTML = `<div class="text-muted">${esc(data.error)}</div>`; return; }
+      attach(el, data);
+    } catch (e) {
+      if (el._kgSeq === seq) el.innerHTML = '<div class="text-muted">Klarte ikke hente kursgraf.</div>';
+      console.error('api/kursgraf failed', e);
+    }
+  };
+
+  window.openKursgraf = function (params) {
+    let modalEl = document.getElementById('kg-modal');
+    if (!modalEl) {
+      modalEl = document.createElement('div');
+      modalEl.id = 'kg-modal';
+      modalEl.className = 'modal fade kg-modal';
+      modalEl.tabIndex = -1;
+      modalEl.innerHTML = `
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-sm-down">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h6 class="modal-title" id="kg-modal-title"></h6>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Lukk"></button>
+            </div>
+            <div class="modal-body"><div id="kg-modal-body"></div></div>
+          </div>
+        </div>`;
+      document.body.appendChild(modalEl);
+    }
+    document.getElementById('kg-modal-title').textContent = params.title || 'Kursgraf med handler';
+    const body = document.getElementById('kg-modal-body');
+    body.innerHTML = '';
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modalEl.addEventListener('shown.bs.modal', () => loadKursgraf(body, params), {once: true});
+    modal.show();
+  };
+})();
+</script>

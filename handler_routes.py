@@ -692,6 +692,36 @@ def api_per_eier_detaljer():
     })
 
 
+@handler_bp.route("/api/kursgraf")
+def api_kursgraf():
+    """Kursserie + en investors kjøp/salg i én aksje, til kursgrafen (handler/_kursgraf.html)."""
+    investor_id = request.args.get("investor_id", "").strip()
+    isin = request.args.get("isin", "").strip()
+    date_from = _parse_date(request.args.get("date_from"), dt.date.today() - dt.timedelta(days=30))
+    date_to = _parse_date(request.args.get("date_to"), dt.date.today())
+
+    if not investor_id or not isin:
+        return jsonify({"error": "Mangler investor_id eller isin"}), 400
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+
+    err = _check_db()
+    if err:
+        return jsonify({"error": err}), 503
+
+    conn = None
+    try:
+        conn = hd.db_connect()
+        data = hd.fetch_kursgraf(conn, investor_id, isin, date_from, date_to)
+    except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
+        _LOG.exception("DB-feil i api_kursgraf investor_id=%s isin=%s", investor_id, isin)
+        return jsonify({"error": _db_runtime_error_message(exc)}), 503
+    finally:
+        if conn is not None:
+            conn.close()
+    return jsonify(data)
+
+
 @handler_bp.route("/api/per-eier/csv")
 def api_per_eier_csv():
     investor_id = request.args.get("investor_id", "").strip()
@@ -982,7 +1012,7 @@ def api_per_aksje():
     for c in ["kjop_mnok","salg_mnok","netto_mnok"]:
         df[c] = df[c].round(1)
 
-    cols = ["eier","investor_type","antall_obs","kjop_antall","kjop_mnok","salg_antall","salg_mnok","netto_mnok"]
+    cols = ["eier","investor_id","investor_type","antall_obs","kjop_antall","kjop_mnok","salg_antall","salg_mnok","netto_mnok"]
 
     buy = df[df["netto_mnok"] > 0].sort_values("netto_mnok", ascending=False).head(top_n)
     sell = df[df["netto_mnok"] < 0].sort_values("netto_mnok", ascending=True).head(top_n)
