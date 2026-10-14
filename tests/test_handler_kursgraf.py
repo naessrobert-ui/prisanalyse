@@ -302,3 +302,37 @@ def test_compute_best_investors_median_og_min_aksjer(tmp_path):
     assert len(run(min_aksjer=3)) == 2
     assert run(min_aksjer=4).empty
     conn.close()
+
+
+@pytest.mark.parametrize("navn,forventet", [
+    ("BofA Securities Europe SA", True),
+    ("NORDNET LIVSFORSIKRING AS", True),
+    ("State Street Bank and Trust Comp", True),
+    ("Clients Account", True),
+    ("UBS AG", True),
+    ("SUBSEA 7 SA", False),          # «UBS» inni et ord skal ikke treffe
+    ("FOLKETRYGDFONDET", False),
+    ("SKAGEN VEKST", False),
+])
+def test_er_nominee(navn, forventet):
+    import handler_data_beste as hdb
+    assert hdb.er_nominee(navn) is forventet
+
+
+def test_compute_best_investors_utelater_nominee_som_standard(tmp_path):
+    import handler_data_beste as hdb
+
+    p = str(tmp_path / "nom.db")
+    _best_db(p)
+    c = sqlite3.connect(p)
+    c.execute("INSERT INTO investor VALUES ('N','Org','STATE STREET BANK','NOMINEE','US',NULL)")
+    c.execute("INSERT INTO position_change VALUES ('X','N','2026-05-01',0,0,0,100.0,5000)")
+    c.commit()
+    c.row_factory = sqlite3.Row
+    cols = hdb.detect_cols(c)
+    args = dict(conn=c, cols=cols, date_from=dt.date(2026, 1, 1), date_to=dt.date(2026, 12, 31),
+                investor_ids=None, invtype_choice="Alle", country_codes=None, isin_filter=None,
+                min_trades=1, min_brutto_mnok=0, last_price_map={"X": 120.0, "Y": 50.0})
+    assert "N" not in set(hdb.compute_best_investors(**args)["investor_id"])
+    assert "N" in set(hdb.compute_best_investors(**args, med_nominee=True)["investor_id"])
+    c.close()

@@ -74,6 +74,14 @@
       </select>
       <small class="text-muted">Hold Ctrl for å velge flere. La tom for alle.</small>
     </div>
+    <div class="col-md-5 d-flex align-items-end">
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="bi-med-nominee">
+        <label class="form-check-label" for="bi-med-nominee" style="color:var(--pa-text); font-size:0.9rem; display:inline">
+          Ta med nominee-, depotbank- og meglerkonti
+        </label>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -276,6 +284,7 @@
     params.set('sort_by', document.getElementById('bi-sort').value);
     params.set('pct_metode', document.getElementById('bi-pct-metode').value);
     params.set('min_aksjer', document.getElementById('bi-min-aksjer').value || '1');
+    if (document.getElementById('bi-med-nominee').checked) params.set('med_nominee', '1');
 
     // Investor mode
     const im = invMode.value;

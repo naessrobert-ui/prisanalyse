@@ -1617,6 +1617,7 @@ def api_beste_investorer_run():
             sort_by=request.args.get("sort_by", "gevinst_mnok"),
             min_aksjer=_int_arg("min_aksjer", 1),
             pct_metode="median" if request.args.get("pct_metode") == "median" else "samlet",
+            med_nominee=request.args.get("med_nominee") == "1",
         )
     except Exception as e:
         _LOG.exception("Feil i api_beste_investorer_run")

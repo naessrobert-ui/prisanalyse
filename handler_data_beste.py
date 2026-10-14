@@ -16,7 +16,36 @@ from typing import Optional, List, Dict, Tuple
 
 import pandas as pd
 
+import re
+
 import handler_data as hd
+
+# Nominee-, depotbank- og meglerkonti. De handler på vegne av mange kunder, så
+# gevinst og aktivitet sier lite om en enkelt investors dyktighet.
+# Matches som hele ord (så «UBS» ikke treffer «SUBSEA»).
+NOMINEE_MONSTRE: List[str] = [
+    "NOMINEE", "NOMINEES", "CLEARSTREAM", "EUROCLEAR", "SIX SIS", "CUSTODY", "CUSTODIAN", "OMNIBUS",
+    "CLIENT", "CLIENTS",
+    "STATE STREET", "JPMORGAN", "J.P. MORGAN", "JP MORGAN", "BNP PARIBAS", "CITIBANK", "CITIGROUP",
+    "BANK OF NEW YORK", "BNY MELLON", "NORTHERN TRUST", "GOLDMAN SACHS", "MORGAN STANLEY", "UBS",
+    "BOFA", "BANK OF AMERICA", "MERRILL LYNCH", "BARCLAYS", "SECURITIES",
+    "SKANDINAVISKA ENSKILDA", "DANSKE BANK", "SWEDBANK", "SVENSKA HANDELSBANKEN", "NORDEA BANK",
+    "NORDNET", "SAXO", "AVANZA", "INTERACTIVE BROKERS", "CACEIS", "HSBC", "DEUTSCHE BANK",
+    "SOCIETE GENERALE", "SOCIÉTÉ GÉNÉRALE", "CREDIT SUISSE", "RBC INVESTOR", "BROWN BROTHERS",
+]
+
+
+def _nominee_regex(monstre: Optional[List[str]] = None) -> "re.Pattern[str]":
+    deler = [re.escape(m.strip().upper()) for m in (monstre or NOMINEE_MONSTRE) if m.strip()]
+    return re.compile(r"(?<![A-ZÆØÅ0-9])(" + "|".join(deler) + r")(?![A-ZÆØÅ0-9])")
+
+
+_NOMINEE_RE = _nominee_regex()
+
+
+def er_nominee(navn: str, monstre: Optional[List[str]] = None) -> bool:
+    rx = _NOMINEE_RE if monstre is None else _nominee_regex(monstre)
+    return bool(rx.search((navn or "").upper()))
 
 
 # =========================================================
@@ -318,6 +347,7 @@ def compute_best_investors(
     sort_by: str = "gevinst_mnok",
     min_aksjer: int = 1,
     pct_metode: str = "samlet",
+    med_nominee: bool = False,
 ) -> pd.DataFrame:
     """Rangerer investorer på gevinst og aktivitet.
 
@@ -466,6 +496,10 @@ def compute_best_investors(
         navn_map = dict(zip(inv["investor_id"], inv["navn"]))
 
     agg["navn"] = agg["investor_id"].map(navn_map).fillna("")
+    if not med_nominee:
+        agg = agg[~agg["navn"].map(er_nominee)]
+        if agg.empty:
+            return pd.DataFrame()
 
     out = agg[["investor_id", "navn", "trades", "aksjer", "brutto_mnok", "gevinst_mnok", "gevinst_pct",
                "samlet_pct", "median_pct", "treff_pct",
