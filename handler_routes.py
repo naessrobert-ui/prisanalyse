@@ -1641,6 +1641,36 @@ def api_beste_investorer_run():
     })
 
 
+@handler_bp.route("/api/investor-info")
+def api_investor_info():
+    """Info om investoren: Brreg (enhet, roller, regnskap) og største eiere. Caches."""
+    import investor_info as ii
+
+    investor_id = request.args.get("investor_id", "").strip()
+    if not investor_id:
+        return jsonify({"error": "Mangler investor_id"}), 400
+    err = _check_db()
+    if err:
+        return jsonify({"error": err}), 503
+    conn = hd.db_connect()
+    try:
+        row = conn.execute(
+            "SELECT first_name, last_name, investor_type, country_code, raw_id FROM investor WHERE investor_id=?",
+            (investor_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return jsonify({"error": "Ukjent investor"}), 404
+    navn = hd.clean_name(row["first_name"] or "", row["last_name"] or "", investor_id)
+    try:
+        info = ii.investor_info(investor_id, navn, row["investor_type"], row["country_code"], row["raw_id"])
+    except Exception as exc:
+        _LOG.exception("Feil i investor-info for %s", investor_id)
+        return jsonify({"error": f"Klarte ikke hente info: {exc}"}), 500
+    return jsonify(info)
+
+
 @handler_bp.route("/api/beste-investorer/transactions")
 def api_beste_transactions():
     investor_id = request.args.get("investor_id", "").strip()

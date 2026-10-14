@@ -171,6 +171,7 @@
 <div id="bi-tx-section" style="display:none" class="mt-4">
   <hr style="border-color:var(--pa-border)">
   <h5 style="color:var(--pa-text)">Handler for <span id="bi-tx-name"></span></h5>
+  <div id="bi-investor-info" class="panel mt-2" style="display:none"></div>
   <div class="row g-3 mt-1 mb-2" id="bi-tx-totals"></div>
 
   <h6 class="mt-3" style="color:var(--pa-text)">Per aksje</h6>
@@ -402,6 +403,7 @@
     params.set('date_to', lastParams.date_to || new Date().toISOString().slice(0,10));
     if (lastParams.isin) params.set('isin_filter', lastParams.isin);
     txDates = {date_from: params.get('date_from'), date_to: params.get('date_to')};
+    loadInvestorInfo(investor);
     document.getElementById('bi-detail').style.display = 'none';
     document.getElementById('bi-tx-chart').innerHTML = '';
     document.getElementById('bi-agg-table').innerHTML = '<span class="spinner"></span> Henter…';
@@ -423,6 +425,79 @@
     `<div style="font-size:1.15rem; font-weight:700" class="${colored ? signClass(v) : ''}">${fmtNum(v, dec)}${suffix}</div></div></div>`;
 
   let txData = null;
+
+  // Info om investoren (Brreg + aksjonærregister), hentes bare ved valg
+  const fmtKr = (v) => {
+    if (v == null) return '–';
+    const a = Math.abs(v);
+    if (a >= 1e9) return fmtNum(v / 1e9, 1) + ' mrd';
+    if (a >= 1e6) return fmtNum(v / 1e6, 1) + ' mill';
+    return fmtNum(v / 1e3, 0) + ' k';
+  };
+  const escHtml = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  let infoSeq = 0;
+
+  async function loadInvestorInfo(investor) {
+    const el = document.getElementById('bi-investor-info');
+    const seq = ++infoSeq;
+    el.style.display = 'block';
+    el.innerHTML = '<span class="spinner"></span> Henter info om investoren…';
+    try {
+      const resp = await fetch('{{ url_for("handler.api_investor_info") }}?investor_id=' + encodeURIComponent(investor.investor_id));
+      const d = await resp.json();
+      if (seq !== infoSeq) return;
+      if (d.error) { el.innerHTML = `<span class="text-muted">${escHtml(d.error)}</span>`; return; }
+      el.innerHTML = renderInvestorInfo(d);
+    } catch (e) {
+      if (seq === infoSeq) el.innerHTML = '<span class="text-muted">Klarte ikke hente info om investoren.</span>';
+    }
+  }
+
+  function renderInvestorInfo(d) {
+    const l = d.lenker || {};
+    const lenker = [
+      l.proff ? `<a href="${l.proff}" target="_blank" rel="noopener">Proff</a>` : '',
+      l.brreg ? `<a href="${l.brreg}" target="_blank" rel="noopener">Brreg</a>` : '',
+      l.aksjonaerer ? `<a href="${l.aksjonaerer}" target="_blank">Aksjonærregister</a>` : '',
+    ].filter(Boolean).join(' · ');
+    if (d.type !== 'selskap' || !d.orgnr) {
+      return `<div style="font-size:0.9rem"><span class="text-muted">${escHtml(d.melding || '')}</span>` +
+             (lenker ? `<div class="mt-1">${lenker}</div>` : '') + '</div>';
+    }
+    const e = d.enhet || {}, r = d.roller || {}, g = d.regnskap;
+    const linje = (k, v) => v ? `<div><span class="text-muted">${k}:</span> ${v}</div>` : '';
+    const fakta = [
+      e.organisasjonsform, e.bransje, e.kommune,
+      e.ansatte != null ? `${fmtInt(e.ansatte)} ansatte` : '',
+    ].filter(Boolean).map(escHtml).join(' · ');
+    let regnskap = '';
+    if (g && g.aar) {
+      regnskap = `<div class="row g-2 mt-1">` + [
+        ['Omsetning', g.omsetning], ['Resultat etter skatt', g.resultat_etter_skatt],
+        ['Egenkapital', g.egenkapital], ['Sum eiendeler', g.sum_eiendeler],
+      ].map(([k, v]) => `<div class="col-6 col-md-3"><small class="text-muted">${k} ${g.aar}</small>` +
+        `<div style="font-weight:700" class="${k.startsWith('Resultat') ? signClass(v) : ''}">${fmtKr(v)}</div></div>`).join('') + '</div>';
+    } else {
+      regnskap = '<div class="text-muted mt-1" style="font-size:0.85rem">Ingen regnskap i Regnskapsregisteret.</div>';
+    }
+    let eiere = '';
+    if (Array.isArray(d.eiere) && d.eiere.length) {
+      eiere = '<div class="mt-2"><small class="text-muted">Største eiere</small>' +
+        d.eiere.map((o) => `<div>${escHtml(o.navn)}${o.andel_pct != null ? ` <span class="text-muted">${fmtNum(o.andel_pct, 1)} %</span>` : ''}</div>`).join('') +
+        '</div>';
+    }
+    const varsel = (e.konkurs || e.slettet) ? '<div class="text-neg" style="font-weight:600">Konkurs eller slettet</div>' : '';
+    return `<div style="font-size:0.9rem">
+      <div style="font-weight:700; font-size:1rem">${escHtml(e.navn || d.navn)} <span class="text-muted" style="font-weight:400">${d.orgnr}</span></div>
+      ${varsel}
+      ${fakta ? `<div class="text-muted">${fakta}</div>` : ''}
+      <div class="mt-1">${linje('Styreleder', escHtml(r.styreleder || ''))}${linje('Daglig leder', escHtml(r.daglig_leder || ''))}</div>
+      ${regnskap}
+      ${eiere}
+      <div class="mt-2">${lenker}</div>
+      ${d.orgnr_kilde === 'navnesøk' ? '<div class="text-muted" style="font-size:0.75rem">Orgnr funnet via navnesøk i Enhetsregisteret.</div>' : ''}
+    </div>`;
+  }
 
   function renderTransactions(data) {
     txData = data;
