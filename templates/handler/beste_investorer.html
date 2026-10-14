@@ -138,11 +138,26 @@
 <!-- Transaksjoner -->
 <div id="bi-tx-section" style="display:none" class="mt-4">
   <hr style="border-color:var(--pa-border)">
-  <h5 style="color:var(--pa-text)">Transaksjoner for <span id="bi-tx-name"></span></h5>
-  <div id="bi-tx-chart"></div>
-  <div class="mb-2" style="color:var(--pa-muted); font-size:0.85em">Klikk en transaksjon for kursgraf med investorens handler i den aksjen.</div>
-  <div id="bi-tx-table"></div>
-  <div class="row g-3 mt-2" id="bi-tx-totals"></div>
+  <h5 style="color:var(--pa-text)">Handler for <span id="bi-tx-name"></span></h5>
+  <div class="row g-3 mt-1 mb-2" id="bi-tx-totals"></div>
+
+  <h6 class="mt-3" style="color:var(--pa-text)">Per aksje</h6>
+  <div class="mb-2" style="color:var(--pa-muted); font-size:0.85em">Aktivitet og gevinst samlet per aksje, sortert etter gevinst. Gevinst er regnet mot siste kurs. Klikk en aksje for detaljer og kursgraf.</div>
+  <div id="bi-agg-table"></div>
+
+  <div id="bi-detail" style="display:none" class="mt-4">
+    <hr style="border-color:var(--pa-border)">
+    <h5 style="color:var(--pa-text)" id="bi-detail-title"></h5>
+    <div class="row g-3 mt-1 mb-2" id="bi-detail-kpi"></div>
+    <div id="bi-tx-chart"></div>
+    <h6 class="mt-3" style="color:var(--pa-text)">Enkelthandler</h6>
+    <div id="bi-detail-table"></div>
+  </div>
+
+  <details class="mt-4">
+    <summary style="color:var(--pa-muted); cursor:pointer">Vis alle handler (<span id="bi-tx-count">0</span>)</summary>
+    <div id="bi-tx-table" class="mt-2"></div>
+  </details>
 </div>
 {% endblock %}
 
@@ -312,12 +327,9 @@
     params.set('date_to', lastParams.date_to || new Date().toISOString().slice(0,10));
     if (lastParams.isin) params.set('isin_filter', lastParams.isin);
     txDates = {date_from: params.get('date_from'), date_to: params.get('date_to')};
-    // Én valgt aksje: vis kursgrafen direkte over transaksjonene
-    if (lastParams.isin) {
-      loadKursgraf('bi-tx-chart', {investor_id: investor.investor_id, isin: lastParams.isin, ...txDates});
-    } else {
-      document.getElementById('bi-tx-chart').innerHTML = '';
-    }
+    document.getElementById('bi-detail').style.display = 'none';
+    document.getElementById('bi-tx-chart').innerHTML = '';
+    document.getElementById('bi-agg-table').innerHTML = '<span class="spinner"></span> Henter…';
 
     const txCacheKey = params.toString();
     if (txCache.has(txCacheKey)) {
@@ -331,33 +343,93 @@
     renderTransactions(data);
   }
 
-  function renderTransactions(data) {
-    const sec = document.getElementById('bi-tx-section');
+  const kpi = (label, v, dec=2, suffix='', colored=false) =>
+    `<div class="col-6 col-md-3"><div class="panel" style="padding:10px 14px"><small>${label}</small>` +
+    `<div style="font-size:1.15rem; font-weight:700" class="${colored ? signClass(v) : ''}">${fmtNum(v, dec)}${suffix}</div></div></div>`;
 
-    buildTable(data.rows, [
+  let txData = null;
+
+  function renderTransactions(data) {
+    txData = data;
+    const sec = document.getElementById('bi-tx-section');
+    const rows = data.rows || [];
+    const perAksje = data.per_aksje || [];
+
+    const t = data.totals || {};
+    document.getElementById('bi-tx-totals').innerHTML =
+      kpi('Aksjer', perAksje.length, 0) +
+      kpi('Brutto MNOK', t.brutto_mnok) +
+      kpi('Gevinst MNOK', t.gevinst_mnok, 2, '', true) +
+      kpi('Gevinst %', t.gevinst_pct, 2, ' %', true);
+
+    buildTable(perAksje, [
+      {key:'ticker', label:'Ticker'},
+      {key:'navn', label:'Navn'},
+      {key:'handler', label:'Handler', fmt:'int'},
+      {key:'gevinst_mnok', label:'Gevinst MNOK', fmt:'num', dec:2},
+      {key:'gevinst_pct', label:'Gevinst %', fmt:'num', dec:1},
+      {key:'netto_mnok', label:'Netto kjøp MNOK', fmt:'num', dec:2},
+      {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
+      {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num', dec:2},
+      {key:'salg_mnok', label:'Salg MNOK', fmt:'num', dec:2},
+      {key:'netto_antall', label:'Netto antall', fmt:'int'},
+      {key:'snitt_kjop_kurs', label:'Snitt kjøp', fmt:'num', dec:2},
+      {key:'snitt_salg_kurs', label:'Snitt salg', fmt:'num', dec:2},
+      {key:'siste_kurs', label:'Siste kurs', fmt:'num', dec:2},
+      {key:'forste_dato', label:'Første'},
+      {key:'siste_dato', label:'Siste'},
+    ], 'bi-agg-table', {
+      tableKey: 'bi-agg-table',
+      defaultPageSize: 20,
+      initialSort: {key: 'gevinst_mnok', asc: false},
+      onRowClick: (row) => showStockDetail(row),
+    });
+
+    document.getElementById('bi-tx-count').textContent = rows.length;
+    buildTable(rows, [
       {key:'dato', label:'Dato'},
       {key:'ticker', label:'Ticker'},
       {key:'navn', label:'Navn'},
-      {key:'isin', label:'ISIN'},
       {key:'qty', label:'Antall', fmt:'int'},
       {key:'trade_price', label:'Kurs', fmt:'num', dec:2},
       {key:'last_price', label:'Siste kurs', fmt:'num', dec:2},
       {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
       {key:'gevinst_mnok', label:'Gevinst MNOK', fmt:'num', dec:2},
     ], 'bi-tx-table', {onRowClick: (row) => {
-      if (!row || !row.isin || !txInvestor) return;
-      openKursgraf({investor_id: txInvestor.investor_id, isin: row.isin, ...txDates,
-                    title: `${txInvestor.navn || txInvestor.investor_id} · ${row.ticker || row.isin}`});
+      const agg = perAksje.find((a) => a.isin === row.isin);
+      if (agg) showStockDetail(agg);
     }});
 
-    const t = data.totals || {};
-    document.getElementById('bi-tx-totals').innerHTML = `
-      <div class="col-md-3"><div class="panel"><small>Brutto MNOK</small><div style="font-size:1.2rem; font-weight:700">${fmtNum(t.brutto_mnok,2)}</div></div></div>
-      <div class="col-md-3"><div class="panel"><small>Gevinst MNOK</small><div style="font-size:1.2rem; font-weight:700" class="${signClass(t.gevinst_mnok)}">${fmtNum(t.gevinst_mnok,2)}</div></div></div>
-      <div class="col-md-3"><div class="panel"><small>Gevinst %</small><div style="font-size:1.2rem; font-weight:700" class="${signClass(t.gevinst_pct)}">${fmtNum(t.gevinst_pct,2)}%</div></div></div>
-    `;
-
     sec.scrollIntoView({behavior: 'smooth'});
+    // Bare én aksje: gå rett til detaljene
+    if (perAksje.length === 1) showStockDetail(perAksje[0], false);
+  }
+
+  function showStockDetail(agg, scroll=true) {
+    if (!agg || !agg.isin || !txInvestor || !txData) return;
+    const el = document.getElementById('bi-detail');
+    el.style.display = 'block';
+    document.getElementById('bi-detail-title').textContent =
+      `${agg.ticker || agg.isin}${agg.navn ? ' · ' + agg.navn : ''}`;
+    document.getElementById('bi-detail-kpi').innerHTML =
+      kpi('Handler', agg.handler, 0) +
+      kpi('Gevinst MNOK', agg.gevinst_mnok, 2, '', true) +
+      kpi('Gevinst %', agg.gevinst_pct, 1, ' %', true) +
+      kpi('Netto kjøp MNOK', agg.netto_mnok, 2, '', true);
+
+    loadKursgraf('bi-tx-chart', {investor_id: txInvestor.investor_id, isin: agg.isin, ...txDates});
+
+    const rows = (txData.rows || []).filter((r) => r.isin === agg.isin && r.qty)
+      .sort((a, b) => String(b.dato).localeCompare(String(a.dato)));
+    buildTable(rows, [
+      {key:'dato', label:'Dato'},
+      {key:'qty', label:'Antall', fmt:'int'},
+      {key:'trade_price', label:'Kurs', fmt:'num', dec:2},
+      {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
+      {key:'gevinst_mnok', label:'Gevinst MNOK', fmt:'num', dec:2},
+    ], 'bi-detail-table', {tableKey: 'bi-detail-table', defaultPageSize: 20});
+
+    if (scroll) el.scrollIntoView({behavior: 'smooth', block: 'start'});
   }
 
   // CSV download (client-side)

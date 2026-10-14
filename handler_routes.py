@@ -1595,7 +1595,7 @@ def api_beste_transactions():
     conn.close()
 
     if tx.empty:
-        payload = {"rows": [], "totals": {}}
+        payload = {"rows": [], "per_aksje": [], "totals": {}}
         _set_cached_beste_transactions(cache_key, payload)
         return jsonify(payload)
 
@@ -1610,8 +1610,15 @@ def api_beste_transactions():
     profit_total = tx["profit_kr"].sum() / 1_000_000
     pct_total = (tx["profit_kr"].sum() / tx["gross_kr"].sum() * 100.0) if tx["gross_kr"].sum() else 0.0
 
+    per_aksje = hdb.summarize_transactions_per_isin(tx)
+    for c in ["kjop_mnok", "salg_mnok", "netto_mnok", "brutto_mnok", "gevinst_mnok"]:
+        per_aksje[c] = per_aksje[c].round(2)
+    for c in ["gevinst_pct", "snitt_kjop_kurs", "snitt_salg_kurs", "siste_kurs"]:
+        per_aksje[c] = per_aksje[c].round(2)
+
     payload = {
         "rows": tx[show].to_dict("records"),
+        "per_aksje": _json_safe_df(per_aksje).to_dict("records"),
         "totals": {
             "brutto_mnok": round(gross_total, 2),
             "gevinst_mnok": round(profit_total, 2),

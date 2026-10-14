@@ -128,3 +128,42 @@ def test_api_kursgraf(db_path, monkeypatch):
 
     r = client.get("/handler-oslo-bors/api/kursgraf?investor_id=1001")
     assert r.status_code == 400
+
+
+def test_summarize_transactions_per_isin():
+    import pandas as pd
+    import handler_data_beste as hdb
+
+    tx = pd.DataFrame([
+        # dato, isin, ticker, navn, qty, trade_price, last_price
+        ("2026-01-05", "A", "AAA", "Aaa ASA", 1000, 100.0, 120.0),
+        ("2026-02-05", "A", "AAA", "Aaa ASA", -400, 110.0, 120.0),
+        ("2026-03-05", "A", "AAA", "Aaa ASA", 0, 115.0, 120.0),     # ingen endring, telles ikke
+        ("2026-01-10", "B", "BBB", "Bbb ASA", 500, 50.0, 40.0),
+    ], columns=["dato", "isin", "ticker", "navn", "qty", "trade_price", "last_price"])
+    tx["gross_kr"] = tx["qty"].abs() * tx["trade_price"]
+    tx["profit_kr"] = tx["qty"] * (tx["last_price"] - tx["trade_price"])
+
+    g = hdb.summarize_transactions_per_isin(tx).set_index("isin")
+    a, b = g.loc["A"], g.loc["B"]
+    assert list(g.index) == ["A", "B"]                 # sortert etter gevinst
+    assert a["handler"] == 2
+    assert a["kjop_antall"] == 1000 and a["salg_antall"] == 400 and a["netto_antall"] == 600
+    assert a["kjop_mnok"] == pytest.approx(0.1)
+    assert a["salg_mnok"] == pytest.approx(0.044)
+    assert a["netto_mnok"] == pytest.approx(0.056)
+    assert a["brutto_mnok"] == pytest.approx(0.144)
+    # 1000*(120-100) - 400*(120-110) = 20000 - 4000
+    assert a["gevinst_mnok"] == pytest.approx(0.016)
+    assert a["gevinst_pct"] == pytest.approx(16000 / 144000 * 100)
+    assert a["snitt_kjop_kurs"] == pytest.approx(100.0)
+    assert a["snitt_salg_kurs"] == pytest.approx(110.0)
+    assert a["forste_dato"] == "2026-01-05" and a["siste_dato"] == "2026-02-05"
+    assert b["gevinst_mnok"] == pytest.approx(-0.005)
+    assert pd.isna(b["snitt_salg_kurs"])
+
+
+def test_summarize_transactions_per_isin_empty():
+    import pandas as pd
+    import handler_data_beste as hdb
+    assert hdb.summarize_transactions_per_isin(pd.DataFrame()).empty
