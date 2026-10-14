@@ -16,7 +16,36 @@ from typing import Optional, List, Dict, Tuple
 
 import pandas as pd
 
+import re
+
 import handler_data as hd
+
+# Nominee-, depotbank- og meglerkonti. De handler på vegne av mange kunder, så
+# gevinst og aktivitet sier lite om en enkelt investors dyktighet.
+# Matches som hele ord (så «UBS» ikke treffer «SUBSEA»).
+NOMINEE_MONSTRE: List[str] = [
+    "NOMINEE", "NOMINEES", "CLEARSTREAM", "EUROCLEAR", "SIX SIS", "CUSTODY", "CUSTODIAN", "OMNIBUS",
+    "CLIENT", "CLIENTS",
+    "STATE STREET", "JPMORGAN", "J.P. MORGAN", "JP MORGAN", "BNP PARIBAS", "CITIBANK", "CITIGROUP",
+    "BANK OF NEW YORK", "BNY MELLON", "NORTHERN TRUST", "GOLDMAN SACHS", "MORGAN STANLEY", "UBS",
+    "BOFA", "BANK OF AMERICA", "MERRILL LYNCH", "BARCLAYS", "SECURITIES",
+    "SKANDINAVISKA ENSKILDA", "DANSKE BANK", "SWEDBANK", "SVENSKA HANDELSBANKEN", "NORDEA BANK",
+    "NORDNET", "SAXO", "AVANZA", "INTERACTIVE BROKERS", "CACEIS", "HSBC", "DEUTSCHE BANK",
+    "SOCIETE GENERALE", "SOCIÉTÉ GÉNÉRALE", "CREDIT SUISSE", "RBC INVESTOR", "BROWN BROTHERS",
+]
+
+
+def _nominee_regex(monstre: Optional[List[str]] = None) -> "re.Pattern[str]":
+    deler = [re.escape(m.strip().upper()) for m in (monstre or NOMINEE_MONSTRE) if m.strip()]
+    return re.compile(r"(?<![A-ZÆØÅ0-9])(" + "|".join(deler) + r")(?![A-ZÆØÅ0-9])")
+
+
+_NOMINEE_RE = _nominee_regex()
+
+
+def er_nominee(navn: str, monstre: Optional[List[str]] = None) -> bool:
+    rx = _NOMINEE_RE if monstre is None else _nominee_regex(monstre)
+    return bool(rx.search((navn or "").upper()))
 
 
 # =========================================================
@@ -316,7 +345,16 @@ def compute_best_investors(
     min_brutto_mnok: float,
     last_price_map: Dict[str, float],
     sort_by: str = "gevinst_mnok",
+    min_aksjer: int = 1,
+    pct_metode: str = "samlet",
+    med_nominee: bool = False,
 ) -> pd.DataFrame:
+    """Rangerer investorer på gevinst og aktivitet.
+
+    pct_metode: "samlet" = samlet gevinst / samlet omsetning (dominert av de største
+    aksjene), "median" = median av gevinst % per aksje (en enkelt heldig aksje
+    trekker ikke opp). treff_pct = andel av aksjene med positiv gevinst.
+    """
     where = [f"date(pc.{cols.date_col}) BETWEEN date(?) AND date(?)"]
     params: list = [date_from.isoformat(), date_to.isoformat()]
 
@@ -408,10 +446,23 @@ def compute_best_investors(
     agg["siste_dato"] = agg["siste_dato"].astype(str).str[:10]
     agg["brutto_mnok"] = agg["gross_kr"] / 1_000_000
     agg["gevinst_mnok"] = agg["profit_kr"] / 1_000_000
-    agg["gevinst_pct"] = agg.apply(
-        lambda r: (r["profit_kr"] / r["gross_kr"]) * 100.0 if r["gross_kr"] else 0.0, axis=1)
+    agg["samlet_pct"] = (agg["profit_kr"] / agg["gross_kr"] * 100.0).where(agg["gross_kr"] > 0, 0.0)
 
-    agg = agg[(agg["trades"] >= min_trades) & (agg["brutto_mnok"] >= min_brutto_mnok)]
+    # Per aksje: gevinst % i hver aksje, median og treffrate per investor
+    per_aksje = df.groupby(["investor_id", "isin"]).agg(
+        profit_kr=("profit_kr", "sum"), gross_kr=("gross_kr", "sum")).reset_index()
+    per_aksje = per_aksje[per_aksje["gross_kr"] > 0]
+    per_aksje["pct"] = per_aksje["profit_kr"] / per_aksje["gross_kr"] * 100.0
+    per_aksje["treff"] = (per_aksje["profit_kr"] > 0).astype(float)
+    pa = per_aksje.groupby("investor_id").agg(
+        median_pct=("pct", "median"), treff_pct=("treff", "mean")).reset_index()
+    pa["treff_pct"] *= 100.0
+    agg = agg.merge(pa, on="investor_id", how="left")
+    agg["gevinst_pct"] = agg["median_pct"] if pct_metode == "median" else agg["samlet_pct"]
+    agg["gevinst_pct"] = agg["gevinst_pct"].fillna(0.0)
+
+    agg = agg[(agg["trades"] >= min_trades) & (agg["brutto_mnok"] >= min_brutto_mnok)
+              & (agg["aksjer"] >= max(1, int(min_aksjer or 1)))]
     if agg.empty:
         return pd.DataFrame()
 
@@ -445,8 +496,13 @@ def compute_best_investors(
         navn_map = dict(zip(inv["investor_id"], inv["navn"]))
 
     agg["navn"] = agg["investor_id"].map(navn_map).fillna("")
+    if not med_nominee:
+        agg = agg[~agg["navn"].map(er_nominee)]
+        if agg.empty:
+            return pd.DataFrame()
 
     out = agg[["investor_id", "navn", "trades", "aksjer", "brutto_mnok", "gevinst_mnok", "gevinst_pct",
+               "samlet_pct", "median_pct", "treff_pct",
                "kjop_mnok", "salg_mnok", "netto_mnok", "siste_dato"]].copy()
     col, asc = RANGERING.get(sort_by, RANGERING["gevinst_mnok"])
     out = out.sort_values([col, "brutto_mnok"], ascending=[asc, False]).reset_index(drop=True)
@@ -456,7 +512,8 @@ def compute_best_investors(
 # Rangeringsvalg: nøkkel -> (kolonne, stigende)
 RANGERING: Dict[str, Tuple[str, bool]] = {
     "gevinst_mnok": ("gevinst_mnok", False),   # beste i kroner
-    "gevinst_pct": ("gevinst_pct", False),     # beste i prosent av omsetning
+    "gevinst_pct": ("gevinst_pct", False),     # beste i prosent (samlet eller median, se pct_metode)
+    "treff_pct": ("treff_pct", False),         # flest aksjer med gevinst
     "brutto_mnok": ("brutto_mnok", False),     # mest aktive, omsetning
     "trades": ("trades", False),               # mest aktive, antall handler
     "netto_kjop": ("netto_mnok", False),       # største netto kjøpere

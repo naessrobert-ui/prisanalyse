@@ -57,12 +57,6 @@ _LOG = logging.getLogger(__name__)
 
 BASE_URL = os.environ.get("PRISANALYSE_BASE_URL", "https://prisanalyse.no").rstrip("/")
 
-_DEFAULT_EKSKLUDER = (
-    "NOMINEE,CLEARSTREAM,EUROCLEAR,STATE STREET,JPMORGAN,J.P. MORGAN,BNP PARIBAS,CITIBANK,"
-    "BANK OF NEW YORK,BNY MELLON,NORTHERN TRUST,GOLDMAN SACHS,MORGAN STANLEY,UBS,"
-    "SKANDINAVISKA ENSKILDA,DANSKE BANK,NORDNET,SAXO,AVANZA,INTERACTIVE BROKERS,"
-    "CACEIS,HSBC,DEUTSCHE BANK,SOCIETE GENERALE,CREDIT SUISSE"
-)
 
 TYPE_TEKST = {
     "ny_posisjon": "Ny posisjon",
@@ -94,10 +88,9 @@ class Innstillinger:
         x.strip() for x in (os.environ.get("HANDLER_VARSEL_LISTER") or "Beste.csv,Viktige.csv").split(",")
         if x.strip()
     ])
-    ekskluder: list[str] = field(default_factory=lambda: [
-        x.strip().upper() for x in (os.environ.get("HANDLER_VARSEL_EKSKLUDER") or _DEFAULT_EKSKLUDER).split(",")
-        if x.strip()
-    ])
+    ekskluder: list[str] | None = field(default_factory=lambda: [
+        x.strip().upper() for x in os.environ.get("HANDLER_VARSEL_EKSKLUDER", "").split(",") if x.strip()
+    ] or None)  # None = felles liste i handler_data_beste.NOMINEE_MONSTRE
 
 
 # =========================================================
@@ -346,9 +339,10 @@ def finn_signaler(conn, fra: dt.date, til: dt.date, cfg: Innstillinger | None = 
     navn = _navn(conn, alle_inv)
     aksjer = _aksjer(conn, alle_isin)
 
+    import handler_data_beste as hdb
+
     def ekskludert(inv: str) -> bool:
-        n = navn.get(inv, inv).upper()
-        return any(p in n for p in cfg.ekskluder)
+        return hdb.er_nominee(navn.get(inv, inv), cfg.ekskluder)
 
     def berik(rader: list[dict]) -> list[dict]:
         out = []

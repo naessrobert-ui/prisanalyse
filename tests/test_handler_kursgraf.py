@@ -241,3 +241,98 @@ def test_compute_best_investors_sort_and_single_stock(tmp_path):
     assert b["netto_mnok"] == pytest.approx((1_250_000 - 6_500_000 - 610_000) / 1e6)
     assert b["siste_dato"] == "2026-03-03"
     c.close()
+
+
+def test_compute_best_investors_median_og_min_aksjer(tmp_path):
+    import handler_data_beste as hdb
+
+    p = str(tmp_path / "med.db")
+    conn = sqlite3.connect(p)
+    conn.executescript(
+        """
+        CREATE TABLE investor (investor_id TEXT PRIMARY KEY, investor_type TEXT,
+            first_name TEXT, last_name TEXT, country_code TEXT, raw_id TEXT);
+        CREATE TABLE security (isin TEXT PRIMARY KEY, ticker TEXT, isin_name TEXT, last_price REAL);
+        CREATE TABLE position_change (isin TEXT, investor_id TEXT, date_today TEXT,
+            holding_today REAL, holding_yesterday REAL, price_today REAL, price_yesterday REAL,
+            change_qty REAL, PRIMARY KEY (isin, investor_id, date_today));
+        """
+    )
+    conn.executemany("INSERT INTO investor VALUES (?,?,?,?,?,?)", [
+        ("FLAKS", "Fond", "EN", "STOR VINNER", "NO", None),
+        ("JEVN", "Fond", "JEVN", "VINNER", "NO", None),
+    ])
+    conn.executemany("INSERT INTO security VALUES (?,?,?,?)",
+                     [("A", "A", "A", 200.0), ("B", "B", "B", 90.0), ("C", "C", "C", 90.0)])
+    rows = [
+        # FLAKS: dobler i A (stor), taper 10 % i B og C
+        ("A", "FLAKS", "2026-02-01", 0, 0, 0, 100.0, 10_000),
+        ("B", "FLAKS", "2026-02-01", 0, 0, 0, 100.0, 1_000),
+        ("C", "FLAKS", "2026-02-01", 0, 0, 0, 100.0, 1_000),
+        # JEVN: +5 % i alle tre via kjøp på 85,7 / 190,5
+        ("A", "JEVN", "2026-02-01", 0, 0, 0, 190.0, 1_000),
+        ("B", "JEVN", "2026-02-01", 0, 0, 0, 85.0, 1_000),
+        ("C", "JEVN", "2026-02-01", 0, 0, 0, 85.0, 1_000),
+    ]
+    conn.executemany("INSERT INTO position_change VALUES (?,?,?,?,?,?,?,?)", rows)
+    conn.commit()
+    conn.row_factory = sqlite3.Row
+    cols = hdb.detect_cols(conn)
+    last = {"A": 200.0, "B": 90.0, "C": 90.0}
+
+    def run(**kw):
+        args = dict(conn=conn, cols=cols, date_from=dt.date(2026, 1, 1), date_to=dt.date(2026, 12, 31),
+                    investor_ids=None, invtype_choice="Alle", country_codes=None, isin_filter=None,
+                    min_trades=1, min_brutto_mnok=0, last_price_map=last)
+        args.update(kw)
+        return hdb.compute_best_investors(**args)
+
+    samlet = run(sort_by="gevinst_pct", pct_metode="samlet").set_index("investor_id")
+    # FLAKS samlet: (1 000 000 - 10 000 - 10 000) / 1 200 000
+    assert samlet.loc["FLAKS", "gevinst_pct"] == pytest.approx(980_000 / 1_200_000 * 100)
+    assert samlet.loc["FLAKS", "median_pct"] == pytest.approx(-10.0)
+    assert samlet.loc["FLAKS", "treff_pct"] == pytest.approx(100 / 3)
+    assert samlet.loc["JEVN", "treff_pct"] == pytest.approx(100.0)
+    assert list(samlet.index)[0] == "FLAKS"           # samlet: flaks vinner
+
+    median = run(sort_by="gevinst_pct", pct_metode="median")
+    assert median["investor_id"].iloc[0] == "JEVN"    # median: den jevne vinner
+    assert run(sort_by="treff_pct")["investor_id"].iloc[0] == "JEVN"
+
+    assert len(run(min_aksjer=3)) == 2
+    assert run(min_aksjer=4).empty
+    conn.close()
+
+
+@pytest.mark.parametrize("navn,forventet", [
+    ("BofA Securities Europe SA", True),
+    ("NORDNET LIVSFORSIKRING AS", True),
+    ("State Street Bank and Trust Comp", True),
+    ("Clients Account", True),
+    ("UBS AG", True),
+    ("SUBSEA 7 SA", False),          # «UBS» inni et ord skal ikke treffe
+    ("FOLKETRYGDFONDET", False),
+    ("SKAGEN VEKST", False),
+])
+def test_er_nominee(navn, forventet):
+    import handler_data_beste as hdb
+    assert hdb.er_nominee(navn) is forventet
+
+
+def test_compute_best_investors_utelater_nominee_som_standard(tmp_path):
+    import handler_data_beste as hdb
+
+    p = str(tmp_path / "nom.db")
+    _best_db(p)
+    c = sqlite3.connect(p)
+    c.execute("INSERT INTO investor VALUES ('N','Org','STATE STREET BANK','NOMINEE','US',NULL)")
+    c.execute("INSERT INTO position_change VALUES ('X','N','2026-05-01',0,0,0,100.0,5000)")
+    c.commit()
+    c.row_factory = sqlite3.Row
+    cols = hdb.detect_cols(c)
+    args = dict(conn=c, cols=cols, date_from=dt.date(2026, 1, 1), date_to=dt.date(2026, 12, 31),
+                investor_ids=None, invtype_choice="Alle", country_codes=None, isin_filter=None,
+                min_trades=1, min_brutto_mnok=0, last_price_map={"X": 120.0, "Y": 50.0})
+    assert "N" not in set(hdb.compute_best_investors(**args)["investor_id"])
+    assert "N" in set(hdb.compute_best_investors(**args, med_nominee=True)["investor_id"])
+    c.close()
