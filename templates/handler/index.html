@@ -358,7 +358,7 @@
           const s3 = data?.s3_uri || 'S3';
           const s3Updated = data?.s3_last_modified || 'ukjent';
           const top20db = data?.top20_db_path || 'ikke generert';
-          csvUpdateStatus.textContent = `✅ Oppdatert fra ${filesCount} filer (${rows} rader). Siste dato i DB: ${before} -> ${after}. Lastet opp til ${s3}. S3 sist endret: ${s3Updated}. Top20-DB: ${top20db}.`;
+          csvUpdateStatus.textContent = `✅ Oppdatert fra ${filesCount} filer (${rows} rader). Siste dato i DB: ${before} -> ${after}. Lastet opp til ${s3}. S3 sist endret: ${s3Updated}. Top20-DB: ${top20db}.` + (data?.varsel_startet ? ' E-postvarsel for nye handler er startet.' : '');
         } catch (err) {
           csvUpdateStatus.textContent = `Feil ved CSV-oppdatering: ${sanitizeErrorText(err)}`;
         }

@@ -33,6 +33,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 import handler_data as hd
 import handler_data_beste as hdb
+import handler_varsel as hv
 from scripts import estimer_portefolje as ep
 
 _LOG = logging.getLogger(__name__)
@@ -424,6 +425,7 @@ def api_reload_db_from_s3():
     if not hd.HANDLER_DB_S3_URI:
         return jsonify({"error": "HANDLER_DB_S3_URI er ikke satt på serveren."}), 400
 
+    for_dato = _siste_dato_lokal()
     try:
         reloaded = hd.refresh_local_db_from_s3()
     except Exception as exc:
@@ -433,7 +435,8 @@ def api_reload_db_from_s3():
     if not reloaded:
         return jsonify({"error": "Filen ble lastet opp, men lokal DB ble ikke oppdatert fra S3."}), 500
 
-    return jsonify({"ok": True, "message": "Lokal DB-cache ble oppdatert fra S3."})
+    startet = _start_varsel(for_dato, _siste_dato_lokal())
+    return jsonify({"ok": True, "message": "Lokal DB-cache ble oppdatert fra S3.", "varsel_startet": startet})
 
 
 @handler_bp.route("/api/upload-db-to-s3", methods=["POST"])
@@ -463,6 +466,7 @@ def api_upload_db_to_s3():
             )
         }), 413
 
+    for_dato = _siste_dato_lokal()
     try:
         s3_uri = hd.upload_db_bytes_to_s3(payload, filename=filename)
     except Exception as exc:
@@ -476,8 +480,10 @@ def api_upload_db_to_s3():
     except Exception:
         _LOG.warning("S3-opplasting ok, men klarte ikke oppdatere lokal DB-cache", exc_info=True)
 
+    varsel_startet = _start_varsel(for_dato, _siste_dato_lokal())
     return jsonify({
         "ok": True,
+        "varsel_startet": varsel_startet,
         "message": "Ny DB er lastet opp til S3.",
         "s3_uri": s3_uri,
         "size_bytes": payload_size,
@@ -512,7 +518,59 @@ def api_upload_csv_update_db():
         _LOG.exception("Feil ved CSV-opplasting og DB-oppdatering")
         return jsonify({"error": f"Klarte ikke oppdatere database fra CSV: {exc}"}), 500
 
+    result["varsel_startet"] = _start_varsel(
+        _iso_date(result.get("db_last_date_before")), _iso_date(result.get("db_last_date_after")))
     return jsonify({"ok": True, **result})
+
+
+def _iso_date(v) -> dt.date | None:
+    try:
+        return dt.date.fromisoformat(str(v)[:10]) if v else None
+    except ValueError:
+        return None
+
+
+def _siste_dato_lokal() -> dt.date | None:
+    try:
+        if not os.path.exists(hd.HANDLER_DB_PATH):
+            return None
+        conn = sqlite3.connect(hd.HANDLER_DB_PATH)
+        try:
+            return hd.get_last_data_date(conn)
+        finally:
+            conn.close()
+    except Exception:
+        return None
+
+
+def _start_varsel(for_dato: dt.date | None, etter_dato: dt.date | None) -> bool:
+    """Start e-postvarsel for nye datoer i bakgrunnen. Feil her skal aldri stoppe opplastingen."""
+    try:
+        return hv.kjor_etter_opplasting(for_dato, etter_dato)
+    except Exception:
+        _LOG.warning("Klarte ikke starte handler-varsel", exc_info=True)
+        return False
+
+
+@handler_bp.route("/varsel")
+def varsel_forhandsvisning():
+    """Forhåndsvis e-postvarselet for en periode (sender ikke)."""
+    err = _check_db()
+    if err:
+        return Response(f"<p>{err}</p>", mimetype="text/html", status=503)
+    conn = hd.db_connect()
+    try:
+        siste = hd.get_last_data_date(conn) or dt.date.today()
+        date_to = _parse_date(request.args.get("date_to"), siste)
+        date_from = _parse_date(request.args.get("date_from"), date_to)
+        sig = hv.finn_signaler(conn, date_from, date_to)
+    finally:
+        conn.close()
+    if not hv.antall_signaler(sig):
+        body = f"<p style='font-family:sans-serif'>Ingen signaler {date_from} til {date_to}.</p>"
+    else:
+        body = f"<p style='font-family:sans-serif;color:#6b7280'>Emne: {hv.html.escape(hv.emne(sig))}</p>" + hv.bygg_html(sig)
+    return Response(body, mimetype="text/html")
 
 
 # =========================================================
