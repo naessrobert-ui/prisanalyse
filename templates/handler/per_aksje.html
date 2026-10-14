@@ -39,7 +39,8 @@
 </div>
 
 <div id="buy-section" style="display:none">
-  <h5 class="mt-4 mb-2" style="color:var(--pa-text)">Mest netto kjøp (per eier)</h5>
+  <div class="text-muted mt-3" style="font-size:0.85em">Klikk en eier for kursgraf med eierens kjøp og salg.</div>
+  <h5 class="mt-2 mb-2" style="color:var(--pa-text)">Mest netto kjøp (per eier)</h5>
   <div id="buy-table"></div>
 </div>
 
@@ -95,8 +96,14 @@
 
     document.getElementById('buy-section').style.display = 'block';
     document.getElementById('sell-section').style.display = 'block';
-    buildTable(data.buy, cols, 'buy-table');
-    buildTable(data.sell, cols, 'sell-table');
+    const chartOpts = {onRowClick: (row) => {
+      if (!row.investor_id) return;
+      const label = document.getElementById('sec-selected-label').textContent.replace(/^✓\s*/, '');
+      openKursgraf({investor_id: row.investor_id, isin: selectedIsin, date_from: df, date_to: dt,
+                    title: `${row.eier} · ${label}`});
+    }};
+    buildTable(data.buy, cols, 'buy-table', chartOpts);
+    buildTable(data.sell, cols, 'sell-table', chartOpts);
     document.getElementById('btn-csv').style.display = 'inline-block';
   });
 
