@@ -18,7 +18,7 @@ import logging
 import re
 import time
 import unicodedata
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from typing import Any
 
 import requests
@@ -33,6 +33,19 @@ TIMEOUT = 6
 
 _CACHE: dict[str, tuple[float, dict]] = {}
 _CACHE_TTL = 12 * 3600
+_CACHE_TTL_DELVIS = 10 * 60          # kortere når noe manglet, så det prøves igjen
+
+# Hele oppslaget skal aldri holde en web-tråd lenger enn dette
+FRIST_SEKUNDER = 8
+
+# Aksjonærdatabasen: hopp over i 10 min etter feil eller tidsavbrudd, så
+# klikk ikke hoper seg opp mens databasen er nede
+_EIERE_NEDE_TIL = 0.0
+_EIERE_PAUSE = 10 * 60
+
+# Felles trådpool for oppslag. Tråder som henger (f.eks. DB-tilkobling uten
+# svar) blir liggende her, ikke i web-serverens tråder.
+_POOL = ThreadPoolExecutor(max_workers=8, thread_name_prefix="investor-info")
 
 _PRIVAT = {"p", "priv", "privat", "private", "person", "individual"}
 
@@ -166,7 +179,10 @@ def hent_regnskap(sess: requests.Session, orgnr: str) -> dict | None:
 
 
 def hent_eiere(orgnr: str, antall: int = 5) -> list[dict] | None:
-    """Største eiere fra aksjonærregisteret i egen database. None hvis databasen ikke er satt opp."""
+    """Største eiere fra aksjonærregisteret i egen database. None hvis databasen ikke er tilgjengelig."""
+    global _EIERE_NEDE_TIL
+    if time.time() < _EIERE_NEDE_TIL:
+        return None
     try:
         import aksjonaer_routes as ar
         from psycopg import sql
@@ -207,6 +223,7 @@ def hent_eiere(orgnr: str, antall: int = 5) -> list[dict] | None:
                 rows = cur.fetchall()
     except Exception:
         _LOG.info("Aksjonærdatabase ikke tilgjengelig for eieroppslag", exc_info=True)
+        _EIERE_NEDE_TIL = time.time() + _EIERE_PAUSE
         return None
     out = []
     for navn, aksjer, total in rows:
@@ -231,6 +248,7 @@ def lenker(orgnr: str | None, navn: str) -> dict:
 def investor_info(investor_id: str, navn: str, investor_type: str | None, country_code: str | None,
                   raw_id: str | None, sess: requests.Session | None = None) -> dict:
     """Samlet informasjon om en investor. Caches i 12 timer per investor."""
+    global _EIERE_NEDE_TIL
     nå = time.time()
     hit = _CACHE.get(investor_id)
     if hit and nå - hit[0] < _CACHE_TTL:
@@ -252,18 +270,29 @@ def investor_info(investor_id: str, navn: str, investor_type: str | None, countr
         orgnr, kilde = finn_orgnr(sess, navn, raw_id)
         res.update({"type": "selskap", "orgnr": orgnr, "orgnr_kilde": kilde, "lenker": lenker(orgnr, navn)})
         if orgnr:
-            with ThreadPoolExecutor(max_workers=4) as ex:
-                f_enhet = ex.submit(hent_enhet, sess, orgnr)
-                f_roller = ex.submit(hent_roller, sess, orgnr)
-                f_regnskap = ex.submit(hent_regnskap, sess, orgnr)
-                f_eiere = ex.submit(hent_eiere, orgnr)
-                res["enhet"] = f_enhet.result()
-                res["roller"] = f_roller.result()
-                res["regnskap"] = f_regnskap.result()
-                res["eiere"] = f_eiere.result()
+            frist = time.monotonic() + FRIST_SEKUNDER
+            futures = {
+                "enhet": _POOL.submit(hent_enhet, sess, orgnr),
+                "roller": _POOL.submit(hent_roller, sess, orgnr),
+                "regnskap": _POOL.submit(hent_regnskap, sess, orgnr),
+                "eiere": _POOL.submit(hent_eiere, orgnr),
+            }
+            for navn_felt, fut in futures.items():
+                try:
+                    res[navn_felt] = fut.result(timeout=max(0.1, frist - time.monotonic()))
+                except FuturesTimeout:
+                    res[navn_felt] = {} if navn_felt == "roller" else None
+                    res.setdefault("tidsavbrudd", []).append(navn_felt)
+                    if navn_felt == "eiere":
+                        _EIERE_NEDE_TIL = time.time() + _EIERE_PAUSE
+                except Exception:
+                    _LOG.warning("Oppslag %s feilet for %s", navn_felt, orgnr, exc_info=True)
+                    res[navn_felt] = {} if navn_felt == "roller" else None
         else:
             res["melding"] = f"Fant ikke orgnr: {kilde}."
 
     res["tid_ms"] = round((time.perf_counter() - t0) * 1000)
-    _CACHE[investor_id] = (nå, res)
+    delvis = bool(res.get("tidsavbrudd")) or (res.get("orgnr") and (res.get("enhet") is None or res.get("eiere") is None))
+    # Delvise svar caches kort, så de prøves igjen senere
+    _CACHE[investor_id] = (nå - (_CACHE_TTL - _CACHE_TTL_DELVIS) if delvis else nå, res)
     return res
