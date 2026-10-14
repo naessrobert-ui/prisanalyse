@@ -315,6 +315,7 @@ def compute_best_investors(
     min_trades: int,
     min_brutto_mnok: float,
     last_price_map: Dict[str, float],
+    sort_by: str = "gevinst_mnok",
 ) -> pd.DataFrame:
     where = [f"date(pc.{cols.date_col}) BETWEEN date(?) AND date(?)"]
     params: list = [date_from.isoformat(), date_to.isoformat()]
@@ -360,7 +361,8 @@ def compute_best_investors(
     df["trade_price"] = df["price_main"]
     mask0 = df["trade_price"] <= 0
     df.loc[mask0, "trade_price"] = df.loc[mask0, "price_nextday"]
-    df = df[df["trade_price"] > 0]
+    # Bare rader med faktisk endring i beholdning er handler
+    df = df[(df["trade_price"] > 0) & (df["qty"] != 0)]
     if df.empty:
         return pd.DataFrame()
 
@@ -385,12 +387,25 @@ def compute_best_investors(
     df["profit_kr"] = df["qty"] * (df["last_price"] - df["trade_price"])
     df["gross_kr"] = (df["qty"].abs() * df["trade_price"]).abs()
 
+    df["verdi_kr"] = df["qty"] * df["trade_price"]
+    df["kjop_kr"] = df["verdi_kr"].where(df["qty"] > 0, 0.0)
+    df["salg_kr"] = (-df["verdi_kr"]).where(df["qty"] < 0, 0.0)
+
     agg = df.groupby("investor_id").agg(
         trades=("qty", "count"),
+        aksjer=("isin", "nunique"),
         gross_kr=("gross_kr", "sum"),
         profit_kr=("profit_kr", "sum"),
+        kjop_kr=("kjop_kr", "sum"),
+        salg_kr=("salg_kr", "sum"),
+        netto_kr=("verdi_kr", "sum"),
+        siste_dato=("dato", "max"),
     ).reset_index()
 
+    agg["kjop_mnok"] = agg["kjop_kr"] / 1_000_000
+    agg["salg_mnok"] = agg["salg_kr"] / 1_000_000
+    agg["netto_mnok"] = agg["netto_kr"] / 1_000_000
+    agg["siste_dato"] = agg["siste_dato"].astype(str).str[:10]
     agg["brutto_mnok"] = agg["gross_kr"] / 1_000_000
     agg["gevinst_mnok"] = agg["profit_kr"] / 1_000_000
     agg["gevinst_pct"] = agg.apply(
@@ -431,9 +446,22 @@ def compute_best_investors(
 
     agg["navn"] = agg["investor_id"].map(navn_map).fillna("")
 
-    out = agg[["investor_id", "navn", "trades", "brutto_mnok", "gevinst_mnok", "gevinst_pct"]].copy()
-    out = out.sort_values("gevinst_mnok", ascending=False).reset_index(drop=True)
+    out = agg[["investor_id", "navn", "trades", "aksjer", "brutto_mnok", "gevinst_mnok", "gevinst_pct",
+               "kjop_mnok", "salg_mnok", "netto_mnok", "siste_dato"]].copy()
+    col, asc = RANGERING.get(sort_by, RANGERING["gevinst_mnok"])
+    out = out.sort_values([col, "brutto_mnok"], ascending=[asc, False]).reset_index(drop=True)
     return out
+
+
+# Rangeringsvalg: nøkkel -> (kolonne, stigende)
+RANGERING: Dict[str, Tuple[str, bool]] = {
+    "gevinst_mnok": ("gevinst_mnok", False),   # beste i kroner
+    "gevinst_pct": ("gevinst_pct", False),     # beste i prosent av omsetning
+    "brutto_mnok": ("brutto_mnok", False),     # mest aktive, omsetning
+    "trades": ("trades", False),               # mest aktive, antall handler
+    "netto_kjop": ("netto_mnok", False),       # største netto kjøpere
+    "netto_salg": ("netto_mnok", True),        # største netto selgere
+}
 
 
 # =========================================================

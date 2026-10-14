@@ -1549,6 +1549,7 @@ def api_beste_investorer_run():
             country_codes=country_codes, isin_filter=isin_filter,
             min_trades=min_trades, min_brutto_mnok=min_brutto,
             last_price_map=last_map,
+            sort_by=request.args.get("sort_by", "gevinst_mnok"),
         )
     except Exception as e:
         _LOG.exception("Feil i api_beste_investorer_run")
@@ -1560,12 +1561,12 @@ def api_beste_investorer_run():
     if res.empty:
         return jsonify({"rows": [], "price_source": source_txt, "message": "Ingen treff"})
 
-    for c in ["brutto_mnok", "gevinst_mnok", "gevinst_pct"]:
+    for c in ["brutto_mnok", "gevinst_mnok", "gevinst_pct", "kjop_mnok", "salg_mnok", "netto_mnok"]:
         if c in res.columns:
             res[c] = res[c].round(2)
 
     return jsonify({
-        "rows": res.to_dict("records"),
+        "rows": _json_safe_df(res).to_dict("records"),
         "price_source": source_txt,
         "count": len(res),
     })

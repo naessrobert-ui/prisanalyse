@@ -167,3 +167,77 @@ def test_summarize_transactions_per_isin_empty():
     import pandas as pd
     import handler_data_beste as hdb
     assert hdb.summarize_transactions_per_isin(pd.DataFrame()).empty
+
+
+def _best_db(path):
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE investor (investor_id TEXT PRIMARY KEY, investor_type TEXT,
+            first_name TEXT, last_name TEXT, country_code TEXT, raw_id TEXT);
+        CREATE TABLE security (isin TEXT PRIMARY KEY, ticker TEXT, isin_name TEXT, last_price REAL);
+        CREATE TABLE position_change (isin TEXT, investor_id TEXT, date_today TEXT,
+            holding_today REAL, holding_yesterday REAL, price_today REAL, price_yesterday REAL,
+            change_qty REAL, PRIMARY KEY (isin, investor_id, date_today));
+        """
+    )
+    conn.executemany("INSERT INTO investor VALUES (?,?,?,?,?,?)", [
+        ("A", "Fond", "ALFA", "FOND", "NO", None),
+        ("B", "Fond", "BETA", "FOND", "NO", None),
+        ("C", "Fond", "GAMMA", "FOND", "NO", None),
+    ])
+    conn.executemany("INSERT INTO security VALUES (?,?,?,?)", [
+        ("X", "XXX", "X ASA", 120.0), ("Y", "YYY", "Y ASA", 50.0)])
+    rows = [
+        # A: liten, god gevinst i X
+        ("X", "A", "2026-02-01", 0, 0, 0, 100.0, 1000),
+        ("X", "A", "2026-02-02", 0, 0, 0, 100.0, 0),        # ingen endring, ikke en handel
+        # B: stor omsetning i X, solgt netto
+        ("X", "B", "2026-03-01", 0, 0, 0, 130.0, -50000),
+        ("X", "B", "2026-03-02", 0, 0, 0, 125.0, 10000),
+        ("X", "B", "2026-03-03", 0, 0, 0, 122.0, -5000),
+        # C: kjøper i Y
+        ("Y", "C", "2026-04-01", 0, 0, 0, 40.0, 20000),
+    ]
+    conn.executemany("INSERT INTO position_change VALUES (?,?,?,?,?,?,?,?)", rows)
+    conn.commit()
+    conn.close()
+
+
+def test_compute_best_investors_sort_and_single_stock(tmp_path):
+    import handler_data_beste as hdb
+
+    p = str(tmp_path / "best.db")
+    _best_db(p)
+    c = sqlite3.connect(p)
+    c.row_factory = sqlite3.Row
+    cols = hdb.detect_cols(c)
+    last = {"X": 120.0, "Y": 50.0}
+
+    def run(sort_by, isin_filter=None):
+        return hdb.compute_best_investors(
+            conn=c, cols=cols, date_from=dt.date(2026, 1, 1), date_to=dt.date(2026, 12, 31),
+            investor_ids=None, invtype_choice="Alle", country_codes=None,
+            isin_filter=isin_filter, min_trades=1, min_brutto_mnok=0,
+            last_price_map=last, sort_by=sort_by)
+
+    # Én aksje: bare A og B
+    r = run("gevinst_mnok", ["X"])
+    assert set(r["investor_id"]) == {"A", "B"}
+    a = r.set_index("investor_id").loc["A"]
+    assert a["trades"] == 1                       # nullrad telles ikke
+    assert a["gevinst_mnok"] == pytest.approx(0.02)
+
+    # Mest aktive etter omsetning: B først
+    assert run("brutto_mnok", ["X"])["investor_id"].iloc[0] == "B"
+    assert run("trades", ["X"])["investor_id"].iloc[0] == "B"
+
+    # Netto kjøpere / selgere over hele markedet
+    assert run("netto_kjop")["investor_id"].iloc[0] == "C"
+    r = run("netto_salg")
+    assert r["investor_id"].iloc[0] == "B"
+    b = r.set_index("investor_id").loc["B"]
+    # 10000*125 - 50000*130 - 5000*122
+    assert b["netto_mnok"] == pytest.approx((1_250_000 - 6_500_000 - 610_000) / 1e6)
+    assert b["siste_dato"] == "2026-03-03"
+    c.close()
