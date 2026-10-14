@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-header">
   <h1>🏆 Beste investorer</h1>
-  <div class="sub">Ranger investorer på gevinst (kr) og gevinst% for valgt periode og utvalg.</div>
+  <div class="sub">Finn de beste eller mest aktive investorene, totalt eller i én aksje.</div>
 </div>
 
 {% if db_error %}
@@ -17,7 +17,7 @@
   <div class="row g-3">
     <div class="col-md-3">
       <label>Fra dato</label>
-      <input type="date" class="form-control" id="bi-date-from" value="2022-01-01">
+      <input type="date" class="form-control" id="bi-date-from">
     </div>
     <div class="col-md-3">
       <label>Til dato</label>
@@ -97,6 +97,7 @@
       </div>
       <input type="hidden" id="bi-sec-isin">
       <small class="text-muted" id="bi-sec-label"></small>
+      <div class="text-muted" id="bi-sec-hint" style="font-size:0.8rem; display:none">Filtrene er satt til min 1 handel og 0 MNOK for én aksje. Juster under Filtre.</div>
     </div>
     <div class="col-md-5" id="bi-sec-csv-wrap" style="display:none">
       <label>CSV-fil</label>
@@ -115,6 +116,17 @@
   <h6 style="color:var(--pa-text); margin-bottom:12px;">Filtre</h6>
   <div class="row g-3">
     <div class="col-md-3">
+      <label>Ranger etter</label>
+      <select class="form-select" id="bi-sort">
+        <option value="gevinst_mnok">Beste: gevinst MNOK</option>
+        <option value="gevinst_pct">Beste: gevinst %</option>
+        <option value="brutto_mnok">Mest aktive: omsetning MNOK</option>
+        <option value="trades">Mest aktive: antall handler</option>
+        <option value="netto_kjop">Største netto kjøpere</option>
+        <option value="netto_salg">Største netto selgere</option>
+      </select>
+    </div>
+    <div class="col-md-3">
       <label>Min antall handler</label>
       <input type="number" class="form-control" id="bi-min-trades" value="10" min="1">
     </div>
@@ -129,7 +141,7 @@
 <!-- Resultat -->
 <div id="bi-status" class="mb-2" style="color:var(--pa-muted)"></div>
 <div id="bi-result-table"></div>
-<div id="bi-click-hint" style="display:none; color:var(--pa-muted); font-size:0.85rem; margin-top:6px;">Klikk på <strong>Navn</strong> for å vise transaksjoner.</div>
+<div id="bi-click-hint" style="display:none; color:var(--pa-muted); font-size:0.85rem; margin-top:6px;">Klikk på en investor for handler per aksje og kursgraf.</div>
 
 <div id="bi-csv-dl-wrap" style="display:none" class="mt-2">
   <button class="btn btn-outline-secondary" id="bi-dl-csv">Last ned resultat (CSV)</button>
@@ -170,6 +182,7 @@
   // Init date
   const today = new Date();
   document.getElementById('bi-date-to').value = today.toISOString().slice(0,10);
+  document.getElementById('bi-date-from').value = `${today.getFullYear()}-01-01`;
 
   // Toggle visibility
   const invMode = document.getElementById('bi-inv-mode');
@@ -179,9 +192,21 @@
   });
 
   const secMode = document.getElementById('bi-sec-mode');
+  const minTradesEl = document.getElementById('bi-min-trades');
+  const minBruttoEl = document.getElementById('bi-min-brutto');
   secMode.addEventListener('change', () => {
-    document.getElementById('bi-sec-single-wrap').style.display = secMode.value === 'single' ? '' : 'none';
+    const single = secMode.value === 'single';
+    document.getElementById('bi-sec-single-wrap').style.display = single ? '' : 'none';
     document.getElementById('bi-sec-csv-wrap').style.display = secMode.value === 'csv' ? '' : 'none';
+    // Standardfiltrene (10 handler / 10 MNOK) er laget for hele markedet og skjuler
+    // de fleste investorene i én aksje. Senk dem når de står på standard, og tilbake.
+    if (single && minTradesEl.value === '10' && minBruttoEl.value === '10') {
+      minTradesEl.value = '1'; minBruttoEl.value = '0';
+      document.getElementById('bi-sec-hint').style.display = '';
+    } else if (!single && minTradesEl.value === '1' && minBruttoEl.value === '0') {
+      minTradesEl.value = '10'; minBruttoEl.value = '10';
+      document.getElementById('bi-sec-hint').style.display = 'none';
+    }
   });
 
   // Investor multi-select
@@ -219,7 +244,7 @@
     function(item) {
       selectedSecIsin = item.isin;
       document.getElementById('bi-sec-isin').value = item.isin;
-      document.getElementById('bi-sec-label').textContent = `✓ ${item.ticker} — ${item.navn}`;
+      document.getElementById('bi-sec-label').textContent = `✓ ${item.ticker} · ${item.navn}`;
     }
   );
 
@@ -236,6 +261,7 @@
     params.set('invtype', document.getElementById('bi-invtype').value);
     params.set('min_trades', document.getElementById('bi-min-trades').value);
     params.set('min_brutto_mnok', document.getElementById('bi-min-brutto').value);
+    params.set('sort_by', document.getElementById('bi-sort').value);
 
     // Investor mode
     const im = invMode.value;
@@ -251,7 +277,13 @@
     // Security mode
     const sm = secMode.value;
     params.set('sec_mode', sm);
-    if (sm === 'single' && selectedSecIsin) params.set('isin', selectedSecIsin);
+    if (sm === 'single') {
+      if (!selectedSecIsin) {
+        document.getElementById('bi-status').textContent = 'Velg en aksje under Aksjeutvalg først.';
+        return;
+      }
+      params.set('isin', selectedSecIsin);
+    }
     if (sm === 'csv') params.set('sec_csv_file', document.getElementById('bi-sec-csv-file').value);
 
     lastParams = Object.fromEntries(params);
@@ -282,8 +314,12 @@
         return;
       }
 
+      const sortSel = document.getElementById('bi-sort');
+      const secTxt = (lastParams.sec_mode === 'single')
+        ? ` i ${document.getElementById('bi-sec-label').textContent.replace(/^✓\s*/, '')}` : '';
       document.getElementById('bi-status').innerHTML =
-        `${data.count || 0} investorer funnet. <em style="color:var(--pa-muted)">${data.price_source || ''}</em>`;
+        `${data.count || 0} investorer${secTxt}, rangert etter «${sortSel.options[sortSel.selectedIndex].text}». ` +
+        `<em style="color:var(--pa-muted)">${data.price_source || ''}</em>`;
 
       lastResult = data.rows || [];
 
@@ -292,13 +328,26 @@
         navn: `<span class="bi-name-link">${row.navn || row.investor_id || '–'}</span>`,
       }));
 
-      buildTable(displayRows, [
+      const enAksje = lastParams.sec_mode === 'single';
+      const sortKey = {netto_kjop: 'netto_mnok', netto_salg: 'netto_mnok'}[lastParams.sort_by] || lastParams.sort_by;
+      let resultCols = [
         {key:'navn', label:'Navn'},
         {key:'trades', label:'Handler', fmt:'int'},
-        {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
+        ...(enAksje ? [] : [{key:'aksjer', label:'Aksjer', fmt:'int'}]),
         {key:'gevinst_mnok', label:'Gevinst MNOK', fmt:'num', dec:2},
         {key:'gevinst_pct', label:'Gevinst %', fmt:'num', dec:2},
-      ], 'bi-result-table', {
+        {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
+        {key:'netto_mnok', label:'Netto kjøp MNOK', fmt:'num', dec:2},
+        {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num', dec:2},
+        {key:'salg_mnok', label:'Salg MNOK', fmt:'num', dec:2},
+        {key:'siste_dato', label:'Siste handel'},
+      ];
+      // Kolonnen det rangeres etter rett etter navnet, så den synes på mobil
+      const rankCol = resultCols.find((c) => c.key === sortKey);
+      if (rankCol) resultCols = [resultCols[0], rankCol, ...resultCols.slice(1).filter((c) => c !== rankCol)];
+      buildTable(displayRows, resultCols, 'bi-result-table', {
+        tableKey: 'bi-result-table',
+        initialSort: {key: sortKey || 'gevinst_mnok', asc: lastParams.sort_by === 'netto_salg'},
         onRowClick: (row) => loadTransactions(lastResult.find((r) => r.investor_id === row.investor_id) || row),
       });
 
@@ -435,7 +484,7 @@
   // CSV download (client-side)
   document.getElementById('bi-dl-csv').addEventListener('click', function() {
     if (!lastResult.length) return;
-    const cols = ['navn','trades','brutto_mnok','gevinst_mnok','gevinst_pct'];
+    const cols = ['navn','trades','aksjer','gevinst_mnok','gevinst_pct','brutto_mnok','netto_mnok','kjop_mnok','salg_mnok','siste_dato'];
     const header = cols.join(';');
     const rows = lastResult.map(r => cols.map(c => {
       let v = r[c]; if (typeof v === 'number') v = v.toString().replace('.', ','); return v ?? '';
