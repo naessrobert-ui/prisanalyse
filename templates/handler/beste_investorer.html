@@ -120,11 +120,23 @@
       <select class="form-select" id="bi-sort">
         <option value="gevinst_mnok">Beste: gevinst MNOK</option>
         <option value="gevinst_pct">Beste: gevinst %</option>
+        <option value="treff_pct">Beste: flest aksjer med gevinst (treff %)</option>
         <option value="brutto_mnok">Mest aktive: omsetning MNOK</option>
         <option value="trades">Mest aktive: antall handler</option>
         <option value="netto_kjop">Største netto kjøpere</option>
         <option value="netto_salg">Største netto selgere</option>
       </select>
+    </div>
+    <div class="col-md-3">
+      <label title="Samlet: samlet gevinst delt på samlet omsetning, dominert av de største aksjene. Median: median av gevinst % i hver aksje, så én heldig aksje trekker ikke opp.">Gevinst % regnes som</label>
+      <select class="form-select" id="bi-pct-metode">
+        <option value="samlet">Samlet (gevinst / omsetning)</option>
+        <option value="median">Median per aksje</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label>Min antall aksjer</label>
+      <input type="number" class="form-control" id="bi-min-aksjer" value="1" min="1">
     </div>
     <div class="col-md-3">
       <label>Min antall handler</label>
@@ -262,6 +274,8 @@
     params.set('min_trades', document.getElementById('bi-min-trades').value);
     params.set('min_brutto_mnok', document.getElementById('bi-min-brutto').value);
     params.set('sort_by', document.getElementById('bi-sort').value);
+    params.set('pct_metode', document.getElementById('bi-pct-metode').value);
+    params.set('min_aksjer', document.getElementById('bi-min-aksjer').value || '1');
 
     // Investor mode
     const im = invMode.value;
@@ -335,7 +349,10 @@
         {key:'trades', label:'Handler', fmt:'int'},
         ...(enAksje ? [] : [{key:'aksjer', label:'Aksjer', fmt:'int'}]),
         {key:'gevinst_mnok', label:'Gevinst MNOK', fmt:'num', dec:2},
-        {key:'gevinst_pct', label:'Gevinst %', fmt:'num', dec:2},
+        {key:'gevinst_pct', label: lastParams.pct_metode === 'median' ? 'Gevinst % (median)' : 'Gevinst %', fmt:'num', dec:2},
+        ...(enAksje ? [] : [{key:'treff_pct', label:'Treff %', fmt:'num', dec:0}]),
+        ...(enAksje ? [] : [{key: lastParams.pct_metode === 'median' ? 'samlet_pct' : 'median_pct',
+                             label: lastParams.pct_metode === 'median' ? 'Gevinst % (samlet)' : 'Median % per aksje', fmt:'num', dec:2}]),
         {key:'brutto_mnok', label:'Brutto MNOK', fmt:'num', dec:2},
         {key:'netto_mnok', label:'Netto kjøp MNOK', fmt:'num', dec:2},
         {key:'kjop_mnok', label:'Kjøp MNOK', fmt:'num', dec:2},
@@ -484,7 +501,7 @@
   // CSV download (client-side)
   document.getElementById('bi-dl-csv').addEventListener('click', function() {
     if (!lastResult.length) return;
-    const cols = ['navn','trades','aksjer','gevinst_mnok','gevinst_pct','brutto_mnok','netto_mnok','kjop_mnok','salg_mnok','siste_dato'];
+    const cols = ['navn','trades','aksjer','gevinst_mnok','gevinst_pct','samlet_pct','median_pct','treff_pct','brutto_mnok','netto_mnok','kjop_mnok','salg_mnok','siste_dato'];
     const header = cols.join(';');
     const rows = lastResult.map(r => cols.map(c => {
       let v = r[c]; if (typeof v === 'number') v = v.toString().replace('.', ','); return v ?? '';

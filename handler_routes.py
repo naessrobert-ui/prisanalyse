@@ -1538,6 +1538,13 @@ def api_beste_search_securities():
     return jsonify(results)
 
 
+def _int_arg(navn: str, default: int) -> int:
+    try:
+        return int(request.args.get(navn, default))
+    except (TypeError, ValueError):
+        return default
+
+
 @handler_bp.route("/api/beste-investorer/run")
 def api_beste_investorer_run():
     conn = None
@@ -1608,6 +1615,8 @@ def api_beste_investorer_run():
             min_trades=min_trades, min_brutto_mnok=min_brutto,
             last_price_map=last_map,
             sort_by=request.args.get("sort_by", "gevinst_mnok"),
+            min_aksjer=_int_arg("min_aksjer", 1),
+            pct_metode="median" if request.args.get("pct_metode") == "median" else "samlet",
         )
     except Exception as e:
         _LOG.exception("Feil i api_beste_investorer_run")
@@ -1619,7 +1628,8 @@ def api_beste_investorer_run():
     if res.empty:
         return jsonify({"rows": [], "price_source": source_txt, "message": "Ingen treff"})
 
-    for c in ["brutto_mnok", "gevinst_mnok", "gevinst_pct", "kjop_mnok", "salg_mnok", "netto_mnok"]:
+    for c in ["brutto_mnok", "gevinst_mnok", "gevinst_pct", "samlet_pct", "median_pct", "treff_pct",
+              "kjop_mnok", "salg_mnok", "netto_mnok"]:
         if c in res.columns:
             res[c] = res[c].round(2)
 
