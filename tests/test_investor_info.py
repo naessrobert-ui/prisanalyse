@@ -126,3 +126,36 @@ def test_brreg_nede_gir_tomme_felter():
     d = ii.investor_info("INV2", "SKAGEN AS", "Organisasjon", "NO", "123456789", sess=Nede())
     assert d["orgnr"] == "123456789"
     assert d["enhet"] is None and d["roller"] == {} and d["regnskap"] is None
+
+
+def test_hengende_eieroppslag_holder_ikke_igjen_svaret(monkeypatch):
+    import threading
+    import time as _t
+
+    stopp = threading.Event()
+    kall = []
+
+    def henger(orgnr, antall=5):
+        kall.append(orgnr)
+        stopp.wait(30)          # som en DB-tilkobling uten svar
+        return [{"navn": "for sent"}]
+
+    monkeypatch.setattr(ii, "hent_eiere", henger)
+    monkeypatch.setattr(ii, "FRIST_SEKUNDER", 1.0)
+    monkeypatch.setattr(ii, "_EIERE_NEDE_TIL", 0.0)
+    try:
+        t0 = _t.monotonic()
+        d = ii.investor_info("H1", "SKAGEN AS", "Organisasjon", "NO", "123456789", sess=FakeSess())
+        assert _t.monotonic() - t0 < 3
+        assert d["eiere"] is None and "eiere" in d["tidsavbrudd"]
+        assert d["roller"]["styreleder"] == "Ola B Hansen"      # resten kom med
+        assert ii._EIERE_NEDE_TIL > _t.time()                   # pause på eieroppslag
+    finally:
+        stopp.set()
+
+
+def test_eieroppslag_hoppes_over_mens_db_er_nede(monkeypatch):
+    import time as _t
+    monkeypatch.undo()          # bruk ekte hent_eiere
+    monkeypatch.setattr(ii, "_EIERE_NEDE_TIL", _t.time() + 60)
+    assert ii.hent_eiere("123456789") is None
