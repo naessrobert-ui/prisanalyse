@@ -475,14 +475,14 @@
       regnskap = `<div class="row g-2 mt-1">` + [
         ['Omsetning', g.omsetning], ['Resultat etter skatt', g.resultat_etter_skatt],
         ['Egenkapital', g.egenkapital], ['Sum eiendeler', g.sum_eiendeler],
-      ].map(([k, v]) => `<div class="col-6 col-md-3"><small class="text-muted">${k} ${g.aar}</small>` +
+      ].map(([k, v]) => `<div class="col-6 col-md-3"><div class="text-muted" style="font-size:0.8rem">${k} ${g.aar}</div>` +
         `<div style="font-weight:700" class="${k.startsWith('Resultat') ? signClass(v) : ''}">${fmtKr(v)}</div></div>`).join('') + '</div>';
     } else {
       regnskap = '<div class="text-muted mt-1" style="font-size:0.85rem">Ingen regnskap i Regnskapsregisteret.</div>';
     }
     let eiere = '';
     if (Array.isArray(d.eiere) && d.eiere.length) {
-      eiere = '<div class="mt-2"><small class="text-muted">Største eiere</small>' +
+      eiere = '<div class="mt-2"><div class="text-muted" style="font-size:0.8rem">Største eiere</div>' +
         d.eiere.map((o) => `<div>${escHtml(o.navn)}${o.andel_pct != null ? ` <span class="text-muted">${fmtNum(o.andel_pct, 1)} %</span>` : ''}</div>`).join('') +
         '</div>';
     }
