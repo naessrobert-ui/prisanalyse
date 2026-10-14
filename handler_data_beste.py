@@ -501,6 +501,61 @@ def fetch_transactions(
     return df
 
 
+def summarize_transactions_per_isin(tx: pd.DataFrame) -> pd.DataFrame:
+    """Samler en investors transaksjoner (fra fetch_transactions) per aksje.
+
+    Aktivitet: antall handler, kjøp/salg i antall og MNOK, netto og brutto.
+    Gevinst: sum av qty * (siste kurs - handelskurs), samme definisjon som per investor.
+    """
+    cols = ["isin", "ticker", "navn", "handler", "forste_dato", "siste_dato",
+            "kjop_antall", "salg_antall", "netto_antall",
+            "kjop_mnok", "salg_mnok", "netto_mnok", "brutto_mnok",
+            "gevinst_mnok", "gevinst_pct", "snitt_kjop_kurs", "snitt_salg_kurs", "siste_kurs"]
+    if tx is None or tx.empty:
+        return pd.DataFrame(columns=cols)
+
+    d = tx[tx["qty"] != 0].copy()
+    if d.empty:
+        return pd.DataFrame(columns=cols)
+    d["verdi"] = d["qty"] * d["trade_price"]
+    kjop = d["qty"] > 0
+    d["kjop_antall"] = d["qty"].where(kjop, 0.0)
+    d["salg_antall"] = (-d["qty"]).where(~kjop, 0.0)
+    d["kjop_kr"] = d["verdi"].where(kjop, 0.0)
+    d["salg_kr"] = (-d["verdi"]).where(~kjop, 0.0)
+
+    g = d.groupby("isin", sort=False).agg(
+        ticker=("ticker", "first"),
+        navn=("navn", "first"),
+        handler=("qty", "size"),
+        forste_dato=("dato", "min"),
+        siste_dato=("dato", "max"),
+        kjop_antall=("kjop_antall", "sum"),
+        salg_antall=("salg_antall", "sum"),
+        netto_antall=("qty", "sum"),
+        kjop_kr=("kjop_kr", "sum"),
+        salg_kr=("salg_kr", "sum"),
+        netto_kr=("verdi", "sum"),
+        brutto_kr=("gross_kr", "sum"),
+        gevinst_kr=("profit_kr", "sum"),
+        siste_kurs=("last_price", "max"),
+    ).reset_index()
+
+    g["kjop_mnok"] = g["kjop_kr"] / 1_000_000
+    g["salg_mnok"] = g["salg_kr"] / 1_000_000
+    g["netto_mnok"] = g["netto_kr"] / 1_000_000
+    g["brutto_mnok"] = g["brutto_kr"] / 1_000_000
+    g["gevinst_mnok"] = g["gevinst_kr"] / 1_000_000
+    g["gevinst_pct"] = (g["gevinst_kr"] / g["brutto_kr"] * 100).where(g["brutto_kr"] > 0)
+    g["snitt_kjop_kurs"] = (g["kjop_kr"] / g["kjop_antall"]).where(g["kjop_antall"] > 0)
+    g["snitt_salg_kurs"] = (g["salg_kr"] / g["salg_antall"]).where(g["salg_antall"] > 0)
+    g["siste_kurs"] = g["siste_kurs"].where(g["siste_kurs"] > 0)
+    g["forste_dato"] = g["forste_dato"].astype(str).str[:10]
+    g["siste_dato"] = g["siste_dato"].astype(str).str[:10]
+    g = g.sort_values("gevinst_mnok", ascending=False).reset_index(drop=True)
+    return g[cols]
+
+
 # =========================================================
 # Investor search (with country support)
 # =========================================================
