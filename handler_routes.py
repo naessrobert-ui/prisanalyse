@@ -536,7 +536,7 @@ def _siste_dato_lokal() -> dt.date | None:
             return None
         conn = sqlite3.connect(hd.HANDLER_DB_PATH)
         try:
-            return hd.get_last_data_date(conn)
+            return _iso_date(hd.get_last_data_date(conn))
         finally:
             conn.close()
     except Exception:
@@ -559,17 +559,28 @@ def varsel_forhandsvisning():
     if err:
         return Response(f"<p>{err}</p>", mimetype="text/html", status=503)
     conn = hd.db_connect()
+    date_from = date_to = None
     try:
-        siste = hd.get_last_data_date(conn) or dt.date.today()
+        siste = _iso_date(hd.get_last_data_date(conn)) or dt.date.today()
         date_to = _parse_date(request.args.get("date_to"), siste)
         date_from = _parse_date(request.args.get("date_from"), date_to)
         sig = hv.finn_signaler(conn, date_from, date_to)
+        if not hv.antall_signaler(sig):
+            body = f"<p style='font-family:sans-serif'>Ingen signaler {date_from} til {date_to}.</p>"
+        else:
+            body = (f"<p style='font-family:sans-serif;color:#6b7280'>Emne: {hv.html.escape(hv.emne(sig))}</p>"
+                    + hv.bygg_html(sig))
+    except Exception as exc:
+        _LOG.exception("Feil i forhåndsvisning av handler-varsel %s til %s", date_from, date_to)
+        body = (
+            "<div style='font-family:sans-serif'><h3>Klarte ikke lage varselet</h3>"
+            f"<p>Periode: {date_from} til {date_to}</p>"
+            f"<pre style='white-space:pre-wrap;color:#b91c1c'>{hv.html.escape(type(exc).__name__ + ': ' + str(exc))}</pre>"
+            "<p>Fullstendig feil ligger i Render-loggen.</p></div>"
+        )
+        return Response(body, mimetype="text/html", status=500)
     finally:
         conn.close()
-    if not hv.antall_signaler(sig):
-        body = f"<p style='font-family:sans-serif'>Ingen signaler {date_from} til {date_to}.</p>"
-    else:
-        body = f"<p style='font-family:sans-serif;color:#6b7280'>Emne: {hv.html.escape(hv.emne(sig))}</p>" + hv.bygg_html(sig)
     return Response(body, mimetype="text/html")
 
 

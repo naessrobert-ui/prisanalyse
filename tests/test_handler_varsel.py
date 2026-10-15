@@ -144,3 +144,34 @@ def test_kjor_etter_opplasting_bare_ved_nye_datoer(monkeypatch):
     assert (D(2026, 10, 9), D(2026, 10, 14)) in startet
     monkeypatch.setenv("HANDLER_VARSEL_AV", "1")
     assert hv.kjor_etter_opplasting(D(2026, 10, 13), D(2026, 10, 14)) is False
+
+
+def test_epost_taaler_manglende_pause_og_andel():
+    """Snur-signaler og nye posisjoner har ingen pause; pandas gjør det til NaN."""
+    tx = _tx([
+        ("A", "X", "2026-10-01", 1000, 100, 5000, 6000), ("A", "X", "2026-10-14", -2000, 110, 6000, 4000),
+        ("B", "X", "2026-10-14", 5000, 110, 0, 5000),
+        ("C", "Y", "2026-01-05", 300, 50, 0, 300), ("C", "Y", "2026-10-14", -300, 60, 300, 0),
+    ])
+    s = hv.klassifiser(tx, D(2026, 10, 14), D(2026, 10, 14))
+    assert s["pause_dager"].isna().sum() == 2
+    rader = [dict(r, investor=r["investor_id"], ticker="T", aksje="A", lenke="x") for r in s.to_dict("records")]
+    html = hv._seksjon("Test", "", rader)
+    assert "Snur: selger" in html and "Ny posisjon" in html and "første handel på 282 dager" in html
+    sig = {"fra": "2026-10-14", "til": "2026-10-14", "innstillinger": hv.Innstillinger(lister=["Beste.csv"]),
+           "folgeliste": [], "flinke": rader, "topp10": [], "antall_flinke_fulgt": 3, "lister": ["Beste.csv"]}
+    assert "Flinke investorer som snur (3)" in hv.bygg_html(sig)
+
+
+def test_datoer_som_tekst_godtas(monkeypatch):
+    """handler_data.get_last_data_date returnerer ISO-tekst, ikke date."""
+    assert hv.som_dato("2026-10-14") == D(2026, 10, 14)
+    assert hv.som_dato(D(2026, 10, 14)) == D(2026, 10, 14)
+    assert hv.som_dato(None) is None and hv.som_dato("tull") is None
+    startet = []
+    monkeypatch.setattr(hv, "kjor", lambda fra, til, send=True: startet.append((fra, til)))
+    monkeypatch.delenv("HANDLER_VARSEL_AV", raising=False)
+    assert hv.kjor_etter_opplasting("2026-10-13", "2026-10-14") is True
+    import time
+    time.sleep(0.2)
+    assert startet == [(D(2026, 10, 14), D(2026, 10, 14))]
