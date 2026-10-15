@@ -552,24 +552,101 @@ def _start_varsel(for_dato: dt.date | None, etter_dato: dt.date | None) -> bool:
         return False
 
 
-@handler_bp.route("/varsel")
+def _varsel_status_html(melding: str | None = None, ok: bool | None = None) -> str:
+    """Statusboks øverst på forhåndsvisningen: oppsett, siste kjøring og knapper."""
+    e = hv.html.escape
+    st = hv.oppsett_status()
+    rad = lambda k, v: f"<tr><td style='color:#6b7280;padding:2px 12px 2px 0'>{k}</td><td>{v}</td></tr>"
+    ja = "<span style='color:#15803d'>✓</span>"
+    nei = "<span style='color:#b91c1c'>✗ mangler</span>"
+    oppsett = (
+        rad("SMTP_HOST", e(st["smtp_host"]) if st["smtp_host"] else nei)
+        + rad("SMTP_PORT", e(st["smtp_port"]))
+        + rad("SMTP_USER", e(st["smtp_user"] or "(tom)"))
+        + rad("SMTP_PASSWORD", ja if st["passord_satt"] else nei)
+        + rad("Til (HANDLER_VARSEL_TIL)", e(", ".join(st["til"])) if st["til"] else nei)
+        + rad("Fra (HANDLER_VARSEL_FRA)", e(st["fra"]) if st["fra"] and "@" in st["fra"]
+              else f"{e(st['fra'] or '')} <span style='color:#b91c1c'>✗ må være en e-postadresse</span>")
+    )
+    if st["av"]:
+        oppsett += rad("Automatisk varsel", "<span style='color:#b91c1c'>skrudd av (HANDLER_VARSEL_AV)</span>")
+
+    siste = hv.siste_kjoring()
+    if siste:
+        if siste.get("sendt"):
+            utfall = "<span style='color:#15803d'>E-post sendt</span>"
+        elif siste.get("feil"):
+            utfall = f"<span style='color:#b91c1c'>Feil: {e(siste['feil'])}</span>"
+        else:
+            utfall = e(siste.get("grunn") or "Ikke sendt")
+        periode = f"{siste.get('fra')} til {siste.get('til')}" if siste.get("fra") else ""
+        siste_html = (f"{e(siste.get('tid',''))} ({e(siste.get('kilde',''))}) {e(periode)}: {utfall}"
+                      + (f", {siste['signaler']} signaler" if siste.get("signaler") is not None else ""))
+    else:
+        siste_html = "Ingen kjøring siden tjenesten startet sist (nullstilles ved deploy)."
+
+    boks = ""
+    if melding:
+        farge = "#15803d" if ok else "#b91c1c"
+        boks = (f"<div style='border:1px solid {farge};color:{farge};padding:8px 12px;border-radius:8px;"
+                f"margin-bottom:10px'>{e(melding)}</div>")
+    q = request.query_string.decode()
+    knapper = (
+        f"<form method='post' action='?{e(q)}' style='display:inline'>"
+        "<input type='hidden' name='handling' value='test'>"
+        "<button style='padding:6px 12px;margin-right:8px'>Send test-e-post</button></form>"
+        f"<form method='post' action='?{e(q)}' style='display:inline'>"
+        "<input type='hidden' name='handling' value='varsel'>"
+        "<button style='padding:6px 12px'>Send dette varselet nå</button></form>"
+    )
+    return (
+        "<div style='font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:720px;background:#f9fafb;"
+        "border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:22px;font-size:14px'>"
+        f"{boks}<div style='font-weight:700;margin-bottom:6px'>E-postoppsett "
+        + ("<span style='color:#15803d'>OK</span>" if st["ok"] else "<span style='color:#b91c1c'>ufullstendig</span>")
+        + f"</div><table>{oppsett}</table>"
+        f"<div style='margin-top:10px'><span style='color:#6b7280'>Siste kjøring:</span> {siste_html}</div>"
+        "<div style='margin-top:6px;color:#6b7280;font-size:12px'>Automatisk e-post sendes etter opplasting av "
+        "nye data, bare når det er signaler. Denne siden sender ikke noe uten at du trykker en knapp.</div>"
+        f"<div style='margin-top:10px'>{knapper}</div></div>"
+    )
+
+
+@handler_bp.route("/varsel", methods=["GET", "POST"])
 def varsel_forhandsvisning():
-    """Forhåndsvis e-postvarselet for en periode (sender ikke)."""
+    """Forhåndsvis e-postvarselet for en periode, med oppsettstatus og knapper for å sende."""
     err = _check_db()
     if err:
         return Response(f"<p>{err}</p>", mimetype="text/html", status=503)
     conn = hd.db_connect()
     date_from = date_to = None
+    melding, ok = None, None
     try:
         siste = _iso_date(hd.get_last_data_date(conn)) or dt.date.today()
         date_to = _parse_date(request.args.get("date_to"), siste)
         date_from = _parse_date(request.args.get("date_from"), date_to)
+        conn.close()
+        conn = None
+
+        if request.method == "POST":
+            handling = request.form.get("handling")
+            if handling == "test":
+                ok, melding = hv.send_test()
+                melding = ("Test-e-post: " + melding)
+            elif handling == "varsel":
+                res = hv.kjor(date_from, date_to, send=True, kilde="manuell", tving=True)
+                ok = bool(res.get("sendt"))
+                melding = ("Varsel sendt." if ok else
+                           "Ikke sendt: " + (res.get("feil") or res.get("grunn") or "ukjent årsak"))
+
+        conn = hd.db_connect()
         sig = hv.finn_signaler(conn, date_from, date_to)
         if not hv.antall_signaler(sig):
-            body = f"<p style='font-family:sans-serif'>Ingen signaler {date_from} til {date_to}.</p>"
+            innhold = f"<p style='font-family:sans-serif'>Ingen signaler {date_from} til {date_to}.</p>"
         else:
-            body = (f"<p style='font-family:sans-serif;color:#6b7280'>Emne: {hv.html.escape(hv.emne(sig))}</p>"
-                    + hv.bygg_html(sig))
+            innhold = (f"<p style='font-family:sans-serif;color:#6b7280'>Emne: {hv.html.escape(hv.emne(sig))}</p>"
+                       + hv.bygg_html(sig))
+        body = _varsel_status_html(melding, ok) + innhold
     except Exception as exc:
         _LOG.exception("Feil i forhåndsvisning av handler-varsel %s til %s", date_from, date_to)
         body = (
@@ -580,7 +657,8 @@ def varsel_forhandsvisning():
         )
         return Response(body, mimetype="text/html", status=500)
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
     return Response(body, mimetype="text/html")
 
 

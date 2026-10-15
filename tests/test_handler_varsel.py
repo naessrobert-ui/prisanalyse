@@ -175,3 +175,74 @@ def test_datoer_som_tekst_godtas(monkeypatch):
     import time
     time.sleep(0.2)
     assert startet == [(D(2026, 10, 14), D(2026, 10, 14))]
+
+
+class _FakeSMTP:
+    sendt: list = []
+    feil: Exception | None = None
+
+    def __init__(self, host, port, timeout=None):
+        self.host = host
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def starttls(self):
+        pass
+
+    def login(self, u, p):
+        pass
+
+    def sendmail(self, fra, til, msg):
+        if _FakeSMTP.feil:
+            raise _FakeSMTP.feil
+        _FakeSMTP.sendt.append((fra, til, msg))
+
+
+@pytest.fixture()
+def smtp_env(monkeypatch, tmp_path):
+    for k, v in {"SMTP_HOST": "smtp.resend.com", "SMTP_USER": "resend", "SMTP_PASSWORD": "re_x",
+                 "HANDLER_VARSEL_TIL": "meg@eksempel.no", "HANDLER_VARSEL_FRA": "varsel@eksempel.no"}.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("MEDIA_DIGEST_FROM", raising=False)
+    monkeypatch.setattr(hv.smtplib, "SMTP", _FakeSMTP)
+    monkeypatch.setattr(hv, "_STATE_PATH", tmp_path / "state.json")
+    _FakeSMTP.sendt, _FakeSMTP.feil = [], None
+    return monkeypatch
+
+
+def test_oppsett_status_viser_mangler(smtp_env):
+    assert hv.oppsett_status()["ok"]
+    smtp_env.delenv("HANDLER_VARSEL_FRA")
+    st = hv.oppsett_status()
+    assert not st["ok"] and any("HANDLER_VARSEL_FRA" in m for m in st["mangler"])   # «resend» er ingen adresse
+    smtp_env.delenv("SMTP_PASSWORD")
+    assert "SMTP_PASSWORD" in hv.oppsett_status()["mangler"]
+
+
+def test_send_test_ok_og_feil(smtp_env):
+    ok, m = hv.send_test()
+    assert ok and len(_FakeSMTP.sendt) == 1 and _FakeSMTP.sendt[0][0] == "varsel@eksempel.no"
+    _FakeSMTP.feil = hv.smtplib.SMTPSenderRefused(550, b"domain not verified", "varsel@eksempel.no")
+    ok, m = hv.send_test()
+    assert not ok and "domain not verified" in m
+
+
+def test_kjor_lagrer_grunn_og_feil(smtp_env, tmp_path):
+    p = str(tmp_path / "h.db")
+    _db(p)
+    smtp_env.setattr(hv, "_folgeliste_ids", lambda conn, cfg, brukt=None: ["F1"])
+    smtp_env.setattr(hv, "_flinke_ids", lambda conn, til, cfg: [])
+    r = hv.kjor(D(2026, 10, 14), D(2026, 10, 14), db_path=p)
+    assert r["sendt"] and hv.siste_kjoring()["sendt"]
+    r = hv.kjor(D(2026, 10, 14), D(2026, 10, 14), db_path=p)
+    assert not r["sendt"] and r["grunn"] == "Perioden er allerede sendt"
+    _FakeSMTP.feil = hv.smtplib.SMTPAuthenticationError(535, b"invalid api key")
+    r = hv.kjor(D(2026, 10, 14), D(2026, 10, 14), db_path=p, kilde="manuell", tving=True)
+    assert not r["sendt"] and "invalid api key" in r["feil"]
+    assert "invalid api key" in hv.siste_kjoring()["feil"]
+    r = hv.kjor(D(2026, 1, 1), D(2026, 1, 1), db_path=p)
+    assert r["grunn"] == "Ingen signaler i perioden"

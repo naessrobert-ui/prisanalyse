@@ -525,14 +525,62 @@ def _mottakere() -> list[str]:
     return [a.strip() for a in raw.replace(";", ",").split(",") if a.strip()]
 
 
-def send_mail(subject: str, html_body: str) -> bool:
+def _avsender() -> str:
+    return (os.environ.get("HANDLER_VARSEL_FRA") or os.environ.get("MEDIA_DIGEST_FROM")
+            or os.environ.get("SMTP_USER", "")).strip()
+
+
+def oppsett_status() -> dict:
+    """Hvilke e-postinnstillinger web-tjenesten ser. Passord vises aldri, bare om det er satt."""
+    host = os.environ.get("SMTP_HOST", "").strip()
+    user = os.environ.get("SMTP_USER", "").strip()
+    fra = _avsender()
+    mangler: list[str] = []
+    if not host:
+        mangler.append("SMTP_HOST")
+    if not os.environ.get("SMTP_PASSWORD"):
+        mangler.append("SMTP_PASSWORD")
+    if not _mottakere():
+        mangler.append("HANDLER_VARSEL_TIL")
+    if "@" not in fra:
+        mangler.append("HANDLER_VARSEL_FRA (må være en e-postadresse på et domene verifisert hos e-postleverandøren)")
+    return {
+        "smtp_host": host or None,
+        "smtp_port": os.environ.get("SMTP_PORT", "587"),
+        "smtp_user": user or None,
+        "passord_satt": bool(os.environ.get("SMTP_PASSWORD")),
+        "til": _mottakere(),
+        "fra": fra or None,
+        "av": os.environ.get("HANDLER_VARSEL_AV", "").strip() in {"1", "true", "ja"},
+        "mangler": mangler,
+        "ok": not mangler,
+    }
+
+
+def send_test() -> tuple[bool, str]:
+    """Send en test-e-post. Returnerer (ok, melding med eventuell feil fra e-postserveren)."""
+    st = oppsett_status()
+    if not st["ok"]:
+        return False, "Mangler: " + ", ".join(st["mangler"])
+    try:
+        send_mail("📈 Handler Oslo Børs: testvarsel",
+                  "<p>Oppsettet virker. Du får e-post når nye handelsdata gir signaler.</p>",
+                  kast_feil=True)
+    except Exception as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+    return True, f"Sendt til {', '.join(st['til'])} fra {st['fra']}."
+
+
+def send_mail(subject: str, html_body: str, kast_feil: bool = False) -> bool:
     smtp_host = os.environ.get("SMTP_HOST", "").strip()
     mottakere = _mottakere()
     if not smtp_host or not mottakere:
-        _LOG.info("Handler-varsel: SMTP_HOST/HANDLER_VARSEL_TIL ikke satt, sender ikke.")
+        _LOG.warning("Handler-varsel: SMTP_HOST/HANDLER_VARSEL_TIL ikke satt, sender ikke.")
+        if kast_feil:
+            raise RuntimeError("SMTP_HOST eller HANDLER_VARSEL_TIL er ikke satt")
         return False
     smtp_user = os.environ.get("SMTP_USER", "")
-    sender = os.environ.get("HANDLER_VARSEL_FRA") or os.environ.get("MEDIA_DIGEST_FROM") or smtp_user
+    sender = _avsender()
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = sender
@@ -554,6 +602,32 @@ _STATE_PATH = Path(hd.HANDLER_LIST_CACHE_DIR) / "handler_varsel_sendt.json"
 _LOCK = threading.Lock()
 
 
+def _les_state() -> dict:
+    try:
+        return json.loads(_STATE_PATH.read_text(encoding="utf-8")) if _STATE_PATH.exists() else {}
+    except Exception:
+        return {}
+
+
+def _skriv_state(data: dict) -> None:
+    try:
+        _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _STATE_PATH.write_text(json.dumps(data, default=str), encoding="utf-8")
+    except Exception:
+        _LOG.warning("Klarte ikke lagre handler-varsel-status", exc_info=True)
+
+
+def _lagre_siste(info: dict) -> None:
+    data = _les_state()
+    data["siste"] = {"tid": dt.datetime.now().isoformat(timespec="seconds"), **info}
+    _skriv_state(data)
+
+
+def siste_kjoring() -> dict | None:
+    """Resultatet av siste automatiske eller manuelle kjøring (siden tjenesten startet)."""
+    return _les_state().get("siste")
+
+
 def _allerede_sendt(fra: dt.date, til: dt.date) -> bool:
     try:
         sendt = json.loads(_STATE_PATH.read_text(encoding="utf-8")).get("sendt", [])
@@ -563,20 +637,18 @@ def _allerede_sendt(fra: dt.date, til: dt.date) -> bool:
 
 
 def _merk_sendt(fra: dt.date, til: dt.date) -> None:
-    try:
-        data = json.loads(_STATE_PATH.read_text(encoding="utf-8")) if _STATE_PATH.exists() else {}
-    except Exception:
-        data = {}
-    sendt = (data.get("sendt") or [])[-200:] + [f"{fra}:{til}"]
-    try:
-        _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _STATE_PATH.write_text(json.dumps({"sendt": sendt}), encoding="utf-8")
-    except Exception:
-        _LOG.warning("Klarte ikke lagre handler-varsel-status", exc_info=True)
+    data = _les_state()
+    data["sendt"] = (data.get("sendt") or [])[-200:] + [f"{fra}:{til}"]
+    _skriv_state(data)
 
 
-def kjor(fra: dt.date, til: dt.date, send: bool = True, db_path: str | None = None) -> dict:
-    """Finn signaler for vinduet og send e-post hvis det er noe. Returnerer et sammendrag."""
+def kjor(fra: dt.date, til: dt.date, send: bool = True, db_path: str | None = None,
+         kilde: str = "opplasting", tving: bool = False) -> dict:
+    """Finn signaler for vinduet og send e-post hvis det er noe. Returnerer et sammendrag.
+
+    tving=True sender selv om perioden er sendt før (brukes av knappen på forhåndsvisningen).
+    Resultatet, også årsaken når ingenting sendes, lagres og vises på forhåndsvisningen.
+    """
     fra, til = som_dato(fra), som_dato(til)
     with _LOCK:
         conn = sqlite3.connect(db_path or hd.HANDLER_DB_PATH, timeout=60)
@@ -586,12 +658,25 @@ def kjor(fra: dt.date, til: dt.date, send: bool = True, db_path: str | None = No
         finally:
             conn.close()
         n = antall_signaler(sig)
-        resultat = {"fra": fra.isoformat(), "til": til.isoformat(), "signaler": n, "sendt": False,
+        resultat = {"kilde": kilde, "fra": fra.isoformat(), "til": til.isoformat(), "signaler": n, "sendt": False,
                     "folgeliste": len(sig["folgeliste"]), "flinke": len(sig["flinke"]), "topp10": len(sig["topp10"])}
-        if n and send and not _allerede_sendt(fra, til):
-            if send_mail(emne(sig), bygg_html(sig)):
+        if not n:
+            resultat["grunn"] = "Ingen signaler i perioden"
+        elif not send:
+            resultat["grunn"] = "Kjørt uten sending"
+        elif not tving and _allerede_sendt(fra, til):
+            resultat["grunn"] = "Perioden er allerede sendt"
+        elif not oppsett_status()["ok"]:
+            resultat["grunn"] = "E-post ikke satt opp: mangler " + ", ".join(oppsett_status()["mangler"])
+        else:
+            try:
+                send_mail(emne(sig), bygg_html(sig), kast_feil=True)
                 _merk_sendt(fra, til)
                 resultat["sendt"] = True
+            except Exception as exc:
+                _LOG.exception("Handler-varsel: sending feilet")
+                resultat["feil"] = f"{type(exc).__name__}: {exc}"
+        _lagre_siste(resultat)
         return resultat
 
 
@@ -601,6 +686,8 @@ def kjor_etter_opplasting(datoer_for: dt.date | None, datoer_etter: dt.date | No
     if os.environ.get("HANDLER_VARSEL_AV", "").strip() in {"1", "true", "ja"}:
         return False
     if datoer_etter is None or (datoer_for is not None and datoer_etter <= datoer_for):
+        _lagre_siste({"kilde": "opplasting", "sendt": False,
+                      "grunn": f"Ingen nye datoer i opplastingen (siste dato {datoer_etter})"})
         return False
     fra = (datoer_for + dt.timedelta(days=1)) if datoer_for else datoer_etter
     # Ved store backfill-opplastinger: varsle bare for siste 5 dager
@@ -610,8 +697,10 @@ def kjor_etter_opplasting(datoer_for: dt.date | None, datoer_etter: dt.date | No
         try:
             res = kjor(fra, datoer_etter, send=True)
             _LOG.info("Handler-varsel ferdig: %s", res)
-        except Exception:
+        except Exception as exc:
             _LOG.exception("Handler-varsel feilet for %s til %s", fra, datoer_etter)
+            _lagre_siste({"kilde": "opplasting", "fra": str(fra), "til": str(datoer_etter),
+                          "sendt": False, "feil": f"{type(exc).__name__}: {exc}"})
 
     threading.Thread(target=_jobb, name="handler-varsel", daemon=True).start()
     return True
@@ -629,9 +718,8 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO)
 
     if a.test:
-        ok = send_mail("📈 Handler Oslo Børs: testvarsel",
-                       "<p>Oppsettet virker. Du får e-post når nye handelsdata gir signaler.</p>")
-        print("Sendt" if ok else "Ikke sendt (sjekk SMTP_HOST og HANDLER_VARSEL_TIL)")
+        ok, melding = send_test()
+        print(("Sendt: " if ok else "Ikke sendt: ") + melding)
         return 0
 
     hd.ensure_local_db(hd.HANDLER_DB_PATH)
