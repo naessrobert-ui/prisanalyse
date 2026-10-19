@@ -21,8 +21,12 @@ Miljøvariabler (samme SMTP-oppsett som flypris-varselet):
     HANDLER_VARSEL_AV      sett til 1 for å skru av automatisk varsling
 Terskler (valgfrie):
     HANDLER_VARSEL_LISTER        listefiler for følgelisten (default: Beste.csv,Viktige.csv)
-    HANDLER_VARSEL_MIN_MNOK      minste beløp for signal i del 2 og 3 (default 5)
-    HANDLER_VARSEL_MIN_ANDEL     eller minste andel av beholdningen i % (default 10)
+    HANDLER_VARSEL_MIN_MNOK      minste beløp for signal i del 2 (default 5)
+    HANDLER_VARSEL_MIN_ANDEL     eller minste andel av beholdningen i %, når beløpet er minst
+                                 en femdel av MIN_MNOK (default 10)
+    HANDLER_VARSEL_TOPP10_MIN_MNOK       minste salgsbeløp for topp 10-salg (default 5)
+    HANDLER_VARSEL_TOPP10_SALGSFRI_DAGER topp 10-salg bare når investoren ikke har solgt
+                                         aksjen de siste så mange dagene (default 180)
     HANDLER_VARSEL_PAUSE_DAGER   «første på lenge» = ingen handel på så mange dager (default 90)
     HANDLER_VARSEL_MAKS_OPPHOLD  opphold som bryter en rekke, dager (default 7)
     HANDLER_VARSEL_ANTALL_FLINKE hvor mange flinke investorer som følges (default 50)
@@ -97,6 +101,10 @@ class Innstillinger:
     pause_dager: int = field(default_factory=lambda: int(_env_float("HANDLER_VARSEL_PAUSE_DAGER", 90)))
     maks_opphold: int = field(default_factory=lambda: int(_env_float("HANDLER_VARSEL_MAKS_OPPHOLD", 7)))
     antall_flinke: int = field(default_factory=lambda: int(_env_float("HANDLER_VARSEL_ANTALL_FLINKE", 50)))
+    # Topp 10-eier selger: strengere, fordi småaksjer ellers gir mye støy
+    topp10_min_mnok: float = field(default_factory=lambda: _env_float("HANDLER_VARSEL_TOPP10_MIN_MNOK", 5.0))
+    topp10_salgsfri_dager: int = field(
+        default_factory=lambda: int(_env_float("HANDLER_VARSEL_TOPP10_SALGSFRI_DAGER", 180)))
     lookback_dager: int = 365
     lister: list[str] = field(default_factory=lambda: [
         x.strip() for x in (os.environ.get("HANDLER_VARSEL_LISTER") or "Beste.csv,Viktige.csv").split(",")
@@ -237,7 +245,23 @@ def _rens(rad: dict) -> dict:
 def _over_terskel(s: pd.DataFrame, cfg: Innstillinger) -> pd.Series:
     if s.empty:
         return pd.Series(dtype=bool)
-    return (s["belop_mnok"].abs() >= cfg.min_mnok) | (s["andel_pct"].fillna(0) >= cfg.min_andel_pct) | s["ut"]
+    # Exit må også over beløpsgrensen; ellers slipper små posisjoner i småaksjer gjennom
+    return (s["belop_mnok"].abs() >= cfg.min_mnok) | (
+        (s["andel_pct"].fillna(0) >= cfg.min_andel_pct) & (s["belop_mnok"].abs() >= cfg.min_mnok / 5))
+
+
+def _uten_tidligere_salg(sig: pd.DataFrame, tx: pd.DataFrame, dager: int) -> pd.DataFrame:
+    """Behold signaler der investoren ikke har solgt aksjen i de foregående `dager` dagene."""
+    if sig.empty or tx is None or tx.empty or dager <= 0:
+        return sig
+    salg = tx[tx["antall"] < 0][["investor_id", "isin", "dato"]]
+    behold = []
+    for r in sig.itertuples():
+        fra = (dt.date.fromisoformat(r.start) - dt.timedelta(days=dager)).isoformat()
+        tidligere = salg[(salg["investor_id"] == r.investor_id) & (salg["isin"] == r.isin)
+                         & (salg["dato"] < r.start) & (salg["dato"] >= fra)]
+        behold.append(tidligere.empty)
+    return sig[behold]
 
 
 def _navn(conn, investor_ids: list[str]) -> dict[str, str]:
@@ -356,7 +380,9 @@ def finn_signaler(conn, fra: dt.date, til: dt.date, cfg: Innstillinger | None = 
             par_tx = hent_handler(conn, lookback_fra, til, par=par)
             s = klassifiser(par_tx, fra, til, **kl)
             s = s[s["type"].isin(["snur_salg", "forste_salg", "ut"])]
-            s = s[_over_terskel(s, cfg)] if not s.empty else s
+            # Bare beløp teller her: «10 % av beholdningen» er for lett å nå i småaksjer
+            s = s[s["belop_mnok"].abs() >= cfg.topp10_min_mnok] if not s.empty else s
+            s = _uten_tidligere_salg(s, par_tx, cfg.topp10_salgsfri_dager)
             if not s.empty:
                 s = s.copy()
                 s["rang"] = [_rang_dagen_for(conn, r.isin, r.start, r.investor_id) for r in s.itertuples()]
@@ -502,7 +528,9 @@ def bygg_html(sig: dict) -> str:
                    f"retning. Minst {_fmt(cfg.min_mnok, 0)} MNOK eller {_fmt(cfg.min_andel_pct, 0)} % av beholdningen.",
                    sig["flinke"])
         + _seksjon("Topp 10-eier begynner å selge",
-                   "Investor blant de 10 største eierne i aksjen dagen før salget startet.",
+                   f"Investor blant de 10 største eierne i aksjen dagen før salget startet. Minst "
+                   f"{_fmt(cfg.topp10_min_mnok, 0)} MNOK, og ingen salg i aksjen de "
+                   f"{cfg.topp10_salgsfri_dager} dagene før.",
                    sig["topp10"], ekstra=lambda r: f"nr. {int(r['rang'])} blant eierne")
         + f"<p style='margin-top:24px'><a href='{BASE_URL}/handler-oslo-bors/'>Åpne Handler Oslo Børs</a></p>"
         "</div>"

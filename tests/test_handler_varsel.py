@@ -246,3 +246,37 @@ def test_kjor_lagrer_grunn_og_feil(smtp_env, tmp_path):
     assert "invalid api key" in hv.siste_kjoring()["feil"]
     r = hv.kjor(D(2026, 1, 1), D(2026, 1, 1), db_path=p)
     assert r["grunn"] == "Ingen signaler i perioden"
+
+
+def test_topp10_krever_belop_og_ingen_tidligere_salg(tmp_path, monkeypatch):
+    p = str(tmp_path / "t10.db")
+    _db(p)
+    c = sqlite3.connect(p)
+    c.executemany("INSERT INTO investor VALUES (?,?,?,?,?,?)", [
+        ("SMAA", "Fond", "LITEN", "SMAAEIER", "NO", None),
+        ("SOLGT", "Fond", "HAR", "SOLGT FOR", "NO", None),
+    ])
+    c.execute("INSERT INTO security VALUES ('Z','ZZZ','Småselskap ASA',2)")
+    c.executemany("INSERT INTO position_change VALUES (?,?,?,?,?,?,?,?)", [
+        # Småaksje: SMAA er største eier, men selger seg helt ut for 0,2 MNOK
+        ("Z", "SMAA", "2026-06-01", 100_000, 0, 0, 2.0, 100_000),
+        ("Z", "SMAA", "2026-10-14", 0, 100_000, 0, 2.0, -100_000),
+        # SOLGT: stor eier i X som solgte i august, selger igjen nå (over beløpsgrensen)
+        ("X", "SOLGT", "2026-06-01", 9_000_000, 8_000_000, 0, 90.0, 1_000_000),
+        ("X", "SOLGT", "2026-08-01", 8_500_000, 9_000_000, 0, 90.0, -500_000),
+        ("X", "SOLGT", "2026-08-20", 8_600_000, 8_500_000, 0, 90.0, 100_000),
+        ("X", "SOLGT", "2026-10-14", 8_300_000, 8_600_000, 0, 100.0, -300_000),
+    ])
+    c.commit()
+    c.row_factory = sqlite3.Row
+    monkeypatch.setattr(hv, "_folgeliste_ids", lambda conn, cfg, brukt=None: [])
+    monkeypatch.setattr(hv, "_flinke_ids", lambda conn, til, cfg: [])
+    cfg = hv.Innstillinger(lister=["Beste.csv"], topp10_min_mnok=5, topp10_salgsfri_dager=180)
+    ids = {r["investor_id"] for r in hv.finn_signaler(c, D(2026, 10, 14), D(2026, 10, 14), cfg)["topp10"]}
+    assert "SMAA" not in ids          # exit på 0,2 MNOK er under grensen
+    assert "SOLGT" not in ids         # solgte i august, innenfor 180 dager
+    assert "T1" in ids                # stor eier, første salg (20 MNOK)
+    cfg.topp10_salgsfri_dager = 30
+    ids = {r["investor_id"] for r in hv.finn_signaler(c, D(2026, 10, 14), D(2026, 10, 14), cfg)["topp10"]}
+    assert "SOLGT" in ids             # kortere vindu: salget i august teller ikke
+    c.close()
