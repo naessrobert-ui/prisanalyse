@@ -25,7 +25,8 @@ on:
         type: boolean
         default: true
 permissions:
-  contents: read
+  contents: write
+  actions: read
 concurrency:
   group: newsweb-hourly-monitor
   cancel-in-progress: false
@@ -84,6 +85,32 @@ jobs:
         with:
           path: newsweb_monitor/.cache/state.json
           key: newsweb-state-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Hent eksisterende historikk første gang
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -s newsweb_monitor/public/latest.json ]; then
+            mkdir -p newsweb_monitor/bootstrap
+            gh run download 39610134457 -R "$GITHUB_REPOSITORY" \
+              --name newsweb-rapport-39610134457 \
+              --dir newsweb_monitor/bootstrap
+          fi
+      - name: Bygg offentlig nyhetsoversikt
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: python -m newsweb_monitor.publish_site
+      - name: Oppdater dashboard-data i GitHub
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add newsweb_monitor/public/latest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data: oppdater NewsWeb-nyheter [skip ci]"
+            git push origin HEAD:main
+          else
+            echo "Ingen nye meldinger for dashboardet"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

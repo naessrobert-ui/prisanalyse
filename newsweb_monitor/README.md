@@ -53,3 +53,12 @@ python -m pip install "pypdf>=5,<8"
 python -m unittest discover -s newsweb_monitor/tests -v
 SOURCE_MODE=newsweb DRY_RUN=true python -m newsweb_monitor.monitor
 ```
+
+
+## Dashboard på prisanalyse.no/newsweb/
+
+GitHub Actions skriver et begrenset offentlig snapshot til `newsweb_monitor/public/latest.json` på main. Kun tickere, offentliggjorte overskrifter, korte maskin-/regelbaserte sammendrag, score og PDF-lenker; **aldri original fulltekst, PDF-binary eller konsensustall**.
+
+Nettsiden leser dette fra raw.githubusercontent.com, med 120 sekunders mellomlagring. En kjøring med 0 nye meldinger beholder siste oversikt. Første produksjonskjøring migrerer 119 behandlede meldinger fra GitHub Actions-artifact 39610134457.
+
+Repoet er offentlig! Ikke bruk dette som distribusjonskanal for Nordeas interne vurderinger eller betalte Bloomberg-data uten egen godkjenning. Ved behov for private analyser: flytt databasen til en privat tjeneste med innlogging.

@@ -27,7 +27,7 @@ button.active{background:#2764bd;border-color:#438eea;color:#fff}
 .tag.urgent{background:#662332;color:#ffd2d8}.tag.interesting{background:#64470d;color:#fff0b9}.tag.quiet{background:#233246;color:#b8c9df}
 .item p{line-height:1.55;font-size:14px;margin:8px 0}.reason{color:#b8c9df}
 .meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:13px;font-size:12px;color:var(--muted)}
-.footer{padding-top:23px;font-size:12px;line-height:1.6;color:var(--muted)}
+.live-status{font-size:13px;color:#9de5ba;margin:20px 0;padding:11px 15px;border-radius:10px;border:1px solid #285943;background:#0d2a24}.live-dot{display:inline-block;width:9px;height:9px;background:#45c987;border-radius:50%;margin-right:7px}.fin-details{margin:15px 0;border:1px solid #324867;border-radius:10px;padding:12px}.fin-details summary{cursor:pointer;color:#a3c7ff;font-weight:650}.fin-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}.fin-table th,.fin-table td{padding:9px 8px;text-align:right;border-bottom:1px solid #26374e}.fin-table th:first-child,.fin-table td:first-child{text-align:left}.fin-scroll{overflow-x:auto}.footer{padding-top:23px;font-size:12px;line-height:1.6;color:var(--muted)}
 @media(max-width:720px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:14px}.number{font-size:25px}}
 </style>
 </head>
@@ -38,18 +38,17 @@ button.active{background:#2764bd;border-color:#438eea;color:#fff}
 </header>
 <h1>Oslo Børs – Nyhetsmonitor</h1>
 <p class="lead">Børsmeldinger sortert etter mulig betydning for aksjonærene. Rutinemeldinger tones ned, mens viktig informasjon fremheves. Poengene uttrykker potensiell kursrelevans – ikke en spådom om avkastning.</p>
-{% if report.get("mode") == "manual" %}
-<div class="banner"><strong>MANUELL STIKKPRØVE – 21. oktober 2026.</strong> Dette er fem faktiske meldinger vurdert manuelt og lenket til originalkilden. Oppsummeringer og score er foreløpige, ikke AI-beregnet. Rapporten oppdateres <strong>ikke</strong> automatisk og dekker ikke alle børsmeldinger. Den timebaserte GitHub-jobben er fortsatt i demo inntil en godkjent feed kobles til.</div>
-{% elif demo %}
-<div class="banner"><strong>DEMO – fiktive meldinger.</strong> Dette er et eksempel på grensesnittet, ikke levende NewsWeb-data. Den planlagte GitHub-jobben må kobles til en godkjent meldingsfeed før virkelig overvåking kan aktiveres.</div>
-{% elif report.get("error") %}<div class="banner">{{report.error}}</div>{% endif %}
+{% if report.get("error") %}<div class="banner">{{report.error}}</div>
+{% elif report.get("mode") == "live" %}
+<div class="live-status"><span class="live-dot"></span> Automatisk oppdatert fra NewsWeb gjennom GitHub Actions. Viser de siste {{items|length}} meldingene i historikken. Nye meldinger analyseres omtrent hver time.</div>
+{% endif %}
 <section class="metrics" aria-label="Oppsummering">
   <div class="metric"><div class="tiny">Meldinger i rapporten</div><div class="number">{{items|length}}</div></div>
   <div class="metric"><div class="tiny">Høy prioritet (75+)</div><div class="number">{{focus}}</div></div>
-  <div class="metric"><div class="tiny">Interessante (45+)</div><div class="number">{{interesting}}</div></div>
+  <div class="metric"><div class="tiny">Interessante (45–74)</div><div class="number">{{interesting}}</div></div>
   <div class="metric"><div class="tiny">Lav prioritet / filtrert</div><div class="number">{{ignored}}</div></div>
 </section>
-<div class="top"><div><strong>Vurderte meldinger</strong><div class="tiny">Viser opptil 200, sortert etter score</div></div>
+<div class="top"><div><strong>Vurderte meldinger</strong><div class="tiny">Viser opptil 240, sortert etter score</div></div>
 <div class="tiny">Kilde: {{report.get('source','ukjent')}}{% if report.get('generated_at') %} · {{report.generated_at}}{% endif %}</div></div>
 <nav class="toolbar" aria-label="Nyhetsfilter">
   <button class="active" data-filter="all">Alle</button>
@@ -67,6 +66,29 @@ button.active{background:#2764bd;border-color:#438eea;color:#fff}
 <h2 class="title">{{item.get('title','Uten tittel')}}</h2>
 <p>{{item.get('summary') or item.get('body') or 'Ingen oppsummering'}}</p>
 {% if item.get('reason') %}<p class="reason"><strong>Vurdering:</strong> {{item.reason}}</p>{% endif %}
+{% set fin = item.get('financial_report') %}
+{% if fin and fin.get('document') and fin.document.get('name') %}
+<details class="fin-details">
+  <summary>Regnskapsrapport: {{fin.get('period') or 'periode ikke identifisert'}} · {{fin.get('status') or 'venter'}}</summary>
+  <p><strong>Dokument:</strong> {{fin.document.get('name')}}
+     {% if fin.document.get('url') %} · <a href="{{fin.document.url}}" target="_blank" rel="noopener noreferrer">Se PDF ↗</a>{% endif %}</p>
+  {% if fin.get('metrics') %}
+  <div class="fin-scroll"><table class="fin-table"><thead><tr><th>Nøkkeltall</th><th>Rapportert</th><th>I fjor</th><th>Forrige kv.</th><th>Å/Å</th><th>Kv/Kv</th></tr></thead>
+  <tbody>
+  {% for m in fin.metrics %}
+    <tr><td>{{m.get('label','')}} ({{m.get('unit','')}})</td>
+    <td>{{m.get('current') if m.get('current') is not none else '–'}}</td>
+    <td>{{m.get('prior_year') if m.get('prior_year') is not none else '–'}}</td>
+    <td>{{m.get('prev_quarter') if m.get('prev_quarter') is not none else '–'}}</td>
+    <td>{{(m.get('yoy_pct')|string ~ '%') if m.get('yoy_pct') is not none else '–'}}</td>
+    <td>{{(m.get('qoq_pct')|string ~ '%') if m.get('qoq_pct') is not none else '–'}}</td></tr>
+  {% endfor %}
+  </tbody></table></div>
+  {% else %}
+  <p class="reason">Nøkkeltall er ikke ekstrahert ennå. PDF-en kan likevel åpnes via lenken.</p>
+  {% endif %}
+</details>
+{% endif %}
 <div class="meta"><span>{{item.get('published_at','')}}</span><span>Retning: {{item.get('direction','ukjent')}}</span><span>{{item.get('assessment_source','')}}</span>
 {% if item.get('url','').startswith('https://') %}<a href="{{item.url}}" target="_blank" rel="noopener noreferrer">Børsmelding ↗</a>{% endif %}</div>
 </article>
