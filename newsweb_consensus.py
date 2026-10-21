@@ -182,10 +182,10 @@ def _s3():
     import boto3
     bucket=os.getenv("NEWSWEB_CONSENSUS_BUCKET","").strip()
     if not bucket:
-        raise RuntimeError("NEWSWEB_CONSENSUS_BUCKET må være en separat privat S3-bøtte.")
+        raise RuntimeError("NEWSWEB_CONSENSUS_BUCKET må peke til en privat S3-bøtte.")
     client=boto3.client("s3",region_name=os.getenv("AWS_REGION") or "eu-north-1")
-    # Mandatory: never write proprietary estimates to an S3 bucket that may
-    # allow anonymous/public access, including legacy 'prisanalyse-data'.
+    # Existing S3 buckets are fine, but all four public-access blocks are
+    # mandatory. Store only under the newsweb/consensus/snapshots/ prefix.
     try:
         block=client.get_public_access_block(Bucket=bucket)["PublicAccessBlockConfiguration"]
     except Exception as exc:
@@ -290,3 +290,75 @@ def safe_comparisons(item:dict, snapshots:list[dict])->list[dict]:
                 "unit":m.get("unit",""),
                 "note":"Indikativt: kontrollér valuta, justert/rapportert definisjon og periodisering"})
     return results
+
+
+def simulate_today(snapshot:dict, items:list[dict], *, now:datetime|None=None)->dict:
+    """One-time upload rehearsal: compare all today's Oslo disclosures against
+    values treated as if uploaded 24 hours earlier. Pure: NEVER mutate snapshot,
+    its genuine uploaded_at, or the source site reports.
+
+    Data is stored only inside the PRIVATE S3 snapshot; never in public GitHub.
+    """
+    from datetime import timedelta
+    from zoneinfo import ZoneInfo
+    now=now or datetime.now(timezone.utc)
+    oslo=ZoneInfo("Europe/Oslo")
+    target_day=now.astimezone(oslo).date()
+    assumed_asof=now-timedelta(days=1)
+    rehearsal=dict(snapshot)
+    rehearsal["uploaded_at"]=assumed_asof.isoformat(timespec="seconds")
+    todays=[]
+    for raw in items:
+        if not isinstance(raw,dict): continue
+        published=_dt(raw.get("published_at",""))
+        if published and published.astimezone(oslo).date()==target_day:
+            todays.append(raw)
+    todays.sort(key=lambda i:i.get("published_at",""),reverse=True)
+    found=0
+    matched_metrics=0
+    result_items=[]
+    from collections import Counter
+    reasons=Counter()
+    for item in todays:
+        label=str(item.get("headline") or item.get("title") or "")[:210]
+        ticker=str(item.get("ticker") or "")[:25]
+        report=item.get("financial_report")
+        rows=[]
+        if not isinstance(report,dict) or not report.get("metrics"):
+            status="Ingen ekstraherte regnskapstall"
+            reasons["no_financial_metrics"]+=1
+        elif not report.get("period"):
+            status="Rapportperiode mangler"
+            reasons["missing_period"]+=1
+        elif not snapshot.get("amount_units_confirmed"):
+            status="Beløpsenheter ikke bekreftet"
+            reasons["units_unconfirmed"]+=1
+        else:
+            rows=safe_comparisons(item,[rehearsal])
+            if rows:
+                status="Simulert sammenligning tilgjengelig"
+            else:
+                status="Ikke sammenlignbare estimater/tall"
+                reasons["no_comparable_values"]+=1
+        if rows:
+            found+=1
+            matched_metrics+=len(rows)
+        result_items.append({
+            "ticker":ticker, "title":label,
+            "published_at":str(item.get("published_at") or "")[:45],
+            "message_url":str(item.get("url") or "")[:260],
+            "period":str((report or {}).get("period") or "")[:15] if isinstance(report,dict) else "",
+            "status":status,
+            "comparisons":rows
+        })
+    return {
+        "simulation_only":True,
+        "run_at":now.isoformat(timespec="seconds"),
+        "target_day":target_day.isoformat(),
+        "effective_asof":assumed_asof.isoformat(timespec="seconds"),
+        "messages_scanned":len(todays),
+        "messages_with_matches":found,
+        "metrics_matched":matched_metrics,
+        "unmatched_reasons":dict(reasons),
+        "items":result_items[:500]
+    }

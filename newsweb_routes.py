@@ -63,8 +63,10 @@ def read_report() -> tuple[dict, bool]:
     return result, False
 
 def _can_view_consensus() -> bool:
-    return bool(os.environ.get("NEWSWEB_CONSENSUS_ADMIN_TOKEN")) and (
-        session.get("newsweb_consensus_admin") is True
+    # Reuse the existing site-wide access code, not an additional password.
+    # Fail CLOSED if the site's password is ever disabled.
+    return bool(os.environ.get("SITE_ACCESS_CODE", "").strip()) and (
+        session.get("access_granted") is True
     )
 
 def _private_report_comparisons(items: list[dict]) -> tuple[int,str]:
@@ -89,83 +91,78 @@ def _private_report_comparisons(items: list[dict]) -> tuple[int,str]:
     return count,""
 
 def _admin_form(*,message="",error="",summary=None,history=None):
+    from flask import make_response
+    # CSRF protection is still necessary even after reusing existing login.
     token=session.get("newsweb_consensus_csrf")
     if not token:
         token=secrets.token_urlsafe(24)
         session["newsweb_consensus_csrf"]=token
-    from flask import make_response
     response=make_response(render_template("newsweb_consensus.html",
-        allowed=_can_view_consensus(),
-        enabled=bool(os.environ.get("NEWSWEB_CONSENSUS_ADMIN_TOKEN")),
-        message=message,error=error,summary=summary,history=history or [],
-        csrf=token))
+        allowed=_can_view_consensus(),message=message,error=error,
+        summary=summary,history=history or [],csrf=token))
     response.headers["Cache-Control"]="private, no-store, max-age=0"
+    response.headers["Pragma"]="no-cache"
     return response
 
-@newsweb_bp.route("/konsensus/", methods=["GET","POST"])
+@newsweb_bp.route("/konsensus/",methods=["GET","POST"])
 def consensus_upload():
-    """Admin-only upload and inspection; never expose raw BEST values publicly."""
-    enabled=bool(os.environ.get("NEWSWEB_CONSENSUS_ADMIN_TOKEN"))
-    if not enabled:
-        return _admin_form(error="Administrator må aktivere NEWSWEB_CONSENSUS_ADMIN_TOKEN i Render.")
+    """Protected by exactly the same SITE_ACCESS_CODE session as the rest of the site."""
+    if not _can_view_consensus():
+        # Critical: if site login configuration is absent, NEVER expose uploads.
+        abort(403)
     if request.method=="POST":
         expected=session.get("newsweb_consensus_csrf")
         actual=request.form.get("csrf","")
         if not expected or not secrets.compare_digest(str(expected),actual):
             abort(400)
-        action=request.form.get("action","")
-        if action=="login":
-            entered=request.form.get("admin_token","")
-            if not secrets.compare_digest(entered,os.environ["NEWSWEB_CONSENSUS_ADMIN_TOKEN"]):
-                return _admin_form(error="Ugyldig administratorkode."),403
-            session["newsweb_consensus_admin"]=True
-            return redirect(url_for("newsweb.consensus_upload"))
-        if action=="logout":
-            session.pop("newsweb_consensus_admin",None)
-            return redirect(url_for("newsweb.consensus_upload"))
-        if not _can_view_consensus():
-            abort(403)
-        if action=="upload":
-            from newsweb_consensus import MAX_XLSX_BYTES,parse_excel,store_snapshot
-            doc=request.files.get("file")
-            if not doc or not doc.filename or not doc.filename.lower().endswith(".xlsx"):
-                return _admin_form(error="Velg en Excel-fil (*.xlsx)."),400
-            content=doc.stream.read(MAX_XLSX_BYTES+1)
-            try:
-                year_text=request.form.get("annual_year","")
-                year=int(year_text) if year_text else None
-                confirmed=request.form.get("confirmed_units")=="yes"
-                parsed=parse_excel(content,annual_year=year,
-                    amount_units_confirmed=confirmed)
-                # Only the parsed numeric values are stored, not the workbook.
-                store_snapshot(parsed,original_name=doc.filename)
-            except (ValueError,RuntimeError) as exc:
-                return _admin_form(error=str(exc)),400
-            except Exception:
-                return _admin_form(error="Lagring til privat S3 feilet. Sjekk Render-oppsettet."),503
-            session["newsweb_consensus_last_upload"]=({
-                "companies":parsed["company_count"],
-                "values":parsed["value_count"],
-                "periods":parsed["periods"],
-                "missing":parsed["invalid_or_missing_cells"]
-            })
-            return redirect(url_for("newsweb.consensus_upload",uploaded="1"))
-        abort(400)
+        if request.form.get("action")!="upload":
+            abort(400)
+        from newsweb_consensus import (MAX_XLSX_BYTES,parse_excel,
+                                       store_snapshot,simulate_today)
+        doc=request.files.get("file")
+        if not doc or not doc.filename or not doc.filename.lower().endswith(".xlsx"):
+            return _admin_form(error="Velg en Excel-fil (*.xlsx)."),400
+        content=doc.stream.read(MAX_XLSX_BYTES+1)
+        try:
+            year_text=request.form.get("annual_year","")
+            year=int(year_text) if year_text else None
+            confirmed=request.form.get("confirmed_units")=="yes"
+            parsed=parse_excel(content,annual_year=year,
+                amount_units_confirmed=confirmed)
+        except (ValueError,TypeError) as exc:
+            return _admin_form(error=str(exc)),400
 
-    if not _can_view_consensus():
-        return _admin_form()
+        # Rehearsal immediately on ALL announcements from current Oslo date
+        # already published by the hourly NewsWeb job; no private data exported.
+        # The snapshot is SIMULATED as if available one day earlier. Actual
+        # upload time is recorded by store_snapshot and NEVER backdated.
+        report,_=read_report()
+        try:
+            parsed["simulation"]=simulate_today(
+                parsed,report.get("items",[]))
+        except Exception:
+            return _admin_form(error="Testkjøring feilet. Ingen estimater er lagret."),503
+        try:
+            store_snapshot(parsed,original_name=doc.filename)
+        except (ValueError,RuntimeError) as exc:
+            return _admin_form(error=str(exc)),400
+        except Exception:
+            return _admin_form(error="Lagring i privat S3 feilet. Sjekk Render-oppsettet."),503
+        return redirect(url_for("newsweb.consensus_upload",uploaded="1"))
+
     try:
         from newsweb_consensus import list_snapshots,load_snapshot
         history=list_snapshots(limit=12)
         top=load_snapshot(history[0]["key"]) if history else None
     except Exception:
-        return _admin_form(error="Fant ikke den private S3-bøtten. Sjekk S3_BUCKET_NAME og AWS-tilgang.")
+        return _admin_form(error="Fant ikke den private S3-bøtten. Sjekk NEWSWEB_CONSENSUS_BUCKET, Block Public Access og AWS-tilgang.")
     summary=top and {k:top.get(k) for k in (
         "uploaded_at","company_count","value_count","invalid_or_missing_cells",
-        "periods","annual_year","original_name","amount_units_confirmed")}
+        "periods","annual_year","original_name","amount_units_confirmed","simulation")}
     message=""
     if request.args.get("uploaded")=="1":
-        message="Estimatene er lagret privat. Sammenligning er tilgjengelig for rapporter publisert etter opplastingstidspunktet."
+        message=("Estimatene er lagret privat. Simulert gjennomgang av dagens "
+                 "meldinger er fullført og vises nedenfor.")
     return _admin_form(message=message,summary=summary,history=history)
 
 @newsweb_bp.get("/")
