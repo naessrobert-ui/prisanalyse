@@ -33,6 +33,7 @@ jobs:
       SOURCE_MODE: ${{ github.event_name == 'pull_request' && 'demo' || github.event_name == 'workflow_dispatch' && inputs.mode || 'newsweb' }}
       DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || github.event_name == 'workflow_dispatch' && format('{0}', inputs.dry_run) || vars.NEWSWEB_DRY_RUN || 'true' }}
       NEWS_FEED_URL: ${{ secrets.NEWS_FEED_URL }}
+      REPO_PRIVATE: ${{ github.event.repository.private }}
       CONSENSUS_JSON_URL: ${{ secrets.CONSENSUS_JSON_URL }}
       LOOKBACK_HOURS: '36'
       INDEX_HOURS: '48'
