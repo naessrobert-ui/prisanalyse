@@ -104,25 +104,40 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% endif %}
 {% if private_error %}<div class="banner">{{private_error}}</div>{% endif %}
 {% if can_view_consensus and (consensus_matches or simulated_matches) %}<p class="dimmed-summary">Privat konsensus: {{consensus_matches}} meldinger med før-publisering-estimater{% if simulated_matches %} · {{simulated_matches}} med <strong>simulert test</strong> (som om estimatene var fra dagen før){% endif %}. <a href="/newsweb/konsensus/">Se opplastingsrapport →</a></p>{% endif %}
-<section class="metrics" aria-label="Oppsummering">
-  <div class="metric"><div class="tiny">Meldinger i rapporten</div><div class="number">{{items|length}}</div></div>
-  <div class="metric"><div class="tiny">Høy prioritet (75+)</div><div class="number">{{focus}}</div></div>
-  <div class="metric"><div class="tiny">Interessante (45–74)</div><div class="number">{{interesting}}</div></div>
-  <div class="metric"><div class="tiny">Lav prioritet / filtrert</div><div class="number">{{ignored}}</div></div>
-</section>
-<div class="top"><div><strong>Vurderte meldinger</strong><div class="tiny">Viser opptil 240, sortert etter score</div></div>
-<div class="tiny">Kilde: {{report.get('source','ukjent')}}{% if report.get('generated_at') %} · {{report.generated_at}}{% endif %}</div></div>
-<nav class="toolbar" aria-label="Nyhetsfilter">
-  <button class="active" data-filter="all">Alle</button>
-  <button data-filter="urgent">Høy prioritet</button>
-  <button data-filter="interesting">Interessante</button>
-  <button data-filter="quiet">Filtrert / lav</button>
-</nav>
-<section id="messages">
+<div class="tally" aria-label="Antall meldinger">
+ <span><b>{{items|length}}</b> meldinger totalt</span>
+ <span><b>{{focus}}</b> høy prioritet</span>
+ <span><b>{{interesting}}</b> interessante</span>
+ <span><b>{{ignored}}</b> lav prioritet / filtrert</span>
+ <span class="dim">Kilde: {{report.get('source','NewsWeb')}}{% if report.get('generated_at') %} · {{report.generated_at}}{% endif %}</span>
+</div>
+<div class="section-heading">Nyheter</div>
+<div class="controls">
+  <div class="filters" role="group" aria-label="Velg prioriterte nyheter">
+    <label class="filter-chip"><input type="checkbox" data-priority-filter="urgent" checked> Høy prioritet <span class="count">{{focus}}</span></label>
+    <label class="filter-chip"><input type="checkbox" data-priority-filter="interesting"> Interessante <span class="count">{{interesting}}</span></label>
+    <label class="filter-chip"><input type="checkbox" data-priority-filter="quiet"> Lav / filtrert <span class="count">{{ignored}}</span></label>
+  </div>
+  <div class="sort-controls">
+    <label for="news-sort">Sortering</label>
+    <select id="news-sort" aria-label="Sorter nyheter">
+      <option value="latest" selected>Nyeste først</option>
+      <option value="score">Høyeste prioritet</option>
+      <option value="surprise">Største konsensusavvik</option>
+      <option value="oldest">Eldste først</option>
+      <option value="ticker">Ticker A–Å</option>
+    </select>
+    <input type="search" id="news-search" aria-label="Søk etter selskap eller nyhet" placeholder="Søk selskap / nyhet">
+  </div>
+</div>
+<div class="filter-status" id="filter-status" aria-live="polite">Viser nyeste meldinger med høy prioritet</div>
+<section id="messages" class="message-grid">
 {% for item in items %}
 {% set score = item.get('score',0)|int %}
 {% set quiet = item.get('skipped') or score < 45 %}
-<article class="item" data-priority="{% if quiet %}quiet{% elif score >= 75 %}urgent{% else %}interesting{% endif %}">
+<article class="item" data-priority="{% if quiet %}quiet{% elif score >= 75 %}urgent{% else %}interesting{% endif %}"
+  data-date="{{item.get('published_at','')}}" data-score="{{score}}" data-ticker="{{item.get('ticker','')}}"
+  data-surprise="{{item.get('largest_surprise_abs', -1)}}" {% if quiet or score < 75 %}hidden{% endif %}>
 <div class="item-head"><div class="ticker">{{item.get('ticker') or 'UKJENT'}} <span class="dim">· {{item.get('issuer') or ''}}</span></div>
 <span class="tag {% if quiet %}quiet{% elif score>=75 %}urgent{% else %}interesting{% endif %}">{{'Filtrert' if item.get('skipped') else (score|string + ' / 100')}}</span></div>
 <h2 class="title">{{item.get('headline') or item.get('title','Uten tittel')}}</h2>
