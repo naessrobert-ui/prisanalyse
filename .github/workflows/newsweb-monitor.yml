@@ -49,6 +49,9 @@ jobs:
           python-version: '3.12'
       - name: Test nyhetsmotoren
         run: python -m unittest discover -s newsweb_monitor/tests -v
+      - name: Undersøk NewsWeb API (kun pull request)
+        if: github.event_name == 'pull_request'
+        run: python -m newsweb_monitor.probe
       - uses: actions/cache/restore@v4
         with:
           path: newsweb_monitor/.cache/state.json
