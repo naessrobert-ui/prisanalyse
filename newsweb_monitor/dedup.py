@@ -32,7 +32,7 @@ def _language(title:str)->str:
         r"kvartalsberetning|utstedelse|vellykket|vurderer|ansvarlig|"
         r"soliditet|underlag|passasjertall|entreprenørmarkedet|"
         r"utbytte|tilbakekjøp|søknad|vedtak|innkalling|påminnelse|"
-        r"mottatt|invitasjon|oppdatering|egne aksjer)\b",s))
+        r"mottatt|invitasjon|oppdatering|egne aksjer|aksjeprogram|ansatte|kjøp)\b",s))
     english=len(re.findall(
         r"\b(?:results|quarter|quarterly|interim|issuance|successful|"
         r"contemplating|subordinated|capital adequacy|passengers|"
