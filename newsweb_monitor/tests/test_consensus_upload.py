@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime,timezone
 from unittest.mock import patch
-from newsweb_consensus import parse_excel,period,safe_comparisons
+from newsweb_consensus import parse_excel,period,safe_comparisons,simulate_today
 
 class ConsensusUploadTests(unittest.TestCase):
     def test_two_header_rows_and_cached_bloomberg_formulas(self):
@@ -50,6 +50,43 @@ class ConsensusUploadTests(unittest.TestCase):
         self.assertEqual(result["records"]["DNB|2026Q3|ebit"]["value"],12362.6)
         self.assertNotIn("DNB|2026FY|net_interest_income",result["records"])
         self.assertNotIn("STB|2026Q3|ebit",result["records"])
+    def test_upload_simulation_covers_all_messages_today_and_keeps_real_asof(self):
+        from datetime import datetime,timezone
+        now=datetime(2026,10,21,19,30,tzinfo=timezone.utc)
+        snapshot={"uploaded_at":"2026-10-21T19:30:00+00:00",
+            "amount_units_confirmed":True,
+            "records":{"STB|2026Q3|eps":{"value":2.0,"unit_type":"per_share",
+                      "source_field":"BEST_EPS"}}}
+        items=[
+            {"ticker":"STB","title":"Quarter results","published_at":"2026-10-21T05:00:00+00:00",
+             "financial_report":{"period":"2026Q3","metrics":[
+                {"name":"eps","current":2.2,"unit":"NOK/share"}]}},
+            {"ticker":"NEL","title":"Other news","published_at":"2026-10-21T10:00:00+00:00"},
+            {"ticker":"XYZ","title":"Yesterday","published_at":"2026-10-20T05:00:00+00:00"}
+        ]
+        result=simulate_today(snapshot,items,now=now)
+        self.assertTrue(result["simulation_only"])
+        self.assertEqual(result["messages_scanned"],2)
+        self.assertEqual(result["messages_with_matches"],1)
+        self.assertEqual(result["metrics_matched"],1)
+        self.assertEqual(result["items"][0]["status"],"Ingen ekstraherte regnskapstall")
+        self.assertEqual(result["items"][1]["comparisons"][0]["surprise_pct"],10.0)
+        self.assertEqual(result["effective_asof"],"2026-10-20T19:30:00+00:00")
+        self.assertEqual(snapshot["uploaded_at"],"2026-10-21T19:30:00+00:00")
+    def test_simulation_rejects_newer_real_asof_without_faking_history(self):
+        from datetime import datetime,timezone
+        now=datetime(2026,10,21,19,0,tzinfo=timezone.utc)
+        snap={"uploaded_at":"2026-10-21T19:00:00+00:00",
+              "amount_units_confirmed":True,
+              "records":{"STB|2026Q3|eps":{"value":2.0,"unit_type":"per_share"}}}
+        item={"ticker":"STB","title":"Third quarter",
+              "published_at":"2026-10-21T06:00:00+00:00",
+              "financial_report":{"period":"2026Q3",
+                "metrics":[{"name":"eps","current":2.1,"unit":"NOK/share"}]}}
+        self.assertEqual(safe_comparisons(item,[snap]),[])
+        test=simulate_today(snap,[item],now=now)
+        self.assertEqual(test["messages_with_matches"],1)
+        self.assertEqual(snap["uploaded_at"],"2026-10-21T19:00:00+00:00")
     def test_period(self):
         self.assertEqual(period("26Q3",None),"2026Q3")
         self.assertEqual(period("Year",2026),"2026FY")
