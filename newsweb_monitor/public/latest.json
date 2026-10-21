@@ -1242,34 +1242,23 @@
             "evidence": "Operating cash flow figures not reported in the excerpt"
           }
         ]
-      }
-    },
-    {
-      "id": "684470",
-      "market": "XOSL",
-      "ticker": "DNBNB",
-      "issuer": "DNB Boligkreditt AS",
-      "title": "Third quarter report 2026 from DNB Boligkreditt AS",
-      "headline": "DNB Boligkreditt offentliggjør tredje kvartalsrapport for 2026 uten tall",
-      "lead": "DNB Boligkreditt har publisert sin rapport for tredje kvartal 2026, men denne inneholder ingen økonomiske nøkkeltall eller resultater, noe som gir begrenset innsikt i kvartalets utvikling.",
-      "published_at": "2026-10-21T05:36:26.890000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684470",
-      "summary": "DNB Boligkreditt har publisert sin rapport for tredje kvartal 2026, men denne inneholder ingen økonomiske nøkkeltall eller resultater, noe som gir begrenset innsikt i kvartalets utvikling.",
-      "reason": "Mangelen på tall i rapporten gjør det umulig å vurdere selskapets kvartalsprestasjon. Aksjonærer må vente på mer detaljert informasjon for å kunne gjøre kvalifiserte vurderinger eller justere sine investeringer.",
-      "score": 40,
-      "skipped": false,
-      "direction": "uklar",
-      "assessment_source": "AI",
-      "financial_report": {
-        "status": "unknown_period",
-        "period": "",
-        "previous_report": "",
-        "document": {
-          "name": "Quarterly Report DNB Boligkreditt 3Q26.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684470&attachmentId=334756"
+      },
+      "language_versions": [
+        {
+          "id": "684471",
+          "title": "Regnskapsrapport for 3. kvartal 2026 fra DNB Boligkreditt AS",
+          "url": "https://newsweb.oslobors.no/message/684471",
+          "published_at": "2026-10-21T05:36:26.891000+00:00",
+          "language": "Norsk"
         },
-        "metrics": []
-      }
+        {
+          "id": "684470",
+          "title": "Third quarter report 2026 from DNB Boligkreditt AS",
+          "url": "https://newsweb.oslobors.no/message/684470",
+          "published_at": "2026-10-21T05:36:26.890000+00:00",
+          "language": "Engelsk"
+        }
+      ]
     },
     {
       "id": "684468",
@@ -1320,16 +1309,6 @@
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
-      "financial_report": {
-        "status": "unknown_period",
-        "period": "",
-        "previous_report": "",
-        "document": {
-          "name": "Quarterly_Report_DNB_Group_3Q26.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684467&attachmentId=334755"
-        },
-        "metrics": []
-      },
       "language_versions": [
         {
           "id": "684467",
@@ -1345,7 +1324,17 @@
           "published_at": "2026-10-21T05:30:42.894000+00:00",
           "language": "Norsk"
         }
-      ]
+      ],
+      "financial_report": {
+        "status": "unknown_period",
+        "period": "",
+        "previous_report": "",
+        "document": {
+          "name": "Quarterly_Report_DNB_Group_3Q26.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684467&attachmentId=334755"
+        },
+        "metrics": []
+      }
     },
     {
       "id": "684465",
@@ -1469,6 +1458,22 @@
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "684464",
+          "title": "Storebrand Bank ASA: Interim Report Q3 2026",
+          "url": "https://newsweb.oslobors.no/message/684464",
+          "published_at": "2026-10-21T05:10:18.459000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "684463",
+          "title": "Storebrand Bank ASA: Kvartalsrapport Q3 2026",
+          "url": "https://newsweb.oslobors.no/message/684463",
+          "published_at": "2026-10-21T05:10:18.451000+00:00",
+          "language": "Norsk"
+        }
+      ],
       "financial_report": {
         "status": "analyzed",
         "period": "2026Q3",
@@ -1557,23 +1562,7 @@
             "evidence": "Operating cash flow for Storebrand Bank Group is NOK 1,730.3 million in 01.01-30.09 2026 and -5,799.1 million in 01.01-30.09 2025. No specific quarterly cash fl"
           }
         ]
-      },
-      "language_versions": [
-        {
-          "id": "684464",
-          "title": "Storebrand Bank ASA: Interim Report Q3 2026",
-          "url": "https://newsweb.oslobors.no/message/684464",
-          "published_at": "2026-10-21T05:10:18.459000+00:00",
-          "language": "Engelsk"
-        },
-        {
-          "id": "684463",
-          "title": "Storebrand Bank ASA: Kvartalsrapport Q3 2026",
-          "url": "https://newsweb.oslobors.no/message/684463",
-          "published_at": "2026-10-21T05:10:18.451000+00:00",
-          "language": "Norsk"
-        }
-      ]
+      }
     },
     {
       "id": "684461",
@@ -1591,6 +1580,22 @@
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "684462",
+          "title": "Storebrand Boligkreditt AS: Interim Report Q3 2026",
+          "url": "https://newsweb.oslobors.no/message/684462",
+          "published_at": "2026-10-21T05:10:18.003000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "684461",
+          "title": "Storebrand Boligkreditt AS: Kvartalsrapport Q3 2026",
+          "url": "https://newsweb.oslobors.no/message/684461",
+          "published_at": "2026-10-21T05:10:17.868000+00:00",
+          "language": "Norsk"
+        }
+      ],
       "financial_report": {
         "status": "analyzed",
         "period": "2026Q3",
@@ -1679,23 +1684,7 @@
             "evidence": "Cash flow statements are presented for YTD only (01.01-30.09) with no standalone Q3 cash flow figures (page 8)."
           }
         ]
-      },
-      "language_versions": [
-        {
-          "id": "684462",
-          "title": "Storebrand Boligkreditt AS: Interim Report Q3 2026",
-          "url": "https://newsweb.oslobors.no/message/684462",
-          "published_at": "2026-10-21T05:10:18.003000+00:00",
-          "language": "Engelsk"
-        },
-        {
-          "id": "684461",
-          "title": "Storebrand Boligkreditt AS: Kvartalsrapport Q3 2026",
-          "url": "https://newsweb.oslobors.no/message/684461",
-          "published_at": "2026-10-21T05:10:17.868000+00:00",
-          "language": "Norsk"
-        }
-      ]
+      }
     },
     {
       "id": "684459",
@@ -1713,6 +1702,22 @@
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "684460",
+          "title": "Storebrand Livsforsikring AS: Interim Report Q3 2026",
+          "url": "https://newsweb.oslobors.no/message/684460",
+          "published_at": "2026-10-21T05:05:22.337000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "684459",
+          "title": "Storebrand Livsforsikring AS: Kvartalsrapport Q3 2026",
+          "url": "https://newsweb.oslobors.no/message/684459",
+          "published_at": "2026-10-21T05:05:22.299000+00:00",
+          "language": "Norsk"
+        }
+      ],
       "financial_report": {
         "status": "analyzed",
         "period": "2026Q3",
@@ -1801,23 +1806,7 @@
             "evidence": "Not provided in the report excerpt"
           }
         ]
-      },
-      "language_versions": [
-        {
-          "id": "684460",
-          "title": "Storebrand Livsforsikring AS: Interim Report Q3 2026",
-          "url": "https://newsweb.oslobors.no/message/684460",
-          "published_at": "2026-10-21T05:05:22.337000+00:00",
-          "language": "Engelsk"
-        },
-        {
-          "id": "684459",
-          "title": "Storebrand Livsforsikring AS: Kvartalsrapport Q3 2026",
-          "url": "https://newsweb.oslobors.no/message/684459",
-          "published_at": "2026-10-21T05:05:22.299000+00:00",
-          "language": "Norsk"
-        }
-      ]
+      }
     },
     {
       "id": "684458",
@@ -1862,6 +1851,22 @@
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "684457",
+          "title": "STOREBRAND ASA: Results for the third quarter 2026",
+          "url": "https://newsweb.oslobors.no/message/684457",
+          "published_at": "2026-10-21T05:00:56.078000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "684456",
+          "title": "STOREBRAND ASA: Resultater for tredje kvartal 2026",
+          "url": "https://newsweb.oslobors.no/message/684456",
+          "published_at": "2026-10-21T05:00:54.136000+00:00",
+          "language": "Norsk"
+        }
+      ],
       "financial_report": {
         "status": "analyzed",
         "period": "2026Q3",
@@ -1950,23 +1955,7 @@
             "evidence": "Not explicitly stated as operating cash flow; information is mainly in IFRS and alternative income statement forms."
           }
         ]
-      },
-      "language_versions": [
-        {
-          "id": "684457",
-          "title": "STOREBRAND ASA: Results for the third quarter 2026",
-          "url": "https://newsweb.oslobors.no/message/684457",
-          "published_at": "2026-10-21T05:00:56.078000+00:00",
-          "language": "Engelsk"
-        },
-        {
-          "id": "684456",
-          "title": "STOREBRAND ASA: Resultater for tredje kvartal 2026",
-          "url": "https://newsweb.oslobors.no/message/684456",
-          "published_at": "2026-10-21T05:00:54.136000+00:00",
-          "language": "Norsk"
-        }
-      ]
+      }
     },
     {
       "id": "684455",
