@@ -297,6 +297,29 @@ def main() -> int:
         md.extend(["### "+x["ticker"]+" – "+x["title"],"",
             str(x["score"])+"/100 – "+x["assessment_source"],
             "",x["summary"],"",x["reason"],""])
+    # Readable financial comparison in GitHub Actions summary.
+    for x in report["items"]:
+        fin=x.get("financial_report")
+        if not fin:continue
+        md.extend(["","## Regnskapsanalyse: "+x["ticker"],"",
+                   "Dokument: "+(fin.get("document") or {}).get("name","ikke funnet"),
+                   "Status: "+fin.get("status","ukjent"),
+                   "Periode: "+fin.get("period","ukjent"),
+                   "Forrige rapport: "+fin.get("previous_report","ikke tilgjengelig"),""])
+        doc=(fin.get("document") or {}).get("url")
+        if doc:md.append("PDF: "+doc)
+        rows=fin.get("metrics") or []
+        if rows:
+            md.extend(["","| Nøkkeltall | Rapportert | Samme kv. i fjor | Forrige kv. | Konsensus | Avvik mot konsensus |",
+                       "|---|---:|---:|---:|---:|---:|"])
+            for m in rows:
+                def n(v):
+                    return "–" if v is None else str(round(float(v),2))
+                surprise=m.get("surprise_pct")
+                md.append("| "+str(m.get("label",""))+" ("+str(m.get("unit",""))+") | "+
+                    " | ".join(n(m.get(k)) for k in ("current","prior_year","prev_quarter","consensus"))+
+                    " | "+(n(surprise)+" %" if surprise is not None else "–")+" |")
+            md.extend(["","Konsensus vises bare ved tilgang til tidsstemplet, matchende estimat.",""])
     (output/"latest.md").write_text("\n".join(md),encoding="utf-8")
     print(f"Ferdig: {len(entries)} meldinger; se rapport i GitHub Actions.")
     return 0
