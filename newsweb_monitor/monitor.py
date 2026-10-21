@@ -1,4 +1,4 @@
-"""GitHub Actions-nyhetsmonitor. Bruk KUN autorisert JSON/RSS-datafeed, ikke NewsWeb-scraping."""
+"""Hourly company disclosures via Oslo Børs NewsWeb API or licensed feed."""
 from __future__ import annotations
 import datetime as dt
 import hashlib
@@ -73,13 +73,15 @@ def feed(mode: str) -> list[dict]:
     if mode == "demo":
         raw = json.loads((ROOT/"sample"/"demo.json").read_text(encoding="utf-8"))
         items = raw["items"]
+    elif mode == "newsweb":
+        from .newsweb_source import index
+        return index(hours=int(os.getenv("INDEX_HOURS","48")))
     elif mode == "live":
         url = os.getenv("NEWS_FEED_URL", "").strip()
         parsed = urlparse(url)
         if parsed.scheme != "https" or not parsed.hostname:
             raise ValueError("NEWS_FEED_URL må være en autorisert HTTPS-feed")
-        if parsed.hostname in ("newsweb.oslobors.no", "oslobors.no") or parsed.hostname.endswith(".newsweb.oslobors.no"):
-            raise ValueError("Direkte scraping fra NewsWeb er ikke tillatt i prototypen")
+
         fmt = os.getenv("FEED_FORMAT", "json").lower()
         if fmt == "json":
             raw = http_json(url)
@@ -100,7 +102,7 @@ def feed(mode: str) -> list[dict]:
         else:
             raise ValueError("FEED_FORMAT må være json eller rss")
     else:
-        raise ValueError("SOURCE_MODE må være demo eller live")
+        raise ValueError("SOURCE_MODE må være demo, newsweb eller live")
     if not isinstance(items, list):
         raise ValueError("Feed mangler items-liste")
     result = []
@@ -120,8 +122,13 @@ def prefilter(item: dict) -> str:
         return "Ikke aksjeinstrument"
     if item["instrument_type"] not in EQUITY_TYPES and item["ticker"] not in tickers:
         return "Aksjenotering er ikke bekreftet"
+    if item.get("category","").lower() in ("adjustment of interest rate", "acquisition or disposal of an issuer's own shares"):
+        return "Rutinemelding"
     if ROUTINE.search(item["title"]):
         return "Rutinemelding"
+    from .newsweb_source import is_bond_notice
+    if is_bond_notice(item):
+        return "Obligasjonsmelding"
     return ""
 
 def rules(item: dict) -> dict:
@@ -197,15 +204,25 @@ def main() -> int:
     if not isinstance(state.get("seen"),dict):
         raise ValueError("Ugyldig statusfil")
     # Skiller demo og live, og forskjellige feeds.
-    source = "demo" if mode=="demo" else hashlib.sha256(os.getenv("NEWS_FEED_URL","").encode()).hexdigest()[:14]
+    source = "newsweb-xosl" if mode=="newsweb" else (
+        "demo" if mode=="demo" else hashlib.sha256(os.getenv("NEWS_FEED_URL","").encode()).hexdigest()[:14])
     seen = state["seen"].setdefault(source,{})
     feed_items = feed(mode)
-    cutoff = now - dt.timedelta(hours=float(os.getenv("LOOKBACK_HOURS","4")))
+    cutoff = now - dt.timedelta(hours=float(os.getenv("LOOKBACK_HOURS","36" if mode=="newsweb" else "4")))
+    consensus={}
+    if mode=="newsweb" and os.getenv("CONSENSUS_JSON_URL"):
+        try:
+            consensus=http_json(os.environ["CONSENSUS_JSON_URL"])
+            if not isinstance(consensus,dict):
+                raise ValueError("Expected JSON consensus dict")
+        except Exception as exc:
+            print("Consensus unavailable:",type(exc).__name__,file=sys.stderr)
+            consensus={}
     entries = []
     for item in sorted(feed_items,key=lambda x:x["published_at"],reverse=True)[:max(1,int(os.getenv("MAX_MESSAGES","100")))]:
-        if mode=="live" and timestamp(item["published_at"]) < cutoff:
+        if mode in ("live","newsweb") and timestamp(item["published_at"]) < cutoff:
             continue
-        if item["id"] in seen and mode=="live":
+        if item["id"] in seen and mode in ("live","newsweb"):
             continue
         why=prefilter(item)
         if why:
@@ -213,6 +230,13 @@ def main() -> int:
                 "reason":why,"assessment_source":"Regelfilter","skipped":True})
             seen[item["id"]] = now.isoformat()
             continue
+        if mode=="newsweb":
+            try:
+                from .newsweb_source import details
+                item=details(item)
+            except Exception as exc:
+                print("Could not fetch message:",item["id"],type(exc).__name__,file=sys.stderr)
+                continue
         key=os.getenv("OPENAI_API_KEY","")
         try:
             assessment=ai(item,key) if key else rules(item)
@@ -220,7 +244,21 @@ def main() -> int:
             print(f"AI-feil for {item['id']}: {exc}",file=sys.stderr)
             continue # Neste kjøring prøver igjen.
         entry={**item,**assessment,"skipped":False}
-        can_notify=(mode=="live" and bool(key) and
+        if mode=="newsweb":
+            from .newsweb_source import is_financial_report
+            if is_financial_report(item):
+                from .report_analysis import analyze_pdf
+                report=analyze_pdf(item,state,consensus)
+                entry["financial_report"]=report
+                surprises=[x for x in report.get("metrics",[]) if x.get("surprise_pct") is not None]
+                if surprises:
+                    msg="; ".join(f"{x['label']} mot konsensus {x['surprise_pct']:+.1f}%" for x in surprises[:3])
+                    entry["reason"]=(entry["reason"]+" | "+msg)[:700]
+                    if max(abs(x["surprise_pct"]) for x in surprises)>=10:
+                        entry["score"]=max(entry["score"],82)
+            entry.pop("attachments",None)
+            entry["body"]=entry.get("body","")[:900]
+        can_notify=(mode in ("live","newsweb") and bool(key) and
             flag("NOTIFICATIONS_ENABLED") and not flag("DRY_RUN",True) and
             entry["score"]>=int(os.getenv("NOTIFY_SCORE","75")))
         if can_notify:
@@ -233,9 +271,9 @@ def main() -> int:
                 entries.append(entry)
                 continue
         else:
-            entry["notification"]="Av" if mode=="live" else "DEMO – ingen varsler"
+            entry["notification"]="Av" if mode in ("live","newsweb") else "DEMO – ingen varsler"
         entries.append(entry)
-        if mode=="live":
+        if mode in ("live","newsweb"):
             seen[item["id"]]=now.isoformat()
     # Begrens statushistorikk til ca 30 dager.
     limit=(now-dt.timedelta(days=30))
