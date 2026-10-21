@@ -113,7 +113,7 @@ def lookup_consensus(consensus: dict, ticker:str, period:str) -> dict:
     return row if isinstance(row,dict) else {}
 
 def comparisons(metrics:list[dict],ticker:str,period:str,
-                state:dict,consensus:dict|None=None) -> list[dict]:
+                state:dict,consensus:dict|None=None,published_at:str="") -> list[dict]:
     consensus_row=lookup_consensus(consensus or {},ticker,period)
     last=state.get("reports_by_ticker",{}).get(ticker.upper(),{}).get(preceding(period),{})
     prev_metrics={m["name"]:m for m in last.get("metrics",[])}
@@ -128,7 +128,15 @@ def comparisons(metrics:list[dict],ticker:str,period:str,
         prev_q=prev.get("current") if prev.get("unit")==unit else None
         est=consensus_row.get(name,{})
         # Consensus metadata must match quarter, currency and unit; no implicit conversion.
-        estimate=est.get("value") if isinstance(est,dict) and est.get("unit")==unit else None
+        estimate=None
+        if isinstance(est,dict) and est.get("unit")==unit and est.get("asof") and published_at:
+            try:
+                asof=datetime.fromisoformat(str(est["asof"]).replace("Z","+00:00"))
+                published=datetime.fromisoformat(published_at.replace("Z","+00:00"))
+                if asof.tzinfo is not None and published.tzinfo is not None and asof<=published:
+                    estimate=est.get("value")
+            except ValueError:
+                pass
         rows.append({"name":name,"label":METRIC_LABELS[name],"current":current,
           "prior_year":prior,"prev_quarter":prev_q,"consensus":estimate,"unit":unit,
           "yoy_pct":percent(current,prior),"qoq_pct":percent(current,prev_q),
@@ -218,7 +226,7 @@ def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
             return result
         result["previous_report"]=fetch_previous_quarter(item,result["period"],state,key)
         metrics=extract_metrics(txt,key,item["ticker"],result["period"])
-        result["metrics"]=comparisons(metrics,item["ticker"],result["period"],state,consensus)
+        result["metrics"]=comparisons(metrics,item["ticker"],result["period"],state,consensus,item["published_at"])
         result["status"]="analyzed" if result["metrics"] else "no_metrics"
         if metrics:
             reports=state.setdefault("reports_by_ticker",{}).setdefault(item["ticker"],{})
