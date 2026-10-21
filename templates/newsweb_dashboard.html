@@ -142,6 +142,35 @@ h1{font-size:clamp(27px,3vw,37px)}
 <span class="tag {% if quiet %}quiet{% elif score>=75 %}urgent{% else %}interesting{% endif %}">{{'Filtrert' if item.get('skipped') else (score|string + ' / 100')}}</span></div>
 <h2 class="title">{{item.get('headline') or item.get('title','Uten tittel')}}</h2>
 <p class="news-lead">{{item.get('lead') or item.get('summary') or 'Ingen ingress tilgjengelig'}}</p>
+
+{% if can_view_consensus and item.get('consensus_comparison') %}
+<div class="fin-details private-compare{% if item.get('consensus_kind')=='simulation' %} is-simulation{% endif %}">
+  <div class="private-heading">
+    {% if item.get('consensus_kind')=='simulation' %}
+      <span>TEST · Mot simulert konsensus</span>
+      <span class="private-kpi">Ikke faktisk historisk forventning</span>
+    {% else %}
+      <span>Mot konsensus før børsmeldingen</span>
+      <span class="private-kpi">Privat</span>
+    {% endif %}
+  </div>
+  <table class="consensus-compact">
+    <thead><tr><th>Nøkkeltall</th><th>Rapportert</th><th>Konsensus</th><th>Avvik</th></tr></thead>
+    <tbody>{% for c in item.consensus_comparison %}
+    <tr><td>{{c.label}}</td><td>{{c.actual}}</td><td>{{c.consensus}}</td>
+    <td>{{(c.surprise_pct|string ~ '%') if c.surprise_pct is not none else '–'}}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  <details class="story-more">
+    <summary>Om sammenligningen</summary>
+    {% if item.get('consensus_kind')=='simulation' %}
+    <p class="private-foot">Denne opplastingstesten later som estimatene var tilgjengelige {{item.get('consensus_simulated_asof')}}. De ble lastet opp senere. Dette er ikke en dokumentert resultatoverraskelse.</p>
+    {% else %}
+    <p class="private-foot">Siste lagrede konsensus før publisering. Kontroller valuta, enhet og definisjon.</p>
+    {% endif %}
+  </details>
+</div>
+{% endif %}
 {% if item.get('reason') %}
 <details class="story-more">
   <summary>Hvorfor er dette viktig?</summary>
@@ -177,19 +206,7 @@ h1{font-size:clamp(27px,3vw,37px)}
   <p>{{item.get('title','Original overskrift ikke tilgjengelig')}}</p>
   {% if item.get('url','').startswith('https://') %}<a href="{{item.url}}" target="_blank" rel="noopener noreferrer">Les hele meldingen hos Oslo Børs ↗</a>{% endif %}
 </details>
-{% if can_view_consensus and item.get('consensus_comparison') %}
-<div class="fin-details private-compare">
-<strong>Privat: rapporterte tall mot Bloomberg-konsensus før meldingen</strong>
-<div class="fin-scroll"><table class="fin-table">
-<thead><tr><th>Nøkkeltall</th><th>Rapportert</th><th>Konsensus</th><th>Avvik</th><th>Estimert per</th></tr></thead>
-<tbody>{% for c in item.consensus_comparison %}
-<tr><td>{{c.label}}</td><td>{{c.actual}}</td><td>{{c.consensus}}</td>
-<td>{{(c.surprise_pct|string ~ '%') if c.surprise_pct is not none else c.difference}}</td>
-<td>{{c.asof}}</td></tr>
-{% endfor %}</tbody></table></div>
-<p class="reason">Indikativ sammenligning, kun for innlogget administrator. Kontroller valuta, EPS-basis og justerte vs. rapporterte tall før du beskriver dette som en resultatoverraskelse.</p>
-</div>
-{% endif %}
+
 <div class="meta"><span>{{item.get('published_at','')}}</span><span>Retning: {{item.get('direction','ukjent')}}</span><span>{{item.get('assessment_source','')}}</span>
 {% if item.get('url','').startswith('https://') %}<a href="{{item.url}}" target="_blank" rel="noopener noreferrer">Børsmelding ↗</a>{% endif %}</div>
 </article>
