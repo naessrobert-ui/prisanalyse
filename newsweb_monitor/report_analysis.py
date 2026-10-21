@@ -75,7 +75,7 @@ def extract_metrics(text:str, key:str, ticker:str, period:str) -> list[dict]:
         "evidence":{"type":"string"}},
         "required":["name","current","prior_year","unit","evidence"],"additionalProperties":False}
     schema={"type":"object","properties":{
-        "metrics":{"type":"array","items":metric_schema}},
+        "metrics":{"type":"array","items":metric_schema},
         "warning":{"type":"string"}},
         "required":["metrics","warning"],"additionalProperties":False}
     instructions=(
