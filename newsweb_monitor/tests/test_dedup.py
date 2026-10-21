@@ -61,7 +61,8 @@ class BilingualDedupTests(unittest.TestCase):
         employee_no=story(684371,"EQNR","Equinor ASA: Kjøp av aksjer til aksjeprogram for ansatte","10:00:00.500")
         employee_en=story(684370,"EQNR","Equinor ASA: Buy-back of shares to share programmes for employees","10:00:00.900")
         got=collapse_stories([tranche_no,tranche_en,employee_no,employee_en])
-        self.assertEqual(len(got),2)
+        from newsweb_monitor.dedup import _topic,_language
+        self.assertEqual(len(got),2,str([(z["title"],_topic(z),_language(z["title"])) for z in [tranche_no,tranche_en,employee_no,employee_en]]))
         self.assertEqual(sorted(len(x["language_versions"]) for x in got),[2,2])
 
     def test_issuer_and_time_hard_limits(self):
