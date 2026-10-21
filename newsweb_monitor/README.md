@@ -2,7 +2,7 @@
 
 Denne funksjonen har to separate deler:
 
-1. **Nettside**: /newsweb/ på prisanalyse.no (Flask Blueprint i newsweb_routes.py). Foreløpig vises en eksplisitt merket demonstrasjon med oppdiktede meldinger.
+1. **Nettside**: /newsweb/ på prisanalyse.no (Flask Blueprint i newsweb_routes.py). Foreløpig vises en tidsstemplet, manuelt gjennomgått stikkprøve av fem virkelige meldinger fra 21. oktober 2026. Stikkprøven er ikke en komplett eller løpende feed; uten snapshot brukes tydelig merkede oppdiktede demodata.
 2. **Analysejobb**: .github/workflows/newsweb-monitor.yml kjører omtrent én gang i timen, og kan startes manuelt fra **Actions → NewsWeb AI monitor → Run workflow**. Rapportene ligger i Actions Summary og Artifacts.
 
 > **Ingen ekte NewsWeb-data hentes automatisk i denne versjonen.** Direkte scraping fra NewsWeb er ikke implementert. Koble bare til en maskinlesbar datakilde som er godkjent for slik bruk.
@@ -37,3 +37,7 @@ Nettsiden viser inntil videre \`newsweb_monitor/sample/demo_report.json\`. For �
 python -m unittest discover -s newsweb_monitor/tests -v
 SOURCE_MODE=demo DRY_RUN=true python -m newsweb_monitor.monitor
 \`\`\`
+
+## Engangsgjennomgang med faktiske meldinger
+
+Filen `newsweb_monitor/sample/reviewed_2026_10_21.json` inneholder kun korte, egenformulerte sammendrag av fem børsnyheter og lenker til kildene. Dette er **ikke automatisert innsamling** eller komplett NewsWeb-dekning. Scorene er manuelle (ingen AI-nøkkel brukt). Innhenting og lagring av NewsWeb-databasen på en ekstern nettside krever at nødvendige rettigheter er avklart.
