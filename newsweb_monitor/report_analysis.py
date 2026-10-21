@@ -30,11 +30,11 @@ def quarter(title: str, published_at: str) -> str:
             q=names[match.group(1)] if names else int(match.group(1))
             return f"{match.group(2)}Q{q}"
     # Annual announcements must state the year explicitly.
-    annual=re.search(r"\\b(?:annual report|full.year|full year|årsrapport|årsresultat|"
-       r"year.end|financial statements|resultater for året|fy)\\s*[-:]?\\s*(20\\d{2})\\b",t)
+    annual=re.search(r"\b(?:annual report|full.year|full year|årsrapport|årsresultat|"
+       r"year.end|financial statements|resultater for året|fy)\s*[-:]?\s*(20\d{2})\b",t)
     if annual:
         return annual.group(1)+"FY"
-    annual2=re.search(r"\\b(20\\d{2})\\s*(?:annual report|full.year|årsrapport|årsresultat)\\b",t)
+    annual2=re.search(r"\b(20\d{2})\s*(?:annual report|full.year|årsrapport|årsresultat)\b",t)
     if annual2:
         return annual2.group(1)+"FY"
     return ""
