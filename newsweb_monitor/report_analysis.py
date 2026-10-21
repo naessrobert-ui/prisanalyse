@@ -138,6 +138,57 @@ def comparisons(metrics:list[dict],ticker:str,period:str,
           "evidence":m.get("evidence","")[:170]})
     return rows
 
+def fetch_previous_quarter(item:dict, period:str, state:dict, key:str) -> str:
+    """Best-effort: fetch immediately preceding quarterly report for same issuer from NewsWeb."""
+    from .newsweb_source import get_json, details, is_financial_report
+    wanted=preceding(period)
+    if not wanted:
+        return "unknown_period"
+    ticker=item["ticker"].upper()
+    saved=state.setdefault("reports_by_ticker",{}).setdefault(ticker,{})
+    if wanted in saved:
+        return "cached"
+    current_date=datetime.fromisoformat(item["published_at"].replace("Z","+00:00"))
+    start=(current_date.replace(day=1)-__import__("datetime").timedelta(days=150)).date().isoformat()
+    end=current_date.date().isoformat()
+    try:
+        data=get_json("list",{"market":"XOSL","issuer":ticker,"fromDate":start,"toDate":end})
+        if data.get("overflow"):
+            return "list_overflow"
+        candidates=[]
+        for m in data.get("messages",[]):
+            if str(m.get("issuerSign","")).upper()!=ticker:
+                continue
+            title=str(m.get("title",""))
+            if "invitation" in title.lower() or "invitasjon" in title.lower():
+                continue
+            if quarter(title,str(m.get("publishedTime","")))!=wanted:
+                continue
+            if not is_financial_report({"title":title}):
+                continue
+            if int(m.get("messageId",0))==int(item["id"]):
+                continue
+            candidates.append(m)
+        candidates.sort(key=lambda r:r.get("publishedTime",""),reverse=True)
+        for candidate in candidates[:3]:
+            old=details({"id":str(candidate["messageId"])})
+            selected=pick_attachment(old.get("attachments") or [])
+            if not selected:continue
+            pdf=download_attachment(old["id"],selected["id"])
+            if not pdf.startswith(b"%PDF-"):continue
+            txt=text_from_pdf(pdf)
+            if len(txt.strip())<350:continue
+            metrics=extract_metrics(txt,key,ticker,wanted)
+            if not metrics:continue
+            saved[wanted]={"metrics":metrics,"message_id":old["id"],
+                "document":{"name":selected["name"],
+                   "url":f"https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId={old['id']}&attachmentId={selected['id']}"},
+                "published_at":candidate.get("publishedTime")}
+            return "downloaded_and_analyzed"
+        return "not_found"
+    except Exception as exc:
+        return "error_"+type(exc).__name__
+
 def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
     """Returns a compact summary; PDF is downloaded into runner memory only."""
     result={"period":quarter(item["title"],item["published_at"]),"document":None,
@@ -165,6 +216,7 @@ def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
         if not result["period"]:
             result["status"]="unknown_period"
             return result
+        result["previous_report"]=fetch_previous_quarter(item,result["period"],state,key)
         metrics=extract_metrics(txt,key,item["ticker"],result["period"])
         result["metrics"]=comparisons(metrics,item["ticker"],result["period"],state,consensus)
         result["status"]="analyzed" if result["metrics"] else "no_metrics"
