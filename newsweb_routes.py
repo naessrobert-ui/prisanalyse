@@ -74,21 +74,16 @@ def _private_report_comparisons(items: list[dict]) -> tuple[int,str]:
 
     No amounts or derived surprises get pushed into public GitHub.
     """
-    from newsweb_consensus import list_snapshots,load_snapshot,safe_comparisons
+    from newsweb_consensus import list_snapshots,load_snapshot,overlay_private_consensus
     if not _can_view_consensus():
-        return 0,""
+        return 0,0,""
     try:
         stored=list_snapshots(limit=30)
         snapshots=[load_snapshot(x["key"]) for x in stored]
     except Exception:
-        return 0,"Privat estimatlagring er midlertidig utilgjengelig."
-    count=0
-    for item in items:
-        result=safe_comparisons(item,snapshots)
-        if result:
-            item["consensus_comparison"]=result
-            count+=1
-    return count,""
+        return 0,0,"Privat estimatlagring er midlertidig utilgjengelig."
+    actual,simulated=overlay_private_consensus(items,snapshots)
+    return actual,simulated,""
 
 def _admin_form(*,message="",error="",summary=None,history=None):
     from flask import make_response
@@ -170,15 +165,16 @@ def dashboard():
     report,demo=read_report()
     # Copy records: private values must never be inserted into the site-wide cache.
     items=[dict(item) for item in report.get("items",[])[:240]]
-    matches,private_error=_private_report_comparisons(items)
-    items=sorted(items,key=lambda x:(int(x.get("score") or 0),str(x.get("published_at") or "")),reverse=True)
+    actual_matches,simulated_matches,private_error=_private_report_comparisons(items)
+    items=sorted(items,key=lambda x:str(x.get("published_at") or ""),reverse=True)
     focus=sum(1 for x in items if int(x.get("score") or 0)>=75 and not x.get("skipped"))
     interesting=sum(1 for x in items if 45<=int(x.get("score") or 0)<75 and not x.get("skipped"))
     ignored=sum(1 for x in items if x.get("skipped") or int(x.get("score") or 0)<45)
     response=render_template("newsweb_dashboard.html",report=report,items=items,
                            demo=demo,focus=focus,interesting=interesting,ignored=ignored,
                            can_view_consensus=_can_view_consensus(),private_error=private_error,
-                           consensus_matches=matches)
+                           consensus_matches=actual_matches,
+                           simulated_matches=simulated_matches)
     if _can_view_consensus():
         from flask import make_response
         secure=make_response(response)

@@ -362,3 +362,50 @@ def simulate_today(snapshot:dict, items:list[dict], *, now:datetime|None=None)->
         "unmatched_reasons":dict(reasons),
         "items":result_items[:500]
     }
+
+
+def overlay_private_consensus(items:list[dict], snapshots:list[dict],
+                              *,now:datetime|None=None)->tuple[int,int]:
+    """Attach actual PIT and, separately, same-day simulated consensus to PRIVATE copies.
+
+    The simulation is display-only, explicitly labelled, and cannot alter
+    actual as-of timestamps, archival snapshots, or public NewsWeb JSON.
+    """
+    from zoneinfo import ZoneInfo
+    from datetime import timedelta
+    now=now or datetime.now(timezone.utc)
+    today=now.astimezone(ZoneInfo("Europe/Oslo")).date().isoformat()
+    actual_count=0
+    simulation_count=0
+    latest_sim=None
+    for snap in snapshots:
+        sim=snap.get("simulation")
+        if (isinstance(sim,dict) and sim.get("simulation_only") is True
+                and sim.get("target_day")==today
+                and isinstance(sim.get("items"),list)):
+            latest_sim=sim
+            break
+    simulation_map={}
+    if latest_sim:
+        for row in latest_sim["items"]:
+            if not isinstance(row,dict) or not row.get("comparisons"):
+                continue
+            identifier=(str(row.get("ticker") or "").upper(),
+                        str(row.get("published_at") or ""))
+            simulation_map[identifier]=row["comparisons"]
+    for item in items:
+        actual=safe_comparisons(item,snapshots)
+        if actual:
+            item["consensus_comparison"]=actual
+            item["consensus_kind"]="actual"
+            actual_count+=1
+            continue
+        identifier=(str(item.get("ticker") or "").upper(),
+                    str(item.get("published_at") or "")[:45])
+        simulated=simulation_map.get(identifier)
+        if simulated:
+            item["consensus_comparison"]=simulated
+            item["consensus_kind"]="simulation"
+            item["consensus_simulated_asof"]=latest_sim.get("effective_asof")
+            simulation_count+=1
+    return actual_count,simulation_count
