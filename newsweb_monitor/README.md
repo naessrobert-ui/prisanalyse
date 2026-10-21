@@ -92,3 +92,28 @@ Ingen proprietære konsensusdata skal legges i offentlig repository,
 GitHub Action-artifacts eller offentlig nettside. BQuant-eksport kan senere
 leses av en separat privat jobb som gir dokumentert resultatavvik i tråd med
 lisens og interne retningslinjer.
+
+## Privat Bloomberg-fil: manuell opplasting
+Nettside: `/newsweb/konsensus/`. Administrator logger inn med
+`NEWSWEB_CONSENSUS_ADMIN_TOKEN` (Render miljøvariabel, aldri i Git).
+Legg til `NEWSWEB_CONSENSUS_BUCKET`: **egen privat AWS S3-bøtte** med alle
+fire Public Access Block-flagg aktivert (sjekkes av appen før lagring).
+Render-tjenestens AWS-identitet trenger `s3:PutObject`, `s3:GetObject`,
+`s3:ListBucket` og `s3:GetBucketPublicAccessBlock` for bare denne bøtten.
+Bruk eksisterende `AWS_REGION` med tilsvarende region.
+
+Excel-filen må inneholde `Data`-arket, Bloomberg-symboler i A,
+selskapsnavn i B, perioder (`26Q3` eller `Year`) på rad 1 og BEST-felter
+på rad 2. Formlenes bufrede **tallverdier** leses, ikke Bloomberg-addin
+eller eksterne linker. Regnskapsåret for `Year` må velges ved opplasting,
+ellers ignoreres disse kolonnene. `#N/A` hoppes over.
+
+VIKTIG: Den aktuelle 21.10.2026-filen har feltet `net int inc` i K2,
+uten BEST-prefiks. Det er ikke et verifisert estimatfelt og **importeres
+derfor ikke som konsensus**. Kvartalsvis bank-NII krever et eget,
+verifisert Bloomberg BEST-estimatfelt.
+
+Sammenligninger vises bare i administratorens nyhetsvisning, og er
+merket **indikative** frem til valuta, enheter og resultatdefinisjoner er
+kontrollert. Det siste estimatsnapshotet som ble lastet opp før
+resultatpublisering velges automatisk; aldri tilbakedater opplastinger.

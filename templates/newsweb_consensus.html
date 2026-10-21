@@ -33,7 +33,7 @@ button.secondary{background:#263c5b}
 {% if message %}<div class="good">{{message}}</div>{% endif %}
 {% if not enabled %}
 <div class="panel"><h2>Oppsett mangler</h2>
-<p>Sett <code>NEWSWEB_CONSENSUS_ADMIN_TOKEN</code> som en hemmelig miljøvariabel i Render, med en tilfeldig og lang verdi. Webtjenesten må også ha S3-tilgang via <code>S3_BUCKET_NAME</code> og AWS-legitimasjon.</p></div>
+<p>Sett <code>NEWSWEB_CONSENSUS_ADMIN_TOKEN</code> som en hemmelig miljøvariabel i Render, med en tilfeldig og lang verdi. Sett <code>NEWSWEB_CONSENSUS_BUCKET</code> til navnet på en <strong>separat, privat S3-bøtte</strong> med alle Public Access Block-innstillinger aktivert og AWS-tilgang.</p></div>
 {% elif not allowed %}
 <div class="panel"><h2>Lås opp konsensusarkivet</h2><p>Administratorpassordet ligger bare i Render, ikke i Excel-filen eller GitHub.</p>
 <form method="post" action="/newsweb/konsensus/"><input type="hidden" name="csrf" value="{{csrf}}">
@@ -55,7 +55,7 @@ button.secondary{background:#263c5b}
 </select>
 <p class="small">Dette kan ikke utledes fra den opplastede filen, fordi kolonneoverskriften bare er «Year». Velg riktig regnskapsår. Kvartalet hentes automatisk fra eksempelvis 26Q3/26Q4.</p>
 <label><input type="checkbox" name="confirmed_units" value="yes"> Jeg bekrefter at BEST-beløpene er i millioner av selskapets rapporteringsvaluta, og EPS er per aksje.</label>
-<p class="small">Dersom dette ikke bekreftes, lagres estimatene, men automatisk avviksberegning er deaktivert.</p>
+<p class="small">Dersom dette ikke bekreftes, lagres estimatene, men automatisk avviksberegning er deaktivert. NB: Feltet <code>net int inc</code> uten BEST-prefiks tas ikke med som konsensus.</p>
 <button type="submit">Last opp og lagre estimater privat</button>
 </form></div>
 {% if summary %}

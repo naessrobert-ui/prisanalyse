@@ -25,7 +25,7 @@ METRIC_FIELDS = {
     "BEST_EBIT": "ebit",
     "BEST_EPS": "eps",
     "BEST_EBITDA": "ebitda",
-    "NET INT INC": "net_interest_income",
+    # A historical/accounting NET_INT_INC field is NOT consensus; require BEST.
     "BEST_NET_INT_INC": "net_interest_income",
 }
 METRIC_DISPLAY = {

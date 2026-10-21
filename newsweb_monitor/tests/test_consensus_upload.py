@@ -46,9 +46,9 @@ class ConsensusUploadTests(unittest.TestCase):
         result=parse_excel(buff.getvalue(),annual_year=2026,
                            amount_units_confirmed=True)
         self.assertEqual(result["company_count"],2)
-        self.assertEqual(result["value_count"],2)
+        self.assertEqual(result["value_count"],1)
         self.assertEqual(result["records"]["DNB|2026Q3|ebit"]["value"],12362.6)
-        self.assertEqual(result["records"]["DNB|2026FY|net_interest_income"]["value"],64732)
+        self.assertNotIn("DNB|2026FY|net_interest_income",result["records"])
         self.assertNotIn("STB|2026Q3|ebit",result["records"])
     def test_period(self):
         self.assertEqual(period("26Q3",None),"2026Q3")
