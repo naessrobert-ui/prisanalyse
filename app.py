@@ -52,6 +52,7 @@ from shipping_routes import shipping_bp, start_shipping_streamlit
 from media_mentions_routes import media_mentions_bp
 from ferie_routes import ferie_bp
 from innbytte_leads import innbytte_leads_bp
+from newsweb_routes import newsweb_bp
 
 
 
@@ -351,6 +352,7 @@ def create_app() -> Flask:
     app.register_blueprint(aksjonaer_bp)
     app.register_blueprint(shipping_bp)
     app.register_blueprint(media_mentions_bp)
+    app.register_blueprint(newsweb_bp)
     app.register_blueprint(ferie_bp)
 
     # Start bakgrunnsjobb som prefetcher snødybde for hele Norge

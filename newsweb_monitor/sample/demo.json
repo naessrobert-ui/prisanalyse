@@ -1,0 +1,54 @@
+{
+  "items": [
+    {
+      "id": "sim-1",
+      "published_at": "2026-10-21T08:23:00+02:00",
+      "market": "XOSL",
+      "instrument_type": "equity",
+      "ticker": "TEST1",
+      "issuer": "Fiktiv Industri ASA",
+      "title": "[TEST] Oppjusterer resultatforventningene for 2026",
+      "body": "Dette er en fiktiv test. Forventet EBITDA økes fra 500 til 750 millioner kroner."
+    },
+    {
+      "id": "sim-2",
+      "published_at": "2026-10-21T08:40:00+02:00",
+      "market": "XOSL",
+      "instrument_type": "equity",
+      "ticker": "TEST2",
+      "issuer": "Fiktiv Energi ASA",
+      "title": "[TEST] Kontrakt på NOK 350 millioner",
+      "body": "Dette er en fiktiv test. Kontrakten tilsvarer omtrent 30 % av fjorårets omsetning."
+    },
+    {
+      "id": "sim-3",
+      "published_at": "2026-10-21T09:02:00+02:00",
+      "market": "XOSL",
+      "instrument_type": "equity",
+      "ticker": "TEST1",
+      "issuer": "Fiktiv Industri ASA",
+      "title": "[TEST] Finanskalender 2027",
+      "body": "Dette er en fiktiv test. Kalenderoppdatering."
+    },
+    {
+      "id": "sim-4",
+      "published_at": "2026-10-21T09:05:00+02:00",
+      "market": "XOSL",
+      "instrument_type": "bond",
+      "ticker": "TESTB",
+      "issuer": "Fiktiv Bank ASA",
+      "title": "[TEST] Obligasjonsrente fastsatt",
+      "body": "Dette er en fiktiv test, obligasjon."
+    },
+    {
+      "id": "sim-5",
+      "published_at": "2026-10-21T09:12:00+02:00",
+      "market": "MERK",
+      "instrument_type": "equity",
+      "ticker": "GROW",
+      "issuer": "Fiktiv Growth ASA",
+      "title": "[TEST] Kapitalinnhenting",
+      "body": "Dette er en fiktiv test, Euronext Growth."
+    }
+  ]
+}
