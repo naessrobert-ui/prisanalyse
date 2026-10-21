@@ -29,7 +29,7 @@ class NewsWebSourceTests(unittest.TestCase):
     def test_quarter_no_guess(self):
         self.assertEqual(rpt.quarter("Resultater for tredje kvartal 2026",""),"2026Q3")
         self.assertEqual(rpt.quarter("Q3 2026 report",""),"2026Q3")
-        self.assertEqual(rpt.quarter("2026 Annual Report",""),"")
+        self.assertEqual(rpt.quarter("2026 Annual Report",""),"2026FY")
         self.assertEqual(rpt.preceding("2026Q1"),"2025Q4")
     def test_consensus_and_previous_quarter(self):
         state={"reports_by_ticker":{"TEST":{"2026Q2":{
