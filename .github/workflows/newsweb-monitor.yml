@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      SOURCE_MODE: ${{ github.event_name == 'pull_request' && 'demo' || github.event_name == 'workflow_dispatch' && inputs.mode || vars.NEWSWEB_SOURCE_MODE || 'newsweb' }}
+      SOURCE_MODE: ${{ github.event_name == 'pull_request' && 'demo' || github.event_name == 'workflow_dispatch' && inputs.mode || 'newsweb' }}
       DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || github.event_name == 'workflow_dispatch' && format('{0}', inputs.dry_run) || vars.NEWSWEB_DRY_RUN || 'true' }}
       NEWS_FEED_URL: ${{ secrets.NEWS_FEED_URL }}
       CONSENSUS_JSON_URL: ${{ secrets.CONSENSUS_JSON_URL }}
@@ -58,9 +58,6 @@ jobs:
       - name: Test ekte NewsWeb-meldinger og PDF (kun PR)
         if: github.event_name == 'pull_request'
         run: python -m newsweb_monitor.smoke
-      - name: Undersøk NewsWeb API (kun pull request)
-        if: github.event_name == 'pull_request'
-        run: python -m newsweb_monitor.probe
       - uses: actions/cache/restore@v4
         with:
           path: newsweb_monitor/.cache/state.json
