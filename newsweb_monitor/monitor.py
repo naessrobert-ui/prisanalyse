@@ -210,7 +210,7 @@ def main() -> int:
     feed_items = feed(mode)
     cutoff = now - dt.timedelta(hours=float(os.getenv("LOOKBACK_HOURS","36" if mode=="newsweb" else "4")))
     consensus={}
-    if mode=="newsweb" and os.getenv("CONSENSUS_JSON_URL"):
+    if mode=="newsweb" and os.getenv("CONSENSUS_JSON_URL") and os.getenv("REPO_PRIVATE","false").lower()=="true":
         try:
             consensus=http_json(os.environ["CONSENSUS_JSON_URL"])
             if not isinstance(consensus,dict):
