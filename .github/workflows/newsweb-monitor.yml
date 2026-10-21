@@ -13,7 +13,13 @@ on:
       - 'templates/newsweb_dashboard.html'
       - '.github/workflows/newsweb-monitor.yml'
   schedule:
-    - cron: '27 * * * *' # UTC. GitHub kan starte senere enn planlagt.
+    # Oslo local time; GitHub handles CET/CEST daylight-saving transitions.
+    # Every 15 minutes from 06:00 through 09:45.
+    - cron: '0,15,30,45 6-9 * * *'
+      timezone: 'Europe/Oslo'
+    # Then hourly from 10:00 to 23:00; NO 00:00–05:59 runs.
+    - cron: '0 10-23 * * *'
+      timezone: 'Europe/Oslo'
   workflow_dispatch:
     inputs:
       mode:
