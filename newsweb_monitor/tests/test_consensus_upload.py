@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime,timezone
 from unittest.mock import patch
-from newsweb_consensus import parse_excel,period,safe_comparisons,simulate_today
+from newsweb_consensus import parse_excel,period,safe_comparisons,simulate_today,overlay_private_consensus
 
 class ConsensusUploadTests(unittest.TestCase):
     def test_two_header_rows_and_cached_bloomberg_formulas(self):
@@ -87,6 +87,70 @@ class ConsensusUploadTests(unittest.TestCase):
         test=simulate_today(snap,[item],now=now)
         self.assertEqual(test["messages_with_matches"],1)
         self.assertEqual(snap["uploaded_at"],"2026-10-21T19:00:00+00:00")
+
+    def test_simulated_daily_upload_shows_on_matching_news_card(self):
+        now=datetime(2026,10,21,20,0,tzinfo=timezone.utc)
+        item={"ticker":"ARCH","published_at":"2026-10-21T07:00:00+00:00",
+              "financial_report":{"period":"2026Q3","metrics":[
+                  {"name":"ebitda","current":44,"unit":"USD million"}]}}
+        snapshot={"uploaded_at":"2026-10-21T19:30:00+00:00",
+                  "amount_units_confirmed":True,
+                  "records":{"ARCH|2026Q3|ebitda":{"value":40.0,"unit_type":"millions"}}}
+        snapshot["simulation"]=simulate_today(snapshot,[item],now=now)
+        news=[dict(item)]
+        actual,simulation=overlay_private_consensus(news,[snapshot],now=now)
+        self.assertEqual((actual,simulation),(0,1))
+        self.assertEqual(news[0]["consensus_kind"],"simulation")
+        self.assertEqual(news[0]["consensus_comparison"][0]["surprise_pct"],10.0)
+        self.assertNotIn("consensus_comparison",item)
+        self.assertEqual(snapshot["uploaded_at"],"2026-10-21T19:30:00+00:00")
+
+    def test_real_prepublication_estimate_takes_priority_over_simulation(self):
+        now=datetime(2026,10,21,20,0,tzinfo=timezone.utc)
+        item={"ticker":"ARCH","published_at":"2026-10-21T07:00:00+00:00",
+              "financial_report":{"period":"2026Q3","metrics":[
+                  {"name":"ebitda","current":44,"unit":"USD million"}]}}
+        old={"uploaded_at":"2026-10-20T03:00:00+00:00",
+             "amount_units_confirmed":True,
+             "records":{"ARCH|2026Q3|ebitda":{"value":42.0,"unit_type":"millions"}}}
+        new={"uploaded_at":"2026-10-21T19:00:00+00:00",
+             "amount_units_confirmed":True,
+             "records":{"ARCH|2026Q3|ebitda":{"value":40.0,"unit_type":"millions"}}}
+        new["simulation"]=simulate_today(new,[item],now=now)
+        copy=dict(item)
+        a,b=overlay_private_consensus([copy],[new,old],now=now)
+        self.assertEqual((a,b),(1,0))
+        self.assertEqual(copy["consensus_kind"],"actual")
+        self.assertEqual(copy["consensus_comparison"][0]["consensus"],42.0)
+
+    def test_simulation_not_shown_on_later_days(self):
+        now=datetime(2026,10,22,20,0,tzinfo=timezone.utc)
+        item={"ticker":"ARCH","published_at":"2026-10-21T07:00:00+00:00",
+              "financial_report":{"period":"2026Q3","metrics":[
+                  {"name":"ebitda","current":44,"unit":"USD million"}]}}
+        new={"uploaded_at":"2026-10-21T19:00:00+00:00",
+             "amount_units_confirmed":True,
+             "records":{"ARCH|2026Q3|ebitda":{"value":40.0,"unit_type":"millions"}}}
+        new["simulation"]=simulate_today(new,[item],now=datetime(2026,10,21,20,0,tzinfo=timezone.utc))
+        copy=dict(item)
+        a,b=overlay_private_consensus([copy],[new],now=now)
+        self.assertEqual((a,b),(0,0))
+
+    def test_template_and_default_filter_markup(self):
+        import pathlib
+        page=pathlib.Path("templates/newsweb_dashboard.html").read_text(encoding="utf8")
+        try:
+            from jinja2 import Environment
+        except ImportError:
+            # Minimal CI environment installs only PDF dependencies.
+            # Actual web app renders templates with Jinja in production.
+            self.assertEqual(page.count("{% if "),page.count("{% endif %}"))
+        else:
+            Environment(autoescape=True).parse(page)
+        self.assertIn('data-priority-filter="urgent" checked',page)
+        self.assertIn('<option value="latest" selected>',page)
+        self.assertIn('class="message-grid"',page)
+        self.assertIn("TEST · Mot simulert konsensus",page)
     def test_period(self):
         self.assertEqual(period("26Q3",None),"2026Q3")
         self.assertEqual(period("Year",2026),"2026FY")
