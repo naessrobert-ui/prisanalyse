@@ -1,5 +1,9 @@
 name: NewsWeb AI monitor
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/newsweb-monitor.yml'
   pull_request:
     paths:
       - 'newsweb_monitor/**'
