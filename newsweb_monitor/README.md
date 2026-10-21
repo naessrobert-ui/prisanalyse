@@ -1,43 +1,55 @@
-# NewsWeb AI-monitor på prisanalyse.no – prototype
+# NewsWeb-monitor – kjører timevis i GitHub Actions
 
-Denne funksjonen har to separate deler:
+## Datakilde
+Kilde: Euronext Oslo Børs NewsWeb sitt `newsreader`-API (`api3.oslo.oslobors.no/v1/newsreader`).
+Det er avtalt at meldinger kan hentes. Prototypen begrenser seg til `XOSL`, henter liste (`list`), innhold (`message`) og PDF-vedlegg (`attachment`). Rentereguleringer, ordinære tilbakekjøp og finanskalendere filtreres bort. Dette er ikke en fullstendig børsinstrument-master: vurder innføring av offisiell aksjeliste før produksjon.
 
-1. **Nettside**: /newsweb/ på prisanalyse.no (Flask Blueprint i newsweb_routes.py). Foreløpig vises en tidsstemplet, manuelt gjennomgått stikkprøve av fem virkelige meldinger fra 21. oktober 2026. Stikkprøven er ikke en komplett eller løpende feed; uten snapshot brukes tydelig merkede oppdiktede demodata.
-2. **Analysejobb**: .github/workflows/newsweb-monitor.yml kjører omtrent én gang i timen, og kan startes manuelt fra **Actions → NewsWeb AI monitor → Run workflow**. Rapportene ligger i Actions Summary og Artifacts.
+GitHub Actions: `Actions → NewsWeb AI monitor`.
+- Planlagt kjøring én gang hver time, ca. 27 minutter over hel (UTC). GitHub kan forsinke en planlagt kjøring.
+- Manuell kjøring via `Run workflow`: velg `newsweb` og `dry_run=true`.
+- Lagre rapportene fra hver kjøring via `Summary` og `Artifacts (latest.json / latest.md)`.
+- ID-baserte dubletter og målestørrelser fra tidligere kvartaler beholdes i Actions-cache. Cache er **ikke varig lagring**; for senere produksjon anbefales privat database/S3.
 
-> **Ingen ekte NewsWeb-data hentes automatisk i denne versjonen.** Direkte scraping fra NewsWeb er ikke implementert. Koble bare til en maskinlesbar datakilde som er godkjent for slik bruk.
+## PDF-analyse
+Ved en ny resultatmelding:
+1. Last ned vedlagt kvartalsrapport som PDF. Filstørrelse begrenses til 22 MB.
+2. Trekk ut tekst fra inntil 26 sider med pypdf. Scannede PDF-er uten maskinlesbar tekst krever en separat OCR-løsning.
+3. Hvis `OPENAI_API_KEY` finnes: hent omsetning, EBITDA, EBIT, resultat etter skatt, EPS og driftskontantstrøm for **kvartalet**, samt sammenlignbare tall fra samme kvartal året før.
+4. Hent forrige kvartals rapport fra samme utsteder via NewsWeb hvis denne ikke allerede er i cache. Sammenlign også med forrige kvartal.
+5. Lag tabell med tall, prosentendringer og kildehenvisning til PDF; ikke bland YTD, halvår, valutaer eller ikke-sammenlignbare definisjoner.
 
-## Slik tester du
+PDF-vedlegget behandles i minnet på runneren og blir **ikke publisert eller arkivert** som GitHub-artifact; bare resultat, referanse og URL. Ikke anta at nedlasting av rapporter gir rett til offentlig videredistribusjon.
 
-Gå til Actions og start jobben med mode=demo og dry_run=true. Det brukes fem oppdiktede meldinger. Uten OPENAI_API_KEY kjøres en regelbasert vurdering, tydelig merket IKKE AI. Med nøkkel får du AI-vurderinger i GitHub Actions-rapporten. Demo sender aldri Pushover.
+## Konsensus
+Hvis dere har lovlig tilgang til pre-release Bloomberg / annen estimatfeed, kan den oppgis som `CONSENSUS_JSON_URL` (GitHub repository secret), der responsen er et ticker- og kvartalsindeksert JSON-objekt:
 
-## Overgang til live
+```json
+{
+  "STB": {
+    "2026Q3": {
+      "ebit": {
+        "value": 1110.0,
+        "unit": "NOK million",
+        "source": "EKSEMPEL – BYTT UT MED EKTE ESTIMATKILDE",
+        "asof": "2026-10-20T17:00:00+02:00"
+      }
+    }
+  }
+}
+```
 
-Opprett **repository secrets** (aldri i koden): NEWS_FEED_URL, OPENAI_API_KEY, PUSHOVER_APP_TOKEN, PUSHOVER_USER_KEY.
+**Tallet er kun illustrasjon og må aldri tas som faktisk konsensus.**
+Programmet regner bare surprise når verdi, enhet og punkt-i-tid før børsmeldingen er dokumentert. Ellers står konsensus «ikke tilgjengelig». Automatisert Bloomberg/BQuant-eksport krever egen integrasjon og eventuelle rettigheter.
 
-Valgfrie **repository variables**:
-- NEWSWEB_SOURCE_MODE = live (ellers forblir timeplanen i demo)
-- FEED_FORMAT = json (eller rss)
-- VALID_MARKETS = XOSL
-- EQUITY_TICKERS = kommaseparert godkjent liste, dersom feeden mangler instrumentmetadata
-- OPENAI_MODEL = gpt-4.1-mini
-- NOTIFICATIONS_ENABLED = true (standard false)
-- NOTIFY_SCORE = 75
-- NEWSWEB_DRY_RUN = false (standard true)
+## Oppsett og sikkerhet
+- Legg `OPENAI_API_KEY` i **GitHub Settings → Secrets and variables → Actions → Secrets** for reell AI-analyse. Mangler den, kjører regelbasert klassifisering, PDF leses, men nøkkeltall ekstraheres ikke.
+- Pushover krever `PUSHOVER_APP_TOKEN` og `PUSHOVER_USER_KEY` som Secrets. Den er deaktivert ved standardoppsett. Den kan senere aktiveres med `NOTIFICATIONS_ENABLED=true` i Actions Variables og `NEWSWEB_DRY_RUN=false`.
+- Unngå API-nøkler i kildekode og rapporter. Repositoryet `prisanalyse` er offentlig.
+- Nettsiden `/newsweb/` viser fremdeles tidsstemplet manuell stikkprøve, ikke de timebaserte jobbrapportene. En framtidig godkjent, autentisert dataflyt fra Actions til privat lagring kan knyttes til nettsiden.
 
-Datafeed må gi en JSON-liste eller {"items":[...]} med feltene id, published_at (ISO med tidssone), market=XOSL, instrument_type=equity, ticker, issuer, title, body og valgfri url. Mange RSS-feeds mangler metadata og må tilpasses. Andre markeder/obligasjoner og rutinemeldinger filtreres bort.
-
-**Sikkerhet:** Dette repositoryet er offentlig. Ikke lagre ikke-offentlige børsmeldinger, interne porteføljeopplysninger eller lisensiert innhold i Git. Action-rapportene er ment for testdata eller innhold dere har rett til å behandle. Dersom dere vil vise live analyser på prisanalyse.no, kreves egen autorisert lagring og tilgangsstyring.
-
-Nettsiden viser inntil videre \`newsweb_monitor/sample/demo_report.json\`. For å vise rapport fra en godkjent kilde kan Render senere settes opp med en serverlokal rapportfil via NEWSWEB_DASHBOARD_REPORT_PATH. GitHub Actions skriver foreløpig rapportene **kun som Actions-artifacts**, ikke direkte til nettsiden. Dermed eksponeres ikke en framtidig privat datafeed utilsiktet.
-
-## Utvikling lokalt
-
-\`\`\`sh
+## Lokal test
+```sh
+python -m pip install "pypdf>=5,<8"
 python -m unittest discover -s newsweb_monitor/tests -v
-SOURCE_MODE=demo DRY_RUN=true python -m newsweb_monitor.monitor
-\`\`\`
-
-## Engangsgjennomgang med faktiske meldinger
-
-Filen `newsweb_monitor/sample/reviewed_2026_10_21.json` inneholder kun korte, egenformulerte sammendrag av fem børsnyheter og lenker til kildene. Dette er **ikke automatisert innsamling** eller komplett NewsWeb-dekning. Scorene er manuelle (ingen AI-nøkkel brukt). Innhenting og lagring av NewsWeb-databasen på en ekstern nettside krever at nødvendige rettigheter er avklart.
+SOURCE_MODE=newsweb DRY_RUN=true python -m newsweb_monitor.monitor
+```
