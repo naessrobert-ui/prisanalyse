@@ -62,3 +62,15 @@ GitHub Actions skriver et begrenset offentlig snapshot til `newsweb_monitor/publ
 Nettsiden leser dette fra raw.githubusercontent.com, med 120 sekunders mellomlagring. En kjøring med 0 nye meldinger beholder siste oversikt. Første produksjonskjøring migrerer 119 behandlede meldinger fra GitHub Actions-artifact 39610134457.
 
 Repoet er offentlig! Ikke bruk dette som distribusjonskanal for Nordeas interne vurderinger eller betalte Bloomberg-data uten egen godkjenning. Ved behov for private analyser: flytt databasen til en privat tjeneste med innlogging.
+
+
+## Nullstilling av gamle regelbaserte meldinger (21.10.2026)
+Det gjøres et kontrollert engangsrestart ved å sette `NEWSWEB_GENERATION` i
+`newsweb_monitor/generation.py`. Ved endring av denne versjonen starter
+dedupliserings-cache og `reports_by_ticker` tomme, og nettsidens nye snapshot
+erstatter den gamle historikken i stedet for å slå den sammen. Backfill av
+gamle artifacts er deaktivert. AI-nøkkel er påkrevd for NewsWeb-modus;
+ved AI-feil holdes meldingen tilbake og prøves igjen ved senere kjøring.
+Restart gir ikke Pushover-varsler.
+NB: Gamle commits og Actions artifacts ligger fortsatt i GitHub-historikken;
+dette fjerner data fra den **aktive** nettsiden, ikke fra Git-historikken.
