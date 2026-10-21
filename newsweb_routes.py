@@ -7,12 +7,13 @@ from flask import Blueprint, render_template
 
 newsweb_bp = Blueprint("newsweb", __name__, url_prefix="/newsweb")
 BASE = Path(__file__).resolve().parent
+SNAPSHOT = BASE / "newsweb_monitor" / "sample" / "reviewed_2026_10_21.json"
 DEMO = BASE / "newsweb_monitor" / "sample" / "demo_report.json"
 
 def read_report() -> tuple[dict, bool]:
     """Live-fil er valgfri og må tilføres av en GODKJENT kilde/lagringsmekanisme."""
     setting = os.environ.get("NEWSWEB_DASHBOARD_REPORT_PATH", "").strip()
-    path = Path(setting) if setting else DEMO
+    path = Path(setting) if setting else (SNAPSHOT if SNAPSHOT.exists() else DEMO)
     try:
         # Les bare en eksplisitt konfigurert lokal fil, aldri brukerlevert filbane.
         if path.stat().st_size > 2_000_000:
@@ -20,7 +21,7 @@ def read_report() -> tuple[dict, bool]:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or not isinstance(data.get("items", []), list):
             raise ValueError("Invalid report format")
-        return data, not bool(setting)
+        return data, data.get("mode") == "demo"
     except (OSError, ValueError, json.JSONDecodeError):
         return {
             "source": "unavailable",

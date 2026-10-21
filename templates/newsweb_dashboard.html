@@ -36,9 +36,11 @@ button.active{background:#2764bd;border-color:#438eea;color:#fff}
   <div class="kicker">Prisanalyse / Nyhetsanalyse</div>
   <a href="/">← Til prisanalyse.no</a>
 </header>
-<h1>Oslo Børs – AI-nyhetsmonitor</h1>
+<h1>Oslo Børs – Nyhetsmonitor</h1>
 <p class="lead">Børsmeldinger sortert etter mulig betydning for aksjonærene. Rutinemeldinger tones ned, mens viktig informasjon fremheves. Poengene uttrykker potensiell kursrelevans – ikke en spådom om avkastning.</p>
-{% if demo %}
+{% if report.get("mode") == "manual" %}
+<div class="banner"><strong>MANUELL STIKKPRØVE – 21. oktober 2026.</strong> Dette er fem faktiske meldinger vurdert manuelt og lenket til originalkilden. Oppsummeringer og score er foreløpige, ikke AI-beregnet. Rapporten oppdateres <strong>ikke</strong> automatisk og dekker ikke alle børsmeldinger. Den timebaserte GitHub-jobben er fortsatt i demo inntil en godkjent feed kobles til.</div>
+{% elif demo %}
 <div class="banner"><strong>DEMO – fiktive meldinger.</strong> Dette er et eksempel på grensesnittet, ikke levende NewsWeb-data. Den planlagte GitHub-jobben må kobles til en godkjent meldingsfeed før virkelig overvåking kan aktiveres.</div>
 {% elif report.get("error") %}<div class="banner">{{report.error}}</div>{% endif %}
 <section class="metrics" aria-label="Oppsummering">
