@@ -5,6 +5,8 @@ base="https://api3.oslo.oslobors.no/v1/newsreader/"
 queries=[
   "list",
   "list?market=XOSL",
+  "list?issuer=STB&fromDate=2026-07-01&toDate=2026-10-20",
+  "list?issuerId=1030&fromDate=2026-07-01&toDate=2026-10-20",
   "list?category=1001",
   "list?fromDate=2026-10-20&toDate=2026-10-21",
   "message?messageId=684456",
