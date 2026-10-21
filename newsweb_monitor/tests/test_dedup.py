@@ -16,6 +16,17 @@ def story(ident,ticker,title,stamp,score=75,doc="",period="",metrics=None,skippe
     return d
 
 class BilingualDedupTests(unittest.TestCase):
+    def test_dnb_boligkreditt_third_quarter_report_translation(self):
+        no=story(684471,"DNBNB",
+                 "Regnskapsrapport for 3. kvartal 2026 fra DNB Boligkreditt AS",
+                 "05:36:26.891",45,"Quarterly Report DNB Boligkreditt 3Q26.pdf","2026Q3")
+        en=story(684470,"DNBNB",
+                 "Third quarter report 2026 from DNB Boligkreditt AS",
+                 "05:36:26.890",40,"Quarterly Report DNB Boligkreditt 3Q26.pdf")
+        result=collapse_stories([no,en])
+        self.assertEqual(len(result),1)
+        self.assertEqual({v["id"] for v in result[0]["language_versions"]},{"684471","684470"})
+
     def test_dnb_quarterly_result_pair_and_norwegian_preference(self):
         no=story(684466,"DNB","Solide resultater på tvers av virksomheten i Norden",
                  "05:30:42.894",75,"Quarterly_Report_DNB_Group_3Q26.pdf")

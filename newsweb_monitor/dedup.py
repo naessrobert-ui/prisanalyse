@@ -78,6 +78,7 @@ def _topic(row:dict)->str:
     if re.search(r"vedtak om opptak|decision on admission",title):
         return "trading_admission_decision"
     if re.search(r"resultat|results?|financial report|interim report|quarterly report|"
+                 r"(?:first|second|third|fourth|[1-4](?:st|nd|rd|th)?)\s+quarter\s+report|"
                  r"kvartalsrapport|kvartalsberetning|regnskapsrapport",title):
         return "financial_results"
     return ""
