@@ -9,7 +9,7 @@ try:
     data=json.loads(blob)
     print("root",type(data).__name__)
     if isinstance(data,dict):
-        print("fields",[(k,type(v).__name__) for k,v in data.items()])
+        print("fields",[(k,type(v).__name__) for k,v in data.items()]); print("response",json.dumps(data,ensure_ascii=False)[:1200])
         for key,v in data.items():
             if isinstance(v,list) and v and isinstance(v[0],dict):
                 print("array_field",key,"keys",list(v[0].keys()))
