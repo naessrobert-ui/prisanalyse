@@ -264,6 +264,12 @@ def safe_comparisons(item:dict, snapshots:list[dict])->list[dict]:
             # raw indicative values and flag this uncertainty.
             if not isinstance(actual,(int,float)) or not isinstance(estimate,(int,float)):
                 continue
+            unit=str(m.get("unit","")).lower().strip()
+            if k=="eps":
+                if not ("/share" in unit or "/aksje" in unit or "per share" in unit):
+                    continue
+            elif not any(w in unit for w in ("million","mill.","mio","mill ", " mn")):
+                continue
             if not math.isfinite(actual) or not math.isfinite(estimate):
                 continue
             results.append({"metric":k,"label":METRIC_DISPLAY.get(k,k),

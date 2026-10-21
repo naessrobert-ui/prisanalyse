@@ -93,11 +93,14 @@ def _admin_form(*,message="",error="",summary=None,history=None):
     if not token:
         token=secrets.token_urlsafe(24)
         session["newsweb_consensus_csrf"]=token
-    return render_template("newsweb_consensus.html",
+    from flask import make_response
+    response=make_response(render_template("newsweb_consensus.html",
         allowed=_can_view_consensus(),
         enabled=bool(os.environ.get("NEWSWEB_CONSENSUS_ADMIN_TOKEN")),
         message=message,error=error,summary=summary,history=history or [],
-        csrf=token)
+        csrf=token))
+    response.headers["Cache-Control"]="private, no-store, max-age=0"
+    return response
 
 @newsweb_bp.route("/konsensus/", methods=["GET","POST"])
 def consensus_upload():
@@ -175,7 +178,14 @@ def dashboard():
     focus=sum(1 for x in items if int(x.get("score") or 0)>=75 and not x.get("skipped"))
     interesting=sum(1 for x in items if 45<=int(x.get("score") or 0)<75 and not x.get("skipped"))
     ignored=sum(1 for x in items if x.get("skipped") or int(x.get("score") or 0)<45)
-    return render_template("newsweb_dashboard.html",report=report,items=items,
+    response=render_template("newsweb_dashboard.html",report=report,items=items,
                            demo=demo,focus=focus,interesting=interesting,ignored=ignored,
                            can_view_consensus=_can_view_consensus(),private_error=private_error,
                            consensus_matches=matches)
+    if _can_view_consensus():
+        from flask import make_response
+        secure=make_response(response)
+        secure.headers["Cache-Control"]="private, no-store, max-age=0"
+        secure.headers["Pragma"]="no-cache"
+        return secure
+    return response

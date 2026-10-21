@@ -50,7 +50,7 @@ button.secondary{background:#263c5b}
 <select id="annual_year" name="annual_year">
 <option value="">Ukjent – ikke bruk helårstall ved sammenligning</option>
 {% for year in range(2025,2033) %}
-<option value="{{year}}" {% if year==2026 %}selected{% endif %}>{{year}}</option>
+<option value="{{year}}">{{year}}</option>
 {% endfor %}
 </select>
 <p class="small">Dette kan ikke utledes fra den opplastede filen, fordi kolonneoverskriften bare er «Year». Velg riktig regnskapsår. Kvartalet hentes automatisk fra eksempelvis 26Q3/26Q4.</p>

@@ -32,14 +32,14 @@ button.active{background:#2764bd;border-color:#438eea;color:#fff}
 .story-more p,.story-source p{padding:6px 0}
 .story-source{margin-top:18px;border-top:1px solid #263851;padding-top:12px}.reason{color:#b8c9df}
 .meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:13px;font-size:12px;color:var(--muted)}
-.live-status{font-size:13px;color:#9de5ba;margin:20px 0;padding:11px 15px;border-radius:10px;border:1px solid #285943;background:#0d2a24}.live-dot{display:inline-block;width:9px;height:9px;background:#45c987;border-radius:50%;margin-right:7px}.fin-details{margin:15px 0;border:1px solid #324867;border-radius:10px;padding:12px}.fin-details summary{cursor:pointer;color:#a3c7ff;font-weight:650}.fin-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}.fin-table th,.fin-table td{padding:9px 8px;text-align:right;border-bottom:1px solid #26374e}.fin-table th:first-child,.fin-table td:first-child{text-align:left}.fin-scroll{overflow-x:auto}.footer{padding-top:23px;font-size:12px;line-height:1.6;color:var(--muted)}
+.live-status{font-size:13px;color:#9de5ba;margin:20px 0;padding:11px 15px;border-radius:10px;border:1px solid #285943;background:#0d2a24}.live-dot{display:inline-block;width:9px;height:9px;background:#45c987;border-radius:50%;margin-right:7px}.fin-details{margin:15px 0;border:1px solid #324867;border-radius:10px;padding:12px}.fin-details summary{cursor:pointer;color:#a3c7ff;font-weight:650}.fin-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}.fin-table th,.fin-table td{padding:9px 8px;text-align:right;border-bottom:1px solid #26374e}.fin-table th:first-child,.fin-table td:first-child{text-align:left}.fin-scroll{overflow-x:auto}.private-compare{border-color:#346f5d;background:#0b2926}.private-compare>strong{color:#a3e0c1}.nav-extra{font-size:13px;display:flex;gap:16px;flex-wrap:wrap}.footer{padding-top:23px;font-size:12px;line-height:1.6;color:var(--muted)}
 @media(max-width:720px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:14px}.number{font-size:25px}}
 </style>
 </head>
 <body><main>
 <header class="top">
   <div class="kicker">Prisanalyse / Nyhetsanalyse</div>
-  <a href="/">← Til prisanalyse.no</a>
+  <div class="nav-extra"><a href="/newsweb/konsensus/">Konsensus / Last opp estimater</a> &nbsp; <a href="/">← Til prisanalyse.no</a></div>
 </header>
 <h1>Oslo Børs – Nyhetsmonitor</h1>
 <p class="lead">Børsmeldinger sortert etter mulig betydning for aksjonærene. Rutinemeldinger tones ned, mens viktig informasjon fremheves. Poengene uttrykker potensiell kursrelevans – ikke en spådom om avkastning.</p>
@@ -47,6 +47,8 @@ button.active{background:#2764bd;border-color:#438eea;color:#fff}
 {% elif report.get("mode") == "live" %}
 <div class="live-status"><span class="live-dot"></span> Automatisk oppdatert fra NewsWeb gjennom GitHub Actions. Viser de siste {{items|length}} meldingene i historikken. Nye meldinger analyseres omtrent hver time.</div>
 {% endif %}
+{% if private_error %}<div class="banner">{{private_error}}</div>{% endif %}
+{% if can_view_consensus %}<p class="small">Private estimater er aktivert for denne innloggingen. {{consensus_matches}} meldinger har et mulig tallmessig avvik mot et lagret estimat.</p>{% endif %}
 <section class="metrics" aria-label="Oppsummering">
   <div class="metric"><div class="tiny">Meldinger i rapporten</div><div class="number">{{items|length}}</div></div>
   <div class="metric"><div class="tiny">Høy prioritet (75+)</div><div class="number">{{focus}}</div></div>
@@ -105,6 +107,19 @@ button.active{background:#2764bd;border-color:#438eea;color:#fff}
   <p>{{item.get('title','Original overskrift ikke tilgjengelig')}}</p>
   {% if item.get('url','').startswith('https://') %}<a href="{{item.url}}" target="_blank" rel="noopener noreferrer">Les hele meldingen hos Oslo Børs ↗</a>{% endif %}
 </details>
+{% if can_view_consensus and item.get('consensus_comparison') %}
+<div class="fin-details private-compare">
+<strong>Privat: rapporterte tall mot Bloomberg-konsensus før meldingen</strong>
+<div class="fin-scroll"><table class="fin-table">
+<thead><tr><th>Nøkkeltall</th><th>Rapportert</th><th>Konsensus</th><th>Avvik</th><th>Estimert per</th></tr></thead>
+<tbody>{% for c in item.consensus_comparison %}
+<tr><td>{{c.label}}</td><td>{{c.actual}}</td><td>{{c.consensus}}</td>
+<td>{{(c.surprise_pct|string ~ '%') if c.surprise_pct is not none else c.difference}}</td>
+<td>{{c.asof}}</td></tr>
+{% endfor %}</tbody></table></div>
+<p class="reason">Indikativ sammenligning, kun for innlogget administrator. Kontroller valuta, EPS-basis og justerte vs. rapporterte tall før du beskriver dette som en resultatoverraskelse.</p>
+</div>
+{% endif %}
 <div class="meta"><span>{{item.get('published_at','')}}</span><span>Retning: {{item.get('direction','ukjent')}}</span><span>{{item.get('assessment_source','')}}</span>
 {% if item.get('url','').startswith('https://') %}<a href="{{item.url}}" target="_blank" rel="noopener noreferrer">Børsmelding ↗</a>{% endif %}</div>
 </article>
