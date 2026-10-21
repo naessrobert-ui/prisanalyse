@@ -1,5 +1,11 @@
 name: NewsWeb AI monitor
 on:
+  pull_request:
+    paths:
+      - 'newsweb_monitor/**'
+      - 'newsweb_routes.py'
+      - 'templates/newsweb_dashboard.html'
+      - '.github/workflows/newsweb-monitor.yml'
   schedule:
     - cron: '27 * * * *' # UTC. GitHub kan starte senere enn planlagt.
   workflow_dispatch:
@@ -24,8 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
-      SOURCE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || vars.NEWSWEB_SOURCE_MODE || 'demo' }}
-      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.dry_run) || vars.NEWSWEB_DRY_RUN || 'true' }}
+      SOURCE_MODE: ${{ github.event_name == 'pull_request' && 'demo' || github.event_name == 'workflow_dispatch' && inputs.mode || vars.NEWSWEB_SOURCE_MODE || 'demo' }}
+      DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || github.event_name == 'workflow_dispatch' && format('{0}', inputs.dry_run) || vars.NEWSWEB_DRY_RUN || 'true' }}
       NEWS_FEED_URL: ${{ secrets.NEWS_FEED_URL }}
       FEED_FORMAT: ${{ vars.FEED_FORMAT || 'json' }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
