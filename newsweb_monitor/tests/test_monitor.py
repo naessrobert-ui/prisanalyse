@@ -28,6 +28,20 @@ if __name__=="__main__":
     unittest.main()
 
 class EditorialResponseTests(unittest.TestCase):
+    def test_unverified_expectations_claim_rejected(self):
+        import json
+        from newsweb_monitor.monitor import ai
+        from unittest.mock import patch
+        sample={"issuer":"Test ASA","ticker":"TEST","title":"Q3",
+                "body":"EBIT up 7% from last year.",
+                "published_at":"2026-10-21T08:00:00+02:00"}
+        response={"output":[{"content":[{"type":"output_text","text":json.dumps({
+            "headline":"Test leverer bedre enn ventet",
+            "lead":"Resultatet økte 7 prosent fra i fjor.",
+            "score":82,"direction":"positiv","reason":"Solid vekst"})}]}]}
+        with patch("newsweb_monitor.monitor.http_json",return_value=response):
+            with self.assertRaisesRegex(ValueError,"forventningspåstand"):
+                ai(sample,"test-key")
     def test_editorial_json_is_mapped_and_summarized(self):
         import json
         from newsweb_monitor.monitor import ai
