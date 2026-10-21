@@ -166,6 +166,11 @@ def dashboard():
     # Copy records: private values must never be inserted into the site-wide cache.
     items=[dict(item) for item in report.get("items",[])[:240]]
     actual_matches,simulated_matches,private_error=_private_report_comparisons(items)
+    for item in items:
+        comparable=item.get("consensus_comparison") or []
+        valid=[abs(float(row["surprise_pct"])) for row in comparable
+               if isinstance(row.get("surprise_pct"),(int,float))]
+        item["largest_surprise_abs"]=max(valid,default=-1)
     items=sorted(items,key=lambda x:str(x.get("published_at") or ""),reverse=True)
     focus=sum(1 for x in items if int(x.get("score") or 0)>=75 and not x.get("skipped"))
     interesting=sum(1 for x in items if 45<=int(x.get("score") or 0)<75 and not x.get("skipped"))
