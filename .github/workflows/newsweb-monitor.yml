@@ -1,0 +1,73 @@
+name: NewsWeb AI monitor
+on:
+  schedule:
+    - cron: '27 * * * *' # UTC. GitHub kan starte senere enn planlagt.
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'demo = fiktive meldinger, live = autorisert feed'
+        type: choice
+        options: [demo, live]
+        required: true
+        default: demo
+      dry_run:
+        description: 'Ikke send Pushover'
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: newsweb-hourly-monitor
+  cancel-in-progress: false
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SOURCE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || vars.NEWSWEB_SOURCE_MODE || 'demo' }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.dry_run) || vars.NEWSWEB_DRY_RUN || 'true' }}
+      NEWS_FEED_URL: ${{ secrets.NEWS_FEED_URL }}
+      FEED_FORMAT: ${{ vars.FEED_FORMAT || 'json' }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1-mini' }}
+      VALID_MARKETS: ${{ vars.VALID_MARKETS || 'XOSL' }}
+      EQUITY_TICKERS: ${{ vars.EQUITY_TICKERS }}
+      NOTIFY_SCORE: ${{ vars.NOTIFY_SCORE || '75' }}
+      NOTIFICATIONS_ENABLED: ${{ vars.NOTIFICATIONS_ENABLED || 'false' }}
+      PUSHOVER_APP_TOKEN: ${{ secrets.PUSHOVER_APP_TOKEN }}
+      PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test nyhetsmotoren
+        run: python -m unittest discover -s newsweb_monitor/tests -v
+      - uses: actions/cache/restore@v4
+        with:
+          path: newsweb_monitor/.cache/state.json
+          key: newsweb-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            newsweb-state-
+      - name: Analyser meldinger
+        run: python -m newsweb_monitor.monitor
+      - name: Skriv oppsummering
+        if: always()
+        run: |
+          if [ -f newsweb_monitor/reports/latest.md ]; then
+            cat newsweb_monitor/reports/latest.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Ingen rapport generert. Se loggene.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: newsweb_monitor/.cache/state.json
+          key: newsweb-state-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: newsweb-rapport-${{ github.run_id }}
+          path: newsweb_monitor/reports/
+          retention-days: 30
+          if-no-files-found: ignore
