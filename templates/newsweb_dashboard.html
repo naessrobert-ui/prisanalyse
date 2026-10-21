@@ -104,6 +104,11 @@ h1{font-size:clamp(27px,3vw,37px)}
  .tally{margin:9px 0 16px}
  .tally>.dim{display:none}
 }
+
+.story-languages{font-size:12px;border:1px solid #344965;border-radius:9px;padding:9px 11px;margin:12px 0}
+.story-languages summary{cursor:pointer;color:#b9d6fd;font-weight:650}
+.language-links{display:grid;gap:8px;margin-top:10px}
+.language-links a{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 </style>
 </head>
 <body><main>
@@ -214,6 +219,16 @@ h1{font-size:clamp(27px,3vw,37px)}
   {% else %}
   <p class="reason">Nøkkeltall er ikke ekstrahert ennå. PDF-en kan likevel åpnes via lenken.</p>
   {% endif %}
+</details>
+{% endif %}
+{% if item.get('language_versions') and item.language_versions|length > 1 %}
+<details class="story-languages">
+  <summary>Originalmeldinger på norsk og engelsk ({{item.language_versions|length}})</summary>
+  <div class="language-links">
+    {% for version in item.language_versions %}
+    <a href="{{version.url}}" target="_blank" rel="noopener noreferrer">{{version.language}} – {{version.title}} ↗</a>
+    {% endfor %}
+  </div>
 </details>
 {% endif %}
 <details class="story-source">
