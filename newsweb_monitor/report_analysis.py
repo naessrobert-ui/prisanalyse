@@ -14,17 +14,21 @@ METRIC_LABELS = {
 }
 
 def quarter(title: str, published_at: str) -> str:
-    t = title.lower()
-    match = re.search(r"\b(?:q|kvartal\s*|quarter\s*)([1-4])\s*[,/\- ]*\s*(20\d{2})\b",t)
-    if not match:
-        match=re.search(r"\b(?:3rd|2nd|1st|4th)\s+quarter\s+(20\d{2})",t)
+    """Return a period only if the report title explicitly gives a quarter and year."""
+    t=title.lower()
+    patterns=[
+        (r"\bq([1-4])\s*[,/\- ]*\s*(20\d{2})\b",None),
+        (r"\b([1-4])\.?\s*kvartal\s*(20\d{2})\b",None),
+        (r"\b([1-4])(?:st|nd|rd|th)?\s+quarter\s*(20\d{2})\b",None),
+        (r"\b(første|andre|tredje|fjerde|first|second|third|fourth)\s+(?:kvartal|quarter)\s*(20\d{2})\b",
+            {"første":1,"andre":2,"tredje":3,"fjerde":4,"first":1,"second":2,"third":3,"fourth":4})
+    ]
+    for pattern,names in patterns:
+        match=re.search(pattern,t)
         if match:
-            q={"1st":"1","2nd":"2","3rd":"3","4th":"4"}[t[match.start():match.start()+3]]
-            return match.group(1)+"Q"+q
-        d=datetime.fromisoformat(published_at.replace("Z","+00:00"))
-        q = ((d.month-1)//3 or 4) # publication date alone is not enough; do not infer quarter
-        return ""
-    return f"{match.group(2)}Q{match.group(1)}"
+            q=names[match.group(1)] if names else int(match.group(1))
+            return f"{match.group(2)}Q{q}"
+    return ""
 
 def preceding(period: str) -> str:
     if not re.fullmatch(r"20\d\dQ[1-4]",period):
@@ -97,7 +101,7 @@ def extract_metrics(text:str, key:str, ticker:str, period:str) -> list[dict]:
     return [m for m in result.get("metrics",[]) if m.get("name") in METRIC_NAMES]
 
 def percent(current,base):
-    if current is None or base is None or base==0 or not math.isfinite(float(base)):
+    if current is None or base is None or float(base)<=0 or not math.isfinite(float(base)):
         return None
     v=(float(current)/float(base)-1)*100
     return round(v,1) if math.isfinite(v) else None
