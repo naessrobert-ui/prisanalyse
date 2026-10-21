@@ -65,6 +65,8 @@ def sanitize(item: dict) -> dict | None:
         "id":ident,"market":"XOSL","ticker":ticker,
         "issuer":limited(item.get("issuer"),130),
         "title":limited(item.get("title"),260),
+        "headline":limited(item.get("headline"),115),
+        "lead":limited(item.get("lead"),270),
         "published_at":limited(item.get("published_at"),48),
         "url":safe_url(item.get("url")),
         "summary":limited(item.get("summary"),550),

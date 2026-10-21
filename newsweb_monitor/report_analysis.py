@@ -202,6 +202,10 @@ def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
     result={"period":quarter(item["title"],item["published_at"]),"document":None,
             "metrics":[],"status":"no_pdf"}
     selected=pick_attachment(item.get("attachments") or [])
+    # Some issuers publish headlines such as "strong financial results"
+    # without Q3 in the title. Prefer the actual PDF's period if explicit.
+    if not result["period"] and selected:
+        result["period"]=quarter(selected["name"],item["published_at"])
     if not selected:return result
     result["document"]={"name":selected["name"],
         "url":("https://api3.oslo.oslobors.no/v1/newsreader/attachment?"

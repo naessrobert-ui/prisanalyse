@@ -12,6 +12,15 @@ def item(ident="1",ts="2026-10-21T09:00:00Z"):
             "url":f"https://newsweb.oslobors.no/message/{ident}"}
 
 class DashboardPublicationTests(unittest.TestCase):
+    def test_editorial_headline_and_lead_are_published(self):
+        x=item()
+        x["headline"]="Driftsresultatet vokser etter sterkere marginer"
+        x["lead"]="Det justerte resultatet steg 7 prosent."
+        cleaned=sanitize(x)
+        self.assertEqual(cleaned["headline"],x["headline"])
+        self.assertEqual(cleaned["lead"],x["lead"])
+        self.assertEqual(cleaned["title"],"Q3 report")
+
     def test_no_full_text(self):
         x=item()
         x["attachments"]=[{"name":"report.pdf","secret":"no"}]

@@ -74,3 +74,21 @@ ved AI-feil holdes meldingen tilbake og prøves igjen ved senere kjøring.
 Restart gir ikke Pushover-varsler.
 NB: Gamle commits og Actions artifacts ligger fortsatt i GitHub-historikken;
 dette fjerner data fra den **aktive** nettsiden, ikke fra Git-historikken.
+
+
+## Finansavis-utgave / journalistiske overskrifter
+Fra generasjon `newsroom-2026-10-21-v2` skriver AI **headline** og **lead**
+som egne felter. Nettsiden viser disse først, og skjuler selskapets opprinnelige
+tittel og den analytiske vurderingen i utvidbare seksjoner. Overskrifter må
+beskrive dokumenterte tall/endringer, ikke antatte konsensusoverraskelser.
+En engangsoppdatering av generasjonen bygger ny historikk; gammel publisert
+versjon beholdes kun i Git-commit-historikken.
+
+## Forventninger / estimatfiler
+Konsensus må dokumentere `ticker`, `period`, `metric`, `value`,
+`unit`, `source`, `asof` (før meldingstidspunkt). Vi anbefaler
+Bloomberg/BQuant-eksport til godkjent, privat lagring (f.eks. privat S3-bøtte).
+Ingen proprietære konsensusdata skal legges i offentlig repository,
+GitHub Action-artifacts eller offentlig nettside. BQuant-eksport kan senere
+leses av en separat privat jobb som gir dokumentert resultatavvik i tråd med
+lisens og interne retningslinjer.

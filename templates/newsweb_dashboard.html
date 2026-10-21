@@ -25,7 +25,12 @@ button.active{background:#2764bd;border-color:#438eea;color:#fff}
 .ticker{font-weight:800;color:#92c0ff}.dim{color:var(--muted);font-size:12px}.title{font-size:18px;margin:11px 0 9px;font-weight:700;line-height:1.35}
 .tag{font-size:12px;font-weight:800;border-radius:12px;padding:5px 9px;background:#263c5b}
 .tag.urgent{background:#662332;color:#ffd2d8}.tag.interesting{background:#64470d;color:#fff0b9}.tag.quiet{background:#233246;color:#b8c9df}
-.item p{line-height:1.55;font-size:14px;margin:8px 0}.reason{color:#b8c9df}
+.item p{line-height:1.55;font-size:14px;margin:8px 0}
+.item .news-lead{font-size:15px;line-height:1.55;color:#e4eefc;margin:12px 0 16px;max-width:920px}
+.expectation-note{color:#d7dfe9;font-size:12px;border-left:2px solid #5b7aaf;padding-left:11px}.story-more,.story-source{margin:9px 0;color:var(--muted);font-size:13px}
+.story-more summary,.story-source summary{cursor:pointer;color:#99bee9;font-weight:600}
+.story-more p,.story-source p{padding:6px 0}
+.story-source{margin-top:18px;border-top:1px solid #263851;padding-top:12px}.reason{color:#b8c9df}
 .meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:13px;font-size:12px;color:var(--muted)}
 .live-status{font-size:13px;color:#9de5ba;margin:20px 0;padding:11px 15px;border-radius:10px;border:1px solid #285943;background:#0d2a24}.live-dot{display:inline-block;width:9px;height:9px;background:#45c987;border-radius:50%;margin-right:7px}.fin-details{margin:15px 0;border:1px solid #324867;border-radius:10px;padding:12px}.fin-details summary{cursor:pointer;color:#a3c7ff;font-weight:650}.fin-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}.fin-table th,.fin-table td{padding:9px 8px;text-align:right;border-bottom:1px solid #26374e}.fin-table th:first-child,.fin-table td:first-child{text-align:left}.fin-scroll{overflow-x:auto}.footer{padding-top:23px;font-size:12px;line-height:1.6;color:var(--muted)}
 @media(max-width:720px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:14px}.number{font-size:25px}}
@@ -63,15 +68,21 @@ button.active{background:#2764bd;border-color:#438eea;color:#fff}
 <article class="item" data-priority="{% if quiet %}quiet{% elif score >= 75 %}urgent{% else %}interesting{% endif %}">
 <div class="item-head"><div class="ticker">{{item.get('ticker') or 'UKJENT'}} <span class="dim">· {{item.get('issuer') or ''}}</span></div>
 <span class="tag {% if quiet %}quiet{% elif score>=75 %}urgent{% else %}interesting{% endif %}">{{'Filtrert' if item.get('skipped') else (score|string + ' / 100')}}</span></div>
-<h2 class="title">{{item.get('title','Uten tittel')}}</h2>
-<p>{{item.get('summary') or item.get('body') or 'Ingen oppsummering'}}</p>
-{% if item.get('reason') %}<p class="reason"><strong>Vurdering:</strong> {{item.reason}}</p>{% endif %}
+<h2 class="title">{{item.get('headline') or item.get('title','Uten tittel')}}</h2>
+<p class="news-lead">{{item.get('lead') or item.get('summary') or 'Ingen ingress tilgjengelig'}}</p>
+{% if item.get('reason') %}
+<details class="story-more">
+  <summary>Hvorfor er dette viktig?</summary>
+  <p class="reason">{{item.reason}}</p>
+</details>
+{% endif %}
 {% set fin = item.get('financial_report') %}
 {% if fin and fin.get('document') and fin.document.get('name') %}
 <details class="fin-details">
   <summary>Regnskapsrapport: {{fin.get('period') or 'periode ikke identifisert'}} · {{fin.get('status') or 'venter'}}</summary>
   <p><strong>Dokument:</strong> {{fin.document.get('name')}}
      {% if fin.document.get('url') %} · <a href="{{fin.document.url}}" target="_blank" rel="noopener noreferrer">Se PDF ↗</a>{% endif %}</p>
+  <p class="expectation-note"><strong>Mot analytikernes forventninger:</strong> Ikke vurdert uten pålitelig konsensus hentet før rapporten. Endring fra i fjor er ikke det samme som resultat mot forventningene.</p>
   {% if fin.get('metrics') %}
   <div class="fin-scroll"><table class="fin-table"><thead><tr><th>Nøkkeltall</th><th>Rapportert</th><th>I fjor</th><th>Forrige kv.</th><th>Å/Å</th><th>Kv/Kv</th></tr></thead>
   <tbody>
@@ -89,6 +100,11 @@ button.active{background:#2764bd;border-color:#438eea;color:#fff}
   {% endif %}
 </details>
 {% endif %}
+<details class="story-source">
+  <summary>Selskapets opprinnelige børsmelding</summary>
+  <p>{{item.get('title','Original overskrift ikke tilgjengelig')}}</p>
+  {% if item.get('url','').startswith('https://') %}<a href="{{item.url}}" target="_blank" rel="noopener noreferrer">Les hele meldingen hos Oslo Børs ↗</a>{% endif %}
+</details>
 <div class="meta"><span>{{item.get('published_at','')}}</span><span>Retning: {{item.get('direction','ukjent')}}</span><span>{{item.get('assessment_source','')}}</span>
 {% if item.get('url','').startswith('https://') %}<a href="{{item.url}}" target="_blank" rel="noopener noreferrer">Børsmelding ↗</a>{% endif %}</div>
 </article>

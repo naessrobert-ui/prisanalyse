@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/newsweb-monitor.yml'
+      - 'newsweb_monitor/generation.py'
+      - 'newsweb_monitor/monitor.py'
   pull_request:
     paths:
       - 'newsweb_monitor/**'
