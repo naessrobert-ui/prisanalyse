@@ -8,6 +8,7 @@ import re
 import sys
 from email.utils import parsedate_to_datetime
 from pathlib import Path
+from .generation import NEWSWEB_GENERATION, prepare_state
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError
@@ -203,8 +204,13 @@ def main() -> int:
     state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {"seen":{}}
     if not isinstance(state.get("seen"),dict):
         raise ValueError("Ugyldig statusfil")
+    state, restart = prepare_state(state, mode=mode)
+    if restart:
+        print("Starter ny AI-analyseperiode; gammelt cache-innhold ignoreres.")
+    if mode=="newsweb" and not os.environ.get("OPENAI_API_KEY","").strip():
+        raise RuntimeError("OPENAI_API_KEY mangler – avbryter for å unngå nye regelbaserte vurderinger.")
     # Skiller demo og live, og forskjellige feeds.
-    source = "newsweb-xosl" if mode=="newsweb" else (
+    source = ("newsweb-xosl:"+NEWSWEB_GENERATION) if mode=="newsweb" else (
         "demo" if mode=="demo" else hashlib.sha256(os.getenv("NEWS_FEED_URL","").encode()).hexdigest()[:14])
     seen = state["seen"].setdefault(source,{})
     feed_items = feed(mode)
@@ -258,7 +264,7 @@ def main() -> int:
                         entry["score"]=max(entry["score"],82)
             entry.pop("attachments",None)
             entry["body"]=entry.get("body","")[:900]
-        can_notify=(mode in ("live","newsweb") and bool(key) and
+        can_notify=(mode in ("live","newsweb") and bool(key) and not restart and
             flag("NOTIFICATIONS_ENABLED") and not flag("DRY_RUN",True) and
             entry["score"]>=int(os.getenv("NOTIFY_SCORE","75")))
         if can_notify:
@@ -287,6 +293,7 @@ def main() -> int:
     state_path.write_text(json.dumps(state,ensure_ascii=False),encoding="utf-8")
     report={"source":mode.upper()+(" – KUN FIKTIVE MELDINGER" if mode=="demo" else ""),
             "generated_at":now.isoformat(timespec="seconds"),
+            "generation":NEWSWEB_GENERATION if mode=="newsweb" else "",
             "items":sorted(entries,key=lambda x:x.get("score",0),reverse=True)}
     output=ROOT/"reports"
     output.mkdir(exist_ok=True)

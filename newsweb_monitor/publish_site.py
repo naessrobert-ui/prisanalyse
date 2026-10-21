@@ -10,6 +10,7 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from .generation import NEWSWEB_GENERATION
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
@@ -107,6 +108,13 @@ def sanitize(item: dict) -> dict | None:
 
 def build_snapshot(report:dict, old:dict|None=None, bootstrap:dict|None=None) -> tuple[dict,bool]:
     """Merge new announcements without losing earlier items when next run finds zero."""
+    generation=report.get("generation") or ""
+    # A change of generation is an intentional reset. Never resurrect records
+    # from the previous public snapshot or legacy bootstrap artifact.
+    reset=bool(generation) and (old or {}).get("generation")!=generation
+    if reset:
+        old=None
+        bootstrap=None
     old_items=(old or {}).get("items") or []
     first_items=(bootstrap or {}).get("items") or []
     current_items=report.get("items") or []
@@ -121,6 +129,7 @@ def build_snapshot(report:dict, old:dict|None=None, bootstrap:dict|None=None) ->
     rows=sorted(selected.values(),key=lambda x:(x["published_at"],x["id"]),reverse=True)[:MAX_ITEMS]
     merged={
         "mode":"live",
+        "generation": generation or (old or {}).get("generation",""),
         "source":"NewsWeb – automatisk fra GitHub Actions",
         "generated_at": limited(report.get("generated_at"),48) if current_items else
                         limited((old or bootstrap or {}).get("generated_at"),48),
@@ -143,7 +152,7 @@ def main() -> None:
         print("Not publishing: this was not a NewsWeb production run")
         return
     old=read_json(PUBLIC)
-    bootstrap=read_json(BOOTSTRAP) if old is None else None
+    bootstrap=None  # Never import old rule-based archives after the reset
     result,changed=build_snapshot(report,old,bootstrap)
     if not changed:
         print(f"No new disclosures; preserved {len(result['items'])} published messages")
