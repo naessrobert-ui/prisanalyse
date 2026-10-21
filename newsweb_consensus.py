@@ -180,10 +180,19 @@ def parse_excel(payload: bytes, *, annual_year: int|None, amount_units_confirmed
 
 def _s3():
     import boto3
-    bucket=(os.getenv("NEWSWEB_CONSENSUS_BUCKET") or os.getenv("S3_BUCKET_NAME") or "").strip()
+    bucket=os.getenv("NEWSWEB_CONSENSUS_BUCKET","").strip()
     if not bucket:
-        raise RuntimeError("S3_BUCKET_NAME er ikke konfigurert på webserveren.")
+        raise RuntimeError("NEWSWEB_CONSENSUS_BUCKET må være en separat privat S3-bøtte.")
     client=boto3.client("s3",region_name=os.getenv("AWS_REGION") or "eu-north-1")
+    # Mandatory: never write proprietary estimates to an S3 bucket that may
+    # allow anonymous/public access, including legacy 'prisanalyse-data'.
+    try:
+        block=client.get_public_access_block(Bucket=bucket)["PublicAccessBlockConfiguration"]
+    except Exception as exc:
+        raise RuntimeError("Kan ikke bekrefte S3 Public Access Block. Opplasting stoppet.") from exc
+    if not all(block.get(x) is True for x in
+            ("BlockPublicAcls","IgnorePublicAcls","BlockPublicPolicy","RestrictPublicBuckets")):
+        raise RuntimeError("S3-bøtten må blokkere all offentlig tilgang.")
     return client,bucket
 
 def store_snapshot(snapshot:dict, *, original_name:str) -> str:

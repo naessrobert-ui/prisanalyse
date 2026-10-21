@@ -8,6 +8,8 @@ class ConsensusUploadTests(unittest.TestCase):
         self.assertEqual(period("26Q3",None),"2026Q3")
         self.assertEqual(period("Year",2026),"2026FY")
         self.assertIsNone(period("Year",None))
+        from newsweb_monitor.report_analysis import quarter
+        self.assertEqual(quarter("Årsrapport 2026",""),"2026FY")
     def test_reject_unreadable(self):
         with self.assertRaises(ValueError):
             parse_excel(b"not an xlsx",annual_year=2026,amount_units_confirmed=True)
