@@ -2,8 +2,175 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-21T15:33:09+00:00",
+  "generated_at": "2026-10-21T17:31:00+00:00",
   "items": [
+    {
+      "id": "684546",
+      "market": "XOSL",
+      "ticker": "PROT",
+      "issuer": "Protector Forsikring ASA",
+      "title": "Q3 2026: CR 82.7%, earnings per share NOK 10.2   dividend NOK 5.00 per share",
+      "headline": "Protector øker overskudd til 853 mill. i Q3 – deler ut 5 kroner per aksje",
+      "lead": "Protector Forsikring rapporterer et resultat på 853 millioner kroner i tredje kvartal 2026, opp fra 468 millioner i samme periode i fjor. Selskapet kunngjør også utbytte på 5,00 kroner per aksje med betaling i november.",
+      "published_at": "2026-10-21T16:50:14.879000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684546",
+      "summary": "Protector Forsikring rapporterer et resultat på 853 millioner kroner i tredje kvartal 2026, opp fra 468 millioner i samme periode i fjor. Selskapet kunngjør også utbytte på 5,00 kroner per aksje med betaling i november.",
+      "reason": "Protector leverer klart forbedret resultat og solid combined ratio, samtidig som premieinntektene vokser kraftig. Utbyttet signaliserer finansiell trygghet. Videre bør investorer følge utviklingen i totalavkastningen og fremtidig premievekst.",
+      "score": 75,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "previous_report": "downloaded_and_analyzed",
+        "document": {
+          "name": "Interim Report Q3 2026 (PROT).pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684546&attachmentId=334819"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 3864.0,
+            "prior_year": 3529.0,
+            "prev_quarter": 3698.0,
+            "consensus": null,
+            "yoy_pct": 9.5,
+            "qoq_pct": 4.5,
+            "surprise_pct": null,
+            "evidence": "Page 9, Income statement, Insurance revenue Q3 2026 and Q3 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not explicitly reported in Q3 2026 report excerpt."
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not explicitly reported in Q3 2026 report excerpt."
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 853.0,
+            "prior_year": 468.0,
+            "prev_quarter": 755.0,
+            "consensus": null,
+            "yoy_pct": 82.3,
+            "qoq_pct": 13.0,
+            "surprise_pct": null,
+            "evidence": "Page 9, Income statement, Profit/(loss) for the period Q3 2026 and Q3 2025"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK per share",
+            "current": 10.2,
+            "prior_year": 5.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 82.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 9, Income statement, Earnings per share Q3 2026 and Q3 2025"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Cash flow figures for Q3 not provided in excerpt."
+          }
+        ]
+      }
+    },
+    {
+      "id": "684545",
+      "market": "XOSL",
+      "ticker": "PROT",
+      "issuer": "Protector Forsikring ASA",
+      "title": "Key information relating to the declared cash dividend to be paid by Protector Forsikring ASA",
+      "headline": "Protector Forsikring utbetaler utbytte på 5 kroner per aksje 5. november",
+      "lead": "Protector Forsikring ASA har besluttet et kontantutbytte på 5 NOK per aksje, med utbetaling 5. november 2026. Aksjonærer må være registrert innen 28. oktober for å motta utbyttet.",
+      "published_at": "2026-10-21T16:50:04.501000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684545",
+      "summary": "Protector Forsikring ASA har besluttet et kontantutbytte på 5 NOK per aksje, med utbetaling 5. november 2026. Aksjonærer må være registrert innen 28. oktober for å motta utbyttet.",
+      "reason": "Utbytteutbetaling signaliserer god likviditet og fortjeneste, noe som er positivt for aksjonærer. Utbyttenivå og guiden for fremtidige utbetalinger bør følges for å vurdere langsiktig avkastning og selskapets økonomiske helse.",
+      "score": 55,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI"
+    },
+    {
+      "id": "684544",
+      "market": "XOSL",
+      "ticker": "SCATC",
+      "issuer": "Scatec ASA",
+      "title": "Scatec revises full-year 2026 power production EBITDA estimate",
+      "headline": "Scatec kutter 2026 EBITDA-estimat med inntil 300 millioner kroner",
+      "lead": "Scatec justerer ned sin EBITDA-prognose for kraftproduksjon i 2026 til 3,3–3,6 milliarder kroner, påvirket av krig i Ukraina, regulatorisk usikkerhet på Filippinene og forsinkelser i Sør-Afrika og Pakistan.",
+      "published_at": "2026-10-21T16:45:03.844000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684544",
+      "summary": "Scatec justerer ned sin EBITDA-prognose for kraftproduksjon i 2026 til 3,3–3,6 milliarder kroner, påvirket av krig i Ukraina, regulatorisk usikkerhet på Filippinene og forsinkelser i Sør-Afrika og Pakistan.",
+      "reason": "Nedjusteringen skyldes både geopolitiske risikoer og regulatoriske endringer som direkte påvirker driftsmuligheter og kostnader, noe som kan redusere lønnsomheten og usikkerheten for investorer. Viktig å følge fremtidige oppdateringer og effekten av valutakurssvingninger.",
+      "score": 75,
+      "skipped": false,
+      "direction": "negativ",
+      "assessment_source": "AI",
+      "financial_report": {
+        "status": "unknown_period",
+        "period": "",
+        "previous_report": "",
+        "document": {
+          "name": "Scatec revises full-year 2026 power production EBITDA estimate.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684544&attachmentId=334817"
+        },
+        "metrics": []
+      }
+    },
+    {
+      "id": "684543",
+      "market": "XOSL",
+      "ticker": "TOM",
+      "issuer": "Tomra Systems ASA",
+      "title": "TOMRA: Appointed preferred supplier to leading retail chain in UK",
+      "headline": "Tomra sikrer avtale om 2.000 retursystemer for britisk dagligvarekjede",
+      "lead": "Tomra har inngått intensjonsavtale som foretrukket leverandør av 2.000 retursystemer til ledende UK-forhandler, med leveranser fra 2027 i forkant av UK Deposit Return Scheme.",
+      "published_at": "2026-10-21T15:38:59.756000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684543",
+      "summary": "Tomra har inngått intensjonsavtale som foretrukket leverandør av 2.000 retursystemer til ledende UK-forhandler, med leveranser fra 2027 i forkant av UK Deposit Return Scheme.",
+      "reason": "Avtalen viser at Tomra posisjonerer seg sterkt i et viktig marked frem mot lansering av ny norsk-inspirert miljøordning i Storbritannia. For aksjonærer betyr det potensielt økt salg og markedsandel, men detaljene om kontraktsverdier mangler og bør følges opp.",
+      "score": 72,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI"
+    },
     {
       "id": "684542",
       "market": "XOSL",
@@ -1421,7 +1588,7 @@
             "yoy_pct": -27.9,
             "qoq_pct": -21.8,
             "surprise_pct": null,
-            "evidence": "Storebrand Bank Group profit before tax for continued operations (akin to EBIT before tax, as no interest separately shown) is NOK 147.1 million in Q3 2026 and "
+            "evidence": "Storebrand Bank Group profit before tax for continued operations (akin to EBIT before tax, as no interest separately shown) is NOK 147.1 million in Q3 2026 and"
           },
           {
             "label": "Resultat etter skatt",
@@ -1659,7 +1826,7 @@
             "yoy_pct": -42.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Calculated based on net income of NOK 41.9 million for Q3 2026 and 72.7 million for Q3 2025, divided by 35,483,333 shares (given nominal 14 NOK/share and total "
+            "evidence": "Calculated based on net income of NOK 41.9 million for Q3 2026 and 72.7 million for Q3 2025, divided by 35,483,333 shares (given nominal 14 NOK/share and total"
           },
           {
             "label": "Kontantstrøm drift",
