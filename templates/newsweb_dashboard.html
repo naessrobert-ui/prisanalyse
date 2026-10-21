@@ -216,13 +216,60 @@ h1{font-size:clamp(27px,3vw,37px)}
 <div class="footer">Løsningen er en prototype. AI-vurderinger må kvalitetssikres, og lisensierte data skal ikke vises offentlig uten nødvendige rettigheter. <a href="https://github.com/naessrobert-ui/prisanalyse/actions">Se GitHub Actions</a>.</div>
 </main>
 <script>
-document.querySelectorAll('button[data-filter]').forEach(button=>{
- button.addEventListener('click',()=>{
-  document.querySelectorAll('button[data-filter]').forEach(b=>b.classList.toggle('active',b===button));
-  document.querySelectorAll('article[data-priority]').forEach(el=>{
-    el.hidden=button.dataset.filter!=='all' && el.dataset.priority!==button.dataset.filter;
+(() => {
+  const container=document.getElementById('messages');
+  const cards=Array.from(container.querySelectorAll('article[data-priority]'));
+  const filters=Array.from(document.querySelectorAll('input[data-priority-filter]'));
+  const sort=document.getElementById('news-sort');
+  const search=document.getElementById('news-search');
+  const status=document.getElementById('filter-status');
+  const number=(card,key,fallback=0)=>{
+    const n=Number(card.dataset[key]);
+    return Number.isFinite(n)?n:fallback;
+  };
+  const published=card=>{
+    const t=Date.parse(card.dataset.date||'');
+    return Number.isFinite(t)?t:0;
+  };
+  function refresh(){
+    const selected=new Set(filters.filter(f=>f.checked).map(f=>f.dataset.priorityFilter));
+    const query=(search.value||'').trim().toLocaleLowerCase('nb-NO');
+    let visible=0;
+    cards.forEach(card=>{
+      const show=selected.has(card.dataset.priority) &&
+        (!query || card.textContent.toLocaleLowerCase('nb-NO').includes(query));
+      card.hidden=!show;
+      if(show)visible++;
+    });
+    const choice=sort.value;
+    cards.sort((a,b)=>{
+      if(choice==='score')return number(b,'score')-number(a,'score')||published(b)-published(a);
+      if(choice==='oldest')return published(a)-published(b);
+      if(choice==='ticker')return (a.dataset.ticker||'').localeCompare(b.dataset.ticker||'','nb')
+        ||published(b)-published(a);
+      if(choice==='surprise')return number(b,'surprise',-1)-number(a,'surprise',-1)
+        ||published(b)-published(a);
+      return published(b)-published(a);
+    });
+    container.append(...cards);
+    status.textContent='Viser '+visible+' av '+cards.length+' meldinger · '+
+      sort.options[sort.selectedIndex].textContent.toLocaleLowerCase('nb-NO');
+  }
+  filters.forEach(f=>f.addEventListener('change',refresh));
+  sort.addEventListener('change',refresh);
+  search.addEventListener('input',refresh);
+  const formatter=new Intl.DateTimeFormat('nb-NO',{
+    timeZone:'Europe/Oslo',day:'2-digit',month:'short',
+    hour:'2-digit',minute:'2-digit'
   });
- });
-});
+  document.querySelectorAll('.published-at[data-timestamp]').forEach(el=>{
+    const timestamp=Date.parse(el.dataset.timestamp||'');
+    if(Number.isFinite(timestamp)){
+      el.textContent=formatter.format(new Date(timestamp));
+      el.title=el.dataset.timestamp;
+    }
+  });
+  refresh();
+})();
 </script>
 </body></html>
