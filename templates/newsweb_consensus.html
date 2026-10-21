@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="no"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Private konsensusestimater – Nyhetsmonitor</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,Segoe UI,Arial;background:#0a142b;color:#e5ecf9;margin:0}
+main{max-width:940px;margin:0 auto;padding:35px 22px 65px}
+h1{font-size:32px;line-height:1.15;margin:18px 0 12px}h2{font-size:19px}
+p{line-height:1.6;color:#bdd0e8}
+a{color:#9ac6ff;text-decoration:none}a:hover{text-decoration:underline}
+.panel{margin:24px 0;padding:25px;border:1px solid #30415e;border-radius:14px;background:#111f38}
+header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+label{display:block;font-size:14px;font-weight:650;margin:14px 0 6px;color:#d9e8fa}
+input,select{font:inherit;width:100%;padding:12px;background:#0b172c;color:#eef4ff;border:1px solid #3c5274;border-radius:9px}
+input[type="checkbox"]{width:auto;margin-right:8px}
+button{font:inherit;color:white;background:#2968c3;padding:12px 21px;border:0;border-radius:9px;font-weight:700;cursor:pointer;margin-top:18px}
+button.secondary{background:#263c5b}
+.alert{padding:14px;border:1px solid #6c4d2c;background:#3e2b1a;border-radius:10px;color:#ffe4ba}
+.good{padding:14px;border:1px solid #2a735b;background:#13342d;border-radius:10px;color:#c4f4d9}
+.small{font-size:13px;color:#a4b6d0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.stat{padding:14px;border:1px solid #3a4a60;border-radius:9px}
+.big{font-size:25px;font-weight:750}
+.list{margin:0;padding-left:20px;color:#bfcfe4;line-height:1.8}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+</style></head><body>
+<main>
+<header><div><a href="/newsweb/">← Nyhetsmonitor</a></div><div class="small">Privat funksjon · Opplasting av Bloomberg-konsensus</div></header>
+<h1>Forventninger før regnskapsfremleggelsen</h1>
+<p>Last opp et Bloomberg-Excel-ark når du ønsker. Verdiene lagres privat i S3 med opplastingstidspunkt og brukes bare til sammenligninger mot resultater som kommer <strong>etter</strong> opplastingen.</p>
+{% if error %}<div class="alert">{{error}}</div>{% endif %}
+{% if message %}<div class="good">{{message}}</div>{% endif %}
+{% if not enabled %}
+<div class="panel"><h2>Oppsett mangler</h2>
+<p>Sett <code>NEWSWEB_CONSENSUS_ADMIN_TOKEN</code> som en hemmelig miljøvariabel i Render, med en tilfeldig og lang verdi. Webtjenesten må også ha S3-tilgang via <code>S3_BUCKET_NAME</code> og AWS-legitimasjon.</p></div>
+{% elif not allowed %}
+<div class="panel"><h2>Lås opp konsensusarkivet</h2><p>Administratorpassordet ligger bare i Render, ikke i Excel-filen eller GitHub.</p>
+<form method="post" action="/newsweb/konsensus/"><input type="hidden" name="csrf" value="{{csrf}}">
+<input type="hidden" name="action" value="login">
+<label for="token">Administratorkode</label><input id="token" type="password" name="admin_token" required autocomplete="off">
+<button type="submit">Lås opp</button></form></div>
+{% else %}
+<div class="panel">
+<header><h2>Ny konsensusopplasting</h2><form method="post" action="/newsweb/konsensus/"><input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="action" value="logout"><button class="secondary" type="submit">Lås</button></form></header>
+<form method="post" action="/newsweb/konsensus/" enctype="multipart/form-data">
+<input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="action" value="upload">
+<label for="file">Bloomberg Excel-fil</label><input id="file" type="file" name="file" accept=".xlsx" required>
+<label for="annual_year">Hvilket regnskapsår gjelder kolonnene merket «Year»?</label>
+<select id="annual_year" name="annual_year">
+<option value="">Ukjent – ikke bruk helårstall ved sammenligning</option>
+{% for year in range(2025,2033) %}
+<option value="{{year}}" {% if year==2026 %}selected{% endif %}>{{year}}</option>
+{% endfor %}
+</select>
+<p class="small">Dette kan ikke utledes fra den opplastede filen, fordi kolonneoverskriften bare er «Year». Velg riktig regnskapsår. Kvartalet hentes automatisk fra eksempelvis 26Q3/26Q4.</p>
+<label><input type="checkbox" name="confirmed_units" value="yes"> Jeg bekrefter at BEST-beløpene er i millioner av selskapets rapporteringsvaluta, og EPS er per aksje.</label>
+<p class="small">Dersom dette ikke bekreftes, lagres estimatene, men automatisk avviksberegning er deaktivert.</p>
+<button type="submit">Last opp og lagre estimater privat</button>
+</form></div>
+{% if summary %}
+<div class="panel"><h2>Siste opplasting</h2>
+<div class="grid">
+<div class="stat"><div class="big">{{summary.company_count}}</div><div class="small">Selskaper</div></div>
+<div class="stat"><div class="big">{{summary.value_count}}</div><div class="small">Lagrede tall</div></div>
+</div>
+<p><strong>Fil:</strong> {{summary.original_name}}<br>
+<strong>Opplastet UTC:</strong> {{summary.uploaded_at}}<br>
+<strong>Perioder:</strong> {{summary.periods|join(', ')}}<br>
+<strong>Manglende/ugyldige felt:</strong> {{summary.invalid_or_missing_cells}}<br>
+<strong>Enheter bekreftet:</strong> {{'Ja' if summary.amount_units_confirmed else 'Nei'}}</p>
+<p><a href="/newsweb/">Åpne nyhetsmonitoren med private sammenligninger →</a></p>
+</div>
+{% endif %}
+<div class="panel"><h2>Hvordan sammenligningen virker</h2>
+<ol class="list">
+<li>Finn selskapets Bloomberg-ticker og rapportperiode.</li>
+<li>Velg det siste lagrede estimatet <strong>før</strong> meldingen ble offentliggjort.</li>
+<li>Sammenlign faktiske tall med konsensus for samme nøkkeltall.</li>
+<li>Vis avviket bare når valutagrunnlag, definisjon og tidsstempel er kontrollert.</li>
+</ol>
+<p class="small">Ingen Excel-fil, konsensusbeløp eller avvik publiseres i den offentlige GitHub-rapporten. Historiske Q3-resultater som kom før opplastingen får ikke retroaktive «bedre enn ventet»-etiketter.</p>
+</div>
+{% endif %}
+</main></body></html>
