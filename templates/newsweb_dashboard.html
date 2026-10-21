@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>NewsWeb AI-monitor | Prisanalyse</title>
+<style>
+:root{color-scheme:dark;--bg:#070e20;--panel:#111c34;--line:#293956;--muted:#9caec6;--text:#f1f5fd;--blue:#5fa8ff}
+*{box-sizing:border-box}body{background:radial-gradient(circle at 0% 0%,#172c55 0,transparent 42%),var(--bg);font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:var(--text);margin:0}
+main{max-width:1160px;margin:0 auto;padding:26px 22px 70px}
+a{color:#8fbcff;text-decoration:none}a:hover{text-decoration:underline}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.kicker{font-size:12px;text-transform:uppercase;letter-spacing:.18em;color:#77b6ff;font-weight:800}
+h1{font-size:clamp(29px,4vw,44px);margin:8px 0 8px}.lead{font-size:15px;line-height:1.6;color:var(--muted);max-width:770px}
+.banner{padding:14px 17px;border:1px solid #d9aa48;color:#ffdf96;background:#3a2917;border-radius:12px;margin:22px 0;font-size:14px;line-height:1.5}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:28px 0}
+.metric{border:1px solid var(--line);border-radius:15px;background:var(--panel);padding:20px}
+.number{font-size:31px;font-weight:800;margin-top:7px;font-variant-numeric:tabular-nums}.tiny{color:var(--muted);font-size:12px}
+.toolbar{display:flex;gap:8px;margin:24px 0 14px;flex-wrap:wrap}
+button{border:1px solid #364968;background:#122039;color:#d6e4ff;border-radius:24px;padding:9px 15px;font-size:13px;cursor:pointer}
+button.active{background:#2764bd;border-color:#438eea;color:#fff}
+.item{padding:20px 22px;margin:12px 0;border:1px solid var(--line);border-radius:14px;background:#101b32}
+.item-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.ticker{font-weight:800;color:#92c0ff}.dim{color:var(--muted);font-size:12px}.title{font-size:18px;margin:11px 0 9px;font-weight:700;line-height:1.35}
+.tag{font-size:12px;font-weight:800;border-radius:12px;padding:5px 9px;background:#263c5b}
+.tag.urgent{background:#662332;color:#ffd2d8}.tag.interesting{background:#64470d;color:#fff0b9}.tag.quiet{background:#233246;color:#b8c9df}
+.item p{line-height:1.55;font-size:14px;margin:8px 0}.reason{color:#b8c9df}
+.meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:13px;font-size:12px;color:var(--muted)}
+.footer{padding-top:23px;font-size:12px;line-height:1.6;color:var(--muted)}
+@media(max-width:720px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:14px}.number{font-size:25px}}
+</style>
+</head>
+<body><main>
+<header class="top">
+  <div class="kicker">Prisanalyse / Nyhetsanalyse</div>
+  <a href="/">← Til prisanalyse.no</a>
+</header>
+<h1>Oslo Børs – AI-nyhetsmonitor</h1>
+<p class="lead">Børsmeldinger sortert etter mulig betydning for aksjonærene. Rutinemeldinger tones ned, mens viktig informasjon fremheves. Poengene uttrykker potensiell kursrelevans – ikke en spådom om avkastning.</p>
+{% if demo %}
+<div class="banner"><strong>DEMO – fiktive meldinger.</strong> Dette er et eksempel på grensesnittet, ikke levende NewsWeb-data. Den planlagte GitHub-jobben må kobles til en godkjent meldingsfeed før virkelig overvåking kan aktiveres.</div>
+{% elif report.get("error") %}<div class="banner">{{report.error}}</div>{% endif %}
+<section class="metrics" aria-label="Oppsummering">
+  <div class="metric"><div class="tiny">Meldinger i rapporten</div><div class="number">{{items|length}}</div></div>
+  <div class="metric"><div class="tiny">Høy prioritet (75+)</div><div class="number">{{focus}}</div></div>
+  <div class="metric"><div class="tiny">Interessante (45+)</div><div class="number">{{interesting}}</div></div>
+  <div class="metric"><div class="tiny">Lav prioritet / filtrert</div><div class="number">{{ignored}}</div></div>
+</section>
+<div class="top"><div><strong>Vurderte meldinger</strong><div class="tiny">Viser opptil 200, sortert etter score</div></div>
+<div class="tiny">Kilde: {{report.get('source','ukjent')}}{% if report.get('generated_at') %} · {{report.generated_at}}{% endif %}</div></div>
+<nav class="toolbar" aria-label="Nyhetsfilter">
+  <button class="active" data-filter="all">Alle</button>
+  <button data-filter="urgent">Høy prioritet</button>
+  <button data-filter="interesting">Interessante</button>
+  <button data-filter="quiet">Filtrert / lav</button>
+</nav>
+<section id="messages">
+{% for item in items %}
+{% set score = item.get('score',0)|int %}
+{% set quiet = item.get('skipped') or score < 45 %}
+<article class="item" data-priority="{% if quiet %}quiet{% elif score >= 75 %}urgent{% else %}interesting{% endif %}">
+<div class="item-head"><div class="ticker">{{item.get('ticker') or 'UKJENT'}} <span class="dim">· {{item.get('issuer') or ''}}</span></div>
+<span class="tag {% if quiet %}quiet{% elif score>=75 %}urgent{% else %}interesting{% endif %}">{{'Filtrert' if item.get('skipped') else (score|string + ' / 100')}}</span></div>
+<h2 class="title">{{item.get('title','Uten tittel')}}</h2>
+<p>{{item.get('summary') or item.get('body') or 'Ingen oppsummering'}}</p>
+{% if item.get('reason') %}<p class="reason"><strong>Vurdering:</strong> {{item.reason}}</p>{% endif %}
+<div class="meta"><span>{{item.get('published_at','')}}</span><span>Retning: {{item.get('direction','ukjent')}}</span><span>{{item.get('assessment_source','')}}</span>
+{% if item.get('url','').startswith('https://') %}<a href="{{item.url}}" target="_blank" rel="noopener noreferrer">Børsmelding ↗</a>{% endif %}</div>
+</article>
+{% endfor %}
+{% if not items %}<div class="item">Ingen meldinger tilgjengelig ennå.</div>{% endif %}
+</section>
+<div class="footer">Løsningen er en prototype. AI-vurderinger må kvalitetssikres, og lisensierte data skal ikke vises offentlig uten nødvendige rettigheter. <a href="https://github.com/naessrobert-ui/prisanalyse/actions">Se GitHub Actions</a>.</div>
+</main>
+<script>
+document.querySelectorAll('button[data-filter]').forEach(button=>{
+ button.addEventListener('click',()=>{
+  document.querySelectorAll('button[data-filter]').forEach(b=>b.classList.toggle('active',b===button));
+  document.querySelectorAll('article[data-priority]').forEach(el=>{
+    el.hidden=button.dataset.filter!=='all' && el.dataset.priority!==button.dataset.filter;
+  });
+ });
+});
+</script>
+</body></html>

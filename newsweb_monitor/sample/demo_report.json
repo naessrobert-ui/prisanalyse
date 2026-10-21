@@ -1,0 +1,68 @@
+{
+  "source": "DEMO – syntetiske meldinger",
+  "generated_at": "2026-10-21 (eksempel)",
+  "items": [
+    {
+      "id": "demo-1",
+      "ticker": "DEMO1",
+      "issuer": "Eksempel Industri ASA",
+      "title": "[TEST] Resultatvarsel: EBIT om lag 35 prosent under tidligere guiding",
+      "summary": "Selskapet melder at driftsresultatet ventes rundt 35 % lavere enn tidligere anslått.",
+      "reason": "Stor endring i resultatutsiktene. Tidligere markedsforventning er ikke oppgitt.",
+      "score": 94,
+      "direction": "negativ",
+      "published_at": "2026-10-21T09:00:00+02:00",
+      "assessment_source": "Demovurdering"
+    },
+    {
+      "id": "demo-2",
+      "ticker": "DEMO2",
+      "issuer": "Eksempel Teknologi ASA",
+      "title": "[TEST] Stor kontrakt med internasjonal kunde",
+      "summary": "Selskapet melder ny kontrakt verdt NOK 420 mill.",
+      "reason": "Mulig vesentlig for ordreinngangen. Omsetningsandel og marginer må undersøkes.",
+      "score": 81,
+      "direction": "positiv",
+      "published_at": "2026-10-21T08:45:00+02:00",
+      "assessment_source": "Demovurdering"
+    },
+    {
+      "id": "demo-3",
+      "ticker": "DEMO3",
+      "issuer": "Eksempel Shipping ASA",
+      "title": "[TEST] Månedlig flåteoppdatering",
+      "summary": "Gjennomsnittlig rater og operasjonell utnyttelse er oppgitt.",
+      "reason": "Kan være interessant, men kursrelevansen avhenger av nivå versus forventningene.",
+      "score": 55,
+      "direction": "uklar",
+      "published_at": "2026-10-21T08:20:00+02:00",
+      "assessment_source": "Demovurdering"
+    },
+    {
+      "id": "demo-4",
+      "ticker": "DEMO4",
+      "issuer": "Eksempel Finans ASA",
+      "title": "[TEST] Oppdatert finanskalender",
+      "summary": "Datoer for neste kvartalspresentasjon.",
+      "reason": "Rent administrativ melding.",
+      "score": 5,
+      "direction": "nøytral",
+      "published_at": "2026-10-21T07:58:00+02:00",
+      "assessment_source": "Regelfilter",
+      "skipped": true
+    },
+    {
+      "id": "demo-5",
+      "ticker": "DEMO5",
+      "issuer": "Eksempel Energi ASA",
+      "title": "[TEST] Transaksjoner i tilbakekjøpsprogram",
+      "summary": "Ordinær rapportering av tilbakekjøpte aksjer.",
+      "reason": "Standardrapportering uten ny informasjon om selve programmet.",
+      "score": 8,
+      "direction": "nøytral",
+      "published_at": "2026-10-21T07:35:00+02:00",
+      "assessment_source": "Regelfilter",
+      "skipped": true
+    }
+  ]
+}
