@@ -89,6 +89,21 @@ h1{font-size:clamp(27px,3vw,37px)}
  .sort-controls select{flex:1}.sort-controls input{flex:1}
  .filter-chip{padding:8px 9px}.title{font-size:17px}}
 
+
+/* Keep explanatory copy available, but below the stories on narrow screens.
+   PC layout stays untouched; short hero means headlines appear immediately. */
+.mobile-about{display:none}
+@media(max-width:740px){
+ h1{font-size:24px;line-height:1.18;margin:7px 0 11px}
+ .intro-top,.live-status{display:none}
+ .mobile-about{display:block;margin:20px 0 6px;padding:12px 14px;
+   border:1px solid #2d4262;border-radius:11px;background:#101c33;
+   color:#aebfd7;font-size:12px;line-height:1.5}
+ .mobile-about summary{cursor:pointer;font-weight:650;color:#b8d5f9}
+ .mobile-about p{margin:12px 0 4px}
+ .tally{margin:9px 0 16px}
+ .tally>.dim{display:none}
+}
 </style>
 </head>
 <body><main>
@@ -97,10 +112,10 @@ h1{font-size:clamp(27px,3vw,37px)}
   <div class="nav-extra"><a href="/newsweb/konsensus/">Konsensus / Last opp estimater</a> &nbsp; <a href="/">← Til prisanalyse.no</a></div>
 </header>
 <h1>Oslo Børs – Nyhetsmonitor</h1>
-<p class="lead">De viktigste børsmeldingene, med nyeste først. Bytt prioritet og sortering for å finne aktuelle saker. Prioritetsscore er en vurdering av nyhetsverdi, ikke et kursmål.</p>
+<p class="lead intro-top">De viktigste børsmeldingene, med nyeste først. Bytt prioritet og sortering for å finne aktuelle saker. Prioritetsscore er en vurdering av nyhetsverdi, ikke et kursmål.</p>
 {% if report.get("error") %}<div class="banner">{{report.error}}</div>
 {% elif report.get("mode") == "live" %}
-<div class="live-status"><span class="live-dot"></span> Automatisk oppdatert fra NewsWeb gjennom GitHub Actions. Viser de siste {{items|length}} meldingene i historikken. Nye meldinger analyseres omtrent hver time.</div>
+<div class="live-status"><span class="live-dot"></span> Automatisk oppdatert fra NewsWeb gjennom GitHub Actions. Viser de siste {{items|length}} meldingene i historikken. Oppdateres hvert 15. minutt kl. 06–10 og deretter hver time kl. 10–23 (norsk tid).</div>
 {% endif %}
 {% if private_error %}<div class="banner">{{private_error}}</div>{% endif %}
 {% if can_view_consensus and (consensus_matches or simulated_matches) %}<p class="dimmed-summary">Privat konsensus: {{consensus_matches}} meldinger med før-publisering-estimater{% if simulated_matches %} · {{simulated_matches}} med <strong>simulert test</strong> (som om estimatene var fra dagen før){% endif %}. <a href="/newsweb/konsensus/">Se opplastingsrapport →</a></p>{% endif %}
@@ -213,6 +228,13 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% endfor %}
 {% if not items %}<div class="item">Ingen meldinger tilgjengelig ennå.</div>{% endif %}
 </section>
+<aside class="mobile-about" aria-label="Om NewsWeb og oppdateringer">
+  <details>
+    <summary>Om nyhetsmonitoren og oppdateringer</summary>
+    <p>De viktigste børsmeldingene, med nyeste først. Bytt prioritet og sortering for å finne aktuelle saker. Prioritetsscore er en vurdering av nyhetsverdi, ikke et kursmål.</p>
+    <p>NewsWeb analyseres automatisk hvert 15. minutt mellom kl. 06 og 10, og hver time mellom kl. 10 og 23, norsk tid. Viser de siste {{items|length}} meldingene.</p>
+  </details>
+</aside>
 <div class="footer">Løsningen er en prototype. AI-vurderinger må kvalitetssikres, og lisensierte data skal ikke vises offentlig uten nødvendige rettigheter. <a href="https://github.com/naessrobert-ui/prisanalyse/actions">Se GitHub Actions</a>.</div>
 </main>
 <script>
