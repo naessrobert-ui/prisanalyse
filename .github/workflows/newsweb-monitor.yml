@@ -11,11 +11,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'demo = fiktive meldinger, live = autorisert feed'
+        description: 'newsweb = automatisk Oslo Børs, demo = syntetiske meldinger, live = ekstern datakilde'
         type: choice
-        options: [demo, live]
+        options: [demo, newsweb, live]
         required: true
-        default: demo
+        default: newsweb
       dry_run:
         description: 'Ikke send Pushover'
         type: boolean
@@ -28,11 +28,15 @@ concurrency:
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 25
     env:
-      SOURCE_MODE: ${{ github.event_name == 'pull_request' && 'demo' || github.event_name == 'workflow_dispatch' && inputs.mode || vars.NEWSWEB_SOURCE_MODE || 'demo' }}
+      SOURCE_MODE: ${{ github.event_name == 'pull_request' && 'demo' || github.event_name == 'workflow_dispatch' && inputs.mode || vars.NEWSWEB_SOURCE_MODE || 'newsweb' }}
       DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || github.event_name == 'workflow_dispatch' && format('{0}', inputs.dry_run) || vars.NEWSWEB_DRY_RUN || 'true' }}
       NEWS_FEED_URL: ${{ secrets.NEWS_FEED_URL }}
+      CONSENSUS_JSON_URL: ${{ secrets.CONSENSUS_JSON_URL }}
+      LOOKBACK_HOURS: '36'
+      INDEX_HOURS: '48'
+      MAX_MESSAGES: '120'
       FEED_FORMAT: ${{ vars.FEED_FORMAT || 'json' }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1-mini' }}
@@ -47,6 +51,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Installer PDF-leser
+        run: python -m pip install "pypdf>=5,<8"
       - name: Test nyhetsmotoren
         run: python -m unittest discover -s newsweb_monitor/tests -v
       - name: Undersøk NewsWeb API (kun pull request)
