@@ -9,7 +9,7 @@ import sys
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import urlencode, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import Request, urlopen, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError
 import xml.etree.ElementTree as ET
 
@@ -59,11 +59,15 @@ def normalize(item: dict) -> dict:
 def http_json(url: str, payload: dict | None = None, headers: dict | None = None) -> dict:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else None
     req = Request(url, data=body, headers=headers or {}, method="POST" if body else "GET")
-    with urlopen(req, timeout=50) as response:
+    with build_opener(NoRedirect).open(req, timeout=50) as response:
         raw = response.read(8_000_001)
     if len(raw) > 8_000_000:
         raise ValueError("For stor respons")
     return json.loads(raw)
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("Datakilden videresendte til en uautorisert adresse")
 
 def feed(mode: str) -> list[dict]:
     if mode == "demo":
@@ -82,7 +86,7 @@ def feed(mode: str) -> list[dict]:
             items = raw if isinstance(raw, list) else raw.get("items", [])
         elif fmt == "rss":
             req = Request(url, headers={"User-Agent":"NewswebAIPrototype/0.1"})
-            with urlopen(req,timeout=30) as response:
+            with build_opener(NoRedirect).open(req,timeout=30) as response:
                 root = ET.fromstring(response.read(8_000_001))
             items = []
             for entry in root.findall(".//item"):
@@ -198,7 +202,7 @@ def main() -> int:
     feed_items = feed(mode)
     cutoff = now - dt.timedelta(hours=float(os.getenv("LOOKBACK_HOURS","4")))
     entries = []
-    for item in sorted(feed_items,key=lambda x:x["published_at"],reverse=True):
+    for item in sorted(feed_items,key=lambda x:x["published_at"],reverse=True)[:max(1,int(os.getenv("MAX_MESSAGES","100")))]:
         if mode=="live" and timestamp(item["published_at"]) < cutoff:
             continue
         if item["id"] in seen and mode=="live":
