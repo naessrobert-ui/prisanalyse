@@ -76,6 +76,21 @@ def sanitize(item: dict) -> dict | None:
         "direction":limited(item.get("direction"),25),
         "assessment_source":limited(item.get("assessment_source"),90)
     }
+    # Public original message links, including both language versions.
+    versions=item.get("language_versions")
+    if isinstance(versions,list):
+        clean=[]
+        seen_versions=set()
+        for version in versions[:8]:
+            if not isinstance(version,dict):continue
+            vid=limited(version.get("id"),35)
+            url=safe_url(version.get("url"))
+            if vid and url and vid not in seen_versions:
+                clean.append({"id":vid,"title":limited(version.get("title"),260),
+                    "url":url,"published_at":limited(version.get("published_at"),48),
+                    "language":limited(version.get("language"),20)})
+                seen_versions.add(vid)
+        if len(clean)>1:result["language_versions"]=clean
     report=item.get("financial_report")
     if isinstance(report,dict):
         document=report.get("document") or {}
@@ -127,8 +142,11 @@ def build_snapshot(report:dict, old:dict|None=None, bootstrap:dict|None=None) ->
             selected[cleaned["id"]]=cleaned
     if not selected:
         raise ValueError("No NewsWeb data. Refusing to replace dashboard with an empty report.")
-    # Newest visible first, regardless of score; site may then sort by score.
-    rows=sorted(selected.values(),key=lambda x:(x["published_at"],x["id"]),reverse=True)[:MAX_ITEMS]
+    # Merge only near-simultaneous, confidently equivalent NO/EN disclosures.
+    # Apply to OLD + NEW together, so existing duplicate pairs disappear with
+    # the next normal scheduled publication, without a cache/version reset.
+    from .dedup import collapse_stories
+    rows=collapse_stories(list(selected.values()))[:MAX_ITEMS]
     merged={
         "mode":"live",
         "generation": generation or (old or {}).get("generation",""),

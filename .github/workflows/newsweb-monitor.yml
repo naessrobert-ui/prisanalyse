@@ -6,6 +6,8 @@ on:
       - '.github/workflows/newsweb-monitor.yml'
       - 'newsweb_monitor/generation.py'
       - 'newsweb_monitor/monitor.py'
+      - 'newsweb_monitor/dedup.py'
+      - 'newsweb_monitor/publish_site.py'
   pull_request:
     paths:
       - 'newsweb_monitor/**'

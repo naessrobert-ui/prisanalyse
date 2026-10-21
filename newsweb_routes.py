@@ -166,6 +166,10 @@ def dashboard():
     # Copy records: private values must never be inserted into the site-wide cache.
     items=[dict(item) for item in report.get("items",[])[:240]]
     actual_matches,simulated_matches,private_error=_private_report_comparisons(items)
+    # Also fold the current public snapshot in memory, so historical bilingual
+    # duplicates disappear immediately after the web deploy, before cron runs.
+    from newsweb_monitor.dedup import collapse_stories
+    items=collapse_stories(items)
     for item in items:
         comparable=item.get("consensus_comparison") or []
         valid=[abs(float(row["surprise_pct"])) for row in comparable
