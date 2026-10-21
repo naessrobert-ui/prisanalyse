@@ -117,3 +117,20 @@ Sammenligninger vises bare i administratorens nyhetsvisning, og er
 merket **indikative** frem til valuta, enheter og resultatdefinisjoner er
 kontrollert. Det siste estimatsnapshotet som ble lastet opp før
 resultatpublisering velges automatisk; aldri tilbakedater opplastinger.
+
+## Dagens simulering ved konsensusopplasting
+Bruker eksisterende innlogging på prisanalyse.no via `SITE_ACCESS_CODE`
+og `session['access_granted']`. Ingen egen `NEWSWEB_CONSENSUS_ADMIN_TOKEN`.
+For sikkerhet er rutene for opplasting stengt dersom site-passordet ikke er
+konfigurert, selv om resten av nettstedet åpnes.
+Alle innloggede brukere med felles kode kan lese og laste opp private estimater.
+
+Ved hver vellykket opplasting kjøres en SIMULERT gjennomgang av ALLE
+meldinger i den lokale Oslo-datoen i siste publiserte NewsWeb-JSON.
+Databasen antar da som TEST at estimatene var tilgjengelige 24 timer før
+virkelig opplasting. Virkelig tidsstempel endres ikke.
+Testresultatene vises i den private opplastingssiden og lagres **kun**
+i den private S3-snapshotfilen, aldri offentlig eller i GitHub.
+Det betyr at testen bruker allerede ekstraherte tall fra dagens meldinger;
+mangler PDF-analyse, rapportperiode eller sammenlignbare tall markeres dette.
+Resultater fra testen kan IKKE brukes som historisk konsensusoverraskelse.

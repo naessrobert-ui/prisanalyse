@@ -24,25 +24,16 @@ button.secondary{background:#263c5b}
 .big{font-size:25px;font-weight:750}
 .list{margin:0;padding-left:20px;color:#bfcfe4;line-height:1.8}
 @media(max-width:620px){.grid{grid-template-columns:1fr}}
-</style></head><body>
+.records{max-height:620px;overflow:auto;margin-top:14px;border-top:1px solid #344b6c}.story{padding:14px 0;border-bottom:1px solid #344b6c}.story .small{margin-top:4px}table{width:100%;border-collapse:collapse;margin-top:9px;font-size:13px}th,td{padding:8px;border-bottom:1px solid #30415e;text-align:left}.story:nth-child(even){background:#17243d}</style></head><body>
 <main>
 <header><div><a href="/newsweb/">← Nyhetsmonitor</a></div><div class="small">Privat funksjon · Opplasting av Bloomberg-konsensus</div></header>
 <h1>Forventninger før regnskapsfremleggelsen</h1>
-<p>Last opp et Bloomberg-Excel-ark når du ønsker. Verdiene lagres privat i S3 med opplastingstidspunkt og brukes bare til sammenligninger mot resultater som kommer <strong>etter</strong> opplastingen.</p>
+<p>Du er allerede innlogget på prisanalyse.no. Last opp Bloomberg-Excel-filen her. Tallene lagres privat med korrekt opplastingstidspunkt.</p>
+<div class="good"><strong>Automatisk testkjøring:</strong> Ved opplasting sammenlignes alle dagens tilgjengelige NewsWeb-meldinger med estimatene <strong>som om de var lastet opp 24 timer tidligere</strong>. Dette er kun en simulering og endrer ikke datoen på de virkelig lagrede estimatene.</div>
 {% if error %}<div class="alert">{{error}}</div>{% endif %}
 {% if message %}<div class="good">{{message}}</div>{% endif %}
-{% if not enabled %}
-<div class="panel"><h2>Oppsett mangler</h2>
-<p>Sett <code>NEWSWEB_CONSENSUS_ADMIN_TOKEN</code> som en hemmelig miljøvariabel i Render, med en tilfeldig og lang verdi. Sett <code>NEWSWEB_CONSENSUS_BUCKET</code> til navnet på en <strong>separat, privat S3-bøtte</strong> med alle Public Access Block-innstillinger aktivert og AWS-tilgang.</p></div>
-{% elif not allowed %}
-<div class="panel"><h2>Lås opp konsensusarkivet</h2><p>Administratorpassordet ligger bare i Render, ikke i Excel-filen eller GitHub.</p>
-<form method="post" action="/newsweb/konsensus/"><input type="hidden" name="csrf" value="{{csrf}}">
-<input type="hidden" name="action" value="login">
-<label for="token">Administratorkode</label><input id="token" type="password" name="admin_token" required autocomplete="off">
-<button type="submit">Lås opp</button></form></div>
-{% else %}
 <div class="panel">
-<header><h2>Ny konsensusopplasting</h2><form method="post" action="/newsweb/konsensus/"><input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="action" value="logout"><button class="secondary" type="submit">Lås</button></form></header>
+<header><h2>Ny konsensusopplasting</h2><div class="small">Beskyttet av eksisterende innlogging</div></header>
 <form method="post" action="/newsweb/konsensus/" enctype="multipart/form-data">
 <input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="action" value="upload">
 <label for="file">Bloomberg Excel-fil</label><input id="file" type="file" name="file" accept=".xlsx" required>
@@ -58,6 +49,34 @@ button.secondary{background:#263c5b}
 <p class="small">Dersom dette ikke bekreftes, lagres estimatene, men automatisk avviksberegning er deaktivert. NB: Feltet <code>net int inc</code> uten BEST-prefiks tas ikke med som konsensus.</p>
 <button type="submit">Last opp og lagre estimater privat</button>
 </form></div>
+{% if summary and summary.simulation %}
+<div class="panel">
+<h2>Simulert testkjøring – {{summary.simulation.target_day}}</h2>
+<p class="small">Kun test: estimatene behandles som om de forelå {{summary.simulation.effective_asof}}. Det opprinnelige opplastingstidspunktet lagres uendret. Ikke presenter disse resultatene som faktiske overraskelser mot historisk konsensus.</p>
+<div class="grid">
+  <div class="stat"><div class="big">{{summary.simulation.messages_scanned}}</div><div class="small">Dagens børsmeldinger gjennomgått</div></div>
+  <div class="stat"><div class="big">{{summary.simulation.messages_with_matches}}</div><div class="small">Meldinger med sammenlignbare tall</div></div>
+  <div class="stat"><div class="big">{{summary.simulation.metrics_matched}}</div><div class="small">Nøkkeltall sammenlignet</div></div>
+  <div class="stat"><div class="big">{{summary.value_count}}</div><div class="small">Lagrede estimatverdier</div></div>
+</div>
+<details open><summary>Gjennomgang av alle dagens meldinger ({{summary.simulation.messages_scanned}})</summary>
+<div class="records">
+{% for story in summary.simulation["items"] %}
+<article class="story">
+<div><strong>{{story.ticker}}</strong> · {{story.title}}</div>
+<div class="small">{{story.published_at}} · {{story.period or 'Ingen identifisert periode'}}</div>
+<div class="small">{{story.status}}</div>
+{% if story.comparisons %}
+<table><thead><tr><th>Nøkkeltall</th><th>Rapportert</th><th>Konsensus</th><th>Avvik (simulert)</th></tr></thead>
+<tbody>{% for c in story.comparisons %}
+<tr><td>{{c.label}}</td><td>{{c.actual}}</td><td>{{c.consensus}}</td><td>{{(c.surprise_pct|string ~ '%') if c.surprise_pct is not none else '–'}}</td></tr>
+{% endfor %}</tbody></table>
+{% endif %}
+</article>
+{% endfor %}
+</div></details>
+</div>
+{% endif %}
 {% if summary %}
 <div class="panel"><h2>Siste opplasting</h2>
 <div class="grid">
@@ -81,5 +100,4 @@ button.secondary{background:#263c5b}
 </ol>
 <p class="small">Ingen Excel-fil, konsensusbeløp eller avvik publiseres i den offentlige GitHub-rapporten. Historiske Q3-resultater som kom før opplastingen får ikke retroaktive «bedre enn ventet»-etiketter.</p>
 </div>
-{% endif %}
 </main></body></html>
