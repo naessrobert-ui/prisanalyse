@@ -5,7 +5,7 @@ Kilde: Euronext Oslo Børs NewsWeb sitt `newsreader`-API (`api3.oslo.oslobors.no
 Det er avtalt at meldinger kan hentes. Prototypen begrenser seg til `XOSL`, henter liste (`list`), innhold (`message`) og PDF-vedlegg (`attachment`). Rentereguleringer, ordinære tilbakekjøp og finanskalendere filtreres bort. Dette er ikke en fullstendig børsinstrument-master: vurder innføring av offisiell aksjeliste før produksjon.
 
 GitHub Actions: `Actions → NewsWeb AI monitor`.
-- Planlagt kjøring én gang hver time, ca. 27 minutter over hel (UTC). GitHub kan forsinke en planlagt kjøring.
+- Planlagt kjøring i **norsk tid (Europe/Oslo)**: hvert 15. minutt kl. **06:00–09:45**, deretter **hver hele time kl. 10:00–23:00**. Ingen kjøringer mellom midnatt og 06:00. GitHub justerer automatisk for sommer-/vintertid, men kan forsinke eller droppe planlagte kjøringer.
 - Manuell kjøring via `Run workflow`: velg `newsweb` og `dry_run=true`.
 - Lagre rapportene fra hver kjøring via `Summary` og `Artifacts (latest.json / latest.md)`.
 - ID-baserte dubletter og målestørrelser fra tidligere kvartaler beholdes i Actions-cache. Cache er **ikke varig lagring**; for senere produksjon anbefales privat database/S3.
