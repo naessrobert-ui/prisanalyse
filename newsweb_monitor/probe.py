@@ -24,6 +24,8 @@ for query in queries:
     if isinstance(v,list) and v:
      print("FIRST",k,json.dumps(v[0],ensure_ascii=False)[:2500]); break
     if k in ("message","messages") and isinstance(v,dict):
-     print("FIRST",k,json.dumps(v,ensure_ascii=False)[:2500])
+     print("FIRST",k,json.dumps(v,ensure_ascii=False)[:700])
+     print("MESSAGE KEYS",list(v))
+     print("ATTACHMENTS",json.dumps({x:y for x,y in v.items() if "attach" in x.lower() or "file" in x.lower()},ensure_ascii=False)[:2500])
  except Exception as e:
   print("FAILED",query,type(e).__name__,str(e)[:160])
