@@ -1,0 +1,156 @@
+"""Publiser et MINIMALT, offentlig dashboard-snapshot fra GitHub Actions.
+
+Only issuer-disclosed public headlines and short OWN summaries are exported.
+Never publish the original PDFs, full texts, raw AI prompts, credentials or consensus.
+The public GitHub repository is not suitable for private investment research.
+"""
+from __future__ import annotations
+
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import urlparse
+
+ROOT = Path(__file__).resolve().parent
+PUBLIC = ROOT / "public" / "latest.json"
+LATEST = ROOT / "reports" / "latest.json"
+BOOTSTRAP = ROOT / "bootstrap" / "latest.json"
+MAX_ITEMS = 240
+
+def limited(value: object, length: int) -> str:
+    return str(value or "").strip()[:length]
+
+def safe_url(value: object, *, document: bool = False) -> str:
+    url=limited(value,400)
+    try:
+        parts=urlparse(url)
+        if parts.scheme != "https":
+            return ""
+        hostname=(parts.hostname or "").lower()
+        if document and hostname=="api3.oslo.oslobors.no" and parts.path=="/v1/newsreader/attachment":
+            return url
+        if not document and hostname=="newsweb.oslobors.no" and parts.path.startswith("/message/"):
+            return url
+    except ValueError:
+        pass
+    return ""
+
+def num(value: object):
+    if isinstance(value,bool) or value is None:
+        return None
+    try:
+        f=float(value)
+        if not (-1e16 < f < 1e16):
+            return None
+        return round(f, 4)
+    except (TypeError,ValueError,OverflowError):
+        return None
+
+def sanitize(item: dict) -> dict | None:
+    if not isinstance(item,dict):
+        return None
+    ident=limited(item.get("id"),35)
+    ticker=limited(item.get("ticker"),30)
+    if not ident or not ticker:
+        return None
+    # The publisher is for publicly disseminated XOSL announcements.
+    if item.get("market","XOSL")!="XOSL":
+        return None
+    score=num(item.get("score"))
+    score=int(score) if score is not None else 0
+    score=min(max(score,0),100)
+    result={
+        "id":ident,"market":"XOSL","ticker":ticker,
+        "issuer":limited(item.get("issuer"),130),
+        "title":limited(item.get("title"),260),
+        "published_at":limited(item.get("published_at"),48),
+        "url":safe_url(item.get("url")),
+        "summary":limited(item.get("summary"),550),
+        "reason":limited(item.get("reason"),750),
+        "score":score,
+        "skipped":bool(item.get("skipped")),
+        "direction":limited(item.get("direction"),25),
+        "assessment_source":limited(item.get("assessment_source"),90)
+    }
+    report=item.get("financial_report")
+    if isinstance(report,dict):
+        document=report.get("document") or {}
+        if not isinstance(document,dict): document={}
+        fin={
+          "status":limited(report.get("status"),50),
+          "period":limited(report.get("period"),12),
+          "previous_report":limited(report.get("previous_report"),60),
+          "document":{
+              "name":limited(document.get("name"),160),
+              "url":safe_url(document.get("url"),document=True)
+          },
+          "metrics":[]
+        }
+        for metric in (report.get("metrics") or [])[:14]:
+            if not isinstance(metric,dict):continue
+            fin["metrics"].append({
+                "label":limited(metric.get("label"),65),
+                "name":limited(metric.get("name"),40),
+                "unit":limited(metric.get("unit"),50),
+                "current":num(metric.get("current")),
+                "prior_year":num(metric.get("prior_year")),
+                "prev_quarter":num(metric.get("prev_quarter")),
+                "consensus":None, # Proprietary estimates must not be published.
+                "yoy_pct":num(metric.get("yoy_pct")),
+                "qoq_pct":num(metric.get("qoq_pct")),
+                "surprise_pct":None,
+                "evidence":limited(metric.get("evidence"),160)
+            })
+        result["financial_report"]=fin
+    return result
+
+def build_snapshot(report:dict, old:dict|None=None, bootstrap:dict|None=None) -> tuple[dict,bool]:
+    """Merge new announcements without losing earlier items when next run finds zero."""
+    old_items=(old or {}).get("items") or []
+    first_items=(bootstrap or {}).get("items") or []
+    current_items=report.get("items") or []
+    selected={}
+    for item in [*first_items,*old_items,*current_items]:
+        cleaned=sanitize(item)
+        if cleaned:
+            selected[cleaned["id"]]=cleaned
+    if not selected:
+        raise ValueError("No NewsWeb data. Refusing to replace dashboard with an empty report.")
+    # Newest visible first, regardless of score; site may then sort by score.
+    rows=sorted(selected.values(),key=lambda x:(x["published_at"],x["id"]),reverse=True)[:MAX_ITEMS]
+    merged={
+        "mode":"live",
+        "source":"NewsWeb – automatisk fra GitHub Actions",
+        "generated_at": limited(report.get("generated_at"),48) if current_items else
+                        limited((old or bootstrap or {}).get("generated_at"),48),
+        "items":rows
+    }
+    old_rows=(old or {}).get("items") or []
+    updated = not old or rows!=old_rows
+    return merged,updated
+
+def read_json(path:Path) -> dict|None:
+    if not path.exists():
+        return None
+    with path.open(encoding="utf-8") as f:
+        value=json.load(f)
+    return value if isinstance(value,dict) else None
+
+def main() -> None:
+    report=read_json(LATEST)
+    if not report or report.get("source")!="NEWSWEB":
+        print("Not publishing: this was not a NewsWeb production run")
+        return
+    old=read_json(PUBLIC)
+    bootstrap=read_json(BOOTSTRAP) if old is None else None
+    result,changed=build_snapshot(report,old,bootstrap)
+    if not changed:
+        print(f"No new disclosures; preserved {len(result['items'])} published messages")
+        return
+    PUBLIC.parent.mkdir(parents=True,exist_ok=True)
+    PUBLIC.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    print(f"Published {len(result['items'])} public summaries (excluded full body/PDF/secrets)")
+
+if __name__=="__main__":
+    main()
