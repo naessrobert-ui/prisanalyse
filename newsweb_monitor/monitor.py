@@ -198,6 +198,17 @@ def ai(item: dict, key: str) -> dict:
     lead=" ".join(str(obj["lead"]).split())[:260]
     if not headline or not lead:
         raise ValueError("AI must provide a meaningful editorial headline and lead")
+    # AI has not received a verified, pre-publication consensus series here.
+    # Do not let editorial wording imply a result surprise without evidence.
+    unsupported=re.compile(
+        r"bedre enn ventet|svakere enn ventet|sterkere enn ventet|"
+        r"over forventningene|under forventningene|slo konsensus|"
+        r"skuffet analytikerne|overrasket analytikerne|"
+        r"overgikk forventningene|under konsensus|over konsensus",
+        re.I)
+    if any(unsupported.search(value) for value in
+           (headline,lead,str(obj["reason"]))):
+        raise ValueError("Ubegrunnet forventningspåstand i AI-tekst")
     return {"score":min(100,max(0,int(obj["score"]))),
         "direction":obj["direction"],"headline":headline,"lead":lead,
         "summary":lead,"reason":" ".join(str(obj["reason"]).split())[:340],
