@@ -1,24 +1,29 @@
-"""One-shot NewsWeb API schema check; never outputs non-public report content."""
+"""Brief NewsWeb API smoke check: inspect only schema and first returned item."""
 import json
-from urllib.request import urlopen, Request
-u="https://api3.oslo.oslobors.no/v1/newsreader/list?category=1001"
-try:
-    with urlopen(Request(u,headers={"User-Agent":"Mozilla/5.0 (NewsMonitor/1.0)","Accept":"application/json"}),timeout=15) as resp:
-        blob=resp.read(500_001)
-        print("status",resp.status,"content-type",resp.headers.get("Content-Type"),"bytes",len(blob))
-    data=json.loads(blob)
-    print("root",type(data).__name__)
-    if isinstance(data,dict):
-        print("fields",[(k,type(v).__name__) for k,v in data.items()]); print("response",json.dumps(data,ensure_ascii=False)[:1200])
-        for key,v in data.items():
-            if isinstance(v,list) and v and isinstance(v[0],dict):
-                print("array_field",key,"keys",list(v[0].keys()))
-                print("example",json.dumps(v[0],ensure_ascii=False)[:2800])
-                break
-    elif isinstance(data,list):
-        print("count",len(data))
-        if data and isinstance(data[0],dict):
-            print("keys",list(data[0]))
-            print("example",json.dumps(data[0],ensure_ascii=False)[:2800])
-except Exception as exc:
-    print("PROBE_FAILED",type(exc).__name__,str(exc)[:400])
+from urllib.request import Request,urlopen
+base="https://api3.oslo.oslobors.no/v1/newsreader/"
+queries=[
+  "list",
+  "list?market=XOSL",
+  "list?category=1001",
+  "list?fromDate=2026-10-20&toDate=2026-10-21",
+  "message?messageId=684456",
+  "get?messageId=684456",
+]
+for query in queries:
+ try:
+  with urlopen(Request(base+query,headers={"Accept":"application/json","User-Agent":"Mozilla/5.0"}),timeout=12) as r:
+   raw=r.read(120000)
+  obj=json.loads(raw)
+  data=obj.get("data") if isinstance(obj,dict) else {}
+  print("ENDPOINT",query,"keys",list(data)[:15] if isinstance(data,dict) else type(data).__name__,
+     "lengths",{k:len(v) for k,v in data.items() if isinstance(v,(list,dict))} if isinstance(data,dict) else {},
+     "header",obj.get("header",{}).get("result.text") if isinstance(obj,dict) else "")
+  if isinstance(data,dict):
+   for k,v in data.items():
+    if isinstance(v,list) and v:
+     print("FIRST",k,json.dumps(v[0],ensure_ascii=False)[:2500]); break
+    if k in ("message","messages") and isinstance(v,dict):
+     print("FIRST",k,json.dumps(v,ensure_ascii=False)[:2500])
+ except Exception as e:
+  print("FAILED",query,type(e).__name__,str(e)[:160])
