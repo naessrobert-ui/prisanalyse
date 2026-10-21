@@ -35,9 +35,9 @@ class NewsWebSourceTests(unittest.TestCase):
         state={"reports_by_ticker":{"TEST":{"2026Q2":{
             "metrics":[{"name":"revenue","current":100.0,"unit":"NOK million"}]}}}}
         consensus={"TEST":{"2026Q3":{"revenue":{
-            "value":110.0,"unit":"NOK million","source":"Test estimates","asof":"2026-10-20"}}}}
+            "value":110.0,"unit":"NOK million","source":"Test estimates","asof":"2026-10-20T15:00:00+02:00"}}}}
         current=[{"name":"revenue","current":120.0,"prior_year":80.0,"unit":"NOK million","evidence":"p1"}]
-        row=rpt.comparisons(current,"TEST","2026Q3",state,consensus)[0]
+        row=rpt.comparisons(current,"TEST","2026Q3",state,consensus,"2026-10-21T08:00:00+02:00")[0]
         self.assertAlmostEqual(row["yoy_pct"],50)
         self.assertAlmostEqual(row["qoq_pct"],20)
         self.assertAlmostEqual(row["surprise_pct"],9.1)
