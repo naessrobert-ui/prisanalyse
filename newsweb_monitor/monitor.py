@@ -289,8 +289,11 @@ def main() -> int:
                 outlook=fin.get("outlook") or {}
                 missing_prior="Forrige kvartals guiding er ikke tilgjengelig" in str(outlook.get("change") or "")
                 history_requested=os.getenv("HISTORY_QUARTERS","0")!="0"
+                history_key=str(row.get("ticker") or "")+":"+str(fin.get("period") or "")
+                history_needed=(history_requested and history_key not in
+                                state.get("history_backfill_done",{}))
                 if fin and (not fin.get("metrics") or not outlook.get("status")
-                            or missing_prior or history_requested):
+                            or missing_prior or history_needed):
                     # Repair completely missing/unknown period and metrics first;
                     # then backfill outlook on otherwise complete reports.
                     urgency=(0 if fin.get("status") in ("unknown_period","error","no_pdf")
