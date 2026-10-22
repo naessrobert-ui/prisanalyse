@@ -2,8 +2,161 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-22T06:01:26+00:00",
+  "generated_at": "2026-10-22T06:13:39+00:00",
   "items": [
+    {
+      "id": "684584",
+      "market": "XOSL",
+      "ticker": "HEX",
+      "issuer": "Hexagon Composites ASA",
+      "title": "Major Shareholding Disclosure",
+      "headline": "JPMorgan øker aksjeposten i Hexagon til over 5 prosent",
+      "lead": "JPMorgan Chase & Co. notifiserer en aksjepost på 5,001 prosent i Hexagon Composites ASA etter kjøp gjennom datterselskap, per 20. oktober 2026.",
+      "published_at": "2026-10-22T06:07:17.524000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684584",
+      "summary": "JPMorgan Chase & Co. notifiserer en aksjepost på 5,001 prosent i Hexagon Composites ASA etter kjøp gjennom datterselskap, per 20. oktober 2026.",
+      "reason": "JPMorgans passering av 5-prosentgrensen markerer økt interesse, men uten endring i kontroll gir det få umiddelbare konsekvenser for aksjonærene. Videre aksjekjøp eller strategiske inngrep bør følges nøye.",
+      "score": 60,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI"
+    },
+    {
+      "id": "684583",
+      "market": "XOSL",
+      "ticker": "B2I",
+      "issuer": "B2 Impact ASA",
+      "title": "B2 Impact ASA - Invitation to third quarter presentation on Thursday 5 November 2026",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-10-22T06:06:32.772000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684583",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "684582",
+      "market": "XOSL",
+      "ticker": "TGS",
+      "issuer": "TGS ASA",
+      "title": "TGS Announces Q3 2026 Results - Correction",
+      "headline": "TGS øker inntektene til 397 millioner dollar – ordrebeholdning opp 52 %",
+      "lead": "TGS rapporterer en omsetning på 397 millioner dollar i tredje kvartal 2026, opp fra 388 millioner dollar året før, men driftsmarginene presses av høyere kostnader. Ordrebeholdningen økte kraftig til 679 millioner dollar.",
+      "published_at": "2026-10-22T06:02:49.571000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684582",
+      "summary": "TGS rapporterer en omsetning på 397 millioner dollar i tredje kvartal 2026, opp fra 388 millioner dollar året før, men driftsmarginene presses av høyere kostnader. Ordrebeholdningen økte kraftig til 679 millioner dollar.",
+      "reason": "Inntektene viser økning sammenlignet med i fjor, men lavere EBITDA og EBIT på grunn av høyere kostnader og lavere priser indikerer press på lønnsomheten. Sterk ordreinngang og økt ordrebeholdning gir positiv framtidsutsikt, men marginutviklingen bør følges nøye.",
+      "score": 75,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "previous_report": "cached",
+        "document": {
+          "name": "TGS Earnings Release Q3 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684582&attachmentId=334854"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "USD million",
+            "current": 428.3,
+            "prior_year": 424.4,
+            "prev_quarter": 373.0,
+            "consensus": null,
+            "yoy_pct": 0.9,
+            "qoq_pct": 14.8,
+            "surprise_pct": null,
+            "evidence": "SIDE 2, SIDE 11"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "USD million",
+            "current": 222.0,
+            "prior_year": 241.6,
+            "prev_quarter": 244.0,
+            "consensus": null,
+            "yoy_pct": -8.1,
+            "qoq_pct": -9.0,
+            "surprise_pct": null,
+            "evidence": "SIDE 2, SIDE 4"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "USD million",
+            "current": 93.1,
+            "prior_year": 105.1,
+            "prev_quarter": 57.3,
+            "consensus": null,
+            "yoy_pct": -11.4,
+            "qoq_pct": 62.5,
+            "surprise_pct": null,
+            "evidence": "SIDE 2, SIDE 11"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "USD million",
+            "current": 52.3,
+            "prior_year": 54.4,
+            "prev_quarter": 39.6,
+            "consensus": null,
+            "yoy_pct": -3.9,
+            "qoq_pct": 32.1,
+            "surprise_pct": null,
+            "evidence": "SIDE 2, SIDE 11"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "USD/share",
+            "current": 0.26,
+            "prior_year": 0.27,
+            "prev_quarter": 0.2,
+            "consensus": null,
+            "yoy_pct": -3.7,
+            "qoq_pct": 30.0,
+            "surprise_pct": null,
+            "evidence": "SIDE 2, SIDE 11"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "USD million",
+            "current": 124.8,
+            "prior_year": 242.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -48.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 6"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "USD million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not reported explicitly"
+          }
+        ]
+      }
+    },
     {
       "id": "684580",
       "market": "XOSL",
@@ -16,7 +169,7 @@
       "url": "https://newsweb.oslobors.no/message/684580",
       "summary": "Yaras EBITDA falt til 675 millioner USD i tredje kvartal 2026 fra 804 millioner USD i samme periode 2025, preget av høyere gasspriser og svakere etterspørsel. Selskapet forventer økt robusthet etter planlagt oppkjøp i USA.",
       "reason": "Yaras resultat er svakere enn i samme kvartal i fjor, med lavere EBITDA og resultat etter skatt. Usikkerheten i markedet og høyere produksjonskostnader har presset marginene, men målrettede tiltak og oppkjøp kan styrke fremtidig lønnsomhet. Aksjonærer bør følge implementeringen av oppkjøpet og kostnadskontroll.",
-      "score": 75,
+      "score": 85,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -29,34 +182,23 @@
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684580&attachmentId=334850"
         },
         "metrics": []
-      }
-    },
-    {
-      "id": "684579",
-      "market": "XOSL",
-      "ticker": "YAR",
-      "issuer": "Yara International ASA",
-      "title": "Yara reports solid 3Q amid market volatility",
-      "headline": "Yara EBITDA faller til 675 millioner USD i Q3 – marginpress og volumutfordringer",
-      "lead": "Yaras EBITDA eksklusive spesialposter falt til 675 millioner USD i tredje kvartal 2026 fra 804 millioner USD samme periode i fjor. Redusert volum og høyere gasspriser presset marginene i et volatilt marked.",
-      "published_at": "2026-10-22T06:00:30.731000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684579",
-      "summary": "Yaras EBITDA eksklusive spesialposter falt til 675 millioner USD i tredje kvartal 2026 fra 804 millioner USD samme periode i fjor. Redusert volum og høyere gasspriser presset marginene i et volatilt marked.",
-      "reason": "Resultatnedgangen fra i fjor skyldes marginpress fra høyere energikostnader og produksjonsutfordringer. Investeringen i US-gassanlegg kan dempe framtidig energieksponering, men volatiliteten og treg etterspørsel begrenser kortsiktig lønnsomhet. Aksjonærer bør følge produksjonsstabilitet og markedsutvikling nøye.",
-      "score": 85,
-      "skipped": false,
-      "direction": "negativ",
-      "assessment_source": "AI",
-      "financial_report": {
-        "status": "unknown_period",
-        "period": "",
-        "previous_report": "",
-        "document": {
-          "name": "Yara_3Q_2026_Report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684579&attachmentId=334851"
+      },
+      "language_versions": [
+        {
+          "id": "684580",
+          "title": "Yara rapporterer solide Q3-resultater i et volatilt marked",
+          "url": "https://newsweb.oslobors.no/message/684580",
+          "published_at": "2026-10-22T06:00:30.732000+00:00",
+          "language": "Norsk"
         },
-        "metrics": []
-      }
+        {
+          "id": "684579",
+          "title": "Yara reports solid 3Q amid market volatility",
+          "url": "https://newsweb.oslobors.no/message/684579",
+          "published_at": "2026-10-22T06:00:30.731000+00:00",
+          "language": "Original"
+        }
+      ]
     },
     {
       "id": "684578",
@@ -161,33 +303,6 @@
       "assessment_source": "Regelfilter"
     },
     {
-      "id": "684570",
-      "market": "XOSL",
-      "ticker": "KOMPL",
-      "issuer": "Komplett ASA",
-      "title": "Q3-26: Category-specific headwinds offset underlying progress",
-      "headline": "Komplett omsetter 5,2 % mindre i Q3 – EBIT justert i minus 9 mill. kr",
-      "lead": "Komplett ASA rapporterer et 5,2 prosent fall i omsetningen til 3,64 mrd. kroner i tredje kvartal 2026, påvirket av høyere minnepriser og marginpress. Justert EBIT endte negativt med 9 millioner kroner, mot 3 millioner i pluss i fjor.",
-      "published_at": "2026-10-22T05:01:09.544000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684570",
-      "summary": "Komplett ASA rapporterer et 5,2 prosent fall i omsetningen til 3,64 mrd. kroner i tredje kvartal 2026, påvirket av høyere minnepriser og marginpress. Justert EBIT endte negativt med 9 millioner kroner, mot 3 millioner i pluss i fjor.",
-      "reason": "Nedgangen i omsetning og negativ justert EBIT indikerer økte utfordringer i viktige produktkategorier, særlig på grunn av minnepriser. Aksjonærer bør følge nøye med på selskapets tiltak for marginbeskyttelse og kommersiell tilpasning, samt effekten av den forbedrede finansieringsavtalen framover.",
-      "score": 75,
-      "skipped": false,
-      "direction": "negativ",
-      "assessment_source": "AI",
-      "financial_report": {
-        "status": "unknown_period",
-        "period": "",
-        "previous_report": "",
-        "document": {
-          "name": "Komplett_Q3_26_Report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684570&attachmentId=334842"
-        },
-        "metrics": []
-      }
-    },
-    {
       "id": "684569",
       "market": "XOSL",
       "ticker": "KOMPL",
@@ -195,7 +310,7 @@
       "title": "Q3-26: Motvind innen gaming og komponenter overskygger underliggende fremgang",
       "headline": "Komplett ASA kutter omsetning 5,2 % og rapporterer negativ EBIT på 9 mill. kr i Q3",
       "lead": "I tredje kvartal falt Kompletts omsetning til 3,64 mrd. kr, en nedgang på 5,2 %, mens justert EBIT endte negativt med 9 mill. kr. Marginpress og volumnedgang i gaming og komponenter utfordrer resultatet videre.",
-      "published_at": "2026-10-22T05:01:09.532000+00:00",
+      "published_at": "2026-10-22T05:01:09.544000+00:00",
       "url": "https://newsweb.oslobors.no/message/684569",
       "summary": "I tredje kvartal falt Kompletts omsetning til 3,64 mrd. kr, en nedgang på 5,2 %, mens justert EBIT endte negativt med 9 mill. kr. Marginpress og volumnedgang i gaming og komponenter utfordrer resultatet videre.",
       "reason": "Den negative EBIT og omsetningsfallet reflekterer fortsatt prispress og segmentutfordringer, som tyder på at selskapet må styrke marginstyring og vekststrategier for å bedre lønnsomheten. Finansiering er sikret, men markedsusikkerhet gjør 2027-utsiktene krevende.",
@@ -209,10 +324,26 @@
         "previous_report": "",
         "document": {
           "name": "Komplett_Q3_26_Report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684569&attachmentId=334841"
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684570&attachmentId=334842"
         },
         "metrics": []
-      }
+      },
+      "language_versions": [
+        {
+          "id": "684570",
+          "title": "Q3-26: Category-specific headwinds offset underlying progress",
+          "url": "https://newsweb.oslobors.no/message/684570",
+          "published_at": "2026-10-22T05:01:09.544000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "684569",
+          "title": "Q3-26: Motvind innen gaming og komponenter overskygger underliggende fremgang",
+          "url": "https://newsweb.oslobors.no/message/684569",
+          "published_at": "2026-10-22T05:01:09.532000+00:00",
+          "language": "Original"
+        }
+      ]
     },
     {
       "id": "684567",
@@ -3708,18 +3839,18 @@
       ]
     }
   ],
-  "last_checked_at": "2026-10-22T06:01:26+00:00",
+  "last_checked_at": "2026-10-22T06:13:39+00:00",
   "monitor_stats": {
-    "fetched": 153,
-    "recent": 106,
-    "already_seen": 85,
-    "eligible": 17,
-    "filtered": 4,
-    "analyzed": 17,
+    "fetched": 156,
+    "recent": 109,
+    "already_seen": 106,
+    "eligible": 2,
+    "filtered": 1,
+    "analyzed": 2,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 13,
-    "source_latest_at": "2026-10-22T06:00:30.732000+00:00"
+    "recovered_unpublished": 0,
+    "source_latest_at": "2026-10-22T06:07:17.524000+00:00"
   }
 }
