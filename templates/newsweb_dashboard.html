@@ -109,6 +109,9 @@ h1{font-size:clamp(27px,3vw,37px)}
 .story-languages summary{cursor:pointer;color:#b9d6fd;font-weight:650}
 .language-links{display:grid;gap:8px;margin-top:10px}
 .language-links a{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.checkline{font-size:11px;color:#a4b5cc;margin:6px 0 12px;line-height:1.4}
+.check-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#65c79a;margin-right:5px;vertical-align:middle}
+@media(max-width:740px){.checkline{font-size:10px;margin:5px 0 10px}}
 </style>
 </head>
 <body><main>
@@ -120,6 +123,12 @@ h1{font-size:clamp(27px,3vw,37px)}
 <p class="lead intro-top">De viktigste børsmeldingene, med nyeste først. Bytt prioritet og sortering for å finne aktuelle saker. Prioritetsscore er en vurdering av nyhetsverdi, ikke et kursmål.</p>
 {% if report.get("error") %}<div class="banner">{{report.error}}</div>
 {% elif report.get("mode") == "live" %}
+{% if report.get('last_checked_at') %}
+<div class="checkline" title="Siste vellykkede kildeavlesning. Det betyr ikke nødvendigvis at det kom nye nyheter.">
+  <span class="check-dot"></span>Sist sjekket: {{report.last_checked_at[:16].replace('T',' ')}} UTC
+  {% if report.get('monitor_stats') %} · {{report.monitor_stats.get('analyzed',0)}} nye analyser{% endif %}
+</div>
+{% endif %}
 <div class="live-status"><span class="live-dot"></span> Automatisk oppdatert fra NewsWeb gjennom GitHub Actions. Viser de siste {{items|length}} meldingene i historikken. Oppdateres hvert 15. minutt kl. 06–10 og deretter hver time kl. 10–23 (norsk tid).</div>
 {% endif %}
 {% if private_error %}<div class="banner">{{private_error}}</div>{% endif %}
