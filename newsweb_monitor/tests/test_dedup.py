@@ -27,6 +27,16 @@ class BilingualDedupTests(unittest.TestCase):
         self.assertEqual(len(result),1)
         self.assertEqual({v["id"] for v in result[0]["language_versions"]},{"684471","684470"})
 
+    def test_yara_q3_and_3q_share_same_report(self):
+        no=story(684580,"YAR","Yara rapporterer solide Q3-resultater i et volatilt marked",
+                 "06:00:30.732",75,"Yara_3Q_2026_Report.pdf")
+        en=story(684579,"YAR","Yara reports solid 3Q amid market volatility",
+                 "06:00:30.731",85,"Yara_3Q_2026_Report.pdf")
+        result=collapse_stories([no,en])
+        self.assertEqual(len(result),1)
+        self.assertEqual({v["id"] for v in result[0]["language_versions"]},{"684580","684579"})
+        self.assertEqual(result[0]["score"],85)
+
     def test_dnb_quarterly_result_pair_and_norwegian_preference(self):
         no=story(684466,"DNB","Solide resultater på tvers av virksomheten i Norden",
                  "05:30:42.894",75,"Quarterly_Report_DNB_Group_3Q26.pdf")
