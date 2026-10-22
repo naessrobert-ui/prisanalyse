@@ -27,6 +27,14 @@ Terskler (valgfrie):
     HANDLER_VARSEL_MAKS_OPPHOLD  opphold som bryter en rekke, dager (default 7)
     HANDLER_VARSEL_ANTALL_FLINKE hvor mange flinke investorer som følges (default 50)
     HANDLER_VARSEL_EKSKLUDER     navnemønstre som utelates i del 2 og 3 (nominee o.l.)
+    HANDLER_VARSEL_BESTE_STOR_MNOK    Beste.csv i følgelisten: alltid med fra så mange MNOK (default 10)
+    HANDLER_VARSEL_BESTE_UTGANG_MNOK  Beste.csv: solgt helt ut tas med fra så mange MNOK (default 5)
+
+Beste.csv i følgelisten filtreres (andre lister, f.eks. Viktige.csv, tar alltid med alt).
+Per investor og aksje, summert over vinduet, tas handlene med hvis minst ett gjelder:
+  a) investoren snur (snur_kjop/snur_salg fra klassifiser)
+  b) |nettobeløp| >= HANDLER_VARSEL_BESTE_STOR_MNOK
+  c) investoren har solgt seg helt ut og |nettobeløp| >= HANDLER_VARSEL_BESTE_UTGANG_MNOK
 
 Kommandolinje:
     python -m handler_varsel --fra 2026-10-13 --til 2026-10-14            # vis, ikke send
@@ -56,6 +64,10 @@ import handler_data as hd
 _LOG = logging.getLogger(__name__)
 
 BASE_URL = os.environ.get("PRISANALYSE_BASE_URL", "https://prisanalyse.no").rstrip("/")
+
+# Beløpsgulv for Beste.csv i følgelisten (MNOK), kan overstyres med miljøvariabler
+BESTE_STOR_MNOK = 10.0
+BESTE_UTGANG_MNOK = 5.0
 
 
 TYPE_TEKST = {
@@ -105,6 +117,9 @@ class Innstillinger:
     ekskluder: list[str] | None = field(default_factory=lambda: [
         x.strip().upper() for x in os.environ.get("HANDLER_VARSEL_EKSKLUDER", "").split(",") if x.strip()
     ] or None)  # None = felles liste i handler_data_beste.NOMINEE_MONSTRE
+    beste_stor_mnok: float = field(default_factory=lambda: _env_float("HANDLER_VARSEL_BESTE_STOR_MNOK", BESTE_STOR_MNOK))
+    beste_utgang_mnok: float = field(
+        default_factory=lambda: _env_float("HANDLER_VARSEL_BESTE_UTGANG_MNOK", BESTE_UTGANG_MNOK))
 
 
 # =========================================================
@@ -276,9 +291,12 @@ def _rang_dagen_for(conn, isin: str, dato: str, investor_id: str) -> int | None:
     return ids.index(investor_id) + 1 if investor_id in ids else None
 
 
-def _folgeliste_ids(conn, cfg: Innstillinger, brukt: list[str] | None = None) -> list[str]:
+def _folgeliste_ids(conn, cfg: Innstillinger, brukt: list[str] | None = None,
+                    beste: set[str] | None = None) -> list[str]:
+    """Investorene i følgelisten. Er beste gitt, fylles den med investorene som bare står i Beste.csv."""
     tilgjengelige = set(hd.list_csv_files())
     ids: list[str] = []
+    beste_ids: set[str] = set()
     for liste in cfg.lister:
         if liste not in tilgjengelige:
             continue
@@ -287,10 +305,27 @@ def _folgeliste_ids(conn, cfg: Innstillinger, brukt: list[str] | None = None) ->
             continue
         df_list = hd.read_csv_guess(path)
         modus = "Beste" if Path(liste).stem.strip().lower() == "beste" else "Viktige"
-        ids.extend(hd.resolve_investor_ids(conn, hd.extract_owner_patterns(modus, df_list)))
+        liste_ids = hd.resolve_investor_ids(conn, hd.extract_owner_patterns(modus, df_list))
+        if modus == "Beste":
+            beste_ids.update(liste_ids)
+        else:
+            ids.extend(liste_ids)
         if brukt is not None:
             brukt.append(liste)
-    return sorted(set(ids))
+    if beste is not None:
+        beste.update(beste_ids - set(ids))   # står investoren også i Viktige, tas alt med
+    return sorted(set(ids) | beste_ids)
+
+
+def _beste_regel(typer: set[str], belop_mnok: float, ut: bool, cfg: Innstillinger) -> str | None:
+    """Hvilken regel som slipper en Beste-investors handler i en aksje gjennom, eller None."""
+    if typer & {"snur_kjop", "snur_salg"}:
+        return "snur"
+    if abs(belop_mnok) >= cfg.beste_stor_mnok:
+        return "stor"
+    if ut and abs(belop_mnok) >= cfg.beste_utgang_mnok:
+        return "utgang"
+    return None
 
 
 def _flinke_ids(conn, til: dt.date, cfg: Innstillinger) -> list[str]:
@@ -319,25 +354,51 @@ def finn_signaler(conn, fra: dt.date, til: dt.date, cfg: Innstillinger | None = 
     lookback_fra = fra - dt.timedelta(days=cfg.lookback_dager)
     kl = dict(maks_opphold=cfg.maks_opphold, pause_dager=cfg.pause_dager)
 
-    # 1) Følgeliste: alle handler
+    # 1) Følgeliste: alle handler (Beste.csv med beløpsgulv, se _beste_regel)
     brukte_lister: list[str] = []
-    folg_ids = _folgeliste_ids(conn, cfg, brukte_lister)
+    beste_ids: set[str] = set()
+    folg_ids = _folgeliste_ids(conn, cfg, brukte_lister, beste=beste_ids)
     folg_tx = hent_handler(conn, lookback_fra, til, investor_ids=folg_ids) if folg_ids else pd.DataFrame()
     folg_sig = klassifiser(folg_tx, fra, til, **kl)
     folg_rader: list[dict] = []
+    beste_filter = {"inn": 0, "inn_kombinasjoner": 0, "snur": 0, "stor": 0, "utgang": 0,
+                    "fjernet": 0, "fjernet_kombinasjoner": 0, "fjernet_utgang_under": 0}
     if not folg_tx.empty:
         vindu = folg_tx[(folg_tx["dato"] >= fra.isoformat()) & (folg_tx["dato"] <= til.isoformat())]
         for (inv, isin), g in vindu.groupby(["investor_id", "isin"]):
             g = g.sort_values("dato")
             sig = folg_sig[(folg_sig["investor_id"] == inv) & (folg_sig["isin"] == isin)]
-            folg_rader.append({
+            rad = {
                 "investor_id": inv, "isin": isin,
                 "start": g["dato"].iloc[0], "siste": g["dato"].iloc[-1], "handelsdager": len(g),
                 "antall": g["antall"].sum(), "belop_mnok": g["belop"].sum() / 1_000_000,
                 "beh_etter": g["beh_etter"].iloc[-1],
                 "type": ", ".join(TYPE_TEKST[t] for t in sig["type"]) if not sig.empty else "",
                 "ut": bool((g["beh_etter"] <= 0).iloc[-1] and g["antall"].sum() < 0),
-            })
+            }
+            if inv in beste_ids:
+                # Summert per investor og aksje over vinduet før terskelen brukes
+                regel = _beste_regel(set(sig["type"]), rad["belop_mnok"], rad["ut"], cfg)
+                beste_filter["inn"] += len(g)
+                beste_filter["inn_kombinasjoner"] += 1
+                if regel is None:
+                    beste_filter["fjernet"] += len(g)
+                    beste_filter["fjernet_kombinasjoner"] += 1
+                    if rad["ut"]:
+                        beste_filter["fjernet_utgang_under"] += len(g)
+                    continue
+                beste_filter[regel] += len(g)
+            folg_rader.append(rad)
+    if beste_ids:
+        _LOG.info(
+            "Handler-varsel %s til %s, Beste.csv: %d handler inn (%d investor/aksje), beholdt snur=%d, "
+            "over %.0f MNOK=%d, helt ute fra %.0f MNOK=%d; fjernet %d handler (%d investor/aksje), "
+            "herav %d helt ute under %.0f MNOK",
+            fra, til, beste_filter["inn"], beste_filter["inn_kombinasjoner"], beste_filter["snur"],
+            cfg.beste_stor_mnok, beste_filter["stor"], cfg.beste_utgang_mnok, beste_filter["utgang"],
+            beste_filter["fjernet"], beste_filter["fjernet_kombinasjoner"],
+            beste_filter["fjernet_utgang_under"], cfg.beste_utgang_mnok,
+        )
     folg_set = set(folg_ids)
 
     # 2) Flinke investorer som snur
@@ -404,6 +465,7 @@ def finn_signaler(conn, fra: dt.date, til: dt.date, cfg: Innstillinger | None = 
         "antall_flinke_fulgt": len(flinke),
         "antall_folgeliste": len(folg_ids),
         "lister": brukte_lister or cfg.lister,
+        "beste_filter": beste_filter,
     }
 
 
@@ -504,7 +566,10 @@ def bygg_html(sig: dict) -> str:
         + _seksjon("Topp 10-eier begynner å selge",
                    "Investor blant de 10 største eierne i aksjen dagen før salget startet.",
                    sig["topp10"], ekstra=lambda r: f"nr. {int(r['rang'])} blant eierne")
-        + f"<p style='margin-top:24px'><a href='{BASE_URL}/handler-oslo-bors/'>Åpne Handler Oslo Børs</a></p>"
+        + f"<p style='margin-top:24px'><a href='{BASE_URL}/handler-oslo-bors/viktige-endringer?"
+        f"{urllib.parse.urlencode({'date_from': sig['fra'], 'date_to': sig['til']})}'>"
+        "Les oppsummeringen: Viktige endringer siste døgn</a> · "
+        f"<a href='{BASE_URL}/handler-oslo-bors/'>Åpne Handler Oslo Børs</a></p>"
         "</div>"
     )
 
@@ -658,6 +723,12 @@ def kjor(fra: dt.date, til: dt.date, send: bool = True, db_path: str | None = No
         finally:
             conn.close()
         n = antall_signaler(sig)
+        if n:
+            try:
+                import handler_redaksjon as hr
+                hr.lag_i_bakgrunnen(sig)   # «Viktige endringer siste døgn» klar når e-posten leses
+            except Exception:
+                _LOG.warning("Klarte ikke starte handler-redaksjon", exc_info=True)
         resultat = {"kilde": kilde, "fra": fra.isoformat(), "til": til.isoformat(), "signaler": n, "sendt": False,
                     "folgeliste": len(sig["folgeliste"]), "flinke": len(sig["flinke"]), "topp10": len(sig["topp10"])}
         if not n:

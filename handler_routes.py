@@ -35,6 +35,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 import handler_data as hd
 import handler_data_beste as hdb
+import handler_redaksjon as hr
 import handler_varsel as hv
 from scripts import estimer_portefolje as ep
 
@@ -705,6 +706,40 @@ def varsel_forhandsvisning():
         if conn is not None:
             conn.close()
     return Response(body, mimetype="text/html")
+
+
+@handler_bp.route("/viktige-endringer", methods=["GET", "POST"])
+def viktige_endringer_page():
+    """«Viktige endringer siste døgn»: redaksjonell versjon av e-postvarselet.
+
+    Viser lagret oppsummering for perioden (laget i bakgrunnen etter opplasting). Finnes den ikke,
+    lages den nå. POST lager den på nytt.
+    """
+    err = _check_db()
+    if err:
+        return render_template("handler/viktige_endringer.html", feil=err, red=None)
+    conn = hd.db_connect()
+    try:
+        siste = _iso_date(hd.get_last_data_date(conn)) or dt.date.today()
+        if not request.args.get("date_to") and not request.args.get("date_from"):
+            # Uten valgt periode: siste oppsummering hvis den gjelder siste dato (kan dekke flere dager)
+            red = hr.siste()
+            if red and red.get("til") == siste.isoformat() and request.method == "GET":
+                return render_template("handler/viktige_endringer.html", red=red, feil=None,
+                                       date_from=red["fra"], date_to=red["til"])
+        date_to = _parse_date(request.args.get("date_to"), siste)
+        date_from = _parse_date(request.args.get("date_from"), date_to)
+        red = None if request.method == "POST" else hr.hent(date_from.isoformat(), date_to.isoformat())
+        if red is None:
+            red = hr.lag_og_lagre(hv.finn_signaler(conn, date_from, date_to))
+    except Exception as exc:
+        _LOG.exception("Feil i viktige endringer")
+        return render_template("handler/viktige_endringer.html", red=None,
+                               feil=f"{type(exc).__name__}: {exc}"), 500
+    finally:
+        conn.close()
+    return render_template("handler/viktige_endringer.html", red=red, feil=None,
+                           date_from=date_from.isoformat(), date_to=date_to.isoformat())
 
 
 # =========================================================
