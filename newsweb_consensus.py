@@ -253,6 +253,26 @@ def period_from_estimates(item:dict,snapshot:dict)->str:
         return ""
     return expected if expected in available else ""
 
+def _actual_in_estimate_units(metric:dict)->tuple[float,str]|None:
+    """Convert PDF currency units to millions; leave EPS per share."""
+    actual=metric.get("current")
+    if isinstance(actual,bool) or not isinstance(actual,(int,float)) or not math.isfinite(actual):
+        return None
+    unit=str(metric.get("unit") or "").lower().strip()
+    name=str(metric.get("name") or "")
+    if name=="eps":
+        if any(x in unit for x in ("/share","/aksje","per share","per aksje")):
+            return float(actual),str(metric.get("unit"))
+        return None
+    if any(x in unit for x in ("million","mill.","mio","mill "," mn")):
+        return float(actual),str(metric.get("unit"))
+    if any(x in unit for x in ("thousand","tusen","'000"," 000s")):
+        return float(actual)/1000,str(metric.get("unit"))+" → millioner"
+    if re.fullmatch(r"[a-z]{3}",unit) and unit.upper() in (
+        "USD","NOK","SEK","DKK","EUR","GBP","CHF","CAD","AUD","JPY","CNY","KRW","PLN"):
+        return float(actual)/1_000_000,str(metric.get("unit"))+" → millioner"
+    return None
+
 def safe_comparisons(item:dict, snapshots:list[dict])->list[dict]:
     """Private on-request comparison, never added to public NewsWeb JSON."""
     report=item.get("financial_report")
@@ -282,18 +302,14 @@ def safe_comparisons(item:dict, snapshots:list[dict])->list[dict]:
         rec=recs.get(f"{symbol}|{period_}|{k}")
         if not rec:continue
         if rec.get("unit_type")==("per_share" if k=="eps" else "millions"):
-            actual=m.get("current")
+            normalized=_actual_in_estimate_units(m)
+            if normalized is None:continue
+            actual,display_unit=normalized
             estimate=rec.get("value")
             # Without an explicit currency column, Bloomberg quote currency
             # cannot be safely matched to PDF report currency. We present
             # raw indicative values and flag this uncertainty.
             if not isinstance(actual,(int,float)) or not isinstance(estimate,(int,float)):
-                continue
-            unit=str(m.get("unit","")).lower().strip()
-            if k=="eps":
-                if not ("/share" in unit or "/aksje" in unit or "per share" in unit):
-                    continue
-            elif not any(w in unit for w in ("million","mill.","mio","mill ", " mn")):
                 continue
             if not math.isfinite(actual) or not math.isfinite(estimate):
                 continue
@@ -303,7 +319,7 @@ def safe_comparisons(item:dict, snapshots:list[dict])->list[dict]:
                 "surprise_pct":round(100*(actual-estimate)/abs(estimate),1) if estimate else None,
                 "asof":selected["uploaded_at"],
                 "source_field":rec.get("source_field"),
-                "unit":m.get("unit",""),
+                "unit":display_unit,
                 "note":"Indikativt: kontrollér valuta, justert/rapportert definisjon og periodisering"})
     return results
 
