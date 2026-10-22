@@ -312,6 +312,43 @@ def fetch_previous_quarter(item:dict, period:str, state:dict, key:str) -> str:
     except Exception as exc:
         return "error_"+type(exc).__name__
 
+def previous_outlook(item:dict,period:str,state:dict,key:str)->dict:
+    """Best-effort retrieval of last quarter's PDF outlook, with a strict cap."""
+    from .newsweb_source import get_json,details
+    wanted=preceding(period)
+    if not wanted or not wanted.endswith(tuple("1234")):return {}
+    ticker=item["ticker"].upper()
+    saved=state.setdefault("reports_by_ticker",{}).setdefault(ticker,{})
+    if wanted in saved and saved[wanted].get("outlook"):
+        return saved[wanted]["outlook"]
+    published=datetime.fromisoformat(item["published_at"].replace("Z","+00:00"))
+    from datetime import timedelta
+    start=(published-timedelta(days=165)).date().isoformat()
+    end=(published-timedelta(days=3)).date().isoformat()
+    data=get_json("list",{"market":"XOSL","issuer":ticker,
+                          "fromDate":start,"toDate":end})
+    if data.get("overflow"):return {}
+    candidates=[]
+    for row in data.get("messages",[]):
+        if str(row.get("issuerSign") or "").upper()!=ticker:continue
+        title=str(row.get("title") or "")
+        if quarter(title,str(row.get("publishedTime") or ""))!=wanted:continue
+        if any(word in title.lower() for word in ("invitation","invitasjon","presentation","presentasjon")):continue
+        candidates.append(row)
+    for candidate in sorted(candidates,key=lambda x:x.get("publishedTime",""),reverse=True)[:2]:
+        detail=details({"id":str(candidate["messageId"])})
+        doc=pick_attachment(detail.get("attachments") or [])
+        if not doc:continue
+        pdf=download_attachment(detail["id"],doc["id"])
+        if not pdf.startswith(b"%PDF-"):continue
+        txt=text_from_pdf(pdf)
+        if len(txt)<350:continue
+        extracted=extract_outlook(txt,key,ticker,wanted)
+        if extracted.get("status")=="analyzed":
+            saved.setdefault(wanted,{})["outlook"]=extracted
+            return extracted
+    return {}
+
 def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
     """Returns a compact summary; PDF is downloaded into runner memory only."""
     result={"period":quarter(item["title"],item["published_at"]),"document":None,
@@ -362,9 +399,15 @@ def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
         # Outlook is separate from financial metrics: a guidance change can
         # be the most material news even when reported EPS meets estimates.
         previous=state.get("reports_by_ticker",{}).get(item["ticker"],{}).get(preceding(result["period"]),{})
+        prior_outlook=previous.get("outlook") or {}
+        if not prior_outlook and os.getenv("FETCH_PRIOR_OUTLOOK","1")=="1":
+            try:
+                prior_outlook=previous_outlook(item,result["period"],state,key)
+            except Exception as exc:
+                print("Prior quarter outlook unavailable:",item["ticker"],type(exc).__name__)
         try:
             result["outlook"]=extract_outlook(txt,key,item["ticker"],result["period"],
-                                              previous.get("outlook"))
+                                              prior_outlook)
         except Exception as exc:
             result["outlook"]={"status":"error","summary":"","change":"",
                                "points":[],"error":type(exc).__name__}
