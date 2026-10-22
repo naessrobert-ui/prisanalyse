@@ -160,6 +160,36 @@ def consensus_upload():
                  "meldinger er fullført og vises nedenfor.")
     return _admin_form(message=message,summary=summary,history=history)
 
+def _private_consensus_headline(item:dict)->None:
+    """Promote a verified pre-publication earnings surprise in private view only.
+
+    Never rewrite the public GitHub news JSON or promote simulated estimates
+    to factual 'better than expected' claims.
+    """
+    if item.get("consensus_kind")!="actual":
+        return
+    comparisons=item.get("consensus_comparison") or []
+    priority={"ebit":0,"ebitda":1,"net_income":2,"eps":3,"net_interest_income":4}
+    eligible=[row for row in comparisons
+              if row.get("metric") in priority
+              and isinstance(row.get("surprise_pct"),(int,float))
+              and isinstance(row.get("actual"),(int,float))
+              and isinstance(row.get("consensus"),(int,float))
+              and row.get("consensus")>0]
+    if not eligible:return
+    best=min(eligible,key=lambda x:priority[x["metric"]])
+    delta=float(best["surprise_pct"])
+    if abs(delta)<5:return
+    company=str(item.get("issuer") or item.get("ticker") or "Selskapet")
+    company=company.replace(" ASA","").replace(" AS","")[:42]
+    direction="over" if delta>0 else "under"
+    label=str(best.get("label") or best["metric"])
+    item["headline"]=f"{company}: {label} {abs(delta):.0f} % {direction} konsensus (indikativt)"
+    item["lead"]=(f"{label} ble {best['actual']:g} mot forventet {best['consensus']:g} "
+                  f"({delta:+.1f} %). Sammenlignet med private estimater lagret før "
+                  "børsmeldingen. Valuta og definisjoner må verifiseres.").strip()
+    item["consensus_headline"]=True
+
 @newsweb_bp.get("/")
 def dashboard():
     report,demo=read_report()
@@ -171,6 +201,7 @@ def dashboard():
     from newsweb_monitor.dedup import collapse_stories
     items=collapse_stories(items)
     for item in items:
+        _private_consensus_headline(item)
         comparable=item.get("consensus_comparison") or []
         valid=[abs(float(row["surprise_pct"])) for row in comparable
                if isinstance(row.get("surprise_pct"),(int,float))]
