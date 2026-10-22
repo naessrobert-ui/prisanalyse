@@ -112,6 +112,8 @@ h1{font-size:clamp(27px,3vw,37px)}
 .checkline{font-size:11px;color:#a4b5cc;margin:6px 0 12px;line-height:1.4}
 .check-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#65c79a;margin-right:5px;vertical-align:middle}
 @media(max-width:740px){.checkline{font-size:10px;margin:5px 0 10px}}
+.outlook-panel{border:1px solid #3b6b7a;border-radius:10px;padding:12px 14px;margin:12px 0;background:rgba(26,74,85,.22)}
+.outlook-panel p{margin:7px 0;font-size:13px;line-height:1.55}
 </style>
 </head>
 <body><main>
@@ -200,6 +202,17 @@ h1{font-size:clamp(27px,3vw,37px)}
   </details>
 </div>
 {% endif %}
+{% set outlook = (item.get('financial_report') or {}).get('outlook') or {} %}
+{% if outlook.get('summary') or outlook.get('points') %}
+<details class="outlook-panel" open>
+  <summary><strong>Utsikter fremover og guiding</strong></summary>
+  {% if outlook.get('summary') %}<p>{{outlook.summary}}</p>{% endif %}
+  {% if outlook.get('change') %}<p><strong>Endring fra forrige kvartal:</strong> {{outlook.change}}</p>{% endif %}
+  {% for point in outlook.get('points',[]) %}
+  <p><strong>{{point.topic}}:</strong> {{point.statement}} {% if point.page %}<span class="dim">({{point.page}})</span>{% endif %}</p>
+  {% endfor %}
+</details>
+{% endif %}
 {% if item.get('reason') %}
 <details class="story-more">
   <summary>Hvorfor er dette viktig?</summary>
@@ -212,7 +225,12 @@ h1{font-size:clamp(27px,3vw,37px)}
   <summary>Regnskapsrapport: {{fin.get('period') or 'periode ikke identifisert'}} · {{fin.get('status') or 'venter'}}</summary>
   <p><strong>Dokument:</strong> {{fin.document.get('name')}}
      {% if fin.document.get('url') %} · <a href="{{fin.document.url}}" target="_blank" rel="noopener noreferrer">Se PDF ↗</a>{% endif %}</p>
-  <p class="expectation-note"><strong>Mot analytikernes forventninger:</strong> Ikke vurdert uten pålitelig konsensus hentet før rapporten. Endring fra i fjor er ikke det samme som resultat mot forventningene.</p>
+  {% if can_view_consensus and item.get('consensus_comparison') %}
+  <p class="expectation-note"><strong>Mot analytikernes forventninger:</strong> Se den private konsensustabellen over. Rapporterte tall og estimater er sammenlignet for {{fin.get('period') or 'aktuell periode'}}.</p>
+  {% else %}
+  <p class="expectation-note"><strong>Mot analytikernes forventninger:</strong> Ingen sammenlignbare estimater tilgjengelige for denne rapporten. Vekst fra i fjor er ikke det samme som avvik mot konsensus.</p>
+  {% endif %}
+
   {% if fin.get('metrics') %}
   <div class="fin-scroll"><table class="fin-table"><thead><tr><th>Nøkkeltall</th><th>Rapportert</th><th>I fjor</th><th>Forrige kv.</th><th>Å/Å</th><th>Kv/Kv</th></tr></thead>
   <tbody>
