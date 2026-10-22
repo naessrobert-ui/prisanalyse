@@ -160,7 +160,7 @@ def build_snapshot(report:dict, old:dict|None=None, bootstrap:dict|None=None) ->
     diag=report.get("diagnostics")
     if isinstance(diag,dict) and diag:
         allowed=("fetched","recent","already_seen","eligible","filtered",
-                 "analyzed","ai_failed","details_failed","capped","source_latest_at")
+                 "analyzed","ai_failed","details_failed","capped","recovered_unpublished","source_latest_at")
         merged["last_checked_at"]=limited(report.get("generated_at"),48)
         merged["monitor_stats"]={key:diag.get(key) for key in allowed
                                  if isinstance(diag.get(key),(int,str))}

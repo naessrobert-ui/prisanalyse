@@ -231,6 +231,29 @@ def pushover(item:dict, assessment:dict) -> None:
     if answer.get("status") != 1:
         raise ValueError("Pushover avviste varselet")
 
+def published_ids(path:Path) -> set[str]:
+    """Officially published IDs, including alternate language versions.
+
+    Cached 'seen' IDs alone do not prove publication: a failed git push can
+    save the cache while leaving the dashboard unchanged.
+    """
+    if not path.exists():
+        return set()
+    try:
+        payload=json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload.get("items"),list):
+            return set()
+        ids=set()
+        for item in payload["items"]:
+            if not isinstance(item,dict):continue
+            if item.get("id"):ids.add(str(item["id"]))
+            for version in item.get("language_versions") or []:
+                if isinstance(version,dict) and version.get("id"):
+                    ids.add(str(version["id"]))
+        return ids
+    except (OSError,ValueError,TypeError):
+        return set()
+
 def main() -> int:
     mode = os.getenv("SOURCE_MODE","demo").lower()
     now = dt.datetime.now(UTC)
@@ -248,6 +271,11 @@ def main() -> int:
     source = ("newsweb-xosl:"+NEWSWEB_GENERATION) if mode=="newsweb" else (
         "demo" if mode=="demo" else hashlib.sha256(os.getenv("NEWS_FEED_URL","").encode()).hexdigest()[:14])
     seen = state["seen"].setdefault(source,{})
+    # Cache marks a message as seen after AI analysis, but a subsequent GitHub
+    # publication may fail. Only skip cached IDs already in the public snapshot.
+    # Applies to production NewsWeb, not demo/PR or external live feeds.
+    public_ids=(published_ids(ROOT/"public"/"latest.json")
+                if mode=="newsweb" and os.getenv("GITHUB_REF")=="refs/heads/main" else None)
     feed_items = feed(mode)
     cutoff = now - dt.timedelta(hours=float(os.getenv("LOOKBACK_HOURS","36" if mode=="newsweb" else "4")))
     consensus={}
@@ -262,7 +290,7 @@ def main() -> int:
     entries = []
     stats={"fetched":len(feed_items),"recent":0,"already_seen":0,"eligible":0,
            "filtered":0,"analyzed":0,"ai_failed":0,"details_failed":0,
-           "capped":0,"source_latest_at":max((x["published_at"] for x in feed_items),default="")}
+           "capped":0,"recovered_unpublished":0,"source_latest_at":max((x["published_at"] for x in feed_items),default="")}
     max_messages=max(1,int(os.getenv("MAX_MESSAGES","100")))
     # Filter stale and seen announcements BEFORE applying the per-run limit.
     # Otherwise a busy feed can crowd new relevant news out of the first 120.
@@ -271,8 +299,11 @@ def main() -> int:
             continue
         stats["recent"]+=1
         if item["id"] in seen and mode in ("live","newsweb"):
-            stats["already_seen"]+=1
-            continue
+            if public_ids is None or item["id"] in public_ids:
+                stats["already_seen"]+=1
+                continue
+            # A previous analysis was cached but never made it to the site.
+            stats["recovered_unpublished"]+=1
         if len(entries)>=max_messages:
             stats["capped"]+=1
             continue
@@ -362,6 +393,7 @@ def main() -> int:
         "Feil ved AI: "+str(stats["ai_failed"]),
         "Feil ved melding: "+str(stats["details_failed"]),
         "Over kjøregrense: "+str(stats["capped"]),
+        "Gjenopprettet fra upublisert cache: "+str(stats["recovered_unpublished"]),
         "Siste kildemelding: "+str(stats["source_latest_at"]),""]
     for x in report["items"]:
         md.extend(["### "+x["ticker"]+" – "+x["title"],"",
@@ -395,7 +427,8 @@ def main() -> int:
           f"{stats['already_seen']} allerede sett; {stats['eligible']} nye kandidater; "
           f"{stats['filtered']} filtrert; {stats['analyzed']} AI-analysert; "
           f"{stats['ai_failed']} AI-feil; {stats['details_failed']} detaljfeil; "
-          f"{stats['capped']} over grense; siste melding {stats['source_latest_at']}.")
+          f"{stats['capped']} over grense; {stats['recovered_unpublished']} "
+          f"gjenopprettet fra upublisert cache; siste melding {stats['source_latest_at']}.")
     print(f"Ferdig: {len(entries)} meldinger; se rapport i GitHub Actions.")
     return 0
 

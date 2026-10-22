@@ -1,5 +1,8 @@
 import os
 import unittest
+import json
+from tempfile import TemporaryDirectory
+from pathlib import Path
 from unittest.mock import patch
 from newsweb_monitor import monitor as m
 
@@ -59,3 +62,17 @@ class EditorialResponseTests(unittest.TestCase):
         self.assertEqual(result["headline"],"Test øker EBIT med 7 prosent")
         self.assertEqual(result["summary"],result["lead"])
         self.assertNotIn("forventet",result["lead"])
+
+class PublishedCacheRecoveryTests(unittest.TestCase):
+    def test_published_ids_includes_bilingual_versions(self):
+        from newsweb_monitor.monitor import published_ids
+        with TemporaryDirectory() as d:
+            path=Path(d)/"latest.json"
+            path.write_text(json.dumps({"items":[{"id":"684466",
+                "language_versions":[{"id":"684466"},{"id":"684467"}]},
+                {"id":"684457"}]}),encoding="utf-8")
+            self.assertEqual(published_ids(path),{"684466","684467","684457"})
+
+    def test_missing_public_snapshot_returns_empty_ids(self):
+        from newsweb_monitor.monitor import published_ids
+        self.assertEqual(published_ids(Path("/nonexistent-newsweb-snapshot.json")),set())
