@@ -39,6 +39,35 @@ def quarter(title: str, published_at: str) -> str:
         return annual2.group(1)+"FY"
     return ""
 
+def period_from_pdf(text:str, published_at:str) -> str:
+    """Read period from report cover/header, rather than only NewsWeb headline."""
+    cover=text[:14000]
+    for snippet in (cover[:4500],cover):
+        result=quarter(snippet,published_at)
+        if result:return result
+        for pattern in (
+            r"\\b([1-4])\\s*[qQ]\\s*[- /]*\\s*(20\\d{2})\\b",
+            r"\\b(20\\d{2})\\s*[- /]*\\s*([1-4])\\s*[qQ]\\b",
+            r"\\b([1-4])\\s*[qQ]\\s*[- /]*\\s*(\\d{2})\\b",
+            r"\\b([1-4])\\s*(?:st|nd|rd|th)?\\s*quarter\\s*(?:ended\\s*)?(20\\d{2})\\b",
+        ):
+            m=re.search(pattern,snippet,re.I)
+            if m:
+                y=m.group(2) if pattern.find("(20")>0 else m.group(1)
+                q=m.group(1) if pattern.find("(20")>0 else m.group(2)
+                if len(y)==2:y="20"+y
+                if 2020<=int(y)<=2035:return f"{y}Q{q}"
+    return ""
+
+def inferred_reporting_quarter(published_at:str) -> str:
+    """Fallback: most recently completed calendar quarter for interim reports."""
+    from datetime import timezone
+    dt=datetime.fromisoformat(published_at.replace("Z","+00:00"))
+    if dt.tzinfo is None:raise ValueError("Publication date needs timezone")
+    dt=dt.astimezone(timezone.utc)
+    quarter_number=(dt.month-1)//3
+    return f"{dt.year-1}Q4" if quarter_number==0 else f"{dt.year}Q{quarter_number}"
+
 def preceding(period: str) -> str:
     if re.fullmatch(r"20\d\dFY",period):
         return f"{int(period[:4])-1}FY"
@@ -219,6 +248,7 @@ def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
     # without Q3 in the title. Prefer the actual PDF's period if explicit.
     if not result["period"] and selected:
         result["period"]=quarter(selected["name"],item["published_at"])
+        if result["period"]:result["period_source"]="filename"
     if not selected:return result
     result["document"]={"name":selected["name"],
         "url":("https://api3.oslo.oslobors.no/v1/newsreader/attachment?"
@@ -239,9 +269,20 @@ def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
             result["status"]="awaiting_ai_key"
             return result
         if not result["period"]:
-            result["status"]="unknown_period"
-            return result
-        result["previous_report"]=fetch_previous_quarter(item,result["period"],state,key)
+            result["period"]=period_from_pdf(txt,item["published_at"])
+            if result["period"]:
+                result["period_source"]="pdf"
+        if not result["period"]:
+            # No period in headline or PDF: assume the latest completed quarter.
+            # The private consensus layer can further resolve period from
+            # available uploaded ticker estimates, without exposing them.
+            result["period"]=inferred_reporting_quarter(item["published_at"])
+            result["period_source"]="assumed_calendar"
+        else:
+            result.setdefault("period_source","reported")
+        result["previous_report"]="not_requested"
+        # Prior-quarter backfill is expensive and can fail; extract THIS
+        # quarter's figures first so a missing historical report cannot block it.
         metrics=extract_metrics(txt,key,item["ticker"],result["period"])
         result["metrics"]=comparisons(metrics,item["ticker"],result["period"],state,consensus,item["published_at"])
         result["status"]="analyzed" if result["metrics"] else "no_metrics"
