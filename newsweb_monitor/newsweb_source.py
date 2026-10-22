@@ -83,7 +83,7 @@ def is_financial_report(item: dict) -> bool:
     title=(item.get("title") or "").lower()
     cat=(item.get("category") or "").lower()
     return bool(re.search(
-        r"\bq[1-4]\b|kvartal|quarter|interim report|half.year|halvår|annual report|"
+        r"\b(?:q[1-4]|[1-4]q)\b|kvartal|quarter|interim report|half.year|halvår|annual report|"
         r"årsrapport|full.year|årsresultat|year.end|financial results|resultater",
         title)) or ("financial report" in cat)
 

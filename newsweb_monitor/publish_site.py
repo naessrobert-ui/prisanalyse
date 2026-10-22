@@ -98,6 +98,7 @@ def sanitize(item: dict) -> dict | None:
         fin={
           "status":limited(report.get("status"),50),
           "period":limited(report.get("period"),12),
+          "period_source":limited(report.get("period_source"),24),
           "previous_report":limited(report.get("previous_report"),60),
           "document":{
               "name":limited(document.get("name"),160),

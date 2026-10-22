@@ -240,12 +240,25 @@ def _dt(value:str)->datetime|None:
     except (ValueError,TypeError,AttributeError):
         return None
 
+def period_from_estimates(item:dict,snapshot:dict)->str:
+    """Infer missing period only from this ticker's uploaded quarterly estimates."""
+    from newsweb_monitor.report_analysis import inferred_reporting_quarter
+    ticker=str(item.get("ticker") or "").upper()
+    records=snapshot.get("records") or {}
+    available={str(row.get("period") or "") for row in records.values()
+               if isinstance(row,dict) and str(row.get("ticker") or "").upper()==ticker}
+    try:
+        expected=inferred_reporting_quarter(str(item.get("published_at") or ""))
+    except (ValueError,TypeError):
+        return ""
+    return expected if expected in available else ""
+
 def safe_comparisons(item:dict, snapshots:list[dict])->list[dict]:
     """Private on-request comparison, never added to public NewsWeb JSON."""
     report=item.get("financial_report")
     if not isinstance(report,dict):return []
     period_=report.get("period")
-    if not period_ or not report.get("metrics"):return []
+    if not report.get("metrics"):return []
     published=_dt(item.get("published_at",""))
     if published is None:return []
     symbol=str(item.get("ticker","")).upper()
@@ -257,6 +270,9 @@ def safe_comparisons(item:dict, snapshots:list[dict])->list[dict]:
             selected=snap
             break
     if not selected:return []
+    if not period_:
+        period_=period_from_estimates(item,selected)
+        if not period_:return []
     if not selected.get("amount_units_confirmed"):
         return []
     recs=selected.get("records") or {}
