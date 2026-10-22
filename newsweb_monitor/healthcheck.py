@@ -51,7 +51,7 @@ def main()->int:
     print("NewsWeb source: fetched={fetched}, recent={recent}, already_seen={already_seen}, "
           "eligible={eligible}, filtered={filtered}, analyzed={analyzed}, "
           "ai_failed={ai_failed}, details_failed={details_failed}, "
-          "capped={capped}".format(**stats))
+          "capped={capped}, recovered_unpublished={recovered_unpublished}".format(**stats))
     for w in check["warnings"]:
         print("::warning::"+w)
     for e in check["problems"]:
@@ -63,6 +63,7 @@ def main()->int:
         out.write("|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
         out.write("| "+" | ".join(str(stats.get(k,0)) for k in
             ("fetched","recent","already_seen","eligible","filtered","analyzed","ai_failed","details_failed","capped"))+" |\n\n")
+        out.write("Gjenopprettet fra upublisert cache: "+str(stats.get("recovered_unpublished",0))+"\\n\\n")
         out.write("Siste melding i kilden: "+str(stats.get("source_latest_at") or "ukjent")+"\n\n")
         for message in check["warnings"]+check["problems"]:
             out.write("- "+message+"\n")
