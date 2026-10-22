@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-22T06:20:41+00:00",
+  "generated_at": "2026-10-22T06:28:32+00:00",
   "items": [
     {
       "id": "684584",
@@ -44,21 +44,21 @@
       "ticker": "TGS",
       "issuer": "TGS ASA",
       "title": "TGS Announces Q3 2026 Results - Correction",
-      "headline": "TGS øker inntektene til 397 millioner dollar – ordrebeholdning opp 52 %",
-      "lead": "TGS rapporterer en omsetning på 397 millioner dollar i tredje kvartal 2026, opp fra 388 millioner dollar året før, men driftsmarginene presses av høyere kostnader. Ordrebeholdningen økte kraftig til 679 millioner dollar.",
+      "headline": "TGS øker omsetningen til 397 mill. USD, men EBIT faller til 86 mill. USD",
+      "lead": "TGS rapporterer økte inntekter på 397 mill. USD i tredje kvartal 2026, men driftsresultatet (EBIT) faller til 86 mill. USD på grunn av høyere kostnader og lavere kontraktspriser. Ordrebeholdningen øker 52 % år-til-år.",
       "published_at": "2026-10-22T06:02:49.571000+00:00",
       "url": "https://newsweb.oslobors.no/message/684582",
-      "summary": "TGS rapporterer en omsetning på 397 millioner dollar i tredje kvartal 2026, opp fra 388 millioner dollar året før, men driftsmarginene presses av høyere kostnader. Ordrebeholdningen økte kraftig til 679 millioner dollar.",
-      "reason": "Inntektene viser økning sammenlignet med i fjor, men lavere EBITDA og EBIT på grunn av høyere kostnader og lavere priser indikerer press på lønnsomheten. Sterk ordreinngang og økt ordrebeholdning gir positiv framtidsutsikt, men marginutviklingen bør følges nøye.",
-      "score": 75,
+      "summary": "TGS rapporterer økte inntekter på 397 mill. USD i tredje kvartal 2026, men driftsresultatet (EBIT) faller til 86 mill. USD på grunn av høyere kostnader og lavere kontraktspriser. Ordrebeholdningen øker 52 % år-til-år.",
+      "reason": "Økte inntekter kombinert med fallende EBIT indikerer at høy aktivitet ikke gir tilsvarende lønnsomhetsvekst. For aksjonærer betyr dette press på marginene til tross for robust ordrereserve. Videre analyse bør fokusere på kostnadsutvikling og prisdynamikk framover.",
+      "score": 78,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "financial_report": {
         "status": "analyzed",
         "period": "2026Q3",
-        "period_source": "",
-        "previous_report": "cached",
+        "period_source": "reported",
+        "previous_report": "not_requested",
         "document": {
           "name": "TGS Earnings Release Q3 2026.pdf",
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684582&attachmentId=334854"
@@ -75,7 +75,7 @@
             "yoy_pct": 0.9,
             "qoq_pct": 14.8,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 11"
+            "evidence": "Side 2, Interim Financial Highlights, 'Operating revenues 428.3 Q3 2026 vs 424.4 Q3 2025'"
           },
           {
             "label": "EBITDA",
@@ -88,7 +88,7 @@
             "yoy_pct": -8.1,
             "qoq_pct": -9.0,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 4"
+            "evidence": "Side 2, Interim Financial Highlights, 'Produced EBITDA 222.0 Q3 2026 vs 241.6 Q3 2025'"
           },
           {
             "label": "EBIT",
@@ -101,7 +101,7 @@
             "yoy_pct": -11.4,
             "qoq_pct": 62.5,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 11"
+            "evidence": "Side 2, Interim Financial Highlights, 'Operating profit (EBIT) 93.1 Q3 2026 vs 105.1 Q3 2025'"
           },
           {
             "label": "Resultat etter skatt",
@@ -114,7 +114,7 @@
             "yoy_pct": -3.9,
             "qoq_pct": 32.1,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 11"
+            "evidence": "Side 2, Interim Financial Highlights, 'Net Income 52.3 Q3 2026 vs 54.4 Q3 2025'"
           },
           {
             "label": "EPS",
@@ -127,7 +127,7 @@
             "yoy_pct": -3.7,
             "qoq_pct": 30.0,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 11"
+            "evidence": "Side 2, Interim Financial Highlights, 'EPS (fully diluted) 0.26 Q3 2026 vs 0.27 Q3 2025'"
           },
           {
             "label": "Kontantstrøm drift",
@@ -140,22 +140,40 @@
             "yoy_pct": -48.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 6"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "USD million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Not reported explicitly"
+            "evidence": "Side 6, Financial Review, 'Net cash flow from operations for the quarter totaled USD 124.8 million, compared to USD 242.0 million in Q3 2025'"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "TGS forventer for fjerde kvartal 2026 multi-client investeringer på nærmere USD 100 millioner, noe lavere enn tidligere forventet total for året på ca. USD 550 millioner. Kapitalutgiftene ventes å være om lag USD 30 millioner, og driftskostnadene rundt USD 250 millioner. De forventer en strømmerflåteutnyttelse over 80 % og normalisert OBN-personell på ca. 1,3 i Q4. Dette representerer en nedjustering av multi-client investeringene sammenlignet med tidligere guidet ca. USD 550 millioner for hele 2026. Øvrige poster, som kapitalutgifter og forventet aktivitetsnivå i OBN, er noe justert ned eller presisert for Q4. Forrige kvartals guiding er ikk",
+          "change": "Multi-client investeringene for 2026 er justert ned til ca. USD 510 millioner fra tidligere guidet ca. USD 550 millioner. For Q4 2026 forventes investeringene nær USD 100 millioner, og øvrige kostnads- og aktivitetsnivåer er nyjustert for kvartalet.",
+          "points": [
+            {
+              "topic": "Multi-client investeringer",
+              "statement": "Multi-client investeringer i 2026 er justert ned til ca. USD 510 millioner fra tidligere ca. USD 550 millioner. For Q4 forventes investeringer nær USD 100 millioner.",
+              "evidence": "'multi-client investments in 2026 to be approximately USD 510 million, compared with our previous guidance of approximately USD 550 million' og 'Multi-client investments for Q4 2026 are expected to be",
+              "page": "3, 9"
+            },
+            {
+              "topic": "Kapitalutgifter",
+              "statement": "Forventede kapitalutgifter for Q4 2026 er om lag USD 30 millioner.",
+              "evidence": "'Capital expenditures of approximately USD 30 million' (side 9)",
+              "page": "9"
+            },
+            {
+              "topic": "Driftskostnader",
+              "statement": "Forventede driftskostnader for Q4 2026 er rundt USD 250 millioner.",
+              "evidence": "'Gross operating cost of approximately USD 250 million' (side 9)",
+              "page": "9"
+            },
+            {
+              "topic": "Aktivitetsnivå",
+              "statement": "Streamervesselutnyttelse forventes over 80 %, normalisert OBN-mannskap ca. 1,3 i Q4 2026.",
+              "evidence": "'Streamer vessel utilization of above 80% and normalized OBN crew count of approximately 1.3' (side 9)",
+              "page": "9"
+            }
+          ]
+        }
       }
     },
     {
@@ -164,13 +182,13 @@
       "ticker": "YAR",
       "issuer": "Yara International ASA",
       "title": "Yara rapporterer solide Q3-resultater i et volatilt marked",
-      "headline": "Yaras EBITDA faller til 675 mill. USD i Q3 – høyere energikostnader tynger",
-      "lead": "Yara rapporterer EBITDA eksklusive spesielle poster på 675 millioner USD i tredje kvartal 2026, ned fra 804 millioner USD året før, med høyere gasspriser og markedssvak etterspørsel som hovedutfordringer.",
+      "headline": "Yara rapporterer EBITDA på 675 millioner USD i Q3, ned fra 804 millioner i fjor",
+      "lead": "Yara oppnådde en EBITDA på 675 millioner USD i tredje kvartal 2026, ned fra 804 millioner i samme periode i 2025, preget av høyere gasspriser og treg markedsetterspørsel.",
       "published_at": "2026-10-22T06:00:30.732000+00:00",
       "url": "https://newsweb.oslobors.no/message/684580",
-      "summary": "Yara rapporterer EBITDA eksklusive spesielle poster på 675 millioner USD i tredje kvartal 2026, ned fra 804 millioner USD året før, med høyere gasspriser og markedssvak etterspørsel som hovedutfordringer.",
-      "reason": "Resultatet er lavere enn i tilsvarende periode i fjor, påvirket av økte gasspriser og svakere nitrogenmarked. Oppkjøpet i USA kan redusere energiekspostering, men effekten er ikke inneværende kvartal. Aksjonærer bør følge utviklingen i energikostnader og markedsdynamikk fremover.",
-      "score": 85,
+      "summary": "Yara oppnådde en EBITDA på 675 millioner USD i tredje kvartal 2026, ned fra 804 millioner i samme periode i 2025, preget av høyere gasspriser og treg markedsetterspørsel.",
+      "reason": "Resultatnedgang på både EBITDA og resultat etter skatt indikerer press på lønnsomheten grunnet energikostnader og markedsvolatilitet. Aksjonærer bør følge effekten av oppkjøpet i USA og selskapets kostnadsbesparende tiltak nøye.",
+      "score": 75,
       "skipped": false,
       "direction": "negativ",
       "assessment_source": "AI",
@@ -181,7 +199,7 @@
         "previous_report": "not_requested",
         "document": {
           "name": "Yara_3Q_2026_Report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684580&attachmentId=334850"
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684579&attachmentId=334851"
         },
         "metrics": [
           {
@@ -195,7 +213,7 @@
             "yoy_pct": 9.0,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 1, table under Highlights1"
+            "evidence": "SIDE 1"
           },
           {
             "label": "EBITDA",
@@ -208,7 +226,7 @@
             "yoy_pct": -9.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 1, table under Highlights1"
+            "evidence": "SIDE 1"
           },
           {
             "label": "EBIT",
@@ -221,7 +239,7 @@
             "yoy_pct": -19.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 1, table under Highlights1"
+            "evidence": "SIDE 1"
           },
           {
             "label": "Resultat etter skatt",
@@ -234,7 +252,7 @@
             "yoy_pct": -37.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 1, table under Highlights1 and Page 10, Condensed consolidated interim statement of income"
+            "evidence": "SIDE 1"
           },
           {
             "label": "EPS",
@@ -247,7 +265,7 @@
             "yoy_pct": -37.6,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 1, table under Highlights1 and Page 10, Condensed consolidated interim statement of income"
+            "evidence": "SIDE 1"
           },
           {
             "label": "Kontantstrøm drift",
@@ -260,22 +278,53 @@
             "yoy_pct": 6.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 1, table under Highlights1"
+            "evidence": "SIDE 1"
           },
           {
             "label": "Netto renteinntekter",
             "name": "net_interest_income",
             "unit": "USD million",
-            "current": -64.0,
-            "prior_year": -74.0,
+            "current": -52.0,
+            "prior_year": -62.0,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 6, Financial items table and notes"
+            "evidence": "SIDE 6; calculation: interest income 12 minus interest expense 64 = -52 (3Q 2026), interest income 12 minus interest expense 74 = -62 (3Q 2025)"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Yara forventer å fullføre oppkjøpet som gir dem økt eksponering mot Henry Hub-gass og bedre fleksibilitet innen ammoniakkproduksjon innen utgangen av 2026. Markedet for nitrogen startet tregt i tredje kvartal grunnet geopolitiske usikkerheter og handelsfaktorer, men Yara merker økt kjøpsaktivitet i Europa mot slutten av kvartalet og har en sterkere ordrebeholdning enn normalt for årstiden. Kjøp for 2027-sesongen har vært langsomme globalt, med lavere import og leveranser sammenlignet med året før. Estimerte gasskostnader for fjerde kvartal 2026 og første kvartal 2027 er høyere enn året før, men kan endres med spotpriser.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "points": [
+            {
+              "topic": "Oppkjøp og gasseksponering",
+              "statement": "Yara skal øke produksjonskapasiteten for ammoniakk og går fra europeisk til lik eksponering mot Henry Hub-gass, som øker strategisk fleksibilitet.",
+              "evidence": "«Yara moves from being a predominantly European exposed gas consumer to having an equal exposure towards Henry Hub...closing the transaction by the end of 2026.»",
+              "page": "Outlook"
+            },
+            {
+              "topic": "Nedgang i start av nitrogenmarkedet",
+              "statement": "Sakta start i nitrogenmarkedet i tredje kvartal på grunn av usikkerhet rundt Midtøsten-konflikt og handelsbalanse med Kina og India.",
+              "evidence": "«Nitrogen markets had a slow start due to uncertainty around the Middle East conflict...Chinese exports and Indian imports...»",
+              "page": "Outlook"
+            },
+            {
+              "topic": "Økt ordrebeholdning i Europa",
+              "statement": "Mot slutten av kvartalet økte kjøpsaktiviteten i Europa, og Yara kan vise til en sterkere ordrebeholdning enn normalt for årstiden.",
+              "evidence": "«Yara exits the quarter with a European order book stronger than normal for this time of year.»",
+              "page": "Outlook"
+            },
+            {
+              "topic": "Høyere gasskostnader ventet",
+              "statement": "Gasskostnadene for fjerde kvartal 2026 og første kvartal 2027 forventes å være betydelig høyere enn året før, men kostnadene kan justeres basert på spotpriser.",
+              "evidence": "«Cost for Q4 2026 and Q1 2027 is estimated to be USD 450 million and USD 445 million higher than a year earlier...may change depending on future spot gas prices.»",
+              "page": "Outlook"
+            }
+          ]
+        }
       },
       "language_versions": [
         {
@@ -402,13 +451,13 @@
       "ticker": "KOMPL",
       "issuer": "Komplett ASA",
       "title": "Q3-26: Category-specific headwinds offset underlying progress",
-      "headline": "Komplett ASA kutter driftskostnader, men EBIT justert faller til -9 millioner i Q3",
-      "lead": "Omsetningen falt 5,2 prosent til 3,64 milliarder kroner i tredje kvartal, drevet av lavere salg i gaming og komponenter, mens driftskostnadene ble redusert med 36 millioner kroner.",
+      "headline": "Komplett ASA omsetter 5,2% mindre og får negativ justert EBIT på -9 mill. kroner",
+      "lead": "Driftsinntektene falt til 3,64 milliarder kroner i tredje kvartal 2026, samtidig som justert EBIT ble negativ med 9 millioner. Kostnadskontroll dempet nedgangen, men minneprispress og volumsvikt belastet resultatet.",
       "published_at": "2026-10-22T05:01:09.544000+00:00",
       "url": "https://newsweb.oslobors.no/message/684570",
-      "summary": "Omsetningen falt 5,2 prosent til 3,64 milliarder kroner i tredje kvartal, drevet av lavere salg i gaming og komponenter, mens driftskostnadene ble redusert med 36 millioner kroner.",
-      "reason": "Resultatfallet skyldes marginpress og volumsvikt i viktige kategorier på grunn av høye minnepriser, til tross for kostnadsbesparelser. Investorer bør følge utviklingen i minneprisene og effekten på Kompletts marginer i kommende kvartaler.",
-      "score": 75,
+      "summary": "Driftsinntektene falt til 3,64 milliarder kroner i tredje kvartal 2026, samtidig som justert EBIT ble negativ med 9 millioner. Kostnadskontroll dempet nedgangen, men minneprispress og volumsvikt belastet resultatet.",
+      "reason": "Resultatnedgangen skyldes prismessige og volumrelaterte utfordringer i sentrale produktkategorier sammenlignet med fjoråret. Selv med gode kostnadstiltak er resultatet negativt, noe som gir aksjonærene grunn til å følge utviklingen i nøkkelkategorier og etterspørsel fremover for å vurdere langsiktig lønnsomhet.",
+      "score": 78,
       "skipped": false,
       "direction": "negativ",
       "assessment_source": "AI",
@@ -433,7 +482,7 @@
             "yoy_pct": -5.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 3 Q3 2026 key figures table"
+            "evidence": "Page 3, 'Operating revenue' Q3 2026: 3 642, Q3 2025: 3 842"
           },
           {
             "label": "EBITDA",
@@ -446,7 +495,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": ""
+            "evidence": "EBITDA not explicitly reported in the excerpt."
           },
           {
             "label": "EBIT",
@@ -459,7 +508,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 3 and SIDE 6 Q3 2026 key figures and financial review"
+            "evidence": "Page 3 and 6, 'EBIT' Q3 2026: -20, Q3 2025: -10"
           },
           {
             "label": "Resultat etter skatt",
@@ -472,7 +521,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 3 Q3 2026 key figures table"
+            "evidence": "Page 3 and 6, 'Profit for the period' Q3 2026: -42, Q3 2025: -43"
           },
           {
             "label": "EPS",
@@ -485,7 +534,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": ""
+            "evidence": "EPS not provided in the excerpt."
           },
           {
             "label": "Kontantstrøm drift",
@@ -498,7 +547,7 @@
             "yoy_pct": -52.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 8 Q3 2026 cash flow section"
+            "evidence": "Page 8, 'Operating activities generated a net cash flow of NOK 127 million in Q3 2026, compared with NOK 267 million last year."
           },
           {
             "label": "Netto renteinntekter",
@@ -511,9 +560,34 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "No explicit net interest income reported; net financial expenses noted as NOK 34 million (current) vs NOK 43 million (prior year) on SIDE 3 and SIDE 6."
+            "evidence": "No net interest income or detailed interest income reported, only net financial expenses provided."
           }
-        ]
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Komplett Gruppen opplever marginpress og redusert etterspørsel særlig i komponentkategorier som skyldes tøffere minnepriser og svakere etterspørsel innen gaming. Samtidig er den underliggende etterspørselen i markedet fortsatt positiv, med god respons på nye lanseringer. Selskapet prioriterer å forbedre lønnsomheten ved å øke gjennomføringskraft, effektivisere driften og opprettholde en slank kostnadsbase. Videre fokuseres det på å styrke kundeopplevelsen, utvide private label-sortimentet og optimalisere sortiment, pris og leverandørsamarbeid.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "points": [
+            {
+              "topic": "Marginpress og etterspørsel",
+              "statement": "Marginpress i komponentkategorier og svakere etterspørsel i gaming har påvirket resultatet negativt, men underliggende etterspørsel er fortsatt god.",
+              "evidence": "'margin pressure in components' og 'Strong customer response to recent gaming launches' (side 11)",
+              "page": "11"
+            },
+            {
+              "topic": "Prioriteringer fremover",
+              "statement": "Komplett fokuserer på å styrke lønnsomhet gjennom raskere gjennomføring, operasjonell effektivitet og en slank kostnadsstruktur.",
+              "evidence": "'improving profitability by increasing our pace of execution, improving operational efficiency and maintaining a structurally lean cost base' (side 11)",
+              "page": "11"
+            },
+            {
+              "topic": "Sortimentsutvidelse og kundeopplevelse",
+              "statement": "Selskapet utvider private label-sortimentet og jobber med optimalisering av sortiment, prising og leverandørrelasjoner for å styrke konkurranseposisjonen og marginer.",
+              "evidence": "'expand its private label assortment' og 'continued optimisation of assortment, pricing and supplier partnerships' (side 11)",
+              "page": "11"
+            }
+          ]
+        }
       },
       "language_versions": [
         {
@@ -538,13 +612,13 @@
       "ticker": "TGS",
       "issuer": "TGS ASA",
       "title": "TGS Quarterly Dividend",
-      "headline": "TGS utbetaler kvartalsutbytte på NOK 1,45 per aksje i Q4 2026",
-      "lead": "TGS ASA har besluttet å utbetale et kvartalsutbytte på NOK 1,45 per aksje for fjerde kvartal 2026, med betaling 12. november. Detaljer om tidligere utbyttenivå og endringer mangler foreløpig.",
+      "headline": "TGS betaler kvartalsutbytte på NOK 1,45 per aksje i fjerde kvartal",
+      "lead": "TGS ASA utbetaler et kvartalsutbytte tilsvarende USD 0,155 per aksje (NOK 1,45) for Q4 2026, med utbetaling 12. november. Ingen informasjon om endring fra tidligere kvartaler er gitt.",
       "published_at": "2026-10-22T05:01:00.522000+00:00",
       "url": "https://newsweb.oslobors.no/message/684567",
-      "summary": "TGS ASA har besluttet å utbetale et kvartalsutbytte på NOK 1,45 per aksje for fjerde kvartal 2026, med betaling 12. november. Detaljer om tidligere utbyttenivå og endringer mangler foreløpig.",
-      "reason": "Utbytteutbetaling gir direkte kontantavkastning til aksjonærer og indikerer selskapets solide kontantstrøm. Fravær av informasjon om endring fra tidligere utbytte gjør det vanskelig å vurdere utviklingens retning. Viktig å følge framtidige utbyttenivå og selskapets kontantstrøm for helhetlig vurdering.",
-      "score": 65,
+      "summary": "TGS ASA utbetaler et kvartalsutbytte tilsvarende USD 0,155 per aksje (NOK 1,45) for Q4 2026, med utbetaling 12. november. Ingen informasjon om endring fra tidligere kvartaler er gitt.",
+      "reason": "Utbyttet på NOK 1,45 per aksje gir inntekter til aksjonærene, men uten sammenligningstall kan det ikke vurderes om dette innebærer en økning eller reduksjon. Det er heller ikke oppgitt selskapets historikk eller forventninger framover, noe som begrenser nyhetsverdien.",
+      "score": 50,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -557,7 +631,13 @@
           "name": "",
           "url": ""
         },
-        "metrics": []
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -677,7 +757,13 @@
             "surprise_pct": null,
             "evidence": "Net financial expenses reported as NOK 43 million expense in 2026 Q3 compared with NOK 56 million last year, no breakdown of net interest income specifically."
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -771,7 +857,13 @@
             "surprise_pct": null,
             "evidence": "No explicit net interest income reported, only net financial items noted on Side 6, with net financial cost of MEUR -0.7 in Q3 2026"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -865,7 +957,13 @@
             "surprise_pct": null,
             "evidence": "Side 2, IFRS financials, EPS (fully diluted) Q3 2026 and Q3 2025"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -972,7 +1070,13 @@
             "surprise_pct": null,
             "evidence": "Side 3 and Side 8 condensed cash flow statement Q3 2026 vs Q3 2025"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -1000,7 +1104,13 @@
           "name": "Kitron 2026 Q3 Report.pdf",
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684562&attachmentId=334829"
         },
-        "metrics": []
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -1045,7 +1155,13 @@
           "name": "NOD Q3 2026_Report.pdf",
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684560&attachmentId=334826"
         },
-        "metrics": []
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -1139,7 +1255,13 @@
             "surprise_pct": null,
             "evidence": "Page 10, Condensed Consolidated Income Statement, Basic earnings per share Q3 2026 and Q3 2025"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -1365,7 +1487,13 @@
             "surprise_pct": null,
             "evidence": "Cash flow figures for Q3 not provided in excerpt."
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -1410,7 +1538,13 @@
           "name": "Scatec revises full-year 2026 power production EBITDA estimate.pdf",
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684544&attachmentId=334817"
         },
-        "metrics": []
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -1957,7 +2091,13 @@
             "surprise_pct": null,
             "evidence": "No EPS or shares outstanding stated for the quarters"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -2467,7 +2607,13 @@
             "surprise_pct": null,
             "evidence": "Operating cash flow figures not reported in the excerpt"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -2544,7 +2690,13 @@
           "name": "Quarterly_Report_DNB_Group_3Q26.pdf",
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684467&attachmentId=334755"
         },
-        "metrics": []
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -2651,7 +2803,13 @@
             "surprise_pct": null,
             "evidence": "EBIT figures not provided in the excerpt"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -2774,7 +2932,13 @@
             "surprise_pct": null,
             "evidence": "Operating cash flow for Storebrand Bank Group is NOK 1,730.3 million in 01.01-30.09 2026 and -5,799.1 million in 01.01-30.09 2025. No specific quarterly cash fl"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -2897,7 +3061,13 @@
             "surprise_pct": null,
             "evidence": "Cash flow statements are presented for YTD only (01.01-30.09) with no standalone Q3 cash flow figures (page 8)."
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -3020,7 +3190,13 @@
             "surprise_pct": null,
             "evidence": "Not provided in the report excerpt"
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -3048,7 +3224,13 @@
           "name": "Third_quarter_2026_Var_Energi_ASA.pdf",
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684458&attachmentId=334742"
         },
-        "metrics": []
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -3171,7 +3353,13 @@
             "surprise_pct": null,
             "evidence": "Not explicitly stated as operating cash flow; information is mainly in IFRS and alternative income statement forms."
           }
-        ]
+        ],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -3199,7 +3387,13 @@
           "name": "Interim_Report_Q3_2026.pdf",
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684455&attachmentId=334733"
         },
-        "metrics": []
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -3430,7 +3624,13 @@
           "name": "",
           "url": ""
         },
-        "metrics": []
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
       }
     },
     {
@@ -4126,7 +4326,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-10-22T06:20:41+00:00",
+  "last_checked_at": "2026-10-22T06:28:32+00:00",
   "monitor_stats": {
     "fetched": 156,
     "recent": 109,
