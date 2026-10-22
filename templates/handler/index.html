@@ -128,6 +128,14 @@
     <div class="row g-4 mt-2">
       <div class="col-md-4">
         <div class="card-module">
+          <div class="icon">📰</div>
+          <h3>Viktige endringer siste døgn</h3>
+          <p>Redaksjonell oppsummering av dagens viktigste handler, skrevet med AI ut fra e-postvarselet.</p>
+          <a href="{{ url_for('handler.viktige_endringer_page') }}" class="btn-handler">Åpne</a>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card-module">
           <div class="icon">📌</div>
           <h3>Handler per eier</h3>
           <p>Se hvilke eiere som handler mest, netto kjøp/salg og trender per eier.</p>

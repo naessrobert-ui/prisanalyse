@@ -208,6 +208,7 @@ def smtp_env(monkeypatch, tmp_path):
                  "HANDLER_VARSEL_TIL": "meg@eksempel.no", "HANDLER_VARSEL_FRA": "varsel@eksempel.no"}.items():
         monkeypatch.setenv(k, v)
     monkeypatch.delenv("MEDIA_DIGEST_FROM", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr(hv.smtplib, "SMTP", _FakeSMTP)
     monkeypatch.setattr(hv, "_STATE_PATH", tmp_path / "state.json")
     _FakeSMTP.sendt, _FakeSMTP.feil = [], None

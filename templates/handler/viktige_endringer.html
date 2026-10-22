@@ -1,0 +1,111 @@
+{# templates/handler/viktige_endringer.html #}
+{% extends "handler/_shell.html" %}
+{% block title %}Viktige endringer siste døgn{% endblock %}
+
+{% block extra_head %}
+<style>
+  .red-ingress { font-size: 1.1rem; line-height: 1.55; margin: 0; }
+  .sak { padding: 16px 0; border-bottom: 1px solid var(--pa-border); }
+  .sak:last-child { border-bottom: none; padding-bottom: 0; }
+  .sak h2 { font-size: 1.12rem; font-weight: 700; margin: 0 0 6px 0; color: #fff; }
+  .sak p { margin: 0 0 8px 0; line-height: 1.55; }
+  .kilde-chip {
+    display: inline-block; font-size: 0.78rem; padding: 2px 10px; margin: 2px 4px 2px 0;
+    border-radius: 999px; border: 1px solid var(--pa-border); color: var(--pa-muted);
+    text-decoration: none;
+  }
+  .kilde-chip:hover { color: #fff; border-color: var(--pa-accent); }
+  .meta { color: var(--pa-muted); font-size: 0.8rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>📰 Viktige endringer siste døgn</h1>
+  <div class="sub">Redaksjonell oppsummering av det samme som står i e-postvarselet: store eiere og flinke investorer
+    som kjøper, selger eller snur på Oslo Børs.</div>
+</div>
+
+{% if feil %}
+  <div class="panel"><strong>Klarte ikke lage oppsummeringen.</strong><br><span class="text-muted">{{ feil }}</span></div>
+{% endif %}
+
+{% if red %}
+{% set rader_by_id = {} %}
+{% for r in red.rader %}{% set _ = rader_by_id.update({r.id: r}) %}{% endfor %}
+
+<div class="panel">
+  <form method="get" class="row g-3 align-items-end">
+    <div class="col-6 col-md-3">
+      <label for="date-from">Fra dato</label>
+      <input type="date" class="form-control" id="date-from" name="date_from" value="{{ date_from }}">
+    </div>
+    <div class="col-6 col-md-3">
+      <label for="date-to">Til dato</label>
+      <input type="date" class="form-control" id="date-to" name="date_to" value="{{ date_to }}">
+    </div>
+    <div class="col-md-3"><button class="btn btn-primary">Vis</button></div>
+  </form>
+</div>
+
+<div class="panel">
+  <div class="meta mb-2">{{ red.fra if red.fra == red.til else red.fra ~ ' til ' ~ red.til }}</div>
+  <h1 style="font-size:1.5rem;font-weight:800;margin:0 0 10px 0">{{ red.tittel }}</h1>
+  <p class="red-ingress">{{ red.ingress }}</p>
+</div>
+
+{% if red.saker %}
+<div class="panel">
+  {% for sak in red.saker %}
+  <div class="sak">
+    <h2>{{ sak.overskrift }}</h2>
+    <p>{{ sak.tekst }}</p>
+    {% for k in sak.kilder %}{% set r = rader_by_id.get(k) %}{% if r %}
+      <a class="kilde-chip" href="{{ r.lenke }}" title="{{ r.seksjon }}">
+        {{ r.investor }} · {{ r.ticker or r.isin }}
+        <span class="{{ 'text-pos' if r.retning == 'kjøp' else 'text-neg' }}">{{ '▲' if r.retning == 'kjøp' else '▼' }}
+        {{ '%.1f'|format((r.belop_mnok or 0)|abs) | replace('.', ',') }} MNOK</span>
+      </a>
+    {% endif %}{% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if red.rader %}
+<div class="panel">
+  <details>
+    <summary style="cursor:pointer;font-weight:600">Alle signaler ({{ red.rader|length }})</summary>
+    <div class="table-container mt-3">
+      <table class="data-table">
+        <thead><tr><th>Investor</th><th>Aksje</th><th>Beløp (MNOK)</th><th>Type</th><th>Del av varselet</th></tr></thead>
+        <tbody>
+        {% for r in red.rader %}
+          <tr>
+            <td><a href="{{ r.lenke }}">{{ r.investor }}</a></td>
+            <td>{{ r.ticker or r.isin }} <span class="text-muted">{{ r.aksje }}</span></td>
+            <td class="{{ 'text-pos' if r.retning == 'kjøp' else 'text-neg' }}">{{ '%.1f'|format(r.belop_mnok or 0) | replace('.', ',') }}</td>
+            <td>{{ r.type }}{% if r.solgt_helt_ut %}{{ ', ' if r.type }}helt ute{% endif %}</td>
+            <td class="text-muted">{{ r.seksjon }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</div>
+{% endif %}
+
+<div class="meta">
+  {% if red.kilde == 'ai' %}
+    Skrevet av AI ({{ red.modell }}) ut fra handelsdataene, {{ red.laget|replace('T', ' ') }}. Teksten kan inneholde feil;
+    tallene i lenkene og tabellen over er fasit.
+  {% else %}
+    Automatisk oppsummering uten AI, {{ red.laget|replace('T', ' ') }}{% if red.feil %} (AI feilet: {{ red.feil }}){% endif %}.
+  {% endif %}
+  <form method="post" action="?date_from={{ red.fra }}&date_to={{ red.til }}" style="display:inline">
+    <button class="btn btn-outline-secondary btn-sm ms-2">Lag på nytt</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

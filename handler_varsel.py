@@ -566,7 +566,10 @@ def bygg_html(sig: dict) -> str:
         + _seksjon("Topp 10-eier begynner å selge",
                    "Investor blant de 10 største eierne i aksjen dagen før salget startet.",
                    sig["topp10"], ekstra=lambda r: f"nr. {int(r['rang'])} blant eierne")
-        + f"<p style='margin-top:24px'><a href='{BASE_URL}/handler-oslo-bors/'>Åpne Handler Oslo Børs</a></p>"
+        + f"<p style='margin-top:24px'><a href='{BASE_URL}/handler-oslo-bors/viktige-endringer?"
+        f"{urllib.parse.urlencode({'date_from': sig['fra'], 'date_to': sig['til']})}'>"
+        "Les oppsummeringen: Viktige endringer siste døgn</a> · "
+        f"<a href='{BASE_URL}/handler-oslo-bors/'>Åpne Handler Oslo Børs</a></p>"
         "</div>"
     )
 
@@ -720,6 +723,12 @@ def kjor(fra: dt.date, til: dt.date, send: bool = True, db_path: str | None = No
         finally:
             conn.close()
         n = antall_signaler(sig)
+        if n:
+            try:
+                import handler_redaksjon as hr
+                hr.lag_i_bakgrunnen(sig)   # «Viktige endringer siste døgn» klar når e-posten leses
+            except Exception:
+                _LOG.warning("Klarte ikke starte handler-redaksjon", exc_info=True)
         resultat = {"kilde": kilde, "fra": fra.isoformat(), "til": til.isoformat(), "signaler": n, "sendt": False,
                     "folgeliste": len(sig["folgeliste"]), "flinke": len(sig["flinke"]), "topp10": len(sig["topp10"])}
         if not n:
