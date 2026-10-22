@@ -175,3 +175,11 @@ Endepunktet krever aktiv innlogging, CSRF-token og minst tre minutter mellom
 forsøk per web-prosess. GitHub-workflowen har også en concurrency-gruppe.
 Historisk innhenting er begrenset for å unngå høye kostnader ved hver
 manuell kjøring. Planlagt oppdatering fortsetter uavhengig av knappen.
+
+## Automatisk historikkbygging
+
+I tillegg til knappen forsøker første planlagte NewsWeb-kjøring rundt kl. 06
+(norsk tid) å hente fire tidligere kvartalsrapporter for inntil fire nylig
+rapporterende selskaper. Også en kodeoppdatering på `main` starter en slik
+begrenset gjennomgang. Fremdrift lagres per ticker og kvartal i GitHub Actions
+state-cache, slik at senere kjøringer går videre til andre selskaper.
