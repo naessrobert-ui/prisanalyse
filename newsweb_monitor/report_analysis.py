@@ -460,6 +460,8 @@ def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
                 except Exception as exc:
                     print("Historical outlook lookup failed:",item["ticker"],cursor,type(exc).__name__)
                 cursor=preceding(cursor)
+            state.setdefault("history_backfill_done",{})[
+                item["ticker"]+":"+result["period"]]=datetime.now().isoformat()
         previous=state.get("reports_by_ticker",{}).get(item["ticker"],{}).get(preceding(result["period"]),{})
         prior_outlook=previous.get("outlook") or {}
         if not prior_outlook and os.getenv("FETCH_PRIOR_OUTLOOK","1")=="1":
