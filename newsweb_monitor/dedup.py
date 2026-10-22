@@ -77,7 +77,7 @@ def _topic(row:dict)->str:
         return "trading_admission_application"
     if re.search(r"vedtak om opptak|decision on admission",title):
         return "trading_admission_decision"
-    if re.search(r"\\b(?:q[1-4]|[1-4]q)\\b",title) and _doc_name(row):
+    if re.search(r"\b(?:q[1-4]|[1-4]q)\b",title) and _doc_name(row):
         return "financial_results"
     if re.search(r"resultat|results?|financial report|interim report|quarterly report|"
                  r"(?:first|second|third|fourth|[1-4](?:st|nd|rd|th)?)\s+quarter\s+report|"
