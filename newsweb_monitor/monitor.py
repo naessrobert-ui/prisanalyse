@@ -280,18 +280,27 @@ def main() -> int:
     # Limit repairs per run to avoid consuming the whole OpenAI budget.
     public_report=ROOT/"public"/"latest.json"
     repair_ids=set()
+    repair_priority={}
     if public_ids is not None and public_report.exists():
         try:
             snapshot=json.loads(public_report.read_text(encoding="utf-8"))
             for row in snapshot.get("items",[]):
                 fin=row.get("financial_report") or {}
                 if fin and (not fin.get("metrics") or not (fin.get("outlook") or {}).get("status")):
-                    repair_ids.add(str(row.get("id") or ""))
-                    repair_ids.update(str(v.get("id") or "") for v in row.get("language_versions",[])
-                                      if isinstance(v,dict))
+                    # Repair completely missing/unknown period and metrics first;
+                    # then backfill outlook on otherwise complete reports.
+                    urgency=(0 if fin.get("status") in ("unknown_period","error","no_pdf")
+                             else 1 if not fin.get("metrics") else 2)
+                    ids=[str(row.get("id") or "")]
+                    ids.extend(str(v.get("id") or "") for v in row.get("language_versions",[])
+                               if isinstance(v,dict))
+                    for ident in ids:
+                        if ident:
+                            repair_ids.add(ident)
+                            repair_priority[ident]=min(urgency,repair_priority.get(ident,9))
         except (OSError,ValueError,TypeError):
             pass
-    repair_budget=6
+    repair_budget=12
     feed_items = feed(mode)
     cutoff = now - dt.timedelta(hours=float(os.getenv("LOOKBACK_HOURS","36" if mode=="newsweb" else "4")))
     consensus={}
@@ -310,7 +319,16 @@ def main() -> int:
     max_messages=max(1,int(os.getenv("MAX_MESSAGES","100")))
     # Filter stale and seen announcements BEFORE applying the per-run limit.
     # Otherwise a busy feed can crowd new relevant news out of the first 120.
-    for item in sorted(feed_items,key=lambda x:x["published_at"],reverse=True):
+    # Process new messages first, then the most broken historical reports.
+    # Sorting repairs by status ensures NOD unknown_period is not starved by
+    # reports that already have financial metrics but lack outlook commentary.
+    def work_order(item):
+        ident=item["id"]
+        if ident not in seen or (public_ids is not None and ident not in public_ids):
+            return (0,0,item["published_at"])
+        return (1,repair_priority.get(ident,9),item["published_at"])
+    for item in sorted(feed_items,key=work_order):
+
         if mode in ("live","newsweb") and timestamp(item["published_at"]) < cutoff:
             continue
         stats["recent"]+=1
@@ -318,6 +336,9 @@ def main() -> int:
             if public_ids is None or item["id"] in public_ids:
                 if (repair_budget>0 and item["id"] in repair_ids):
                     repair_budget-=1
+                    print("Reanalyzing incomplete financial report:",
+                          item["ticker"],item["id"],
+                          "priority",repair_priority.get(item["id"]))
                 else:
                     stats["already_seen"]+=1
                     continue
