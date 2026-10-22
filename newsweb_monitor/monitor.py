@@ -260,29 +260,44 @@ def main() -> int:
             print("Consensus unavailable:",type(exc).__name__,file=sys.stderr)
             consensus={}
     entries = []
-    for item in sorted(feed_items,key=lambda x:x["published_at"],reverse=True)[:max(1,int(os.getenv("MAX_MESSAGES","100")))]:
+    stats={"fetched":len(feed_items),"recent":0,"already_seen":0,"eligible":0,
+           "filtered":0,"analyzed":0,"ai_failed":0,"details_failed":0,
+           "capped":0,"source_latest_at":max((x["published_at"] for x in feed_items),default="")}
+    max_messages=max(1,int(os.getenv("MAX_MESSAGES","100")))
+    # Filter stale and seen announcements BEFORE applying the per-run limit.
+    # Otherwise a busy feed can crowd new relevant news out of the first 120.
+    for item in sorted(feed_items,key=lambda x:x["published_at"],reverse=True):
         if mode in ("live","newsweb") and timestamp(item["published_at"]) < cutoff:
             continue
+        stats["recent"]+=1
         if item["id"] in seen and mode in ("live","newsweb"):
+            stats["already_seen"]+=1
+            continue
+        if len(entries)>=max_messages:
+            stats["capped"]+=1
             continue
         why=prefilter(item)
         if why:
+            stats["filtered"]+=1
             entries.append({**item,"score":0,"direction":"nøytral","summary":"Filtrert bort",
                 "reason":why,"assessment_source":"Regelfilter","skipped":True})
             seen[item["id"]] = now.isoformat()
             continue
+        stats["eligible"]+=1
         if mode=="newsweb":
             try:
                 from .newsweb_source import details
                 item=details(item)
             except Exception as exc:
                 print("Could not fetch message:",item["id"],type(exc).__name__,file=sys.stderr)
+                stats["details_failed"]+=1
                 continue
         key=os.getenv("OPENAI_API_KEY","")
         try:
             assessment=ai(item,key) if key else rules(item)
         except Exception as exc:
             print(f"AI-feil for {item['id']}: {exc}",file=sys.stderr)
+            stats["ai_failed"]+=1
             continue # Neste kjøring prøver igjen.
         entry={**item,**assessment,"skipped":False}
         if mode=="newsweb":
@@ -314,6 +329,7 @@ def main() -> int:
         else:
             entry["notification"]="Av" if mode in ("live","newsweb") else "DEMO – ingen varsler"
         entries.append(entry)
+        stats["analyzed"]+=1
         if mode in ("live","newsweb"):
             seen[item["id"]]=now.isoformat()
     # Begrens statushistorikk til ca 30 dager.
@@ -329,12 +345,24 @@ def main() -> int:
     report={"source":mode.upper()+(" – KUN FIKTIVE MELDINGER" if mode=="demo" else ""),
             "generated_at":now.isoformat(timespec="seconds"),
             "generation":NEWSWEB_GENERATION if mode=="newsweb" else "",
-            "items":sorted(entries,key=lambda x:x.get("score",0),reverse=True)}
+            "items":sorted(entries,key=lambda x:x.get("score",0),reverse=True),
+            "diagnostics":stats}
     output=ROOT/"reports"
     output.mkdir(exist_ok=True)
     (output/"latest.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     md=["# NewsWeb-monitor ("+mode+")","","Kjøring: "+now.isoformat(),
-        "","Analysert/filtrert: "+str(len(entries)),""]
+        "","Analysert/filtrert: "+str(len(entries)),"",
+        "## Kildediagnostikk","",
+        "Hentet fra NewsWeb: "+str(stats["fetched"]),
+        "Innenfor tidsvindu: "+str(stats["recent"]),
+        "Allerede sett: "+str(stats["already_seen"]),
+        "Nye kandidater: "+str(stats["eligible"]),
+        "Filtrert: "+str(stats["filtered"]),
+        "AI-analysert: "+str(stats["analyzed"]),
+        "Feil ved AI: "+str(stats["ai_failed"]),
+        "Feil ved melding: "+str(stats["details_failed"]),
+        "Over kjøregrense: "+str(stats["capped"]),
+        "Siste kildemelding: "+str(stats["source_latest_at"]),""]
     for x in report["items"]:
         md.extend(["### "+x["ticker"]+" – "+x["title"],"",
             str(x["score"])+"/100 – "+x["assessment_source"],
@@ -363,6 +391,11 @@ def main() -> int:
                     " | "+(n(surprise)+" %" if surprise is not None else "–")+" |")
             md.extend(["","Konsensus vises bare ved tilgang til tidsstemplet, matchende estimat.",""])
     (output/"latest.md").write_text("\n".join(md),encoding="utf-8")
+    print(f"NewsWeb kilde: {stats['fetched']} hentet; {stats['recent']} siste 36t; "
+          f"{stats['already_seen']} allerede sett; {stats['eligible']} nye kandidater; "
+          f"{stats['filtered']} filtrert; {stats['analyzed']} AI-analysert; "
+          f"{stats['ai_failed']} AI-feil; {stats['details_failed']} detaljfeil; "
+          f"{stats['capped']} over grense; siste melding {stats['source_latest_at']}.")
     print(f"Ferdig: {len(entries)} meldinger; se rapport i GitHub Actions.")
     return 0
 

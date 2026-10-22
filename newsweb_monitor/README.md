@@ -10,6 +10,28 @@ GitHub Actions: `Actions → NewsWeb AI monitor`.
 - Lagre rapportene fra hver kjøring via `Summary` og `Artifacts (latest.json / latest.md)`.
 - ID-baserte dubletter og målestørrelser fra tidligere kvartaler beholdes i Actions-cache. Cache er **ikke varig lagring**; for senere produksjon anbefales privat database/S3.
 
+
+## Overvåking av oppdateringer (22.10.2026)
+
+Hver kjøring logger nå: antall hentet fra NewsWeb, innenfor tidsvinduet,
+allerede sett i cache, nye kandidater, rutinemeldinger/filtrert, AI-analysert,
+feil ved detaljhenting, AI-feil og antall som ble utsatt pga. kjøregrensen.
+Grensen på 120 brukes etter at tidligere sette og utdaterte meldinger er
+sortert bort, slik at gamle meldinger ikke fortrenger nye.
+
+GitHub Actions viser en egen **NewsWeb healthcheck**-tabell i Summary.
+Mellom kl. 08 og 17 på hverdager (norsk tid) blir kjøringen **rød** dersom
+kilden gir null XOSL-meldinger, eller hvis nye kandidater finnes, men alle
+feiler i AI/detaljhenting. Gammel kilde (>4 timer) og ingen nye analyser
+gir **advarsel** uten å feilmerke normalt stille perioder.
+Dette er GitHub Actions-varsler, ikke Pushover-meldinger.
+
+Den offentlige `latest.json` får nå `last_checked_at` og
+`monitor_stats` ved hver vellykket kildeavlesning, også når det ikke er
+nye nyheter. `generated_at` beholdes som siste oppdatering av selve
+nyhetssakene. Ingen fulltekst, private konsensusdata eller hemmeligheter
+inkluderes i diagnostikken. Nettsiden oppdateres etter neste GitHub-publisering.
+
 ## PDF-analyse
 Ved en ny resultatmelding:
 1. Last ned vedlagt kvartalsrapport som PDF. Filstørrelse begrenses til 22 MB.

@@ -155,8 +155,20 @@ def build_snapshot(report:dict, old:dict|None=None, bootstrap:dict|None=None) ->
                         limited((old or bootstrap or {}).get("generated_at"),48),
         "items":rows
     }
+    # Heartbeat updates on every completed source check, even if zero new
+    # disclosures. Do not confuse last_checked_at with news published_at.
+    diag=report.get("diagnostics")
+    if isinstance(diag,dict) and diag:
+        allowed=("fetched","recent","already_seen","eligible","filtered",
+                 "analyzed","ai_failed","details_failed","capped","source_latest_at")
+        merged["last_checked_at"]=limited(report.get("generated_at"),48)
+        merged["monitor_stats"]={key:diag.get(key) for key in allowed
+                                 if isinstance(diag.get(key),(int,str))}
     old_rows=(old or {}).get("items") or []
-    updated = not old or rows!=old_rows
+    updated = not old or rows!=old_rows or (
+        "last_checked_at" in merged and (
+            merged["last_checked_at"]!=(old or {}).get("last_checked_at") or
+            merged.get("monitor_stats")!=(old or {}).get("monitor_stats")))
     return merged,updated
 
 def read_json(path:Path) -> dict|None:

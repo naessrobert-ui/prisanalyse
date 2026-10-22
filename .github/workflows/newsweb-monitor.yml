@@ -137,6 +137,9 @@ jobs:
           else
             echo "Ingen nye meldinger for dashboardet"
           fi
+      - name: NewsWeb kildekontroll og ferskhetsvarsel
+        if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: python -m newsweb_monitor.healthcheck
       - uses: actions/upload-artifact@v4
         if: always()
         with:
