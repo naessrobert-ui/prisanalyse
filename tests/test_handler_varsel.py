@@ -108,7 +108,7 @@ def _db(path):
 def test_finn_signaler(tmp_path, monkeypatch):
     p = str(tmp_path / "h.db")
     _db(p)
-    monkeypatch.setattr(hv, "_folgeliste_ids", lambda conn, cfg, brukt=None: ["F1"])
+    monkeypatch.setattr(hv, "_folgeliste_ids", lambda conn, cfg, brukt=None, beste=None: ["F1"])
     monkeypatch.setattr(hv, "_flinke_ids", lambda conn, til, cfg: [])
     conn = sqlite3.connect(p)
     conn.row_factory = sqlite3.Row
@@ -234,7 +234,7 @@ def test_send_test_ok_og_feil(smtp_env):
 def test_kjor_lagrer_grunn_og_feil(smtp_env, tmp_path):
     p = str(tmp_path / "h.db")
     _db(p)
-    smtp_env.setattr(hv, "_folgeliste_ids", lambda conn, cfg, brukt=None: ["F1"])
+    smtp_env.setattr(hv, "_folgeliste_ids", lambda conn, cfg, brukt=None, beste=None: ["F1"])
     smtp_env.setattr(hv, "_flinke_ids", lambda conn, til, cfg: [])
     r = hv.kjor(D(2026, 10, 14), D(2026, 10, 14), db_path=p)
     assert r["sendt"] and hv.siste_kjoring()["sendt"]
@@ -246,3 +246,123 @@ def test_kjor_lagrer_grunn_og_feil(smtp_env, tmp_path):
     assert "invalid api key" in hv.siste_kjoring()["feil"]
     r = hv.kjor(D(2026, 1, 1), D(2026, 1, 1), db_path=p)
     assert r["grunn"] == "Ingen signaler i perioden"
+
+
+# ---------------------------------------------------------
+# Beløpsgulv for Beste.csv i følgelisten
+# ---------------------------------------------------------
+BESTE = ["B_SNUR", "B_AGG10", "B_AGG9", "B_UT4", "B_UT5", "B_UT6", "B_BEGGE"]
+VIKTIGE = ["V1", "B_BEGGE"]   # B_BEGGE står i begge listene og behandles som Viktige
+
+
+def _db_beste(path):
+    """Vindu 2026-10-05 til 2026-10-14, kurs 100: 10 000 aksjer = 1 MNOK."""
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE investor (investor_id TEXT PRIMARY KEY, investor_type TEXT,
+            first_name TEXT, last_name TEXT, country_code TEXT, raw_id TEXT);
+        CREATE TABLE security (isin TEXT PRIMARY KEY, ticker TEXT, isin_name TEXT, last_price REAL);
+        CREATE TABLE position_change (isin TEXT, investor_id TEXT, date_today TEXT,
+            holding_today REAL, holding_yesterday REAL, price_today REAL, price_yesterday REAL,
+            change_qty REAL, PRIMARY KEY (isin, investor_id, date_today));
+        """
+    )
+    conn.executemany("INSERT INTO investor VALUES (?,?,?,?,?,?)",
+                     [(i, "Fond", i, "FOND", "NO", None) for i in BESTE + ["V1"]])
+    conn.execute("INSERT INTO security VALUES ('X','XXX','X ASA',100)")
+    rows = []
+
+    def pc(inv, dato, beh_for, endring):
+        rows.append(("X", inv, dato, beh_for + endring, beh_for, 0, 100.0, endring))
+
+    # Viktige: liten handel, skal alltid med
+    pc("V1", "2026-10-14", 1_000, 100)                       # 0,01 MNOK
+    pc("B_BEGGE", "2026-10-14", 1_000, 100)                  # 0,01 MNOK, i begge lister
+    # Snur fra kjøp til salg, bare 1 MNOK
+    pc("B_SNUR", "2026-10-01", 50_000, 10_000)
+    pc("B_SNUR", "2026-10-14", 60_000, -10_000)
+    # 10 handler à 1 MNOK i samme retning (fortsetter en kjøpsrekke, ingen snu) = 10 MNOK
+    pc("B_AGG10", "2026-09-01", 100_000, 1_000)
+    for i in range(10):
+        pc("B_AGG10", f"2026-10-{5 + i:02d}", 101_000 + i * 10_000, 10_000)
+    # 9 handler à 1 MNOK = 9 MNOK, under 10 og ikke snu eller utgang
+    pc("B_AGG9", "2026-09-01", 100_000, 1_000)
+    for i in range(9):
+        pc("B_AGG9", f"2026-10-{5 + i:02d}", 101_000 + i * 10_000, 10_000)
+    # Selger seg helt ut etter lang pause (forste_salg, ikke snu): 4, 5 og 6 MNOK
+    for inv, beh in [("B_UT4", 40_000), ("B_UT5", 50_000), ("B_UT6", 60_000)]:
+        pc(inv, "2026-01-05", 0, beh)
+        pc(inv, "2026-10-14", beh, -beh)
+    conn.executemany("INSERT INTO position_change VALUES (?,?,?,?,?,?,?,?)", rows)
+    conn.commit()
+    conn.close()
+
+
+def _folg_beste(conn, cfg, brukt=None, beste=None):
+    if beste is not None:
+        beste.update(set(BESTE) - set(VIKTIGE))
+    return sorted(set(BESTE) | set(VIKTIGE))
+
+
+def _signaler_beste(tmp_path, monkeypatch, cfg=None):
+    p = str(tmp_path / "beste.db")
+    _db_beste(p)
+    monkeypatch.setattr(hv, "_folgeliste_ids", _folg_beste)
+    monkeypatch.setattr(hv, "_flinke_ids", lambda conn, til, cfg: [])
+    conn = sqlite3.connect(p)
+    conn.row_factory = sqlite3.Row
+    try:
+        return hv.finn_signaler(conn, D(2026, 10, 5), D(2026, 10, 14), cfg or hv.Innstillinger())
+    finally:
+        conn.close()
+
+
+def test_beste_belopsgulv(tmp_path, monkeypatch, caplog):
+    monkeypatch.delenv("HANDLER_VARSEL_BESTE_STOR_MNOK", raising=False)
+    monkeypatch.delenv("HANDLER_VARSEL_BESTE_UTGANG_MNOK", raising=False)
+    with caplog.at_level("INFO", logger=hv.__name__):
+        sig = _signaler_beste(tmp_path, monkeypatch)
+    rader = {r["investor_id"]: r for r in sig["folgeliste"]}
+
+    # Viktige urørt, også når investoren står i Beste i tillegg
+    assert "V1" in rader and "B_BEGGE" in rader
+    # Snu under 5 MNOK beholdes
+    assert rader["B_SNUR"]["type"] == "Snur: selger"
+    # 10 handler à 1 MNOK summeres til 10 MNOK, nøyaktig på grensen -> med
+    assert rader["B_AGG10"]["belop_mnok"] == pytest.approx(10.0)
+    assert rader["B_AGG10"]["handelsdager"] == 10
+    assert "B_AGG9" not in rader
+    # Helt ute: under 5 fjernes, nøyaktig 5 og over beholdes
+    assert "B_UT4" not in rader
+    assert rader["B_UT5"]["ut"] and rader["B_UT6"]["ut"]
+
+    f = sig["beste_filter"]
+    assert f["inn_kombinasjoner"] == 6 and f["inn"] == 1 + 10 + 9 + 3
+    assert (f["snur"], f["stor"], f["utgang"]) == (1, 10, 2)
+    assert (f["fjernet"], f["fjernet_kombinasjoner"], f["fjernet_utgang_under"]) == (10, 2, 1)
+    assert "Beste.csv: 23 handler inn" in caplog.text and "fjernet 10 handler" in caplog.text
+
+    # E-posten bygges som før, med færre rader
+    assert "Følgelisten (6)" in hv.bygg_html(sig)
+    assert hv.antall_signaler(sig) == 6
+
+
+def test_beste_terskler_fra_miljo(tmp_path, monkeypatch):
+    monkeypatch.setenv("HANDLER_VARSEL_BESTE_STOR_MNOK", "9")
+    monkeypatch.setenv("HANDLER_VARSEL_BESTE_UTGANG_MNOK", "6")
+    sig = _signaler_beste(tmp_path, monkeypatch)
+    ids = {r["investor_id"] for r in sig["folgeliste"]}
+    assert {"B_AGG9", "B_UT6"} <= ids and not {"B_UT4", "B_UT5"} & ids
+
+
+def test_beste_regel_grenser():
+    cfg = hv.Innstillinger(beste_stor_mnok=10, beste_utgang_mnok=5)
+    assert hv._beste_regel({"snur_kjop"}, 0.1, False, cfg) == "snur"
+    assert hv._beste_regel({"snur_salg"}, -0.1, True, cfg) == "snur"
+    assert hv._beste_regel(set(), 10.0, False, cfg) == "stor"
+    assert hv._beste_regel(set(), -10.0, False, cfg) == "stor"
+    assert hv._beste_regel(set(), 9.999, False, cfg) is None
+    assert hv._beste_regel({"ut", "forste_salg"}, -5.0, True, cfg) == "utgang"
+    assert hv._beste_regel({"ut"}, -4.999, True, cfg) is None
+    assert hv._beste_regel({"ny_posisjon"}, 9.0, False, cfg) is None
