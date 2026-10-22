@@ -1,6 +1,12 @@
 import unittest
-from newsweb_routes import _private_consensus_headline
+from importlib.util import find_spec
 
+if find_spec("flask") is not None:
+    from newsweb_routes import _private_consensus_headline
+else:
+    _private_consensus_headline = None
+
+@unittest.skipIf(_private_consensus_headline is None, "Flask only installed in web-app test job")
 class PrivateHeadlineTests(unittest.TestCase):
     def _item(self,kind):
         return {"issuer":"TGS ASA","headline":"TGS rapporterer resultat",
