@@ -353,9 +353,14 @@
             method: 'POST',
             body: formData,
           });
-          const data = await resp.json().catch(() => ({}));
+          const data = await resp.json().catch(() => null);
           if (!resp.ok) {
             csvUpdateStatus.textContent = `Feil: ${data?.error || 'Ukjent feil'}`;
+            return;
+          }
+          // Uten JSON-svar ble forespørselen ikke behandlet, f.eks. sendt til innloggingen
+          if (!data || !data.ok || resp.redirected) {
+            csvUpdateStatus.textContent = 'Feil: Ingen filer ble lastet opp. Du er trolig logget ut. Last siden på nytt, logg inn og prøv igjen.';
             return;
           }
 

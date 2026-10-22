@@ -19,6 +19,7 @@ from flask import (
     redirect,
     request,
     abort,
+    jsonify,
     Response,
     session,
     url_for,
@@ -268,6 +269,11 @@ def create_app() -> Flask:
         # Åpne stier (forside, login, statiske filer osv.).
         if _is_public_path(request.path or "/"):
             return None
+        # API-kall fra en side (fetch) kan ikke følge en redirect til innloggingen; da ville
+        # de fått HTML og trodd det gikk bra. Svar 401 med JSON i stedet. Skjer typisk etter en
+        # deploy, fordi sesjonene ligger på disk og forsvinner.
+        if request.method != "GET" and "/api/" in (request.path or ""):
+            return jsonify({"error": "Du er logget ut. Last siden på nytt, logg inn og prøv igjen."}), 401
         # Send til innlogging, og husk hvor brukeren egentlig skulle.
         nxt = (request.full_path or request.path or "/").rstrip("?")
         return redirect(url_for("login", next=nxt))
