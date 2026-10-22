@@ -325,8 +325,8 @@ def main() -> int:
     def work_order(item):
         ident=item["id"]
         if ident not in seen or (public_ids is not None and ident not in public_ids):
-            return (0,0,item["published_at"])
-        return (1,repair_priority.get(ident,9),item["published_at"])
+            return (0,0,-timestamp(item["published_at"]).timestamp())
+        return (1,repair_priority.get(ident,9),-timestamp(item["published_at"]).timestamp())
     for item in sorted(feed_items,key=work_order):
 
         if mode in ("live","newsweb") and timestamp(item["published_at"]) < cutoff:
