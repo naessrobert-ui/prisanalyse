@@ -25,6 +25,7 @@ from flask import (
     url_for,
 )
 from flask_session import Session
+from site_remember_access import REMEMBER_DAYS, RememberAccess
 
 # Blueprints
 from handler_routes import handler_bp, upload_token_valid
@@ -218,8 +219,7 @@ def create_app() -> Flask:
     )
     app.config["SESSION_PERMANENT"] = False
     app.config["SESSION_TYPE"] = "filesystem"
-    # "Husk meg": innlogging varer i 30 dager når session.permanent settes.
-    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=REMEMBER_DAYS)
     upload_limit_raw = (os.environ.get("HANDLER_DB_UPLOAD_MAX_MB", "300") or "300").strip()
     try:
         upload_limit_mb = int(upload_limit_raw)
@@ -253,6 +253,12 @@ def create_app() -> Flask:
                 hits.append(now)
                 _RATE_LIMIT_BUCKETS[bucket_key] = hits
 
+    # Gjenopprett tilgang også når lokale sesjonsfiler forsvinner ved deploy.
+    # Registreres etter bot-sjekken, men før tilgangssperren.
+    remembered_access = RememberAccess(
+        app, SITE_ACCESS_CODE, secure=SITE_BASE_URL.startswith("https://")
+    )
+
     # --- Tilgangskode: forsiden er åpen, alt annet krever kode ---
     @app.before_request
     def require_access_code():
@@ -271,7 +277,7 @@ def create_app() -> Flask:
             return None
         # API-kall fra en side (fetch) kan ikke følge en redirect til innloggingen; da ville
         # de fått HTML og trodd det gikk bra. Svar 401 med JSON i stedet. Skjer typisk etter en
-        # deploy, fordi sesjonene ligger på disk og forsvinner.
+        # utlogging eller utløpt innlogging.
         if request.method != "GET" and "/api/" in (request.path or ""):
             return jsonify({"error": "Du er logget ut. Last siden på nytt, logg inn og prøv igjen."}), 401
         # Send til innlogging, og husk hvor brukeren egentlig skulle.
@@ -399,21 +405,22 @@ def create_app() -> Flask:
         if request.method == "POST":
             code = (request.form.get("code") or "").strip()
             if code and secrets.compare_digest(code, SITE_ACCESS_CODE):
-                session["access_granted"] = True
-                session.permanent = True  # husk innlogging (30 dager)
-                return redirect(_safe_next(request.form.get("next")) or "/")
+                return remembered_access.logged_in(
+                    redirect(_safe_next(request.form.get("next")) or "/"),
+                    remember=request.form.get("remember") == "1",
+                )
             error = "Feil kode. Prøv igjen."
         return render_template(
             "login.html",
             error=error,
             next_url=next_url,
             contact=SITE_ACCESS_CONTACT,
+            remember_days=REMEMBER_DAYS,
         )
 
     @app.route("/logout")
     def logout():
-        session.pop("access_granted", None)
-        return redirect("/")
+        return remembered_access.logged_out(redirect("/"))
 
     @app.route("/jobb/")
     def jobb_side():

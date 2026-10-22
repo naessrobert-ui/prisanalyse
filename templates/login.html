@@ -91,6 +91,17 @@
             box-shadow: 0 0 0 3px var(--brand-soft);
         }
 
+        .remember {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin: 16px 0 0;
+            line-height: 1.5;
+            cursor: pointer;
+        }
+
+        .remember input { accent-color: var(--brand); }
+
         button {
             width: 100%;
             margin-top: 18px;
@@ -141,10 +152,14 @@
         <h1>Tilgang kreves</h1>
         <p class="lead">Skriv inn tilgangskoden for å fortsette.</p>
 
-        <form method="POST" action="{{ url_for('login') }}" autocomplete="off">
+        <form method="POST" action="{{ url_for('login') }}">
             <input type="hidden" name="next" value="{{ next_url }}">
             <label for="code">Tilgangskode</label>
-            <input type="password" id="code" name="code" autofocus required>
+            <input type="password" id="code" name="code" autocomplete="current-password" autofocus required>
+            <label class="remember" for="remember">
+                <input type="checkbox" id="remember" name="remember" value="1" checked>
+                Husk meg i {{ remember_days }} dager på denne enheten
+            </label>
             <button type="submit">Logg inn</button>
         </form>
 
