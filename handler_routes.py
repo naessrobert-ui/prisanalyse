@@ -15,6 +15,7 @@ import io
 import json
 import logging
 import os
+import secrets
 import sqlite3
 import time
 from pathlib import Path
@@ -27,6 +28,7 @@ from flask import (
     render_template,
     request,
     jsonify,
+    session,
     Response,
 )
 from werkzeug.exceptions import RequestEntityTooLarge
@@ -37,6 +39,46 @@ import handler_varsel as hv
 from scripts import estimer_portefolje as ep
 
 _LOG = logging.getLogger(__name__)
+
+# =========================================================
+# Token for maskin-til-maskin-opplasting (automatisk jobb)
+# =========================================================
+# Settes som miljøvariabel HANDLER_UPLOAD_TOKEN (f.eks. i Render).
+# Når den er satt, må CSV-opplastings-endepunktet enten ha en gyldig
+# token (Authorization: Bearer <token>) ELLER en innlogget sesjon
+# (nettleser som har tastet tilgangskoden). Er den ikke satt, beholdes
+# gammel oppførsel, slik at ingenting brekker før token aktiveres.
+HANDLER_UPLOAD_TOKEN = (os.environ.get("HANDLER_UPLOAD_TOKEN", "") or "").strip()
+
+
+def upload_token_valid() -> bool:
+    """True hvis forespørselen bærer en gyldig opplastings-token.
+
+    Leses fra `Authorization: Bearer <token>` eller `X-Upload-Token`.
+    Returnerer alltid False hvis HANDLER_UPLOAD_TOKEN ikke er konfigurert.
+    """
+    if not HANDLER_UPLOAD_TOKEN:
+        return False
+    token = ""
+    auth = request.headers.get("Authorization", "") or ""
+    if auth.startswith("Bearer "):
+        token = auth[len("Bearer "):].strip()
+    if not token:
+        token = (request.headers.get("X-Upload-Token", "") or "").strip()
+    return bool(token) and secrets.compare_digest(token, HANDLER_UPLOAD_TOKEN)
+
+
+def _upload_request_authorized() -> bool:
+    """Opplasting tillates hvis token er gyldig, eller brukeren er innlogget.
+
+    Hvis HANDLER_UPLOAD_TOKEN ikke er satt, faller vi tilbake til gammel
+    oppførsel (tillatt) – nettsidene er uansett beskyttet av tilgangskoden.
+    """
+    if not HANDLER_UPLOAD_TOKEN:
+        return True
+    if upload_token_valid():
+        return True
+    return bool(session.get("access_granted"))
 
 _BEST_VIKTIGE_SELECTIONS: dict[str, dict] = {}
 _BEST_VIKTIGE_SELECTION_TTL_SEC = 30 * 60
@@ -492,6 +534,9 @@ def api_upload_db_to_s3():
 
 @handler_bp.route("/api/upload-csv-update-db", methods=["POST"])
 def api_upload_csv_update_db():
+    if not _upload_request_authorized():
+        return jsonify({"error": "Ikke autorisert. Mangler gyldig token eller innlogging."}), 401
+
     if not hd.HANDLER_DB_S3_URI:
         return jsonify({"error": "HANDLER_DB_S3_URI er ikke satt på serveren."}), 400
 
