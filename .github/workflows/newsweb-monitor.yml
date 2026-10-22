@@ -46,6 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.window.outputs.should_run }}
+      history_run: ${{ steps.window.outputs.history_run }}
     steps:
       - name: Validate schedule in Oslo time
         id: window
@@ -55,12 +56,19 @@ jobs:
         run: |
           if [ "$EVENT_NAME" != "schedule" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "history_run=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           hour=$(TZ=Europe/Oslo date +%H)
           minute=$(TZ=Europe/Oslo date +%M)
           h=$((10#$hour))
           m=$((10#$minute))
+          # Run a bounded four-quarter backfill once each Oslo morning.
+          if (( h == 6 && m < 15 )); then
+            echo "history_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "history_run=false" >> "$GITHUB_OUTPUT"
+          fi
           if (( h >= 6 && h < 10 )) || (( h >= 10 && h <= 23 && m < 15 )); then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "NewsWeb scheduled within Oslo window: $hour:$minute"
@@ -82,7 +90,7 @@ jobs:
       LOOKBACK_HOURS: '36'
       INDEX_HOURS: '48'
       MAX_MESSAGES: '120'
-      HISTORY_QUARTERS: ${{ github.event_name == 'workflow_dispatch' && inputs.history_backfill && '4' || '0' }}
+      HISTORY_QUARTERS: ${{ github.event_name == 'workflow_dispatch' && inputs.history_backfill && '4' || github.event_name == 'push' && '4' || needs.schedule_guard.outputs.history_run == 'true' && '4' || '0' }}
       FEED_FORMAT: ${{ vars.FEED_FORMAT || 'json' }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1-mini' }}
