@@ -285,7 +285,7 @@ def main() -> int:
             snapshot=json.loads(public_report.read_text(encoding="utf-8"))
             for row in snapshot.get("items",[]):
                 fin=row.get("financial_report") or {}
-                if fin and not fin.get("metrics"):
+                if fin and (not fin.get("metrics") or not (fin.get("outlook") or {}).get("status")):
                     repair_ids.add(str(row.get("id") or ""))
                     repair_ids.update(str(v.get("id") or "") for v in row.get("language_versions",[])
                                       if isinstance(v,dict))
