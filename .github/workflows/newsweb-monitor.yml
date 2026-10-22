@@ -31,6 +31,10 @@ on:
         description: 'Ikke send Pushover'
         type: boolean
         default: true
+      history_backfill:
+        description: 'Hent inntil fire tidligere kvartalsrapporter for nylige regnskapsmeldinger'
+        type: boolean
+        default: false
 permissions:
   contents: write
   actions: read
@@ -78,6 +82,7 @@ jobs:
       LOOKBACK_HOURS: '36'
       INDEX_HOURS: '48'
       MAX_MESSAGES: '120'
+      HISTORY_QUARTERS: ${{ github.event_name == 'workflow_dispatch' && inputs.history_backfill && '4' || '0' }}
       FEED_FORMAT: ${{ vars.FEED_FORMAT || 'json' }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1-mini' }}

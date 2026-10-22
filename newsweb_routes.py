@@ -190,6 +190,46 @@ def _private_consensus_headline(item:dict)->None:
                   "børsmeldingen. Valuta og definisjoner må verifiseres.").strip()
     item["consensus_headline"]=True
 
+_dispatch_lock=threading.Lock()
+_last_dispatch=[0.0]
+
+@newsweb_bp.post("/kjor-na/")
+def run_now():
+    """Explicit, authenticated, CSRF-protected GitHub workflow dispatch."""
+    if not _can_view_consensus():
+        abort(403)
+    expected=session.get("newsweb_refresh_csrf")
+    supplied=request.form.get("csrf","")
+    if not expected or not secrets.compare_digest(str(expected),str(supplied)):
+        abort(400)
+    token=os.getenv("NEWSWEB_GITHUB_TOKEN","").strip()
+    if not token:
+        return redirect(url_for("newsweb.dashboard",run_status="not_configured"))
+    with _dispatch_lock:
+        now=time.monotonic()
+        if now-_last_dispatch[0]<180:
+            return redirect(url_for("newsweb.dashboard",run_status="cooldown"))
+        _last_dispatch[0]=now
+    url=("https://api.github.com/repos/naessrobert-ui/prisanalyse/"
+         "actions/workflows/newsweb-monitor.yml/dispatches")
+    payload=json.dumps({"ref":"main","inputs":{
+        "mode":"newsweb","dry_run":"true","history_backfill":"true"}}).encode()
+    try:
+        req=Request(url,data=payload,method="POST",headers={
+            "Authorization":"Bearer "+token,
+            "Accept":"application/vnd.github+json",
+            "X-GitHub-Api-Version":"2022-11-28",
+            "Content-Type":"application/json",
+            "User-Agent":"Prisanalyse-NewsWeb/1.0"})
+        with urlopen(req,timeout=12) as response:
+            if response.status!=204:
+                raise ValueError("Unexpected workflow dispatch status")
+    except Exception:
+        with _dispatch_lock:
+            _last_dispatch[0]=0.0
+        return redirect(url_for("newsweb.dashboard",run_status="failed"))
+    return redirect(url_for("newsweb.dashboard",run_status="queued"))
+
 @newsweb_bp.get("/")
 def dashboard():
     report,demo=read_report()
@@ -210,7 +250,14 @@ def dashboard():
     focus=sum(1 for x in items if int(x.get("score") or 0)>=75 and not x.get("skipped"))
     interesting=sum(1 for x in items if 45<=int(x.get("score") or 0)<75 and not x.get("skipped"))
     ignored=sum(1 for x in items if x.get("skipped") or int(x.get("score") or 0)<45)
+    if _can_view_consensus() and not session.get("newsweb_refresh_csrf"):
+        session["newsweb_refresh_csrf"]=secrets.token_urlsafe(32)
+    run_status=request.args.get("run_status","")
+    if run_status not in ("queued","cooldown","failed","not_configured"):
+        run_status=""
     response=render_template("newsweb_dashboard.html",report=report,items=items,
+                           refresh_csrf=session.get("newsweb_refresh_csrf","") if _can_view_consensus() else "",
+                           run_status=run_status,
                            demo=demo,focus=focus,interesting=interesting,ignored=ignored,
                            can_view_consensus=_can_view_consensus(),private_error=private_error,
                            consensus_matches=actual_matches,

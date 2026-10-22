@@ -156,3 +156,22 @@ i den private S3-snapshotfilen, aldri offentlig eller i GitHub.
 Det betyr at testen bruker allerede ekstraherte tall fra dagens meldinger;
 mangler PDF-analyse, rapportperiode eller sammenlignbare tall markeres dette.
 Resultater fra testen kan IKKE brukes som historisk konsensusoverraskelse.
+
+## Manuell oppdatering fra NewsWeb-siden
+
+Innloggede brukere med `SITE_ACCESS_CODE` får knappen **Kjør NewsWeb nå** på
+`/newsweb/`. Knappen starter en `workflow_dispatch` på `main` og ber om
+historisk gjennomgang av inntil fire tidligere kvartalsrapporter for opptil
+fire aktuelle selskaper. Dette er en asynkron GitHub Actions-jobb: nettsiden
+viser ikke resultatet før kjøringen er fullført og GitHub-publiseringen lykkes.
+
+For å aktivere knappen: legg `NEWSWEB_GITHUB_TOKEN` som **secret environment
+variable på Render**. Bruk et finmasket GitHub-token som kun har tilgang til
+`naessrobert-ui/prisanalyse`, med **Actions: Read and write** og
+**Metadata: Read**. Ikke legg tokenet i GitHub-koden eller i HTML.
+Manglende token gir en tydelig feilmelding i brukergrensesnittet.
+
+Endepunktet krever aktiv innlogging, CSRF-token og minst tre minutter mellom
+forsøk per web-prosess. GitHub-workflowen har også en concurrency-gruppe.
+Historisk innhenting er begrenset for å unngå høye kostnader ved hver
+manuell kjøring. Planlagt oppdatering fortsetter uavhengig av knappen.

@@ -114,6 +114,9 @@ h1{font-size:clamp(27px,3vw,37px)}
 @media(max-width:740px){.checkline{font-size:10px;margin:5px 0 10px}}
 .outlook-panel{border:1px solid #3b6b7a;border-radius:10px;padding:12px 14px;margin:12px 0;background:rgba(26,74,85,.22)}
 .outlook-panel p{margin:7px 0;font-size:13px;line-height:1.55}
+.manual-refresh{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin:8px 0 15px;color:var(--muted);font-size:12px}
+.manual-refresh form{margin:0}.refresh-button{border-color:#4784b5;background:#173a60;color:#f1f7ff;font-weight:700}
+.refresh-feedback{color:#b8dfff;font-size:13px;margin:5px 0 12px}
 </style>
 </head>
 <body><main>
@@ -122,6 +125,19 @@ h1{font-size:clamp(27px,3vw,37px)}
   <div class="nav-extra"><a href="/newsweb/konsensus/">Konsensus / Last opp estimater</a> &nbsp; <a href="/">← Til prisanalyse.no</a></div>
 </header>
 <h1>Oslo Børs – Nyhetsmonitor</h1>
+{% if can_view_consensus %}
+<div class="manual-refresh">
+  <form method="post" action="{{url_for('newsweb.run_now')}}">
+    <input type="hidden" name="csrf" value="{{refresh_csrf}}">
+    <button type="submit" class="refresh-button">↻ Kjør NewsWeb nå</button>
+  </form>
+  <span>Starter ny analyse og henter eldre kvartalsrapporter i bakgrunnen.</span>
+</div>
+{% if run_status == 'queued' %}<p class="refresh-feedback">Kjøringen er sendt til GitHub. Nyheter vises når analysen er ferdig; oppdater siden om noen minutter.</p>
+{% elif run_status == 'cooldown' %}<p class="refresh-feedback">En kjøring ble nettopp bestilt. Vent minst tre minutter før neste forsøk.</p>
+{% elif run_status == 'not_configured' %}<p class="refresh-feedback">Knappen krever NEWSWEB_GITHUB_TOKEN i nettstedets servermiljø.</p>
+{% elif run_status == 'failed' %}<p class="refresh-feedback">Klarte ikke starte jobben. Kontroller GitHub-token og Actions-tilgang.</p>{% endif %}
+{% endif %}
 <p class="lead intro-top">De viktigste børsmeldingene, med nyeste først. Bytt prioritet og sortering for å finne aktuelle saker. Prioritetsscore er en vurdering av nyhetsverdi, ikke et kursmål.</p>
 {% if report.get("error") %}<div class="banner">{{report.error}}</div>
 {% elif report.get("mode") == "live" %}

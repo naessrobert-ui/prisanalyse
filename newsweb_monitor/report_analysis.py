@@ -445,6 +445,23 @@ def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
         result["status"]="analyzed" if result["metrics"] else "no_metrics"
         # Outlook is separate from financial metrics: a guidance change can
         # be the most material news even when reported EPS meets estimates.
+        # On explicit manual backfill, collect the previous four quarters.
+        # Cache each PDF's public outlook once; subsequent runs reuse it.
+        history_count=max(0,min(4,int(os.getenv("HISTORY_QUARTERS","0"))))
+        if history_count:
+            from datetime import timedelta
+            current_dt=datetime.fromisoformat(item["published_at"].replace("Z","+00:00"))
+            cursor=result["period"]
+            for offset in range(history_count):
+                lookup_item=dict(item)
+                lookup_item["published_at"]=(current_dt-timedelta(days=91*offset)).isoformat()
+                try:
+                    previous_outlook(lookup_item,cursor,state,key)
+                except Exception as exc:
+                    print("Historical outlook lookup failed:",item["ticker"],cursor,type(exc).__name__)
+                cursor=preceding(cursor)
+            state.setdefault("history_backfill_done",{})[
+                item["ticker"]+":"+result["period"]]=datetime.now().isoformat()
         previous=state.get("reports_by_ticker",{}).get(item["ticker"],{}).get(preceding(result["period"]),{})
         prior_outlook=previous.get("outlook") or {}
         if not prior_outlook and os.getenv("FETCH_PRIOR_OUTLOOK","1")=="1":

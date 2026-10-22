@@ -288,7 +288,12 @@ def main() -> int:
                 fin=row.get("financial_report") or {}
                 outlook=fin.get("outlook") or {}
                 missing_prior="Forrige kvartals guiding er ikke tilgjengelig" in str(outlook.get("change") or "")
-                if fin and (not fin.get("metrics") or not outlook.get("status") or missing_prior):
+                history_requested=os.getenv("HISTORY_QUARTERS","0")!="0"
+                history_key=str(row.get("ticker") or "")+":"+str(fin.get("period") or "")
+                history_needed=(history_requested and history_key not in
+                                state.get("history_backfill_done",{}))
+                if fin and (not fin.get("metrics") or not outlook.get("status")
+                            or missing_prior or history_needed):
                     # Repair completely missing/unknown period and metrics first;
                     # then backfill outlook on otherwise complete reports.
                     urgency=(0 if fin.get("status") in ("unknown_period","error","no_pdf")
@@ -302,7 +307,9 @@ def main() -> int:
                             repair_priority[ident]=min(urgency,repair_priority.get(ident,9))
         except (OSError,ValueError,TypeError):
             pass
-    repair_budget=12
+    # A manual history run is intentionally bounded: four issuers per click,
+    # four prior reports per issuer, to avoid excessive API/AI costs.
+    repair_budget=4 if os.getenv("HISTORY_QUARTERS","0")!="0" else 12
     feed_items = feed(mode)
     cutoff = now - dt.timedelta(hours=float(os.getenv("LOOKBACK_HOURS","36" if mode=="newsweb" else "4")))
     consensus={}
