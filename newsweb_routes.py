@@ -184,10 +184,10 @@ def _private_consensus_headline(item:dict)->None:
     company=company.replace(" ASA","").replace(" AS","")[:42]
     direction="over" if delta>0 else "under"
     label=str(best.get("label") or best["metric"])
-    item["headline"]=f"{company}: {label} {abs(delta):.0f} % {direction} konsensus"
+    item["headline"]=f"{company}: {label} {abs(delta):.0f} % {direction} konsensus (indikativt)"
     item["lead"]=(f"{label} ble {best['actual']:g} mot forventet {best['consensus']:g} "
                   f"({delta:+.1f} %). Sammenlignet med private estimater lagret før "
-                  "børsmeldingen.").strip()
+                  "børsmeldingen. Valuta og definisjoner må verifiseres.").strip()
     item["consensus_headline"]=True
 
 @newsweb_bp.get("/")
