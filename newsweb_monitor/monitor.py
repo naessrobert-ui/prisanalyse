@@ -276,6 +276,22 @@ def main() -> int:
     # Applies to production NewsWeb, not demo/PR or external live feeds.
     public_ids=(published_ids(ROOT/"public"/"latest.json")
                 if mode=="newsweb" and os.getenv("GITHUB_REF")=="refs/heads/main" else None)
+    # Revisit previously published earnings with missing PDF figures.
+    # Limit repairs per run to avoid consuming the whole OpenAI budget.
+    public_report=ROOT/"public"/"latest.json"
+    repair_ids=set()
+    if public_ids is not None and public_report.exists():
+        try:
+            snapshot=json.loads(public_report.read_text(encoding="utf-8"))
+            for row in snapshot.get("items",[]):
+                fin=row.get("financial_report") or {}
+                if fin and not fin.get("metrics"):
+                    repair_ids.add(str(row.get("id") or ""))
+                    repair_ids.update(str(v.get("id") or "") for v in row.get("language_versions",[])
+                                      if isinstance(v,dict))
+        except (OSError,ValueError,TypeError):
+            pass
+    repair_budget=6
     feed_items = feed(mode)
     cutoff = now - dt.timedelta(hours=float(os.getenv("LOOKBACK_HOURS","36" if mode=="newsweb" else "4")))
     consensus={}
@@ -300,8 +316,11 @@ def main() -> int:
         stats["recent"]+=1
         if item["id"] in seen and mode in ("live","newsweb"):
             if public_ids is None or item["id"] in public_ids:
-                stats["already_seen"]+=1
-                continue
+                if (repair_budget>0 and item["id"] in repair_ids):
+                    repair_budget-=1
+                else:
+                    stats["already_seen"]+=1
+                    continue
             # A previous analysis was cached but never made it to the site.
             stats["recovered_unpublished"]+=1
         if len(entries)>=max_messages:
