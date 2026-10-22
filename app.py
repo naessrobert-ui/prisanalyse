@@ -26,7 +26,7 @@ from flask import (
 from flask_session import Session
 
 # Blueprints
-from handler_routes import handler_bp
+from handler_routes import handler_bp, upload_token_valid
 from bolig_routes import bolig_bp
 from fritidsbolig_routes import fritids_bp
 from bil_routes import bil_bp, bil_innbytte_side, start_bilradar_warmup
@@ -260,6 +260,10 @@ def create_app() -> Flask:
             return None
         # Allerede innlogget i denne sesjonen.
         if session.get("access_granted"):
+            return None
+        # Maskin-til-maskin: slipp gjennom gyldig opplastings-token
+        # (den automatiske jobben har ingen sesjon/innlogging).
+        if upload_token_valid():
             return None
         # Åpne stier (forside, login, statiske filer osv.).
         if _is_public_path(request.path or "/"):
