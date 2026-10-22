@@ -125,6 +125,9 @@ jobs:
       - name: Bygg offentlig nyhetsoversikt
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: python -m newsweb_monitor.publish_site
+      - name: NewsWeb kildekontroll og ferskhetsvarsel
+        if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: python -m newsweb_monitor.healthcheck
       - name: Oppdater dashboard-data i GitHub
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: |
