@@ -40,21 +40,22 @@ def quarter(title: str, published_at: str) -> str:
     return ""
 
 def period_from_pdf(text:str, published_at:str) -> str:
-    """Read period from report cover/header, rather than only NewsWeb headline."""
+    """Read report period from the first pages, not only the NewsWeb title."""
     cover=text[:14000]
     for snippet in (cover[:4500],cover):
         result=quarter(snippet,published_at)
         if result:return result
-        for pattern in (
-            r"\\b([1-4])\\s*[qQ]\\s*[- /]*\\s*(20\\d{2})\\b",
-            r"\\b(20\\d{2})\\s*[- /]*\\s*([1-4])\\s*[qQ]\\b",
-            r"\\b([1-4])\\s*[qQ]\\s*[- /]*\\s*(\\d{2})\\b",
-            r"\\b([1-4])\\s*(?:st|nd|rd|th)?\\s*quarter\\s*(?:ended\\s*)?(20\\d{2})\\b",
-        ):
+        patterns=(
+            (r"\b([1-4])\s*[qQ]\s*[- /]*\s*(20\d{2})\b",1,2),
+            (r"\b(20\d{2})\s*[- /]*\s*([1-4])\s*[qQ]\b",2,1),
+            (r"\b([1-4])\s*[qQ]\s*[- /]*\s*(\d{2})\b",1,2),
+            (r"\b([1-4])\s*(?:st|nd|rd|th)?\s*quarter\s*(?:ended\s*)?(20\d{2})\b",1,2),
+        )
+        for pattern,qgroup,ygroup in patterns:
             m=re.search(pattern,snippet,re.I)
             if m:
-                y=m.group(2) if pattern.find("(20")>0 else m.group(1)
-                q=m.group(1) if pattern.find("(20")>0 else m.group(2)
+                y=m.group(ygroup)
+                q=m.group(qgroup)
                 if len(y)==2:y="20"+y
                 if 2020<=int(y)<=2035:return f"{y}Q{q}"
     return ""
