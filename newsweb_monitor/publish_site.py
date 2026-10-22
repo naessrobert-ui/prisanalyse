@@ -104,8 +104,21 @@ def sanitize(item: dict) -> dict | None:
               "name":limited(document.get("name"),160),
               "url":safe_url(document.get("url"),document=True)
           },
-          "metrics":[]
+          "metrics":[],
+          "outlook":{}
         }
+        outlook=report.get("outlook") or {}
+        if isinstance(outlook,dict):
+            fin["outlook"]={
+                "status":limited(outlook.get("status"),25),
+                "summary":limited(outlook.get("summary"),650),
+                "change":limited(outlook.get("change"),650),
+                "points":[{"topic":limited(p.get("topic"),90),
+                           "statement":limited(p.get("statement"),320),
+                           "evidence":limited(p.get("evidence"),200),
+                           "page":limited(p.get("page"),40)}
+                          for p in (outlook.get("points") or [])[:4] if isinstance(p,dict)]
+            }
         for metric in (report.get("metrics") or [])[:14]:
             if not isinstance(metric,dict):continue
             fin["metrics"].append({
