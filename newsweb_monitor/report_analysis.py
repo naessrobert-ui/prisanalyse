@@ -313,40 +313,87 @@ def fetch_previous_quarter(item:dict, period:str, state:dict, key:str) -> str:
         return "error_"+type(exc).__name__
 
 def previous_outlook(item:dict,period:str,state:dict,key:str)->dict:
-    """Best-effort retrieval of last quarter's PDF outlook, with a strict cap."""
-    from .newsweb_source import get_json,details
+    """Find prior quarter on NewsWeb by ticker, then verify the actual PDF period.
+
+    Search narrow date windows to avoid API overflow. Titles often omit the
+    year or use "3Q", so neither issuer API filtering nor a strict title regex
+    is reliable enough on its own.
+    """
+    from .newsweb_source import get_json,details,is_financial_report
+    from datetime import timedelta, timezone
     wanted=preceding(period)
-    if not wanted or not wanted.endswith(tuple("1234")):return {}
+    if not re.fullmatch(r"20\d\dQ[1-4]",wanted):return {}
     ticker=item["ticker"].upper()
     saved=state.setdefault("reports_by_ticker",{}).setdefault(ticker,{})
-    if wanted in saved and saved[wanted].get("outlook"):
-        return saved[wanted]["outlook"]
+    cached=saved.get(wanted,{})
+    if cached.get("outlook",{}).get("status")=="analyzed":
+        return cached["outlook"]
     published=datetime.fromisoformat(item["published_at"].replace("Z","+00:00"))
-    from datetime import timedelta
-    start=(published-timedelta(days=165)).date().isoformat()
-    end=(published-timedelta(days=3)).date().isoformat()
-    data=get_json("list",{"market":"XOSL","issuer":ticker,
-                          "fromDate":start,"toDate":end})
-    if data.get("overflow"):return {}
+    if published.tzinfo is None:return {}
+    # Negative lookup cache: avoid searching four months of messages on every
+    # hourly run when no previous report exists or API is incomplete.
+    miss=saved.get("_prior_lookup_misses",{}).get(wanted)
+    if miss:
+        try:
+            if (datetime.now(timezone.utc)-datetime.fromisoformat(miss)).total_seconds()<86400:
+                return {}
+        except (ValueError,TypeError):
+            pass
     candidates=[]
-    for row in data.get("messages",[]):
-        if str(row.get("issuerSign") or "").upper()!=ticker:continue
-        title=str(row.get("title") or "")
-        if quarter(title,str(row.get("publishedTime") or ""))!=wanted:continue
-        if any(word in title.lower() for word in ("invitation","invitasjon","presentation","presentasjon")):continue
-        candidates.append(row)
-    for candidate in sorted(candidates,key=lambda x:x.get("publishedTime",""),reverse=True)[:2]:
-        detail=details({"id":str(candidate["messageId"])})
-        doc=pick_attachment(detail.get("attachments") or [])
-        if not doc:continue
-        pdf=download_attachment(detail["id"],doc["id"])
-        if not pdf.startswith(b"%PDF-"):continue
-        txt=text_from_pdf(pdf)
-        if len(txt)<350:continue
-        extracted=extract_outlook(txt,key,ticker,wanted)
-        if extracted.get("status")=="analyzed":
-            saved.setdefault(wanted,{})["outlook"]=extracted
-            return extracted
+    # Prior quarter typically published 60–125 days before current release.
+    # Query the entire market and filter issuerSign locally; API "issuer"
+    # expects an issuer identifier and does not reliably accept tickers.
+    for days_before in (75,105,135,45):
+        start=(published-timedelta(days=days_before+15)).date().isoformat()
+        end=(published-timedelta(days=days_before-15)).date().isoformat()
+        try:
+            data=get_json("list",{"market":"XOSL","fromDate":start,"toDate":end})
+        except Exception as exc:
+            print("Prior-quarter NewsWeb lookup failed:",ticker,type(exc).__name__)
+            continue
+        if data.get("overflow"):continue
+        for row in data.get("messages",[]):
+            if str(row.get("issuerSign") or "").upper()!=ticker:continue
+            title=str(row.get("title") or "")
+            if any(w in title.lower() for w in ("invitation","invitasjon",
+                    "presentation","presentasjon","webcast","transcript")):continue
+            if not is_financial_report({"title":title,"category":"financial report" if
+                any("financial" in str(c).lower() for c in row.get("category",[])) else ""}):
+                continue
+            explicit=quarter(title,str(row.get("publishedTime") or ""))
+            if explicit and explicit!=wanted:continue
+            ident=row.get("messageId") or row.get("id")
+            if not str(ident).isdigit():continue
+            candidates.append((0 if explicit==wanted else 1,
+                abs((published-datetime.fromisoformat(str(row["publishedTime"]).replace("Z","+00:00"))).days-91),
+                str(ident)))
+    seen_ids=set()
+    for _,__,ident in sorted(candidates)[:8]:
+        if ident in seen_ids:continue
+        seen_ids.add(ident)
+        try:
+            detail=details({"id":ident})
+            doc=pick_attachment(detail.get("attachments") or [])
+            if not doc:continue
+            doc_period=quarter(doc["name"],item["published_at"])
+            if doc_period and doc_period!=wanted:continue
+            pdf=download_attachment(ident,doc["id"])
+            if not pdf.startswith(b"%PDF-"):continue
+            txt=text_from_pdf(pdf)
+            if len(txt.strip())<350:continue
+            actual_period=period_from_pdf(txt,item["published_at"])
+            if actual_period and actual_period!=wanted:continue
+            # Without an explicit period, only trust a candidate with a
+            # matching quarter in the document name or headline.
+            if not actual_period and doc_period!=wanted:
+                continue
+            extracted=extract_outlook(txt,key,ticker,wanted)
+            if extracted.get("status")=="analyzed":
+                saved.setdefault(wanted,{})["outlook"]=extracted
+                return extracted
+        except Exception as exc:
+            print("Previous-quarter PDF unavailable:",ticker,ident,type(exc).__name__)
+    saved.setdefault("_prior_lookup_misses",{})[wanted]=datetime.now(timezone.utc).isoformat()
     return {}
 
 def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
