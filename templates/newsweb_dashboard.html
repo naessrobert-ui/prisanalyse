@@ -137,7 +137,7 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% elif run_status == 'cooldown' %}<p class="refresh-feedback">En kjøring ble nettopp bestilt. Vent minst tre minutter før neste forsøk.</p>
 {% elif run_status == 'not_configured' %}<p class="refresh-feedback">Knappen krever NEWSWEB_GITHUB_TOKEN i nettstedets servermiljø.</p>
 {% elif run_status == 'failed' %}<p class="refresh-feedback">Klarte ikke starte jobben. Kontroller GitHub-token og Actions-tilgang.</p>{% endif %}
-{% endif %>
+{% endif %}
 <p class="lead intro-top">De viktigste børsmeldingene, med nyeste først. Bytt prioritet og sortering for å finne aktuelle saker. Prioritetsscore er en vurdering av nyhetsverdi, ikke et kursmål.</p>
 {% if report.get("error") %}<div class="banner">{{report.error}}</div>
 {% elif report.get("mode") == "live" %}
