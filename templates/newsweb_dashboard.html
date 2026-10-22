@@ -202,6 +202,17 @@ h1{font-size:clamp(27px,3vw,37px)}
   </details>
 </div>
 {% endif %}
+{% set outlook = (item.get('financial_report') or {}).get('outlook') or {} %}
+{% if outlook.get('summary') or outlook.get('points') %}
+<details class="outlook-panel" open>
+  <summary><strong>Utsikter fremover og guiding</strong></summary>
+  {% if outlook.get('summary') %}<p>{{outlook.summary}}</p>{% endif %}
+  {% if outlook.get('change') %}<p><strong>Endring fra forrige kvartal:</strong> {{outlook.change}}</p>{% endif %}
+  {% for point in outlook.get('points',[]) %}
+  <p><strong>{{point.topic}}:</strong> {{point.statement}} {% if point.page %}<span class="dim">({{point.page}})</span>{% endif %}</p>
+  {% endfor %}
+</details>
+{% endif %}
 {% if item.get('reason') %}
 <details class="story-more">
   <summary>Hvorfor er dette viktig?</summary>
@@ -219,17 +230,7 @@ h1{font-size:clamp(27px,3vw,37px)}
   {% else %}
   <p class="expectation-note"><strong>Mot analytikernes forventninger:</strong> Ingen sammenlignbare estimater tilgjengelige for denne rapporten. Vekst fra i fjor er ikke det samme som avvik mot konsensus.</p>
   {% endif %}
-  {% set outlook = fin.get('outlook') or {} %}
-  {% if outlook.get('summary') or outlook.get('points') %}
-  <div class="outlook-panel">
-    <strong>Utsikter fremover og guiding</strong>
-    {% if outlook.get('summary') %}<p>{{outlook.summary}}</p>{% endif %}
-    {% if outlook.get('change') %}<p><strong>Endring fra forrige kvartal:</strong> {{outlook.change}}</p>{% endif %}
-    {% for point in outlook.get('points',[]) %}
-    <p><strong>{{point.topic}}:</strong> {{point.statement}} {% if point.page %}<span class="dim">({{point.page}})</span>{% endif %}</p>
-    {% endfor %}
-  </div>
-  {% endif %}
+
   {% if fin.get('metrics') %}
   <div class="fin-scroll"><table class="fin-table"><thead><tr><th>Nøkkeltall</th><th>Rapportert</th><th>I fjor</th><th>Forrige kv.</th><th>Å/Å</th><th>Kv/Kv</th></tr></thead>
   <tbody>
