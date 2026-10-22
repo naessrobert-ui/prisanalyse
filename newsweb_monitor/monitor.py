@@ -286,7 +286,9 @@ def main() -> int:
             snapshot=json.loads(public_report.read_text(encoding="utf-8"))
             for row in snapshot.get("items",[]):
                 fin=row.get("financial_report") or {}
-                if fin and (not fin.get("metrics") or not (fin.get("outlook") or {}).get("status")):
+                outlook=fin.get("outlook") or {}
+                missing_prior="Forrige kvartals guiding er ikke tilgjengelig" in str(outlook.get("change") or "")
+                if fin and (not fin.get("metrics") or not outlook.get("status") or missing_prior):
                     # Repair completely missing/unknown period and metrics first;
                     # then backfill outlook on otherwise complete reports.
                     urgency=(0 if fin.get("status") in ("unknown_period","error","no_pdf")
