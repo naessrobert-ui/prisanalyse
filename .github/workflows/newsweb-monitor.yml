@@ -15,13 +15,10 @@ on:
       - 'templates/newsweb_dashboard.html'
       - '.github/workflows/newsweb-monitor.yml'
   schedule:
-    # Oslo local time; GitHub handles CET/CEST daylight-saving transitions.
-    # Every 15 minutes from 06:00 through 09:45.
-    - cron: '0,15,30,45 6-9 * * *'
-      timezone: 'Europe/Oslo'
-    # Then hourly from 10:00 to 23:00; NO 00:00–05:59 runs.
-    - cron: '0 10-23 * * *'
-      timezone: 'Europe/Oslo'
+    # GitHub cron is UTC only. These ranges cover 06–23 Oslo in both CET/CEST.
+    # A local-time gate below discards out-of-window runs.
+    - cron: '0,15,30,45 4-9 * * *'
+    - cron: '0 10-22 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -41,7 +38,35 @@ concurrency:
   group: newsweb-hourly-monitor
   cancel-in-progress: false
 jobs:
+  schedule_guard:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.window.outputs.should_run }}
+    steps:
+      - name: Validate schedule in Oslo time
+        id: window
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          if [ "$EVENT_NAME" != "schedule" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          hour=$(TZ=Europe/Oslo date +%H)
+          minute=$(TZ=Europe/Oslo date +%M)
+          h=$((10#$hour))
+          m=$((10#$minute))
+          if (( h >= 6 && h < 10 )) || (( h >= 10 && h <= 23 && m < 15 )); then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "NewsWeb scheduled within Oslo window: $hour:$minute"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping outside Oslo window: $hour:$minute"
+          fi
   monitor:
+    needs: schedule_guard
+    if: needs.schedule_guard.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
