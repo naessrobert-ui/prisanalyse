@@ -112,7 +112,10 @@ def sanitize(item: dict) -> dict | None:
             fin["outlook"]={
                 "status":limited(outlook.get("status"),25),
                 "summary":limited(outlook.get("summary"),650),
-                "change":limited(outlook.get("change"),650),
+                "change":limited(outlook.get("change"),900),
+                "trend":limited(outlook.get("trend"),650),
+                "compared_periods":[limited(p,12) for p in
+                                    (outlook.get("compared_periods") or [])[:4]],
                 "points":[{"topic":limited(p.get("topic"),90),
                            "statement":limited(p.get("statement"),320),
                            "evidence":limited(p.get("evidence"),200),

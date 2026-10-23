@@ -59,6 +59,7 @@ def index(hours: int = 48) -> list[dict]:
             # NewsWeb lists all issuer disclosures, incl bonds; classify bond/rates in filter.
             "ticker":str(x.get("issuerSign") or "").upper(),
             "issuer":str(x.get("issuerName") or ""),
+            "issuer_id":str(x.get("issuerId") or ""),
             "title":str(x.get("title") or ""),
             "body":"","url":f"https://newsweb.oslobors.no/message/{mid}",
             "published_at":iso(str(x.get("publishedTime"))),

@@ -16,19 +16,26 @@ METRIC_LABELS = {
 
 def quarter(title: str, published_at: str) -> str:
     """Return a period only if the report title explicitly gives a quarter and year."""
-    t=title.lower()
+    # Filenames such as "NOD Q2 2026_Report.pdf" use underscores as spaces.
+    t=title.lower().replace("_"," ")
+    # Allow a few words between quarter and year ("second quarter results
+    # 2026", "fjerde kvartal og året 2025"), but never across other digits.
+    gap=r"[^.\n\d]{0,40}?"
     patterns=[
         (r"\bq([1-4])\s*[,/\- ]*\s*(20\d{2})\b",None),
-        (r"\b([1-4])\.?\s*kvartal\s*(20\d{2})\b",None),
-        (r"\b([1-4])(?:st|nd|rd|th)?\s+quarter\s*(20\d{2})\b",None),
-        (r"\b(første|andre|tredje|fjerde|first|second|third|fourth)\s+(?:kvartal|quarter)\s*(20\d{2})\b",
-            {"første":1,"andre":2,"tredje":3,"fjerde":4,"first":1,"second":2,"third":3,"fourth":4})
+        (r"\b([1-4])\.?\s*kvartal"+gap+r"\b(20\d{2})\b",None),
+        (r"\b([1-4])(?:st|nd|rd|th)?\s+quarter"+gap+r"\b(20\d{2})\b",None),
+        (r"\b(første|andre|tredje|fjerde|first|second|third|fourth)\s+(?:kvartal|quarter)"+gap+r"\b(20\d{2})\b",
+            {"første":1,"andre":2,"tredje":3,"fjerde":4,"first":1,"second":2,"third":3,"fourth":4}),
+        # DNB-style "2Q26".
+        (r"\b([1-4])q[\-' ]?(2\d)\b",None),
     ]
     for pattern,names in patterns:
         match=re.search(pattern,t)
         if match:
             q=names[match.group(1)] if names else int(match.group(1))
-            return f"{match.group(2)}Q{q}"
+            year=match.group(2)
+            return f"{'20'+year if len(year)==2 else year}Q{q}"
     # Annual announcements must state the year explicitly.
     annual=re.search(r"\b(?:annual report|full.year|full year|årsrapport|årsresultat|"
        r"year.end|financial statements|resultater for året|fy)\s*[-:]?\s*(20\d{2})\b",t)
@@ -164,8 +171,13 @@ def outlook_excerpt(text:str, limit:int=15500)->str:
         selected.append(excerpt[:5000])
     return "\n\n".join(selected)[:limit]
 
-def extract_outlook(text:str,key:str,ticker:str,period:str,prior:dict|None=None)->dict:
-    """Extract management's forward guidance, with sourced quarter-on-quarter changes."""
+def extract_outlook(text:str,key:str,ticker:str,period:str,
+                    prior:list[dict]|dict|None=None)->dict:
+    """Extract management's forward guidance, compared with up to three earlier quarters.
+
+    `prior` is a newest-first list of {"period","summary","points"}; a single
+    dict is accepted as the immediately preceding quarter.
+    """
     from .monitor import http_json
     snippet=outlook_excerpt(text)
     if len(snippet.strip())<70:
@@ -176,9 +188,12 @@ def extract_outlook(text:str,key:str,ticker:str,period:str,prior:dict|None=None)
         "required":["topic","statement","evidence","page"],"additionalProperties":False}
     schema={"type":"object","properties":{
         "summary":{"type":"string"},"change":{"type":"string"},
+        "trend":{"type":"string"},
         "points":{"type":"array","items":point}},
-        "required":["summary","change","points"],"additionalProperties":False}
-    prior=prior or {}
+        "required":["summary","change","trend","points"],"additionalProperties":False}
+    if isinstance(prior,dict):
+        prior=[{"period":preceding(period),**prior}] if prior else []
+    prior=[p for p in (prior or []) if p.get("summary") or p.get("points")]
     payload={"model":os.getenv("OPENAI_MODEL","gpt-4.1-mini"),
         "instructions":(
             "Analyze only management's forward-looking outlook and guidance in "
@@ -186,9 +201,18 @@ def extract_outlook(text:str,key:str,ticker:str,period:str,prior:dict|None=None)
             "points in clear Norwegian, prioritizing changed sales, profitability, "
             "demand, margins, investments, and targets. Quote no more than "
             "a few short words; paraphrase with a page/source reference. "
-            "Compare with the supplied previous-quarter outlook if present: "
-            "state what is newly raised, lowered, maintained or qualified. "
-            "If prior outlook is missing, set change to 'Forrige kvartals "
+            "previous_outlooks holds summaries of the same company's outlook "
+            "in earlier quarterly reports, newest first. In change, compare "
+            "constructively with the most recent earlier quarter: name each "
+            "target or outlook statement that is raised, lowered, maintained, "
+            "dropped, new or more cautiously/optimistically worded, with the "
+            "earlier and current wording or figure side by side. In trend, "
+            "describe in 1-3 sentences how the guidance and tone have developed "
+            "across all supplied quarters (e.g. gradually more cautious on "
+            "demand, margin target held for three quarters) and whether "
+            "management has delivered on earlier stated expectations; leave "
+            "trend empty if fewer than two earlier quarters are supplied. "
+            "If previous_outlooks is empty, set change to 'Forrige kvartals "
             "guiding er ikke tilgjengelig for sammenligning'. "
             "Do not infer that management raised guidance without explicit "
             "evidence from both periods. Do not invent figures. "
@@ -196,10 +220,10 @@ def extract_outlook(text:str,key:str,ticker:str,period:str,prior:dict|None=None)
         ),
         "input":json.dumps({"ticker":ticker,"period":period,
                             "current_outlook_excerpts":snippet,
-                            "previous_quarter_outlook":prior},ensure_ascii=False),
+                            "previous_outlooks":prior},ensure_ascii=False),
         "text":{"format":{"type":"json_schema","name":"outlook_summary",
                           "strict":True,"schema":schema}},
-        "max_output_tokens":1250,"store":False}
+        "max_output_tokens":1600,"store":False}
     response=http_json("https://api.openai.com/v1/responses",payload,
         {"Content-Type":"application/json","Authorization":"Bearer "+key})
     outputs=[p.get("text","") for o in response.get("output",[])
@@ -207,7 +231,9 @@ def extract_outlook(text:str,key:str,ticker:str,period:str,prior:dict|None=None)
     if not outputs:raise ValueError("No outlook output")
     data=json.loads("".join(outputs))
     return {"summary":str(data.get("summary") or "")[:650],
-            "change":str(data.get("change") or "")[:650],
+            "change":str(data.get("change") or "")[:900],
+            "trend":str(data.get("trend") or "")[:650] if len(prior)>=2 else "",
+            "compared_periods":[str(p.get("period") or "") for p in prior],
             "points":[{"topic":str(p.get("topic") or "")[:90],
                        "statement":str(p.get("statement") or "")[:320],
                        "evidence":str(p.get("evidence") or "")[:200],
@@ -312,15 +338,74 @@ def fetch_previous_quarter(item:dict, period:str, state:dict, key:str) -> str:
     except Exception as exc:
         return "error_"+type(exc).__name__
 
-def previous_outlook(item:dict,period:str,state:dict,key:str)->dict:
-    """Find prior quarter on NewsWeb by ticker, then verify the actual PDF period.
+REPORT_NOISE=re.compile(r"invitation|invitasjon|reminder|påminnelse|presentation of|"
+    r"presentasjon av|webcast|transcript|conference call|call-in|basis swap|"
+    r"dividend|utbytte|key information|nøkkelinformasjon",re.I)
+REPORT_WORDS=re.compile(r"result|report|rapport|kvartal|quarter|interim|delår",re.I)
+_ISSUER_INDEX:dict={}
 
-    Search narrow date windows to avoid API overflow. Titles often omit the
-    year or use "3Q", so neither issuer API filtering nor a strict title regex
-    is reliable enough on its own.
+def issuer_reports(item:dict,days:int=400)->list[dict]:
+    """List the issuer's earlier financial reports, newest first.
+
+    A market-wide month of NewsWeb overflows at 600 messages, so search by
+    issuer instead (issuerId when known, else ticker) and verify issuerSign.
     """
-    from .newsweb_source import get_json,details,is_financial_report
-    from datetime import timedelta, timezone
+    from .newsweb_source import get_json,is_financial_report
+    from datetime import timedelta
+    ticker=item["ticker"].upper()
+    published=datetime.fromisoformat(item["published_at"].replace("Z","+00:00"))
+    issuer=str(item.get("issuer_id") or ticker)
+    cache_key=(issuer,ticker,published.date().isoformat(),days)
+    if cache_key in _ISSUER_INDEX:
+        return _ISSUER_INDEX[cache_key]
+    messages=[]
+    windows=[(published-timedelta(days=days),published)]
+    while windows:
+        start,end=windows.pop()
+        data=get_json("list",{"market":"XOSL","issuer":issuer,
+            "fromDate":start.date().isoformat(),"toDate":end.date().isoformat()})
+        if data.get("overflow") and (end-start).days>20:
+            middle=start+(end-start)/2
+            windows+= [(start,middle),(middle,end)]
+            continue
+        messages.extend(data.get("messages",[]))
+    rows={}
+    for row in messages:
+        if str(row.get("issuerSign") or "").upper()!=ticker:continue
+        ident=str(row.get("messageId") or row.get("id") or "")
+        if not ident.isdigit() or ident==str(item.get("id")):continue
+        try:
+            when=datetime.fromisoformat(str(row.get("publishedTime")).replace("Z","+00:00"))
+        except ValueError:
+            continue
+        if when>=published:continue
+        title=str(row.get("title") or "")
+        if REPORT_NOISE.search(title):continue
+        cats=" ".join(str(c.get("category_en") or "") for c in row.get("category") or []
+                      if isinstance(c,dict)).upper()
+        explicit=quarter(title,str(row.get("publishedTime")))
+        if explicit.endswith("FY") or ("ANNUAL FINANCIAL REPORT" in cats and not explicit):
+            continue
+        category_report="FINANCIAL REPORT" in cats
+        if not category_report and not (REPORT_WORDS.search(title) and
+                                        is_financial_report({"title":title})):
+            continue
+        rows[ident]={"id":ident,"title":title,"published_at":when.isoformat(),
+            "explicit":explicit,"category_report":category_report,
+            # DNB-style headlines lack a period; verify it later in the PDF.
+            "period":explicit or inferred_reporting_quarter(when.isoformat())}
+    result=sorted(rows.values(),key=lambda r:r["published_at"],reverse=True)
+    _ISSUER_INDEX[cache_key]=result
+    return result
+
+def previous_outlook(item:dict,period:str,state:dict,key:str)->dict:
+    """Find the issuer's report for the quarter before `period` and extract its outlook.
+
+    Candidates come from the issuer's own NewsWeb history; the PDF period is
+    verified before the outlook is cached in state.
+    """
+    from .newsweb_source import details
+    from datetime import timezone
     wanted=preceding(period)
     if not re.fullmatch(r"20\d\dQ[1-4]",wanted):return {}
     ticker=item["ticker"].upper()
@@ -328,73 +413,65 @@ def previous_outlook(item:dict,period:str,state:dict,key:str)->dict:
     cached=saved.get(wanted,{})
     if cached.get("outlook",{}).get("status")=="analyzed":
         return cached["outlook"]
-    published=datetime.fromisoformat(item["published_at"].replace("Z","+00:00"))
-    if published.tzinfo is None:return {}
-    # Negative lookup cache: avoid searching four months of messages on every
-    # hourly run when no previous report exists or API is incomplete.
-    miss=saved.get("_prior_lookup_misses",{}).get(wanted)
+    if not datetime.fromisoformat(item["published_at"].replace("Z","+00:00")).tzinfo:return {}
+    # Negative lookup cache: avoid re-reading PDFs on every hourly run when
+    # no previous report exists. v2: misses from the old overflowing search
+    # are not trusted.
+    miss=saved.get("_prior_lookup_misses_v2",{}).get(wanted)
     if miss:
         try:
             if (datetime.now(timezone.utc)-datetime.fromisoformat(miss)).total_seconds()<86400:
                 return {}
         except (ValueError,TypeError):
             pass
-    candidates=[]
-    # Prior quarter typically published 60–125 days before current release.
-    # Query the entire market and filter issuerSign locally; API "issuer"
-    # expects an issuer identifier and does not reliably accept tickers.
-    for days_before in (75,105,135,45):
-        start=(published-timedelta(days=days_before+15)).date().isoformat()
-        end=(published-timedelta(days=days_before-15)).date().isoformat()
-        try:
-            data=get_json("list",{"market":"XOSL","fromDate":start,"toDate":end})
-        except Exception as exc:
-            print("Prior-quarter NewsWeb lookup failed:",ticker,type(exc).__name__)
-            continue
-        if data.get("overflow"):continue
-        for row in data.get("messages",[]):
-            if str(row.get("issuerSign") or "").upper()!=ticker:continue
-            title=str(row.get("title") or "")
-            if any(w in title.lower() for w in ("invitation","invitasjon",
-                    "presentation","presentasjon","webcast","transcript")):continue
-            if not is_financial_report({"title":title,"category":"financial report" if
-                any("financial" in str(c).lower() for c in row.get("category",[])) else ""}):
-                continue
-            explicit=quarter(title,str(row.get("publishedTime") or ""))
-            if explicit and explicit!=wanted:continue
-            ident=row.get("messageId") or row.get("id")
-            if not str(ident).isdigit():continue
-            candidates.append((0 if explicit==wanted else 1,
-                abs((published-datetime.fromisoformat(str(row["publishedTime"]).replace("Z","+00:00"))).days-91),
-                str(ident)))
-    seen_ids=set()
-    for _,__,ident in sorted(candidates)[:8]:
-        if ident in seen_ids:continue
-        seen_ids.add(ident)
+    try:
+        reports=issuer_reports(item)
+    except Exception as exc:
+        print("Prior-quarter NewsWeb lookup failed:",ticker,type(exc).__name__)
+        return {}
+    candidates=[r for r in reports if r["period"]==wanted]
+    candidates.sort(key=lambda r:(0 if r["category_report"] else 1,0 if r["explicit"] else 1))
+    for row in candidates[:6]:
+        ident=row["id"]
         try:
             detail=details({"id":ident})
             doc=pick_attachment(detail.get("attachments") or [])
             if not doc:continue
-            doc_period=quarter(doc["name"],item["published_at"])
+            doc_period=quarter(doc["name"],row["published_at"])
             if doc_period and doc_period!=wanted:continue
             pdf=download_attachment(ident,doc["id"])
             if not pdf.startswith(b"%PDF-"):continue
             txt=text_from_pdf(pdf)
             if len(txt.strip())<350:continue
-            actual_period=period_from_pdf(txt,item["published_at"])
-            if actual_period and actual_period!=wanted:continue
-            # Without an explicit period, only trust a candidate with a
-            # matching quarter in the document name or headline.
-            if not actual_period and doc_period!=wanted:
+            # Headline or filename period wins: PDF covers often list the
+            # prior-year comparison quarter first. Otherwise require the PDF.
+            if wanted not in (doc_period,row["explicit"]) and \
+                    period_from_pdf(txt,row["published_at"])!=wanted:
                 continue
             extracted=extract_outlook(txt,key,ticker,wanted)
             if extracted.get("status")=="analyzed":
-                saved.setdefault(wanted,{})["outlook"]=extracted
+                entry=saved.setdefault(wanted,{})
+                entry["outlook"]=extracted
+                entry.setdefault("message_id",ident)
+                entry.setdefault("published_at",row["published_at"])
                 return extracted
         except Exception as exc:
             print("Previous-quarter PDF unavailable:",ticker,ident,type(exc).__name__)
-    saved.setdefault("_prior_lookup_misses",{})[wanted]=datetime.now(timezone.utc).isoformat()
+    saved.setdefault("_prior_lookup_misses_v2",{})[wanted]=datetime.now(timezone.utc).isoformat()
     return {}
+
+def prior_outlooks(item:dict,period:str,state:dict,key:str,count:int=3)->list[dict]:
+    """Outlooks for up to `count` quarters before `period`, newest first."""
+    history=[]
+    cursor=period
+    for _ in range(count):
+        found=previous_outlook(item,cursor,state,key)
+        cursor=preceding(cursor)
+        if not cursor:break
+        if found:
+            history.append({"period":cursor,"summary":found.get("summary",""),
+                            "points":found.get("points",[])})
+    return history
 
 def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
     """Returns a compact summary; PDF is downloaded into runner memory only."""
@@ -462,16 +539,16 @@ def analyze_pdf(item: dict, state:dict, consensus:dict|None=None) -> dict:
                 cursor=preceding(cursor)
             state.setdefault("history_backfill_done",{})[
                 item["ticker"]+":"+result["period"]]=datetime.now().isoformat()
-        previous=state.get("reports_by_ticker",{}).get(item["ticker"],{}).get(preceding(result["period"]),{})
-        prior_outlook=previous.get("outlook") or {}
-        if not prior_outlook and os.getenv("FETCH_PRIOR_OUTLOOK","1")=="1":
+        prior=[]
+        if os.getenv("FETCH_PRIOR_OUTLOOK","1")=="1":
             try:
-                prior_outlook=previous_outlook(item,result["period"],state,key)
+                prior=prior_outlooks(item,result["period"],state,key,
+                    max(1,min(4,int(os.getenv("PRIOR_OUTLOOK_QUARTERS","3")))))
             except Exception as exc:
                 print("Prior quarter outlook unavailable:",item["ticker"],type(exc).__name__)
         try:
             result["outlook"]=extract_outlook(txt,key,item["ticker"],result["period"],
-                                              prior_outlook)
+                                              prior)
         except Exception as exc:
             result["outlook"]={"status":"error","summary":"","change":"",
                                "points":[],"error":type(exc).__name__}

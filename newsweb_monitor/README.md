@@ -37,7 +37,7 @@ Ved en ny resultatmelding:
 1. Last ned vedlagt kvartalsrapport som PDF. Filstørrelse begrenses til 22 MB.
 2. Trekk ut tekst fra inntil 26 sider med pypdf. Scannede PDF-er uten maskinlesbar tekst krever en separat OCR-løsning.
 3. Hvis `OPENAI_API_KEY` finnes: hent omsetning, EBITDA, EBIT, resultat etter skatt, EPS og driftskontantstrøm for **kvartalet**, samt sammenlignbare tall fra samme kvartal året før.
-4. Hent forrige kvartals rapport fra samme utsteder via NewsWeb hvis denne ikke allerede er i cache. Sammenlign også med forrige kvartal.
+4. Hent de tre foregående kvartalsrapportene fra samme utsteder via NewsWeb (søk per utsteder, ikke hele markedet – et helt marked over en måned overstiger API-grensen på 600 meldinger). Utsiktene i hver rapport caches i state. Guidingen sammenlignes konkret med forrige kvartal (`change`), og utviklingen over alle tre vises som `trend`. Antall kvartaler styres med `PRIOR_OUTLOOK_QUARTERS` (standard 3, maks 4).
 5. Lag tabell med tall, prosentendringer og kildehenvisning til PDF; ikke bland YTD, halvår, valutaer eller ikke-sammenlignbare definisjoner.
 
 PDF-vedlegget behandles i minnet på runneren og blir **ikke publisert eller arkivert** som GitHub-artifact; bare resultat, referanse og URL. Ikke anta at nedlasting av rapporter gir rett til offentlig videredistribusjon.
