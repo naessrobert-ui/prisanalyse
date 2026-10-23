@@ -2,8 +2,178 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-22T19:02:11+00:00",
+  "generated_at": "2026-10-23T04:46:22+00:00",
   "items": [
+    {
+      "id": "684667",
+      "market": "XOSL",
+      "ticker": "OTOVO",
+      "issuer": "Otovo ASA",
+      "title": "Otovo ASA: Mandatory Notification of Trade and Disclosure of Shareholding",
+      "headline": "Otovo utsteder 3,5 millioner nye aksjer – CEO-nær selskap låner ut aksjer",
+      "lead": "Otovo ASA utvider aksjekapitalen med 3,5 millioner nye aksjer til kurs 8 NOK i et privat plasseringstilbud. Selskapets CEO-nære Jackson Leigh Ventures låner ut aksjer for oppgjør, noe som midlertidig reduserer deres eierandel under 15 prosent.",
+      "published_at": "2026-10-22T22:23:02.136000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684667",
+      "summary": "Otovo ASA utvider aksjekapitalen med 3,5 millioner nye aksjer til kurs 8 NOK i et privat plasseringstilbud. Selskapets CEO-nære Jackson Leigh Ventures låner ut aksjer for oppgjør, noe som midlertidig reduserer deres eierandel under 15 prosent.",
+      "reason": "Utstedelsen og utlånet av aksjer er en teknisk operasjon for å sikre oppgjør i en emisjon, og endrer midlertidig eierstrukturen uten direkte indikasjon på finansiell styrke eller svakhet. Aksjonærer bør følge utviklingen i eierandel og eventuelle ytterligere finansieringsrunder.",
+      "score": 65,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI"
+    },
+    {
+      "id": "684666",
+      "market": "XOSL",
+      "ticker": "OTOVO",
+      "issuer": "Otovo ASA",
+      "title": "Otovo ASA: Private placement and retail offering successfully placed",
+      "headline": "Otovo henter 28 millioner kroner i rettet emisjon med aksjepris på 8 kroner",
+      "lead": "Otovo ASA har fullført en emisjon på totalt 28 millioner kroner ved å utstede 3,5 millioner aksjer til kurs 8 kroner per aksje. Midlene skal blant annet finansiere strategiske oppkjøp og kostnader ved planlagt notering i USA.",
+      "published_at": "2026-10-22T22:19:14.830000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684666",
+      "summary": "Otovo ASA har fullført en emisjon på totalt 28 millioner kroner ved å utstede 3,5 millioner aksjer til kurs 8 kroner per aksje. Midlene skal blant annet finansiere strategiske oppkjøp og kostnader ved planlagt notering i USA.",
+      "reason": "Emisjonen tilførte nytt kapitalgrunnlag uten vesentlig utvanning eller store rabatter, noe som gir rom for vekstinitiativer. Aksjonærer bør følge utviklingen rundt bruken av midlene og den planlagte amerikanske børsnoteringen for å vurdere langsiktig verdiøkning.",
+      "score": 65,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI"
+    },
+    {
+      "id": "684665",
+      "market": "XOSL",
+      "ticker": "BISG",
+      "issuer": "Bulk Infrastructure Group AS",
+      "title": "Bulk Infrastructure Group AS - Third Quarter Report 2026 Published",
+      "headline": "Bulk Infrastructure legger frem tredje kvartal 2026 uten konkrete nøkkeltall",
+      "lead": "Bulk Infrastructure Group AS har publisert sin kvartalsrapport for tredje kvartal 2026, men rapporten inneholder ikke detaljerte økonomiske nøkkeltall eller resultater.",
+      "published_at": "2026-10-22T20:00:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/684665",
+      "summary": "Bulk Infrastructure Group AS har publisert sin kvartalsrapport for tredje kvartal 2026, men rapporten inneholder ikke detaljerte økonomiske nøkkeltall eller resultater.",
+      "reason": "Rapporten gir ingen spesifikke tall eller resultater, noe som gjør det vanskelig å vurdere selskapets kvartalsmessige utvikling eller finansiell styrke. Aksjonærer bør følge opp med mer detaljert informasjon for å vurdere investeringsrisiko og framtidsutsikter.",
+      "score": 50,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "filename",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Bulk Infrastructure Group Financial statements Q3 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684665&attachmentId=334923"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 394.5,
+            "prior_year": 239.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 64.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 2 and Page 6 consolidated total revenue and other income for Q3 2026 and Q3 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 104.5,
+            "prior_year": 63.4,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 64.8,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 2 adjusted EBITDA Q3 2026 and Q3 2025"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": 27.3,
+            "prior_year": -2.4,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 2 operating profit Q3 2026 and Q3 2025"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": -74.9,
+            "prior_year": -88.4,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 2 profit for the period Q3 2026 and Q3 2025, corroborated on Page 6 consolidated statement of total comprehensive income"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 0.21,
+            "prior_year": 0.18,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 16.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 6 earnings per share basic and diluted Q3 2026 and Q3 2025"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Etterspørselen etter nye og moderne industribygg er moderat, men forventes å øke fremover. Bulk arbeider med regulering og utvikling av nye industriområder med en strategisk tomtebank på til sammen 1 410 000 kvm, fordelt på eid og opsjonsrett. Selskapet har også god evne til å omregulere og sikre nye tomteområder, samt god kommunikasjon med lokale myndigheter.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "points": [
+            {
+              "topic": "Etterspørsel etter industribygg",
+              "statement": "Moderate etterspørsel nå, forventes sterkere fremover",
+              "evidence": "'The demand for new and modern industrial buildings is moderate, but we expect a stronger demand going forward' (Side 4)",
+              "page": "4"
+            },
+            {
+              "topic": "Strategisk tomtebank",
+              "statement": "850 000 kvm eid land, pluss opsjoner for 560 000 kvm i attraktive områder",
+              "evidence": "'Bulk Industrial Real Estates’ strategic landbank contains 850 000 sqm of owned land, as well as options for an additional 560 000 sqm' (Side 4)",
+              "page": "4"
+            },
+            {
+              "topic": "Regulering og utvikling",
+              "statement": "God evne til å omregulere og regulere tomt, og identifisere nye områder",
+              "evidence": "'Bulk has a strong ability to effectively rezone and regulate land, as well as the ability to identify and obtain new land areas' (Side 4)",
+              "page": "4"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "684664",
+      "market": "XOSL",
+      "ticker": "KOMPL",
+      "issuer": "Komplett ASA",
+      "title": "Komplett ASA: Mandatory notification of trade - primary insiders",
+      "headline": "Styremedlem Haugen Fougner kjøper 16 400 aksjer i Komplett til 6,20 kr",
+      "lead": "Ingrid Haugen Fougner, styremedlem i Komplett ASA, har kjøpt 16 400 aksjer for 6,20 kroner per aksje. Etter kjøpet eier hun og tilknyttede parter totalt 31 400 aksjer i selskapet.",
+      "published_at": "2026-10-22T19:11:51.021000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684664",
+      "summary": "Ingrid Haugen Fougner, styremedlem i Komplett ASA, har kjøpt 16 400 aksjer for 6,20 kroner per aksje. Etter kjøpet eier hun og tilknyttede parter totalt 31 400 aksjer i selskapet.",
+      "reason": "Insiderkjøp kan signalisere tillit til selskapets fremtid, men uten ytterligere kontekst eller økonomiske resultater gir det begrenset informasjonsverdi for aksjonærer. Vi bør følge med på om dette følges av ytterligere transaksjoner eller endringer i selskapets drift.",
+      "score": 40,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI"
+    },
     {
       "id": "684663",
       "market": "XOSL",
@@ -638,13 +808,13 @@
       "ticker": "NONG",
       "issuer": "SpareBank 1 Nord-Norge",
       "title": "SpareBank 1 Nord-Norge inviterer til resultatpresentasjon for 3. kvartal 2026",
-      "headline": "SpareBank 1 Nord-Norge kunngjør 3. kvartalspresentasjon 30. oktober",
-      "lead": "SpareBank 1 Nord-Norge holder resultatpresentasjon for tredje kvartal 2026 via webinar 30. oktober kl. 09.30, med mulighet for spørsmål og digitale møter etterpå.",
+      "headline": "SpareBank 1 Nord-Norge kunngjør Q3-resultatpresentasjon 30. oktober",
+      "lead": "SpareBank 1 Nord-Norge holder webinar 30. oktober kl. 09.30 for å presentere 3. kvartalsresultater. Det legges opp til mulighet for spørsmål og oppfølging etter webinaret.",
       "published_at": "2026-10-22T11:35:00+00:00",
       "url": "https://newsweb.oslobors.no/message/684603",
-      "summary": "SpareBank 1 Nord-Norge holder resultatpresentasjon for tredje kvartal 2026 via webinar 30. oktober kl. 09.30, med mulighet for spørsmål og digitale møter etterpå.",
-      "reason": "Meldingen gir kun informasjon om tidspunkt og format for resultatpresentasjon uten å oppgi resultater eller økonomiske nøkkeltall. Aksjonærer må vente på kvartalsrapporten for å vurdere selskapets utvikling og konsekvenser for aksjekursen.",
-      "score": 30,
+      "summary": "SpareBank 1 Nord-Norge holder webinar 30. oktober kl. 09.30 for å presentere 3. kvartalsresultater. Det legges opp til mulighet for spørsmål og oppfølging etter webinaret.",
+      "reason": "Invitasjonen til resultatpresentasjon gir ikke informasjon om resultatene selv. Aksjonærer og investorer må følge presentasjonen for å vurdere selskapets kvartalsutvikling og justere forventninger basert på faktiske tall og kommentarer.",
+      "score": 25,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -672,13 +842,13 @@
       "ticker": "NONG",
       "issuer": "SpareBank 1 Nord-Norge",
       "title": "SpareBank 1 Nord-Norge is presenting 3rd quarter 2026 accounts",
-      "headline": "SpareBank 1 Nord-Norge inviterer til kvartalspresentasjon 30. oktober",
-      "lead": "SpareBank 1 Nord-Norge offentliggjør resultater for tredje kvartal 2026 fredag 30. oktober kl. 09:30 via livestream. Det er foreløpig ingen detaljer om tall eller resultatutsikter tilgjengelig.",
+      "headline": "SpareBank 1 Nord-Norge varsler kvartalspresentasjon 30. oktober",
+      "lead": "SpareBank 1 Nord-Norge offentliggjør resultater for tredje kvartal 2026 med direktesendt presentasjon og Q&A, men uten å oppgi resultattall på forhånd.",
       "published_at": "2026-10-22T11:35:00+00:00",
       "url": "https://newsweb.oslobors.no/message/684602",
-      "summary": "SpareBank 1 Nord-Norge offentliggjør resultater for tredje kvartal 2026 fredag 30. oktober kl. 09:30 via livestream. Det er foreløpig ingen detaljer om tall eller resultatutsikter tilgjengelig.",
-      "reason": "Informasjonen gir foreløpig kun fakta om tidspunkt og format for kvartalspresentasjonen, uten indikasjoner på resultater eller markedsreaksjoner. Aksjonærer må vente på full rapport for å vurdere resultat og påvirkning.",
-      "score": 25,
+      "summary": "SpareBank 1 Nord-Norge offentliggjør resultater for tredje kvartal 2026 med direktesendt presentasjon og Q&A, men uten å oppgi resultattall på forhånd.",
+      "reason": "Ingen konkrete regnskapstall eller vurderinger foreligger. Nyheten informerer om tidspunkt og format for rapportering, viktig for investorer som ønsker direkte innsikt og mulighet for spørsmål.",
+      "score": 35,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -1115,13 +1285,13 @@
       "ticker": "YAR",
       "issuer": "Yara International ASA",
       "title": "Yara rapporterer solide Q3-resultater i et volatilt marked",
-      "headline": "Yara leverer EBITDA på 675 mill. USD i Q3, ned fra 804 mill. USD i fjor",
-      "lead": "Yaras EBITDA i tredje kvartal falt til 675 millioner USD, fra 804 millioner USD året før, preget av høyere gasspriser og utsatt etterspørsel. Resultat etter skatt endte på 199 millioner USD, vesentlig lavere enn i 2025.",
+      "headline": "Yaras EBITDA faller til 675 millioner USD i Q3 2026 – høyere gasspriser tynger",
+      "lead": "Yara rapporterer en EBITDA på 675 millioner USD i tredje kvartal 2026, ned fra 804 millioner USD året før, påvirket av høye energikostnader og treg etterspørsel, men styrker porteføljen gjennom planlagt oppkjøp i USA.",
       "published_at": "2026-10-22T06:00:30.732000+00:00",
       "url": "https://newsweb.oslobors.no/message/684580",
-      "summary": "Yaras EBITDA i tredje kvartal falt til 675 millioner USD, fra 804 millioner USD året før, preget av høyere gasspriser og utsatt etterspørsel. Resultat etter skatt endte på 199 millioner USD, vesentlig lavere enn i 2025.",
-      "reason": "Yaras svake EBITDA- og resultatfall bekrefter utfordringer i et volatilt nitrogenmarked med høye energikostnader. For aksjonærer understreker det behovet for å følge utviklingen i kostnadskontroll, oppkjøp og markedsinntjening nøye framover.",
-      "score": 85,
+      "summary": "Yara rapporterer en EBITDA på 675 millioner USD i tredje kvartal 2026, ned fra 804 millioner USD året før, påvirket av høye energikostnader og treg etterspørsel, men styrker porteføljen gjennom planlagt oppkjøp i USA.",
+      "reason": "Yaras EBITDA og resultat etter skatt faller betydelig sammenlignet med samme kvartal i fjor, hovedsakelig på grunn av høyere gasspriser og markedsusikkerhet. Til tross for utfordringer viser fleksibilitet og planlagt oppkjøp at selskapet tar grep for å redusere risiko, men lønnsomheten er foreløpig svekket.",
+      "score": 75,
       "skipped": false,
       "direction": "negativ",
       "assessment_source": "AI",
@@ -1132,13 +1302,13 @@
         "previous_report": "not_requested",
         "document": {
           "name": "Yara_3Q_2026_Report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684579&attachmentId=334851"
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684580&attachmentId=334850"
         },
         "metrics": [
           {
             "label": "Omsetning",
             "name": "revenue",
-            "unit": "USD millions",
+            "unit": "USD million",
             "current": 4478.0,
             "prior_year": 4108.0,
             "prev_quarter": null,
@@ -1146,12 +1316,12 @@
             "yoy_pct": 9.0,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 1], Revenue and other income table, 3Q 2026 and 3Q 2025 columns"
+            "evidence": "SIDE 1 table, Revenue and other income, 3Q 2026 and 3Q 2025"
           },
           {
             "label": "EBITDA",
             "name": "ebitda",
-            "unit": "USD millions",
+            "unit": "USD million",
             "current": 697.0,
             "prior_year": 770.0,
             "prev_quarter": null,
@@ -1159,12 +1329,12 @@
             "yoy_pct": -9.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 1], EBITDA row, 3Q 2026 and 3Q 2025 columns"
+            "evidence": "SIDE 1 table, EBITDA, 3Q 2026 and 3Q 2025"
           },
           {
             "label": "EBIT",
             "name": "ebit",
-            "unit": "USD millions",
+            "unit": "USD million",
             "current": 379.0,
             "prior_year": 470.0,
             "prev_quarter": null,
@@ -1172,12 +1342,12 @@
             "yoy_pct": -19.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 10], Condensed statement of income, Operating income/(loss) row, 3Q 2026 and 3Q 2025 columns"
+            "evidence": "SIDE 1 table, Operating income/(loss), 3Q 2026 and 3Q 2025"
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
-            "unit": "USD millions",
+            "unit": "USD million",
             "current": 199.0,
             "prior_year": 320.0,
             "prev_quarter": null,
@@ -1185,12 +1355,12 @@
             "yoy_pct": -37.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 10], Condensed statement of income, Net income/(loss) row, 3Q 2026 and 3Q 2025 columns"
+            "evidence": "SIDE 1 table, Net income/(loss), 3Q 2026 and 3Q 2025"
           },
           {
             "label": "EPS",
             "name": "eps",
-            "unit": "USD per share",
+            "unit": "USD/share",
             "current": 0.78,
             "prior_year": 1.25,
             "prev_quarter": null,
@@ -1198,12 +1368,12 @@
             "yoy_pct": -37.6,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 10], Basic earnings/(loss) per share, 3Q 2026 and 3Q 2025 columns"
+            "evidence": "SIDE 1 table, Basic earnings/(loss) per share, 3Q 2026 and 3Q 2025"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
-            "unit": "USD millions",
+            "unit": "USD million",
             "current": 365.0,
             "prior_year": 343.0,
             "prev_quarter": null,
@@ -1211,70 +1381,48 @@
             "yoy_pct": 6.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 1], Highlights, Net cash provided by/(used in) operating activities row, 3Q 2026 and 3Q 2025 columns"
+            "evidence": "SIDE 1 table, Net cash provided by/(used in) operating activities, 3Q 2026 and 3Q 2025"
           },
           {
             "label": "Netto renteinntekter",
             "name": "net_interest_income",
-            "unit": "USD millions",
-            "current": -64.0,
-            "prior_year": -74.0,
+            "unit": "USD million",
+            "current": -44.0,
+            "prior_year": -56.0,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 6], Financial items table, Interest expense and other financial items row, 3Q 2026 and 3Q 2025 columns"
+            "evidence": "Calculated from SIDE 6, Interest income 12 million, Interest expense (57) million, net interest income = 12-57 = -45 million approx. 3Q 2026; 3Q 2025 Interest i"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Yara forventer å fullføre oppkjøpet av ny ammoniakkproduksjonskapasitet innen utgangen av 2026, noe som vil gi økt strategisk fleksibilitet og redusere eksponeringen fra europeisk gass til også å inkludere Henry Hub-priser. Markedene for nitrogen startet tregt tredje kvartal, men etterspørselen i Europa økte mot slutten av kvartalet med sterkere ordrebeholdning enn normalt. Kjøp for 2027-sesongen har vært lave, og import og leveranser i hovedmarkedene ligger under fjoråret. Kostnader for gass i siste kvartal 2026 og første kvartal 2027 forventes å være betydelig høyere enn året før.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "summary": "Yara opplevde en treg start på nitrormarkedene i tredje kvartal 2026 grunnet global usikkerhet og svingninger i kinesiske og indiske markeder, men ser økende kjøpsaktivitet i Europa og sterkere ordrebeholdning enn normalt. Selskapet planlegger å fullføre oppkjøpet av lagringskapasitet innen utgangen av 2026 for å styrke sin strategiske fleksibilitet, samtidig som gasskostnadene forventes å øke betydelig, hvilket kan påvirke resultatene.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "points": [
             {
-              "topic": "Oppkjøp og strategisk posisjon",
-              "statement": "Oppkjøpet av ny ammoniakkproduksjon vil forbedre Yaras fleksibilitet og balansere gasseksponeringen mellom europeisk gas og Henry Hub",
-              "evidence": "\"Yara forventer closing transaksjonen ved utgangen av 2026\", \"nye produksjonskapasitet forbedrer strategisk fleksibilitet\"",
-              "page": "Outlook"
+              "topic": "Markedssituasjon og ordrestatus",
+              "statement": "Nitrogenmarkedene startet tregt i Q3, men kjøpsaktiviteten i Europa økte mot slutten av kvartalet med en sterkere ordrebeholdning enn normalt for årstiden.",
+              "evidence": "'Nitrogen markets had a slow start... Yara exits the quarter with a European order book stronger than normal for this time of year.'",
+              "page": "Outlook section"
             },
             {
-              "topic": "Markedsforhold nitrogen",
-              "statement": "Nitrogenmarkedene startet tregt i sesongen med lav etterspørsel til tross for økt kjøpsaktivitet mot kvartalsslutt i Europa",
-              "evidence": "\"Kjøpsaktivitet spesielt i Europa økte mot slutten av kvartalet\", \"ordreboken er sterkere enn normalt\"",
-              "page": "Outlook"
+              "topic": "Oppkjøp og kapasitetsutvidelse",
+              "statement": "Yara forventer å avslutte et oppkjøp innen utgangen av 2026 som vil gi akkretiv ammoniakkproduksjon og øke strategisk fleksibilitet.",
+              "evidence": "'With this acquisition... Yara expects closing the transaction by the end of 2026.'",
+              "page": "Outlook section"
             },
             {
-              "topic": "Etterslep i kjøp for 2027-sesongen",
-              "statement": "Kjøp for 2027 har vært lave, med import og leveranser under nivået fra i fjor i hovedmarkedene",
-              "evidence": "\"Kjøp for 2027 sesongen var lave\", \"import og leveranser i Europa, USA og Latin-Amerika ligger etter fjoråret\"",
-              "page": "Outlook"
-            },
-            {
-              "topic": "Gasspris og kostnadsøkning",
-              "statement": "Gasskostnadene i Q4 2026 og Q1 2027 forventes å være omtrent 450 millioner USD høyere enn året før, noe som kan bli påvirket av spotprisutvikling og lokale vilkår",
-              "evidence": "\"Gasskostnader for Q4 2026 og Q1 2027 er estimert til 450 millioner USD høyere enn året før\"",
-              "page": "Outlook"
+              "topic": "Gasskostnader",
+              "statement": "Estimert økte gasskostnader på omtrent 450 millioner USD for Q4 2026 og første kvartal 2027 vil kunne påvirke lønnsomheten, avhengig av framtidige spotpriser.",
+              "evidence": "'Cost for fourth quarter 2026 and first quarter 2027 is estimated to be USD 450 million higher... these estimates may change depending on future spot gas prices.'",
+              "page": "Outlook section"
             }
           ]
         }
-      },
-      "language_versions": [
-        {
-          "id": "684580",
-          "title": "Yara rapporterer solide Q3-resultater i et volatilt marked",
-          "url": "https://newsweb.oslobors.no/message/684580",
-          "published_at": "2026-10-22T06:00:30.732000+00:00",
-          "language": "Norsk"
-        },
-        {
-          "id": "684579",
-          "title": "Yara reports solid 3Q amid market volatility",
-          "url": "https://newsweb.oslobors.no/message/684579",
-          "published_at": "2026-10-22T06:00:30.731000+00:00",
-          "language": "Original"
-        }
-      ]
+      }
     },
     {
       "id": "684578",
@@ -1394,6 +1542,22 @@
       "skipped": false,
       "direction": "negativ",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "684570",
+          "title": "Q3-26: Category-specific headwinds offset underlying progress",
+          "url": "https://newsweb.oslobors.no/message/684570",
+          "published_at": "2026-10-22T05:01:09.544000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "684569",
+          "title": "Q3-26: Motvind innen gaming og komponenter overskygger underliggende fremgang",
+          "url": "https://newsweb.oslobors.no/message/684569",
+          "published_at": "2026-10-22T05:01:09.532000+00:00",
+          "language": "Original"
+        }
+      ],
       "financial_report": {
         "status": "analyzed",
         "period": "2026Q3",
@@ -1527,23 +1691,7 @@
             }
           ]
         }
-      },
-      "language_versions": [
-        {
-          "id": "684570",
-          "title": "Q3-26: Category-specific headwinds offset underlying progress",
-          "url": "https://newsweb.oslobors.no/message/684570",
-          "published_at": "2026-10-22T05:01:09.544000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "684569",
-          "title": "Q3-26: Motvind innen gaming og komponenter overskygger underliggende fremgang",
-          "url": "https://newsweb.oslobors.no/message/684569",
-          "published_at": "2026-10-22T05:01:09.532000+00:00",
-          "language": "Original"
-        }
-      ]
+      }
     },
     {
       "id": "684567",
@@ -1551,15 +1699,15 @@
       "ticker": "TGS",
       "issuer": "TGS ASA",
       "title": "TGS Quarterly Dividend",
-      "headline": "TGS øker kvartalsutbyttet til NOK 1,45 per aksje for Q4 2026",
-      "lead": "TGS har besluttet et kvartalsutbytte på NOK 1,45 per aksje for fjerde kvartal 2026. Utbyttet utbetales 12. november etter at rett til utbytte registreres 30. oktober.",
+      "headline": "TGS setter kvartalsutbytte til 1,45 kroner per aksje for Q4 2026",
+      "lead": "TGS ASA utbetaler et kvartalsutbytte på 1,45 kroner per aksje for fjerde kvartal 2026. Utbyttet betales 12. november, med eks-dato 29. oktober. Ingen endringer i utbyttenivået rapportert i meldingen.",
       "published_at": "2026-10-22T05:01:00.522000+00:00",
       "url": "https://newsweb.oslobors.no/message/684567",
-      "summary": "TGS har besluttet et kvartalsutbytte på NOK 1,45 per aksje for fjerde kvartal 2026. Utbyttet utbetales 12. november etter at rett til utbytte registreres 30. oktober.",
-      "reason": "Utbytteøkning styrker TGS sin posisjon som en attraktiv aksje for utbytteinvestorer. Viktig for aksjonærer å følge fremtidig utbytteutvikling og selskapets likviditet for å vurdere bærekraften i utbyttenivået.",
-      "score": 65,
+      "summary": "TGS ASA utbetaler et kvartalsutbytte på 1,45 kroner per aksje for fjerde kvartal 2026. Utbyttet betales 12. november, med eks-dato 29. oktober. Ingen endringer i utbyttenivået rapportert i meldingen.",
+      "reason": "Utbytteutbetaling er i tråd med tidligere autorisasjon og framstår som stabil for aksjonærer. Det gir en kontantavkastning, men meldingen inneholder ikke informasjon om endring i utbyttenivå eller annen finansiell utvikling som kan påvirke kursen.",
+      "score": 45,
       "skipped": false,
-      "direction": "positiv",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "financial_report": {
         "status": "no_pdf",
@@ -6086,18 +6234,18 @@
       ]
     }
   ],
-  "last_checked_at": "2026-10-22T19:02:11+00:00",
+  "last_checked_at": "2026-10-23T04:46:22+00:00",
   "monitor_stats": {
-    "fetched": 209,
-    "recent": 127,
-    "already_seen": 113,
-    "eligible": 14,
+    "fetched": 162,
+    "recent": 88,
+    "already_seen": 80,
+    "eligible": 8,
     "filtered": 0,
-    "analyzed": 14,
+    "analyzed": 8,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 13,
-    "source_latest_at": "2026-10-22T17:01:13.968000+00:00"
+    "recovered_unpublished": 4,
+    "source_latest_at": "2026-10-22T22:23:02.136000+00:00"
   }
 }
