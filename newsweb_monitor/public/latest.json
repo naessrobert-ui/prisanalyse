@@ -2,8 +2,355 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-23T06:26:41+00:00",
+  "generated_at": "2026-10-23T06:42:13+00:00",
   "items": [
+    {
+      "id": "684685",
+      "market": "XOSL",
+      "ticker": "MEDI",
+      "issuer": "Medistim ASA",
+      "title": "Quarterly dividend -Key information",
+      "headline": "Medistim foreslår kvartalsutbytte på 2,50 kroner per aksje",
+      "lead": "Styret i Medistim har foreslått et kvartalsutbytte på 2,50 kroner per aksje, med utbetaling 2. november 2026. Beslutningen ble tatt 22. oktober, uten opplysninger om eventuell endring fra tidligere utbytte.",
+      "published_at": "2026-10-23T06:41:50.171000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684685",
+      "summary": "Styret i Medistim har foreslått et kvartalsutbytte på 2,50 kroner per aksje, med utbetaling 2. november 2026. Beslutningen ble tatt 22. oktober, uten opplysninger om eventuell endring fra tidligere utbytte.",
+      "reason": "Utbytteforslaget gir konkret tall for avkastning til aksjonærene, men uten sammenligning til tidligere utbytter eller selskapets resultater er det vanskelig å vurdere om dette er bedre eller dårligere enn ventet. Aksjonærer bør se nærmere på utbyttetrenden og selskapets økonomiske situasjon.",
+      "score": 50,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "financial_report": {
+        "status": "no_pdf",
+        "period": "",
+        "period_source": "",
+        "previous_report": "",
+        "document": {
+          "name": "",
+          "url": ""
+        },
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "trend": "",
+          "compared_periods": [],
+          "points": []
+        }
+      }
+    },
+    {
+      "id": "684684",
+      "market": "XOSL",
+      "ticker": "SATS",
+      "issuer": "SATS ASA",
+      "title": "Flaggemelding SATS",
+      "headline": "DNB Asset Management reduserer eierandel i SATS ASA til 4,95 prosent",
+      "lead": "DNB Asset Management solgte 125 257 aksjer i SATS ASA, og eier nå 4,95 prosent av selskapet. Salget kan indikere endret investeringsstrategi for fondet.",
+      "published_at": "2026-10-23T06:37:43.296000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684684",
+      "summary": "DNB Asset Management solgte 125 257 aksjer i SATS ASA, og eier nå 4,95 prosent av selskapet. Salget kan indikere endret investeringsstrategi for fondet.",
+      "reason": "Salget representerer en mindre reduksjon i eierandel, uten at verken størrelse eller årsak til salget gir klare indikasjoner på langsiktige konsekvenser for SATS-aksjen. Aksjonærer bør følge fremtidige endringer for å se om dette er start på en større avhendingsprosess.",
+      "score": 50,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI"
+    },
+    {
+      "id": "684683",
+      "market": "XOSL",
+      "ticker": "MEDI",
+      "issuer": "Medistim ASA",
+      "title": "Financial report and presentation for third quarter for Medistim ASA",
+      "headline": "Medistim øker driftsresultatet 56 prosent til MNOK 63,1 i tredje kvartal",
+      "lead": "Medistim leverte driftsresultat på MNOK 63,1 i Q3, en økning på 55,7 % fra i fjor, med en omsetningsvekst på 25,9 % til MNOK 210,0. Selskapet kunngjorde kvartalsutbytte på 2,50 kroner per aksje.",
+      "published_at": "2026-10-23T06:30:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/684683",
+      "summary": "Medistim leverte driftsresultat på MNOK 63,1 i Q3, en økning på 55,7 % fra i fjor, med en omsetningsvekst på 25,9 % til MNOK 210,0. Selskapet kunngjorde kvartalsutbytte på 2,50 kroner per aksje.",
+      "reason": "Sterk vekst i omsetning og EBIT-marginer indikerer forbedret lønnsomhet og effektive kostnadsstyring, noe som er positivt for aksjonærer. Videre analysere segmentutvikling og valutapåvirkning for å vurdere bærekraften i veksten.",
+      "score": 85,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "filename",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Q3 2026 Financial Report-FINAL.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684683&attachmentId=334920"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "MNOK",
+            "current": 210.0,
+            "prior_year": 166.8,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 25.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Medistim Third Quarter Financial Results 2026 | page 2, 5"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "MNOK",
+            "current": 70.6,
+            "prior_year": 46.4,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 52.2,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Medistim Third Quarter Financial Results 2026 | page 6"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "MNOK",
+            "current": 63.1,
+            "prior_year": 40.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 55.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Medistim Third Quarter Financial Results 2026 | page 6"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "MNOK",
+            "current": 47.8,
+            "prior_year": 34.7,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 37.8,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Medistim Third Quarter Financial Results 2026 | page 7"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 2.61,
+            "prior_year": 1.9,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 37.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Medistim Third Quarter Financial Results 2026 | page 7"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "MNOK",
+            "current": 91.5,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Medistim Third Quarter Financial Results 2026 | page 7"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Medistim forventer fortsatt at det midlertidige salgs-mikset, med skiftende omsetning mellom Vascular- og Cardiac-segment, vil vedvare til INTUI blir tilgjengelig i alle MiraQ-konfigurasjoner tidlig neste år. Salget øker betydelig, særlig innen Imaging-produkter med 57,9 % vekst, og total omsetningsvekst i de fleste markeder, inkludert 35,7 % vekst i Japan etter oppstart av direkte salg. Driftskostnadene har økt blant annet pga. etablering av nytt salgskontor i Tokyo og økte salgsaktiviteter. EBIT-marginen økte til 30,1 %, opp fra 24,3 % forrige kvartal. Fremover forventer selskapet vekst drevet av konvertering i Japan til plattformer som kom",
+          "change": "- Omsetningsmiks - Opprettholdt forventning om midlertidig effekt til INTUI er tilgjengelig for alle MiraQ-konfigurasjoner, som forrige kvartal ('midlertidig effekt vil fortsette til INTUI er tilgjengelig tidlig neste år').\n- Salgsvekst - Imaging-produkter har økt veksten til 57,9 %, opp fra ca. 20 % i forrige kvartal, mens total vekst i Japan økte til 35,7 % fra lavere aktivitet tidligere.\n- Marginer - EBIT-margin økte til 30,1 % fra 24,3 %, en forbedring på kvartalsbasis.\n- Kostnadsøkning - Driftskostnader økte grunnet nytt salgskontor og økte aktiviteter, dette er en ny og mer eksplisitt kostnadsbeskrivelse sammenlignet med forrige kvartal.",
+          "trend": "Medistim har opprettholdt en optimistisk og vekstdrevet utsikt over de siste kvartalene, med økende fokus på teknologisk integrasjon av TTFM og HFUS. Salgsveksten har gradvis blitt mer konkret med økt aktivitet og inntekter i det japanske markedet, samt sterk vekst i Imaging-produkter. Marginutviklingen har beveget seg positivt og selskapet har levert på tidligere uttalte forventninger om økt omsetning og forbedret lønnsomhet. Investeringer i salg og produktutvikling opprettholdes for å understøtte denne veksten.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Salgsvekst og marked",
+              "statement": "Sterk vekst i Imaging-produkter på 57,9 % og økt salg i Japan med 35,7 % i Q3, etter oppstart av direkte salg.",
+              "evidence": "'Sales revenue from Imaging products was MNOK 72.6... showing 57.9% growth' og 'team delivered a stronger third quarter with 35.7% growth' (side 4)",
+              "page": "4"
+            },
+            {
+              "topic": "Marginer og lønnsomhet",
+              "statement": "EBIT-marginen økte til 30,1 % i Q3 2026 fra 24,3 % i Q2, til tross for økte driftskostnader.",
+              "evidence": "'EBIT margin was 30.1% (24.3%)' (side 4)",
+              "page": "4"
+            },
+            {
+              "topic": "Kostnader og investeringer",
+              "statement": "Økte driftskostnader knyttet til etablering av nytt salgskontor i Tokyo og økte salgsaktiviteter bidrar til høyere utgifter.",
+              "evidence": "'increase in operating expenses for the quarter... related to establishing the new sales office in Tokyo and increased sales activities' (side 4)",
+              "page": "4"
+            },
+            {
+              "topic": "Fremtidsutsikter og produktstrategi",
+              "statement": "Vekst drives av konvertering til neste generasjons plattformer som kombinerer TTFM og HFUS, særlig i Japan og økt potensial i Vascular-segmentet.",
+              "evidence": "'Future growth in the Japanese market is expected to be driven by continued conversion... integrating both TTFM and High-Frequency Ultrasound (HFUS)' (side 4)",
+              "page": "4"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "684682",
+      "market": "XOSL",
+      "ticker": "SMF",
+      "issuer": "AB Stena Metall Finans",
+      "title": "Quarterly report Q4 and full year, 2025-2026 - Stena Metall",
+      "headline": "Stena Metall rapporterer for Q4 og hele året 2025-2026 uten detaljer",
+      "lead": "Stena Metall har offentliggjort sin kvartalsrapport for Q4 og årsrapport for 2025-2026, men foreløpig uten konkrete tall eller nøkkelinformasjon tilgjengelig.",
+      "published_at": "2026-10-23T06:30:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/684682",
+      "summary": "Stena Metall har offentliggjort sin kvartalsrapport for Q4 og årsrapport for 2025-2026, men foreløpig uten konkrete tall eller nøkkelinformasjon tilgjengelig.",
+      "reason": "Mangelen på spesifikke resultater eller finansiell informasjon gjør det vanskelig å vurdere selskapets prestasjon eller konsekvenser for aksjonærer. Videre oppfølging og detaljert data er nødvendig for analyse.",
+      "score": 40,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2025Q4",
+        "period_source": "pdf",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "2025-2026_Quarterly Report_Q4.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684682&attachmentId=334798"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "SEK million",
+            "current": 12316.0,
+            "prior_year": 9884.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 24.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 7, Key ratios, Net sales Fourth quarter 2025/2026 and 2024/2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "SEK million",
+            "current": 731.0,
+            "prior_year": 742.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -1.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 6, EBITDA Fourth quarter 2025/2026 and 2024/2025"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "SEK million",
+            "current": 416.0,
+            "prior_year": 407.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 2.2,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 7, INCOME STATEMENT Fourth quarter 2025/2026 and 2024/2025 Operating profit"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "SEK million",
+            "current": 327.0,
+            "prior_year": 292.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 12.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 7, INCOME STATEMENT Fourth quarter 2025/2026 and 2024/2025 Profit for the period"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "SEK million",
+            "current": 1182.0,
+            "prior_year": 282.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 319.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 10, STATEMENT OF CASH FLOWS Fourth quarter 2025/2026 and 2024/2025 Cash flow from operating activities"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "SEK million",
+            "current": -67.0,
+            "prior_year": -52.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 7, INCOME STATEMENT Fourth quarter 2025/2026 and 2024/2025 Interest net"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Selskapet opprettholder høye investeringer i kjernevirksomheten, med viktige prosjekter som nye COOLS-fasiliteter og utskifting av shredder ved Stena Nordic Recycling Center, forventet ferdigstilt neste regnskapsår. Stena Recycling og Stena Oil leverte solide EBITDA-resultater som viser styrke i driftsmodellen. Stena Confidential fokuserer på forbedret operasjonell plattform og sikkerhetstjenester, med tiltak som nå gir resultater. Etterspørselen etter sikre destruksjonstjenester og informasjonssikkerhet er sentral for fremtidig vekst.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "trend": "",
+          "compared_periods": [],
+          "points": [
+            {
+              "topic": "Investeringer",
+              "statement": "Høye investeringer videreføres i kjerneaktiviteter med viktige prosjekter på vei til ferdigstillelse.",
+              "evidence": "'Investments supporting core business activities remained at a high level throughout the financial year' og 'Investment projects included the new COOLS facility, expected to be completed during the ne",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Resultater og driftsmodell",
+              "statement": "Stena Recycling og Stena Oil opplevde sterk EBITDA, som bekrefter selskapets operative styrke og pålitelighet i Norden.",
+              "evidence": "'Stena Recycling ended the financial year with an accumulated EBITDA of SEK 2,402 million' og 'Stena Oil ended the financial year with an accumulated EBITDA of SEK 218 million'",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Forbedringstiltak i Stena Confidential",
+              "statement": "Tiltak for å forbedre effektivitet, sikkerhet og sporbarhet begynner å gi konkrete fordeler og skal styrke posisjonen for vekst.",
+              "evidence": "'The measures implemented during the year have started to deliver tangible benefits' og 'Focus has been placed on improving the operational platform, enhancing efficiency, and further developing secur",
+              "page": "utdrag"
+            }
+          ]
+        }
+      },
+      "language_versions": [
+        {
+          "id": "684682",
+          "title": "Quarterly report Q4 and full year, 2025-2026 - Stena Metall",
+          "url": "https://newsweb.oslobors.no/message/684682",
+          "published_at": "2026-10-23T06:30:00+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "684681",
+          "title": "Quarterly report Q4 and full year, 2025-2026 - Stena Metall",
+          "url": "https://newsweb.oslobors.no/message/684681",
+          "published_at": "2026-10-23T06:30:00+00:00",
+          "language": "Engelsk"
+        }
+      ]
+    },
     {
       "id": "684677",
       "market": "XOSL",
@@ -370,12 +717,12 @@
       "ticker": "NHY",
       "issuer": "Norsk Hydro ASA",
       "title": "Norsk Hydro: Solide resultater og god drift",
-      "headline": "Hydro dobler justert EBITDA til 9,1 mrd. i tredje kvartal 2026",
-      "lead": "Norsk Hydro øker justert EBITDA til 9,1 milliarder kroner i Q3 2026, drevet av høyere metallpriser og produksjon, men påvirkes av økte energikostnader og valutautfordringer.",
+      "headline": "Hydro dobler justert EBITDA til 9,1 milliarder i Q3 - høy metallpris gir økte kostnader",
+      "lead": "Norsk Hydro rapporterer et justert EBITDA på 9,1 milliarder kroner i tredje kvartal 2026, opp fra 6,0 milliarder i fjor. Resultatveksten motvirkes delvis av økte energi- og anodekostnader samt valutapåvirkning, med fortsatt fokus på kontantstrøm og effektivise",
       "published_at": "2026-10-23T05:00:37.750000+00:00",
       "url": "https://newsweb.oslobors.no/message/684669",
-      "summary": "Norsk Hydro øker justert EBITDA til 9,1 milliarder kroner i Q3 2026, drevet av høyere metallpriser og produksjon, men påvirkes av økte energikostnader og valutautfordringer.",
-      "reason": "Den sterke inntektsveksten reflekterer god drift og markedsposisjon, noe som styrker aksjonærverdien. Økte kostnader og høy netto arbeidskapital krever fortsatt fokus på effektiv kapitalstyring framover.",
+      "summary": "Norsk Hydro rapporterer et justert EBITDA på 9,1 milliarder kroner i tredje kvartal 2026, opp fra 6,0 milliarder i fjor. Resultatveksten motvirkes delvis av økte energi- og anodekostnader samt valutapåvirkning, med fortsatt fokus på kontantstrøm og effektivise",
+      "reason": "Resultatforbedringen skyldes høyere metallpriser og solid drift, noe som styrker lønnsomheten og gjør selskapet bedre rustet for svingninger i markedet. For aksjonærer er det viktig å følge utvikling i energikostnader, arbeidskapitalstyring og effekten av nye lavkarbonteknologier som HalZero.",
       "score": 85,
       "skipped": false,
       "direction": "positiv",
@@ -421,10 +768,10 @@
             "name": "ebit",
             "unit": "NOK billion",
             "current": 6.3,
-            "prior_year": 6.1,
+            "prior_year": 5.9,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 3.3,
+            "yoy_pct": 6.8,
             "qoq_pct": null,
             "surprise_pct": null,
             "evidence": "SIDE 15"
@@ -472,7 +819,7 @@
             "label": "Netto renteinntekter",
             "name": "net_interest_income",
             "unit": "NOK billion",
-            "current": -0.9,
+            "current": -0.6,
             "prior_year": -0.4,
             "prev_quarter": null,
             "consensus": null,
@@ -484,33 +831,33 @@
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Hydro forventer høyere salgsvolumer drevet av produksjonsgjenoppretting og forbedrede alumina-priser i 2026. Samtidig påpeker de økte energikostnader og negative valutakurser som utfordringer. Kapitaldisiplin er et sentralt fokus, med oppdatert veiledning for netto driftskapital på 37 milliarder NOK (opp fra tidligere 32 milliarder) og CAPEX justert ned til 12,5 milliarder NOK. Justert EBITDA forventes å bli påvirket av lavere metallpriser, høyere råvarekostnader, men også av økte volum og gjenvinningsmarginer. For 4. kvartal 2026 er det guidet med marginpress fra negativ valutaeffekt og volatile handelsog valutaforhold samt forventninger om",
+          "summary": "Hydro forventer høyere salgsvolumer drevet av produksjonsbedring og forbedrede aluminiumspriser i 2026. Selskapet oppdaterer veiledningen for netto arbeidskapital og investeringsnivåer med lavere Capex enn tidligere. Det forventes økte energikostnader og negative valutakurseffekter fra styrket NOK mot USD. Marginale resultater fra sourcing og trading forventes å være lavere, mens resirkuleringsmarginene forventes å svekkes mot slutten av året. Totalt bedres justert EBITDA med et økt fokus på kapitaldisiplin.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
               "topic": "Salgsvolumer og priser",
-              "statement": "Høyere salgsvolumer forventes drevet av produksjonsgjenoppretting og forbedrede alumina-priser.",
+              "statement": "Forventning om høyere salgsvolumer og forbedrede aluminiumspriser i 2026 drevet av produksjonsbedring",
               "evidence": "'Higher sales volumes from production recovery' og 'Improved alumina prices' (side 18)",
               "page": "18"
             },
             {
-              "topic": "Kostnader og marginer",
-              "statement": "Økte energikostnader, karbonkostnader og negativ valutaeffekt fra sterkere NOK mot USD vil trolig påvirke marginene negativt.",
+              "topic": "Kostnader og valutarisiko",
+              "statement": "Forventede økte energi- og karbonkostnader samt negativ valutakurseffekt fra sterkere NOK mot USD",
               "evidence": "'Higher energy and carbon cost' og 'Negative currency effect from stronger NOK to USD' (side 18)",
               "page": "18"
             },
             {
-              "topic": "Kapitaldisiplin og investeringer",
-              "statement": "Netto driftskapital oppjustert til 37 milliarder NOK, mens CAPEX-retningslinjene er justert ned til 12,5 milliarder NOK, hvilket indikerer fortsatt fokus på kapitaldisiplin.",
-              "evidence": "'Updated year-end Net Operating Capital...37' og 'Updated CAPEX...12.5' (side 18)",
+              "topic": "Investeringer og kapital",
+              "statement": "Oppdatert veiledning med lavere Capex (12,5 mrd. NOK) og noe høyere netto arbeidskapital sammenlignet med tidligere estimater",
+              "evidence": "'Updated year-end Net Operating Capital and Capex guidance' og 'Capex 12.5 vs. tidligere 13.5 mrd.' (side 18)",
               "page": "18"
             },
             {
-              "topic": "EBITDA og operasjonell ytelse",
-              "statement": "Justert EBITDA forventes påvirket av lavere metallpriser, høyere råvarekostnader, større volum og varierende marginer i gjenvinningssegmentet, samt volatile handels- og valutaforhold.",
-              "evidence": "'Lower all-in metal prices, higher raw material cost, higher sales volume' og 'Continued volatile trading and currency effects' (side 18)",
+              "topic": "Resultater og marginer",
+              "statement": "Justert EBITDA forventes å øke, men med svakere marginer på sourcing, trading og resirkulering mot slutten av året",
+              "evidence": "'Lower results from sourcing and trading activities' og 'Weaker recycling margins into year-end' (side 18)",
               "page": "18"
             }
           ]
@@ -1349,13 +1696,13 @@
       "ticker": "NONG",
       "issuer": "SpareBank 1 Nord-Norge",
       "title": "SpareBank 1 Nord-Norge inviterer til resultatpresentasjon for 3. kvartal 2026",
-      "headline": "SpareBank 1 Nord-Norge varsler kvartalspresentasjon 30. oktober",
-      "lead": "SpareBank 1 Nord-Norge inviterer til resultatpresentasjon for 3. kvartal 2026 via webinar 30. oktober kl. 09.30, med mulighet for digitale møter etterpå. Presentasjon og rapport legges ut samme dag.",
+      "headline": "SpareBank 1 Nord-Norge kunngjør presentasjon av Q3-resultat 30. oktober",
+      "lead": "SpareBank 1 Nord-Norge avholder webinar for 3. kvartal 2026-resultatet 30. oktober med ledelsen til stede for spørsmål. Ingen resultattall er foreløpig offentliggjort.",
       "published_at": "2026-10-22T11:35:00+00:00",
       "url": "https://newsweb.oslobors.no/message/684603",
-      "summary": "SpareBank 1 Nord-Norge inviterer til resultatpresentasjon for 3. kvartal 2026 via webinar 30. oktober kl. 09.30, med mulighet for digitale møter etterpå. Presentasjon og rapport legges ut samme dag.",
-      "reason": "Nyheten om en kommende resultatpresentasjon gir få umiddelbare økonomiske nyheter eller tall å vurdere. Det gir imidlertid en mulighet til å følge utviklingen nøye og analysere tallene når de foreligger, særlig for langsiktige aksjonærer.",
-      "score": 30,
+      "summary": "SpareBank 1 Nord-Norge avholder webinar for 3. kvartal 2026-resultatet 30. oktober med ledelsen til stede for spørsmål. Ingen resultattall er foreløpig offentliggjort.",
+      "reason": "Foreløpig informasjon gjelder bare tidspunkt og format for resultatpresentasjonen, uten å avsløre finansielle nøkkeltall. Aksjonærer bør følge presentasjonen for å vurdere kvartalets utvikling og potensielle konsekvenser for aksjekursen.",
+      "score": 40,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -1385,15 +1732,15 @@
       "ticker": "NONG",
       "issuer": "SpareBank 1 Nord-Norge",
       "title": "SpareBank 1 Nord-Norge is presenting 3rd quarter 2026 accounts",
-      "headline": "SpareBank 1 Nord-Norge varsler presentasjon av Q3 2026-resultater 30. oktober",
-      "lead": "SpareBank 1 Nord-Norge vil presentere sine tredje kvartals tall for 2026 via livestream 30. oktober. Detaljer om resultater og reaksjoner må avventes etter presentasjonen.",
+      "headline": "SpareBank 1 Nord-Norge kunngjør kvartalspresentasjon 30. oktober",
+      "lead": "SpareBank 1 Nord-Norge holder livestream for 3. kvartal 2026-resultater 30. oktober kl 09:30 CET, med ledelsen tilgjengelig for spørsmål under og etter presentasjonen.",
       "published_at": "2026-10-22T11:35:00+00:00",
       "url": "https://newsweb.oslobors.no/message/684602",
-      "summary": "SpareBank 1 Nord-Norge vil presentere sine tredje kvartals tall for 2026 via livestream 30. oktober. Detaljer om resultater og reaksjoner må avventes etter presentasjonen.",
-      "reason": "Foreløpig er det kun kjent at kvartalstallene skal legges frem; ingen detaljer om resultatendringer, sammenligninger eller markedspåvirkning foreligger. Aksjonærer må følge opp for å vurdere effekten på investeringen.",
+      "summary": "SpareBank 1 Nord-Norge holder livestream for 3. kvartal 2026-resultater 30. oktober kl 09:30 CET, med ledelsen tilgjengelig for spørsmål under og etter presentasjonen.",
+      "reason": "Meldingen gir informasjon om tid og sted for kvartalspresentasjonen, men inneholder ingen resultater eller finansiell informasjon som kan analyseres for aksjonærverdier. Vær forberedt på oppdateringer etter presentasjonen.",
       "score": 30,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "financial_report": {
         "status": "no_pdf",
@@ -2266,15 +2613,15 @@
       "ticker": "TGS",
       "issuer": "TGS ASA",
       "title": "TGS Quarterly Dividend",
-      "headline": "TGS utbetaler kvartalsutbytte på 1,45 kroner per aksje i Q4 2026",
-      "lead": "TGS ASA har besluttet et kvartalsutbytte på 1,45 kroner per aksje for fjerde kvartal 2026, med utbetaling 12. november. Utbyttet er basert på en USD-kursjustering og godkjent av generalforsamlingen i april 2026.",
+      "headline": "TGS utbetaler kvartalsutbytte på 1,45 kroner per aksje for Q4 2026",
+      "lead": "TGS annonsert kvartalsutbytte på 1,45 kroner per aksje, tilsvarende 0,155 USD, med utbetaling 12. november. Dette er i tråd med generalforsamlingens fullmakt fra april 2026.",
       "published_at": "2026-10-22T05:01:00.522000+00:00",
       "url": "https://newsweb.oslobors.no/message/684567",
-      "summary": "TGS ASA har besluttet et kvartalsutbytte på 1,45 kroner per aksje for fjerde kvartal 2026, med utbetaling 12. november. Utbyttet er basert på en USD-kursjustering og godkjent av generalforsamlingen i april 2026.",
-      "reason": "Utbytteutbetaling ansees som positivt for aksjonærer som søker jevn kontantstrøm. Det er ikke opplyst om vekst i utbyttet eller sammenligning med tidligere kvartaler, noe som begrenser vurdering av utbyttepolitikkens utvikling.",
-      "score": 65,
+      "summary": "TGS annonsert kvartalsutbytte på 1,45 kroner per aksje, tilsvarende 0,155 USD, med utbetaling 12. november. Dette er i tråd med generalforsamlingens fullmakt fra april 2026.",
+      "reason": "Utbytteutbetaling bekrefter stabil kontantstrøm, noe som er relevant for investorer som søker avkastning. Videre bør vi følge utviklingen i TGS' langsiktige inntjening og markedssituasjon i energisektoren for å vurdere om utbyttet kan opprettholdes eller økes.",
+      "score": 60,
       "skipped": false,
-      "direction": "positiv",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "financial_report": {
         "status": "no_pdf",
@@ -6843,18 +7190,18 @@
       ]
     }
   ],
-  "last_checked_at": "2026-10-23T06:26:41+00:00",
+  "last_checked_at": "2026-10-23T06:42:13+00:00",
   "monitor_stats": {
-    "fetched": 171,
-    "recent": 95,
+    "fetched": 176,
+    "recent": 100,
     "already_seen": 91,
-    "eligible": 4,
+    "eligible": 9,
     "filtered": 0,
-    "analyzed": 4,
+    "analyzed": 9,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 4,
-    "source_latest_at": "2026-10-23T06:00:11.090000+00:00"
+    "source_latest_at": "2026-10-23T06:41:50.171000+00:00"
   }
 }
