@@ -2,8 +2,430 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-23T04:46:22+00:00",
+  "generated_at": "2026-10-23T05:46:03+00:00",
   "items": [
+    {
+      "id": "684672",
+      "market": "XOSL",
+      "ticker": "GJF",
+      "issuer": "Gjensidige Forsikring ASA",
+      "title": "Gjensidige Q3 2026: Høyere lønnsomhet drevet av et forbedret forsikringsresultat",
+      "headline": "Gjensidige øker forsikringsresultatet til over 3 milliarder i Q3",
+      "lead": "Gjensidige rapporterer et forsikringsresultat på 3,0 milliarder kroner i tredje kvartal 2026, opp fra 2,27 milliarder i fjor, til tross for negativt finansresultat og økte kostnader.",
+      "published_at": "2026-10-23T05:01:10.916000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684672",
+      "summary": "Gjensidige rapporterer et forsikringsresultat på 3,0 milliarder kroner i tredje kvartal 2026, opp fra 2,27 milliarder i fjor, til tross for negativt finansresultat og økte kostnader.",
+      "reason": "Sterk vekst i skadeforsikringsresultatet og forbedret combined ratio indikerer bedre driftseffektivitet og lønnsomhet, noe som styrker aksjonærenes langsiktige verdi. Finansresultatets nedgang og økte kostnader bør overvåkes fremover.",
+      "score": 85,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Delarsrapport_Q3_2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684672&attachmentId=334933"
+        },
+        "metrics": [
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 2076.7,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Q3 2026, Profit after tax reported as NOK 2,076.7 million on SIDE 6"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": 2780.6,
+            "prior_year": 2067.4,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 34.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Q3 2026 Profit or loss before tax expense NOK 2,780.6 million vs NOK 2,067.4 million in Q3 2025 on SIDE 5"
+          },
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 7666.7,
+            "prior_year": 5784.7,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 32.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Q3 2026 Insurance service result general insurance NOK 3,003.6 million plus other components sum to approx NOK 7,666.7 million YTD on SIDE 5, quarterly standalo"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "No EPS data explicitly reported in excerpt"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "No operating cash flow data in excerpt"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "No net interest income data in excerpt"
+          }
+        ],
+        "outlook": {
+          "status": "not_found",
+          "summary": "",
+          "change": "",
+          "points": []
+        }
+      },
+      "language_versions": [
+        {
+          "id": "684673",
+          "title": "Gjensidige Q3 2026: Higher profit driven by an improved insurance service result",
+          "url": "https://newsweb.oslobors.no/message/684673",
+          "published_at": "2026-10-23T05:01:10.916000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "684672",
+          "title": "Gjensidige Q3 2026: Høyere lønnsomhet drevet av et forbedret forsikringsresultat",
+          "url": "https://newsweb.oslobors.no/message/684672",
+          "published_at": "2026-10-23T05:01:06.935000+00:00",
+          "language": "Original"
+        }
+      ]
+    },
+    {
+      "id": "684671",
+      "market": "XOSL",
+      "ticker": "TOM",
+      "issuer": "Tomra Systems ASA",
+      "title": "TOMRA: 3Q26 - 20% revenue growth with strong operational performance",
+      "headline": "TOMRA øker omsetningen 20 prosent og driftsresultatet 55 prosent i 3. kvartal",
+      "lead": "TOMRA rapporterer 366 millioner euro i inntekter, opp 20 prosent, med 55 prosent økning i justert EBITA til 47 millioner euro. Driftskostnadene steg fem prosent, påvirket av ekspansjon i UK og Polen.",
+      "published_at": "2026-10-23T05:00:43.680000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684671",
+      "summary": "TOMRA rapporterer 366 millioner euro i inntekter, opp 20 prosent, med 55 prosent økning i justert EBITA til 47 millioner euro. Driftskostnadene steg fem prosent, påvirket av ekspansjon i UK og Polen.",
+      "reason": "Sterk vekst i både omsetning og driftsresultat styrker TOMRAs posisjon og cash flow. Investorer bør følge utviklingen i nye markeder og kostnadskontroll, særlig med økte kostnader i UK og Polen.",
+      "score": 85,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "pdf",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "TOMRA_2026_Q3_Report.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684671&attachmentId=334932"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "MEUR",
+            "current": 366.0,
+            "prior_year": 306.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 19.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "page 4 and 5"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "MEUR",
+            "current": 73.0,
+            "prior_year": 52.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 40.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "page 13"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "MEUR",
+            "current": 39.0,
+            "prior_year": 25.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 56.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "page 13"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "MEUR",
+            "current": 24.0,
+            "prior_year": 14.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 71.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "page 13"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "EUR/share",
+            "current": 0.08,
+            "prior_year": 0.05,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 60.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "page 4 and 13"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "MEUR",
+            "current": 112.0,
+            "prior_year": 64.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 75.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "page 4 and 5"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "TOMRA forventer for 2026 en omsetning på 205-215 millioner euro i segmentet Collection med en bruttofortjeneste på 50-54 % og nedadgående kvartalsvise driftskostnader, ned mot 16 millioner euro i Q4 2027. I Food-segmentet ventes 347-357 millioner euro i omsetning med en bruttofortjeneste på 43-47 %, mens driftskostnadene forventes stabile rundt 28 millioner euro per kvartal. Totale investeringer for 2026 er estimert til 90-100 millioner euro, hovedsakelig i kjernevirksomhetene. Langsiktig mål inkluderer dobbeltsifret årlig vekst i Recycling-segmentet, med marginer i lav til middels 50-talls prosent og EBITA-marginal i lav til middels teens. D",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "points": [
+            {
+              "topic": "Collection-segmentet",
+              "statement": "Forventet omsetning på 205-215 MEUR med en bruttofortjeneste på 50-54 %, og gradvis reduksjon i driftskostnader til ca. 16 MEUR i Q4 2027.",
+              "evidence": "'Revenues of 205-215 MEUR are expected for the full year 2026... a gross margin between 50-54%... operating expenses... ending at 19 MEUR in Q4, until cost reduction measures... have full eﬀect from 2",
+              "page": "side 11"
+            },
+            {
+              "topic": "Food-segmentet",
+              "statement": "Forventet omsetning 347-357 MEUR med bruttofortjeneste på 43-47 % og stabile driftskostnader rundt 28 MEUR per kvartal.",
+              "evidence": "'Revenues of 347-357 MEUR... an 80% conversion ratio is estimated... with a gross margin between 43-47%. Quarterly operating expenses are expected to remain at around 28 MEUR next quarter.' (side 11)",
+              "page": "side 11"
+            },
+            {
+              "topic": "Investeringer",
+              "statement": "Totale kapitalutgifter planlagt til 90-100 MEUR i 2026, hovedsakelig i kjernevirksomhetene Collection, Recycling og Food.",
+              "evidence": "'Total capital expenditures of approximately 90-100 MEUR are planned in 2026, primarily directed towards projects in TOMRA’s core divisions Collection, Recycling, and Food.' (side 11)",
+              "page": "side 11"
+            },
+            {
+              "topic": "Langsiktig mål Recycling",
+              "statement": "Ambisjon om dobbeltsifret årlig vekst mot 2030 med bruttofortjeneste i lav til midt 50-talls og EBITA-margin i lav til midt teens.",
+              "evidence": "'Recycling has an ambition of double-digit annual growth over the cycle towards 2030, with a gross margin in the low-to-mid ﬁfties and an EBITA margin in the low-to-mid teens.' (side 11)",
+              "page": "side 11"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "684670",
+      "market": "XOSL",
+      "ticker": "NHY",
+      "issuer": "Norsk Hydro ASA",
+      "title": "Norsk Hydro: Solid results and strong performance",
+      "headline": "Norsk Hydro øker justert EBITDA til 9,1 mrd. kroner i tredje kvartal",
+      "lead": "Hydro rapporterer en justert EBITDA på 9,089 milliarder kroner i Q3 2026, opp fra 6 milliarder samme periode året før, men høyere arbeidskapital svekker kontantstrømmen. Økte energikostnader og valutaeffekter preger resultatet.",
+      "published_at": "2026-10-23T05:00:39.209000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684670",
+      "summary": "Hydro rapporterer en justert EBITDA på 9,089 milliarder kroner i Q3 2026, opp fra 6 milliarder samme periode året før, men høyere arbeidskapital svekker kontantstrømmen. Økte energikostnader og valutaeffekter preger resultatet.",
+      "reason": "Sterk økning i EBITDA reflekterer forbedret markedssituasjon og operasjonell ytelse, men høyere arbeidskapital og energikostnader legger demper på kontantstrøm. Aksjonærer bør følge utviklingen i arbeidskapitalhåndtering og energikostnader videre.",
+      "score": 85,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI"
+    },
+    {
+      "id": "684669",
+      "market": "XOSL",
+      "ticker": "NHY",
+      "issuer": "Norsk Hydro ASA",
+      "title": "Norsk Hydro: Solide resultater og god drift",
+      "headline": "Hydro dobler justert EBITDA til over 9 milliarder i Q3 – reduserer investeringsmål",
+      "lead": "Norsk Hydro økte justert EBITDA til 9,1 milliarder kroner i tredje kvartal 2026 fra 6,0 milliarder i samme periode i fjor, drevet av høyere metallpriser og produksjon. Selskapet kuttet investeringsmålet til 12,5 milliarder kroner grunnet økt arbeidskapitalbeho",
+      "published_at": "2026-10-23T05:00:37.750000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684669",
+      "summary": "Norsk Hydro økte justert EBITDA til 9,1 milliarder kroner i tredje kvartal 2026 fra 6,0 milliarder i samme periode i fjor, drevet av høyere metallpriser og produksjon. Selskapet kuttet investeringsmålet til 12,5 milliarder kroner grunnet økt arbeidskapitalbeho",
+      "reason": "Den betydelige EBITDA-økningen og høyere justert resultat per aksje gir et sterkt bilde av lønnsomheten. Reduksjon i investeringsrammen, kombinert med økt fokus på arbeidskapital og kontantstrøm, signaliserer økt finansiell disiplin. For investorer er det sentralt å følge utviklingen i metallpriser, energikostnader og Hydros evne til å ka",
+      "score": 85,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "filename",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "NHY presentation Q3 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684669&attachmentId=334928"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK billion",
+            "current": 56.5,
+            "prior_year": 52.1,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 8.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 15"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK billion",
+            "current": 9.1,
+            "prior_year": 8.7,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 4.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 15"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK billion",
+            "current": 6.3,
+            "prior_year": 5.9,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 6.8,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 15"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK billion",
+            "current": 4.4,
+            "prior_year": 4.1,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 7.3,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 15"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 2.28,
+            "prior_year": 1.02,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 123.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 15"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK billion",
+            "current": 1.4,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 15"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Hydro forventer økt salg i 2026, med høyere produksjonsvolumer og forbedrede aluminiumspriser, men også høyere energikostnader og negative valutakurseffekter. Selskapet justerer netto driftskapital og investeringer ned noe, med fokus på kapitaldisiplin. Justert EBITDA og lønnsomhet forventes påvirket av volatil handel og økte råvarekostnader. Marginer forventes å være presset av høyere kostnader, men bedregjort av resirkuleringsmarginer.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "points": [
+            {
+              "topic": "Salg og produksjon",
+              "statement": "Forventning om høyere salgsvolumer som følge av produksjonsgjenoppretting og økte volum i 2026.",
+              "evidence": "'Higher sales volumes from production recovery' (side 19)",
+              "page": "19"
+            },
+            {
+              "topic": "Kostnader og marginer",
+              "statement": "Høyere energikostnader og karbonkostnader samt negative valutaeffekter ventes å presse marginene.",
+              "evidence": "'Higher energy costs', 'Higher energy and carbon cost', 'Negative currency effect from stronger NOK to USD' (side 19)",
+              "page": "19"
+            },
+            {
+              "topic": "Investeringer og kapital",
+              "statement": "Oppdatert veiledning på netto driftskapital og CAPEX tilsier noe lavere kapitalinnsats enn tidligere, med et sterkt fokus på kapitaldisiplin.",
+              "evidence": "'Updated year-end Net Operating Capital and Capex guidance... Strong focus on capital discipline' (side 18)",
+              "page": "18"
+            },
+            {
+              "topic": "Resultater og EBITDA",
+              "statement": "Justerte EBITDA-forventninger viser økte inntekter men også volatilitet og press i kommersielle aktiviteter, med en revidert EBIT-guidance på -150 til -250 millioner NOK for Q4.",
+              "evidence": "'Q4 2026 Commercial guidance revised to NOK -150 to -250 million', 'Continued volatile trading and currency effects' (side 19-20)",
+              "page": "19-20"
+            }
+          ]
+        }
+      }
+    },
     {
       "id": "684667",
       "market": "XOSL",
@@ -44,13 +466,13 @@
       "ticker": "BISG",
       "issuer": "Bulk Infrastructure Group AS",
       "title": "Bulk Infrastructure Group AS - Third Quarter Report 2026 Published",
-      "headline": "Bulk Infrastructure legger frem tredje kvartal 2026 uten konkrete nøkkeltall",
-      "lead": "Bulk Infrastructure Group AS har publisert sin kvartalsrapport for tredje kvartal 2026, men rapporten inneholder ikke detaljerte økonomiske nøkkeltall eller resultater.",
+      "headline": "Bulk Infrastructure Group legger fram kvartalsrapport for Q3 2026 uten tall",
+      "lead": "Bulk Infrastructure Group har publisert sin kvartalsrapport for tredje kvartal 2026, men rapporten mangler konkrete finansielle nøkkeltall og resultatdetaljer.",
       "published_at": "2026-10-22T20:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/684665",
-      "summary": "Bulk Infrastructure Group AS har publisert sin kvartalsrapport for tredje kvartal 2026, men rapporten inneholder ikke detaljerte økonomiske nøkkeltall eller resultater.",
-      "reason": "Rapporten gir ingen spesifikke tall eller resultater, noe som gjør det vanskelig å vurdere selskapets kvartalsmessige utvikling eller finansiell styrke. Aksjonærer bør følge opp med mer detaljert informasjon for å vurdere investeringsrisiko og framtidsutsikter.",
-      "score": 50,
+      "summary": "Bulk Infrastructure Group har publisert sin kvartalsrapport for tredje kvartal 2026, men rapporten mangler konkrete finansielle nøkkeltall og resultatdetaljer.",
+      "reason": "Mangelen på konkrete tall og økonomiske detaljer i rapporten hindrer en klar vurdering av selskapets kvartalsmessige ytelse. Aksjonærer må vente på mer fullstendig informasjon for å vurdere utviklingen og fremtidsutsiktene.",
+      "score": 55,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
@@ -75,7 +497,7 @@
             "yoy_pct": 64.6,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2 and Page 6 consolidated total revenue and other income for Q3 2026 and Q3 2025"
+            "evidence": "Page 2 and Page 6, consolidated statement of total comprehensive income"
           },
           {
             "label": "EBITDA",
@@ -88,7 +510,7 @@
             "yoy_pct": 64.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2 adjusted EBITDA Q3 2026 and Q3 2025"
+            "evidence": "Page 2 segment info and page 2 text (Adjusted EBITDA defined as operating profit before fair value adjustments, assets disposals, interest, taxes, depreciation,"
           },
           {
             "label": "EBIT",
@@ -101,7 +523,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2 operating profit Q3 2026 and Q3 2025"
+            "evidence": "Page 2 and Page 6, Operating profit"
           },
           {
             "label": "Resultat etter skatt",
@@ -114,7 +536,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2 profit for the period Q3 2026 and Q3 2025, corroborated on Page 6 consolidated statement of total comprehensive income"
+            "evidence": "Page 2 and Page 6, Profit for the period"
           },
           {
             "label": "EPS",
@@ -127,30 +549,56 @@
             "yoy_pct": 16.7,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 6 earnings per share basic and diluted Q3 2026 and Q3 2025"
+            "evidence": "Page 6, Earnings per share basic and diluted (NOK)"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 96.1,
+            "prior_year": -154.1,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 9, Consolidated statement of cash flows, cash flow from operations, Third quarter 2026 and 2025"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": -75.4,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 3 text: net interest expenses of NOK 134.4 million and finance income of NOK 59.2 million for Q3 2026, thus net interest income estimated as 59.2 - 134.4 ="
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Etterspørselen etter nye og moderne industribygg er moderat, men forventes å øke fremover. Bulk arbeider med regulering og utvikling av nye industriområder med en strategisk tomtebank på til sammen 1 410 000 kvm, fordelt på eid og opsjonsrett. Selskapet har også god evne til å omregulere og sikre nye tomteområder, samt god kommunikasjon med lokale myndigheter.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "summary": "Etterspørselen etter nye og moderne industribygg er moderat per rapporteringstidspunktet for 2026 Q3, men ledelsen forventer en sterkere etterspørsel fremover. Bulk Industrial Real Estate fokuserer på soneinndeling og utvikling av nye industrielle lokasjoner og besitter en strategisk landbank på totalt opptil 1 410 000 kvm i attraktive logistikkområder. Selskapet har evne til å regulere og omregulere landeområder og til å identifisere og sikre nye områder til landbanken.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "points": [
             {
               "topic": "Etterspørsel etter industribygg",
-              "statement": "Moderate etterspørsel nå, forventes sterkere fremover",
-              "evidence": "'The demand for new and modern industrial buildings is moderate, but we expect a stronger demand going forward' (Side 4)",
+              "statement": "Etterspørselen er moderat nå, men forventes å øke",
+              "evidence": "'demand for new and modern industrial buildings is moderate, but we expect a stronger demand going forward' (side 4)",
               "page": "4"
             },
             {
-              "topic": "Strategisk tomtebank",
-              "statement": "850 000 kvm eid land, pluss opsjoner for 560 000 kvm i attraktive områder",
-              "evidence": "'Bulk Industrial Real Estates’ strategic landbank contains 850 000 sqm of owned land, as well as options for an additional 560 000 sqm' (Side 4)",
+              "topic": "Strategisk landbank",
+              "statement": "Selskapet har en strategisk landbank på 850 000 kvm eid land samt opsjoner på ytterligere 560 000 kvm",
+              "evidence": "'Bulk Industrial Real Estates’ strategic landbank contains 850 000 sqm of owned land, as well as options for an additional 560 000 sqm' (side 4)",
               "page": "4"
             },
             {
-              "topic": "Regulering og utvikling",
-              "statement": "God evne til å omregulere og regulere tomt, og identifisere nye områder",
-              "evidence": "'Bulk has a strong ability to effectively rezone and regulate land, as well as the ability to identify and obtain new land areas' (Side 4)",
+              "topic": "Utviklingskompetanse",
+              "statement": "Bulk har sterk evne til å regulere land og identifisere nye områder",
+              "evidence": "'Bulk has a strong ability to effectively rezone and regulate land ... as well as the ability to identify and obtain new land areas' (side 4)",
               "page": "4"
             }
           ]
@@ -808,13 +1256,13 @@
       "ticker": "NONG",
       "issuer": "SpareBank 1 Nord-Norge",
       "title": "SpareBank 1 Nord-Norge inviterer til resultatpresentasjon for 3. kvartal 2026",
-      "headline": "SpareBank 1 Nord-Norge kunngjør Q3-resultatpresentasjon 30. oktober",
-      "lead": "SpareBank 1 Nord-Norge holder webinar 30. oktober kl. 09.30 for å presentere 3. kvartalsresultater. Det legges opp til mulighet for spørsmål og oppfølging etter webinaret.",
+      "headline": "SpareBank 1 Nord-Norge kunngjør Q3-presentasjon 30. oktober kl. 09.30",
+      "lead": "SpareBank 1 Nord-Norge inviterer til digital resultatpresentasjon for tredje kvartal 2026 fredag 30. oktober. Webinar med ledelse gir mulighet for spørsmål og videre digital møtebooking fram til 29. oktober.",
       "published_at": "2026-10-22T11:35:00+00:00",
       "url": "https://newsweb.oslobors.no/message/684603",
-      "summary": "SpareBank 1 Nord-Norge holder webinar 30. oktober kl. 09.30 for å presentere 3. kvartalsresultater. Det legges opp til mulighet for spørsmål og oppfølging etter webinaret.",
-      "reason": "Invitasjonen til resultatpresentasjon gir ikke informasjon om resultatene selv. Aksjonærer og investorer må følge presentasjonen for å vurdere selskapets kvartalsutvikling og justere forventninger basert på faktiske tall og kommentarer.",
-      "score": 25,
+      "summary": "SpareBank 1 Nord-Norge inviterer til digital resultatpresentasjon for tredje kvartal 2026 fredag 30. oktober. Webinar med ledelse gir mulighet for spørsmål og videre digital møtebooking fram til 29. oktober.",
+      "reason": "Invitasjonen til kvartalspresentasjonen gir ingen informasjon om resultat eller utvikling, men åpner for dialog mellom ledelse og investorer. Aksjonærer bør følge med for faktiske resultater og vurderinger 30. oktober.",
+      "score": 30,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -842,15 +1290,15 @@
       "ticker": "NONG",
       "issuer": "SpareBank 1 Nord-Norge",
       "title": "SpareBank 1 Nord-Norge is presenting 3rd quarter 2026 accounts",
-      "headline": "SpareBank 1 Nord-Norge varsler kvartalspresentasjon 30. oktober",
-      "lead": "SpareBank 1 Nord-Norge offentliggjør resultater for tredje kvartal 2026 med direktesendt presentasjon og Q&A, men uten å oppgi resultattall på forhånd.",
+      "headline": "SpareBank 1 Nord-Norge legger fram tredje kvartal 2026 uten tall",
+      "lead": "SpareBank 1 Nord-Norge presenterer Q3-rapporten 30. oktober uten offentliggjøring av resultater. Detaljer om inntjening og utvikling vil bli tilgjengelig ved senere nedlasting av rapporten på selskapets nettside.",
       "published_at": "2026-10-22T11:35:00+00:00",
       "url": "https://newsweb.oslobors.no/message/684602",
-      "summary": "SpareBank 1 Nord-Norge offentliggjør resultater for tredje kvartal 2026 med direktesendt presentasjon og Q&A, men uten å oppgi resultattall på forhånd.",
-      "reason": "Ingen konkrete regnskapstall eller vurderinger foreligger. Nyheten informerer om tidspunkt og format for rapportering, viktig for investorer som ønsker direkte innsikt og mulighet for spørsmål.",
-      "score": 35,
+      "summary": "SpareBank 1 Nord-Norge presenterer Q3-rapporten 30. oktober uten offentliggjøring av resultater. Detaljer om inntjening og utvikling vil bli tilgjengelig ved senere nedlasting av rapporten på selskapets nettside.",
+      "reason": "Det foreligger ingen kvantitative data i meldingen. Vi mangler informasjon om resultater, sammenligninger med tidligere perioder eller forventninger, og kan derfor ikke vurdere om utviklingen er bedre eller verre enn ventet. Viktig å følge opp ved publisering av tall.",
+      "score": 30,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "uklar",
       "assessment_source": "AI",
       "financial_report": {
         "status": "no_pdf",
@@ -1422,7 +1870,23 @@
             }
           ]
         }
-      }
+      },
+      "language_versions": [
+        {
+          "id": "684580",
+          "title": "Yara rapporterer solide Q3-resultater i et volatilt marked",
+          "url": "https://newsweb.oslobors.no/message/684580",
+          "published_at": "2026-10-22T06:00:30.732000+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "684579",
+          "title": "Yara reports solid 3Q amid market volatility",
+          "url": "https://newsweb.oslobors.no/message/684579",
+          "published_at": "2026-10-22T06:00:30.731000+00:00",
+          "language": "Original"
+        }
+      ]
     },
     {
       "id": "684578",
@@ -1699,13 +2163,13 @@
       "ticker": "TGS",
       "issuer": "TGS ASA",
       "title": "TGS Quarterly Dividend",
-      "headline": "TGS setter kvartalsutbytte til 1,45 kroner per aksje for Q4 2026",
-      "lead": "TGS ASA utbetaler et kvartalsutbytte på 1,45 kroner per aksje for fjerde kvartal 2026. Utbyttet betales 12. november, med eks-dato 29. oktober. Ingen endringer i utbyttenivået rapportert i meldingen.",
+      "headline": "TGS utbetaler kvartalsutbytte på NOK 1,45 per aksje for Q4 2026",
+      "lead": "Styret i TGS ASA vedtar kvartalsutbytte på NOK 1,45 per aksje tilsvarende USD 0,155 for fjerde kvartal 2026 med utbetaling 12. november.",
       "published_at": "2026-10-22T05:01:00.522000+00:00",
       "url": "https://newsweb.oslobors.no/message/684567",
-      "summary": "TGS ASA utbetaler et kvartalsutbytte på 1,45 kroner per aksje for fjerde kvartal 2026. Utbyttet betales 12. november, med eks-dato 29. oktober. Ingen endringer i utbyttenivået rapportert i meldingen.",
-      "reason": "Utbytteutbetaling er i tråd med tidligere autorisasjon og framstår som stabil for aksjonærer. Det gir en kontantavkastning, men meldingen inneholder ikke informasjon om endring i utbyttenivå eller annen finansiell utvikling som kan påvirke kursen.",
-      "score": 45,
+      "summary": "Styret i TGS ASA vedtar kvartalsutbytte på NOK 1,45 per aksje tilsvarende USD 0,155 for fjerde kvartal 2026 med utbetaling 12. november.",
+      "reason": "Utbytteutbetaling gir direkte avkastning til aksjonærer, men påvirker ikke selskapets resultater eller drift. Viktig å følge utviklingen i fremtidige utbytter og selskapets finansielle helse.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -6234,18 +6698,18 @@
       ]
     }
   ],
-  "last_checked_at": "2026-10-23T04:46:22+00:00",
+  "last_checked_at": "2026-10-23T05:46:03+00:00",
   "monitor_stats": {
-    "fetched": 162,
-    "recent": 88,
-    "already_seen": 80,
-    "eligible": 8,
+    "fetched": 167,
+    "recent": 91,
+    "already_seen": 81,
+    "eligible": 10,
     "filtered": 0,
-    "analyzed": 8,
+    "analyzed": 10,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 4,
-    "source_latest_at": "2026-10-22T22:23:02.136000+00:00"
+    "recovered_unpublished": 5,
+    "source_latest_at": "2026-10-23T05:01:10.916000+00:00"
   }
 }
