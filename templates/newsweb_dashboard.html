@@ -223,7 +223,8 @@ h1{font-size:clamp(27px,3vw,37px)}
 <details class="outlook-panel" open>
   <summary><strong>Utsikter fremover og guiding</strong></summary>
   {% if outlook.get('summary') %}<p>{{outlook.summary}}</p>{% endif %}
-  {% if outlook.get('change') %}<p><strong>Endring fra forrige kvartal:</strong> {{outlook.change}}</p>{% endif %}
+  {% if outlook.get('change') %}<p><strong>Endring fra forrige kvartal{% if outlook.get('compared_periods') %} ({{outlook.compared_periods[0]}}){% endif %}:</strong> {{outlook.change}}</p>{% endif %}
+  {% if outlook.get('trend') %}<p><strong>Utvikling over {{outlook.compared_periods|length}} foregående kvartaler ({{outlook.compared_periods|reverse|join(', ')}}):</strong> {{outlook.trend}}</p>{% endif %}
   {% for point in outlook.get('points',[]) %}
   <p><strong>{{point.topic}}:</strong> {{point.statement}} {% if point.page %}<span class="dim">({{point.page}})</span>{% endif %}</p>
   {% endfor %}
