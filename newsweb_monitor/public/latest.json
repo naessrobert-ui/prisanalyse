@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-23T06:22:35+00:00",
+  "generated_at": "2026-10-23T06:26:41+00:00",
   "items": [
     {
       "id": "684677",
@@ -370,12 +370,12 @@
       "ticker": "NHY",
       "issuer": "Norsk Hydro ASA",
       "title": "Norsk Hydro: Solide resultater og god drift",
-      "headline": "Hydro dobler justert EBITDA til over 9 milliarder i Q3 – reduserer investeringsmål",
-      "lead": "Norsk Hydro økte justert EBITDA til 9,1 milliarder kroner i tredje kvartal 2026 fra 6,0 milliarder i samme periode i fjor, drevet av høyere metallpriser og produksjon. Selskapet kuttet investeringsmålet til 12,5 milliarder kroner grunnet økt arbeidskapitalbeho",
+      "headline": "Hydro dobler justert EBITDA til 9,1 mrd. i tredje kvartal 2026",
+      "lead": "Norsk Hydro øker justert EBITDA til 9,1 milliarder kroner i Q3 2026, drevet av høyere metallpriser og produksjon, men påvirkes av økte energikostnader og valutautfordringer.",
       "published_at": "2026-10-23T05:00:37.750000+00:00",
       "url": "https://newsweb.oslobors.no/message/684669",
-      "summary": "Norsk Hydro økte justert EBITDA til 9,1 milliarder kroner i tredje kvartal 2026 fra 6,0 milliarder i samme periode i fjor, drevet av høyere metallpriser og produksjon. Selskapet kuttet investeringsmålet til 12,5 milliarder kroner grunnet økt arbeidskapitalbeho",
-      "reason": "Den betydelige EBITDA-økningen og høyere justert resultat per aksje gir et sterkt bilde av lønnsomheten. Reduksjon i investeringsrammen, kombinert med økt fokus på arbeidskapital og kontantstrøm, signaliserer økt finansiell disiplin. For investorer er det sentralt å følge utviklingen i metallpriser, energikostnader og Hydros evne til å ka",
+      "summary": "Norsk Hydro øker justert EBITDA til 9,1 milliarder kroner i Q3 2026, drevet av høyere metallpriser og produksjon, men påvirkes av økte energikostnader og valutautfordringer.",
+      "reason": "Den sterke inntektsveksten reflekterer god drift og markedsposisjon, noe som styrker aksjonærverdien. Økte kostnader og høy netto arbeidskapital krever fortsatt fokus på effektiv kapitalstyring framover.",
       "score": 85,
       "skipped": false,
       "direction": "positiv",
@@ -421,10 +421,10 @@
             "name": "ebit",
             "unit": "NOK billion",
             "current": 6.3,
-            "prior_year": 5.9,
+            "prior_year": 6.1,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 6.8,
+            "yoy_pct": 3.3,
             "qoq_pct": null,
             "surprise_pct": null,
             "evidence": "SIDE 15"
@@ -467,38 +467,51 @@
             "qoq_pct": null,
             "surprise_pct": null,
             "evidence": "SIDE 15"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK billion",
+            "current": -0.9,
+            "prior_year": -0.4,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 15"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Hydro forventer økt salg i 2026, med høyere produksjonsvolumer og forbedrede aluminiumspriser, men også høyere energikostnader og negative valutakurseffekter. Selskapet justerer netto driftskapital og investeringer ned noe, med fokus på kapitaldisiplin. Justert EBITDA og lønnsomhet forventes påvirket av volatil handel og økte råvarekostnader. Marginer forventes å være presset av høyere kostnader, men bedregjort av resirkuleringsmarginer.",
+          "summary": "Hydro forventer høyere salgsvolumer drevet av produksjonsgjenoppretting og forbedrede alumina-priser i 2026. Samtidig påpeker de økte energikostnader og negative valutakurser som utfordringer. Kapitaldisiplin er et sentralt fokus, med oppdatert veiledning for netto driftskapital på 37 milliarder NOK (opp fra tidligere 32 milliarder) og CAPEX justert ned til 12,5 milliarder NOK. Justert EBITDA forventes å bli påvirket av lavere metallpriser, høyere råvarekostnader, men også av økte volum og gjenvinningsmarginer. For 4. kvartal 2026 er det guidet med marginpress fra negativ valutaeffekt og volatile handelsog valutaforhold samt forventninger om",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Salg og produksjon",
-              "statement": "Forventning om høyere salgsvolumer som følge av produksjonsgjenoppretting og økte volum i 2026.",
-              "evidence": "'Higher sales volumes from production recovery' (side 19)",
-              "page": "19"
-            },
-            {
-              "topic": "Kostnader og marginer",
-              "statement": "Høyere energikostnader og karbonkostnader samt negative valutaeffekter ventes å presse marginene.",
-              "evidence": "'Higher energy costs', 'Higher energy and carbon cost', 'Negative currency effect from stronger NOK to USD' (side 19)",
-              "page": "19"
-            },
-            {
-              "topic": "Investeringer og kapital",
-              "statement": "Oppdatert veiledning på netto driftskapital og CAPEX tilsier noe lavere kapitalinnsats enn tidligere, med et sterkt fokus på kapitaldisiplin.",
-              "evidence": "'Updated year-end Net Operating Capital and Capex guidance... Strong focus on capital discipline' (side 18)",
+              "topic": "Salgsvolumer og priser",
+              "statement": "Høyere salgsvolumer forventes drevet av produksjonsgjenoppretting og forbedrede alumina-priser.",
+              "evidence": "'Higher sales volumes from production recovery' og 'Improved alumina prices' (side 18)",
               "page": "18"
             },
             {
-              "topic": "Resultater og EBITDA",
-              "statement": "Justerte EBITDA-forventninger viser økte inntekter men også volatilitet og press i kommersielle aktiviteter, med en revidert EBIT-guidance på -150 til -250 millioner NOK for Q4.",
-              "evidence": "'Q4 2026 Commercial guidance revised to NOK -150 to -250 million', 'Continued volatile trading and currency effects' (side 19-20)",
-              "page": "19-20"
+              "topic": "Kostnader og marginer",
+              "statement": "Økte energikostnader, karbonkostnader og negativ valutaeffekt fra sterkere NOK mot USD vil trolig påvirke marginene negativt.",
+              "evidence": "'Higher energy and carbon cost' og 'Negative currency effect from stronger NOK to USD' (side 18)",
+              "page": "18"
+            },
+            {
+              "topic": "Kapitaldisiplin og investeringer",
+              "statement": "Netto driftskapital oppjustert til 37 milliarder NOK, mens CAPEX-retningslinjene er justert ned til 12,5 milliarder NOK, hvilket indikerer fortsatt fokus på kapitaldisiplin.",
+              "evidence": "'Updated year-end Net Operating Capital...37' og 'Updated CAPEX...12.5' (side 18)",
+              "page": "18"
+            },
+            {
+              "topic": "EBITDA og operasjonell ytelse",
+              "statement": "Justert EBITDA forventes påvirket av lavere metallpriser, høyere råvarekostnader, større volum og varierende marginer i gjenvinningssegmentet, samt volatile handels- og valutaforhold.",
+              "evidence": "'Lower all-in metal prices, higher raw material cost, higher sales volume' og 'Continued volatile trading and currency effects' (side 18)",
+              "page": "18"
             }
           ]
         }
@@ -1336,13 +1349,13 @@
       "ticker": "NONG",
       "issuer": "SpareBank 1 Nord-Norge",
       "title": "SpareBank 1 Nord-Norge inviterer til resultatpresentasjon for 3. kvartal 2026",
-      "headline": "SpareBank 1 Nord-Norge inviterer til 3. kvartals resultatpresentasjon 30. oktober",
-      "lead": "SpareBank 1 Nord-Norge holder webinar for tredje kvartal 2026-resultater 30. oktober kl. 09.30, med mulighet for spørsmål og oppfølgende møter etter presentasjonen.",
+      "headline": "SpareBank 1 Nord-Norge varsler kvartalspresentasjon 30. oktober",
+      "lead": "SpareBank 1 Nord-Norge inviterer til resultatpresentasjon for 3. kvartal 2026 via webinar 30. oktober kl. 09.30, med mulighet for digitale møter etterpå. Presentasjon og rapport legges ut samme dag.",
       "published_at": "2026-10-22T11:35:00+00:00",
       "url": "https://newsweb.oslobors.no/message/684603",
-      "summary": "SpareBank 1 Nord-Norge holder webinar for tredje kvartal 2026-resultater 30. oktober kl. 09.30, med mulighet for spørsmål og oppfølgende møter etter presentasjonen.",
-      "reason": "Meldingen varsler tidspunkt og format for resultater, men inneholder ingen finansiell informasjon eller indikasjoner om selskapets prestasjoner eller fremtidsutsikter. Viktig for investorer å få tilgang til detaljene i presentasjonen for videre vurdering.",
-      "score": 20,
+      "summary": "SpareBank 1 Nord-Norge inviterer til resultatpresentasjon for 3. kvartal 2026 via webinar 30. oktober kl. 09.30, med mulighet for digitale møter etterpå. Presentasjon og rapport legges ut samme dag.",
+      "reason": "Nyheten om en kommende resultatpresentasjon gir få umiddelbare økonomiske nyheter eller tall å vurdere. Det gir imidlertid en mulighet til å følge utviklingen nøye og analysere tallene når de foreligger, særlig for langsiktige aksjonærer.",
+      "score": 30,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -1372,15 +1385,15 @@
       "ticker": "NONG",
       "issuer": "SpareBank 1 Nord-Norge",
       "title": "SpareBank 1 Nord-Norge is presenting 3rd quarter 2026 accounts",
-      "headline": "SpareBank 1 Nord-Norge varsler presentasjon av 3. kvartal 2026",
-      "lead": "SpareBank 1 Nord-Norge holder nettpresentasjon av resultatene for 3. kvartal 2026 fredag 30. oktober kl. 09:30. Detaljer om regnskap og videre spørsmål vil bli håndtert i direktesendingen.",
+      "headline": "SpareBank 1 Nord-Norge varsler presentasjon av Q3 2026-resultater 30. oktober",
+      "lead": "SpareBank 1 Nord-Norge vil presentere sine tredje kvartals tall for 2026 via livestream 30. oktober. Detaljer om resultater og reaksjoner må avventes etter presentasjonen.",
       "published_at": "2026-10-22T11:35:00+00:00",
       "url": "https://newsweb.oslobors.no/message/684602",
-      "summary": "SpareBank 1 Nord-Norge holder nettpresentasjon av resultatene for 3. kvartal 2026 fredag 30. oktober kl. 09:30. Detaljer om regnskap og videre spørsmål vil bli håndtert i direktesendingen.",
-      "reason": "Innkallingen varsler kommende kvartalspresentasjon uten opplysninger om resultater eller endringer. Nyhetsverdien ligger i tidspunkt og tilgjengelighet, men uten tall eller hendelser å analysere. Aksjonærer bør følge nøye med for å vurdere kvartalsresultatene når de foreligger.",
-      "score": 40,
+      "summary": "SpareBank 1 Nord-Norge vil presentere sine tredje kvartals tall for 2026 via livestream 30. oktober. Detaljer om resultater og reaksjoner må avventes etter presentasjonen.",
+      "reason": "Foreløpig er det kun kjent at kvartalstallene skal legges frem; ingen detaljer om resultatendringer, sammenligninger eller markedspåvirkning foreligger. Aksjonærer må følge opp for å vurdere effekten på investeringen.",
+      "score": 30,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "uklar",
       "assessment_source": "AI",
       "financial_report": {
         "status": "no_pdf",
@@ -2253,15 +2266,15 @@
       "ticker": "TGS",
       "issuer": "TGS ASA",
       "title": "TGS Quarterly Dividend",
-      "headline": "TGS utbetaler kvartalsutbytte på NOK 1,45 per aksje i Q4 2026",
-      "lead": "TGS ASA har besluttet å utbetale et kvartalsutbytte på NOK 1,45 per aksje for fjerde kvartal 2026, med utbetaling 12. november og ex-dato 29. oktober.",
+      "headline": "TGS utbetaler kvartalsutbytte på 1,45 kroner per aksje i Q4 2026",
+      "lead": "TGS ASA har besluttet et kvartalsutbytte på 1,45 kroner per aksje for fjerde kvartal 2026, med utbetaling 12. november. Utbyttet er basert på en USD-kursjustering og godkjent av generalforsamlingen i april 2026.",
       "published_at": "2026-10-22T05:01:00.522000+00:00",
       "url": "https://newsweb.oslobors.no/message/684567",
-      "summary": "TGS ASA har besluttet å utbetale et kvartalsutbytte på NOK 1,45 per aksje for fjerde kvartal 2026, med utbetaling 12. november og ex-dato 29. oktober.",
-      "reason": "Utbytteutbetalinger er en standard kapitaldistribusjon uten informasjon om endring eller sammenligning mot tidligere perioder. Aksjonærer mottar kontantavkastning, men ny informasjon om selskapets drift eller fremtidige utsikter mangler.",
-      "score": 55,
+      "summary": "TGS ASA har besluttet et kvartalsutbytte på 1,45 kroner per aksje for fjerde kvartal 2026, med utbetaling 12. november. Utbyttet er basert på en USD-kursjustering og godkjent av generalforsamlingen i april 2026.",
+      "reason": "Utbytteutbetaling ansees som positivt for aksjonærer som søker jevn kontantstrøm. Det er ikke opplyst om vekst i utbyttet eller sammenligning med tidligere kvartaler, noe som begrenser vurdering av utbyttepolitikkens utvikling.",
+      "score": 65,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "positiv",
       "assessment_source": "AI",
       "financial_report": {
         "status": "no_pdf",
@@ -6830,14 +6843,14 @@
       ]
     }
   ],
-  "last_checked_at": "2026-10-23T06:22:35+00:00",
+  "last_checked_at": "2026-10-23T06:26:41+00:00",
   "monitor_stats": {
     "fetched": 171,
     "recent": 95,
-    "already_seen": 87,
-    "eligible": 7,
-    "filtered": 1,
-    "analyzed": 7,
+    "already_seen": 91,
+    "eligible": 4,
+    "filtered": 0,
+    "analyzed": 4,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
