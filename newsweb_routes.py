@@ -310,6 +310,74 @@ def run_now():
     expect_fresh_report()
     return redirect(url_for("newsweb.dashboard",run_status="queued"))
 
+_TRADES_CACHE_SECONDS = 1800
+_trades_lock = threading.Lock()
+_trades_cache: dict = {}
+
+def _trades_db_key() -> float:
+    import handler_data as hd
+    try:
+        return os.path.getmtime(hd.HANDLER_DB_PATH)
+    except OSError:
+        return 0.0
+
+def _trades_list_ids(conn) -> dict[str, list[str]]:
+    """Investor-IDer for Viktige/Beste, cachet per databaseversjon."""
+    import handler_routes
+    from newsweb_handler import LISTER
+    key=("lister",_trades_db_key())
+    with _trades_lock:
+        hit=_trades_cache.get(key)
+        if hit and hit[0]>time.monotonic():
+            return hit[1]
+    ids={liste:handler_routes._load_investor_ids_for_beste_viktige(conn,liste,None,None)
+         for liste in LISTER}
+    ids={liste:v for liste,v in ids.items() if v}
+    with _trades_lock:
+        _trades_cache[key]=(time.monotonic()+_TRADES_CACHE_SECONDS,ids)
+    return ids
+
+@newsweb_bp.get("/handler")
+def trades_before_message():
+    """Private: trades in the stock before a message. Never published to GitHub."""
+    import re
+    from flask import jsonify, make_response
+    if not _can_view_consensus():
+        abort(403)
+    ticker=request.args.get("ticker","").strip().upper()
+    if not re.fullmatch(r"[A-Z0-9][A-Z0-9.\-]{0,14}",ticker):
+        abort(400)
+    from newsweb_handler import handler_for_melding, meldingsdato
+    dato=meldingsdato(request.args.get("published_at",""))
+    if dato is None:
+        abort(400)
+    key=(ticker,dato.isoformat(),_trades_db_key())
+    with _trades_lock:
+        hit=_trades_cache.get(key)
+    if hit and hit[0]>time.monotonic():
+        data=hit[1]
+    else:
+        import handler_data as hd
+        try:
+            conn=hd.db_connect()
+        except Exception:
+            return jsonify({"error":"Handler-databasen er ikke tilgjengelig."}),503
+        try:
+            data=handler_for_melding(conn,ticker,dato,_trades_list_ids(conn))
+        except Exception:
+            from flask import current_app
+            current_app.logger.exception("NewsWeb handler for %s %s",ticker,dato)
+            return jsonify({"error":"Klarte ikke hente handler."}),500
+        finally:
+            conn.close()
+        with _trades_lock:
+            if len(_trades_cache)>500:
+                _trades_cache.clear()
+            _trades_cache[key]=(time.monotonic()+_TRADES_CACHE_SECONDS,data)
+    response=make_response(jsonify(data))
+    response.headers["Cache-Control"]="private, no-store, max-age=0"
+    return response
+
 @newsweb_bp.get("/")
 def dashboard():
     report,demo=read_report()
