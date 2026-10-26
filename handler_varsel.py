@@ -375,6 +375,7 @@ def finn_signaler(conn, fra: dt.date, til: dt.date, cfg: Innstillinger | None = 
                 "beh_etter": g["beh_etter"].iloc[-1],
                 "type": ", ".join(TYPE_TEKST[t] for t in sig["type"]) if not sig.empty else "",
                 "ut": bool((g["beh_etter"] <= 0).iloc[-1] and g["antall"].sum() < 0),
+                "viktig": inv not in beste_ids,   # fra Viktige.csv (eller annen liste enn Beste): alle handler
             }
             if inv in beste_ids:
                 # Summert per investor og aksje over vinduet før terskelen brukes
@@ -566,13 +567,29 @@ def _rang_tekst(r: dict) -> str:
     return f"nr. {int(r['rang'])} blant eierne"
 
 
+def _er_beste_liste(liste: str) -> bool:
+    return Path(liste).stem.strip().lower() == "beste"
+
+
 def seksjoner(sig: dict) -> list[dict]:
-    """De tre delene av varselet med titler og forklaringer, i samme rekkefølge som e-posten."""
+    """Delene av varselet med titler og forklaringer, i samme rekkefølge som e-posten.
+
+    Følgelisten deles i Viktige (alle handler, alltid med) og Beste (med beløpsgulv).
+    """
     cfg: Innstillinger = sig["innstillinger"]
+    lister = sig.get("lister") or cfg.lister
+    viktige_lister = [x for x in lister if not _er_beste_liste(x)] or ["Viktige.csv"]
+    beste_lister = [x for x in lister if _er_beste_liste(x)] or ["Beste.csv"]
+    folg = sig["folgeliste"]
     return [
-        {"nokkel": "folgeliste", "tittel": "Følgelisten",
-         "forklaring": f"Alle handler fra investorene i {', '.join(sig.get('lister') or cfg.lister)}.",
-         "rader": sig["folgeliste"], "ekstra": None},
+        {"nokkel": "viktige", "tittel": "Viktige investorer",
+         "forklaring": f"Alle handler fra investorene i {', '.join(viktige_lister)}, uansett størrelse.",
+         "rader": [r for r in folg if r.get("viktig", True)], "ekstra": None},
+        {"nokkel": "beste", "tittel": "Beste investorer",
+         "forklaring": f"Investorene i {', '.join(beste_lister)}: når de snur, handler for minst "
+                       f"{_fmt(cfg.beste_stor_mnok, 0)} MNOK eller selger seg helt ut for minst "
+                       f"{_fmt(cfg.beste_utgang_mnok, 0)} MNOK.",
+         "rader": [r for r in folg if not r.get("viktig", True)], "ekstra": None},
         {"nokkel": "flinke", "tittel": "Flinke investorer som snur",
          "forklaring": f"De {sig['antall_flinke_fulgt']} beste investorene siste år (gevinst %) som starter en ny "
                        f"retning. Minst {_fmt(cfg.min_mnok, 0)} MNOK eller {_fmt(cfg.min_andel_pct, 0)} % av beholdningen.",
@@ -605,8 +622,11 @@ def emne(sig: dict) -> str:
         deler.append(f"{len(sig['topp10'])} topp 10-salg")
     if sig["flinke"]:
         deler.append(f"{len(sig['flinke'])} snur")
-    if sig["folgeliste"]:
-        deler.append(f"{len(sig['folgeliste'])} fra følgelisten")
+    viktige = sum(1 for r in sig["folgeliste"] if r.get("viktig", True))
+    if viktige:
+        deler.append(f"{viktige} fra Viktige")
+    if len(sig["folgeliste"]) > viktige:
+        deler.append(f"{len(sig['folgeliste']) - viktige} fra Beste")
     return f"📈 Handler Oslo Børs {sig['til']}: " + ", ".join(deler)
 
 

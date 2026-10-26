@@ -344,8 +344,12 @@ def test_beste_belopsgulv(tmp_path, monkeypatch, caplog):
     assert (f["fjernet"], f["fjernet_kombinasjoner"], f["fjernet_utgang_under"]) == (10, 2, 1)
     assert "Beste.csv: 23 handler inn" in caplog.text and "fjernet 10 handler" in caplog.text
 
-    # E-posten bygges som før, med færre rader
-    assert "Følgelisten (6)" in hv.bygg_html(sig)
+    # Viktige (også de som står i begge listene) får egen del med alle handler, Beste egen del
+    assert {r["investor_id"] for r in sig["folgeliste"] if r["viktig"]} == {"V1", "B_BEGGE"}
+    html = hv.bygg_html(sig)
+    assert "Viktige investorer (2)" in html and "Beste investorer (4)" in html
+    assert html.index("Viktige investorer") < html.index("Beste investorer")
+    assert "2 fra Viktige, 4 fra Beste" in hv.emne(sig)
     assert hv.antall_signaler(sig) == 6
 
 

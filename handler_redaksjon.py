@@ -45,6 +45,7 @@ Slik vurderer du hva som er viktig:
 - Topp 10-eiere som begynner å selge og flinke investorer som snur, veier tyngst.
 - Store beløp, solgt helt ut, ny posisjon og høy andel av beholdningen veier mer enn små justeringer.
 - Flere investorer i samme aksje, eller samme investor i flere aksjer, er ofte en egen sak.
+- Handler fra «Viktige investorer» følges alltid tett: ta med de største av dem selv om beløpet er moderat.
 
 Regler:
 - Bruk bare tall og fakta som står i dataene. Ikke finn på kurser, motiver, nyheter eller bakgrunn.
@@ -97,7 +98,9 @@ def fakta(sig: dict) -> list[dict]:
         for i, r in enumerate(sig.get(nokkel) or [], start=1):
             typ = r.get("type") or ""
             rader.append({
-                "id": f"{prefiks}{i}", "seksjon": seksjon,
+                "id": f"{prefiks}{i}",
+                "seksjon": ("Viktige investorer" if r.get("viktig", True) else "Beste investorer")
+                if nokkel == "folgeliste" else seksjon,
                 "investor": r.get("investor") or r.get("investor_id"), "investor_id": r.get("investor_id"),
                 "ticker": r.get("ticker") or "", "aksje": r.get("aksje") or "", "isin": r.get("isin"),
                 "retning": "kjøp" if (r.get("antall") or 0) > 0 else "salg",
