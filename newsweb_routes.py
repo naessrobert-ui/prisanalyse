@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import os
@@ -16,34 +17,89 @@ PUBLIC_REPORT_URL = (
     "https://raw.githubusercontent.com/naessrobert-ui/prisanalyse/"
     "main/newsweb_monitor/public/latest.json"
 )
+# Same file via the API: no 5-minute raw CDN cache, so a finished run shows up
+# immediately. Only used with NEWSWEB_GITHUB_TOKEN (unauthenticated = 60 req/h).
+PUBLIC_REPORT_API_URL = (
+    "https://api.github.com/repos/naessrobert-ui/prisanalyse/"
+    "contents/newsweb_monitor/public/latest.json?ref=main"
+)
 _CACHE_SECONDS = 120
+# With a token, 304 responses are free, so the page can check much more often.
+_API_CACHE_SECONDS = 30
 _cache_lock = threading.Lock()
-_cache = {"checked_at": 0.0, "report": None}
+_cache = {"checked_at": 0.0, "report": None, "etag": "", "fresh_until": 0.0}
 
 def _empty_report(message: str) -> dict:
     return {"mode": "pending", "source": "NewsWeb – venter på rapport",
             "generated_at": "", "items": [], "error": message}
 
+def _parse_snapshot(data: bytes) -> dict:
+    if len(data)>750_000:
+        raise ValueError("NewsWeb snapshot exceeds expected file size")
+    payload=json.loads(data)
+    if not isinstance(payload,dict) or payload.get("mode")!="live" or not isinstance(payload.get("items"),list):
+        raise ValueError("Invalid published NewsWeb snapshot")
+    return payload
+
+def _fetch_from_api(token: str, etag: str) -> tuple[dict|None, str]:
+    """Return (report, etag); report None means 304 Not Modified."""
+    headers={"Accept": "application/vnd.github.raw+json",
+             "Authorization": "Bearer "+token,
+             "X-GitHub-Api-Version": "2022-11-28",
+             "User-Agent": "Prisanalyse-NewsWeb/1.0"}
+    if etag:
+        headers["If-None-Match"]=etag
+    try:
+        with urlopen(Request(PUBLIC_REPORT_API_URL, headers=headers), timeout=5) as response:
+            data=response.read(750_001)
+            new_etag=response.headers.get("ETag","")
+    except HTTPError as exc:
+        if exc.code==304:
+            return None, etag
+        raise
+    return _parse_snapshot(data), new_etag
+
+def _fetch_from_raw() -> dict:
+    req = Request(PUBLIC_REPORT_URL, headers={
+        "Accept": "application/json", "User-Agent": "Prisanalyse-NewsWeb/1.0"})
+    with urlopen(req, timeout=5) as response:
+        return _parse_snapshot(response.read(750_001))
+
+def expect_fresh_report(seconds: float = 900) -> None:
+    """After a manual run: skip the cache window so the new snapshot shows up at once."""
+    with _cache_lock:
+        _cache["fresh_until"]=time.monotonic()+seconds
+
 def read_report() -> tuple[dict, bool]:
-    """Fetch once per 120 s per worker; keep last good report if GitHub is briefly down."""
+    """Fetch at most every 30 s (API) / 120 s (raw) per worker; keep last good report if GitHub is briefly down."""
+    token=os.getenv("NEWSWEB_GITHUB_TOKEN","").strip()
     now = time.monotonic()
     with _cache_lock:
-        if now - _cache["checked_at"] < _CACHE_SECONDS and _cache["report"]:
+        ttl=_API_CACHE_SECONDS if token else _CACHE_SECONDS
+        if now < _cache["fresh_until"]:
+            ttl=min(ttl,10)
+        if now - _cache["checked_at"] < ttl and _cache["report"]:
             result=_cache["report"]
             return result, False
         _cache["checked_at"] = now
+        etag=_cache["etag"] if _cache["report"] else ""
 
     result = None
     try:
-        req = Request(PUBLIC_REPORT_URL, headers={
-            "Accept": "application/json", "User-Agent": "Prisanalyse-NewsWeb/1.0"})
-        with urlopen(req, timeout=5) as response:
-            data = response.read(750_001)
-        if len(data)>750_000:
-            raise ValueError("NewsWeb snapshot exceeds expected file size")
-        payload=json.loads(data)
-        if not isinstance(payload,dict) or payload.get("mode")!="live" or not isinstance(payload.get("items"),list):
-            raise ValueError("Invalid published NewsWeb snapshot")
+        payload=None
+        if token:
+            try:
+                payload,etag=_fetch_from_api(token,etag)
+                if payload is None:
+                    with _cache_lock:
+                        if _cache["report"]:
+                            return _cache["report"], False
+                    raise ValueError("304 without cached report")
+            except (OSError,ValueError,TypeError):
+                payload=None
+                etag=""
+        if payload is None:
+            payload=_fetch_from_raw()
         result=payload
     except (OSError,ValueError,TypeError) as exc:
         with _cache_lock:
@@ -57,9 +113,12 @@ def read_report() -> tuple[dict, bool]:
     with _cache_lock:
         # Do not replace last valid cache with an error/empty response.
         if result.get("mode")=="live":
-            _cache["report"]=result
+            if not result.get("error"):
+                _cache["report"]=result
+                _cache["etag"]=etag
         else:
             _cache["report"]=None
+            _cache["etag"]=""
     return result, False
 
 def _can_view_consensus() -> bool:
@@ -228,6 +287,7 @@ def run_now():
         with _dispatch_lock:
             _last_dispatch[0]=0.0
         return redirect(url_for("newsweb.dashboard",run_status="failed"))
+    expect_fresh_report()
     return redirect(url_for("newsweb.dashboard",run_status="queued"))
 
 @newsweb_bp.get("/")
