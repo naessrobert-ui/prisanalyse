@@ -117,6 +117,16 @@ h1{font-size:clamp(27px,3vw,37px)}
 .manual-refresh{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin:8px 0 15px;color:var(--muted);font-size:12px}
 .manual-refresh form{margin:0}.refresh-button{border-color:#4784b5;background:#173a60;color:#f1f7ff;font-weight:700}
 .refresh-feedback{color:#b8dfff;font-size:13px;margin:5px 0 12px}
+.trades-panel{margin:10px 0;font-size:12px}
+.trades-panel.loaded{border:1px solid #3d5a7e;border-radius:9px;padding:10px;background:#0f2038}
+.trades-load{padding:6px 11px;font-size:12px}
+.trades-heading{display:flex;justify-content:space-between;gap:8px;color:#b9d6fd;font-weight:700;margin-bottom:6px}
+.trades-sub{color:#cfdcee;font-weight:650;margin:9px 0 3px}
+.trades-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.trades-table td{padding:4px 3px;border-bottom:1px solid #26374e;font-size:11px}
+.trades-table td:last-child{text-align:right;white-space:nowrap}
+.trades-table .pos{color:#8fe3b0}.trades-table .neg{color:#ff9ea9}
+.item .trades-note{color:var(--muted);font-size:11px;margin:7px 0 0;line-height:1.4}
 </style>
 </head>
 <body><main>
@@ -189,6 +199,12 @@ h1{font-size:clamp(27px,3vw,37px)}
 <span class="tag {% if quiet %}quiet{% elif score>=75 %}urgent{% else %}interesting{% endif %}">{{'Filtrert' if item.get('skipped') else (score|string + ' / 100')}}</span></div>
 <h2 class="title">{{item.get('headline') or item.get('title','Uten tittel')}}</h2>
 <p class="news-lead">{{item.get('lead') or item.get('summary') or 'Ingen ingress tilgjengelig'}}</p>
+{% if can_view_consensus and item.get('ticker') %}
+<div class="trades-panel" data-trades-ticker="{{item.ticker}}" data-trades-published="{{item.get('published_at','')}}"
+  data-trades-auto="{{'1' if (not item.get('skipped') and score >= 75) else '0'}}">
+  <button type="button" class="trades-load">Vis handler før meldingen</button>
+</div>
+{% endif %}
 
 {% if can_view_consensus and item.get('consensus_comparison') %}
 <div class="fin-details private-compare{% if item.get('consensus_kind')=='simulation' %} is-simulation{% endif %}">
@@ -351,6 +367,72 @@ h1{font-size:clamp(27px,3vw,37px)}
     }
   });
   refresh();
+})();
+(() => {
+  const panels=Array.from(document.querySelectorAll('.trades-panel'));
+  if(!panels.length)return;
+  const el=(tag,cls,text)=>{
+    const node=document.createElement(tag);
+    if(cls)node.className=cls;
+    if(text!==undefined)node.textContent=text;
+    return node;
+  };
+  const mnok=v=>{
+    const n=Number(v)||0;
+    return (n>0?'+':'')+n.toLocaleString('nb-NO',{maximumFractionDigits:Math.abs(n)<1?2:1})+' MNOK';
+  };
+  const table=(rows,label)=>{
+    const t=el('table','trades-table');
+    rows.forEach(r=>{
+      const tr=el('tr');
+      tr.append(el('td','',label?label(r):r.eier),
+                el('td',r.netto_mnok>=0?'pos':'neg',mnok(r.netto_mnok)));
+      t.append(tr);
+    });
+    return t;
+  };
+  function render(panel,data){
+    panel.replaceChildren();
+    if(data.error){panel.append(el('p','trades-note',data.error));return;}
+    if(!data.notert){
+      if(panel.dataset.tradesAuto==='1'){panel.remove();return;}
+      panel.append(el('p','trades-note','Fant ikke '+data.ticker+' som aksje i handler-databasen.'));
+      return;
+    }
+    panel.classList.add('loaded');
+    const head=el('div','trades-heading');
+    head.append(el('span','','Handler før meldingen'),el('span','dim','Privat'));
+    panel.append(head);
+    panel.append(el('div','trades-sub','Viktige / Beste siste '+data.viktige_dager+' dager'));
+    if(data.viktige.length)panel.append(table(data.viktige,r=>r.eier+' ('+r.liste+')'));
+    else panel.append(el('p','trades-note','Ingen handler fra investorene i listene.'));
+    panel.append(el('div','trades-sub','Største kjøpere siste '+data.storste_dager+' dager'));
+    panel.append(data.kjopere.length?table(data.kjopere):el('p','trades-note','Ingen kjøp registrert.'));
+    panel.append(el('div','trades-sub','Største selgere siste '+data.storste_dager+' dager'));
+    panel.append(data.selgere.length?table(data.selgere):el('p','trades-note','Ingen salg registrert.'));
+    let note='Netto til og med '+data.til+', uten nominee-konti.';
+    if(data.siste_data&&data.siste_data<data.til)note+=' Handler-data finnes til og med '+data.siste_data+'.';
+    panel.append(el('p','trades-note',note));
+  }
+  function load(panel){
+    if(panel.dataset.tradesState)return;
+    panel.dataset.tradesState='loading';
+    panel.replaceChildren(el('p','trades-note','Henter handler …'));
+    const q=new URLSearchParams({ticker:panel.dataset.tradesTicker,published_at:panel.dataset.tradesPublished});
+    fetch('{{url_for("newsweb.trades_before_message")}}?'+q,{credentials:'same-origin'})
+      .then(r=>r.json().catch(()=>({error:'Klarte ikke hente handler ('+r.status+').'})))
+      .then(data=>render(panel,data))
+      .catch(()=>render(panel,{error:'Klarte ikke hente handler.'}));
+  }
+  panels.forEach(p=>p.querySelector('.trades-load')?.addEventListener('click',()=>load(p)));
+  const auto=panels.filter(p=>p.dataset.tradesAuto==='1');
+  if('IntersectionObserver' in window){
+    // Load when the card becomes visible, so hidden/filtered cards cost nothing.
+    const io=new IntersectionObserver(entries=>entries.forEach(e=>{
+      if(e.isIntersecting){io.unobserve(e.target);load(e.target);}
+    }),{rootMargin:'300px'});
+    auto.forEach(p=>io.observe(p));
+  }else auto.forEach(load);
 })();
 </script>
 </body></html>
