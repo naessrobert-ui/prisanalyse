@@ -41,6 +41,8 @@
     }
     .btn-handler:hover { background: #d63d7a; color: #fff; }
     a { color: var(--pa-accent); }
+    .data-heading { font-size: 1.2rem; margin: 48px 0 4px; padding-top: 24px; border-top: 1px solid var(--pa-border); }
+    .data-sub { color: var(--pa-muted); font-size: 0.9rem; margin-bottom: 16px; }
     .db-warning { background: rgba(231,76,138,0.1); border: 1px solid var(--pa-accent);
                   border-radius: 12px; padding: 16px; margin-bottom: 20px; }
   </style>
@@ -82,50 +84,15 @@
       </div>
     </div>
 
-    <div class="card-module mb-4">
-      <h3>⬆️ Last opp nyeste <code>topchanges.db</code> til S3</h3>
-      <p class="mb-3">
-        Har du en nyere database lokalt? Last den opp her, så publiseres den til S3-plasseringen appen bruker.
-        Store filer (f.eks. 235 MB) lastes nå direkte til S3 for å unngå 502 via app-proxy.
-        Hvis opplasting feiler i nettleser, sjekk S3 CORS-oppsett (se <code>docs/handler_s3_upload_setup.md</code>).
-      </p>
-      <form id="dbUploadForm" class="row g-2 align-items-center">
-        <div class="col-md-7">
-          <input type="file" class="form-control" id="db_file" name="db_file" accept=".db" {% if not db_s3_upload_enabled %}disabled{% endif %}>
-        </div>
-        <div class="col-md-3">
-          <button type="submit" class="btn-handler w-100" {% if not db_s3_upload_enabled %}disabled{% endif %}>Last opp til S3</button>
-        </div>
-      </form>
-      <div id="dbUploadStatus" class="small mt-2"></div>
-      {% if not db_s3_upload_enabled %}
-      <div class="small text-warning mt-2">Sett <code>HANDLER_DB_S3_URI</code> for å aktivere opplasting.</div>
-      {% endif %}
-    </div>
-
-    <div class="card-module mb-4">
-      <h3>🧩 Last opp CSV-filer og oppdater DB automatisk</h3>
-      <p class="mb-3">
-        Last opp en eller flere underliggende CSV-filer. Appen oppdaterer lokal DB med filene og laster deretter opp oppdatert DB til S3.
-        Før oppdatering sjekkes og returneres siste dato i databasen, slik at du ser om nye data faktisk ble lagt til.
-      </p>
-      <div class="small text-warning mb-3">
-        Gjelder <strong>handler/topchanges-format</strong>.<br>
-        Har du CSV med <code>Orgnr / Navn aksjonær / Antall aksjer</code> (eierliste per selskap),
-        importeres den i Postgres med: <code>python scripts/import_shareholders_orgnr_csv.py --csv ... --snapshot-date ...</code>
-      </div>
-      <form id="csvUpdateForm" class="row g-2 align-items-center">
-        <div class="col-md-7">
-          <input type="file" class="form-control" id="csv_files" name="csv_files" accept=".csv" multiple {% if not db_s3_upload_enabled %}disabled{% endif %}>
-        </div>
-        <div class="col-md-3">
-          <button type="submit" class="btn-handler w-100" {% if not db_s3_upload_enabled %}disabled{% endif %}>Oppdater DB fra CSV</button>
-        </div>
-      </form>
-      <div id="csvUpdateStatus" class="small mt-2"></div>
-    </div>
-
     <div class="row g-4 mt-2">
+      <div class="col-md-4">
+        <div class="card-module">
+          <div class="icon">📬</div>
+          <h3>Dagens varsel</h3>
+          <p>Det samme som e-postvarselet: følgelisten, flinke investorer som snur og store eiere som begynner å selge.</p>
+          <a href="{{ url_for('handler.dagens_varsel_page') }}" class="btn-handler">Åpne</a>
+        </div>
+      </div>
       <div class="col-md-4">
         <div class="card-module">
           <div class="icon">📰</div>
@@ -190,6 +157,51 @@
           <a href="{{ url_for('handler.rekker_page') }}" class="btn-handler">Åpne</a>
         </div>
       </div>
+    </div>
+
+    <h2 class="data-heading">🛠️ Datainnhenting</h2>
+    <p class="data-sub">For den som oppdaterer dataene. Nye handler gir automatisk e-postvarsel og oppdaterer «Dagens varsel».</p>
+    <div class="card-module mb-4">
+      <h3>⬆️ Last opp nyeste <code>topchanges.db</code> til S3</h3>
+      <p class="mb-3">
+        Har du en nyere database lokalt? Last den opp her, så publiseres den til S3-plasseringen appen bruker.
+        Store filer (f.eks. 235 MB) lastes nå direkte til S3 for å unngå 502 via app-proxy.
+        Hvis opplasting feiler i nettleser, sjekk S3 CORS-oppsett (se <code>docs/handler_s3_upload_setup.md</code>).
+      </p>
+      <form id="dbUploadForm" class="row g-2 align-items-center">
+        <div class="col-md-7">
+          <input type="file" class="form-control" id="db_file" name="db_file" accept=".db" {% if not db_s3_upload_enabled %}disabled{% endif %}>
+        </div>
+        <div class="col-md-3">
+          <button type="submit" class="btn-handler w-100" {% if not db_s3_upload_enabled %}disabled{% endif %}>Last opp til S3</button>
+        </div>
+      </form>
+      <div id="dbUploadStatus" class="small mt-2"></div>
+      {% if not db_s3_upload_enabled %}
+      <div class="small text-warning mt-2">Sett <code>HANDLER_DB_S3_URI</code> for å aktivere opplasting.</div>
+      {% endif %}
+    </div>
+
+    <div class="card-module mb-4">
+      <h3>🧩 Last opp CSV-filer og oppdater DB automatisk</h3>
+      <p class="mb-3">
+        Last opp en eller flere underliggende CSV-filer. Appen oppdaterer lokal DB med filene og laster deretter opp oppdatert DB til S3.
+        Før oppdatering sjekkes og returneres siste dato i databasen, slik at du ser om nye data faktisk ble lagt til.
+      </p>
+      <div class="small text-warning mb-3">
+        Gjelder <strong>handler/topchanges-format</strong>.<br>
+        Har du CSV med <code>Orgnr / Navn aksjonær / Antall aksjer</code> (eierliste per selskap),
+        importeres den i Postgres med: <code>python scripts/import_shareholders_orgnr_csv.py --csv ... --snapshot-date ...</code>
+      </div>
+      <form id="csvUpdateForm" class="row g-2 align-items-center">
+        <div class="col-md-7">
+          <input type="file" class="form-control" id="csv_files" name="csv_files" accept=".csv" multiple {% if not db_s3_upload_enabled %}disabled{% endif %}>
+        </div>
+        <div class="col-md-3">
+          <button type="submit" class="btn-handler w-100" {% if not db_s3_upload_enabled %}disabled{% endif %}>Oppdater DB fra CSV</button>
+        </div>
+      </form>
+      <div id="csvUpdateStatus" class="small mt-2"></div>
     </div>
   </div>
 

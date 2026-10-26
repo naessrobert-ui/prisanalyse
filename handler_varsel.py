@@ -501,9 +501,9 @@ def _fmt_antall(q: float) -> str:
     return ("+" if q > 0 else "−") + s
 
 
-def _rad_html(r: dict, vis_type: bool = True, ekstra: str = "") -> str:
-    farge = "#2563eb" if r["antall"] > 0 else "#dc2626"
-    pil = "▲" if r["antall"] > 0 else "▼"
+def vis_rad(r: dict, ekstra: str = "") -> dict:
+    """Felles visningstekster for en signalrad, brukt av både e-posten og nettsiden."""
+    r = _rens(r)
     typ = r.get("type") or ""
     typ_txt = TYPE_TEKST.get(typ, typ)
     if r.get("ut") and typ != "ut":
@@ -519,18 +519,30 @@ def _rad_html(r: dict, vis_type: bool = True, ekstra: str = "") -> str:
         detaljer.append(f"{int(dager)} handelsdager")
     if ekstra:
         detaljer.append(ekstra)
+    kjop = r["antall"] > 0
+    return {
+        **r,
+        "kjop": kjop, "pil": "▲" if kjop else "▼",
+        "antall_txt": _fmt_antall(r["antall"]), "belop_txt": f"{_fmt(r['belop_mnok'], 1)} MNOK",
+        "type_txt": typ_txt, "detaljer": ", ".join(detaljer),
+    }
+
+
+def _rad_html(r: dict, vis_type: bool = True, ekstra: str = "") -> str:
+    v = vis_rad(r, ekstra)
+    farge = "#2563eb" if v["kjop"] else "#dc2626"
     return (
         "<tr>"
-        f"<td style='padding:6px 8px;border-bottom:1px solid #e5e7eb;color:{farge};font-weight:700'>{pil}</td>"
+        f"<td style='padding:6px 8px;border-bottom:1px solid #e5e7eb;color:{farge};font-weight:700'>{v['pil']}</td>"
         f"<td style='padding:6px 8px;border-bottom:1px solid #e5e7eb'>"
-        f"<a href='{html.escape(r['lenke'])}' style='color:#111827;font-weight:600;text-decoration:none'>"
-        f"{html.escape(r['investor'])}</a><br>"
-        f"<span style='color:#6b7280'>{html.escape(r['ticker'] or r['isin'])} {html.escape(r['aksje'])}</span></td>"
+        f"<a href='{html.escape(v['lenke'])}' style='color:#111827;font-weight:600;text-decoration:none'>"
+        f"{html.escape(v['investor'])}</a><br>"
+        f"<span style='color:#6b7280'>{html.escape(v['ticker'] or v['isin'])} {html.escape(v['aksje'])}</span></td>"
         f"<td style='padding:6px 8px;border-bottom:1px solid #e5e7eb;white-space:nowrap'>"
-        f"{_fmt_antall(r['antall'])}<br><span style='color:#6b7280'>{_fmt(r['belop_mnok'], 1)} MNOK</span></td>"
+        f"{v['antall_txt']}<br><span style='color:#6b7280'>{v['belop_txt']}</span></td>"
         f"<td style='padding:6px 8px;border-bottom:1px solid #e5e7eb'>"
-        + (f"<strong>{html.escape(typ_txt)}</strong><br>" if vis_type and typ_txt else "")
-        + f"<span style='color:#6b7280'>{html.escape(', '.join(detaljer))}</span></td>"
+        + (f"<strong>{html.escape(v['type_txt'])}</strong><br>" if vis_type and v["type_txt"] else "")
+        + f"<span style='color:#6b7280'>{html.escape(v['detaljer'])}</span></td>"
         "</tr>"
     )
 
@@ -550,25 +562,38 @@ def _seksjon(tittel: str, forklaring: str, rader: list[dict], vis_type: bool = T
     )
 
 
-def bygg_html(sig: dict) -> str:
+def _rang_tekst(r: dict) -> str:
+    return f"nr. {int(r['rang'])} blant eierne"
+
+
+def seksjoner(sig: dict) -> list[dict]:
+    """De tre delene av varselet med titler og forklaringer, i samme rekkefølge som e-posten."""
     cfg: Innstillinger = sig["innstillinger"]
+    return [
+        {"nokkel": "folgeliste", "tittel": "Følgelisten",
+         "forklaring": f"Alle handler fra investorene i {', '.join(sig.get('lister') or cfg.lister)}.",
+         "rader": sig["folgeliste"], "ekstra": None},
+        {"nokkel": "flinke", "tittel": "Flinke investorer som snur",
+         "forklaring": f"De {sig['antall_flinke_fulgt']} beste investorene siste år (gevinst %) som starter en ny "
+                       f"retning. Minst {_fmt(cfg.min_mnok, 0)} MNOK eller {_fmt(cfg.min_andel_pct, 0)} % av beholdningen.",
+         "rader": sig["flinke"], "ekstra": None},
+        {"nokkel": "topp10", "tittel": "Topp 10-eier begynner å selge",
+         "forklaring": "Investor blant de 10 største eierne i aksjen dagen før salget startet.",
+         "rader": sig["topp10"], "ekstra": _rang_tekst},
+    ]
+
+
+def bygg_html(sig: dict) -> str:
     periode = sig["fra"] if sig["fra"] == sig["til"] else f"{sig['fra']} til {sig['til']}"
+    q = urllib.parse.urlencode({'date_from': sig['fra'], 'date_to': sig['til']})
     return (
         "<div style='font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:720px;color:#111827'>"
         f"<h2 style='margin:0 0 4px'>📈 Handler Oslo Børs, {html.escape(periode)}</h2>"
         "<p style='margin:0;color:#6b7280;font-size:13px'>Trykk på et navn for kursgraf og alle handler i aksjen.</p>"
-        + _seksjon("Følgelisten", f"Alle handler fra investorene i {', '.join(sig.get('lister') or cfg.lister)}.",
-                   sig["folgeliste"])
-        + _seksjon("Flinke investorer som snur",
-                   f"De {sig['antall_flinke_fulgt']} beste investorene siste år (gevinst %) som starter en ny "
-                   f"retning. Minst {_fmt(cfg.min_mnok, 0)} MNOK eller {_fmt(cfg.min_andel_pct, 0)} % av beholdningen.",
-                   sig["flinke"])
-        + _seksjon("Topp 10-eier begynner å selge",
-                   "Investor blant de 10 største eierne i aksjen dagen før salget startet.",
-                   sig["topp10"], ekstra=lambda r: f"nr. {int(r['rang'])} blant eierne")
-        + f"<p style='margin-top:24px'><a href='{BASE_URL}/handler-oslo-bors/viktige-endringer?"
-        f"{urllib.parse.urlencode({'date_from': sig['fra'], 'date_to': sig['til']})}'>"
+        + "".join(_seksjon(s["tittel"], s["forklaring"], s["rader"], ekstra=s["ekstra"]) for s in seksjoner(sig))
+        + f"<p style='margin-top:24px'><a href='{BASE_URL}/handler-oslo-bors/viktige-endringer?{q}'>"
         "Les oppsummeringen: Viktige endringer siste døgn</a> · "
+        f"<a href='{BASE_URL}/handler-oslo-bors/dagens-varsel?{q}'>Se varselet på nettsiden</a> · "
         f"<a href='{BASE_URL}/handler-oslo-bors/'>Åpne Handler Oslo Børs</a></p>"
         "</div>"
     )

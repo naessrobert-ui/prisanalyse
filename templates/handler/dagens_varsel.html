@@ -1,0 +1,133 @@
+{# templates/handler/dagens_varsel.html #}
+{% extends "handler/_shell.html" %}
+{% block title %}Dagens varsel{% endblock %}
+
+{% block extra_head %}
+<style>
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .stat {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--pa-border);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .stat .lbl { color: var(--pa-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: .04em; }
+  .stat .val { font-size: 1.5rem; font-weight: 700; color: #fff; line-height: 1.2; margin-top: 2px; }
+  .stat .val small { font-size: 0.85rem; font-weight: 500; color: var(--pa-muted); }
+  .status-line { font-size: 0.85rem; color: var(--pa-muted); margin-top: 12px; }
+  .status-ok { color: #34d399; }
+  .status-nei { color: #fbbf24; }
+  .del-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 2px; }
+  .del-head h2 { font-size: 1.15rem; font-weight: 700; margin: 0; color: #fff; }
+  .del-antall {
+    font-size: 0.78rem; padding: 1px 9px; border-radius: 999px;
+    background: rgba(231,76,138,0.15); color: var(--pa-accent); font-weight: 600;
+  }
+  .del-forklaring { color: var(--pa-muted); font-size: 0.85rem; margin-bottom: 10px; }
+  .signal {
+    display: grid; grid-template-columns: 28px minmax(0, 2.2fr) minmax(110px, 1fr) minmax(0, 2fr);
+    gap: 4px 14px; align-items: start; padding: 12px 4px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  .signal:hover { background: rgba(255,255,255,0.025); }
+  .signal .pil { font-weight: 700; font-size: 1rem; padding-top: 1px; }
+  .signal .navn { color: #fff; font-weight: 600; text-decoration: none; word-break: break-word; }
+  .signal .navn:hover { color: var(--pa-accent); }
+  .signal .aksje { color: var(--pa-muted); font-size: 0.85rem; }
+  .signal .tall { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .signal .tall .mnok { color: var(--pa-muted); font-size: 0.85rem; }
+  .type-chip {
+    display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 2px 10px;
+    border-radius: 999px; margin-bottom: 3px;
+  }
+  .type-kjop { background: rgba(52,211,153,0.12); color: #34d399; }
+  .type-salg { background: rgba(248,113,113,0.12); color: #f87171; }
+  .signal .detaljer { color: var(--pa-muted); font-size: 0.82rem; }
+  @media (max-width: 640px) {
+    .signal { grid-template-columns: 22px 1fr auto; }
+    .signal .info { grid-column: 2 / -1; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>📬 Dagens varsel</h1>
+  <div class="sub">Det samme som sendes på e-post etter hver dataoppdatering: handler fra følgelisten, flinke investorer
+    som snur og store eiere som begynner å selge. Trykk på et navn for kursgraf og alle handler i aksjen.</div>
+</div>
+
+{% if feil %}
+  <div class="panel"><strong>Klarte ikke lage varselet.</strong><br><span class="text-muted">{{ feil }}</span></div>
+{% endif %}
+
+{% if sig %}
+<div class="panel">
+  <form method="get" class="row g-3 align-items-end">
+    <div class="col-6 col-md-3">
+      <label for="date-from">Fra dato</label>
+      <input type="date" class="form-control" id="date-from" name="date_from" value="{{ date_from }}">
+    </div>
+    <div class="col-6 col-md-3">
+      <label for="date-to">Til dato</label>
+      <input type="date" class="form-control" id="date-to" name="date_to" value="{{ date_to }}">
+    </div>
+    <div class="col-md-6 d-flex gap-2 flex-wrap">
+      <button class="btn btn-primary">Vis</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('handler.dagens_varsel_page') }}">Siste</a>
+      <a class="btn btn-outline-secondary"
+         href="{{ url_for('handler.viktige_endringer_page', date_from=date_from, date_to=date_to) }}">📰 Les oppsummeringen</a>
+    </div>
+  </form>
+</div>
+
+<div class="panel">
+  <div class="text-muted small mb-2">{{ date_from if date_from == date_to else date_from ~ ' til ' ~ date_to }}</div>
+  <div class="stat-row">
+    <div class="stat"><div class="lbl">Signaler</div><div class="val">{{ oppsummering.signaler }}</div></div>
+    <div class="stat"><div class="lbl">Kjøp</div>
+      <div class="val text-pos">{{ oppsummering.kjop }}
+        <small>{{ '%.1f'|format(oppsummering.kjop_mnok)|replace('.', ',') }} MNOK</small></div></div>
+    <div class="stat"><div class="lbl">Salg</div>
+      <div class="val text-neg">{{ oppsummering.salg }}
+        <small>{{ '%.1f'|format(oppsummering.salg_mnok|abs)|replace('.', ',') }} MNOK</small></div></div>
+  </div>
+  <div class="status-line">
+    {% if kjoring and kjoring.sendt %}
+      <span class="status-ok">✓ Sendt på e-post</span> {{ kjoring.tid|replace('T', ' ') }}{% if emne %} · «{{ emne }}»{% endif %}
+    {% elif kjoring %}
+      <span class="status-nei">Ikke sendt på e-post:</span> {{ kjoring.feil or kjoring.grunn or 'ukjent årsak' }}
+      ({{ kjoring.tid|replace('T', ' ') }})
+    {% else %}
+      Beregnet nå fra handelsdataene for perioden.
+    {% endif %}
+  </div>
+</div>
+
+{% if not oppsummering.signaler %}
+  <div class="panel empty-msg">Ingen signaler i perioden. Ingen e-post sendes da.</div>
+{% endif %}
+
+{% for d in deler if d.rader %}
+<div class="panel">
+  <div class="del-head"><h2>{{ d.tittel }}</h2><span class="del-antall">{{ d.rader|length }}</span></div>
+  <div class="del-forklaring">{{ d.forklaring }}</div>
+  {% for r in d.rader %}
+  <div class="signal">
+    <div class="pil {{ 'text-pos' if r.kjop else 'text-neg' }}">{{ r.pil }}</div>
+    <div>
+      <a class="navn" href="{{ r.lenke }}">{{ r.investor }}</a><br>
+      <span class="aksje">{{ r.ticker or r.isin }} {{ r.aksje }}</span>
+    </div>
+    <div class="tall">
+      <span class="{{ 'text-pos' if r.kjop else 'text-neg' }}">{{ r.antall_txt }}</span><br>
+      <span class="mnok">{{ r.belop_txt }}</span>
+    </div>
+    <div class="info">
+      {% if r.type_txt %}<span class="type-chip {{ 'type-kjop' if r.kjop else 'type-salg' }}">{{ r.type_txt }}</span><br>{% endif %}
+      <span class="detaljer">{{ r.detaljer }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
