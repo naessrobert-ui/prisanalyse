@@ -127,3 +127,49 @@ def test_route_validerer_og_svarer(monkeypatch):
     data = r.get_json()
     assert data["viktige"][0]["eier"] == "VARNER INVEST AS"
     assert data["kjopere"][0]["eier"] == "FOLKETRYGDFONDET"
+
+
+def test_listene_regnes_ut_en_gang_ved_samtidige_kall(monkeypatch):
+    import threading
+    import time
+    import handler_routes
+    import newsweb_routes as nr
+    kall = []
+
+    def treg(conn, liste, *_):
+        kall.append(liste)
+        time.sleep(0.2)
+        return ["V1"]
+
+    monkeypatch.setattr(handler_routes, "_load_investor_ids_for_beste_viktige", treg)
+    nr._trades_cache.clear()
+    svar = []
+    tr = [threading.Thread(target=lambda: svar.append(nr._trades_list_ids(None))) for _ in range(10)]
+    for t in tr:
+        t.start()
+    for t in tr:
+        t.join()
+    assert sorted(kall) == ["Beste.csv", "Viktige.csv"]
+    assert all(s == {"Viktige.csv": ["V1"], "Beste.csv": ["V1"]} for s in svar) and len(svar) == 10
+
+
+def test_route_samlet_foresporsel(monkeypatch):
+    import handler_data as hd
+    import newsweb_routes as nr
+    client = _client(monkeypatch, logged_in=True)
+    tilkoblinger = []
+    monkeypatch.setattr(hd, "db_connect", lambda: tilkoblinger.append(1) or _conn())
+    monkeypatch.setattr(nr, "_trades_list_ids", lambda conn: {"Viktige.csv": ["V1"]})
+    nr._trades_cache.clear()
+    m = ["ABC|2026-10-26T12:00:00Z", "COLG|2026-10-26T09:00:00Z", "XYZ|2026-10-26T10:00:00Z"]
+    r = client.get("/newsweb/handler", query_string=[("m", x) for x in m])
+    assert r.status_code == 200
+    res = r.get_json()["results"]
+    assert set(res) == set(m)
+    assert res[m[0]]["viktige"][0]["eier"] == "VARNER INVEST AS"
+    assert res[m[1]]["notert"] is False
+    assert len(tilkoblinger) == 1                     # én databasetilkobling for hele bunken
+    client.get("/newsweb/handler", query_string=[("m", x) for x in m])
+    assert len(tilkoblinger) == 1                     # andre gang fra cache
+    assert client.get("/newsweb/handler", query_string=[("m", "ABC|feil")]).status_code == 400
+    assert client.get("/newsweb/handler", query_string=[("m", m[0])] * 41).status_code == 400

@@ -414,15 +414,29 @@ h1{font-size:clamp(27px,3vw,37px)}
     if(data.siste_data&&data.siste_data<data.til)note+=' Handler-data finnes til og med '+data.siste_data+'.';
     panel.append(el('p','trades-note',note));
   }
+  // Panels that become visible together are fetched in ONE request: the server
+  // answers a batch far faster than many parallel requests.
+  const queue=[];
+  let timer=null;
+  function flush(){
+    timer=null;
+    const batch=queue.splice(0,40);
+    if(!batch.length)return;
+    const q=new URLSearchParams();
+    batch.forEach(p=>q.append('m',p.dataset.tradesTicker+'|'+p.dataset.tradesPublished));
+    fetch('{{url_for("newsweb.trades_before_message")}}?'+q,{credentials:'same-origin'})
+      .then(r=>r.json().catch(()=>({error:'Klarte ikke hente handler ('+r.status+').'})))
+      .then(data=>batch.forEach(p=>render(p,(data.results||{})[p.dataset.tradesTicker+'|'+p.dataset.tradesPublished]
+                                         ||{error:data.error||'Klarte ikke hente handler.'})))
+      .catch(()=>batch.forEach(p=>render(p,{error:'Klarte ikke hente handler.'})));
+    if(queue.length)timer=setTimeout(flush,0);
+  }
   function load(panel){
     if(panel.dataset.tradesState)return;
     panel.dataset.tradesState='loading';
     panel.replaceChildren(el('p','trades-note','Henter handler …'));
-    const q=new URLSearchParams({ticker:panel.dataset.tradesTicker,published_at:panel.dataset.tradesPublished});
-    fetch('{{url_for("newsweb.trades_before_message")}}?'+q,{credentials:'same-origin'})
-      .then(r=>r.json().catch(()=>({error:'Klarte ikke hente handler ('+r.status+').'})))
-      .then(data=>render(panel,data))
-      .catch(()=>render(panel,{error:'Klarte ikke hente handler.'}));
+    queue.push(panel);
+    if(!timer)timer=setTimeout(flush,60);
   }
   panels.forEach(p=>p.querySelector('.trades-load')?.addEventListener('click',()=>load(p)));
   const auto=panels.filter(p=>p.dataset.tradesAuto==='1');

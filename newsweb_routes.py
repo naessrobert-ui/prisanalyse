@@ -312,6 +312,7 @@ def run_now():
 
 _TRADES_CACHE_SECONDS = 1800
 _trades_lock = threading.Lock()
+_trades_lists_lock = threading.Lock()
 _trades_cache: dict = {}
 
 def _trades_db_key() -> float:
@@ -326,55 +327,106 @@ def _trades_list_ids(conn) -> dict[str, list[str]]:
     import handler_routes
     from newsweb_handler import LISTER
     key=("lister",_trades_db_key())
-    with _trades_lock:
-        hit=_trades_cache.get(key)
+    # The dashboard fires many panel requests at once: compute once, let the rest wait.
+    with _trades_lists_lock:
+        with _trades_lock:
+            hit=_trades_cache.get(key)
         if hit and hit[0]>time.monotonic():
             return hit[1]
-    ids={liste:handler_routes._load_investor_ids_for_beste_viktige(conn,liste,None,None)
-         for liste in LISTER}
-    ids={liste:v for liste,v in ids.items() if v}
-    with _trades_lock:
-        _trades_cache[key]=(time.monotonic()+_TRADES_CACHE_SECONDS,ids)
+        ids={liste:handler_routes._load_investor_ids_for_beste_viktige(conn,liste,None,None)
+             for liste in LISTER}
+        ids={liste:v for liste,v in ids.items() if v}
+        with _trades_lock:
+            _trades_cache[key]=(time.monotonic()+_TRADES_CACHE_SECONDS,ids)
     return ids
+
+_TRADES_BATCH_MAX = 40
+
+def _trades_request(raw_ticker:str, raw_published:str):
+    """Validated (ticker, date) or None."""
+    import re
+    from newsweb_handler import meldingsdato
+    ticker=str(raw_ticker or "").strip().upper()
+    if not re.fullmatch(r"[A-Z0-9][A-Z0-9.\-]{0,14}",ticker):
+        return None
+    dato=meldingsdato(raw_published)
+    return (ticker,dato) if dato else None
+
+def _trades_lookup(wanted:list[tuple]) -> dict:
+    """{(ticker,date): data}. One DB connection, queries run one after another:
+    many parallel requests on a single worker are much slower than one batch."""
+    from newsweb_handler import handler_for_melding
+    db_key=_trades_db_key()
+    found,missing={},[]
+    now=time.monotonic()
+    with _trades_lock:
+        for want in wanted:
+            hit=_trades_cache.get((want[0],want[1].isoformat(),db_key))
+            if hit and hit[0]>now:found[want]=hit[1]
+            elif want not in missing:missing.append(want)
+    if not missing:
+        return found
+    import handler_data as hd
+    try:
+        conn=hd.db_connect()
+    except Exception:
+        return {**found,**{w:{"error":"Handler-databasen er ikke tilgjengelig."} for w in missing}}
+    try:
+        lists=_trades_list_ids(conn)
+        for ticker,dato in missing:
+            try:
+                data=handler_for_melding(conn,ticker,dato,lists)
+            except Exception:
+                from flask import current_app
+                current_app.logger.exception("NewsWeb handler for %s %s",ticker,dato)
+                found[(ticker,dato)]={"error":"Klarte ikke hente handler."}
+                continue
+            found[(ticker,dato)]=data
+            with _trades_lock:
+                if len(_trades_cache)>500:
+                    _trades_cache.clear()
+                _trades_cache[(ticker,dato.isoformat(),db_key)]=(time.monotonic()+_TRADES_CACHE_SECONDS,data)
+    except Exception:
+        from flask import current_app
+        current_app.logger.exception("NewsWeb handler: investorlister")
+        for w in missing:
+            found.setdefault(w,{"error":"Klarte ikke hente handler."})
+    finally:
+        conn.close()
+    return found
 
 @newsweb_bp.get("/handler")
 def trades_before_message():
-    """Private: trades in the stock before a message. Never published to GitHub."""
-    import re
+    """Private: trades in the stock before a message. Never published to GitHub.
+
+    Single: ?ticker=ABC&published_at=ISO. Batch: ?m=ABC|ISO&m=DEF|ISO
+    returns {"results": {"ABC|ISO": data, ...}}.
+    """
     from flask import jsonify, make_response
     if not _can_view_consensus():
         abort(403)
-    ticker=request.args.get("ticker","").strip().upper()
-    if not re.fullmatch(r"[A-Z0-9][A-Z0-9.\-]{0,14}",ticker):
-        abort(400)
-    from newsweb_handler import handler_for_melding, meldingsdato
-    dato=meldingsdato(request.args.get("published_at",""))
-    if dato is None:
-        abort(400)
-    key=(ticker,dato.isoformat(),_trades_db_key())
-    with _trades_lock:
-        hit=_trades_cache.get(key)
-    if hit and hit[0]>time.monotonic():
-        data=hit[1]
+    batch=request.args.getlist("m")
+    if batch:
+        if len(batch)>_TRADES_BATCH_MAX:
+            abort(400)
+        parsed={}
+        for raw in batch:
+            ticker,_,published=raw.partition("|")
+            want=_trades_request(ticker,published)
+            if want is None:
+                abort(400)
+            parsed[raw]=want
+        found=_trades_lookup(list(parsed.values()))
+        body={"results":{raw:found[want] for raw,want in parsed.items()}}
+        status=200
     else:
-        import handler_data as hd
-        try:
-            conn=hd.db_connect()
-        except Exception:
-            return jsonify({"error":"Handler-databasen er ikke tilgjengelig."}),503
-        try:
-            data=handler_for_melding(conn,ticker,dato,_trades_list_ids(conn))
-        except Exception:
-            from flask import current_app
-            current_app.logger.exception("NewsWeb handler for %s %s",ticker,dato)
-            return jsonify({"error":"Klarte ikke hente handler."}),500
-        finally:
-            conn.close()
-        with _trades_lock:
-            if len(_trades_cache)>500:
-                _trades_cache.clear()
-            _trades_cache[key]=(time.monotonic()+_TRADES_CACHE_SECONDS,data)
-    response=make_response(jsonify(data))
+        want=_trades_request(request.args.get("ticker",""),request.args.get("published_at",""))
+        if want is None:
+            abort(400)
+        body=_trades_lookup([want])[want]
+        status=503 if body.get("error")=="Handler-databasen er ikke tilgjengelig." else (
+            500 if body.get("error") else 200)
+    response=make_response(jsonify(body),status)
     response.headers["Cache-Control"]="private, no-store, max-age=0"
     return response
 
