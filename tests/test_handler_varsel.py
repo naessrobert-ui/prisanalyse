@@ -367,3 +367,43 @@ def test_beste_regel_grenser():
     assert hv._beste_regel({"ut", "forste_salg"}, -5.0, True, cfg) == "utgang"
     assert hv._beste_regel({"ut"}, -4.999, True, cfg) is None
     assert hv._beste_regel({"ny_posisjon"}, 9.0, False, cfg) is None
+
+
+def test_dagens_varsel_side(monkeypatch, tmp_path):
+    flask = pytest.importorskip("flask")
+    import handler_data as hd
+    import handler_routes as routes
+
+    p = str(tmp_path / "h.db")
+    sqlite3.connect(p).close()
+    monkeypatch.setattr(routes, "_check_db", lambda: None)
+    monkeypatch.setattr(routes, "_VARSEL_SIDE_CACHE", {})
+    monkeypatch.setattr(hd, "db_connect", lambda *a, **k: sqlite3.connect(p))
+    monkeypatch.setattr(hd, "get_last_data_date", lambda conn: "2026-10-14")
+    monkeypatch.setattr(hv, "siste_kjoring", lambda: {"fra": "2026-10-13", "til": "2026-10-14", "sendt": True,
+                                                      "tid": "2026-10-14T07:25:00"})
+    topp = dict(investor_id="T1", investor="STOR EIER", isin="X", ticker="XXX", aksje="X ASA",
+                start="2026-10-14", siste="2026-10-14", handelsdager=2, antall=-200_000, belop_mnok=-20.0,
+                andel_pct=4.0, pause_dager=135, ut=False, type="forste_salg", rang=1, lenke="https://x/t1")
+    kall = []
+
+    def finn(conn, fra, til):
+        kall.append((fra, til))
+        return {"fra": fra.isoformat(), "til": til.isoformat(), "innstillinger": hv.Innstillinger(lister=["Beste.csv"]),
+                "folgeliste": [], "flinke": [], "topp10": [topp], "antall_flinke_fulgt": 0, "lister": ["Beste.csv"]}
+
+    monkeypatch.setattr(hv, "finn_signaler", finn)
+    app = flask.Flask(__name__)
+    app.register_blueprint(routes.handler_bp)
+    c = app.test_client()
+
+    html = c.get("/handler-oslo-bors/dagens-varsel").get_data(as_text=True)
+    assert kall == [(D(2026, 10, 13), D(2026, 10, 14))]       # samme periode som e-posten
+    assert "Topp 10-eier begynner å selge" in html and "STOR EIER" in html and "https://x/t1" in html
+    assert "Begynner å selge" in html and "nr. 1 blant eierne" in html and "2 handelsdager" in html
+    assert "Sendt på e-post" in html and "−20,0 MNOK" in html
+
+    c.get("/handler-oslo-bors/dagens-varsel")                 # bufret
+    assert len(kall) == 1
+    html = c.get("/handler-oslo-bors/dagens-varsel?date_from=2026-10-14&date_to=2026-10-14").get_data(as_text=True)
+    assert kall[-1] == (D(2026, 10, 14), D(2026, 10, 14)) and "Sendt på e-post" not in html

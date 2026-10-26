@@ -708,6 +708,74 @@ def varsel_forhandsvisning():
     return Response(body, mimetype="text/html")
 
 
+_VARSEL_SIDE_CACHE: dict[tuple, dict] = {}
+
+
+def _db_mtime() -> float | None:
+    try:
+        return os.path.getmtime(hd.HANDLER_DB_PATH)
+    except OSError:
+        return None
+
+
+@handler_bp.route("/dagens-varsel")
+def dagens_varsel_page():
+    """Innholdet i e-postvarselet som egen side, så alle kan se hva som ble varslet.
+
+    Uten valgt periode vises perioden i siste kjøring når den gjelder siste dato i DB (samme som e-posten),
+    ellers siste dato.
+    """
+    err = _check_db()
+    if err:
+        return render_template("handler/dagens_varsel.html", feil=err, sig=None)
+    siste_kjoring = hv.siste_kjoring()
+    conn = hd.db_connect()
+    try:
+        siste = _iso_date(hd.get_last_data_date(conn)) or dt.date.today()
+        if (not request.args.get("date_to") and not request.args.get("date_from")
+                and siste_kjoring and siste_kjoring.get("til") == siste.isoformat() and siste_kjoring.get("fra")):
+            date_from, date_to = dt.date.fromisoformat(siste_kjoring["fra"]), siste
+        else:
+            date_to = _parse_date(request.args.get("date_to"), siste)
+            date_from = _parse_date(request.args.get("date_from"), date_to)
+        if date_from > date_to:
+            date_from, date_to = date_to, date_from
+        nokkel = (date_from, date_to, _db_mtime())
+        sig = _VARSEL_SIDE_CACHE.get(nokkel)
+        if sig is None:
+            sig = hv.finn_signaler(conn, date_from, date_to)
+            if len(_VARSEL_SIDE_CACHE) > 20:
+                _VARSEL_SIDE_CACHE.clear()
+            _VARSEL_SIDE_CACHE[nokkel] = sig
+    except Exception as exc:
+        _LOG.exception("Feil i dagens varsel")
+        return render_template("handler/dagens_varsel.html", sig=None,
+                               feil=f"{type(exc).__name__}: {exc}"), 500
+    finally:
+        conn.close()
+
+    deler = [
+        {**d, "rader": [hv.vis_rad(r, d["ekstra"](r) if d["ekstra"] else "") for r in d["rader"]]}
+        for d in hv.seksjoner(sig)
+    ]
+    rader = [r for d in deler for r in d["rader"]]
+    oppsummering = {
+        "signaler": len(rader),
+        "kjop": sum(1 for r in rader if r["kjop"]),
+        "salg": sum(1 for r in rader if not r["kjop"]),
+        "kjop_mnok": sum(r["belop_mnok"] for r in rader if r["kjop"]),
+        "salg_mnok": sum(r["belop_mnok"] for r in rader if not r["kjop"]),
+    }
+    # Sendt-status bare når siste kjøring gjelder perioden som vises
+    kjoring = siste_kjoring if siste_kjoring and siste_kjoring.get("fra") == date_from.isoformat() \
+        and siste_kjoring.get("til") == date_to.isoformat() else None
+    return render_template(
+        "handler/dagens_varsel.html", sig=sig, deler=deler, feil=None, oppsummering=oppsummering,
+        kjoring=kjoring, emne=hv.emne(sig) if rader else None,
+        date_from=date_from.isoformat(), date_to=date_to.isoformat(),
+    )
+
+
 @handler_bp.route("/viktige-endringer", methods=["GET", "POST"])
 def viktige_endringer_page():
     """«Viktige endringer siste døgn»: redaksjonell versjon av e-postvarselet.
