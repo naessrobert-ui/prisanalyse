@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import threading
 import time
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -12,6 +14,24 @@ import secrets
 from flask import Blueprint, render_template, request, redirect, session, url_for, abort
 
 newsweb_bp = Blueprint("newsweb", __name__, url_prefix="/newsweb")
+
+
+_OSLO=ZoneInfo("Europe/Oslo")
+
+
+@newsweb_bp.app_template_filter("norsk_tid")
+def norsk_tid(verdi) -> str:
+    """ISO-tidspunkt (UTC eller med sone) som norsk tid, «2026-10-26 09:12». Ukjent format vises som det er."""
+    tekst=str(verdi or "").strip()
+    if not tekst:
+        return ""
+    try:
+        t=datetime.fromisoformat(tekst.replace("Z","+00:00"))
+    except ValueError:
+        return tekst
+    if t.tzinfo is None:
+        t=t.replace(tzinfo=timezone.utc)
+    return t.astimezone(_OSLO).strftime("%Y-%m-%d %H:%M")
 # Public metadata only. Never use this path for proprietary consensus or PDFs.
 PUBLIC_REPORT_URL = (
     "https://raw.githubusercontent.com/naessrobert-ui/prisanalyse/"

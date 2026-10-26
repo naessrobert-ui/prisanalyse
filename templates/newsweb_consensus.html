@@ -84,7 +84,7 @@ button.secondary{background:#263c5b}
 <div class="stat"><div class="big">{{summary.value_count}}</div><div class="small">Lagrede tall</div></div>
 </div>
 <p><strong>Fil:</strong> {{summary.original_name}}<br>
-<strong>Opplastet UTC:</strong> {{summary.uploaded_at}}<br>
+<strong>Opplastet:</strong> {{summary.uploaded_at|norsk_tid}}<br>
 <strong>Perioder:</strong> {{summary.periods|join(', ')}}<br>
 <strong>Manglende/ugyldige felt:</strong> {{summary.invalid_or_missing_cells}}<br>
 <strong>Enheter bekreftet:</strong> {{'Ja' if summary.amount_units_confirmed else 'Nei'}}</p>
