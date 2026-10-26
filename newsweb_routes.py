@@ -310,7 +310,11 @@ def run_now():
     expect_fresh_report()
     return redirect(url_for("newsweb.dashboard",run_status="queued"))
 
-_TRADES_CACHE_SECONDS = 1800
+# Trades are uploaded once a day (typically 08–10). Entries are keyed by the
+# DB file's mtime, so a new upload invalidates them at once; the TTL is only
+# a safety net.
+_TRADES_CACHE_SECONDS = 24*3600
+_TRADES_WARM_INTERVAL = 300
 _trades_lock = threading.Lock()
 _trades_lists_lock = threading.Lock()
 _trades_cache: dict = {}
@@ -339,6 +343,43 @@ def _trades_list_ids(conn) -> dict[str, list[str]]:
         with _trades_lock:
             _trades_cache[key]=(time.monotonic()+_TRADES_CACHE_SECONDS,ids)
     return ids
+
+def _trades_warm_once() -> bool:
+    """Compute the investor lists for the current DB if not cached. True if computed."""
+    key=("lister",_trades_db_key())
+    with _trades_lock:
+        hit=_trades_cache.get(key)
+    if hit and hit[0]>time.monotonic():
+        return False
+    import handler_data as hd
+    conn=hd.db_connect()
+    try:
+        _trades_list_ids(conn)
+    finally:
+        conn.close()
+    return True
+
+def _trades_warm_loop() -> None:
+    import logging
+    log=logging.getLogger(__name__)
+    while True:
+        try:
+            if _trades_warm_once():
+                log.info("NewsWeb: investorlister for handlerpanel beregnet på forhånd")
+        except Exception:
+            log.warning("NewsWeb: klarte ikke forhåndsberegne investorlister",exc_info=True)
+        time.sleep(_TRADES_WARM_INTERVAL)
+
+@newsweb_bp.record_once
+def _start_trades_warmer(state) -> None:
+    """Background thread: after startup and after each daily DB upload, the
+    lists are ready before the first visitor opens the page."""
+    import handler_data as hd
+    if state.app.testing or os.environ.get("NEWSWEB_HANDLER_WARM","1")=="0":
+        return
+    if not (os.path.isfile(hd.HANDLER_DB_PATH) or hd.HANDLER_DB_S3_URI):
+        return
+    threading.Thread(target=_trades_warm_loop,name="newsweb-trades-warm",daemon=True).start()
 
 _TRADES_BATCH_MAX = 40
 
@@ -384,7 +425,12 @@ def _trades_lookup(wanted:list[tuple]) -> dict:
             found[(ticker,dato)]=data
             with _trades_lock:
                 if len(_trades_cache)>500:
-                    _trades_cache.clear()
+                    # Drop older DB versions first; keep the precomputed lists.
+                    for k in [k for k in _trades_cache if k[-1]!=db_key]:
+                        del _trades_cache[k]
+                    if len(_trades_cache)>500:
+                        for k in [k for k in _trades_cache if k[0]!="lister"]:
+                            del _trades_cache[k]
                 _trades_cache[(ticker,dato.isoformat(),db_key)]=(time.monotonic()+_TRADES_CACHE_SECONDS,data)
     except Exception:
         from flask import current_app
