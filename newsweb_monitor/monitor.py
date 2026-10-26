@@ -392,6 +392,8 @@ def main() -> int:
                     entry["reason"]=(entry["reason"]+" | "+msg)[:700]
                     if max(abs(x["surprise_pct"]) for x in surprises)>=10:
                         entry["score"]=max(entry["score"],82)
+            from .dedup import message_fingerprint
+            entry.update(message_fingerprint(item))
             entry.pop("attachments",None)
             entry["body"]=entry.get("body","")[:900]
         can_notify=(mode in ("live","newsweb") and bool(key) and not restart and

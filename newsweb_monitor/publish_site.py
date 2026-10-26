@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from .generation import NEWSWEB_GENERATION
@@ -91,6 +92,13 @@ def sanitize(item: dict) -> dict | None:
                     "language":limited(version.get("language"),20)})
                 seen_versions.add(vid)
         if len(clean)>1:result["language_versions"]=clean
+    # Hashed content fingerprints (no text) let dedup match NO/EN versions.
+    key=limited(item.get("attachment_key"),16)
+    if re.fullmatch(r"[0-9a-f]{16}",key):result["attachment_key"]=key
+    numbers=item.get("number_keys")
+    if isinstance(numbers,list):
+        clean_numbers=sorted({str(n) for n in numbers[:80] if re.fullmatch(r"[0-9a-f]{6}",str(n))})
+        if clean_numbers:result["number_keys"]=clean_numbers
     report=item.get("financial_report")
     if isinstance(report,dict):
         document=report.get("document") or {}

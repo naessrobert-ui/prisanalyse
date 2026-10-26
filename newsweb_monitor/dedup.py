@@ -1,18 +1,61 @@
 """Collapse multilingual NewsWeb disclosures about the SAME event.
 
 A pair must have the same ticker, near-identical publication time, and a
-specific matching topic. Timestamp/ticker alone are NEVER sufficient: a
+specific matching topic -- or, within a few minutes, matching content
+fingerprints (attachment name minus language tag, or the same figures in the
+text). Timestamp/ticker alone are NEVER sufficient: a
 company can publish earnings, dividends and buy-backs in the same minute.
 This operates solely on already-public, sanitized fields.
 """
 from __future__ import annotations
 
 import copy
+import hashlib
+import html
 import re
 from datetime import datetime
 from urllib.parse import urlparse
 
 PAIR_WINDOW_SECONDS = 12
+# NO/EN versions of the same press release can be sent a few minutes apart.
+# Only allowed when the message content (attachment or figures) matches.
+FINGERPRINT_WINDOW_SECONDS = 300
+MIN_SHARED_NUMBERS = 6
+NUMBER_OVERLAP = 0.75
+_LANGUAGE_TOKENS = {"en","eng","engl","english","engelsk","no","nor","nob","nb",
+                    "norsk","norwegian","bokmal","bokmål"}
+_CORRECTION = re.compile(r"\b(?:correction|corrected|korrigering|korrigert|rettelse)\b",re.I)
+
+def _short_hash(value:str,length:int)->str:
+    return hashlib.sha1(value.encode("utf-8")).hexdigest()[:length]
+
+def _attachment_key(attachments:object)->str:
+    """Language-neutral key: 'Release (ENG).pdf' and 'Release (NO).pdf' match."""
+    names=[]
+    for a in attachments if isinstance(attachments,list) else []:
+        name=str((a or {}).get("name") or "") if isinstance(a,dict) else ""
+        name=re.sub(r"\.[a-z0-9]{2,4}$","",name.casefold())
+        tokens=[t for t in re.split(r"[^0-9a-zæøå]+",name) if t and t not in _LANGUAGE_TOKENS]
+        if tokens:
+            names.append(" ".join(tokens))
+    return _short_hash("|".join(sorted(names)),16) if names else ""
+
+def _number_keys(body:object)->list[str]:
+    """Hashed figures from the text; 150,000 / 150 000 and 20.2 / 20,2 agree."""
+    text=html.unescape(re.sub(r"<[^>]+>"," ",str(body or "")))
+    text=re.sub(r"(?<=\d)[   .,](?=\d{3}(?!\d))","",text)
+    text=re.sub(r"(?<=\d)[.,](?=\d)","",text)
+    numbers=sorted(set(re.findall(r"\d+",text)))
+    return sorted({_short_hash(n,6) for n in numbers})[:80]
+
+def message_fingerprint(item:dict)->dict:
+    """Public-safe content fingerprint, computed when full message is fetched."""
+    result={}
+    key=_attachment_key(item.get("attachments"))
+    if key:result["attachment_key"]=key
+    numbers=_number_keys(item.get("body"))
+    if numbers:result["number_keys"]=numbers
+    return result
 
 def _stamp(raw:object):
     try:
@@ -128,6 +171,23 @@ def _strong_translation_pair(left:dict,right:dict)->bool:
     # A duplicate title can be valid, but only with a meaningful topic.
     return _title(left).strip()==_title(right).strip() and len(_title(left).split())>=5
 
+def _fingerprint_pair(left:dict,right:dict)->bool:
+    """Same content in two languages: matching attachment name or same figures."""
+    lt,rt=_topic(left),_topic(right)
+    if lt and rt and lt!=rt:return False
+    if lt.startswith("security:") or rt.startswith("security:"):return False
+    if lt=="financial_results" and rt=="financial_results":
+        lp,rp=_period(left),_period(right)
+        if lp and rp and lp!=rp:return False
+    # A correction must stay visible next to the message it corrects.
+    if bool(_CORRECTION.search(_title(left)))!=bool(_CORRECTION.search(_title(right))):
+        return False
+    lk,rk=str(left.get("attachment_key") or ""),str(right.get("attachment_key") or "")
+    if lk and lk==rk:return True
+    ln,rn=set(left.get("number_keys") or []),set(right.get("number_keys") or [])
+    if len(ln)<MIN_SHARED_NUMBERS or len(rn)<MIN_SHARED_NUMBERS:return False
+    return len(ln&rn)/len(ln|rn)>=NUMBER_OVERLAP
+
 def _versions(row:dict)->list[dict]:
     existing=row.get("language_versions")
     if isinstance(existing,list) and existing:
@@ -206,9 +266,11 @@ def collapse_stories(items:list[dict])->list[dict]:
             if str(first.get("ticker") or "").upper()!=str(item.get("ticker") or "").upper():
                 continue
             previous=_stamp(first.get("published_at"))
-            if time is None or previous is None or abs(time-previous)>PAIR_WINDOW_SECONDS:
+            if time is None or previous is None:
                 continue
-            if _strong_translation_pair(first,item):
+            delta=abs(time-previous)
+            if ((delta<=PAIR_WINDOW_SECONDS and _strong_translation_pair(first,item)) or
+                    (delta<=FINGERPRINT_WINDOW_SECONDS and _fingerprint_pair(first,item))):
                 matched=group
                 break
         if matched is None:
