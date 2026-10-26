@@ -1,6 +1,6 @@
 """Public bilingual NewsWeb dedup regression tests."""
 import unittest
-from newsweb_monitor.dedup import collapse_stories
+from newsweb_monitor.dedup import collapse_stories,message_fingerprint
 from newsweb_monitor.publish_site import build_snapshot
 
 def story(ident,ticker,title,stamp,score=75,doc="",period="",metrics=None,skipped=False):
@@ -132,6 +132,65 @@ class BilingualDedupTests(unittest.TestCase):
         merged=collapse_stories([no,en])[0]
         self.assertEqual(merged["consensus_kind"],"simulation")
         self.assertEqual(merged["largest_surprise_abs"],5.5)
+
+class ContentFingerprintDedupTests(unittest.TestCase):
+    EN_BODY=("<p>Stena AB has signed an agreement to acquire Color Group AS. Color Line "
+             "carries 2,200 employees, 35,000 cars and 150,000 passengers; revenue NOK 8,750 "
+             "million in 2025, EBITDA margin 20.2% and 3.6x leverage. Closing expected 2027. "
+             "Founded 1962. Contact +47 417 51 271 or 46 768 681 137.</p>")
+    NO_BODY=("<p>Stena AB har signert avtale om å kjøpe Color Group AS. Color Line har "
+             "2 200 ansatte, 35 000 biler og 150 000 passasjerer; omsetning 8 750 millioner "
+             "kroner i 2025, EBITDA-margin 20,2 % og gjeldsgrad 3,6x. Ventes gjennomført 2027. "
+             "Grunnlagt 1962. Kontakt +47 417 51 271 eller 46 768 681 137.</p>")
+
+    def pair(self,en_att="Rainbow press release CL (ENG).pdf",no_att="Rainbow press release CL (NO).pdf",
+             en_body=None,no_body=None,no_stamp="12:11:37.591"):
+        en=story(684804,"COLG","Stena AB buys Color Group AS","12:11:12.007",85)
+        no=story(684805,"COLG","Stena AB kjøper Color Group AS",no_stamp,85)
+        en.update(message_fingerprint({"attachments":[{"id":1,"name":en_att}] if en_att else [],
+                                       "body":self.EN_BODY if en_body is None else en_body}))
+        no.update(message_fingerprint({"attachments":[{"id":2,"name":no_att}] if no_att else [],
+                                       "body":self.NO_BODY if no_body is None else no_body}))
+        return en,no
+
+    def test_colg_same_attachment_name_except_language_tag(self):
+        en,no=self.pair(en_body="",no_body="")
+        got=collapse_stories([en,no])
+        self.assertEqual(len(got),1)
+        self.assertEqual(got[0]["title"],"Stena AB kjøper Color Group AS")
+        self.assertEqual({v["id"] for v in got[0]["language_versions"]},{"684804","684805"})
+
+    def test_colg_same_figures_in_text_without_attachments(self):
+        en,no=self.pair(en_att="",no_att="")
+        self.assertEqual(len(collapse_stories([en,no])),1)
+
+    def test_colg_pair_survives_public_snapshot(self):
+        en,no=self.pair()
+        published,_=build_snapshot({"items":[en,no]},None)
+        self.assertEqual(len(published["items"]),1)
+        self.assertNotIn("body",published["items"][0])
+        again,changed=build_snapshot({"items":[]},published)
+        self.assertEqual(len(again["items"]),1)
+
+    def test_different_content_same_minute_is_kept(self):
+        en,no=self.pair(en_att="Investor presentation.pdf",no_att="Press release.pdf",
+                        no_body="<p>Utbytte 4,50 kroner per aksje, ex-dato 3. november, betaling 12. november 2026, 45 millioner aksjer.</p>")
+        self.assertEqual(len(collapse_stories([en,no])),2)
+
+    def test_too_far_apart_is_kept(self):
+        en,no=self.pair(no_stamp="12:30:00.000")
+        self.assertEqual(len(collapse_stories([en,no])),2)
+
+    def test_correction_is_not_hidden(self):
+        en,no=self.pair()
+        no["title"]="Korrigering: Stena AB kjøper Color Group AS"
+        self.assertEqual(len(collapse_stories([en,no])),2)
+
+    def test_conflicting_topics_are_kept(self):
+        en,no=self.pair()
+        en["title"]="Invitation to presentation: Stena AB buys Color Group AS"
+        no["title"]="Utbytte etter at Stena AB kjøper Color Group AS"
+        self.assertEqual(len(collapse_stories([en,no])),2)
 
 if __name__=="__main__":
     unittest.main()
