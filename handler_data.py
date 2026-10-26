@@ -1921,6 +1921,9 @@ def extract_owner_patterns(list_name: str, df: pd.DataFrame) -> list[str]:
         if eier_col is None:
             eier_col = df.columns[1] if df.shape[1] >= 2 else df.columns[0]
         patterns = df[eier_col].astype(str).str.strip().tolist()
+        if df.shape[1] == 1:
+            # Liste uten overskrift: første rad er lest som kolonnenavn
+            patterns.insert(0, str(eier_col))
 
     cleaned = []
     seen = set()
@@ -2022,6 +2025,7 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
         SELECT pc.isin,
                pc.change_qty,
                pc.price_yesterday,
+               pc.price_today,
                date(pc.date_today,'+1 day') AS price_d
         FROM position_change pc
         JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
@@ -2031,6 +2035,7 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
         SELECT DISTINCT isin, price_d AS d
         FROM selected_trades
         WHERE COALESCE(price_yesterday,0) <= 0
+          AND COALESCE(price_today,0) <= 0
     ),
     prices AS (
         SELECT p.isin, date(p.date_today) AS d, MAX(p.price_yesterday) AS p
@@ -2152,6 +2157,7 @@ def fetch_best_viktige_trades_for_isin(
         SELECT pc.investor_id,
                pc.change_qty,
                pc.price_yesterday,
+               pc.price_today,
                date(pc.date_today,'+1 day') AS price_d
         FROM position_change pc
         JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
@@ -2162,6 +2168,7 @@ def fetch_best_viktige_trades_for_isin(
         SELECT DISTINCT price_d AS d
         FROM selected_trades
         WHERE COALESCE(price_yesterday,0) <= 0
+          AND COALESCE(price_today,0) <= 0
     ),
     prices AS (
         SELECT date(p.date_today) AS d, MAX(p.price_yesterday) AS p
