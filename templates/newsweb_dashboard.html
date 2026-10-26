@@ -143,7 +143,7 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% elif report.get("mode") == "live" %}
 {% if report.get('last_checked_at') %}
 <div class="checkline" title="Siste vellykkede kildeavlesning. Det betyr ikke nødvendigvis at det kom nye nyheter.">
-  <span class="check-dot"></span>Sist sjekket: {{report.last_checked_at[:16].replace('T',' ')}} UTC
+  <span class="check-dot"></span>Sist sjekket: {{report.last_checked_at|norsk_tid}} norsk tid
   {% if report.get('monitor_stats') %} · {{report.monitor_stats.get('analyzed',0)}} nye analyser{% endif %}
 </div>
 {% endif %}
@@ -156,7 +156,7 @@ h1{font-size:clamp(27px,3vw,37px)}
  <span><b>{{focus}}</b> høy prioritet</span>
  <span><b>{{interesting}}</b> interessante</span>
  <span><b>{{ignored}}</b> lav prioritet / filtrert</span>
- <span class="dim">Kilde: {{report.get('source','NewsWeb')}}{% if report.get('generated_at') %} · {{report.generated_at}}{% endif %}</span>
+ <span class="dim">Kilde: {{report.get('source','NewsWeb')}}{% if report.get('generated_at') %} · {{report.generated_at|norsk_tid}}{% endif %}</span>
 </div>
 <div class="section-heading">Nyheter</div>
 <div class="controls">
