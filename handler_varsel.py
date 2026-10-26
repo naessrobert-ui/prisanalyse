@@ -52,7 +52,7 @@ import smtplib
 import sqlite3
 import threading
 import urllib.parse
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -738,6 +738,14 @@ def siste_kjoring() -> dict | None:
     return _les_state().get("siste")
 
 
+def siste_periode() -> dict | None:
+    """Perioden siste varsel gjaldt. Beholdes når en senere opplasting ikke ga nye datoer."""
+    siste = siste_kjoring()
+    if siste and siste.get("fra") and siste.get("til"):
+        return siste
+    return _les_state().get("periode")
+
+
 def _allerede_sendt(fra: dt.date, til: dt.date) -> bool:
     try:
         sendt = json.loads(_STATE_PATH.read_text(encoding="utf-8")).get("sendt", [])
@@ -764,7 +772,7 @@ def kjor(fra: dt.date, til: dt.date, send: bool = True, db_path: str | None = No
         conn = sqlite3.connect(db_path or hd.HANDLER_DB_PATH, timeout=60)
         conn.row_factory = sqlite3.Row
         try:
-            sig = finn_signaler(conn, fra, til)
+            sig = finn_signaler_lagret(conn, fra, til)
         finally:
             conn.close()
         n = antall_signaler(sig)
@@ -793,6 +801,9 @@ def kjor(fra: dt.date, til: dt.date, send: bool = True, db_path: str | None = No
                 _LOG.exception("Handler-varsel: sending feilet")
                 resultat["feil"] = f"{type(exc).__name__}: {exc}"
         _lagre_siste(resultat)
+        data = _les_state()
+        data["periode"] = {"fra": resultat["fra"], "til": resultat["til"]}
+        _skriv_state(data)
         return resultat
 
 
@@ -802,8 +813,14 @@ def kjor_etter_opplasting(datoer_for: dt.date | None, datoer_etter: dt.date | No
     if os.environ.get("HANDLER_VARSEL_AV", "").strip() in {"1", "true", "ja"}:
         return False
     if datoer_etter is None or (datoer_for is not None and datoer_etter <= datoer_for):
+        periode = siste_periode()
         _lagre_siste({"kilde": "opplasting", "sendt": False,
                       "grunn": f"Ingen nye datoer i opplastingen (siste dato {datoer_etter})"})
+        if periode and datoer_etter is not None and periode.get("til") == datoer_etter.isoformat():
+            data = _les_state()
+            data["periode"] = {"fra": periode.get("fra"), "til": periode.get("til")}
+            _skriv_state(data)
+            _forvarm(som_dato(periode.get("fra")), datoer_etter)
         return False
     fra = (datoer_for + dt.timedelta(days=1)) if datoer_for else datoer_etter
     # Ved store backfill-opplastinger: varsle bare for siste 5 dager
@@ -820,6 +837,94 @@ def kjor_etter_opplasting(datoer_for: dt.date | None, datoer_etter: dt.date | No
 
     threading.Thread(target=_jobb, name="handler-varsel", daemon=True).start()
     return True
+
+
+# =========================================================
+# Lagrede signaler
+# =========================================================
+# Varseljobben regner ut signalene etter opplasting. De lagres her slik at «Dagens varsel» og
+# «Viktige endringer» kan vise dem uten å regne ut alt på nytt, også etter omstart.
+_SIG_PATH = Path(hd.HANDLER_LIST_CACHE_DIR) / "handler_varsel_signaler.json"
+_SIG_LOCK = threading.Lock()
+_SIG_MAKS_PERIODER = 10
+
+
+def _fingeravtrykk(conn, cfg: Innstillinger) -> str | None:
+    """Kjennetegn for innholdet i DB og innstillingene. Uendret når samme fil lastes ned på nytt fra S3."""
+    try:
+        sider = conn.execute("PRAGMA page_count").fetchone()[0]
+        maks_rad = conn.execute("SELECT MAX(rowid) FROM position_change").fetchone()[0]
+    except sqlite3.Error:
+        return None
+    if not maks_rad:
+        return None
+    return f"{sider}:{maks_rad}:" + json.dumps(asdict(cfg), sort_keys=True, default=str)
+
+
+def _les_signaler() -> dict:
+    try:
+        return json.loads(_SIG_PATH.read_text(encoding="utf-8")) if _SIG_PATH.exists() else {}
+    except Exception:
+        return {}
+
+
+def _json_verdi(v):
+    return v.item() if hasattr(v, "item") else str(v)   # numpy-tall fra pandas
+
+
+def _lagre_signaler(nokkel: str, fp: str, sig: dict) -> None:
+    with _SIG_LOCK:
+        data = _les_signaler()
+        data[nokkel] = {"fp": fp, "laget": dt.datetime.now().isoformat(timespec="seconds"),
+                        "sig": {**sig, "innstillinger": asdict(sig["innstillinger"])}}
+        for k in sorted(data, key=lambda k: data[k].get("laget", ""))[:-_SIG_MAKS_PERIODER]:
+            data.pop(k)
+        try:
+            _SIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            _SIG_PATH.write_text(json.dumps(data, default=_json_verdi, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            _LOG.warning("Klarte ikke lagre handler-signaler", exc_info=True)
+
+
+def finn_signaler_lagret(conn, fra: dt.date, til: dt.date, ny: bool = False) -> dict:
+    """Som finn_signaler, men gjenbruker lagret resultat når DB og innstillinger er uendret.
+
+    ny=True regner ut på nytt og oppdaterer det lagrede.
+    """
+    fra, til = som_dato(fra), som_dato(til)
+    fp = _fingeravtrykk(conn, Innstillinger())
+    nokkel = f"{fra}:{til}"
+    if fp and not ny:
+        rad = _les_signaler().get(nokkel)
+        if rad and rad.get("fp") == fp:
+            try:
+                return {**rad["sig"], "innstillinger": Innstillinger(**rad["sig"]["innstillinger"])}
+            except (TypeError, KeyError):
+                _LOG.warning("Ugyldige lagrede handler-signaler for %s, regner ut på nytt", nokkel)
+    sig = finn_signaler(conn, fra, til)
+    if fp:
+        _lagre_signaler(nokkel, fp, sig)
+    return sig
+
+
+def _forvarm(fra: dt.date | None, til: dt.date) -> None:
+    """Regn ut og lagre signalene i bakgrunnen, uten å sende noe (ny DB-fil uten nye datoer)."""
+    if fra is None:
+        return
+
+    def _jobb():
+        try:
+            with _LOCK:
+                conn = sqlite3.connect(hd.HANDLER_DB_PATH, timeout=60)
+                conn.row_factory = sqlite3.Row
+                try:
+                    finn_signaler_lagret(conn, fra, til)
+                finally:
+                    conn.close()
+        except Exception:
+            _LOG.warning("Klarte ikke forhåndsberegne handler-signaler for %s til %s", fra, til, exc_info=True)
+
+    threading.Thread(target=_jobb, name="handler-varsel-forvarm", daemon=True).start()
 
 
 def main(argv: list[str] | None = None) -> int:

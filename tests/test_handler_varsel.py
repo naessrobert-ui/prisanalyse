@@ -17,6 +17,12 @@ import handler_varsel as hv  # noqa: E402
 D = dt.date
 
 
+@pytest.fixture(autouse=True)
+def _isoler_lagring(monkeypatch, tmp_path):
+    monkeypatch.setattr(hv, "_STATE_PATH", tmp_path / "state.json")
+    monkeypatch.setattr(hv, "_SIG_PATH", tmp_path / "signaler.json")
+
+
 def _tx(rows):
     df = pd.DataFrame(rows, columns=["investor_id", "isin", "dato", "antall", "kurs", "beh_for", "beh_etter"])
     df["belop"] = df["antall"] * df["kurs"]
@@ -127,6 +133,49 @@ def test_finn_signaler(tmp_path, monkeypatch):
     html = hv.bygg_html(sig)
     assert "STOR EIER" in html and "FOLGE FOND" in html and "NOMINEE" not in html
     assert "Topp 10-eier" in hv.emne(sig) or "topp 10" in hv.emne(sig)
+
+
+def test_signaler_lagres_og_gjenbrukes(tmp_path, monkeypatch):
+    p = str(tmp_path / "h.db")
+    _db(p)
+    monkeypatch.setattr(hv, "_folgeliste_ids", lambda conn, cfg, brukt=None, beste=None: ["F1"])
+    monkeypatch.setattr(hv, "_flinke_ids", lambda conn, til, cfg: [])
+    ekte, kall = hv.finn_signaler, []
+    monkeypatch.setattr(hv, "finn_signaler", lambda conn, fra, til: kall.append((fra, til)) or ekte(conn, fra, til))
+
+    def hent(ny=False):
+        conn = sqlite3.connect(p)
+        conn.row_factory = sqlite3.Row
+        try:
+            return hv.finn_signaler_lagret(conn, D(2026, 10, 14), D(2026, 10, 14), ny=ny)
+        finally:
+            conn.close()
+
+    forste = hent()
+    andre = hent()                       # fra disk, ikke regnet ut på nytt
+    assert len(kall) == 1
+    assert isinstance(andre["innstillinger"], hv.Innstillinger)
+    assert hv.bygg_html(andre) == hv.bygg_html(forste)
+    hent(ny=True)
+    assert len(kall) == 2
+
+    conn = sqlite3.connect(p)            # ny data i DB: regnes ut på nytt
+    conn.execute("INSERT INTO position_change VALUES ('X','S1','2026-10-15',9000,9500,0,100.0,-500)")
+    conn.commit()
+    conn.close()
+    hent()
+    assert len(kall) == 3
+
+
+def test_opplasting_uten_nye_datoer_beholder_periode(monkeypatch):
+    monkeypatch.delenv("HANDLER_VARSEL_AV", raising=False)
+    hv._skriv_state({"siste": {"kilde": "opplasting", "fra": "2026-10-13", "til": "2026-10-14", "sendt": True}})
+    forvarmet = []
+    monkeypatch.setattr(hv, "_forvarm", lambda fra, til: forvarmet.append((fra, til)))
+    assert hv.kjor_etter_opplasting(D(2026, 10, 14), D(2026, 10, 14)) is False
+    assert "fra" not in hv.siste_kjoring()
+    assert hv.siste_periode() == {"fra": "2026-10-13", "til": "2026-10-14"}
+    assert forvarmet == [(D(2026, 10, 13), D(2026, 10, 14))]
 
 
 def test_kjor_etter_opplasting_bare_ved_nye_datoer(monkeypatch):

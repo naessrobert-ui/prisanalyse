@@ -729,12 +729,13 @@ def dagens_varsel_page():
     if err:
         return render_template("handler/dagens_varsel.html", feil=err, sig=None)
     siste_kjoring = hv.siste_kjoring()
+    periode = hv.siste_periode()
     conn = hd.db_connect()
     try:
         siste = _iso_date(hd.get_last_data_date(conn)) or dt.date.today()
         if (not request.args.get("date_to") and not request.args.get("date_from")
-                and siste_kjoring and siste_kjoring.get("til") == siste.isoformat() and siste_kjoring.get("fra")):
-            date_from, date_to = dt.date.fromisoformat(siste_kjoring["fra"]), siste
+                and periode and periode.get("til") == siste.isoformat() and periode.get("fra")):
+            date_from, date_to = dt.date.fromisoformat(periode["fra"]), siste
         else:
             date_to = _parse_date(request.args.get("date_to"), siste)
             date_from = _parse_date(request.args.get("date_from"), date_to)
@@ -743,7 +744,7 @@ def dagens_varsel_page():
         nokkel = (date_from, date_to, _db_mtime())
         sig = _VARSEL_SIDE_CACHE.get(nokkel)
         if sig is None:
-            sig = hv.finn_signaler(conn, date_from, date_to)
+            sig = hv.finn_signaler_lagret(conn, date_from, date_to)
             if len(_VARSEL_SIDE_CACHE) > 20:
                 _VARSEL_SIDE_CACHE.clear()
             _VARSEL_SIDE_CACHE[nokkel] = sig
@@ -799,7 +800,8 @@ def viktige_endringer_page():
         date_from = _parse_date(request.args.get("date_from"), date_to)
         red = None if request.method == "POST" else hr.hent(date_from.isoformat(), date_to.isoformat())
         if red is None:
-            red = hr.lag_og_lagre(hv.finn_signaler(conn, date_from, date_to))
+            red = hr.lag_og_lagre(hv.finn_signaler_lagret(conn, date_from, date_to,
+                                                          ny=request.method == "POST"))
     except Exception as exc:
         _LOG.exception("Feil i viktige endringer")
         return render_template("handler/viktige_endringer.html", red=None,
