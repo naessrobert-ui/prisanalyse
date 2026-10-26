@@ -135,6 +135,32 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .dc-more{font-size:12px;color:var(--blue);text-align:right;margin-top:2px}
 .dc.open{box-shadow:0 0 0 2px var(--blue-soft)}
 .stripsvg{display:block;overflow:visible}
+/* Timetabell (mobil) */
+.htab{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.htab th{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);text-align:left;padding:2px 4px 6px;border-bottom:1px solid var(--line)}
+.htab td{padding:3px 4px;border-bottom:1px solid var(--line);vertical-align:middle;line-height:1.25}
+.htab .r{text-align:right}
+.htab td small{display:block;font-size:11px;font-weight:600}
+.htab .tid{width:34px;color:var(--muted)}
+.htab .ic{width:38px;height:38px}
+.htab .ic svg{display:block}
+.htab .ic small{font-weight:400}
+.htab .tmp{font-weight:600;font-size:15px}
+.htab .mm{color:var(--blue);font-weight:600}
+.htab .mm.obs{color:var(--obs)}
+.htab .yrc{color:var(--blue)} .htab .gc{color:var(--google)}
+.htab .vind{white-space:nowrap;color:var(--ink)}
+.htab .vind svg{vertical-align:-2px;color:var(--muted)}
+.htab .dis{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--warn);vertical-align:1px}
+.htab tr.past td{background:var(--past)}
+.htab tr.past .tid{color:var(--muted)}
+.htab tr.nowrow td{background:var(--blue-ghost)}
+.htab tr.nowrow .tid{color:var(--nowline);font-weight:700}
+.htab tr.est td{background-image:repeating-linear-gradient(135deg,rgba(127,140,155,.10) 0 3px,transparent 3px 7px)}
+.htab tr.dsep td{font-size:12px;font-weight:700;text-transform:capitalize;padding:10px 4px 4px;color:var(--ink)}
+.htab tr.pastsum td{background:var(--past);font-size:13px;color:var(--muted);cursor:pointer;padding:8px 6px}
+.htab tr.pastsum b{color:var(--ink)}
+.htab tr.pastsum .chev{float:right;font-weight:600}
 .dc-hdr{display:flex;justify-content:flex-end;gap:0;padding:0 12px 6px}
 .dc-hdr span{width:46px;text-align:center;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
 .dc{display:block;background:var(--card);border-radius:14px;padding:12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(20,40,60,.06)}
@@ -661,17 +687,68 @@ function legendHTML(o){
   if(o.est) s+=it('background:repeating-linear-gradient(135deg,var(--line) 0 2px,transparent 2px 5px);border:1px solid var(--line)','Fordelt etter Google sin timeprofil');
   return s;
 }
+/* ---------- Timetabell for mobil (timene nedover, som på yr.no) ---------- */
+let PAST_OPEN=false;
+function hourTable(H, showG){
+  const nowIdx=H.findIndex(h=>!h.past), nPast=nowIdx<0?H.length:nowIdx;
+  const rainOf=h=>h.past?h.obs_rain:h.rain;
+  const dry=H.every(h=>Math.max(rainOf(h)||0,h.rain_max||0,h.ref_rain||0)<.1&&(!showG||(h.g_rain||0)<.05));
+  const est=H.some(h=>h.src&&h.src!=='yr');
+  const hh=h=>String(h.hour).padStart(2,'0');
+  const deg=v=>v==null?'':`<span style="color:${tcol(v)}">${Math.round(v)}°</span>`;
+  const wind=(w,g,dir)=>w==null?'':`${dir==null?'':arrow(dir,13)} ${Math.round(w)}${g!=null&&Math.round(g)>Math.round(w)?` <span class="muted">(${Math.round(g)})</span>`:''}`;
+  const gTxt=h=>showG&&h.g_rain!=null&&(h.g_rain>=.02||(rainOf(h)||0)>=.1)?`<small class="gc">G ${fmtSmall(h.g_rain)}${h.disagree?' <i class="dis" title="Yr og Google er uenige denne timen"></i>':''}</small>`:'';
+  let s=`<table class="htab"><thead><tr><th>Kl.</th><th></th><th class="r">Temp.</th>${dry?'':'<th class="r">Nedbør mm</th>'}<th class="r">Vind (kast)</th></tr></thead><tbody>`;
+  if(nPast>0){
+    const P=H.slice(0,nPast), tv=P.map(h=>h.obs_temp).filter(v=>v!=null), mm=P.reduce((a,h)=>a+(h.obs_rain||0),0);
+    const til=nPast<H.length?hh(H[nPast]):String((H[nPast-1].hour+1)%24).padStart(2,'0');
+    s+=`<tr class="pastsum" data-pasttoggle role="button" tabindex="0" aria-expanded="${PAST_OPEN}"><td colspan="${dry?4:5}"><b>Målt ${hh(P[0])}–${til}</b>${tv.length?` · ${Math.round(Math.min(...tv))}–${Math.round(Math.max(...tv))}°`:''}${dry?'':` · ${fmt1(mm)} mm`}<span class="chev">${PAST_OPEN?'Skjul ▴':'Vis timene ▾'}</span></td></tr>`;
+  }
+  H.forEach((h,i)=>{
+    if(h.past&&!PAST_OPEN) return;
+    if(h.hour===0&&i>0) s+=`<tr class="dsep"><td colspan="${dry?4:5}">${WEEKDAYS_FULL[new Date(h.time).getDay()]} ${new Date(h.time).getDate()}.${new Date(h.time).getMonth()+1}.</td></tr>`;
+    const now=i===nowIdx&&nowIdx>0, cls=[h.past?'past':'',now?'nowrow':'',h.src&&h.src!=='yr'?'est':''].filter(Boolean).join(' ');
+    s+=`<tr${cls?` class="${cls}"`:''}><td class="tid">${now?'Nå':hh(h)}</td>`;
+    if(h.past){
+      s+=`<td class="ic"><small class="muted">målt</small></td><td class="r tmp">${deg(h.obs_temp)}${h.ref_temp!=null?`<small class="muted">Yr ${Math.round(h.ref_temp)}°</small>`:''}</td>`;
+      if(!dry) s+=`<td class="r mm obs">${h.obs_rain>=.1?fmt(h.obs_rain):h.obs_rain!=null?'0':''}${h.ref_rain>=.1?`<small class="yrc">Yr ${fmt(h.ref_rain)}</small>`:''}${gTxt(h)}</td>`;
+      s+=`<td class="r vind">${wind(h.obs_wind,h.obs_gust,null)}</td></tr>`;
+    }else{
+      const r=h.rain||0, mx=h.rain_max||0;
+      const mmTxt=mx>=.1&&mx>r?`${fmt(r)}–${fmt(mx)}`:r>=.1?fmt(r):'';
+      s+=`<td class="ic">${h.symbol?icon(h.symbol,30):''}</td><td class="r tmp">${deg(h.temp)}</td>`;
+      if(!dry) s+=`<td class="r mm">${mmTxt}${h.pop!=null&&h.pop>=10&&mmTxt?`<small class="muted">${Math.round(h.pop)} %</small>`:''}${gTxt(h)}</td>`;
+      s+=`<td class="r vind">${wind(h.wind,h.gust,h.wind_dir)}</td></tr>`;
+    }
+  });
+  s+='</tbody></table>';
+  return {html:s,dry,hasPast:nPast>0,est};
+}
+function tableLegendHTML(o){
+  const it=(style,txt)=>`<span><i style="${style}"></i>${txt}</span>`;
+  let s='';
+  if(!o.dry) s+=it('background:var(--blue)','Yr (min–maks)');
+  if(o.showG) s+=it('border:2px solid var(--google);background:none','G = Google')+it('background:var(--warn);border-radius:50%;width:8px;height:8px','Uenige');
+  if(o.hasPast) s+=it('background:var(--past);border:1px solid var(--line)','Målt');
+  if(o.est) s+=it('background:repeating-linear-gradient(135deg,var(--line) 0 2px,transparent 2px 5px);border:1px solid var(--line)','Fordelt etter Google sin timeprofil');
+  return s;
+}
 function drawStrip(){
   const H=DATA.today||[], showG=$('showG').checked&&DATA.google_available, strip=$('strip');
-  const Wc=strip.parentElement.clientWidth, r=chartSVG(H,Wc,showG);
-  strip.style.width=Wc+'px'; strip.innerHTML=r.svg;
+  let r;
+  if(MOBILE.matches){ r=hourTable(H,showG); strip.style.width=''; strip.innerHTML=r.html; }
+  else{ const Wc=strip.parentElement.clientWidth; r=chartSVG(H,Wc,showG); strip.style.width=Wc+'px'; strip.innerHTML=r.svg; }
   $('stripTitle').textContent=H.length>24?'I dag og i natt':'I dag';
   const future=H.filter(h=>!h.past), yr=future.reduce((a,h)=>a+(h.rain||0),0), g=future.reduce((a,h)=>a+(h.g_rain||0),0);
   const rest=r.dry?'Ingen nedbør ventet resten av døgnet.':`Resten av døgnet: <b class="yrc">Yr ${fmt1(yr)} mm</b>${showG?` · <b class="gc">Google ${fmt1(g)} mm</b>`:''}.`;
   $('stripSum').innerHTML=(DATA.today_score?`<div class="score">${DATA.today_score.text}</div>`:'')+rest;
-  $('stripLegend').innerHTML=legendHTML({...r,showG});
+  $('stripLegend').innerHTML=MOBILE.matches?tableLegendHTML({...r,showG}):legendHTML({...r,showG});
 }
 $('showG').onchange=drawStrip;
+function togglePast(e){ if(!e.target.closest('[data-pasttoggle]')) return;
+  if(e.type==='keydown'){ if(e.key!=='Enter'&&e.key!==' ') return; e.preventDefault(); }
+  e.stopPropagation(); PAST_OPEN=!PAST_OPEN; drawStrip(); if(OPEN_DAY) renderDays(); }
+document.addEventListener('click',togglePast); document.addEventListener('keydown',togglePast);
 
 /* ---------- Dagsliste med detaljer ---------- */
 const MOBILE=window.matchMedia('(max-width:760px)');
@@ -715,7 +792,12 @@ function dayDetail(d){
   }
   const showG=DATA.google_available;
   let s='<div class="ddetail">';
-  if(hours.length>=6){
+  if(hours.length>=6&&MOBILE.matches){
+    const hasG=hours.some(h=>h.g_rain!=null);
+    const r=hourTable(hours,showG&&hasG);
+    s+=`<div class="dd-h">Time for time${note||(hours.length<24&&d.label!=='I dag'?` (Yr har timesvarsel ${hours.length} timer denne dagen)`:'')}</div>${r.html}<div class="legend">${tableLegendHTML({...r,showG:showG&&hasG})}</div>`;
+    if(showG&&!hasG) s+=googleDayLine(d.date);
+  }else if(hours.length>=6){
     const w=Math.max(260,$('days').clientWidth-(MOBILE.matches?24:8));
     const r=chartSVG(hours,w,showG);
     const hasG=hours.some(h=>h.g_rain!=null);
@@ -783,7 +865,7 @@ function renderDays(){
     el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleDay(el.dataset.day)}});
   });
 }
-MOBILE.addEventListener('change',()=>{if(DATA)renderDays()});
+MOBILE.addEventListener('change',()=>{if(DATA){drawStrip();renderDays()}});
 let _rs;window.addEventListener('resize',()=>{clearTimeout(_rs);_rs=setTimeout(()=>{if(DATA){drawStrip();if(OPEN_DAY)renderDays()}},150)});
 
 /* ---------- Samlet timeserie og værsøk ---------- */
