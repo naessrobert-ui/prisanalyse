@@ -198,3 +198,19 @@ services:
         sync: false
       - key: EE_USER_CREDENTIALS
         sync: false
+
+  - type: cron
+    name: newsweb-monitor-klokke
+    runtime: python
+    # Hvert kvarter 04–22 UTC (dekker 06–23 Oslo både vinter og sommer).
+    # Starter GitHub-workflowen NewsWeb AI monitor, fordi GitHub sin egen
+    # schedule ofte blir forsinket eller hoppet over. Scriptet sjekker selv
+    # Oslo-vinduet, så kvarterene etter kl. 10 avsluttes uten kall.
+    schedule: "*/15 4-22 * * *"
+    buildCommand: python --version
+    startCommand: python scripts/trigg_newsweb_monitor.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: NEWSWEB_GITHUB_TOKEN
+        sync: false

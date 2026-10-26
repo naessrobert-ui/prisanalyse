@@ -35,6 +35,10 @@ on:
         description: 'Hent inntil fire tidligere kvartalsrapporter for nylige regnskapsmeldinger'
         type: boolean
         default: false
+      scheduled:
+        description: 'Oppfør deg som planlagt kjøring (brukes av Render-cron newsweb-monitor-klokke)'
+        type: boolean
+        default: false
 permissions:
   contents: write
   actions: read
@@ -52,9 +56,10 @@ jobs:
         id: window
         env:
           EVENT_NAME: ${{ github.event_name }}
+          SCHEDULED_DISPATCH: ${{ github.event_name == 'workflow_dispatch' && inputs.scheduled || false }}
         shell: bash
         run: |
-          if [ "$EVENT_NAME" != "schedule" ]; then
+          if [ "$EVENT_NAME" != "schedule" ] && [ "$SCHEDULED_DISPATCH" != "true" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "history_run=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -83,7 +88,7 @@ jobs:
     timeout-minutes: 25
     env:
       SOURCE_MODE: ${{ github.event_name == 'pull_request' && 'demo' || github.event_name == 'workflow_dispatch' && inputs.mode || 'newsweb' }}
-      DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || github.event_name == 'workflow_dispatch' && format('{0}', inputs.dry_run) || vars.NEWSWEB_DRY_RUN || 'true' }}
+      DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || github.event_name == 'workflow_dispatch' && !inputs.scheduled && format('{0}', inputs.dry_run) || vars.NEWSWEB_DRY_RUN || 'true' }}
       NEWS_FEED_URL: ${{ secrets.NEWS_FEED_URL }}
       REPO_PRIVATE: ${{ github.event.repository.private }}
       CONSENSUS_JSON_URL: ${{ secrets.CONSENSUS_JSON_URL }}
@@ -102,6 +107,11 @@ jobs:
       PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Runs queue behind each other (concurrency). Check out the newest main,
+          # not the SHA from trigger time, so publish_site builds on the previous
+          # run's latest.json and the push is not rejected as non-fast-forward.
+          ref: ${{ github.event_name != 'pull_request' && github.ref_name == 'main' && 'main' || '' }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
