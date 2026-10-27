@@ -203,6 +203,19 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .rain-tot .v{font-size:14px;color:var(--blue);font-weight:700;min-width:40px;text-align:right}
 .rain-tot .v.dry{color:var(--muted);font-weight:400}
 
+
+/* Daglig vær: kompakt nedbør og oppholdsluker */
+.days{grid-template-columns:minmax(90px,auto) 145px repeat(4,58px) 170px minmax(140px,1fr)}
+.day-rain{flex-direction:column;justify-content:center;align-items:flex-start!important;font-size:12px;font-variant-numeric:tabular-nums}
+.day-rain b{color:var(--blue)}.day-rain small{color:var(--muted);font-size:10px}
+.day-window{display:flex;flex-direction:column;gap:5px;width:100%;justify-content:center}
+.day-window-bars{display:grid;grid-template-columns:repeat(15,minmax(0,1fr));gap:2px}
+.day-window-bars i{height:16px;border-radius:3px;background:var(--blue-soft)}
+.day-window-bars i.ok{background:var(--ok)}
+.day-window-bars i.maybe{background:#f3c15e}
+.day-window small{color:var(--muted);font-size:10px}
+.period-wind{font-size:10px;color:var(--muted);white-space:nowrap}
+@media(max-width:760px){.day-window{padding:0 8px 8px}.day-rain{font-size:11px}}
 /* Tillit */
 .trust{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .trust .t{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:10px}
@@ -773,7 +786,7 @@ function wnDayLine(date){
 function wnDetail(d){
   let s='<div class="ddetail"><div class="dd-h">WeatherNext i bolker på seks timer</div><div class="dd-blocks">';
   const tider={natt:'00–06',morgen:'06–12',ettermiddag:'12–18',kveld:'18–24'};
-  d.periods.forEach(p=>{
+  d.periods.forEach((p,i)=>{
     s+=`<div class="dd-b"><div class="dd-t">${tider[p.name]||p.name}</div>${p.symbol?icon(p.symbol,44):'<span class="dash">–</span>'}<div class="dd-temp">${p.tmin!=null?p.tmin+'–':''}${p.tmax!=null?p.tmax+'°':''}</div><div class="dd-mm${p.rain>=.1?'':' dry'}">${p.rain>=.1?fmt1(p.rain)+' mm':'0 mm'}</div></div>`;
   });
   s+='</div>'+wnDayLine(d.date);
@@ -815,6 +828,32 @@ function dayDetail(d){
 }
 function toggleDay(date){OPEN_DAY=OPEN_DAY===date?null:date; renderDays();
   const el=document.querySelector(`[data-day="${date}"]`); if(el&&OPEN_DAY) el.scrollIntoView({block:'nearest',behavior:'smooth'})}
+
+function dayRainSpan(d){
+ const v=[d.rain,d.g_rain].filter(Number.isFinite);
+ if(!v.length)return '–';
+ const lo=Math.min(...v),hi=Math.max(...v),mid=v.reduce((a,b)=>a+b,0)/v.length;
+ return `${fmt1(lo)} / <b>${fmt1(mid)}</b> / ${fmt1(hi)}`;
+}
+function dayHourly(date){return SERIES?.hours?.filter(h=>h.time.slice(0,10)===date)||[]}
+function periodWind(date,index){
+ const hs=dayHourly(date).filter(h=>h.hour>=index*6&&h.hour<(index+1)*6&&Number.isFinite(h.wind));
+ if(!hs.length)return '';
+ const h=hs[Math.floor(hs.length/2)];
+ return `<span class="period-wind" title="Pil viser retningen vinden blåser mot">${h.wind_dir==null?'':arrow((h.wind_dir+180)%360,12)} ${Math.round(h.wind)} m/s</span>`;
+}
+function dayWindows(date){
+ const hs=dayHourly(date),by=new Map(hs.map(h=>[h.hour,h]));
+ if(!hs.length)return '<span class="muted small">Henter timer …</span>';
+ let best=0,first=-1,run=0,runAt=0;
+ const blocks=[];
+ for(let hr=7;hr<22;hr++){
+  const h=by.get(hr),dry=h&&Number.isFinite(h.rain)&&h.rain<0.2&&(h.g_rain==null||h.g_rain<0.2),safe=dry&&Number.isFinite(h.wind)&&h.wind<=8;
+  blocks.push(`<i class="${safe?'ok':dry?'maybe':''}" title="Kl. ${hr}: ${h?fmt1(h.rain)+' mm og '+(h.wind==null?'ukjent vind':Math.round(h.wind)+' m/s'):'ingen prognose'}"></i>`);
+  if(safe){if(!run)runAt=hr;run++;if(run>best){best=run;first=runAt}}else run=0;
+ }
+ return `<div class="day-window" title="Grønn: nedbør under 0,2 mm/t og vind høyst 8 m/s. Gul: lite nedbør, men sterk eller ukjent vind."><div class="day-window-bars">${blocks.join('')}</div><small>${best>=2?'Beste luke '+String(first).padStart(2,'0')+'–'+String(first+best).padStart(2,'0'):'Ingen luke over 1 time'} · 07–22</small></div>`;
+}
 function renderDays(){
   const wk=$('wnKilde'); if(wk) wk.hidden=!DATA.weathernext;
   const D=DATA.days.filter(d=>d.tmin!=null);
@@ -825,16 +864,16 @@ function renderDays(){
     let s=`<div class="dc-hdr"><span>Natt</span><span>Morg.</span><span>Ettm.</span><span>Kveld</span></div>`;
     D.forEach(d=>{
       const wind=d.wind_max==null?'':`${d.wind_max}${d.gust_max!=null&&d.gust_max>d.wind_max?` (${d.gust_max})`:''} m/s`;
-      const rain=d.rain>=.1?`${fmt1(d.rain)} mm${d.observed?` <span class="muted">(${fmt1(d.observed)} målt)</span>`:''}`:'';
+      const rain=`Min / forventet / maks: ${dayRainSpan(d)} mm`;
       const g=d.g_rain!=null&&(d.g_rain>=.1||d.rain>=.1)?`<div class="dc-g">Google ${fmt1(d.g_rain)} mm</div>`:'';
       const wn=d.source==='weathernext';
       s+=`<div class="dc${OPEN_DAY===d.date?' open':''}${wn?' wn':''}" data-day="${d.date}" role="button" tabindex="0" aria-expanded="${OPEN_DAY===d.date}">
         <div class="dc-row"><div class="dc-l"><div class="dc-n">${d.label} <span>${dayDate(d)}</span>${wn?'<span class="wn-tag">WeatherNext</span>':''}</div>
         <div class="dc-t"><span style="color:${tcol(d.tmax)}">${d.tmax}°</span><span class="sl">/</span><span style="color:${tcol(d.tmin)}">${d.tmin}°</span></div>
         ${wn&&d.lo!=null?`<div class="dc-w" style="color:var(--wn)">80 %: ${d.lo}–${d.hi}°</div>`:''}
-        ${rain?`<div class="dc-r">${rain}</div>`:''}${g}<div class="dc-w">${wind}</div></div>
-        <div class="dc-i">${d.periods.map(p=>`<div class="dc-p">${p.symbol?icon(p.symbol,44):'<span class="dash">–</span>'}<small>${p.symbol&&p.rain>=.1?fmt(p.rain):''}</small></div>`).join('')}</div></div>
-        <div class="dc-more">${OPEN_DAY===d.date?'Skjul detaljer':'Vis detaljer'} ${chev(d)}</div>
+        ${rain?`<div class="dc-r">${rain}</div>`:''}<div class="dc-w">${wind}</div></div>
+        <div class="dc-i">${d.periods.map((p,i)=>`<div class="dc-p">${p.symbol?icon(p.symbol,44):'<span class="dash">–</span>'}<small>${p.symbol&&p.rain>=.1?fmt(p.rain):''}</small>${periodWind(d.date,i)}</div>`).join('')}</div></div>
+        <div style="padding:0 10px">${dayWindows(d.date)}</div><div class="dc-more">${OPEN_DAY===d.date?'Skjul detaljer':'Vis detaljer'} ${chev(d)}</div>
         ${OPEN_DAY===d.date?dayDetail(d):''}</div>`;
     });
     box.innerHTML=s;
@@ -842,21 +881,18 @@ function renderDays(){
     box.className='days';
     const lo=Math.min(...D.map(d=>d.tmin)), hi=Math.max(...D.map(d=>d.tmax)), span=Math.max(1,hi-lo);
     const rmax=Math.max(1,...D.map(d=>Math.max(d.rain,d.g_rain||0)));
-    let s=`<div class="hdr"></div><div class="hdr">Natt</div><div class="hdr">Morg.</div><div class="hdr">Ettm.</div><div class="hdr">Kveld</div><div class="hdr">Temp.</div><div class="hdr rain-h">Nedbør (mm)</div>`;
+    let s=`<div class="hdr"></div><div class="hdr">Nedbør mm<small style="display:block">min / forventet / maks</small></div><div class="hdr">Natt</div><div class="hdr">Morg.</div><div class="hdr">Ettm.</div><div class="hdr">Kveld</div><div class="hdr">Temp.</div><div class="hdr">Opphold 07–22</div>`;
     D.forEach(d=>{
       const open=OPEN_DAY===d.date, wn=d.source==='weathernext';
       s+=`<div class="drow${open?' open':''}${wn?' wn':''}" data-day="${d.date}" role="button" tabindex="0" aria-expanded="${open}"${wn?' title="Yr varsler ikke så langt frem. Tallene er fra WeatherNext og er usikre."':''}>`;
-      s+=`<div class="cell dname">${d.label}${wn?'<span class="wn-tag">WeatherNext</span>':''}<span>${chev(d)} ${dayDate(d)}${d.wind_max!=null?` · ${d.wind_max} m/s`:''}</span></div>`;
+      s+=`<div class="cell dname">${d.label}${wn?'<span class="wn-tag">WeatherNext</span>':''}<span>${chev(d)} ${dayDate(d)}</span></div><div class="cell day-rain">${dayRainSpan(d)}<small>${d.observed?'Inkl. '+fmt1(d.observed)+' mm målt':''}</small></div>`;
       d.periods.forEach(p=>{
-        if(p.symbol) s+=`<div class="cell per">${icon(p.symbol,38)}<small>${p.rain>=.1?fmt(p.rain):''}</small></div>`;
+        if(p.symbol) s+=`<div class="cell per">${icon(p.symbol,38)}<small>${p.rain>=.1?fmt(p.rain):''}</small>${periodWind(d.date,i)}</div>`;
         else s+=`<div class="cell per past"><span class="dash">–</span></div>`;
       });
       const l=(d.tmin-lo)/span*100, w=(d.tmax-d.tmin)/span*100;
       s+=`<div class="cell"><div class="range"><span class="lo">${d.tmin}°</span><span class="track"><span class="fill" style="left:${l}%;width:${Math.max(w,3)}%"></span></span><span class="hi">${d.tmax}°</span>${wn&&d.lo!=null?`<span class="spenn">${d.lo}–${d.hi}°</span>`:''}</div></div>`;
-      let r=`<span class="track2">${d.rain>0?`<span class="rb${wn?' wn':''}" style="width:${Math.max(2,d.rain/rmax*100)}%"></span>`:''}</span><span class="v${d.rain>0?'':' dry'}">${d.rain>0?fmt1(d.rain):'0'}</span>`;
-      if(d.g_rain!=null) r+=`<span class="track2 g">${d.g_rain>0?`<span class="rb g" style="width:${Math.max(2,d.g_rain/rmax*100)}%"></span>`:''}</span><span class="v g">${fmt1(d.g_rain)}</span>`;
-      if(d.observed) r+=`<span class="note">Inkludert ${fmt1(d.observed)} mm målt i natt</span>`;
-      s+=`<div class="cell"><div class="rain-tot">${r}</div></div></div>`;
+      s+=`<div class="cell">${dayWindows(d.date)}</div></div>`;
       if(open) s+=`<div class="dfull">${dayDetail(d)}</div>`;
     });
     box.innerHTML=s;
@@ -1049,7 +1085,7 @@ async function load(){
     renderNow(d); renderNowcast(d); renderAnswers(d); drawStrip(); renderDays(); renderTrust(d);
     if($('radar').classList.contains('open')) renderNcTable(d);
     // Hent timeserien i bakgrunnen, så værluken er klar når den åpnes.
-    ensureSeries().then(()=>{if(!$('sokCard').hidden) renderSok()}).catch(()=>{});
+    ensureSeries().then(()=>{renderDays();if(!$('sokCard').hidden) renderSok()}).catch(()=>{});
   }catch(e){
     $('error').hidden=false;
     $('error').textContent='Fikk ikke hentet varselet akkurat nå. Prøver igjen om litt.';
