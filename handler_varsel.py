@@ -143,7 +143,7 @@ def hent_handler(conn, fra: dt.date, til: dt.date, investor_ids: list[str] | Non
     sql = f"""
         SELECT pc.investor_id, pc.isin, substr(pc.date_today,1,10) AS dato,
                pc.change_qty AS antall,
-               COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0)) AS kurs,
+               COALESCE(NULLIF(pc.price_today,0), NULLIF(pc.price_yesterday,0)) AS kurs,
                COALESCE(pc.holding_yesterday,0) AS beh_for,
                COALESCE(pc.holding_today,0) AS beh_etter
         FROM position_change pc {join}

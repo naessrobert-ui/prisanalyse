@@ -178,7 +178,7 @@ def test_net_buys_over_period(conn):
     eqnr = pos["NO0010096985"]
     # Kjøp 50 000 (2026-07-01) + 100 000 (2026-08-06) = 150 000
     assert eqnr.net_buy_shares == 150_000
-    assert eqnr.net_buy_mnok == pytest.approx((50000 * 294 + 100000 * 300) / 1e6)
+    assert eqnr.net_buy_mnok == pytest.approx((50000 * 295 + 100000 * 305) / 1e6)
     assert eqnr.n_trades == 2
     assert eqnr.last_trade == "2026-08-06"
     # MOWI ble ikke handlet i perioden -> ingen nettokjøpsdata

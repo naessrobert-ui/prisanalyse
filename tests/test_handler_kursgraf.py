@@ -46,12 +46,12 @@ def _build_db(path: str) -> None:
             rows.append((ISIN, "2001", d.isoformat(), 10_000, 10_000, px + 1, px, 0))
             px += 1
         d += dt.timedelta(days=1)
-    # Investor 1001: kjøp, kjøp, salg
+    # Investor 1001: kjøp, kjøp, salg (price_today = sluttkurs på handelsdagen)
     rows += [
-        (ISIN, "1001", "2026-09-07", 600_000, 500_000, 0, 292.0, 100_000),
-        (ISIN, "1001", "2026-09-08", 650_000, 600_000, 0, 293.0, 50_000),
-        (ISIN, "1001", "2026-09-21", 250_000, 650_000, 0, 302.0, -400_000),
-        (ISIN, "1001", "2026-09-22", 250_000, 250_000, 0, 303.0, 0),   # ingen endring
+        (ISIN, "1001", "2026-09-07", 600_000, 500_000, 293.0, 292.0, 100_000),
+        (ISIN, "1001", "2026-09-08", 650_000, 600_000, 294.0, 293.0, 50_000),
+        (ISIN, "1001", "2026-09-21", 250_000, 650_000, 303.0, 302.0, -400_000),
+        (ISIN, "1001", "2026-09-22", 250_000, 250_000, 304.0, 303.0, 0),   # ingen endring
     ]
     conn.executemany("INSERT INTO position_change VALUES (?,?,?,?,?,?,?,?)", rows)
     conn.commit()
@@ -94,8 +94,11 @@ def test_fetch_kursgraf_prices_and_trades(conn):
     tr = data["trades"]
     assert [t["dato"] for t in tr] == ["2026-09-07", "2026-09-08", "2026-09-21"]
     assert [t["antall"] for t in tr] == [100_000, 50_000, -400_000]
-    assert tr[0]["kurs"] == pytest.approx(292.0)
-    assert tr[2]["belop_mnok"] == pytest.approx(-120.8)
+    assert tr[0]["kurs"] == pytest.approx(293.0)
+    assert tr[2]["belop_mnok"] == pytest.approx(-121.2)
+    # Markørene ligger på kurslinjen
+    px = {p["d"]: p["p"] for p in data["prices"]}
+    assert all(px[t["dato"]] == pytest.approx(t["kurs"]) for t in tr)
     assert tr[0]["beholdning_for"] == 500_000
     assert [t["beholdning"] for t in tr] == [600_000, 650_000, 250_000]
 

@@ -67,6 +67,11 @@ class DbCols:
     inv_last_col: Optional[str]
     inv_name_col: Optional[str]
     inv_country_col: Optional[str]
+    price_alt_col: Optional[str] = None
+
+
+def _price_alt_sql(cols: DbCols) -> str:
+    return f"pc.{cols.price_alt_col}" if cols.price_alt_col else "NULL"
 
 
 def _list_tables(conn: sqlite3.Connection) -> List[str]:
@@ -90,11 +95,13 @@ def detect_cols(conn: sqlite3.Connection) -> DbCols:
     investor_col = "investor_id" if "investor_id" in pc_cols else None
     qty_col = "change_qty" if "change_qty" in pc_cols else ("qty" if "qty" in pc_cols else None)
 
+    # price_today er sluttkurs på handelsdagen; price_yesterday brukes når den mangler
     price_trade_col = None
-    for c in ["price_yesterday", "price_today", "price"]:
+    for c in ["price_today", "price_yesterday", "price"]:
         if c in pc_cols:
             price_trade_col = c
             break
+    price_alt_col = "price_yesterday" if price_trade_col == "price_today" and "price_yesterday" in pc_cols else None
 
     sec_isin_col = "isin"
     sec_ticker_col = "ticker" if "ticker" in sec_cols else None
@@ -119,7 +126,7 @@ def detect_cols(conn: sqlite3.Connection) -> DbCols:
 
     return DbCols(
         date_col=date_col, isin_col=isin_col, investor_col=investor_col,
-        qty_col=qty_col, price_trade_col=price_trade_col,
+        qty_col=qty_col, price_trade_col=price_trade_col, price_alt_col=price_alt_col,
         sec_isin_col=sec_isin_col, sec_ticker_col=sec_ticker_col,
         sec_name_col=sec_name_col, sec_last_price_col=sec_last_price_col,
         inv_type_col=inv_type_col, inv_first_col=inv_first_col,
@@ -380,6 +387,7 @@ def compute_best_investors(
            pc.{cols.isin_col} AS isin,
            pc.{cols.qty_col} AS qty,
            pc.{cols.price_trade_col} AS price_main,
+           {_price_alt_sql(cols)} AS price_alt,
            p2.p AS price_nextday
     FROM position_change pc
     LEFT JOIN prices p2
@@ -394,11 +402,13 @@ def compute_best_investors(
     df["isin"] = df["isin"].astype(str).str.strip()
     df["qty"] = pd.to_numeric(df["qty"], errors="coerce").fillna(0.0)
     df["price_main"] = pd.to_numeric(df["price_main"], errors="coerce").fillna(0.0)
+    df["price_alt"] = pd.to_numeric(df["price_alt"], errors="coerce").fillna(0.0)
     df["price_nextday"] = pd.to_numeric(df["price_nextday"], errors="coerce").fillna(0.0)
 
     df["trade_price"] = df["price_main"]
-    mask0 = df["trade_price"] <= 0
-    df.loc[mask0, "trade_price"] = df.loc[mask0, "price_nextday"]
+    for fallback in ("price_alt", "price_nextday"):
+        mask0 = df["trade_price"] <= 0
+        df.loc[mask0, "trade_price"] = df.loc[mask0, fallback]
     # Bare rader med faktisk endring i beholdning er handler
     df = df[(df["trade_price"] > 0) & (df["qty"] != 0)]
     if df.empty:
@@ -555,6 +565,7 @@ def fetch_transactions(
            {ticker_expr}, {name_expr},
            pc.{cols.qty_col} AS qty,
            pc.{cols.price_trade_col} AS price_main,
+           {_price_alt_sql(cols)} AS price_alt,
            p2.p AS price_nextday
     FROM position_change pc
     LEFT JOIN security s ON s.{cols.sec_isin_col}=pc.{cols.isin_col}
@@ -569,11 +580,13 @@ def fetch_transactions(
     df["isin"] = df["isin"].astype(str).str.strip()
     df["qty"] = pd.to_numeric(df["qty"], errors="coerce").fillna(0.0)
     df["price_main"] = pd.to_numeric(df["price_main"], errors="coerce").fillna(0.0)
+    df["price_alt"] = pd.to_numeric(df["price_alt"], errors="coerce").fillna(0.0)
     df["price_nextday"] = pd.to_numeric(df["price_nextday"], errors="coerce").fillna(0.0)
 
     df["trade_price"] = df["price_main"]
-    mask0 = df["trade_price"] <= 0
-    df.loc[mask0, "trade_price"] = df.loc[mask0, "price_nextday"]
+    for fallback in ("price_alt", "price_nextday"):
+        mask0 = df["trade_price"] <= 0
+        df.loc[mask0, "trade_price"] = df.loc[mask0, fallback]
     df = df[df["trade_price"] > 0]
     if df.empty:
         return df

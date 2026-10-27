@@ -220,6 +220,17 @@ def upload_db_bytes_to_s3(db_bytes: bytes, filename: str = "topchanges.db") -> s
     return s3_uri
 
 
+def upload_db_backup_to_s3(local_path: str, tag: str) -> str:
+    """Laster opp en kopi av DB-filen ved siden av hovedobjektet i S3 (…/topchanges.<tag>.db)."""
+    bucket, final_key, _ = build_db_s3_target(filename=Path(local_path).name or "topchanges.db")
+    stem, dot, ext = final_key.rpartition(".")
+    backup_key = f"{stem}.{tag}.{ext}" if dot and "/" not in ext else f"{final_key}.{tag}"
+    client_args = {"region_name": HANDLER_DB_S3_REGION} if HANDLER_DB_S3_REGION else {}
+    s3 = boto3.client("s3", **client_args)
+    s3.upload_file(local_path, bucket, backup_key)
+    return f"s3://{bucket}/{backup_key}"
+
+
 def get_db_s3_object_last_modified(filename: str = "topchanges.db") -> str | None:
     if not HANDLER_DB_S3_URI:
         return None
@@ -282,6 +293,79 @@ def _normalize_date(value):
         return d.date().isoformat()
     except Exception:
         return None
+
+
+# =========================================================
+# Handelsdato vs. oppgjørsdato
+# =========================================================
+# En TopChanges-fil merket D viser beholdning i VPS etter oppgjør D. Kurs idag er
+# sluttkurs D og Kurs igaar sluttkurs forrige handelsdag, men selve handelen ble
+# gjort OPPGJOR_HANDELSDAGER handelsdager før D (T+2). Ved innlesing lagres derfor
+# date_today som handelsdato og filens dato som settle_date. Kursene i raden
+# (price_today/price_yesterday) settes til sluttkurs på handelsdagen og dagen før,
+# hentet fra security_close, som samler alle sluttkursene filene inneholder.
+# NB: EU går over til T+1 11. oktober 2027; da må dette gjøres datoavhengig.
+OPPGJOR_HANDELSDAGER = 2
+
+
+def _paaskedag(year: int) -> dt.date:
+    """Første påskedag (gregoriansk, anonym algoritme)."""
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month, day = divmod(h + l - 7 * m + 114, 31)
+    return dt.date(year, month, day + 1)
+
+
+_BORS_HELLIGDAGER: dict[int, frozenset[dt.date]] = {}
+
+
+def oslo_bors_helligdager(year: int) -> frozenset[dt.date]:
+    """Hverdager Oslo Børs holder stengt."""
+    hit = _BORS_HELLIGDAGER.get(year)
+    if hit is None:
+        p = _paaskedag(year)
+        hit = frozenset({
+            dt.date(year, 1, 1),
+            p - dt.timedelta(days=3),   # skjærtorsdag
+            p - dt.timedelta(days=2),   # langfredag
+            p + dt.timedelta(days=1),   # 2. påskedag
+            dt.date(year, 5, 1),
+            dt.date(year, 5, 17),
+            p + dt.timedelta(days=39),  # Kristi himmelfartsdag
+            p + dt.timedelta(days=50),  # 2. pinsedag
+            dt.date(year, 12, 24),
+            dt.date(year, 12, 25),
+            dt.date(year, 12, 26),
+            dt.date(year, 12, 31),
+        })
+        _BORS_HELLIGDAGER[year] = hit
+    return hit
+
+
+def er_handelsdag(d: dt.date) -> bool:
+    return d.weekday() < 5 and d not in oslo_bors_helligdager(d.year)
+
+
+def flytt_handelsdager(d: dt.date, n: int) -> dt.date:
+    """Gå n handelsdager frem (n > 0) eller tilbake (n < 0) fra d."""
+    step = dt.timedelta(days=1 if n > 0 else -1)
+    left = abs(n)
+    while left:
+        d += step
+        if er_handelsdag(d):
+            left -= 1
+    return d
+
+
+def handelsdato_for_oppgjor(settle: dt.date) -> dt.date:
+    return flytt_handelsdager(settle, -OPPGJOR_HANDELSDAGER)
 
 
 def _resolve_file_date_today(date_values: pd.Series, filename: str) -> pd.Series:
@@ -358,6 +442,171 @@ def _ensure_upload_schema(conn: sqlite3.Connection) -> None:
     """
     )
     conn.commit()
+    _ensure_trade_date_schema(conn)
+    migrer_til_handelsdato(conn)
+
+
+def _ensure_trade_date_schema(conn: sqlite3.Connection) -> None:
+    pc_cols = [r[1] for r in conn.execute("PRAGMA table_info(position_change)").fetchall()]
+    if "settle_date" not in pc_cols:
+        conn.execute("ALTER TABLE position_change ADD COLUMN settle_date TEXT")
+    conn.executescript(
+        """
+    CREATE TABLE IF NOT EXISTS security_close (
+        isin TEXT NOT NULL,
+        date TEXT NOT NULL,
+        close REAL NOT NULL,
+        PRIMARY KEY (isin, date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pc_settle_date ON position_change(settle_date);
+    """
+    )
+    conn.commit()
+
+
+def _reprice_trade_rows(conn: sqlite3.Connection, date_from: str, date_to: str) -> None:
+    """Setter price_today/price_yesterday til sluttkurs på handelsdagen og dagen før.
+
+    Mangler sluttkursen for akkurat den dagen (aksjen var ikke med i filene), brukes
+    nærmeste kjente kurs før, ellers nærmeste etter.
+    """
+    conn.execute(
+        """
+    UPDATE position_change SET
+        price_today = COALESCE(
+            (SELECT c.close FROM security_close c
+              WHERE c.isin = position_change.isin AND c.date <= substr(position_change.date_today,1,10)
+              ORDER BY c.date DESC LIMIT 1),
+            (SELECT c.close FROM security_close c
+              WHERE c.isin = position_change.isin AND c.date > substr(position_change.date_today,1,10)
+              ORDER BY c.date ASC LIMIT 1),
+            price_today),
+        price_yesterday = COALESCE(
+            (SELECT c.close FROM security_close c
+              WHERE c.isin = position_change.isin AND c.date <= substr(position_change.date_yesterday,1,10)
+              ORDER BY c.date DESC LIMIT 1),
+            (SELECT c.close FROM security_close c
+              WHERE c.isin = position_change.isin AND c.date > substr(position_change.date_yesterday,1,10)
+              ORDER BY c.date ASC LIMIT 1),
+            price_yesterday)
+    WHERE settle_date IS NOT NULL AND date_today BETWEEN ? AND ?
+    """,
+        (date_from, date_to),
+    )
+
+
+def trenger_handelsdato_migrering(conn: sqlite3.Connection) -> bool:
+    pc_cols = [r[1] for r in conn.execute("PRAGMA table_info(position_change)").fetchall()]
+    if not pc_cols:
+        return False
+    if "settle_date" not in pc_cols:
+        return conn.execute("SELECT 1 FROM position_change LIMIT 1").fetchone() is not None
+    return conn.execute("SELECT 1 FROM position_change WHERE settle_date IS NULL LIMIT 1").fetchone() is not None
+
+
+def migrer_til_handelsdato(conn: sqlite3.Connection) -> int:
+    """Flytter rader lest inn før T+2-rettingen (settle_date IS NULL) til handelsdato.
+
+    Filens dato flyttes til settle_date, date_today/date_yesterday flyttes to/tre
+    handelsdager tilbake, og kursene settes til sluttkurs på de nye datoene. Kjøres i én
+    transaksjon og bare på rader som ikke er flyttet, så den kan trygt kjøres flere ganger.
+    Returnerer antall rader som ble flyttet.
+    """
+    _ensure_trade_date_schema(conn)
+    raw_dates = [r[0] for r in conn.execute(
+        "SELECT DISTINCT substr(date_today,1,10) FROM position_change WHERE settle_date IS NULL"
+    ).fetchall()]
+    dmap = []
+    for s in raw_dates:
+        try:
+            settle = dt.date.fromisoformat(str(s))
+        except (TypeError, ValueError):
+            continue
+        trade = handelsdato_for_oppgjor(settle)
+        dmap.append((s, trade.isoformat(), flytt_handelsdager(trade, -1).isoformat(),
+                     flytt_handelsdager(settle, -1).isoformat()))
+    if not dmap:
+        return 0
+
+    t0 = time.time()
+    # Sekundærindeksene bygges på nytt til slutt; å oppdatere dem rad for rad er mye tregere.
+    index_sql = [r[0] for r in conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='position_change' AND sql IS NOT NULL"
+    ).fetchall()]
+    index_names = [r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='position_change' AND sql IS NOT NULL"
+    ).fetchall()]
+    try:
+        for name in index_names:
+            conn.execute(f'DROP INDEX "{name}"')
+        conn.execute("CREATE TEMP TABLE IF NOT EXISTS _t2_map(d TEXT PRIMARY KEY, t TEXT, ty TEXT, dy TEXT)")
+        conn.execute("DELETE FROM _t2_map")
+        conn.executemany("INSERT INTO _t2_map VALUES (?, ?, ?, ?)", dmap)
+
+        # Sluttkursene i radene er riktige for filens datoer; ta vare på dem før de flyttes.
+        conn.execute(
+            """
+        INSERT OR REPLACE INTO security_close(isin, date, close)
+        SELECT isin, substr(date_today,1,10), MAX(price_today)
+        FROM position_change
+        WHERE settle_date IS NULL AND price_today > 0
+        GROUP BY isin, substr(date_today,1,10)
+        """
+        )
+        conn.execute(
+            """
+        INSERT OR IGNORE INTO security_close(isin, date, close)
+        SELECT pc.isin, COALESCE(substr(pc.date_yesterday,1,10), m.dy), MAX(pc.price_yesterday)
+        FROM position_change pc
+        JOIN _t2_map m ON m.d = substr(pc.date_today,1,10)
+        WHERE pc.settle_date IS NULL AND pc.price_yesterday > 0
+        GROUP BY pc.isin, COALESCE(substr(pc.date_yesterday,1,10), m.dy)
+        """
+        )
+
+        # Er samme fil allerede lest inn med ny logikk, beholdes den nye raden.
+        conn.execute(
+            """
+        DELETE FROM position_change
+        WHERE settle_date IS NULL
+          AND EXISTS (
+              SELECT 1 FROM _t2_map m
+              JOIN position_change n
+                ON n.isin = position_change.isin
+               AND n.investor_id = position_change.investor_id
+               AND n.date_today = m.t
+               AND n.settle_date IS NOT NULL
+              WHERE m.d = substr(position_change.date_today,1,10)
+          )
+        """
+        )
+        # To steg via et midlertidig prefiks, så en rad ikke kolliderer med primærnøkkelen
+        # til en rad som ennå ikke er flyttet.
+        cur = conn.execute(
+            """
+        UPDATE OR REPLACE position_change SET
+            settle_date = substr(date_today,1,10),
+            date_yesterday = (SELECT m.ty FROM _t2_map m WHERE m.d = substr(position_change.date_today,1,10)),
+            date_today = '~' || (SELECT m.t FROM _t2_map m WHERE m.d = substr(position_change.date_today,1,10))
+        WHERE settle_date IS NULL
+          AND substr(date_today,1,10) IN (SELECT d FROM _t2_map)
+        """
+        )
+        moved = cur.rowcount
+        conn.execute("UPDATE OR REPLACE position_change SET date_today = substr(date_today,2) WHERE date_today LIKE '~%'")
+
+        lo, hi = min(r[1] for r in dmap), max(r[1] for r in dmap)
+        _reprice_trade_rows(conn, lo, hi)
+        for sql in index_sql:
+            conn.execute(sql)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    _refresh_security_last_price(conn)
+    _LOG.info("Flyttet %s rader fra oppgjørsdato til handelsdato (T-%s) på %.1fs",
+              moved, OPPGJOR_HANDELSDAGER, time.time() - t0)
+    return int(moved)
 
 
 def get_max_date_today(conn: sqlite3.Connection) -> dt.date | None:
@@ -371,6 +620,24 @@ def get_max_date_today(conn: sqlite3.Connection) -> dt.date | None:
 
 
 def _refresh_security_last_price(conn: sqlite3.Connection) -> None:
+    has_closes = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='security_close'"
+    ).fetchone()
+    if has_closes:
+        # Siste kjente sluttkurs, også når den er nyere enn siste handelsdato i position_change
+        conn.execute(
+            """
+        UPDATE security
+        SET last_price = (
+            SELECT c.close FROM security_close c
+            WHERE c.isin = security.isin
+            ORDER BY c.date DESC LIMIT 1
+        )
+        WHERE isin IN (SELECT isin FROM security_close)
+        """
+        )
+        conn.commit()
+        return
     conn.execute(
         """
     WITH candidates AS (
@@ -514,13 +781,22 @@ def _ingest_one_csv_bytes(conn: sqlite3.Connection, filename: str, content: byte
         sec[["isin", "ticker", "isin_name", "paper_group", "issuer_orgnr", "issuer_name", "registered_country", "market", "sector", "gics_sector", "ask_paper", "issued_shares"]].itertuples(index=False, name=None),
     )
 
-    date_today = _resolve_file_date_today(df[col_date_today], filename=filename)
+    # Filens DatoIdag er oppgjørsdato; handelen ble gjort OPPGJOR_HANDELSDAGER tidligere.
+    settle_date = _resolve_file_date_today(df[col_date_today], filename=filename)
+    trade_map: dict[str, tuple[str, str, str]] = {}
+    for s in settle_date.dropna().unique():
+        d = dt.date.fromisoformat(str(s))
+        t = handelsdato_for_oppgjor(d)
+        trade_map[s] = (t.isoformat(), flytt_handelsdager(t, -1).isoformat(), flytt_handelsdager(d, -1).isoformat())
+    settle_yest = df[col_date_yest].map(_normalize_date) if col_date_yest else pd.Series(None, index=df.index)
 
     facts = pd.DataFrame({
         "isin": df[col_isin].astype(str).str.strip(),
         "investor_id": df[col_investor_id].astype(str).str.strip(),
-        "date_today": date_today,
-        "date_yesterday": df[col_date_yest].map(_normalize_date) if col_date_yest else None,
+        "date_today": settle_date.map(lambda s: trade_map[s][0] if s in trade_map else None),
+        "date_yesterday": settle_date.map(lambda s: trade_map[s][1] if s in trade_map else None),
+        "settle_date": settle_date,
+        "close_yest_date": settle_yest.fillna(settle_date.map(lambda s: trade_map[s][2] if s in trade_map else None)),
         "holding_today": df[col_h_today].map(_clean_num) if col_h_today else None,
         "holding_yesterday": df[col_h_yest].map(_clean_num) if col_h_yest else None,
         "price_today": df[col_price_today].map(_clean_num) if col_price_today else None,
@@ -535,17 +811,35 @@ def _ingest_one_csv_bytes(conn: sqlite3.Connection, filename: str, content: byte
     }).dropna(subset=["isin", "investor_id", "date_today"])
     facts = facts.drop_duplicates(subset=["isin", "investor_id", "date_today"])
 
+    # Sluttkursene i filen gjelder filens datoer, ikke handelsdatoen
+    closes = facts[["isin", "settle_date", "price_today"]].dropna()
+    closes = closes[closes["price_today"] > 0].groupby(["isin", "settle_date"], as_index=False)["price_today"].max()
+    conn.executemany(
+        "INSERT OR REPLACE INTO security_close(isin, date, close) VALUES (?, ?, ?)",
+        closes.itertuples(index=False, name=None),
+    )
+    closes = facts[["isin", "close_yest_date", "price_yesterday"]].dropna()
+    closes = closes[closes["price_yesterday"] > 0].groupby(["isin", "close_yest_date"], as_index=False)["price_yesterday"].max()
+    conn.executemany(
+        "INSERT OR IGNORE INTO security_close(isin, date, close) VALUES (?, ?, ?)",
+        closes.itertuples(index=False, name=None),
+    )
+
     conn.executemany(
         """
         INSERT OR REPLACE INTO position_change(
-            isin, investor_id, date_today, date_yesterday,
+            isin, investor_id, date_today, date_yesterday, settle_date,
             holding_today, holding_yesterday, price_today, price_yesterday,
             change_qty, abs_change_qty, change_percent,
             flag_new_source, flag_exit_source, rank, source_file
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        facts[["isin", "investor_id", "date_today", "date_yesterday", "holding_today", "holding_yesterday", "price_today", "price_yesterday", "change_qty", "abs_change_qty", "change_percent", "flag_new_source", "flag_exit_source", "rank", "source_file"]].itertuples(index=False, name=None),
+        facts[["isin", "investor_id", "date_today", "date_yesterday", "settle_date", "holding_today", "holding_yesterday", "price_today", "price_yesterday", "change_qty", "abs_change_qty", "change_percent", "flag_new_source", "flag_exit_source", "rank", "source_file"]].itertuples(index=False, name=None),
     )
+    if not facts.empty:
+        # Nye sluttkurser kan også gi bedre kurs på handler fra dagene før
+        lo = (dt.date.fromisoformat(facts["date_today"].min()) - dt.timedelta(days=10)).isoformat()
+        _reprice_trade_rows(conn, lo, facts["date_today"].max())
 
     conn.execute(
         "INSERT OR REPLACE INTO ingested_files(filename, mtime, ingested_at) VALUES (?, ?, ?)",
@@ -811,6 +1105,11 @@ def apply_csv_updates_and_push_to_s3(files: list[tuple[str, bytes]]) -> dict:
     conn = sqlite3.connect(HANDLER_DB_PATH, timeout=60)
     try:
         conn.execute("PRAGMA busy_timeout=60000")
+        if trenger_handelsdato_migrering(conn):
+            # Første opplasting etter T+2-rettingen flytter alle eksisterende rader;
+            # ta vare på originalen i S3 før den overskrives.
+            backup = upload_db_backup_to_s3(HANDLER_DB_PATH, "for_handelsdato")
+            _LOG.info("Backup før flytting til handelsdato: %s", backup)
         _ensure_upload_schema(conn)
         before = get_max_date_today(conn)
         processed_rows = 0
@@ -1086,13 +1385,13 @@ _PER_EIER_AGG = """
            SUM(CASE WHEN t.q<0 THEN -t.q*t.trade_price ELSE 0 END)
              / NULLIF(SUM(CASE WHEN t.q<0 THEN -t.q ELSE 0 END),0) AS salg_snitt_kurs,
            SUM(ABS(t.q*t.trade_price)) AS brutto_belop,
-           (
-             SELECT lp.price_yesterday
+           COALESCE(NULLIF(s.last_price,0), (
+             SELECT lp.price_today
              FROM position_change lp
-             WHERE lp.isin=t.isin AND lp.price_yesterday>0
-             ORDER BY lp.date_today DESC, lp.price_yesterday DESC
+             WHERE lp.isin=t.isin AND lp.price_today>0
+             ORDER BY lp.date_today DESC, lp.price_today DESC
              LIMIT 1
-           ) AS siste_kurs
+           )) AS siste_kurs
     FROM trades t
     JOIN security s ON s.isin=t.isin
     WHERE COALESCE(t.trade_price,0)>0 AND t.q<>0
@@ -1110,8 +1409,8 @@ def fetch_handler_per_eier(conn, investor_id: str, date_from: dt.date, date_to: 
         SELECT pc.isin,
                COALESCE(pc.change_qty,0) AS q,
                COALESCE(
-                   NULLIF(pc.price_yesterday,0),
                    NULLIF(pc.price_today,0),
+                   NULLIF(pc.price_yesterday,0),
                    (
                      SELECT MAX(p2.price_yesterday)
                      FROM position_change p2
@@ -1128,7 +1427,8 @@ def fetch_handler_per_eier(conn, investor_id: str, date_from: dt.date, date_to: 
 
     fallback_sql = """
     WITH trades AS (
-        SELECT pc.isin, COALESCE(pc.change_qty,0) AS q, pc.price_yesterday AS trade_price
+        SELECT pc.isin, COALESCE(pc.change_qty,0) AS q,
+               COALESCE(NULLIF(pc.price_today,0), pc.price_yesterday) AS trade_price
         FROM position_change pc
         WHERE pc.investor_id=? AND pc.date_today BETWEEN ? AND ?
     )
@@ -1152,8 +1452,8 @@ def fetch_eier_transactions(conn, investor_id: str, isin: str | None, date_from:
     WITH tx AS (
         SELECT pc.isin, pc.date_today AS dato, COALESCE(pc.change_qty,0) AS antall,
                COALESCE(
-                   NULLIF(pc.price_yesterday,0),
                    NULLIF(pc.price_today,0),
+                   NULLIF(pc.price_yesterday,0),
                    (
                      SELECT MAX(p2.price_yesterday)
                      FROM position_change p2
@@ -1193,8 +1493,8 @@ def fetch_kursgraf(conn, investor_id: str, isin: str, date_from: dt.date, date_t
                    pad_days: int | None = None) -> dict:
     """Kursserie for en aksje og en investors handler i den, til kursgrafen.
 
-    Kursen er price_yesterday per date_today, samme kurs som enkelthandlene prises med,
-    slik at markørene havner på kurslinjen. Kursserien starter pad_days før date_from.
+    Kursen er price_today (sluttkurs på handelsdagen) per date_today, samme kurs som
+    enkelthandlene prises med, slik at markørene havner på kurslinjen. Kursserien starter pad_days før date_from.
     """
     if pad_days is None:
         pad_days = kursgraf_pad_days(date_from, date_to)
@@ -1202,9 +1502,9 @@ def fetch_kursgraf(conn, investor_id: str, isin: str, date_from: dt.date, date_t
 
     price_rows = conn.execute(
         """
-        SELECT substr(date_today,1,10) AS d, MAX(price_yesterday) AS p
+        SELECT substr(date_today,1,10) AS d, MAX(price_today) AS p
         FROM position_change
-        WHERE isin=? AND date_today BETWEEN ? AND ? AND price_yesterday>0
+        WHERE isin=? AND date_today BETWEEN ? AND ? AND price_today>0
         GROUP BY substr(date_today,1,10)
         ORDER BY d
         """,
@@ -1369,8 +1669,8 @@ def scan_trade_runs(conn, date_from: dt.date, date_to: dt.date, max_gap_days: in
     sql = f"""
     SELECT pc.investor_id, pc.isin, pc.date_today AS dato, pc.change_qty AS antall,
            COALESCE(
-               NULLIF(pc.price_yesterday,0),
                NULLIF(pc.price_today,0),
+               NULLIF(pc.price_yesterday,0),
                (
                  SELECT MAX(p2.price_yesterday)
                  FROM position_change p2
@@ -1431,8 +1731,10 @@ def scan_trade_runs(conn, date_from: dt.date, date_to: dt.date, max_gap_days: in
     last_px = {}
     for isin in isins:
         r = conn.execute(
-            "SELECT price_yesterday FROM position_change WHERE isin=? AND price_yesterday>0 "
-            "ORDER BY date_today DESC, price_yesterday DESC LIMIT 1",
+            "SELECT last_price FROM security WHERE isin=? AND last_price>0", (isin,)
+        ).fetchone() or conn.execute(
+            "SELECT price_today FROM position_change WHERE isin=? AND price_today>0 "
+            "ORDER BY date_today DESC, price_today DESC LIMIT 1",
             (isin,),
         ).fetchone()
         last_px[isin] = float(r[0]) if r else None
@@ -1509,7 +1811,7 @@ def fetch_handler_per_aksje(conn, isin: str, date_from: dt.date, date_to: dt.dat
     ),
     trades AS (
         SELECT pc.investor_id, pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0), p2.p) AS trade_price
+               COALESCE(NULLIF(pc.price_today,0), NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
         FROM position_change pc
         LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
         WHERE pc.isin=? AND pc.date_today BETWEEN ? AND ?
@@ -1556,7 +1858,7 @@ def fetch_eier_oversikt_timeseries(conn, investor_id: str, date_from: dt.date, d
     ),
     trades AS (
         SELECT pc.date_today AS dato, pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0), p2.p) AS trade_price
+               COALESCE(NULLIF(pc.price_today,0), NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
         FROM position_change pc
         LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
         WHERE pc.investor_id=? AND pc.date_today BETWEEN ? AND ?
@@ -2047,7 +2349,7 @@ def fetch_best_viktige_summary(conn, investor_ids: list[str], date_from: dt.date
     trades AS (
         SELECT st.isin,
                st.change_qty,
-               COALESCE(NULLIF(st.price_yesterday,0), NULLIF(st.price_today,0), p2.p) AS trade_price
+               COALESCE(NULLIF(st.price_today,0), NULLIF(st.price_yesterday,0), p2.p) AS trade_price
         FROM selected_trades st
         LEFT JOIN prices p2 ON p2.isin=st.isin AND p2.d=st.price_d
     )
@@ -2101,7 +2403,7 @@ def fetch_best_viktige_trades(conn, investor_ids: list[str], date_from: dt.date,
                pc.isin,
                pc.investor_id,
                pc.change_qty,
-               COALESCE(NULLIF(pc.price_yesterday,0), NULLIF(pc.price_today,0), p2.p) AS trade_price
+               COALESCE(NULLIF(pc.price_today,0), NULLIF(pc.price_yesterday,0), p2.p) AS trade_price
         FROM position_change pc
         JOIN temp_selected_investors t ON t.investor_id=pc.investor_id
         LEFT JOIN prices p2 ON p2.isin=pc.isin AND p2.d=date(pc.date_today,'+1 day')
@@ -2181,7 +2483,7 @@ def fetch_best_viktige_trades_for_isin(
     trades AS (
         SELECT st.investor_id,
                st.change_qty,
-               COALESCE(NULLIF(st.price_yesterday,0), NULLIF(st.price_today,0), p2.p) AS trade_price
+               COALESCE(NULLIF(st.price_today,0), NULLIF(st.price_yesterday,0), p2.p) AS trade_price
         FROM selected_trades st
         LEFT JOIN prices p2 ON p2.d=st.price_d
     )
