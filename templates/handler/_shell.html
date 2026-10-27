@@ -290,6 +290,26 @@
     }
   </script>
   {% include "handler/_kursgraf.html" %}
+  <script>
+    // Datovelgerne kan ikke gå forbi siste handelsdato i databasen
+    const HANDLER_SISTE_DATO = {{ (handler_siste_dato or '') | tojson }};
+    /** Siste dag med data (midt på dagen UTC, så datoen ikke flytter seg med tidssone). */
+    function handlerSisteDag() {
+      return HANDLER_SISTE_DATO ? new Date(HANDLER_SISTE_DATO + 'T12:00:00Z') : new Date();
+    }
+    function klemDatoer() {
+      if (!HANDLER_SISTE_DATO) return;
+      document.querySelectorAll('input[type="date"]').forEach(el => {
+        el.max = HANDLER_SISTE_DATO;
+        if (el.value && el.value > HANDLER_SISTE_DATO) el.value = HANDLER_SISTE_DATO;
+      });
+    }
+    klemDatoer();
+    document.addEventListener('change', e => {
+      if (e.target.matches && e.target.matches('input[type="date"]')) klemDatoer();
+    });
+  </script>
   {% block extra_js %}{% endblock %}
+  <script>klemDatoer();</script>
 </body>
 </html>

@@ -339,3 +339,19 @@ def test_compute_best_investors_utelater_nominee_som_standard(tmp_path):
     assert "N" not in set(hdb.compute_best_investors(**args)["investor_id"])
     assert "N" in set(hdb.compute_best_investors(**args, med_nominee=True)["investor_id"])
     c.close()
+
+
+def test_datovelger_maks_er_siste_dato_i_db(db_path, monkeypatch):
+    flask = pytest.importorskip("flask")
+    import handler_routes as hr
+
+    monkeypatch.setattr(hd, "HANDLER_DB_PATH", db_path)
+    monkeypatch.setattr(hr, "_check_db", lambda: None)
+    hr._SISTE_DATO_CACHE.clear()
+
+    app = flask.Flask(__name__)
+    app.register_blueprint(hr.handler_bp)
+    for side in ("/handler-oslo-bors/per-eier", "/handler-oslo-bors/rekker"):
+        html = app.test_client().get(side).get_data(as_text=True)
+        assert 'const HANDLER_SISTE_DATO = "2026-09-30";' in html
+        assert "const today = handlerSisteDag();" in html

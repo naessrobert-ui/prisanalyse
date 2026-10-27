@@ -72,7 +72,7 @@
 
 {% block extra_js %}
 <script>
-  const today = new Date();
+  const today = handlerSisteDag();
   const ago = new Date(today); ago.setDate(ago.getDate() - 120);
   document.getElementById('date-from').value = ago.toISOString().slice(0,10);
   document.getElementById('date-to').value = today.toISOString().slice(0,10);
