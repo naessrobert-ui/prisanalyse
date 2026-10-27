@@ -305,7 +305,7 @@ def _net_buys(
 
     Summerer ``change_qty`` (positiv = kjøp, negativ = salg) på tvers av
     kontoer, og verdsetter hver handel med handelsdagens kurs
-    (``price_yesterday`` foretrukket, ellers ``price_today``).
+    (``price_today`` = sluttkurs på handelsdagen, ellers ``price_yesterday``).
     """
     if not ids or not trade_from or not trade_to:
         return {}
@@ -321,7 +321,7 @@ def _net_buys(
                 isin,
                 date_today,
                 COALESCE(change_qty, holding_today - holding_yesterday, 0) AS chg,
-                COALESCE(NULLIF(price_yesterday, 0), NULLIF(price_today, 0), 0) AS px
+                COALESCE(NULLIF(price_today, 0), NULLIF(price_yesterday, 0), 0) AS px
             FROM position_change
             WHERE investor_id IN ({placeholders})
               AND date_today BETWEEN ? AND ?

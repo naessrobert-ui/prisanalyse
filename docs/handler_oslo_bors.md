@@ -286,3 +286,26 @@ Oppførsel:
 Tips: last opp filene til samme prefix, f.eks.:
 - `s3://prisanalyse-data/calc/lister/Beste.csv`
 - `s3://prisanalyse-data/calc/lister/Viktige.csv`
+
+
+## Handelsdato vs. oppgjørsdato (T+2)
+En TopChanges-fil merket D viser beholdning i VPS etter **oppgjør** D. `Kurs idag` er
+sluttkurs D og `Kurs igaar` sluttkurs forrige handelsdag, men selve handelen ble gjort
+**to handelsdager før D** (helger og Oslo Børs-helligdager hoppes over).
+
+Ved innlesing lagres derfor:
+- `date_today` = handelsdato (D minus to handelsdager), `date_yesterday` = handelsdagen før,
+- `settle_date` = filens dato (oppgjørsdato),
+- `price_today` / `price_yesterday` = sluttkurs på handelsdagen og dagen før, hentet fra
+  tabellen `security_close` som samler alle sluttkursene filene inneholder.
+
+Data lest inn før denne endringen (rader uten `settle_date`) flyttes automatisk ved neste
+CSV-opplasting, etter at originalen er lagret som `topchanges.for_handelsdato.db` i S3.
+Vil du gjøre det med en gang:
+
+```bash
+python scripts/flytt_til_handelsdato.py --s3
+```
+
+Merk: EU går over til T+1 11. oktober 2027. Da må `OPPGJOR_HANDELSDAGER` i
+`handler_data.py` gjøres datoavhengig.

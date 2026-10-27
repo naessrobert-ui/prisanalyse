@@ -55,7 +55,7 @@ def handler_per_investor(conn, isins: list[str], fra: dt.date, til: dt.date,
     """Kjøp/salg/netto i MNOK per investor for aksjene, for hele perioden og
     (under "kort") fra fra_kort, i én runde mot databasen.
 
-    Kurs: gårsdagens, ellers dagens, ellers gårsdagskurs fra neste dag (samme
+    Kurs: sluttkurs på handelsdagen, ellers dagen før, ellers gårsdagskurs fra neste dag (samme
     regel som Handler de beste / viktige). Neste-dags-kursene hentes bare for
     aksjene og datoene i perioden, så alt går på indeksen (isin, date_today).
     """
@@ -65,7 +65,7 @@ def handler_per_investor(conn, isins: list[str], fra: dt.date, til: dt.date,
     sql = f"""
     WITH tr AS (
         SELECT investor_id, isin, date(date_today) AS d, change_qty,
-               COALESCE(NULLIF(price_yesterday,0), NULLIF(price_today,0)) AS kurs0
+               COALESCE(NULLIF(price_today,0), NULLIF(price_yesterday,0)) AS kurs0
         FROM position_change
         WHERE isin IN ({ph}) AND date_today BETWEEN ? AND ?
           AND COALESCE(change_qty,0) <> 0
