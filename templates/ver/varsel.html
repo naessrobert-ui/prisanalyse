@@ -255,10 +255,10 @@ button.pill{font:inherit;font-size:13px}
 .sok-form label{display:flex;align-items:center;gap:6px;color:var(--muted);white-space:nowrap}
 .sok-form select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 6px}
 .sok-sum{margin-top:12px;font-size:14px}
-.sgrid{display:grid;grid-template-columns:84px repeat(24,minmax(0,1fr));gap:2px;margin-top:10px;font-size:11.5px;align-items:center}
+.sgrid{display:grid;grid-template-columns:84px repeat(var(--n,24),minmax(0,1fr));gap:2px;margin-top:10px;font-size:11.5px;align-items:center}
 .sgrid .lbl{white-space:nowrap;padding-right:6px;cursor:pointer;overflow:hidden;text-overflow:ellipsis}
 .sgrid .lbl:hover{color:var(--blue)}
-.sgrid .hh{color:var(--muted);grid-column:span 6}
+.sgrid .hh{color:var(--muted);white-space:nowrap;overflow:hidden}
 .sc{height:18px;border-radius:3px;background:var(--line)}
 .sc.wet{background:var(--blue-soft)}
 .sc.ok{background:color-mix(in srgb,var(--ok) 30%,transparent)}
@@ -275,7 +275,7 @@ button.pill{font:inherit;font-size:13px}
 .sl-n small{font-size:12px;font-weight:400;color:var(--muted)}
 .stag{display:inline-block;font-size:10.5px;font-weight:600;border:1px solid var(--muted);color:var(--muted);border-radius:4px;padding:0 4px;margin-left:6px;vertical-align:1px}
 .sok-more{margin-top:8px}
-@media (max-width:760px){.sgrid{grid-template-columns:64px repeat(24,minmax(0,1fr));gap:1px}.sgrid .lbl{font-size:10.5px}.sc{height:16px}}
+@media (max-width:760px){.sgrid{grid-template-columns:64px repeat(var(--n,24),minmax(0,1fr));gap:1px}.sgrid .lbl{font-size:10.5px}.sc{height:16px}}
 </style>
 
 </head>
@@ -381,6 +381,7 @@ button.pill{font:inherit;font-size:13px}
     </div>
     <div class="sok-sum" id="sokSum">Henter timesvarsel for de neste dagene …</div>
     <div class="sgrid" id="sokGrid"></div>
+    <div class="small" style="margin-top:4px"><button type="button" class="linkbtn" id="sokHele"></button></div>
     <div class="sl" id="sokList"></div>
     <div class="legend" id="sokLegend"></div>
     <div class="small muted" style="margin-top:8px">Tørt betyr under 0,1 mm i timen. Sol krever at sola er oppe og at skydekket er under 25 % (delvis sol: 50 %).
@@ -947,7 +948,7 @@ function dagKort(iso){
   return dagDiff(iso)===0?'I dag':`${DAYS_SHORT[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}.`;
 }
 const kl=l=>{const a=l.start.slice(11,13), e=l.end.getHours(); return `kl. ${a}–${e===0?'24':String(e).padStart(2,'0')}`};
-let SOK_ALL=false;
+let SOK_ALL=false, SOK_FULL=false;
 function renderSok(){
   const k=sokGet(); sokUrl(k);
   if(!SERIES){$('sokSum').textContent='Henter timesvarsel for de neste dagene …';$('sokGrid').innerHTML='';$('sokList').innerHTML='';return}
@@ -958,13 +959,17 @@ function renderSok(){
     ?`Fant <b>${r.luker.length} ${r.luker.length===1?'luke':'luker'}</b> de neste ${dager} dagene. Lengst: <b>${dagNavn(lengst.start).toLowerCase()} ${kl(lengst)}</b> (${lengst.timer} t).`
     :`Ingen luker oppfyller kravene de neste ${dager} dagene. Prøv å løsne på vind, tidsvindu eller antall timer.`;
   if(!SERIES.google_available) $('sokSum').innerHTML+=' <span class="muted small">Google mangler nå, så bare Yr brukes.</span>';
-  // Oversikt: én rad per dag, én rute per time.
+  // Oversikt: én rad per dag, én rute per time. Bare tidsvinduet (pluss én time på hver side) med mindre hele døgnet er valgt.
+  const c0=SOK_FULL?0:Math.max(0,+k.fra-1), c1=SOK_FULL?24:Math.min(24,Math.max(+k.til,+k.fra+1)+1);
   const byDate=new Map();
   H.forEach((h,i)=>{const d=h.time.slice(0,10); if(!byDate.has(d)) byDate.set(d,Array(24).fill(-1)); byDate.get(d)[h.hour]=i});
-  let g='<div></div>'+['00','06','12','18'].map(x=>`<div class="hh">${x}</div>`).join('');
+  const step=c1-c0>12?3:2;
+  let g='<div></div>';
+  for(let hr=c0;hr<c1;){const e=Math.min(c1,(Math.floor(hr/step)+1)*step);
+    g+=`<div class="hh" style="grid-column:span ${e-hr}">${hr%step===0?String(hr).padStart(2,'0'):''}</div>`; hr=e}
   byDate.forEach((cells,d)=>{
     g+=`<div class="lbl" data-goto="${d}" title="Vis dagen">${dagKort(d)}</div>`;
-    cells.forEach((i,hr)=>{
+    cells.slice(c0,c1).forEach((i,j)=>{const hr=c0+j;
       if(i<0){g+='<div class="sc na"></div>';return}
       const h=H[i], cls=['sc'];
       cls.push(hit.has(i)?'hit':r.ok[i]?'ok':(h.rain||0)>=.1?'wet':'');
@@ -974,7 +979,9 @@ function renderSok(){
       g+=`<div class="${cls.join(' ')}" title="${tip}"></div>`;
     });
   });
+  $('sokGrid').style.setProperty('--n',c1-c0);
   $('sokGrid').innerHTML=g;
+  $('sokHele').textContent=SOK_FULL?'Vis bare tidsvinduet':'Vis hele døgnet';
   const MAX=8, vis=SOK_ALL?r.luker:r.luker.slice(0,MAX);
   $('sokList').innerHTML=vis.map(l=>{
     const det=[l.tmin!=null?(l.tmin===l.tmax?`${l.tmax}°`:`${l.tmin}–${l.tmax}°`):'',l.vind!=null?`vind opptil ${l.vind} m/s`:'',
@@ -1012,6 +1019,7 @@ function closeSok(){
 }
 $('sokBtn').onclick=()=>$('sokCard').hidden?openSok():closeSok();
 $('sokLukk').onclick=closeSok;
+$('sokHele').onclick=()=>{SOK_FULL=!SOK_FULL;renderSok()};
 $('sokForm').addEventListener('change',()=>{SOK_ALL=false;renderSok()});
 (()=>{const q=new URLSearchParams(location.search);
   if(q.get('sok')==='1'){const k={};Object.keys(SOK_DEFAULT).forEach(a=>{if(q.has(a))k[a]=q.get(a)});sokSet(k);setTimeout(()=>openSok(),0)}
@@ -1040,7 +1048,8 @@ async function load(){
     $('gToggle').hidden=!d.google_available;
     renderNow(d); renderNowcast(d); renderAnswers(d); drawStrip(); renderDays(); renderTrust(d);
     if($('radar').classList.contains('open')) renderNcTable(d);
-    if(!$('sokCard').hidden) ensureSeries().then(renderSok).catch(()=>{});
+    // Hent timeserien i bakgrunnen, så værluken er klar når den åpnes.
+    ensureSeries().then(()=>{if(!$('sokCard').hidden) renderSok()}).catch(()=>{});
   }catch(e){
     $('error').hidden=false;
     $('error').textContent='Fikk ikke hentet varselet akkurat nå. Prøver igjen om litt.';
