@@ -2,8 +2,690 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-28T06:53:19+00:00",
+  "generated_at": "2026-10-28T07:25:08+00:00",
   "items": [
+    {
+      "id": "684974",
+      "market": "XOSL",
+      "ticker": "AQUA",
+      "issuer": "Aqualis ASA",
+      "title": "Aqualis ASA: Invitation to presentation of Q3 2026 results",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-10-28T07:25:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/684974",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "684972",
+      "market": "XOSL",
+      "ticker": "PHO",
+      "issuer": "Photocure ASA",
+      "title": "Photocure ASA: Results for the third quarter of 2026",
+      "headline": "Photocure øker forventet produktomsetning til 10–12 prosent i 2026",
+      "lead": "Photocure rapporterer produktinntekter på 134,2 millioner kroner i tredje kvartal, nær uendret fra året før, men hever nå forventet årlig vekst til 10–12 prosent med forbedret justert EBITDA-margin.",
+      "published_at": "2026-10-28T07:00:28.028000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684972",
+      "summary": "Photocure rapporterer produktinntekter på 134,2 millioner kroner i tredje kvartal, nær uendret fra året før, men hever nå forventet årlig vekst til 10–12 prosent med forbedret justert EBITDA-margin.",
+      "reason": "Selv om kvartalsomsetningen stort sett er stabil, viser hevet vekstforventning og marginforbedring at selskapet har tro på økt kommersiell styrke. Viktig å følge utviklingen i FDA-reguleringer og kommersialiseringen av AssureMDx i 2027 som nøkkel for videre vekst og investeringer.",
+      "score": 75,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "attachment_key": "65b32a4aa090ce45",
+      "number_keys": [
+        "004be8",
+        "0a57cb",
+        "0ade7c",
+        "0ccc9b",
+        "140199",
+        "17ba07",
+        "1b6453",
+        "1ea51b",
+        "23daf5",
+        "2d3fbc",
+        "310b86",
+        "337b1b",
+        "356a19",
+        "437c67",
+        "626346",
+        "64e0cf",
+        "7719a1",
+        "77de68",
+        "7b5200",
+        "902ba3",
+        "91032a",
+        "ac3478",
+        "aee655",
+        "af2941",
+        "af3e13",
+        "b01f67",
+        "b1d578",
+        "bd307a",
+        "c260b0",
+        "c8306a",
+        "cfa2ed",
+        "e54183",
+        "e62d7f",
+        "f1f836",
+        "f3b179",
+        "f6e112",
+        "fa35e1",
+        "fb6443",
+        "fb9654",
+        "fe5dbb"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Release.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684972&attachmentId=335154"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 140.9,
+            "prior_year": 135.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 4.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 1"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 4.0,
+            "prior_year": 10.2,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -60.8,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 1"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": -3.4,
+            "prior_year": 2.9,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -217.2,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 1"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not disclosed"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not disclosed"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not disclosed"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not disclosed"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Photocure forventer nå produktinntektsvekst i 2026 på 10-12 % på konstant valutabasis, opp fra tidligere estimat på 8-11 %, samt fortsatt ekspansjon i justert EBITDA-margin. Selskapet planlegger å lansere inntekter fra AssureMDx i 2027, med refusjon sikret i første halvår 2027, noe som er fremskyndet sammenlignet med tidligere forventet midt i 2028. De fokuserer også på å videreutvikle en bredere presisjonsdiagnostikkplattform innen blærekreft ved å kombinere tradisjonell BLC-teknologi med molekylære tester og AI-løsninger. Samtidig erkjenner de konkurransebildet og behovet for å demonstrere klinisk verdi og kommersiell robusthet.",
+          "change": "Produktinntektsvekst er oppjustert fra 8-11 % til 10-12 % på konstant valutabasis (2026Q2: 8-11 %, 2026Q3: 10-12 %). AssureMDx forventes nå å gi inntekter i 2027 med refusjon allerede i første halvår 2027, tidligere var refusjon antatt midt i 2028 (2026Q2 vs. 2026Q3). Justert EBITDA-margin ventes fortsatt å ekspandere, dette er opprettholdt i perioden. Fokus på presisjonsdiagnostikk og AI er tydeliggjort og utvidet i 2026Q3-utlasset, fremfor mer generell innovasjonsbeskrivelse tidligere.",
+          "trend": "Selskapet har gradvis oppjustert forventningene til produktomsetningsvekst for 2026, fra 7-11 % tidlig i året, til 8-11 % i Q2 og videre til 10-12 % i Q3. EBITDA-marginforventninger har vært konsistente med forventning om ekspansjon. De har også gradvis konkretisert og styrket satsingen på presisjonsdiagnostikk og AI-drevne løsninger. Tidligere AMB-assosierte inntekts- og refusjonsforventninger er nå fremskyndet, noe som indikerer økt optimisme og fremdrift i kommersialiseringen.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Produktinntektsvekst 2026",
+              "statement": "Produktinntektene forventes å vokse 10-12 % på konstant valutabasis, opp fra tidligere 8-11 %",
+              "evidence": "\"Photocure now expects product revenue growth in the range of 10% to 12% on a constant currency basis (versus 8 to 11% previously)\"",
+              "page": "3"
+            },
+            {
+              "topic": "AssureMDx kommersiell lansering og refusjon",
+              "statement": "Inntekter forventes i 2027 med refusjon sikret i første halvår 2027, tidligere estimat var midt i 2028",
+              "evidence": "\"We expect initial AssureMDx revenue in 2027, with reimbursement secured during the first half of 2027\"",
+              "page": "3"
+            },
+            {
+              "topic": "Justert EBITDA-margin",
+              "statement": "Forventes fortsatt å ekspandere i 2026",
+              "evidence": "\"continued expansion of the adjusted EBITDA margin\"",
+              "page": "3"
+            },
+            {
+              "topic": "Strategisk satsing",
+              "statement": "Utvikler bredere presisjonsdiagnostikkplattform med molekylær testing, AI og avansert bildediagnostikk for blærekreft",
+              "evidence": "\"building a broader precision diagnostics platform in bladder cancer... combining established commercial franchise with non-invasive molecular testing, advanced imaging, artificial intelligence\"",
+              "page": "3"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "684971",
+      "market": "XOSL",
+      "ticker": "ORK",
+      "issuer": "Orkla ASA",
+      "title": "Orkla ASA: Status share buyback programme",
+      "headline": "Orkla kjøper tilbake 2,05 millioner aksjer til 97 kroner stykket i oktober",
+      "lead": "I oktober har Orkla ASA kjøpt tilbake over 2 millioner aksjer til en gjennomsnittspris på 97 kroner, og eier nå 3,5 prosent av egne aksjer. Totalt er over 10,8 millioner aksjer kjøpt tilbake under dagens program.",
+      "published_at": "2026-10-28T07:00:23.385000+00:00",
+      "url": "https://newsweb.oslobors.no/message/684971",
+      "summary": "I oktober har Orkla ASA kjøpt tilbake over 2 millioner aksjer til en gjennomsnittspris på 97 kroner, og eier nå 3,5 prosent av egne aksjer. Totalt er over 10,8 millioner aksjer kjøpt tilbake under dagens program.",
+      "reason": "Den omfattende tilbakekjøpsprogrammet signaliserer at Orkla vurderer egenaksjer som attraktivt og ønsker å styrke aksjonærverdien. Videre oppfølging kan dreie seg om effekten på aksjekursen og mulige endringer i utbyttepolitikk.",
+      "score": 75,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "attachment_key": "b6018e99ad726f10",
+      "number_keys": [
+        "12c6fc",
+        "1a46d5",
+        "1bd55a",
+        "2fa240",
+        "405c58",
+        "472b07",
+        "473794",
+        "4d2f8a",
+        "609fff",
+        "632667",
+        "64e0cf",
+        "652a2c",
+        "7b5200",
+        "887309",
+        "89a1c1",
+        "91f220",
+        "9ccd48",
+        "9e6bfb",
+        "a45415",
+        "a78e0a",
+        "ac3478",
+        "aee655",
+        "af0e91",
+        "b6bc71",
+        "b7d21e",
+        "bbddf6",
+        "bc33ea",
+        "cb689f",
+        "cd7ae2",
+        "d3a744",
+        "d435a6",
+        "e0d93f",
+        "ed3c9a",
+        "ed3f03",
+        "eed1c6",
+        "f3a980",
+        "f9a9ad"
+      ]
+    },
+    {
+      "id": "684968",
+      "market": "XOSL",
+      "ticker": "CADLR",
+      "issuer": "Cadeler A/S",
+      "title": "REMINDER: The offer period for the share exchange offer by Cadeler plc to the shareholders of Cadeler A/S in connection with Cadeler's redomiciliation from Denmark to the United Kingdom period expires today, 28 October 2026, at 5:00 PM EST / 10:00 PM CET",
+      "headline": "Cadeler avslutter aksjeutvekslingstilbud i dag ved midnatt CET",
+      "lead": "Tilbudsperioden for Cadelers aksjeutvekslingstilbud knyttet til selskapets flytting fra Danmark til Storbritannia utløper 28. oktober kl 22:00 CET, med mulighet for forlengelse til 1. desember.",
+      "published_at": "2026-10-28T07:00:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/684968",
+      "summary": "Tilbudsperioden for Cadelers aksjeutvekslingstilbud knyttet til selskapets flytting fra Danmark til Storbritannia utløper 28. oktober kl 22:00 CET, med mulighet for forlengelse til 1. desember.",
+      "reason": "Tilbudet representerer en formell administrativ omorganisering uten direkte økonomiske resultater eller guidingsendringer i dag. For aksjonærer betyr det en potensiell overgang til aksjer i et britisk selskap, noe som kan medføre regulatoriske og skattemessige konsekvenser som bør vurderes videre.",
+      "score": 70,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "number_keys": [
+        "004be8",
+        "04e869",
+        "086c04",
+        "0a57cb",
+        "0c774d",
+        "12c6fc",
+        "13682a",
+        "15e730",
+        "1b6453",
+        "22d200",
+        "23a053",
+        "2d0c8a",
+        "2e01e1",
+        "310b86",
+        "356a19",
+        "472b07",
+        "632667",
+        "667e62",
+        "6a08d6",
+        "76635f",
+        "7b5200",
+        "7e79a3",
+        "8f7a4c",
+        "91032a",
+        "98fbc4",
+        "a4ac91",
+        "ac3478",
+        "aee655",
+        "b1d578",
+        "b3f0c7",
+        "b9b8f3",
+        "c1dfd9",
+        "d435a6",
+        "da4b92",
+        "f1abd6",
+        "f6719e",
+        "f6e112",
+        "fb6443",
+        "fb9654"
+      ]
+    },
+    {
+      "id": "684967",
+      "market": "XOSL",
+      "ticker": "LINK",
+      "issuer": "Link Mobility Group Holding ASA",
+      "title": "LINK Mobility - Invitation to third quarter results 2026",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-10-28T07:00:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/684967",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "684966",
+      "market": "XOSL",
+      "ticker": "SPOBK",
+      "issuer": "Sparebanken Øst Boligkreditt AS",
+      "title": "Sparebanken Øst Boligkreditt AS - Regnskap 3. kvartal 2026",
+      "headline": "Sparebanken Øst Boligkreditt AS offentliggjør regnskap for 3. kvartal 2026",
+      "lead": "Sparebanken Øst Boligkreditt AS har nå lagt frem regnskapet for 3. kvartal 2026 uten at detaljer om resultater eller nøkkeltall er rapportert. Detaljert finansiell informasjon mangler i rapporten foreløpig.",
+      "published_at": "2026-10-28T06:55:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/684966",
+      "summary": "Sparebanken Øst Boligkreditt AS har nå lagt frem regnskapet for 3. kvartal 2026 uten at detaljer om resultater eller nøkkeltall er rapportert. Detaljert finansiell informasjon mangler i rapporten foreløpig.",
+      "reason": "Uten konkrete nøkkeltall og sammenligningstall er det vanskelig å vurdere kvartalets prestasjon eller konsekvenser for aksjonærer. Videre analyse krever fullstendige tall og kommentarer til utviklingen.",
+      "score": 40,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "attachment_key": "de4a46bd2c991420",
+      "number_keys": [
+        "6b6d88",
+        "77de68",
+        "aee655"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Kvartalsrapport Q3 26.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684966&attachmentId=335115"
+        },
+        "metrics": [
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": 34.5,
+            "prior_year": 53.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -35.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Resultatregnskap, side 9"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 20.3,
+            "prior_year": 33.9,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -40.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Resultatregnskap, side 9"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 3419.3,
+            "prior_year": 5926.3,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -42.3,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Kontantstrømoppstilling, side 12"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 66.2,
+            "prior_year": 102.8,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -35.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Resultatregnskap 1.1.-30.9., side 9"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Sparebanken Øst Boligkreditt forventer fortsatt moderat vekst i boliglån og tilpasser markedsstrategien i samsvar med morbanken og generelle markedsforhold. Utstedelse av obligasjoner med fortrinnsrett vil fortsatt dekke deler av konsernets finansieringsbehov med lang løpetid, noe som sikrer god likviditet. Kostnadskontrollen forblir god, med ingen forventede vesentlige kostnader ut over normal porteføljevekst. Styret forventer å nå målet om tilfredsstillende egenkapitalrentabilitet.",
+          "change": "Ingen vesentlige endringer fra siste kvartal. Tidligere og nåværende utsagn om moderat boligvekst, finansiering via obligasjoner, god likviditet, kostnadskontroll og forventet tilfredsstillende egenkapitalrentabilitet opprettholdes uten justeringer.",
+          "trend": "Guidingen har vært stabil over de siste kvartalene med konsekvent forventning om moderat boliglånsvekst, god kostnadskontroll og opprettholdt egenkapitalrentabilitet. Den finansielle risikoen vurderes fortsatt som lav, og selskapet har levert i tråd med tidligere uttalte forventninger.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Vekst i boliglån",
+              "statement": "Forventer fortsatt moderat vekst i boliglån, tilpasset morbanken og markedet",
+              "evidence": "\"Selskapet forventer en moderat vekst i boliglån fremover... knyttet opp mot morbankens strategi og markedsforholdene\"",
+              "page": "7-8"
+            },
+            {
+              "topic": "Finansiering og likviditet",
+              "statement": "Utstedelse av obligasjoner med fortrinnsrett dekker deler av langsiktig funding, god likviditet opprettholdes",
+              "evidence": "\"Utstedte obligasjoner med fortrinnsrett dekker deler av konsernets fundingbehov... bidratt til god likviditet\"",
+              "page": "7"
+            },
+            {
+              "topic": "Kostnadskontroll",
+              "statement": "God kontroll over kostnader, ingen vesentlige ekstrakostnader utover porteføljevekst",
+              "evidence": "\"Selskapet har god kontroll over kostnadene, og det er ikke forventet noen vesentlige kostnader ut over det som naturlig vil følge av økt portefølje\"",
+              "page": "8"
+            },
+            {
+              "topic": "Lønnsomhet",
+              "statement": "Forventning om å oppnå tilfredsstillende egenkapitalrentabilitet",
+              "evidence": "\"Styret forventer at selskapet vil oppnå det vedtatte målet om tilfredsstillende egenkapitalrentabilitet\"",
+              "page": "8"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "684965",
+      "market": "XOSL",
+      "ticker": "SPOG",
+      "issuer": "Sparebanken Øst",
+      "title": "Sparebanken Øst - regnskap 3. kvartal 2026",
+      "headline": "Sparebanken Øst rapporterer redusert resultat og lavere rentemargin i Q3",
+      "lead": "Resultatet etter skatt falt til 84,6 millioner kroner i tredje kvartal 2026, ned fra 109,5 millioner, drevet av lavere netto renteinntekter på grunn av sterk konkurranse og økte finansieringskostnader.",
+      "published_at": "2026-10-28T06:55:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/684965",
+      "summary": "Resultatet etter skatt falt til 84,6 millioner kroner i tredje kvartal 2026, ned fra 109,5 millioner, drevet av lavere netto renteinntekter på grunn av sterk konkurranse og økte finansieringskostnader.",
+      "reason": "Resultatnedgangen og lavere egenkapitalavkastning under bankens langsiktige mål indikerer økt press på lønnsomheten. Investorer bør følge utviklingen i rentemarginene, kostnadskontroll og kredittrisiko fremover.",
+      "score": 75,
+      "skipped": false,
+      "direction": "negativ",
+      "assessment_source": "AI",
+      "attachment_key": "35ae840369fae45a",
+      "number_keys": [
+        "004be8",
+        "02cbcb",
+        "095e3d",
+        "0ad014",
+        "15346b",
+        "192a0e",
+        "1da5a1",
+        "1f6ae7",
+        "20dd12",
+        "28bd21",
+        "524e05",
+        "5a4b36",
+        "6f2c73",
+        "708a77",
+        "70ddc8",
+        "749bc3",
+        "77de68",
+        "87d538",
+        "8a70d7",
+        "8d163d",
+        "8dcb58",
+        "a29a91",
+        "aee655",
+        "b0df0c",
+        "b1d578",
+        "c5823b",
+        "c9ca44",
+        "d63c38",
+        "d69b92",
+        "de1592"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "SPOG kvartalsrapport 3. kvartal 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=684965&attachmentId=335104"
+        },
+        "metrics": [
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": 192.1,
+            "prior_year": 220.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -12.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 3, kv kvartal 2026 og 2025, Resultatregnskap"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": 573.3,
+            "prior_year": 655.7,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -12.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 3, 1.1.-30.9.2026 og 2025, Resultatregnskap"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 84.6,
+            "prior_year": 109.5,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -22.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 3, Resultat etter skatt, 3. kvartal 2026 og 2025"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 290.1,
+            "prior_year": 425.7,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -31.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 3, Resultat etter skatt, 1.1.-30.9.2026 og 2025"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 1.07,
+            "prior_year": 1.41,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -24.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 4, kvartalsberetning 3. kvartal 2026 - 'Resultat per egenkapitalbevis er 1,07 (1,41) kroner.'"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 3.71,
+            "prior_year": 5.57,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -33.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 4, kvartalsberetning, hittil i år - 'resultat per egenkapitalbevis er 3,71 (5,57) kroner.'"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not reported explicitly in excerpt"
+          },
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 207.7,
+            "prior_year": 242.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -14.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 3, Sum netto inntekter 3. kvartal 2026 og 2025"
+          },
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 658.9,
+            "prior_year": 812.7,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -18.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 3, Sum netto inntekter hittil 2026 og 2025"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Banken forventer fortsatt vedvarende press på utlånsmarginene for både person- og bedriftsmarkedet, drevet av høy konkurranse og svak økning i etterspørsel etter bedriftslån. Det legges stor vekt på kostnadskontroll hvor økt bruk av kunstig intelligens fremheves som viktig tiltak fremover. Kapitaldekningen skal opprettholdes med et minimumskrav pluss en kapitalmargin på 1,0 prosent over myndighetskravene.",
+          "change": "Guidingen om vedvarende marginpress og fokus på kostnadskontroll med økt bruk av KI er opprettholdt fra forrige kvartal uten vesentlige endringer i ordlyden. Tidligere omtale om rentejusteringers påvirkning på netto renteinntekter i tredje kvartal er ikke eksplisitt gjentatt i denne rapporten. Kapitalmålet er uendret med krav om minimum lik myndighetskrav pluss 1 prosent margin.",
+          "trend": "Over de siste kvartalene har banken konsekvent kommunisert et vedvarende press på utlånsmarginer og fokus på streng kostnadskontroll, med tiltak som kunstig intelligens for å holde kostnader nede. Kapitaldekningen har vært et stabilt mål punkt, med krav om buffer over myndighetskrav. Banken har levert resultater preget av lav risikoprofil, selv om lønnsomheten har falt fra året før, delvis påvirket av tidligere gevinstfôrte inntekter.",
+          "compared_periods": [
+            "2026Q2",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Marginpress",
+              "statement": "Vedvarende press på utlånsmarginene for både person- og bedriftsmarkedet forventes å fortsette.",
+              "evidence": "'banken forventer at det vil være et vedvarende press på utlånsmarginene til både personer og bedrifter fremover.' (side 5)",
+              "page": "5"
+            },
+            {
+              "topic": "Kostnadskontroll",
+              "statement": "Det er betydelig oppmerksomhet på kostnadsforbruket, med økt bruk av kunstig intelligens som viktig fremover.",
+              "evidence": "'betydelig oppmerksomhet på kostnadsforbruket i banken og økt bruk av KI vil være viktig i dette arbeidet fremover.'",
+              "page": "4"
+            },
+            {
+              "topic": "Kapitalmål",
+              "statement": "Bankens kapitalmål er å ha kapitaldekning tilsvarende myndighetskrav pluss en margin på 1,0 prosent minimum.",
+              "evidence": "'Konsernet Sparebanken Øst skal minimum ha kapitaldekning tilsvarende myndighetskrav pluss en kapitalmargin på 1,0'",
+              "page": "5"
+            }
+          ]
+        }
+      }
+    },
     {
       "id": "684964",
       "market": "XOSL",
@@ -359,15 +1041,15 @@
       "ticker": "ONCIN",
       "issuer": "Oncoinvent ASA",
       "title": "Oncoinvent presents 3Q company update in live webcast",
-      "headline": "Oncoinvent rekrutterer 16 nye pasienter til fase 2-studie – totalt 71 inkludert",
-      "lead": "Oncoinvent har nå 71 pasienter i sitt pågående fase 2-studie innen eggstokkreft, med 11 kliniske studiesteder aktive, og har styrket ledelsen med ny medisinsk direktør, men konkrete resultater ennå ikke tilgjengelige.",
+      "headline": "Oncoinvent øker til 71 pasienter i fase 2-studie – fullfører emisjon på 148,5 MNOK",
+      "lead": "Oncoinvent har rekruttert totalt 71 pasienter til sin fase 2-studie innen kreftbehandling og fullført en privat emisjon som hentet 148,5 millioner kroner. Resultater fra studiene ventes i andre halvår 2026 og første halvår 2027.",
       "published_at": "2026-10-28T06:04:14.267000+00:00",
       "url": "https://newsweb.oslobors.no/message/684962",
-      "summary": "Oncoinvent har nå 71 pasienter i sitt pågående fase 2-studie innen eggstokkreft, med 11 kliniske studiesteder aktive, og har styrket ledelsen med ny medisinsk direktør, men konkrete resultater ennå ikke tilgjengelige.",
-      "reason": "Rekrutteringsfremdriften i fase 2-studien er positiv for videreutvikling av Radspherin®, men uten nye kliniske resultater eller finansiell oppdatering er det for tidlig å bedømme investeringsmessige konsekvenser. Viktig å følge kommende sikkerhets- og effektdata i 2H2026 og 1H2027.",
+      "summary": "Oncoinvent har rekruttert totalt 71 pasienter til sin fase 2-studie innen kreftbehandling og fullført en privat emisjon som hentet 148,5 millioner kroner. Resultater fra studiene ventes i andre halvår 2026 og første halvår 2027.",
+      "reason": "Økt pasientrekruttering og kapitalinnhenting styrker finansiering og utvikling av Oncoinvents kreftbehandling. Viktig å følge fremdriften i fase 2-studien samt analysere effekt- og sikkerhetsdata når disse foreligger.",
       "score": 75,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "positiv",
       "assessment_source": "AI",
       "number_keys": [
         "0a57cb",
@@ -457,12 +1139,12 @@
       "ticker": "BRG",
       "issuer": "Borregaard ASA",
       "title": "Borregaard ASA: All-time high EBITDA1 of NOK 557 million in the 3rd quarter",
-      "headline": "Borregaard øker EBITDA til 557 millioner kroner i 3. kvartal – all-time high",
-      "lead": "Borregaard leverer en EBITDA på 557 millioner kroner i 3. kvartal 2026, opp fra 440 millioner samme periode i fjor, med resultatvekst i alle forretningsområder og positivt valutaeffekt.",
+      "headline": "Borregaard løfter EBITDA til rekordhøye 557 millioner kroner i tredje kvartal",
+      "lead": "Borregaards EBITDA vokste til 557 millioner kroner i Q3 2026, opp fra 440 millioner kroner året før. Driftsinntektene steg til 1,894 milliarder kroner, men videre utvikling avhenger av vedvarende kostnadskontroll og markedssituasjonen.",
       "published_at": "2026-10-28T06:02:16.324000+00:00",
       "url": "https://newsweb.oslobors.no/message/684960",
-      "summary": "Borregaard leverer en EBITDA på 557 millioner kroner i 3. kvartal 2026, opp fra 440 millioner samme periode i fjor, med resultatvekst i alle forretningsområder og positivt valutaeffekt.",
-      "reason": "Sterk organisk vekst og kostnadskutt driver ny rekord i kvartals-EBITDA, som gir økt lønnsomhet og bedre avkastning for aksjonærer. Viktig å følge fremdrift i kostnadsbesparelser og prisjusteringer fremover for å bedømme bærekraften i resultatforbedringen.",
+      "summary": "Borregaards EBITDA vokste til 557 millioner kroner i Q3 2026, opp fra 440 millioner kroner året før. Driftsinntektene steg til 1,894 milliarder kroner, men videre utvikling avhenger av vedvarende kostnadskontroll og markedssituasjonen.",
+      "reason": "Borregaards sterke kvartal representerer en forbedring sammenlignet med samme periode i fjor, med økte leveranser og effektiviseringer forbedrer lønnsomheten. Aksjonærer bør følge fremtidige marginutvikling og prisstrategier, samt konsistente gevinster fra kostnadsprogrammet.",
       "score": 85,
       "skipped": false,
       "direction": "positiv",
@@ -1269,6 +1951,22 @@
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "684952",
+          "title": "Målrettet gjennomføring gir resultater",
+          "url": "https://newsweb.oslobors.no/message/684952",
+          "published_at": "2026-10-28T06:00:00+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "684951",
+          "title": "Delivering through disciplined execution",
+          "url": "https://newsweb.oslobors.no/message/684951",
+          "published_at": "2026-10-28T06:00:00+00:00",
+          "language": "Original"
+        }
+      ],
       "attachment_key": "97e7f47c6acc6489",
       "number_keys": [
         "135224",
@@ -1408,23 +2106,7 @@
           ],
           "points": []
         }
-      },
-      "language_versions": [
-        {
-          "id": "684952",
-          "title": "Målrettet gjennomføring gir resultater",
-          "url": "https://newsweb.oslobors.no/message/684952",
-          "published_at": "2026-10-28T06:00:00+00:00",
-          "language": "Norsk"
-        },
-        {
-          "id": "684951",
-          "title": "Delivering through disciplined execution",
-          "url": "https://newsweb.oslobors.no/message/684951",
-          "published_at": "2026-10-28T06:00:00+00:00",
-          "language": "Original"
-        }
-      ]
+      }
     },
     {
       "id": "684950",
@@ -1477,6 +2159,22 @@
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "684949",
+          "title": "Equinor vil starte fjerde transje av tilbakekjøpsprogrammet for aksjer for 2026",
+          "url": "https://newsweb.oslobors.no/message/684949",
+          "published_at": "2026-10-28T05:46:49.901000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "684948",
+          "title": "Equinor to commence fourth tranche of the 2026 share buy-back programme",
+          "url": "https://newsweb.oslobors.no/message/684948",
+          "published_at": "2026-10-28T05:46:49.884000+00:00",
+          "language": "Engelsk"
+        }
+      ],
       "number_keys": [
         "004be8",
         "0a57cb",
@@ -1505,22 +2203,6 @@
         "e3cbba",
         "eb4ac3",
         "f1abd6"
-      ],
-      "language_versions": [
-        {
-          "id": "684949",
-          "title": "Equinor vil starte fjerde transje av tilbakekjøpsprogrammet for aksjer for 2026",
-          "url": "https://newsweb.oslobors.no/message/684949",
-          "published_at": "2026-10-28T05:46:49.901000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "684948",
-          "title": "Equinor to commence fourth tranche of the 2026 share buy-back programme",
-          "url": "https://newsweb.oslobors.no/message/684948",
-          "published_at": "2026-10-28T05:46:49.884000+00:00",
-          "language": "Engelsk"
-        }
       ]
     },
     {
@@ -1529,12 +2211,12 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Nøkkelinformasjon angående kontantutbytte for tredje kvartal 2026.",
-      "headline": "Equinor utbetaler 0,39 USD i kontantutbytte for 3. kvartal 2026",
-      "lead": "Equinor kunngjør et kontantutbytte på 0,39 USD per aksje for tredje kvartal 2026. Utbyttet utbetales 26. februar 2027 med ex-dato 15. februar på Oslo Børs.",
+      "headline": "Equinor kunngjør kvartalsutbytte på 0,39 USD per aksje for Q3 2026",
+      "lead": "Equinor deler ut 0,39 USD i kontantutbytte per aksje for tredje kvartal 2026, med ex-dato på Oslo Børs 15. februar 2027. Det endelige utbyttet i NOK vil bli opplyst 22. februar.",
       "published_at": "2026-10-28T05:46:38.081000+00:00",
       "url": "https://newsweb.oslobors.no/message/684946",
-      "summary": "Equinor kunngjør et kontantutbytte på 0,39 USD per aksje for tredje kvartal 2026. Utbyttet utbetales 26. februar 2027 med ex-dato 15. februar på Oslo Børs.",
-      "reason": "Utbyttebetalingen gir en indikasjon på selskapets kontantstrøm og kapitalforvaltning, men uten informasjon om endringer fra tidligere perioder eller sammenligninger med forventninger, er den finansielle effekten på aksjonærer uspesifisert. Videre bør vi undersøke om dette utbyttenivået støtter selskapets langsiktige vekststrategi.",
+      "summary": "Equinor deler ut 0,39 USD i kontantutbytte per aksje for tredje kvartal 2026, med ex-dato på Oslo Børs 15. februar 2027. Det endelige utbyttet i NOK vil bli opplyst 22. februar.",
+      "reason": "Utbyttebekreftelsen gir investorer klarhet om kommende kontantutbetalinger, men uten informasjon om endring kontra tidligere kvartaler eller sammenligning med forventninger, er markedseffekten uavklart. Fokus bør være på valutarisiko og utbyttenivåets konsistens over tid.",
       "score": 65,
       "skipped": false,
       "direction": "nøytral",
@@ -1603,6 +2285,22 @@
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "684945",
+          "title": "Equinor third quarter 2026 results",
+          "url": "https://newsweb.oslobors.no/message/684945",
+          "published_at": "2026-10-28T05:45:54.046000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "684944",
+          "title": "Equinors resultater for tredje kvartal 2026",
+          "url": "https://newsweb.oslobors.no/message/684944",
+          "published_at": "2026-10-28T05:45:47.724000+00:00",
+          "language": "Norsk"
+        }
+      ],
       "attachment_key": "3a7867f2c466cbaf",
       "number_keys": [
         "004be8",
@@ -1731,23 +2429,7 @@
           "compared_periods": [],
           "points": []
         }
-      },
-      "language_versions": [
-        {
-          "id": "684945",
-          "title": "Equinor third quarter 2026 results",
-          "url": "https://newsweb.oslobors.no/message/684945",
-          "published_at": "2026-10-28T05:45:54.046000+00:00",
-          "language": "Engelsk"
-        },
-        {
-          "id": "684944",
-          "title": "Equinors resultater for tredje kvartal 2026",
-          "url": "https://newsweb.oslobors.no/message/684944",
-          "published_at": "2026-10-28T05:45:47.724000+00:00",
-          "language": "Norsk"
-        }
-      ]
+      }
     },
     {
       "id": "684943",
@@ -8592,139 +9274,20 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "684617",
-      "market": "XOSL",
-      "ticker": "SBNOR",
-      "issuer": "Sparebanken Norge",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-22T11:48:20.345000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684617",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "684616",
-      "market": "XOSL",
-      "ticker": "NRC",
-      "issuer": "NRC Group ASA",
-      "title": "Interest Adjustment",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-22T11:48:17.559000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684616",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "684614",
-      "market": "XOSL",
-      "ticker": "MING",
-      "issuer": "SpareBank 1 SMN",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-22T11:48:11.458000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684614",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "684613",
-      "market": "XOSL",
-      "ticker": "LSG",
-      "issuer": "Lerøy Seafood Group ASA",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-22T11:48:08.572000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684613",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "684612",
-      "market": "XOSL",
-      "ticker": "SB1NO",
-      "issuer": "SpareBank 1 Sør-Norge ASA",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-22T11:48:05.169000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684612",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "684610",
-      "market": "XOSL",
-      "ticker": "SPOL",
-      "issuer": "SpareBank 1 Østlandet",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-22T11:47:58.709000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684610",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "684608",
-      "market": "XOSL",
-      "ticker": "STVKO",
-      "issuer": "Stavanger Kommune",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-22T11:47:52.004000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684608",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
-  "last_checked_at": "2026-10-28T06:53:19+00:00",
+  "last_checked_at": "2026-10-28T07:25:08+00:00",
   "monitor_stats": {
-    "fetched": 153,
-    "recent": 78,
-    "already_seen": 53,
-    "eligible": 24,
-    "filtered": 1,
-    "analyzed": 24,
+    "fetched": 160,
+    "recent": 85,
+    "already_seen": 74,
+    "eligible": 9,
+    "filtered": 2,
+    "analyzed": 9,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 4,
-    "source_latest_at": "2026-10-28T06:50:42.289000+00:00"
+    "source_latest_at": "2026-10-28T07:25:00+00:00"
   }
 }
