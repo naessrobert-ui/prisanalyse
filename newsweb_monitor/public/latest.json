@@ -2,8 +2,34 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-29T07:30:16+00:00",
+  "generated_at": "2026-10-29T07:41:38+00:00",
   "items": [
+    {
+      "id": "685093",
+      "market": "XOSL",
+      "ticker": "ASGL",
+      "issuer": "Airswift Global AS",
+      "title": "Airswift mourns passing of CEO; interim leadership arrangements and continuity plan in place.",
+      "headline": "Airswift rammes av plutselig dødsfall hos CEO James Allen",
+      "lead": "CEO James Allen i Airswift er død, ledelsen midlertidig overtatt av styreleder Ian Langley. Selskapet opprettholder drift og strategi, men langsiktig ledelsesløsning gjenstår å avklare.",
+      "published_at": "2026-10-29T07:40:52.517000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685093",
+      "summary": "CEO James Allen i Airswift er død, ledelsen midlertidig overtatt av styreleder Ian Langley. Selskapet opprettholder drift og strategi, men langsiktig ledelsesløsning gjenstår å avklare.",
+      "reason": "Dødsfallet skaper usikkerhet i ledelsen, men midlertidige tiltak og styrets uttalelser signaliserer kontinuitet. Aksjonærer bør følge videre informasjon om ny CEO og eventuell påvirkning på strategien og driften.",
+      "score": 75,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "number_keys": [
+        "12c6fc",
+        "7316b3",
+        "827bfc",
+        "aee655",
+        "b7eb6c",
+        "c09763",
+        "f6e112"
+      ]
+    },
     {
       "id": "685090",
       "market": "XOSL",
@@ -20,6 +46,22 @@
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "685090",
+          "title": "Finansiell rapport Q3 2026",
+          "url": "https://newsweb.oslobors.no/message/685090",
+          "published_at": "2026-10-29T07:30:00+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685089",
+          "title": "Quarterly Report Q3 2026",
+          "url": "https://newsweb.oslobors.no/message/685089",
+          "published_at": "2026-10-29T07:30:00+00:00",
+          "language": "Engelsk"
+        }
+      ],
       "attachment_key": "7f4d2bd4a3a504fb",
       "number_keys": [
         "152f2c",
@@ -129,23 +171,7 @@
             }
           ]
         }
-      },
-      "language_versions": [
-        {
-          "id": "685090",
-          "title": "Finansiell rapport Q3 2026",
-          "url": "https://newsweb.oslobors.no/message/685090",
-          "published_at": "2026-10-29T07:30:00+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685089",
-          "title": "Quarterly Report Q3 2026",
-          "url": "https://newsweb.oslobors.no/message/685089",
-          "published_at": "2026-10-29T07:30:00+00:00",
-          "language": "Engelsk"
-        }
-      ]
+      }
     },
     {
       "id": "685087",
@@ -694,13 +720,13 @@
       "ticker": "HELG",
       "issuer": "SpareBank 1 Helgeland",
       "title": "SpareBank 1 Helgeland: Regnskap 3. kvartal 2026",
-      "headline": "SpareBank 1 Helgeland kvartalsresultat før skatt faller til 154 mill. kroner",
-      "lead": "Resultatet før skatt i 3. kvartal ble 154 millioner kroner, ned fra 171 millioner i forrige kvartal. Økte nedskrivninger og lavere avkastning på finansielle eiendeler bidrar til svekket lønnsomhet.",
+      "headline": "SpareBank 1 Helgeland rapporterer resultat før skatt 154 mill. i Q3 – lavere enn Q2",
+      "lead": "Resultatet før skatt i tredje kvartal endte på 154 millioner kroner, ned fra 171 millioner i forrige kvartal, med økte nedskrivninger og lavere avkastning fra finansielle eiendeler som hovedutfordringer.",
       "published_at": "2026-10-29T06:30:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685071",
-      "summary": "Resultatet før skatt i 3. kvartal ble 154 millioner kroner, ned fra 171 millioner i forrige kvartal. Økte nedskrivninger og lavere avkastning på finansielle eiendeler bidrar til svekket lønnsomhet.",
-      "reason": "Resultat før skatt er svekket sammenlignet med forrige kvartal, drevet av økte nedskrivninger og betydelig lavere resultater fra finansielle eiendeler. Selv om utlånsveksten fortsetter, kan dette indikere økt risikobørde og press på egenkapitalavkastningen som bør følges videre.",
-      "score": 78,
+      "summary": "Resultatet før skatt i tredje kvartal endte på 154 millioner kroner, ned fra 171 millioner i forrige kvartal, med økte nedskrivninger og lavere avkastning fra finansielle eiendeler som hovedutfordringer.",
+      "reason": "Resultatfallet fra forrige kvartal og økte nedskrivninger kan svekke aksjonærenes avkastning. Videre bør investorer følge utviklingen i utlånsvekst og kostnadskontroll for å vurdere fremtidig lønnsomhet.",
+      "score": 85,
       "skipped": false,
       "direction": "negativ",
       "assessment_source": "AI",
@@ -731,7 +757,7 @@
         "fa5b7e"
       ],
       "financial_report": {
-        "status": "error",
+        "status": "analyzed",
         "period": "2026Q3",
         "period_source": "reported",
         "previous_report": "not_requested",
@@ -739,14 +765,161 @@
           "name": "Delårsrapport 3. kvartal 2026.pdf",
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685071&attachmentId=335196"
         },
-        "metrics": [],
+        "metrics": [
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": 222.0,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 4: 'Netto rente- og kredittprovisjonsinntekter 222 mill.kr. i Q3 2026' and Page 6: 'Netto rente- og kredittprovisjonsinntekter i tredje kvartal 2026 var 22"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": 636.0,
+            "prior_year": 705.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -9.8,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 6: 'Hittil i år ble netto rente- og kredittprovisjonsinntekter 636 (705) mill.kr.'"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 115.0,
+            "prior_year": 157.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -26.8,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 18: 'Periodens resultat 115 mill.kr. for Q3/26 and 157 mill.kr. for Q3/25'"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 386.0,
+            "prior_year": 447.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -13.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 6: 'Mot tilsvarende periode i fjor gikk resultat før skatt ned med 77 mill.kr. til 484 mill.kr.' and Page 18 'Periodens resultat 386 mill.kr. for 30/09/26 "
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 3.1,
+            "prior_year": 3.9,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -20.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 5: 'Resultat per egenkapitbevis 3,1 i Q3/26 and 3,9 in Q2/26' and Page 18 for Q3/25 is 3.9 same quarter prior year"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 10.8,
+            "prior_year": 12.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -14.3,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 6: 'Resultat per egenkapitbevis hittil i år 10,8 (12,6)'"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          }
+        ],
         "outlook": {
-          "status": "",
-          "summary": "",
-          "change": "",
-          "trend": "",
-          "compared_periods": [],
-          "points": []
+          "status": "analyzed",
+          "summary": "SpareBank 1 Helgeland møter fortsatt betydelig geopolitisk og økonomisk usikkerhet, med renter hevet til 4,50 %. Banken opplever moderat aktivitet og varierende etterspørsel i Helgeland, med høy rente og kostnadsnivå som kan svekke enkelte kunders betalingsevne. Tap økte i tredje kvartal, men samlet forventes lavere tapsnivå i 2026 enn tidligere år. Banken fokuserer på lønnsom vekst og tett oppfølging både i bedrifts- og personmarkedet, med optimisme knyttet til regionale utviklingsprosjekter. Styret venter kredittvekst på nivå med markedet og har et langsiktig avkastningsmål på cirka 12 %.",
+          "change": "- Tap: Forrige kvartal forventet banken lavere tap i 2026 med lavere tap i 2. kvartal enn 1. kvartal. Nå meldes tap høyere i 3. kvartal enn i 2., men samlet fremdeles forventes lavere tapsnivå i 2026 enn tidligere år (fra 'lavere tap i 2. kvartal enn 1.' til 'tapene i 3. kvartal var høyere enn i 2.', fortsatt 'forventer samlet et lavere tapsnivå').\n- Vekst bedriftsmarked: Fortsatt målrettet arbeid for lønnsom vekst og oppfølging, samme fokus som før.\n- Kredittvekst personmarked: Opprettholdt forventning om kredittvekst på nivå med lokal markedsvekst og prioritering av lønnsom vekst. \n- Utsikter og tone: Markeds- og geopolitisk usikkerhet fortsatt fremhevet, med renteheving til 4,50 %, noe høyere enn tidligere antatt (forrige kvartal varslet flere rentehevinger i 2026, nå konkretisert).",
+          "trend": "Over de siste kvartalene har SpareBank 1 Helgeland konsekvent uttrykt forsiktig optimisme med lavere forventede tap i 2026, men økt oppmerksomhet på risiko i utsatte kunder. Markedsusikkerhet, høye renter og kostnadsnivå har vært gjennomgående temaer. Banken har opprettholdt forventningen om kredittvekst på nivå med markedet og lønnsom vekst, samtidig som den følger kredittrisiko tett. Styret har vært gradvis konkret i renteprognoser, og har holdt fast ved optimistiske langtidsperspektiver knyttet til regionale utviklingsprosjekter. Tidligere forventede lavere tap i årets første halvår justeres nå til høyere tap i tredje kvartal, men samlet f",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Tap og kredittrisiko",
+              "statement": "Tapene i tredje kvartal var høyere enn i andre kvartal, men banken forventer samlet lavere tapsnivå i 2026 enn tidligere år. Banken følger utviklingen i kredittrisiko tett.",
+              "evidence": "\"Tapene i tredje kvartal var høyere enn i andre kvartal, men banken forventer samlet sett et lavere tapsnivå i 2026\"",
+              "page": "16"
+            },
+            {
+              "topic": "Vekst i personmarkedet",
+              "statement": "Styret forventer fortsatt kredittvekst på nivå med markedsveksten på Helgeland, med prioritet på lønnsom vekst og god risikoseleksjon.",
+              "evidence": "\"På personmarkedet forventer styret fortsatt kredittvekst om lag på nivå med markedsveksten på Helgeland\"",
+              "page": "16"
+            },
+            {
+              "topic": "Vekst i bedriftsmarkedet",
+              "statement": "Banken arbeider målrettet med lønnsom vekst i bedriftsmarkedet, med fokus på utsatte engasjementer og støtte til regionale utviklingsprosjekter.",
+              "evidence": "\"Banken arbeider samtidig målrettet med lønnsom vekst i bedriftsmarkedet. Prosjekter som ny flyplass, dypvannskai og videre utvikling...\"",
+              "page": "16"
+            },
+            {
+              "topic": "Markeds- og renteutsikter",
+              "statement": "Renten hevet til 4,50 %. Markedsrentene øker, usikkerhet rundt inflasjon og renteutvikling vedvarer, og geopolitisk usikkerhet preger utsiktene.",
+              "evidence": "\"Norges Bank hevet i september styringsrenten til 4,50 %... svingninger i råvarepriser og valutakurser bidrar til usikkerhet...\"",
+              "page": "16"
+            }
+          ]
         }
       }
     },
@@ -945,12 +1118,12 @@
       "ticker": "STAEN",
       "issuer": "Statkraft AS",
       "title": "Sterke resultater til tross for lavere produksjon",
-      "headline": "Statkrafts resultat før skatt øker til 5,9 mrd kroner til tross for 7 % lavere kraftproduksjon",
-      "lead": "Statkraft rapporterer et resultat før skatt på 5,9 milliarder kroner i tredje kvartal 2026, opp fra 0,9 milliarder, til tross for en produksjonsnedgang på 7 prosent. Høyere kraftpriser og reversering av nedskrivninger bidro sterkt til resultatet.",
+      "headline": "Statkrafts resultat før skatt øker til 5,9 milliarder til tross for 7% lavere produksjon",
+      "lead": "Statkraft økte resultat før skatt til 5,9 mrd. kroner i Q3 2026, opp fra 0,9 mrd., drevet av høyere nordiske kraftpriser og reversering av nedskrivninger. Kraftproduksjonen falt 7 prosent, hovedsakelig i Norge.",
       "published_at": "2026-10-29T06:02:07.507000+00:00",
       "url": "https://newsweb.oslobors.no/message/685068",
-      "summary": "Statkraft rapporterer et resultat før skatt på 5,9 milliarder kroner i tredje kvartal 2026, opp fra 0,9 milliarder, til tross for en produksjonsnedgang på 7 prosent. Høyere kraftpriser og reversering av nedskrivninger bidro sterkt til resultatet.",
-      "reason": "Resultatet er sterkt forbedret sammenlignet med samme kvartal i fjor og selskapets tidligere resultat, hovedsakelig drevet av høyere kraftpriser og finansielle justeringer. Aksjonærer bør følge utviklingen i produksjonsvolum og utnyttelse av investeringsprosjekter, samt risiko knyttet til markedets volatilitet og regulatorisk utvikling.",
+      "summary": "Statkraft økte resultat før skatt til 5,9 mrd. kroner i Q3 2026, opp fra 0,9 mrd., drevet av høyere nordiske kraftpriser og reversering av nedskrivninger. Kraftproduksjonen falt 7 prosent, hovedsakelig i Norge.",
+      "reason": "Sterk lønnsomhetsvekst til tross for lavere fysisk produksjon viser at Statkraft effektivt utnytter høye kraftpriser og markedsposisjon. Investeringene i ny fornybar energi og stabilisering av gjeldsgraden indikerer solid finansiell styring som aksjonærer bør følge nøye.",
       "score": 85,
       "skipped": false,
       "direction": "positiv",
@@ -1048,6 +1221,22 @@
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "685067",
+          "title": "Navamedic ASA: Profitability improvement driven by product mix and cost discipline despite decreased revenue",
+          "url": "https://newsweb.oslobors.no/message/685067",
+          "published_at": "2026-10-29T06:01:25.457000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685062",
+          "title": "Navamedic ASA: Lønnsomhetsforbedring drevet av produktmiks og kostnadsdisiplin til tross for lavere inntekter",
+          "url": "https://newsweb.oslobors.no/message/685062",
+          "published_at": "2026-10-29T06:00:51.025000+00:00",
+          "language": "Original"
+        }
+      ],
       "attachment_key": "27590012aa04144f",
       "number_keys": [
         "004be8",
@@ -1217,23 +1406,7 @@
             }
           ]
         }
-      },
-      "language_versions": [
-        {
-          "id": "685067",
-          "title": "Navamedic ASA: Profitability improvement driven by product mix and cost discipline despite decreased revenue",
-          "url": "https://newsweb.oslobors.no/message/685067",
-          "published_at": "2026-10-29T06:01:25.457000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685062",
-          "title": "Navamedic ASA: Lønnsomhetsforbedring drevet av produktmiks og kostnadsdisiplin til tross for lavere inntekter",
-          "url": "https://newsweb.oslobors.no/message/685062",
-          "published_at": "2026-10-29T06:00:51.025000+00:00",
-          "language": "Original"
-        }
-      ]
+      }
     },
     {
       "id": "685066",
@@ -2272,6 +2445,22 @@
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "685055",
+          "title": "Q3 2026: KONGSBERG leverer et sterkt tredje kvartal med en rekordhøy ordrereserve",
+          "url": "https://newsweb.oslobors.no/message/685055",
+          "published_at": "2026-10-29T06:00:00+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "685054",
+          "title": "Q3 2026: KONGSBERG delivers a strong third quarter with a record-high order backlog",
+          "url": "https://newsweb.oslobors.no/message/685054",
+          "published_at": "2026-10-29T06:00:00+00:00",
+          "language": "Engelsk"
+        }
+      ],
       "attachment_key": "b14f0251ad221486",
       "number_keys": [
         "004be8",
@@ -2435,23 +2624,7 @@
             }
           ]
         }
-      },
-      "language_versions": [
-        {
-          "id": "685055",
-          "title": "Q3 2026: KONGSBERG leverer et sterkt tredje kvartal med en rekordhøy ordrereserve",
-          "url": "https://newsweb.oslobors.no/message/685055",
-          "published_at": "2026-10-29T06:00:00+00:00",
-          "language": "Norsk"
-        },
-        {
-          "id": "685054",
-          "title": "Q3 2026: KONGSBERG delivers a strong third quarter with a record-high order backlog",
-          "url": "https://newsweb.oslobors.no/message/685054",
-          "published_at": "2026-10-29T06:00:00+00:00",
-          "language": "Engelsk"
-        }
-      ]
+      }
     },
     {
       "id": "685053",
@@ -2469,6 +2642,22 @@
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "685053",
+          "title": "Sparebanken Møre styrker posisjonen som markedsleder",
+          "url": "https://newsweb.oslobors.no/message/685053",
+          "published_at": "2026-10-29T06:00:00+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685052",
+          "title": "Sparebanken Møre strengthening its position as market leader",
+          "url": "https://newsweb.oslobors.no/message/685052",
+          "published_at": "2026-10-29T06:00:00+00:00",
+          "language": "Original"
+        }
+      ],
       "attachment_key": "07cb2414d01a73e0",
       "number_keys": [
         "004be8",
@@ -2751,23 +2940,7 @@
             }
           ]
         }
-      },
-      "language_versions": [
-        {
-          "id": "685053",
-          "title": "Sparebanken Møre styrker posisjonen som markedsleder",
-          "url": "https://newsweb.oslobors.no/message/685053",
-          "published_at": "2026-10-29T06:00:00+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685052",
-          "title": "Sparebanken Møre strengthening its position as market leader",
-          "url": "https://newsweb.oslobors.no/message/685052",
-          "published_at": "2026-10-29T06:00:00+00:00",
-          "language": "Original"
-        }
-      ]
+      }
     },
     {
       "id": "685051",
@@ -2785,16 +2958,6 @@
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
-      "number_keys": [
-        "004be8",
-        "0716d9",
-        "14b497",
-        "22d200",
-        "5547f6",
-        "80e28a",
-        "91032a",
-        "aee655"
-      ],
       "language_versions": [
         {
           "id": "685051",
@@ -2810,6 +2973,16 @@
           "published_at": "2026-10-29T06:00:00+00:00",
           "language": "Original"
         }
+      ],
+      "number_keys": [
+        "004be8",
+        "0716d9",
+        "14b497",
+        "22d200",
+        "5547f6",
+        "80e28a",
+        "91032a",
+        "aee655"
       ]
     },
     {
@@ -2859,6 +3032,22 @@
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "685048",
+          "title": "SpareBank 1 SMN:  Styrker finanshuset gjennom nyetablering og lønnsom vekst",
+          "url": "https://newsweb.oslobors.no/message/685048",
+          "published_at": "2026-10-29T06:00:00+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685047",
+          "title": "SpareBank 1 SMN:  Strengthening the group through new launches and profitable growth",
+          "url": "https://newsweb.oslobors.no/message/685047",
+          "published_at": "2026-10-29T06:00:00+00:00",
+          "language": "Original"
+        }
+      ],
       "attachment_key": "9fee41ea24b088fc",
       "number_keys": [
         "001a0f",
@@ -2893,22 +3082,6 @@
         "f1abd6",
         "f38cfe",
         "f6e112"
-      ],
-      "language_versions": [
-        {
-          "id": "685048",
-          "title": "SpareBank 1 SMN:  Styrker finanshuset gjennom nyetablering og lønnsom vekst",
-          "url": "https://newsweb.oslobors.no/message/685048",
-          "published_at": "2026-10-29T06:00:00+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685047",
-          "title": "SpareBank 1 SMN:  Strengthening the group through new launches and profitable growth",
-          "url": "https://newsweb.oslobors.no/message/685047",
-          "published_at": "2026-10-29T06:00:00+00:00",
-          "language": "Original"
-        }
       ]
     },
     {
@@ -3131,6 +3304,22 @@
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "685045",
+          "title": "Solid kvartal med sterk utlånsvekst og god kostnadskontroll",
+          "url": "https://newsweb.oslobors.no/message/685045",
+          "published_at": "2026-10-29T06:00:00+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "685044",
+          "title": "Solid quarter with strong lending growth and good cost control",
+          "url": "https://newsweb.oslobors.no/message/685044",
+          "published_at": "2026-10-29T06:00:00+00:00",
+          "language": "Engelsk"
+        }
+      ],
       "attachment_key": "3a785bcbc83ff6f6",
       "number_keys": [
         "004be8",
@@ -3411,23 +3600,7 @@
             }
           ]
         }
-      },
-      "language_versions": [
-        {
-          "id": "685045",
-          "title": "Solid kvartal med sterk utlånsvekst og god kostnadskontroll",
-          "url": "https://newsweb.oslobors.no/message/685045",
-          "published_at": "2026-10-29T06:00:00+00:00",
-          "language": "Norsk"
-        },
-        {
-          "id": "685044",
-          "title": "Solid quarter with strong lending growth and good cost control",
-          "url": "https://newsweb.oslobors.no/message/685044",
-          "published_at": "2026-10-29T06:00:00+00:00",
-          "language": "Engelsk"
-        }
-      ]
+      }
     },
     {
       "id": "685043",
@@ -6890,12 +7063,12 @@
       "ticker": "ONCIN",
       "issuer": "Oncoinvent ASA",
       "title": "Oncoinvent presents 3Q company update in live webcast",
-      "headline": "Oncoinvent rekrutterer 16 nye pasienter i fase 2-studie og sikrer 149 MNOK i privat plassering",
-      "lead": "Oncoinvent har nå totalt 71 pasienter i sitt fase 2-studie for kreftbehandling og gjennomførte en vellykket emisjon som hentet 148,5 millioner kroner, men finansiell rapportering skjer kun halvårlig.",
+      "headline": "Oncoinvent rekrutterer 16 pasienter i fase 2-studie - sikrer 148,5 mill. i emisjon",
+      "lead": "Oncoinvent har nå totalt 71 pasienter i sin fase 2-studie for eggstokkreft og har fullført en emisjon på 148,5 millioner kroner. Flere detaljer om studien og fremdrift ventes i 2027.",
       "published_at": "2026-10-28T06:04:14.267000+00:00",
       "url": "https://newsweb.oslobors.no/message/684962",
-      "summary": "Oncoinvent har nå totalt 71 pasienter i sitt fase 2-studie for kreftbehandling og gjennomførte en vellykket emisjon som hentet 148,5 millioner kroner, men finansiell rapportering skjer kun halvårlig.",
-      "reason": "Økt pasientrekruttering og kapitalinnhenting forbedrer selskapets utviklingsløp og finansielle posisjon, noe som styrker aksjonærverdien. Neste viktige milepæl er interimeffektdata i andre halvår 2026 som kan bekrefte klinisk potensial.",
+      "summary": "Oncoinvent har nå totalt 71 pasienter i sin fase 2-studie for eggstokkreft og har fullført en emisjon på 148,5 millioner kroner. Flere detaljer om studien og fremdrift ventes i 2027.",
+      "reason": "Fremgangen i pasientrekruttering og kapitalinnhenting styrker selskapets muligheter for videre utvikling og kommersialisering. Investorer bør følge resultatene fra fase 2-studien i 2027 for å vurdere effekt og sikkerhet i behandlingen.",
       "score": 75,
       "skipped": false,
       "direction": "positiv",
@@ -8070,6 +8243,22 @@
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "684947",
+          "title": "Equinor ASA: Key information relating to cash dividend for third quarter 2026.",
+          "url": "https://newsweb.oslobors.no/message/684947",
+          "published_at": "2026-10-28T05:46:38.081000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "684946",
+          "title": "Equinor ASA: Nøkkelinformasjon angående kontantutbytte for tredje kvartal 2026.",
+          "url": "https://newsweb.oslobors.no/message/684946",
+          "published_at": "2026-10-28T05:46:37.993000+00:00",
+          "language": "Norsk"
+        }
+      ],
       "number_keys": [
         "12c6fc",
         "1574bd",
@@ -8100,23 +8289,7 @@
           "compared_periods": [],
           "points": []
         }
-      },
-      "language_versions": [
-        {
-          "id": "684947",
-          "title": "Equinor ASA: Key information relating to cash dividend for third quarter 2026.",
-          "url": "https://newsweb.oslobors.no/message/684947",
-          "published_at": "2026-10-28T05:46:38.081000+00:00",
-          "language": "Engelsk"
-        },
-        {
-          "id": "684946",
-          "title": "Equinor ASA: Nøkkelinformasjon angående kontantutbytte for tredje kvartal 2026.",
-          "url": "https://newsweb.oslobors.no/message/684946",
-          "published_at": "2026-10-28T05:46:37.993000+00:00",
-          "language": "Norsk"
-        }
-      ]
+      }
     },
     {
       "id": "684944",
@@ -12637,37 +12810,20 @@
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI"
-    },
-    {
-      "id": "684739",
-      "market": "XOSL",
-      "ticker": "HAVI",
-      "issuer": "Havila Shipping ASA",
-      "title": "Havila Shipping ASA: Equinor Energy har erklært ett års opsjon for PSV-ene Havila Charisma og Havila Foresight",
-      "headline": "Equinor fornyer kontrakter for Havila Charisma og Foresight til 2027-28",
-      "lead": "Havila Shipping får ettårig opsjonsforlengelse fra Equinor for PSV-ene Havila Charisma og Havila Foresight, sikrer kontrakter til desember 2027 og januar 2028.",
-      "published_at": "2026-10-23T13:50:49.473000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684739",
-      "summary": "Havila Shipping får ettårig opsjonsforlengelse fra Equinor for PSV-ene Havila Charisma og Havila Foresight, sikrer kontrakter til desember 2027 og januar 2028.",
-      "reason": "Forlengelsen gir Havila stabil inntekt og synlig kontraktsdekning i et år til, noe som er viktig for inntjening og risiko. Detaljer om vilkår og inntekter mangler, så videre analyse av kontraktenes lønnsomhet er nødvendig.",
-      "score": 65,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI"
     }
   ],
-  "last_checked_at": "2026-10-29T07:30:16+00:00",
+  "last_checked_at": "2026-10-29T07:41:38+00:00",
   "monitor_stats": {
-    "fetched": 182,
-    "recent": 125,
-    "already_seen": 80,
-    "eligible": 41,
-    "filtered": 4,
-    "analyzed": 41,
+    "fetched": 183,
+    "recent": 126,
+    "already_seen": 121,
+    "eligible": 5,
+    "filtered": 0,
+    "analyzed": 5,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 4,
-    "source_latest_at": "2026-10-29T07:30:00+00:00"
+    "source_latest_at": "2026-10-29T07:40:52.517000+00:00"
   }
 }
