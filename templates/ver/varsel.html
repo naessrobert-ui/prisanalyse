@@ -886,7 +886,7 @@ function renderDays(){
       const open=OPEN_DAY===d.date, wn=d.source==='weathernext';
       s+=`<div class="drow${open?' open':''}${wn?' wn':''}" data-day="${d.date}" role="button" tabindex="0" aria-expanded="${open}"${wn?' title="Yr varsler ikke så langt frem. Tallene er fra WeatherNext og er usikre."':''}>`;
       s+=`<div class="cell dname">${d.label}${wn?'<span class="wn-tag">WeatherNext</span>':''}<span>${chev(d)} ${dayDate(d)}</span></div><div class="cell day-rain">${dayRainSpan(d)}<small>${d.observed?'Inkl. '+fmt1(d.observed)+' mm målt':''}</small></div>`;
-      d.periods.forEach(p=>{
+      d.periods.forEach((p,i)=>{
         if(p.symbol) s+=`<div class="cell per">${icon(p.symbol,38)}<small>${p.rain>=.1?fmt(p.rain):''}</small>${periodWind(d.date,i)}</div>`;
         else s+=`<div class="cell per past"><span class="dash">–</span></div>`;
       });
