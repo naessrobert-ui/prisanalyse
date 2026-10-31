@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-31T06:31:12+00:00",
+  "generated_at": "2026-10-31T10:06:27+00:00",
   "items": [
     {
       "id": "685265",
@@ -1835,13 +1835,13 @@
       "ticker": "SBNOB",
       "issuer": "Sparebanken Norge Boligkreditt AS",
       "title": "Sparebanken Norge Boligkreditt AS - Q3 report 2026",
-      "headline": "Sparebanken Norge Boligkreditt AS offentliggjør Q3-rapport uten nøkkeltall",
-      "lead": "Sparebanken Norge Boligkreditt AS har publisert sin Q3-rapport for 2026, men rapporten mangler finansielle nøkkeltall og resultatdetaljer som gir innsikt i kvartalets utvikling.",
+      "headline": "Sparebanken Norge Boligkreditt AS legger fram Q3-rapport uten nøkkeltall",
+      "lead": "Sparebanken Norge Boligkreditt AS har offentliggjort sin kvartalsrapport for tredje kvartal 2026, men rapporten mangler konkrete finansielle nøkkeltall og resultater.",
       "published_at": "2026-10-30T06:15:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685183",
-      "summary": "Sparebanken Norge Boligkreditt AS har publisert sin Q3-rapport for 2026, men rapporten mangler finansielle nøkkeltall og resultatdetaljer som gir innsikt i kvartalets utvikling.",
-      "reason": "Fraværet av finansielle tall hindrer vurdering av selskapets kvartalsmessige prestasjon og implikasjoner for aksjonærer. Videre må man avvente fullstendig rapport for å analysere utvikling mot tidligere kvartaler og selskapets finansielle strategi.",
-      "score": 45,
+      "summary": "Sparebanken Norge Boligkreditt AS har offentliggjort sin kvartalsrapport for tredje kvartal 2026, men rapporten mangler konkrete finansielle nøkkeltall og resultater.",
+      "reason": "Mangelen på konkrete tall og resultatdetaljer gjør det vanskelig å vurdere kvartalets prestasjon og effekt på aksjeverdien. Aksjonærer må vente på ytterligere informasjon for å danne seg et klart bilde.",
+      "score": 35,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
@@ -1874,7 +1874,7 @@
             "yoy_pct": -34.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 6] Quarterly profit trend table, Q3 2026 net interest income 365 million vs Q3 2025 556 million."
+            "evidence": "Page 6, quarterly profit trend table Q3 2026 and Q3 2025 net interest income"
           },
           {
             "label": "Netto renteinntekter",
@@ -1887,72 +1887,7 @@
             "yoy_pct": -14.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 7] Income statement, net interest and credit commission income year-to-date 30.09.2026 is 1178 million vs 1373 million for 30.09.2025."
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 365.0,
-            "prior_year": 556.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -34.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "[SIDE 7] Income statement, net interest and credit commission income for Q3 2026: 365 million vs Q3 2025: 556 million."
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 365.0,
-            "prior_year": 556.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -34.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "[SIDE 12] Note 2, net interest and credit commission income for Q3 2026 and Q3 2025 respectively 365 and 556 million."
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 365.0,
-            "prior_year": 556.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -34.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "[SIDE 6] Quarterly profit trend shows Q3 2026 net interest income 365 million and Q3 2025 556 million."
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 365.0,
-            "prior_year": 556.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -34.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "[SIDE 7] Income statement shows Q3 2026 net interest and credit commission income is 365 million and Q3 2025 is 556 million."
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": 330.0,
-            "prior_year": 639.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -48.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "[SIDE 6] Quarterly profit trend, profit before losses on loans Q3 2026 330 million vs Q3 2025 639 million."
+            "evidence": "Page 3, Board of Director's report, first nine months net interest income and credit commission income"
           },
           {
             "label": "Resultat etter skatt",
@@ -1965,25 +1900,38 @@
             "yoy_pct": -50.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 6] Quarterly profit trend, profit for the period Q3 2026 249 million vs Q3 2025 502 million."
+            "evidence": "Page 6, quarterly profit trend table profit for the period Q3 2026 and Q3 2025"
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
             "unit": "NOK million",
-            "current": 249.0,
-            "prior_year": 502.0,
+            "current": 892.0,
+            "prior_year": 865.0,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": -50.4,
+            "yoy_pct": 3.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 7] Income statement, profit for the period Q3 2026 249 million vs Q3 2025 502 million."
+            "evidence": "Page 3, Board of Director's report, first nine months net profit"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 1537.0,
+            "prior_year": 864.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 77.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 10, cash flow statement net cash flow from operations for 30.09.2026 and 30.09.2025"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Selskapet beskriver en modell med tre stadier for vurdering av kredittrisiko og forventede tap på finansielle eiendeler: Stage 1 med avsetning for 12 måneders forventede tap, Stage 2 for eiendeler med betydelig økt risiko men uten objektive tap, og Stage 3 for eiendeler med objektive tap. De presenterer også hvordan overganger mellom stadier påvirker forventede tap og hvordan ny målemetode anvendes.",
+          "summary": "Bankens fremtidsutsikter beskriver en konsekvent modell for vurdering av finansielle eiendeler i tre stadier basert på kredittrisiko og forventede tap. Stage 1 omfatter eiendeler med 12-måneders forventede tap, Stage 2 eiendeler med betydelig økt kredittrisiko uten objektive tap, og Stage 3 eiendeler med dokumenterte tap. Overganger mellom stadier avspeiler migrasjon av forventede tap, og nye målemetoder samt beregninger påvirker kvartalets tap.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [
@@ -1991,9 +1939,27 @@
           ],
           "points": [
             {
-              "topic": "Kredittrisiko og tap",
-              "statement": "Vedlikehold av inndeling i tre stadier for beregning av forventede kredittap og migrasjon mellom stadier",
-              "evidence": "Beskrivelse av Stage 1, 2 og 3 med migrasjon og ny målemetode for tap",
+              "topic": "Kredittrisiko og tapsavsetninger",
+              "statement": "Finansielle eiendeler vurderes i tre stadier med avsetninger for forventede tap basert på risiko og objektive tap.",
+              "evidence": "Stage 1 gir 12-måneders forventede tap, Stage 2 inkluderer økt kredittrisiko uten tap, Stage 3 har dokumenterte tap.",
+              "page": "utdrag fra rapport"
+            },
+            {
+              "topic": "Overgang mellom stadier",
+              "statement": "Overganger mellom stadier viser migrasjon av forventede kredittap og påvirker tapsberegningene.",
+              "evidence": "‘Transfer between the stages’ viser migrasjon av forventede tap mellom stadiene i balansen.",
+              "page": "utdrag fra rapport"
+            },
+            {
+              "topic": "Målemetode og tapspotensial",
+              "statement": "Nye målemetoder og kvartalsvise beregninger presenteres som ‘Net new measurement of losses’.",
+              "evidence": "Effekten av ny målemetode og beregning i kvartalet fremkommer på linjen ‘Net new measurement of losses’.",
+              "page": "utdrag fra rapport"
+            },
+            {
+              "topic": "Konfirmasjon av tap",
+              "statement": "Endelig tapsavskrivning skjer først når all sikkerhet er realisert og ytterligere innbetalinger er usannsynlige.",
+              "evidence": "Tap bekreftes når all sikkerhet er realisert og firmaet ikke forventer flere innbetalinger.",
               "page": "utdrag fra rapport"
             }
           ]
@@ -2108,12 +2074,12 @@
       "ticker": "SCATC",
       "issuer": "Scatec ASA",
       "title": "Scatec third quarter 2026: Doubling growth pace, fully self-funded",
-      "headline": "Scatec dobler kraftproduksjonen til 1.469 GWh i tredje kvartal",
-      "lead": "Scatec økte sin kraftproduksjon med 22 prosent til 1.469 GWh og EBITDA til 1,208 mill. kroner i Q3, men medførte også 1,150 mill. kroner i nedskrivninger på Ukraina- og Pakistan-aktiva.",
+      "headline": "Scatec dobler produksjonsvekst til 22 prosent – rapporterer 1,2 mrd. EBITDA i Q3",
+      "lead": "Scatec økte andelsbasert kraftproduksjon med 22 prosent til 1.469 GWh i tredje kvartal, med en EBITDA på 1.208 millioner kroner. Selskapet melder samtidig betydelige nedskrivninger på 1,15 milliarder, hovedsakelig knyttet til Ukraina og Pakistan.",
       "published_at": "2026-10-30T06:01:45.791000+00:00",
       "url": "https://newsweb.oslobors.no/message/685179",
-      "summary": "Scatec økte sin kraftproduksjon med 22 prosent til 1.469 GWh og EBITDA til 1,208 mill. kroner i Q3, men medførte også 1,150 mill. kroner i nedskrivninger på Ukraina- og Pakistan-aktiva.",
-      "reason": "Økt produksjon og høyere EBITDA styrker Scatecs vekstprofil, men store nedskrivninger på sentrale markeder gir usikkerhet. Aksjonærer bør følge utviklingen i Ukraina og Pakistan samt effekten av tiltak i Filippinene.",
+      "summary": "Scatec økte andelsbasert kraftproduksjon med 22 prosent til 1.469 GWh i tredje kvartal, med en EBITDA på 1.208 millioner kroner. Selskapet melder samtidig betydelige nedskrivninger på 1,15 milliarder, hovedsakelig knyttet til Ukraina og Pakistan.",
+      "reason": "Sterk vekst i kraftproduksjon og EBITDA illustrerer fremgang i selskapets vekststrategi, men store nedskrivninger og usikkerhet i markedene reduserer lønnsomheten og øker risikoen. For investorer er nøkkelen nå å følge effektene av geopolitiske utfordringer og markedsendringer i Filipinene.",
       "score": 85,
       "skipped": false,
       "direction": "nøytral",
@@ -15174,18 +15140,18 @@
       }
     }
   ],
-  "last_checked_at": "2026-10-31T06:31:12+00:00",
+  "last_checked_at": "2026-10-31T10:06:27+00:00",
   "monitor_stats": {
     "fetched": 162,
-    "recent": 63,
-    "already_seen": 43,
-    "eligible": 16,
-    "filtered": 4,
-    "analyzed": 16,
+    "recent": 62,
+    "already_seen": 60,
+    "eligible": 2,
+    "filtered": 0,
+    "analyzed": 2,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 4,
+    "recovered_unpublished": 2,
     "source_latest_at": "2026-10-30T22:51:16.610000+00:00"
   }
 }
