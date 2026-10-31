@@ -1283,7 +1283,16 @@ def skiloyper_kvamskogen_stats():
     radius       = int(request.args.get("radius", 2))
     fresh_hours  = int(request.args.get("fresh_hours", 12))
     cache_seconds = int(request.args.get("cache_seconds", 60))
-    return jsonify(fetch_loyper_stats(z, radius, fresh_hours, cache_seconds))
+    response = jsonify(fetch_loyper_stats(z, radius, fresh_hours, cache_seconds))
+    # Visit Kvamskogen leser denne offentlige statistikken fra sitt eget domene.
+    origin = request.headers.get("Origin")
+    if origin in {
+        "https://visitkvamskogen.no", "https://www.visitkvamskogen.no",
+        "https://visitkvamskogen.onrender.com",
+    }:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers.add("Vary", "Origin")
+    return response
 
 
 # =========================
