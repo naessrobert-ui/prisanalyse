@@ -92,6 +92,21 @@ handler_bp = Blueprint(
 )
 
 
+_SISTE_DATO_CACHE: dict[str, tuple[float | None, str | None]] = {}
+
+
+@handler_bp.context_processor
+def _siste_dato_ctx() -> dict:
+    """Siste handelsdato i DB, brukt som øvre grense i alle datovelgerne."""
+    mtime = _db_mtime()
+    hit = _SISTE_DATO_CACHE.get("siste")
+    if hit is None or hit[0] != mtime:
+        d = _siste_dato_lokal() if mtime is not None else None
+        hit = (mtime, d.isoformat() if d else None)
+        _SISTE_DATO_CACHE["siste"] = hit
+    return {"handler_siste_dato": hit[1]}
+
+
 _BV_INVESTOR_CACHE: dict[str, dict] = {}
 _BV_INVESTOR_CACHE_TTL_SECONDS = 15 * 60
 
