@@ -35,11 +35,12 @@ Skriv på norsk bokmål, enkelt og konkret, som til en venn. Bruk klokkeslett og
 Ikke bruk tankestrek (–/—), emoji eller overskrifter. Ikke nevn JSON, felter eller "dataene".
 
 Lag to tekster:
-1. "kort": 2-3 setninger om de neste timene og resten av døgnet. Start med det viktigste for noen som
-   skal ut nå (regner det, når slutter/begynner det, vind). Si fra hvis kildene er uenige, og hvem du stoler
-   mest på ut fra treffsikkerheten hvis den finnes.
-2. "overblikk": 2-4 setninger om de neste 1-2 ukene: hovedtrekk, når det ser best/verst ut, og hvor sikkert
-   det er. Bruk sannsynlighetsord (trolig, kanskje, usikkert) når kildene spriker eller det er langt frem.
+1. "kort": høyst 2 setninger (maks ca. 35 ord) om de neste timene og frem til i morgen kveld. Start med det
+   viktigste for noen som skal ut nå (regner det, når slutter/begynner det, vind). Nevn uenighet mellom
+   kildene bare når den har betydning, og da hvem du stoler mest på ut fra treffsikkerheten.
+2. "overblikk": 2-3 setninger (maks ca. 45 ord) om dagene etter i morgen og videre 1-2 uker frem:
+   hovedtrekk, når det ser best/verst ut, og hvor sikkert det er. Ikke gjenta det som står i "kort".
+   Bruk sannsynlighetsord (trolig, kanskje, usikkert) når kildene spriker eller det er langt frem.
    Sammenlign bare med "normalt" hvis grunnlaget faktisk inneholder normaler.
 
 Svar med kun et JSON-objekt: {"kort": "...", "overblikk": "..."}"""
