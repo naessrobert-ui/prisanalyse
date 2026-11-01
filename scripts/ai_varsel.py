@@ -8,7 +8,8 @@ skriver to korte tekster:
 * kort:      de neste timene og døgnet (praktisk: når regner det, paraply?)
 * overblikk: trenden de neste 1-2 ukene, med ærlig usikkerhet
 
-Teksten lages høyst én gang i timen per sted og holdes i minnet, så antall
+Gjelder både de faste stedene og søkte punkt (Yr i Norge, Open-Meteo
+ellers). Teksten lages høyst én gang i timen per sted og holdes i minnet, så antall
 API-kall er uavhengig av trafikken. Uten ANTHROPIC_API_KEY svarer endepunktet
 at funksjonen er av, og siden viser ingenting.
 """
@@ -138,4 +139,8 @@ def hent(sted: str, lag_payload, now: Optional[datetime] = None, spor=None) -> O
             return treff[1] if treff else None
         resultat = {**tekster, "laget": now.isoformat(), "modell": MODELL}
         _cache[sted] = (time_noekkel, resultat)
+        # Søkte punkt kan bli mange; behold bare denne timens tekster.
+        if len(_cache) > 200:
+            for k in [k for k, (t, _) in _cache.items() if t != time_noekkel]:
+                _cache.pop(k, None)
         return resultat

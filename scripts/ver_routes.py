@@ -2104,6 +2104,12 @@ def _lag_kvalitetsvurdering(temp: float, rain: float, wind: float, gust: float) 
     return {"score": "1/5", "label": "Dårlig", "reason": "Kraftig vind og/eller nedbør."}
 
 
+def _i_norge(lat: float, lon: float) -> bool:
+    from scripts.open_meteo_varsel import i_norge
+
+    return i_norge(lat, lon)
+
+
 @ver.get("/api/sted-sok")
 def api_sted_sok():
     q = (request.args.get("q") or "").strip()
@@ -2141,6 +2147,8 @@ def api_sted_sok():
                     "name": it.get("display_name"),
                     "lat": float(it.get("lat")),
                     "lon": float(it.get("lon")),
+                    "norge": (it.get("address") or {}).get("country_code") == "no"
+                    or _i_norge(float(it.get("lat")), float(it.get("lon"))),
                 }
             )
         except Exception:
@@ -2150,7 +2158,7 @@ def api_sted_sok():
         q_lower = q.lower()
         for key, (lat, lon, label) in by_fallback.items():
             if q_lower in key or key in q_lower:
-                items.append({"name": label, "lat": lat, "lon": lon})
+                items.append({"name": label, "lat": lat, "lon": lon, "norge": True})
 
     return jsonify({"items": items})
 
@@ -3070,6 +3078,12 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 .wrap{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
 
 /* ---------- SØKEKORT ---------- */
+.ai-box{background:#eef5fd;border:1px solid #cfe2f8;border-radius:12px;padding:14px 18px;margin-bottom:14px;color:var(--text)}
+.ai-box p{margin:0;font-size:16px;line-height:1.5}
+.ai-box p.ai-frem{margin-top:8px;font-size:15px}
+.ai-kilde{font-size:12px;color:#5f6f80;margin-top:8px}
+.ai-kilde a{color:inherit}
+@media (prefers-color-scheme: dark){.ai-box{background:#1b2c3e;border-color:#24415f}.ai-kilde{color:#9aa8b6}}
 .search-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:16px}
 .search-card h1{font-size:20px;font-weight:600;margin:0 0 4px;display:flex;align-items:center;gap:8px}
 .search-card .sub{color:var(--text-2);margin:0 0 14px;font-size:13px}
@@ -3280,6 +3294,13 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 
   <!-- Resultater (skjult til data er lastet) -->
   <div id="results">
+
+    <!-- AI-oppsummering: kort sikt og fremover (Yr i Norge, Open-Meteo ellers) -->
+    <div class="ai-box" id="aiBox" hidden>
+      <p id="aiKort"></p>
+      <p class="ai-frem" id="aiFrem" hidden></p>
+      <div class="ai-kilde">Oppsummert av AI (Claude). <a id="fullLink" href="#">Se fullt varsel med dager fremover ›</a></div>
+    </div>
 
     <!-- Header med verdict -->
     <div class="result-header">
@@ -3592,6 +3613,7 @@ async function loadForecast(lat,lon,name){
     wn3Req++; wn3=null; wn3ByHour=null;
     renderData(d);
     cachePlace(d.coords?.lat ?? lat, d.coords?.lon ?? lon, d.sted || name || 'Valgt sted');
+    loadAI(d.coords?.lat ?? lat, d.coords?.lon ?? lon, d.sted || name || 'Valgt sted');
     setStatus('');
     loadWN3(d.coords?.lat ?? lat, d.coords?.lon ?? lon);
   }catch(e){
@@ -4772,6 +4794,24 @@ async function loadOverview(){
 // ============================================================
 const PLACE_CACHE_KEY='aktivt_varsel_last_place_v1';
 const BERGEN_DEFAULT={name:'Bergen, Norge',lat:60.39299,lon:5.32415};
+
+let aiReq=0;
+async function loadAI(lat,lon,name){
+  const box=document.getElementById('aiBox'), req=++aiReq;
+  box.hidden=true;
+  const id=`p${Number(lat).toFixed(3)}_${Number(lon).toFixed(3)}`, q='?navn='+encodeURIComponent(name);
+  document.getElementById('fullLink').href=`/ver/varsel/${id}${q}`;
+  try{
+    const r=await fetch(`/ver/api/ai-varsel/${id}${q}`);
+    const d=await r.json();
+    if(req!==aiReq || !d.available) return;
+    document.getElementById('aiKort').textContent=d.kort||'';
+    const f=document.getElementById('aiFrem');
+    f.textContent='';
+    if(d.overblikk){const b=document.createElement('b');b.textContent='Fremover: ';f.append(b,d.overblikk);f.hidden=false}else{f.hidden=true}
+    box.hidden=!d.kort && !d.overblikk;
+  }catch(_){}
+}
 
 function cachePlace(lat,lon,name){
   try{

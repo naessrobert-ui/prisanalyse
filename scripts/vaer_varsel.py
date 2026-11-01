@@ -18,6 +18,7 @@ er rene funksjoner; bare `_fetch_*` går mot nettet.
 """
 from __future__ import annotations
 
+import re
 import threading
 import time
 from collections import Counter
@@ -52,6 +53,45 @@ WET_MM = 0.1
 GOOGLE_DRIZZLE_MM = 0.03
 
 vaer_varsel = Blueprint("vaer_varsel", __name__)
+
+# ---------------------------------------------------------------------------
+# Steder: de faste (Bergen, Kvamskogen) og vilkårlige punkt ("p60.628_6.417")
+# ---------------------------------------------------------------------------
+
+_PUNKT_RE = re.compile(r"^p(-?\d{1,2}(?:\.\d{1,4})?)_(-?\d{1,3}(?:\.\d{1,4})?)$")
+#: Navn brukeren har søkt opp for et punkt. Bare til visning og AI-teksten.
+_PUNKT_NAVN: dict[str, str] = {}
+
+
+def punkt_id(lat: float, lon: float) -> str:
+    """Stabil id for et punkt, avrundet til ca. 100 m så like søk deler cache."""
+    return f"p{lat:.3f}_{lon:.3f}"
+
+
+def registrer_navn(place: str, navn: Optional[str]) -> None:
+    navn = (navn or "").strip()[:80]
+    if navn and place not in PLACES:
+        if len(_PUNKT_NAVN) > 5000:
+            _PUNKT_NAVN.clear()
+        _PUNKT_NAVN[place] = navn
+
+
+def sted_info(place: str) -> Optional[dict[str, Any]]:
+    """Navn, koordinater og hvilke kilder som finnes for et sted, eller None."""
+    if place in PLACES:
+        p = PLACES[place]
+        return {"id": place, "name": p["name"], "lat": p["lat"], "lon": p["lon"],
+                "fast": True, "norge": True}
+    m = _PUNKT_RE.match(place or "")
+    if not m:
+        return None
+    lat, lon = float(m.group(1)), float(m.group(2))
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None
+    from scripts.open_meteo_varsel import i_norge
+
+    return {"id": place, "name": _PUNKT_NAVN.get(place) or "Valgt sted", "lat": lat, "lon": lon,
+            "fast": False, "norge": i_norge(lat, lon)}
 
 #: Snarveier nederst på varselsiden (forsiden på blirdetfint.no), i Yr-stil.
 VAERSIDER = [
@@ -977,13 +1017,21 @@ def _get(url: str, **params: Any) -> requests.Response:
 
 
 def _fetch_yr(place: str) -> dict[str, Any]:
-    p = PLACES[place]
+    """Locationforecast fra MET i Norge, Open-Meteo (i samme format) utenfor."""
+    p = sted_info(place)
+    if not p["norge"]:
+        from scripts.open_meteo_varsel import hent_timeserie
+
+        return _CACHE.get(("om", place), 900, lambda: {
+            "properties": {"meta": {}, "timeseries": hent_timeserie(p["lat"], p["lon"])}})
     return _CACHE.get(("yr", place), 600, lambda: _get(
         f"{MET}/locationforecast/2.0/complete", lat=f"{p['lat']:.4f}", lon=f"{p['lon']:.4f}").json())
 
 
 def _fetch_nowcast(place: str) -> dict[str, Any]:
-    p = PLACES[place]
+    p = sted_info(place)
+    if not p["norge"]:
+        raise RuntimeError("Nowcast finnes bare i Norden.")
     return _CACHE.get(("nowcast", place), 240, lambda: _get(
         f"{MET}/nowcast/2.0/complete", lat=f"{p['lat']:.4f}", lon=f"{p['lon']:.4f}").json())
 
@@ -1023,7 +1071,7 @@ def _google_days_at(lat: float, lon: float, cache_key: Any,
 
 def _fetch_weathernext(place: str, now: datetime) -> Optional[dict[str, Any]]:
     if place not in WEATHERNEXT_PLACES:
-        return None
+        return _weathernext_punkt(place)
     from scripts import weathernext
 
     varsel = _CACHE.get(("weathernext", place), 300, lambda: weathernext.les_siste(place))
@@ -1035,10 +1083,34 @@ def _fetch_weathernext(place: str, now: datetime) -> Optional[dict[str, Any]]:
     return varsel
 
 
+def _weathernext_punkt(place: str) -> Optional[dict[str, Any]]:
+    """WeatherNext for et vilkårlig punkt, men bare fra cachen.
+
+    Et Earth Engine-oppslag tar 45 s eller mer og er av som standard
+    (WEATHERNEXT_LIVE). Er det på, startes hentingen i bakgrunnen, og siden får
+    de lange dagene ved neste lasting.
+    """
+    import os
+
+    if os.environ.get("WEATHERNEXT_LIVE", "").strip().lower() not in {"1", "true", "ja"}:
+        return None
+    from scripts import weathernext
+
+    p = sted_info(place)
+    celle = (round(p["lat"], 1), round(p["lon"], 1))
+    treff = weathernext._CACHE.get(celle)
+    if treff and time.time() - treff[0] < weathernext._CACHE_TTL:
+        return treff[1]
+    threading.Thread(target=_safe, args=(lambda: weathernext.for_punkt(p["lat"], p["lon"]),), daemon=True).start()
+    return None
+
+
 def _fetch_reference(place: str, now: datetime) -> tuple[Optional[datetime], dict[datetime, dict[str, Any]]]:
     """Lagret varsel fra scoreboardet (S3) for inneværende døgn."""
     from scripts.weather_scoreboard import FORECAST_COLUMNS, _FORECASTS, _load
 
+    if place not in PLACES:
+        return None, {}
     day_start = _local(now).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
 
     def load():
@@ -1049,6 +1121,8 @@ def _fetch_reference(place: str, now: datetime) -> tuple[Optional[datetime], dic
 
 
 def _fetch_google(place: str) -> list[dict[str, Any]]:
+    if place not in PLACES:
+        return []  # Google koster per kall; bare de faste stedene sammenlignes.
     payload = _comparison_provider(place, "google")
     return payload.get("hours") or []
 
@@ -1070,6 +1144,8 @@ def _fetch_google_long(place: str) -> list[dict[str, Any]]:
     """
     from scripts.weather_comparison import fetch_google_hours
 
+    if place not in PLACES:
+        return []
     p = PLACES[place]
     return _CACHE.get(("google_long", place), 3300,
                       lambda: fetch_google_hours(p["lat"], p["lon"], hours=_google_long_hours()))
@@ -1077,6 +1153,9 @@ def _fetch_google_long(place: str) -> list[dict[str, Any]]:
 
 def _fetch_observations(place: str, now: datetime) -> tuple[list[dict[str, Any]], Optional[str]]:
     from scripts.weather_scoreboard import STATIONS, fetch_observations
+
+    if place not in PLACES:
+        return [], None
 
     def load():
         midnight = _local(now).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
@@ -1178,14 +1257,14 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
         "text": symbol_text(current.get("symbol")),
     }
     now_block["feels_like"] = feels_like(now_block["temp"], now_block["wind"])
-    trust_rows = _trust_rows()
+    trust_rows = _trust_rows() if place in PLACES else None
     meta = (yr_payload.get("properties") or {}).get("meta") or {}
     days = build_days(rows, google, observed, now)
     wn_days = weathernext_by_day(wn_varsel, now)
     yr_dates = [d["date"] for d in days if d.get("tmin") is not None]
     days += weathernext_extra_days(wn_days, yr_dates[-1] if yr_dates else None)
     return {
-        "place": {"id": place, **PLACES[place]},
+        "place": sted_info(place),
         "generated_at": _local(now).isoformat(),
         "yr_updated_at": meta.get("updated_at"),
         "now": now_block,
@@ -1209,7 +1288,7 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
                    for p in slices(rows) if p["end"] - p["start"] > timedelta(hours=1)],
         "google_days": google_days,
         "agreement": agreement(hours),
-        "trust": trust_text(trust_rows, place, _TRUST["days"]) if trust_rows else None,
+        "trust": trust_text(trust_rows, place, _TRUST["days"]) if trust_rows and place in PLACES else None,
         "google_available": bool(google),
     }
 
@@ -1250,18 +1329,29 @@ def varsel_default():
     return redirect("/ver/varsel/bergen")
 
 
+def _sted_fra_request(sted: str) -> Optional[dict[str, Any]]:
+    from flask import request
+
+    registrer_navn(sted, request.args.get("navn"))
+    return sted_info(sted)
+
+
 @vaer_varsel.get("/ver/varsel/<sted>")
 def varsel_page(sted: str):
-    if sted not in PLACES:
+    info = _sted_fra_request(sted)
+    if info is None:
         abort(404)
     places = sorted(({"id": k, "name": v["name"].split()[0], "lat": v["lat"], "lon": v["lon"]} for k, v in PLACES.items()),
                     key=lambda p: p["id"] != "bergen")  # Bergen først
-    return _frame_headers(make_response(render_template("ver/varsel.html", sted=sted, places=places, vaersider=VAERSIDER)))
+    vis = {**info, "name": info["name"].split()[0] if info["fast"] else info["name"]}
+    return _frame_headers(make_response(render_template(
+        "ver/varsel.html", sted=sted, info=vis, places=places, vaersider=VAERSIDER,
+        har_radar=sted in RADAR_AREA)))
 
 
 @vaer_varsel.get("/ver/api/varsel/<sted>")
 def varsel_api(sted: str):
-    if sted not in PLACES:
+    if _sted_fra_request(sted) is None:
         return jsonify(error="Ukjent sted."), 404
     try:
         payload = build_payload(sted)
@@ -1356,7 +1446,9 @@ def dagsvarsel_api():
         payload = _fetch_punkt(lat, lon)
     except Exception:
         return jsonify(error="Fikk ikke hentet varselet fra Yr."), 503
-    response = jsonify(days=build_dagsvarsel(payload, datetime.now(timezone.utc)))
+    from scripts.open_meteo_varsel import i_norge
+
+    response = jsonify(days=build_dagsvarsel(payload, datetime.now(timezone.utc)), norge=i_norge(lat, lon))
     response.headers["Cache-Control"] = "public, max-age=600"
     return response
 
@@ -1369,12 +1461,12 @@ def build_series_payload(place: str, now: Optional[datetime] = None) -> dict[str
         yr_payload, google = f_yr.result(), f_g.result() or []
     if not yr_payload:
         raise RuntimeError("Fikk ikke hentet varselet fra Yr.")
-    p = PLACES[place]
+    p = sted_info(place)
     hours = build_series(parse_yr(yr_payload), google, now, p["lat"], p["lon"])
     last = {src: next((h["time"] for h in reversed(hours) if h["src"] == src), None)
             for src in ("yr", "yr6", "google")}
     return {
-        "place": {"id": place, **p},
+        "place": p,
         "generated_at": _local(now).isoformat(),
         "google_available": bool(google),
         "yr_hourly_until": last["yr"],
@@ -1387,7 +1479,7 @@ def ai_varsel_api(sted: str):
     """AI-oppsummering (kort sikt og overblikk). Lages høyst én gang i timen."""
     from scripts import ai_varsel
 
-    if sted not in PLACES:
+    if _sted_fra_request(sted) is None:
         return jsonify(error="Ukjent sted."), 404
     if not ai_varsel.aktivert():
         return jsonify(available=False)
@@ -1402,7 +1494,7 @@ def ai_varsel_api(sted: str):
 @vaer_varsel.get("/ver/api/timeserie/<sted>")
 def timeserie_api(sted: str):
     """Samlet timeserie for værsøket: Yr der Yr har timer, Google-fordelt ellers."""
-    if sted not in PLACES:
+    if _sted_fra_request(sted) is None:
         return jsonify(error="Ukjent sted."), 404
     try:
         payload = build_series_payload(sted)
