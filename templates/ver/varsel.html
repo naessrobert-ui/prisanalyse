@@ -229,6 +229,19 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .tile:hover{filter:brightness(.96)}
 .tile span{font-size:18px}
 .tile-alle{background:var(--card);border:1px solid var(--line)}
+/* Mine steder */
+.ms-row{display:grid;grid-template-columns:minmax(120px,1.6fr) repeat(4,minmax(52px,1fr)) 28px;align-items:center;gap:4px;padding:8px 0;border-top:1px solid var(--line)}
+.ms-head{border-top:0;padding-top:0;font-size:12.5px;color:var(--muted)}
+.ms-name{display:flex;align-items:center;gap:6px;font-weight:600;min-width:0}
+.ms-name a{color:var(--ink);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-name a:hover{text-decoration:underline}
+.ms-day{display:flex;align-items:center;justify-content:center;gap:4px}
+.ms-warm{color:#c62828}.ms-cold{color:var(--blue)}
+.ms-star,.ms-del{background:none;border:0;padding:0;cursor:pointer;color:var(--muted);font-size:16px;line-height:1}
+.ms-star.on{color:var(--sun)}
+.ms-del{font-size:13px;opacity:.6}.ms-del:hover{opacity:1}
+.ms-hint,.ms-load{font-size:12.5px;color:var(--muted);padding-top:8px}
+@media (max-width:560px){.ms-row{grid-template-columns:minmax(90px,1.3fr) repeat(4,1fr) 22px}.ms-day svg{width:26px;height:26px}}
 footer{font-size:12px;color:var(--muted);padding:4px 4px 24px}
 footer a{color:inherit}
 
@@ -410,6 +423,12 @@ button.pill{font:inherit;font-size:13px}
       Skraverte timer har ikke eget timesvarsel fra Yr: der er Yr sin nedbør for seks timer fordelt etter Google sin timeprofil, og etter at Yr slutter brukes bare Google.</div>
   </section>
 
+  <!-- Mine steder (lagres bare i nettleseren) -->
+  <section class="card" id="mineSteder">
+    <h2>Mine steder</h2>
+    <div id="msList"></div>
+  </section>
+
   <!-- 2. Time for time -->
   <section class="card">
     <div class="strip-head">
@@ -449,6 +468,7 @@ button.pill{font:inherit;font-size:13px}
 
 <script>
 const STED = {{ sted | tojson }};
+const STED_INFO = {{ places | selectattr('id', 'equalto', sted) | first | tojson }};
 {% raw %}
 /* ---------- Symboler (egne, enkle SVG, tåler alle Yr-koder) ---------- */
 const P = {
@@ -1113,6 +1133,11 @@ load();
 setInterval(()=>{if(!document.hidden) load()},5*60*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&DATA&&Date.now()-new Date(DATA.generated_at)>5*60*1000) load()});
 {% endraw %}
+</script>
+<script src="/static/js/mine_steder.js"></script>
+<script>
+  try { MineSteder.add({name: STED_INFO.name, lat: STED_INFO.lat, lon: STED_INFO.lon, href: '/ver/varsel/' + STED}); } catch (_) {}
+  MineSteder.render(document.getElementById('msList'), icon);
 </script>
 </body>
 </html>
