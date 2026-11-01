@@ -175,7 +175,7 @@ def build_snapshot(report:dict, old:dict|None=None, bootstrap:dict|None=None) ->
     merged={
         "mode":"live",
         "generation": generation or (old or {}).get("generation",""),
-        "source":"NewsWeb – automatisk fra GitHub Actions",
+        "source":"NewsWeb – automatisk fra Raspberry Pi",
         "generated_at": limited(report.get("generated_at"),48) if current_items else
                         limited((old or bootstrap or {}).get("generated_at"),48),
         "items":rows

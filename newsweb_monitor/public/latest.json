@@ -1,9 +1,26 @@
 {
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
-  "source": "NewsWeb – automatisk fra GitHub Actions",
-  "generated_at": "2026-10-31T10:06:27+00:00",
+  "source": "NewsWeb – automatisk fra Raspberry Pi",
+  "generated_at": "2026-11-01T21:13:06+00:00",
   "items": [
+    {
+      "id": "685268",
+      "market": "XOSL",
+      "ticker": "NOM",
+      "issuer": "Nordic Mining ASA",
+      "title": "Financial calendar",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-01T09:06:47.815000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685268",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "685265",
       "market": "XOSL",
@@ -15082,76 +15099,20 @@
           "points": []
         }
       }
-    },
-    {
-      "id": "684886",
-      "market": "XOSL",
-      "ticker": "OTL",
-      "issuer": "Odfjell Technology Ltd",
-      "title": "Odfjell Technology Ltd - Details for Third Quarter of 2026 Webcast and Conference Call",
-      "headline": "Odfjell Technology klargjør webcast for Q3-presentasjon 3. november",
-      "lead": "Odfjell Technology vil presentere sitt tredje kvartal 2026 med webcast og telefonkonferanse 3. november kl. 10:30 CEST, inkludert Q&A med ledelsen.",
-      "published_at": "2026-10-27T07:52:14.821000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684886",
-      "summary": "Odfjell Technology vil presentere sitt tredje kvartal 2026 med webcast og telefonkonferanse 3. november kl. 10:30 CEST, inkludert Q&A med ledelsen.",
-      "reason": "Informasjonen om webcast og konferansesamtale gir en mulighet for å følge resultatfremleggelsen, men inneholder ingen økonomiske tall eller indikasjoner på fremtidige utsikter. Slik sett har den begrenset umiddelbar verdi for aksjonærer.",
-      "score": 30,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "number_keys": [
-        "22d200",
-        "356a19",
-        "4fd505",
-        "6ec645",
-        "778736",
-        "77de68",
-        "812ed4",
-        "8f985e",
-        "98fbc4",
-        "ac3478",
-        "aee655",
-        "b02b25",
-        "b1d578",
-        "ba587c",
-        "bc33ea",
-        "c9f30e",
-        "da4b92",
-        "e94819"
-      ],
-      "financial_report": {
-        "status": "no_pdf",
-        "period": "2026Q3",
-        "period_source": "",
-        "previous_report": "",
-        "document": {
-          "name": "",
-          "url": ""
-        },
-        "metrics": [],
-        "outlook": {
-          "status": "",
-          "summary": "",
-          "change": "",
-          "trend": "",
-          "compared_periods": [],
-          "points": []
-        }
-      }
     }
   ],
-  "last_checked_at": "2026-10-31T10:06:27+00:00",
+  "last_checked_at": "2026-11-01T21:20:00+00:00",
   "monitor_stats": {
-    "fetched": 162,
-    "recent": 62,
-    "already_seen": 60,
-    "eligible": 2,
+    "fetched": 64,
+    "recent": 2,
+    "already_seen": 2,
+    "eligible": 0,
     "filtered": 0,
-    "analyzed": 2,
+    "analyzed": 0,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 2,
-    "source_latest_at": "2026-10-30T22:51:16.610000+00:00"
+    "recovered_unpublished": 0,
+    "source_latest_at": "2026-11-01T19:15:30.400000+00:00"
   }
 }
