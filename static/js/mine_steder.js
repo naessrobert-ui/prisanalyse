@@ -58,8 +58,14 @@
     write(order(list));
   }
 
-  function link(p) {
+  function punktUrl(name, lat, lon) {
+    return "/ver/varsel/p" + Number(lat).toFixed(3) + "_" + Number(lon).toFixed(3) +
+      "?navn=" + encodeURIComponent(name);
+  }
+
+  function link(p, norge) {
     if (p.href) return p.href;
+    if (norge) return punktUrl(p.name, p.lat, p.lon);
     return "/ver/aktivt-varsel?lat=" + p.lat.toFixed(4) + "&lon=" + p.lon.toFixed(4) +
       "&sted=" + encodeURIComponent(p.name);
   }
@@ -80,7 +86,7 @@
   function fetchDays(p) {
     var url = "/ver/api/dagsvarsel?lat=" + p.lat.toFixed(2) + "&lon=" + p.lon.toFixed(2);
     return fetch(url).then(function (r) { return r.ok ? r.json() : { days: [] }; })
-      .then(function (d) { return d.days || []; })
+      .then(function (d) { var days = d.days || []; days.norge = !!d.norge; return days; })
       .catch(function () { return []; });
   }
 
@@ -114,7 +120,7 @@
           ? '<button type="button" class="ms-del" data-ms-del="' + idx + '" aria-label="Fjern sted">✕</button>'
           : "<span></span>";
         html += '<div class="ms-row">' + '<span class="ms-name">' + star +
-          '<a href="' + esc(link(p)) + '">' + esc(p.name) + "</a></span>" + cells + del + "</div>";
+          '<a href="' + esc(link(p, days.norge)) + '">' + esc(p.name) + "</a></span>" + cells + del + "</div>";
       });
       if (!editable) {
         html += '<div class="ms-hint">Steder du søker opp, havner her automatisk. Bare i denne nettleseren.</div>';
@@ -137,5 +143,5 @@
     }
   }
 
-  window.MineSteder = { add: add, render: render, list: read };
+  window.MineSteder = { add: add, render: render, list: read, punktUrl: punktUrl };
 })();

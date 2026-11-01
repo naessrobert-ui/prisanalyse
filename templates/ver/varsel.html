@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Været {{ places | selectattr('id', 'equalto', sted) | map(attribute='name') | first }}</title>
+<title>Været {{ info.name }}</title>
 <meta name="description" content="Regner det de neste to timene? Radar, time for time og åtte dager fremover, med Yr og Google side om side.">
 <style>
 :root{
@@ -248,6 +248,17 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .ai-kilde{font-size:11.5px;color:var(--muted);margin-top:8px}
 .card.ai p.ai-frem{margin-top:10px;font-size:15px;color:var(--ink)}
 .ai-frem b{font-weight:650}
+/* Stedssøk */
+.stedsok{position:relative}
+.stedsok input{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:13px;width:160px}
+.stedsok input:focus{outline:2px solid var(--blue-soft);width:220px}
+.stedtreff{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:260px;max-width:340px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(20,40,60,.15);overflow:hidden}
+.stedtreff a{display:block;padding:9px 12px;color:var(--ink);text-decoration:none;font-size:13.5px;border-top:1px solid var(--line)}
+.stedtreff a:first-child{border-top:0}
+.stedtreff a:hover,.stedtreff a:focus{background:var(--blue-ghost)}
+.stedtreff small{color:var(--muted)}
+.stedtreff .tom{padding:9px 12px;font-size:13px;color:var(--muted)}
+@media (max-width:560px){.stedsok input,.stedsok input:focus{width:100%}.stedsok{flex:1 1 100%}.stedtreff{left:0;right:auto}}
 footer{font-size:12px;color:var(--muted);padding:4px 4px 24px}
 footer a{color:inherit}
 
@@ -324,12 +335,15 @@ button.pill{font:inherit;font-size:13px}
 
   <div class="top">
     <div>
-      <h1 class="place" id="placeName">{{ places | selectattr('id', 'equalto', sted) | map(attribute='name') | first }}</h1>
+      <h1 class="place" id="placeName">{{ info.name }}</h1>
       <div class="draft" id="updated">Henter varsel …</div>
     </div>
     <div class="pills">
       {% for p in places %}<a class="pill{% if p.id == sted %} on{% endif %}" href="/ver/varsel/{{ p.id }}">{{ p.name }}</a>{% endfor %}
-      <a class="pill" href="/ver/aktivt-varsel">Annet sted</a>
+      <form class="stedsok" id="stedSok" role="search" autocomplete="off">
+        <input id="stedInput" type="search" placeholder="🔍 Søk sted" aria-label="Søk sted">
+        <div class="stedtreff" id="stedTreff" hidden></div>
+      </form>
       <a class="pill" href="#flere">☰ Alle værsider</a>
       <button type="button" class="pill sok" id="sokBtn" aria-expanded="false" aria-controls="sokCard">Finn værluke</button>
     </div>
@@ -341,7 +355,7 @@ button.pill{font:inherit;font-size:13px}
   <section class="card ai" id="aiKortCard" hidden>
     <p id="aiKort"></p>
     <p class="ai-frem" id="aiOverblikk" hidden></p>
-    <div class="ai-kilde">Oppsummert av AI (Claude) fra Yr, radar, Google, WeatherNext og målinger.</div>
+    <div class="ai-kilde">Oppsummert av AI (Claude) fra værdataene på denne siden.</div>
   </section>
 
   <!-- 1. Svarene først -->
@@ -363,7 +377,7 @@ button.pill{font:inherit;font-size:13px}
           <div class="nowcast">
             <svg id="ncSvg" viewBox="0 0 240 46" preserveAspectRatio="none" aria-label="Nedbør neste 2 timer"></svg>
             <div class="nc-axis"><span>Nå</span><span>30</span><span>60</span><span>90</span><span>120 min</span></div>
-            <div style="text-align:right;margin-top:4px"><span class="more" id="moreTxt">Radar og detaljer ›</span></div>
+            <div style="text-align:right;margin-top:4px"><span class="more" id="moreTxt">{{ 'Radar og detaljer ›' if har_radar else 'Detaljer ›' }}</span></div>
           </div>
         </div>
         <div class="ans" id="ansDay">
@@ -481,7 +495,10 @@ button.pill{font:inherit;font-size:13px}
 
 <script>
 const STED = {{ sted | tojson }};
-const STED_INFO = {{ places | selectattr('id', 'equalto', sted) | first | tojson }};
+const STED_INFO = {{ info | tojson }};
+const HAR_RADAR = {{ har_radar | tojson }};
+// Punkt (søkte steder) sender navnet med, så serveren kan bruke det i teksten.
+const Q = STED_INFO.fast ? '' : '?navn=' + encodeURIComponent(STED_INFO.name);
 {% raw %}
 /* ---------- Symboler (egne, enkle SVG, tåler alle Yr-koder) ---------- */
 const P = {
@@ -587,10 +604,16 @@ function toggleRadar(){
   const box=$('radar'), open=!box.classList.contains('open');
   box.classList.toggle('open',open);
   $('ansNow').setAttribute('aria-expanded',open);
-  $('moreTxt').textContent=open?'Skjul radar ‹':'Radar og detaljer ›';
+  $('moreTxt').textContent=open?'Skjul detaljer ‹':(HAR_RADAR?'Radar og detaljer ›':'Detaljer ›');
   if(open){
     const img=$('radarImg');
     $('rviewer').style.display='';$('radarFail').style.display='none';
+    if(!HAR_RADAR){
+      $('rviewer').style.display='none';$('radarFail').style.display='block';
+      $('radarFail').textContent='Radaranimasjonen finnes foreløpig bare for Bergen og Kvamskogen. Tabellen viser radarberegnet nedbør for dette stedet.';
+      if(DATA) renderNcTable(DATA);
+      return;
+    }
     img.onerror=()=>{$('rviewer').style.display='none';$('radarFail').style.display='block'};
     img.onload=()=>RV.reset();
     img.src=`/ver/api/radar/${STED}.gif?t=${Math.floor(Date.now()/300000)}`;
@@ -960,7 +983,7 @@ let _rs;window.addEventListener('resize',()=>{clearTimeout(_rs);_rs=setTimeout((
 let SERIES=null, SERIES_P=null;
 function ensureSeries(){
   if(SERIES&&Date.now()-SERIES._at>30*60*1000){SERIES=null;SERIES_P=null}
-  if(!SERIES_P) SERIES_P=fetch(`/ver/api/timeserie/${STED}`).then(async r=>{const d=await r.json(); if(!r.ok) throw new Error(d.error||'Feil'); d._at=Date.now(); SERIES=d; return d})
+  if(!SERIES_P) SERIES_P=fetch(`/ver/api/timeserie/${STED}${Q}`).then(async r=>{const d=await r.json(); if(!r.ok) throw new Error(d.error||'Feil'); d._at=Date.now(); SERIES=d; return d})
     .catch(e=>{SERIES_P=null; throw e});
   return SERIES_P;
 }
@@ -1125,7 +1148,7 @@ function renderTrust(d){
 /* ---------- Last og oppdater ---------- */
 async function load(){
   try{
-    const res=await fetch(`/ver/api/varsel/${STED}`,{cache:'no-store'});
+    const res=await fetch(`/ver/api/varsel/${STED}${Q}`,{cache:'no-store'});
     const d=await res.json();
     if(!res.ok) throw new Error(d.error||'Feil');
     DATA=d;
@@ -1144,7 +1167,7 @@ async function load(){
 }
 async function loadAI(){
   try{
-    const r=await fetch(`/ver/api/ai-varsel/${STED}`);
+    const r=await fetch(`/ver/api/ai-varsel/${STED}${Q}`);
     const d=await r.json();
     if(!d.available) return;
     if(d.kort){$('aiKort').textContent=d.kort;$('aiKortCard').hidden=false}
@@ -1160,8 +1183,43 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&DATA&&Dat
 </script>
 <script src="/static/js/mine_steder.js"></script>
 <script>
-  try { MineSteder.add({name: STED_INFO.name, lat: STED_INFO.lat, lon: STED_INFO.lon, href: '/ver/varsel/' + STED}); } catch (_) {}
+  try { MineSteder.add({name: STED_INFO.name, lat: STED_INFO.lat, lon: STED_INFO.lon, href: '/ver/varsel/' + STED + Q}); } catch (_) {}
   MineSteder.render(document.getElementById('msList'), icon);
+
+  // Stedssøk: norske steder får denne siden, andre åpnes i aktivt varsel (Open-Meteo).
+  (function () {
+    const input = document.getElementById('stedInput'), box = document.getElementById('stedTreff');
+    let timer = null, nr = 0;
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    function url(it) {
+      const navn = String(it.name || '').split(',')[0].trim() || 'Valgt sted';
+      return it.norge ? MineSteder.punktUrl(navn, it.lat, it.lon)
+        : `/ver/aktivt-varsel?lat=${it.lat}&lon=${it.lon}&sted=${encodeURIComponent(navn)}`;
+    }
+    async function sok() {
+      const q = input.value.trim(), mitt = ++nr;
+      if (q.length < 2) { box.hidden = true; return; }
+      try {
+        const r = await fetch(`/ver/api/sted-sok?q=${encodeURIComponent(q)}`);
+        const d = await r.json();
+        if (mitt !== nr) return;
+        const items = (d.items || []).slice(0, 6);
+        box.innerHTML = items.length ? items.map(it => {
+          const [forst, ...rest] = String(it.name || '').split(',');
+          return `<a href="${esc(url(it))}">${esc(forst)}<br><small>${esc(rest.slice(0, 3).join(',').trim())}</small></a>`;
+        }).join('') : '<div class="tom">Fant ingen steder.</div>';
+        box.hidden = false;
+      } catch (_) { box.hidden = true; }
+    }
+    input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(sok, 350); });
+    document.getElementById('stedSok').addEventListener('submit', e => {
+      e.preventDefault();
+      const forste = box.querySelector('a');
+      if (forste) location.href = forste.href; else sok();
+    });
+    document.addEventListener('click', e => { if (!e.target.closest('#stedSok')) box.hidden = true; });
+    input.addEventListener('keydown', e => { if (e.key === 'Escape') box.hidden = true; });
+  })();
 </script>
 </body>
 </html>

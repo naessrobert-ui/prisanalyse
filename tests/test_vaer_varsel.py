@@ -555,3 +555,45 @@ def test_dagsvarsel_api_avviser_ugyldig_koordinat():
     client = _app()
     assert client.get("/ver/api/dagsvarsel?lat=abc&lon=5").status_code == 400
     assert client.get("/ver/api/dagsvarsel?lat=95&lon=5").status_code == 400
+
+
+# --- Søkte punkt får samme side som de faste stedene ------------------------
+
+def test_sted_info_for_faste_steder_og_punkt():
+    assert vv.sted_info("bergen")["fast"] is True
+    voss = vv.sted_info(vv.punkt_id(60.6283, 6.4166))
+    assert voss["id"] == "p60.628_6.417" and voss["norge"] is True and voss["fast"] is False
+    assert vv.sted_info("p38.345_-0.481")["norge"] is False
+    assert vv.sted_info("oslo") is None and vv.sted_info("p999_1") is None
+
+
+def test_punktside_viser_navn_og_skjuler_radaranimasjon():
+    page = _app().get("/ver/varsel/p60.628_6.417?navn=Voss")
+    assert page.status_code == 200
+    assert b"<h1 class=\"place\" id=\"placeName\">Voss</h1>" in page.data
+    assert b"const HAR_RADAR = false" in page.data
+
+
+def test_punkt_api_bruker_yr_uten_google_og_maalinger():
+    google, obs = [], []
+    with patch.object(vv, "_fetch_yr", return_value=yr_payload()), \
+         patch.object(vv, "_fetch_nowcast", side_effect=RuntimeError), \
+         patch.object(vv, "_fetch_weathernext", return_value=None), \
+         patch("scripts.weather_comparison.fetch_google_hours", side_effect=lambda *a, **k: google.append(1)), \
+         patch("scripts.weather_scoreboard.fetch_observations", side_effect=lambda *a, **k: obs.append(1)), \
+         patch.object(vv, "_trust_rows", return_value=None):
+        res = _app().get("/ver/api/varsel/p60.628_6.417?navn=Voss")
+    assert res.status_code == 200
+    data = res.json
+    assert data["place"]["name"] == "Voss" and data["place"]["fast"] is False
+    assert data["google_available"] is False and data["trust"] is None and data["days"]
+    assert not google and not obs  # ingen Google-kall eller Frost-oppslag for punkt
+
+
+def test_utenlandsk_punkt_henter_open_meteo():
+    vv._CACHE.clear()
+    with patch("scripts.open_meteo_varsel.hent_timeserie", return_value=[{"time": "x"}]) as om, \
+         patch.object(vv, "_get") as met:
+        data = vv._fetch_yr("p38.345_-0.481")
+    assert om.called and not met.called
+    assert data["properties"]["timeseries"] == [{"time": "x"}]
