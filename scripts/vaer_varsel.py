@@ -1382,6 +1382,23 @@ def build_series_payload(place: str, now: Optional[datetime] = None) -> dict[str
     }
 
 
+@vaer_varsel.get("/ver/api/ai-varsel/<sted>")
+def ai_varsel_api(sted: str):
+    """AI-oppsummering (kort sikt og overblikk). Lages høyst én gang i timen."""
+    from scripts import ai_varsel
+
+    if sted not in PLACES:
+        return jsonify(error="Ukjent sted."), 404
+    if not ai_varsel.aktivert():
+        return jsonify(available=False)
+    tekster = ai_varsel.hent(sted, lambda: build_payload(sted))
+    if not tekster:
+        return jsonify(available=False)
+    response = jsonify(available=True, **tekster)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @vaer_varsel.get("/ver/api/timeserie/<sted>")
 def timeserie_api(sted: str):
     """Samlet timeserie for værsøket: Yr der Yr har timer, Google-fordelt ellers."""
