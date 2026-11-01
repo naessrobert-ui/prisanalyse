@@ -242,6 +242,11 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .ms-del{font-size:13px;opacity:.6}.ms-del:hover{opacity:1}
 .ms-hint,.ms-load{font-size:12.5px;color:var(--muted);padding-top:8px}
 @media (max-width:560px){.ms-row{grid-template-columns:minmax(90px,1.3fr) repeat(4,1fr) 22px}.ms-day svg{width:26px;height:26px}}
+/* AI-oppsummering */
+.card.ai{background:var(--blue-ghost);border:1px solid var(--blue-soft)}
+.card.ai p{margin:0;font-size:16.5px;line-height:1.5}
+.ai-kilde{font-size:11.5px;color:var(--muted);margin-top:8px}
+.ai-overblikk{margin:0 0 14px;padding:12px 14px;border-radius:10px;background:var(--blue-ghost);line-height:1.5}
 footer{font-size:12px;color:var(--muted);padding:4px 4px 24px}
 footer a{color:inherit}
 
@@ -330,6 +335,12 @@ button.pill{font:inherit;font-size:13px}
   </div>
 
   <div class="card error" id="error" hidden></div>
+
+  <!-- AI: kort sikt -->
+  <section class="card ai" id="aiKortCard" hidden>
+    <p id="aiKort"></p>
+    <div class="ai-kilde">Oppsummert av AI (Claude) fra Yr, radar, Google, WeatherNext og målinger.</div>
+  </section>
 
   <!-- 1. Svarene først -->
   <section class="card" id="heroCard">
@@ -443,6 +454,7 @@ button.pill{font:inherit;font-size:13px}
   <!-- 3. Fremover -->
   <section class="card" id="daysCard">
     <h2>Neste dager</h2>
+    <p class="ai-overblikk" id="aiOverblikk" hidden></p>
     <div class="days" id="days"></div>
   </section>
 
@@ -1129,6 +1141,17 @@ async function load(){
     $('error').textContent='Fikk ikke hentet varselet akkurat nå. Prøver igjen om litt.';
   }
 }
+async function loadAI(){
+  try{
+    const r=await fetch(`/ver/api/ai-varsel/${STED}`);
+    const d=await r.json();
+    if(!d.available) return;
+    if(d.kort){$('aiKort').textContent=d.kort;$('aiKortCard').hidden=false}
+    if(d.overblikk){$('aiOverblikk').textContent=d.overblikk;$('aiOverblikk').hidden=false}
+  }catch(_){}
+}
+loadAI();
+setInterval(()=>{if(!document.hidden) loadAI()},20*60*1000);
 load();
 setInterval(()=>{if(!document.hidden) load()},5*60*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&DATA&&Date.now()-new Date(DATA.generated_at)>5*60*1000) load()});
