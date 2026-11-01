@@ -154,6 +154,7 @@ _STATS_CACHE: Dict[tuple, _CacheEntry] = {}
 # HUB / MENY
 # =========================
 @ver.route("/")
+@ver.route("/oversikt")
 def ver_hub() -> str:
     return """<!DOCTYPE html>
 <html lang="no">

@@ -53,6 +53,22 @@ GOOGLE_DRIZZLE_MM = 0.03
 
 vaer_varsel = Blueprint("vaer_varsel", __name__)
 
+#: Snarveier nederst på varselsiden (forsiden på blirdetfint.no), i Yr-stil.
+VAERSIDER = [
+    ("🏃", "Aktivt varsel", "/ver/aktivt-varsel"),
+    ("✈️", "Ferieplanlegger", "/ver/ferieplanlegger"),
+    ("🌦️", "Yr mot Google", "/ver/sammenlign"),
+    ("🌧️", "Nedbør", "/ver/nedbor"),
+    ("☀️", "Solskinn", "/ver/solskinn"),
+    ("💨", "Vind", "/ver/vind"),
+    ("🌡️", "Min. temperatur", "/ver/min-temp"),
+    ("❄️", "Snømengde", "/ver/sno"),
+    ("📊", "Snøprognoser", "/ver/varsel-kvamskogen"),
+    ("🗺️", "Løypekart Kvamskogen", "/ver/skiloyper-kvamskogen"),
+    ("🧭", "Værnormaler", "/ver/normaler"),
+    ("📈", "Sammenlign to år", "/ver/temp-sammenlign"),
+]
+
 
 # ---------------------------------------------------------------------------
 # Hjelpere
@@ -1240,7 +1256,7 @@ def varsel_page(sted: str):
         abort(404)
     places = sorted(({"id": k, "name": v["name"].split()[0]} for k, v in PLACES.items()),
                     key=lambda p: p["id"] != "bergen")  # Bergen først
-    return _frame_headers(make_response(render_template("ver/varsel.html", sted=sted, places=places)))
+    return _frame_headers(make_response(render_template("ver/varsel.html", sted=sted, places=places, vaersider=VAERSIDER)))
 
 
 @vaer_varsel.get("/ver/api/varsel/<sted>")
