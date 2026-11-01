@@ -26,6 +26,7 @@ from flask import (
 )
 from flask_session import Session
 from site_remember_access import REMEMBER_DAYS, RememberAccess
+from vaer_domene import REDIRECT_FRA_HOVED, VaerDomeneMiddleware
 
 # Blueprints
 from handler_routes import handler_bp, upload_token_valid
@@ -332,6 +333,9 @@ def create_app() -> Flask:
         for sti in _SITEMAP_SIDER:
             if not _is_public_path(sti):
                 continue
+            # Værsidene har eget sitemap på værdomenet (se vaer_domene.py).
+            if REDIRECT_FRA_HOVED and (sti == "/ver" or sti.startswith("/ver/")):
+                continue
             linjer.append(f"  <url><loc>{escape(SITE_BASE_URL + sti)}</loc></url>")
         linjer.append("</urlset>")
         return Response("\n".join(linjer), mimetype="application/xml")
@@ -447,6 +451,14 @@ def create_app() -> Flask:
             app.logger.exception("Shipping Streamlit-oppstart feilet: %s", exc)
 
     threading.Thread(target=_start_shipping_async, daemon=True).start()
+
+    # Værseksjonen på eget domene (blirdetfint.no). Ligger ytterst, slik at
+    # tilgangssperre og rate-limit ser den interne /ver-stien.
+    app.wsgi_app = VaerDomeneMiddleware(
+        app.wsgi_app,
+        sitemap_sider=_SITEMAP_SIDER,
+        robots_disallow=_VER_KART_DISALLOW,
+    )
 
     return app
 
