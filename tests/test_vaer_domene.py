@@ -11,8 +11,13 @@ def _app():
     app = Flask(__name__)
 
     @app.route("/ver/")
+    @app.route("/ver/oversikt")
     def hub():
         return "hub"
+
+    @app.route("/ver/varsel/bergen")
+    def bergen():
+        return "bergen"
 
     @app.route("/ver/aktivt-varsel")
     def aktivt():
@@ -42,9 +47,13 @@ def get(c, path, host, headers=None):
     return c.get(path, headers={"Host": host, **(headers or {})})
 
 
-def test_rot_pa_vaerdomenet_viser_huben():
+def test_rot_pa_vaerdomenet_viser_bergen():
     r = get(_app(), "/", "blirdetfint.no", NAV)
-    assert r.status_code == 200 and r.get_data(as_text=True) == "hub"
+    assert r.status_code == 200 and r.get_data(as_text=True) == "bergen"
+
+
+def test_oversikten_ligger_pa_egen_sti():
+    assert get(_app(), "/oversikt", "blirdetfint.no", NAV).get_data(as_text=True) == "hub"
 
 
 def test_kort_sti_med_query():

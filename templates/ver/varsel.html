@@ -221,6 +221,14 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .trust .t{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:10px}
 .trust .t .ic2{flex:0 0 auto;font-size:20px}
 .trust b{display:block;margin-bottom:2px}
+/* Flere værsider (Yr-stil) */
+#flere{margin:22px 0 18px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.tile{display:flex;align-items:center;justify-content:center;gap:8px;min-height:54px;padding:10px 14px;border-radius:8px;
+  background:var(--blue-soft);color:var(--ink);font-weight:600;text-decoration:none;text-align:center}
+.tile:hover{filter:brightness(.96)}
+.tile span{font-size:18px}
+.tile-alle{background:var(--card);border:1px solid var(--line)}
 footer{font-size:12px;color:var(--muted);padding:4px 4px 24px}
 footer a{color:inherit}
 
@@ -303,6 +311,7 @@ button.pill{font:inherit;font-size:13px}
     <div class="pills">
       {% for p in places %}<a class="pill{% if p.id == sted %} on{% endif %}" href="/ver/varsel/{{ p.id }}">{{ p.name }}</a>{% endfor %}
       <a class="pill" href="/ver/aktivt-varsel">Annet sted</a>
+      <a class="pill" href="#flere">☰ Alle værsider</a>
       <button type="button" class="pill sok" id="sokBtn" aria-expanded="false" aria-controls="sokCard">Finn værluke</button>
     </div>
   </div>
@@ -422,6 +431,15 @@ button.pill{font:inherit;font-size:13px}
   <section class="card" id="trustCard" hidden>
     <h2>Kan du stole på varselet?</h2>
     <div class="trust" id="trust"></div>
+  </section>
+
+  <!-- 5. Flere værsider -->
+  <section id="flere">
+    <h2>Flere værsider</h2>
+    <div class="tiles">
+      {% for ikon, navn, href in vaersider %}<a class="tile" href="{{ href }}"><span aria-hidden="true">{{ ikon }}</span>{{ navn }}</a>{% endfor %}
+      <a class="tile tile-alle" href="/ver/oversikt"><span aria-hidden="true">☰</span>Oversikt over alt</a>
+    </div>
   </section>
 
   <footer>Varsel og radar: <a href="https://www.met.no/">MET Norway</a> (Yr), CC BY 4.0. Sammenligning: Google Weather. Målinger: Frost.

@@ -132,6 +132,7 @@ _SITEMAP_SIDER = (
     "/",
     "/innbytte",
     "/ver/",
+    "/ver/oversikt",
     "/ver/aktivt-varsel",
     "/ver/ferieplanlegger",
     "/ver/min-temp",

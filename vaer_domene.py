@@ -3,7 +3,8 @@
 
 WSGI-mellomvare som ligger foran Flask:
 
-* blirdetfint.no/<sti>      -> internt /ver/<sti> (blirdetfint.no/ = /ver/)
+* blirdetfint.no/<sti>      -> internt /ver/<sti>
+* blirdetfint.no/            -> været i Bergen (/ver/varsel/bergen)
 * blirdetfint.no/ver/<sti>  -> 301 til blirdetfint.no/<sti> ved sidenavigering,
   ellers sendes den rett gjennom. Da virker alle hardkodede "/ver/..."-lenker,
   fetch-kall og iframe-kart uendret.
@@ -27,6 +28,8 @@ HOVED_DOMENE = (os.environ.get("HOVED_DOMENE", "prisanalyse.no") or "").strip().
 REDIRECT_FRA_HOVED = (
     os.environ.get("VAER_REDIRECT_FRA_PRISANALYSE", "1") or ""
 ).strip().lower() in {"1", "true", "ja", "yes", "on"}
+
+FORSIDE = "/ver/varsel/bergen"
 
 # Felles filer som ligger utenfor /ver og skal fungere likt på begge domener.
 _DELTE_PREFIKSER = ("/static/", "/assets/", "/favicon.ico", "/stromdash/_dash")
@@ -156,5 +159,6 @@ class VaerDomeneMiddleware:
                 return _redirect(start_response, _med_query(_uten_ver(sti), environ))
             return self.wsgi_app(environ, start_response)
 
-        _sett_sti(environ, "/ver" + sti)
+        # Forsiden er været i Bergen; oversikten over alt ligger på /oversikt.
+        _sett_sti(environ, FORSIDE if sti == "/" else "/ver" + sti)
         return self.wsgi_app(environ, start_response)
