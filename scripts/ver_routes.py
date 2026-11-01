@@ -3036,6 +3036,7 @@ _AKTIVT_VARSEL_HTML = r"""<!DOCTYPE html>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Værvarsel for aktiviteter – prisanalyse.no</title>
+<script src="/static/js/mine_steder.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root{
@@ -4776,6 +4777,8 @@ function cachePlace(lat,lon,name){
   try{
     localStorage.setItem(PLACE_CACHE_KEY,JSON.stringify({lat:Number(lat),lon:Number(lon),name:String(name||'Valgt sted')}));
   }catch(_){}
+  // Samme sted havner også i "Mine steder" på forsiden.
+  try{ window.MineSteder && MineSteder.add({name:name,lat:lat,lon:lon}); }catch(_){}
 }
 
 function loadCachedPlace(){

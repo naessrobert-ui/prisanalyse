@@ -507,3 +507,51 @@ def test_api_answers_when_optional_source_hangs():
     assert res.status_code == 200
     assert brukt < 3
     assert res.json["observed"]["available"] is False
+
+
+# --- Mine steder: dagsvarsel for vilkårlig punkt ---------------------------
+
+def _punkt_payload(start, timer, symbol="partlycloudy_day", temp=lambda i: 5 + i % 6, mm=0.2):
+    steps = []
+    for i in range(timer):
+        t = start + timedelta(hours=i)
+        steps.append({
+            "time": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "data": {
+                "instant": {"details": {"air_temperature": temp(i)}},
+                "next_1_hours": {"summary": {"symbol_code": symbol}, "details": {"precipitation_amount": mm}},
+                "next_6_hours": {"summary": {"symbol_code": symbol}, "details": {"precipitation_amount": mm * 6}},
+            },
+        })
+    return {"properties": {"timeseries": steps}}
+
+
+def test_dagsvarsel_gir_fire_dager_med_symbol_og_temperatur():
+    from scripts.vaer_varsel import build_dagsvarsel
+
+    now = datetime(2026, 11, 1, 20, 0, tzinfo=timezone.utc)  # 21:00 norsk tid
+    days = build_dagsvarsel(_punkt_payload(now, 24 * 5), now)
+    assert [d["date"] for d in days] == ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"]
+    assert all(d["symbol"] == "partlycloudy_day" for d in days)
+    full = days[1]
+    assert full["tmax"] == 10 and full["tmin"] == 5
+    # 24 timer à 0,2 mm, uten dobbelttelling av seks-timersblokkene.
+    assert full["precip"] == 4.8
+
+
+def test_dagsvarsel_velger_symbol_midt_paa_dagen():
+    from scripts.vaer_varsel import build_dagsvarsel
+
+    now = datetime(2026, 11, 1, 22, 0, tzinfo=timezone.utc)  # 23:00 norsk tid
+    payload = _punkt_payload(now, 30)
+    for step in payload["properties"]["timeseries"]:
+        if step["time"].startswith("2026-11-02T11"):  # 12:00 norsk tid
+            step["data"]["next_6_hours"]["summary"]["symbol_code"] = "rain"
+    days = build_dagsvarsel(payload, now)
+    assert days[1]["date"] == "2026-11-02" and days[1]["symbol"] == "rain"
+
+
+def test_dagsvarsel_api_avviser_ugyldig_koordinat():
+    client = _app()
+    assert client.get("/ver/api/dagsvarsel?lat=abc&lon=5").status_code == 400
+    assert client.get("/ver/api/dagsvarsel?lat=95&lon=5").status_code == 400

@@ -1254,7 +1254,7 @@ def varsel_default():
 def varsel_page(sted: str):
     if sted not in PLACES:
         abort(404)
-    places = sorted(({"id": k, "name": v["name"].split()[0]} for k, v in PLACES.items()),
+    places = sorted(({"id": k, "name": v["name"].split()[0], "lat": v["lat"], "lon": v["lon"]} for k, v in PLACES.items()),
                     key=lambda p: p["id"] != "bergen")  # Bergen først
     return _frame_headers(make_response(render_template("ver/varsel.html", sted=sted, places=places, vaersider=VAERSIDER)))
 
@@ -1269,6 +1269,95 @@ def varsel_api(sted: str):
         return jsonify(error=str(exc)), 503
     response = jsonify(payload)
     response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Mine steder: kompakt dagsvarsel for et vilkårlig punkt
+# ---------------------------------------------------------------------------
+
+#: Så mange dager vises per sted i "Mine steder" (i dag + tre), som hos Yr.
+DAGSVARSEL_DAGER = 4
+
+
+def build_dagsvarsel(payload: dict[str, Any], now: datetime, dager: int = DAGSVARSEL_DAGER) -> list[dict[str, Any]]:
+    """Ett symbol, maks/min-temperatur og nedbør per dag fra Locationforecast.
+
+    Dagene regnes i norsk tid. Symbolet er perioden som dekker midt på dagen
+    (12-18), eller den første perioden som finnes for dagen (i dag på kvelden).
+    """
+    today = _local(now).date()
+    by_day: dict[Any, dict[str, Any]] = {}
+    for step in (payload.get("properties") or {}).get("timeseries") or []:
+        try:
+            t = datetime.fromisoformat(step["time"].replace("Z", "+00:00"))
+        except (KeyError, ValueError):
+            continue
+        if t < now - timedelta(hours=1):
+            continue
+        lt = _local(t)
+        day = lt.date()
+        if (day - today).days >= dager or day < today:
+            continue
+        data = step.get("data") or {}
+        temp = ((data.get("instant") or {}).get("details") or {}).get("air_temperature")
+        d = by_day.setdefault(day, {"temps": [], "precip": 0.0, "symbol": None, "symbol_hour": None, "covered": 0})
+        if temp is not None:
+            d["temps"].append(float(temp))
+        n1, n6 = data.get("next_1_hours"), data.get("next_6_hours")
+        # Nedbør: timesverdier der de finnes, ellers seks timers blokker (uten overlapp).
+        if n1:
+            d["precip"] += float((n1.get("details") or {}).get("precipitation_amount") or 0)
+            d["covered"] = max(d["covered"], lt.hour + 1)
+        elif n6 and lt.hour >= d["covered"]:
+            d["precip"] += float((n6.get("details") or {}).get("precipitation_amount") or 0)
+            d["covered"] = lt.hour + 6
+        period = n6 or n1
+        code = ((period or {}).get("summary") or {}).get("symbol_code")
+        if code:
+            score = abs(lt.hour - 12)
+            if d["symbol"] is None or score < d["symbol_hour"]:
+                d["symbol"], d["symbol_hour"] = code, score
+    out = []
+    for day in sorted(by_day):
+        d = by_day[day]
+        if not d["temps"]:
+            continue
+        out.append({
+            "date": day.isoformat(),
+            "symbol": d["symbol"],
+            "tmax": round(max(d["temps"])),
+            "tmin": round(min(d["temps"])),
+            "precip": round(d["precip"], 1),
+        })
+    return out
+
+
+def _fetch_punkt(lat: float, lon: float) -> dict[str, Any]:
+    # To desimaler (~1 km) gir felles cache for nesten like punkt; MET ber om
+    # høyst fire og om at vi cacher.
+    key = (round(lat, 2), round(lon, 2))
+    return _CACHE.get(("punkt", key), 900, lambda: _get(
+        f"{MET}/locationforecast/2.0/compact", lat=f"{key[0]:.2f}", lon=f"{key[1]:.2f}").json())
+
+
+@vaer_varsel.get("/ver/api/dagsvarsel")
+def dagsvarsel_api():
+    from flask import request
+
+    try:
+        lat = float(request.args.get("lat", ""))
+        lon = float(request.args.get("lon", ""))
+    except ValueError:
+        return jsonify(error="lat og lon må være tall."), 400
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return jsonify(error="Ugyldig koordinat."), 400
+    try:
+        payload = _fetch_punkt(lat, lon)
+    except Exception:
+        return jsonify(error="Fikk ikke hentet varselet fra Yr."), 503
+    response = jsonify(days=build_dagsvarsel(payload, datetime.now(timezone.utc)))
+    response.headers["Cache-Control"] = "public, max-age=600"
     return response
 
 
