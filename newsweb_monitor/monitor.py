@@ -275,7 +275,7 @@ def main() -> int:
     # publication may fail. Only skip cached IDs already in the public snapshot.
     # Applies to production NewsWeb, not demo/PR or external live feeds.
     public_ids=(published_ids(ROOT/"public"/"latest.json")
-                if mode=="newsweb" and os.getenv("GITHUB_REF")=="refs/heads/main" else None)
+                if mode=="newsweb" else None)
     # Revisit previously published earnings with missing PDF figures.
     # Limit repairs per run to avoid consuming the whole OpenAI budget.
     public_report=ROOT/"public"/"latest.json"
