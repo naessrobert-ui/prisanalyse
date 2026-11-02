@@ -127,14 +127,14 @@
 
 {% block extra_js %}
 <script>
-  const today = new Date();
+  const today = handlerSisteDag();
   const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
   const ago8 = new Date(today); ago8.setDate(ago8.getDate() - 8);
   ['eo-sec-date-from'].forEach(id => document.getElementById(id).value = ago30.toISOString().slice(0,10));
   ['eo-sec-date-to','eo-top-date','eo-scan-asof'].forEach(id => document.getElementById(id).value = today.toISOString().slice(0,10));
   document.getElementById('eo-scan-since').value = ago8.toISOString().slice(0,10);
   function setAksjeRange(days){
-    const to = new Date();
+    const to = handlerSisteDag();
     const from = new Date(to);
     if(days === 'max'){
       document.getElementById('eo-sec-date-from').value = '2000-01-01';

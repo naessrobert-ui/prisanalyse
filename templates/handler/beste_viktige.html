@@ -88,7 +88,7 @@
 
 {% block extra_js %}
 <script>
-  const today = new Date();
+  const today = handlerSisteDag();
   const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
   document.getElementById('bv-date-from').value = ago30.toISOString().slice(0,10);
   document.getElementById('bv-date-to').value = today.toISOString().slice(0,10);
