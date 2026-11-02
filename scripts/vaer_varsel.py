@@ -81,7 +81,7 @@ def sted_info(place: str) -> Optional[dict[str, Any]]:
     if place in PLACES:
         p = PLACES[place]
         return {"id": place, "name": p["name"], "lat": p["lat"], "lon": p["lon"],
-                "fast": True, "norge": True}
+                "fast": True, "norge": True, "tz": "Europe/Oslo"}
     m = _PUNKT_RE.match(place or "")
     if not m:
         return None
@@ -91,7 +91,7 @@ def sted_info(place: str) -> Optional[dict[str, Any]]:
     from scripts.open_meteo_varsel import i_norge
 
     return {"id": place, "name": _PUNKT_NAVN.get(place) or "Valgt sted", "lat": lat, "lon": lon,
-            "fast": False, "norge": i_norge(lat, lon)}
+            "fast": False, "norge": i_norge(lat, lon), "tz": tidssone(lat, lon)}
 
 #: Snarveier nederst på varselsiden (forsiden på blirdetfint.no), i Yr-stil.
 VAERSIDER = [
@@ -863,30 +863,49 @@ def _krysninger(lat: float, lon: float, dag_start: datetime, grense: float) -> t
     return opp, ned
 
 
-def dagslys(lat: float, lon: float, dato) -> dict[str, Any]:
-    """Når det er lyst nok til å klare seg uten lykt, og sol opp/ned, for en lokal dato.
+_TZ_FINNER: list[Any] = []
 
-    `lys` er "midnattssol"/"morketid" når grensen ikke krysses i det hele tatt.
+
+def tidssone(lat: float, lon: float) -> str:
+    """IANA-tidssonen for et punkt (f.eks. "Europe/London"). Norsk tid hvis ukjent."""
+    from scripts.open_meteo_varsel import i_norge
+
+    if i_norge(lat, lon):
+        return "Europe/Oslo"
+    try:
+        if not _TZ_FINNER:
+            from timezonefinder import TimezoneFinder
+
+            _TZ_FINNER.append(TimezoneFinder())
+        return _TZ_FINNER[0].timezone_at(lat=lat, lng=lon) or "Europe/Oslo"
+    except Exception:  # noqa: BLE001 - mangler pakken, faller vi tilbake på norsk tid
+        return "Europe/Oslo"
+
+
+def dagslys(lat: float, lon: float, dato, tz: str = "Europe/Oslo") -> dict[str, Any]:
+    """Når det er lyst nok til å klare seg uten lykt, og sol opp/ned, for en dato.
+
+    Dato og klokkeslett er i stedets egen tid (`tz`), så London viser London-tid.
+    `unntak` er satt når grensen ikke krysses i det hele tatt (midnattssol/mørketid).
     """
-    # Døgnet regnes fra stedets egen (sol-)midnatt, så steder langt unna Norge
-    # får riktig dag. Klokkeslettene vises i norsk tid.
-    start = datetime(dato.year, dato.month, dato.day, tzinfo=timezone.utc) - timedelta(hours=lon / 15)
+    sone = ZoneInfo(tz)
+    start = datetime(dato.year, dato.month, dato.day, tzinfo=sone).astimezone(timezone.utc)
     lyst_fra, lyst_til = _krysninger(lat, lon, start, TUSSMORKE_GRADER)
     sol_opp, sol_ned = _krysninger(lat, lon, start, SOL_GRADER)
     lys = None
     if lyst_fra is None and lyst_til is None:
         midt = start + timedelta(hours=12)
         lys = "lyst hele døgnet" if sun_elevation(lat, lon, midt) > TUSSMORKE_GRADER else "mørkt hele døgnet"
-    iso = lambda t: _local(t).replace(microsecond=0).isoformat(timespec="minutes") if t else None
+    iso = lambda t: t.astimezone(sone).replace(microsecond=0).isoformat(timespec="minutes") if t else None
     return {"dato": dato.isoformat(), "lyst_fra": iso(lyst_fra), "lyst_til": iso(lyst_til),
-            "sol_opp": iso(sol_opp), "sol_ned": iso(sol_ned), "unntak": lys}
+            "sol_opp": iso(sol_opp), "sol_ned": iso(sol_ned), "unntak": lys, "tz": tz}
 
 
-def dagslys_neste(lat: float, lon: float, now: datetime) -> list[dict[str, Any]]:
-    """I dag og i morgen, cachet per sted og dato."""
-    idag = _local(now).date()
-    key = ("dagslys", round(lat, 2), round(lon, 2), idag)
-    return _CACHE.get(key, 6 * 3600, lambda: [dagslys(lat, lon, idag), dagslys(lat, lon, idag + timedelta(days=1))])
+def dagslys_neste(lat: float, lon: float, now: datetime, tz: str = "Europe/Oslo") -> list[dict[str, Any]]:
+    """I dag og i morgen på stedet, cachet per sted og dato."""
+    idag = now.astimezone(ZoneInfo(tz)).date()
+    key = ("dagslys", round(lat, 2), round(lon, 2), idag, tz)
+    return _CACHE.get(key, 6 * 3600, lambda: [dagslys(lat, lon, idag, tz), dagslys(lat, lon, idag + timedelta(days=1), tz)])
 
 
 def _hour_symbol(rain: Optional[float], cloud: Optional[float], day: bool) -> str:
@@ -1402,7 +1421,7 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
     days += weathernext_extra_days(wn_days, yr_dates[-1] if yr_dates else None)
     info = sted_info(place)
     return {
-        "dagslys": dagslys_neste(info["lat"], info["lon"], now),
+        "dagslys": dagslys_neste(info["lat"], info["lon"], now, info["tz"]),
         "place": info,
         "generated_at": _local(now).isoformat(),
         "yr_updated_at": meta.get("updated_at"),
