@@ -265,6 +265,7 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .lys small{color:var(--muted)}
 .ai-klaer{margin-top:10px;padding-top:10px;border-top:1px solid var(--blue-soft);display:grid;gap:4px;font-size:14.5px}
 .ai-klaer b{font-weight:650}
+.toggle[hidden]{display:none}
 footer{font-size:12px;color:var(--muted);padding:4px 4px 24px}
 footer a{color:inherit}
 
@@ -343,7 +344,7 @@ button.pill{font:inherit;font-size:13px}
     <div>
       <h1 class="place" id="placeName">{{ info.name }}</h1>
       <div class="draft" id="updated">Henter varsel …</div>
-      {% if not info.norge %}<div class="draft">Varsel fra Open-Meteo. Sol og dagslys i lokal tid, øvrige klokkeslett i norsk tid.</div>{% endif %}
+      {% if info.tz and info.tz != 'Europe/Oslo' %}<div class="draft">Alle klokkeslett i lokal tid ({{ info.tz.split('/')[-1].replace('_', ' ') }}).{% if not info.norge %} Varsel fra Open-Meteo.{% endif %}</div>{% elif not info.norge %}<div class="draft">Varsel fra Open-Meteo.</div>{% endif %}
     </div>
     <div class="pills">
       {% for p in places %}<a class="pill{% if p.id == sted %} on{% endif %}" href="/ver/varsel/{{ p.id }}">{{ p.name }}</a>{% endfor %}
@@ -576,13 +577,14 @@ function renderNow(d){
   $('nowObs').textContent=d.observed.today!=null&&st?`${st} har målt ${fmt1(d.observed.today)} mm i dag`:'';
 }
 // Sol og dagslys vises i stedets egen tid (London-tid i London osv.).
+// Datoen i et ISO-tidspunkt slik serveren skrev det (stedets tid), uavhengig av nettleserens sone.
+const isoDag=iso=>new Date(String(iso).slice(0,10)+'T12:00:00');
 function hm(iso){return iso?new Date(iso).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit',timeZone:STED_INFO.tz||'Europe/Oslo'}):''}
 function renderLys(d){
   const el=$('nowLys'), [idag,imorgen]=d.dagslys||[];
   if(!idag){el.innerHTML='';return}
   const now=Date.now(), t=iso=>iso?new Date(iso).getTime():null;
-  const lokal=STED_INFO.tz&&STED_INFO.tz!=='Europe/Oslo'?' lokal tid':'';
-  const sol=x=>x.sol_opp&&x.sol_ned?` <small>(sol ${hm(x.sol_opp)}–${hm(x.sol_ned)}${lokal})</small>`:(lokal?` <small>(${lokal.trim()})</small>`:'');
+  const sol=x=>x.sol_opp&&x.sol_ned?` <small>(sol ${hm(x.sol_opp)}–${hm(x.sol_ned)})</small>`:'';
   let ikon='☀️', tekst;
   if(idag.unntak){tekst=idag.unntak[0].toUpperCase()+idag.unntak.slice(1); ikon=idag.unntak.startsWith('lyst')?'☀️':'🔦'}
   else if(t(idag.lyst_til)<t(idag.lyst_fra)){
@@ -744,7 +746,7 @@ function chartSVG(H, Wc, showG){
   const ty=t=>t0+(tMax-t)/(tMax-tMin)*(t1-t0);
   const cx=i=>PAD+i*COL+COL/2;
   const isNow=i=>i===nowIdx&&(nowIdx>0||(DATA.hours[0]&&H[0].time===DATA.hours[0].time));
-  const hourLabel=(h,i)=>isNow(i)?'Nå':h.hour===0?DAYS_SHORT[new Date(h.time).getDay()]:String(h.hour).padStart(2,'0');
+  const hourLabel=(h,i)=>isNow(i)?'Nå':h.hour===0?DAYS_SHORT[isoDag(h.time).getDay()]:String(h.hour).padStart(2,'0');
   let s=`<svg width="${Wc}" height="${HEIGHT}" class="stripsvg" role="img" aria-label="Været time for time">`;
   if(nPast>0){ s+=`<rect x="${PAD}" y="20" width="${nPast*COL}" height="${HEIGHT-20}" rx="6" fill="var(--past)"/>`;
     if(nPast*COL>44) s+=`<text x="${PAD+nPast*COL/2}" y="${iy+ICON/2+4}" text-anchor="middle" font-size="11" font-weight="700" letter-spacing=".08em" fill="var(--muted)">MÅLT</text>`; }
@@ -827,7 +829,7 @@ function hourTable(H, showG){
   }
   H.forEach((h,i)=>{
     if(h.past&&!PAST_OPEN) return;
-    if(h.hour===0&&i>0) s+=`<tr class="dsep"><td colspan="${dry?4:5}">${WEEKDAYS_FULL[new Date(h.time).getDay()]} ${new Date(h.time).getDate()}.${new Date(h.time).getMonth()+1}.</td></tr>`;
+    if(h.hour===0&&i>0) s+=`<tr class="dsep"><td colspan="${dry?4:5}">${WEEKDAYS_FULL[isoDag(h.time).getDay()]} ${isoDag(h.time).getDate()}.${isoDag(h.time).getMonth()+1}.</td></tr>`;
     const now=i===nowIdx&&nowIdx>0, cls=[h.past?'past':'',now?'nowrow':'',h.src&&h.src!=='yr'?'est':''].filter(Boolean).join(' ');
     s+=`<tr${cls?` class="${cls}"`:''}><td class="tid">${now?'Nå':hh(h)}</td>`;
     if(h.past){
@@ -1066,7 +1068,7 @@ function finnLuker(H,k){
     const hs=r.idx.map(i=>H[i]), temps=hs.map(h=>h.temp).filter(v=>v!=null);
     const winds=hs.flatMap(h=>[h.wind,begge?h.g_wind:null]).filter(v=>v!=null);
     const clouds=hs.map(h=>h.cloud).filter(v=>v!=null);
-    const l={idx:r.idx,start:hs[0].time,end:new Date(r.last+3600e3),timer:hs.length,
+    const l={idx:r.idx,start:hs[0].time,end:new Date(r.last+3600e3),endHour:(hs[hs.length-1].hour+1)%24,timer:hs.length,
       tmin:temps.length?Math.round(Math.min(...temps)):null,tmax:temps.length?Math.round(Math.max(...temps)):null,
       vind:winds.length?Math.round(Math.max(...winds)):null,sky:clouds.length?Math.round(clouds.reduce((a,b)=>a+b,0)/clouds.length):null,
       est:hs.some(h=>h.src!=='yr'),google:hs.every(h=>h.src==='google'),sun:hs.filter(h=>h.day&&(h.cloud??100)<=40).length};
@@ -1090,7 +1092,7 @@ function dagKort(iso){
   const d=new Date(iso.slice(0,10)+'T12:00:00');
   return dagDiff(iso)===0?'I dag':`${DAYS_SHORT[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}.`;
 }
-const kl=l=>{const a=l.start.slice(11,13), e=l.end.getHours(); return `kl. ${a}–${e===0?'24':String(e).padStart(2,'0')}`};
+const kl=l=>{const a=l.start.slice(11,13), e=l.endHour; return `kl. ${a}–${e===0?'24':String(e).padStart(2,'0')}`};
 let SOK_ALL=false, SOK_FULL=false;
 function renderSok(){
   const k=sokGet(); sokUrl(k);
@@ -1183,7 +1185,7 @@ function vis(d){
     DATA=d;
     $('error').hidden=true;
     const t=new Date(d.generated_at);
-    $('updated').textContent=`Oppdatert ${t.toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'})}`;
+    $('updated').textContent=`Oppdatert ${t.toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit',timeZone:STED_INFO.tz||'Europe/Oslo'})}`;
     $('gToggle').hidden=!d.google_available;
     renderNow(d); renderLys(d); renderNowcast(d); renderAnswers(d); drawStrip(); renderDays(); renderTrust(d);
     if($('radar').classList.contains('open')) renderNcTable(d);

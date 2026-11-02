@@ -754,7 +754,7 @@ def test_utenlandsk_punkt_faar_samme_side_med_open_meteo():
     with patch.object(vv, "varsel_payload_forhaand", return_value=None):
         page = _app().get("/ver/varsel/p38.345_-0.481?navn=Alicante")
     assert page.status_code == 200
-    assert "Sol og dagslys i lokal tid" in page.get_data(as_text=True)
+    assert "Alle klokkeslett i lokal tid (Madrid)." in page.get_data(as_text=True)
     assert b"open-meteo.com" in page.data
 
 
@@ -776,3 +776,26 @@ def test_dagslys_i_stedets_egen_tid():
     ny = vv.dagslys(40.713, -74.006, date(2026, 11, 2), "America/New_York")
     assert ny["sol_opp"].startswith("2026-11-02T06:2") and ny["sol_opp"].endswith("-05:00")
     assert vv.sted_info("p51.507_-0.128")["tz"] == "Europe/London"
+
+
+def test_utenlandsk_varsel_har_klokkeslett_i_lokal_tid():
+    from datetime import datetime, timedelta, timezone as tz
+
+    import scripts.open_meteo_varsel as om
+
+    now = datetime(2026, 11, 2, 19, 0, tzinfo=tz.utc)  # 20:00 i Oslo, 14:00 i New York
+    times = [(now - timedelta(hours=24) + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(24 * 6)]
+    hourly = {"time": times}
+    for f in om._FELT:
+        for m in om.MODELLER:
+            hourly[f"{f}_{m}"] = [1 if "is_day" in f else 0.0 if "precip" in f else 2 if "code" in f else 10.0
+                                  for _ in times]
+    rows = om.til_yr_timeserie({"hourly": hourly})
+    vv._CACHE.clear()
+    with patch.object(om, "hent_timeserie", return_value=rows), patch.object(vv, "_trust_rows", return_value=None):
+        p = vv.build_payload("p40.713_-74.006", now=now)
+    assert p["generated_at"].startswith("2026-11-02T14:00") and p["generated_at"].endswith("-05:00")
+    assert p["hours"][0]["time"].endswith("-05:00")
+    assert p["days"][0]["date"] == "2026-11-02"
+    # Utenfor konteksten er det norsk tid igjen.
+    assert vv._local(now).hour == 20
