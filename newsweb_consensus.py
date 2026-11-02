@@ -10,8 +10,11 @@ import io
 import math
 import os
 import re
+import threading
+import time
 import uuid
 import zipfile
+from collections import OrderedDict
 from datetime import datetime, timezone
 from xml.etree import ElementTree as ET
 
@@ -178,12 +181,35 @@ def parse_excel(payload: bytes, *, annual_year: int|None, amount_units_confirmed
             "invalid_or_missing_cells":errors,
             "periods":sorted({x["period"] for x in records.values()})}
 
+# One S3 client per process, verified once. Creating a boto3 client plus a
+# get_public_access_block call for EVERY snapshot made /newsweb/ hang for the
+# logged-in view (1 list + 30 loads = 60+ S3 round trips on each page load).
+_S3_LOCK = threading.Lock()
+_S3_STATE: dict = {"client": None, "bucket": "", "verified_at": 0.0}
+_S3_VERIFY_SECONDS = 600
+_LIST_CACHE_SECONDS = 60
+_LIST_CACHE: dict = {"at": 0.0, "bucket": "", "items": None}
+# Snapshot keys are timestamp+uuid and never rewritten, so a loaded snapshot
+# can be cached for the life of the process.
+_SNAPSHOT_CACHE: "OrderedDict[str, dict]" = OrderedDict()
+_SNAPSHOT_CACHE_MAX = 40
+
 def _s3():
-    import boto3
     bucket=os.getenv("NEWSWEB_CONSENSUS_BUCKET","").strip()
     if not bucket:
         raise RuntimeError("NEWSWEB_CONSENSUS_BUCKET må peke til en privat S3-bøtte.")
-    client=boto3.client("s3",region_name=os.getenv("AWS_REGION") or "eu-north-1")
+    now=time.monotonic()
+    with _S3_LOCK:
+        client=_S3_STATE["client"]
+        if (client is not None and _S3_STATE["bucket"]==bucket
+                and now-_S3_STATE["verified_at"]<_S3_VERIFY_SECONDS):
+            return client,bucket
+    import boto3
+    from botocore.config import Config
+    if client is None:
+        client=boto3.client("s3",region_name=os.getenv("AWS_REGION") or "eu-north-1",
+                            config=Config(connect_timeout=3,read_timeout=10,
+                                          retries={"max_attempts":2,"mode":"standard"}))
     # Existing S3 buckets are fine, but all four public-access blocks are
     # mandatory. Store only under the newsweb/consensus/snapshots/ prefix.
     try:
@@ -193,6 +219,8 @@ def _s3():
     if not all(block.get(x) is True for x in
             ("BlockPublicAcls","IgnorePublicAcls","BlockPublicPolicy","RestrictPublicBuckets")):
         raise RuntimeError("S3-bøtten må blokkere all offentlig tilgang.")
+    with _S3_LOCK:
+        _S3_STATE.update(client=client,bucket=bucket,verified_at=time.monotonic())
     return client,bucket
 
 def store_snapshot(snapshot:dict, *, original_name:str) -> str:
@@ -207,10 +235,17 @@ def store_snapshot(snapshot:dict, *, original_name:str) -> str:
                       Body=json.dumps(snapshot,ensure_ascii=False,separators=(",",":")).encode("utf-8"),
                       ContentType="application/json",ServerSideEncryption="AES256",
                       CacheControl="private,no-store")
+    with _S3_LOCK:
+        _LIST_CACHE["items"]=None
     return key
 
 def list_snapshots(limit:int=200)->list[dict]:
     client,bucket=_s3()
+    with _S3_LOCK:
+        cached=_LIST_CACHE["items"]
+        if (cached is not None and _LIST_CACHE["bucket"]==bucket
+                and time.monotonic()-_LIST_CACHE["at"]<_LIST_CACHE_SECONDS):
+            return [dict(x) for x in cached[:limit]]
     pages=client.get_paginator("list_objects_v2").paginate(Bucket=bucket,Prefix=S3_PREFIX)
     result=[]
     for page in pages:
@@ -220,18 +255,33 @@ def list_snapshots(limit:int=200)->list[dict]:
                 result.append({"key":key,"modified":x.get("LastModified")})
         # Allow at most 10k snapshots to prevent pathological long requests
         if len(result)>10000: break
-    return sorted(result,key=lambda x:x["key"],reverse=True)[:limit]
+    result=sorted(result,key=lambda x:x["key"],reverse=True)
+    with _S3_LOCK:
+        _LIST_CACHE.update(at=time.monotonic(),bucket=bucket,items=result[:200])
+    return [dict(x) for x in result[:limit]]
 
 def load_snapshot(key:str)->dict:
     if not key.startswith(S3_PREFIX) or not key.endswith(".json") or "/" in key[len(S3_PREFIX):]:
         raise ValueError("Ugyldig snapshot ID")
+    # Returned dicts are shared from the cache: callers must treat them as read-only.
     import json
     client,bucket=_s3()
+    cache_key=bucket+"/"+key
+    with _S3_LOCK:
+        hit=_SNAPSHOT_CACHE.get(cache_key)
+        if hit is not None:
+            _SNAPSHOT_CACHE.move_to_end(cache_key)
+            return hit
     obj=client.get_object(Bucket=bucket,Key=key)
     blob=obj["Body"].read(2_000_001)
     if len(blob)>2_000_000:
         raise ValueError("Estimatsnapshotet er uventet stort.")
-    return json.loads(blob)
+    data=json.loads(blob)
+    with _S3_LOCK:
+        _SNAPSHOT_CACHE[cache_key]=data
+        while len(_SNAPSHOT_CACHE)>_SNAPSHOT_CACHE_MAX:
+            _SNAPSHOT_CACHE.popitem(last=False)
+    return data
 
 def _dt(value:str)->datetime|None:
     try:
