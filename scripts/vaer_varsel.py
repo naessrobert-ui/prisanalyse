@@ -18,6 +18,7 @@ er rene funksjoner; bare `_fetch_*` går mot nettet.
 """
 from __future__ import annotations
 
+import contextvars
 import re
 import threading
 import time
@@ -35,6 +36,9 @@ from scripts.weather_comparison import PLACES
 from scripts.weather_comparison import _provider as _comparison_provider
 
 OSLO = ZoneInfo("Europe/Oslo")
+#: Tidssonen klokkeslett og døgn regnes i. Norsk tid, men stedets egen tid når
+#: et utenlandsk varsel bygges (settes av `_i_stedets_tid`).
+_TZ: contextvars.ContextVar[ZoneInfo] = contextvars.ContextVar("vaer_tz", default=OSLO)
 MET = "https://api.met.no/weatherapi"
 HEADERS = {"User-Agent": "prisanalyse.no/1.0 kontakt@prisanalyse.no"}
 RADAR_AREA = {"bergen": "western_norway", "kvamskogen": "western_norway"}
@@ -131,7 +135,20 @@ def _parse_time(value: str) -> Optional[datetime]:
 
 
 def _local(value: datetime) -> datetime:
-    return value.astimezone(OSLO)
+    return value.astimezone(_TZ.get())
+
+
+class _i_stedets_tid:
+    """Kontekst der `_local` og døgngrensene bruker stedets tidssone."""
+
+    def __init__(self, tz: Optional[str]):
+        self.sone = ZoneInfo(tz or "Europe/Oslo")
+
+    def __enter__(self):
+        self._token = _TZ.set(self.sone)
+
+    def __exit__(self, *exc):
+        _TZ.reset(self._token)
 
 
 def _hh(value: datetime) -> str:
@@ -327,7 +344,7 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
     days = []
     for offset in range(count):
         date = today + timedelta(days=offset)
-        day_start = datetime(date.year, date.month, date.day, tzinfo=OSLO)
+        day_start = datetime(date.year, date.month, date.day, tzinfo=_TZ.get())
         day_end = day_start + timedelta(days=1)
         in_day = [p for p in parts if day_start <= _local(p["start"] + (p["end"] - p["start"]) / 2) < day_end]
         if offset > 0 and not in_day:
@@ -1372,6 +1389,12 @@ def _innen(future: Future, sekunder: Optional[float] = None, frist: Optional[flo
 
 
 def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
+    """Som `_build_payload`, men med klokkeslett i stedets egen tid."""
+    with _i_stedets_tid((sted_info(place) or {}).get("tz")):
+        return _build_payload(place, now)
+
+
+def _build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     # Ingen with-blokk: den venter på alle tråder ved utgang, og da holder én
     # hengende kilde (S3, Frost) hele svaret, mens nettleseren viser tomme kort.
@@ -1677,12 +1700,20 @@ def dagsvarsel_api():
         return jsonify(error="Fikk ikke hentet varselet fra Yr."), 503
     from scripts.open_meteo_varsel import i_norge
 
-    response = jsonify(days=build_dagsvarsel(payload, datetime.now(timezone.utc)), norge=i_norge(lat, lon))
+    with _i_stedets_tid(tidssone(lat, lon)):  # dagene følger stedets døgn
+        days = build_dagsvarsel(payload, datetime.now(timezone.utc))
+    response = jsonify(days=days, norge=i_norge(lat, lon))
     response.headers["Cache-Control"] = "public, max-age=600"
     return response
 
 
 def build_series_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
+    """Som `_build_series_payload`, men med klokkeslett i stedets egen tid."""
+    with _i_stedets_tid((sted_info(place) or {}).get("tz")):
+        return _build_series_payload(place, now)
+
+
+def _build_series_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     # Ingen with-blokk (se build_payload): Google (ti kall) skal ikke kunne holde
     # svaret. Det som ikke er ferdig innen fristen, kommer med ved neste oppdatering.
