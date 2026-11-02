@@ -2,8 +2,72 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-02T06:10:00+00:00",
+  "generated_at": "2026-11-02T06:30:00+00:00",
   "items": [
+    {
+      "id": "685281",
+      "market": "XOSL",
+      "ticker": "SPOL",
+      "issuer": "SpareBank 1 Østlandet",
+      "title": "Påminnelse: Resultatpresentasjon, 3. kvartal 2026",
+      "headline": "SpareBank 1 Østlandet presenterer 3. kvartal 2026-resultat 4. november",
+      "lead": "SpareBank 1 Østlandet holder resultatpresentasjon for tredje kvartal 2026 onsdag 4. november, med konsernsjef og finansdirektør til stede. Presentasjonen er tilgjengelig både fysisk i Oslo og via webcast.",
+      "published_at": "2026-11-02T06:30:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/685281",
+      "summary": "SpareBank 1 Østlandet holder resultatpresentasjon for tredje kvartal 2026 onsdag 4. november, med konsernsjef og finansdirektør til stede. Presentasjonen er tilgjengelig både fysisk i Oslo og via webcast.",
+      "reason": "Nyheten informerer om tid og sted for kvartalspresentasjonen uten å oppgi finansiell informasjon eller resultattall. For investorer er tidspunktet relevant, men konsekvenser for aksjekurs eller fremtidig utvikling kan ikke vurderes før resultatene legges frem.",
+      "score": 35,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "number_keys": [
+        "15ef40",
+        "1b6453",
+        "356a19",
+        "54fce7",
+        "731505",
+        "77de68",
+        "7b5200",
+        "ac3478",
+        "aee655",
+        "e1b396"
+      ],
+      "financial_report": {
+        "status": "no_pdf",
+        "period": "2026Q3",
+        "period_source": "",
+        "previous_report": "",
+        "document": {
+          "name": "",
+          "url": ""
+        },
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "trend": "",
+          "compared_periods": [],
+          "points": []
+        }
+      },
+      "language_versions": [
+        {
+          "id": "685281",
+          "title": "Påminnelse: Resultatpresentasjon, 3. kvartal 2026",
+          "url": "https://newsweb.oslobors.no/message/685281",
+          "published_at": "2026-11-02T06:30:00+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "685280",
+          "title": "Reminder: Presentation of 3rd quarter 2026 accounts",
+          "url": "https://newsweb.oslobors.no/message/685280",
+          "published_at": "2026-11-02T06:30:00+00:00",
+          "language": "Engelsk"
+        }
+      ]
+    },
     {
       "id": "685279",
       "market": "XOSL",
@@ -15042,50 +15106,20 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "684907",
-      "market": "XOSL",
-      "ticker": "MOBK",
-      "issuer": "Møre Boligkreditt AS",
-      "title": "MOBK21 - Key information relating to partial early redemption of bond",
-      "headline": "Møre Boligkreditt innløser 3,41 mrd. kroner i obligasjoner før forfall",
-      "lead": "Møre Boligkreditt innløser obligasjoner med et pålydende på 3,41 milliarder kroner 27. oktober 2026, noe som reduserer utestående volum til 2,59 milliarder kroner før opprinnelig løpetid utløper.",
-      "published_at": "2026-10-27T13:02:41.095000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684907",
-      "summary": "Møre Boligkreditt innløser obligasjoner med et pålydende på 3,41 milliarder kroner 27. oktober 2026, noe som reduserer utestående volum til 2,59 milliarder kroner før opprinnelig løpetid utløper.",
-      "reason": "Den delvise innløsningen indikerer at selskapet håndterer gjeldsforpliktelser aktivt, noe som kan gi økt finansiell fleksibilitet. For investorer er det viktig å følge videre utvikling av gjeldsporteføljen og selskapets kapitalstruktur.",
-      "score": 65,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "number_keys": [
-        "1574bd",
-        "25de7d",
-        "445cd2",
-        "472b07",
-        "93b5d3",
-        "aee655",
-        "b1d578",
-        "b447ca",
-        "bc33ea",
-        "da4b92",
-        "e7b67b"
-      ]
     }
   ],
-  "last_checked_at": "2026-11-02T06:20:00+00:00",
+  "last_checked_at": "2026-11-02T06:30:00+00:00",
   "monitor_stats": {
-    "fetched": 12,
-    "recent": 12,
+    "fetched": 14,
+    "recent": 14,
     "already_seen": 12,
-    "eligible": 0,
+    "eligible": 2,
     "filtered": 0,
-    "analyzed": 0,
+    "analyzed": 2,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-02T06:00:07.189000+00:00"
+    "source_latest_at": "2026-11-02T06:30:00+00:00"
   }
 }
