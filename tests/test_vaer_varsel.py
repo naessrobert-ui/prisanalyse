@@ -747,3 +747,19 @@ def test_dagslys_midnattssol_og_morketid():
 
     assert vv.dagslys(69.65, 18.96, date(2026, 6, 21))["unntak"] == "lyst hele døgnet"
     assert vv.dagslys(78.22, 15.65, date(2026, 12, 21))["unntak"] == "mørkt hele døgnet"  # Longyearbyen
+
+
+def test_utenlandsk_punkt_faar_samme_side_med_open_meteo():
+    vv._CACHE.clear()
+    with patch.object(vv, "varsel_payload_forhaand", return_value=None):
+        page = _app().get("/ver/varsel/p38.345_-0.481?navn=Alicante")
+    assert page.status_code == 200
+    assert "Varsel fra Open-Meteo. Klokkeslett i norsk tid." in page.get_data(as_text=True)
+    assert b"open-meteo.com" in page.data
+
+
+def test_dagslys_utlandet_bruker_stedets_eget_dogn():
+    from datetime import date
+
+    d = vv.dagslys(38.345, -0.481, date(2026, 11, 2))  # Alicante: sol opp ca. 07:28, ned ca. 18:03
+    assert d["sol_opp"].startswith("2026-11-02T07:2") and d["sol_ned"].startswith("2026-11-02T18:0")

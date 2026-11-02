@@ -63,11 +63,9 @@
       "?navn=" + encodeURIComponent(name);
   }
 
-  function link(p, norge) {
-    if (p.href) return p.href;
-    if (norge) return punktUrl(p.name, p.lat, p.lon);
-    return "/ver/aktivt-varsel?lat=" + p.lat.toFixed(4) + "&lon=" + p.lon.toFixed(4) +
-      "&sted=" + encodeURIComponent(p.name);
+  function link(p) {
+    // Samme side for alle steder (Yr i Norge, Open-Meteo ellers).
+    return p.href || punktUrl(p.name, p.lat, p.lon);
   }
 
   function esc(s) {
@@ -120,7 +118,7 @@
           ? '<button type="button" class="ms-del" data-ms-del="' + idx + '" aria-label="Fjern sted">✕</button>'
           : "<span></span>";
         html += '<div class="ms-row">' + '<span class="ms-name">' + star +
-          '<a href="' + esc(link(p, days.norge)) + '">' + esc(p.name) + "</a></span>" + cells + del + "</div>";
+          '<a href="' + esc(link(p)) + '">' + esc(p.name) + "</a></span>" + cells + del + "</div>";
       });
       if (!editable) {
         html += '<div class="ms-hint">Steder du søker opp, havner her automatisk. Bare i denne nettleseren.</div>';

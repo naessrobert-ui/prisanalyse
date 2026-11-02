@@ -343,6 +343,7 @@ button.pill{font:inherit;font-size:13px}
     <div>
       <h1 class="place" id="placeName">{{ info.name }}</h1>
       <div class="draft" id="updated">Henter varsel …</div>
+      {% if not info.norge %}<div class="draft">Varsel fra Open-Meteo. Klokkeslett i norsk tid.</div>{% endif %}
     </div>
     <div class="pills">
       {% for p in places %}<a class="pill{% if p.id == sted %} on{% endif %}" href="/ver/varsel/{{ p.id }}">{{ p.name }}</a>{% endfor %}
@@ -499,7 +500,7 @@ button.pill{font:inherit;font-size:13px}
     </div>
   </section>
 
-  <footer>Varsel og radar: <a href="https://www.met.no/">MET Norway</a> (Yr), CC BY 4.0. Sammenligning: Google Weather. Målinger: Frost.
+  <footer>{% if info.norge %}Varsel og radar: <a href="https://www.met.no/">MET Norway</a> (Yr), CC BY 4.0. Sammenligning: Google Weather. Målinger: Frost.{% else %}Varsel: <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0), beste tilgjengelige modell for stedet.{% endif %}
     <span id="wnKilde" hidden>Dager etter Yr: Google DeepMind WeatherNext 3, eksperimentelle data, ikke validert for bruk i virkeligheten.</span>
     <a href="/ver/sammenlign">Sammenlign Yr og Google</a></footer>
 </div>
@@ -1231,8 +1232,8 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&DATA&&Dat
     const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     function url(it) {
       const navn = String(it.name || '').split(',')[0].trim() || 'Valgt sted';
-      return it.norge ? MineSteder.punktUrl(navn, it.lat, it.lon)
-        : `/ver/aktivt-varsel?lat=${it.lat}&lon=${it.lon}&sted=${encodeURIComponent(navn)}`;
+      // Samme side for alle steder; utenfor Norge henter serveren Open-Meteo i stedet for Yr.
+      return MineSteder.punktUrl(navn, it.lat, it.lon);
     }
     async function sok() {
       const q = input.value.trim(), mitt = ++nr;
