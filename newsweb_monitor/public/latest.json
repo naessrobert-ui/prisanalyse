@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-02T22:00:00+00:00",
+  "generated_at": "2026-11-02T22:10:01+00:00",
   "items": [
     {
       "id": "685399",
@@ -456,12 +456,12 @@
       "ticker": "ASCHO",
       "issuer": "Aktieselskabet Schouw & Co.",
       "title": "Changes to full-year guidance for BioMar",
-      "headline": "BioMar hever inntekts- og EBIT-prognose for 2026 – påvirker Schouw & Co.",
-      "lead": "BioMar justerer opp årsinntektene til 17,8-18,6 mrd. DKK og EBIT til 1,29-1,36 mrd. DKK. Oppdatering forventes å påvirke Schouw & Co.s guide ved Q3-rapport 6. november.",
+      "headline": "BioMar øker 2026-omsetningsanslag til opptil 18,6 mrd. DKK, økt EBIT",
+      "lead": "BioMar, en vesentlig del av Schouw & Co., justerer opp 2026-omsetning til 17,8–18,6 mrd. DKK og EBIT til 1,29–1,36 mrd. DKK. Schouw & Co. vil oppdatere sin helårsveiledning ved Q3-rapporten 6. november.",
       "published_at": "2026-11-02T14:41:02.766000+00:00",
       "url": "https://newsweb.oslobors.no/message/685382",
-      "summary": "BioMar justerer opp årsinntektene til 17,8-18,6 mrd. DKK og EBIT til 1,29-1,36 mrd. DKK. Oppdatering forventes å påvirke Schouw & Co.s guide ved Q3-rapport 6. november.",
-      "reason": "BioMARS økte forventninger innebærer en potensiell løft for Schouw & Co. som eier, men endelig oppdatering av Schouw & Co.s totalguide mangler. Investorer bør følge med på Q3-rapporten for full innsikt i konsernnivåets forventninger og risikoprofil.",
+      "summary": "BioMar, en vesentlig del av Schouw & Co., justerer opp 2026-omsetning til 17,8–18,6 mrd. DKK og EBIT til 1,29–1,36 mrd. DKK. Schouw & Co. vil oppdatere sin helårsveiledning ved Q3-rapporten 6. november.",
+      "reason": "BioMars oppjustering tyder på bedre enn tidligere forventet drift i 2026, noe som sannsynligvis styrker Schouw & Co.s helårsutsikter. Investorer bør følge opp endringene ved Q3-rapporten og vurdere hvordan dette påvirker konsernets samlede resultat og aksjekurs.",
       "score": 75,
       "skipped": false,
       "direction": "positiv",
@@ -575,28 +575,34 @@
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "BioMar har oppdatert sin fullårsprognose for 2026 med forventet omsetning økt til 17,8-18,6 milliarder DKK (tidligere 17-18 milliarder) og forventet EBIT økt til 1.290-1.360 millioner DKK (tidligere 1.200-1.300 millioner). Dette vil bli reflektert i Schouw & Co.s konsernresultater. Schouw & Co. vil gi oppdatert samlet veiledning senest ved Q3-rapporten 6. november 2026.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "BioMar har oppdatert sin helårsprognose for 2026, med en forventet omsetning på 17,8-18,6 milliarder DKK (opp fra 17-18 mrd DKK) og et EBIT på 1.290-1.360 millioner DKK (opp fra 1.200-1.300 mill DKK). BioMar er en vesentlig del av Schouw & Co., og denne informasjonen vil bli inkludert i Schouw & Co.s samlede veiledning. Schouw & Co. vil gi ny samlet veiledning senest ved Q3-rapporten 6. november 2026.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetningsprognose BioMar",
-              "statement": "Forventet omsetning økt til 17,8-18,6 mrd. DKK fra tidligere 17-18 mrd.",
-              "evidence": "'BioMar nå forventer omsetning i området 17,8-18,6 milliarder mot tidligere 17-18 milliarder'",
-              "page": "1"
+              "topic": "Oppdatert omsetningsprognose",
+              "statement": "Forventet omsetningsintervall økt til 17,8-18,6 mrd DKK fra tidligere 17-18 mrd DKK",
+              "evidence": "’opptjent omsetning i området DKK 17,8-18,6 milliarder mot tidligere DKK 17-18 milliarder’",
+              "page": "utdrag fra pressemelding"
             },
             {
-              "topic": "EBIT-prognose BioMar",
-              "statement": "Forventet EBIT økt til 1.290-1.360 mill. DKK fra tidligere 1.200-1.300 mill.",
-              "evidence": "'EBIT i området 1.290-1.360 millioner sammenlignet med tidligere 1.200-1.300 millioner'",
-              "page": "1"
+              "topic": "Oppdatert EBIT-prognose",
+              "statement": "Forventet EBIT økt til 1.290-1.360 mill DKK fra tidligere 1.200-1.300 mill DKK",
+              "evidence": "’EBIT i området DKK 1,290-1,360 millioner sammenlignet med tidligere DKK 1,200-1,300 millioner’",
+              "page": "utdrag fra pressemelding"
             },
             {
-              "topic": "Inkorporering i Schouw & Co.",
-              "statement": "BioMars oppdaterte forventninger vil bli medregnet i Schouw & Co.s totale veiledning til Q3-rapporten.",
-              "evidence": "'Informasjon fra BioMar vil bli inkludert i Schouw & Co.s veiledning'",
-              "page": "1"
+              "topic": "Betydning for Schouw & Co.",
+              "statement": "BioMar er en vesentlig del av Schouw & Co. og den oppdaterte informasjonen vil integreres i konsernets veiledning",
+              "evidence": "’BioMar utgjør en materiell del av porteføljen og er fullt konsolidert i Schouw & Co.’s tall’",
+              "page": "utdrag fra pressemelding"
+            },
+            {
+              "topic": "Planlagt konsernveiledning",
+              "statement": "Schouw & Co. vil vurdere og gi oppdatert samlet helårsveiledning ved Q3-rapporten 6. november 2026",
+              "evidence": "’vil vurdere samlet helårsveiledning senest i forbindelse med Q3-rapporten 6. november 2026’",
+              "page": "utdrag fra pressemelding"
             }
           ]
         }
@@ -2404,15 +2410,15 @@
       "ticker": "BEWI",
       "issuer": "BEWi ASA",
       "title": "BEWI invites to presentation of results for Q3 2026",
-      "headline": "BEWI kunngjør resultater for tredje kvartal 2026 – detaljer kommer 4. november",
-      "lead": "BEWI vil offentliggjøre resultatene for Q3 2026 4. november med presentasjon fra ledelsen, uten at tallene er tilgjengelige nå. Markedet må vente på konkret informasjon for vurdering.",
+      "headline": "BEWI kunngjør Q3 2026-resultater 4. november – presentasjon og direktesending",
+      "lead": "BEWI offentliggjør sine tall for tredje kvartal 2026 onsdag 4. november, med ledelsen på plass for presentasjon og spørsmål fra investorer via webcast. Resultatene tilgjengelig fra kl. 07:00 CET samme dag.",
       "published_at": "2026-11-02T07:00:12.435000+00:00",
       "url": "https://newsweb.oslobors.no/message/685293",
-      "summary": "BEWI vil offentliggjøre resultatene for Q3 2026 4. november med presentasjon fra ledelsen, uten at tallene er tilgjengelige nå. Markedet må vente på konkret informasjon for vurdering.",
-      "reason": "Uten konkrete resultatdata er det ikke mulig å vurdere prestasjonen eller effekten for aksjonærene. Viktig å følge med på detaljer ved offentliggjøringen for å forstå lønnsomhet og fremtidsutsikter.",
-      "score": 45,
+      "summary": "BEWI offentliggjør sine tall for tredje kvartal 2026 onsdag 4. november, med ledelsen på plass for presentasjon og spørsmål fra investorer via webcast. Resultatene tilgjengelig fra kl. 07:00 CET samme dag.",
+      "reason": "Meldingen varsler en standard resultatfremleggelse uten spesifikke tall eller indikasjoner på endring i drift eller finansielle forhold. Investorer må vente på konkrete resultater for nærmere vurdering av selskapets utvikling og strategi.",
+      "score": 55,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "number_keys": [
         "09821d",
@@ -2673,13 +2679,13 @@
       "ticker": "SPOL",
       "issuer": "SpareBank 1 Østlandet",
       "title": "Påminnelse: Resultatpresentasjon, 3. kvartal 2026",
-      "headline": "SpareBank 1 Østlandet holder resultatpresentasjon for Q3 2026 4. november",
-      "lead": "SpareBank 1 Østlandet avholder sin resultatpresentasjon for tredje kvartal 2026 onsdag 4. november kl. 08.15 i Oslo, med direktesending via webcast. Det vil bli mulig å stille spørsmål underveis.",
+      "headline": "SpareBank 1 Østlandet presenterer Q3-resultater 4. november",
+      "lead": "SpareBank 1 Østlandet holder sin resultatpresentasjon for tredje kvartal 2026 onsdag 4. november, med direktørene tilgjengelige for spørsmål både fysisk og via webcast.",
       "published_at": "2026-11-02T06:30:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685281",
-      "summary": "SpareBank 1 Østlandet avholder sin resultatpresentasjon for tredje kvartal 2026 onsdag 4. november kl. 08.15 i Oslo, med direktesending via webcast. Det vil bli mulig å stille spørsmål underveis.",
-      "reason": "Opplysningen angår en kommende presentasjon av kvartalsresultat, uten at resultat eller annen økonomisk informasjon er tilgjengelig. Det er derfor ikke grunnlag for vurdering av økonomisk retning eller påvirkning på aksjonærer.",
-      "score": 40,
+      "summary": "SpareBank 1 Østlandet holder sin resultatpresentasjon for tredje kvartal 2026 onsdag 4. november, med direktørene tilgjengelige for spørsmål både fysisk og via webcast.",
+      "reason": "Presentasjonsinvitasjonen inneholder ingen resultatdata eller indikatorer på utvikling. Aksjonærer bør følge presentasjonen for å få konkrete tall og vurderinger av kvartalet.",
+      "score": 30,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -13735,7 +13741,7 @@
       "assessment_source": "Regelfilter"
     }
   ],
-  "last_checked_at": "2026-11-02T22:00:00+00:00",
+  "last_checked_at": "2026-11-02T22:10:01+00:00",
   "monitor_stats": {
     "fetched": 99,
     "recent": 98,
