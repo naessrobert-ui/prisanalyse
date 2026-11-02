@@ -173,3 +173,51 @@ def test_route_samlet_foresporsel(monkeypatch):
     assert len(tilkoblinger) == 1                     # andre gang fra cache
     assert client.get("/newsweb/handler", query_string=[("m", "ABC|feil")]).status_code == 400
     assert client.get("/newsweb/handler", query_string=[("m", m[0])] * 41).status_code == 400
+
+
+def test_forhandsberegning_kun_ved_ny_database(monkeypatch):
+    import handler_data as hd
+    import newsweb_routes as nr
+    versjon = [1.0]
+    kall = []
+    monkeypatch.setattr(nr, "_trades_db_key", lambda: versjon[0])
+    monkeypatch.setattr(hd, "db_connect", lambda: _conn())
+    monkeypatch.setattr("handler_routes._load_investor_ids_for_beste_viktige",
+                        lambda conn, liste, *_: kall.append(liste) or ["V1"])
+    nr._trades_cache.clear()
+    assert nr._trades_warm_once() is True
+    assert nr._trades_warm_once() is False          # samme database: ingenting å gjøre
+    versjon[0] = 2.0                                # ny opplasting i dag morges
+    assert nr._trades_warm_once() is True
+    assert len(kall) == 4                           # to lister x to databaseversjoner
+
+
+def test_panel_cache_nullstilles_ved_ny_database(monkeypatch):
+    import handler_data as hd
+    import newsweb_routes as nr
+    client = _client(monkeypatch, logged_in=True)
+    versjon = [1.0]
+    tilkoblinger = []
+    monkeypatch.setattr(nr, "_trades_db_key", lambda: versjon[0])
+    monkeypatch.setattr(hd, "db_connect", lambda: tilkoblinger.append(1) or _conn())
+    monkeypatch.setattr(nr, "_trades_list_ids", lambda conn: {"Viktige.csv": ["V1"]})
+    nr._trades_cache.clear()
+    url = "/newsweb/handler?ticker=ABC&published_at=2026-10-26T12:00:00Z"
+    client.get(url)
+    client.get(url)
+    assert len(tilkoblinger) == 1
+    versjon[0] = 2.0
+    client.get(url)
+    assert len(tilkoblinger) == 2
+
+
+def test_bakgrunnsjobb_startes_ikke_i_test(monkeypatch):
+    import threading
+    from flask import Flask
+    import newsweb_routes as nr
+    startet = []
+    monkeypatch.setattr(threading.Thread, "start", lambda self: startet.append(self.name))
+    app = Flask(__name__)
+    app.testing = True
+    app.register_blueprint(nr.newsweb_bp)
+    assert startet == []
