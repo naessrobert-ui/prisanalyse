@@ -585,9 +585,9 @@ function renderLys(d){
   else if(t(idag.lyst_til)<t(idag.lyst_fra)){
     // Sommernatt: bare et kort tussmørke rundt midnatt.
     tekst=`Lyst hele kvelden. Tussmørke ${hm(idag.lyst_til)}–${hm(idag.lyst_fra)}`;
-  }else if(now<t(idag.lyst_fra)){ikon='🔦'; tekst=`Mørkt nå, lyst nok fra kl. ${hm(idag.lyst_fra)}`+sol(idag)}
+  }else if(now<t(idag.lyst_fra)){ikon='🔦'; tekst=`Mørkt nå. Lyst i dag kl. ${hm(idag.lyst_fra)}–${hm(idag.lyst_til)}`+sol(idag)}
   else if(now<t(idag.lyst_til)){tekst=`Lyst til kl. ${hm(idag.lyst_til)}, lykt etter det`+sol(idag)}
-  else{ikon='🔦'; tekst=`Mørkt, ta med lykt.`+(imorgen&&imorgen.lyst_fra?` Lyst fra kl. ${hm(imorgen.lyst_fra)} i morgen`:'')}
+  else{ikon='🔦'; tekst=`Mørkt, ta med lykt.`+(imorgen&&imorgen.lyst_fra&&imorgen.lyst_til?` Lyst i morgen kl. ${hm(imorgen.lyst_fra)}–${hm(imorgen.lyst_til)}`:imorgen&&imorgen.lyst_fra?` Lyst fra kl. ${hm(imorgen.lyst_fra)} i morgen`:'')}
   el.innerHTML=`<span class="ikon" aria-hidden="true">${ikon}</span><span>${tekst}</span>`;
 }
 function renderNowcast(d){
