@@ -2,8 +2,30 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-02T07:10:00+00:00",
+  "generated_at": "2026-11-02T07:20:00+00:00",
   "items": [
+    {
+      "id": "685300",
+      "market": "XOSL",
+      "ticker": "ELMRA",
+      "issuer": "Elmera Group ASA",
+      "title": "OSLO BØRS - TRADING SUSPENSION",
+      "headline": "Elmera Group suspendert fra handel på Oslo Børs",
+      "lead": "Handelen i Elmera Group ASA er suspendert fra 2. november 2026 uten oppgitt tidshorisont eller årsak i meldingen.",
+      "published_at": "2026-11-02T07:17:55.997000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685300",
+      "summary": "Handelen i Elmera Group ASA er suspendert fra 2. november 2026 uten oppgitt tidshorisont eller årsak i meldingen.",
+      "reason": "Suspensjonen betyr usikkerhet for aksjonærene, og det mangler informasjon om årsak og varighet. Det er viktig å følge eventuelle oppfølgende meldinger for å vurdere konsekvenser for selskapets verdi og videre kursutvikling.",
+      "score": 65,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "number_keys": [
+        "0716d9",
+        "91032a",
+        "e6d16d"
+      ]
+    },
     {
       "id": "685297",
       "market": "XOSL",
@@ -15239,37 +15261,20 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "684926",
-      "market": "XOSL",
-      "ticker": "VASA",
-      "issuer": "Vasakronan AB",
-      "title": "Ny rente",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-27T13:26:32.386000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684926",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
-  "last_checked_at": "2026-11-02T07:10:00+00:00",
+  "last_checked_at": "2026-11-02T07:20:00+00:00",
   "monitor_stats": {
-    "fetched": 24,
-    "recent": 24,
-    "already_seen": 18,
-    "eligible": 4,
-    "filtered": 2,
-    "analyzed": 4,
+    "fetched": 25,
+    "recent": 25,
+    "already_seen": 24,
+    "eligible": 1,
+    "filtered": 0,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-02T07:02:13.425000+00:00"
+    "source_latest_at": "2026-11-02T07:17:55.997000+00:00"
   }
 }
