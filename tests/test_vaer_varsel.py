@@ -578,13 +578,17 @@ def test_sted_info_for_faste_steder_og_punkt():
 
 
 def test_punktside_viser_navn_og_skjuler_radaranimasjon():
-    page = _app().get("/ver/varsel/p60.628_6.417?navn=Voss")
+    vv._CACHE.clear()  # ferdige varsler caches per sted
+    # Siden starter ellers en ekte henting i bakgrunnen (forhåndsvarselet).
+    with patch.object(vv, "varsel_payload_forhaand", return_value=None):
+        page = _app().get("/ver/varsel/p60.628_6.417?navn=Voss")
     assert page.status_code == 200
     assert b"<h1 class=\"place\" id=\"placeName\">Voss</h1>" in page.data
     assert b"const HAR_RADAR = false" in page.data
 
 
 def test_punkt_api_bruker_yr_uten_google_og_maalinger():
+    vv._CACHE.clear()  # ferdige varsler caches per sted
     google, obs = [], []
     with patch.object(vv, "_fetch_yr", return_value=yr_payload()), \
          patch.object(vv, "_fetch_nowcast", side_effect=RuntimeError), \
@@ -593,7 +597,7 @@ def test_punkt_api_bruker_yr_uten_google_og_maalinger():
          patch("scripts.weather_scoreboard.fetch_observations", side_effect=lambda *a, **k: obs.append(1)), \
          patch.object(vv, "_trust_rows", return_value=None):
         res = _app().get("/ver/api/varsel/p60.628_6.417?navn=Voss")
-    assert res.status_code == 200
+    assert res.status_code == 200, res.json
     data = res.json
     assert data["place"]["name"] == "Voss" and data["place"]["fast"] is False
     assert data["google_available"] is False and data["trust"] is None and data["days"]
@@ -724,3 +728,22 @@ def test_varselside_uten_cache_har_tomt_forhaandsvarsel():
         html = client.get("/ver/varsel/bergen").get_data(as_text=True)
         slipp.set()
     assert "const FORHAAND = null" in html
+
+
+# --- Dagslys (borgerlig tussmørke) ------------------------------------------
+
+def test_dagslys_bergen_november():
+    from datetime import date
+
+    d = vv.dagslys(60.393, 5.3242, date(2026, 11, 2))
+    # Almanakken: sol opp ca. 08:02, ned ca. 16:41; tussmørket slutter ca. 17:27.
+    assert d["sol_opp"].startswith("2026-11-02T08:0") and d["sol_ned"].startswith("2026-11-02T16:4")
+    assert d["lyst_fra"].startswith("2026-11-02T07:1") and d["lyst_til"].startswith("2026-11-02T17:2")
+    assert d["unntak"] is None
+
+
+def test_dagslys_midnattssol_og_morketid():
+    from datetime import date
+
+    assert vv.dagslys(69.65, 18.96, date(2026, 6, 21))["unntak"] == "lyst hele døgnet"
+    assert vv.dagslys(78.22, 15.65, date(2026, 12, 21))["unntak"] == "mørkt hele døgnet"  # Longyearbyen

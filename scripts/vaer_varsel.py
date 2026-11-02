@@ -832,6 +832,61 @@ def sun_elevation(lat: float, lon: float, when: datetime) -> float:
     return 90 - math.degrees(math.acos(max(-1.0, min(1.0, cos_zen))))
 
 
+#: Borgerlig tussmørke: sola 6 grader under horisonten. Etter dette trengs lykt.
+TUSSMORKE_GRADER = -6.0
+#: Solopp/-ned slik almanakken regner dem (sentrum av sola, med lysbrytning).
+SOL_GRADER = -0.833
+
+
+def _krysninger(lat: float, lon: float, dag_start: datetime, grense: float) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Første gang sola går over og siste gang den går under `grense` i døgnet."""
+    steg = timedelta(minutes=4)
+    t, opp, ned = dag_start, None, None
+    forrige = sun_elevation(lat, lon, t) > grense
+    slutt = dag_start + timedelta(days=1)
+    while t < slutt:
+        neste = t + steg
+        over = sun_elevation(lat, lon, neste) > grense
+        if over != forrige:
+            lo, hi = t, neste  # halvering ned til under et halvt minutt
+            while hi - lo > timedelta(seconds=30):
+                mid = lo + (hi - lo) / 2
+                if (sun_elevation(lat, lon, mid) > grense) == over:
+                    hi = mid
+                else:
+                    lo = mid
+            if over and opp is None:
+                opp = hi
+            elif not over:
+                ned = hi
+        forrige, t = over, neste
+    return opp, ned
+
+
+def dagslys(lat: float, lon: float, dato) -> dict[str, Any]:
+    """Når det er lyst nok til å klare seg uten lykt, og sol opp/ned, for en lokal dato.
+
+    `lys` er "midnattssol"/"morketid" når grensen ikke krysses i det hele tatt.
+    """
+    start = datetime(dato.year, dato.month, dato.day, tzinfo=OSLO).astimezone(timezone.utc)
+    lyst_fra, lyst_til = _krysninger(lat, lon, start, TUSSMORKE_GRADER)
+    sol_opp, sol_ned = _krysninger(lat, lon, start, SOL_GRADER)
+    lys = None
+    if lyst_fra is None and lyst_til is None:
+        midt = start + timedelta(hours=12)
+        lys = "lyst hele døgnet" if sun_elevation(lat, lon, midt) > TUSSMORKE_GRADER else "mørkt hele døgnet"
+    iso = lambda t: _local(t).isoformat() if t else None
+    return {"dato": dato.isoformat(), "lyst_fra": iso(lyst_fra), "lyst_til": iso(lyst_til),
+            "sol_opp": iso(sol_opp), "sol_ned": iso(sol_ned), "unntak": lys}
+
+
+def dagslys_neste(lat: float, lon: float, now: datetime) -> list[dict[str, Any]]:
+    """I dag og i morgen, cachet per sted og dato."""
+    idag = _local(now).date()
+    key = ("dagslys", round(lat, 2), round(lon, 2), idag)
+    return _CACHE.get(key, 6 * 3600, lambda: [dagslys(lat, lon, idag), dagslys(lat, lon, idag + timedelta(days=1))])
+
+
 def _hour_symbol(rain: Optional[float], cloud: Optional[float], day: bool) -> str:
     """Yr-symbolkode for én time ut fra nedbør (mm) og skydekke (%)."""
     rain = rain or 0.0
@@ -1343,8 +1398,10 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
     wn_days = weathernext_by_day(wn_varsel, now)
     yr_dates = [d["date"] for d in days if d.get("tmin") is not None]
     days += weathernext_extra_days(wn_days, yr_dates[-1] if yr_dates else None)
+    info = sted_info(place)
     return {
-        "place": sted_info(place),
+        "dagslys": dagslys_neste(info["lat"], info["lon"], now),
+        "place": info,
         "generated_at": _local(now).isoformat(),
         "yr_updated_at": meta.get("updated_at"),
         "now": now_block,

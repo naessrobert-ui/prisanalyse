@@ -25,7 +25,7 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 MODELL = os.environ.get("VAER_AI_MODELL", "claude-sonnet-5-5")
-MAKS_TOKENS = 600
+MAKS_TOKENS = 800
 #: Grunnlaget kuttes til dette (tegn) for å holde kallet lite og billig.
 MAKS_INPUT = 30_000
 
@@ -35,7 +35,7 @@ Du får ferdige data fra flere kilder. Du lager ikke egne prognoser, men vurdere
 Skriv på norsk bokmål, enkelt og konkret, som til en venn. Bruk klokkeslett og ukedager, ikke datoer.
 Ikke bruk tankestrek (–/—), emoji eller overskrifter. Ikke nevn JSON, felter eller "dataene".
 
-Lag to tekster:
+Lag fire tekster:
 1. "kort": høyst 2 setninger (maks ca. 35 ord) om de neste timene og frem til i morgen kveld. Start med det
    viktigste for noen som skal ut nå (regner det, når slutter/begynner det, vind). Nevn uenighet mellom
    kildene bare når den har betydning, og da hvem du stoler mest på ut fra treffsikkerheten.
@@ -43,8 +43,15 @@ Lag to tekster:
    hovedtrekk, når det ser best/verst ut, og hvor sikkert det er. Ikke gjenta det som står i "kort".
    Bruk sannsynlighetsord (trolig, kanskje, usikkert) når kildene spriker eller det er langt frem.
    Sammenlign bare med "normalt" hvis grunnlaget faktisk inneholder normaler.
+3. "gaa": hva man bør ha på seg på en gåtur de neste 2-3 timene, i én kort setning (maks ca. 15 ord).
+   Konkret: lag (ull, fleece), jakke (lett, vindtett, vinterjakke), regntøy eller ikke, lue/votter.
+   Ta hensyn til følt temperatur, vind og nedbør. Er det mørkt eller blir det mørkt innen 2 timer
+   (se "dagslys"), avslutt med at man bør ha refleks og lykt.
+4. "lop": det samme for en løpetur, maks ca. 15 ord. Husk at man blir varm: kle seg for ca. 10 grader
+   varmere enn følt temperatur. Nevn løpejakke, tights/shorts, lue/hansker og pigger ved is/snø.
+   Samme regel om lykt og refleks.
 
-Svar med kun et JSON-objekt: {"kort": "...", "overblikk": "..."}"""
+Svar med kun et JSON-objekt: {"kort": "...", "overblikk": "...", "gaa": "...", "lop": "..."}"""
 
 _cache: dict[str, tuple[str, dict[str, Any]]] = {}
 _laaser: dict[str, threading.Lock] = {}
@@ -66,6 +73,7 @@ def grunnlag(payload: dict[str, Any]) -> str:
         "sted": (payload.get("place") or {}).get("name"),
         "tidspunkt": payload.get("generated_at"),
         "naa": payload.get("now"),
+        "dagslys": payload.get("dagslys"),
         "maalt_nedbor_i_dag": payload.get("observed"),
         "radar_neste_2_timer": {"tilgjengelig": nowcast.get("available"), "steg": steps[::2]},
         "resten_av_dagen": payload.get("rest_of_day"),
@@ -96,7 +104,12 @@ def tolk_svar(tekst: str) -> Optional[dict[str, str]]:
         return None
     # Husregel for siden: ingen tankestreker.
     vask = lambda s: s.replace(" – ", ", ").replace(" — ", ", ").replace("—", ", ").replace("–", "-")
-    return {"kort": vask(kort), "overblikk": vask(overblikk)}
+    svar = {"kort": vask(kort), "overblikk": vask(overblikk)}
+    for felt in ("gaa", "lop"):  # klærne er valgfrie; mangler de, vises bare varselet
+        verdi = str(obj.get(felt) or "").strip()
+        if verdi:
+            svar[felt] = vask(verdi)
+    return svar
 
 
 def _spor_claude(payload: dict[str, Any]) -> Optional[dict[str, str]]:

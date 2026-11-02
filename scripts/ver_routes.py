@@ -3299,6 +3299,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
     <div class="ai-box" id="aiBox" hidden>
       <p id="aiKort"></p>
       <p class="ai-frem" id="aiFrem" hidden></p>
+      <p class="ai-frem" id="aiKlaer" hidden></p>
       <div class="ai-kilde">Oppsummert av AI (Claude). <a id="fullLink" href="#">Se fullt varsel med dager fremover ›</a></div>
     </div>
 
@@ -4809,6 +4810,10 @@ async function loadAI(lat,lon,name){
     const f=document.getElementById('aiFrem');
     f.textContent='';
     if(d.overblikk){const b=document.createElement('b');b.textContent='Fremover: ';f.append(b,d.overblikk);f.hidden=false}else{f.hidden=true}
+    const k=document.getElementById('aiKlaer');
+    k.textContent='';
+    [['Gåtur: ',d.gaa],['Løpetur: ',d.lop]].forEach(([l,v])=>{if(v){const b=document.createElement('b');b.textContent=l;k.append(b,v,document.createElement('br'))}});
+    k.hidden=!d.gaa&&!d.lop;
     box.hidden=!d.kort && !d.overblikk;
   }catch(_){}
 }

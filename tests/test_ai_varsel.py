@@ -69,3 +69,8 @@ def test_hent_uten_vent_gir_forrige_tekst_og_lager_ny_i_bakgrunnen():
     while _t.monotonic() < slutt and ai_varsel._cache["voss"][1]["kort"] != "ny":
         _t.sleep(0.01)
     assert ai_varsel._cache["voss"][1]["kort"] == "ny"
+
+
+def test_tolk_svar_tar_med_klaer_naar_de_finnes():
+    svar = ai_varsel.tolk_svar('{"kort": "k", "overblikk": "o", "gaa": "Ull og vindjakke.", "lop": ""}')
+    assert svar == {"kort": "k", "overblikk": "o", "gaa": "Ull og vindjakke."}
