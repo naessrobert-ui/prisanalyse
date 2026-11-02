@@ -343,7 +343,7 @@ button.pill{font:inherit;font-size:13px}
     <div>
       <h1 class="place" id="placeName">{{ info.name }}</h1>
       <div class="draft" id="updated">Henter varsel …</div>
-      {% if not info.norge %}<div class="draft">Varsel fra Open-Meteo. Klokkeslett i norsk tid.</div>{% endif %}
+      {% if not info.norge %}<div class="draft">Varsel fra Open-Meteo. Sol og dagslys i lokal tid, øvrige klokkeslett i norsk tid.</div>{% endif %}
     </div>
     <div class="pills">
       {% for p in places %}<a class="pill{% if p.id == sted %} on{% endif %}" href="/ver/varsel/{{ p.id }}">{{ p.name }}</a>{% endfor %}
@@ -575,12 +575,14 @@ function renderNow(d){
   const st=(d.observed.station||'').split(' - ').pop();
   $('nowObs').textContent=d.observed.today!=null&&st?`${st} har målt ${fmt1(d.observed.today)} mm i dag`:'';
 }
-function hm(iso){return iso?new Date(iso).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'}):''}
+// Sol og dagslys vises i stedets egen tid (London-tid i London osv.).
+function hm(iso){return iso?new Date(iso).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit',timeZone:STED_INFO.tz||'Europe/Oslo'}):''}
 function renderLys(d){
   const el=$('nowLys'), [idag,imorgen]=d.dagslys||[];
   if(!idag){el.innerHTML='';return}
   const now=Date.now(), t=iso=>iso?new Date(iso).getTime():null;
-  const sol=x=>x.sol_opp&&x.sol_ned?` <small>(sol ${hm(x.sol_opp)}–${hm(x.sol_ned)})</small>`:'';
+  const lokal=STED_INFO.tz&&STED_INFO.tz!=='Europe/Oslo'?' lokal tid':'';
+  const sol=x=>x.sol_opp&&x.sol_ned?` <small>(sol ${hm(x.sol_opp)}–${hm(x.sol_ned)}${lokal})</small>`:(lokal?` <small>(${lokal.trim()})</small>`:'');
   let ikon='☀️', tekst;
   if(idag.unntak){tekst=idag.unntak[0].toUpperCase()+idag.unntak.slice(1); ikon=idag.unntak.startsWith('lyst')?'☀️':'🔦'}
   else if(t(idag.lyst_til)<t(idag.lyst_fra)){

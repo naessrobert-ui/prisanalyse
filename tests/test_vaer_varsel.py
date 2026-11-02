@@ -754,7 +754,7 @@ def test_utenlandsk_punkt_faar_samme_side_med_open_meteo():
     with patch.object(vv, "varsel_payload_forhaand", return_value=None):
         page = _app().get("/ver/varsel/p38.345_-0.481?navn=Alicante")
     assert page.status_code == 200
-    assert "Varsel fra Open-Meteo. Klokkeslett i norsk tid." in page.get_data(as_text=True)
+    assert "Sol og dagslys i lokal tid" in page.get_data(as_text=True)
     assert b"open-meteo.com" in page.data
 
 
@@ -763,3 +763,16 @@ def test_dagslys_utlandet_bruker_stedets_eget_dogn():
 
     d = vv.dagslys(38.345, -0.481, date(2026, 11, 2))  # Alicante: sol opp ca. 07:28, ned ca. 18:03
     assert d["sol_opp"].startswith("2026-11-02T07:2") and d["sol_ned"].startswith("2026-11-02T18:0")
+
+
+def test_dagslys_i_stedets_egen_tid():
+    from datetime import date
+
+    assert vv.tidssone(51.507, -0.128) == "Europe/London"
+    assert vv.tidssone(40.713, -74.006) == "America/New_York"
+    assert vv.tidssone(60.393, 5.3242) == "Europe/Oslo"
+    london = vv.dagslys(51.507, -0.128, date(2026, 11, 2), "Europe/London")
+    assert london["sol_opp"].startswith("2026-11-02T06:5") and london["sol_opp"].endswith("+00:00")
+    ny = vv.dagslys(40.713, -74.006, date(2026, 11, 2), "America/New_York")
+    assert ny["sol_opp"].startswith("2026-11-02T06:2") and ny["sol_opp"].endswith("-05:00")
+    assert vv.sted_info("p51.507_-0.128")["tz"] == "Europe/London"
