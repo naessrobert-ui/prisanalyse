@@ -2,8 +2,35 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-02T06:30:00+00:00",
+  "generated_at": "2026-11-02T06:40:00+00:00",
   "items": [
+    {
+      "id": "685283",
+      "market": "XOSL",
+      "ticker": "BORR",
+      "issuer": "Borr Drilling Limited",
+      "title": "Borr Drilling Limited - Prospector 5 Rig Incident Update - November 2, 2026",
+      "headline": "Fire omkomne funnet etter Prospector 5-ulykke – én fortsatt savnet",
+      "lead": "Borr Drilling melder at fire personer er funnet døde etter ulykken med Prospector 5 i Gabon, mens søk etter en savnet person pågår fortsatt. En uavhengig granskning av hendelsen er satt i gang.",
+      "published_at": "2026-11-02T06:30:11.136000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685283",
+      "summary": "Borr Drilling melder at fire personer er funnet døde etter ulykken med Prospector 5 i Gabon, mens søk etter en savnet person pågår fortsatt. En uavhengig granskning av hendelsen er satt i gang.",
+      "reason": "Ulykken med dødsfall og en fortsatt savnet person vil trolig belaste Borr Drillings omdømme og kan føre til strengere regulatoriske krav. Aksjonærer må følge den kommende undersøkelsen for å vurdere konsekvenser for sikkerhet og drift.",
+      "score": 85,
+      "skipped": false,
+      "direction": "negativ",
+      "assessment_source": "AI",
+      "number_keys": [
+        "4fd505",
+        "98fbc4",
+        "ac3478",
+        "aee655",
+        "b6589f",
+        "baf2f8",
+        "da4b92",
+        "f6e112"
+      ]
+    },
     {
       "id": "685281",
       "market": "XOSL",
@@ -20,6 +47,22 @@
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "685281",
+          "title": "Påminnelse: Resultatpresentasjon, 3. kvartal 2026",
+          "url": "https://newsweb.oslobors.no/message/685281",
+          "published_at": "2026-11-02T06:30:00+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "685280",
+          "title": "Reminder: Presentation of 3rd quarter 2026 accounts",
+          "url": "https://newsweb.oslobors.no/message/685280",
+          "published_at": "2026-11-02T06:30:00+00:00",
+          "language": "Engelsk"
+        }
+      ],
       "number_keys": [
         "15ef40",
         "1b6453",
@@ -50,23 +93,7 @@
           "compared_periods": [],
           "points": []
         }
-      },
-      "language_versions": [
-        {
-          "id": "685281",
-          "title": "Påminnelse: Resultatpresentasjon, 3. kvartal 2026",
-          "url": "https://newsweb.oslobors.no/message/685281",
-          "published_at": "2026-11-02T06:30:00+00:00",
-          "language": "Norsk"
-        },
-        {
-          "id": "685280",
-          "title": "Reminder: Presentation of 3rd quarter 2026 accounts",
-          "url": "https://newsweb.oslobors.no/message/685280",
-          "published_at": "2026-11-02T06:30:00+00:00",
-          "language": "Engelsk"
-        }
-      ]
+      }
     },
     {
       "id": "685279",
@@ -15089,37 +15116,20 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "684909",
-      "market": "XOSL",
-      "ticker": "STVKO",
-      "issuer": "Stavanger Kommune",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-27T13:22:51.935000+00:00",
-      "url": "https://newsweb.oslobors.no/message/684909",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
-  "last_checked_at": "2026-11-02T06:30:00+00:00",
+  "last_checked_at": "2026-11-02T06:40:00+00:00",
   "monitor_stats": {
-    "fetched": 14,
-    "recent": 14,
-    "already_seen": 12,
-    "eligible": 2,
+    "fetched": 15,
+    "recent": 15,
+    "already_seen": 14,
+    "eligible": 1,
     "filtered": 0,
-    "analyzed": 2,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-02T06:30:00+00:00"
+    "source_latest_at": "2026-11-02T06:30:11.136000+00:00"
   }
 }
