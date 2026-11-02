@@ -259,6 +259,12 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .stedtreff small{color:var(--muted)}
 .stedtreff .tom{padding:9px 12px;font-size:13px;color:var(--muted)}
 @media (max-width:560px){.stedsok input,.stedsok input:focus{width:100%}.stedsok{flex:1 1 100%}.stedtreff{left:0;right:auto}}
+/* Dagslys og klær */
+.lys{margin-top:8px;font-size:13px;color:var(--ink);display:flex;gap:6px;align-items:baseline}
+.lys .ikon{font-size:14px}
+.lys small{color:var(--muted)}
+.ai-klaer{margin-top:10px;padding-top:10px;border-top:1px solid var(--blue-soft);display:grid;gap:4px;font-size:14.5px}
+.ai-klaer b{font-weight:650}
 footer{font-size:12px;color:var(--muted);padding:4px 4px 24px}
 footer a{color:inherit}
 
@@ -355,6 +361,10 @@ button.pill{font:inherit;font-size:13px}
   <section class="card ai" id="aiKortCard" hidden>
     <p id="aiKort"></p>
     <p class="ai-frem" id="aiOverblikk" hidden></p>
+    <div class="ai-klaer" id="aiKlaer" hidden>
+      <div id="aiGaa"></div>
+      <div id="aiLop"></div>
+    </div>
     <div class="ai-kilde">Oppsummert av AI (Claude) fra værdataene på denne siden.</div>
   </section>
 
@@ -367,6 +377,7 @@ button.pill{font:inherit;font-size:13px}
         <div class="small muted" id="nowFeels"></div>
         <div class="wind" id="nowWind"></div>
         <div class="small muted" style="margin-top:6px" id="nowObs"></div>
+        <div class="lys" id="nowLys"></div>
       </div>
 
       <div class="answers">
@@ -562,6 +573,22 @@ function renderNow(d){
   $('nowFeels').textContent=n.feels_like!=null&&n.temp!=null&&Math.round(n.feels_like)!==Math.round(n.temp)?`Føles som ${Math.round(n.feels_like)}°`:'';
   const st=(d.observed.station||'').split(' - ').pop();
   $('nowObs').textContent=d.observed.today!=null&&st?`${st} har målt ${fmt1(d.observed.today)} mm i dag`:'';
+}
+function hm(iso){return iso?new Date(iso).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'}):''}
+function renderLys(d){
+  const el=$('nowLys'), [idag,imorgen]=d.dagslys||[];
+  if(!idag){el.innerHTML='';return}
+  const now=Date.now(), t=iso=>iso?new Date(iso).getTime():null;
+  const sol=x=>x.sol_opp&&x.sol_ned?` <small>(sol ${hm(x.sol_opp)}–${hm(x.sol_ned)})</small>`:'';
+  let ikon='☀️', tekst;
+  if(idag.unntak){tekst=idag.unntak[0].toUpperCase()+idag.unntak.slice(1); ikon=idag.unntak.startsWith('lyst')?'☀️':'🔦'}
+  else if(t(idag.lyst_til)<t(idag.lyst_fra)){
+    // Sommernatt: bare et kort tussmørke rundt midnatt.
+    tekst=`Lyst hele kvelden. Tussmørke ${hm(idag.lyst_til)}–${hm(idag.lyst_fra)}`;
+  }else if(now<t(idag.lyst_fra)){ikon='🔦'; tekst=`Mørkt nå, lyst nok fra kl. ${hm(idag.lyst_fra)}`+sol(idag)}
+  else if(now<t(idag.lyst_til)){tekst=`Lyst til kl. ${hm(idag.lyst_til)}, lykt etter det`+sol(idag)}
+  else{ikon='🔦'; tekst=`Mørkt, ta med lykt.`+(imorgen&&imorgen.lyst_fra?` Lyst fra kl. ${hm(imorgen.lyst_fra)} i morgen`:'')}
+  el.innerHTML=`<span class="ikon" aria-hidden="true">${ikon}</span><span>${tekst}</span>`;
 }
 function renderNowcast(d){
   const nc=d.nowcast, card=$('ansNow'), steps=nc.steps||[];
@@ -1155,7 +1182,7 @@ function vis(d){
     const t=new Date(d.generated_at);
     $('updated').textContent=`Oppdatert ${t.toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'})}`;
     $('gToggle').hidden=!d.google_available;
-    renderNow(d); renderNowcast(d); renderAnswers(d); drawStrip(); renderDays(); renderTrust(d);
+    renderNow(d); renderLys(d); renderNowcast(d); renderAnswers(d); drawStrip(); renderDays(); renderTrust(d);
     if($('radar').classList.contains('open')) renderNcTable(d);
     // Hent timeserien i bakgrunnen, så værluken er klar når den åpnes.
     ensureSeries().then(()=>{renderDays();if(!$('sokCard').hidden) renderSok()}).catch(()=>{});
@@ -1177,6 +1204,9 @@ async function loadAI(){
     const d=await r.json();
     if(!d.available) return;
     if(d.kort){$('aiKort').textContent=d.kort;$('aiKortCard').hidden=false}
+    const klaer=(id,label,txt)=>{const e=$(id);e.textContent='';if(txt){const b=document.createElement('b');b.textContent=label;e.append(b,txt)}};
+    klaer('aiGaa','Gåtur: ',d.gaa); klaer('aiLop','Løpetur: ',d.lop);
+    $('aiKlaer').hidden=!d.gaa&&!d.lop;
     if(d.overblikk){const o=$('aiOverblikk');o.textContent='';const b=document.createElement('b');b.textContent='Fremover: ';o.append(b,d.overblikk);o.hidden=false}
   }catch(_){}
 }
