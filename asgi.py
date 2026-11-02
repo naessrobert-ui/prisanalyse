@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import os
 
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -219,4 +220,8 @@ async def _shipping_http_proxy(request: Request, path: str = ""):
 
 
 # Flask app keeps existing routes on '/'.
-app.mount("/", WSGIMiddleware(flask_app))
+# a2wsgi har bare 10 tråder som standard, og de deles av hele Flask-nettstedet.
+# Kall som venter på eksterne kilder (Yr, Google, S3) holder en tråd hver, så med
+# 10 tråder sto vanlige sidevisninger i kø bak dem. Trådene venter mest på nett.
+_WSGI_TRAADER = max(10, int(os.environ.get("WSGI_THREADS", "40") or 40))
+app.mount("/", WSGIMiddleware(flask_app, workers=_WSGI_TRAADER))
