@@ -981,33 +981,110 @@ def parse_google_days(payload: dict[str, Any]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 class _Cache:
-    def __init__(self) -> None:
-        self._data: dict[Any, tuple[float, Any]] = {}
-        self._lock = threading.Lock()
-        self._key_locks: dict[Any, threading.Lock] = {}
+    """Minnecache med "stale-while-revalidate" og felles henting per nøkkel.
 
-    def get(self, key: Any, ttl: float, fn: Callable[[], Any]) -> Any:
+    * Fersk verdi (yngre enn `ttl`): returneres med en gang.
+    * Utløpt, men innenfor `stale` sekunder etter: returneres også med en gang,
+      og en ny henting startes i bakgrunnen. Brukeren venter aldri på kilden.
+    * Ingen brukbar verdi: hentes nå. Samtidige forespørsler venter på den samme
+      hentingen og får samme svar eller feil, i stedet for å prøve på nytt etter tur.
+    * Feil: forrige verdi beholdes, og kilden prøves tidligst igjen etter
+      `FEIL_PAUSE` sekunder. Finnes ingen verdi, får alle feilen med en gang i
+      pausen i stedet for å vente på et nytt tidsavbrudd.
+    """
+
+    #: Standard for hvor lenge en utløpt verdi kan vises mens ny hentes.
+    STALE = 3600.0
+    FEIL_PAUSE = 30.0
+    MAKS_NOEKLER = 3000
+
+    def __init__(self) -> None:
+        self._data: dict[Any, tuple[float, float, Any]] = {}  # nøkkel -> (utløper, stale_til, verdi)
+        self._lock = threading.Lock()
+        self._inflight: dict[Any, Future] = {}
+        self._feil: dict[Any, tuple[float, BaseException]] = {}  # nøkkel -> (prøv_igjen, feil)
+
+    def _start(self, key: Any, ttl: float, stale: float, fn: Callable[[], Any]) -> Future:
+        """Registrerer en henting. Må kalles med låsen holdt."""
+        fut: Future = Future()
+        self._inflight[key] = fut
+        fut._vv_args = (key, ttl, stale, fn)  # type: ignore[attr-defined]
+        return fut
+
+    def _run(self, fut: Future) -> None:
+        key, ttl, stale, fn = fut._vv_args  # type: ignore[attr-defined]
+        try:
+            value = fn()
+        except BaseException as exc:  # noqa: BLE001 - videreformidles til alle som venter
+            with self._lock:
+                self._feil[key] = (time.monotonic() + self.FEIL_PAUSE, exc)
+                self._inflight.pop(key, None)
+            fut.set_exception(exc)
+            return
+        now = time.monotonic()
+        with self._lock:
+            self._data[key] = (now + ttl, now + ttl + stale, value)
+            self._feil.pop(key, None)
+            self._inflight.pop(key, None)
+            if len(self._data) > self.MAKS_NOEKLER:
+                for k in [k for k, v in self._data.items() if v[1] < now]:
+                    self._data.pop(k, None)
+        fut.set_result(value)
+
+    def _bakgrunn(self, fut: Future) -> None:
+        threading.Thread(target=self._run, args=(fut,), daemon=True).start()
+
+    def get(self, key: Any, ttl: float, fn: Callable[[], Any], stale: Optional[float] = None) -> Any:
+        stale = self.STALE if stale is None else stale
+        now = time.monotonic()
+        eier: Optional[Future] = None
         with self._lock:
             hit = self._data.get(key)
-            if hit and hit[0] > time.monotonic():
-                return hit[1]
-            lock = self._key_locks.setdefault(key, threading.Lock())
-        with lock:  # én henting om gangen per nøkkel
-            with self._lock:
-                hit = self._data.get(key)
-                if hit and hit[0] > time.monotonic():
-                    return hit[1]
-            value = fn()
-            with self._lock:
-                self._data[key] = (time.monotonic() + ttl, value)
-            return value
+            if hit and hit[0] > now:
+                return hit[2]
+            fut = self._inflight.get(key)
+            feil = self._feil.get(key)
+            pause = feil is not None and feil[0] > now
+            if hit and hit[1] > now:
+                if fut is None and not pause:
+                    self._bakgrunn(self._start(key, ttl, stale, fn))
+                return hit[2]
+            if fut is None:
+                if pause:
+                    raise feil[1]
+                fut = eier = self._start(key, ttl, stale, fn)
+        if eier is not None:
+            self._run(eier)
+        return fut.result()
+
+    def prefetch(self, key: Any, ttl: float, fn: Callable[[], Any], stale: Optional[float] = None) -> None:
+        """Starter en henting i bakgrunnen hvis verdien ikke er fersk. Venter ikke."""
+        stale = self.STALE if stale is None else stale
+        now = time.monotonic()
+        with self._lock:
+            hit = self._data.get(key)
+            feil = self._feil.get(key)
+            if (hit and hit[0] > now) or key in self._inflight or (feil and feil[0] > now):
+                return
+            self._bakgrunn(self._start(key, ttl, stale, fn))
+
+    def peek(self, key: Any) -> Any:
+        """Verdien hvis den er fersk eller fortsatt kan vises, ellers None. Henter aldri."""
+        with self._lock:
+            hit = self._data.get(key)
+            return hit[2] if hit and hit[1] > time.monotonic() else None
 
     def clear(self) -> None:
         with self._lock:
             self._data.clear()
+            self._feil.clear()
 
 
 _CACHE = _Cache()
+#: Et Yr-varsel som er noen timer gammelt er langt bedre enn en side som henger.
+VARSEL_STALE = 6 * 3600.0
+#: Googles vilkår krever at data slettes innen en time: ingen ekstra levetid.
+GOOGLE_STALE = 0.0
 
 
 def _get(url: str, **params: Any) -> requests.Response:
@@ -1023,9 +1100,10 @@ def _fetch_yr(place: str) -> dict[str, Any]:
         from scripts.open_meteo_varsel import hent_timeserie
 
         return _CACHE.get(("om", place), 900, lambda: {
-            "properties": {"meta": {}, "timeseries": hent_timeserie(p["lat"], p["lon"])}})
+            "properties": {"meta": {}, "timeseries": hent_timeserie(p["lat"], p["lon"])}}, stale=VARSEL_STALE)
     return _CACHE.get(("yr", place), 600, lambda: _get(
-        f"{MET}/locationforecast/2.0/complete", lat=f"{p['lat']:.4f}", lon=f"{p['lon']:.4f}").json())
+        f"{MET}/locationforecast/2.0/complete", lat=f"{p['lat']:.4f}", lon=f"{p['lon']:.4f}").json(),
+        stale=VARSEL_STALE)
 
 
 def _fetch_nowcast(place: str) -> dict[str, Any]:
@@ -1033,12 +1111,13 @@ def _fetch_nowcast(place: str) -> dict[str, Any]:
     if not p["norge"]:
         raise RuntimeError("Nowcast finnes bare i Norden.")
     return _CACHE.get(("nowcast", place), 240, lambda: _get(
-        f"{MET}/nowcast/2.0/complete", lat=f"{p['lat']:.4f}", lon=f"{p['lon']:.4f}").json())
+        f"{MET}/nowcast/2.0/complete", lat=f"{p['lat']:.4f}", lon=f"{p['lon']:.4f}").json(),
+        stale=900)
 
 
 def _fetch_radar(area: str) -> bytes:
     return _CACHE.get(("radar", area), 300, lambda: _get(
-        f"{MET}/radar/2.0/", type="5level_reflectivity", area=area, content="animation").content)
+        f"{MET}/radar/2.0/", type="5level_reflectivity", area=area, content="animation").content, stale=900)
 
 
 def _fetch_google_days(place: str) -> list[dict[str, Any]]:
@@ -1066,7 +1145,7 @@ def _google_days_at(lat: float, lon: float, cache_key: Any,
             **{"location.latitude": lat, "location.longitude": lon, "days": 10, "pageSize": 10,
                "unitsSystem": "METRIC", "languageCode": "no", "key": key}).json())
 
-    return _CACHE.get(cache_key, 3300, load)
+    return _CACHE.get(cache_key, 3300, load, stale=GOOGLE_STALE)
 
 
 def _fetch_weathernext(place: str, now: datetime) -> Optional[dict[str, Any]]:
@@ -1148,7 +1227,8 @@ def _fetch_google_long(place: str) -> list[dict[str, Any]]:
         return []
     p = PLACES[place]
     return _CACHE.get(("google_long", place), 3300,
-                      lambda: fetch_google_hours(p["lat"], p["lon"], hours=_google_long_hours()))
+                      lambda: fetch_google_hours(p["lat"], p["lon"], hours=_google_long_hours()),
+                      stale=GOOGLE_STALE)
 
 
 def _fetch_observations(place: str, now: datetime) -> tuple[list[dict[str, Any]], Optional[str]]:
@@ -1293,6 +1373,68 @@ def build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
     }
 
 
+#: Ferdig varsel per sted. Etter et minutt lages et nytt i bakgrunnen, mens
+#: forrige svar leveres med en gang.
+PAYLOAD_TTL = 60.0
+
+
+def _payload_stale(place: str) -> float:
+    # Faste steder har Google-data (maks én time) og holdes ferske av forvarmingen.
+    return 600.0 if place in PLACES else 3600.0
+
+
+def varsel_payload(place: str) -> dict[str, Any]:
+    """Varselet for stedet fra cachen. Venter bare om det ikke finnes noe ennå."""
+    return _CACHE.get(("payload", place), PAYLOAD_TTL, lambda: build_payload(place),
+                      stale=_payload_stale(place))
+
+
+def varsel_payload_forhaand(place: str) -> Optional[dict[str, Any]]:
+    """Det som finnes i cachen nå (eller None), og start oppdatering i bakgrunnen."""
+    _CACHE.prefetch(("payload", place), PAYLOAD_TTL, lambda: build_payload(place),
+                    stale=_payload_stale(place))
+    return _CACHE.peek(("payload", place))
+
+
+#: Hvor ofte forvarmingen lager nytt varsel for de faste stedene (sekunder).
+FORVARM_INTERVALL = 240
+_FORVARM = {"startet": False}
+_FORVARM_LOCK = threading.Lock()
+
+
+def _forvarm_en_gang() -> None:
+    from scripts import ai_varsel
+
+    for place in PLACES:
+        # place=place: hentingene kjører senere i egne tråder.
+        _safe(lambda place=place: varsel_payload_forhaand(place))
+        _safe(lambda place=place: series_payload(place))
+        if ai_varsel.aktivert():
+            _safe(lambda place=place: ai_varsel.hent(place, lambda: varsel_payload(place), vent=False))
+
+
+def start_forvarming() -> None:
+    """Holder varselet for de faste stedene varmt, så ingen besøkende venter på Yr.
+
+    Startes ved første besøk på værsidene. Skrus av med VAER_FORVARM=0.
+    """
+    import os
+
+    if os.environ.get("VAER_FORVARM", "1").strip().lower() in {"0", "false", "nei", "av"}:
+        return
+    with _FORVARM_LOCK:
+        if _FORVARM["startet"]:
+            return
+        _FORVARM["startet"] = True
+
+    def loop():
+        while True:
+            _safe(_forvarm_en_gang)
+            time.sleep(FORVARM_INTERVALL)
+
+    threading.Thread(target=loop, name="vaer-forvarming", daemon=True).start()
+
+
 # ---------------------------------------------------------------------------
 # Ruter
 # ---------------------------------------------------------------------------
@@ -1324,6 +1466,14 @@ def _cors(response: Response) -> Response:
     return response
 
 
+@vaer_varsel.before_request
+def _start_forvarming() -> None:
+    from flask import current_app
+
+    if not current_app.testing:
+        start_forvarming()
+
+
 @vaer_varsel.get("/ver/varsel")
 def varsel_default():
     return redirect("/ver/varsel/bergen")
@@ -1346,7 +1496,7 @@ def varsel_page(sted: str):
     vis = {**info, "name": info["name"].split()[0] if info["fast"] else info["name"]}
     return _frame_headers(make_response(render_template(
         "ver/varsel.html", sted=sted, info=vis, places=places, vaersider=VAERSIDER,
-        har_radar=sted in RADAR_AREA)))
+        har_radar=sted in RADAR_AREA, forhaand=varsel_payload_forhaand(sted))))
 
 
 @vaer_varsel.get("/ver/api/varsel/<sted>")
@@ -1354,7 +1504,7 @@ def varsel_api(sted: str):
     if _sted_fra_request(sted) is None:
         return jsonify(error="Ukjent sted."), 404
     try:
-        payload = build_payload(sted)
+        payload = varsel_payload(sted)
     except RuntimeError as exc:
         return jsonify(error=str(exc)), 503
     response = jsonify(payload)
@@ -1428,7 +1578,8 @@ def _fetch_punkt(lat: float, lon: float) -> dict[str, Any]:
     # høyst fire og om at vi cacher.
     key = (round(lat, 2), round(lon, 2))
     return _CACHE.get(("punkt", key), 900, lambda: _get(
-        f"{MET}/locationforecast/2.0/compact", lat=f"{key[0]:.2f}", lon=f"{key[1]:.2f}").json())
+        f"{MET}/locationforecast/2.0/compact", lat=f"{key[0]:.2f}", lon=f"{key[1]:.2f}").json(),
+        stale=VARSEL_STALE)
 
 
 @vaer_varsel.get("/ver/api/dagsvarsel")
@@ -1455,10 +1606,16 @@ def dagsvarsel_api():
 
 def build_series_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]:
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    # Ingen with-blokk (se build_payload): Google (ti kall) skal ikke kunne holde
+    # svaret. Det som ikke er ferdig innen fristen, kommer med ved neste oppdatering.
+    pool = ThreadPoolExecutor(max_workers=2)
+    try:
         f_yr = pool.submit(_safe, lambda: _fetch_yr(place))
         f_g = pool.submit(_safe, lambda: _fetch_google_long(place))
-        yr_payload, google = f_yr.result(), f_g.result() or []
+        yr_payload = _innen(f_yr, YR_FRIST)
+        google = _innen(f_g, frist=time.monotonic() + SERIE_GOOGLE_FRIST) or []
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
     if not yr_payload:
         raise RuntimeError("Fikk ikke hentet varselet fra Yr.")
     p = sted_info(place)
@@ -1474,6 +1631,16 @@ def build_series_payload(place: str, now: Optional[datetime] = None) -> dict[str
     }
 
 
+#: Så lenge timeserien venter på Google etter at Yr er klar (sekunder).
+SERIE_GOOGLE_FRIST = 8.0
+SERIE_TTL = 120.0
+
+
+def series_payload(place: str) -> dict[str, Any]:
+    return _CACHE.get(("serie", place), SERIE_TTL, lambda: build_series_payload(place),
+                      stale=_payload_stale(place))
+
+
 @vaer_varsel.get("/ver/api/ai-varsel/<sted>")
 def ai_varsel_api(sted: str):
     """AI-oppsummering (kort sikt og overblikk). Lages høyst én gang i timen."""
@@ -1483,7 +1650,8 @@ def ai_varsel_api(sted: str):
         return jsonify(error="Ukjent sted."), 404
     if not ai_varsel.aktivert():
         return jsonify(available=False)
-    tekster = ai_varsel.hent(sted, lambda: build_payload(sted))
+    # vent=False: har stedet en tekst fra før, vises den mens ny lages i bakgrunnen.
+    tekster = ai_varsel.hent(sted, lambda: varsel_payload(sted), vent=False)
     if not tekster:
         return jsonify(available=False)
     response = jsonify(available=True, **tekster)
@@ -1497,7 +1665,7 @@ def timeserie_api(sted: str):
     if _sted_fra_request(sted) is None:
         return jsonify(error="Ukjent sted."), 404
     try:
-        payload = build_series_payload(sted)
+        payload = series_payload(sted)
     except RuntimeError as exc:
         return jsonify(error=str(exc)), 503
     response = jsonify(payload)
@@ -1564,7 +1732,8 @@ def google_point(lat: float, lon: float) -> dict[str, Any]:
         cell = (round(round(lat / 0.02) * 0.02, 2), round(round(lon / 0.02) * 0.02, 2))
         try:
             hours = _CACHE.get(("google_point", cell), 3300,
-                               lambda: fetch_google_hours(cell[0], cell[1], on_call=_count_google_call))
+                               lambda: fetch_google_hours(cell[0], cell[1], on_call=_count_google_call),
+                               stale=GOOGLE_STALE)
         except ForecastError:
             raise RuntimeError("Google svarte ikke.") from None
     # Dagsvarselet (10 dager, ett kall) er valgfritt: feiler det, vises bare timene.

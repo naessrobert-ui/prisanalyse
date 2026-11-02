@@ -46,3 +46,26 @@ def test_grunnlag_er_kompakt_json():
     tekst = ai_varsel.grunnlag({"place": {"name": "Bergen"}, "nowcast": {"steps": list(range(24))},
                                 "detail_hours": ["tungt"] * 1000})
     assert '"sted":"Bergen"' in tekst and "tungt" not in tekst
+
+
+def test_hent_uten_vent_gir_forrige_tekst_og_lager_ny_i_bakgrunnen():
+    import threading
+    import time as _t
+
+    ai_varsel._cache.clear()
+    ai_varsel._feilet.clear()
+    now = datetime(2026, 11, 2, 7, 10, tzinfo=timezone.utc)
+    gammel = ai_varsel.hent("voss", dict, now=now, spor=lambda p: {"kort": "gammel", "overblikk": ""})
+    slipp = threading.Event()
+
+    def treg(p):
+        slipp.wait(2)
+        return {"kort": "ny", "overblikk": ""}
+
+    senere = now + timedelta(hours=1)
+    assert ai_varsel.hent("voss", dict, now=senere, spor=treg, vent=False) is gammel
+    slipp.set()
+    slutt = _t.monotonic() + 2
+    while _t.monotonic() < slutt and ai_varsel._cache["voss"][1]["kort"] != "ny":
+        _t.sleep(0.01)
+    assert ai_varsel._cache["voss"][1]["kort"] == "ny"

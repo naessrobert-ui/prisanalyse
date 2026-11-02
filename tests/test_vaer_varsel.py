@@ -1,9 +1,19 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+import pytest
 from flask import Flask
 
 from scripts import vaer_varsel as vv
+
+
+@pytest.fixture(autouse=True)
+def _ren_cache(monkeypatch):
+    """Hver test starter med tom cache og uten forvarmingstråden."""
+    monkeypatch.setenv("VAER_FORVARM", "0")
+    vv._CACHE.clear()
+    yield
+    vv._CACHE.clear()
 
 # Søndag 27.9.2026 kl. 08:19 lokal tid (UTC+2).
 NOW = datetime(2026, 9, 27, 6, 19, tzinfo=timezone.utc)
@@ -597,3 +607,120 @@ def test_utenlandsk_punkt_henter_open_meteo():
         data = vv._fetch_yr("p38.345_-0.481")
     assert om.called and not met.called
     assert data["properties"]["timeseries"] == [{"time": "x"}]
+
+
+# ---------------------------------------------------------------------------
+# Cache: gammelt svar med en gang, oppdatering i bakgrunnen
+# ---------------------------------------------------------------------------
+
+def _vent_til(betingelse, sekunder=2.0):
+    import time as _t
+
+    slutt = _t.monotonic() + sekunder
+    while _t.monotonic() < slutt:
+        if betingelse():
+            return True
+        _t.sleep(0.01)
+    return False
+
+
+def test_cache_gir_utlopt_verdi_og_oppdaterer_i_bakgrunnen():
+    import threading
+
+    c = vv._Cache()
+    assert c.get("k", 0.0, lambda: 1, stale=60) == 1
+    slipp = threading.Event()
+
+    def treg():
+        slipp.wait(2)
+        return 2
+
+    # Utløpt: forrige verdi kommer med en gang, selv om kilden er treg.
+    assert c.get("k", 0.0, treg, stale=60) == 1
+    slipp.set()
+    assert _vent_til(lambda: c.peek("k") == 2)
+
+
+def test_cache_beholder_verdi_ved_feil_og_venter_med_nytt_forsok():
+    c = vv._Cache()
+    c.get("k", 0.0, lambda: "gammel", stale=60)
+    kall = []
+
+    def feiler():
+        kall.append(1)
+        raise RuntimeError("nede")
+
+    assert c.get("k", 0.0, feiler, stale=60) == "gammel"
+    assert _vent_til(lambda: kall and "k" not in c._inflight)
+    # I pausen etter feilen prøves ikke kilden igjen.
+    assert c.get("k", 0.0, feiler, stale=60) == "gammel"
+    assert len(kall) == 1
+
+
+def test_cache_uten_verdi_feiler_raskt_i_pausen():
+    c = vv._Cache()
+    kall = []
+
+    def feiler():
+        kall.append(1)
+        raise RuntimeError("nede")
+
+    for _ in range(3):
+        with pytest.raises(RuntimeError):
+            c.get("k", 60, feiler)
+    assert len(kall) == 1
+
+
+def test_cache_samtidige_venter_paa_samme_henting():
+    import threading
+    import time as _t
+
+    c = vv._Cache()
+    kall = []
+
+    def treg():
+        kall.append(1)
+        _t.sleep(0.1)
+        return "v"
+
+    svar = []
+    traader = [threading.Thread(target=lambda: svar.append(c.get("k", 60, treg))) for _ in range(5)]
+    for t in traader:
+        t.start()
+    for t in traader:
+        t.join()
+    assert svar == ["v"] * 5 and len(kall) == 1
+
+
+def test_google_data_vises_ikke_etter_utlop():
+    c = vv._Cache()
+    c.get("g", 0.0, lambda: "gammel", stale=vv.GOOGLE_STALE)
+    assert c.peek("g") is None
+    assert c.get("g", 0.0, lambda: "ny", stale=vv.GOOGLE_STALE) == "ny"
+
+
+def test_varselapi_bruker_ferdig_varsel_fra_cachen():
+    client = _app()
+    with patch.object(vv, "build_payload", return_value={"x": 1}) as bygg:
+        assert client.get("/ver/api/varsel/bergen").json == {"x": 1}
+        assert client.get("/ver/api/varsel/bergen").json == {"x": 1}
+    assert bygg.call_count == 1
+
+
+def test_varselside_legger_ved_varsel_fra_cachen():
+    client = _app()
+    with patch.object(vv, "build_payload", return_value={"generated_at": "2026-11-02T08:00:00+01:00"}):
+        vv.varsel_payload("bergen")
+        html = client.get("/ver/varsel/bergen").get_data(as_text=True)
+    assert 'const FORHAAND = {"generated_at": "2026-11-02T08:00:00+01:00"}' in html
+
+
+def test_varselside_uten_cache_har_tomt_forhaandsvarsel():
+    import threading
+
+    client = _app()
+    slipp = threading.Event()
+    with patch.object(vv, "build_payload", side_effect=lambda place: slipp.wait(2) and {}):
+        html = client.get("/ver/varsel/bergen").get_data(as_text=True)
+        slipp.set()
+    assert "const FORHAAND = null" in html

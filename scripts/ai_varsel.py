@@ -113,8 +113,13 @@ def _spor_claude(payload: dict[str, Any]) -> Optional[dict[str, str]]:
     return tolk_svar(tekst)
 
 
-def hent(sted: str, lag_payload, now: Optional[datetime] = None, spor=None) -> Optional[dict[str, Any]]:
-    """AI-tekstene for stedet denne timen. Lages høyst én gang per time og sted."""
+def hent(sted: str, lag_payload, now: Optional[datetime] = None, spor=None,
+         vent: bool = True) -> Optional[dict[str, Any]]:
+    """AI-tekstene for stedet denne timen. Lages høyst én gang per time og sted.
+
+    Med vent=False og en eldre tekst i minnet returneres den med en gang, og ny
+    tekst lages i bakgrunnen. Bare første besøk for et sted venter på Claude.
+    """
     now = now or datetime.now(timezone.utc)
     time_noekkel = now.strftime("%Y-%m-%dT%H")
     treff = _cache.get(sted)
@@ -122,6 +127,10 @@ def hent(sted: str, lag_payload, now: Optional[datetime] = None, spor=None) -> O
         return treff[1]
     with _laas:
         laas = _laaser.setdefault(sted, threading.Lock())
+    if treff and not vent:
+        if not laas.locked():
+            threading.Thread(target=hent, args=(sted, lag_payload, now, spor, True), daemon=True).start()
+        return treff[1]
     with laas:
         treff = _cache.get(sted)
         if treff and treff[0] == time_noekkel:

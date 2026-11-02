@@ -497,6 +497,9 @@ button.pill{font:inherit;font-size:13px}
 const STED = {{ sted | tojson }};
 const STED_INFO = {{ info | tojson }};
 const HAR_RADAR = {{ har_radar | tojson }};
+// Varselet serveren hadde i cachen da siden ble laget, så siden viser været
+// med en gang. Er det eldre enn et minutt, hentes et nytt rett etterpå.
+const FORHAAND = {{ forhaand | tojson }};
 // Punkt (søkte steder) sender navnet med, så serveren kan bruke det i teksten.
 const Q = STED_INFO.fast ? '' : '?navn=' + encodeURIComponent(STED_INFO.name);
 {% raw %}
@@ -1146,11 +1149,7 @@ function renderTrust(d){
 }
 
 /* ---------- Last og oppdater ---------- */
-async function load(){
-  try{
-    const res=await fetch(`/ver/api/varsel/${STED}${Q}`,{cache:'no-store'});
-    const d=await res.json();
-    if(!res.ok) throw new Error(d.error||'Feil');
+function vis(d){
     DATA=d;
     $('error').hidden=true;
     const t=new Date(d.generated_at);
@@ -1160,6 +1159,13 @@ async function load(){
     if($('radar').classList.contains('open')) renderNcTable(d);
     // Hent timeserien i bakgrunnen, så værluken er klar når den åpnes.
     ensureSeries().then(()=>{renderDays();if(!$('sokCard').hidden) renderSok()}).catch(()=>{});
+}
+async function load(){
+  try{
+    const res=await fetch(`/ver/api/varsel/${STED}${Q}`,{cache:'no-store'});
+    const d=await res.json();
+    if(!res.ok) throw new Error(d.error||'Feil');
+    vis(d);
   }catch(e){
     $('error').hidden=false;
     $('error').textContent='Fikk ikke hentet varselet akkurat nå. Prøver igjen om litt.';
@@ -1176,7 +1182,9 @@ async function loadAI(){
 }
 loadAI();
 setInterval(()=>{if(!document.hidden) loadAI()},20*60*1000);
-load();
+let vist=false;
+if(FORHAAND){try{vis(FORHAAND);vist=true}catch(_){}}
+if(!vist||Date.now()-new Date(FORHAAND.generated_at)>60*1000) load();
 setInterval(()=>{if(!document.hidden) load()},5*60*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&DATA&&Date.now()-new Date(DATA.generated_at)>5*60*1000) load()});
 {% endraw %}
