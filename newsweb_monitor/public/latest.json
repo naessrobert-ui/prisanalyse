@@ -2,8 +2,36 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-02T20:10:00+00:00",
+  "generated_at": "2026-11-02T20:20:00+00:00",
   "items": [
+    {
+      "id": "685396",
+      "market": "XOSL",
+      "ticker": "WSTEP",
+      "issuer": "Webstep ASA",
+      "title": "Webstep ASA: Anne Kristine Lund to step down as CEO",
+      "headline": "Webstep ASA varsler CEO Anne Kristine Lunds avgang med seks måneders varsel",
+      "lead": "Anne Kristine Lund trer tilbake som Websteps administrerende direktør, men fortsetter i rollen under søket etter ny leder. Styret vil gi oppdatering om langsiktig ledelse senere.",
+      "published_at": "2026-11-02T20:12:04.982000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685396",
+      "summary": "Anne Kristine Lund trer tilbake som Websteps administrerende direktør, men fortsetter i rollen under søket etter ny leder. Styret vil gi oppdatering om langsiktig ledelse senere.",
+      "reason": "CEO-skifte kan skape usikkerhet, men det langsiktige lederskapet er foreløpig uavklart. Investorene bør følge prosessen for ny CEO, da lederskifte kan påvirke selskapets strategi og drift.",
+      "score": 55,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "attachment_key": "985112e5ae993e0c",
+      "number_keys": [
+        "17ba07",
+        "472b07",
+        "49bc6b",
+        "4aeca7",
+        "7b5200",
+        "aee655",
+        "bcac9d",
+        "da4b92"
+      ]
+    },
     {
       "id": "685395",
       "market": "XOSL",
@@ -347,12 +375,12 @@
       "ticker": "ASCHO",
       "issuer": "Aktieselskabet Schouw & Co.",
       "title": "Changes to full-year guidance for BioMar",
-      "headline": "BioMar hever årsinntektsprognosen til 18,6 mrd. DKK – lønnsomheten styrkes",
-      "lead": "BioMar justerer opp 2026-omsetningen til 17,8–18,6 mrd. DKK og EBIT til 1,29–1,36 mrd. DKK. Dette oppdateres inn i Schouw & Co.s samlede årsprognose på Q3-rapporten 6. november.",
+      "headline": "BioMar hever omsetnings- og EBIT-anslag for 2026 – påvirker Schouw & Co.",
+      "lead": "BioMar øker forventet omsetning til 17,8–18,6 milliarder DKK og EBIT til 1,29–1,36 milliarder DKK for 2026. Schouw & Co. vil oppdatere sin helårsprognose ved Q3-rapporten 6. november.",
       "published_at": "2026-11-02T14:41:02.766000+00:00",
       "url": "https://newsweb.oslobors.no/message/685382",
-      "summary": "BioMar justerer opp 2026-omsetningen til 17,8–18,6 mrd. DKK og EBIT til 1,29–1,36 mrd. DKK. Dette oppdateres inn i Schouw & Co.s samlede årsprognose på Q3-rapporten 6. november.",
-      "reason": "Oppjusteringen fra BioMar, en sentral del av Schouw & Co., tyder på forbedret lønnsomhet og vekst. For aksjonærer innebærer det potensielt sterkere resultater, men endelig konsolidert guidning ventes ved Q3-rapporten, hvor også øvrige forretningsområder trekkes inn.",
+      "summary": "BioMar øker forventet omsetning til 17,8–18,6 milliarder DKK og EBIT til 1,29–1,36 milliarder DKK for 2026. Schouw & Co. vil oppdatere sin helårsprognose ved Q3-rapporten 6. november.",
+      "reason": "Oppjusteringen signaliserer bedre lønnsomhet i BioMar, en nøkkelkomponent i Schouw & Co.s portefølje. Dette kan styrke Schouws finansielle utsikter, men endelig effekt avhenger av resultater i øvrige forretningsområder og selskapets samlede oppdaterte guidinger.",
       "score": 75,
       "skipped": false,
       "direction": "positiv",
@@ -376,7 +404,7 @@
         "fb6443"
       ],
       "financial_report": {
-        "status": "analyzed",
+        "status": "no_metrics",
         "period": "2026FY",
         "period_source": "pdf",
         "previous_report": "not_requested",
@@ -384,123 +412,31 @@
           "name": "2026-11-02 FBM26-66 BioMar guidance ENG.pdf",
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685382&attachmentId=335520"
         },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "DKK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 1 - guidance update only, no actual figures reported"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "DKK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 1 - guidance update only, no actual figures reported"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "DKK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 1 - guidance update only, no actual figures reported"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "DKK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 1 - no actual figures reported"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "DKK/share",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 1 - no actual figures reported"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "DKK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 1 - no actual figures reported"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "DKK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 1 - no actual figures reported"
-          }
-        ],
+        "metrics": [],
         "outlook": {
           "status": "analyzed",
-          "summary": "BioMar har oppdatert sin helårsprognose for 2026, med forventet omsetning mellom 17,8 og 18,6 milliarder DKK, opp fra tidligere 17-18 milliarder DKK. Forventet EBIT er justert opp til 1 290-1 360 millioner DKK, fra tidligere 1 200-1 300 millioner DKK. Dette vil bli inkorporert i Schouw & Co.s samlede prognose, som vil bli oppdatert ved Q3-rapporten.",
+          "summary": "BioMar har oppjustert hele årets omsetningsprognose til mellom 17,8 og 18,6 milliarder DKK, opp fra tidligere 17-18 milliarder DKK. Også EBIT-forventningen er hevet til 1 290-1 360 millioner DKK fra tidligere 1 200-1 300 millioner DKK. Disse endringene vil bli innarbeidet i Schouw & Co.s samlede resultater og påvirker derfor selskapets helårsveiledning, som blir justert i Q3-rapporten 6. november 2026.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetning",
-              "statement": "Forventet omsetning for BioMar er økt til 17,8-18,6 milliarder DKK fra tidligere 17-18 milliarder DKK.",
-              "evidence": "Oppdatert helårsprognose BioMar",
-              "page": "-"
+              "topic": "Omsetningsforventning",
+              "statement": "Oppjustert til 17,8-18,6 mrd DKK for BioMar i 2026",
+              "evidence": "omsetning forventes nå 17,8-18,6 mrd DKK, opp fra 17-18 mrd",
+              "page": "utdrag"
             },
             {
-              "topic": "EBIT",
-              "statement": "Forventet EBIT for BioMar er oppjustert til 1 290-1 360 millioner DKK fra tidligere 1 200-1 300 millioner DKK.",
-              "evidence": "Oppdatert helårsprognose BioMar",
-              "page": "-"
+              "topic": "EBIT-forventning",
+              "statement": "EBIT forventes nå mellom 1 290-1 360 mill DKK, opp fra 1 200-1 300 mill",
+              "evidence": "EBIT i området 1 290-1 360 mill DKK, opp fra tidligere 1 200-1 300 mill",
+              "page": "utdrag"
             },
             {
-              "topic": "Konsernprognose",
-              "statement": "Schouw & Co. vil justere sin samlede helårsprognose for 2026 basert på BioMars oppdatering ved Q3-rapporten i november 2026.",
-              "evidence": "Planlagt revisjon av Schouw & Co.s prognose",
-              "page": "-"
+              "topic": "Konsolidering",
+              "statement": "BioMar er en viktig del av Schouw & Co. og tallene vil inkluderes i konsernets veiledning",
+              "evidence": "BioMar utgjør en betydelig del av porteføljen og påvirker konsernresultatene",
+              "page": "utdrag"
             }
           ]
         }
@@ -2308,15 +2244,15 @@
       "ticker": "BEWI",
       "issuer": "BEWi ASA",
       "title": "BEWI invites to presentation of results for Q3 2026",
-      "headline": "BEWI kunngjør Q3-2026 resultater 4. november – økt fokus på sirkularitet",
-      "lead": "BEWI offentliggjør sine resultater for tredje kvartal 2026 4. november. Selskapet legger vekt på sirkulær økonomi og energieffektivitet, men detaljer om økonomisk utvikling er foreløpig ikke kjent.",
+      "headline": "BEWI presenterer Q3-resultater 4. november – fokuserer på sirkulær økonomi",
+      "lead": "BEWI offentliggjør sine resultater for tredje kvartal 2026 4. november. Selskapet vektlegger fortsatt vekst og bærekraft med sirkulær forretningsmodell og mål om økt bruk av gjenvunnet materiale.",
       "published_at": "2026-11-02T07:00:12.435000+00:00",
       "url": "https://newsweb.oslobors.no/message/685293",
-      "summary": "BEWI offentliggjør sine resultater for tredje kvartal 2026 4. november. Selskapet legger vekt på sirkulær økonomi og energieffektivitet, men detaljer om økonomisk utvikling er foreløpig ikke kjent.",
-      "reason": "Uten konkrete regnskapstall eller sammenligninger er det vanskelig å vurdere finansiell utvikling og konsekvenser for aksjonærer. Fokus på sirkularitet kan indikere langsiktig strategi, men kortsiktig effekt på inntjening er uklar.",
-      "score": 55,
+      "summary": "BEWI offentliggjør sine resultater for tredje kvartal 2026 4. november. Selskapet vektlegger fortsatt vekst og bærekraft med sirkulær forretningsmodell og mål om økt bruk av gjenvunnet materiale.",
+      "reason": "Informasjonen er foreløpig basert på en innkalling til resultatfremleggelse uten konkrete nøkkeltall eller endringer. For investorer er det viktig å følge opp rapporten for å vurdere lønnsomhet, vekst og bærekraftsresultater.",
+      "score": 50,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "number_keys": [
         "09821d",
@@ -2577,12 +2513,12 @@
       "ticker": "SPOL",
       "issuer": "SpareBank 1 Østlandet",
       "title": "Påminnelse: Resultatpresentasjon, 3. kvartal 2026",
-      "headline": "SpareBank 1 Østlandet holder resultatpresentasjon for Q3 2026 onsdag",
-      "lead": "SpareBank 1 Østlandet presenterer sitt 3. kvartalsresultat onsdag 4. november med ledelsen til stede i Oslo og digital direktesending for investorer.",
+      "headline": "SpareBank 1 Østlandet varsler Q3-presentasjon 4. november",
+      "lead": "SpareBank 1 Østlandet inviterer til Q3-resultatpresentasjon onsdag 4. november kl. 08.15, med konsernsjef og finansdirektør til stede. Presentasjonen tilbys også via webcast.",
       "published_at": "2026-11-02T06:30:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685281",
-      "summary": "SpareBank 1 Østlandet presenterer sitt 3. kvartalsresultat onsdag 4. november med ledelsen til stede i Oslo og digital direktesending for investorer.",
-      "reason": "Nyheten om resultatpresentasjon gir ikke informasjon om finansielle resultater eller utvikling, men signaliserer selskapets åpenhet og tilgjengelighet for markedet. Det gir ikke grunnlag for vurdering av kursretning eller økonomisk prestasjon.",
+      "summary": "SpareBank 1 Østlandet inviterer til Q3-resultatpresentasjon onsdag 4. november kl. 08.15, med konsernsjef og finansdirektør til stede. Presentasjonen tilbys også via webcast.",
+      "reason": "Meldingen kunngjør tidspunkt og format for Q3-resultatpresentasjon uten finansielle detaljer. For investorer er det viktig å følge presentasjonen for å få konkrete tall og innsikt om kvartalets utvikling.",
       "score": 30,
       "skipped": false,
       "direction": "nøytral",
@@ -13708,31 +13644,13 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685024",
-      "market": "XOSL",
-      "ticker": "BNOR",
-      "issuer": "BlueNord ASA",
-      "title": "Shareholding Disclosures on BLUENORD ASA",
-      "headline": "Større aksjepost registrert i BlueNord ASA",
-      "lead": "En større aksjepost i BlueNord ASA er offentliggjort uten detaljer om eierandel eller påvirkning på kontroll. Mer informasjon mangler per nå.",
-      "published_at": "2026-10-28T15:45:58.333000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685024",
-      "summary": "En større aksjepost i BlueNord ASA er offentliggjort uten detaljer om eierandel eller påvirkning på kontroll. Mer informasjon mangler per nå.",
-      "reason": "Meldingen gir beskjed om en endring i aksjonærstrukturen, men uten detaljer om størrelse eller eier hvem som er involvert. Dette begrenser vurdering av konsekvenser for aksjonærer og bør følges opp for å avklare betydningen.",
-      "score": 45,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "attachment_key": "ca76477b50698eaa"
     }
   ],
-  "last_checked_at": "2026-11-02T20:10:00+00:00",
+  "last_checked_at": "2026-11-02T20:20:00+00:00",
   "monitor_stats": {
-    "fetched": 95,
-    "recent": 95,
-    "already_seen": 90,
+    "fetched": 96,
+    "recent": 96,
+    "already_seen": 91,
     "eligible": 5,
     "filtered": 0,
     "analyzed": 5,
@@ -13740,6 +13658,6 @@
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 4,
-    "source_latest_at": "2026-11-02T20:09:49.222000+00:00"
+    "source_latest_at": "2026-11-02T20:12:04.982000+00:00"
   }
 }
