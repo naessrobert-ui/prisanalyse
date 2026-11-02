@@ -868,14 +868,16 @@ def dagslys(lat: float, lon: float, dato) -> dict[str, Any]:
 
     `lys` er "midnattssol"/"morketid" når grensen ikke krysses i det hele tatt.
     """
-    start = datetime(dato.year, dato.month, dato.day, tzinfo=OSLO).astimezone(timezone.utc)
+    # Døgnet regnes fra stedets egen (sol-)midnatt, så steder langt unna Norge
+    # får riktig dag. Klokkeslettene vises i norsk tid.
+    start = datetime(dato.year, dato.month, dato.day, tzinfo=timezone.utc) - timedelta(hours=lon / 15)
     lyst_fra, lyst_til = _krysninger(lat, lon, start, TUSSMORKE_GRADER)
     sol_opp, sol_ned = _krysninger(lat, lon, start, SOL_GRADER)
     lys = None
     if lyst_fra is None and lyst_til is None:
         midt = start + timedelta(hours=12)
         lys = "lyst hele døgnet" if sun_elevation(lat, lon, midt) > TUSSMORKE_GRADER else "mørkt hele døgnet"
-    iso = lambda t: _local(t).isoformat() if t else None
+    iso = lambda t: _local(t).replace(microsecond=0).isoformat(timespec="minutes") if t else None
     return {"dato": dato.isoformat(), "lyst_fra": iso(lyst_fra), "lyst_til": iso(lyst_til),
             "sol_opp": iso(sol_opp), "sol_ned": iso(sol_ned), "unntak": lys}
 
