@@ -2,8 +2,216 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-03T07:40:00+00:00",
+  "generated_at": "2026-11-03T07:50:00+00:00",
   "items": [
+    {
+      "id": "685442",
+      "market": "XOSL",
+      "ticker": "ENTRA",
+      "issuer": "Entra ASA",
+      "title": "Entra ASA: New lease agreement at Tullins gate 2, Oslo city centre",
+      "headline": "Entra inngår niårs leieavtale på over 1.100 kvm i Oslo sentrum",
+      "lead": "Entra har signert en ny leieavtale med Norsk Fysioterapeutforbund for mer enn 1.100 kvadratmeter kontorplass i Tullins gate 2. Avtalen starter i første kvartal 2028 og varer i ni år.",
+      "published_at": "2026-11-03T07:45:25.150000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685442",
+      "summary": "Entra har signert en ny leieavtale med Norsk Fysioterapeutforbund for mer enn 1.100 kvadratmeter kontorplass i Tullins gate 2. Avtalen starter i første kvartal 2028 og varer i ni år.",
+      "reason": "Den nye leieavtalen gir Entra langsiktig leieinntekt og stabilitet i eiendomsporteføljen, men avtalen påvirker ikke umiddelbart selskapets inntjening eller kontantstrøm. Ytterligere detaljer om leiepriser og økonomiske vilkår mangler for å vurdere helhetlig effekt.",
+      "score": 40,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "attachment_key": "2a7ac85dbfd710b7",
+      "number_keys": [
+        "001a0f",
+        "1ea51b",
+        "2b6976",
+        "431f6b",
+        "4b0834",
+        "4cd66d",
+        "91032a",
+        "b12452",
+        "b82ad8",
+        "da4b92",
+        "e0247b",
+        "f3b441",
+        "fb6443"
+      ]
+    },
+    {
+      "id": "685441",
+      "market": "XOSL",
+      "ticker": "HSPG",
+      "issuer": "Høland og Setskog Sparebank",
+      "title": "Delårsrapport for 3.kvartal 2026",
+      "headline": "Høland og Setskog Sparebank publiserer foreløpig kvartalsrapport uten nøkkeltall",
+      "lead": "Bankens delårsrapport for 3.kvartal 2026 er offentliggjort, men mangler fortsatt konkrete finansielle tall og detaljer om resultatutvikling.",
+      "published_at": "2026-11-03T07:45:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/685441",
+      "summary": "Bankens delårsrapport for 3.kvartal 2026 er offentliggjort, men mangler fortsatt konkrete finansielle tall og detaljer om resultatutvikling.",
+      "reason": "Uten vesentlige økonomiske nøkkeltall og informasjon om resultat eller balanse, er det vanskelig å vurdere bankens økonomiske helsetilstand. For investorer og analytikere blir det nødvendig å hente ytterligere data for å danne seg et fullstendig bilde.",
+      "score": 40,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "attachment_key": "b3023494c0bce3c4",
+      "number_keys": [
+        "77de68",
+        "aee655"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "2026 Q3 Kvartalsrapport.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685441&attachmentId=335537"
+        },
+        "metrics": [
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 7.648,
+            "prior_year": 6.3,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 21.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 11, 'Resultat av ordinær drift etter skatt' 3Q 2026: 7,648 thousand NOK = 7.648 million NOK; 3Q 2025: 6,300 thousand NOK = 6.300 million NOK"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": -7.4,
+            "prior_year": 36.8,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -120.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 3-5 summary and status sections: Accumulated result after three quarters 2026: -7.4 million NOK, previous year same period: 36.8 million NOK"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not explicitly reported"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not explicitly reported"
+          },
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not explicitly reported as total revenue"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 98.25,
+            "prior_year": -74.185,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 15, 'Netto kontantstrøm fra operasjonelle aktiviteter' 3Q 2026: 98,250 thousand NOK = 98.25 million; 3Q 2025: -74,185 thousand NOK = -74.185 million NOK"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": 90.862,
+            "prior_year": 93.935,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -3.3,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 11, 'Netto rente- og kredittprovisjonsinntekter' Q3 2026 YTD: 90,862 thousand NOK = 90.862 million NOK; prior year: 93,935 thousand NOK = 93.935 million NO"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 0.61,
+            "prior_year": 0.41,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 48.8,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 11, 'Resultat etter skatt per egenkapitalbevis' for 3Q 2026: 0.61 NOK/share; 3Q 2025: 0.41 NOK/share"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Høland og Setskog Sparebank opererer med lav risikoappetitt innen bygg, anlegg og boligutvikling, men forventer betydelig økt boligbygging på mellomlang sikt grunnet godt bruktboligmarked og presset leiemarked. Banken har høye tapsavsetninger som har ført til underskudd i første halvår, og arbeider aktivt med tapsbegrensende tiltak som varierer fra prosjekt til prosjekt. De satser offensivt på personmarkedet, landbruk og mindre bedrifter, blant annet ved å åpne nytt kontor i vekstkommunen Nes. Banken tillegger betydelig usikkerhet til estimater og forutsetninger for tapsavsetninger og kredittvurderinger.",
+          "change": "Guidingen om lav risikoappetitt og forventning om økt boligbygging på mellomlang sikt opprettholdes fra forrige kvartal uten vesentlige endringer i ordlyd eller tall (Q2: «lav risikoappetitt» og «betydelig økt boligbygging»; Q3: samme). Utsikten om underskudd på grunn av høye tapsavsetninger er tydeliggjort i Q3 med ekstra fokus på tiltak for tapsbegrensning, noe som ikke var like eksplisitt i Q2. Den offensive satsingen på personmarked, landbruk og mindre bedrifter, og åpningen av nytt kontor i Nes, er også videreført og konkretisert. Usikkerhet knyttet til estimater og skjønnsmessige vurderinger i tapsavsetning er et nytt tydelig fremhevet punkt i denne rapporten.",
+          "trend": "Over de siste kvartalene har banken hatt en konsekvent offensiv holdning til vekst i personmarkedet og landbruk, samtidig som de inntar en konservativ risikoappetitt i utviklingsprosjekter. Forventningene om økt boligbygging og god bruktboligetterspørsel har vært stabile, men det er en gradvis skjerping i omtalen av tapssituasjonen med økt fokus på tapsavsetninger og tiltak. Banken har levert klare signaler om at de jobber strategisk for å begrense tap og forbedre lønnsomheten, noe som samsvarer med tidligere indikasjoner, men med mer konkret fremstilling i siste kvartal.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Risikoappetitt og boligbygging",
+              "statement": "Banken har lav risikoappetitt for bygg, anlegg og boligutvikling, men forventer betydelig økt boligbygging på mellomlang sikt.",
+              "evidence": "'Banken har framover lav risikoappetitt for bygg, anlegg og boligutvikling... banken forventer derfor på mellomlang sikt betydelig økt boligbygging.' (side 10)",
+              "page": "10"
+            },
+            {
+              "topic": "Tapsavsetninger og resultat",
+              "statement": "Høye tapsavsetninger i første halvår har gitt underskudd, og banken arbeider med prosjektrelaterte tiltak for å begrense tapene.",
+              "evidence": "'Høye tapsavsetninger i første halvår medførte underskudd... Bankens strategi for å begrense tap varierer fra prosjekt til prosjekt.' (side 10)",
+              "page": "10"
+            },
+            {
+              "topic": "Strategisk satsing",
+              "statement": "Offensiv satsing på personmarked, landbruk og mindre bedrifter, inklusiv nytt kontoråpning i Nes kommune som har vekst og utviklingspotensial.",
+              "evidence": "'Banken satser offensivt på personmarked, landbruk og mindre bedrifter, og åpnet nytt kontor i Nes kommune.' (side 10)",
+              "page": "10"
+            },
+            {
+              "topic": "Usikkerhet i estimeringer",
+              "statement": "Ledelsen fremhever betydelig usikkerhet knyttet til estimater og skjønnsmessige vurderinger i nedskrivninger og tapsberegninger.",
+              "evidence": "'Det er knyttet usikkerhet til de forutsetninger og forventninger som ligger til grunn for anvendte estimater og skjønnsmessige vurderinger.' (side 10)",
+              "page": "10"
+            }
+          ]
+        }
+      }
+    },
     {
       "id": "685440",
       "market": "XOSL",
@@ -897,13 +1105,13 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "OTL - Key information relating to the cash dividend for Q3 2026 to be paid by Odfjell Technology Ltd",
-      "headline": "Odfjell Technology kunngjør kvartalsutbytte på 1,52 kroner per aksje",
-      "lead": "Odfjell Technology betaler 1,52 NOK i kontantutbytte for tredje kvartal 2026, med registreringsdato 11. november og utbetaling 25. november. Ingen informasjon om endringer fra tidligere kvartal foreligger.",
+      "headline": "Odfjell Technology utbetaler kvartalsutbytte på 1,52 NOK per aksje",
+      "lead": "Odfjell Technology kunngjør kvartalsutbytte på 1,52 kroner per aksje for Q3 2026 med betaling 25. november. Nøytral informasjon uten opplysninger om resultat eller endringer.",
       "published_at": "2026-11-03T06:11:01.613000+00:00",
       "url": "https://newsweb.oslobors.no/message/685417",
-      "summary": "Odfjell Technology betaler 1,52 NOK i kontantutbytte for tredje kvartal 2026, med registreringsdato 11. november og utbetaling 25. november. Ingen informasjon om endringer fra tidligere kvartal foreligger.",
-      "reason": "Utbytteutbetaling er som forventet uten oppgitt endring i beløp eller betalingssstruktur. For investorer gir dette forutsigbar kontantstrøm, men det mangler informasjon om sammenligning til tidligere kvartaler eller markedets forventninger.",
-      "score": 40,
+      "summary": "Odfjell Technology kunngjør kvartalsutbytte på 1,52 kroner per aksje for Q3 2026 med betaling 25. november. Nøytral informasjon uten opplysninger om resultat eller endringer.",
+      "reason": "Utbyttet på 1,52 NOK er hovedsakelig informasjon uten kontekst om omsetning, inntjening eller endringer. Aksjonærer får konkret tall for utbytte, men det gir begrenset innsikt i selskapets økonomiske situasjon eller fremtidige utsikter.",
+      "score": 35,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -2674,12 +2882,12 @@
       "ticker": "ASCHO",
       "issuer": "Aktieselskabet Schouw & Co.",
       "title": "Changes to full-year guidance for BioMar",
-      "headline": "BioMar oppjusterer årsomsetning til 17,8–18,6 mrd. DKK – lønnsomhetsguiden heves",
-      "lead": "BioMar justerer opp inntektsforventningen for 2026 til 17,8–18,6 milliarder DKK og EBIT til 1,29–1,36 milliarder DKK. Schouw & Co. vil vurdere sin samlede veiledning ved Q3-rapporteringen 6. november.",
+      "headline": "BioMar oppjusterer årsinntekter til 17,8–18,6 mrd. DKK – Schouw vil revurdere helårsprognose",
+      "lead": "BioMar varsler nå om økte inntekter på 17,8–18,6 milliarder DKK og høyere EBIT mellom 1,29–1,36 milliarder DKK for 2026, opp fra tidligere anslag. Schouw & Co. vurderer sin samlede årsprognose i november.",
       "published_at": "2026-11-02T14:41:02.766000+00:00",
       "url": "https://newsweb.oslobors.no/message/685382",
-      "summary": "BioMar justerer opp inntektsforventningen for 2026 til 17,8–18,6 milliarder DKK og EBIT til 1,29–1,36 milliarder DKK. Schouw & Co. vil vurdere sin samlede veiledning ved Q3-rapporteringen 6. november.",
-      "reason": "Oppjusteringen fra BioMar tyder på styrket drift i årets siste kvartaler, noe som kan løfte Schouw & Co.s samlede resultat. Aksjonærer bør følge Schouws kommende rapport for fullstendig oppdatert oversikt og vurdere hvorvidt forbedringen er bærekraftig.",
+      "summary": "BioMar varsler nå om økte inntekter på 17,8–18,6 milliarder DKK og høyere EBIT mellom 1,29–1,36 milliarder DKK for 2026, opp fra tidligere anslag. Schouw & Co. vurderer sin samlede årsprognose i november.",
+      "reason": "Oppjusteringen fra BioMar indikerer sterkere driftsresultat og vekst, noe som kan forbedre Schouw & Co.s helårsresultat. Investorer bør følge Schouws egen oppdaterte guiding for å vurdere total effekt på konsernnivå og potensielle kursimpulser.",
       "score": 75,
       "skipped": false,
       "direction": "positiv",
@@ -2723,7 +2931,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 1]"
+            "evidence": "SIDE 1"
           },
           {
             "label": "EBITDA",
@@ -2736,7 +2944,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 1]"
+            "evidence": "SIDE 1"
           },
           {
             "label": "EBIT",
@@ -2749,7 +2957,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 1]"
+            "evidence": "SIDE 1"
           },
           {
             "label": "Resultat etter skatt",
@@ -2762,7 +2970,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 1]"
+            "evidence": "SIDE 1"
           },
           {
             "label": "EPS",
@@ -2775,7 +2983,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 1]"
+            "evidence": "SIDE 1"
           },
           {
             "label": "Kontantstrøm drift",
@@ -2788,33 +2996,46 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 1]"
+            "evidence": "SIDE 1"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "DKK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 1"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "BioMar har oppdatert sin helårsprognose for 2026 med forventet omsetning på 17,8-18,6 milliarder DKK, opp fra tidligere 17-18 milliarder DKK. EBIT er også hevet til 1 290-1 360 millioner DKK mot tidligere 1 200-1 300 millioner DKK. BioMar utgjør en betydelig del av Schouw & Co sitt konsern, og denne oppdateringen vil påvirke konsernets samlede prognose som ventes å bli presentert i Q3-rapporten 6. november 2026.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "summary": "BioMar, som utgjør en betydelig del av Schouw & Co., har oppdatert sin helårsprognose for 2026. De forventer nå en omsetning på mellom 17,8 og 18,6 milliarder DKK, opp fra tidligere 17 til 18 milliarder DKK. Driftsresultatet (EBIT) forventes å være mellom 1 290 og 1 360 millioner DKK, opp fra tidligere 1 200 til 1 300 millioner DKK. Schouw & Co. vil inkorporere denne informasjonen i sin samlede helårsprognose, som vil bli presentert ved Q3-rapporten i november 2026.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetning",
-              "statement": "BioMar forventer nå høyere omsetning for 2026 enn tidligere anslått",
-              "evidence": "oppdatert prognose for 2026 med 17,8-18,6 mrd DKK mot tidligere 17-18 mrd DKK",
-              "page": "første del av teksten"
+              "topic": "Oppdatert omsetningsprognose BioMar",
+              "statement": "Omsetningen forventes nå i intervallet 17,8-18,6 mrd. DKK, opp fra tidligere 17-18 mrd. DKK.",
+              "evidence": "BioMar har oppdatert helårsveiledning for 2026 med ny omsetningsprognose.",
+              "page": "Utklipp fra kunngjøring"
             },
             {
-              "topic": "Resultat (EBIT)",
-              "statement": "EBIT-forventningene til BioMar er justert opp for 2026",
-              "evidence": "nå forventes EBIT i intervallet 1 290-1 360 mill. DKK mot tidligere 1 200-1 300 mill. DKK",
-              "page": "første del av teksten"
+              "topic": "Oppdatert EBIT-prognose BioMar",
+              "statement": "EBIT forventes nå i intervallet 1 290-1 360 mill. DKK, opp fra tidligere 1 200-1 300 mill. DKK.",
+              "evidence": "BioMar oppjusterer driftsresultatprognosen for 2026.",
+              "page": "Utklipp fra kunngjøring"
             },
             {
-              "topic": "Konsolidering og konsernprognose",
-              "statement": "BioMar er et vesentlig datterselskap og oppdateringen vil reflekteres i Schouw & Co sin konsernguiding ved Q3-rapportering",
-              "evidence": "BioMar utgjør en betydelig del av porteføljen og informasjonen vil inngå i konsernguidingen som vurderes til Q3-rapporten 6. november 2026",
-              "page": "første del av teksten"
+              "topic": "Inkorporering i Schouw & Co.s helårsprognose",
+              "statement": "BioMars oppdaterte tall vil bli inkludert i Schouw & Co.s samlede helårsprognose som presenteres i Q3-rapporten, 6. november 2026.",
+              "evidence": "Schouw & Co. vil vurdere samlet fullårsveiledning basert på BioMar og øvrige porteføljeselskaper.",
+              "page": "Utklipp fra kunngjøring"
             }
           ]
         }
@@ -4622,15 +4843,15 @@
       "ticker": "BEWI",
       "issuer": "BEWi ASA",
       "title": "BEWI invites to presentation of results for Q3 2026",
-      "headline": "BEWI kunngjør Q3-resultater 4. november – forventninger uklare",
-      "lead": "BEWI presenterer sine resultater for tredje kvartal 2026 4. november, med direktørene tilgjengelige for spørsmål via webcast. Det foreligger foreløpig ingen detaljer om resultattall eller forventninger.",
+      "headline": "BEWI kunngjør Q3-resultater 4. november – direktesendt presentasjon planlagt",
+      "lead": "BEWI vil offentliggjøre sine resultater for tredje kvartal 2026 onsdag 4. november. Presentasjonen starter kl. 10:00 CET og kan følges live via webcast, uten opplysninger om forventede tall eller resultater.",
       "published_at": "2026-11-02T07:00:12.435000+00:00",
       "url": "https://newsweb.oslobors.no/message/685293",
-      "summary": "BEWI presenterer sine resultater for tredje kvartal 2026 4. november, med direktørene tilgjengelige for spørsmål via webcast. Det foreligger foreløpig ingen detaljer om resultattall eller forventninger.",
-      "reason": "Uten offentliggjorte resultattall eller veiledning gir meldingen begrenset informasjon om selskapets økonomiske prestasjoner. Investorer må vente på faktiske tall for å kunne vurdere utviklingen og eventuelle investeringsmuligheter.",
-      "score": 25,
+      "summary": "BEWI vil offentliggjøre sine resultater for tredje kvartal 2026 onsdag 4. november. Presentasjonen starter kl. 10:00 CET og kan følges live via webcast, uten opplysninger om forventede tall eller resultater.",
+      "reason": "Informasjonen om Q3-resultatene er foreløpig mangelfull, uten konkrete tall eller forventninger. Betydningen for aksjonærer må derfor vurderes etter presentasjonen. Fokus bør være på resultatets avvik fra tidligere kvartaler og selskapets strategiske utvikling i den sirkulære økonomien.",
+      "score": 45,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "number_keys": [
         "09821d",
@@ -4891,15 +5112,15 @@
       "ticker": "SPOL",
       "issuer": "SpareBank 1 Østlandet",
       "title": "Påminnelse: Resultatpresentasjon, 3. kvartal 2026",
-      "headline": "SpareBank 1 Østlandet presenterer 3. kvartal 2026-resultat onsdag",
-      "lead": "SpareBank 1 Østlandet inviterer til offentlig resultatpresentasjon for 3. kvartal 2026 onsdag 4. november kl. 08.15, med konsernsjef og finansdirektør til stede. Det foreligger foreløpig ingen resultattall eller guidinger.",
+      "headline": "SpareBank 1 Østlandet presenterer 3. kvartal 2026-resultat 4. november",
+      "lead": "SpareBank 1 Østlandet holder resultatpresentasjon for 3. kvartal 2026 onsdag 4. november. Presentasjonen ledes av konsernsjef Klara-Lise Aasen og finansdirektør Geir-Egil Bolstad med webcast tilgjengelig.",
       "published_at": "2026-11-02T06:30:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685281",
-      "summary": "SpareBank 1 Østlandet inviterer til offentlig resultatpresentasjon for 3. kvartal 2026 onsdag 4. november kl. 08.15, med konsernsjef og finansdirektør til stede. Det foreligger foreløpig ingen resultattall eller guidinger.",
-      "reason": "Starten på kvartalsrapporteringen gir investorene tilgang til oppdaterte nøkkeltall. Uten konkrete resultater eller sammenligninger kan vi foreløpig ikke vurdere utviklingen, men presentasjonen gir mulighet for direkte spørsmål og innsikt i bankens status.",
-      "score": 30,
+      "summary": "SpareBank 1 Østlandet holder resultatpresentasjon for 3. kvartal 2026 onsdag 4. november. Presentasjonen ledes av konsernsjef Klara-Lise Aasen og finansdirektør Geir-Egil Bolstad med webcast tilgjengelig.",
+      "reason": "Meldingen varsler presentasjonstidspunkt uten å gi økonomiske nøkkeltall eller veiledning. Resultatets betydning og utvikling trenger nærmere analyse ved presentasjonen.",
+      "score": 20,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "uklar",
       "assessment_source": "AI",
       "number_keys": [
         "15ef40",
@@ -13068,360 +13289,13 @@
           ]
         }
       }
-    },
-    {
-      "id": "685063",
-      "market": "XOSL",
-      "ticker": "PLT",
-      "issuer": "poLight ASA",
-      "title": "poLight ASA - approaching commercial milestones and building the organisation for future business",
-      "headline": "poLight rapporterer svakere omsetning, men øker design-in i AR/MR-markedet",
-      "lead": "Omsetningen i tredje kvartal falt noe fra i fjor, men flere design-in og gjenkjøp i AR/MR-segmentet viser økt interesse. Selskapet øker kapasitet og kostnader for å styrke markedsposisjonen.",
-      "published_at": "2026-10-29T06:01:03.378000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685063",
-      "summary": "Omsetningen i tredje kvartal falt noe fra i fjor, men flere design-in og gjenkjøp i AR/MR-segmentet viser økt interesse. Selskapet øker kapasitet og kostnader for å styrke markedsposisjonen.",
-      "reason": "Svakere omsetning enn året før indikerer fortsatt utfordringer, men økende design-in og nye ordre kan tyde på langsiktig vekstpotensial. Økte kostnader for å bygge opp organisasjonen vil påvirke lønnsomheten fremover. Investorer bør følge utviklingen i kommersialisering og kundetilgang.",
-      "score": 75,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "attachment_key": "8f4c466ffb0459a1",
-      "number_keys": [
-        "004be8",
-        "0716d9",
-        "08a352",
-        "12c6fc",
-        "1ea51b",
-        "22d200",
-        "28a5c2",
-        "2d0c8a",
-        "31bd9b",
-        "371786",
-        "39f193",
-        "46d3e5",
-        "472b07",
-        "4b581c",
-        "4d134b",
-        "632667",
-        "6b0f4d",
-        "7316b3",
-        "7719a1",
-        "77d859",
-        "77de68",
-        "7b5200",
-        "812ed4",
-        "827bfc",
-        "887309",
-        "902ba3",
-        "91032a",
-        "a17554",
-        "a93349",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "da4b92",
-        "e62d7f",
-        "fb9654"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "filename",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "PoLight Q3 2026 Report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685063&attachmentId=335254"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 4.9,
-            "prior_year": 5.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -2.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Q3 2026 and Q3 2025 revenue, page 2 of 22 and page 14 of 22"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": -28.9,
-            "prior_year": -29.1,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "EBITDA Q3 2026 vs Q3 2025, page 2 of 22 and page 14 of 22"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": -29.9,
-            "prior_year": -31.7,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Operating result (EBIT) Q3 2026 vs Q3 2025, page 14 of 22"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": -28.163,
-            "prior_year": -28.397,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Loss for the period Q3 2026 vs Q3 2025, page 14 of 22"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": -0.13,
-            "prior_year": -0.13,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Earnings per share basic and diluted Q3 2026 vs Q3 2025, page 14 of 22"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "NOK million",
-            "current": -22.3,
-            "prior_year": -22.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Net cash flows used in operating activities Q3 2026 vs Q3 2025, page 11 of 22"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "poLight opprettholder en positiv utsikt, særlig innen AR|MR-segmentet hvor flere TLens®-consumer Proof of Concepts modnes, og en design-in er på plass med forventet lansering i nær fremtid, som kan gi betydelige volum. Selskapet styrker kapasitet og kompetanse i organisasjonen for å møte markedets muligheter og utfordringer, med hovedfokus på AR|MR og industrisektoren. Autofokus forventes å bli viktig for flere AR|MR OEM-er, men flere teknologier vil sameksistere basert på ytelse og kostnad. Markedspotensialet utvides også noe, blant annet ved økt interesse for TWedge®.",
-          "change": "Outlook er opprettholdt positivt med samme hovedprioriteringer som i Q2 2026, men nå er design-in stadiet med en kunde mer konkretizert og nær lansering, noe som represente en ny milepæl. Det er også uttrykt et mer eksplisitt fokus på å styrke kapasitet og kompetanse internt for å møte utfordringer og muligheter, mens tidligere kvartal fokuserte mer på forskning på alternative materiale og utvikling av TWedge®. Autofokus-teknologi omtales fortsatt som viktig, men uten vesentlig endring i tone eller estimater fra forrige kvartal.",
-          "trend": "PoLight har gjennom kvartalene holdt en stabil og optimistisk tone for AR|MR-markedet med økende modenhet i kundeaktiviteter, og det er gradvis blitt tydeligere at selskapet nærmer seg konkrete design-in og lanseringer. Samtidig har selskapet hatt en vedvarende investering i organisasjon og teknologiutvikling, og har klart å levere resultater i tråd med tidligere utsikter uten store negative eller positive endringer.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1",
-            "2025Q4"
-          ],
-          "points": [
-            {
-              "topic": "AR|MR-marked og design-in",
-              "statement": "Flere TLens® consumer PoCs modnes og en design-in med forventet nær fremtidig lansering er oppnådd, noe som kan gi høyere volumer.",
-              "evidence": "'to case is now regarded as a design-in with one of them expected to be released in the relatively near future' (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Organisasjonskapasitet og prioritering",
-              "statement": "Selskapet styrker gradvis kapasitet og kompetanse for å møte muligheter og utfordringer, med hovedfokus på AR|MR og industrisegmentet.",
-              "evidence": "'we are gradually strengthening capacity and capabilities across the organisation' og 'remain focused mainly on AR|MR and the industrial segment' (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Autofokus og konkurransesituasjon",
-              "statement": "Autofokus forventes å bli en viktig teknologi som flere OEM-er planlegger, men flere teknologier vil sameksistere basert på behov for ytelse og kostnad.",
-              "evidence": "'Autofocus capability appears to be on the roadmap for several AR|MR players... multiple approaches are likely to coexist' (side 3)",
-              "page": "3"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "685061",
-      "market": "XOSL",
-      "ticker": "DNO",
-      "issuer": "DNO ASA",
-      "title": "DNO Races Ahead on Stronger Production, Higher Prices",
-      "headline": "DNO øker produksjonen 61 prosent – rapporterer 1 milliard USD i inntekter",
-      "lead": "DNOs produksjon steg til 142 800 boepd i tredje kvartal 2026, drevet av gjenopptakelse i Kurdistan. Inntektene nådde 1 milliard USD, mens driftsresultatet økte til 641 millioner USD. Utdeling opprettholdes på 0,375 NOK per aksje.",
-      "published_at": "2026-10-29T06:00:12.757000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685061",
-      "summary": "DNOs produksjon steg til 142 800 boepd i tredje kvartal 2026, drevet av gjenopptakelse i Kurdistan. Inntektene nådde 1 milliard USD, mens driftsresultatet økte til 641 millioner USD. Utdeling opprettholdes på 0,375 NOK per aksje.",
-      "reason": "Sterk produksjonsøkning og rekordhøye driftsinntekter reflekterer gjenopptakelse i Kurdistan og høyere oljepriser. For aksjonærer indikerer dette økt kontantstrøm og stabil utbyttepolitikk. Videre må produksjonsvekst i Kurdistan og gjennomføring av nye feltutviklinger i Norge følges nøye.",
-      "score": 85,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "attachment_key": "4a87226032bb1ef6",
-      "number_keys": [
-        "0014a5",
-        "004be8",
-        "00ad0e",
-        "010a8d",
-        "05ea3b",
-        "0ae290",
-        "1cd2ac",
-        "1e1450",
-        "2c7925",
-        "2d22ac",
-        "373c73",
-        "409e95",
-        "418e19",
-        "436a7d",
-        "445cd2",
-        "450cdc",
-        "450dde",
-        "472b07",
-        "4b5cb4",
-        "4d134b",
-        "5b2430",
-        "61b874",
-        "64e0cf",
-        "6c1e67",
-        "733b57",
-        "75ab5e",
-        "7719a1",
-        "77de68",
-        "7b5200",
-        "7dad36",
-        "8336e4",
-        "855679",
-        "86ac7a",
-        "8db403",
-        "8e819c",
-        "8effee",
-        "98fcc3",
-        "a4886f",
-        "a6a084",
-        "ac3478",
-        "aee655",
-        "b00168",
-        "b0dc31",
-        "b1d578",
-        "b72c09",
-        "bcdb6b",
-        "c2d4c5",
-        "c743e1",
-        "ceba13",
-        "d2578a",
-        "da4b92",
-        "dbc0f0",
-        "dd2dfa",
-        "df1fa5",
-        "e1822d",
-        "e398a8",
-        "e575dc",
-        "e5e9c1",
-        "e7c16d",
-        "ea1b37",
-        "ec262f",
-        "f0ee73",
-        "f6719e",
-        "fb6443",
-        "fb9654",
-        "fe2ef4"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "filename",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Q3 2026 Interim Results Report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685061&attachmentId=335251"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "USD million",
-            "current": 1023.0,
-            "prior_year": 546.8,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 87.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 2, Key figures table, line 'Revenues', Q3 2026 and Q3 2025 columns"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "USD million",
-            "current": 798.4,
-            "prior_year": 350.5,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 127.8,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 2, Key figures table, line 'EBITDA', Q3 2026 and Q3 2025 columns"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "USD million",
-            "current": 641.1,
-            "prior_year": 221.8,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 189.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 2, Key figures table, line 'Operating profit/loss (-)', Q3 2026 and Q3 2025 columns; also page 5 financial review"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "USD million",
-            "current": 101.1,
-            "prior_year": 19.9,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 408.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 2, Key figures table, line 'Net profit/loss (-)', Q3 2026 and Q3 2025 columns; page 6 consolidated statement of comprehensive income"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "USD million",
-            "current": 503.5,
-            "prior_year": 326.2,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 54.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 8, consolidated cash flow statement, 'Net cash from/used in operating activities', Q3 2026 and Q3 2025 columns"
-          }
-        ],
-        "outlook": {
-          "status": "not_found",
-          "summary": "",
-          "change": "",
-          "trend": "",
-          "compared_periods": [],
-          "points": []
-        }
-      }
     }
   ],
-  "last_checked_at": "2026-11-03T07:40:00+00:00",
+  "last_checked_at": "2026-11-03T07:50:00+00:00",
   "monitor_stats": {
-    "fetched": 127,
-    "recent": 125,
-    "already_seen": 118,
+    "fetched": 129,
+    "recent": 127,
+    "already_seen": 120,
     "eligible": 7,
     "filtered": 0,
     "analyzed": 7,
@@ -13429,6 +13303,6 @@
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 5,
-    "source_latest_at": "2026-11-03T07:30:31.216000+00:00"
+    "source_latest_at": "2026-11-03T07:45:25.150000+00:00"
   }
 }
