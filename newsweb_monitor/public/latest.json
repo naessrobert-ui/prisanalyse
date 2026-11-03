@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-03T05:20:00+00:00",
+  "generated_at": "2026-11-03T05:30:00+00:00",
   "items": [
     {
       "id": "685404",
@@ -221,12 +221,12 @@
       "ticker": "OKEA",
       "issuer": "OKEA ASA",
       "title": "OKEA ASA resume quarterly dividends payments in fourth quarter 2026",
-      "headline": "OKEA varsler utbytte på 2,00 kroner per aksje i desember 2026",
-      "lead": "OKEA betaler ut 207,8 millioner kroner i kontantutbytte i tredje kvartal 2026. Utbyttet gjelder for regnskapsåret 2025 og utbetales i midten av desember, med eks-dato 2. desember.",
+      "headline": "OKEA gjenopptar kvartalsutbytte med 2 kroner per aksje i Q4 2026",
+      "lead": "OKEA betaler 2 kroner i kontantutbytte per aksje i desember 2026, totalt 208 millioner kroner, etter styrets godkjenning basert på årsregnskapet for 2025.",
       "published_at": "2026-11-03T04:59:15.765000+00:00",
       "url": "https://newsweb.oslobors.no/message/685402",
-      "summary": "OKEA betaler ut 207,8 millioner kroner i kontantutbytte i tredje kvartal 2026. Utbyttet gjelder for regnskapsåret 2025 og utbetales i midten av desember, med eks-dato 2. desember.",
-      "reason": "Utbytteutbetaling signaliserer økonomisk styrke og kapitaldisiplin, noe som kan tiltrekke investorer. Viktig å følge selskapets videre resultatutvikling og utbyttepolitikk for å vurdere langsiktig verdi for aksjonærer.",
+      "summary": "OKEA betaler 2 kroner i kontantutbytte per aksje i desember 2026, totalt 208 millioner kroner, etter styrets godkjenning basert på årsregnskapet for 2025.",
+      "reason": "Gjenopptakelsen av kvartalsutbytte signaliserer styrket kontantstrøm og finansiell stabilitet. Aksjonærer får direkte avkastning, men videre vekstutsikter må vurderes ut fra selskapets kapitaldisiplin og vekststrategi.",
       "score": 70,
       "skipped": false,
       "direction": "positiv",
@@ -271,12 +271,77 @@
             "qoq_pct": null,
             "surprise_pct": null,
             "evidence": "SIDE 1: 'The board of directors has now approved a cash dividend of NOK 2.00 per share which will be paid in December.'"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          },
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Styret i OKEA ASA har vedtatt å utbetale et kontantutbytte på 207,8 millioner NOK (2,00 NOK per aksje) i desember 2026. Utbyttet skal utbetales cirka 15. desember 2026, med registreringsdato 3. desember 2026.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning når det gjelder utbytte eller annen fremoverskuende informasjon, da tidligere rapporter fokuserte på nedskrivninger og reverseringer relatert til feltverdier og skatt, ikke utbytteutbetalinger.",
+          "summary": "Styret i OKEA ASA har besluttet å utdele et kontantutbytte på NOK 207,8 millioner (NOK 2,00 per aksje) i desember 2026. Utbyttet forventes utbetalt rundt 15. desember 2026.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [
             "2026Q2",
@@ -285,9 +350,9 @@
           "points": [
             {
               "topic": "Utbytte",
-              "statement": "Styret har besluttet å betale et kontantutbytte på 207,8 millioner NOK (2,00 NOK per aksje) i desember 2026.",
-              "evidence": "\"The board of OKEA ASA has resolved to distribute a cash dividend payment of NOK 207.8 million (NOK 2.00 per share) in December 2026.\"",
-              "page": "utdrag"
+              "statement": "Styret har besluttet å utdele et kontantutbytte på NOK 207,8 millioner (NOK 2,00 per aksje) med betaling i desember 2026.",
+              "evidence": "'Styret i OKEA ASA har resolvert å betale kontantutbytte på NOK 207,8 millioner i desember 2026' (side 1)",
+              "page": "1"
             }
           ]
         }
@@ -761,13 +826,13 @@
       "ticker": "ASCHO",
       "issuer": "Aktieselskabet Schouw & Co.",
       "title": "Changes to full-year guidance for BioMar",
-      "headline": "BioMar hever inntekts- og EBIT-prognose for 2026 betydelig",
-      "lead": "BioMar justerer opp 2026-omsætningen til 17,8–18,6 mrd. DKK og EBIT til 1,29–1,36 mrd. DKK, mot tidligere 17–18 mrd. og 1,2–1,3 mrd. Prognosen vil oppdateres ved Schouw & Co.s Q3-rapport 6. november.",
+      "headline": "BioMar hever årsinntektsestimater til inntil 18,6 mrd. DKK – Schouw oppdaterer guidingen",
+      "lead": "BioMar justerer opp forventet omsetning for 2026 til 17,8–18,6 mrd. DKK og EBIT til 1,29–1,36 mrd. DKK. Schouw & Co., som konsoliderer BioMar, varsler ny totalguiding i Q3-rapporten 6. november.",
       "published_at": "2026-11-02T14:41:02.766000+00:00",
       "url": "https://newsweb.oslobors.no/message/685382",
-      "summary": "BioMar justerer opp 2026-omsætningen til 17,8–18,6 mrd. DKK og EBIT til 1,29–1,36 mrd. DKK, mot tidligere 17–18 mrd. og 1,2–1,3 mrd. Prognosen vil oppdateres ved Schouw & Co.s Q3-rapport 6. november.",
-      "reason": "Oppjusteringen fra BioMar, et betydelig datterselskap, indikerer økt lønnsomhet og vekst. For Schouw & Co. kan dette gi høyere konsolidert resultat, men endelig markedsreaksjon avhenger av totalportefølje og kommende rapport. Viktig å følge opp oppdatert helårsprognose.",
-      "score": 75,
+      "summary": "BioMar justerer opp forventet omsetning for 2026 til 17,8–18,6 mrd. DKK og EBIT til 1,29–1,36 mrd. DKK. Schouw & Co., som konsoliderer BioMar, varsler ny totalguiding i Q3-rapporten 6. november.",
+      "reason": "Styrket omsetnings- og resultatutsikter fra BioMar styrker Schouws samlede forventninger. Aksjonærer bør følge Schouws detaljerte helårsguiding i Q3-rapporten for full innsikt i porteføljens utvikling og risiko.",
+      "score": 65,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -790,7 +855,7 @@
         "fb6443"
       ],
       "financial_report": {
-        "status": "analyzed",
+        "status": "no_metrics",
         "period": "2026FY",
         "period_source": "pdf",
         "previous_report": "not_requested",
@@ -798,110 +863,37 @@
           "name": "2026-11-02 FBM26-66 BioMar guidance ENG.pdf",
           "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685382&attachmentId=335520"
         },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "DKK billion",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 1"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "DKK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 1"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "DKK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 1"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "DKK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 1"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "DKK/share",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 1"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "DKK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 1"
-          }
-        ],
+        "metrics": [],
         "outlook": {
           "status": "analyzed",
-          "summary": "BioMar, som utgjør en vesentlig del av Schouw & Co., har oppdatert sin helårsprognose for 2026 med forventet omsetning på 17,8-18,6 milliarder DKK og forventet EBIT på 1 290-1 360 millioner DKK. Schouw & Co. vil justere sin samlede helårsveiledning basert på denne informasjonen og annen porteføljeutvikling i sin Q3-rapport.",
+          "summary": "BioMar har justert opp sin omsetnings- og EBIT-forecast for hele 2026. Omsetningen forventes nå å bli i intervallet 17,8-18,6 milliarder DKK mot tidligere 17-18 milliarder. EBIT forventes å ligge mellom 1 290 og 1 360 millioner DKK, opp fra tidligere 1 200-1 300 millioner. BioMar er en vesentlig del av Schouw & Co., og selskapet vil inkludere denne oppdateringen i sin helårsprognose som presenteres ved Q3-rapporten 6. november 2026.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetning",
-              "statement": "BioMar forventer økt omsetning til 17,8-18,6 milliarder DKK for 2026, opp fra tidligere 17-18 milliarder DKK.",
-              "evidence": "oppdatert guidance for helåret 2026, BioMar",
-              "page": "utdrag"
+              "topic": "BioMar omsetningsoppdatering",
+              "statement": "BioMar øker sin forventede omsetning for 2026 til 17,8-18,6 mrd DKK fra tidligere 17-18 mrd DKK.",
+              "evidence": "oppdatering i fullårsprognose, DKK 17,8-18,6 mrd mot tidligere DKK 17-18 mrd",
+              "page": "-"
             },
             {
-              "topic": "EBIT",
-              "statement": "BioMar justerer opp forventet EBIT til 1 290-1 360 millioner DKK fra tidligere 1 200-1 300 millioner DKK.",
-              "evidence": "oppdatert guidance for helåret 2026, BioMar",
-              "page": "utdrag"
+              "topic": "BioMar EBIT-oppdatering",
+              "statement": "Forventet EBIT for BioMar er oppjustert til 1 290-1 360 mill DKK fra tidligere 1 200-1 300 mill DKK.",
+              "evidence": "ny EBIT-guide DKK 1 290-1 360 mill kontra tidligere DKK 1 200-1 300 mill",
+              "page": "-"
             },
             {
-              "topic": "Konsolidering og videre veiledning",
-              "statement": "BioMar er fullt konsolidert i Schouw & Co., som vil gi oppdatert samlet veiledning i november 2026 med Q3-rapporten.",
-              "evidence": "informasjon om konsolidering og veiledningstidspunkt for Schouw & Co.",
-              "page": "utdrag"
+              "topic": "Integrering i Schouw & Co.",
+              "statement": "BioMar er en betydelig porteføljedel og inkluderes i Schouw & Co.s konsoliderte veiledning for hele året.",
+              "evidence": "\"BioMar constitutes a material part of the portfolio and is fully consolidated into Schouw & Co. figures\"",
+              "page": "-"
+            },
+            {
+              "topic": "Fremtidig oppdatering",
+              "statement": "Schouw & Co. vil oppdatere sin egen helårsveiledning senest ved Q3-rapporten 6. november 2026.",
+              "evidence": "\"consider its consolidated full-year guidance ... no later than ... Q3 interim report scheduled on 6 November 2026\"",
+              "page": "-"
             }
           ]
         }
@@ -2709,13 +2701,13 @@
       "ticker": "BEWI",
       "issuer": "BEWi ASA",
       "title": "BEWI invites to presentation of results for Q3 2026",
-      "headline": "BEWI kunngjør resultater for Q3 2026 – presentasjon 4. november",
-      "lead": "BEWI presenterer regnskapet for tredje kvartal 2026 4. november. Detaljer om resultatene vil bli tilgjengelig på selskapets nettside og Oslo Børs tidlig samme dag.",
+      "headline": "BEWI offentliggjør tredje kvartal 2026-resultater 4. november",
+      "lead": "BEWI presenterer sine tall for Q3 2026 4. november med direktør Christian Bekken og CFO Stein Inge Liasjø, tilgjengelig via direktesendt webcast med mulighet for spørsmål.",
       "published_at": "2026-11-02T07:00:12.435000+00:00",
       "url": "https://newsweb.oslobors.no/message/685293",
-      "summary": "BEWI presenterer regnskapet for tredje kvartal 2026 4. november. Detaljer om resultatene vil bli tilgjengelig på selskapets nettside og Oslo Børs tidlig samme dag.",
-      "reason": "Dette er en kunngjøring om en kommende kvartalspresentasjon uten konkrete tall eller indikasjoner på resultatets størrelse. Aksjonærer bør følge med for å få innsikt i selskapets lønnsomhet, vekst og eventuell justert strategi.",
-      "score": 45,
+      "summary": "BEWI presenterer sine tall for Q3 2026 4. november med direktør Christian Bekken og CFO Stein Inge Liasjø, tilgjengelig via direktesendt webcast med mulighet for spørsmål.",
+      "reason": "Meldingen varsler et kvartalsresultat fra BEWI uten å oppgi tall. Aksjonærer får nå mulighet til innsikt i selskapets utvikling, men uten konkrete resultater må vi vente på data for å vurdere økonomisk ståsted og måloppnåelse.",
+      "score": 30,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -2978,15 +2970,15 @@
       "ticker": "SPOL",
       "issuer": "SpareBank 1 Østlandet",
       "title": "Påminnelse: Resultatpresentasjon, 3. kvartal 2026",
-      "headline": "SpareBank 1 Østlandet presenterer 3. kvartal 2026-resultat onsdag",
-      "lead": "SpareBank 1 Østlandet holder resultatpresentasjon for tredje kvartal 2026 onsdag 4. november kl. 08.15, med både fysisk oppmøte og webcast tilgjengelig. Ingen resultattall er foreløpig publisert.",
+      "headline": "SpareBank 1 Østlandet holder resultatpresentasjon for Q3 2026 onsdag",
+      "lead": "SpareBank 1 Østlandet presenterer sitt resultat for tredje kvartal 2026 onsdag 4. november kl. 08.15 med tilgjengelig webcast for investorer og analytikere.",
       "published_at": "2026-11-02T06:30:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685281",
-      "summary": "SpareBank 1 Østlandet holder resultatpresentasjon for tredje kvartal 2026 onsdag 4. november kl. 08.15, med både fysisk oppmøte og webcast tilgjengelig. Ingen resultattall er foreløpig publisert.",
-      "reason": "Resultatene for 3. kvartal foreligger ikke i meldingen, så effekten for aksjonærer er usikker. Videre analyse krever gjennomgang av faktiske tall ved presentasjonstidspunktet.",
+      "summary": "SpareBank 1 Østlandet presenterer sitt resultat for tredje kvartal 2026 onsdag 4. november kl. 08.15 med tilgjengelig webcast for investorer og analytikere.",
+      "reason": "Nyheten handler om tidspunkt og format for resultatpresentasjon, uten informasjon om resultatet eller økonomiske nøkkeltall. Aksjonærer bør følge opp presentasjonen for å få innsikt i kvartalets utvikling.",
       "score": 40,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "number_keys": [
         "15ef40",
@@ -14005,7 +13997,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-03T05:20:00+00:00",
+  "last_checked_at": "2026-11-03T05:30:00+00:00",
   "monitor_stats": {
     "fetched": 102,
     "recent": 101,
