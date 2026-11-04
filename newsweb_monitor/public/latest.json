@@ -2,21 +2,256 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-04T05:00:00+00:00",
+  "generated_at": "2026-11-04T05:10:01+00:00",
   "items": [
+    {
+      "id": "685524",
+      "market": "XOSL",
+      "ticker": "BOUV",
+      "issuer": "Bouvet ASA",
+      "title": "Bouvet ASA - Nøkkelinformasjon vedrørende kontant tilleggsutbytte",
+      "headline": "Bouvet ASA utbetaler kontant tilleggsutbytte på 0,70 kroner per aksje",
+      "lead": "Styret i Bouvet ASA har vedtatt et kontant tilleggsutbytte på 0,70 NOK per aksje for regnskapsåret 2025, med utbetaling 20. november 2026 og ex-dato 6. november.",
+      "published_at": "2026-11-04T05:01:03.886000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685524",
+      "summary": "Styret i Bouvet ASA har vedtatt et kontant tilleggsutbytte på 0,70 NOK per aksje for regnskapsåret 2025, med utbetaling 20. november 2026 og ex-dato 6. november.",
+      "reason": "Utbyttepåminnelser signaliserer selskapets kontantstrømstyrke og attraktivitet for investorer. For aksjonærer gir det direkte avkastning, men analysen bør undersøke Bouvet ASA sin generelle finansielle helse og om utbyttenivået er bærekraftig på sikt.",
+      "score": 65,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "number_keys": [
+        "004be8",
+        "0ade7c",
+        "17ba07",
+        "37c3a5",
+        "6d1c96",
+        "7316b3",
+        "77de68",
+        "798f86",
+        "7b5200",
+        "91032a",
+        "ac3478",
+        "aee655",
+        "bd307a",
+        "c1dfd9",
+        "c61e90",
+        "ddfe16"
+      ],
+      "language_versions": [
+        {
+          "id": "685524",
+          "title": "Bouvet ASA - Nøkkelinformasjon vedrørende kontant tilleggsutbytte",
+          "url": "https://newsweb.oslobors.no/message/685524",
+          "published_at": "2026-11-04T05:01:03.886000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685523",
+          "title": "Bouvet ASA - Key information regarding supplementary cash dividend",
+          "url": "https://newsweb.oslobors.no/message/685523",
+          "published_at": "2026-11-04T05:01:03.884000+00:00",
+          "language": "Engelsk"
+        }
+      ]
+    },
+    {
+      "id": "685522",
+      "market": "XOSL",
+      "ticker": "BOUV",
+      "issuer": "Bouvet ASA",
+      "title": "Bouvet ASA - Vekst i antall ansatte, økt bruk av AI og nye kontrakter",
+      "headline": "Bouvet rapporterer nedgang i driftsresultat til 80,5 mill. i Q3 2026",
+      "lead": "Bouvet hadde driftsinntekter på 865,4 mill. kroner i tredje kvartal 2026, ned fra 870,5 mill. i Q3 2025, med driftsresultat på 80,5 mill., en nedgang fra 91,6 mill. året før. Selskapet gjør nye strategiske tilpasninger i møte med markedets krav.",
+      "published_at": "2026-11-04T05:00:41.468000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685522",
+      "summary": "Bouvet hadde driftsinntekter på 865,4 mill. kroner i tredje kvartal 2026, ned fra 870,5 mill. i Q3 2025, med driftsresultat på 80,5 mill., en nedgang fra 91,6 mill. året før. Selskapet gjør nye strategiske tilpasninger i møte med markedets krav.",
+      "reason": "Nedgang i både driftsinntekter og driftsresultat sammenlignet med samme periode i fjor, samt redusert EBIT-margin, indikerer vekstutfordringer. Aksjonærer bør følge med på Bouvet sin evne til å gjennomføre effektiviseringer og fremtidig vekststrategi i et konkurranseutsatt marked.",
+      "score": 85,
+      "skipped": false,
+      "direction": "negativ",
+      "assessment_source": "AI",
+      "attachment_key": "7dc15f49acab9da1",
+      "number_keys": [
+        "004be8",
+        "05fb0c",
+        "0716d9",
+        "08a352",
+        "16fa26",
+        "17ba07",
+        "19dc61",
+        "2d0ad3",
+        "37c3a5",
+        "3cf4ba",
+        "46ac1d",
+        "598567",
+        "5a4b36",
+        "61fe5b",
+        "6d1c96",
+        "7316b3",
+        "77de68",
+        "797c85",
+        "798f86",
+        "7b5200",
+        "8157ef",
+        "8c95c1",
+        "91032a",
+        "917098",
+        "9a8b4c",
+        "9e0755",
+        "ac3478",
+        "aee655",
+        "c1dfd9",
+        "c61e90",
+        "e114c4",
+        "edd6bb",
+        "f890d7",
+        "fb9654"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "pdf",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Bouvet Q3 Report 2026 NO Web.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685522&attachmentId=335660"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "MNOK",
+            "current": 865.4,
+            "prior_year": 870.5,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -0.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Høydepunkter og nøkkeltall tredje kvartal 2026 side 2"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "MNOK",
+            "current": 80.5,
+            "prior_year": 91.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -12.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Høydepunkter og nøkkeltall tredje kvartal 2026 side 2"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "MNOK",
+            "current": 59.5,
+            "prior_year": 70.1,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -15.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Høydepunkter og nøkkeltall tredje kvartal 2026 side 2"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 0.58,
+            "prior_year": 0.68,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -14.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Høydepunkter og nøkkeltall tredje kvartal 2026 og flere detaljer side 2 og 4"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "MNOK",
+            "current": 79.9,
+            "prior_year": 12.1,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 560.3,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Høydepunkter og nøkkeltall tredje kvartal 2026 side 2 og side 4"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Bouvet opplever at oppstarten etter sommeren og oppbemanning av nye leveranser har vært noe tregere enn forventet, og ser behov for å styrke leveranseevnen spesielt gjennom rekruttering innen tekniske tjenesteområder. De sammenfatter at sikkerhetsrelaterte digitale løsninger til totalforsvaret og NATO utvides, med flere nye tildelte avtaler, noe som gir unik markedsposisjon. AI inngår sentralt i tjenestene, og Bouvet har vunnet flere nye rammeavtaler som styrker posisjon i offentlig sektor og digitale tjenester til samfunnskritiske aktører. Markedet for design og rådgivningstjenester er noe svakere enn for teknologitjenester, men selskapet pr",
+          "change": "Bouvet har i Q3 2026 nedjustert sin kortsiktige leveransestart og oppbemanning noe sammenlignet med Q2 2026, hvor det tidligere var forventet økt aktivitet og optimisme. Det er nå uttrykt et tydeligere behov for rekruttering for å øke leveranseevnen, hvor Q2 prioriterte ekspansjon med nye kontorer. På den positive siden opprettholdes fokus på viktige nye avtaler innen forsvar og offentlig sektor, og AI som kjerneområde videreføres. Markedstilstanden for design og rådgivning vurderes noe svakere i Q3, noe som ikke framkom i Q2.",
+          "trend": "Ledelsens guidinger viser en mindre optimistisk kortsiktig leveransestart i Q3 2026 sammenlignet med Q2, med vekt på utfordringer i bemanning og noe tregere oppstart, men samtidig en fortsatt sterk strategisk posisjon innen sikkerhetsmarkedet og AI. Tidligere kvartaler kommuniserte optimisme rundt vekst via nye kontrakter og geografisk ekspansjon, mens nå i Q3 er det mer fokus på nødvendige kapasitetsstyrkninger. Initiativ for modernisering og teknologisk utvikling videreføres konsistent, og ledelsen leverer på langsiktige avtaler innen forsvar og offentlig sektor som forventet.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Leveransestart og rekruttering",
+              "statement": "Oppstarten og oppbemanning etter sommeren har vært tregere enn forventet, og det er behov for rekruttering innen tekniske fagområder for å styrke leveranseevnen",
+              "evidence": "\"...oppstarten etter sommeren og oppbemanningen av nye leveranser vært noe tregere... behov for utvikling og rekruttering...\"",
+              "page": "utdrag rapport Q3 2026"
+            },
+            {
+              "topic": "Kontrakter og markedsposisjon",
+              "statement": "Nye viktige avtaler til totalforsvaret og NATO styrker Bouvets unike posisjon i sikkerhetsmarkedet",
+              "evidence": "\"...tildeling av nye avtaler fra Statens graderte plattformtjenester... ger økt omfang i leveranser til Forsvaret og til NATO...\"",
+              "page": "utdrag rapport Q3 2026"
+            },
+            {
+              "topic": "Fokus på AI og offentlige rammeavtaler",
+              "statement": "AI er sentralt i alt Bouvet gjør, med nye rammeavtaler i offentlig sektor og tjenester til samfunnskritiske aktører",
+              "evidence": "\"AI står sentralt i alt vi gjør... ny rammeavtale for NRK... rammeavtale for Nasjonal kommunikasjonsmyndighet...\"",
+              "page": "utdrag rapport Q3 2026"
+            },
+            {
+              "topic": "Marked og tjenesteområder",
+              "statement": "Markedet for design og rådgivning er noe svakere enn for teknologitjenester, men Bouvet tilpasser tjenestetilbud og leveransemodeller",
+              "evidence": "\"...markedet for design og rådgivning er noe svakere enn for teknologitjenester... kontinuerlig tilpasning i takt med markedet og kundenes behov.\"",
+              "page": "utdrag rapport Q3 2026"
+            }
+          ]
+        }
+      },
+      "language_versions": [
+        {
+          "id": "685522",
+          "title": "Bouvet ASA - Vekst i antall ansatte, økt bruk av AI og nye kontrakter",
+          "url": "https://newsweb.oslobors.no/message/685522",
+          "published_at": "2026-11-04T05:00:41.468000+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "685521",
+          "title": "Bouvet ASA - Growth in number of employees, increased AI deployment and new contracts",
+          "url": "https://newsweb.oslobors.no/message/685521",
+          "published_at": "2026-11-04T05:00:39.308000+00:00",
+          "language": "Original"
+        }
+      ]
+    },
     {
       "id": "685520",
       "market": "XOSL",
       "ticker": "LINK",
       "issuer": "Link Mobility Group Holding ASA",
       "title": "LINK Mobility - Q3 2026 - Back to high-single-digit organic growth",
-      "headline": "Link Mobility øker organisk vekst til 7 prosent i tredje kvartal",
-      "lead": "Link Mobility leverer 7 prosent organisk vekst i bruttofortjeneste i Q3 og oppjusterer vekstguidingen for andre halvår til høye ensifrede tall, med forventninger om økte aksjonærutbetalinger på 330-400 millioner kroner i 2026.",
+      "headline": "LINK Mobility øker organisk vekst til 7 prosent i tredjekvartal 2026",
+      "lead": "LINK Mobility rapporterer 7 prosent organisk vekst i bruttoresultat for Q3 2026, en akselerasjon fra tidligere kvartal, og oppjusterer vekstprognosen for andre halvår til høye ensifrede tall.",
       "published_at": "2026-11-04T05:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685520",
-      "summary": "Link Mobility leverer 7 prosent organisk vekst i bruttofortjeneste i Q3 og oppjusterer vekstguidingen for andre halvår til høye ensifrede tall, med forventninger om økte aksjonærutbetalinger på 330-400 millioner kroner i 2026.",
-      "reason": "Økningen til 7 prosent organisk vekst betyr en klar forbedring i selskapets underliggende drift sammenlignet med forrige kvartal. Oppjustert vekstguiding og økte aksjonærutbetalinger signaliserer sterk økonomisk posisjon. Investorer bør følge utviklingen i Q4 og effekten av videre AI-adopsjon.",
-      "score": 85,
+      "summary": "LINK Mobility rapporterer 7 prosent organisk vekst i bruttoresultat for Q3 2026, en akselerasjon fra tidligere kvartal, og oppjusterer vekstprognosen for andre halvår til høye ensifrede tall.",
+      "reason": "Den akselererende organiske veksten understøtter LINKs mediumtidsambisjoner og gir positivt utsyn for 2027. Oppjustert vekstprognose og økte aksjonærutbytter signaliserer finansiell styrke, men det kan være verdt å følge utviklingen i valutaeffekter og implementeringen av AI-strategien.",
+      "score": 78,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -67,7 +302,7 @@
             "yoy_pct": 18.7,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Sides 2, 7, 10"
+            "evidence": "[SIDE 2],[SIDE 7],[SIDE 10] Total operating revenues increased 19% to NOK 2,011 million vs 1,694 million in Q3 2025."
           },
           {
             "label": "EBITDA",
@@ -80,7 +315,7 @@
             "yoy_pct": 37.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Sides 2, 5, 7, 10"
+            "evidence": "[SIDE 2],[SIDE 7],[SIDE 10] Adjusted EBITDA increased 37% to NOK 268 million vs 195 million in Q3 2025."
           },
           {
             "label": "EBIT",
@@ -93,7 +328,7 @@
             "yoy_pct": 55.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 10"
+            "evidence": "[SIDE 10] Operating profit (EBIT) of NOK 118 million in Q3 2026 vs NOK 76 million in Q3 2025."
           },
           {
             "label": "Resultat etter skatt",
@@ -106,7 +341,7 @@
             "yoy_pct": 347.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 10"
+            "evidence": "[SIDE 10] Profit for the period NOK 75.7 million in Q3 2026 vs NOK 17.1 million in Q3 2025."
           },
           {
             "label": "EPS",
@@ -119,7 +354,7 @@
             "yoy_pct": 350.0,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 10"
+            "evidence": "[SIDE 10] Basic earnings per share from continuing operations 0.27 NOK/share in Q3 2026 vs 0.06 NOK/share in Q3 2025."
           },
           {
             "label": "Kontantstrøm drift",
@@ -132,7 +367,7 @@
             "yoy_pct": -67.9,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 9"
+            "evidence": "[SIDE 9] Net cash flows from operating activities were NOK 63 million in Q3 2026 vs NOK 196 million in Q3 2025."
           },
           {
             "label": "Netto renteinntekter",
@@ -145,39 +380,39 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 8, 10"
+            "evidence": "[SIDE 8],[SIDE 10] Net interest expense NOK 44.9 million in Q3 2026 vs NOK 22.1 million in Q3 2025."
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "LINK Mobility opplever en klar akselerasjon i organisk vekst med 7 % organisk bruttofortjenestevekst i tredje kvartal 2026, og øker derfor sin veiledning for andre halvår 2026 til høye ensifrede vekstrater. Organisk justert EBITDA-vekst steg også til 7 % i tredje kvartal, drevet av sterk kommersiell aktivitet og økende markedsetterspørsel. Selskapet forventer fortsatt høye ensifrede organisk bruttofortjenestevekstrater i 2027, støttet av økende adopsjon av AI og nye produktmuligheter som RCS. Videre forventes økte aksjonærutbytter i 2026 med et tilbakekjøpsprogram på 330-400 millioner NOK, samtidig som LINK planlegger å fortsette organisk vek",
+          "summary": "Selskapet LINK rapporterer en akselerasjon i organisk vekst med organisk bruttofortjenestevekst på 7% i tredje kvartal 2026, og hever guidingen for organisk bruttofortjenestevekst i andre halvår 2026 fra midt-til høyt ensifret til høyt ensifret nivå. Justert EBITDA organisk vekst var også 7%, støttet av sterke kommersielle resultater og økt etterspørsel, spesielt innen CPaaS og OTT. LINK forventer sterk vekst videre i 2027, støttet av økende AI-adopsjon og utrulling av RCS i Norden. For 2026 forventes aksjetilbakekjøp på 330-400 millioner NOK, med fortsatt investering i vekst og oppkjøp.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
               "topic": "Organisk vekst og marginer",
-              "statement": "Organisk bruttofortjenestevekst økte til 7 % i Q3 med oppjustert guidance til høye ensifrede vekstrater for H2 2026 og forventet samme nivå i 2027.",
-              "evidence": "\"Q3’26...organic gross profit growth reaching 7%...we raise H2’26 organic gross profit growth guidance from mid-to-high single digits to high single digits...expectation of high-single-digit organic g",
-              "page": "management outlook"
+              "statement": "Organisk bruttofortjenestevekst i Q3 nådde 7%, og guidingen for andre halvår 2026 er hevet til høyt ensifret nivå.",
+              "evidence": "\"we raise H2’26 organic gross profit growth guidance from mid-to-high single digits to high single digits\" (side 1)",
+              "page": "1"
             },
             {
-              "topic": "Profittabilitet og EBITDA",
-              "statement": "Organisk justert EBITDA-vekst økte til 7 % i Q3, drevet av både organisk vekst og oppkjøp, og bedriften forventer fortsatte positive marginforbedringer.",
-              "evidence": "\"organic adjusted EBITDA growth increased to 7%...Adj. EBITDA increased 37% to NOK 268 million\" (kilde: rapport).",
-              "page": "financial highlights"
+              "topic": "Etterspørsel og kommersiell aktivitet",
+              "statement": "Sterk kommersiell aktivitet med økte kontraktsinnganger, spesielt innen CPaaS med 58% økning i nye kontrakter år-over-år.",
+              "evidence": "\"CPaaS and OTT contract wins increased 58% and 52% YoY, respectively\" (side 1)",
+              "page": "1"
             },
             {
-              "topic": "Investeringer og aksjonærutbytte",
-              "statement": "For 2026 planlegges aksjonærutbetalinger på mellom 330 og 400 millioner NOK via tilbakekjøp, samtidig som selskapet fortsetter investeringer i organisk vekst og M&A.",
-              "evidence": "\"NOK 330-400 million in share buybacks expected for 2026\" og \"strong balance sheet...position us to increase shareholder distributions for FY2026\" (kilde: rapport).",
-              "page": "CEO message"
+              "topic": "Investering og aksjonærutbytte",
+              "statement": "For 2026 forventes aksjetilbakekjøp på 330-400 millioner NOK samtidig som selskapet vil fortsette å investere i organisk vekst og oppkjøp.",
+              "evidence": "\"NOK 330-400 million in share buybacks expected for 2026\" und \"...continue to invest in organic growth and value-accretive M&A\" (side 1)",
+              "page": "1"
             },
             {
-              "topic": "Marked og vekstdrivere",
-              "statement": "Økende AI-adopsjon og roll-out av nye kommunikasjonsløsninger som RCS utpeker seg som viktige drivere for videre vekst.",
-              "evidence": "\"increasing AI adoption to provide an additional structural tailwind\" og \"Nordic RCS rollout commenced\" (kilde: rapport).",
-              "page": "management outlook"
+              "topic": "Langsiktig vekstdriver",
+              "statement": "LINK forventer at økende AI-adopsjon og utrulling av RCS vil gi strukturelle vekstmuligheter framover.",
+              "evidence": "\"we expect increasing AI adoption to provide an additional structural tailwind... The Nordic RCS rollout now beginning to take shape\" (side 1)",
+              "page": "1"
             }
           ]
         }
@@ -613,12 +848,12 @@
       "ticker": "VASA",
       "issuer": "Vasakronan AB",
       "title": "Vasakronan's interim report January-September 2026",
-      "headline": "Vasakronan rapporterer stabilt driftsresultat på 3,58 mrd SEK i 2026",
-      "lead": "Vasakronan holder stabilt driftsresultat på 3,58 mrd SEK til tross for økte renter og 1% lavere leieinntekter på sammenlignbare eiendommer. God finansiell styrke gir grunnlag for videre utvikling.",
+      "headline": "Vasakronan leier ut 95.000 kvadratmeter – nettoleiefall på 125 millioner SEK",
+      "lead": "Leieinntekter steg svakt til 7,1 mrd. SEK i Q1–Q3 2026, men nettoleie falt med 125 mill. SEK. Andelen bærekraftige eiendommer økte til 75 %; markedet preges av ujevn etterspørsel og lavere beleggsgrad.",
       "published_at": "2026-11-03T13:00:13.900000+00:00",
       "url": "https://newsweb.oslobors.no/message/685490",
-      "summary": "Vasakronan holder stabilt driftsresultat på 3,58 mrd SEK til tross for økte renter og 1% lavere leieinntekter på sammenlignbare eiendommer. God finansiell styrke gir grunnlag for videre utvikling.",
-      "reason": "Resultat viser svak nedgang i leieinntekter og økte netto renteutgifter, noe som demper inntekt fra eiendomsforvaltning. Økt markedsverdi og høyere andel miljøsertifiserte eiendommer gir positivt langsiktig potensial, men leieopptaket dekker foreløpig ikke opp for termineringer.",
+      "summary": "Leieinntekter steg svakt til 7,1 mrd. SEK i Q1–Q3 2026, men nettoleie falt med 125 mill. SEK. Andelen bærekraftige eiendommer økte til 75 %; markedet preges av ujevn etterspørsel og lavere beleggsgrad.",
+      "reason": "Nøktern inntektsvekst men fall i nettoleie og lavere beleggsgrad indikerer utfordringer i eiendomsmarkedet. Økt andel miljøsertifiserte eiendommer kan tiltrekke investorer, men videre leieaktivitet og rentekostnader må overvåkes av aksjonærer.",
       "score": 75,
       "skipped": false,
       "direction": "nøytral",
@@ -1283,13 +1518,13 @@
       "ticker": "AFK",
       "issuer": "Arendals Fossekompani ASA",
       "title": "Q3 2026 financial results webcast and Q&A session",
-      "headline": "Arendals Fossekompani kunngjør Q3-tall 10. november – webcast og Q&A kl. 09:00",
-      "lead": "Arendals Fossekompani offentliggjør sine tredje kvartal 2026-resultater 10. november med direktesendt presentasjon og Q&A, ingen tall avslørt før publisering.",
+      "headline": "Arendals Fossekompani offentliggjør Q3-rapport 10. november",
+      "lead": "Arendals Fossekompani (AFK) presenterer sine tredje kvartalsresultater for 2026 10. november kl. 08:00 CET, med påfølgende webcast og spørsmålsrunde kl. 09:00 CET.",
       "published_at": "2026-11-03T08:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685444",
-      "summary": "Arendals Fossekompani offentliggjør sine tredje kvartal 2026-resultater 10. november med direktesendt presentasjon og Q&A, ingen tall avslørt før publisering.",
-      "reason": "Foreløpig ingen resultater eller nøkkeltall tilgjengelig. Viktig å følge med på tallene for å vurdere utviklingen sammenlignet med tidligere kvartaler og markedets situasjon.",
-      "score": 40,
+      "summary": "Arendals Fossekompani (AFK) presenterer sine tredje kvartalsresultater for 2026 10. november kl. 08:00 CET, med påfølgende webcast og spørsmålsrunde kl. 09:00 CET.",
+      "reason": "Informasjonen kunngjør tidspunkt og format for kvartalsrapporten uten å gi resultatdetaljer eller indikasjoner på selskapets prestasjon, noe som gir begrenset nyhetsverdi utover planlagt rapportering.",
+      "score": 45,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -2441,13 +2676,13 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "OTL - Key information relating to the cash dividend for Q3 2026 to be paid by Odfjell Technology Ltd",
-      "headline": "Odfjell Technology utbetaler 1,52 kroner i kvartalsutbytte 25. november",
-      "lead": "Odfjell Technology kunngjør et kontantutbytte på 1,52 NOK per aksje for tredje kvartal 2026, med utbetalingsdato 25. november og registreringsdato 11. november.",
+      "headline": "Odfjell Technology varsler kvartalsutbytte på 1,52 kroner per aksje",
+      "lead": "Odfjell Technology melder om kvartalsutbytte på 1,52 NOK per aksje for Q3 2026, med betaling 25. november. Ingen ytterligere økonomiske detaljer er kjent foreløpig.",
       "published_at": "2026-11-03T06:11:01.613000+00:00",
       "url": "https://newsweb.oslobors.no/message/685417",
-      "summary": "Odfjell Technology kunngjør et kontantutbytte på 1,52 NOK per aksje for tredje kvartal 2026, med utbetalingsdato 25. november og registreringsdato 11. november.",
-      "reason": "Utbytteutbetaling bekrefter utøvelse av kapitaldistribusjon til aksjonærer, men uten angivelse av sammenligningstall eller finansiell utvikling gir det begrenset innsikt i selskapets underliggende drift eller fremtidsutsikter.",
-      "score": 60,
+      "summary": "Odfjell Technology melder om kvartalsutbytte på 1,52 NOK per aksje for Q3 2026, med betaling 25. november. Ingen ytterligere økonomiske detaljer er kjent foreløpig.",
+      "reason": "Utbyttet gir en direkte inntekt til aksjonærene, men uten annen finansiell informasjon er det vanskelig å vurdere selskapets underliggende resultatutvikling eller økonomiske helse. Neste steg er å følge selskapets regnskap og markedssituasjon for helhetlig analyse.",
+      "score": 45,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -11555,54 +11790,20 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685132",
-      "market": "XOSL",
-      "ticker": "LSKO",
-      "issuer": "Lillestrøm kommune",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-29T11:58:49.460000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685132",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685125",
-      "market": "XOSL",
-      "ticker": "STORL",
-      "issuer": "Storebrand Livsforsikring AS",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-29T11:58:10.550000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685125",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
-  "last_checked_at": "2026-11-04T05:00:00+00:00",
+  "last_checked_at": "2026-11-04T05:10:01+00:00",
   "monitor_stats": {
-    "fetched": 177,
-    "recent": 89,
+    "fetched": 181,
+    "recent": 93,
     "already_seen": 84,
-    "eligible": 5,
+    "eligible": 9,
     "filtered": 0,
-    "analyzed": 5,
+    "analyzed": 9,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 4,
-    "source_latest_at": "2026-11-04T05:00:00+00:00"
+    "recovered_unpublished": 5,
+    "source_latest_at": "2026-11-04T05:01:03.886000+00:00"
   }
 }
