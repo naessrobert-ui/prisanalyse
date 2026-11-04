@@ -250,3 +250,31 @@ class DriverTests(unittest.TestCase):
                   "published_at": "2026-11-04T06:00:00Z"}]
         out = market_data.drivers(items, now=before, fetch=lambda t: stock, peers_for=lambda t: {})
         self.assertEqual([(d["ticker"], d["status"]) for d in out["drivers"]], [("BEWI", "venter på handel")])
+
+
+class TickerValidationTests(unittest.TestCase):
+    ISSUERS = {"AKRBP": "Aker BP ASA", "KOG": "Kongsberg Gruppen ASA", "KOA": "Kongsberg Automotive ASA",
+               "EQNR": "Equinor ASA", "SALM": "SalMar ASA", "DNB": "DNB Bank ASA"}
+
+    def test_resolve(self):
+        from newsweb_monitor.newsweb_source import resolve_ticker
+        self.assertEqual(resolve_ticker("eqnr", self.ISSUERS), "EQNR")
+        self.assertEqual(resolve_ticker("AKERBP", self.ISSUERS), "AKRBP")
+        self.assertIsNone(resolve_ticker("KONGSBERG", self.ISSUERS))  # to ASA-treff: tvetydig
+        self.assertIsNone(resolve_ticker("MAERSK", self.ISSUERS))
+        self.assertEqual(resolve_ticker("MAERSK", {}), "MAERSK")  # uten liste: ingen validering
+
+    def test_clean_affected_drops_unknown(self):
+        rows = [{"ticker": "AKERBP", "direction": "negativ", "reason": "olje"},
+                {"ticker": "MAERSK", "direction": "positiv", "reason": "ikke notert"},
+                {"ticker": "EQNR", "direction": "negativ", "reason": "olje"}]
+        out = clean_affected(rows, "VAR", self.ISSUERS)
+        self.assertEqual([r["ticker"] for r in out], ["AKRBP", "EQNR"])
+
+    def test_indirect_clean_validates(self):
+        cand = indirect_news.parse_rss(RSS, "E24")
+        result = {"items": [{"index": 0, "score": 70, "comment": "x", "affected": [
+            {"ticker": "HUF1", "direction": "negativ", "reason": "?"},
+            {"ticker": "AKERBP", "direction": "negativ", "reason": "olje"}]}]}
+        rows = indirect_news.clean(result, cand, "t", self.ISSUERS)
+        self.assertEqual([a["ticker"] for a in rows[0]["affected"]], ["AKRBP"])

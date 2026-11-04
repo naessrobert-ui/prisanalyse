@@ -107,3 +107,43 @@ def download_attachment(message_id: str, attachment_id: str, max_bytes: int=22_0
     if not (data.startswith(b"%PDF-") or data[:2]==b"PK"):
         raise ValueError("Unsupported report attachment (expected PDF/ZIP)")
     return data
+
+_ISSUERS: dict | None = None
+
+def active_issuers() -> dict[str, str]:
+    """Aktive NewsWeb-utstedere {ticker: navn}. Tom ordbok hvis listen ikke kan hentes."""
+    global _ISSUERS
+    if _ISSUERS is not None:
+        return _ISSUERS
+    try:
+        req = Request(API + "/issuers", data=b"", headers=HEADERS, method="POST")
+        with urlopen(req, timeout=35) as response:
+            payload = json.loads(response.read(MAX_BYTES + 1))
+        rows = payload.get("data", {}).get("issuers", [])
+        _ISSUERS = {str(x["issuerSign"]).upper(): str(x.get("name") or "")
+                    for x in rows if isinstance(x, dict) and x.get("isActive") and x.get("issuerSign")}
+    except Exception:
+        _ISSUERS = {}
+    return _ISSUERS
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"[^A-Z0-9ÆØÅ]", "", str(text or "").upper())
+
+
+def resolve_ticker(ticker: str, issuers: dict[str, str]) -> str | None:
+    """Gyldig Oslo Børs-ticker, eller None. Uten utstederliste godtas tickeren som den er.
+
+    AI skriver av og til selskapsnavn i stedet for ticker (AKERBP, KONGSBERG). Da brukes
+    utstederen hvis navnet entydig starter med teksten; ellers forkastes tickeren.
+    """
+    ticker = str(ticker or "").strip().upper()
+    if not issuers or ticker in issuers:
+        return ticker or None
+    key = _squash(ticker)
+    if len(key) < 3:
+        return None
+    hits = [t for t, name in issuers.items() if _squash(name).startswith(key)]
+    if len(hits) > 1:  # foretrekk ASA-utsteder ved flere treff
+        hits = [t for t in hits if re.search(r"\bASA\b", issuers[t])] or hits
+    return hits[0] if len(hits) == 1 else None
