@@ -219,6 +219,17 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% if can_view_consensus %}
 <details class="drivers" id="drivers" open>
   <summary class="section-heading">Dagens kursdrivere og sammenlignbare selskaper</summary>
+  <div class="sort-controls" style="margin:8px 0 4px">
+    <label for="drivers-window">Tidsvindu</label>
+    <select id="drivers-window" aria-label="Tidsvindu for kursdrivere">
+      <option value="slutt" selected>Siden forrige børsslutt (hele dagen + kvelden før)</option>
+      <option value="idag">I dag (fra midnatt)</option>
+      <option value="24">Siste 24 timer</option>
+      <option value="48">Siste 48 timer</option>
+      <option value="72">Siste 72 timer</option>
+      <option value="120">Siste 5 døgn</option>
+    </select>
+  </div>
   <p class="dimmed-summary" id="drivers-note">Henter kurser …</p>
   <div class="drivers-grid" id="drivers-grid"></div>
 </details>
@@ -560,8 +571,11 @@ h1{font-size:clamp(27px,3vw,37px)}
   function render(data){
     grid.replaceChildren();
     const since=new Date(data.since).toLocaleString('nb-NO',{timeZone:'Europe/Oslo',weekday:'short',hour:'2-digit',minute:'2-digit'});
-    if(!data.drivers.length){note.textContent='Ingen kursdrivende nyheter publisert etter forrige børsslutt ('+since+')'+(data.profile?' for '+data.profile+' sine selskaper eller deres sammenlignbare.':'.');return;}
-    note.textContent='Alle nyheter publisert etter forrige børsslutt ('+since+') og frem til nå – det er disse som kan ha drevet kursen i dagens handel; eldre nyheter er allerede priset inn. Kursdrivende = minst 3 % mot OSEBX etter meldingen'+
+    if(!data.drivers.length){note.textContent='Ingen kursdrivende nyheter publisert fra '+since+''+(data.profile?' for '+data.profile+' sine selskaper eller deres sammenlignbare.':'.');return;}
+    const lead=data.window==='slutt'
+      ?'Alle nyheter publisert etter forrige børsslutt ('+since+') og frem til nå – det er disse som kan ha drevet kursen i dagens handel.'
+      :'Nyheter publisert fra '+since+' og frem til nå. Kursendring måles fra siste handel før hver melding.';
+    note.textContent=lead+' Kursdrivende = minst 3 % mot OSEBX etter meldingen'+
       (data.market_open?'. Oppdateres hvert 2. minutt (forsinket ca. 15 min).':'. Børsen er stengt.')+
       ' «Ikke reagert» = sammenlignbart selskap har beveget seg under 1 % mot OSEBX.';
     data.drivers.forEach(d=>{
@@ -594,7 +608,10 @@ h1{font-size:clamp(27px,3vw,37px)}
     });
   }
   let open=false;
-  const load=()=>fetch('{{url_for("newsweb.price_drivers", profil=profile)}}',{credentials:'same-origin'}).then(r=>r.json())
+  const win=document.getElementById('drivers-window');
+  try{const saved=localStorage.getItem('newsweb-drivers-window');if(saved&&[...win.options].some(o=>o.value===saved))win.value=saved;}catch(e){}
+  win.addEventListener('change',()=>{try{localStorage.setItem('newsweb-drivers-window',win.value);}catch(e){}note.textContent='Henter kurser …';load();});
+  const load=()=>fetch('{{url_for("newsweb.price_drivers", profil=profile)}}&vindu='+encodeURIComponent(win.value),{credentials:'same-origin'}).then(r=>r.json())
     .then(d=>{open=!!d.market_open;render(d);}).catch(()=>{note.textContent='Klarte ikke hente kursdrivere.';});
   load();
   setInterval(()=>{if(open&&!document.hidden)load();},120000);

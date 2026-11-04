@@ -564,7 +564,10 @@ def price_drivers():
     if not _can_view_consensus():
         abort(403)
     report,_=read_report()
-    key=str(report.get("generated_at") or "")+str(len(report.get("items") or []))
+    window=request.args.get("vindu","slutt")
+    if window not in market_data.WINDOWS:
+        window="slutt"
+    key=window+"|"+str(report.get("generated_at") or "")+str(len(report.get("items") or []))
     now=time.monotonic()
     with _drivers_lock:
         if _drivers_cache["data"] is not None and _drivers_cache["until"]>now and _drivers_cache["key"]==key:
@@ -573,7 +576,7 @@ def price_drivers():
             data=None
     if data is None:
         items=collapse_stories([dict(x) for x in report.get("items",[])])
-        data=market_data.drivers(items)
+        data=market_data.drivers(items,window=window)
         with _drivers_lock:
             _drivers_cache.update(until=now+(60 if data["market_open"] else 600),key=key,data=data)
     import newsweb_profiles as np_
