@@ -430,6 +430,44 @@ def trades_before_message():
     response.headers["Cache-Control"]="private, no-store, max-age=0"
     return response
 
+_KURS_BATCH_MAX = 80
+
+@newsweb_bp.get("/kurs")
+def price_reaction():
+    """Private: kursreaksjon siden meldingen (mot OSEBX) for selskapet og berørte selskaper.
+
+    ?m=TICKER|ISO&m=... -> {"market_open": bool, "results": {"TICKER|ISO": {...}}}.
+    Kursene hentes live (forsinket) og lagres aldri i det offentlige GitHub-snapshotet.
+    """
+    import re
+    from concurrent.futures import ThreadPoolExecutor
+    from flask import jsonify, make_response
+    from newsweb_monitor import market_data
+    if not _can_view_consensus():
+        abort(403)
+    batch=request.args.getlist("m")
+    if not batch or len(batch)>_KURS_BATCH_MAX:
+        abort(400)
+    wanted={}
+    for raw in batch:
+        ticker,_,published=raw.partition("|")
+        ticker=ticker.strip().upper()
+        if not re.fullmatch(r"[A-Z0-9][A-Z0-9.\-]{0,14}",ticker) or len(published)>40:
+            abort(400)
+        wanted[raw]=(ticker,published)
+    tickers=sorted({t for t,_ in wanted.values()}|{market_data.INDEX})
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        charts=dict(zip(tickers,pool.map(market_data.fetch_chart,tickers)))
+    index_chart=charts.get(market_data.INDEX)
+    results={}
+    for raw,(ticker,published) in wanted.items():
+        chart=charts.get(ticker)
+        results[raw]=(market_data.reaction(ticker,published,chart=chart,index_chart=index_chart)
+                      if chart else {"ticker":ticker,"error":"Ingen kursdata"})
+    response=make_response(jsonify({"market_open":market_data.market_open(),"results":results}))
+    response.headers["Cache-Control"]="private, no-store, max-age=0"
+    return response
+
 @newsweb_bp.get("/")
 def dashboard():
     report,demo=read_report()

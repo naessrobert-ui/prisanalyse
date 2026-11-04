@@ -32,6 +32,35 @@ nye nyheter. `generated_at` beholdes som siste oppdatering av selve
 nyhetssakene. Ingen fulltekst, private konsensusdata eller hemmeligheter
 inkluderes i diagnostikken. Nettsiden oppdateres etter neste GitHub-publisering.
 
+## Kursdrivende nyheter, berørte selskaper og indirekte nyheter (04.11.2026)
+
+**Viktige selskaper vektes opp.** `viktige_selskaper.json` deler selskapene i nivåene `stor` (+10) og `mellom` (+5).
+Tillegget legges på AI-skåren når den er minst 40, og AI-skåren lagres i `score_ai`. Kortet får merket «Viktig».
+Rediger listen fritt, for eksempel med porteføljeselskaper. Høyere skår gir også tidligere Pushover-varsel.
+
+**Berørte selskaper.** AI-vurderingen returnerer `affected`: inntil 5 andre Oslo Børs-tickere med retning
+og begrunnelse (konkurrenter, kunder, leverandører, eiere). AI får sektorlisten fra `viktige_selskaper.json` som hint.
+Feltet publiseres i `latest.json`.
+
+**Kursreaksjon live** (`/newsweb/kurs`, krever innlogging). Endepunktet viser:
+- kurs siste handel før meldingen og kurs nå
+- endring i prosent og meravkastning mot OSEBX
+- volum i dag mot snitt
+- merket **Kursdrivende** ved minst 3 % meravkastning etter handel
+
+Det samme vises for berørte selskaper. Panelet oppdateres hvert 2. minutt mens børsen er åpen, og sorteringen
+«Største kursreaksjon» rangerer meldingene etter faktisk markedsreaksjon. Kursene er 5-minutters data fra
+Yahoo Finance, forsinket ca. 15 min, uten avtale. De vises bare bak innlogging og lagres aldri i GitHub.
+Bytt til lisensiert kilde (Euronext/Infront/Bloomberg) før bredere bruk. Tickere som mangler hos kilden,
+legges i `yahoo_alias` (null = ingen kurs).
+
+**Indirekte nyheter** (`indirect_news.py`). Saker som ikke er børsmeldinger, men kan påvirke inntjeningen,
+for eksempel regulering, råvarepriser, renter, toll og politikk. Kildene er RSS-feeder i `INDIRECT_FEEDS`
+(Actions variable, standard E24). Hver kjøring sender nye overskrifter og ingresser i ett samlet OpenAI-kall.
+Saker med skår 50 eller mer og minst ett berørt selskap vises øverst i dashboardet, med kurs for de berørte
+selskapene. Bare overskrift, lenke og egen AI-kommentar publiseres, og sakene lagres i 3 dager.
+Slå av med `INDIRECT_NEWS=false`.
+
 ## PDF-analyse
 Ved en ny resultatmelding:
 1. Last ned vedlagt kvartalsrapport som PDF. Filstørrelse begrenses til 22 MB.
