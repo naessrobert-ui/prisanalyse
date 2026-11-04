@@ -171,8 +171,23 @@ def _peer_signal(driver_move: float, peer: dict, expected: str) -> str:
     return "følger" if move * want > 0 else "motsatt"
 
 
+WINDOWS = {"slutt": "Siden forrige børsslutt", "idag": "I dag", "24": "Siste 24 timer",
+           "48": "Siste 48 timer", "72": "Siste 72 timer", "120": "Siste 5 døgn"}
+
+
+def window_start(window: str, now: dt.datetime | None = None) -> dt.datetime:
+    """Start på tidsvinduet. 'slutt' = forrige børsslutt (standard), 'idag' = midnatt, ellers timer."""
+    now = (now or dt.datetime.now(OSLO)).astimezone(OSLO)
+    if window == "idag":
+        return dt.datetime.combine(now.date(), dt.time(0, 0), OSLO)
+    if window in WINDOWS and window.isdigit():
+        return now - dt.timedelta(hours=int(window))
+    return session_start(now)
+
+
 def drivers(items: list[dict], *, now: dt.datetime | None = None, fetch=None,
-            peers_for=None, min_score: int = 75, max_drivers: int = 12, max_peers: int = 6) -> dict:
+            peers_for=None, min_score: int = 75, max_drivers: int = 12, max_peers: int = 6,
+            window: str = "slutt") -> dict:
     """Dagens kursdrivende aksjer (nyhet siden forrige børsslutt) med sammenlignbare selskaper.
 
     Kursdrivende = minst DRIVER_ABNORMAL_PCT meravkastning mot OSEBX etter meldingen,
@@ -183,7 +198,8 @@ def drivers(items: list[dict], *, now: dt.datetime | None = None, fetch=None,
     if peers_for is None:
         from .importance import sector_peers as peers_for
     now = now or dt.datetime.now(OSLO)
-    start = session_start(now)
+    window = window if window in WINDOWS else "slutt"
+    start = window_start(window, now)
     by_ticker: dict = {}
     for item in items:
         if item.get("skipped") or not item.get("ticker"):
@@ -207,7 +223,7 @@ def drivers(items: list[dict], *, now: dt.datetime | None = None, fetch=None,
             if a.get("ticker") and all(x["ticker"] != a["ticker"] for x in best["affected"]):
                 best["affected"].append(a)
     if not by_ticker:
-        return {"since": start.isoformat(), "market_open": market_open(now), "drivers": []}
+        return {"since": start.isoformat(), "window": window, "market_open": market_open(now), "drivers": []}
     with ThreadPoolExecutor(max_workers=8) as pool:
         charts = dict(zip(list(by_ticker) + [INDEX], pool.map(fetch, list(by_ticker) + [INDEX])))
     idx = charts.get(INDEX)
@@ -254,4 +270,4 @@ def drivers(items: list[dict], *, now: dt.datetime | None = None, fetch=None,
             p["signal"] = _peer_signal(move, p["reaction"], p["expected"]) if not p["reaction"].get("error") \
                 and p["reaction"].get("traded_since") else ""
         d["peers"] = peer_lists[d["ticker"]]
-    return {"since": start.isoformat(), "market_open": market_open(now), "drivers": chosen}
+    return {"since": start.isoformat(), "window": window, "market_open": market_open(now), "drivers": chosen}

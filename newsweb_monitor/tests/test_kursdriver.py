@@ -278,3 +278,26 @@ class TickerValidationTests(unittest.TestCase):
             {"ticker": "AKERBP", "direction": "negativ", "reason": "olje"}]}]}
         rows = indirect_news.clean(result, cand, "t", self.ISSUERS)
         self.assertEqual([a["ticker"] for a in rows[0]["affected"]], ["AKRBP"])
+
+
+class DriverWindowTests(unittest.TestCase):
+    NOW = dt.datetime(2026, 11, 4, 15, 0, tzinfo=market_data.OSLO)
+
+    def test_window_start(self):
+        ws = market_data.window_start
+        self.assertEqual(ws("slutt", self.NOW).isoformat(), "2026-11-03T16:20:00+01:00")
+        self.assertEqual(ws("idag", self.NOW).isoformat(), "2026-11-04T00:00:00+01:00")
+        self.assertEqual(ws("48", self.NOW).isoformat(), "2026-11-02T15:00:00+01:00")
+        self.assertEqual(ws("tull", self.NOW), ws("slutt", self.NOW))
+
+    def test_longer_window_includes_older_news(self):
+        stock = chart([(ts(10, 0, 2), 100.0, 1), (ts(9, 0), 110.0, 1)], 110.0)
+        index = chart([(ts(10, 0, 2), 100.0, 0), (ts(9, 0), 100.0, 0)], 100.0)
+        charts = {"OLD": stock, market_data.INDEX: index}
+        items = [{"ticker": "OLD", "issuer": "Old ASA", "title": "x", "score": 80,
+                  "published_at": "2026-11-02T12:00:00Z"}]
+        args = dict(now=self.NOW, fetch=charts.get, peers_for=lambda t: {})
+        self.assertEqual(market_data.drivers(items, **args)["drivers"], [])
+        out = market_data.drivers(items, window="72", **args)
+        self.assertEqual([d["ticker"] for d in out["drivers"]], ["OLD"])
+        self.assertEqual(out["window"], "72")
