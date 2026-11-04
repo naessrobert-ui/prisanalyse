@@ -56,10 +56,30 @@ legges i `yahoo_alias` (null = ingen kurs).
 
 **Indirekte nyheter** (`indirect_news.py`). Saker som ikke er børsmeldinger, men kan påvirke inntjeningen,
 for eksempel regulering, råvarepriser, renter, toll og politikk. Kildene er RSS-feeder i `INDIRECT_FEEDS`
-(Actions variable, standard E24). Hver kjøring sender nye overskrifter og ingresser i ett samlet OpenAI-kall.
+(miljøvariabel der monitoren kjøres, f.eks. på Raspberry Pi eller som Actions variable; standard E24). Hver kjøring sender nye overskrifter og ingresser i ett samlet OpenAI-kall.
 Saker med skår 50 eller mer og minst ett berørt selskap vises øverst i dashboardet, med kurs for de berørte
 selskapene. Bare overskrift, lenke og egen AI-kommentar publiseres, og sakene lagres i 3 dager.
 Slå av med `INDIRECT_NEWS=false`.
+
+**Selskaper som ikke er ASA får trekk.** Utstedere uten «ASA» i navnet (plc, Ltd, A/S, SE …) får 15 poeng
+trekk (`ikke_asa` i `viktige_selskaper.json`). Unntak: selskaper på listen over viktige selskaper
+(f.eks. Frontline og Subsea 7) og sparebanker med egenkapitalbevis. TORM plc går dermed fra 85 til 70.
+Justeringen gjelder nye analyser, ikke meldinger som allerede er publisert.
+
+**Dagens kursdrivere** (`/newsweb/kursdrivere`, krever innlogging) vises i en boks øverst på `/newsweb/`.
+Den tar med nyheter publisert etter forrige børsslutt (16:20). En aksje regnes som kursdrivende ved minst
+3 % meravkastning mot OSEBX. Før handelen starter vises meldinger med skår 75 eller mer som «venter på handel».
+
+For hver kursdriver vises inntil 6 sammenlignbare selskaper:
+- først selskapene AI har oppgitt som berørte, med forventet retning
+- deretter selskaper fra samme sektor, med minste sektorgruppe først
+
+Hvert sammenlignbart selskap får kurs og et signal:
+- **Følger**: kursen har beveget seg minst 1 % i forventet retning
+- **Ikke reagert**: kursen har beveget seg under 1 % mot OSEBX, og selskapet kan være en kandidat
+- **Motsatt**: kursen har gått motsatt vei
+
+Uten retning fra AI antas samme retning som kursdriveren. Boksen oppdateres hvert 2. minutt mens børsen er åpen.
 
 ## PDF-analyse
 Ved en ny resultatmelding:

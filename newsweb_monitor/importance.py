@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -24,16 +25,33 @@ def tier(ticker: str) -> tuple[str, int]:
     return "", 0
 
 
+ASA = re.compile(r"\bASA\b")
+
+
+def is_asa(issuer: str) -> bool:
+    return bool(ASA.search(str(issuer or "")))
+
+
 def apply(entry: dict) -> dict:
-    """Legg til vekting for viktige selskaper. AI-skåren beholdes i score_ai."""
+    """Juster AI-skåren: viktige selskaper opp, ikke-ASA ned. AI-skåren beholdes i score_ai."""
     name, boost = tier(entry.get("ticker"))
-    if not name:
-        return entry
-    entry["importance"] = name
     ai_score = int(entry.get("score") or 0)
-    if boost and ai_score >= int(config().get("min_ai_score", 40)):
+    score = ai_score
+    if name:
+        entry["importance"] = name
+        if boost and ai_score >= int(config().get("min_ai_score", 40)):
+            score += boost
+    else:
+        rule = config().get("ikke_asa") or {}
+        issuer = str(entry.get("issuer") or "")
+        exempt = rule.get("unntak_regex") and re.search(rule["unntak_regex"], issuer, re.I)
+        if issuer and not is_asa(issuer) and not exempt and rule.get("trekk"):
+            entry["company_form"] = "ikke ASA"
+            score -= int(rule["trekk"])
+    score = min(100, max(0, score))
+    if score != ai_score:
         entry["score_ai"] = ai_score
-        entry["score"] = min(100, ai_score + boost)
+        entry["score"] = score
     return entry
 
 

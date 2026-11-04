@@ -143,6 +143,23 @@ h1{font-size:clamp(27px,3vw,37px)}
 .indirect-card h3{font-size:15px;line-height:1.35;margin:6px 0 7px}.indirect-card p{margin:6px 0;line-height:1.5;color:#d3dcec}
 @media(max-width:1150px){.indirect-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:740px){.indirect-grid{grid-template-columns:1fr}}
+.drivers{margin:6px 0 22px;border:1px solid #6b3f8a;border-radius:13px;padding:14px 16px;background:linear-gradient(155deg,#231636 0%,#111a31 80%)}
+.drivers>summary{cursor:pointer}
+.drivers-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:10px}
+.driver{border:1px solid #40507a;border-radius:11px;padding:11px 13px;background:#0f1a31;font-size:12px;min-width:0}
+.driver-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.driver-head .t{font-weight:800;color:#a8cbff;font-size:14px}
+.driver-move{font-weight:800;font-size:16px;font-variant-numeric:tabular-nums}
+.driver h3{font-size:13px;line-height:1.4;margin:5px 0 8px;font-weight:650}
+.driver .pos{color:#8fe3b0}.driver .neg{color:#ff9ea9}
+.peer-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.peer-table td{padding:4px 3px;border-top:1px solid #26374e;font-size:11px;vertical-align:top}
+.peer-table td.n{text-align:right;white-space:nowrap}
+.peer-why{color:#9fb2cc;font-size:10px}
+.sig{font-size:10px;font-weight:750;border-radius:5px;padding:1px 5px;white-space:nowrap}
+.sig-følger{background:#173f2f;color:#a6ecc6}.sig-etterslep{background:#4a3a10;color:#ffe39a}.sig-motsatt{background:#4a1c27;color:#ffc3cc}
+@media(max-width:1150px){.drivers-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:740px){.drivers-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body><main>
@@ -184,6 +201,13 @@ h1{font-size:clamp(27px,3vw,37px)}
  <span><b>{{ignored}}</b> lav prioritet / filtrert</span>
  <span class="dim">Kilde: {{report.get('source','NewsWeb')}}{% if report.get('generated_at') %} · {{report.generated_at|norsk_tid}}{% endif %}</span>
 </div>
+{% if can_view_consensus %}
+<details class="drivers" id="drivers" open>
+  <summary class="section-heading">Dagens kursdrivere og sammenlignbare selskaper</summary>
+  <p class="dimmed-summary" id="drivers-note">Henter kurser …</p>
+  <div class="drivers-grid" id="drivers-grid"></div>
+</details>
+{% endif %}
 {% set indirect = report.get('indirect') or [] %}
 {% if indirect %}
 <section class="indirect" aria-label="Indirekte nyheter">
@@ -502,6 +526,54 @@ h1{font-size:clamp(27px,3vw,37px)}
 </script>
 {% if can_view_consensus %}
 <script>
+(() => {
+  const grid=document.getElementById('drivers-grid'),note=document.getElementById('drivers-note');
+  if(!grid)return;
+  const pct=v=>v===undefined||v===null?'–':(v>0?'+':'')+Number(v).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';
+  const cls=v=>v>0?'pos':(v<0?'neg':'');
+  const el=(tag,c,text)=>{const n=document.createElement(tag);if(c)n.className=c;if(text!==undefined)n.textContent=text;return n;};
+  const SIG={'følger':'Følger','etterslep':'Ikke reagert','motsatt':'Motsatt'};
+  function render(data){
+    grid.replaceChildren();
+    const since=new Date(data.since).toLocaleString('nb-NO',{timeZone:'Europe/Oslo',weekday:'short',hour:'2-digit',minute:'2-digit'});
+    if(!data.drivers.length){note.textContent='Ingen kursdrivende nyheter siden børsslutt '+since+'.';return;}
+    note.textContent='Nyheter siden børsslutt '+since+'. Kursdrivende = minst 3 % mot OSEBX etter meldingen'+
+      (data.market_open?'. Oppdateres hvert 2. minutt (forsinket ca. 15 min).':'. Børsen er stengt.')+
+      ' «Ikke reagert» = sammenlignbart selskap har beveget seg under 1 % mot OSEBX.';
+    data.drivers.forEach(d=>{
+      const r=d.reaction||{},move=r.abnormal_pct!==undefined?r.abnormal_pct:r.change_pct;
+      const box=el('article','driver');
+      const head=el('div','driver-head');
+      const left=el('span');left.append(el('span','t',d.ticker),el('span','dim',' · '+d.issuer));
+      head.append(left,el('span','driver-move '+cls(move),d.status==='kursdrivende'?pct(move):d.status));
+      box.append(head);
+      const h=el('h3');
+      if(d.url&&d.url.startsWith('https://')){const a=el('a','',d.headline);a.href=d.url;a.target='_blank';a.rel='noopener noreferrer';h.append(a);}else h.textContent=d.headline;
+      box.append(h);
+      if(!r.error)box.append(el('p','dim',(r.traded_since?'Kurs '+pct(r.change_pct)+', OSEBX '+pct(r.index_pct):'Ingen handel ennå')+
+        (r.rel_volume?', volum '+r.rel_volume.toLocaleString('nb-NO')+'×':'')+' · skår '+d.score));
+      if(d.peers.length){
+        const t=el('table','peer-table');
+        d.peers.forEach(p=>{
+          const pr=p.reaction||{},tr=el('tr');
+          const who=el('td');who.append(el('b','',p.ticker),el('div','peer-why',(p.expected&&p.expected!=='uklar'?p.expected+': ':'')+p.reason));
+          const mv=pr.abnormal_pct!==undefined?pr.abnormal_pct:pr.change_pct;
+          const num=el('td','n '+cls(mv),pr.error?'–':pct(mv));
+          if(!pr.error)num.title='Kurs '+pct(pr.change_pct)+' siden meldingen';
+          const sig=el('td','n');if(p.signal)sig.append(el('span','sig sig-'+p.signal,SIG[p.signal]));
+          tr.append(who,num,sig);t.append(tr);
+        });
+        box.append(t);
+      }
+      grid.append(box);
+    });
+  }
+  let open=false;
+  const load=()=>fetch('{{url_for("newsweb.price_drivers")}}',{credentials:'same-origin'}).then(r=>r.json())
+    .then(d=>{open=!!d.market_open;render(d);}).catch(()=>{note.textContent='Klarte ikke hente kursdrivere.';});
+  load();
+  setInterval(()=>{if(open&&!document.hidden)load();},120000);
+})();
 (() => {
   const panels=Array.from(document.querySelectorAll('.kurs-panel'));
   if(!panels.length)return;

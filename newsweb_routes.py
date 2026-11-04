@@ -468,6 +468,34 @@ def price_reaction():
     response.headers["Cache-Control"]="private, no-store, max-age=0"
     return response
 
+_drivers_lock=threading.Lock()
+_drivers_cache={"until":0.0,"key":"","data":None}
+
+@newsweb_bp.get("/kursdrivere")
+def price_drivers():
+    """Private: dagens kursdrivende aksjer med sammenlignbare selskaper og deres kursutvikling."""
+    from flask import jsonify, make_response
+    from newsweb_monitor import market_data
+    from newsweb_monitor.dedup import collapse_stories
+    if not _can_view_consensus():
+        abort(403)
+    report,_=read_report()
+    key=str(report.get("generated_at") or "")+str(len(report.get("items") or []))
+    now=time.monotonic()
+    with _drivers_lock:
+        if _drivers_cache["data"] is not None and _drivers_cache["until"]>now and _drivers_cache["key"]==key:
+            data=_drivers_cache["data"]
+        else:
+            data=None
+    if data is None:
+        items=collapse_stories([dict(x) for x in report.get("items",[])])
+        data=market_data.drivers(items)
+        with _drivers_lock:
+            _drivers_cache.update(until=now+(60 if data["market_open"] else 600),key=key,data=data)
+    response=make_response(jsonify(data))
+    response.headers["Cache-Control"]="private, no-store, max-age=0"
+    return response
+
 @newsweb_bp.get("/")
 def dashboard():
     report,demo=read_report()
