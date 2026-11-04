@@ -560,8 +560,8 @@ h1{font-size:clamp(27px,3vw,37px)}
   function render(data){
     grid.replaceChildren();
     const since=new Date(data.since).toLocaleString('nb-NO',{timeZone:'Europe/Oslo',weekday:'short',hour:'2-digit',minute:'2-digit'});
-    if(!data.drivers.length){note.textContent='Ingen kursdrivende nyheter siden børsslutt '+since+(data.profile?' for '+data.profile+' sine selskaper eller deres sammenlignbare.':'.');return;}
-    note.textContent='Nyheter siden børsslutt '+since+'. Kursdrivende = minst 3 % mot OSEBX etter meldingen'+
+    if(!data.drivers.length){note.textContent='Ingen kursdrivende nyheter publisert etter forrige børsslutt ('+since+')'+(data.profile?' for '+data.profile+' sine selskaper eller deres sammenlignbare.':'.');return;}
+    note.textContent='Alle nyheter publisert etter forrige børsslutt ('+since+') og frem til nå – det er disse som kan ha drevet kursen i dagens handel; eldre nyheter er allerede priset inn. Kursdrivende = minst 3 % mot OSEBX etter meldingen'+
       (data.market_open?'. Oppdateres hvert 2. minutt (forsinket ca. 15 min).':'. Børsen er stengt.')+
       ' «Ikke reagert» = sammenlignbart selskap har beveget seg under 1 % mot OSEBX.';
     data.drivers.forEach(d=>{
