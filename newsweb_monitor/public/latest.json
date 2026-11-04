@@ -2,21 +2,217 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-04T05:40:00+00:00",
+  "generated_at": "2026-11-04T05:50:00+00:00",
   "items": [
+    {
+      "id": "685532",
+      "market": "XOSL",
+      "ticker": "ITERA",
+      "issuer": "Itera ASA",
+      "title": "Forbedret EBIT-margin og sterk kontantstrøm i et overgangskvartal",
+      "headline": "Itera forbedrer EBIT-margin til 4,0 % og snur til positiv kontantstrøm i Q3",
+      "lead": "Itera rapporterte driftsinntekter på 183,2 millioner NOK i Q3 2026, ned 3 % i konstant valuta, men EBIT-margin steg til 4,0 % og kontantstrøm fra drift ble positiv med 20,2 millioner NOK i et overgangskvartal.",
+      "published_at": "2026-11-04T05:50:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/685532",
+      "summary": "Itera rapporterte driftsinntekter på 183,2 millioner NOK i Q3 2026, ned 3 % i konstant valuta, men EBIT-margin steg til 4,0 % og kontantstrøm fra drift ble positiv med 20,2 millioner NOK i et overgangskvartal.",
+      "reason": "Til tross for lavere omsetning, viser Itera forbedret lønnsomhet og en betydelig bedring i kontantstrøm. Overgangen med ny AI-kompetanse kan på kort sikt redusere vekst, men kan styrke fremtidig drift. Videre oppfølging bør fokusere på utnyttelsesgrad og omstillingseffekter.",
+      "score": 75,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "attachment_key": "3f459b1d6365c57e",
+      "number_keys": [
+        "004be8",
+        "0ade7c",
+        "117284",
+        "1474ff",
+        "1b6453",
+        "1cf9ad",
+        "1e7b95",
+        "21b941",
+        "22d200",
+        "356a19",
+        "35e995",
+        "4396c2",
+        "47ab99",
+        "4d89d2",
+        "5b384c",
+        "76546f",
+        "77de68",
+        "794bb3",
+        "8a0bbd",
+        "8effee",
+        "902ba3",
+        "ab58d3",
+        "aee655",
+        "af3e13",
+        "b16a45",
+        "b74f5e",
+        "c09763",
+        "c82ea4",
+        "cfa3da",
+        "e4f206",
+        "f1abd6",
+        "fa35e1",
+        "fe5dbb"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "filename",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Itera interim report Q3 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685532&attachmentId=335658"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 183.2,
+            "prior_year": 196.3,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -6.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "PAGE 2; PAGE 3; PAGE 12"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 15.1,
+            "prior_year": 15.5,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -2.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "PAGE 2; PAGE 3; PAGE 12"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": 7.3,
+            "prior_year": 7.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -3.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "PAGE 2; PAGE 3; PAGE 12"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 5.102,
+            "prior_year": 3.587,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 42.2,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "PAGE 12"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 20.2,
+            "prior_year": -7.2,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "PAGE 2; PAGE 6"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 0.06,
+            "prior_year": 0.04,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 50.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "PAGE 12"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Itera ser en selektiv etterspørsel med økt aktivitet innen AI-drevet modernisering, cloud, data og cybersikkerhet. Agentisk AI er en viktig vekstdriver, og nesten alle nye oppdrag er nå AI-relatert. Selskapet opprettholder kostnadsdisiplin, operasjonell effektivitet og kontantbeskyttelse for lønnsom vekst. Finansiell eksponering i valuta og renteeffekter fortsetter. Krigen i Ukraina påvirker driften, spesielt i viktige leveransesteder. Strategisk fokus på finans, energi, industri, offentlig sektor og forsvar for fortsatt vekst.",
+          "change": "Endringen i utsiktene viser en økt vektlegging av spesifikke vekstområder som AI-drevet modernisering og agentisk AI, hvor \"nesten alle nye oppdrag nå er AI-relatert\" i Q3 versus tidligere mer generelle referanser til AI og digital transformasjon i Q2. Tidligere var det presist angitt forventet marginforbedring på 1,6–1,8 prosentpoeng årlig, men i Q3 gir Itera ikke fremtidig markedsguidance og fokuserer i stedet på kostnads- og kontantbeskyttelse uten tallfestet marginmål. Risikoen knyttet til valuta og renteeffekter blir mer fremhevet i Q3, samt påvirkning av krigen i Ukraina på driften, noe som ikke var nevnt tidligere.",
+          "trend": "Itera har over kvartalene vært konsistent i å fremheve AI og digital modernisering som kjerneområder for vekst, med operasjonelle tiltak for marginforbedring og lønnsomhet. Tidlige kvartaler varslet konkrete marginforbedringer, mens Q3-rapporten er mer forsiktig, uten konkrete marginmål, men med fokus på selektiv etterspørsel og usikkerhet knyttet til valuta, renter og geopolitisk risiko. Tonebildet viser en mer nøktern holdning til markedssituasjonen, men fortsatt tro på vekst i spesifikke høykvalitetssegmenter og teknologier.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Etterspørsel og vekst",
+              "statement": "Etterspørselen er selektiv, men øker innen AI-drevet modernisering, cloud, data og cybersikkerhet, med nesten alle nye prosjekter AI-relaterte.",
+              "evidence": "\"Demand remains selective, but we see stronger pockets of activity within AI-driven modernisation...\" og \"virtually all new engagements are now AI-related.\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Lønnsomhet og driftseffektivitet",
+              "statement": "Itera skal fortsatt opprettholde kostnadsdisiplin, forbedre operasjonell effektivitet og beskytte kontantstrøm for lønnsom vekst, men gir ikke konkret marginmål i Q3.",
+              "evidence": "\"We will maintain cost discipline, keep improving operating efficiency and protect cash conversion to deliver profitable growth...\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Risiko og påvirkninger",
+              "statement": "Valutafluktuasjoner og renteeffekter utgjør fortsatt finansiell risiko, og krigen i Ukraina påvirker driften i viktige leveranseområder.",
+              "evidence": "\"Itera’s financial exposure continues to include currency fluctuations...\" og \"The war in Ukraine continues to influence the operating environment...\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Strategisk fokus",
+              "statement": "Fortsetter satsningen på kjerneindustrier som finans, energi, industri, offentlig sektor og forsvar, med fokus på AI, cybersikkerhet og digital modernisering.",
+              "evidence": "\"Itera is strongly positioned in financial services, energy and industry, the public sector and the growing defence market...\"",
+              "page": "utdrag"
+            }
+          ]
+        }
+      },
+      "language_versions": [
+        {
+          "id": "685532",
+          "title": "Forbedret EBIT-margin og sterk kontantstrøm i et overgangskvartal",
+          "url": "https://newsweb.oslobors.no/message/685532",
+          "published_at": "2026-11-04T05:50:00+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685531",
+          "title": "Improved EBIT margin and strong cash flow in a transition quarter",
+          "url": "https://newsweb.oslobors.no/message/685531",
+          "published_at": "2026-11-04T05:50:00+00:00",
+          "language": "Engelsk"
+        }
+      ]
+    },
     {
       "id": "685530",
       "market": "XOSL",
       "ticker": "MOWI",
       "issuer": "Mowi ASA",
       "title": "Mowi ASA (OSE: MOWI): Quarterly dividend",
-      "headline": "Mowi setter kvartalsutbytte til 2,30 kroner per aksje",
-      "lead": "Mowi kunngjør utbytte på 2,30 kroner per aksje for kvartalet med forventet utbetaling 23. november. Aksjer handles uten utbytte fra 13. november. Ingen informasjon om endringer i forventet inntjening er gitt.",
+      "headline": "Mowi utbetaler kvartalsutbytte på 2,30 kroner per aksje",
+      "lead": "Mowi ASA kunngjør kvartalsutbytte på 2,30 kroner per aksje med forventet utbetaling 23. november 2026. Aksjene handles eksklusive utbytte fra 13. november.",
       "published_at": "2026-11-04T05:31:00.949000+00:00",
       "url": "https://newsweb.oslobors.no/message/685530",
-      "summary": "Mowi kunngjør utbytte på 2,30 kroner per aksje for kvartalet med forventet utbetaling 23. november. Aksjer handles uten utbytte fra 13. november. Ingen informasjon om endringer i forventet inntjening er gitt.",
-      "reason": "Utbytteutbetalingen gir direkte avkastning til aksjonærene, men uten nye tall om selskapets inntjening eller fremtidig utvikling gir dette begrenset innsikt i selskapets økonomiske retning. Videre analyser bør fokusere på lønnsomhet og vekstutsikter.",
-      "score": 65,
+      "summary": "Mowi ASA kunngjør kvartalsutbytte på 2,30 kroner per aksje med forventet utbetaling 23. november 2026. Aksjene handles eksklusive utbytte fra 13. november.",
+      "reason": "Utbytteutbetaling bekrefter stabil kontantstrøm til aksjonærer, men gir begrenset informasjon om selskapets lønnsomhet eller fremtidig vekst. Viktig å følge selskapets inntekter og resultatutvikling videre.",
+      "score": 45,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -66,6 +262,22 @@
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "685529",
+          "title": "Record-high profits, revenues and volumes for Mowi",
+          "url": "https://newsweb.oslobors.no/message/685529",
+          "published_at": "2026-11-04T05:30:27.364000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685528",
+          "title": "Rekordhøye resultater, omsetning og volumer for Mowi",
+          "url": "https://newsweb.oslobors.no/message/685528",
+          "published_at": "2026-11-04T05:30:27.324000+00:00",
+          "language": "Norsk"
+        }
+      ],
       "attachment_key": "6590558112da50b4",
       "number_keys": [
         "03606e",
@@ -253,23 +465,7 @@
             }
           ]
         }
-      },
-      "language_versions": [
-        {
-          "id": "685529",
-          "title": "Record-high profits, revenues and volumes for Mowi",
-          "url": "https://newsweb.oslobors.no/message/685529",
-          "published_at": "2026-11-04T05:30:27.364000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685528",
-          "title": "Rekordhøye resultater, omsetning og volumer for Mowi",
-          "url": "https://newsweb.oslobors.no/message/685528",
-          "published_at": "2026-11-04T05:30:27.324000+00:00",
-          "language": "Norsk"
-        }
-      ]
+      }
     },
     {
       "id": "685526",
@@ -545,13 +741,13 @@
       "ticker": "LINK",
       "issuer": "Link Mobility Group Holding ASA",
       "title": "LINK Mobility - Q3 2026 - Back to high-single-digit organic growth",
-      "headline": "LINK Mobility øker organisk vekst til 7 prosent i tredje kvartal",
-      "lead": "LINK Mobility rapporterer 7 prosent organisk vekst i bruttomargin for Q3 2026, en økning på 5 prosentpoeng fra Q2, og forventer fortsatt vekst i høy ensifret område i andre halvår.",
+      "headline": "LINK Mobility øker organisk omsetningsvekst til 7 prosent i Q3 2026",
+      "lead": "LINK Mobility rapporterer 7 prosent organisk vekst i bruttomargin i tredje kvartal, med oppjustert vekstguide til høy enkeltsifret for andre halvår. Forventet utbytte økes til 330–400 millioner kroner.",
       "published_at": "2026-11-04T05:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685520",
-      "summary": "LINK Mobility rapporterer 7 prosent organisk vekst i bruttomargin for Q3 2026, en økning på 5 prosentpoeng fra Q2, og forventer fortsatt vekst i høy ensifret område i andre halvår.",
-      "reason": "Den sterke veksten i Q3 og heving av vekstguidingen for andre halvår indikerer at selskapet lykkes med sine vekstinitiativ. Økt vekst i Enterprise-segmentet og positiv utvikling for Global Messaging styrker vekstutsiktene, noe som er positivt for aksjonærene. Videre bør man følge utviklingen i valutapåvirkningen, samt effektene av økt AI-",
-      "score": 85,
+      "summary": "LINK Mobility rapporterer 7 prosent organisk vekst i bruttomargin i tredje kvartal, med oppjustert vekstguide til høy enkeltsifret for andre halvår. Forventet utbytte økes til 330–400 millioner kroner.",
+      "reason": "Den akselererende organiske veksten og høyere utbyttevarsling styrker investortilliten. Viktig å følge utviklingen i AI-adopsjon som en potensiell vekstdriver og hvordan valutaeffekter påvirker lønnsomheten fremover.",
+      "score": 78,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -602,7 +798,7 @@
             "yoy_pct": 18.7,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2 and SIDE 10"
+            "evidence": "SIDE 2, SIDE 7, SIDE 10"
           },
           {
             "label": "EBITDA",
@@ -615,59 +811,7 @@
             "yoy_pct": 37.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2 and SIDE 10"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": 118.0,
-            "prior_year": 76.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 55.3,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Operating profit on SIDE 10"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 76.0,
-            "prior_year": 17.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 347.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Profit for the period on SIDE 10"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": 0.27,
-            "prior_year": 0.06,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 350.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Earnings per share on SIDE 10"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "NOK million",
-            "current": 63.0,
-            "prior_year": 196.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -67.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Cash flow from operating activities on SIDE 9"
+            "evidence": "SIDE 2, SIDE 5, SIDE 7, SIDE 10"
           },
           {
             "label": "Netto renteinntekter",
@@ -680,39 +824,65 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net interest expense on SIDE 8 and financial expense notes on SIDE 10"
+            "evidence": "SIDE 8, SIDE 10"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 76.0,
+            "prior_year": 17.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 347.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 10"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 0.27,
+            "prior_year": 0.06,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 350.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 10"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "LINK melder om en klar akselerasjon i organisk vekst med en organisk bruttofortjenestevekst på 7 % i tredje kvartal 2026, noe som ligger i det høyere sjiktet av forventningene. Basert på denne utviklingen hever selskapet sin veiledning for organisk bruttofortjenestevekst i andre halvår 2026 fra midt-til-høy ensifret til høy ensifret nivå. Justert EBITDA vokste også med 7 % organisk, drevet av sterkere bruttofortjenestevekst. Selskapet forventer fortsatt høy ensifret vekst i organisk bruttofortjeneste for 2027 i tråd med sine mellomlangsiktige mål. Videre forventes fjorårets oppkjøp å styrke posisjonen i Spania og Latin-Amerika, og økt AI-adop",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "LINK har økt sin organisk gross profit vekstveiledning for andre halvår 2026 til høye enkeltsifre, opp fra midt-til-høye enkeltsifre basert på en sterk kvartal 3-ytelse med 7 % vekst i organisk bruttofortjeneste. Organisk justert EBITDA vokste også med 7 % i Q3. Selskapet forventer fortsatt høy enkeltsifret organisk vekst i 2027, understøttet av økt kommersiell aktivitet, AI-adopsjon og utrulling av RCS, spesielt i Norden. De planlegger også aksjetilbakekjøp på 330–400 millioner NOK i 2026, samtidig som de fortsetter investeringer i organisk vekst og oppkjøp.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Organisk vekst",
-              "statement": "Organisk bruttofortjenestevekst i Q3 akselererte til 7 % og høynet forventningene for H2 2026 til høy ensifret nivå. For 2027 forventes fortsatt høy ensifret organisk vekst.",
-              "evidence": "\"vi hever H2’26 organisk bruttofortjenestevekst til høy ensifret\"; \"vi forventer høy ensifret vekst i 2027\" (side 1 og CEO-melding)",
-              "page": "1"
+              "topic": "Vekst og inntekter",
+              "statement": "Forventet organisk gross profit vekst i H2 2026 hevet til høye enkeltsifre basert på Q3-resultater med 7 % vekst og forventet fortsatt momentum i Q4 og 2027.",
+              "evidence": "\"we raise H2’26 organic gross profit growth guidance from mid-to-high single digits to high single digits\"; \"organic gross profit growth accelerated to 7% in Q3\"",
+              "page": "flere utdrag"
             },
             {
-              "topic": "Profitabilitet og EBITDA",
-              "statement": "Organisk justert EBITDA-vekst ble 7 % i Q3, drevet av forbedret bruttofortjeneste, med 37 % økning i justert EBITDA totalt inkludert oppkjøp.",
-              "evidence": "\"organisk justert EBITDA vekst på 7 %\"; \"justert EBITDA økte 37 % til 268 millioner NOK\" (side 1)",
-              "page": "1"
+              "topic": "Profitabilitet",
+              "statement": "Organisk justert EBITDA vokste 7 % i Q3, drevet av økt bruttofortjeneste, med et underliggende forretningsmodellskalerbarhet som forventes å gi høyere EBITDA-vekst enn bruttofortjeneste under normale forhold.",
+              "evidence": "\"organic adjusted EBITDA growth to 7%, up 8 percentage points QoQ\"; \"Management expects adj.EBITDA growth under normal conditions to reflect the scalable business model and be higher than gross profit",
+              "page": "flere utdrag"
             },
             {
-              "topic": "Investeringer og oppkjøp",
-              "statement": "Oppkjøp i Spania og Latin-Amerika styrker markedsposisjonen, mens AI forventes å bidra til vekst gjennom økt meldingsvolum og richer kanaler.",
-              "evidence": "\"oppkjøpene av Interactive og LabsMobile... styrker posisjonen\"; \"økende AI-adopsjon gir strukturell vekst\" (CEO-melding)",
-              "page": "1"
+              "topic": "Investering og kapitalbruk",
+              "statement": "LINK planlegger aksjetilbakekjøp på 330-400 millioner NOK i 2026, samtidig som de fortsetter å investere i organisk vekst og målrettede oppkjøp særlig i Spania og Latin-Amerika.",
+              "evidence": "\"NOK 330-400 million in share buybacks expected for 2026\"; \"Continued M&A execution strengthened LINK’s position in Spain and LATAM through Interactive and LabsMobile\"",
+              "page": "flere utdrag"
             },
             {
-              "topic": "Utbytte og aksjetilbakekjøp",
-              "statement": "LINK planlegger aksjetilbakekjøp for 2026 på 330-400 millioner NOK, samtidig som det investeres i videre vekst og M&A.",
-              "evidence": "\"vi forventer aksjetilbakekjøp på 330-400 millioner i 2026\"; \"fortsette å investere i organisk vekst og oppkjøp\" (CEO-melding)",
-              "page": "1"
+              "topic": "Marked og teknologitrender",
+              "statement": "Selskapet ser økt AI-adopsjon og utrulling av RCS som strukturelle vekstdrivere som vil øke meldingsvolum og mer avansert kundekommunikasjon fremover.",
+              "evidence": "\"expect increasing AI adoption to provide an additional structural tailwind\"; \"Nordic RCS rollout commenced, with Tele2 activating RCS on iPhone in Sweden in September\"",
+              "page": "flere utdrag"
             }
           ]
         }
@@ -1148,15 +1318,15 @@
       "ticker": "VASA",
       "issuer": "Vasakronan AB",
       "title": "Vasakronan's interim report January-September 2026",
-      "headline": "Vasakronan sees 1% drop in rental revenue, occupancy falls to 87.1%",
-      "lead": "Rental revenue edged down to SEK 7,112 million with occupancy slipping 0.6 percentage points; net lettings remain negative at SEK -125 million, reflecting ongoing market challenges in offsetting lease terminations.",
+      "headline": "Vasakronan med stabil leieinntekt på SEK 7,1 mrd, men nettoleie svekket",
+      "lead": "Vasakronan rapporterer nesten uendret leieinntekt på SEK 7,1 milliarder, men nettoleie falt til SEK -125 millioner. Porteføljeverdien økte marginalt til SEK 183,4 milliarder, mens beleggsprosenten sank til 87,1%.",
       "published_at": "2026-11-03T13:00:13.900000+00:00",
       "url": "https://newsweb.oslobors.no/message/685490",
-      "summary": "Rental revenue edged down to SEK 7,112 million with occupancy slipping 0.6 percentage points; net lettings remain negative at SEK -125 million, reflecting ongoing market challenges in offsetting lease terminations.",
-      "reason": "Vasakronan reports stable yet slightly declining earnings and occupancy, with net lettings negative indicating pressure on rental income growth. Investors should monitor future lease renewals and market demand to assess recovery prospects.",
-      "score": 75,
+      "summary": "Vasakronan rapporterer nesten uendret leieinntekt på SEK 7,1 milliarder, men nettoleie falt til SEK -125 millioner. Porteføljeverdien økte marginalt til SEK 183,4 milliarder, mens beleggsprosenten sank til 87,1%.",
+      "reason": "Resultatene viser stabilitet i totale leieinntekter, men nettoleie og belegg faller noe, noe som kan svekke kontantstrømmen. Den marginale eiendomsverdiøkningen og økt andel bærekraftige eiendommer illustrerer et solid underliggende aktivum. Aksjonærer bør følge med på fremtidig utvikling i leieetterspørsel og finansieringskostnader.",
+      "score": 78,
       "skipped": false,
-      "direction": "negativ",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "attachment_key": "a7529fb9b80d2a0d",
       "number_keys": [
@@ -1818,15 +1988,15 @@
       "ticker": "AFK",
       "issuer": "Arendals Fossekompani ASA",
       "title": "Q3 2026 financial results webcast and Q&A session",
-      "headline": "Arendals Fossekompani annonserer Q3 2026-resultater 10. november",
-      "lead": "Arendals Fossekompani skal presentere sine tall for tredje kvartal 2026 tirsdag 10. november klokken 09:00 CET, med CEO og CFO til stede på webcast. Resultater og detaljer er foreløpig ikke offentliggjort.",
+      "headline": "Arendals Fossekompani varsler Q3-rapport 10. november – webcast kl. 09.00",
+      "lead": "Arendals Fossekompani offentliggjør sine kvartalstall for Q3 2026 tirsdag 10. november kl. 08.00, med CEO og CFO som presenterer tallene fra 09.00 via webcast. Det gis mulig for spørsmål etter presentasjonen.",
       "published_at": "2026-11-03T08:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685444",
-      "summary": "Arendals Fossekompani skal presentere sine tall for tredje kvartal 2026 tirsdag 10. november klokken 09:00 CET, med CEO og CFO til stede på webcast. Resultater og detaljer er foreløpig ikke offentliggjort.",
-      "reason": "Foreløpig mangler konkrete nøkkeltall og resultater for Q3 2026, hvilket gjør det umulig å vurdere resultatets påvirkning på aksjonærene eller selskapets fremtidige utsikter.",
+      "summary": "Arendals Fossekompani offentliggjør sine kvartalstall for Q3 2026 tirsdag 10. november kl. 08.00, med CEO og CFO som presenterer tallene fra 09.00 via webcast. Det gis mulig for spørsmål etter presentasjonen.",
+      "reason": "Denne nyheten annonserer tidspunktet for selskapets kvartalsrapport og tilhørende webcast, men gir ingen konkrete tall eller indikasjoner på resultatutvikling. Investorer må vente på detaljene for å vurdere finansiell effekt.",
       "score": 40,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "number_keys": [
         "0a57cb",
@@ -2976,13 +3146,13 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "OTL - Key information relating to the cash dividend for Q3 2026 to be paid by Odfjell Technology Ltd",
-      "headline": "Odfjell Technology utbetaler utbytte på 1,52 kroner per aksje for Q3 2026",
-      "lead": "Odfjell Technology kunngjør kontantutbytte på 1,52 NOK per aksje for tredje kvartal 2026 med betaling 25. november. Informasjon om tidligere utbytte og sammenligning mangler foreløpig.",
+      "headline": "Odfjell Technology utløser kvartalsutbytte på 1,52 kroner per aksje i Q3 2026",
+      "lead": "Odfjell Technology har vedtatt et kontantutbytte på 1,52 NOK per aksje for tredje kvartal 2026, med utbetaling 25. november. Siste dag med rett til utbytte er 9. november.",
       "published_at": "2026-11-03T06:11:01.613000+00:00",
       "url": "https://newsweb.oslobors.no/message/685417",
-      "summary": "Odfjell Technology kunngjør kontantutbytte på 1,52 NOK per aksje for tredje kvartal 2026 med betaling 25. november. Informasjon om tidligere utbytte og sammenligning mangler foreløpig.",
-      "reason": "Utbytteutbetalinger gir aksjonærer direkte avkastning, men uten informasjon om tidligere kvartaler eller selskapets løpende lønnsomhet, er det vanskelig å vurdere om dette er en opp- eller nedjustering. Aksjonærer bør følge opp fremtidige finansrapporter for å vurdere selskapets økonomiske helse og utbyttenivåets bærekraft.",
-      "score": 55,
+      "summary": "Odfjell Technology har vedtatt et kontantutbytte på 1,52 NOK per aksje for tredje kvartal 2026, med utbetaling 25. november. Siste dag med rett til utbytte er 9. november.",
+      "reason": "Utbytteutbetaling viser selskaps kapitaldisponering, men uten informasjon om resultat eller sammenligning med tidligere kvartaler forventes ingen klare signaler om selskapets utvikling eller finansielle styrke. Aksjonærer vil ha interesse av å følge fremtidige resultater og signaler om utbyttepolitikk.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -11836,45 +12006,20 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685138",
-      "market": "XOSL",
-      "ticker": "AGLX",
-      "issuer": "Agilyx ASA",
-      "title": "Agilyx's arcLABS Achieves ISO/IEC 17025 Accreditation",
-      "headline": "Agilyx’ arcLABS får ISO/IEC 17025-akkreditering – styrker datakvalitet",
-      "lead": "Agilyx’ laboratorium arcLABS har oppnådd ISO/IEC 17025-akkreditering, som bekrefter høy nøyaktighet og kvalitet i testing for plastog resirkuleringsbransjen. Dette kan øke tilliten til selskapets analytiske tjenester.",
-      "published_at": "2026-10-29T12:14:05.858000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685138",
-      "summary": "Agilyx’ laboratorium arcLABS har oppnådd ISO/IEC 17025-akkreditering, som bekrefter høy nøyaktighet og kvalitet i testing for plastog resirkuleringsbransjen. Dette kan øke tilliten til selskapets analytiske tjenester.",
-      "reason": "Akkrediteringen gir arcLABS internasjonal anerkjennelse for kvalitet og pålitelighet, noe som kan tiltrekke flere kunder og styrke Agilyx’ posisjon i resirkuleringsmarkedet. Videre kan dette bidra til økt legitimitet rundt egne produkter og teknologier som Styrenyx.",
-      "score": 75,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "number_keys": [
-        "04e869",
-        "7719a1",
-        "82a16a",
-        "91032a",
-        "ac3478",
-        "aee655"
-      ]
     }
   ],
-  "last_checked_at": "2026-11-04T05:40:00+00:00",
+  "last_checked_at": "2026-11-04T05:50:00+00:00",
   "monitor_stats": {
-    "fetched": 186,
-    "recent": 98,
-    "already_seen": 88,
+    "fetched": 188,
+    "recent": 100,
+    "already_seen": 92,
     "eligible": 8,
-    "filtered": 2,
+    "filtered": 0,
     "analyzed": 8,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 5,
-    "source_latest_at": "2026-11-04T05:31:00.949000+00:00"
+    "recovered_unpublished": 6,
+    "source_latest_at": "2026-11-04T05:50:00+00:00"
   }
 }
