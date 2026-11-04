@@ -35,7 +35,8 @@ INSTRUCTIONS = (
     "privatpersoner og meningsstoff uten ny informasjon. "
     "For hver relevant sak: index (fra input), score 0-100 for forventet betydning for inntjening, "
     "comment (maks 260 tegn, norsk, konkret mekanisme: hvorfor og hvor mye), og affected: inntil 6 "
-    "Oslo Børs-tickere med direction positiv/negativ/uklar og reason (maks 140 tegn). "
+    "Oslo Børs-tickere (offisiell ticker, f.eks. AKRBP, KOG, EQNR – ikke selskapsnavn) med direction "
+    "positiv/negativ/uklar og reason (maks 140 tegn). Ta bare med selskaper notert på Oslo Børs. "
     "Finn aldri på tall. Returner JSON med feltet items; ta bare med saker med score >= 40."
 )
 
@@ -90,7 +91,8 @@ def fetch_feeds() -> list[dict]:
     return items
 
 
-def clean(result: dict, candidates: list[dict], analyzed_at: str) -> list[dict]:
+def clean(result: dict, candidates: list[dict], analyzed_at: str, issuers: dict | None = None) -> list[dict]:
+    from .newsweb_source import resolve_ticker
     out = []
     for row in (result or {}).get("items", []):
         try:
@@ -102,7 +104,8 @@ def clean(result: dict, candidates: list[dict], analyzed_at: str) -> list[dict]:
         affected, seen = [], set()
         for a in row.get("affected") or []:
             ticker = str(a.get("ticker") or "").strip().upper()
-            if TICKER.fullmatch(ticker) and ticker not in seen:
+            ticker = resolve_ticker(ticker, issuers or {}) if TICKER.fullmatch(ticker) else None
+            if ticker and ticker not in seen:
                 seen.add(ticker)
                 direction = a.get("direction") if a.get("direction") in ("positiv", "negativ") else "uklar"
                 affected.append({"ticker": ticker, "direction": direction,
@@ -145,7 +148,8 @@ def run(state: dict, key: str, *, now: dt.datetime | None = None, lookback_hours
                        {"Content-Type": "application/json", "Authorization": "Bearer " + key})
     texts = [p.get("text", "") for o in result.get("output", []) for p in o.get("content", [])
              if p.get("type") == "output_text"]
-    rows = clean(json.loads("".join(texts) or "{}"), fresh, now.isoformat(timespec="seconds"))
+    from .newsweb_source import active_issuers
+    rows = clean(json.loads("".join(texts) or "{}"), fresh, now.isoformat(timespec="seconds"), active_issuers())
     for item in fresh:  # merk som sett først når AI-kallet lyktes
         seen[item["id"]] = now.isoformat()
     for ident, when in list(seen.items()):

@@ -173,20 +173,25 @@ INSTRUCTIONS = (
     "ikke et avvik mot uobserverte markedsforventninger. "
     "affected: ANDRE noterte selskaper på Oslo Børs (maks 5) der nyheten sannsynligvis påvirker "
     "inntjening eller verdsettelse: konkurrenter som avslører samme sektortrend, kunder, leverandører, "
-    "morselskap/eiere og datterselskaper. Bruk Oslo Børs-ticker, retning positiv/negativ/uklar og "
+    "morselskap/eiere og datterselskaper. Bruk offisiell Oslo Børs-ticker (f.eks. AKRBP, KOG, EQNR – "
+    "ikke selskapsnavn) og kun selskaper notert på Oslo Børs, retning positiv/negativ/uklar og "
     "en kort begrunnelse (maks 160 tegn). Feltet sector_peers i input er kun et hint. "
     "Tom liste hvis ingen tydelig påvirkning; ikke list hele sektoren uten grunn. "
     "Returner bare JSON-feltene headline, lead, score, direction, reason, affected."
 )
 AFFECTED_TICKER = re.compile(r"[A-Z0-9][A-Z0-9.\-]{0,14}")
 
-def clean_affected(rows, own_ticker: str) -> list[dict]:
+def clean_affected(rows, own_ticker: str, issuers: dict | None = None) -> list[dict]:
+    from .newsweb_source import resolve_ticker
     out, seen = [], {str(own_ticker or "").upper()}
     for row in rows if isinstance(rows, list) else []:
         if not isinstance(row, dict):
             continue
         ticker = str(row.get("ticker") or "").strip().upper()
-        if not AFFECTED_TICKER.fullmatch(ticker) or ticker in seen:
+        if not AFFECTED_TICKER.fullmatch(ticker):
+            continue
+        ticker = resolve_ticker(ticker, issuers or {})
+        if not ticker or ticker in seen:
             continue
         direction = str(row.get("direction") or "uklar")
         seen.add(ticker)
@@ -196,6 +201,13 @@ def clean_affected(rows, own_ticker: str) -> list[dict]:
         if len(out) >= 5:
             break
     return out
+
+def known_issuers() -> dict:
+    """Utstederliste kun i NewsWeb-modus (tester/demo validerer ikke mot nett)."""
+    if os.getenv("SOURCE_MODE","demo").lower()!="newsweb":
+        return {}
+    from .newsweb_source import active_issuers
+    return active_issuers()
 
 def ai(item: dict, key: str) -> dict:
     schema = {"type":"object","properties":{
@@ -244,7 +256,7 @@ def ai(item: dict, key: str) -> dict:
     return {"score":min(100,max(0,int(obj["score"]))),
         "direction":obj["direction"],"headline":headline,"lead":lead,
         "summary":lead,"reason":" ".join(str(obj["reason"]).split())[:340],
-        "affected":clean_affected(obj.get("affected"),item.get("ticker")),
+        "affected":clean_affected(obj.get("affected"),item.get("ticker"),known_issuers()),
         "assessment_source":"AI"}
 
 def pushover(item:dict, assessment:dict) -> None:
