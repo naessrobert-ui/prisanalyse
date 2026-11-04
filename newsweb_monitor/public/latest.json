@@ -2,23 +2,385 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-04T09:00:00+00:00",
+  "generated_at": "2026-11-04T09:10:00+00:00",
   "items": [
+    {
+      "id": "685573",
+      "market": "XOSL",
+      "ticker": "ITERA",
+      "issuer": "Itera ASA",
+      "title": "Korreksjon: Forbedret EBIT-margin og sterk kontantstrøm i et overgangskvartal",
+      "headline": "Itera styrker kontantstrøm til 20,2 mill. og øker EBIT-marginen til 4,0 % i Q3",
+      "lead": "Itera rapporterte en EBIT-margin på 4,0 % og positiv kontantstrøm på 20,2 millioner kroner i tredje kvartal 2026, til tross for 7 % nedgang i rapportert omsetning. Overgangen til AI-kompetanse påvirker fortsatt omsetning og utnyttelse.",
+      "published_at": "2026-11-04T09:08:28.686000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685573",
+      "summary": "Itera rapporterte en EBIT-margin på 4,0 % og positiv kontantstrøm på 20,2 millioner kroner i tredje kvartal 2026, til tross for 7 % nedgang i rapportert omsetning. Overgangen til AI-kompetanse påvirker fortsatt omsetning og utnyttelse.",
+      "reason": "Itera leverer forbedret lønnsomhet og sterkere kontantstrøm i et kvartal preget av kompetansefornyelse og omstilling mot AI-drevne tjenester. Dette gir et positivt langsiktig signal, men omsetningsnedgangen og pågående investeringer krever oppfølging for å vurdere om overgangsperioden vil gi varig vekst og bedre inntjening.",
+      "score": 75,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "attachment_key": "1254d4638a5b0bc4",
+      "number_keys": [
+        "004be8",
+        "0ade7c",
+        "117284",
+        "1474ff",
+        "1574bd",
+        "1b6453",
+        "1cf9ad",
+        "1e7b95",
+        "21b941",
+        "22d200",
+        "356a19",
+        "35e995",
+        "4396c2",
+        "47ab99",
+        "4d89d2",
+        "5b384c",
+        "76546f",
+        "77de68",
+        "794bb3",
+        "8a0bbd",
+        "8effee",
+        "902ba3",
+        "ab58d3",
+        "aee655",
+        "af3e13",
+        "b16a45",
+        "b74f5e",
+        "c09763",
+        "c82ea4",
+        "cfa3da",
+        "e4f206",
+        "f1abd6",
+        "fa35e1",
+        "fe5dbb"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "filename",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Itera interim report Q3 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685573&attachmentId=335703"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 183.2,
+            "prior_year": 196.3,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -6.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Pages 1-3; stated operating revenue Q3 2026 is NOK 183.2 million vs NOK 196.3 million in Q3 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 15.1,
+            "prior_year": 15.5,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -2.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Pages 1-3; EBITDA Q3 2026 NOK 15.1 million (margin 8.2%) vs NOK 15.5 million (7.9%) in Q3 2025"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": 7.3,
+            "prior_year": 7.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -3.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Pages 1-3; EBIT Q3 2026 NOK 7.3 million (4.0% margin) vs NOK 7.6 million (3.8%) in Q3 2025"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 5.1,
+            "prior_year": 3.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 41.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 12; Net income Q3 2026 NOK 5.1 million vs NOK 3.6 million in Q3 2025"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 20.2,
+            "prior_year": -7.2,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Pages 1-6; Net cash flow from operating activities Q3 2026 NOK 20.2 million vs -7.2 million in Q3 2025"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 0.06,
+            "prior_year": 0.04,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 50.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 12; EPS Q3 2026 is NOK 0.06 vs NOK 0.04 in Q3 2025"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Itera forblir fokusert på kostnadsdisiplin, forbedret driftseffektivitet og kontantstrøm for å sikre lønnsom vekst til tross for selektiv etterspørsel. Selskapet ser økt aktivitet innen AI-drevet modernisering, sky, data, cybersikkerhet og motstandsdyktighet, med nesten alle nye engasjementer knyttet til AI. Geopolitiske forhold, særlig krigen i Ukraina, påvirker driften, men Itera er trygg på sin posisjon gjennom sin leveransemodell og kundeforhold. Valutarisiko og renteendringer påvirker fortsatt de finansielle forholdene.",
+          "change": "Itera har endret sin tidligere eksplisitte marginforbedringsguidance ved å ikke gi spesifikk fremoverrettet veiledning i denne rapporten, mens fokus fortsatt ligger på kostnadsdisiplin og operasjonell effektivitet. Etterspørselsbildet omtales som selektivt, men med sterkere vekstmuligheter i AI-relaterte områder, noe som er en mer nyansert beskrivelse enn tidligere kvartalers generelle markedsforventninger. Tidligere nevnte konkrete marginforbedringsmål (1,6–1,8 prosentpoeng årlig) og eksplisitte vekstestimater er ikke gjentatt, hvilket kan tolkes som mer forsiktig formulert enn i forrige kvartal.",
+          "trend": "Guidingen har utviklet seg fra å inneholde konkrete marginforbedringsmål og optimistiske forventninger til en litt mer forsiktig og selektiv omtale av etterspørsel, samtidig som selskapet opprettholder fokus på AI-drevet vekst og operasjonell forbedring. Tidligere rapporter viste klar vekst- og lønnsomhetsforventning, mens nåværende rapport vektlegger usikkerhet og eksterne risikoer uten å angi konkrete tall. Leveransene har imidlertid støttet tidligere positive signaler om operasjonell robusthet og kundeengasjement.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Etterspørsel",
+              "statement": "Etterspørselen er selektiv, men det er sterkere aktivitet innen AI-drevet modernisering, sky, data og cybersikkerhet.",
+              "evidence": "\"Demand remains selective, but we see stronger pockets of activity within AI-driven modernisation, cloud, data and managed services\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Marginer og lønnsomhet",
+              "statement": "Selskapet prioriterer kostnadsdisiplin og operasjonell effektivitet for å levere lønnsom vekst, men gir ikke konkrete marginmål.",
+              "evidence": "\"We will maintain cost discipline, keep improving operating efficiency and protect cash conversion to deliver profitable growth\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Risiko",
+              "statement": "Valutafluktuasjoner og renter påvirker fortsatt finansielle eksponeringer, og krigen i Ukraina skaper usikkerhet i viktige leveranseområder.",
+              "evidence": "\"Itera’s financial exposure continues to include currency fluctuations... The war in Ukraine continues to influence the operating environment\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Strategisk fokus",
+              "statement": "Alle nye oppdrag er nå AI-relaterte, med fornyelse av talent og plattformer for skalering og gjentagbar levering.",
+              "evidence": "\"Agentic AI transformation is a key growth driver, and virtually all new engagements are now AI-related\"",
+              "page": "utdrag"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "685572",
+      "market": "XOSL",
+      "ticker": "ITERA",
+      "issuer": "Itera ASA",
+      "title": "Correction: Improved EBIT margin and strong cash flow in a transition quarter",
+      "headline": "Itera styrker EBIT-margin til 4,0 prosent og operasjonell kontantstrøm til 20 mill. i Q3",
+      "lead": "Itera rapporterer 183,2 millioner kroner i driftsinntekter i tredje kvartal 2026, ned 7 prosent, men økt EBIT-margin til 4,0 prosent og positiv operasjonell kontantstrøm på 20,2 millioner kroner.",
+      "published_at": "2026-11-04T09:05:01.721000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685572",
+      "summary": "Itera rapporterer 183,2 millioner kroner i driftsinntekter i tredje kvartal 2026, ned 7 prosent, men økt EBIT-margin til 4,0 prosent og positiv operasjonell kontantstrøm på 20,2 millioner kroner.",
+      "reason": "Selv om omsetningen faller, indikerer økt EBIT-margin og sterk kontantstrøm at Itera forbedrer driftsresultatet og lønnsomheten. Investorer bør følge selskapets evne til å omsette AI-initiativene i økte inntekter og stabilisere medarbeidernedgangen.",
+      "score": 75,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "attachment_key": "3cb4f7d719e6fd76",
+      "number_keys": [
+        "004be8",
+        "0ade7c",
+        "117284",
+        "1474ff",
+        "1574bd",
+        "1b6453",
+        "1cf9ad",
+        "1e7b95",
+        "21b941",
+        "22d200",
+        "356a19",
+        "35e995",
+        "4396c2",
+        "47ab99",
+        "4d89d2",
+        "5b384c",
+        "76546f",
+        "77de68",
+        "794bb3",
+        "8a0bbd",
+        "8effee",
+        "902ba3",
+        "ab58d3",
+        "aee655",
+        "af3e13",
+        "b16a45",
+        "b74f5e",
+        "c09763",
+        "c82ea4",
+        "cfa3da",
+        "e4f206",
+        "f1abd6",
+        "fa35e1",
+        "fe5dbb"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "filename",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Itera interim report Q3 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685572&attachmentId=335696"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 183.2,
+            "prior_year": 196.3,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -6.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Pages 2-3, 12"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 15.1,
+            "prior_year": 15.5,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -2.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Pages 2-3, 12"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": 7.3,
+            "prior_year": 7.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -3.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Pages 2-3, 12"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 5.1,
+            "prior_year": 3.6,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 41.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Pages 2-3, 12"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 20.2,
+            "prior_year": -7.2,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Pages 2, 6"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 0.06,
+            "prior_year": 0.04,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 50.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 12"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Itera opprettholder en selektiv etterspørsel, med styrket aktivitet innen AI-drevet modernisering, sky, data og sikkerhet. Agentisk AI-transformasjon er nå en nøkkeldriver, og selskapet fokuserer på å forbedre operasjonell effektivitet, kostnadsdisiplin og kontantstrøm for lønnsom vekst. Geopolitisk usikkerhet, spesielt i Ukraina, samt valutarisiko påvirker fortsatt driften. Itera forventer økt kommersiell interesse i sine AI- og moderniseringstjenester på tvers av kjernebransjer.",
+          "change": "Etterspørsel: Tidligere var det en generell forventning om gradvis forbedring og økt etterspørsel innen AI; nå beskrives etterspørselen som \"selektiv\", men med \"sterkere lommer\" i AI-drevet modernisering og andre områder (Q2 2026, \"gradvis forbedret\" til nå \"selektiv, men sterk aktivitet\"). Lønnsomhet og marginmål: Gjeldende rapport nevner fortsatt fokus på kostnadsdisiplin og operasjonell effektivitet, men Itera gir ikke konkrete marginmål nå, mens tidligere kvartaler inneholdt konkrete EBIT-marginforbedringsmål på 1,6–1,8 prosentpoeng årlig (Q2 2026). Investeringsfokus: Opprettholdt vekt på AI og moderne teknologier som agentisk AI, cloud og cybersecurity som kjernen i vekststrategien (konsekvent gjennom kvartalene). Risiko: Valuta- og geopolitiske usikkerheter i Ukraina er fortsatt tilstede og nevnes eksplisitt i denne rapporten, noe som var mindre fremhevet tidligere.",
+          "trend": "Itera har gjennom kvartalene systematisk fokusert på å kapitalisere på AI og digital modernisering som vekstdrevende elementer, med gjentatte løfter om marginforbedringer og økt operasjonell effektivitet. Samtidig har etterspørselsbildet utviklet seg fra forventning om gradvis bedring til en mer nyansert vurdering av selektiv etterspørsel med enkelte sterke segmenter. Geopolitisk risiko har fått økt betydning over tid med eksplisitt fokus på Ukraina i seneste rapport. Selskapet har imidlertid opprettholdt et konsekvent fokus på lønnsomhet og kontantstrøm, men unngår nå å gi konkrete marginmål i nærmeste fremtid.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Etterspørsel og vekst",
+              "statement": "Etterspørselen er selektiv, men med sterk vekst innen AI-drevet modernisering, sky, data og sikkerhet.",
+              "evidence": "\"Demand remains selective ... stronger pockets of activity within AI-driven modernisation\" (side utdrag)",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Lønnsomhet og operasjonell effektivitet",
+              "statement": "Fokus på kostnadsdisiplin, økt effektivitet og beskyttelse av kontantstrøm for å sikre lønnsom vekst.",
+              "evidence": "\"We will maintain cost discipline, keep improving operating efficiency and protect cash conversion to deliver profitable growth\" (side utdrag)",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Risiko og usikkerhet",
+              "statement": "Valutarisiko og krigen i Ukraina påvirker fortsatt driften, spesielt på leveransestedene.",
+              "evidence": "\"financial exposure includes currency fluctuations ... The war in Ukraine continues to influence the operating environment\" (side utdrag)",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Teknologisk fokus og investeringer",
+              "statement": "Agentisk AI-transformasjon er en kjernevekstdriver, med økende kommersiell interesse på tvers av bransjer.",
+              "evidence": "\"Agentic AI transformation is a key growth driver, and virtually all new engagements are now AI-related\" (side utdrag)",
+              "page": "utdrag"
+            }
+          ]
+        }
+      }
+    },
     {
       "id": "685571",
       "market": "XOSL",
       "ticker": "WAWI",
       "issuer": "Wallenius Wilhelmsen ASA",
       "title": "Wallenius Wilhelmsen Q3 2026 presentation",
-      "headline": "Wallenius Wilhelmsen legger fram Q3 2026-presentasjon uten nøkkeltall",
-      "lead": "Wallenius Wilhelmsen har publisert presentasjonen fra Q3 2026-webinaret uten konkrete finansielle data, noe som gir begrenset innsikt i kvartalets resultater og utvikling.",
+      "headline": "Wallenius Wilhelmsen legger fram Q3-presentasjon uten nye nøkkeltall",
+      "lead": "Wallenius Wilhelmsen har offentliggjort presentasjonen fra Q3 2026-webcasten, men foreløpig uten konkrete resultater eller tall for kvartalet. Investorer må vente på fullstendig rapport.",
       "published_at": "2026-11-04T08:38:04.990000+00:00",
       "url": "https://newsweb.oslobors.no/message/685571",
-      "summary": "Wallenius Wilhelmsen har publisert presentasjonen fra Q3 2026-webinaret uten konkrete finansielle data, noe som gir begrenset innsikt i kvartalets resultater og utvikling.",
-      "reason": "Mangelen på finansiell informasjon i presentasjonen gjør det vanskelig å vurdere selskapets kvartalsprestasjoner og konsekvenser for aksjonærene. Videre analyser bør fokusere på kommende rapporter eller direkte data for å avklare utviklingen.",
+      "summary": "Wallenius Wilhelmsen har offentliggjort presentasjonen fra Q3 2026-webcasten, men foreløpig uten konkrete resultater eller tall for kvartalet. Investorer må vente på fullstendig rapport.",
+      "reason": "Uten faktiske resultatdata eller endringer i nøkkeltall gir denne kunngjøringen begrenset informasjon for aksjonærer. Det er nødvendig å følge opp med detaljert finansiell rapport for vurdering av utviklingen.",
       "score": 35,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "attachment_key": "bdba6fd861e51572",
       "number_keys": [
@@ -46,7 +408,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 17: Adjusted EBITDA for Q3 2026 ended at USD 428m"
+            "evidence": "SIDE 17: Adjusted EBITDA for Q3 2026 ended at USD 428m"
           },
           {
             "label": "Omsetning",
@@ -59,90 +421,51 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 17: Shipping services revenue USD 1078m in Q3 2026"
+            "evidence": "SIDE 17: Shipping services 274 revenues + Logistic services 45 revenues + Government services 113 revenues totals to USD 432m in adj. EBITDA, indicating total r"
           },
           {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "USD million",
-            "current": 274.0,
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "",
+            "current": null,
             "prior_year": null,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 17: Logistic services revenue USD 274m in Q3 2026"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "USD million",
-            "current": 45.0,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 17: Logistic services adjusted EBITDA USD 45m in Q3 2026"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "USD million",
-            "current": 113.0,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 17: Government services revenue USD 113m in Q3 2026"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "USD million",
-            "current": 38.0,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 17: Government services adjusted EBITDA USD 38m in Q3 2026"
+            "evidence": ""
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "WAWI opprettholder sin positive utsikt for 2026 med et justert EBITDA-mål på rundt 1,6 milliarder USD, støttet av økende etterspørsel etter shipping ex-Asia som gir høyere frakt- og charterrater. Kontrakter for omtrent 40 % av fraktvolumene for 2027 er godt i gang, inkludert to store kontrakter på til sammen 1,7 milliarder USD annonsert etter kvartalets slutt. De har hentet 300 millioner USD i ny egenkapital for å delvis finansiere utvidelsen av ordreboken med fire nye leveranser i 2030 og åtte opsjonelle skip fra 2031. Flåteveksten fortsetter, men nye bestillinger forventes ikke levert før 2030/2031.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "WAWI opprettholder en sterk utsikt med økt etterspørsel etter skipsfart fra Asia som støtter høyere frakt- og chartre priser. De har allerede inngått kontrakter for rundt 40 % av volumer for 2027, inkludert to store avtaler på totalt 1,7 milliarder USD. Selskapet opprettholder sin justerte EBITDA-forventning for 2026 på omtrent 1,6 milliarder USD. De har også hentet 300 millioner USD i ny egenkapital for å delvis finansiere en utvidelse av nybyggingsprogrammet med leveranser i 2030 og videre.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Finansiell utsikt",
-              "statement": "Opprettholder justert EBITDA på ca. 1,6 milliarder USD for 2026",
-              "evidence": "\"Maintained the outlook for 2026 with an adjusted EBITDA of about USD 1.6bn\"",
+              "topic": "Etterspørsel og priser",
+              "statement": "Økt etterspørsel etter skipsfart eks-Asia støtter høyere frakt- og chartre priser.",
+              "evidence": "Continued increase in demand for shipping ex-Asia supports higher freight and charter rates (side 4)",
               "page": "4"
             },
             {
-              "topic": "Etterspørsel og volumer",
-              "statement": "Kontrakter for ca. 40 % av shippingvolumene i 2027 er på plass med store kontrakter på totalt 1,7 mrd USD",
-              "evidence": "\"Contracting for ~40% of shipping volumes for 2027 well underway with two large awards totalling USD 1.7bn announced post quarter end\"",
+              "topic": "Kontrakter for 2027",
+              "statement": "Kontrakter for ca. 40 % av fraktvolumer for 2027 er inngått, inkludert to store avtaler verdt 1,7 mrd USD.",
+              "evidence": "Contracting for ~40% of shipping volumes for 2027 well underway with two large awards totalling USD 1.7bn (side 4)",
               "page": "4"
             },
             {
-              "topic": "Investeringer og flåteutvidelse",
-              "statement": "Ny egenkapital på 300 mill USD for å finansiere utvidelse av nybyggingsprogram, med fire leveranser i 2030 og åtte valgfrie skip fra 2031",
-              "evidence": "\"Raised USD 300m in new equity to partly fund extension of our newbuilding program with 4x deliveries in 2030, and 8x optional vessels from 2031\"",
+              "topic": "Resultatforventning 2026",
+              "statement": "Opprettholder justert EBITDA-forventning for 2026 på ca. 1,6 mrd USD.",
+              "evidence": "Maintained the outlook for 2026 with an adjusted EBITDA of about USD 1.6bn (side 4)",
               "page": "4"
             },
             {
-              "topic": "Flåteutvikling",
-              "statement": "Flåtevekst med økende bestillinger, men nye skip forventes først levert fra 2030/2031",
-              "evidence": "\"Fleet growth continues with ordering activity picking up, but new orders likely not delivered before 2030/2031\"",
+              "topic": "Investeringer",
+              "statement": "Hentet 300 mill USD i ny egenkapital for å delvis finansiere utvidelse av nybyggingsprogram med planlagte leveranser i 2030-2031.",
+              "evidence": "Raised USD 300m in new equity to partly fund extension of our newbuilding program with deliveries in 2030 and optional vessels from 2031 (side 4)",
               "page": "4"
             }
           ]
@@ -322,13 +645,13 @@
       "ticker": "TORM",
       "issuer": "TORM plc",
       "title": "TORM plc Q3 2026 Results, Dividend Distribution, and Financial Outlook 2026",
-      "headline": "TORM dobler Q3-resultatet til 199 mill USD – hever 2026-guiden",
-      "lead": "TORM økte nettoresultatet til 199 mill USD i tredje kvartal, opp fra 78 mill USD i fjor. Selskapet øker samtidig den nedre delen av sin helårsveiledning for 2026, men markedsrisikoen på resten av året består.",
+      "headline": "TORM øker nettoresultatet til 199 millioner dollar i Q3 2026",
+      "lead": "TORM leverer et nettoresultat på 199 mill. USD i tredje kvartal, opp fra 78 mill. USD i 2025. Selskapet øker også kvartalsutbyttet til 1,35 USD per aksje, men markedsusikkerhet vedvarer.",
       "published_at": "2026-11-04T07:23:11.552000+00:00",
       "url": "https://newsweb.oslobors.no/message/685557",
-      "summary": "TORM økte nettoresultatet til 199 mill USD i tredje kvartal, opp fra 78 mill USD i fjor. Selskapet øker samtidig den nedre delen av sin helårsveiledning for 2026, men markedsrisikoen på resten av året består.",
-      "reason": "Sterk kvartalsvekst i TCE, EBITDA og nettoresultat gir god inntjening for aksjonærene. Økt helårsveiledning signaliserer selvtillit i markedet, mens fortsatt eksponering mot volatile markedsrater tilsier fortsatt usikkerhet. Aksjonærer bør følge nybygginvesteringers effekt og markedsutviklingen videre.",
-      "score": 90,
+      "summary": "TORM leverer et nettoresultat på 199 mill. USD i tredje kvartal, opp fra 78 mill. USD i 2025. Selskapet øker også kvartalsutbyttet til 1,35 USD per aksje, men markedsusikkerhet vedvarer.",
+      "reason": "Resultatforbedringen er betydelig sammenlignet med fjoråret og reflekterer kraftig økning i timecharterreversjoner og EBITDA. Investeringene i nybygging styrker fremtidig vekst, men utsiktene avhenger fortsatt av volatiliteten i globale transport- og oljehandelsmarkeder.",
+      "score": 85,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -436,7 +759,7 @@
             "yoy_pct": 45.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 3, Income statement Q3 2026 vs Q3 2025"
+            "evidence": "[SIDE 3] Income statement Q3 2026 499 USDm, Q3 2025 343 USDm"
           },
           {
             "label": "EBITDA",
@@ -449,7 +772,7 @@
             "yoy_pct": 80.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 3, Income statement Q3 2026 vs Q3 2025"
+            "evidence": "[SIDE 3] Income statement Q3 2026 274 USDm, Q3 2025 152 USDm"
           },
           {
             "label": "EBIT",
@@ -462,7 +785,7 @@
             "yoy_pct": 115.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 3, Income statement Q3 2026 vs Q3 2025"
+            "evidence": "[SIDE 3] Income statement Q3 2026 213 USDm, Q3 2025 99 USDm"
           },
           {
             "label": "Resultat etter skatt",
@@ -475,7 +798,7 @@
             "yoy_pct": 155.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 3, Income statement Q3 2026 vs Q3 2025"
+            "evidence": "[SIDE 3] Income statement Q3 2026 199 USDm, Q3 2025 78 USDm"
           },
           {
             "label": "EPS",
@@ -488,33 +811,39 @@
             "yoy_pct": 145.6,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 3, Income statement Q3 2026 vs Q3 2025"
+            "evidence": "[SIDE 3] Basic earnings per share Q3 2026 1.94 USD, Q3 2025 0.79 USD"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "TORM melder om gunstige markedsforhold og fortsatt sterk etterspørsel i produkttankermarkedet for tredje kvartal 2026. Selskapet har økt den nedre grensen i sin helårsveiledning for 2026 med 50 millioner USD, og forventer nå et TCE-estimat (Time Charter Equivalent) i intervallet 1 750 til 1 900 millioner USD sammenlignet med tidligere 1 700 til 1 900 millioner USD. Investeringer i nye skip fortsetter selektivt for å fornye og utvide flåten, med fokus på langsiktig markedsutsikt og markedsledende ytelse.",
+          "summary": "TORM opplever gunstige markedsforhold og sterk transportetterspørsel, noe som bidro til et solid tredje kvartal. Selskapet er fortsatt optimistisk til det langsiktige utsiktene for produkttankermarkedet og investerer selektivt i nybygg for å fornye og utvide flåten. For 2026 har TORM hevet nedre del av årsveiledningen for TCE til 1 750 USD, opp fra tidligere 1 700 USD, med samme øvre terskel på 1 900 USD. Kjøresterke markedsforhold forventes å vedvare resten av året, men det understrekes at fraktratene fortsatt er volatile.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Salgs- og inntektsforventning",
-              "statement": "TORM har økt nedre grense for helårsveiledning for 2026 fra 1 700 til 1 750 millioner USD i TCE.",
-              "evidence": "'TORM has raised the lower end of its full-year guidance by USD 50m... full-year 2026 TCE is now expected to be in the range of USD 1,750 - 1,900 m, compared with USD 1,700 - 1,900 m' (side 6).",
+              "topic": "Markedsforhold og etterspørsel",
+              "statement": "Gunstige markedsforhold og sterk transportetterspørsel bidro til et sterkt tredje kvartal.",
+              "evidence": "\"Favorable market conditions, healthy transportation demand, and strong execution...\" (side 2)",
+              "page": "2"
+            },
+            {
+              "topic": "Langsiktig utsikt og investeringer",
+              "statement": "Selskapet er fortsatt optimistisk om produkttankermarkedet på lang sikt og investerer selektivt i nye skip for flåtefornyelse og vekst.",
+              "evidence": "\"We remain confident in the long-term outlook... investing selectively in additional newbuildings...\" (side 2)",
+              "page": "2"
+            },
+            {
+              "topic": "Finansiell veiledning for 2026",
+              "statement": "Årsveiledningen for TCE i 2026 heves i nedre del til 1 750 USD fra 1 700 USD, uendret øvre del på 1 900 USD.",
+              "evidence": "\"Thus, full-year 2026 TCE is now expected to be in the range of USD 1,750 - 1,900 m, compared with USD 1,700 - 1,900 m\" (side 6)",
               "page": "6"
             },
             {
-              "topic": "Markedsforhold og etterspørsel",
-              "statement": "Markedet preges fortsatt av høy volatilitet, men med gunstige forhold og sterk transportetterspørsel.",
-              "evidence": "'Favorable market conditions, healthy transportation demand, and strong execution' og \"Freight rates in the product tanker market... remain highly volatile\" (side 2 og 6).",
-              "page": "2 og 6"
-            },
-            {
-              "topic": "Investeringer",
-              "statement": "Selskapet investerer selektivt i nye bygg for å fornye og utvide flåten, med fokus på langsiktig markedsutsikt.",
-              "evidence": "'...are investing selectively in additional newbuildings to renew and grow our fleet' (side 2).",
-              "page": "2"
+              "topic": "Fraktratens volatilitet",
+              "statement": "Fraktrater i produkttankermarkedet forblir volatile til tross for sterke markedsforhold.",
+              "evidence": "\"Freight rates in the product tanker market... remain highly volatile...\" (side 6)",
+              "page": "6"
             }
           ]
         }
@@ -687,13 +1016,13 @@
       "ticker": "SAGA",
       "issuer": "Saga Pure ASA",
       "title": "Saga Pure: Third quarter 2026 financial results",
-      "headline": "Saga Pure tapte 19,9 mill. i Q3 2026 – investeringer ned mot 628 mill. kroner",
-      "lead": "Saga Pure meldte et netto tap på 19,9 millioner kroner i tredje kvartal 2026, med investeringer i datterselskaper redusert til 627,9 millioner kroner ved kvartalets slutt, mens kontantbeholdningen var 349,8 millioner kroner.",
+      "headline": "Saga Pure rapporterer kvartalstap på 19,9 millioner kroner i Q3 2026",
+      "lead": "Saga Pure hadde et netto tap på 19,9 millioner kroner i tredje kvartal 2026, preget av nedskrivninger på investeringer og redusert verdi i datterselskaper, med en samlet egenkapitalavkastning på 1,2 prosent hittil i år.",
       "published_at": "2026-11-04T06:31:12.831000+00:00",
       "url": "https://newsweb.oslobors.no/message/685550",
-      "summary": "Saga Pure meldte et netto tap på 19,9 millioner kroner i tredje kvartal 2026, med investeringer i datterselskaper redusert til 627,9 millioner kroner ved kvartalets slutt, mens kontantbeholdningen var 349,8 millioner kroner.",
-      "reason": "Tapet i tredje kvartal sammen med nedgang i investeringene i datterselskaper kan indikere utfordringer i porteføljen. Investorer bør følge utviklingen i verdsettelser og eventuelle tiltak for å snu negative resultater framover.",
-      "score": 75,
+      "summary": "Saga Pure hadde et netto tap på 19,9 millioner kroner i tredje kvartal 2026, preget av nedskrivninger på investeringer og redusert verdi i datterselskaper, med en samlet egenkapitalavkastning på 1,2 prosent hittil i år.",
+      "reason": "Tapet i Q3 og verdinedgang i investeringer tyder på utfordringer i porteføljen, og selv om kontantbeholdningen er solid, bør aksjonærer følge om selskapet klarer å snu utviklingen og hvilke tiltak som planlegges for å bedre lønnsomheten.",
+      "score": 65,
       "skipped": false,
       "direction": "negativ",
       "assessment_source": "AI",
@@ -747,12 +1076,12 @@
       "ticker": "SOMA",
       "issuer": "Solstad Maritime ASA",
       "title": "SOLSTAD MARITIME ASA - KEY INFORMATION RELATING TO Q3 2026 DIVIDEND",
-      "headline": "Solstad Maritime utbetaler kontantutbytte på 0,12 USD per aksje i november",
-      "lead": "Solstad Maritime erklærer et kontantutbytte på 0,12 USD per aksje, totalt cirka 56 millioner USD, med utbetaling rundt 17. november 2026. Utbyttet vil bli betalt i NOK, og aksjer handles eks. utbytte fra 6. november.",
+      "headline": "Solstad Maritime utbetaler 0,12 USD per aksje i utbytte, totalt 56 millioner USD",
+      "lead": "Solstad Maritime kunngjør et kontantutbytte på 0,12 USD per aksje, tilsvarende cirka 56 millioner USD, med utbetaling rundt 17. november 2026. Utbyttet betales i NOK, følger generalforsamlingsvedtak fra mai 2026.",
       "published_at": "2026-11-04T06:10:10.241000+00:00",
       "url": "https://newsweb.oslobors.no/message/685548",
-      "summary": "Solstad Maritime erklærer et kontantutbytte på 0,12 USD per aksje, totalt cirka 56 millioner USD, med utbetaling rundt 17. november 2026. Utbyttet vil bli betalt i NOK, og aksjer handles eks. utbytte fra 6. november.",
-      "reason": "Utbytteutbetaling på 0,12 USD per aksje gir direkte verdi til aksjonærene og kan tiltrekke investorer som søker løpende avkastning. Det er viktig å følge valutakursens påvirkning siden utbyttet betales i NOK, og hvordan selskapets fremtidige utbyttepolitikk utvikler seg.",
+      "summary": "Solstad Maritime kunngjør et kontantutbytte på 0,12 USD per aksje, tilsvarende cirka 56 millioner USD, med utbetaling rundt 17. november 2026. Utbyttet betales i NOK, følger generalforsamlingsvedtak fra mai 2026.",
+      "reason": "Utbytteutbetaling indikerer positiv kontantstrøm og fortsetter å gi avkastning til aksjonærene. Uklart hvordan dette står i forhold til resultat og fremtidig vekst, så nærmere analyse av kvartalets lønnsomhet og kontantstrøm anbefales.",
       "score": 65,
       "skipped": false,
       "direction": "positiv",
@@ -804,13 +1133,13 @@
       "ticker": "SOFF",
       "issuer": "Solstad Offshore ASA",
       "title": "SOLSTAD OFFSHORE ASA - KEY INFORMATION RELATING TO Q3 2026 DIVIDEND",
-      "headline": "Solstad Offshore utbetaler 0,30 USD per aksje i kontantbytte i november",
-      "lead": "Styret i Solstad Offshore har bestemt å betale ut en kontantutbytte på 0,30 USD per aksje, totalt cirka 25 millioner USD, med utbetaling rundt 20. november 2026. Utbyttet betales i NOK basert på valutakursen.",
+      "headline": "Solstad Offshore utbetaler 0,30 USD per aksje i utbytte – totalt 25 millioner USD",
+      "lead": "Solstad Offshore kunngjør et kontantutbytte på 0,30 USD per aksje for tredje kvartal 2026, tilsvarende cirka 25 millioner USD, med utbetaling i NOK rundt 20. november. Eks-utbyttedato er 6. november.",
       "published_at": "2026-11-04T06:10:10.178000+00:00",
       "url": "https://newsweb.oslobors.no/message/685547",
-      "summary": "Styret i Solstad Offshore har bestemt å betale ut en kontantutbytte på 0,30 USD per aksje, totalt cirka 25 millioner USD, med utbetaling rundt 20. november 2026. Utbyttet betales i NOK basert på valutakursen.",
-      "reason": "Utbytteutbetalingen gir inntekter til aksjonærene og signaliserer styrket kontantstrøm, men størrelsen og valutaomregningen kan påvirke nettoavkastningen. Videre bør man vurdere selskapets finansielle stabilitet og fremtidig utbyttekapasitet.",
-      "score": 65,
+      "summary": "Solstad Offshore kunngjør et kontantutbytte på 0,30 USD per aksje for tredje kvartal 2026, tilsvarende cirka 25 millioner USD, med utbetaling i NOK rundt 20. november. Eks-utbyttedato er 6. november.",
+      "reason": "Utbytteutbetaling på 0,30 USD per aksje representerer en konkret kontantutdeling til aksjonærer og signaliserer selskapets evne til å generere kapital til aksjonærene. Det åpner for videre vurdering av selskapets lønnsomhet og kontinuitet i utbyttepolitikken fremover.",
+      "score": 75,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -1312,12 +1641,12 @@
       "ticker": "SOMA",
       "issuer": "Solstad Maritime ASA",
       "title": "Solstad Maritime ASA: Presentation of Third Quarter 2026 results",
-      "headline": "Solstad Maritime løfter justert EBITDA til 117 millioner USD i Q3 2026",
-      "lead": "Solstad Maritime økte justert EBITDA til 117 millioner USD i tredje kvartal, opp fra 69 millioner USD året før. Selskapet opprettholder en solid ordreinngang og foreslår utbytte på 0,12 USD per aksje, men fullårsanslaget er noe justert.",
+      "headline": "Solstad Maritime øker justert EBITDA til 117 millioner USD i Q3 2026",
+      "lead": "Solstad Maritime rapporterer en justert EBITDA på 117 millioner USD i tredje kvartal, opp fra 69 millioner USD i samme periode i fjor. Selskapet varsler en smalere helårsjustert EBITDA-guide på 375-390 millioner USD og utbetaler 0,12 USD i kvartalsutbytte.",
       "published_at": "2026-11-04T06:00:33.312000+00:00",
       "url": "https://newsweb.oslobors.no/message/685542",
-      "summary": "Solstad Maritime økte justert EBITDA til 117 millioner USD i tredje kvartal, opp fra 69 millioner USD året før. Selskapet opprettholder en solid ordreinngang og foreslår utbytte på 0,12 USD per aksje, men fullårsanslaget er noe justert.",
-      "reason": "Den sterke veksten i justert EBITDA over året er et klart tegn på forbedret drift og markedsposisjon. Aksjonærer får direkte utbytte og selskapets bok-til-faktureringsratio over 1 indikerer fin ordresituasjon. Det er viktig å følge utviklingen i rammevilkår innen offshore-segmentet videre.",
+      "summary": "Solstad Maritime rapporterer en justert EBITDA på 117 millioner USD i tredje kvartal, opp fra 69 millioner USD i samme periode i fjor. Selskapet varsler en smalere helårsjustert EBITDA-guide på 375-390 millioner USD og utbetaler 0,12 USD i kvartalsutbytte.",
+      "reason": "Sterk vekst i justert EBITDA viser betydelig forbedring i drift og utnyttelse av flåten. Høy ordreinngang og god bok-til-faktura-ratio støtter videre vekstpotensial. For investorer gir dette en klar indikasjon på styrket lønnsomhet og stabil kontantstrøm som kan gi verdiskaping.",
       "score": 85,
       "skipped": false,
       "direction": "positiv",
@@ -1355,17 +1684,17 @@
         },
         "metrics": [
           {
-            "label": "Omsetning",
-            "name": "revenue",
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
             "unit": "USD million",
-            "current": 198.0,
-            "prior_year": 145.0,
+            "current": 91.0,
+            "prior_year": 92.0,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 36.6,
+            "yoy_pct": -1.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 14 Income Statement & Adjusted EBITDA, line 'Total operating income' Q3 2026 vs Q3 2025"
+            "evidence": "[SIDE 17], Cash Flow Statement, Q3 2026 quarter net cash flow from operations is USD 91 million vs 92 million in Q3 2025"
           },
           {
             "label": "EBITDA",
@@ -1378,7 +1707,7 @@
             "yoy_pct": 83.6,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 14 Income Statement & Adjusted EBITDA, line 'EBITDA' Q3 2026 vs Q3 2025"
+            "evidence": "[SIDE 14], Income Statement & Adjusted EBITDA, Q3 2026 EBITDA is USD 112 million vs 61 million in Q3 2025"
           },
           {
             "label": "EBIT",
@@ -1391,7 +1720,7 @@
             "yoy_pct": 107.0,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 14 Income Statement & Adjusted EBITDA, line 'Operating result' Q3 2026 vs Q3 2025"
+            "evidence": "[SIDE 14], Income Statement & Adjusted EBITDA, Q3 2026 Operating result (EBIT) is USD 89 million vs 43 million in Q3 2025"
           },
           {
             "label": "Resultat etter skatt",
@@ -1404,64 +1733,77 @@
             "yoy_pct": 146.9,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 14 Income Statement & Adjusted EBITDA, line 'Net Result' Q3 2026 vs Q3 2025"
+            "evidence": "[SIDE 14], Income Statement & Adjusted EBITDA, Q3 2026 Net Result is USD 79 million vs 32 million in Q3 2025"
+          },
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "USD million",
+            "current": 198.0,
+            "prior_year": 145.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 36.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "[SIDE 14], Income Statement & Adjusted EBITDA, Q3 2026 Total operating income is USD 198 million vs 145 million in Q3 2025"
           },
           {
             "label": "EPS",
             "name": "eps",
             "unit": "USD/share",
-            "current": 0.12,
+            "current": null,
             "prior_year": null,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 5 Dividend | Q3 2026, quarterly dividend USD 0.12/share Q3 2026"
+            "evidence": "EPS not explicitly stated in the excerpt"
           },
           {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
             "unit": "USD million",
-            "current": 91.0,
-            "prior_year": 92.0,
+            "current": -12.0,
+            "prior_year": -12.0,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": -1.1,
+            "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 17 Cash Flow Statement, line 'Net cash flow from operations' Q3 2026 vs Q3 2025"
+            "evidence": "[SIDE 14], Income Statement & Adjusted EBITDA, Interest income 4 million, Interest charges 16 million, net interest of -12 million USD both in Q3 2026 and Q3 20"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Solstad Maritime har forbedret sin justerte EBITDA-guidance for hele året og har innsnevret intervallet til USD 375–390 millioner, opp fra tidligere USD 360–390 millioner (side 10). Selskapet opplever sterk utnyttelse fra prosjektarbeid, men moderat utnyttelse i North Sea AHTS-flåten, og forventer økt tilbud av fartøyer kommende kvartaler som kan påvirke utnyttelse og dagrater. Capex-guidance er også innsnevret ved å heve nedre grense. Selskapet opprettholder en aksjonærvennlig utbyttepolitikk med kvartalsvise utbetalinger tilsvarende majoriteten av fri kontantstrøm til egenkapitalen.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "Solstad Maritime har justert opp ledelsesanslaget for årets Justert EBITDA til et smalere og høyere intervall på USD 375–390 millioner, opp fra tidligere intervall. Det forventes økt kapitalinvesteringer med en oppjustert nedre grense. Selskapet opprettholder en utbyttepolitikk som sikter mot kvartalsvise utbetalinger tilsvarende majoriteten av årlig fri kontantstrøm. Markedet for AHTS-flåten forventes å bli mer konkurranseutsatt med økt tilbud, noe som kan påvirke beskjeftigelse og dagrater, mens selskapet med høy aktivitet i CSV-segmentet har oppnådd sterk utnyttelse i kvartalet.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
               "topic": "Justert EBITDA-guidance",
-              "statement": "Guidance for helåret justert EBITDA er innsnevret og økt til USD 375–390 millioner",
-              "evidence": "Full-year Adjusted EBITDA guidance narrowed to USD 375–390 million, increased lower range (side 10)",
+              "statement": "Fullårs justert EBITDA-guidance er smalere og høyere, nå USD 375–390 millioner.",
+              "evidence": "Full-year Adjusted EBITDA guidance is narrowed by increasing the lower range due to improved earnings year-to-date. The Adjusted EBITDA guidance has been increased and narrowed quarterly from the init",
               "page": "10"
             },
             {
-              "topic": "Markedssituasjon og utnyttelse",
-              "statement": "Sterk utnyttelse i prosjektarbeid, men moderat utnyttelse i North Sea AHTS flåten, økt tilbud av fartøyer forventes",
-              "evidence": "Strong utilization in project work; moderate utilization in North Sea AHTS fleet; increased vessel supply expected (side 10)",
-              "page": "10"
-            },
-            {
-              "topic": "Capex-guidance",
-              "statement": "Capex-guidance er innsnevret ved å øke nedre grense",
-              "evidence": "Capex guidance is narrowed by increasing the lower range (side 10)",
+              "topic": "Kapitalinvesteringer (Capex)",
+              "statement": "Capex-guidance er smalere med økt nedre grense.",
+              "evidence": "Capex guidance is narrowed by increasing the lower range (side 10).",
               "page": "10"
             },
             {
               "topic": "Utbyttepolitikk",
-              "statement": "Intensjon om kvartalsvise utbytter tilsvarende majoriteten av årlig fri kontantstrøm til egenkapitalen",
-              "evidence": "Dividend policy: Intention to distribute quarterly dividends corresponding to majority of annual free cash flow to equity (side 10)",
+              "statement": "Selskapet planlegger kvartalsvise utbytter som tilsvarer majoriteten av årlig fri kontantstrøm til egenkapital.",
+              "evidence": "Dividend policy: Intention to distribute quarterly dividends corresponding to majority of annual free cash flow to equity (FCFE) (side 10).",
+              "page": "10"
+            },
+            {
+              "topic": "Markedssituasjon og utnyttelse",
+              "statement": "Sterk utnyttelse i kvartalet særlig innen CSV-segment, men moderat utnyttelse i Nord-Sjøen AHTS, markedet preges av økt tilbud og kan få nedadgående effekt på utnyttelse og dagrater.",
+              "evidence": "Solstad has achieved strong utilization in the quarter from project work; however, utilization across the overall North Sea AHTS fleet has remained moderate. Supply of vessels in the market is expecte",
               "page": "10"
             }
           ]
@@ -1683,13 +2025,13 @@
       "ticker": "SOFF",
       "issuer": "Solstad Offshore ASA",
       "title": "Solstad Offshore ASA: Presentation of Third Quarter 2026 results",
-      "headline": "Solstad Offshore øker justert EBITDA til 41 mill. USD i Q3 – kjøper Normand Maximus",
-      "lead": "Solstad Offshore rapporterer justert EBITDA på 41 millioner USD i tredje kvartal 2026, opp fra 29 millioner USD i samme periode i fjor. Selskapet har besluttet å kjøpe Normand Maximus for 125 millioner USD med levering i oktober 2027.",
+      "headline": "Solstad Offshore øker EBITDA til 41 millioner USD i tredje kvartal",
+      "lead": "Solstad Offshore rapporterer en justert EBITDA på 41 millioner USD i Q3 2026, opp fra 29 millioner USD året før, og kunngjør et utbytte på 0,30 USD per aksje. Salg av Normand Tonjer ga 24 millioner USD i gevinst.",
       "published_at": "2026-11-04T06:00:24.070000+00:00",
       "url": "https://newsweb.oslobors.no/message/685540",
-      "summary": "Solstad Offshore rapporterer justert EBITDA på 41 millioner USD i tredje kvartal 2026, opp fra 29 millioner USD i samme periode i fjor. Selskapet har besluttet å kjøpe Normand Maximus for 125 millioner USD med levering i oktober 2027.",
-      "reason": "Økt EBITDA indikerer forbedret lønnsomhet og styrket finansposisjon for Solstad Offshore. Kjøpet av Normand Maximus signaliserer satsing på vekst. For aksjonærer betyr dette potensiale for høyere avkastning, men oppkjøpet bør følges opp for å vurdere fremtidig kontantstrøm og gjeldsøkning.",
-      "score": 80,
+      "summary": "Solstad Offshore rapporterer en justert EBITDA på 41 millioner USD i Q3 2026, opp fra 29 millioner USD året før, og kunngjør et utbytte på 0,30 USD per aksje. Salg av Normand Tonjer ga 24 millioner USD i gevinst.",
+      "reason": "Den økte EBITDA og kontantutbyttet styrker investorers kontantstrøm og tillit til selskapets drift, samtidig som salget av Normand Tonjer bidrar til finansiering. Videre analyse bør vurdere bærekraft i etterspørselen og kontantstrøm fremover.",
+      "score": 75,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -1735,7 +2077,7 @@
             "yoy_pct": 71.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 14 Income Statement & Adjusted EBITDA table, row 'Total operating income' Q3 2026 vs Q3 2025"
+            "evidence": "Side 14, Income Statement & Adjusted EBITDA, total operating income Q3 2026 vs Q3 2025"
           },
           {
             "label": "EBITDA",
@@ -1748,7 +2090,7 @@
             "yoy_pct": 97.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 14 Income Statement & Adjusted EBITDA table, row 'EBITDA' Q3 2026 vs Q3 2025"
+            "evidence": "Side 14, Income Statement & Adjusted EBITDA, EBITDA Q3 2026 vs Q3 2025"
           },
           {
             "label": "Kontantstrøm drift",
@@ -1761,7 +2103,7 @@
             "yoy_pct": 84.6,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 16 Cash Flow Statement 'Net cash flow from operations' Q3 2026 vs Q3 2025"
+            "evidence": "Side 16, Cash Flow Statement, net cash flow from operations Q3 2026 vs Q3 2025"
           },
           {
             "label": "Resultat etter skatt",
@@ -1774,7 +2116,7 @@
             "yoy_pct": 142.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 14 Income Statement & Adjusted EBITDA table, row 'Net Result' Q3 2026 vs Q3 2025"
+            "evidence": "Side 14, Income Statement & Adjusted EBITDA, Net Result Q3 2026 vs Q3 2025"
           },
           {
             "label": "EPS",
@@ -1787,7 +2129,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 6 Dividend | Q3 2026 states cash dividend for Q3 2026 of USD 0.30/share"
+            "evidence": "Side 3 and Side 6, Dividend Q3 2026, cash dividend for Q3 2026 USD 0.30/share"
           },
           {
             "label": "EBIT",
@@ -1800,39 +2142,39 @@
             "yoy_pct": 104.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 14 Income Statement & Adjusted EBITDA table, row 'Operating result' Q3 2026 vs Q3 2025"
+            "evidence": "Side 14, Income Statement & Adjusted EBITDA, Operating result Q3 2026 vs Q3 2025"
           },
           {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
+            "label": "EBITDA",
+            "name": "ebitda",
             "unit": "USD million",
-            "current": 1.0,
-            "prior_year": 1.0,
+            "current": 41.0,
+            "prior_year": 29.0,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 0.0,
+            "yoy_pct": 41.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 14 Income Statement & Adjusted EBITDA table, row 'Interest income' Q3 2026 vs Q3 2025"
+            "evidence": "Side 14, Income Statement & Adjusted EBITDA, Adjusted EBITDA Q3 2026 vs Q3 2025"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Solstad Offshore ASA presiserer at fremtidsrettede uttalelser er forbundet med usikkerhet og risiko, og oppdaterer ikke nødvendigvis disse i fremtiden. For 2026 gis en finansiell veiledning hvor USD 51 millioner er rapportert hittil i tredje kvartal 2026.",
+          "summary": "Solstad Offshore ASA gir en forsiktig fremtidsvurdering med fokus på usikkerheter knyttet til fremtidige resultater og hendelser. De understreker at fremtidsrettede uttalelser er beheftet med risiko og usikkerhet, og at faktiske utfall kan avvike betydelig fra forventningene. De gir finansiell veiledning for 2026, med spesifikk omtale av USD 51 millioner hittil i tredje kvartal.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Fremtidsutsikter og forbehold",
-              "statement": "Selskapet fremhever at fremtidsrettede uttalelser er usikre og ikke garanterer korrekthet eller oppdatering.",
-              "evidence": "'Cautionary note regarding forward-looking statements... are subject to material risks, uncertainties and other factors'",
+              "topic": "Fremtidsutsikter og usikkerhet",
+              "statement": "Ledelsen påpeker at fremtidsrettede uttalelser er underlagt betydelig risiko og usikkerhet, og at faktiske resultater kan avvike.",
+              "evidence": "'Forward-looking statements...are subject to material risks, uncertainties and other factors...' og 'None of the Company...provide any assurance as to the correctness of such forward-looking informati",
               "page": "10"
             },
             {
               "topic": "Finansiell veiledning 2026",
-              "statement": "For 2026 rapporteres hittil USD 51 millioner per tredje kvartal 2026, uten ytterligere konkrete tall eller mål.",
-              "evidence": "'Whereof USD 51 million YTD Q3’26'",
+              "statement": "Det gis finansiell veiledning for 2026 med referanse til USD 51 millioner hittil i tredje kvartal.",
+              "evidence": "'Financial guidance for 2026...Whereof USD 51 million YTD Q3'26' (side 10)",
               "page": "10"
             }
           ]
@@ -2614,13 +2956,13 @@
       "ticker": "MOWI",
       "issuer": "Mowi ASA",
       "title": "Mowi ASA (OSE: MOWI): Quarterly dividend",
-      "headline": "Mowi utbetaler kvartalsutbytte på 2,30 kroner per aksje",
-      "lead": "Mowi ASA har besluttet en kvartalsutbytteutbetaling på 2,30 kroner per aksje med forventet betaling 23. november 2026. Aksjene handles eksklusive utbytte fra 13. november.",
+      "headline": "Mowi ASA utbetaler kvartalsutbytte på 2,30 kroner per aksje",
+      "lead": "Styret i Mowi besluttet å utbetale et kvartalsutbytte på 2,30 kroner per aksje med registreringsdato 16. november og forventet utbetalingsdato 23. november 2026.",
       "published_at": "2026-11-04T05:31:00.949000+00:00",
       "url": "https://newsweb.oslobors.no/message/685530",
-      "summary": "Mowi ASA har besluttet en kvartalsutbytteutbetaling på 2,30 kroner per aksje med forventet betaling 23. november 2026. Aksjene handles eksklusive utbytte fra 13. november.",
-      "reason": "Utbyttebetaling gir direkte avkastning til aksjonærer og kan indikere selskapets sterke kontantstrøm. Videre bør man følge med på selskapets kapitalforvaltning og fremtidig inntjeningsutvikling for å vurdere utbyttebærekraft.",
-      "score": 50,
+      "summary": "Styret i Mowi besluttet å utbetale et kvartalsutbytte på 2,30 kroner per aksje med registreringsdato 16. november og forventet utbetalingsdato 23. november 2026.",
+      "reason": "Utbytteutbetaling gir løpende avkastning til aksjonærer og kan indikere solid kontantstrøm. Videre bør man følge med på Mowis resultatutvikling og markedssituasjon som kan påvirke fremtidige utbytter.",
+      "score": 55,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -3746,13 +4088,13 @@
       "ticker": "VASA",
       "issuer": "Vasakronan AB",
       "title": "Vasakronan's interim report January-September 2026",
-      "headline": "Vasakronan rapporterer stabil drift omsetning på SEK 7,1 mrd, leieinntekter faller 1%",
-      "lead": "Vasakronan leverer leieinntekter på SEK 7,112 millioner, ned 1% på sammenlignbare eiendommer. Økte netto leietap og lavere belegg preger resultatet, mens eiendomsverdien øker 0,5 prosent til SEK 183,4 milliarder.",
+      "headline": "Vasakronan rapporterer 1 % fall i leieinntekter og marginalt redusert driftsresultat",
+      "lead": "Vasakronans leieinntekter falt til SEK 7,112 millioner, ned 1% justert for sammenlignbare eiendommer. Driftsresultatet stagnerte og netto leieinntjening falt, mens porteføljens markedsverdi økte svakt til SEK 183 milliarder.",
       "published_at": "2026-11-03T13:00:13.900000+00:00",
       "url": "https://newsweb.oslobors.no/message/685490",
-      "summary": "Vasakronan leverer leieinntekter på SEK 7,112 millioner, ned 1% på sammenlignbare eiendommer. Økte netto leietap og lavere belegg preger resultatet, mens eiendomsverdien øker 0,5 prosent til SEK 183,4 milliarder.",
-      "reason": "Leieinntektene og driftsresultatet er marginalt svakere enn året før, netto leietap øker. Finansielt styrket situasjon og eiendomsverdiøkning gir en balansert helhet. For aksjonærer er det viktig å følge utviklingen i beleggsgrad og netto leietap framover.",
-      "score": 78,
+      "summary": "Vasakronans leieinntekter falt til SEK 7,112 millioner, ned 1% justert for sammenlignbare eiendommer. Driftsresultatet stagnerte og netto leieinntjening falt, mens porteføljens markedsverdi økte svakt til SEK 183 milliarder.",
+      "reason": "Leieinntektene og driftsresultatet viser svak nedgang, mens eiendomsverdiene holder seg stabile. For investorer er stabilitet i et utfordrende marked positivt, men svakere nettopåslag og fall i netto leieinntjening krever videre oppfølging av markedstrender og utleievolum.",
+      "score": 75,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -4416,13 +4758,13 @@
       "ticker": "AFK",
       "issuer": "Arendals Fossekompani ASA",
       "title": "Q3 2026 financial results webcast and Q&A session",
-      "headline": "Arendals Fossekompani kunngjør Q3-resultater 10. november – webcast kl. 09:00",
-      "lead": "AFK offentliggjør sine kvartalstall for tredje kvartal 2026 tirsdag 10. november kl. 08:00 CET, med påfølgende presentasjon og Q&A-ledet av ledelsen via webcast.",
+      "headline": "Arendals Fossekompani offentliggjør Q3 2026-resultater 10. november",
+      "lead": "Arendals Fossekompani presenterer sine Q3 2026-resultater tirsdag 10. november kl. 08:00 CET med påfølgende webcast og Q&A kl. 09:00 CET. Detaljer om finansiell utvikling ennå ikke tilgjengelig.",
       "published_at": "2026-11-03T08:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685444",
-      "summary": "AFK offentliggjør sine kvartalstall for tredje kvartal 2026 tirsdag 10. november kl. 08:00 CET, med påfølgende presentasjon og Q&A-ledet av ledelsen via webcast.",
-      "reason": "Foreløpig er ingen resultater eller nøkkeltall kjent, kun dato for publisering og presentasjon. Ingen indikasjon på resultatets størrelse eller utvikling finnes, så effekten på aksjonærene kan ikke vurderes enda.",
-      "score": 40,
+      "summary": "Arendals Fossekompani presenterer sine Q3 2026-resultater tirsdag 10. november kl. 08:00 CET med påfølgende webcast og Q&A kl. 09:00 CET. Detaljer om finansiell utvikling ennå ikke tilgjengelig.",
+      "reason": "Ingen konkrete tall eller resultater er publisert i forkant. Nyhetsverdien ligger i tidspunkt og tilgang til presentasjon, men uten finansiell informasjon er det uklart hvordan dette påvirker aksjonærer.",
+      "score": 35,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
@@ -5574,13 +5916,13 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "OTL - Key information relating to the cash dividend for Q3 2026 to be paid by Odfjell Technology Ltd",
-      "headline": "Odfjell Technology utbetaler kvartalsutbytte på 1,52 kroner per aksje",
-      "lead": "Odfjell Technology kunngjør et kontantutbytte på 1,52 NOK per aksje for tredje kvartal 2026, med betaling 25. november. Utbyttet gjelder for aksjer notert 9. november.",
+      "headline": "Odfjell Technology betaler 1,52 kroner i aksjeutbytte for tredje kvartal",
+      "lead": "Odfjell Technology legger utbytte på 1,52 NOK per aksje for tredje kvartal 2026, med utbetaling 25. november. Viktig dato for aksjonærer er 9. november, siste dag for å få utbytte.",
       "published_at": "2026-11-03T06:11:01.613000+00:00",
       "url": "https://newsweb.oslobors.no/message/685417",
-      "summary": "Odfjell Technology kunngjør et kontantutbytte på 1,52 NOK per aksje for tredje kvartal 2026, med betaling 25. november. Utbyttet gjelder for aksjer notert 9. november.",
-      "reason": "Utbytteutbetalinger gir direkte avkastning til aksjonærene, men uten informasjon om selskapets lønnsomhet eller fremtidig guiding er det vanskelig å vurdere om dette signaliserer styrket finansiell posisjon eller er konsistent med tidligere utbyttenivå.",
-      "score": 55,
+      "summary": "Odfjell Technology legger utbytte på 1,52 NOK per aksje for tredje kvartal 2026, med utbetaling 25. november. Viktig dato for aksjonærer er 9. november, siste dag for å få utbytte.",
+      "reason": "Utbyttet reflekterer vanlig selskapspraksis og gir en indikasjon på kontantstrøm til aksjonærer. Det er ingen informasjon om endringer fra tidligere kvartaler eller kontekst som påvirker vurderingen av selskapets utvikling.",
+      "score": 65,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -11768,389 +12110,20 @@
           ]
         }
       }
-    },
-    {
-      "id": "685185",
-      "market": "XOSL",
-      "ticker": "NONG",
-      "issuer": "SpareBank 1 Nord-Norge",
-      "title": "God lønnsomhet og kapasitet til videre vekst",
-      "headline": "SpareBank 1 Nord-Norge leverer 2,996 mrd. i resultat før skatt – økte tapsavsetninger veier tungt",
-      "lead": "Resultatet før skatt falt til 2,996 milliarder kroner etter tredje kvartal 2026 fra 3,296 milliarder i samme periode i fjor, mens kostnadene ble redusert og kjernekapitaldekningen økte. Tapsavsetningene er økt betydelig, noe som kan signalere økt usikkerhet.",
-      "published_at": "2026-10-30T06:30:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/685185",
-      "summary": "Resultatet før skatt falt til 2,996 milliarder kroner etter tredje kvartal 2026 fra 3,296 milliarder i samme periode i fjor, mens kostnadene ble redusert og kjernekapitaldekningen økte. Tapsavsetningene er økt betydelig, noe som kan signalere økt usikkerhet.",
-      "reason": "Resultatet før skatt er lavere enn i fjor, men egenkapitalavkastningen og kapitaldekningen er fortsatt sterke. Økte tapsavsetninger, primært modellbaserte, tyder på en mer forsiktig kredittsituasjon som bør følges opp nøye. Effektiviseringsprogram og solid balanse gir grunnlag for videre vekst.",
-      "score": 85,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "language_versions": [
-        {
-          "id": "685185",
-          "title": "God lønnsomhet og kapasitet til videre vekst",
-          "url": "https://newsweb.oslobors.no/message/685185",
-          "published_at": "2026-10-30T06:30:00+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685184",
-          "title": "Good profitability and capacity for further growth",
-          "url": "https://newsweb.oslobors.no/message/685184",
-          "published_at": "2026-10-30T06:30:00+00:00",
-          "language": "Original"
-        }
-      ],
-      "attachment_key": "5339d06680f93026",
-      "number_keys": [
-        "004be8",
-        "0193d1",
-        "0716d9",
-        "1574bd",
-        "22d200",
-        "356a19",
-        "4396c2",
-        "5a2525",
-        "69fa65",
-        "717b2f",
-        "769833",
-        "7a98fa",
-        "7b5200",
-        "7dc79c",
-        "88492d",
-        "972a67",
-        "ac3478",
-        "ae1e71",
-        "aee655",
-        "b3f0c7",
-        "be057d",
-        "c28097",
-        "d435a6",
-        "dbc0f0",
-        "e1822d",
-        "e3d09d",
-        "e3dc2f",
-        "e6477e",
-        "f6b9b6",
-        "fa35e1"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "filename",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "SpareBank 1 Nord-Norge Kvartalsrapport 3Q26 NO.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685185&attachmentId=335344"
-        },
-        "metrics": [
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 1018.0,
-            "prior_year": 987.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 3.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 7: Netto renteinntekter i 3Q26 utgjør 1.018 mill. kroner (987 mill. kroner)"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 2926.0,
-            "prior_year": 2950.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -0.8,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 3: Netto renteinntekter per 30/09/26 er 2 926 mill. kroner, 30/09/25 is 2 950 mill. kroner"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 812.0,
-            "prior_year": 903.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -10.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 5: Resultat etter skatt 3Q26 er 812 mill. kroner (903 mill. kroner)"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 2378.0,
-            "prior_year": 2665.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -10.8,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 3 and 5: Resultat for perioden 30/09/26 is 2 378 mill. kroner, 30/09/25 is 2 665 mill. kroner"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No EBITDA line explicitly reported in the quarterly results."
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": 2996.0,
-            "prior_year": 3296.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -9.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 3: Resultat før skatt 30/09/26 is 2 996 mill. kroner, 30/09/25 is 3 296 mill. kroner"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": 3.57,
-            "prior_year": 3.99,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -10.5,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 5: Resultat per egenkapitalbevis (EPS) 3Q26 is 3.57 NOK, 3Q25 is 3.99 NOK"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": 10.44,
-            "prior_year": 11.77,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -11.3,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 4: Resultat per EKB per 30/09/26 is 10.44 NOK, per 30/09/25 is 11.77 NOK"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No specific operating cash flow figures provided for 3Q26."
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "SpareBank 1 Nord-Norge rapporterer en fortsatt solid utlånsvekst i personmarkedet med annualisert 8,0 % ved utgangen av 3. kvartal 2026, selv om dette er lavere enn forrige kvartal (12,1 %). Markedsandeler tas konstant, og innskuddsmarginen i personmarkedet holdes stabil på 0,76 %, med aktive tiltak for ytterligere styrking. I bedriftsmarkedet er det en nedgang i innskuddsvolum på 1,1 % dette kvartalet, men faktisk 12 måneders vekst er sterk på 8,2 %. Driftskostnadene i BM økte til 129 mill. kroner. Banken tar hensyn til et vedvarende inflasjonspress og rentehevinger både fra Fed og ECB, noe som tyder på en fortsatt utfordrende økonomisk situ",
-          "change": "- Utlånsveksten i personmarkedet er justert ned fra 12,1 % annualisert i 2Q26 til 8,0 % i 3Q26.\n- Innskuddsmarginen mot NIBOR i personmarkedet holdes uendret på 0,76 %, aktivt tiltak for å styrke denne videre er fortsatt til stede (2Q26: 0,74 %).\n- Innskuddsvolum i bedriftsmarkedet har en svak nedgang på 1,1 % i kvartalet, mot en nedgang på 4,0 % i 2Q26, mens faktisk 12 måneders vekst øker til 8,2 % fra 6,7 %.\n- Driftskostnader i bedriftsmarkedet har økt til 129 mill. kroner fra 111 mill. kroner i 2Q26, dvs. økende kostnadsnivå.",
-          "trend": "Guidingen har vist en gradvis mer avdempet vekst i utlån i personmarkedet fra Q1 via Q2 til Q3 2026, samtidig som banken kontinuerlig opprettholder fokus på å ta markedsandeler og styrke innskuddsmarginen. Innskuddsvolum i bedriftsmarkedet varierer, men faktisk årsvekst har blitt sterkere de siste kvartalene. Driftskostnadene i bedriftsmarkedet er økende. Utsiktene reflekterer fortsatt utfordringer med inflasjon og rentehevinger, men banken har leverte vekst innenfor forventede rammer uten store avvik fra tidligere guidinger.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1",
-            "2025Q4"
-          ],
-          "points": [
-            {
-              "topic": "Utlånsvekst personmarkedet",
-              "statement": "Annualisert vekst 8,0 % (ned fra 12,1 % i 2Q26)",
-              "evidence": "\"Annualisert utlånsvekst er dermed 8,0 % (12,1 %)\"",
-              "page": "utdrag"
-            },
-            {
-              "topic": "Innskuddsmargin personmarked",
-              "statement": "Margin holdt stabil på 0,76 %, tiltak for styrking fortsatt aktive",
-              "evidence": "\"Innskuddsmargin mot NIBOR er uendret fra forrige kvartal, og er på 0,76 % (0,74 %). Divisjonen har tatt aktive grep for å styrke innskuddsmarginen fremover.\"",
-              "page": "utdrag"
-            },
-            {
-              "topic": "Innskuddsvolum bedriftsmarked",
-              "statement": "Ned 1,1 % i kvartalet, 12-måneders vekst på 8,2 %",
-              "evidence": "\"Også for BM-divisjonen er innskuddsvolumet noe redusert i kvartalet, med en nedgang på 1,1 % (nedgang på 4,0 %). Faktisk 12 månedersvekst er likevel sterk, med 8,2 % (6,7 %).\"",
-              "page": "utdrag"
-            },
-            {
-              "topic": "Driftskostnader bedriftsmarked",
-              "statement": "Økt til 129 mill. fra 111 mill. kroner",
-              "evidence": "\"Samlede driftskostnader i BM-divisjonen per utgangen av 3Q26 er på 129 mill. kroner (111 mill. kroner).\"",
-              "page": "utdrag"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "685183",
-      "market": "XOSL",
-      "ticker": "SBNOB",
-      "issuer": "Sparebanken Norge Boligkreditt AS",
-      "title": "Sparebanken Norge Boligkreditt AS - Q3 report 2026",
-      "headline": "Sparebanken Norge Boligkreditt AS legger fram Q3-rapport uten nøkkeltall",
-      "lead": "Sparebanken Norge Boligkreditt AS har offentliggjort sin kvartalsrapport for tredje kvartal 2026, men rapporten mangler konkrete finansielle nøkkeltall og resultater.",
-      "published_at": "2026-10-30T06:15:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/685183",
-      "summary": "Sparebanken Norge Boligkreditt AS har offentliggjort sin kvartalsrapport for tredje kvartal 2026, men rapporten mangler konkrete finansielle nøkkeltall og resultater.",
-      "reason": "Mangelen på konkrete tall og resultatdetaljer gjør det vanskelig å vurdere kvartalets prestasjon og effekt på aksjeverdien. Aksjonærer må vente på ytterligere informasjon for å danne seg et klart bilde.",
-      "score": 35,
-      "skipped": false,
-      "direction": "uklar",
-      "assessment_source": "AI",
-      "attachment_key": "883f35f738b9b8be",
-      "number_keys": [
-        "189d67",
-        "427f30",
-        "77de68",
-        "827bfc",
-        "aee655"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "filename",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Sparebanken Norge Boligkreditt Q3 2026.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685183&attachmentId=335319"
-        },
-        "metrics": [
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 365.0,
-            "prior_year": 556.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -34.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 6, quarterly profit trend table Q3 2026 and Q3 2025 net interest income"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 1178.0,
-            "prior_year": 1373.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -14.2,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 3, Board of Director's report, first nine months net interest income and credit commission income"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 249.0,
-            "prior_year": 502.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -50.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 6, quarterly profit trend table profit for the period Q3 2026 and Q3 2025"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 892.0,
-            "prior_year": 865.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 3.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 3, Board of Director's report, first nine months net profit"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "NOK million",
-            "current": 1537.0,
-            "prior_year": 864.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 77.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 10, cash flow statement net cash flow from operations for 30.09.2026 and 30.09.2025"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "Bankens fremtidsutsikter beskriver en konsekvent modell for vurdering av finansielle eiendeler i tre stadier basert på kredittrisiko og forventede tap. Stage 1 omfatter eiendeler med 12-måneders forventede tap, Stage 2 eiendeler med betydelig økt kredittrisiko uten objektive tap, og Stage 3 eiendeler med dokumenterte tap. Overganger mellom stadier avspeiler migrasjon av forventede tap, og nye målemetoder samt beregninger påvirker kvartalets tap.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
-          "trend": "",
-          "compared_periods": [
-            "2026Q2"
-          ],
-          "points": [
-            {
-              "topic": "Kredittrisiko og tapsavsetninger",
-              "statement": "Finansielle eiendeler vurderes i tre stadier med avsetninger for forventede tap basert på risiko og objektive tap.",
-              "evidence": "Stage 1 gir 12-måneders forventede tap, Stage 2 inkluderer økt kredittrisiko uten tap, Stage 3 har dokumenterte tap.",
-              "page": "utdrag fra rapport"
-            },
-            {
-              "topic": "Overgang mellom stadier",
-              "statement": "Overganger mellom stadier viser migrasjon av forventede kredittap og påvirker tapsberegningene.",
-              "evidence": "‘Transfer between the stages’ viser migrasjon av forventede tap mellom stadiene i balansen.",
-              "page": "utdrag fra rapport"
-            },
-            {
-              "topic": "Målemetode og tapspotensial",
-              "statement": "Nye målemetoder og kvartalsvise beregninger presenteres som ‘Net new measurement of losses’.",
-              "evidence": "Effekten av ny målemetode og beregning i kvartalet fremkommer på linjen ‘Net new measurement of losses’.",
-              "page": "utdrag fra rapport"
-            },
-            {
-              "topic": "Konfirmasjon av tap",
-              "statement": "Endelig tapsavskrivning skjer først når all sikkerhet er realisert og ytterligere innbetalinger er usannsynlige.",
-              "evidence": "Tap bekreftes når all sikkerhet er realisert og firmaet ikke forventer flere innbetalinger.",
-              "page": "utdrag fra rapport"
-            }
-          ]
-        }
-      }
     }
   ],
-  "last_checked_at": "2026-11-04T09:00:00+00:00",
+  "last_checked_at": "2026-11-04T09:10:00+00:00",
   "monitor_stats": {
-    "fetched": 218,
-    "recent": 123,
+    "fetched": 220,
+    "recent": 125,
     "already_seen": 111,
-    "eligible": 12,
+    "eligible": 14,
     "filtered": 0,
-    "analyzed": 12,
+    "analyzed": 14,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 12,
-    "source_latest_at": "2026-11-04T08:38:04.990000+00:00"
+    "source_latest_at": "2026-11-04T09:08:28.686000+00:00"
   }
 }
