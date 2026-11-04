@@ -19,6 +19,56 @@ PUBLIC = ROOT / "public" / "latest.json"
 LATEST = ROOT / "reports" / "latest.json"
 BOOTSTRAP = ROOT / "bootstrap" / "latest.json"
 MAX_ITEMS = 240
+MAX_INDIRECT = 60
+INDIRECT_DAYS = 3
+TICKER = re.compile(r"[A-Z0-9][A-Z0-9.\-]{0,14}")
+
+def clean_affected(rows: object, limit: int = 6) -> list[dict]:
+    out=[]
+    for row in rows if isinstance(rows,list) else []:
+        if not isinstance(row,dict):continue
+        ticker=limited(row.get("ticker"),15).upper()
+        if not TICKER.fullmatch(ticker) or any(a["ticker"]==ticker for a in out):continue
+        direction=limited(row.get("direction"),10)
+        out.append({"ticker":ticker,
+                    "direction":direction if direction in ("positiv","negativ","uklar") else "uklar",
+                    "reason":limited(row.get("reason"),170)})
+        if len(out)>=limit:break
+    return out
+
+def sanitize_indirect(item: object) -> dict | None:
+    """Indirect news: headline, link and OUR short AI comment only - never article text."""
+    if not isinstance(item,dict):return None
+    ident=limited(item.get("id"),20)
+    url=limited(item.get("url"),400)
+    try:
+        if urlparse(url).scheme!="https":return None
+    except ValueError:
+        return None
+    affected=clean_affected(item.get("affected"))
+    score=num(item.get("score"))
+    if not re.fullmatch(r"[0-9a-f]{16}",ident) or not affected or score is None:
+        return None
+    return {"id":ident,"source":limited(item.get("source"),30),"title":limited(item.get("title"),220),
+            "url":url,"published_at":limited(item.get("published_at"),48),
+            "analyzed_at":limited(item.get("analyzed_at"),48),
+            "score":min(max(int(score),0),100),"comment":limited(item.get("comment"),270),
+            "affected":affected}
+
+def merge_indirect(old: list, new: list, now: datetime | None = None) -> list[dict]:
+    now=now or datetime.now(timezone.utc)
+    rows={}
+    for item in [*(old or []),*(new or [])]:
+        cleaned=sanitize_indirect(item)
+        if cleaned:rows[cleaned["id"]]=cleaned
+    def when(row):
+        try:
+            t=datetime.fromisoformat((row.get("published_at") or row.get("analyzed_at") or "").replace("Z","+00:00"))
+            return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return now
+    fresh=[r for r in rows.values() if (now-when(r)).days<INDIRECT_DAYS]
+    return sorted(fresh,key=when,reverse=True)[:MAX_INDIRECT]
 
 def limited(value: object, length: int) -> str:
     return str(value or "").strip()[:length]
@@ -77,6 +127,11 @@ def sanitize(item: dict) -> dict | None:
         "direction":limited(item.get("direction"),25),
         "assessment_source":limited(item.get("assessment_source"),90)
     }
+    affected=clean_affected(item.get("affected"),5)
+    if affected:result["affected"]=affected
+    if item.get("importance") in ("stor","mellom"):result["importance"]=item["importance"]
+    score_ai=num(item.get("score_ai"))
+    if score_ai is not None:result["score_ai"]=min(max(int(score_ai),0),100)
     # Public original message links, including both language versions.
     versions=item.get("language_versions")
     if isinstance(versions,list):
@@ -178,19 +233,21 @@ def build_snapshot(report:dict, old:dict|None=None, bootstrap:dict|None=None) ->
         "source":"NewsWeb – automatisk fra Raspberry Pi",
         "generated_at": limited(report.get("generated_at"),48) if current_items else
                         limited((old or bootstrap or {}).get("generated_at"),48),
-        "items":rows
+        "items":rows,
+        "indirect":merge_indirect((old or {}).get("indirect") or [],report.get("indirect") or [])
     }
     # Heartbeat updates on every completed source check, even if zero new
     # disclosures. Do not confuse last_checked_at with news published_at.
     diag=report.get("diagnostics")
     if isinstance(diag,dict) and diag:
         allowed=("fetched","recent","already_seen","eligible","filtered",
-                 "analyzed","ai_failed","details_failed","capped","recovered_unpublished","source_latest_at")
+                 "analyzed","ai_failed","details_failed","capped","recovered_unpublished","source_latest_at",
+                 "indirect")
         merged["last_checked_at"]=limited(report.get("generated_at"),48)
         merged["monitor_stats"]={key:diag.get(key) for key in allowed
                                  if isinstance(diag.get(key),(int,str))}
     old_rows=(old or {}).get("items") or []
-    updated = not old or rows!=old_rows or (
+    updated = not old or rows!=old_rows or merged["indirect"]!=(old or {}).get("indirect",[]) or (
         "last_checked_at" in merged and (
             merged["last_checked_at"]!=(old or {}).get("last_checked_at") or
             merged.get("monitor_stats")!=(old or {}).get("monitor_stats")))

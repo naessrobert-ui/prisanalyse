@@ -102,6 +102,8 @@ jobs:
       VALID_MARKETS: ${{ vars.VALID_MARKETS || 'XOSL' }}
       EQUITY_TICKERS: ${{ vars.EQUITY_TICKERS }}
       NOTIFY_SCORE: ${{ vars.NOTIFY_SCORE || '75' }}
+      INDIRECT_NEWS: ${{ vars.INDIRECT_NEWS || 'true' }}
+      INDIRECT_FEEDS: ${{ vars.INDIRECT_FEEDS || 'https://e24.no/rss' }}
       NOTIFICATIONS_ENABLED: ${{ vars.NOTIFICATIONS_ENABLED || 'false' }}
       PUSHOVER_APP_TOKEN: ${{ secrets.PUSHOVER_APP_TOKEN }}
       PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
@@ -118,7 +120,7 @@ jobs:
       - name: Installer PDF-leser
         run: python -m pip install "pypdf>=5,<8"
       - name: Kontroller Python-koden
-        run: python -m py_compile newsweb_routes.py newsweb_consensus.py newsweb_monitor/report_analysis.py
+        run: python -m py_compile newsweb_routes.py newsweb_consensus.py newsweb_monitor/report_analysis.py newsweb_monitor/market_data.py newsweb_monitor/indirect_news.py newsweb_monitor/importance.py
       - name: Test nyhetsmotoren
         run: python -m unittest discover -s newsweb_monitor/tests -v
       - name: Test ekte NewsWeb-meldinger og PDF (kun PR)

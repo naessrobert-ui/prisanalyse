@@ -127,6 +127,22 @@ h1{font-size:clamp(27px,3vw,37px)}
 .trades-table td:last-child{text-align:right;white-space:nowrap}
 .trades-table .pos{color:#8fe3b0}.trades-table .neg{color:#ff9ea9}
 .item .trades-note{color:var(--muted);font-size:11px;margin:7px 0 0;line-height:1.4}
+.kurs-panel{margin:10px 0;font-size:12px;border:1px solid #33507a;border-radius:9px;padding:9px 11px;background:#0d1d36}
+.kurs-line{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;font-variant-numeric:tabular-nums}
+.kurs-line b{font-size:14px}.kurs-line .pos{color:#8fe3b0}.kurs-line .neg{color:#ff9ea9}
+.kurs-badge{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border-radius:6px;padding:2px 6px;background:#6b2c87;color:#f5ddff}
+.imp-badge{font-size:10px;font-weight:750;border-radius:6px;padding:2px 6px;background:#1f4c6e;color:#cfe8ff;margin-left:6px;vertical-align:middle}
+.affected{margin:9px 0 0;padding:0;list-style:none;display:grid;gap:5px}
+.affected li{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:baseline;font-size:11px;line-height:1.4;color:#c9d6e8}
+.affected .t{font-weight:800;color:#a8cbff}.affected .r{font-variant-numeric:tabular-nums;white-space:nowrap}
+.affected .pos,.affected .dir-positiv{color:#8fe3b0}.affected .neg,.affected .dir-negativ{color:#ff9ea9}
+.affected-head{font-size:11px;color:#b9d6fd;font-weight:700;margin-top:10px}
+.indirect{margin:6px 0 22px}
+.indirect-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.indirect-card{border:1px solid #4a3d6b;border-radius:12px;padding:13px 15px;background:linear-gradient(155deg,#1b1838 0%,#121a31 80%);font-size:12px}
+.indirect-card h3{font-size:15px;line-height:1.35;margin:6px 0 7px}.indirect-card p{margin:6px 0;line-height:1.5;color:#d3dcec}
+@media(max-width:1150px){.indirect-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:740px){.indirect-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body><main>
@@ -168,6 +184,28 @@ h1{font-size:clamp(27px,3vw,37px)}
  <span><b>{{ignored}}</b> lav prioritet / filtrert</span>
  <span class="dim">Kilde: {{report.get('source','NewsWeb')}}{% if report.get('generated_at') %} · {{report.generated_at|norsk_tid}}{% endif %}</span>
 </div>
+{% set indirect = report.get('indirect') or [] %}
+{% if indirect %}
+<section class="indirect" aria-label="Indirekte nyheter">
+<details open>
+<summary class="section-heading">Indirekte nyheter som kan påvirke noterte selskaper ({{indirect|length}})</summary>
+<p class="dimmed-summary">Saker som ikke er børsmeldinger, men som AI vurderer kan påvirke inntjeningen (regulering, råvarer, renter, politikk o.l.). Kilde: {{indirect|map(attribute='source')|unique|join(', ')}}.</p>
+<div class="indirect-grid">
+{% for x in indirect[:12] %}
+<article class="indirect-card">
+  <div class="item-head"><span class="dim">{{x.source}} · <span class="published-at" data-timestamp="{{x.published_at}}">{{x.published_at}}</span></span><span class="tag {% if x.score>=75 %}urgent{% else %}interesting{% endif %}">{{x.score}} / 100</span></div>
+  <h3><a href="{{x.url}}" target="_blank" rel="noopener noreferrer">{{x.title}} ↗</a></h3>
+  <p>{{x.comment}}</p>
+  <div class="kurs-panel" data-kurs-published="{{x.published_at or x.analyzed_at}}" data-kurs-ticker=""><span class="dim">Henter kurs …</span></div>
+  <ul class="affected" data-affected-for="indirect">
+  {% for a in x.affected %}<li data-ticker="{{a.ticker}}"><span class="t">{{a.ticker}}</span><span class="dir-{{a.direction}}">{{a.direction}}: {{a.reason}}</span><span class="r"></span></li>{% endfor %}
+  </ul>
+</article>
+{% endfor %}
+</div>
+</details>
+</section>
+{% endif %}
 <div class="section-heading">Nyheter</div>
 <div class="controls">
   <div class="filters" role="group" aria-label="Velg prioriterte nyheter">
@@ -181,6 +219,7 @@ h1{font-size:clamp(27px,3vw,37px)}
       <option value="latest" selected>Nyeste først</option>
       <option value="score">Høyeste prioritet</option>
       <option value="surprise">Største konsensusavvik</option>
+      {% if can_view_consensus %}<option value="move">Største kursreaksjon</option>{% endif %}
       <option value="oldest">Eldste først</option>
       <option value="ticker">Ticker A–Å</option>
     </select>
@@ -195,10 +234,19 @@ h1{font-size:clamp(27px,3vw,37px)}
 <article class="item" data-priority="{% if quiet %}quiet{% elif score >= 75 %}urgent{% else %}interesting{% endif %}"
   data-date="{{item.get('published_at','')}}" data-score="{{score}}" data-ticker="{{item.get('ticker','')}}"
   data-surprise="{{item.get('largest_surprise_abs', -1)}}" {% if quiet or score < 75 %}hidden{% endif %}>
-<div class="item-head"><div class="ticker">{{item.get('ticker') or 'UKJENT'}} <span class="dim">· {{item.get('issuer') or ''}}</span></div>
+<div class="item-head"><div class="ticker">{{item.get('ticker') or 'UKJENT'}} <span class="dim">· {{item.get('issuer') or ''}}</span>{% if item.get('importance')=='stor' %}<span class="imp-badge" title="Vektet opp som viktig selskap{% if item.get('score_ai') is not none %} (AI-skår {{item.score_ai}}){% endif %}">Viktig</span>{% endif %}</div>
 <span class="tag {% if quiet %}quiet{% elif score>=75 %}urgent{% else %}interesting{% endif %}">{{'Filtrert' if item.get('skipped') else (score|string + ' / 100')}}</span></div>
 <h2 class="title">{{item.get('headline') or item.get('title','Uten tittel')}}</h2>
 <p class="news-lead">{{item.get('lead') or item.get('summary') or 'Ingen ingress tilgjengelig'}}</p>
+{% if can_view_consensus and item.get('ticker') and not item.get('skipped') %}
+<div class="kurs-panel" data-kurs-ticker="{{item.ticker}}" data-kurs-published="{{item.get('published_at','')}}"><span class="dim">Henter kurs …</span></div>
+{% endif %}
+{% if item.get('affected') %}
+<div class="affected-head">Kan påvirke andre selskaper</div>
+<ul class="affected">
+{% for a in item.affected %}<li data-ticker="{{a.ticker}}"><span class="t">{{a.ticker}}</span><span class="dir-{{a.direction}}">{{a.direction}}: {{a.reason}}</span><span class="r"></span></li>{% endfor %}
+</ul>
+{% endif %}
 {% if can_view_consensus and item.get('ticker') %}
 <div class="trades-panel" data-trades-ticker="{{item.ticker}}" data-trades-published="{{item.get('published_at','')}}"
   data-trades-auto="{{'1' if (not item.get('skipped') and score >= 75) else '0'}}">
@@ -346,6 +394,8 @@ h1{font-size:clamp(27px,3vw,37px)}
         ||published(b)-published(a);
       if(choice==='surprise')return number(b,'surprise',-1)-number(a,'surprise',-1)
         ||published(b)-published(a);
+      if(choice==='move')return number(b,'move',-1)-number(a,'move',-1)
+        ||published(b)-published(a);
       return published(b)-published(a);
     });
     container.append(...cards);
@@ -367,6 +417,7 @@ h1{font-size:clamp(27px,3vw,37px)}
     }
   });
   refresh();
+  window.newswebRefresh=refresh;
 })();
 (() => {
   const panels=Array.from(document.querySelectorAll('.trades-panel'));
@@ -449,4 +500,85 @@ h1{font-size:clamp(27px,3vw,37px)}
   }else auto.forEach(load);
 })();
 </script>
+{% if can_view_consensus %}
+<script>
+(() => {
+  const panels=Array.from(document.querySelectorAll('.kurs-panel'));
+  if(!panels.length)return;
+  const url='{{url_for("newsweb.price_reaction")}}';
+  const pct=v=>(v>0?'+':'')+Number(v).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';
+  const cls=v=>v>0?'pos':(v<0?'neg':'');
+  const el=(tag,c,text)=>{const n=document.createElement(tag);if(c)n.className=c;if(text!==undefined)n.textContent=text;return n;};
+  const scope=p=>p.closest('article');
+  const affectedRows=p=>Array.from(scope(p).querySelectorAll('.affected li[data-ticker]'));
+  const keys=p=>{
+    const when=p.dataset.kursPublished;
+    const own=p.dataset.kursTicker?[p.dataset.kursTicker+'|'+when]:[];
+    return own.concat(affectedRows(p).map(li=>li.dataset.ticker+'|'+when));
+  };
+  function render(p,results,open){
+    const card=scope(p);
+    const own=p.dataset.kursTicker?results[p.dataset.kursTicker+'|'+p.dataset.kursPublished]:null;
+    p.replaceChildren();
+    if(own){
+      
+      if(own.error){p.append(el('span','dim','Kurs: '+own.error));}
+      else{
+        const line=el('div','kurs-line');
+        const sent=new Date(p.dataset.kursPublished);
+        const day=d=>d.toLocaleDateString('nb-NO',{timeZone:'Europe/Oslo'});
+        const since=day(sent)===day(new Date())?'':' ('+sent.toLocaleDateString('nb-NO',{timeZone:'Europe/Oslo',day:'2-digit',month:'short'})+')';
+        line.append(el('span','dim',own.traded_since?'Kurs siden meldingen'+since:'Ingen handel siden meldingen ennå'));
+        line.append(el('b',cls(own.change_pct),pct(own.change_pct)));
+        if(own.abnormal_pct!==undefined)line.append(el('span',cls(own.abnormal_pct),'mot OSEBX '+pct(own.abnormal_pct)));
+        if(own.rel_volume)line.append(el('span','dim','volum i dag '+own.rel_volume.toLocaleString('nb-NO')+'× snitt'));
+        line.append(el('span','dim',own.price_before+' → '+own.price_now+' '+own.currency));
+        if(own.price_driver)line.append(el('span','kurs-badge','Kursdrivende'));
+        p.append(line);
+        const move=Math.abs(own.abnormal_pct!==undefined?own.abnormal_pct:own.change_pct);
+        if(card)card.dataset.move=move;
+      }
+    }
+    affectedRows(p).forEach(li=>{
+      const r=results[li.dataset.ticker+'|'+p.dataset.kursPublished];
+      const cell=li.querySelector('.r');
+      if(!r||r.error){cell.textContent='–';cell.title=(r&&r.error)||'';return;}
+      cell.textContent=pct(r.change_pct)+(r.abnormal_pct!==undefined?' ('+pct(r.abnormal_pct)+' mot OSEBX)':'');
+      cell.className='r '+cls(r.change_pct);
+    });
+    if(!own&&affectedRows(p).length){p.append(el('span','dim',open?'Børsen er åpen – kurs siden saken, forsinket ca. 15 min':'Kurs siden saken (børsen er stengt)'));}
+  }
+  let marketOpen=false;
+  function load(list){
+    list=list.filter(p=>keys(p).length);
+    for(let i=0;i<list.length;){
+      const chunk=[];let n=0;
+      while(i<list.length&&n+keys(list[i]).length<=80){chunk.push(list[i]);n+=keys(list[i]).length;i++;}
+      if(!chunk.length){i++;continue;}
+      const q=new URLSearchParams();
+      chunk.forEach(p=>{p.dataset.kursLoaded='1';keys(p).forEach(k=>q.append('m',k));});
+      fetch(url+'?'+q,{credentials:'same-origin'}).then(r=>r.json())
+        .then(data=>{marketOpen=!!data.market_open;chunk.forEach(p=>render(p,data.results||{},marketOpen));
+                     if(document.getElementById('news-sort').value==='move'&&window.newswebRefresh)window.newswebRefresh();})
+        .catch(()=>chunk.forEach(p=>{p.textContent='Klarte ikke hente kurs.';}));
+    }
+  }
+  const auto=panels;
+  if('IntersectionObserver' in window){
+    let pending=[],timer=null;
+    const io=new IntersectionObserver(entries=>entries.forEach(e=>{
+      if(e.isIntersecting&&!e.target.closest('[hidden]')){io.unobserve(e.target);pending.push(e.target);
+        if(!timer)timer=setTimeout(()=>{timer=null;load(pending.splice(0));},80);}
+    }),{rootMargin:'300px'});
+    auto.forEach(p=>io.observe(p));
+  }else load(auto);
+  // Sortering på kursreaksjon: hent kurs for alle synlige meldinger først.
+  document.getElementById('news-sort')?.addEventListener('change',e=>{
+    if(e.target.value==='move')load(panels.filter(p=>!p.dataset.kursLoaded&&!p.closest('[hidden]')));
+  });
+  // Mens børsen er åpen: oppdater lastede kurser hvert 2. minutt.
+  setInterval(()=>{if(marketOpen&&!document.hidden)load(panels.filter(p=>p.dataset.kursLoaded));},120000);
+})();
+</script>
+{% endif %}
 </body></html>

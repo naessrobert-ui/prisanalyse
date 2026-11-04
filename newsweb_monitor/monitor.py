@@ -171,21 +171,53 @@ INSTRUCTIONS = (
     "score 0–100 måler nyhetsverdi, IKKE styrken i positiv eller negativ kursreaksjon. "
     "direction er positiv, negativ, nøytral eller uklar basert på faktiske forhold, "
     "ikke et avvik mot uobserverte markedsforventninger. "
-    "Returner bare JSON-feltene headline, lead, score, direction, reason."
+    "affected: ANDRE noterte selskaper på Oslo Børs (maks 5) der nyheten sannsynligvis påvirker "
+    "inntjening eller verdsettelse: konkurrenter som avslører samme sektortrend, kunder, leverandører, "
+    "morselskap/eiere og datterselskaper. Bruk Oslo Børs-ticker, retning positiv/negativ/uklar og "
+    "en kort begrunnelse (maks 160 tegn). Feltet sector_peers i input er kun et hint. "
+    "Tom liste hvis ingen tydelig påvirkning; ikke list hele sektoren uten grunn. "
+    "Returner bare JSON-feltene headline, lead, score, direction, reason, affected."
 )
+AFFECTED_TICKER = re.compile(r"[A-Z0-9][A-Z0-9.\-]{0,14}")
+
+def clean_affected(rows, own_ticker: str) -> list[dict]:
+    out, seen = [], {str(own_ticker or "").upper()}
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        ticker = str(row.get("ticker") or "").strip().upper()
+        if not AFFECTED_TICKER.fullmatch(ticker) or ticker in seen:
+            continue
+        direction = str(row.get("direction") or "uklar")
+        seen.add(ticker)
+        out.append({"ticker": ticker,
+                    "direction": direction if direction in ("positiv", "negativ", "uklar") else "uklar",
+                    "reason": " ".join(str(row.get("reason") or "").split())[:160]})
+        if len(out) >= 5:
+            break
+    return out
+
 def ai(item: dict, key: str) -> dict:
     schema = {"type":"object","properties":{
        "headline":{"type":"string"},
        "lead":{"type":"string"},
        "score":{"type":"integer"},
        "direction":{"type":"string","enum":["positiv","negativ","nøytral","uklar"]},
-       "reason":{"type":"string"}},
-       "required":["headline","lead","score","direction","reason"],"additionalProperties":False}
+       "reason":{"type":"string"},
+       "affected":{"type":"array","items":{"type":"object","properties":{
+           "ticker":{"type":"string"},
+           "direction":{"type":"string","enum":["positiv","negativ","uklar"]},
+           "reason":{"type":"string"}},
+           "required":["ticker","direction","reason"],"additionalProperties":False}}},
+       "required":["headline","lead","score","direction","reason","affected"],"additionalProperties":False}
+    from .importance import sector_peers
+    source={k:item[k] for k in ("issuer","ticker","title","body","published_at")}
+    source["sector_peers"]=sector_peers(item.get("ticker"))
     payload = {"model":os.getenv("OPENAI_MODEL","gpt-4.1-mini"),
        "instructions":INSTRUCTIONS,
-       "input":json.dumps({k:item[k] for k in ("issuer","ticker","title","body","published_at")},ensure_ascii=False),
+       "input":json.dumps(source,ensure_ascii=False),
        "text":{"format":{"type":"json_schema","name":"news_assessment","strict":True,"schema":schema}},
-       "store":False,"max_output_tokens":820}
+       "store":False,"max_output_tokens":1100}
     result = http_json("https://api.openai.com/v1/responses",payload,
         {"Content-Type":"application/json","Authorization":"Bearer "+key})
     texts=[part.get("text","") for out in result.get("output",[])
@@ -212,6 +244,7 @@ def ai(item: dict, key: str) -> dict:
     return {"score":min(100,max(0,int(obj["score"]))),
         "direction":obj["direction"],"headline":headline,"lead":lead,
         "summary":lead,"reason":" ".join(str(obj["reason"]).split())[:340],
+        "affected":clean_affected(obj.get("affected"),item.get("ticker")),
         "assessment_source":"AI"}
 
 def pushover(item:dict, assessment:dict) -> None:
@@ -380,6 +413,9 @@ def main() -> int:
             stats["ai_failed"]+=1
             continue # Neste kjøring prøver igjen.
         entry={**item,**assessment,"skipped":False}
+        if assessment.get("assessment_source")=="AI":
+            from .importance import apply as weight_important
+            weight_important(entry)
         if mode=="newsweb":
             from .newsweb_source import is_financial_report
             if is_financial_report(item):
@@ -414,6 +450,14 @@ def main() -> int:
         stats["analyzed"]+=1
         if mode in ("live","newsweb"):
             seen[item["id"]]=now.isoformat()
+    indirect=[]
+    if mode=="newsweb" and flag("INDIRECT_NEWS",True):
+        try:
+            from .indirect_news import run as run_indirect
+            indirect=run_indirect(state,os.getenv("OPENAI_API_KEY",""),now=now)
+        except Exception as exc:
+            print("Indirekte nyheter feilet:",type(exc).__name__,exc,file=sys.stderr)
+        stats["indirect"]=len(indirect)
     # Begrens statushistorikk til ca 30 dager.
     limit=(now-dt.timedelta(days=30))
     for group in state["seen"].values():
@@ -428,6 +472,7 @@ def main() -> int:
             "generated_at":now.isoformat(timespec="seconds"),
             "generation":NEWSWEB_GENERATION if mode=="newsweb" else "",
             "items":sorted(entries,key=lambda x:x.get("score",0),reverse=True),
+            "indirect":indirect,
             "diagnostics":stats}
     output=ROOT/"reports"
     output.mkdir(exist_ok=True)
@@ -450,6 +495,14 @@ def main() -> int:
         md.extend(["### "+x["ticker"]+" – "+x["title"],"",
             str(x["score"])+"/100 – "+x["assessment_source"],
             "",x["summary"],"",x["reason"],""])
+        if x.get("affected"):
+            md.extend(["Berørte selskaper: "+", ".join(a["ticker"]+" ("+a["direction"]+"): "+a["reason"]
+                                                  for a in x["affected"]),""])
+    if indirect:
+        md.extend(["## Indirekte nyheter som kan påvirke noterte selskaper",""])
+        for x in indirect:
+            md.extend(["### "+x["title"]+" ("+x["source"]+")","",str(x["score"])+"/100 – "+x["comment"],"",
+                       ", ".join(a["ticker"]+" ("+a["direction"]+")" for a in x["affected"]),""])
     # Readable financial comparison in GitHub Actions summary.
     for x in report["items"]:
         fin=x.get("financial_report")

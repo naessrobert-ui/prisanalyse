@@ -1,0 +1,32 @@
+{
+  "_info": "Vekting av viktige selskaper i NewsWeb-skåren. Rediger fritt: legg inn porteføljeselskaper under 'stor' eller 'mellom'. tillegg = poeng lagt til AI-skåren (0-100) når AI-skåren er minst min_ai_score. 'sektorer' brukes som hint til AI om sammenlignbare selskaper. 'yahoo_alias' oversetter NewsWeb-ticker til kursticker (null = ingen kurs tilgjengelig).",
+  "min_ai_score": 40,
+  "nivaer": {
+    "stor": {"tillegg": 10, "tickere": [
+      "EQNR", "DNB", "KOG", "NHY", "TEL", "AKRBP", "MOWI", "ORK", "YAR", "GJF",
+      "SALM", "STB", "SUBC", "FRO", "VAR", "AKER", "TOM", "NOD", "BAKKA", "AUTO",
+      "VEND", "TGS", "HAFNI", "WAWI", "SB1NO", "CMBTO", "KIT", "PROT"
+    ]},
+    "mellom": {"tillegg": 5, "tickere": [
+      "LSG", "SCATC", "BWLPG", "MING", "NONG", "SPOL", "MORG", "VEI", "AFG", "ENTRA",
+      "ATEA", "BORR", "AKSO", "DNO", "OKEA", "EPR", "ELK", "HAUTO", "CADLR", "GSF",
+      "AUSS", "KID", "BWO", "ODL", "HEX", "NEL", "MPCC", "OET", "ODF", "DOFG",
+      "ELO", "BONHR", "PEN", "NAS", "BNOR", "SOMA", "SOFF", "NORBT", "AKAST"
+    ]}
+  },
+  "sektorer": {
+    "Laks": ["MOWI", "SALM", "LSG", "BAKKA", "GSF", "AUSS"],
+    "Olje og gass": ["EQNR", "AKRBP", "VAR", "DNO", "OKEA", "PEN", "BNOR"],
+    "Oljeservice og rigg": ["SUBC", "TGS", "AKSO", "BORR", "ODL", "BWO", "DOFG", "SOMA", "SOFF"],
+    "Tank og gass-shipping": ["FRO", "HAFNI", "OET", "BWLPG", "CMBTO", "ODF"],
+    "Bil- og containerfrakt": ["WAWI", "HAUTO", "MPCC"],
+    "Bank og forsikring": ["DNB", "SB1NO", "MING", "NONG", "SPOL", "MORG", "STB", "GJF", "PROT"],
+    "Fornybar": ["SCATC", "NEL", "CADLR", "HEX"],
+    "Industri og teknologi": ["KOG", "NHY", "YAR", "ELK", "TOM", "NOD", "AUTO", "KIT", "NORBT"],
+    "Forbruk og media": ["ORK", "EPR", "KID", "VEND", "TEL", "ELO"],
+    "Bygg og eiendom": ["VEI", "AFG", "ENTRA"],
+    "IT-tjenester": ["ATEA", "BOUV", "ITERA"],
+    "Investeringsselskap": ["AKER", "BONHR", "AKAST"]
+  },
+  "yahoo_alias": {"TORM": null}
+}
