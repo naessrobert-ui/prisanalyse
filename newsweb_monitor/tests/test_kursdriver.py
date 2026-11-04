@@ -188,3 +188,65 @@ class PublishTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NonAsaTests(unittest.TestCase):
+    def test_non_asa_penalized(self):
+        e = importance.apply({"ticker": "TORM", "issuer": "TORM plc", "score": 85})
+        self.assertEqual((e["score"], e["score_ai"], e["company_form"]), (70, 85, "ikke ASA"))
+
+    def test_important_foreign_company_not_penalized(self):
+        e = importance.apply({"ticker": "FRO", "issuer": "Frontline plc", "score": 70})
+        self.assertEqual(e["score"], 80)
+        self.assertNotIn("company_form", e)
+
+    def test_savings_bank_and_asa_unchanged(self):
+        for issuer in ("SpareBank 1 Helgeland", "Sparebanken Vest", "BEWI ASA"):
+            e = importance.apply({"ticker": "ABC", "issuer": issuer, "score": 60})
+            self.assertEqual(e["score"], 60, issuer)
+
+
+class DriverTests(unittest.TestCase):
+    NOW = dt.datetime(2026, 11, 4, 11, 0, tzinfo=market_data.OSLO)
+
+    def charts(self):
+        base = [(ts(15, 0, 3), 100.0, 10), (ts(9, 0), None, 0)]
+        def c(after):
+            return chart([(ts(15, 0, 3), 100.0, 10), (ts(9, 0), after, 50)], after)
+        return {"BEWI": c(112.0), "SALM": c(103.0), "LSG": c(100.2), "MOWI": c(101.0),
+                "ZZZ": c(100.5), "OLD": c(130.0), market_data.INDEX: c(100.0)}
+
+    def test_session_start(self):
+        self.assertEqual(market_data.session_start(self.NOW).isoformat(), "2026-11-03T16:20:00+01:00")
+        sat = dt.datetime(2026, 11, 7, 12, tzinfo=market_data.OSLO)
+        self.assertEqual(market_data.session_start(sat).date().isoformat(), "2026-11-05")
+
+    def test_drivers_with_peers_and_signals(self):
+        charts = self.charts()
+        items = [
+            {"ticker": "BEWI", "issuer": "BEWI ASA", "headline": "BEWI øker EBITDA", "score": 85,
+             "published_at": "2026-11-04T06:00:00Z",
+             "affected": [{"ticker": "SALM", "direction": "positiv", "reason": "test"}]},
+            {"ticker": "ZZZ", "issuer": "Z ASA", "title": "liten", "score": 90, "published_at": "2026-11-04T06:00:00Z"},
+            {"ticker": "OLD", "issuer": "Old ASA", "title": "gammel", "score": 90, "published_at": "2026-11-02T06:00:00Z"},
+            {"ticker": "SKIP", "skipped": True, "score": 0, "published_at": "2026-11-04T06:00:00Z"},
+        ]
+        out = market_data.drivers(items, now=self.NOW, fetch=charts.get,
+                                  peers_for=lambda t: {"Test": ["BEWI", "LSG", "MOWI"]})
+        self.assertEqual([d["ticker"] for d in out["drivers"]], ["BEWI"])
+        peers = {p["ticker"]: p for p in out["drivers"][0]["peers"]}
+        self.assertEqual(list(peers), ["SALM", "LSG", "MOWI"])
+        self.assertEqual(peers["SALM"]["signal"], "følger")
+        self.assertEqual(peers["SALM"]["basis"], "AI")
+        self.assertEqual(peers["LSG"]["signal"], "etterslep")
+        self.assertEqual(peers["MOWI"]["basis"], "sektor")
+
+    def test_high_score_before_open_waits(self):
+        before = dt.datetime(2026, 11, 4, 8, 0, tzinfo=market_data.OSLO)
+        stock = chart([(ts(15, 0, 3), 100.0, 10)], 100.0)
+        items = [{"ticker": "BEWI", "issuer": "BEWI ASA", "title": "x", "score": 85,
+                  "published_at": "2026-11-04T06:00:00Z"},
+                 {"ticker": "LOW", "issuer": "L ASA", "title": "y", "score": 50,
+                  "published_at": "2026-11-04T06:00:00Z"}]
+        out = market_data.drivers(items, now=before, fetch=lambda t: stock, peers_for=lambda t: {})
+        self.assertEqual([(d["ticker"], d["status"]) for d in out["drivers"]], [("BEWI", "venter på handel")])

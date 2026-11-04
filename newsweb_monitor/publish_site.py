@@ -130,6 +130,7 @@ def sanitize(item: dict) -> dict | None:
     affected=clean_affected(item.get("affected"),5)
     if affected:result["affected"]=affected
     if item.get("importance") in ("stor","mellom"):result["importance"]=item["importance"]
+    if item.get("company_form")=="ikke ASA":result["company_form"]="ikke ASA"
     score_ai=num(item.get("score_ai"))
     if score_ai is not None:result["score_ai"]=min(max(int(score_ai),0),100)
     # Public original message links, including both language versions.

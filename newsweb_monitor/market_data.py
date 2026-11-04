@@ -142,3 +142,116 @@ def reaction(ticker: str, published_at: str, *, chart=None, index_chart=None,
     abnormal = out.get("abnormal_pct", out["change_pct"])
     out["price_driver"] = bool(out["traded_since"] and abs(abnormal) >= DRIVER_ABNORMAL_PCT)
     return out
+
+
+def session_start(now: dt.datetime | None = None) -> dt.datetime:
+    """Børsslutt (16:20 Oslo) dagen før gjeldende handelsdag.
+
+    Gjeldende handelsdag er i dag på hverdager, ellers siste fredag. Nyheter etter
+    dette tidspunktet er de som kan drive kursen i gjeldende handelsdag.
+    """
+    now = (now or dt.datetime.now(OSLO)).astimezone(OSLO)
+    session = now.date()
+    while session.weekday() >= 5:
+        session -= dt.timedelta(days=1)
+    prev = session - dt.timedelta(days=1)
+    while prev.weekday() >= 5:
+        prev -= dt.timedelta(days=1)
+    return dt.datetime.combine(prev, dt.time(16, 20), OSLO)
+
+
+def _peer_signal(driver_move: float, peer: dict, expected: str) -> str:
+    """Har det sammenlignbare selskapet fulgt etter? 'følger', 'etterslep' eller 'motsatt'."""
+    move = peer.get("abnormal_pct", peer.get("change_pct"))
+    if move is None:
+        return ""
+    want = {"positiv": 1, "negativ": -1}.get(expected) or (1 if driver_move > 0 else -1)
+    if abs(move) < 1.0:
+        return "etterslep"
+    return "følger" if move * want > 0 else "motsatt"
+
+
+def drivers(items: list[dict], *, now: dt.datetime | None = None, fetch=None,
+            peers_for=None, min_score: int = 75, max_drivers: int = 12, max_peers: int = 6) -> dict:
+    """Dagens kursdrivende aksjer (nyhet siden forrige børsslutt) med sammenlignbare selskaper.
+
+    Kursdrivende = minst DRIVER_ABNORMAL_PCT meravkastning mot OSEBX etter meldingen,
+    eller (før handel har startet) AI-skår >= min_score.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    fetch = fetch or fetch_chart
+    if peers_for is None:
+        from .importance import sector_peers as peers_for
+    now = now or dt.datetime.now(OSLO)
+    start = session_start(now)
+    by_ticker: dict = {}
+    for item in items:
+        if item.get("skipped") or not item.get("ticker"):
+            continue
+        try:
+            when = dt.datetime.fromisoformat(str(item.get("published_at")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if when < start or when > now:
+            continue
+        best = by_ticker.get(item["ticker"])
+        # Første melding styrer kursreferansen; høyeste skår styrer overskriften.
+        if not best:
+            by_ticker[item["ticker"]] = {"item": item, "first": item["published_at"], "affected": []}
+            best = by_ticker[item["ticker"]]
+        elif int(item.get("score") or 0) > int(best["item"].get("score") or 0):
+            best["item"] = item
+        if str(item["published_at"]) < str(best["first"]):
+            best["first"] = item["published_at"]
+        for a in item.get("affected") or []:
+            if a.get("ticker") and all(x["ticker"] != a["ticker"] for x in best["affected"]):
+                best["affected"].append(a)
+    if not by_ticker:
+        return {"since": start.isoformat(), "market_open": market_open(now), "drivers": []}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        charts = dict(zip(list(by_ticker) + [INDEX], pool.map(fetch, list(by_ticker) + [INDEX])))
+    idx = charts.get(INDEX)
+    chosen = []
+    for ticker, info in by_ticker.items():
+        item = info["item"]
+        r = reaction(ticker, info["first"], chart=charts.get(ticker), index_chart=idx, now=now) \
+            if charts.get(ticker) else {"ticker": ticker, "error": "Ingen kursdata"}
+        score = int(item.get("score") or 0)
+        traded = bool(r.get("traded_since"))
+        no_data = bool(r.get("error"))
+        if r.get("price_driver") or (not traded and score >= min_score):
+            move = r.get("abnormal_pct", r.get("change_pct", 0)) or 0
+            chosen.append({"ticker": ticker, "issuer": item.get("issuer", ""),
+                           "headline": item.get("headline") or item.get("title", ""),
+                           "url": item.get("url", ""), "published_at": info["first"], "score": score,
+                           "direction": item.get("direction", ""), "reaction": r,
+                           "status": "kursdrivende" if r.get("price_driver") else
+                                     ("ingen kursdata" if no_data else "venter på handel"),
+                           "_move": move, "_affected": info["affected"]})
+    rank = {"kursdrivende": 0, "venter på handel": 1, "ingen kursdata": 2}
+    chosen.sort(key=lambda d: (rank[d["status"]], -abs(d["_move"]), -d["score"]))
+    chosen = chosen[:max_drivers]
+    # Sammenlignbare: AI-berørte først (med forventet retning), deretter samme sektor.
+    peer_lists = {}
+    for d in chosen:
+        rows = [{"ticker": a["ticker"], "expected": a.get("direction", "uklar"), "reason": a.get("reason", ""),
+                 "basis": "AI"} for a in d.pop("_affected")]
+        # Minste sektorgruppe først: den er mest spesifikk (Offshore-rederi før Oljeservice).
+        for sector, members in sorted((peers_for(d["ticker"]) or {}).items(), key=lambda kv: len(kv[1])):
+            for t in members:
+                if t != d["ticker"] and all(x["ticker"] != t for x in rows):
+                    rows.append({"ticker": t, "expected": "", "reason": sector, "basis": "sektor"})
+        peer_lists[d["ticker"]] = rows[:max_peers]
+    need = sorted({p["ticker"] for rows in peer_lists.values() for p in rows} - set(charts))
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        charts.update(zip(need, pool.map(fetch, need)))
+    for d in chosen:
+        move = d.pop("_move")
+        for p in peer_lists[d["ticker"]]:
+            c = charts.get(p["ticker"])
+            p["reaction"] = reaction(p["ticker"], d["published_at"], chart=c, index_chart=idx, now=now) \
+                if c else {"ticker": p["ticker"], "error": "Ingen kursdata"}
+            p["signal"] = _peer_signal(move, p["reaction"], p["expected"]) if not p["reaction"].get("error") \
+                and p["reaction"].get("traded_since") else ""
+        d["peers"] = peer_lists[d["ticker"]]
+    return {"since": start.isoformat(), "market_open": market_open(now), "drivers": chosen}
