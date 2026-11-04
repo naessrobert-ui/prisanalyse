@@ -2,8 +2,308 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-04T05:30:00+00:00",
+  "generated_at": "2026-11-04T05:40:00+00:00",
   "items": [
+    {
+      "id": "685530",
+      "market": "XOSL",
+      "ticker": "MOWI",
+      "issuer": "Mowi ASA",
+      "title": "Mowi ASA (OSE: MOWI): Quarterly dividend",
+      "headline": "Mowi setter kvartalsutbytte til 2,30 kroner per aksje",
+      "lead": "Mowi kunngjør utbytte på 2,30 kroner per aksje for kvartalet med forventet utbetaling 23. november. Aksjer handles uten utbytte fra 13. november. Ingen informasjon om endringer i forventet inntjening er gitt.",
+      "published_at": "2026-11-04T05:31:00.949000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685530",
+      "summary": "Mowi kunngjør utbytte på 2,30 kroner per aksje for kvartalet med forventet utbetaling 23. november. Aksjer handles uten utbytte fra 13. november. Ingen informasjon om endringer i forventet inntjening er gitt.",
+      "reason": "Utbytteutbetalingen gir direkte avkastning til aksjonærene, men uten nye tall om selskapets inntjening eller fremtidig utvikling gir dette begrenset innsikt i selskapets økonomiske retning. Videre analyser bør fokusere på lønnsomhet og vekstutsikter.",
+      "score": 65,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "number_keys": [
+        "1574bd",
+        "2815f6",
+        "77de68",
+        "7b5200",
+        "ac3478",
+        "aee655",
+        "bd307a",
+        "d435a6"
+      ],
+      "financial_report": {
+        "status": "no_pdf",
+        "period": "",
+        "period_source": "",
+        "previous_report": "",
+        "document": {
+          "name": "",
+          "url": ""
+        },
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "trend": "",
+          "compared_periods": [],
+          "points": []
+        }
+      }
+    },
+    {
+      "id": "685528",
+      "market": "XOSL",
+      "ticker": "MOWI",
+      "issuer": "Mowi ASA",
+      "title": "Rekordhøye resultater, omsetning og volumer for Mowi",
+      "headline": "Mowi øker slaktevolum med 12 % og driftsresultatet til 275 mill. euro i Q3",
+      "lead": "Mowi leverer Q3-inntekter på 1,73 mrd. euro og øker volum til rekordhøye 186 000 tonn, med kostnadsreduksjon på 51 mill. euro. Forventet slaktevolum for 2026 heves til 620 000 tonn, 11 % opp fra i fjor.",
+      "published_at": "2026-11-04T05:30:27.364000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685528",
+      "summary": "Mowi leverer Q3-inntekter på 1,73 mrd. euro og øker volum til rekordhøye 186 000 tonn, med kostnadsreduksjon på 51 mill. euro. Forventet slaktevolum for 2026 heves til 620 000 tonn, 11 % opp fra i fjor.",
+      "reason": "Sterk volumvekst og kostnadskutt styrker Mowis konkurransekraft og lønnsomhet. For aksjonærer betyr det bedre marginer og økt produksjon, men videre utvikling i markedspriser og kostnader bør følges nøye for å vurdere bærekraften i resultatforbedringen.",
+      "score": 85,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "attachment_key": "6590558112da50b4",
+      "number_keys": [
+        "03606e",
+        "05a8ea",
+        "0c35ae",
+        "0e1281",
+        "1474ff",
+        "17ba07",
+        "1b6453",
+        "22d200",
+        "2473f0",
+        "2815f6",
+        "2a4593",
+        "35e995",
+        "3a2dc6",
+        "572e20",
+        "6250c4",
+        "6c4110",
+        "792b51",
+        "7b5200",
+        "887309",
+        "9e6a55",
+        "a005a9",
+        "ac3478",
+        "aee655",
+        "b3f0c7",
+        "b6692e",
+        "b7eb6c",
+        "d54ad0",
+        "d68ec9",
+        "df518c",
+        "f1250a",
+        "f5bb94",
+        "fa35e1"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "filename",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Mowi_Q3_2026_Report.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685529&attachmentId=335668"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "EUR million",
+            "current": 1731.7,
+            "prior_year": 1393.1,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 24.3,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 2, SIDE 4"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "EUR million",
+            "current": 193.0,
+            "prior_year": 255.2,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -24.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 3"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "EUR million",
+            "current": 332.9,
+            "prior_year": 165.2,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 101.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 3"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "EUR million",
+            "current": 330.2,
+            "prior_year": 172.4,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 91.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 3,SIDE 4"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "EUR million",
+            "current": 193.0,
+            "prior_year": 255.2,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -24.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 3"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "EUR million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not reported explicitly for Q3 2026"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not reported explicitly for Q3 2026"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "EUR million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not reported"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Mowi øker sin høstvolumveiledning for 2026 til rekordhøye 620 000 GWT fra tidligere 600 000 GWT, med en videre forventning om 630 000 GWT i 2027 forutsatt normale vekstforhold. Selskapet rapporterer historisk høy omsetning på EUR 1,73 milliarder i tredje kvartal, drevet av rekordhøye volum og sterk kostnadskontroll med en reduksjon i produksjonskostnad på EUR 0,31 per kg sammenlignet med samme kvartal i fjor. Consumer Products og Feed-segmentene leverer rekordhøye inntekter og gode driftsresultater. Kvartalsutbyttet foreslås til NOK 2,30 per aksje.",
+          "change": "Høstvolumveiledningen for 2026 er økt fra 600k GWT i Q2 til 620k GWT nå, og 2027-veiledning på 630k GWT er ny informasjon (Q2 hadde ingen 2027-veiledning). Kostnadsreduksjonen per kg er nå spesifisert til EUR 0,31 lavere enn samme kvartal i fjor, en klar forbedring sammenlignet med tidligere realiserte kostnader på EUR 5,20 per kg i Q2. Omsetningen er rapportert til rekordnivå, noe som er bedre enn tidligere guidet (Q2 rapporterte lavere).",
+          "trend": "Over de siste kvartalene har Mowi justert høstvolumveiledningen ned i Q2 fra starten av året, men nå i Q3 økes volumforventningen til rekordnivå. Spotprisene har utviklet seg positivt gjennom kvartalene, og selskapet har kontinuerlig forbedret kostnadskontrollen som understøtter lønnsomheten. Tonen er mer optimistisk om volumvekst og marginforbedringer i siste kvartal, og selskapet leverer i tråd med eller bedre enn tidligere forventninger.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Høstvolumveiledning",
+              "statement": "Veiledningen økes til rekordhøye 620k GWT for 2026 og 630k GWT for 2027, opp fra 600k GWT for 2026 tidligere.",
+              "evidence": "Harvest volume guidance for 2026 increased to record-high 620k GWT from 600k GWT, up 11% y/y; 2027 harvest volume guidance of 630k GWT.",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Kostnadskontroll og marginer",
+              "statement": "Produksjonskostnad er redusert med EUR 0,31 per kg fra samme kvartal i fjor, og finansielt driftsresultat øker til EUR 312,0 millioner.",
+              "evidence": "Strong cost performance, with Farming cost reduced by EUR 0.31/kg from the comparable quarter last year; Financial EBIT of EUR 312.0 million.",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Omsetning og segmentresultater",
+              "statement": "Rekordhøy omsetning på EUR 1,73 milliarder, med Consumer Products og Feed som leverer alle tiders høyder i volum, inntekter og driftsresultat.",
+              "evidence": "All-time high revenue of EUR 1.73 billion; Consumer Products with all-time high revenues and volumes, driving good earnings; Record-high earnings and volumes in Feed.",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Utbytte",
+              "statement": "Det foreslås kvartalsutbytte på NOK 2,30 per aksje.",
+              "evidence": "Quarterly dividend of NOK 2.30 per share.",
+              "page": "utdrag"
+            }
+          ]
+        }
+      },
+      "language_versions": [
+        {
+          "id": "685529",
+          "title": "Record-high profits, revenues and volumes for Mowi",
+          "url": "https://newsweb.oslobors.no/message/685529",
+          "published_at": "2026-11-04T05:30:27.364000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685528",
+          "title": "Rekordhøye resultater, omsetning og volumer for Mowi",
+          "url": "https://newsweb.oslobors.no/message/685528",
+          "published_at": "2026-11-04T05:30:27.324000+00:00",
+          "language": "Norsk"
+        }
+      ]
+    },
+    {
+      "id": "685526",
+      "market": "XOSL",
+      "ticker": "LSG",
+      "issuer": "Lerøy Seafood Group ASA",
+      "title": "Lerøy Seafood Group ASA: Invitasjon til presentasjon av resultater for tredje kvartal 2026",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-04T05:30:01.185000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685526",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter",
+      "language_versions": [
+        {
+          "id": "685527",
+          "title": "Lerøy Seafood Group ASA: Invitation to presentation of third quarter 2026 results",
+          "url": "https://newsweb.oslobors.no/message/685527",
+          "published_at": "2026-11-04T05:30:01.185000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "685526",
+          "title": "Lerøy Seafood Group ASA: Invitasjon til presentasjon av resultater for tredje kvartal 2026",
+          "url": "https://newsweb.oslobors.no/message/685526",
+          "published_at": "2026-11-04T05:30:00.892000+00:00",
+          "language": "Norsk"
+        }
+      ]
+    },
     {
       "id": "685524",
       "market": "XOSL",
@@ -245,13 +545,13 @@
       "ticker": "LINK",
       "issuer": "Link Mobility Group Holding ASA",
       "title": "LINK Mobility - Q3 2026 - Back to high-single-digit organic growth",
-      "headline": "Link Mobility øker organisk vekst til 7 prosent i tredje kvartal 2026",
-      "lead": "Link Mobility rapporterer 7 prosent organisk vekst i bruttofortjeneste i Q3, en betydelig oppgang fra forrige kvartal, og hever samtidig vekstguidingen for andre halvår til høy enkeltsiffer.",
+      "headline": "LINK Mobility øker organisk vekst til 7 prosent i tredje kvartal",
+      "lead": "LINK Mobility rapporterer 7 prosent organisk vekst i bruttomargin for Q3 2026, en økning på 5 prosentpoeng fra Q2, og forventer fortsatt vekst i høy ensifret område i andre halvår.",
       "published_at": "2026-11-04T05:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685520",
-      "summary": "Link Mobility rapporterer 7 prosent organisk vekst i bruttofortjeneste i Q3, en betydelig oppgang fra forrige kvartal, og hever samtidig vekstguidingen for andre halvår til høy enkeltsiffer.",
-      "reason": "Den akselererende organiske veksten i Q3 samt oppjustert vekstguiding for H2 og 2027 indikerer en mer robust veksttrend enn tidligere i år, noe som kan styrke investorers tillit. Økte aksjonærutbetalinger signaliserer økonomisk styrke, men valutapåvirkning og detaljer om marginer bør undersøkes videre.",
-      "score": 75,
+      "summary": "LINK Mobility rapporterer 7 prosent organisk vekst i bruttomargin for Q3 2026, en økning på 5 prosentpoeng fra Q2, og forventer fortsatt vekst i høy ensifret område i andre halvår.",
+      "reason": "Den sterke veksten i Q3 og heving av vekstguidingen for andre halvår indikerer at selskapet lykkes med sine vekstinitiativ. Økt vekst i Enterprise-segmentet og positiv utvikling for Global Messaging styrker vekstutsiktene, noe som er positivt for aksjonærene. Videre bør man følge utviklingen i valutapåvirkningen, samt effektene av økt AI-",
+      "score": 85,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -302,7 +602,7 @@
             "yoy_pct": 18.7,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 7, SIDE 10"
+            "evidence": "SIDE 2 and SIDE 10"
           },
           {
             "label": "EBITDA",
@@ -315,7 +615,7 @@
             "yoy_pct": 37.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 5, SIDE 7, SIDE 10"
+            "evidence": "SIDE 2 and SIDE 10"
           },
           {
             "label": "EBIT",
@@ -328,7 +628,7 @@
             "yoy_pct": 55.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 10"
+            "evidence": "Operating profit on SIDE 10"
           },
           {
             "label": "Resultat etter skatt",
@@ -341,7 +641,7 @@
             "yoy_pct": 347.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 10"
+            "evidence": "Profit for the period on SIDE 10"
           },
           {
             "label": "EPS",
@@ -354,7 +654,7 @@
             "yoy_pct": 350.0,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 10"
+            "evidence": "Earnings per share on SIDE 10"
           },
           {
             "label": "Kontantstrøm drift",
@@ -367,7 +667,7 @@
             "yoy_pct": -67.9,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 9"
+            "evidence": "Cash flow from operating activities on SIDE 9"
           },
           {
             "label": "Netto renteinntekter",
@@ -380,39 +680,39 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 8, SIDE 10"
+            "evidence": "Net interest expense on SIDE 8 and financial expense notes on SIDE 10"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "LINK rapporterer en akselerasjon i organisk vekst med 7% organisk bruttofortjenestevekst i tredje kvartal 2026, noe som fører til en oppjustering av veiledningen for organisk bruttofortjenestevekst i andre halvår 2026 til høyt ensifret nivå. Organisk justert EBITDA vokste også med 7%, støttet av sterk kommersiell aktivitet og M&A. Selskapet forventer fortsatt høyt ensifret organisk vekst i 2027, drevet av økt AI-adopsjon som vil stimulere til høyere meldingsvolumer og rikere kommunikasjon. De planlegger også økte aksjonærutbytter via tilbakekjøp på 330-400 millioner NOK i 2026 samtidig som de fortsetter investeringer i vekst og oppkjøp. M&A-s",
+          "summary": "LINK melder om en klar akselerasjon i organisk vekst med en organisk bruttofortjenestevekst på 7 % i tredje kvartal 2026, noe som ligger i det høyere sjiktet av forventningene. Basert på denne utviklingen hever selskapet sin veiledning for organisk bruttofortjenestevekst i andre halvår 2026 fra midt-til-høy ensifret til høy ensifret nivå. Justert EBITDA vokste også med 7 % organisk, drevet av sterkere bruttofortjenestevekst. Selskapet forventer fortsatt høy ensifret vekst i organisk bruttofortjeneste for 2027 i tråd med sine mellomlangsiktige mål. Videre forventes fjorårets oppkjøp å styrke posisjonen i Spania og Latin-Amerika, og økt AI-adop",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Organisk vekst og inntjeningsforventninger",
-              "statement": "Organisk bruttofortjenestevekst i andre halvår 2026 oppjustert fra midt-til-høyt ensifret til høyt ensifret nivå; organisk justert EBITDA vokser med 7%. Forventning om høyt ensifret vekst videre i 2027.",
-              "evidence": "\"we raise H2’26 organic gross profit growth guidance from mid-to-high single digits to high single digits\" og \"expectation of high-single-digit organic gross profit growth in 2027\" (side 1 og flere st",
+              "topic": "Organisk vekst",
+              "statement": "Organisk bruttofortjenestevekst i Q3 akselererte til 7 % og høynet forventningene for H2 2026 til høy ensifret nivå. For 2027 forventes fortsatt høy ensifret organisk vekst.",
+              "evidence": "\"vi hever H2’26 organisk bruttofortjenestevekst til høy ensifret\"; \"vi forventer høy ensifret vekst i 2027\" (side 1 og CEO-melding)",
               "page": "1"
             },
             {
-              "topic": "Investeringer og kapitalallokering",
-              "statement": "Planleggingsramme for aksjetilbakekjøp på 330-400 millioner NOK i 2026 for å øke aksjonærutbytte samtidig som investeringer i organisk vekst og oppkjøp fortsetter.",
-              "evidence": "\"NOK 330-400 million in share buybacks expected for 2026\" og \"support increasing returns to shareholders\" (side 1 og 3)",
-              "page": "1-3"
+              "topic": "Profitabilitet og EBITDA",
+              "statement": "Organisk justert EBITDA-vekst ble 7 % i Q3, drevet av forbedret bruttofortjeneste, med 37 % økning i justert EBITDA totalt inkludert oppkjøp.",
+              "evidence": "\"organisk justert EBITDA vekst på 7 %\"; \"justert EBITDA økte 37 % til 268 millioner NOK\" (side 1)",
+              "page": "1"
             },
             {
-              "topic": "Marked og vekstdrivere",
-              "statement": "AI-adopsjon anses som en strukturell vekstdriver som vil øke meldingsvolumer og bruk av mer avanserte kommunikasjonskanaler. Nordic RCS-rullout pågår som ny mulighet.",
-              "evidence": "\"expect increasing AI adoption to provide an additional structural tailwind\" og \"Nordic RCS rollout commenced\" (side 2-3)",
-              "page": "2-3"
+              "topic": "Investeringer og oppkjøp",
+              "statement": "Oppkjøp i Spania og Latin-Amerika styrker markedsposisjonen, mens AI forventes å bidra til vekst gjennom økt meldingsvolum og richer kanaler.",
+              "evidence": "\"oppkjøpene av Interactive og LabsMobile... styrker posisjonen\"; \"økende AI-adopsjon gir strukturell vekst\" (CEO-melding)",
+              "page": "1"
             },
             {
-              "topic": "Oppkjøp og markedsposisjon",
-              "statement": "Forsatt fokus på bolt-on oppkjøp som styrker eksisterende markedsposisjoner, særlig i Spania og Latin-Amerika, gjennom nylige oppkjøp som Interactive og LabsMobile.",
-              "evidence": "\"acquisition of Interactive strengthened our position in Spain\" og \"acquisition of LabsMobile following quarter-end\" (side 2)",
-              "page": "2"
+              "topic": "Utbytte og aksjetilbakekjøp",
+              "statement": "LINK planlegger aksjetilbakekjøp for 2026 på 330-400 millioner NOK, samtidig som det investeres i videre vekst og M&A.",
+              "evidence": "\"vi forventer aksjetilbakekjøp på 330-400 millioner i 2026\"; \"fortsette å investere i organisk vekst og oppkjøp\" (CEO-melding)",
+              "page": "1"
             }
           ]
         }
@@ -848,15 +1148,15 @@
       "ticker": "VASA",
       "issuer": "Vasakronan AB",
       "title": "Vasakronan's interim report January-September 2026",
-      "headline": "Vasakronan øker eiendomsverdien til SEK 183,4 milliarder i tredje kvartal",
-      "lead": "Eiendomsverdien steg 0,5 prosent til SEK 183,4 milliarder, mens netto leieinntekter falt 1 prosent i kvartalet. Driftsoverskuddet var stabilt, men netto renteutgifter økte med SEK 49 millioner.",
+      "headline": "Vasakronan sees 1% drop in rental revenue, occupancy falls to 87.1%",
+      "lead": "Rental revenue edged down to SEK 7,112 million with occupancy slipping 0.6 percentage points; net lettings remain negative at SEK -125 million, reflecting ongoing market challenges in offsetting lease terminations.",
       "published_at": "2026-11-03T13:00:13.900000+00:00",
       "url": "https://newsweb.oslobors.no/message/685490",
-      "summary": "Eiendomsverdien steg 0,5 prosent til SEK 183,4 milliarder, mens netto leieinntekter falt 1 prosent i kvartalet. Driftsoverskuddet var stabilt, men netto renteutgifter økte med SEK 49 millioner.",
-      "reason": "Verdistigningen i eiendomsporteføljen viser underliggende styrke, men nedgang i netto leieinntekter og økte renteutgifter indikerer fortsatt utfordringer i leiemarkedet. Viktig å følge utleieaktivitet og finanskostnader fremover.",
+      "summary": "Rental revenue edged down to SEK 7,112 million with occupancy slipping 0.6 percentage points; net lettings remain negative at SEK -125 million, reflecting ongoing market challenges in offsetting lease terminations.",
+      "reason": "Vasakronan reports stable yet slightly declining earnings and occupancy, with net lettings negative indicating pressure on rental income growth. Investors should monitor future lease renewals and market demand to assess recovery prospects.",
       "score": 75,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "negativ",
       "assessment_source": "AI",
       "attachment_key": "a7529fb9b80d2a0d",
       "number_keys": [
@@ -1518,13 +1818,13 @@
       "ticker": "AFK",
       "issuer": "Arendals Fossekompani ASA",
       "title": "Q3 2026 financial results webcast and Q&A session",
-      "headline": "Arendals Fossekompani kunngjør Q3-resultater 10. november uten lønnstall",
-      "lead": "Arendals Fossekompani (AFK) planlegger å offentliggjøre kvartalstall for tredje kvartal 2026 den 10. november, men detaljene om nøkkeltall og forventninger foreligger ikke før webcasten.",
+      "headline": "Arendals Fossekompani annonserer Q3 2026-resultater 10. november",
+      "lead": "Arendals Fossekompani skal presentere sine tall for tredje kvartal 2026 tirsdag 10. november klokken 09:00 CET, med CEO og CFO til stede på webcast. Resultater og detaljer er foreløpig ikke offentliggjort.",
       "published_at": "2026-11-03T08:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685444",
-      "summary": "Arendals Fossekompani (AFK) planlegger å offentliggjøre kvartalstall for tredje kvartal 2026 den 10. november, men detaljene om nøkkeltall og forventninger foreligger ikke før webcasten.",
-      "reason": "Informasjonen om kvartalsresultater er kun en annonse for kommende presentasjon uten konkrete tall eller analyser, noe som gir lav nyhetsverdi og uten indikasjon på finansiell utvikling eller avvik.",
-      "score": 35,
+      "summary": "Arendals Fossekompani skal presentere sine tall for tredje kvartal 2026 tirsdag 10. november klokken 09:00 CET, med CEO og CFO til stede på webcast. Resultater og detaljer er foreløpig ikke offentliggjort.",
+      "reason": "Foreløpig mangler konkrete nøkkeltall og resultater for Q3 2026, hvilket gjør det umulig å vurdere resultatets påvirkning på aksjonærene eller selskapets fremtidige utsikter.",
+      "score": 40,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
@@ -2676,13 +2976,13 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "OTL - Key information relating to the cash dividend for Q3 2026 to be paid by Odfjell Technology Ltd",
-      "headline": "Odfjell Technology betaler ut 1,52 kroner i utbytte per aksje for Q3 2026",
-      "lead": "Odfjell Technology kunngjør et kvartalsutbytte på 1,52 NOK per aksje, med betaling 25. november 2026. Utbyttet reflekterer selskapets kontantstrøm, men mangler informasjon om tidligere sammenligninger eller fremtidig utbyttepolitikk.",
+      "headline": "Odfjell Technology utbetaler utbytte på 1,52 kroner per aksje for Q3 2026",
+      "lead": "Odfjell Technology kunngjør kontantutbytte på 1,52 NOK per aksje for tredje kvartal 2026 med betaling 25. november. Informasjon om tidligere utbytte og sammenligning mangler foreløpig.",
       "published_at": "2026-11-03T06:11:01.613000+00:00",
       "url": "https://newsweb.oslobors.no/message/685417",
-      "summary": "Odfjell Technology kunngjør et kvartalsutbytte på 1,52 NOK per aksje, med betaling 25. november 2026. Utbyttet reflekterer selskapets kontantstrøm, men mangler informasjon om tidligere sammenligninger eller fremtidig utbyttepolitikk.",
-      "reason": "Utbytteutbetalingen gir aksjonærer direkte avkastning, men uten sammenligning med tidligere kvartaler eller selskapets finansielle resultat for Q3 er det uklart om dette signaliserer forbedret finansiell styrke eller stabil drift. Videre analyse av selskapets inntjening og kontantstrøm er nødvendig.",
-      "score": 65,
+      "summary": "Odfjell Technology kunngjør kontantutbytte på 1,52 NOK per aksje for tredje kvartal 2026 med betaling 25. november. Informasjon om tidligere utbytte og sammenligning mangler foreløpig.",
+      "reason": "Utbytteutbetalinger gir aksjonærer direkte avkastning, men uten informasjon om tidligere kvartaler eller selskapets løpende lønnsomhet, er det vanskelig å vurdere om dette er en opp- eller nedjustering. Aksjonærer bør følge opp fremtidige finansrapporter for å vurdere selskapets økonomiske helse og utbyttenivåets bærekraft.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -11561,249 +11861,20 @@
         "ac3478",
         "aee655"
       ]
-    },
-    {
-      "id": "685137",
-      "market": "XOSL",
-      "ticker": "BORR",
-      "issuer": "Borr Drilling Limited",
-      "title": "Borr Drilling Limited - Prospector 5 Rig Incident Update - October 29, 2026",
-      "headline": "Tre omkomne i Prospector 5-ulykken – fortsatt to savnet offshore Gabon",
-      "lead": "Et oppdateringsvarsel fra Borr Drilling bekrefter at tre personer omkom i ulykken ved Prospector 5, mens to fortsatt er savnet. Søke- og redningsarbeid pågår, og 110 ombordværende er trygt tilbake på land.",
-      "published_at": "2026-10-29T12:06:08.695000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685137",
-      "summary": "Et oppdateringsvarsel fra Borr Drilling bekrefter at tre personer omkom i ulykken ved Prospector 5, mens to fortsatt er savnet. Søke- og redningsarbeid pågår, og 110 ombordværende er trygt tilbake på land.",
-      "reason": "Ulykken med Prospector 5 påvirker Borr Drillings operasjoner og kan medføre økonomiske og omdømmemessige konsekvenser. Videre detaljer om miljøpåvirkning og erstatningskostnader er foreløpig uklare og bør følges nøye.",
-      "score": 85,
-      "skipped": false,
-      "direction": "negativ",
-      "assessment_source": "AI",
-      "number_keys": [
-        "4fd505",
-        "5e796e",
-        "7719a1",
-        "98fbc4",
-        "ac3478",
-        "aee655",
-        "b6589f",
-        "ba613d",
-        "baf2f8",
-        "efa6e4",
-        "f6e112"
-      ]
-    },
-    {
-      "id": "685134",
-      "market": "XOSL",
-      "ticker": "BOLID",
-      "issuer": "Boliden AB",
-      "title": "Boliden Q3 2026: Stark utveckling inom Gruvor och Smältverk",
-      "headline": "Bolidens driftsresultat øker til 5,4 milliarder SEK i tredje kvartal",
-      "lead": "Bolidens driftsresultat steg til 5,4 mrd SEK i Q3 2026, mot 3,2 mrd SEK i samme periode i fjor. Salgsinntektene økte også kraftig, men fritt kassafløde falt betydelig til 1,1 mrd SEK.",
-      "published_at": "2026-10-29T12:00:36.571000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685134",
-      "summary": "Bolidens driftsresultat steg til 5,4 mrd SEK i Q3 2026, mot 3,2 mrd SEK i samme periode i fjor. Salgsinntektene økte også kraftig, men fritt kassafløde falt betydelig til 1,1 mrd SEK.",
-      "reason": "Sterk produksjonsvekst og integrering av Somincor gir høyere resultater og salgsinntekter. Fallet i fritt kassafløde kan indikere økte investeringer eller driftsendringer. Aksjonærer bør følge med på finansiering og fremtidige investeringers avkastning.",
-      "score": 85,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "language_versions": [
-        {
-          "id": "685135",
-          "title": "Boliden Q3 2026: Solid performance across Mines and Smelters",
-          "url": "https://newsweb.oslobors.no/message/685135",
-          "published_at": "2026-10-29T12:00:36.571000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685134",
-          "title": "Boliden Q3 2026: Stark utveckling inom Gruvor och Smältverk",
-          "url": "https://newsweb.oslobors.no/message/685134",
-          "published_at": "2026-10-29T12:00:15.026000+00:00",
-          "language": "Original"
-        }
-      ],
-      "attachment_key": "8e53c03efbba3f37",
-      "number_keys": [
-        "05ef8e",
-        "1f7333",
-        "2d0c8a",
-        "2de49a",
-        "2eee5f",
-        "33c27d",
-        "3eeeee",
-        "425ac6",
-        "45b2af",
-        "6341e0",
-        "761222",
-        "7719a1",
-        "7841fb",
-        "784e92",
-        "9109c8",
-        "98f2c2",
-        "aee655",
-        "b888b2",
-        "cdf633",
-        "fa92c3"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "reported",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685135&attachmentId=335315"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "SEK million",
-            "current": 30442.0,
-            "prior_year": 21971.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 38.6,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 4 'Revenues increased to SEK 30,442 m (21,971).'"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "SEK million",
-            "current": 1121.0,
-            "prior_year": 2284.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -50.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 5 'Free cash flow was SEK 1,121 m (2,284).'"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "SEK million",
-            "current": 4894.0,
-            "prior_year": 2752.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 77.8,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 4 'operating profit excluding revaluation of process inventory totaled SEK 4,894 m (2,752).'"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "SEK million",
-            "current": 3888.0,
-            "prior_year": 2294.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 69.5,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 5 'Net profit was SEK 3,888 m (2,294).'"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "SEK/share",
-            "current": 13.69,
-            "prior_year": 8.07,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 69.6,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 5 'Earnings per share of SEK 13.69 (8.07).'"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "SEK million",
-            "current": -441.0,
-            "prior_year": -346.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 5 'Net financial items totaled SEK -441 m (-346).'"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "Boliden har justert sin veiledning for 2026 med lavere forventet kobbergrad i Aitik fra 0,18 % til 0,16 %, men økt malmvolum fra 41 til 42 millioner tonn. Investeringene i gruvedrift er økt fra tidligere 6,5 til 7 milliarder SEK, mens totale kapitalutgifter for året holdes på 15,5 milliarder SEK. Vedlikeholdskostnader i smelteverkene er oppjustert med sterkere negativ innvirkning i fjerde kvartal, -100 mot -50 millioner SEK tidligere. Ramp-up av Odda-leveransen går nå raskere enn tidligere meldt, og Rönnskärs nye tankhouse nærmer seg ferdigstillelse. For 2027 vil Boliden offentliggjøre fullstendig veiledning i desember, med tidligere kommunis",
-          "change": "Seneste veiledning for 2026 viser at kobbergraden i Aitik har blitt nedjustert fra 0,18 % til 0,16 % mens malmvolumet er oppjustert fra 41 til 42 millioner tonn. Investeringene estimert til gruvedrift har økt fra 6,5 til 7 milliarder SEK. Vedlikeholdskostnader i smelteverkene for hele året er oppjustert fra -450 millioner SEK til -500 millioner SEK, og for fjerde kvartal fra -50 til -100 millioner SEK. Tidligere var ramp-up i Odda ventet å være langsommere, men nå rapporteres akselererende opptrapping. Tidligere veiledning for 2027 ble ikke detaljert annonsert, nå planlegges full offentliggjøring 8. desember 2026.",
-          "trend": "Over flere kvartaler har Boliden holdt en relativt stabil total kapitalutgiftsramme på rundt 15,5 milliarder SEK, men gjort enkelte justeringer til fordelingen mellom gruvedriftsinvesteringer og andre kostnader. Produksjonsvolumer og malmgrader har vært gjenstand for justeringer, særlig i Aitik, med en nedadgående korreksjon i kobbergrad og moderat økning i volum. Ramp-up-utfordringer spesielt i Odda har blitt kommunisert, men framstår nå som på bedring. Vedlikeholdskostnader har holdt seg på et relativt høyt nivå med en forsiktig oppjustering. Ledelsen har opprettholdt forventninger om god langsiktig utvikling i virksomheten, og nå varsler d",
-          "compared_periods": [
-            "2026Q2",
-            "2025Q4"
-          ],
-          "points": [
-            {
-              "topic": "Produksjon og malmgrader",
-              "statement": "Kobbergraden i Aitik for 2026 er nedjustert fra 0,18 % til 0,16 %, mens malmvolumet er økt fra 41 til 42 millioner tonn.",
-              "evidence": "The full-year copper grade at Aitik is expected to be 0.16% and milled volume is expected to be 42 Mtonnes. The previous guidance was 0.18% and 41 Mtonnes. (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Investeringer",
-              "statement": "Investeringer i gruvedrift er økt fra tidligere 6,5 milliarder SEK til 7 milliarder SEK, med totale kapitalutgifter holdt på 15,5 milliarder SEK.",
-              "evidence": "Investments in mine sustaining ... are estimated to SEK 7 billion. The previous guidance was SEK 6.5 billion. Total capital expenditure in 2026 is estimated at SEK 15.5 billion. (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Vedlikeholdskostnader",
-              "statement": "Påvirkning på driftsresultat fra vedlikeholdsstopper i smelteverkene oppjustert til -500 millioner SEK for året, hvorav -100 millioner i fjerde kvartal.",
-              "evidence": "The full-year impact on operating profit of planned maintenance shutdowns in Business Area Smelters is estimated at SEK -500 m (-500), of which SEK -100 m (-50) in the fourth quarter. (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Prosjektoppdateringer og fremtidig veiledning",
-              "statement": "Ramp-up i Odda går raskere, Rönnskärs nye tankhouse nærmer seg ferdigstillelse. Full veiledning for 2027 vil bli publisert 8. desember 2026.",
-              "evidence": "Improved availability of the new Odda roaster ... Rönnskär tankhouse close to ramp-up. Boliden will publish its complete full-year 2027 guidance on December 8, 2026. (side 2,3)",
-              "page": "2,3"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "685133",
-      "market": "XOSL",
-      "ticker": "OYKO",
-      "issuer": "Øygarden kommune",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-10-29T11:58:54.436000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685133",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
-  "last_checked_at": "2026-11-04T05:30:00+00:00",
+  "last_checked_at": "2026-11-04T05:40:00+00:00",
   "monitor_stats": {
-    "fetched": 181,
-    "recent": 93,
+    "fetched": 186,
+    "recent": 98,
     "already_seen": 88,
-    "eligible": 5,
-    "filtered": 0,
-    "analyzed": 5,
+    "eligible": 8,
+    "filtered": 2,
+    "analyzed": 8,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 5,
-    "source_latest_at": "2026-11-04T05:01:03.886000+00:00"
+    "source_latest_at": "2026-11-04T05:31:00.949000+00:00"
   }
 }
