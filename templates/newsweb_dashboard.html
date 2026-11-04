@@ -160,6 +160,13 @@ h1{font-size:clamp(27px,3vw,37px)}
 .sig-følger{background:#173f2f;color:#a6ecc6}.sig-etterslep{background:#4a3a10;color:#ffe39a}.sig-motsatt{background:#4a1c27;color:#ffc3cc}
 @media(max-width:1150px){.drivers-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:740px){.drivers-grid{grid-template-columns:1fr}}
+.profile-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 14px;font-size:12px;color:var(--muted)}
+.profile-bar a.p{border:1px solid #364968;border-radius:16px;padding:5px 11px;color:#d6e4ff;background:#122039}
+.profile-bar a.p.on{background:#2764bd;border-color:#438eea;color:#fff;font-weight:700}
+.profile-bar a.p:hover{text-decoration:none;border-color:#5796e1}
+.owner{font-size:10px;font-weight:700;border-radius:5px;padding:1px 5px;background:#24395c;color:#cfe0f7;margin-left:4px;vertical-align:middle;white-space:nowrap}
+.item[data-mine="1"]{border-color:#4f78b8}
+.peer-table tr.mine td:first-child b{color:#ffd98a}
 </style>
 </head>
 <body><main>
@@ -169,6 +176,14 @@ h1{font-size:clamp(27px,3vw,37px)}
 </header>
 <h1>Oslo Børs – Nyhetsmonitor</h1>
 {% if can_view_consensus %}
+<nav class="profile-bar" aria-label="Velg analytikerprofil">
+  <span>Profil:</span>
+  <a class="p{% if not profile %} on{% endif %}" href="{{url_for('newsweb.dashboard', profil='')}}">Alle</a>
+  {% for name in profile_names %}<a class="p{% if profile==name %} on{% endif %}" href="{{url_for('newsweb.dashboard', profil=name)}}">{{name}}</a>{% endfor %}
+  <a href="{{url_for('newsweb.profiles_page')}}" style="margin-left:6px">Rediger profiler →</a>
+  {% if profile %}<span>· {{profile_tickers|length}} selskaper, {{mine_count}} meldinger om dem eller selskaper de påvirker</span>{% endif %}
+  {% if profile_error %}<span>· {{profile_error}}</span>{% endif %}
+</nav>
 <div class="manual-refresh">
   <form method="post" action="{{url_for('newsweb.run_now')}}">
     <input type="hidden" name="csrf" value="{{refresh_csrf}}">
@@ -215,17 +230,22 @@ h1{font-size:clamp(27px,3vw,37px)}
 <summary class="section-heading">Indirekte nyheter som kan påvirke noterte selskaper ({{indirect|length}})</summary>
 <p class="dimmed-summary">Saker som ikke er børsmeldinger, men som AI vurderer kan påvirke inntjeningen (regulering, råvarer, renter, politikk o.l.). Kilde: {{indirect|map(attribute='source')|unique|join(', ')}}.</p>
 <div class="indirect-grid">
-{% for x in indirect[:12] %}
+{% set shown = namespace(n=0) %}
+{% for x in indirect %}
+{% set hit = (not profile) or (x.affected|map(attribute='ticker')|select('in', profile_tickers)|list|length > 0) %}
+{% if hit and shown.n < 12 %}{% set shown.n = shown.n + 1 %}
 <article class="indirect-card">
   <div class="item-head"><span class="dim">{{x.source}} · <span class="published-at" data-timestamp="{{x.published_at}}">{{x.published_at}}</span></span><span class="tag {% if x.score>=75 %}urgent{% else %}interesting{% endif %}">{{x.score}} / 100</span></div>
   <h3><a href="{{x.url}}" target="_blank" rel="noopener noreferrer">{{x.title}} ↗</a></h3>
   <p>{{x.comment}}</p>
   <div class="kurs-panel" data-kurs-published="{{x.published_at or x.analyzed_at}}" data-kurs-ticker=""><span class="dim">Henter kurs …</span></div>
   <ul class="affected" data-affected-for="indirect">
-  {% for a in x.affected %}<li data-ticker="{{a.ticker}}"><span class="t">{{a.ticker}}</span><span class="dir-{{a.direction}}">{{a.direction}}: {{a.reason}}</span><span class="r"></span></li>{% endfor %}
+  {% for a in x.affected %}<li data-ticker="{{a.ticker}}"><span class="t">{{a.ticker}}{% if a.ticker in profile_tickers %} ★{% endif %}</span><span class="dir-{{a.direction}}">{{a.direction}}: {{a.reason}}</span><span class="r"></span></li>{% endfor %}
   </ul>
 </article>
+{% endif %}
 {% endfor %}
+{% if shown.n == 0 %}<p class="dimmed-summary">Ingen indirekte nyheter berører {{profile}} sine selskaper akkurat nå.</p>{% endif %}
 </div>
 </details>
 </section>
@@ -233,8 +253,9 @@ h1{font-size:clamp(27px,3vw,37px)}
 <div class="section-heading">Nyheter</div>
 <div class="controls">
   <div class="filters" role="group" aria-label="Velg prioriterte nyheter">
+    {% if profile %}<label class="filter-chip"><input type="checkbox" id="mine-filter" checked> Bare {{profile}} sine selskaper <span class="count">{{mine_count}}</span></label>{% endif %}
     <label class="filter-chip"><input type="checkbox" data-priority-filter="urgent" checked> Høy prioritet <span class="count">{{focus}}</span></label>
-    <label class="filter-chip"><input type="checkbox" data-priority-filter="interesting"> Interessante <span class="count">{{interesting}}</span></label>
+    <label class="filter-chip"><input type="checkbox" data-priority-filter="interesting"{% if profile %} checked{% endif %}> Interessante <span class="count">{{interesting}}</span></label>
     <label class="filter-chip"><input type="checkbox" data-priority-filter="quiet"> Lav / filtrert <span class="count">{{ignored}}</span></label>
   </div>
   <div class="sort-controls">
@@ -257,8 +278,8 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% set quiet = item.get('skipped') or score < 45 %}
 <article class="item" data-priority="{% if quiet %}quiet{% elif score >= 75 %}urgent{% else %}interesting{% endif %}"
   data-date="{{item.get('published_at','')}}" data-score="{{score}}" data-ticker="{{item.get('ticker','')}}"
-  data-surprise="{{item.get('largest_surprise_abs', -1)}}" {% if quiet or score < 75 %}hidden{% endif %}>
-<div class="item-head"><div class="ticker">{{item.get('ticker') or 'UKJENT'}} <span class="dim">· {{item.get('issuer') or ''}}</span>{% if item.get('importance')=='stor' %}<span class="imp-badge" title="Vektet opp som viktig selskap{% if item.get('score_ai') is not none %} (AI-skår {{item.score_ai}}){% endif %}">Viktig</span>{% endif %}</div>
+  data-surprise="{{item.get('largest_surprise_abs', -1)}}" data-mine="{{'1' if item.get('mine') else '0'}}" {% if quiet or score < 75 or (profile and not item.get('mine')) %}hidden{% endif %}>
+<div class="item-head"><div class="ticker">{{item.get('ticker') or 'UKJENT'}} <span class="dim">· {{item.get('issuer') or ''}}</span>{% for o in item.get('owners') or [] %}<span class="owner" title="Følges av {{o}}">{{o}}</span>{% endfor %}{% if item.get('importance')=='stor' %}<span class="imp-badge" title="Vektet opp som viktig selskap{% if item.get('score_ai') is not none %} (AI-skår {{item.score_ai}}){% endif %}">Viktig</span>{% endif %}</div>
 <span class="tag {% if quiet %}quiet{% elif score>=75 %}urgent{% else %}interesting{% endif %}">{{'Filtrert' if item.get('skipped') else (score|string + ' / 100')}}</span></div>
 <h2 class="title">{{item.get('headline') or item.get('title','Uten tittel')}}</h2>
 <p class="news-lead">{{item.get('lead') or item.get('summary') or 'Ingen ingress tilgjengelig'}}</p>
@@ -268,7 +289,7 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% if item.get('affected') %}
 <div class="affected-head">Kan påvirke andre selskaper</div>
 <ul class="affected">
-{% for a in item.affected %}<li data-ticker="{{a.ticker}}"><span class="t">{{a.ticker}}</span><span class="dir-{{a.direction}}">{{a.direction}}: {{a.reason}}</span><span class="r"></span></li>{% endfor %}
+{% for a in item.affected %}<li data-ticker="{{a.ticker}}"><span class="t">{{a.ticker}}{% if a.ticker in profile_tickers %} ★{% endif %}</span><span class="dir-{{a.direction}}">{{a.direction}}: {{a.reason}}</span><span class="r"></span></li>{% endfor %}
 </ul>
 {% endif %}
 {% if can_view_consensus and item.get('ticker') %}
@@ -392,6 +413,7 @@ h1{font-size:clamp(27px,3vw,37px)}
   const sort=document.getElementById('news-sort');
   const search=document.getElementById('news-search');
   const status=document.getElementById('filter-status');
+  const mineFilter=document.getElementById('mine-filter');
   const number=(card,key,fallback=0)=>{
     const n=Number(card.dataset[key]);
     return Number.isFinite(n)?n:fallback;
@@ -403,9 +425,10 @@ h1{font-size:clamp(27px,3vw,37px)}
   function refresh(){
     const selected=new Set(filters.filter(f=>f.checked).map(f=>f.dataset.priorityFilter));
     const query=(search.value||'').trim().toLocaleLowerCase('nb-NO');
+    const mineOnly=!!(mineFilter&&mineFilter.checked);
     let visible=0;
     cards.forEach(card=>{
-      const show=selected.has(card.dataset.priority) &&
+      const show=selected.has(card.dataset.priority) && (!mineOnly||card.dataset.mine==='1') &&
         (!query || card.textContent.toLocaleLowerCase('nb-NO').includes(query));
       card.hidden=!show;
       if(show)visible++;
@@ -427,6 +450,7 @@ h1{font-size:clamp(27px,3vw,37px)}
       sort.options[sort.selectedIndex].textContent.toLocaleLowerCase('nb-NO');
   }
   filters.forEach(f=>f.addEventListener('change',refresh));
+  if(mineFilter)mineFilter.addEventListener('change',refresh);
   sort.addEventListener('change',refresh);
   search.addEventListener('input',refresh);
   const formatter=new Intl.DateTimeFormat('nb-NO',{
@@ -536,7 +560,7 @@ h1{font-size:clamp(27px,3vw,37px)}
   function render(data){
     grid.replaceChildren();
     const since=new Date(data.since).toLocaleString('nb-NO',{timeZone:'Europe/Oslo',weekday:'short',hour:'2-digit',minute:'2-digit'});
-    if(!data.drivers.length){note.textContent='Ingen kursdrivende nyheter siden børsslutt '+since+'.';return;}
+    if(!data.drivers.length){note.textContent='Ingen kursdrivende nyheter siden børsslutt '+since+(data.profile?' for '+data.profile+' sine selskaper eller deres sammenlignbare.':'.');return;}
     note.textContent='Nyheter siden børsslutt '+since+'. Kursdrivende = minst 3 % mot OSEBX etter meldingen'+
       (data.market_open?'. Oppdateres hvert 2. minutt (forsinket ca. 15 min).':'. Børsen er stengt.')+
       ' «Ikke reagert» = sammenlignbart selskap har beveget seg under 1 % mot OSEBX.';
@@ -545,6 +569,7 @@ h1{font-size:clamp(27px,3vw,37px)}
       const box=el('article','driver');
       const head=el('div','driver-head');
       const left=el('span');left.append(el('span','t',d.ticker),el('span','dim',' · '+d.issuer));
+      (d.owners||[]).forEach(o=>left.append(el('span','owner',o)));
       head.append(left,el('span','driver-move '+cls(move),d.status==='kursdrivende'?pct(move):d.status));
       box.append(head);
       const h=el('h3');
@@ -555,8 +580,8 @@ h1{font-size:clamp(27px,3vw,37px)}
       if(d.peers.length){
         const t=el('table','peer-table');
         d.peers.forEach(p=>{
-          const pr=p.reaction||{},tr=el('tr');
-          const who=el('td');who.append(el('b','',p.ticker),el('div','peer-why',(p.expected&&p.expected!=='uklar'?p.expected+': ':'')+p.reason));
+          const pr=p.reaction||{},tr=el('tr',p.mine?'mine':'');
+          const who=el('td');who.append(el('b','',p.ticker+(p.mine?' ★':'')),...(p.owners||[]).map(o=>el('span','owner',o)),el('div','peer-why',(p.expected&&p.expected!=='uklar'?p.expected+': ':'')+p.reason));
           const mv=pr.abnormal_pct!==undefined?pr.abnormal_pct:pr.change_pct;
           const num=el('td','n '+cls(mv),pr.error?'–':pct(mv));
           if(!pr.error)num.title='Kurs '+pct(pr.change_pct)+' siden meldingen';
@@ -569,7 +594,7 @@ h1{font-size:clamp(27px,3vw,37px)}
     });
   }
   let open=false;
-  const load=()=>fetch('{{url_for("newsweb.price_drivers")}}',{credentials:'same-origin'}).then(r=>r.json())
+  const load=()=>fetch('{{url_for("newsweb.price_drivers", profil=profile)}}',{credentials:'same-origin'}).then(r=>r.json())
     .then(d=>{open=!!d.market_open;render(d);}).catch(()=>{note.textContent='Klarte ikke hente kursdrivere.';});
   load();
   setInterval(()=>{if(open&&!document.hidden)load();},120000);
