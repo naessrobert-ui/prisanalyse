@@ -468,6 +468,90 @@ def price_reaction():
     response.headers["Cache-Control"]="private, no-store, max-age=0"
     return response
 
+_PROFILE_COOKIE="newsweb_profil"
+
+def _profiles_safe():
+    """(data, error). Dashboardet skal fungere selv om profil-lagringen er nede."""
+    import newsweb_profiles as np_
+    try:
+        return np_.load(),""
+    except Exception:
+        return np_.empty(),"Profilene er midlertidig utilgjengelige."
+
+def _selected_profile(data:dict)->str:
+    """Valgt profil fra ?profil= eller cookie; tom streng = Alle."""
+    name=request.args.get("profil")
+    if name is None:
+        name=request.cookies.get(_PROFILE_COOKIE,"")
+    return name if name in (data.get("profiles") or {}) else ""
+
+def _profile_form(*,message="",error="",status=200):
+    from flask import make_response
+    import newsweb_profiles as np_
+    from newsweb_monitor.newsweb_source import active_issuers
+    token=session.get("newsweb_profile_csrf")
+    if not token:
+        token=secrets.token_urlsafe(24)
+        session["newsweb_profile_csrf"]=token
+    data,load_error=_profiles_safe()
+    issuers=active_issuers()
+    rows=[]
+    for name,prof in sorted(data["profiles"].items()):
+        tickers=prof.get("tickers") or []
+        rows.append({"name":name,"tickers":tickers,
+                     "warnings":np_.check_tickers(tickers,issuers),
+                     "names":{t:issuers.get(t,"") for t in tickers}})
+    response=make_response(render_template("newsweb_profiler.html",rows=rows,data=data,
+        csrf=token,message=message,error=error or load_error,
+        selected=request.cookies.get(_PROFILE_COOKIE,"")),status)
+    response.headers["Cache-Control"]="private, no-store, max-age=0"
+    return response
+
+@newsweb_bp.route("/profiler/",methods=["GET","POST"])
+def profiles_page():
+    """Analytikerprofiler: hvem følger hvilke selskaper. Privat lagring, felles innlogging."""
+    import newsweb_profiles as np_
+    if not _can_view_consensus():
+        abort(403)
+    if request.method=="POST":
+        expected=session.get("newsweb_profile_csrf")
+        if not expected or not secrets.compare_digest(str(expected),request.form.get("csrf","")):
+            abort(400)
+        action=request.form.get("action","")
+        editor=request.cookies.get(_PROFILE_COOKIE,"") or "ukjent"
+        try:
+            if action=="save":
+                name=request.form.get("name","")
+                np_.update_profile(name,np_.parse_tickers(request.form.get("tickers","")),by=editor)
+                msg=f"Lagret {name}."
+            elif action=="add":
+                name=np_.clean_name(request.form.get("name",""))
+                if not name:
+                    raise ValueError("Ugyldig navn (1–30 bokstaver).")
+                if name in np_.load(force=True)["profiles"]:
+                    raise ValueError(f"{name} finnes allerede.")
+                np_.update_profile(name,np_.parse_tickers(request.form.get("tickers","")),by=editor)
+                msg=f"Opprettet {name}."
+            elif action=="delete":
+                name=request.form.get("name","")
+                np_.delete_profile(name,by=editor)
+                msg=f"Slettet {name}."
+            elif action=="import":
+                doc=request.files.get("file")
+                if not doc or not doc.filename:
+                    raise ValueError("Velg en CSV-fil.")
+                lists=np_.parse_csv(doc.stream.read(1_000_001))
+                np_.import_profiles(lists,replace=request.form.get("mode")=="replace",by=editor)
+                msg="Importerte "+", ".join(f"{k} ({len(v)})" for k,v in lists.items())+"."
+            else:
+                abort(400)
+        except ValueError as exc:
+            return _profile_form(error=str(exc),status=400)
+        except Exception:
+            return _profile_form(error="Lagring feilet. Sjekk privat S3-oppsett (NEWSWEB_CONSENSUS_BUCKET).",status=503)
+        return redirect(url_for("newsweb.profiles_page",saved=msg))
+    return _profile_form(message=request.args.get("saved",""))
+
 _drivers_lock=threading.Lock()
 _drivers_cache={"until":0.0,"key":"","data":None}
 
@@ -492,7 +576,19 @@ def price_drivers():
         data=market_data.drivers(items)
         with _drivers_lock:
             _drivers_cache.update(until=now+(60 if data["market_open"] else 600),key=key,data=data)
-    response=make_response(jsonify(data))
+    import newsweb_profiles as np_
+    profiles,_=_profiles_safe()
+    owners=np_.owners_by_ticker(profiles)
+    chosen=_selected_profile(profiles)
+    mine=set((profiles["profiles"].get(chosen) or {}).get("tickers") or [])
+    drivers=[]
+    for d in data["drivers"]:
+        d=dict(d,owners=owners.get(d["ticker"],[]),
+               peers=[dict(p,owners=owners.get(p["ticker"],[]),mine=p["ticker"] in mine) for p in d["peers"]])
+        d["mine"]=d["ticker"] in mine
+        if not chosen or d["mine"] or any(p["mine"] for p in d["peers"]):
+            drivers.append(d)
+    response=make_response(jsonify({**data,"drivers":drivers,"profile":chosen}))
     response.headers["Cache-Control"]="private, no-store, max-age=0"
     return response
 
@@ -521,7 +617,19 @@ def dashboard():
     run_status=request.args.get("run_status","")
     if run_status not in ("queued","cooldown","failed","not_configured"):
         run_status=""
+    profiles,profile_error=_profiles_safe() if _can_view_consensus() else ({"profiles":{}},"")
+    import newsweb_profiles as np_
+    owners=np_.owners_by_ticker(profiles)
+    chosen=_selected_profile(profiles)
+    mine=set((profiles["profiles"].get(chosen) or {}).get("tickers") or [])
+    for item in items:
+        item["owners"]=owners.get(str(item.get("ticker") or ""),[])
+        item["mine"]=str(item.get("ticker") or "") in mine or any(
+            a.get("ticker") in mine for a in item.get("affected") or [])
     response=render_template("newsweb_dashboard.html",report=report,items=items,
+                           profile_names=sorted(profiles["profiles"]),profile=chosen,
+                           profile_tickers=sorted(mine),profile_error=profile_error,
+                           mine_count=sum(1 for x in items if x["mine"] and not x.get("skipped")),
                            refresh_csrf=session.get("newsweb_refresh_csrf","") if _can_view_consensus() else "",
                            run_status=run_status,
                            demo=demo,focus=focus,interesting=interesting,ignored=ignored,
@@ -533,5 +641,8 @@ def dashboard():
         secure=make_response(response)
         secure.headers["Cache-Control"]="private, no-store, max-age=0"
         secure.headers["Pragma"]="no-cache"
+        if request.args.get("profil") is not None:
+            secure.set_cookie(_PROFILE_COOKIE,chosen,max_age=365*24*3600,samesite="Lax",
+                              secure=request.is_secure,httponly=True)
         return secure
     return response

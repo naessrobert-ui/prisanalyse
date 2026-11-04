@@ -81,6 +81,26 @@ Hvert sammenlignbart selskap får kurs og et signal:
 
 Uten retning fra AI antas samme retning som kursdriveren. Boksen oppdateres hvert 2. minutt mens børsen er åpen.
 
+## Analytikerprofiler (`/newsweb/profiler/`)
+
+Hver analytiker har en egen liste over selskaper, og samme selskap kan ligge i flere lister.
+Velg profil øverst i nyhetsmonitoren (`?profil=Simen`). Valget huskes i en cookie. En valgt profil viser:
+- børsmeldinger fra selskapene i profilen, og meldinger der AI har pekt ut et av dem som berørt
+- kursdrivere der selskapet eller et sammenlignbart selskap er i profilen
+- indirekte nyheter som berører selskapene
+
+Profilens egne selskaper markeres med ★. I visningen «Alle» får hvert kort navnet på hvem som følger selskapet.
+
+Profilene redigeres på siden med en ticker-liste per analytiker. Der kan man også importere CSV
+(`Ticker;Ansvarlig`, UTF-8 eller Windows-1252/Excel). Tickere som ikke er aktive i NewsWeb, merkes gult.
+Lagring:
+- privat i S3-bøtta `NEWSWEB_CONSENSUS_BUCKET` under `newsweb/profiles/` (Public Access Block kreves)
+- historikk for hver lagring under `newsweb/profiles/history/`
+- aldri i GitHub
+- `NEWSWEB_PROFILES_FILE` kan peke til en lokal JSON-fil for utvikling
+
+Profilene er filtre, ikke tilgangsstyring: alle med tilgangskoden kan se og endre alle profiler.
+
 ## PDF-analyse
 Ved en ny resultatmelding:
 1. Last ned vedlagt kvartalsrapport som PDF. Filstørrelse begrenses til 22 MB.
