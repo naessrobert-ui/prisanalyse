@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-05T20:40:00+00:00",
+  "generated_at": "2026-11-05T20:50:00+00:00",
   "items": [
     {
       "id": "685831",
@@ -5298,23 +5298,16 @@
       "ticker": "POL",
       "issuer": "Polaris Media ASA",
       "title": "3. kvartal 2026: Fortsatt resultatvekst for Polaris Media i tredje kvartal",
-      "headline": "Polaris Media øker justert EBITDA til 126 mill. kroner i Q3 2026",
-      "lead": "Polaris Media leverte justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra i fjor, drevet av sterk digital vekst og kostnadskutt i Sverige. Norske annonseinntekter svekket resultatet noe.",
+      "headline": "Polaris Media øker justert EBITDA til 126 mill. i Q3, drevet av Sverige",
+      "lead": "Polaris Media løftet justert EBITDA med 23 millioner til 126 millioner kroner i tredje kvartal 2026, med sterk digital vekst i Sverige og kostnadseffekter som hoveddrivere. Norske annonseinntekter falt.",
       "published_at": "2026-11-05T06:00:49.246000+00:00",
       "url": "https://newsweb.oslobors.no/message/685673",
-      "summary": "Polaris Media leverte justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra i fjor, drevet av sterk digital vekst og kostnadskutt i Sverige. Norske annonseinntekter svekket resultatet noe.",
-      "reason": "Resultatveksten skyldes økning i digitale bruker- og annonseinntekter i Sverige og kostnadseffektiviseringer. For aksjonærer betyr dette styrket lønnsomhet, men utviklingen i det norske annonsemarkedet bør overvåkes videre.",
-      "score": 80,
+      "summary": "Polaris Media løftet justert EBITDA med 23 millioner til 126 millioner kroner i tredje kvartal 2026, med sterk digital vekst i Sverige og kostnadseffekter som hoveddrivere. Norske annonseinntekter falt.",
+      "reason": "Polaris Media viser solid resultatvekst på tross av svak utvikling i det norske annonsemarkedet, styrket av svensk digital fremgang og kostnadsreduksjoner. Aksjonærer bør følge utviklingen i norske annonseinntekter og digitale abonnementsvekst nøye.",
+      "score": 85,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "NHY",
-          "direction": "negativ",
-          "reason": "Norsk annonseinntektsnedgang kan indikere utfordringer for andre norske mediehus."
-        }
-      ],
       "attachment_key": "38b7cec75a06b5b8",
       "number_keys": [
         "004be8",
@@ -5364,7 +5357,7 @@
             "yoy_pct": -0.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 5: Driftsinntekter 3. kvartal 2026 og 2025"
+            "evidence": "SIDE 5"
           },
           {
             "label": "EBITDA",
@@ -5377,20 +5370,7 @@
             "yoy_pct": 57.9,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 5: EBITDA 3. kvartal 2026 and 2025"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 126.0,
-            "prior_year": 103.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 22.3,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 5: EBITDA justert 3. kvartal 2026 and 2025"
+            "evidence": "SIDE 5"
           },
           {
             "label": "EBIT",
@@ -5403,79 +5383,46 @@
             "yoy_pct": 544.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 5: EBIT 3. kvartal 2026 and 2025"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 510.0,
-            "prior_year": 503.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 1.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 6: Mediehus Norge Driftsinntekter 3. kvartal 2026 and 2025"
+            "evidence": "SIDE 5"
           },
           {
             "label": "EBITDA",
             "name": "ebitda",
             "unit": "NOK million",
-            "current": 78.0,
-            "prior_year": 82.0,
+            "current": 126.0,
+            "prior_year": 103.0,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": -4.9,
+            "yoy_pct": 22.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 6: Mediehus Norge EBITDA 3. kvartal 2026 and 2025"
+            "evidence": "SIDE 5 (EBITDA justert)"
           },
           {
             "label": "EBITDA",
             "name": "ebitda",
             "unit": "NOK million",
-            "current": 46.0,
-            "prior_year": 22.0,
+            "current": 276.0,
+            "prior_year": 209.0,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 109.1,
+            "yoy_pct": 32.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 7: Mediehus Sverige EBITDA justert 3. kvartal 2026 and 2025"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 257.0,
-            "prior_year": 255.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 0.8,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 7: Mediehus Sverige Driftsinntekter 3. kvartal 2026 and 2025"
+            "evidence": "SIDE 5 (EBITDA justert, per 3. kvartal)"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Det gis ingen spesifikke, kvantitative fremtidsutsikter i denne rapporten. Ledelsen omtaler videre drift av segmentene uten å oppgi konkrete mål for salg, lønnsomhet, marginer eller investeringer.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
-          "trend": "",
+          "summary": "Rapporten inneholder ikke nye kvantitative eller kvalitative fremtidsutsikter fra ledelsen for 2026 Q3. Det er ingen spesifikke mål eller kommentarer om salg, lønnsomhet, marginer, etterspørsel eller investeringer i utsiktene fremover-sesjonen.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning da tidligere rapporter også ikke kommuniserte konkrete fremtidsutsikter eller veiledning.",
+          "trend": "Utsiktene fra ledelsen har vært konsistent uten kvantitativ veiledning eller konkrete mål i de siste kvartalene, og det har ikke vært noen endring i tone eller grad av detaljert fremtidsutsikt over tid. Ledelsen har ikke gitt spesifikk fremtidsinformasjon i de siste rapportene.",
           "compared_periods": [
             "2026Q2",
             "2026Q1",
             "2025Q4"
           ],
-          "points": [
-            {
-              "topic": "Utsikter fremover",
-              "statement": "Ingen konkrete tall eller mål kommunisert for kommende kvartal eller år.",
-              "evidence": "\"Utsiktene fremover\"-seksjonen inneholder ikke spesifikk veiledning.",
-              "page": "10"
-            }
-          ]
+          "points": []
         }
       }
     },
@@ -8433,15 +8380,15 @@
       "ticker": "WWI",
       "issuer": "Wilh. Wilhelmsen Holding ASA",
       "title": "Wilh. Wilhelmsen Holding ASA: Third quarter 2026 results",
-      "headline": "Wilh. Wilhelmsen holder nettoresultat på 155 mill. USD i Q3 2026",
-      "lead": "Wilh. Wilhelmsen rapporterer et nettoresultat på 155 mill. USD og en EBITDA på 61 mill. USD i tredje kvartal, drevet av solid drift og investeringer. Usikkerhet i verdensmarkedet kan påvirke videre utsikter.",
+      "headline": "Wilh. Wilhelmsen rapporterer 47 % økt EBITDA til 61 millioner USD i Q3",
+      "lead": "Wilh. Wilhelmsen økte EBITDA med 47 prosent til 61 millioner USD i tredje kvartal 2026, mens nettoresultatet nådde 155 millioner USD. Usikkerhet knyttet til geopolitikk og global handel kan påvirke fremtiden.",
       "published_at": "2026-11-04T17:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685632",
-      "summary": "Wilh. Wilhelmsen rapporterer et nettoresultat på 155 mill. USD og en EBITDA på 61 mill. USD i tredje kvartal, drevet av solid drift og investeringer. Usikkerhet i verdensmarkedet kan påvirke videre utsikter.",
-      "reason": "Resultatet forbedrer seg betydelig i EBITDA fra i fjor, mens nettoresultatet holdes stabilt, men gevinstene balanseres av usikkerhet i globale forhold. Aksjonærer bør følge selskapets evne til å opprettholde langsiktig strategi og utbytte i en volatil tidsperiode.",
-      "score": 75,
+      "summary": "Wilh. Wilhelmsen økte EBITDA med 47 prosent til 61 millioner USD i tredje kvartal 2026, mens nettoresultatet nådde 155 millioner USD. Usikkerhet knyttet til geopolitikk og global handel kan påvirke fremtiden.",
+      "reason": "Sterk EBITDA-vekst og stabil inntjening bekrefter selskapets robuste drift og finansielle fleksibilitet inn i økt global usikkerhet. Aksjonærer bør følge utviklingen i strategiske investeringer og den globale handelssituasjonen nøye.",
+      "score": 80,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "positiv",
       "assessment_source": "AI",
       "attachment_key": "2051efcc1630c1b5",
       "number_keys": [
@@ -8491,7 +8438,7 @@
             "yoy_pct": 5.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 3] Total income for the Wilh. Wilhelmsen Holding ASA group Q3 2026: 327 million USD; Q3 2025: 310 million USD"
+            "evidence": "SIDE 3"
           },
           {
             "label": "EBITDA",
@@ -8504,7 +8451,7 @@
             "yoy_pct": 45.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 3] EBITDA Q3 2026: 61 million USD; Q3 2025: 42 million USD"
+            "evidence": "SIDE 3"
           },
           {
             "label": "EBIT",
@@ -8517,7 +8464,7 @@
             "yoy_pct": 94.7,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 3] Operating profit/EBIT Q3 2026: 37 million USD; Q3 2025: 19 million USD"
+            "evidence": "SIDE 3"
           },
           {
             "label": "Resultat etter skatt",
@@ -8530,7 +8477,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 2] Net profit after financial items and tax amounted to USD 155 million for Q3 2026"
+            "evidence": "SIDE 2"
           },
           {
             "label": "Kontantstrøm drift",
@@ -8543,22 +8490,35 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "[SIDE 3] Operating cash flow for the period was USD 19 million"
+            "evidence": "SIDE 3"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "USD million",
+            "current": 9.0,
+            "prior_year": 20.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -55.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 3"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Wilhelmsen omtaler seg som et industriselskap, men gir ingen konkret fremtidsrettet veiledning om salg, lønnsomhet, etterspørsel, marginer eller investeringer i denne rapporten.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "summary": "Selskapet beskriver seg som et industriselskap uten å gi ny konkret finansiell veiledning eller mål for salg, lønnsomhet, marginer eller investeringer i denne rapporten.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [
             "2026Q2"
           ],
           "points": [
             {
-              "topic": "Fremtidsutsikter",
-              "statement": "Wilhelmsen omtaler seg som et industriselskap uten å gi konkrete prognoser eller mål for videre salgs- og lønnsomhetsutvikling.",
-              "evidence": "\"Wilhelmsen is an industrial holding company... Looking further ahead, we believe that the\" (side 7)",
+              "topic": "Overordnet profil",
+              "statement": "Wilhelmsen omtales som et industriselskap.",
+              "evidence": "\"Wilhelmsen is an industrial holding company\" (side 7)",
               "page": "7"
             }
           ]
@@ -15492,7 +15452,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-05T20:40:00+00:00",
+  "last_checked_at": "2026-11-05T20:50:00+00:00",
   "monitor_stats": {
     "fetched": 300,
     "recent": 179,
