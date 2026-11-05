@@ -2,8 +2,56 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-05T13:50:00+00:00",
+  "generated_at": "2026-11-05T14:00:00+00:00",
   "items": [
+    {
+      "id": "685811",
+      "market": "XOSL",
+      "ticker": "SB1NO",
+      "issuer": "SpareBank 1 Sør-Norge ASA",
+      "title": "SNP CALL ISIN NO0010907421",
+      "headline": "SpareBank 1 Sør-Norge fremskynder obligasjonsforfall til november 2026",
+      "lead": "SpareBank 1 Sør-Norge forandrer forfallsdato på obligasjon NO0010907421 fra november 2027 til november 2026, med full innfrielse til kurs 100. Dette kan påvirke bankens likviditetsplanlegging.",
+      "published_at": "2026-11-05T13:53:55.794000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685811",
+      "summary": "SpareBank 1 Sør-Norge forandrer forfallsdato på obligasjon NO0010907421 fra november 2027 til november 2026, med full innfrielse til kurs 100. Dette kan påvirke bankens likviditetsplanlegging.",
+      "reason": "Fremskyndet forfall kan tyde på endringer i refinansieringsstrategi og likviditetsstyring. Aksjonærer bør følge bankens kommunikasjon om kapitalstruktur og eventuelle konsekvenser for kapitalavkastning.",
+      "score": 70,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "importance": "stor",
+      "score_ai": 60,
+      "number_keys": [
+        "28f464",
+        "356a19",
+        "7b5200",
+        "8a12a3",
+        "8d9f46",
+        "8e9a2c",
+        "ac3478",
+        "aee655",
+        "af3e13",
+        "cc7a74",
+        "e2fd7b"
+      ],
+      "language_versions": [
+        {
+          "id": "685811",
+          "title": "SNP CALL ISIN NO0010907421",
+          "url": "https://newsweb.oslobors.no/message/685811",
+          "published_at": "2026-11-05T13:53:55.794000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685810",
+          "title": "FØRTIDIG INNFRIELSE VED CALL NO0010907421",
+          "url": "https://newsweb.oslobors.no/message/685810",
+          "published_at": "2026-11-05T13:53:31.773000+00:00",
+          "language": "Original"
+        }
+      ]
+    },
     {
       "id": "685809",
       "market": "XOSL",
@@ -4700,13 +4748,13 @@
       "ticker": "POL",
       "issuer": "Polaris Media ASA",
       "title": "3. kvartal 2026: Fortsatt resultatvekst for Polaris Media i tredje kvartal",
-      "headline": "Polaris Media øker justert EBITDA til 126 mill. i Q3 med digital vekst",
-      "lead": "Polaris Media rapporterer justert EBITDA på 126 millioner kroner i tredje kvartal 2026, en økning på 23 millioner fra i fjor, drevet av sterk digital inntektsvekst og kostnadseffektivisering i Sverige.",
+      "headline": "Polaris Media øker justert EBITDA til 126 millioner i Q3 2026",
+      "lead": "Polaris Media rapporterer en justert EBITDA på 126 millioner kroner i tredje kvartal 2026, en økning på 23 millioner fra i fjor, drevet av digital vekst og kostnadskutt i Sverige. Annonseinntektene faller i Norge.",
       "published_at": "2026-11-05T06:00:49.246000+00:00",
       "url": "https://newsweb.oslobors.no/message/685673",
-      "summary": "Polaris Media rapporterer justert EBITDA på 126 millioner kroner i tredje kvartal 2026, en økning på 23 millioner fra i fjor, drevet av sterk digital inntektsvekst og kostnadseffektivisering i Sverige.",
-      "reason": "Resultatforbedringen støttes av økte digitale brukerinntekter og effektive kostnadstiltak, spesielt i Sverige. Fortsatt svakt annonsemarked i Norge gir noe motvind. Viktig å følge videre utvikling i digitale abonnenter og annonseinntekter i begge markeder.",
-      "score": 84,
+      "summary": "Polaris Media rapporterer en justert EBITDA på 126 millioner kroner i tredje kvartal 2026, en økning på 23 millioner fra i fjor, drevet av digital vekst og kostnadskutt i Sverige. Annonseinntektene faller i Norge.",
+      "reason": "Resultatveksten skyldes sterk digital utvikling og kostnadsretting i Sverige, mens Norge har utfordringer med annonseinntekter. Viktig å følge om digital vekst kan opprettholdes, og om Norge henter seg inn igjen.",
+      "score": 85,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -4759,7 +4807,7 @@
             "yoy_pct": -0.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall table"
+            "evidence": "Page 5, top table 'Driftsinntekter' 3. kvartal 2026 vs 2025"
           },
           {
             "label": "EBITDA",
@@ -4772,7 +4820,20 @@
             "yoy_pct": 57.9,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall table"
+            "evidence": "Page 5, top table 'EBITDA' 3. kvartal 2026 vs 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 126.0,
+            "prior_year": 103.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 22.3,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 5, top table 'EBITDA justert' 3. kvartal 2026 vs 2025"
           },
           {
             "label": "EBIT",
@@ -4785,66 +4846,14 @@
             "yoy_pct": 544.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall table"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 126.0,
-            "prior_year": 103.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 22.3,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 4, Hovedpunkter tredje kvartal 2026"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 126.0,
-            "prior_year": 103.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 22.3,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 3, Konsernsjefens betraktninger"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
+            "evidence": "Page 5, top table 'EBIT' 3. kvartal 2026 vs 2025"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Rapporten for 2026Q3 inneholder overskrifter som \"Utsiktene fremover\" og \"Finansiell gjennomgang\", men det foreligger ingen konkrete eller kvantitative fremtidsutsikter eller mål for salg, lønnsomhet, marginer eller investeringer i det tilgjengelige utdraget.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning da verken 2026Q2 eller tidligere kvartaler ga spesifikke fremtidsutsikter eller kvantitative mål.",
-          "trend": "Det har ikke blitt gitt konkrete fremtidsutsikter eller mål i de rapporterte kvartalene, og tonen er konsistent preget av mangel på spesifikk finansiell veiledning eller prognoser fra ledelsen over siste fire kvartaler.",
+          "summary": "Rapporten for 2026Q3 inneholder ikke konkrete, kvantitative utsikter eller veiledning for omsetning, lønnsomhet, marginer eller investeringer. Ledelsen omtaler segmentdrift og finansiell gjennomgang, men uten spesifikke mål eller forventninger for kommende kvartal eller år.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning da tidligere rapporter heller ikke inneholdt konkrete fremtidsutsikter eller kvantitative mål.",
+          "trend": "Over flere kvartaler har ledelsen konsekvent unnlatt å kommunisere konkrete fremtidsutsikter eller finansiell veiledning. Dette innebærer at markedet ikke har mottatt indikasjoner på endringer i forventninger til etterspørsel, marginer eller investeringer, og tone og innhold i guidingen har vært uendret.",
           "compared_periods": [
             "2026Q2",
             "2026Q1",
@@ -4852,15 +4861,9 @@
           ],
           "points": [
             {
-              "topic": "Utsiktene fremover",
+              "topic": "Utsikter fremover",
               "statement": "Ingen konkrete tall eller mål kommunisert for kommende kvartal eller år.",
               "evidence": "\"Utsiktene fremover\"-seksjonen inneholder ikke spesifikk veiledning.",
-              "page": "10"
-            },
-            {
-              "topic": "Finansiell gjennomgang",
-              "statement": "Ingen kvantitative mål for omsetning, lønnsomhet eller investeringer oppgitt.",
-              "evidence": "Overskriften indikerer gjennomgang, men detaljer er ikke inkludert i utdraget.",
               "page": "10"
             }
           ]
@@ -7821,12 +7824,12 @@
       "ticker": "WWI",
       "issuer": "Wilh. Wilhelmsen Holding ASA",
       "title": "Wilh. Wilhelmsen Holding ASA: Third quarter 2026 results",
-      "headline": "Wilh. Wilhelmsen øker nettoresultatet til 155 mill. USD i tredje kvartal",
-      "lead": "Wilh. Wilhelmsen Holding leverer et nettoresultat på 155 millioner USD i Q3 2026, opp 5% i inntekter fra året før, med en EBITDA på 61 millioner USD, mens usikkerhet i globale markeder fortsatt preger utsiktene.",
+      "headline": "Wilh. Wilhelmsen øker EBITDA 47 % til 61 mill. USD i tredje kvartal",
+      "lead": "Wilh. Wilhelmsen rapporterer en nettofortjeneste på 155 millioner USD i Q3 2026, med en EBITDA som øker 47 % mot samme periode i fjor, men den negative globale så situasjonen skaper fortsatt usikkerhet framover.",
       "published_at": "2026-11-04T17:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685632",
-      "summary": "Wilh. Wilhelmsen Holding leverer et nettoresultat på 155 millioner USD i Q3 2026, opp 5% i inntekter fra året før, med en EBITDA på 61 millioner USD, mens usikkerhet i globale markeder fortsatt preger utsiktene.",
-      "reason": "Sterk lønnsomhet og stabil inntektsvekst styrker Wilhelmsens posisjon i et usikkert marked. Viktig å følge segmentutvikling, spesielt maritime tjenester og nye energiløsninger, og effekten av geopolitisk spenning framover.",
+      "summary": "Wilh. Wilhelmsen rapporterer en nettofortjeneste på 155 millioner USD i Q3 2026, med en EBITDA som øker 47 % mot samme periode i fjor, men den negative globale så situasjonen skaper fortsatt usikkerhet framover.",
+      "reason": "Sterk EBITDA-vekst og høy nettofortjeneste styrker selskapets økonomi og evne til å betale utbytte, men geopolitiske spenninger og handelsusikkerhet krever nær oppfølging. Investorer bør følge utviklingen i assosierte selskaper og globale handelsforhold.",
       "score": 75,
       "skipped": false,
       "direction": "positiv",
@@ -7918,7 +7921,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2: Net profit after financial items and tax amounted to USD 155 million"
+            "evidence": "SIDE 2"
           },
           {
             "label": "Kontantstrøm drift",
@@ -7931,7 +7934,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 3: Operating cash flow for the period was USD 19 million"
+            "evidence": "SIDE 3"
           },
           {
             "label": "Netto renteinntekter",
@@ -7944,31 +7947,38 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "No explicit net interest income reported"
+            "evidence": "Not reported"
           },
           {
             "label": "EPS",
             "name": "eps",
-            "unit": "USD/share",
-            "current": null,
-            "prior_year": null,
+            "unit": "NOK/share",
+            "current": 8.5,
+            "prior_year": 20.0,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": null,
+            "yoy_pct": -57.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "No EPS figure provided"
+            "evidence": "SIDE 2 - dividend info (used as proxy for EPS not explicitly stated)"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Wilhelmsen beskriver seg som et industriselskap, men gir i denne rapporten ingen konkrete fremtidsutsikter eller endringer i salgs-, lønnsomhets- eller investeringsmål.",
+          "summary": "Wilhelmsen beskriver seg som et industriselskap uten å gi konkret fremtidig veiledning i denne rapporten.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [
             "2026Q2"
           ],
-          "points": []
+          "points": [
+            {
+              "topic": "Generell beskrivelse",
+              "statement": "Selskapet omtaler seg som et industriselskap uten å gi ny eller endret konkret veiledning for salg, lønnsomhet, marginer eller investeringer.",
+              "evidence": "\"Wilhelmsen is an industrial holding company\" (side 7)",
+              "page": "7"
+            }
+          ]
         }
       }
     },
@@ -10651,13 +10661,13 @@
       "ticker": "SAGA",
       "issuer": "Saga Pure ASA",
       "title": "Saga Pure: Third quarter 2026 financial results",
-      "headline": "Saga Pure med kvartalstap på 19,9 millioner og svekket investeringsverdi",
-      "lead": "Saga Pure rapporterer et netto tap på 19,9 millioner kroner i tredje kvartal 2026, preget av nedskrivninger på investeringer og verdifall i datterselskaper. Egenkapitalavkastningen er 1,2 prosent hittil i år.",
+      "headline": "Saga Pure taper 19,9 millioner i tredje kvartal – investeringsverdier faller",
+      "lead": "Saga Pure rapporterer et netto tap på 19,9 millioner kroner i Q3 2026, drevet av nedskrivninger og verdiendringer i investeringer. Egenkapitalavkastningen er 1,2 % hittil i år. Investeringene i datterselskaper har falt betydelig på kvartalet.",
       "published_at": "2026-11-04T06:31:12.831000+00:00",
       "url": "https://newsweb.oslobors.no/message/685550",
-      "summary": "Saga Pure rapporterer et netto tap på 19,9 millioner kroner i tredje kvartal 2026, preget av nedskrivninger på investeringer og verdifall i datterselskaper. Egenkapitalavkastningen er 1,2 prosent hittil i år.",
-      "reason": "Saga Pures kvartalstall viser økte tap og nedgang i verdien av investeringer, noe som svekker selskapets finansielle stilling. Aksjonærer må følge utviklingen i datterselskapers verdi og selskapets investeringsstrategi framover.",
-      "score": 75,
+      "summary": "Saga Pure rapporterer et netto tap på 19,9 millioner kroner i Q3 2026, drevet av nedskrivninger og verdiendringer i investeringer. Egenkapitalavkastningen er 1,2 % hittil i år. Investeringene i datterselskaper har falt betydelig på kvartalet.",
+      "reason": "Tapsrapporten og verdifallet i investeringer svekker investorers tillit og kapitalgrunnlag. Problemer med urealiserte tap og redusert investeringsevaluering kan indikere finansiell svakhet. Viktig å følge opp utviklingen i investeringsporteføljen og likviditetssituasjonen.",
+      "score": 72,
       "skipped": false,
       "direction": "negativ",
       "assessment_source": "AI",
@@ -10711,12 +10721,12 @@
       "ticker": "SOMA",
       "issuer": "Solstad Maritime ASA",
       "title": "SOLSTAD MARITIME ASA - KEY INFORMATION RELATING TO Q3 2026 DIVIDEND",
-      "headline": "Solstad Maritime utbetaler 0,12 USD per aksje i kvartalsutbytte",
-      "lead": "Styret i Solstad Maritime besluttet et kontantutbytte på 0,12 USD per aksje, totalt ca. 56 millioner USD, med utbetaling rundt 17. november 2026. Utbyttet utbetales i NOK basert på valutakurs ved utbetaling.",
+      "headline": "Solstad Maritime utbetaler utbytte på 0,12 USD per aksje – totalt 56 millioner USD",
+      "lead": "Solstad Maritime kunngjør utbytte på 0,12 USD per aksje, tilsvarende 56 millioner USD totalt. Utbyttet vil bli utbetalt i norske kroner omkring 17. november 2026, med tegningsrett fram til 5. november.",
       "published_at": "2026-11-04T06:10:10.241000+00:00",
       "url": "https://newsweb.oslobors.no/message/685548",
-      "summary": "Styret i Solstad Maritime besluttet et kontantutbytte på 0,12 USD per aksje, totalt ca. 56 millioner USD, med utbetaling rundt 17. november 2026. Utbyttet utbetales i NOK basert på valutakurs ved utbetaling.",
-      "reason": "Utbytteutbetalingen signaliserer selskapets solide likviditet og evne til å dele verdi med aksjonærene. Det vil være viktig å følge valutakursens påvirkning på utbyttets norske kontra amerikanske verdi, samt selskapets finansielle utvikling framover.",
+      "summary": "Solstad Maritime kunngjør utbytte på 0,12 USD per aksje, tilsvarende 56 millioner USD totalt. Utbyttet vil bli utbetalt i norske kroner omkring 17. november 2026, med tegningsrett fram til 5. november.",
+      "reason": "Utbytteutbetaling viser selskapets kapitalstyrke og gir direkte avkastning til aksjonærene. Det kan tiltrekke investorer som søker stabil kontantstrøm, men valutasatsing og fremtidig inntjening bør følges nøye.",
       "score": 70,
       "skipped": false,
       "direction": "positiv",
@@ -10725,7 +10735,7 @@
         {
           "ticker": "SOFF",
           "direction": "uklar",
-          "reason": "Som offshore-rederi kan Solstads utbyttebeslutning speile underliggende bransjeforhold som kan ha indirekte effekt på SOFF."
+          "reason": "Konkurrent i offshore-sektoren kan påvirkes indirekte av sektorsentiment knyttet til Solstads utbyttepolitikk."
         }
       ],
       "importance": "mellom",
@@ -10777,25 +10787,25 @@
       "ticker": "SOFF",
       "issuer": "Solstad Offshore ASA",
       "title": "SOLSTAD OFFSHORE ASA - KEY INFORMATION RELATING TO Q3 2026 DIVIDEND",
-      "headline": "Solstad Offshore utbetaler 0,30 USD per aksje i utbytte til november",
-      "lead": "Solstad Offshore varsler kontantutbytte på 0,30 USD per aksje, tilsvarende omtrent 25 millioner USD. Utbyttet betales ut i norske kroner rundt 20. november, med siste aksjehandel inkludert utbytterett 5. november.",
+      "headline": "Solstad Offshore utbetaler 0,30 USD i kvartalsutbytte per aksje",
+      "lead": "Solstad Offshore kunngjør kvartalsutbytte på 0,30 USD per aksje, til sammen cirka 25 millioner USD, med utbetaling i november. Utbytte betales i NOK, avregnet fra 6. november som eks-dato.",
       "published_at": "2026-11-04T06:10:10.178000+00:00",
       "url": "https://newsweb.oslobors.no/message/685547",
-      "summary": "Solstad Offshore varsler kontantutbytte på 0,30 USD per aksje, tilsvarende omtrent 25 millioner USD. Utbyttet betales ut i norske kroner rundt 20. november, med siste aksjehandel inkludert utbytterett 5. november.",
-      "reason": "Utbytteutbetaling signaliserer selskapets evne til å generere kontantstrøm og gi avkastning til aksjonærer. Viktig å følge om selskapets kontantstrøm og ordreinngang støtter bærekraftig utbytte fremover.",
-      "score": 50,
+      "summary": "Solstad Offshore kunngjør kvartalsutbytte på 0,30 USD per aksje, til sammen cirka 25 millioner USD, med utbetaling i november. Utbytte betales i NOK, avregnet fra 6. november som eks-dato.",
+      "reason": "Utbytteutbetaling bekrefter selskapets likviditet og vilje til å belønne aksjonærene. Dette signaliserer finansiell stabilitet, men effekten på kursen avhenger av markedets oppfatning av selskapets videre inntektsstrømmer og kontantstrøm.",
+      "score": 70,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
       "affected": [
         {
-          "ticker": "SUBC",
+          "ticker": "SOMA",
           "direction": "uklar",
-          "reason": "Konkurrent i offshore-sektoren som kan påvirkes av lignende kapitaldisponeringer."
+          "reason": "Mulig sektoreffekt blant offshore-rederier, men utbytte alene gir usikre signaler for disse."
         }
       ],
       "importance": "mellom",
-      "score_ai": 45,
+      "score_ai": 65,
       "number_keys": [
         "0ade7c",
         "135224",
@@ -12619,13 +12629,13 @@
       "ticker": "MOWI",
       "issuer": "Mowi ASA",
       "title": "Mowi ASA (OSE: MOWI): Quarterly dividend",
-      "headline": "Mowi ASA setter kvartalsutbytte til 2,30 kroner per aksje",
-      "lead": "Mowi ASA kunngjør et kvartalsutbytte på 2,30 kroner per aksje med utbetaling forventet 23. november 2026. Aksjene handles eksklusiv utbytte fra 13. november.",
+      "headline": "Mowi betaler kvartalsutbytte på 2,30 kroner per aksje",
+      "lead": "Mowi ASA kunngjør en kvartalsutdeling til aksjonærene på 2,30 kroner per aksje med forventet utbetaling 23. november 2026. Handel uten utbytte starter 13. november.",
       "published_at": "2026-11-04T05:31:00.949000+00:00",
       "url": "https://newsweb.oslobors.no/message/685530",
-      "summary": "Mowi ASA kunngjør et kvartalsutbytte på 2,30 kroner per aksje med utbetaling forventet 23. november 2026. Aksjene handles eksklusiv utbytte fra 13. november.",
-      "reason": "Utbytteutbetaling bekrefter selskapets kontantstrøm og gir direkte avkastning til aksjonærene. Vi bør følge utviklingen i fremtidige utbytter og selskapets finansielle situasjon for å vurdere bærekraften i betalingen.",
-      "score": 55,
+      "summary": "Mowi ASA kunngjør en kvartalsutdeling til aksjonærene på 2,30 kroner per aksje med forventet utbetaling 23. november 2026. Handel uten utbytte starter 13. november.",
+      "reason": "Kvartalsutbyttet viser stabil kontantstrøm og gir direkte avkastning til aksjonærene. Det gir et tydelig signal om finansiell soliditet, men markedets reaksjon avhenger også av andre resultater og sektorstøy.",
+      "score": 75,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -12633,16 +12643,11 @@
         {
           "ticker": "SALM",
           "direction": "uklar",
-          "reason": "Sammenlignbare utbyttebeskjeder i laksebransjen kan påvirke investorers preferanser for Mowi."
-        },
-        {
-          "ticker": "LSG",
-          "direction": "uklar",
-          "reason": "Andre lakseprodusenter påvirkes indirekte av utbyttenivå og investorinteresse i sektoren."
+          "reason": "Konkurrent i laksemarkedet; stabilt utbytte i Mowi kan presse konkurransebildet."
         }
       ],
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 65,
       "number_keys": [
         "1574bd",
         "2815f6",
@@ -15504,255 +15509,31 @@
         "fa35e1",
         "fb9654"
       ]
-    },
-    {
-      "id": "685418",
-      "market": "XOSL",
-      "ticker": "SOAG",
-      "issuer": "SpareBank 1 Østfold Akershus",
-      "title": "Sterk vekst og styrket rentenetto i tredje kvartal",
-      "headline": "SpareBank 1 Østfold Akershus øker utlån 9,2 % og styrker rentenettoen",
-      "lead": "Resultatet før skatt endte på 197 mill. kroner i tredje kvartal 2026 med en utlånsvekst på 9,2 %, men lønnsomheten preges av høyere kostnader og lavere nettoinntekter fra finansielle instrumenter.",
-      "published_at": "2026-11-03T06:30:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/685418",
-      "summary": "Resultatet før skatt endte på 197 mill. kroner i tredje kvartal 2026 med en utlånsvekst på 9,2 %, men lønnsomheten preges av høyere kostnader og lavere nettoinntekter fra finansielle instrumenter.",
-      "reason": "Banken viser solid vekst og forbedret rentenetto, men marginpress og økte kostnader demper resultatveksten. Kostnadsreduksjoner kan styrke lønnsomheten fremover, og kredittkvaliteten er fortsatt god. Videre utvikling av marginer og kostnadseffektivitet bør følges.",
-      "score": 75,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "attachment_key": "8d60b914a4682001",
-      "number_keys": [
-        "05a8ea",
-        "097ccd",
-        "0a57cb",
-        "15346b",
-        "17ba07",
-        "2659fc",
-        "26e745",
-        "356a19",
-        "3f1522",
-        "3f4ed2",
-        "444d66",
-        "450dde",
-        "4d134b",
-        "52acc1",
-        "5c8f5a",
-        "5dd8b5",
-        "605252",
-        "61188f",
-        "64e0cf",
-        "6d93f2",
-        "732082",
-        "752ae7",
-        "761f22",
-        "7b5200",
-        "82ad38",
-        "8ee51c",
-        "90f919",
-        "91032a",
-        "93ac19",
-        "9c882d",
-        "9e44d2",
-        "9ed4f2",
-        "a2e33d",
-        "a929eb",
-        "aee655",
-        "b1d578",
-        "bcf814",
-        "bd307a",
-        "cd8b7a",
-        "cf2f32",
-        "cf3240",
-        "dfe0d2",
-        "e076fa",
-        "e70013",
-        "e77a76",
-        "fa7557",
-        "ff6d1d"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "pdf",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "2026Q3-kvartalsrapport-soag.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685418&attachmentId=335543"
-        },
-        "metrics": [
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 197000000.0,
-            "prior_year": 195000000.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 1.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 9, third quarter 2026 Result before tax in third quarter was NOK 197 million (195 million in prior year)"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 618000000.0,
-            "prior_year": 628000000.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -1.6,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 9, year to date rentenetto including credit institutions was 618 million NOK (628 million NOK prior year)"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 106000000.0,
-            "prior_year": 112000000.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -5.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 9, net commission income and other income were NOK 106 million in Q3 2026 (112 million in prior year)"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 323000000.0,
-            "prior_year": 320000000.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 0.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 11, net commission income including credit institutions was NOK 323 million year to date (320 million prior year)"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 179000000.0,
-            "prior_year": 177000000.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 1.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 9, result from ordinary operations in Q3 2026 was NOK 179 million (177 million prior year)"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 466000000.0,
-            "prior_year": 514000000.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -9.3,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 9, profit after tax year to date was 466 million NOK (514 million NOK prior year)"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": 33.6,
-            "prior_year": 37.2,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -9.7,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 9, earnings per equity certificate was NOK 33.6 (37.2 prior year)"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No specific operating cash flow data provided"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No EBITDA data provided"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No EBIT data provided"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "SpareBank 1 Østfold Akershus opprettholder sterk markedsposisjon, men forventer en noe lavere etterspørsel fremover grunnet høyere rentebelastning og et svakere boligmarked. Regionen har fortsatt gode langsiktige forutsetninger, men vekstforventningene på kort sikt er nedjustert noe. Porteføljen har fortsatt lav risiko, lave tap og god lønnsomhet, selv om høyere renter og svakere boligmarked øker usikkerheten for noen kunder. Banken har robust likviditet med en buffer som dekker drift uten refinansiering i mer enn 15 måneder under normalt scenario, og god rating med stabile utsikter.",
-          "change": "- Etterspørselsutsiktene er nedjustert fra forrige kvartal; tidligere var boligmarkedet ventet å være stabilt med lokale forskjeller, nå venter banken lavere etterspørsel grunnet høyere rente og svakere boligmarked.\n- Vekstforventningene på kort sikt er nå noe nedjustert sammenlignet med tidligere mer optimistiske utsikter.\n- Likviditetsbufferens dekningstid er angitt til over 15 måneder i normal drift, noe tilsvarende tidligere, og ratingen er fortsatt stabil på karakter A.\n- Risikobildet i porteføljen er fortsatt lavt med lav tap, men usikkerheten rundt enkelte kunders betalingsevne har økt med renteøkning og svakere boligmarked.",
-          "trend": "Guidingen har utviklet seg fra et mer optimistisk blikk på boligmarkedet og stabil vekst til en mer moderat og forsiktig vurdering av kortsiktig etterspørsel, med opprettholdt sterk kapital- og likviditetsposisjon gjennom perioden. Banken har levert i tråd med tidligere forventninger om god kapitalisering og robust likviditet, men har justert ned kortsiktig vekstforventning basert på markedsutviklingen.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1",
-            "2025Q4"
-          ],
-          "points": [
-            {
-              "topic": "Etterspørsel og boligmarked",
-              "statement": "Forventet dempet etterspørsel fremover på grunn av høyere renter og svakere boligmarked.",
-              "evidence": "\"høyere rentebelastning og et svakere boligmarked forventes å dempe etterspørselen fremover\"",
-              "page": "Utsiktene fremover"
-            },
-            {
-              "topic": "Vekstforventninger",
-              "statement": "Vekstforventningene på kort sikt er noe nedjustert sammenlignet med tidligere.",
-              "evidence": "\"vekstforventningene på kort sikt er nedjustert noe\"",
-              "page": "Utsiktene fremover"
-            },
-            {
-              "topic": "Risikoprofil og tap",
-              "statement": "Porteføljen har fortsatt lav risiko, lave tap og god lønnsomhet, men usikkerhet øker for enkelte kunder.",
-              "evidence": "\"Porteføljen har fortsatt lav risiko, lave tap og god lønnsomhet. Høyere renter og svakere boligmarked øker usikkerheten knyttet til enkelte kunders betjeningsevne\"",
-              "page": "Utsiktene fremover"
-            },
-            {
-              "topic": "Likviditet og rating",
-              "statement": "Sterk likviditetsbuffer som dekker drift uten refinansiering i over 15 måneder under normal drift, rating stabil på A.",
-              "evidence": "\"likviditetsbufferen dekker normal drift uten refinansiering av låneforfall i lengre enn 15 måneder ... ratet med karakter A med stabile utsikter\"",
-              "page": "Utsiktene fremover"
-            }
-          ]
-        }
-      }
     }
   ],
   "indirect": [
+    {
+      "id": "afeebbc29c98c502",
+      "source": "E24",
+      "title": "Sentralbanksjefen: – Er særlig på vakt",
+      "url": "https://e24.no/norsk-oekonomi/i/Og4dgV/sentralbanksjefen-er-saerlig-paa-vakt?utm_medium=rss",
+      "published_at": "2026-11-05T13:51:27+00:00",
+      "analyzed_at": "2026-11-05T14:00:00+00:00",
+      "score": 70,
+      "comment": "Ny renteheving fra Norges Bank kan øke finansieringskostnader og påvirke konsum, særlig banker og eksportnæringer. Kronens verdi kan endre konkurranseevne for eksportører.",
+      "affected": [
+        {
+          "ticker": "DNB",
+          "direction": "negativ",
+          "reason": "Økte rentekostnader og kredittrisiko kan redusere bankens inntjening."
+        },
+        {
+          "ticker": "EQNR",
+          "direction": "uklar",
+          "reason": "Sterkere krone svekker eksportinntekter, men lavere renter kan dempe kostnader."
+        }
+      ]
+    },
     {
       "id": "c4a1138e2104506f",
       "source": "E24",
@@ -16077,19 +15858,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-05T13:50:00+00:00",
+  "last_checked_at": "2026-11-05T14:00:00+00:00",
   "monitor_stats": {
-    "fetched": 282,
-    "recent": 203,
+    "fetched": 284,
+    "recent": 205,
     "already_seen": 197,
-    "eligible": 6,
+    "eligible": 8,
     "filtered": 0,
-    "analyzed": 6,
+    "analyzed": 8,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 6,
-    "source_latest_at": "2026-11-05T13:38:04.646000+00:00",
-    "indirect": 0
+    "source_latest_at": "2026-11-05T13:53:55.794000+00:00",
+    "indirect": 1
   }
 }
