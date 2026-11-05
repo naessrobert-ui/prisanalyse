@@ -707,6 +707,10 @@ def varsel_forhandsvisning():
         else:
             innhold = (f"<p style='font-family:sans-serif;color:#6b7280'>Emne: {hv.html.escape(hv.emne(sig))}</p>"
                        + hv.bygg_html(sig))
+        filter_txt = hv.topp10_filter_tekst(sig)
+        if filter_txt:
+            innhold = (f"<p style='font-family:sans-serif;color:#6b7280;font-size:13px'>"
+                       f"{hv.html.escape(filter_txt)}</p>" + innhold)
         body = _varsel_status_html(melding, ok) + innhold
     except Exception as exc:
         _LOG.exception("Feil i forhåndsvisning av handler-varsel %s til %s", date_from, date_to)

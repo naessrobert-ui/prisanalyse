@@ -69,6 +69,17 @@ BASE_URL = os.environ.get("PRISANALYSE_BASE_URL", "https://prisanalyse.no").rstr
 BESTE_STOR_MNOK = 10.0
 BESTE_UTGANG_MNOK = 5.0
 
+# «Topp 10-eier begynner å selge»: summert per investor og aksje over perioden må salget være
+# minst MIN_SALG_MNOK og minst MIN_ANDEL_BEHOLDNING av beholdningen før salget.
+MIN_SALG_MNOK = 2
+MIN_ANDEL_BEHOLDNING = 0.20
+# Investorer som utelates i topp 10-salg (gjelder ikke Viktige eller Beste): navnene i
+# Ekskluder.csv (samme format som Viktige.csv), disse navnemønstrene (store/små bokstaver likegyldig)
+# og selskapets egne aksjer (investornavn likt selskapsnavnet).
+EKSKLUDER_LISTE = "Ekskluder.csv"
+EKSKLUDER_MONSTRE_TOPP10 = ("INDEKS", "PROPRIETARY", "DØDSBO")
+_EKSKLUDER_STANDARD = Path(__file__).resolve().parent / "data" / "handler_lister" / EKSKLUDER_LISTE
+
 
 TYPE_TEKST = {
     "ny_posisjon": "Ny posisjon",
@@ -120,6 +131,9 @@ class Innstillinger:
     beste_stor_mnok: float = field(default_factory=lambda: _env_float("HANDLER_VARSEL_BESTE_STOR_MNOK", BESTE_STOR_MNOK))
     beste_utgang_mnok: float = field(
         default_factory=lambda: _env_float("HANDLER_VARSEL_BESTE_UTGANG_MNOK", BESTE_UTGANG_MNOK))
+    # Topp 10-salg (med i fingeravtrykket, så lagrede signaler regnes ut på nytt når tersklene endres)
+    topp10_min_salg_mnok: float = MIN_SALG_MNOK
+    topp10_min_andel: float = MIN_ANDEL_BEHOLDNING
 
 
 # =========================================================
@@ -279,16 +293,61 @@ def _aksjer(conn, isins: list[str]) -> dict[str, tuple[str, str]]:
     }
 
 
-def _rang_dagen_for(conn, isin: str, dato: str, investor_id: str) -> int | None:
-    """Investorens plass blant eierne i aksjen målt på beholdning dagen før handelen."""
-    rows = conn.execute(
-        """SELECT investor_id FROM position_change
-           WHERE isin=? AND substr(date_today,1,10)=? AND COALESCE(holding_yesterday,0) > 0
-           ORDER BY holding_yesterday DESC LIMIT 20""",
-        (isin, dato),
-    ).fetchall()
-    ids = [str(r[0]).strip() for r in rows]
-    return ids.index(investor_id) + 1 if investor_id in ids else None
+
+
+def _aggreger_vindu(tx: pd.DataFrame, fra: dt.date, til: dt.date) -> list[dict]:
+    """Handlene i vinduet summert per investor og aksje (brukt av Beste.csv og topp 10-salg).
+
+    beh_for er beholdningen før første handel i vinduet, beh_etter etter siste.
+    """
+    if tx is None or tx.empty:
+        return []
+    vindu = tx[(tx["dato"] >= fra.isoformat()) & (tx["dato"] <= til.isoformat())]
+    out = []
+    for (inv, isin), g in vindu.groupby(["investor_id", "isin"]):
+        g = g.sort_values("dato")
+        antall = g["antall"].sum()
+        out.append({
+            "investor_id": inv, "isin": isin,
+            "start": g["dato"].iloc[0], "siste": g["dato"].iloc[-1], "handelsdager": len(g),
+            "antall": antall, "belop_mnok": g["belop"].sum() / 1_000_000,
+            "beh_for": g["beh_for"].iloc[0], "beh_etter": g["beh_etter"].iloc[-1],
+            "ut": bool((g["beh_etter"] <= 0).iloc[-1] and antall < 0),
+            "_handler": len(g),
+        })
+    return out
+
+
+def _normaliser_navn(navn: str) -> str:
+    return "".join(c for c in (navn or "").upper() if c.isalnum())
+
+
+def _ekskluder_topp10_ids(conn) -> set[str]:
+    """Investorene i Ekskluder.csv. Listen hentes som de andre listene (listemappe/S3), ellers repoets kopi."""
+    path = None
+    try:
+        if EKSKLUDER_LISTE in set(hd.list_csv_files()):
+            path = hd.resolve_list_csv_path(EKSKLUDER_LISTE)
+    except Exception:
+        _LOG.warning("Klarte ikke hente %s fra listene, bruker standardlisten", EKSKLUDER_LISTE, exc_info=True)
+    if not path and _EKSKLUDER_STANDARD.is_file():
+        path = str(_EKSKLUDER_STANDARD)
+    if not path:
+        return set()
+    monstre = hd.extract_owner_patterns("Viktige", hd.read_csv_guess(path))
+    return set(hd.resolve_investor_ids(conn, monstre))
+
+
+def _topp10_eksklusjon(navn: str, selskap: str) -> str | None:
+    """Grunnen til at investoren utelates i topp 10-salg pga. navnet, eller None."""
+    upper = (navn or "").upper()
+    for m in EKSKLUDER_MONSTRE_TOPP10:
+        if m.upper() in upper:
+            return "monster"
+    n = _normaliser_navn(navn)
+    if n and n == _normaliser_navn(selskap):
+        return "egne_aksjer"
+    return None
 
 
 def _folgeliste_ids(conn, cfg: Innstillinger, brukt: list[str] | None = None,
@@ -343,6 +402,97 @@ def _flinke_ids(conn, til: dt.date, cfg: Innstillinger) -> list[str]:
     return res["investor_id"].astype(str).head(cfg.antall_flinke).tolist()
 
 
+_SALGSSTART = ("snur_salg", "forste_salg", "ut")
+
+
+def _topp10_salg(conn, par_tx: pd.DataFrame, fra: dt.date, til: dt.date,
+                 cfg: Innstillinger) -> tuple[pd.DataFrame, dict]:
+    """«Topp 10-eier begynner å selge»: én rad per investor og aksje, summert over perioden.
+
+    Med bare hvis investoren var blant de 10 største eierne dagen før salget startet, solgte for minst
+    cfg.topp10_min_salg_mnok og minst cfg.topp10_min_andel av beholdningen, og ikke er ekskludert.
+    Returnerer også antall signaler etter hvert filter.
+    """
+    import handler_data_beste as hdb
+
+    s = klassifiser(par_tx, fra, til, maks_opphold=cfg.maks_opphold, pause_dager=cfg.pause_dager)
+    s = s[s["type"].isin(_SALGSSTART)] if not s.empty else s
+    logg = {"signaler_inn": len(s), "aggregert": 0, "topp10": 0, "min_salg": 0, "min_andel": 0, "ekskludert": 0}
+    if s.empty:
+        _LOG.info("Handler-varsel %s til %s, topp 10-salg: ingen salgsstarter", fra, til)
+        return pd.DataFrame(), logg
+
+    # Første salgsstart per investor og aksje gir type, pause og dagen rangen måles på
+    forste = s.sort_values("start").groupby(["investor_id", "isin"], sort=False).head(1)
+    forste = {(r["investor_id"], r["isin"]): r for r in forste.to_dict("records")}
+    rader = []
+    for agg in _aggreger_vindu(par_tx, fra, til):
+        f = forste.get((agg["investor_id"], agg["isin"]))
+        if f is None:
+            continue
+        beh_for = agg["beh_for"] if (agg["beh_for"] or 0) > 0 else None
+        rad = {k: v for k, v in agg.items() if k != "_handler"}
+        rad.update({
+            "type": f["type"], "pause_dager": f["pause_dager"], "rang_dato": f["start"],
+            "andel_pct": (-agg["antall"] / beh_for * 100) if beh_for and agg["antall"] < 0 else None,
+        })
+        rader.append(rad)
+    df = pd.DataFrame(rader)
+    logg["aggregert"] = len(df)
+    if df.empty:
+        return df, logg
+
+    rang_cache: dict[tuple[str, str], list[str]] = {}
+
+    def rang(isin: str, dato: str, inv: str) -> int | None:
+        if (isin, dato) not in rang_cache:
+            rows = conn.execute(
+                """SELECT investor_id FROM position_change
+                   WHERE isin=? AND substr(date_today,1,10)=? AND COALESCE(holding_yesterday,0) > 0
+                   ORDER BY holding_yesterday DESC LIMIT 10""", (isin, dato)).fetchall()
+            rang_cache[(isin, dato)] = [str(r[0]).strip() for r in rows]
+        ids = rang_cache[(isin, dato)]
+        return ids.index(inv) + 1 if inv in ids else None
+
+    df["rang"] = [rang(r.isin, r.rang_dato, r.investor_id) for r in df.itertuples()]
+    df = df[df["rang"].notna()]
+    logg["topp10"] = len(df)
+
+    df = df[(df["antall"] < 0) & (-df["belop_mnok"] >= cfg.topp10_min_salg_mnok)]
+    logg["min_salg"] = len(df)
+
+    df = df[df["andel_pct"].fillna(0) >= cfg.topp10_min_andel * 100]
+    logg["min_andel"] = len(df)
+
+    grunner = {"liste": 0, "monster": 0, "egne_aksjer": 0, "nominee": 0}
+    if not df.empty:
+        liste_ids = _ekskluder_topp10_ids(conn)
+        navn = _navn(conn, sorted(set(df["investor_id"])))
+        selskap = _aksjer(conn, sorted(set(df["isin"])))
+        behold = []
+        for r in df.itertuples():
+            n = navn.get(r.investor_id, r.investor_id)
+            grunn = ("liste" if r.investor_id in liste_ids
+                     else _topp10_eksklusjon(n, selskap.get(r.isin, ("", ""))[1])
+                     or ("nominee" if hdb.er_nominee(n, cfg.ekskluder) else None))
+            if grunn:
+                grunner[grunn] += 1
+            behold.append(grunn is None)
+        df = df[behold]
+    logg["ekskludert"] = len(df)
+    logg["grunner"] = grunner
+
+    _LOG.info(
+        "Handler-varsel %s til %s, topp 10-salg: %d salgsstarter -> %d investor/aksje summert -> "
+        "topp 10 dagen før: %d -> salg >= %s MNOK: %d -> >= %.0f %% av beholdningen: %d -> "
+        "etter ekskludering: %d (Ekskluder.csv %d, navnemønster %d, egne aksjer %d, nominee %d)",
+        fra, til, logg["signaler_inn"], logg["aggregert"], logg["topp10"], _fmt(cfg.topp10_min_salg_mnok, 0),
+        logg["min_salg"], cfg.topp10_min_andel * 100, logg["min_andel"], logg["ekskludert"],
+        grunner["liste"], grunner["monster"], grunner["egne_aksjer"], grunner["nominee"],
+    )
+    return df.drop(columns=["beh_for", "rang_dato"]), logg
+
+
 # =========================================================
 # Signaler
 # =========================================================
@@ -363,33 +513,29 @@ def finn_signaler(conn, fra: dt.date, til: dt.date, cfg: Innstillinger | None = 
     folg_rader: list[dict] = []
     beste_filter = {"inn": 0, "inn_kombinasjoner": 0, "snur": 0, "stor": 0, "utgang": 0,
                     "fjernet": 0, "fjernet_kombinasjoner": 0, "fjernet_utgang_under": 0}
-    if not folg_tx.empty:
-        vindu = folg_tx[(folg_tx["dato"] >= fra.isoformat()) & (folg_tx["dato"] <= til.isoformat())]
-        for (inv, isin), g in vindu.groupby(["investor_id", "isin"]):
-            g = g.sort_values("dato")
-            sig = folg_sig[(folg_sig["investor_id"] == inv) & (folg_sig["isin"] == isin)]
-            rad = {
-                "investor_id": inv, "isin": isin,
-                "start": g["dato"].iloc[0], "siste": g["dato"].iloc[-1], "handelsdager": len(g),
-                "antall": g["antall"].sum(), "belop_mnok": g["belop"].sum() / 1_000_000,
-                "beh_etter": g["beh_etter"].iloc[-1],
-                "type": ", ".join(TYPE_TEKST[t] for t in sig["type"]) if not sig.empty else "",
-                "ut": bool((g["beh_etter"] <= 0).iloc[-1] and g["antall"].sum() < 0),
-                "viktig": inv not in beste_ids,   # fra Viktige.csv (eller annen liste enn Beste): alle handler
-            }
-            if inv in beste_ids:
-                # Summert per investor og aksje over vinduet før terskelen brukes
-                regel = _beste_regel(set(sig["type"]), rad["belop_mnok"], rad["ut"], cfg)
-                beste_filter["inn"] += len(g)
-                beste_filter["inn_kombinasjoner"] += 1
-                if regel is None:
-                    beste_filter["fjernet"] += len(g)
-                    beste_filter["fjernet_kombinasjoner"] += 1
-                    if rad["ut"]:
-                        beste_filter["fjernet_utgang_under"] += len(g)
-                    continue
-                beste_filter[regel] += len(g)
-            folg_rader.append(rad)
+    for agg in _aggreger_vindu(folg_tx, fra, til):
+        inv, isin, n_handler = agg["investor_id"], agg["isin"], agg["_handler"]
+        sig = folg_sig[(folg_sig["investor_id"] == inv) & (folg_sig["isin"] == isin)]
+        rad = {
+            **{k: agg[k] for k in ("investor_id", "isin", "start", "siste", "handelsdager",
+                                   "antall", "belop_mnok", "beh_etter")},
+            "type": ", ".join(TYPE_TEKST[t] for t in sig["type"]) if not sig.empty else "",
+            "ut": agg["ut"],
+            "viktig": inv not in beste_ids,   # fra Viktige.csv (eller annen liste enn Beste): alle handler
+        }
+        if inv in beste_ids:
+            # Summert per investor og aksje over vinduet før terskelen brukes
+            regel = _beste_regel(set(sig["type"]), rad["belop_mnok"], rad["ut"], cfg)
+            beste_filter["inn"] += n_handler
+            beste_filter["inn_kombinasjoner"] += 1
+            if regel is None:
+                beste_filter["fjernet"] += n_handler
+                beste_filter["fjernet_kombinasjoner"] += 1
+                if rad["ut"]:
+                    beste_filter["fjernet_utgang_under"] += n_handler
+                continue
+            beste_filter[regel] += n_handler
+        folg_rader.append(rad)
     if beste_ids:
         _LOG.info(
             "Handler-varsel %s til %s, Beste.csv: %d handler inn (%d investor/aksje), beholdt snur=%d, "
@@ -411,18 +557,13 @@ def finn_signaler(conn, fra: dt.date, til: dt.date, cfg: Innstillinger | None = 
     # 3) Topp 10-eier begynner å selge (alle investorer)
     salg_vindu = hent_handler(conn, fra, til, kun_salg=True)
     t10_sig = pd.DataFrame()
+    t10_filter: dict = {}
     if not salg_vindu.empty:
         par = sorted({(r.investor_id, r.isin) for r in salg_vindu.itertuples()
                       if r.investor_id not in folg_set and r.investor_id not in set(flinke)})
         if par:
             par_tx = hent_handler(conn, lookback_fra, til, par=par)
-            s = klassifiser(par_tx, fra, til, **kl)
-            s = s[s["type"].isin(["snur_salg", "forste_salg", "ut"])]
-            s = s[_over_terskel(s, cfg)] if not s.empty else s
-            if not s.empty:
-                s = s.copy()
-                s["rang"] = [_rang_dagen_for(conn, r.isin, r.start, r.investor_id) for r in s.itertuples()]
-                t10_sig = s[s["rang"].notna() & (s["rang"] <= 10)]
+            t10_sig, t10_filter = _topp10_salg(conn, par_tx, fra, til, cfg)
 
     # Navn og filtrering av nominee-konti i del 2 og 3
     alle_inv = sorted({r["investor_id"] for r in folg_rader}
@@ -467,6 +608,7 @@ def finn_signaler(conn, fra: dt.date, til: dt.date, cfg: Innstillinger | None = 
         "antall_folgeliste": len(folg_ids),
         "lister": brukte_lister or cfg.lister,
         "beste_filter": beste_filter,
+        "topp10_filter": t10_filter,
     }
 
 
@@ -477,6 +619,21 @@ def lenke(investor_id: str, label: str, isin: str, start: str, til: dt.date) -> 
         "date_from": fra, "date_to": til.isoformat(),
     })
     return f"{BASE_URL}/handler-oslo-bors/per-eier?{q}"
+
+
+def topp10_filter_tekst(sig: dict) -> str:
+    """Antall topp 10-salg etter hvert filter, til forhåndsvisningen."""
+    f = sig.get("topp10_filter") or {}
+    if not f:
+        return ""
+    cfg = sig["innstillinger"]
+    g = f.get("grunner") or {}
+    return (f"Topp 10-salg: {f['signaler_inn']} salgsstarter → {f['aggregert']} investor/aksje summert → "
+            f"topp 10 dagen før: {f['topp10']} → salg ≥ {_fmt(cfg.topp10_min_salg_mnok, 0)} MNOK: {f['min_salg']} → "
+            f"≥ {_fmt(cfg.topp10_min_andel * 100, 0)} % av beholdningen: {f['min_andel']} → "
+            f"etter ekskludering: {f['ekskludert']} (Ekskluder.csv {g.get('liste', 0)}, "
+            f"navnemønster {g.get('monster', 0)}, egne aksjer {g.get('egne_aksjer', 0)}, "
+            f"nominee {g.get('nominee', 0)})")
 
 
 def antall_signaler(sig: dict) -> int:
@@ -595,7 +752,9 @@ def seksjoner(sig: dict) -> list[dict]:
                        f"retning. Minst {_fmt(cfg.min_mnok, 0)} MNOK eller {_fmt(cfg.min_andel_pct, 0)} % av beholdningen.",
          "rader": sig["flinke"], "ekstra": None},
         {"nokkel": "topp10", "tittel": "Topp 10-eier begynner å selge",
-         "forklaring": "Investor blant de 10 største eierne i aksjen dagen før salget startet.",
+         "forklaring": f"Investor blant de 10 største eierne i aksjen dagen før salget startet som har solgt "
+                       f"for minst {_fmt(cfg.topp10_min_salg_mnok, 0)} MNOK og minst "
+                       f"{_fmt(cfg.topp10_min_andel * 100, 0)} % av beholdningen i perioden.",
          "rader": sig["topp10"], "ekstra": _rang_tekst},
     ]
 
