@@ -101,7 +101,7 @@ def _db(path):
     for inv, beh in [("T1", 5_000_000), ("N1", 4_000_000), ("F1", 1_000_000), ("S1", 10_000)]:
         rows.append(("X", inv, "2026-06-01", beh, beh - 100, 0, 90.0, 100))   # gammelt kjøp
     rows += [
-        ("X", "T1", "2026-10-14", 4_800_000, 5_000_000, 0, 100.0, -200_000),  # topp 10 snur til salg
+        ("X", "T1", "2026-10-14", 3_800_000, 5_000_000, 0, 100.0, -1_200_000),  # topp 10 selger 24 %
         ("X", "N1", "2026-10-14", 3_800_000, 4_000_000, 0, 100.0, -200_000),  # nominee, utelates
         ("X", "S1", "2026-10-14", 9_500, 10_000, 0, 100.0, -500),             # under terskel (5 %, 0,05 MNOK)
         ("X", "F1", "2026-10-14", 1_010_000, 1_000_000, 0, 100.0, 10_000),    # følgeliste
@@ -133,6 +133,84 @@ def test_finn_signaler(tmp_path, monkeypatch):
     html = hv.bygg_html(sig)
     assert "STOR EIER" in html and "FOLGE FOND" in html and "NOMINEE" not in html
     assert "Topp 10-eier" in hv.emne(sig) or "topp 10" in hv.emne(sig)
+
+
+def _db_topp10(path):
+    """Aksje X (selskap «XCO ASA») med 12 eiere og ulike salg 2026-10-13 og -14."""
+    conn = sqlite3.connect(path)
+    _db(path)
+    conn.execute("DELETE FROM position_change")
+    conn.execute("DELETE FROM investor")
+    conn.execute("UPDATE security SET isin_name='XCO ASA'")
+    eiere = {
+        "A": ("STOR", "SELGER", 1_000_000),         # 12 % + 12 % over to dager: summert 24 %, 24 MNOK -> med
+        "B": ("LITE", "BELOP", 30_000),             # 50 % men bare 1,5 MNOK -> ut (beløp)
+        "C": ("LITEN", "ANDEL", 900_000),           # 10 %, 9 MNOK -> ut (andel)
+        "D": ("DNB MARKETS", "AKSJEHANDEL/-ANALYSE", 800_000),   # Ekskluder.csv
+        "E": ("KLP AKSJENORGE", "Indeks", 700_000), # navnemønster, små bokstaver
+        "F": ("XCO", "ASA", 600_000),               # egne aksjer
+        "G": ("DØDSBO", "OLA NORDMANN", 500_000),   # navnemønster
+        "H": ("SELGER", "OG KJOPER", 400_000),      # selger 30 %, kjøper tilbake 25 %: netto 5 % -> ut (andel)
+        "Z": ("UTENFOR", "TOPP TI", 1_000),         # nr. 12, selger alt -> ut (rang)
+    }
+    for i in range(3):
+        eiere[f"P{i}"] = (f"PASSIV{i}", "EIER", 20_000 - i)
+    conn.executemany("INSERT INTO investor VALUES (?,?,?,?,?,?)",
+                     [(k, "Fond", f, l, "NO", None) for k, (f, l, _) in eiere.items()])
+    rows = [("X", k, "2026-06-01", b, b - 1, 0, 90.0, 1) for k, (_, _, b) in eiere.items()]
+    for k, (_, _, b) in eiere.items():
+        if k.startswith("P"):
+            rows.append(("X", k, "2026-10-13", b + 1, b, 0, 100.0, 1))   # gir rangering dagen før
+    salg = {"A": 0.12, "B": 0.5, "C": 0.10, "D": 0.5, "E": 0.5, "F": 0.5, "G": 0.5, "H": 0.30, "Z": 1.0}
+    for k, andel in salg.items():
+        b = eiere[k][2]
+        q = int(b * andel)
+        rows.append(("X", k, "2026-10-13", b - q, b, 0, 100.0, -q))
+        if k == "A":
+            rows.append(("X", k, "2026-10-14", b - 2 * q, b - q, 0, 100.0, -q))
+        if k == "H":
+            rows.append(("X", k, "2026-10-14", b - q + int(b * 0.25), b - q, 0, 100.0, int(b * 0.25)))
+    conn.executemany("INSERT INTO position_change VALUES (?,?,?,?,?,?,?,?)", rows)
+    conn.commit()
+    conn.close()
+
+
+def test_topp10_filter(tmp_path, monkeypatch, caplog):
+    p = str(tmp_path / "h.db")
+    _db_topp10(p)
+    monkeypatch.setattr(hv, "_folgeliste_ids", lambda conn, cfg, brukt=None, beste=None: [])
+    monkeypatch.setattr(hv, "_flinke_ids", lambda conn, til, cfg: [])
+    monkeypatch.setattr(hv.hd, "list_csv_files", lambda *a, **k: [])   # bruk repoets Ekskluder.csv
+    conn = sqlite3.connect(p)
+    conn.row_factory = sqlite3.Row
+    with caplog.at_level("INFO", logger="handler_varsel"):
+        sig = hv.finn_signaler(conn, D(2026, 10, 13), D(2026, 10, 14), hv.Innstillinger(lister=[]))
+    conn.close()
+
+    assert [r["investor_id"] for r in sig["topp10"]] == ["A"]
+    a = sig["topp10"][0]
+    assert a["antall"] == -240_000 and a["handelsdager"] == 2
+    assert a["belop_mnok"] == pytest.approx(-24.0) and a["andel_pct"] == pytest.approx(24.0)
+    f = sig["topp10_filter"]
+    assert f["aggregert"] == 9 and f["topp10"] == 8 and f["min_salg"] == 7 and f["min_andel"] == 5
+    assert f["ekskludert"] == 1
+    assert f["grunner"] == {"liste": 1, "monster": 2, "egne_aksjer": 1, "nominee": 0}
+    assert "topp 10-salg" in caplog.text and "etter ekskludering: 1" in caplog.text
+    assert "etter ekskludering: 1" in hv.topp10_filter_tekst(sig)
+
+
+def test_topp10_terskler_som_konstanter():
+    assert hv.MIN_SALG_MNOK == 2 and hv.MIN_ANDEL_BEHOLDNING == 0.20
+    cfg = hv.Innstillinger()
+    assert cfg.topp10_min_salg_mnok == 2 and cfg.topp10_min_andel == 0.20
+
+
+def test_topp10_eksklusjon_navn():
+    assert hv._topp10_eksklusjon("Storebrand Indeks - Norge", "Kid ASA") == "monster"
+    assert hv._topp10_eksklusjon("BOFAS INC PROPRIETARY ACCOUNT", "Kid ASA") == "monster"
+    assert hv._topp10_eksklusjon("Dødsbo etter Kari", "Kid ASA") == "monster"
+    assert hv._topp10_eksklusjon("KID ASA", "Kid ASA") == "egne_aksjer"
+    assert hv._topp10_eksklusjon("Stiftelsen Uni", "Kid ASA") is None
 
 
 def test_signaler_lagres_og_gjenbrukes(tmp_path, monkeypatch):
