@@ -538,3 +538,63 @@ def test_dagens_varsel_side(monkeypatch, tmp_path):
     assert len(kall) == 1
     html = c.get("/handler-oslo-bors/dagens-varsel?date_from=2026-10-14&date_to=2026-10-14").get_data(as_text=True)
     assert kall[-1] == (D(2026, 10, 14), D(2026, 10, 14)) and "Sendt på e-post" not in html
+
+
+def _uni_rader():
+    """Stiftelsen Uni med fire salg (beløp oppdiktet) og én annen investor midt imellom i beløp."""
+    def rad(inv, navn, isin, ticker, aksje, mnok):
+        return dict(investor_id=inv, investor=navn, isin=isin, ticker=ticker, aksje=aksje,
+                    start="2026-10-30", siste="2026-10-30", handelsdager=1, antall=-mnok * 10_000,
+                    belop_mnok=-mnok, andel_pct=25.0, pause_dager=None, ut=False, type="forste_salg",
+                    rang=3, lenke=f"https://x/{inv}/{isin}")
+    return [
+        rad("A1", "ANNEN INVESTOR", "NO5", "AAA", "Annen ASA", 9.0),
+        rad("U1", "STIFTELSEN UNI", "NO1", "KID", "Kid ASA", 4.0),
+        rad("U1", "STIFTELSEN UNI", "NO2", "WWI", "Wilh. Wilhelmsen Holding ASA", 3.0),
+        rad("U1", "STIFTELSEN UNI", "NO3", "LSG", "Lerøy Seafood Group ASA", 6.0),
+        rad("U1", "STIFTELSEN UNI", "NO4", "ODF", "Odfjell SE", 2.5),
+    ]
+
+
+def test_grupper_per_investor_sortert_etter_samlet_belop():
+    g = hv.grupper(_uni_rader(), hv._rang_tekst)
+    assert [x["investor"] for x in g] == ["STIFTELSEN UNI", "ANNEN INVESTOR"]   # 15,5 MNOK før 9 MNOK
+    uni = g[0]
+    assert uni["flere"] and [r["ticker"] for r in uni["rader"]] == ["LSG", "KID", "WWI", "ODF"]
+    assert uni["sum_mnok"] == pytest.approx(-15.5) and uni["sum_txt"] == "4 aksjer, −15,5 MNOK"
+    assert "nr. 3 blant eierne" in uni["rader"][0]["detaljer"]
+    assert not g[1]["flere"] and len(g[1]["rader"]) == 1
+
+
+def test_epost_samler_investor():
+    sig = {"fra": "2026-10-30", "til": "2026-10-30", "innstillinger": hv.Innstillinger(lister=["Beste.csv"]),
+           "folgeliste": [], "flinke": [], "topp10": _uni_rader(), "antall_flinke_fulgt": 0, "lister": ["Beste.csv"]}
+    html = hv.bygg_html(sig)
+    assert html.count("STIFTELSEN UNI") == 1 and "4 aksjer, −15,5 MNOK" in html
+    assert html.index("STIFTELSEN UNI") < html.index("ANNEN INVESTOR")
+    for t in ("KID Kid ASA", "WWI Wilh. Wilhelmsen", "LSG Lerøy", "ODF Odfjell"):
+        assert t in html
+    assert "https://x/U1/NO3" in html and "Topp 10-eier begynner å selge (5)" in html
+
+
+def test_dagens_varsel_side_samler_investor(monkeypatch, tmp_path):
+    flask = pytest.importorskip("flask")
+    import handler_data as hd
+    import handler_routes as routes
+
+    p = str(tmp_path / "h.db")
+    sqlite3.connect(p).close()
+    monkeypatch.setattr(routes, "_check_db", lambda: None)
+    monkeypatch.setattr(routes, "_VARSEL_SIDE_CACHE", {})
+    monkeypatch.setattr(hd, "db_connect", lambda *a, **k: sqlite3.connect(p))
+    monkeypatch.setattr(hd, "get_last_data_date", lambda conn: "2026-10-30")
+    monkeypatch.setattr(hv, "siste_kjoring", lambda: None)
+    monkeypatch.setattr(hv, "finn_signaler", lambda conn, fra, til: {
+        "fra": fra.isoformat(), "til": til.isoformat(), "innstillinger": hv.Innstillinger(lister=["Beste.csv"]),
+        "folgeliste": [], "flinke": [], "topp10": _uni_rader(), "antall_flinke_fulgt": 0, "lister": ["Beste.csv"]})
+    app = flask.Flask(__name__)
+    app.register_blueprint(routes.handler_bp)
+    html = app.test_client().get("/handler-oslo-bors/dagens-varsel").get_data(as_text=True)
+    assert html.count("STIFTELSEN UNI") == 1 and "4 aksjer, −15,5 MNOK" in html
+    assert html.index("STIFTELSEN UNI") < html.index("ANNEN INVESTOR")
+    assert html.index("LSG Lerøy") < html.index("KID Kid ASA") < html.index("WWI Wilh.") < html.index("ODF Odfjell")

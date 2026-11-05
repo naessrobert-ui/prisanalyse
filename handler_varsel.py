@@ -686,16 +686,72 @@ def vis_rad(r: dict, ekstra: str = "") -> dict:
     }
 
 
-def _rad_html(r: dict, vis_type: bool = True, ekstra: str = "") -> str:
-    v = vis_rad(r, ekstra)
+def _gruppenokkel(r: dict) -> str:
+    return " ".join(str(r.get("investor") or r.get("investor_id") or "").upper().split())
+
+
+def grupper(rader: list[dict], ekstra=None) -> list[dict]:
+    """Signalene i en del samlet per investor, med én linje per aksje.
+
+    Oppføringene sorteres etter samlet beløp (sum av |beløp|), linjene i hver oppføring likedan.
+    sum_mnok er nettobeløpet som vises ved investornavnet.
+    """
+    grupper_: dict[str, list[dict]] = {}
+    for r in rader:
+        v = vis_rad(r, ekstra(r) if ekstra else "")
+        grupper_.setdefault(_gruppenokkel(v), []).append(v)
+    out = []
+    for linjer in grupper_.values():
+        linjer.sort(key=lambda v: -abs(v["belop_mnok"]))
+        netto = sum(v["belop_mnok"] for v in linjer)
+        out.append({
+            "investor": linjer[0]["investor"], "investor_id": linjer[0]["investor_id"],
+            "lenke": linjer[0]["lenke"], "rader": linjer, "flere": len(linjer) > 1,
+            "sum_mnok": netto, "brutto_mnok": sum(abs(v["belop_mnok"]) for v in linjer),
+            "sum_txt": f"{len(linjer)} aksjer, {_fmt(netto, 1)} MNOK",
+            "kjop": netto > 0,
+        })
+    out.sort(key=lambda g: -g["brutto_mnok"])
+    return out
+
+
+_TD = "padding:6px 8px;border-bottom:1px solid #e5e7eb"
+
+
+def _gruppe_html(g: dict, vis_type: bool = True) -> str:
+    if not g["flere"]:
+        return _rad_html(g["rader"][0], vis_type, vist=True)
+    farge = "#2563eb" if g["kjop"] else "#dc2626"
+    hode = (
+        "<tr>"
+        f"<td style='padding:8px 8px 2px;color:{farge};font-weight:700'>{'▲' if g['kjop'] else '▼'}</td>"
+        f"<td colspan='3' style='padding:8px 8px 2px'>"
+        f"<a href='{html.escape(g['lenke'])}' style='color:#111827;font-weight:600;text-decoration:none'>"
+        f"{html.escape(g['investor'])}</a> "
+        f"<span style='color:#6b7280'>· {html.escape(g['sum_txt'])}</span></td>"
+        "</tr>"
+    )
+    return hode + "".join(_rad_html(v, vis_type, vist=True, under=True) for v in g["rader"])
+
+
+def _rad_html(r: dict, vis_type: bool = True, ekstra: str = "", vist: bool = False, under: bool = False) -> str:
+    """Én signallinje. vist=True: r er allerede gjort om med vis_rad. under=True: linje under et investornavn."""
+    v = r if vist else vis_rad(r, ekstra)
     farge = "#2563eb" if v["kjop"] else "#dc2626"
+    aksje_txt = f"{html.escape(v['ticker'] or v['isin'])} {html.escape(v['aksje'])}"
+    if under:
+        navn_celle = (f"<td style='{_TD};padding-left:20px'>"
+                      f"<a href='{html.escape(v['lenke'])}' style='color:#111827;text-decoration:none'>"
+                      f"{aksje_txt}</a></td>")
+    else:
+        navn_celle = (f"<td style='{_TD}'>"
+                      f"<a href='{html.escape(v['lenke'])}' style='color:#111827;font-weight:600;text-decoration:none'>"
+                      f"{html.escape(v['investor'])}</a><br>"
+                      f"<span style='color:#6b7280'>{aksje_txt}</span></td>")
     return (
         "<tr>"
-        f"<td style='padding:6px 8px;border-bottom:1px solid #e5e7eb;color:{farge};font-weight:700'>{v['pil']}</td>"
-        f"<td style='padding:6px 8px;border-bottom:1px solid #e5e7eb'>"
-        f"<a href='{html.escape(v['lenke'])}' style='color:#111827;font-weight:600;text-decoration:none'>"
-        f"{html.escape(v['investor'])}</a><br>"
-        f"<span style='color:#6b7280'>{html.escape(v['ticker'] or v['isin'])} {html.escape(v['aksje'])}</span></td>"
+        f"<td style='{_TD};color:{farge};font-weight:700'>{v['pil']}</td>"
+        + navn_celle +
         f"<td style='padding:6px 8px;border-bottom:1px solid #e5e7eb;white-space:nowrap'>"
         f"{v['antall_txt']}<br><span style='color:#6b7280'>{v['belop_txt']}</span></td>"
         f"<td style='padding:6px 8px;border-bottom:1px solid #e5e7eb'>"
@@ -708,9 +764,15 @@ def _rad_html(r: dict, vis_type: bool = True, ekstra: str = "") -> str:
 def _seksjon(tittel: str, forklaring: str, rader: list[dict], vis_type: bool = True, ekstra=None) -> str:
     if not rader:
         return ""
-    rader = [_rens(r) for r in rader]
-    body = "".join(_rad_html(r, vis_type, ekstra(r) if ekstra else "") for r in rader[:40])
-    mer = f"<p style='color:#6b7280'>… og {len(rader) - 40} til.</p>" if len(rader) > 40 else ""
+    # Samlet per investor; maks ca. 40 linjer, men en investor deles aldri
+    vist, deler = 0, []
+    for g in grupper([_rens(r) for r in rader], ekstra):
+        if vist and vist + len(g["rader"]) > 40:
+            break
+        deler.append(_gruppe_html(g, vis_type))
+        vist += len(g["rader"])
+    body = "".join(deler)
+    mer = f"<p style='color:#6b7280'>… og {len(rader) - vist} til.</p>" if len(rader) > vist else ""
     return (
         f"<h3 style='margin:22px 0 4px'>{html.escape(tittel)} ({len(rader)})</h3>"
         f"<p style='margin:0 0 8px;color:#6b7280;font-size:13px'>{html.escape(forklaring)}</p>"

@@ -775,7 +775,8 @@ def dagens_varsel_page():
         conn.close()
 
     deler = [
-        {**d, "rader": [hv.vis_rad(r, d["ekstra"](r) if d["ekstra"] else "") for r in d["rader"]]}
+        {**d, "rader": [hv.vis_rad(r, d["ekstra"](r) if d["ekstra"] else "") for r in d["rader"]],
+         "grupper": hv.grupper(d["rader"], d["ekstra"])}   # samlet per investor, sortert etter beløp
         for d in hv.seksjoner(sig)
     ]
     rader = [r for d in deler for r in d["rader"]]
