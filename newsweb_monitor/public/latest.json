@@ -2,8 +2,68 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-06T05:00:00+00:00",
+  "generated_at": "2026-11-06T05:10:00+00:00",
   "items": [
+    {
+      "id": "685835",
+      "market": "XOSL",
+      "ticker": "BOUV",
+      "issuer": "Bouvet ASA",
+      "title": "Bouvet ASA   Eks. utbytte NOK 0,70 i dag",
+      "headline": "Bouvet ASA kutter utbytte til 3,70 kroner per aksje for 2025",
+      "lead": "Bouvet ASA noteres eks. utbytte på 0,70 kroner i dag, med total utbetaling på 3,70 kroner per aksje for 2025. Utbetaling skjer 20. november 2026. Nytt nivå kan påvirke investoravkastningen i nærmeste fremtid.",
+      "published_at": "2026-11-06T05:00:05.008000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685835",
+      "summary": "Bouvet ASA noteres eks. utbytte på 0,70 kroner i dag, med total utbetaling på 3,70 kroner per aksje for 2025. Utbetaling skjer 20. november 2026. Nytt nivå kan påvirke investoravkastningen i nærmeste fremtid.",
+      "reason": "Utbytteutbetalingen gir en konkret kontantavkastning, men uten sammenligningstall for tidligere år eller estimater kan vi ikke konkludere om dette er en økning eller kutt. Effekten på aksjekurs og investorinteresse bør følges videre.",
+      "score": 45,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "ATEA",
+          "direction": "uklar",
+          "reason": "Kan påvirkes indirekte av investorklima i IT-sektoren ved utbytteendringer i nærmeste konkurrent"
+        },
+        {
+          "ticker": "ITERA",
+          "direction": "uklar",
+          "reason": "Markedets reaksjon på IT-sektoren kan påvirkes av utbyttenivåer hos Bouvet"
+        }
+      ],
+      "number_keys": [
+        "004be8",
+        "17ba07",
+        "37c3a5",
+        "6d1c96",
+        "7316b3",
+        "7b5200",
+        "91032a",
+        "97705a",
+        "ac3478",
+        "aee655",
+        "c1dfd9",
+        "c61e90",
+        "fb9654"
+      ],
+      "language_versions": [
+        {
+          "id": "685835",
+          "title": "Bouvet ASA   Eks. utbytte NOK 0,70 i dag",
+          "url": "https://newsweb.oslobors.no/message/685835",
+          "published_at": "2026-11-06T05:00:05.008000+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "685834",
+          "title": "Bouvet ASA   Ex-dividend NOK 0.70 today",
+          "url": "https://newsweb.oslobors.no/message/685834",
+          "published_at": "2026-11-06T05:00:03.959000+00:00",
+          "language": "Engelsk"
+        }
+      ]
+    },
     {
       "id": "685833",
       "market": "XOSL",
@@ -5360,23 +5420,16 @@
       "ticker": "POL",
       "issuer": "Polaris Media ASA",
       "title": "3. kvartal 2026: Fortsatt resultatvekst for Polaris Media i tredje kvartal",
-      "headline": "Polaris Media øker justert EBITDA til 126 mill. i Q3 med sterk svensk vekst",
-      "lead": "Polaris Media rapporterer justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra i fjor, drevet av betydelig inntektsvekst og kostnadstiltak i Sverige, mens Norge opplever fall i annonseinntekter.",
+      "headline": "Polaris Media øker justert EBITDA til 126 mill. i Q3 med sterk digital vekst",
+      "lead": "Polaris Media økte justert EBITDA med 23 mill. til 126 mill. kroner i tredje kvartal 2026, drevet av økte digitale brukerinntekter og kostnadseffektivisering, mens annonseinntektene i Norge fortsatt er svake.",
       "published_at": "2026-11-05T06:00:49.246000+00:00",
       "url": "https://newsweb.oslobors.no/message/685673",
-      "summary": "Polaris Media rapporterer justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra i fjor, drevet av betydelig inntektsvekst og kostnadstiltak i Sverige, mens Norge opplever fall i annonseinntekter.",
-      "reason": "Resultatveksten skyldes bedre enn fjoråret prestasjoner i Sverige og god vekst i digitale abonnementsinntekter, mens norske annonseinntekter faller. Viktig å følge norsk annonseutvikling og effekten av kostnadsbesparelser videre.",
-      "score": 78,
+      "summary": "Polaris Media økte justert EBITDA med 23 mill. til 126 mill. kroner i tredje kvartal 2026, drevet av økte digitale brukerinntekter og kostnadseffektivisering, mens annonseinntektene i Norge fortsatt er svake.",
+      "reason": "Resultatveksten bekrefter at digital omstilling gir effekt og kostnadsbesparelser løfter lønnsomheten, men norsk annonsemarked krever nøye oppfølging. Fokus på abonnementsvekst og kostnadskontroll er sentralt fremover.",
+      "score": 85,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "NHY",
-          "direction": "negativ",
-          "reason": "Svak annonseutvikling i Norge kan påvirke andre norske medieselskaper negativt."
-        }
-      ],
       "attachment_key": "38b7cec75a06b5b8",
       "number_keys": [
         "004be8",
@@ -5426,7 +5479,7 @@
             "yoy_pct": -0.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall table, Driftsinntekter 3. kvartal 2026 vs 2025"
+            "evidence": "Page 5, table under Nøkkeltall for 2026 Q3 and 2025 Q3."
           },
           {
             "label": "EBITDA",
@@ -5439,7 +5492,7 @@
             "yoy_pct": 57.9,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall table, EBITDA 3. kvartal 2026 vs 2025"
+            "evidence": "Page 5, table under Nøkkeltall for 2026 Q3 and 2025 Q3."
           },
           {
             "label": "EBITDA",
@@ -5452,7 +5505,7 @@
             "yoy_pct": 22.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall table, EBITDA justert 3. kvartal 2026 vs 2025"
+            "evidence": "Page 5, table under Nøkkeltall showing EBITDA justert (adjusted) for 2026 Q3 and 2025 Q3."
           },
           {
             "label": "EBIT",
@@ -5465,92 +5518,14 @@
             "yoy_pct": 544.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall table, EBIT 3. kvartal 2026 vs 2025"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 510.0,
-            "prior_year": 503.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 1.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 6, Mediehus Norge segment revenue 3Q 2026 vs 2025"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 78.0,
-            "prior_year": 82.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -4.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 6, Mediehus Norge segment EBITDA 3Q 2026 vs 2025"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 78.0,
-            "prior_year": 82.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -4.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 6, Mediehus Norge segment EBITDA justert 3Q 2026 vs 2025"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 257.0,
-            "prior_year": 255.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 0.8,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 7, Mediehus Sverige segment revenue 3Q 2026 vs 2025"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 46.0,
-            "prior_year": 0.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 7, Mediehus Sverige segment EBITDA 3Q 2026 vs 2025"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 46.0,
-            "prior_year": 22.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 109.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 7, Mediehus Sverige segment EBITDA justert 3Q 2026 vs 2025"
+            "evidence": "Page 5, table under Nøkkeltall for EBIT 2026 Q3 and 2025 Q3."
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Det foreligger ingen spesifikke fremtidsutsikter eller finansiell veiledning i rapporten for 2026Q3. Ledelsen presenterer ikke konkrete mål for omsetning, lønnsomhet, marginer, etterspørsel eller investeringer i det tilgjengelige materialet.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning fordi heller ikke 2026Q2-rapporten inneholdt konkrete tall eller mål for fremtiden.",
-          "trend": "Over de siste kvartalene har selskapet konsekvent unnlatt å gi spesifikk fremtidsveiledning eller kvantitative mål. Ledelsen har holdt en nøytral og forsiktig tone uten å angi konkrete forventninger eller endringer i utsiktene.",
+          "summary": "Selskapets rapport for 2026 Q3 gir ikke konkrete tall eller spesifikke fremtidsutsikter for salg, lønnsomhet, marginer eller investeringer. Fokus ligger på videre drift av driftssegmentene og finansiell gjennomgang uten eksplisitt veiledning.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning da heller 2026 Q2 rapporten ikke inneholdt konkrete fremtidsutsikter eller mål.",
+          "trend": "Gjennom de siste kvartalene har selskapet konsekvent ikke presentert spesifikke framtidsutsikter eller finansiell guidning i rapportene som er gjennomgått. Ledelsen har holdt en nøytral og lite konkret tone om fremtiden uten klare signaler om endringer i etterspørsel, marginer eller investeringer.",
           "compared_periods": [
             "2026Q2",
             "2026Q1",
@@ -5558,9 +5533,9 @@
           ],
           "points": [
             {
-              "topic": "Utsikter fremover",
-              "statement": "Ingen konkrete tall eller mål kommunisert for kommende kvartal eller år.",
-              "evidence": "'Utsiktene fremover'-seksjonen inneholder ikke spesifikk veiledning.",
+              "topic": "Utsiktene fremover",
+              "statement": "Ingen konkrete tall eller mål kommunisert for kommende periode",
+              "evidence": "\"Utsiktene fremover\"-seksjonen inneholder ikke spesifikk veiledning",
               "page": "10"
             }
           ]
@@ -15141,31 +15116,6 @@
         "c66c65",
         "fc33fb"
       ]
-    },
-    {
-      "id": "685449",
-      "market": "XOSL",
-      "ticker": "PSHIP",
-      "issuer": "Performance Shipping Inc.",
-      "title": "Performance Shipping Inc. repurchase and cancellation of share purchase warrants",
-      "headline": "Performance Shipping kjøper tilbake og kansellerer aksjeopsjoner",
-      "lead": "Performance Shipping Inc. kunngjør tilbakekjøp og kansellering av utvalgte utestående aksjeopsjoner. Detaljer er tilgjengelige i selskapets SEC-melding fra 2. november 2026.",
-      "published_at": "2026-11-03T08:54:38.258000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685449",
-      "summary": "Performance Shipping Inc. kunngjør tilbakekjøp og kansellering av utvalgte utestående aksjeopsjoner. Detaljer er tilgjengelige i selskapets SEC-melding fra 2. november 2026.",
-      "reason": "Tilbakekjøp og kansellering av aksjeopsjoner kan redusere potensiell utvanning for aksjonærene, men detaljert effekt på selskapets kapitalstruktur og verdi er uklar uten ytterligere informasjon.",
-      "score": 30,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 45,
-      "attachment_key": "d868e9f30f7027b7",
-      "number_keys": [
-        "aee655",
-        "c1dfd9",
-        "da4b92"
-      ]
     }
   ],
   "indirect": [
@@ -15515,19 +15465,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-06T05:00:00+00:00",
+  "last_checked_at": "2026-11-06T05:10:00+00:00",
   "monitor_stats": {
-    "fetched": 223,
-    "recent": 140,
-    "already_seen": 139,
-    "eligible": 1,
+    "fetched": 225,
+    "recent": 141,
+    "already_seen": 138,
+    "eligible": 3,
     "filtered": 0,
-    "analyzed": 1,
+    "analyzed": 3,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-05T21:15:00+00:00",
+    "source_latest_at": "2026-11-06T05:00:05.008000+00:00",
     "indirect": 0
   }
 }
