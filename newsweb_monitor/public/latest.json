@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-06T04:50:00+00:00",
+  "generated_at": "2026-11-06T05:00:00+00:00",
   "items": [
     {
       "id": "685833",
@@ -5360,16 +5360,23 @@
       "ticker": "POL",
       "issuer": "Polaris Media ASA",
       "title": "3. kvartal 2026: Fortsatt resultatvekst for Polaris Media i tredje kvartal",
-      "headline": "Polaris Media øker justert EBITDA til 126 mill. i Q3 2026 – svakt norsk annonsemarked",
-      "lead": "Polaris Media rapporterer en justert EBITDA på 126 millioner kroner i tredje kvartal 2026, en økning på 23 millioner fra i fjor, drevet av sterk svensk digital vekst, mens norske annonseinntekter faller og driftskostnader reduseres.",
+      "headline": "Polaris Media øker justert EBITDA til 126 mill. i Q3 med sterk svensk vekst",
+      "lead": "Polaris Media rapporterer justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra i fjor, drevet av betydelig inntektsvekst og kostnadstiltak i Sverige, mens Norge opplever fall i annonseinntekter.",
       "published_at": "2026-11-05T06:00:49.246000+00:00",
       "url": "https://newsweb.oslobors.no/message/685673",
-      "summary": "Polaris Media rapporterer en justert EBITDA på 126 millioner kroner i tredje kvartal 2026, en økning på 23 millioner fra i fjor, drevet av sterk svensk digital vekst, mens norske annonseinntekter faller og driftskostnader reduseres.",
-      "reason": "Resultatveksten i Polaris drives av solide digitale brukerinntekter og kostnadskutt, særlig i Sverige, til tross for svakere annonsemarked i Norge. For aksjonærer indikerer dette bedre lønnsomhet og digital omstilling. Videre bør man følge norsk annonseutvikling og effektene av rettslige tvister mot Meta.",
-      "score": 80,
+      "summary": "Polaris Media rapporterer justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra i fjor, drevet av betydelig inntektsvekst og kostnadstiltak i Sverige, mens Norge opplever fall i annonseinntekter.",
+      "reason": "Resultatveksten skyldes bedre enn fjoråret prestasjoner i Sverige og god vekst i digitale abonnementsinntekter, mens norske annonseinntekter faller. Viktig å følge norsk annonseutvikling og effekten av kostnadsbesparelser videre.",
+      "score": 78,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "NHY",
+          "direction": "negativ",
+          "reason": "Svak annonseutvikling i Norge kan påvirke andre norske medieselskaper negativt."
+        }
+      ],
       "attachment_key": "38b7cec75a06b5b8",
       "number_keys": [
         "004be8",
@@ -5419,7 +5426,7 @@
             "yoy_pct": -0.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, 3. kvartal 2026"
+            "evidence": "Side 5, Nøkkeltall table, Driftsinntekter 3. kvartal 2026 vs 2025"
           },
           {
             "label": "EBITDA",
@@ -5432,20 +5439,7 @@
             "yoy_pct": 57.9,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, 3. kvartal 2026"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": 58.0,
-            "prior_year": 9.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 544.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, 3. kvartal 2026"
+            "evidence": "Side 5, Nøkkeltall table, EBITDA 3. kvartal 2026 vs 2025"
           },
           {
             "label": "EBITDA",
@@ -5458,40 +5452,105 @@
             "yoy_pct": 22.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, 3. kvartal 2026, EBITDA justert"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 276.0,
-            "prior_year": 209.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 32.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, Per 3. kvartal 2026, EBITDA justert"
+            "evidence": "Side 5, Nøkkeltall table, EBITDA justert 3. kvartal 2026 vs 2025"
           },
           {
             "label": "EBIT",
             "name": "ebit",
             "unit": "NOK million",
-            "current": 95.0,
+            "current": 58.0,
+            "prior_year": 9.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 544.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 5, Nøkkeltall table, EBIT 3. kvartal 2026 vs 2025"
+          },
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 510.0,
+            "prior_year": 503.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 1.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 6, Mediehus Norge segment revenue 3Q 2026 vs 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 78.0,
+            "prior_year": 82.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -4.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 6, Mediehus Norge segment EBITDA 3Q 2026 vs 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 78.0,
+            "prior_year": 82.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -4.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 6, Mediehus Norge segment EBITDA justert 3Q 2026 vs 2025"
+          },
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 257.0,
+            "prior_year": 255.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 0.8,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 7, Mediehus Sverige segment revenue 3Q 2026 vs 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 46.0,
             "prior_year": 0.0,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, Per 3. kvartal 2026, EBIT"
+            "evidence": "Side 7, Mediehus Sverige segment EBITDA 3Q 2026 vs 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 46.0,
+            "prior_year": 22.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 109.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 7, Mediehus Sverige segment EBITDA justert 3Q 2026 vs 2025"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Det foreligger ingen konkrete kvartalsvise eller årlige tall eller mål for omsetning, lønnsomhet eller investeringer i rapportens utsiktsdel. Ledelsen omtaler videre drift av driftssegmentene og finansiell gjennomgang, men uten spesifikk fremtidsveiledning eller mål for marginer eller etterspørsel.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
-          "trend": "",
+          "summary": "Det foreligger ingen spesifikke fremtidsutsikter eller finansiell veiledning i rapporten for 2026Q3. Ledelsen presenterer ikke konkrete mål for omsetning, lønnsomhet, marginer, etterspørsel eller investeringer i det tilgjengelige materialet.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning fordi heller ikke 2026Q2-rapporten inneholdt konkrete tall eller mål for fremtiden.",
+          "trend": "Over de siste kvartalene har selskapet konsekvent unnlatt å gi spesifikk fremtidsveiledning eller kvantitative mål. Ledelsen har holdt en nøytral og forsiktig tone uten å angi konkrete forventninger eller endringer i utsiktene.",
           "compared_periods": [
             "2026Q2",
             "2026Q1",
@@ -5500,9 +5559,9 @@
           "points": [
             {
               "topic": "Utsikter fremover",
-              "statement": "Ingen kvantitative mål eller konkrete fremtidsutsikter er kommunisert for perioden.",
-              "evidence": "\"Utsiktene fremover\"-seksjonen inneholder ikke spesifikk veiledning.",
-              "page": "10-11"
+              "statement": "Ingen konkrete tall eller mål kommunisert for kommende kvartal eller år.",
+              "evidence": "'Utsiktene fremover'-seksjonen inneholder ikke spesifikk veiledning.",
+              "page": "10"
             }
           ]
         }
@@ -15456,18 +15515,18 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-06T04:50:00+00:00",
+  "last_checked_at": "2026-11-06T05:00:00+00:00",
   "monitor_stats": {
     "fetched": 223,
-    "recent": 147,
-    "already_seen": 145,
-    "eligible": 2,
+    "recent": 140,
+    "already_seen": 139,
+    "eligible": 1,
     "filtered": 0,
-    "analyzed": 2,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 2,
+    "recovered_unpublished": 1,
     "source_latest_at": "2026-11-05T21:15:00+00:00",
     "indirect": 0
   }
