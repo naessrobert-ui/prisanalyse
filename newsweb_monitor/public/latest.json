@@ -2,8 +2,233 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-06T07:50:00+00:00",
+  "generated_at": "2026-11-06T08:00:00+00:00",
   "items": [
+    {
+      "id": "685870",
+      "market": "XOSL",
+      "ticker": "CHBI",
+      "issuer": "Chip Bidco AS",
+      "title": "Kvartalsrapport for Q3 2026",
+      "headline": "Chip Bidco AS uten tall i Q3-rapporten – vesentlige data mangler",
+      "lead": "Kvartalsrapporten for Q3 2026 fra Chip Bidco AS mangler konkrete finansielle nøkkeltall, noe som gjør det umulig å vurdere selskapets økonomiske utvikling denne perioden.",
+      "published_at": "2026-11-06T08:00:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/685870",
+      "summary": "Kvartalsrapporten for Q3 2026 fra Chip Bidco AS mangler konkrete finansielle nøkkeltall, noe som gjør det umulig å vurdere selskapets økonomiske utvikling denne perioden.",
+      "reason": "Fravær av resultattall og nøkkeltall i rapporten skaper usikkerhet for aksjonærer og investorer. Det er uklart om utviklingen er positiv eller negativ, og videre informasjon er nødvendig for å danne et bilde.",
+      "score": 50,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "company_form": "ikke ASA",
+      "score_ai": 65,
+      "attachment_key": "e323666d28e06b64",
+      "number_keys": [
+        "31bd9b",
+        "3c26df",
+        "59129a",
+        "77de68",
+        "827bfc",
+        "91032a",
+        "aee655"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Interim report Q3 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685870&attachmentId=335992"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 450.0,
+            "prior_year": 444.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 1.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 3, Q3 HIGHLIGHTS 1: Revenues in Q3 2026 were NOK 450 million compared to NOK 444 million in Q3 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 52.0,
+            "prior_year": 74.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -29.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 3, Q3 HIGHLIGHTS 2: Reported EBITDA decreased to NOK 52 million from NOK 74 million"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 81.0,
+            "prior_year": 81.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 0.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 3, Q3 HIGHLIGHTS 1: Adjusted EBITDA post-IFRS16 remained stable at NOK 81 million compared to Q3 2025"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 80.0,
+            "prior_year": 81.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -1.2,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 3, Q3 HIGHLIGHTS 2: Operating cash flow in Q3 was NOK 80 million, broadly in line with last year"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "No net income figures explicitly reported in the Q3 2026 excerpt"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "No EPS data provided in the report"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "No net interest income reported in the excerpts"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Selskapet planlegger en refinansiering av obligasjonslånet på NOK 1 550 millioner som forfaller i februar 2027, ved å ta opp et nytt lån på NOK 1 600 millioner samt en revolverende kredittramme på NOK 200 millioner. Refinansieringen forventes gjennomført i februar 2027 og anses sikret, noe som gir tillit til konsernets likviditetssituasjon.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "trend": "",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Refinansiering og gjeld",
+              "statement": "Planlagt refinansiering av obligasjonslån på NOK 1 550 millioner som forfaller i februar 2027, med nytt lån på NOK 1 600 millioner og NOK 200 millioner i kredittfasilitet.",
+              "evidence": "\"The Company will use the term debt proceeds to refinance its existing NOK 1,550 million bond... refinancing is expected in February 2027\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Likviditet og finansiell stabilitet",
+              "statement": "Styret anser refinansieringen som sikret og likviditetssituasjonen som tilstrekkelig.",
+              "evidence": "\"the Board considers the refinancing secured and the Group’s liquidity position adequate.\"",
+              "page": "utdrag"
+            }
+          ]
+        }
+      },
+      "language_versions": [
+        {
+          "id": "685870",
+          "title": "Kvartalsrapport for Q3 2026",
+          "url": "https://newsweb.oslobors.no/message/685870",
+          "published_at": "2026-11-06T08:00:00+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "685869",
+          "title": "Quarterly report for Q3 2026",
+          "url": "https://newsweb.oslobors.no/message/685869",
+          "published_at": "2026-11-06T08:00:00+00:00",
+          "language": "Engelsk"
+        }
+      ]
+    },
+    {
+      "id": "685864",
+      "market": "XOSL",
+      "ticker": "TEL",
+      "issuer": "Telenor ASA",
+      "title": "Telenor Sverige completes acquisition of a controlling stake in Bahnhof and makes a mandatory cash offer to the remaining shareholders",
+      "headline": "Telenor Sverige sikrer kontroll i Bahnhof – byr 62 SEK per aksje på resten",
+      "lead": "Telenor Sverige har fullført kjøp av kontrollerende eierandel i Bahnhof og lanserer nå et uforbeholdent kontantbud på 62 SEK per aksje til øvrige aksjonærer.",
+      "published_at": "2026-11-06T07:52:21.360000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685864",
+      "summary": "Telenor Sverige har fullført kjøp av kontrollerende eierandel i Bahnhof og lanserer nå et uforbeholdent kontantbud på 62 SEK per aksje til øvrige aksjonærer.",
+      "reason": "Oppkjøpet styrker Telenors posisjon i Sverige, potensielt øker inntektsgrunnlaget og markedskontrollen. Aksjonærer bør følge budutfall og integrasjonsplaner nøye for verdiøkning.",
+      "score": 85,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "importance": "stor",
+      "score_ai": 75,
+      "number_keys": [
+        "15ce92",
+        "49bc6b",
+        "511a41",
+        "73f9c1",
+        "d4739b"
+      ]
+    },
+    {
+      "id": "685863",
+      "market": "XOSL",
+      "ticker": "TEL",
+      "issuer": "Telenor ASA",
+      "title": "Telenor Sverige fullfører kjøpet av en majoritetspost i Bahnhof og fremsetter et pliktig kontanttilbud til resterende aksjonærer",
+      "headline": "Telenor Sverige kjøper majoritetsandel i Bahnhof – tilbyr 62 SEK per aksje til minoritetsaksjonærer",
+      "lead": "Telenor Sverige sikrer kontroll over Bahnhof med kjøpet av majoritetsandel og lanserer pliktig kontanttilbud på 62 SEK per aksje for minoritetsaksjonærene, i et steg som kan påvirke marked og konkurransesituasjon i Sverige.",
+      "published_at": "2026-11-06T07:52:11.830000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685863",
+      "summary": "Telenor Sverige sikrer kontroll over Bahnhof med kjøpet av majoritetsandel og lanserer pliktig kontanttilbud på 62 SEK per aksje for minoritetsaksjonærene, i et steg som kan påvirke marked og konkurransesituasjon i Sverige.",
+      "reason": "Oppkjøpet gir Telenor økt kontroll i det svenske markedet, noe som kan styrke deres konkurranseposisjon, men detaljene om finansiell påvirkning og fremtidig strategi må studeres nærmere for aksjonærene.",
+      "score": 85,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "importance": "stor",
+      "score_ai": 75,
+      "number_keys": [
+        "15ce92",
+        "49bc6b",
+        "511a41",
+        "73f9c1",
+        "d4739b"
+      ]
+    },
     {
       "id": "685862",
       "market": "XOSL",
@@ -511,18 +736,18 @@
       "ticker": "ASCHO",
       "issuer": "Aktieselskabet Schouw & Co.",
       "title": "Schouw & Co. raises its full-year 2026 guidance on revenue and EBITDA",
-      "headline": "Schouw & Co. hever årsprognose 2026 for omsetning og EBITDA",
-      "lead": "Schouw & Co. øker sin omsetningsprognose for 2026 til 36,2-38,1 mrd. DKK og justerer EBITDA-utsiktene opp til 3,375-3,525 mrd. DKK, basert på oppdatert informasjon inkludert BioMars seneste veiledning.",
+      "headline": "Schouw & Co. løfter 2026-salgs- og EBITDA-anslag etter Q3-rapport",
+      "lead": "Schouw & Co. øker helårsprognosen for omsetning til 36,2-38,1 mrd. DKK og EBITDA til 3,375-3,525 mrd. DKK, oppjusteringen skjer etter rapport for tredje kvartal og kjøpet av Spectre.",
       "published_at": "2026-11-06T07:02:02.697000+00:00",
       "url": "https://newsweb.oslobors.no/message/685853",
-      "summary": "Schouw & Co. øker sin omsetningsprognose for 2026 til 36,2-38,1 mrd. DKK og justerer EBITDA-utsiktene opp til 3,375-3,525 mrd. DKK, basert på oppdatert informasjon inkludert BioMars seneste veiledning.",
-      "reason": "Oppjusteringen indikerer bedre drift enn tidligere antatt og styrker forventningene til lønnsomhet, noe som kan øke investorers interesse og selskapets markedsverdi. Det er relevant å følge hvordan oppkjøpet av Spectre samt BioMars utvikling påvirker den videre veksten.",
-      "score": 55,
+      "summary": "Schouw & Co. øker helårsprognosen for omsetning til 36,2-38,1 mrd. DKK og EBITDA til 3,375-3,525 mrd. DKK, oppjusteringen skjer etter rapport for tredje kvartal og kjøpet av Spectre.",
+      "reason": "Oppjusteringene signaliserer sterkere underliggende drift enn tidligere antatt, noe som er positivt for aksjonærer. Viktig å følge fremtidige rapporter for å se om denne trenden fortsetter og konkret påvirkning på lønnsomhet fra oppkjøpet.",
+      "score": 60,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 70,
+      "score_ai": 75,
       "attachment_key": "4e0f99d383b07734",
       "number_keys": [
         "002647",
@@ -564,7 +789,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 1 - guidance raised to 36.2-38.1 billion for FY 2026"
+            "evidence": "Page 1: guidance updated to DKK 36.2-38.1 billion for FY 2026, no actuals reported"
           },
           {
             "label": "EBITDA",
@@ -577,27 +802,33 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 1 - guidance raised to 3,375-3,525 million for FY 2026"
+            "evidence": "Page 1: guidance updated to DKK 3,375-3,525 million for FY 2026, no actuals reported"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Schouw & Co. har hevet sin forventning til omsetning for hele 2026 til 36,2-38,1 milliarder DKK, opp fra tidligere 35,1-37,6 milliarder DKK. Samtidig økes EBITDA-forventningen til 3,375-3,525 millioner DKK, opp fra tidligere 3,150-3,350 millioner DKK. Dette reflekterer en forbedret vurdering av konsernets forretningsutsikter etter tredje kvartal, inkludert BioMars nylige veiledning.",
+          "summary": "Schouw & Co. har hevet sin helårlige omsetnings- og EBITDA-veiledning for 2026. Omsetningsguiden økes til 36,2-38,1 milliarder DKK fra tidligere 35,1-37,6 milliarder DKK, og EBITDA-veiledningen er oppjustert til 3.375-3.525 millioner DKK fra tidligere 3.150-3.350 millioner DKK. Den oppgraderte veiledningen er basert på ledelsens vurdering og BioMars oppdaterte utsikter.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetningsveiledning",
-              "statement": "Veiledningen for konsernets omsetning for 2026 er økt til 36,2-38,1 mrd DKK fra tidligere 35,1-37,6 mrd DKK.",
-              "evidence": "\"Schouw & Co. increases its guidance for FY 2026 consolidated revenue to the range of DKK 36.2-38.1 from previously DKK 35.1-37.6 billion.\"",
-              "page": "1"
+              "topic": "Omsetningsguide 2026",
+              "statement": "Økning fra 35,1-37,6 til 36,2-38,1 milliarder DKK",
+              "evidence": "\"...guidance for FY 2026 consolidated revenue to the range of DKK 36.2-38.1 from previously DKK 35.1-37.6 billion.\"",
+              "page": "management's outlook excerpt"
             },
             {
-              "topic": "EBITDA-veiledning",
-              "statement": "EBITDA-veiledningen for 2026 justeres opp til 3,375-3,525 millioner DKK fra tidligere 3,150-3,350 millioner DKK.",
-              "evidence": "\"At the same time, the guidance for FY 2026 consolidated EBITDA is raised to the range of DKK 3,375-3,525 million from previously DKK 3,150-3,350 million.\"",
-              "page": "1"
+              "topic": "EBITDA-guide 2026",
+              "statement": "Oppjustering fra 3.150-3.350 til 3.375-3.525 millioner DKK",
+              "evidence": "\"guidance for FY 2026 consolidated EBITDA is raised to the range of DKK 3,375-3,525 million from previously DKK 3,150-3,350 million.\"",
+              "page": "management's outlook excerpt"
+            },
+            {
+              "topic": "Basis for oppjustering",
+              "statement": "Vurdering av konsernets utsikter og BioMars veiledning tatt i betraktning",
+              "evidence": "\"...based on the Board of Directors’ and the Executive Management’s assessment of the outlook for the Group’s businesses...including the information on BioMar’s guidance...\"",
+              "page": "management's outlook excerpt"
             }
           ]
         }
@@ -626,13 +857,13 @@
       "ticker": "AKVA",
       "issuer": "AKVA group ASA",
       "title": "AKVA group ASA: Q3 2026 financial reporting",
-      "headline": "AKVA øker kvartals-EBITDA til 170 mill. og varsler Yanmar-oppkjøp",
-      "lead": "AKVA Group reduserte omsetningen 14 %, men økte EBITDA med 15 % til 170 mill. kroner i Q3. De inngikk samtidig en avtale om frivillig oppkjøp fra Yanmar, som forventes fullført i Q4 2026.",
+      "headline": "AKVA Q3-omsetning falt 14 %, men EBITDA økte 15 % til 170 mill. kr",
+      "lead": "AKVA group rapporterte en omsetning på 959 mill. kroner i tredje kvartal 2026, ned 14 % fra i fjor. Samtidig økte EBITDA med 15 % til 170 mill. kr. Ordrebeholdningen er sterk ved 2,7 mrd. kr, og fullføring av Yanmar-oppkjøp ventes i Q4.",
       "published_at": "2026-11-06T07:00:23.648000+00:00",
       "url": "https://newsweb.oslobors.no/message/685851",
-      "summary": "AKVA Group reduserte omsetningen 14 %, men økte EBITDA med 15 % til 170 mill. kroner i Q3. De inngikk samtidig en avtale om frivillig oppkjøp fra Yanmar, som forventes fullført i Q4 2026.",
-      "reason": "Selv om omsetningen falt betydelig, styrket AKVA lønnsomheten i Q3 og sikret en solid ordrereserve. Yanmar-oppkjøpet kan gi aksjonærene exit-mulighet, men innebærer usikkerhet rundt fremtidig drift og kostnader knyttet til transaksjonen.",
-      "score": 85,
+      "summary": "AKVA group rapporterte en omsetning på 959 mill. kroner i tredje kvartal 2026, ned 14 % fra i fjor. Samtidig økte EBITDA med 15 % til 170 mill. kr. Ordrebeholdningen er sterk ved 2,7 mrd. kr, og fullføring av Yanmar-oppkjøp ventes i Q4.",
+      "reason": "Til tross for fallende omsetning, viser forbedret lønnsomhet og solid ordrebeholdning styrke i driften. For aksjonærer er det viktig å følge oppkjøpsprosessen med Yanmar og kostnader knyttet til denne, samt effekten på fremtidig vekst og lønnsomhet.",
+      "score": 80,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -740,7 +971,7 @@
             "yoy_pct": -13.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 5, Highlights and key figures Q3 2026"
+            "evidence": "Side 5, Side 7"
           },
           {
             "label": "EBIT",
@@ -753,33 +984,33 @@
             "yoy_pct": 11.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 5, Highlights and key figures Q3 2026"
+            "evidence": "Side 5, Side 7"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "I 3. kvartal 2026 reduserte selskapet omsetningen med 153 millioner kroner sammenlignet med samme kvartal året før, men forbedret lønnsomheten med EBIT på 99 millioner kroner mot 89 millioner året før. Markedsaktiviteten er høy, og ordreinngangen forventes å være robust i 4. kvartal 2026.",
+          "summary": "Markedsaktiviteten er høy, og ordremottaket forventes å være robust i fjerde kvartal 2026. Resultatgraden (EBIT) i tredje kvartal viste forbedring til 99 millioner kroner sammenlignet med 89 millioner kroner året før. Det var en nedgang i ordreinngangen med 153 millioner kroner fra samme kvartal i fjor, med en ordreinngang på 714 millioner kroner i Q3.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetning",
-              "statement": "Omsetningen i 3. kvartal 2026 reduseres med 153 millioner kroner sammenlignet med samme kvartal 2025.",
-              "evidence": "redution of NOK 153 million compared to the same quarter last year",
-              "page": "aksjeanalyse Q3 2026"
+              "topic": "Ordreinngang",
+              "statement": "Reduksjon på 153 millioner kroner sammenlignet med samme kvartal året før.",
+              "evidence": "reduction of NOK 153 million compared to the same quarter last year",
+              "page": "N/A"
             },
             {
-              "topic": "Lønnsomhet",
-              "statement": "EBIT økte til 99 millioner kroner i 3. kvartal 2026, opp fra 89 millioner kroner i samme periode året før.",
-              "evidence": "EBIT ended at NOK 99 million compared to NOK 89 million last year",
-              "page": "aksjeanalyse Q3 2026"
+              "topic": "Profitabilitet",
+              "statement": "Forbedring i EBIT til 99 millioner kroner fra 89 millioner kroner i samme kvartal i fjor.",
+              "evidence": "Profitability improved in the third quarter compared to last year, and EBIT ended at NOK 99 million compared to NOK 89 million last year",
+              "page": "N/A"
             },
             {
-              "topic": "Markedsaktivitet og ordreinngang",
-              "statement": "Markedsaktiviteten er høy, og ordreinngangen i 4. kvartal 2026 forventes å være robust.",
+              "topic": "Markedsaktivitet og fremtidig etterspørsel",
+              "statement": "Markedsaktiviteten er høy og ordremottaket forventes å være robust i Q4 2026.",
               "evidence": "Market activity is high, and the order intake is expected to be robust in Q4 2026",
-              "page": "aksjeanalyse Q3 2026"
+              "page": "N/A"
             }
           ]
         }
@@ -6648,23 +6879,16 @@
       "ticker": "POL",
       "issuer": "Polaris Media ASA",
       "title": "3. kvartal 2026: Fortsatt resultatvekst for Polaris Media i tredje kvartal",
-      "headline": "Polaris Media øker EBITDA til 126 millioner i tredje kvartal 2026",
-      "lead": "Polaris Media rapporterte EBITDA på 126 millioner kroner i Q3 2026, opp 23 millioner fra året før, drevet av vekst i digitale inntekter og kostnadskutt i Sverige. Norge opplever fortsatt utfordringer i annonsemarkedet.",
+      "headline": "Polaris Media øker justert EBITDA til 126 millioner i Q3, høyest margin siden 2021",
+      "lead": "Polaris Media leverer justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra i fjor. Sterk digital inntektsvekst og kostnadskutt i Sverige løfter marginene, men annonseinntektene i Norge svekkes.",
       "published_at": "2026-11-05T06:00:49.246000+00:00",
       "url": "https://newsweb.oslobors.no/message/685673",
-      "summary": "Polaris Media rapporterte EBITDA på 126 millioner kroner i Q3 2026, opp 23 millioner fra året før, drevet av vekst i digitale inntekter og kostnadskutt i Sverige. Norge opplever fortsatt utfordringer i annonsemarkedet.",
-      "reason": "Resultatveksten drives av solid digital abonnementvekst og kostnadskontroll, særlig i Sverige. Norske annonseinntekter faller, noe som indikerer behov for ytterligere tiltak. For aksjonærer er det viktig å følge utviklingen i digitale annonseinntekter og effekten av kostnadsstrukturjusteringer fremover.",
-      "score": 75,
+      "summary": "Polaris Media leverer justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra i fjor. Sterk digital inntektsvekst og kostnadskutt i Sverige løfter marginene, men annonseinntektene i Norge svekkes.",
+      "reason": "Resultatveksten og marginforbedringen drives særlig av svensk forretningsmodell og digitale abonnenter. Norske annonseutfordringer reduserer vekstpotensial. Aksjonærer bør følge utviklingen i annonsemarkedet i Norge og effekten av kostnadstiltak videre.",
+      "score": 78,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "BRG",
-          "direction": "uklar",
-          "reason": "Kan påvirkes av endringer i annonsemarkedet og digital konkurranse i Norge."
-        }
-      ],
       "attachment_key": "38b7cec75a06b5b8",
       "number_keys": [
         "004be8",
@@ -6714,7 +6938,20 @@
             "yoy_pct": -0.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, 3. kvartal 2026 og 2025 Driftsinntekter"
+            "evidence": "Side 5: Driftsinntekter 3. kvartal 2026 and 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 120.0,
+            "prior_year": 76.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 57.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 5: EBITDA 3. kvartal 2026 and 2025"
           },
           {
             "label": "EBITDA",
@@ -6727,7 +6964,7 @@
             "yoy_pct": 22.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, 3. kvartal 2026 og 2025 EBITDA justert"
+            "evidence": "Side 5: EBITDA justert 3. kvartal 2026 and 2025"
           },
           {
             "label": "EBIT",
@@ -6740,7 +6977,7 @@
             "yoy_pct": 544.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, 3. kvartal 2026 og 2025 EBIT"
+            "evidence": "Side 5: EBIT 3. kvartal 2026 and 2025"
           },
           {
             "label": "Kontantstrøm drift",
@@ -6754,13 +6991,52 @@
             "qoq_pct": null,
             "surprise_pct": null,
             "evidence": ""
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Rapporten for 2026 Q3 gir ingen konkrete tall eller mål for fremtidig omsetning, lønnsomhet, marginer eller investeringer. Ledelsen omtaler segmentdrift og finansiell gjennomgang, men uten spesifikk fremadrettet veiledning.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
-          "trend": "Over de siste fire kvartalene har selskapet konsekvent unnlatt å gi konkrete fremtidsutsikter eller kvantitative mål i sine rapporter. Tone og innhold i ledelsens kommunikasjon er stabil, med fokus på drift og finansiell oppsummering uten spesifikk veiledning.",
+          "summary": "Det er ingen konkrete kvantitative utsikter, mål eller veiledning for omsetning, lønnsomhet, marginer eller investeringer i den tilgjengelige delen av rapporten for 2026 Q3. Utsikterne fremover omtales uten spesifikke tall eller konkrete prognoser.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning. Ingen endringer eller nye mål er kommunisert sammenlignet med forrige kvartal, hvor det heller ikke forelå spesifikke fremtidsutsikter.",
+          "trend": "Over de siste fire kvartalene har ledelsen konsekvent ikke gitt spesifikke fremtidsutsikter eller finansiell veiledning. Det har ikke vært noen vesentlige endringer i tone eller klarhet i guidance, og selskapet har holdt tilbake konkrete mål for vekst, margin eller investeringer.",
           "compared_periods": [
             "2026Q2",
             "2026Q1",
@@ -6769,8 +7045,8 @@
           "points": [
             {
               "topic": "Utsikter fremover",
-              "statement": "Ingen konkrete tall eller mål kommunisert for kommende kvartal eller år.",
-              "evidence": "\"Utsiktene fremover\"-seksjonen inneholder ikke spesifikk veiledning.",
+              "statement": "Ingen konkrete tall eller mål for kommende perioder kommunisert",
+              "evidence": "\"Utsiktene fremover\"-seksjonen inneholder ikke spesifikk veiledning",
               "page": "10"
             }
           ]
@@ -15889,57 +16165,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685477",
-      "market": "XOSL",
-      "ticker": "PARB",
-      "issuer": "Pareto Bank ASA",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-03T12:46:41.036000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685477",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685476",
-      "market": "XOSL",
-      "ticker": "AEN",
-      "issuer": "Å Energi AS",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-03T12:46:35.779000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685476",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685475",
-      "market": "XOSL",
-      "ticker": "AEN",
-      "issuer": "Å Energi AS",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-03T12:46:30.679000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685475",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -16311,19 +16536,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-06T07:50:00+00:00",
+  "last_checked_at": "2026-11-06T08:00:00+00:00",
   "monitor_stats": {
-    "fetched": 239,
-    "recent": 146,
-    "already_seen": 142,
-    "eligible": 4,
+    "fetched": 243,
+    "recent": 150,
+    "already_seen": 143,
+    "eligible": 7,
     "filtered": 0,
-    "analyzed": 4,
+    "analyzed": 7,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 3,
-    "source_latest_at": "2026-11-06T07:42:04.070000+00:00",
+    "source_latest_at": "2026-11-06T08:00:00+00:00",
     "indirect": 0
   }
 }
