@@ -2,8 +2,421 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-06T06:00:00+00:00",
+  "generated_at": "2026-11-06T06:10:00+00:00",
   "items": [
+    {
+      "id": "685842",
+      "market": "XOSL",
+      "ticker": "HEX",
+      "issuer": "Hexagon Composites ASA",
+      "title": "Hexagon Composites ASA: Third quarter 2026",
+      "headline": "Hexagon Composites øker omsetning 73% og snur til EBITDA 108 MNOK i Q3 2026",
+      "lead": "Hexagon Composites leverer 929 millioner kroner i omsetning og positiv EBITDA på 108 millioner i tredje kvartal 2026, mot minus 54 millioner i samme periode i fjor. EBITDA-marginen endres til 12 prosent, viser kvartalsrapporten.",
+      "published_at": "2026-11-06T06:00:48.038000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685842",
+      "summary": "Hexagon Composites leverer 929 millioner kroner i omsetning og positiv EBITDA på 108 millioner i tredje kvartal 2026, mot minus 54 millioner i samme periode i fjor. EBITDA-marginen endres til 12 prosent, viser kvartalsrapporten.",
+      "reason": "Sterk omsetningsvekst og forbedret EBITDA tilsier bedre lønnsomhet og indikerer at Hexagon er på vei mot å realisere vekststrategien. Aksjonærer kan følge utviklingen av marginer og omsetningsvekst i kommende kvartaler og årsresultat for videre vurdering.",
+      "score": 90,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "SCATC",
+          "direction": "positiv",
+          "reason": "Som aktør i fornybar sektor kan SCATC dra nytte av økt interesse og investeringer i gass- og energilagringsteknologi."
+        },
+        {
+          "ticker": "NEL",
+          "direction": "positiv",
+          "reason": "Positiv utvikling i Hexagon styrker bransjens attraktivitet for investorer innen hydrogen og gass som energibærere."
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 85,
+      "attachment_key": "e135c0b4379b3550",
+      "number_keys": [
+        "093f0b",
+        "17503a",
+        "1ea51b",
+        "22d200",
+        "77de68",
+        "7b5200",
+        "7e79a3",
+        "80e28a",
+        "85c044",
+        "88ce77",
+        "8e09c7",
+        "aee655",
+        "b1d578",
+        "b6589f",
+        "c1dfd9",
+        "d2e255",
+        "ddfe16",
+        "e26973",
+        "e29f7b",
+        "f6e112"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "HEX_Q3_2026_Report.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685842&attachmentId=335966"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 929.0,
+            "prior_year": 538.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 72.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 4 table, Hexagon Group revenue for Q3 2026 and Q3 2025"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 108.0,
+            "prior_year": -54.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 4 table, Hexagon Group EBITDA for Q3 2026 and Q3 2025"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": 45.0,
+            "prior_year": -120.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 5, Operating results, EBIT Q3 2026 and Q3 2025"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": -19.0,
+            "prior_year": -43.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 6, net interest expenses Q3 2026 and Q3 2025"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 281.0,
+            "prior_year": -19.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 7, Cash flow from operating activities Q3 2026 and Q3 2025"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Hexagon opplever en betydelig økning i omsetning og lønnsomhet i tredje kvartal 2026, med en omsetning på 929 millioner NOK og EBITDA på 108 millioner NOK, noe som gir en margin på 12 %. Selskapet bekrefter EBITDA-veiledningen for hele 2026 på cirka 300 millioner NOK, nå med økt selvtillit i den høye enden av intervallet. Markedsutsiktene bedres, spesielt i Nord-Amerika, med vekst i gass-til-strøm-segmentet og positiv utvikling i tungtransport, til tross for regulatoriske og makroøkonomiske utfordringer. Kostnadsbesparelser og finansielle tiltak styrker selskapets posisjon videre.",
+          "change": "EBITDA-veiledningen for 2026 er nå bekreftet til rundt 300 millioner NOK med økt selvtillit i den høye enden, sammenlignet med Q2 hvor veiledningen ble oppjustert til samme nivå men med mindre uttalt sikkerhet. Markedssyn er mer optimistisk med forventninger om \"steady growth\" og \"mer gunstige underliggende markedskrefter,\" mot tidligere mer forsiktig og med forventet moderat volumøkning andre halvår. Kostnadsprogrammet og forbedringer i marginer videreføres og synes å ha gitt effekt i årets tredje kvartal (margin 12% versus -1% i tilsvarende periode i fjor).",
+          "trend": "Over de siste kvartalene har Hexagon gradvis styrket sin EBITDA-veiledning fra over 200 millioner NOK til rundt 300 millioner, samtidig som de har rapportert forbedret lønnsomhet og fri kontantstrøm. Markedssynet har gått fra moderat optimisme med noen usikkerheter til en mer positiv tone, særlig i Nord-Amerika, og ledelsen har levert bedre marginer og høyere inntekter enn tidligere. Kostnadsbesparelser og målrettede tiltak har bidratt til å forbedre selskapets finansielle grunnlag.",
+          "compared_periods": [
+            "2026Q2",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "EBITDA-veiledning 2026",
+              "statement": "Veiledningen er bekreftet til rundt 300 millioner NOK med økt selvtillit i den høye enden av intervallet.",
+              "evidence": "\"we are on track to deliver EBITDA of around NOK 300 million, with confidence in the high side of the guidance\" (side 12)",
+              "page": "12"
+            },
+            {
+              "topic": "Markedssyn og vekstforventninger",
+              "statement": "Ser mer gunstige underliggende markedskrefter med forventet jevn vekst i tråd med strategiske mål, til tross for regulatoriske og makroøkonomiske usikkerheter.",
+              "evidence": "\"Looking ahead, we see more favorable underlying market drivers... We expect steady growth in line with our strategic growth target... with implications of near-term regulatory and macroeconomic envir",
+              "page": "12"
+            },
+            {
+              "topic": "Inntekter og lønnsomhet Q3 2026",
+              "statement": "Rapportert betydelig økning i inntekter til 929 millioner NOK og EBITDA på 108 millioner NOK med 12 % margin, det sterkeste kvartalet siden rekordåret 2024.",
+              "evidence": "\"revenues of NOK 929 million... and EBITDA of NOK 108 million, corresponding to an EBITDA margin of 12%... strongest quarterly performance since the record fourth quarter of 2024.\" (side 12)",
+              "page": "12"
+            },
+            {
+              "topic": "Kostnadsbesparelser og finansiell posisjon",
+              "statement": "Kostnadsprogrammer bidrar til bedre lønnsomhet og fri kontantstrøm, med fri kontantstrøm på 266 millioner NOK som styrker finansiell posisjon.",
+              "evidence": "\"Free cash flow reached NOK 266 million, further strengthening our financial position.\" (side 12)",
+              "page": "12"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "685840",
+      "market": "XOSL",
+      "ticker": "ORK",
+      "issuer": "Orkla ASA",
+      "title": "Orkla rapporterer resultater for tredje kvartal",
+      "headline": "Orkla øker justert EBIT 1,9 prosent til 2,1 mrd. kroner i Q3",
+      "lead": "Orklas justerte EBIT steg til 2,1 milliarder i tredje kvartal, opp 1,9 pst., med volumvekst og brede bidrag, men valuta svekket den underliggende drivkraften.",
+      "published_at": "2026-11-06T06:00:43.479000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685840",
+      "summary": "Orklas justerte EBIT steg til 2,1 milliarder i tredje kvartal, opp 1,9 pst., med volumvekst og brede bidrag, men valuta svekket den underliggende drivkraften.",
+      "reason": "Orklas EBIT-vekst indikerer stabil drift med sterk bredde i porteføljen. Aksjonærer bør følge utvikling på valuta og effekten av nye investeringer som oppkjøpet av European Candy Group.",
+      "score": 85,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "importance": "stor",
+      "score_ai": 75,
+      "attachment_key": "67b31b7e9c6c34b2",
+      "number_keys": [
+        "004be8",
+        "04f124",
+        "17ba07",
+        "1b6453",
+        "1d513c",
+        "29687e",
+        "2a79f1",
+        "2e01e1",
+        "32e9d3",
+        "356a19",
+        "39f193",
+        "472b07",
+        "59129a",
+        "632667",
+        "64e0cf",
+        "68b793",
+        "7316b3",
+        "7b5200",
+        "ac3478",
+        "aee655",
+        "af0e91",
+        "b1d578",
+        "b3f0c7",
+        "b7476e",
+        "bc33ea",
+        "bd307a",
+        "c1dfd9",
+        "f0ee73",
+        "fb9654",
+        "fe661b"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "filename",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Q3 2026 External Report FINAL.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685841&attachmentId=335964"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 17541.0,
+            "prior_year": 17946.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -2.3,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Third quarter 2026 and 2025 Operating revenues, side 2"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": 1588.0,
+            "prior_year": 1638.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -3.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Third quarter 2026 and 2025 Operating profit, side 4"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 1737.0,
+            "prior_year": 1571.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 10.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Third quarter 2026 and 2025 Profit attributable to owners of the parent, side 2 and 4"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 1.94,
+            "prior_year": 1.85,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 4.9,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Third quarter 2026 and 2025 Earnings per share (adj.) diluted, side 2"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 2376.0,
+            "prior_year": 2381.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -0.2,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Third quarter 2026 and 2025 Cash flow from operations, side 5"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Orkla rapporterer robust finansiell stilling med sterke kontantreserver og kredittrammer. Midtøsten-konflikten påvirker fortsatt negativt, særlig gjennom økte råvarekostnader som begynner å presse bruttomarginen og ventes å gi større effekt i kommende kvartaler. Jotun leverer moderat underliggende vekst, mens Orkla Snacks opplever marginal organisk omsetningsvekst med volumøkning, men også prisreduksjoner og kostnadsøkninger relatert til energi, frakt og emballasje som vil fortsette inn i fjerde kvartal. Selskapet har fullført oppkjøp som støtter vekststrategien, og implementerer tiltak for å begrense kostnadsøkninger og marginpress.",
+          "change": "- Marginforventninger er justert mer pessimistisk ved at økte råvarekostnader nå \"startet å veie på marginene i perioden\" og at \"effekten forventes å bli mer synlig i kommende kvartaler\" (Q2: fortsatt begrenset påvirkning, men press forventet senere).\n- Orkla Snacks sin organiske omsetningsvekst rapporteres nå med volum/miksvekst på 11 % men balansert av prisreduksjoner på 5,6 %, og kostnadsutfordringer forventes å vare inn i Q4 (Q2: omsetningsnedgang og tiltak under implementering).\n- Ingen nye innmeldte endringer i kapitalstruktur eller oppkjøp sammenlignet med forrige kvartal, men Europeisk Candy Group-oppkjøp ble fullført i Q3 og omtales som vekstdriver (nytt i Q3).\n- Usikkerhet knyttet til konflikten i Midtøsten opprettholdes, men nå med en mer konkret bekreftelse på økte kostnadspress og marginutfordringer av denne årsak.",
+          "trend": "Orklas tone om Midtøsten-konflikten har utviklet seg fra å forvente begrenset initial effekt i Q1 og Q2 til nå å erkjenne økende negativ innvirkning på marginene i Q3 med forventning om ytterligere synliggjøring i kommende kvartaler. Salgsveksten i Jotun har avtatt fra høy underliggende vekst til mer moderat, mens Orkla Snacks beveger seg fra negativ organisk utvikling mot marginal vekst, men med fortsatt kostnadspress. Selskapet har holdt fast på sin vekststrategi gjennom oppkjøp, med fokus på å håndtere økte kostnader via tiltak og prisjusteringer, men utfordringene i råvare- og energikostnader gir en mer forsiktig marginutsikt.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Marginpress og kostnadsutvikling",
+              "statement": "Økte råvarekostnader startede å påvirke bruttomarginen negativt i Q3 og forventes å gi mer merkbare effekter i kommende kvartaler.",
+              "evidence": "\"The impact is expected to become more visible in upcoming quarters.\" (side utdrag)",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Orkla Snacks omsetning og marginer",
+              "statement": "Organisk omsetning økte 5,6 % drevet av volum/miksvekst på 11 %, balansert av prisreduksjoner på 5,6 %. Kostnadsøkninger knyttet til energi, frakt og emballasje forventes å fortsette inn i Q4.",
+              "evidence": "\"Organic revenues increased by 5.6%, comprising volume/mix growth of 11% and price reductions of 5.6%.\" og \"These effects are expected to continue into the fourth quarter.\" (side utdrag)",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Oppkjøp som vekstdriver",
+              "statement": "Oppkjøpet av European Candy Group i september fullført og forventes å støtte fremtidig BUBS-vekst.",
+              "evidence": "\"The European Candy Group acquisition was completed in September, supporting future BUBS growth.\" (side utdrag)",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Konfliktens usikkerhet og påvirkning",
+              "statement": "Konflikten i Midtøsten skaper fortsatt usikkerhet, spesielt knyttet til forsyning og marginpress, med en risiko for videre forstyrrelser avhengig av konfliktens utvikling.",
+              "evidence": "\"The conflict in the Middle East continues to create uncertainty... The risk of wider disruption depends on how the conflict develops.\" (side utdrag)",
+              "page": "utdrag"
+            }
+          ]
+        }
+      },
+      "language_versions": [
+        {
+          "id": "685841",
+          "title": "Orkla reports results for the third quarter",
+          "url": "https://newsweb.oslobors.no/message/685841",
+          "published_at": "2026-11-06T06:00:43.479000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "685840",
+          "title": "Orkla rapporterer resultater for tredje kvartal",
+          "url": "https://newsweb.oslobors.no/message/685840",
+          "published_at": "2026-11-06T06:00:40.523000+00:00",
+          "language": "Norsk"
+        }
+      ]
+    },
+    {
+      "id": "685838",
+      "market": "XOSL",
+      "ticker": "DNO",
+      "issuer": "DNO ASA",
+      "title": "DNO Shares Traded Ex-Dividend",
+      "headline": "DNO ASA utbetaler utbytte på 0,375 kroner per aksje 17. november",
+      "lead": "DNO ASA går eks-utbytte 6. november med en utbetaling på 0,375 kroner per aksje, rettet til aksjonærer registrert 9. november. Utbyttebeslutningen gir avkastning til aksjonærene, men påvirker ikke umiddelbart aksjekursen.",
+      "published_at": "2026-11-06T06:00:01.970000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685838",
+      "summary": "DNO ASA går eks-utbytte 6. november med en utbetaling på 0,375 kroner per aksje, rettet til aksjonærer registrert 9. november. Utbyttebeslutningen gir avkastning til aksjonærene, men påvirker ikke umiddelbart aksjekursen.",
+      "reason": "Utbytteutbetaling bekrefter kontantstrøm til aksjonærer, viktig for investorer som søker avkastning. Mangler opplysninger om finansiell utvikling eller fremtidig vekst, noe som begrenser markedets reaksjon.",
+      "score": 50,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "EQNR",
+          "direction": "negativ",
+          "reason": "Konkurrent innen olje og gass kan tape investorkapital til DNO på grunn av direkte utbytteutbetaling."
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 45,
+      "number_keys": [
+        "0716d9",
+        "0ade7c",
+        "7b5200",
+        "8336e4",
+        "ac3478",
+        "ad8984",
+        "aee655",
+        "c1dfd9",
+        "df1fa5",
+        "ea1b37"
+      ]
+    },
     {
       "id": "685835",
       "market": "XOSL",
@@ -5420,21 +5833,21 @@
       "ticker": "POL",
       "issuer": "Polaris Media ASA",
       "title": "3. kvartal 2026: Fortsatt resultatvekst for Polaris Media i tredje kvartal",
-      "headline": "Polaris Media øker justert EBITDA til 126 millioner i Q3 2026",
-      "lead": "Polaris Media rapporterte 126 millioner kroner i justert EBITDA i tredje kvartal 2026, en økning på 23 millioner fra i fjor, drevet av sterk svensk digital vekst, mens norske annonseinntekter fortsatt faller.",
+      "headline": "Polaris Media øker justert EBITDA til 126 mill. i Q3 med sterk svensk vekst",
+      "lead": "Polaris Media rapporterte en justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra året før. Resultatveksten drives av digital brukerinntektsvekst og kostnadskutt i Sverige, mens norske annonseinntekter faller.",
       "published_at": "2026-11-05T06:00:49.246000+00:00",
       "url": "https://newsweb.oslobors.no/message/685673",
-      "summary": "Polaris Media rapporterte 126 millioner kroner i justert EBITDA i tredje kvartal 2026, en økning på 23 millioner fra i fjor, drevet av sterk svensk digital vekst, mens norske annonseinntekter fortsatt faller.",
-      "reason": "Resultatforbedringen skyldes særlig svenske medier og kostnadskutt, mens norske annonseinntekter fortsatt svikter. Viktig å følge utviklingen i det norske annonsemarkedet og effektene av kostnadstiltak.",
+      "summary": "Polaris Media rapporterte en justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra året før. Resultatveksten drives av digital brukerinntektsvekst og kostnadskutt i Sverige, mens norske annonseinntekter faller.",
+      "reason": "Resultatforbedringen skyldes bedre digital inntektsutvikling og kostnadskontroll i Sverige, mens Norge opplever annonsefall. Viktig å følge hvordan norsk annonsemarked påvirker videre resultater og digital transformasjon utvikler seg.",
       "score": 78,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
       "affected": [
         {
-          "ticker": "MEDI",
+          "ticker": "NHY",
           "direction": "uklar",
-          "reason": "Bransjebeslektet, kan påvirkes av digitale annonsetrender og kostnadseffektivitet"
+          "reason": "Norsk annonsemarkedssvekkelse kan påvirke mediekonkurenter, men digital vekst gir usikker effekt."
         }
       ],
       "attachment_key": "38b7cec75a06b5b8",
@@ -5486,20 +5899,7 @@
             "yoy_pct": -0.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 5, Nøkkeltall table, 3. kvartal 2026 and 2025 Driftsinntekter 876 vs 877"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 120.0,
-            "prior_year": 76.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 57.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 5, Nøkkeltall table, 3. kvartal 2026 and 2025 EBITDA 120 vs 76"
+            "evidence": "Side 5, Nøkkeltall tabell, Driftsinntekter 3. kvartal 2026 og 2025"
           },
           {
             "label": "EBITDA",
@@ -5512,7 +5912,7 @@
             "yoy_pct": 22.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 5, Nøkkeltall table, 3. kvartal 2026 and 2025 EBITDA justert 126 vs 103"
+            "evidence": "Side 5, Nøkkeltall tabell, EBITDA justert 3. kvartal 2026 og 2025"
           },
           {
             "label": "EBIT",
@@ -5525,7 +5925,7 @@
             "yoy_pct": 544.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 5, Nøkkeltall table, 3. kvartal 2026 and 2025 EBIT 58 vs 9"
+            "evidence": "Side 5, Nøkkeltall tabell, EBIT 3. kvartal 2026 og 2025"
           },
           {
             "label": "Kontantstrøm drift",
@@ -5539,52 +5939,13 @@
             "qoq_pct": null,
             "surprise_pct": null,
             "evidence": ""
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Det foreligger ingen konkrete eller kvantitative ledelsens utsikter i den gjeldende rapporten for 2026Q3. Rapporten nevner driftssegmentene, utsiktene fremover og finansiell gjennomgang som overskrifter, men inneholder ikke detaljerte mål for salg, lønnsomhet, marginer, investeringer eller etterspørselsforventninger.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning. Det har verken vært konkrete utsikter eller finansiell veiledning i tidligere kvartaler, og denne rapporten fortsetter i samme spor uten nye eller endrede mål.",
-          "trend": "Ledelsens tone og veiledning har vært konsistent uten konkrete fremtidsutsikter eller mål over flere kvartaler. Det er verken økt optimisme eller økt forsiktighet kommunisert, og det foreligger ingen indikasjon om endringer i etterspørsel eller lønnsomhet fra tidligere rapporter.",
+          "summary": "Det er ingen spesifikke kvantitative eller kvalitative utsikter gitt for fremtiden i den tilgjengelige delen av rapporten for 2026 Q3. Ledelsen omtaler videre drift av segmentene og finansiell gjennomgang, men gir ingen klare mål for omsetning, lønnsomhet, marginer eller investeringer.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning da tidligere rapporter heller ikke inneholdt spesifikke fremtidsutsikter eller veiledning.",
+          "trend": "På tvers av de siste kvartalene har ledelsen ikke kommunisert konkrete fremtidsutsikter eller finansiell veiledning. Tonen og mengden informasjon om fremtidige mål har vært stabilt fraværende, og ledelsen har ikke gitt indikasjoner på endringer i etterspørsel, marginer eller investeringsnivåer.",
           "compared_periods": [
             "2026Q2",
             "2026Q1",
@@ -5593,14 +5954,8 @@
           "points": [
             {
               "topic": "Utsikter fremover",
-              "statement": "Ingen konkrete eller kvantitative veiledninger eller mål gitt angående fremtidig drift.",
-              "evidence": "Rapporten inneholder overskriften \"Utsiktene fremover\" uten detaljert innhold under denne i tilgjengelige tekstavsnitt.",
-              "page": "10"
-            },
-            {
-              "topic": "Finansiell gjennomgang",
-              "statement": "Ingen konkret finansiell veiledning eller endringer i mål for marginer eller investeringer kommunisert.",
-              "evidence": "Overskriften \"Finansiell gjennomgang\" er til stede, men uten spesifisert utsikt eller mål i rapporten.",
+              "statement": "Ingen konkrete tall eller mål kommunisert for kommende kvartal eller år.",
+              "evidence": "\"Utsiktene fremover\"-seksjonen inneholder ikke spesifikk veiledning.",
               "page": "10"
             }
           ]
@@ -15072,115 +15427,6 @@
         "e1822d",
         "f6e112"
       ]
-    },
-    {
-      "id": "685454",
-      "market": "XOSL",
-      "ticker": "GOD",
-      "issuer": "Goodtech ASA",
-      "title": "Goodtech ASA: Mandatory notification of trade by primary insider",
-      "headline": "Goodtechs CBDO kjøper 15.000 aksjer til 13,90 kroner",
-      "lead": "Icaro AS, eid av Goodtechs CBDO Stefano Bardellotto, kjøper 15.000 aksjer til 13,90 kroner, og øker sin eierandel til 174.903 aksjer i selskapet.",
-      "published_at": "2026-11-03T09:00:07.568000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685454",
-      "summary": "Icaro AS, eid av Goodtechs CBDO Stefano Bardellotto, kjøper 15.000 aksjer til 13,90 kroner, og øker sin eierandel til 174.903 aksjer i selskapet.",
-      "reason": "Personlig aksjekjøp fra en ledende insider kan signalisere tro på selskapets fremtid. Det kan øke investorers tillit, men omfanget er begrenset og bør følges opp med selskapets utvikling.",
-      "score": 30,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "attachment_key": "62618dcb431e301c",
-      "number_keys": [
-        "17ba07",
-        "1a5270",
-        "1c232d",
-        "271593",
-        "3ea6c9",
-        "77de68",
-        "7b5200",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "fb9654"
-      ]
-    },
-    {
-      "id": "685453",
-      "market": "XOSL",
-      "ticker": "AVINR",
-      "issuer": "Avinor AS",
-      "title": "Passasjertall Avinor uke 44 2026",
-      "headline": "Avinor melder passasjertrafikk for uke 44 2026 uten detaljer",
-      "lead": "Avinor har publisert passasjertall for uke 44, inkludert de ti største lufthavnene, men foreløpig uten detaljer eller analyser av utviklingen.",
-      "published_at": "2026-11-03T09:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/685453",
-      "summary": "Avinor har publisert passasjertall for uke 44, inkludert de ti største lufthavnene, men foreløpig uten detaljer eller analyser av utviklingen.",
-      "reason": "Uten konkrete tall eller endringsbeskrivelser gir meldingen begrenset innsikt i trafikkutviklingen og påvirkning på driften. Dette gir få indikasjoner for investorer og markedet.",
-      "score": 30,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 30,
-      "language_versions": [
-        {
-          "id": "685453",
-          "title": "Passasjertall Avinor uke 44 2026",
-          "url": "https://newsweb.oslobors.no/message/685453",
-          "published_at": "2026-11-03T09:00:00+00:00",
-          "language": "Norsk"
-        },
-        {
-          "id": "685452",
-          "title": "Passengers at Avinor airports week 44 2026",
-          "url": "https://newsweb.oslobors.no/message/685452",
-          "published_at": "2026-11-03T09:00:00+00:00",
-          "language": "Engelsk"
-        }
-      ],
-      "attachment_key": "ba6b49b0a5cd9d9f",
-      "number_keys": [
-        "98fbc4",
-        "b1d578"
-      ]
-    },
-    {
-      "id": "685451",
-      "market": "XOSL",
-      "ticker": "TEKNA",
-      "issuer": "Tekna Holding ASA",
-      "title": "TEKNA receives Materials orders worth CAD 1.2 million from American contract manufacturer for medical implants",
-      "headline": "Tekna sikrer ordre på CAD 1,2 mill. titaniumspulver til medisinsk sektor",
-      "lead": "Tekna har fått ordre for 1,2 millioner kanadiske dollar på titaniumpulver fra en ledende amerikansk produsent av medisinske implantater, med levering gjennom 2027. Ordren bekrefter sterk etterspørsel innen medisinsk additiv produksjon.",
-      "published_at": "2026-11-03T09:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/685451",
-      "summary": "Tekna har fått ordre for 1,2 millioner kanadiske dollar på titaniumpulver fra en ledende amerikansk produsent av medisinske implantater, med levering gjennom 2027. Ordren bekrefter sterk etterspørsel innen medisinsk additiv produksjon.",
-      "reason": "Ordren styrker Teknas posisjon i det voksende markedet for avanserte materialer til medisinsk sektor. For aksjonærer signaliserer dette stabil ordrereserve og potensielt økt inntekt fra en kvalitetssertifisert kundeportefølje. Videre oppfølging bør fokusere på volumvekst og nye kontrakter i additiv produksjon.",
-      "score": 65,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "KAM",
-          "direction": "positiv",
-          "reason": "Kampanjebedrifter innen additiv produksjon kan oppleve økt interesse fra medisinsk sektor som følge av voksende etterspørsel."
-        }
-      ],
-      "attachment_key": "adec297bbf28a26b",
-      "number_keys": [
-        "22d200",
-        "64e0cf",
-        "6518a4",
-        "77de68",
-        "7b5200",
-        "84b780",
-        "ab39c5",
-        "ac3478",
-        "aee655",
-        "c66c65",
-        "fc33fb"
-      ]
     }
   ],
   "indirect": [
@@ -15552,19 +15798,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-06T06:00:00+00:00",
+  "last_checked_at": "2026-11-06T06:10:00+00:00",
   "monitor_stats": {
-    "fetched": 225,
-    "recent": 136,
+    "fetched": 229,
+    "recent": 140,
     "already_seen": 135,
-    "eligible": 1,
+    "eligible": 5,
     "filtered": 0,
-    "analyzed": 1,
+    "analyzed": 5,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-06T05:00:05.008000+00:00",
+    "source_latest_at": "2026-11-06T06:00:48.038000+00:00",
     "indirect": 0
   }
 }
