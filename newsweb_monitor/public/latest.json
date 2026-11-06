@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-06T06:30:00+00:00",
+  "generated_at": "2026-11-06T06:40:00+00:00",
   "items": [
     {
       "id": "685842",
@@ -5833,13 +5833,13 @@
       "ticker": "POL",
       "issuer": "Polaris Media ASA",
       "title": "3. kvartal 2026: Fortsatt resultatvekst for Polaris Media i tredje kvartal",
-      "headline": "Polaris Media øker justert EBITDA til 126 millioner i Q3 – sterk digital vekst",
-      "lead": "Polaris Media rapporterer justert EBITDA på 126 millioner kroner i tredje kvartal 2026, en økning på 23 millioner fra året før, drevet av digital abonnementsvekst og kostnadskutt i Sverige.",
+      "headline": "Polaris Media øker justert EBITDA til 126 millioner i Q3 2026",
+      "lead": "Polaris Media rapporterer en justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra samme periode i fjor, støttet av vekst i digitale inntekter og kostnadskutt i Sverige.",
       "published_at": "2026-11-05T06:00:49.246000+00:00",
       "url": "https://newsweb.oslobors.no/message/685673",
-      "summary": "Polaris Media rapporterer justert EBITDA på 126 millioner kroner i tredje kvartal 2026, en økning på 23 millioner fra året før, drevet av digital abonnementsvekst og kostnadskutt i Sverige.",
-      "reason": "Resultatforbedringen er betydelig sammenlignet med året før og bygger på suksess i digitalisering og kostnadstilpasning i Sverige. For aksjonærer peker dette på økt inntjeningsevne og styrket konkurransekraft. Videre utvikling i det norske annonsemarkedet og kostnadseffektivisering bør følges nøye.",
-      "score": 80,
+      "summary": "Polaris Media rapporterer en justert EBITDA på 126 millioner kroner i tredje kvartal 2026, opp 23 millioner fra samme periode i fjor, støttet av vekst i digitale inntekter og kostnadskutt i Sverige.",
+      "reason": "Økt EBITDA og marginforbedring viser styrket drift, særlig via digital vekst i Sverige. Norske annonseinntekter svekkes, men brukerinntektene vokser. Videre digital satsing og løsningen av Meta-saken er sentrale faktorer for aksjonærer.",
+      "score": 75,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -5892,33 +5892,7 @@
             "yoy_pct": -0.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, Driftsinntekter for 3. kvartal 2026 and 3. kvartal 2025"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 120.0,
-            "prior_year": 76.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 57.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, EBITDA for 3. kvartal 2026 and 3. kvartal 2025"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": 58.0,
-            "prior_year": 9.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 544.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, EBIT for 3. kvartal 2026 and 3. kvartal 2025"
+            "evidence": "Nøkkeltall, 3. kvartal 2026 versus 2025, side 5"
           },
           {
             "label": "EBITDA",
@@ -5931,7 +5905,20 @@
             "yoy_pct": 22.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 5, Nøkkeltall, EBITDA justert for 3. kvartal 2026 and 3. kvartal 2025"
+            "evidence": "Nøkkeltall, EBITDA justert 3. kvartal 2026 versus 2025, side 5"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": 58.0,
+            "prior_year": 9.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 544.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Nøkkeltall, EBIT 3. kvartal 2026 versus 2025, side 5"
           },
           {
             "label": "Resultat etter skatt",
@@ -5944,7 +5931,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Not reported in provided excerpt"
+            "evidence": "Not reported explicitly in the provided excerpt."
           },
           {
             "label": "EPS",
@@ -5957,7 +5944,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Not reported in provided excerpt"
+            "evidence": "Not reported explicitly in the provided excerpt."
           },
           {
             "label": "Kontantstrøm drift",
@@ -5970,12 +5957,25 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Not reported in provided excerpt"
+            "evidence": "Not reported explicitly in the provided excerpt."
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not reported explicitly in the provided excerpt."
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Rapporten inneholder ingen kvantitative eller spesifikke fremtidsutsikter for salg, lønnsomhet, marginer eller investeringer. Ledelsen omtaler videre drift av segmentene og finansiell gjennomgang uten konkrete mål eller forventninger for kommende periode.",
+          "summary": "Rapporten gir ingen konkrete kvantitative utsikter eller spesifikk finansiell veiledning for kommende kvartal eller år. Ledelsen omtaler videre drift av segmentene og finansiell gjennomgang uten klare mål for omsetning, lønnsomhet, marginer eller investeringer.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [
@@ -5986,8 +5986,8 @@
           "points": [
             {
               "topic": "Utsikter fremover",
-              "statement": "Ingen konkrete tall eller mål kommunisert for omsetning, lønnsomhet, marginer eller investeringer.",
-              "evidence": "\"Utsiktene fremover\"-seksjonen inneholder ikke spesifikk veiledning.",
+              "statement": "Ingen konkrete tall eller mål kommunisert for kommende kvartal eller år.",
+              "evidence": "'Utsiktene fremover'-seksjonen inneholder ikke spesifikk veiledning.",
               "page": "10"
             }
           ]
@@ -15830,7 +15830,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-06T06:30:00+00:00",
+  "last_checked_at": "2026-11-06T06:40:00+00:00",
   "monitor_stats": {
     "fetched": 229,
     "recent": 140,
