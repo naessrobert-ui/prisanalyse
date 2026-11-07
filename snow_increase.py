@@ -221,6 +221,7 @@ def simuler_snøprognose(
         snødybde_mm = max(0.0, tilgjengelig_mm - smelting_mm)
 
         rader.append({
+            "kilde":        iv.get("kilde", "yr"),
             "start":        iv["start"],
             "slutt":        iv["slutt"],
             "timer":        timer,
@@ -262,6 +263,23 @@ def _parse_verdi(variabel) -> float:
         except ValueError:
             continue
     raise ValueError(f"Fant ingen numerisk verdi i: {variabel!r}")
+
+
+def snødybde_spenn(intervaller: list[dict], start_snødybde_cm: float) -> tuple[list[float], list[float]]:
+    """Snødybde med lite og mye nedbør (Yr min/maks, WeatherNext p10/p90).
+
+    Intervaller uten min/maks bruker forventet nedbør. Temperaturen er den samme,
+    så spennet viser usikkerheten i nedbøren, ikke i temperaturen.
+    """
+    def med(felt: str) -> list[dict]:
+        return [{**iv, "nedbør_mm": iv[felt] if iv.get(felt) is not None else iv["nedbør_mm"]}
+                for iv in intervaller]
+
+    lav = simuler_snøprognose(med("nedbør_min_mm"), start_snødybde_cm)
+    høy = simuler_snøprognose(med("nedbør_maks_mm"), start_snødybde_cm)
+    if lav.empty:
+        return [], []
+    return lav["snødybde_cm"].tolist(), høy["snødybde_cm"].tolist()
 
 
 def hent_intervaller(sted: Place) -> list[dict]:

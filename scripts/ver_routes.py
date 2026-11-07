@@ -50,7 +50,9 @@ from snow_increase import (
     hent_snødybde_frost,
     simuler_snøprognose,
     snøandel,
+    snødybde_spenn,
 )
+from scripts import sno_hoyde
 
 # Legg snow_increase.py i scripts/-mappen (eller samme mappe som ver_routes.py)
 
@@ -626,8 +628,19 @@ def _hent_prognose_data(
     lon: Optional[float] = None,
     moh: Optional[float] = None,
     frost_id: Optional[str] = None,
+    hoyde: Optional[float] = None,
+    startdybde_cm: Optional[float] = None,
+    lang: bool = True,
 ) -> dict[str, Any]:
-    """Henter og beregner snøprognose. Returnerer dict klar for JSON."""
+    """Henter og beregner snøprognose. Returnerer dict klar for JSON.
+
+    hoyde: høyden prognosen skal gjelde for (f.eks. 800 for Såta). Temperaturen
+        fra Yr korrigeres av MET, WeatherNext kalibreres mot Yr, nedbøren skaleres
+        med `sno_hoyde.nedbør_faktor`, og startdybden hentes fra seNorge når
+        høyden avviker fra stasjonen.
+    startdybde_cm: overstyrer startdybden (f.eks. egen måling i løypa).
+    lang: forleng med WeatherNext (ca. 15 døgn) der det finnes.
+    """
     config = STASJONER.get(stasjon_navn)
     if not config:
         if lat is None or lon is None or not frost_id:
@@ -650,17 +663,69 @@ def _hent_prognose_data(
     auth = _env_auth()
     session = requests.Session()
 
-    # 1) Observert snødybde
-    snødybde_cm = hent_snødybde_frost(config["frost_id"], session=session, auth=auth)
-    if snødybde_cm is None:
-        snødybde_cm = 0.0
+    place = config["place"]
+    stasjon_moh = place.coordinates.get("altitude")
+    p_lat, p_lon = place.coordinates["latitude"], place.coordinates["longitude"]
+    if hoyde is not None and hoyde <= 0:
+        hoyde = None
+    mål_moh = hoyde if hoyde is not None else stasjon_moh
+    yr_place = Place(place.name, p_lat, p_lon, int(round(hoyde))) if hoyde is not None else place
 
-    # 2) YR-varsel
-    intervaller = hent_intervaller(config["place"])
+    # 1) Startdybde: egen verdi, seNorge i ønsket høyde, eller stasjonsmålingen
+    stasjon_cm = hent_snødybde_frost(config["frost_id"], session=session, auth=auth)
+    start_info: dict[str, Any] = {"stasjon_cm": stasjon_cm, "stasjon_moh": stasjon_moh}
+    snødybde_cm: Optional[float] = None
+    if startdybde_cm is not None and startdybde_cm >= 0:
+        snødybde_cm = float(startdybde_cm)
+        start_info.update(kilde="egen verdi", tekst=f"Egen startdybde {snødybde_cm:g} cm")
+    elif hoyde is not None and (stasjon_moh is None or abs(hoyde - stasjon_moh) > sno_hoyde.HØYDE_TOLERANSE_M):
+        sn = sno_hoyde.senorge_snødybde(p_lat, p_lon, hoyde)
+        if sn is not None:
+            snødybde_cm = float(sn["sd_cm"])
+            start_info.update(kilde="seNorge", senorge=sn,
+                              tekst=f"seNorge (NVE) i {round(hoyde)} moh: {snødybde_cm:g} cm")
+        else:
+            start_info["merknad"] = "seNorge svarte ikke, bruker stasjonsmålingen"
+    if snødybde_cm is None:
+        snødybde_cm = float(stasjon_cm) if stasjon_cm is not None else 0.0
+        hvor = f" ({round(stasjon_moh)} moh)" if stasjon_moh else ""
+        start_info.update(kilde="Frost", tekst=(
+            f"Målt på {config['frost_id']}{hvor}: {snødybde_cm:g} cm" if stasjon_cm is not None
+            else f"Ingen måling fra {config['frost_id']}, starter på 0 cm"))
+
+    # 2) YR-varsel i ønsket høyde (MET korrigerer temperaturen), nedbør skalert
+    faktor = sno_hoyde.nedbør_faktor(hoyde, stasjon_moh) if hoyde is not None else 1.0
+    intervaller = hent_intervaller(yr_place)
+    for iv in intervaller:
+        iv["start"], iv["slutt"] = sno_hoyde._utc(iv["start"]), sno_hoyde._utc(iv["slutt"])
+        iv["kilde"] = "yr"
+        for felt in ("nedbør_mm", "nedbør_min_mm", "nedbør_maks_mm"):
+            if iv.get(felt) is not None:
+                iv[felt] = iv[felt] * faktor
     raw_interval_lookup = _build_raw_interval_lookup(intervaller)
+
+    # 2b) Forleng med WeatherNext etter at Yr slutter
+    wn_info: dict[str, Any] = {"brukt": False}
+    if lang and intervaller:
+        wn = _weathernext_for(p_lat, p_lon)
+        if wn:
+            avvik = sno_hoyde.temperatur_avvik(intervaller, wn.get("timer") or [])
+            if avvik is None:
+                wn_info["merknad"] = "For få felles timer med Yr til å kalibrere WeatherNext"
+            else:
+                ekstra = sno_hoyde.weathernext_intervaller(
+                    wn.get("timer") or [], intervaller[-1]["slutt"],
+                    temp_avvik=avvik, nedbør_skala=faktor)
+                intervaller.extend(ekstra)
+                wn_info = {"brukt": bool(ekstra), "temp_avvik_c": round(avvik, 1),
+                           "init": wn.get("init_lang"), "intervaller": len(ekstra)}
 
     # 3) Simuler
     df = simuler_snøprognose(intervaller, snødybde_cm).copy()
+    lav, høy = snødybde_spenn(intervaller, snødybde_cm)
+    if len(lav) == len(df):
+        df["snødybde_lav_cm"] = [min(a, b) for a, b in zip(lav, høy)]
+        df["snødybde_høy_cm"] = [max(a, b) for a, b in zip(lav, høy)]
 
     # 3b) Berik dataframe med vindkast og vindretning fra rå YR-intervaller
     if "vind_kast_ms" not in df.columns:
@@ -722,6 +787,9 @@ def _hent_prognose_data(
             "wind_direction_deg", "wind_direction", "direction_deg",
         ))
         intervall_data.append({
+            "kilde":        rad.get("kilde", "yr"),
+            "snødybde_lav_cm": rad.get("snødybde_lav_cm"),
+            "snødybde_høy_cm": rad.get("snødybde_høy_cm"),
             "start":        rad["start"].isoformat() if hasattr(rad["start"], "isoformat") else str(rad["start"]),
             "slutt":        rad["slutt"].isoformat() if hasattr(rad["slutt"], "isoformat") else str(rad["slutt"]),
             "timer":        rad["timer"],
@@ -744,7 +812,7 @@ def _hent_prognose_data(
 
     # 5) Daglig sammendrag
     df2 = df.copy()
-    df2["dato"] = pd.to_datetime(df2["start"]).dt.date
+    df2["dato"] = pd.to_datetime(df2["start"], utc=True).dt.tz_convert("Europe/Oslo").dt.date
     daglig = (
         df2.groupby("dato")
         .agg(
@@ -779,6 +847,7 @@ def _hent_prognose_data(
 
         daglig_data.append({
             "dato":              str(dato),
+            "kilde":             "weathernext" if (dag_df["kilde"] == "weathernext").mean() > 0.5 else "yr",
             "min_temp_c":        rad["min_temp_c"],
             "maks_temp_c":       rad["maks_temp_c"],
             "total_nedbør_mm":   rad["total_nedbør_mm"],
@@ -828,8 +897,15 @@ def _hent_prognose_data(
         "maks_temp_c":       round(float(df_48["temperatur_c"].max()), 1),
     }
 
-    place = config["place"]
     return {
+        "modell": {
+            "høyde_moh":      round(mål_moh) if mål_moh is not None else None,
+            "stasjon_moh":    stasjon_moh,
+            "nedbør_faktor":  round(faktor, 2),
+            "startdybde":     start_info,
+            "weathernext":    wn_info,
+            "slutt":          df["slutt"].iloc[-1].isoformat() if not df.empty else None,
+        },
         "stasjon":     stasjon_navn,
         "lat":         place.coordinates["latitude"],
         "lon":         place.coordinates["longitude"],
@@ -840,6 +916,32 @@ def _hent_prognose_data(
         "intervaller": intervall_data,
         "daglig":      daglig_data,
     }
+
+
+def _weathernext_for(lat: float, lon: float) -> Optional[dict[str, Any]]:
+    """Lagret WeatherNext-varsel for et fast sted innen 10 km, eller None."""
+    try:
+        from scripts import weathernext
+        from scripts.weather_comparison import PLACES as _WN_STEDER
+        from scripts.vaer_varsel import WEATHERNEXT_MAX_AGE, WEATHERNEXT_PLACES
+    except Exception:
+        return None
+    for sted in WEATHERNEXT_PLACES:
+        p = _WN_STEDER.get(sted)
+        if not p:
+            continue
+        km = math.hypot((p["lat"] - lat) * 111.2, (p["lon"] - lon) * 111.2 * math.cos(math.radians(lat)))
+        if km > 10:
+            continue
+        try:
+            varsel = weathernext.les_siste(sted)
+        except Exception:
+            return None
+        hentet = sno_hoyde._utc((varsel or {}).get("hentet"))
+        if not varsel or hentet is None or datetime.now(timezone.utc) - hentet > WEATHERNEXT_MAX_AGE:
+            return None
+        return varsel
+    return None
 
 
 def _finn_snøstasjoner(query: str = "", limit: int = 30) -> list[dict[str, Any]]:
@@ -927,8 +1029,12 @@ def api_snovarsel():
     lon = request.args.get("lon", type=float)
     moh = request.args.get("moh", type=float)
     frost_id = request.args.get("frost_id")
+    hoyde = request.args.get("hoyde", type=float)
+    startdybde = request.args.get("startdybde", type=float)
+    lang = request.args.get("lang", "1") not in {"0", "false", "nei"}
     try:
-        data = _hent_prognose_data(stasjon, lat=lat, lon=lon, moh=moh, frost_id=frost_id)
+        data = _hent_prognose_data(stasjon, lat=lat, lon=lon, moh=moh, frost_id=frost_id,
+                                   hoyde=hoyde, startdybde_cm=startdybde, lang=lang)
         return jsonify(_json_safe(data))
     except Exception as e:
         traceback.print_exc()
@@ -1006,6 +1112,14 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
 .dc .dd{font-size:11px;color:var(--muted);margin-top:4px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+.loc-bar input.kort{width:120px}
+.chips{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:2px 0 4px}
+.chip{background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:4px 11px;font-size:12px;cursor:pointer;font-family:var(--sans)}
+.chip.on{color:#0a0f1f;background:var(--accent);border-color:var(--accent);font-weight:700}
+.modell{font-size:12px;color:var(--muted);line-height:1.7}
+.modell b{color:var(--ink);font-weight:600}
+.src{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;color:var(--accent2);border:1px solid rgba(129,140,248,.4);border-radius:6px;padding:0 5px;margin-left:4px;vertical-align:middle}
+.dc.wn{opacity:.88;border:1px dashed rgba(129,140,248,.35)}
 @media(max-width:600px){.sg{grid-template-columns:repeat(2,1fr)}.dg{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}}
 </style>
 </head>
@@ -1014,19 +1128,28 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
   <a class="back" href="/ver/">← Tilbake</a>
   <div class="hero">
     <h1>❄️ Snøvarsel</h1>
-    <p class="sub">Prognose basert på YR-varsel + observert snødybde fra <a href="https://frost.met.no" target="_blank">Frost</a></p>
+    <p class="sub">Yr de første ca. 10 døgnene, deretter Google WeatherNext (ca. 15 døgn). Startdybde fra <a href="https://frost.met.no" target="_blank">Frost</a> eller <a href="https://www.senorge.no" target="_blank">seNorge</a> i valgt høyde.</p>
   </div>
   <div class="loc-bar">
     <input id="stasjon-query" placeholder="Søk sted / stasjonsnavn"/>
     <button onclick="loadStations()">Søk</button>
     <select id="stasjon-sel"></select>
+    <input id="hoyde" class="kort" type="number" min="0" max="2500" step="10" placeholder="Høyde (moh)"/>
+    <input id="startdybde" class="kort" type="number" min="0" max="1000" step="1" placeholder="Startdybde cm"/>
     <button onclick="load()">Hent prognose</button>
+  </div>
+  <div class="chips" id="chips">
+    <button class="chip" data-h="">Stasjonshøyde</button>
+    <button class="chip" data-h="700">700 moh</button>
+    <button class="chip" data-h="800">800 moh (Såta)</button>
+    <button class="chip" data-h="1000">1000 moh</button>
   </div>
   <div class="status" id="status"></div>
   <div id="cards" style="display:none">
     <div class="card" id="c-sum">
       <h2>📊 Sammendrag</h2>
       <div class="sg" id="sum-grid"></div>
+      <div class="modell" id="modell-info"></div>
     </div>
     <div class="card" id="c-snow">
       <h2>🏔 Snødybde-prognose</h2>
@@ -1084,11 +1207,18 @@ async function load(){
   const lat=opt.dataset.lat || '';
   const lon=opt.dataset.lon || '';
   const moh=opt.dataset.moh || '';
+  const hoyde=(document.getElementById('hoyde').value||'').trim();
+  const startdybde=(document.getElementById('startdybde').value||'').trim();
+  markChips();
+  try{const u=new URL(location.href);hoyde?u.searchParams.set('hoyde',hoyde):u.searchParams.delete('hoyde');history.replaceState(null,'',u);}catch(e){}
   statusEl.innerHTML='<div class="spinner"></div>';
   statusEl.className='status';
   cardsEl.style.display='none';
   try{
-    const qs=new URLSearchParams({stasjon:st,frost_id:frostId,lat,lon,moh}).toString();
+    const p={stasjon:st,frost_id:frostId,lat,lon,moh};
+    if(hoyde) p.hoyde=hoyde;
+    if(startdybde) p.startdybde=startdybde;
+    const qs=new URLSearchParams(p).toString();
     const r=await fetch('/ver/api/snovarsel?'+qs);
     const d=await r.json();
     if(d.error){throw new Error(d.error);}
@@ -1101,7 +1231,32 @@ async function load(){
   }
 }
 
-function render(d){renderSummary(d);renderSnowChart(d);renderTempChart(d);renderHourly(d);renderDaily(d);}
+const isWN=x=>x.kilde==='weathernext';
+function markChips(){
+  const h=(document.getElementById('hoyde').value||'').trim();
+  document.querySelectorAll('#chips .chip').forEach(c=>c.classList.toggle('on',c.dataset.h===h));
+}
+document.querySelectorAll('#chips .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.getElementById('hoyde').value=c.dataset.h;load();
+}));
+function fmtDato(s){const d=new Date(s);return DAYS[d.getDay()]+' '+d.getDate()+'. '+MONTHS[d.getMonth()]}
+
+function renderModell(d){
+  const m=d.modell||{}; const st=m.startdybde||{}; const wn=m.weathernext||{};
+  const lines=[];
+  lines.push(`<b>Høyde:</b> ${m.høyde_moh!=null?m.høyde_moh+' moh':'stasjonens høyde'}`+
+    (m.stasjon_moh!=null && m.høyde_moh!==m.stasjon_moh?` (stasjonen står på ${Math.round(m.stasjon_moh)} moh)`:''));
+  lines.push(`<b>Startdybde:</b> ${st.tekst||'ukjent'}`+
+    (st.kilde!=='Frost' && st.stasjon_cm!=null?`. Stasjonen måler ${st.stasjon_cm} cm`:'')+
+    (st.senorge&&st.senorge.cm_pr_100m!=null?`. seNorge rundt punktet: ${st.senorge.cm_pr_100m>0?'+':''}${st.senorge.cm_pr_100m} cm per 100 m`:'')+
+    (st.merknad?`. ${st.merknad}`:''));
+  if(m.nedbør_faktor && m.nedbør_faktor!==1) lines.push(`<b>Nedbør:</b> skalert ×${m.nedbør_faktor} for høyden (tommelfingerregel 5 % per 100 m)`);
+  if(wn.brukt) lines.push(`<b>Etter Yr:</b> WeatherNext til ${fmtDato(m.slutt)}, temperatur justert ${wn.temp_avvik_c>0?'+':''}${wn.temp_avvik_c} °C mot Yr i samme høyde. Stiplet = WeatherNext, skyggelagt = spenn lite/mye nedbør.`);
+  else if(wn.merknad) lines.push(`<b>Etter Yr:</b> ${wn.merknad}`);
+  document.getElementById('modell-info').innerHTML=lines.join('<br>');
+}
+
+function render(d){renderSummary(d);renderModell(d);renderSnowChart(d);renderTempChart(d);renderHourly(d);renderDaily(d);}
 
 function renderSummary(d){
   const s=d.sammendrag;
@@ -1115,7 +1270,7 @@ function renderSummary(d){
     <div class="sb ${cls(s.endring_neste_døgn_cm)}"><div class="v">${fmtDelta(s.endring_neste_døgn_cm)} cm</div><div class="l">Endring neste døgn</div><div class="m">Snødybde: ${s.snø_neste_døgn_cm} cm</div></div>
     <div class="sb snow"><div class="v">${s.start_snødybde_cm}</div><div class="l">Snødybde nå (cm)</div></div>
     <div class="sb ${endring>=0?'pos':'neg'}"><div class="v">${endring>=0?'+':''}${endring}</div><div class="l">Endring (cm)</div></div>
-    <div class="sb snow"><div class="v">${s.slutt_snødybde_cm.toFixed(1)}</div><div class="l">Prognose slutt (cm)</div></div>
+    <div class="sb snow"><div class="v">${s.slutt_snødybde_cm.toFixed(1)}</div><div class="l">Prognose slutt (cm)</div><div class="m">${d.modell&&d.modell.slutt?fmtDato(d.modell.slutt):''}</div></div>
     <div class="sb rain"><div class="v">${s.total_nedbør_mm}</div><div class="l">Nedbør 48t (mm)</div></div>
     <div class="sb snow"><div class="v">${s.total_ny_snø_cm.toFixed(1)}</div><div class="l">Ny snø 48t (cm)</div></div>
     <div class="sb warm"><div class="v">${s.maks_temp_c}°</div><div class="l">Maks temp</div></div>
@@ -1128,11 +1283,14 @@ function renderSnowChart(d){
   const iv=d.intervaller;
   const ctx=document.getElementById('chart-snow').getContext('2d');
   if(snowChart) snowChart.destroy();
+  const dash={borderDash:(c)=>isWN(iv[c.p1DataIndex])?[6,4]:undefined};
   snowChart=new Chart(ctx,{type:'line',data:{labels:iv.map(x=>fmtDH(x.start)),datasets:[
-    {label:'Snødybde (cm)',data:iv.map(x=>x.snødybde_cm),borderColor:'#a5d8ff',backgroundColor:'rgba(165,216,255,.1)',fill:true,tension:.3,borderWidth:2.5,pointRadius:0,pointHoverRadius:4,yAxisID:'y'},
+    {label:'Spenn høy',data:iv.map(x=>x.snødybde_høy_cm),borderColor:'transparent',backgroundColor:'rgba(165,216,255,.12)',fill:'+1',pointRadius:0,tension:.3,yAxisID:'y'},
+    {label:'Spenn lav',data:iv.map(x=>x.snødybde_lav_cm),borderColor:'transparent',backgroundColor:'transparent',fill:false,pointRadius:0,tension:.3,yAxisID:'y'},
+    {label:'Snødybde (cm)',data:iv.map(x=>x.snødybde_cm),borderColor:'#a5d8ff',backgroundColor:'transparent',fill:false,tension:.3,borderWidth:2.5,pointRadius:0,pointHoverRadius:4,yAxisID:'y',segment:dash},
     {label:'Netto snø/smelting (mm)',data:iv.map(x=>x.netto_mm),type:'bar',backgroundColor:iv.map(x=>x.netto_mm>=0?'rgba(116,192,252,.55)':'rgba(255,107,107,.45)'),borderRadius:2,yAxisID:'y1'}
   ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-    plugins:{legend:{labels:{color:'#7b8db5',font:{family:'Outfit',size:11}}},tooltip:{backgroundColor:'rgba(15,23,48,.92)',titleFont:{family:'Outfit'},bodyFont:{family:'Outfit'}}},
+    plugins:{legend:{labels:{color:'#7b8db5',font:{family:'Outfit',size:11},filter:(it)=>!String(it.text).startsWith('Spenn')}},tooltip:{backgroundColor:'rgba(15,23,48,.92)',titleFont:{family:'Outfit'},bodyFont:{family:'Outfit'}}},
     scales:{x:{ticks:{color:'#7b8db5',font:{size:9,family:'Outfit'},maxRotation:45,autoSkip:true,maxTicksLimit:18},grid:{color:'rgba(100,130,200,.08)'}},
       y:{position:'left',title:{display:true,text:'Snødybde (cm)',color:'#a5d8ff',font:{family:'Outfit',size:11}},ticks:{color:'#a5d8ff',font:{size:10,family:'Outfit'}},grid:{color:'rgba(100,130,200,.06)'}},
       y1:{position:'right',title:{display:true,text:'Netto mm',color:'#7b8db5',font:{family:'Outfit',size:11}},ticks:{color:'#7b8db5',font:{size:10,family:'Outfit'}},grid:{drawOnChartArea:false}}}}});
@@ -1143,7 +1301,7 @@ function renderTempChart(d){
   const ctx=document.getElementById('chart-tw').getContext('2d');
   if(twChart) twChart.destroy();
   twChart=new Chart(ctx,{type:'line',data:{labels:iv.map(x=>fmtDH(x.start)),datasets:[
-    {label:'Temperatur (°C)',data:iv.map(x=>x.temperatur_c),borderColor:'#4dabf7',segment:{borderColor:(ctx)=>ctx.p0.parsed.y<=0&&ctx.p1.parsed.y<=0?'#4dabf7':'#ff6b6b'},backgroundColor:'transparent',tension:.3,borderWidth:2,pointRadius:0,pointHoverRadius:4,yAxisID:'y'},
+    {label:'Temperatur (°C)',data:iv.map(x=>x.temperatur_c),borderColor:'#4dabf7',segment:{borderColor:(ctx)=>ctx.p0.parsed.y<=0&&ctx.p1.parsed.y<=0?'#4dabf7':'#ff6b6b',borderDash:(ctx)=>isWN(iv[ctx.p1DataIndex])?[6,4]:undefined},backgroundColor:'transparent',tension:.3,borderWidth:2,pointRadius:0,pointHoverRadius:4,yAxisID:'y'},
     {label:'Nedbør (mm)',data:iv.map(x=>x.nedbør_mm),type:'bar',backgroundColor:iv.map(x=>x.temperatur_c<=0?'rgba(116,192,252,.55)':'rgba(255,107,107,.5)'),borderRadius:2,yAxisID:'y1'}
   ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
     plugins:{legend:{labels:{color:'#7b8db5',font:{family:'Outfit',size:11}}},tooltip:{backgroundColor:'rgba(15,23,48,.92)',titleFont:{family:'Outfit'},bodyFont:{family:'Outfit'}}},
@@ -1182,8 +1340,8 @@ function renderDaily(d){
   for(const dag of d.daglig){
     const dt=new Date(dag.dato+'T12:00:00');
     const dayName=DAYS[dt.getDay()]+' '+dt.getDate()+'.'+MONTHS[dt.getMonth()];
-    html+=`<div class="dc">
-      <div class="dn">${dayName}</div>
+    html+=`<div class="dc${dag.kilde==='weathernext'?' wn':''}">
+      <div class="dn">${dayName}${dag.kilde==='weathernext'?'<span class="src" title="Google WeatherNext">WN</span>':''}</div>
       <div class="di">${dag.vær_ikon}</div>
       <div class="dt"><span class="hi">${dag.maks_temp_c>0?'+':''}${dag.maks_temp_c}°</span> / <span class="lo">${dag.min_temp_c}°</span></div>
       <div class="dp">${dag.total_nedbør_mm>0?'💧 '+dag.total_nedbør_mm+'mm':''}</div>
@@ -1194,7 +1352,8 @@ function renderDaily(d){
   document.getElementById('daily-grid').innerHTML=html;
 }
 
-// Last automatisk ved oppstart
+// Last automatisk ved oppstart (?hoyde=800 i adressen forhåndsvelger høyden)
+try{const h=new URLSearchParams(location.search).get('hoyde');if(h)document.getElementById('hoyde').value=h;}catch(e){}
 loadStations().then(()=>load());
 </script>
 </body>
