@@ -1284,16 +1284,25 @@ function renderSnowChart(d){
   const ctx=document.getElementById('chart-snow').getContext('2d');
   if(snowChart) snowChart.destroy();
   const dash={borderDash:(c)=>isWN(iv[c.p1DataIndex])?[6,4]:undefined};
+  // Venstre akse skaleres etter snødybden (ikke spennet), og nullpunktet
+  // legges i samme høyde på begge aksene.
+  const niceCeil=v=>{if(v<=0)return 1;const st=Math.pow(10,Math.floor(Math.log10(v)));return Math.ceil(v/st*2)/2*st;};
+  const sd=iv.map(x=>x.snødybde_cm||0), net=iv.map(x=>x.netto_mm||0);
+  const maxSd=Math.max(0,...sd);
+  const yTop=niceCeil(Math.max(maxSd*1.4,maxSd+5,5));
+  const nPos=Math.max(0,...net), nNeg=Math.max(0,...net.map(v=>-v));
+  const r=nPos>0?Math.min(nNeg/nPos,1):(nNeg>0?1:0);
+  const y1Top=niceCeil(Math.max(nPos,r>0?nNeg/r:0,1)*1.1);
   snowChart=new Chart(ctx,{type:'line',data:{labels:iv.map(x=>fmtDH(x.start)),datasets:[
-    {label:'Spenn høy',data:iv.map(x=>x.snødybde_høy_cm),borderColor:'transparent',backgroundColor:'rgba(165,216,255,.12)',fill:'+1',pointRadius:0,tension:.3,yAxisID:'y'},
-    {label:'Spenn lav',data:iv.map(x=>x.snødybde_lav_cm),borderColor:'transparent',backgroundColor:'transparent',fill:false,pointRadius:0,tension:.3,yAxisID:'y'},
-    {label:'Snødybde (cm)',data:iv.map(x=>x.snødybde_cm),borderColor:'#a5d8ff',backgroundColor:'transparent',fill:false,tension:.3,borderWidth:2.5,pointRadius:0,pointHoverRadius:4,yAxisID:'y',segment:dash},
-    {label:'Netto snø/smelting (mm)',data:iv.map(x=>x.netto_mm),type:'bar',backgroundColor:iv.map(x=>x.netto_mm>=0?'rgba(116,192,252,.55)':'rgba(255,107,107,.45)'),borderRadius:2,yAxisID:'y1'}
+    {label:'Spenn høy',data:iv.map(x=>x.snødybde_høy_cm),borderColor:'transparent',backgroundColor:'rgba(165,216,255,.08)',fill:'+1',pointRadius:0,tension:.3,yAxisID:'y',order:2},
+    {label:'Spenn lav',data:iv.map(x=>x.snødybde_lav_cm),borderColor:'transparent',backgroundColor:'transparent',fill:false,pointRadius:0,tension:.3,yAxisID:'y',order:2},
+    {label:'Snødybde (cm)',data:sd,borderColor:'#e0f2ff',backgroundColor:'rgba(165,216,255,.18)',fill:{target:{value:0}},tension:.3,borderWidth:3,pointRadius:0,pointHoverRadius:5,yAxisID:'y',segment:dash,order:0},
+    {label:'Netto snø/smelting (mm)',data:net,type:'bar',backgroundColor:net.map(v=>v>=0?'rgba(116,192,252,.35)':'rgba(255,107,107,.4)'),borderRadius:2,yAxisID:'y1',order:3}
   ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
     plugins:{legend:{labels:{color:'#7b8db5',font:{family:'Outfit',size:11},filter:(it)=>!String(it.text).startsWith('Spenn')}},tooltip:{backgroundColor:'rgba(15,23,48,.92)',titleFont:{family:'Outfit'},bodyFont:{family:'Outfit'}}},
     scales:{x:{ticks:{color:'#7b8db5',font:{size:9,family:'Outfit'},maxRotation:45,autoSkip:true,maxTicksLimit:18},grid:{color:'rgba(100,130,200,.08)'}},
-      y:{position:'left',title:{display:true,text:'Snødybde (cm)',color:'#a5d8ff',font:{family:'Outfit',size:11}},ticks:{color:'#a5d8ff',font:{size:10,family:'Outfit'}},grid:{color:'rgba(100,130,200,.06)'}},
-      y1:{position:'right',title:{display:true,text:'Netto mm',color:'#7b8db5',font:{family:'Outfit',size:11}},ticks:{color:'#7b8db5',font:{size:10,family:'Outfit'}},grid:{drawOnChartArea:false}}}}});
+      y:{position:'left',min:-yTop*r,max:yTop,title:{display:true,text:'Snødybde (cm)',color:'#a5d8ff',font:{family:'Outfit',size:11}},ticks:{color:'#a5d8ff',font:{size:10,family:'Outfit'},callback:v=>v<0?'':v},grid:{color:(c)=>c.tick&&c.tick.value===0?'rgba(165,216,255,.25)':'rgba(100,130,200,.06)'}},
+      y1:{position:'right',min:-y1Top*r,max:y1Top,title:{display:true,text:'Netto mm',color:'#7b8db5',font:{family:'Outfit',size:11}},ticks:{color:'#7b8db5',font:{size:10,family:'Outfit'},callback:(v,i)=>(i===0&&r>0)?'':v},grid:{drawOnChartArea:false}}}}});
 }
 
 function renderTempChart(d){
