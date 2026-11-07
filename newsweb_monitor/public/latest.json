@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-07T22:20:00+00:00",
+  "generated_at": "2026-11-07T22:30:00+00:00",
   "items": [
     {
       "id": "685944",
@@ -810,17 +810,17 @@
       ]
     },
     {
-      "id": "685894",
+      "id": "685893",
       "market": "XOSL",
       "ticker": "SNTIA",
       "issuer": "Sentia ASA",
-      "title": "Sentia tildelt fase 2 for NRKs nye hovedkontor på Normannsløkka",
-      "headline": "Sentia sikrer 2,8 mrd kontrakt for bygging av NRKs nye hovedkontor",
-      "lead": "Sentia gjennom datterselskapet HENT har fått totalentreprise verdt 2,8 milliarder kroner for fase 2 av NRKs hovedkontor på Ensjø, med planlagt ferdigstillelse i desember 2029 og strenge klimakrav.",
+      "title": "Sentia awarded phase 2 of NRK s new headquarters at Normannsløkka",
+      "headline": "Sentia sikrer kontrakt verdt 2,8 mrd. for NRKs nye Oslo-hovedkvarter",
+      "lead": "Sentias datterselskap HENT har inngått en design- og byggkontrakt med NRK til en verdi på 2,8 milliarder kroner for nybygg på Ensjø. Prosjektet skal ferdigstilles i desember 2029 med høye klimakrav.",
       "published_at": "2026-11-06T12:05:03.849000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685894",
-      "summary": "Sentia gjennom datterselskapet HENT har fått totalentreprise verdt 2,8 milliarder kroner for fase 2 av NRKs hovedkontor på Ensjø, med planlagt ferdigstillelse i desember 2029 og strenge klimakrav.",
-      "reason": "Kontrakten styrker Sentias ordrereserve betydelig og sikrer langsiktig inntektsstrøm. Nøkkelfaktorer å følge er prosjektgjennomføring og mulige kostnads- eller tidsavvik i et krevende byggeprosjekt.",
+      "url": "https://newsweb.oslobors.no/message/685893",
+      "summary": "Sentias datterselskap HENT har inngått en design- og byggkontrakt med NRK til en verdi på 2,8 milliarder kroner for nybygg på Ensjø. Prosjektet skal ferdigstilles i desember 2029 med høye klimakrav.",
+      "reason": "Kontrakten gir Sentia betydelig ordreinngang og langsiktig aktivitet. Prosjektets høye krav til klima og kvalitet kan gi selskapet positiv profil og erfaring, men innebærer også teknisk risiko. Aksjonærer bør følge utviklingen i prosjektgjennomføringen og effekter på marginer.",
       "score": 75,
       "skipped": false,
       "direction": "positiv",
@@ -836,30 +836,14 @@
         "516bf7",
         "7316b3",
         "7b5200",
+        "9e6a55",
         "a523c2",
         "ac3478",
         "aee655",
         "bd307a",
         "c95187",
         "da4b92",
-        "f1abd6",
         "f3b3e0"
-      ],
-      "language_versions": [
-        {
-          "id": "685894",
-          "title": "Sentia tildelt fase 2 for NRKs nye hovedkontor på Normannsløkka",
-          "url": "https://newsweb.oslobors.no/message/685894",
-          "published_at": "2026-11-06T12:05:03.849000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685893",
-          "title": "Sentia awarded phase 2 of NRK s new headquarters at Normannsløkka",
-          "url": "https://newsweb.oslobors.no/message/685893",
-          "published_at": "2026-11-06T12:05:03.410000+00:00",
-          "language": "Original"
-        }
       ],
       "financial_report": {
         "status": "no_pdf",
@@ -879,7 +863,23 @@
           "compared_periods": [],
           "points": []
         }
-      }
+      },
+      "language_versions": [
+        {
+          "id": "685894",
+          "title": "Sentia tildelt fase 2 for NRKs nye hovedkontor på Normannsløkka",
+          "url": "https://newsweb.oslobors.no/message/685894",
+          "published_at": "2026-11-06T12:05:03.849000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685893",
+          "title": "Sentia awarded phase 2 of NRK s new headquarters at Normannsløkka",
+          "url": "https://newsweb.oslobors.no/message/685893",
+          "published_at": "2026-11-06T12:05:03.410000+00:00",
+          "language": "Original"
+        }
+      ]
     },
     {
       "id": "685891",
@@ -14267,11 +14267,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-07T22:20:00+00:00",
+  "last_checked_at": "2026-11-07T22:30:00+00:00",
   "monitor_stats": {
     "fetched": 202,
-    "recent": 44,
-    "already_seen": 42,
+    "recent": 43,
+    "already_seen": 41,
     "eligible": 2,
     "filtered": 0,
     "analyzed": 2,
