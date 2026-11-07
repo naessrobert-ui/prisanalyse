@@ -51,6 +51,7 @@ SNØ_FAKTOR_BASE           = 10    # mm snø per mm nedbør ved 0 °C
 SNØ_FAKTOR_EKSTRA         = 0.5   # ekstra faktor per grad under 0 °C (tørrere snø)
 SMELTING_MM_PER_GRAD_TIME = 0.5   # mm snø per grad-time (lavt for fjell/skog vinterstid)
 SMELTING_TERSKEL_C        = 0.5   # smelting starter ikke før temp overstiger denne verdien
+SNØ_REGN_GRENSE_C         = 1.5   # over denne temp er all nedbør regn; 0 til grensen gir sludd (glidende)
 
 FROST_BASE      = "https://frost.met.no"
 DEFAULT_TIMEOUT = 20
@@ -162,16 +163,30 @@ def hent_snødybde_frost(
 #  Snømodell
 # ══════════════════════════════════════════════════════════════════════════════
 
+def snøandel(temperatur: float) -> float:
+    """
+    Andel av nedbøren som faller som snø.
+      <= 0 °C               → 1.0 (snø)
+      0 til SNØ_REGN_GRENSE → lineært fra 1.0 til 0.0 (sludd)
+      >= SNØ_REGN_GRENSE    → 0.0 (regn)
+    """
+    if temperatur <= 0:
+        return 1.0
+    if temperatur >= SNØ_REGN_GRENSE_C:
+        return 0.0
+    return 1.0 - temperatur / SNØ_REGN_GRENSE_C
+
+
 def snøfaktor(temperatur: float) -> float:
     """
-    Temperaturavhengig snøfaktor.
-      0 °C  → 10  (tung, våt snø)
-    -10 °C  → 15  (lett, tørr snø)
-    > 0 °C  →  0  (regn)
+    Temperaturavhengig snøfaktor (mm snø per mm nedbør), inkl. sludd-overgang.
+      -10 °C → 15  (lett, tørr snø)
+        0 °C → 10  (tung, våt snø)
+     0.75 °C →  5  (halvparten snø, halvparten regn)
+     >= 1.5 °C → 0 (regn)
     """
-    if temperatur > 0:
-        return 0.0
-    return SNØ_FAKTOR_BASE + abs(temperatur) * SNØ_FAKTOR_EKSTRA
+    tetthet = SNØ_FAKTOR_BASE + max(0.0, -temperatur) * SNØ_FAKTOR_EKSTRA
+    return tetthet * snøandel(temperatur)
 
 
 def beregn_smelting(temperatur: float, timer: float) -> float:
@@ -215,6 +230,7 @@ def simuler_snøprognose(
             "nedbør_maks_mm": round(iv.get("nedbør_maks_mm"), 1) if iv.get("nedbør_maks_mm") is not None else None,
             "nedbør_sannsynlighet_pct": int(round(iv.get("nedbør_sannsynlighet_pct"))) if iv.get("nedbør_sannsynlighet_pct") is not None else None,
             "snøfaktor":    round(faktor, 1),
+            "snøandel":     round(snøandel(temp), 2),
             "vind_ms":      round(iv.get("vind_ms"), 1) if iv.get("vind_ms") is not None else None,
             "vind_kast_ms": round(iv.get("vind_kast_ms"), 1) if iv.get("vind_kast_ms") is not None else None,
             "vindretning_grader": round(iv.get("vindretning_grader"), 0) if iv.get("vindretning_grader") is not None else None,

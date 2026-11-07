@@ -49,6 +49,7 @@ from snow_increase import (
     hent_intervaller,
     hent_snødybde_frost,
     simuler_snøprognose,
+    snøandel,
 )
 
 # Legg snow_increase.py i scripts/-mappen (eller samme mappe som ver_routes.py)
@@ -501,19 +502,19 @@ body{background:#0a0f1e;color:#e2e8f0;font-family:system-ui,-apple-system,sans-s
 # =========================
 
 def _vær_type(temp: float, nedbør: float) -> dict:
-    """Enkel klassifisering basert på temp og nedbør."""
+    """Klassifisering basert på temp og nedbør, samme snø/regn-grense som snømodellen."""
     if nedbør < 0.1:
         return {"icon": "☀️", "label": "Oppholdsvær"} if temp > 2 else {"icon": "❄️", "label": "Tørt og kaldt"}
-    if temp <= -1.0:
+    andel = snøandel(temp)
+    if andel >= 0.9:
         if nedbør >= 3.0:
             return {"icon": "🌨️", "label": "Kraftig snø"}
         return {"icon": "❄️", "label": "Snø"}
-    if temp <= 1.5:
-        return {"icon": "🌨️", "label": "Sludd/snø"}
+    if andel > 0:
+        return {"icon": "🌨️", "label": "Sludd"}
     if nedbør >= 5.0:
         return {"icon": "🌧️", "label": "Kraftig regn"}
     return {"icon": "🌧️", "label": "Regn"}
-
 
 
 def _is_missing_value(value: Any) -> bool:
@@ -763,12 +764,16 @@ def _hent_prognose_data(
     daglig_data = []
     for dato, rad in daglig.iterrows():
         dag_df = df2[df2["dato"] == dato]
-        snø_timer = ((dag_df["temperatur_c"] <= 1.5) & (dag_df["nedbør_mm"] > 0.1)).sum()
-        regn_timer = ((dag_df["temperatur_c"] > 1.5) & (dag_df["nedbør_mm"] > 0.1)).sum()
-        if snø_timer > regn_timer and snø_timer > 0:
+        # Nedbørsvektet: hvor mye av døgnets nedbør faller som snø vs regn
+        andel = dag_df["temperatur_c"].map(snøandel)
+        snø_nedbør = float((dag_df["nedbør_mm"] * andel).sum())
+        regn_nedbør = float((dag_df["nedbør_mm"] * (1 - andel)).sum())
+        if snø_nedbør + regn_nedbør >= 0.1 and snø_nedbør >= 2 * regn_nedbør:
             vær = {"icon": "❄️", "label": "Snø"}
-        elif regn_timer > 0:
+        elif snø_nedbør + regn_nedbør >= 0.1 and regn_nedbør >= 2 * snø_nedbør:
             vær = {"icon": "🌧️", "label": "Regn"}
+        elif snø_nedbør + regn_nedbør >= 0.1:
+            vær = {"icon": "🌨️", "label": "Sludd"}
         else:
             vær = {"icon": "☀️", "label": "Oppholdsvær"} if rad["maks_temp_c"] > 0 else {"icon": "❄️", "label": "Kaldt"}
 
