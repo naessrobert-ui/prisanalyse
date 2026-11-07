@@ -1043,7 +1043,13 @@ def api_snovarsel():
 
 @ver.get("/varsel-kvamskogen")
 def varsel_kvamskogen():
-    return Response(_VARSEL_HTML, mimetype="text/html; charset=utf-8")
+    resp = Response(_VARSEL_HTML, mimetype="text/html; charset=utf-8")
+    # ?embed=1 vises i iframe på visitkvamskogen.no/snovarsel
+    resp.headers["Content-Security-Policy"] = (
+        "frame-ancestors 'self' https://visitkvamskogen.no https://www.visitkvamskogen.no "
+        "https://visitkvamskogen.onrender.com http://localhost:5173"
+    )
+    return resp
 
 
 # HTML for snøvarsel-siden (self-contained)
@@ -1120,6 +1126,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1
 .modell b{color:var(--ink);font-weight:600}
 .src{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;color:var(--accent2);border:1px solid rgba(129,140,248,.4);border-radius:6px;padding:0 5px;margin-left:4px;vertical-align:middle}
 .dc.wn{opacity:.88;border:1px dashed rgba(129,140,248,.35)}
+body.embed .back{display:none}
+body.embed .page{padding-top:6px}
+body.embed .hero{padding-top:4px}
 @media(max-width:600px){.sg{grid-template-columns:repeat(2,1fr)}.dg{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}}
 </style>
 </head>
@@ -1360,6 +1369,18 @@ function renderDaily(d){
     </div>`;}
   document.getElementById('daily-grid').innerHTML=html;
 }
+
+// Innebygd (iframe): skjul tilbake-lenken og meld høyden til foreldresiden
+(function(){
+  let embed=false;
+  try{embed=new URLSearchParams(location.search).get('embed')==='1' && window.parent!==window;}catch(e){}
+  if(!embed) return;
+  document.body.classList.add('embed');
+  document.querySelectorAll('a[href]').forEach(a=>{if(!a.target)a.target='_blank';});
+  const meld=()=>{try{window.parent.postMessage({type:'snovarsel-hoyde',h:document.documentElement.scrollHeight},'*');}catch(e){}};
+  try{new ResizeObserver(meld).observe(document.body);}catch(e){setInterval(meld,1000);}
+  window.addEventListener('load',meld);
+})();
 
 // Last automatisk ved oppstart (?hoyde=800 i adressen forhåndsvelger høyden)
 try{const h=new URLSearchParams(location.search).get('hoyde');if(h)document.getElementById('hoyde').value=h;}catch(e){}
