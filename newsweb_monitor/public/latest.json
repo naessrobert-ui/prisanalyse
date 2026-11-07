@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-07T19:00:00+00:00",
+  "generated_at": "2026-11-07T19:10:00+00:00",
   "items": [
     {
       "id": "685944",
@@ -815,12 +815,12 @@
       "ticker": "SNTIA",
       "issuer": "Sentia ASA",
       "title": "Sentia tildelt fase 2 for NRKs nye hovedkontor på Normannsløkka",
-      "headline": "Sentia sikrer 2,8 mrd kontrakt for NRKs nye hovedkontor på Ensjø",
-      "lead": "HENT, eid av Sentia, har signert en totalentreprise på 2,8 mrd kroner ekskl. mva for fase 2 av NRKs hovedkontorprosjekt, med ferdigstillelse i 2029 og strenge klimakrav under FutureBuilt-programmet.",
+      "headline": "Sentia sikrer 2,8 mrd kontrakt for bygging av NRKs nye hovedkontor",
+      "lead": "Datterselskapet HENT i Sentia inngår totalentreprisekontrakt på 2,8 milliarder kroner for NRKs nye hovedkontor, med ferdigstillelse i 2029 og strenge klimakrav.",
       "published_at": "2026-11-06T12:05:03.849000+00:00",
       "url": "https://newsweb.oslobors.no/message/685894",
-      "summary": "HENT, eid av Sentia, har signert en totalentreprise på 2,8 mrd kroner ekskl. mva for fase 2 av NRKs hovedkontorprosjekt, med ferdigstillelse i 2029 og strenge klimakrav under FutureBuilt-programmet.",
-      "reason": "Kontrakten styrker Sentias ordreinngang betydelig og underbygger selskapets posisjon i store, komplekse byggeprosjekter med fokus på bærekraft. Investorer bør følge prosjektets fremdrift og potensielle utfordringer knyttet til teknisk kompleksitet og klimakrav.",
+      "summary": "Datterselskapet HENT i Sentia inngår totalentreprisekontrakt på 2,8 milliarder kroner for NRKs nye hovedkontor, med ferdigstillelse i 2029 og strenge klimakrav.",
+      "reason": "Kontrakten gir Sentia langsiktig sikker inntekt og styrker posisjonen mot offentlige store byggeprosjekter. Viktig å følge prosjektgjennomføring og evt. kostnadsutvikling i teknisk krevende bygg.",
       "score": 75,
       "skipped": false,
       "direction": "positiv",
@@ -14265,64 +14265,20 @@
           "reason": "Renteendringer påvirker investeringskostnadene."
         }
       ]
-    },
-    {
-      "id": "35d6207737252916",
-      "source": "E24",
-      "title": "Kronen kan redde julefreden",
-      "url": "https://e24.no/norsk-oekonomi/i/X9PQmW/kronen-kan-redde-julefreden?utm_medium=rss",
-      "published_at": "2026-11-04T19:08:57+00:00",
-      "analyzed_at": "2026-11-05T05:37:27+00:00",
-      "score": 60,
-      "comment": "Sterkere krone kan redusere eksportinntekter i NOK for oljeselskaper og industrielle eksportører, men senker importkostnader og utenlandsk gjeldskostnad.",
-      "affected": [
-        {
-          "ticker": "AKRBP",
-          "direction": "negativ",
-          "reason": "Sterkere krone reduserer omregnede oljeinntekter."
-        },
-        {
-          "ticker": "EQNR",
-          "direction": "negativ",
-          "reason": "Sterkere krone gir lavere NOK-verdierte inntekter."
-        },
-        {
-          "ticker": "MOWI",
-          "direction": "negativ",
-          "reason": "Lavere valutaeffekt for sjømat eksport."
-        }
-      ]
-    },
-    {
-      "id": "e89dfff38551ac03",
-      "source": "E24",
-      "title": "Odfjell varsler «høy usikkerhet»: Dette må du vite",
-      "url": "https://e24.no/boers-og-finans/i/oK4OAa/odfjell-tjente-40-mill-dollar-i-tredje-kvartal?utm_medium=rss",
-      "published_at": "2026-11-04T19:06:35+00:00",
-      "analyzed_at": "2026-11-05T05:37:27+00:00",
-      "score": 70,
-      "comment": "Odfjell rapporterer høy usikkerhet mot lavere resultat, sannsynligvis utfordrende marked og økte kostnader innen shipping og lagerrobotikk som påvirker inntjeningen negativt.",
-      "affected": [
-        {
-          "ticker": "ODF",
-          "direction": "negativ",
-          "reason": "Lavere kvartalsresultat og høy markedsusikkerhet."
-        }
-      ]
     }
   ],
-  "last_checked_at": "2026-11-07T19:00:00+00:00",
+  "last_checked_at": "2026-11-07T19:10:00+00:00",
   "monitor_stats": {
     "fetched": 202,
-    "recent": 70,
-    "already_seen": 66,
-    "eligible": 4,
+    "recent": 65,
+    "already_seen": 63,
+    "eligible": 2,
     "filtered": 0,
-    "analyzed": 4,
+    "analyzed": 2,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 4,
+    "recovered_unpublished": 2,
     "source_latest_at": "2026-11-06T20:53:27.031000+00:00",
     "indirect": 0
   }
