@@ -897,6 +897,24 @@ def api_snostasjoner():
     return jsonify({"items": _finn_snøstasjoner(query=q, limit=limit)})
 
 
+def _json_safe(obj: Any) -> Any:
+    """Gjør pandas/numpy-verdier JSON-gyldige: NaN/inf -> None, numpy -> Python."""
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    if hasattr(obj, "item") and not isinstance(obj, (str, bytes)):
+        try:
+            obj = obj.item()  # numpy-skalar -> Python-skalar
+        except (ValueError, TypeError):
+            pass
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return None
+    if obj is pd.NaT:
+        return None
+    return obj
+
+
 @ver.get("/api/snovarsel")
 def api_snovarsel():
     stasjon = request.args.get("stasjon", "Kvamskogen")
@@ -906,7 +924,7 @@ def api_snovarsel():
     frost_id = request.args.get("frost_id")
     try:
         data = _hent_prognose_data(stasjon, lat=lat, lon=lon, moh=moh, frost_id=frost_id)
-        return jsonify(data)
+        return jsonify(_json_safe(data))
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
