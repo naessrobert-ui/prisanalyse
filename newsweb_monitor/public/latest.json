@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-07T20:00:00+00:00",
+  "generated_at": "2026-11-07T20:10:00+00:00",
   "items": [
     {
       "id": "685944",
@@ -810,21 +810,28 @@
       ]
     },
     {
-      "id": "685894",
+      "id": "685893",
       "market": "XOSL",
       "ticker": "SNTIA",
       "issuer": "Sentia ASA",
-      "title": "Sentia tildelt fase 2 for NRKs nye hovedkontor på Normannsløkka",
-      "headline": "Sentia sikrer 2,8 mrd. kontrakt for NRKs nye hovedkontor på Ensjø",
-      "lead": "Sentias datterselskap HENT inngår totalentreprise for NRKs hovedkontor på 53.500 kvm, med ferdigstillelse i 2029 og strenge klimakrav som del av FutureBuilt-programmet.",
+      "title": "Sentia awarded phase 2 of NRK s new headquarters at Normannsløkka",
+      "headline": "Sentia sikrer 2,8 mrd kontrakt for bygging av NRKs nye hovedkvarter",
+      "lead": "Sentia gjennom HENT vinner fase 2-kontrakt for NRKs nye hovedkvarter på 2,8 mrd kroner, med planlagt ferdigstillelse i desember 2029 og ekstra fokus på klima og arkitektur.",
       "published_at": "2026-11-06T12:05:03.849000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685894",
-      "summary": "Sentias datterselskap HENT inngår totalentreprise for NRKs hovedkontor på 53.500 kvm, med ferdigstillelse i 2029 og strenge klimakrav som del av FutureBuilt-programmet.",
-      "reason": "Kontrakten på 2,8 mrd. gir Sentia langsiktig ordreinngang og styrker posisjonen innen store byggprosjekter med miljøfokus. Viktig å følge prosjektgjennomføring og lønnsomhet over tid.",
-      "score": 75,
+      "url": "https://newsweb.oslobors.no/message/685893",
+      "summary": "Sentia gjennom HENT vinner fase 2-kontrakt for NRKs nye hovedkvarter på 2,8 mrd kroner, med planlagt ferdigstillelse i desember 2029 og ekstra fokus på klima og arkitektur.",
+      "reason": "Kontrakten gir Sentia en betydelig og langsiktig inntjeningsmulighet i byggsektoren, med økt klima- og kvalitetsprofil som kan styrke selskapets posisjon. Viktig å følge prosjektets kostnads- og tidsstyring fremover.",
+      "score": 78,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AFG",
+          "direction": "positiv",
+          "reason": "AF Gruppen er en annen stor entreprenør som kan dra fordel av økt aktivitet i bygg- og anleggsmarkedet."
+        }
+      ],
       "number_keys": [
         "001a0f",
         "004be8",
@@ -836,30 +843,14 @@
         "516bf7",
         "7316b3",
         "7b5200",
+        "9e6a55",
         "a523c2",
         "ac3478",
         "aee655",
         "bd307a",
         "c95187",
         "da4b92",
-        "f1abd6",
         "f3b3e0"
-      ],
-      "language_versions": [
-        {
-          "id": "685894",
-          "title": "Sentia tildelt fase 2 for NRKs nye hovedkontor på Normannsløkka",
-          "url": "https://newsweb.oslobors.no/message/685894",
-          "published_at": "2026-11-06T12:05:03.849000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685893",
-          "title": "Sentia awarded phase 2 of NRK s new headquarters at Normannsløkka",
-          "url": "https://newsweb.oslobors.no/message/685893",
-          "published_at": "2026-11-06T12:05:03.410000+00:00",
-          "language": "Original"
-        }
       ],
       "financial_report": {
         "status": "no_pdf",
@@ -879,7 +870,23 @@
           "compared_periods": [],
           "points": []
         }
-      }
+      },
+      "language_versions": [
+        {
+          "id": "685894",
+          "title": "Sentia tildelt fase 2 for NRKs nye hovedkontor på Normannsløkka",
+          "url": "https://newsweb.oslobors.no/message/685894",
+          "published_at": "2026-11-06T12:05:03.849000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685893",
+          "title": "Sentia awarded phase 2 of NRK s new headquarters at Normannsløkka",
+          "url": "https://newsweb.oslobors.no/message/685893",
+          "published_at": "2026-11-06T12:05:03.410000+00:00",
+          "language": "Original"
+        }
+      ]
     },
     {
       "id": "685891",
@@ -14267,11 +14274,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-07T20:00:00+00:00",
+  "last_checked_at": "2026-11-07T20:10:00+00:00",
   "monitor_stats": {
     "fetched": 202,
-    "recent": 56,
-    "already_seen": 54,
+    "recent": 54,
+    "already_seen": 52,
     "eligible": 2,
     "filtered": 0,
     "analyzed": 2,
