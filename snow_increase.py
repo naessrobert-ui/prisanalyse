@@ -199,9 +199,11 @@ def simuler_snøprognose(
 
         faktor      = snøfaktor(temp)
         ny_snø_mm   = nedbør * faktor
-        smelting_mm = beregn_smelting(temp, timer)
+        # Kan ikke smelte mer snø enn det som finnes (eksisterende + nysnø i intervallet)
+        tilgjengelig_mm = snødybde_mm + ny_snø_mm
+        smelting_mm = min(beregn_smelting(temp, timer), tilgjengelig_mm)
 
-        snødybde_mm = max(0.0, snødybde_mm + ny_snø_mm - smelting_mm)
+        snødybde_mm = max(0.0, tilgjengelig_mm - smelting_mm)
 
         rader.append({
             "start":        iv["start"],
