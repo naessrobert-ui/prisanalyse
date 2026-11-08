@@ -14064,6 +14064,23 @@
   ],
   "indirect": [
     {
+      "id": "cdceb510b2056636",
+      "source": "E24",
+      "title": "Ønskene om kraft: – Spinnvilt mye",
+      "url": "https://e24.no/energi-og-klima/i/MAzdjJ/oenskene-om-kraft-spinnvilt-mye?utm_medium=rss",
+      "published_at": "2026-11-08T15:25:28+00:00",
+      "analyzed_at": "2026-11-08T15:30:00+00:00",
+      "score": 70,
+      "comment": "Ekstrem økning i kraftbehov kan føre til høyere strømpriser og økte kostnader for energiselskaper, påvirker underliggende inntjening i kraftsektoren.",
+      "affected": [
+        {
+          "ticker": "EQNR",
+          "direction": "negativ",
+          "reason": "Økte kraftkostnader øker produksjonskostnadene for energiprodusenter."
+        }
+      ]
+    },
+    {
       "id": "78c076820704be9e",
       "source": "E24",
       "title": "– Ikke vedta regler som kan gi dyrere mat",
@@ -14125,7 +14142,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-08T15:20:00+00:00",
+  "last_checked_at": "2026-11-08T15:30:00+00:00",
   "monitor_stats": {
     "fetched": 76,
     "recent": 0,
@@ -14138,6 +14155,6 @@
     "capped": 0,
     "recovered_unpublished": 0,
     "source_latest_at": "2026-11-06T20:53:27.031000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
