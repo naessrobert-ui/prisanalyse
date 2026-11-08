@@ -14194,35 +14194,13 @@
           "reason": "Økte kapitalkostnader ved renteheving."
         }
       ]
-    },
-    {
-      "id": "1af749af0b90ee6f",
-      "source": "E24",
-      "title": "Norges Bank holder styringsrenten uendret",
-      "url": "https://e24.no/norsk-oekonomi/i/8GrA4G/norges-bank-holder-styringsrenten-uendret?utm_medium=rss",
-      "published_at": "2026-11-05T09:00:04+00:00",
-      "analyzed_at": "2026-11-05T09:00:00+00:00",
-      "score": 60,
-      "comment": "Uendret styringsrente gir stabil renteutvikling; fortsatt høy prisvekst kan indikere fremtidige renteøkninger, påvirker finans- og eiendomsselskaper gjennom finansieringskostnader.",
-      "affected": [
-        {
-          "ticker": "DNB",
-          "direction": "negativ",
-          "reason": "Høy prisvekst kan føre til renteøkninger, økte lånekostnader for kunder"
-        },
-        {
-          "ticker": "OBOS",
-          "direction": "negativ",
-          "reason": "Potensielt høyere renter påvirker boligfinansiering negativt"
-        }
-      ]
     }
   ],
-  "last_checked_at": "2026-11-08T08:50:00+00:00",
+  "last_checked_at": "2026-11-08T09:00:00+00:00",
   "monitor_stats": {
     "fetched": 76,
-    "recent": 1,
-    "already_seen": 1,
+    "recent": 0,
+    "already_seen": 0,
     "eligible": 0,
     "filtered": 0,
     "analyzed": 0,
