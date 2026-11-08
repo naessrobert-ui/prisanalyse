@@ -14064,6 +14064,28 @@
   ],
   "indirect": [
     {
+      "id": "a24b12710a07c2b1",
+      "source": "E24",
+      "title": "Venter på signaler: – Kan snu opp ned på hele regnestykket",
+      "url": "https://e24.no/boers-og-finans/i/qOnMOg/venter-paa-signaler-kan-snu-opp-ned-paa-hele-regnestykket?utm_medium=rss",
+      "published_at": "2026-11-08T21:01:18+00:00",
+      "analyzed_at": "2026-11-08T21:10:00+00:00",
+      "score": 50,
+      "comment": "USAs mellomvalg kan endre handelspolitikk eller skattevilkår, noe som påvirker norske eksportører og multinasjonale selskaper på Oslo Børs.",
+      "affected": [
+        {
+          "ticker": "EQNR",
+          "direction": "uklar",
+          "reason": "Endringer i amerikansk energipolitikk kan påvirke Equinors markedsforhold."
+        },
+        {
+          "ticker": "YAR",
+          "direction": "uklar",
+          "reason": "Handelspolitikk kan påvirke gjødselmarkedet og tollsatser."
+        }
+      ]
+    },
+    {
       "id": "cdceb510b2056636",
       "source": "E24",
       "title": "Ønskene om kraft: – Spinnvilt mye",
@@ -14142,7 +14164,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-08T21:00:00+00:00",
+  "last_checked_at": "2026-11-08T21:10:00+00:00",
   "monitor_stats": {
     "fetched": 76,
     "recent": 0,
@@ -14155,6 +14177,6 @@
     "capped": 0,
     "recovered_unpublished": 0,
     "source_latest_at": "2026-11-06T20:53:27.031000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
