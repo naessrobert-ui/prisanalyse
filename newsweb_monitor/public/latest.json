@@ -825,6 +825,22 @@
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
+      "language_versions": [
+        {
+          "id": "685894",
+          "title": "Sentia tildelt fase 2 for NRKs nye hovedkontor på Normannsløkka",
+          "url": "https://newsweb.oslobors.no/message/685894",
+          "published_at": "2026-11-06T12:05:03.849000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "685893",
+          "title": "Sentia awarded phase 2 of NRK s new headquarters at Normannsløkka",
+          "url": "https://newsweb.oslobors.no/message/685893",
+          "published_at": "2026-11-06T12:05:03.410000+00:00",
+          "language": "Original"
+        }
+      ],
       "number_keys": [
         "001a0f",
         "004be8",
@@ -844,22 +860,6 @@
         "da4b92",
         "f1abd6",
         "f3b3e0"
-      ],
-      "language_versions": [
-        {
-          "id": "685894",
-          "title": "Sentia tildelt fase 2 for NRKs nye hovedkontor på Normannsløkka",
-          "url": "https://newsweb.oslobors.no/message/685894",
-          "published_at": "2026-11-06T12:05:03.849000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685893",
-          "title": "Sentia awarded phase 2 of NRK s new headquarters at Normannsløkka",
-          "url": "https://newsweb.oslobors.no/message/685893",
-          "published_at": "2026-11-06T12:05:03.410000+00:00",
-          "language": "Original"
-        }
       ],
       "financial_report": {
         "status": "no_pdf",
@@ -14238,47 +14238,20 @@
           "reason": "Bedre kostnadskontroll ved lavere inflasjon regionalt."
         }
       ]
-    },
-    {
-      "id": "c69c656e9136274b",
-      "source": "E24",
-      "title": "Tror rentetoppen er nådd: – Balanserer på en knivsegg",
-      "url": "https://e24.no/norsk-oekonomi/i/eG3QBa/tror-rentetoppen-er-naadd-balanserer-paa-en-knivsegg?utm_medium=rss",
-      "published_at": "2026-11-05T04:00:00+00:00",
-      "analyzed_at": "2026-11-05T05:37:27+00:00",
-      "score": 75,
-      "comment": "Rentetoppen kan dempe videre rentekostnader for selskaper og boliglånsrenter, noe som kan redusere finansieringskostnader for banker og øke konsum for detaljhandel.",
-      "affected": [
-        {
-          "ticker": "DNB",
-          "direction": "positiv",
-          "reason": "Lavere rentehevinger demper finanskostnadene."
-        },
-        {
-          "ticker": "NONG",
-          "direction": "positiv",
-          "reason": "Bedre kredittmarginer og mindre kredittrisiko."
-        },
-        {
-          "ticker": "AKRBP",
-          "direction": "uklar",
-          "reason": "Renteendringer påvirker investeringskostnadene."
-        }
-      ]
     }
   ],
-  "last_checked_at": "2026-11-07T22:50:00+00:00",
+  "last_checked_at": "2026-11-08T04:00:00+00:00",
   "monitor_stats": {
-    "fetched": 202,
-    "recent": 40,
-    "already_seen": 38,
-    "eligible": 2,
+    "fetched": 76,
+    "recent": 6,
+    "already_seen": 6,
+    "eligible": 0,
     "filtered": 0,
-    "analyzed": 2,
+    "analyzed": 0,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 2,
+    "recovered_unpublished": 0,
     "source_latest_at": "2026-11-06T20:53:27.031000+00:00",
     "indirect": 0
   }
