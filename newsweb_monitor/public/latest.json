@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T15:10:00+00:00",
+  "generated_at": "2026-11-09T15:20:00+00:00",
   "items": [
+    {
+      "id": "686046",
+      "market": "XOSL",
+      "ticker": "MORLD",
+      "issuer": "Moreld ASA",
+      "title": "Moreld ASA: Status on share buy-back programme",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-09T15:16:43.009000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686046",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686045",
       "market": "XOSL",
@@ -1852,12 +1869,12 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre varsler Q3-resultater 12. november, webcast 13. november",
-      "lead": "Questerre Energy offentliggjør tredjekvartalsresultater for 2026 torsdag 12. november, etterfulgt av webcast og Q&A fredag 13. november. Detaljer om resultatene foreligger ikke i forkant.",
+      "headline": "Questerre kunngjør Q3 2026-resultater 12. november – webcast 13. november",
+      "lead": "Questerre Energy presenterer sine tredje kvartal 2026-resultater torsdag 12. november, med påfølgende webcast og Q&A fredag 13. november. Tall og utvikling vil bli kjent i disse arrangementene.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy offentliggjør tredjekvartalsresultater for 2026 torsdag 12. november, etterfulgt av webcast og Q&A fredag 13. november. Detaljer om resultatene foreligger ikke i forkant.",
-      "reason": "Informasjonen inneholder kun datoer og plan for resultatfremleggelse uten detaljer om resultat eller forventninger, så betydning for aksjonærer er foreløpig uklar.",
+      "summary": "Questerre Energy presenterer sine tredje kvartal 2026-resultater torsdag 12. november, med påfølgende webcast og Q&A fredag 13. november. Tall og utvikling vil bli kjent i disse arrangementene.",
+      "reason": "Nyheten gir varsling om kommende rapport, men mangler konkrete tall eller indikasjoner på resultatets retning. Aksjonærer må vente på rapporten for vurdering.",
       "score": 15,
       "skipped": false,
       "direction": "nøytral",
@@ -11773,23 +11790,6 @@
           ]
         }
       }
-    },
-    {
-      "id": "685662",
-      "market": "XOSL",
-      "ticker": "NORBT",
-      "issuer": "NORBIT ASA",
-      "title": "NORBIT - Invitation to presentation of NORBIT's third quarter results, 12 November 2026",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-05T06:00:01.235000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685662",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -11955,11 +11955,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T15:10:00+00:00",
+  "last_checked_at": "2026-11-09T15:20:00+00:00",
   "monitor_stats": {
-    "fetched": 67,
-    "recent": 67,
-    "already_seen": 65,
+    "fetched": 68,
+    "recent": 68,
+    "already_seen": 66,
     "eligible": 1,
     "filtered": 1,
     "analyzed": 1,
@@ -11967,7 +11967,7 @@
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-09T15:07:38.167000+00:00",
+    "source_latest_at": "2026-11-09T15:16:43.009000+00:00",
     "indirect": 0
   }
 }
