@@ -2,8 +2,120 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T08:40:00+00:00",
+  "generated_at": "2026-11-09T08:50:00+00:00",
   "items": [
+    {
+      "id": "685997",
+      "market": "XOSL",
+      "ticker": "OCY",
+      "issuer": "Ocean Yield AS",
+      "title": "Invitation to webcast of Q3 2026 results",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-09T08:47:56.233000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685997",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "685996",
+      "market": "XOSL",
+      "ticker": "VEND",
+      "issuer": "Vend Marketplaces ASA",
+      "title": "Vend Marketplaces ASA - Contemplating Senior Unsecured NOK Bond Issue",
+      "headline": "Vend Marketplaces vurderer lån på minst 2 milliarder kroner i obligasjonsmarkedet",
+      "lead": "Vend Marketplaces ASA planlegger en obligasjonsutstedelse på minimum 2 milliarder kroner med løpetid på 5 år eller mer, avhengig av markedsforhold og forbereder investorpresentasjon kommende uke.",
+      "published_at": "2026-11-09T08:47:39.247000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685996",
+      "summary": "Vend Marketplaces ASA planlegger en obligasjonsutstedelse på minimum 2 milliarder kroner med løpetid på 5 år eller mer, avhengig av markedsforhold og forbereder investorpresentasjon kommende uke.",
+      "reason": "Planen om en stor obligasjonsutstedelse viser at Vend posisjonerer seg for langsiktig kapitalanskaffelse. Effekten på aksjonærer avhenger av hvordan kapitalen brukes og lånebetingelsene, ikke kommunisert foreløpig.",
+      "score": 75,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "importance": "stor",
+      "score_ai": 65,
+      "attachment_key": "2a7ac85dbfd710b7",
+      "number_keys": [
+        "0716d9",
+        "0a3f00",
+        "0ade7c",
+        "0c422b",
+        "12c6fc",
+        "214236",
+        "3213bd",
+        "4806bd",
+        "49bc6b",
+        "4b581c",
+        "4f78e3",
+        "7b5200",
+        "827bfc",
+        "91032a",
+        "ac3478",
+        "aedd17",
+        "aee655",
+        "b1d578",
+        "da4b92",
+        "f6f422",
+        "fa35e1",
+        "fb9654"
+      ]
+    },
+    {
+      "id": "685994",
+      "market": "XOSL",
+      "ticker": "MORG",
+      "issuer": "Sparebanken Møre",
+      "title": "Sparebanken Møre: Contemplating issuance of Green NOK Senior Non-Preferred bonds",
+      "headline": "Sparebanken Møre vurderer utstedelse av grønn seniorobligasjon med 5 års løpetid",
+      "lead": "Sparebanken Møre planlegger mulig emisjon av grønne senior obligasjoner med 5 års løpetid og flytende eller fast rente. Tidspunkt er usikkert og avhengig av markedsforhold.",
+      "published_at": "2026-11-09T08:46:17.372000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685994",
+      "summary": "Sparebanken Møre planlegger mulig emisjon av grønne senior obligasjoner med 5 års løpetid og flytende eller fast rente. Tidspunkt er usikkert og avhengig av markedsforhold.",
+      "reason": "Emisjonen kan styrke bankens kapitalbase og profil i grønne finansieringsmarkeder, men tidspunkt og rentevilkår er fortsatt uavklart. Investeringsbeslutninger bør vente på flere detaljer.",
+      "score": 70,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "SB1NO",
+          "direction": "uklar",
+          "reason": "Konkurrent med mulige lignende grønne finansieringsinitiativ som kan påvirkes av markedstrender og investorinteresse."
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 65,
+      "number_keys": [
+        "0ade7c",
+        "356a19",
+        "37e8ba",
+        "530e85",
+        "827bfc",
+        "ac3478",
+        "aee655"
+      ],
+      "language_versions": [
+        {
+          "id": "685995",
+          "title": "Sparebanken Møre: Vurderer utstedelse av grønt senior etterstilt obligasjonslån",
+          "url": "https://newsweb.oslobors.no/message/685995",
+          "published_at": "2026-11-09T08:46:17.372000+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "685994",
+          "title": "Sparebanken Møre: Contemplating issuance of Green NOK Senior Non-Preferred bonds",
+          "url": "https://newsweb.oslobors.no/message/685994",
+          "published_at": "2026-11-09T08:46:17.339000+00:00",
+          "language": "Engelsk"
+        }
+      ]
+    },
     {
       "id": "685992",
       "market": "XOSL",
@@ -660,18 +772,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre varsler Q3 2026-resultater med webcast 13. november",
-      "lead": "Questerre Energy legger frem sine resultater for tredje kvartal 2026 12. november, med en påfølgende webcast for investorer og analytikere. Ingen detaljer om forventede tall foreligger per nå.",
+      "headline": "Questerre kunngjør Q3 2026-resultater 12. november uten detaljer",
+      "lead": "Questerre Energy offentliggjør sine resultater for tredje kvartal 2026 den 12. november, med påfølgende webcast den 13. november. Det foreligger foreløpig ingen tall eller estimater i meldingen.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy legger frem sine resultater for tredje kvartal 2026 12. november, med en påfølgende webcast for investorer og analytikere. Ingen detaljer om forventede tall foreligger per nå.",
-      "reason": "Nyheten angir kun tidspunkt for resultatfremleggelsen og webcast, uten informasjon om resultat eller forventninger. Markedet får mulighet til umiddelbart å følge med, men ingen indikasjon på resultatets kvalitet eller retning.",
-      "score": 15,
+      "summary": "Questerre Energy offentliggjør sine resultater for tredje kvartal 2026 den 12. november, med påfølgende webcast den 13. november. Det foreligger foreløpig ingen tall eller estimater i meldingen.",
+      "reason": "Meldingen kun informerer om tidspunkt for kvartalspresentasjon uten å gi økonomiske nøkkeltall, guiding eller annen informasjon som påvirker vurdering av selskapets utvikling eller aksjeverdi.",
+      "score": 30,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 30,
+      "score_ai": 45,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -13018,194 +13130,6 @@
       ],
       "importance": "mellom",
       "attachment_key": "a340ac55f2291d54"
-    },
-    {
-      "id": "685615",
-      "market": "XOSL",
-      "ticker": "NSKOG",
-      "issuer": "Norske Skog ASA",
-      "title": "Flaggemelding Norske Skog ASA",
-      "headline": "Bertel Steen øker eierandel i Norske Skog til over 5 prosent",
-      "lead": "SES AS har kjøpt 234 275 aksjer i Norske Skog til 37,04 kroner, og øker Bertel Steens eierandel til 5,02 prosent av aksjekapitalen.",
-      "published_at": "2026-11-04T14:24:20.071000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685615",
-      "summary": "SES AS har kjøpt 234 275 aksjer i Norske Skog til 37,04 kroner, og øker Bertel Steens eierandel til 5,02 prosent av aksjekapitalen.",
-      "reason": "Aksjekjøpet signaliserer økt interesse fra Bertel Steen, men eierandelen er fortsatt relativt liten og gir begrenset påvirkning på styring eller strategi. Viktig å følge utviklingen i kapitalforholdene fremover.",
-      "score": 40,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "number_keys": [
-        "0a6cb9",
-        "1b6453",
-        "2f9f70",
-        "95e4da",
-        "aee655",
-        "c1af44"
-      ]
-    },
-    {
-      "id": "685614",
-      "market": "XOSL",
-      "ticker": "STHY",
-      "issuer": "Stadshypotek AB (publ)",
-      "title": "Rate fixing STHY15",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-04T14:03:47.106000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685614",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685613",
-      "market": "XOSL",
-      "ticker": "KLPKK",
-      "issuer": "KLP Kommunekreditt AS",
-      "title": "KLP Kommunekreditt AS - kvartalsrapport 3. kvartal 2026",
-      "headline": "KLP Kommunekreditt rapporterer 3. kvartal uten detaljert n\u0000f8kkeltall",
-      "lead": "KLP Kommunekreditt AS offentliggjorde kvartalsrapport for Q3 2026 uten spesifiserte resultattall eller utviklingstall, begrensende innsikt i finansiell status og resultatutvikling.",
-      "published_at": "2026-11-04T14:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/685613",
-      "summary": "KLP Kommunekreditt AS offentliggjorde kvartalsrapport for Q3 2026 uten spesifiserte resultattall eller utviklingstall, begrensende innsikt i finansiell status og resultatutvikling.",
-      "reason": "Mangelen p\u0000e5 konkrete finanstall i rapporten gir f\u0000e5 indikasjoner p\u0000e5 selskapets økonomiske retning, s\u0000e5 det er uklart for aksjon\u0000e6rer hvordan resultatet faktisk utvikler seg. Ytterligere informasjon fra KLP Kommunekreditt n\u0000e5s er avgj\u0000f8rende for vurdering.",
-      "score": 30,
-      "skipped": false,
-      "direction": "uklar",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 30,
-      "language_versions": [
-        {
-          "id": "685613",
-          "title": "KLP Kommunekreditt AS - kvartalsrapport 3. kvartal 2026",
-          "url": "https://newsweb.oslobors.no/message/685613",
-          "published_at": "2026-11-04T14:00:00+00:00",
-          "language": "Norsk"
-        },
-        {
-          "id": "685612",
-          "title": "KLP Kommunekreditt AS - Q3 2026 Interim Report",
-          "url": "https://newsweb.oslobors.no/message/685612",
-          "published_at": "2026-11-04T14:00:00+00:00",
-          "language": "Engelsk"
-        }
-      ],
-      "attachment_key": "c5ef50375befdcb8",
-      "number_keys": [
-        "aee655"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "reported",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Q3_2026_KLP Kommunekreditt_engelsk.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685612&attachmentId=335742"
-        },
-        "metrics": [
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK thousand",
-            "current": 17808.0,
-            "prior_year": 29129.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -38.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 4, Income statement, calculation from total interest income 364,711 minus total interest expense -362,903 = 1,808 (typo likely, check carefully) but notes"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK thousand",
-            "current": 364711.0,
-            "prior_year": 316543.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 15.2,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 4, Income statement, Total interest income Q3 2026: 364,711; Q3 2025: 316,543"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "NOK thousand",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Not explicitly disclosed in excerpt for Q3 2026"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK thousand",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Net income not explicitly stated in provided excerpt"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No EPS information provided"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "KLP Kommunekreditt er fortsatt godt kapitalisert og nyter godt av sin rolle som en stabil långiver i offentlig sektor. Investeringsnivåene og behovet for lån i kommunesektoren forventes å holde seg stabilt i 2026. Selskapet fokuserer på å tilby konkurransedyktige og langsiktige lån, og posisjonen som en sentral aktør i markedet opprettholdes.",
-          "change": "Outlook for investeringsnivå og ny låneopptak i 2026 er opprettholdt som 'forventes å holde seg relativt stabile' sammenlignet med tidligere kvartal ('på omtrent samme nivå som i fjor'). Ingen vesentlige endringer i kapitalkrav eller markedsposisjon; fortsatt vekt på stabilitet og langsiktighet i finansieringen. Fokus på konkurransedyktige lån er konsistent med tidligere rapport.",
-          "trend": "Guidingen har vært stabil over de siste kvartalene, med en gjennomgående forventning om stabile investeringer og lånebehov i kommunesektoren. Tone og presiseringer har vært konsistente, uten store endringer i markedsvurdering eller selskapets strategiske posisjon. Tidligere forventninger om økt etterspørsel innen klimatilpasning nevnes ikke eksplisitt i siste rapport, noe som kan tyde på en mer nøktern eller konsolidert fremstilling.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1"
-          ],
-          "points": [
-            {
-              "topic": "Kapitalisering og markedsposisjon",
-              "statement": "KLP Kommunekreditt er godt kapitalisert og en stabil långiver i offentlig sektor.",
-              "evidence": "\"well capitalised and benefits from its position as a stable, long‑term lender\"",
-              "page": "utdrag fra rapport"
-            },
-            {
-              "topic": "Investeringsnivå og lånebehov",
-              "statement": "Investeringsnivået og ny låneopptak forventes å forbli relativt stabile i 2026.",
-              "evidence": "\"investment levels and new borrowing in 2026 are expected to remain broadly in line\"",
-              "page": "utdrag fra rapport"
-            },
-            {
-              "topic": "Langsiktig og konkurransedyktig finansiering",
-              "statement": "Selskapet fokuserer på å tilby konkurransedyktige og langsiktige lån til kommunesektoren.",
-              "evidence": "\"aims to provide the municipal sector with favourable long-term financing by offering competitive lending\"",
-              "page": "utdrag fra rapport"
-            }
-          ]
-        }
-      }
     }
   ],
   "indirect": [
@@ -13327,19 +13251,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T08:40:00+00:00",
+  "last_checked_at": "2026-11-09T08:50:00+00:00",
   "monitor_stats": {
-    "fetched": 30,
-    "recent": 30,
+    "fetched": 34,
+    "recent": 34,
     "already_seen": 29,
-    "eligible": 1,
-    "filtered": 0,
-    "analyzed": 1,
+    "eligible": 3,
+    "filtered": 2,
+    "analyzed": 3,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-09T08:10:58.098000+00:00",
-    "indirect": 1
+    "source_latest_at": "2026-11-09T08:47:56.233000+00:00",
+    "indirect": 0
   }
 }
