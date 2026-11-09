@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T10:40:00+00:00",
+  "generated_at": "2026-11-09T10:50:00+00:00",
   "items": [
+    {
+      "id": "686003",
+      "market": "XOSL",
+      "ticker": "VEND",
+      "issuer": "Vend Marketplaces ASA",
+      "title": "Title: Vend Marketplaces ASA: Repurchase of own shares",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-09T10:40:28.337000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686003",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686002",
       "market": "XOSL",
@@ -855,18 +872,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre varsler Q3-resultater 12. november – webcast fredag kl. 15:30",
-      "lead": "Questerre kunngjør sine resultater for tredje kvartal 2026 torsdag 12. november, med påfølgende webcast-presentasjon og spørsmålssesjon fredag 13. november. Ingen resultattall er publisert enda.",
+      "headline": "Questerre kunngjør Q3-resultater 12. november – webcast 13. november",
+      "lead": "Questerre Energy legger frem tredje kvartals resultat 12. november, etterfulgt av webcast med Q&A 13. november. Detaljer om nøkkeltall og utvikling foreligger ennå ikke.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre kunngjør sine resultater for tredje kvartal 2026 torsdag 12. november, med påfølgende webcast-presentasjon og spørsmålssesjon fredag 13. november. Ingen resultattall er publisert enda.",
-      "reason": "Meldingen kunngjør tidspunkt for resultater og webcast uten å gi økonomiske detaljer. Effekten for aksjonærer avhenger av selve resultatene som skal presenteres.",
-      "score": 15,
+      "summary": "Questerre Energy legger frem tredje kvartals resultat 12. november, etterfulgt av webcast med Q&A 13. november. Detaljer om nøkkeltall og utvikling foreligger ennå ikke.",
+      "reason": "Resultatene er ikke publisert ennå, så effekten på selskapets aksje og fremtid er uklar. Investorer bør følge webcast og analysere tallene ved offentliggjøring.",
+      "score": 25,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 30,
+      "score_ai": 40,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -12868,195 +12885,6 @@
         "ad1bf2",
         "b3f0c7"
       ]
-    },
-    {
-      "id": "685622",
-      "market": "XOSL",
-      "ticker": "SKUE",
-      "issuer": "Skue Sparebank",
-      "title": "Delårsregnskap 3.kvartal 2026",
-      "headline": "Skue Sparebank øker resultat før skatt til 322 mill. kroner i Q3 2026",
-      "lead": "Skue Sparebank leverer et resultat før skatt på 321,7 mill. kroner per 30.09.2026, en oppgang på 7,5% fra i fjor, med fusjonskostnader på 16,2 mill. kroner og planlagt ny fusjon med Romerike Sparebank.",
-      "published_at": "2026-11-04T15:30:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/685622",
-      "summary": "Skue Sparebank leverer et resultat før skatt på 321,7 mill. kroner per 30.09.2026, en oppgang på 7,5% fra i fjor, med fusjonskostnader på 16,2 mill. kroner og planlagt ny fusjon med Romerike Sparebank.",
-      "reason": "Resultatveksten tydeliggjør bankens vekst både organisk og gjennom fusjoner, men høye fusjonskostnader og pågående integrasjon representerer risiko. Aksjonærer bør følge utviklingen i den nye fusjonen og realisering av kostnadsbesparelser.",
-      "score": 78,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "EIKA",
-          "direction": "positiv",
-          "reason": "Positiv verdiutvikling på eierandelen i Eika Gruppen styrker Skue Sparebanks egenkapitalavkastning."
-        }
-      ],
-      "attachment_key": "5640f19c57fe5f75",
-      "number_keys": [
-        "05a8ea",
-        "0ade7c",
-        "23a04a",
-        "32f9e6",
-        "450dde",
-        "6cf77b",
-        "6fe73a",
-        "77de68",
-        "8bd795",
-        "8be57a",
-        "8effee",
-        "9deb86",
-        "ae1e71",
-        "aee655",
-        "af3e13",
-        "b958e3",
-        "bc15c7",
-        "bcac9d",
-        "d92b5f",
-        "dcaf40",
-        "e62d7f",
-        "e6c3dd",
-        "ed665f"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "reported",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "2026 Q3 Skue Sparebank.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685622&attachmentId=335697"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No explicit revenue figure stated in the excerpt."
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No EBITDA figure stated nor can it be derived from data given."
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No EBIT figure stated nor can it be derived from data given."
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 257.4,
-            "prior_year": 233.6,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 10.2,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Resultat etter skatt 30.09.2026: 257,368 thousand NOK (257.4 million) vs 30.09.2025: 233,573 thousand NOK (233.6 million) (page 11)"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": 19.37,
-            "prior_year": 20.12,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -3.7,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Resultat pr. egenkapitalbevis: 19,37 NOK/share current vs 20,12 NOK/share prior year (page 11)"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "NOK million",
-            "current": 378.3,
-            "prior_year": 803.3,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -52.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Netto kontantstrøm fra operasjonelle aktiviteter 30.09.2026: 378,292 thousand NOK (378.3 million) vs 30.09.2025: 803,260 thousand NOK (803.3 million) (page 15)"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 473.7,
-            "prior_year": 404.6,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 17.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Netto renteinntekter 30.09.2026: 473,691 thousand NOK (473.7 million) vs 30.09.2025: 404,644 thousand NOK (404.6 million) (page 11)"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "Skue Sparebank har inngått intensjonsavtale med Romerike Sparebank om mulig fusjon, som vil styrke bankens posisjon i et voksende markedsområde. Norges Bank har økt styringsrenten til 4,5 %, og forventer at den vil ligge på dette nivået en stund før den avtar. Prisveksten forventes å komme ned til 2 % innen 2029, mens økonomisk aktivitet dempes noe og arbeidsledigheten øker moderat. Boligmarkedet ventes stabilisere seg med lavere boligprisvekst i 2026, men bedret kjøpekraft understøtter etterspørselen. Banken opplever god utlånsvekst i 2026 og ser fortsatt betydelig vekstpotensial i markedsområder med relativt lave markedsandeler.",
-          "change": "Ny fusjonsavtale med Romerike Sparebank introdusert (ingen slik fusjon nevnt i forrige kvartal). Norges Banks styringsrente: økt fra 4,25 % til 4,5 % (tidligere holdt uendret på 4,25 %). Finanspolitisk utsikt noe mer restriktiv med rente opp en periode (tidligere mer usikker/rentestabil). Boligprisveksten ventes lavere i 2026 (vedvarende svak boligbygging tidligere). Utlånsvekst fortsatt god, men vekstpotensial fremheves spesielt i markedsområder med lav markedsandel (forrige kvartal fastslo god konkurransekraft og vekstpotensial, men ny fusjon kan endre dette).",
-          "trend": "Guidingen viser en økende fokus på vekst gjennom fusjoner, fra fullført fusjon med Tinn Sparebank til ny mulig fusjon med Romerike Sparebank. Renteutsiktene har blitt mer restriktive med renteøkning fra Norges Bank, mens banken opprettholder en positiv vurdering av egen konkurransekraft og vekstpotensial. Tidligere forventninger om lav boligbygging og moderat økonomisk vekst videreføres, nå med en noe mer konkret renteøkning og prisvekstprognose. Banken har levert på tidligere vekst- og fusjonsmål og bygger videre på disse i denne rapporten.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1"
-          ],
-          "points": [
-            {
-              "topic": "Fusjonsplaner",
-              "statement": "Inngått intensjonsavtale om fusjon med Romerike Sparebank som vil styrke lokal og regional markedsposisjon.",
-              "evidence": "\"I september ble det inngått intensjonsavtale med Romerike Sparebank om en mulig sammenslåing\"",
-              "page": "Utsiktene fremover"
-            },
-            {
-              "topic": "Rente og økonomisk utsikt",
-              "statement": "Styringsrenten økt til 4,5 %, forventes å ligge på dette nivået en periode før den faller. Prisvekst avtar mot 2 % i 2029, med moderat nedgang i økonomisk aktivitet og noe økt arbeidsledighet.",
-              "evidence": "\"I september satte Norges Bank styringsrenten opp fra 4,25 til 4,50 prosent... prisveksten ventes å avta fra neste år... aktiviteten i norsk økonomi å dempes noe videre og arbeidsledigheten å øke mode",
-              "page": "Utsiktene fremover"
-            },
-            {
-              "topic": "Boligmarked og etterspørsel",
-              "statement": "Boligprisveksten ventes lavere i 2026, mens boligetterspørselen støttes av økt kjøpekraft, og boliginvesteringene forventes å ta seg moderat opp fra 2027.",
-              "evidence": "\"Boligprisveksten har avtatt... forventes å bli lavere i 2026... Bedret kjøpekraft i husholdningene understøtter boligetterspørselen... boliginvesteringene vil ta seg moderat opp fra 2027.\"",
-              "page": "Utsiktene fremover"
-            },
-            {
-              "topic": "Utlånsvekst og markedsposisjon",
-              "statement": "Banken har hatt god utlånsvekst i 2026 og anser konkurransekraften som god med fortsatt stort vekstpotensial i områder med lave markedsandeler.",
-              "evidence": "\"Banken har hatt god utlånsvekst så langt i 2026... vurderes det fortsatt å være et betydelig potensial i deler av bankens markedsområde med relativt lave markedsandeler.\"",
-              "page": "Utsiktene fremover"
-            }
-          ]
-        }
-      }
     }
   ],
   "indirect": [
@@ -13178,19 +13006,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T10:40:00+00:00",
+  "last_checked_at": "2026-11-09T10:50:00+00:00",
   "monitor_stats": {
-    "fetched": 38,
-    "recent": 38,
+    "fetched": 39,
+    "recent": 39,
     "already_seen": 37,
     "eligible": 1,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-09T10:00:03.110000+00:00",
+    "source_latest_at": "2026-11-09T10:40:28.337000+00:00",
     "indirect": 0
   }
 }
