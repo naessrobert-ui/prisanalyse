@@ -2,8 +2,118 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T13:20:00+00:00",
+  "generated_at": "2026-11-09T13:30:00+00:00",
   "items": [
+    {
+      "id": "686034",
+      "market": "XOSL",
+      "ticker": "NB",
+      "issuer": "Norges Bank",
+      "title": "Ad hoc buyback auction of government bond NGB 02/2027",
+      "headline": "Norges Bank øker kjøp i statsobligasjon NGB 02/2027 11. november",
+      "lead": "Norges Bank gjennomfører ekstra kjøpsauksjon av statsobligasjon NGB 02/2027 med frist for innlevering 11. november kl. 10.00, noe som kan påvirke likviditet og renter i obligasjonsmarkedet.",
+      "published_at": "2026-11-09T13:30:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/686034",
+      "summary": "Norges Bank gjennomfører ekstra kjøpsauksjon av statsobligasjon NGB 02/2027 med frist for innlevering 11. november kl. 10.00, noe som kan påvirke likviditet og renter i obligasjonsmarkedet.",
+      "reason": "Auksjonen er et verktøy for likviditetsstyring og påvirker kortsiktig obligasjonsmarked, men gir ingen direkte signaler om endringer i rentepolitikk eller økonomisk utsikt. Investorer bør følge med på eventuelle pris- og rentebevegelser rundt auksjonstidspunktet.",
+      "score": 30,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "company_form": "ikke ASA",
+      "score_ai": 45,
+      "number_keys": [
+        "0ade7c",
+        "17ba07",
+        "28a5c2",
+        "64e0cf",
+        "87ce1e",
+        "aee655",
+        "b1d578",
+        "bcac9d",
+        "bd307a",
+        "eaef52",
+        "f1abd6",
+        "fb9654"
+      ]
+    },
+    {
+      "id": "686033",
+      "market": "XOSL",
+      "ticker": "MORG",
+      "issuer": "Sparebanken Møre",
+      "title": "Sparebanken Møre: Successful issuance of Green NOK Senior Non-Preferred bonds",
+      "headline": "Sparebanken Møre utsteder 1 mrd. NOK i grønn seniorobligasjon med 3 mnd NIBOR +87 bp",
+      "lead": "Sparebanken Møre har utstedt en grønn senior usikret obligasjon på 1 mrd. NOK med 5 års løpetid og en rente på 3 måneders NIBOR pluss 87 basispunkter. Obligasjonen noteres på Euronext ABM, noe som styrker bankens kapitalstruktur.",
+      "published_at": "2026-11-09T13:26:36.087000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686033",
+      "summary": "Sparebanken Møre har utstedt en grønn senior usikret obligasjon på 1 mrd. NOK med 5 års løpetid og en rente på 3 måneders NIBOR pluss 87 basispunkter. Obligasjonen noteres på Euronext ABM, noe som styrker bankens kapitalstruktur.",
+      "reason": "Utstedelsen styrker MORG sin finansiering og grønne profil, noe som kan forbedre investorers oppfatning. Rentenivået gir indikasjon på markedsforhold, men langtidseffekter på kredittrisiko og likviditet bør følges videre.",
+      "score": 70,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "DNB",
+          "direction": "uklar",
+          "reason": "Konkurrent som kan påvirkes av økt konkurranse om investorer i grønn obligasjonsmarked"
+        },
+        {
+          "ticker": "SB1NO",
+          "direction": "uklar",
+          "reason": "Banksektor med potensiell interesse for grønne finansieringsinstrumenter"
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 65,
+      "number_keys": [
+        "0716d9",
+        "0ade7c",
+        "356a19",
+        "37e8ba",
+        "530e85",
+        "77de68",
+        "827bfc",
+        "ac3478",
+        "aee655",
+        "c77d41",
+        "e62d7f"
+      ],
+      "language_versions": [
+        {
+          "id": "686033",
+          "title": "Sparebanken Møre: Successful issuance of Green NOK Senior Non-Preferred bonds",
+          "url": "https://newsweb.oslobors.no/message/686033",
+          "published_at": "2026-11-09T13:26:36.087000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "686032",
+          "title": "Sparebanken Møre: Vellykket utstedelse av grønt senior etterstilt obligasjonslån",
+          "url": "https://newsweb.oslobors.no/message/686032",
+          "published_at": "2026-11-09T13:26:36.079000+00:00",
+          "language": "Norsk"
+        }
+      ]
+    },
+    {
+      "id": "686031",
+      "market": "XOSL",
+      "ticker": "ENSU",
+      "issuer": "Ensurge Micropower ASA",
+      "title": "Ensurge Micropower: Invitation to Q3 2026 Presentation",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-09T13:21:55.430000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686031",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686030",
       "market": "XOSL",
@@ -1247,18 +1357,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre kunngjør tredje kvartal 2026-resultater 12. november",
-      "lead": "Questerre Energy presenterer sine Q3 2026-resultater 12. november, med webcast og spørsmål etterpå 13. november. Ingen finansiell informasjon er tilgjengelig før disse datoene.",
+      "headline": "Questerre kunngjør Q3 2026-resultater 12. november – webcast 13. november",
+      "lead": "Questerre vil offentliggjøre sitt tredjekvartalsresultat for 2026 12. november, med påfølgende webcast og Q&A 13. november. Det foreligger foreløpig ingen nøkkeltall eller resultater i forkant.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy presenterer sine Q3 2026-resultater 12. november, med webcast og spørsmål etterpå 13. november. Ingen finansiell informasjon er tilgjengelig før disse datoene.",
-      "reason": "Informasjonen indikerer kun fremtidig rapportering uten tall eller indikasjoner på resultatets innhold. Aksjonærer må vente på detaljene før analyse.",
-      "score": 5,
+      "summary": "Questerre vil offentliggjøre sitt tredjekvartalsresultat for 2026 12. november, med påfølgende webcast og Q&A 13. november. Det foreligger foreløpig ingen nøkkeltall eller resultater i forkant.",
+      "reason": "Informasjonen angår kun tid og dato for kvartalsrapportering og webcast. Ingen resultater eller økonomiske detaljer foreligger ennå, og ingen umiddelbare markedspåvirkninger kan vurderes.",
+      "score": 15,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 20,
+      "score_ai": 30,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -12360,202 +12470,6 @@
           ]
         }
       }
-    },
-    {
-      "id": "685644",
-      "market": "XOSL",
-      "ticker": "KCC",
-      "issuer": "Klaveness Combination Carriers ASA",
-      "title": "KCC: CLEANBU vessel fixed on three-year time charter",
-      "headline": "KCC sikrer treårs tidscerte på CLEANBU-skip med historisk høy rate",
-      "lead": "Klaveness Combination Carriers inngår treårig tidscerte for CLEANBU-skip, med høyeste gjennomsnittsrente noensinne for skipstypen. Frontlastet rate gir størst inntjening i første år.",
-      "published_at": "2026-11-04T19:02:03.070000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685644",
-      "summary": "Klaveness Combination Carriers inngår treårig tidscerte for CLEANBU-skip, med høyeste gjennomsnittsrente noensinne for skipstypen. Frontlastet rate gir størst inntjening i første år.",
-      "reason": "Langsiktig tidscerte på konkurransedyktige vilkår reduserer inntjeningsrisiko og sikrer stabil kontantstrøm. Viktig å følge utvikling i tankmarkedet etter frontlastede rater avtales.",
-      "score": 65,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "number_keys": [
-        "17ba07",
-        "17bcf7",
-        "1b6453",
-        "77de68",
-        "972a67",
-        "a78501",
-        "aee655",
-        "d0823b",
-        "da4b92",
-        "e14028"
-      ]
-    },
-    {
-      "id": "685642",
-      "market": "XOSL",
-      "ticker": "ODF",
-      "issuer": "Odfjell SE",
-      "title": "Odfjell SE 3Q26: Et solid kvartal",
-      "headline": "Odfjell leverer USD 40 mill. nettoresultat i et volatilt 3Q26",
-      "lead": "Odfjell oppnådde USD 40 millioner i nettoresultat i tredje kvartal 2026, ned fra 54 millioner i forrige kvartal, drevet av svakere fraktrater og fortsatt markedsuro. Levering av tre nybygg styrker flåten.",
-      "published_at": "2026-11-04T19:00:35.968000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685642",
-      "summary": "Odfjell oppnådde USD 40 millioner i nettoresultat i tredje kvartal 2026, ned fra 54 millioner i forrige kvartal, drevet av svakere fraktrater og fortsatt markedsuro. Levering av tre nybygg styrker flåten.",
-      "reason": "Resultatet viser en nedgang fra forrige kvartal og reflekterer svakere spotmarkeder, men selskapet opprettholder sterke inntekter og har utvidet flåten med tre nye skip. Aksjonærer bør følge utviklingen i underliggende markedsvolumer og nettoresultat framover, særlig med forventet svakere 4Q26.",
-      "score": 80,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "FRO",
-          "direction": "negativ",
-          "reason": "Konkurrent i tankshipping kan oppleve lignende markedspress og potensielt lavere fraktrater."
-        },
-        {
-          "ticker": "HAFNI",
-          "direction": "negativ",
-          "reason": "Markedssvikt i sjøtransport kan også påvirke Hafnia negativt gjennom lavere inntekter."
-        }
-      ],
-      "importance": "mellom",
-      "score_ai": 75,
-      "language_versions": [
-        {
-          "id": "685643",
-          "title": "Odfjell SE 3Q26: Solid performance",
-          "url": "https://newsweb.oslobors.no/message/685643",
-          "published_at": "2026-11-04T19:00:35.968000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "685642",
-          "title": "Odfjell SE 3Q26: Et solid kvartal",
-          "url": "https://newsweb.oslobors.no/message/685642",
-          "published_at": "2026-11-04T19:00:35.878000+00:00",
-          "language": "Norsk"
-        }
-      ],
-      "attachment_key": "8f45451f0194e929",
-      "number_keys": [
-        "0286dd",
-        "12c6fc",
-        "17ba07",
-        "19a448",
-        "1b6453",
-        "3d123a",
-        "4b581c",
-        "4eabcb",
-        "54ceb9",
-        "558442",
-        "5a5b0f",
-        "752ae7",
-        "77de68",
-        "798f86",
-        "7b5200",
-        "80e28a",
-        "887309",
-        "8c93ce",
-        "91032a",
-        "9e6a55",
-        "a72b20",
-        "ac3478",
-        "aee655",
-        "af3e13",
-        "b7103c",
-        "da4b92",
-        "e33cc2",
-        "e5de69",
-        "f1abd6",
-        "fb9654"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "reported",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Odfjell SE 3Q26 Report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685643&attachmentId=335776"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "USD million",
-            "current": 192.0,
-            "prior_year": 173.3,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 10.8,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 2: Time charter earnings 3Q26 192.1, 3Q25 173.3"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "USD million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Not reported explicitly in excerpt."
-          }
-        ],
-        "outlook": {
-          "status": "not_found",
-          "summary": "",
-          "change": "",
-          "trend": "",
-          "compared_periods": [],
-          "points": []
-        }
-      }
-    },
-    {
-      "id": "685641",
-      "market": "XOSL",
-      "ticker": "CDLR",
-      "issuer": "Cadeler plc",
-      "title": "CADELER A/S: REPORTING ON TRANSACTIONS IN CADELER A/S SHARES BY PERSONS DISCHARGING MANAGERIAL RESPONSIBILITIES AND PERSONS CLOSELY ASSOCIATED WITH THEM",
-      "headline": "Endring i aksjetransaksjon hos Cadeler A/S knyttet til styremedlem",
-      "lead": "Niki Invest ApS, assosiert med styremedlem Ditlev Wedell-Wedellsborg i Cadeler, har registrert en endring i aksjetransaksjon rapportert 2. november. Detaljer om transaksjonen er ikke opplyst, og betydning for selskapet er uklar.",
-      "published_at": "2026-11-04T18:54:38.230000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685641",
-      "summary": "Niki Invest ApS, assosiert med styremedlem Ditlev Wedell-Wedellsborg i Cadeler, har registrert en endring i aksjetransaksjon rapportert 2. november. Detaljer om transaksjonen er ikke opplyst, og betydning for selskapet er uklar.",
-      "reason": "Meldingen omhandlet kun en endring i tidligere rapportert aksjetransaksjon fra tilknyttet styremedlem, uten informasjon om transaksjonens størrelse eller hensikt. Det gjør det vanskelig å vurdere innvirkningen på aksjonærer eller selskapets fremtid.",
-      "score": 20,
-      "skipped": false,
-      "direction": "uklar",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "CADLR",
-          "direction": "uklar",
-          "reason": "Endringen i aksjetransaksjon knyttet til styremedlem kan indikere justering i eierandeler uten klar finansiell konsekvens."
-        }
-      ],
-      "company_form": "ikke ASA",
-      "score_ai": 35,
-      "attachment_key": "cbe8b630fd71cecb",
-      "number_keys": [
-        "086c04",
-        "15e730",
-        "1b6453",
-        "39e214",
-        "98fbc4",
-        "ad1bf2",
-        "aee655",
-        "b3f0c7",
-        "b9b8f3",
-        "da4b92",
-        "f6719e",
-        "fb6443"
-      ]
     }
   ],
   "indirect": [
@@ -12699,19 +12613,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T13:20:00+00:00",
+  "last_checked_at": "2026-11-09T13:30:00+00:00",
   "monitor_stats": {
-    "fetched": 54,
-    "recent": 54,
+    "fetched": 58,
+    "recent": 58,
     "already_seen": 53,
-    "eligible": 1,
-    "filtered": 0,
-    "analyzed": 1,
+    "eligible": 3,
+    "filtered": 2,
+    "analyzed": 3,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-09T13:07:54.303000+00:00",
+    "source_latest_at": "2026-11-09T13:30:00+00:00",
     "indirect": 0
   }
 }
