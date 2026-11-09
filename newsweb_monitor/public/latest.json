@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T15:40:00+00:00",
+  "generated_at": "2026-11-09T15:50:00+00:00",
   "items": [
     {
       "id": "686047",
@@ -1886,18 +1886,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre kunngjør resultatfremleggelse for Q3 2026 12. november",
-      "lead": "Questerre Energy varsler offentliggjøring av tredje kvartalsresultater for 2026 torsdag 12. november, etterfulgt av webcast og Q&A dagen etter. Innhold og tall foreligger ikke i forkant.",
+      "headline": "Questerre kunngjør Q3-rapport og webcast 13. november",
+      "lead": "Questerre Energy offentliggjør resultater for tredje kvartal 2026 den 12. november, med påfølgende webcast og Q&A den 13. Tidsplanen gir investorer tid til analyse før sesjonsmøtet.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy varsler offentliggjøring av tredje kvartalsresultater for 2026 torsdag 12. november, etterfulgt av webcast og Q&A dagen etter. Innhold og tall foreligger ikke i forkant.",
-      "reason": "Tidspunkt for resultater er kun annonsert, ingen økonomiske detaljer tilgjengelig. Aksjonærer bør følge webcast for innsikt i selskapets økonomiske situasjon og fremtidsutsikter.",
-      "score": 10,
+      "summary": "Questerre Energy offentliggjør resultater for tredje kvartal 2026 den 12. november, med påfølgende webcast og Q&A den 13. Tidsplanen gir investorer tid til analyse før sesjonsmøtet.",
+      "reason": "Meldingen gir informasjon om tidspunkt for resultatfremleggelse og webcast uten å oppgi resultater eller forventninger. Viktig for investorer, men ingen ny finansiell data å vurdere.",
+      "score": 20,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 25,
+      "score_ai": 35,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -11737,37 +11737,15 @@
           "reason": "Dyrere fôr og råvarer vil redusere marginer"
         }
       ]
-    },
-    {
-      "id": "2b1b0d905c480ac8",
-      "source": "E24",
-      "title": "Kronen svekkes etter global børssmell",
-      "url": "https://e24.no/norsk-oekonomi/i/Pg6kg0/kronen-svekkes-etter-global-boerssmell?utm_medium=rss",
-      "published_at": "2026-11-06T15:47:44+00:00",
-      "analyzed_at": "2026-11-06T17:06:13+00:00",
-      "score": 70,
-      "comment": "Svekket krone mot dollar kan øke kostnader for importører og redusere verdien av utenlandske inntekter for eksportører.",
-      "affected": [
-        {
-          "ticker": "EQNR",
-          "direction": "positiv",
-          "reason": "Økt konkurransekraft i utlandet på grunn av svak krone"
-        },
-        {
-          "ticker": "YAR",
-          "direction": "negativ",
-          "reason": "Økte importkostnader på innsatsvarer dollarpriset"
-        }
-      ]
     }
   ],
-  "last_checked_at": "2026-11-09T15:40:00+00:00",
+  "last_checked_at": "2026-11-09T15:50:00+00:00",
   "monitor_stats": {
     "fetched": 69,
     "recent": 69,
-    "already_seen": 67,
+    "already_seen": 68,
     "eligible": 1,
-    "filtered": 1,
+    "filtered": 0,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
