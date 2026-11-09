@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T09:00:00+00:00",
+  "generated_at": "2026-11-09T09:10:00+00:00",
   "items": [
+    {
+      "id": "685998",
+      "market": "XOSL",
+      "ticker": "DDB",
+      "issuer": "Danske Bank A/S",
+      "title": "Danske Bank share buy-back programme: transactions in week 45",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-09T09:00:03.058000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685998",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "685997",
       "market": "XOSL",
@@ -772,18 +789,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre kunngjør Q3-rapport 12. november med webcast dagen etter",
-      "lead": "Questerre Energy offentliggjør tredjekvartalsresultater for 2026 den 12. november, etterfulgt av en webcast og Q&A 13. november kl. 15:30 CET. Detaljer om resultatene er ennå ikke tilgjengelige.",
+      "headline": "Questerre kunngjør Q3-resultater 12. november uten detaljer ennå",
+      "lead": "Questerre Energy offentliggjør sine tall for tredje kvartal 2026 den 12. november, etterfulgt av webcast og Q&A 13. november. Foreløpig ingen økonomiske nøkkeltall tilgjengelig.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy offentliggjør tredjekvartalsresultater for 2026 den 12. november, etterfulgt av en webcast og Q&A 13. november kl. 15:30 CET. Detaljer om resultatene er ennå ikke tilgjengelige.",
-      "reason": "Uten tilgang til selve resultatene kan effekten på aksjonærer og marked ikke vurderes. Viktig å følge opp rapportens detaljinnhold for videre analyse.",
-      "score": 30,
+      "summary": "Questerre Energy offentliggjør sine tall for tredje kvartal 2026 den 12. november, etterfulgt av webcast og Q&A 13. november. Foreløpig ingen økonomiske nøkkeltall tilgjengelig.",
+      "reason": "Nyheten informerer kun om tidspunkt for resultatfremleggelse og webcast, uten å gi konkret informasjon om finansiell utvikling eller forventninger. Aksjonærer må vente på rapporten for å vurdere prestasjonen.",
+      "score": 15,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 45,
+      "score_ai": 30,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -13104,32 +13121,6 @@
         "aee655",
         "f83a38"
       ]
-    },
-    {
-      "id": "685617",
-      "market": "XOSL",
-      "ticker": "BNOR",
-      "issuer": "BlueNord ASA",
-      "title": "Shareholding Disclosures on BLUENORD ASA",
-      "headline": "Ny aksjonæroversikt fra BlueNord ASA gir uklar investorindikasjon",
-      "lead": "BlueNord ASA publiserer ferske eierandeler uten konkrete tall eller endringer, noe som gir begrenset innsikt i aksjonærstrukturen per i dag.",
-      "published_at": "2026-11-04T15:09:41.765000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685617",
-      "summary": "BlueNord ASA publiserer ferske eierandeler uten konkrete tall eller endringer, noe som gir begrenset innsikt i aksjonærstrukturen per i dag.",
-      "reason": "Meldingen mangler detaljert informasjon om endringer eller størrelse på eierandeler, og gir dermed liten konkret verdi for investorer. Viktig å følge opp eventuelle endringer ved neste oppdatering.",
-      "score": 35,
-      "skipped": false,
-      "direction": "uklar",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "EQNR",
-          "direction": "uklar",
-          "reason": "Som sektorkollega kan usikkerhet i eierskapet hos BlueNord påvirke markedssentimentet i olje- og gass-sektoren."
-        }
-      ],
-      "importance": "mellom",
-      "attachment_key": "a340ac55f2291d54"
     }
   ],
   "indirect": [
@@ -13251,19 +13242,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T09:00:00+00:00",
+  "last_checked_at": "2026-11-09T09:10:00+00:00",
   "monitor_stats": {
-    "fetched": 34,
-    "recent": 34,
+    "fetched": 35,
+    "recent": 35,
     "already_seen": 33,
     "eligible": 1,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-09T08:47:56.233000+00:00",
+    "source_latest_at": "2026-11-09T09:00:03.058000+00:00",
     "indirect": 0
   }
 }
