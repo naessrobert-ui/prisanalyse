@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T08:30:00+00:00",
+  "generated_at": "2026-11-09T08:40:00+00:00",
   "items": [
     {
       "id": "685992",
@@ -660,12 +660,12 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre kunngjør Q3 2026-resultater 12. november – webcast dagen etter",
-      "lead": "Questerre Energy offentliggjør sine tredje kvartalsresultater for 2026 den 12. november, med en påfølgende webcast og Q&A 13. november. Detaljer om resultatene foreligger ikke i forkant.",
+      "headline": "Questerre varsler Q3 2026-resultater med webcast 13. november",
+      "lead": "Questerre Energy legger frem sine resultater for tredje kvartal 2026 12. november, med en påfølgende webcast for investorer og analytikere. Ingen detaljer om forventede tall foreligger per nå.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy offentliggjør sine tredje kvartalsresultater for 2026 den 12. november, med en påfølgende webcast og Q&A 13. november. Detaljer om resultatene foreligger ikke i forkant.",
-      "reason": "Mangler konkrete finansielle tall og indikatorer i forkant, så nyhetsverdien er lav. Viser planlagt kommunikasjon, men gir ingen grunnlag for vurdering av selskapets utvikling.",
+      "summary": "Questerre Energy legger frem sine resultater for tredje kvartal 2026 12. november, med en påfølgende webcast for investorer og analytikere. Ingen detaljer om forventede tall foreligger per nå.",
+      "reason": "Nyheten angir kun tidspunkt for resultatfremleggelsen og webcast, uten informasjon om resultat eller forventninger. Markedet får mulighet til umiddelbart å følge med, men ingen indikasjon på resultatets kvalitet eller retning.",
       "score": 15,
       "skipped": false,
       "direction": "nøytral",
@@ -13210,6 +13210,23 @@
   ],
   "indirect": [
     {
+      "id": "c944b68679b5de8d",
+      "source": "E24",
+      "title": "Datasentre: Vil ha konsesjonsordning",
+      "url": "https://e24.no/energi-og-klima/i/3Bj0kX/datasentre-vil-ha-konsesjonsordning?utm_medium=rss",
+      "published_at": "2026-11-09T08:36:28+00:00",
+      "analyzed_at": "2026-11-09T08:40:00+00:00",
+      "score": 50,
+      "comment": "Regjeringens plan om konsesjonsordning for datasentre kan øke kostnader og begrense etableringer, påvirker datasenterrelaterte selskaper og energibehov.",
+      "affected": [
+        {
+          "ticker": "NOD",
+          "direction": "negativ",
+          "reason": "Potensielt høyere kostnader og restriksjoner på datasentervirksomhet."
+        }
+      ]
+    },
+    {
       "id": "407449d2f53ce729",
       "source": "E24",
       "title": "Statnett: Midlertidig stans i kraft til datasentre",
@@ -13310,7 +13327,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T08:30:00+00:00",
+  "last_checked_at": "2026-11-09T08:40:00+00:00",
   "monitor_stats": {
     "fetched": 30,
     "recent": 30,
@@ -13323,6 +13340,6 @@
     "capped": 0,
     "recovered_unpublished": 1,
     "source_latest_at": "2026-11-09T08:10:58.098000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
