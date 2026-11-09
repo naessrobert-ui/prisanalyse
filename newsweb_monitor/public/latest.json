@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T12:00:00+00:00",
+  "generated_at": "2026-11-09T12:10:00+00:00",
   "items": [
+    {
+      "id": "686024",
+      "market": "XOSL",
+      "ticker": "REACH",
+      "issuer": "Reach Subsea ASA",
+      "title": "Reach Subsea ASA - Invitation to presentation of the third quarter results 2026",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-09T12:05:56.272000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686024",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686021",
       "market": "XOSL",
@@ -1117,12 +1134,12 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre kunngjør Q3-rapport 12. november – webcast 13. november",
-      "lead": "Questerre Energy legger frem tredje kvartalsresultat for 2026 12. november. Selskapet inviterer til webcast med Q&A 13. november kl. 15:30 CET for investorer og markedet.",
+      "headline": "Questerre kunngjør Q3-2026 resultat 12. november – webcast 13. november",
+      "lead": "Questerre Energy offentliggjør tredje kvartalsresultat for 2026 den 12. november, med påfølgende webcast presentasjon og Q&A 13. november kl. 15:30 CET. Detaljer om innhold og tall er foreløpig ikke kjent.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy legger frem tredje kvartalsresultat for 2026 12. november. Selskapet inviterer til webcast med Q&A 13. november kl. 15:30 CET for investorer og markedet.",
-      "reason": "Meldingen gir kun informasjon om tidspunkt for resultater og webcast, uten økonomiske tall eller prognoser. Ingen grunnlag for vurdering av aksjepåvirkning eller finansiell utvikling.",
+      "summary": "Questerre Energy offentliggjør tredje kvartalsresultat for 2026 den 12. november, med påfølgende webcast presentasjon og Q&A 13. november kl. 15:30 CET. Detaljer om innhold og tall er foreløpig ikke kjent.",
+      "reason": "Meldingen kunngjør tidspunkt for resultatfremleggelse uten detaljer om prestasjon eller forventninger. Investorer må vente på tall før videre vurdering.",
       "score": 15,
       "skipped": false,
       "direction": "nøytral",
@@ -12576,72 +12593,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685635",
-      "market": "XOSL",
-      "ticker": "ENH",
-      "issuer": "SED Energy Holdings Plc",
-      "title": "Energy Holdings: Key information relating to the USD 25.0 million cash distribution for Q2 2026",
-      "headline": "SED Energy utbetaler 25 millioner USD i kapitalnedbetaling for Q2",
-      "lead": "Energy Holdings vil returnere 25 millioner USD som kapitalnedbetaling for andre kvartal 2026, med et estimert utbytte på 0,32 NOK per aksje, utbetalt i desember.",
-      "published_at": "2026-11-04T17:15:04.962000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685635",
-      "summary": "Energy Holdings vil returnere 25 millioner USD som kapitalnedbetaling for andre kvartal 2026, med et estimert utbytte på 0,32 NOK per aksje, utbetalt i desember.",
-      "reason": "Utbetalingen er en tilbakeføring av innbetalt kapital, ikke et resultatbasert utbytte, og påvirker ikke selskapets inntjening direkte. Aksjonærer bør følge opp endelig NOK-beløp og vurdering av selskapets kapitalstruktur.",
-      "score": 50,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 65,
-      "attachment_key": "79460ace15658850",
-      "number_keys": [
-        "1757a3",
-        "17ba07",
-        "1b6453",
-        "7b5200",
-        "887309",
-        "902ba3",
-        "a3c95e",
-        "ac3478",
-        "aee655",
-        "ba30fd",
-        "fe5dbb"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q2",
-        "period_source": "reported",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Energy Holdings- Key information relating to the USD 25.0 million cash distribution for Q2 2026.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685635&attachmentId=335765"
-        },
-        "metrics": [
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": 0.32,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 1 - Estimated distribution NOK 0.32 per share for Q2 2026"
-          }
-        ],
-        "outlook": {
-          "status": "not_found",
-          "summary": "",
-          "change": "",
-          "trend": "",
-          "compared_periods": [],
-          "points": []
-        }
-      }
     }
   ],
   "indirect": [
@@ -12785,19 +12736,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T12:00:00+00:00",
+  "last_checked_at": "2026-11-09T12:10:00+00:00",
   "monitor_stats": {
-    "fetched": 50,
-    "recent": 50,
+    "fetched": 51,
+    "recent": 51,
     "already_seen": 49,
     "eligible": 1,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-09T11:37:31.936000+00:00",
+    "source_latest_at": "2026-11-09T12:05:56.272000+00:00",
     "indirect": 0
   }
 }
