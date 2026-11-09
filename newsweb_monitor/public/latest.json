@@ -2,8 +2,46 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T06:10:00+00:00",
+  "generated_at": "2026-11-09T06:20:00+00:00",
   "items": [
+    {
+      "id": "685957",
+      "market": "XOSL",
+      "ticker": "DOFG",
+      "issuer": "DOF Group ASA",
+      "title": "DOF Group ASA - Contract extension for Skandi Mariner",
+      "headline": "DOF sikrer kontraktforlengelse for Skandi Mariner til Q3 2028",
+      "lead": "DOF Group har forlenga kontrakten for AHTS-skipet Skandi Mariner til Q3 2028, verdsatt mellom 15 og 25 millioner USD, noe som gir forlenget inntektsstrøm for flåtekapasiteten.",
+      "published_at": "2026-11-09T06:17:03.246000+00:00",
+      "url": "https://newsweb.oslobors.no/message/685957",
+      "summary": "DOF Group har forlenga kontrakten for AHTS-skipet Skandi Mariner til Q3 2028, verdsatt mellom 15 og 25 millioner USD, noe som gir forlenget inntektsstrøm for flåtekapasiteten.",
+      "reason": "Kontraktsforlengelsen gir forutsigbar inntektsstrøm og reduserer markedseksponering i en usikker offshore-sektor. Viktig å følge opp kontraktsvilkår og muligheter for ytterligere forlengelser.",
+      "score": 70,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "SOFF",
+          "direction": "uklar",
+          "reason": "Konkurrent i samme segment; kan påvirkes av endringer i markedspris og kontraktsmønster."
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 65,
+      "number_keys": [
+        "215bb4",
+        "431f6b",
+        "64e0cf",
+        "77de68",
+        "7d7116",
+        "827bfc",
+        "c66c65",
+        "da4b92",
+        "f1abd6",
+        "f6e112"
+      ]
+    },
     {
       "id": "685955",
       "market": "XOSL",
@@ -13813,23 +13851,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685561",
-      "market": "XOSL",
-      "ticker": "HELG",
-      "issuer": "SpareBank 1 Helgeland",
-      "title": "Iverksettelse av tilbakekjøpsprogram for egne egenkapitalbevis",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-04T07:55:11.538000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685561",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -13912,19 +13933,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T06:10:00+00:00",
+  "last_checked_at": "2026-11-09T06:20:00+00:00",
   "monitor_stats": {
-    "fetched": 4,
-    "recent": 4,
-    "already_seen": 3,
-    "eligible": 0,
-    "filtered": 1,
-    "analyzed": 0,
+    "fetched": 5,
+    "recent": 5,
+    "already_seen": 4,
+    "eligible": 1,
+    "filtered": 0,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-09T06:00:06.747000+00:00",
+    "source_latest_at": "2026-11-09T06:17:03.246000+00:00",
     "indirect": 0
   }
 }
