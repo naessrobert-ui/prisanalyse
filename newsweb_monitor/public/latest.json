@@ -2,8 +2,28 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T17:20:00+00:00",
+  "generated_at": "2026-11-09T17:30:00+00:00",
   "items": [
+    {
+      "id": "686052",
+      "market": "XOSL",
+      "ticker": "EQVA",
+      "issuer": "Eqva ASA",
+      "title": "EQVA ASA: Change of employee-elected board member",
+      "headline": "EQVA ASA bytter ansattvalgt styremedlem uten aksjebeholdning",
+      "lead": "Joakim Arneberg Jensen overtar rollen som ansattvalgt styremedlem i EQVA ASA etter Tomasz Wesierski. Jensen innehar ingen aksjer og er prosjektleder i selskapets datterselskap IMTAS Prosjekt AS.",
+      "published_at": "2026-11-09T17:21:13.890000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686052",
+      "summary": "Joakim Arneberg Jensen overtar rollen som ansattvalgt styremedlem i EQVA ASA etter Tomasz Wesierski. Jensen innehar ingen aksjer og er prosjektleder i selskapets datterselskap IMTAS Prosjekt AS.",
+      "reason": "Styresammensetningen endres uten at det rapporteres endringer i aksjeeierskap eller strategisk retning. For aksjonærer er dette en begrenset nyhet, men ny ledelse kan bety ulik påvirkning på bedriftskultur og beslutningsprosesser framover.",
+      "score": 30,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "number_keys": [
+        "778736"
+      ]
+    },
     {
       "id": "686051",
       "market": "XOSL",
@@ -1980,18 +2000,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre kunngjør Q3-rapport 12. november og webcast 13. november",
-      "lead": "Questerre Energy presenterer sine resultater for tredje kvartal 2026 12. november, med påfølgende webcast og Q&A 13. november. Innhold og nøkkeltall foreligger ennå ikke.",
+      "headline": "Questerre offentliggjør Q3-2026-resultater 12. november",
+      "lead": "Questerre Energy annonserer sine tall for tredje kvartal 2026 12. november, med webcast og påfølgende Q&A dagen etter. Detaljer om resultatene foreligger ikke i forkant.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy presenterer sine resultater for tredje kvartal 2026 12. november, med påfølgende webcast og Q&A 13. november. Innhold og nøkkeltall foreligger ennå ikke.",
-      "reason": "Meldingen informerer om tidspunkt for rapportering uten detaljer om resultat eller forventninger, hvilket gir begrenset grunnlag for analyse eller umiddelbar kursreaksjon.",
-      "score": 15,
+      "summary": "Questerre Energy annonserer sine tall for tredje kvartal 2026 12. november, med webcast og påfølgende Q&A dagen etter. Detaljer om resultatene foreligger ikke i forkant.",
+      "reason": "Meldingen varsler kun tidspunkt for kvartalsrapport og webcast, uten å oppgi konkrete resultater eller forventninger. Aksjonærer må vente på tall for videre vurdering.",
+      "score": 25,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 30,
+      "score_ai": 40,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -11042,23 +11062,6 @@
           ]
         }
       }
-    },
-    {
-      "id": "685668",
-      "market": "XOSL",
-      "ticker": "LIFE",
-      "issuer": "Lifecare ASA",
-      "title": "Lifecare ASA (LIFE): Invitation to Q3 2026 results presentation",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-05T06:00:23.506000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685668",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -11202,19 +11205,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T17:20:00+00:00",
+  "last_checked_at": "2026-11-09T17:30:00+00:00",
   "monitor_stats": {
-    "fetched": 73,
-    "recent": 73,
+    "fetched": 74,
+    "recent": 74,
     "already_seen": 72,
-    "eligible": 1,
+    "eligible": 2,
     "filtered": 0,
-    "analyzed": 1,
+    "analyzed": 2,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-09T16:11:31.334000+00:00",
+    "source_latest_at": "2026-11-09T17:21:13.890000+00:00",
     "indirect": 0
   }
 }
