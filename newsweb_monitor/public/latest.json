@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T19:40:00+00:00",
+  "generated_at": "2026-11-09T19:50:00+00:00",
   "items": [
     {
       "id": "686056",
@@ -2058,18 +2058,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre kunngjør Q3-resultater 12. november – webcast 13. november",
-      "lead": "Questerre Energy slipper sine tredje kvartalsresultater 12. november 2026. En webcast med presentasjon og Q&A følger 13. november, hvor investorer kan få innsikt i selskapets utvikling for perioden.",
+      "headline": "Questerre kunngjør Q3-2026-resultater 12. november uten detaljer",
+      "lead": "Questerre Energy varsler publisering av tredje kvartals resultater for 2026 den 12. november, med etterfølgende webcast og Q&A 13. november. Resultattall og nøkkelinformasjon foreligger foreløpig ikke.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy slipper sine tredje kvartalsresultater 12. november 2026. En webcast med presentasjon og Q&A følger 13. november, hvor investorer kan få innsikt i selskapets utvikling for perioden.",
-      "reason": "Meldingen gir dato for rapport og webcast, men inneholder ingen finansiell informasjon eller indikasjoner på resultatets størrelse eller utvikling. For investorer er det viktig å følge opp under presentasjonen for å vurdere selskapets framtidsutsikter.",
-      "score": 25,
+      "summary": "Questerre Energy varsler publisering av tredje kvartals resultater for 2026 den 12. november, med etterfølgende webcast og Q&A 13. november. Resultattall og nøkkelinformasjon foreligger foreløpig ikke.",
+      "reason": "Det foreligger ingen tall eller vurderinger i nyheten, kun annonsering av tidspunkt for rapportering og presentasjon. Viktig for aksjonærer å følge med på videre informasjon ved publisering.",
+      "score": 30,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 40,
+      "score_ai": 45,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -10716,6 +10716,33 @@
   ],
   "indirect": [
     {
+      "id": "66963dd00970a849",
+      "source": "E24",
+      "title": "Brått fall i oljeprisen",
+      "url": "https://e24.no/boers-og-finans/i/0B5rAG/braatt-fall-i-oljeprisen?utm_medium=rss",
+      "published_at": "2026-11-09T19:45:58+00:00",
+      "analyzed_at": "2026-11-09T19:50:00+00:00",
+      "score": 75,
+      "comment": "Sterkt fall i oljeprisen på over 6 dollar reduserer inntjeningsmulighetene for olje- og energiselskaper, påvirker produksjonsmarginer og investeringer negativt.",
+      "affected": [
+        {
+          "ticker": "EQNR",
+          "direction": "negativ",
+          "reason": "Redusert oljepris svekker inntekter og marginer."
+        },
+        {
+          "ticker": "PHO",
+          "direction": "negativ",
+          "reason": "Lavere oljepris svekker inntjening fra produksjonen."
+        },
+        {
+          "ticker": "AKRBP",
+          "direction": "negativ",
+          "reason": "Fall i oljepris reduserer verdien av oljeaktiva."
+        }
+      ]
+    },
+    {
       "id": "06c452c956304295",
       "source": "E24",
       "title": "Prisveksten: – Norges Bank er bekymret",
@@ -10855,19 +10882,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T19:40:00+00:00",
+  "last_checked_at": "2026-11-09T19:50:00+00:00",
   "monitor_stats": {
     "fetched": 76,
     "recent": 76,
-    "already_seen": 74,
-    "eligible": 2,
+    "already_seen": 75,
+    "eligible": 1,
     "filtered": 0,
-    "analyzed": 2,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
     "source_latest_at": "2026-11-09T19:30:32.641000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
