@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T08:50:00+00:00",
+  "generated_at": "2026-11-09T09:00:00+00:00",
   "items": [
     {
       "id": "685997",
@@ -90,15 +90,6 @@
       ],
       "importance": "mellom",
       "score_ai": 65,
-      "number_keys": [
-        "0ade7c",
-        "356a19",
-        "37e8ba",
-        "530e85",
-        "827bfc",
-        "ac3478",
-        "aee655"
-      ],
       "language_versions": [
         {
           "id": "685995",
@@ -114,6 +105,15 @@
           "published_at": "2026-11-09T08:46:17.339000+00:00",
           "language": "Engelsk"
         }
+      ],
+      "number_keys": [
+        "0ade7c",
+        "356a19",
+        "37e8ba",
+        "530e85",
+        "827bfc",
+        "ac3478",
+        "aee655"
       ]
     },
     {
@@ -772,15 +772,15 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre kunngjør Q3 2026-resultater 12. november uten detaljer",
-      "lead": "Questerre Energy offentliggjør sine resultater for tredje kvartal 2026 den 12. november, med påfølgende webcast den 13. november. Det foreligger foreløpig ingen tall eller estimater i meldingen.",
+      "headline": "Questerre kunngjør Q3-rapport 12. november med webcast dagen etter",
+      "lead": "Questerre Energy offentliggjør tredjekvartalsresultater for 2026 den 12. november, etterfulgt av en webcast og Q&A 13. november kl. 15:30 CET. Detaljer om resultatene er ennå ikke tilgjengelige.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy offentliggjør sine resultater for tredje kvartal 2026 den 12. november, med påfølgende webcast den 13. november. Det foreligger foreløpig ingen tall eller estimater i meldingen.",
-      "reason": "Meldingen kun informerer om tidspunkt for kvartalspresentasjon uten å gi økonomiske nøkkeltall, guiding eller annen informasjon som påvirker vurdering av selskapets utvikling eller aksjeverdi.",
+      "summary": "Questerre Energy offentliggjør tredjekvartalsresultater for 2026 den 12. november, etterfulgt av en webcast og Q&A 13. november kl. 15:30 CET. Detaljer om resultatene er ennå ikke tilgjengelige.",
+      "reason": "Uten tilgang til selve resultatene kan effekten på aksjonærer og marked ikke vurderes. Viktig å følge opp rapportens detaljinnhold for videre analyse.",
       "score": 30,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "uklar",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
       "score_ai": 45,
@@ -13251,14 +13251,14 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T08:50:00+00:00",
+  "last_checked_at": "2026-11-09T09:00:00+00:00",
   "monitor_stats": {
     "fetched": 34,
     "recent": 34,
-    "already_seen": 29,
-    "eligible": 3,
-    "filtered": 2,
-    "analyzed": 3,
+    "already_seen": 33,
+    "eligible": 1,
+    "filtered": 0,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
