@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T10:00:00+00:00",
+  "generated_at": "2026-11-09T10:10:00+00:00",
   "items": [
+    {
+      "id": "686002",
+      "market": "XOSL",
+      "ticker": "IPC",
+      "issuer": "International Petroleum Corporation",
+      "title": "International Petroleum Corporation Announces Results of  Normal Course Issuer Bid",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-09T10:00:03.110000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686002",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686001",
       "market": "XOSL",
@@ -838,12 +855,12 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre legger fram Q3 2026-resultater 12. november – webcast kommer",
-      "lead": "Questerre Energy offentliggjør tredje kvartalsresultater for 2026 torsdag 12. november. Webcast med presentasjon og spørsmål planlegges 13. november kl. 15:30 CET. Ingen økonomiske detaljer foreligger ennå.",
+      "headline": "Questerre legger fram Q3-resultater 12. november – webcast 13. november",
+      "lead": "Questerre Energy offentliggjør sine tall for tredje kvartal 2026 torsdag 12. november, med etterfølgende webcast og Q&A dagen etter. Detaljer om innhold og resultater er foreløpig ikke kjent.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy offentliggjør tredje kvartalsresultater for 2026 torsdag 12. november. Webcast med presentasjon og spørsmål planlegges 13. november kl. 15:30 CET. Ingen økonomiske detaljer foreligger ennå.",
-      "reason": "Meldingen informerer om tidspunkt for kommende resultatfremleggelse uten å gi detaljer om økonomiske resultater eller forventninger. For investorer er det ventet utvikling i selskapets drift og finansielle stilling i rapporten.",
+      "summary": "Questerre Energy offentliggjør sine tall for tredje kvartal 2026 torsdag 12. november, med etterfølgende webcast og Q&A dagen etter. Detaljer om innhold og resultater er foreløpig ikke kjent.",
+      "reason": "Uten detaljer om resultatene er det ikke mulig å vurdere effekten for aksjonærene. Vi må avvente rapporten for å analysere driftsmessige og finansielle utslag.",
       "score": 5,
       "skipped": false,
       "direction": "nøytral",
@@ -13040,34 +13057,6 @@
           ]
         }
       }
-    },
-    {
-      "id": "685621",
-      "market": "XOSL",
-      "ticker": "PSHIP",
-      "issuer": "Performance Shipping Inc.",
-      "title": "Performance Shipping Inc. repurchase and cancellation of share purchase warrants",
-      "headline": "Performance Shipping kjøper tilbake og kansellerer 253.500 tegningsretter",
-      "lead": "Performance Shipping Inc. har inngått avtale om tilbakekjøp av 253.500 tegningsretter til kurs 0,60 USD for å oppfylle finansielle forpliktelser under lån og obligasjonsavtaler.",
-      "published_at": "2026-11-04T15:25:33.876000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685621",
-      "summary": "Performance Shipping Inc. har inngått avtale om tilbakekjøp av 253.500 tegningsretter til kurs 0,60 USD for å oppfylle finansielle forpliktelser under lån og obligasjonsavtaler.",
-      "reason": "Tilbakekjøpet reduserer potensiell fremtidig aksjeutvanning og styrker selskapets finansielle posisjon, men gir ingen direkte inntjeningsendring. Bør følge utvikling i finansielle covenants og kapitalstruktur.",
-      "score": 45,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 60,
-      "attachment_key": "32acb0e6ad017cc5",
-      "number_keys": [
-        "445cd2",
-        "67baf4",
-        "77de68",
-        "dd5297",
-        "f3b3e0",
-        "fd222e"
-      ]
     }
   ],
   "indirect": [
@@ -13189,19 +13178,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T10:00:00+00:00",
+  "last_checked_at": "2026-11-09T10:10:00+00:00",
   "monitor_stats": {
-    "fetched": 37,
-    "recent": 37,
+    "fetched": 38,
+    "recent": 38,
     "already_seen": 36,
     "eligible": 1,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-09T09:42:37.757000+00:00",
+    "source_latest_at": "2026-11-09T10:00:03.110000+00:00",
     "indirect": 0
   }
 }
