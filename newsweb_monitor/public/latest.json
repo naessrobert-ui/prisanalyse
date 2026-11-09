@@ -2,8 +2,354 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-09T14:10:00+00:00",
+  "generated_at": "2026-11-09T14:20:00+00:00",
   "items": [
+    {
+      "id": "686041",
+      "market": "XOSL",
+      "ticker": "BNOR",
+      "issuer": "BlueNord ASA",
+      "title": "Société Générale : Shareholding Disclosures on BLUENORD ASA",
+      "headline": "Société Générale rapporterer aksjeandel i BlueNord ASA",
+      "lead": "Den franske banken Société Générale har meldt inn sin aksjepost i BlueNord ASA, uten oppgitt endring i eierandel. Ingen detaljer om kjøp eller salg foreligger per nå.",
+      "published_at": "2026-11-09T14:15:41.975000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686041",
+      "summary": "Den franske banken Société Générale har meldt inn sin aksjepost i BlueNord ASA, uten oppgitt endring i eierandel. Ingen detaljer om kjøp eller salg foreligger per nå.",
+      "reason": "Meldingen gir begrenset informasjon om betydningen for BlueNord; aksjonærer bør overvåke videre utvikling i eierstruktur og strategiske konsekvenser.",
+      "score": 45,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "importance": "mellom",
+      "score_ai": 40,
+      "attachment_key": "9a9633b22ad2cf32"
+    },
+    {
+      "id": "686039",
+      "market": "XOSL",
+      "ticker": "EIKB",
+      "issuer": "Eika Boligkreditt AS",
+      "title": "Eika Boligkreditt AS: Rapport for tredje kvartal 2026",
+      "headline": "Eika Boligkreditt publiserer Q3-rapport uten tall og nøkkeldetaljer",
+      "lead": "Eika Boligkreditt har lagt fram sin kvartalsrapport for tredje kvartal 2026, men rapporten mangler foreløpig konkrete finansielle nøkkeltall og kommentarer om utviklingen.",
+      "published_at": "2026-11-09T14:15:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/686039",
+      "summary": "Eika Boligkreditt har lagt fram sin kvartalsrapport for tredje kvartal 2026, men rapporten mangler foreløpig konkrete finansielle nøkkeltall og kommentarer om utviklingen.",
+      "reason": "Fraværet av tall og analyse i rapporten gjør det umulig å vurdere selskapets resultatutvikling eller finansielle situasjon. Investorer må vente på mer detaljert informasjon for å kunne fatte beslutninger.",
+      "score": 30,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "company_form": "ikke ASA",
+      "score_ai": 45,
+      "attachment_key": "57da82c84f18eac4",
+      "number_keys": [
+        "aee655"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Eika Boligkreditt AS - Rapport 3kv 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=686039&attachmentId=336115"
+        },
+        "metrics": [
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK thousand",
+            "current": 22223.0,
+            "prior_year": 22899.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -3.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 3, Resultatregnskap for 3. kvartal 2026 og 3. kvartal 2025"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK thousand",
+            "current": 91155.0,
+            "prior_year": 83528.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 9.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 3, Resultatregnskap for Jan.-sept 2026 og Jan.-sept 2025"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK thousand",
+            "current": 15131.0,
+            "prior_year": 43524.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -65.2,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 10, Resultat før skattekostnad 3.kvartal 2026 og 3.kvartal 2025"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK thousand",
+            "current": 115149.0,
+            "prior_year": 70408.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 63.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 10, Resultat før skattekostnad Jan.-sept 2026 og Jan.-sept 2025"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK thousand",
+            "current": 15692.0,
+            "prior_year": 36896.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -57.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 10, Resultat for perioden 3.kvartal 2026 og 3.kvartal 2025"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK thousand",
+            "current": 99781.0,
+            "prior_year": 65876.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 51.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 10, Resultat for perioden Jan.-sept 2026 og Jan.-sept 2025"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK thousand",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": ""
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Eika Boligkreditt rapporterer fortsatt vekst i porteføljen med netto økning i finansiering på 3,9 milliarder kroner i tredje kvartal 2026, tilsvarende en porteføljevekst på 11,4 prosent siste 12 måneder. Etterspørselen etter boliglån er om lag uendret, med en forventning om svakt fall i etterspørselen etter førstehjemslån i fjerde kvartal, mens marginene ventes å holde seg stabile. Boligprisveksten har avtatt noe, med en generell forventning om svakere boligprisutvikling enn tidligere antatt. Rentene på boliglån og finansieringskostnader økte noe i tredje kvartal, og videre moderate renteøkninger ventes i fjerde kvartal. Kredittmarginene på s",
+          "change": "Porteføljeveksten har moderat nedjustert fra 13,8 % i Q2 til 11,4 % i Q3 2026 (Q2: 13,8 %, Q3: 11,4 %). Nettofinansieringen økte noe mindre enn i foregående kvartal, fra 4,1 mrd. i Q2 til 3,9 mrd. i Q3. Etterspørselen beskrives fortsatt som om lag uendret, men med mer balansert forventning til et lite fall i førstehjemslån i Q4 (Q2: «uendret», Q3: «lite fall»). Marginene på boliglån holdes om lag uendret i både Q2 og Q3. Boligprisutviklingen justeres ned til en noe svakere trend i 2026 enn tidligere forventet. Renteforventningene har endret seg fra forventning om fortsatt rentenedgang ved inngangen til året, til nå forventning om flere rentehevinger mot slutten av 2026.",
+          "trend": "Gjennom kvartalene i 2026 har selskapet justert ned porteføljeveksten noe, fra høye 13,8 % til en fortsatt solid, men mer moderat vekst på 11,4 %. Etterspørselsforventningene har blitt noe mer forsiktige med en mulig liten nedgang i etterspørselen etter førstehjemslån i kommende kvartal, mens marginer og kredittpraksis holder seg stabile. Boligprisveksten har blitt nedjustert fra sterk vekst til moderat vekst, som reflekterer en svekket boligmarkedsutvikling senere i 2026. Renteforventningene har snudd fra forventninger om rentekutt til en mer oppadgående renteutvikling. Selskapet leverer på forventningene om stabilitet i marginer og kredittk",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Porteføljevekst og nettofinansiering",
+              "statement": "Nettofinansiering økte med 3,9 mrd. i Q3 2026, porteføljevekst siste 12 mnd. 11,4 %.",
+              "evidence": "\"Netto økning i eierbankenes finansiering på 3,9 milliarder kroner i tredje kvartal 2026... Netto porteføljevekst siste 12 måneder tilsvarer en vekst på 11,4 prosent.\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Etterspørsel og marginer på boliglån",
+              "statement": "Etterspørselen etter boliglån om lag uendret, forventning om lite fall i førstehjemslån i Q4, marginene stabile.",
+              "evidence": "\"Bankene rapporterer ... etterspørselen etter lån med pant i bolig samlet sett var om lag uendret ... i fjerde kvartal venter bankene et lite fall i etterspørselen etter førstehjemslån ... marginer og",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Boligprisutvikling",
+              "statement": "Boligprisene har steget moderat, med svakere prisvekst enn tidligere forventet for 2026.",
+              "evidence": "\"Boligprisene steg med 4,2 prosent første til og med tredje kvartal 2026 ... siste måneder ligger det an til at boligprisutviklingen i 2026 blir en god del svakere enn forventet.\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Rente- og kredittmarginforventninger",
+              "statement": "Utlånsrenter og finansieringskostnader økte noe i Q3, forventes å øke videre i Q4, kredittmarginene stabile.",
+              "evidence": "\"Utlånsrentene og finansieringskostnadene på boliglån økte noe i tredje kvartal ... venter økning også i fjerde kvartal ... kredittmarginen på lån med pant i bolig var om lag uendret i tredje kvartal.",
+              "page": "utdrag"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "686038",
+      "market": "XOSL",
+      "ticker": "EIKB",
+      "issuer": "Eika Boligkreditt AS",
+      "title": "Eika Boligkreditt AS: Report for the third quarter 2026",
+      "headline": "Eika Boligkreditt publiserer tredje kvartalsrapport 2026 uten nøkkeltall",
+      "lead": "Eika Boligkreditt har offentliggjort sin rapport for tredje kvartal 2026, men den inneholder ikke finansielle nøkkeltall eller resultater som kan belyse selskapets utvikling dette kvartalet.",
+      "published_at": "2026-11-09T14:15:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/686038",
+      "summary": "Eika Boligkreditt har offentliggjort sin rapport for tredje kvartal 2026, men den inneholder ikke finansielle nøkkeltall eller resultater som kan belyse selskapets utvikling dette kvartalet.",
+      "reason": "Fraværet av resultat- og nøkkeltall gjør det umulig å vurdere kvartalets prestasjon relativt til tidligere perioder eller forventninger. Investorer må vente på mer detaljerte opplysninger for å analysere trender og finansiell helse.",
+      "score": 15,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "company_form": "ikke ASA",
+      "score_ai": 30,
+      "attachment_key": "31fb6755594cb4ae",
+      "number_keys": [
+        "aee655"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Eika Boligkreditt AS - Report 3Q 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=686038&attachmentId=336114"
+        },
+        "metrics": [
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK thousand",
+            "current": 22223.0,
+            "prior_year": 22899.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -3.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 3 Income statement: Net interest income 3rd quarter 2026: 22,223; 3rd quarter 2025: 22,899; the numbers are in NOK thousand equivalents"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK thousand",
+            "current": 91155.0,
+            "prior_year": 83528.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 9.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 3 Income statement: Net interest income Jan-Sept 2026: 91,155; Jan-Sept 2025: 83,528; NOK thousand"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK thousand",
+            "current": 22223.0,
+            "prior_year": 22899.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -3.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 10 Statement of comprehensive income: Net interest income 3Q 2026: 22,223; 3Q 2025: 22,899"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK thousand",
+            "current": 91155.0,
+            "prior_year": 83528.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 9.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 10 Statement of comprehensive income: Net interest income Jan-Sept 2026: 91,155; Jan-Sept 2025: 83,528"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK thousand",
+            "current": 22223.0,
+            "prior_year": 22899.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -3.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 3 Profit before tax and net interest income figures"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK thousand",
+            "current": 15131.0,
+            "prior_year": 43524.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -65.2,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 3 and 10 Profit before tax 3rd quarter 2026: 15,131; 3rd quarter 2025: 43,524"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK thousand",
+            "current": 115149.0,
+            "prior_year": 70408.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 63.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 3 and 10 Profit before tax Jan-Sept 2026: 115,149; Jan-Sept 2025: 70,408"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Eika Boligkreditt forventer en moderat porteføljevekst med nettofinansiering økt med 3,9 mrd. i Q3 2026 og 11,4 % vekst siste 12 måneder. Etterspørselen etter boliglån for førstehjemskjøpere ventes å falle noe i Q4, mens samlet etterspørsel og marginer forventes stabile. Boligprisveksten i 2026 ser ut til å bli svakere enn tidligere anslått. Markedet for dekkede obligasjoner er sterkt, og utstedelsesvolumet i 2026 forventes å bli 10-15 % høyere enn tidligere antatt, med rundt 26,4 mrd. NOK i dekkede obligasjoner og økt behov for senior usikrede obligasjoner.",
+          "change": "Porteføljevekst endret fra 13,8 % i Q2 2026 til 11,4 % i Q3 2026, altså noe lavere vekst enn tidligere forventet. Etterspørselen for førstehjemskjøpere justeres fra uendret i Q2 til forventet svak nedgang i Q4. Boligprisutvikling endret fra antatt fortsatt prisoppgang til en svakere vekst i 2026. Finansieringsutstedelser er oppjustert med forventet 10-15 % høyere volum enn tidligere antatt (fra 26,4 mrd. NOK til ca. 26,4 mrd. NOK men med høyere aktivitet og behov).",
+          "trend": "Guidingen viser en forsiktig nedgang i etterspørselen og noe lavere porteføljevekst gjennom kvartalene i 2026, samtidig som boligprisutviklingen også revideres ned. Finansieringsbehovet og markedets aktivitet i dekkede obligasjoner har vært høyere enn antatt, og selskapet har økt sin finansiering i tråd med dette. Selskapet har vært konsistent i å forvente stabile marginer og kredittrisikoprofil. Den mer konsernspesifikke fusjonsplanen antyder økt porteføljestørrelse fremover, men denne er foreløpig i planleggingsfase.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Porteføljevekst og nettofinansiering",
+              "statement": "Nettofinansiering økte med 3,9 mrd. i Q3 og porteføljen vokste 11,4 % siste 12 måneder, lavere enn 13,8 % i Q2.",
+              "evidence": "\"Net portfolio growth ... corresponds to 11.4 per cent\" og \"financing ... increased by NOK 3.9 billion\" (side 7).",
+              "page": "7"
+            },
+            {
+              "topic": "Etterspørsel og marginer på boliglån",
+              "statement": "Forventet liten nedgang i etterspørselen blant førstegangskjøpere i Q4, samlet etterspørsel og marginer forventes stabile.",
+              "evidence": "\"In the fourth quarter, the banks expect a slight fall in demand for mortgages from first-time home buyers... margin to remain largely unchanged\" (side 7).",
+              "page": "7"
+            },
+            {
+              "topic": "Boligprisutvikling",
+              "statement": "Boligprisutviklingen i 2026 ventes å bli svakere enn tidligere antatt, med sesongjustert svak prisoppgang i september.",
+              "evidence": "\"Residential property price developments in 2026 will be a good deal weaker than anticipated earlier in the year\" og \"prices rose by 0.3 per cent\" (side 7).",
+              "page": "7"
+            },
+            {
+              "topic": "Finansiering og obligasjonsutstedelser",
+              "statement": "Markedet for nye dekkede obligasjoner er mer aktivt enn forventet, med økt utstedelsesvolum på ca. 10-15 % over tidligere anslag.",
+              "evidence": "\"The volume of covered bonds issued... is now expected to end at around NOK 230 billion... This is 10–15 per cent higher than expected earlier\" og selskapets forventning om tilsvarende 26,4 mrd. NOK i",
+              "page": "7"
+            }
+          ]
+        }
+      }
+    },
     {
       "id": "686036",
       "market": "XOSL",
@@ -1391,18 +1737,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre kunngjør Q3-2026 resultater 12. november – webcast 13. november",
-      "lead": "Questerre Energy presenterer sine resultater for tredje kvartal 2026 12. november, med påfølgende webcast og Q&A 13. november. Ingen konkrete tall eller forventninger er oppgitt i meldingen.",
+      "headline": "Questerre kunngjør Q3-resultater 12. november uten detaljer foreløpig",
+      "lead": "Questerre Energy varsler offentliggjøring av tredje kvartal 2026-resultater 12. november, med påfølgende webcast dagen etter. Ingen tall eller forventninger er kjent per nå.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy presenterer sine resultater for tredje kvartal 2026 12. november, med påfølgende webcast og Q&A 13. november. Ingen konkrete tall eller forventninger er oppgitt i meldingen.",
-      "reason": "Meldingen kunngjør kun tidspunkt for resultatfremleggelse og webcast, uten å gi informasjon om resultatutvikling eller forventninger. Aksjonærer må vente på detaljene for å vurdere konsekvenser.",
-      "score": 5,
+      "summary": "Questerre Energy varsler offentliggjøring av tredje kvartal 2026-resultater 12. november, med påfølgende webcast dagen etter. Ingen tall eller forventninger er kjent per nå.",
+      "reason": "Informasjonen gir foreløpig ingen innsikt i selskapets økonomiske utvikling eller markedsposisjon. Investorer må vente på de faktiske tallene og analysere videre for å vurdere resultatets betydning.",
+      "score": 25,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 20,
+      "score_ai": 40,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -11848,446 +12194,6 @@
           ]
         }
       }
-    },
-    {
-      "id": "685652",
-      "market": "XOSL",
-      "ticker": "AUTO",
-      "issuer": "AutoStore Holdings Ltd.",
-      "title": "AutoStore to acquire Logiqs",
-      "headline": "AutoStore kjøper Logiqs for 30 millioner euro – styrker automatisering",
-      "lead": "AutoStore erverver Logiqs, spesialist på roaming pallet AS/RS, for opp til 30 millioner euro. Oppkjøpet skal utvide AutoStores autonome plattform, men finansiell effekt ventes å være mindre material.",
-      "published_at": "2026-11-05T05:00:14.563000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685652",
-      "summary": "AutoStore erverver Logiqs, spesialist på roaming pallet AS/RS, for opp til 30 millioner euro. Oppkjøpet skal utvide AutoStores autonome plattform, men finansiell effekt ventes å være mindre material.",
-      "reason": "Oppkjøpet gir AutoStore tilgang til ny kjerne-teknologi innen automatisk lagring og henting av paller, noe som kan styrke konkurranseevnen og produkttilbudet. For aksjonærer er det relevant å følge kommersiell utrulling og integrasjonseffekter.",
-      "score": 85,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "KOG",
-          "direction": "negativ",
-          "reason": "Kongsberg Gruppen kan møte økt konkurranse innen automatiserings- og robotteknologi"
-        },
-        {
-          "ticker": "TOM",
-          "direction": "uklar",
-          "reason": "Tomra Systems opererer i automasjonssektoren, men eksakt påvirkning er usikker"
-        }
-      ],
-      "importance": "stor",
-      "score_ai": 75,
-      "number_keys": [
-        "1b6453",
-        "22d200",
-        "258e87",
-        "827bfc",
-        "ac3478",
-        "aee655",
-        "b4c96d",
-        "cb58c3",
-        "d5b819",
-        "e6c3dd",
-        "eb8a07"
-      ]
-    },
-    {
-      "id": "685650",
-      "market": "XOSL",
-      "ticker": "PEXIP",
-      "issuer": "Pexip Holding ASA",
-      "title": "Q3 2026 - Pexip delivers 17% ARR growth, 25% revenue growth and doubles EBITDA",
-      "headline": "Pexip dobler EBITDA og øker omsetningen med 25 prosent i Q3 2026",
-      "lead": "Pexip øker annual recurring revenue med 17 prosent til 143,5 millioner USD og dobler EBITDA til 9,7 millioner USD i tredje kvartal, med fortsatt positiv vekstutsikt for Q4.",
-      "published_at": "2026-11-05T05:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/685650",
-      "summary": "Pexip øker annual recurring revenue med 17 prosent til 143,5 millioner USD og dobler EBITDA til 9,7 millioner USD i tredje kvartal, med fortsatt positiv vekstutsikt for Q4.",
-      "reason": "Den sterke veksten i ARR og driftsresultat indikerer økt lønnsomhet og effektivitet, og peker på vellykket skalering spesielt innen sikre og tilpassede løsninger. Det er viktig å følge utviklingen i kundevekst og kostnadskontroll framover.",
-      "score": 85,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "attachment_key": "dc5d59742182b95d",
-      "number_keys": [
-        "004be8",
-        "0716d9",
-        "0a57cb",
-        "13682a",
-        "1b6453",
-        "1ea51b",
-        "22d200",
-        "3c26df",
-        "472b07",
-        "5a2119",
-        "7316b3",
-        "732082",
-        "77de68",
-        "7b5200",
-        "812ed4",
-        "827bfc",
-        "8d396f",
-        "994c7c",
-        "a52c8b",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "bc33ea",
-        "cb4e52",
-        "e114c4",
-        "f6e112",
-        "fb9654"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "reported",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Pexip Q3 2026 Quarterly report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685650&attachmentId=335753"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "USD million",
-            "current": 32.9,
-            "prior_year": 26.3,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 25.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Q3 2026 revenue of USD 32.9 million (USD 26.3 million in Q3 2025) [SIDE 2, 4]"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "USD million",
-            "current": 9.7,
-            "prior_year": 5.2,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 86.5,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "EBITDA excluding other gains and losses was USD 9.7 million (USD 5.2 million in Q3 2025) [SIDE 2, 4]"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "USD million",
-            "current": 8.3,
-            "prior_year": 3.3,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 151.5,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Operating profit (EBIT) was USD 8.3 million (USD 3.3 million in Q3 2025) [SIDE 4]"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "USD million",
-            "current": 5.7,
-            "prior_year": 2.5,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 128.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Profit after tax was USD 5.7 million (USD 2.5 million in Q3 2025) [SIDE 4]"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "USD/share",
-            "current": 0.05,
-            "prior_year": 0.02,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 150.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Basic earnings per share was USD 0.05 (USD 0.02 in Q3 2025) [SIDE 4]"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "USD million",
-            "current": 10.0,
-            "prior_year": 4.1,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 143.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Net cash flow from operating activities was USD 10.0 million (USD 4.1 million in Q3 2025) [SIDE 13]"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "Pexip forventer fortsatt vekst i markedet for video for bedriftsbruk, drevet av økt bruk og bærekraftsfokus. Langsiktig mål er dobbeltsifret ARR-vekst, med over 25% vekst i Secure & Custom-segmentet og en EBITDA-margin over 30%. Kort sikt målsetter selskapet ARR på 144–150 millioner USD ved utgangen av Q4 2026. Mulig ene-kunde reduksjon i Connected Spaces på 3-4 millioner USD diskuteres fortsatt.",
-          "change": "ARR-mål for Q4 2026 satt til 144–150 millioner USD, nytt fra forrige Q2-mål som var 137–141 millioner USD. Langsiktig EBITDA-margin mål økt fra over 20% til over 30%. Tidligere mål om Rule of 40 ytelse er ikke nevnt i denne rapporten, byttet ut med eksplisitt EBITDA-margin mål. Risiko knyttet til kundeendring i Connected Spaces er nå tilført og omtalt som mulig nedside.",
-          "trend": "Selskapet opprettholder et optimistisk syn på markedets vekst og sin posisjon med fokus på sikkerhet og bærekraft. Målbildet har blitt mer ambisiøst for EBITDA-margin over tid (fra 20% til over 30%) og ARR-målene har økt kvartal for kvartal. Introduksjonen av risiko ved kundeendringer i Connected Spaces markerer en mer nyansert kortsiktig vurdering. Tidligere annonserte Rule of 40-mål er ikke fremhevet i siste rapport, noe som kan tyde på justering i finansiell fokus.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1",
-            "2025Q4"
-          ],
-          "points": [
-            {
-              "topic": "Langsiktig vekst og marginmål",
-              "statement": "Pexip sikter mot dobbeltsifret ARR-vekst og EBITDA-margin over 30%, med spesielt sterk vekst (>25%) i Secure & Custom.",
-              "evidence": "'long-term ambition is to consistently deliver double-digit ARR growth, with above 25% growth in the Secure & Custom area, together with an above 30% EBITDA margin'",
-              "page": "Outlook"
-            },
-            {
-              "topic": "Kort sikt ARR-mål Q4 2026",
-              "statement": "Forventet ARR på 144–150 millioner USD ved utgangen av Q4 2026.",
-              "evidence": "'the company’s outlook is to end Q4 2026 with ARR of USD 144–150 million'",
-              "page": "Outlook"
-            },
-            {
-              "topic": "Kunde- og markedsrisiko",
-              "statement": "Potensiell kunde-reduksjon i Connected Spaces på 3-4 millioner USD diskuteres, som en mulig nedside.",
-              "evidence": "'downside risk related to a possible one-off customer reduction in Connected Spaces of $3-4 million'",
-              "page": "Outlook"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "685648",
-      "market": "XOSL",
-      "ticker": "DGOC",
-      "issuer": "Diversified Gas & Oil Corporation",
-      "title": "Diversified Energy Reports Third Quarter Results",
-      "headline": "Diversified Energy øker justert EBITDA til 256 millioner dollar i 3. kvartal 2026",
-      "lead": "Diversified Energy rapporterer justert EBITDA på 256 millioner dollar i tredje kvartal, men nettoresultatet inkluderte et stort tap på 202 millioner dollar på grunn av ikke-kontante derivativer.",
-      "published_at": "2026-11-04T22:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/685648",
-      "summary": "Diversified Energy rapporterer justert EBITDA på 256 millioner dollar i tredje kvartal, men nettoresultatet inkluderte et stort tap på 202 millioner dollar på grunn av ikke-kontante derivativer.",
-      "reason": "Sterke driftsresultater støttes av solid kontantstrøm og strategiske oppkjøp, men betydelig tap på derivater svekker bunnlinjen. Viktig å følge utviklingen i integreringen av Birch og kontantstrømmen fremover.",
-      "score": 63,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 78,
-      "attachment_key": "67e3dac6e9d9d77b",
-      "number_keys": [
-        "004be8",
-        "007aab",
-        "027eb8",
-        "03dd8d",
-        "05979b",
-        "0716d9",
-        "093a93",
-        "093ecb",
-        "097ccd",
-        "09cad8",
-        "09faed",
-        "0ade7c",
-        "0b10cf",
-        "0ca927",
-        "0ccf17",
-        "0d2fa0",
-        "0df69b",
-        "114d4e",
-        "12f0de",
-        "13682a",
-        "141d6d",
-        "1635c1",
-        "165c71",
-        "16f617",
-        "177af0",
-        "17ba07",
-        "1803b0",
-        "1966e6",
-        "19d608",
-        "1a32f6",
-        "1b6453",
-        "1bb856",
-        "1c35ab",
-        "1da5a1",
-        "1dc254",
-        "1e7b95",
-        "1f1362",
-        "215bb4",
-        "228bf8",
-        "22d200",
-        "23cda6",
-        "25756a",
-        "259fe5",
-        "264c3f",
-        "28492c",
-        "289da2",
-        "28cc22",
-        "2a3719",
-        "2a6f24",
-        "3028f5",
-        "30c424",
-        "310b86",
-        "31d258",
-        "31e325",
-        "323621",
-        "356a19",
-        "387de1",
-        "388e77",
-        "39dfc9",
-        "3b8c7c",
-        "3c26df",
-        "3e6c0e",
-        "4098af",
-        "40e2e6",
-        "450dde",
-        "453099",
-        "45cbe1",
-        "469eba",
-        "471344",
-        "484bf1",
-        "499638",
-        "4d134b",
-        "4f2e78",
-        "505b64",
-        "50c632",
-        "51c54b",
-        "524f18",
-        "533958",
-        "53c53c",
-        "54ceb9"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "filename",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "3Q26 Earnings PR.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685648&attachmentId=335754"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "USD",
-            "current": 469575000.0,
-            "prior_year": 372758000.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 26.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 7: Total commodity revenue for three months ended September 30, 2026 and 2025"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "USD",
-            "current": 255546000.0,
-            "prior_year": 285179000.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -10.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 7: Adjusted EBITDA for three months ended September 30, 2026 and 2025"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "USD",
-            "current": -202214000.0,
-            "prior_year": 171252000.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -218.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 7: Net income (loss) for three months ended September 30, 2026 and 2025"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "USD",
-            "current": 135789000.0,
-            "prior_year": 117241000.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 15.8,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 7: Operating cash flow for three months ended September 30, 2026 and 2025"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "USD",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Not reported in excerpt"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "USD/share",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "EPS not explicitly stated in excerpt"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "Diversified Energy fastholder sin helårsveiledning for 2026 med total produksjon på 1 180-1 210 Mmcfe/d, hvorav 29 % væsker, justert EBITDA på 960-1 010 millioner USD, og kapitalutgifter på 225-255 millioner USD. Oppkjøpet av Birch forventes å fullføres i fjerde kvartal 2026 og vil ikke inngå i denne veiledningen. Selskapet forventer å realisere betydelige drifts-synergier fra større, konsoliderte posisjoner, særlig i Oklahoma, og fortsetter med porteføljeoptimalisering som har generert ca. 149 millioner USD i salg. Fokus er på forbedring av marginer gjennom integrasjon, optimalisering og interne markedsføringsmuligheter, samt å opprettholde",
-          "change": "Guidingen for produksjon, justert EBITDA og kapitalutgifter er opprettholdt uendret fra forrige kvartal (Q2 2026). Nytt er omtalen av at oppkjøpet av Birch Ressurser forventes å bli fullført i Q4 2026 og ikke er inkludert i eksisterende tall, samt en oppdatert porteføljeoptimalisering som nå har generert ca. 149 millioner USD i salg, opp fra 130 millioner USD tidligere. Selskapet fremhever også at Birch vil styrke selskapets kvalitet, skala og finansiell kapasitet fremover.",
-          "trend": "Veiledningen for 2026 har vært stabil over de tre kvartalene, med produksjon og lønnsomhetsmål holdt stabile. Selskapet har gradvis kommunisert økt integrasjon og synergipotensial fra oppkjøp, etter hvert som de nærmer seg fullføring av Birch-oppkjøpet. Porteføljeoptimaliseringen øker i omfang og bidrar til finansiell fleksibilitet. Fokus på langsiktige verdier og aksjonæravkastning opprettholdes gjennom kvartalene, og ledelsen leverer forventet oppdatering uten nedjusteringer.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1"
-          ],
-          "points": [
-            {
-              "topic": "Produksjons- og lønnsomhetsmål 2026",
-              "statement": "Total produksjon forventes mellom 1 180 og 1 210 Mmcfe/d med ca. 29 % væsker, justert EBITDA mellom 960 og 1 010 millioner USD, og kapitalutgifter på 225 til 255 millioner USD.",
-              "evidence": "'2026 Guidance: Total Production (Mmcfe/d) 1,180 to 1,210, % Liquids ~29%, Adj. EBITDA $960 to $1,010 million, Total Capital Expenditures $225 to $255 million'",
-              "page": "SIDE 1"
-            },
-            {
-              "topic": "Oppkjøpet av Birch Resources",
-              "statement": "Oppkjøpet av Birch forventes å fullføres i fjerde kvartal 2026 og er ikke inkludert i gjeldende veiledning. Birch skal gjøre Diversified større, sterkere og mer robust med bedre ressursmiks og skala i Permian Basin.",
-              "evidence": "'Birch acquisition is not included in the guidance figures below and remains on track to close during the fourth quarter 2026'; 'Birch is expected to make Diversified a stronger, larger, and more resi",
-              "page": "SIDE 1"
-            },
-            {
-              "topic": "Porteføljeoptimalisering og likviditet",
-              "statement": "Salg av eiendeler har hittil generert ca. 149 millioner USD, en økning fra tidligere rapportert 130 millioner, som bidrar til verdiskaping og finansiell fleksibilitet.",
-              "evidence": "'Value generated from year-to-date acreage sales has reached approximately $149 million'",
-              "page": "SIDE 1"
-            },
-            {
-              "topic": "Fokus på marginforbedring og aksjonærverdier",
-              "statement": "Selskapet satser på marginforbedringer gjennom integrasjon, porteføljeoptimalisering og egne markedsføringsevner, samtidig som det har utbetalt rundt 157 millioner USD til aksjonærer i år.",
-              "evidence": "'Further opportunities to improve margins through integration, portfolio optimization, and our in-house marketing capabilities'; 'year-to-date returns of approximately $157 million to shareholders'",
-              "page": "SIDE 1"
-            }
-          ]
-        }
-      }
     }
   ],
   "indirect": [
@@ -12431,19 +12337,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-09T14:10:00+00:00",
+  "last_checked_at": "2026-11-09T14:20:00+00:00",
   "monitor_stats": {
-    "fetched": 60,
-    "recent": 60,
+    "fetched": 63,
+    "recent": 63,
     "already_seen": 59,
-    "eligible": 1,
+    "eligible": 4,
     "filtered": 0,
-    "analyzed": 1,
+    "analyzed": 4,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-09T13:39:57.916000+00:00",
+    "source_latest_at": "2026-11-09T14:15:41.975000+00:00",
     "indirect": 0
   }
 }
