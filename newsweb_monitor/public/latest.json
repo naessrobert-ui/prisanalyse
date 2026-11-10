@@ -2,8 +2,36 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-10T22:30:00+00:00",
+  "generated_at": "2026-11-10T22:40:00+00:00",
   "items": [
+    {
+      "id": "686152",
+      "market": "XOSL",
+      "ticker": "HSHP",
+      "issuer": "Himalaya Shipping Ltd",
+      "title": "Himalaya Shipping Ltd. (HSHP)   Interim Financial Report on Form 6-K",
+      "headline": "Himalaya Shipping publiserer ujustert kvartalsrapport – viktige tall mangler",
+      "lead": "Himalaya Shipping har levert en uaudited interimrapport uten nøkkeltall for tredje kvartal 2026. Rapporten gir foreløpig begrenset innsikt i selskapets drift og finansielle situasjon.",
+      "published_at": "2026-11-10T22:30:06.616000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686152",
+      "summary": "Himalaya Shipping har levert en uaudited interimrapport uten nøkkeltall for tredje kvartal 2026. Rapporten gir foreløpig begrenset innsikt i selskapets drift og finansielle situasjon.",
+      "reason": "Fraværet av detaljerte finansielle nøkkeltall gjør det vanskelig å vurdere resultat og utvikling. Investorer må vente på revidert informasjon eller mer spesifikke data for å vurdere investeringsrisiko og potensial.",
+      "score": 30,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "company_form": "ikke ASA",
+      "score_ai": 45,
+      "attachment_key": "9b579a38c2dddce0",
+      "number_keys": [
+        "22d200",
+        "7b5200",
+        "ac3478",
+        "aee655",
+        "b1d578",
+        "c1dfd9"
+      ]
+    },
     {
       "id": "686150",
       "market": "XOSL",
@@ -1685,18 +1713,18 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "Odfjell Technology Ltd - Ex Dividend Q3 2026",
-      "headline": "Odfjell Technology går ex-aksje med utbytte på 1,52 kroner per aksje",
-      "lead": "Fra 10. november 2026 handles Odfjell Technology Ltd (OTL) eksklusiv utbytte på 1,52 kroner per aksje for tredje kvartal. Dette markerer utbetaling til aksjonærer, med konsekvens for aksjekursens justering.",
+      "headline": "Odfjell Technology betaler utbytte på 1,52 kroner per aksje i Q3",
+      "lead": "Odfjell Technology går ex utbytte med 1,52 kroner per aksje for tredje kvartal 2026, noe som bekrefter kontinuerlig avkastning til aksjonærer. Betalingsdato og utbyttets påvirkning på selskapets finansiell status er ikke opplyst.",
       "published_at": "2026-11-10T06:20:19.034000+00:00",
       "url": "https://newsweb.oslobors.no/message/686069",
-      "summary": "Fra 10. november 2026 handles Odfjell Technology Ltd (OTL) eksklusiv utbytte på 1,52 kroner per aksje for tredje kvartal. Dette markerer utbetaling til aksjonærer, med konsekvens for aksjekursens justering.",
-      "reason": "Utbytteutbetaling er en normal aksjonærutbetaling og påvirker selskapets likviditet. Endringen reflekteres i aksjekursen, men gir ikke signaler om driftsmessig utvikling. Viktig å følge opp framtidige kvartal for resultatutvikling.",
-      "score": 35,
+      "summary": "Odfjell Technology går ex utbytte med 1,52 kroner per aksje for tredje kvartal 2026, noe som bekrefter kontinuerlig avkastning til aksjonærer. Betalingsdato og utbyttets påvirkning på selskapets finansiell status er ikke opplyst.",
+      "reason": "Utbytteutbetaling bekrefter stabil kontantstrøm til aksjonærene, men uten informasjon om selskapets samlede finansiell utvikling gir dette begrenset innsikt i fremtidig kursutvikling. Oppfølging av selskapets resultat og kontantstrøm anbefales.",
+      "score": 40,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 50,
+      "score_ai": 55,
       "number_keys": [
         "77de68",
         "7b5200",
@@ -9946,23 +9974,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685757",
-      "market": "XOSL",
-      "ticker": "MOBK",
-      "issuer": "Møre Boligkreditt AS",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-05T12:34:11.241000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685757",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -10221,19 +10232,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-10T22:30:00+00:00",
+  "last_checked_at": "2026-11-10T22:40:00+00:00",
   "monitor_stats": {
-    "fetched": 140,
-    "recent": 102,
+    "fetched": 141,
+    "recent": 103,
     "already_seen": 101,
-    "eligible": 1,
+    "eligible": 2,
     "filtered": 0,
-    "analyzed": 1,
+    "analyzed": 2,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-10T22:08:57.935000+00:00",
+    "source_latest_at": "2026-11-10T22:30:06.616000+00:00",
     "indirect": 0
   }
 }
