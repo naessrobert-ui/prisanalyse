@@ -939,9 +939,12 @@ function toggleDay(date){OPEN_DAY=OPEN_DAY===date?null:date; renderDays();
   const el=document.querySelector(`[data-day="${date}"]`); if(el&&OPEN_DAY) el.scrollIntoView({block:'nearest',behavior:'smooth'})}
 
 function dayRainSpan(d){
+ // Forventet = snitt av Yr og Google. Min/maks = Yr sitt intervall, utvidet hvis Google ligger utenfor.
  const v=[d.rain,d.g_rain].filter(Number.isFinite);
  if(!v.length)return '–';
- const lo=Math.min(...v),hi=Math.max(...v),mid=v.reduce((a,b)=>a+b,0)/v.length;
+ const mid=v.reduce((a,b)=>a+b,0)/v.length;
+ const lo=Math.min(...v,...[d.rain_min].filter(Number.isFinite));
+ const hi=Math.max(...v,...[d.rain_max].filter(Number.isFinite));
  return `${fmt1(lo)} / <b>${fmt1(mid)}</b> / ${fmt1(hi)}`;
 }
 function dayHourly(date){return SERIES?.hours?.filter(h=>h.time.slice(0,10)===date)||[]}
