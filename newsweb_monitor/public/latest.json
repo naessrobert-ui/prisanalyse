@@ -2,8 +2,231 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-10T05:30:00+00:00",
+  "generated_at": "2026-11-10T05:40:00+00:00",
   "items": [
+    {
+      "id": "686060",
+      "market": "XOSL",
+      "ticker": "LSG",
+      "issuer": "Lerøy Seafood Group ASA",
+      "title": "Lerøy Seafood Group ASA: Resultat tredje kvartal 2026",
+      "headline": "Lerøy snur underskudd til 459 mill. i driftsresultat tredje kvartal",
+      "lead": "Lerøy Seafood steg til NOK 459 millioner i operasjonelt driftsresultat i Q3 2026, opp fra 15 millioner året før. Solid biologisk utvikling og kostnadsreduksjoner bidro, men lavere volum og svake priser i villfangst demper utsiktene.",
+      "published_at": "2026-11-10T05:30:40.675000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686060",
+      "summary": "Lerøy Seafood steg til NOK 459 millioner i operasjonelt driftsresultat i Q3 2026, opp fra 15 millioner året før. Solid biologisk utvikling og kostnadsreduksjoner bidro, men lavere volum og svake priser i villfangst demper utsiktene.",
+      "reason": "Sterk resultatvekst preges av forbedringer i havbruk og market operations, mens villfangst utfordres. Kontantstrøm og gjeldsreduksjon styrker finansene. Aksjonærer bør følge utvikling i villfangst og prisnivå videre.",
+      "score": 90,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "MOWI",
+          "direction": "uklar",
+          "reason": "Konkurrent i lakseoppdrett som kan påvirkes av samme markedstrender og biologiske forhold."
+        },
+        {
+          "ticker": "SALM",
+          "direction": "uklar",
+          "reason": "Sesongmessige og markedsmessige svingninger i laks påvirker hele sektoren, inkludert SalMar."
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 85,
+      "attachment_key": "e5fa9ba0c4a49653",
+      "number_keys": [
+        "004be8",
+        "09203a",
+        "1106a1",
+        "2e01e1",
+        "2f6396",
+        "329dc1",
+        "356a19",
+        "4d134b",
+        "599e9e",
+        "5a9295",
+        "64e0cf",
+        "6f946e",
+        "72c197",
+        "77de68",
+        "7b5200",
+        "7c68d8",
+        "7ca169",
+        "80e28a",
+        "84e847",
+        "89a1c1",
+        "91032a",
+        "917098",
+        "ab7f7b",
+        "abc5f5",
+        "ac3478",
+        "aee655",
+        "bf0d80",
+        "c5e0ad",
+        "c6cf93",
+        "d96adb",
+        "e99321",
+        "f1abd6",
+        "f6b9b6"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "lsg-q3-2026-report.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=686060&attachmentId=336142"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK million",
+            "current": 8468.0,
+            "prior_year": 8755.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -3.3,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 4 Financial review, Q3 2026 Revenue 8,468 vs Q3 2025 8,755"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK million",
+            "current": 948.0,
+            "prior_year": 498.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 90.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 4 Financial review, Q3 2026 Operational EBITDA 948 vs Q3 2025 498"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK million",
+            "current": 459.0,
+            "prior_year": 15.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 2960.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 4 Financial review, Q3 2026 Operational EBIT 459 vs Q3 2025 15"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK million",
+            "current": 491.0,
+            "prior_year": 472.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 4.0,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 4 Financial review, Q3 2026 Reported profit for the period 491 vs Q3 2025 472"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 0.37,
+            "prior_year": -0.34,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 4 Financial review, Q3 2026 EPS 0.37 vs Q3 2025 -0.34"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK million",
+            "current": 1183.0,
+            "prior_year": 1078.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 9.7,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 6 Cash flow, Operational cash flow amounted to NOK 1,183 million in Q3 2026 vs NOK 1,078 million Q3 2025"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK million",
+            "current": -190.0,
+            "prior_year": -171.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 4 Financial review, Q3 2026 Net financial items -190 vs Q3 2025 -171"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Lerøy Seafood Gruppen forventer nå en operational EBIT på 459 millioner NOK i Q3 2026, en nedgang fra 574 millioner NOK i Q2 2026, men rapporterer sterk kontantstrøm med gjeldsreduksjon på 676 millioner NOK i kvartalet. Høstingsguiden for Norge forblir uendret på 195 000 GWT for 2026 og 2027, mens forventningen for operasjonell EBIT i villfangst er betydelig nedjustert til 315-350 millioner NOK, hovedsakelig på grunn av lavere priser på sei, torsk og hyse. Markedsdriften rapporterer økt operational EBIT til 446 millioner NOK. Sterk etterspørsel etter laks og avtagende tilvekst i tilbud indikerer et strammere marked. Investeringer fortsetter m",
+          "change": "Operational EBIT forventes nå til 459 millioner NOK i Q3 2026, ned fra 574 millioner NOK i Q2 2026. Villfangst operational EBIT er justert ned fra 400-450 millioner NOK til 315-350 millioner NOK (Q2 2026). Høstingsguiden for Norge er opprettholdt uendret på 195 000 GWT for 2026 og 2027 (ingen endring). Markedsdriftens operational EBIT har økt fra 269 millioner NOK til 446 millioner NOK. Sterk kontantstrøm rapporteres fortsatt, med netto rentebærende gjeld redusert betydelig fra tidligere kvartal.",
+          "trend": "Over flere kvartaler har Lerøy justert operational EBIT-forventninger ned noe, spesielt innen villfangst som nå er mer pessimistisk priset, mens markedsdriften har styrket sin lønnsomhet. Høstingsvolumet forblir stabilt i guidingen, og det rapporteres god biologisk utvikling og kostnadskontroll innen farming. Den generelle tonen har gått fra moderat optimistisk til mer forsiktig for villfangst, men med fortsatt fokus på solid drift og investeringer i produksjonskapasitet og teknologi.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Operational EBIT",
+              "statement": "Operational EBIT for Q3 2026 forventes til 459 millioner NOK, ned fra 574 millioner NOK i Q2 2026.",
+              "evidence": "\"Operational EBIT of NOK 459m (NOK 15m in Q3/25)\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Wild Catch (villfangst)",
+              "statement": "Operational EBIT-estimatet for villfangst er nedjustert til 315-350 millioner NOK fra tidligere 400-450 millioner NOK, primært på grunn av lavere priser på sei, torsk og hyse.",
+              "evidence": "\"Wild Catch: Estimated operational EBIT for 2026 revised down from NOK 400-450m to NOK 315-350m mainly due to lower prices for saithe, cod and haddock\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Harvesting guidance",
+              "statement": "Høstingsguiden for Norge er uendret på 195 000 GWT for 2026 og 2027.",
+              "evidence": "\"Harvest guidance for Norway is unchanged at 195,000 GWT for 2026 and is 195,000 GWT for 2027\"",
+              "page": "utdrag"
+            },
+            {
+              "topic": "Market Operations",
+              "statement": "Markedsdriften hadde et sterkt kvartal med en operational EBIT på 446 millioner NOK, opp fra 269 millioner NOK i forrige periode.",
+              "evidence": "\"Market Operations: Strong quarter with operational EBIT of NOK 446m (NOK 410m in Q3/25)\"",
+              "page": "utdrag"
+            }
+          ]
+        }
+      },
+      "language_versions": [
+        {
+          "id": "686060",
+          "title": "Lerøy Seafood Group ASA: Resultat tredje kvartal 2026",
+          "url": "https://newsweb.oslobors.no/message/686060",
+          "published_at": "2026-11-10T05:30:40.675000+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "686059",
+          "title": "Lerøy Seafood Group ASA: Third quarter 2026 results",
+          "url": "https://newsweb.oslobors.no/message/686059",
+          "published_at": "2026-11-10T05:30:40.650000+00:00",
+          "language": "Engelsk"
+        }
+      ]
+    },
     {
       "id": "686058",
       "market": "XOSL",
@@ -2123,18 +2346,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre setter resultatslipp for tredje kvartal 2026 til 12. november",
-      "lead": "Questerre kunngjør finansiell rapport for Q3 2026 den 12. november, med påfølgende webcast 13. november. Detaljer om resultatene foreligger ikke før publisering.",
+      "headline": "Questerre kunngjør Q3-2026 resultater 12. november uten detaljert forløp",
+      "lead": "Questerre Energy vil offentliggjøre tall for tredje kvartal 2026 den 12. november, med påfølgende webcast 13. november. Resultatdetaljer og finansiell utvikling er foreløpig ikke kjent.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre kunngjør finansiell rapport for Q3 2026 den 12. november, med påfølgende webcast 13. november. Detaljer om resultatene foreligger ikke før publisering.",
-      "reason": "Nyheten informerer om tidspunkt for resultatrapport og webcast uten innhold om resultater eller forventninger. Aksjonærer må vente på konkrete tall for vurdering.",
-      "score": 20,
+      "summary": "Questerre Energy vil offentliggjøre tall for tredje kvartal 2026 den 12. november, med påfølgende webcast 13. november. Resultatdetaljer og finansiell utvikling er foreløpig ikke kjent.",
+      "reason": "Meldingen varsler kun tidspunkt for resultatfremleggelse uten informasjon om resultater eller forventninger. Aksjonærer må vente på konkret informasjon for vurdering.",
+      "score": 15,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "uklar",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 35,
+      "score_ai": 30,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -10311,250 +10534,6 @@
         "b1d578",
         "c1dfd9"
       ]
-    },
-    {
-      "id": "685675",
-      "market": "XOSL",
-      "ticker": "NRC",
-      "issuer": "NRC Group ASA",
-      "title": "NRC Group ASA   Capital Markets Update and third quarter 2026 presentation today at 09:00 am (CET)",
-      "headline": "NRC Group styrker EBIT til 91 MNOK i tredje kvartal – sterkest siden restart",
-      "lead": "NRC Group rapporterer EBIT på 91 millioner kroner i tredje kvartal 2026, opp fra 65 millioner året før, drevet av stabil drift og vekst i Finland og Sverige. Ordrereserven falt noe til 7,88 milliarder kroner.",
-      "published_at": "2026-11-05T06:01:39.063000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685675",
-      "summary": "NRC Group rapporterer EBIT på 91 millioner kroner i tredje kvartal 2026, opp fra 65 millioner året før, drevet av stabil drift og vekst i Finland og Sverige. Ordrereserven falt noe til 7,88 milliarder kroner.",
-      "reason": "Økt EBIT og forbedret drift i flere markeder indikerer styrket lønnsomhet for NRC, men fallende ordrereserve og usikkerhet i anbud gjør at investorer bør følge utviklingen i ordreinngang og løpende kontrakter nøye.",
-      "score": 78,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "attachment_key": "2c4f8a9d622b7f58",
-      "number_keys": [
-        "17ba07",
-        "22d200",
-        "234278",
-        "28a5c2",
-        "28cc22",
-        "2a4593",
-        "356a19",
-        "39f193",
-        "431f6b",
-        "4cd66d",
-        "632667",
-        "657570",
-        "76f228",
-        "77de68",
-        "7b5200",
-        "7e79a3",
-        "8e63fd",
-        "9e6a55",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "b5507c",
-        "bc33ea",
-        "bd307a",
-        "c5b76d",
-        "cb7a1d",
-        "cf79d7",
-        "d0823b",
-        "f1abd6",
-        "f1f836",
-        "f6e112",
-        "fb9654",
-        "fe5dbb"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "reported",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "NRC Group Q3 2026 Result Report.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685675&attachmentId=335820"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 1839.0,
-            "prior_year": 1818.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 1.2,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 3"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 134.0,
-            "prior_year": 118.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 13.6,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 3"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": 91.0,
-            "prior_year": 65.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 40.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 3"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": 17.0,
-            "prior_year": 6.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 183.3,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Norway Q3 SIDE 4"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 255.0,
-            "prior_year": 372.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -31.5,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Norway Q3 SIDE 4"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": 15.0,
-            "prior_year": 5.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 200.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Norway Q3 SIDE 4"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 527.0,
-            "prior_year": 568.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -7.2,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Sweden Q3 SIDE 5"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": 10.0,
-            "prior_year": 1.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 900.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Sweden Q3 SIDE 5"
-          },
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 904.0,
-            "prior_year": 658.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 37.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Finland Q3 SIDE 6"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": 31.0,
-            "prior_year": 31.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 0.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Finland Q3 SIDE 6"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "NOK million",
-            "current": -27.0,
-            "prior_year": -95.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 3"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "NRC forventer fortsatt en EBIT-margin over 3,0 % for 2026, men har erstattet forventningen om omsetning med et konkret mål om ordreinngang over 10 milliarder NOK, grunnet usikkerhet i timing av prosjektgjennomføring. Den kommersielle utviklingen i 2026 har vært utfordrende med forsinkede og kansellerte anbud, særlig i Norge, hvor vunnet volum har vært lavere enn ønsket. Finland leverer godt med sterk omsetningsvekst og stabil lønnsomhet, og Sverige viser positiv EBIT-utvikling med styrket anbudsteam. For 2027 er utsiktene sterke, med høy anbudsportefølje på 43 milliarder NOK og støtte i nasjonale investeringsplaner, men usikkerhet knyttet til",
-          "change": "- EBIT-marginmål for 2026 er opprettholdt over 3,0 % (Q2 2026: samme mål).\n- Tidligere omsetningsguiding for 2027 er erstattet med et mål om ordreinngang over 10 milliarder NOK (Q2 2026: omsetningsfokus).\n- Tonen er mer forsiktig på kort sikt grunnet forsinkelser og avlyste anbud, i motsetning til tidligere mer optimistisk om kommersiell utvikling.\n- Ny organisatorisk endring ved at Maskin-segmentet slås sammen med Spesialoperasjoner ledet av Andreas Davidson (ny informasjon).",
-          "trend": "Gjennom de tre siste kvartalene har NRC opprettholdt fokus på lønnsomhet over volum med EBIT-marginmål over 3,0 % for 2026. Tidligere var ordregangs- og omsetningsforventninger mer optimistiske, men senere kvartaler reflekterer økt usikkerhet og forsinkelser i anbudsprosesser, som har drevet omsetningsmål til heller å fokusere på ordreinngang. Strategiske justeringer, som sammenslåing av segmenter og refinansiering, indikerer tilpasning til mer krevende markedssituasjon. Til tross for utfordringer, vurderes 2027 som positiv med sterk anbudsportefølje og nasjonale investeringsplaner som fundament.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1"
-          ],
-          "points": [
-            {
-              "topic": "EBIT-marginmål",
-              "statement": "Opprettholder forventning om EBIT-margin over 3,0 % for 2026",
-              "evidence": "\"expectation of an EBIT margin above 3.0% for 2026\"",
-              "page": "utdrag fra rapport"
-            },
-            {
-              "topic": "Ordreinngang i stedet for omsetning",
-              "statement": "Erstatter omsetningsguiding med ordreinngangsmål over 10 milliarder NOK for 2027",
-              "evidence": "\"replacing our revenue guidance for next year with an order intake target of above NOK 10 billion\"",
-              "page": "utdrag fra rapport"
-            },
-            {
-              "topic": "Markedssituasjon",
-              "statement": "Utfordrende kommersiell utvikling med forsinkelser og kanselleringer, særlig i Norge",
-              "evidence": "\"Several tenders have been delayed or cancelled by clients... win rate has been lower than our ambition\"",
-              "page": "utdrag fra rapport"
-            },
-            {
-              "topic": "Organisatoriske endringer",
-              "statement": "Maskin blir en del av Spesialoperasjoner ledet av Andreas Davidson",
-              "evidence": "\"Machine will become part of Special Operations, with Andreas Davidson... leading the combined segment\"",
-              "page": "utdrag fra rapport"
-            }
-          ]
-        }
-      }
     }
   ],
   "indirect": [
@@ -10742,19 +10721,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-10T05:30:00+00:00",
+  "last_checked_at": "2026-11-10T05:40:00+00:00",
   "monitor_stats": {
-    "fetched": 78,
-    "recent": 78,
+    "fetched": 80,
+    "recent": 80,
     "already_seen": 77,
-    "eligible": 1,
+    "eligible": 3,
     "filtered": 0,
-    "analyzed": 1,
+    "analyzed": 3,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-09T21:32:22.999000+00:00",
+    "source_latest_at": "2026-11-10T05:30:40.675000+00:00",
     "indirect": 0
   }
 }
