@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-10T12:10:00+00:00",
+  "generated_at": "2026-11-10T12:20:00+00:00",
   "items": [
     {
       "id": "686102",
@@ -912,12 +912,12 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "Odfjell Technology Ltd - Ex Dividend Q3 2026",
-      "headline": "Odfjell Technology går ex dividend med 1,52 kroner per aksje i Q3 2026",
-      "lead": "Aksjene i Odfjell Technology handles ex dividend 1,52 kroner per aksje fra 10. november 2026 for tredje kvartal. Dette innebærer at nye kjøpere ikke får utbytte for perioden.",
+      "headline": "Odfjell Technology går eks-utbytte med 1,52 kroner per aksje for Q3 2026",
+      "lead": "Fra 10. november handles Odfjell Technology-aksjen eks-utbytte på 1,52 kroner per aksje for tredje kvartal 2026. Dette innebærer en kontantutbetaling til aksjonærene, men påvirker ikke selskapets underliggende drift.",
       "published_at": "2026-11-10T06:20:19.034000+00:00",
       "url": "https://newsweb.oslobors.no/message/686069",
-      "summary": "Aksjene i Odfjell Technology handles ex dividend 1,52 kroner per aksje fra 10. november 2026 for tredje kvartal. Dette innebærer at nye kjøpere ikke får utbytte for perioden.",
-      "reason": "Utbytteutbetaling signaliserer kontantstrømstyrke, men uten ytterligere finansiell info er effekten på aksjekurs og investorinteresse usikker. Viktig å følge selskapets fremtidige inntjening og utbyttepolitikk.",
+      "summary": "Fra 10. november handles Odfjell Technology-aksjen eks-utbytte på 1,52 kroner per aksje for tredje kvartal 2026. Dette innebærer en kontantutbetaling til aksjonærene, men påvirker ikke selskapets underliggende drift.",
+      "reason": "Utbytteutbetaling viser selskapets kontantdisponering, men gir ingen indikasjon på endring i inntjening eller fremtidig vekst. Aksjonærer bør vurdere utbyttets bærekraft og selskapets videre finansielle utvikling.",
       "score": 35,
       "skipped": false,
       "direction": "nøytral",
@@ -4498,15 +4498,15 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre annonserer Q3-resultater 12. november uten resultattall",
-      "lead": "Questerre Energy offentliggjør sine tall for tredje kvartal 2026 torsdag 12. november, etterfulgt av webcast og Q&A 13. november. Det foreligger foreløpig ingen detaljer om resultatet eller forventet inntjening.",
+      "headline": "Questerre annonserer Q3 2026-resultater 12. november",
+      "lead": "Questerre Energy offentliggjør sine resultater for tredje kvartal 2026 12. november, med webcast og Q&A dagen etter. Detaljer om resultatene foreligger ikke i forkant.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy offentliggjør sine tall for tredje kvartal 2026 torsdag 12. november, etterfulgt av webcast og Q&A 13. november. Det foreligger foreløpig ingen detaljer om resultatet eller forventet inntjening.",
-      "reason": "Meldingen kunngjør tidspunkt for resultatfremleggelse uten konkrete tall, og gir dermed begrenset innsikt i selskapets økonomiske utvikling eller markedsforventninger. Investorer må vente på den fullstendige rapporten for vurdering av selskapets prestasjon.",
+      "summary": "Questerre Energy offentliggjør sine resultater for tredje kvartal 2026 12. november, med webcast og Q&A dagen etter. Detaljer om resultatene foreligger ikke i forkant.",
+      "reason": "Nyheten er kun en kunngjøring om kommende rapportering og webcast. Det foreligger ingen detaljer om resultatene, slik at markedspåvirkning eller indikasjoner på finansiell utvikling ikke kan vurderes.",
       "score": 15,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
       "score_ai": 30,
@@ -10311,6 +10311,23 @@
   ],
   "indirect": [
     {
+      "id": "67e8a0b8625d1702",
+      "source": "E24",
+      "title": "Oljeprisen faller: – En positiv utvikling",
+      "url": "https://e24.no/boers-og-finans/i/Jn1018/oljeprisen-faller-en-positiv-utvikling?utm_medium=rss",
+      "published_at": "2026-11-10T12:10:59+00:00",
+      "analyzed_at": "2026-11-10T12:20:00+00:00",
+      "score": 70,
+      "comment": "Fall i oljeprisen reduserer kostnadene for oljeintensive selskaper, men kan svekke oljeproduksjonsselskaper sin inntjening betydelig.",
+      "affected": [
+        {
+          "ticker": "EQNR",
+          "direction": "negativ",
+          "reason": "Redusert oljepris reduserer inntektene direkte."
+        }
+      ]
+    },
+    {
       "id": "19282151f85372d9",
       "source": "E24",
       "title": "Advarer om ekstraregning på ni milliarder i året",
@@ -10494,7 +10511,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-10T12:10:00+00:00",
+  "last_checked_at": "2026-11-10T12:20:00+00:00",
   "monitor_stats": {
     "fetched": 111,
     "recent": 111,
@@ -10507,6 +10524,6 @@
     "capped": 0,
     "recovered_unpublished": 2,
     "source_latest_at": "2026-11-10T12:00:00+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
