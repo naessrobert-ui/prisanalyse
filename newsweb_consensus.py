@@ -38,6 +38,20 @@ METRIC_DISPLAY = {
     "ebitda": "EBITDA",
     "net_interest_income": "Netto renteinntekter",
 }
+# Company-level analyst fields (no period): one column each, any text in row 1.
+ANALYST_FIELDS = {
+    "TOT_BUY_REC": "buy",
+    "TOT_HOLD_REC": "hold",
+    "TOT_SELL_REC": "sell",
+    "TOT_ANALYST_REC": "analysts",
+    "BEST_ANALYST_RATING": "rating",
+    "BEST_TARGET_PRICE": "target_price",
+    "PX_LAST": "price",
+    "CRNCY": "currency",
+    "EXPECTED_REPORT_DT": "next_report",
+}
+_ANALYST_LIMITS = {"buy": (0, 300), "hold": (0, 300), "sell": (0, 300), "analysts": (0, 900),
+                   "rating": (1, 5), "target_price": (1e-6, 1e8), "price": (1e-6, 1e8)}
 _QUARTER = re.compile(r"^(\d{2})Q([1-4])$", re.I)
 _TICKER = re.compile(r"^([A-Z0-9._-]{1,25})\s+NO\s+EQUITY$", re.I)
 _COL = re.compile(r"^([A-Z]{1,3})(\d+)$")
@@ -129,6 +143,36 @@ def period(raw: object, annual_year: int|None) -> str|None:
         return f"{annual_year}FY"
     return None
 
+def _report_date(value: object) -> str|None:
+    """Excel serial date or a date string -> ISO date. Anything unclear is dropped."""
+    from datetime import date, timedelta
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if not math.isfinite(value) or not 36000 <= value <= 80000:
+            return None
+        return (date(1899, 12, 30) + timedelta(days=int(value))).isoformat()
+    text = str(value or "").strip()[:20]
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%m/%d/%Y", "%Y%m%d"):
+        try:
+            return datetime.strptime(text, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+def _analyst_value(key: str, val: object) -> object:
+    if key == "next_report":
+        return _report_date(val)
+    if key == "currency":
+        text = str(val or "").strip().upper()
+        return text if re.fullmatch(r"[A-Z]{3}", text) else None
+    if not isinstance(val, (int, float)) or isinstance(val, bool) or not math.isfinite(val):
+        return None
+    low, high = _ANALYST_LIMITS[key]
+    if not low <= val <= high:
+        return None
+    if key in ("buy", "hold", "sell", "analysts"):
+        return int(round(val))
+    return round(float(val), 4)
+
 def parse_excel(payload: bytes, *, annual_year: int|None, amount_units_confirmed: bool) -> dict:
     if annual_year is not None and annual_year not in range(2025,2033):
         raise ValueError("Regnskapsår må være fra 2025 til 2032.")
@@ -136,6 +180,7 @@ def parse_excel(payload: bytes, *, annual_year: int|None, amount_units_confirmed
     if len(rows)<3: raise ValueError("Excel-filen mangler datarader.")
     header1=rows[0]; header2=rows[1]
     cols=[]
+    acols=[]
     for j in range(2,max(len(header1),len(header2))):
         year=header1[j] if j<len(header1) else ""
         metric=(str(header2[j]) if j<len(header2) else "").strip().upper()
@@ -143,8 +188,11 @@ def parse_excel(payload: bytes, *, annual_year: int|None, amount_units_confirmed
         key=METRIC_FIELDS.get(metric)
         if p and key:
             cols.append((j,p,key))
-    if not cols:raise ValueError("Fant ingen gjenkjente kvartaler og estimatfelt.")
+        elif metric in ANALYST_FIELDS:
+            acols.append((j,ANALYST_FIELDS[metric]))
+    if not cols and not acols:raise ValueError("Fant ingen gjenkjente kvartaler og estimatfelt.")
     records={}
+    analyst={}
     companies=set()
     errors=0
     for row in rows[2:]:
@@ -170,12 +218,22 @@ def parse_excel(payload: bytes, *, annual_year: int|None, amount_units_confirmed
                  "currency":"reporting_currency_unverified",
                  "source_field":str(header2[col])}
             records[f"{symbol}|{p}|{key}"]=rec
-    if not records:
+        view={}
+        for col,key in acols:
+            value=_analyst_value(key,row[col] if len(row)>col else None)
+            if value is not None:
+                view[key]=value
+        if any(k in view for k in ("buy","hold","sell","target_price","rating","next_report")):
+            view["bloomberg_symbol"]=raw
+            analyst[symbol]=view
+    if not records and not analyst:
         raise ValueError("Ingen gyldige, bufrede Bloomberg-tall funnet. Oppdater filen i Excel før opplasting.")
     return {"format":"newsweb_best_snapshot_v1",
             "annual_year":annual_year,
             "amount_units_confirmed":bool(amount_units_confirmed),
             "records":records,
+            "analyst":analyst,
+            "analyst_count":len(analyst),
             "company_count":len(companies),
             "value_count":len(records),
             "invalid_or_missing_cells":errors,
@@ -336,7 +394,7 @@ def safe_comparisons(item:dict, snapshots:list[dict])->list[dict]:
     selected=None
     for snap in snapshots:
         stamp=_dt(snap.get("uploaded_at",""))
-        if stamp and stamp<published:
+        if stamp and stamp<published and snap.get("records"):
             selected=snap
             break
     if not selected:return []
@@ -491,3 +549,53 @@ def overlay_private_consensus(items:list[dict], snapshots:list[dict],
             item["consensus_simulated_asof"]=latest_sim.get("effective_asof")
             simulation_count+=1
     return actual_count,simulation_count
+
+
+def latest_analyst(snapshots:list[dict])->tuple[dict,str]:
+    """Newest uploaded analyst view (recommendations, target price, next report)."""
+    for snap in snapshots:
+        view=snap.get("analyst")
+        if isinstance(view,dict) and view:
+            return view,str(snap.get("uploaded_at") or "")
+    return {},""
+
+def overlay_analyst(items:list[dict], snapshots:list[dict])->int:
+    """Attach the current analyst view to PRIVATE copies of the news items."""
+    view,asof=latest_analyst(snapshots)
+    count=0
+    for item in items:
+        row=view.get(str(item.get("ticker") or "").upper())
+        if not isinstance(row,dict):
+            continue
+        shown=dict(row)
+        shown["asof"]=asof
+        price,target=row.get("price"),row.get("target_price")
+        if isinstance(price,(int,float)) and isinstance(target,(int,float)) and price>0:
+            shown["upside_pct"]=round(100*(target-price)/price,1)
+        item["analyst"]=shown
+        count+=1
+    return count
+
+_WEEKDAYS=("man.","tir.","ons.","tor.","fre.","lør.","søn.")
+
+def upcoming_reports(snapshots:list[dict], *, today=None, days:int=14,
+                     tickers:set|None=None)->list[dict]:
+    """Expected report dates in the next `days` days, soonest first."""
+    from datetime import date
+    from zoneinfo import ZoneInfo
+    today=today or datetime.now(ZoneInfo("Europe/Oslo")).date()
+    view,_=latest_analyst(snapshots)
+    rows=[]
+    for ticker,row in view.items():
+        if tickers is not None and ticker not in tickers:
+            continue
+        try:
+            when=date.fromisoformat(str(row.get("next_report") or ""))
+        except ValueError:
+            continue
+        ahead=(when-today).days
+        if 0<=ahead<=days:
+            rows.append({"ticker":ticker,"date":when.isoformat(),"days":ahead,
+                         "label":"i dag" if ahead==0 else ("i morgen" if ahead==1 else
+                                 f"{_WEEKDAYS[when.weekday()]} {when.day}.{when.month}.")})
+    return sorted(rows,key=lambda x:(x["date"],x["ticker"]))

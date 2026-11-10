@@ -179,3 +179,74 @@ class ConsensusUploadTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+
+
+class AnalystColumnsTests(unittest.TestCase):
+    @staticmethod
+    def _xlsx(header2, rows):
+        import io,zipfile
+        decl='<?xml version="1.0" encoding="utf-8"?>'
+        letters="ABCDEFGHIJKL"
+        def cell(ref,value):
+            if value is None: return ""
+            if isinstance(value,str):
+                return f'<c r="{ref}" t="inlineStr"><is><t>{value}</t></is></c>'
+            return f'<c r="{ref}"><f>_xll.BDP()</f><v>{value}</v></c>'
+        body='<row r="1"><c r="C1" t="inlineStr"><is><t>26Q3</t></is></c></row>'
+        body+='<row r="2">'+"".join(cell(letters[i]+"2",h) for i,h in enumerate(header2))+'</row>'
+        for n,row in enumerate(rows,start=3):
+            body+=f'<row r="{n}">'+"".join(cell(letters[i]+str(n),v) for i,v in enumerate(row))+'</row>'
+        buff=io.BytesIO()
+        with zipfile.ZipFile(buff,"w") as z:
+            z.writestr("xl/workbook.xml",decl+'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Data" sheetId="1" r:id="rId1"/></sheets></workbook>')
+            z.writestr("xl/_rels/workbook.xml.rels",decl+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>')
+            z.writestr("xl/worksheets/sheet1.xml",decl+'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+body+'</sheetData></worksheet>')
+        return buff.getvalue()
+
+    HEAD=["Symbol","Name","BEST_EBIT","TOT_BUY_REC","TOT_HOLD_REC","TOT_SELL_REC",
+          "BEST_TARGET_PRICE","PX_LAST","CRNCY","EXPECTED_REPORT_DT"]
+
+    def test_analyst_columns_are_parsed_next_to_estimates(self):
+        data=self._xlsx(self.HEAD,[
+            ["EQNR NO Equity","Equinor",100.0,12,10,5,305.0,280.0,"NOK",46332],
+            ["DNB NO Equity","DNB",50.0,"#N/A N/A",None,None,None,None,None,"2027-01-28"]])
+        result=parse_excel(data,annual_year=2026,amount_units_confirmed=True)
+        self.assertEqual(result["value_count"],2)
+        self.assertEqual(result["analyst_count"],2)
+        eqnr=result["analyst"]["EQNR"]
+        self.assertEqual((eqnr["buy"],eqnr["hold"],eqnr["sell"]),(12,10,5))
+        self.assertEqual(eqnr["target_price"],305.0)
+        self.assertEqual(eqnr["currency"],"NOK")
+        self.assertEqual(eqnr["next_report"],"2026-11-06")
+        self.assertEqual(result["analyst"]["DNB"],{"next_report":"2027-01-28","bloomberg_symbol":"DNB NO Equity"})
+
+    def test_analyst_only_sheet_is_accepted_and_does_not_hide_estimates(self):
+        head=["Symbol","Name","TOT_BUY_REC","BEST_TARGET_PRICE","PX_LAST"]
+        result=parse_excel(self._xlsx(head,[["MOWI NO Equity","Mowi",14,245.0,210.0]]),
+                           annual_year=None,amount_units_confirmed=False)
+        self.assertEqual(result["records"],{})
+        self.assertEqual(result["analyst"]["MOWI"]["buy"],14)
+        item={"ticker":"ARCH","published_at":"2026-10-22T06:00:00+00:00",
+              "financial_report":{"period":"2026Q3","metrics":[{"name":"ebitda","current":44.0,"unit":"NOK million"}]}}
+        newer={"uploaded_at":"2026-10-21T20:00:00+00:00","records":{},"analyst":result["analyst"]}
+        older={"uploaded_at":"2026-10-21T10:00:00+00:00","amount_units_confirmed":True,
+               "records":{"ARCH|2026Q3|ebitda":{"value":40.0,"unit_type":"millions"}}}
+        self.assertEqual(safe_comparisons(item,[newer,older])[0]["surprise_pct"],10.0)
+
+    def test_overlay_and_upcoming_reports(self):
+        from datetime import date
+        from newsweb_consensus import overlay_analyst,upcoming_reports
+        snaps=[{"uploaded_at":"2026-11-10T08:00:00+00:00","analyst":{
+            "EQNR":{"buy":12,"hold":10,"sell":5,"target_price":308.0,"price":280.0,"next_report":"2026-11-12"},
+            "DNB":{"buy":9,"next_report":"2027-01-28"},
+            "MOWI":{"buy":14,"next_report":"2026-11-11"}}},
+            {"uploaded_at":"2026-11-01T08:00:00+00:00","analyst":{"EQNR":{"buy":1}}}]
+        items=[{"ticker":"EQNR"},{"ticker":"XXX"}]
+        self.assertEqual(overlay_analyst(items,snaps),1)
+        self.assertEqual(items[0]["analyst"]["buy"],12)
+        self.assertEqual(items[0]["analyst"]["upside_pct"],10.0)
+        self.assertNotIn("analyst",items[1])
+        self.assertNotIn("upside_pct",snaps[0]["analyst"]["EQNR"])
+        rows=upcoming_reports(snaps,today=date(2026,11,10))
+        self.assertEqual([(r["ticker"],r["label"]) for r in rows],[("MOWI","i morgen"),("EQNR","tor. 12.11.")])
+        self.assertEqual(upcoming_reports(snaps,today=date(2026,11,10),tickers={"EQNR"})[0]["ticker"],"EQNR")

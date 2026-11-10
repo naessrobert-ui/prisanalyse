@@ -192,6 +192,12 @@ h1{font-size:clamp(27px,3vw,37px)}
 .bbg{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:8px 0 2px;font-size:11px}
 .bbg a{border:1px solid #6a5320;background:#2a2110;color:#ffd98a;border-radius:6px;padding:2px 7px;font-weight:700}
 .bbg a:hover{background:#3d3015;text-decoration:none}
+.analyst-line{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin:8px 0 2px;font-size:12px;font-variant-numeric:tabular-nums}
+.analyst-line .pos{color:#8fe3b0}.analyst-line .neg{color:#ff9ea9}
+.upcoming{margin:6px 0 18px;padding:11px 14px;border:1px solid #30425c;border-radius:12px;background:#0f1b33}
+.upcoming-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.up{font-size:12px;border:1px solid #31486b;border-radius:7px;padding:3px 8px;background:#14233f;color:#c9d8ee}
+.up b{color:#a8cbff}.up.soon{border-color:#b98a2e;background:#3a2c10;color:#ffe3a1}
 .card-more{margin-top:8px}
 .card-more>summary{cursor:pointer;color:#99bee9;font-weight:650;font-size:12px}
 .tk-panel{position:sticky;top:12px;border:1px solid #30425c;border-radius:13px;background:#0e1a30;display:flex;flex-direction:column;max-height:calc(100vh - 24px);min-width:0}
@@ -298,6 +304,13 @@ h1{font-size:clamp(27px,3vw,37px)}
 </details>
 </section>
 {% endif %}
+{% if can_view_consensus and upcoming %}
+<section class="upcoming" aria-label="Kommende rapporter">
+  <span class="section-heading" style="margin:0">Kommer snart</span>
+  <span class="dim">forventet rapport neste 14 dager{% if profile %} for {{profile}} sine selskaper{% endif %}</span>
+  <div class="upcoming-list">{% for u in upcoming[:40] %}<span class="up{% if u.days <= 1 %} soon{% endif %}"><b>{{u.ticker}}</b> {{u.label}}</span>{% endfor %}</div>
+</section>
+{% endif %}
 <div class="section-heading">Nyheter</div>
 <div class="controls">
   <div class="filters" role="group" aria-label="Velg prioriterte nyheter">
@@ -333,6 +346,15 @@ h1{font-size:clamp(27px,3vw,37px)}
 <p class="news-lead">{{item.get('lead') or item.get('summary') or 'Ingen ingress tilgjengelig'}}</p>
 {% if can_view_consensus and item.get('ticker') and not item.get('skipped') %}
 <div class="kurs-panel" data-kurs-ticker="{{item.ticker}}" data-kurs-published="{{item.get('published_at','')}}"><span class="dim">Henter kurs …</span></div>
+{% endif %}
+{% set an = item.get('analyst') %}
+{% if can_view_consensus and an %}
+<div class="analyst-line" title="Fra siste opplastede Bloomberg-ark{% if an.get('asof') %}, {{an.asof|norsk_tid}}{% endif %}. Kurs og kursmål er fra opplastingstidspunktet.">
+<span class="dim">Analytikere</span>
+{% if an.get('buy') is not none or an.get('hold') is not none or an.get('sell') is not none %}<span><b class="pos">{{an.get('buy',0)}}</b> kjøp / <b>{{an.get('hold',0)}}</b> hold / <b class="neg">{{an.get('sell',0)}}</b> selg</span>{% endif %}
+{% if an.get('target_price') is not none %}<span>kursmål <b>{{'%g'|format(an.target_price)}}</b>{% if an.get('currency') %} {{an.currency}}{% endif %}{% if an.get('upside_pct') is not none %} <span class="{{'pos' if an.upside_pct > 0 else 'neg'}}">({{'%+.0f'|format(an.upside_pct)}} %)</span>{% endif %}</span>{% endif %}
+{% if an.get('next_report') %}<span class="dim">neste rapport {{an.next_report}}</span>{% endif %}
+</div>
 {% endif %}
 {% set outlook = (item.get('financial_report') or {}).get('outlook') or {} %}
 <div class="chips">

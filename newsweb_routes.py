@@ -164,6 +164,18 @@ def _private_report_comparisons(items: list[dict]) -> tuple[int,str]:
     actual,simulated=overlay_private_consensus(items,snapshots)
     return actual,simulated,""
 
+def _private_analyst(items: list[dict], tickers: set|None) -> list[dict]:
+    """Analyst view on the private copies + upcoming report dates. Never public."""
+    if not _can_view_consensus():
+        return []
+    from newsweb_consensus import list_snapshots,load_snapshot,overlay_analyst,upcoming_reports
+    try:
+        snapshots=[load_snapshot(x["key"]) for x in list_snapshots(limit=30)]
+    except Exception:
+        return []
+    overlay_analyst(items,snapshots)
+    return upcoming_reports(snapshots,tickers=tickers or None)
+
 def _admin_form(*,message="",error="",summary=None,history=None):
     from flask import make_response
     # CSRF protection is still necessary even after reusing existing login.
@@ -232,7 +244,8 @@ def consensus_upload():
         return _admin_form(error="Fant ikke den private S3-bøtten. Sjekk NEWSWEB_CONSENSUS_BUCKET, Block Public Access og AWS-tilgang.")
     summary=top and {k:top.get(k) for k in (
         "uploaded_at","company_count","value_count","invalid_or_missing_cells",
-        "periods","annual_year","original_name","amount_units_confirmed","simulation")}
+        "periods","annual_year","original_name","amount_units_confirmed","simulation",
+        "analyst_count")}
     message=""
     if request.args.get("uploaded")=="1":
         message=("Estimatene er lagret privat. Simulert gjennomgang av dagens "
@@ -629,7 +642,8 @@ def dashboard():
         item["owners"]=owners.get(str(item.get("ticker") or ""),[])
         item["mine"]=str(item.get("ticker") or "") in mine or any(
             a.get("ticker") in mine for a in item.get("affected") or [])
-    response=render_template("newsweb_dashboard.html",report=report,items=items,
+    upcoming=_private_analyst(items,mine if chosen else None)
+    response=render_template("newsweb_dashboard.html",report=report,items=items,upcoming=upcoming,
                            profile_names=sorted(profiles["profiles"]),profile=chosen,
                            profile_tickers=sorted(mine),profile_error=profile_error,
                            mine_count=sum(1 for x in items if x["mine"] and not x.get("skipped")),

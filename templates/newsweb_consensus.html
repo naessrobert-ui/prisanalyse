@@ -47,6 +47,7 @@ button.secondary{background:#263c5b}
 <p class="small">Dette kan ikke utledes fra den opplastede filen, fordi kolonneoverskriften bare er «Year». Velg riktig regnskapsår. Kvartalet hentes automatisk fra eksempelvis 26Q3/26Q4.</p>
 <label><input type="checkbox" name="confirmed_units" value="yes"> Jeg bekrefter at BEST-beløpene er i millioner av selskapets rapporteringsvaluta, og EPS er per aksje.</label>
 <p class="small">Dersom dette ikke bekreftes, lagres estimatene, men automatisk avviksberegning er deaktivert. NB: Feltet <code>net int inc</code> uten BEST-prefiks tas ikke med som konsensus.</p>
+<p class="small"><strong>Valgfritt, analytikerdata:</strong> Legg til egne kolonner i samme ark med feltnavnet i rad 2 (rad 1 kan stå tom): <code>TOT_BUY_REC</code>, <code>TOT_HOLD_REC</code>, <code>TOT_SELL_REC</code>, <code>BEST_TARGET_PRICE</code>, <code>PX_LAST</code>, <code>CRNCY</code>, <code>BEST_ANALYST_RATING</code>, <code>TOT_ANALYST_REC</code>, <code>EXPECTED_REPORT_DT</code>. Da vises anbefalinger, kursmål og neste rapportdato på nyhetskortene, og kommende rapporter i «Kommer snart».</p>
 <button type="submit">Last opp og lagre estimater privat</button>
 </form></div>
 {% if summary and summary.simulation %}
@@ -86,6 +87,7 @@ button.secondary{background:#263c5b}
 <p><strong>Fil:</strong> {{summary.original_name}}<br>
 <strong>Opplastet:</strong> {{summary.uploaded_at|norsk_tid}}<br>
 <strong>Perioder:</strong> {{summary.periods|join(', ')}}<br>
+<strong>Selskaper med analytikerdata:</strong> {{summary.analyst_count or 0}}<br>
 <strong>Manglende/ugyldige felt:</strong> {{summary.invalid_or_missing_cells}}<br>
 <strong>Enheter bekreftet:</strong> {{'Ja' if summary.amount_units_confirmed else 'Nei'}}</p>
 <p><a href="/newsweb/">Åpne nyhetsmonitoren med private sammenligninger →</a></p>
