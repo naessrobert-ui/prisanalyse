@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-10T13:30:00+00:00",
+  "generated_at": "2026-11-10T13:40:00+00:00",
   "items": [
     {
       "id": "686132",
@@ -1215,18 +1215,18 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "Odfjell Technology Ltd - Ex Dividend Q3 2026",
-      "headline": "Odfjell Technology kutter utbytte med 1,52 kroner for Q3 2026",
-      "lead": "Fra 10. november noteres Odfjell Technology-aksjer uten rett på kvartalsutbytte på 1,52 kroner per aksje for tredje kvartal 2026, noe som påvirker investoravkastning på kort sikt.",
+      "headline": "Odfjell Technology faller 1,52 kr i kurs ved utbytteutbetaling for Q3 2026",
+      "lead": "Odfjell Technology begynner i dag 10. november å handles eksklusive utbytte på 1,52 kroner per aksje for tredje kvartal 2026. Investorer justerer aksjekursen tilsvarende utbyttebeløpet.",
       "published_at": "2026-11-10T06:20:19.034000+00:00",
       "url": "https://newsweb.oslobors.no/message/686069",
-      "summary": "Fra 10. november noteres Odfjell Technology-aksjer uten rett på kvartalsutbytte på 1,52 kroner per aksje for tredje kvartal 2026, noe som påvirker investoravkastning på kort sikt.",
-      "reason": "Utbyttebeløpet er kjent og presist, men nyheten gir begrenset informasjon om selskapets underliggende finansielle utvikling. Investorer bør følge med på selskapets inntjeningsutsikter og fremtidig utbyttepolitikk.",
-      "score": 30,
+      "summary": "Odfjell Technology begynner i dag 10. november å handles eksklusive utbytte på 1,52 kroner per aksje for tredje kvartal 2026. Investorer justerer aksjekursen tilsvarende utbyttebeløpet.",
+      "reason": "Utbytteutbetaling er en standard hendelse som reduserer aksjekursen eksakt med utbyttebeløpet. Dette påvirker ikke selskapets fundamentale verdi men reflekterer kontantutbetaling til aksjonærene.",
+      "score": 25,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 45,
+      "score_ai": 40,
       "number_keys": [
         "77de68",
         "7b5200",
@@ -4801,18 +4801,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre offentliggjør Q3-resultater 12. november – webcast dagen etter",
-      "lead": "Questerre Energy kunngjør sine resultater for tredje kvartal 2026 12. november, med en webcast presentasjon og spørsmål- og svar-økt planlagt 13. november. Det foreligger foreløpig ingen detaljer om resultatene.",
+      "headline": "Questerre kunngjør Q3-rapport 12. november – webcast dagen etter",
+      "lead": "Questerre Energy offentliggjør resultater for tredje kvartal 2026 12. november, med webcastpresentasjon og Q&A 13. november kl. 15:30 CET. Ingen resultattall eller forventninger kjent per nå.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy kunngjør sine resultater for tredje kvartal 2026 12. november, med en webcast presentasjon og spørsmål- og svar-økt planlagt 13. november. Det foreligger foreløpig ingen detaljer om resultatene.",
-      "reason": "Informasjonen gir en kalenderhendelse uten data på resultatutvikling, noe som ikke påvirker aksjonærenes vurdering direkte. Vi trenger kvartalstall for å vurdere finansiell utvikling og markedspåvirkning.",
-      "score": 5,
+      "summary": "Questerre Energy offentliggjør resultater for tredje kvartal 2026 12. november, med webcastpresentasjon og Q&A 13. november kl. 15:30 CET. Ingen resultattall eller forventninger kjent per nå.",
+      "reason": "Meldingen varsler bare tidspunkt for resultatfremleggelse uten finansiell informasjon. Investorer må vente på faktiske tall og kommentar for vurdering. Påvirkning på kurs og selskapets fremtid er ukjent inntil da.",
+      "score": 25,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 20,
+      "score_ai": 40,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -9897,6 +9897,33 @@
   ],
   "indirect": [
     {
+      "id": "69c4e9f46261b463",
+      "source": "E24",
+      "title": "Prisveksten i USA var høyere enn ventet i oktober",
+      "url": "https://e24.no/internasjonal-oekonomi/i/pM6qn1/prisveksten-i-usa-var-hoeyere-enn-ventet-i-oktober?utm_medium=rss",
+      "published_at": "2026-11-10T13:30:22+00:00",
+      "analyzed_at": "2026-11-10T13:40:00+00:00",
+      "score": 70,
+      "comment": "Høyere USAs prisvekst øker sannsynligheten for renteheving, noe som kan styrke kronen og dytte opp finansieringskostnader for norske selskap.",
+      "affected": [
+        {
+          "ticker": "DNB",
+          "direction": "negativ",
+          "reason": "Økte renter kan øke finansieringskostnader og negativt påvirke utlånsaktivitet."
+        },
+        {
+          "ticker": "AKRBP",
+          "direction": "negativ",
+          "reason": "Sterkere krone kan redusere oljeprisen i NOK, negativt for oljeservice."
+        },
+        {
+          "ticker": "NHY",
+          "direction": "uklar",
+          "reason": "Renter påvirker investeringsklima, usikkert for kraftselskap."
+        }
+      ]
+    },
+    {
       "id": "67e8a0b8625d1702",
       "source": "E24",
       "title": "Oljeprisen faller: – En positiv utvikling",
@@ -10097,19 +10124,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-10T13:30:00+00:00",
+  "last_checked_at": "2026-11-10T13:40:00+00:00",
   "monitor_stats": {
     "fetched": 128,
     "recent": 128,
-    "already_seen": 124,
+    "already_seen": 126,
     "eligible": 2,
-    "filtered": 2,
+    "filtered": 0,
     "analyzed": 2,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 2,
     "source_latest_at": "2026-11-10T13:21:49.513000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
