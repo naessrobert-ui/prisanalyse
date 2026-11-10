@@ -249,6 +249,7 @@ def parse_yr(payload: dict[str, Any]) -> list[dict[str, Any]]:
             row[hours] = {
                 "symbol": symbol,
                 "rain": _num(details.get("precipitation_amount")) or 0.0,
+                "rain_min": _num(details.get("precipitation_amount_min")),
                 "rain_max": _num(details.get("precipitation_amount_max")),
                 "pop": _num(details.get("probability_of_precipitation")),
                 "tmax": _num(details.get("air_temperature_max")),
@@ -274,7 +275,9 @@ def slices(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         end = row["time"] + timedelta(hours=length)
         result.append({"start": row["time"], "end": end, "symbol": block["symbol"],
-                       "rain": block["rain"], "tmax": block.get("tmax"), "tmin": block.get("tmin")})
+                       "rain": block["rain"], "rain_min": block.get("rain_min"),
+                       "rain_max": block.get("rain_max"),
+                       "tmax": block.get("tmax"), "tmin": block.get("tmin")})
         cursor = end
     return result
 
@@ -367,6 +370,9 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
         temps += [v for p in in_day for v in (p["tmax"], p["tmin"]) if v is not None]
         observed_today = round(sum(observed.values()), 1) if offset == 0 else None
         yr_rain = sum(p["rain"] for p in in_day) + (observed_today or 0.0)
+        # Yr sitt intervall (10- og 90-persentil) per blokk; mangler det, brukes forventet.
+        yr_min = sum(p["rain"] if p.get("rain_min") is None else p["rain_min"] for p in in_day) + (observed_today or 0.0)
+        yr_max = sum(p["rain"] if p.get("rain_max") is None else p["rain_max"] for p in in_day) + (observed_today or 0.0)
 
         # Google teller bare når hele resten av døgnet er dekket.
         first_needed = max(day_start, _local(now).replace(minute=0, second=0, microsecond=0))
@@ -387,6 +393,8 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
             "tmin": round(min(temps)) if temps else None,
             "tmax": round(max(temps)) if temps else None,
             "rain": round(yr_rain, 1),
+            "rain_min": round(yr_min, 1),
+            "rain_max": round(yr_max, 1),
             "g_rain": g_rain,
             "observed": observed_today,
             "wind_max": round(max(winds)) if winds else None,
@@ -483,6 +491,7 @@ def weathernext_extra_days(wn_days: dict[str, dict[str, Any]], last_yr_date: Opt
             "date": date, "label": weekday, "weekday": weekday, "source": "weathernext",
             "periods": d["periods"], "tmin": d["tmin"], "tmax": d["tmax"],
             "lo": d["lo"], "hi": d["hi"], "rain": d["rain"], "rain_hi": d["rain_hi"],
+            "rain_min": None, "rain_max": d["rain_hi"],
             "g_rain": None, "observed": None, "wind_max": d["wind_max"], "gust_max": None,
         })
     return extra
