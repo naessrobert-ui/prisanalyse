@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-10T05:40:00+00:00",
+  "generated_at": "2026-11-10T05:50:00+00:00",
   "items": [
     {
       "id": "686060",
@@ -34,6 +34,22 @@
       ],
       "importance": "mellom",
       "score_ai": 85,
+      "language_versions": [
+        {
+          "id": "686060",
+          "title": "Lerøy Seafood Group ASA: Resultat tredje kvartal 2026",
+          "url": "https://newsweb.oslobors.no/message/686060",
+          "published_at": "2026-11-10T05:30:40.675000+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "686059",
+          "title": "Lerøy Seafood Group ASA: Third quarter 2026 results",
+          "url": "https://newsweb.oslobors.no/message/686059",
+          "published_at": "2026-11-10T05:30:40.650000+00:00",
+          "language": "Engelsk"
+        }
+      ],
       "attachment_key": "e5fa9ba0c4a49653",
       "number_keys": [
         "004be8",
@@ -209,23 +225,7 @@
             }
           ]
         }
-      },
-      "language_versions": [
-        {
-          "id": "686060",
-          "title": "Lerøy Seafood Group ASA: Resultat tredje kvartal 2026",
-          "url": "https://newsweb.oslobors.no/message/686060",
-          "published_at": "2026-11-10T05:30:40.675000+00:00",
-          "language": "Norsk"
-        },
-        {
-          "id": "686059",
-          "title": "Lerøy Seafood Group ASA: Third quarter 2026 results",
-          "url": "https://newsweb.oslobors.no/message/686059",
-          "published_at": "2026-11-10T05:30:40.650000+00:00",
-          "language": "Engelsk"
-        }
-      ]
+      }
     },
     {
       "id": "686058",
@@ -2346,18 +2346,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre kunngjør Q3-2026 resultater 12. november uten detaljert forløp",
-      "lead": "Questerre Energy vil offentliggjøre tall for tredje kvartal 2026 den 12. november, med påfølgende webcast 13. november. Resultatdetaljer og finansiell utvikling er foreløpig ikke kjent.",
+      "headline": "Questerre varsler Q3-2026 resultatpresentasjon 13. november",
+      "lead": "Questerre kunngjør at resultatene for tredje kvartal 2026 offentliggjøres 12. november, med webcast og møte for spørsmål 13. november. Det foreligger foreløpig ingen detaljer om resultatets størrelse eller retning.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy vil offentliggjøre tall for tredje kvartal 2026 den 12. november, med påfølgende webcast 13. november. Resultatdetaljer og finansiell utvikling er foreløpig ikke kjent.",
-      "reason": "Meldingen varsler kun tidspunkt for resultatfremleggelse uten informasjon om resultater eller forventninger. Aksjonærer må vente på konkret informasjon for vurdering.",
-      "score": 15,
+      "summary": "Questerre kunngjør at resultatene for tredje kvartal 2026 offentliggjøres 12. november, med webcast og møte for spørsmål 13. november. Det foreligger foreløpig ingen detaljer om resultatets størrelse eller retning.",
+      "reason": "Meldingen kunngjør tidspunkt for kvartalsrapport, men inneholder ingen informasjon om resultatet eller forventninger. Aksjonærer må avvente resultatene før vurdering av finansiell påvirkning.",
+      "score": 25,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 30,
+      "score_ai": 40,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -10721,14 +10721,14 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-10T05:40:00+00:00",
+  "last_checked_at": "2026-11-10T05:50:00+00:00",
   "monitor_stats": {
     "fetched": 80,
     "recent": 80,
-    "already_seen": 77,
-    "eligible": 3,
+    "already_seen": 79,
+    "eligible": 1,
     "filtered": 0,
-    "analyzed": 3,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
