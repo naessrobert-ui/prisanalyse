@@ -167,6 +167,54 @@ h1{font-size:clamp(27px,3vw,37px)}
 .owner{font-size:10px;font-weight:700;border-radius:5px;padding:1px 5px;background:#24395c;color:#cfe0f7;margin-left:4px;vertical-align:middle;white-space:nowrap}
 .item[data-mine="1"]{border-color:#4f78b8}
 .peer-table tr.mine td:first-child b{color:#ffd98a}
+
+/* --- Overblikk: hovedfelt + ticker --- */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;align-items:start}
+.main-col{min-width:0}
+.message-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.drivers-grid,.indirect-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.day-head{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;margin:10px 0 0;padding-bottom:6px;border-bottom:1px solid #2b3c56;font-weight:750;font-size:15px}
+.day-head:first-child{margin-top:0}
+.day-head .dim{font-weight:500}
+.older-toggle{grid-column:1/-1;justify-self:start;border-radius:9px}
+.since-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:4px 0 16px;padding:10px 14px;border:1px solid #3f6fb0;border-radius:11px;background:#12284a;font-size:13px}
+.since-line[hidden]{display:none}
+.since-line b{font-size:15px}
+.since-line button{padding:5px 11px;font-size:12px;border-radius:9px}
+.new-badge{font-size:10px;font-weight:800;letter-spacing:.05em;border-radius:6px;padding:2px 6px;background:#2f7de0;color:#fff;margin-left:6px;vertical-align:middle}
+.item.is-new{border-color:#4d8fe6;box-shadow:inset 3px 0 0 #4d8fe6}
+.item.flash{animation:nwflash 1.6s ease-out}
+@keyframes nwflash{from{box-shadow:0 0 0 3px #7fb5ff}to{box-shadow:0 0 0 0 transparent}}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+.chip{font-size:10px;font-weight:700;border-radius:6px;padding:2px 7px;background:#1d2f4d;color:#c4d6f0;border:1px solid #31486b}
+.chip.c-kons{background:#123a31;border-color:#347c62;color:#b2e9ca}
+.chip.c-guide{background:#17373f;border-color:#3b6b7a;color:#bfe6ee}
+.card-more{margin-top:8px}
+.card-more>summary{cursor:pointer;color:#99bee9;font-weight:650;font-size:12px}
+.tk-panel{position:sticky;top:12px;border:1px solid #30425c;border-radius:13px;background:#0e1a30;display:flex;flex-direction:column;max-height:calc(100vh - 24px);min-width:0}
+.tk-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 13px;border-bottom:1px solid #26374e;font-size:13px}
+.tk-head label{font-size:11px;color:var(--muted);display:inline-flex;gap:5px;align-items:center;cursor:pointer}
+.tk-list{overflow-y:auto;padding:4px 0 8px}
+.tk-day{padding:9px 13px 4px;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#77b6ff}
+.tk{display:grid;grid-template-columns:38px 9px minmax(0,1fr);gap:7px;align-items:baseline;padding:6px 13px;font-size:12px;line-height:1.35;color:#d6e2f3;border-left:3px solid transparent}
+.tk:hover{background:#14264a;text-decoration:none}
+.tk[hidden]{display:none}
+.tk-time{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.tk-dot{width:8px;height:8px;border-radius:50%;background:#3b4d68;align-self:center}
+.tk-urgent .tk-dot{background:#ff6b81}.tk-interesting .tk-dot{background:#f2c14e}
+.tk-quiet{color:#8497b2}
+.tk-t{font-weight:800;color:#a8cbff}
+.tk-quiet .tk-t{color:#7f95b5}
+.tk-move{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tk-move.pos{color:#8fe3b0}.tk-move.neg{color:#ff9ea9}
+.tk.is-new{border-left-color:#4d8fe6;background:#101f3c}
+.tk[data-mine="1"] .tk-t::after{content:" ★";color:#ffd98a}
+.admin{margin:28px 0 0;border-top:1px solid #2b3c56;padding-top:12px;font-size:12px;color:var(--muted)}
+.admin>summary{cursor:pointer;font-weight:650;color:#99bee9}
+@media(max-width:1250px){.message-grid{grid-template-columns:1fr}}
+@media(max-width:1000px){.layout{grid-template-columns:1fr}.tk-panel{position:static;order:-1;max-height:none}.tk-list{max-height:250px}
+ .message-grid,.drivers-grid,.indirect-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:740px){.message-grid,.drivers-grid,.indirect-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body><main>
@@ -184,19 +232,11 @@ h1{font-size:clamp(27px,3vw,37px)}
   {% if profile %}<span>· {{profile_tickers|length}} selskaper, {{mine_count}} meldinger om dem eller selskaper de påvirker</span>{% endif %}
   {% if profile_error %}<span>· {{profile_error}}</span>{% endif %}
 </nav>
-<div class="manual-refresh">
-  <form method="post" action="{{url_for('newsweb.run_now')}}">
-    <input type="hidden" name="csrf" value="{{refresh_csrf}}">
-    <button type="submit" class="refresh-button">↻ Kjør NewsWeb nå</button>
-  </form>
-  <span>Starter ny analyse og henter eldre kvartalsrapporter i bakgrunnen.</span>
-</div>
 {% if run_status == 'queued' %}<p class="refresh-feedback">Kjøringen er sendt til GitHub. Nyheter vises når analysen er ferdig; oppdater siden om noen minutter.</p>
 {% elif run_status == 'cooldown' %}<p class="refresh-feedback">En kjøring ble nettopp bestilt. Vent minst tre minutter før neste forsøk.</p>
 {% elif run_status == 'not_configured' %}<p class="refresh-feedback">Knappen krever NEWSWEB_GITHUB_TOKEN i nettstedets servermiljø.</p>
 {% elif run_status == 'failed' %}<p class="refresh-feedback">Klarte ikke starte jobben. Kontroller GitHub-token og Actions-tilgang.</p>{% endif %}
 {% endif %}
-<p class="lead intro-top">De viktigste børsmeldingene, med nyeste først. Bytt prioritet og sortering for å finne aktuelle saker. Prioritetsscore er en vurdering av nyhetsverdi, ikke et kursmål.</p>
 {% if report.get("error") %}<div class="banner">{{report.error}}</div>
 {% elif report.get("mode") == "live" %}
 {% if report.get('last_checked_at') %}
@@ -205,17 +245,11 @@ h1{font-size:clamp(27px,3vw,37px)}
   {% if report.get('monitor_stats') %} · {{report.monitor_stats.get('analyzed',0)}} nye analyser{% endif %}
 </div>
 {% endif %}
-<div class="live-status"><span class="live-dot"></span> Automatisk oppdatert fra NewsWeb gjennom GitHub Actions. Viser de siste {{items|length}} meldingene i historikken. Oppdateres hvert 15. minutt kl. 06–10 og deretter hver time kl. 10–23 (norsk tid).</div>
 {% endif %}
 {% if private_error %}<div class="banner">{{private_error}}</div>{% endif %}
-{% if can_view_consensus and (consensus_matches or simulated_matches) %}<p class="dimmed-summary">Privat konsensus: {{consensus_matches}} meldinger med før-publisering-estimater{% if simulated_matches %} · {{simulated_matches}} med <strong>simulert test</strong> (som om estimatene var fra dagen før){% endif %}. <a href="/newsweb/konsensus/">Se opplastingsrapport →</a></p>{% endif %}
-<div class="tally" aria-label="Antall meldinger">
- <span><b>{{items|length}}</b> meldinger totalt</span>
- <span><b>{{focus}}</b> høy prioritet</span>
- <span><b>{{interesting}}</b> interessante</span>
- <span><b>{{ignored}}</b> lav prioritet / filtrert</span>
- <span class="dim">Kilde: {{report.get('source','NewsWeb')}}{% if report.get('generated_at') %} · {{report.generated_at|norsk_tid}}{% endif %}</span>
-</div>
+<div class="since-line" id="since-line" hidden></div>
+<div class="layout">
+<div class="main-col">
 {% if can_view_consensus %}
 <details class="drivers" id="drivers" open>
   <summary class="section-heading">Dagens kursdrivere og sammenlignbare selskaper</summary>
@@ -237,7 +271,7 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% set indirect = report.get('indirect') or [] %}
 {% if indirect %}
 <section class="indirect" aria-label="Indirekte nyheter">
-<details open>
+<details>
 <summary class="section-heading">Indirekte nyheter som kan påvirke noterte selskaper ({{indirect|length}})</summary>
 <p class="dimmed-summary">Saker som ikke er børsmeldinger, men som AI vurderer kan påvirke inntjeningen (regulering, råvarer, renter, politikk o.l.). Kilde: {{indirect|map(attribute='source')|unique|join(', ')}}.</p>
 <div class="indirect-grid">
@@ -287,7 +321,7 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% for item in items %}
 {% set score = item.get('score',0)|int %}
 {% set quiet = item.get('skipped') or score < 45 %}
-<article class="item" data-priority="{% if quiet %}quiet{% elif score >= 75 %}urgent{% else %}interesting{% endif %}"
+<article class="item" id="m-{{loop.index}}" data-priority="{% if quiet %}quiet{% elif score >= 75 %}urgent{% else %}interesting{% endif %}"
   data-date="{{item.get('published_at','')}}" data-score="{{score}}" data-ticker="{{item.get('ticker','')}}"
   data-surprise="{{item.get('largest_surprise_abs', -1)}}" data-mine="{{'1' if item.get('mine') else '0'}}" {% if quiet or score < 75 or (profile and not item.get('mine')) %}hidden{% endif %}>
 <div class="item-head"><div class="ticker">{{item.get('ticker') or 'UKJENT'}} <span class="dim">· {{item.get('issuer') or ''}}</span>{% for o in item.get('owners') or [] %}<span class="owner" title="Følges av {{o}}">{{o}}</span>{% endfor %}{% if item.get('importance')=='stor' %}<span class="imp-badge" title="Vektet opp som viktig selskap{% if item.get('score_ai') is not none %} (AI-skår {{item.score_ai}}){% endif %}">Viktig</span>{% endif %}</div>
@@ -297,6 +331,15 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% if can_view_consensus and item.get('ticker') and not item.get('skipped') %}
 <div class="kurs-panel" data-kurs-ticker="{{item.ticker}}" data-kurs-published="{{item.get('published_at','')}}"><span class="dim">Henter kurs …</span></div>
 {% endif %}
+{% set outlook = (item.get('financial_report') or {}).get('outlook') or {} %}
+<div class="chips">
+{% if can_view_consensus and item.get('consensus_comparison') %}<span class="chip c-kons">Mot konsensus{% if item.get('largest_surprise_abs',-1) >= 0 %}: avvik inntil {{item.largest_surprise_abs|round(1)}} %{% endif %}</span>{% endif %}
+{% if outlook.get('summary') or outlook.get('points') %}<span class="chip c-guide">Utsikter / guiding</span>{% endif %}
+{% if (item.get('financial_report') or {}).get('metrics') %}<span class="chip">Nøkkeltall</span>{% endif %}
+{% if item.get('affected') %}<span class="chip">Påvirker {{item.affected|length}} andre</span>{% endif %}
+</div>
+<details class="card-more">
+<summary>Detaljer</summary>
 {% if item.get('affected') %}
 <div class="affected-head">Kan påvirke andre selskaper</div>
 <ul class="affected">
@@ -400,6 +443,7 @@ h1{font-size:clamp(27px,3vw,37px)}
   <p>{{item.get('title','Original overskrift ikke tilgjengelig')}}</p>
   {% if item.get('url','').startswith('https://') %}<a href="{{item.url}}" target="_blank" rel="noopener noreferrer">Les hele meldingen hos Oslo Børs ↗</a>{% endif %}
 </details>
+</details>
 
 <div class="meta"><span class="published-at" data-timestamp="{{item.get('published_at','')}}">{{item.get('published_at','')}}</span><span>{{item.get('assessment_source','')}}</span>
 {% if item.get('url','').startswith('https://') %}<a href="{{item.url}}" target="_blank" rel="noopener noreferrer">Børsmelding ↗</a>{% endif %}</div>
@@ -407,6 +451,48 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% endfor %}
 {% if not items %}<div class="item">Ingen meldinger tilgjengelig ennå.</div>{% endif %}
 </section>
+</div>
+<aside class="tk-panel" aria-label="Alle meldinger, nyeste først">
+  <div class="tk-head"><strong>Siste meldinger</strong>
+    <label><input type="checkbox" id="tk-all"> Vis også lav prioritet</label></div>
+  <div class="tk-list" id="tk-list">
+  {% for item in items %}
+  {% set score = item.get('score',0)|int %}
+  {% set quiet = item.get('skipped') or score < 45 %}
+  <a class="tk tk-{% if quiet %}quiet{% elif score >= 75 %}urgent{% else %}interesting{% endif %}" href="#m-{{loop.index}}" data-for="m-{{loop.index}}"
+     data-date="{{item.get('published_at','')}}" data-mine="{{'1' if item.get('mine') else '0'}}" title="{{'Filtrert' if item.get('skipped') else 'Prioritet ' ~ score ~ ' / 100'}}">
+    <span class="tk-time"></span><span class="tk-dot"></span>
+    <span><span class="tk-t">{{item.get('ticker') or '–'}}</span> {{item.get('headline') or item.get('title','Uten tittel')}} <span class="tk-move"></span></span>
+  </a>
+  {% endfor %}
+  {% if not items %}<p class="dimmed-summary" style="padding:8px 13px">Ingen meldinger ennå.</p>{% endif %}
+  </div>
+</aside>
+</div>
+<details class="admin">
+  <summary>Drift, status og oppdatering</summary>
+{% if can_view_consensus %}
+<div class="manual-refresh">
+  <form method="post" action="{{url_for('newsweb.run_now')}}">
+    <input type="hidden" name="csrf" value="{{refresh_csrf}}">
+    <button type="submit" class="refresh-button">↻ Kjør NewsWeb nå</button>
+  </form>
+  <span>Starter ny analyse og henter eldre kvartalsrapporter i bakgrunnen.</span>
+</div>
+{% endif %}
+<p class="lead intro-top">De viktigste børsmeldingene, med nyeste først. Bytt prioritet og sortering for å finne aktuelle saker. Prioritetsscore er en vurdering av nyhetsverdi, ikke et kursmål.</p>
+{% if report.get("mode") == "live" and not report.get("error") %}
+<div class="live-status"><span class="live-dot"></span> Automatisk oppdatert fra NewsWeb gjennom GitHub Actions. Viser de siste {{items|length}} meldingene i historikken. Oppdateres hvert 15. minutt kl. 06–10 og deretter hver time kl. 10–23 (norsk tid).</div>
+{% endif %}
+{% if can_view_consensus and (consensus_matches or simulated_matches) %}<p class="dimmed-summary">Privat konsensus: {{consensus_matches}} meldinger med før-publisering-estimater{% if simulated_matches %} · {{simulated_matches}} med <strong>simulert test</strong> (som om estimatene var fra dagen før){% endif %}. <a href="/newsweb/konsensus/">Se opplastingsrapport →</a></p>{% endif %}
+<div class="tally" aria-label="Antall meldinger">
+ <span><b>{{items|length}}</b> meldinger totalt</span>
+ <span><b>{{focus}}</b> høy prioritet</span>
+ <span><b>{{interesting}}</b> interessante</span>
+ <span><b>{{ignored}}</b> lav prioritet / filtrert</span>
+ <span class="dim">Kilde: {{report.get('source','NewsWeb')}}{% if report.get('generated_at') %} · {{report.generated_at|norsk_tid}}{% endif %}</span>
+</div>
+</details>
 <aside class="mobile-about" aria-label="Om NewsWeb og oppdateringer">
   <details>
     <summary>Om nyhetsmonitoren og oppdateringer</summary>
@@ -433,18 +519,70 @@ h1{font-size:clamp(27px,3vw,37px)}
     const t=Date.parse(card.dataset.date||'');
     return Number.isFinite(t)?t:0;
   };
+  const keyFmt=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Oslo'});
+  const dayKey=t=>t?keyFmt.format(new Date(t)):'';
+  const longDay=new Intl.DateTimeFormat('nb-NO',{timeZone:'Europe/Oslo',weekday:'long',day:'numeric',month:'short'});
+  const todayKey=dayKey(Date.now()),yesterdayKey=dayKey(Date.now()-864e5);
+  const dayLabel=(key,t)=>key===todayKey?'I dag':key===yesterdayKey?'I går':
+    (s=>s.charAt(0).toUpperCase()+s.slice(1))(longDay.format(new Date(t)));
+  cards.forEach(c=>{c.dataset.day=dayKey(published(c));});
+  // «Ferske» dager = de to nyeste dagene med meldinger. Eldre vises først når man ber om det.
+  const freshDays=new Set([...new Set(cards.map(c=>c.dataset.day))].sort().reverse().slice(0,2));
+  let showOlder=false,newOnly=false;
+  // Siden sist: forrige besøk huskes i nettleseren. Samme fane beholder merkingen ved oppfrisking.
+  let since=0;
+  try{
+    since=Number(sessionStorage.getItem('nw-since'))||0;
+    if(!since){since=Number(localStorage.getItem('nw-last-seen'))||-1;sessionStorage.setItem('nw-since',String(since));}
+    localStorage.setItem('nw-last-seen',String(Date.now()));
+  }catch(e){}
+  const rows=Array.from(document.querySelectorAll('#tk-list .tk'));
+  const timeFmt=new Intl.DateTimeFormat('nb-NO',{timeZone:'Europe/Oslo',hour:'2-digit',minute:'2-digit'});
+  const sinceLine=document.getElementById('since-line');
+  function markNew(){
+    let n=0,high=0;
+    cards.forEach(c=>{
+      const isNew=since>0&&published(c)>since;
+      c.classList.toggle('is-new',isNew);
+      const head=c.querySelector('.ticker');let badge=head&&head.querySelector('.new-badge');
+      if(isNew&&head&&!badge){badge=document.createElement('span');badge.className='new-badge';badge.textContent='NY';head.append(badge);}
+      if(!isNew&&badge)badge.remove();
+      if(isNew&&c.dataset.priority!=='quiet'){n++;if(c.dataset.priority==='urgent')high++;}
+    });
+    rows.forEach(r=>r.classList.toggle('is-new',since>0&&Date.parse(r.dataset.date||'')>since));
+    if(!sinceLine)return;
+    sinceLine.replaceChildren();
+    if(since<=0){sinceLine.hidden=true;newOnly=false;return;}
+    sinceLine.hidden=false;
+    const when=new Intl.DateTimeFormat('nb-NO',{timeZone:'Europe/Oslo',weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(since));
+    const b=document.createElement('b');b.textContent=n;
+    const txt=document.createElement('span');
+    txt.textContent=(n===1?' ny melding':' nye meldinger')+' siden forrige besøk ('+when+')'+(n?', '+high+' med høy prioritet':'');
+    const lead=document.createElement('span');lead.append(b,txt);sinceLine.append(lead);
+    if(!n){newOnly=false;return;}
+    const only=document.createElement('button');only.type='button';only.textContent=newOnly?'Vis alle':'Vis bare nye';
+    only.className=newOnly?'active':'';
+    only.addEventListener('click',()=>{newOnly=!newOnly;markNew();refresh();});
+    const seen=document.createElement('button');seen.type='button';seen.textContent='Merk som sett';
+    seen.addEventListener('click',()=>{since=Date.now();newOnly=false;
+      try{sessionStorage.setItem('nw-since',String(since));}catch(e){}markNew();refresh();});
+    sinceLine.append(only,seen);
+  }
   function refresh(){
     const selected=new Set(filters.filter(f=>f.checked).map(f=>f.dataset.priorityFilter));
     const query=(search.value||'').trim().toLocaleLowerCase('nb-NO');
     const mineOnly=!!(mineFilter&&mineFilter.checked);
-    let visible=0;
-    cards.forEach(card=>{
-      const show=selected.has(card.dataset.priority) && (!mineOnly||card.dataset.mine==='1') &&
-        (!query || card.textContent.toLocaleLowerCase('nb-NO').includes(query));
-      card.hidden=!show;
-      if(show)visible++;
-    });
     const choice=sort.value;
+    let visible=0,older=0;
+    cards.forEach(card=>{
+      const pinned=card.dataset.pinned==='1';
+      let show=selected.has(card.dataset.priority) && (!mineOnly||card.dataset.mine==='1') &&
+        (!query || card.textContent.toLocaleLowerCase('nb-NO').includes(query)) &&
+        (!newOnly || card.classList.contains('is-new'));
+      if(show&&!query&&!showOlder&&!newOnly&&!freshDays.has(card.dataset.day)){show=false;older++;}
+      card.hidden=!(show||pinned);
+      if(!card.hidden)visible++;
+    });
     cards.sort((a,b)=>{
       if(choice==='score')return number(b,'score')-number(a,'score')||published(b)-published(a);
       if(choice==='oldest')return published(a)-published(b);
@@ -456,10 +594,61 @@ h1{font-size:clamp(27px,3vw,37px)}
         ||published(b)-published(a);
       return published(b)-published(a);
     });
+    container.querySelectorAll('.day-head,.older-toggle').forEach(n=>n.remove());
     container.append(...cards);
+    if(choice==='latest'||choice==='oldest'){
+      const counts={};
+      cards.forEach(c=>{if(!c.hidden)counts[c.dataset.day]=(counts[c.dataset.day]||0)+1;});
+      let last=null;
+      cards.forEach(c=>{
+        if(c.hidden||c.dataset.day===last)return;
+        last=c.dataset.day;
+        const h=document.createElement('div');h.className='day-head';
+        const name=document.createElement('span');name.textContent=dayLabel(last,published(c));
+        const cnt=document.createElement('span');cnt.className='dim';
+        cnt.textContent=counts[last]+(counts[last]===1?' melding':' meldinger');
+        h.append(name,cnt);container.insertBefore(h,c);
+      });
+    }
+    if(older||showOlder){
+      const btn=document.createElement('button');btn.type='button';btn.className='older-toggle';
+      btn.textContent=showOlder?'Skjul eldre meldinger':'Vis '+older+' eldre '+(older===1?'melding':'meldinger');
+      btn.addEventListener('click',()=>{showOlder=!showOlder;refresh();});
+      container.append(btn);
+    }
     status.textContent='Viser '+visible+' av '+cards.length+' meldinger · '+
-      sort.options[sort.selectedIndex].textContent.toLocaleLowerCase('nb-NO');
+      sort.options[sort.selectedIndex].textContent.toLocaleLowerCase('nb-NO')+
+      (older?' · '+older+' eldre skjult':'');
   }
+  // Ticker: alle meldinger, én linje hver. Klikk henter frem kortet selv om filteret skjuler det.
+  const tkAll=document.getElementById('tk-all'),tkList=document.getElementById('tk-list');
+  function refreshTicker(){
+    if(!tkList)return;
+    tkList.querySelectorAll('.tk-day').forEach(n=>n.remove());
+    let last=null;
+    rows.forEach(r=>{
+      const t=Date.parse(r.dataset.date||'');
+      r.hidden=r.classList.contains('tk-quiet')&&!(tkAll&&tkAll.checked);
+      if(!Number.isFinite(t))return;
+      r.querySelector('.tk-time').textContent=timeFmt.format(new Date(t));
+      if(r.hidden)return;
+      const key=dayKey(t);
+      if(key!==last){last=key;const d=document.createElement('div');d.className='tk-day';
+        d.textContent=dayLabel(key,t);tkList.insertBefore(d,r);}
+    });
+  }
+  try{if(tkAll)tkAll.checked=localStorage.getItem('nw-tk-all')==='1';}catch(e){}
+  if(tkAll)tkAll.addEventListener('change',()=>{try{localStorage.setItem('nw-tk-all',tkAll.checked?'1':'0');}catch(e){}refreshTicker();});
+  rows.forEach(r=>r.addEventListener('click',e=>{
+    const card=document.getElementById(r.dataset.for);
+    if(!card)return;
+    e.preventDefault();
+    card.dataset.pinned='1';
+    refresh();
+    const more=card.querySelector('.card-more');if(more)more.open=true;
+    card.scrollIntoView({block:'center',behavior:'smooth'});
+    card.classList.remove('flash');void card.offsetWidth;card.classList.add('flash');
+  }));
   filters.forEach(f=>f.addEventListener('change',refresh));
   if(mineFilter)mineFilter.addEventListener('change',refresh);
   sort.addEventListener('change',refresh);
@@ -475,6 +664,8 @@ h1{font-size:clamp(27px,3vw,37px)}
       el.title=el.dataset.timestamp;
     }
   });
+  markNew();
+  refreshTicker();
   refresh();
   window.newswebRefresh=refresh;
 })();
@@ -650,7 +841,12 @@ h1{font-size:clamp(27px,3vw,37px)}
         if(own.price_driver)line.append(el('span','kurs-badge','Kursdrivende'));
         p.append(line);
         const move=Math.abs(own.abnormal_pct!==undefined?own.abnormal_pct:own.change_pct);
-        if(card)card.dataset.move=move;
+        if(card){
+          card.dataset.move=move;
+          const signed=own.abnormal_pct!==undefined?own.abnormal_pct:own.change_pct;
+          const tk=own.traded_since&&document.querySelector('.tk[data-for="'+card.id+'"] .tk-move');
+          if(tk){tk.textContent=pct(signed);tk.className='tk-move '+cls(signed);}
+        }
       }
     }
     affectedRows(p).forEach(li=>{
