@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-10T05:10:00+00:00",
+  "generated_at": "2026-11-10T05:20:00+00:00",
   "items": [
     {
       "id": "686058",
@@ -2123,18 +2123,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre to host webcast for third quarter 2026 results on November 13, 2026 at 1530 CET",
-      "headline": "Questerre legger fram tredje kvartal 2026-resultater 12. november",
-      "lead": "Questerre Energy offentliggjør sine resultater for 3. kvartal 2026 torsdag 12. november, med påfølgende webcast og Q&A 13. november. Foreløpige tall og forventninger foreligger ikke.",
+      "headline": "Questerre kunngjør Q3-resultater 12. november uten detaljert informasjon",
+      "lead": "Questerre Energy offentliggjør sine tredje kvartalsresultater 12. november 2026, men det foreligger ingen nøkkeltall eller forventninger på nåværende tidspunkt. En webcast blir holdt dagen etter.",
       "published_at": "2026-11-09T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/685960",
-      "summary": "Questerre Energy offentliggjør sine resultater for 3. kvartal 2026 torsdag 12. november, med påfølgende webcast og Q&A 13. november. Foreløpige tall og forventninger foreligger ikke.",
-      "reason": "Meldingen informerer om tidspunkt for resultatfremleggelse uten å inkludere tall, endringer eller produksjons- og finansielle nøkkeltall. Aksjonærer må vente på detaljene for vurdering.",
-      "score": 25,
+      "summary": "Questerre Energy offentliggjør sine tredje kvartalsresultater 12. november 2026, men det foreligger ingen nøkkeltall eller forventninger på nåværende tidspunkt. En webcast blir holdt dagen etter.",
+      "reason": "Meldingen gir kun informasjon om tidspunkt for resultatfremleggelse og webcast, uten økonomiske data eller indikasjoner på resultatets størrelse eller endring. Det gir begrenset grunnlag for investeringsvurdering.",
+      "score": 20,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 40,
+      "score_ai": 35,
       "number_keys": [
         "02ef6a",
         "22d200",
@@ -10559,6 +10559,23 @@
   ],
   "indirect": [
     {
+      "id": "19282151f85372d9",
+      "source": "E24",
+      "title": "Advarer om ekstraregning på ni milliarder i året",
+      "url": "https://e24.no/naeringsliv/i/zldJ75/advarer-om-ekstraregning-paa-ni-milliarder-i-aaret?utm_medium=rss",
+      "published_at": "2026-11-10T05:09:07+00:00",
+      "analyzed_at": "2026-11-10T05:20:00+00:00",
+      "score": 50,
+      "comment": "Endringer i regler for deltidsansatte kan øke lønnskostnader betydelig for arbeidsgivere, potensielt påvirke selskapers inntjening og lønnsomhet.",
+      "affected": [
+        {
+          "ticker": "YAR",
+          "direction": "negativ",
+          "reason": "Arbeidsgiverkostnader kan øke med nye deltidsregler, høyere lønnskostnader."
+        }
+      ]
+    },
+    {
       "id": "66963dd00970a849",
       "source": "E24",
       "title": "Brått fall i oljeprisen",
@@ -10725,7 +10742,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-10T05:10:00+00:00",
+  "last_checked_at": "2026-11-10T05:20:00+00:00",
   "monitor_stats": {
     "fetched": 78,
     "recent": 78,
@@ -10738,6 +10755,6 @@
     "capped": 0,
     "recovered_unpublished": 1,
     "source_latest_at": "2026-11-09T21:32:22.999000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
