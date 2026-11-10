@@ -189,6 +189,9 @@ h1{font-size:clamp(27px,3vw,37px)}
 .chip{font-size:10px;font-weight:700;border-radius:6px;padding:2px 7px;background:#1d2f4d;color:#c4d6f0;border:1px solid #31486b}
 .chip.c-kons{background:#123a31;border-color:#347c62;color:#b2e9ca}
 .chip.c-guide{background:#17373f;border-color:#3b6b7a;color:#bfe6ee}
+.bbg{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:8px 0 2px;font-size:11px}
+.bbg a{border:1px solid #6a5320;background:#2a2110;color:#ffd98a;border-radius:6px;padding:2px 7px;font-weight:700}
+.bbg a:hover{background:#3d3015;text-decoration:none}
 .card-more{margin-top:8px}
 .card-more>summary{cursor:pointer;color:#99bee9;font-weight:650;font-size:12px}
 .tk-panel{position:sticky;top:12px;border:1px solid #30425c;border-radius:13px;background:#0e1a30;display:flex;flex-direction:column;max-height:calc(100vh - 24px);min-width:0}
@@ -338,6 +341,12 @@ h1{font-size:clamp(27px,3vw,37px)}
 {% if (item.get('financial_report') or {}).get('metrics') %}<span class="chip">Nøkkeltall</span>{% endif %}
 {% if item.get('affected') %}<span class="chip">Påvirker {{item.affected|length}} andre</span>{% endif %}
 </div>
+{% if can_view_consensus and item.get('ticker') %}
+{# Åpner Bloomberg Terminal direkte (bbg://). Virker bare på PC med Terminal innlogget. #}
+{% set bb = 'bbg://securities/' ~ (item.ticker ~ ' NO Equity')|urlencode ~ '/' %}
+<div class="bbg" aria-label="Åpne i Bloomberg Terminal"><span class="dim">Bloomberg</span>
+<a href="{{bb}}CN" title="Selskapsnyheter">Nyheter</a><a href="{{bb}}BRC" title="Megleranalyser">Analyser</a><a href="{{bb}}ANR" title="Anbefalinger og kursmål">Anbefalinger</a><a href="{{bb}}EE" title="Estimater og konsensus">Estimater</a><a href="{{bb}}DES" title="Selskapsbeskrivelse">DES</a></div>
+{% endif %}
 <details class="card-more">
 <summary>Detaljer</summary>
 {% if item.get('affected') %}
