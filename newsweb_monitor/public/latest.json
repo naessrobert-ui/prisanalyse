@@ -2,8 +2,81 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-11T11:50:00+00:00",
+  "generated_at": "2026-11-11T12:00:00+00:00",
   "items": [
+    {
+      "id": "686216",
+      "market": "XOSL",
+      "ticker": "AVINR",
+      "issuer": "Avinor AS",
+      "title": "More passengers, but fewer aircraft movements in October",
+      "headline": "Avinor: Flere passasjerer i oktober men færre flybevegelser samlet",
+      "lead": "Antall passasjerer økte 1,3 prosent i oktober til 4,9 millioner, mens kommersielle flybevegelser falt med 2,6 prosent. Dette tyder på høyere kapasitetsutnyttelse per flyvning.",
+      "published_at": "2026-11-11T12:00:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/686216",
+      "summary": "Antall passasjerer økte 1,3 prosent i oktober til 4,9 millioner, mens kommersielle flybevegelser falt med 2,6 prosent. Dette tyder på høyere kapasitetsutnyttelse per flyvning.",
+      "reason": "Flere passasjerer med færre flybevegelser peker på bedre effektivitet, men lavere trafikkaktivitet kan indikere markedsutfordringer i enkelte segmenter. Videre utvikling i charter- og rutesegment bør følges.",
+      "score": 57,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "OSLKO",
+          "direction": "positiv",
+          "reason": "Oslo Lufthavn har økt passasjertall men færre flybevegelser, noe som kan styrke lønnsomheten."
+        }
+      ],
+      "company_form": "ikke ASA",
+      "score_ai": 72,
+      "number_keys": [
+        "004be8",
+        "0716d9",
+        "0a57cb",
+        "115c55",
+        "1574bd",
+        "22d200",
+        "28a5c2",
+        "3bb9cd",
+        "3bfa48",
+        "3ea6c9",
+        "472b07",
+        "4d134b",
+        "5b384c",
+        "5d24a4",
+        "6e914e",
+        "72db86",
+        "7316b3",
+        "7d1ef3",
+        "7f3541",
+        "aee655",
+        "b1d578",
+        "b1f32a",
+        "bd307a",
+        "be4692",
+        "cb7a1d",
+        "cdfdce",
+        "da4b92",
+        "ee44c6",
+        "f6b039"
+      ],
+      "language_versions": [
+        {
+          "id": "686217",
+          "title": "Fleire passasjerar, men færre flyrørsler i oktober",
+          "url": "https://newsweb.oslobors.no/message/686217",
+          "published_at": "2026-11-11T12:00:00+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "686216",
+          "title": "More passengers, but fewer aircraft movements in October",
+          "url": "https://newsweb.oslobors.no/message/686216",
+          "published_at": "2026-11-11T12:00:00+00:00",
+          "language": "Engelsk"
+        }
+      ]
+    },
     {
       "id": "686212",
       "market": "XOSL",
@@ -1691,12 +1764,12 @@
       "ticker": "ENVIP",
       "issuer": "Envipco Holding N.V.",
       "title": "ENVIPCO Q3 26 - Rising sales growth and record customer awards",
-      "headline": "Envipco øker omsetningen 18 prosent, men leverer fortsatt negativt driftsresultat",
-      "lead": "Envipco rapporterer en omsetningsvekst på 18 prosent til 26,5 millioner euro i tredje kvartal 2026, drevet av sterkere salg i USA og Europa. Driftsresultatet forblir negativt med 3,1 millioner euro, preget av investeringer og lav kapasitetsutnyttelse.",
+      "headline": "Envipco øker omsetningen 18 prosent til 26,5 millioner euro i Q3 26",
+      "lead": "Envipco rapporterer 18 % omsetningsvekst til 26,5 mill. euro i Q3 drevet av økt salg av resirkuleringsmaskiner i USA og Europa. EBITDA er fortsatt negativ med minus 0,6 mill. euro, påvirket av investeringer og omstillinger.",
       "published_at": "2026-11-11T06:00:34.151000+00:00",
       "url": "https://newsweb.oslobors.no/message/686169",
-      "summary": "Envipco rapporterer en omsetningsvekst på 18 prosent til 26,5 millioner euro i tredje kvartal 2026, drevet av sterkere salg i USA og Europa. Driftsresultatet forblir negativt med 3,1 millioner euro, preget av investeringer og lav kapasitetsutnyttelse.",
-      "reason": "Omsetningsveksten viser god markedsutvikling, spesielt i USA og Europa, men fortsatt negativt driftsresultat og økte kostnader gir fortsatt utfordringer. Viktig å følge om effektivitets- og kostnadsforbedringene slår ut i positiv lønnsomhet framover.",
+      "summary": "Envipco rapporterer 18 % omsetningsvekst til 26,5 mill. euro i Q3 drevet av økt salg av resirkuleringsmaskiner i USA og Europa. EBITDA er fortsatt negativ med minus 0,6 mill. euro, påvirket av investeringer og omstillinger.",
+      "reason": "Til tross for solide inntektsøkninger og nye kontrakter sikter Envipco fortsatt på lønnsomhet, men driftsresultat og marginer er presset av investeringer og effektivisering. Viktig å følge kapitalforvaltning og kommersiell gjennomføring framover.",
       "score": 60,
       "skipped": false,
       "direction": "nøytral",
@@ -1704,8 +1777,8 @@
       "affected": [
         {
           "ticker": "AKRBP",
-          "direction": "uklar",
-          "reason": "Potensiell påvirkning i RVM-sektoren fra konkurrenters markedsutvikling"
+          "direction": "positiv",
+          "reason": "Positivt for sensor- og automasjonsteknologi i resirkuleringssektoren ved økt fokus på emballasjeretur."
         }
       ],
       "company_form": "ikke ASA",
@@ -1780,7 +1853,7 @@
             "yoy_pct": 17.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 2, Side 6, Side 11 consolidated income statement"
+            "evidence": "Side 2, Key figures (EURm) Q3 26 revenue 26.5, Q3 25 revenue 22.5"
           },
           {
             "label": "EBITDA",
@@ -1793,7 +1866,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 2, Side 6"
+            "evidence": "Side 2, EBITDA EUR -0.6m in Q3 26, -0.3m in Q3 25"
           },
           {
             "label": "EBIT",
@@ -1806,7 +1879,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 2, Side 6, Side 8"
+            "evidence": "Side 2, Operating profit (EBIT) EUR -3.1m Q3 26, -2.7m Q3 25"
           },
           {
             "label": "Resultat etter skatt",
@@ -1819,7 +1892,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 2, Side 6"
+            "evidence": "Side 2, Net profit after taxes EUR -4.2m Q3 26, -4.0m Q3 25"
           },
           {
             "label": "EPS",
@@ -1832,38 +1905,38 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 2"
+            "evidence": "Side 2, Earnings/(loss) per share in € -0.06 Q3 26, -0.07 Q3 25"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Envipco opplever positive markedsforhold med implementering av returordninger (DRS) i EU, noe som forventes å tredoble markedet. Selskapet har sikret ordrer for 7 100 returautomater (RVM) i Storbritannia og utvikler sine operasjoner, inkludert omorganisering og effektivisering. I Europa vokser salget, spesielt i Romania og Portugal, mens USA forventes stabilt med noe vekst i RVM-salg. Envipco vil gjennomføre restrukturering med en kostnad på EUR 3 millioner i Q4 2026, men sparer EUR 4 millioner i 2027. Likviditeten opprettholdes gjennom kapitaloptimalisering og finansiering av strategiske investeringer.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "summary": "Envipco forventer tredobling av markedet i Europa på grunn av nye innføringer av retursystemer (DRS). De har sikre ordrer for 7 100 maskiner i Storbritannia og satser på lønnsom vekst gjennom en omorganisering med økt smidighet som vil medføre struktureringskostnader på 3 millioner euro i Q4 2026, med 4 millioner euro i besparelser i 2027. Selskapet forventer stabilitet og moderat vekst i USA, og styrker innsatsen i Europa, spesielt i Polen og Nederland. De fokuserer på effektivitet, kapitalallokering og kontantstrøm, og har tilstrekkelig likviditet for drift.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Markedsutsikter og salgspotensial",
-              "statement": "Flere europeiske land innfører DRS, noe som kan tredoble selskapets totale adresserbare marked.",
-              "evidence": "\"Several European markets are in process of launching... which could triple the company’s total addressable market.\" (side 2)",
+              "topic": "Marked og salg",
+              "statement": "Markedet i Europa kan tredobles med nye DRS-innføringer. Sikret 7 100 RVM-ordrer i Storbritannia for 2027.",
+              "evidence": "'Several European markets... could triple...', 'committed orders for 7,100 RVMs' (side 2)",
               "page": "2"
             },
             {
-              "topic": "Storbritannia som marked",
-              "statement": "Envipco har sikret store ordrer fra flere britiske detaljister for 7 100 RVMs, og satser på å styrke sin markedsandel gjennom preferanseavtaler.",
-              "evidence": "\"Committed orders for 7,100 RVMs in addition to a preferred supplier agreement\" og \"ongoing arbeid for å sikre målandel i UK.\" (side 2-4)",
-              "page": "2-4"
-            },
-            {
-              "topic": "Restrukturering og kostnader",
-              "statement": "Selskapet implementerer en mer agil organisasjon med omfordeling av ressurser, som fører til noen nedbemanninger og forventet restruktureringskostnad på EUR 3 millioner i Q4 2026.",
-              "evidence": "\"These changes involve some redundancies and an expected restructuring charge in the fourth quarter.\" (side 2)",
+              "topic": "Profitt og kostnader",
+              "statement": "Omorganisering for mer smidig drift, med 3 millioner euro restruktureringskostnad i Q4 2026 og 4 millioner euro årlige besparelser fra 2027.",
+              "evidence": "'restructuring charge in Q4 26, driving EUR 4m of savings in 2027' (side 2)",
               "page": "2"
             },
             {
-              "topic": "Likviditet og investeringer",
-              "statement": "Envipco har tilstrekkelig likviditet til å finansiere nåværende drift og forventer forbedret likviditet gjennom kapitaloptimalisering og utvidede arbeidet kapital fasiliteter.",
-              "evidence": "\"The company maintains sufficient liquidity to fund current operations and expects to improve its liquidity position through working capital optimization...\" (side 2)",
+              "topic": "Marked USA og Europa",
+              "statement": "Stabil med noe vekst i USA på RVM-salg, forsterket satsing i Europa spesielt på Polen, Nederland og Portugal.",
+              "evidence": "'US operations expected to remain stable... refocusing efforts in Poland... Netherlands remains promising' (side 2)",
+              "page": "2"
+            },
+            {
+              "topic": "Likviditet og kapital",
+              "statement": "Fokus på effektivitet, kapitalallokering og likviditet, med tilstrekkelig kapital for drifting og forbedring via arbeidskapitaloptimalisering.",
+              "evidence": "'Envipco will remain focused on efficiency, capital allocation, and cash conversion... maintains sufficient liquidity' (side 2)",
               "page": "2"
             }
           ]
@@ -2244,13 +2317,13 @@
       "ticker": "APR",
       "issuer": "Appear ASA",
       "title": "Appear ASA   Trading update and withdrawal of full-year 2026 guidance",
-      "headline": "Appear trekker 2026-omsetningsprognose etter kansellert salgsmulighet",
-      "lead": "Appear ASA forventer nå lavere omsetning enn tidligere anslått etter at en betydelig salgsmulighet i EMEA-området ble kansellert, og trekker derfor sin helårsprognose for 2026.",
+      "headline": "Appear trekker fullårsprognose etter kansellert salgsmulighet",
+      "lead": "Appear ASA meddelte at en viktig salgsmulighet i EMEA er kansellert, og trekker dermed sin omsetningsprognose for 2026 som tidligere lå på 880–920 millioner kroner.",
       "published_at": "2026-11-11T06:00:18.364000+00:00",
       "url": "https://newsweb.oslobors.no/message/686164",
-      "summary": "Appear ASA forventer nå lavere omsetning enn tidligere anslått etter at en betydelig salgsmulighet i EMEA-området ble kansellert, og trekker derfor sin helårsprognose for 2026.",
-      "reason": "Kanselleringen av en større salgsmulighet svekker forventet inntektsvekst betydelig. Investorer bør følge nøye med på selskapets omsetningsutvikling fremover og vurdere risiko ved avhengighet av få store kontrakter.",
-      "score": 75,
+      "summary": "Appear ASA meddelte at en viktig salgsmulighet i EMEA er kansellert, og trekker dermed sin omsetningsprognose for 2026 som tidligere lå på 880–920 millioner kroner.",
+      "reason": "Kansellering av en vesentlig salgsmulighet svekker Appear sin omsetningsutsikt og indikerer høy usikkerhet for 4. kvartal og hele 2026, noe som skaper usikkerhet for aksjonærer og investorer.",
+      "score": 78,
       "skipped": false,
       "direction": "negativ",
       "assessment_source": "AI",
@@ -2292,26 +2365,20 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 1 - Trading update states withdrawal of 2026 full-year revenue guidance; no actual revenue figures reported"
+            "evidence": "SIDE 1 states revenue guidance for 2026 was withdrawn, no actual figures reported."
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Appear ASA har trukket tilbake sin helårsinntektsprognose for 2026 etter at en vesentlig salgsavtale i EMEA er blitt kansellert av kunden. Selskapet forventer derfor ikke å nå den tidligere oppgitte nedre grensen på 880 millioner NOK i inntekter for året.",
+          "summary": "Appear ASA har trukket tilbake sin omsetningsprognose for 2026 etter at en forventet stor salgsmulighet i EMEA er kansellert av kunden, og selskapet forventer ikke å nå det nedre intervallet i tidligere anslått omsetningsmål på 880-920 millioner NOK. Dette ble annonsert i en oppdatering 11. november 2026.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetningsguidance",
-              "statement": "Helårsinntektsprognosen for 2026 er trukket tilbake på grunn av kansellering av vesentlig salgsavtale.",
-              "evidence": "\"Appear derfor trekker tilbake sin helårsinntektsprognose\" og \"material sales opportunity has been cancelled\"",
-              "page": "1"
-            },
-            {
-              "topic": "Salgsutsikter",
-              "statement": "En vesentlig salgsmulighet i EMEA-regionen er kansellert av kunden, ikke tapt til konkurrenter.",
-              "evidence": "\"a previously anticipated material sales opportunity has been cancelled by the customer, rather than lost to competition\"",
+              "topic": "Omsetningsprognose 2026",
+              "statement": "Selskapet trekker tilbake hele års omsetningsprognose for 2026 etter kansellering av stor salgsmulighet.",
+              "evidence": "'withdraws its full-year 2026 revenue guidance' og 'a previously anticipated material sales opportunity has been cancelled','no longer expects to reach the lower end of its full-year 2026 revenue guid",
               "page": "1"
             }
           ]
@@ -4454,12 +4521,12 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "Odfjell Technology Ltd - Ex Dividend Q3 2026",
-      "headline": "Odfjell Technology betaler ut utbytte på 1,52 kroner per aksje for Q3 2026",
-      "lead": "Odfjell Technology går ex utbytte med 1,52 kroner per aksje fra 10. november 2026 for tredje kvartal, noe som gir aksjonærene avkastning, men uten annen finansiell informasjon foreligger det usikkerhet rundt selskapets øvrige utvikling.",
+      "headline": "Odfjell Technology går ex-utbytte med 1,52 kroner per aksje i Q3",
+      "lead": "Odfjell Technology Ltd handler eksklusiv utbytte på 1,52 kroner per aksje for tredje kvartal 2026 fra 10. november, noe som påvirker aksjekursen og investoravkastningen fremover.",
       "published_at": "2026-11-10T06:20:19.034000+00:00",
       "url": "https://newsweb.oslobors.no/message/686069",
-      "summary": "Odfjell Technology går ex utbytte med 1,52 kroner per aksje fra 10. november 2026 for tredje kvartal, noe som gir aksjonærene avkastning, men uten annen finansiell informasjon foreligger det usikkerhet rundt selskapets øvrige utvikling.",
-      "reason": "Utbyttebetalingen viser at selskapet deler ut kontant til aksjonærene, men manglende resultatinformasjon gjør det vanskelig å vurdere finansiell helse og fremtidige utsikter. Investorer bør følge med på løpende rapporter.",
+      "summary": "Odfjell Technology Ltd handler eksklusiv utbytte på 1,52 kroner per aksje for tredje kvartal 2026 fra 10. november, noe som påvirker aksjekursen og investoravkastningen fremover.",
+      "reason": "Utbytteutbetalinger er normalt priset inn og påvirker hovedsakelig likviditet for aksjonærene. Det gir signal om stabil kontantstrøm, men ingen ny finansiell informasjon eller endring i drift.",
       "score": 25,
       "skipped": false,
       "direction": "nøytral",
@@ -11269,30 +11336,6 @@
         "f65c07",
         "ff921d"
       ]
-    },
-    {
-      "id": "685830",
-      "market": "XOSL",
-      "ticker": "SATS",
-      "issuer": "SATS ASA",
-      "title": "SATS ASA: Mandatory notification of trade",
-      "headline": "Torodd Gøystdal selger 303.248 SATS-aksjer til 44,39 kroner per stk",
-      "lead": "SATS' Chief People & Operation Officer har redusert sin eierandel med 303.248 aksjer, og sitter nå på 641.528 aksjer. Salget kan indikere endringer i ledelsens tro på kortsiktig kursutvikling.",
-      "published_at": "2026-11-05T17:43:04.482000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685830",
-      "summary": "SATS' Chief People & Operation Officer har redusert sin eierandel med 303.248 aksjer, og sitter nå på 641.528 aksjer. Salget kan indikere endringer i ledelsens tro på kortsiktig kursutvikling.",
-      "reason": "Ledelsens aksjesalg er ofte et signalinvestorer følger, men uten ytterligere informasjon om motivasjonen eller selskapets situasjon, er det vanskelig å vurdere kursimpakt. Viktig å følge med på fremtidige ledelsesbeslutninger og selskapsnyheter.",
-      "score": 45,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "attachment_key": "1f9a03d6ec4c09d1",
-      "number_keys": [
-        "673956",
-        "8b2b8a",
-        "b3f0c7",
-        "caed98"
-      ]
     }
   ],
   "indirect": [
@@ -11595,19 +11638,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-11T11:50:00+00:00",
+  "last_checked_at": "2026-11-11T12:00:00+00:00",
   "monitor_stats": {
-    "fetched": 182,
-    "recent": 104,
-    "already_seen": 99,
-    "eligible": 3,
-    "filtered": 2,
-    "analyzed": 3,
+    "fetched": 184,
+    "recent": 106,
+    "already_seen": 101,
+    "eligible": 5,
+    "filtered": 0,
+    "analyzed": 5,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 3,
-    "source_latest_at": "2026-11-11T11:45:26.993000+00:00",
+    "source_latest_at": "2026-11-11T12:00:00+00:00",
     "indirect": 0
   }
 }
