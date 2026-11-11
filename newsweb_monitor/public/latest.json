@@ -2,8 +2,57 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-11T05:50:00+00:00",
+  "generated_at": "2026-11-11T06:00:00+00:00",
   "items": [
+    {
+      "id": "686156",
+      "market": "XOSL",
+      "ticker": "HAUTO",
+      "issuer": "Höegh Autoliners ASA",
+      "title": "Höegh Autoliners ASA (HAUTO) - October 2026 Trading Update",
+      "headline": "Höegh Autoliners frakter 1,4 mill. cbm i oktober med stabilt fraktnivå",
+      "lead": "I oktober 2026 transporterte Höegh Autoliners 1,4 mill. cbm med en netto fraktrate på 81,8 USD per cbm, små endringer fra forrige tremånedersperiode. Ufordringer i Midtøsten hemmer fortsatt effektiviteten.",
+      "published_at": "2026-11-11T06:00:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/686156",
+      "summary": "I oktober 2026 transporterte Höegh Autoliners 1,4 mill. cbm med en netto fraktrate på 81,8 USD per cbm, små endringer fra forrige tremånedersperiode. Ufordringer i Midtøsten hemmer fortsatt effektiviteten.",
+      "reason": "Resultatet viser stabilitet i volum og fraktrater sammenlignet med foregående måneder, men vedvarende flaskehalser i Midtøsten kan påvirke fremtidig lønnsomhet. Investorer bør følge utviklingen i driftsforhold og nettverkseffektivitet.",
+      "score": 70,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "WAWI",
+          "direction": "negativ",
+          "reason": "Konkurrent i bil- og containerfrakt kan rammes av samme regionale utfordringer i Midtøsten."
+        },
+        {
+          "ticker": "MPCC",
+          "direction": "negativ",
+          "reason": "Sektoraktør som kan oppleve liknende transportforstyrrelser og press på marginene."
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 65,
+      "attachment_key": "fc0b4325227c16aa",
+      "number_keys": [
+        "12c6fc",
+        "1574bd",
+        "17ba07",
+        "37a53d",
+        "3ea6c9",
+        "472b07",
+        "639d67",
+        "73ee49",
+        "a4ac91",
+        "aee655",
+        "af3e13",
+        "dd0190",
+        "e973a6",
+        "f022da",
+        "fa35e1"
+      ]
+    },
     {
       "id": "686154",
       "market": "XOSL",
@@ -1906,18 +1955,18 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "Odfjell Technology Ltd - Ex Dividend Q3 2026",
-      "headline": "Odfjell Technology kutter utbytte med 1,52 kroner per aksje for Q3 2026",
-      "lead": "Odfjell Technology begynner handel uten rett til 1,52 kroner i kvartalsutbytte per aksje fra 10. november 2026, uten ytterligere finansiell informasjon.",
+      "headline": "Odfjell Technology utbetaler kvartalsutbytte på 1,52 kroner per aksje",
+      "lead": "Odfjell Technology går ex utbytte med 1,52 kroner per aksje for tredje kvartal 2026 fra 10. november. Utbyttet setter fokus på selskapets kontantstrøm og aksjonærverdier uten nye finansielle oppdateringer.",
       "published_at": "2026-11-10T06:20:19.034000+00:00",
       "url": "https://newsweb.oslobors.no/message/686069",
-      "summary": "Odfjell Technology begynner handel uten rett til 1,52 kroner i kvartalsutbytte per aksje fra 10. november 2026, uten ytterligere finansiell informasjon.",
-      "reason": "Utbyttebeløpet per aksje er klart, men manglende informasjon om tidligere utbytte eller resultater gjør det vanskelig å vurdere om dette innebærer en økning eller reduksjon, og dermed hvilken effekt dette har for aksjonærer.",
-      "score": 25,
+      "summary": "Odfjell Technology går ex utbytte med 1,52 kroner per aksje for tredje kvartal 2026 fra 10. november. Utbyttet setter fokus på selskapets kontantstrøm og aksjonærverdier uten nye finansielle oppdateringer.",
+      "reason": "Eksakt utbyttebeløp offentliggjort uten finansiell resultat- eller vekstinformasjon. Viktig for investorer som søker stabil kontantavkastning, men gir ingen indikasjon på selskapets underliggende drift eller markedsposisjon.",
+      "score": 30,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 40,
+      "score_ai": 45,
       "number_keys": [
         "77de68",
         "7b5200",
@@ -10116,23 +10165,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685761",
-      "market": "XOSL",
-      "ticker": "SOAG",
-      "issuer": "SpareBank 1 Østfold Akershus",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-05T12:34:31.424000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685761",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -10391,19 +10423,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-11T05:50:00+00:00",
+  "last_checked_at": "2026-11-11T06:00:00+00:00",
   "monitor_stats": {
-    "fetched": 143,
-    "recent": 69,
+    "fetched": 144,
+    "recent": 70,
     "already_seen": 68,
-    "eligible": 1,
+    "eligible": 2,
     "filtered": 0,
-    "analyzed": 1,
+    "analyzed": 2,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-11T05:30:26.719000+00:00",
+    "source_latest_at": "2026-11-11T06:00:00+00:00",
     "indirect": 0
   }
 }
