@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-11T13:50:00+00:00",
+  "generated_at": "2026-11-11T14:00:00+00:00",
   "items": [
+    {
+      "id": "686235",
+      "market": "XOSL",
+      "ticker": "VAR",
+      "issuer": "Vår Energi ASA",
+      "title": "Financial calendar",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-11T13:59:43.096000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686235",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686231",
       "market": "XOSL",
@@ -1879,18 +1896,18 @@
       "ticker": "ENVIP",
       "issuer": "Envipco Holding N.V.",
       "title": "ENVIPCO Q3 26 - Rising sales growth and record customer awards",
-      "headline": "Envipco øker salget 18% til 26,5 mill. euro, men fortsatt underskudd",
-      "lead": "Envipco rapporterer 18 prosent omsetningsvekst i tredje kvartal til 26,5 mill. euro, drevet av økt RVM-salg i Nord-Amerika og Europa, men med fortsatt driftsunderskudd på 3,1 mill. euro og planer om restrukturering.",
+      "headline": "Envipco øker omsetningen 18% til 26,5 millioner euro i Q3 2026",
+      "lead": "Envipco rapporterer en omsetningsvekst på 18 prosent til 26,5 millioner euro i tredje kvartal 2026, drevet av økt salg i Nord-Amerika og Europa, men fortsatt negativt driftsresultat og kommende restruktureringskostnader på 3 millioner euro.",
       "published_at": "2026-11-11T06:00:34.151000+00:00",
       "url": "https://newsweb.oslobors.no/message/686169",
-      "summary": "Envipco rapporterer 18 prosent omsetningsvekst i tredje kvartal til 26,5 mill. euro, drevet av økt RVM-salg i Nord-Amerika og Europa, men med fortsatt driftsunderskudd på 3,1 mill. euro og planer om restrukturering.",
-      "reason": "Selskapet viser solid vekst i omsetning, men driftsresultatene forblir negative med økte kostnader og planlagt restruktureringskostnad. Viktig å følge fremtidig lønnsomhet og effekt av restrukturering for aksjonærer.",
-      "score": 60,
+      "summary": "Envipco rapporterer en omsetningsvekst på 18 prosent til 26,5 millioner euro i tredje kvartal 2026, drevet av økt salg i Nord-Amerika og Europa, men fortsatt negativt driftsresultat og kommende restruktureringskostnader på 3 millioner euro.",
+      "reason": "Sterk omsetningsvekst i både Nord-Amerika og Europa gir potensial for lønnsomhet, men fortsatt negative driftsresultater og pågående restruktureringer øker usikkerheten for investorer. Viktig å følge utviklingen i marginer, kostnadsstyring og effekt av nye kontrakter, spesielt i UK.",
+      "score": 57,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 75,
+      "score_ai": 72,
       "attachment_key": "ae7d10ba6a39c965",
       "number_keys": [
         "0716d9",
@@ -1961,7 +1978,7 @@
             "yoy_pct": 17.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2: Revenues Q3 26 26.5m, Q3 25 22.5m; Page 11: Revenues Q3 26 26,530k EUR, Q3 25 22,521k EUR"
+            "evidence": "Side 2, Side 6, Side 11"
           },
           {
             "label": "EBITDA",
@@ -1974,7 +1991,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2: EBITDA Q3 26 -0.6m, Q3 25 -0.3m; Page 6: EBITDA Q3 26 -0.6m, Q3 25 -0.3m"
+            "evidence": "Side 2, Side 6"
           },
           {
             "label": "EBIT",
@@ -1987,7 +2004,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2: Operating profit (EBIT) Q3 26 -3.1m, Q3 25 -2.7m; Page 6: Operating loss Q3 26 -3.1m, Q3 25 -2.7m"
+            "evidence": "Side 2, Side 6"
           },
           {
             "label": "Resultat etter skatt",
@@ -2000,7 +2017,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2: Net profit/(loss) after taxes Q3 26 -4.2m, Q3 25 -4.0m; Page 6: Net loss Q3 26 -4.2m, Q3 25 -4.0m"
+            "evidence": "Side 2, Side 6"
           },
           {
             "label": "EPS",
@@ -2013,7 +2030,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2: Earnings/(loss) per share in € Q3 26 -0.06, Q3 25 -0.07"
+            "evidence": "Side 2"
           },
           {
             "label": "Kontantstrøm drift",
@@ -2026,52 +2043,39 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 8: Cash flow from operating activities in Q3 26 was EUR -3.3m; no prior year quarterly data given"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "EUR million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No explicit net interest income reported; only net financial items of -1.0m in Q3 26 and -0.7m in Q3 25 (page 6)"
+            "evidence": "Side 8"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Envipco opplever økt markedsetterspørsel som følge av innføring av belegg- og retursystemer (DRS) i Europa, med stor vekstmulighet spesielt i Storbritannia, Romania, Polen og Portugal. Selskapet forplikter seg til sin tidligere kommuniserte strategi og jobber med å forbedre driften gjennom omorganisering og effektivisering, inkludert personalreduksjoner med en forventet restruktureringskostnad på EUR 3 millioner i Q4 2026 som skal gi EUR 4 millioner i besparelser i 2027. Selskapet forventer stabil vekst i USA, økende serviceinntekter i Europa etter hvert som installert base vokser, og fortsetter å fokusere på likviditet og kapitalallokering f",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "Envipco opplever markedsvind fra utvidelsen av DRS (deponikrettersystemer) i Europa, særlig i Storbritannia hvor selskapet har sterke kommersielle posisjoner og ordrer for 7 100 RVM-maskiner. Flere europeiske markeder planlegger lanseringer av DRS som kan tredoble selskapets totale marked. USAs marked forventes stabilt med noe vekst i salg av RVM. Selskapet styrker sin operasjonelle organisasjon med omstilling som inkluderer en restruktureringskostnad på 3 millioner euro og forventet 4 millioner euro i besparelser i 2027. Fokus videre vil være effektivitet, kapitalallokering og kontantstrøm, med tilstrekkelig likviditet til å finansiere drift",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Markedsutsikter",
-              "statement": "Markedet vokser kraftig i Europa som følge av innføring av DRS i flere land, med Storbritannia som største driver.",
-              "evidence": "'Storbritannia representerer den største kommersielle driveren' og markeder som Polen, Romania og Portugal viser positiv utvikling (side 2-4).",
-              "page": "2-4"
-            },
-            {
-              "topic": "Strategi og drift",
-              "statement": "Selskapet styrker utførelsen ved å bygge en mer smidig organisasjon, omfordele ressurser til markeder med økende etterspørsel, og gjennomfører noen personalreduksjoner.",
-              "evidence": "'Sterk strategi ... omfordeling av ressurser ... noen reduksjoner og forventet restruktureringskostnad på EUR 3m i Q4 26' (side 2).",
+              "topic": "Marked og salg",
+              "statement": "Selskapet forventer vekst i Europa drevet av DRS-utvidelser, med sterke ordre i Storbritannia og økende etterspørsel i Polen og Nederland.",
+              "evidence": "flere europeiske markeder er i ferd med å lansere DRS; Storbritannia har ordrer for 7 100 RVMs og foretrukket leverandøravtale",
               "page": "2"
             },
             {
-              "topic": "Finansiell styring",
-              "statement": "Forventer å forbedre likviditet gjennom arbeidskapitaloptimalisering og videre finansiering, samtidig som selskapet opprettholder tilstrekkelig likviditet for daglig drift.",
-              "evidence": "'Forbedre likviditet gjennom arbeidskapitaloptimalisering... opprettholde tilstrekkelig likviditet' (side 2).",
+              "topic": "Restrukturering og kostnader",
+              "statement": "Det forventes en restruktureringskostnad på 3 millioner EUR i Q4 2026, med 4 millioner EUR besparelser i 2027 ved omstilling og forenkling av forretningsprosesser.",
+              "evidence": "noen redundans og restruktureringskostnad i Q4 26; 4 millioner EUR i besparelser 2027",
               "page": "2"
             },
             {
-              "topic": "Inntektsutvikling",
-              "statement": "Serviceinntekter i Europa forventes å øke ettersom den installerte basen utvides, mens nye RVM-salg forventes å bidra til vekst i USA.",
-              "evidence": "'Serviceinntekter i Europa vil vokse når installert base øker' og 'US-operasjoner forventes stabile med noe RVM-vekst' (side 2,4).",
-              "page": "2,4"
+              "topic": "Fokus på kontantstrøm og kapitalallokering",
+              "statement": "Envipco vil fortsette å fokusere på effektivitet, kapitaldisponering og kontantstrømsoptimalisering, med tilstrekkelig likviditet for drift.",
+              "evidence": "fokus på effektivitet, kapitalallokering og kontantkonvertering; sikrer likviditet for å finansiere nåværende drift",
+              "page": "2"
+            },
+            {
+              "topic": "Markedsutsikter i USA",
+              "statement": "US-markedet forventes stabilt med noe vekst i salget av nye RVMs men reduserte volumer i programtjenester.",
+              "evidence": "US operasjoner forventes stabile med noe vekst i RVM-salg, men lavere volum i programtjenester",
+              "page": "2"
             }
           ]
         }
@@ -2451,13 +2455,13 @@
       "ticker": "APR",
       "issuer": "Appear ASA",
       "title": "Appear ASA   Trading update and withdrawal of full-year 2026 guidance",
-      "headline": "Appear trekker fullårs2026-omsetning etter kundesalg kansellert",
-      "lead": "Appear ASA trekker sin omsetningsguiding for 2026 etter at et forventet salg i EMEA er kansellert, og selskapet forventer nå lavere inntekter enn tidligere angitt laveste nivå på 880 millioner kroner.",
+      "headline": "Appear trekker tilbake 2026-omsetningsmål etter kansellert salgsmulighet",
+      "lead": "Appear ASA forventer ikke å nå nedre grensene i omsetningsguiden 880-920 mill. NOK for 2026 etter at en større salgsmulighet i EMEA er kansellert. Fullt årsresultat blir rapportert 17. februar 2027.",
       "published_at": "2026-11-11T06:00:18.364000+00:00",
       "url": "https://newsweb.oslobors.no/message/686164",
-      "summary": "Appear ASA trekker sin omsetningsguiding for 2026 etter at et forventet salg i EMEA er kansellert, og selskapet forventer nå lavere inntekter enn tidligere angitt laveste nivå på 880 millioner kroner.",
-      "reason": "Kanselleringen av en stor salgsmulighet øker usikkerheten om Appear når 2026-målene. Investorer bør følge med på om selskapet finner nye muligheter for å kompensere tapet.",
-      "score": 78,
+      "summary": "Appear ASA forventer ikke å nå nedre grensene i omsetningsguiden 880-920 mill. NOK for 2026 etter at en større salgsmulighet i EMEA er kansellert. Fullt årsresultat blir rapportert 17. februar 2027.",
+      "reason": "Kanselleringen av en betydelig salgsmulighet skaper usikkerhet om selskapets vekst i 2026. Investorer bør følge opp Q4-rapporten og vurdere endringer i kundeportefølje og salgsstrategi.",
+      "score": 75,
       "skipped": false,
       "direction": "negativ",
       "assessment_source": "AI",
@@ -2499,26 +2503,26 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "page 1: confirms withdrawal of 2026 full-year revenue guidance; no actual 2026 revenue figures reported"
+            "evidence": "SIDE 1: Explicitly states withdrawal of 2026 full-year revenue guidance; no actual figures reported"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Appear ASA har trukket tilbake sin omsetningsprognose for hele 2026 etter at en forventet betydelig salgsavtale i EMEA-området ble kansellert, ikke tapt til konkurrenter. Selskapet forventer derfor ikke å nå den tidligere laveste omsetningsguiden mellom 880-920 millioner NOK.",
+          "summary": "Appear ASA har trukket tilbake sine inntektsprognoser for hele 2026 etter at et betydelig salgsprosjekt i EMEA-regionen ble kansellert, og selskapet forventer derfor ikke å nå det tidligere forventede inntektsnivået på 880-920 millioner NOK.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetningsveiledning",
-              "statement": "Withdraws the full-year 2026 revenue guidance due to cancellation of a major sales opportunity in EMEA.",
-              "evidence": "'Appear therefore withdraws its full-year 2026 revenue guidance.' and 'a previously anticipated material sales opportunity has been cancelled by the customer' (side 1)",
+              "topic": "Inntektsprognose",
+              "statement": "Selskapet trekker tilbake sin tidligere helårsinntektsveiledning for 2026 på grunn av kansellering av et materiell salgsprosjekt.",
+              "evidence": "'withdraws its full-year 2026 revenue guidance' og 'a previously anticipated material sales opportunity has been cancelled by the customer' (side 1)",
               "page": "1"
             },
             {
-              "topic": "Salgsutsikter",
-              "statement": "Sales opportunity cancelled, affecting ability to meet the lower end of the guidance range of NOK 880-920 million.",
-              "evidence": "'the company no longer expects to reach the lower end of its full-year 2026 revenue guidance range of NOK 880-920 million.' (side 1)",
+              "topic": "Salgsutvikling",
+              "statement": "Et stort salgsprosjekt i EMEA-regionen som var avgjørende for å nå nedre grense i inntektsguiden, er kansellert.",
+              "evidence": "'One of these opportunities, in EMEA, has now been cancelled' (side 1)",
               "page": "1"
             }
           ]
@@ -4661,18 +4665,18 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "Odfjell Technology Ltd - Ex Dividend Q3 2026",
-      "headline": "Odfjell Technology kutter utbytte med 1,52 kroner per aksje i Q3 2026",
-      "lead": "Odfjell Technology går ex utbytte på 1,52 kroner per aksje for tredje kvartal 2026. Utbyttet påvirker direkte aksjonærer, men det foreligger ingen ytterligere finansiell informasjon eller guide for videre utsikter.",
+      "headline": "Odfjell Technology går ex utbytte med 1,52 kroner per aksje i Q3 2026",
+      "lead": "Fra 10. november vil Odfjell Technology-aksjen handles uten rett til kvartalsutbytte på 1,52 kroner per aksje, en viktig dato for investorer som ønsker å motta utbytte for Q3 2026.",
       "published_at": "2026-11-10T06:20:19.034000+00:00",
       "url": "https://newsweb.oslobors.no/message/686069",
-      "summary": "Odfjell Technology går ex utbytte på 1,52 kroner per aksje for tredje kvartal 2026. Utbyttet påvirker direkte aksjonærer, men det foreligger ingen ytterligere finansiell informasjon eller guide for videre utsikter.",
-      "reason": "Utbytteutbetaling på 1,52 kroner per aksje er klar, men uten tilleggsdata om inntjening eller selskapsutsikter gir dette begrenset innsikt for investorer. Det er viktig å følge med på finansiell rapportering for å vurdere fremtidig verdiutvikling.",
-      "score": 30,
+      "summary": "Fra 10. november vil Odfjell Technology-aksjen handles uten rett til kvartalsutbytte på 1,52 kroner per aksje, en viktig dato for investorer som ønsker å motta utbytte for Q3 2026.",
+      "reason": "Utbyttebetaling bekrefter fortsatt kontantutdeling til aksjonærene, men gir ingen indikasjon på selskapets underliggende resultat eller fremtidige vekstmuligheter. Viktig å følge selskapets fremtidige økonomirapporter for bedre vurdering.",
+      "score": 25,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 45,
+      "score_ai": 40,
       "number_keys": [
         "77de68",
         "7b5200",
@@ -11071,214 +11075,6 @@
           ]
         }
       }
-    },
-    {
-      "id": "685840",
-      "market": "XOSL",
-      "ticker": "ORK",
-      "issuer": "Orkla ASA",
-      "title": "Orkla rapporterer resultater for tredje kvartal",
-      "headline": "Orkla øker justert EBIT til 2,1 mrd. kroner – volumvekst på 2,7 %",
-      "lead": "Orkla rapporterer en justert EBIT på 2,1 mrd. kroner i tredje kvartal, opp 1,9 %, med organisk vekst på 3,1 %. Resultat per aksje økte 4,9 %, mens valuta dempet resultatveksten noe.",
-      "published_at": "2026-11-06T06:00:43.479000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685840",
-      "summary": "Orkla rapporterer en justert EBIT på 2,1 mrd. kroner i tredje kvartal, opp 1,9 %, med organisk vekst på 3,1 %. Resultat per aksje økte 4,9 %, mens valuta dempet resultatveksten noe.",
-      "reason": "Jevn EBIT-vekst og volumøkning styrker Orklas posisjon, men valutaeffekter begrenser resultatet. Tilbakekjøpsprogram og oppkjøp antyder fokus på verdiskaping. Aksjonærer bør følge kapitalmarkedsdagen for nye mål.",
-      "score": 95,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "importance": "stor",
-      "score_ai": 82,
-      "language_versions": [
-        {
-          "id": "685841",
-          "title": "Orkla reports results for the third quarter",
-          "url": "https://newsweb.oslobors.no/message/685841",
-          "published_at": "2026-11-06T06:00:43.479000+00:00",
-          "language": "Engelsk"
-        },
-        {
-          "id": "685840",
-          "title": "Orkla rapporterer resultater for tredje kvartal",
-          "url": "https://newsweb.oslobors.no/message/685840",
-          "published_at": "2026-11-06T06:00:40.523000+00:00",
-          "language": "Norsk"
-        }
-      ],
-      "attachment_key": "67b31b7e9c6c34b2",
-      "number_keys": [
-        "004be8",
-        "04f124",
-        "17ba07",
-        "1b6453",
-        "1d513c",
-        "29687e",
-        "2a79f1",
-        "2e01e1",
-        "32e9d3",
-        "356a19",
-        "39f193",
-        "472b07",
-        "59129a",
-        "632667",
-        "64e0cf",
-        "68b793",
-        "7316b3",
-        "7b5200",
-        "ac3478",
-        "aee655",
-        "af0e91",
-        "b1d578",
-        "b3f0c7",
-        "b7476e",
-        "bc33ea",
-        "bd307a",
-        "c1dfd9",
-        "f0ee73",
-        "fb9654",
-        "fe661b"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "filename",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Q3 2026 External Report FINAL.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=685841&attachmentId=335964"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "NOK million",
-            "current": 17541.0,
-            "prior_year": 17946.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -2.3,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page SIDE 2, Key figures for the Orkla group, Third quarter 2026 and 2025"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "NOK million",
-            "current": 1588.0,
-            "prior_year": 1638.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -3.1,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page SIDE 4, Main figures income statement, Third quarter 2026 and 2025"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 1737.0,
-            "prior_year": 1571.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 10.6,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page SIDE 2, Profit attributable to owners of the parent, Third quarter 2026 and 2025"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": 1.94,
-            "prior_year": 1.85,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 4.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page SIDE 2, Earnings per share (adj.), diluted (NOK), Third quarter 2026 and 2025"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "NOK million",
-            "current": 2376.0,
-            "prior_year": 2381.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -0.2,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page SIDE 5, Cash flow from operations, Third quarter 2026 and 2025"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Net interest and financial items reported as (254) million on page SIDE 4, but net interest income not separately provided."
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "Orkla har en robust finansiell posisjon med 2,0 års gjeldsdekning, og fokuserer på organisk vekst og marginforbedring til tross for økte råvarekostnader. Jotun leverer positiv vekst på 2,2 % i konfliktpåvirkede områder, men driftsresultatet falt 5,1 %, påvirket av høyere råvarekostnader som ventes å prege marginene ytterligere. Orkla Snacks hadde marginal omsetningsvekst med 11 % volum- og miksvekst, men prisreduksjoner førte til flat organisk vekst. Oppkjøpet av European Candy Group i september styrker BUBS-veksten ytterligere. Usikkerhet som følge av Midtøsten-konflikten og økte kostnader på energi, frakt og emballasje forventes å vedvare i",
-          "change": "- Salgsvekst Jotun: Tidligere 3,9 % (Q2) til 2,2 % i krigsrammede områder nå, mens driftsresultat justert ned 5,1 % mot tidligere mer positiv utvikling.  \n- Orkla Snacks vekst: Fra negativ 5,2 % i Q2 omsetning til marginal vekst på 0,3 % nå, med volumøkning på 11 % og prisreduksjoner på 5,6 %. \n- Marginkommentarer viser økt press fra råvarekostnader nå, sammenlignet med marginpress forventet tidligere, hvor effektene ventes å bli tydeligere fremover. \n- Strategisk: Oppkjøpet av European Candy Group er nytt og styrker fremtidig vekst i BUBS, ikke nevnt før.  \n- Usikkerhet og kostnadspress knyttet til Midtøsten-konflikten videreføres med mer konkret forventning om vedvarende effekt i 4. kvartal, mens tidligere var mer generell usikkerhet.",
-          "trend": "Guidingen viser en gradvis mer konkret og tydelig erkjennelse av kostnadspress fra råvarer, som i starten av året ble forventet, men nå manifesterer seg i resultatene og forventes mer synlig i kommende kvartaler. Salgsveksten i Jotun har blitt mer beskjeden i krigsberørte områder, mens Orkla Snacks beveger seg fra nedgang til marginal vekst gjennom økt volum. Strategiske oppkjøp blir fremhevet som en vesentlig del av vekststrategien. Overordnet er tonen fortsatt preget av usikkerhet knyttet til Midtøsten-konflikten, men med en robust finansiell posisjon og tiltak for å begrense negative effekter.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1",
-            "2025Q4"
-          ],
-          "points": [
-            {
-              "topic": "Salgs- og resultatutvikling i Jotun",
-              "statement": "Jotun leverte 2,2 % salgsvekst i krigsrammede markeder, men driftsresultat falt 5,1 % grunnet økte råvarekostnader som fortsatt forventes å påvirke marginene negativt.",
-              "evidence": "\"sales in war-affected units grew by 2.2%. Operating profit declined by 5.1%. ... higher raw material costs started to weigh on margins in recent months. The impact is expected to become more visible",
-              "page": "utdrag"
-            },
-            {
-              "topic": "Orkla Snacks: Vekst og prisjusteringer",
-              "statement": "Orkla Snacks oppnådde marginal omsetningsvekst på 0,3 %, med 11 % volum/miksvekst motvirket av 5,6 % prisreduksjoner, særlig i sjokoladeprodukter.",
-              "evidence": "\"Orkla Snacks reported marginal revenue growth of 0.3%... volume/mix growth of 11% and price reductions of 5.6%.\"",
-              "page": "utdrag"
-            },
-            {
-              "topic": "Oppkjøp styrker fremtidig vekst",
-              "statement": "Oppkjøpet av European Candy Group i september forventes å støtte fremtidig vekst, spesielt innen BUBS-kategorien.",
-              "evidence": "\"The European Candy Group acquisition was completed in September, supporting future BUBS growth.\"",
-              "page": "utdrag"
-            },
-            {
-              "topic": "Usikkerhet og kostnadspress fra Midtøsten-konflikten",
-              "statement": "Midtøsten-konflikten skaper fortsatt usikkerhet for forsyning og logistikk. Kostnadspress fra energi, frakt og emballasje forventes å fortsette inn i fjerde kvartal.",
-              "evidence": "\"The conflict in the Middle East continues to create uncertainty... The war in the Middle East impacted Orkla Snacks negatively... These effects are expected to continue into the fourth quarter.\"",
-              "page": "utdrag"
-            }
-          ]
-        }
-      }
     }
   ],
   "indirect": [
@@ -11598,19 +11394,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-11T13:50:00+00:00",
+  "last_checked_at": "2026-11-11T14:00:00+00:00",
   "monitor_stats": {
-    "fetched": 190,
-    "recent": 112,
+    "fetched": 191,
+    "recent": 113,
     "already_seen": 109,
     "eligible": 3,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 3,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 3,
-    "source_latest_at": "2026-11-11T13:29:05.251000+00:00",
+    "source_latest_at": "2026-11-11T13:59:43.096000+00:00",
     "indirect": 0
   }
 }
