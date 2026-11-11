@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-11T11:00:00+00:00",
+  "generated_at": "2026-11-11T11:10:00+00:00",
   "items": [
     {
       "id": "686208",
@@ -1657,12 +1657,12 @@
       "ticker": "ENVIP",
       "issuer": "Envipco Holding N.V.",
       "title": "ENVIPCO Q3 26 - Rising sales growth and record customer awards",
-      "headline": "Envipco øker salget 18 prosent – inngår stor UK-avtale for 1.700 RVM-maskiner",
-      "lead": "Envipco rapporterer 18 prosent omsetningsvekst til EUR 26,5 mill i Q3 2026, drevet av sterk US-salg og europeiske programtjenester, men operasjonelt underskudd på EUR 3,1 mill vedvarer.",
+      "headline": "Envipco øker salget 18% i Q3 og sikrer stor avtale i Storbritannia",
+      "lead": "Envipco rapporterer 18 prosent salgvekst til 26,5 millioner euro i Q3 2026, drevet av sterk RVM-etterspørsel i USA og Europa, men fortsatt driftsunderskudd og varsler restrukturering i Q4.",
       "published_at": "2026-11-11T06:00:34.151000+00:00",
       "url": "https://newsweb.oslobors.no/message/686169",
-      "summary": "Envipco rapporterer 18 prosent omsetningsvekst til EUR 26,5 mill i Q3 2026, drevet av sterk US-salg og europeiske programtjenester, men operasjonelt underskudd på EUR 3,1 mill vedvarer.",
-      "reason": "Sterk salgsvekst og nye ordre gir langsiktig vekstmulighet, men fortsatt negativ drift og restrukturering underbygger fortsatt risiko. Aksjonærer må følge utvikling i marginer og kontantstrøm tett.",
+      "summary": "Envipco rapporterer 18 prosent salgvekst til 26,5 millioner euro i Q3 2026, drevet av sterk RVM-etterspørsel i USA og Europa, men fortsatt driftsunderskudd og varsler restrukturering i Q4.",
+      "reason": "Salgsvekst styrket, men lønnsomheten forblir negativ med økte driftskostnader og restruktureringskostnader kommende kvartal. Viktig å følge utvikling i UK-avtaler og omkostningsreduksjoner.",
       "score": 60,
       "skipped": false,
       "direction": "nøytral",
@@ -1739,7 +1739,7 @@
             "yoy_pct": 17.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Key figures table on [SIDE 2] Q3 26 and Q3 25 revenues 26.5 and 22.5 respectively; also corroborated in Financial developments section on [SIDE 6]."
+            "evidence": "SIDE 2, SIDE 6, SIDE 11"
           },
           {
             "label": "EBITDA",
@@ -1752,46 +1752,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Key figures table on [SIDE 2]; Financial developments on [SIDE 6] states EBITDA was EUR -0.6m in Q3 26 and EUR -0.3m in Q3 25."
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "EUR million",
-            "current": -3.1,
-            "prior_year": -2.7,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Key figures table on [SIDE 2] Operating profit (EBIT) was -3.1m in Q3 26 and -2.7m in Q3 25."
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "EUR million",
-            "current": -4.2,
-            "prior_year": -4.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Key figures table on [SIDE 2] Net profit/(loss) after taxes -4.2m for Q3 26 and -4.0m for Q3 25."
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "EUR/share",
-            "current": -0.06,
-            "prior_year": -0.07,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Key figures table on [SIDE 2] Earnings/(loss) per share in € -0.06 for Q3 26 and -0.07 for Q3 25."
+            "evidence": "SIDE 2, SIDE 6"
           },
           {
             "label": "Kontantstrøm drift",
@@ -1804,32 +1765,103 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Cash flow section [SIDE 8] states cash flow from operating activities in Q3 26 was EUR -3.3m. No comparable Q3 25 figure reported."
+            "evidence": "SIDE 8"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "EUR million",
+            "current": -35.2,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 8"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "EUR million",
+            "current": -3.3,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 8"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "EUR million",
+            "current": -4.2,
+            "prior_year": -4.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 2, SIDE 6"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "EUR/share",
+            "current": -0.06,
+            "prior_year": -0.07,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 2"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "EUR million",
+            "current": -3.1,
+            "prior_year": -2.7,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "SIDE 2, SIDE 6"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Envipco opplever vekstmuligheter med utvidet markedsandel i Europa grunnet nye lovpålagte retursystemer (DRS), særlig i Storbritannia og Hellas. Selskapet forventer stabil eller økende salg av retursystemmaskiner (RVM) i USA og Europa med nye ordre i Romania og økt volum i Polen. De omorganiserer for økt effektivitet og forventer en restruktureringskostnad på 3 millioner euro i Q4 2026, med besparelser på 4 millioner euro i 2027. Likviditeten opprettholdes, og selskapet fokuserer på kapitalbruk, kontantstrøm og lønnsom vekst.",
+          "summary": "Envipco opplever økt markedsetterspørsel drevet av utbredelsen av pant-systemer i EU og andre land, med en forventet tredobling av total markedspotensial. Selskapet styrker sin kommersielle posisjon i Storbritannia med flere kontrakter og forbereder seg på å håndtere økt etterspørsel i Europa, inkludert nye markeder som Hellas og Romania. Det planlegges restrukturering med kostnader i Q4 2026 for å oppnå økt effektivitet og lønnsomhet, samt arbeid med å forbedre likviditet gjennom kapitalforvaltning og finansiering. Envipco forventer stabil eller økende RVM-salg med begrensede serviceinntekter i oppstartsfasen av systemene, men en økning i se",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Markedsutsikter og salg",
-              "statement": "Selskapet ser markedsvekst i Europa med nye DRS-innføringer som kan tidoble markedet, solid posisjon i Storbritannia og nye ordrer i Romania, Polen og Nederland.",
-              "evidence": "\"Several European markets are in process of launching... which could triple the company’s total addressable market... committed orders for 7,100 RVMs... encouraged by the traction.\" (side 2)",
+              "topic": "Marked og salg",
+              "statement": "Markedsmulighetene forventes tredoblet med flere europeiske lands innføring av pant-systemer og stor satsing i Storbritannia.",
+              "evidence": "flere europeiske markeder forventes å lansere pant-systemer som kan tredoble markedspotensialet - side 2",
               "page": "2"
             },
             {
-              "topic": "Restrukturering og kostnader",
-              "statement": "De gjennomfører omorganisering som inkluderer nedbemanning, med en restruktureringskostnad på 3 millioner euro i Q4 2026, som skal gi 4 millioner euro i besparelser i 2027.",
-              "evidence": "\"These changes involve some redundancies and an expected restructuring charge in the fourth quarter 26, driving EUR 4m of savings in 2027.\" (side 2)",
+              "topic": "Lønnsomhet og restrukturering",
+              "statement": "Selskapet gjennomfører kostnadsreduksjoner, inkludert omstillinger som medfører en restruktureringskostnad på EUR 3m i Q4 2026, men forventer EUR 4m i besparelser i 2027.",
+              "evidence": "restrukturering med kostnad på EUR 3m i Q4 26, besparelser EUR 4m i 2027 - side 2",
               "page": "2"
             },
             {
               "topic": "Likviditet og kapitalforvaltning",
-              "statement": "Selskapet opprettholder god likviditet og vil forbedre denne gjennom arbeidskapitaloptimalisering og finansiering av RVM-utstyr.",
-              "evidence": "\"The company maintains sufficient liquidity... expects to improve... through working capital optimization, financing of RVMs... and expanded working capital facilities.\" (side 2)",
+              "statement": "Envipco prioriterer effektivitet og kapitalallokering, og forventer å forbedre likviditeten gjennom arbeidskapitaloptimalisering og finansiering av maskiner under throughput-avtaler.",
+              "evidence": "forventer å forbedre likviditeten gjennom arbeidskapitaloptimalisering og finansieringsløsninger - side 2",
+              "page": "2"
+            },
+            {
+              "topic": "Europeisk vekst og serviceinntekter",
+              "statement": "Serviceinntekter starter lavt under oppstartsperioden, men forventes å øke med den installerte basen, støttet av ordre i flere europeiske land inklusive Romania og Hellas.",
+              "evidence": "begrensede serviceinntekter under oppstart, forventet vekst med installert base og positive ordre i Romania og Hellas - side 2",
               "page": "2"
             }
           ]
@@ -2210,12 +2242,12 @@
       "ticker": "APR",
       "issuer": "Appear ASA",
       "title": "Appear ASA   Trading update and withdrawal of full-year 2026 guidance",
-      "headline": "Appear trekker 2026-omsetningsprognose etter tap av salgsmulighet",
-      "lead": "Appear ASA melder at en betydelig salgsmulighet i EMEA har blitt kansellert og forventer nå å ikke nå bunnen av sitt tidligere omsetningsmål på 880 millioner kroner i 2026.",
+      "headline": "Appear trekker 2026-omsetningsprognose etter tapt stort salg",
+      "lead": "Appear ASA mister en betydelig salgsmulighet i EMEA og trekker dermed sin omsetningsguide for 2026 på mellom 880-920 mill. NOK. Konsekvenser for helårsresultatet er usikre, rapport ventet i februar 2027.",
       "published_at": "2026-11-11T06:00:18.364000+00:00",
       "url": "https://newsweb.oslobors.no/message/686164",
-      "summary": "Appear ASA melder at en betydelig salgsmulighet i EMEA har blitt kansellert og forventer nå å ikke nå bunnen av sitt tidligere omsetningsmål på 880 millioner kroner i 2026.",
-      "reason": "Tap av en stor salgsmulighet og tilbaketrekking av hele omsetningsguiden gir klar usikkerhet for inntjeningen i 2026, noe som krever nærmere oppfølging av kommende kvartalsresultater.",
+      "summary": "Appear ASA mister en betydelig salgsmulighet i EMEA og trekker dermed sin omsetningsguide for 2026 på mellom 880-920 mill. NOK. Konsekvenser for helårsresultatet er usikre, rapport ventet i februar 2027.",
+      "reason": "Tapet av en stor salgsmulighet undergraver oppnåelsen av tidligere inntektsmål, noe som øker usikkerheten for aksjonærer. Det blir viktig å følge kvartalsrapporten i februar for å bedømme omsetningsutviklingen og eventuelle nye kontrakter.",
       "score": 75,
       "skipped": false,
       "direction": "negativ",
@@ -2258,32 +2290,20 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 1 - The report withdraws full-year 2026 revenue guidance and does not disclose actual figures."
+            "evidence": "Full-year 2026 revenue guidance withdrawn, no actual 2026 FY figures reported in excerpt (side 1)"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Appear ASA har trukket tilbake sin helårsinntektsveiledning for 2026 etter at en betydelig salgsmulighet i EMEA-regionen ble kansellert av kunden. Selskapet forventer derfor ikke å nå det laveste estimatet på 880 millioner NOK i inntekter for året.",
+          "summary": "Appear ASA har trukket tilbake sin omsetningsprognose for hele 2026 etter at en material salgsmulighet i EMEA ble kansellert av kunden. Selskapet forventer ikke lenger å nå nedre del av tidligere guidet omsetningsintervall på 880-920 millioner NOK.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Inntektsvekst",
-              "statement": "Selskapet forventer ikke lenger å nå nedre del av tidligere guidet inntektsintervall på 880-920 millioner NOK for 2026.",
-              "evidence": "’no longer expects to reach the lower end of its full-year 2026 revenue guidance range of NOK 880-920 million' (side 1)",
-              "page": "1"
-            },
-            {
-              "topic": "Etterspørsel",
-              "statement": "En vesentlig salgsmulighet i EMEA er kansellert av kunde, ikke tapt til konkurrenter.",
-              "evidence": "’a previously anticipated material sales opportunity has been cancelled by the customer, rather than lost to competition’ (side 1)",
-              "page": "1"
-            },
-            {
-              "topic": "Veiledning",
-              "statement": "Helårsinntektsguidingen for 2026 er trukket tilbake på grunn av kansellert kundeordre.",
-              "evidence": "’Appear therefore withdraws its full-year 2026 revenue guidance.’ (side 1)",
+              "topic": "Omsetningsprognose",
+              "statement": "Selskapet trekker tilbake hele årsprognosen etter at en betydelig salgsmulighet er kansellert.",
+              "evidence": "\"withdraws its full-year 2026 revenue guidance\" og \"opportunity...has now been cancelled.\"",
               "page": "1"
             }
           ]
@@ -4426,12 +4446,12 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "Odfjell Technology Ltd - Ex Dividend Q3 2026",
-      "headline": "Odfjell Technology kutter utbytte med 1,52 kroner per aksje i Q3 2026",
-      "lead": "Odfjell Technology’s aksjer omsettes ex utbytte på 1,52 kroner per aksje for tredje kvartal 2026 fra 10. november. Ingen annen informasjon om selskapets økonomiske situasjon er tilgjengelig i meldingen.",
+      "headline": "Odfjell Technology kutter utbytte 1,52 kroner for 3. kvartal 2026",
+      "lead": "Odfjell Technology starter i dag handel eksklusive utbytte på 1,52 kroner per aksje for tredje kvartal 2026. Dette reflekterer neste utbetaling til aksjonærer, uten at ytterligere selskapsresultater er oppgitt.",
       "published_at": "2026-11-10T06:20:19.034000+00:00",
       "url": "https://newsweb.oslobors.no/message/686069",
-      "summary": "Odfjell Technology’s aksjer omsettes ex utbytte på 1,52 kroner per aksje for tredje kvartal 2026 fra 10. november. Ingen annen informasjon om selskapets økonomiske situasjon er tilgjengelig i meldingen.",
-      "reason": "Utbytte på 1,52 kroner per aksje ekskluderes nå, men meldingen gir ikke innsikt i selskapets inntjening eller finansielle utvikling. Dette utbyttet kan indikere stabilitet, men uten ytterligere data er investorpåvirkningen begrenset.",
+      "summary": "Odfjell Technology starter i dag handel eksklusive utbytte på 1,52 kroner per aksje for tredje kvartal 2026. Dette reflekterer neste utbetaling til aksjonærer, uten at ytterligere selskapsresultater er oppgitt.",
+      "reason": "Utbytteutbetaling gir konkret avkastning for aksjonærer, men uten mer finansiell kontekst er det vanskelig å vurdere den bredere effekten på selskapets fremtidige resultater eller aksjekurs.",
       "score": 25,
       "skipped": false,
       "direction": "nøytral",
@@ -11617,7 +11637,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-11T11:00:00+00:00",
+  "last_checked_at": "2026-11-11T11:10:00+00:00",
   "monitor_stats": {
     "fetched": 180,
     "recent": 102,
