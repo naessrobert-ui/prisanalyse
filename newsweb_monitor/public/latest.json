@@ -2,26 +2,43 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-11T08:40:00+00:00",
+  "generated_at": "2026-11-11T08:50:00+00:00",
   "items": [
+    {
+      "id": "686196",
+      "market": "XOSL",
+      "ticker": "VOW",
+      "issuer": "Vow ASA",
+      "title": "Vow ASA: Invitation to Presentation of Third Quarter 2026 Results",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-11T08:42:44.832000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686196",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686195",
       "market": "XOSL",
       "ticker": "HSHP",
       "issuer": "Himalaya Shipping Ltd",
       "title": "Himalaya Shipping Ltd. (HSHP) Announces its Preliminary Results for the Three and Nine Months Ended September 30, 2026",
-      "headline": "Himalaya Shipping tjener 33,3 mill. dollar i Q3 med høyere faste rater",
-      "lead": "Himalaya Shipping leverte et nettoresultat på 33,3 millioner dollar i tredje kvartal 2026 med daglige TCE-inntekter på 58 400 dollar, drevet av nye faste charteravtaler til priser over det viktige Capesize-indeksnivået.",
+      "headline": "Himalaya Shipping med nettoinntekt på 33,3 mill. USD i tredje kvartal 2026",
+      "lead": "Himalaya Shipping rapporterer 33,3 millioner USD i nettoinntekt og 52,7 millioner USD i EBITDA i Q3 2026, drevet av tidscharteravtaler over spotrater, men videre utvikling avhenger av markedstrender framover.",
       "published_at": "2026-11-11T07:55:03.057000+00:00",
       "url": "https://newsweb.oslobors.no/message/686195",
-      "summary": "Himalaya Shipping leverte et nettoresultat på 33,3 millioner dollar i tredje kvartal 2026 med daglige TCE-inntekter på 58 400 dollar, drevet av nye faste charteravtaler til priser over det viktige Capesize-indeksnivået.",
-      "reason": "Sterk inntjening og sikring av høye faste rater gir stabilitet og synlighet i inntektene. Aksjonærer bør følge videre utvikling i faste kontrakter og utbyttenivåer for å vurdere lønnsomhet og kontantstrøm.",
-      "score": 70,
+      "summary": "Himalaya Shipping rapporterer 33,3 millioner USD i nettoinntekt og 52,7 millioner USD i EBITDA i Q3 2026, drevet av tidscharteravtaler over spotrater, men videre utvikling avhenger av markedstrender framover.",
+      "reason": "Sterk lønnsomhet viser god drift og evne til å sikre bedre enn spotmarkedet for flere skip. For aksjonærene indikerer dette stabile og økte kontantstrømmer, men videre priser i tørrlastmarkedet og charteravtaler må følges nøye.",
+      "score": 60,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 85,
+      "score_ai": 75,
       "attachment_key": "d90312ac57808f91",
       "number_keys": [
         "141d6d",
@@ -73,7 +90,7 @@
             "yoy_pct": 65.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2"
+            "evidence": "Page 2, 'Total operating revenues' for three months ended September 30, 2026 and 2025"
           },
           {
             "label": "EBITDA",
@@ -86,7 +103,7 @@
             "yoy_pct": 79.9,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Calculated: Operating income 45.4 + Depreciation and amortization 7.3 from SIDE 2"
+            "evidence": "Page 2, Operating income 45.4 + Depreciation and amortization 7.3 = 52.7 for 2026 Q3; similarly 22.0 + 7.3 =29.3 for 2025 Q3"
           },
           {
             "label": "EBIT",
@@ -99,20 +116,20 @@
             "yoy_pct": 106.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Operating income from SIDE 2"
+            "evidence": "Page 2, Operating income for three months ended September 30, 2026 and 2025"
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
             "unit": "$ million",
-            "current": 33.4,
+            "current": 33.3,
             "prior_year": 9.5,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 251.6,
+            "yoy_pct": 250.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net income attributable to shareholders from SIDE 2"
+            "evidence": "Page 2, 'Net income' for three months ended September 30, 2026 and 2025"
           },
           {
             "label": "EPS",
@@ -125,7 +142,7 @@
             "yoy_pct": 238.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Basic earnings per share from SIDE 2"
+            "evidence": "Page 2, 'Basic earnings per share' for three months ended September 30, 2026 and 2025"
           },
           {
             "label": "Kontantstrøm drift",
@@ -138,27 +155,14 @@
             "yoy_pct": 139.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net cash provided by operating activities from SIDE 5"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "$ million",
-            "current": -12.1,
-            "prior_year": -12.5,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Total financial expenses, net from SIDE 2"
+            "evidence": "Page 5, 'Net cash provided by operating activities' for three months ended September 30, 2026 and 2025"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Selskapet bekrefter at den nye regnskapsstandarden ASU 2025-05 om måling av kreditttap på kundefordringer og kontraktsmidler ikke har noen effekt på de foreløpige finansielle rapportene per 30. september 2026. De vurderer fortsatt effektene av andre kommende regnskapsstandarder som skal tas i bruk fra 2027.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
-          "trend": "Gjennom de siste kvartalene har selskapet konsistent meldt at den nye kreditttapsstandarden ASU 2025-05 ikke påvirker resultatene, og det er ingen vesentlige endringer i outlook eller mer konkret finansiell veiledning. Fokus har vært på regnskapsmessige oppdateringer uten justering av forventninger til salg, lønnsomhet eller investeringer.",
+          "summary": "Selskapet rapporterer at den nye regnskapsstandarden ASU 2025-05 fra FASB, som gjelder måling av kreditttap på kundefordringer og kontraktsmidler, ikke har hatt noen effekt på deres ikke-reviderte konsoliderte finansielle rapporter per 30. september 2026. De oppgir ingen endringer i forventninger til salg, lønnsomhet eller etterspørsel, og det gis ingen ny finansiell veiledning.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning når det gjelder endringer i finansiell veiledning, men sammenlignet med Q2 2026 opprettholder selskapet at ASU 2025-05 ikke påvirker regnskapet (Q2: \"ingen effekt på våre konsoliderte finansielle rapporter \", Q3: \"ingen effekt på våre ikke-reviderte konsoliderte finansielle rapporter\"). Det er ingen innføring av nye salgs-, margin-, investerings- eller resultatmål.",
+          "trend": "Veiledningen om effekten av den nye FASB-standarden har vært konsistent i alle kvartaler siden introduksjonen, med gjentatte uttalelser om ingen umiddelbar regnskapsmessig påvirkning. Det finnes ingen indikasjon på noen endringer i etterspørsel, marginer eller økonomiske mål i rapportene til nå.",
           "compared_periods": [
             "2026Q2",
             "2026Q1",
@@ -167,14 +171,14 @@
           "points": [
             {
               "topic": "Regnskapsstandard ASU 2025-05",
-              "statement": "Ingen effekt på de uoffisielle finansielle rapportene for Q3 2026 fra den nye kreditttapsstandarden.",
-              "evidence": "The amendments have no impact on our unaudited consolidated financial statements for the three and nine months ended September 30, 2026",
+              "statement": "Selskapet bekrefter at den nye FASB-standarden for måling av kreditttap ikke påvirker finansregnskapet for tredje kvartal 2026.",
+              "evidence": "\"The amendments have no impact on our unaudited consolidated financial statements for the three and nine months ended September 30, 2026.\"",
               "page": "utdrag current_outlook"
             },
             {
-              "topic": "Andre regnskapsstandarder",
-              "statement": "Flere nye regnskapsstandarder vil tre i kraft fra 2027, og selskapet evaluerer fortsatt deres effekt.",
-              "evidence": "Accounting pronouncements that have been issued but not yet adopted - brief description provided per 30. september 2026",
+              "topic": "Finansiell veiledning",
+              "statement": "Ingen ny finansiell veiledning eller prognoser for salg, lønnsomhet eller etterspørsel er gitt.",
+              "evidence": "Ingen nye prognoser eller omtale av markedsutsikter i utdraget.",
               "page": "utdrag current_outlook"
             }
           ]
@@ -1448,12 +1452,12 @@
       "ticker": "ENVIP",
       "issuer": "Envipco Holding N.V.",
       "title": "ENVIPCO Q3 26 - Rising sales growth and record customer awards",
-      "headline": "Envipco øker omsetningen 18 prosent i Q3 – fortsatt negativt driftsresultat",
-      "lead": "Envipco rapporterer en omsetningsvekst på 18 prosent til 26,5 millioner euro i tredje kvartal 2026, drevet av sterk vekst i USA og Europa, men driftsresultatet endte fortsatt negativt med -3,1 millioner euro, preget av investeringer og lav kapasitetsutnyttelse",
+      "headline": "Envipco øker omsetningen 18 prosent til EUR 26,5 mill i Q3 26",
+      "lead": "Omsetningen i Q3 2026 steg til 26,5 millioner euro, en økning på 18 prosent, drevet av sterk vekst i USA og Europa, men fortsatt negativ EBITDA på -0,6 millioner euro og underskudd på driftsresultat.",
       "published_at": "2026-11-11T06:00:34.151000+00:00",
       "url": "https://newsweb.oslobors.no/message/686169",
-      "summary": "Envipco rapporterer en omsetningsvekst på 18 prosent til 26,5 millioner euro i tredje kvartal 2026, drevet av sterk vekst i USA og Europa, men driftsresultatet endte fortsatt negativt med -3,1 millioner euro, preget av investeringer og lav kapasitetsutnyttelse",
-      "reason": "Sterk toplinjevekst indikerer markedsmessig fremgang, men fortsatt negativt driftsresultat og lave marginer viser at selskapet fortsatt investerer tungt og ikke har oppnådd lønnsomhet. Aksjonærer bør følge utviklingen i marginforbedringer og kostnadskontroll.",
+      "summary": "Omsetningen i Q3 2026 steg til 26,5 millioner euro, en økning på 18 prosent, drevet av sterk vekst i USA og Europa, men fortsatt negativ EBITDA på -0,6 millioner euro og underskudd på driftsresultat.",
+      "reason": "Sterk omsetningsvekst indikerer markedspotensial, men fortsatt negativ EBITDA og driftsresultat viser at resultatforbedringer og lønnsomhet må overvåkes nøye. Restrukturering kan gi framtidig kostnadsbesparelse.",
       "score": 60,
       "skipped": false,
       "direction": "nøytral",
@@ -1530,7 +1534,7 @@
             "yoy_pct": 17.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 6, SIDE 11"
+            "evidence": "Side 2, Side 6, Side 11"
           },
           {
             "label": "EBITDA",
@@ -1543,33 +1547,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 6"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "EUR million",
-            "current": -3.3,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 8"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "EUR million",
-            "current": -35.2,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 8 (YTD)"
+            "evidence": "Side 2, Side 6"
           },
           {
             "label": "EBIT",
@@ -1582,7 +1560,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 6"
+            "evidence": "Side 2, Side 6"
           },
           {
             "label": "Resultat etter skatt",
@@ -1595,7 +1573,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 6"
+            "evidence": "Side 2, Side 6"
           },
           {
             "label": "EPS",
@@ -1608,38 +1586,51 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2"
+            "evidence": "Side 2"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "EUR million",
+            "current": -3.3,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 8"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Envipco opplever positive markedstrender med innføring av retursystemer (DRS) i Europa, spesielt i Storbritannia, hvor selskapet har sikret betydelige ordre og avtaler. Selskapet forventer videre vekst i Europa med flere nasjonale DRS lanseringer som vil øke markedet kraftig. I USA forventes stabil drift med noe vekst i salg av automater. Envipco fokuserer på effektivisering og omstrukturering som innebærer en restruktureringskostnad i Q4 2026, men gir besparelser i 2027. Selskapet har tilstrekkelig likviditet og vil forbedre denne gjennom arbeidskapitaloptimalisering og kapitalallokering.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "Envipco opplever positive markedsforhold med innføring av retursystemer (DRS) i EU og andre markeder som kan tredoble selskapets adressebare marked. Selskapet har en sterk markedsposisjon i Storbritannia med over 7 100 bestilte maskiner og en viktig leverandøravtale. I Europa vokser tjenesteinntektene gradvis etter hvert som installert base øker. Envipco gjennomgår omorganisering for å styrke gjennomføringen og øke lønnsom vekst, inkludert globale kommersielle tiltak og en restruktureringskostnad på 3 millioner euro i Q4 2026, med forventede 4 millioner euro i kostnadsbesparelser i 2027. Selskapet er fokusert på effektivitet, kapitalbruk og å",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Markedsutsikter og salg",
-              "statement": "Selskapet forventer sterk vekst i Europa drevet av nye nasjonale retursystemer, med betydelige ordre i Storbritannia og andre markeder.",
-              "evidence": "\"Several European markets ... could triple the company’s total addressable market\" og \"committed orders for 7,100 RVMs\" og \"The company is strengthening its execution\" (side 2).",
+              "topic": "Markedsvekst og etterspørsel",
+              "statement": "Markedet forventes å kunne tredobles med nye DRS-innføringer i Europa, og selskapet har en sterk posisjon i UK-markedet med over 7 100 bestilte enheter.",
+              "evidence": "\"Several European markets... could triple the company’s total addressable market\"; \"... committed orders for 7,100 RVMs\" (side 2)",
               "page": "2"
             },
             {
-              "topic": "Profitabilitet og kostnadsstruktur",
-              "statement": "Omstrukturering med forventet kostnad på EUR 3m i Q4 2026, som skal gi EUR 4m i besparelser i 2027, i forbindelse med ressursallokering og effektivisering.",
-              "evidence": "\"These changes involve some redundancies and an expected restructuring charge in the fourth quarter\" og \"EUR 3m restructuring charge in Q4 26, driving EUR 4m of savings in 2027\" (side 2).",
+              "topic": "Profitabilitet og restrukturering",
+              "statement": "Selskapet gjennomfører en restrukturering som medfører en kostnad på 3 millioner euro i Q4 2026, men forventer 4 millioner euro i kostnadsbesparelser i 2027 for å styrke lønnsomheten.",
+              "evidence": "\"expected EUR 3m restructuring charge in Q4 26, driving EUR 4m of savings in 2027\" (side 2)",
+              "page": "2"
+            },
+            {
+              "topic": "Inntekter og tjenester",
+              "statement": "Tjenesteinntekter i Europa forventes å øke etter hvert som installert base og garanti-perioder øker, men disse er per nå begrensede i oppstartsfase.",
+              "evidence": "\"generates limited service revenues during DRS startup and warranty periods. European Program service revenues will grow as the installed base expands\" (side 2)",
               "page": "2"
             },
             {
               "topic": "Likviditet og kapitalforvaltning",
-              "statement": "Selskapet har god likviditet og vil forbedre denne gjennom arbeidskapitaloptimalisering og finansiering under throughput-avtaler.",
-              "evidence": "\"The company maintains sufficient liquidity to fund current operations\" og \"expects to improve its liquidity position through working capital optimization, financing of RVMs under throughput agreement",
-              "page": "2"
-            },
-            {
-              "topic": "Markedssituasjon USA",
-              "statement": "US-operasjonene forventes stabile med noe vekst i nye automatordre, kompensert av lavere volum i programtjenester.",
-              "evidence": "\"The Company’s US operations are expected to remain stable with some growth in RVM sales from new RVM orders, offset by lower volumes in program services\" (side 2).",
+              "statement": "Selskapet opprettholder tilstrekkelig likviditet til dagens drift, fokuserer på effektiv kapitalallokering og likviditetsforbedring gjennom arbeidskapitaloptimalisering og finansiering av maskiner.",
+              "evidence": "\"maintains sufficient liquidity to fund current operations... expects to improve its liquidity position through working capital optimization, financing of RVMs under throughput agreements and expanded",
               "page": "2"
             }
           ]
@@ -2020,13 +2011,13 @@
       "ticker": "APR",
       "issuer": "Appear ASA",
       "title": "Appear ASA   Trading update and withdrawal of full-year 2026 guidance",
-      "headline": "Appear trekker 2026-omsetningsmål etter avlyst salgsmulighet",
-      "lead": "Appear varsler at de ikke når laveste anslag i omsetning for 2026 etter at en betydelig salgsmulighet i EMEA er kansellert, og trekker derfor hele årets inntektsveiledning.",
+      "headline": "Appear trekker helårsinntektsprognose etter tapt storavtale",
+      "lead": "Appear ASA opplyser at en stor salgsavtale er kansellert og trekker derfor inntektsguiden for 2026 på 880–920 millioner kroner. Resultater for Q4 og året ventes 17. februar 2027.",
       "published_at": "2026-11-11T06:00:18.364000+00:00",
       "url": "https://newsweb.oslobors.no/message/686164",
-      "summary": "Appear varsler at de ikke når laveste anslag i omsetning for 2026 etter at en betydelig salgsmulighet i EMEA er kansellert, og trekker derfor hele årets inntektsveiledning.",
-      "reason": "Tapet av en stor salgsmulighet og tilbaketrekning av helårsveiledning signaliserer økt usikkerhet om topplinjevekst. Investorer må følge nøye om Appear kan erstatte bortfallet i andre markeder.",
-      "score": 70,
+      "summary": "Appear ASA opplyser at en stor salgsavtale er kansellert og trekker derfor inntektsguiden for 2026 på 880–920 millioner kroner. Resultater for Q4 og året ventes 17. februar 2027.",
+      "reason": "Å miste en betydelig kundeordre og trekke inntektsprognosen indikerer utfordringer for Appear i 2026. Aksjonærer bør følge nøye med på kvartalsrapporten for mer detaljer om konsekvenser og mulige tiltak.",
+      "score": 75,
       "skipped": false,
       "direction": "negativ",
       "assessment_source": "AI",
@@ -2068,32 +2059,32 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 1 - trading update states revenue guidance withdrawn, no actual 2026 revenue figures disclosed"
+            "evidence": "Side 1: Withdraws full-year 2026 revenue guidance due to cancelled sales opportunity; no actual revenue figures disclosed"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Appear ASA har trukket tilbake sin tidligere omsetningsprognose for hele 2026 på grunn av at en stor forventet salgsavtale i EMEA-regionen er blitt kansellert av kunden, ikke tapt til konkurrenter. Selskapet forventer nå ikke å nå nedre nivå i det tidligere guidede omsetningsintervallet på 880-920 millioner NOK.",
+          "summary": "Appear ASA har trukket tilbake sin omsetningsprognose for hele 2026 etter at en forventet stor salgsmulighet i EMEA har blitt kansellert av kunden. Selskapet forventer nå ikke å nå nedre grense i den tidligere guidede omsetningsintervallet på 880-920 millioner NOK.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetningsprognose 2026",
-              "statement": "Opprettholdt ikke tidligere omsetningsprognose, trekker tilbake guidingen.",
-              "evidence": "\"Appear therefore withdraws its full-year 2026 revenue guidance.\" (side 1)",
+              "topic": "Omsetningsprognose",
+              "statement": "Appear trekker tilbake helårlig omsetningsguidance for 2026.",
+              "evidence": "withdraws its full-year 2026 revenue guidance",
               "page": "1"
             },
             {
-              "topic": "Store salgsavtaler",
-              "statement": "En forventet stor salgsavtale i EMEA ble kansellert av kunden, og dermed reduseres forventningene for 2026.",
-              "evidence": "\"a previously anticipated material sales opportunity has been cancelled by the customer\" (side 1)",
+              "topic": "Salgsutsikter",
+              "statement": "En betydelig salgsmulighet i EMEA er kansellert av kunden, ikke tapt til konkurrenter.",
+              "evidence": "a previously anticipated material sales opportunity has been cancelled by the customer",
               "page": "1"
             },
             {
-              "topic": "Rapportering",
-              "statement": "Neste rapport forventes 17. februar 2027 for fjerde kvartal og helår 2026.",
-              "evidence": "\"Appear will report fourth-quarter and full-year 2026 results on 17 February 2027.\" (side 1)",
+              "topic": "Inntektsmål",
+              "statement": "Selskapet forventer ikke nå nedre del av tidligere guidet omsetningsområde (880-920 millioner NOK).",
+              "evidence": "the company no longer expects to reach the lower end of its full-year 2026 revenue guidance range of NOK 880-920 million",
               "page": "1"
             }
           ]
@@ -4236,18 +4227,18 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "Odfjell Technology Ltd - Ex Dividend Q3 2026",
-      "headline": "Odfjell Technology handler eks-1,52 kroner i kvartalsutbytte fra i dag",
-      "lead": "Fra 10. november vil Odfjell Technology-aksjer noteres eksklusive et kvartalsutbytte på 1,52 kroner per aksje for tredje kvartal 2026. Utbetalingen påvirker direkte aksjens verdi i handelen.",
+      "headline": "Odfjell Technology betaler utbytte på 1,52 kroner per aksje for Q3 2026",
+      "lead": "Odfjell Technology Ltd går eksklusiv utbytte med 1,52 kroner per aksje fra 10. november for tredje kvartal 2026, en konkret verdi for aksjonærene å notere. Det finnes ingen indikasjoner på endringer i fremtidig utbyttepolitikk.",
       "published_at": "2026-11-10T06:20:19.034000+00:00",
       "url": "https://newsweb.oslobors.no/message/686069",
-      "summary": "Fra 10. november vil Odfjell Technology-aksjer noteres eksklusive et kvartalsutbytte på 1,52 kroner per aksje for tredje kvartal 2026. Utbetalingen påvirker direkte aksjens verdi i handelen.",
-      "reason": "Utbyttejusteringer er standard prosess som påvirker kortsiktig aksjekurs ved eks-dato, men gir ikke indikasjon på endring i selskapets fundamentale drift eller langsiktige inntjeningsutsikter.",
-      "score": 30,
+      "summary": "Odfjell Technology Ltd går eksklusiv utbytte med 1,52 kroner per aksje fra 10. november for tredje kvartal 2026, en konkret verdi for aksjonærene å notere. Det finnes ingen indikasjoner på endringer i fremtidig utbyttepolitikk.",
+      "reason": "Utbyttebetaling er en vanlig hendelse som gir direkte verdi til aksjonærer, men uten ytterligere finansiell kontekst eller endringer gir det begrenset markedseffekt. Viktig å følge eventuell fremtidig utbytte- eller inntjeningsinformasjon.",
+      "score": 35,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 45,
+      "score_ai": 50,
       "number_keys": [
         "77de68",
         "7b5200",
@@ -11306,39 +11297,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "685817",
-      "market": "XOSL",
-      "ticker": "ARCH",
-      "issuer": "Archer Limited",
-      "title": "Archer awarded long-term drilling contract with Vista in Vaca Muerta",
-      "headline": "Archer sikrer 2-årig borekontrakt med Vista verdt opptil 40 millioner USD",
-      "lead": "Archer har inngått en ny borekontrakt med Vista i Vaca Muerta verdsatt til 35-40 millioner USD over inntil tre år. Kontrakten styrker selskapets posisjon i Argentina og ekspanderer kundebasen i et nøkkelområde.",
-      "published_at": "2026-11-05T14:56:12.406000+00:00",
-      "url": "https://newsweb.oslobors.no/message/685817",
-      "summary": "Archer har inngått en ny borekontrakt med Vista i Vaca Muerta verdsatt til 35-40 millioner USD over inntil tre år. Kontrakten styrker selskapets posisjon i Argentina og ekspanderer kundebasen i et nøkkelområde.",
-      "reason": "Kontrakten representerer en klar vekstmulighet i Vaca Muerta og bekrefter tillit til Archers teknologi og kapasitet. Dette kan gi jevnere inntjening og forlenget tilstedeværelse i et vekstmarked. Investorer bør følge hvordan avtalen påvirker omsetning og lønnsomhet fremover.",
-      "score": 60,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 75,
-      "number_keys": [
-        "117284",
-        "356a19",
-        "484952",
-        "605252",
-        "6d40f9",
-        "972a67",
-        "ac3478",
-        "aee655",
-        "af23de",
-        "af3e13",
-        "da4b92",
-        "eb4ac3"
-      ]
     }
   ],
   "indirect": [
@@ -11619,19 +11577,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-11T08:40:00+00:00",
+  "last_checked_at": "2026-11-11T08:50:00+00:00",
   "monitor_stats": {
-    "fetched": 172,
-    "recent": 95,
+    "fetched": 173,
+    "recent": 96,
     "already_seen": 91,
     "eligible": 4,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 4,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 4,
-    "source_latest_at": "2026-11-11T07:55:03.057000+00:00",
+    "source_latest_at": "2026-11-11T08:42:44.832000+00:00",
     "indirect": 0
   }
 }
