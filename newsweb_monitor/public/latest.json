@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-11T06:10:00+00:00",
+  "generated_at": "2026-11-11T06:20:00+00:00",
   "items": [
     {
       "id": "686171",
@@ -219,18 +219,18 @@
       "ticker": "ENVIP",
       "issuer": "Envipco Holding N.V.",
       "title": "ENVIPCO Q3 26 - Rising sales growth and record customer awards",
-      "headline": "Envipco øker omsetningen 18% i Q3 26, EBITDA fortsatt negativ",
-      "lead": "Envipcos omsetning steg til 26,5 millioner euro i tredje kvartal 2026, en 18 prosent økning år-over-år, samtidig som EBITDA var negativ -0,6 millioner euro, påvirket av investeringer og lav kapasitetsutnyttelse.",
+      "headline": "Envipco øker omsetningen 18 prosent drevet av sterk amerikansk vekst",
+      "lead": "Envipco rapporterer en omsetningsvekst på 18 % til EUR 26,5 mill i Q3 2026, drevet av høyere salg i USA og økende tjenester i Europa, men opplever fortsatt driftsunderskudd og lav kapasitetsutnyttelse.",
       "published_at": "2026-11-11T06:00:34.151000+00:00",
       "url": "https://newsweb.oslobors.no/message/686169",
-      "summary": "Envipcos omsetning steg til 26,5 millioner euro i tredje kvartal 2026, en 18 prosent økning år-over-år, samtidig som EBITDA var negativ -0,6 millioner euro, påvirket av investeringer og lav kapasitetsutnyttelse.",
-      "reason": "Til tross for økt omsetning og sterk ordreinngang, viser fortsatt negativ EBITDA og operasjonelt underskudd at selskapet er i investeringsfase. Aksjonærer bør følge kvartaler og markedsgrep i UK og Europa nøye, samt kostnadskontroll og likviditet.",
-      "score": 60,
+      "summary": "Envipco rapporterer en omsetningsvekst på 18 % til EUR 26,5 mill i Q3 2026, drevet av høyere salg i USA og økende tjenester i Europa, men opplever fortsatt driftsunderskudd og lav kapasitetsutnyttelse.",
+      "reason": "Veksten i omsetning er et positivt signal om markedsutviklingen, spesielt i USA, men fortsatt underskudd og lav utnyttelse av produksjonskapasitet tyder på lønnsomhetsutfordringer. Investorer bør følge selskapets evne til å omsette ordrer til positivt resultat og effekten av restrukturering.",
+      "score": 59,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 75,
+      "score_ai": 74,
       "attachment_key": "ae7d10ba6a39c965",
       "number_keys": [
         "0716d9",
@@ -301,7 +301,7 @@
             "yoy_pct": 17.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 6, SIDE 11"
+            "evidence": "Side 2, Side 6, Side 11 Consolidated Income Statement"
           },
           {
             "label": "EBITDA",
@@ -314,7 +314,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 6"
+            "evidence": "Side 2, Side 6"
           },
           {
             "label": "EBIT",
@@ -327,7 +327,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 6"
+            "evidence": "Side 2, Side 6"
           },
           {
             "label": "Resultat etter skatt",
@@ -340,7 +340,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 6"
+            "evidence": "Side 2, Side 6"
           },
           {
             "label": "EPS",
@@ -353,39 +353,52 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, SIDE 6"
+            "evidence": "Side 2, Side 6"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "EUR million",
+            "current": -3.3,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 8"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Envipco opplever økende markedsmuligheter ettersom DRS-systemer får mandat i EU og videre, med flere land som planlegger å lansere sine returordninger som kan tredoble selskapets totale adresserbare marked. I Storbritannia har selskapet sikret betydelige ordrer og samarbeidsavtaler for 7.100 returautomater (RVMs) med potensial for ytterligere salg. I USA forventes stabilitet med noe vekst i RVM-salg, mens Europa viser positive tendenser med ordrer i Romania, Portugal og økt aktivitet i Polen og Nederland. For å konvertere muligheter til lønnsom vekst styrker Envipco sin kommersielle organisasjon, omstrukturerer med forventede redundanser og e",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "summary": "Envipco opplever økt markedsetterspørsel med innføring av DRS i Europa, som vil kunne tredoble adressbart marked. Selskapet har sterke bestillinger i Storbritannia og jobber for å sikre markedsandeler der. I Europa forventes økende inntekter fra salg av nye RVM-maskiner og etter hvert service, med volumvekst i flere land som Romania og Portugal. En strukturendring pågår for å øke lønnsomheten, som inkluderer omstillinger og en restruktureringskostnad på 3 millioner euro i Q4 2026, med forventede besparelser på 4 millioner euro i 2027. Selskapet fokuserer på effektivitet, kapitalallokering og likviditet, og forventer stabilitet og noe vekst i",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Markedsvekst og salg",
-              "statement": "Markedet for DRS utvides kraftig i Europa, og selskapets adressebare marked kan tredobles med lanseringer i flere land. UK er største kommersielle drivkraft med 7.100 RVMs sikret gjennom ordrer og avtaler.",
-              "evidence": "\"Several European markets are in process of launching... which could triple the company’s total addressable market.\" og \"committed orders for 7,100 RVMs... preferred supplier agreement\" (side 2)",
+              "topic": "Markedsvekst og etterspørsel",
+              "statement": "Markedet i Europa vokser med flere DRS-lanseringer, noe som kan tredoble markedet.",
+              "evidence": "’Flere europeiske markeder lanserer DRS, noe som kan tredoble markedet’ (side 2).",
               "page": "2"
             },
             {
-              "topic": "Lønnsomhet og restrukturering",
-              "statement": "Selskapet omstrukturerer for å styrke utførelsen og øke lønnsomheten, med forventet restruktureringskostnad på EUR 3m i Q4 2026 og besparelser på EUR 4m i 2027.",
-              "evidence": "\"restructuring charge in Q4 26, driving EUR 4m of savings in 2027\" (side 1)",
-              "page": "1"
+              "topic": "Storbritannia og kommersiell posisjon",
+              "statement": "Sterke bestillinger og forsterket innsats for å sikre markedsandel i Storbritannia fra 2027.",
+              "evidence": "’7,100 RVMs i bestilling, foretrukket leverandøravtale, styrker kommersiell organisasjon for å konvertere muligheter til lønnsom vekst’ (side 2).",
+              "page": "2"
             },
             {
-              "topic": "Geografisk utvikling og drift",
-              "statement": "USA-virksomheten forventes stabil med noe vekst i RVM-salg, mens Europa ser god utvikling i flere markeder som Romania, Polen, Portugal og Nederland. Servicerevenue bygges opp med økt installert base.",
-              "evidence": "\"US operations are expected to remain stable with some growth in RVM sales\" og \"En Europe... secured Romanian orders... encouraging traction in Poland and Netherlands\" (side 1-2)",
-              "page": "1-2"
+              "topic": "Restrukturering og lønnsomhetsfokus",
+              "statement": "Omstilling med redundans og en restruktureringskostnad på 3 millioner euro i Q4 2026, som skal gi 4 millioner euro i besparelser i 2027.",
+              "evidence": "’Omstillinger, forventet restruktureringskostnad EUR 3m i Q4 26, 4m i besparelser i 2027’ (side 2).",
+              "page": "2"
             },
             {
-              "topic": "Finansiering og likviditet",
-              "statement": "Envipco opprettholder god likviditet for nåværende drift og forventer forbedret likviditet gjennom optimalisering av arbeidskapital og finansiering under throughput-avtaler.",
-              "evidence": "\"The company maintains sufficient liquidity... expects to improve liquidity position through working capital optimization\" (side 1)",
-              "page": "1"
+              "topic": "Inntektskilder og likviditet",
+              "statement": "Økende RVM-salg utgjør hoveddelen av europeisk inntekt, serviceinntekter ventes å øke over tid, samt fokus på likviditet og kapitalallokering.",
+              "evidence": "’Flertallet av europeisk inntekt kommer fra nye RVM-salg, serviceinntekter vil vokse med økende installert base’ og ’fokus på likviditet, kapitalallokering og kontantstrøm’ (side 2).",
+              "page": "2"
             }
           ]
         }
@@ -416,6 +429,22 @@
       ],
       "importance": "mellom",
       "score_ai": 70,
+      "language_versions": [
+        {
+          "id": "686168",
+          "title": "Akastor ASA: Resultat for tredje kvartal 2026",
+          "url": "https://newsweb.oslobors.no/message/686168",
+          "published_at": "2026-11-11T06:00:31.661000+00:00",
+          "language": "Norsk"
+        },
+        {
+          "id": "686167",
+          "title": "Akastor ASA: Third Quarter Results 2026",
+          "url": "https://newsweb.oslobors.no/message/686167",
+          "published_at": "2026-11-11T06:00:27.004000+00:00",
+          "language": "Engelsk"
+        }
+      ],
       "attachment_key": "3604be484e90321f",
       "number_keys": [
         "004be8",
@@ -564,23 +593,7 @@
             }
           ]
         }
-      },
-      "language_versions": [
-        {
-          "id": "686168",
-          "title": "Akastor ASA: Resultat for tredje kvartal 2026",
-          "url": "https://newsweb.oslobors.no/message/686168",
-          "published_at": "2026-11-11T06:00:31.661000+00:00",
-          "language": "Norsk"
-        },
-        {
-          "id": "686167",
-          "title": "Akastor ASA: Third Quarter Results 2026",
-          "url": "https://newsweb.oslobors.no/message/686167",
-          "published_at": "2026-11-11T06:00:27.004000+00:00",
-          "language": "Engelsk"
-        }
-      ]
+      }
     },
     {
       "id": "686165",
@@ -588,13 +601,13 @@
       "ticker": "TECH",
       "issuer": "Techstep ASA",
       "title": "Techstep ASA: Q3 2026 results",
-      "headline": "Techstep snur til positiv justert EBITA i Q3, lavere inntekter og gjeldspress bremser vekst",
-      "lead": "Techstep rapporterte 24 prosent lavere inntekter til 169 millioner kroner i Q3 2026, men justert EBITA endte på +2,1 millioner etter kostnadskutt. Gjeld og forsinkede prosjekter har utløst finansielle restruktureringstiltak.",
+      "headline": "Techstep snur til positiv justert EBITA i Q3, omsetter for 169 mill. NOK",
+      "lead": "Techstep reduserte inntektene 24 % til 169 millioner kroner i Q3 2026, men klarte å løfte justert EBITA til 2,1 millioner etter kostnadskutt og effektivisering. Samtidig gjennomføres en nylig avsluttet emisjon på 100 millioner kroner for å styrke finansieringe",
       "published_at": "2026-11-11T06:00:19.760000+00:00",
       "url": "https://newsweb.oslobors.no/message/686165",
-      "summary": "Techstep rapporterte 24 prosent lavere inntekter til 169 millioner kroner i Q3 2026, men justert EBITA endte på +2,1 millioner etter kostnadskutt. Gjeld og forsinkede prosjekter har utløst finansielle restruktureringstiltak.",
-      "reason": "Resultatbildet viser forbedret lønnsomhet på EBITA-nivå, men fortsatt inntektsnedgang og likviditetspress setter begrensninger for vekst og investeringer. Investorer bør følge kommersiell gjennomføring og effekten av kostnadsprogrammet.",
-      "score": 85,
+      "summary": "Techstep reduserte inntektene 24 % til 169 millioner kroner i Q3 2026, men klarte å løfte justert EBITA til 2,1 millioner etter kostnadskutt og effektivisering. Samtidig gjennomføres en nylig avsluttet emisjon på 100 millioner kroner for å styrke finansieringe",
+      "reason": "Positive tegn med løft i justert EBITA og kostnadskutt gir indikasjon på bedring, men fortsatt inntektsnedgang og likviditetspress tilsier at investeringer og kommersiell gjennomføring må følges nøye. Emisjonen sikrer driften på kort sikt.",
+      "score": 82,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -665,7 +678,7 @@
             "yoy_pct": -24.0,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 4 Key Figures Q3 2026 and Q3 2025 Revenues"
+            "evidence": "SIDE 4 Key Figures, Revenue Q3 2026 and Q3 2025"
           },
           {
             "label": "EBITDA",
@@ -678,7 +691,7 @@
             "yoy_pct": -37.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 4 Key Figures Q3 2026 and Q3 2025 EBITDA adjusted"
+            "evidence": "SIDE 4 Key Figures, EBITDA adjusted Q3 2026 and Q3 2025"
           },
           {
             "label": "EBIT",
@@ -691,7 +704,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 4 Key Figures Q3 2026 and Q3 2025 EBIT"
+            "evidence": "SIDE 4 Key Figures, EBIT Q3 2026 and Q3 2025"
           },
           {
             "label": "Resultat etter skatt",
@@ -704,20 +717,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 4 Key Figures Q3 2026 and Q3 2025 Net profit (loss) for the period"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "EPS not reported in provided excerpt"
+            "evidence": "SIDE 4 Key Figures, Net profit (loss) for the period Q3 2026 and Q3 2025"
           },
           {
             "label": "Kontantstrøm drift",
@@ -730,14 +730,14 @@
             "yoy_pct": -811.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 4 Key Figures Q3 2026 and Q3 2025 Cash flow from operating activities"
+            "evidence": "SIDE 4 Key Figures, Cash flow from operating activities Q3 2026 and Q3 2025"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Techstep melder om videre sårbar finansiell situasjon med lavere enn forventet markedsopptak som har økt presset på selskapets likviditet. Selskapet har gjennomført en finansieringsløsning med en bruefinansieringsordning og fullført en emisjon på NOK 100 millioner for å styrke balansen. Kommersiell utvikling har vært preget av store kontraktstildelinger, blant annet en stor avtale i Sverige for tre år og et stort offentlig helserelatert prosjekt som ventes å få økt momentum i kommende kvartaler. Utviklingen i Tyskland gir potensial for skalering av programvarebasert modell i Europa, men avhenger av endelig avtale og implementering. Selskapet",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
-          "trend": "",
+          "summary": "Techstep har gjennomført en vellykket emisjon på 100 millioner NOK etter behov for finansiering, og oppnådde Samsung Knox Premium MSP-status som styrker deres ekspertise. Selskapet vant sin største kontrakt i Sverige med fokus på programvare og tjenester med gjentakende inntekter, og jobber med et potensielt stort prosjekt i Tyskland basert på egen programvare. Forsinkede utrullinger i helseprosjektet Sykehuspartner forventes å ta seg opp fremover, samtidig som selskapet prioriterer høy-marginerende programvare og tjenester for å bedre lønnsomheten.",
+          "change": "Finansiering: Fra ingen spesifikk plan for ekstra kapital til gjennomført rettet emisjon på 100 millioner NOK for å styrke den finansielle plattformen (2026Q2: fokus på kostnadsoptimalisering og forbedringsprogrammer). Kontraktsgevinst: Ny stor kontrakt i Sverige med 3-års periode kombinert programvare og tjenester, mens tidligere var det fokus på forsinkede helserollout (2026Q2: forsinkede utrullinger i helsesektoren med forventet oppgang). Fokus på høymargin produkter: Opprettholdt fokus på å øke andelen høy-marginerende, gjentakende programvare og tjenester (uendret).",
+          "trend": "Over kvartalene har Techstep holdt et konsistent fokus på å øke andelen høy-marginerende, gjentakende programvare og tjenester for å bedre lønnsomheten og redusere kostnader, samtidig som helserelaterte utrullinger har vært forsinket men forventes å ta seg opp. Det nye kvartalet viser en mer krevende finansiell situasjon som har ført til en kapitaltilførsel via emisjon, samtidig som de vinner en solid kontrakt i Sverige og jobber med å skalere sin software-modell i Europa. Dette tyder på en strategi som tilpasses markedets realiteter med mål om å styrke både finans og kommersiell posisjon.",
           "compared_periods": [
             "2026Q2",
             "2026Q1",
@@ -745,22 +745,28 @@
           ],
           "points": [
             {
-              "topic": "Finansiering og likviditet",
-              "statement": "Techstep har styrket sin finansielle stilling med emisjon på NOK 100 millioner etter å ha tatt opp bruefinansiering for å møte kortsiktige behov, men har fortsatt begrenset handlefrihet pga. lavere markedsopptak.",
-              "evidence": "\"Techstep announced a new bridge financing facility... and completed the rights issue and raised gross proceeds of NOK 100 million\" (side 1)",
+              "topic": "Finansiering",
+              "statement": "Techstep gjennomførte en emisjon for å sikre finansiering, noe som var nødvendig pga. redusert finansiell handlingsrom og lavere markedsetterspørsel.",
+              "evidence": "\"plans for a rights issue to establish a more robust financial foundation\"; \"successfully completed the rights issue and raised gross proceeds of NOK 100 million\"",
               "page": "1"
             },
             {
-              "topic": "Kontrakter og kommersiell utvikling",
-              "statement": "Store kontrakttildelinger i Sverige og pågående prosjekter i Tyskland og Spania gir grunnlag for økt tilbakevendende omsetning, men kontraktstap og forsinkelser påvirker inntektsveksten negativt.",
-              "evidence": "\"Awarded Techstep's largest individual contract to date in Sweden... project in Germany... large-scale public-sector rollout in Spain... contract churn affected Q3\" (side 1 og 5)",
-              "page": "1 og 5"
+              "topic": "Kontrakter og kommersielle muligheter",
+              "statement": "Selskapet vant sin største kontrakt hittil i Sverige med gjentakende inntekter og jobber med et potensielt større prosjekt i Tyskland basert på egen programvare.",
+              "evidence": "\"Awarded Techstep's largest individual contract to date in Sweden...expected to contribute to recurring revenue\"; \"project in Germany centred on its proprietary software... future expansion depends on",
+              "page": "1-2"
             },
             {
-              "topic": "Strategisk fokus og markedsutsikter",
-              "statement": "Selskapet prioriterer en strategi med høyere andel tilbakevendende, høymarginerende programvare og tjenester og skalerer europeiske partnere for å understøtte dette, mens det nevnes et forsinket helserullout som forventes å ta seg opp.",
-              "evidence": "\"Prioritise recurring, higher-margin software and services... onboarding and development of European partners... delayed healthcare rollout expected to gain momentum\" (side 1 og 11)",
-              "page": "1 og 11"
+              "topic": "Etterspørsel og helsesektoren",
+              "statement": "Forsinkede utrullinger i helsesektoren under Sykehuspartner-avtalen forventes å ta seg opp i de kommende kvartalene.",
+              "evidence": "\"delayed healthcare rollout under the Sykehuspartner agreement is expected to gain momentum in the coming quarters\"",
+              "page": "2"
+            },
+            {
+              "topic": "Strategisk fokus på lønnsomhet",
+              "statement": "Fokus på å prioritere høy-marginerende, programvarebaserte gjentakende tjenester for å bedre lønnsomheten og redusere kontraktsavgang.",
+              "evidence": "\"Continued to prioritise recurring, higher-margin software and services across direct and indirect channels\"",
+              "page": "1"
             }
           ]
         }
@@ -772,12 +778,12 @@
       "ticker": "APR",
       "issuer": "Appear ASA",
       "title": "Appear ASA   Trading update and withdrawal of full-year 2026 guidance",
-      "headline": "Appear trekker 2026-guidance etter avlyst salgsmulighet i EMEA",
-      "lead": "Appear ASA melder at en forventet stor salgsmulighet i EMEA er kansellert, noe som medfører at de ikke forventer å nå laveste estimat på 880 millioner kroner i omsetning for 2026. Fullårs-guidance trekkes tilbake.",
+      "headline": "Appear trekker 2026-omsetningsprognose etter tapt storordre",
+      "lead": "Appear ASA har avlyst sin helårsinntektsprognose for 2026 etter at en betydelig salgsmulighet i EMEA ble kansellert av kunden. Dette betyr at de ikke forventer å nå minstesummen på 880 millioner kroner i omsetning.",
       "published_at": "2026-11-11T06:00:18.364000+00:00",
       "url": "https://newsweb.oslobors.no/message/686164",
-      "summary": "Appear ASA melder at en forventet stor salgsmulighet i EMEA er kansellert, noe som medfører at de ikke forventer å nå laveste estimat på 880 millioner kroner i omsetning for 2026. Fullårs-guidance trekkes tilbake.",
-      "reason": "Kanselleringen illustrerer risikoen ved selskapets avhengighet av få store avtaler. Aksjonærer må følge nøye med på om Appear kan kompensere tapet og hvordan framtidige salgsmuligheter utvikler seg.",
+      "summary": "Appear ASA har avlyst sin helårsinntektsprognose for 2026 etter at en betydelig salgsmulighet i EMEA ble kansellert av kunden. Dette betyr at de ikke forventer å nå minstesummen på 880 millioner kroner i omsetning.",
+      "reason": "Avlysningen av en stor kundeordre som tidligere ble forventet å sikre bunnlinjen, betyr lavere omsetning for 2026 og skaper usikkerhet rundt fremtidig vekst. Aksjonærer må følge utviklingen nøye og vurdere selskapets nye vekstmuligheter og strategiske tiltak.",
       "score": 75,
       "skipped": false,
       "direction": "negativ",
@@ -820,21 +826,21 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 1: Full-year 2026 guidance withdrawn, no actual FY 2026 revenue reported"
+            "evidence": "SIDE 1"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Appear ASA har trukket tilbake sin omsetningsprognose for hele 2026 etter at en forventet betydelig salgsmulighet i EMEA-området ble kansellert av kunden. Selskapet forventer nå ikke å nå det nedre nivået i sin tidligere omsetningsprognose på 880-920 millioner kroner.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "summary": "Appear ASA har trukket tilbake sin omsetningsguidance for hele 2026 etter at en forventet betydelig salgsmulighet i EMEA har blitt avlyst av kunden. Selskapet forventer derfor ikke å nå det tidligere guidede omsetningsintervallet på 880-920 millioner NOK.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetning",
-              "statement": "Tidligere ventet omsetning på 880-920 millioner kroner for 2026 oppnås ikke på grunn av kansellert salgsmulighet.",
-              "evidence": "\"no longer expects to reach the lower end of its full-year 2026 revenue guidance range of NOK 880-920 million... One of these opportunities, in EMEA, has now been cancelled.\"",
-              "page": "1"
+              "topic": "Omsetningsguidance",
+              "statement": "Withdraws full-year 2026 revenue guidance due to cancellation of a material sales opportunity.",
+              "evidence": "Previously guided NOK 880-920 million, now withdrawn following customer cancellation.",
+              "page": "Trading update 11 November 2026"
             }
           ]
         }
@@ -870,20 +876,6 @@
       ],
       "importance": "mellom",
       "score_ai": 65,
-      "number_keys": [
-        "0286dd",
-        "298f71",
-        "2de49a",
-        "431f6b",
-        "605252",
-        "827bfc",
-        "aee655",
-        "b68969",
-        "bd7c80",
-        "da4b92",
-        "e2154f",
-        "e77a56"
-      ],
       "language_versions": [
         {
           "id": "686162",
@@ -899,6 +891,20 @@
           "published_at": "2026-11-11T06:00:08.637000+00:00",
           "language": "Original"
         }
+      ],
+      "number_keys": [
+        "0286dd",
+        "298f71",
+        "2de49a",
+        "431f6b",
+        "605252",
+        "827bfc",
+        "aee655",
+        "b68969",
+        "bd7c80",
+        "da4b92",
+        "e2154f",
+        "e77a56"
       ]
     },
     {
@@ -2976,18 +2982,18 @@
       "ticker": "OTL",
       "issuer": "Odfjell Technology Ltd",
       "title": "Odfjell Technology Ltd - Ex Dividend Q3 2026",
-      "headline": "Odfjell Technology går ex utbytte og kutter prisen med 1,52 kroner per aksje",
-      "lead": "Odfjell Technology Ltd aksjen handler eksklusiv 1,52 kr i kvartalsutbytte fra 10. november 2026. Dette reflekterer en utbetaling til aksjonærene i kvartalet uten indikasjoner på endring i selskapets underliggende drift.",
+      "headline": "Odfjell Technology kutter utbytte med 1,52 kroner per aksje for Q3 2026",
+      "lead": "Aksjene i Odfjell Technology handles fra i dag 10. november eksklusiv utbytte på NOK 1,52 for tredje kvartal 2026. Endringen signaliserer kapitaldisponering som kan påvirke investorers kontantstrøm.",
       "published_at": "2026-11-10T06:20:19.034000+00:00",
       "url": "https://newsweb.oslobors.no/message/686069",
-      "summary": "Odfjell Technology Ltd aksjen handler eksklusiv 1,52 kr i kvartalsutbytte fra 10. november 2026. Dette reflekterer en utbetaling til aksjonærene i kvartalet uten indikasjoner på endring i selskapets underliggende drift.",
-      "reason": "Utbytteutbetaling er en vanlig hendelse og representerer ikke en endring i selskapets inntjeningsutsikter. Investorer mottar kontanter, og aksjekursen justeres ned tilsvarende. Ny informasjon om selskapets fremtidige drift eller resultater mangler.",
-      "score": 20,
+      "summary": "Aksjene i Odfjell Technology handles fra i dag 10. november eksklusiv utbytte på NOK 1,52 for tredje kvartal 2026. Endringen signaliserer kapitaldisponering som kan påvirke investorers kontantstrøm.",
+      "reason": "Utbytteutdeling er en kontantutbetaling som kan påvirke investorers avkastning direkte, men gir ikke indikasjon på underliggende drift eller fremtidig inntjening. Mangel på informasjon om resultat forsterker usikkerheten.",
+      "score": 25,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 35,
+      "score_ai": 40,
       "number_keys": [
         "77de68",
         "7b5200",
@@ -11274,18 +11280,18 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-11T06:10:00+00:00",
+  "last_checked_at": "2026-11-11T06:20:00+00:00",
   "monitor_stats": {
     "fetched": 156,
     "recent": 82,
-    "already_seen": 69,
-    "eligible": 13,
+    "already_seen": 78,
+    "eligible": 4,
     "filtered": 0,
-    "analyzed": 13,
+    "analyzed": 4,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 1,
+    "recovered_unpublished": 4,
     "source_latest_at": "2026-11-11T06:08:07.416000+00:00",
     "indirect": 0
   }
