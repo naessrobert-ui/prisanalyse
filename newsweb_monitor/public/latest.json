@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-11T18:50:00+00:00",
+  "generated_at": "2026-11-11T19:00:00+00:00",
   "items": [
     {
       "id": "686248",
@@ -2252,18 +2252,18 @@
       "ticker": "ENVIP",
       "issuer": "Envipco Holding N.V.",
       "title": "ENVIPCO Q3 26 - Rising sales growth and record customer awards",
-      "headline": "Envipco øker omsetningen 18 prosent til 26,5 mill. euro – EBITDA fortsatt negativ",
-      "lead": "Envipco rapporterer 18 prosent omsetningsvekst i Q3 til 26,5 mill. euro, drevet av sterkere salg i USA og vekst i Europa. EBITDA lå fortsatt i minus med -0,6 mill. euro, preget av investeringer og lav kapasitetsutnyttelse.",
+      "headline": "Envipco øker omsetningen 18 prosent i Q3 til 26,5 millioner euro",
+      "lead": "Envipco rapporterer 18 prosent økning i inntekter til 26,5 millioner euro i tredje kvartal 2026, drevet av sterk vekst i USA og Europa, men rapporterer fortsatt negativ driftsresultat på 3,1 millioner euro, preget av investeringer og underutnyttede produksjons",
       "published_at": "2026-11-11T06:00:34.151000+00:00",
       "url": "https://newsweb.oslobors.no/message/686169",
-      "summary": "Envipco rapporterer 18 prosent omsetningsvekst i Q3 til 26,5 mill. euro, drevet av sterkere salg i USA og vekst i Europa. EBITDA lå fortsatt i minus med -0,6 mill. euro, preget av investeringer og lav kapasitetsutnyttelse.",
-      "reason": "Sterk omsetningsvekst viser etterspørselsøkning, men fortsatt negativ EBITDA og operasjonelle utfordringer begrenser resultatforbedringen. Aksjonærer må følge utviklingen i lønnsomhet og effekt av restruktureringen.",
-      "score": 57,
+      "summary": "Envipco rapporterer 18 prosent økning i inntekter til 26,5 millioner euro i tredje kvartal 2026, drevet av sterk vekst i USA og Europa, men rapporterer fortsatt negativ driftsresultat på 3,1 millioner euro, preget av investeringer og underutnyttede produksjons",
+      "reason": "Til tross for sterk omsetningsvekst og nye kontrakter, viser fortsatt negativt driftsresultat og lav kapasitetsutnyttelse at lønnsomheten fortsatt er utfordrende. Aksjonærer bør følge utvikling i kostnadskontroll og kommersiell gjennomføring fremover.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 72,
+      "score_ai": 75,
       "attachment_key": "ae7d10ba6a39c965",
       "number_keys": [
         "0716d9",
@@ -2334,7 +2334,7 @@
             "yoy_pct": 17.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2 Key figures and SIDE 6 Financial developments, statement of revenues Q3 26 and Q3 25"
+            "evidence": "Side 2, Key figures table and Side 11, Statement of Comprehensive Income"
           },
           {
             "label": "EBITDA",
@@ -2347,7 +2347,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2 and SIDE 6 Financial developments, EBITDA Q3 26 and Q3 25"
+            "evidence": "Side 2, Key figures table and Side 6, Financial developments"
           },
           {
             "label": "EBIT",
@@ -2360,7 +2360,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2 and SIDE 6 Financial developments, operating profit Q3 26 and Q3 25"
+            "evidence": "Side 2, Key figures table and Side 6, Financial developments"
           },
           {
             "label": "Resultat etter skatt",
@@ -2373,7 +2373,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2 and SIDE 6 Financial developments, net profit after taxes Q3 26 and Q3 25"
+            "evidence": "Side 2, Key figures table and Side 6, Financial developments"
           },
           {
             "label": "EPS",
@@ -2386,32 +2386,64 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2 and SIDE 6 Financial developments, Earnings per share in € Q3 26 and Q3 25"
+            "evidence": "Side 2, Key figures table"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "EUR million",
+            "current": -3.3,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Side 8, Cash flow"
+          },
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "EUR million",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Not explicitly reported in the excerpt"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Envipco forventer markedsvekst drevet av utbredelse av innsamlingssystemer i Europa, spesielt i Storbritannia, der selskapet har sikret ordre for 7 100 maskiner og et foretrukket leverandøravtale som gir ytterligere salgspotensial. Selskapet forventer stabil eller moderat vekst i USA og styrker samtidig sin kommersielle organisasjon for å effektivisere og bedre lønnsomheten, inkludert restrukturering med kostnader på 3 millioner euro i Q4 2026 og forventede besparelser på 4 millioner euro i 2027. Investeringsfokus ligger fortsatt på strategiske prioriteringer, samtidig som selskapet fokuserer på effektivitet, kapitalbruk og kontantstrøm, og o",
+          "summary": "Envipco opplever markedsdrivere i og med at DRS (pant-system) rulles ut i EU og andre markeder, noe som kan mangedoble selskapets totale adressebare marked. Selskapet forventer stabilt og noe økende salg av RVM-maskiner i USA, mens Europa byr på nye muligheter med flere lansere nasjonale DRS-systemer, spesielt i Storbritannia hvor Envipco har sterke kommersielle avtaler og mål om økt markedsandel. Selskapet investerer i effektivisering, en global kommersiell organisasjon, og forventer restrukturering med engangskostnad på 3 millioner EUR i Q4 2026, men sparer 4 millioner EUR i 2027. Envipco fokuserer på lønnsom vekst, kontantstrømstyring og h",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Markedsutsikter og ordre",
-              "statement": "Sterk markedsutvikling i Europa, spesielt i Storbritannia med 7 100 RVM-maskiner og foretrukket leverandøravtale, samt gode utviklingsmuligheter i Romania, Polen, Portugal og Nederland.",
-              "evidence": "'The UK represents the largest commercial driver' og 'committed orders for 7,100 RVMs' (side 2) og 'Romania targets...promising' (side 2).",
+              "topic": "Marked og vekst",
+              "statement": "DRS-innføring i Europa og andre regioner bidrar til å tredoble markedet.",
+              "evidence": "\"Several European markets... could triple the company’s total addressable market.\" (side 2)",
               "page": "2"
             },
             {
-              "topic": "Restrukturering og lønnsomhet",
-              "statement": "Selskapet restrukturerer for å øke lønnsomheten og effektiviteten med en restruktureringskostnad på 3 millioner euro i Q4 2026 og forventede besparelser på 4 millioner euro i 2027.",
-              "evidence": "'some redundancies and the company expects to incur a EUR 3m restructuring charge in Q4 26, driving EUR 4m of savings in 2027' (side 2).",
+              "topic": "Storbritannia",
+              "statement": "Sterke kommersielle posisjoner og mål om økt markedsandel med forpliktede ordre for 7 100 RVMer.",
+              "evidence": "\"Envipco has established a strong initial market position with committed orders for 7,100 RVMs...\" (side 2)",
               "page": "2"
             },
             {
-              "topic": "Finansiell strategi og likviditet",
-              "statement": "Opprettholder fokus på effektiv kapitalallokering og kontantstrøm, med tilstrekkelig likviditet til å finansiere videre drift og forbedret likviditetsposisjon gjennom arbeidskapitaloptimalisering og finansiering.",
-              "evidence": "'Envipco will remain focused on efficiency, capital allocation, and cash conversion. The company maintains sufficient liquidity to fund current operations.' (side 2)",
+              "topic": "Restrukturering og kostnader",
+              "statement": "Planlegger omstrukturering med forventet engangskostnad på EUR 3 millioner i Q4 2026, sparer 4 millioner EUR i 2027.",
+              "evidence": "\"expected EUR 3m restructuring charge in Q4 26, driving EUR 4m of savings in 2027.\" (side 2)",
+              "page": "2"
+            },
+            {
+              "topic": "Fokus på lønnsomhet og likviditet",
+              "statement": "Prioriterer lønnsom vekst, effektivitet, kapitalallokering og kontantstrøm, og har tilstrekkelig likviditet.",
+              "evidence": "\"remains focused on efficiency, capital allocation, and cash conversion... maintains sufficient liquidity to fund current operations.\" (side 2)",
               "page": "2"
             }
           ]
@@ -2792,12 +2824,12 @@
       "ticker": "APR",
       "issuer": "Appear ASA",
       "title": "Appear ASA   Trading update and withdrawal of full-year 2026 guidance",
-      "headline": "Appear trekker 2026-inntektsguiding etter kansellert salgsmulighet",
-      "lead": "Appear ASA trekker sin omsetningsguiding for 2026 etter at en viktig salgsmulighet i EMEA er kansellert, noe som gjør at selskapet ikke forventer å nå minstemålet på 880 millioner kroner.",
+      "headline": "Appear trekker 2026-omsetningsmål etter bortfall av større salgsmulighet",
+      "lead": "Appear ASA forventer nå lavere 2026-omsetning etter at en betydelig avtale i EMEA-regionen ble avlyst. Selskapet trekker dermed sin tidligere omsetningsveiledning for året.",
       "published_at": "2026-11-11T06:00:18.364000+00:00",
       "url": "https://newsweb.oslobors.no/message/686164",
-      "summary": "Appear ASA trekker sin omsetningsguiding for 2026 etter at en viktig salgsmulighet i EMEA er kansellert, noe som gjør at selskapet ikke forventer å nå minstemålet på 880 millioner kroner.",
-      "reason": "Kanselleringen av en betydelig salgsmulighet i EMEA reduserer sannsynligheten for at Appear når sitt inntektsmål for 2026, noe som kan skape usikkerhet blant investorer om selskapets vekstmuligheter framover. Videre bør man følge opp med resultater for Q4 og helåret for å avklare virkningene.",
+      "summary": "Appear ASA forventer nå lavere 2026-omsetning etter at en betydelig avtale i EMEA-regionen ble avlyst. Selskapet trekker dermed sin tidligere omsetningsveiledning for året.",
+      "reason": "Bortfallet av en stor salgsmulighet gir økt usikkerhet rundt Appear sin inntjening i 2026. Aksjonærer bør følge nøye med på Q4-rapporten for ytterligere detaljer om selskapets inntektsutsikter og tiltak framover.",
       "score": 75,
       "skipped": false,
       "direction": "negativ",
@@ -2840,21 +2872,27 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 1 – withdrawal of full-year 2026 revenue guidance; no actual figures reported"
+            "evidence": "SIDE 1: Announcement withdraws full-year 2026 revenue guidance due to cancellation of large sales opportunity, no actual figures disclosed."
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Appear ASA trekker sin omsetningsveiledning for hele 2026 etter at en betydelig salgsmulighet i EMEA-regionen er blitt kansellert av kunden. Selskapet forventer ikke å nå det tidligere kommuniserte omsetningsintervallet på 880-920 millioner NOK.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "Appear ASA har trukket tilbake sin omsetningsprognose for hele 2026 etter at en forventet stor salgsmulighet i EMEA er kansellert av kunden. Selskapet forventer nå ikke å nå nederste del av omsetningsintervallet på 880-920 millioner kroner for 2026.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetningsveiledning",
-              "statement": "Selskapet trekker sin fulle årsveiledning for 2026 etter at en stor salgsmulighet er kansellert.",
-              "evidence": "'Appear derfor trekker sin full-year 2026 revenue guidance' og 'tidligere kommuniserte omsetningsintervallet 880-920 millioner NOK.'",
-              "page": "11 November 2026"
+              "topic": "Omsetningsprognose",
+              "statement": "Trekkes tilbake etter kansellert salgsmulighet i EMEA",
+              "evidence": "\"withdraws its full-year 2026 revenue guidance\"; \"a previously anticipated material sales opportunity has been cancelled\"",
+              "page": "1"
+            },
+            {
+              "topic": "Forventet omsetning 2026",
+              "statement": "Forventes ikke å nå nederste del av intervallet 880-920 MNOK",
+              "evidence": "\"no longer expects to reach the lower end of its full-year 2026 revenue guidance range of NOK 880-920 million\"",
+              "page": "1"
             }
           ]
         }
@@ -10811,11 +10849,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-11T18:50:00+00:00",
+  "last_checked_at": "2026-11-11T19:00:00+00:00",
   "monitor_stats": {
     "fetched": 199,
-    "recent": 107,
-    "already_seen": 105,
+    "recent": 104,
+    "already_seen": 102,
     "eligible": 2,
     "filtered": 0,
     "analyzed": 2,
