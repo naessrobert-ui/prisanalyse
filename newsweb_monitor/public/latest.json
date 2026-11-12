@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-12T19:30:00+00:00",
+  "generated_at": "2026-11-12T19:40:00+00:00",
   "items": [
     {
       "id": "686424",
@@ -2848,18 +2848,18 @@
       "ticker": "CDLR",
       "issuer": "Cadeler plc",
       "title": "Cadeler plc: Notice of Upcoming Q3 2026 Earnings Release and Presentation on 23 November 2026",
-      "headline": "Cadeler kunngjør Q3-rapport og direktesendt presentasjon 23. november",
-      "lead": "Cadeler plc kunngjør sine resultat for første ni måneder i 2026 23. november kl. 08:00 CET, med direktesendt presentasjon og Q&A fra ledelsen samme dag. Detaljer om regnskap og fremtidsutsikter ventes å belyse selskapets videre strategi.",
+      "headline": "Cadeler kunngjør Q3 2026-resultater og live-presentasjon 23. november",
+      "lead": "Cadeler varsler rapportering av Q3-resultatene for 2026 den 23. november kl. 08:00 CET med en webcast ledet av toppledelsen samme dag. Detaljer om finansiell utvikling og fremtidsutsikter forventes å bli presentert.",
       "published_at": "2026-11-12T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686289",
-      "summary": "Cadeler plc kunngjør sine resultat for første ni måneder i 2026 23. november kl. 08:00 CET, med direktesendt presentasjon og Q&A fra ledelsen samme dag. Detaljer om regnskap og fremtidsutsikter ventes å belyse selskapets videre strategi.",
-      "reason": "Meldingen varsler en kommende resultatrapport og presentasjon, men gir ikke tall eller prognoser. Dette gir investorer en mulighet til å følge selskapets utvikling, men uten indikasjoner på resultat eller markedsreaksjon foreligger ingen klar retning.",
-      "score": 25,
+      "summary": "Cadeler varsler rapportering av Q3-resultatene for 2026 den 23. november kl. 08:00 CET med en webcast ledet av toppledelsen samme dag. Detaljer om finansiell utvikling og fremtidsutsikter forventes å bli presentert.",
+      "reason": "Varslingen gir tidlig innsikt i kommende kvartalsrapport, men mangler konkrete tall eller indikasjoner på resultatendring. Investerer bør følge med for å vurdere selskapets lønnsomhet og vekstperspektiver.",
+      "score": 15,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 40,
+      "score_ai": 30,
       "number_keys": [
         "086c04",
         "15e730",
@@ -5095,16 +5095,23 @@
       "ticker": "OUTLT",
       "issuer": "Outlet Group Holding ASA",
       "title": "Outlet Group Holding ASA: Financial results for the third quarter of 2026",
-      "headline": "Outlet Group øker omsetningen 16 prosent, EBIT nær uendret i Q3 2026",
-      "lead": "Outlet Group rapporterer 16,4 % vekst i omsetningen til 740 mill. kroner i tredje kvartal 2026, mens EBIT justert for IPO-kostnader steg litt til 150 mill. marginen falt svakt til 20,3 %. Netto vekst i butikkenettverket påvirker resultatene.",
+      "headline": "Outlet Group øker omsetning 16 prosent, EBIT justert opp til 150 mill. i Q3",
+      "lead": "Outlet Group rapporterer 16,4 prosent omsetningsvekst til 740 mill. kroner i tredje kvartal 2026, med justert EBIT på 150,2 mill., men EBIT-marginen faller svakt til 20,3 prosent.",
       "published_at": "2026-11-12T06:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686260",
-      "summary": "Outlet Group rapporterer 16,4 % vekst i omsetningen til 740 mill. kroner i tredje kvartal 2026, mens EBIT justert for IPO-kostnader steg litt til 150 mill. marginen falt svakt til 20,3 %. Netto vekst i butikkenettverket påvirker resultatene.",
-      "reason": "Sterk omsetningsvekst på 16,4 % år-over-år viser kundevekst og ekspansjon, men EBIT-marginen faller noe til tross for justeringer. Aksjonærer bør følge med på kostnadsnivå og lønnsomhet ved videre ekspansjon og inntreden i nye segmenter som Kids Outlet.",
-      "score": 72,
+      "summary": "Outlet Group rapporterer 16,4 prosent omsetningsvekst til 740 mill. kroner i tredje kvartal 2026, med justert EBIT på 150,2 mill., men EBIT-marginen faller svakt til 20,3 prosent.",
+      "reason": "Sterk omsetningsvekst og forbedret egenprodusert vareandel styrker lønnsomheten. For investorer signaliserer dette vekst og effektiv drift, men marginnedgangen bør følges. Utvidelsen av butikkenettet og IPO-inntekten styrker finansieringen.",
+      "score": 75,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "positiv",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AKRBP",
+          "direction": "uklar",
+          "reason": "Sport- og barneklæraktører kan merke økt konkurranse, men effektene er uavklarte."
+        }
+      ],
       "attachment_key": "9f657893cedc418a",
       "number_keys": [
         "104469",
@@ -5163,7 +5170,7 @@
             "yoy_pct": 16.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 3, Q3 2026 revenue NOK 740.1m (636.1m)"
+            "evidence": "Interim report Q3 2026, Condensed Consolidated Interim Statement of Income, Side 9"
           },
           {
             "label": "EBITDA",
@@ -5176,7 +5183,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Not explicitly stated at consolidated level for Q3 2026"
+            "evidence": "Not specifically stated for group quarterly Q3 2026"
           },
           {
             "label": "EBIT",
@@ -5189,20 +5196,20 @@
             "yoy_pct": 5.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 9, Operating profit/(loss) 142,032 (134,806) NOK thousand"
+            "evidence": "Interim report Q3 2026, Condensed Consolidated Interim Statement of Income, Side 9"
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
             "unit": "NOK million",
-            "current": 94.7,
-            "prior_year": 86.8,
+            "current": 94.68,
+            "prior_year": 86.76,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 9.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 9, Net profit for the period 94,680 (86,758) NOK thousand"
+            "evidence": "Interim report Q3 2026, Condensed Consolidated Interim Statement of Income, Side 9"
           },
           {
             "label": "EPS",
@@ -5215,20 +5222,20 @@
             "yoy_pct": 11.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 9, Basic and diluted Earnings per share (EPS) 0.97 (0.87)"
+            "evidence": "Interim report Q3 2026, Condensed Consolidated Interim Statement of Income, Side 9"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
             "unit": "NOK million",
             "current": 326.9,
-            "prior_year": 269.6,
+            "prior_year": 270.0,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 21.3,
+            "yoy_pct": 21.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 6, Net cash flow from operating activities NOK 326.9m (269.6m)"
+            "evidence": "Interim report Q3 2026, Financial review - Group, Side 3"
           },
           {
             "label": "Netto renteinntekter",
@@ -5241,38 +5248,38 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net financial income (expense) disclosed, net interest income not explicitly broken out; net financial expense Q3 2026 NOK -20.1m (Page 9)"
+            "evidence": "Net financial income (expense) reported as -20.1 million (expense), Side 9"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Kids Outlet planlegger å øke antall butikker til 30 innen årets slutt, med gode framdrift i butikkutvidelsen og stadig utvikling av produktsortimentet og innkjøpsbetingelser for å styrke konkurranseevnen og bruttofortjenestemarginen. Sport Outlet opplever sterk salgvekst og forbedret segmentlønnsomhet gjennom økt omsetning, sprer faste kostnader over et større inntektsgrunnlag og operasjonelle forbedringer. Gruppen forbedrer sin logistikk med overgang til sentralstyrt påfylling for butikkene, noe som forventes å bedre varebeholdning og tilgjengelighet. Store investeringer gjøres i nytt sentrallager og hovedkontor, som foreløpig gir negativ se",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "Kids Outlet utvider fra 23 til 30 butikker i Norge innen årsskiftet, i tråd med planene. Sport Outlet opplever positiv vekst og forbedret lønnsomhet gjennom økt omsetning og operative forbedringer. Det pågår en overgang til sentralisert varelagerstyring for bedre lageroptimalisering, fullført i Q4. Utviklingen av nytt sentrallager og hovedkontor i Lyseparken fortsetter, med forventning om at sentrale kostnader vil reduseres som andel av omsetningen ved videre vekst.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Butikkutvidelse Kids Outlet",
-              "statement": "Plan om å nå 30 butikker i Norge innen årsslutt med signerte leieavtaler.",
-              "evidence": "’Store expansion is progressing in line with plans… Kids Outlet to 30 stores by year-end.’",
+              "topic": "Butikkutvidelse",
+              "statement": "Kids Outlet planlegger å øke antall butikker til 30 innen utgangen av året",
+              "evidence": "Store expansion is progressing in line with the Group’s plans, with lease agreements to bring Kids Outlet to 30 stores by year-end",
               "page": "4"
             },
             {
-              "topic": "Salgsvekst og lønnsomhet Sport Outlet",
-              "statement": "Sterk vekst i kjerneproduktkategorier og økt segmentlønnsomhet gjennom stordriftsfordeler og operasjonelle forbedringer.",
-              "evidence": "’Sport Outlet delivered strong sales growth… to improve segment profitability.’",
+              "topic": "Lønnsomhetsforbedring i Sport Outlet",
+              "statement": "Forventet bedre segmentlønnsomhet gjennom økt omsetning og operative forbedringer",
+              "evidence": "Central organisation largely established, growth allows central costs to be spread over larger revenue base, improving segment profitability",
               "page": "4"
             },
             {
-              "topic": "Logistikk og varebeholdning",
-              "statement": "Overgang fra butikkstyrt til sentralstyrt påfylling for bedre lagerstyring og tilgjengelighet, fullført i Q4.",
-              "evidence": "’Group began transitioning from store-managed to centrally managed store replenishment… full implementation expected during Q4.’",
+              "topic": "Lagerstyring og logistikk",
+              "statement": "Overgang til sentralstyrt varelagerutfylling fullføres i Q4 for bedre lagerallokering og tilgjengelighet",
+              "evidence": "During Q3, the Group began transitioning from store-managed to centrally managed store replenishment, fully implemented during Q4",
               "page": "4"
             },
             {
-              "topic": "Investeringer og segment-EBIT",
-              "statement": "Store investeringer i nytt sentrallager og hovedkontor gir foreløpig negativ EBIT, men forventes å bedre lønnsomheten ettersom sentralorganisasjonen konsolideres.",
-              "evidence": "’New central warehouse and headquarters… negative YTD segment EBIT… growth expected to reduce central costs and improve profitability.’",
+              "topic": "Investering i infrastruktur",
+              "statement": "Utvikling av nytt sentrallager og hovedkontor fortsetter, med forventning om reduserte sentrale kostnader over tid",
+              "evidence": "Development of planned new central warehouse and headquarters at Lyseparken ongoing, central costs expected to reduce as growth continues",
               "page": "4"
             }
           ]
@@ -5876,30 +5883,30 @@
       "ticker": "OET",
       "issuer": "Okeanis Eco Tankers Corp.",
       "title": "Okeanis Eco Tankers Corp. - Key Information relating to Q3 2026 dividend",
-      "headline": "Okeanis Eco Tankers utbetaler 7 USD i aksjeutbytte med ulik eks-dato på OSE og NYSE",
-      "lead": "Okeanis Eco Tankers kunngjør et aksjeutbytte på 7 USD per aksje, med eks-dato 20. november på Oslo Børs og 23. november på New York-børsen. Utbytteutbetaling skjer i desember, med forsinkelse for VPS-registrerte aksjonærer.",
+      "headline": "Okeanis Eco Tankers utbetaler 7 dollar per aksje i tredje kvartal",
+      "lead": "Okeanis Eco Tankers kunngjør en kontantutbytte på 7 USD per aksje for Q3 2026 med utbetaling i NOK til norske aksjonærer 1. desember, justert for ulik handelsoppgjørsdatoer på OSE og NYSE.",
       "published_at": "2026-11-11T21:20:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686253",
-      "summary": "Okeanis Eco Tankers kunngjør et aksjeutbytte på 7 USD per aksje, med eks-dato 20. november på Oslo Børs og 23. november på New York-børsen. Utbytteutbetaling skjer i desember, med forsinkelse for VPS-registrerte aksjonærer.",
-      "reason": "Utbytteutdelingen gir aksjonærer direkte avkastning men påvirker ikke selskapets underliggende drift. Forskjeller i oppgjørsdatoer mellom børser kan skape ulik prising kortsiktig. For investorer er det sentralt å merke seg valuta for VPS-utbetaling og tidsforsinkelse.",
-      "score": 75,
+      "summary": "Okeanis Eco Tankers kunngjør en kontantutbytte på 7 USD per aksje for Q3 2026 med utbetaling i NOK til norske aksjonærer 1. desember, justert for ulik handelsoppgjørsdatoer på OSE og NYSE.",
+      "reason": "Utbytteutbetalingen på 7 USD per aksje signaliserer en sterk kontantstrøm og gir direkte avkastning til aksjonærene. Viktig å følge opp selskapets evne til å opprettholde dette nivået i kommende kvartaler og effekten av valutajusteringer for norske aksjonærer.",
+      "score": 65,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "positiv",
       "assessment_source": "AI",
       "affected": [
         {
           "ticker": "FRO",
-          "direction": "negativ",
-          "reason": "Konkurent innen tanktransport kan bli midlertidig mindre attraktiv grunnet OETs direkte kontantutbetaling."
+          "direction": "uklar",
+          "reason": "Konkurrent i tankshipping; utbyttenivåer kan påvirke investeringsattraktiviteten i sektoren."
         },
         {
           "ticker": "HAFNI",
-          "direction": "negativ",
-          "reason": "Sektorpeer som kan oppleve press på aksjekurs ved sammenlignbar utbytteutbetaling."
+          "direction": "uklar",
+          "reason": "Sammenlignbar shippingvirksomhet; markedsreaksjoner kan speile OETs soliditet."
         }
       ],
       "importance": "mellom",
-      "score_ai": 70,
+      "score_ai": 60,
       "number_keys": [
         "084c34",
         "0de7f5",
@@ -5947,12 +5954,12 @@
       "ticker": "OET",
       "issuer": "Okeanis Eco Tankers Corp.",
       "title": "Okeanis Eco Tankers Corp. - Unaudited Condensed Financial Results for the Third Quarter and Nine-Month Period of 2026",
-      "headline": "Okeanis Eco Tankers øker kvartalsresultatet til 300 mill. dollar",
-      "lead": "Okeanis Eco Tankers rapporterer et resultat på 299,6 millioner dollar i tredje kvartal 2026, opp fra 24,1 millioner dollar året før, med en kontantbeholdning på 233 millioner dollar ved kvartalets slutt.",
+      "headline": "Okeanis Eco Tankers løfter kvartalsoverskuddet til 300 millioner dollar",
+      "lead": "Okeanis Eco Tankers rapporterer et resultat på 299,6 millioner dollar i tredje kvartal 2026, opp fra 24,1 millioner i samme periode i fjor. Inntektene økte kraftig til 501,5 millioner dollar, samtidig som selskapet kunngjorde en utbytte på 7 dollar per aksje.",
       "published_at": "2026-11-11T21:15:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686252",
-      "summary": "Okeanis Eco Tankers rapporterer et resultat på 299,6 millioner dollar i tredje kvartal 2026, opp fra 24,1 millioner dollar året før, med en kontantbeholdning på 233 millioner dollar ved kvartalets slutt.",
-      "reason": "Den sterke resultatveksten indikerer betydelig forbedret drift og høyere inntjening per aksje, noe som styrker selskapets finansiell posisjon og attraktivitet for investorer. Det bør følges med på fremtidige inntektsstrømmer og markedsforhold.",
+      "summary": "Okeanis Eco Tankers rapporterer et resultat på 299,6 millioner dollar i tredje kvartal 2026, opp fra 24,1 millioner i samme periode i fjor. Inntektene økte kraftig til 501,5 millioner dollar, samtidig som selskapet kunngjorde en utbytte på 7 dollar per aksje.",
+      "reason": "Den kraftige inntekts- og resultatveksten sammenlignet med i fjor signaliserer styrket lønnsomhet og solid kontantstrøm, som understøtter utbytte og muligheter for videre vekst. Investorer bør følge utviklingen i charteravtaler og markedsrater da disse er sentrale for fremtidig inntjening.",
       "score": 90,
       "skipped": false,
       "direction": "positiv",
@@ -5961,12 +5968,12 @@
         {
           "ticker": "FRO",
           "direction": "uklar",
-          "reason": "Andre shippingaktører kan påvirkes indirekte av endringer i tankmarkedet, men effekten er usikker."
+          "reason": "Konkurrent i tankshipping som kan påvirkes av generelle markedsendringer i fraktrater."
         },
         {
           "ticker": "HAFNI",
           "direction": "uklar",
-          "reason": "Potensiell påvirkning fra økt etterspørsel i shippingsektoren kan være tilstede, men ikke direkte indikert."
+          "reason": "Opererer i samme sektor og er utsatt for tilsvarende markedssvingninger."
         }
       ],
       "importance": "mellom",
@@ -13711,11 +13718,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-12T19:30:00+00:00",
+  "last_checked_at": "2026-11-12T19:40:00+00:00",
   "monitor_stats": {
     "fetched": 234,
-    "recent": 142,
-    "already_seen": 138,
+    "recent": 141,
+    "already_seen": 137,
     "eligible": 4,
     "filtered": 0,
     "analyzed": 4,
