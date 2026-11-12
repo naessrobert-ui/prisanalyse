@@ -2,8 +2,193 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-12T19:00:00+00:00",
+  "generated_at": "2026-11-12T19:10:00+00:00",
   "items": [
+    {
+      "id": "686424",
+      "market": "XOSL",
+      "ticker": "MELG",
+      "issuer": "Melhus Sparebank",
+      "title": "Delårsregnskap 3. kvartal 2026",
+      "headline": "Melhus Sparebank faller til 88,2 MNOK etter skatt i Q3 – rentenetto under press",
+      "lead": "Resultat etter skatt i tredje kvartal 2026 lander på 88,2 MNOK, ned 16,9 MNOK fra 2025, preget av lavere rentenetto og provisjonsinntekter. Utlånsvekst holder seg god, men bedriftsporteføljen krymper.",
+      "published_at": "2026-11-12T19:00:20.140000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686424",
+      "summary": "Resultat etter skatt i tredje kvartal 2026 lander på 88,2 MNOK, ned 16,9 MNOK fra 2025, preget av lavere rentenetto og provisjonsinntekter. Utlånsvekst holder seg god, men bedriftsporteføljen krymper.",
+      "reason": "Resultatnedgangen skyldes hovedsakelig redusert rentenetto og provisjonsinntekter, samtidig som utlån til bedriftsmarked krymper. Bankens underliggende vekst i privatmarkedet og kapitaldekning er fortsatt solide, men marginpress gir svakere lønnsomhet. Viktig å følge renteutvikling og bedriftskredittens framtid.",
+      "score": 72,
+      "skipped": false,
+      "direction": "negativ",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "EIKA",
+          "direction": "negativ",
+          "reason": "Lavere provisjonsinntekter knyttet til boligkredittformidling kan svekke Eika Boligkreditts fremtidige provisjonsinntekter."
+        }
+      ],
+      "attachment_key": "4f2238998cfea86d",
+      "number_keys": [
+        "004be8",
+        "042ccd",
+        "0f7d9b",
+        "113077",
+        "1cf9ad",
+        "2659fc",
+        "3a2dc6",
+        "605252",
+        "77de68",
+        "7b46e1",
+        "7b5200",
+        "7c1800",
+        "929f96",
+        "a82299",
+        "aee655",
+        "b74f5e",
+        "f157b1",
+        "f8e20f"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Delårsregnskap 3. kvartal 2026.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=686424&attachmentId=336442"
+        },
+        "metrics": [
+          {
+            "label": "Netto renteinntekter",
+            "name": "net_interest_income",
+            "unit": "NOK",
+            "current": 174773000.0,
+            "prior_year": 191556000.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -8.8,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 5 - Netto rente- og kredittprovisjonsinntekter 30.09.2026: 174,773 MNOK vs 191,556 MNOK 30.09.2025"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "NOK",
+            "current": 88203000.0,
+            "prior_year": 105071000.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -16.1,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 4 - Resultat etter skatt 30.09.2026: 88,203 MNOK vs 105,071 MNOK 30.09.2025"
+          },
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "NOK",
+            "current": 244341000.0,
+            "prior_year": 261075000.0,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -6.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 5 - Sum inntekter (Netto rente- og kredittprovisjonsinntekter + Andre driftsinntekter 69,568 MNOK) at 30.09.2026"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "NOK",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Unavailable in provided excerpt"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "NOK",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Unavailable in provided excerpt"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "NOK",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Unavailable in provided excerpt"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "NOK/share",
+            "current": 14.51,
+            "prior_year": 10.93,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 32.8,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Page 5 - Resultat etter skatt per egenkapitalbevis 30.09.2026: 14.51 NOK/share vs 10.93 NOK/share 30.09.2025"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Melhus Sparebank venter fortsatt god etterspørsel etter boliger og stabile leiepriser, støttet av befolkningsvekst og lav nybygging. Banken har en solid kapitalbase på cirka 16 milliarder kroner og ca. 70 ansatte på strategiske lokasjoner, og vil aktivt bidra til regional vekst for både bedrifter og privatpersoner. De langsiktige finansielle målene omfatter en egenkapitalavkastning over 10 prosent og kredittvekst.",
+          "change": "Målene om egenkapitalavkastning over 10 prosent og kredittvekst er opprettholdt (Q2-26: «lang­siktig mål», Q3-26: «langsiktig finansiell mål»). Kapitalbasen er økt fra ca. 15 milliarder til 16 milliarder kroner. Utsiktene bekrefter fortsatt god etterspørsel og stabile leiepriser, men legger til at markedet preges av relativt høyt tilbud på brukte boliger og lav nybygging, som kan støtte boligprisene. Den strategiske satsingen på aktivt bidrag til vekst i regionen og stabil organisasjon med ca. 70 ansatte er uendret.",
+          "trend": "Siden 2025Q4 har banken gradvis økt sin rapporterte kapitalbase fra rundt 15 til 16 milliarder kroner og opprettholdt mål om lønnsomhet og vekst. Tone og utsikter har vært konsistente med fokus på soliditet, regional vekst og stabil markedsforventning til bolig- og næringseiendom. Banken har levert i tråd med tidligere forventninger, med styrket kapital og fortsatt optimisme til tross for usikre makroforhold.",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Egenkapitalavkastning",
+              "statement": "Langsiktig mål om egenkapitalavkastning over 10 prosent opprettholdes",
+              "evidence": "\"Bankens langsiktige finansielle mål er en egenkapitalavkastning på over 10 prosent\"",
+              "page": "15"
+            },
+            {
+              "topic": "Kapitalbase",
+              "statement": "Forretningskapital økt til om lag 16 milliarder kroner, opp fra 15 milliarder",
+              "evidence": "\"Melhus Sparebank har en forretningskapital på om lag 16 milliarder kroner\"",
+              "page": "15"
+            },
+            {
+              "topic": "Marked og etterspørsel",
+              "statement": "God etterspørsel etter boliger og stabile leiepriser med høyt tilbud av brukte boliger men lav nybygging",
+              "evidence": "\"Etterspørselen fortsatt god... lav nyboligbygging... kan bidra til å understøtte boligprisene\"",
+              "page": "16"
+            },
+            {
+              "topic": "Regional vekststrategi",
+              "statement": "Banken skal aktivt bidra til videre vekst for bedrifter og privatpersoner i regionen",
+              "evidence": "\"Banken skal aktivt bidra til videre vekst i regionen for både bedrifter og privatpersoner\"",
+              "page": "15"
+            }
+          ]
+        }
+      }
+    },
     {
       "id": "686421",
       "market": "XOSL",
@@ -2663,18 +2848,18 @@
       "ticker": "CDLR",
       "issuer": "Cadeler plc",
       "title": "Cadeler plc: Notice of Upcoming Q3 2026 Earnings Release and Presentation on 23 November 2026",
-      "headline": "Cadeler varsler Q3-rapport 23. november med direktesendt presentasjon",
-      "lead": "Energi- og offshoreinstallasjonsselskapet Cadeler vil offentliggjøre sine resultater for de første ni månedene av 2026 23. november, med direktesendt videopresentasjon tilgjengelig for investorer.",
+      "headline": "Cadeler varsler Q3-rapport og investorpresentasjon 23. november",
+      "lead": "Cadeler offentliggjør resultater for første ni måneder av 2026 den 23. november kl. 08:00 CET, med direktesendt presentasjon samme dag. Detaljer om inntjening og fremtidsutsikter ventes i presentasjonen fra ledelsen.",
       "published_at": "2026-11-12T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686289",
-      "summary": "Energi- og offshoreinstallasjonsselskapet Cadeler vil offentliggjøre sine resultater for de første ni månedene av 2026 23. november, med direktesendt videopresentasjon tilgjengelig for investorer.",
-      "reason": "Varslingen om fremtidig rapportering gir tidlig innsikt i selskapets resultater, men inneholder ingen tall eller prognoser som kan vurderes nå. Investorer bør følge med på eventuelle signaler i rapporten om ordreinngang og driftsmarginer i et konkurransedyktig marked.",
-      "score": 25,
+      "summary": "Cadeler offentliggjør resultater for første ni måneder av 2026 den 23. november kl. 08:00 CET, med direktesendt presentasjon samme dag. Detaljer om inntjening og fremtidsutsikter ventes i presentasjonen fra ledelsen.",
+      "reason": "Melding gir kun tidspunkt for rapportering og presentasjon uten resultattall eller indikasjoner på avvik fra forventninger. Aksjonærer bør følge nøye for å vurdere selskapets finansiell utvikling og strategisk retning.",
+      "score": 30,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 40,
+      "score_ai": 45,
       "number_keys": [
         "086c04",
         "15e730",
@@ -4910,15 +5095,15 @@
       "ticker": "OUTLT",
       "issuer": "Outlet Group Holding ASA",
       "title": "Outlet Group Holding ASA: Financial results for the third quarter of 2026",
-      "headline": "Outlet Group øker omsetning 16,4% i Q3 til 740 millioner kroner",
-      "lead": "Outlet Group rapporterer omsetningsvekst på 16,4% i tredje kvartal 2026 til 740,1 millioner kroner, med EBIT på 142 millioner. Justert EBIT margin faller noe til 20,3% fra i fjor, påvirket av økte kostnader knyttet til børsnoteringen.",
+      "headline": "Outlet Group øker omsetningen 16 prosent – åpner 20 nye butikker i 2026",
+      "lead": "Outlet Group solgte varer for 740 millioner kroner i tredje kvartal 2026, opp 16,4 prosent fra i fjor, drevet av økt egenmerkeandel og nyetableringer. Justert EBIT falt noe i margin til 20,3 prosent. Total nettverksvekst styrker posisjonen framover.",
       "published_at": "2026-11-12T06:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686260",
-      "summary": "Outlet Group rapporterer omsetningsvekst på 16,4% i tredje kvartal 2026 til 740,1 millioner kroner, med EBIT på 142 millioner. Justert EBIT margin faller noe til 20,3% fra i fjor, påvirket av økte kostnader knyttet til børsnoteringen.",
-      "reason": "Sterk omsetningsvekst og økt bruttofortjeneste underbygger Outlet Groups markedsposisjon, men fall i justert EBIT-margin og økte kostnader ved IPO krever oppmerksomhet. Viktig å følge marginutvikling og effekt av ekspansjon for aksjonærer fremover.",
-      "score": 78,
+      "summary": "Outlet Group solgte varer for 740 millioner kroner i tredje kvartal 2026, opp 16,4 prosent fra i fjor, drevet av økt egenmerkeandel og nyetableringer. Justert EBIT falt noe i margin til 20,3 prosent. Total nettverksvekst styrker posisjonen framover.",
+      "reason": "Sterk omsetningsvekst og økende netto butikknettverk gir vekstmuligheter for aksjonærer, men noe fall i justert EBIT-margin indikerer press på lønnsomheten. Videre utvikling av Kids Outlet og kostnadskontroll bør følges nøye.",
+      "score": 75,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "positiv",
       "assessment_source": "AI",
       "attachment_key": "9f657893cedc418a",
       "number_keys": [
@@ -4978,7 +5163,7 @@
             "yoy_pct": 16.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 3–9: Q3 revenue NOK 740.1m (636.1m)"
+            "evidence": "Condensed Consolidated Interim Financial Statements Q3 2026 report excerpt, SIDE 3, SIDE 9"
           },
           {
             "label": "EBITDA",
@@ -4991,7 +5176,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "EBITDA not explicitly stated for Group in Q3 2026"
+            "evidence": "EBITDA not explicitly provided for the consolidated group in Q3 2026."
           },
           {
             "label": "EBIT",
@@ -5004,7 +5189,7 @@
             "yoy_pct": 5.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 9: Operating profit/EBIT Q3 2026 NOK 142.0m (Q3 2025 NOK 134.8m)"
+            "evidence": "Operating profit (EBIT) Q3 2026 is NOK 142.0 million vs NOK 134.8 million in Q3 2025, SIDE 9."
           },
           {
             "label": "Resultat etter skatt",
@@ -5017,7 +5202,7 @@
             "yoy_pct": 9.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 9: Net profit Q3 2026 NOK 94.7m (Q3 2025 NOK 86.8m)"
+            "evidence": "Net profit for the period Q3 2026 is NOK 94.7 million vs NOK 86.8 million in Q3 2025, SIDE 9."
           },
           {
             "label": "EPS",
@@ -5030,20 +5215,20 @@
             "yoy_pct": 11.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 9: Basic and diluted EPS Q3 2026 NOK 0.97 (Q3 2025 NOK 0.87)"
+            "evidence": "Basic and diluted Earnings per share (EPS) Q3 2026 0.97 NOK/share vs 0.87 NOK/share Q3 2025, SIDE 9."
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
             "unit": "NOK million",
             "current": 326.9,
-            "prior_year": 269.6,
+            "prior_year": 270.0,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 21.3,
+            "yoy_pct": 21.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 6: Net cash flow from operating activities Q3 2026 NOK 326.9m (Q3 2025 NOK 269.6m)"
+            "evidence": "Net cash flow from operating activities in Q3 2026 is NOK 326.9 million vs NOK 270 million Q3 2025, SIDE 3."
           },
           {
             "label": "Netto renteinntekter",
@@ -5056,38 +5241,38 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net financial expense provided, no separate net interest income: Side 9 Net financial expense Q3 2026 NOK -20.1m (Q3 2025 NOK -23.9m)"
+            "evidence": "Net financial items are reported as net expense, but net interest income is not separately disclosed, SIDE 9."
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Kids Outlet planlegger å utvide til 30 butikker innen årets slutt, med signerte leieavtaler i tråd med selskapets planer. Sport Outlet viser sterk salgvekst og forventer forbedret segmentlønnsomhet gjennom økt omsetning og operative forbedringer. Overgangen til sentralstyrt påfyll forventes å bedre lagerallokering og produkt tilgjengelighet, med full implementering i Q4. En ny sentral varehus- og hovedkontorutvikling pågår som en del av infrastrukturinvesteringer.",
+          "summary": "Kids Outlet planlegger å utvide til 30 butikker innen årsslutt med positive underliggende vekst. Sport Outlet viser sterk salgvekst og forventer bedre lønnsomhet etter sentralisering av kostnader og operasjonelle forbedringer. Netthandelsplattformen gjennomgår en oppgraderingsfase for å øke online salg over tid. Lageroptimalisering og sentralisering av varerpåfylling skal forbedre varelagerstyring og tilgjengelighet, mens nye lager- og hovedkontorfasiliteter under utvikling øker sentralkostnadene foreløpig.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Butikkutvidelse",
-              "statement": "Kids Outlet planlegger å ha 30 butikker innen årets slutt, med signerte leieavtaler på plass",
-              "evidence": "Store expansion is progressing in line with the Group’s plans, with signed lease agreements in place to bring Kids Outlet to 30 stores by year-end.",
+              "topic": "Butikkutvidelse og vekst",
+              "statement": "Elefantantallet for Kids Outlet skal nå 30 butikker ved årsslutt, med god underliggende vekst.",
+              "evidence": "'Store expansion is progressing...bring Kids Outlet to 30 stores by year-end.'",
               "page": "4"
             },
             {
               "topic": "Salg og lønnsomhet i Sport Outlet",
-              "statement": "Sport Outlet leverer sterk salgvekst og forventer forbedringer i segmentlønnsomhet gjennom økt sentralisert kostnadsfordeling og operative forbedringer.",
-              "evidence": "Sport Outlet delivered strong sales growth across its core product categories... further growth allows central costs to be spread across a larger revenue base... improve segment profitability.",
+              "statement": "Sterk salgvekst og forventet lønnsomhetsforbedring gjennom sentralisering og operative forbedringer.",
+              "evidence": "'Strong sales growth...central costs to be spread across a larger revenue base...improve segment profitability.'",
               "page": "4"
             },
             {
-              "topic": "Logistikk og lageroptimalisering",
-              "statement": "Overgang til sentralstyrt påfyll i butikkene starter i Q3 med fullføring i Q4, forventes å bedre lagerallokering og produkt tilgjengelighet.",
-              "evidence": "During Q3, the Group began transitioning from store-managed to centrally managed store replenishment, with full implementation expected during Q4.",
+              "topic": "Digital plattform og netthandel",
+              "statement": "Oppgradering av netthandelsplattform planlegges implementert i faser for å støtte økt netthandel over tid.",
+              "evidence": "'Redevelopment project for its online platform...expected to support increase in online sales over time.'",
               "page": "4"
             },
             {
-              "topic": "Investering i ny sentral lager- og hovedkontor",
-              "statement": "Utvikling av nytt sentrallager og hovedkontor på Lyseparken pågår som en strategisk prioritet for infrastruktur og kostnadsstyring.",
-              "evidence": "Development of the Group's planned new central warehouse and headquarters at Lyseparken...",
+              "topic": "Lager og logistikkoptimalisering",
+              "statement": "Overgang til sentralt styrt varepåfylling i butikkene og utvikling av nytt lager øker effektiviteten, men fører foreløpig til negative segmentresultater.",
+              "evidence": "'Transitioning from store-managed to centrally managed store replenishment...new central warehouse...central costs resulted in negative YTD segment EBIT.'",
               "page": "4"
             }
           ]
@@ -5691,12 +5876,12 @@
       "ticker": "OET",
       "issuer": "Okeanis Eco Tankers Corp.",
       "title": "Okeanis Eco Tankers Corp. - Key Information relating to Q3 2026 dividend",
-      "headline": "Okeanis Eco Tankers utbetaler 7 dollar i kvartalsutbytte per aksje",
-      "lead": "Okeanis Eco Tankers kunngjør utbytte på 7 USD per aksje med utbetaling 1. desember 2026. Utbytte til registrerte VPS-aksjer vil bli utbetalt i NOK med forventet dato om lag 4. desember.",
+      "headline": "Okeanis Eco Tankers utbetaler utbytte på 7 USD per aksje i desember",
+      "lead": "Okeanis Eco Tankers kunngjør et utbytte på 7 USD per aksje for 2026, med utbetaling 1. desember og nøkkeloppdateringer om forskjellige ex-datoer på Oslo Børs og NYSE.",
       "published_at": "2026-11-11T21:20:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686253",
-      "summary": "Okeanis Eco Tankers kunngjør utbytte på 7 USD per aksje med utbetaling 1. desember 2026. Utbytte til registrerte VPS-aksjer vil bli utbetalt i NOK med forventet dato om lag 4. desember.",
-      "reason": "Utbytteutbetalingen signaliserer selskapets solide kontantstyrke og attraktivitet for inntektsorienterte investorer. Investorer bør følge betalingsmekanismer og valutakonsekvenser for VPS-registrerte aksjer nøye.",
+      "summary": "Okeanis Eco Tankers kunngjør et utbytte på 7 USD per aksje for 2026, med utbetaling 1. desember og nøkkeloppdateringer om forskjellige ex-datoer på Oslo Børs og NYSE.",
+      "reason": "Utbytte på 7 USD per aksje gir direkte avkastning til aksjonærene og kan tiltrekke investorer som søker kontantstrøm. Ulik ex-dato mellom børser kan skape noe usikkerhet for omsetningstidspunkt; dette bør følges opp.",
       "score": 70,
       "skipped": false,
       "direction": "positiv",
@@ -5705,12 +5890,12 @@
         {
           "ticker": "FRO",
           "direction": "uklar",
-          "reason": "Konkurrent i shippingsektoren kan påvirkes indirekte av selskapets kontantutbetalinger og investorfokus."
+          "reason": "Følge shippingsektoren for lignende utbyttepolitikk som kan indikere sektortrender."
         },
         {
           "ticker": "HAFNI",
           "direction": "uklar",
-          "reason": "Sektorkollega som kan oppleve justert investerings- og likviditetsvurdering hos investorer."
+          "reason": "Kan påvirkes indirekte gjennom sektorfølsomhet til tankrederier."
         }
       ],
       "importance": "mellom",
@@ -5762,13 +5947,13 @@
       "ticker": "OET",
       "issuer": "Okeanis Eco Tankers Corp.",
       "title": "Okeanis Eco Tankers Corp. - Unaudited Condensed Financial Results for the Third Quarter and Nine-Month Period of 2026",
-      "headline": "Okeanis Eco Tankers øker kvartalsresultatet til 300 millioner dollar",
-      "lead": "Okeanis Eco Tankers rapporterte et resultat på 299,6 millioner dollar i tredje kvartal 2026, opp fra 24,1 millioner dollar året før, drevet av sterk økning i inntekter til 501,5 millioner dollar.",
+      "headline": "Okeanis Eco Tankers øker kvartalsoverskuddet til 300 millioner dollar",
+      "lead": "Okeanis Eco Tankers Corp. rapporterer et resultat på 299,6 millioner dollar i tredje kvartal 2026, opp fra 24,1 millioner dollar samme periode året før. Driftskostnadene steg noe, og selskapet utbetaler 7 dollar i kvartalsutbytte per aksje.",
       "published_at": "2026-11-11T21:15:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686252",
-      "summary": "Okeanis Eco Tankers rapporterte et resultat på 299,6 millioner dollar i tredje kvartal 2026, opp fra 24,1 millioner dollar året før, drevet av sterk økning i inntekter til 501,5 millioner dollar.",
-      "reason": "Den kraftige økningen i både inntekter og overskudd tyder på en betydelig forbedring i operasjonell lønnsomhet og markedssituasjon for Okeanis Eco Tankers. Aksjonærer bør følge utviklingen i charterrater og kostnadskontroll videre for å vurdere bærekraften i resultatveksten.",
-      "score": 90,
+      "summary": "Okeanis Eco Tankers Corp. rapporterer et resultat på 299,6 millioner dollar i tredje kvartal 2026, opp fra 24,1 millioner dollar samme periode året før. Driftskostnadene steg noe, og selskapet utbetaler 7 dollar i kvartalsutbytte per aksje.",
+      "reason": "Selskapets kraftige resultatvekst til tross for høyere driftskostnader gir aksjonærene betydelig verdiskaping. Viktig å følge utviklingen i charterrater og kostnadspress framover, samt hvordan utbyttet påvirker likviditeten.",
+      "score": 95,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -5776,11 +5961,16 @@
         {
           "ticker": "FRO",
           "direction": "uklar",
-          "reason": "Konkurrent i tank- og gass-shipping som kan påvirkes av samme markedstrender, men ulik eksponering gjør virkningen usikker."
+          "reason": "Konkurrent i tanksegmentet som kan bli påvirket av markedstrender i frakt- og charterrater."
+        },
+        {
+          "ticker": "HAFNI",
+          "direction": "uklar",
+          "reason": "Aktør i shipping med mulige effekter av økte transportpriser og kostnader."
         }
       ],
       "importance": "mellom",
-      "score_ai": 85,
+      "score_ai": 90,
       "attachment_key": "a1a6b13acc3e88f4",
       "number_keys": [
         "004be8",
@@ -13275,44 +13465,6 @@
         "d5b819",
         "e8a40f"
       ]
-    },
-    {
-      "id": "686027",
-      "market": "XOSL",
-      "ticker": "NDA",
-      "issuer": "Nordea Bank Abp",
-      "title": "Inside information: Nordea receives verdict in case about anti-money laundering measures from 2012 to 2015",
-      "headline": "Nordea ilegges bøter på 155 mill. DKK etter AML-sak fra 2012-15",
-      "lead": "Københavns Byret frikjenner Nordea på 5 av 7 punkter i AML-sak, men ilegger bøter på 155 millioner DKK, betydelig lavere enn påstått. Ingen medarbeiderne mistenkt, noe som foreløpig ikke rammer tallene direkte.",
-      "published_at": "2026-11-09T12:50:07.145000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686027",
-      "summary": "Københavns Byret frikjenner Nordea på 5 av 7 punkter i AML-sak, men ilegger bøter på 155 millioner DKK, betydelig lavere enn påstått. Ingen medarbeiderne mistenkt, noe som foreløpig ikke rammer tallene direkte.",
-      "reason": "Bøtene er betydelige, men langt lavere enn det opprinnelige kravet. Saken er gammel og uten direkte anklage om hvitvasking, så effekten på Nordea-aksjen og økonomien er begrenset. Viktig å følge om Nordea anker, og eventuelle regulatoriske konsekvenser fremover.",
-      "score": 60,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 75,
-      "number_keys": [
-        "084b3a",
-        "0952aa",
-        "0ade7c",
-        "0b5e7f",
-        "296931",
-        "2c36a0",
-        "49820f",
-        "59129a",
-        "66f77f",
-        "902ba3",
-        "91032a",
-        "9d8974",
-        "9f9af0",
-        "abf749",
-        "ac3478",
-        "aee655",
-        "f1abd6"
-      ]
     }
   ],
   "indirect": [
@@ -13559,19 +13711,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-12T19:00:00+00:00",
+  "last_checked_at": "2026-11-12T19:10:00+00:00",
   "monitor_stats": {
-    "fetched": 233,
-    "recent": 145,
-    "already_seen": 141,
-    "eligible": 4,
+    "fetched": 234,
+    "recent": 143,
+    "already_seen": 138,
+    "eligible": 5,
     "filtered": 0,
-    "analyzed": 4,
+    "analyzed": 5,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 4,
-    "source_latest_at": "2026-11-12T17:51:48.083000+00:00",
+    "source_latest_at": "2026-11-12T19:00:20.140000+00:00",
     "indirect": 0
   }
 }
