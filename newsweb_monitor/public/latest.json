@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-12T04:40:00+00:00",
+  "generated_at": "2026-11-12T04:50:00+00:00",
   "items": [
     {
       "id": "686254",
@@ -27,25 +27,30 @@
       "ticker": "OET",
       "issuer": "Okeanis Eco Tankers Corp.",
       "title": "Okeanis Eco Tankers Corp. - Key Information relating to Q3 2026 dividend",
-      "headline": "Okeanis Eco Tankers utbetaler 7 USD per aksje i kvartalsutbytte",
-      "lead": "Okeanis Eco Tankers kunngjør et kvartalsutbytte på 7 USD per aksje med utbetaling 1. desember 2026, mens norske VPS-registrerte aksjer får utbyttet overført rundt 4. desember pga nye CSDR-regler.",
+      "headline": "Okeanis Eco Tankers utbetaler 7 USD i kvartalsutbytte per aksje",
+      "lead": "Okeanis Eco Tankers annonserer et utbytte på 7 USD per aksje med betaling 1. desember 2026, med norske VPS-aksjer utbetalt i NOK rundt 4. desember. Utbyttet reflekterer selskapets likviditet, men detaljer om selskapets resultat er ikke oppgitt.",
       "published_at": "2026-11-11T21:20:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686253",
-      "summary": "Okeanis Eco Tankers kunngjør et kvartalsutbytte på 7 USD per aksje med utbetaling 1. desember 2026, mens norske VPS-registrerte aksjer får utbyttet overført rundt 4. desember pga nye CSDR-regler.",
-      "reason": "Utbyttet gir direkte kontantavkastning, attraktivt for aksjonærer. Forsinkelsen for VPS-registrerte aksjer kan skape noe usikkerhet. Viktig å følge markedets reaksjon og selskapets fremtidige kontantstrømmer.",
-      "score": 70,
+      "summary": "Okeanis Eco Tankers annonserer et utbytte på 7 USD per aksje med betaling 1. desember 2026, med norske VPS-aksjer utbetalt i NOK rundt 4. desember. Utbyttet reflekterer selskapets likviditet, men detaljer om selskapets resultat er ikke oppgitt.",
+      "reason": "Utbytteutbetaling på 7 USD per aksje er et konkret kontantutbytte som gir avkastning til aksjonærene. Manglende regnskapsinformasjon betyr at denne nyheten ikke gir innsikt i selskapets framtidige inntjeningsvekst eller risiko, dermed begrenset noe analyseverdi.",
+      "score": 75,
       "skipped": false,
-      "direction": "positiv",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "affected": [
         {
           "ticker": "FRO",
-          "direction": "negativ",
-          "reason": "Konkurrent i samme sektor kan oppleve økt press hvis Okeanis fremstår som mer kontantsterk."
+          "direction": "uklar",
+          "reason": "Tankskipssektor påvirkes indirekte av Okeanis Eco Tankers via markedstrender og kapitalflyt men ingen umiddelbar effekt"
+        },
+        {
+          "ticker": "HAFNI",
+          "direction": "uklar",
+          "reason": "Sektorrelatert selskap som kan bli påvirket av likviditetstrender i shippingindustrien"
         }
       ],
       "importance": "mellom",
-      "score_ai": 65,
+      "score_ai": 70,
       "number_keys": [
         "084c34",
         "0de7f5",
@@ -93,30 +98,25 @@
       "ticker": "OET",
       "issuer": "Okeanis Eco Tankers Corp.",
       "title": "Okeanis Eco Tankers Corp. - Unaudited Condensed Financial Results for the Third Quarter and Nine-Month Period of 2026",
-      "headline": "Okeanis Eco Tankers gir $299 mill. i kvartalsoverskudd og øker utbytte til $7,00",
-      "lead": "Okeanis Eco Tankers økte resultatet til $299,6 mill. i Q3 2026 fra $24,1 mill. i samme kvartal i fjor, med rekordhøye inntekter og en utbytteøkning til $7,00 per aksje. Driftkostnader steg moderat mot tidligere år.",
+      "headline": "Okeanis Eco Tankers øker kvartalsresultatet til 300 mill. dollar",
+      "lead": "Okeanis Eco Tankers rapporterer et kvartalsresultat på 299,6 millioner dollar i Q3 2026, opp fra 24,1 millioner dollar året før, med en utbytteutbetaling på 7 dollar per aksje.",
       "published_at": "2026-11-11T21:15:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686252",
-      "summary": "Okeanis Eco Tankers økte resultatet til $299,6 mill. i Q3 2026 fra $24,1 mill. i samme kvartal i fjor, med rekordhøye inntekter og en utbytteøkning til $7,00 per aksje. Driftkostnader steg moderat mot tidligere år.",
-      "reason": "Sterk inntektsvekst og betydelig resultatforbedring sammenlignet med fjoråret indikerer solid markedsposisjon. Høyere utbytte reflekterer finansiell styrke, men økte driftskostnader bør følges. Dette styrker aksjonærenes verdi, men avkastning må overvåkes i sammenheng med markedsvolatilitet.",
-      "score": 95,
+      "summary": "Okeanis Eco Tankers rapporterer et kvartalsresultat på 299,6 millioner dollar i Q3 2026, opp fra 24,1 millioner dollar året før, med en utbytteutbetaling på 7 dollar per aksje.",
+      "reason": "Sterk økning i både omsetning og resultat sammenlignet med Q3 2025 gir en betydelig forbedring i lønnsomhet. Utbytte på 7 dollar signaliserer god kontantstrøm og styrket finansiell posisjon. Viktig å følge utviklingen i markedsrater og om fremtidige kontrakter opprettholder høye nivåer.",
+      "score": 93,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
       "affected": [
         {
           "ticker": "FRO",
-          "direction": "positiv",
-          "reason": "Sterke resultater i samme sektor kan drive økt interesse og mulig oppjustering av verdsettelse hos konkurrenter som Frontline."
-        },
-        {
-          "ticker": "HAFNI",
-          "direction": "positiv",
-          "reason": "Økt etterspørsel og bedre rater i tankmarkedet kan løfte Hafnias inntjening også."
+          "direction": "uklar",
+          "reason": "Konkurrent i tanksektoren kan påvirkes av samme markedstrender, men konkret effekt er usikker."
         }
       ],
       "importance": "mellom",
-      "score_ai": 90,
+      "score_ai": 88,
       "attachment_key": "a1a6b13acc3e88f4",
       "number_keys": [
         "004be8",
@@ -2450,15 +2450,15 @@
       "ticker": "ENVIP",
       "issuer": "Envipco Holding N.V.",
       "title": "ENVIPCO Q3 26 - Rising sales growth and record customer awards",
-      "headline": "Envipco øker omsetningen 18 % i Q3, men fortsatt negativt driftsresultat",
-      "lead": "Envipco rapporterer 26,5 millioner euro i inntekter i tredje kvartal 2026, en økning på 18 prosent fra i fjor, men med et driftsunderskudd på 3,1 millioner euro, preget av fortsatt høy investering og omstilling.",
+      "headline": "Envipco øker omsetningen 18 % til 26,5 mill. euro – EBITDA fortsatt negativ",
+      "lead": "Envipco rapporterer 18 % omsetningsvekst til 26,5 millioner euro i Q3 26 drevet av sterk økning i USA og vekst i Europa, men operasjonell lønnsomhet er fortsatt negativ med EBITDA på -0,6 mill. euro.",
       "published_at": "2026-11-11T06:00:34.151000+00:00",
       "url": "https://newsweb.oslobors.no/message/686169",
-      "summary": "Envipco rapporterer 26,5 millioner euro i inntekter i tredje kvartal 2026, en økning på 18 prosent fra i fjor, men med et driftsunderskudd på 3,1 millioner euro, preget av fortsatt høy investering og omstilling.",
-      "reason": "Sterk omsetningsvekst viser etterspørselsøkning, særlig i Nord-Amerika og Europa, men fortsatt negativt driftsresultat og investeringer tyder på at lønnsomheten ikke er inntakt. Dette skaper usikkerhet om når selskapet kan bli lønnsomt. Aktsomhet anbefales rundt kostnadsstyring og markedsutvikling.",
+      "summary": "Envipco rapporterer 18 % omsetningsvekst til 26,5 millioner euro i Q3 26 drevet av sterk økning i USA og vekst i Europa, men operasjonell lønnsomhet er fortsatt negativ med EBITDA på -0,6 mill. euro.",
+      "reason": "Til tross for solid omsetningsvekst på 18 % år-over-år, fortsetter Envipco med negativ EBITDA og operasjonelt tap, noe som indikerer at selskapet fortsatt ikke er lønnsomt. Investeringer i organisasjon og kapasitetsutnyttelse presser marginene. Investeringsstrategien og markedsutviklingen i Storbritannia og Europa er viktige å følge fremo",
       "score": 60,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
       "score_ai": 75,
@@ -2524,54 +2524,54 @@
           {
             "label": "Omsetning",
             "name": "revenue",
-            "unit": "EUR thousand",
-            "current": 26530.0,
-            "prior_year": 22521.0,
+            "unit": "EUR million",
+            "current": 26.5,
+            "prior_year": 22.5,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 17.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11, Consolidated Statement of Comprehensive Income"
+            "evidence": "SIDE 2, SIDE 6, SIDE 11"
           },
           {
             "label": "EBITDA",
             "name": "ebitda",
-            "unit": "EUR thousand",
-            "current": -600.0,
-            "prior_year": -300.0,
+            "unit": "EUR million",
+            "current": -0.6,
+            "prior_year": -0.3,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 6, EBITDA EUR -0.6m in Q3 26, compared to EUR -0.3m in Q3 25"
+            "evidence": "SIDE 2, SIDE 6"
           },
           {
             "label": "EBIT",
             "name": "ebit",
-            "unit": "EUR thousand",
-            "current": -3100.0,
-            "prior_year": -2700.0,
+            "unit": "EUR million",
+            "current": -3.1,
+            "prior_year": -2.7,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 6, Operating loss EUR -3.1m in Q3 26, compared to EUR -2.7m in Q3 25"
+            "evidence": "SIDE 2, SIDE 6"
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
-            "unit": "EUR thousand",
-            "current": -4200.0,
-            "prior_year": -4000.0,
+            "unit": "EUR million",
+            "current": -4.2,
+            "prior_year": -4.0,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 6, Net profit/(loss) after taxes EUR -4.2m in Q3 26, compared to EUR -4.0m in Q3 25"
+            "evidence": "SIDE 2, SIDE 6"
           },
           {
             "label": "EPS",
@@ -2584,51 +2584,51 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 2, Earnings/(loss) per share in € -0.06 for Q3 26, -0.07 for Q3 25"
+            "evidence": "SIDE 2"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
-            "unit": "EUR thousand",
-            "current": -3300.0,
+            "unit": "EUR million",
+            "current": -3.3,
             "prior_year": null,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 8, Cash flow from operating activities in Q3 26 was EUR -3.3m"
+            "evidence": "SIDE 8"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Envipco opplever positive markedssignaler med ekspansjon av DRS-systemer i Europa, spesielt i Storbritannia hvor selskapet har sikret betydelige ordre på 7 100 RVM-er og preferanseavtale som gir ekstra salgspotensial (side 2). Selskapet satser på effektivisering og smidigere organisasjon for å sikre lønnsom vekst med en restruktureringskostnad på 3 millioner euro i Q4 2026, som forventes å gi 4 millioner euro i besparelser i 2027 (side 2). Det forventes stabilitet med noe vekst i USA, videreutvikling i Romania og økt fokus i Polen og Nederland som lovende markeder (side 2). Envipco opprettholder fokus på kapitalallokering, likviditet og konta",
+          "summary": "Envipco opplever markedsvekst drevet av implementering av retursystemer (DRS) i EU og andre regioner, som kan tredoble markedet. Selskapet har betydelige ordre for nye innsamlingsmaskiner (RVMs) i Storbritannia og andre europeiske land og forventer økt tjenesteinntekter etter hvert som installert base vokser. Forbedring av organisasjonen skjer for å styrke lønnsom vekst, inkludert en restruktureringskostnad på 3 mill. euro i Q4 2026 med besparelser fra 2027. Likviditeten opprettholdes og forventes bedre gjennom arbeidskapitaloptimalisering og finansiering av utstyr.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Markedsvekst og ordre i Storbritannia",
-              "statement": "Selskapet har sikret høy ordreinngang med 7 100 RVMs i Storbritannia og preferanseavtale som gir ekstra salgspotensial.",
-              "evidence": "'Envipco has established a strong initial market position with committed orders for 7,100 RVMs in addition to a preferred supplier agreement offering additional sales potential.' (side 2)",
+              "topic": "Markeds- og salgsvekst",
+              "statement": "Markedsmulighetene øker betydelig med nye DRS i Europa som kan tredoble totalt adressebart marked",
+              "evidence": "flere europeiske markeder lanserer DRS og selskapet har store ordrer i UK og Romania (side 2)",
               "page": "2"
             },
             {
-              "topic": "Effektivisering og restrukturering",
-              "statement": "Gjennomfører organisasjonsendringer og forventer 3 mill EUR restruktureringskostnad i Q4 2026 for å oppnå 4 mill EUR i besparelser i 2027.",
-              "evidence": "'These changes involve some redundancies and an expected restructuring charge in the fourth quarter 26, driving EUR 4m of savings in 2027.' (side 2)",
+              "topic": "Profitabilitet og restrukturering",
+              "statement": "Det forventes en restruktureringskostnad på EUR 3m i Q4 2026 med kostnadsbesparelser på EUR 4m fra 2027",
+              "evidence": "omorganisering med noen nedbemanninger for å oppnå lønnsom vekst (side 2)",
               "page": "2"
             },
             {
-              "topic": "Markedssituasjon i andre regioner",
-              "statement": "Stabilitet og noe vekst i USA, videreutvikling i Romania, samt økt fokus og lovende utvikling i Polen og Nederland.",
-              "evidence": "'The US operations are expected to remain stable with some growth in RVM sales... Envipco has secured Romanian orders for 2027 deliveries... is refocusing its efforts in Poland and is encouraged by th",
+              "topic": "Etterspørsel og markedsposisjon",
+              "statement": "Selskapet styrker sin posisjon i det britiske markedet med flere inngåtte avtaler for 7 100 RVMs og aktiv posisjonering i andre europeiske markeder",
+              "evidence": "engasjement i UK og andre europeiske land som Romania, Polen og Tyrkia, åpner for økt salg (side 2)",
               "page": "2"
             },
             {
-              "topic": "Likviditet og kapitalforvaltning",
-              "statement": "Opprettholder god likviditet, fokus på kapitalallokering og forbedring av kontantstrøm gjennom arbeidskapitaloptimalisering og finansiering.",
-              "evidence": "'The company maintains sufficient liquidity to fund current operations... expects to improve its liquidity position through working capital optimization, financing of RVMs under throughput agreements",
+              "topic": "Likviditet og investeringer",
+              "statement": "Selskapet opprettholder tilstrekkelig likviditet og forventer forbedret likviditet gjennom arbeidskapitaloptimalisering og finansiering av RVM-utstyr",
+              "evidence": "videre investeringer, men fokus på kapitalallokering og kontantstrøm (side 2)",
               "page": "2"
             }
           ]
@@ -3009,12 +3009,12 @@
       "ticker": "APR",
       "issuer": "Appear ASA",
       "title": "Appear ASA   Trading update and withdrawal of full-year 2026 guidance",
-      "headline": "Appear trekker 2026-omsetningsprognose etter kansellert salgsmulighet",
-      "lead": "Appear ASA forventer ikke lenger å nå minste estimat på 880 millioner kroner i 2026 etter at en betydelig salgsmulighet i EMEA ble kansellert. Selskapet utsetter fullstendig inntektsprognose for 2026.",
+      "headline": "Appear trekker fullårsveiledning for 2026 etter tap av vesentlig salgsmulighet",
+      "lead": "Appear ASA meddelte at en viktig salgsavtale i EMEA er kansellert, og trekker dermed sin omsetningsveiledning for hele 2026. Tidligere forventet omsetning var 880–920 millioner kroner.",
       "published_at": "2026-11-11T06:00:18.364000+00:00",
       "url": "https://newsweb.oslobors.no/message/686164",
-      "summary": "Appear ASA forventer ikke lenger å nå minste estimat på 880 millioner kroner i 2026 etter at en betydelig salgsmulighet i EMEA ble kansellert. Selskapet utsetter fullstendig inntektsprognose for 2026.",
-      "reason": "Kanselleringen av en stor salgsmulighet utgjør en konkret inntektsnedjustering som reduserer prognosen og skaper usikkerhet rundt veksten. Aksjonærer må følge kvartalsrapporten for å vurdere hvordan manglende inntekter påvirker lønnsomheten og framtidsutsiktene.",
+      "summary": "Appear ASA meddelte at en viktig salgsavtale i EMEA er kansellert, og trekker dermed sin omsetningsveiledning for hele 2026. Tidligere forventet omsetning var 880–920 millioner kroner.",
+      "reason": "Tapet av en betydelig salgsmulighet fører til at Appear ikke forventer å nå tidligere kommunisert omsetningsmål. For investorer betyr dette økt usikkerhet om selskapets kortsiktige inntektsstrømmer og resultat, og det er behov for å følge utviklingen i Q4 og påfølgende år for å vurdere langsiktig effekt.",
       "score": 75,
       "skipped": false,
       "direction": "negativ",
@@ -3057,21 +3057,21 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 1"
+            "evidence": "SIDE 1 - Appear ASA trading update Nov 2026 states withdrawal of full-year 2026 revenue guidance and no actual revenue figures disclosed"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Appear ASA har trukket tilbake sin helårsinntektsprognose for 2026 etter at en forventet betydelig salgsmulighet i EMEA-området har blitt kansellert av kunden. Selskapet forventer derfor ikke å nå den tidligere laveste inntektsrammen på 880 millioner kroner for 2026.",
+          "summary": "Appear ASA har trukket tilbake sin omsetningsveiledning for hele 2026 etter at en betydelig salgsmulighet i EMEA ble kansellert av kunden. Selskapet forventer nå ikke å nå den tidligere indikerte omsetningsrammen på 880-920 millioner kroner.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Inntektsprognose for 2026",
-              "statement": "Inntektsprognosen for hele 2026 er trukket tilbake på grunn av kansellering av en stor salgsavtale i EMEA.",
-              "evidence": "\"Appear therefore withdraws its full-year 2026 revenue guidance\" og \"a previously anticipated material sales opportunity has been cancelled by the customer\"",
-              "page": "Trading update 11 November 2026"
+              "topic": "Omsetning",
+              "statement": "Fullårs omsetningsveiledning for 2026 er trukket tilbake etter kansellering av en stor kundeordre i EMEA.",
+              "evidence": "utdraget sier \"Appear therefore withdraws its full-year 2026 revenue guidance\" og \"a previously anticipated material sales opportunity has been cancelled by the customer\".",
+              "page": "Uten sideangivelse"
             }
           ]
         }
@@ -10899,7 +10899,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-12T04:40:00+00:00",
+  "last_checked_at": "2026-11-12T04:50:00+00:00",
   "monitor_stats": {
     "fetched": 124,
     "recent": 69,
