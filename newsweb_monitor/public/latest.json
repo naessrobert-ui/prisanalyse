@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-12T10:30:00+00:00",
+  "generated_at": "2026-11-12T10:40:00+00:00",
   "items": [
     {
       "id": "686311",
@@ -671,18 +671,18 @@
       "ticker": "CMBTO",
       "issuer": "CMB.TECH NV",
       "title": "PRESS RELEASE: CMB.TECH ANNOUNCES Q3 2026 RESULTS ON 26/11/2026",
-      "headline": "CMB.TECH kunngjør Q3 2026 resultat 26. november – ingen tall oppgitt ennå",
-      "lead": "CMB.TECH skal presentere sitt kvartalsresultat for tredje kvartal 2026 før markedåpning 26. november, men ingen detaljer om inntjening eller forventninger er ennå offentliggjort.",
+      "headline": "CMB.TECH varsler Q3-resultater 26. november uten finanstall",
+      "lead": "CMB.TECH offentliggjør sine tredje kvartal 2026-resultater 26. november, men ingen økonomiske detaljer er ennå tilgjengelige. Investorer må vente på tall og analyse under webcasten samme dag.",
       "published_at": "2026-11-12T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686290",
-      "summary": "CMB.TECH skal presentere sitt kvartalsresultat for tredje kvartal 2026 før markedåpning 26. november, men ingen detaljer om inntjening eller forventninger er ennå offentliggjort.",
-      "reason": "Foreløpig ingen resultater eller konkrete tall tilgjengelig. Markedet må vente på fullstendig rapport for å vurdere virksomhetens utvikling og hvordan dette påvirker aksjen. Ingen indikasjoner på avvik fra tidligere trender eller forventninger foreligger.",
-      "score": 55,
+      "summary": "CMB.TECH offentliggjør sine tredje kvartal 2026-resultater 26. november, men ingen økonomiske detaljer er ennå tilgjengelige. Investorer må vente på tall og analyse under webcasten samme dag.",
+      "reason": "Selskapet har kun annonsert tidspunkt for rapporteringen og investorpresentasjon uten å gi regnskapstall eller indikasjoner på resultatutvikling. Effekten på aksjen er dermed uavklart inntil rapporten foreligger.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 50,
       "attachment_key": "de0c63d55ba16aae",
       "number_keys": [
         "176908",
@@ -740,7 +740,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "No financial figures provided in the excerpt"
+            "evidence": "Document contains no financial figures for Q3 2026 or prior-year periods."
           },
           {
             "label": "EBITDA",
@@ -753,7 +753,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "No financial figures provided in the excerpt"
+            "evidence": "Document contains no financial figures for Q3 2026 or prior-year periods."
           },
           {
             "label": "EBIT",
@@ -766,7 +766,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "No financial figures provided in the excerpt"
+            "evidence": "Document contains no financial figures for Q3 2026 or prior-year periods."
           },
           {
             "label": "Resultat etter skatt",
@@ -779,7 +779,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "No financial figures provided in the excerpt"
+            "evidence": "Document contains no financial figures for Q3 2026 or prior-year periods."
           },
           {
             "label": "EPS",
@@ -792,7 +792,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "No financial figures provided in the excerpt"
+            "evidence": "Document contains no financial figures for Q3 2026 or prior-year periods."
           },
           {
             "label": "Kontantstrøm drift",
@@ -805,26 +805,13 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "No financial figures provided in the excerpt"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "No financial figures provided in the excerpt"
+            "evidence": "Document contains no financial figures for Q3 2026 or prior-year periods."
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Rapporten inneholder kun generelle forbehold om usikkerhet i fremtidsutsikter og nevner ikke konkrete mål eller prognoser for salg, lønnsomhet eller investeringer for kommende perioder.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "Rapporten inneholder generelle forbehold om usikkerhet i fremtidige utsikter, uten konkrete tall eller mål for salg, lønnsomhet, etterspørsel, marginer eller investeringer i 2026 Q3. Selskapet peker på risiko knyttet til kontraktsoppfyllelse, markedsforhold som svingninger i fraktrater og skipenes verdi, driftskostnader, myndighetsreguleringer med mer.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning. Den nåværende rapporten inneholder ingen konkrete fremtidsutsikter eller mål som kan sammenlignes med tidligere kvartal.",
           "trend": "",
           "compared_periods": [
             "2026Q2",
@@ -834,9 +821,9 @@
           "points": [
             {
               "topic": "Fremtidsutsikter og forbehold",
-              "statement": "Ledelsen presenterer generelle forbehold rundt usikkerhet i fremtidige mål og forutsetninger, uten nye konkrete tall eller mål for 2026Q3.",
-              "evidence": "\"forward-looking statements are based upon assumptions... subject to significant uncertainties... cannot assure actual results\"",
-              "page": "Åpningsdel"
+              "statement": "Selskapet fremhever betydelig usikkerhet knyttet til fremtidige resultater grunnet markeds- og operasjonelle risikoer.",
+              "evidence": "\"forward-looking statements ... based upon various assumptions ... subject to significant uncertainties and contingencies\" og \"other important factors that ... could cause actual results to differ mat",
+              "page": "utdrag fra rapport"
             }
           ]
         }
@@ -848,18 +835,18 @@
       "ticker": "CDLR",
       "issuer": "Cadeler plc",
       "title": "Cadeler plc: Notice of Upcoming Q3 2026 Earnings Release and Presentation on 23 November 2026",
-      "headline": "Cadeler varsler Q3-resultater og presentasjon 23. november",
-      "lead": "Cadeler offentliggjør sine finansielle resultater for første ni måneder av 2026 og holder en direktesendt presentasjon for investorer 23. november. Detaljer om inntjening og fremtidsutsikter vil bli tilgjengelig ved arrangementet.",
+      "headline": "Cadeler varsler Q3-rapport og presentasjon 23. november",
+      "lead": "Cadeler offentliggjør sine finansielle resultater for ni første måneder av 2026 og holder en direktesendt presentasjon samme dag. Detaljer om resultater og veien videre ventes å gi innsikt i selskapets utvikling i offshore vindsektoren.",
       "published_at": "2026-11-12T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686289",
-      "summary": "Cadeler offentliggjør sine finansielle resultater for første ni måneder av 2026 og holder en direktesendt presentasjon for investorer 23. november. Detaljer om inntjening og fremtidsutsikter vil bli tilgjengelig ved arrangementet.",
-      "reason": "Meldingen annonserer kun tidspunkt for resultatfremleggelse og presentasjon uten økonomiske detaljer. Dette gir begrenset direkte nyhetsverdi for investorer, men er relevant for markedsoppfølging ved kommende kvartalstall.",
-      "score": 25,
+      "summary": "Cadeler offentliggjør sine finansielle resultater for ni første måneder av 2026 og holder en direktesendt presentasjon samme dag. Detaljer om resultater og veien videre ventes å gi innsikt i selskapets utvikling i offshore vindsektoren.",
+      "reason": "Meldingen kunngjør tidspunkt for rapport og presentasjon, uten å gi konkrete tall eller indikasjoner som kan vurderes som positivt eller negativt for aksjonærene. Viktig å følge nøye med på de faktiske resultatene for å forstå selskapets økonomiske situasjon.",
+      "score": 30,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 40,
+      "score_ai": 45,
       "number_keys": [
         "086c04",
         "15e730",
@@ -3095,23 +3082,16 @@
       "ticker": "OUTLT",
       "issuer": "Outlet Group Holding ASA",
       "title": "Outlet Group Holding ASA: Financial results for the third quarter of 2026",
-      "headline": "Outlet Group øker omsetningen 16 prosent, åpner 20 nye butikker i 2026",
-      "lead": "Outlet Group leverte 740 mill. kroner i omsetning i tredje kvartal 2026, opp 16,4 prosent fra i fjor, med en justert EBIT-margin på 20,3 prosent. Utvidelsen med 20 nye butikker styrker veksten, men IPO-kostnader påvirker resultatet.",
+      "headline": "Outlet Group øker omsetningen 16,4 prosent i tredje kvartal 2026",
+      "lead": "Omsetningen i tredje kvartal steg til 740,1 millioner kroner, med en EBIT på 142,0 millioner. Justert EBIT-margin falt noe til 20,3 prosent, påvirket av IPO-kostnader og ekspansjon.",
       "published_at": "2026-11-12T06:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686260",
-      "summary": "Outlet Group leverte 740 mill. kroner i omsetning i tredje kvartal 2026, opp 16,4 prosent fra i fjor, med en justert EBIT-margin på 20,3 prosent. Utvidelsen med 20 nye butikker styrker veksten, men IPO-kostnader påvirker resultatet.",
-      "reason": "Sterk omsetningsvekst kombinert med økende gross margin og netto butikkvekst indikerer god markedsposisjon for Outlet Group. Investorer bør følge utviklingen i marginer og butikkene i Polen videre.",
-      "score": 85,
+      "summary": "Omsetningen i tredje kvartal steg til 740,1 millioner kroner, med en EBIT på 142,0 millioner. Justert EBIT-margin falt noe til 20,3 prosent, påvirket av IPO-kostnader og ekspansjon.",
+      "reason": "Sterk omsetningsvekst og økt bruttofortjeneste fra eget merke er positive tegn, men lavere justert margin og økte kostnader knyttet til børsnotering demper den umiddelbare resultatglede. Videre må man følge hvordan ekspansjon påvirker lønnsomheten fremover.",
+      "score": 70,
       "skipped": false,
-      "direction": "positiv",
+      "direction": "nøytral",
       "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "BRG",
-          "direction": "positiv",
-          "reason": "Norsk verdikjedemoteklare aktører kan påvirkes positivt av sterk sport- og barneutstyrsvekst."
-        }
-      ],
       "attachment_key": "9f657893cedc418a",
       "number_keys": [
         "104469",
@@ -3170,7 +3150,7 @@
             "yoy_pct": 16.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 3, Q3 2026 business highlights; Page 9, Condensed Consolidated Interim Statement of Income"
+            "evidence": "Q3 2026 business highlights, SIDE 3; Condensed Consolidated Interim Statement of Income, SIDE 9"
           },
           {
             "label": "EBITDA",
@@ -3183,7 +3163,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "EBITDA not explicitly stated for group in Q3 2026 report"
+            "evidence": "Not directly reported for Q3 2026"
           },
           {
             "label": "EBIT",
@@ -3196,7 +3176,7 @@
             "yoy_pct": 5.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 9, Condensed Consolidated Interim Statement of Income: Operating profit 142.0 in Q3 2026 vs 134.8 Q3 2025"
+            "evidence": "Condensed Consolidated Interim Statement of Income, Operating profit, SIDE 9"
           },
           {
             "label": "Resultat etter skatt",
@@ -3209,7 +3189,7 @@
             "yoy_pct": 9.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 9, Condensed Consolidated Interim Statement of Income: Net profit 94.7 in Q3 2026 vs 86.8 Q3 2025"
+            "evidence": "Condensed Consolidated Interim Statement of Income, Net profit for the period, SIDE 9"
           },
           {
             "label": "EPS",
@@ -3222,20 +3202,20 @@
             "yoy_pct": 11.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 9, Condensed Consolidated Interim Statement of Income: Basic and diluted EPS 0.97 in Q3 2026 vs 0.87 Q3 2025"
+            "evidence": "Condensed Consolidated Interim Statement of Income, Basic and diluted Earnings per share (EPS), SIDE 9"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
             "unit": "NOK million",
-            "current": 327.0,
-            "prior_year": 270.0,
+            "current": 326.9,
+            "prior_year": 269.6,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 21.1,
+            "yoy_pct": 21.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 3, Q3 2026 business highlights: Cash flow from operating activities 327 million Q3 2026 vs 270 million Q3 2025"
+            "evidence": "Financial review - Group, Cash flow and financial position, SIDE 6"
           },
           {
             "label": "Netto renteinntekter",
@@ -3248,38 +3228,38 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net financial income/expense reported as net expense of -20.1 million in Q3 2026, not separated into net interest income explicitly"
+            "evidence": "Net financial income (expense) reported as net expense of NOK -20.1 million in Q3, not separated out as net interest income, SIDE 9"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Kids Outlet planlegger å øke antallet butikker til 30 innen årsskiftet, med positiv underliggende vekst og sterk salg i Sport Outlet-segmentet. Det pågår et prosjekt for å forbedre den digitale handleopplevelsen på nett, som forventes å øke netthandelen over tid. Videre implementeres logistikk- og lageroptimalisering, inkludert overgang til sentral styring av varepåfyll, for bedre produktdistribusjon og effektivitet. Sentraliserte kostnader forventes å reduseres i forhold til økende omsetning, noe som vil bedre segmentets lønnsomhet.",
+          "summary": "Kids Outlet planlegger å utvide til 30 butikker innen utgangen av året, med positiv underliggende vekst og sterk salgsvekst i Sport Outlet. Den digitale plattformen oppgraderes for å forbedre netthandelsopplevelsen og øke salget over tid. Sentralisering av lagerstyring pågår for bedre varetilgjengelighet og effektivitet, og en ny sentral lager- og hovedkontorbygg planlegges.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Butikkekspansjon Kids Outlet",
-              "statement": "Planlegger å øke til 30 butikker i løpet av året med underliggende positiv vekst.",
-              "evidence": "\"Store expansion is progressing... to 30 stores by year-end\" (side 4)",
+              "topic": "Butikkutvidelse Kids Outlet",
+              "statement": "Planlegger 30 butikker innen årets slutt, med fremgang i butikkekspansjon.",
+              "evidence": "\"signed lease agreements in place to bring Kids Outlet to 30 stores by year-end\"",
               "page": "4"
             },
             {
               "topic": "Digital plattform",
-              "statement": "Pågående prosjekt for å forbedre kundeopplevelsen og konvertering på nett, forventet å støtte økt netthandel over tid.",
-              "evidence": "\"Store redevelopment project...support increase in online sales over time\" (side 4)",
+              "statement": "Planlegger oppgradering for å forbedre digital handleopplevelse og øke netthandel.",
+              "evidence": "\"Store redevelopment project for its online platform to improve the digital shopping experience... expected to support increase in online sales\"",
               "page": "4"
             },
             {
-              "topic": "Logistikk og lageroptimalisering",
-              "statement": "Overgang til sentralstyrt varepåfylling pågår, fullført i Q4, for å bedre lagerallokering og produktdisponering.",
-              "evidence": "\"Transitioning from store-managed to centrally managed store replenishment... expected during Q4\" (side 4)",
+              "topic": "Logistikk og lagerstyring",
+              "statement": "Overgang til sentralstyrt påfylling i butikkene pågår, fullført i Q4 for bedre lagerallokering.",
+              "evidence": "\"Group began transitioning from store-managed to centrally managed store replenishment, with full implementation expected during Q4\"",
               "page": "4"
             },
             {
-              "topic": "Lønnsomhetsforbedring",
-              "statement": "Sentralorganisasjonen er stort sett etablert, vekst vil redusere sentrale kostnader relativt til omsetning, og forbedre segmentets lønnsomhet.",
-              "evidence": "\"Central organisation largely established... growth expected to reduce central costs as a share of revenue and improve segment profitability\" (side 4)",
+              "topic": "Kostnadsfordeling og lønnsomhet",
+              "statement": "Sentral organisasjon etablert, forventer at vekst vil redusere sentrale kostnader som andel av omsetning og forbedre lønnsomheten.",
+              "evidence": "\"central organisation largely established, further growth allows central costs to be spread across a larger revenue base... expected to improve segment profitability\"",
               "page": "4"
             }
           ]
@@ -3883,12 +3863,12 @@
       "ticker": "OET",
       "issuer": "Okeanis Eco Tankers Corp.",
       "title": "Okeanis Eco Tankers Corp. - Key Information relating to Q3 2026 dividend",
-      "headline": "Okeanis Eco Tankers utbetaler 7 USD i kvartalsutbytte 1. desember 2026",
-      "lead": "Okeanis Eco Tankers (OET) kunngjør et utbytte på 7 USD per aksje med utbetaling 1. desember, hvor norske aksjonærer mottar betaling i NOK rundt 4. desember. Tidspunktene varierer mellom Oslo Børs og NYSE pga. ulike avregningsregler.",
+      "headline": "Okeanis Eco Tankers utbetaler 7 USD per aksje i Q3-utbytte",
+      "lead": "Okeanis Eco Tankers kunngjør et utbytte på 7 USD per aksje for tredje kvartal, med utbetaling planlagt 1. desember 2026, men med norsk VPS-utbetaling først rundt 4. desember.",
       "published_at": "2026-11-11T21:20:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686253",
-      "summary": "Okeanis Eco Tankers (OET) kunngjør et utbytte på 7 USD per aksje med utbetaling 1. desember, hvor norske aksjonærer mottar betaling i NOK rundt 4. desember. Tidspunktene varierer mellom Oslo Børs og NYSE pga. ulike avregningsregler.",
-      "reason": "Utbyttet signaliserer stabil kontantstrøm og gir en direkteavkastning til aksjonærene, men påvirker ikke løpende drift. Siden utbytte er fastsatt uten tilknytning til kvartalets finansielle resultater, bør investorer følge med på fremtidige inntjeningsdata for å vurdere bærekraften.",
+      "summary": "Okeanis Eco Tankers kunngjør et utbytte på 7 USD per aksje for tredje kvartal, med utbetaling planlagt 1. desember 2026, men med norsk VPS-utbetaling først rundt 4. desember.",
+      "reason": "Utbyttet på 7 USD signaliserer selskapets sterke kontantstrøm og kapasitet til å returnere verdi til aksjonærene. Investorer bør følge med på hvordan valutabetalingen i NOK påvirker netto utbytte ved VPS-registrerte aksjer.",
       "score": 70,
       "skipped": false,
       "direction": "positiv",
@@ -3897,12 +3877,7 @@
         {
           "ticker": "FRO",
           "direction": "uklar",
-          "reason": "Konkurrent i tankskip-segmentet kan påvirkes ved sektoravkastningsendringer, men ingen direkte kobling til dette utbyttet."
-        },
-        {
-          "ticker": "HAFNI",
-          "direction": "uklar",
-          "reason": "Nær beslektet shippingaktør som kan merke investorinteresse i sektoren, men uten konkret effekt fra denne nyheten."
+          "reason": "Andre tankrederier kan merke investorreaksjoner på sektorens utdelingspraksis."
         }
       ],
       "importance": "mellom",
@@ -3954,12 +3929,12 @@
       "ticker": "OET",
       "issuer": "Okeanis Eco Tankers Corp.",
       "title": "Okeanis Eco Tankers Corp. - Unaudited Condensed Financial Results for the Third Quarter and Nine-Month Period of 2026",
-      "headline": "Okeanis Eco Tankers øker kvartalsresultatet til 300 millioner dollar",
-      "lead": "Okeanis Eco Tankers rapporterer en kvartalsprofit på 299,6 millioner dollar i Q3 2026, opp fra 24,1 millioner dollar i Q3 2025, med et betydelig løft i driftsinntekter og nettofortjeneste, men økte driftskostnader følger med.",
+      "headline": "Okeanis Eco Tankers øker kvartalsresultatet til 300 mill. dollar",
+      "lead": "Okeanis Eco Tankers rapporterer en kvartalsfortjeneste på 299,6 mill. dollar i Q3 2026, opp fra 24,1 mill. dollar samme kvartal i fjor, med betydelig økte inntekter og høyere charterrater.",
       "published_at": "2026-11-11T21:15:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686252",
-      "summary": "Okeanis Eco Tankers rapporterer en kvartalsprofit på 299,6 millioner dollar i Q3 2026, opp fra 24,1 millioner dollar i Q3 2025, med et betydelig løft i driftsinntekter og nettofortjeneste, men økte driftskostnader følger med.",
-      "reason": "Selskapet viser sterk effektivitet og betydelig vekst i både inntekter og lønnsomhet sammenlignet med samme periode i fjor, noe som gir positivt signal om selskapets konkurranseevne og inntjeningskapasitet. Fortsatt oppmerksomhet på driftskostnadsutviklingen og markedsbetingelser anbefales.",
+      "summary": "Okeanis Eco Tankers rapporterer en kvartalsfortjeneste på 299,6 mill. dollar i Q3 2026, opp fra 24,1 mill. dollar samme kvartal i fjor, med betydelig økte inntekter og høyere charterrater.",
+      "reason": "Sterk vekst i både inntekter og resultater indikerer bedret markedsposisjon og lønnsomhet for OET. Aksjonærer bør følge utviklingen i charteravtaler og operasjonelle kostnader fremover for å vurdere bærekraften i resultatveksten.",
       "score": 90,
       "skipped": false,
       "direction": "positiv",
@@ -3968,12 +3943,12 @@
         {
           "ticker": "FRO",
           "direction": "uklar",
-          "reason": "Kan påvirkes av samme markedstrender innen tankshipping, men usikker effekt uten konkrete tall."
+          "reason": "Andre tankrederier kan påvirkes av markedsendringer i fraktrate, men effekten på FRO er usikker uten mer data."
         },
         {
           "ticker": "HAFNI",
           "direction": "uklar",
-          "reason": "Opererer i samme sektor og kan påvirkes av markedssvingninger i spotrater og etterspørsel."
+          "reason": "Markedstrender i tank- og gass-shipping påvirker Hafnia, men effekten av OETs resultat er uklar."
         }
       ],
       "importance": "mellom",
@@ -6311,12 +6286,12 @@
       "ticker": "ENVIP",
       "issuer": "Envipco Holding N.V.",
       "title": "ENVIPCO Q3 26 - Rising sales growth and record customer awards",
-      "headline": "Envipco øker omsetningen 18 prosent i Q3 – EBITDA fortsatt negativ",
-      "lead": "Envipco rapporterer en omsetning på 26,5 millioner euro i tredje kvartal 2026, opp 18 prosent fra året før, men driftsresultatet forblir negativt med et tap på 3,1 millioner euro, drevet av investeringer og omstruktureringer.",
+      "headline": "Envipco øker omsetningen 18 prosent – fortsatt underskudd på 3,1 mill. euro",
+      "lead": "Envipcos inntekter steg til 26,5 mill. euro i tredje kvartal 2026, opp 18% fra i fjor, men driftsresultatet viser fortsatt tap på 3,1 mill. euro grunnet investeringer og underutnyttelse av kapasitet.",
       "published_at": "2026-11-11T06:00:34.151000+00:00",
       "url": "https://newsweb.oslobors.no/message/686169",
-      "summary": "Envipco rapporterer en omsetning på 26,5 millioner euro i tredje kvartal 2026, opp 18 prosent fra året før, men driftsresultatet forblir negativt med et tap på 3,1 millioner euro, drevet av investeringer og omstruktureringer.",
-      "reason": "Økt omsetning signaliserer styrken i selskapets vekststrategi særlig i Storbritannia og USA, men fortsatt negativ EBITDA og kommende restruktureringskostnader krever oppmerksomhet for lønnsomhet og kontantstrøm. Aksjonærer bør følge utviklingen i kostnadsbesparelser og nye kontrakter fremover.",
+      "summary": "Envipcos inntekter steg til 26,5 mill. euro i tredje kvartal 2026, opp 18% fra i fjor, men driftsresultatet viser fortsatt tap på 3,1 mill. euro grunnet investeringer og underutnyttelse av kapasitet.",
+      "reason": "Økt omsetning fra USAs RVM-salg og europeiske programtjenester antyder vekstpotensial, men underskuddet og lav kapasitetsutnyttelse krever oppfølging. Analysen bør fokusere på lønnsomhet og gjennomføring av restruktureringer.",
       "score": 60,
       "skipped": false,
       "direction": "nøytral",
@@ -6393,7 +6368,7 @@
             "yoy_pct": 17.8,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2, Key figures (EURm) table, Q3 26 vs Q3 25"
+            "evidence": "[SIDE 2], Key figures table Q3 26 and Q3 25 revenues 26.5 and 22.5 respectively"
           },
           {
             "label": "EBITDA",
@@ -6406,7 +6381,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2, Key figures (EURm) table and Page 6, Financial developments paragraph"
+            "evidence": "[SIDE 2], Key figures table Q3 26 and Q3 25 EBITDA -0.6 and -0.3 respectively"
           },
           {
             "label": "EBIT",
@@ -6419,7 +6394,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2, Key figures (EURm) table and Page 6, Financial developments paragraph"
+            "evidence": "[SIDE 2], Key figures table Q3 26 and Q3 25 Operating profit -3.1 and -2.7 respectively"
           },
           {
             "label": "Resultat etter skatt",
@@ -6432,7 +6407,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2, Key figures (EURm) table and Page 6, Financial developments paragraph"
+            "evidence": "[SIDE 2], Key figures table Q3 26 and Q3 25 Net profit/(loss) after taxes -4.2 and -4.0 respectively"
           },
           {
             "label": "EPS",
@@ -6445,65 +6420,39 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 2, Key figures (EURm) table"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "EUR million",
-            "current": -3.3,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 8, Cash flow section,Q3 26 cash flow from operating activities"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "EUR million",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Net financial items reported as expense, Page 6: Q3 26 net financial items were EUR -1.0m, no specific net interest income disclosed"
+            "evidence": "[SIDE 2], Key figures table Q3 26 and Q3 25 Earnings/(loss) per share in € -0.06 and -0.07 respectively"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Envipco opplever økende markedstilbakevendinger med utvidede innskuddssystemer (DRS) i Europa og forbereder seg på betydelig markedsvekst. Selskapet fokuserer på å styrke sin kommersielle organisasjon og effektivisere driften, noe som inkluderer omstrukturering med tilhørende kostnader, men forventede kostnadsbesparelser fra 2027. Salg av nye RVM-maskiner i Europa øker, mens tjenesteinntektene forventes å vokse etter hvert som installert base øker. Selskapet opprettholder fokus på likviditet, kapitalallokering og kontantstrømoptimalisering.",
+          "summary": "Envipco forventer markedsvekst drevet av innføringen av DRS (deponeringsretursystemer) i EU og andre markeder, som kan tidoble selskapets totale adressebare marked. Selskapets europeiske ordrer er styrket, særlig i Storbritannia, Romania og Portugal, mens USA forventes stabilt med noe vekst i RVM-salg. For å øke lønnsomheten styrker Envipco sin kommersielle organisasjon, omfordeler ressurser mot områder med økende etterspørsel og effektiviserer for å konvertere muligheter til lønnsom vekst. Selskapet forventer restrukturering med kostnader på 3 millioner euro i Q4 2026, men samtidig besparelser på 4 millioner euro i 2027. Likviditet vurderes",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Markedsvekst og salg",
-              "statement": "Flere europeiske markeder lanserer eller planlegger DRS, noe som kan tredoble selskapets totale adresserbare marked.",
-              "evidence": "Quote: 'Som forventet kan markedet tredobles med nye DRS lanseringer', side 2-4.",
+              "topic": "Markedsutsikter",
+              "statement": "Markedet forventes å kunne tidobles ved implementering av DRS i flere europeiske land.",
+              "evidence": "\"Several European markets are in process of launching... systems... which could triple the company’s total addressable market.\" (side 2)",
+              "page": "2"
+            },
+            {
+              "topic": "Europeisk vekst og ordrer",
+              "statement": "Sterke ordrer i Storbritannia med 7,100 RVMer og preferanseavtaler, samt fremgang i Romania og Portugal.",
+              "evidence": "\"committed orders for 7,100 RVMs ... preferred supplier agreement\" og \"secured Romanian orders for 2027 deliveries... delivering on its Portugal wins.\" (side 2-4)",
               "page": "2-4"
             },
             {
-              "topic": "Kommersiell omstilling og kostnader",
-              "statement": "Selskapet gjennomfører omorganisering med noen nedbemanninger og estimerer en restruktureringskostnad på EUR 3m i Q4 26, med forventede besparelser på EUR 4m fra 2027.",
-              "evidence": "Quote: 'rekonstruering med kostnad EUR 3m i Q4 26 og besparelse EUR 4m i 2027', side 2-4.",
-              "page": "2-4"
+              "topic": "Kostnadsstruktur og lønnsomhet",
+              "statement": "Selskapet restrukturerer med 3 millioner euro i kostnader i Q4 2026, forventer 4 millioner i besparelser i 2027, fokus på å forbedre lønnsomhet.",
+              "evidence": "\"restructuring charge in the fourth quarter 26, driving EUR 4m of savings in 2027.\" (side 2)",
+              "page": "2"
             },
             {
               "topic": "Likviditet og kapitalforvaltning",
-              "statement": "Envipco opprettholder tilstrekkelig likviditet og planlegger forbedring gjennom arbeidskapitaloptimalisering og finansiering under throughput-avtaler.",
-              "evidence": "Quote: 'sikrer drift og forbedrer likviditet via kapitaloptimalisering og avtaler', side 2-4.",
-              "page": "2-4"
-            },
-            {
-              "topic": "Regionale markeder og ordrer",
-              "statement": "Selskapet har sikret viktige ordre i UK og Romania for 2027 leveranser og posisjonerer seg for markeder i Hellas, Portugal og Polen, med økende salgsvekst fra nye RVMer.",
-              "evidence": "Quote: 'forpliktende ordre for 7,100 RVMs i UK og Romania, økt aktivitet i Hellas og Polen', side 2-4.",
-              "page": "2-4"
+              "statement": "Tilstrekkelig likviditet opprettholdes, med fokus på arbeidskapitaloptimalisering og kapitalallokering.",
+              "evidence": "\"The company maintains sufficient liquidity ... expects to improve its liquidity position through working capital optimization\" (side 2)",
+              "page": "2"
             }
           ]
         }
@@ -6883,12 +6832,12 @@
       "ticker": "APR",
       "issuer": "Appear ASA",
       "title": "Appear ASA   Trading update and withdrawal of full-year 2026 guidance",
-      "headline": "Appear trekker 2026-omsetningsguiding etter kansellert storordre",
-      "lead": "Appear varsler at årets omsetning ikke vil nå minimum 880 millioner kroner etter at en stor salgsavtale i EMEA-regionen ble kansellert og fjernet fra prognosen.",
+      "headline": "Appear trekker helårsinntektsmål etter kansellert storordre i EMEA",
+      "lead": "Appear meddelte i dag at en betydelig salgsordre i EMEA er kansellert, og trekker dermed tilbake helårsinntektsguiden på 880-920 millioner kroner for 2026. Virksomheten forventer nå ikke å nå nedre del av tidligere oppgitt intervall.",
       "published_at": "2026-11-11T06:00:18.364000+00:00",
       "url": "https://newsweb.oslobors.no/message/686164",
-      "summary": "Appear varsler at årets omsetning ikke vil nå minimum 880 millioner kroner etter at en stor salgsavtale i EMEA-regionen ble kansellert og fjernet fra prognosen.",
-      "reason": "Tapet av en betydelig salgsavtale foran årets slutt svekker Appear sin inntjeningsutsikt og skaper usikkerhet om fremtidige inntekter. Investorer bør følge nøye med på Q4-rapporten for ytterligere innsikt.",
+      "summary": "Appear meddelte i dag at en betydelig salgsordre i EMEA er kansellert, og trekker dermed tilbake helårsinntektsguiden på 880-920 millioner kroner for 2026. Virksomheten forventer nå ikke å nå nedre del av tidligere oppgitt intervall.",
+      "reason": "Kanselleringen av en større ordre fører til at Appear trekker tilbake sin helårsinntektsguide, og signaliserer svakere inntektsvekst enn tidligere kommunisert. Aksjonærer må følge nøye med på fremtidige kvartalsrapporter for å vurdere om selskapet klarer å finne nye kontrakter som kan bidra til inntektsvekst.",
       "score": 75,
       "skipped": false,
       "direction": "negativ",
@@ -6931,26 +6880,26 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 1"
+            "evidence": "SIDE 1 - full-year 2026 revenue guidance withdrawn, no actual figures reported"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Appear ASA har trukket tilbake sin omsetningsveiledning for hele 2026 etter at en betydelig salgs-mulighet i EMEA er kansellert av kunden, ikke tapt til konkurrenter. Tidligere ventet selskapet en omsetning mellom 880 og 920 millioner NOK, men dette forventes nå ikke å bli nådd.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "Appear ASA har trukket tilbake hele inntektsguidingen for 2026 etter at en betydelig salgsavtale i EMEA-regionen ble kansellert, noe som gjør at de ikke forventer å nå nedre grense i tidligere oppgitt omsetningsmål på 880-920 millioner NOK.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Omsetningsveiledning",
-              "statement": "Fullårsveiledning for 2026 trukket tilbake på grunn av kansellert salgsmulighet i EMEA.",
-              "evidence": "'Appear derfor trekker tilbake sin full-year 2026 revenue guidance.'",
+              "topic": "Inntektsmål og salgsutsikter",
+              "statement": "Har trukket tilbake hele inntektsguidingen for 2026 grunnet kansellert stor salgsmulighet i EMEA.",
+              "evidence": "'withdraws its full-year 2026 revenue guidance' og 'a previously anticipated material sales opportunity has been cancelled by the customer' (side 1)",
               "page": "1"
             },
             {
-              "topic": "Salgsutsikter",
-              "statement": "En stor salgsmulighet i EMEA er kansellert av kunden, ikke tapt til konkurranse.",
-              "evidence": "'en tidligere antatt vesentlig salgs-mulighet har blitt kansellert av kunden.'",
+              "topic": "Omsetningsmål 2026",
+              "statement": "Forventet omsetning under nedre grense av tidligere mål på 880-920 millioner NOK.",
+              "evidence": "'company no longer expects to reach the lower end of its full-year 2026 revenue guidance range of NOK 880-920 million' (side 1)",
               "page": "1"
             }
           ]
@@ -13643,14 +13592,14 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-12T10:30:00+00:00",
+  "last_checked_at": "2026-11-12T10:40:00+00:00",
   "monitor_stats": {
     "fetched": 163,
-    "recent": 101,
+    "recent": 100,
     "already_seen": 93,
-    "eligible": 8,
+    "eligible": 7,
     "filtered": 0,
-    "analyzed": 8,
+    "analyzed": 7,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
