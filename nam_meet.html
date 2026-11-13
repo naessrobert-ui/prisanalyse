@@ -89,6 +89,32 @@ aside{display:flex;flex-direction:column;gap:1rem;min-height:0;overflow-y:auto}
 .chat form{display:flex;gap:.4rem;margin-top:.6rem}
 .chat input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:.45rem .6rem}
 .chat form button{border:0;border-radius:9px;background:var(--chip);padding:.45rem .7rem;cursor:pointer}
+.chat-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.chat-head h2{margin:0 0 .6rem}
+.chat-close{display:none}
+.btn.chat-toggle{display:none;position:relative}
+.badge{position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--danger);color:var(--danger-ink);font-size:.75rem;font-weight:700;line-height:22px;text-align:center}
+/* Mobil: chatten åpnes over hele skjermen fra en egen knapp */
+@media (max-width:860px){
+  .btn.chat-toggle{display:inline-flex}
+  aside .panel.chat{display:none}
+  body.chat-open aside .panel.chat{display:flex;position:fixed;left:0;right:0;top:0;height:100dvh;z-index:50;margin:0;border:0;border-radius:0;min-height:0;
+    padding:calc(.9rem + env(safe-area-inset-top,0px)) 1rem calc(.9rem + env(safe-area-inset-bottom,0px))}
+  body.chat-open{overflow:hidden}
+  .chat-close{display:inline-flex}
+  .chat-head h2{margin:0;font-size:1.1rem}
+  .chat-log{font-size:1rem;gap:.7rem;padding:.75rem 0}
+  .chat form{margin-top:0}
+  .chat input{font-size:16px;padding:.7rem .8rem} /* 16px hindrer at iPhone zoomer inn */
+  .chat form button{padding:.7rem 1rem;background:var(--accent);color:var(--accent-ink);font-weight:600}
+}
+/* Smal skjerm: bare ikoner på knappene, så alt får plass på én rad */
+@media (max-width:600px){
+  footer{gap:.5rem;padding:.75rem .75rem calc(.75rem + env(safe-area-inset-bottom,0px))}
+  footer .btn{padding:.75rem .95rem}
+  footer .btn .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  footer .btn svg{width:22px;height:22px}
+}
 
 footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem;flex-wrap:wrap}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:.65rem 1.1rem;cursor:pointer;font-weight:500}
@@ -144,7 +170,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     <aside>
       <div class="panel"><h2>I møtet</h2><ul class="people" id="people"></ul></div>
       <div class="panel chat">
-        <h2>Chat</h2>
+        <div class="chat-head"><h2>Chat</h2><button class="sbtn chat-close" id="chatClose" type="button">Lukk</button></div>
         <div class="chat-log" id="chatLog"><span class="subtle" id="chatEmpty">Meldinger lagres ikke og forsvinner når møtet er over.</span></div>
         <form id="chatForm" autocomplete="off"><input id="chatInput" maxlength="500" placeholder="Skriv en melding" aria-label="Melding"><button type="submit">Send</button></form>
       </div>
@@ -156,6 +182,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       <button class="btn" id="micBtn" type="button"></button>
       <button class="btn" id="camBtn" type="button"></button>
       <button class="btn" id="shareBtn" type="button"></button>
+      <button class="btn chat-toggle" id="chatBtn" type="button" aria-label="Chat" title="Chat"></button>
       <button class="btn danger" id="leaveBtn" type="button">Forlat</button>
     </footer>
   </div>
@@ -178,6 +205,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     micOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 9.3V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 5 2.2M5 11a7 7 0 0 0 11.5 5.4M19 11a7 7 0 0 1-.6 2.8M12 18v3M3 3l18 18"/></svg>',
     screen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
     cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>',
+    chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
     camOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16v1a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2m4 0h5a1 1 0 0 1 1 1v3l6-3v10M3 3l18 18"/></svg>'
   };
   const $ = id => document.getElementById(id);
@@ -190,7 +218,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 
   const S = {
     room:"", name:"", kode:"", ws:null, myId:null, peers:new Map(), conns:new Map(), leaving:false, retry:0, pingTimer:null,
-    mic:null, screen:null, cam:null, muted:false, shareAt:0, stageOf:null, stageCam:null, stageCamAuto:false, cid:"", away:new Map(),
+    mic:null, screen:null, cam:null, muted:false, shareAt:0, stageOf:null, stageCam:null, stageCamAuto:false, cid:"", away:new Map(), unread:0,
     actx:null, meters:new Map(), speaking:new Set(), camEls:new Map(), earlyIce:new Map()
   };
 
@@ -262,7 +290,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       sendState();
       clearInterval(S.pingTimer); S.pingTimer=setInterval(()=>wsSend({t:"ping"}), 25000);
       for(const id of S.peers.keys()) if(S.myId<id) startOffer(id);
-      render(); startMeterLoop();
+      render(); updateBadge(); startMeterLoop();
     } else if(m.t==="peer-joined" && m.peer){
       backAgain(m.peer.id);
       S.peers.set(m.peer.id,{name:m.peer.name,state:keepState(m.peer.id,m.peer.state)});
@@ -393,7 +421,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     S.meters.clear(); S.speaking.clear(); S.muted=false;
     for(const [,o] of S.camEls) o.box.remove(); S.camEls.clear();
     $("app").classList.add("hidden"); $("landing").classList.remove("hidden");
-    $("joinBtn").disabled=false; $("landNote").textContent=msg||""; notice("");
+    $("joinBtn").disabled=false; $("landNote").textContent=msg||""; notice(""); closeChat(); S.unread=0; updateBadge();
   }
 
   $("copyBtn").onclick=async()=>{
@@ -405,8 +433,30 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 
   // ---------- chat ----------
   $("chatForm").onsubmit=e=>{ e.preventDefault(); const v=$("chatInput").value.trim(); if(!v) return; if(!(S.ws&&S.ws.readyState===1)){ notice("Ikke koblet til møtet akkurat nå."); return; } wsSend({t:"chat",text:v.slice(0,500)}); $("chatInput").value=""; };
+  // Mobil: chatten er skjult bak en knapp med teller for uleste meldinger.
+  const mobil=window.matchMedia("(max-width:860px)");
+  const chatVisible=()=>!mobil.matches || document.body.classList.contains("chat-open");
+  function btnLabel(b,icon,text){ b.innerHTML=icon+'<span class="lbl">'+text+'</span>'; b.title=text; b.setAttribute("aria-label",text); }
+  function updateBadge(){
+    const b=$("chatBtn"); b.innerHTML=ICON.chat+'<span class="lbl">Chat</span>'+(S.unread?'<span class="badge">'+(S.unread>9?"9+":S.unread)+'</span>':"");
+    b.setAttribute("aria-label",S.unread?"Chat, "+S.unread+" uleste":"Chat");
+  }
+  function fitChat(){ // tastaturet på mobil krymper synlig område; hold skrivefeltet over tastaturet
+    const p=document.querySelector(".panel.chat"), vv=window.visualViewport;
+    if(document.body.classList.contains("chat-open") && vv){ p.style.height=vv.height+"px"; p.style.top=vv.offsetTop+"px"; }
+    else { p.style.height=""; p.style.top=""; }
+  }
+  function openChat(){ document.body.classList.add("chat-open"); S.unread=0; updateBadge(); fitChat(); const log=$("chatLog"); log.scrollTop=log.scrollHeight; $("chatInput").focus(); }
+  function closeChat(){ document.body.classList.remove("chat-open"); fitChat(); }
+  $("chatBtn").onclick=()=>document.body.classList.contains("chat-open")?closeChat():openChat();
+  $("chatClose").onclick=closeChat;
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape" && document.body.classList.contains("chat-open")) closeChat(); });
+  if(window.visualViewport){ visualViewport.addEventListener("resize",fitChat); visualViewport.addEventListener("scroll",fitChat); }
+  mobil.addEventListener?.("change",()=>{ if(!mobil.matches) closeChat(); if(chatVisible()){ S.unread=0; updateBadge(); } });
+
   function addChat(d){
     if(typeof d.text!=="string") return;
+    if(d.from!==S.myId && !chatVisible()){ S.unread++; updateBadge(); }
     const empty=$("chatEmpty"); if(empty) empty.remove();
     const row=el("div"); row.appendChild(el("b",null,d.from===S.myId?"Du":String(d.name||"Deltaker")));
     d.text.split(/(https?:\/\/[^\s]+)/g).forEach((part,i)=>{
@@ -437,9 +487,9 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     const n=S.peers.size+1;
     if(S.myId && S.ws && S.ws.readyState===1) $("status").textContent = n===1?"Bare du i møtet":n+" i møtet";
     const mb=$("micBtn"); mb.disabled=!S.mic; mb.className="btn "+(S.muted||!S.mic?"off":"");
-    mb.innerHTML=(S.muted||!S.mic?ICON.micOff:ICON.mic)+(S.mic?(S.muted?"Slå på mikrofon":"Demp mikrofon"):"Ingen mikrofon");
-    const cb=$("camBtn"); cb.className="btn "+(S.cam?"on":""); cb.innerHTML=(S.cam?ICON.cam:ICON.camOff)+(S.cam?"Slå av kamera":"Slå på kamera");
-    const sb=$("shareBtn"); sb.className="btn "+(S.screen?"on":"")+(canShare?"":" hidden"); sb.innerHTML=ICON.screen+(S.screen?"Stopp deling":"Del skjerm");
+    btnLabel(mb,S.muted||!S.mic?ICON.micOff:ICON.mic,S.mic?(S.muted?"Slå på mikrofon":"Demp mikrofon"):"Ingen mikrofon");
+    const cb=$("camBtn"); cb.className="btn "+(S.cam?"on":""); btnLabel(cb,S.cam?ICON.cam:ICON.camOff,S.cam?"Slå av kamera":"Slå på kamera");
+    const sb=$("shareBtn"); sb.className="btn "+(S.screen?"on":"")+(canShare?"":" hidden"); btnLabel(sb,ICON.screen,S.screen?"Stopp deling":"Del skjerm");
 
     const sh=[]; if(S.screen) sh.push({key:"me",name:"Du",at:Infinity,stream:S.screen});
     for(const [id,p] of S.peers) if(p.state.sharing){ const c=S.conns.get(id); sh.push({key:id,name:p.name,at:p.state.shareAt||0,stream:c&&c.screen}); }
