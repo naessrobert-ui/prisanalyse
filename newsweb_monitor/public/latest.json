@@ -2,8 +2,76 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T12:10:00+00:00",
+  "generated_at": "2026-11-13T12:20:00+00:00",
   "items": [
+    {
+      "id": "686484",
+      "market": "XOSL",
+      "ticker": "MORG",
+      "issuer": "Sparebanken Møre",
+      "title": "Rentefastsettelse",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-13T12:19:46.328000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686484",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "686482",
+      "market": "XOSL",
+      "ticker": "SPOBK",
+      "issuer": "Sparebanken Øst Boligkreditt AS",
+      "title": "Rentefastsettelse",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-13T12:19:33.144000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686482",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "686481",
+      "market": "XOSL",
+      "ticker": "STORL",
+      "issuer": "Storebrand Livsforsikring AS",
+      "title": "Rentefastsettelse",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-13T12:19:28.095000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686481",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "686480",
+      "market": "XOSL",
+      "ticker": "SPOL",
+      "issuer": "SpareBank 1 Østlandet",
+      "title": "Rentefastsettelse",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-13T12:19:21.342000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686480",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686478",
       "market": "XOSL",
@@ -487,13 +555,13 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor utbetaler 0,39 USD i kvartalsutbytte – aksjen eks-utbytte i dag",
-      "lead": "Equinor ASA går eksklusiv 0,39 USD i kontantutbytte for andre kvartal 2026 fra 13. november. Utbytteutbetalingen påvirker aksjeverdien i dag, men gir direkte avkastning til aksjonærene.",
+      "headline": "Equinor utbetaler 0,39 USD i kvartalsutbytte fra i dag eks. utbytte",
+      "lead": "Fra 13. november handles Equinor-aksjer uten rett til kvartalsutbytte på 0,39 USD, som utbetales i andre kvartal 2026. Denne justeringen påvirker kortsiktig aksjekursutvikling og avkastningsberegning.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor ASA går eksklusiv 0,39 USD i kontantutbytte for andre kvartal 2026 fra 13. november. Utbytteutbetalingen påvirker aksjeverdien i dag, men gir direkte avkastning til aksjonærene.",
-      "reason": "Utbetaling av kvartalsutbytte er en forventet hendelse som gir direkte verdi til aksjonærer, men påvirker ikke selskapets underliggende drift eller fremtidige inntjening.",
-      "score": 60,
+      "summary": "Fra 13. november handles Equinor-aksjer uten rett til kvartalsutbytte på 0,39 USD, som utbetales i andre kvartal 2026. Denne justeringen påvirker kortsiktig aksjekursutvikling og avkastningsberegning.",
+      "reason": "Utbyttebetalinger justeres regelmessig i aksjemarkedet og reflekteres i aksjekursen omtrent likt med utbyttebeløpet. Investorer må følge med på videre utvikling i selskapets resultater og markedsforhold for helhetsvurdering.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -501,11 +569,11 @@
         {
           "ticker": "AKRBP",
           "direction": "uklar",
-          "reason": "Som oljeselskap kan også Aker BP påvirkes av markedets fokus på sektoren rundt utbytte og kontantstrøm."
+          "reason": "Olje- og gasssektor påvirkes generelt av utbyttenivå og investeringsklima, men direkte effekt av denne utbyttehendelsen er begrenset."
         }
       ],
       "importance": "stor",
-      "score_ai": 50,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -2004,18 +2072,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjon til 4.634 boe/d men kvartal med netto tap på 27,6 mill.",
-      "lead": "Produksjonen steg betydelig etter PX Energy-oppkjøp, men driftsavbrudd og høy finansielle kostnader ga et netto tap på 27,6 millioner dollar i tredje kvartal 2026.",
+      "headline": "Questerre øker produksjonen til 4.634 boe/d, rapporterer 27,6 mill. USD tap",
+      "lead": "Questerre Energy leverer 4.634 boe per dag i tredje kvartal 2026, men rapporterer et netto tap på 27,6 millioner USD, preget av anleggsstans og høy finansieringskostnad knyttet til PX Energy.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Produksjonen steg betydelig etter PX Energy-oppkjøp, men driftsavbrudd og høy finansielle kostnader ga et netto tap på 27,6 millioner dollar i tredje kvartal 2026.",
-      "reason": "Økt produksjon styrker Questerres underliggende drift, men fabrikkstans og økte finansielle kostnader, inkludert obligasjonsjusteringer, gir fortsatt betydelig netto tap. Aksjonærer bør følge effekten av planlagt gjeldsrestrukturering og teknologi-testing for fremtiden.",
-      "score": 57,
+      "summary": "Questerre Energy leverer 4.634 boe per dag i tredje kvartal 2026, men rapporterer et netto tap på 27,6 millioner USD, preget av anleggsstans og høy finansieringskostnad knyttet til PX Energy.",
+      "reason": "Til tross for økt produksjon etter PX Energy-oppkjøpet, viser driften utfordringer med anleggsstans og høy ikke-kontant gjeldskostnad. Investorer bør følge med på effekten av planlagt omstrukturering av PX Energi gjeld og fremdriften i kommersialiseringen av HCCO-teknologi.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 72,
+      "score_ai": 75,
       "number_keys": [
         "004be8",
         "02ef6a",
@@ -5185,18 +5253,18 @@
       "ticker": "CDLR",
       "issuer": "Cadeler plc",
       "title": "Cadeler plc: Notice of Upcoming Q3 2026 Earnings Release and Presentation on 23 November 2026",
-      "headline": "Cadeler varsler Q3-rapport og investorpresentasjon 23. november",
-      "lead": "Cadeler plc offentliggjør sine finansielle resultater for de ni første månedene i 2026 samt en direktesendt presentasjon for investorer 23. november kl. 14:00 CET. Detaljer om inntjening og videre utsikter venter åpenbart.",
+      "headline": "Cadeler kunngjør Q3-rapport og direktesendt presentasjon 23. november",
+      "lead": "Cadeler offentliggjør sine resultater for tredje kvartal 2026 den 23. november med en direktesendt presentasjon. Detaljer om finansiell utvikling og fremtidsutsikter blir da tilgjengelig for investorer.",
       "published_at": "2026-11-12T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686289",
-      "summary": "Cadeler plc offentliggjør sine finansielle resultater for de ni første månedene i 2026 samt en direktesendt presentasjon for investorer 23. november kl. 14:00 CET. Detaljer om inntjening og videre utsikter venter åpenbart.",
-      "reason": "Planlagt resultatmelding og presentasjon gir markedsaktører oppdatert innsikt i selskapets utvikling uten at innholdet eller tallene er kjent før offentliggjøring. Investorer bør følge med på detaljene i rapporten for å vurdere fremtidig utvikling.",
-      "score": 20,
+      "summary": "Cadeler offentliggjør sine resultater for tredje kvartal 2026 den 23. november med en direktesendt presentasjon. Detaljer om finansiell utvikling og fremtidsutsikter blir da tilgjengelig for investorer.",
+      "reason": "Innkallingen til resultatfremleggelse gir klarhet om tidspunkt for informasjon til markedet, men mangler konkrete tall og indikasjoner på prestasjon eller endring. Investorer må vente på den reelle rapporten for vurdering.",
+      "score": 25,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 35,
+      "score_ai": 40,
       "number_keys": [
         "086c04",
         "15e730",
@@ -7432,15 +7500,15 @@
       "ticker": "OUTLT",
       "issuer": "Outlet Group Holding ASA",
       "title": "Outlet Group Holding ASA: Financial results for the third quarter of 2026",
-      "headline": "Outlet Group øker omsetningen 16 prosent i Q3 – åpner 20 nye butikker i år",
-      "lead": "Outlet Group rapporterer 740 millioner kroner i omsetning i tredje kvartal 2026, opp 16,4 prosent fra i fjor, med 150 millioner i justert EBIT. Utvidelse av butikkenett og økt egen merkevareandel driver veksten.",
+      "headline": "Outlet Group øker omsetningen 16 prosent og åpner 20 nye butikker i 2026",
+      "lead": "Outlet Group rapporterer 16,4 prosent høyere kvartalsomsetning til 740 mill. kroner og åpnet 20 nye butikker hittil i år. Justert EBIT-margin falt til 20,3 prosent fra 21,2 prosent, preget av IPO-kostnader og ekspansjonsutgifter.",
       "published_at": "2026-11-12T06:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686260",
-      "summary": "Outlet Group rapporterer 740 millioner kroner i omsetning i tredje kvartal 2026, opp 16,4 prosent fra i fjor, med 150 millioner i justert EBIT. Utvidelse av butikkenett og økt egen merkevareandel driver veksten.",
-      "reason": "Sterk topplinjevekst og økt justert EBIT-marginal viser god driftseffektivitet og suksess i utvidelsen. Viktig å følge videre marginutvikling og kostnader knyttet til ekspansjon.",
-      "score": 75,
+      "summary": "Outlet Group rapporterer 16,4 prosent høyere kvartalsomsetning til 740 mill. kroner og åpnet 20 nye butikker hittil i år. Justert EBIT-margin falt til 20,3 prosent fra 21,2 prosent, preget av IPO-kostnader og ekspansjonsutgifter.",
+      "reason": "Sterk omsetningsvekst og butikkekspansjon gir vekstpotensial, men marginalpress og kostnader knyttet til IPO og nye butikker krever oppfølging. Aksjonærer bør følge marginutviklingen og effekten av ekspansjonen i kommende kvartal.",
+      "score": 85,
       "skipped": false,
-      "direction": "positiv",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "attachment_key": "9f657893cedc418a",
       "number_keys": [
@@ -7500,7 +7568,7 @@
             "yoy_pct": 16.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 3 and 9 Q3 2026 revenue NOK 740.1 million (636.1 million)"
+            "evidence": "Side 3, Side 9"
           },
           {
             "label": "EBITDA",
@@ -7513,7 +7581,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "EBITDA not explicitly reported for group in Q3 2026"
+            "evidence": "Not explicitly reported for Group in Q3 2026"
           },
           {
             "label": "EBIT",
@@ -7526,20 +7594,20 @@
             "yoy_pct": 5.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 9 Operating profit (EBIT) Q3 2026 NOK 142.0 million (134.8 million)"
+            "evidence": "Side 9"
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
             "unit": "NOK million",
-            "current": 94.7,
-            "prior_year": 86.8,
+            "current": 94.68,
+            "prior_year": 86.76,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 9.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 9 Net income Q3 2026 NOK 94.7 million (86.8 million)"
+            "evidence": "Side 9"
           },
           {
             "label": "EPS",
@@ -7552,64 +7620,64 @@
             "yoy_pct": 11.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 9 Basic and diluted Earnings per share (EPS) Q3 2026 is NOK 0.97 (0.87)"
+            "evidence": "Side 9"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
             "unit": "NOK million",
-            "current": 327.0,
+            "current": 326.9,
             "prior_year": 270.0,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 21.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 3 Cash flow from operating activities Q3 2026 NOK 327 million (270 million)"
+            "evidence": "Side 3"
           },
           {
             "label": "Netto renteinntekter",
             "name": "net_interest_income",
             "unit": "NOK million",
-            "current": -20.1,
-            "prior_year": -23.9,
+            "current": null,
+            "prior_year": null,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Page 6 Net financial income (expense) Q3 2026 NOK -20.1 million (-23.9 million)"
+            "evidence": "Not reported or not available explicitly"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Kids Outlet planlegger utvidelse til 30 butikker innen årets slutt med god fremdrift i butikkekspansjonen. Sport Outlet forventer forbedret lønnsomhet gjennom økt omsetning, bedre driftsrutiner og kostnadsfordeling. På nettplattformen gjennomføres et utviklingsprosjekt som skal forbedre den digitale handleopplevelsen og bidra til økt netthandel over tid. Logistikkoptimalisering prioriteres, inkludert overgang fra butikkstyrt til sentral lagerstyring i Q4 for bedre lagerdisponering og produktdisponibilitet.",
+          "summary": "Kids Outlet planlegger å øke antall butikker til 30 innen årets slutt, med ekspansjon som går i henhold til planen. Sport Outlet opplever sterk salgsvekst med forbedret lønnsomhet gjennom spredning av sentrale kostnader på økt omsetning. Det pågår en overgang til sentralstyrt varepåfylling for bedre lagerstyring, fullført i Q4. Nytt sentrallager og hovedkontor er under utvikling.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Butikkekspansjon Kids Outlet",
-              "statement": "Utvidelse til 30 butikker innen årets slutt er i rute med signerte leieavtaler.",
-              "evidence": "Store expansion is progressing in line with the Group’s plans, with signed lease agreements to reach 30 stores by year-end.",
+              "topic": "Butikkutvidelse",
+              "statement": "Store ekspansjon til 30 Kids Outlet-butikker i Norge innen årets slutt, i tråd med plan.",
+              "evidence": "\"Store expansion...with signed lease agreements to bring Kids Outlet to 30 stores by year-end.\"",
               "page": "4"
             },
             {
-              "topic": "Sport Outlet lønnsomhet",
-              "statement": "Forventning om bedre lønnsomhet grunnet økt omsetning og spredning av faste kostnader i en modnere sentral organisasjon.",
-              "evidence": "Further growth allows central costs to be spread across a larger revenue base, improving segment profitability as concept matures.",
+              "topic": "Lønnsomhet og drift",
+              "statement": "Forventning om forbedret segmentlønnsomhet gjennom økt omsetning og spredning av sentrale kostnader, samt operasjonelle forbedringer.",
+              "evidence": "\"Central costs to be spread across a larger revenue base... expected to improve segment profitability.\"",
               "page": "4"
             },
             {
-              "topic": "Nettplattformutvikling",
-              "statement": "Digital shoppingopplevelse og konvertering skal forbedres i faser over kommende kvartaler for å støtte økte netthandelssalg.",
-              "evidence": "Redevelopment project for its online platform implemented in phases over coming quarters, expected to support increase in online sales over time.",
+              "topic": "Lagerstyring og logistikk",
+              "statement": "Overgang til sentralstyrt påfylling ferdigstilles i Q4, for bedre lagerallokering og produkt-tilgjengelighet.",
+              "evidence": "\"Transitioning from store-managed to centrally managed store replenishment, with full implementation expected during Q4.\"",
               "page": "4"
             },
             {
-              "topic": "Logistikk og lagerstyring",
-              "statement": "Overgang til sentralstyrt varepåfylling i Q4 skal bedre lagerallokering og produktdisponibilitet, videre optimalisering pågår.",
-              "evidence": "Group began transitioning from store-managed to centrally managed store replenishment, full implementation expected during Q4 to improve inventory allocation.",
+              "topic": "Investeringer",
+              "statement": "Utvikling av nytt sentrallager og hovedkontor pågår.",
+              "evidence": "\"Development of the Group's planned new central warehouse and headquarters at Lyseparken.\"",
               "page": "4"
             }
           ]
@@ -13267,215 +13335,6 @@
         "da4b92",
         "fd93ac"
       ]
-    },
-    {
-      "id": "686074",
-      "market": "XOSL",
-      "ticker": "DNB",
-      "issuer": "DNB Bank ASA",
-      "title": "Capital Markets Day: DNB well positioned for further profitable growth",
-      "headline": "DNB sikter mot over 15 % egenkapitalavkastning og økt utbytte innen 2029",
-      "lead": "DNB hever sine finansielle mål for 2029 med ROE over 15 %, kost/inntektsforhold under 38 %, og utbytteandel over 50 %, men varsler omstrukturering med kostnader på 225 mill. NOK i Q4 2026.",
-      "published_at": "2026-11-10T06:30:51.390000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686074",
-      "summary": "DNB hever sine finansielle mål for 2029 med ROE over 15 %, kost/inntektsforhold under 38 %, og utbytteandel over 50 %, men varsler omstrukturering med kostnader på 225 mill. NOK i Q4 2026.",
-      "reason": "DNB øker sine langsiktige ambisjoner for lønnsomhet og kapitalavkastning, noe som kan gi bedre aksjonæravkastning. Kostnadsreduksjoner og satsing på teknologi styrker konkurranseevnen, men omstillingskostnader krever oppfølging.",
-      "score": 85,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "SB1NO",
-          "direction": "negativ",
-          "reason": "Konkurrent i norsk bankmarked kan merke økt press på marginer og markedsandeler fra DNBs økte kapitalmål og effektivisering."
-        },
-        {
-          "ticker": "MING",
-          "direction": "negativ",
-          "reason": "Mindres aktør i banksektoren utfordres av DNBs økte vekstambisjoner og forbedret kapitalposisjon."
-        }
-      ],
-      "importance": "stor",
-      "score_ai": 75,
-      "language_versions": [
-        {
-          "id": "686074",
-          "title": "Capital Markets Day: DNB well positioned for further profitable growth",
-          "url": "https://newsweb.oslobors.no/message/686074",
-          "published_at": "2026-11-10T06:30:51.390000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "686073",
-          "title": "Kapitalmarkedsdag: DNB godt posisjonert for videre lønnsom vekst",
-          "url": "https://newsweb.oslobors.no/message/686073",
-          "published_at": "2026-11-10T06:30:51.281000+00:00",
-          "language": "Original"
-        }
-      ],
-      "attachment_key": "c89687f83c087c4a",
-      "number_keys": [
-        "0ade7c",
-        "1b6453",
-        "22d200",
-        "356a19",
-        "39f193",
-        "431f6b",
-        "4d89d2",
-        "5b384c",
-        "632667",
-        "64e0cf",
-        "77de68",
-        "7b5200",
-        "7e79a3",
-        "827bfc",
-        "887309",
-        "8e63fd",
-        "98fbc4",
-        "ac3478",
-        "aee655",
-        "af3e13",
-        "b1d578",
-        "b74f5e",
-        "bd307a",
-        "be461a",
-        "c1dfd9",
-        "cfe21c",
-        "d435a6",
-        "ddfe16",
-        "e1822d",
-        "f1abd6",
-        "f3b3e0",
-        "fa35e1",
-        "fb9654",
-        "fc074d",
-        "fd9375"
-      ]
-    },
-    {
-      "id": "686070",
-      "market": "XOSL",
-      "ticker": "RING",
-      "issuer": "SpareBank 1 Ringerike Hadeland",
-      "title": "SpareBank 1 Ringerike Hadeland - Viderefordeling av egenkapitalbevis i spareprogram for ansatte",
-      "headline": "SpareBank 1 Ringerike Hadeland videreselger 2.243 egenkapitalbevis til ansatte til 440 kr",
-      "lead": "Banken har overført 2.243 egenkapitalbevis fra egen beholdning til ansatte som en del av spareprogrammet, etterlater banken med kun 0,02 % eierandel i egenkapitalbevisene.",
-      "published_at": "2026-11-10T06:30:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/686070",
-      "summary": "Banken har overført 2.243 egenkapitalbevis fra egen beholdning til ansatte som en del av spareprogrammet, etterlater banken med kun 0,02 % eierandel i egenkapitalbevisene.",
-      "reason": "Overføringen av egenkapitalbevis til ansatte i spareprogrammet viser intern insentivtilpasning, men har begrenset direkte effekt på bankens kapitalstruktur og aksjekurs. Viktig å følge utviklingen i ansatteincentivene og eventuell videre utvanning.",
-      "score": 45,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "number_keys": [
-        "356a19",
-        "3bfe37",
-        "6d0e10",
-        "6fc978",
-        "7b5200",
-        "812ed4",
-        "8ef17f",
-        "92cfce",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "bc33ea",
-        "eb6c6b",
-        "fa35e1"
-      ]
-    },
-    {
-      "id": "686069",
-      "market": "XOSL",
-      "ticker": "OTL",
-      "issuer": "Odfjell Technology Ltd",
-      "title": "Odfjell Technology Ltd - Ex Dividend Q3 2026",
-      "headline": "Odfjell Technology går ex utbytte med 1,52 kroner per aksje i Q3 2026",
-      "lead": "Fra 10. november handles Odfjell Technology-aksjen uten retten til kvartalsutbytte på 1,52 kroner. Neste utbytteutbetaling påvirker investorer som eier aksjen før denne datoen.",
-      "published_at": "2026-11-10T06:20:19.034000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686069",
-      "summary": "Fra 10. november handles Odfjell Technology-aksjen uten retten til kvartalsutbytte på 1,52 kroner. Neste utbytteutbetaling påvirker investorer som eier aksjen før denne datoen.",
-      "reason": "Utbytteutbetaling er en vanlig selskapshendelse som gir investorene inntekter, men påvirker ikke selskapets drift direkte. Markedet har vanligvis priset dette inn ved ex-datoen. Det er viktig å følge selskapets fremtidige finansielle utvikling for investeringsavgjørelser.",
-      "score": 25,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 40,
-      "number_keys": [
-        "77de68",
-        "7b5200",
-        "827bfc",
-        "96de39",
-        "98fbc4",
-        "ac2646",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "b6589f",
-        "ba587c",
-        "e94819"
-      ],
-      "financial_report": {
-        "status": "no_pdf",
-        "period": "2026Q3",
-        "period_source": "",
-        "previous_report": "",
-        "document": {
-          "name": "",
-          "url": ""
-        },
-        "metrics": [],
-        "outlook": {
-          "status": "",
-          "summary": "",
-          "change": "",
-          "trend": "",
-          "compared_periods": [],
-          "points": []
-        }
-      }
-    },
-    {
-      "id": "686068",
-      "market": "XOSL",
-      "ticker": "ODL",
-      "issuer": "Odfjell Drilling Ltd",
-      "title": "Odfjell Drilling Ltd. Contract Signed for Deepsea Bergen",
-      "headline": "Odfjell Drilling signerer 3-års kontrakt for Deepsea Bergen med Vår Energi",
-      "lead": "Odfjell Drilling har inngått en fast 3-årig kontrakt med Vår Energi for riggen Deepsea Bergen, med opsjoner som kan forlenge leieperioden til tidlig 2035.",
-      "published_at": "2026-11-10T06:06:57.164000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686068",
-      "summary": "Odfjell Drilling har inngått en fast 3-årig kontrakt med Vår Energi for riggen Deepsea Bergen, med opsjoner som kan forlenge leieperioden til tidlig 2035.",
-      "reason": "Den signerte kontrakten sikrer inntekt for Odfjell Drilling i minst tre år med mulighet for forlengelse, noe som gir forutsigbarhet og stabilitet i en kapitalintensiv sektor. Aksjonærer bør følge utviklingen i opsjonsutnyttelse og markedssituasjonen for riggkontrakter videre.",
-      "score": 75,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "BORR",
-          "direction": "uklar",
-          "reason": "Konkurrent i riggsektoren kan se likviditets- og kapasitetskonsekvenser fra endringer i markedet for riggleie."
-        }
-      ],
-      "importance": "mellom",
-      "score_ai": 70,
-      "attachment_key": "c125a99302b2113a",
-      "number_keys": [
-        "0d0c9e",
-        "197683",
-        "431f6b",
-        "7b5200",
-        "98fbc4",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "b6589f",
-        "c55894"
-      ]
     }
   ],
   "indirect": [
@@ -13676,38 +13535,21 @@
           "reason": "Renter påvirker investeringsklima, usikkert for kraftselskap."
         }
       ]
-    },
-    {
-      "id": "67e8a0b8625d1702",
-      "source": "E24",
-      "title": "Oljeprisen faller: – En positiv utvikling",
-      "url": "https://e24.no/boers-og-finans/i/Jn1018/oljeprisen-faller-en-positiv-utvikling?utm_medium=rss",
-      "published_at": "2026-11-10T12:10:59+00:00",
-      "analyzed_at": "2026-11-10T12:20:00+00:00",
-      "score": 70,
-      "comment": "Fall i oljeprisen reduserer kostnadene for oljeintensive selskaper, men kan svekke oljeproduksjonsselskaper sin inntjening betydelig.",
-      "affected": [
-        {
-          "ticker": "EQNR",
-          "direction": "negativ",
-          "reason": "Redusert oljepris reduserer inntektene direkte."
-        }
-      ]
     }
   ],
-  "last_checked_at": "2026-11-13T12:10:00+00:00",
+  "last_checked_at": "2026-11-13T12:20:00+00:00",
   "monitor_stats": {
-    "fetched": 206,
-    "recent": 146,
+    "fetched": 210,
+    "recent": 150,
     "already_seen": 141,
     "eligible": 5,
-    "filtered": 0,
+    "filtered": 4,
     "analyzed": 5,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 5,
-    "source_latest_at": "2026-11-13T11:58:35.834000+00:00",
+    "source_latest_at": "2026-11-13T12:19:46.328000+00:00",
     "indirect": 0
   }
 }
