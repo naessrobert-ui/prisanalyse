@@ -182,7 +182,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 
   const S = {
     room:"", name:"", kode:"", ws:null, myId:null, peers:new Map(), conns:new Map(), leaving:false, retry:0, pingTimer:null,
-    mic:null, screen:null, cam:null, muted:false, shareAt:0, stageOf:null, stageCam:null, stageCamAuto:false,
+    mic:null, screen:null, cam:null, muted:false, shareAt:0, stageOf:null, stageCam:null, stageCamAuto:false, cid:"", away:new Map(),
     actx:null, meters:new Map(), speaking:new Set(), camEls:new Map(), earlyIce:new Map()
   };
 
@@ -200,6 +200,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     if(!name){ $("landNote").textContent="Skriv inn navnet ditt."; $("nameIn").focus(); return; }
     if(room.length<3){ $("landNote").textContent="Romkoden må ha minst tre tegn."; $("roomIn").focus(); return; }
     Object.assign(S,{name,room,kode,leaving:false,retry:0});
+    const rnd=new Uint8Array(16); crypto.getRandomValues(rnd); S.cid=[...rnd].map(b=>b.toString(16).padStart(2,"0")).join("");
     try{ localStorage.setItem("nammeet-name",name); localStorage.setItem("nammeet-kode",kode); }catch(e){}
     history.replaceState(null,"","#"+room);
     $("joinBtn").disabled=true; $("landNote").textContent="Kobler til …";
@@ -215,7 +216,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   function wsUrl(){
     const base = location.pathname.replace(/\/meet\/?.*$/,"");
     return (location.protocol==="https:"?"wss://":"ws://") + location.host + base + "/meet/ws/" + encodeURIComponent(S.room)
-      + "?name=" + encodeURIComponent(S.name) + "&kode=" + encodeURIComponent(S.kode);
+      + "?name=" + encodeURIComponent(S.name) + "&kode=" + encodeURIComponent(S.kode) + "&cid=" + S.cid;
   }
   function connect(){
     const ws = new WebSocket(wsUrl());
@@ -224,15 +225,17 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     ws.onclose = ev=>{
       if(S.ws!==ws) return;
       clearInterval(S.pingTimer);
-      resetPeers();
       if(S.leaving) return;
       if(ev.code===4401){ backToLanding("Feil tilgangskode."); return; }
       if(ev.code===4409){ backToLanding("Rommet er fullt."); return; }
       if(ev.code===4400){ backToLanding("Ugyldig romkode."); return; }
       if(!S.myId && S.retry===0){ $("landNote").textContent="Får ikke kontakt med møteserveren. Prøver igjen …"; }
-      S.myId=null; render();
+      // Lyd og bilde går direkte mellom deltakerne, så samtalen fortsetter mens vi kobler til igjen.
+      // Forbindelser som ikke er oppe ennå, kan ikke fullføres uten server og bygges opp på nytt.
+      for(const [id,c] of [...S.conns]) if(c.pc.connectionState!=="connected") dropConn(id);
+      render();
       const wait = Math.min(15000, 1000*Math.pow(2,S.retry++));
-      $("status").textContent="Mistet forbindelsen. Kobler til igjen …";
+      $("status").textContent=S.conns.size?"Mistet kontakten med møteserveren. Samtalen fortsetter, kobler til igjen …":"Mistet forbindelsen. Kobler til igjen …";
       setTimeout(()=>{ if(!S.leaving) connect(); }, wait);
     };
   }
@@ -243,18 +246,22 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     if(m.t==="welcome"){
       S.myId=m.id; S.retry=0;
       $("landing").classList.add("hidden"); $("app").classList.remove("hidden"); $("joinBtn").disabled=false; $("landNote").textContent="";
-      S.peers.clear();
-      for(const p of m.peers||[]) S.peers.set(p.id,{name:p.name,state:p.state||{}});
+      const nye=new Map((m.peers||[]).map(p=>[p.id,{name:p.name,state:keepState(p.id,p.state)}]));
+      for(const id of nye.keys()) backAgain(id);
+      for(const [id,p] of S.peers) if(!nye.has(id)){ if(liveConn(id)){ nye.set(id,p); markAway(id); } else { backAgain(id); dropConn(id); } }
+      S.peers=nye;
       sendState();
       clearInterval(S.pingTimer); S.pingTimer=setInterval(()=>wsSend({t:"ping"}), 25000);
       for(const id of S.peers.keys()) if(S.myId<id) startOffer(id);
       render(); startMeterLoop();
     } else if(m.t==="peer-joined" && m.peer){
-      S.peers.set(m.peer.id,{name:m.peer.name,state:m.peer.state||{}});
+      backAgain(m.peer.id);
+      S.peers.set(m.peer.id,{name:m.peer.name,state:keepState(m.peer.id,m.peer.state)});
       if(S.myId<m.peer.id) startOffer(m.peer.id);
       render();
     } else if(m.t==="peer-left"){
-      S.peers.delete(m.id); dropConn(m.id); render();
+      if(!m.bye && liveConn(m.id)){ markAway(m.id); return; }
+      removePeer(m.id);
     } else if(m.t==="state"){
       const p=S.peers.get(m.id); if(p){ p.state=m.state||{}; render(); }
     } else if(m.t==="sig"){
@@ -263,6 +270,17 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       addChat(m);
     }
   }
+
+  // Deltakere som har mistet kontakten med serveren, men som vi fortsatt har lyd og bilde fra.
+  // Kommer de ikke tilbake innen AWAY_MS, eller dør forbindelsen, fjernes de.
+  const AWAY_MS=45000;
+  function liveConn(id){ const c=S.conns.get(id); return !!c && c.pc.connectionState==="connected"; }
+  function markAway(id){ if(!S.away.has(id)) S.away.set(id,setTimeout(()=>removePeer(id),AWAY_MS)); }
+  function backAgain(id){ const t=S.away.get(id); if(t!=null){ clearTimeout(t); S.away.delete(id); } }
+  // En deltaker som kobler til igjen, har tom status hos serveren til den rekker å sende sin egen.
+  // Behold den gamle så lenge, så kamera og skjermdeling ikke blinker bort.
+  function keepState(id,st){ const old=S.peers.get(id); return (st && Object.keys(st).length) ? st : old ? old.state : {}; }
+  function removePeer(id){ backAgain(id); S.peers.delete(id); dropConn(id); render(); }
 
   // ---------- WebRTC (mesh: lowest id makes the offer) ----------
   const trackOf = (s,k) => s ? (k==="audio"?s.getAudioTracks()[0]:s.getVideoTracks()[0]) || null : null;
@@ -281,7 +299,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       else { c.screen=new MediaStream([e.track]); render(); }
     };
     pc.onconnectionstatechange=()=>{
-      if(pc.connectionState==="failed" && S.conns.get(id)===c){ dropConn(id); if(S.myId<id && S.peers.has(id)) setTimeout(()=>startOffer(id),1500); }
+      if(pc.connectionState==="failed" && S.conns.get(id)===c){ if(S.away.has(id)){ removePeer(id); return; } dropConn(id); if(S.myId<id && S.peers.has(id)) setTimeout(()=>startOffer(id),1500); }
       render();
     };
     const early=S.earlyIce.get(sid); if(early){ c.pending.push(...early); S.earlyIce.delete(sid); }
@@ -355,10 +373,11 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   function stopShare(){ if(!S.screen) return; S.screen.getTracks().forEach(t=>t.stop()); S.screen=null; if(S.stageOf==="me") S.stageOf=null; replaceAll("vT",null); sendState(); render(); }
 
   $("leaveBtn").onclick=()=>backToLanding("Du har forlatt møtet.");
-  window.addEventListener("pagehide",()=>{ if(S.ws) { S.leaving=true; try{ S.ws.close(); }catch(e){} } });
+  window.addEventListener("pagehide",()=>{ if(S.ws) { S.leaving=true; wsSend({t:"bye"}); try{ S.ws.close(); }catch(e){} } });
   function backToLanding(msg){
     S.leaving=true; clearInterval(S.pingTimer);
-    try{ S.ws && S.ws.close(); }catch(e){} S.ws=null; S.myId=null;
+    wsSend({t:"bye"}); try{ S.ws && S.ws.close(); }catch(e){} S.ws=null; S.myId=null;
+    for(const id of [...S.away.keys()]) backAgain(id);
     resetPeers();
     for(const k of ["screen","cam","mic"]) if(S[k]){ S[k].getTracks().forEach(t=>t.stop()); S[k]=null; }
     if(S.actx){ try{ S.actx.close(); }catch(e){} S.actx=null; }
@@ -407,7 +426,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   // ---------- render ----------
   function render(){
     const n=S.peers.size+1;
-    if(S.myId) $("status").textContent = n===1?"Bare du i møtet":n+" i møtet";
+    if(S.myId && S.ws && S.ws.readyState===1) $("status").textContent = n===1?"Bare du i møtet":n+" i møtet";
     const mb=$("micBtn"); mb.disabled=!S.mic; mb.className="btn "+(S.muted||!S.mic?"off":"");
     mb.innerHTML=(S.muted||!S.mic?ICON.micOff:ICON.mic)+(S.mic?(S.muted?"Slå på mikrofon":"Demp mikrofon"):"Ingen mikrofon");
     const cb=$("camBtn"); cb.className="btn "+(S.cam?"on":""); cb.innerHTML=(S.cam?ICON.cam:ICON.camOff)+(S.cam?"Slå av kamera":"Slå på kamera");

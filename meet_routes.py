@@ -19,6 +19,7 @@ NB: Rommene ligger i minnet til prosessen. Kjør med én worker
 i samme rom på hver sin prosess og finner ikke hverandre.
 """
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -63,6 +64,18 @@ def _rens_state(s) -> dict:
     }
 
 
+def _deltaker_id(cid: str) -> str:
+    """Fast id for en nettleserfane, avledet fra en hemmelig klient-id.
+
+    Fanen beholder da samme id når den kobler til igjen (f.eks. etter en deploy), slik at
+    lyd og bilde kan fortsette. De andre ser bare den avledede id-en og kan ikke utgi seg
+    for å være fanen.
+    """
+    if re.fullmatch(r"[0-9a-f]{32}", cid or ""):
+        return hashlib.sha256(cid.encode()).hexdigest()[:12]
+    return secrets.token_hex(6)
+
+
 async def _send(ws: WebSocket, msg: dict) -> None:
     try:
         await ws.send_text(json.dumps(msg, ensure_ascii=False))
@@ -95,7 +108,9 @@ async def meet_status():
 
 
 @router.websocket("/meet/ws/{rom}")
-async def meet_ws(ws: WebSocket, rom: str, name: str = Query("Deltaker"), kode: str = Query("")):
+async def meet_ws(
+    ws: WebSocket, rom: str, name: str = Query("Deltaker"), kode: str = Query(""), cid: str = Query("")
+):
     await ws.accept()
     rom = _rens_rom(rom)
     if KODE and not secrets.compare_digest(kode.encode(), KODE.encode()):
@@ -107,13 +122,21 @@ async def meet_ws(ws: WebSocket, rom: str, name: str = Query("Deltaker"), kode: 
 
     async with _las:
         medlemmer = _rom.setdefault(rom, {})
-        if len(medlemmer) >= MAKS:
+        pid = _deltaker_id(cid)
+        gammel = medlemmer.get(pid)
+        if gammel is None and len(medlemmer) >= MAKS:
             await ws.close(code=4409)
             return
-        pid = secrets.token_hex(6)
         meg = {"ws": ws, "name": _rens_navn(name), "state": {}}
-        andre = [{"id": k, "name": v["name"], "state": v["state"]} for k, v in medlemmer.items()]
+        andre = [{"id": k, "name": v["name"], "state": v["state"]} for k, v in medlemmer.items() if k != pid]
         medlemmer[pid] = meg
+
+    if gammel is not None:
+        # Samme fane har koblet til på nytt før den gamle forbindelsen ble ryddet bort.
+        try:
+            await gammel["ws"].close(code=4000)
+        except Exception:
+            pass
 
     await _send(ws, {"t": "welcome", "id": pid, "peers": andre})
     await _kringkast(rom, {"t": "peer-joined", "peer": {"id": pid, "name": meg["name"], "state": {}}}, unntatt=pid)
@@ -141,6 +164,8 @@ async def meet_ws(ws: WebSocket, rom: str, name: str = Query("Deltaker"), kode: 
                 tekst = str(msg.get("text", "")).strip()[:500]
                 if tekst:
                     await _kringkast(rom, {"t": "chat", "from": pid, "name": meg["name"], "text": tekst})
+            elif t == "bye":
+                meg["bye"] = True
             elif t == "ping":
                 await _send(ws, {"t": "pong"})
     except WebSocketDisconnect:
@@ -150,7 +175,12 @@ async def meet_ws(ws: WebSocket, rom: str, name: str = Query("Deltaker"), kode: 
     finally:
         async with _las:
             medlemmer = _rom.get(rom, {})
-            medlemmer.pop(pid, None)
+            fjernet = medlemmer.get(pid) is meg
+            if fjernet:
+                medlemmer.pop(pid)
             if not medlemmer:
                 _rom.pop(rom, None)
-        await _kringkast(rom, {"t": "peer-left", "id": pid})
+        if fjernet:
+            # bye=True: deltakeren gikk selv. Ellers kan det være et kort brudd (f.eks. ny deploy),
+            # og klientene beholder lyd og bilde en stund i tilfelle deltakeren kommer tilbake.
+            await _kringkast(rom, {"t": "peer-left", "id": pid, "bye": bool(meg.get("bye"))})
