@@ -2,8 +2,90 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T07:10:00+00:00",
+  "generated_at": "2026-11-13T07:20:00+00:00",
   "items": [
+    {
+      "id": "686450",
+      "market": "XOSL",
+      "ticker": "STECH",
+      "issuer": "Soiltech ASA",
+      "title": "Soiltech ASA - Notice of Extraordinary General Meeting to authorize dividend distributions",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-13T07:15:23.558000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686450",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "686449",
+      "market": "XOSL",
+      "ticker": "BWLPG",
+      "issuer": "BW LPG Limited",
+      "title": "BW LPG Limited announces sale of BW Mistral",
+      "headline": "BW LPG selger BW Mistral og realiserer 37 millioner dollar gevinst",
+      "lead": "BW LPG kunngjør salg av skipet BW Mistral med en forventet netto gevinst på 37 millioner dollar og netto kontantinntekter på 104 millioner dollar, en avgjørelse som styrker selskapets likviditet midt i et sterkt fraktmarked.",
+      "published_at": "2026-11-13T07:15:05.374000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686449",
+      "summary": "BW LPG kunngjør salg av skipet BW Mistral med en forventet netto gevinst på 37 millioner dollar og netto kontantinntekter på 104 millioner dollar, en avgjørelse som styrker selskapets likviditet midt i et sterkt fraktmarked.",
+      "reason": "Salg av BW Mistral gir en betydelig engangsgevinst og styrker kontantbeholdningen, noe som kan brukes til nye investeringer eller redusere gjeld. Aksjonærer bør følge videre kjøp eller reinvesteringer for å vurdere langsiktig effekt.",
+      "score": 75,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "FRO",
+          "direction": "uklar",
+          "reason": "Konkurent i tank- og gass-shipping som kan påvirkes ved endringer i markedsforhold eller kapitalomfordeling innen sektoren."
+        },
+        {
+          "ticker": "HAFNI",
+          "direction": "uklar",
+          "reason": "Kan oppleve lignende markedsdynamikk, men konkret påvirkning av BW LPGs salg er usikker."
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 70,
+      "attachment_key": "0afee9098849635d",
+      "number_keys": [
+        "310b86",
+        "64e0cf",
+        "78a8ef",
+        "7e79a3",
+        "91032a",
+        "9cdda6",
+        "ab7f7b",
+        "aee655",
+        "bd307a",
+        "cb7a1d",
+        "e1822d"
+      ]
+    },
+    {
+      "id": "686448",
+      "market": "XOSL",
+      "ticker": "HEX",
+      "issuer": "Hexagon Composites ASA",
+      "title": "Major Shareholding Disclosure",
+      "headline": "Større eierandel avslørt i Hexagon Composites – ny investor synlig",
+      "lead": "Hexagon Composites offentliggjør en betydelig aksjepost, uten detaljer om eierens identitet eller størrelse, noe som kan påvirke selskapets fremtidige strategi og aksjekurs.",
+      "published_at": "2026-11-13T07:13:55.949000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686448",
+      "summary": "Hexagon Composites offentliggjør en betydelig aksjepost, uten detaljer om eierens identitet eller størrelse, noe som kan påvirke selskapets fremtidige strategi og aksjekurs.",
+      "reason": "Avsløringen av en større aksjepost kan indikere økt interesse eller forberedelser til endringer, men manglende informasjon om eier og viljer begrenser vurdering av konsekvenser for aksjonærene.",
+      "score": 70,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "importance": "mellom",
+      "score_ai": 65,
+      "attachment_key": "645d5f47974ce7a1"
+    },
     {
       "id": "686446",
       "market": "XOSL",
@@ -1186,15 +1268,15 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjon til 4.634 boe/d og sparer 11 millioner i kostnader",
-      "lead": "Questerre rapporterer økt produksjon på 4.634 boe/d i tredje kvartal 2026, men netto tap på 27,6 millioner USD, preget av nedstenging og høye finansielle kostnader.",
+      "headline": "Questerre rapporterer kvartalstap på 27,6 millioner dollar etter anleggsstans",
+      "lead": "Questerres nettoresultat i tredje kvartal 2026 ble minus 27,6 millioner dollar, med operasjonell nedgang fra en planlagt anleggsstans og vedlikeholdsutfordringer ved PX Energy.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre rapporterer økt produksjon på 4.634 boe/d i tredje kvartal 2026, men netto tap på 27,6 millioner USD, preget av nedstenging og høye finansielle kostnader.",
-      "reason": "Produksjonsvekst og kostnadsbesparelser styrker driften, men betydelige non-cash finansielle kostnader og tap begrenser positiv effekt for aksjonærer. Videre bør obligasjonsrestrukturering og teknologitest følges tett.",
+      "summary": "Questerres nettoresultat i tredje kvartal 2026 ble minus 27,6 millioner dollar, med operasjonell nedgang fra en planlagt anleggsstans og vedlikeholdsutfordringer ved PX Energy.",
+      "reason": "Kvartalstapet og produksjonsnedgangen etter anleggsstans og vedlikeholdsproblemer tyder på kortsiktige utfordringer, men fokus på restrukturering og teknologiutvikling kan gi framtidig verdi. Investorer bør følge utviklingen i PX Energys gjeld og kommersialisering av HCCO-teknologien.",
       "score": 60,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "negativ",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
       "score_ai": 75,
@@ -4367,18 +4449,18 @@
       "ticker": "CDLR",
       "issuer": "Cadeler plc",
       "title": "Cadeler plc: Notice of Upcoming Q3 2026 Earnings Release and Presentation on 23 November 2026",
-      "headline": "Cadeler varsler Q3-rapport og webcast 23. november – ny strategi for offshorevind",
-      "lead": "Cadeler offentliggjør sine tall for første ni måneder 2026 og holder direktesendt presentasjon 23. november. Rapporten kan gi innsikt i selskapets ekspansjon innen offshore vind-installasjon og tjenester.",
+      "headline": "Cadeler kunngjør Q3 2026-resultater og webcast 23. november",
+      "lead": "Cadeler planlegger å offentliggjøre sine finansielle resultater for de første ni månedene av 2026 23. november kl. 08:00 CET, med direktesendt presentasjon for investorer samme dag.",
       "published_at": "2026-11-12T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686289",
-      "summary": "Cadeler offentliggjør sine tall for første ni måneder 2026 og holder direktesendt presentasjon 23. november. Rapporten kan gi innsikt i selskapets ekspansjon innen offshore vind-installasjon og tjenester.",
-      "reason": "Varslingen om Q3-rapport og presentasjon gir investorer en mulighet til å vurdere selskapets utvikling og strategi, men uten tall kan vi ikke vurdere resultatets kvalitet eller konsekvenser. Utdypes ved rapportering.",
-      "score": 30,
+      "summary": "Cadeler planlegger å offentliggjøre sine finansielle resultater for de første ni månedene av 2026 23. november kl. 08:00 CET, med direktesendt presentasjon for investorer samme dag.",
+      "reason": "Meldingen informerer kun om tidspunkt for resultatfremleggelse og presentasjon uten å gi finansiell informasjon eller forventninger som kan påvirke aksjekursen direkte. Viktig for investorer å følge opp ved offentliggjøring for innsikt i fremdrift.",
+      "score": 15,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 45,
+      "score_ai": 30,
       "number_keys": [
         "086c04",
         "15e730",
@@ -6614,12 +6696,12 @@
       "ticker": "OUTLT",
       "issuer": "Outlet Group Holding ASA",
       "title": "Outlet Group Holding ASA: Financial results for the third quarter of 2026",
-      "headline": "Utvidet butikknettverk løfter Outlet Groups omsetning 16,4 prosent",
-      "lead": "Outlet Group økte kvartalsomsetningen til 740 millioner kroner, opp 16,4 prosent fra i fjor, drevet av økt egenmerkeandel og nye butikker. Justert EBIT nådde 150 millioner, mens marginene opplevde en svak nedgang.",
+      "headline": "Outlet Group øker omsetning 16 prosent, justert EBIT opp 28 prosent",
+      "lead": "Outlet Group rapporterte 740 millioner kroner i inntekter i Q3 2026, opp 16,4 prosent fra i fjor. Justert EBIT steg 28 prosent til 262 millioner kroner hittil i år, med margin på 14,4 prosent, drevet av økt egen merkevareandel.",
       "published_at": "2026-11-12T06:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686260",
-      "summary": "Outlet Group økte kvartalsomsetningen til 740 millioner kroner, opp 16,4 prosent fra i fjor, drevet av økt egenmerkeandel og nye butikker. Justert EBIT nådde 150 millioner, mens marginene opplevde en svak nedgang.",
-      "reason": "Sterk omsattning og økt egenmerkeandel styrker lønnsomheten, men noe press på marginene krever oppfølging. Verdsettelsen bør vurderes i lys av det raske butikknettverket og IPO-finansieringen.",
+      "summary": "Outlet Group rapporterte 740 millioner kroner i inntekter i Q3 2026, opp 16,4 prosent fra i fjor. Justert EBIT steg 28 prosent til 262 millioner kroner hittil i år, med margin på 14,4 prosent, drevet av økt egen merkevareandel.",
+      "reason": "Sterk topplinjevekst og forbedret margin indikerer effektiv drift og vekstpotensial. Nåværende ekspansjon og egen merkevarefokus kan styrke konkurranseposisjonen. Videre utvikling i lønnsomhet og effekten av nylig børsnotering bør følges nøye.",
       "score": 75,
       "skipped": false,
       "direction": "positiv",
@@ -6682,7 +6764,7 @@
             "yoy_pct": 16.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Q3 2026 business highlights, page 3; Condensed Consolidated Interim Statement of Income, page 9"
+            "evidence": "Page 3 Q3 2026 Revenue NOK 740.1m (636.1m)"
           },
           {
             "label": "EBITDA",
@@ -6695,7 +6777,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Not explicitly reported for group in Q3 2026"
+            "evidence": "EBITDA not explicitly reported for Q3 2026 consolidated"
           },
           {
             "label": "EBIT",
@@ -6708,7 +6790,7 @@
             "yoy_pct": 5.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Condensed Consolidated Interim Statement of Income, page 9"
+            "evidence": "Page 9 Interim report Q3 2026, Operating profit 142.0 million (134.8)"
           },
           {
             "label": "Resultat etter skatt",
@@ -6721,7 +6803,7 @@
             "yoy_pct": 9.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Condensed Consolidated Interim Statement of Income, page 9"
+            "evidence": "Page 9 Interim report Q3 2026, Net profit for the period 94.7 million (86.8)"
           },
           {
             "label": "EPS",
@@ -6734,20 +6816,20 @@
             "yoy_pct": 11.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Condensed Consolidated Interim Statement of Income, page 9"
+            "evidence": "Page 9 Interim report Q3 2026, Basic and diluted EPS 0.97 (0.87)"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
             "unit": "NOK million",
-            "current": 327.0,
-            "prior_year": 270.0,
+            "current": 326.9,
+            "prior_year": 269.6,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 21.1,
+            "yoy_pct": 21.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Q3 2026 business highlights, page 3"
+            "evidence": "Page 6 Interim report Q3 2026, Net cash flow from operating activities 326.9 million (269.6)"
           },
           {
             "label": "Netto renteinntekter",
@@ -6760,38 +6842,38 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net financial items reported with expense of -20.1 million, no separate net interest income disclosed, page 9"
+            "evidence": "Net financial income (expense) is negative, no explicit net interest income reported"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Kids Outlet planlegger å øke til 30 butikker i Norge innen årets slutt, med fremgang i butikksatsingen og forbedringer i produktmiks og innkjøpsbetingelser for bedre marginer. Sport Outlet viser sterk underliggende vekst i kjerneprodukter og forventer at økt omsetning vil spre sentrale kostnader og forbedre lønnsomheten i segmentet. Et prosjekt for forbedring av den digitale handelsopplevelsen skal rulles ut i faser for å øke netthandelen over tid. Overgangen til sentralstyrt varepåfylling skal fullføres i Q4 for bedre lagerstyring og produkt-tilgjengelighet. Investeringer i nytt sentrallager og hovedkontor pågår, noe som har gitt negativ seg",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "summary": "Kids Outlet-planen om å utvide til 30 butikker innen årets slutt går som planlagt, med fokus på produktutvikling og bedre innkjøpsbetingelser for å styrke konkurransedyktighet og bruttofortjeneste. Sport Outlet viste sterk salgsvekst og forventer forbedret lønnsomhet gjennom skalafordeler og driftsforbedringer. Overgangen til sentral styring av varepåfylling i butikkene vil bidra til bedre lagerstyring og produktdisponering, med full implementering forventet i Q4. Et pågående initiativ for å oppgradere nettplattformen i faser skal støtte økt netthandel over tid.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Butikkutvidelse Kids Outlet",
-              "statement": "Planlegger 30 butikker i Norge innen årsslutt, med signerte leieavtaler og fortsatt produktutvikling",
-              "evidence": "'Store expansion is progressing in line... to 30 stores by year-end' (side 4)",
+              "topic": "Storeutvidelse Kids Outlet",
+              "statement": "Planlagt å nå 30 butikker innen årsslutt med signerte leieavtaler.",
+              "evidence": "store expansion is progressing in line with the Group’s plans, with signed lease agreements in place to bring Kids Outlet to 30 stores by year-end.",
               "page": "4"
             },
             {
-              "topic": "Lønnsomhetsforbedring Sport Outlet",
-              "statement": "Sterk salgsvekst og forventning om at økt omsetning vil spre sentrale kostnader og bedre lønnsomheten",
-              "evidence": "'this is expected to improve segment profitability' (side 4)",
+              "topic": "Forbedring av netthandelsplattform",
+              "statement": "Digitale forbedringer skal fases inn i kommende kvartaler for å øke netthandel og kundeengasjement.",
+              "evidence": "redevelopment project for its online platform to improve the digital shopping experience, customer engagement and conversion, expected to support increase in online sales over time.",
               "page": "4"
             },
             {
-              "topic": "Digital plattformutvikling",
-              "statement": "Pågående prosjekt for å heve netthandelsopplevelse, økt kundetilfredshet og konvertering med fasevis implementering",
-              "evidence": "'redevelopment project for its online platform... implemented in phases over the coming quarters' (side 4)",
+              "topic": "Lagerstyring og logistikk",
+              "statement": "Overgang fra butikkstyrt til sentralstyrt varepåfylling under implementering med forventet ferdigstillelse i Q4, for bedre produktdisponering og lageroptimalisering.",
+              "evidence": "the Group began transitioning from store-managed to centrally managed store replenishment, with full implementation expected during Q4.",
               "page": "4"
             },
             {
-              "topic": "Logistikk og lagerstyring",
-              "statement": "Overgang til sentralstyrt varepåfylling pågår for bedre produkt tilgjengelighet, samt bygging av nytt sentrallager og hovedkontor",
-              "evidence": "'Group began transitioning from store-managed to centrally managed store replenishment.. full implementation expected Q4' (side 4)",
+              "topic": "Lønnsomhet og kostnader",
+              "statement": "Kostnadsfordeler ved skalert vekst i Sport Outlet og sentral organisasjon skal forbedre lønnsomheten og redusere sentrale kostnader som andel av omsetning.",
+              "evidence": "further growth allows central costs to be spread across a larger revenue base. Together with continued operational improvements... this is expected to improve segment profitability.",
               "page": "4"
             }
           ]
@@ -7395,30 +7477,30 @@
       "ticker": "OET",
       "issuer": "Okeanis Eco Tankers Corp.",
       "title": "Okeanis Eco Tankers Corp. - Key Information relating to Q3 2026 dividend",
-      "headline": "Okeanis Eco Tankers utbetaler 7 USD i kvartalsutbytte 1. desember",
-      "lead": "Okeanis Eco Tankers (OET) har besluttet et kvartalsutbytte på 7 USD per aksje, med utbetaling 1. desember. Utbyttet påvirkes av ulike oppgjørsdager på Oslo Børs og NYSE, noe som kan skape ulikheter for aksjonærene.",
+      "headline": "Okeanis Eco Tankers utbetaler 7 USD per aksje i kvartalsutbytte",
+      "lead": "Okeanis Eco Tankers (OET) har vedtatt et kvartalsutbytte på 7 USD per aksje med utbetaling 1. desember 2026. Utbyttet utbetales i NOK for aksjer registrert på Oslo Børs, grunnet nytt regelverk.",
       "published_at": "2026-11-11T21:20:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686253",
-      "summary": "Okeanis Eco Tankers (OET) har besluttet et kvartalsutbytte på 7 USD per aksje, med utbetaling 1. desember. Utbyttet påvirkes av ulike oppgjørsdager på Oslo Børs og NYSE, noe som kan skape ulikheter for aksjonærene.",
-      "reason": "Utbytte på 7 USD per aksje gir direkteavkastning til investorer og bekrefter kapitaldistribusjon, viktig informasjon for aksjonærer. Forskjeller i oppgjørsdatoer på OSE og NYSE kan påvirke timing og nettoutbytte for enkelte eiere, dette bør undersøkes nærmere i forhold til aksjefordeling.",
-      "score": 75,
+      "summary": "Okeanis Eco Tankers (OET) har vedtatt et kvartalsutbytte på 7 USD per aksje med utbetaling 1. desember 2026. Utbyttet utbetales i NOK for aksjer registrert på Oslo Børs, grunnet nytt regelverk.",
+      "reason": "Utbyttet bekrefter selskapets solide likviditet og evne til å generere kontantstrøm, noe som er positivt for aksjonærer. Tidspunkt og valutaveksling kan påvirke mottakere på Oslo Børs. Videre bør man følge selskapets underliggende inntektsutvikling og markedsforhold.",
+      "score": 70,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
       "affected": [
         {
           "ticker": "FRO",
-          "direction": "uklar",
-          "reason": "Konkurrenter i tank- og gassshipping kan merke lignende investorfokus på utbyttepolicy."
+          "direction": "negativ",
+          "reason": "Utbytteutbetaling kan reflektere kapitalfrihet i tankmarkedet, men øker konkurransen om investors kapital i samme sektor."
         },
         {
           "ticker": "HAFNI",
-          "direction": "uklar",
-          "reason": "Sektorkollegaer kan påvirkes av endringer i investorenes preferanser for kontantutbytte."
+          "direction": "negativ",
+          "reason": "Selskapets utbyttenivå kan skape press på Hafnias utbyttestrategi i et volatilt tankmarked."
         }
       ],
       "importance": "mellom",
-      "score_ai": 70,
+      "score_ai": 65,
       "number_keys": [
         "084c34",
         "0de7f5",
@@ -7466,13 +7548,13 @@
       "ticker": "OET",
       "issuer": "Okeanis Eco Tankers Corp.",
       "title": "Okeanis Eco Tankers Corp. - Unaudited Condensed Financial Results for the Third Quarter and Nine-Month Period of 2026",
-      "headline": "Okeanis Eco Tankers øker kvartalsresultatet til 300 mill. USD",
-      "lead": "Okeanis Eco Tankers rapporterer et kvartalsresultat på 299,6 mill. USD i tredje kvartal 2026, opp fra 24,1 mill. USD året før. Resultatet påvirkes av betydelig økte inntekter og høyere charterrater, men driftskostnadene steg også noe.",
+      "headline": "Okeanis Eco Tankers løfter kvartalsresultatet til 300 mill. USD med 7 dollar i utbytte",
+      "lead": "Okeanis Eco Tankers økte inntektene til 501,5 mill. USD i Q3 2026, opp fra 90,6 mill. USD i samme periode i fjor, med et overskudd på 299,6 mill. USD. Styret kunngjør utbytte på 7 USD per aksje, utbetalt desember 2026.",
       "published_at": "2026-11-11T21:15:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686252",
-      "summary": "Okeanis Eco Tankers rapporterer et kvartalsresultat på 299,6 mill. USD i tredje kvartal 2026, opp fra 24,1 mill. USD året før. Resultatet påvirkes av betydelig økte inntekter og høyere charterrater, men driftskostnadene steg også noe.",
-      "reason": "Sterk inntektsvekst og økt lønnsomhet gir aksjonærene høy avkastning og solid kontantbeholdning. Videre oppfølging bør rettes mot bærekraft i resultatveksten og utvikling i charteravtaler framover.",
-      "score": 90,
+      "summary": "Okeanis Eco Tankers økte inntektene til 501,5 mill. USD i Q3 2026, opp fra 90,6 mill. USD i samme periode i fjor, med et overskudd på 299,6 mill. USD. Styret kunngjør utbytte på 7 USD per aksje, utbetalt desember 2026.",
+      "reason": "Selskapet leverer betydelig høyere kvartalsresultater sammenlignet med fjoråret, med kraftig økning i inntekter og overskudd. Det høye kontantutbyttet reflekterer sterk kontantstrøm og overskudd, noe som bør vokte investorers interesse for selskapets lønnsomhet og robusthet i markedet. Videre bør man undersøke holdbarheten i charterrater",
+      "score": 97,
       "skipped": false,
       "direction": "positiv",
       "assessment_source": "AI",
@@ -7480,16 +7562,16 @@
         {
           "ticker": "FRO",
           "direction": "positiv",
-          "reason": "Konkurrent i tanksektoren som også kan dra nytte av sterk markedsvekst og økte charterrater."
+          "reason": "Sterkt resultat fra OET antyder høyere etterspørsel og gode rater for tankskipssektoren, noe som kan løfte FROs verdsettelse."
         },
         {
           "ticker": "HAFNI",
           "direction": "positiv",
-          "reason": "Potensiell bransjeseffekt gir styrket inntjening i samme segment."
+          "reason": "Markedsforbedringer som løfter OETs marginer kan også styrke Hafnias inntjening."
         }
       ],
       "importance": "mellom",
-      "score_ai": 85,
+      "score_ai": 92,
       "attachment_key": "a1a6b13acc3e88f4",
       "number_keys": [
         "004be8",
@@ -14093,86 +14175,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686049",
-      "market": "XOSL",
-      "ticker": "HXHC",
-      "issuer": "HX Hold Co Ltd.",
-      "title": "HX Expeditions CEO Gebhard Rainer to Step Down and Return Home to the USA",
-      "headline": "HXHC-sjef Gebhard Rainer trer tilbake etter sterk bookingvekst på 25%",
-      "lead": "HX Hold Co Ltd melder at CEO Gebhard Rainer fratrer for å flytte til USA. Under hans ledelse økte bokningene 25 % globalt, men utpeking av ny sjef pågår for å sikre smidig overgang.",
-      "published_at": "2026-11-09T16:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/686049",
-      "summary": "HX Hold Co Ltd melder at CEO Gebhard Rainer fratrer for å flytte til USA. Under hans ledelse økte bokningene 25 % globalt, men utpeking av ny sjef pågår for å sikre smidig overgang.",
-      "reason": "CEO-skifte kan skape usikkerhet, men Rainer forsetter i overgangsperiode. Den sterke bookingveksten under hans ledelse gir positiv momentum, men ny ledelse må bevise videre fremdrift.",
-      "score": 50,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 65,
-      "language_versions": [
-        {
-          "id": "686049",
-          "title": "HX Expeditions CEO Gebhard Rainer to Step Down and Return Home to the USA",
-          "url": "https://newsweb.oslobors.no/message/686049",
-          "published_at": "2026-11-09T16:00:00+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "686048",
-          "title": "HX Expeditions CEO Gebhard Rainer to Step Down and Return Home to the USA",
-          "url": "https://newsweb.oslobors.no/message/686048",
-          "published_at": "2026-11-09T16:00:00+00:00",
-          "language": "Original"
-        }
-      ],
-      "attachment_key": "17e1ebcec2eea14e",
-      "number_keys": [
-        "0ade7c",
-        "0c774d",
-        "133765",
-        "4d134b",
-        "667be5",
-        "7e79a3",
-        "aee655",
-        "f6e112"
-      ]
-    },
-    {
-      "id": "686047",
-      "market": "XOSL",
-      "ticker": "AUTO",
-      "issuer": "AutoStore Holdings Ltd.",
-      "title": "AutoStore Holdings Ltd. - Transactions made under the share buy-back program",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-09T15:30:15.907000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686047",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686046",
-      "market": "XOSL",
-      "ticker": "MORLD",
-      "issuer": "Moreld ASA",
-      "title": "Moreld ASA: Status on share buy-back programme",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-09T15:16:43.009000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686046",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -14375,19 +14377,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T07:10:00+00:00",
+  "last_checked_at": "2026-11-13T07:20:00+00:00",
   "monitor_stats": {
-    "fetched": 187,
-    "recent": 129,
+    "fetched": 190,
+    "recent": 132,
     "already_seen": 124,
-    "eligible": 5,
-    "filtered": 0,
-    "analyzed": 5,
+    "eligible": 7,
+    "filtered": 1,
+    "analyzed": 7,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 5,
-    "source_latest_at": "2026-11-13T07:00:00+00:00",
+    "source_latest_at": "2026-11-13T07:15:23.558000+00:00",
     "indirect": 0
   }
 }
