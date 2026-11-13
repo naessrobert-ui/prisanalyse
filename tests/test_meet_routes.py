@@ -164,3 +164,37 @@ def test_port_53_filtreres_bort(monkeypatch):
     monkeypatch.setattr(meet_routes.httpx, "AsyncClient", Klient)
     servere = asyncio.run(meet_routes._hent_turn())
     assert servere[0]["urls"] == ["turn:t:3478?transport=udp"]
+
+
+def test_invitasjon_gir_tilgang_til_ett_rom_uten_kode(client):
+    assert client.get("/meet/invite?rom=test-rom&kode=feil").status_code == 401
+    d = client.get("/meet/invite?rom=Test-Rom&kode=hemmelig").json()
+    assert d["rom"] == "test-rom" and d["inv"] and d["utloper"] > 0
+    inv = d["inv"]
+
+    with client.websocket_connect(f"/meet/ws/test-rom?name=Kari&inv={inv}") as ws:
+        assert _msg(ws)["t"] == "welcome"
+    assert client.get(f"/meet/ice?rom=test-rom&inv={inv}").status_code == 200
+
+    # Gjelder ikke andre rom
+    with pytest.raises(WebSocketDisconnect) as e:
+        with client.websocket_connect(f"/meet/ws/annet-rom?name=Kari&inv={inv}") as ws:
+            ws.receive_text()
+    assert e.value.code == 4401
+    assert client.get(f"/meet/ice?rom=annet-rom&inv={inv}").status_code == 401
+
+    # Den inviterte kan dele samme lenke videre, men den forlenges ikke
+    assert client.get(f"/meet/invite?rom=test-rom&inv={inv}").json()["inv"] == inv
+
+
+def test_utlopt_eller_forfalsket_invitasjon_avvises(client):
+    import meet_routes
+
+    gammel = meet_routes._lag_invitasjon("test-rom", 1000)
+    ekte = client.get("/meet/invite?rom=test-rom&kode=hemmelig").json()["inv"]
+    falsk = ekte[:-1] + ("1" if ekte[-1] == "0" else "0")
+    for inv in (gammel, falsk, "tull", ""):
+        with pytest.raises(WebSocketDisconnect) as e:
+            with client.websocket_connect(f"/meet/ws/test-rom?name=X&inv={inv}") as ws:
+                ws.receive_text()
+        assert e.value.code == 4401

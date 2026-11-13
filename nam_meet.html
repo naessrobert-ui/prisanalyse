@@ -31,6 +31,7 @@ button,input{font:inherit;color:inherit}
 label{display:block;font-weight:600;font-size:.9rem;margin:1rem 0 .35rem}
 .field{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:.65rem .8rem}
 .hint{color:var(--muted);font-size:.85rem;margin:.35rem 0 0}
+.hint.invited{margin-top:1.1rem;padding:.65rem .8rem;border-radius:10px;background:var(--chip);color:var(--ink);font-size:.9rem}
 .row{display:flex;gap:.5rem}
 .row .field{flex:1}
 
@@ -151,9 +152,12 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       <input class="field" id="roomIn" maxlength="32" placeholder="For eksempel norsk-team">
       <button class="sbtn" id="newRoom" type="button">Lag ny</button>
     </div>
-    <p class="hint">Alle som skriver samme romkode, havner i samme møte.</p>
-    <label for="kodeIn">Tilgangskode</label>
-    <input class="field" id="kodeIn" type="password" maxlength="100" autocomplete="off" placeholder="Fra den som inviterte deg">
+    <p class="hint" id="roomHint">Alle som skriver samme romkode, havner i samme møte.</p>
+    <div id="kodeWrap">
+      <label for="kodeIn">Tilgangskode</label>
+      <input class="field" id="kodeIn" type="password" maxlength="100" autocomplete="off" placeholder="Fra den som inviterte deg">
+    </div>
+    <p class="hint invited hidden" id="invitedNote"></p>
     <button class="btn primary wide" id="joinBtn" type="button">Bli med i møtet</button>
     <p class="hint" id="landNote"></p>
   </div>
@@ -164,7 +168,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     <h1>NAM Meet</h1>
     <span class="orgh">Nordea Asset Management</span>
     <span id="status">Kobler til …</span>
-    <span class="roomtag">Rom: <b id="roomName"></b> <button class="sbtn" id="copyBtn" type="button">Kopier invitasjon</button></span>
+    <span class="roomtag">Rom: <b id="roomName"></b> <button class="sbtn" id="copyBtn" type="button">Inviter</button></span>
   </header>
   <main>
     <div class="left">
@@ -206,7 +210,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   async function loadIce(){
     try{
       const base=location.pathname.replace(/\/meet\/?.*$/,"");
-      const r=await fetch(base+"/meet/ice?kode="+encodeURIComponent(S.kode),{cache:"no-store"});
+      const r=await fetch(base+"/meet/ice?kode="+encodeURIComponent(S.kode)+"&inv="+encodeURIComponent(S.inv)+"&rom="+encodeURIComponent(S.room),{cache:"no-store"});
       if(r.ok){ const d=await r.json(); if(Array.isArray(d.iceServers) && d.iceServers.length) ICE=d.iceServers; }
     }catch(e){}
   }
@@ -228,13 +232,26 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 
   const S = {
     room:"", name:"", kode:"", ws:null, myId:null, peers:new Map(), conns:new Map(), leaving:false, retry:0, pingTimer:null,
-    mic:null, screen:null, cam:null, muted:false, shareAt:0, pin:null, autoCam:null, speakSince:new Map(), cid:"", away:new Map(), unread:0,
+    mic:null, screen:null, cam:null, muted:false, shareAt:0, pin:null, autoCam:null, speakSince:new Map(), cid:"", inv:"", away:new Map(), unread:0,
     actx:null, meters:new Map(), speaking:new Set(), camEls:new Map(), earlyIce:new Map()
   };
 
   // ---------- landing ----------
   try{ $("nameIn").value = localStorage.getItem("nammeet-name") || ""; $("kodeIn").value = localStorage.getItem("nammeet-kode") || ""; }catch(e){}
-  if(location.hash.length>1) $("roomIn").value = cleanRoom(decodeURIComponent(location.hash.slice(1)));
+  // Lenker: #rom eller #rom?inv=TOKEN (invitasjon som gir tilgang uten tilgangskode)
+  if(location.hash.length>1){
+    const [r,q]=location.hash.slice(1).split("?");
+    $("roomIn").value = cleanRoom(decodeURIComponent(r||""));
+    const inv=new URLSearchParams(q||"").get("inv")||"";
+    if(/^\d+\.[0-9a-f]{32}$/.test(inv) && $("roomIn").value.length>=3){
+      S.inv=inv;
+      $("kodeWrap").classList.add("hidden"); $("roomIn").readOnly=true; $("newRoom").classList.add("hidden"); $("roomHint").classList.add("hidden");
+      const ut=new Date(parseInt(inv,10)*1000);
+      const n=$("invitedNote"); n.classList.remove("hidden");
+      n.textContent="Du er invitert til rommet «"+$("roomIn").value+"». Du trenger ingen tilgangskode. Invitasjonen gjelder til "+ut.toLocaleString("no-NO",{weekday:"long",hour:"2-digit",minute:"2-digit"})+".";
+      if(parseInt(inv,10)*1000<Date.now()) n.textContent="Invitasjonen har gått ut. Be den som inviterte deg om en ny lenke.";
+    }
+  }
   $("newRoom").onclick = ()=>{ $("roomIn").value = "nam-" + Math.random().toString(36).slice(2,8); };
   if(location.protocol!=="https:" && location.hostname!=="localhost" && location.hostname!=="127.0.0.1")
     $("landNote").textContent = "Siden må åpnes via https for at mikrofon og kamera skal virke.";
@@ -242,13 +259,13 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   for(const id of ["roomIn","kodeIn"]) $(id).addEventListener("keydown", e=>{ if(e.key==="Enter") join(); });
 
   async function join(){
-    const name=$("nameIn").value.trim().slice(0,40), room=cleanRoom($("roomIn").value), kode=$("kodeIn").value;
+    const name=$("nameIn").value.trim().slice(0,40), room=cleanRoom($("roomIn").value), kode=S.inv?"":$("kodeIn").value;
     if(!name){ $("landNote").textContent="Skriv inn navnet ditt."; $("nameIn").focus(); return; }
     if(room.length<3){ $("landNote").textContent="Romkoden må ha minst tre tegn."; $("roomIn").focus(); return; }
     Object.assign(S,{name,room,kode,leaving:false,retry:0});
     const rnd=new Uint8Array(16); crypto.getRandomValues(rnd); S.cid=[...rnd].map(b=>b.toString(16).padStart(2,"0")).join("");
-    try{ localStorage.setItem("nammeet-name",name); localStorage.setItem("nammeet-kode",kode); }catch(e){}
-    history.replaceState(null,"","#"+room);
+    try{ localStorage.setItem("nammeet-name",name); if(!S.inv) localStorage.setItem("nammeet-kode",kode); }catch(e){}
+    history.replaceState(null,"","#"+room+(S.inv?"?inv="+S.inv:""));
     $("joinBtn").disabled=true; $("landNote").textContent="Kobler til …";
     try{ S.actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ S.actx=null; }
     try{ S.mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); }
@@ -263,7 +280,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   function wsUrl(){
     const base = location.pathname.replace(/\/meet\/?.*$/,"");
     return (location.protocol==="https:"?"wss://":"ws://") + location.host + base + "/meet/ws/" + encodeURIComponent(S.room)
-      + "?name=" + encodeURIComponent(S.name) + "&kode=" + encodeURIComponent(S.kode) + "&cid=" + S.cid;
+      + "?name=" + encodeURIComponent(S.name) + "&kode=" + encodeURIComponent(S.kode) + "&cid=" + S.cid + (S.inv ? "&inv=" + encodeURIComponent(S.inv) : "");
   }
   function connect(){
     const ws = new WebSocket(wsUrl());
@@ -273,7 +290,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       if(S.ws!==ws) return;
       clearInterval(S.pingTimer);
       if(S.leaving) return;
-      if(ev.code===4401){ backToLanding("Feil tilgangskode."); return; }
+      if(ev.code===4401){ backToLanding(S.inv?"Invitasjonen gjelder ikke lenger. Be den som inviterte deg om en ny lenke.":"Feil tilgangskode."); return; }
       if(ev.code===4409){ backToLanding("Rommet er fullt."); return; }
       if(ev.code===4400){ backToLanding("Ugyldig romkode."); return; }
       if(!S.myId && S.retry===0){ $("landNote").textContent="Får ikke kontakt med møteserveren. Prøver igjen …"; }
@@ -434,10 +451,26 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     $("joinBtn").disabled=false; $("landNote").textContent=msg||""; notice(""); closeChat(); S.unread=0; updateBadge();
   }
 
+  // Inviter: lager en lenke som gir tilgang til dette rommet i 24 timer uten tilgangskode,
+  // og åpner delingsmenyen (SMS, WhatsApp, e-post …) der den finnes. Ellers kopieres lenken.
   $("copyBtn").onclick=async()=>{
-    const txt="Bli med i NAM Meet: "+location.origin+location.pathname+"#"+S.room+" (tilgangskoden får du av meg)";
-    try{ await navigator.clipboard.writeText(txt); $("copyBtn").textContent="Kopiert"; }catch(e){ $("copyBtn").textContent="Rom: "+S.room; }
-    setTimeout(()=>$("copyBtn").textContent="Kopier invitasjon",2000);
+    const b=$("copyBtn"), reset=()=>setTimeout(()=>b.textContent="Inviter",2500);
+    let d;
+    try{
+      const base=location.pathname.replace(/\/meet\/?.*$/,"");
+      const r=await fetch(base+"/meet/invite?rom="+encodeURIComponent(S.room)+"&kode="+encodeURIComponent(S.kode)+"&inv="+encodeURIComponent(S.inv),{cache:"no-store"});
+      if(!r.ok) throw new Error(r.status);
+      d=await r.json();
+    }catch(e){ notice("Fikk ikke laget invitasjonslenke. Prøv igjen om litt."); return; }
+    const url=location.origin+location.pathname+"#"+S.room+(d.inv?"?inv="+d.inv:"");
+    const tekst="Bli med i NAM Meet"+(d.inv?" (lenken gjelder i 24 timer, du trenger ingen kode)":"")+":";
+    if(navigator.share && matchMedia("(pointer:coarse)").matches){
+      try{ await navigator.share({title:"NAM Meet",text:tekst,url}); return; }
+      catch(e){ if(e && e.name==="AbortError") return; }
+    }
+    try{ await navigator.clipboard.writeText(tekst+" "+url); b.textContent="Lenken er kopiert"; }
+    catch(e){ window.prompt("Kopier lenken og send den:",url); }
+    reset();
   };
   $("autoBtn").onclick=()=>{ S.pin=null; render(); };
   { const go=()=>{ if(S.cam){ S.pin={kind:"cam",key:"me"}; render(); } };
