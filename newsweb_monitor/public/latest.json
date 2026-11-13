@@ -2,8 +2,51 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T22:20:00+00:00",
+  "generated_at": "2026-11-13T22:30:00+00:00",
   "items": [
+    {
+      "id": "686525",
+      "market": "XOSL",
+      "ticker": "OTEC",
+      "issuer": "Otello Corporation ASA",
+      "title": "Bemobi 3Q 26 Reporting",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – viktige tall tilgjengelig fra 12. november",
+      "lead": "Bemobi Mobile Tech SA har offentliggjort sitt resultat for tredje kvartal 2026. Otello Corporation eier 38,22 % av selskapet. Detaljer og presentasjoner ligger tilgjengelig online, men konkret tallinformasjon må granskes nærmere.",
+      "published_at": "2026-11-13T22:28:03.082000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686525",
+      "summary": "Bemobi Mobile Tech SA har offentliggjort sitt resultat for tredje kvartal 2026. Otello Corporation eier 38,22 % av selskapet. Detaljer og presentasjoner ligger tilgjengelig online, men konkret tallinformasjon må granskes nærmere.",
+      "reason": "Rapporten gir en oppdatering på Bemobis økonomi som påvirker Otello direkte. Foreløpig mangler det i opplysningene en konkret vurdering av tallene i forhold til tidligere kvartal og markedet. Det er viktig å undersøke underliggende resultater og markedseffekter for videre vurdering.",
+      "score": 50,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "number_keys": [
+        "4887ba",
+        "53a645",
+        "77de68",
+        "7b5200",
+        "887309"
+      ],
+      "financial_report": {
+        "status": "no_pdf",
+        "period": "2026Q3",
+        "period_source": "",
+        "previous_report": "",
+        "document": {
+          "name": "",
+          "url": ""
+        },
+        "metrics": [],
+        "outlook": {
+          "status": "",
+          "summary": "",
+          "change": "",
+          "trend": "",
+          "compared_periods": [],
+          "points": []
+        }
+      }
+    },
     {
       "id": "686524",
       "market": "XOSL",
@@ -1303,18 +1346,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor utbetaler 0,39 USD per aksje for andre kvartal 2026 i dag",
-      "lead": "Equinor betaler ut et kontantutbytte på 0,39 USD per aksje med eks-dato 13. november 2026. Dette påvirker aksjekursen ved at den justeres ned med tilsvarende beløp på eks-datoen.",
+      "headline": "Equinor betaler utbytte på 0,39 USD per aksje til kvartalet",
+      "lead": "Fra i dag handles Equinor-aksjen eksklusive utbytte for Q2 2026 på 0,39 USD per aksje. Utbyttet påvirker aksjekursen, men gir direkte aksjonæravkastning.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor betaler ut et kontantutbytte på 0,39 USD per aksje med eks-dato 13. november 2026. Dette påvirker aksjekursen ved at den justeres ned med tilsvarende beløp på eks-datoen.",
-      "reason": "Utbytteutbetaling bekrefter selskapets kontinuerlige kapitalavkastning til aksjonærene, men gir ingen ny finansiell informasjon om drift eller vekst. Viktig å følge fremtidig utbyttepolitikk og kontantstrøm.",
-      "score": 70,
+      "summary": "Fra i dag handles Equinor-aksjen eksklusive utbytte for Q2 2026 på 0,39 USD per aksje. Utbyttet påvirker aksjekursen, men gir direkte aksjonæravkastning.",
+      "reason": "Utbytteutbetaling gir kontantavkastning til aksjonærer, men reduserer aksjekursen tilsvarende. Viktig å følge hvordan markedet absorberer effekten og selskapets strategiske kapitalstruktur fremover.",
+      "score": 55,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "positiv",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AKRBP",
+          "direction": "uklar",
+          "reason": "Sektorpeer som kan oppleve lignende utbyttehandelsmønster eller kapitalallokeringseffekter."
+        }
+      ],
       "importance": "stor",
-      "score_ai": 60,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -2813,15 +2863,15 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjon til 4.634 boe/d, rapporterer $27,6 mill. kvartalstap",
-      "lead": "Questerre Energy økte produksjonen med over 58 % til 4.634 boe per dag i tredje kvartal 2026, men rapporterte et netto tap på 27,6 millioner dollar preget av høyere finansutgifter og driftsavbrudd.",
+      "headline": "Questerre rapporterer 27,6 mill. dollar kvartalstap etter anleggsstans og høye finansutgifter",
+      "lead": "Tredje kvartal 2026 viste et netto underskudd på 27,6 millioner dollar for Questerre, drevet av en uplanlagt stopp ved PX Energy-anlegget og betydelige ikke-kontante finansutgifter knyttet til obligasjoner.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre Energy økte produksjonen med over 58 % til 4.634 boe per dag i tredje kvartal 2026, men rapporterte et netto tap på 27,6 millioner dollar preget av høyere finansutgifter og driftsavbrudd.",
-      "reason": "Økt produksjon og høyere inntekter viser vekst, men netto tap og driftsutfordringer tynger resultatet. Aksjonærer bør følge utviklingen i PX Energy og effekten av planlagt omstrukturering videre.",
+      "summary": "Tredje kvartal 2026 viste et netto underskudd på 27,6 millioner dollar for Questerre, drevet av en uplanlagt stopp ved PX Energy-anlegget og betydelige ikke-kontante finansutgifter knyttet til obligasjoner.",
+      "reason": "Kvartalstapet på 27,6 millioner dollar reflekterer driftsforstyrrelser og høy finanskostnad til tross for økt produksjon og inntekter. Investorer bør følge utviklingen i PX Energy sin gjeldsrestrukturering og effekten av planlagte vedlikeholds- og testaktiviteter.",
       "score": 60,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "negativ",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
       "score_ai": 75,
@@ -13227,23 +13277,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686107",
-      "market": "XOSL",
-      "ticker": "EIEN",
-      "issuer": "Eidsiva Energi AS",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-10T13:04:36.140000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686107",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -13436,19 +13469,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T22:20:00+00:00",
+  "last_checked_at": "2026-11-13T22:30:00+00:00",
   "monitor_stats": {
-    "fetched": 233,
+    "fetched": 234,
     "recent": 134,
-    "already_seen": 131,
-    "eligible": 3,
+    "already_seen": 130,
+    "eligible": 4,
     "filtered": 0,
-    "analyzed": 3,
+    "analyzed": 4,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 3,
-    "source_latest_at": "2026-11-13T20:55:05.087000+00:00",
+    "source_latest_at": "2026-11-13T22:28:03.082000+00:00",
     "indirect": 0
   }
 }
