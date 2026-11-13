@@ -13,6 +13,10 @@ Miljøvariabler:
   NAM_MEET_KODE   Tilgangskode deltakerne må skrive inn. Sterkt anbefalt.
                   Står den tom, kan alle som kjenner adressen bli med.
   NAM_MEET_MAKS   Maks deltakere per rom (standard 10).
+
+Invitasjoner: den som har tilgangskoden, kan lage en lenke som gir tilgang til ett rom i
+24 timer uten koden (GET /meet/invite). Lenken er signert med en nøkkel avledet fra
+NAM_MEET_KODE, så alle invitasjoner slutter å virke hvis koden byttes.
   CLOUDFLARE_TURN_KEY_ID, CLOUDFLARE_TURN_API_TOKEN
                   TURN-nøkkel fra Cloudflare (Realtime > TURN). Uten TURN får deltakere
                   på strenge nett (bedriftsnett, en del mobilnett) ikke lyd og bilde.
@@ -23,6 +27,7 @@ i samme rom på hver sin prosess og finner ikke hverandre.
 """
 import asyncio
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -77,6 +82,38 @@ def _rens_state(s) -> dict:
         "cam": bool(s.get("cam")),
         "shareAt": s.get("shareAt") if isinstance(s.get("shareAt"), (int, float)) else 0,
     }
+
+
+INVITASJON_GYLDIG = 24 * 3600  # sekunder
+
+
+def _inv_nokkel() -> bytes:
+    return hashlib.sha256(b"nam-meet-invitasjon|" + KODE.encode()).digest()
+
+
+def _lag_invitasjon(rom: str, utloper: int) -> str:
+    sig = hmac.new(_inv_nokkel(), f"{rom}|{utloper}".encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{utloper}.{sig}"
+
+
+def _gyldig_invitasjon(inv: str, rom: str) -> bool:
+    """Sjekker at lenken er laget av oss, gjelder akkurat dette rommet og ikke har gått ut."""
+    try:
+        utloper_txt, sig = (inv or "").split(".", 1)
+        utloper = int(utloper_txt)
+    except ValueError:
+        return False
+    if utloper < time.time():
+        return False
+    return secrets.compare_digest(sig.encode(), _lag_invitasjon(rom, utloper).split(".", 1)[1].encode())
+
+
+def _har_tilgang(kode: str, inv: str, rom: str) -> bool:
+    if not KODE:
+        return True
+    if kode and secrets.compare_digest(kode.encode(), KODE.encode()):
+        return True
+    return _gyldig_invitasjon(inv, rom)
 
 
 def _deltaker_id(cid: str) -> str:
@@ -144,10 +181,27 @@ async def _hent_turn() -> list | None:
     return servere
 
 
+@router.get("/meet/invite", include_in_schema=False)
+async def meet_invite(rom: str = Query(""), kode: str = Query(""), inv: str = Query("")):
+    """Invitasjonslenke til ett rom. Med tilgangskoden får du en ny lenke som gjelder i 24 timer.
+    Er du selv invitert, får du samme lenke tilbake (den forlenges ikke)."""
+    rom = _rens_rom(rom)
+    if len(rom) < 3:
+        return JSONResponse({"feil": "ugyldig rom"}, status_code=400)
+    if not KODE:
+        return JSONResponse({"rom": rom, "inv": "", "utloper": None}, headers={"Cache-Control": "no-store"})
+    if kode and secrets.compare_digest(kode.encode(), KODE.encode()):
+        utloper = int(time.time()) + INVITASJON_GYLDIG
+        return JSONResponse({"rom": rom, "inv": _lag_invitasjon(rom, utloper), "utloper": utloper}, headers={"Cache-Control": "no-store"})
+    if _gyldig_invitasjon(inv, rom):
+        return JSONResponse({"rom": rom, "inv": inv, "utloper": int(inv.split(".", 1)[0])}, headers={"Cache-Control": "no-store"})
+    return JSONResponse({"feil": "ingen tilgang"}, status_code=401)
+
+
 @router.get("/meet/ice", include_in_schema=False)
-async def meet_ice(kode: str = Query("")):
+async def meet_ice(kode: str = Query(""), inv: str = Query(""), rom: str = Query("")):
     """ICE-servere til nettleseren: STUN alltid, TURN når det er satt opp."""
-    if KODE and not secrets.compare_digest(kode.encode(), KODE.encode()):
+    if not _har_tilgang(kode, inv, _rens_rom(rom)):
         return JSONResponse({"feil": "feil tilgangskode"}, status_code=401)
     if not (TURN_KEY_ID and TURN_TOKEN):
         return JSONResponse({"iceServers": STUN, "turn": False}, headers={"Cache-Control": "no-store"})
@@ -164,11 +218,16 @@ async def meet_ice(kode: str = Query("")):
 
 @router.websocket("/meet/ws/{rom}")
 async def meet_ws(
-    ws: WebSocket, rom: str, name: str = Query("Deltaker"), kode: str = Query(""), cid: str = Query("")
+    ws: WebSocket,
+    rom: str,
+    name: str = Query("Deltaker"),
+    kode: str = Query(""),
+    cid: str = Query(""),
+    inv: str = Query(""),
 ):
     await ws.accept()
     rom = _rens_rom(rom)
-    if KODE and not secrets.compare_digest(kode.encode(), KODE.encode()):
+    if not _har_tilgang(kode, inv, rom):
         await ws.close(code=4401)
         return
     if len(rom) < 3:
