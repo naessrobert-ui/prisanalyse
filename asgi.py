@@ -71,6 +71,14 @@ app = FastAPI(title="Prisanalyse Combined ASGI", version="1.0.5")
 app.include_router(analysis_router)
 app.mount("/regnskap-api", regnskap_api)
 
+# NAM Meet: møterom med lyd, kamera, skjermdeling og chat på /meet.
+# Må registreres før Flask monteres på "/", ellers fanger Flask opp ruten.
+try:
+    from meet_routes import router as meet_router
+    app.include_router(meet_router)
+except Exception as exc:  # pragma: no cover - skal ikke stoppe resten av nettstedet
+    logger.warning("NAM Meet ble ikke lastet: %r", exc)
+
 # ---------------------------------------------------------------------------
 # Shipping Streamlit reverse proxy
 # Forwards /shipping/app/* → http://localhost:8502/shipping/app/*
