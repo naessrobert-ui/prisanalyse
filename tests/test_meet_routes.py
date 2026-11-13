@@ -55,7 +55,7 @@ def test_to_deltakere_finner_hverandre_og_signalerer(client):
 
 def test_status_viser_ingen_navn(client):
     r = client.get("/meet/status").json()
-    assert set(r) == {"rom", "deltakere", "krever_kode"}
+    assert set(r) == {"rom", "deltakere", "krever_kode", "turn"}
 
 
 def test_samme_klient_id_gir_samme_deltaker_id(client):
@@ -105,3 +105,62 @@ def test_ny_forbindelse_fra_samme_fane_erstatter_den_gamle(client):
                 # Den gamle forbindelsen skal ikke ha meldt Kari ut.
                 a.send_text(json.dumps({"t": "ping"}))
                 assert _msg(a)["t"] == "pong"
+
+
+def test_ice_krever_kode_og_gir_stun_uten_turn(client):
+    assert client.get("/meet/ice?kode=feil").status_code == 401
+    r = client.get("/meet/ice?kode=hemmelig").json()
+    assert r["turn"] is False and r["iceServers"][0]["urls"]
+
+
+def test_ice_henter_turn_fra_cloudflare_og_mellomlagrer(client, monkeypatch):
+    import meet_routes
+
+    kall = []
+
+    async def falsk_hent():
+        kall.append(1)
+        return [{"urls": ["stun:stun.cloudflare.com:3478"]},
+                {"urls": ["turn:turn.cloudflare.com:3478?transport=udp", "turn:turn.cloudflare.com:53?transport=udp"],
+                 "username": "u", "credential": "c"}]
+
+    monkeypatch.setattr(meet_routes, "TURN_KEY_ID", "id")
+    monkeypatch.setattr(meet_routes, "TURN_TOKEN", "tok")
+    monkeypatch.setattr(meet_routes, "_hent_turn", falsk_hent)
+    a = client.get("/meet/ice?kode=hemmelig").json()
+    b = client.get("/meet/ice?kode=hemmelig").json()
+    assert a["turn"] is True and a == b
+    assert len(kall) == 1  # mellomlagret
+    assert client.get("/meet/status").json()["turn"] is True
+
+
+def test_port_53_filtreres_bort(monkeypatch):
+    import asyncio
+    import meet_routes
+
+    class Svar:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"iceServers": [{"urls": ["turn:t:3478?transport=udp", "turn:t:53?transport=udp"], "username": "u", "credential": "c"}]}
+
+    class Klient:
+        def __init__(self, **kw):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            pass
+
+        async def post(self, url, headers, json):
+            assert headers["Authorization"] == "Bearer tok" and json["ttl"] > 0
+            return Svar()
+
+    monkeypatch.setattr(meet_routes, "TURN_KEY_ID", "id")
+    monkeypatch.setattr(meet_routes, "TURN_TOKEN", "tok")
+    monkeypatch.setattr(meet_routes.httpx, "AsyncClient", Klient)
+    servere = asyncio.run(meet_routes._hent_turn())
+    assert servere[0]["urls"] == ["turn:t:3478?transport=udp"]
