@@ -2,8 +2,40 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T10:40:00+00:00",
+  "generated_at": "2026-11-13T10:50:00+00:00",
   "items": [
+    {
+      "id": "686474",
+      "market": "XOSL",
+      "ticker": "RING",
+      "issuer": "SpareBank 1 Ringerike Hadeland",
+      "title": "RING: Meldepliktig handel for primærinnsidere",
+      "headline": "Primærinnsidens salg av 21.502 egenkapitalbevis i RING avsluttet",
+      "lead": "AKA AS, nærstående til styremedlem i SpareBank 1 Ringerike Hadeland, har solgt alle sine 21.502 egenkapitalbevis i banken til kurs 446,05 kroner, og eier nå ingen bevis.",
+      "published_at": "2026-11-13T10:41:51.999000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686474",
+      "summary": "AKA AS, nærstående til styremedlem i SpareBank 1 Ringerike Hadeland, har solgt alle sine 21.502 egenkapitalbevis i banken til kurs 446,05 kroner, og eier nå ingen bevis.",
+      "reason": "Salget representerer full exit fra en nærstående part, men uten indikasjon på markedsreaksjon eller påvirkning på bankens fundamentale verdi. Videre avklaring om årsak til salget kan gi investorinnsikt.",
+      "score": 45,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "attachment_key": "62d658b7b45c8fa8",
+      "number_keys": [
+        "2a1b86",
+        "356a19",
+        "39e214",
+        "66fd25",
+        "77de68",
+        "7b5200",
+        "88a3ac",
+        "ac3478",
+        "ad1bf2",
+        "b3f0c7",
+        "b42577",
+        "b6589f"
+      ]
+    },
     {
       "id": "686473",
       "market": "XOSL",
@@ -214,25 +246,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor deler ut 0,39 USD per aksje – utbytte eksklusive fra i dag",
-      "lead": "Equinor ASA begynner i dag å handles uten retten til 0,39 USD i kontantutbytte for andre kvartal 2026. Dette påvirker aksjeverdien ved åpning og gir signal om selskapets utbyttepolitikk.",
+      "headline": "Equinor betaler ut 0,39 USD per aksje i Q2-utbytte",
+      "lead": "Equinor handler fra i dag eksklusiv et utbytte på 0,39 USD per aksje for andre kvartal 2026. Utbyttejusteringen påvirker aksjekursen samtidig med utbetaling.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor ASA begynner i dag å handles uten retten til 0,39 USD i kontantutbytte for andre kvartal 2026. Dette påvirker aksjeverdien ved åpning og gir signal om selskapets utbyttepolitikk.",
-      "reason": "Utbyttebetalinger er vanlige, og denne informasjonen gir klarhet for investorer om utbyttebeløpet og eks-dato. Effekten på aksjekursen er i hovedsak mekanisk og inneholder ingen ny finansiell informasjon.",
-      "score": 55,
+      "summary": "Equinor handler fra i dag eksklusiv et utbytte på 0,39 USD per aksje for andre kvartal 2026. Utbyttejusteringen påvirker aksjekursen samtidig med utbetaling.",
+      "reason": "Utbytteutbetaling er en standard hendelse som påvirker aksjekursen midlertidig. For investorer gir det kontantavkastning, men påvirker ikke selskapets underliggende drift.",
+      "score": 65,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "affected": [
         {
           "ticker": "AKRBP",
-          "direction": "uklar",
-          "reason": "Relatert olje- og gassektor kan følge utbyttetrender men ingen direkte påvirkning er spesifisert."
+          "direction": "negativ",
+          "reason": "Oljeservicekonkurrenter kan oppleve noe press som følge av Equinors kapitalallokering til utbytte."
         }
       ],
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 55,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -1731,18 +1763,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjonen til 4.634 boe/d, men kvartal med 27,6 mill. tap",
-      "lead": "Questerre leverer 4.634 boe per dag i Q3 2026, en dobling fra i fjor, men rapporterer et netto tap på 27,6 millioner dollar preget av ikke-kontante finansposter og anleggshavari. Vedlikehold og gjeldsrestrukturering står i fokus.",
+      "headline": "Questerre justerer driften etter nedstengt PX Energy-anlegg – tap på 28 mill. USD",
+      "lead": "Questerre rapporterer et netto tap på 27,6 millioner USD i tredje kvartal, preget av anleggsstans hos PX Energy og økt finansutgift, samtidig som produksjonen steg til 4.634 boe/dag. Fokus rettes mot vedlikehold og mulig gjeldsrestrukturering.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre leverer 4.634 boe per dag i Q3 2026, en dobling fra i fjor, men rapporterer et netto tap på 27,6 millioner dollar preget av ikke-kontante finansposter og anleggshavari. Vedlikehold og gjeldsrestrukturering står i fokus.",
-      "reason": "Økt produksjon og inntekter viser vekst, men store ikke-kontante finansposter og anleggsproblemer tynger resultatet. Viktig å følge om gjeldsrestrukturering og HCCO-teknologi lykkes, da dette kan påvirke fremtidig inntjening og risiko.",
-      "score": 70,
+      "summary": "Questerre rapporterer et netto tap på 27,6 millioner USD i tredje kvartal, preget av anleggsstans hos PX Energy og økt finansutgift, samtidig som produksjonen steg til 4.634 boe/dag. Fokus rettes mot vedlikehold og mulig gjeldsrestrukturering.",
+      "reason": "Til tross for økt produksjon og kostnadsbesparelser i PX Energy, gir anleggsstansen og store ikke-kontante finansutgifter betydelige kvartalstap. Aksjonærer bør følge utviklingen i teknologitesting og gjeldsrestrukturering for å vurdere langsiktig verdi og risiko.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 85,
+      "score_ai": 75,
       "number_keys": [
         "004be8",
         "02ef6a",
@@ -4912,18 +4944,18 @@
       "ticker": "CDLR",
       "issuer": "Cadeler plc",
       "title": "Cadeler plc: Notice of Upcoming Q3 2026 Earnings Release and Presentation on 23 November 2026",
-      "headline": "Cadeler kunngjør Q3-rapport for 2026 offentliggjøres 23. november",
-      "lead": "Cadeler plc varsler publisering av kvartalsregnskap for Q3 2026 og gjennomføring av webcastpresentasjon 23. november. Resultat og nøkkeltall offentliggjøres på morgenen, med ledelsen tilgjengelig for spørsmål.",
+      "headline": "Cadeler varsler Q3-resultater 23. november med webcastpresentasjon",
+      "lead": "Cadeler kunngjør offentliggjøring av kvartalsresultater for første ni måneder av 2026 den 23. november kl. 08:00 CET, samt en direktesendt presentasjon med ledelsen fra London samme dag.",
       "published_at": "2026-11-12T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686289",
-      "summary": "Cadeler plc varsler publisering av kvartalsregnskap for Q3 2026 og gjennomføring av webcastpresentasjon 23. november. Resultat og nøkkeltall offentliggjøres på morgenen, med ledelsen tilgjengelig for spørsmål.",
-      "reason": "Meldingen er en planlagt kunngjøring om kommende kvartalsrapport og investorpresentasjon uten indikasjon på resultatutvikling eller markedsreaksjon. Viktig for investorer å følge opp for detaljert innsikt.",
-      "score": 15,
+      "summary": "Cadeler kunngjør offentliggjøring av kvartalsresultater for første ni måneder av 2026 den 23. november kl. 08:00 CET, samt en direktesendt presentasjon med ledelsen fra London samme dag.",
+      "reason": "Varslingen gir investorer tid til forberedelse, men inneholder ingen resultattall eller indikasjoner som gir innsikt i lønnsomhet eller vekst. Viktig å følge opp for å vurdere selskapets utvikling.",
+      "score": 30,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 30,
+      "score_ai": 45,
       "number_keys": [
         "086c04",
         "15e730",
@@ -7159,12 +7191,12 @@
       "ticker": "OUTLT",
       "issuer": "Outlet Group Holding ASA",
       "title": "Outlet Group Holding ASA: Financial results for the third quarter of 2026",
-      "headline": "Outlet Group øker omsetningen 16 prosent til 740 mill. i Q3 2026",
-      "lead": "Outlet Group økte omsetningen til NOK 740,1 millioner i tredje kvartal 2026, opp 16,4 prosent fra i fjor, mens justert EBIT steg til NOK 150,2 millioner, med små marginfall til 20,3 prosent.",
+      "headline": "Outlet Group øker omsetningen 16,4 % i tredje kvartal 2026",
+      "lead": "Omsetningen i tredje kvartal steg til 740 millioner kroner, mens justert EBIT var 150 millioner. Økt egenmerkeandel styrker bruttomarginen, men nettoeffekten av IPO-kostnader begrenser marginforbedringen.",
       "published_at": "2026-11-12T06:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686260",
-      "summary": "Outlet Group økte omsetningen til NOK 740,1 millioner i tredje kvartal 2026, opp 16,4 prosent fra i fjor, mens justert EBIT steg til NOK 150,2 millioner, med små marginfall til 20,3 prosent.",
-      "reason": "Sterk omsetningsvekst og økende EBIT viser vekst og effektivisering, men marginal nedgang i justert EBIT-margin bør overvåkes for lønnsomhetsutvikling fremover.",
+      "summary": "Omsetningen i tredje kvartal steg til 740 millioner kroner, mens justert EBIT var 150 millioner. Økt egenmerkeandel styrker bruttomarginen, men nettoeffekten av IPO-kostnader begrenser marginforbedringen.",
+      "reason": "Sterk vekst i omsetning og justert resultat indikerer at Outlet Group vokser effektivt med økt markedsandel. Aksjonærer bør følge utviklingen i kostnadsbildet knyttet til ekspansjon og IPO-kostnader videre for langsiktig lønnsomhet.",
       "score": 75,
       "skipped": false,
       "direction": "positiv",
@@ -7227,7 +7259,7 @@
             "yoy_pct": 16.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Q3 2026 and Q3 2025 revenue shown on SIDE 3 and detailed on SIDE 9"
+            "evidence": "Side 3, Side 9"
           },
           {
             "label": "EBITDA",
@@ -7240,7 +7272,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "EBITDA not explicitly reported at group level for 2026Q3"
+            "evidence": "Not explicitly reported for Q3 2026 consolidated, EBITDA not available"
           },
           {
             "label": "EBIT",
@@ -7253,7 +7285,7 @@
             "yoy_pct": 5.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Operating profit/(loss) (EBIT) on SIDE 9, Q3 2026 and Q3 2025"
+            "evidence": "Side 9"
           },
           {
             "label": "Resultat etter skatt",
@@ -7266,7 +7298,7 @@
             "yoy_pct": 9.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net profit for the period on SIDE 9, Q3 2026 and Q3 2025"
+            "evidence": "Side 9"
           },
           {
             "label": "EPS",
@@ -7279,64 +7311,64 @@
             "yoy_pct": 11.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Basic EPS on SIDE 9, Q3 2026 and Q3 2025"
+            "evidence": "Side 9"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
             "unit": "NOK million",
-            "current": 326.9,
-            "prior_year": 269.6,
+            "current": 327.0,
+            "prior_year": 270.0,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 21.3,
+            "yoy_pct": 21.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net cash flow from operating activities on SIDE 6, Q3 2026 and Q3 2025"
+            "evidence": "Side 3"
           },
           {
             "label": "Netto renteinntekter",
             "name": "net_interest_income",
             "unit": "NOK million",
-            "current": -20.1,
-            "prior_year": -23.9,
+            "current": null,
+            "prior_year": null,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net financial income (expense) on SIDE 9, Q3 2026 and Q3 2025"
+            "evidence": "Not reported separately, only net financial expenses reported on Side 9"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Kids Outlet planlegger å øke antall butikker til 30 i løpet av året, med positive salgstrender i Sport Outlet og forbedringer i segmentets lønnsomhet. Det skjer en overgang til sentral styring av varelager som forventes å bedre produktdisponering og effektivitet. Det pågår også et prosjekt med å forbedre den digitale handleopplevelsen, som skal gjennomføres i flere faser de kommende kvartalene.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "summary": "Kids Outlet planlegger å nå 30 butikker innen årsslutt med god fremdrift i butikkutvidelsen. Sport Outlet viser sterk salgsvekst og forventer forbedret lønnsomhet gjennom større omsetning og driftsforbedringer. Gruppens overgang til sentralisert lagerstyring pågår, noe som skal bedre varetilgjengelighet og effektivitet. Investering i ny sentral lager- og hovedkvartersbygg planlegges videreført, men hittil har dette gitt negativ EBIT.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
               "topic": "Butikkutvidelse",
-              "statement": "Planlegger å øke Kids Outlet til 30 butikker innen årsslutt",
-              "evidence": "\"Store expansion ... Kids Outlet to 30 stores by year-end\"",
+              "statement": "Barnas Outlet skal utvides til 30 butikker ved årets slutt.",
+              "evidence": "'Store expansion is progressing in line with... to bring Kids Outlet to 30 stores by year-end.'",
               "page": "4"
             },
             {
-              "topic": "Lønnsomhet og salg",
-              "statement": "Sport Outlet viser sterk salgvekst og forventes bedre segmentlønnsomhet med vekst og operasjonelle forbedringer",
-              "evidence": "\"Sport Outlet delivered strong sales growth... improve segment profitability\"",
+              "topic": "Sport Outlet lønnsomhet",
+              "statement": "Sterk vekst i salget og forventning om forbedret lønnsomhet gjennom økt omsetning og driftseffektivitet.",
+              "evidence": "'Sport Outlet delivered strong sales growth... expected to improve segment profitability.'",
               "page": "4"
             },
             {
-              "topic": "Lagerstyring",
-              "statement": "Overgang til sentralstyrt varelager skal forbedre produktdisponering og effektivitet, fullføres i Q4",
-              "evidence": "\"transitioning ... to centrally managed store replenishment ... full implementation expected during Q4\"",
+              "topic": "Lager og logistikk",
+              "statement": "Overgang til sentralisert lagerstyring for bedre vareflyt og effektivitet forventes fullført i Q4.",
+              "evidence": "'The Group began transitioning from store-managed to centrally managed store replenishment... full implementation expected during Q4.'",
               "page": "4"
             },
             {
-              "topic": "Digital plattform",
-              "statement": "Pågående prosjekt for å forbedre den digitale handleopplevelsen i flere faser kommende kvartaler, forventet økt netthandel over tid",
-              "evidence": "\"redevelopment project for its online platform ... improvements will be implemented in phases ... support increase in online sales\"",
+              "topic": "Investeringer og kostnader",
+              "statement": "Ny sentral lager- og hovedkvartersbygg under utvikling, med hittil negativ EBIT som følge av sentrale kostnader.",
+              "evidence": "'Development of the Group's planned new central warehouse and headquarters... also contributed to negative YTD segment EBIT.'",
               "page": "4"
             }
           ]
@@ -13520,194 +13552,6 @@
           "points": []
         }
       }
-    },
-    {
-      "id": "686063",
-      "market": "XOSL",
-      "ticker": "PLH",
-      "issuer": "Pelagia Holding AS",
-      "title": "Pelagia Holding AS - Financial Report Q3 2026",
-      "headline": "Pelagia øker EBITDA til 429 MNOK i Q3 på tross av lavere råvarevolumer",
-      "lead": "Pelagias EBITDA steg til 429 MNOK i tredje kvartal 2026, opp fra 193 MNOK året før, til tross for lavere volum og redusert total omsetning hittil i år.",
-      "published_at": "2026-11-10T06:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/686063",
-      "summary": "Pelagias EBITDA steg til 429 MNOK i tredje kvartal 2026, opp fra 193 MNOK året før, til tross for lavere volum og redusert total omsetning hittil i år.",
-      "reason": "Sterk EBITDA-vekst i Q3 skyldes høyere priser på fiskeolje og fiskemel, noe som forbedrer lønnsomheten til tross for mindre råvaretilgang. Aksjonærer bør følge utviklingen i råvarepriser og potensielle marginpress i 2027, samt konsekvenser av nye markeds- og reguleringsutfordringer.",
-      "score": 70,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 85,
-      "attachment_key": "5ed1ef0ec35ebdf1",
-      "number_keys": [
-        "004be8",
-        "01eebb",
-        "0a57cb",
-        "0ade7c",
-        "14bb99",
-        "19187d",
-        "19a448",
-        "3251a5",
-        "605252",
-        "64e0cf",
-        "75988f",
-        "7719a1",
-        "77de68",
-        "787d41",
-        "7b5200",
-        "887309",
-        "987c95",
-        "ac3478",
-        "aee655",
-        "b6692e",
-        "b7103c",
-        "cf5788",
-        "da5e05",
-        "e1822d",
-        "f6e112",
-        "fa71af"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "reported",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Financial Report Pelagia Q3 2026.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=686063&attachmentId=336132"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "MNOK",
-            "current": 3360.0,
-            "prior_year": 3354.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 0.2,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 2"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "MNOK",
-            "current": 429.0,
-            "prior_year": 193.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": 122.3,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 2"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "MNOK",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "MNOK",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "MNOK",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "MNOK",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": ""
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "Pelagia forventer fortsatt reduserte råvarekvoter i 2026 for FOOD-divisjonen, spesielt i Nord-Atlanteren, og ser at dette sammen med El Niño-effekter fører til høyere råvarepriser, noe som kan gi lavere råvarevolumer enn i 2025. Til tross for lavere råvarevolumer forventes høye priser på fiskemel og fiskeolje som gir bedre marginer for HEALTH-divisjonen. Salgsutfordringer oppstår for fiskemel, blant annet fordi blåhvitting har mistet sin FIP bærekraftsertifisering, som kan tvinge salg i mindre attraktive markeder. På lang sikt ser Pelagia stabilitet i fiskeressursene, med fortsatt fokus på bærekraftig forvaltning.",
-          "change": "- Råvarevolumer i FOOD-divisjonen: opprettholdt forventning om lavere volum sammenlignet med 2025 (Q2 2026: «lavere råvarevolum til FOOD-divisjonen…»; Q3 2026: «kvotereduksjoner…effekt av El Niño…redusert volum»).\n- Marginer HEALTH-divisjonen: fortsatt forventning om bedre marginer grunnet høye priser (Q2 2026: «forventer bedre marginer»; Q3 2026: «forventer bedre marginer…høye priser»).\n- Bærekraft og markedsforhold: ny faktor i Q3 2026 at blåhvitting har mistet FIP-sertifisering, noe som kan gjøre salg i høyt betalende markeder vanskeligere, ikke nevnt tidligere.\n- Ingen vesentlig endring i den langsiktige visjonen om bærekraftig forvaltning (opprettholdt).",
-          "trend": "Gjennom årets kvartaler har Pelagia vært konsistent med forventninger om lavere råvarevolumer i FOOD-divisjonen og høye råvarepriser som støtter marginene i HEALTH-divisjonen. Tonen er konsekvent, med en ny mer forsiktig vurdering av bærekraftsutfordringer for blåhvitting i Q3. Tidligere utsagn om stabile langsiktige fiskeressurser og bærekraftig forvaltning opprettholdes, og selskapet leverer økt lønnsomhet i 2026 til tross for utfordringer med kvoter og råvaretilgang.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1",
-            "2025Q4"
-          ],
-          "points": [
-            {
-              "topic": "Råvarevolumer og kvoter",
-              "statement": "Opprettholdt forventning om lavere råvarevolumer i FOOD-divisjonen i 2026 grunnet kvotereduksjoner og naturfenomener som El Niño.",
-              "evidence": "\"reduction in raw material quotas... effect of El Niño\" (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Marginutvikling HEALTH-divisjonen",
-              "statement": "Forventer fortsatt bedre marginer i HEALTH-divisjonen drevet av høye priser på fiskemel og fiskeolje.",
-              "evidence": "\"expect high prices for fishmeal and fish oil... better margins for the division\" (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Bærekraft knyttet til blåhvitting",
-              "statement": "Ny utfordring i 2027: blåhvitting har mistet FIP bærekraftsertifisering, som svekker muligheter i høyt betalende markeder og kan påføre markedstilpasninger.",
-              "evidence": "\"blue whiting has lost its FIP sustainability certification, making fishmeal more challenging to sell\" (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Langsiktig forvaltning og risiko",
-              "statement": "Langsiktig utsikt for fiskeriene er stabil, med fortsatt fokus på bærekraftig forvaltning uten vesentlig klima- eller handelsrisiko.",
-              "evidence": "\"The long-term goal... favour the sustainable management... No significant climate risk\" (side 3)",
-              "page": "3"
-            }
-          ]
-        }
-      }
     }
   ],
   "indirect": [
@@ -13927,19 +13771,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T10:40:00+00:00",
+  "last_checked_at": "2026-11-13T10:50:00+00:00",
   "monitor_stats": {
-    "fetched": 202,
-    "recent": 142,
-    "already_seen": 136,
+    "fetched": 203,
+    "recent": 143,
+    "already_seen": 137,
     "eligible": 6,
     "filtered": 0,
     "analyzed": 6,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 6,
-    "source_latest_at": "2026-11-13T10:28:04.809000+00:00",
+    "recovered_unpublished": 5,
+    "source_latest_at": "2026-11-13T10:41:51.999000+00:00",
     "indirect": 0
   }
 }
