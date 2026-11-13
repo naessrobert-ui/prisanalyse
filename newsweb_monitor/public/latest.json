@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T20:50:00+00:00",
+  "generated_at": "2026-11-13T21:00:00+00:00",
   "items": [
+    {
+      "id": "686524",
+      "market": "XOSL",
+      "ticker": "OTEC",
+      "issuer": "Otello Corporation ASA",
+      "title": "Otello Corporation share buyback program status",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-13T20:55:05.087000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686524",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686523",
       "market": "XOSL",
@@ -1286,12 +1303,12 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor utbetaler 0,39 USD per aksje i Q2-utbytte 2026 fra i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen uten retten til 0,39 USD i utbytte for andre kvartal 2026. Utbyttet reflekterer kontantutbetaling til aksjonærene som følge av selskapets kapitaldistribusjon.",
+      "headline": "Equinor betaler utbytte på 0,39 USD per aksje – eksdag i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen uten retten til kvartalsutbytte på 0,39 USD. Utbyttet er en kontantfordeling til aksjonærene for andre kvartal 2026.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen uten retten til 0,39 USD i utbytte for andre kvartal 2026. Utbyttet reflekterer kontantutbetaling til aksjonærene som følge av selskapets kapitaldistribusjon.",
-      "reason": "Utbytteutbetalinger gir direkte kontanter til aksjonærene og kan påvirke aksjekursen kortsiktig ved ex-dato, men gir ikke indikasjon på endret drift eller finansiell prestasjon.",
+      "summary": "Fra 13. november handles Equinor-aksjen uten retten til kvartalsutbytte på 0,39 USD. Utbyttet er en kontantfordeling til aksjonærene for andre kvartal 2026.",
+      "reason": "Utbyttet er forventet og en del av ordinær aksjonæravkastning. Påvirker likviditet for aksjonærer, men ikke selskapets drift eller langsiktige verdi.",
       "score": 55,
       "skipped": false,
       "direction": "nøytral",
@@ -1300,12 +1317,7 @@
         {
           "ticker": "AKRBP",
           "direction": "uklar",
-          "reason": "Kan påvirkes indirekte gjennom sektorens generelle kapitaldistribusjonsmønster."
-        },
-        {
-          "ticker": "DNO",
-          "direction": "uklar",
-          "reason": "Sektorutbytter kan gi sammenlignende signaler om kontantstrøm i bransjen."
+          "reason": "Andre olje- og gasselskaper kan påvirkes av investoroppmerksomhet rundt sektoren, men ingen direkte kobling til Equinors utbytte."
         }
       ],
       "importance": "stor",
@@ -2808,23 +2820,16 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre: Justert kontantstrøm 2,3 mill. USD i Q3 til tross for driftsstans",
-      "lead": "Questerre oppnådde 2,3 millioner USD i justert kontantstrøm i tredje kvartal 2026, med produksjonsfall etter driftsstans og netto kvartalstap på 27,6 millioner USD, hovedsakelig knyttet til ikke-kontante renteutgifter.",
+      "headline": "Questerre pådrar seg 27,6 millioner i kvartalstap etter PX Energy-stans",
+      "lead": "Questerre rapporterer et netto tap på 27,6 millioner dollar i tredje kvartal 2026, påvirket av anleggsstans og høye finansielle kostnader, men opprettholder positivt justert driftskontantstrøm på 2,3 millioner dollar.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre oppnådde 2,3 millioner USD i justert kontantstrøm i tredje kvartal 2026, med produksjonsfall etter driftsstans og netto kvartalstap på 27,6 millioner USD, hovedsakelig knyttet til ikke-kontante renteutgifter.",
-      "reason": "Kontantstrømmen reflekterer påvirkningen av anleggsstans og vedlikeholdsutfordringer, mens nettoresultatet tynges av ikke-kontante finanskostnader. Selskapet satser på teknologitesting og omstrukturering, noe som kan bedre langsiktig verdi, men kortsiktig usikkerhet består.",
+      "summary": "Questerre rapporterer et netto tap på 27,6 millioner dollar i tredje kvartal 2026, påvirket av anleggsstans og høye finansielle kostnader, men opprettholder positivt justert driftskontantstrøm på 2,3 millioner dollar.",
+      "reason": "Tapet skyldes anleggsstans og store ikke-kontante finansielle kostnader relatert til PX Energy-båndene, som tyder på utfordringer i integreringen og kapitalstrukturen. Aksjonærer bør følge utviklingen i restruktureringen og driftsstabiliteten nøye.",
       "score": 60,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "negativ",
       "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "EQNR",
-          "direction": "uklar",
-          "reason": "Industriell kobling til teknologi- og produksjonsutvikling i energisektoren kan påvirke konkurranseevne og investeringer."
-        }
-      ],
       "company_form": "ikke ASA",
       "score_ai": 75,
       "number_keys": [
@@ -13246,23 +13251,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686106",
-      "market": "XOSL",
-      "ticker": "LYSE",
-      "issuer": "Lyse AS",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-10T13:04:29.193000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686106",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -13416,19 +13404,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T20:50:00+00:00",
+  "last_checked_at": "2026-11-13T21:00:00+00:00",
   "monitor_stats": {
-    "fetched": 232,
-    "recent": 137,
+    "fetched": 233,
+    "recent": 138,
     "already_seen": 134,
     "eligible": 3,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 3,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 3,
-    "source_latest_at": "2026-11-13T19:55:08.805000+00:00",
+    "source_latest_at": "2026-11-13T20:55:05.087000+00:00",
     "indirect": 0
   }
 }
