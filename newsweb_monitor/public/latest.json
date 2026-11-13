@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T10:30:00+00:00",
+  "generated_at": "2026-11-13T10:40:00+00:00",
   "items": [
     {
       "id": "686473",
@@ -76,12 +76,12 @@
       "ticker": "CCIT",
       "issuer": "CCiT Group A/S",
       "title": "CCiT Group A/S - Q3 2026 report",
-      "headline": "CCiT legger fram Q3-rapport uten inntjeningsdetaljer",
-      "lead": "CCiT Group presenterer sin tredje kvartalsrapport for 2026, men rapporten mangler konkrete tall og nøkkelinformasjon om finansiell utvikling, noe som gir begrenset innsikt for investorer.",
+      "headline": "CCiT Group rapporterer foreløpig tall for tredje kvartal 2026 – detaljer mangler",
+      "lead": "CCiT Group offentliggjør kvartalsrapporten for Q3 2026 uten konkrete finansielle nøkkeltall. Rapporten gir en generell oppdatering om virksomhetsutviklingen, men mangler viktig informasjon om resultater og marginer.",
       "published_at": "2026-11-13T10:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686470",
-      "summary": "CCiT Group presenterer sin tredje kvartalsrapport for 2026, men rapporten mangler konkrete tall og nøkkelinformasjon om finansiell utvikling, noe som gir begrenset innsikt for investorer.",
-      "reason": "Mangelen på konkrete finanstall og resultatdetaljer gjør det vanskelig å vurdere selskapets prestasjon i kvartalet. Investorer må avvente ytterligere informasjon for å kunne bedømme resultat og fremtidsutsikter.",
+      "summary": "CCiT Group offentliggjør kvartalsrapporten for Q3 2026 uten konkrete finansielle nøkkeltall. Rapporten gir en generell oppdatering om virksomhetsutviklingen, men mangler viktig informasjon om resultater og marginer.",
+      "reason": "Uten detaljerte resultater er det vanskelig å vurdere selskapets økonomiske tilstand eller utvikling. Investorer må etterspørre mer konkret informasjon for å kunne bedømme fremtidig verdi og risiko.",
       "score": 25,
       "skipped": false,
       "direction": "uklar",
@@ -113,20 +113,20 @@
             "yoy_pct": 134.6,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 6 and Side 7"
+            "evidence": "Side 6 and Side 7 tables showing Q3 revenue 199.4 MDKK and Q3 2025 revenue 85 MDKK"
           },
           {
             "label": "EBITDA",
             "name": "ebitda",
             "unit": "MDKK",
-            "current": 7.939,
+            "current": 10.7,
             "prior_year": 2.1,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 278.0,
+            "yoy_pct": 409.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 7 and Side 5"
+            "evidence": "Side 6 Financial Highlights states Q3 adjusted EBITDA increased to 10.7 MDKK from 2.1 MDKK last year"
           },
           {
             "label": "EBIT",
@@ -139,7 +139,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 7"
+            "evidence": "Side 7 Income Statement shows EBIT Q3 2026 2,394 TDKK (=2.394 MDKK). Prior year exact Q3 EBIT not stated."
           },
           {
             "label": "Resultat etter skatt",
@@ -152,7 +152,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "No explicit net income disclosed for Q3 2026"
+            "evidence": "Net income or net result after tax not explicitly provided for Q3 2026 or Q3 2025."
           },
           {
             "label": "EPS",
@@ -165,7 +165,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "EPS not reported"
+            "evidence": "No EPS data shown in provided text."
           },
           {
             "label": "Kontantstrøm drift",
@@ -178,54 +178,16 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 11"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "MDKK",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Net interest income not separately disclosed; financial items shown as net interest expense on Side 7"
+            "evidence": "Side 6 and Side 11 mention operating cash flow after special items reached 33.5 MDKK in Q3 2026. Prior year quarterly cash flow not shown."
           }
         ],
         "outlook": {
-          "status": "analyzed",
-          "summary": "CCiT Group rapporterer en sterk tredje kvartal med rekordomsetning på 199,4 MDKK og forbedret justert EBITDA til 10,7 MDKK, tilsvarende 135 % vekst år-over-år. Kontantstrømmen forbedret betydelig, med driftskontantstrøm etter spesialposter på 33,5 MDKK i kvartalet. Selskapet har gjennomført planlagte investeringer i infrastruktur og foretatt oppkjøpet av Logos Consult, som bidrar til økt goodwill. Finansiell posisjon er solid med en pro forma gearede på 2,1x, godt innenfor finansielle krav, og likviditeten tilsvarende 104,7 MDKK i sperret konto gir rom for videre strategiske oppkjøp. Fremover forventes noen flere investeringer i Q4 2026, men",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "status": "error",
+          "summary": "",
+          "change": "",
           "trend": "",
           "compared_periods": [],
-          "points": [
-            {
-              "topic": "Omsetning og lønnsomhet",
-              "statement": "Omsetningen i Q3 2026 økte med 135 % år-over-år til 199,4 MDKK, justert EBITDA økte til 10,7 MDKK, og EBITDA-marginen forbedret seg kvartal-over-kvartal.",
-              "evidence": "\"Revenue reached 199.4 MDKK in Q3, representing growth of 135% year-on-year, while adjusted EBITDA increased to 10.7\" (side 1)",
-              "page": "1"
-            },
-            {
-              "topic": "Kontantstrøm og finansiering",
-              "statement": "Driftskontantstrøm etter spesialposter var 33,5 MDKK i Q3, og netto endring i kontanter var 13 MDKK. Pro forma leverage er 2,1x, langt under gjeldende krav, med 104,7 MDKK i sperret likviditet for støtte til vekst via oppkjøp.",
-              "evidence": "\"operating cash flow after special items reaching 33.5 MDKK\"; \"pro forma leverage of 2.1x\"; \"cash reserves in the escrow account amount to DKK 104.7m.\" (side 1)",
-              "page": "1"
-            },
-            {
-              "topic": "Investeringer og oppkjøp",
-              "statement": "Investeringer i utstyr for infrastruktur var 9,3 MDKK i Q3, i tillegg til oppkjøpet av Logos Consult som økte goodwill. Flere investeringer forventes i Q4, men forsyningsutfordringer kan påvirke tidspunktene.",
-              "evidence": "\"investments for the quarter of DKK 9.3m\"; \"Goodwill has increased during the quarter due to the recent acquisition of Logos Consult\"; \"some investments to take place in Q4’26, but supply shortages ma",
-              "page": "1"
-            },
-            {
-              "topic": "Marked og segmentutvikling",
-              "statement": "Infrastruktursegmentet opplevde en betydelig omsetningsøkning, drevet av maskinvareprisøkninger som er videreført til kunder. Dokumentløsninger og Workspace viste også forbedret EBITDA kvartal-over-kvartal som understøtter organisk vekst.",
-              "evidence": "\"significant revenue uptick led by Infrastructure\"; \"Price increases in hardware have been passed through to customers\"; \"Document Solutions and Workspace also improved EBITDA QoQ\" (side 1)",
-              "page": "1"
-            }
-          ]
+          "points": []
         }
       }
     },
@@ -252,18 +214,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor handles eks. 0,39 USD utbytte for Q2 2026 fra i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen uten rett til kontantutbytte på 0,39 USD for andre kvartal 2026. Utbyttet påvirker kortsiktig aksjekurs ved eks-datoen.",
+      "headline": "Equinor deler ut 0,39 USD per aksje – utbytte eksklusive fra i dag",
+      "lead": "Equinor ASA begynner i dag å handles uten retten til 0,39 USD i kontantutbytte for andre kvartal 2026. Dette påvirker aksjeverdien ved åpning og gir signal om selskapets utbyttepolitikk.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen uten rett til kontantutbytte på 0,39 USD for andre kvartal 2026. Utbyttet påvirker kortsiktig aksjekurs ved eks-datoen.",
-      "reason": "Utbyttebetaling er forventet og påvirker kun kursnivået ved ex-dato. Effekten er kortsiktig, men bekrefter selskapets kontantstrømstyrke og kapitaldistribusjon til aksjonærer.",
-      "score": 65,
+      "summary": "Equinor ASA begynner i dag å handles uten retten til 0,39 USD i kontantutbytte for andre kvartal 2026. Dette påvirker aksjeverdien ved åpning og gir signal om selskapets utbyttepolitikk.",
+      "reason": "Utbyttebetalinger er vanlige, og denne informasjonen gir klarhet for investorer om utbyttebeløpet og eks-dato. Effekten på aksjekursen er i hovedsak mekanisk og inneholder ingen ny finansiell informasjon.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AKRBP",
+          "direction": "uklar",
+          "reason": "Relatert olje- og gassektor kan følge utbyttetrender men ingen direkte påvirkning er spesifisert."
+        }
+      ],
       "importance": "stor",
-      "score_ai": 55,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -1762,25 +1731,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjon til 4.634 boe/d etter PX Energy-kjøp, men rapporterer 27,6 mill. USD tap",
-      "lead": "Produksjonen tredoblet i tredje kvartal 2026 til 4.634 boe per dag, men et 27,6 millioner dollar netto tap ble rapportert, preget av nedetid og høye finansutgifter.",
+      "headline": "Questerre øker produksjonen til 4.634 boe/d, men kvartal med 27,6 mill. tap",
+      "lead": "Questerre leverer 4.634 boe per dag i Q3 2026, en dobling fra i fjor, men rapporterer et netto tap på 27,6 millioner dollar preget av ikke-kontante finansposter og anleggshavari. Vedlikehold og gjeldsrestrukturering står i fokus.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Produksjonen tredoblet i tredje kvartal 2026 til 4.634 boe per dag, men et 27,6 millioner dollar netto tap ble rapportert, preget av nedetid og høye finansutgifter.",
-      "reason": "Produksjonsøkningen etter PX Energy-akvisisjonen styrker salg og inntekter, men tapet og gjeldsproblematikk krever nøye oppfølging av kostnadseffektivitet og gjeldsrestrukturering for å beskytte aksjonærverdien.",
-      "score": 60,
+      "summary": "Questerre leverer 4.634 boe per dag i Q3 2026, en dobling fra i fjor, men rapporterer et netto tap på 27,6 millioner dollar preget av ikke-kontante finansposter og anleggshavari. Vedlikehold og gjeldsrestrukturering står i fokus.",
+      "reason": "Økt produksjon og inntekter viser vekst, men store ikke-kontante finansposter og anleggsproblemer tynger resultatet. Viktig å følge om gjeldsrestrukturering og HCCO-teknologi lykkes, da dette kan påvirke fremtidig inntjening og risiko.",
+      "score": 70,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "EQNR",
-          "direction": "uklar",
-          "reason": "Oljeselskaper påvirkes av produksjons- og teknologiutvikling i energisektoren, men Questerres tap og restrukturering har uavklart effekt."
-        }
-      ],
       "company_form": "ikke ASA",
-      "score_ai": 75,
+      "score_ai": 85,
       "number_keys": [
         "004be8",
         "02ef6a",
@@ -4950,18 +4912,18 @@
       "ticker": "CDLR",
       "issuer": "Cadeler plc",
       "title": "Cadeler plc: Notice of Upcoming Q3 2026 Earnings Release and Presentation on 23 November 2026",
-      "headline": "Cadeler varsler kvartalstall 23. november – venter Q3-resultater for 2026",
-      "lead": "Cadeler kunngjør at deres Q3-rapport for 2026 offentliggjøres 23. november med etterfølgende presentasjon. Resultatene for årets første ni måneder vil bli detaljert, men selskapet gir ingen indikasjon på forventet utvikling.",
+      "headline": "Cadeler kunngjør Q3-rapport for 2026 offentliggjøres 23. november",
+      "lead": "Cadeler plc varsler publisering av kvartalsregnskap for Q3 2026 og gjennomføring av webcastpresentasjon 23. november. Resultat og nøkkeltall offentliggjøres på morgenen, med ledelsen tilgjengelig for spørsmål.",
       "published_at": "2026-11-12T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686289",
-      "summary": "Cadeler kunngjør at deres Q3-rapport for 2026 offentliggjøres 23. november med etterfølgende presentasjon. Resultatene for årets første ni måneder vil bli detaljert, men selskapet gir ingen indikasjon på forventet utvikling.",
-      "reason": "Varsling om kommende kvartalstall gir informasjon om tidspunkt men sier ikke noe om forventet inntjening, vekst eller utfordringer. Investorer bør følge nøye med ved publisering for å vurdere fremtidige utsikter.",
-      "score": 25,
+      "summary": "Cadeler plc varsler publisering av kvartalsregnskap for Q3 2026 og gjennomføring av webcastpresentasjon 23. november. Resultat og nøkkeltall offentliggjøres på morgenen, med ledelsen tilgjengelig for spørsmål.",
+      "reason": "Meldingen er en planlagt kunngjøring om kommende kvartalsrapport og investorpresentasjon uten indikasjon på resultatutvikling eller markedsreaksjon. Viktig for investorer å følge opp for detaljert innsikt.",
+      "score": 15,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 40,
+      "score_ai": 30,
       "number_keys": [
         "086c04",
         "15e730",
@@ -7197,15 +7159,15 @@
       "ticker": "OUTLT",
       "issuer": "Outlet Group Holding ASA",
       "title": "Outlet Group Holding ASA: Financial results for the third quarter of 2026",
-      "headline": "Outlet Group øker omsetningen 16 prosent i tredje kvartal 2026",
-      "lead": "Omsetningen til Outlet Group steg til 740 mill. kroner i Q3, opp 16,4% fra i fjor, mens justert EBIT falt til 150 mill. med marginalt lavere margin på 20,3%. Økt egenmerkeandel bidro til bedre bruttofortjeneste.",
+      "headline": "Outlet Group øker omsetningen 16 prosent til 740 mill. i Q3 2026",
+      "lead": "Outlet Group økte omsetningen til NOK 740,1 millioner i tredje kvartal 2026, opp 16,4 prosent fra i fjor, mens justert EBIT steg til NOK 150,2 millioner, med små marginfall til 20,3 prosent.",
       "published_at": "2026-11-12T06:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686260",
-      "summary": "Omsetningen til Outlet Group steg til 740 mill. kroner i Q3, opp 16,4% fra i fjor, mens justert EBIT falt til 150 mill. med marginalt lavere margin på 20,3%. Økt egenmerkeandel bidro til bedre bruttofortjeneste.",
-      "reason": "Sterk omsetningsvekst viser god markedsrespons og butikkutvidelser, men EBIT-margen faller noe. Viktig å følge videre lønnsomhetsutvikling og effekten av nye butikker.",
-      "score": 80,
+      "summary": "Outlet Group økte omsetningen til NOK 740,1 millioner i tredje kvartal 2026, opp 16,4 prosent fra i fjor, mens justert EBIT steg til NOK 150,2 millioner, med små marginfall til 20,3 prosent.",
+      "reason": "Sterk omsetningsvekst og økende EBIT viser vekst og effektivisering, men marginal nedgang i justert EBIT-margin bør overvåkes for lønnsomhetsutvikling fremover.",
+      "score": 75,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "positiv",
       "assessment_source": "AI",
       "attachment_key": "9f657893cedc418a",
       "number_keys": [
@@ -7265,7 +7227,7 @@
             "yoy_pct": 16.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 3, SIDE 9"
+            "evidence": "Q3 2026 and Q3 2025 revenue shown on SIDE 3 and detailed on SIDE 9"
           },
           {
             "label": "EBITDA",
@@ -7278,7 +7240,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "EBITDA not explicitly reported at Group level for 2026Q3"
+            "evidence": "EBITDA not explicitly reported at group level for 2026Q3"
           },
           {
             "label": "EBIT",
@@ -7291,7 +7253,7 @@
             "yoy_pct": 5.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 9"
+            "evidence": "Operating profit/(loss) (EBIT) on SIDE 9, Q3 2026 and Q3 2025"
           },
           {
             "label": "Resultat etter skatt",
@@ -7304,7 +7266,7 @@
             "yoy_pct": 9.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 9"
+            "evidence": "Net profit for the period on SIDE 9, Q3 2026 and Q3 2025"
           },
           {
             "label": "EPS",
@@ -7317,7 +7279,7 @@
             "yoy_pct": 11.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 9"
+            "evidence": "Basic EPS on SIDE 9, Q3 2026 and Q3 2025"
           },
           {
             "label": "Kontantstrøm drift",
@@ -7330,51 +7292,51 @@
             "yoy_pct": 21.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 6"
+            "evidence": "Net cash flow from operating activities on SIDE 6, Q3 2026 and Q3 2025"
           },
           {
             "label": "Netto renteinntekter",
             "name": "net_interest_income",
             "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
+            "current": -20.1,
+            "prior_year": -23.9,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Not reported explicitly; net financial expense reported as NOK -20.1 million Q3 2026 on SIDE 9"
+            "evidence": "Net financial income (expense) on SIDE 9, Q3 2026 and Q3 2025"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Kids Outlet planlegger å utvide til 30 butikker innen årsskiftet, med vekst i sortiment og bedre innkjøpsbetingelser som støtter konkurransedyktige priser og marginer. Sport Outlet viser sterk salgvekst og forbedret lønnsomhet gjennom sentraliserte kostnader og operasjonelle forbedringer. Overgangen til sentralisert lagerstyring forventes fullført i kvartal 4, noe som skal bedre produkt tilgjengelighet og effektivitet. Et nytt lager og hovedkontor er under utvikling, men gir foreløpig negativ EBIT på grunn av investeringer.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "Kids Outlet planlegger å øke antall butikker til 30 i løpet av året, med positive salgstrender i Sport Outlet og forbedringer i segmentets lønnsomhet. Det skjer en overgang til sentral styring av varelager som forventes å bedre produktdisponering og effektivitet. Det pågår også et prosjekt med å forbedre den digitale handleopplevelsen, som skal gjennomføres i flere faser de kommende kvartalene.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Butikkutvidelse og produktutvikling",
-              "statement": "Kids Outlet planlegger utvidelse til 30 butikker og forbedrer sortiment og innkjøpsbetingelser for bedre marginer",
-              "evidence": "\"store expansion ... with signed lease agreements ... to 30 stores by year-end\", \"continued development ... product assortment, expand direct sourcing\"",
+              "topic": "Butikkutvidelse",
+              "statement": "Planlegger å øke Kids Outlet til 30 butikker innen årsslutt",
+              "evidence": "\"Store expansion ... Kids Outlet to 30 stores by year-end\"",
               "page": "4"
             },
             {
-              "topic": "Vekst og lønnsomhet Sport Outlet",
-              "statement": "Sterk salgvekst og forventet bedre lønnsomhet ved sentralisering av kostnader og operasjonelle forbedringer",
-              "evidence": "\"Sport Outlet delivered strong sales growth\", \"further growth allows central costs to be spread\", \"expected to improve segment profitability\"",
+              "topic": "Lønnsomhet og salg",
+              "statement": "Sport Outlet viser sterk salgvekst og forventes bedre segmentlønnsomhet med vekst og operasjonelle forbedringer",
+              "evidence": "\"Sport Outlet delivered strong sales growth... improve segment profitability\"",
               "page": "4"
             },
             {
-              "topic": "Lager og logistikk",
-              "statement": "Overgang til sentralstyrt påfylling fullføres i Q4 for bedre lagerkontroll og produkt tilgjengelighet",
-              "evidence": "\"transitioning from store-managed to centrally managed store replenishment, full implementation expected during Q4\"",
+              "topic": "Lagerstyring",
+              "statement": "Overgang til sentralstyrt varelager skal forbedre produktdisponering og effektivitet, fullføres i Q4",
+              "evidence": "\"transitioning ... to centrally managed store replenishment ... full implementation expected during Q4\"",
               "page": "4"
             },
             {
-              "topic": "Investeringer og EBIT",
-              "statement": "Investeringer i nytt lager og hovedkontor medfører foreløpig negativ segment EBIT",
-              "evidence": "\"Development of the Group's planned new central warehouse and headquarters ... resulted in negative YTD segment EBIT\"",
+              "topic": "Digital plattform",
+              "statement": "Pågående prosjekt for å forbedre den digitale handleopplevelsen i flere faser kommende kvartaler, forventet økt netthandel over tid",
+              "evidence": "\"redevelopment project for its online platform ... improvements will be implemented in phases ... support increase in online sales\"",
               "page": "4"
             }
           ]
@@ -13965,14 +13927,14 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T10:30:00+00:00",
+  "last_checked_at": "2026-11-13T10:40:00+00:00",
   "monitor_stats": {
     "fetched": 202,
     "recent": 142,
-    "already_seen": 133,
-    "eligible": 7,
-    "filtered": 2,
-    "analyzed": 7,
+    "already_seen": 136,
+    "eligible": 6,
+    "filtered": 0,
+    "analyzed": 6,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
