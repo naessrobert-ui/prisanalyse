@@ -56,3 +56,52 @@ def test_to_deltakere_finner_hverandre_og_signalerer(client):
 def test_status_viser_ingen_navn(client):
     r = client.get("/meet/status").json()
     assert set(r) == {"rom", "deltakere", "krever_kode"}
+
+
+def test_samme_klient_id_gir_samme_deltaker_id(client):
+    cid = "ab" * 16
+    with client.websocket_connect(f"/meet/ws/test-rom?name=Robert&kode=hemmelig&cid={cid}") as a:
+        id1 = _msg(a)["id"]
+    with client.websocket_connect(f"/meet/ws/test-rom?name=Robert&kode=hemmelig&cid={cid}") as a:
+        id2 = _msg(a)["id"]
+    assert id1 == id2
+    assert cid not in id1  # den hemmelige klient-id-en sendes aldri til andre
+
+
+
+def test_peer_left_skiller_bye_fra_brudd(client):
+    with client.websocket_connect("/meet/ws/test-rom?name=Robert&kode=hemmelig") as a:
+        _msg(a)
+        with client.websocket_connect("/meet/ws/test-rom?name=Kari&kode=hemmelig") as b:
+            kari = _msg(b)["id"]
+            _msg(a)  # peer-joined
+        assert _msg(a) == {"t": "peer-left", "id": kari, "bye": False}
+
+        with client.websocket_connect("/meet/ws/test-rom?name=Kari&kode=hemmelig") as b:
+            kari = _msg(b)["id"]
+            _msg(a)  # peer-joined
+            b.send_text(json.dumps({"t": "bye"}))
+            b.send_text(json.dumps({"t": "ping"}))
+            assert _msg(b)["t"] == "pong"  # bye er behandlet
+        assert _msg(a) == {"t": "peer-left", "id": kari, "bye": True}
+
+
+def test_ny_forbindelse_fra_samme_fane_erstatter_den_gamle(client):
+    cid = "cd" * 16
+    with client.websocket_connect("/meet/ws/test-rom?name=Robert&kode=hemmelig") as a:
+        _msg(a)
+        with client.websocket_connect(f"/meet/ws/test-rom?name=Kari&kode=hemmelig&cid={cid}") as b1:
+            kari = _msg(b1)["id"]
+            assert _msg(a)["t"] == "peer-joined"
+            with client.websocket_connect(f"/meet/ws/test-rom?name=Kari&kode=hemmelig&cid={cid}") as b2:
+                velkommen = _msg(b2)
+                assert velkommen["id"] == kari
+                assert [p["name"] for p in velkommen["peers"]] == ["Robert"]  # ikke seg selv
+                assert _msg(a) == {"t": "peer-joined", "peer": {"id": kari, "name": "Kari", "state": {}}}
+                with pytest.raises(WebSocketDisconnect) as e:
+                    b1.receive_text()
+                assert e.value.code == 4000
+                assert client.get("/meet/status").json()["deltakere"] == 2
+                # Den gamle forbindelsen skal ikke ha meldt Kari ut.
+                a.send_text(json.dumps({"t": "ping"}))
+                assert _msg(a)["t"] == "pong"
