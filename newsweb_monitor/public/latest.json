@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T18:20:00+00:00",
+  "generated_at": "2026-11-13T18:30:00+00:00",
   "items": [
     {
       "id": "686517",
@@ -1175,25 +1175,30 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor utbetaler 0,39 USD i kvartalsutbytte fra i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen eksklusive et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, noe som justerer aksjekursen tilsvarende ved åpning.",
+      "headline": "Equinor betaler 0,39 USD i utbytte for 2. kvartal 2026 – eks-dato 13. november",
+      "lead": "Fra 13. november handles Equinor-aksjen uten rett til utbytte på 0,39 USD per aksje for andre kvartal 2026. Investorene må vurdere dette ved porteføljejusteringer.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen eksklusive et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, noe som justerer aksjekursen tilsvarende ved åpning.",
-      "reason": "Utbytteutbetaling er en forventet del av investeringssyklusen for Equinor. Dette påvirker kursverdien midlertidig, men gir ingen ny informasjon om selskapets drift eller finansielle utvikling.",
-      "score": 55,
+      "summary": "Fra 13. november handles Equinor-aksjen uten rett til utbytte på 0,39 USD per aksje for andre kvartal 2026. Investorene må vurdere dette ved porteføljejusteringer.",
+      "reason": "Utbytteutbetaling er forventet og gir direkte avkastning til aksjonærene, men påvirker ikke selskapets underliggende drift. Viktig for investorer som fokuserer på kontantstrøm og utbytter.",
+      "score": 70,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "affected": [
         {
           "ticker": "AKRBP",
-          "direction": "uklar",
-          "reason": "Samme sektor kan oppleve markedsjusteringer ved utbyttebetalinger fra ledende aktør."
+          "direction": "negativ",
+          "reason": "Sammenlignbare utbytteutbetalinger i sektoren kan påvirke investorinteresse i alternative olje- og gassaktører."
+        },
+        {
+          "ticker": "VAR",
+          "direction": "negativ",
+          "reason": "Utbyttenivå i sektoren setter standard for investoravkastning og kan påvirke kapitalallokering."
         }
       ],
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 60,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -2692,18 +2697,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjonen til 4.634 boe/d i Q3 – nettoresultat svekket til -27,6 mill.",
-      "lead": "Produksjonen økte betydelig etter PX Energy-kjøpet, men nettoresultatet viser et underskudd på 27,6 millioner dollar i tredje kvartal 2026, påvirket av høy finansieringskostnad og driftsstans i anlegget.",
+      "headline": "Questerre rapporterer 27,6 mill. USD kvartalstap etter driftsstans og finansposter",
+      "lead": "Questerre Energy presenterte et netto tap på 27,6 mill. USD i tredje kvartal 2026, påvirket av driftsstans ved PX Energy og høyere ikke-kontante finansposter knyttet til obligasjoner.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Produksjonen økte betydelig etter PX Energy-kjøpet, men nettoresultatet viser et underskudd på 27,6 millioner dollar i tredje kvartal 2026, påvirket av høy finansieringskostnad og driftsstans i anlegget.",
-      "reason": "Produksjonsøkningen etter oppkjøpet gir positivt potensial, men driftsforstyrrelser og høye finansielle kostnader demper resultatene. Aksjonærer bør følge utviklingen i kostnadsstruktur og hvordan gjeldsrestrukturering påvirker fremtidig lønnsomhet.",
-      "score": 55,
+      "summary": "Questerre Energy presenterte et netto tap på 27,6 mill. USD i tredje kvartal 2026, påvirket av driftsstans ved PX Energy og høyere ikke-kontante finansposter knyttet til obligasjoner.",
+      "reason": "Tapet i kvartalet er betydelig høyere enn året før, drevet av driftsforstyrrelser og regnskapsmessige, ikke-kontante kostnader. Til tross for økt produksjon og inntekter, viser tallene behov for nærmere analyse av finansielle strukturer og stabilitet i operasjonene.",
+      "score": 60,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "negativ",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 70,
+      "score_ai": 75,
       "number_keys": [
         "004be8",
         "02ef6a",
@@ -5873,18 +5878,18 @@
       "ticker": "CDLR",
       "issuer": "Cadeler plc",
       "title": "Cadeler plc: Notice of Upcoming Q3 2026 Earnings Release and Presentation on 23 November 2026",
-      "headline": "Cadeler kunngjør Q3-rapport og presentasjon 23. november",
-      "lead": "Cadeler varsler publisering av regnskap for ni måneder til Q3 2026 den 23. november, med direktesendt presentasjon og mulighet for spørsmål, men uten økonomiske detaljer foreløpig.",
+      "headline": "Cadeler varsler Q3-rapportering og presentasjon 23. november",
+      "lead": "Cadeler skal offentliggjøre resultater for årets ni første måneder 23. november kl. 08:00 CET, med live presentasjon samme dag. Detaljer om finansielle tall og veien videre avsløres da.",
       "published_at": "2026-11-12T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686289",
-      "summary": "Cadeler varsler publisering av regnskap for ni måneder til Q3 2026 den 23. november, med direktesendt presentasjon og mulighet for spørsmål, men uten økonomiske detaljer foreløpig.",
-      "reason": "Varslet om rapportdato og presentasjon gir investorer tid til forberedelse, men mangler innhold om resultat, guidning eller markedspåvirkning. Betydning for aksjonærer avhenger av de faktiske tallene som presenteres.",
-      "score": 20,
+      "summary": "Cadeler skal offentliggjøre resultater for årets ni første måneder 23. november kl. 08:00 CET, med live presentasjon samme dag. Detaljer om finansielle tall og veien videre avsløres da.",
+      "reason": "Varslingen om kvartalsrapport gir markedsaktører mulighet til å forberede seg, men uten tall eller guidning er nyhetsverdien begrenset. Viktig å følge med på resultater for indikasjoner om selskapets utvikling innen offshore vind.",
+      "score": 25,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 35,
+      "score_ai": 40,
       "number_keys": [
         "086c04",
         "15e730",
@@ -13225,6 +13230,28 @@
   ],
   "indirect": [
     {
+      "id": "7d391d44b83cb19e",
+      "source": "E24",
+      "title": "Ut mot handelsministeren etter skandale",
+      "url": "https://e24.no/internasjonal-oekonomi/i/KL3pqy/ut-mot-handelsministeren-etter-skandale?utm_medium=rss",
+      "published_at": "2026-11-13T18:25:04+00:00",
+      "analyzed_at": "2026-11-13T18:30:00+00:00",
+      "score": 50,
+      "comment": "USAs handelsdepartements håndtering av Megaspeed kan påvirke toll- og handelsreguleringer som berører norsk eksport og import, særlig innen teknologi og industri.",
+      "affected": [
+        {
+          "ticker": "NEL",
+          "direction": "uklar",
+          "reason": "Eksponert mot internasjonal handel og teknologiutvikling"
+        },
+        {
+          "ticker": "ELK",
+          "direction": "uklar",
+          "reason": "Påvirkes av endringer i handelsregler ved import/eksport"
+        }
+      ]
+    },
+    {
       "id": "8beed0dd79a04371",
       "source": "E24",
       "title": "Klimasøksmålet: Tillatelser må behandles på nytt",
@@ -13352,11 +13379,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T18:20:00+00:00",
+  "last_checked_at": "2026-11-13T18:30:00+00:00",
   "monitor_stats": {
     "fetched": 229,
-    "recent": 148,
-    "already_seen": 144,
+    "recent": 147,
+    "already_seen": 143,
     "eligible": 4,
     "filtered": 0,
     "analyzed": 4,
@@ -13365,6 +13392,6 @@
     "capped": 0,
     "recovered_unpublished": 4,
     "source_latest_at": "2026-11-13T16:04:45.648000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
