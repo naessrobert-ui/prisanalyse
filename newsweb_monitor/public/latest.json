@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T19:00:00+00:00",
+  "generated_at": "2026-11-13T19:10:00+00:00",
   "items": [
     {
       "id": "686519",
@@ -1238,13 +1238,13 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor ASA utbetaler 0,39 USD i kvartalsutbytte fra i dag",
-      "lead": "Equinor-aksjen handles eksklusive utbytte på 0,39 USD per aksje fra 13. november 2026, noe som gir konkret kontantavkastning til aksjonærene i denne perioden.",
+      "headline": "Equinor betaler utbytte på 0,39 USD per aksje eks. i dag",
+      "lead": "Equinor ASA aksjer noteres eksklusiv et kontantutbytte på 0,39 USD per aksje fra 13. november 2026, noe som kan påvirke kursen midlertidig ved åpning på Oslo Børs.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor-aksjen handles eksklusive utbytte på 0,39 USD per aksje fra 13. november 2026, noe som gir konkret kontantavkastning til aksjonærene i denne perioden.",
-      "reason": "Utbytteutbetaling er en ordinær hendelse som gir direkte kontantavkastning, men påvirker ikke selskapets underliggende drift eller markedsposisjon. For investorer er det viktig å vurdere utbyttenivået i sammenheng med selskapets lønnsomhet og fremtidige utsikter.",
-      "score": 60,
+      "summary": "Equinor ASA aksjer noteres eksklusiv et kontantutbytte på 0,39 USD per aksje fra 13. november 2026, noe som kan påvirke kursen midlertidig ved åpning på Oslo Børs.",
+      "reason": "Utbytteutbetalinger påvirker vanligvis aksjekursen ned tilsvarende utbyttebeløpet på ex-dato, men indikerer god kontantstrøm. Ingen informasjon om inntjeningsendringer eller markedspåvirkning utover dette foreligger.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -1252,11 +1252,11 @@
         {
           "ticker": "AKRBP",
           "direction": "uklar",
-          "reason": "Sektorkollega som kan få indirekte påvirkning dersom utbyttenivået i sektoren endrer investorfokus."
+          "reason": "Kan påvirkes indirekte via sektor; utbytteutbetalinger i tilsvarende selskaper kan gi relevante sammenligninger."
         }
       ],
       "importance": "stor",
-      "score_ai": 50,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -2755,18 +2755,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre rapporterer 2,3 mill. dollar justert kontantstrøm i Q3 etter nedstengning",
-      "lead": "Questerre oppnådde justert kontantstrøm fra drift på 2,3 millioner dollar i tredje kvartal 2026, til tross for planteavbrudd og et netto tap på 27,6 millioner dollar, hvorav mye ikke-kontant finansutgift.",
+      "headline": "Questerre taper 27,6 mill. USD i Q3 med 4.634 boe/d produksjon",
+      "lead": "Questerre rapporterer et netto tap på 27,6 millioner USD i tredje kvartal 2026, til tross for en produksjon på 4.634 boe per dag og kostnadskutt på 11 millioner USD i året på PX Energy.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre oppnådde justert kontantstrøm fra drift på 2,3 millioner dollar i tredje kvartal 2026, til tross for planteavbrudd og et netto tap på 27,6 millioner dollar, hvorav mye ikke-kontant finansutgift.",
-      "reason": "Tredje kvartals resultat viser økt produksjon fra PX Energy, men også utfordringer med anleggsvedlikehold og betydelige ikke-kontante finansposter. For aksjonærer er det viktig å følge utviklingen i gjeldsrestrukturering og teknologitesting framover.",
-      "score": 63,
+      "summary": "Questerre rapporterer et netto tap på 27,6 millioner USD i tredje kvartal 2026, til tross for en produksjon på 4.634 boe per dag og kostnadskutt på 11 millioner USD i året på PX Energy.",
+      "reason": "Tross sterk produksjonsvekst og kostnadsbesparelser, preges resultatet av store ikke-kontante finansieringskostnader knyttet til gjeldsverdsetting i PX Energy. Nytt 2027-turnaround og gjeldsrestrukturering er nøkkelaspekter å følge.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 78,
+      "score_ai": 75,
       "number_keys": [
         "004be8",
         "02ef6a",
@@ -13420,11 +13420,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T19:00:00+00:00",
+  "last_checked_at": "2026-11-13T19:10:00+00:00",
   "monitor_stats": {
     "fetched": 230,
-    "recent": 144,
-    "already_seen": 141,
+    "recent": 140,
+    "already_seen": 137,
     "eligible": 3,
     "filtered": 0,
     "analyzed": 3,
