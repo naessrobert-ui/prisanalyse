@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T21:50:00+00:00",
+  "generated_at": "2026-11-13T22:00:00+00:00",
   "items": [
     {
       "id": "686524",
@@ -1303,18 +1303,18 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor kutter utbytte til 0,39 USD per aksje for Q2 2026",
-      "lead": "Equinor begynner å handle eksklusive et kontantutbytte på 0,39 USD per aksje fra 13. november 2026. Dette påvirker direkte avkastningen for aksjonærene i perioden.",
+      "headline": "Equinor begynner handel eks. utbytte 0,39 USD per aksje i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen eksklusiv et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, noe som kan påvirke aksjekursen i nærmeste tid.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor begynner å handle eksklusive et kontantutbytte på 0,39 USD per aksje fra 13. november 2026. Dette påvirker direkte avkastningen for aksjonærene i perioden.",
-      "reason": "Utbyttejusteringen er en forventet del av selskapets kapitaldistribusjon, men mangler detaljert kontekst om hvordan dette står i forhold til tidligere kvartaler, guiding eller markedssituasjon. Det gir lite innsikt i selskapets finansielle helse eller fremtidige utsikter.",
-      "score": 55,
+      "summary": "Fra 13. november handles Equinor-aksjen eksklusiv et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, noe som kan påvirke aksjekursen i nærmeste tid.",
+      "reason": "Utbyttejusteringer påvirker normalt aksjekursen midlertidig med utbyttebeløpet. Det gir ikke informasjon om endringer i selskapets underliggende drift eller fremtidige utsikter, men er relevant for investorer som følger kontantavkastning.",
+      "score": 65,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 55,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -2813,15 +2813,15 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre sliter med 27,6 mill. tap i Q3 etter PX Energy-stans og vedlikeholdsutfordringer",
-      "lead": "Questerre Energy rapporterer et netto tap på 27,6 millioner dollar i tredje kvartal 2026, preget av driftsstans hos PX Energy og vedlikeholdsproblemer, til tross for økt produksjon og inntekter.",
+      "headline": "Questerre Energy øker produksjon til 4.634 boe/d, rapporterer netto tap på 27,6 mill. USD",
+      "lead": "I tredje kvartal 2026 økte Questerre sin produksjon til 4.634 boe per dag, men rapporterte et netto tap på 27,6 millioner USD, påvirket av nedstengning og høye finansielle kostnader knyttet til PX Energy.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre Energy rapporterer et netto tap på 27,6 millioner dollar i tredje kvartal 2026, preget av driftsstans hos PX Energy og vedlikeholdsproblemer, til tross for økt produksjon og inntekter.",
-      "reason": "Tapet på 27,6 millioner i Q3 skyldes blant annet en uventet fabrikkstans og påfølgende vedlikeholdsproblemer, noe som setter fokus på risiko og behov for strukturendringer i PX Energy. Investorer bør følge utviklingen i gjeldsstruktur og produksjonsstabilitet.",
+      "summary": "I tredje kvartal 2026 økte Questerre sin produksjon til 4.634 boe per dag, men rapporterte et netto tap på 27,6 millioner USD, påvirket av nedstengning og høye finansielle kostnader knyttet til PX Energy.",
+      "reason": "Økt produksjon etter PX Energy-oppkjøpet styrker driften, men betydelig tap og store ikke-kontante finansieringskostnader svekker resultat og økonomisk robusthet. Aksjonærer bør følge restrukturering og teknologitesting nøye.",
       "score": 60,
       "skipped": false,
-      "direction": "negativ",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
       "score_ai": 75,
@@ -13248,6 +13248,28 @@
   ],
   "indirect": [
     {
+      "id": "f17772c9c15ed636",
+      "source": "E24",
+      "title": "Analyse: Avgift kan stenge oljefelt tidlig",
+      "url": "https://e24.no/energi-og-klima/i/kMJR06/analyse-avgift-kan-stenge-oljefelt-tidlig?utm_medium=rss",
+      "published_at": "2026-11-13T21:51:00+00:00",
+      "analyzed_at": "2026-11-13T22:00:00+00:00",
+      "score": 75,
+      "comment": "Økende CO₂-avgift kan gjøre flere oljefelt ulønnsomme og føre til tidligere nedstengning, svekker produksjon og inntjening i norsk oljeindustri betydelig.",
+      "affected": [
+        {
+          "ticker": "EQNR",
+          "direction": "negativ",
+          "reason": "Høy CO₂-avgift øker produksjonskostnader og kan tvinge tidlig stenging av felt"
+        },
+        {
+          "ticker": "AKRBP",
+          "direction": "negativ",
+          "reason": "Flere felt kan bli ulønnsomme med strengere CO₂-avgifter"
+        }
+      ]
+    },
+    {
       "id": "d3050485510f633e",
       "source": "E24",
       "title": "Reuters: Nasjonal stans i flytrafikken i USA",
@@ -13414,7 +13436,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T21:50:00+00:00",
+  "last_checked_at": "2026-11-13T22:00:00+00:00",
   "monitor_stats": {
     "fetched": 233,
     "recent": 135,
@@ -13427,6 +13449,6 @@
     "capped": 0,
     "recovered_unpublished": 3,
     "source_latest_at": "2026-11-13T20:55:05.087000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
