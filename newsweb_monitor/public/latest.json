@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T21:00:00+00:00",
+  "generated_at": "2026-11-13T21:10:00+00:00",
   "items": [
     {
       "id": "686524",
@@ -1303,13 +1303,13 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor betaler utbytte på 0,39 USD per aksje – eksdag i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen uten retten til kvartalsutbytte på 0,39 USD. Utbyttet er en kontantfordeling til aksjonærene for andre kvartal 2026.",
+      "headline": "Equinor kutter utbytte med 0,39 USD per aksje i Q2 2026",
+      "lead": "Aksjen i Equinor noteres i dag eksklusiv et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, en viktig faktor for investorer som vurderer kontantavkastningen i oljesektoren.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen uten retten til kvartalsutbytte på 0,39 USD. Utbyttet er en kontantfordeling til aksjonærene for andre kvartal 2026.",
-      "reason": "Utbyttet er forventet og en del av ordinær aksjonæravkastning. Påvirker likviditet for aksjonærer, men ikke selskapets drift eller langsiktige verdi.",
-      "score": 55,
+      "summary": "Aksjen i Equinor noteres i dag eksklusiv et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, en viktig faktor for investorer som vurderer kontantavkastningen i oljesektoren.",
+      "reason": "Utbytteutbetaling i henhold til plan er en standard hendelse som reflekterer selskapets kontantdistribusjon til aksjonærene. Det gir klare signaler om selskapets kapitaldisponering, men uten annen informasjon om økonomisk utvikling eller endring i utbyttepolitikken gir det begrenset innsikt i fremtidig avkastning eller verdsettelse.",
+      "score": 65,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -1317,11 +1317,11 @@
         {
           "ticker": "AKRBP",
           "direction": "uklar",
-          "reason": "Andre olje- og gasselskaper kan påvirkes av investoroppmerksomhet rundt sektoren, men ingen direkte kobling til Equinors utbytte."
+          "reason": "Konkurrent i olje- og gassektoren kan påvirkes indirekte av likviditets- og kapitalmarkedssignaler fra Equinors utbyttebetaling."
         }
       ],
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 55,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -2820,12 +2820,12 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre pådrar seg 27,6 millioner i kvartalstap etter PX Energy-stans",
-      "lead": "Questerre rapporterer et netto tap på 27,6 millioner dollar i tredje kvartal 2026, påvirket av anleggsstans og høye finansielle kostnader, men opprettholder positivt justert driftskontantstrøm på 2,3 millioner dollar.",
+      "headline": "Questerre rapporterer 27,6 mill. dollar kvartalstap etter produksjonsstans",
+      "lead": "Questerre Energy fikk et netto tap på 27,6 millioner dollar i tredje kvartal 2026, delvis grunnet en midlertidig fabrikkstans og høye finansieringskostnader. Produksjonen falt til 4.634 boe/dag, ned fra 5.694 boe/dag i forrige kvartal.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre rapporterer et netto tap på 27,6 millioner dollar i tredje kvartal 2026, påvirket av anleggsstans og høye finansielle kostnader, men opprettholder positivt justert driftskontantstrøm på 2,3 millioner dollar.",
-      "reason": "Tapet skyldes anleggsstans og store ikke-kontante finansielle kostnader relatert til PX Energy-båndene, som tyder på utfordringer i integreringen og kapitalstrukturen. Aksjonærer bør følge utviklingen i restruktureringen og driftsstabiliteten nøye.",
+      "summary": "Questerre Energy fikk et netto tap på 27,6 millioner dollar i tredje kvartal 2026, delvis grunnet en midlertidig fabrikkstans og høye finansieringskostnader. Produksjonen falt til 4.634 boe/dag, ned fra 5.694 boe/dag i forrige kvartal.",
+      "reason": "Tapet i kvartalet svekkes av produksjonsnedgang under fabrikkstans og høye ikke-kontante finansutgifter. Viktig å følge restrukturering av PX Energy-gjeld og hvordan framtidige HCCO-testresultater påvirker verdsettelsen.",
       "score": 60,
       "skipped": false,
       "direction": "negativ",
@@ -13255,6 +13255,23 @@
   ],
   "indirect": [
     {
+      "id": "d3050485510f633e",
+      "source": "E24",
+      "title": "Reuters: Nasjonal stans i flytrafikken i USA",
+      "url": "https://e24.no/internasjonal-oekonomi/i/yz37LR/reuters-fly-staar-paa-bakken-i-usa?utm_medium=rss",
+      "published_at": "2026-11-13T21:05:04+00:00",
+      "analyzed_at": "2026-11-13T21:10:00+00:00",
+      "score": 60,
+      "comment": "Nasjonal stans i amerikansk flytrafikk kan påvirke flyfrakt og logistikk betydelig, økende kostnader og forsinkelser for logistikk- og fraktselskaper.",
+      "affected": [
+        {
+          "ticker": "SALM",
+          "direction": "negativ",
+          "reason": "Mulige forsinkelser og økte transportkostnader."
+        }
+      ]
+    },
+    {
       "id": "7d391d44b83cb19e",
       "source": "E24",
       "title": "Ut mot handelsministeren etter skandale",
@@ -13404,19 +13421,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T21:00:00+00:00",
+  "last_checked_at": "2026-11-13T21:10:00+00:00",
   "monitor_stats": {
     "fetched": 233,
-    "recent": 138,
+    "recent": 137,
     "already_seen": 134,
     "eligible": 3,
-    "filtered": 1,
+    "filtered": 0,
     "analyzed": 3,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 3,
     "source_latest_at": "2026-11-13T20:55:05.087000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
