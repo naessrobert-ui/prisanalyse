@@ -45,7 +45,9 @@ header .orgh{font-weight:500;font-size:.95rem;padding-right:.75rem;border-right:
 
 main{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:1rem;padding:0 1.25rem}
 .left{min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:.75rem}
-@media (max-width:860px){ main{grid-template-columns:1fr;overflow:auto} .left{grid-template-rows:minmax(240px,48vh) auto;min-height:auto} }
+@media (max-width:860px){ main{grid-template-columns:1fr;overflow:auto} .left{grid-template-rows:auto auto;min-height:auto}
+  /* Mobil: hovedfeltet får samme form som videoen (også stående), så bildet blir stort uten å kuttes */
+  .stage{aspect-ratio:var(--ar,16/9);width:100%;min-height:200px;max-height:68dvh} }
 .stage{position:relative;background:var(--stage);border-radius:14px;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center}
 .stage video{width:100%;height:100%;object-fit:contain;display:none}
 .stage.live video{display:block}
@@ -54,7 +56,7 @@ main{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:1re
 .stage.live .stage-empty{display:none}
 .stage-label{position:absolute;left:.75rem;bottom:.75rem;background:rgba(0,0,40,.72);color:#fff;padding:.3rem .65rem;border-radius:8px;font-size:.85rem;display:none}
 .stage.live .stage-label{display:block}
-.stage-tools{position:absolute;right:.6rem;top:.6rem;display:none}
+.stage-tools{position:absolute;right:.6rem;top:.6rem;display:none;gap:.4rem;z-index:2}
 .stage.live .stage-tools{display:flex}
 .stage-tools button{background:rgba(0,0,40,.72);color:#fff;border:0;border-radius:8px;padding:.35rem .6rem;cursor:pointer;font-size:.85rem}
 .cams{display:flex;gap:.6rem;overflow-x:auto;flex:none;min-height:121px;padding:4px}
@@ -62,6 +64,13 @@ main{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:1re
 .cam{position:relative;flex:none;width:200px;height:113px;background:var(--stage);border-radius:10px;overflow:hidden;box-shadow:0 0 0 2px transparent;cursor:pointer}
 .cam.on-stage{outline:2px solid var(--accent);outline-offset:2px}
 .stage video.mirror{transform:scaleX(-1)}
+/* Ditt eget kamera som lite bilde i hjørnet av hovedfeltet */
+.pip{position:absolute;right:.6rem;bottom:.6rem;width:clamp(84px,24%,200px);aspect-ratio:var(--par,16/9);max-height:45%;border-radius:10px;overflow:hidden;background:#000;
+  box-shadow:0 2px 10px rgba(0,0,0,.45),0 0 0 2px rgba(255,255,255,.85);cursor:pointer;display:none;z-index:2}
+.stage .pip video{display:block;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.pip.show{display:block}
+.pip.speaking{box-shadow:0 2px 10px rgba(0,0,0,.45),0 0 0 3px var(--speak)}
+.pip span{position:absolute;left:.3rem;bottom:.25rem;background:rgba(0,0,40,.72);color:#fff;font-size:.72rem;padding:.05rem .4rem;border-radius:6px}
 .cam.speaking{box-shadow:0 0 0 3px var(--speak)}
 .cam video{width:100%;height:100%;object-fit:cover;display:block}
 .cam.self video{transform:scaleX(-1)}
@@ -163,7 +172,8 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
         <video id="stageVideo" autoplay playsinline muted></video>
         <div class="stage-empty"><strong>Ingen deler skjerm nå</strong><span>Trykk «Del skjerm» for å vise et vindu eller hele skjermen til de andre.</span></div>
         <div class="stage-label" id="stageLabel"></div>
-        <div class="stage-tools"><button id="fullBtn" type="button">Fullskjerm</button></div>
+        <div class="stage-tools"><button id="autoBtn" class="hidden" type="button" title="Tilbake til standardvisningen">Automatisk</button><button id="fullBtn" type="button">Fullskjerm</button></div>
+        <div class="pip" id="pip" data-key="me" role="button" tabindex="0" title="Vis ditt kamera stort"><video id="pipVideo" autoplay playsinline muted></video><span>Du</span></div>
       </section>
       <div class="cams" id="cams"></div>
     </div>
@@ -218,7 +228,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 
   const S = {
     room:"", name:"", kode:"", ws:null, myId:null, peers:new Map(), conns:new Map(), leaving:false, retry:0, pingTimer:null,
-    mic:null, screen:null, cam:null, muted:false, shareAt:0, stageOf:null, stageCam:null, stageCamAuto:false, cid:"", away:new Map(), unread:0,
+    mic:null, screen:null, cam:null, muted:false, shareAt:0, pin:null, autoCam:null, speakSince:new Map(), cid:"", away:new Map(), unread:0,
     actx:null, meters:new Map(), speaking:new Set(), camEls:new Map(), earlyIce:new Map()
   };
 
@@ -383,8 +393,8 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     S.conns.delete(id); try{ c.pc.close(); }catch(e){}
     if(c.audioEl){ c.audioEl.srcObject=null; c.audioEl.remove(); }
     S.meters.delete(id); S.speaking.delete(id);
-    if(S.stageOf===id) S.stageOf=null;
-    if(S.stageCam===id) S.stageCam=null;
+    if(S.pin && S.pin.key===id) S.pin=null;
+    if(S.autoCam===id) S.autoCam=null;
   }
   function resetPeers(){ for(const id of [...S.conns.keys()]) dropConn(id); S.peers.clear(); }
   function replaceAll(slot, track){ for(const c of S.conns.values()){ const t=c[slot]; if(t) t.sender.replaceTrack(track).catch(()=>{}); } }
@@ -393,7 +403,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   $("micBtn").onclick=()=>{ if(!S.mic) return; S.muted=!S.muted; S.mic.getAudioTracks().forEach(t=>t.enabled=!S.muted); sendState(); render(); };
   $("camBtn").onclick=async()=>{
     if(S.cam){ stopCam(); return; }
-    try{ S.cam=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:360},frameRate:{ideal:15,max:24}}}); }
+    try{ S.cam=await navigator.mediaDevices.getUserMedia({video:{width:{max:960},height:{max:960},frameRate:{ideal:15,max:24}}}); }
     catch(e){ notice("Fikk ikke tilgang til kameraet ("+mediaErr(e)+")."); return; }
     const tr=S.cam.getVideoTracks()[0]; tr.addEventListener("ended",stopCam);
     replaceAll("cT",tr); sendState(); render();
@@ -405,9 +415,9 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     catch(e){ if(e&&e.name!=="NotAllowedError") notice("Skjermdeling startet ikke ("+mediaErr(e)+")."); return; }
     const tr=S.screen.getVideoTracks()[0]; try{ tr.contentHint="detail"; }catch(e){}
     tr.addEventListener("ended",stopShare);
-    S.shareAt=Date.now(); S.stageOf="me"; S.stageCam=null; replaceAll("vT",tr); sendState(); render();
+    S.shareAt=Date.now(); S.pin=null; replaceAll("vT",tr); sendState(); render();
   };
-  function stopShare(){ if(!S.screen) return; S.screen.getTracks().forEach(t=>t.stop()); S.screen=null; if(S.stageOf==="me") S.stageOf=null; replaceAll("vT",null); sendState(); render(); }
+  function stopShare(){ if(!S.screen) return; S.screen.getTracks().forEach(t=>t.stop()); S.screen=null; replaceAll("vT",null); sendState(); render(); }
 
   $("leaveBtn").onclick=()=>backToLanding("Du har forlatt møtet.");
   window.addEventListener("pagehide",()=>{ if(S.ws) { S.leaving=true; wsSend({t:"bye"}); try{ S.ws.close(); }catch(e){} } });
@@ -429,6 +439,15 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     try{ await navigator.clipboard.writeText(txt); $("copyBtn").textContent="Kopiert"; }catch(e){ $("copyBtn").textContent="Rom: "+S.room; }
     setTimeout(()=>$("copyBtn").textContent="Kopier invitasjon",2000);
   };
+  $("autoBtn").onclick=()=>{ S.pin=null; render(); };
+  { const go=()=>{ if(S.cam){ S.pin={kind:"cam",key:"me"}; render(); } };
+    $("pip").onclick=go; $("pip").onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); } }; }
+  // Hovedfeltet og det lille bildet får samme form som videoen de viser.
+  const fitTo=(vid,box,prop)=>{ const f=()=>{ if(vid.videoWidth&&vid.videoHeight) box.style.setProperty(prop,vid.videoWidth+"/"+vid.videoHeight); };
+    vid.addEventListener("resize",f); vid.addEventListener("loadedmetadata",f); };
+  fitTo($("stageVideo"),$("stage"),"--ar"); fitTo($("pipVideo"),$("pip"),"--par");
+  function remoteCam(id){ const p=S.peers.get(id), c=S.conns.get(id); return !!(p && p.state.cam && c && c.cam); }
+  let bigScreenKey=null; const curBigScreen=()=>bigScreenKey;
   $("fullBtn").onclick=()=>{ const s=$("stage"); try{ document.fullscreenElement?document.exitFullscreen():s.requestFullscreen(); }catch(e){} };
 
   // ---------- chat ----------
@@ -477,8 +496,13 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       let ch=false;
       for(const [k,m] of S.meters){ m.an.getByteTimeDomainData(m.buf); let s=0; for(let i=0;i<m.buf.length;i++){ const v=(m.buf[i]-128)/128; s+=v*v; }
         const on=Math.sqrt(s/m.buf.length)>0.035 && !(k==="me"&&S.muted);
-        if(on!==S.speaking.has(k)){ on?S.speaking.add(k):S.speaking.delete(k); ch=true; } }
+        if(on!==S.speaking.has(k)){ on?S.speaking.add(k):S.speaking.delete(k); ch=true; if(on) S.speakSince.set(k,Date.now()); else S.speakSince.delete(k); } }
       if(ch) document.querySelectorAll("[data-key]").forEach(e=>e.classList.toggle("speaking",S.speaking.has(e.dataset.key)));
+      // Automatisk visning med flere deltakere: bytt til den som har snakket i over ett sekund,
+      // men bare når den som vises nå er stille.
+      if(!S.pin && S.autoCam && !S.speaking.has(S.autoCam)){
+        for(const [k,t] of S.speakSince) if(k!=="me" && k!==S.autoCam && Date.now()-t>1000 && remoteCam(k)){ S.autoCam=k; render(); break; }
+      }
     },120);
   }
 
@@ -491,50 +515,62 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     const cb=$("camBtn"); cb.className="btn "+(S.cam?"on":""); btnLabel(cb,S.cam?ICON.cam:ICON.camOff,S.cam?"Slå av kamera":"Slå på kamera");
     const sb=$("shareBtn"); sb.className="btn "+(S.screen?"on":"")+(canShare?"":" hidden"); btnLabel(sb,ICON.screen,S.screen?"Stopp deling":"Del skjerm");
 
-    const sh=[]; if(S.screen) sh.push({key:"me",name:"Du",at:Infinity,stream:S.screen});
-    for(const [id,p] of S.peers) if(p.state.sharing){ const c=S.conns.get(id); sh.push({key:id,name:p.name,at:p.state.shareAt||0,stream:c&&c.screen}); }
-    if(S.stageOf && !sh.find(s=>s.key===S.stageOf)) S.stageOf=null;
-    if(!S.stageOf && sh.length) S.stageOf=sh.slice().sort((a,b)=>b.at-a.at)[0].key;
+    // Hva som kan vises stort: delte skjermer og kameraer.
+    const sh=[]; if(S.screen) sh.push({kind:"screen",key:"me",name:"Du",at:Infinity,stream:S.screen});
+    for(const [id,p] of S.peers) if(p.state.sharing){ const c=S.conns.get(id); sh.push({kind:"screen",key:id,name:p.name,at:p.state.shareAt||0,stream:c&&c.screen}); }
+    sh.sort((a,b)=>b.at-a.at);
+    const mine=S.cam?{kind:"cam",key:"me",name:"Du",stream:S.cam,self:true}:null;
+    const remote=[]; for(const [id,p] of S.peers){ const c=S.conns.get(id); if(p.state.cam && c && c.cam) remote.push({kind:"cam",key:id,name:p.name,stream:c.cam}); }
+    const find=(kind,key)=>kind==="screen"?sh.find(x=>x.key===key):key==="me"?mine:remote.find(x=>x.key===key);
 
-    const want=[]; if(S.cam) want.push({key:"me",name:"Du",stream:S.cam,self:true});
-    for(const [id,p] of S.peers){ const c=S.conns.get(id); if(p.state.cam && c && c.cam) want.push({key:id,name:p.name,stream:c.cam}); }
+    // Eget valg (gjelder bare på denne skjermen) – ellers automatisk:
+    // delt skjerm > den andre deltakeren (den som snakker) > ditt eget kamera når ingen andre har kamera på.
+    if(S.pin && !find(S.pin.kind,S.pin.key)) S.pin=null;
+    if(S.autoCam && !remote.find(x=>x.key===S.autoCam)) S.autoCam=null;
+    if(!S.autoCam && remote.length){
+      let best=remote[0]; for(const r of remote) if((S.speakSince.get(r.key)||0)>(S.speakSince.get(best.key)||0)) best=r;
+      S.autoCam=best.key;
+    }
+    const big = S.pin ? find(S.pin.kind,S.pin.key) : sh[0] || (S.autoCam && find("cam",S.autoCam)) || mine || null;
 
-    // Scenen viser et kamera når noen har klikket på det, eller av seg selv når ingen deler skjerm.
-    if(S.stageCam && !want.find(w=>w.key===S.stageCam)) S.stageCam=null;
-    if(S.stageCam && S.stageCamAuto && sh.length) S.stageCam=null;
-    if(!S.stageCam && !sh.length && want.length){ const w=want.find(x=>!x.self)||want[0]; S.stageCam=w.key; S.stageCamAuto=true; }
-    const camCur=S.stageCam?want.find(w=>w.key===S.stageCam):null;
-    const cur=camCur?null:sh.find(s=>s.key===S.stageOf), v=$("stageVideo"), st=camCur?camCur.stream:cur&&cur.stream;
+    const v=$("stageVideo"), st=big&&big.stream;
     if(v.srcObject!==(st||null)) v.srcObject=st||null; if(st) v.play().catch(()=>{});
-    v.classList.toggle("mirror",!!(camCur&&camCur.self));
+    v.classList.toggle("mirror",!!(big&&big.self));
     $("stage").classList.toggle("live",!!st);
-    $("stageLabel").textContent=camCur?(camCur.self?"Ditt kamera":camCur.name):cur?(cur.key==="me"?"Du deler skjermen":cur.name+" deler skjermen"):"";
-    $("stage").setAttribute("aria-label",camCur?"Kamera":"Delt skjerm");
-    $("cams").classList.toggle("hidden",want.length===1&&!!camCur&&!sh.length);
+    $("stageLabel").textContent=!big?"":big.kind==="screen"?(big.key==="me"?"Du deler skjermen":big.name+" deler skjermen"):big.name;
+    $("stage").setAttribute("aria-label",big&&big.kind==="cam"?"Kamera":"Delt skjerm");
+    $("autoBtn").classList.toggle("hidden",!S.pin);
+    bigScreenKey=big&&big.kind==="screen"?big.key:null;
+    if(!st) $("stage").style.removeProperty("--ar");
 
-    const keys=new Set(want.map(w=>w.key));
+    // Ditt eget kamera som lite bilde i hjørnet når noe annet vises stort.
+    const pipOn=!!(mine && big && !big.self), pv=$("pipVideo");
+    $("pip").classList.toggle("show",pipOn);
+    if(pv.srcObject!==(pipOn?S.cam:null)){ pv.srcObject=pipOn?S.cam:null; if(pipOn) pv.play().catch(()=>{}); }
+
+    // Små bilder under hovedfeltet: de andres kameraer som ikke vises stort.
+    const small=remote.filter(r=>!(big && big.kind==="cam" && big.key===r.key));
+    const keys=new Set(small.map(w=>w.key));
     for(const [k,o] of S.camEls) if(!keys.has(k)){ o.v.srcObject=null; o.box.remove(); S.camEls.delete(k); }
-    for(const w of want){
+    for(const w of small){
       let o=S.camEls.get(w.key);
       if(!o){
-        const box=el("div","cam"+(w.self?" self":"")); box.dataset.key=w.key; box.tabIndex=0; box.setAttribute("role","button");
+        const box=el("div","cam"); box.dataset.key=w.key; box.tabIndex=0; box.setAttribute("role","button"); box.title="Vis stort";
         const vv=document.createElement("video"); vv.autoplay=true; vv.playsInline=true; vv.muted=true; const lab=el("span"); box.append(vv,lab); $("cams").appendChild(box);
-        const key=w.key, go=()=>{ if(S.stageCam===key){ S.stageCam=null; } else { S.stageCam=key; S.stageCamAuto=false; } render(); };
+        const key=w.key, go=()=>{ S.pin={kind:"cam",key}; render(); };
         box.onclick=go; box.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); } };
         o={box,v:vv,lab}; S.camEls.set(w.key,o);
       }
       if(o.v.srcObject!==w.stream){ o.v.srcObject=w.stream; o.v.play().catch(()=>{}); }
       o.lab.textContent=w.name;
-      const onStage=S.stageCam===w.key;
-      o.box.classList.toggle("on-stage",onStage);
-      o.box.title=onStage?(sh.length?"Klikk for å vise den delte skjermen":"Vises stort"):"Klikk for å vise stort";
+      o.box.classList.toggle("speaking",S.speaking.has(w.key));
     }
 
     const ul=$("people"); ul.innerHTML="";
     const rows=[{key:"me",name:S.name,you:true,muted:S.muted||!S.mic,sharing:!!S.screen,cam:!!S.cam,state:"connected"}];
     for(const [id,p] of S.peers){ const c=S.conns.get(id); rows.push({key:id,name:p.name,muted:!!p.state.muted,sharing:!!p.state.sharing,cam:!!p.state.cam,state:c?c.pc.connectionState:"new"}); }
     for(const r of rows){
-      const li=el("li","person"+(r.sharing?" clickable":"")+(!S.stageCam&&S.stageOf===r.key?" on-stage":"")+(S.speaking.has(r.key)?" speaking":""));
+      const li=el("li","person"+(r.sharing?" clickable":"")+(curBigScreen()===r.key?" on-stage":"")+(S.speaking.has(r.key)?" speaking":""));
       li.dataset.key=r.key;
       const nm=el("span","pname",r.name); const extra=r.you?"(deg)":r.state!=="connected"?"kobler til …":"";
       if(extra) nm.appendChild(el("small",null,extra));
@@ -543,7 +579,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       if(r.cam) ic.insertAdjacentHTML("beforeend",'<span title="Kamera på">'+ICON.cam+'</span>');
       if(r.muted) ic.insertAdjacentHTML("beforeend",'<span title="Mikrofon av">'+ICON.micOff+'</span>');
       li.append(el("span","avatar",initials(r.name)),nm,ic);
-      if(r.sharing){ li.tabIndex=0; const go=()=>{ S.stageOf=r.key; S.stageCam=null; render(); }; li.onclick=go; li.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); } }; }
+      if(r.sharing){ li.tabIndex=0; const go=()=>{ S.pin={kind:"screen",key:r.key}; render(); }; li.onclick=go; li.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); } }; }
       ul.appendChild(li);
     }
   }
