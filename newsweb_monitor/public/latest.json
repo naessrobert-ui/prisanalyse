@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T21:40:00+00:00",
+  "generated_at": "2026-11-13T21:50:00+00:00",
   "items": [
     {
       "id": "686524",
@@ -1303,23 +1303,16 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor utbetaler 0,39 USD i utbytte for 2. kvartal 2026",
-      "lead": "Equinor-aksjen handles nå eksklusiv utbytte på 0,39 USD for andre kvartal 2026, et viktig kontantutbytte for investorer som følger selskapets løpende avkastning.",
+      "headline": "Equinor kutter utbytte til 0,39 USD per aksje for Q2 2026",
+      "lead": "Equinor begynner å handle eksklusive et kontantutbytte på 0,39 USD per aksje fra 13. november 2026. Dette påvirker direkte avkastningen for aksjonærene i perioden.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor-aksjen handles nå eksklusiv utbytte på 0,39 USD for andre kvartal 2026, et viktig kontantutbytte for investorer som følger selskapets løpende avkastning.",
-      "reason": "Utbytteutbetaling er en forventet hendelse som påvirker aksjekursen midlertidig, men gir ikke ny informasjon om selskapets operasjonelle resultater eller fremtidsutsikter. Aksjonærer får direkte avkastning, men bør også følge utviklingen i kjernevirksomheten.",
+      "summary": "Equinor begynner å handle eksklusive et kontantutbytte på 0,39 USD per aksje fra 13. november 2026. Dette påvirker direkte avkastningen for aksjonærene i perioden.",
+      "reason": "Utbyttejusteringen er en forventet del av selskapets kapitaldistribusjon, men mangler detaljert kontekst om hvordan dette står i forhold til tidligere kvartaler, guiding eller markedssituasjon. Det gir lite innsikt i selskapets finansielle helse eller fremtidige utsikter.",
       "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "AKRBP",
-          "direction": "uklar",
-          "reason": "Kan påvirkes på sektornivå gjennom investorers risiko- og avkastningsevaluering i olje- og gasssektoren."
-        }
-      ],
       "importance": "stor",
       "score_ai": 45,
       "number_keys": [
@@ -2820,15 +2813,15 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjonen til 4.634 boe/d, men kvartalsvis underskudd på 27,6 mill USD",
-      "lead": "Questerre økte produksjonen betydelig til 4.634 fat oljeekvivalenter daglig i 3. kvartal 2026, men rapporterte et netto tap på 27,6 millioner USD, preget av anleggsstans og høye finansielle kostnader.",
+      "headline": "Questerre sliter med 27,6 mill. tap i Q3 etter PX Energy-stans og vedlikeholdsutfordringer",
+      "lead": "Questerre Energy rapporterer et netto tap på 27,6 millioner dollar i tredje kvartal 2026, preget av driftsstans hos PX Energy og vedlikeholdsproblemer, til tross for økt produksjon og inntekter.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre økte produksjonen betydelig til 4.634 fat oljeekvivalenter daglig i 3. kvartal 2026, men rapporterte et netto tap på 27,6 millioner USD, preget av anleggsstans og høye finansielle kostnader.",
-      "reason": "Økt produksjon og høyere inntekter viser vekst, men store finansielle kostnader og anleggsproblemer svekker resultatet. Investorer bør følge utviklingen i PX Energys gjeldsrestrukturering og kostnadsstyring.",
+      "summary": "Questerre Energy rapporterer et netto tap på 27,6 millioner dollar i tredje kvartal 2026, preget av driftsstans hos PX Energy og vedlikeholdsproblemer, til tross for økt produksjon og inntekter.",
+      "reason": "Tapet på 27,6 millioner i Q3 skyldes blant annet en uventet fabrikkstans og påfølgende vedlikeholdsproblemer, noe som setter fokus på risiko og behov for strukturendringer i PX Energy. Investorer bør følge utviklingen i gjeldsstruktur og produksjonsstabilitet.",
       "score": 60,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "negativ",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
       "score_ai": 75,
@@ -13421,11 +13414,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T21:40:00+00:00",
+  "last_checked_at": "2026-11-13T21:50:00+00:00",
   "monitor_stats": {
     "fetched": 233,
-    "recent": 137,
-    "already_seen": 134,
+    "recent": 135,
+    "already_seen": 132,
     "eligible": 3,
     "filtered": 0,
     "analyzed": 3,
