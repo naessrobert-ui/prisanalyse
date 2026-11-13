@@ -2,8 +2,26 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T13:20:00+00:00",
+  "generated_at": "2026-11-13T13:30:00+00:00",
   "items": [
+    {
+      "id": "686499",
+      "market": "XOSL",
+      "ticker": "NOM",
+      "issuer": "Nordic Mining ASA",
+      "title": "Major Shareholding Disclosure Notification",
+      "headline": "Stor aksjonær øker eierandel i Nordic Mining ASA",
+      "lead": "En betydelig aksjonær har økt sin eierandel i Nordic Mining ASA, ifølge ny melding. Detaljene om størrelse og effekt på kontrollsituasjonen mangler fortsatt.",
+      "published_at": "2026-11-13T13:23:04.715000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686499",
+      "summary": "En betydelig aksjonær har økt sin eierandel i Nordic Mining ASA, ifølge ny melding. Detaljene om størrelse og effekt på kontrollsituasjonen mangler fortsatt.",
+      "reason": "Økt storaksjonærandel kan indikere økt støtte eller potensiell endring i selskapets styring. Uten konkrete tall må vi følge opp for å vurdere konsekvenser for aksjonærer.",
+      "score": 65,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "attachment_key": "f29df6910021d695"
+    },
     {
       "id": "686498",
       "market": "XOSL",
@@ -684,18 +702,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor eksklusive 0,39 USD i kvartalsutbytte fra i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen uten retten til kvartalsutbytte på 0,39 USD per aksje, noe som påvirker kursen i kort tid.",
+      "headline": "Equinor handler eks utbytte på 0,39 USD per aksje fra i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen uten rett til kvartalsutbytte på 0,39 USD. Utbytteutbetaling kan påvirke kursen midlertidig med reduksjon tilsvarende beløpet.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen uten retten til kvartalsutbytte på 0,39 USD per aksje, noe som påvirker kursen i kort tid.",
-      "reason": "Utbyttebetaling er kapitalfordeling, ikke ny inntjening. Påvirker kortsiktig aksjekurs, men ikke selskapets fundamentale verdi. Viktig for inntektsorienterte investorer å kjenne til tidspunktet.",
-      "score": 50,
+      "summary": "Fra 13. november handles Equinor-aksjen uten rett til kvartalsutbytte på 0,39 USD. Utbytteutbetaling kan påvirke kursen midlertidig med reduksjon tilsvarende beløpet.",
+      "reason": "Utbyttejustering er en forventet hendelse som normalt justerer aksjekursen ned tilsvarende utbyttet. Viktig for investorer å merke seg tidspunkt for eks-dato og mulig kursjustering.",
+      "score": 70,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AKRBP",
+          "direction": "uklar",
+          "reason": "Kan påvirkes indirekte gjennom sektorens kapitalstrømmer ved utbytteutbetaling i Equinor."
+        }
+      ],
       "importance": "stor",
-      "score_ai": 40,
+      "score_ai": 60,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -2194,18 +2219,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre tapte 27,6 millioner USD i Q3 etter anleggsstans og vedlikeholdsutfordringer",
-      "lead": "Questerre rapporterer et netto tap på 27,6 millioner USD i tredje kvartal 2026, påvirket av fabrikkstans og vedlikeholdsproblemer i PX Energy-anlegget, til tross for økt produksjon og godkostnadsstyring.",
+      "headline": "Questerre øker produksjonen til 4.634 boe/d - netto tap på 27,6 mill. USD",
+      "lead": "Tredje kvartal i 2026 viser økt produksjon til 4.634 boe/d etter PX Energy-kjøpet, men netto tap stiger til 27,6 mill. USD grunnet ikke-kontante finansposter og uforutsette vedlikeholdskostnader.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre rapporterer et netto tap på 27,6 millioner USD i tredje kvartal 2026, påvirket av fabrikkstans og vedlikeholdsproblemer i PX Energy-anlegget, til tross for økt produksjon og godkostnadsstyring.",
-      "reason": "Til tross for økt produksjon og økte inntekter, påvirker driftshendelser, vedlikeholdsutfordringer og ikke-kontante finansielle kostnader selskapets bunnlinje negativt. Investorer bør følge restrukturering av gjeld og framtidig produksjonsstabilitet.",
-      "score": 63,
+      "summary": "Tredje kvartal i 2026 viser økt produksjon til 4.634 boe/d etter PX Energy-kjøpet, men netto tap stiger til 27,6 mill. USD grunnet ikke-kontante finansposter og uforutsette vedlikeholdskostnader.",
+      "reason": "Økt produksjon styrker driftsgrunnlaget, men netto tap og vedlikeholdsutfordringer skaper usikkerhet. Investorer må følge tiltak for gjeldsrestrukturering og langsiktig lønnsomhet.",
+      "score": 60,
       "skipped": false,
-      "direction": "negativ",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 78,
+      "score_ai": 75,
       "number_keys": [
         "004be8",
         "02ef6a",
@@ -5375,12 +5400,12 @@
       "ticker": "CDLR",
       "issuer": "Cadeler plc",
       "title": "Cadeler plc: Notice of Upcoming Q3 2026 Earnings Release and Presentation on 23 November 2026",
-      "headline": "Cadeler varsler Q3-rapport og webcast 23. november kl. 08:00 CET",
-      "lead": "Cadeler offentliggjør sine resultater for de ni første månedene i 2026 23. november kl. 08:00 CET, etterfulgt av en direktesendt presentasjon fra ledelsen. Resultater og fremtidsutsikter vil bli belyst.",
+      "headline": "Cadeler kunngjør Q3-resultater og presentasjon 23. november",
+      "lead": "Cadeler plc vil publisere sine Q3 2026-resultater 23. november kl. 08:00 CET, med tilhørende presentasjon og direktesendt webcast samme dag. Mer detaljert finansiell informasjon blir tilgjengelig da.",
       "published_at": "2026-11-12T07:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686289",
-      "summary": "Cadeler offentliggjør sine resultater for de ni første månedene i 2026 23. november kl. 08:00 CET, etterfulgt av en direktesendt presentasjon fra ledelsen. Resultater og fremtidsutsikter vil bli belyst.",
-      "reason": "Meldingen er en ren dato- og arrangementsvarsling uten konkret resultatinformasjon. Investorer må vente på tallene og analysen for vurdering av selskapets utvikling.",
+      "summary": "Cadeler plc vil publisere sine Q3 2026-resultater 23. november kl. 08:00 CET, med tilhørende presentasjon og direktesendt webcast samme dag. Mer detaljert finansiell informasjon blir tilgjengelig da.",
+      "reason": "Meldingen informerer primært om tidspunkt for resultatfremleggelse uten å gi økonomiske detaljer eller indikasjon på forventet utvikling. Investorer må vente på konkrete tall for vurdering.",
       "score": 15,
       "skipped": false,
       "direction": "nøytral",
@@ -7622,15 +7647,15 @@
       "ticker": "OUTLT",
       "issuer": "Outlet Group Holding ASA",
       "title": "Outlet Group Holding ASA: Financial results for the third quarter of 2026",
-      "headline": "Outlet Group øker omsetningen 16 prosent i tredje kvartal 2026",
-      "lead": "Outlet Group rapporterer en omsetning på 740 millioner kroner i Q3 2026, opp 16,4 prosent mot samme periode i fjor, mens justert EBIT margin faller til 20,3 prosent. Økt butikkutvidelse driver veksten, men marginen svekkes noe.",
+      "headline": "Outlet Group øker inntektene 16 prosent til 740 millioner i Q3 2026",
+      "lead": "Outlet Group holder sterk vekst med 16,4 prosent omsetningsøkning til 740,1 millioner kroner i tredje kvartal 2026, drevet av utvidet butikknettverk og økt andel egenproduserte varer.",
       "published_at": "2026-11-12T06:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686260",
-      "summary": "Outlet Group rapporterer en omsetning på 740 millioner kroner i Q3 2026, opp 16,4 prosent mot samme periode i fjor, mens justert EBIT margin faller til 20,3 prosent. Økt butikkutvidelse driver veksten, men marginen svekkes noe.",
-      "reason": "Sterk omsetningsvekst og utvidelse av butikknettet indikerer sunn ekspansjon, mens en lettere marginnedgang kan tyde på press i inntjeningen. Aksjonærer bør følge marginutviklingen fremover og effekten av nye butikker nøye.",
-      "score": 80,
+      "summary": "Outlet Group holder sterk vekst med 16,4 prosent omsetningsøkning til 740,1 millioner kroner i tredje kvartal 2026, drevet av utvidet butikknettverk og økt andel egenproduserte varer.",
+      "reason": "Sterk salgvekst og forbedret bruttofortjeneste viser god markedsposisjon og effektiv drift. Aksjonærer bør følge utvikling i egenrettes marginer og ekspansjonseffekter fremover.",
+      "score": 81,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "positiv",
       "assessment_source": "AI",
       "attachment_key": "9f657893cedc418a",
       "number_keys": [
@@ -7690,7 +7715,7 @@
             "yoy_pct": 16.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Condensed Consolidated Interim Statement of Income, Q3 2026 revenue 740.1 million NOK, Q3 2025 revenue 636.1 million NOK (page 9)"
+            "evidence": "Page 3, Q3 2026 revenue NOK 740.1m (636.1m)"
           },
           {
             "label": "EBITDA",
@@ -7703,7 +7728,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "EBITDA not explicitly reported for Q3 2026 or Q3 2025 for total group in the excerpt"
+            "evidence": "No explicit EBITDA for group provided; only EBIT and Adjusted EBIT provided in Q3 2026"
           },
           {
             "label": "EBIT",
@@ -7716,7 +7741,7 @@
             "yoy_pct": 5.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Operating profit (EBIT) Q3 2026 142.0 million NOK, Q3 2025 134.8 million NOK (page 9)"
+            "evidence": "Page 9, Operating profit (EBIT) 142.0 million in Q3 2026 (134.8 million)"
           },
           {
             "label": "Resultat etter skatt",
@@ -7729,7 +7754,7 @@
             "yoy_pct": 9.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net profit for the period Q3 2026 94.7 million NOK, Q3 2025 86.8 million NOK (page 9)"
+            "evidence": "Page 9, Net profit for Q3 2026 94.7 million (86.8 million)"
           },
           {
             "label": "EPS",
@@ -7742,7 +7767,7 @@
             "yoy_pct": 11.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Basic and diluted EPS Q3 2026 0.97 NOK/share, Q3 2025 0.87 NOK/share (page 9)"
+            "evidence": "Page 9, Basic and diluted Earnings per share (EPS): 0.97 (0.87)"
           },
           {
             "label": "Kontantstrøm drift",
@@ -7755,51 +7780,51 @@
             "yoy_pct": 21.1,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net cash flow from operating activities Q3 2026 326.9 million NOK, Q3 2025 270 million NOK (page 3)"
+            "evidence": "Page 3, Cash flow from operating activities 327 (270)"
           },
           {
             "label": "Netto renteinntekter",
             "name": "net_interest_income",
             "unit": "NOK million",
-            "current": null,
-            "prior_year": null,
+            "current": -20.1,
+            "prior_year": -23.9,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Net financial income (expense) reported as net financial expense Q3 2026 (20.1) million NOK, Q3 2025 (23.9) million NOK (page 9), no bank net interest income sp"
+            "evidence": "Page 9, Net financial income (expense) -20.1 million in Q3 2026 (-23.9 million)"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Selskapet planlegger å utvide Kids Outlet til 30 butikker innen utgangen av året, med positiv underliggende vekst og forbedret lønnsomhet i Sport Outlet. En ombygging av nettplattformen skal forbedre netthandel og kundeengasjement i løpet av de kommende kvartalene. Inventaroptimering og overgang til sentral lagerstyring forventes fullført i Q4 for bedre varelagerallokering og tilgjengelighet, noe som også vil forbedre effektiviteten.",
+          "summary": "Kids Outlet planlegger å utvide til 30 butikker innen årets slutt, med leieavtaler på plass og utvikling av produkter og direkteinnkjøp for bedre marginer og prisposisjonering. Sport Outlet viser sterk salgsvekst og forventes å forbedre lønnsomheten gjennom skalaeffekter og operasjonelle forbedringer. Gruppen jobber også med å forbedre netthandelsplattformen i flere faser for å øke netthandel over tid. Lageroptimalisering og overgang til sentral lagerstyring pågår for bedre produkt tilgjengelighet over butikknettet. Et planlagt nytt sentralt lager og hovedkontor er også under utvikling. Disse tiltakene forventes å redusere sentrale kostnader",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [],
           "points": [
             {
-              "topic": "Butikkutvidelse Kids Outlet",
-              "statement": "Utviklingen går som planlagt med avtaler for å nå 30 butikker innen året ender.",
-              "evidence": "\"Store expansion is progressing in line with the Group’s plans, with signed lease agreements... to 30 stores by year-end.\"",
+              "topic": "Butikkutvidelse og salg",
+              "statement": "Utvidelse av Kids Outlet til 30 butikker innen årets slutt og styrking av produktsortiment og direkteinnkjøp for bedre marginer.",
+              "evidence": "\"Store expansion is progressing... signed lease agreements... 30 stores by year-end... direct sourcing... competitive price positioning and gross margin development.\" (side 4)",
               "page": "4"
             },
             {
-              "topic": "Online plattformforbedring",
-              "statement": "Fasevis implementering av oppgraderinger for bedre digital handleopplevelse og økt netthandel over tid.",
-              "evidence": "\"Redevelopment project for its online platform to improve the digital shopping experience... expected to support increase in online sales over time.\"",
+              "topic": "Lønnsomhet og drift",
+              "statement": "Forventet bedre lønnsomhet i Sport Outlet gjennom skalaeffekt og operasjonelle forbedringer, samt reduksjon av sentrale kostnader i forhold til omsetning.",
+              "evidence": "\"Central organisation largely established... growth allows central costs to be spread... improve segment profitability.\" (side 4)",
               "page": "4"
             },
             {
-              "topic": "Lønnsomhet og kostnadsfordeling",
-              "statement": "Sentral organisasjon stort sett etablert, vekst vil spre sentrale kostnader over større inntektsbase og bedre lønnsomhet.",
-              "evidence": "\"Central organisation largely established, further growth allows central costs to be spread across a larger revenue base... expected to improve segment profitability.\"",
+              "topic": "Netthandelsplattform",
+              "statement": "Utvikling av netthandelsplattform i flere faser for å forbedre digital kundeopplevelse og øke netthandel over tid.",
+              "evidence": "\"Redevelopment project for its online platform... improvements... expected to support increase in online sales.\" (side 4)",
               "page": "4"
             },
             {
-              "topic": "Lager og logistikk",
-              "statement": "Overgang til sentralt styrt vareopplæring pågår, med full implementering i Q4 for optimalisering av varelager og tilgjengelighet.",
-              "evidence": "\"Group began transitioning from store-managed to centrally managed store replenishment, full implementation expected during Q4... to optimise inventory levels and efficiency.\"",
+              "topic": "Lager og infrastruktur",
+              "statement": "Overgang til sentral styring av varelager i butikker forventes fullført i Q4, og nytt sentralt lager og hovedkontor er under utvikling for bedre logistikk og kostnadseffektivitet.",
+              "evidence": "\"Group began transitioning from store-managed to centrally managed store replenishment... planned new central warehouse and headquarters at Lyseparken.\" (side 4)",
               "page": "4"
             }
           ]
@@ -12984,109 +13009,6 @@
         "fa35e1",
         "fb9654"
       ]
-    },
-    {
-      "id": "686084",
-      "market": "XOSL",
-      "ticker": "AGLX",
-      "issuer": "Agilyx ASA",
-      "title": "Agilyx ASA Q3 update: GreenDot on track for EUR 19 million EBITDA in 2026; Group EBITDA positive year to date",
-      "headline": "Agilyx leverer positiv EBITDA på 1,7 mill. euro hittil i år – GreenDot styrker posisjonen i Europa",
-      "lead": "Agilyx rapporterer EBITDA på 1,7 mill. euro hittil i 2026 med positiv utvikling i Q3. GreenDot på vei mot 19 mill. euro EBITDA i 2026, men enkelte produksjonsforsinkelser og tap i Spania skaper usikkerhet.",
-      "published_at": "2026-11-10T07:36:29.197000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686084",
-      "summary": "Agilyx rapporterer EBITDA på 1,7 mill. euro hittil i 2026 med positiv utvikling i Q3. GreenDot på vei mot 19 mill. euro EBITDA i 2026, men enkelte produksjonsforsinkelser og tap i Spania skaper usikkerhet.",
-      "reason": "Positiv EBITDA gir signaler om bedring i Agilyx, men forsinkelser i produksjon og fortsatt tap ved spansk enhet bør overvåkes. Behov for å følge utviklingen i produksjonslinjer og ordreinngang videre.",
-      "score": 75,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "attachment_key": "d6c48b3e76bf1747",
-      "number_keys": [
-        "0716d9",
-        "1d513c",
-        "22d200",
-        "2659fc",
-        "431f6b",
-        "77de68",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "b3f0c7",
-        "b7eb6c",
-        "be461a",
-        "df518c",
-        "e1822d",
-        "f1abd6",
-        "fc074d"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "filename",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Agylyx_Q3 2026 Update.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=686084&attachmentId=336157"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "€ million",
-            "current": 84.0,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 3"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "€ million",
-            "current": 3.6,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "SIDE 3"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "Agilyx rapporterer fremdrift i mekanisk resirkulering med €3,6 millioner i EBITDA, hvor de franske operasjonene leverer resultat over budsjett, mens italienske operasjoner ligger under forventning på grunn av forsinket oppstart av nye produksjonslinjer. Spanske virksomheter, nylig ervervet, er fortsatt tapsbringende men viser månedlige forbedringer. Kjemisk resirkulering skuffer pga. utsatte kundeordre. Nettoresultatet for GreenDot EBITDA har økt fra null i 2024 til €19 millioner i 2026, med mål om €50 millioner i 2028. Selskapet har også fått ISO/IEC 17025 akkreditering for arcLabs.",
-          "change": "- Mekanisk resirkulering EBITDA: Økning fra tidligere Q1 2026 hvor fokus var på vekst og lønnsom kjerne, nå mer konkret tallfestet til €3,6m med oppdatert status per land (fransk over budsjett, italiensk under pga. forsinkelser, spansk fortsatt tap men forbedring). \n- Kjemisk resirkulering: Nedjustert sammenlignet med Q1 2026, nevnt som \"under budsjett\" grunnet utsatt kundebestilling. \n- EBITDA-mål: Tidligere Q1 2026 var målet om lønnsomhet og vekst formulert mer strategisk, nå konkretisert med en prognose om €50m i 2028, hvor man er på €19m i 2026, noe som indikerer fremdrift mot dette målet.",
-          "trend": "",
-          "compared_periods": [
-            "2026Q1"
-          ],
-          "points": [
-            {
-              "topic": "Mekanisk resirkulering",
-              "statement": "Franske operasjoner leverer EBITDA over budsjett, italienske under forventning på grunn av forsinket oppstart, spanske operasjoner forbedrer seg men fortsatt tap.",
-              "evidence": "\"French operations contributing healthy EBITDA and ahead of budget\"; \"Italian operations lower EBITDA than forecast due to delayed commissioning\"; \"Spanish operations…still loss making but improving m",
-              "page": "3"
-            },
-            {
-              "topic": "Kjemisk resirkulering",
-              "statement": "Under budsjett pga. forsinkede kundeordre.",
-              "evidence": "\"Chemical recycling below budget due to delayed customer orders\"",
-              "page": "3"
-            },
-            {
-              "topic": "Finansiell mål og EBITDA-utvikling",
-              "statement": "GreenDot EBITDA har økt fra break-even i 2024 til €19m i 2026 og er på vei mot €50m i 2028.",
-              "evidence": "\"GreenDot EBITDA has moved from break-even in 2024 to €19m in 2026, on track for €50m in 2028\"",
-              "page": "3"
-            }
-          ]
-        }
-      }
     }
   ],
   "indirect": [
@@ -13260,40 +13182,13 @@
           "reason": "Norsk lakseeksport mot britisk marked kan falle pga lavere øko-etterspørsel."
         }
       ]
-    },
-    {
-      "id": "69c4e9f46261b463",
-      "source": "E24",
-      "title": "Prisveksten i USA var høyere enn ventet i oktober",
-      "url": "https://e24.no/internasjonal-oekonomi/i/pM6qn1/prisveksten-i-usa-var-hoeyere-enn-ventet-i-oktober?utm_medium=rss",
-      "published_at": "2026-11-10T13:30:22+00:00",
-      "analyzed_at": "2026-11-10T13:40:00+00:00",
-      "score": 70,
-      "comment": "Høyere USAs prisvekst øker sannsynligheten for renteheving, noe som kan styrke kronen og dytte opp finansieringskostnader for norske selskap.",
-      "affected": [
-        {
-          "ticker": "DNB",
-          "direction": "negativ",
-          "reason": "Økte renter kan øke finansieringskostnader og negativt påvirke utlånsaktivitet."
-        },
-        {
-          "ticker": "AKRBP",
-          "direction": "negativ",
-          "reason": "Sterkere krone kan redusere oljeprisen i NOK, negativt for oljeservice."
-        },
-        {
-          "ticker": "NHY",
-          "direction": "uklar",
-          "reason": "Renter påvirker investeringsklima, usikkert for kraftselskap."
-        }
-      ]
     }
   ],
-  "last_checked_at": "2026-11-13T13:20:00+00:00",
+  "last_checked_at": "2026-11-13T13:30:00+00:00",
   "monitor_stats": {
-    "fetched": 216,
-    "recent": 155,
-    "already_seen": 149,
+    "fetched": 217,
+    "recent": 156,
+    "already_seen": 150,
     "eligible": 6,
     "filtered": 0,
     "analyzed": 6,
@@ -13301,7 +13196,7 @@
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 5,
-    "source_latest_at": "2026-11-13T13:15:05.680000+00:00",
+    "source_latest_at": "2026-11-13T13:23:04.715000+00:00",
     "indirect": 0
   }
 }
