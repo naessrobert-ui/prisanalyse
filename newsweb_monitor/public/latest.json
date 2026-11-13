@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T20:30:00+00:00",
+  "generated_at": "2026-11-13T20:40:00+00:00",
   "items": [
     {
       "id": "686523",
@@ -1286,13 +1286,13 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor kutter utbytte med 0,39 USD per aksje fra i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen eksklusive utbytte på 0,39 USD for andre kvartal 2026. Investorer må ta hensyn til denne utbetalingen når de vurderer aksjekurs og kontantstrøm.",
+      "headline": "Equinor utbetaler 0,39 USD i utbytte for 2. kvartal 2026 – eks-dato i dag",
+      "lead": "Aksjen i Equinor handles fra 13. november eksklusiv kvartalsutbytte på 0,39 USD. Utbyttet gir kontantavkastning til aksjonærer og påvirker kortsiktig kursjustering.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen eksklusive utbytte på 0,39 USD for andre kvartal 2026. Investorer må ta hensyn til denne utbetalingen når de vurderer aksjekurs og kontantstrøm.",
-      "reason": "Utbytteutbetalingen representerer et kontantutlegg som påvirker aksjekursen teknisk, men sier begrenset om selskapets underliggende drift. Fokus for aksjonærer bør være videre resultatutvikling og kapitalbruk.",
-      "score": 65,
+      "summary": "Aksjen i Equinor handles fra 13. november eksklusiv kvartalsutbytte på 0,39 USD. Utbyttet gir kontantavkastning til aksjonærer og påvirker kortsiktig kursjustering.",
+      "reason": "Utbytteutbetaling er forventet og gir direkte avkastning til aksjonærer, men uklar effekt på langsiktig kursutvikling. Viktig å følge videre rente- og oljeprisutvikling for aksjekursen.",
+      "score": 75,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -1300,16 +1300,16 @@
         {
           "ticker": "AKRBP",
           "direction": "uklar",
-          "reason": "Kan påvirkes av likviditetsbehov i sektoren, men ingen direkte kobling til Equinors utbytte."
+          "reason": "Konkurrent som også kan påvirkes av generelle oljepris- og utbyttetrender."
         },
         {
-          "ticker": "VAR",
+          "ticker": "DNO",
           "direction": "uklar",
-          "reason": "Ingen direkte effekt, men sektorens kontantstrømforventninger kan justeres."
+          "reason": "Oljebransjeaksje med mulig indirekte effekt fra Equinors utbyttebetaling."
         }
       ],
       "importance": "stor",
-      "score_ai": 55,
+      "score_ai": 60,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -2808,15 +2808,15 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjon til 4.634 boe/d – rapporterer netto tap på 27,6 mill USD",
-      "lead": "Questerre leverer 4.634 boe per dag i tredje kvartal, opp fra 2.926 boe i fjor og en justert kontantstrøm på 2,3 mill USD, men netto tap økte til 27,6 mill USD, delvis påvirket av ikke-kontante finansposter.",
+      "headline": "Questerre sliter med 27,6 mill. dollar kvartalstap etter fabrikkstans og gjeldsvurdering",
+      "lead": "Questerre taper 27,6 mill. dollar i Q3 etter PX Energy-fabrikkens stans og økte vedlikeholdskostnader. Justert kontantstrøm var 2,3 mill. dollar, preget av nedgang i produksjon og kompleks gjeldsstruktur.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre leverer 4.634 boe per dag i tredje kvartal, opp fra 2.926 boe i fjor og en justert kontantstrøm på 2,3 mill USD, men netto tap økte til 27,6 mill USD, delvis påvirket av ikke-kontante finansposter.",
-      "reason": "Økt produksjon og kontantstrøm er positive tegn, men det betydelige netto tapet og behov for gjeldsrestrukturering i PX Energy gir usikkerhet om kortsiktig finansiell stabilitet og verdiskaping for aksjonærene. Viktig å følge utviklingen i restrukturering og teknologitesting.",
+      "summary": "Questerre taper 27,6 mill. dollar i Q3 etter PX Energy-fabrikkens stans og økte vedlikeholdskostnader. Justert kontantstrøm var 2,3 mill. dollar, preget av nedgang i produksjon og kompleks gjeldsstruktur.",
+      "reason": "Tapet øker betydelig sammenlignet med i fjor, drevet av produksjonsstans og finansielle kostnader knyttet til komplekse obligasjoner. Aksjonærer bør følge selskapets foreslåtte gjeldsrestrukturering og teknologitesting nøye for å vurdere fremtidig lønnsomhet.",
       "score": 63,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "negativ",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
       "score_ai": 78,
@@ -13409,11 +13409,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T20:30:00+00:00",
+  "last_checked_at": "2026-11-13T20:40:00+00:00",
   "monitor_stats": {
     "fetched": 232,
-    "recent": 140,
-    "already_seen": 137,
+    "recent": 139,
+    "already_seen": 136,
     "eligible": 3,
     "filtered": 0,
     "analyzed": 3,
