@@ -191,7 +191,15 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 <script>
 (function(){
   "use strict";
-  const ICE = [{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}];
+  // Reserve hvis serveren ikke svarer; vanligvis hentes ICE-servere (med TURN) fra /meet/ice ved oppstart.
+  let ICE = [{urls:["stun:stun.cloudflare.com:3478","stun:stun.l.google.com:19302"]}];
+  async function loadIce(){
+    try{
+      const base=location.pathname.replace(/\/meet\/?.*$/,"");
+      const r=await fetch(base+"/meet/ice?kode="+encodeURIComponent(S.kode),{cache:"no-store"});
+      if(r.ok){ const d=await r.json(); if(Array.isArray(d.iceServers) && d.iceServers.length) ICE=d.iceServers; }
+    }catch(e){}
+  }
   const ICON = {
     mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
     micOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 9.3V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 5 2.2M5 11a7 7 0 0 0 11.5 5.4M19 11a7 7 0 0 1-.6 2.8M12 18v3M3 3l18 18"/></svg>',
@@ -237,6 +245,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     catch(e){ S.mic=null; notice("Fikk ikke tilgang til mikrofonen ("+mediaErr(e)+"), så du er med som lytter."); }
     if(S.mic) addMeter("me", S.mic);
     $("roomName").textContent=room;
+    await loadIce();
     connect();
   }
 

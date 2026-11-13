@@ -13,6 +13,9 @@ Miljøvariabler:
   NAM_MEET_KODE   Tilgangskode deltakerne må skrive inn. Sterkt anbefalt.
                   Står den tom, kan alle som kjenner adressen bli med.
   NAM_MEET_MAKS   Maks deltakere per rom (standard 10).
+  CLOUDFLARE_TURN_KEY_ID, CLOUDFLARE_TURN_API_TOKEN
+                  TURN-nøkkel fra Cloudflare (Realtime > TURN). Uten TURN får deltakere
+                  på strenge nett (bedriftsnett, en del mobilnett) ikke lyd og bilde.
 
 NB: Rommene ligger i minnet til prosessen. Kjør med én worker
 (uvicorn uten --workers, eller --workers 1), ellers havner deltakere
@@ -26,8 +29,12 @@ import re
 import secrets
 from pathlib import Path
 
+import logging
+import time
+
+import httpx
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 router = APIRouter()
 
@@ -35,6 +42,14 @@ HTML_FIL = Path(__file__).with_name("nam_meet.html")
 KODE = os.environ.get("NAM_MEET_KODE", "")
 MAKS = int(os.environ.get("NAM_MEET_MAKS", "10"))
 MAKS_MELDING = 64_000  # bytes; SDP-tilbud er typisk 3–8 kB
+TURN_KEY_ID = os.environ.get("CLOUDFLARE_TURN_KEY_ID", "")
+TURN_TOKEN = os.environ.get("CLOUDFLARE_TURN_API_TOKEN", "")
+TURN_TTL = 12 * 3600  # sekunder nøklene gjelder; lengre enn et møte
+TURN_FORNY = 3600  # hent nye nøkler fra Cloudflare minst så ofte
+STUN = [{"urls": ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"]}]
+
+log = logging.getLogger(__name__)
+_ice_cache: dict = {"til": 0.0, "servere": None}
 
 # rom -> {deltaker_id -> {"ws": WebSocket, "name": str, "state": dict}}
 _rom: dict[str, dict[str, dict]] = {}
@@ -104,7 +119,47 @@ async def meet_side():
 @router.get("/meet/status", include_in_schema=False)
 async def meet_status():
     """Lite helsesjekk: antall aktive rom og deltakere (ingen navn)."""
-    return {"rom": len(_rom), "deltakere": sum(len(m) for m in _rom.values()), "krever_kode": bool(KODE)}
+    return {
+        "rom": len(_rom),
+        "deltakere": sum(len(m) for m in _rom.values()),
+        "krever_kode": bool(KODE),
+        "turn": bool(TURN_KEY_ID and TURN_TOKEN),
+    }
+
+
+async def _hent_turn() -> list | None:
+    """Midlertidige TURN-nøkler fra Cloudflare. Den faste nøkkelen forlater aldri serveren."""
+    url = f"https://rtc.live.cloudflare.com/v1/turn/keys/{TURN_KEY_ID}/credentials/generate-ice-servers"
+    async with httpx.AsyncClient(timeout=5) as klient:
+        r = await klient.post(url, headers={"Authorization": f"Bearer {TURN_TOKEN}"}, json={"ttl": TURN_TTL})
+    r.raise_for_status()
+    servere = r.json().get("iceServers")
+    if isinstance(servere, dict):
+        servere = [servere]
+    if not isinstance(servere, list) or not servere:
+        raise ValueError("uventet svar fra Cloudflare")
+    for s in servere:  # port 53 blokkeres av nettlesere og gir bare tidsavbrudd
+        if isinstance(s.get("urls"), list):
+            s["urls"] = [u for u in s["urls"] if ":53?" not in u and not u.endswith(":53")]
+    return servere
+
+
+@router.get("/meet/ice", include_in_schema=False)
+async def meet_ice(kode: str = Query("")):
+    """ICE-servere til nettleseren: STUN alltid, TURN når det er satt opp."""
+    if KODE and not secrets.compare_digest(kode.encode(), KODE.encode()):
+        return JSONResponse({"feil": "feil tilgangskode"}, status_code=401)
+    if not (TURN_KEY_ID and TURN_TOKEN):
+        return JSONResponse({"iceServers": STUN, "turn": False}, headers={"Cache-Control": "no-store"})
+    if _ice_cache["servere"] is None or time.time() > _ice_cache["til"]:
+        try:
+            _ice_cache["servere"] = await _hent_turn()
+            _ice_cache["til"] = time.time() + TURN_FORNY
+        except Exception as exc:
+            log.warning("NAM Meet: fikk ikke TURN-nøkler fra Cloudflare: %r", exc)
+            if _ice_cache["servere"] is None or time.time() > _ice_cache["til"] + TURN_TTL - 2 * TURN_FORNY:
+                return JSONResponse({"iceServers": STUN, "turn": False}, headers={"Cache-Control": "no-store"})
+    return JSONResponse({"iceServers": _ice_cache["servere"], "turn": True}, headers={"Cache-Control": "no-store"})
 
 
 @router.websocket("/meet/ws/{rom}")
