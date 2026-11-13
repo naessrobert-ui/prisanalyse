@@ -2,8 +2,56 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-13T19:50:00+00:00",
+  "generated_at": "2026-11-13T20:00:00+00:00",
   "items": [
+    {
+      "id": "686523",
+      "market": "XOSL",
+      "ticker": "SNTIA",
+      "issuer": "Sentia ASA",
+      "title": "Financial calendar",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-13T19:55:08.805000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686523",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "686522",
+      "market": "XOSL",
+      "ticker": "SNTIA",
+      "issuer": "Sentia ASA",
+      "title": "Finansiell kalender",
+      "headline": "Sentia ASA offentliggjør viktige finansielle rapportdatoer for 2026–2027",
+      "lead": "Sentia ASA har fastsatt datoer for kvartals- og årsrapporter i regnskapsårene 2026 og 2027, med blant annet årsrapport 31. mars 2027 og flere kvartalsrapporter i 2027. Dette gir investorer klarhet i kommende rapportering.",
+      "published_at": "2026-11-13T19:55:08.603000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686522",
+      "summary": "Sentia ASA har fastsatt datoer for kvartals- og årsrapporter i regnskapsårene 2026 og 2027, med blant annet årsrapport 31. mars 2027 og flere kvartalsrapporter i 2027. Dette gir investorer klarhet i kommende rapportering.",
+      "reason": "Planlagte rapportdatoer gir nødvendig oversikt og forutsigbarhet, men inneholder ingen informasjon om forventet resultat eller endringer som påvirker aksjonærer direkte.",
+      "score": 25,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "number_keys": [
+        "1b6453",
+        "2a9772",
+        "356a19",
+        "63cbb6",
+        "64e0cf",
+        "77de68",
+        "7e39bc",
+        "a95f2b",
+        "aee655",
+        "ba0ab7",
+        "c9675d",
+        "f52be2"
+      ]
+    },
     {
       "id": "686519",
       "market": "XOSL",
@@ -1238,12 +1286,12 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor utbetaler 0,39 USD i kvartalsutbytte fra i dag",
-      "lead": "Equinor-aksjen handles nå uten rett til 0,39 USD i kontantutbytte for andre kvartal 2026. Utbyttet reflekterer selskapets kontantstrøm og inntjening, men gir ingen ny finansiell informasjon i dag.",
+      "headline": "Equinor deler ut 0,39 USD per aksje for andre kvartal 2026",
+      "lead": "Equinor betaler i dag ut et kontantutbytte på 0,39 USD per aksje, noe som påvirker aksjekursen ved at den handles eksklusiv utbytte. Utbyttet reflekterer selskapets løpende kapitaldisponering.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor-aksjen handles nå uten rett til 0,39 USD i kontantutbytte for andre kvartal 2026. Utbyttet reflekterer selskapets kontantstrøm og inntjening, men gir ingen ny finansiell informasjon i dag.",
-      "reason": "Utbytteutbetaling er standard og forventet. Påvirker aksjekursen vanligvis tilsvarende utbyttebeløpet, men gir ingen ny innsikt i selskapets drift eller strategi. Aksjonærer mottar kontantavkastning, men videre analyser bør fokusere på underliggende drift og fremtidig vekst.",
+      "summary": "Equinor betaler i dag ut et kontantutbytte på 0,39 USD per aksje, noe som påvirker aksjekursen ved at den handles eksklusiv utbytte. Utbyttet reflekterer selskapets løpende kapitaldisponering.",
+      "reason": "Utbytteutbetaling er en standard kapitaldistribusjon og gir lav nyhetsverdi i seg selv. Verdt å følge om utbyttenivået justeres fremover i lys av oljepris og investeringer.",
       "score": 55,
       "skipped": false,
       "direction": "nøytral",
@@ -1252,11 +1300,11 @@
         {
           "ticker": "AKRBP",
           "direction": "uklar",
-          "reason": "Kan påvirkes indirekte via sektorens kapitalflyt ved at investorer rebalanserer olje- og gassaksjer etter Equinors utbytte."
+          "reason": "Oljeselskaper i samme sektor kan påvirkes indirekte av kapitaldisponeringstrender i Equinor."
         }
       ],
       "importance": "stor",
-      "score_ai": 40,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -2755,12 +2803,12 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjonen til 4.634 boe/d, justert kontantstrøm 2,3 mill. USD i Q3",
-      "lead": "Questerre økte produksjonen markant etter PX Energy-kjøpet, men rapporterte et netto tap på 27,6 mill. USD, påvirket av ikke-kontante finansposter. Kostnadssparing og teknologitesting pågår fortsatt.",
+      "headline": "Questerre øker produksjonen til 4.634 boe/d, men rapporterer 27,6 mill. USD netto tap",
+      "lead": "Questerre leverer 4.634 boe per dag og 2,3 mill. USD justert kontantstrøm i Q3 2026, til tross for fabrikkstans og utfordringer med gjeldsstruktur i PX Energy.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre økte produksjonen markant etter PX Energy-kjøpet, men rapporterte et netto tap på 27,6 mill. USD, påvirket av ikke-kontante finansposter. Kostnadssparing og teknologitesting pågår fortsatt.",
-      "reason": "Økt produksjon og kostnadskutt gir bedre grunnlag, men nevnte tap og behov for gjeldsrestrukturering av PX Energy bør observeres. Viktig å følge teknologiutvikling og kontantstrøm fremover.",
+      "summary": "Questerre leverer 4.634 boe per dag og 2,3 mill. USD justert kontantstrøm i Q3 2026, til tross for fabrikkstans og utfordringer med gjeldsstruktur i PX Energy.",
+      "reason": "Produksjonsøkningen og teknologitesting indikerer vekstpotensial, men fabrikkstans og høye finansielle kostnader gir fortsatt utfordringer. Aksjonærer må følge utviklingen i PX Energy sin gjeldsrestrukturering og HCCO-teknologiens kommersialisering.",
       "score": 60,
       "skipped": false,
       "direction": "nøytral",
@@ -13203,70 +13251,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686105",
-      "market": "XOSL",
-      "ticker": "TECH",
-      "issuer": "Techstep ASA",
-      "title": "Techstep ASA - New share capital registered",
-      "headline": "Techstep øker aksjekapitalen med 8,33 millioner nye aksjer til 1 krone",
-      "lead": "Techstep har registrert en aksjeemisjon på 8,33 millioner nye aksjer til NOK 1 per aksje, som øker selskapets aksjekapital til 143,2 millioner kroner. Emisjonen er rettet mot tegningsberettigede underprisede aksjonærer.",
-      "published_at": "2026-11-10T12:55:30.764000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686105",
-      "summary": "Techstep har registrert en aksjeemisjon på 8,33 millioner nye aksjer til NOK 1 per aksje, som øker selskapets aksjekapital til 143,2 millioner kroner. Emisjonen er rettet mot tegningsberettigede underprisede aksjonærer.",
-      "reason": "Emisjonen øker selskapets aksjekapital og gir ny likviditet, men kan samtidig utvanne eksisterende aksjonærers eierandel. På kort sikt påvirker dette ikke selskapets drift, men videre bruk av midlene bør overvåkes.",
-      "score": 50,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "number_keys": [
-        "1cd0f9",
-        "21b4f9",
-        "356a19",
-        "62d607",
-        "77de68",
-        "7b5200",
-        "827bfc",
-        "a4ac91",
-        "ac3478",
-        "aee655",
-        "c1dfd9",
-        "d996a5"
-      ]
-    },
-    {
-      "id": "686102",
-      "market": "XOSL",
-      "ticker": "SPOBK",
-      "issuer": "Sparebanken Øst Boligkreditt AS",
-      "title": "Sparebanken Øst Boligkreditt - Mulig utstedelse av ny grønn OMF",
-      "headline": "Sparebanken Øst Boligkreditt vurderer ny grønn OMF på 3 mrd kroner",
-      "lead": "Sparebanken Øst Boligkreditt planlegger å utstede et grønt obligasjonslån med fortrinnsrett på inntil 3 milliarder kroner med forfall i 2031, med mulig tilbakekjøp av tidligere utstedelse.",
-      "published_at": "2026-11-10T12:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/686102",
-      "summary": "Sparebanken Øst Boligkreditt planlegger å utstede et grønt obligasjonslån med fortrinnsrett på inntil 3 milliarder kroner med forfall i 2031, med mulig tilbakekjøp av tidligere utstedelse.",
-      "reason": "Ny obligasjonsutstedelse kan gi økt finansiering og refinansiering, men påvirker ikke direkte inntjening. Effekten avhenger av markedsforhold og pris på lånet. Viktig å følge vilkår og investorrespons.",
-      "score": 55,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "DNB",
-          "direction": "uklar",
-          "reason": "DNB som medtilrettelegger kan påvirkes av prospekt og distribusjon."
-        }
-      ],
-      "number_keys": [
-        "0d0c9e",
-        "6b6d88",
-        "77de68",
-        "827bfc",
-        "84bbab",
-        "aee655",
-        "b3f0c7"
-      ]
     }
   ],
   "indirect": [
@@ -13420,19 +13404,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-13T19:50:00+00:00",
+  "last_checked_at": "2026-11-13T20:00:00+00:00",
   "monitor_stats": {
-    "fetched": 230,
+    "fetched": 232,
     "recent": 140,
-    "already_seen": 137,
-    "eligible": 3,
-    "filtered": 0,
-    "analyzed": 3,
+    "already_seen": 135,
+    "eligible": 4,
+    "filtered": 1,
+    "analyzed": 4,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 3,
-    "source_latest_at": "2026-11-13T18:35:52.705000+00:00",
+    "source_latest_at": "2026-11-13T19:55:08.805000+00:00",
     "indirect": 0
   }
 }
