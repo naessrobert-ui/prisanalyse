@@ -15,6 +15,11 @@ def meeting(monkeypatch):
     monkeypatch.setenv('OPENAI_API_KEY', 'test-placeholder-not-real')
     import meet_routes
     importlib.reload(meet_routes)
+    async def voice(text, on_audio):
+        import struct
+        await on_audio(struct.pack('<' + 'h'*2400, *([1000]*2400)))
+        return {'model': 'gpt-live-1', 'voice': 'marin', 'finalized': True}
+    monkeypatch.setattr(meet_routes.yvonne_voice, 'speak', voice)
     app = FastAPI()
     app.include_router(meet_routes.router)
     with TestClient(app) as client:
@@ -166,3 +171,34 @@ def test_provider_payload_citations_and_no_stored_response(monkeypatch):
     assert result['question'] == 'Hvor mange bor i Norge?'
     assert result['citations'][0]['url'] == 'https://www.ssb.no/'
     assert len(calls) == 2
+
+
+def test_new_participant_cancels_streaming_live_voice(meeting, monkeypatch):
+    import threading
+    client, routes = meeting
+    started, cancelled = threading.Event(), threading.Event()
+    async def answer(audio, mime):
+        return {'text': 'Et svar.', 'question': 'Test?', 'citations': []}
+    async def voice(text, on_audio):
+        await on_audio(b'\x01\x00' * 24)
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+    monkeypatch.setattr(routes.johnny_ai, 'answer', answer)
+    monkeypatch.setattr(routes.yvonne_voice, 'speak', voice)
+    cid = 'ab' * 16
+    with connect(client, cid) as a:
+        message(a, 'welcome');a.send_json({'t': 'johnny-propose'});message(a, 'johnny');approve(a)
+        responses = []
+        thread = threading.Thread(target=lambda: responses.append(client.post('/meet/johnny/ask', headers=headers(cid), content=AUDIO)))
+        thread.start()
+        assert started.wait(3)
+        with connect(client, 'cd' * 16) as b:
+            message(b, 'welcome')
+            assert cancelled.wait(3)
+            thread.join(3)
+            assert responses[0].status_code == 409
+            assert routes._johnny_state('test-rom')['active'] is False
