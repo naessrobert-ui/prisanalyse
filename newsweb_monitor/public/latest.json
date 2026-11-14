@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T15:30:00+00:00",
+  "generated_at": "2026-11-14T15:40:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,13 +10,13 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3. kvartal 2026 – detaljene ufullstendige for Otello-investering",
-      "lead": "Bemobi Mobile Tech presenterte tall for 3. kvartal 2026. Otello eier 38,22 %. Resultatets nøkkeltall eller vekst er ikke gjengitt, noe som gir uklar effekt for Otellos finansielle utsikter.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – detaljer foreløpig utilgjengelig",
+      "lead": "Bemobi Mobile Tech har offentliggjort sine tall for tredje kvartal 2026, men ingen konkrete resultater er presentert i meldingen. Otello eier 38,22 prosent av selskapet og følger utviklingen tett.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech presenterte tall for 3. kvartal 2026. Otello eier 38,22 %. Resultatets nøkkeltall eller vekst er ikke gjengitt, noe som gir uklar effekt for Otellos finansielle utsikter.",
-      "reason": "Uten konkrete resultater eller nøkkeltall er det vanskelig å bedømme hvordan rapporten påvirker Otellos verdsettelse. Aksjonærer bør følge opp med en grundig gjennomgang av Bemobis tall og markedssituasjon for å vurdere den faktiske effekten.",
-      "score": 40,
+      "summary": "Bemobi Mobile Tech har offentliggjort sine tall for tredje kvartal 2026, men ingen konkrete resultater er presentert i meldingen. Otello eier 38,22 prosent av selskapet og følger utviklingen tett.",
+      "reason": "Uten tilgjengelige nøkkeltall eller kommentarer er det vanskelig å bedømme kvartalets betydning for Otello eller Bemobi. Aksjonærer bør avvente detaljene fra rapporteringssiden og konferansesamtalen.",
+      "score": 45,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
@@ -1346,30 +1346,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor kutter utbytte til 0,39 USD per aksje for Q2 2026",
-      "lead": "Fra i dag handles Equinor-aksjen uten kontantutbytte for andre kvartal 2026, som er satt til 0,39 USD per aksje. Investorer må ta hensyn til lavere direkteavkastning i neste tid.",
+      "headline": "Equinor betaler utbytte på 0,39 USD per aksje i dag",
+      "lead": "Equinor ASA begynner i dag å handles eksklusiv et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, noe som reduserer aksjekursen tilsvarende på Oslo Børs.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra i dag handles Equinor-aksjen uten kontantutbytte for andre kvartal 2026, som er satt til 0,39 USD per aksje. Investorer må ta hensyn til lavere direkteavkastning i neste tid.",
-      "reason": "Utbyttet på 0,39 USD for Q2 2026 gir indikasjon på redusert kontantstrøm til aksjonærene sammenlignet med tidligere tertial. Dette kan påvirke investorenes attraktivitet for Equinor-aksjen, særlig for de som søker løpende inntekt.",
-      "score": 65,
+      "summary": "Equinor ASA begynner i dag å handles eksklusiv et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, noe som reduserer aksjekursen tilsvarende på Oslo Børs.",
+      "reason": "Utbytteutbetaling er en planlagt kontantutdeling og indikerer selskapets løpende kapitaldisponering men gir begrenset informasjon om fremtidig inntjening eller vekst. Investorer bør følge med på videre kvartalsrapporter og markedsutvikling.",
+      "score": 55,
       "skipped": false,
-      "direction": "negativ",
+      "direction": "nøytral",
       "assessment_source": "AI",
       "affected": [
         {
           "ticker": "AKRBP",
-          "direction": "negativ",
-          "reason": "Sektor samtidig eks-utbytte kan gi økt fokus på løpende utbytter i olje- og gassektoren."
-        },
-        {
-          "ticker": "DNO",
-          "direction": "negativ",
-          "reason": "Naboaksjer kan oppleve press hvis lavere utbytter ses som sektortrend."
+          "direction": "uklar",
+          "reason": "Samme sektor kan oppleve moderat påvirkning av investorinteresse på kort sikt ved utbytter fra store konkurrenter."
         }
       ],
       "importance": "stor",
-      "score_ai": 55,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13430,7 +13425,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T15:30:00+00:00",
+  "last_checked_at": "2026-11-14T15:40:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 61,
