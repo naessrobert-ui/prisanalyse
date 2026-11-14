@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T14:00:00+00:00",
+  "generated_at": "2026-11-14T14:10:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,13 +10,13 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3. kvartal 2026 – Utbytte til Otello underliggende interesse",
-      "lead": "Bemobi Mobile Tech SA presenterte 3. kvartalsresultater 12. november. Otello eier 38,22 % via Otello Technology Investment AS, og resultatene påvirker Otellos verdsettelse og videre investeringer betydelig.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – resultater tilgjengelig for Otello-investorer",
+      "lead": "Bemobi Mobile Tech SA offentliggjorde sine tall for 3. kvartal 2026 12. november, der Otello eier 38,22 prosent. Det foreligger foreløpig ingen nøkkeltall eller resultatanalyser.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech SA presenterte 3. kvartalsresultater 12. november. Otello eier 38,22 % via Otello Technology Investment AS, og resultatene påvirker Otellos verdsettelse og videre investeringer betydelig.",
-      "reason": "Bemobis kvartalsrapport gir innsikt i selskapets drift og kan påvirke Otellos aksjekurs gjennom deres 38,22 % eierskap. Nyttig å følge utviklingen, men uten konkrete tall i meldingen er det vanskelig å fastslå resultatrettning eller umiddelbar påvirkning.",
-      "score": 55,
+      "summary": "Bemobi Mobile Tech SA offentliggjorde sine tall for 3. kvartal 2026 12. november, der Otello eier 38,22 prosent. Det foreligger foreløpig ingen nøkkeltall eller resultatanalyser.",
+      "reason": "Bemobi har rapportert kvartalstall, men uten tilgjengelig informasjon om resultatets størrelse eller utvikling kan vi ikke vurdere effekten for Otello eller markedet. Ytterligere detaljer eller analyse må følges opp.",
+      "score": 35,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
@@ -1346,18 +1346,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor deler ut 0,39 USD per aksje i andre kvartal 2026",
-      "lead": "I dag går Equinor eksklusiv utbytte på 0,39 USD per aksje for Q2 2026, som påvirker aksjekursen negativt kortsiktig. Utbetaling skjer i amerikanske dollar.",
+      "headline": "Equinor utbetaler 0,39 USD i utbytte for andre kvartal 2026 fra i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen eksklusive et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, noe som reduserer aksjekursen tilsvarende utbyttebeløpet.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "I dag går Equinor eksklusiv utbytte på 0,39 USD per aksje for Q2 2026, som påvirker aksjekursen negativt kortsiktig. Utbetaling skjer i amerikanske dollar.",
-      "reason": "Utbytteutbetaling er en normal hendelse som gir aksjonærer direkte avkastning, men påvirker kursen midlertidig ved eks-dato. Invester bør merke valutarisiko og følge videre resultater for helårets inntjening.",
-      "score": 75,
+      "summary": "Fra 13. november handles Equinor-aksjen eksklusive et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, noe som reduserer aksjekursen tilsvarende utbyttebeløpet.",
+      "reason": "Utbytteutdelingen er en standard hendelse som påvirker aksjekursen mekanisk ved justering for utbyttebeløpet. Den gir aksjonærer direkte kontantavkastning, men påvirker ikke selskapets fundamentale verdi eller drift.",
+      "score": 50,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AKRBP",
+          "direction": "negativ",
+          "reason": "Utbyttebetalinger i sektoren kan øke investorfokus på kontantstrøm og påvirke kursjusteringer i olje- og gassaksjer."
+        }
+      ],
       "importance": "stor",
-      "score_ai": 65,
+      "score_ai": 40,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13401,7 +13408,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T14:00:00+00:00",
+  "last_checked_at": "2026-11-14T14:10:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 61,
