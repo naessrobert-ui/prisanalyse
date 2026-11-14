@@ -6,6 +6,10 @@
 <title>Familierommet · møtes.no</title>
 <style>
 :root{font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;color:#183236;background:#fafbf8;--green:#216052;--muted:#61736e;--line:#dce5de}*{box-sizing:border-box}body{margin:0}button,input,textarea,select{font:inherit}button,a{touch-action:manipulation}button{cursor:pointer}button:disabled{opacity:.5;cursor:wait}:focus-visible{outline:3px solid #6fb19b;outline-offset:3px}[hidden]{display:none!important}a{color:var(--green)}.shell{max-width:1020px;margin:auto;padding:0 24px 50px}.nav{height:88px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px}.logo{font-size:24px;letter-spacing:-1px;font-weight:750;text-decoration:none;color:#183236}.logo span{color:var(--green)}.sub{color:var(--muted);font-size:12px}.pill{background:#eaf2eb;border-radius:20px;color:var(--green);padding:5px 12px;font-size:11px}.welcome{padding:38px 0 28px;display:flex;justify-content:space-between;align-items:center;gap:18px}.eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--green);font-weight:700}h1{font-size:clamp(30px,5vw,43px);line-height:1.15;letter-spacing:-1.6px;margin:10px 0}p{margin:8px 0;color:var(--muted)}.button{display:inline-flex;align-items:center;justify-content:center;background:var(--green);color:white;border:1px solid var(--green);padding:11px 20px;border-radius:10px;text-decoration:none;font-weight:600;font-size:13px;white-space:nowrap}.secondary{background:white;color:var(--green);border:1px solid var(--line)}.text-button{border:0;background:none;color:var(--muted);font-size:12px;padding:8px}.card{border:1px solid var(--line);border-radius:18px;padding:26px;background:white}.login{max-width:440px;margin:55px auto}.login h1{font-size:31px}.login p{font-size:13px}label{display:block;font-size:12px;font-weight:600;margin:20px 0 7px}input:not([type=file]),textarea,select{width:100%;background:white;color:#183236;border:1px solid #cddbd2;padding:11px 13px;border-radius:8px}textarea{resize:vertical;min-height:75px}.login .button{width:100%;margin-top:23px}.tiny{font-size:11px;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.post{overflow:hidden;border:1px solid var(--line);background:white;border-radius:16px}.post img,.post video{display:block;width:100%;max-height:490px;object-fit:contain;background:#edf1ec}.post img{cursor:zoom-in}.post-body{padding:18px 20px}.post-top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px}.post-name{font-weight:650}.post-time{font-size:11px;color:var(--muted)}.post-caption{color:#29443e;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0}.post-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:15px;border-top:1px solid #edf0eb;padding-top:11px}.expires{font-size:11px;color:var(--muted)}.delete{background:none;border:0;color:#8d4d4c;font-size:11px;cursor:pointer}.empty{grid-column:1/-1;text-align:center;padding:65px 25px;border:1px dashed #c9d7cc;border-radius:18px}.empty strong{display:block;font-size:19px;font-weight:600}.empty p{font-size:13px;max-width:38ch;margin:9px auto}.empty .symbol{font-size:30px;color:var(--green);margin-bottom:10px}.toolbar{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:18px 0;font-size:12px;color:var(--muted)}.message{font-size:13px;color:#7e4031;padding:12px;background:#fff1e8;border-radius:9px;white-space:pre-wrap}.message:empty{display:none}.actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin-top:22px}.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.file-pick{display:block;background:#f4f7f2;border:1px dashed #a7bdad;border-radius:12px;padding:22px;text-align:center;font-weight:500;color:var(--green);cursor:pointer}.file-pick input{display:block;max-width:100%;margin:12px auto 0;font-size:12px}dialog{border:1px solid var(--line);border-radius:20px;max-width:540px;width:calc(100% - 32px);padding:28px;color:#183236;max-height:90dvh;overflow:auto}dialog::backdrop{background:#132e2b99}dialog h2{font-size:25px;letter-spacing:-.8px;margin:0}.preview{width:100%;max-height:220px;object-fit:contain;margin-top:16px;border-radius:9px}#lightbox{max-width:95vw;width:auto;background:#102822;padding:12px}#lightbox img{max-width:85vw;max-height:78dvh;display:block}#lightbox .actions{margin:10px 0 0}progress{width:100%;accent-color:var(--green);margin-top:16px}.foot{font-size:11px;color:var(--muted);border-top:1px solid var(--line);margin-top:35px;padding-top:20px;display:flex;gap:20px;justify-content:space-between}.offline{background:#f6ebda;padding:10px;border-radius:8px;font-size:12px}.lock{display:inline-block;height:8px;width:8px;border-radius:50%;background:var(--green);margin-right:6px}@media(max-width:650px){.shell{padding:0 18px 35px}.nav{height:73px}.welcome{align-items:flex-start;flex-direction:column;padding-top:29px}.grid{grid-template-columns:1fr}.welcome .button{width:100%}.form-row{grid-template-columns:1fr}.card{padding:23px}.login{margin:32px auto}.foot{flex-direction:column;gap:5px}.post img,.post video{max-height:65dvh}}
+
+.room-tabs{display:flex;gap:8px;align-items:center;margin:0 0 18px}.room-tabs button,.feed-filters button{border:1px solid var(--line);border-radius:9px;padding:10px 16px;background:white;color:var(--muted);font-weight:600}.room-tabs button[aria-pressed="true"],.feed-filters button[aria-pressed="true"]{background:var(--green);color:white;border-color:var(--green)}.count-badge{display:inline-block;background:#dcece0;color:#1a503f;border-radius:12px;padding:0 7px;font-size:11px;margin-left:5px}.feed-filters{display:flex;gap:7px;margin-bottom:13px}.feed-filters button{padding:6px 13px;font-size:12px}.seen-help{font-size:11px;color:var(--muted);margin:0 0 20px}.media-wrap{position:relative}.post-state{position:absolute;z-index:1;top:11px;right:11px;padding:3px 9px;background:#fffef2e8;border:1px solid #e8dfbe;border-radius:12px;font-size:10px;color:#685c30;pointer-events:none}.post-state.seen{background:#e8f2e9eb;color:#2f6151;border-color:#d5e3d5}.chat-panel{max-width:780px;margin:0 auto;background:white;border:1px solid var(--line);border-radius:17px;overflow:hidden}.chat-header{padding:20px 23px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center}.chat-header h2{margin:0;font-size:18px;letter-spacing:-.4px}.chat-log{height:clamp(260px,48dvh,520px);overflow:auto;padding:20px;display:flex;flex-direction:column;gap:13px;overflow-wrap:anywhere;overscroll-behavior:contain}.chat-message{max-width:87%;align-self:flex-start;background:#f1f5ef;border-radius:12px;padding:11px 14px;min-width:130px}.chat-message.mine{align-self:flex-end;background:#e5f0e9}.chat-meta{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:11px;color:var(--muted)}.chat-meta strong{color:#274a3c}.chat-text{white-space:pre-wrap;margin:6px 0;color:#233e35;font-size:14px}.chat-delete{border:0;background:none;padding:0;color:#756961;font-size:10px;text-decoration:underline;cursor:pointer}.chat-bottom{display:flex;justify-content:flex-end}.chat-compose{padding:16px 20px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.chat-compose label{grid-column:1/-1;margin:0;font-size:12px}.chat-compose textarea{min-height:63px;max-height:160px}.chat-note{padding:0 20px 15px;font-size:11px;color:var(--muted)}.chat-error{margin:0 20px 15px}.chat-empty{text-align:center;margin:auto;color:var(--muted);font-size:13px}.media-controls{display:flex;gap:6px;align-items:center}.toolbar{flex-wrap:wrap;gap:10px}@media(max-width:650px){.chat-log{padding:14px;height:48dvh}.chat-compose{padding:14px;gap:8px}.chat-compose .button{padding:11px 13px}.chat-message{max-width:94%}.chat-header{padding:16px}.room-tabs button{flex:1}.seen-help{max-width:42ch}}
+
+.social-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.social-actions button{border:1px solid var(--line);border-radius:9px;padding:7px 11px;color:var(--muted);background:white;font-size:12px}.social-actions button[aria-pressed="true"]{background:#e5f0e9;color:var(--green);border-color:#aacabc}.liked-by{font-size:10px;color:var(--muted);margin:7px 0 0;overflow-wrap:anywhere}.comment-log{max-height:45dvh;overflow:auto;display:flex;flex-direction:column;gap:12px;margin:18px 0}.comment-log .chat-message{max-width:100%;width:100%}.comment-context{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.comment-form textarea{margin:8px 0}.dialog-heading{display:flex;justify-content:space-between;align-items:start;gap:12px}
 </style>
 </head>
 <body>
@@ -21,8 +25,21 @@
 <section id="room" hidden>
  <div class="welcome"><div><div class="eyebrow">Små øyeblikk. Nære mennesker.</div><h1>Her er vi sammen.</h1><p>Et glimt fra dagen, en liten hilsen. Bare for familien.</p></div><button class="button" id="newPost">+ Del et øyeblikk</button></div>
  <p id="roomError" class="message" role="status" aria-live="polite"></p>
- <div class="toolbar"><span id="postCount">Familiens øyeblikk</span><div><button class="text-button" id="refresh">Oppdater</button><button class="text-button" id="logout">Logg ut</button></div></div>
- <div class="grid" id="feed" aria-live="polite"></div>
+ <nav class="room-tabs" aria-label="Velg innhold"><button id="mediaTab" aria-pressed="true" type="button">Bilder og klipp</button><button id="chatTab" aria-pressed="false" type="button">Familiechat <span class="count-badge" id="chatBadge" hidden></span></button></nav>
+ <section id="mediaPane" aria-label="Bilder og videoklipp">
+  <div class="toolbar"><span id="postCount">Familiens øyeblikk</span><div><button class="text-button" id="refresh">Oppdater</button><button class="text-button" id="logout">Logg ut</button></div></div>
+  <div class="feed-filters" role="group" aria-label="Filtrer innlegg"><button type="button" id="allPosts" aria-pressed="true">Alle</button><button type="button" id="newPosts" aria-pressed="false">Nye</button></div>
+  <p class="seen-help" id="seenHelp">Velg selv hva du vil åpne. Videoer starter når du trykker på spill av. Appen husker sette innlegg på denne enheten for navnet ditt.</p>
+  <div class="grid" id="feed" aria-live="polite"></div>
+ </section>
+ <section id="chatPane" aria-label="Familiechat" hidden>
+  <div class="chat-panel"><div class="chat-header"><div><h2>En liten prat med familien.</h2><span class="tiny">Meldingene beholdes i 7 døgn.</span></div><button class="text-button" type="button" id="chatRefresh">Oppdater</button></div>
+   <div class="chat-log" id="familyChatLog" role="log" aria-live="polite" aria-label="Meldinger fra familien"></div>
+   <form class="chat-compose" id="familyChatForm"><label for="chatText">Skriv til familien</label><textarea id="chatText" maxlength="2000" rows="2" placeholder="Hvordan går det hos dere?" required></textarea><button type="submit" class="button" id="chatSend">Send</button></form>
+   <p class="chat-note">Enter sender meldingen. Shift + Enter gir ny linje. Alle med familiekoden kan lese og slette meldinger.</p>
+   <p class="message chat-error" id="chatError" role="status" aria-live="polite"></p>
+  </div>
+ </section>
  <div class="foot"><span><span class="lock" aria-hidden="true"></span>Bilder og klipp lagres på familiens Raspberry Pi.</span><a href="/">Start en videosamtale</a></div>
 </section>
 </div>
@@ -38,37 +55,156 @@
  <div class="actions"><button type="button" class="button secondary" id="cancelPost">Avbryt</button><button type="submit" class="button" id="sendPost">Del med familien</button></div>
  </form>
 </dialog>
+<dialog id="commentsDialog" aria-labelledby="commentsTitle">
+ <div class="dialog-heading"><div><div class="eyebrow">En prat om øyeblikket</div><h2 id="commentsTitle">Kommentarer</h2></div><button type="button" class="text-button" id="closeComments">Lukk</button></div>
+ <p id="commentsContext" class="comment-context"></p><p class="tiny">Kommentarene forsvinner sammen med innlegget.</p>
+ <div id="commentLog" class="comment-log" role="log" aria-live="polite" aria-label="Kommentarer til innlegget"></div>
+ <form id="commentForm" class="comment-form"><label for="commentText">Svar på innlegget</label><textarea id="commentText" maxlength="2000" required placeholder="Skriv en kommentar …" rows="2"></textarea><div class="actions"><button type="submit" class="button" id="commentSend">Send kommentar</button></div></form>
+ <p id="commentError" class="message" role="status" aria-live="polite"></p>
+</dialog>
 <dialog id="lightbox" aria-label="Vis bilde"><img id="largeImage" alt="Bilde fra familien"><div class="actions"><button class="button secondary" id="closeImage">Lukk bildet</button></div></dialog>
 <script>
 (()=>{
 'use strict';
 const $=id=>document.getElementById(id), api='/familie/api';let currentName='',previewUrl='',uploading=false,loading=false,loggedIn=false;
+let posts=[],seen={},onlyNew=false,activePane='media',chatMessages=[],chatBusy=false,chatSending=false,chatSignature='',pendingChat=null;
+let sessionEpoch=0;
+let storageWorks=true,chatReadAt=0,commentPost=null,commentBusy=false,commentSending=false,pendingComment=null,commentSignature='';
 async function request(path,options={}){
  options.headers={...(options.headers||{}),'X-Family-Request':'1'};
  let response;try{response=await fetch(api+path,{...options,cache:'no-store'});}catch(e){throw new Error('Familierommet er ikke tilgjengelig akkurat nå. Prøv igjen om litt.');}
  let data;try{data=await response.json();}catch(e){throw new Error('Familierommet er ikke tilgjengelig akkurat nå. Prøv igjen om litt.');}
  if(!response.ok){if(response.status===401&&path!=='/login')showLogin();throw new Error(data.detail||'Det gikk ikke. Prøv igjen.');}return data;
 }
-function showLogin(){loggedIn=false;$('room').hidden=true;$('loginSection').hidden=false;$('feed').replaceChildren();$('code').value='';}
+function showLogin(){sessionEpoch++;for(const id of ['commentsDialog','lightbox','compose'])if($(id).open)$(id).close();commentPost=null;loggedIn=false;currentName='';seen={};posts=[];chatMessages=[];chatSignature='';$('familyChatLog').replaceChildren();$('chatText').value='';pendingChat=null;$('chatBadge').hidden=true;$('room').hidden=true;$('loginSection').hidden=false;$('feed').replaceChildren();$('code').value='';}
 function readableTime(seconds){const mins=Math.max(1,Math.ceil(seconds/60));return mins>=1440?Math.ceil(mins/1440)+' døgn':mins>=60?Math.ceil(mins/60)+' timer':mins+' min';}
 function element(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
-function render(items){
- const feed=$('feed');feed.replaceChildren();$('postCount').textContent=items.length?items.length+' øyeblikk fra familien':'Familiens øyeblikk';
- if(!items.length){const box=element('div','empty');box.append(element('div','symbol','♡'),element('strong','','Det begynner med en liten hilsen.'),element('p','','Del et bilde fra turen, en videohilsen eller noe fint fra dagen din.'));feed.append(box);return;}
- for(const post of items){
- const card=element('article','post');card.dataset.expires=post.expires;card.dataset.ident=post.id;const isVideo=post.mime.startsWith('video/'),media=element(isVideo?'video':'img');media.src='/familie/media/'+post.id;
- if(isVideo){media.controls=true;media.playsInline=true;media.preload='metadata';media.addEventListener('error',()=>{if(!card.querySelector('.play-error'))card.append(element('p','play-error tiny','Dette klippet kan ikke spilles i nettleseren din. Prøv en annen nettleser eller et MP4-klipp med H.264-video.'));});}
- else{media.alt=post.caption||'Bilde delt av '+post.name;media.loading='lazy';media.tabIndex=0;media.setAttribute('role','button');media.setAttribute('aria-label','Vis bildet fra '+post.name+' større');const open=()=>{$('largeImage').src=media.src;$('largeImage').alt=media.alt;$('lightbox').showModal();};media.onclick=open;media.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};}
- const body=element('div','post-body'),top=element('div','post-top'),date=element('time','post-time',new Date(post.created*1000).toLocaleString('nb-NO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));date.dateTime=new Date(post.created*1000).toISOString();top.append(element('span','post-name',post.name),date);body.append(top);if(post.caption)body.append(element('p','post-caption',post.caption));
- const bottom=element('div','post-bottom');bottom.append(element('span','expires','Forsvinner om '+readableTime(post.expires-Date.now()/1000)));
- const remove=element('button','delete','Slett');remove.type='button';remove.setAttribute('aria-label','Slett innlegget fra '+post.name);remove.onclick=async()=>{if(!confirm('Slette innlegget for hele familien?'))return;remove.disabled=true;try{await request('/items/'+post.id,{method:'DELETE'});await load();}catch(e){$('roomError').textContent=e.message;remove.disabled=false;}};bottom.append(remove);body.append(bottom);card.append(media,body);feed.append(card);
- }
+function seenKey(){return 'motes-family-seen-v1:'+encodeURIComponent(currentName.toLocaleLowerCase('nb-NO'));}
+function readSeen(){
+ seen={};storageWorks=true;
+ try{const value=JSON.parse(localStorage.getItem(seenKey())||'{}');if(value&&typeof value==='object'&&!Array.isArray(value))seen=value;}catch(e){storageWorks=false;}
+ try{chatReadAt=Number(localStorage.getItem(seenKey()+':chat-read')||0)||0;}catch(e){chatReadAt=0;}
+ $('seenHelp').textContent=storageWorks?'Videoer starter når du trykker på spill av. Bilder merkes som sett når du åpner dem stort, videoer når du har sett nesten hele klippet. Huskes på denne enheten for navnet ditt.':'Nettleseren tillater ikke lagring. Sette innlegg huskes bare så lenge denne siden er åpen.';
 }
-async function load(){if(loading)return;loading=true;try{const data=await request('/items');currentName=data.name;loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
+function saveSeen(){
+ const entries=Object.entries(seen).filter(([id,v])=>v&&typeof v==='object'&&Number(v.at)>Date.now()-90*86400000).sort((a,b)=>b[1].at-a[1].at).slice(0,2000);seen=Object.fromEntries(entries);
+ try{localStorage.setItem(seenKey(),JSON.stringify(seen));}catch(e){storageWorks=false;$('seenHelp').textContent='Nettleseren tillater ikke lagring. Sette innlegg huskes bare så lenge denne siden er åpen.';}
+}
+function updateSeenLabels(){
+ const available=posts.filter(p=>p.expires>Date.now()/1000),fresh=available.filter(p=>!seen[p.id]?.seen).length;
+ $('postCount').textContent=available.length+' øyeblikk · '+fresh+' nye';$('newPosts').textContent='Nye'+(fresh?' ('+fresh+')':'');
+ document.querySelectorAll('#feed .post').forEach(card=>{const state=seen[card.dataset.ident],flag=card.querySelector('.post-state');if(flag){flag.textContent=state?.seen?'Sett':state?.position>0?'Påbegynt':'Nytt';flag.classList.toggle('seen',!!state?.seen);}});
+}
+function markSeen(id){seen[id]={...(seen[id]||{}),seen:true,position:0,at:Date.now()};saveSeen();updateSeenLabels();}
+function render(items){
+ document.querySelectorAll('#feed video').forEach(v=>v.pause());posts=items;const feed=$('feed');feed.replaceChildren();updateSeenLabels();
+ const visible=items.filter(p=>p.expires>Date.now()/1000&&(!onlyNew||!seen[p.id]?.seen));
+ if(!visible.length){const box=element('div','empty');box.append(element('div','symbol','♡'),element('strong','',onlyNew?'Du har sett alle øyeblikkene.':'Det begynner med en liten hilsen.'),element('p','',onlyNew?'Velg «Alle» for å se bilder og videoklipp igjen.':'Del et bilde fra turen, en videohilsen eller noe fint fra dagen din.'));feed.append(box);return;}
+ for(const post of visible){
+ const card=element('article','post');card.dataset.expires=post.expires;card.dataset.ident=post.id;const isVideo=post.mime.startsWith('video/'),media=element(isVideo?'video':'img'),wrap=element('div','media-wrap'),flag=element('span','post-state');wrap.append(media,flag);media.src='/familie/media/'+post.id;
+ if(isVideo){
+  media.controls=true;media.playsInline=true;media.preload='metadata';
+  media.addEventListener('loadedmetadata',()=>{const state=seen[post.id];if(!state?.seen&&Number.isFinite(media.duration)&&state?.position>0&&state.position<media.duration-1)media.currentTime=state.position;});
+  media.addEventListener('play',()=>{document.querySelectorAll('#feed video').forEach(other=>{if(other!==media)other.pause();});});
+  let savedAt=0;
+  const progress=()=>{
+   if(seen[post.id]?.seen||!Number.isFinite(media.duration)||media.duration<=0||media.currentTime<=0)return;
+   if(media.ended||media.currentTime/media.duration>=.95){markSeen(post.id);return;}
+   if(Date.now()-savedAt<3000&&!media.paused)return;savedAt=Date.now();seen[post.id]={seen:false,position:media.currentTime,at:Date.now()};saveSeen();updateSeenLabels();
+  };
+  media.addEventListener('timeupdate',progress);media.addEventListener('pause',progress);media.addEventListener('ended',()=>markSeen(post.id));
+  media.addEventListener('error',()=>{if(!card.querySelector('.play-error'))card.append(element('p','play-error tiny','Dette klippet kan ikke spilles i nettleseren din. Prøv en annen nettleser eller et MP4-klipp med H.264-video.'));});
+ }else{
+  media.alt=post.caption||'Bilde delt av '+post.name;media.loading='lazy';media.tabIndex=0;media.setAttribute('role','button');media.setAttribute('aria-label','Vis bildet fra '+post.name+' større');
+  const open=()=>{$('largeImage').src=media.src;$('largeImage').alt=media.alt;$('lightbox').showModal();markSeen(post.id);};media.onclick=open;media.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};
+ }
+ const body=element('div','post-body'),top=element('div','post-top'),date=element('time','post-time',new Date(post.created*1000).toLocaleString('nb-NO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));date.dateTime=new Date(post.created*1000).toISOString();top.append(element('span','post-name',post.name),date);body.append(top);if(post.caption)body.append(element('p','post-caption',post.caption));
+ const social=element('div','social-actions'),like=element('button','',''),commentsButton=element('button','','');like.type='button';commentsButton.type='button';
+ const likedBy=element('p','liked-by');
+ const updateSocial=()=>{like.textContent=(post.liked?'Likt':'Liker')+' ('+(post.likes||[]).length+')';like.setAttribute('aria-pressed',String(!!post.liked));commentsButton.textContent='Kommentarer ('+(post.comments||0)+')';likedBy.textContent=(post.likes||[]).length?'Likt av '+post.likes.join(', '):'';};
+ updateSocial();like.onclick=async()=>{like.disabled=true;try{const data=await request('/items/'+post.id+'/like',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({liked:!post.liked})});post.liked=data.liked;post.likes=data.likes;updateSocial();}catch(e){$('roomError').textContent=e.message;}finally{like.disabled=false;}};
+ commentsButton.onclick=()=>openComments(post);social.append(like,commentsButton);body.append(social,likedBy);
+ const bottom=element('div','post-bottom');bottom.append(element('span','expires','Forsvinner om '+readableTime(post.expires-Date.now()/1000)));
+ const remove=element('button','delete','Slett');remove.type='button';remove.setAttribute('aria-label','Slett innlegget fra '+post.name);remove.onclick=async()=>{if(!confirm('Slette innlegget for hele familien?'))return;remove.disabled=true;try{await request('/items/'+post.id,{method:'DELETE'});delete seen[post.id];saveSeen();await load();}catch(e){$('roomError').textContent=e.message;remove.disabled=false;}};bottom.append(remove);body.append(bottom);card.append(wrap,body);feed.append(card);
+ }
+ updateSeenLabels();
+}
+async function load(){if(loading)return;const epoch=sessionEpoch;loading=true;try{const data=await request('/items');if(epoch!==sessionEpoch)return;if(currentName!==data.name){currentName=data.name;readSeen();}loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);loadChat();}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
 try{$('name').value=localStorage.getItem('motes-family-name')||'';}catch(e){}
 $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{await request('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('name').value,code:$('code').value})});try{localStorage.setItem('motes-family-name',$('name').value);}catch(e){}$('code').value='';await load();}catch(e){$('loginError').textContent=e.message;}finally{$('loginButton').disabled=false;}};
 $('logout').onclick=async()=>{try{await request('/logout',{method:'POST'});showLogin();}catch(e){$('roomError').textContent=e.message;}};
 $('refresh').onclick=()=>load();
+$('allPosts').onclick=()=>{onlyNew=false;$('allPosts').setAttribute('aria-pressed','true');$('newPosts').setAttribute('aria-pressed','false');render(posts);};
+$('newPosts').onclick=()=>{onlyNew=true;$('allPosts').setAttribute('aria-pressed','false');$('newPosts').setAttribute('aria-pressed','true');render(posts);};
+function markChatRead(){
+ if(!chatMessages.length)return;chatReadAt=Math.max(chatReadAt,...chatMessages.map(m=>m.created));try{localStorage.setItem(seenKey()+':chat-read',String(chatReadAt));}catch(e){}$('chatBadge').hidden=true;
+}
+function updateChatBadge(){const count=chatMessages.filter(m=>m.created>chatReadAt&&m.name!==currentName).length;$('chatBadge').textContent=count;$('chatBadge').hidden=!count||activePane==='chat';}
+function switchPane(pane){
+ activePane=pane;$('mediaPane').hidden=pane!=='media';$('chatPane').hidden=pane!=='chat';$('mediaTab').setAttribute('aria-pressed',String(pane==='media'));$('chatTab').setAttribute('aria-pressed',String(pane==='chat'));
+ if(pane==='chat'){document.querySelectorAll('#feed video').forEach(v=>v.pause());markChatRead();renderChat(true);loadChat();}else updateChatBadge();
+}
+$('mediaTab').onclick=()=>switchPane('media');$('chatTab').onclick=()=>switchPane('chat');
+function renderChat(force=false){
+ const signature=JSON.stringify(chatMessages);if(!force&&signature===chatSignature)return;chatSignature=signature;
+ const log=$('familyChatLog'),bottom=log.scrollHeight-log.scrollTop-log.clientHeight<60,top=log.scrollTop;log.replaceChildren();
+ if(!chatMessages.length){log.append(element('p','chat-empty','Si hei til familien. Den første meldingen starter samtalen.'));return;}
+ for(const message of chatMessages){const box=element('article','chat-message'+(message.name===currentName?' mine':''));box.dataset.messageId=message.id;
+ const meta=element('div','chat-meta'),date=element('time','',new Date(message.created*1000).toLocaleString('nb-NO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));date.dateTime=new Date(message.created*1000).toISOString();meta.append(element('strong','',message.name),date);
+ const remove=element('button','chat-delete','Slett');remove.type='button';remove.setAttribute('aria-label','Slett meldingen fra '+message.name);remove.onclick=async()=>{if(!confirm('Slette meldingen for hele familien?'))return;remove.disabled=true;try{await request('/chat/'+message.id,{method:'DELETE'});await loadChat();}catch(e){$('chatError').textContent=e.message;remove.disabled=false;}};
+ const footer=element('div','chat-bottom');footer.append(remove);box.append(meta,element('p','chat-text',message.text),footer);log.append(box);}
+ if(bottom||force)log.scrollTop=log.scrollHeight;else log.scrollTop=top;
+}
+async function loadChat(){
+ if(chatBusy||!loggedIn)return;const epoch=sessionEpoch;chatBusy=true;
+ try{const data=await request('/chat');if(!loggedIn||epoch!==sessionEpoch)return;chatMessages=data.messages;$('chatError').textContent='';renderChat();if(activePane==='chat'&&!document.hidden)markChatRead();else updateChatBadge();}
+ catch(e){if(loggedIn&&activePane==='chat')$('chatError').textContent=e.message;}
+ finally{chatBusy=false;}
+}
+$('chatRefresh').onclick=()=>loadChat();
+$('familyChatForm').onsubmit=async e=>{
+ e.preventDefault();if(chatSending)return;const text=$('chatText').value.trim();if(!text)return;
+ if(!pendingChat||pendingChat.text!==text){const random=new Uint8Array(16);crypto.getRandomValues(random);pendingChat={text,client_id:[...random].map(b=>b.toString(16).padStart(2,'0')).join('')};}
+ chatSending=true;$('chatSend').disabled=true;$('chatError').textContent='';
+ try{await request('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pendingChat)});if($('chatText').value.trim()===text)$('chatText').value='';pendingChat=null;await loadChat();$('familyChatLog').scrollTop=$('familyChatLog').scrollHeight;}
+ catch(e){$('chatError').textContent=e.message;}
+ finally{chatSending=false;$('chatSend').disabled=false;}
+};
+$('chatText').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('familyChatForm').requestSubmit();}});
+setInterval(()=>{if(loggedIn&&!document.hidden)loadChat();},5000);
+window.addEventListener('storage',e=>{if(loggedIn&&e.key===seenKey()){readSeen();updateSeenLabels();}});
+function newMessageId(){const random=new Uint8Array(16);crypto.getRandomValues(random);return [...random].map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function openComments(post){
+ document.querySelectorAll('#feed video').forEach(v=>v.pause());commentPost=post;pendingComment=null;commentSignature='';$('commentText').value='';$('commentError').textContent='';$('commentLog').replaceChildren();$('commentsContext').textContent=post.name+(post.caption?' · '+post.caption:'');$('commentsDialog').showModal();await loadComments();
+}
+function updateCommentCount(post,count){post.comments=count;const card=[...document.querySelectorAll('#feed .post')].find(c=>c.dataset.ident===post.id);if(card){const button=card.querySelector('.social-actions button:last-child');if(button)button.textContent='Kommentarer ('+count+')';}}
+async function loadComments(){
+ if(commentBusy||!loggedIn||!commentPost||!$('commentsDialog').open)return;const post=commentPost;commentBusy=true;
+ try{
+ const data=await request('/items/'+post.id+'/comments');if(commentPost!==post||!$('commentsDialog').open)return;
+ const signature=JSON.stringify(data.comments);updateCommentCount(post,data.comments.length);if(signature===commentSignature)return;commentSignature=signature;
+ const log=$('commentLog'),atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<60,scroll=log.scrollTop;log.replaceChildren();
+ if(!data.comments.length)log.append(element('p','chat-empty','Ingen kommentarer ennå. Start en liten prat om innlegget.'));
+ for(const message of data.comments){
+ const box=element('article','chat-message'),meta=element('div','chat-meta');box.dataset.commentId=message.id;
+ meta.append(element('strong','',message.name),element('time','',new Date(message.created*1000).toLocaleString('nb-NO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})));
+ const remove=element('button','chat-delete','Slett');remove.type='button';remove.onclick=async()=>{if(!confirm('Slette kommentaren for hele familien?'))return;remove.disabled=true;try{await request('/items/'+post.id+'/comments/'+message.id,{method:'DELETE'});await loadComments();}catch(e){$('commentError').textContent=e.message;remove.disabled=false;}};
+ const foot=element('div','chat-bottom');foot.append(remove);box.append(meta,element('p','chat-text',message.text),foot);log.append(box);
+ }
+ if(atBottom)log.scrollTop=log.scrollHeight;else log.scrollTop=scroll;$('commentError').textContent='';
+ }catch(e){if(loggedIn&&commentPost===post)$('commentError').textContent=e.message;}finally{commentBusy=false;}
+}
+$('closeComments').onclick=()=>{$('commentsDialog').close();commentPost=null;};
+$('commentsDialog').addEventListener('close',()=>{commentPost=null;});
+$('commentForm').onsubmit=async e=>{
+ e.preventDefault();if(commentSending||!commentPost)return;const post=commentPost,text=$('commentText').value.trim();if(!text)return;
+ if(!pendingComment||pendingComment.postId!==post.id||pendingComment.text!==text)pendingComment={postId:post.id,text,client_id:newMessageId()};
+ commentSending=true;$('commentSend').disabled=true;$('commentError').textContent='';
+ try{await request('/items/'+post.id+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,client_id:pendingComment.client_id})});if(commentPost===post){if($('commentText').value.trim()===text)$('commentText').value='';pendingComment=null;await loadComments();$('commentLog').scrollTop=$('commentLog').scrollHeight;}}
+ catch(e){if(commentPost===post)$('commentError').textContent=e.message;}finally{commentSending=false;$('commentSend').disabled=false;}
+};
+$('commentText').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('commentForm').requestSubmit();}});
+setInterval(()=>{if(loggedIn&&!document.hidden&&$('commentsDialog').open)loadComments();},5000);
 function clearPreview(){if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl='';$('imagePreview').hidden=true;$('imagePreview').removeAttribute('src');$('videoPreview').pause();$('videoPreview').removeAttribute('src');$('videoPreview').load();$('videoPreview').hidden=true;}
 $('newPost').onclick=()=>{$('postForm').reset();clearPreview();$('postError').textContent='';$('uploadProgress').hidden=true;$('compose').showModal();};
 $('file').onchange=()=>{clearPreview();const file=$('file').files[0];if(!file)return;if(file.size>100*1024*1024){$('postError').textContent='Maks 100 MB. Velg et mindre bilde eller klipp.';return;}$('postError').textContent='';previewUrl=URL.createObjectURL(file);const node=file.type.startsWith('video/')||/\.mov$/i.test(file.name)?$('videoPreview'):$('imagePreview');node.src=previewUrl;node.hidden=false;};
@@ -82,22 +218,23 @@ $('postForm').onsubmit=e=>{
  uploading=true;$('sendPost').disabled=true;$('cancelPost').disabled=true;$('file').disabled=true;$('days').disabled=true;$('caption').disabled=true;$('postError').textContent='';$('uploadProgress').hidden=false;$('uploadProgress').value=0;
  const xhr=new XMLHttpRequest(),params=new URLSearchParams({days:$('days').value,caption:$('caption').value});xhr.open('POST',api+'/items?'+params);xhr.timeout=300000;xhr.setRequestHeader('Content-Type',mime);xhr.setRequestHeader('X-Family-Request','1');xhr.upload.onprogress=e=>{if(e.lengthComputable)$('uploadProgress').value=Math.round(e.loaded/e.total*100);};
  const finish=()=>{uploading=false;for(const id of ['sendPost','cancelPost','file','days','caption'])$(id).disabled=false;};
- xhr.onload=()=>{finish();if(xhr.status>=200&&xhr.status<300){closeCompose();load();}else{let message='Opplastingen mislyktes. Prøv igjen.';try{message=JSON.parse(xhr.responseText).detail||message;}catch(e){}$('postError').textContent=message;if(xhr.status===401){closeCompose();showLogin();}}};xhr.onerror=xhr.ontimeout=()=>{finish();$('postError').textContent='Forbindelsen ble brutt eller tok for lang tid. Prøv igjen.';};xhr.send(file);
+ xhr.onload=()=>{finish();if(xhr.status>=200&&xhr.status<300){try{markSeen(JSON.parse(xhr.responseText).id);}catch(e){}closeCompose();load();}else{let message='Opplastingen mislyktes. Prøv igjen.';try{message=JSON.parse(xhr.responseText).detail||message;}catch(e){}$('postError').textContent=message;if(xhr.status===401){closeCompose();showLogin();}}};xhr.onerror=xhr.ontimeout=()=>{finish();$('postError').textContent='Forbindelsen ble brutt eller tok for lang tid. Prøv igjen.';};xhr.send(file);
 };
 setInterval(()=>{
  for(const card of document.querySelectorAll('#feed .post')){
   if(Number(card.dataset.expires)<=Date.now()/1000){
    const video=card.querySelector('video');if(video){video.pause();video.removeAttribute('src');video.load();}
+   if($('commentsDialog').open&&commentPost?.id===card.dataset.ident){$('commentsDialog').close();commentPost=null;}
    if($('lightbox').open&&$('largeImage').getAttribute('src')==='/familie/media/'+card.dataset.ident){$('lightbox').close();$('largeImage').removeAttribute('src');}
    card.remove();
-   const count=document.querySelectorAll('#feed .post').length;$('postCount').textContent=count+' øyeblikk fra familien';
-   if(!count)render([]);
+   posts=posts.filter(p=>p.id!==card.dataset.ident);updateSeenLabels();
+   if(!document.querySelector('#feed .post'))render(posts);
   }
  }
 },1000);
 $('closeImage').onclick=()=>{$('lightbox').close();$('largeImage').removeAttribute('src');};
 // Avoid replacing a playing video, focused controls, or an open composer during refresh.
-setInterval(()=>{if(loggedIn&&!document.hidden&&!$('compose').open&&!$('lightbox').open&&![...document.querySelectorAll('#feed video')].some(v=>!v.paused)&&!$('feed').contains(document.activeElement))load();},60000);
+setInterval(()=>{if(loggedIn&&!document.hidden&&!$('compose').open&&!$('lightbox').open&&!$('commentsDialog').open&&![...document.querySelectorAll('#feed video')].some(v=>!v.paused)&&!$('feed').contains(document.activeElement))load();},60000);
 window.addEventListener('beforeunload',e=>{if(uploading){e.preventDefault();e.returnValue='';}});
 load();
 })();

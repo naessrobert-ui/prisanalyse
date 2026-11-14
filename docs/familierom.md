@@ -91,3 +91,42 @@ curl -fsS http://127.0.0.1:8025/familie/health
 
 HTTP-accesslogger er avslått på Pi-en for å unngå bildetekster i URL-logger.
 Sikkerhetskopiering, varsling og automatisk programvareoppdatering er ikke satt opp.
+
+## Familiechat og sette innlegg
+
+Familiechatten ligger i samme rom og bruker samme innlogging. Meldinger lagres på
+Pi-en i sju døgn og slettes av samme ryddejobb som medier. Hvert lesekall returnerer
+de siste 200 meldingene i kronologisk rekkefølge. Alle med familiekoden kan slette
+meldinger. Navnet er selvvalgt, ikke en verifisert brukeridentitet. Nettleseren
+sjekker nye meldinger hvert femte sekund mens siden er synlig. Det er ingen
+pushvarsler, skriveindikatorer eller garanti for umiddelbar levering ved frakobling.
+
+Videoer starter ikke automatisk; når en video startes pauses andre videoklipp.
+Bilder merkes som sett når de åpnes stort, videoer etter 95 prosent eller ved slutt.
+Påbegynte videoer husker avspillingsposisjonen. Status lagres i localStorage per
+selvvalgt navn, nettleser og domene. Det synkroniseres ikke mellom enheter. Privat
+nettlesing, slettede nettleserdata eller blokkert localStorage kan fjerne historikken.
+Status er personlig på denne enheten og er ikke lesebekreftelser til resten av familien.
+
+Eksisterende Pi-installasjoner oppdateres med følgende (bruk publisert commit-SHA
+som MOTES_REF ved behov). Familiekode, database, medier og Funnel beholdes:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/naessrobert-ui/prisanalyse/main/deploy/pi/familie/update.sh -o /tmp/motes-familie-update.sh
+bash /tmp/motes-familie-update.sh
+```
+
+Skriptet laster ned og syntakssjekker kode før tjenesten stoppes, beholder forrige
+kode og gjenoppretter den hvis ny versjon ikke starter. Det tar ikke sikkerhetskopi
+av personlige medier eller database. SQLite utvides med en ny meldingstabell ved
+første oppstart; eksisterende innlegg og koder endres ikke.
+
+## Liker og kommentarer
+
+Bilder og videoklipp har hver sitt kommentarfelt og en liker-knapp. En liker-markering
+lagres per selvvalgt navn (uavhengig av store/små bokstaver). Dette er ikke en
+verifisert identitet eller en egen konto. Alle med familiekoden kan lese og slette
+kommentarer; nye kommentarer tar avsendernavnet fra den signerte innloggingen.
+Kommentarer og liker-markeringer følger innleggets levetid og fjernes når innlegget
+utløper eller slettes. Hvert innlegg kan ha opptil 200 kommentarer. Dialogen i et
+kommentarfelt oppdateres hvert femte sekund mens feltet er åpent.
