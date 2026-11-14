@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T17:30:00+00:00",
+  "generated_at": "2026-11-14T17:40:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,15 +10,15 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3. kvartal 2026 – tall offentliggjort uten norsk kommentar",
-      "lead": "Bemobi Mobile Tech SA, med Otello som stor eier, presenterte 3Q 2026-resultater 12. november. Foreløpig ingen detaljer eller analyser fra Otello foreligger.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – Otello eier 38,2 prosent",
+      "lead": "Bemobi Mobile Tech offentliggjorde 3Q26-resultater 12. november. Otello Corporation ASA eier 38,22 prosent og påvirkes direkte av utviklingen i selskapets inntjening og verdi.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech SA, med Otello som stor eier, presenterte 3Q 2026-resultater 12. november. Foreløpig ingen detaljer eller analyser fra Otello foreligger.",
-      "reason": "Bemobis kvartalsrapport inneholder viktig informasjon for Otello som stor eier, men uten konkrete tall eller utfyllende analyse i meldingen er markedspåvirkningen usikker. Investorer bør følge opp for å vurdere betydningen for Otellos verdsettelse.",
-      "score": 40,
+      "summary": "Bemobi Mobile Tech offentliggjorde 3Q26-resultater 12. november. Otello Corporation ASA eier 38,22 prosent og påvirkes direkte av utviklingen i selskapets inntjening og verdi.",
+      "reason": "Resultatene i seg selv er ikke oppsummert, så det er usikkert hvordan dette påvirker Otello. Aksjonærer må se nærmere på detaljer i Bemobis rapport og konferansesamtale for å vurdere effekten.",
+      "score": 45,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "uklar",
       "assessment_source": "AI",
       "number_keys": [
         "4887ba",
@@ -1346,13 +1346,13 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor noteres eks utbytte på 0,39 USD for Q2 2026 fra i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen uten kontantutbytte på 0,39 dollar for andre kvartal 2026, som reduserer aksjekursen tilsvarende utbyttet på eks-datoen.",
+      "headline": "Equinor utbetaler 0,39 USD i kvartalsutbytte – eks-dato i dag",
+      "lead": "Equinor-aksjen noteres eksklusiv et kontantutbytte på 0,39 USD per aksje fra 13. november 2026. Dette påvirker aksjeverdien tilsvarende utbyttebeløpet, men gir investorene direkte avkastning.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen uten kontantutbytte på 0,39 dollar for andre kvartal 2026, som reduserer aksjekursen tilsvarende utbyttet på eks-datoen.",
-      "reason": "Utbytteutbetaling er en normal hendelse som justerer aksjekursen ned med utbyttebeløpet. På kort sikt påvirker dette ikke selskapets verdi, men gir likviditet til aksjonærene. Aksjonærer bør vurdere den samlede totalavkastningen.",
-      "score": 55,
+      "summary": "Equinor-aksjen noteres eksklusiv et kontantutbytte på 0,39 USD per aksje fra 13. november 2026. Dette påvirker aksjeverdien tilsvarende utbyttebeløpet, men gir investorene direkte avkastning.",
+      "reason": "Utbytteutbetalinger er standard prosedyre som påvirker aksjekursen med et tilsvarende frafall i verdi, men gir samtidig kontantavkastning til aksjonærene. Viktig for investorer som vurderer inntekt vs. kursverdi. Det gir liten signalverdi om selskapets operasjonelle utvikling.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -1360,11 +1360,11 @@
         {
           "ticker": "AKRBP",
           "direction": "uklar",
-          "reason": "Som olje- og gasspeer kan utbyttepolitikken hos Equinor gi indikasjoner på sektortrender, men isolert effekt er usikker."
+          "reason": "Konkurrenter i olje og gass kan påvirkes indirekte hvis Equinors kapitaldisponering endres, men utbyttet i seg selv har minimal direkte effekt."
         }
       ],
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 50,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13425,7 +13425,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T17:30:00+00:00",
+  "last_checked_at": "2026-11-14T17:40:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 61,
