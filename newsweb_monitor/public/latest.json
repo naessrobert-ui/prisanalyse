@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T18:10:00+00:00",
+  "generated_at": "2026-11-14T18:20:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,13 +10,13 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Otello eier 38% i Bemobi som rapporterer 3Q26 - tall tilgjengelig",
-      "lead": "Bemobi Mobile Tech SA, med Otello som betydelig aksjonær, offentliggjorde sine resultater for tredje kvartal 2026; detaljene er tilgjengelige, men ingen tall er foreløpig spesifisert for videre analyse.",
+      "headline": "Bemobi 3. kvartalstall 2026 offentliggjort – detaljer mangler fortsatt",
+      "lead": "Bemobi rapporterte 3. kvartal 2026, men ingen konkrete økonomiske nøkkeltall er foreløpig tilgjengelige, noe som gir usikkerhet for Otello Corporation med 38,22 % eierandel.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech SA, med Otello som betydelig aksjonær, offentliggjorde sine resultater for tredje kvartal 2026; detaljene er tilgjengelige, men ingen tall er foreløpig spesifisert for videre analyse.",
-      "reason": "Uten konkrete finansielle nøkkeltall fra Bemobi vedrørende 3Q26 er det foreløpig ikke mulig å vurdere resultatets betydning for Otello eller markedet. Videre detaljgjennomgang er nødvendig for aksjonærer.",
-      "score": 30,
+      "summary": "Bemobi rapporterte 3. kvartal 2026, men ingen konkrete økonomiske nøkkeltall er foreløpig tilgjengelige, noe som gir usikkerhet for Otello Corporation med 38,22 % eierandel.",
+      "reason": "Mangelen på konkrete resultater i rapporteringen gjør det vanskelig for aksjonærer å vurdere kvartalets prestasjon og hva det innebærer for Otello. Nærmere analyse av tallene må påregnes når de foreligger.",
+      "score": 40,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
@@ -1346,25 +1346,18 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor betaler utbytte på 0,39 USD per aksje i Q2 2026 i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen eksklusiv utbytte på 0,39 USD per aksje for andre kvartal 2026. Utbetalingen påvirker kortsiktig aksjekurs og gir kontantavkastning til aksjonærer.",
+      "headline": "Equinor utbetaler 0,39 USD per aksje i Q2-2026-utbytte i dag",
+      "lead": "Fra i dag handles Equinor-aksjen eksklusiv kontantutbytte på 0,39 USD per aksje for andre kvartal 2026. Utbyttet påvirker investorers likviditet, men gir ikke grunnlag for vurdering av selskapets inntjening eller fremtidige utsikter.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen eksklusiv utbytte på 0,39 USD per aksje for andre kvartal 2026. Utbetalingen påvirker kortsiktig aksjekurs og gir kontantavkastning til aksjonærer.",
-      "reason": "Utbytteutbetaling bekrefter selskapets kontantstrømstyrke, men gir begrenset informasjon om løpende drift eller fremtidig inntjeningsutsikter. Aksjonærer bør følge utviklingen i oljepris og operasjonelle resultater for helhetlig vurdering.",
-      "score": 55,
+      "summary": "Fra i dag handles Equinor-aksjen eksklusiv kontantutbytte på 0,39 USD per aksje for andre kvartal 2026. Utbyttet påvirker investorers likviditet, men gir ikke grunnlag for vurdering av selskapets inntjening eller fremtidige utsikter.",
+      "reason": "Utbytteutbetaling er en forventet hendelse som reflekterer kontantutdeling til aksjonærer uten å indikere endring i selskapets underliggende drift. Aksjonærer bør vurdere utbyttestrategi og eventuell påvirkning på aksjekursen ved ex-dato.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "AKRBP",
-          "direction": "uklar",
-          "reason": "Konkurrent i oljesektoren, utbytteutbetaling kan gi indikasjoner på kontantstrøm i sektoren."
-        }
-      ],
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 50,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13447,11 +13440,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T18:10:00+00:00",
+  "last_checked_at": "2026-11-14T18:20:00+00:00",
   "monitor_stats": {
     "fetched": 174,
-    "recent": 53,
-    "already_seen": 50,
+    "recent": 52,
+    "already_seen": 49,
     "eligible": 3,
     "filtered": 0,
     "analyzed": 3,
@@ -13460,6 +13453,6 @@
     "capped": 0,
     "recovered_unpublished": 3,
     "source_latest_at": "2026-11-13T22:28:03.082000+00:00",
-    "indirect": 1
+    "indirect": 0
   }
 }
