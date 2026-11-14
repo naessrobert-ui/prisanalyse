@@ -31,7 +31,9 @@ MAX_FILE = 100 * 1024 * 1024
 MAX_TOTAL = 10 * 1024**3
 SESSION_SECONDS = 7 * 86400
 Image.MAX_IMAGE_PIXELS = 60_000_000
-ALLOWED_IMAGES = {"JPEG": ("image/jpeg", ".jpg"), "PNG": ("image/png", ".png"), "WEBP": ("image/webp", ".webp"), "HEIF": ("image/jpeg", ".jpg")}
+# GoPro JPG files may contain MPF metadata and be identified as MPO by Pillow.
+# MPO is JPEG-compatible; browsers display the primary image.
+ALLOWED_IMAGES = {"JPEG": ("image/jpeg", ".jpg"), "MPO": ("image/jpeg", ".jpg"), "PNG": ("image/png", ".png"), "WEBP": ("image/webp", ".webp"), "HEIF": ("image/jpeg", ".jpg")}
 
 
 def recording_time(path: Path, mime: str) -> tuple[str | None, str | None]:
@@ -536,6 +538,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                         header = f.read(32)
                 recorded_at, recorded_source = await asyncio.to_thread(recording_time, temp, mime)
                 if mime.startswith("image/"):
+                    source_format = "unidentified"
                     try:
                         with Image.open(temp) as image:
                             actual = ALLOWED_IMAGES.get(image.format)
@@ -561,7 +564,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                         raise HTTPException(413, "Bildet har for høy oppløsning. Maks 60 megapiksler.")
                     except (UnidentifiedImageError, OSError, ValueError, RuntimeError) as exc:
                         # Log only exception type, never names, image content or EXIF.
-                        logging.getLogger(__name__).warning("Familiebilde avvist: %s; bytes=%d", type(exc).__name__, size)
+                        logging.getLogger(__name__).warning("Familiebilde avvist: %s; format=%s; bytes=%d", type(exc).__name__, source_format, size)
                         raise HTTPException(415, "Bildet kunne ikke leses. Prøv å lagre en ny kopi som JPG og last opp igjen.")
                     suffix = actual[1]
                 elif mime.startswith("video/"):

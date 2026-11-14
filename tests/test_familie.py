@@ -521,3 +521,23 @@ def test_gopro_sized_jpeg_upload(family, progressive):
     response = client.post('/familie/api/items', content=data.getvalue(), headers={'X-Family-Request': '1', 'Content-Type': 'image/jpeg'})
     assert response.status_code == 200
     assert client.get('/familie/media/' + response.json()['id']).content == data.getvalue()
+
+
+def test_gopro_jpg_with_mpf_metadata_detected_as_mpo(family):
+    app, client, root = family
+    login(client)
+    data = io.BytesIO()
+    Image.new('RGB', (5568, 4872), '#216052').save(
+        data, format='MPO', save_all=True,
+        append_images=[Image.new('RGB', (320, 240), '#216052')])
+    raw = data.getvalue()
+    with Image.open(io.BytesIO(raw)) as image:
+        assert image.format == 'MPO'
+    response = client.post('/familie/api/items', params={'filename': 'G0012096.JPG'},
+                           content=raw, headers={'X-Family-Request': '1', 'Content-Type': 'image/jpeg'})
+    assert response.status_code == 200
+    item = client.get('/familie/api/items').json()['items'][0]
+    assert item['mime'] == 'image/jpeg'
+    media = client.get('/familie/media/' + response.json()['id'])
+    assert media.headers['content-type'] == 'image/jpeg'
+    assert media.content == raw
