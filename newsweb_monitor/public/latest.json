@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T17:10:00+00:00",
+  "generated_at": "2026-11-14T17:20:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,13 +10,13 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3. kvartal 2026 – Otello eier 38 prosent",
-      "lead": "Bemobi Mobile Tech SA offentliggjorde resultater for tredje kvartal 2026. Otello Corporation ASA eier 38,22 prosent av selskapet. Detaljer om resultatene mangler foreløpig, og investorer må vente på nøkkeltall for å vurdere effekten.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – detaljer foreløpig uklare",
+      "lead": "Bemobi Mobile Tech presenterte sine tall for 3. kvartal 2026 12. november. Otello eier 38,22 % av selskapet, men presise resultater eller påvirkning for Otello er ennå ikke nøkkelfremhevet.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech SA offentliggjorde resultater for tredje kvartal 2026. Otello Corporation ASA eier 38,22 prosent av selskapet. Detaljer om resultatene mangler foreløpig, og investorer må vente på nøkkeltall for å vurdere effekten.",
-      "reason": "Bemobis kvartalstall er publisert, men ingen spesifikke finansielle nøkkeltall eller vesentlige endringer er oppgitt. Effekten for Otello og markedene er derfor foreløpig uklar. Ytterligere data er nødvendig for vurdering.",
-      "score": 45,
+      "summary": "Bemobi Mobile Tech presenterte sine tall for 3. kvartal 2026 12. november. Otello eier 38,22 % av selskapet, men presise resultater eller påvirkning for Otello er ennå ikke nøkkelfremhevet.",
+      "reason": "Tallene fra Bemobi er rapportert, men informasjon om resultater eller påvirkning for Otello mangler i meldingen. Investorer bør følge videre rapportering og analyser for å vurdere konsekvenser for Otello-aksjen.",
+      "score": 40,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
@@ -1346,18 +1346,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor utbetaler 0,39 USD per aksje i Q2-utbytte i dag",
-      "lead": "Equinor starter eks handel på Oslo Børs uten 0,39 USD per aksje i utbytte for andre kvartal 2026 fra 13. november. Utbytteutbetaling reflekterer selskapets kontantavkastning til aksjonærene.",
+      "headline": "Equinor betaler 0,39 USD utbytte per aksje for Q2 2026 i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen eksklusiv et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026. Utbyttet utgår fra prisen umiddelbart etter børsens åpning.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor starter eks handel på Oslo Børs uten 0,39 USD per aksje i utbytte for andre kvartal 2026 fra 13. november. Utbytteutbetaling reflekterer selskapets kontantavkastning til aksjonærene.",
-      "reason": "Utbytteutbetaling er en forventet kontantstrøm til aksjonærene og påvirker kortsiktig prisjustering ved ex-dato. Den gir indikasjon på selskapets kontantrutiner, men uten ny inntjeningsinformasjon gir dette begrenset signal for fremtidig utvikling.",
-      "score": 55,
+      "summary": "Fra 13. november handles Equinor-aksjen eksklusiv et kontantutbytte på 0,39 USD per aksje for andre kvartal 2026. Utbyttet utgår fra prisen umiddelbart etter børsens åpning.",
+      "reason": "Utbytteutbetalingen påvirker direkte aksjekursen, men er en regulær hendelse uten ny informasjon om selskapets underliggende drift. Investorer bør følge utviklingen i markedsforhold og oljepriser videre.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AKRBP",
+          "direction": "uklar",
+          "reason": "Konkurrent i olje- og gasssektoren med potensiell påvirkning fra generelle utbyttetrender i sektoren."
+        }
+      ],
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 50,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13418,7 +13425,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T17:10:00+00:00",
+  "last_checked_at": "2026-11-14T17:20:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 61,
