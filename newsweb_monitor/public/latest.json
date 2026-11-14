@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T07:40:00+00:00",
+  "generated_at": "2026-11-14T07:50:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,12 +10,12 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3. kvartal 2026 uten detaljert økonomi i dag",
-      "lead": "Bemobi Mobile Tech, eid 38,22% av Otello, offentliggjorde 3Q26-resultater 12. november uten konkrete nøkkeltall tilgjengelig per nå, noe som gjør det vanskelig å vurdere utviklingen og konsekvenser for Otello.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – detaljene foreløpig uklare",
+      "lead": "Bemobi Mobile Tech har offentliggjort sine resultater for 3. kvartal 2026. Otello Corporation eier 38,22 % av selskapet, men foreløpig mangler konkrete tall og nøkkelinformasjon om utviklingen.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech, eid 38,22% av Otello, offentliggjorde 3Q26-resultater 12. november uten konkrete nøkkeltall tilgjengelig per nå, noe som gjør det vanskelig å vurdere utviklingen og konsekvenser for Otello.",
-      "reason": "Uten tilgjengelige resultater eller innhold fra kvartalsrapporten kan vi ikke vurdere utviklingen sammenlignet med tidligere perioder eller forventninger, og dermed er effekten på Otellos aksjonærer usikker.",
+      "summary": "Bemobi Mobile Tech har offentliggjort sine resultater for 3. kvartal 2026. Otello Corporation eier 38,22 % av selskapet, men foreløpig mangler konkrete tall og nøkkelinformasjon om utviklingen.",
+      "reason": "Uten detaljert resultatdata kan vi ikke fastslå om utviklingen er positiv eller negativ for Otello. Nøkkeldata som omsetning, inntjening og marginer må analyseres for videre vurdering.",
       "score": 40,
       "skipped": false,
       "direction": "uklar",
@@ -1346,13 +1346,13 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor betaler 0,39 USD i utbytte for Q2 2026 – aksjen handles uten utbytte i dag",
-      "lead": "Fra 13. november 2026 handles Equinor-aksjen eksklusive kontantutbytte på 0,39 USD for andre kvartal. Dette påvirker kortsiktig aksjekurs, men ikke selskapets underliggende verdi.",
+      "headline": "Equinor kutter utbytte med 0,39 USD per aksje i Q2 2026",
+      "lead": "Fra 13. november handles Equinor-aksjen uten rett til et kvartalsutbytte på 0,39 USD. Dette påvirker kontantstrømmen for aksjonærer og kan gi kortsiktig kursreaksjon.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november 2026 handles Equinor-aksjen eksklusive kontantutbytte på 0,39 USD for andre kvartal. Dette påvirker kortsiktig aksjekurs, men ikke selskapets underliggende verdi.",
-      "reason": "Utbytteutbetaling er en forventet hendelse som reflekterer selskapets likviditetsstyrke, men har ikke direkte implikasjoner for inntjeningsutsiktene. Aksjonærer bør merke seg effekten på aksjekursen på ex-dato.",
-      "score": 60,
+      "summary": "Fra 13. november handles Equinor-aksjen uten rett til et kvartalsutbytte på 0,39 USD. Dette påvirker kontantstrømmen for aksjonærer og kan gi kortsiktig kursreaksjon.",
+      "reason": "Utbytteutbetalinger er en vanlig hendelse, men den eksakte endringen i nivå eller fremtidig utbyttepolitikk er ikke oppgitt. Investorer må vurdere selskapets kontantstrøm og fremtidige utbytteutsikter videre.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -1360,11 +1360,16 @@
         {
           "ticker": "AKRBP",
           "direction": "uklar",
-          "reason": "Som olje- og gasskonkurrent kan endringer i Equinors utbytte påvirke investorinteressen i sektoren."
+          "reason": "Kan bli påvirket av olje- og gassmarkedets utvikling relatert til Equinors kapitaldisponeringer."
+        },
+        {
+          "ticker": "VAR",
+          "direction": "uklar",
+          "reason": "Samme sektor kan merke effekter av endrede investerings- og utbyttemønstre hos Equinor."
         }
       ],
       "importance": "stor",
-      "score_ai": 50,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -2863,18 +2868,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjonen til 4.634 boe/d men rapporterer 27,6 mill. USD kvartalstap",
-      "lead": "Til tross for økt produksjon til 4.634 boe per dag i Q3 2026, rapporterte Questerre et netto tap på 27,6 millioner USD, påvirket av betydelige ikke-kontante finansposter og midlertidig anleggsstans.",
+      "headline": "Questerre øker produksjonen til 4.634 boe/d, rapporterer 27,6 mill. USD kvartalstap",
+      "lead": "Questerre økte produksjonen til 4.634 boe per dag i Q3 2026, men rapporterte et netto tap på 27,6 millioner USD, påvirket av anleggsstans, finansielle kostnader og investeringsutfordringer.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Til tross for økt produksjon til 4.634 boe per dag i Q3 2026, rapporterte Questerre et netto tap på 27,6 millioner USD, påvirket av betydelige ikke-kontante finansposter og midlertidig anleggsstans.",
-      "reason": "Økt produksjon og høyere inntekter i kvartalet indikerer fremgang, men netto tap, særlig ikke-kontante kostnader, og driftsstans gir usikkerhet. Aksjonærer bør følge utviklingen i kostnadsstruktur, HCCO-teknologiens kommersialisering og gjeldsrestrukturering for videre inntjeningspotensial.",
-      "score": 55,
+      "summary": "Questerre økte produksjonen til 4.634 boe per dag i Q3 2026, men rapporterte et netto tap på 27,6 millioner USD, påvirket av anleggsstans, finansielle kostnader og investeringsutfordringer.",
+      "reason": "Økt produksjon indikerer vekst, men høyere ikke-kontante finanskostnader og nødvendige omstillinger tynger resultatet. Investorer bør følge utviklingen i restrukturering og teknologitesting nøye, samt effekter av vedlikehold og politikken i Quebec.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 70,
+      "score_ai": 75,
       "number_keys": [
         "004be8",
         "02ef6a",
@@ -13469,7 +13474,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T07:40:00+00:00",
+  "last_checked_at": "2026-11-14T07:50:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 63,
