@@ -74,8 +74,8 @@ async def speak(text, on_audio):
             await ws.send(json.dumps({'type': 'session.start', 'event_id': 'yvonne_start', 'session': {
                 'model': model, 'store': False, 'instructions': instructions,
                 'audio': {'format': {'type': 'audio/pcm', 'rate': RATE}, 'output': {'voice': voice}},
-                'delegation': None,
-                'input': [{'role': 'developer', 'content': [{'type': 'input_text', 'text':
+                'delegation': {'type': 'client'},
+                'input': [{'type': 'message', 'role': 'developer', 'content': [{'type': 'input_text', 'text':
                     'Les kun denne ferdige svarteksten høyt nå, på norsk. Ikke endre fakta eller legg til innhold:\n' + text}]}],
             }}))
             async with asyncio.timeout(MAX_SECONDS + 15):
@@ -85,7 +85,7 @@ async def speak(text, on_audio):
                     kind = event.get('type')
                     if kind == 'error':
                         error = event.get('error', {})
-                        log.warning('Yvonne Live rejected a command: code=%s', str(error.get('code', 'unknown'))[:80])
+                        log.warning('Yvonne Live rejected a command: code=%s param=%s', str(error.get('code', 'unknown'))[:80], str(error.get('param', 'unknown'))[:120])
                         raise ValueError('Voice API rejected command')
                     if kind == 'session.started':
                         started = True
