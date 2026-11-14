@@ -143,9 +143,16 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
             if column not in columns:
                 conn.execute(f"ALTER TABLE posts ADD COLUMN {column} TEXT")
 
+        if "filename" not in columns:
+            conn.execute("ALTER TABLE posts ADD COLUMN filename TEXT")
+
         conn.execute("""CREATE TABLE IF NOT EXISTS messages (
           id TEXT PRIMARY KEY, name TEXT NOT NULL, text TEXT NOT NULL,
           created REAL NOT NULL, expires REAL NOT NULL)""")
+        conn.execute("CREATE TABLE IF NOT EXISTS threads (id TEXT PRIMARY KEY, title TEXT NOT NULL, created REAL NOT NULL)")
+        if "thread_id" not in {row[1] for row in conn.execute("PRAGMA table_info(messages)")}:
+            conn.execute("ALTER TABLE messages ADD COLUMN thread_id TEXT NOT NULL DEFAULT ''")
+        conn.execute("CREATE INDEX IF NOT EXISTS messages_thread ON messages(thread_id,created)")
         conn.execute("CREATE INDEX IF NOT EXISTS messages_created ON messages(created)")
         conn.execute("CREATE INDEX IF NOT EXISTS messages_expiry ON messages(expires)")
         conn.execute("""CREATE TABLE IF NOT EXISTS reactions (
@@ -402,13 +409,45 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
             conn.execute("DELETE FROM comments WHERE id=? AND post_id=?", (ident, post_id))
         return {"ok": True}
 
+    def require_thread(conn, thread_id):
+        if thread_id and not conn.execute("SELECT id FROM threads WHERE id=?", (thread_id,)).fetchone():
+            raise HTTPException(404, "Tråden finnes ikke.")
+
+    @app.get("/familie/api/threads")
+    async def thread_list(request: Request):
+        user(request)
+        with db() as conn:
+            rows = conn.execute("SELECT * FROM threads ORDER BY created DESC,id DESC").fetchall()
+        return {"threads": [dict(row) for row in rows]}
+
+    @app.post("/familie/api/threads")
+    async def thread_create(request: Request):
+        user(request)
+        mutation(request)
+        title, ident = await message_payload(request)
+        if len(title) > 100:
+            raise HTTPException(400, "Overskriften kan ha opptil 100 tegn.")
+        with db() as conn:
+            previous = conn.execute("SELECT * FROM threads WHERE id=?", (ident,)).fetchone()
+            if previous:
+                if previous["title"] != title:
+                    raise HTTPException(409, "Overskriften er endret.")
+                return dict(previous)
+            if conn.execute("SELECT COUNT(*) FROM threads").fetchone()[0] >= 1000:
+                raise HTTPException(429, "Familierommet har nådd grensen på 1000 tråder.")
+            now = time.time()
+            conn.execute("INSERT INTO threads VALUES (?,?,?)", (ident, title, now))
+        return {"id": ident, "title": title, "created": now}
+
     @app.get("/familie/api/chat")
     async def chat_list(request: Request):
         name = user(request)
+        thread_id = request.query_params.get("thread", "")
         with db() as conn:
+            require_thread(conn, thread_id)
             rows = conn.execute(
-                "SELECT * FROM messages WHERE expires>? ORDER BY created DESC,id DESC LIMIT 200",
-                (time.time(),),
+                "SELECT * FROM messages WHERE expires>? AND thread_id=? ORDER BY created DESC,id DESC LIMIT 200",
+                (time.time(), thread_id),
             ).fetchall()
         return {"name": name, "messages": [dict(row) for row in reversed(rows)]}
 
@@ -418,17 +457,19 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
         mutation(request)
         text, ident = await message_payload(request)
         now = time.time()
+        thread_id = request.query_params.get("thread", "")
         with db() as conn:
+            require_thread(conn, thread_id)
             previous = conn.execute("SELECT * FROM messages WHERE id=?", (ident,)).fetchone()
             if previous:
-                if previous["name"] != name or previous["text"] != text:
+                if previous["name"] != name or previous["text"] != text or previous["thread_id"] != thread_id:
                     raise HTTPException(409, "Meldingen er endret. Prøv igjen.")
                 return {"id": ident}
             if conn.execute("SELECT COUNT(*) FROM messages WHERE created>?", (now - 60,)).fetchone()[0] >= 60:
                 raise HTTPException(429, "Mange meldinger akkurat nå. Vent litt og prøv igjen.")
             if conn.execute("SELECT COUNT(*) FROM messages WHERE expires>?", (now,)).fetchone()[0] >= 5000:
                 raise HTTPException(429, "Chatten er full. Slett eldre meldinger eller vent til de går ut.")
-            conn.execute("INSERT INTO messages VALUES (?,?,?,?,?)", (ident, name, text, now, now + 7 * 86400))
+            conn.execute("INSERT INTO messages (id,name,text,created,expires,thread_id) VALUES (?,?,?,?,?,?)", (ident, name, text, now, now + 7 * 86400, thread_id))
         return {"id": ident}
 
     @app.delete("/familie/api/chat/{ident}")
@@ -444,15 +485,20 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
         name = user(request)
         mutation(request)
         try:
-            days = int(request.query_params.get("days", "1"))
+            days = int(request.query_params.get("days", "0"))
         except ValueError:
             days = -1
         if days not in {0, 1, 3, 7}:
             raise HTTPException(400, "Velg 1 døgn, 1 uke eller til innlegget slettes.")
         caption = request.query_params.get("caption", "").strip()[:500]
         mime = request.headers.get("content-type", "").split(";", 1)[0].lower()
-        if mime not in {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "video/mp4", "video/webm", "video/quicktime"}:
-            raise HTTPException(415, "Velg JPG, PNG, WebP, MP4, WebM eller MOV. HEIC og HEIF støttes også.")
+        filename = request.query_params.get("filename", "")
+        filename = re.sub(r"[\x00-\x1f\x7f/\\]", "_", filename).strip()[:180]
+        supported_media = mime in {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "video/mp4", "video/webm", "video/quicktime"}
+        if not supported_media:
+            if not filename:
+                raise HTTPException(415, "Velg en fil med filnavn.")
+            mime = "application/octet-stream"
         # An upload is capped at 100 MiB; no client-controlled filesystem paths are used.
         ident = secrets.token_hex(16)
         temp = media / (ident + ".part")
@@ -503,18 +549,20 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                     except (UnidentifiedImageError, OSError, ValueError, RuntimeError, Image.DecompressionBombError):
                         raise HTTPException(415, "Bildet kunne ikke leses. Prøv et annet bilde.")
                     suffix = actual[1]
-                else:
+                elif mime.startswith("video/"):
                     # Validate the media container; decoding is left to the browser.
                     valid_mp4 = len(header) >= 12 and header[4:8] == b"ftyp"
                     valid_webm = header.startswith(b"\x1aE\xdf\xa3")
                     if (mime == "video/webm" and not valid_webm) or (mime != "video/webm" and not valid_mp4):
                         raise HTTPException(415, "Klippet er ikke i et støttet videoformat.")
                     suffix = {"video/mp4": ".mp4", "video/webm": ".webm", "video/quicktime": ".mov"}[mime]
+                else:
+                    suffix = ".file"
                 final = media / (ident + suffix)
                 temp.replace(final)
                 now = time.time()
                 with db() as conn:
-                    conn.execute("INSERT INTO posts (id,mime,suffix,name,caption,created,expires,bytes,recorded_at,recorded_source) VALUES (?,?,?,?,?,?,?,?,?,?)", (ident, mime, suffix, name, caption, now, now + days * 86400 if days else 0, size, recorded_at, recorded_source))
+                    conn.execute("INSERT INTO posts (id,mime,suffix,name,caption,created,expires,bytes,recorded_at,recorded_source,filename) VALUES (?,?,?,?,?,?,?,?,?,?,?)", (ident, mime, suffix, name, caption, now, now + days * 86400 if days else 0, size, recorded_at, recorded_source, filename or None))
                 return {"id": ident}
             except BaseException:
                 if final:
@@ -535,7 +583,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
         path = media / (ident + row["suffix"])
         if not path.is_file():
             raise HTTPException(404)
-        return FileResponse(path, media_type=row["mime"])
+        return FileResponse(path, media_type=row["mime"], filename=(row["filename"] or "nedlasting") if row["mime"] == "application/octet-stream" else None)
 
     @app.delete("/familie/api/items/{ident}")
     async def delete_item(ident: str, request: Request):

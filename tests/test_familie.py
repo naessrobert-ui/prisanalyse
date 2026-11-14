@@ -265,7 +265,7 @@ def test_chat_rate_limit(family):
     login(client)
     now = time.time()
     with sqlite3.connect(root / 'posts.sqlite3') as conn:
-        conn.executemany('INSERT INTO messages VALUES (?,?,?,?,?)', [(secrets.token_hex(16), 'Familien', 'Hei', now, now + 86400) for _ in range(60)])
+        conn.executemany('INSERT INTO messages (id,name,text,created,expires) VALUES (?,?,?,?,?)', [(secrets.token_hex(16), 'Familien', 'Hei', now, now + 86400) for _ in range(60)])
     assert client.post('/familie/api/chat', json={'client_id': secrets.token_hex(16), 'text': 'For raskt'}, headers={'X-Family-Request': '1'}).status_code == 429
 
 
@@ -430,3 +430,57 @@ def test_legacy_database_capture_backfill_preserves_posts(tmp_path):
         assert item['caption'] == 'Gammelt bilde'
         assert item['expires'] == now + 86400
         assert client.get('/familie/media/' + ident).status_code == 200
+
+
+def test_threads_separate_messages_and_validate_requests(family):
+    app, client, root = family
+    headers = {'X-Family-Request': '1'}
+    assert client.get('/familie/api/threads').status_code == 401
+    login(client)
+    payload = {'text': 'Sommerferien', 'client_id': secrets.token_hex(16)}
+    assert client.post('/familie/api/threads', json=payload).status_code == 403
+    topic = client.post('/familie/api/threads', json=payload, headers=headers).json()
+    assert client.post('/familie/api/threads', json=payload, headers=headers).json() == topic
+    assert client.get('/familie/api/threads').json()['threads'] == [topic]
+    url = '/familie/api/chat?thread=' + topic['id']
+    message = {'text': 'Hvor reiser vi?', 'client_id': secrets.token_hex(16)}
+    assert client.post(url, json=message, headers=headers).status_code == 200
+    assert client.get(url).json()['messages'][0]['text'] == message['text']
+    assert client.get('/familie/api/chat').json()['messages'] == []
+    assert client.post('/familie/api/chat', json=message, headers=headers).status_code == 409
+    assert client.get('/familie/api/chat?thread=missing').status_code == 404
+    assert client.post('/familie/api/threads', json={'text': 'x' * 101, 'client_id': secrets.token_hex(16)}, headers=headers).status_code == 400
+
+
+def test_upload_defaults_to_indefinite_and_survives_cleanup(family):
+    app, client, root = family
+    login(client)
+    result = client.post('/familie/api/items', content=photo(), headers={'X-Family-Request': '1', 'Content-Type': 'image/png'})
+    assert result.status_code == 200
+    ident = result.json()['id']
+    app.state.cleanup()
+    assert client.get('/familie/api/items').json()['items'][0]['expires'] == 0
+    assert client.get('/familie/media/' + ident).status_code == 200
+
+
+@pytest.mark.parametrize('filename,content_type,data', [
+    ('ferie.html', 'text/html', b'<html><script>alert(1)</script></html>'),
+    ('plan.pdf', 'application/pdf', b'%PDF-example'),
+    ('arkiv.zip', 'application/zip', b'PK-example'),
+])
+def test_shared_files_are_authenticated_downloads(family, filename, content_type, data):
+    app, client, root = family
+    login(client)
+    response = client.post('/familie/api/items', params={'filename': filename}, content=data,
+                           headers={'X-Family-Request': '1', 'Content-Type': content_type})
+    assert response.status_code == 200
+    ident = response.json()['id']
+    item = client.get('/familie/api/items').json()['items'][0]
+    assert item['filename'] == filename and item['expires'] == 0
+    download = client.get('/familie/media/' + ident)
+    assert download.content == data
+    assert download.headers['content-type'] == 'application/octet-stream'
+    assert download.headers['content-disposition'].startswith('attachment;')
+    assert download.headers['x-content-type-options'] == 'nosniff'
+    client.post('/familie/api/logout', headers={'X-Family-Request': '1'})
+    assert client.get('/familie/media/' + ident).status_code == 401

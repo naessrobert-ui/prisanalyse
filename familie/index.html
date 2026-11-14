@@ -27,7 +27,7 @@
 <section id="room" hidden>
  <div class="welcome"><div><div class="eyebrow">Små øyeblikk. Nære mennesker.</div><h1>Her er vi sammen.</h1><p>Et glimt fra dagen, en liten hilsen. Bare for familien.</p></div><button class="button" id="newPost">+ Del et øyeblikk</button></div>
  <p id="roomError" class="message" role="status" aria-live="polite"></p>
- <nav class="room-tabs" aria-label="Velg innhold"><button id="mediaTab" aria-pressed="true" type="button">Bilder og klipp</button><button id="chatTab" aria-pressed="false" type="button">Familiechat <span class="count-badge" id="chatBadge" hidden></span></button></nav>
+ <nav class="room-tabs" aria-label="Velg innhold"><button id="mediaTab" aria-pressed="true" type="button">Bilder og filer</button><button id="chatTab" aria-pressed="false" type="button">Familiechat <span class="count-badge" id="chatBadge" hidden></span></button></nav>
  <section id="mediaPane" aria-label="Bilder og videoklipp">
   <div class="toolbar"><span id="postCount">Familiens øyeblikk</span><div><button class="text-button" id="refresh">Oppdater</button><button class="text-button" id="logout">Logg ut</button></div></div>
   <div class="feed-filters" role="group" aria-label="Filtrer innlegg"><button type="button" id="allPosts" aria-pressed="true">Alle</button><button type="button" id="newPosts" aria-pressed="false">Nye</button></div>
@@ -36,7 +36,9 @@
   <div class="grid" id="feed" aria-live="polite"></div>
  </section>
  <section id="chatPane" aria-label="Familiechat" hidden>
-  <div class="chat-panel"><div class="chat-header"><div><h2>En liten prat med familien.</h2><span class="tiny">Meldingene beholdes i 7 døgn.</span></div><button class="text-button" type="button" id="chatRefresh">Oppdater</button></div>
+  <div class="chat-panel"><div class="chat-header"><div><h2 id="threadHeading">Fellesprat</h2><span class="tiny">Meldingene beholdes i 7 døgn.</span></div><button class="text-button" type="button" id="chatRefresh">Oppdater</button></div>
+   <div style="padding:16px 20px;border-bottom:1px solid var(--line)"><label for="threadSelect" style="margin-top:0">Velg samtale</label><select id="threadSelect"><option value="">Fellesprat (tidligere meldinger)</option></select><button type="button" class="button secondary" id="newThread" style="margin-top:12px">Ny tråd</button>
+   <form id="threadForm" hidden><label for="threadTitle">Overskrift / emne</label><input id="threadTitle" maxlength="100" required placeholder="For eksempel: Sommerferien"><div class="actions"><button type="button" class="text-button" id="cancelThread">Avbryt</button><button class="button" id="createThread" type="submit">Opprett tråd</button></div></form></div>
    <div class="chat-log" id="familyChatLog" role="log" aria-live="polite" aria-label="Meldinger fra familien"></div>
    <form class="chat-compose" id="familyChatForm"><label for="chatText">Skriv til familien</label><textarea id="chatText" maxlength="2000" rows="2" placeholder="Hvordan går det hos dere?" required></textarea><button type="submit" class="button" id="chatSend">Send</button></form>
    <p class="chat-note">Enter sender meldingen. Shift + Enter gir ny linje. Alle med familiekoden kan lese og slette meldinger.</p>
@@ -48,11 +50,11 @@
 </div>
 <dialog id="compose" aria-labelledby="composeTitle">
  <form id="postForm"><div class="eyebrow">En liten hilsen til de andre</div><h2 id="composeTitle">Del et øyeblikk.</h2>
- <label class="file-pick" for="file">Velg bilder og videoklipp<input id="file" type="file" accept="image/*,video/mp4,video/webm,video/quicktime,.mov,.heic,.heif" multiple required><span class="tiny">JPG, HEIC, PNG, WebP, MP4, WebM eller MOV · opptil 30 filer · maks 100 MB per fil</span></label>
+ <label class="file-pick" for="file">Velg bilder, videoklipp og filer<input id="file" type="file" multiple required><span class="tiny">Bilder, video, HTML, PDF, dokumenter og andre filer · opptil 30 filer · maks 100 MB per fil</span></label>
  <ul id="selectionList" class="selection-list"></ul><p id="uploadStatus" class="upload-status" role="status" aria-live="polite"></p>
  <img id="imagePreview" class="preview" alt="Forhåndsvisning av bildet ditt" hidden><video id="videoPreview" class="preview" controls playsinline hidden></video>
  <label for="caption">Legg til en hilsen <span class="tiny">(valgfritt)</span></label><textarea id="caption" maxlength="500" placeholder="Hva skjer hos deg i dag?"></textarea>
- <label for="days">Hvor lenge skal innlegget bli?</label><select id="days"><option value="1">1 døgn</option><option value="7">1 uke</option><option value="0">Til noen sletter innlegget</option></select>
+ <label for="days">Hvor lenge skal innlegget bli?</label><select id="days"><option value="1">1 døgn</option><option value="7">1 uke</option><option value="0" selected>Inntil videre (ingen automatisk sletting)</option></select>
  <p class="tiny">Velg hvor lenge alle de valgte filene skal beholdes. Innlegg uten tidsgrense beholdes til noen sletter dem. Tidsbegrensede innlegg skjules ved utløp. Filen slettes fra Pi-en innen omtrent ett minutt mens tjenesten kjører. Andre kan ha lagret en kopi.</p>
  <p class="tiny">Noen MOV- og MP4-klipp fra telefoner kan kreve konvertering før andre nettlesere kan spille dem.</p>
  <progress id="uploadProgress" max="100" value="0" aria-label="Opplastingsfremdrift" hidden></progress><p id="postError" class="message" role="status" aria-live="polite"></p>
@@ -71,6 +73,7 @@
 (()=>{
 'use strict';
 const $=id=>document.getElementById(id), api='/familie/api';let currentName='',previewUrl='',uploading=false,loading=false,loggedIn=false;
+let activeThread='',threadRequest=null;
 let posts=[],seen={},onlyNew=false,activePane='media',chatMessages=[],chatBusy=false,chatSending=false,chatSignature='',pendingChat=null;
 let sessionEpoch=0;
 let selectedDay='',calendarCounts={},calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedFiles=[];
@@ -81,7 +84,7 @@ async function request(path,options={}){
  let data;try{data=await response.json();}catch(e){throw new Error('Familierommet er ikke tilgjengelig akkurat nå. Prøv igjen om litt.');}
  if(!response.ok){if(response.status===401&&path!=='/login')showLogin();throw new Error(data.detail||'Det gikk ikke. Prøv igjen.');}return data;
 }
-function showLogin(){sessionEpoch++;for(const id of ['commentsDialog','lightbox','compose'])if($(id).open)$(id).close();commentPost=null;loggedIn=false;currentName='';seen={};posts=[];selectedDay='';calendarCounts={};$('calendarDays').replaceChildren();chatMessages=[];chatSignature='';$('familyChatLog').replaceChildren();$('chatText').value='';pendingChat=null;$('chatBadge').hidden=true;$('room').hidden=true;$('loginSection').hidden=false;$('feed').replaceChildren();$('code').value='';}
+function showLogin(){activeThread='';threadRequest=null;$('threadForm').hidden=true;$('threadSelect').value='';$('threadHeading').textContent='Fellesprat';sessionEpoch++;for(const id of ['commentsDialog','lightbox','compose'])if($(id).open)$(id).close();commentPost=null;loggedIn=false;currentName='';seen={};posts=[];selectedDay='';calendarCounts={};$('calendarDays').replaceChildren();chatMessages=[];chatSignature='';$('familyChatLog').replaceChildren();$('chatText').value='';pendingChat=null;$('chatBadge').hidden=true;$('room').hidden=true;$('loginSection').hidden=false;$('feed').replaceChildren();$('code').value='';}
 function readableTime(seconds){const mins=Math.max(1,Math.ceil(seconds/60));return mins>=1440?Math.ceil(mins/1440)+' døgn':mins>=60?Math.ceil(mins/60)+' timer':mins+' min';}
 function element(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
 function seenKey(){return 'motes-family-seen-v1:'+encodeURIComponent(currentName.toLocaleLowerCase('nb-NO'));}
@@ -106,7 +109,7 @@ function render(items){
  const visible=items.filter(p=>(!p.expires||p.expires>Date.now()/1000)&&(!onlyNew||!seen[p.id]?.seen));
  if(!visible.length){const box=element('div','empty');box.append(element('div','symbol','♡'),element('strong','',selectedDay?'Ingen innlegg på denne datoen.':onlyNew?'Du har sett alle øyeblikkene.':'Det begynner med en liten hilsen.'),element('p','',onlyNew?'Velg «Alle» for å se bilder og videoklipp igjen.':'Del et bilde fra turen, en videohilsen eller noe fint fra dagen din.'));feed.append(box);return;}
  for(const post of visible){
- const card=element('article','post');card.dataset.expires=post.expires;card.dataset.ident=post.id;const isVideo=post.mime.startsWith('video/'),media=element(isVideo?'video':'img'),wrap=element('div','media-wrap'),flag=element('span','post-state');wrap.append(media,flag);media.src='/familie/media/'+post.id;
+ const card=element('article','post');card.dataset.expires=post.expires;card.dataset.ident=post.id;const isVideo=post.mime.startsWith('video/'),isFile=!isVideo&&!post.mime.startsWith('image/'),media=element(isFile?'a':isVideo?'video':'img'),wrap=element('div','media-wrap'),flag=element('span','post-state');wrap.append(media,flag);media.src='/familie/media/'+post.id;
  if(isVideo){
   media.controls=true;media.playsInline=true;media.preload='metadata';
   media.addEventListener('loadedmetadata',()=>{const state=seen[post.id];if(!state?.seen&&Number.isFinite(media.duration)&&state?.position>0&&state.position<media.duration-1)media.currentTime=state.position;});
@@ -119,6 +122,8 @@ function render(items){
   };
   media.addEventListener('timeupdate',progress);media.addEventListener('pause',progress);media.addEventListener('ended',()=>markSeen(post.id));
   media.addEventListener('error',()=>{if(!card.querySelector('.play-error'))card.append(element('p','play-error tiny','Dette klippet kan ikke spilles i nettleseren din. Prøv en annen nettleser eller et MP4-klipp med H.264-video.'));});
+ }else if(isFile){
+  media.textContent='Last ned: '+(post.filename||'fil');media.href='/familie/media/'+post.id;media.className='button secondary';media.style.margin='20px';media.download=post.filename||'nedlasting';media.onclick=()=>markSeen(post.id);
  }else{
   media.alt=post.caption||'Bilde delt av '+post.name;media.loading='lazy';media.tabIndex=0;media.setAttribute('role','button');media.setAttribute('aria-label','Vis bildet fra '+post.name+' større');
   const open=()=>{$('largeImage').src=media.src;$('largeImage').alt=media.alt;$('lightbox').showModal();markSeen(post.id);};media.onclick=open;media.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};
@@ -161,17 +166,21 @@ function renderChat(force=false){
  if(bottom||force)log.scrollTop=log.scrollHeight;else log.scrollTop=top;
 }
 async function loadChat(){
- if(chatBusy||!loggedIn)return;const epoch=sessionEpoch;chatBusy=true;
- try{const data=await request('/chat');if(!loggedIn||epoch!==sessionEpoch)return;chatMessages=data.messages;$('chatError').textContent='';renderChat();if(activePane==='chat'&&!document.hidden)markChatRead();else updateChatBadge();}
+ if(chatBusy||!loggedIn)return;const epoch=sessionEpoch,thread=activeThread;chatBusy=true;
+ try{const [data,topics]=await Promise.all([request('/chat?thread='+encodeURIComponent(thread)),request('/threads')]);if(!loggedIn||epoch!==sessionEpoch||thread!==activeThread)return;const select=$('threadSelect');select.replaceChildren(new Option('Fellesprat (tidligere meldinger)',''),...topics.threads.map(t=>new Option(t.title,t.id)));select.value=activeThread;chatMessages=data.messages;$('chatError').textContent='';renderChat();if(activePane==='chat'&&!document.hidden)markChatRead();else updateChatBadge();}
  catch(e){if(loggedIn&&activePane==='chat')$('chatError').textContent=e.message;}
- finally{chatBusy=false;}
+ finally{chatBusy=false;if(loggedIn&&thread!==activeThread)loadChat();}
 }
+$('threadSelect').onchange=()=>{activeThread=$('threadSelect').value;$('threadHeading').textContent=$('threadSelect').selectedOptions[0].textContent;chatMessages=[];chatSignature='';pendingChat=null;$('chatText').value='';renderChat(true);loadChat();};
+$('newThread').onclick=()=>{$('threadForm').hidden=false;$('threadTitle').focus();};
+$('cancelThread').onclick=()=>{$('threadForm').hidden=true;};
+$('threadForm').onsubmit=async e=>{e.preventDefault();const text=$('threadTitle').value.trim();if(!text)return;if(!threadRequest||threadRequest.text!==text)threadRequest={text,client_id:crypto.randomUUID().replaceAll('-','')};$('createThread').disabled=true;try{const topic=await request('/threads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(threadRequest)});activeThread=topic.id;$('threadHeading').textContent=topic.title;chatMessages=[];chatSignature='';pendingChat=null;$('chatText').value='';renderChat(true);$('threadForm').hidden=true;$('threadTitle').value='';threadRequest=null;await loadChat();}catch(e){$('chatError').textContent=e.message;}finally{$('createThread').disabled=false;}};
 $('chatRefresh').onclick=()=>loadChat();
 $('familyChatForm').onsubmit=async e=>{
  e.preventDefault();if(chatSending)return;const text=$('chatText').value.trim();if(!text)return;
  if(!pendingChat||pendingChat.text!==text){const random=new Uint8Array(16);crypto.getRandomValues(random);pendingChat={text,client_id:[...random].map(b=>b.toString(16).padStart(2,'0')).join('')};}
  chatSending=true;$('chatSend').disabled=true;$('chatError').textContent='';
- try{await request('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pendingChat)});if($('chatText').value.trim()===text)$('chatText').value='';pendingChat=null;await loadChat();$('familyChatLog').scrollTop=$('familyChatLog').scrollHeight;}
+ try{await request('/chat?thread='+encodeURIComponent(activeThread),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pendingChat)});if($('chatText').value.trim()===text)$('chatText').value='';pendingChat=null;await loadChat();$('familyChatLog').scrollTop=$('familyChatLog').scrollHeight;}
  catch(e){$('chatError').textContent=e.message;}
  finally{chatSending=false;$('chatSend').disabled=false;}
 };
@@ -229,20 +238,20 @@ $('previousMonth').onclick=()=>{calendarMonth.setMonth(calendarMonth.getMonth()-
 $('nextMonth').onclick=()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderCalendar();};
 $('clearDay').onclick=()=>{selectedDay='';renderCalendar();load();};
 function clearPreview(){if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl='';$('imagePreview').hidden=true;$('imagePreview').removeAttribute('src');$('videoPreview').pause();$('videoPreview').removeAttribute('src');$('videoPreview').load();$('videoPreview').hidden=true;}
-function fileMime(file){const suffix=(file.name.split('.').pop()||'').toLowerCase();return ({jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',heic:'image/heic',heif:'image/heif',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm'})[suffix]||file.type;}
+function fileMime(file){const suffix=(file.name.split('.').pop()||'').toLowerCase();return ({jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',heic:'image/heic',heif:'image/heif',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm'})[suffix]||'application/octet-stream';}
 function showSelection(){const list=$('selectionList');list.replaceChildren();for(const file of selectedFiles)list.append(element('li','',file.name+' · '+(file.size/1024/1024).toFixed(1)+' MB'));}
 $('newPost').onclick=()=>{$('postForm').reset();selectedFiles=[];showSelection();clearPreview();$('uploadStatus').textContent='';$('postError').textContent='';$('uploadProgress').hidden=true;$('compose').showModal();};
 $('file').onchange=()=>{clearPreview();selectedFiles=Array.from($('file').files);showSelection();$('postError').textContent='';const file=selectedFiles[0];if(!file)return;if(selectedFiles.length>30){$('postError').textContent='Velg opptil 30 filer om gangen.';return;}if(fileMime(file).startsWith('image/')&&!/heic|heif/.test(fileMime(file))||fileMime(file).startsWith('video/')){previewUrl=URL.createObjectURL(file);const node=fileMime(file).startsWith('video/')?$('videoPreview'):$('imagePreview');node.src=previewUrl;node.hidden=false;}};
 function closeCompose(){if(uploading)return;clearPreview();$('compose').close();}
 $('cancelPost').onclick=closeCompose;$('compose').addEventListener('cancel',e=>{if(uploading)e.preventDefault();else clearPreview();});
 function uploadOne(file,days,caption,onProgress){return new Promise((resolve,reject)=>{
- const xhr=new XMLHttpRequest(),params=new URLSearchParams({days,caption});xhr.open('POST',api+'/items?'+params);xhr.timeout=300000;xhr.setRequestHeader('Content-Type',fileMime(file));xhr.setRequestHeader('X-Family-Request','1');xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(e.loaded);};
+ const xhr=new XMLHttpRequest(),params=new URLSearchParams({days,caption,filename:file.name});xhr.open('POST',api+'/items?'+params);xhr.timeout=300000;xhr.setRequestHeader('Content-Type',fileMime(file));xhr.setRequestHeader('X-Family-Request','1');xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(e.loaded);};
  xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300){resolve(JSON.parse(xhr.responseText));return;}let message='Opplastingen mislyktes. Prøv igjen.';try{message=JSON.parse(xhr.responseText).detail||message;}catch(e){}reject(new Error(message));};xhr.onerror=xhr.ontimeout=()=>reject(new Error('Forbindelsen ble brutt eller tok for lang tid. Prøv igjen.'));xhr.send(file);
 });}
 $('postForm').onsubmit=async e=>{
  e.preventDefault();if(uploading)return;const files=[...selectedFiles];if(!files.length)return;
  if(files.length>30){$('postError').textContent='Velg opptil 30 filer om gangen.';return;}
- for(const file of files){if(file.size>100*1024*1024||!file.size){$('postError').textContent=file.name+': Velg en fil mellom 1 byte og 100 MB.';return;}if(!['image/jpeg','image/png','image/webp','image/heic','image/heif','video/mp4','video/quicktime','video/webm'].includes(fileMime(file))){$('postError').textContent=file.name+': Filformatet støttes ikke.';return;}}
+ for(const file of files){if(file.size>100*1024*1024||!file.size){$('postError').textContent=file.name+': Velg en fil mellom 1 byte og 100 MB.';return;}}
  uploading=true;const controls=['sendPost','cancelPost','file','days','caption'];controls.forEach(id=>$(id).disabled=true);$('postError').textContent='';$('uploadProgress').hidden=false;$('uploadProgress').value=0;
  const days=$('days').value,caption=$('caption').value,total=files.reduce((n,f)=>n+f.size,0);let done=0;const failed=[],errors=[];
  try{

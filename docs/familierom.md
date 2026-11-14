@@ -158,3 +158,23 @@ HEIC/HEIF bruker pillow-heif/libheif. Hvis avhengighetene ikke kan installeres p
 avbrytes oppdateringen mens gammel tjeneste fortsatt kjører. Koden byttes deretter med
 samme helsesjekk og tilbakeføring som før. Sikkerhetskopi av database og medier er
 fortsatt et separat driftsansvar.
+
+## Samtaletråder og standard lagring
+
+Familiechatten har «Ny tråd» med overskrift på opptil 100 tegn. Velg samtale
+for å lese og sende meldinger i den aktuelle tråden. Eksisterende meldinger beholdes
+i «Fellesprat» med tidligere utløpstid. Meldinger beholdes fortsatt i sju døgn;
+overskriftene blir liggende. Trådene bruker samme familiekode og tilgang som rommet.
+
+Nye opplastinger har «Inntil videre (ingen automatisk sletting)» som standard,
+også når API-et brukes uten lagringstid. Brukeren kan velge 1 døgn eller 1 uke.
+Tidligere opplastinger beholder sin valgte lagringstid. Oppdater Pi-tjenesten med
+skriptet over for å aktivere endringene.
+
+## Deling av filer
+
+Filvelgeren støtter også HTML, PDF, Office-filer, ZIP og andre filer, innenfor samme
+100 MiB-grense og lagringsvalg som medier. De vises som nedlastingslenker.
+Dokumenter sendes som application/octet-stream med Content-Disposition: attachment
+og nosniff; HTML kjøres ikke i familierommet. Filnavn lagres separat fra den
+servergenererte diskstien. Tilgang krever samme familiekode som bilder og videoer.
