@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T20:30:00+00:00",
+  "generated_at": "2026-11-14T20:40:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,12 +10,12 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3Q26 tall uten konkrete nøkkeltall tilgjengelig",
-      "lead": "Bemobi Mobile Tech presenterte sine resultater for tredje kvartal 2026, men detaljer om inntekter og resultatutvikling mangler i offentlig tilgjengelig informasjon.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – detaljer foreløpig uklare",
+      "lead": "Bemobi la frem sine tall for tredje kvartal 2026, men spesifikke nøkkeltall er ikke inkludert i meldingen. Konsekvenser for Otello og investeringens verdi venter på nærmere gjennomgang.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech presenterte sine resultater for tredje kvartal 2026, men detaljer om inntekter og resultatutvikling mangler i offentlig tilgjengelig informasjon.",
-      "reason": "Uten spesifikke tall og kommentarer fra rapporten er det vanskelig å vurdere prestasjonen i 3Q26. Investorer må følge opp for å avdekke om resultatutviklingen påvirker Otello Corporations verdsettelse.",
+      "summary": "Bemobi la frem sine tall for tredje kvartal 2026, men spesifikke nøkkeltall er ikke inkludert i meldingen. Konsekvenser for Otello og investeringens verdi venter på nærmere gjennomgang.",
+      "reason": "Manglende konkrete finansielle nøkkeltall gjør det vanskelig å vurdere resultatets betydning for Otello og markedet. Investorer må avvente detaljert gjennomgang for å forstå påvirkningen.",
       "score": 40,
       "skipped": false,
       "direction": "uklar",
@@ -1346,25 +1346,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor starter handel eksklusive 0,39 USD utbytte per aksje fra i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen uten rett til 0,39 USD i kvartalsutbytte for Q2 2026. Investorer må regne med justert aksjekurs tilsvarende utbyttet fra i dag.",
+      "headline": "Equinor utbetaler 0,39 USD i kvartalsutbytte – eks-dato 13. november",
+      "lead": "Equinor går eksklusive for kontantutbytte på 0,39 USD per aksje fra 13. november 2026. Utbyttet gir aksjonærer direkte avkastning, men påvirker kursen tilsvarende ved ex-dato.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen uten rett til 0,39 USD i kvartalsutbytte for Q2 2026. Investorer må regne med justert aksjekurs tilsvarende utbyttet fra i dag.",
-      "reason": "Utbytteutbetaling er en forventet hendelse som midlertidig justerer aksjekursen ned med utbyttebeløpet. Dette påvirker ikke selskapets underliggende drift, men investorer bør være oppmerksomme på kursjusteringen i kort sikt.",
-      "score": 65,
+      "summary": "Equinor går eksklusive for kontantutbytte på 0,39 USD per aksje fra 13. november 2026. Utbyttet gir aksjonærer direkte avkastning, men påvirker kursen tilsvarende ved ex-dato.",
+      "reason": "Utbyttebetalinger er normalt forventede hendelser som gir direkte verdi til aksjonærer, men utbytte trekkes fra aksjekursen på ex-dato. Ingen indikasjon på vesentlig endring i selskapets underliggende drift eller fremtidsutsikter.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "affected": [
         {
           "ticker": "AKRBP",
-          "direction": "negativ",
-          "reason": "Som peer i olje- og gasssektoren kan konkurranse om investorers kapital til utbytteutbetaling påvirke interesse midlertidig."
+          "direction": "uklar",
+          "reason": "Kan påvirkes indirekte gjennom sektorfokus på kontantavkastning i olje- og gasssektoren."
         }
       ],
       "importance": "stor",
-      "score_ai": 55,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13447,7 +13447,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T20:30:00+00:00",
+  "last_checked_at": "2026-11-14T20:40:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 40,
