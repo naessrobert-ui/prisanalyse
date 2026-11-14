@@ -268,8 +268,16 @@ Web Share med filer åpnes enhetens vanlige delingsmeny. Selve bildefilen/klippe
 ikke en lenke som krever familiekoden. Filnavnets endelse følger formatet som serveres,
 slik at blant annet konverterte HEIC-bilder deles som JPG.
 
-En stor fil kan bruke så lang tid å hente at nettleserens midlertidige brukerhandling
-utløper. Da beholdes den ferdig hentede filen i minnet og brukeren blir bedt om å trykke
-«Del videre» igjen. Avbrutt deling regnes ikke som feil. Nettlesere uten fildeling får
-i stedet nedlasting og en kort beskjed om å dele fra Bilder/Filer. Ingen filer sendes
-videre før brukeren selv velger en mottaker og fullfører delingen.
+Deling skjer i to tydelige trinn: «Del videre» henter filen med bytefremdrift og
+«Avbryt henting». Når filen er klar, trykker brukeren «Åpne delingsmenyen».
+Delings-API-et kalles direkte fra dette andre trykket, uten en asynkron nedlasting
+som kan bruke opp mobilens midlertidige brukerhandling. Delingsknappen låses ikke
+mens operativsystemet viser delingsmenyen. Ingen fremdrift på 30 sekunder, eller
+henting over fem minutter, stopper hentingen med beskjed og mulighet for nytt forsøk.
+
+«Last ned» er tilgjengelig direkte ved siden av delingsknappen og krever ikke at
+hele filen først hentes som en Blob i JavaScript. Nettlesere uten delingsstøtte bruker
+denne nedlastingen med en gang. Avbrutt native deling regnes ikke som feil, og den
+klargjorte filen beholdes for et nytt trykk. Pågående henting avbrytes når kortet
+fjernes, går ut eller brukeren logger ut. Ingen filer sendes videre før brukeren
+selv velger en mottaker og fullfører delingen.

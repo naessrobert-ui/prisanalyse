@@ -86,7 +86,7 @@ async function request(path,options={}){
  let data;try{data=await response.json();}catch(e){throw new Error('Familierommet er ikke tilgjengelig akkurat nå. Prøv igjen om litt.');}
  if(!response.ok){if(response.status===401&&path!=='/login')showLogin();throw new Error(data.detail||'Det gikk ikke. Prøv igjen.');}return data;
 }
-function showLogin(){activeThread='';threadRequest=null;$('threadForm').hidden=true;$('threadSelect').value='';$('deleteThread').hidden=true;$('threadHeading').textContent='Fellesprat';sessionEpoch++;for(const id of ['commentsDialog','lightbox','compose'])if($(id).open)$(id).close();commentPost=null;loggedIn=false;currentName='';seen={};posts=[];selectedDay='';calendarCounts={};$('calendarDays').replaceChildren();chatMessages=[];chatSignature='';$('familyChatLog').replaceChildren();$('chatText').value='';pendingChat=null;$('chatBadge').hidden=true;$('room').hidden=true;$('loginSection').hidden=false;$('feed').replaceChildren();$('code').value='';}
+function showLogin(){activeThread='';threadRequest=null;$('threadForm').hidden=true;$('threadSelect').value='';$('deleteThread').hidden=true;$('threadHeading').textContent='Fellesprat';sessionEpoch++;for(const id of ['commentsDialog','lightbox','compose'])if($(id).open)$(id).close();commentPost=null;loggedIn=false;currentName='';seen={};posts=[];selectedDay='';calendarCounts={};$('calendarDays').replaceChildren();chatMessages=[];chatSignature='';$('familyChatLog').replaceChildren();$('chatText').value='';pendingChat=null;$('chatBadge').hidden=true;$('room').hidden=true;$('loginSection').hidden=false;$('feed').querySelectorAll('.post').forEach(card=>card._cancelShare?.());$('feed').replaceChildren();$('code').value='';}
 function readableTime(seconds){const mins=Math.max(1,Math.ceil(seconds/60));return mins>=1440?Math.ceil(mins/1440)+' døgn':mins>=60?Math.ceil(mins/60)+' timer':mins+' min';}
 function element(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
 function seenKey(){return 'motes-family-seen-v1:'+encodeURIComponent(currentName.toLocaleLowerCase('nb-NO'));}
@@ -107,42 +107,50 @@ function updateSeenLabels(){
 }
 function markSeen(id){seen[id]={...(seen[id]||{}),seen:true,position:0,at:Date.now()};saveSeen();updateSeenLabels();}
 function addShareButton(post,body){
- const actions=element('div','social-actions share-actions'),button=element('button','','Del videre'),status=element('p','tiny');
- button.type='button';button.setAttribute('aria-label',post.mime.startsWith('video/')?'Del videoen videre':'Del bildet videre');status.setAttribute('role','status');status.setAttribute('aria-live','polite');actions.append(button);body.append(actions,status);
- let prepared=null;
- button.onclick=async()=>{
+ const actions=element('div','social-actions share-actions'),button=element('button','','Del videre'),cancel=element('button','','Avbryt henting'),download=element('a','text-button','Last ned'),status=element('p','tiny'),progress=element('progress');
+ const suffix=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','video/mp4':'mp4','video/quicktime':'mov','video/webm':'webm'})[post.mime]||'bin';
+ const original=(post.filename||'').replace(/[\/\\\x00-\x1f]/g,'_'),base=original?original.replace(/\.[^.]*$/,''):'familie-'+post.id.slice(0,8),filename=base+'.'+suffix;
+ const label=post.mime.startsWith('video/')?'Del videoen videre':'Del bildet videre';
+ button.type=cancel.type='button';button.setAttribute('aria-label',label);cancel.hidden=true;download.href='/familie/media/'+post.id;download.download=filename;
+ progress.hidden=true;progress.max=100;progress.setAttribute('aria-label','Henting av fil til deling');status.setAttribute('role','status');status.setAttribute('aria-live','polite');actions.append(button,cancel,download);body.append(actions,progress,status);
+ let prepared=null,xhr=null,idleTimer=null,stalled=false;
+ const readyLabel=()=>{button.textContent=prepared?'Åpne delingsmenyen':'Del videre';button.setAttribute('aria-label',prepared?'Åpne delingsmenyen':label);};
+ const stop=()=>{if(xhr)xhr.abort();};cancel.onclick=stop;
+ const reset=()=>{clearTimeout(idleTimer);xhr=null;button.disabled=false;cancel.hidden=true;progress.hidden=true;readyLabel();};
+ function openShare(){
+  if(!navigator.share||!navigator.canShare||!navigator.canShare({files:[prepared]})){download.click();status.textContent='Filen lastes ned. Åpne den i Bilder eller Filer og velg Del.';return;}
+  // This call is made directly from the second tap, without awaiting a download.
+  // Do not lock the controls while waiting for the phone's share-sheet promise.
+  status.textContent='Velg mottaker i mobilens delingsmeny. Hvis den ikke åpnes, kan du bruke «Last ned».';
+  try{Promise.resolve(navigator.share({files:[prepared]})).then(()=>{prepared=null;readyLabel();status.textContent='';}).catch(error=>{if(error.name==='AbortError'){status.textContent='';return;}status.textContent='Mobilens delingsmeny kunne ikke åpnes. Prøv igjen eller velg «Last ned».';});}
+  catch(error){status.textContent='Mobilens delingsmeny kunne ikke åpnes. Prøv igjen eller velg «Last ned».';}
+ }
+ button.onclick=()=>{
   if(!loggedIn||post.expires&&post.expires<=Date.now()/1000){status.textContent='Innlegget er ikke lenger tilgjengelig.';return;}
-  const epoch=sessionEpoch;button.disabled=true;status.textContent='';
-  try{
-   if(!prepared){
-    button.textContent='Henter filen …';
-    const response=await fetch('/familie/media/'+post.id,{credentials:'same-origin',cache:'default'});
-    if(response.status===401){showLogin();return;}
-    if(!response.ok)throw Error(response.status===404?'Innlegget er slettet eller har gått ut.':'Kunne ikke hente filen. Prøv igjen.');
-    const blob=await response.blob();
-    if(epoch!==sessionEpoch||!loggedIn)return;
-    const suffix=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','video/mp4':'mp4','video/quicktime':'mov','video/webm':'webm'})[post.mime]||'bin';
-    const original=(post.filename||'').replace(/[\/\\\x00-\x1f]/g,'_'),base=original?original.replace(/\.[^.]*$/,''):'familie-'+post.id.slice(0,8);
-    prepared=new File([blob],base+'.'+suffix,{type:post.mime});
-   }
-   if(epoch!==sessionEpoch||!loggedIn||post.expires&&post.expires<=Date.now()/1000)return;
-   if(navigator.share&&navigator.canShare&&navigator.canShare({files:[prepared]})){
-    button.textContent='Del videre';
-    try{await navigator.share({files:[prepared]});prepared=null;}
-    catch(error){if(error.name==='AbortError')return;if(error.name==='NotAllowedError'){status.textContent='Filen er klar. Trykk «Del videre» en gang til for å åpne delingsmenyen.';return;}throw error;}
-   }else{
-    const url=URL.createObjectURL(prepared),link=document.createElement('a');link.href=url;link.download=prepared.name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);prepared=null;
-    status.textContent='Filen er lastet ned. Åpne den i Bilder eller Filer og velg Del.';
-   }
-  }catch(error){status.textContent=error.message||'Kunne ikke dele filen. Prøv igjen.';}
-  finally{button.disabled=false;button.textContent='Del videre';}
+  if(prepared){openShare();return;}
+  if(!navigator.share||!navigator.canShare){download.click();status.textContent='Filen lastes ned. Åpne den i Bilder eller Filer og velg Del.';return;}
+  if(xhr)return;const epoch=sessionEpoch;stalled=false;button.disabled=true;button.textContent='Henter filen …';cancel.hidden=false;progress.hidden=false;progress.value=0;status.textContent='Henter filen før deling …';
+  const request=new XMLHttpRequest();xhr=request;request.open('GET','/familie/media/'+post.id);request.responseType='blob';request.timeout=300000;
+  const watch=()=>{clearTimeout(idleTimer);idleTimer=setTimeout(()=>{stalled=true;request.abort();},30000);};
+  request.onprogress=event=>{watch();const total=event.lengthComputable?event.total:post.bytes;const mb=value=>(value/1024/1024).toFixed(1)+' MB';if(total){progress.value=Math.min(100,event.loaded/total*100);status.textContent='Henter '+mb(event.loaded)+' av '+mb(total)+' …';}else{progress.removeAttribute('value');status.textContent='Henter '+mb(event.loaded)+' …';}};
+  request.onload=()=>{
+   if(epoch!==sessionEpoch||!loggedIn){reset();return;}
+   if(request.status===401){reset();showLogin();return;}
+   if(request.status<200||request.status>=300){status.textContent=request.status===404?'Innlegget er slettet eller har gått ut.':'Kunne ikke hente filen. Prøv igjen eller velg «Last ned».';reset();return;}
+   prepared=new File([request.response],filename,{type:post.mime});reset();
+   status.textContent='Filen er klar. Trykk «Åpne delingsmenyen» for å dele.';
+  };
+  request.onerror=request.ontimeout=()=>{status.textContent='Hentingen stoppet. Prøv igjen eller velg «Last ned».';reset();};
+  request.onabort=()=>{status.textContent=stalled?'Hentingen stoppet uten fremdrift. Prøv igjen eller velg «Last ned».':'Hentingen er avbrutt.';reset();};
+  watch();request.send();
  };
+ return stop;
 }
 function render(items){
  const feed=$('feed'),existing=new Map([...feed.querySelectorAll('.post')].map(card=>[card.dataset.ident,card]));
  items=items.map(post=>{const card=existing.get(post.id);if(card?._post){Object.assign(card._post,post);return card._post;}return post;});posts=items;
  const visibleIds=new Set(items.filter(p=>(!p.expires||p.expires>Date.now()/1000)&&(!onlyNew||!seen[p.id]?.seen)).map(p=>p.id));
- for(const [id,card] of existing){if(!visibleIds.has(id)){const video=card.querySelector('video');if(video?.getAttribute('src')){video.pause();video.removeAttribute('src');video.load();}card.remove();existing.delete(id);}}
+ for(const [id,card] of existing){if(!visibleIds.has(id)){card._cancelShare?.();const video=card.querySelector('video');if(video?.getAttribute('src')){video.pause();video.removeAttribute('src');video.load();}card.remove();existing.delete(id);}}
  feed.querySelectorAll(':scope > :not(.post)').forEach(node=>node.remove());updateSeenLabels();
  const visible=items.filter(p=>(!p.expires||p.expires>Date.now()/1000)&&(!onlyNew||!seen[p.id]?.seen));
  if(!visible.length){const box=element('div','empty');box.append(element('div','symbol','♡'),element('strong','',selectedDay?'Ingen innlegg på denne datoen.':onlyNew?'Du har sett alle øyeblikkene.':'Det begynner med en liten hilsen.'),element('p','',onlyNew?'Velg «Alle» for å se bilder og videoklipp igjen.':'Del et bilde fra turen, en videohilsen eller noe fint fra dagen din.'));feed.append(box);return;}
@@ -174,7 +182,7 @@ function render(items){
  const likedBy=element('p','liked-by');
  const updateSocial=()=>{like.textContent=(post.liked?'Likt':'Liker')+' ('+(post.likes||[]).length+')';like.setAttribute('aria-pressed',String(!!post.liked));commentsButton.textContent='Kommentarer ('+(post.comments||0)+')';likedBy.textContent=(post.likes||[]).length?'Likt av '+post.likes.join(', '):'';};
  card._updateSocial=updateSocial;updateSocial();like.onclick=async()=>{like.disabled=true;try{const data=await request('/items/'+post.id+'/like',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({liked:!post.liked})});post.liked=data.liked;post.likes=data.likes;updateSocial();}catch(e){$('roomError').textContent=e.message;}finally{like.disabled=false;}};
- commentsButton.onclick=()=>openComments(post);social.append(like,commentsButton);body.append(social,likedBy);if(!isFile)addShareButton(post,body);
+ commentsButton.onclick=()=>openComments(post);social.append(like,commentsButton);body.append(social,likedBy);if(!isFile)card._cancelShare=addShareButton(post,body);
  const bottom=element('div','post-bottom');bottom.append(element('span','expires',post.expires?'Forsvinner om '+readableTime(post.expires-Date.now()/1000):'Beholdes til noen sletter innlegget'));
  const remove=element('button','delete','Slett');remove.type='button';remove.setAttribute('aria-label','Slett innlegget fra '+post.name);remove.onclick=async()=>{if(!confirm('Slette innlegget for hele familien?'))return;remove.disabled=true;try{await request('/items/'+post.id,{method:'DELETE'});delete seen[post.id];saveSeen();await load();}catch(e){$('roomError').textContent=e.message;remove.disabled=false;}};bottom.append(remove);body.append(bottom);card.append(wrap,body);feed.append(card);
  }
@@ -356,7 +364,7 @@ setInterval(()=>{
    const video=card.querySelector('video');if(video){video.pause();video.removeAttribute('src');video.load();}
    if($('commentsDialog').open&&commentPost?.id===card.dataset.ident){$('commentsDialog').close();commentPost=null;}
    if($('lightbox').open&&$('largeImage').getAttribute('src')==='/familie/media/'+card.dataset.ident){$('lightbox').close();$('largeImage').removeAttribute('src');}
-   card.remove();
+   card._cancelShare?.();card.remove();
    posts=posts.filter(p=>p.id!==card.dataset.ident);updateSeenLabels();
    if(!document.querySelector('#feed .post'))render(posts);
   }
