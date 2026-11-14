@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T16:50:00+00:00",
+  "generated_at": "2026-11-14T17:00:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,15 +10,15 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3Q26-resultater – Otello eier 38 prosent",
-      "lead": "Bemobi Mobile Tech SA offentliggjorde 3Q26-resultater 12. november. Otello Corp. ASA eier 38,22 prosent via Otello Technology Investment AS. Det foreligger ingen detaljer om resultatets størrelse eller utvikling i meldingen.",
+      "headline": "Bemobi rapporterer 3Q26 uten detaljer – negativt for Otello-aksjonærer",
+      "lead": "Bemobi Mobile Tech SA offentliggjorde 3Q26-tall, men uten konkrete finansielle detaljer. Otello, med 38,22% eierandel, mangler dermed viktig informasjon for egen vurdering.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech SA offentliggjorde 3Q26-resultater 12. november. Otello Corp. ASA eier 38,22 prosent via Otello Technology Investment AS. Det foreligger ingen detaljer om resultatets størrelse eller utvikling i meldingen.",
-      "reason": "Uten konkrete tall eller sammenligninger er det vanskelig å vurdere resultatets betydning for Otello og aksjonærene. Videre analyse kreves basert på tilgjengelig regnskap og markedets reaksjon.",
-      "score": 40,
+      "summary": "Bemobi Mobile Tech SA offentliggjorde 3Q26-tall, men uten konkrete finansielle detaljer. Otello, med 38,22% eierandel, mangler dermed viktig informasjon for egen vurdering.",
+      "reason": "Manglende konkrete resultater skaper usikkerhet for Otellos verdi på investeringen. Aksjonærer må følge nøye med på fremtidige oppdateringer og Bemobis videre utvikling.",
+      "score": 45,
       "skipped": false,
-      "direction": "uklar",
+      "direction": "negativ",
       "assessment_source": "AI",
       "number_keys": [
         "4887ba",
@@ -1346,25 +1346,17 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor utbetaler 0,39 USD per aksje for andre kvartal 2026 i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen eksklusiv kvartalsutbytte på 0,39 USD per aksje. Utbyttet gir direkteavkastning, men kan påvirke aksjekursen på kort sikt.",
+      "headline": "Equinor handler eksklusiv 0,39 USD utbytte fra 13. november",
+      "lead": "Equinor-aksjen noteres fra i dag eksklusiv kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, noe som justerer aksjekursen tilsvarende ved åpning.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen eksklusiv kvartalsutbytte på 0,39 USD per aksje. Utbyttet gir direkteavkastning, men kan påvirke aksjekursen på kort sikt.",
-      "reason": "Utbytteutdeling er en forventet hendelse for aksjonærer og reflekterer kontantutbytte. Effekten på aksjekursen er normalt kursjustering ved eks-dato. Det gir ingen opplysninger om underliggende drift eller fremtidig inntjening. Invester bør følge videre resultater.",
-      "score": 50,
+      "summary": "Equinor-aksjen noteres fra i dag eksklusiv kontantutbytte på 0,39 USD per aksje for andre kvartal 2026, noe som justerer aksjekursen tilsvarende ved åpning.",
+      "reason": "Utbytteutbetaling justerer kun aksjekursen uten å påvirke selskapets underliggende drift eller inntjeningsutsikter. Aksjonærer bør merke at likviditet og investering blir påvirket tilsvarende utbyttebeløpet.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "AKRBP",
-          "direction": "negativ",
-          "reason": "Olje- og gasssektoren kan oppleve generell utbyttejusteringseffekt ved samme periode."
-        }
-      ],
       "importance": "stor",
-      "score_ai": 40,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13425,7 +13417,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T16:50:00+00:00",
+  "last_checked_at": "2026-11-14T17:00:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 61,
