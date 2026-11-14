@@ -159,6 +159,54 @@ avbrytes oppdateringen mens gammel tjeneste fortsatt kjører. Koden byttes deret
 samme helsesjekk og tilbakeføring som før. Sikkerhetskopi av database og medier er
 fortsatt et separat driftsansvar.
 
+## Privat slektsdatabase
+
+«Slekt» i familierommet åpner en side bak samme familiekode. Der lastes en UTF-8
+HTML-fil på opptil 10 MiB opp. Selve filen lagres som `data/slekt.html` på Pi-en,
+utenfor kodekatalogen. Den beholdes ved oppdateringer og automatisk rydding.
+Den publiseres ikke i GitHub. En ny opplasting erstatter gjeldende fil etter at
+brukeren har bekreftet dette i nettleseren.
+
+Den opplastede siden kjøres i en iframe med en egen, ugjennomsiktig origin.
+Både iframe-attributtet og HTTP Content-Security-Policy bruker sandbox med
+allow-scripts/allow-downloads, uten allow-same-origin. Siden kan derfor ikke lese
+familierommets cookie, localStorage eller API-er. Dette gjelder også ved direkte
+åpning av visningsadressen. Eget script og innebygde data fungerer; ekstern
+nettverkstilgang er begrenset til kartbilder fra Kartverket, Esri og OpenStreetMap,
+og stedsoppslag hos Geonorge. Nettleserinnstillinger/notater inne i HTML-filen
+får ikke varig localStorage i denne visningen. Delte redigeringer er ikke støttet.
+
+## Varsling om første nye innlegg
+
+Hver enhet velger selv «Slå på varsler» og godkjenner nettleserens tillatelse.
+På iPhone/iPad må familierommet normalt legges til på Hjem-skjermen og åpnes derfra.
+Manifest, ikon og service worker følger tjenesten. Ingen App Store-app trengs.
+
+Et abonnement får maksimalt ett Web Push-varsel om bilder/videoer som er lagt inn
+etter siste besøk, frem til brukeren åpner familierommet igjen. Besøk fra en synlig
+side oppdaterer lest-tidspunkt og undertrykker varsel mens siden er aktiv. Ved skjult
+side meldes enheten som borte. En 90-sekunders aktivitetstid dekker forbindelsesbrudd;
+ryddeløkken prøver også utsending hvert minutt slik at første innlegg ikke overses
+når en nettleser avsluttes uten pagehide. Dette er ikke lesebekreftelser til andre.
+Varslingen gjelder nye innlegg med bilder, videoer eller filer, ikke chat, kommentarer eller slektsendringer.
+
+Bruk «Slå av varsler» for å avslutte abonnementet på enheten. Utlogging gjør det
+samme. Valget og varslingshistorikken gjelder denne nettleseren/enheten; ulike
+enheter har egne abonnementer. Levering avhenger av nettleserens og operativsystemets
+push-tjeneste og kan forsinkes. Tillatelse kan ikke gis på vegne av familiemedlemmet.
+
+VAPID-nøkkelen opprettes lokalt som `data/push-vapid.pem` med rettigheter 0600.
+Abonnementene og sendt-siden-sist-status ligger i SQLite. Nettleserens push-adresser
+valideres mot støttede leverandører før de brukes; vilkårlige URL-er avvises.
+Varslet inneholder en generell beskjed, uten personnavn, bildetekst eller bildefil.
+Utløpte abonnementer (404/410) fjernes. Nettverksfeil prøves igjen på senere runder.
+Enhetens push-id ligger lokalt, og alle administrasjonskall krever familiekode-sesjon
+og det vanlige CSRF-beskyttende forespørselshodet.
+
+Kamera-JPEG med MPO/MPF-container godtas nå som JPEG, slik
+at blant annet kompatible kamerabilder ikke avvises bare på grunn av containeren.
+Vanlig JPEG og HEIC/HEIF støttes som før. Helsesjekken oppgir også kodeversjon,
+slik at det er mulig å se om Pi-en faktisk er oppdatert.
 ## Samtaletråder og standard lagring
 
 Familiechatten har «Ny tråd» med overskrift på opptil 100 tegn. Velg samtale

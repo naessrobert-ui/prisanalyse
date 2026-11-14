@@ -432,6 +432,112 @@ def test_legacy_database_capture_backfill_preserves_posts(tmp_path):
         assert client.get('/familie/media/' + ident).status_code == 200
 
 
+def test_camera_mpo_jpeg_is_accepted(family):
+    app, client, root = family
+    login(client)
+    data = io.BytesIO()
+    Image.new('RGB', (20, 20), 'blue').save(data, format='MPO', save_all=True, append_images=[Image.new('RGB', (20, 20), 'red')])
+    response = client.post('/familie/api/items', content=data.getvalue(), headers={'X-Family-Request': '1', 'Content-Type': 'image/jpeg'})
+    assert response.status_code == 200, response.text
+    media = client.get('/familie/media/' + response.json()['id'])
+    with Image.open(io.BytesIO(media.content)) as image:
+        assert image.format in {'JPEG', 'MPO'}
+
+
+def test_genealogy_private_upload_and_sandbox(family):
+    app, client, root = family
+    assert client.get('/familie/api/slekt').status_code == 401
+    assert client.get('/familie/slekt/vis').status_code == 401
+    assert client.get('/familie/slekt', follow_redirects=False).status_code == 303
+    login(client)
+    headers = {'X-Family-Request': '1', 'Content-Type': 'text/html'}
+    assert client.get('/familie/api/slekt').json() == {'exists': False}
+    assert client.post('/familie/api/slekt', content=b'<html></html>', headers={'Content-Type': 'text/html'}).status_code == 403
+    assert client.post('/familie/api/slekt', content=b'not html', headers=headers).status_code == 415
+    html = b'<!doctype html><html><body><script>document.body.textContent="Tree"</script></body></html>'
+    assert client.post('/familie/api/slekt', content=html, headers=headers).status_code == 200
+    assert client.get('/familie/api/slekt').json()['exists'] is True
+    response = client.get('/familie/slekt/vis')
+    assert response.content == html
+    policy = response.headers['content-security-policy']
+    assert 'sandbox allow-scripts allow-downloads' in policy and 'allow-same-origin' not in policy
+    assert "frame-ancestors 'self'" in policy and "default-src 'none'" in policy
+    assert response.headers['cache-control'] == 'private, no-store'
+    app.state.cleanup()
+    assert (root / 'slekt.html').read_bytes() == html
+    with TestClient(create_app(root, secure_cookie=False), base_url='http://localhost') as restarted:
+        login(restarted)
+        assert restarted.get('/familie/slekt/vis').content == html
+
+
+def push_subscription():
+    import base64
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import serialization
+    public = ec.generate_private_key(ec.SECP256R1()).public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    enc = lambda value: base64.urlsafe_b64encode(value).decode().rstrip('=')
+    return {'endpoint': 'https://fcm.googleapis.com/fcm/send/test-only', 'keys': {'p256dh': enc(public), 'auth': enc(b'1234567890123456')}}
+
+
+def test_push_opt_in_once_between_visits_and_off(family, monkeypatch):
+    from familie import notifications
+    app, client, root = family
+    sent = []
+    monkeypatch.setattr(notifications, 'webpush', lambda **kwargs: sent.append(kwargs))
+    assert client.get('/familie/api/push').status_code == 401
+    login(client)
+    assert client.get('/familie/api/push').json()['public_key']
+    device = 'a' * 32
+    headers = {'X-Family-Request': '1'}
+    def change(action, **extra):
+        return client.post('/familie/api/push', json={'id': device, 'action': action, **extra}, headers=headers)
+    assert change('subscribe', subscription=push_subscription()).status_code == 200
+    upload(client)  # Suppressed while the page is active.
+    assert not sent
+    assert change('away').status_code == 200
+    app.state.push.deliver()
+    assert len(sent) == 1
+    upload(client)
+    app.state.push.deliver()
+    assert len(sent) == 1
+    assert change('visit').status_code == 200
+    upload(client)
+    assert len(sent) == 1
+    change('away')
+    app.state.push.deliver()
+    assert len(sent) == 2
+    assert 'Robert' not in sent[0]['data']
+    change('unsubscribe')
+    upload(client)
+    assert len(sent) == 2
+
+
+def test_push_rejects_arbitrary_endpoints_and_removes_expired(family, monkeypatch):
+    from familie import notifications
+    app, client, root = family
+    login(client)
+    subscription = push_subscription()
+    headers = {'X-Family-Request': '1'}
+    for endpoint in ['http://127.0.0.1/x', 'https://example.com/x', 'https://fcm.googleapis.com.evil.test/x', 'https://user:pass@fcm.googleapis.com/x']:
+        assert client.post('/familie/api/push', json={'id': 'b' * 32, 'action': 'subscribe', 'subscription': {**subscription, 'endpoint': endpoint}}, headers=headers).status_code == 400
+    assert client.post('/familie/api/push', json={'id': 'b' * 32, 'action': 'subscribe', 'subscription': subscription}, headers=headers).status_code == 200
+    client.post('/familie/api/push', json={'id': 'b' * 32, 'action': 'away'}, headers=headers)
+    def gone(**kwargs):
+        raise notifications.WebPushException('gone', response=httpx.Response(410))
+    monkeypatch.setattr(notifications, 'webpush', gone)
+    upload(client)
+    with sqlite3.connect(root / 'posts.sqlite3') as conn:
+        assert conn.execute('SELECT COUNT(*) FROM push_devices').fetchone()[0] == 0
+
+
+def test_manifest_service_worker_and_icon(family):
+    app, client, root = family
+    manifest = client.get('/familie/manifest.json').json()
+    assert manifest['scope'] == '/familie/' and manifest['display'] == 'standalone'
+    assert client.get('/familie/sw.js').headers['content-type'].startswith('application/javascript')
+    icon = client.get('/familie/icon.png?size=512')
+    with Image.open(io.BytesIO(icon.content)) as image:
+        assert image.size == (512, 512)
 def test_threads_separate_messages_and_validate_requests(family):
     app, client, root = family
     headers = {'X-Family-Request': '1'}

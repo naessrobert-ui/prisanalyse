@@ -29,14 +29,14 @@ rollback(){
 }
 trap rollback EXIT
 mkdir "$stage/next"
-for filename in __init__.py server.py index.html requirements.txt; do
+for filename in __init__.py server.py notifications.py index.html slekt.html sw.js requirements.txt; do
   curl --fail --silent --show-error --location "$source_url/familie/$filename" -o "$stage/next/$filename"
 done
 if ! cmp -s "$stage/next/requirements.txt" "$install_root/app/familie/requirements.txt"; then
   echo 'Installerer nye bildeavhengigheter før tjenesten stoppes.'
   "$install_root/venv/bin/python" -m pip install -r "$stage/next/requirements.txt"
 fi
-"$install_root/venv/bin/python" -m py_compile "$stage/next/server.py"
+"$install_root/venv/bin/python" -m py_compile "$stage/next/server.py" "$stage/next/notifications.py"
 mkdir -p "$install_root/code-backups"
 sudo systemctl stop motes-familie
 stopped=true

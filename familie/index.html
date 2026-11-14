@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#216052">
+<link rel="manifest" href="/familie/manifest.json"><link rel="apple-touch-icon" href="/familie/icon.png"><meta name="apple-mobile-web-app-capable" content="yes">
 <title>Familierommet · møtes.no</title>
 <style>
 :root{font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;color:#183236;background:#fafbf8;--green:#216052;--muted:#61736e;--line:#dce5de}*{box-sizing:border-box}body{margin:0}button,input,textarea,select{font:inherit}button,a{touch-action:manipulation}button{cursor:pointer}button:disabled{opacity:.5;cursor:wait}:focus-visible{outline:3px solid #6fb19b;outline-offset:3px}[hidden]{display:none!important}a{color:var(--green)}.shell{max-width:1020px;margin:auto;padding:0 24px 50px}.nav{height:88px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px}.logo{font-size:24px;letter-spacing:-1px;font-weight:750;text-decoration:none;color:#183236}.logo span{color:var(--green)}.sub{color:var(--muted);font-size:12px}.pill{background:#eaf2eb;border-radius:20px;color:var(--green);padding:5px 12px;font-size:11px}.welcome{padding:38px 0 28px;display:flex;justify-content:space-between;align-items:center;gap:18px}.eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--green);font-weight:700}h1{font-size:clamp(30px,5vw,43px);line-height:1.15;letter-spacing:-1.6px;margin:10px 0}p{margin:8px 0;color:var(--muted)}.button{display:inline-flex;align-items:center;justify-content:center;background:var(--green);color:white;border:1px solid var(--green);padding:11px 20px;border-radius:10px;text-decoration:none;font-weight:600;font-size:13px;white-space:nowrap}.secondary{background:white;color:var(--green);border:1px solid var(--line)}.text-button{border:0;background:none;color:var(--muted);font-size:12px;padding:8px}.card{border:1px solid var(--line);border-radius:18px;padding:26px;background:white}.login{max-width:440px;margin:55px auto}.login h1{font-size:31px}.login p{font-size:13px}label{display:block;font-size:12px;font-weight:600;margin:20px 0 7px}input:not([type=file]),textarea,select{width:100%;background:white;color:#183236;border:1px solid #cddbd2;padding:11px 13px;border-radius:8px}textarea{resize:vertical;min-height:75px}.login .button{width:100%;margin-top:23px}.tiny{font-size:11px;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.post{overflow:hidden;border:1px solid var(--line);background:white;border-radius:16px}.post img,.post video{display:block;width:100%;max-height:490px;object-fit:contain;background:#edf1ec}.post img{cursor:zoom-in}.post-body{padding:18px 20px}.post-top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px}.post-name{font-weight:650}.post-time{font-size:11px;color:var(--muted)}.post-caption{color:#29443e;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0}.post-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:15px;border-top:1px solid #edf0eb;padding-top:11px}.expires{font-size:11px;color:var(--muted)}.delete{background:none;border:0;color:#8d4d4c;font-size:11px;cursor:pointer}.empty{grid-column:1/-1;text-align:center;padding:65px 25px;border:1px dashed #c9d7cc;border-radius:18px}.empty strong{display:block;font-size:19px;font-weight:600}.empty p{font-size:13px;max-width:38ch;margin:9px auto}.empty .symbol{font-size:30px;color:var(--green);margin-bottom:10px}.toolbar{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:18px 0;font-size:12px;color:var(--muted)}.message{font-size:13px;color:#7e4031;padding:12px;background:#fff1e8;border-radius:9px;white-space:pre-wrap}.message:empty{display:none}.actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin-top:22px}.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.file-pick{display:block;background:#f4f7f2;border:1px dashed #a7bdad;border-radius:12px;padding:22px;text-align:center;font-weight:500;color:var(--green);cursor:pointer}.file-pick input{display:block;max-width:100%;margin:12px auto 0;font-size:12px}dialog{border:1px solid var(--line);border-radius:20px;max-width:540px;width:calc(100% - 32px);padding:28px;color:#183236;max-height:90dvh;overflow:auto}dialog::backdrop{background:#132e2b99}dialog h2{font-size:25px;letter-spacing:-.8px;margin:0}.preview{width:100%;max-height:220px;object-fit:contain;margin-top:16px;border-radius:9px}#lightbox{max-width:95vw;width:auto;background:#102822;padding:12px}#lightbox img{max-width:85vw;max-height:78dvh;display:block}#lightbox .actions{margin:10px 0 0}progress{width:100%;accent-color:var(--green);margin-top:16px}.foot{font-size:11px;color:var(--muted);border-top:1px solid var(--line);margin-top:35px;padding-top:20px;display:flex;gap:20px;justify-content:space-between}.offline{background:#f6ebda;padding:10px;border-radius:8px;font-size:12px}.lock{display:inline-block;height:8px;width:8px;border-radius:50%;background:var(--green);margin-right:6px}@media(max-width:650px){.shell{padding:0 18px 35px}.nav{height:73px}.welcome{align-items:flex-start;flex-direction:column;padding-top:29px}.grid{grid-template-columns:1fr}.welcome .button{width:100%}.form-row{grid-template-columns:1fr}.card{padding:23px}.login{margin:32px auto}.foot{flex-direction:column;gap:5px}.post img,.post video{max-height:65dvh}}
@@ -26,8 +27,9 @@
 </section>
 <section id="room" hidden>
  <div class="welcome"><div><div class="eyebrow">Små øyeblikk. Nære mennesker.</div><h1>Her er vi sammen.</h1><p>Et glimt fra dagen, en liten hilsen. Bare for familien.</p></div><button class="button" id="newPost">+ Del et øyeblikk</button></div>
+ <div class="push-settings"><button type="button" class="text-button" id="pushToggle">Slå på varsler</button><span class="tiny" id="pushStatus" role="status" aria-live="polite">Få ett varsel om nye innlegg siden sist du var inne.</span></div>
  <p id="roomError" class="message" role="status" aria-live="polite"></p>
- <nav class="room-tabs" aria-label="Velg innhold"><button id="mediaTab" aria-pressed="true" type="button">Bilder og filer</button><button id="chatTab" aria-pressed="false" type="button">Familiechat <span class="count-badge" id="chatBadge" hidden></span></button></nav>
+ <nav class="room-tabs" aria-label="Velg innhold"><button id="mediaTab" aria-pressed="true" type="button">Bilder og filer</button><a class="button secondary" href="/familie/slekt">Slekt</a><button id="chatTab" aria-pressed="false" type="button">Familiechat <span class="count-badge" id="chatBadge" hidden></span></button></nav>
  <section id="mediaPane" aria-label="Bilder og videoklipp">
   <div class="toolbar"><span id="postCount">Familiens øyeblikk</span><div><button class="text-button" id="refresh">Oppdater</button><button class="text-button" id="logout">Logg ut</button></div></div>
   <div class="feed-filters" role="group" aria-label="Filtrer innlegg"><button type="button" id="allPosts" aria-pressed="true">Alle</button><button type="button" id="newPosts" aria-pressed="false">Nye</button></div>
@@ -139,10 +141,10 @@ function render(items){
  }
  updateSeenLabels();
 }
-async function load(){if(loading)return;const epoch=sessionEpoch;loading=true;try{const dayAtRequest=selectedDay;const data=await request('/items'+(selectedDay?'?day='+encodeURIComponent(selectedDay):''));if(epoch!==sessionEpoch)return;if(dayAtRequest!==selectedDay){loading=false;load();return;}if(currentName!==data.name){currentName=data.name;readSeen();}loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);loadCalendar();loadChat();}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
+async function load(){if(loading)return;const epoch=sessionEpoch;loading=true;try{const dayAtRequest=selectedDay;const data=await request('/items'+(selectedDay?'?day='+encodeURIComponent(selectedDay):''));if(epoch!==sessionEpoch)return;if(dayAtRequest!==selectedDay){loading=false;load();return;}if(currentName!==data.name){currentName=data.name;readSeen();}loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);loadCalendar();loadChat();markPushVisit();}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
 try{$('name').value=localStorage.getItem('motes-family-name')||'';}catch(e){}
 $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{await request('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('name').value,code:$('code').value})});try{localStorage.setItem('motes-family-name',$('name').value);}catch(e){}$('code').value='';await load();}catch(e){$('loginError').textContent=e.message;}finally{$('loginButton').disabled=false;}};
-$('logout').onclick=async()=>{try{await request('/logout',{method:'POST'});showLogin();}catch(e){$('roomError').textContent=e.message;}};
+$('logout').onclick=async()=>{try{await disablePush();await request('/logout',{method:'POST'});showLogin();}catch(e){$('roomError').textContent=e.message;}};
 $('refresh').onclick=()=>load();
 $('allPosts').onclick=()=>{onlyNew=false;$('allPosts').setAttribute('aria-pressed','true');$('newPosts').setAttribute('aria-pressed','false');render(posts);};
 $('newPosts').onclick=()=>{onlyNew=true;$('allPosts').setAttribute('aria-pressed','false');$('newPosts').setAttribute('aria-pressed','true');render(posts);};
@@ -221,6 +223,49 @@ $('commentForm').onsubmit=async e=>{
 $('commentText').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('commentForm').requestSubmit();}});
 setInterval(()=>{if(loggedIn&&!document.hidden&&$('commentsDialog').open)loadComments();},5000);
 
+
+let pushSubscription=null,pushRegistration=null,pushId='',lastPushVisit=0,pushBusy=false;
+function supportsPush(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window&&window.isSecureContext;}
+function deviceId(){let id=localStorage.getItem('motes-family-push-id');if(!id){id=newMessageId();localStorage.setItem('motes-family-push-id',id);}return id;}
+function pushBody(action){return JSON.stringify({id:pushId,action});}
+function pushLabel(){
+ $('pushToggle').textContent=pushSubscription?'Slå av varsler':'Slå på varsler';
+ $('pushStatus').textContent=pushSubscription?'Varsler er på. Du får ett varsel om nye innlegg, så ingen flere før du har vært inne igjen.':'Få ett varsel om nye innlegg siden sist du var inne.';
+}
+async function restorePush(){
+ if(!supportsPush()){$('pushToggle').disabled=true;$('pushStatus').textContent='Varsler krever en støttet nettleser. På iPhone: legg familierommet til på Hjem-skjermen og åpne det derfra.';return;}
+ try{pushId=localStorage.getItem('motes-family-push-id')||'';pushRegistration=await navigator.serviceWorker.getRegistration('/familie/');pushSubscription=pushRegistration?await pushRegistration.pushManager.getSubscription():null;pushLabel();if(loggedIn)markPushVisit();}catch(e){$('pushStatus').textContent='Kunne ikke hente varselinnstillingene. Tillat lokal lagring og prøv igjen.';}
+}
+async function markPushVisit(){
+ if(!loggedIn||document.hidden||!pushSubscription||!pushId||pushBusy||Date.now()-lastPushVisit<30000)return;
+ pushBusy=true;try{await request('/push',{method:'POST',headers:{'Content-Type':'application/json'},body:pushBody('visit')});lastPushVisit=Date.now();}catch(e){}finally{pushBusy=false;}
+}
+function markPushAway(){
+ if(!loggedIn||!pushSubscription||!pushId)return;lastPushVisit=0;
+ fetch(api+'/push',{method:'POST',headers:{'Content-Type':'application/json','X-Family-Request':'1'},body:pushBody('away'),keepalive:true}).catch(()=>{});
+}
+async function disablePush(){
+ if(!pushSubscription)return;
+ if(pushId)await request('/push',{method:'POST',headers:{'Content-Type':'application/json'},body:pushBody('unsubscribe')});
+ await pushSubscription.unsubscribe();pushSubscription=null;pushLabel();
+}
+$('pushToggle').onclick=async()=>{
+ if(!supportsPush())return;$('pushToggle').disabled=true;
+ try{
+ if(pushSubscription){await disablePush();return;}
+ const permission=await Notification.requestPermission();
+ if(permission!=='granted'){throw Error('Varsler er ikke tillatt. Du kan endre dette i nettleserens innstillinger. På iPhone må siden åpnes fra Hjem-skjermen.');}
+ pushId=deviceId();pushRegistration=await navigator.serviceWorker.register('/familie/sw.js',{scope:'/familie/'});
+ if(!pushRegistration.active)await new Promise((resolve,reject)=>{const worker=pushRegistration.installing||pushRegistration.waiting;if(!worker){reject(Error('Kunne ikke starte varsler.'));return;}if(worker.state==='activated'){resolve();return;}worker.addEventListener('statechange',()=>{if(worker.state==='activated')resolve();else if(worker.state==='redundant')reject(Error('Kunne ikke starte varsler.'));});});
+ const config=await request('/push'),raw=config.public_key.replace(/-/g,'+').replace(/_/g,'/');const key=Uint8Array.from(atob(raw+'='.repeat((4-raw.length%4)%4)),c=>c.charCodeAt(0));
+ const subscription=await pushRegistration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+ try{await request('/push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:pushId,action:'subscribe',subscription:subscription.toJSON()})});}catch(e){await subscription.unsubscribe();throw e;}
+ pushSubscription=subscription;lastPushVisit=Date.now();pushLabel();
+ }catch(e){$('pushStatus').textContent=e.message||'Kunne ikke slå på varsler. Prøv igjen.';}finally{$('pushToggle').disabled=false;}
+};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)markPushAway();else markPushVisit();});
+window.addEventListener('pagehide',markPushAway);window.addEventListener('focus',markPushVisit);
+setInterval(markPushVisit,60000);restorePush();
 function renderCalendar(){
  const year=calendarMonth.getFullYear(),month=calendarMonth.getMonth(),grid=$('calendarDays');grid.replaceChildren();
  $('calendarMonth').textContent=calendarMonth.toLocaleDateString('nb-NO',{month:'long',year:'numeric'});

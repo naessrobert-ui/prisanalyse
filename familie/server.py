@@ -19,10 +19,11 @@ from zoneinfo import ZoneInfo
 from contextlib import asynccontextmanager, contextmanager, suppress
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
+from familie.notifications import FamilyPush, valid_subscription
 
 register_heif_opener()
 
@@ -189,6 +190,8 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
             if path.name not in active and path.stat().st_mtime < now - 300:
                 path.unlink(missing_ok=True)
 
+    push = FamilyPush(root, db)
+
     async def sweeper():
         while True:
             await asyncio.sleep(60)
@@ -197,6 +200,10 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                     await asyncio.to_thread(cleanup)
                 except Exception:
                     logging.getLogger(__name__).exception("Kunne ikke rydde familielager; prøver igjen om ett minutt")
+            try:
+                await asyncio.to_thread(push.deliver)
+            except Exception:
+                logging.getLogger(__name__).exception("Kunne ikke sende familievarsler; prøver igjen om ett minutt")
 
     @asynccontextmanager
     async def lifespan(app):
@@ -211,6 +218,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.cleanup = cleanup
+    app.state.push = push
 
     def sign_session(name):
         raw = json.dumps({"name": name, "exp": int(time.time()) + SESSION_SECONDS}, separators=(",", ":")).encode()
@@ -246,7 +254,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
             "X-Content-Type-Options": "nosniff",
             "Referrer-Policy": "no-referrer",
             "X-Robots-Tag": "noindex, nofollow, noarchive",
-            "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+            "Content-Security-Policy": response.headers.get("Content-Security-Policy") or "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
         })
         return response
 
@@ -257,6 +265,128 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
 
     @app.get("/familie/health")
     async def health():
+        return {"ok": True, "version": "family-2026-11-slekt-push"}
+
+    @app.get("/familie/slekt", response_class=HTMLResponse)
+    async def genealogy_page(request: Request):
+        try:
+            user(request)
+        except HTTPException:
+            return RedirectResponse("/familie", status_code=303)
+        return HTMLResponse(Path(__file__).with_name("slekt.html").read_text())
+
+    @app.get("/familie/api/slekt")
+    async def genealogy_status(request: Request):
+        user(request)
+        path = root / "slekt.html"
+        if not path.exists():
+            return {"exists": False}
+        info = path.stat()
+        return {"exists": True, "bytes": info.st_size, "updated": info.st_mtime}
+
+    @app.post("/familie/api/slekt")
+    async def genealogy_upload(request: Request):
+        user(request)
+        mutation(request)
+        if request.headers.get("content-type", "").split(";", 1)[0].lower() != "text/html":
+            raise HTTPException(415, "Velg HTML-filen fra slektsdatabasen.")
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > 10 * 1024 * 1024:
+                raise HTTPException(413, "Slektsfilen kan være opptil 10 MB.")
+        try:
+            text = body.decode("utf-8-sig")
+            if not re.search(r"<html(?:\s|>)", text, re.I) or not re.search(r"</html\s*>", text, re.I):
+                raise ValueError()
+        except (ValueError, UnicodeError):
+            raise HTTPException(415, "Filen må være en HTML-side lagret som UTF-8.")
+        async with upload_lock:
+            temporary = root / "slekt.upload"
+            try:
+                with temporary.open("wb") as stream:
+                    os.chmod(temporary, 0o600)
+                    stream.write(body)
+                temporary.replace(root / "slekt.html")
+            finally:
+                temporary.unlink(missing_ok=True)
+        return {"ok": True}
+
+    @app.get("/familie/slekt/vis")
+    async def genealogy_view(request: Request):
+        user(request)
+        path = root / "slekt.html"
+        if not path.exists():
+            raise HTTPException(404, "Ingen slektsdatabase er lagt inn ennå.")
+        # A sandboxed opaque origin prevents uploaded scripts reading family cookies,
+        # storage or APIs, even when this URL is opened outside the parent iframe.
+        policy = ("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+                  "img-src data: blob: https://cache.kartverket.no https://server.arcgisonline.com https://tile.openstreetmap.org; "
+                  "connect-src https://ws.geonorge.no; base-uri 'none'; form-action 'none'; "
+                  "frame-ancestors 'self'; sandbox allow-scripts allow-downloads")
+        return FileResponse(path, media_type="text/html", headers={"Content-Security-Policy": policy})
+
+    @app.get("/familie/sw.js")
+    async def service_worker():
+        return FileResponse(Path(__file__).with_name("sw.js"), media_type="application/javascript")
+
+    @app.get("/familie/manifest.json")
+    async def manifest():
+        return JSONResponse({"name": "Familierommet", "short_name": "Familien", "id": "/familie/", "start_url": "/familie/", "scope": "/familie/", "display": "standalone", "background_color": "#fafbf8", "theme_color": "#216052", "icons": [{"src": "/familie/icon.png?size=" + str(size), "sizes": f"{size}x{size}", "type": "image/png"} for size in (192, 512)]})
+
+    @app.get("/familie/icon.png")
+    async def app_icon(request: Request):
+        from io import BytesIO
+        from PIL import ImageDraw
+        from fastapi.responses import Response
+        size = 512 if request.query_params.get("size") == "512" else 192
+        image = Image.new("RGB", (size, size), "#216052")
+        draw = ImageDraw.Draw(image)
+        draw.ellipse((size//4, size//5, size*3//4, size*7//10), fill="#e5f0e9")
+        draw.rounded_rectangle((size//5, size//2, size*4//5, size*4//5), radius=size//8, fill="#e5f0e9")
+        out = BytesIO()
+        image.save(out, "PNG")
+        return Response(out.getvalue(), media_type="image/png")
+
+    @app.get("/familie/api/push")
+    async def push_info(request: Request):
+        user(request)
+        return {"public_key": push.public_key}
+
+    @app.post("/familie/api/push")
+    async def push_update(request: Request):
+        name = user(request)
+        mutation(request)
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > 8192:
+                raise HTTPException(413)
+        try:
+            data = json.loads(body)
+            ident = data["id"]
+            if not isinstance(ident, str) or not re.fullmatch(r"[0-9a-f]{32}", ident):
+                raise ValueError()
+            action = data["action"]
+            if action not in {"subscribe", "visit", "away", "unsubscribe"}:
+                raise ValueError()
+        except (ValueError, KeyError, TypeError):
+            raise HTTPException(400, "Ugyldig varselvalg.")
+        now = time.time()
+        with db() as conn:
+            if action == "subscribe":
+                subscription = data.get("subscription")
+                if not valid_subscription(subscription):
+                    raise HTTPException(400, "Nettleserens varseladresse er ikke gyldig.")
+                if not conn.execute("SELECT id FROM push_devices WHERE id=?", (ident,)).fetchone() and conn.execute("SELECT COUNT(*) FROM push_devices").fetchone()[0] >= 100:
+                    raise HTTPException(429, "For mange varselenheter. Slå av varsler på gamle enheter først.")
+                conn.execute("INSERT OR REPLACE INTO push_devices VALUES (?,?,?,?,?,0)", (ident, json.dumps(subscription), name, now, now + 90))
+            elif action == "unsubscribe":
+                conn.execute("DELETE FROM push_devices WHERE id=?", (ident,))
+            elif action == "visit":
+                conn.execute("UPDATE push_devices SET seen=?,active_until=?,notified=0 WHERE id=?", (now, now + 90, ident))
+            else:
+                conn.execute("UPDATE push_devices SET active_until=0 WHERE id=?", (ident,))
         return {"ok": True}
 
     @app.post("/familie/api/login")
@@ -494,7 +624,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
         return {"ok": True}
 
     @app.post("/familie/api/items")
-    async def upload(request: Request):
+    async def upload(request: Request, background_tasks: BackgroundTasks):
         name = user(request)
         mutation(request)
         try:
@@ -505,6 +635,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
             raise HTTPException(400, "Velg 1 døgn, 1 uke eller til innlegget slettes.")
         caption = request.query_params.get("caption", "").strip()[:500]
         mime = request.headers.get("content-type", "").split(";", 1)[0].lower()
+        mime = {"image/jpg": "image/jpeg", "image/pjpeg": "image/jpeg"}.get(mime, mime)
         filename = request.query_params.get("filename", "")
         filename = re.sub(r"[\x00-\x1f\x7f/\\]", "_", filename).strip()[:180]
         supported_media = mime in {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "video/mp4", "video/webm", "video/quicktime"}
@@ -547,7 +678,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                                 raise HTTPException(413, "Bildet har for høy oppløsning. Maks 60 megapiksler.")
                             image.verify()
                         if not actual:
-                            raise ValueError()
+                            raise HTTPException(415, "Bildeformatet støttes ikke. Eksporter bildet som vanlig JPEG og prøv igjen.")
                         if source_format == "HEIF":
                             converted = temp.with_suffix(".converted")
                             try:
@@ -581,6 +712,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                 now = time.time()
                 with db() as conn:
                     conn.execute("INSERT INTO posts (id,mime,suffix,name,caption,created,expires,bytes,recorded_at,recorded_source,filename) VALUES (?,?,?,?,?,?,?,?,?,?,?)", (ident, mime, suffix, name, caption, now, now + days * 86400 if days else 0, size, recorded_at, recorded_source, filename or None))
+                background_tasks.add_task(push.deliver)
                 return {"id": ident}
             except BaseException:
                 if final:
