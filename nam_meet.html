@@ -3,19 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>NAM Meet</title>
+<title>møtes.no – Gode samtaler starter her</title>
+<meta name="description" content="Opprett et videomøte og inviter med en lenke. Lyd, kamera, skjermdeling og chat direkte i nettleseren.">
+<meta name="theme-color" content="#183c37">
 <style>
 :root{
-  --bg:#F3F6FB; --surface:#FFFFFF; --ink:#00005E; --muted:#5A6488; --line:#D6DEEF;
-  --accent:#0000A0; --accent-ink:#FFFFFF; --speak:#0096FF; --danger:#C8102E; --danger-ink:#FFFFFF;
-  --stage:#00005E; --stage-ink:#BFD3F5; --chip:#DCEDFF;
+  --bg:#f6f7f5; --surface:#fff; --ink:#182d32; --muted:#586b70; --line:#dce4e1;
+  --accent:#216052; --accent-ink:#fff; --speak:#46b39a; --danger:#b43d46; --danger-ink:#fff;
+  --stage:#162e35; --stage-ink:#b6c9ca; --chip:#e8f1ed;
   color-scheme:light; box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
-@media (prefers-color-scheme:dark){ :root{
-  --bg:#00002E; --surface:#0A0A4A; --ink:#E8EEFC; --muted:#9AA6D1; --line:#1E2668;
-  --accent:#8FBFFF; --accent-ink:#00005E; --speak:#4DB8FF; --danger:#FF6B7F; --danger-ink:#2A0008;
-  --stage:#000024; --stage-ink:#9FB3E0; --chip:#141C66; color-scheme:dark; } }
 *,*::before,*::after{box-sizing:inherit}
 html{height:100%}
 body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:15px;line-height:1.45}
@@ -23,22 +21,51 @@ button,input{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .hidden{display:none !important}
 
-/* landing */
-.landing{min-height:100%;display:grid;place-items:center;padding:2rem 1rem}
-.card{width:min(440px,100%);background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:2rem}
-.brand{font-size:1.9rem;font-weight:800;letter-spacing:-.02em;color:var(--accent);margin:0}
-.org{color:var(--muted);margin:.1rem 0 1.6rem}
-label{display:block;font-weight:600;font-size:.9rem;margin:1rem 0 .35rem}
-.field{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:.65rem .8rem}
-.hint{color:var(--muted);font-size:.85rem;margin:.35rem 0 0}
-.hint.invited{margin-top:1.1rem;padding:.65rem .8rem;border-radius:10px;background:var(--chip);color:var(--ink);font-size:.9rem}
-.row{display:flex;gap:.5rem}
-.row .field{flex:1}
+/* møtes.no: a quiet, welcoming front door to the conversation */
+.landing{min-height:100%;background:#fafbf8;padding:0 6vw 30px}
+.site-nav{max-width:1180px;margin:auto;height:96px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+.wordmark{display:inline-flex;align-items:center;gap:11px;color:var(--ink);text-decoration:none;font-size:25px;font-weight:750;letter-spacing:-1.1px}
+.logo-mark{display:inline-flex;gap:3px;align-items:center;justify-content:center;width:35px;height:35px;background:var(--accent);border-radius:11px}
+.logo-mark i{display:block;width:7px;height:17px;border-radius:5px;background:#fff;transform:rotate(27deg)}
+.logo-mark i:last-child{height:12px;transform:rotate(-27deg);margin-top:7px}
+.nav-note{color:var(--muted);font-size:13px;display:flex;gap:9px;align-items:center}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#39826c;display:inline-block}
+.hero{max-width:1180px;margin:70px auto 64px;display:grid;grid-template-columns:1.12fr 1fr;gap:80px;align-items:center}
+.eyebrow{color:var(--accent);text-transform:uppercase;letter-spacing:2px;font-size:11px;font-weight:750;display:flex;gap:9px;align-items:center}
+.hero h1{font-size:clamp(43px,4.8vw,67px);line-height:1.08;letter-spacing:-3px;font-weight:650;margin:22px 0}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.intro{max-width:43ch;color:var(--muted);font-size:17px;line-height:1.75;margin:0 0 25px}
+.benefits{display:flex;flex-wrap:wrap;gap:10px 22px;color:#3d5757;font-size:12px}
+.benefits span::before{content:'✓';color:var(--accent);font-weight:750;margin-right:7px}
+.conversation{margin-top:35px;display:flex;align-items:center;gap:12px}
+.faces{display:flex;padding-left:5px}.face{height:36px;width:36px;border:3px solid #fafbf8;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:700;margin-left:-5px;background:#d5e6db;color:#31594c}.face:nth-child(2){background:#e6dbcd;color:#735d42}.face:nth-child(3){background:#d6e2ed;color:#435b74}
+.conversation p{font-size:12px;color:var(--muted);margin:0}.conversation strong{color:var(--ink);display:block;font-weight:600}
+.card{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:30px;box-shadow:0 18px 60px #173a2f08;position:relative}
+.card-top{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:11px;margin-bottom:23px;text-transform:uppercase;letter-spacing:1.4px;font-weight:650}
+.mode-switch{display:flex;background:#f0f3f0;padding:5px;gap:4px;border-radius:11px;margin-bottom:26px}
+.mode-switch button{flex:1;border:0;background:transparent;padding:11px 5px;cursor:pointer;color:var(--muted);font-size:13px;border-radius:8px;font-weight:600}
+.mode-switch button[aria-pressed="true"]{background:white;color:var(--ink);box-shadow:0 1px 5px #132e2c12}
+.card h2{font-size:23px;letter-spacing:-.7px;margin:0 0 6px;font-weight:650}
+.card .org{font-size:13px;line-height:1.6;color:var(--muted);margin:0 0 23px}
+label{display:block;font-weight:600;font-size:12px;margin:18px 0 8px}
+.field{width:100%;min-width:0;border:1px solid #d9e1dd;background:#fff;border-radius:9px;padding:13px 14px;font-size:14px;transition:border-color .15s}
+.field::placeholder{color:#84918f}.field:focus{outline:2px solid #21605230;outline-offset:1px;border-color:var(--accent)}
+.hint{color:var(--muted);font-size:12px;margin:9px 0 0;line-height:1.65}
+.hint.invited{margin:16px 0;padding:12px;border-radius:9px;background:var(--chip);color:var(--ink)}
+.row{display:flex;gap:8px}.row .field{flex:1}
+.privacy-note{display:flex;gap:9px;align-items:flex-start;margin-top:18px;padding-top:18px;border-top:1px solid var(--line);font-size:11px;line-height:1.6;color:var(--muted)}
+.privacy-note svg{flex:none;width:15px;height:18px;color:var(--accent)}
+#landNote:not(:empty){padding:10px 12px;background:#f2f5f1;border-radius:8px;font-size:13px}
+.steps{max-width:1180px;margin:auto;padding:32px 0 37px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:45px}
+.step{display:flex;gap:14px}.step-number{flex:none;color:var(--accent);background:#edf2ec;border-radius:10px;height:35px;width:35px;display:grid;place-items:center;font-size:12px;font-weight:650}.step h3{margin:0 0 7px;font-size:14px;font-weight:650}.step p{margin:0;color:var(--muted);font-size:12px;line-height:1.7;max-width:29ch}
+.site-bottom{max-width:1180px;margin:auto;border-top:1px solid var(--line);padding-top:23px;display:flex;justify-content:space-between;gap:14px;font-size:11px;color:var(--muted)}
+@media(max-width:950px){.hero{gap:35px;margin-top:45px}.hero h1{font-size:49px}.card{padding:25px}.steps{gap:20px}}
+@media(max-width:720px){.landing{padding:0 6vw 24px}.site-nav{height:76px}.wordmark{font-size:23px}.nav-note{font-size:11px}.hero{grid-template-columns:1fr;gap:30px;margin:35px auto}.hero h1{font-size:47px;letter-spacing:-2px;margin:18px 0}.intro{font-size:15px;max-width:42ch;margin-bottom:18px}.conversation{display:none}.benefits{font-size:11px;gap:12px}.card{padding:24px}.steps{grid-template-columns:1fr;gap:23px;padding:28px 0}.step p{max-width:none}.site-bottom{flex-direction:column;gap:7px}.card-top{margin-bottom:18px}}
 
 .app{height:100%;display:grid;grid-template-rows:auto 1fr auto;max-width:1440px;margin:0 auto}
 header{display:flex;align-items:baseline;gap:1rem;padding:1rem 1.25rem .75rem;flex-wrap:wrap}
 header h1{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--accent)}
-@media (prefers-color-scheme:dark){ header h1,.brand{color:var(--ink)} }
+
 header .orgh{font-weight:500;font-size:.95rem;padding-right:.75rem;border-right:1px solid var(--line)}
 #status{color:var(--muted);font-size:.9rem}
 .roomtag{margin-left:auto;display:flex;gap:.5rem;align-items:center;font-size:.9rem;color:var(--muted)}
@@ -142,31 +169,55 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 <body>
 
 <div class="landing" id="landing">
-  <div class="card">
-    <h1 class="brand">NAM Meet</h1>
-    <p class="org">Nordea Asset Management</p>
-    <label for="nameIn">Navnet ditt</label>
-    <input class="field" id="nameIn" maxlength="40" autocomplete="name" placeholder="For eksempel Robert Næss">
-    <label for="roomIn">Romkode</label>
-    <div class="row">
-      <input class="field" id="roomIn" maxlength="32" placeholder="For eksempel norsk-team">
-      <button class="sbtn" id="newRoom" type="button">Lag ny</button>
-    </div>
-    <p class="hint" id="roomHint">Alle som skriver samme romkode, havner i samme møte.</p>
-    <div id="kodeWrap">
-      <label for="kodeIn">Tilgangskode</label>
-      <input class="field" id="kodeIn" type="password" maxlength="100" autocomplete="off" placeholder="Fra den som inviterte deg">
-    </div>
-    <p class="hint invited hidden" id="invitedNote"></p>
-    <button class="btn primary wide" id="joinBtn" type="button">Bli med i møtet</button>
-    <p class="hint" id="landNote"></p>
+  <nav class="site-nav" aria-label="Hovedmeny">
+    <a class="wordmark" href="/" aria-label="møtes.no – forsiden"><span class="logo-mark" aria-hidden="true"><i></i><i></i></span>møtes.no</a>
+    <span class="nav-note"><span class="status-dot" aria-hidden="true"></span>Rett i nettleseren</span>
+  </nav>
+  <div class="hero">
+    <section class="hero-copy" aria-labelledby="heroTitle">
+      <div class="eyebrow"><span class="status-dot" aria-hidden="true"></span>Mer samtale. Mindre oppsett.</div>
+      <h1 id="heroTitle">Et godt sted<br>å <em>møtes.</em></h1>
+      <p class="intro">Fra en rask prat til et viktig møte. Samle folk med én lenke, og gi samtalen plass.</p>
+      <div class="benefits"><span>Ingen nedlasting</span><span>Lyd og video</span><span>Skjermdeling og chat</span></div>
+      <div class="conversation" aria-hidden="true"><div class="faces"><span class="face">DU</span><span class="face">HEI</span><span class="face">VI</span></div><p><strong>For folk som vil snakke sammen.</strong>Kollegaer, venner og alle imellom.</p></div>
+    </section>
+    <section class="card" aria-labelledby="formTitle">
+      <div class="card-top"><span class="status-dot" aria-hidden="true"></span>Din neste samtale starter her</div>
+      <div class="mode-switch" role="group" aria-label="Velg hva du vil gjøre">
+        <button id="createMode" type="button" aria-pressed="true">Opprett et møte</button>
+        <button id="joinMode" type="button" aria-pressed="false">Bli med i et møte</button>
+      </div>
+      <h2 id="formTitle">Gjør plass til en god samtale.</h2>
+      <p class="org" id="formIntro">Skriv navnet ditt, opprett møtet og inviter med en lenke.</p>
+      <label for="nameIn">Navnet ditt</label>
+      <input class="field" id="nameIn" maxlength="40" autocomplete="name" placeholder="Hva heter du?">
+      <div id="roomWrap" class="hidden">
+        <label for="roomIn">Møtelenke eller romkode</label>
+        <div class="row"><input class="field" id="roomIn" maxlength="2048" autocomplete="off" placeholder="Lim inn lenken du har fått"></div>
+        <p class="hint" id="roomHint">Du finner lenken i invitasjonen fra møteverten.</p>
+      </div>
+      <div id="kodeWrap" class="hidden">
+        <label for="kodeIn">Tilgangskode</label>
+        <input class="field" id="kodeIn" type="password" maxlength="100" autocomplete="off" placeholder="Fra den som inviterte deg">
+      </div>
+      <p class="hint invited hidden" id="invitedNote" role="status"></p>
+      <button class="btn primary wide" id="joinBtn" type="button">Opprett møte</button>
+      <p class="hint" id="landNote" role="status" aria-live="polite"></p>
+      <div class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6z"/><path d="m8 12 3 3 5-6"/></svg><span>Du velger selv når kameraet slås på. Møtes.no tar ikke opp samtalen. Del møtelenken med dem du vil invitere.</span></div>
+    </section>
   </div>
+  <section class="steps" aria-label="Slik fungerer det">
+    <div class="step"><span class="step-number">01</span><div><h3>Opprett et møte</h3><p>Du trenger bare navnet ditt. Ingen konto og ingen installasjon.</p></div></div>
+    <div class="step"><span class="step-number">02</span><div><h3>Inviter med en lenke</h3><p>Send møtelenken på e-post, SMS eller der dere allerede snakker.</p></div></div>
+    <div class="step"><span class="step-number">03</span><div><h3>Finn tonen sammen</h3><p>Slå på kameraet, del skjermen eller hold det til en enkel samtale.</p></div></div>
+  </section>
+  <div class="site-bottom"><span>møtes.no · Gode samtaler starter her.</span><span>Laget for å gjøre det enkelt å møtes.</span></div>
 </div>
 
 <div class="app hidden" id="app">
   <header>
-    <h1>NAM Meet</h1>
-    <span class="orgh">Nordea Asset Management</span>
+    <h1>møtes.no</h1>
+    <span class="orgh">Plass til samtalen</span>
     <span id="status">Kobler til …</span>
     <span class="roomtag">Rom: <b id="roomName"></b> <button class="sbtn" id="copyBtn" type="button">Inviter</button></span>
   </header>
@@ -209,7 +260,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   let ICE = [{urls:["stun:stun.cloudflare.com:3478","stun:stun.l.google.com:19302"]}];
   async function loadIce(){
     try{
-      const base=location.pathname.replace(/\/meet\/?.*$/,"");
+      const base=apiBase;
       const r=await fetch(base+"/meet/ice?kode="+encodeURIComponent(S.kode)+"&inv="+encodeURIComponent(S.inv)+"&rom="+encodeURIComponent(S.room),{cache:"no-store"});
       if(r.ok){ const d=await r.json(); if(Array.isArray(d.iceServers) && d.iceServers.length) ICE=d.iceServers; }
     }catch(e){}
@@ -237,48 +288,88 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   };
 
   // ---------- landing ----------
-  try{ $("nameIn").value = localStorage.getItem("nammeet-name") || ""; $("kodeIn").value = localStorage.getItem("nammeet-kode") || ""; }catch(e){}
-  // Lenker: #rom eller #rom?inv=TOKEN (invitasjon som gir tilgang uten tilgangskode)
-  if(location.hash.length>1){
-    const [r,q]=location.hash.slice(1).split("?");
-    $("roomIn").value = cleanRoom(decodeURIComponent(r||""));
-    const inv=new URLSearchParams(q||"").get("inv")||"";
-    if(/^\d+\.[0-9a-f]{32}$/.test(inv) && $("roomIn").value.length>=3){
-      S.inv=inv;
-      $("kodeWrap").classList.add("hidden"); $("roomIn").readOnly=true; $("newRoom").classList.add("hidden"); $("roomHint").classList.add("hidden");
-      const ut=new Date(parseInt(inv,10)*1000);
-      const n=$("invitedNote"); n.classList.remove("hidden");
-      n.textContent="Du er invitert til rommet «"+$("roomIn").value+"». Du trenger ingen tilgangskode. Invitasjonen gjelder til "+ut.toLocaleString("no-NO",{weekday:"long",hour:"2-digit",minute:"2-digit"})+".";
-      if(parseInt(inv,10)*1000<Date.now()) n.textContent="Invitasjonen har gått ut. Be den som inviterte deg om en ny lenke.";
+  const publicSite=["xn--mtes-gra.no","www.xn--mtes-gra.no","localhost","127.0.0.1"].includes(location.hostname);
+  let meetingMode=publicSite?"create":"join", joining=false;
+  const apiBase=location.pathname.replace(/\/meet\/?.*$/,"").replace(/\/$/,"");
+  try{ $("nameIn").value=localStorage.getItem("nammeet-name")||""; if(!publicSite) $("kodeIn").value=localStorage.getItem("nammeet-kode")||""; }catch(e){}
+  function parseMeeting(value){
+    value=value.trim();
+    if(value.includes("://")){
+      const url=new URL(value);
+      if(!["xn--mtes-gra.no","www.xn--mtes-gra.no","prisanalyse.no","www.prisanalyse.no",location.hostname].includes(url.hostname) || !["https:","http:"].includes(url.protocol)) throw new Error("Bruk en møtelenke fra møtes.no eller Prisanalyse.");
+      value=url.hash.slice(1);
+    }
+    value=value.replace(/^#/,"");
+    const [room,query]=value.split("?");
+    const inv=new URLSearchParams(query||"").get("inv")||"";
+    return {room:cleanRoom(decodeURIComponent(room||"")),inv:/^\d+\.[0-9a-f]{32}$/.test(inv)?inv:""};
+  }
+  function updateInvitation(){
+    let d; try{d=meetingMode==="create"?{room:"",inv:""}:parseMeeting($("roomIn").value);}catch(e){d={room:"",inv:""};}
+    S.inv=d.inv;
+    $("kodeWrap").classList.toggle("hidden",meetingMode==="create"||!!d.inv);
+    const n=$("invitedNote"); n.classList.toggle("hidden",!d.inv);
+    if(d.inv){
+      const until=new Date(parseInt(d.inv,10)*1000);
+      n.textContent=until<Date.now()?"Invitasjonen har gått ut. Be møteverten om en ny lenke.":"Du er invitert. Skriv navnet ditt for å bli med. Lenken gjelder til "+until.toLocaleString("no-NO",{weekday:"long",hour:"2-digit",minute:"2-digit"})+".";
     }
   }
-  $("newRoom").onclick = ()=>{ $("roomIn").value = "nam-" + Math.random().toString(36).slice(2,8); };
+  function setMode(mode){
+    if(joining) return;
+    meetingMode=mode;
+    $("createMode").setAttribute("aria-pressed",String(mode==="create"));
+    $("joinMode").setAttribute("aria-pressed",String(mode==="join"));
+    $("roomWrap").classList.toggle("hidden",mode==="create");
+    $("formTitle").textContent=mode==="create"?"Gjør plass til en god samtale.":"Hyggelig å se deg.";
+    $("formIntro").textContent=mode==="create"?"Skriv navnet ditt, opprett møtet og inviter med en lenke.":"Skriv navnet ditt og lim inn lenken du har fått.";
+    $("joinBtn").textContent=mode==="create"?"Opprett møte":"Bli med i møtet →";
+    $("landNote").textContent=""; updateInvitation();
+  }
+  $("createMode").classList.toggle("hidden",!publicSite);
+  $("createMode").onclick=()=>setMode("create"); $("joinMode").onclick=()=>setMode("join");
+  $("roomIn").addEventListener("input",updateInvitation);
+  if(location.hash.length>1){ $("roomIn").value=location.hash.slice(1); meetingMode="join"; }
+  setMode(meetingMode);
   if(location.protocol!=="https:" && location.hostname!=="localhost" && location.hostname!=="127.0.0.1")
-    $("landNote").textContent = "Siden må åpnes via https for at mikrofon og kamera skal virke.";
-  $("joinBtn").onclick = join;
-  for(const id of ["roomIn","kodeIn"]) $(id).addEventListener("keydown", e=>{ if(e.key==="Enter") join(); });
+    $("landNote").textContent="Siden må åpnes via https for at mikrofon og kamera skal virke.";
+  $("joinBtn").onclick=join;
+  for(const id of ["nameIn","roomIn","kodeIn"]) $(id).addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();join();}});
 
   async function join(){
-    const name=$("nameIn").value.trim().slice(0,40), room=cleanRoom($("roomIn").value), kode=S.inv?"":$("kodeIn").value;
-    if(!name){ $("landNote").textContent="Skriv inn navnet ditt."; $("nameIn").focus(); return; }
-    if(room.length<3){ $("landNote").textContent="Romkoden må ha minst tre tegn."; $("roomIn").focus(); return; }
+    if(joining) return;
+    const name=$("nameIn").value.trim().slice(0,40);
+    if(!name){$("landNote").textContent="Skriv inn navnet ditt først.";$("nameIn").focus();return;}
+    let room,kode="";
+    joining=true; $("joinBtn").disabled=true;
+    try{
+      if(meetingMode==="create"){
+        $("landNote").textContent="Oppretter møtet …";
+        const response=await fetch(apiBase+"/meet/create",{method:"POST",headers:{"Accept":"application/json"}});
+        if(!response.ok) throw new Error("Møtet kunne ikke opprettes. Prøv igjen om litt.");
+        const d=await response.json(); room=d.rom; S.inv=d.inv||"";
+        $("roomIn").value=room+(S.inv?"?inv="+S.inv:"");
+      }else{
+        const d=parseMeeting($("roomIn").value); room=d.room; S.inv=d.inv; kode=S.inv?"":$("kodeIn").value;
+        if(room.length<3) throw new Error("Lim inn en møtelenke eller en romkode med minst tre tegn.");
+        if(S.inv && parseInt(S.inv,10)*1000<Date.now()) throw new Error("Invitasjonen har gått ut. Be møteverten om en ny lenke.");
+      }
+    }catch(e){ $("landNote").textContent=e.message||"Sjekk møtelenken og prøv igjen."; joining=false;$("joinBtn").disabled=false;return; }
     Object.assign(S,{name,room,kode,leaving:false,retry:0});
     const rnd=new Uint8Array(16); crypto.getRandomValues(rnd); S.cid=[...rnd].map(b=>b.toString(16).padStart(2,"0")).join("");
-    try{ localStorage.setItem("nammeet-name",name); if(!S.inv) localStorage.setItem("nammeet-kode",kode); }catch(e){}
+    try{localStorage.setItem("nammeet-name",name);}catch(e){}
     history.replaceState(null,"","#"+room+(S.inv?"?inv="+S.inv:""));
-    $("joinBtn").disabled=true; $("landNote").textContent="Kobler til …";
-    try{ S.actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ S.actx=null; }
-    try{ S.mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); }
-    catch(e){ S.mic=null; notice("Fikk ikke tilgang til mikrofonen ("+mediaErr(e)+"), så du er med som lytter."); }
-    if(S.mic) addMeter("me", S.mic);
+    $("landNote").textContent="Kobler til …";
+    try{S.actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){S.actx=null;}
+    try{S.mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}
+    catch(e){S.mic=null;notice("Fikk ikke tilgang til mikrofonen ("+mediaErr(e)+"), så du er med som lytter.");}
+    if(S.mic) addMeter("me",S.mic);
     $("roomName").textContent=room;
-    await loadIce();
-    connect();
+    await loadIce(); connect();
   }
 
   // ---------- websocket signaling ----------
   function wsUrl(){
-    const base = location.pathname.replace(/\/meet\/?.*$/,"");
+    const base = apiBase;
     return (location.protocol==="https:"?"wss://":"ws://") + location.host + base + "/meet/ws/" + encodeURIComponent(S.room)
       + "?name=" + encodeURIComponent(S.name) + "&kode=" + encodeURIComponent(S.kode) + "&cid=" + S.cid + (S.inv ? "&inv=" + encodeURIComponent(S.inv) : "");
   }
@@ -293,6 +384,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       if(ev.code===4401){ backToLanding(S.inv?"Invitasjonen gjelder ikke lenger. Be den som inviterte deg om en ny lenke.":"Feil tilgangskode."); return; }
       if(ev.code===4409){ backToLanding("Rommet er fullt."); return; }
       if(ev.code===4400){ backToLanding("Ugyldig romkode."); return; }
+      if(!S.myId && S.retry>=3){ backToLanding("Får ikke kontakt med møteserveren. Prøv igjen om litt."); return; }
       if(!S.myId && S.retry===0){ $("landNote").textContent="Får ikke kontakt med møteserveren. Prøver igjen …"; }
       // Lyd og bilde går direkte mellom deltakerne, så samtalen fortsetter mens vi kobler til igjen.
       // Forbindelser som ikke er oppe ennå, kan ikke fullføres uten server og bygges opp på nytt.
@@ -308,7 +400,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 
   function onMsg(m){
     if(m.t==="welcome"){
-      S.myId=m.id; S.retry=0;
+      S.myId=m.id; S.retry=0; joining=false;
       $("landing").classList.add("hidden"); $("app").classList.remove("hidden"); $("joinBtn").disabled=false; $("landNote").textContent="";
       const nye=new Map((m.peers||[]).map(p=>[p.id,{name:p.name,state:keepState(p.id,p.state)}]));
       for(const id of nye.keys()) backAgain(id);
@@ -448,7 +540,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     S.meters.clear(); S.speaking.clear(); S.muted=false;
     for(const [,o] of S.camEls) o.box.remove(); S.camEls.clear();
     $("app").classList.add("hidden"); $("landing").classList.remove("hidden");
-    $("joinBtn").disabled=false; $("landNote").textContent=msg||""; notice(""); closeChat(); S.unread=0; updateBadge();
+    joining=false; setMode("join"); $("joinBtn").disabled=false; $("landNote").textContent=msg||""; notice(""); closeChat(); S.unread=0; updateBadge();
   }
 
   // Inviter: lager en lenke som gir tilgang til dette rommet i 24 timer uten tilgangskode,
@@ -457,15 +549,15 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     const b=$("copyBtn"), reset=()=>setTimeout(()=>b.textContent="Inviter",2500);
     let d;
     try{
-      const base=location.pathname.replace(/\/meet\/?.*$/,"");
+      const base=apiBase;
       const r=await fetch(base+"/meet/invite?rom="+encodeURIComponent(S.room)+"&kode="+encodeURIComponent(S.kode)+"&inv="+encodeURIComponent(S.inv),{cache:"no-store"});
       if(!r.ok) throw new Error(r.status);
       d=await r.json();
     }catch(e){ notice("Fikk ikke laget invitasjonslenke. Prøv igjen om litt."); return; }
     const url=location.origin+location.pathname+"#"+S.room+(d.inv?"?inv="+d.inv:"");
-    const tekst="Bli med i NAM Meet"+(d.inv?" (lenken gjelder i 24 timer, du trenger ingen kode)":"")+":";
+    const tekst="Bli med på møtes.no"+(d.inv?" (lenken gjelder i 24 timer, du trenger ingen kode)":"")+":";
     if(navigator.share && matchMedia("(pointer:coarse)").matches){
-      try{ await navigator.share({title:"NAM Meet",text:tekst,url}); return; }
+      try{ await navigator.share({title:"møtes.no",text:tekst,url}); return; }
       catch(e){ if(e && e.name==="AbortError") return; }
     }
     try{ await navigator.clipboard.writeText(tekst+" "+url); b.textContent="Lenken er kopiert"; }

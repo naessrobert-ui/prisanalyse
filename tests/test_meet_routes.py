@@ -24,7 +24,7 @@ def _msg(ws):
 def test_side_lastes(client):
     r = client.get("/meet")
     assert r.status_code == 200
-    assert "NAM Meet" in r.text
+    assert "møtes.no" in r.text
 
 
 def test_feil_kode_avvises(client):
@@ -198,3 +198,34 @@ def test_utlopt_eller_forfalsket_invitasjon_avvises(client):
             with client.websocket_connect(f"/meet/ws/test-rom?name=X&inv={inv}") as ws:
                 ws.receive_text()
         assert e.value.code == 4401
+
+
+def test_public_create_room_scopes_invitation_and_preserves_old_access(client):
+    import meet_routes
+
+    before = client.get('/meet/status').json()
+    headers = {'host': 'xn--mtes-gra.no'}
+    response = client.post('/meet/create', headers=headers)
+    assert response.status_code == 200
+    assert response.headers['cache-control'] == 'no-store'
+    first = response.json()
+    second = client.post('/meet/create', headers=headers).json()
+    assert first['rom'] != second['rom']
+    assert meet_routes._gyldig_invitasjon(first['inv'], first['rom'])
+    assert not meet_routes._gyldig_invitasjon(first['inv'], second['rom'])
+    assert first['utloper'] > meet_routes.time.time()
+    assert 'hemmelig' not in response.text
+    assert client.get('/meet/status').json() == before
+    with client.websocket_connect(f"/meet/ws/{first['rom']}?name=Vert&inv={first['inv']}") as host:
+        assert _msg(host)['peers'] == []
+        with client.websocket_connect(f"/meet/ws/{first['rom']}?name=Gjest&inv={first['inv']}") as guest:
+            assert _msg(guest)['peers'][0]['name'] == 'Vert'
+    assert client.get('/meet/ice?rom=test-rom&kode=feil').status_code == 401
+    assert client.get('/meet/ice?rom=test-rom&kode=hemmelig').status_code == 200
+
+
+def test_public_create_requires_meeting_domain(client):
+    assert client.post('/meet/create', headers={'host': 'prisanalyse.no'}).status_code == 404
+    assert client.post('/meet/create', headers={'host': 'xn--mtes-gra.no.example.com'}).status_code == 404
+    assert client.get('/meet/create', headers={'host': 'xn--mtes-gra.no'}).status_code == 405
+    assert client.post('/meet/create', headers={'host': 'www.xn--mtes-gra.no'}).status_code == 200
