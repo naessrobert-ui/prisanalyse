@@ -33,7 +33,8 @@ for filename in __init__.py server.py index.html requirements.txt; do
   curl --fail --silent --show-error --location "$source_url/familie/$filename" -o "$stage/next/$filename"
 done
 if ! cmp -s "$stage/next/requirements.txt" "$install_root/app/familie/requirements.txt"; then
-  echo 'Avhengighetene er endret. Avbryter før tjenesten stoppes; oppdater avhengigheter separat.' >&2; exit 1
+  echo 'Installerer nye bildeavhengigheter før tjenesten stoppes.'
+  "$install_root/venv/bin/python" -m pip install -r "$stage/next/requirements.txt"
 fi
 "$install_root/venv/bin/python" -m py_compile "$stage/next/server.py"
 mkdir -p "$install_root/code-backups"

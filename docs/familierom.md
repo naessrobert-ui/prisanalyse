@@ -11,7 +11,9 @@ sesjonscookie. Den gjelder i sju døgn. Alle med familiekoden har samme tilgang 
 kan slette innlegg. Bytte av koden og sesjonsnøkkelen i `access.json` logger ut alle.
 Det er ett familierom, ikke en tjeneste med flere familier eller individuelle kontoer.
 
-Innlegg skjules umiddelbart etter 1, 3 eller 7 døgn. En jobb sletter de utløpte filene
+Ved opplasting velges **1 døgn**, **1 uke** eller **til noen sletter innlegget**.
+Eksisterende innlegg beholder sin tidligere utløpstid, også det gamle valget 3 døgn.
+Tidsbegrensede innlegg skjules umiddelbart ved utløp. En jobb sletter de utløpte filene
 hvert minutt når tjenesten kjører, og ved neste oppstart hvis Pi-en har vært avslått.
 Sletting gjelder aktive filer, ikke sikkerhetskopier eller kopier mottakerne har laget.
 Ingen sikkerhetskopiering settes opp av installasjonen. Mottakerne kan laste ned,
@@ -21,8 +23,11 @@ lagring; HTTPS beskytter transporten. Render videresender innholdet underveis.
 ## Grenser
 
 - Inntil 100 MiB per fil og 10 GiB samlet familielager, med 2 GiB fri disk som reserve.
-- JPG, PNG og WebP (valideres som bilder), MP4/MOV og WebM (container sjekkes).
-- Ingen videokonvertering. HEIC må eksporteres som JPG. Telefonklipp med HEVC kan
+- JPG, PNG, WebP og HEIC/HEIF (valideres som bilder), MP4/MOV og WebM (container sjekkes).
+- Opptil 30 filer velges samtidig. De sendes én om gangen med fremdrift per fil.
+  Ved delvis feil prøver neste forsøk bare de mislykkede filene igjen.
+- HEIC/HEIF konverteres til JPEG (maks 4096 piksler på lengste side), roteres riktig
+  og får opprinnelig opptakstid lagret separat. Ingen videokonvertering. Telefonklipp med HEVC kan
   måtte konverteres til MP4/H.264 for å kunne spilles på alle enheter.
 - Tailscale Funnel har båndbreddebegrensninger. Egnet for små familieklipp, ikke
   et generelt videoarkiv eller ubegrenset streaming.
@@ -130,3 +135,26 @@ kommentarer; nye kommentarer tar avsendernavnet fra den signerte innloggingen.
 Kommentarer og liker-markeringer følger innleggets levetid og fjernes når innlegget
 utløper eller slettes. Hvert innlegg kan ha opptil 200 kommentarer. Dialogen i et
 kommentarfelt oppdateres hvert femte sekund mens feltet er åpent.
+
+## Opptaksdato og kalender
+
+Opprinnelig opptakstid hentes fra EXIF DateTimeOriginal/DateTimeDigitized for bilder,
+og fra MP4/MOV-containerens creation time for videoer. EXIF-tidssone brukes når den
+finnes. Uten tidssone vises «kameratid uten tidssone», og original kalenderdag beholdes.
+Opptakstiden er filens metadata, ikke en verifisert hendelsesdato. Manglende metadata
+(inkludert WebM uten støttet datofelt) gir tydelig merket delingsdato som reserve;
+filens endringstid brukes aldri som om den var opptakstid.
+
+Ved første oppstart etter oppdateringen utvides SQLite med to nullable kolonner.
+Opptaksdato leses også fra eksisterende, fortsatt tilgjengelige medier. Kalenderen
+viser antall aktive innlegg per dato og filtrerer feeden når en dag velges. Den teller
+alle aktive innlegg, også eldre innlegg utenfor feedens siste 200. Hver valgt dag viser
+opptil 200 innlegg. Slettede og utløpte innlegg vises ikke. Valget «til noen sletter»
+lagres som `expires=0` og utelates fra automatisk sletting; lagergrensen gjelder fortsatt.
+Opptaksdato påvirker ikke tidspunktet for automatisk sletting.
+
+Oppdateringsskriptet installerer endrede Python-avhengigheter før tjenesten stoppes.
+HEIC/HEIF bruker pillow-heif/libheif. Hvis avhengighetene ikke kan installeres på Pi-en,
+avbrytes oppdateringen mens gammel tjeneste fortsatt kjører. Koden byttes deretter med
+samme helsesjekk og tilbakeføring som før. Sikkerhetskopi av database og medier er
+fortsatt et separat driftsansvar.

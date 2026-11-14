@@ -10,6 +10,8 @@
 .room-tabs{display:flex;gap:8px;align-items:center;margin:0 0 18px}.room-tabs button,.feed-filters button{border:1px solid var(--line);border-radius:9px;padding:10px 16px;background:white;color:var(--muted);font-weight:600}.room-tabs button[aria-pressed="true"],.feed-filters button[aria-pressed="true"]{background:var(--green);color:white;border-color:var(--green)}.count-badge{display:inline-block;background:#dcece0;color:#1a503f;border-radius:12px;padding:0 7px;font-size:11px;margin-left:5px}.feed-filters{display:flex;gap:7px;margin-bottom:13px}.feed-filters button{padding:6px 13px;font-size:12px}.seen-help{font-size:11px;color:var(--muted);margin:0 0 20px}.media-wrap{position:relative}.post-state{position:absolute;z-index:1;top:11px;right:11px;padding:3px 9px;background:#fffef2e8;border:1px solid #e8dfbe;border-radius:12px;font-size:10px;color:#685c30;pointer-events:none}.post-state.seen{background:#e8f2e9eb;color:#2f6151;border-color:#d5e3d5}.chat-panel{max-width:780px;margin:0 auto;background:white;border:1px solid var(--line);border-radius:17px;overflow:hidden}.chat-header{padding:20px 23px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center}.chat-header h2{margin:0;font-size:18px;letter-spacing:-.4px}.chat-log{height:clamp(260px,48dvh,520px);overflow:auto;padding:20px;display:flex;flex-direction:column;gap:13px;overflow-wrap:anywhere;overscroll-behavior:contain}.chat-message{max-width:87%;align-self:flex-start;background:#f1f5ef;border-radius:12px;padding:11px 14px;min-width:130px}.chat-message.mine{align-self:flex-end;background:#e5f0e9}.chat-meta{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:11px;color:var(--muted)}.chat-meta strong{color:#274a3c}.chat-text{white-space:pre-wrap;margin:6px 0;color:#233e35;font-size:14px}.chat-delete{border:0;background:none;padding:0;color:#756961;font-size:10px;text-decoration:underline;cursor:pointer}.chat-bottom{display:flex;justify-content:flex-end}.chat-compose{padding:16px 20px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.chat-compose label{grid-column:1/-1;margin:0;font-size:12px}.chat-compose textarea{min-height:63px;max-height:160px}.chat-note{padding:0 20px 15px;font-size:11px;color:var(--muted)}.chat-error{margin:0 20px 15px}.chat-empty{text-align:center;margin:auto;color:var(--muted);font-size:13px}.media-controls{display:flex;gap:6px;align-items:center}.toolbar{flex-wrap:wrap;gap:10px}@media(max-width:650px){.chat-log{padding:14px;height:48dvh}.chat-compose{padding:14px;gap:8px}.chat-compose .button{padding:11px 13px}.chat-message{max-width:94%}.chat-header{padding:16px}.room-tabs button{flex:1}.seen-help{max-width:42ch}}
 
 .social-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.social-actions button{border:1px solid var(--line);border-radius:9px;padding:7px 11px;color:var(--muted);background:white;font-size:12px}.social-actions button[aria-pressed="true"]{background:#e5f0e9;color:var(--green);border-color:#aacabc}.liked-by{font-size:10px;color:var(--muted);margin:7px 0 0;overflow-wrap:anywhere}.comment-log{max-height:45dvh;overflow:auto;display:flex;flex-direction:column;gap:12px;margin:18px 0}.comment-log .chat-message{max-width:100%;width:100%}.comment-context{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.comment-form textarea{margin:8px 0}.dialog-heading{display:flex;justify-content:space-between;align-items:start;gap:12px}
+
+.calendar{border:1px solid var(--line);border-radius:14px;padding:16px;margin:0 0 20px;background:white}.calendar-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:12px}.calendar-grid button{min-height:43px;border:1px solid var(--line);border-radius:7px;background:white;color:var(--green);padding:4px}.calendar-grid button[aria-pressed="true"]{background:var(--green);color:white}.calendar-grid button:disabled{opacity:.35;cursor:default}.calendar-grid span{text-align:center;font-size:11px}.calendar-grid small{display:block;font-size:9px}.selection-list{padding-left:20px;font-size:12px;max-height:170px;overflow:auto}.upload-status{font-size:12px;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -30,6 +32,7 @@
   <div class="toolbar"><span id="postCount">Familiens øyeblikk</span><div><button class="text-button" id="refresh">Oppdater</button><button class="text-button" id="logout">Logg ut</button></div></div>
   <div class="feed-filters" role="group" aria-label="Filtrer innlegg"><button type="button" id="allPosts" aria-pressed="true">Alle</button><button type="button" id="newPosts" aria-pressed="false">Nye</button></div>
   <p class="seen-help" id="seenHelp">Velg selv hva du vil åpne. Videoer starter når du trykker på spill av. Appen husker sette innlegg på denne enheten for navnet ditt.</p>
+  <details class="calendar" id="calendar"><summary>Kalender · finn øyeblikk etter dato</summary><p class="tiny">Opptaksdato brukes når den finnes. Ellers brukes delingsdato. Utløpte innlegg vises ikke.</p><div class="calendar-head"><button type="button" class="text-button" id="previousMonth" aria-label="Forrige måned">←</button><strong id="calendarMonth"></strong><button type="button" class="text-button" id="nextMonth" aria-label="Neste måned">→</button></div><div id="calendarDays" class="calendar-grid" aria-label="Velg dato"></div><p id="selectedDay" class="tiny" aria-live="polite"></p><button type="button" class="text-button" id="clearDay">Vis siste innlegg fra alle datoer</button></details>
   <div class="grid" id="feed" aria-live="polite"></div>
  </section>
  <section id="chatPane" aria-label="Familiechat" hidden>
@@ -45,11 +48,12 @@
 </div>
 <dialog id="compose" aria-labelledby="composeTitle">
  <form id="postForm"><div class="eyebrow">En liten hilsen til de andre</div><h2 id="composeTitle">Del et øyeblikk.</h2>
- <label class="file-pick" for="file">Velg et bilde eller et kort videoklipp<input id="file" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,.mov" required><span class="tiny">JPG, PNG, WebP, MP4, WebM eller MOV · maks 100 MB</span></label>
+ <label class="file-pick" for="file">Velg bilder og videoklipp<input id="file" type="file" accept="image/*,video/mp4,video/webm,video/quicktime,.mov,.heic,.heif" multiple required><span class="tiny">JPG, HEIC, PNG, WebP, MP4, WebM eller MOV · opptil 30 filer · maks 100 MB per fil</span></label>
+ <ul id="selectionList" class="selection-list"></ul><p id="uploadStatus" class="upload-status" role="status" aria-live="polite"></p>
  <img id="imagePreview" class="preview" alt="Forhåndsvisning av bildet ditt" hidden><video id="videoPreview" class="preview" controls playsinline hidden></video>
  <label for="caption">Legg til en hilsen <span class="tiny">(valgfritt)</span></label><textarea id="caption" maxlength="500" placeholder="Hva skjer hos deg i dag?"></textarea>
- <label for="days">Hvor lenge skal innlegget bli?</label><select id="days"><option value="1">1 døgn</option><option value="3">3 døgn</option><option value="7">7 døgn</option></select>
- <p class="tiny">Innlegget skjules ved utløp. Filen slettes fra Pi-en innen omtrent ett minutt mens tjenesten kjører. Andre kan ha lagret en kopi.</p>
+ <label for="days">Hvor lenge skal innlegget bli?</label><select id="days"><option value="1">1 døgn</option><option value="7">1 uke</option><option value="0">Til noen sletter innlegget</option></select>
+ <p class="tiny">Velg hvor lenge alle de valgte filene skal beholdes. Innlegg uten tidsgrense beholdes til noen sletter dem. Tidsbegrensede innlegg skjules ved utløp. Filen slettes fra Pi-en innen omtrent ett minutt mens tjenesten kjører. Andre kan ha lagret en kopi.</p>
  <p class="tiny">Noen MOV- og MP4-klipp fra telefoner kan kreve konvertering før andre nettlesere kan spille dem.</p>
  <progress id="uploadProgress" max="100" value="0" aria-label="Opplastingsfremdrift" hidden></progress><p id="postError" class="message" role="status" aria-live="polite"></p>
  <div class="actions"><button type="button" class="button secondary" id="cancelPost">Avbryt</button><button type="submit" class="button" id="sendPost">Del med familien</button></div>
@@ -69,6 +73,7 @@
 const $=id=>document.getElementById(id), api='/familie/api';let currentName='',previewUrl='',uploading=false,loading=false,loggedIn=false;
 let posts=[],seen={},onlyNew=false,activePane='media',chatMessages=[],chatBusy=false,chatSending=false,chatSignature='',pendingChat=null;
 let sessionEpoch=0;
+let selectedDay='',calendarCounts={},calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedFiles=[];
 let storageWorks=true,chatReadAt=0,commentPost=null,commentBusy=false,commentSending=false,pendingComment=null,commentSignature='';
 async function request(path,options={}){
  options.headers={...(options.headers||{}),'X-Family-Request':'1'};
@@ -76,7 +81,7 @@ async function request(path,options={}){
  let data;try{data=await response.json();}catch(e){throw new Error('Familierommet er ikke tilgjengelig akkurat nå. Prøv igjen om litt.');}
  if(!response.ok){if(response.status===401&&path!=='/login')showLogin();throw new Error(data.detail||'Det gikk ikke. Prøv igjen.');}return data;
 }
-function showLogin(){sessionEpoch++;for(const id of ['commentsDialog','lightbox','compose'])if($(id).open)$(id).close();commentPost=null;loggedIn=false;currentName='';seen={};posts=[];chatMessages=[];chatSignature='';$('familyChatLog').replaceChildren();$('chatText').value='';pendingChat=null;$('chatBadge').hidden=true;$('room').hidden=true;$('loginSection').hidden=false;$('feed').replaceChildren();$('code').value='';}
+function showLogin(){sessionEpoch++;for(const id of ['commentsDialog','lightbox','compose'])if($(id).open)$(id).close();commentPost=null;loggedIn=false;currentName='';seen={};posts=[];selectedDay='';calendarCounts={};$('calendarDays').replaceChildren();chatMessages=[];chatSignature='';$('familyChatLog').replaceChildren();$('chatText').value='';pendingChat=null;$('chatBadge').hidden=true;$('room').hidden=true;$('loginSection').hidden=false;$('feed').replaceChildren();$('code').value='';}
 function readableTime(seconds){const mins=Math.max(1,Math.ceil(seconds/60));return mins>=1440?Math.ceil(mins/1440)+' døgn':mins>=60?Math.ceil(mins/60)+' timer':mins+' min';}
 function element(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
 function seenKey(){return 'motes-family-seen-v1:'+encodeURIComponent(currentName.toLocaleLowerCase('nb-NO'));}
@@ -91,15 +96,15 @@ function saveSeen(){
  try{localStorage.setItem(seenKey(),JSON.stringify(seen));}catch(e){storageWorks=false;$('seenHelp').textContent='Nettleseren tillater ikke lagring. Sette innlegg huskes bare så lenge denne siden er åpen.';}
 }
 function updateSeenLabels(){
- const available=posts.filter(p=>p.expires>Date.now()/1000),fresh=available.filter(p=>!seen[p.id]?.seen).length;
+ const available=posts.filter(p=>(!p.expires||p.expires>Date.now()/1000)),fresh=available.filter(p=>!seen[p.id]?.seen).length;
  $('postCount').textContent=available.length+' øyeblikk · '+fresh+' nye';$('newPosts').textContent='Nye'+(fresh?' ('+fresh+')':'');
  document.querySelectorAll('#feed .post').forEach(card=>{const state=seen[card.dataset.ident],flag=card.querySelector('.post-state');if(flag){flag.textContent=state?.seen?'Sett':state?.position>0?'Påbegynt':'Nytt';flag.classList.toggle('seen',!!state?.seen);}});
 }
 function markSeen(id){seen[id]={...(seen[id]||{}),seen:true,position:0,at:Date.now()};saveSeen();updateSeenLabels();}
 function render(items){
  document.querySelectorAll('#feed video').forEach(v=>v.pause());posts=items;const feed=$('feed');feed.replaceChildren();updateSeenLabels();
- const visible=items.filter(p=>p.expires>Date.now()/1000&&(!onlyNew||!seen[p.id]?.seen));
- if(!visible.length){const box=element('div','empty');box.append(element('div','symbol','♡'),element('strong','',onlyNew?'Du har sett alle øyeblikkene.':'Det begynner med en liten hilsen.'),element('p','',onlyNew?'Velg «Alle» for å se bilder og videoklipp igjen.':'Del et bilde fra turen, en videohilsen eller noe fint fra dagen din.'));feed.append(box);return;}
+ const visible=items.filter(p=>(!p.expires||p.expires>Date.now()/1000)&&(!onlyNew||!seen[p.id]?.seen));
+ if(!visible.length){const box=element('div','empty');box.append(element('div','symbol','♡'),element('strong','',selectedDay?'Ingen innlegg på denne datoen.':onlyNew?'Du har sett alle øyeblikkene.':'Det begynner med en liten hilsen.'),element('p','',onlyNew?'Velg «Alle» for å se bilder og videoklipp igjen.':'Del et bilde fra turen, en videohilsen eller noe fint fra dagen din.'));feed.append(box);return;}
  for(const post of visible){
  const card=element('article','post');card.dataset.expires=post.expires;card.dataset.ident=post.id;const isVideo=post.mime.startsWith('video/'),media=element(isVideo?'video':'img'),wrap=element('div','media-wrap'),flag=element('span','post-state');wrap.append(media,flag);media.src='/familie/media/'+post.id;
  if(isVideo){
@@ -118,18 +123,18 @@ function render(items){
   media.alt=post.caption||'Bilde delt av '+post.name;media.loading='lazy';media.tabIndex=0;media.setAttribute('role','button');media.setAttribute('aria-label','Vis bildet fra '+post.name+' større');
   const open=()=>{$('largeImage').src=media.src;$('largeImage').alt=media.alt;$('lightbox').showModal();markSeen(post.id);};media.onclick=open;media.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};
  }
- const body=element('div','post-body'),top=element('div','post-top'),date=element('time','post-time',new Date(post.created*1000).toLocaleString('nb-NO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));date.dateTime=new Date(post.created*1000).toISOString();top.append(element('span','post-name',post.name),date);body.append(top);if(post.caption)body.append(element('p','post-caption',post.caption));
+ const body=element('div','post-body'),top=element('div','post-top'),date=element('time','post-time',new Date(post.created*1000).toLocaleString('nb-NO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));date.dateTime=new Date(post.created*1000).toISOString();top.append(element('span','post-name',post.name),date);body.append(top);if(post.recorded_at){const captured=element('p','tiny','Opptak: '+new Date(post.recorded_at).toLocaleString('nb-NO',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})+(post.recorded_at.match(/(?:Z|[+-]\d{2}:\d{2})$/)?'':' (kameratid uten tidssone)'));body.append(captured);}else body.append(element('p','tiny','Opptaksdato mangler · datoen viser når innlegget ble delt.'));if(post.caption)body.append(element('p','post-caption',post.caption));
  const social=element('div','social-actions'),like=element('button','',''),commentsButton=element('button','','');like.type='button';commentsButton.type='button';
  const likedBy=element('p','liked-by');
  const updateSocial=()=>{like.textContent=(post.liked?'Likt':'Liker')+' ('+(post.likes||[]).length+')';like.setAttribute('aria-pressed',String(!!post.liked));commentsButton.textContent='Kommentarer ('+(post.comments||0)+')';likedBy.textContent=(post.likes||[]).length?'Likt av '+post.likes.join(', '):'';};
  updateSocial();like.onclick=async()=>{like.disabled=true;try{const data=await request('/items/'+post.id+'/like',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({liked:!post.liked})});post.liked=data.liked;post.likes=data.likes;updateSocial();}catch(e){$('roomError').textContent=e.message;}finally{like.disabled=false;}};
  commentsButton.onclick=()=>openComments(post);social.append(like,commentsButton);body.append(social,likedBy);
- const bottom=element('div','post-bottom');bottom.append(element('span','expires','Forsvinner om '+readableTime(post.expires-Date.now()/1000)));
+ const bottom=element('div','post-bottom');bottom.append(element('span','expires',post.expires?'Forsvinner om '+readableTime(post.expires-Date.now()/1000):'Beholdes til noen sletter innlegget'));
  const remove=element('button','delete','Slett');remove.type='button';remove.setAttribute('aria-label','Slett innlegget fra '+post.name);remove.onclick=async()=>{if(!confirm('Slette innlegget for hele familien?'))return;remove.disabled=true;try{await request('/items/'+post.id,{method:'DELETE'});delete seen[post.id];saveSeen();await load();}catch(e){$('roomError').textContent=e.message;remove.disabled=false;}};bottom.append(remove);body.append(bottom);card.append(wrap,body);feed.append(card);
  }
  updateSeenLabels();
 }
-async function load(){if(loading)return;const epoch=sessionEpoch;loading=true;try{const data=await request('/items');if(epoch!==sessionEpoch)return;if(currentName!==data.name){currentName=data.name;readSeen();}loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);loadChat();}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
+async function load(){if(loading)return;const epoch=sessionEpoch;loading=true;try{const dayAtRequest=selectedDay;const data=await request('/items'+(selectedDay?'?day='+encodeURIComponent(selectedDay):''));if(epoch!==sessionEpoch)return;if(dayAtRequest!==selectedDay){loading=false;load();return;}if(currentName!==data.name){currentName=data.name;readSeen();}loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);loadCalendar();loadChat();}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
 try{$('name').value=localStorage.getItem('motes-family-name')||'';}catch(e){}
 $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{await request('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('name').value,code:$('code').value})});try{localStorage.setItem('motes-family-name',$('name').value);}catch(e){}$('code').value='';await load();}catch(e){$('loginError').textContent=e.message;}finally{$('loginButton').disabled=false;}};
 $('logout').onclick=async()=>{try{await request('/logout',{method:'POST'});showLogin();}catch(e){$('roomError').textContent=e.message;}};
@@ -205,24 +210,53 @@ $('commentForm').onsubmit=async e=>{
 };
 $('commentText').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('commentForm').requestSubmit();}});
 setInterval(()=>{if(loggedIn&&!document.hidden&&$('commentsDialog').open)loadComments();},5000);
+
+function renderCalendar(){
+ const year=calendarMonth.getFullYear(),month=calendarMonth.getMonth(),grid=$('calendarDays');grid.replaceChildren();
+ $('calendarMonth').textContent=calendarMonth.toLocaleDateString('nb-NO',{month:'long',year:'numeric'});
+ for(const day of ['Ma','Ti','On','To','Fr','Lø','Sø'])grid.append(element('span','',day));
+ for(let i=0;i<(new Date(year,month,1).getDay()+6)%7;i++)grid.append(element('span'));
+ for(let day=1;day<=new Date(year,month+1,0).getDate();day++){
+  const key=year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0'),count=calendarCounts[key]||0;
+  const button=element('button','',String(day));button.type='button';button.disabled=!count;button.setAttribute('aria-pressed',String(key===selectedDay));button.setAttribute('aria-label',key+', '+count+' innlegg');
+  if(count)button.append(element('small','',count+' innlegg'));
+  button.onclick=()=>{selectedDay=key;renderCalendar();load();};grid.append(button);
+ }
+ $('selectedDay').textContent=selectedDay?'Viser '+selectedDay+' · opptil 200 innlegg på dagen':'Viser de siste 200 innleggene. Velg en dag for eldre øyeblikk.';
+}
+async function loadCalendar(){const epoch=sessionEpoch;try{const data=await request('/calendar');if(epoch!==sessionEpoch||!loggedIn)return;calendarCounts=data.days;renderCalendar();}catch(e){if(loggedIn)$('selectedDay').textContent=e.message;}}
+$('previousMonth').onclick=()=>{calendarMonth.setMonth(calendarMonth.getMonth()-1);renderCalendar();};
+$('nextMonth').onclick=()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderCalendar();};
+$('clearDay').onclick=()=>{selectedDay='';renderCalendar();load();};
 function clearPreview(){if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl='';$('imagePreview').hidden=true;$('imagePreview').removeAttribute('src');$('videoPreview').pause();$('videoPreview').removeAttribute('src');$('videoPreview').load();$('videoPreview').hidden=true;}
-$('newPost').onclick=()=>{$('postForm').reset();clearPreview();$('postError').textContent='';$('uploadProgress').hidden=true;$('compose').showModal();};
-$('file').onchange=()=>{clearPreview();const file=$('file').files[0];if(!file)return;if(file.size>100*1024*1024){$('postError').textContent='Maks 100 MB. Velg et mindre bilde eller klipp.';return;}$('postError').textContent='';previewUrl=URL.createObjectURL(file);const node=file.type.startsWith('video/')||/\.mov$/i.test(file.name)?$('videoPreview'):$('imagePreview');node.src=previewUrl;node.hidden=false;};
+function fileMime(file){const suffix=(file.name.split('.').pop()||'').toLowerCase();return ({jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',heic:'image/heic',heif:'image/heif',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm'})[suffix]||file.type;}
+function showSelection(){const list=$('selectionList');list.replaceChildren();for(const file of selectedFiles)list.append(element('li','',file.name+' · '+(file.size/1024/1024).toFixed(1)+' MB'));}
+$('newPost').onclick=()=>{$('postForm').reset();selectedFiles=[];showSelection();clearPreview();$('uploadStatus').textContent='';$('postError').textContent='';$('uploadProgress').hidden=true;$('compose').showModal();};
+$('file').onchange=()=>{clearPreview();selectedFiles=Array.from($('file').files);showSelection();$('postError').textContent='';const file=selectedFiles[0];if(!file)return;if(selectedFiles.length>30){$('postError').textContent='Velg opptil 30 filer om gangen.';return;}if(fileMime(file).startsWith('image/')&&!/heic|heif/.test(fileMime(file))||fileMime(file).startsWith('video/')){previewUrl=URL.createObjectURL(file);const node=fileMime(file).startsWith('video/')?$('videoPreview'):$('imagePreview');node.src=previewUrl;node.hidden=false;}};
 function closeCompose(){if(uploading)return;clearPreview();$('compose').close();}
 $('cancelPost').onclick=closeCompose;$('compose').addEventListener('cancel',e=>{if(uploading)e.preventDefault();else clearPreview();});
-$('postForm').onsubmit=e=>{
- e.preventDefault();if(uploading)return;const file=$('file').files[0];if(!file)return;
- if(file.size>100*1024*1024||!file.size){$('postError').textContent='Velg en fil mellom 1 byte og 100 MB.';return;}
- const suffix=(file.name.split('.').pop()||'').toLowerCase(),fallback={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm'},mime=file.type||fallback[suffix];
- if(!Object.values(fallback).includes(mime)){$('postError').textContent='Velg JPG, PNG, WebP, MP4, WebM eller MOV. Lagre HEIC som JPG først.';return;}
- uploading=true;$('sendPost').disabled=true;$('cancelPost').disabled=true;$('file').disabled=true;$('days').disabled=true;$('caption').disabled=true;$('postError').textContent='';$('uploadProgress').hidden=false;$('uploadProgress').value=0;
- const xhr=new XMLHttpRequest(),params=new URLSearchParams({days:$('days').value,caption:$('caption').value});xhr.open('POST',api+'/items?'+params);xhr.timeout=300000;xhr.setRequestHeader('Content-Type',mime);xhr.setRequestHeader('X-Family-Request','1');xhr.upload.onprogress=e=>{if(e.lengthComputable)$('uploadProgress').value=Math.round(e.loaded/e.total*100);};
- const finish=()=>{uploading=false;for(const id of ['sendPost','cancelPost','file','days','caption'])$(id).disabled=false;};
- xhr.onload=()=>{finish();if(xhr.status>=200&&xhr.status<300){try{markSeen(JSON.parse(xhr.responseText).id);}catch(e){}closeCompose();load();}else{let message='Opplastingen mislyktes. Prøv igjen.';try{message=JSON.parse(xhr.responseText).detail||message;}catch(e){}$('postError').textContent=message;if(xhr.status===401){closeCompose();showLogin();}}};xhr.onerror=xhr.ontimeout=()=>{finish();$('postError').textContent='Forbindelsen ble brutt eller tok for lang tid. Prøv igjen.';};xhr.send(file);
+function uploadOne(file,days,caption,onProgress){return new Promise((resolve,reject)=>{
+ const xhr=new XMLHttpRequest(),params=new URLSearchParams({days,caption});xhr.open('POST',api+'/items?'+params);xhr.timeout=300000;xhr.setRequestHeader('Content-Type',fileMime(file));xhr.setRequestHeader('X-Family-Request','1');xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(e.loaded);};
+ xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300){resolve(JSON.parse(xhr.responseText));return;}let message='Opplastingen mislyktes. Prøv igjen.';try{message=JSON.parse(xhr.responseText).detail||message;}catch(e){}reject(new Error(message));};xhr.onerror=xhr.ontimeout=()=>reject(new Error('Forbindelsen ble brutt eller tok for lang tid. Prøv igjen.'));xhr.send(file);
+});}
+$('postForm').onsubmit=async e=>{
+ e.preventDefault();if(uploading)return;const files=[...selectedFiles];if(!files.length)return;
+ if(files.length>30){$('postError').textContent='Velg opptil 30 filer om gangen.';return;}
+ for(const file of files){if(file.size>100*1024*1024||!file.size){$('postError').textContent=file.name+': Velg en fil mellom 1 byte og 100 MB.';return;}if(!['image/jpeg','image/png','image/webp','image/heic','image/heif','video/mp4','video/quicktime','video/webm'].includes(fileMime(file))){$('postError').textContent=file.name+': Filformatet støttes ikke.';return;}}
+ uploading=true;const controls=['sendPost','cancelPost','file','days','caption'];controls.forEach(id=>$(id).disabled=true);$('postError').textContent='';$('uploadProgress').hidden=false;$('uploadProgress').value=0;
+ const days=$('days').value,caption=$('caption').value,total=files.reduce((n,f)=>n+f.size,0);let done=0;const failed=[],errors=[];
+ try{
+ for(let i=0;i<files.length;i++){const file=files[i];$('uploadStatus').textContent='Laster opp '+(i+1)+' av '+files.length+': '+file.name;
+ try{const result=await uploadOne(file,days,caption,loaded=>{$('uploadProgress').value=Math.round((done+loaded)/total*100);});markSeen(result.id);}catch(error){failed.push(file);errors.push(file.name+': '+error.message);}
+ done+=file.size;$('uploadProgress').value=Math.round(done/total*100);
+ }
+ selectedFiles=failed;showSelection();$('uploadStatus').textContent=(files.length-failed.length)+' av '+files.length+' filer delt.';
+ if(failed.length){$('postError').textContent=errors.join('\n')+'\nTrykk «Del med familien» for å prøve bare de mislykkede filene igjen.';}else{$('file').value='';}
+ }finally{uploading=false;controls.forEach(id=>$(id).disabled=false);if(!failed.length)closeCompose();await load();}
 };
 setInterval(()=>{
  for(const card of document.querySelectorAll('#feed .post')){
-  if(Number(card.dataset.expires)<=Date.now()/1000){
+  if(Number(card.dataset.expires)>0&&Number(card.dataset.expires)<=Date.now()/1000){
    const video=card.querySelector('video');if(video){video.pause();video.removeAttribute('src');video.load();}
    if($('commentsDialog').open&&commentPost?.id===card.dataset.ident){$('commentsDialog').close();commentPost=null;}
    if($('lightbox').open&&$('largeImage').getAttribute('src')==='/familie/media/'+card.dataset.ident){$('lightbox').close();$('largeImage').removeAttribute('src');}

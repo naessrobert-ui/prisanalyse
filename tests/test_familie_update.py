@@ -58,3 +58,47 @@ shutil.copyfile(os.environ['MOCK_REPO']+'/familie/'+url.rsplit('/',1)[1],args[ar
             assert not log.exists()
         else:
             assert 'systemctl restart motes-familie' in log.read_text()
+
+
+@pytest.mark.parametrize('pip_ok', [True, False])
+def test_dependency_install_happens_before_service_stop(tmp_path, pip_ok):
+    repo = Path(__file__).resolve().parents[1]
+    install = tmp_path / 'install'
+    package = install / 'app/familie'
+    package.mkdir(parents=True)
+    (package / 'server.py').write_text('# original code\n')
+    (package / 'requirements.txt').write_text('old-dependencies\n')
+    (install / 'data').mkdir()
+    (install / 'data/access.json').write_text('private')
+    binary = install / 'venv/bin'
+    binary.mkdir(parents=True)
+    mocks = tmp_path / 'bin'
+    mocks.mkdir()
+    python = binary / 'python'
+    python.write_text('#!/bin/sh\nif [ "$2" = "pip" ]; then echo pip >> "$MOCK_LOG"; exit '+('0' if pip_ok else '1')+'; fi\nexec '+shutil.which('python3')+' "$@"\n')
+    python.chmod(0o755)
+    scripts = {
+        'sudo': '#!/bin/sh\necho "$*" >> "$MOCK_LOG"\n',
+        'curl': '''#!/usr/bin/env python3
+import sys,os,shutil
+if any('127.0.0.1' in a for a in sys.argv):print('{"ok":true}');sys.exit(0)
+url=next(a for a in sys.argv if a.startswith('https://'))
+shutil.copyfile(os.environ['MOCK_REPO']+'/familie/'+url.rsplit('/',1)[1],sys.argv[sys.argv.index('-o')+1])
+''',
+    }
+    for name, content in scripts.items():
+        (mocks / name).write_text(content)
+        (mocks / name).chmod(0o755)
+    log = tmp_path / 'log'
+    env = {**os.environ, 'PATH': str(mocks) + os.pathsep + os.environ['PATH'], 'MOTES_INSTALL_DIR': str(install), 'MOCK_LOG': str(log), 'MOCK_REPO': str(repo)}
+    result = subprocess.run(['bash', str(repo / 'deploy/pi/familie/update.sh')], env=env, capture_output=True, text=True, timeout=15)
+    assert (install / 'data/access.json').read_text() == 'private'
+    commands = log.read_text().splitlines()
+    assert commands[0] == 'pip'
+    if pip_ok:
+        assert result.returncode == 0, result.stderr
+        assert commands[1] == 'systemctl stop motes-familie'
+    else:
+        assert result.returncode != 0
+        assert commands == ['pip']
+        assert (package / 'server.py').read_text() == '# original code\n'

@@ -98,7 +98,7 @@ def test_invalid_retention_files_and_upload_limits(family, monkeypatch):
     import familie.server as server
     app, client, root = family
     login(client)
-    for days in (0, 2, 8, 'forever'):
+    for days in (-1, 2, 8, 'forever'):
         assert upload(client, days).status_code == 400
     headers = {'X-Family-Request': '1', 'Content-Type': 'image/png'}
     assert client.post('/familie/api/items', content=b'<script>bad</script>', headers=headers).status_code == 415
@@ -319,3 +319,114 @@ def test_expired_or_deleted_posts_reject_and_remove_social_content(family):
         with sqlite3.connect(root / 'posts.sqlite3') as conn:
             assert conn.execute('SELECT COUNT(*) FROM comments WHERE post_id=?', (post_id,)).fetchone()[0] == 0
             assert conn.execute('SELECT COUNT(*) FROM reactions WHERE post_id=?', (post_id,)).fetchone()[0] == 0
+
+
+def test_mobile_mime_detection_and_heic_conversion(family):
+    from pillow_heif import from_pillow
+    app, client, root = family
+    login(client)
+    # Some phones supply a MIME hint that differs from the encoded image.
+    response = client.post('/familie/api/items', content=photo(), headers={'X-Family-Request': '1', 'Content-Type': 'image/jpeg'})
+    assert response.status_code == 200
+    ident = response.json()['id']
+    assert client.get('/familie/media/' + ident).headers['content-type'] == 'image/png'
+    data = io.BytesIO()
+    from_pillow(Image.new('RGB', (24, 16), '#216052')).save(data)
+    for mime in ('image/heic', 'image/jpeg'):
+        response = client.post('/familie/api/items', content=data.getvalue(), headers={'X-Family-Request': '1', 'Content-Type': mime})
+        assert response.status_code == 200, response.text
+        media = client.get('/familie/media/' + response.json()['id'])
+        assert media.headers['content-type'] == 'image/jpeg'
+        with Image.open(io.BytesIO(media.content)) as image:
+            assert image.format == 'JPEG' and image.size == (24, 16)
+
+
+def test_capture_metadata_calendar_and_retention_are_independent(family):
+    app, client, root = family
+    assert client.get('/familie/api/calendar').status_code == 401
+    login(client)
+    data = io.BytesIO()
+    exif = Image.Exif()
+    exif[34665] = {36867: '2024:07:02 23:45:00', 36881: '+02:00'}
+    Image.new('RGB', (10, 10)).save(data, format='JPEG', exif=exif)
+    response = client.post('/familie/api/items', params={'days': 3}, content=data.getvalue(), headers={'X-Family-Request': '1', 'Content-Type': 'image/jpeg'})
+    assert response.status_code == 200
+    item = client.get('/familie/api/items').json()['items'][0]
+    assert item['recorded_at'] == '2024-07-02T23:45:00+02:00'
+    assert item['calendar_day'] == '2024-07-02'
+    assert item['expires'] - item['created'] == 3 * 86400
+    assert client.get('/familie/api/calendar').json()['days'] == {'2024-07-02': 1}
+    assert len(client.get('/familie/api/items?day=2024-07-02').json()['items']) == 1
+    assert not client.get('/familie/api/items?day=2024-07-03').json()['items']
+    client.delete('/familie/api/items/' + item['id'], headers={'X-Family-Request': '1'})
+    assert not client.get('/familie/api/calendar').json()['days']
+
+
+def test_calendar_reaches_posts_beyond_latest_200(family):
+    app, client, root = family
+    login(client)
+    now = time.time()
+    with sqlite3.connect(root / 'posts.sqlite3') as conn:
+        for number in range(205):
+            conn.execute('INSERT INTO posts (id,mime,suffix,name,caption,created,expires,bytes,recorded_at) VALUES (?,?,?,?,?,?,?,?,?)',
+                         (f'{number:032x}', 'image/png', '.png', 'Robert', '', now + number, now + 86400, 1,
+                          '2020-01-01T12:00:00' if number == 0 else '2026-11-14T12:00:00'))
+    assert len(client.get('/familie/api/items').json()['items']) == 200
+    assert client.get('/familie/api/calendar').json()['days']['2020-01-01'] == 1
+    assert len(client.get('/familie/api/items?day=2020-01-01').json()['items']) == 1
+
+
+def test_mp4_capture_time_and_bad_metadata(tmp_path):
+    from datetime import datetime, timezone
+    from familie.server import recording_time
+    def atom(kind, data):
+        return (len(data) + 8).to_bytes(4, 'big') + kind + data
+    seconds = int((datetime(2024, 8, 9, 12, tzinfo=timezone.utc) - datetime(1904, 1, 1, tzinfo=timezone.utc)).total_seconds())
+    path = tmp_path / 'clip.mp4'
+    for version in (0, 1):
+        payload = bytes([version, 0, 0, 0]) + seconds.to_bytes(8 if version else 4, 'big') + b'\0' * 8
+        path.write_bytes(atom(b'ftyp', b'isom\0\0\0\0') + atom(b'moov', atom(b'mvhd', payload)))
+        assert recording_time(path, 'video/mp4') == ('2024-08-09T12:00:00+00:00', 'video_metadata')
+    path.write_bytes(atom(b'moov', b'\0\0\0\x04mvhd'))
+    assert recording_time(path, 'video/mp4') == (None, None)
+
+
+def test_keep_until_deleted_survives_cleanup_and_restart(family):
+    app, client, root = family
+    login(client)
+    ident = upload(client, days=0).json()['id']
+    item = client.get('/familie/api/items').json()['items'][0]
+    assert item['expires'] == 0
+    app.state.cleanup()
+    assert client.get('/familie/media/' + ident).status_code == 200
+    assert client.get('/familie/api/calendar').json()['days'][item['calendar_day']] == 1
+    assert client.post('/familie/api/items/' + ident + '/like', json={'liked': True}, headers={'X-Family-Request': '1'}).status_code == 200
+    with TestClient(create_app(root, secure_cookie=False), base_url='http://localhost') as restarted:
+        login(restarted)
+        assert restarted.get('/familie/media/' + ident).status_code == 200
+        assert restarted.delete('/familie/api/items/' + ident, headers={'X-Family-Request': '1'}).status_code == 200
+        assert restarted.get('/familie/media/' + ident).status_code == 404
+    assert not list((root / 'media').iterdir())
+
+
+def test_legacy_database_capture_backfill_preserves_posts(tmp_path):
+    salt = secrets.token_hex(16)
+    (tmp_path / 'access.json').write_text(json.dumps({'salt': salt, 'code_hash': code_hash('familie-test-kode', salt), 'session_key': secrets.token_hex(32)}))
+    media = tmp_path / 'media'
+    media.mkdir()
+    ident = 'a' * 32
+    exif = Image.Exif()
+    exif[34665] = {36867: '2021:08:09 10:11:12'}
+    Image.new('RGB', (10, 10)).save(media / (ident + '.jpg'), exif=exif)
+    now = time.time()
+    with sqlite3.connect(tmp_path / 'posts.sqlite3') as conn:
+        conn.execute('CREATE TABLE posts (id TEXT PRIMARY KEY,mime TEXT NOT NULL,suffix TEXT NOT NULL,name TEXT NOT NULL,caption TEXT NOT NULL,created REAL NOT NULL,expires REAL NOT NULL,bytes INTEGER NOT NULL)')
+        conn.execute('INSERT INTO posts VALUES (?,?,?,?,?,?,?,?)', (ident, 'image/jpeg', '.jpg', 'Robert', 'Gammelt bilde', now, now + 86400, 100))
+    app = create_app(tmp_path, secure_cookie=False)
+    with TestClient(app, base_url='http://localhost') as client:
+        login(client)
+        item = client.get('/familie/api/items').json()['items'][0]
+        assert item['recorded_at'] == '2021-08-09T10:11:12'
+        assert item['caption'] == 'Gammelt bilde'
+        assert item['expires'] == now + 86400
+        assert client.get('/familie/media/' + ident).status_code == 200

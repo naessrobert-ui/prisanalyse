@@ -12,20 +12,97 @@ import re
 import secrets
 import shutil
 import sqlite3
+import struct
 import time
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from contextlib import asynccontextmanager, contextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
+from pillow_heif import register_heif_opener
+
+register_heif_opener()
 
 COOKIE = "motes_family_session"
 MAX_FILE = 100 * 1024 * 1024
 MAX_TOTAL = 10 * 1024**3
 SESSION_SECONDS = 7 * 86400
-Image.MAX_IMAGE_PIXELS = 25_000_000
-ALLOWED_IMAGES = {"JPEG": ("image/jpeg", ".jpg"), "PNG": ("image/png", ".png"), "WEBP": ("image/webp", ".webp")}
+Image.MAX_IMAGE_PIXELS = 60_000_000
+ALLOWED_IMAGES = {"JPEG": ("image/jpeg", ".jpg"), "PNG": ("image/png", ".png"), "WEBP": ("image/webp", ".webp"), "HEIF": ("image/jpeg", ".jpg")}
+
+
+def recording_time(path: Path, mime: str) -> tuple[str | None, str | None]:
+    """Read capture metadata, never mistake file modification time for capture time."""
+    try:
+        if mime.startswith("image/"):
+            with Image.open(path) as image:
+                exif = image.getexif()
+                details = exif.get_ifd(34665) if 34665 in exif else exif
+                raw = details.get(36867) or details.get(36868)
+                if not raw:
+                    return None, None
+                value = datetime.strptime(str(raw).strip(), "%Y:%m:%d %H:%M:%S")
+                offset = details.get(36881) or details.get(36882)
+                if offset and re.fullmatch(r"[+-]\d{2}:\d{2}", str(offset)):
+                    sign = 1 if offset[0] == "+" else -1
+                    value = value.replace(tzinfo=timezone(sign * timedelta(hours=int(offset[1:3]), minutes=int(offset[4:6]))))
+                return value.isoformat(), "exif"
+        if mime in {"video/mp4", "video/quicktime"}:
+            # Seek over video payloads; bound malformed atom traversal.
+            with path.open("rb") as stream:
+                size = path.stat().st_size
+                def atoms(start, end, depth=0):
+                    if depth > 4:
+                        return None
+                    position = start
+                    for _ in range(4096):
+                        if position + 8 > end:
+                            break
+                        stream.seek(position)
+                        header = stream.read(8)
+                        length, kind = int.from_bytes(header[:4], "big"), header[4:]
+                        width = 8
+                        if length == 1:
+                            length = int.from_bytes(stream.read(8), "big")
+                            width = 16
+                        elif length == 0:
+                            length = end - position
+                        if length < width or position + length > end:
+                            break
+                        if kind == b"moov":
+                            found = atoms(position + width, position + length, depth + 1)
+                            if found:
+                                return found
+                        elif kind == b"mvhd":
+                            payload = stream.read(min(16, length - width))
+                            version = payload[0] if payload else -1
+                            count = 8 if version == 1 else 4
+                            if version in {0, 1} and len(payload) >= 4 + count:
+                                seconds = int.from_bytes(payload[4:4 + count], "big")
+                                if seconds:
+                                    value = datetime(1904, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=seconds)
+                                    if 1970 <= value.year <= datetime.now(timezone.utc).year + 1:
+                                        return value.isoformat()
+                        position += length
+                    return None
+                found = atoms(0, size)
+                if found:
+                    return found, "video_metadata"
+    except (OSError, ValueError, TypeError, OverflowError, SyntaxError, KeyError, IndexError, RuntimeError, struct.error, Image.DecompressionBombError):
+        pass
+    return None, None
+
+
+def calendar_day(item: dict) -> str:
+    value = item.get("recorded_at")
+    if value:
+        date = datetime.fromisoformat(value)
+        # Camera timestamps without an offset preserve their original local day.
+        return (date.astimezone(ZoneInfo("Europe/Oslo")) if date.tzinfo else date).date().isoformat()
+    return datetime.fromtimestamp(item["created"], ZoneInfo("Europe/Oslo")).date().isoformat()
 
 
 def code_hash(code: str, salt: str) -> str:
@@ -60,6 +137,12 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
           name TEXT NOT NULL, caption TEXT NOT NULL, created REAL NOT NULL,
           expires REAL NOT NULL, bytes INTEGER NOT NULL)""")
         conn.execute("CREATE INDEX IF NOT EXISTS posts_expiry ON posts(expires)")
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(posts)")}
+        needs_capture_backfill = "recorded_at" not in columns
+        for column in ("recorded_at", "recorded_source"):
+            if column not in columns:
+                conn.execute(f"ALTER TABLE posts ADD COLUMN {column} TEXT")
+
         conn.execute("""CREATE TABLE IF NOT EXISTS messages (
           id TEXT PRIMARY KEY, name TEXT NOT NULL, text TEXT NOT NULL,
           created REAL NOT NULL, expires REAL NOT NULL)""")
@@ -74,13 +157,20 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
           name TEXT NOT NULL, text TEXT NOT NULL, created REAL NOT NULL)""")
         conn.execute("CREATE INDEX IF NOT EXISTS comments_post ON comments(post_id,created)")
 
+    if needs_capture_backfill:
+        with db() as conn:
+            for row in conn.execute("SELECT id,suffix,mime FROM posts WHERE (expires=0 OR expires>?)", (time.time(),)).fetchall():
+                captured, source = recording_time(media / (row["id"] + row["suffix"]), row["mime"])
+                if captured:
+                    conn.execute("UPDATE posts SET recorded_at=?,recorded_source=? WHERE id=?", (captured, source, row["id"]))
+
     def cleanup():
         now = time.time()
         with db() as conn:
             conn.execute("DELETE FROM messages WHERE expires<=?", (now,))
             conn.execute("DELETE FROM comments WHERE post_id NOT IN (SELECT id FROM posts)")
             conn.execute("DELETE FROM reactions WHERE post_id NOT IN (SELECT id FROM posts)")
-            expired = conn.execute("SELECT id,suffix FROM posts WHERE expires<=?", (now,)).fetchall()
+            expired = conn.execute("SELECT id,suffix FROM posts WHERE expires!=0 AND expires<=?", (now,)).fetchall()
             for row in expired:
                 (media / (row["id"] + row["suffix"])).unlink(missing_ok=True)
                 conn.execute("DELETE FROM posts WHERE id=?", (row["id"],))
@@ -201,15 +291,33 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
     async def items(request: Request):
         name = user(request)
         with db() as conn:
-            rows = conn.execute("SELECT * FROM posts WHERE expires>? ORDER BY created DESC LIMIT 200", (time.time(),)).fetchall()
+            rows = conn.execute("SELECT * FROM posts WHERE (expires=0 OR expires>?) ORDER BY created DESC", (time.time(),)).fetchall()
+            selected_day = request.query_params.get("day", "")
+            if selected_day and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", selected_day):
+                raise HTTPException(400, "Velg en gyldig kalenderdag.")
             result = []
             for row in rows:
                 item = dict(row)
+                item["calendar_day"] = calendar_day(item)
+                if selected_day and item["calendar_day"] != selected_day:
+                    continue
+                if len(result) >= 200:
+                    break
                 likes = conn.execute("SELECT author_key,name FROM reactions WHERE post_id=? ORDER BY name", (row["id"],)).fetchall()
                 item.update(likes=[like["name"] for like in likes], liked=any(like["author_key"] == name.casefold() for like in likes),
                             comments=conn.execute("SELECT COUNT(*) FROM comments WHERE post_id=?", (row["id"],)).fetchone()[0])
                 result.append(item)
         return {"name": name, "items": result}
+
+    @app.get("/familie/api/calendar")
+    async def calendar(request: Request):
+        user(request)
+        counts = {}
+        with db() as conn:
+            for row in conn.execute("SELECT created,recorded_at FROM posts WHERE (expires=0 OR expires>?)", (time.time(),)):
+                day = calendar_day(dict(row))
+                counts[day] = counts.get(day, 0) + 1
+        return {"days": counts}
 
     async def message_payload(request):
         body = bytearray()
@@ -230,7 +338,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
         return text, ident
 
     def require_post(conn, ident):
-        if not conn.execute("SELECT id FROM posts WHERE id=? AND expires>?", (ident, time.time())).fetchone():
+        if not conn.execute("SELECT id FROM posts WHERE id=? AND (expires=0 OR expires>?)", (ident, time.time())).fetchone():
             raise HTTPException(404, "Innlegget er slettet eller har gått ut.")
 
     @app.post("/familie/api/items/{post_id}/like")
@@ -338,13 +446,13 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
         try:
             days = int(request.query_params.get("days", "1"))
         except ValueError:
-            days = 0
-        if days not in {1, 3, 7}:
-            raise HTTPException(400, "Velg 1, 3 eller 7 døgn.")
+            days = -1
+        if days not in {0, 1, 3, 7}:
+            raise HTTPException(400, "Velg 1 døgn, 1 uke eller til innlegget slettes.")
         caption = request.query_params.get("caption", "").strip()[:500]
         mime = request.headers.get("content-type", "").split(";", 1)[0].lower()
-        if mime not in {"image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime"}:
-            raise HTTPException(415, "Velg JPG, PNG, WebP, MP4, WebM eller MOV. HEIC må først lagres som JPG.")
+        if mime not in {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "video/mp4", "video/webm", "video/quicktime"}:
+            raise HTTPException(415, "Velg JPG, PNG, WebP, MP4, WebM eller MOV. HEIC og HEIF støttes også.")
         # An upload is capped at 100 MiB; no client-controlled filesystem paths are used.
         ident = secrets.token_hex(16)
         temp = media / (ident + ".part")
@@ -369,14 +477,30 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                 if header is None:
                     with temp.open("rb") as f:
                         header = f.read(32)
+                recorded_at, recorded_source = await asyncio.to_thread(recording_time, temp, mime)
                 if mime.startswith("image/"):
                     try:
                         with Image.open(temp) as image:
                             actual = ALLOWED_IMAGES.get(image.format)
+                            source_format = image.format
+                            if image.width * image.height > Image.MAX_IMAGE_PIXELS:
+                                raise ValueError()
                             image.verify()
-                        if not actual or actual[0] != mime:
+                        if not actual:
                             raise ValueError()
-                    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+                        if source_format == "HEIF":
+                            converted = temp.with_suffix(".converted")
+                            try:
+                                with Image.open(temp) as image:
+                                    image = ImageOps.exif_transpose(image)
+                                    image.thumbnail((4096, 4096))
+                                    image.convert("RGB").save(converted, "JPEG", quality=90)
+                                converted.replace(temp)
+                                size = temp.stat().st_size
+                            finally:
+                                converted.unlink(missing_ok=True)
+                        mime = actual[0]
+                    except (UnidentifiedImageError, OSError, ValueError, RuntimeError, Image.DecompressionBombError):
                         raise HTTPException(415, "Bildet kunne ikke leses. Prøv et annet bilde.")
                     suffix = actual[1]
                 else:
@@ -390,7 +514,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                 temp.replace(final)
                 now = time.time()
                 with db() as conn:
-                    conn.execute("INSERT INTO posts VALUES (?,?,?,?,?,?,?,?)", (ident, mime, suffix, name, caption, now, now + days * 86400, size))
+                    conn.execute("INSERT INTO posts (id,mime,suffix,name,caption,created,expires,bytes,recorded_at,recorded_source) VALUES (?,?,?,?,?,?,?,?,?,?)", (ident, mime, suffix, name, caption, now, now + days * 86400 if days else 0, size, recorded_at, recorded_source))
                 return {"id": ident}
             except BaseException:
                 if final:
@@ -405,7 +529,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
         if not re.fullmatch(r"[0-9a-f]{32}", ident):
             raise HTTPException(404)
         with db() as conn:
-            row = conn.execute("SELECT * FROM posts WHERE id=? AND expires>?", (ident, time.time())).fetchone()
+            row = conn.execute("SELECT * FROM posts WHERE id=? AND (expires=0 OR expires>?)", (ident, time.time())).fetchone()
         if not row:
             raise HTTPException(404, "Innlegget er slettet eller har gått ut.")
         path = media / (ident + row["suffix"])
