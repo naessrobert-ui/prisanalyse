@@ -64,7 +64,7 @@ def test_media_roundtrip_range_logout_and_deletion(family):
     path = '/familie/media/' + ident
     media = client.get(path)
     assert media.content == photo() and media.headers['content-type'] == 'image/png'
-    assert media.headers['cache-control'] == 'private, no-store'
+    assert media.headers['cache-control'] == 'private, no-cache, must-revalidate'
     assert 'noindex' in media.headers['x-robots-tag']
     partial = client.get(path, headers={'range': 'bytes=0-9'})
     assert partial.status_code == 206 and partial.content == photo()[:10]
@@ -647,3 +647,54 @@ def test_gopro_jpg_with_mpf_metadata_detected_as_mpo(family):
     media = client.get('/familie/media/' + response.json()['id'])
     assert media.headers['content-type'] == 'image/jpeg'
     assert media.content == raw
+
+
+def test_private_media_cache_revalidates_auth_deletion_and_expiry(family):
+    app, client, root = family
+    login(client)
+    ident = upload(client).json()['id']
+    path = '/familie/media/' + ident
+    original = client.get(path)
+    etag = original.headers['etag']
+    modified = original.headers['last-modified']
+    assert original.headers['vary'] == 'Cookie'
+    for headers in ({'If-None-Match': etag}, {'If-None-Match': 'W/' + etag}, {'If-Modified-Since': modified}):
+        response = client.get(path, headers=headers)
+        assert response.status_code == 304 and response.content == b''
+        assert response.headers['cache-control'] == 'private, no-cache, must-revalidate'
+    assert client.head(path, headers={'If-None-Match': etag}).status_code == 304
+    assert client.get(path, headers={'If-None-Match': '"different"', 'If-Modified-Since': modified}).status_code == 200
+    partial = client.get(path, headers={'Range': 'bytes=0-9', 'If-Range': etag})
+    assert partial.status_code == 206 and partial.content == photo()[:10]
+    client.post('/familie/api/logout', headers={'X-Family-Request': '1'})
+    blocked = client.get(path, headers={'If-None-Match': etag})
+    assert blocked.status_code == 401 and blocked.headers['cache-control'] == 'private, no-store'
+    login(client)
+    with sqlite3.connect(root / 'posts.sqlite3') as conn:
+        conn.execute('UPDATE posts SET expires=? WHERE id=?', (time.time() - 1, ident))
+    assert client.get(path, headers={'If-None-Match': etag}).status_code == 404
+    with sqlite3.connect(root / 'posts.sqlite3') as conn:
+        conn.execute('UPDATE posts SET expires=0 WHERE id=?', (ident,))
+    assert client.get(path, headers={'If-None-Match': etag}).status_code == 304
+    client.delete('/familie/api/items/' + ident, headers={'X-Family-Request': '1'})
+    assert client.get(path, headers={'If-Modified-Since': modified}).status_code == 404
+
+
+def test_proxy_preserves_conditional_media_requests_and_304(monkeypatch):
+    import familie_proxy
+    monkeypatch.setenv('FAMILY_ORIGIN', 'https://pi.example.ts.net:8443')
+    async def upstream(request):
+        assert request.headers['if-none-match'] == '"family-test"'
+        assert request.headers['if-modified-since'] == 'Sat, 14 Nov 2026 12:00:00 GMT'
+        assert request.headers['cookie'] == 'motes_family_session=family-token'
+        assert 'authorization' not in request.headers
+        return httpx.Response(304, headers={'ETag': '"family-test"', 'Last-Modified': 'Sat, 14 Nov 2026 12:00:00 GMT', 'Vary': 'Cookie', 'Cache-Control': 'private, no-cache, must-revalidate'})
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(familie_proxy.httpx, 'AsyncClient', lambda **kwargs: real_client(transport=httpx.MockTransport(upstream), **kwargs))
+    app = FastAPI()
+    app.include_router(familie_proxy.router)
+    with TestClient(app) as client:
+        response = client.get('/familie/media/abc', headers={'If-None-Match': '"family-test"', 'If-Modified-Since': 'Sat, 14 Nov 2026 12:00:00 GMT', 'Cookie': 'session=secret; motes_family_session=family-token'})
+        assert response.status_code == 304 and response.content == b''
+        assert response.headers['etag'] == '"family-test"' and response.headers['vary'] == 'Cookie'
+        assert response.headers['cache-control'] == 'private, no-cache, must-revalidate'

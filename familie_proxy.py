@@ -4,12 +4,12 @@ from urllib.parse import urlsplit
 
 import httpx
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 router = APIRouter()
 # Credentials and hop-by-hop headers from the main site must not reach the Pi.
-REQUEST_HEADERS = {"content-type", "content-length", "range", "if-range", "x-family-request"}
-RESPONSE_HEADERS = {"content-type", "content-length", "content-encoding", "content-range", "accept-ranges", "set-cookie", "cache-control", "x-content-type-options", "referrer-policy", "x-robots-tag", "content-security-policy"}
+REQUEST_HEADERS = {"content-type", "content-length", "range", "if-range", "if-none-match", "if-modified-since", "x-family-request"}
+RESPONSE_HEADERS = {"content-type", "content-length", "content-encoding", "content-range", "accept-ranges", "set-cookie", "cache-control", "x-content-type-options", "referrer-policy", "x-robots-tag", "content-security-policy", "etag", "last-modified", "vary"}
 
 
 @router.api_route('/familie', methods=['GET', 'HEAD', 'POST', 'DELETE'])
@@ -55,4 +55,8 @@ async def family_proxy(request: Request, path: str = ''):
             await client.aclose()
 
     response_headers = {k: v for k, v in upstream.headers.items() if k.lower() in RESPONSE_HEADERS}
+    if request.method == 'HEAD' or upstream.status_code in {204, 304}:
+        await upstream.aclose()
+        await client.aclose()
+        return Response(status_code=upstream.status_code, headers=response_headers)
     return StreamingResponse(stream(), status_code=upstream.status_code, headers=response_headers)

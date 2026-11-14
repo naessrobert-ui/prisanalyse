@@ -14,13 +14,14 @@ import shutil
 import sqlite3
 import struct
 import time
+from email.utils import formatdate, parsedate_to_datetime
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from contextlib import asynccontextmanager, contextmanager, suppress
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 from familie.notifications import FamilyPush, valid_subscription
@@ -250,7 +251,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
     async def privacy_headers(request, call_next):
         response = await call_next(request)
         response.headers.update({
-            "Cache-Control": "private, no-store",
+            "Cache-Control": response.headers.get("Cache-Control") or "private, no-store",
             "X-Content-Type-Options": "nosniff",
             "Referrer-Policy": "no-referrer",
             "X-Robots-Tag": "noindex, nofollow, noarchive",
@@ -265,7 +266,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
 
     @app.get("/familie/health")
     async def health():
-        return {"ok": True, "version": "family-2026-11-slekt-push"}
+        return {"ok": True, "version": "family-2026-11-private-cache"}
 
     @app.get("/familie/slekt", response_class=HTMLResponse)
     async def genealogy_page(request: Request):
@@ -733,7 +734,25 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
         path = media / (ident + row["suffix"])
         if not path.is_file():
             raise HTTPException(404)
-        return FileResponse(path, media_type=row["mime"], filename=(row["filename"] or "nedlasting") if row["mime"] == "application/octet-stream" else None)
+        # Authenticate and check expiry/existence BEFORE any conditional response.
+        # IDs are immutable: a new upload always receives a different URL.
+        modified = int(path.stat().st_mtime)
+        etag = f'"family-{ident}-{row["bytes"]}"'
+        headers = {"Cache-Control": "private, no-cache, must-revalidate", "ETag": etag,
+                   "Last-Modified": formatdate(modified, usegmt=True), "Vary": "Cookie"}
+        supplied = request.headers.get("if-none-match")
+        unchanged = False
+        if supplied is not None:
+            unchanged = any(tag.strip().removeprefix("W/") in {etag, "*"} for tag in supplied.split(","))
+        elif request.headers.get("if-modified-since"):
+            try:
+                unchanged = parsedate_to_datetime(request.headers["if-modified-since"]).timestamp() >= modified
+            except (ValueError, TypeError, OverflowError):
+                pass
+        if unchanged:
+            return Response(status_code=304, headers=headers)
+        return FileResponse(path, media_type=row["mime"], headers=headers,
+                            filename=(row["filename"] or "nedlasting") if row["mime"] == "application/octet-stream" else None)
 
     @app.delete("/familie/api/items/{ident}")
     async def delete_item(ident: str, request: Request):

@@ -238,3 +238,24 @@ ikke til den som opprettet tråden.
 Ved avvist bilde logges feiltypen og byteantallet uten filnavn, bilde eller EXIF.
 Bilder over 60 megapiksler får en egen melding om oppløsning. En syntetisk JPEG
 på 5568 × 4872 piksler testes både som vanlig og progressiv JPEG.
+
+## Mediecache og oppdatering uten ombygging
+
+Bilder, videoklipp og nedlastbare vedlegg bruker `Cache-Control: private, no-cache,
+must-revalidate` og `Vary: Cookie`. Nettleseren kan lagre filen privat, men må
+validere den mot serveren før HTTP-cachen gjenbrukes. ETag og Last-Modified gir en
+304-respons uten filinnhold når filen er uendret. Innlogging, utløp og filens eksistens
+sjekkes før 304 kan returneres. Ugyldig sesjon gir 401; utløpte/slettede filer gir 404.
+Disse feilresponsene, HTML-sider og API-data beholder `private, no-store`.
+
+Render-proxyen videresender If-None-Match, If-Modified-Since, ETag, Last-Modified og
+Vary, i tillegg til tidligere range-hoder. Både Pi-koden og Render-proxyen må være
+oppdatert for full cachevirkning. Ingen mediefiler lagres i Render eller en delt CDN-cache.
+
+Ved den vanlige sjekken hvert minutt oppdateres listen over innlegg, mens eksisterende
+medieelementer beholdes. Nye innlegg legges til, og slettede/utløpte innlegg fjernes.
+Liker-markeringer og kommentarantall oppdateres uten å bygge om bilder/videoer.
+Videoklipp får ikke src før brukeren trykker «Spill av video»; det lastes derfor ikke
+videometadata eller videoinnhold bare fordi kortet vises. En pågående avspilling
+beholder samme videoelement ved oppdatering. Bilder utenfor synsfeltet bruker lazy loading.
+Allerede viste eller manuelt lagrede kopier kan ikke trekkes tilbake fra mottakerens enhet.

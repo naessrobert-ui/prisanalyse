@@ -107,13 +107,20 @@ function updateSeenLabels(){
 }
 function markSeen(id){seen[id]={...(seen[id]||{}),seen:true,position:0,at:Date.now()};saveSeen();updateSeenLabels();}
 function render(items){
- document.querySelectorAll('#feed video').forEach(v=>v.pause());posts=items;const feed=$('feed');feed.replaceChildren();updateSeenLabels();
+ const feed=$('feed'),existing=new Map([...feed.querySelectorAll('.post')].map(card=>[card.dataset.ident,card]));
+ items=items.map(post=>{const card=existing.get(post.id);if(card?._post){Object.assign(card._post,post);return card._post;}return post;});posts=items;
+ const visibleIds=new Set(items.filter(p=>(!p.expires||p.expires>Date.now()/1000)&&(!onlyNew||!seen[p.id]?.seen)).map(p=>p.id));
+ for(const [id,card] of existing){if(!visibleIds.has(id)){const video=card.querySelector('video');if(video?.getAttribute('src')){video.pause();video.removeAttribute('src');video.load();}card.remove();existing.delete(id);}}
+ feed.querySelectorAll(':scope > :not(.post)').forEach(node=>node.remove());updateSeenLabels();
  const visible=items.filter(p=>(!p.expires||p.expires>Date.now()/1000)&&(!onlyNew||!seen[p.id]?.seen));
  if(!visible.length){const box=element('div','empty');box.append(element('div','symbol','♡'),element('strong','',selectedDay?'Ingen innlegg på denne datoen.':onlyNew?'Du har sett alle øyeblikkene.':'Det begynner med en liten hilsen.'),element('p','',onlyNew?'Velg «Alle» for å se bilder og videoklipp igjen.':'Del et bilde fra turen, en videohilsen eller noe fint fra dagen din.'));feed.append(box);return;}
  for(const post of visible){
- const card=element('article','post');card.dataset.expires=post.expires;card.dataset.ident=post.id;const isVideo=post.mime.startsWith('video/'),isFile=!isVideo&&!post.mime.startsWith('image/'),media=element(isFile?'a':isVideo?'video':'img'),wrap=element('div','media-wrap'),flag=element('span','post-state');wrap.append(media,flag);media.src='/familie/media/'+post.id;
+ const kept=existing.get(post.id);if(kept){kept._updateSocial();kept.querySelector('.expires').textContent=post.expires?'Forsvinner om '+readableTime(post.expires-Date.now()/1000):'Beholdes til noen sletter innlegget';continue;}
+ const card=element('article','post');card._post=post;card.dataset.expires=post.expires;card.dataset.ident=post.id;const isVideo=post.mime.startsWith('video/'),isFile=!isVideo&&!post.mime.startsWith('image/'),media=element(isFile?'a':isVideo?'video':'img'),wrap=element('div','media-wrap'),flag=element('span','post-state');wrap.append(media,flag);
  if(isVideo){
-  media.controls=true;media.playsInline=true;media.preload='metadata';
+  media.controls=false;media.playsInline=true;media.preload='none';
+  const play=element('button','button secondary','▶ Spill av video');play.type='button';wrap.append(play);
+  play.onclick=async()=>{play.hidden=true;media.controls=true;if(!media.getAttribute('src')){media.src='/familie/media/'+post.id;media.load();}try{await media.play();}catch(e){/* Native controls allow another attempt. */}};
   media.addEventListener('loadedmetadata',()=>{const state=seen[post.id];if(!state?.seen&&Number.isFinite(media.duration)&&state?.position>0&&state.position<media.duration-1)media.currentTime=state.position;});
   media.addEventListener('play',()=>{document.querySelectorAll('#feed video').forEach(other=>{if(other!==media)other.pause();});});
   let savedAt=0;
@@ -127,18 +134,20 @@ function render(items){
  }else if(isFile){
   media.textContent='Last ned: '+(post.filename||'fil');media.href='/familie/media/'+post.id;media.className='button secondary';media.style.margin='20px';media.download=post.filename||'nedlasting';media.onclick=()=>markSeen(post.id);
  }else{
-  media.alt=post.caption||'Bilde delt av '+post.name;media.loading='lazy';media.tabIndex=0;media.setAttribute('role','button');media.setAttribute('aria-label','Vis bildet fra '+post.name+' større');
+  media.alt=post.caption||'Bilde delt av '+post.name;media.loading='lazy';media.src='/familie/media/'+post.id;media.tabIndex=0;media.setAttribute('role','button');media.setAttribute('aria-label','Vis bildet fra '+post.name+' større');
   const open=()=>{$('largeImage').src=media.src;$('largeImage').alt=media.alt;$('lightbox').showModal();markSeen(post.id);};media.onclick=open;media.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};
  }
  const body=element('div','post-body'),top=element('div','post-top'),date=element('time','post-time',new Date(post.created*1000).toLocaleString('nb-NO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));date.dateTime=new Date(post.created*1000).toISOString();top.append(element('span','post-name',post.name),date);body.append(top);if(post.recorded_at){const captured=element('p','tiny','Opptak: '+new Date(post.recorded_at).toLocaleString('nb-NO',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})+(post.recorded_at.match(/(?:Z|[+-]\d{2}:\d{2})$/)?'':' (kameratid uten tidssone)'));body.append(captured);}else body.append(element('p','tiny','Opptaksdato mangler · datoen viser når innlegget ble delt.'));if(post.caption)body.append(element('p','post-caption',post.caption));
  const social=element('div','social-actions'),like=element('button','',''),commentsButton=element('button','','');like.type='button';commentsButton.type='button';
  const likedBy=element('p','liked-by');
  const updateSocial=()=>{like.textContent=(post.liked?'Likt':'Liker')+' ('+(post.likes||[]).length+')';like.setAttribute('aria-pressed',String(!!post.liked));commentsButton.textContent='Kommentarer ('+(post.comments||0)+')';likedBy.textContent=(post.likes||[]).length?'Likt av '+post.likes.join(', '):'';};
- updateSocial();like.onclick=async()=>{like.disabled=true;try{const data=await request('/items/'+post.id+'/like',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({liked:!post.liked})});post.liked=data.liked;post.likes=data.likes;updateSocial();}catch(e){$('roomError').textContent=e.message;}finally{like.disabled=false;}};
+ card._updateSocial=updateSocial;updateSocial();like.onclick=async()=>{like.disabled=true;try{const data=await request('/items/'+post.id+'/like',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({liked:!post.liked})});post.liked=data.liked;post.likes=data.likes;updateSocial();}catch(e){$('roomError').textContent=e.message;}finally{like.disabled=false;}};
  commentsButton.onclick=()=>openComments(post);social.append(like,commentsButton);body.append(social,likedBy);
  const bottom=element('div','post-bottom');bottom.append(element('span','expires',post.expires?'Forsvinner om '+readableTime(post.expires-Date.now()/1000):'Beholdes til noen sletter innlegget'));
  const remove=element('button','delete','Slett');remove.type='button';remove.setAttribute('aria-label','Slett innlegget fra '+post.name);remove.onclick=async()=>{if(!confirm('Slette innlegget for hele familien?'))return;remove.disabled=true;try{await request('/items/'+post.id,{method:'DELETE'});delete seen[post.id];saveSeen();await load();}catch(e){$('roomError').textContent=e.message;remove.disabled=false;}};bottom.append(remove);body.append(bottom);card.append(wrap,body);feed.append(card);
  }
+ // Only move nodes whose position changed. Existing image/video elements survive refreshes.
+ for(let i=0;i<visible.length;i++){const card=[...feed.children].find(node=>node.dataset.ident===visible[i].id);if(card&&feed.children[i]!==card)feed.insertBefore(card,feed.children[i]||null);}
  updateSeenLabels();
 }
 async function load(){if(loading)return;const epoch=sessionEpoch;loading=true;try{const dayAtRequest=selectedDay;const data=await request('/items'+(selectedDay?'?day='+encodeURIComponent(selectedDay):''));if(epoch!==sessionEpoch)return;if(dayAtRequest!==selectedDay){loading=false;load();return;}if(currentName!==data.name){currentName=data.name;readSeen();}loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);loadCalendar();loadChat();markPushVisit();}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
