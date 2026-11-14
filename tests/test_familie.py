@@ -216,3 +216,106 @@ def test_unreachable_pi_has_controlled_response(monkeypatch):
     response = TestClient(app).get('/familie')
     assert response.status_code == 503
     assert response.headers['cache-control'] == 'no-store'
+
+
+def test_chat_private_ordered_idempotent_and_retained(family):
+    app, client, root = family
+    headers = {'X-Family-Request': '1'}
+    ident = secrets.token_hex(16)
+    message = {'client_id': ident, 'text': 'Hei familien <script>test</script>'}
+    assert client.get('/familie/api/chat').status_code == 401
+    assert client.post('/familie/api/chat', json=message, headers=headers).status_code == 401
+    login(client)
+    assert client.post('/familie/api/chat', json=message).status_code == 403
+    assert client.post('/familie/api/chat', json=message, headers=headers).status_code == 200
+    assert client.post('/familie/api/chat', json=message, headers=headers).status_code == 200
+    listing = client.get('/familie/api/chat').json()
+    assert listing['name'] == 'Robert' and len(listing['messages']) == 1
+    item = listing['messages'][0]
+    assert item['text'] == message['text'] and item['name'] == 'Robert'
+    assert item['expires'] - item['created'] == 7 * 86400
+    assert client.post('/familie/api/chat', json={**message, 'text': 'Endret'}, headers=headers).status_code == 409
+    assert client.delete('/familie/api/chat/' + ident).status_code == 403
+    assert client.delete('/familie/api/chat/' + ident, headers=headers).status_code == 200
+    assert client.get('/familie/api/chat').json()['messages'] == []
+
+
+def test_chat_expiry_validation_and_restart(family):
+    app, client, root = family
+    login(client)
+    headers = {'X-Family-Request': '1'}
+    for text in ('', ' ' * 4, 'x' * 2001, 4, None):
+        assert client.post('/familie/api/chat', json={'client_id': secrets.token_hex(16), 'text': text}, headers=headers).status_code == 400
+    assert client.post('/familie/api/chat', content=b'x' * 17000, headers=headers).status_code == 413
+    ident = secrets.token_hex(16)
+    client.post('/familie/api/chat', json={'client_id': ident, 'text': 'En melding'}, headers=headers)
+    with TestClient(create_app(root, secure_cookie=False), base_url='http://localhost') as restarted:
+        login(restarted)
+        assert restarted.get('/familie/api/chat').json()['messages'][0]['id'] == ident
+    with sqlite3.connect(root / 'posts.sqlite3') as conn:
+        conn.execute('UPDATE messages SET expires=?', (time.time() - 1,))
+    assert client.get('/familie/api/chat').json()['messages'] == []
+    app.state.cleanup()
+    with sqlite3.connect(root / 'posts.sqlite3') as conn:
+        assert conn.execute('SELECT COUNT(*) FROM messages').fetchone()[0] == 0
+
+
+def test_chat_rate_limit(family):
+    app, client, root = family
+    login(client)
+    now = time.time()
+    with sqlite3.connect(root / 'posts.sqlite3') as conn:
+        conn.executemany('INSERT INTO messages VALUES (?,?,?,?,?)', [(secrets.token_hex(16), 'Familien', 'Hei', now, now + 86400) for _ in range(60)])
+    assert client.post('/familie/api/chat', json={'client_id': secrets.token_hex(16), 'text': 'For raskt'}, headers={'X-Family-Request': '1'}).status_code == 429
+
+
+def test_post_likes_comments_are_private_and_idempotent(family):
+    app, client, root = family
+    headers = {'X-Family-Request': '1'}
+    login(client)
+    post_id = upload(client).json()['id']
+    like_url = '/familie/api/items/' + post_id + '/like'
+    comments_url = '/familie/api/items/' + post_id + '/comments'
+    assert client.post(like_url, json={'liked': True}).status_code == 403
+    assert client.post(like_url, json={'liked': 'yes'}, headers=headers).status_code == 400
+    for _ in range(2):
+        assert client.post(like_url, json={'liked': True}, headers=headers).json() == {'liked': True, 'likes': ['Robert']}
+    ident = secrets.token_hex(16)
+    comment = {'client_id': ident, 'text': 'Så fint! <img src=x onerror=alert(1)>'}
+    for _ in range(2):
+        assert client.post(comments_url, json=comment, headers=headers).status_code == 200
+    assert len(client.get(comments_url).json()['comments']) == 1
+    post = client.get('/familie/api/items').json()['items'][0]
+    assert post['liked'] is True and post['likes'] == ['Robert'] and post['comments'] == 1
+    login(client, 'Anna')
+    post = client.get('/familie/api/items').json()['items'][0]
+    assert post['liked'] is False
+    client.post(like_url, json={'liked': True}, headers=headers)
+    assert client.post(like_url, json={'liked': False}, headers=headers).json()['likes'] == ['Robert']
+    assert client.delete(comments_url + '/' + ident, headers=headers).status_code == 200
+    assert client.get(comments_url).json()['comments'] == []
+    client.post('/familie/api/logout', headers=headers)
+    assert client.get(comments_url).status_code == 401
+    assert client.post(like_url, json={'liked': True}, headers=headers).status_code == 401
+
+
+def test_expired_or_deleted_posts_reject_and_remove_social_content(family):
+    app, client, root = family
+    headers = {'X-Family-Request': '1'}
+    login(client)
+    for deleted in (False, True):
+        post_id = upload(client).json()['id']
+        base = '/familie/api/items/' + post_id
+        client.post(base + '/like', json={'liked': True}, headers=headers)
+        client.post(base + '/comments', json={'client_id': secrets.token_hex(16), 'text': 'En kommentar'}, headers=headers)
+        if deleted:
+            assert client.delete(base, headers=headers).status_code == 200
+        else:
+            with sqlite3.connect(root / 'posts.sqlite3') as conn:
+                conn.execute('UPDATE posts SET expires=? WHERE id=?', (time.time() - 1, post_id))
+        assert client.get(base + '/comments').status_code == 404
+        assert client.post(base + '/like', json={'liked': True}, headers=headers).status_code == 404
+        app.state.cleanup()
+        with sqlite3.connect(root / 'posts.sqlite3') as conn:
+            assert conn.execute('SELECT COUNT(*) FROM comments WHERE post_id=?', (post_id,)).fetchone()[0] == 0
+            assert conn.execute('SELECT COUNT(*) FROM reactions WHERE post_id=?', (post_id,)).fetchone()[0] == 0

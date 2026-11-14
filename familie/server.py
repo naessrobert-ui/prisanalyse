@@ -47,6 +47,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
     def db():
         conn = sqlite3.connect(database)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON")
         try:
             with conn:
                 yield conn
@@ -59,10 +60,26 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
           name TEXT NOT NULL, caption TEXT NOT NULL, created REAL NOT NULL,
           expires REAL NOT NULL, bytes INTEGER NOT NULL)""")
         conn.execute("CREATE INDEX IF NOT EXISTS posts_expiry ON posts(expires)")
+        conn.execute("""CREATE TABLE IF NOT EXISTS messages (
+          id TEXT PRIMARY KEY, name TEXT NOT NULL, text TEXT NOT NULL,
+          created REAL NOT NULL, expires REAL NOT NULL)""")
+        conn.execute("CREATE INDEX IF NOT EXISTS messages_created ON messages(created)")
+        conn.execute("CREATE INDEX IF NOT EXISTS messages_expiry ON messages(expires)")
+        conn.execute("""CREATE TABLE IF NOT EXISTS reactions (
+          post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+          author_key TEXT NOT NULL, name TEXT NOT NULL,
+          PRIMARY KEY(post_id,author_key))""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS comments (
+          id TEXT PRIMARY KEY, post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+          name TEXT NOT NULL, text TEXT NOT NULL, created REAL NOT NULL)""")
+        conn.execute("CREATE INDEX IF NOT EXISTS comments_post ON comments(post_id,created)")
 
     def cleanup():
         now = time.time()
         with db() as conn:
+            conn.execute("DELETE FROM messages WHERE expires<=?", (now,))
+            conn.execute("DELETE FROM comments WHERE post_id NOT IN (SELECT id FROM posts)")
+            conn.execute("DELETE FROM reactions WHERE post_id NOT IN (SELECT id FROM posts)")
             expired = conn.execute("SELECT id,suffix FROM posts WHERE expires<=?", (now,)).fetchall()
             for row in expired:
                 (media / (row["id"] + row["suffix"])).unlink(missing_ok=True)
@@ -185,7 +202,134 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
         name = user(request)
         with db() as conn:
             rows = conn.execute("SELECT * FROM posts WHERE expires>? ORDER BY created DESC LIMIT 200", (time.time(),)).fetchall()
-        return {"name": name, "items": [dict(row) for row in rows]}
+            result = []
+            for row in rows:
+                item = dict(row)
+                likes = conn.execute("SELECT author_key,name FROM reactions WHERE post_id=? ORDER BY name", (row["id"],)).fetchall()
+                item.update(likes=[like["name"] for like in likes], liked=any(like["author_key"] == name.casefold() for like in likes),
+                            comments=conn.execute("SELECT COUNT(*) FROM comments WHERE post_id=?", (row["id"],)).fetchone()[0])
+                result.append(item)
+        return {"name": name, "items": result}
+
+    async def message_payload(request):
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > 16384:
+                raise HTTPException(413, "Meldingen er for stor.")
+        try:
+            payload = json.loads(body)
+            text, ident = payload["text"], payload["client_id"]
+            if not isinstance(text, str) or not isinstance(ident, str):
+                raise ValueError()
+            text = text.strip()
+            if not 1 <= len(text) <= 2000 or not re.fullmatch(r"[0-9a-f]{32}", ident):
+                raise ValueError()
+        except (ValueError, KeyError, TypeError):
+            raise HTTPException(400, "Skriv en melding på mellom 1 og 2000 tegn.")
+        return text, ident
+
+    def require_post(conn, ident):
+        if not conn.execute("SELECT id FROM posts WHERE id=? AND expires>?", (ident, time.time())).fetchone():
+            raise HTTPException(404, "Innlegget er slettet eller har gått ut.")
+
+    @app.post("/familie/api/items/{post_id}/like")
+    async def like_post(post_id: str, request: Request):
+        name = user(request)
+        mutation(request)
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > 512:
+                raise HTTPException(413)
+        try:
+            liked = json.loads(body)["liked"]
+            if type(liked) is not bool:
+                raise ValueError()
+        except (ValueError, KeyError, TypeError):
+            raise HTTPException(400, "Ugyldig liker-markering.")
+        with db() as conn:
+            require_post(conn, post_id)
+            if liked:
+                conn.execute("INSERT OR REPLACE INTO reactions VALUES (?,?,?)", (post_id, name.casefold(), name))
+            else:
+                conn.execute("DELETE FROM reactions WHERE post_id=? AND author_key=?", (post_id, name.casefold()))
+            likes = [r["name"] for r in conn.execute("SELECT name FROM reactions WHERE post_id=? ORDER BY name", (post_id,))]
+        return {"liked": liked, "likes": likes}
+
+    @app.get("/familie/api/items/{post_id}/comments")
+    async def comments_list(post_id: str, request: Request):
+        user(request)
+        with db() as conn:
+            require_post(conn, post_id)
+            rows = conn.execute("SELECT * FROM comments WHERE post_id=? ORDER BY created,id", (post_id,)).fetchall()
+        return {"comments": [dict(row) for row in rows]}
+
+    @app.post("/familie/api/items/{post_id}/comments")
+    async def comment_send(post_id: str, request: Request):
+        name = user(request)
+        mutation(request)
+        text, ident = await message_payload(request)
+        now = time.time()
+        with db() as conn:
+            require_post(conn, post_id)
+            previous = conn.execute("SELECT * FROM comments WHERE id=?", (ident,)).fetchone()
+            if previous:
+                if previous["name"] != name or previous["text"] != text or previous["post_id"] != post_id:
+                    raise HTTPException(409, "Kommentaren er endret. Prøv igjen.")
+                return {"id": ident}
+            if conn.execute("SELECT COUNT(*) FROM comments WHERE created>?", (now - 60,)).fetchone()[0] >= 60:
+                raise HTTPException(429, "Mange kommentarer akkurat nå. Prøv igjen om litt.")
+            if conn.execute("SELECT COUNT(*) FROM comments WHERE post_id=?", (post_id,)).fetchone()[0] >= 200:
+                raise HTTPException(429, "Innlegget har nådd grensen på 200 kommentarer.")
+            conn.execute("INSERT INTO comments VALUES (?,?,?,?,?)", (ident, post_id, name, text, now))
+        return {"id": ident}
+
+    @app.delete("/familie/api/items/{post_id}/comments/{ident}")
+    async def comment_delete(post_id: str, ident: str, request: Request):
+        user(request)
+        mutation(request)
+        with db() as conn:
+            require_post(conn, post_id)
+            conn.execute("DELETE FROM comments WHERE id=? AND post_id=?", (ident, post_id))
+        return {"ok": True}
+
+    @app.get("/familie/api/chat")
+    async def chat_list(request: Request):
+        name = user(request)
+        with db() as conn:
+            rows = conn.execute(
+                "SELECT * FROM messages WHERE expires>? ORDER BY created DESC,id DESC LIMIT 200",
+                (time.time(),),
+            ).fetchall()
+        return {"name": name, "messages": [dict(row) for row in reversed(rows)]}
+
+    @app.post("/familie/api/chat")
+    async def chat_send(request: Request):
+        name = user(request)
+        mutation(request)
+        text, ident = await message_payload(request)
+        now = time.time()
+        with db() as conn:
+            previous = conn.execute("SELECT * FROM messages WHERE id=?", (ident,)).fetchone()
+            if previous:
+                if previous["name"] != name or previous["text"] != text:
+                    raise HTTPException(409, "Meldingen er endret. Prøv igjen.")
+                return {"id": ident}
+            if conn.execute("SELECT COUNT(*) FROM messages WHERE created>?", (now - 60,)).fetchone()[0] >= 60:
+                raise HTTPException(429, "Mange meldinger akkurat nå. Vent litt og prøv igjen.")
+            if conn.execute("SELECT COUNT(*) FROM messages WHERE expires>?", (now,)).fetchone()[0] >= 5000:
+                raise HTTPException(429, "Chatten er full. Slett eldre meldinger eller vent til de går ut.")
+            conn.execute("INSERT INTO messages VALUES (?,?,?,?,?)", (ident, name, text, now, now + 7 * 86400))
+        return {"id": ident}
+
+    @app.delete("/familie/api/chat/{ident}")
+    async def chat_delete(ident: str, request: Request):
+        user(request)
+        mutation(request)
+        with db() as conn:
+            conn.execute("DELETE FROM messages WHERE id=?", (ident,))
+        return {"ok": True}
 
     @app.post("/familie/api/items")
     async def upload(request: Request):
