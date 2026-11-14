@@ -484,3 +484,40 @@ def test_shared_files_are_authenticated_downloads(family, filename, content_type
     assert download.headers['x-content-type-options'] == 'nosniff'
     client.post('/familie/api/logout', headers={'X-Family-Request': '1'})
     assert client.get('/familie/media/' + ident).status_code == 401
+
+
+def test_any_family_member_can_delete_thread_and_its_messages(family):
+    app, client, root = family
+    headers = {'X-Family-Request': '1'}
+    ident = secrets.token_hex(16)
+    assert client.delete('/familie/api/threads/' + ident, headers=headers).status_code == 401
+    login(client, 'Robert')
+    topic = client.post('/familie/api/threads', json={'text': 'Tur', 'client_id': ident}, headers=headers)
+    assert topic.status_code == 200
+    message = {'text': 'Hei', 'client_id': secrets.token_hex(16)}
+    client.post('/familie/api/chat?thread=' + ident, json=message, headers=headers)
+    client.post('/familie/api/chat', json={'text': 'Felles', 'client_id': secrets.token_hex(16)}, headers=headers)
+    login(client, 'En annen')
+    assert client.delete('/familie/api/threads/' + ident).status_code == 403
+    assert client.delete('/familie/api/threads/' + ident, headers=headers).status_code == 200
+    assert client.get('/familie/api/threads').json()['threads'] == []
+    assert client.get('/familie/api/chat?thread=' + ident).status_code == 404
+    assert len(client.get('/familie/api/chat').json()['messages']) == 1
+    with sqlite3.connect(root / 'posts.sqlite3') as conn:
+        assert conn.execute('SELECT COUNT(*) FROM messages WHERE thread_id=?', (ident,)).fetchone()[0] == 0
+    assert client.delete('/familie/api/threads/' + ident, headers=headers).status_code == 200
+
+
+@pytest.mark.parametrize('progressive', [False, True])
+def test_gopro_sized_jpeg_upload(family, progressive):
+    app, client, root = family
+    login(client)
+    data = io.BytesIO()
+    image = Image.new('RGB', (5568, 4872), '#216052')
+    exif = Image.Exif()
+    exif[271] = 'GoPro'
+    exif[272] = 'HERO12 Black'
+    image.save(data, format='JPEG', progressive=progressive, exif=exif)
+    response = client.post('/familie/api/items', content=data.getvalue(), headers={'X-Family-Request': '1', 'Content-Type': 'image/jpeg'})
+    assert response.status_code == 200
+    assert client.get('/familie/media/' + response.json()['id']).content == data.getvalue()

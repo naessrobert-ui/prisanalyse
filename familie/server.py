@@ -439,6 +439,17 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
             conn.execute("INSERT INTO threads VALUES (?,?,?)", (ident, title, now))
         return {"id": ident, "title": title, "created": now}
 
+    @app.delete("/familie/api/threads/{ident}")
+    async def thread_delete(ident: str, request: Request):
+        user(request)
+        mutation(request)
+        if not re.fullmatch(r"[0-9a-f]{32}", ident):
+            raise HTTPException(404, "Tråden finnes ikke.")
+        with db() as conn:
+            conn.execute("DELETE FROM messages WHERE thread_id=?", (ident,))
+            conn.execute("DELETE FROM threads WHERE id=?", (ident,))
+        return {"ok": True}
+
     @app.get("/familie/api/chat")
     async def chat_list(request: Request):
         name = user(request)
@@ -530,7 +541,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                             actual = ALLOWED_IMAGES.get(image.format)
                             source_format = image.format
                             if image.width * image.height > Image.MAX_IMAGE_PIXELS:
-                                raise ValueError()
+                                raise HTTPException(413, "Bildet har for høy oppløsning. Maks 60 megapiksler.")
                             image.verify()
                         if not actual:
                             raise ValueError()
@@ -546,8 +557,12 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                             finally:
                                 converted.unlink(missing_ok=True)
                         mime = actual[0]
-                    except (UnidentifiedImageError, OSError, ValueError, RuntimeError, Image.DecompressionBombError):
-                        raise HTTPException(415, "Bildet kunne ikke leses. Prøv et annet bilde.")
+                    except Image.DecompressionBombError:
+                        raise HTTPException(413, "Bildet har for høy oppløsning. Maks 60 megapiksler.")
+                    except (UnidentifiedImageError, OSError, ValueError, RuntimeError) as exc:
+                        # Log only exception type, never names, image content or EXIF.
+                        logging.getLogger(__name__).warning("Familiebilde avvist: %s; bytes=%d", type(exc).__name__, size)
+                        raise HTTPException(415, "Bildet kunne ikke leses. Prøv å lagre en ny kopi som JPG og last opp igjen.")
                     suffix = actual[1]
                 elif mime.startswith("video/"):
                     # Validate the media container; decoding is left to the browser.

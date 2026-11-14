@@ -178,3 +178,15 @@ Filvelgeren støtter også HTML, PDF, Office-filer, ZIP og andre filer, innenfor
 Dokumenter sendes som application/octet-stream med Content-Disposition: attachment
 og nosniff; HTML kjøres ikke i familierommet. Filnavn lagres separat fra den
 servergenererte diskstien. Tilgang krever samme familiekode som bilder og videoer.
+
+## Slette samtaletråder
+
+Alle med familiekoden kan slette en valgt tråd med «Slett tråd». Bekreftelsen
+opplyser at overskriften og alle meldingene slettes for hele familien. Fellesprat
+kan ikke slettes som tråd. Andre åpne nettlesere går tilbake til Fellesprat når de
+oppdager slettingen. Selvvalgte navn er ikke sikre kontoer; sletting begrenses derfor
+ikke til den som opprettet tråden.
+
+Ved avvist bilde logges feiltypen og byteantallet uten filnavn, bilde eller EXIF.
+Bilder over 60 megapiksler får en egen melding om oppløsning. En syntetisk JPEG
+på 5568 × 4872 piksler testes både som vanlig og progressiv JPEG.
