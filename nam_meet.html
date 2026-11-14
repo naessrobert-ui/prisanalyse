@@ -271,7 +271,213 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   async function loadIce(){
     try{
       const base=apiBase;
-      const r=await fetch(base+"/meet/ice?k…4845 tokens truncated…26";
+      const r=await fetch(base+"/meet/ice?kode="+encodeURIComponent(S.kode)+"&inv="+encodeURIComponent(S.inv)+"&rom="+encodeURIComponent(S.room),{cache:"no-store"});
+      if(r.ok){ const d=await r.json(); if(Array.isArray(d.iceServers) && d.iceServers.length) ICE=d.iceServers; }
+    }catch(e){}
+  }
+  const ICON = {
+    mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+    micOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 9.3V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 5 2.2M5 11a7 7 0 0 0 11.5 5.4M19 11a7 7 0 0 1-.6 2.8M12 18v3M3 3l18 18"/></svg>',
+    screen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
+    cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>',
+    chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
+    camOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16v1a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2m4 0h5a1 1 0 0 1 1 1v3l6-3v10M3 3l18 18"/></svg>'
+  };
+  const $ = id => document.getElementById(id);
+  const canShare = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  const el = (t,c,x) => { const e=document.createElement(t); if(c) e.className=c; if(x!=null) e.textContent=x; return e; };
+  const initials = n => { const p=(n||"?").trim().split(/\s+/); return ((p[0]||"?")[0]+(p.length>1?p[p.length-1][0]:"")).toUpperCase(); };
+  const cleanRoom = s => String(s||"").toLowerCase().replace(/æ/g,"ae").replace(/ø/g,"o").replace(/å/g,"a").replace(/[^a-z0-9-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,32);
+  function notice(t){ const n=$("notice"); if(!t){n.classList.add("hidden");return;} n.textContent=t; n.classList.remove("hidden"); }
+  function mediaErr(e){ const n=(e&&e.name)||"ukjent"; return n==="NotAllowedError"?"tilgang ble avslått":n==="NotFoundError"?"fant ingen enhet":n==="NotReadableError"?"enheten brukes av et annet program, for eksempel Teams":n; }
+
+  const S = {
+    room:"", name:"", kode:"", ws:null, myId:null, peers:new Map(), conns:new Map(), leaving:false, retry:0, pingTimer:null,
+    mic:null, screen:null, cam:null, muted:false, shareAt:0, pin:null, autoCam:null, speakSince:new Map(), cid:"", inv:"", away:new Map(), unread:0,
+    actx:null, meters:new Map(), speaking:new Set(), camEls:new Map(), earlyIce:new Map()
+  };
+
+  const J={available:false,active:false,proposed:false,approved:[],participants:0,busy:false,listening:'',listener:'',recorder:null,chunks:[],discard:false,timer:null,controller:null,speaking:false,lastAnswer:null,autoPropose:false,proposedOnce:false,voiceId:null,voiceChunks:[],voiceBytes:0,voiceEnded:false,voiceComplete:false,sources:new Set(),playAt:0};
+
+  // ---------- landing ----------
+  const publicSite=["xn--mtes-gra.no","www.xn--mtes-gra.no","localhost","127.0.0.1"].includes(location.hostname);
+  let meetingMode=publicSite?"create":"join", joining=false;
+  const apiBase=location.pathname.replace(/\/meet\/?.*$/,"").replace(/\/$/,"");
+  try{ $("nameIn").value=localStorage.getItem("nammeet-name")||""; if(!publicSite) $("kodeIn").value=localStorage.getItem("nammeet-kode")||""; }catch(e){}
+  function parseMeeting(value){
+    value=value.trim();
+    if(value.includes("://")){
+      const url=new URL(value);
+      if(!["xn--mtes-gra.no","www.xn--mtes-gra.no","prisanalyse.no","www.prisanalyse.no",location.hostname].includes(url.hostname) || !["https:","http:"].includes(url.protocol)) throw new Error("Bruk en møtelenke fra møtes.no eller Prisanalyse.");
+      value=url.hash.slice(1);
+    }
+    value=value.replace(/^#/,"");
+    const [room,query]=value.split("?");
+    const inv=new URLSearchParams(query||"").get("inv")||"";
+    return {room:cleanRoom(decodeURIComponent(room||"")),inv:/^\d+\.[0-9a-f]{32}$/.test(inv)?inv:""};
+  }
+  function updateInvitation(){
+    let d; try{d=meetingMode==="create"?{room:"",inv:""}:parseMeeting($("roomIn").value);}catch(e){d={room:"",inv:""};}
+    S.inv=d.inv;
+    $("kodeWrap").classList.toggle("hidden",meetingMode==="create"||!!d.inv);
+    const n=$("invitedNote"); n.classList.toggle("hidden",!d.inv);
+    if(d.inv){
+      const until=new Date(parseInt(d.inv,10)*1000);
+      n.textContent=until<Date.now()?"Invitasjonen har gått ut. Be møteverten om en ny lenke.":"Du er invitert. Skriv navnet ditt for å bli med. Lenken gjelder til "+until.toLocaleString("no-NO",{weekday:"long",hour:"2-digit",minute:"2-digit"})+".";
+    }
+  }
+  function setMode(mode){
+    if(joining) return;
+    meetingMode=mode;
+    $("createMode").setAttribute("aria-pressed",String(mode==="create"));
+    $("joinMode").setAttribute("aria-pressed",String(mode==="join"));
+    $("roomWrap").classList.toggle("hidden",mode==="create");
+    $("formTitle").textContent=mode==="create"?"Gjør plass til en god samtale.":"Hyggelig å se deg.";
+    $("formIntro").textContent=mode==="create"?"Skriv navnet ditt, opprett møtet og inviter med en lenke.":"Skriv navnet ditt og lim inn lenken du har fått.";
+    $("joinBtn").textContent=mode==="create"?"Opprett møte":"Bli med i møtet →";
+    $("landNote").textContent=""; updateInvitation();
+  }
+  $("createMode").classList.toggle("hidden",!publicSite);
+  $("createMode").onclick=()=>setMode("create"); $("joinMode").onclick=()=>setMode("join");
+  $("roomIn").addEventListener("input",updateInvitation);
+  if(location.hash.length>1){ $("roomIn").value=location.hash.slice(1); meetingMode="join"; }
+  setMode(meetingMode);
+  fetch(apiBase+'/meet/johnny/status',{cache:'no-store'}).then(r=>r.json()).then(d=>{J.available=!!d.available;$('wantJohnny').disabled=!J.available;if(!J.available)$('johnnySetup').textContent='Yvonne er ikke aktivert av eieren ennå. Vanlige møter virker uten ham.';}).catch(()=>{$('wantJohnny').disabled=true;$('johnnySetup').textContent='Kan ikke sjekke Yvonne nå. Vanlige møter virker uten ham.';});
+  if(location.protocol!=="https:" && location.hostname!=="localhost" && location.hostname!=="127.0.0.1")
+    $("landNote").textContent="Siden må åpnes via https for at mikrofon og kamera skal virke.";
+  $("joinBtn").onclick=join;
+  for(const id of ["nameIn","roomIn","kodeIn"]) $(id).addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();join();}});
+
+  async function join(){
+    if(joining) return;
+    const name=$("nameIn").value.trim().slice(0,40);
+    if(!name){$("landNote").textContent="Skriv inn navnet ditt først.";$("nameIn").focus();return;}
+    let room,kode="";
+    joining=true; $("joinBtn").disabled=true;
+    try{
+      if(meetingMode==="create"){
+        $("landNote").textContent="Oppretter møtet …";
+        const response=await fetch(apiBase+"/meet/create",{method:"POST",headers:{"Accept":"application/json"}});
+        if(!response.ok) throw new Error("Møtet kunne ikke opprettes. Prøv igjen om litt.");
+        const d=await response.json(); room=d.rom; S.inv=d.inv||"";
+        $("roomIn").value=room+(S.inv?"?inv="+S.inv:"");
+      }else{
+        const d=parseMeeting($("roomIn").value); room=d.room; S.inv=d.inv; kode=S.inv?"":$("kodeIn").value;
+        if(room.length<3) throw new Error("Lim inn en møtelenke eller en romkode med minst tre tegn.");
+        if(S.inv && parseInt(S.inv,10)*1000<Date.now()) throw new Error("Invitasjonen har gått ut. Be møteverten om en ny lenke.");
+      }
+    }catch(e){ $("landNote").textContent=e.message||"Sjekk møtelenken og prøv igjen."; joining=false;$("joinBtn").disabled=false;return; }
+    J.autoPropose=$('wantJohnny').checked;J.proposedOnce=false;
+    Object.assign(S,{name,room,kode,leaving:false,retry:0});
+    const rnd=new Uint8Array(16); crypto.getRandomValues(rnd); S.cid=[...rnd].map(b=>b.toString(16).padStart(2,"0")).join("");
+    try{localStorage.setItem("nammeet-name",name);}catch(e){}
+    history.replaceState(null,"","#"+room+(S.inv?"?inv="+S.inv:""));
+    $("landNote").textContent="Kobler til …";
+    try{S.actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){S.actx=null;}
+    try{S.mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}
+    catch(e){S.mic=null;notice("Fikk ikke tilgang til mikrofonen ("+mediaErr(e)+"), så du er med som lytter.");}
+    if(S.mic) addMeter("me",S.mic);
+    $("roomName").textContent=room;
+    await loadIce(); connect();
+  }
+
+  // Yvonne is push-to-ask. Only this participant's microphone is recorded.
+  function renderYvonne(){
+    const mine=J.approved.includes(S.myId),recording=!!J.recorder&&J.recorder.state==='recording';
+    $('johnnyConsent').classList.toggle('hidden',!J.proposed||mine||!J.available);
+    $('johnnyPropose').classList.toggle('hidden',J.proposed);$('johnnyPropose').disabled=!J.available;
+    $('johnnyAsk').classList.toggle('hidden',!J.active);$('johnnyAsk').disabled=J.busy||J.speaking||(!recording&&(!S.mic||S.muted||!!J.listening&&J.listener!==S.myId));
+    $('johnnyAsk').textContent=recording?'Send spørsmålet':'Spør Yvonne';
+    $('johnnyStop').classList.toggle('hidden',!J.proposed);$('johnnyReplay').classList.toggle('hidden',!J.voiceComplete||!J.active);$('johnnyReplay').disabled=J.busy||J.speaking||!!J.listening;
+    const text=!J.available?'Yvonne er ikke aktivert av eieren ennå.':!J.proposed?'Yvonne er ikke med i møtet.':J.speaking?'Yvonne snakker.':J.busy?'Yvonne gjør klart svaret …':J.listening?'Yvonne får et spørsmål fra '+J.listening+'.':J.active?'Yvonne er klar. Hun lytter bare når du trykker «Spør Yvonne».':J.approved.length+' av '+J.participants+' har godkjent. Venter på alle.';
+    $('johnnyStatus').textContent=recording?'Tar opp spørsmålet ditt · maks 30 sekunder. Trykk «Send spørsmålet» når du er ferdig.':text;$('johnnyStatus').classList.toggle('johnny-recording',!!J.listening||recording);$('johnnyHeader').textContent=J.proposed?(J.active?'Yvonne · med alles godkjenning':'Yvonne · venter på godkjenning'):'';
+    if(J.active&&(!S.mic||S.muted)&&!recording)$('johnnyStatus').textContent+=' Slå på mikrofonen for å spørre.';
+  }
+  function stopYvonneLocal(){
+    J.discard=true;clearTimeout(J.timer);J.controller?.abort();J.controller=null;
+    if(J.recorder&&J.recorder.state!=='inactive')J.recorder.stop();
+    stopVoice(true);
+  }
+  function stopVoice(clear){
+    for(const source of J.sources){try{source.stop();source.disconnect();}catch(e){}}
+    J.sources.clear();J.playAt=0;J.speaking=false;
+    if(clear){J.voiceChunks=[];J.voiceBytes=0;J.voiceId=null;J.voiceEnded=false;J.voiceComplete=false;}
+  }
+  function queueVoice(bytes,store=true){
+    if(!J.active||!bytes.length||bytes.length%2)return;
+    if(store){J.voiceBytes+=bytes.length;if(J.voiceBytes>24000*2*60){stopVoice(true);$('johnnyError').textContent='Lydsvaret ble for langt. Les svaret i chatten.';return;}J.voiceChunks.push(bytes);}
+    const context=S.actx;if(!context||context.state==='closed'){$('johnnyError').textContent='Kunne ikke starte lyd. Les svaret i chatten.';return;}
+    context.resume().catch(()=>{$('johnnyError').textContent='Trykk «Lytt til svaret» for å starte lyden.';});
+    const samples=bytes.length/2,buffer=context.createBuffer(1,samples,24000),data=buffer.getChannelData(0),view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+    for(let i=0;i<samples;i++)data[i]=view.getInt16(i*2,true)/32768;
+    const source=context.createBufferSource();source.buffer=buffer;source.connect(context.destination);J.sources.add(source);
+    J.playAt=Math.max(J.playAt,context.currentTime+.12);source.start(J.playAt);J.playAt+=buffer.duration;J.speaking=true;
+    source.onended=()=>{J.sources.delete(source);source.disconnect();if(!J.sources.size){J.speaking=false;renderYvonne();}};renderYvonne();
+  }
+  function replayYvonne(){if(!J.active||!J.voiceComplete)return;stopVoice(false);for(const chunk of J.voiceChunks)queueVoice(chunk,false);}
+  function addYvonneAnswer(message){
+    const empty=$('chatEmpty');if(empty)empty.remove();const box=el('div','johnny-answer');box.append(el('b',null,'Yvonne · AI'),el('p',null,'Spørsmål fra '+message.askedBy+': '+message.question));
+    const text=Array.from(String(message.text||'')),answer=el('p');let offset=0;
+    for(const cite of (message.citations||[]).sort((a,b)=>a.start-b.start)){
+      if(!/^https?:\/\//.test(cite.url)||cite.start<offset||cite.end>text.length||cite.end<=cite.start)continue;
+      answer.append(document.createTextNode(text.slice(offset,cite.start).join('')));const link=el('a',null,text.slice(cite.start,cite.end).join(''));link.href=cite.url;link.target='_blank';link.rel='noopener noreferrer';link.title=cite.title;answer.append(link);offset=cite.end;
+    }
+    answer.append(document.createTextNode(text.slice(offset).join('')));box.append(answer);
+    for(const cite of message.citations||[]){if(!/^https?:\/\//.test(cite.url))continue;const link=el('a','johnny-source',cite.title||cite.url);link.href=cite.url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);}
+    box.append(el('small','subtle','AI-svar kan inneholde feil. Sjekk kildene.'));$('chatLog').append(box);$('chatLog').scrollTop=$('chatLog').scrollHeight;
+    if(!chatVisible()){S.unread++;updateBadge();notice('Yvonne har svart. Åpne chatten for å se svaret og kildene.');}
+  }
+  $('johnnyPropose').onclick=()=>{ $('johnnyError').textContent='';wsSend({t:'johnny-propose'});};
+  $('johnnyYes').onclick=()=>{S.actx?.resume().catch(()=>{});$('johnnyError').textContent='';wsSend({t:'johnny-consent',accept:true});};
+  const decline=()=>{J.autoPropose=false;stopYvonneLocal();wsSend({t:'johnny-consent',accept:false});};
+  $('johnnyNo').onclick=decline;$('johnnyStop').onclick=decline;$('johnnyReplay').onclick=replayYvonne;
+  $('johnnyAsk').onclick=()=>{
+    if(J.recorder&&J.recorder.state==='recording'){J.recorder.stop();return;}
+    if(!J.active||!S.mic||S.muted)return;
+    if(!window.MediaRecorder){$('johnnyError').textContent='Denne nettleseren støtter ikke lydspørsmål. Prøv Chrome eller Safari.';return;}
+    const mime=['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus'].find(type=>MediaRecorder.isTypeSupported(type));
+    if(!mime){$('johnnyError').textContent='Denne nettleseren har ikke et støttet lydformat.';return;}
+    $('johnnyError').textContent='';J.discard=false;J.chunks=[];
+    try{J.recorder=new MediaRecorder(S.mic,{mimeType:mime,audioBitsPerSecond:64000});}catch(e){$('johnnyError').textContent='Kunne ikke starte lydspørsmålet.';return;}
+    const recorder=J.recorder;recorder.ondataavailable=e=>{if(e.data.size)J.chunks.push(e.data);};
+    recorder.onstop=async()=>{
+      clearTimeout(J.timer);J.recorder=null;wsSend({t:'johnny-listening',value:false});renderYvonne();
+      if(J.discard||!J.active){J.chunks=[];return;}
+      const body=new Blob(J.chunks,{type:mime});J.chunks=[];if(!body.size)return;
+      if(body.size>512*1024){$('johnnyError').textContent='Spørsmålet ble for stort. Prøv et kortere spørsmål.';return;}
+      J.controller=new AbortController();
+      try{const response=await fetch(apiBase+'/meet/johnny/ask',{method:'POST',headers:{'Content-Type':mime,'X-Meet-Room':S.room,'X-Meet-Client':S.cid},body,signal:J.controller.signal});if(!response.ok){let error;try{error=await response.json();}catch(e){}throw new Error(error?.detail||'Yvonne kunne ikke svare nå.');}}
+      catch(e){if(e.name!=='AbortError')$('johnnyError').textContent=e.message||'Spørsmålet kunne ikke sendes.';}finally{J.controller=null;renderYvonne();}
+    };
+    recorder.onerror=()=>{J.discard=true;$('johnnyError').textContent='Lydopptaket feilet. Prøv igjen.';};
+    recorder.start(250);wsSend({t:'johnny-listening',value:true});J.timer=setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},30000);renderYvonne();
+  };
+
+  // ---------- websocket signaling ----------
+  function wsUrl(){
+    const base = apiBase;
+    return (location.protocol==="https:"?"wss://":"ws://") + location.host + base + "/meet/ws/" + encodeURIComponent(S.room)
+      + "?name=" + encodeURIComponent(S.name) + "&kode=" + encodeURIComponent(S.kode) + "&cid=" + S.cid + (S.inv ? "&inv=" + encodeURIComponent(S.inv) : "");
+  }
+  function connect(){
+    const ws = new WebSocket(wsUrl());
+    S.ws = ws;
+    ws.onmessage = ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } onMsg(m); };
+    ws.onclose = ev=>{
+      if(S.ws!==ws) return;
+      clearInterval(S.pingTimer);Object.assign(J,{active:false,proposed:false,approved:[],busy:false,listening:'',listener:'',proposedOnce:false});stopYvonneLocal();renderYvonne();
+      if(S.leaving) return;
+      if(ev.code===4401){ backToLanding(S.inv?"Invitasjonen gjelder ikke lenger. Be den som inviterte deg om en ny lenke.":"Feil tilgangskode."); return; }
+      if(ev.code===4409){ backToLanding("Rommet er fullt."); return; }
+      if(ev.code===4400){ backToLanding("Ugyldig romkode."); return; }
+      if(!S.myId && S.retry>=3){ backToLanding("Får ikke kontakt med møteserveren. Prøv igjen om litt."); return; }
+      if(!S.myId && S.retry===0){ $("landNote").textContent="Får ikke kontakt med møteserveren. Prøver igjen …"; }
+      // Lyd og bilde går direkte mellom deltakerne, så samtalen fortsetter mens vi kobler til igjen.
+      // Forbindelser som ikke er oppe ennå, kan ikke fullføres uten server og bygges opp på nytt.
+      for(const [id,c] of [...S.conns]) if(c.pc.connectionState!=="connected") dropConn(id);
+      render();
+      const wait = Math.min(15000, 1000*Math.pow(2,S.retry++));
+      $("status").textContent=S.conns.size?"Mistet kontakten med møteserveren. Samtalen fortsetter, kobler til igjen …":"Mistet forbindelsen. Kobler til igjen …";
       setTimeout(()=>{ if(!S.leaving) connect(); }, wait);
     };
   }
