@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T13:00:00+00:00",
+  "generated_at": "2026-11-14T13:10:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,12 +10,12 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3. kvartalstall – Otello har 38% eierandel",
-      "lead": "Bemobi Mobile Tech SA offentliggjorde sitt 3. kvartal 2026-resultat den 12. november. Otello Corporation ASA eier 38,22 % av Bemobi, men detaljer om tall eller resultater mangler i rapporteringen.",
+      "headline": "Bemobi 3Q26: Viktige tall offentliggjort – Otello sitter på 38,2%",
+      "lead": "Bemobi Mobile Tech har rapportert tall for tredje kvartal 2026, der Otello Corporation ASA eier 38,22 prosent. Resultatdetaljer og konsekvenser for Otello er foreløpig uklare.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech SA offentliggjorde sitt 3. kvartal 2026-resultat den 12. november. Otello Corporation ASA eier 38,22 % av Bemobi, men detaljer om tall eller resultater mangler i rapporteringen.",
-      "reason": "Resultatet er ikke spesifisert, og det mangler informasjon om utviklingen i inntekter eller fortjeneste. Aksjonærer bør følge opp Bemobis detaljerte rapport for å vurdere påvirkning på Otello.",
+      "summary": "Bemobi Mobile Tech har rapportert tall for tredje kvartal 2026, der Otello Corporation ASA eier 38,22 prosent. Resultatdetaljer og konsekvenser for Otello er foreløpig uklare.",
+      "reason": "Tallene er offentliggjort, men uten detaljinformasjon om resultat, inntjening eller vekst er effekten for Otello og markedet fortsatt usikker. Videre analyse kreves.",
       "score": 45,
       "skipped": false,
       "direction": "uklar",
@@ -1346,18 +1346,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor utbetaler 0,39 USD i utbytte for Q2 2026 fra i dag",
-      "lead": "Equinor-aksjen handles eksklusive et kvartalsutbytte på 0,39 USD fra 13. november 2026. Utbytteutbetalingen kan påvirke kursen kortsiktig, uten annen finansiell informasjon i dag.",
+      "headline": "Equinor utbetaler 0,39 USD i utbytte per aksje fra i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen uten retten til kvartalsutbytte på 0,39 USD. Dette påvirker aksjens pris og investorers kontantstrøm, men langsiktig verdi ligger fortsatt i selskapets underliggende drift.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor-aksjen handles eksklusive et kvartalsutbytte på 0,39 USD fra 13. november 2026. Utbytteutbetalingen kan påvirke kursen kortsiktig, uten annen finansiell informasjon i dag.",
-      "reason": "Utbytteutbetaling er en normal kontantutdeling uten nye opplysninger om selskapets drift eller fremtidige utsikter. Aksjonærer får direkte avkastning, men effekten på aksjekursen er som forventet og kortvarig.",
-      "score": 55,
+      "summary": "Fra 13. november handles Equinor-aksjen uten retten til kvartalsutbytte på 0,39 USD. Dette påvirker aksjens pris og investorers kontantstrøm, men langsiktig verdi ligger fortsatt i selskapets underliggende drift.",
+      "reason": "Utbytteutbetaling er standard prosess som justerer aksjekursen tilsvarende. For investorer betyr det kontantutbytte, men ingen endring i selskapets underliggende verdi. Påvirker likviditet og mulig kursinnstilling kortsiktig.",
+      "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AKRBP",
+          "direction": "uklar",
+          "reason": "Konkurrenter i olje- og gasssektoren kan påvirkes indirekte gjennom investorers kapitalallokering."
+        }
+      ],
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 50,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13401,7 +13408,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T13:00:00+00:00",
+  "last_checked_at": "2026-11-14T13:10:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 61,
