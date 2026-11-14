@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T16:00:00+00:00",
+  "generated_at": "2026-11-14T16:10:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,12 +10,12 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi melder inntektsvekst i 3. kvartal – Otello eier 38%",
-      "lead": "Bemobi Mobile Tech rapporterer økte inntekter i 3. kvartal 2026, hvor Otello Corporation ASA eier 38,22 prosent. Detaljer om lønnsomhet og fremtidig guiding mangler foreløpig.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – detaljene krever nærmere analyse",
+      "lead": "Bemobi Mobile Tech offentliggjorde sine tall for 3. kvartal 2026 12. november. Otello eier 38,22 % av selskapet, men detaljer om resultat og utvikling foreligger ikke i de tilgjengelige opplysningene.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech rapporterer økte inntekter i 3. kvartal 2026, hvor Otello Corporation ASA eier 38,22 prosent. Detaljer om lønnsomhet og fremtidig guiding mangler foreløpig.",
-      "reason": "Resultatene viser topplinjevekst, men uten nærmere informasjon om marginer, kostnader eller fremtidig utsikt, er det vanskelig å vurdere helheten for Otello-aksjonærene. Videre analyse bør fokusere på lønnsomhet og kontantstrøm.",
+      "summary": "Bemobi Mobile Tech offentliggjorde sine tall for 3. kvartal 2026 12. november. Otello eier 38,22 % av selskapet, men detaljer om resultat og utvikling foreligger ikke i de tilgjengelige opplysningene.",
+      "reason": "Uten konkrete tall eller sammenligninger til tidligere perioder kan vi ikke vurdere resultatrelevansen for Otello eller markedet. Videre analyse er nødvendig for å forstå konsekvenser for aksjonærene.",
       "score": 45,
       "skipped": false,
       "direction": "uklar",
@@ -1346,30 +1346,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor ASA betaler utbytte på 0,39 USD per aksje 13. november",
-      "lead": "Equinor-aksjen noteres fra i dag eksklusive kvartalsutbytte på 0,39 USD per aksje. Utbytteutbetalingen reflekterer selskapets kontantstrøm og kapitaldistribusjon til aksjonærene.",
+      "headline": "Equinor aksjer noteres eksklusive kvartalsutbytte på 0,39 USD fra i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen uten retten til kvartalsutbytte på 0,39 USD for andre kvartal 2026, noe som justerer aksjekursen tilsvarende på Oslo Børs.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor-aksjen noteres fra i dag eksklusive kvartalsutbytte på 0,39 USD per aksje. Utbytteutbetalingen reflekterer selskapets kontantstrøm og kapitaldistribusjon til aksjonærene.",
-      "reason": "Utbytteutbetalingen er en normal kapitaldistribusjon og forventes ikke å gi vesentlige endringer i aksjekursen. Det er viktig å observere selskapets utbyttepolicy og fremtidige kontantstrøm for langsiktig avkastning.",
-      "score": 50,
+      "summary": "Fra 13. november handles Equinor-aksjen uten retten til kvartalsutbytte på 0,39 USD for andre kvartal 2026, noe som justerer aksjekursen tilsvarende på Oslo Børs.",
+      "reason": "Utbytteutbetaling er en rutinert hendelse som påvirker aksjekursen ved ex-dato, men gir ikke indikasjon om endret underliggende inntjening eller selskapets rammevilkår.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "affected": [
         {
           "ticker": "AKRBP",
-          "direction": "uklar",
-          "reason": "Olje- og gasselskaper kan påvirkes av markedsreaksjon på sektornivå ved utbyttehendelser hos konkurrenter."
-        },
-        {
-          "ticker": "VAR",
-          "direction": "uklar",
-          "reason": "Utbytteutbetalinger i sektoren kan indikere likviditetssituasjonen som har bredere effekt."
+          "direction": "negativ",
+          "reason": "Kan oppleve kortsiktig press ved utbyttebetaling i sektoren."
         }
       ],
       "importance": "stor",
-      "score_ai": 40,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13430,7 +13425,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T16:00:00+00:00",
+  "last_checked_at": "2026-11-14T16:10:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 61,
