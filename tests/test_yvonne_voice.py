@@ -59,7 +59,7 @@ def test_live_voice_stream_uses_silence_not_meeting_audio_and_finalizes(monkeypa
     assert len(chunks) == 2
     assert connection[0][0] == 'wss://api.openai.com/v1/live/sessions'
     config = ws.sent[0]['session']
-    assert config['store'] is False and config['delegation'] is None
+    assert config['store'] is False and config['delegation'] == {'type': 'client'}
     assert 'blid' in config['instructions'] and 'norsk' in config['instructions']
     for event in ws.sent:
         if event['type'] == 'session.input_audio.append':
