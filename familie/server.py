@@ -266,7 +266,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
 
     @app.get("/familie/health")
     async def health():
-        return {"ok": True, "version": "family-2026-11-private-cache"}
+        return {"ok": True, "version": "family-2026-11-file-sharing"}
 
     @app.get("/familie/slekt", response_class=HTMLResponse)
     async def genealogy_page(request: Request):

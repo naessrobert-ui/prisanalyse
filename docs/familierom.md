@@ -259,3 +259,17 @@ Videoklipp får ikke src før brukeren trykker «Spill av video»; det lastes de
 videometadata eller videoinnhold bare fordi kortet vises. En pågående avspilling
 beholder samme videoelement ved oppdatering. Bilder utenfor synsfeltet bruker lazy loading.
 Allerede viste eller manuelt lagrede kopier kan ikke trekkes tilbake fra mottakerens enhet.
+
+## Del videre fra mobilen
+
+Bilder og videoklipp har «Del videre». Filen hentes først når knappen trykkes, via
+samme autentiserte medieadresse og private HTTP-cache. På nettlesere som støtter
+Web Share med filer åpnes enhetens vanlige delingsmeny. Selve bildefilen/klippet deles,
+ikke en lenke som krever familiekoden. Filnavnets endelse følger formatet som serveres,
+slik at blant annet konverterte HEIC-bilder deles som JPG.
+
+En stor fil kan bruke så lang tid å hente at nettleserens midlertidige brukerhandling
+utløper. Da beholdes den ferdig hentede filen i minnet og brukeren blir bedt om å trykke
+«Del videre» igjen. Avbrutt deling regnes ikke som feil. Nettlesere uten fildeling får
+i stedet nedlasting og en kort beskjed om å dele fra Bilder/Filer. Ingen filer sendes
+videre før brukeren selv velger en mottaker og fullfører delingen.
