@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T19:20:00+00:00",
+  "generated_at": "2026-11-14T19:30:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,12 +10,12 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3. kvartal 2026 – uten konkrete tall fra Otello",
-      "lead": "Bemobi Mobile Tech offentliggjorde sine 3Q26-resultater 12. november, men detaljer om tall eller utvikling for Otello Corporation ASA mangler i meldingen.",
+      "headline": "Bemobi rapporterer tall for 3. kvartal 2026 – detaljer foreløpig uklare",
+      "lead": "Bemobi Mobile Tech SA offentliggjorde sine resultater for 3. kvartal 2026. Otello Corporation ASA eier 38,2 prosent av selskapet, men foreløpig er sentrale finansielle nøkkeltall ikke omtalt i meldingen.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech offentliggjorde sine 3Q26-resultater 12. november, men detaljer om tall eller utvikling for Otello Corporation ASA mangler i meldingen.",
-      "reason": "Meldingen refererer til Bemobi-rapporten uten å oppgi spesifikke regnskapstall eller resultater for Otello. Aksjonærer får ikke konkret innsikt i utviklingen, noe som krever nærmere granskning av Bemobis rapport direkte.",
+      "summary": "Bemobi Mobile Tech SA offentliggjorde sine resultater for 3. kvartal 2026. Otello Corporation ASA eier 38,2 prosent av selskapet, men foreløpig er sentrale finansielle nøkkeltall ikke omtalt i meldingen.",
+      "reason": "Uten spesifikke resultat- eller omsetningstall er det vanskelig å vurdere hvordan rapporteringen påvirker Otello og aksjonærer. Det er nødvendig å analysere de publiserte dataene nærmere for å vurdere finansiell effekt og strategiske konsekvenser.",
       "score": 45,
       "skipped": false,
       "direction": "uklar",
@@ -1346,25 +1346,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor ASA betaler ut 0,39 USD i kvartalsutbytte fra i dag",
-      "lead": "Fra 13. november handles Equinor-aksjen uten retten til 0,39 USD i utbytte for andre kvartal 2026. Utbetaling påvirker kontantstrømmen for aksjonærer, men ingen nye finanstall er rapportert.",
+      "headline": "Equinor betaler utbytte på 0,39 USD per aksje i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen eksklusiv kontantutbytte på 0,39 USD per aksje, noe som reduserer aksjekursen tilsvarende ved åpning.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra 13. november handles Equinor-aksjen uten retten til 0,39 USD i utbytte for andre kvartal 2026. Utbetaling påvirker kontantstrømmen for aksjonærer, men ingen nye finanstall er rapportert.",
-      "reason": "Utbytteutbetaling er en normal kontantutdeling til aksjonærer, og påvirker ikke direkte selskapets inntjening eller verdsettelse. Investorer må følge med på videre inntjeningsrapporter for å vurdere selskapets økonomiske helse.",
-      "score": 55,
+      "summary": "Fra 13. november handles Equinor-aksjen eksklusiv kontantutbytte på 0,39 USD per aksje, noe som reduserer aksjekursen tilsvarende ved åpning.",
+      "reason": "Utbyttebetaling er en forventet hendelse som justeres i aksjekursen ved ex-dato, men påvirker ikke selskapets underliggende verdi direkte.",
+      "score": 65,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
       "affected": [
         {
           "ticker": "AKRBP",
-          "direction": "uklar",
-          "reason": "Konkurrenter i olje og gass-sektoren kan merke generell sektorinteresse knyttet til utbyttepolitikk og kontantstrøm."
+          "direction": "negativ",
+          "reason": "Utbytteutbetaling i sektor kan flytte kapital fra olje- og gassaksjer generelt."
         }
       ],
       "importance": "stor",
-      "score_ai": 45,
+      "score_ai": 55,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13447,11 +13447,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T19:20:00+00:00",
+  "last_checked_at": "2026-11-14T19:30:00+00:00",
   "monitor_stats": {
     "fetched": 174,
-    "recent": 44,
-    "already_seen": 41,
+    "recent": 41,
+    "already_seen": 38,
     "eligible": 3,
     "filtered": 0,
     "analyzed": 3,
