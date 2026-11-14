@@ -164,6 +164,8 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .sbtn{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:.35rem .65rem;cursor:pointer;font-size:.85rem}
 .notice{max-width:60ch;margin:0 auto .5rem;padding:.6rem .9rem;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:.9rem}
+
+.johnny-option{display:flex;gap:10px;align-items:flex-start;font-size:12px;font-weight:500;margin:20px 0 5px;cursor:pointer}.johnny-option input{margin:3px 0 0;width:17px;height:17px;accent-color:var(--accent);flex:none}.johnny-option strong{display:block;font-weight:650}.johnny-option small{display:block;color:var(--muted);font-size:11px;line-height:1.6;margin-top:4px}.johnny-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.johnny-actions button{font-size:12px}.johnny-status{font-size:12px;color:var(--accent);font-weight:600}.johnny-panel p{font-size:12px;margin:7px 0;color:var(--muted)}.johnny-panel .johnny-error{color:#a23e38}.johnny-answer a{color:var(--accent);text-decoration:underline}.johnny-panel input{margin:0}.johnny-live{background:var(--chip);padding:7px 10px;border-radius:9px;font-size:12px}.johnny-recording{color:#a23e38!important;font-weight:700}.johnny-source{font-size:11px;display:block;margin:5px 0}.johnny-consent{display:flex;gap:6px;flex-wrap:wrap}.johnny-head{font-size:12px;color:var(--accent)}
 </style>
 </head>
 <body>
@@ -201,9 +203,11 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
         <input class="field" id="kodeIn" type="password" maxlength="100" autocomplete="off" placeholder="Fra den som inviterte deg">
       </div>
       <p class="hint invited hidden" id="invitedNote" role="status"></p>
+      <label class="johnny-option" for="wantJohnny"><input type="checkbox" id="wantJohnny"><span><strong>Foreslå Johnny som møteassistent</strong><small>Valgfritt. Alle må godkjenne i møtet. Johnny får bare lyd når noen trykker «Spør Johnny», og svaret kan leses høyt.</small></span></label>
+      <p class="hint" id="johnnySetup"></p>
       <button class="btn primary wide" id="joinBtn" type="button">Opprett møte</button>
       <p class="hint" id="landNote" role="status" aria-live="polite"></p>
-      <div class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6z"/><path d="m8 12 3 3 5-6"/></svg><span>Du velger selv når kameraet slås på. Møtes.no tar ikke opp samtalen. Del møtelenken med dem du vil invitere.</span></div>
+      <div class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6z"/><path d="m8 12 3 3 5-6"/></svg><span>Du velger selv når kameraet slås på. Del møtelenken med dem du vil invitere. Johnny er valgfri og krever alles godkjenning.</span></div>
     </section>
   </div>
   <section class="steps" aria-label="Slik fungerer det">
@@ -218,7 +222,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   <header>
     <h1>møtes.no</h1>
     <span class="orgh">Plass til samtalen</span>
-    <span id="status">Kobler til …</span>
+    <span id="status">Kobler til …</span><span class="johnny-head" id="johnnyHeader" role="status"></span>
     <span class="roomtag">Rom: <b id="roomName"></b> <button class="sbtn" id="copyBtn" type="button">Inviter</button></span>
   </header>
   <main>
@@ -233,6 +237,12 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       <div class="cams" id="cams"></div>
     </div>
     <aside>
+      <section class="panel johnny-panel" aria-labelledby="johnnyTitle"><h2 id="johnnyTitle">Johnny · valgfri AI</h2>
+       <p id="johnnyStatus" role="status">Johnny er ikke med i møtet.</p>
+       <div id="johnnyConsent" class="hidden"><p>Godkjenner du at et aktivt stilt spørsmål sendes til OpenAI? Svaret og kildene deles med alle i møtet. Johnny lytter ikke kontinuerlig og lager ikke referat av møtet. Stemmen er syntetisk og kommer fra nettleseren din. <a href="https://developers.openai.com/api/docs/guides/your-data" target="_blank" rel="noopener noreferrer">Om behandling hos OpenAI</a>.</p><div class="johnny-consent"><button class="sbtn" id="johnnyYes" type="button">Ja, jeg godkjenner</button><button class="sbtn" id="johnnyNo" type="button">Nei, uten Johnny</button></div></div>
+       <div class="johnny-actions"><button class="sbtn" id="johnnyPropose" type="button">Foreslå Johnny</button><button class="sbtn hidden" id="johnnyAsk" type="button">Spør Johnny</button><button class="sbtn hidden" id="johnnyStop" type="button">Stopp Johnny</button><button class="sbtn hidden" id="johnnyReplay" type="button">Lytt til svaret</button></div>
+       <p class="johnny-error" id="johnnyError" role="status"></p>
+      </section>
       <div class="panel"><h2>I møtet</h2><ul class="people" id="people"></ul></div>
       <div class="panel chat">
         <div class="chat-head"><h2>Chat</h2><button class="sbtn chat-close" id="chatClose" type="button">Lukk</button></div>
@@ -287,6 +297,8 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     actx:null, meters:new Map(), speaking:new Set(), camEls:new Map(), earlyIce:new Map()
   };
 
+  const J={available:false,active:false,proposed:false,approved:[],participants:0,busy:false,listening:'',listener:'',recorder:null,chunks:[],discard:false,timer:null,controller:null,speaking:false,lastAnswer:null,autoPropose:false,proposedOnce:false};
+
   // ---------- landing ----------
   const publicSite=["xn--mtes-gra.no","www.xn--mtes-gra.no","localhost","127.0.0.1"].includes(location.hostname);
   let meetingMode=publicSite?"create":"join", joining=false;
@@ -330,6 +342,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   $("roomIn").addEventListener("input",updateInvitation);
   if(location.hash.length>1){ $("roomIn").value=location.hash.slice(1); meetingMode="join"; }
   setMode(meetingMode);
+  fetch(apiBase+'/meet/johnny/status',{cache:'no-store'}).then(r=>r.json()).then(d=>{J.available=!!d.available;$('wantJohnny').disabled=!J.available;if(!J.available)$('johnnySetup').textContent='Johnny er ikke aktivert av eieren ennå. Vanlige møter virker uten ham.';}).catch(()=>{$('wantJohnny').disabled=true;$('johnnySetup').textContent='Kan ikke sjekke Johnny nå. Vanlige møter virker uten ham.';});
   if(location.protocol!=="https:" && location.hostname!=="localhost" && location.hostname!=="127.0.0.1")
     $("landNote").textContent="Siden må åpnes via https for at mikrofon og kamera skal virke.";
   $("joinBtn").onclick=join;
@@ -354,6 +367,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
         if(S.inv && parseInt(S.inv,10)*1000<Date.now()) throw new Error("Invitasjonen har gått ut. Be møteverten om en ny lenke.");
       }
     }catch(e){ $("landNote").textContent=e.message||"Sjekk møtelenken og prøv igjen."; joining=false;$("joinBtn").disabled=false;return; }
+    J.autoPropose=$('wantJohnny').checked;J.proposedOnce=false;
     Object.assign(S,{name,room,kode,leaving:false,retry:0});
     const rnd=new Uint8Array(16); crypto.getRandomValues(rnd); S.cid=[...rnd].map(b=>b.toString(16).padStart(2,"0")).join("");
     try{localStorage.setItem("nammeet-name",name);}catch(e){}
@@ -367,6 +381,69 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     await loadIce(); connect();
   }
 
+  // Johnny is push-to-ask. Only this participant's microphone is recorded.
+  function renderJohnny(){
+    const mine=J.approved.includes(S.myId),recording=!!J.recorder&&J.recorder.state==='recording';
+    $('johnnyConsent').classList.toggle('hidden',!J.proposed||mine||!J.available);
+    $('johnnyPropose').classList.toggle('hidden',J.proposed);$('johnnyPropose').disabled=!J.available;
+    $('johnnyAsk').classList.toggle('hidden',!J.active);$('johnnyAsk').disabled=J.busy||J.speaking||(!recording&&(!S.mic||S.muted||!!J.listening&&J.listener!==S.myId));
+    $('johnnyAsk').textContent=recording?'Send spørsmålet':'Spør Johnny';
+    $('johnnyStop').classList.toggle('hidden',!J.proposed);$('johnnyReplay').classList.toggle('hidden',!J.lastAnswer||!J.active);$('johnnyReplay').disabled=J.busy||!!J.listening;
+    const text=!J.available?'Johnny er ikke aktivert av eieren ennå.':!J.proposed?'Johnny er ikke med i møtet.':J.busy?'Johnny undersøker spørsmålet …':J.listening?'Johnny får et spørsmål fra '+J.listening+'.':J.active?'Johnny er klar. Han lytter bare når du trykker «Spør Johnny».':J.approved.length+' av '+J.participants+' har godkjent. Venter på alle.';
+    $('johnnyStatus').textContent=recording?'Tar opp spørsmålet ditt · maks 30 sekunder. Trykk «Send spørsmålet» når du er ferdig.':text;$('johnnyStatus').classList.toggle('johnny-recording',!!J.listening||recording);$('johnnyHeader').textContent=J.proposed?(J.active?'Johnny · med alles godkjenning':'Johnny · venter på godkjenning'):'';
+    if(J.active&&(!S.mic||S.muted)&&!recording)$('johnnyStatus').textContent+=' Slå på mikrofonen for å spørre.';
+  }
+  function stopJohnnyLocal(){
+    J.discard=true;clearTimeout(J.timer);J.controller?.abort();J.controller=null;
+    if(J.recorder&&J.recorder.state!=='inactive')J.recorder.stop();
+    if('speechSynthesis' in window)window.speechSynthesis.cancel();J.speaking=false;
+  }
+  function speakJohnny(text){
+    if(!J.active)return;
+    if(!('speechSynthesis' in window)){$('johnnyError').textContent='Nettleseren kan ikke lese høyt. Svaret står i chatten.';return;}
+    window.speechSynthesis.cancel();
+    const voice=new SpeechSynthesisUtterance(text.replace(/\ue200cite[^\ue201]*\ue201/g,'').replace(/https?:\/\/\S+/g,''));voice.lang='nb-NO';
+    const voices=window.speechSynthesis.getVoices(),norwegian=voices.find(v=>/^(nb|no|nn)(-|$)/i.test(v.lang));if(norwegian)voice.voice=norwegian;
+    voice.onstart=()=>{J.speaking=true;renderJohnny();};voice.onend=()=>{J.speaking=false;renderJohnny();};voice.onerror=()=>{J.speaking=false;$('johnnyError').textContent='Kunne ikke lese høyt. Prøv «Lytt til svaret», eller les svaret i chatten.';renderJohnny();};window.speechSynthesis.speak(voice);
+  }
+  function addJohnnyAnswer(message){
+    const empty=$('chatEmpty');if(empty)empty.remove();const box=el('div','johnny-answer');box.append(el('b',null,'Johnny · AI'),el('p',null,'Spørsmål fra '+message.askedBy+': '+message.question));
+    const text=Array.from(String(message.text||'')),answer=el('p');let offset=0;
+    for(const cite of (message.citations||[]).sort((a,b)=>a.start-b.start)){
+      if(!/^https?:\/\//.test(cite.url)||cite.start<offset||cite.end>text.length||cite.end<=cite.start)continue;
+      answer.append(document.createTextNode(text.slice(offset,cite.start).join('')));const link=el('a',null,text.slice(cite.start,cite.end).join(''));link.href=cite.url;link.target='_blank';link.rel='noopener noreferrer';link.title=cite.title;answer.append(link);offset=cite.end;
+    }
+    answer.append(document.createTextNode(text.slice(offset).join('')));box.append(answer);
+    for(const cite of message.citations||[]){if(!/^https?:\/\//.test(cite.url))continue;const link=el('a','johnny-source',cite.title||cite.url);link.href=cite.url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);}
+    box.append(el('small','subtle','AI-svar kan inneholde feil. Sjekk kildene.'));$('chatLog').append(box);$('chatLog').scrollTop=$('chatLog').scrollHeight;
+    if(!chatVisible()){S.unread++;updateBadge();notice('Johnny har svart. Åpne chatten for å se svaret og kildene.');}
+  }
+  $('johnnyPropose').onclick=()=>{ $('johnnyError').textContent='';wsSend({t:'johnny-propose'});};
+  $('johnnyYes').onclick=()=>{ $('johnnyError').textContent='';wsSend({t:'johnny-consent',accept:true});};
+  const decline=()=>{J.autoPropose=false;stopJohnnyLocal();wsSend({t:'johnny-consent',accept:false});};
+  $('johnnyNo').onclick=decline;$('johnnyStop').onclick=decline;$('johnnyReplay').onclick=()=>{if(J.lastAnswer)speakJohnny(J.lastAnswer.text);};
+  $('johnnyAsk').onclick=()=>{
+    if(J.recorder&&J.recorder.state==='recording'){J.recorder.stop();return;}
+    if(!J.active||!S.mic||S.muted)return;
+    if(!window.MediaRecorder){$('johnnyError').textContent='Denne nettleseren støtter ikke lydspørsmål. Prøv Chrome eller Safari.';return;}
+    const mime=['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus'].find(type=>MediaRecorder.isTypeSupported(type));
+    if(!mime){$('johnnyError').textContent='Denne nettleseren har ikke et støttet lydformat.';return;}
+    $('johnnyError').textContent='';J.discard=false;J.chunks=[];
+    try{J.recorder=new MediaRecorder(S.mic,{mimeType:mime,audioBitsPerSecond:64000});}catch(e){$('johnnyError').textContent='Kunne ikke starte lydspørsmålet.';return;}
+    const recorder=J.recorder;recorder.ondataavailable=e=>{if(e.data.size)J.chunks.push(e.data);};
+    recorder.onstop=async()=>{
+      clearTimeout(J.timer);J.recorder=null;wsSend({t:'johnny-listening',value:false});renderJohnny();
+      if(J.discard||!J.active){J.chunks=[];return;}
+      const body=new Blob(J.chunks,{type:mime});J.chunks=[];if(!body.size)return;
+      if(body.size>512*1024){$('johnnyError').textContent='Spørsmålet ble for stort. Prøv et kortere spørsmål.';return;}
+      J.controller=new AbortController();
+      try{const response=await fetch(apiBase+'/meet/johnny/ask',{method:'POST',headers:{'Content-Type':mime,'X-Meet-Room':S.room,'X-Meet-Client':S.cid},body,signal:J.controller.signal});if(!response.ok){let error;try{error=await response.json();}catch(e){}throw new Error(error?.detail||'Johnny kunne ikke svare nå.');}}
+      catch(e){if(e.name!=='AbortError')$('johnnyError').textContent=e.message||'Spørsmålet kunne ikke sendes.';}finally{J.controller=null;renderJohnny();}
+    };
+    recorder.onerror=()=>{J.discard=true;$('johnnyError').textContent='Lydopptaket feilet. Prøv igjen.';};
+    recorder.start(250);wsSend({t:'johnny-listening',value:true});J.timer=setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},30000);renderJohnny();
+  };
+
   // ---------- websocket signaling ----------
   function wsUrl(){
     const base = apiBase;
@@ -379,7 +456,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     ws.onmessage = ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } onMsg(m); };
     ws.onclose = ev=>{
       if(S.ws!==ws) return;
-      clearInterval(S.pingTimer);
+      clearInterval(S.pingTimer);Object.assign(J,{active:false,proposed:false,approved:[],busy:false,listening:'',listener:'',proposedOnce:false});stopJohnnyLocal();renderJohnny();
       if(S.leaving) return;
       if(ev.code===4401){ backToLanding(S.inv?"Invitasjonen gjelder ikke lenger. Be den som inviterte deg om en ny lenke.":"Feil tilgangskode."); return; }
       if(ev.code===4409){ backToLanding("Rommet er fullt."); return; }
@@ -409,7 +486,15 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       sendState();
       clearInterval(S.pingTimer); S.pingTimer=setInterval(()=>wsSend({t:"ping"}), 25000);
       for(const id of S.peers.keys()) if(S.myId<id) startOffer(id);
-      render(); updateBadge(); startMeterLoop();
+      render(); updateBadge(); startMeterLoop();renderJohnny();
+      if(J.autoPropose&&!J.proposedOnce){J.proposedOnce=true;wsSend({t:'johnny-propose'});}
+    } else if(m.t==='johnny'){
+      Object.assign(J,{available:!!m.available,active:!!m.active,proposed:!!m.proposed,approved:m.approved||[],participants:m.participants||0,busy:!!m.busy,listening:m.listening||'',listener:m.listener||''});
+      if(!J.proposed)J.autoPropose=false;if(!J.active)stopJohnnyLocal();renderJohnny();
+    } else if(m.t==='johnny-answer'){
+      J.lastAnswer=m;addJohnnyAnswer(m);speakJohnny(m.text);renderJohnny();
+    } else if(m.t==='johnny-error'){
+      $('johnnyError').textContent=m.text||'Johnny er ikke tilgjengelig.';
     } else if(m.t==="peer-joined" && m.peer){
       backAgain(m.peer.id);
       S.peers.set(m.peer.id,{name:m.peer.name,state:keepState(m.peer.id,m.peer.state)});
@@ -509,7 +594,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   function replaceAll(slot, track){ for(const c of S.conns.values()){ const t=c[slot]; if(t) t.sender.replaceTrack(track).catch(()=>{}); } }
 
   // ---------- controls ----------
-  $("micBtn").onclick=()=>{ if(!S.mic) return; S.muted=!S.muted; S.mic.getAudioTracks().forEach(t=>t.enabled=!S.muted); sendState(); render(); };
+  $("micBtn").onclick=()=>{ if(!S.mic) return; S.muted=!S.muted;if(S.muted&&J.recorder){J.discard=true;J.recorder.stop();} S.mic.getAudioTracks().forEach(t=>t.enabled=!S.muted); sendState(); render(); };
   $("camBtn").onclick=async()=>{
     if(S.cam){ stopCam(); return; }
     try{ S.cam=await navigator.mediaDevices.getUserMedia({video:{width:{max:960},height:{max:960},frameRate:{ideal:15,max:24}}}); }
@@ -529,8 +614,9 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   function stopShare(){ if(!S.screen) return; S.screen.getTracks().forEach(t=>t.stop()); S.screen=null; replaceAll("vT",null); sendState(); render(); }
 
   $("leaveBtn").onclick=()=>backToLanding("Du har forlatt møtet.");
-  window.addEventListener("pagehide",()=>{ if(S.ws) { S.leaving=true; wsSend({t:"bye"}); try{ S.ws.close(); }catch(e){} } });
+  window.addEventListener("pagehide",()=>{ stopJohnnyLocal();if(S.ws) { S.leaving=true; wsSend({t:"bye"}); try{ S.ws.close(); }catch(e){} } });
   function backToLanding(msg){
+    stopJohnnyLocal();Object.assign(J,{active:false,proposed:false,approved:[],lastAnswer:null});
     S.leaving=true; clearInterval(S.pingTimer);
     wsSend({t:"bye"}); try{ S.ws && S.ws.close(); }catch(e){} S.ws=null; S.myId=null;
     for(const id of [...S.away.keys()]) backAgain(id);
@@ -538,6 +624,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     for(const k of ["screen","cam","mic"]) if(S[k]){ S[k].getTracks().forEach(t=>t.stop()); S[k]=null; }
     if(S.actx){ try{ S.actx.close(); }catch(e){} S.actx=null; }
     S.meters.clear(); S.speaking.clear(); S.muted=false;
+    const emptyChat=el('span','subtle','Meldinger lagres ikke og forsvinner når møtet er over.');emptyChat.id='chatEmpty';$('chatLog').replaceChildren(emptyChat);
     for(const [,o] of S.camEls) o.box.remove(); S.camEls.clear();
     $("app").classList.add("hidden"); $("landing").classList.remove("hidden");
     joining=false; setMode("join"); $("joinBtn").disabled=false; $("landNote").textContent=msg||""; notice(""); closeChat(); S.unread=0; updateBadge();
@@ -635,6 +722,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   function render(){
     const n=S.peers.size+1;
     if(S.myId && S.ws && S.ws.readyState===1) $("status").textContent = n===1?"Bare du i møtet":n+" i møtet";
+    renderJohnny();
     const mb=$("micBtn"); mb.disabled=!S.mic; mb.className="btn "+(S.muted||!S.mic?"off":"");
     btnLabel(mb,S.muted||!S.mic?ICON.micOff:ICON.mic,S.mic?(S.muted?"Slå på mikrofon":"Demp mikrofon"):"Ingen mikrofon");
     const cb=$("camBtn"); cb.className="btn "+(S.cam?"on":""); btnLabel(cb,S.cam?ICON.cam:ICON.camOff,S.cam?"Slå av kamera":"Slå på kamera");

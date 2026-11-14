@@ -7,7 +7,9 @@ Denne modulen gir:
 
 Lyd og bilde går kryptert direkte mellom nettleserne (WebRTC).
 Serveren formidler bare oppkoblingen, chat og hvem som er i rommet.
-Ingenting lagres: alt ligger i minnet og forsvinner når rommet tømmes.
+Møterommene ligger i minnet og forsvinner når rommet tømmes.
+Valgfri Johnny: bare et aktivt innsendt spørsmål sendes til OpenAI etter alles samtykke.
+Ingen kontinuerlig AI-lytting eller opptak av hele møtet. Svaret deles i møtet.
 
 Miljøvariabler:
   NAM_MEET_KODE   Tilgangskode deltakerne må skrive inn. Sterkt anbefalt.
@@ -38,8 +40,10 @@ import logging
 import time
 
 import httpx
-from fastapi import APIRouter, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
+
+import johnny_ai
 
 router = APIRouter()
 
@@ -59,6 +63,125 @@ _ice_cache: dict = {"til": 0.0, "servere": None}
 # rom -> {deltaker_id -> {"ws": WebSocket, "name": str, "state": dict}}
 _rom: dict[str, dict[str, dict]] = {}
 _las = asyncio.Lock()
+
+
+# Consent is tied to live WebSocket participants, not a reusable meeting invite.
+_johnny: dict[str, dict] = {}
+_johnny_requests: list[float] = []
+
+
+def _johnny_state(rom):
+    state = _johnny.get(rom, {})
+    participants = set(_rom.get(rom, {}))
+    active = bool(participants and state.get('proposed') and state.get('consents') == participants and johnny_ai.capability()['available'])
+    return {'t': 'johnny', **johnny_ai.capability(), 'proposed': bool(state.get('proposed')), 'active': active,
+            'approved': sorted(state.get('consents', set()) & participants), 'participants': len(participants),
+            'busy': bool(state.get('busy')), 'listening': state.get('listening', ''), 'listener': state.get('listener', '')}
+
+
+async def _johnny_publish(rom, *, force=False):
+    if rom not in _johnny and not force:
+        return
+    await _kringkast(rom, _johnny_state(rom))
+
+
+def _johnny_pause(rom, *, remove=False):
+    state = _johnny.get(rom)
+    if state:
+        task = state.get('task')
+        if task and not task.done():
+            task.cancel()
+        state.update(consents=set(), busy=False, listening='', task=None, epoch=state.get('epoch', 0) + 1)
+        if remove:
+            _johnny.pop(rom, None)
+
+
+async def _johnny_event(rom, pid, msg):
+    kind = msg.get('t')
+    if kind == 'johnny-propose':
+        if not johnny_ai.capability()['available']:
+            await _send(_rom[rom][pid]['ws'], {'t': 'johnny-error', 'text': 'Johnny må aktiveres av eieren av møtes.no først.'})
+            return
+        # Repeated proposals must never reset other participants' decisions.
+        if not _johnny.get(rom, {}).get('proposed'):
+            _johnny[rom] = {'proposed': True, 'consents': set(), 'epoch': 0, 'busy': False, 'requests': []}
+    elif kind == 'johnny-consent':
+        state = _johnny.get(rom)
+        if state and msg.get('accept') is True:
+            state['consents'].add(pid)
+        elif state:
+            _johnny_pause(rom, remove=True)
+    elif kind == 'johnny-listening':
+        if _johnny_state(rom)['active']:
+            state = _johnny[rom]
+            if msg.get('value') is True and not state.get('busy') and (not state.get('listening') or state.get('listener') == pid):
+                state['listening'] = _rom[rom][pid]['name']
+                state['listener'] = pid
+            elif state.get('listener') == pid:
+                state['listening'] = ''
+    await _johnny_publish(rom, force=True)
+
+
+@router.get('/meet/johnny/status', include_in_schema=False)
+async def johnny_status():
+    return johnny_ai.capability()
+
+
+@router.post('/meet/johnny/ask', include_in_schema=False)
+async def johnny_ask(request: Request):
+    rom = _rens_rom(request.headers.get('x-meet-room', ''))
+    cid = request.headers.get('x-meet-client', '')
+    if not re.fullmatch(r'[0-9a-f]{32}', cid):
+        raise HTTPException(403, 'Bli med i møtet først.')
+    pid = _deltaker_id(cid)
+    peer = _rom.get(rom, {}).get(pid)
+    if not peer:
+        raise HTTPException(403, 'Bli med i møtet først.')
+    if not _johnny_state(rom)['active']:
+        raise HTTPException(409, 'Alle deltakere må godkjenne Johnny først.')
+    state = _johnny[rom]
+    if state.get('busy') or (state.get('listening') and state.get('listener') != pid):
+        raise HTTPException(429, 'Johnny svarer på et annet spørsmål. Vent litt.')
+    now = time.time()
+    state['requests'] = [t for t in state['requests'] if t > now - 60]
+    _johnny_requests[:] = [t for t in _johnny_requests if t > now - 3600]
+    if len(state['requests']) >= 2 or len(_johnny_requests) >= 20:
+        raise HTTPException(429, 'Grensen for AI-spørsmål er nådd. Prøv igjen senere.')
+    mime = request.headers.get('content-type', '').split(';', 1)[0].strip().lower()
+    if mime not in {'audio/webm', 'audio/mp4', 'audio/ogg'}:
+        raise HTTPException(415, 'Nettleseren leverte ikke et støttet lydformat.')
+    epoch = state['epoch']
+    state.update(busy=True, task=asyncio.current_task(), listening='')
+    state['requests'].append(now)
+    _johnny_requests.append(now)
+    await _johnny_publish(rom)
+    try:
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > 512 * 1024:
+                raise HTTPException(413, 'Spørsmålet er for langt. Maks 30 sekunder.')
+        if not body:
+            raise HTTPException(400, 'Fant ingen lyd. Prøv igjen.')
+        if ((mime == 'audio/webm' and not body.startswith(b'\x1aE\xdf\xa3'))
+                or (mime == 'audio/ogg' and not body.startswith(b'OggS'))
+                or (mime == 'audio/mp4' and body[4:8] != b'ftyp')):
+            raise HTTPException(415, 'Lydfilen kunne ikke leses.')
+        if not _johnny_state(rom)['active'] or state['epoch'] != epoch:
+            raise HTTPException(409, 'Samtykket er endret. Spørsmålet er avbrutt.')
+        result = await johnny_ai.answer(bytes(body), mime)
+        if _johnny.get(rom) is not state or not _johnny_state(rom)['active'] or state['epoch'] != epoch:
+            raise HTTPException(409, 'Samtykket er endret. Svaret deles ikke.')
+        await _kringkast(rom, {'t': 'johnny-answer', **result, 'askedBy': peer['name']})
+        return {'ok': True}
+    except asyncio.CancelledError:
+        raise HTTPException(409, 'Johnny er stoppet fordi deltakerne eller samtykket er endret.')
+    except (httpx.HTTPError, ValueError, KeyError):
+        raise HTTPException(502, 'Johnny fikk ikke svart nå. Sjekk AI-oppsettet eller prøv senere.')
+    finally:
+        if _johnny.get(rom) is state:
+            state.update(busy=False, task=None, listening='')
+            await _johnny_publish(rom)
 
 
 def _rens_rom(r: str) -> str:
@@ -263,6 +386,7 @@ async def meet_ws(
         andre = [{"id": k, "name": v["name"], "state": v["state"]} for k, v in medlemmer.items() if k != pid]
         medlemmer[pid] = meg
 
+    _johnny_pause(rom)
     if gammel is not None:
         # Samme fane har koblet til på nytt før den gamle forbindelsen ble ryddet bort.
         try:
@@ -273,6 +397,7 @@ async def meet_ws(
     await _send(ws, {"t": "welcome", "id": pid, "peers": andre})
     await _kringkast(rom, {"t": "peer-joined", "peer": {"id": pid, "name": meg["name"], "state": {}}}, unntatt=pid)
 
+    await _johnny_publish(rom)
     try:
         while True:
             raw = await ws.receive_text()
@@ -285,7 +410,9 @@ async def meet_ws(
             if not isinstance(msg, dict):
                 continue
             t = msg.get("t")
-            if t == "sig":
+            if isinstance(t, str) and t.startswith('johnny-'):
+                await _johnny_event(rom, pid, msg)
+            elif t == "sig":
                 mal = _rom.get(rom, {}).get(msg.get("to"))
                 if mal:
                     await _send(mal["ws"], {"t": "sig", "from": pid, "data": msg.get("data")})
@@ -313,6 +440,8 @@ async def meet_ws(
             if not medlemmer:
                 _rom.pop(rom, None)
         if fjernet:
+            _johnny_pause(rom, remove=not bool(_rom.get(rom)))
+            await _johnny_publish(rom)
             # bye=True: deltakeren gikk selv. Ellers kan det være et kort brudd (f.eks. ny deploy),
             # og klientene beholder lyd og bilde en stund i tilfelle deltakeren kommer tilbake.
             await _kringkast(rom, {"t": "peer-left", "id": pid, "bye": bool(meg.get("bye"))})
