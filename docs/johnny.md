@@ -137,3 +137,20 @@ python tests/browser_yvonne_wake.py
 
 Testserveren må aldri brukes som produksjonsstartkommando. Den erstatter begge
 AI-providerne med syntetiske svar. Nettlesertesten bruker /usr/bin/chromium.
+
+### Navnehint og lokal feilsøking
+
+Der SpeechRecognition.phrases støttes, prioriteres «Yvonne», «Hey Yvonne»,
+«Hei Yvonne» og «Ivonne» med SpeechRecognitionPhrase (boost 8). Hvis motoren
+avviser navnehint, prøves lokal lytting uten hint; den bytter aldri til skyen.
+Navnevarianten «Yvonn»/«Yvone»/«Ivon»/«Evon» godtas, men vanlige engelske ord
+som «even» og «you won» aktiverer ikke automatisk opptak.
+
+Valget «Vis hva navnegjenkjenningen hører» er av som standard. Når det er valgt,
+vises opptil 160 tegn av siste lokale gjenkjenning på egen enhet i åtte sekunder.
+Ingen slik diagnostikk sendes til server eller møtedeltakere, eller skrives til
+nettleserlagring. Pausing, deaktivering og avslått visning tømmer feltet.
+Dette hjelper med å skille manglende mikrofoninput fra feil gjenkjent navn.
+Selve navnenøyaktigheten må bekreftes med fysisk mikrofon på brukerens enhet.
+
+Referanse: https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/phrases

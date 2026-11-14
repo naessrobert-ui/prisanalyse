@@ -6,12 +6,12 @@ from playwright.sync_api import sync_playwright,expect
 expect.set_options(timeout=15000)
 FAKE=r'''window.localCalls=[];window.wakeStarts=0;window.wakeAborts=0;window.remoteAttempts=0;
 class LocalRecognition {
- constructor(){this.processLocally=false;window.lastWake=this;}
+ constructor(){this.phrases=[];this.processLocally=false;window.lastWake=this;}
  static async available(o){window.localCalls.push(o);return o.langs[0]==='nb-NO'?'unavailable':'available';}
  static async install(o){window.localCalls.push(o);return true;}
  start(){if(!this.processLocally)window.remoteAttempts++;window.wakeStarts++;setTimeout(()=>this.onstart?.(),0);}
  abort(){window.wakeAborts++;}
-}window.SpeechRecognition=LocalRecognition;
+}window.SpeechRecognitionPhrase=class {constructor(phrase,boost){this.phrase=phrase;this.boost=boost;}};window.SpeechRecognition=LocalRecognition;
 window.sayWake=(text)=>{let r=[[{transcript:text}]];window.lastWake.onresult?.({resultIndex:0,results:r});};
 window.level=0;AnalyserNode.prototype.getFloatTimeDomainData=function(d){d.fill(window.level);};'''
 with sync_playwright() as p:
@@ -21,9 +21,13 @@ with sync_playwright() as p:
  a=c.new_page();a.on('pageerror',lambda e:errors.append(str(e)));a.on('request',lambda r:requests.append(r.url) if '/johnny/ask' in r.url else None)
  a.goto('http://localhost:8771/');a.locator('#nameIn').fill('Local test');a.locator('#wantJohnny').check();a.locator('#joinBtn').click();expect(a.locator('#app')).to_be_visible();a.locator('#johnnyYes').click();expect(a.locator('#yvonneWakeControls')).to_be_visible()
  assert not a.locator('#yvonneWake').is_checked();a.locator('#yvonneWake').check();expect(a.locator('#yvonneWakeStatus')).to_contain_text('Lytter lokalt');assert a.evaluate('window.localCalls.every(x=>x.processLocally===true)')
- a.evaluate('sayWake("Vi snakker om været")');a.wait_for_timeout(700);assert not requests;expect(a.locator('#johnnyAsk')).to_have_text('Spør Yvonne')
+ assert a.evaluate('window.lastWake.phrases.some(p=>p.phrase==="Yvonne"&&p.boost===8)')
+ assert not a.locator('#yvonneWakeDebug').is_checked();a.locator('#yvonneWakeDebug').check()
+ a.evaluate('sayWake("Vi snakker om været")');a.wait_for_timeout(700);assert not requests;expect(a.locator('#johnnyAsk')).to_have_text('Spør Yvonne');expect(a.locator('#yvonneWakeHeard')).to_contain_text('Vi snakker om været');a.locator('#yvonneWakeDebug').uncheck();expect(a.locator('#yvonneWakeHeard')).not_to_be_visible()
+ # An engine rejecting name hints must retry locally without hints.
+ a.evaluate('window.oldWake=window.lastWake;window.lastWake.onerror({error:"phrases-not-supported"})');a.wait_for_function('window.oldWake!==window.lastWake');assert a.evaluate('window.lastWake.phrases.length')==0
  a.locator('#micBtn').click();assert a.evaluate('window.lastWake.onresult===null');starts=a.evaluate('wakeStarts');a.wait_for_timeout(600);assert a.evaluate('wakeStarts')==starts;a.locator('#micBtn').click();expect(a.locator('#yvonneWakeStatus')).to_contain_text('Lytter lokalt')
- a.evaluate('window.level=.06;sayWake("Yvonne")');expect(a.locator('#johnnyAsk')).to_have_text('Send spørsmålet');a.wait_for_timeout(800)
+ a.evaluate('window.level=.06;sayWake("Hey Yvonne")');expect(a.locator('#johnnyAsk')).to_have_text('Send spørsmålet');a.wait_for_timeout(800)
  with a.expect_response('**/meet/johnny/ask') as reply:
   a.evaluate('window.level=0')
  assert reply.value.status==200 and len(requests)==1
@@ -41,4 +45,4 @@ with sync_playwright() as p:
  assert manual.value.status==200 and len(requests)==2
  d.locator('#johnnyStop').click();expect(a.locator('#johnnyAsk')).not_to_be_visible();assert not errors,errors
  a.locator('#leaveBtn').click();d.locator('#leaveBtn').click();b.close()
- print('PASS: local-only recognition, mute, wake question, silence auto-send, empty-trigger discard, consent reset, unsupported browser, manual fallback; no JS errors.')
+ print('PASS: name hints with local-only retry, private diagnostic opt-in, local-only recognition, mute, wake question, silence auto-send, empty-trigger discard, consent reset, unsupported browser, manual fallback; no JS errors.')

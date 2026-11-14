@@ -241,7 +241,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
        <p id="johnnyStatus" role="status">Yvonne er ikke med i møtet.</p>
        <div id="johnnyConsent" class="hidden"><p>Godkjenner du at et aktivt stilt spørsmål sendes til OpenAI? Svaret og kildene deles med alle i møtet. Ved valgfri lokal navnegjenkjenning behandles lyden på din enhet frem til «Yvonne» oppdages. Deretter sendes bare spørsmålet fra din mikrofon til OpenAI. Hun husker ikke samtalen før spørsmålet og lager ikke referat av møtet. Stemmen er syntetisk og lages med OpenAI GPT-Live. <a href="https://developers.openai.com/api/docs/guides/your-data" target="_blank" rel="noopener noreferrer">Om behandling hos OpenAI</a>.</p><div class="johnny-consent"><button class="sbtn" id="johnnyYes" type="button">Ja, jeg godkjenner</button><button class="sbtn" id="johnnyNo" type="button">Nei, uten Yvonne</button></div></div>
        <div class="johnny-actions"><button class="sbtn" id="johnnyPropose" type="button">Foreslå Yvonne</button><button class="sbtn hidden" id="johnnyAsk" type="button">Spør Yvonne</button><button class="sbtn hidden" id="johnnyStop" type="button">Stopp Yvonne</button><button class="sbtn hidden" id="johnnyReplay" type="button">Lytt til svaret</button></div>
-       <div id="yvonneWakeControls" class="hidden"><label class="johnny-option"><input id="yvonneWake" type="checkbox"><span><strong>Lytt etter «Yvonne» på denne enheten</strong><small>Si «Yvonne», ta en kort pause og still spørsmålet. Etter en pause sendes det automatisk. Bare spørsmålet sendes til OpenAI.</small></span></label><p id="yvonneWakeStatus" role="status" aria-live="polite"></p></div>
+       <div id="yvonneWakeControls" class="hidden"><label class="johnny-option"><input id="yvonneWake" type="checkbox"><span><strong>Lytt etter «Yvonne» på denne enheten</strong><small>Si «Yvonne», ta en kort pause og still spørsmålet. Etter en pause sendes det automatisk. Bare spørsmålet sendes til OpenAI.</small></span></label><p id="yvonneWakeStatus" role="status" aria-live="polite"></p><label class="johnny-option"><input id="yvonneWakeDebug" type="checkbox"><span>Vis hva navnegjenkjenningen hører · bare på denne enheten</span></label><p id="yvonneWakeHeard" class="hidden" role="status"></p></div>
        <p class="johnny-error" id="johnnyError" role="status"></p>
       </section>
       <div class="panel"><h2>I møtet</h2><ul class="people" id="people"></ul></div>
@@ -383,16 +383,18 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   }
 
   // Local wake-word recognition never permits cloud recognition fallback.
-  const Wake={enabled:false,recognizer:null,timer:null,epoch:0,preparing:false,lang:null,message:'Av. Krever en nettleser med lokal talegjenkjenning.',cooldown:0,restarts:0};
+  const Wake={enabled:false,recognizer:null,timer:null,epoch:0,preparing:false,lang:null,message:'Av. Krever en nettleser med lokal talegjenkjenning.',cooldown:0,restarts:0,hints:true,heardTimer:null};
   function wakeAllowed(){return Wake.enabled&&J.active&&!!S.mic&&!S.muted&&!J.busy&&!J.speaking&&!J.sources.size&&!J.listening&&!J.recorder&&!J.controller&&!document.hidden&&S.ws?.readyState===WebSocket.OPEN;}
   function pauseWake(){
     clearTimeout(Wake.timer);Wake.timer=null;
-    const r=Wake.recognizer;Wake.recognizer=null;if(r){r.onend=null;r.onresult=null;r.onerror=null;try{r.abort();}catch(e){}}
+    const r=Wake.recognizer;Wake.recognizer=null;if(r){r.onstart=null;r.onend=null;r.onresult=null;r.onerror=null;try{r.abort();}catch(e){}}
   }
-  function disableWake(message){Wake.preparing=false;Wake.enabled=false;Wake.epoch++;pauseWake();$('yvonneWake').checked=false;Wake.message=message||'Lokal navnegjenkjenning er av.';$('yvonneWakeStatus').textContent=Wake.message;}
+  function clearWakeHeard(){clearTimeout(Wake.heardTimer);$('yvonneWakeHeard').textContent='';$('yvonneWakeHeard').classList.add('hidden');}
+  $('yvonneWakeDebug').onchange=clearWakeHeard;
+  function disableWake(message){clearWakeHeard();Wake.preparing=false;Wake.enabled=false;Wake.epoch++;pauseWake();$('yvonneWake').checked=false;Wake.message=message||'Lokal navnegjenkjenning er av.';$('yvonneWakeStatus').textContent=Wake.message;}
   function syncWake(){
     $('yvonneWakeControls').classList.toggle('hidden',!J.active);
-    if(!wakeAllowed()){pauseWake();if(Wake.enabled)$('yvonneWakeStatus').textContent='Navnegjenkjenning er pauset mens mikrofonen er dempet, et spørsmål pågår eller fanen er i bakgrunnen.';return;}
+    if(!wakeAllowed()){pauseWake();clearWakeHeard();if(Wake.enabled)$('yvonneWakeStatus').textContent='Navnegjenkjenning er pauset mens mikrofonen er dempet, et spørsmål pågår eller fanen er i bakgrunnen.';return;}
     if(Wake.preparing||Wake.recognizer||Wake.timer)return;
     Wake.timer=setTimeout(()=>{Wake.timer=null;startWake();},Math.max(400,Wake.cooldown-Date.now()));
   }
@@ -402,27 +404,34 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     const r=new Engine();
     if(!('processLocally' in r)){disableWake('Denne nettleseren støtter ikke lokal navnegjenkjenning. Bruk «Spør Yvonne».');return;}
     r.processLocally=true;r.lang=Wake.lang;r.continuous=true;r.interimResults=true;r.maxAlternatives=3;
+    if(Wake.hints&&'phrases' in r&&typeof window.SpeechRecognitionPhrase==='function'){
+      try{r.phrases=['Yvonne','Hey Yvonne','Hei Yvonne','Ivonne'].map(name=>new SpeechRecognitionPhrase(name,8));}catch(e){Wake.hints=false;}
+    }
     if(r.processLocally!==true){disableWake('Lokal behandling kunne ikke aktiveres. Bruk «Spør Yvonne».');return;}
     Wake.recognizer=r;const started=Date.now();
-    r.onstart=()=>{if(Wake.recognizer!==r||!wakeAllowed()){pauseWake();return;}$('yvonneWakeStatus').textContent='Lytter lokalt etter «Yvonne» · '+(Wake.lang==='nb-NO'?'norsk språkpakke':'engelsk språkpakke for navnet')+'. Ingen møtelyd sendes til OpenAI før navnet oppdages.';};
+    r.onstart=()=>{if(Wake.recognizer!==r)return;if(!wakeAllowed()){pauseWake();return;}$('yvonneWakeStatus').textContent='Lytter lokalt etter «Yvonne» · '+(Wake.lang==='nb-NO'?'norsk språkpakke':'engelsk språkpakke for navnet')+'. Ingen møtelyd sendes til OpenAI før navnet oppdages. Prøv gjerne «Hey Yvonne».';};
     r.onresult=e=>{
       if(Wake.recognizer!==r||!wakeAllowed())return;
+      if($('yvonneWakeDebug').checked){
+        const heard=Array.from(e.results).slice(e.resultIndex).map(result=>result[0]?.transcript||'').join(' ').trim().slice(-160);
+        if(heard){clearWakeHeard();$('yvonneWakeHeard').textContent='Hørte lokalt: «'+heard+'». Vises bare på denne enheten.';$('yvonneWakeHeard').classList.remove('hidden');Wake.heardTimer=setTimeout(clearWakeHeard,8000);}
+      }
       for(let i=e.resultIndex;i<e.results.length;i++){
         for(const alternative of Array.from(e.results[i])){
-          if(/(?:^|[^\p{L}])(?:yvonne|ivonne|evonne|yvon)(?=$|[^\p{L}])/iu.test(alternative.transcript||'')){
+          if(/(?:^|[^\p{L}])(?:yvonne|ivonne|evonne|yvon|yvonn|yvone|ivon|evon)(?=$|[^\p{L}])/iu.test(alternative.transcript||'')){
             pauseWake();Wake.cooldown=Date.now()+2500;S.actx?.resume().catch(()=>{});
             if(!wakeAllowed())return;
-            startYvonneQuestion(true);return;
+            startYvonneQuestion(true);notice('Yvonne hørte navnet. Still spørsmålet nå.');return;
           }
         }
       }
     };
-    r.onerror=e=>{if(Wake.recognizer!==r)return;if(e.error==='no-speech')return;disableWake('Lokal navnegjenkjenning stoppet ('+String(e.error||'ukjent feil')+'). Bruk «Spør Yvonne».');};
+    r.onerror=e=>{if(Wake.recognizer!==r)return;if(e.error==='no-speech')return;if(e.error==='phrases-not-supported'&&Wake.hints){Wake.hints=false;pauseWake();syncWake();return;}disableWake('Lokal navnegjenkjenning stoppet ('+String(e.error||'ukjent feil')+'). Bruk «Spør Yvonne».');};
     r.onend=()=>{if(Wake.recognizer!==r)return;Wake.recognizer=null;Wake.restarts=Date.now()-started<1500?Wake.restarts+1:0;if(Wake.restarts>=3){disableWake('Nettleseren kunne ikke holde lokal lytting i gang. Bruk «Spør Yvonne».');return;}Wake.cooldown=Date.now()+800;syncWake();};
     try{r.start();}catch(e){disableWake('Kunne ikke starte lokal navnegjenkjenning. Bruk «Spør Yvonne».');}
   }
   $('yvonneWake').onchange=async()=>{
-    if(!$('yvonneWake').checked){disableWake();return;}
+    if(!$('yvonneWake').checked){disableWake();renderYvonne();return;}
     if(!J.active){disableWake();return;}
     S.actx?.resume().catch(()=>{});Wake.enabled=true;Wake.preparing=true;const epoch=++Wake.epoch;
     const Engine=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -438,9 +447,9 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
         if(epoch!==Wake.epoch)return;if(!installed)throw new Error('install');
       }
       if(epoch!==Wake.epoch||!Wake.enabled||!J.active)return;
-      Wake.lang=chosen.lang;Wake.restarts=0;
+      Wake.lang=chosen.lang;Wake.restarts=0;Wake.hints=true;
     }catch(e){if(epoch===Wake.epoch)disableWake('Lokal navnegjenkjenning er ikke tilgjengelig her. Prøv oppdatert Chrome på datamaskinen, eller bruk «Spør Yvonne».');}
-    finally{if(epoch===Wake.epoch){Wake.preparing=false;syncWake();}}
+    finally{if(epoch===Wake.epoch){Wake.preparing=false;renderYvonne();}}
   };
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&J.autoQuestion&&J.recorder){J.discard=true;J.recorder.stop();}syncWake();});
   function stopQuestionMeter(){if(J.questionMeter){clearInterval(J.questionMeter.timer);try{J.questionMeter.source.disconnect();J.questionMeter.analyser.disconnect();}catch(e){}J.questionMeter=null;}}
