@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T11:50:00+00:00",
+  "generated_at": "2026-11-14T12:00:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,13 +10,13 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi 3. kvartal 2026 uten konkrete tall: Usikker effekt for Otello",
-      "lead": "Bemobi rapporterte 3Q26 uten å offentliggjøre nøkkeltall, hvor Otello eier 38,22%. Manglende tall gir uklarhet om resultatpåvirkning for Otello-aksjonærer.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 uten detaljer – usikker effekt for Otello",
+      "lead": "Bemobi Mobile Tech presenterte sin 3. kvartalsrapport for 2026, men uten detaljer om resultatene. Otello eier 38,22 prosent i Bemobi, men konsekvensene for Otellos aksjonærer er foreløpig uklare.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi rapporterte 3Q26 uten å offentliggjøre nøkkeltall, hvor Otello eier 38,22%. Manglende tall gir uklarhet om resultatpåvirkning for Otello-aksjonærer.",
-      "reason": "Fraværet av konkrete finansielle resultater fra Bemobi gjør det umulig å vurdere om utviklingen er bedre eller dårligere enn tidligere kvartaler eller forventninger, noe som skaper usikkerhet for Otello som betydelig eier.",
-      "score": 50,
+      "summary": "Bemobi Mobile Tech presenterte sin 3. kvartalsrapport for 2026, men uten detaljer om resultatene. Otello eier 38,22 prosent i Bemobi, men konsekvensene for Otellos aksjonærer er foreløpig uklare.",
+      "reason": "Mangelen på konkrete tall gjør det vanskelig å vurdere kvartalets utvikling sammenlignet med fjoråret, selskapets guiding eller markedets forventninger. Investorer må avvente videre informasjon for å bedømme effekten på Otello.",
+      "score": 30,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
@@ -1346,16 +1346,33 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor deler ut 0,39 USD per aksje i andre kvartal 2026",
-      "lead": "Equinor starter i dag handel eksklusiv utbytte på 0,39 USD per aksje for andre kvartal 2026. Dette påvirker prisingen og avkastningen for aksjonærene. Utbyttet reflekterer selskapets løpende kontantstrøm og kapitaldistribusjon.",
+      "headline": "Equinor betaler 0,39 USD utbytte for andre kvartal 2026 fra i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen uten rett til kvartalsutbytte på 0,39 USD per aksje, som utbetales etter endringen. Utbyttet påvirker investorenes kontantstrøm fra holding i aksjen.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor starter i dag handel eksklusiv utbytte på 0,39 USD per aksje for andre kvartal 2026. Dette påvirker prisingen og avkastningen for aksjonærene. Utbyttet reflekterer selskapets løpende kontantstrøm og kapitaldistribusjon.",
-      "reason": "Utbytteutbetalinger er en vanlig hendelse som gir en direkte kontantavkastning, men gir ingen informasjon om selskapets underliggende drift eller fremtidige utsikter. Aksjonærer bør følge selskapets fremtidige inntjeningsutvikling.",
-      "score": 55,
+      "summary": "Fra 13. november handles Equinor-aksjen uten rett til kvartalsutbytte på 0,39 USD per aksje, som utbetales etter endringen. Utbyttet påvirker investorenes kontantstrøm fra holding i aksjen.",
+      "reason": "Utbytteutbetaling er en ordinær hendelse som gir kontantavkastning, men representerer ingen endring i selskapets underliggende drift eller verdi. Påvirkningen på aksjekursen er vanligvis direkte utbyttejustert og forventet.",
+      "score": 70,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AKRBP",
+          "direction": "uklar",
+          "reason": "Oljeserviceselskap kan påvirkes indirekte av likviditet i sektoren ved store utbytteutbetalinger"
+        },
+        {
+          "ticker": "DNO",
+          "direction": "uklar",
+          "reason": "Konkurrent i samme sektor der investorers avkastningskrav kan justere seg noe ved utbyttehendelser"
+        },
+        {
+          "ticker": "OKEA",
+          "direction": "uklar",
+          "reason": "Mulig sektorpåvirkning på investeringskapasitet og aksjekursjusteringer"
+        }
+      ],
       "importance": "stor",
       "score_ai": 45,
       "number_keys": [
@@ -2856,18 +2873,18 @@
       "ticker": "QEC",
       "issuer": "Questerre Energy Corporation",
       "title": "Questerre reports third quarter 2026 results",
-      "headline": "Questerre øker produksjonen til 4.634 boe/d, men rapporterer 27,6 mill. dollar tap",
-      "lead": "Questerre økte produksjonen signifikant i tredje kvartal 2026 til 4.634 boe per dag, men led et nettotap på 27,6 millioner dollar, preget av driftsavbrudd og høye finansielle kostnader knyttet til PX Energy-sikrede obligasjoner.",
+      "headline": "Questerre sliter med 27,6 mill. dollar kvartalstap etter PX-fabrikkstans",
+      "lead": "Tredje kvartal 2026 ga Questerre et netto tap på 27,6 millioner dollar, preget av en produksjonsstans ved PX Energy og økte finansutgifter. Driftstilpasning og vedlikehold krevende, med usikkerhet om gjeldsrestrukturering.",
       "published_at": "2026-11-13T00:33:39.635000+00:00",
       "url": "https://newsweb.oslobors.no/message/686427",
-      "summary": "Questerre økte produksjonen signifikant i tredje kvartal 2026 til 4.634 boe per dag, men led et nettotap på 27,6 millioner dollar, preget av driftsavbrudd og høye finansielle kostnader knyttet til PX Energy-sikrede obligasjoner.",
-      "reason": "Produksjonen økte kraftig etter oppkjøpet av PX Energy, men driftsavbrudd og betydelige ikke-kontante finansielle kostnader førte til et stort netto tap. Aksjonærer bør følge hvordan planlagt restrukturering av obligasjoner og driftseffektivisering påvirker fremtidig kontantstrøm og inntjening.",
-      "score": 60,
+      "summary": "Tredje kvartal 2026 ga Questerre et netto tap på 27,6 millioner dollar, preget av en produksjonsstans ved PX Energy og økte finansutgifter. Driftstilpasning og vedlikehold krevende, med usikkerhet om gjeldsrestrukturering.",
+      "reason": "Tapet skyldes hovedsakelig uventet anleggsstans og økte finansieringskostnader knyttet til PX Energy. Investorer må følge utviklingen i driftsstabilitet, gjeldsforhold og effekt av teknologitesting på sikt.",
+      "score": 67,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "negativ",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 75,
+      "score_ai": 82,
       "number_keys": [
         "004be8",
         "02ef6a",
@@ -13418,7 +13435,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T11:50:00+00:00",
+  "last_checked_at": "2026-11-14T12:00:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 63,
