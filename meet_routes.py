@@ -42,8 +42,10 @@ import time
 import httpx
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
+from websockets.exceptions import WebSocketException
 
 import johnny_ai
+import yvonne_voice
 
 router = APIRouter()
 
@@ -76,7 +78,7 @@ def _johnny_state(rom):
     active = bool(participants and state.get('proposed') and state.get('consents') == participants and johnny_ai.capability()['available'])
     return {'t': 'johnny', **johnny_ai.capability(), 'proposed': bool(state.get('proposed')), 'active': active,
             'approved': sorted(state.get('consents', set()) & participants), 'participants': len(participants),
-            'busy': bool(state.get('busy')), 'listening': state.get('listening', ''), 'listener': state.get('listener', '')}
+            'busy': bool(state.get('busy')), 'listening': state.get('listening', ''), 'listener': state.get('listener', ''), 'speaking': bool(state.get('speaking'))}
 
 
 async def _johnny_publish(rom, *, force=False):
@@ -91,7 +93,7 @@ def _johnny_pause(rom, *, remove=False):
         task = state.get('task')
         if task and not task.done():
             task.cancel()
-        state.update(consents=set(), busy=False, listening='', task=None, epoch=state.get('epoch', 0) + 1)
+        state.update(consents=set(), busy=False, listening='', speaking=False, task=None, epoch=state.get('epoch', 0) + 1)
         if remove:
             _johnny.pop(rom, None)
 
@@ -100,7 +102,7 @@ async def _johnny_event(rom, pid, msg):
     kind = msg.get('t')
     if kind == 'johnny-propose':
         if not johnny_ai.capability()['available']:
-            await _send(_rom[rom][pid]['ws'], {'t': 'johnny-error', 'text': 'Johnny må aktiveres av eieren av møtes.no først.'})
+            await _send(_rom[rom][pid]['ws'], {'t': 'johnny-error', 'text': 'Yvonne må aktiveres av eieren av møtes.no først.'})
             return
         # Repeated proposals must never reset other participants' decisions.
         if not _johnny.get(rom, {}).get('proposed'):
@@ -138,10 +140,10 @@ async def johnny_ask(request: Request):
     if not peer:
         raise HTTPException(403, 'Bli med i møtet først.')
     if not _johnny_state(rom)['active']:
-        raise HTTPException(409, 'Alle deltakere må godkjenne Johnny først.')
+        raise HTTPException(409, 'Alle deltakere må godkjenne Yvonne først.')
     state = _johnny[rom]
     if state.get('busy') or (state.get('listening') and state.get('listener') != pid):
-        raise HTTPException(429, 'Johnny svarer på et annet spørsmål. Vent litt.')
+        raise HTTPException(429, 'Yvonne svarer på et annet spørsmål. Vent litt.')
     now = time.time()
     state['requests'] = [t for t in state['requests'] if t > now - 60]
     _johnny_requests[:] = [t for t in _johnny_requests if t > now - 3600]
@@ -172,15 +174,32 @@ async def johnny_ask(request: Request):
         result = await johnny_ai.answer(bytes(body), mime)
         if _johnny.get(rom) is not state or not _johnny_state(rom)['active'] or state['epoch'] != epoch:
             raise HTTPException(409, 'Samtykket er endret. Svaret deles ikke.')
-        await _kringkast(rom, {'t': 'johnny-answer', **result, 'askedBy': peer['name']})
-        return {'ok': True}
+        voice_id = secrets.token_hex(8)
+        await _kringkast(rom, {'t': 'johnny-answer', **result, 'askedBy': peer['name'], 'voiceId': voice_id, 'name': 'Yvonne'})
+        state['speaking'] = True
+        await _johnny_publish(rom)
+        async def audio_chunk(pcm):
+            if _johnny.get(rom) is not state or not _johnny_state(rom)['active'] or state['epoch'] != epoch:
+                raise asyncio.CancelledError()
+            import base64
+            await _kringkast(rom, {'t': 'johnny-audio', 'voiceId': voice_id, 'rate': 24000, 'data': base64.b64encode(pcm).decode('ascii')})
+        try:
+            voice = await yvonne_voice.speak(result['text'], audio_chunk)
+            await _kringkast(rom, {'t': 'johnny-audio-end', 'voiceId': voice_id})
+            return {'ok': True, 'voice': {'model': voice['model'], 'voice': voice['voice'], 'finalized': voice['finalized']}}
+        except (ValueError, TimeoutError, OSError, WebSocketException) as exc:
+            log.warning('Yvonne voice failed: kind=%s status=%s', type(exc).__name__, getattr(getattr(exc, 'response', None), 'status_code', 'n/a'))
+            await _kringkast(rom, {'t': 'johnny-audio-end', 'voiceId': voice_id, 'failed': True})
+            await _kringkast(rom, {'t': 'johnny-error', 'text': 'Yvonne fikk ikke fullført stemmen. Svaret og kildene står i chatten.'})
+            return {'ok': True, 'voice_error': True}
+
     except asyncio.CancelledError:
-        raise HTTPException(409, 'Johnny er stoppet fordi deltakerne eller samtykket er endret.')
+        raise HTTPException(409, 'Yvonne er stoppet fordi deltakerne eller samtykket er endret.')
     except (httpx.HTTPError, ValueError, KeyError):
-        raise HTTPException(502, 'Johnny fikk ikke svart nå. Sjekk AI-oppsettet eller prøv senere.')
+        raise HTTPException(502, 'Yvonne fikk ikke svart nå. Sjekk AI-oppsettet eller prøv senere.')
     finally:
         if _johnny.get(rom) is state:
-            state.update(busy=False, task=None, listening='')
+            state.update(busy=False, task=None, listening='', speaking=False)
             await _johnny_publish(rom)
 
 

@@ -1,18 +1,18 @@
-# Johnny – valgfri spørsmål/svar-assistent i møter
+# Yvonne – valgfri spørsmål/svar-assistent i møter
 
-Denne versjonen gir et avkrysningsvalg «Foreslå Johnny som møteassistent» før du
-oppretter eller blir med i et møte. Det er av som standard. Johnny kan også
+Denne versjonen gir et avkrysningsvalg «Foreslå Yvonne som møteassistent» før du
+oppretter eller blir med i et møte. Det er av som standard. Yvonne kan også
 foreslås inne i møtet. Hver tilkoblet deltaker må godkjenne selv før han blir klar.
-Et nei eller «Stopp Johnny» fjerner samtykket og stopper pågående spørsmål.
-Nye deltakere og nye WebSocket-forbindelser pauser Johnny og krever ny godkjenning.
+Et nei eller «Stopp Yvonne» fjerner samtykket og stopper pågående spørsmål.
+Nye deltakere og nye WebSocket-forbindelser pauser Yvonne og krever ny godkjenning.
 
-«Spør Johnny» tar opp bare den som trykker på knappens mikrofon, ikke andre
+«Spør Yvonne» tar opp bare den som trykker på knappens mikrofon, ikke andre
 møtedeltakere. Et nytt trykk sender spørsmålet; etter 30 sekunder sendes det
 automatisk hvis samtykket fortsatt gjelder. Spørsmålet sendes til OpenAI for
 transkripsjon og et svar med nettsøk. Svar og kilder distribueres til alle i det
-aktuelle rommet. Nettleserens talesyntese leser svaret høyt. Stemme og støtte for
-norsk varierer mellom enheter; svaret er også tilgjengelig som tekst, med
-klikkbare kildehenvisninger i møtechatten og lokal knapp for å lytte igjen.
+aktuelle rommet. OpenAI GPT-Live-1 genererer stemmen med Marin og instruksjoner om en varm, blid,
+naturlig norsk fremføring. PCM16-lyd ved 24 kHz strømmes til alle som fortsatt har
+godkjent. Svaret finnes også som tekst med klikkbare kilder og lokal gjenavspilling.
 
 Denne versjonen gjør ikke kontinuerlig AI-lytting, automatisk møtereferat,
 taleranalyse eller møteledelse. Spørsmålene har ingen varig samtalekontekst hos
@@ -36,7 +36,7 @@ Legg disse variablene på eksisterende `prisanalyse`-tjeneste:
 
 - `OPENAI_API_KEY`: en API-nøkkel med tilgang til modellene og nettsøk. Bruk Render
   sitt hemmelighetsfelt; aldri legg nøkkelen i Git eller chat.
-- `JOHNNY_ENABLED=true`: eksplisitt serveraktivering. Uten dette forblir Johnny av.
+- `JOHNNY_ENABLED=true`: eksplisitt serveraktivering. Uten dette forblir Yvonne av.
 - Valgfrie modellvalg: `JOHNNY_MODEL` (standard `gpt-4.1-mini`) og
   `JOHNNY_TRANSCRIBE_MODEL` (standard `gpt-transcribe`). Modelltilgang må testes
   med kontoen som skal betale for bruken.
@@ -49,7 +49,7 @@ ikke en erstatning for kostnadsgrenser og overvåking hos API-leverandøren.
 
 `GET /meet/johnny/status` viser bare konfigurasjonsflagg, aldri nøkkelen. Når
 serveren er aktivert, test faktisk lydspørsmål og kildehenvisninger med to
-nettlesere. Test også at en ny deltaker pauser Johnny og at «Stopp» avbryter et
+nettlesere. Test også at en ny deltaker pauser Yvonne og at «Stopp» avbryter et
 pågående spørsmål. Simulerte API-svar i automatiske tester bekrefter ikke
 modelltilgang, lydgjenkjenning eller kvalitet på faktasvar i produksjon.
 
@@ -60,6 +60,35 @@ modelltilgang, lydgjenkjenning eller kvalitet på faktasvar i produksjon.
 - Faktamodell: https://developers.openai.com/api/docs/models/gpt-4.1-mini
 - Databehandling: https://developers.openai.com/api/docs/guides/your-data
 
-API-referansene ble lest ved implementasjonen 14. november 2026. Stemme er
-nettleserens innebygde talesyntese; denne versjonen bruker ikke en Realtime-
-eller TTS-modell for generering av stemmen.
+API-referansene ble lest ved implementasjonen 14. november 2026.
+
+## GPT-Live-stemmen
+
+Tilgangen til `gpt-live-1` må verifiseres med API-prosjektet som brukes i produksjon.
+Valgfrie innstillinger er `YVONNE_VOICE_MODEL` (standard `gpt-live-1`) og
+`YVONNE_VOICE` (standard `marin`). De eksisterende innstillingene `JOHNNY_ENABLED`,
+`JOHNNY_MODEL` og `JOHNNY_TRANSCRIBE_MODEL` beholdes for kompatibilitet.
+
+Stemmesesjonen får den ferdige svarteksten og syntetisk stillhet for å drive
+Live-tidslinjen. Den får ikke mikrofonen eller lyd fra resten av møtet. Nettsøk
+og faktasvar håndteres fortsatt av eksisterende backend. Dette er generert tale
+for spørsmål/svar-flyten; det er ikke en kontinuerlig full-duplex-møtedeltaker.
+
+Serveren begrenser én stemmesesjon til 60 sekunder med en kort oppstart-/lukkefrist.
+Etter at faktisk stemmelyd er registrert, avsluttes sesjonen etter fire sekunder
+med målt stillhet i PCM-lyden. Transcript-pauser brukes ikke som sluttsignal.
+Dette er en praktisk avgrensning, ikke en garanti for eksakt ferdig-avspilling;
+uvanlig lange talepauser kan avslutte før modellen ellers ville fortsatt.
+
+API-sesjonen lukkes også ved tilbaketrukket samtykke. Live har separat
+varighetsbasert fakturering i tillegg til modell-/søke- og transkripsjonsbruk.
+Alle klientene stopper planlagt lyd ved stopp eller nye samtykkekrav. Nettleseren
+kan kreve en brukerhandling før lyd kan avspilles; «Lytt til svaret» gir et lokalt
+nytt forsøk. Appen bruker ikke nettleserens talesyntese som skjult reserve. Hvis
+stemmegenerering feiler, vises svar og kilder med en tydelig feilmelding.
+
+Referanser:
+- https://developers.openai.com/api/docs/guides/live
+- https://developers.openai.com/api/docs/guides/voice-websockets?api=live
+- https://developers.openai.com/api/docs/guides/live-conversations
+- https://developers.openai.com/api/docs/guides/live-prompting
