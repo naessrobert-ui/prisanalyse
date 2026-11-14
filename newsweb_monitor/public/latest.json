@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T18:20:00+00:00",
+  "generated_at": "2026-11-14T18:30:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,12 +10,12 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi 3. kvartalstall 2026 offentliggjort – detaljer mangler fortsatt",
-      "lead": "Bemobi rapporterte 3. kvartal 2026, men ingen konkrete økonomiske nøkkeltall er foreløpig tilgjengelige, noe som gir usikkerhet for Otello Corporation med 38,22 % eierandel.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – detaljer foreløpig uklare",
+      "lead": "Bemobi Mobile Tech offentliggjør sine 3Q26-resultater, med Otello som betydelig aksjonær (38,22 %), men ingen økonomiske nøkkeltall er tilgjengelige i rapporteringen foreløpig.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi rapporterte 3. kvartal 2026, men ingen konkrete økonomiske nøkkeltall er foreløpig tilgjengelige, noe som gir usikkerhet for Otello Corporation med 38,22 % eierandel.",
-      "reason": "Mangelen på konkrete resultater i rapporteringen gjør det vanskelig for aksjonærer å vurdere kvartalets prestasjon og hva det innebærer for Otello. Nærmere analyse av tallene må påregnes når de foreligger.",
+      "summary": "Bemobi Mobile Tech offentliggjør sine 3Q26-resultater, med Otello som betydelig aksjonær (38,22 %), men ingen økonomiske nøkkeltall er tilgjengelige i rapporteringen foreløpig.",
+      "reason": "Rapporteringen gir ingen konkrete tall eller indikasjoner på resultatendringer. For investorer i Otello er det derfor vanskelig å vurdere effekten på aksjeverdien uten videre informasjon.",
       "score": 40,
       "skipped": false,
       "direction": "uklar",
@@ -1346,16 +1346,23 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor utbetaler 0,39 USD per aksje i Q2-2026-utbytte i dag",
-      "lead": "Fra i dag handles Equinor-aksjen eksklusiv kontantutbytte på 0,39 USD per aksje for andre kvartal 2026. Utbyttet påvirker investorers likviditet, men gir ikke grunnlag for vurdering av selskapets inntjening eller fremtidige utsikter.",
+      "headline": "Equinor går eksklusive for 0,39 USD i kvartalsutbytte i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen uten rett til kvartalsutbytte på 0,39 USD, som utbetales for andre kvartal 2026. Investorer må ta høyde for utbyttetap i aksjekursen ved dagens handel.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Fra i dag handles Equinor-aksjen eksklusiv kontantutbytte på 0,39 USD per aksje for andre kvartal 2026. Utbyttet påvirker investorers likviditet, men gir ikke grunnlag for vurdering av selskapets inntjening eller fremtidige utsikter.",
-      "reason": "Utbytteutbetaling er en forventet hendelse som reflekterer kontantutdeling til aksjonærer uten å indikere endring i selskapets underliggende drift. Aksjonærer bør vurdere utbyttestrategi og eventuell påvirkning på aksjekursen ved ex-dato.",
+      "summary": "Fra 13. november handles Equinor-aksjen uten rett til kvartalsutbytte på 0,39 USD, som utbetales for andre kvartal 2026. Investorer må ta høyde for utbyttetap i aksjekursen ved dagens handel.",
+      "reason": "Utbytteutbetaling er en forventet hendelse som påvirker aksjekursen i form av en teknisk nedgang. Det gir ingen ny informasjon om selskapets inntjening eller strategi, men er viktig for investorer som vurderer kontantavkastning.",
       "score": 60,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AKRBP",
+          "direction": "uklar",
+          "reason": "Andre olje- og gasselskaper kan oppleve sektorrotasjon rundt utbyttehendelser hos Equinor."
+        }
+      ],
       "importance": "stor",
       "score_ai": 50,
       "number_keys": [
@@ -13440,11 +13447,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T18:20:00+00:00",
+  "last_checked_at": "2026-11-14T18:30:00+00:00",
   "monitor_stats": {
     "fetched": 174,
-    "recent": 52,
-    "already_seen": 49,
+    "recent": 51,
+    "already_seen": 48,
     "eligible": 3,
     "filtered": 0,
     "analyzed": 3,
