@@ -92,3 +92,48 @@ Referanser:
 - https://developers.openai.com/api/docs/guides/voice-websockets?api=live
 - https://developers.openai.com/api/docs/guides/live-conversations
 - https://developers.openai.com/api/docs/guides/live-prompting
+
+## Lokal aktivering med «Yvonne»
+
+Et eget, avslått valg «Lytt etter Yvonne på denne enheten» vises etter alles
+samtykke. Dette gjelder kun den som slår på valget. Bare egen mikrofon brukes.
+Navnegjenkjenning bruker nettleserens SpeechRecognition med processLocally=true.
+Både tilgjengelighetskontroll og eventuell språkpakkenedlasting krever lokal
+behandling. Ingen skybasert SpeechRecognition-reserve tillates. Norsk nb-NO
+foretrekkes; ellers brukes en engelsk enhetspakke for gjenkjenning av selve navnet.
+Nettleseren kan laste ned en språkmodell før funksjonen virker.
+
+Si «Yvonne», ta en kort pause, og still spørsmålet. Før navnet er oppdaget blir
+verken lyd eller transkripsjoner sendt av appen. Etter treff starter den vanlige
+MediaRecorder-opptakeren uten lyd fra før treffet. Spørsmålet sendes etter ca.
+1,8 sekunders stillhet, maksimalt 30 sekunder. Et treff uten hørbart spørsmål
+forkastes etter åtte sekunder. En lokal lydnivåmåling styrer slutten på spørsmålet;
+dette er en enkel terskel, og ved støy kan «Send spørsmålet» brukes manuelt.
+Hun kjenner ikke samtalen før spørsmålet. Treff på navnet kan være feil eller utebli;
+funksjonen er ikke en garanti for at bare tilsiktede spørsmål blir sendt.
+
+Lytting pauses ved dempet mikrofon, andre spørsmål, AI-avspilling og skjult fane.
+Stopp, frakobling og nye samtykkekrav slår valget av og forkaster pågående opptak.
+Et nytt samtykke slår ikke lokal lytting på automatisk igjen. Språkpakken må støttes
+av enheten; prøv oppdatert Chrome på datamaskin. Uten lokal støtte vises en melding
+og det vanlige knappevalget virker fortsatt. Appen sender ikke lyd til skyen for å
+omgå manglende enhetsstøtte. Lokal lytting har ingen OpenAI-minuttkostnad;
+innsendte spørsmål og talte svar bruker samme API-flyt og grenser som før.
+
+Referanse: https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API/Using_the_Web_Speech_API#on-device_speech_recognition
+
+Verifisering: Lokal nettlesertest med simulert on-device-motor kontrollerer ingen
+spørsmålsopplasting før navnet, automatisk sending etter stillhet, forkasting av
+tomt treff, demping, ny deltaker/samtykke og manuell reserve uten lokal støtte.
+Dette tester appens styring; faktisk navnegjenkjenning og modellnedlasting må
+også prøves på brukerens nettleser med fysisk mikrofon.
+
+Kjør den eksplisitte testserveren fra repository-roten (med testavhengighetene installert):
+
+```sh
+PYTHONPATH=. OPENAI_API_KEY=test JOHNNY_ENABLED=true python -m uvicorn preview_yvonne_wake:app --app-dir tests --host 127.0.0.1 --port 8771
+python tests/browser_yvonne_wake.py
+```
+
+Testserveren må aldri brukes som produksjonsstartkommando. Den erstatter begge
+AI-providerne med syntetiske svar. Nettlesertesten bruker /usr/bin/chromium.
