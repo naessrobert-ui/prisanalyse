@@ -14,11 +14,7 @@ on:
       - 'newsweb_routes.py'
       - 'templates/newsweb_dashboard.html'
       - '.github/workflows/newsweb-monitor.yml'
-  schedule:
-    # GitHub cron is UTC only. These ranges cover 06–23 Oslo in both CET/CEST.
-    # A local-time gate below discards out-of-window runs.
-    - cron: '0,15,30,45 4-9 * * *'
-    - cron: '0 10-22 * * *'
+  # Render is the sole automatic clock; avoid duplicate scheduled analyses.
   workflow_dispatch:
     inputs:
       mode:
@@ -69,12 +65,12 @@ jobs:
           h=$((10#$hour))
           m=$((10#$minute))
           # Run a bounded four-quarter backfill once each Oslo morning.
-          if (( h == 6 && m < 15 )); then
+          if (( h == 7 && m < 15 )); then
             echo "history_run=true" >> "$GITHUB_OUTPUT"
           else
             echo "history_run=false" >> "$GITHUB_OUTPUT"
           fi
-          if (( h >= 6 && h < 10 )) || (( h >= 10 && h <= 23 && m < 15 )); then
+          if (( h >= 7 && h <= 19 && m < 15 )); then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "NewsWeb scheduled within Oslo window: $hour:$minute"
           else

@@ -202,11 +202,11 @@ services:
   - type: cron
     name: newsweb-monitor-klokke
     runtime: python
-    # Hvert kvarter 04–22 UTC (dekker 06–23 Oslo både vinter og sommer).
+    # Hver time 05–18 UTC (dekker 07–19 Oslo både vinter og sommer).
     # Starter GitHub-workflowen NewsWeb AI monitor, fordi GitHub sin egen
     # schedule ofte blir forsinket eller hoppet over. Scriptet sjekker selv
-    # Oslo-vinduet, så kvarterene etter kl. 10 avsluttes uten kall.
-    schedule: "*/15 4-22 * * *"
+    # Oslo-vinduet, slik at bare kl. 07–19 starter analyser.
+    schedule: "0 5-18 * * *"
     buildCommand: python --version
     startCommand: python scripts/trigg_newsweb_monitor.py
     envVars:

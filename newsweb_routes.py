@@ -299,7 +299,7 @@ def run_now():
         return redirect(url_for("newsweb.dashboard",run_status="not_configured"))
     with _dispatch_lock:
         now=time.monotonic()
-        if now-_last_dispatch[0]<180:
+        if _last_dispatch[0] and now-_last_dispatch[0]<600:
             return redirect(url_for("newsweb.dashboard",run_status="cooldown"))
         _last_dispatch[0]=now
     url=("https://api.github.com/repos/naessrobert-ui/prisanalyse/"
@@ -313,6 +313,14 @@ def run_now():
             "X-GitHub-Api-Version":"2022-11-28",
             "Content-Type":"application/json",
             "User-Agent":"Prisanalyse-NewsWeb/1.0"})
+        # GitHub concurrency serializes runs; avoid queuing another expensive analysis.
+        active_request=Request(url.rsplit("/dispatches",1)[0]+"/runs?per_page=20",
+                               headers=dict(req.headers))
+        with urlopen(active_request,timeout=12) as response:
+            runs=json.loads(response.read()).get("workflow_runs",[])
+        if any(run.get("status") in {"queued","in_progress","waiting","pending","requested"}
+               for run in runs):
+            return redirect(url_for("newsweb.dashboard",run_status="running"))
         with urlopen(req,timeout=12) as response:
             if response.status!=204:
                 raise ValueError("Unexpected workflow dispatch status")

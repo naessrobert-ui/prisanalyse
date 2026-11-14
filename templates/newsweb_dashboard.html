@@ -233,6 +233,16 @@ h1{font-size:clamp(27px,3vw,37px)}
 </header>
 <h1>Oslo Børs – Nyhetsmonitor</h1>
 {% if can_view_consensus %}
+<div class="manual-refresh">
+  <form method="post" action="{{url_for('newsweb.run_now')}}">
+    <input type="hidden" name="csrf" value="{{refresh_csrf}}">
+    <button type="submit" class="refresh-button">↻ Oppdater nå</button>
+  </form>
+  <span>Starter ny analyse i bakgrunnen. Minst 10 minutter mellom bestillinger.</span>
+</div>
+{% endif %}
+<p class="dim">Automatisk oppdatering hver time kl. 07–19 norsk tid.{% if report.get("generated_at") %} Sist oppdatert: {{report.generated_at|norsk_tid}}.{% endif %}</p>
+{% if can_view_consensus %}
 <nav class="profile-bar" aria-label="Velg analytikerprofil">
   <span>Profil:</span>
   <a class="p{% if not profile %} on{% endif %}" href="{{url_for('newsweb.dashboard', profil='')}}">Alle</a>
@@ -242,7 +252,8 @@ h1{font-size:clamp(27px,3vw,37px)}
   {% if profile_error %}<span>· {{profile_error}}</span>{% endif %}
 </nav>
 {% if run_status == 'queued' %}<p class="refresh-feedback">Kjøringen er sendt til GitHub. Nyheter vises når analysen er ferdig; oppdater siden om noen minutter.</p>
-{% elif run_status == 'cooldown' %}<p class="refresh-feedback">En kjøring ble nettopp bestilt. Vent minst tre minutter før neste forsøk.</p>
+{% elif run_status == 'running' %}<p class="refresh-feedback">Oppdatering pågår allerede. Nye resultater vises når analysen er ferdig.</p>
+{% elif run_status == 'cooldown' %}<p class="refresh-feedback">En kjøring ble nettopp bestilt. Vent minst 10 minutter før neste forsøk.</p>
 {% elif run_status == 'not_configured' %}<p class="refresh-feedback">Knappen krever NEWSWEB_GITHUB_TOKEN i nettstedets servermiljø.</p>
 {% elif run_status == 'failed' %}<p class="refresh-feedback">Klarte ikke starte jobben. Kontroller GitHub-token og Actions-tilgang.</p>{% endif %}
 {% endif %}
@@ -502,18 +513,10 @@ h1{font-size:clamp(27px,3vw,37px)}
 </div>
 <details class="admin">
   <summary>Drift, status og oppdatering</summary>
-{% if can_view_consensus %}
-<div class="manual-refresh">
-  <form method="post" action="{{url_for('newsweb.run_now')}}">
-    <input type="hidden" name="csrf" value="{{refresh_csrf}}">
-    <button type="submit" class="refresh-button">↻ Kjør NewsWeb nå</button>
-  </form>
-  <span>Starter ny analyse og henter eldre kvartalsrapporter i bakgrunnen.</span>
-</div>
-{% endif %}
+
 <p class="lead intro-top">De viktigste børsmeldingene, med nyeste først. Bytt prioritet og sortering for å finne aktuelle saker. Prioritetsscore er en vurdering av nyhetsverdi, ikke et kursmål.</p>
 {% if report.get("mode") == "live" and not report.get("error") %}
-<div class="live-status"><span class="live-dot"></span> Automatisk oppdatert fra NewsWeb gjennom GitHub Actions. Viser de siste {{items|length}} meldingene i historikken. Oppdateres hvert 15. minutt kl. 06–10 og deretter hver time kl. 10–23 (norsk tid).</div>
+<div class="live-status"><span class="live-dot"></span> Automatisk oppdatert fra NewsWeb gjennom GitHub Actions. Viser de siste {{items|length}} meldingene i historikken. Oppdateres hver time kl. 07–19 (norsk tid).</div>
 {% endif %}
 {% if can_view_consensus and (consensus_matches or simulated_matches) %}<p class="dimmed-summary">Privat konsensus: {{consensus_matches}} meldinger med før-publisering-estimater{% if simulated_matches %} · {{simulated_matches}} med <strong>simulert test</strong> (som om estimatene var fra dagen før){% endif %}. <a href="/newsweb/konsensus/">Se opplastingsrapport →</a></p>{% endif %}
 <div class="tally" aria-label="Antall meldinger">

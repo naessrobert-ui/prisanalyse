@@ -13,7 +13,7 @@ Hvorfor ikke bare GitHub sin egen schedule:
 Kjøringen sendes med scheduled=true, slik at workflowen oppfører seg som en
 planlagt kjøring (Oslo-tidsvindu, morgen-backfill, vars.NEWSWEB_DRY_RUN).
 Tidsvinduet sjekkes også her, så vi ikke starter tomme kjøringer:
-  06–10 Oslo: hvert kvarter. 10–23 Oslo: én gang i timen (minutt < 15).
+  07–19 Oslo: én gang i timen (minutt < 15).
 
 Krever NEWSWEB_GITHUB_TOKEN med Actions: write på repoet (samme token som
 «Kjør nå»-knappen på /newsweb/ bruker).
@@ -37,7 +37,7 @@ DISPATCH_URL = (
 
 def innenfor_vindu(naa: datetime) -> bool:
     h, m = naa.hour, naa.minute
-    return 6 <= h < 10 or (10 <= h <= 23 and m < 15)
+    return 7 <= h <= 19 and m < 15
 
 
 def main() -> int:
