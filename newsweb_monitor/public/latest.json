@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T12:50:00+00:00",
+  "generated_at": "2026-11-14T13:00:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,13 +10,13 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3. kvartal 2026 – Otello eier over 38 prosent",
-      "lead": "Bemobi Mobile Tech SA offentliggjorde sine tall for 3. kvartal 2026. Otello Corporation eier 38,22 prosent av selskapet gjennom Otello Technology Investment AS. Det er foreløpig ingen detaljer om resultatendringer tilgjengelig.",
+      "headline": "Bemobi rapporterer 3. kvartalstall – Otello har 38% eierandel",
+      "lead": "Bemobi Mobile Tech SA offentliggjorde sitt 3. kvartal 2026-resultat den 12. november. Otello Corporation ASA eier 38,22 % av Bemobi, men detaljer om tall eller resultater mangler i rapporteringen.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech SA offentliggjorde sine tall for 3. kvartal 2026. Otello Corporation eier 38,22 prosent av selskapet gjennom Otello Technology Investment AS. Det er foreløpig ingen detaljer om resultatendringer tilgjengelig.",
-      "reason": "Uten konkrete tall eller endringer i resultat er det ikke mulig å vurdere effekten for Otello eller markedet. Ytterligere analyser kreves når resultater foreligger.",
-      "score": 40,
+      "summary": "Bemobi Mobile Tech SA offentliggjorde sitt 3. kvartal 2026-resultat den 12. november. Otello Corporation ASA eier 38,22 % av Bemobi, men detaljer om tall eller resultater mangler i rapporteringen.",
+      "reason": "Resultatet er ikke spesifisert, og det mangler informasjon om utviklingen i inntekter eller fortjeneste. Aksjonærer bør følge opp Bemobis detaljerte rapport for å vurdere påvirkning på Otello.",
+      "score": 45,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
@@ -1346,23 +1346,16 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor noteres eksklusiv utbytte på 0,39 USD per aksje i dag",
-      "lead": "Equinor-aksjen handles fra 13. november uten kontantutbytte for andre kvartal 2026 på 0,39 USD per aksje. Investorer må vurdere verdireduksjonen ved utbyttebetaling i dagens handel.",
+      "headline": "Equinor utbetaler 0,39 USD i utbytte for Q2 2026 fra i dag",
+      "lead": "Equinor-aksjen handles eksklusive et kvartalsutbytte på 0,39 USD fra 13. november 2026. Utbytteutbetalingen kan påvirke kursen kortsiktig, uten annen finansiell informasjon i dag.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor-aksjen handles fra 13. november uten kontantutbytte for andre kvartal 2026 på 0,39 USD per aksje. Investorer må vurdere verdireduksjonen ved utbyttebetaling i dagens handel.",
-      "reason": "Utbytteutbetaling medfører en nominell nedjustering i aksjekursen tilsvarende utbyttet. Dette påvirker ikke selskapets underliggende drift, men er relevant for investorer som følger kontantstrøm og totalavkastning.",
+      "summary": "Equinor-aksjen handles eksklusive et kvartalsutbytte på 0,39 USD fra 13. november 2026. Utbytteutbetalingen kan påvirke kursen kortsiktig, uten annen finansiell informasjon i dag.",
+      "reason": "Utbytteutbetaling er en normal kontantutdeling uten nye opplysninger om selskapets drift eller fremtidige utsikter. Aksjonærer får direkte avkastning, men effekten på aksjekursen er som forventet og kortvarig.",
       "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "AKRBP",
-          "direction": "uklar",
-          "reason": "Kan få indirekte påvirkning gjennom sektorens kapitalflyt ved utbetalinger i store rivaler."
-        }
-      ],
       "importance": "stor",
       "score_ai": 45,
       "number_keys": [
@@ -13406,26 +13399,9 @@
           "reason": "Lavere oljeinvesteringer kan dempe etterspørselen etter hydrogenteknologi."
         }
       ]
-    },
-    {
-      "id": "dfc56b99f7e90273",
-      "source": "E24",
-      "title": "«Bluenami» kan være godt nytt for SpaceX",
-      "url": "https://e24.no/boers-og-finans/i/GP1VX4/bluenami-kan-vaere-godt-nytt-for-spacex?utm_medium=rss",
-      "published_at": "2026-11-11T12:55:12+00:00",
-      "analyzed_at": "2026-11-11T13:00:00+00:00",
-      "score": 50,
-      "comment": "Demokratenes valgseier kan medføre økt offentlig støtte og kontrakter til rom- og AI-teknologi, positivt for selskaper med eksponering mot romfart og teknologiutvikling.",
-      "affected": [
-        {
-          "ticker": "KOG",
-          "direction": "positiv",
-          "reason": "Større sjanse for offentlig kontrakt innen rom- og AI-relatert teknologi"
-        }
-      ]
     }
   ],
-  "last_checked_at": "2026-11-14T12:50:00+00:00",
+  "last_checked_at": "2026-11-14T13:00:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 61,
