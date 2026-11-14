@@ -13,6 +13,7 @@ from a2wsgi import WSGIMiddleware
 
 from app import app as flask_app
 from shipping_routes import start_shipping_streamlit
+from meet_domene import MeetDomeneMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ except Exception:
         analysis_router = analysis_api.router
 
 app = FastAPI(title="Prisanalyse Combined ASGI", version="1.0.5")
+app.add_middleware(MeetDomeneMiddleware)
 app.include_router(analysis_router)
 app.mount("/regnskap-api", regnskap_api)
 
