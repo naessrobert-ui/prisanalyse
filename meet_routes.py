@@ -1,5 +1,5 @@
 """
-NAM Meet – møterom med lyd, kamera, skjermdeling og chat.
+møtes.no – møterom med lyd, kamera, skjermdeling og chat.
 
 Denne modulen gir:
   GET  /meet                 -> selve møtesiden (nam_meet.html)
@@ -38,7 +38,7 @@ import logging
 import time
 
 import httpx
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 
 router = APIRouter()
@@ -153,6 +153,24 @@ async def meet_side():
     )
 
 
+@router.post("/meet/create", include_in_schema=False)
+async def meet_create(request: Request):
+    """Et nytt tilfeldig rom med en invitasjon som bare gir tilgang til dette rommet.
+
+    Den gamle felleskoden beholdes for eksisterende rom og sendes aldri til klienten.
+    Oppretting reserverer ikke serverressurser: rommet lages ved første oppkobling.
+    """
+    host = (request.url.hostname or "").lower().rstrip(".")
+    if host not in {"xn--mtes-gra.no", "www.xn--mtes-gra.no", "localhost", "127.0.0.1"}:
+        return JSONResponse({"feil": "Opprett møtet på møtes.no."}, status_code=404)
+    rom = "mote-" + secrets.token_hex(10)
+    utloper = int(time.time()) + INVITASJON_GYLDIG
+    return JSONResponse(
+        {"rom": rom, "inv": _lag_invitasjon(rom, utloper), "utloper": utloper},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/meet/status", include_in_schema=False)
 async def meet_status():
     """Lite helsesjekk: antall aktive rom og deltakere (ingen navn)."""
@@ -210,7 +228,7 @@ async def meet_ice(kode: str = Query(""), inv: str = Query(""), rom: str = Query
             _ice_cache["servere"] = await _hent_turn()
             _ice_cache["til"] = time.time() + TURN_FORNY
         except Exception as exc:
-            log.warning("NAM Meet: fikk ikke TURN-nøkler fra Cloudflare: %r", exc)
+            log.warning("møtes.no: fikk ikke TURN-nøkler fra Cloudflare: %r", exc)
             if _ice_cache["servere"] is None or time.time() > _ice_cache["til"] + TURN_TTL - 2 * TURN_FORNY:
                 return JSONResponse({"iceServers": STUN, "turn": False}, headers={"Cache-Control": "no-store"})
     return JSONResponse({"iceServers": _ice_cache["servere"], "turn": True}, headers={"Cache-Control": "no-store"})
