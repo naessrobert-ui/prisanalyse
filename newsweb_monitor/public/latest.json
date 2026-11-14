@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T12:40:00+00:00",
+  "generated_at": "2026-11-14T12:50:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,15 +10,15 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi rapporterer 3. kvartal 2026 – tallene til påvirker Otello-verdien",
-      "lead": "Bemobi Mobile Tech offentliggjorde sitt regnskap for 3. kvartal 2026, der Otello eier 38,22 %. Resultatdetaljer er nå tilgjengelige, men konkret økonomisk informasjon mangler i foreløpig melding.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – Otello eier over 38 prosent",
+      "lead": "Bemobi Mobile Tech SA offentliggjorde sine tall for 3. kvartal 2026. Otello Corporation eier 38,22 prosent av selskapet gjennom Otello Technology Investment AS. Det er foreløpig ingen detaljer om resultatendringer tilgjengelig.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech offentliggjorde sitt regnskap for 3. kvartal 2026, der Otello eier 38,22 %. Resultatdetaljer er nå tilgjengelige, men konkret økonomisk informasjon mangler i foreløpig melding.",
-      "reason": "Bemobis kvartalstall blir viktige for Otello-investorer, men manglende finansielle nøkkeltall begrenser umiddelbar vurdering. Videre detaljer og analyser av resultatene ventes å gi mer innsikt i investeringsverdien.",
-      "score": 65,
+      "summary": "Bemobi Mobile Tech SA offentliggjorde sine tall for 3. kvartal 2026. Otello Corporation eier 38,22 prosent av selskapet gjennom Otello Technology Investment AS. Det er foreløpig ingen detaljer om resultatendringer tilgjengelig.",
+      "reason": "Uten konkrete tall eller endringer i resultat er det ikke mulig å vurdere effekten for Otello eller markedet. Ytterligere analyser kreves når resultater foreligger.",
+      "score": 40,
       "skipped": false,
-      "direction": "nøytral",
+      "direction": "uklar",
       "assessment_source": "AI",
       "number_keys": [
         "4887ba",
@@ -1346,13 +1346,13 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor noteres eksklusive 0,39 USD kvartalsutbytte fra 13. november",
-      "lead": "Equinor går eksklusive kontantutbytte på 0,39 USD per aksje for andre kvartal 2026 fra 13. november. Utbyttet påvirker ikke selskapets underliggende drift men justerer aksjekursen ned ved åpning.",
+      "headline": "Equinor noteres eksklusiv utbytte på 0,39 USD per aksje i dag",
+      "lead": "Equinor-aksjen handles fra 13. november uten kontantutbytte for andre kvartal 2026 på 0,39 USD per aksje. Investorer må vurdere verdireduksjonen ved utbyttebetaling i dagens handel.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor går eksklusive kontantutbytte på 0,39 USD per aksje for andre kvartal 2026 fra 13. november. Utbyttet påvirker ikke selskapets underliggende drift men justerer aksjekursen ned ved åpning.",
-      "reason": "Utbyttet påvirker ikke selskapets drift eller inntjening. Effekten vil primært være en teknisk korreksjon i aksjekursen tilsvarende utbyttebeløpet. For investorer er dette en likviditetsutdeling, ikke et signal om endringer i lønnsomhet.",
-      "score": 70,
+      "summary": "Equinor-aksjen handles fra 13. november uten kontantutbytte for andre kvartal 2026 på 0,39 USD per aksje. Investorer må vurdere verdireduksjonen ved utbyttebetaling i dagens handel.",
+      "reason": "Utbytteutbetaling medfører en nominell nedjustering i aksjekursen tilsvarende utbyttet. Dette påvirker ikke selskapets underliggende drift, men er relevant for investorer som følger kontantstrøm og totalavkastning.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
@@ -1360,16 +1360,11 @@
         {
           "ticker": "AKRBP",
           "direction": "uklar",
-          "reason": "Oljeservicekonkurrent som kan påvirkes indirekte av investeringssykluser i sektoren"
-        },
-        {
-          "ticker": "VAR",
-          "direction": "uklar",
-          "reason": "Operatør i samme sektor som Equinor, utbytteutbetaling kan gi sektorreferanseverdier"
+          "reason": "Kan få indirekte påvirkning gjennom sektorens kapitalflyt ved utbetalinger i store rivaler."
         }
       ],
       "importance": "stor",
-      "score_ai": 60,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13430,7 +13425,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T12:40:00+00:00",
+  "last_checked_at": "2026-11-14T12:50:00+00:00",
   "monitor_stats": {
     "fetched": 174,
     "recent": 61,
