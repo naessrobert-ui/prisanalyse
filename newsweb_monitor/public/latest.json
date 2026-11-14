@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-14T19:10:00+00:00",
+  "generated_at": "2026-11-14T19:20:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,12 +10,12 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Bemobi 3Q26-resultater offentliggjort – Otello eier 38 prosent",
-      "lead": "Bemobi Mobile Tech rapporterte 3Q26-resultater 12. november. Otello Corporation ASA eier 38,2 prosent og er eksponert mot utviklingen, men detaljene rundt nøkkeltall mangler foreløpig i meldingen.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – uten konkrete tall fra Otello",
+      "lead": "Bemobi Mobile Tech offentliggjorde sine 3Q26-resultater 12. november, men detaljer om tall eller utvikling for Otello Corporation ASA mangler i meldingen.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech rapporterte 3Q26-resultater 12. november. Otello Corporation ASA eier 38,2 prosent og er eksponert mot utviklingen, men detaljene rundt nøkkeltall mangler foreløpig i meldingen.",
-      "reason": "Resultatene er rapportert, men det foreligger ingen nøkkeltall i meldingen. Aksjonærer må vurdere Bemobis kvartalsresultat i detalj før konsekvensene for Otello kan vurderes. Videre analyse av Bemobis lønnsomhet og vekst er påkrevd.",
+      "summary": "Bemobi Mobile Tech offentliggjorde sine 3Q26-resultater 12. november, men detaljer om tall eller utvikling for Otello Corporation ASA mangler i meldingen.",
+      "reason": "Meldingen refererer til Bemobi-rapporten uten å oppgi spesifikke regnskapstall eller resultater for Otello. Aksjonærer får ikke konkret innsikt i utviklingen, noe som krever nærmere granskning av Bemobis rapport direkte.",
       "score": 45,
       "skipped": false,
       "direction": "uklar",
@@ -1346,18 +1346,25 @@
       "ticker": "EQNR",
       "issuer": "Equinor ASA",
       "title": "Equinor ASA: Ex. utbytte andre kvartal 2026 i dag - OSE",
-      "headline": "Equinor betaler 0,39 USD i kvartalsutbytte med eks-dato i dag",
-      "lead": "Equinor går eksklusiv sitt kontantutbytte på 0,39 USD per aksje for andre kvartal 2026 fra 13. november, noe som kan påvirke kursen på kort sikt.",
+      "headline": "Equinor ASA betaler ut 0,39 USD i kvartalsutbytte fra i dag",
+      "lead": "Fra 13. november handles Equinor-aksjen uten retten til 0,39 USD i utbytte for andre kvartal 2026. Utbetaling påvirker kontantstrømmen for aksjonærer, men ingen nye finanstall er rapportert.",
       "published_at": "2026-11-13T09:49:17.623000+00:00",
       "url": "https://newsweb.oslobors.no/message/686468",
-      "summary": "Equinor går eksklusiv sitt kontantutbytte på 0,39 USD per aksje for andre kvartal 2026 fra 13. november, noe som kan påvirke kursen på kort sikt.",
-      "reason": "Utbytteutbetaling bekrefter selskapets kontantstrøm og gir avkastning til aksjonærene, men utbytteeks-dagen innebærer vanlig kursjustering. Ingen nye drifts- eller resultatdata å vurdere.",
-      "score": 70,
+      "summary": "Fra 13. november handles Equinor-aksjen uten retten til 0,39 USD i utbytte for andre kvartal 2026. Utbetaling påvirker kontantstrømmen for aksjonærer, men ingen nye finanstall er rapportert.",
+      "reason": "Utbytteutbetaling er en normal kontantutdeling til aksjonærer, og påvirker ikke direkte selskapets inntjening eller verdsettelse. Investorer må følge med på videre inntjeningsrapporter for å vurdere selskapets økonomiske helse.",
+      "score": 55,
       "skipped": false,
       "direction": "nøytral",
       "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "AKRBP",
+          "direction": "uklar",
+          "reason": "Konkurrenter i olje og gass-sektoren kan merke generell sektorinteresse knyttet til utbyttepolitikk og kontantstrøm."
+        }
+      ],
       "importance": "stor",
-      "score_ai": 60,
+      "score_ai": 45,
       "number_keys": [
         "2524f5",
         "7b5200",
@@ -13440,11 +13447,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-14T19:10:00+00:00",
+  "last_checked_at": "2026-11-14T19:20:00+00:00",
   "monitor_stats": {
     "fetched": 174,
-    "recent": 47,
-    "already_seen": 44,
+    "recent": 44,
+    "already_seen": 41,
     "eligible": 3,
     "filtered": 0,
     "analyzed": 3,
