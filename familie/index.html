@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#216052">
+<title>Familierommet · møtes.no</title>
+<style>
+:root{font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;color:#183236;background:#fafbf8;--green:#216052;--muted:#61736e;--line:#dce5de}*{box-sizing:border-box}body{margin:0}button,input,textarea,select{font:inherit}button,a{touch-action:manipulation}button{cursor:pointer}button:disabled{opacity:.5;cursor:wait}:focus-visible{outline:3px solid #6fb19b;outline-offset:3px}[hidden]{display:none!important}a{color:var(--green)}.shell{max-width:1020px;margin:auto;padding:0 24px 50px}.nav{height:88px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px}.logo{font-size:24px;letter-spacing:-1px;font-weight:750;text-decoration:none;color:#183236}.logo span{color:var(--green)}.sub{color:var(--muted);font-size:12px}.pill{background:#eaf2eb;border-radius:20px;color:var(--green);padding:5px 12px;font-size:11px}.welcome{padding:38px 0 28px;display:flex;justify-content:space-between;align-items:center;gap:18px}.eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--green);font-weight:700}h1{font-size:clamp(30px,5vw,43px);line-height:1.15;letter-spacing:-1.6px;margin:10px 0}p{margin:8px 0;color:var(--muted)}.button{display:inline-flex;align-items:center;justify-content:center;background:var(--green);color:white;border:1px solid var(--green);padding:11px 20px;border-radius:10px;text-decoration:none;font-weight:600;font-size:13px;white-space:nowrap}.secondary{background:white;color:var(--green);border:1px solid var(--line)}.text-button{border:0;background:none;color:var(--muted);font-size:12px;padding:8px}.card{border:1px solid var(--line);border-radius:18px;padding:26px;background:white}.login{max-width:440px;margin:55px auto}.login h1{font-size:31px}.login p{font-size:13px}label{display:block;font-size:12px;font-weight:600;margin:20px 0 7px}input:not([type=file]),textarea,select{width:100%;background:white;color:#183236;border:1px solid #cddbd2;padding:11px 13px;border-radius:8px}textarea{resize:vertical;min-height:75px}.login .button{width:100%;margin-top:23px}.tiny{font-size:11px;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.post{overflow:hidden;border:1px solid var(--line);background:white;border-radius:16px}.post img,.post video{display:block;width:100%;max-height:490px;object-fit:contain;background:#edf1ec}.post img{cursor:zoom-in}.post-body{padding:18px 20px}.post-top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px}.post-name{font-weight:650}.post-time{font-size:11px;color:var(--muted)}.post-caption{color:#29443e;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0}.post-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:15px;border-top:1px solid #edf0eb;padding-top:11px}.expires{font-size:11px;color:var(--muted)}.delete{background:none;border:0;color:#8d4d4c;font-size:11px;cursor:pointer}.empty{grid-column:1/-1;text-align:center;padding:65px 25px;border:1px dashed #c9d7cc;border-radius:18px}.empty strong{display:block;font-size:19px;font-weight:600}.empty p{font-size:13px;max-width:38ch;margin:9px auto}.empty .symbol{font-size:30px;color:var(--green);margin-bottom:10px}.toolbar{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:18px 0;font-size:12px;color:var(--muted)}.message{font-size:13px;color:#7e4031;padding:12px;background:#fff1e8;border-radius:9px;white-space:pre-wrap}.message:empty{display:none}.actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin-top:22px}.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.file-pick{display:block;background:#f4f7f2;border:1px dashed #a7bdad;border-radius:12px;padding:22px;text-align:center;font-weight:500;color:var(--green);cursor:pointer}.file-pick input{display:block;max-width:100%;margin:12px auto 0;font-size:12px}dialog{border:1px solid var(--line);border-radius:20px;max-width:540px;width:calc(100% - 32px);padding:28px;color:#183236;max-height:90dvh;overflow:auto}dialog::backdrop{background:#132e2b99}dialog h2{font-size:25px;letter-spacing:-.8px;margin:0}.preview{width:100%;max-height:220px;object-fit:contain;margin-top:16px;border-radius:9px}#lightbox{max-width:95vw;width:auto;background:#102822;padding:12px}#lightbox img{max-width:85vw;max-height:78dvh;display:block}#lightbox .actions{margin:10px 0 0}progress{width:100%;accent-color:var(--green);margin-top:16px}.foot{font-size:11px;color:var(--muted);border-top:1px solid var(--line);margin-top:35px;padding-top:20px;display:flex;gap:20px;justify-content:space-between}.offline{background:#f6ebda;padding:10px;border-radius:8px;font-size:12px}.lock{display:inline-block;height:8px;width:8px;border-radius:50%;background:var(--green);margin-right:6px}@media(max-width:650px){.shell{padding:0 18px 35px}.nav{height:73px}.welcome{align-items:flex-start;flex-direction:column;padding-top:29px}.grid{grid-template-columns:1fr}.welcome .button{width:100%}.form-row{grid-template-columns:1fr}.card{padding:23px}.login{margin:32px auto}.foot{flex-direction:column;gap:5px}.post img,.post video{max-height:65dvh}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="nav"><a class="logo" href="/">møtes<span>.no</span></a><span class="pill"><span class="lock" aria-hidden="true"></span>Privat familierom</span></header>
+<section id="loginSection" class="card login" aria-labelledby="loginTitle">
+ <div class="eyebrow">Små øyeblikk. Nære mennesker.</div><h1 id="loginTitle">Velkommen hjem.</h1><p>Et lite rom for bilder, klipp og hverdagen dere deler.</p>
+ <form id="loginForm"><label for="name">Navnet ditt</label><input id="name" autocomplete="name" maxlength="40" required placeholder="Hva heter du?">
+ <label for="code">Familiekode</label><input id="code" type="password" autocomplete="current-password" maxlength="200" required placeholder="Koden dere deler i familien">
+ <button class="button" id="loginButton" type="submit">Åpne familierommet</button><p id="loginError" class="message" role="status" aria-live="polite"></p></form>
+ <p class="tiny" style="margin-top:20px">Du forblir innlogget på denne enheten i opptil 7 døgn. Logg ut på delte enheter.</p>
+</section>
+<section id="room" hidden>
+ <div class="welcome"><div><div class="eyebrow">Små øyeblikk. Nære mennesker.</div><h1>Her er vi sammen.</h1><p>Et glimt fra dagen, en liten hilsen. Bare for familien.</p></div><button class="button" id="newPost">+ Del et øyeblikk</button></div>
+ <p id="roomError" class="message" role="status" aria-live="polite"></p>
+ <div class="toolbar"><span id="postCount">Familiens øyeblikk</span><div><button class="text-button" id="refresh">Oppdater</button><button class="text-button" id="logout">Logg ut</button></div></div>
+ <div class="grid" id="feed" aria-live="polite"></div>
+ <div class="foot"><span><span class="lock" aria-hidden="true"></span>Bilder og klipp lagres på familiens Raspberry Pi.</span><a href="/">Start en videosamtale</a></div>
+</section>
+</div>
+<dialog id="compose" aria-labelledby="composeTitle">
+ <form id="postForm"><div class="eyebrow">En liten hilsen til de andre</div><h2 id="composeTitle">Del et øyeblikk.</h2>
+ <label class="file-pick" for="file">Velg et bilde eller et kort videoklipp<input id="file" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,.mov" required><span class="tiny">JPG, PNG, WebP, MP4, WebM eller MOV · maks 100 MB</span></label>
+ <img id="imagePreview" class="preview" alt="Forhåndsvisning av bildet ditt" hidden><video id="videoPreview" class="preview" controls playsinline hidden></video>
+ <label for="caption">Legg til en hilsen <span class="tiny">(valgfritt)</span></label><textarea id="caption" maxlength="500" placeholder="Hva skjer hos deg i dag?"></textarea>
+ <label for="days">Hvor lenge skal innlegget bli?</label><select id="days"><option value="1">1 døgn</option><option value="3">3 døgn</option><option value="7">7 døgn</option></select>
+ <p class="tiny">Innlegget skjules ved utløp. Filen slettes fra Pi-en innen omtrent ett minutt mens tjenesten kjører. Andre kan ha lagret en kopi.</p>
+ <p class="tiny">Noen MOV- og MP4-klipp fra telefoner kan kreve konvertering før andre nettlesere kan spille dem.</p>
+ <progress id="uploadProgress" max="100" value="0" aria-label="Opplastingsfremdrift" hidden></progress><p id="postError" class="message" role="status" aria-live="polite"></p>
+ <div class="actions"><button type="button" class="button secondary" id="cancelPost">Avbryt</button><button type="submit" class="button" id="sendPost">Del med familien</button></div>
+ </form>
+</dialog>
+<dialog id="lightbox" aria-label="Vis bilde"><img id="largeImage" alt="Bilde fra familien"><div class="actions"><button class="button secondary" id="closeImage">Lukk bildet</button></div></dialog>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id), api='/familie/api';let currentName='',previewUrl='',uploading=false,loading=false,loggedIn=false;
+async function request(path,options={}){
+ options.headers={...(options.headers||{}),'X-Family-Request':'1'};
+ let response;try{response=await fetch(api+path,{...options,cache:'no-store'});}catch(e){throw new Error('Familierommet er ikke tilgjengelig akkurat nå. Prøv igjen om litt.');}
+ let data;try{data=await response.json();}catch(e){throw new Error('Familierommet er ikke tilgjengelig akkurat nå. Prøv igjen om litt.');}
+ if(!response.ok){if(response.status===401&&path!=='/login')showLogin();throw new Error(data.detail||'Det gikk ikke. Prøv igjen.');}return data;
+}
+function showLogin(){loggedIn=false;$('room').hidden=true;$('loginSection').hidden=false;$('feed').replaceChildren();$('code').value='';}
+function readableTime(seconds){const mins=Math.max(1,Math.ceil(seconds/60));return mins>=1440?Math.ceil(mins/1440)+' døgn':mins>=60?Math.ceil(mins/60)+' timer':mins+' min';}
+function element(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
+function render(items){
+ const feed=$('feed');feed.replaceChildren();$('postCount').textContent=items.length?items.length+' øyeblikk fra familien':'Familiens øyeblikk';
+ if(!items.length){const box=element('div','empty');box.append(element('div','symbol','♡'),element('strong','','Det begynner med en liten hilsen.'),element('p','','Del et bilde fra turen, en videohilsen eller noe fint fra dagen din.'));feed.append(box);return;}
+ for(const post of items){
+ const card=element('article','post');card.dataset.expires=post.expires;card.dataset.ident=post.id;const isVideo=post.mime.startsWith('video/'),media=element(isVideo?'video':'img');media.src='/familie/media/'+post.id;
+ if(isVideo){media.controls=true;media.playsInline=true;media.preload='metadata';media.addEventListener('error',()=>{if(!card.querySelector('.play-error'))card.append(element('p','play-error tiny','Dette klippet kan ikke spilles i nettleseren din. Prøv en annen nettleser eller et MP4-klipp med H.264-video.'));});}
+ else{media.alt=post.caption||'Bilde delt av '+post.name;media.loading='lazy';media.tabIndex=0;media.setAttribute('role','button');media.setAttribute('aria-label','Vis bildet fra '+post.name+' større');const open=()=>{$('largeImage').src=media.src;$('largeImage').alt=media.alt;$('lightbox').showModal();};media.onclick=open;media.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};}
+ const body=element('div','post-body'),top=element('div','post-top'),date=element('time','post-time',new Date(post.created*1000).toLocaleString('nb-NO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));date.dateTime=new Date(post.created*1000).toISOString();top.append(element('span','post-name',post.name),date);body.append(top);if(post.caption)body.append(element('p','post-caption',post.caption));
+ const bottom=element('div','post-bottom');bottom.append(element('span','expires','Forsvinner om '+readableTime(post.expires-Date.now()/1000)));
+ const remove=element('button','delete','Slett');remove.type='button';remove.setAttribute('aria-label','Slett innlegget fra '+post.name);remove.onclick=async()=>{if(!confirm('Slette innlegget for hele familien?'))return;remove.disabled=true;try{await request('/items/'+post.id,{method:'DELETE'});await load();}catch(e){$('roomError').textContent=e.message;remove.disabled=false;}};bottom.append(remove);body.append(bottom);card.append(media,body);feed.append(card);
+ }
+}
+async function load(){if(loading)return;loading=true;try{const data=await request('/items');currentName=data.name;loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
+try{$('name').value=localStorage.getItem('motes-family-name')||'';}catch(e){}
+$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{await request('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('name').value,code:$('code').value})});try{localStorage.setItem('motes-family-name',$('name').value);}catch(e){}$('code').value='';await load();}catch(e){$('loginError').textContent=e.message;}finally{$('loginButton').disabled=false;}};
+$('logout').onclick=async()=>{try{await request('/logout',{method:'POST'});showLogin();}catch(e){$('roomError').textContent=e.message;}};
+$('refresh').onclick=()=>load();
+function clearPreview(){if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl='';$('imagePreview').hidden=true;$('imagePreview').removeAttribute('src');$('videoPreview').pause();$('videoPreview').removeAttribute('src');$('videoPreview').load();$('videoPreview').hidden=true;}
+$('newPost').onclick=()=>{$('postForm').reset();clearPreview();$('postError').textContent='';$('uploadProgress').hidden=true;$('compose').showModal();};
+$('file').onchange=()=>{clearPreview();const file=$('file').files[0];if(!file)return;if(file.size>100*1024*1024){$('postError').textContent='Maks 100 MB. Velg et mindre bilde eller klipp.';return;}$('postError').textContent='';previewUrl=URL.createObjectURL(file);const node=file.type.startsWith('video/')||/\.mov$/i.test(file.name)?$('videoPreview'):$('imagePreview');node.src=previewUrl;node.hidden=false;};
+function closeCompose(){if(uploading)return;clearPreview();$('compose').close();}
+$('cancelPost').onclick=closeCompose;$('compose').addEventListener('cancel',e=>{if(uploading)e.preventDefault();else clearPreview();});
+$('postForm').onsubmit=e=>{
+ e.preventDefault();if(uploading)return;const file=$('file').files[0];if(!file)return;
+ if(file.size>100*1024*1024||!file.size){$('postError').textContent='Velg en fil mellom 1 byte og 100 MB.';return;}
+ const suffix=(file.name.split('.').pop()||'').toLowerCase(),fallback={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm'},mime=file.type||fallback[suffix];
+ if(!Object.values(fallback).includes(mime)){$('postError').textContent='Velg JPG, PNG, WebP, MP4, WebM eller MOV. Lagre HEIC som JPG først.';return;}
+ uploading=true;$('sendPost').disabled=true;$('cancelPost').disabled=true;$('file').disabled=true;$('days').disabled=true;$('caption').disabled=true;$('postError').textContent='';$('uploadProgress').hidden=false;$('uploadProgress').value=0;
+ const xhr=new XMLHttpRequest(),params=new URLSearchParams({days:$('days').value,caption:$('caption').value});xhr.open('POST',api+'/items?'+params);xhr.timeout=300000;xhr.setRequestHeader('Content-Type',mime);xhr.setRequestHeader('X-Family-Request','1');xhr.upload.onprogress=e=>{if(e.lengthComputable)$('uploadProgress').value=Math.round(e.loaded/e.total*100);};
+ const finish=()=>{uploading=false;for(const id of ['sendPost','cancelPost','file','days','caption'])$(id).disabled=false;};
+ xhr.onload=()=>{finish();if(xhr.status>=200&&xhr.status<300){closeCompose();load();}else{let message='Opplastingen mislyktes. Prøv igjen.';try{message=JSON.parse(xhr.responseText).detail||message;}catch(e){}$('postError').textContent=message;if(xhr.status===401){closeCompose();showLogin();}}};xhr.onerror=xhr.ontimeout=()=>{finish();$('postError').textContent='Forbindelsen ble brutt eller tok for lang tid. Prøv igjen.';};xhr.send(file);
+};
+setInterval(()=>{
+ for(const card of document.querySelectorAll('#feed .post')){
+  if(Number(card.dataset.expires)<=Date.now()/1000){
+   const video=card.querySelector('video');if(video){video.pause();video.removeAttribute('src');video.load();}
+   if($('lightbox').open&&$('largeImage').getAttribute('src')==='/familie/media/'+card.dataset.ident){$('lightbox').close();$('largeImage').removeAttribute('src');}
+   card.remove();
+   const count=document.querySelectorAll('#feed .post').length;$('postCount').textContent=count+' øyeblikk fra familien';
+   if(!count)render([]);
+  }
+ }
+},1000);
+$('closeImage').onclick=()=>{$('lightbox').close();$('largeImage').removeAttribute('src');};
+// Avoid replacing a playing video, focused controls, or an open composer during refresh.
+setInterval(()=>{if(loggedIn&&!document.hidden&&!$('compose').open&&!$('lightbox').open&&![...document.querySelectorAll('#feed video')].some(v=>!v.paused)&&!$('feed').contains(document.activeElement))load();},60000);
+window.addEventListener('beforeunload',e=>{if(uploading){e.preventDefault();e.returnValue='';}});
+load();
+})();
+</script>
+</body></html>

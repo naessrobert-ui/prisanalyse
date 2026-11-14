@@ -81,6 +81,10 @@ try:
 except Exception as exc:  # pragma: no cover - skal ikke stoppe resten av nettstedet
     logger.warning("NAM Meet ble ikke lastet: %r", exc)
 
+# Family media lives on the Raspberry Pi, behind its own login.
+from familie_proxy import router as familie_router
+app.include_router(familie_router)
+
 # ---------------------------------------------------------------------------
 # Shipping Streamlit reverse proxy
 # Forwards /shipping/app/* → http://localhost:8502/shipping/app/*
