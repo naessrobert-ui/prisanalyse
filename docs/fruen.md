@@ -66,7 +66,9 @@ FAMILY_DATA_DIR=~/motes-familie/data PYTHONPATH=~/motes-familie/app ~/motes-fami
 3. Innstillinger → Apper → Safari → Kamera og Mikrofon: «Tillat» (eller «Aa» →
    Nettstedsinnstillinger for møtes.no). Uten dette kan Safari spørre igjen ved
    et anrop, og da er det ingen som svarer.
-4. Fast strøm, Automatisk lås: Aldri, og gjerne Guided Access med Safari. Siden
+4. Aktiveringsknappen setter også siden i fullskjerm. Hvis ikke, trykk én gang på
+   bildet. Start deretter Veiledet tilgang (Tilgjengelighet → Veiledet tilgang),
+   med egen Automatisk lås: Aldri. Fast strøm, Automatisk lås: Aldri. Siden
    kan ikke vekke en låst iPad, og Safari må være synlig.
 5. Prøv et besøk fra en annen godkjent enhet: navn og lydvarsel, bilde og lyd
    begge veier, og at bildene kommer tilbake når innringer legger på.

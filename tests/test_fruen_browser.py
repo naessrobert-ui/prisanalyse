@@ -24,7 +24,9 @@ HEAD = {'X-Fruen-Request': '1'}
 # Test hooks only: record peer connections and every captured stream, optionally delay
 # or deny camera access. The application code itself is unchanged.
 INIT = """
-window.__pcs=[];window.__streams=[];window.__gumDelay=0;window.__gumDeny=false;
+window.__pcs=[];window.__streams=[];window.__fs=0;
+const nativeFs=Element.prototype.requestFullscreen;Element.prototype.requestFullscreen=function(...a){window.__fs++;return nativeFs.apply(this,a);};
+window.__gumDelay=0;window.__gumDeny=false;
 const NativePC=window.RTCPeerConnection;
 window.RTCPeerConnection=function(...a){const pc=new NativePC(...a);window.__pcs.push(pc);return pc;};
 window.RTCPeerConnection.prototype=NativePC.prototype;
@@ -174,6 +176,7 @@ def test_automatic_answer_after_notice_without_controls(admin):
     frame = admin.device('Fruen', 'auto')
     a = admin.device('Anne')
     assert frame.is_hidden('#controls') and frame.is_hidden('#openContacts')
+    assert frame.evaluate('window.__fs') >= 1 and a.evaluate('window.__fs') == 0  # only her frame
     frame.wait_for_selector('#photo[src]:not([hidden])')
     call(a, 'Fruen')
     frame.wait_for_selector('#ringName:has-text("Anne kommer på besøk")')

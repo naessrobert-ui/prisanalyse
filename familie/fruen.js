@@ -47,7 +47,7 @@ async function loadPhotos(){if(!me)return;try{const all=[];for(let offset=0;offs
 function getMedia(expected){return new Promise((resolve,reject)=>{let done=false;const timer=setTimeout(()=>{done=true;reject(Error('Kamera eller mikrofon svarte ikke. En pårørende må kontrollere tillatelsene.'));},10000);navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:{width:{ideal:640},height:{ideal:480},frameRate:{ideal:15,max:24}}}).then(stream=>{clearTimeout(timer);if(done||document.hidden||(expected&&call?.id!==expected)){stopStream(stream);if(!done){done=true;reject(Error('Samtalen er avsluttet.'));}return;}done=true;resolve(stream);},error=>{clearTimeout(timer);if(!done){done=true;reject(error);}});});}
 function disarm(text){armed=false;endCall();status(text,true);renderControls();if(me?.kind==='member'||location.pathname.endsWith('/klargjor'))$('setup').hidden=false;}
 async function activate(){
- if(setupBusy)return;setupBusy=true;$('activate').disabled=true;$('setupError').textContent='';
+ fullscreen();if(setupBusy)return;setupBusy=true;$('activate').disabled=true;$('setupError').textContent='';
  try{
   if(!navigator.mediaDevices?.getUserMedia)throw Error('Denne nettleseren har ikke tilgang til kamera og mikrofon.');
   if(!context||context.state==='closed')context=new(window.AudioContext||window.webkitAudioContext)();
@@ -57,9 +57,14 @@ async function activate(){
   armed=true;audioBadSince=0;context.onstatechange=()=>{if(armed&&context.state!=='running')context.resume().catch(()=>{});};
   requestWake();
   $('setup').hidden=true;history.replaceState(null,'','/fruen');sound();status('Besøk er aktivert.');renderControls();poll();
+  setTimeout(()=>{if(armed&&me?.kind==='auto'&&!isFullscreen()&&(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen))status('Trykk én gang på bildet for fullskjerm.');},1500);
  }catch(e){$('setupError').textContent=e.message||'Kontroller tillatelser til lyd, kamera og mikrofon.';}
  finally{setupBusy=false;$('activate').disabled=false;}
 }
+// Fullscreen needs a tap. Only the automatic frame uses it; a relative's tap on the
+// activation button (or once on the picture afterwards) is enough. Leaves on reload.
+function isFullscreen(){return !!(document.fullscreenElement||document.webkitFullscreenElement);}
+function fullscreen(){if(me?.kind!=='auto'||isFullscreen())return;const el=document.documentElement,request=el.requestFullscreen||el.webkitRequestFullscreen;if(!request)return;try{const r=request.call(el);if(r&&r.catch)r.catch(()=>{});}catch(e){}}
 function requestWake(){if(armed&&navigator.wakeLock&&!document.hidden)navigator.wakeLock.request('screen').then(v=>{wake=v;}).catch(()=>{});}
 // Remote sound plays through a media element (echo cancellation, and Safari allows
 // it while the page captures). Web Audio is only a fallback when playback is refused.
@@ -155,7 +160,9 @@ async function boot(){
  try{me=await api('me');$('welcome').hidden=true;renderControls();await loadPhotos();if(me.kind==='member'||location.pathname.endsWith('/klargjor')){$('setup').hidden=false;$('setupTitle').textContent=me.kind==='auto'?'Klargjør Fruens bildeskjerm':'Aktiver familiebesøk';}else status('Familiebilder · besøk må aktiveres av en pårørende etter ny innlasting.',true);poll();}
  catch(e){$('welcome').hidden=false;status('Privat familiebesøk',true);}
 }
-$('activate').onclick=activate;$('resume').onclick=()=>{$('setup').hidden=false;};$('openContacts').onclick=()=>{contactList();$('contactDialog').showModal();};$('closeContacts').onclick=()=>$('contactDialog').close();$('hangup').onclick=endCall;$('decline').onclick=endCall;$('answer').onclick=acceptCall;
+$('activate').onclick=activate;
+document.addEventListener('pointerup',()=>{if(armed)fullscreen();});
+$('resume').onclick=()=>{$('setup').hidden=false;};$('openContacts').onclick=()=>{contactList();$('contactDialog').showModal();};$('closeContacts').onclick=()=>$('contactDialog').close();$('hangup').onclick=endCall;$('decline').onclick=endCall;$('answer').onclick=acceptCall;
 $('logout').onclick=async()=>{if(!confirm('Koble denne enheten fra familiebesøk?'))return;endCall();try{await api('logout',{});location.reload();}catch(e){status(e.message,true);}};
 const invitation=location.hash.match(/^#invite=([0-9a-f]{64})$/);if(invitation){pendingToken=invitation[1];history.replaceState(null,'',location.pathname);$('welcome').hidden=false;$('enrol').hidden=false;$('welcomeText').textContent='Denne private invitasjonen kobler enheten til familiens bildeskjerm og besøk.';}
 $('enrol').onclick=async()=>{if(!pendingToken)return;try{const a=await api('enrol',{token:pendingToken});pendingToken=null;$('enrol').hidden=true;if(a.kind==='auto')history.replaceState(null,'','/fruen/klargjor');await boot();}catch(e){$('welcomeText').textContent=e.message;}};
