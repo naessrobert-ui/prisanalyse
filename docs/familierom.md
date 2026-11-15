@@ -294,3 +294,14 @@ sender ett samlet varsel. Deretter høyst ett nytt varsel per 30 minutter til
 rommet åpnes igjen. Ingen varsler mens rommet er åpent på enheten.
 Varselteksten er kryptert fram til enheten, men kan vises på låst skjerm; det kan
 skrus av under iPhone-innstillingene for varsler («Vis forhåndsvisninger»).
+
+## Videosamtale i familierommet
+
+«Start videosamtale» åpner et privat møterom på møtes.no (opptil 10 deltakere).
+Alle andre i familierommet med varsler på får straks «<navn> har startet en
+videosamtale», og et banner med «Bli med» vises i rommet mens samtalen pågår.
+Trykker noen «Start» mens en samtale pågår, blir de med i den i stedet.
+Pi-en sjekker familieinnloggingen og lager rommet; Render signerer invitasjonen
+(bare for rom som heter `familie-…` og er laget av Pi-en) og teller deltakere.
+Lyd og bilde går som i vanlige møter, uten opptak. Bjørgs bildeskjerm (`/fruen`)
+er ikke en del av familierommet og får aldri disse varslene.

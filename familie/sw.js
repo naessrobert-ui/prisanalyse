@@ -6,7 +6,7 @@ self.addEventListener('push',event=>{
  event.waitUntil(Promise.all([
   self.registration.showNotification(typeof data.title==='string'&&data.title?data.title.slice(0,120):'Nytt i familierommet',{
    body:typeof data.body==='string'&&data.body?data.body.slice(0,200):'Familien har delt noe nytt. Åpne familierommet for å se det.',
-   tag:'family-new',renotify:true,icon:'/familie/icon.png',badge:'/familie/icon.png',data:{url}
+   tag:typeof data.tag==='string'&&/^family-[a-z]+$/.test(data.tag)?data.tag:'family-new',renotify:true,icon:'/familie/icon.png',badge:'/familie/icon.png',data:{url}
   }),
   count&&self.navigator.setAppBadge?self.navigator.setAppBadge(count).catch(()=>{}):Promise.resolve()
  ]));

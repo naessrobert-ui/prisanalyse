@@ -1,6 +1,7 @@
 """Stream /familie to the Pi over HTTPS. No media is persisted on Render."""
 import os
 import re
+import time
 from urllib.parse import urlsplit
 
 import httpx
@@ -36,21 +37,78 @@ async def fruen_ice(request: Request):
     return await meet_routes.meet_ice(kode=meet_routes.KODE,rom='fruen',inv='')
 
 
+def _family_origin():
+    origin=(os.environ.get('FAMILY_ORIGIN') or '').rstrip('/')
+    try:
+        parsed=urlsplit(origin)
+        valid=(parsed.scheme=='https' and (parsed.hostname or '').endswith('.ts.net') and parsed.port in {None,443,8443,10000}
+               and not (parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment))
+    except ValueError:valid=False
+    return origin if valid else ''
+
+
+async def _family_api(method, path, session):
+    """Call the Pi as the logged-in family member. Returns (status, json or None)."""
+    origin=_family_origin()
+    if not origin or not session:
+        return 401,None
+    headers={'cookie':'motes_family_session='+session,'x-family-request':'1','accept-encoding':'identity'}
+    try:
+        async with httpx.AsyncClient(timeout=10,trust_env=False,follow_redirects=False) as client:
+            r=await client.request(method,origin+path,headers=headers,json={} if method=='POST' else None)
+        return r.status_code,(r.json() if r.headers.get('content-type','').startswith('application/json') else None)
+    except (httpx.HTTPError,ValueError):
+        return 503,None
+
+
+def _video_view(call):
+    """Public view of a family call. The invitation is signed here, on Render, and only
+    for rooms the Pi created for a logged-in family member."""
+    import meet_routes
+    if not isinstance(call,dict) or not isinstance(call.get('room'),str) or not re.fullmatch('familie-[0-9a-f]{16}',call['room']):
+        return None
+    room=call['room'];created=float(call.get('created') or 0)
+    participants=len(meet_routes._rom.get(room,{}))
+    active=participants>0 or created>time.time()-180
+    view={'name':str(call.get('name',''))[:40],'created':created,'participants':participants,'active':active}
+    if active:
+        inv=meet_routes._lag_invitasjon(room,int(time.time())+meet_routes.INVITASJON_GYLDIG)
+        view['url']='/meet#'+room+'?inv='+inv
+    return view
+
+
+@router.get('/familie/api/video', include_in_schema=False)
+async def family_video(request: Request):
+    status,data=await _family_api('GET','/familie/api/video',request.cookies.get('motes_family_session',''))
+    if status!=200 or data is None:
+        return JSONResponse({'detail':'Logg inn i familierommet.' if status==401 else 'Familierommet svarer ikke.'},status_code=401 if status==401 else 503,headers={'Cache-Control':'no-store'})
+    return JSONResponse({'call':_video_view(data.get('call'))},headers={'Cache-Control':'no-store'})
+
+
+@router.post('/familie/api/video/start', include_in_schema=False)
+async def family_video_start(request: Request):
+    if request.headers.get('x-family-request')!='1':
+        return JSONResponse({'detail':'Åpne familierommet og prøv igjen.'},status_code=403)
+    session=request.cookies.get('motes_family_session','')
+    status,data=await _family_api('GET','/familie/api/video',session)
+    if status==200 and data is not None:
+        current=_video_view(data.get('call'))
+        if current and current['participants']>0:  # a call is going on: join it
+            return JSONResponse({'call':current,'started':False},headers={'Cache-Control':'no-store'})
+    status,data=await _family_api('POST','/familie/api/video/start',session)
+    view=_video_view((data or {}).get('call')) if status==200 else None
+    if not view:
+        return JSONResponse({'detail':'Logg inn i familierommet.' if status==401 else 'Kunne ikke starte samtalen.'},status_code=401 if status==401 else 503)
+    return JSONResponse({'call':view,'started':bool(data.get('started'))},headers={'Cache-Control':'no-store'})
+
+
 @router.api_route('/fruen', methods=['GET', 'HEAD', 'POST', 'DELETE'])
 @router.api_route('/fruen/{path:path}', methods=['GET', 'HEAD', 'POST', 'DELETE'])
 @router.api_route('/familie', methods=['GET', 'HEAD', 'POST', 'DELETE'])
 @router.api_route('/familie/{path:path}', methods=['GET', 'HEAD', 'POST', 'DELETE'])
 async def family_proxy(request: Request, path: str = ''):
-    origin = (os.environ.get('FAMILY_ORIGIN') or '').rstrip('/')
-    try:
-        parsed = urlsplit(origin)
-        port = parsed.port
-    except ValueError:
-        parsed = urlsplit('')
-        port = None
-    if (parsed.scheme != 'https' or not (parsed.hostname or '').endswith('.ts.net')
-            or parsed.username or parsed.password or parsed.query or parsed.fragment
-            or parsed.path or port not in {None, 443, 8443, 10000}):
+    origin = _family_origin()
+    if not origin:
         return HTMLResponse('<!doctype html><html lang="no"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Familierom · møtes.no</title><body style="font:17px/1.6 system-ui;max-width:500px;margin:15vh auto;padding:24px;color:#183236"><h1>Familierommet er ikke klart ennå.</h1><p>Prøv igjen senere.</p><a href="/">Tilbake til møtes.no</a></body></html>', status_code=503, headers={'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'})
     headers = {k: v for k, v in request.headers.items() if k.lower() in REQUEST_HEADERS}
     headers['accept-encoding'] = 'identity'

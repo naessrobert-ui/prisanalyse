@@ -719,3 +719,27 @@ def test_proxy_preserves_conditional_media_requests_and_304(monkeypatch):
         assert response.status_code == 304 and response.content == b''
         assert response.headers['etag'] == '"family-test"' and response.headers['vary'] == 'Cookie'
         assert response.headers['cache-control'] == 'private, no-cache, must-revalidate'
+
+
+def test_video_start_notifies_others_and_reuses_recent_call(family, monkeypatch):
+    from familie import notifications
+    app, client, root = family
+    sent = []
+    monkeypatch.setattr(notifications, 'webpush', lambda **kwargs: sent.append(json.loads(kwargs['data'])))
+    headers = {'X-Family-Request': '1'}
+    assert client.get('/familie/api/video').status_code == 401
+    assert client.post('/familie/api/video/start', headers=headers).status_code == 401
+    login(client)
+    gert = TestClient(app, base_url='http://localhost'); login(gert, 'Gert')
+    for c, device in ((client, 'a' * 32), (gert, 'b' * 32)):
+        assert c.post('/familie/api/push', json={'id': device, 'action': 'subscribe', 'subscription': push_subscription()}, headers=headers).status_code == 200
+    assert client.get('/familie/api/video').json() == {'call': None}
+    assert client.post('/familie/api/video/start').status_code == 403
+    started = client.post('/familie/api/video/start', headers=headers).json()
+    assert started['started'] is True and started['call']['name'] == 'Robert'
+    assert started['call']['room'].startswith('familie-') and len(started['call']['room']) == 24
+    assert sent == [{'title': 'Robert har startet en videosamtale', 'body': 'Trykk for å bli med.', 'url': '/familie/?video', 'tag': 'family-video'}]
+    again = gert.post('/familie/api/video/start', headers=headers).json()
+    assert again == {'call': started['call'], 'started': False} and len(sent) == 1
+    assert gert.get('/familie/api/video').json()['call']['room'] == started['call']['room']
+    gert.close()

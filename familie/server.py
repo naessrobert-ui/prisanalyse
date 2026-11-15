@@ -393,6 +393,33 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                 conn.execute("UPDATE push_devices SET active_until=0 WHERE id=?", (ident,))
         return {"ok": True}
 
+    # Family video calls. The room itself runs in the meeting service on Render, which
+    # signs the invitation; the Pi only records who started which room and notifies.
+    with db() as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS video_calls (room TEXT PRIMARY KEY, name TEXT NOT NULL, created REAL NOT NULL)")
+
+    @app.get("/familie/api/video")
+    async def video_latest(request: Request):
+        user(request)
+        with db() as conn:
+            row = conn.execute("SELECT room,name,created FROM video_calls ORDER BY created DESC LIMIT 1").fetchone()
+        return {"call": dict(row) if row and row["created"] > time.time() - 6 * 3600 else None}
+
+    @app.post("/familie/api/video/start")
+    async def video_start(request: Request):
+        name = user(request)
+        mutation(request)
+        now = time.time()
+        with db() as conn:
+            recent = conn.execute("SELECT room,name,created FROM video_calls WHERE created>? ORDER BY created DESC LIMIT 1", (now - 120,)).fetchone()
+            if recent:  # someone just started one: join that instead of notifying twice
+                return {"call": dict(recent), "started": False}
+            room = "familie-" + secrets.token_hex(8)
+            conn.execute("INSERT INTO video_calls (room,name,created) VALUES (?,?,?)", (room, name, now))
+            conn.execute("DELETE FROM video_calls WHERE created<?", (now - 86400,))
+        await asyncio.to_thread(push.notify_video, name)
+        return {"call": {"room": room, "name": name, "created": now}, "started": True}
+
     @app.post("/familie/api/login")
     async def login(request: Request):
         mutation(request)

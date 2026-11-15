@@ -121,21 +121,33 @@ class FamilyPush:
             if not claimed:
                 continue
             title, body = self.text(posts, messages)
-            try:
-                webpush(subscription_info=json.loads(device["subscription"]),
-                        data=json.dumps({"title": title, "body": body, "badge": len(posts) + len(messages),
-                                         "url": "/familie/?chat" if messages and not posts else "/familie/"}),
-                        vapid_private_key=str(self.key_path),
-                        vapid_claims={"sub": "https://xn--mtes-gra.no/familie"}, ttl=3600, timeout=10)
-            except WebPushException as exc:
-                status = exc.response.status_code if exc.response is not None else None
-                with self.db() as conn:
-                    if status in {404, 410}:
-                        conn.execute("DELETE FROM push_devices WHERE id=?", (device["id"],))
-                    else:
-                        conn.execute("UPDATE push_devices SET notified=0,notified_at=? WHERE id=? AND seen=?", (last, device["id"], device["seen"]))
-                logging.getLogger(__name__).warning("Familievarsel feilet (HTTP %s)", status)
-            except (OSError, ValueError):
+            if not self.send(device, {"title": title, "body": body, "badge": len(posts) + len(messages),
+                                      "url": "/familie/?chat" if messages and not posts else "/familie/"}):
                 with self.db() as conn:
                     conn.execute("UPDATE push_devices SET notified=0,notified_at=? WHERE id=? AND seen=?", (last, device["id"], device["seen"]))
-                logging.getLogger(__name__).warning("Familievarsel kunne ikke sendes")
+
+    def send(self, device, payload):
+        """One Web Push message. Returns False on failure; removes subscriptions that are gone."""
+        try:
+            webpush(subscription_info=json.loads(device["subscription"]), data=json.dumps(payload),
+                    vapid_private_key=str(self.key_path),
+                    vapid_claims={"sub": "https://xn--mtes-gra.no/familie"}, ttl=3600, timeout=10)
+            return True
+        except WebPushException as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if status in {404, 410}:
+                with self.db() as conn:
+                    conn.execute("DELETE FROM push_devices WHERE id=?", (device["id"],))
+            logging.getLogger(__name__).warning("Familievarsel feilet (HTTP %s)", status)
+        except (OSError, ValueError):
+            logging.getLogger(__name__).warning("Familievarsel kunne ikke sendes")
+        return False
+
+    def notify_video(self, starter):
+        """Immediate notice to everyone else with notifications on. Bjørg's frame is not
+        part of the family room and never receives these."""
+        with self.db() as conn:
+            rows = conn.execute("SELECT * FROM push_devices WHERE name!=?", (starter,)).fetchall()
+        for device in rows:
+            self.send(device, {"title": f"{starter} har startet en videosamtale", "body": "Trykk for å bli med.",
+                               "url": "/familie/?video", "tag": "family-video"})

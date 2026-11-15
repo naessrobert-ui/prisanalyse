@@ -12,7 +12,7 @@
 
 .social-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.social-actions button{border:1px solid var(--line);border-radius:9px;padding:7px 11px;color:var(--muted);background:white;font-size:12px}.social-actions button[aria-pressed="true"]{background:#e5f0e9;color:var(--green);border-color:#aacabc}.liked-by{font-size:10px;color:var(--muted);margin:7px 0 0;overflow-wrap:anywhere}.comment-log{max-height:45dvh;overflow:auto;display:flex;flex-direction:column;gap:12px;margin:18px 0}.comment-log .chat-message{max-width:100%;width:100%}.comment-context{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.comment-form textarea{margin:8px 0}.dialog-heading{display:flex;justify-content:space-between;align-items:start;gap:12px}
 
-.calendar{border:1px solid var(--line);border-radius:14px;padding:16px;margin:0 0 20px;background:white}.calendar-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:12px}.calendar-grid button{min-height:43px;border:1px solid var(--line);border-radius:7px;background:white;color:var(--green);padding:4px}.calendar-grid button[aria-pressed="true"]{background:var(--green);color:white}.calendar-grid button:disabled{opacity:.35;cursor:default}.calendar-grid span{text-align:center;font-size:11px}.calendar-grid small{display:block;font-size:9px}.selection-list{padding-left:20px;font-size:12px;max-height:170px;overflow:auto}.upload-status{font-size:12px;overflow-wrap:anywhere}
+.video-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin:0 0 14px}.video-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;background:#e3f1ea;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 16px}.video-banner[hidden]{display:none}.calendar{border:1px solid var(--line);border-radius:14px;padding:16px;margin:0 0 20px;background:white}.calendar-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:12px}.calendar-grid button{min-height:43px;border:1px solid var(--line);border-radius:7px;background:white;color:var(--green);padding:4px}.calendar-grid button[aria-pressed="true"]{background:var(--green);color:white}.calendar-grid button:disabled{opacity:.35;cursor:default}.calendar-grid span{text-align:center;font-size:11px}.calendar-grid small{display:block;font-size:9px}.selection-list{padding-left:20px;font-size:12px;max-height:170px;overflow:auto}.upload-status{font-size:12px;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -28,6 +28,8 @@
 <section id="room" hidden>
  <div class="welcome"><div><div class="eyebrow">Små øyeblikk. Nære mennesker.</div><h1>Her er vi sammen.</h1><p>Et glimt fra dagen, en liten hilsen. Bare for familien.</p></div><button class="button" id="newPost">+ Del et øyeblikk</button></div>
  <div class="push-settings"><button type="button" class="text-button" id="pushToggle">Slå på varsler</button><span class="tiny" id="pushStatus" role="status" aria-live="polite">Få ett varsel om nye innlegg siden sist du var inne.</span></div>
+ <div class="video-bar"><button type="button" class="button secondary" id="startVideo">Start videosamtale</button><span class="tiny" id="videoStatus" role="status" aria-live="polite">Alle i familierommet med varsler på får beskjed.</span></div>
+ <div class="video-banner" id="videoBanner" hidden><strong id="videoBannerText"></strong><button type="button" class="button" id="joinVideo">Bli med</button></div>
  <p id="roomError" class="message" role="status" aria-live="polite"></p>
  <nav class="room-tabs" aria-label="Velg innhold"><button id="mediaTab" aria-pressed="true" type="button">Bilder og filer</button><a class="button secondary" href="/familie/slekt">Slekt</a><button id="chatTab" aria-pressed="false" type="button">Familiechat <span class="count-badge" id="chatBadge" hidden></span></button></nav>
  <section id="mediaPane" aria-label="Bilder og videoklipp">
@@ -190,7 +192,7 @@ function render(items){
  for(let i=0;i<visible.length;i++){const card=[...feed.children].find(node=>node.dataset.ident===visible[i].id);if(card&&feed.children[i]!==card)feed.insertBefore(card,feed.children[i]||null);}
  updateSeenLabels();
 }
-async function load(){if(loading)return;const epoch=sessionEpoch;loading=true;try{const dayAtRequest=selectedDay;const data=await request('/items'+(selectedDay?'?day='+encodeURIComponent(selectedDay):''));if(epoch!==sessionEpoch)return;if(dayAtRequest!==selectedDay){loading=false;load();return;}if(currentName!==data.name){currentName=data.name;readSeen();}loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);loadCalendar();loadChat();markPushVisit();if(new URLSearchParams(location.search).has('chat')){history.replaceState(null,'','/familie/');switchPane('chat');}}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
+async function load(){if(loading)return;const epoch=sessionEpoch;loading=true;try{const dayAtRequest=selectedDay;const data=await request('/items'+(selectedDay?'?day='+encodeURIComponent(selectedDay):''));if(epoch!==sessionEpoch)return;if(dayAtRequest!==selectedDay){loading=false;load();return;}if(currentName!==data.name){currentName=data.name;readSeen();}loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);loadCalendar();loadChat();markPushVisit();const wanted=new URLSearchParams(location.search);if(wanted.has('chat')){history.replaceState(null,'','/familie/');switchPane('chat');}if(wanted.has('video')){history.replaceState(null,'','/familie/');loadVideo().then(()=>{if(videoCall?.active)openVideo(videoCall);});}else loadVideo();}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
 try{$('name').value=localStorage.getItem('motes-family-name')||'';}catch(e){}
 $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{await request('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('name').value,code:$('code').value})});try{localStorage.setItem('motes-family-name',$('name').value);}catch(e){}$('code').value='';await load();}catch(e){$('loginError').textContent=e.message;}finally{$('loginButton').disabled=false;}};
 $('logout').onclick=async()=>{try{await disablePush();await request('/logout',{method:'POST'});showLogin();}catch(e){$('roomError').textContent=e.message;}};
@@ -285,6 +287,13 @@ async function restorePush(){
  if(!supportsPush()){$('pushToggle').disabled=true;$('pushStatus').textContent='Varsler krever en støttet nettleser. På iPhone: legg familierommet til på Hjem-skjermen og åpne det derfra.';return;}
  try{pushId=localStorage.getItem('motes-family-push-id')||'';pushRegistration=await navigator.serviceWorker.getRegistration('/familie/');pushSubscription=pushRegistration?await pushRegistration.pushManager.getSubscription():null;pushLabel();if(loggedIn)markPushVisit();}catch(e){$('pushStatus').textContent='Kunne ikke hente varselinnstillingene. Tillat lokal lagring og prøv igjen.';}
 }
+// Family video calls run in the meeting service on møtes.no (same site, so the name
+// typed here is reused there). A banner shows when a call is going on.
+let videoCall=null;
+function openVideo(call){if(!call?.url)return;try{localStorage.setItem('nammeet-name',currentName);}catch(e){}location.href=call.url;}
+function renderVideo(){const c=videoCall;$('videoBanner').hidden=!(c&&c.active);if(c&&c.active)$('videoBannerText').textContent='Videosamtale pågår · startet av '+c.name+(c.participants?' · '+c.participants+' med nå':'');}
+async function loadVideo(){if(!loggedIn||document.hidden)return;try{const d=await request('/video');videoCall=d.call;renderVideo();}catch(e){}}
+setInterval(loadVideo,20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadVideo();});
 // Opening the room clears the number on the home-screen icon and old notifications.
 function clearBadge(){try{navigator.clearAppBadge?.().catch(()=>{});navigator.serviceWorker?.getRegistration('/familie/').then(r=>r?.getNotifications()).then(list=>list?.forEach(n=>n.close())).catch(()=>{});}catch(e){}}
 async function markPushVisit(){
@@ -340,6 +349,8 @@ function renderCalendar(){
  $('selectedDay').textContent=selectedDay?'Viser '+selectedDay+' · opptil 200 innlegg på dagen':'Viser de siste 200 innleggene. Velg en dag for eldre øyeblikk.';
 }
 async function loadCalendar(){const epoch=sessionEpoch;try{const data=await request('/calendar');if(epoch!==sessionEpoch||!loggedIn)return;calendarCounts=data.days;renderCalendar();}catch(e){if(loggedIn)$('selectedDay').textContent=e.message;}}
+$('startVideo').onclick=async()=>{$('startVideo').disabled=true;$('videoStatus').textContent='Starter samtalen …';try{const d=await request('/video/start',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});$('videoStatus').textContent=d.started?'De andre får beskjed.':'Det pågår allerede en samtale. Du blir med i den.';videoCall=d.call;openVideo(d.call);}catch(e){$('videoStatus').textContent=e.message;}finally{$('startVideo').disabled=false;}};
+$('joinVideo').onclick=()=>openVideo(videoCall);
 $('previousMonth').onclick=()=>stepMonth(-1);
 $('calendarJump').onchange=()=>{const m=$('calendarJump').value;calendarMonth=new Date(Number(m.slice(0,4)),Number(m.slice(5,7))-1,1);renderCalendar();};
 $('nextMonth').onclick=()=>stepMonth(1);
