@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-15T09:40:00+00:00",
+  "generated_at": "2026-11-15T09:50:00+00:00",
   "items": [
     {
       "id": "686525",
@@ -10,15 +10,15 @@
       "ticker": "OTEC",
       "issuer": "Otello Corporation ASA",
       "title": "Bemobi 3Q 26 Reporting",
-      "headline": "Otellos andel i Bemobi tapte penger i 3. kvartal 2026",
-      "lead": "Bemobi Mobile Tech rapporterte et underskudd i 3. kvartal 2026. Otello eier 38,22 % og vil merke redusert resultatandel, med uklar effekt på egen inntjening.",
+      "headline": "Bemobi rapporterer 3. kvartal 2026 – 38 prosent eid av Otello Corporation",
+      "lead": "Bemobi Mobile Tech offentliggjorde sitt 3. kvartal 2026-regnskap. Otello Corporation eier 38,2 prosent av Bemobi. Detaljer om resultat og vekst er tilgjengelige, men konkrete tall mangler i meldingen.",
       "published_at": "2026-11-13T22:28:03.082000+00:00",
       "url": "https://newsweb.oslobors.no/message/686525",
-      "summary": "Bemobi Mobile Tech rapporterte et underskudd i 3. kvartal 2026. Otello eier 38,22 % og vil merke redusert resultatandel, med uklar effekt på egen inntjening.",
-      "reason": "Bemobis tap i kvartalet indikerer utfordringer som kan påvirke Otellos resultater negativt. Investorer bør følge utviklingen i Bemobis lønnsomhet og strategitiltak fremover.",
-      "score": 62,
+      "summary": "Bemobi Mobile Tech offentliggjorde sitt 3. kvartal 2026-regnskap. Otello Corporation eier 38,2 prosent av Bemobi. Detaljer om resultat og vekst er tilgjengelige, men konkrete tall mangler i meldingen.",
+      "reason": "Meldingen opplyser om eierandel og publisering av kvartalstall, men unnlater å gi konkrete nøkkeltall eller resultatanalyse. Effekten på Otello og Bemobi-aksjene er derfor usikker, og videre detaljgjennomgang kreves.",
+      "score": 45,
       "skipped": false,
-      "direction": "negativ",
+      "direction": "uklar",
       "assessment_source": "AI",
       "number_keys": [
         "4887ba",
@@ -13418,36 +13418,9 @@
           "reason": "Bedre marginer og økt kontantstrøm ved høyere oljepris"
         }
       ]
-    },
-    {
-      "id": "1de0cf46dbed2032",
-      "source": "E24",
-      "title": "Jekker ned årets oljeinvesteringer",
-      "url": "https://e24.no/energi-og-klima/i/Qrlp88/jekker-ned-aarets-oljeinvesteringer?utm_medium=rss",
-      "published_at": "2026-11-12T09:49:31+00:00",
-      "analyzed_at": "2026-11-12T10:00:00+00:00",
-      "score": 75,
-      "comment": "Redusert oljeinvestering på 9 mrd NOK kan indikere lavere aktivitet og produksjonstakt, noe som hemmer inntjeningen i olje- og gassrelaterte selskaper betydelig.",
-      "affected": [
-        {
-          "ticker": "EQNR",
-          "direction": "negativ",
-          "reason": "Lavere investeringer kan redusere produksjonsvekst og inntjening."
-        },
-        {
-          "ticker": "AKRBP",
-          "direction": "negativ",
-          "reason": "Redusert investering kan føre til lavere produksjonsvolum."
-        },
-        {
-          "ticker": "NEL",
-          "direction": "negativ",
-          "reason": "Lavere oljeinvesteringer kan dempe etterspørselen etter hydrogenteknologi."
-        }
-      ]
     }
   ],
-  "last_checked_at": "2026-11-15T09:40:00+00:00",
+  "last_checked_at": "2026-11-15T09:50:00+00:00",
   "monitor_stats": {
     "fetched": 63,
     "recent": 1,
