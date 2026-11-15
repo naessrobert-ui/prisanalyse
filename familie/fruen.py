@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 COOKIE='motes_fruen_session'
 ADMIN='motes_fruen_admin'
-NIGHT=(22,7)  # local hours in Norway: the automatic frame sleeps and takes no calls
+NIGHT=(21,8)  # local hours in Norway: the automatic frame sleeps and takes no calls
 night_override=None  # tests only
 
 
@@ -217,7 +217,7 @@ def register(app,root,db,media_response,secure_cookie):
         with db() as c:
             c.execute('BEGIN IMMEDIATE')
             peer=c.execute('SELECT * FROM fruen_accounts WHERE id=? AND active=1 AND expires>?',(target,now)).fetchone()
-            if peer and peer['kind']=='auto' and is_night(now):raise HTTPException(409,peer['name']+' sover nå (nattmodus 22–07).')
+            if peer and peer['kind']=='auto' and is_night(now):raise HTTPException(409,peer['name']+' sover nå (nattmodus 21–08).')
             if not peer or peer['id']==a['id'] or not peer['ready'] or peer['seen']<now-10 or not a['ready'] or a['seen']<now-10:raise HTTPException(409,'Enheten er ikke klar for besøk.')
             if c.execute("SELECT 1 FROM fruen_calls WHERE status!='ended' AND (caller IN (?,?) OR callee IN (?,?))",(a['id'],target,a['id'],target)).fetchone():raise HTTPException(409,'En av dere er allerede i en samtale.')
             ident=secrets.token_hex(16);c.execute("INSERT INTO fruen_calls(id,caller,callee,status,created) VALUES(?,?,?,'ringing',?)",(ident,a['id'],target,now))

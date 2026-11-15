@@ -19,7 +19,9 @@ CODE='test-fruen-administrator'
 
 
 @pytest.fixture
-def fruen(tmp_path):
+def fruen(tmp_path,monkeypatch):
+    import familie.fruen as fruen_module
+    monkeypatch.setattr(fruen_module,'night_override',False)  # tests must not depend on the clock
     salt=secrets.token_hex(16)
     (tmp_path/'access.json').write_text(json.dumps({'salt':salt,'code_hash':code_hash('familie-test-kode',salt),'session_key':secrets.token_hex(32)}))
     salt=secrets.token_bytes(16)
@@ -154,8 +156,10 @@ def test_night_mode_blocks_calls_to_frame_only(fruen,monkeypatch):
     from zoneinfo import ZoneInfo
     oslo=ZoneInfo('Europe/Oslo')
     at=lambda h,m=0:datetime(2026,11,15,h,m,tzinfo=oslo).timestamp()
-    assert fruen_module.is_night(at(22)) and fruen_module.is_night(at(3)) and fruen_module.is_night(at(6,59))
-    assert not fruen_module.is_night(at(7)) and not fruen_module.is_night(at(21,59))
+    monkeypatch.setattr(fruen_module,'night_override',None)  # use the real clock rule here
+    assert fruen_module.is_night(at(21)) and fruen_module.is_night(at(3)) and fruen_module.is_night(at(7,59))
+    assert not fruen_module.is_night(at(8)) and not fruen_module.is_night(at(20,59))
+    monkeypatch.setattr(fruen_module,'night_override',False)
     app,admin,root=fruen;a,one,_=enrol(app,admin,'A');b,two,_=enrol(app,admin,'B');f,frame,_=enrol(app,admin,'Fruen','auto')
     ready(a);ready(b);ready(f)
     monkeypatch.setattr(fruen_module,'night_override',True)

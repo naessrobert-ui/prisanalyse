@@ -37,11 +37,11 @@ En `auto`-enhet kan ikke ringe ut. Bare innringeren legger på; bildene fortsett
 
 ## Nattmodus
 
-Kl. 22–07 norsk tid (`NIGHT` i `familie/fruen.py`) blir `auto`-skjermen helt svart,
+Kl. 21–08 norsk tid (`NIGHT` i `familie/fruen.py`) blir `auto`-skjermen helt svart,
 bildene står stille, og serveren avviser nye anrop til den. Familiemedlemmer ser
-«Sover (nattmodus 22–07)». Et besøk som pågår kl. 22 fortsetter til innringer
-legger på. Kl. 07 fortsetter bildene uten at noen må trykke. Siden kan ikke styre
-iPadens baklys; Snarveier-automatisering («Angi lysstyrke» 0 % kl. 22, høyere kl. 07)
+«Sover (nattmodus 21–08)». Et besøk som pågår kl. 21 fortsetter til innringer
+legger på. Kl. 08 fortsetter bildene uten at noen må trykke. Siden kan ikke styre
+iPadens baklys; Snarveier-automatisering («Angi lysstyrke» 0 % kl. 21, høyere kl. 08)
 gjør det mørkere. Familiemedlemmer kan fortsatt ringe hverandre om natten.
 
 ## Installasjon på Pi-en

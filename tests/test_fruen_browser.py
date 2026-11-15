@@ -82,6 +82,7 @@ def browser():
 def admin(browser, base):
     ctx = browser.new_context(base_url=base)
     assert ctx.request.post('/fruen/api/admin/login', headers=HEAD, data={'code': ADMIN_CODE}).ok
+    ctx.request.post('/fruen/api/test/night?on=0')  # tests must not depend on the clock
     created = []
 
     def invite(name, kind='member'):
@@ -366,6 +367,10 @@ def test_night_mode(admin):
         a.click('#openContacts')
         a.wait_for_selector('#contacts button:has-text("Sover")[disabled]', timeout=10000)
         a.click('#closeContacts')
+        frame.goto('/fruen/klargjor')  # a relative re-activates the frame at night
+        frame.click('#activate', timeout=10000)
+        frame.wait_for_selector('#setup', state='hidden')
+        frame.wait_for_selector('#night', state='visible', timeout=10000)
         night(0)
         frame.wait_for_selector('#night', state='hidden', timeout=10000)
         frame.wait_for_selector('#photo[src]:not([hidden])', timeout=15000)
@@ -375,7 +380,7 @@ def test_night_mode(admin):
         a.click('#hangup')
         assert_back_to_photos(frame)
     finally:
-        night(-1)
+        night(0)
 
 
 @pytest.mark.parametrize('size', [(820, 1180), (1180, 820), (375, 667)])
