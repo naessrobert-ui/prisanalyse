@@ -42,6 +42,10 @@ def valid_subscription(value):
         return False
 
 
+# Push services require a bare https origin or a mailto: address (no path).
+VAPID_SUBJECT = "https://xn--mtes-gra.no"
+
+
 class FamilyPush:
     QUIET = 45  # seconds without new content before notifying (bulk uploads)
     REPEAT = 1800  # at most one further notification per 30 minutes until a visit
@@ -131,7 +135,7 @@ class FamilyPush:
         try:
             webpush(subscription_info=json.loads(device["subscription"]), data=json.dumps(payload),
                     vapid_private_key=str(self.key_path),
-                    vapid_claims={"sub": "https://xn--mtes-gra.no/familie"}, ttl=3600, timeout=10)
+                    vapid_claims={"sub": VAPID_SUBJECT}, ttl=3600, timeout=10)
             return True
         except WebPushException as exc:
             status = exc.response.status_code if exc.response is not None else None
@@ -139,9 +143,16 @@ class FamilyPush:
                 with self.db() as conn:
                     conn.execute("DELETE FROM push_devices WHERE id=?", (device["id"],))
             logging.getLogger(__name__).warning("Familievarsel feilet (HTTP %s)", status)
-        except (OSError, ValueError):
-            logging.getLogger(__name__).warning("Familievarsel kunne ikke sendes")
+        except Exception as exc:  # one bad device or setting must never stop the others
+            logging.getLogger(__name__).warning("Familievarsel kunne ikke sendes: %s", type(exc).__name__)
         return False
+
+    def send_test(self, ident):
+        with self.db() as conn:
+            device = conn.execute("SELECT * FROM push_devices WHERE id=?", (ident,)).fetchone()
+        return bool(device) and self.send(device, {"title": "Testvarsel fra familierommet",
+                                                   "body": "Varsler virker på denne enheten.",
+                                                   "url": "/familie/", "tag": "family-test"})
 
     def notify_video(self, starter):
         """Immediate notice to everyone else with notifications on. Bjørg's frame is not

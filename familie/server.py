@@ -372,11 +372,15 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
             if not isinstance(ident, str) or not re.fullmatch(r"[0-9a-f]{32}", ident):
                 raise ValueError()
             action = data["action"]
-            if action not in {"subscribe", "visit", "away", "unsubscribe"}:
+            if action not in {"subscribe", "visit", "away", "unsubscribe", "test"}:
                 raise ValueError()
         except (ValueError, KeyError, TypeError):
             raise HTTPException(400, "Ugyldig varselvalg.")
         now = time.time()
+        if action == "test":
+            if not await asyncio.to_thread(push.send_test, ident):
+                raise HTTPException(502, "Testvarselet kunne ikke sendes. Slå varsler av og på igjen.")
+            return {"ok": True}
         with db() as conn:
             if action == "subscribe":
                 subscription = data.get("subscription")
@@ -417,7 +421,8 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
             room = "familie-" + secrets.token_hex(8)
             conn.execute("INSERT INTO video_calls (room,name,created) VALUES (?,?,?)", (room, name, now))
             conn.execute("DELETE FROM video_calls WHERE created<?", (now - 86400,))
-        await asyncio.to_thread(push.notify_video, name)
+        with suppress(Exception):  # the call must start even if notifying fails
+            await asyncio.to_thread(push.notify_video, name)
         return {"call": {"room": room, "name": name, "created": now}, "started": True}
 
     @app.post("/familie/api/login")

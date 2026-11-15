@@ -743,3 +743,30 @@ def test_video_start_notifies_others_and_reuses_recent_call(family, monkeypatch)
     assert again == {'call': started['call'], 'started': False} and len(sent) == 1
     assert gert.get('/familie/api/video').json()['call']['room'] == started['call']['room']
     gert.close()
+
+
+def test_push_really_signs_with_vapid_and_test_button(family, monkeypatch):
+    # Only the network send is faked: the real VAPID signing runs (a bad 'sub' broke it).
+    import pywebpush
+    sent = []
+    class Accepted:
+        status_code = 201
+        text = ''
+    def fake_send(self, *args, **kwargs):
+        sent.append(args[1] if len(args) > 1 else kwargs.get('headers'))
+        return Accepted()
+    monkeypatch.setattr(pywebpush.WebPusher, 'send', fake_send)
+    app, client, root = family
+    login(client)
+    headers = {'X-Family-Request': '1'}
+    device = 'e' * 32
+    body = lambda action, **extra: {'id': device, 'action': action, **extra}
+    assert client.post('/familie/api/push', json=body('test'), headers=headers).status_code == 502  # not subscribed
+    assert client.post('/familie/api/push', json=body('subscribe', subscription=push_subscription()), headers=headers).status_code == 200
+    assert client.post('/familie/api/push', json=body('test'), headers=headers).json() == {'ok': True}
+    assert len(sent) == 1 and 'vapid' in sent[0]['Authorization'].lower()
+    def broken(self, *args, **kwargs):
+        raise RuntimeError('push service down')
+    monkeypatch.setattr(pywebpush.WebPusher, 'send', broken)
+    assert client.post('/familie/api/push', json=body('test'), headers=headers).status_code == 502
+    assert client.post('/familie/api/video/start', headers=headers).json()['started'] is True  # starts anyway

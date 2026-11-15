@@ -93,7 +93,7 @@ function showRinging(value){
  $('answer').hidden=value.outgoing||me.kind==='auto';$('decline').hidden=me.kind==='auto';$('decline').textContent=value.outgoing?'Avbryt':'Avvis';ringSound();renderControls();
  if(!value.outgoing&&me.kind==='auto'&&!autoTimer&&acceptingId!==value.id){const id=value.id;autoTimer=setTimeout(()=>{autoTimer=null;if(call?.id===id&&armed&&!document.hidden)acceptCall();},5000);}
 }
-async function acceptCall(){const id=call?.id;if(!id||acceptingId===id||call.outgoing)return;acceptingId=id;$('answer').disabled=true;try{context?.resume().catch(()=>{});const stream=await getMedia(id);if(call?.id!==id){stopStream(stream);return;}stopStream(local);local=stream;await api('call/'+id+'/accept',{});if(call?.id===id){stopRing();poll();}}catch(e){if(call?.id===id){status('Besøket kunne ikke starte. Kontroller kamera og mikrofon.',true);endCall();}}finally{$('answer').disabled=false;if(acceptingId===id)acceptingId=null;}}
+async function acceptCall(){const id=call?.id;if(!id||acceptingId===id||call.outgoing)return;acceptingId=id;$('answer').disabled=true;try{context?.resume().catch(()=>{});const stream=await getMedia(id);if(call?.id!==id){stopStream(stream);return;}stopStream(local);local=stream;await api('call/'+id+'/accept',{});if(call?.id===id){stopRing();poll();}}catch(e){if(call?.id===id){status('Besøket kunne ikke starte. Kontroller kamera og mikrofon.',true);endCall(e?.status?'connection':'camera');}}finally{$('answer').disabled=false;if(acceptingId===id)acceptingId=null;}}
 // One peer connection per call. State is keyed by call id so a slow setup for an old
 // call can never clear or replace the setup of a newer call.
 async function peer(value){
@@ -109,7 +109,7 @@ async function peer(value){
   connection.onicecandidate=e=>{if(e.candidate&&pc===connection)api('call/'+id+'/signal',{kind:'ice',data:e.candidate.toJSON()}).catch(()=>{});};
   connection.ontrack=e=>{if(pc!==connection)return;remote.addTrack(e.track);if(e.track.kind==='audio')playRemoteAudio(e.track,connection);};
   connection.onconnectionstatechange=()=>{if(pc!==connection)return;const s=connection.connectionState;if(s==='connected'){clearTimeout(connectionTimer);clearTimeout(disconnectTimer);clearTimeout(statusTimer);$('state').hidden=true;}else if(s==='failed'){status('Besøket mistet forbindelsen.',true);endCall();}else if(s==='disconnected'){clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(pc===connection&&connection.connectionState!=='connected'){status('Besøket mistet forbindelsen.',true);endCall();}},8000);}};
-  connectionTimer=setTimeout(()=>{if(pc===connection&&connection.connectionState!=='connected'){status('Besøket fikk ikke forbindelse.',true);endCall();}},20000);
+  connectionTimer=setTimeout(()=>{if(pc===connection&&connection.connectionState!=='connected'){status('Besøket fikk ikke forbindelse.',true);endCall('connection');}},20000);
   if(value.outgoing){const offer=await connection.createOffer();if(pc!==connection)return;await connection.setLocalDescription(offer);if(pc!==connection)return;await api('call/'+id+'/signal',{kind:'offer',data:{type:'offer',sdp:connection.localDescription.sdp}});}
  })();
  peerState=state;
@@ -132,11 +132,11 @@ async function applySignals(value){
     await connection.setRemoteDescription(signal.data);if(pc!==connection)return;await flushIce(connection);
    }else if(connection.remoteDescription)await connection.addIceCandidate(signal.data).catch(()=>{});
    else ice.push(signal.data);
-  }catch(e){if(pc===connection){status('Besøket fikk ikke forbindelse.',true);endCall();}return;}
+  }catch(e){if(pc===connection){status('Besøket fikk ikke forbindelse.',true);endCall('connection');}return;}
  }
 }
 async function processCall(value){
- if(!value||value.status==='ended'){if(call)stopCall();return;}
+ if(!value||value.status==='ended'){if(call&&value&&value.id===call.id&&me?.kind==='member'){const text=endedText(value,call.status==='ringing');if(text)status(text,true);}if(call)stopCall();return;}
  if(ignored.has(value.id)){api('call/'+value.id+'/end',{}).catch(()=>{});return;}
  if(call?.id!==value.id){if(call)stopCall();call=value;signalSeq=0;}else call=value;
  if(value.status==='ringing'){showRinging(value);return;}
@@ -144,7 +144,7 @@ async function processCall(value){
  // Camera start-up can be slow. It must not block polling, or the heartbeat stops and
  // the visit is ended. Unapplied signals are delivered again on the next poll.
  if(!(pc&&pcCall===value.id)){
-  if(peerState?.id!==value.id)peer(value).then(()=>{if(call?.id===value.id)poll();},()=>{if(call?.id===value.id){status('Besøket kunne ikke starte. Kontroller kamera og mikrofon.',true);endCall();}});
+  if(peerState?.id!==value.id)peer(value).then(()=>{if(call?.id===value.id)poll();},e=>{if(call?.id===value.id){status('Besøket kunne ikke starte. Kontroller kamera og mikrofon.',true);endCall(e&&/^(NotAllowed|NotReadable|NotFound|Overconstrained|Abort|Security)Error$/.test(e.name)||/Kamera/.test(e?.message||'')?'camera':'connection');}});
   return;
  }
  await applySignals(value);
@@ -156,7 +156,19 @@ function stopCall(){
  ice=[];acceptingId=null;call=null;signalSeq=0;
  $('remote').srcObject=null;$('local').srcObject=null;$('local').hidden=true;$('visit').hidden=true;$('ringing').hidden=true;renderControls();renderNight();nextPhoto();
 }
-function endCall(){const id=call?.id;if(id){ignored.add(id);if(ignored.size>20)ignored.delete(ignored.values().next().value);}stopCall();if(id)api('call/'+id+'/end',{}).catch(()=>{});}
+function endCall(reason='hangup'){const id=call?.id;if(id){ignored.add(id);if(ignored.size>20)ignored.delete(ignored.values().next().value);}stopCall();if(id)api('call/'+id+'/end',{reason}).catch(()=>{});}
+// Why a visit ended, told to the person who did not end it.
+function endedText(value,wasRinging){
+ const [side,code]=String(value.reason||'').split(':'),who=value.peer_name,mine=(side==='caller')===!!value.outgoing;
+ if(mine)return '';
+ if(code==='camera')return who+' sin enhet fikk ikke startet kamera eller mikrofon.'+(value.peer_kind==='auto'?' Noen hos henne må sette Kamera og Mikrofon til «Tillat» i Safari.':'');
+ if(code==='declined')return who+' kan ikke ta imot besøk akkurat nå.';
+ if(code==='hidden')return 'Skjermen til '+who+' ble slått av eller lukket.';
+ if(code==='connection')return 'Besøket fikk ikke forbindelse med '+who+'.';
+ if(code==='noanswer')return who+' svarte ikke.';
+ if(side==='timeout')return wasRinging?who+' svarte ikke.':'Forbindelsen til '+who+' ble brutt.';
+ return code==='hangup'&&!wasRinging?who+' la på.':'';
+}
 function locked(){armed=false;endCall();pausePhotos();resetClip();$('photo').removeAttribute('src');$('photo').hidden=true;photos=[];bag=[];currentPhoto=null;me=null;$('setup').hidden=true;$('controls').hidden=true;$('welcome').hidden=false;$('enrol').hidden=true;$('welcomeText').textContent='En pårørende må koble denne enheten til igjen.';status('Besøk er ikke tilgjengelig.',true);}
 async function poll(){
  if(!me||polling)return;clearTimeout(pollTimer);polling=true;
@@ -170,17 +182,17 @@ async function boot(){
 }
 $('activate').onclick=activate;
 document.addEventListener('pointerup',()=>{if(armed)fullscreen();});
-$('resume').onclick=()=>{$('setup').hidden=false;};$('openContacts').onclick=()=>{contactList();$('contactDialog').showModal();};$('closeContacts').onclick=()=>$('contactDialog').close();$('hangup').onclick=endCall;$('decline').onclick=endCall;$('answer').onclick=acceptCall;
+$('resume').onclick=()=>{$('setup').hidden=false;};$('openContacts').onclick=()=>{contactList();$('contactDialog').showModal();};$('closeContacts').onclick=()=>$('contactDialog').close();$('hangup').onclick=()=>endCall('hangup');$('decline').onclick=()=>endCall(call&&!call.outgoing?'declined':'hangup');$('answer').onclick=acceptCall;
 $('logout').onclick=async()=>{if(!confirm('Koble denne enheten fra familiebesøk?'))return;endCall();try{await api('logout',{});location.reload();}catch(e){status(e.message,true);}};
 const invitation=location.hash.match(/^#invite=([0-9a-f]{64})$/);if(invitation){pendingToken=invitation[1];history.replaceState(null,'',location.pathname);$('welcome').hidden=false;$('enrol').hidden=false;$('welcomeText').textContent='Denne private invitasjonen kobler enheten til familiens bildeskjerm og besøk.';}
 $('enrol').onclick=async()=>{if(!pendingToken)return;try{const a=await api('enrol',{token:pendingToken});pendingToken=null;$('enrol').hidden=true;if(a.kind==='auto')history.replaceState(null,'','/fruen/klargjor');await boot();}catch(e){$('welcomeText').textContent=e.message;}};
 if(!invitation)boot();
 setInterval(loadPhotos,60000);
 setInterval(()=>{
- if(call&&Date.now()-lastPoll>10000){status('Forbindelsen ble brutt. Kamera og mikrofon er slått av.',true);connectionNotice=true;endCall();}
+ if(call&&Date.now()-lastPoll>10000){status('Forbindelsen ble brutt. Kamera og mikrofon er slått av.',true);connectionNotice=true;endCall('connection');}
  // iOS can suspend or interrupt audio; keep trying quietly. The name is always shown.
  if(armed&&context&&context.state!=='running')context.resume().catch(()=>{});
 },1000);
-document.addEventListener('visibilitychange',()=>{if(document.hidden){endCall();api('state',{ready:false,after:0}).catch(()=>{});wake?.release().catch(()=>{});wake=null;}else{requestWake();poll();}});
-window.addEventListener('pagehide',()=>{const id=call?.id;stopCall();armed=false;if(id)fetch('/fruen/api/call/'+id+'/end',{method:'POST',headers:{'Content-Type':'application/json','X-Fruen-Request':'1'},body:'{}',keepalive:true}).catch(()=>{});});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){endCall('hidden');api('state',{ready:false,after:0}).catch(()=>{});wake?.release().catch(()=>{});wake=null;}else{requestWake();poll();}});
+window.addEventListener('pagehide',()=>{const id=call?.id;stopCall();armed=false;if(id)fetch('/fruen/api/call/'+id+'/end',{method:'POST',headers:{'Content-Type':'application/json','X-Fruen-Request':'1'},body:'{"reason":"hidden"}',keepalive:true}).catch(()=>{});});
 })();

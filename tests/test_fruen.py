@@ -169,3 +169,24 @@ def test_night_mode_blocks_calls_to_frame_only(fruen,monkeypatch):
     monkeypatch.setattr(fruen_module,'night_override',False)
     assert ready(f).json()['night'] is False
     a.close();b.close();f.close()
+
+
+def test_end_reason_reaches_the_other_side(fruen):
+    import sqlite3
+    app,admin,root=fruen;a,one,_=enrol(app,admin,'A');f,frame,_=enrol(app,admin,'Fruen','auto')
+    ready(a);ready(f)
+    ident=post(a,'call',{'to':frame['id']}).json()['id']
+    with sqlite3.connect(root/'posts.sqlite3') as db:db.execute('UPDATE fruen_calls SET created=created-6')
+    assert post(f,'call/'+ident+'/accept').status_code==200
+    assert post(f,'call/'+ident+'/end',{'reason':'camera'}).status_code==200
+    call=ready(a).json()['call']
+    assert call['status']=='ended' and call['reason']=='callee:camera' and call['peer_kind']=='auto' and call['outgoing'] is True
+    assert post(a,'call/'+ident+'/end',{'reason':'hangup'}).status_code==200
+    assert ready(a).json()['call']['reason']=='callee:camera'  # first reason is kept
+    ident=post(a,'call',{'to':frame['id']}).json()['id']
+    assert post(a,'call/'+ident+'/end',{'reason':'<script>'}).status_code==200
+    assert ready(f).json()['call']['reason']=='caller:hangup'  # unknown codes are not stored
+    ready(f);ident=post(a,'call',{'to':frame['id']}).json()['id']
+    with sqlite3.connect(root/'posts.sqlite3') as db:db.execute('UPDATE fruen_calls SET created=created-100 WHERE id!=?',(ident,));db.execute('UPDATE fruen_calls SET created=created-50 WHERE id=?',(ident,))
+    assert ready(a).json()['call']['reason']=='timeout:noanswer'
+    a.close();f.close()

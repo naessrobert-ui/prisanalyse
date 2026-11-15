@@ -27,7 +27,7 @@
 </section>
 <section id="room" hidden>
  <div class="welcome"><div><div class="eyebrow">Små øyeblikk. Nære mennesker.</div><h1>Her er vi sammen.</h1><p>Et glimt fra dagen, en liten hilsen. Bare for familien.</p></div><button class="button" id="newPost">+ Del et øyeblikk</button></div>
- <div class="push-settings"><button type="button" class="text-button" id="pushToggle">Slå på varsler</button><span class="tiny" id="pushStatus" role="status" aria-live="polite">Få ett varsel om nye innlegg siden sist du var inne.</span></div>
+ <div class="push-settings"><button type="button" class="text-button" id="pushToggle">Slå på varsler</button><button type="button" class="text-button" id="pushTest" hidden>Send testvarsel til meg</button><span class="tiny" id="pushStatus" role="status" aria-live="polite">Få ett varsel om nye innlegg siden sist du var inne.</span></div>
  <div class="video-bar"><button type="button" class="button secondary" id="startVideo">Start videosamtale</button><span class="tiny" id="videoStatus" role="status" aria-live="polite">Alle i familierommet med varsler på får beskjed.</span></div>
  <div class="video-banner" id="videoBanner" hidden><strong id="videoBannerText"></strong><button type="button" class="button" id="joinVideo">Bli med</button></div>
  <p id="roomError" class="message" role="status" aria-live="polite"></p>
@@ -281,6 +281,7 @@ function deviceId(){let id=localStorage.getItem('motes-family-push-id');if(!id){
 function pushBody(action){return JSON.stringify({id:pushId,action});}
 function pushLabel(){
  $('pushToggle').textContent=pushSubscription?'Slå av varsler':'Slå på varsler';
+ $('pushTest').hidden=!pushSubscription;
  $('pushStatus').textContent=pushSubscription?'Varsler er på. Du får ett varsel om nye innlegg, så ingen flere før du har vært inne igjen.':'Få ett varsel om nye innlegg siden sist du var inne.';
 }
 async function restorePush(){
@@ -310,6 +311,7 @@ async function disablePush(){
  if(pushId)await request('/push',{method:'POST',headers:{'Content-Type':'application/json'},body:pushBody('unsubscribe')});
  await pushSubscription.unsubscribe();pushSubscription=null;pushLabel();
 }
+$('pushTest').onclick=async()=>{$('pushTest').disabled=true;try{await request('/push',{method:'POST',headers:{'Content-Type':'application/json'},body:pushBody('test')});$('pushStatus').textContent='Testvarsel sendt. Det skal komme fram i løpet av noen sekunder.';}catch(e){$('pushStatus').textContent=e.message;}finally{$('pushTest').disabled=false;}};
 $('pushToggle').onclick=async()=>{
  if(!supportsPush())return;$('pushToggle').disabled=true;
  try{

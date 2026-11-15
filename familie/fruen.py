@@ -76,7 +76,7 @@ def register(app,root,db,media_response,secure_cookie):
     def cleanup():
         now=time.time()
         with db() as c:
-            c.execute("UPDATE fruen_calls SET status='ended',ended=?,reason='Tidsavbrudd eller manglende forbindelse' WHERE status!='ended' AND (created<? OR (status='ringing' AND created<?) OR caller IN (SELECT id FROM fruen_accounts WHERE active=0 OR expires<? OR seen<? OR ready=0) OR callee IN (SELECT id FROM fruen_accounts WHERE active=0 OR expires<? OR seen<? OR ready=0))",(now,now-3600,now-45,now,now-15,now,now-15))
+            c.execute("UPDATE fruen_calls SET status='ended',ended=?,reason=CASE WHEN status='ringing' AND created<? THEN 'timeout:noanswer' ELSE 'timeout:connection' END WHERE status!='ended' AND (created<? OR (status='ringing' AND created<?) OR caller IN (SELECT id FROM fruen_accounts WHERE active=0 OR expires<? OR seen<? OR ready=0) OR callee IN (SELECT id FROM fruen_accounts WHERE active=0 OR expires<? OR seen<? OR ready=0))",(now,now-45,now-3600,now-45,now,now-15,now,now-15))
             c.execute('DELETE FROM fruen_signals WHERE call_id IN (SELECT id FROM fruen_calls WHERE ended<?)',(now-60,))
             c.execute('DELETE FROM fruen_calls WHERE ended<?',(now-60,))
             c.execute('DELETE FROM fruen_invites WHERE expires<?',(now,))
@@ -199,8 +199,8 @@ def register(app,root,db,media_response,secure_cookie):
             call=c.execute("SELECT * FROM fruen_calls WHERE (caller=? OR callee=?) ORDER BY created DESC LIMIT 1",(a['id'],a['id'])).fetchone()
             result=None
             if call and (call['status']!='ended' or call['ended']>now-30):
-                r=dict(call);other=r['callee'] if r['caller']==a['id'] else r['caller'];peer=c.execute('SELECT name FROM fruen_accounts WHERE id=?',(other,)).fetchone()
-                r.update(peer_name=peer['name'] if peer else 'Familien',outgoing=r['caller']==a['id'])
+                r=dict(call);other=r['callee'] if r['caller']==a['id'] else r['caller'];peer=c.execute('SELECT name,kind FROM fruen_accounts WHERE id=?',(other,)).fetchone()
+                r.update(peer_name=peer['name'] if peer else 'Familien',peer_kind=peer['kind'] if peer else 'member',outgoing=r['caller']==a['id'])
                 after=d.get('after',0)
                 if not isinstance(after,int) or after<0:raise HTTPException(400,'Ugyldig signalposisjon.')
                 r['signals']=[{'seq':s['seq'],'kind':s['kind'],'data':json.loads(s['data'])} for s in c.execute('SELECT * FROM fruen_signals WHERE call_id=? AND recipient=? AND seq>? ORDER BY seq',(r['id'],a['id'],after))]
@@ -240,9 +240,13 @@ def register(app,root,db,media_response,secure_cookie):
 
     @app.post('/fruen/api/call/{ident}/end')
     async def end(ident:str,request:Request):
-        a=account(request);await body(request,2048)
+        # The reason is shown to the other side, e.g. that the frame could not start its camera.
+        a=account(request);d=await body(request,2048)
+        code=d.get('reason') if d.get('reason') in {'hangup','declined','camera','connection','hidden'} else 'hangup'
         with db() as c:
-            active_call(c,ident,a);c.execute("UPDATE fruen_calls SET status='ended',ended=?,reason='Samtalen er avsluttet' WHERE id=?",(time.time(),ident))
+            r=active_call(c,ident,a)
+            if r['status']!='ended':
+                c.execute("UPDATE fruen_calls SET status='ended',ended=?,reason=? WHERE id=?",(time.time(),('caller:' if r['caller']==a['id'] else 'callee:')+code,ident))
         return {'ok':True}
 
     @app.post('/fruen/api/call/{ident}/signal')

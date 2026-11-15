@@ -235,6 +235,20 @@ def test_frame_ready_even_when_ios_keeps_audio_paused(admin, browser, base):
     assert_back_to_photos(frame)
 
 
+def test_caller_is_told_why_the_visit_ended(admin):
+    frame = admin.device('Fruen', 'auto')
+    a = admin.device('Anne')
+    b = admin.device('Bjørn')
+    frame.evaluate('window.__gumDeny=true')  # e.g. Safari camera permission not set to Allow
+    call(a, 'Fruen')
+    a.wait_for_selector('#state:has-text("Fruen sin enhet fikk ikke startet kamera")', timeout=20000)
+    assert 'Tillat' in a.text_content('#state') and a.is_hidden('#visit')
+    call(b, 'Anne')
+    a.wait_for_selector('#decline', state='visible')
+    a.click('#decline')
+    b.wait_for_selector('#state:has-text("Anne kan ikke ta imot besøk")', timeout=10000)
+
+
 def test_slow_camera_does_not_stop_heartbeat(admin):
     a = admin.device('Anne')
     b = admin.device('Bjørn')
