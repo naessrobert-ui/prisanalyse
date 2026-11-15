@@ -34,7 +34,7 @@
   <div class="toolbar"><span id="postCount">Familiens øyeblikk</span><div><button class="text-button" id="refresh">Oppdater</button><button class="text-button" id="logout">Logg ut</button></div></div>
   <div class="feed-filters" role="group" aria-label="Filtrer innlegg"><button type="button" id="allPosts" aria-pressed="true">Alle</button><button type="button" id="newPosts" aria-pressed="false">Nye</button></div>
   <p class="seen-help" id="seenHelp">Velg selv hva du vil åpne. Videoer starter når du trykker på spill av. Appen husker sette innlegg på denne enheten for navnet ditt.</p>
-  <details class="calendar" id="calendar"><summary>Kalender · finn øyeblikk etter dato</summary><p class="tiny">Opptaksdato brukes når den finnes. Ellers brukes delingsdato. Utløpte innlegg vises ikke.</p><div class="calendar-head"><button type="button" class="text-button" id="previousMonth" aria-label="Forrige måned">←</button><strong id="calendarMonth"></strong><button type="button" class="text-button" id="nextMonth" aria-label="Neste måned">→</button></div><div id="calendarDays" class="calendar-grid" aria-label="Velg dato"></div><p id="selectedDay" class="tiny" aria-live="polite"></p><button type="button" class="text-button" id="clearDay">Vis siste innlegg fra alle datoer</button></details>
+  <details class="calendar" id="calendar"><summary>Kalender · finn øyeblikk etter dato</summary><p class="tiny">Opptaksdato brukes når den finnes. Ellers brukes delingsdato. Utløpte innlegg vises ikke.</p><div class="calendar-head"><button type="button" class="text-button" id="previousMonth" aria-label="Forrige måned">←</button><strong id="calendarMonth"></strong><button type="button" class="text-button" id="nextMonth" aria-label="Neste måned">→</button></div><label class="tiny" for="calendarJump">Gå til måned</label><select id="calendarJump" style="width:100%;margin:6px 0 10px"></select><div id="calendarDays" class="calendar-grid" aria-label="Velg dato"></div><p id="selectedDay" class="tiny" aria-live="polite"></p><button type="button" class="text-button" id="clearDay">Vis siste innlegg fra alle datoer</button></details>
   <div class="grid" id="feed" aria-live="polite"></div>
  </section>
  <section id="chatPane" aria-label="Familiechat" hidden>
@@ -318,7 +318,15 @@ $('pushToggle').onclick=async()=>{
 document.addEventListener('visibilitychange',()=>{if(document.hidden)markPushAway();else markPushVisit();});
 window.addEventListener('pagehide',markPushAway);window.addEventListener('focus',markPushVisit);
 setInterval(markPushVisit,60000);restorePush();
+// Months that contain posts, as 'YYYY-MM', newest first. Arrows skip empty months.
+function calendarMonths(){return [...new Set(Object.keys(calendarCounts).filter(k=>calendarCounts[k]>0).map(k=>k.slice(0,7)))].sort().reverse();}
+function monthKey(date){return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0');}
+function stepMonth(direction){const current=monthKey(calendarMonth),months=calendarMonths();const target=direction<0?months.find(m=>m<current):[...months].reverse().find(m=>m>current);if(!target)return;calendarMonth=new Date(Number(target.slice(0,4)),Number(target.slice(5,7))-1,1);renderCalendar();}
 function renderCalendar(){
+ const current=monthKey(calendarMonth),months=calendarMonths(),jump=$('calendarJump');
+ jump.replaceChildren(...months.map(m=>{const total=Object.keys(calendarCounts).filter(k=>k.startsWith(m)).reduce((sum,k)=>sum+calendarCounts[k],0);const option=new Option(new Date(Number(m.slice(0,4)),Number(m.slice(5,7))-1,1).toLocaleDateString('nb-NO',{month:'long',year:'numeric'})+' ('+total+')',m);return option;}));
+ if(!months.includes(current))jump.prepend(new Option(calendarMonth.toLocaleDateString('nb-NO',{month:'long',year:'numeric'})+' (0)',current));
+ jump.value=current;$('previousMonth').disabled=!months.some(m=>m<current);$('nextMonth').disabled=!months.some(m=>m>current);
  const year=calendarMonth.getFullYear(),month=calendarMonth.getMonth(),grid=$('calendarDays');grid.replaceChildren();
  $('calendarMonth').textContent=calendarMonth.toLocaleDateString('nb-NO',{month:'long',year:'numeric'});
  for(const day of ['Ma','Ti','On','To','Fr','Lø','Sø'])grid.append(element('span','',day));
@@ -332,8 +340,9 @@ function renderCalendar(){
  $('selectedDay').textContent=selectedDay?'Viser '+selectedDay+' · opptil 200 innlegg på dagen':'Viser de siste 200 innleggene. Velg en dag for eldre øyeblikk.';
 }
 async function loadCalendar(){const epoch=sessionEpoch;try{const data=await request('/calendar');if(epoch!==sessionEpoch||!loggedIn)return;calendarCounts=data.days;renderCalendar();}catch(e){if(loggedIn)$('selectedDay').textContent=e.message;}}
-$('previousMonth').onclick=()=>{calendarMonth.setMonth(calendarMonth.getMonth()-1);renderCalendar();};
-$('nextMonth').onclick=()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderCalendar();};
+$('previousMonth').onclick=()=>stepMonth(-1);
+$('calendarJump').onchange=()=>{const m=$('calendarJump').value;calendarMonth=new Date(Number(m.slice(0,4)),Number(m.slice(5,7))-1,1);renderCalendar();};
+$('nextMonth').onclick=()=>stepMonth(1);
 $('clearDay').onclick=()=>{selectedDay='';renderCalendar();load();};
 function clearPreview(){if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl='';$('imagePreview').hidden=true;$('imagePreview').removeAttribute('src');$('videoPreview').pause();$('videoPreview').removeAttribute('src');$('videoPreview').load();$('videoPreview').hidden=true;}
 function fileMime(file){const suffix=(file.name.split('.').pop()||'').toLowerCase();return ({jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',heic:'image/heic',heif:'image/heif',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm'})[suffix]||'application/octet-stream';}
