@@ -206,6 +206,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       <label class="johnny-option" for="wantJohnny"><input type="checkbox" id="wantJohnny"><span><strong>Foreslå Yvonne som møteassistent</strong><small>Valgfritt. Alle må godkjenne i møtet. Bare aktive spørsmål sendes til Yvonne, via knappen eller valgfri lokal navnegjenkjenning. Hun svarer med tale og tekst.</small></span></label>
       <p class="hint" id="johnnySetup"></p>
       <button class="btn primary wide" id="joinBtn" type="button">Opprett møte</button>
+      <button class="sbtn hidden" id="minutesLast" type="button">Hent siste referatutkast</button>
       <p class="hint" id="landNote" role="status" aria-live="polite"></p>
       <div class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6z"/><path d="m8 12 3 3 5-6"/></svg><span>Du velger selv når kameraet slås på. Del møtelenken med dem du vil invitere. Yvonne er valgfri og krever alles godkjenning.</span></div>
     </section>
@@ -237,6 +238,13 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       <div class="cams" id="cams"></div>
     </div>
     <aside>
+      <section class="panel johnny-panel" aria-labelledby="minutesTitle">
+       <h2 id="minutesTitle">Referat · valgfritt</h2>
+       <p id="minutesStatus" role="status">Sjekker referattjenesten …</p>
+       <p>Møtelyden transkriberes på Pi-en. Korte lydbiter slettes etter behandling. Når dere avslutter, sendes teksten til OpenAI for et referatutkast. Arbeidstekst og utkast slettes fra Pi-en etter 24 timer.</p>
+       <div class="johnny-actions"><button class="sbtn" id="minutesStart" disabled type="button">Start referat</button><button class="sbtn hidden" id="minutesStop" type="button">Stopp og lag utkast</button><button class="sbtn hidden" id="minutesOpen" type="button">Åpne referatutkast</button><button class="sbtn hidden" id="minutesLink" type="button">Kopier hentelenke</button></div>
+       <p id="minutesError" class="johnny-error" role="status"></p>
+      </section>
       <section class="panel johnny-panel" aria-labelledby="johnnyTitle"><h2 id="johnnyTitle">Yvonne · valgfri AI</h2>
        <p id="johnnyStatus" role="status">Yvonne er ikke med i møtet.</p>
        <div id="johnnyConsent" class="hidden"><p>Godkjenner du at et aktivt stilt spørsmål sendes til OpenAI? Svaret og kildene deles med alle i møtet. Ved valgfri lokal navnegjenkjenning behandles lyden på din enhet frem til «Yvonne» oppdages. Deretter sendes bare spørsmålet fra din mikrofon til OpenAI. Hun husker ikke samtalen før spørsmålet og lager ikke referat av møtet. Stemmen er syntetisk og lages med OpenAI GPT-Live. <a href="https://developers.openai.com/api/docs/guides/your-data" target="_blank" rel="noopener noreferrer">Om behandling hos OpenAI</a>.</p><div class="johnny-consent"><button class="sbtn" id="johnnyYes" type="button">Ja, jeg godkjenner</button><button class="sbtn" id="johnnyNo" type="button">Nei, uten Yvonne</button></div></div>
@@ -264,6 +272,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   </div>
 </div>
 
+<dialog id="minutesDialog" style="max-width:700px;width:90%;border:1px solid #ccd8d7;border-radius:16px;padding:24px"><h2>Referatutkast</h2><p id="minutesReportStatus" role="status"></p><p>Kontroller navn, tall, beslutninger, ansvar og frister. Dette er et AI-utkast som må godkjennes av møtelederen. Endringer her er bare lokale.</p><label for="minutesDraft">Utkast</label><textarea id="minutesDraft" rows="16" style="width:100%;box-sizing:border-box;font:14px/1.6 system-ui;margin:12px 0"></textarea><div class="johnny-actions"><button class="sbtn" id="minutesDownload" type="button" disabled>Last ned tekst</button><button class="sbtn" id="minutesRecoverFinish" type="button" hidden>Avslutt avbrutt opptak</button><button class="sbtn" id="minutesDelete" type="button">Slett fra Pi-en</button><button class="sbtn" id="minutesClose" type="button">Lukk</button></div><p>Ta vare på utkastet innen 24 timer. Hentelenken gir tilgang til å hente og slette utkastet. Del den bare med rette mottakere.</p></dialog>
 <script>
 (function(){
   "use strict";
@@ -299,6 +308,101 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   };
 
   const J={available:false,active:false,proposed:false,approved:[],participants:0,busy:false,listening:'',listener:'',recorder:null,chunks:[],discard:false,timer:null,controller:null,speaking:false,lastAnswer:null,autoPropose:false,proposedOnce:false,voiceId:null,voiceChunks:[],voiceBytes:0,voiceEnded:false,voiceComplete:false,sources:new Set(),playAt:0};
+
+
+  const MR={available:false,state:null,ownerToken:null,capture:null,epoch:null,seq:0,pending:[],sending:false,timer:null,poll:null,report:null,loading:false,finishing:false};
+  const minuteHeaders=()=>({'X-Meet-Room':S.room,'X-Meet-Client':S.cid});
+  const minuteStored=()=>{try{return JSON.parse(sessionStorage.getItem('motes-minutes-last')||'null');}catch(e){return null;}};
+  function minuteRemember(id,reader){MR.report={id,reader};$('minutesLast').classList.remove('hidden');try{sessionStorage.setItem('motes-minutes-last',JSON.stringify(MR.report));}catch(e){}}
+  async function minuteRequest(path,options={}){
+    const response=await fetch(apiBase+'/meet/minutes/'+path,{...options,headers:{...minuteHeaders(),...(options.headers||{})}});
+    if(!response.ok){let detail;try{detail=(await response.json()).detail;}catch(e){}const error=Error(detail||'Referattjenesten kunne ikke svare.');error.status=response.status;throw error;}return response.json();
+  }
+  function minuteRender(){
+    const state=MR.state,recording=state?.phase==='recording';
+    $('minutesStart').disabled=!MR.available||recording||state?.phase==='processing'||MR.loading;
+    $('minutesStop').classList.toggle('hidden',!recording);
+    $('minutesLink').classList.toggle('hidden',!MR.report?.reader);$('minutesOpen').classList.toggle('hidden',!MR.report&&!MR.draft);
+    $('minutesStatus').textContent=recording?'Møtelyden transkriberes for referat. '+(Date.now()/1000<state.start_at?'Starter etter varsling …':state.owner===S.myId?'Du sender møtelyden fra denne fanen. Hold fanen åpen.':'Møtelederen sender lyden. Du kan stoppe videre opptak.'):
+      state?.phase==='processing'?'Opptak stoppet. Pi-en behandler siste lydbiter; utkastet kommer etterpå.':state?.phase==='done'?'Referatutkastet er klart.':!MR.available?'Referattjenesten på Pi-en er ikke klar ennå.':'Av. Møtelederen kan starte med synlig varsel til alle · maks 90 minutter.';
+  }
+  function minuteStreams(){const streams=new Map();if(S.mic)streams.set('me',S.mic);for(const [id,c] of S.conns)if(c.audioEl?.srcObject)streams.set(id,c.audioEl.srcObject);return streams;}
+  function minuteSync(){
+    const st=MR.state,should=st?.phase==='recording'&&st.owner===S.myId&&!!MR.ownerToken&&S.ws?.readyState===WebSocket.OPEN;
+    if(!should){clearTimeout(MR.timer);MR.timer=null;if(MR.capture){MR.capture.stop(false);MR.capture=null;}MR.pending=[];return;}
+    if(MR.epoch!==st.epoch){clearTimeout(MR.timer);MR.timer=null;MR.epoch=st.epoch;MR.capture?.stop(false);MR.capture=null;MR.pending=[];}
+    if(MR.capture){MR.capture.update(minuteStreams());return;}
+    if(MR.timer||MR.loading)return;
+    MR.timer=setTimeout(async()=>{
+      MR.timer=null;const epoch=st.epoch;
+      if(MR.state?.id!==st.id||MR.state?.phase!=='recording'||epoch!==MR.epoch)return;
+      try{
+        if(!window.MeetingMinutesCapture){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=apiBase+'/meet/minutes-capture.js';script.onload=resolve;script.onerror=reject;document.head.append(script);});}
+        if(MR.state?.id!==st.id||MR.state?.phase!=='recording'||epoch!==MR.epoch)return;
+        const capture=new MeetingMinutesCapture(blob=>{if(MR.epoch===epoch){MR.pending.push({blob,epoch});if(MR.pending.length>4){minuteFailure('Nettverket henger etter. Referatet er stoppet og kan være ufullstendig.');return;}minuteUpload();}},minuteFailure);
+        MR.capture=capture;await capture.start();if(MR.capture!==capture){await capture.stop(false);return;}capture.update(minuteStreams());
+      }catch(e){minuteFailure(e.message||'Lyd for referat kunne ikke startes.');}
+    },Math.max(0,st.start_at*1000-Date.now()));
+  }
+  async function minuteUpload(){
+    if(MR.sending)return;MR.sending=true;
+    try{while(MR.pending.length){const item=MR.pending[0],seq=MR.seq;let sent=false;
+      for(let attempt=0;attempt<3;attempt++){
+        if(MR.state?.phase!=='recording'||item.epoch!==MR.epoch){MR.pending.shift();break;}
+        try{await minuteRequest('chunk/'+seq,{method:'POST',headers:{'Content-Type':'audio/wav','X-Minutes-Epoch':String(item.epoch)},body:item.blob});sent=true;break;}
+        catch(e){if(attempt===2)throw e;await new Promise(r=>setTimeout(r,1000*(attempt+1)));}
+      }
+      if(sent){MR.seq=seq+1;if(MR.pending[0]===item)MR.pending.shift();}else if(MR.pending[0]===item)MR.pending.shift();
+    }}catch(e){minuteFailure(e.message);}finally{MR.sending=false;}
+  }
+  function minuteFailure(text){$('minutesError').textContent=text;MR.capture?.stop(false);MR.capture=null;MR.pending=[];minuteFinish(true);}
+  async function minuteFinish(partial=false){
+    if(MR.finishing)return;MR.finishing=true;
+    try{
+      const capture=MR.capture;MR.capture=null;clearTimeout(MR.timer);MR.timer=null;
+      if(capture)await capture.stop(!partial);
+      // Finish uploads before stopping the session; never silently drop the final chunk.
+      if(!partial){await minuteUpload();while(MR.sending)await new Promise(r=>setTimeout(r,100));}
+      await minuteRequest('finish',{method:'POST',headers:{'X-Minutes-Partial':partial?'1':'0'}});
+      if(MR.report)minutePoll();
+    }catch(e){$('minutesError').textContent=e.message+' Hentelenken kan brukes når forbindelsen er tilbake.';}
+    finally{MR.finishing=false;}
+  }
+  $('minutesStart').onclick=async()=>{
+    if(!confirm('Start referat? Alle får et synlig varsel før lyden transkriberes. Du er ansvarlig for at møtelyden kan behandles. Hold denne fanen åpen. Bare teksten sendes til OpenAI for referatutkast.'))return;
+    MR.loading=true;minuteRender();$('minutesError').textContent='';
+    try{const value=await minuteRequest('start',{method:'POST'});MR.ownerToken=value.reader;MR.state=value;MR.seq=value.last_seq+1;minuteRemember(value.id,value.reader);MR.epoch=null;}
+    catch(e){$('minutesError').textContent=e.message;}finally{MR.loading=false;minuteRender();minuteSync();}
+  };
+  $('minutesStop').onclick=()=>minuteFinish(false);
+  async function minutePoll(){
+    if(!MR.report?.reader||MR.polling)return;MR.polling=true;clearTimeout(MR.poll);
+    try{
+      const report=MR.report;const value=await minuteRequest('report/'+report.id,{headers:{'X-Minutes-Token':report.reader}});
+      if(MR.report!==report)return;
+      $('minutesRecoverFinish').hidden=value.status!=='open';
+      $('minutesReportStatus').textContent=value.draft?(value.partial?'Utkastet er ufullstendig. Kontroller hull og manglende lyd.':'Utkast klart til kontroll.'):
+        value.status==='failed'&&value.attempts>=2?'Kunne ikke lage et ferdig utkast. Det er ikke laget et godkjent referat.':value.status==='open'?'Transkripsjon pågår. Ved brutt møte kan du avslutte opptaket her.':value.queued+' lydbiter gjenstår. Lager utkast når transkripsjonen er ferdig …';
+      if(value.draft){if(!MR.draft){MR.draft=value.draft;$('minutesDraft').value=value.draft;}$('minutesDownload').disabled=false;}
+      else if(!(value.status==='failed'&&value.attempts>=2))MR.poll=setTimeout(minutePoll,4000);
+    }catch(e){$('minutesReportStatus').textContent=e.message;if(![403,410].includes(e.status))MR.poll=setTimeout(minutePoll,10000);}
+    finally{MR.polling=false;}
+  }
+  function minuteOpen(){if(!$('minutesDialog').open)$('minutesDialog').showModal();if(MR.report?.reader)minutePoll();else if(MR.draft){$('minutesDraft').value=MR.draft;$('minutesDownload').disabled=false;$('minutesReportStatus').textContent='Utkast delt i møtet · kontroller før godkjenning.';}$('minutesDelete').hidden=!MR.report?.reader;}
+  $('minutesOpen').onclick=minuteOpen;$('minutesClose').onclick=()=>$('minutesDialog').close();
+  $('minutesLink').onclick=async()=>{try{await navigator.clipboard.writeText(location.origin+location.pathname+'#referat='+MR.report.id+'.'+MR.report.reader);notice('Hentelenken er kopiert. Den gir tilgang til å hente og slette utkastet og må oppbevares trygt.');}catch(e){$('minutesError').textContent='Kunne ikke kopiere hentelenken.';}};
+  $('minutesDownload').onclick=()=>{const url=URL.createObjectURL(new Blob([$('minutesDraft').value],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='referatutkast.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  $('minutesRecoverFinish').onclick=async()=>{try{await minuteRequest('report/'+MR.report.id+'/finish',{method:'POST',headers:{'X-Minutes-Token':MR.report.reader}});minutePoll();}catch(e){$('minutesReportStatus').textContent=e.message;}};
+  $('minutesDelete').onclick=async()=>{if(!MR.report||!confirm('Slett lydrester, transkripsjon og utkast fra Pi-en? Nedlastede kopier beholdes.'))return;try{await minuteRequest('report/'+MR.report.id,{method:'DELETE',headers:{'X-Minutes-Token':MR.report.reader}});clearTimeout(MR.poll);MR.report=null;MR.draft=null;$('minutesDraft').value='';$('minutesDownload').disabled=true;$('minutesReportStatus').textContent='Slettet fra Pi-en.';try{sessionStorage.removeItem('motes-minutes-last');}catch(e){}}catch(e){$('minutesReportStatus').textContent=e.message;}};
+  function minuteMessage(message){
+    if(message.t==='minutes'){
+      const changed=message.id!==MR.state?.id;if(changed&&message.phase==='recording'){MR.draft=null;MR.ownerToken=null;}
+      MR.state=message;if(message.phase==='recording')notice('Møtelyden transkriberes for referat. Alle kan stoppe videre opptak.');minuteRender();minuteSync();
+      if(message.phase==='processing'&&MR.report?.reader)minutePoll();
+    }else if(message.t==='minutes-draft'){MR.draft=message.text;$('minutesDraft').value=message.text;$('minutesDownload').disabled=false;minuteRender();notice('Referatutkastet er klart. Åpne det og kontroller innholdet.');}
+  }
+  function minuteDisconnected(){MR.capture?.stop(false);MR.capture=null;MR.pending=[];clearTimeout(MR.timer);MR.timer=null;}
+  function minuteCheck(){minuteRequest('status').then(v=>{MR.available=!!v.available;minuteRender();}).catch(()=>{MR.available=false;minuteRender();});}
 
   // ---------- landing ----------
   const publicSite=["xn--mtes-gra.no","www.xn--mtes-gra.no","localhost","127.0.0.1"].includes(location.hostname);
@@ -341,7 +445,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   $("createMode").classList.toggle("hidden",!publicSite);
   $("createMode").onclick=()=>setMode("create"); $("joinMode").onclick=()=>setMode("join");
   $("roomIn").addEventListener("input",updateInvitation);
-  if(location.hash.length>1){ $("roomIn").value=location.hash.slice(1); meetingMode="join"; }
+  if(location.hash.length>1&&!location.hash.startsWith('#referat=')){ $("roomIn").value=location.hash.slice(1); meetingMode="join"; }
   setMode(meetingMode);
   fetch(apiBase+'/meet/johnny/status',{cache:'no-store'}).then(r=>r.json()).then(d=>{J.available=!!d.available;$('wantJohnny').disabled=!J.available;if(!J.available)$('johnnySetup').textContent='Yvonne er ikke aktivert av eieren ennå. Vanlige møter virker uten ham.';}).catch(()=>{$('wantJohnny').disabled=true;$('johnnySetup').textContent='Kan ikke sjekke Yvonne nå. Vanlige møter virker uten ham.';});
   if(location.protocol!=="https:" && location.hostname!=="localhost" && location.hostname!=="127.0.0.1")
@@ -541,6 +645,12 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     recorder.start(250);if(automatic)watchQuestionSilence(recorder);wsSend({t:'johnny-listening',value:true});J.timer=setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},30000);renderYvonne();
   }
 
+  $('minutesLast').onclick=()=>{const last=minuteStored();if(last){MR.report=last;minuteOpen();}};
+  if(minuteStored())$('minutesLast').classList.remove('hidden');
+  minuteCheck();
+  const recovery=location.hash.match(/^#referat=([0-9a-f]{32})\.([0-9a-f]{64})$/);
+  if(recovery){minuteRemember(recovery[1],recovery[2]);minuteOpen();}
+
   // ---------- websocket signaling ----------
   function wsUrl(){
     const base = apiBase;
@@ -553,7 +663,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     ws.onmessage = ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } onMsg(m); };
     ws.onclose = ev=>{
       if(S.ws!==ws) return;
-      clearInterval(S.pingTimer);Object.assign(J,{active:false,proposed:false,approved:[],busy:false,listening:'',listener:'',proposedOnce:false});stopYvonneLocal();renderYvonne();
+      minuteDisconnected();clearInterval(S.pingTimer);Object.assign(J,{active:false,proposed:false,approved:[],busy:false,listening:'',listener:'',proposedOnce:false});stopYvonneLocal();renderYvonne();
       if(S.leaving) return;
       if(ev.code===4401){ backToLanding(S.inv?"Invitasjonen gjelder ikke lenger. Be den som inviterte deg om en ny lenke.":"Feil tilgangskode."); return; }
       if(ev.code===4409){ backToLanding("Rommet er fullt."); return; }
@@ -573,6 +683,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   function sendState(){ wsSend({t:"state", state:{muted:S.muted||!S.mic, sharing:!!S.screen, cam:!!S.cam, shareAt:S.shareAt}}); }
 
   function onMsg(m){
+    if(typeof m.t==='string'&&m.t.startsWith('minutes')){minuteMessage(m);return;}
     if(m.t==="welcome"){
       S.myId=m.id; S.retry=0; joining=false;
       $("landing").classList.add("hidden"); $("app").classList.remove("hidden"); $("joinBtn").disabled=false; $("landNote").textContent="";
@@ -638,7 +749,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       if(e.track.kind==="audio"){
         const ms=new MediaStream([e.track]);
         if(!c.audioEl){ c.audioEl=document.createElement("audio"); c.audioEl.autoplay=true; c.audioEl.className="hidden"; document.body.appendChild(c.audioEl); }
-        c.audioEl.srcObject=ms; c.audioEl.play().catch(()=>{}); addMeter(id,ms);
+        c.audioEl.srcObject=ms; c.audioEl.play().catch(()=>{}); addMeter(id,ms);minuteSync();
       } else if(idx===2){ c.cam=new MediaStream([e.track]); render(); }
       else { c.screen=new MediaStream([e.track]); render(); }
     };
@@ -717,8 +828,9 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   function stopShare(){ if(!S.screen) return; S.screen.getTracks().forEach(t=>t.stop()); S.screen=null; replaceAll("vT",null); sendState(); render(); }
 
   $("leaveBtn").onclick=()=>backToLanding("Du har forlatt møtet.");
-  window.addEventListener("pagehide",()=>{ stopYvonneLocal();if(S.ws) { S.leaving=true; wsSend({t:"bye"}); try{ S.ws.close(); }catch(e){} } });
+  window.addEventListener("pagehide",()=>{ minuteDisconnected();stopYvonneLocal();if(S.ws) { S.leaving=true; wsSend({t:"bye"}); try{ S.ws.close(); }catch(e){} } });
   function backToLanding(msg){
+    if(MR.state?.phase==='recording'&&MR.state.owner===S.myId){minuteFinish(true);if(MR.report)minuteOpen();}minuteDisconnected();
     stopYvonneLocal();Object.assign(J,{active:false,proposed:false,approved:[],lastAnswer:null});
     S.leaving=true; clearInterval(S.pingTimer);
     wsSend({t:"bye"}); try{ S.ws && S.ws.close(); }catch(e){} S.ws=null; S.myId=null;
@@ -823,6 +935,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 
   // ---------- render ----------
   function render(){
+    minuteSync();
     const n=S.peers.size+1;
     if(S.myId && S.ws && S.ws.readyState===1) $("status").textContent = n===1?"Bare du i møtet":n+" i møtet";
     renderYvonne();
