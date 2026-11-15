@@ -13281,6 +13281,23 @@
   ],
   "indirect": [
     {
+      "id": "a93dbec8d2d651b2",
+      "source": "E24",
+      "title": "Slår tilbake mot dagligvaregigantene",
+      "url": "https://e24.no/naeringsliv/i/lM1BVk/slaar-tilbake-mot-dagligvaregigantene?utm_medium=rss",
+      "published_at": "2026-11-15T15:24:25+00:00",
+      "analyzed_at": "2026-11-15T15:30:00+00:00",
+      "score": 50,
+      "comment": "Matvarepriser påvirker dagligvaresektoren; Oda og Norgesgruppen vil konkurrere om marginer ved potensielt høyere priser.",
+      "affected": [
+        {
+          "ticker": "ODAL",
+          "direction": "uklar",
+          "reason": "Usikker effekt av prisendringer på marginer og volum"
+        }
+      ]
+    },
+    {
       "id": "c1752c7538246990",
       "source": "E24",
       "title": "Sjekker strømstøtte til bedrifter: – Naturlig at vi ser på dette",
@@ -13398,7 +13415,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-15T15:20:00+00:00",
+  "last_checked_at": "2026-11-15T15:30:00+00:00",
   "monitor_stats": {
     "fetched": 63,
     "recent": 0,
@@ -13411,6 +13428,6 @@
     "capped": 0,
     "recovered_unpublished": 0,
     "source_latest_at": "2026-11-13T22:28:03.082000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
