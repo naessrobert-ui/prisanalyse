@@ -202,6 +202,7 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                 except Exception:
                     logging.getLogger(__name__).exception("Kunne ikke rydde familielager; prøver igjen om ett minutt")
             try:
+                await asyncio.to_thread(app.state.fruen_cleanup)
                 await asyncio.to_thread(push.deliver)
             except Exception:
                 logging.getLogger(__name__).exception("Kunne ikke sende familievarsler; prøver igjen om ett minutt")
@@ -257,6 +258,8 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
             "X-Robots-Tag": "noindex, nofollow, noarchive",
             "Content-Security-Policy": response.headers.get("Content-Security-Policy") or "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
         })
+        if request.url.path.startswith('/fruen'):
+            response.headers['Permissions-Policy']='camera=(self), microphone=(self), autoplay=(self), display-capture=()'
         return response
 
     @app.get("/familie", response_class=HTMLResponse)
@@ -725,6 +728,9 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
     @app.api_route("/familie/media/{ident}", methods=["GET", "HEAD"])
     async def get_media(ident: str, request: Request):
         user(request)
+        return await media_response(ident, request)
+
+    async def media_response(ident: str, request: Request):
         if not re.fullmatch(r"[0-9a-f]{32}", ident):
             raise HTTPException(404)
         with db() as conn:
@@ -766,4 +772,6 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                     conn.execute("DELETE FROM posts WHERE id=?", (ident,))
         return {"ok": True}
 
+    from .fruen import register as register_fruen
+    register_fruen(app, root, db, media_response, secure_cookie)
     return app

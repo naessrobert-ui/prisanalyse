@@ -1,0 +1,312 @@
+"""End-to-end visits in real Chrome with fake cameras, against the localhost-only demo.
+
+Separate browser contexts act as separate devices (own cookies). Run explicitly:
+    python -m pytest -q tests/test_fruen_browser.py
+Skipped when Playwright or Chrome is unavailable. Never uses real family data.
+"""
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import httpx
+import pytest
+
+playwright_api = pytest.importorskip('playwright.sync_api')
+CHROME = os.environ.get('FRUEN_CHROME') or shutil.which('google-chrome') or shutil.which('chromium')
+pytestmark = pytest.mark.skipif(not CHROME, reason='Chrome er ikke installert')
+
+ADMIN_CODE = 'fruen-local-test-only'
+HEAD = {'X-Fruen-Request': '1'}
+# Test hooks only: record peer connections and every captured stream, optionally delay
+# or deny camera access. The application code itself is unchanged.
+INIT = """
+window.__pcs=[];window.__streams=[];window.__gumDelay=0;window.__gumDeny=false;
+const NativePC=window.RTCPeerConnection;
+window.RTCPeerConnection=function(...a){const pc=new NativePC(...a);window.__pcs.push(pc);return pc;};
+window.RTCPeerConnection.prototype=NativePC.prototype;
+const nativeGum=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+navigator.mediaDevices.getUserMedia=async c=>{
+  if(window.__gumDeny)throw new DOMException('denied','NotAllowedError');
+  if(window.__gumDelay)await new Promise(r=>setTimeout(r,window.__gumDelay));
+  const s=await nativeGum(c);window.__streams.push(s);return s;};
+window.__live=()=>window.__streams.flatMap(s=>s.getTracks()).filter(t=>t.readyState!=='ended').length;
+window.__inbound=async()=>{const pc=window.__pcs.at(-1);const r={audio:0,video:0};if(!pc)return r;
+  (await pc.getStats()).forEach(s=>{if(s.type==='inbound-rtp')r[s.kind]=s.bytesReceived||0;});return r;};
+"""
+
+
+def free_port():
+    with socket.socket() as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
+@pytest.fixture(scope='module')
+def base():
+    repo = Path(__file__).resolve().parents[1]
+    port = free_port()
+    proc = subprocess.Popen([sys.executable, '-m', 'uvicorn', 'preview_fruen:app', '--app-dir', 'tests',
+                             '--host', '127.0.0.1', '--port', str(port), '--log-level', 'warning'],
+                            cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    url = f'http://localhost:{port}'
+    for _ in range(100):
+        try:
+            if httpx.get(url + '/fruen/api/health', timeout=1, trust_env=False).status_code == 200:
+                break
+        except httpx.HTTPError:
+            time.sleep(.1)
+    else:
+        proc.kill()
+        pytest.fail('Demoserveren startet ikke: ' + proc.stdout.read().decode(errors='replace'))
+    yield url
+    proc.terminate()
+    proc.wait(10)
+
+
+@pytest.fixture(scope='module')
+def browser():
+    with playwright_api.sync_playwright() as p:
+        b = p.chromium.launch(executable_path=CHROME, args=[
+            '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--no-sandbox'])
+        yield b
+        b.close()
+
+
+@pytest.fixture
+def admin(browser, base):
+    ctx = browser.new_context(base_url=base)
+    assert ctx.request.post('/fruen/api/admin/login', headers=HEAD, data={'code': ADMIN_CODE}).ok
+    created = []
+
+    def invite(name, kind='member'):
+        r = ctx.request.post('/fruen/api/admin/invite', headers=HEAD, data={'name': name, 'kind': kind})
+        assert r.ok, r.text()
+        return r.json()['token']
+
+    def device(name, kind='member', activate=True, viewport=None):
+        token = invite(name, kind)
+        dctx = browser.new_context(base_url=base, permissions=['camera', 'microphone'], bypass_csp=True,
+                                   viewport=viewport or {'width': 1180, 'height': 820})
+        dctx.add_init_script(INIT)
+        page = dctx.new_page()
+        page.goto('/fruen#invite=' + token)
+        page.click('#enrol')
+        page.wait_for_selector('#activate', state='visible')
+        if activate:
+            page.click('#activate')
+            page.wait_for_selector('#setup', state='hidden')
+        created.append((name, dctx))
+        return page
+
+    invite.device = device
+    invite.ctx = ctx
+    yield invite
+    accounts = ctx.request.get('/fruen/api/admin/accounts').json()['accounts']
+    names = {name for name, _ in created}
+    for a in accounts:
+        if a['active'] and a['name'] in names:
+            ctx.request.post('/fruen/api/admin/revoke/' + a['id'], headers=HEAD, data={})
+    for _, dctx in created:
+        dctx.close()
+    ctx.close()
+
+
+def live(page):
+    return page.evaluate('window.__live()')
+
+
+def wait_online(page, name, timeout=15000):
+    page.click('#openContacts')
+    page.wait_for_selector(f'#contacts button:has-text("{name}"):not([disabled])', timeout=timeout)
+
+
+def call(caller, name):
+    wait_online(caller, name)
+    caller.click(f'#contacts button:has-text("{name}")')
+    caller.wait_for_selector('#ringing', state='visible')
+
+
+def assert_media_flows(*pages):
+    for page in pages:
+        page.wait_for_selector('#visit', state='visible', timeout=20000)
+        page.wait_for_function('document.getElementById("remote").videoWidth>0', timeout=20000)
+    first = [p.evaluate('window.__inbound()') for p in pages]
+    time.sleep(2)
+    second = [p.evaluate('window.__inbound()') for p in pages]
+    for a, b in zip(first, second):
+        assert b['audio'] > a['audio'] > 0, (a, b)
+        assert b['video'] > a['video'] > 0, (a, b)
+
+
+def assert_back_to_photos(page):
+    page.wait_for_selector('#visit', state='hidden', timeout=10000)
+    page.wait_for_function('window.__live()===0', timeout=5000)
+    page.wait_for_function('window.__pcs.every(pc=>pc.connectionState==="closed")', timeout=5000)
+    page.wait_for_selector('#photo[src]:not([hidden])', timeout=15000)
+
+
+def test_manual_visits_both_directions(admin):
+    a = admin.device('Anne')
+    b = admin.device('Bjørn')
+    assert live(a) == 0 and live(b) == 0  # activation sample is stopped again
+    call(a, 'Bjørn')
+    b.wait_for_selector('#answer', state='visible')
+    assert live(a) == 0 and live(b) == 0  # no camera while ringing
+    b.click('#answer')
+    assert_media_flows(a, b)
+    a.click('#hangup')
+    assert_back_to_photos(a)
+    assert_back_to_photos(b)
+    call(b, 'Anne')
+    a.click('#answer')
+    assert_media_flows(a, b)
+    b.click('#hangup')
+    assert_back_to_photos(a)
+    assert_back_to_photos(b)
+    assert all(len(p.evaluate('window.__pcs')) == 2 for p in (a, b))  # exactly one connection per visit
+
+
+def test_automatic_answer_after_notice_without_controls(admin):
+    frame = admin.device('Fruen', 'auto')
+    a = admin.device('Anne')
+    assert frame.is_hidden('#controls') and frame.is_hidden('#openContacts')
+    frame.wait_for_selector('#photo[src]:not([hidden])')
+    call(a, 'Fruen')
+    frame.wait_for_selector('#ringName:has-text("Anne kommer på besøk")')
+    assert frame.is_hidden('#answer') and frame.is_hidden('#decline')
+    started = time.time()
+    assert_media_flows(a, frame)
+    assert time.time() - started >= 3  # notice is shown before the camera starts
+    assert frame.is_hidden('#controls') and frame.is_hidden('#local')
+    a.click('#hangup')
+    assert_back_to_photos(frame)
+    assert_back_to_photos(a)
+
+
+def test_decline_cancel_and_late_camera_are_released(admin):
+    a = admin.device('Anne')
+    b = admin.device('Bjørn')
+    frame = admin.device('Fruen', 'auto')
+    call(a, 'Bjørn')
+    b.wait_for_selector('#decline', state='visible')
+    b.click('#decline')
+    a.wait_for_selector('#ringing', state='hidden', timeout=10000)
+    assert live(a) == 0 and live(b) == 0
+    # Camera permission resolves only after the caller has already hung up.
+    before = frame.evaluate('window.__streams.length')
+    frame.evaluate('window.__gumDelay=6000')
+    call(a, 'Fruen')
+    frame.wait_for_function(f'window.__streams.length=={before}', timeout=1000)
+    time.sleep(8)  # auto-answer has started waiting for the camera
+    a.click('#hangup')
+    frame.wait_for_selector('#ringing', state='hidden', timeout=10000)
+    time.sleep(6)
+    assert frame.evaluate('window.__streams.length') <= before + 1
+    assert live(frame) == 0 and live(a) == 0
+    assert frame.is_hidden('#visit')
+
+
+def test_slow_camera_does_not_stop_heartbeat(admin):
+    a = admin.device('Anne')
+    b = admin.device('Bjørn')
+    b.evaluate('window.__gumDelay=9000')  # caller's camera starts slowly, under the 10 s limit
+    call(b, 'Anne')
+    a.click('#answer')
+    assert_media_flows(a, b)
+    b.click('#hangup')
+    assert_back_to_photos(a)
+    assert_back_to_photos(b)
+
+
+def test_new_call_while_old_setup_is_pending(admin):
+    a = admin.device('Anne')
+    b = admin.device('Bjørn')
+    c = admin.device('Cecilie')
+    b.evaluate('window.__gumDelay=7000')  # B's camera for call 1 is slow
+    call(b, 'Anne')
+    a.click('#answer')
+    b.wait_for_selector('#visit', state='visible', timeout=10000)
+    time.sleep(1)
+    b.click('#hangup')  # call 1 ends while B still waits for its camera
+    a.wait_for_selector('#visit', state='hidden', timeout=10000)
+    b.evaluate('window.__gumDelay=4000')
+    call(b, 'Cecilie')  # call 2 starts; the stale setup resolves during it
+    c.click('#answer')
+    assert_media_flows(b, c)
+    time.sleep(5)
+    assert b.evaluate('window.__pcs.filter(pc=>pc.connectionState!=="closed").length') == 1
+    c.click('#hangup')
+    assert_back_to_photos(b)
+    assert_back_to_photos(c)
+
+
+def test_hidden_page_and_network_loss_end_visit(admin):
+    a = admin.device('Anne')
+    b = admin.device('Bjørn')
+    call(a, 'Bjørn')
+    b.click('#answer')
+    assert_media_flows(a, b)
+    b.evaluate("Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'))")
+    b.wait_for_function('window.__live()===0', timeout=5000)
+    assert_back_to_photos(a)
+    b.evaluate("Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});document.dispatchEvent(new Event('visibilitychange'))")
+    call(b, 'Anne')
+    a.click('#answer')
+    assert_media_flows(a, b)
+    a.context.set_offline(True)
+    a.wait_for_function('window.__live()===0', timeout=20000)
+    a.wait_for_selector('#state:has-text("Forbindelsen")')
+    b.wait_for_selector('#visit', state='hidden', timeout=30000)
+    assert live(b) == 0
+    a.context.set_offline(False)
+
+
+def test_denied_camera_revoked_device_and_used_invite(admin, browser, base):
+    a = admin.device('Anne', activate=False)
+    a.evaluate('window.__gumDeny=true')
+    a.click('#activate')
+    a.wait_for_selector('#setupError:not(:empty)')
+    assert a.is_visible('#setup') and a.is_disabled('#openContacts')
+    b = admin.device('Bjørn')
+    account = next(x for x in admin.ctx.request.get('/fruen/api/admin/accounts').json()['accounts']
+                   if x['name'] == 'Bjørn' and x['active'])
+    admin.ctx.request.post('/fruen/api/admin/revoke/' + account['id'], headers=HEAD, data={})
+    b.wait_for_selector('#welcomeText:has-text("koble denne enheten til igjen")', timeout=10000)
+    assert b.is_hidden('#photo') and b.is_hidden('#controls') and live(b) == 0
+    token = admin('Engang')
+    for expected in (None, 'brukt eller utløpt'):
+        ctx = browser.new_context(base_url=base)
+        page = ctx.new_page()
+        page.goto('/fruen#invite=' + token)
+        page.click('#enrol')
+        if expected:
+            page.wait_for_selector(f'#welcomeText:has-text("{expected}")')
+        else:
+            page.wait_for_selector('#welcome', state='hidden')
+        ctx.close()
+
+
+@pytest.mark.parametrize('size', [(820, 1180), (1180, 820), (375, 667)])
+def test_layout_screenshots(admin, size, tmp_path):
+    a = admin.device('Anne', viewport={'width': size[0], 'height': size[1]})
+    frame = admin.device('Fruen', 'auto', viewport={'width': size[0], 'height': size[1]})
+    out = Path(os.environ.get('FRUEN_SCREENSHOTS', tmp_path))
+    out.mkdir(parents=True, exist_ok=True)
+    frame.wait_for_selector('#photo[src]:not([hidden])')
+    frame.screenshot(path=str(out / f'frame-{size[0]}x{size[1]}.png'))
+    call(a, 'Fruen')
+    frame.wait_for_selector('#ringing', state='visible')
+    frame.screenshot(path=str(out / f'ringing-{size[0]}x{size[1]}.png'))
+    assert_media_flows(a, frame)
+    a.screenshot(path=str(out / f'visit-member-{size[0]}x{size[1]}.png'))
+    for page in (a, frame):
+        overflow = page.evaluate('document.documentElement.scrollWidth>innerWidth')
+        assert not overflow
+    box = a.locator('#hangup').bounding_box()
+    assert box and box['x'] + box['width'] <= size[0] and box['y'] + box['height'] <= size[1]
+    a.click('#hangup')
+    assert_back_to_photos(frame)

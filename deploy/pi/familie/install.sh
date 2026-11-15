@@ -21,7 +21,7 @@ if [[ -f "$install_root/data/access.json" ]]; then
 fi
 umask 077
 mkdir -p "$install_root/app/familie" "$install_root/data"
-for filename in __init__.py server.py notifications.py index.html slekt.html sw.js requirements.txt; do
+for filename in __init__.py server.py notifications.py fruen.py fruen_setup.py fruen.html fruen-admin.html fruen.js index.html slekt.html sw.js requirements.txt; do
   curl --fail --silent --show-error --location "$source_url/familie/$filename" -o "$install_root/app/familie/$filename"
 done
 python3 -m venv "$install_root/venv" || {
