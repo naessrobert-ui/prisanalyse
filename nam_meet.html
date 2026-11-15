@@ -166,6 +166,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 .notice{max-width:60ch;margin:0 auto .5rem;padding:.6rem .9rem;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:.9rem}
 
 .johnny-option{display:flex;gap:10px;align-items:flex-start;font-size:12px;font-weight:500;margin:20px 0 5px;cursor:pointer}.johnny-option input{margin:3px 0 0;width:17px;height:17px;accent-color:var(--accent);flex:none}.johnny-option strong{display:block;font-weight:650}.johnny-option small{display:block;color:var(--muted);font-size:11px;line-height:1.6;margin-top:4px}.johnny-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.johnny-actions button{font-size:12px}.johnny-status{font-size:12px;color:var(--accent);font-weight:600}.johnny-panel p{font-size:12px;margin:7px 0;color:var(--muted)}.johnny-panel .johnny-error{color:#a23e38}.johnny-answer a{color:var(--accent);text-decoration:underline}.johnny-panel input{margin:0}.johnny-live{background:var(--chip);padding:7px 10px;border-radius:9px;font-size:12px}.johnny-recording{color:#a23e38!important;font-weight:700}.johnny-source{font-size:11px;display:block;margin:5px 0}.johnny-consent{display:flex;gap:6px;flex-wrap:wrap}.johnny-head{font-size:12px;color:var(--accent)}
+.schedule-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.schedule-row>div{min-width:0}#scheduleFields textarea{min-height:100px;resize:vertical}.plan-dialog{max-width:680px;width:92%;border:1px solid #ccd8d7;border-radius:18px;padding:25px;color:var(--ink);background:var(--bg)}.plan-dialog::backdrop{background:#102d2c88}.plan-dialog .field{margin:10px 0}.plan-dialog .sbtn{margin:4px 0}.plan-list-item{display:block;width:100%;text-align:left}.plan-dialog pre{white-space:pre-wrap;font:inherit;max-height:230px;overflow:auto}.plan-private{margin-top:20px}.plan-private summary{cursor:pointer}#myPlans{font-size:12px}#planStatus{font-size:13px}#planCancelled{color:#a53636;font-weight:600}@media(max-width:480px){.schedule-row{grid-template-columns:1fr}.site-nav .nav-note{display:none}}
 </style>
 </head>
 <body>
@@ -173,6 +174,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 <div class="landing" id="landing">
   <nav class="site-nav" aria-label="Hovedmeny">
     <a class="wordmark" href="/" aria-label="møtes.no – forsiden"><span class="logo-mark" aria-hidden="true"><i></i><i></i></span>møtes.no</a>
+    <button class="sbtn" id="myPlans" type="button">Mine møter</button>
     <span class="nav-note"><span class="status-dot" aria-hidden="true"></span>Rett i nettleseren</span>
   </nav>
   <div class="hero">
@@ -186,13 +188,21 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     <section class="card" aria-labelledby="formTitle">
       <div class="card-top"><span class="status-dot" aria-hidden="true"></span>Din neste samtale starter her</div>
       <div class="mode-switch" role="group" aria-label="Velg hva du vil gjøre">
-        <button id="createMode" type="button" aria-pressed="true">Opprett et møte</button>
-        <button id="joinMode" type="button" aria-pressed="false">Bli med i et møte</button>
+        <button id="createMode" type="button" aria-pressed="true">Møte nå</button>
+        <button id="planMode" type="button" aria-pressed="false">Planlegg</button>
+        <button id="joinMode" type="button" aria-pressed="false">Bli med</button>
       </div>
       <h2 id="formTitle">Gjør plass til en god samtale.</h2>
       <p class="org" id="formIntro">Skriv navnet ditt, opprett møtet og inviter med en lenke.</p>
       <label for="nameIn">Navnet ditt</label>
       <input class="field" id="nameIn" maxlength="40" autocomplete="name" placeholder="Hva heter du?">
+      <div id="scheduleFields" class="hidden">
+       <label for="planTitle">Møtetittel</label><input class="field" id="planTitle" maxlength="120" placeholder="For eksempel styremøte">
+       <div class="schedule-row"><div><label for="planStart">Dato og klokkeslett</label><input class="field" id="planStart" type="datetime-local"></div><div><label for="planDuration">Varighet</label><select class="field" id="planDuration"><option value="15">15 minutter</option><option value="30">30 minutter</option><option value="45">45 minutter</option><option value="60" selected>1 time</option><option value="90">1 time og 30 minutter</option><option value="120">2 timer</option><option value="180">3 timer</option></select></div></div>
+       <label for="planZone">Tidssone for klokkeslettet</label><select class="field" id="planZone"><option value="Europe/Oslo">Norsk tid · Europe/Oslo</option><option value="UTC">UTC</option></select>
+       <label for="planAgenda">Agenda (valgfritt)</label><textarea class="field" id="planAgenda" maxlength="4000" placeholder="Hva skal dere snakke om?"></textarea>
+       <p class="hint">Dere kan komme litt tidlig og fortsette etter sluttiden. Varigheten gjelder kalenderavtalen.</p>
+      </div>
       <div id="roomWrap" class="hidden">
         <label for="roomIn">Møtelenke eller romkode</label>
         <div class="row"><input class="field" id="roomIn" maxlength="2048" autocomplete="off" placeholder="Lim inn lenken du har fått"></div>
@@ -203,6 +213,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
         <input class="field" id="kodeIn" type="password" maxlength="100" autocomplete="off" placeholder="Fra den som inviterte deg">
       </div>
       <p class="hint invited hidden" id="invitedNote" role="status"></p>
+      <button class="sbtn hidden" id="guestCalendar" type="button">Se planlagt møte og kalenderinvitasjon</button>
       <button class="btn primary wide" id="joinBtn" type="button">Opprett møte</button>
       <button class="sbtn hidden" id="minutesLast" type="button">Hent siste referatutkast</button>
       <p class="hint" id="landNote" role="status" aria-live="polite"></p>
@@ -271,6 +282,9 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 </div>
 
 <dialog id="minutesDialog" style="max-width:700px;width:90%;border:1px solid #ccd8d7;border-radius:16px;padding:24px"><h2>Referatutkast</h2><p id="minutesReportStatus" role="status"></p><p>Kontroller navn, tall, beslutninger, ansvar og frister. Dette er et AI-utkast som må godkjennes av møtelederen. Endringer her er bare lokale.</p><label for="minutesDraft">Utkast</label><textarea id="minutesDraft" rows="16" style="width:100%;box-sizing:border-box;font:14px/1.6 system-ui;margin:12px 0"></textarea><div class="johnny-actions"><button class="sbtn" id="minutesDownload" type="button" disabled>Last ned tekst</button><button class="sbtn" id="minutesRecoverFinish" type="button" hidden>Avslutt avbrutt opptak</button><button class="sbtn" id="minutesDelete" type="button">Slett fra Pi-en</button><button class="sbtn" id="minutesClose" type="button">Lukk</button></div><p>Ta vare på utkastet innen 24 timer. Hentelenken gir tilgang til å hente og slette utkastet. Del den bare med rette mottakere.</p></dialog>
+<dialog class="plan-dialog" id="planResult"><h2 id="planTitleOut"></h2><p id="planWhenOut"></p><p id="planCancelled" class="hidden">Møtet er avlyst.</p><pre id="planAgendaOut"></pre><label for="planJoinUrl">Møtelenke til deltakerne</label><input class="field" id="planJoinUrl" readonly><div class="johnny-actions"><button class="sbtn" id="planCopy" type="button">Kopier møtelenke</button><button class="sbtn" id="planShare" type="button">Del invitasjon</button><button class="sbtn" id="planCalendar" type="button">Last ned kalenderinvitasjon</button><button class="sbtn" id="planJoinNow" type="button">Gå til møterommet</button></div><div class="johnny-actions"><button class="sbtn" id="planEdit" type="button">Endre møtet</button><button class="sbtn" id="planCancel" type="button">Avlys møtet</button></div><details id="planOwner" class="plan-private"><summary>Privat arrangørlenke</summary><p>Denne lenken gir rett til å endre og avlyse møtet. Ta vare på den, og del bare den vanlige møtelenken med deltakerne.</p><input class="field" id="planOwnerUrl" readonly><button class="sbtn" id="planCopyOwner" type="button">Kopier arrangørlenke</button> <button class="sbtn" id="planDelete" type="button">Slett møtedetaljene</button></details><p id="planStatus" role="status"></p><p class="hint">Ved endring eller avlysning må du selv sende beskjed og en oppdatert kalenderfil. Møtelenken varer til ett døgn etter planlagt slutt.</p><button class="sbtn" id="planClose" type="button">Lukk</button></dialog>
+<dialog class="plan-dialog" id="plansDialog"><h2>Mine møter</h2><p id="plansListNote"></p><div id="plansList"></div><button class="sbtn" id="plansClose" type="button">Lukk</button></dialog>
+<script src="/meet/planner.js"></script>
 <script>
 (function(){
   "use strict";
@@ -417,14 +431,19 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     value=value.replace(/^#/,"");
     const [room,query]=value.split("?");
     const inv=new URLSearchParams(query||"").get("inv")||"";
-    return {room:cleanRoom(decodeURIComponent(room||"")),inv:/^\d+\.[0-9a-f]{32}$/.test(inv)?inv:""};
+    return {room:cleanRoom(decodeURIComponent(room||"")),inv:/^(?:\d+\.[0-9a-f]{32}|p\.[0-9a-f]{64})$/.test(inv)?inv:""};
   }
+  let invitationVersion=0;
   function updateInvitation(){
-    let d; try{d=meetingMode==="create"?{room:"",inv:""}:parseMeeting($("roomIn").value);}catch(e){d={room:"",inv:""};}
+    const version=++invitationVersion;$("guestCalendar").classList.add("hidden");
+    let d; try{d=meetingMode!=="join"?{room:"",inv:""}:parseMeeting($("roomIn").value);}catch(e){d={room:"",inv:""};}
     S.inv=d.inv;
-    $("kodeWrap").classList.toggle("hidden",meetingMode==="create"||!!d.inv);
+    $("kodeWrap").classList.toggle("hidden",meetingMode!=="join"||!!d.inv);
     const n=$("invitedNote"); n.classList.toggle("hidden",!d.inv);
-    if(d.inv){
+    if(d.inv.startsWith('p.')){
+      n.textContent='Henter planlagt møte …';
+      MeetPlanner.guest(d.room,d.inv).then(plan=>{if(version!==invitationVersion)return;n.textContent=plan.cancelled?'Dette møtet er avlyst.':plan.title+' · '+new Intl.DateTimeFormat('nb-NO',{dateStyle:'medium',timeStyle:'short',timeZone:plan.timezone}).format(new Date(plan.start))+' · '+plan.duration+' minutter. Du kan bli med før start.';$('guestCalendar').classList.remove('hidden');$('guestCalendar').onclick=()=>MeetPlanner.showGuest(plan,d.inv);}).catch(e=>{if(version===invitationVersion)n.textContent=e.message;});
+    }else if(d.inv){
       const until=new Date(parseInt(d.inv,10)*1000);
       n.textContent=until<Date.now()?"Invitasjonen har gått ut. Be møteverten om en ny lenke.":"Du er invitert. Skriv navnet ditt for å bli med. Lenken gjelder til "+until.toLocaleString("no-NO",{weekday:"long",hour:"2-digit",minute:"2-digit"})+".";
     }
@@ -434,17 +453,19 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     meetingMode=mode;
     $("createMode").setAttribute("aria-pressed",String(mode==="create"));
     $("joinMode").setAttribute("aria-pressed",String(mode==="join"));
-    $("roomWrap").classList.toggle("hidden",mode==="create");
-    $("formTitle").textContent=mode==="create"?"Gjør plass til en god samtale.":"Hyggelig å se deg.";
-    $("formIntro").textContent=mode==="create"?"Skriv navnet ditt, opprett møtet og inviter med en lenke.":"Skriv navnet ditt og lim inn lenken du har fått.";
+    $("planMode").setAttribute("aria-pressed",String(mode==="plan"));
+    $("roomWrap").classList.toggle("hidden",mode!=="join");
+    $("formTitle").textContent=mode==="plan"?"Avtal neste møte.":mode==="create"?"Gjør plass til en god samtale.":"Hyggelig å se deg.";
+    $("formIntro").textContent=mode==="plan"?"Velg tidspunkt, og del en møtelenke og kalenderinvitasjon.":mode==="create"?"Skriv navnet ditt, opprett møtet og inviter med en lenke.":"Skriv navnet ditt og lim inn lenken du har fått.";
     $("joinBtn").textContent=mode==="create"?"Opprett møte":"Bli med i møtet →";
-    $("landNote").textContent=""; updateInvitation();
+    $("joinBtn").disabled=false;$("landNote").textContent=""; updateInvitation();MeetPlanner.mode(mode);
   }
   $("createMode").classList.toggle("hidden",!publicSite);
   $("createMode").onclick=()=>setMode("create"); $("joinMode").onclick=()=>setMode("join");
   $("roomIn").addEventListener("input",updateInvitation);
-  if(location.hash.length>1&&!location.hash.startsWith('#referat=')){ $("roomIn").value=location.hash.slice(1); meetingMode="join"; }
+  if(location.hash.length>1&&!location.hash.startsWith('#referat=')&&!location.hash.startsWith('#plan-eier=')){ $("roomIn").value=location.hash.slice(1); meetingMode="join"; }
   setMode(meetingMode);
+  MeetPlanner.init({base:apiBase,setMode,publicSite});
   fetch(apiBase+'/meet/johnny/status',{cache:'no-store'}).then(r=>r.json()).then(d=>{J.available=!!d.available;renderYvonne();}).catch(()=>{J.available=false;renderYvonne();});
   if(location.protocol!=="https:" && location.hostname!=="localhost" && location.hostname!=="127.0.0.1")
     $("landNote").textContent="Siden må åpnes via https for at mikrofon og kamera skal virke.";
@@ -453,6 +474,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 
   async function join(){
     if(joining) return;
+    if(meetingMode==='plan'){await MeetPlanner.save();return;}
     const name=$("nameIn").value.trim().slice(0,40);
     if(!name){$("landNote").textContent="Skriv inn navnet ditt først.";$("nameIn").focus();return;}
     let room,kode="";
@@ -467,7 +489,8 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       }else{
         const d=parseMeeting($("roomIn").value); room=d.room; S.inv=d.inv; kode=S.inv?"":$("kodeIn").value;
         if(room.length<3) throw new Error("Lim inn en møtelenke eller en romkode med minst tre tegn.");
-        if(S.inv && parseInt(S.inv,10)*1000<Date.now()) throw new Error("Invitasjonen har gått ut. Be møteverten om en ny lenke.");
+        if(S.inv.startsWith('p.')){const plan=await MeetPlanner.guest(room,S.inv);if(plan.cancelled||new Date(plan.expires)<new Date())throw new Error('Møtet er avlyst eller invitasjonen er utløpt.');}
+        if(S.inv && !S.inv.startsWith('p.') && parseInt(S.inv,10)*1000<Date.now()) throw new Error("Invitasjonen har gått ut. Be møteverten om en ny lenke.");
       }
     }catch(e){ $("landNote").textContent=e.message||"Sjekk møtelenken og prøv igjen."; joining=false;$("joinBtn").disabled=false;return; }
     Object.assign(S,{name,room,kode,leaving:false,retry:0});
