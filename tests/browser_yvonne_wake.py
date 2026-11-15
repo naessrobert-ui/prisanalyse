@@ -19,7 +19,7 @@ with sync_playwright() as p:
  c=b.new_context(permissions=['microphone']);c.add_init_script(FAKE)
  errors=[];requests=[]
  a=c.new_page();a.on('pageerror',lambda e:errors.append(str(e)));a.on('request',lambda r:requests.append(r.url) if '/johnny/ask' in r.url else None)
- a.goto('http://localhost:8771/');a.locator('#nameIn').fill('Local test');a.locator('#wantJohnny').check();a.locator('#joinBtn').click();expect(a.locator('#app')).to_be_visible();a.locator('#johnnyYes').click();expect(a.locator('#yvonneWakeControls')).to_be_visible()
+ a.goto('http://localhost:8771/');a.locator('#nameIn').fill('Local test');a.locator('#joinBtn').click();expect(a.locator('#app')).to_be_visible();a.locator('#johnnyPropose').click();a.locator('#johnnyYes').click();expect(a.locator('#yvonneWakeControls')).to_be_visible()
  assert not a.locator('#yvonneWake').is_checked();a.locator('#yvonneWake').check();expect(a.locator('#yvonneWakeStatus')).to_contain_text('Lytter lokalt');assert a.evaluate('window.localCalls.every(x=>x.processLocally===true)')
  assert a.evaluate('window.lastWake.phrases.some(p=>p.phrase==="Yvonne"&&p.boost===8)')
  assert not a.locator('#yvonneWakeDebug').is_checked();a.locator('#yvonneWakeDebug').check()
