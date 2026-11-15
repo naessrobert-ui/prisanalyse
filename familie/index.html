@@ -190,7 +190,7 @@ function render(items){
  for(let i=0;i<visible.length;i++){const card=[...feed.children].find(node=>node.dataset.ident===visible[i].id);if(card&&feed.children[i]!==card)feed.insertBefore(card,feed.children[i]||null);}
  updateSeenLabels();
 }
-async function load(){if(loading)return;const epoch=sessionEpoch;loading=true;try{const dayAtRequest=selectedDay;const data=await request('/items'+(selectedDay?'?day='+encodeURIComponent(selectedDay):''));if(epoch!==sessionEpoch)return;if(dayAtRequest!==selectedDay){loading=false;load();return;}if(currentName!==data.name){currentName=data.name;readSeen();}loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);loadCalendar();loadChat();markPushVisit();}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
+async function load(){if(loading)return;const epoch=sessionEpoch;loading=true;try{const dayAtRequest=selectedDay;const data=await request('/items'+(selectedDay?'?day='+encodeURIComponent(selectedDay):''));if(epoch!==sessionEpoch)return;if(dayAtRequest!==selectedDay){loading=false;load();return;}if(currentName!==data.name){currentName=data.name;readSeen();}loggedIn=true;$('loginSection').hidden=true;$('room').hidden=false;$('roomError').textContent='';render(data.items);loadCalendar();loadChat();markPushVisit();if(new URLSearchParams(location.search).has('chat')){history.replaceState(null,'','/familie/');switchPane('chat');}}catch(e){if(loggedIn)$('roomError').textContent=e.message;else if(!e.message.includes('Logg inn'))$('loginError').textContent=e.message;}finally{loading=false;}}
 try{$('name').value=localStorage.getItem('motes-family-name')||'';}catch(e){}
 $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{await request('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('name').value,code:$('code').value})});try{localStorage.setItem('motes-family-name',$('name').value);}catch(e){}$('code').value='';await load();}catch(e){$('loginError').textContent=e.message;}finally{$('loginButton').disabled=false;}};
 $('logout').onclick=async()=>{try{await disablePush();await request('/logout',{method:'POST'});showLogin();}catch(e){$('roomError').textContent=e.message;}};
@@ -285,7 +285,10 @@ async function restorePush(){
  if(!supportsPush()){$('pushToggle').disabled=true;$('pushStatus').textContent='Varsler krever en støttet nettleser. På iPhone: legg familierommet til på Hjem-skjermen og åpne det derfra.';return;}
  try{pushId=localStorage.getItem('motes-family-push-id')||'';pushRegistration=await navigator.serviceWorker.getRegistration('/familie/');pushSubscription=pushRegistration?await pushRegistration.pushManager.getSubscription():null;pushLabel();if(loggedIn)markPushVisit();}catch(e){$('pushStatus').textContent='Kunne ikke hente varselinnstillingene. Tillat lokal lagring og prøv igjen.';}
 }
+// Opening the room clears the number on the home-screen icon and old notifications.
+function clearBadge(){try{navigator.clearAppBadge?.().catch(()=>{});navigator.serviceWorker?.getRegistration('/familie/').then(r=>r?.getNotifications()).then(list=>list?.forEach(n=>n.close())).catch(()=>{});}catch(e){}}
 async function markPushVisit(){
+ if(loggedIn&&!document.hidden)clearBadge();
  if(!loggedIn||document.hidden||!pushSubscription||!pushId||pushBusy||Date.now()-lastPushVisit<30000)return;
  pushBusy=true;try{await request('/push',{method:'POST',headers:{'Content-Type':'application/json'},body:pushBody('visit')});lastPushVisit=Date.now();}catch(e){}finally{pushBusy=false;}
 }

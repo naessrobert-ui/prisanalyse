@@ -479,11 +479,11 @@ def push_subscription():
     return {'endpoint': 'https://fcm.googleapis.com/fcm/send/test-only', 'keys': {'p256dh': enc(public), 'auth': enc(b'1234567890123456')}}
 
 
-def test_push_opt_in_once_between_visits_and_off(family, monkeypatch):
+def test_push_names_counts_chat_badge_and_bulk_uploads(family, monkeypatch):
     from familie import notifications
     app, client, root = family
     sent = []
-    monkeypatch.setattr(notifications, 'webpush', lambda **kwargs: sent.append(kwargs))
+    monkeypatch.setattr(notifications, 'webpush', lambda **kwargs: sent.append(json.loads(kwargs['data'])))
     assert client.get('/familie/api/push').status_code == 401
     login(client)
     assert client.get('/familie/api/push').json()['public_key']
@@ -491,25 +491,43 @@ def test_push_opt_in_once_between_visits_and_off(family, monkeypatch):
     headers = {'X-Family-Request': '1'}
     def change(action, **extra):
         return client.post('/familie/api/push', json={'id': device, 'action': action, **extra}, headers=headers)
+    deliver = lambda later=0: app.state.push.deliver(time.time() + later)
+    gert = TestClient(app, base_url='http://localhost'); login(gert, 'Gert')
     assert change('subscribe', subscription=push_subscription()).status_code == 200
-    upload(client)  # Suppressed while the page is active.
+    upload(gert)  # suppressed while Robert's page is active (90 s)
+    deliver(60)
     assert not sent
     assert change('away').status_code == 200
-    app.state.push.deliver()
-    assert len(sent) == 1
-    upload(client)
-    app.state.push.deliver()
-    assert len(sent) == 1
-    assert change('visit').status_code == 200
-    upload(client)
-    assert len(sent) == 1
+    upload(client)  # Robert's own upload never notifies Robert
+    upload(gert); upload(gert)
+    deliver()  # bulk upload still settling: nothing yet
+    assert not sent
+    deliver(120)
+    assert sent == [{'title': 'Gert delte 3 nye bilder', 'body': 'Trykk for å se det i familierommet.', 'badge': 3, 'url': '/familie/'}]
+    deliver(240)
+    assert len(sent) == 1  # nothing new since the notification
+    with sqlite3.connect(root / 'posts.sqlite3') as conn:  # the fake clock above ran ahead; notified "10 s ago"
+        conn.execute('UPDATE push_devices SET notified_at=?', (time.time() - 10,))
+    terje = TestClient(app, base_url='http://localhost'); login(terje, 'Terje')
+    upload(terje)
+    assert terje.post('/familie/api/chat', json={'text': 'Hei mamma!', 'client_id': 'c' * 32}, headers=headers).status_code == 200
+    deliver(600)
+    assert len(sent) == 1  # at most one further notification per 30 minutes
+    deliver(2000)
+    assert sent[1]['title'] == 'Gert og Terje delte 4 nye bilder'
+    assert sent[1]['body'] == 'Terje: en ny melding i familiechatten' and sent[1]['badge'] == 5
+    assert change('visit').status_code == 200  # opening the room resets everything
     change('away')
-    app.state.push.deliver()
+    deliver(4000)
     assert len(sent) == 2
-    assert 'Robert' not in sent[0]['data']
+    gert.post('/familie/api/chat', json={'text': 'Hei!', 'client_id': 'd' * 32}, headers=headers)
+    deliver(4100)
+    assert sent[2] == {'title': 'Gert: en ny melding i familiechatten', 'body': 'Trykk for å se det i familierommet.', 'badge': 1, 'url': '/familie/?chat'}
     change('unsubscribe')
-    upload(client)
-    assert len(sent) == 2
+    upload(gert)
+    deliver(9000)
+    assert len(sent) == 3
+    gert.close(); terje.close()
 
 
 def test_push_rejects_arbitrary_endpoints_and_removes_expired(family, monkeypatch):
@@ -525,7 +543,10 @@ def test_push_rejects_arbitrary_endpoints_and_removes_expired(family, monkeypatc
     def gone(**kwargs):
         raise notifications.WebPushException('gone', response=httpx.Response(410))
     monkeypatch.setattr(notifications, 'webpush', gone)
-    upload(client)
+    gert = TestClient(app, base_url='http://localhost'); login(gert, 'Gert')
+    upload(gert)
+    app.state.push.deliver(time.time() + 120)
+    gert.close()
     with sqlite3.connect(root / 'posts.sqlite3') as conn:
         assert conn.execute('SELECT COUNT(*) FROM push_devices').fetchone()[0] == 0
 

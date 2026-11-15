@@ -281,3 +281,16 @@ denne nedlastingen med en gang. Avbrutt native deling regnes ikke som feil, og d
 klargjorte filen beholdes for et nytt trykk. Pågående henting avbrytes når kortet
 fjernes, går ut eller brukeren logger ut. Ingen filer sendes videre før brukeren
 selv velger en mottaker og fullfører delingen.
+
+## Varsler
+
+Varsler er frivillige per enhet («Slå på varsler» i rommet; på iPhone/iPad må rommet
+være lagt til på Hjem-skjermen og åpnet derfra). Et varsel sier hvem som har delt
+hva, for eksempel «Gert delte 12 nye bilder» og «Terje: 2 nye meldinger i
+familiechatten», og app-ikonet får et tall med antall nye innlegg og meldinger.
+Tallet og gamle varsler fjernes når rommet åpnes. Ingen varsler om eget innhold.
+Ved masseopplasting venter tjenesten til det har vært stille i 45 sekunder og
+sender ett samlet varsel. Deretter høyst ett nytt varsel per 30 minutter til
+rommet åpnes igjen. Ingen varsler mens rommet er åpent på enheten.
+Varselteksten er kryptert fram til enheten, men kan vises på låst skjerm; det kan
+skrus av under iPhone-innstillingene for varsler («Vis forhåndsvisninger»).

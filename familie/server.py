@@ -384,11 +384,11 @@ def create_app(data_dir: Path | str | None = None, *, secure_cookie: bool = True
                     raise HTTPException(400, "Nettleserens varseladresse er ikke gyldig.")
                 if not conn.execute("SELECT id FROM push_devices WHERE id=?", (ident,)).fetchone() and conn.execute("SELECT COUNT(*) FROM push_devices").fetchone()[0] >= 100:
                     raise HTTPException(429, "For mange varselenheter. Slå av varsler på gamle enheter først.")
-                conn.execute("INSERT OR REPLACE INTO push_devices VALUES (?,?,?,?,?,0)", (ident, json.dumps(subscription), name, now, now + 90))
+                conn.execute("INSERT OR REPLACE INTO push_devices (id,subscription,name,seen,active_until,notified,notified_at) VALUES (?,?,?,?,?,0,0)", (ident, json.dumps(subscription), name, now, now + 90))
             elif action == "unsubscribe":
                 conn.execute("DELETE FROM push_devices WHERE id=?", (ident,))
             elif action == "visit":
-                conn.execute("UPDATE push_devices SET seen=?,active_until=?,notified=0 WHERE id=?", (now, now + 90, ident))
+                conn.execute("UPDATE push_devices SET seen=?,active_until=?,notified=0,notified_at=0 WHERE id=?", (now, now + 90, ident))
             else:
                 conn.execute("UPDATE push_devices SET active_until=0 WHERE id=?", (ident,))
         return {"ok": True}
