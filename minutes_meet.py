@@ -48,6 +48,7 @@ async def joined(room,pid,reconnect=False):
     if not s:return
     if s['phase']=='recording':
         # Everyone sees the notice before incoming new participant audio is captured.
+        s['partial']=True  # The unsent tail is discarded during the new participant notice.
         s['epoch']+=1;s['start_at']=time.time()+8
     await publish(room)
 
