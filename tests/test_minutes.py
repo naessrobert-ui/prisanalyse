@@ -182,7 +182,7 @@ def test_new_joiner_gets_notice_and_everyone_can_stop(integrated):
     with c.websocket_connect('/meet/ws/test-room?name=Robert&kode=test&cid='+cid) as a:
         message(a,'welcome');d=c.post('/meet/minutes/start',headers=headers(cid)).json();first=message(a,'minutes')
         with c.websocket_connect('/meet/ws/test-room?name=Anna&kode=test&cid='+'cd'*16) as b:
-            message(b,'welcome');notice=message(b,'minutes');assert notice['phase']=='recording' and notice['epoch']>first['epoch']
+            message(b,'welcome');notice=message(b,'minutes');assert notice['phase']=='recording' and notice['epoch']>first['epoch'] and notice['partial']
             assert c.post('/meet/minutes/chunk/0',headers={**headers(cid),'X-Minutes-Epoch':str(first['epoch'])},content=wav()).status_code==409
             # A wrong reader token must never stop/delete a live recording.
             assert c.delete('/meet/minutes/report/'+d['id'],headers={'X-Minutes-Token':'ff'*32}).status_code==403
