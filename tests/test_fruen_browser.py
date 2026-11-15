@@ -290,6 +290,25 @@ def test_hidden_page_and_network_loss_end_visit(admin):
     a.context.set_offline(False)
 
 
+def test_frame_shows_no_connection_message_and_member_message_clears(admin):
+    frame = admin.device('Fruen', 'auto')
+    a = admin.device('Anne')
+    for page in (frame, a):
+        page.route('**/fruen/api/state', lambda route: route.abort())
+    shown = lambda page: page.is_visible('#state') and 'borte' in page.text_content('#state')
+    time.sleep(6)  # several failed polls, like a short restart of the server
+    assert not shown(frame) and not shown(a)
+    a.evaluate('Date.now=(n=>()=>n()+40000)(Date.now)')  # member: more than 30 s without contact
+    a.wait_for_selector('#state:has-text("midlertidig borte")', timeout=6000)
+    frame.evaluate('Date.now=(n=>()=>n()+900000)(Date.now)')  # frame: even after 15 min, nothing
+    time.sleep(3)
+    assert not shown(frame)
+    for page in (frame, a):
+        page.unroute('**/fruen/api/state')
+    a.wait_for_function('document.getElementById("state").hidden', timeout=6000)  # cleared once contact is back
+    frame.wait_for_selector('#photo[src]:not([hidden])')
+
+
 def test_denied_camera_revoked_device_and_used_invite(admin, browser, base):
     a = admin.device('Anne', activate=False)
     a.evaluate('window.__gumDeny=true')

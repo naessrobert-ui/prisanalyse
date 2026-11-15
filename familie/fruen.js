@@ -10,7 +10,9 @@ let clipSound=false;try{clipSound=localStorage.getItem('fruen-clip-sound')==='1'
 
 async function api(path,data){const r=await fetch('/fruen/api/'+path,{method:data===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Fruen-Request':'1'},body:data===undefined?undefined:JSON.stringify(data)});let v;try{v=await r.json();}catch(e){throw Error('Besøkstjenesten svarer ikke.');}if(!r.ok){const e=Error(v.detail||'Kunne ikke fullføre.');e.status=r.status;throw e;}return v;}
 // Short confirmations fade out so the picture frame stays calm; problems stay visible.
-function status(text,sticky=false){clearTimeout(statusTimer);const box=$('state');box.textContent=text;box.hidden=false;if(!sticky)statusTimer=setTimeout(()=>{box.hidden=true;},8000);}
+// On her frame only the 'needs re-activation' notice stays; everything else fades.
+let lostSince=0,connectionNotice=false;
+function status(text,sticky=false,keep=false){if(sticky&&!keep&&me?.kind==='auto')sticky=false;connectionNotice=false;clearTimeout(statusTimer);const box=$('state');box.textContent=text;box.hidden=false;if(!sticky)statusTimer=setTimeout(()=>{box.hidden=true;},8000);}
 function stopStream(stream){stream?.getTracks().forEach(t=>t.stop());}
 function sound(){if(!context||context.state!=='running')return;for(const [frequency,delay] of [[523,0],[659,.2]]){const o=context.createOscillator(),g=context.createGain(),start=context.currentTime+delay;o.frequency.value=frequency;g.gain.setValueAtTime(.045,start);g.gain.exponentialRampToValueAtTime(.001,start+.25);o.connect(g);g.connect(context.destination);o.start(start);o.stop(start+.26);o.onended=()=>{o.disconnect();g.disconnect();};}}
 function ringSound(){if(ringTimer)return;context?.resume().catch(()=>{});sound();ringTimer=setInterval(sound,3000);}
@@ -158,12 +160,12 @@ function endCall(){const id=call?.id;if(id){ignored.add(id);if(ignored.size>20)i
 function locked(){armed=false;endCall();pausePhotos();resetClip();$('photo').removeAttribute('src');$('photo').hidden=true;photos=[];bag=[];currentPhoto=null;me=null;$('setup').hidden=true;$('controls').hidden=true;$('welcome').hidden=false;$('enrol').hidden=true;$('welcomeText').textContent='En pårørende må koble denne enheten til igjen.';status('Besøk er ikke tilgjengelig.',true);}
 async function poll(){
  if(!me||polling)return;clearTimeout(pollTimer);polling=true;
- try{const value=await api('state',{ready:armed&&!document.hidden&&(!night||call?.status==='accepted'),after:signalSeq});lastPoll=Date.now();setNight(!!value.night);contacts=value.contacts;if($('contactDialog').open)contactList();if(armed&&!document.hidden)await processCall(value.call);else if(call)endCall();}
- catch(e){if(e.status===401)locked();else status('Forbindelsen er midlertidig borte. Bildene vises videre.',true);}
+ try{const value=await api('state',{ready:armed&&!document.hidden&&(!night||call?.status==='accepted'),after:signalSeq});lastPoll=Date.now();lostSince=0;if(connectionNotice){connectionNotice=false;$('state').hidden=true;}setNight(!!value.night);contacts=value.contacts;if($('contactDialog').open)contactList();if(armed&&!document.hidden)await processCall(value.call);else if(call)endCall();}
+ catch(e){if(e.status===401)locked();else{if(!lostSince)lostSince=Date.now();if(me?.kind==='member'&&Date.now()-lostSince>30000&&!connectionNotice){status('Forbindelsen er midlertidig borte. Bildene vises videre.',true);connectionNotice=true;}}}
  finally{polling=false;if(me)pollTimer=setTimeout(poll,2000);}
 }
 async function boot(){
- try{me=await api('me');$('welcome').hidden=true;renderControls();await loadPhotos();if(me.kind==='member'||location.pathname.endsWith('/klargjor')){$('setup').hidden=false;$('setupTitle').textContent=me.kind==='auto'?'Klargjør Fruens bildeskjerm':'Aktiver familiebesøk';}else status('Familiebilder · besøk må aktiveres av en pårørende etter ny innlasting.',true);poll();}
+ try{me=await api('me');$('welcome').hidden=true;renderControls();await loadPhotos();if(me.kind==='member'||location.pathname.endsWith('/klargjor')){$('setup').hidden=false;$('setupTitle').textContent=me.kind==='auto'?'Klargjør Fruens bildeskjerm':'Aktiver familiebesøk';}else status('Familiebilder · besøk må aktiveres av en pårørende etter ny innlasting.',true,true);poll();}
  catch(e){$('welcome').hidden=false;status('Privat familiebesøk',true);}
 }
 $('activate').onclick=activate;
@@ -175,7 +177,7 @@ $('enrol').onclick=async()=>{if(!pendingToken)return;try{const a=await api('enro
 if(!invitation)boot();
 setInterval(loadPhotos,60000);
 setInterval(()=>{
- if(call&&Date.now()-lastPoll>10000){status('Forbindelsen ble brutt. Kamera og mikrofon er slått av.',true);endCall();}
+ if(call&&Date.now()-lastPoll>10000){status('Forbindelsen ble brutt. Kamera og mikrofon er slått av.',true);connectionNotice=true;endCall();}
  // iOS can suspend or interrupt audio; keep trying quietly. The name is always shown.
  if(armed&&context&&context.state!=='running')context.resume().catch(()=>{});
 },1000);
