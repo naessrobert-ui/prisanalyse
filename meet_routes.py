@@ -47,6 +47,7 @@ from websockets.exceptions import WebSocketException
 import johnny_ai
 import yvonne_voice
 import minutes_meet
+import meet_plans
 
 router = APIRouter()
 
@@ -259,6 +260,12 @@ def _har_tilgang(kode: str, inv: str, rom: str) -> bool:
     return _gyldig_invitasjon(inv, rom)
 
 
+async def _meet_access(kode: str, inv: str, rom: str) -> bool:
+    if meet_plans.ROOM.fullmatch(rom):
+        return await meet_plans.authorize(rom, inv)
+    return _har_tilgang(kode, inv, rom)
+
+
 def _deltaker_id(cid: str) -> str:
     """Fast id for en nettleserfane, avledet fra en hemmelig klient-id.
 
@@ -349,6 +356,10 @@ async def meet_invite(rom: str = Query(""), kode: str = Query(""), inv: str = Qu
     rom = _rens_rom(rom)
     if len(rom) < 3:
         return JSONResponse({"feil": "ugyldig rom"}, status_code=400)
+    if meet_plans.ROOM.fullmatch(rom):
+        if not await meet_plans.authorize(rom, inv):
+            return JSONResponse({"feil":"Møtet er avlyst, utløpt eller lenken er ugyldig."},status_code=401)
+        return JSONResponse({"rom":rom,"inv":inv,"utloper":None},headers={"Cache-Control":"no-store"})
     if not KODE:
         return JSONResponse({"rom": rom, "inv": "", "utloper": None}, headers={"Cache-Control": "no-store"})
     if kode and secrets.compare_digest(kode.encode(), KODE.encode()):
@@ -362,7 +373,7 @@ async def meet_invite(rom: str = Query(""), kode: str = Query(""), inv: str = Qu
 @router.get("/meet/ice", include_in_schema=False)
 async def meet_ice(kode: str = Query(""), inv: str = Query(""), rom: str = Query("")):
     """ICE-servere til nettleseren: STUN alltid, TURN når det er satt opp."""
-    if not _har_tilgang(kode, inv, _rens_rom(rom)):
+    if not await _meet_access(kode, inv, _rens_rom(rom)):
         return JSONResponse({"feil": "feil tilgangskode"}, status_code=401)
     if not (TURN_KEY_ID and TURN_TOKEN):
         return JSONResponse({"iceServers": STUN, "turn": False}, headers={"Cache-Control": "no-store"})
@@ -388,7 +399,7 @@ async def meet_ws(
 ):
     await ws.accept()
     rom = _rens_rom(rom)
-    if not _har_tilgang(kode, inv, rom):
+    if not await _meet_access(kode, inv, rom):
         await ws.close(code=4401)
         return
     if len(rom) < 3:
@@ -471,3 +482,5 @@ async def meet_ws(
 
 minutes_meet.configure(_rom, _deltaker_id, _rens_rom, _send, _kringkast)
 router.include_router(minutes_meet.router)
+
+router.include_router(meet_plans.router)
