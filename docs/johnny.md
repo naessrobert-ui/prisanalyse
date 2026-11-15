@@ -1,8 +1,8 @@
 # Yvonne – valgfri spørsmål/svar-assistent i møter
 
-Denne versjonen gir et avkrysningsvalg «Foreslå Yvonne som møteassistent» før du
-oppretter eller blir med i et møte. Det er av som standard. Yvonne kan også
-foreslås inne i møtet. Hver tilkoblet deltaker må godkjenne selv før han blir klar.
+Yvonne foreslås med «Foreslå Yvonne» inne i møtet. Forsiden viser bare
+oppretting eller deltakelse og har ikke noe AI-valg. Hver tilkoblet deltaker
+må godkjenne selv før hun blir klar.
 Et nei eller «Stopp Yvonne» fjerner samtykket og stopper pågående spørsmål.
 Nye deltakere og nye WebSocket-forbindelser pauser Yvonne og krever ny godkjenning.
 

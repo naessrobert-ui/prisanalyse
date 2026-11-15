@@ -203,12 +203,10 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
         <input class="field" id="kodeIn" type="password" maxlength="100" autocomplete="off" placeholder="Fra den som inviterte deg">
       </div>
       <p class="hint invited hidden" id="invitedNote" role="status"></p>
-      <label class="johnny-option" for="wantJohnny"><input type="checkbox" id="wantJohnny"><span><strong>Foreslå Yvonne som møteassistent</strong><small>Valgfritt. Alle må godkjenne i møtet. Bare aktive spørsmål sendes til Yvonne, via knappen eller valgfri lokal navnegjenkjenning. Hun svarer med tale og tekst.</small></span></label>
-      <p class="hint" id="johnnySetup"></p>
       <button class="btn primary wide" id="joinBtn" type="button">Opprett møte</button>
       <button class="sbtn hidden" id="minutesLast" type="button">Hent siste referatutkast</button>
       <p class="hint" id="landNote" role="status" aria-live="polite"></p>
-      <div class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6z"/><path d="m8 12 3 3 5-6"/></svg><span>Du velger selv når kameraet slås på. Del møtelenken med dem du vil invitere. Yvonne er valgfri og krever alles godkjenning.</span></div>
+      <div class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6z"/><path d="m8 12 3 3 5-6"/></svg><span>Du velger selv når kameraet slås på. Del møtelenken med dem du vil invitere.</span></div>
     </section>
   </div>
   <section class="steps" aria-label="Slik fungerer det">
@@ -307,7 +305,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     actx:null, meters:new Map(), speaking:new Set(), camEls:new Map(), earlyIce:new Map()
   };
 
-  const J={available:false,active:false,proposed:false,approved:[],participants:0,busy:false,listening:'',listener:'',recorder:null,chunks:[],discard:false,timer:null,controller:null,speaking:false,lastAnswer:null,autoPropose:false,proposedOnce:false,voiceId:null,voiceChunks:[],voiceBytes:0,voiceEnded:false,voiceComplete:false,sources:new Set(),playAt:0};
+  const J={available:false,active:false,proposed:false,approved:[],participants:0,busy:false,listening:'',listener:'',recorder:null,chunks:[],discard:false,timer:null,controller:null,speaking:false,lastAnswer:null,voiceId:null,voiceChunks:[],voiceBytes:0,voiceEnded:false,voiceComplete:false,sources:new Set(),playAt:0};
 
 
   const MR={available:false,state:null,ownerToken:null,capture:null,epoch:null,seq:0,pending:[],sending:false,timer:null,poll:null,report:null,loading:false,finishing:false};
@@ -447,7 +445,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   $("roomIn").addEventListener("input",updateInvitation);
   if(location.hash.length>1&&!location.hash.startsWith('#referat=')){ $("roomIn").value=location.hash.slice(1); meetingMode="join"; }
   setMode(meetingMode);
-  fetch(apiBase+'/meet/johnny/status',{cache:'no-store'}).then(r=>r.json()).then(d=>{J.available=!!d.available;$('wantJohnny').disabled=!J.available;if(!J.available)$('johnnySetup').textContent='Yvonne er ikke aktivert av eieren ennå. Vanlige møter virker uten ham.';}).catch(()=>{$('wantJohnny').disabled=true;$('johnnySetup').textContent='Kan ikke sjekke Yvonne nå. Vanlige møter virker uten ham.';});
+  fetch(apiBase+'/meet/johnny/status',{cache:'no-store'}).then(r=>r.json()).then(d=>{J.available=!!d.available;renderYvonne();}).catch(()=>{J.available=false;renderYvonne();});
   if(location.protocol!=="https:" && location.hostname!=="localhost" && location.hostname!=="127.0.0.1")
     $("landNote").textContent="Siden må åpnes via https for at mikrofon og kamera skal virke.";
   $("joinBtn").onclick=join;
@@ -472,7 +470,6 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
         if(S.inv && parseInt(S.inv,10)*1000<Date.now()) throw new Error("Invitasjonen har gått ut. Be møteverten om en ny lenke.");
       }
     }catch(e){ $("landNote").textContent=e.message||"Sjekk møtelenken og prøv igjen."; joining=false;$("joinBtn").disabled=false;return; }
-    J.autoPropose=$('wantJohnny').checked;J.proposedOnce=false;
     Object.assign(S,{name,room,kode,leaving:false,retry:0});
     const rnd=new Uint8Array(16); crypto.getRandomValues(rnd); S.cid=[...rnd].map(b=>b.toString(16).padStart(2,"0")).join("");
     try{localStorage.setItem("nammeet-name",name);}catch(e){}
@@ -619,7 +616,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   }
   $('johnnyPropose').onclick=()=>{ $('johnnyError').textContent='';wsSend({t:'johnny-propose'});};
   $('johnnyYes').onclick=()=>{S.actx?.resume().catch(()=>{});$('johnnyError').textContent='';wsSend({t:'johnny-consent',accept:true});};
-  const decline=()=>{J.autoPropose=false;stopYvonneLocal();wsSend({t:'johnny-consent',accept:false});};
+  const decline=()=>{stopYvonneLocal();wsSend({t:'johnny-consent',accept:false});};
   $('johnnyNo').onclick=decline;$('johnnyStop').onclick=decline;$('johnnyReplay').onclick=replayYvonne;
   $('johnnyAsk').onclick=()=>startYvonneQuestion(false);
   function startYvonneQuestion(automatic){
@@ -663,7 +660,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     ws.onmessage = ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; } onMsg(m); };
     ws.onclose = ev=>{
       if(S.ws!==ws) return;
-      minuteDisconnected();clearInterval(S.pingTimer);Object.assign(J,{active:false,proposed:false,approved:[],busy:false,listening:'',listener:'',proposedOnce:false});stopYvonneLocal();renderYvonne();
+      minuteDisconnected();clearInterval(S.pingTimer);Object.assign(J,{active:false,proposed:false,approved:[],busy:false,listening:'',listener:''});stopYvonneLocal();renderYvonne();
       if(S.leaving) return;
       if(ev.code===4401){ backToLanding(S.inv?"Invitasjonen gjelder ikke lenger. Be den som inviterte deg om en ny lenke.":"Feil tilgangskode."); return; }
       if(ev.code===4409){ backToLanding("Rommet er fullt."); return; }
@@ -695,10 +692,9 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       clearInterval(S.pingTimer); S.pingTimer=setInterval(()=>wsSend({t:"ping"}), 25000);
       for(const id of S.peers.keys()) if(S.myId<id) startOffer(id);
       render(); updateBadge(); startMeterLoop();renderYvonne();
-      if(J.autoPropose&&!J.proposedOnce){J.proposedOnce=true;wsSend({t:'johnny-propose'});}
     } else if(m.t==='johnny'){
       Object.assign(J,{available:!!m.available,active:!!m.active,proposed:!!m.proposed,approved:m.approved||[],participants:m.participants||0,busy:!!m.busy,listening:m.listening||'',listener:m.listener||''});
-      if(!J.proposed)J.autoPropose=false;if(!J.active)stopYvonneLocal();renderYvonne();
+      if(!J.active)stopYvonneLocal();renderYvonne();
     } else if(m.t==='johnny-answer'){
       stopVoice(true);J.lastAnswer=m;J.voiceId=m.voiceId||null;addYvonneAnswer(m);renderYvonne();
     } else if(m.t==='johnny-audio'){
