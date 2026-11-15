@@ -105,6 +105,7 @@ def admin(browser, base):
         return page
 
     invite.device = device
+    invite.created = created
     invite.ctx = ctx
     yield invite
     accounts = ctx.request.get('/fruen/api/admin/accounts').json()['accounts']
@@ -211,6 +212,27 @@ def test_decline_cancel_and_late_camera_are_released(admin):
     assert frame.evaluate('window.__streams.length') <= before + 1
     assert live(frame) == 0 and live(a) == 0
     assert frame.is_hidden('#visit')
+
+
+def test_frame_ready_even_when_ios_keeps_audio_paused(admin, browser, base):
+    # Simulates iPad Safari leaving Web Audio suspended after the camera check.
+    token = admin('Fruen', 'auto')
+    ctx = browser.new_context(base_url=base, permissions=['camera', 'microphone'], bypass_csp=True)
+    ctx.add_init_script(INIT + """
+      Object.defineProperty(AudioContext.prototype,'state',{get(){return 'suspended';}});
+      AudioContext.prototype.resume=function(){return new Promise(()=>{});};""")
+    admin.created.append(('Fruen', ctx))
+    frame = ctx.new_page()
+    frame.goto('/fruen#invite=' + token)
+    frame.click('#enrol')
+    frame.click('#activate')
+    frame.wait_for_selector('#setup', state='hidden', timeout=10000)
+    a = admin.device('Anne')
+    call(a, 'Fruen')
+    frame.wait_for_selector('#ringName:has-text("Anne kommer på besøk")')
+    assert_media_flows(a, frame)
+    a.click('#hangup')
+    assert_back_to_photos(frame)
 
 
 def test_slow_camera_does_not_stop_heartbeat(admin):
