@@ -315,6 +315,36 @@ def test_denied_camera_revoked_device_and_used_invite(admin, browser, base):
         ctx.close()
 
 
+def test_night_mode(admin):
+    frame = admin.device('Fruen', 'auto')
+    a = admin.device('Anne')
+    night = lambda on: admin.ctx.request.post(f'/fruen/api/test/night?on={on}')
+    try:
+        frame.wait_for_selector('#photo[src]:not([hidden])')
+        # A visit in progress when night starts continues; the screen goes dark afterwards.
+        call(a, 'Fruen')
+        assert_media_flows(a, frame)
+        night(1)
+        time.sleep(5)
+        assert frame.is_visible('#visit') and frame.is_hidden('#night')
+        a.click('#hangup')
+        frame.wait_for_selector('#night', state='visible', timeout=10000)
+        assert live(frame) == 0
+        a.click('#openContacts')
+        a.wait_for_selector('#contacts button:has-text("Sover")[disabled]', timeout=10000)
+        a.click('#closeContacts')
+        night(0)
+        frame.wait_for_selector('#night', state='hidden', timeout=10000)
+        frame.wait_for_selector('#photo[src]:not([hidden])', timeout=15000)
+        time.sleep(4)  # two polls: the frame reports itself ready again
+        call(a, 'Fruen')
+        assert_media_flows(a, frame)
+        a.click('#hangup')
+        assert_back_to_photos(frame)
+    finally:
+        night(-1)
+
+
 @pytest.mark.parametrize('size', [(820, 1180), (1180, 820), (375, 667)])
 def test_layout_screenshots(admin, size, tmp_path):
     a = admin.device('Anne', viewport={'width': size[0], 'height': size[1]})

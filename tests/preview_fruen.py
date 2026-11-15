@@ -27,6 +27,14 @@ with sqlite3.connect(root/'posts.sqlite3') as conn:
         Image.new('RGB',(900,600),color).save(path)
         conn.execute('INSERT INTO posts(id,mime,suffix,name,caption,created,expires,bytes) VALUES(?,?,?,?,?,?,?,?)',(ident,'image/png','.png','Lokal test',title,time.time(),0,path.stat().st_size))
 
+@app.post('/fruen/api/test/night')
+async def local_night(on:int):
+    # Demo/test only: force night mode on (1), off (0) or back to the clock (-1).
+    import familie.fruen as fruen_module
+    fruen_module.night_override={1:True,0:False}.get(on)
+    return {'night':fruen_module.night_override}
+
+
 @app.get('/fruen/api/ice')
 async def local_ice(request:Request):
     token=request.cookies.get('motes_fruen_session','')

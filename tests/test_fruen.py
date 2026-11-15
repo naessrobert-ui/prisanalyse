@@ -146,3 +146,26 @@ def test_expired_invitation_and_wrong_admin_code(fruen):
     assert c.post('/fruen/api/admin/login',headers=HEAD,json={'code':'feil-kode-som-er-lang'}).status_code==401
     assert c.get('/fruen/api/admin/accounts').status_code==401
     c.close()
+
+
+def test_night_mode_blocks_calls_to_frame_only(fruen,monkeypatch):
+    import familie.fruen as fruen_module
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    oslo=ZoneInfo('Europe/Oslo')
+    at=lambda h,m=0:datetime(2026,11,15,h,m,tzinfo=oslo).timestamp()
+    assert fruen_module.is_night(at(22)) and fruen_module.is_night(at(3)) and fruen_module.is_night(at(6,59))
+    assert not fruen_module.is_night(at(7)) and not fruen_module.is_night(at(21,59))
+    app,admin,root=fruen;a,one,_=enrol(app,admin,'A');b,two,_=enrol(app,admin,'B');f,frame,_=enrol(app,admin,'Fruen','auto')
+    ready(a);ready(b);ready(f)
+    monkeypatch.setattr(fruen_module,'night_override',True)
+    state=ready(f).json();assert state['night'] is True
+    contact=next(x for x in ready(a).json()['contacts'] if x['id']==frame['id'])
+    assert contact['sleeping'] is True and contact['online'] is False
+    r=post(a,'call',{'to':frame['id']});assert r.status_code==409 and 'sover' in r.json()['detail']
+    assert ready(a).json()['night'] is False
+    assert post(a,'call',{'to':two['id']}).status_code==200  # family members can still call each other
+    assert any(x['sleeping'] for x in admin.get('/fruen/api/admin/accounts').json()['accounts'])
+    monkeypatch.setattr(fruen_module,'night_override',False)
+    assert ready(f).json()['night'] is False
+    a.close();b.close();f.close()

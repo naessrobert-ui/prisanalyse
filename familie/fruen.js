@@ -1,6 +1,7 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
 let me=null,armed=false,context=null,wake=null,photos=[],bag=[],currentPhoto=null,photoTimer=null,showToken=0,pollTimer=null,lastPoll=Date.now(),polling=false;
+let night=false;
 let call=null,pc=null,pcCall=null,peerState=null,local=null,remote=null,remoteAudio=null,signalSeq=0,ice=[];
 let autoTimer=null,ringTimer=null,connectionTimer=null,disconnectTimer=null,statusTimer=null,setupBusy=false,contacts=[],pendingToken=null,acceptingId=null;
 const ignored=new Set();
@@ -21,7 +22,7 @@ function pausePhotos(){showToken++;clearTimeout(photoTimer);photoTimer=null;$('c
 function resetClip(){const clip=$('clip');clip.onended=clip.onerror=clip.onloadeddata=null;clip.pause();clip.removeAttribute('src');clip.load();clip.hidden=true;}
 function nextPhoto(){
  if(call&&call.status==='accepted')return;
- pausePhotos();const token=showToken;
+ pausePhotos();if(night)return;const token=showToken;
  if(!photos.length){currentPhoto=null;resetClip();$('photo').hidden=true;$('photo').removeAttribute('src');$('empty').hidden=false;$('caption').textContent='';return;}
  if(!bag.length){bag=shuffled(photos);if(bag.length>1&&bag[0].id===currentPhoto?.id)bag.push(bag.shift());}
  const item=bag.shift();currentPhoto=item;const url='/fruen/media/'+item.id;
@@ -78,8 +79,12 @@ function playRemoteAudio(track,connection){
 }
 
 // ---- Visits ----------------------------------------------------------------
+// Night mode (automatic frame only): black screen, no new calls. A visit already in
+// progress continues; the screen goes dark when the caller hangs up.
+function renderNight(){$('night').hidden=!(night&&!(call&&call.status==='accepted'));}
+function setNight(on){if(on===night){renderNight();return;}night=on;renderNight();if(night){if(!(call&&call.status==='accepted'))pausePhotos();}else nextPhoto();}
 function renderControls(){const interactive=me?.kind==='member';$('controls').hidden=!interactive;$('resume').hidden=armed;$('openContacts').disabled=!armed;$('hangup').hidden=!call||call.status==='ended';}
-function contactList(){const box=$('contacts');box.replaceChildren();for(const person of contacts){const button=document.createElement('button');const title=document.createElement('span');title.textContent=person.name;const subtitle=document.createElement('small');subtitle.textContent=person.online?'Klar for besøk':'Ikke tilkoblet';button.append(title,subtitle);button.disabled=!person.online||!!call;button.onclick=()=>startCall(person);box.append(button);}if(!contacts.length){const p=document.createElement('p');p.textContent='Ingen andre enheter er invitert ennå.';box.append(p);}}
+function contactList(){const box=$('contacts');box.replaceChildren();for(const person of contacts){const button=document.createElement('button');const title=document.createElement('span');title.textContent=person.name;const subtitle=document.createElement('small');subtitle.textContent=person.sleeping?'Sover (nattmodus 22–07)':person.online?'Klar for besøk':'Ikke tilkoblet';button.append(title,subtitle);button.disabled=!person.online||!!call;button.onclick=()=>startCall(person);box.append(button);}if(!contacts.length){const p=document.createElement('p');p.textContent='Ingen andre enheter er invitert ennå.';box.append(p);}}
 async function startCall(person){if(call)return;try{context?.resume().catch(()=>{});const v=await api('call',{to:person.id});call={id:v.id,status:'ringing',outgoing:true,peer_name:person.name};signalSeq=0;showRinging(call);$('contactDialog').close();poll();}catch(e){status(e.message,true);}}
 function showRinging(value){
  $('ringing').hidden=false;$('ringName').textContent=value.outgoing?'Ringer '+value.peer_name:value.peer_name+' kommer på besøk';$('ringText').textContent=value.outgoing?'Venter på svar …':me.kind==='auto'?'Et lite øyeblikk. Samtalen starter automatisk.':'Vil du svare?';
@@ -147,13 +152,13 @@ function stopCall(){
  if(pc){pc.ontrack=null;pc.onicecandidate=null;pc.onconnectionstatechange=null;pc.close();pc=null;}
  pcCall=null;peerState=null;stopStream(local);local=null;stopStream(remote);remote=null;remoteAudio?.disconnect();remoteAudio=null;speaker.pause();speaker.srcObject=null;
  ice=[];acceptingId=null;call=null;signalSeq=0;
- $('remote').srcObject=null;$('local').srcObject=null;$('local').hidden=true;$('visit').hidden=true;$('ringing').hidden=true;renderControls();nextPhoto();
+ $('remote').srcObject=null;$('local').srcObject=null;$('local').hidden=true;$('visit').hidden=true;$('ringing').hidden=true;renderControls();renderNight();nextPhoto();
 }
 function endCall(){const id=call?.id;if(id){ignored.add(id);if(ignored.size>20)ignored.delete(ignored.values().next().value);}stopCall();if(id)api('call/'+id+'/end',{}).catch(()=>{});}
 function locked(){armed=false;endCall();pausePhotos();resetClip();$('photo').removeAttribute('src');$('photo').hidden=true;photos=[];bag=[];currentPhoto=null;me=null;$('setup').hidden=true;$('controls').hidden=true;$('welcome').hidden=false;$('enrol').hidden=true;$('welcomeText').textContent='En pårørende må koble denne enheten til igjen.';status('Besøk er ikke tilgjengelig.',true);}
 async function poll(){
  if(!me||polling)return;clearTimeout(pollTimer);polling=true;
- try{const value=await api('state',{ready:armed&&!document.hidden,after:signalSeq});lastPoll=Date.now();contacts=value.contacts;if($('contactDialog').open)contactList();if(armed&&!document.hidden)await processCall(value.call);else if(call)endCall();}
+ try{const value=await api('state',{ready:armed&&!document.hidden&&(!night||call?.status==='accepted'),after:signalSeq});lastPoll=Date.now();setNight(!!value.night);contacts=value.contacts;if($('contactDialog').open)contactList();if(armed&&!document.hidden)await processCall(value.call);else if(call)endCall();}
  catch(e){if(e.status===401)locked();else status('Forbindelsen er midlertidig borte. Bildene vises videre.',true);}
  finally{polling=false;if(me)pollTimer=setTimeout(poll,2000);}
 }

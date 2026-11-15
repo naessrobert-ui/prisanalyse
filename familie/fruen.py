@@ -6,6 +6,7 @@ import json
 import re
 import secrets
 import time
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import HTTPException, Request
@@ -13,6 +14,19 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 COOKIE='motes_fruen_session'
 ADMIN='motes_fruen_admin'
+NIGHT=(22,7)  # local hours in Norway: the automatic frame sleeps and takes no calls
+night_override=None  # tests only
+
+
+def is_night(now=None):
+    if night_override is not None:return night_override
+    try:
+        from zoneinfo import ZoneInfo
+        hour=datetime.fromtimestamp(now or time.time(),ZoneInfo('Europe/Oslo')).hour
+    except Exception:
+        hour=datetime.fromtimestamp(now or time.time()).hour
+    start,end=NIGHT
+    return (hour>=start or hour<end) if start>end else start<=hour<end
 
 
 def register(app,root,db,media_response,secure_cookie):
@@ -111,7 +125,8 @@ def register(app,root,db,media_response,secure_cookie):
     async def accounts(request:Request):
         admin(request);cleanup()
         with db() as c:rows=c.execute('SELECT id,name,kind,expires,active,seen,ready FROM fruen_accounts ORDER BY name').fetchall()
-        return {'accounts':[dict(r) for r in rows]}
+        night=is_night()
+        return {'accounts':[dict(r,sleeping=r['kind']=='auto' and night) for r in rows]}
 
     @app.post('/fruen/api/admin/invite')
     async def invite(request:Request):
@@ -190,7 +205,8 @@ def register(app,root,db,media_response,secure_cookie):
                 if not isinstance(after,int) or after<0:raise HTTPException(400,'Ugyldig signalposisjon.')
                 r['signals']=[{'seq':s['seq'],'kind':s['kind'],'data':json.loads(s['data'])} for s in c.execute('SELECT * FROM fruen_signals WHERE call_id=? AND recipient=? AND seq>? ORDER BY seq',(r['id'],a['id'],after))]
                 result=r
-        return {'contacts':[{'id':r['id'],'name':r['name'],'kind':r['kind'],'online':bool(r['ready'] and r['seen']>now-10)} for r in contacts],'call':result}
+        night=is_night(now)
+        return {'contacts':[{'id':r['id'],'name':r['name'],'kind':r['kind'],'sleeping':r['kind']=='auto' and night,'online':bool(r['ready'] and r['seen']>now-10) and not (r['kind']=='auto' and night)} for r in contacts],'call':result,'night':a['kind']=='auto' and night}
 
     @app.post('/fruen/api/call')
     async def ring(request:Request):
@@ -201,6 +217,7 @@ def register(app,root,db,media_response,secure_cookie):
         with db() as c:
             c.execute('BEGIN IMMEDIATE')
             peer=c.execute('SELECT * FROM fruen_accounts WHERE id=? AND active=1 AND expires>?',(target,now)).fetchone()
+            if peer and peer['kind']=='auto' and is_night(now):raise HTTPException(409,peer['name']+' sover nå (nattmodus 22–07).')
             if not peer or peer['id']==a['id'] or not peer['ready'] or peer['seen']<now-10 or not a['ready'] or a['seen']<now-10:raise HTTPException(409,'Enheten er ikke klar for besøk.')
             if c.execute("SELECT 1 FROM fruen_calls WHERE status!='ended' AND (caller IN (?,?) OR callee IN (?,?))",(a['id'],target,a['id'],target)).fetchone():raise HTTPException(409,'En av dere er allerede i en samtale.')
             ident=secrets.token_hex(16);c.execute("INSERT INTO fruen_calls(id,caller,callee,status,created) VALUES(?,?,?,'ringing',?)",(ident,a['id'],target,now))
