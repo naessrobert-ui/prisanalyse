@@ -46,6 +46,7 @@ from websockets.exceptions import WebSocketException
 
 import johnny_ai
 import yvonne_voice
+import minutes_meet
 
 router = APIRouter()
 
@@ -417,6 +418,7 @@ async def meet_ws(
     await _kringkast(rom, {"t": "peer-joined", "peer": {"id": pid, "name": meg["name"], "state": {}}}, unntatt=pid)
 
     await _johnny_publish(rom)
+    await minutes_meet.joined(rom, pid, reconnect=gammel is not None)
     try:
         while True:
             raw = await ws.receive_text()
@@ -461,6 +463,11 @@ async def meet_ws(
         if fjernet:
             _johnny_pause(rom, remove=not bool(_rom.get(rom)))
             await _johnny_publish(rom)
+            await minutes_meet.left(rom, pid)
             # bye=True: deltakeren gikk selv. Ellers kan det være et kort brudd (f.eks. ny deploy),
             # og klientene beholder lyd og bilde en stund i tilfelle deltakeren kommer tilbake.
             await _kringkast(rom, {"t": "peer-left", "id": pid, "bye": bool(meg.get("bye"))})
+
+
+minutes_meet.configure(_rom, _deltaker_id, _rens_rom, _send, _kringkast)
+router.include_router(minutes_meet.router)

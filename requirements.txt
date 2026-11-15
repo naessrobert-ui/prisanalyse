@@ -113,3 +113,6 @@ psycopg-pool
 websocket-client>=1.8.0
 websockets>=15.0
 timezonefinder>=6.5
+
+# Signed requests to the local Pi meeting transcription service
+cryptography>=44,<49
