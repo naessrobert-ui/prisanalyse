@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-15T10:20:00+00:00",
+  "generated_at": "2026-11-16T04:10:00+00:00",
   "items": [
+    {
+      "id": "686528",
+      "market": "XOSL",
+      "ticker": "JIN",
+      "issuer": "Jinhui Shipping and Transport. Ltd",
+      "title": "Financial calendar",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T04:03:17.989000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686528",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686525",
       "market": "XOSL",
@@ -13260,23 +13277,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686113",
-      "market": "XOSL",
-      "ticker": "COLG",
-      "issuer": "Color Group AS",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-10T13:05:10.285000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686113",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -13415,19 +13415,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T04:00:00+00:00",
+  "last_checked_at": "2026-11-16T04:10:00+00:00",
   "monitor_stats": {
-    "fetched": 0,
-    "recent": 0,
+    "fetched": 1,
+    "recent": 1,
     "already_seen": 0,
     "eligible": 0,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 0,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "",
+    "source_latest_at": "2026-11-16T04:03:17.989000+00:00",
     "indirect": 0
   }
 }
