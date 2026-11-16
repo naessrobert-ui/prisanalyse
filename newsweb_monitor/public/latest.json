@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T06:10:00+00:00",
+  "generated_at": "2026-11-16T06:30:00+00:00",
   "items": [
+    {
+      "id": "686536",
+      "market": "XOSL",
+      "ticker": "SNOR",
+      "issuer": "SpareBank 1 Nordmøre",
+      "title": "SpareBank 1 Nordmøre: Mulig tilbakekjøp av opptil 13.000 egne egenkapitalbevis",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T06:30:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/686536",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686534",
       "market": "XOSL",
@@ -13318,23 +13335,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686118",
-      "market": "XOSL",
-      "ticker": "LYSE",
-      "issuer": "Lyse AS",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-10T13:05:39.936000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686118",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -13473,19 +13473,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T06:20:00+00:00",
+  "last_checked_at": "2026-11-16T06:30:00+00:00",
   "monitor_stats": {
-    "fetched": 4,
-    "recent": 4,
+    "fetched": 5,
+    "recent": 5,
     "already_seen": 4,
     "eligible": 0,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 0,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T06:00:25.725000+00:00",
+    "source_latest_at": "2026-11-16T06:30:00+00:00",
     "indirect": 0
   }
 }
