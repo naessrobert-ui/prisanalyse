@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T11:40:00+00:00",
+  "generated_at": "2026-11-16T11:50:00+00:00",
   "items": [
+    {
+      "id": "686594",
+      "market": "XOSL",
+      "ticker": "ENDUR",
+      "issuer": "Endúr ASA",
+      "title": "Endúr ASA - Notification of trades, week 46 2026",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T11:46:03.084000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686594",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686592",
       "market": "XOSL",
@@ -248,18 +265,18 @@
       "ticker": "FERT",
       "issuer": "Fertiberia Corporate S.L.U.",
       "title": "Consolidated Interim Report Q3-2026",
-      "headline": "Fertiberia offentliggjør foreløpig kvartalsrapport for Q3 2026 uten detaljer",
-      "lead": "Fertiberia har offentliggjort sin konsoliderte foreløpige kvartalsrapport for tredje kvartal 2026, men rapporten inneholder ingen nøkkeltall eller prognoser. Videre informasjon mangler foreløpig.",
+      "headline": "Fertiberia publiserer foreløpig Q3-rapport uten detaljer",
+      "lead": "Fertiberia har offentliggjort en foreløpig konsolidert rapport for tredje kvartal 2026, men uten å oppgi nøkkeltall eller kommentarer. Ingen grunnlag for vurdering av kvartalets utvikling foreligger ennå.",
       "published_at": "2026-11-16T11:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686574",
-      "summary": "Fertiberia har offentliggjort sin konsoliderte foreløpige kvartalsrapport for tredje kvartal 2026, men rapporten inneholder ingen nøkkeltall eller prognoser. Videre informasjon mangler foreløpig.",
-      "reason": "Mangelen på detaljer i rapporten gjør det vanskelig å vurdere selskapets finansielle helse eller utvikling i Q3 2026. Aksjonærer må vente på fullstendig rapport for konkret analyse.",
-      "score": 20,
+      "summary": "Fertiberia har offentliggjort en foreløpig konsolidert rapport for tredje kvartal 2026, men uten å oppgi nøkkeltall eller kommentarer. Ingen grunnlag for vurdering av kvartalets utvikling foreligger ennå.",
+      "reason": "Mangelen på konkrete finansielle data og resultater gjør det umulig å vurdere kvartalets prestasjon eller konsekvenser for aksjonærene. Oppfølging kreves for utfyllende informasjon.",
+      "score": 5,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 35,
+      "score_ai": 20,
       "attachment_key": "4d28cac0c650427d",
       "number_keys": [
         "77de68",
@@ -286,7 +303,7 @@
             "yoy_pct": 13.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 11 consolidated statement of comprehensive income"
+            "evidence": "SIDE 11"
           },
           {
             "label": "EBITDA",
@@ -299,7 +316,7 @@
             "yoy_pct": 23.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 11 consolidated statement of comprehensive income"
+            "evidence": "SIDE 11"
           },
           {
             "label": "EBIT",
@@ -312,7 +329,7 @@
             "yoy_pct": 33.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 11 consolidated statement of comprehensive income"
+            "evidence": "SIDE 11"
           },
           {
             "label": "Resultat etter skatt",
@@ -325,7 +342,7 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 11 consolidated statement of comprehensive income"
+            "evidence": "SIDE 11"
           },
           {
             "label": "Kontantstrøm drift",
@@ -338,27 +355,14 @@
             "yoy_pct": -70.6,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 16 cash flow statement"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "€ million",
-            "current": -44.24,
-            "prior_year": -34.834,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Side 11 financial expenses €46.85m minus financial income €2.61m in 2026; €37.29m minus €2.45m in 2025"
+            "evidence": "SIDE 16"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Selskapet opprettholder sin fokus på en høymargin, skalerbar plattform for biologiske og spesialtilpassede vekstnæringsløsninger under Trixia®-merket. Energi- og gasskostnader i Europa påvirker midlertidig produksjonskonkurranseevnen, men produkjson forventes gjenopptatt ved bedre markedsforhold. Transformasjonsprogrammet har levert 9,8 millioner euro i besparelser hittil i 2026.",
-          "change": "Endret utsikt på produksjonsstatus grunnet høye energi- og gasskostnader; tidligere rapport nevnte ikke midlertidig produksjonsstansing, nå forventes gjenopptakelse ved forbedrede markedsforhold. Nytt delmål om mulig revurdering av upstream-operasjoner hvis gass-til-ammoniakk-spredningen blir en vedvarende utfordring, som tidligere ikke var nevnt. Transformasjonsprogrammets besparelser (9,8 mill. euro) fremheves nå eksplisitt, dette var ikke konkret tallfestet tidligere. Forrige kvartals guiding er ikke tilgjengelig for sammenligning på relevante produksjons- og kostnadspunkter.",
-          "trend": "Med bare ett tidligere kvartal med relevant utledet informasjon om drift og kostnader, er det vanskelig å fastslå en klar trend. Imidlertid indikerer den nyeste rapporten at selskapet nå opplever midlertidige utfordringer med energikostnader og vurderer operasjonelle tilpasninger, mens fokus på kostnadsbesparelser og innovasjon innen biologiske vekstnæringsmidler opprettholdes.",
+          "summary": "Selskapet har videreutviklet Trixia®-plattformen innen bioteknologi og differensiert planteernæring, basert på en lavkapitalmodell med mål om økt margin og skalerbarhet. Produksjonen påvirkes midlertidig av høye energikostnader i Europa, og det forventes gjenopptakelse ved bedre markedsforhold, men vedvarende høye gasspriser kan medføre behov for revisjon av driftsoppsettet. Transformasjonsprogrammet har levert betydelige kostnadsbesparelser på €9,8 millioner i årets ni første måneder.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "trend": "",
           "compared_periods": [
             "2026Q2",
             "2026Q1",
@@ -366,21 +370,21 @@
           ],
           "points": [
             {
-              "topic": "Produksjon og energi",
-              "statement": "Produksjonen i Europa påvirkes midlertidig av høye energi- og gasskostnader; gjenopptakelse forventes ved forbedrede markedsforhold, men langsiktig struktur kan kreve revurdering.",
-              "evidence": "\"energy costs in Europe... temporarily affecting competitiveness\" og \"expects to resume production once market conditions improve...\" samt potensiell revurdering ved vedvarende gass-spread",
-              "page": "utdrag fra rapporten"
-            },
-            {
-              "topic": "Transformasjonsprogram",
-              "statement": "Programmet har levert 9,8 millioner euro i besparelser hittil i 2026, mer enn tidligere estimert.",
-              "evidence": "\"The transformation programme delivered €9.8 million of in-year savings in 9M 2026\"",
-              "page": "utdrag fra rapporten"
-            },
-            {
               "topic": "Produktplattform og innovasjon",
-              "statement": "Fokus på skalerbar plattform for biologisk og spesialisert vekstnæring under Trixia®-merket med lav kapitalintensitet og styrket via målrettet FoU.",
-              "evidence": "\"high-margin, scalable platform led by innovation... operated under the Trixia® brand... asset-light, low-capex model\"",
+              "statement": "Trixia®-plattformen skal videreutvikles som en høy-margin, skalerbar løsning innen spesialisert planteernæring og bioteknologi med lav kapitalbruk.",
+              "evidence": "'platform – is a high-margin, scalable platform ... asset-light, low-capex model'",
+              "page": "utdrag fra rapporten"
+            },
+            {
+              "topic": "Produksjonsdrift og energikostnader",
+              "statement": "Produksjonen er midlertidig påvirket av høye europeiske energikostnader, med forventet gjenopptakelse når markedsforholdene bedres. Vedvarende høyt gassprispåslag kan føre til revurdering av driftskonfigurering.",
+              "evidence": "'energy costs in Europe ... temporarily affecting competitiveness ... expects to resume production once market conditions improve ... may need to reassess operating configuration'",
+              "page": "utdrag fra rapporten"
+            },
+            {
+              "topic": "Kostnadsbesparelser",
+              "statement": "Transformasjonsprogrammet har levert in-year besparelser på €9,8 millioner i første ni måneder av 2026.",
+              "evidence": "'transformation programme delivered €9.8 million of in-year savings in 9M 2026'",
               "page": "utdrag fra rapporten"
             }
           ]
@@ -11831,69 +11835,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686177",
-      "market": "XOSL",
-      "ticker": "DFDS",
-      "issuer": "DFDS A/S",
-      "title": "OCTOBER VOLUMES: POSITIVE DEVELOPMENT IN MOST REGIONS",
-      "headline": "DFDS øker fraktvolumer 1,5 % i oktober til 3,7 millioner lane meter",
-      "lead": "I oktober 2026 vokste DFDS sine fraktvolumer med 1,5 prosent til 3,7 millioner lane meter, mens passasjertallene faller lett med 0,4 prosent. Langsiktige passasjertall viser en nedgang på 8,3 prosent siste 12 måneder.",
-      "published_at": "2026-11-11T06:35:03.750000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686177",
-      "summary": "I oktober 2026 vokste DFDS sine fraktvolumer med 1,5 prosent til 3,7 millioner lane meter, mens passasjertallene faller lett med 0,4 prosent. Langsiktige passasjertall viser en nedgang på 8,3 prosent siste 12 måneder.",
-      "reason": "Økningen i fraktvolumer indikerer stabilitet og muligens økt etterspørsel, særlig i Nord-Atlanteren og Middelhavet. Nedgangen i passasjertall kan reflektere strukturelle endringer eller markedsforhold. Aksjonærer bør følge med på videre volumutvikling og effekter på inntjening.",
-      "score": 55,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 70,
-      "attachment_key": "7682c7a38e7f2508",
-      "number_keys": [
-        "004be8",
-        "06be19",
-        "17ba07",
-        "1ab1a2",
-        "22d200",
-        "260dcc",
-        "271593",
-        "2e01e1",
-        "39f193",
-        "4d134b",
-        "4f2aaf",
-        "5a5b0f",
-        "5b1329",
-        "5b384c",
-        "6fd97b",
-        "798f86",
-        "7b5200",
-        "7d7116",
-        "7e79a3",
-        "827bfc",
-        "8749f5",
-        "8aefb0",
-        "8f8ede",
-        "92cfce",
-        "93ac19",
-        "9cdf51",
-        "a609bb",
-        "ac3478",
-        "aee655",
-        "b2adc3",
-        "b6692e",
-        "c28097",
-        "c5b76d",
-        "cb4e52",
-        "cb7a1d",
-        "e3cbba",
-        "f1abd6",
-        "f1f836",
-        "f9b07a",
-        "fb6443",
-        "febf99"
-      ]
     }
   ],
   "indirect": [
@@ -12071,19 +12012,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T11:40:00+00:00",
+  "last_checked_at": "2026-11-16T11:50:00+00:00",
   "monitor_stats": {
-    "fetched": 45,
-    "recent": 45,
+    "fetched": 46,
+    "recent": 46,
     "already_seen": 44,
     "eligible": 1,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-16T11:27:32.484000+00:00",
+    "source_latest_at": "2026-11-16T11:46:03.084000+00:00",
     "indirect": 0
   }
 }
