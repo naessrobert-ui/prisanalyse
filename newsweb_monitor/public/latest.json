@@ -2,8 +2,34 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T10:40:00+00:00",
+  "generated_at": "2026-11-16T10:50:00+00:00",
   "items": [
+    {
+      "id": "686572",
+      "market": "XOSL",
+      "ticker": "KID",
+      "issuer": "Kid ASA",
+      "title": "Flagging i Kid ASA",
+      "headline": "Folketrygdfondet reduserer eierandelen i Kid ASA til 10,07%",
+      "lead": "Folketrygdfondet har tilbakelevert 66 288 aksjer i Kid ASA, og eierandelen deres er nå 10,07 prosent. Endringen kan påvirke stemmegivning og eierskap i selskapet.",
+      "published_at": "2026-11-16T10:46:29.495000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686572",
+      "summary": "Folketrygdfondet har tilbakelevert 66 288 aksjer i Kid ASA, og eierandelen deres er nå 10,07 prosent. Endringen kan påvirke stemmegivning og eierskap i selskapet.",
+      "reason": "Reduksjonen i Folketrygdfondets aksjebeholdning gir mindre kontrollerende innflytelse, men fortsatt betydelig eierandel. Effekten på aksjekurs og styring avhenger av øvrige eieres bevegelser og selskapets strategiske planer.",
+      "score": 60,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "importance": "mellom",
+      "score_ai": 55,
+      "number_keys": [
+        "1574bd",
+        "1a05b5",
+        "1ccace",
+        "aee655",
+        "c15fb9"
+      ]
+    },
     {
       "id": "686570",
       "market": "XOSL",
@@ -12999,34 +13025,6 @@
         "f022da",
         "fa35e1"
       ]
-    },
-    {
-      "id": "686154",
-      "market": "XOSL",
-      "ticker": "ENSU",
-      "issuer": "Ensurge Micropower ASA",
-      "title": "Ensurge Micropower ASA - Contemplated private placement of up to NOK 100 million, of which NOK 65 million is underwritten",
-      "headline": "Ensurge Micropower varsler emisjon på inntil 100 millioner kroner med 65 millioner undertegnet",
-      "lead": "Ensurge Micropower planlegger en rettet emisjon på inntil 100 millioner kroner, med 65 millioner kroner allerede undertegnet av eksisterende aksjonærer. Prosessen for å sikre resten på 35 millioner pågår, med emisjonskurs lik gjennomsnittspris siste 10 dager.",
-      "published_at": "2026-11-11T05:30:26.719000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686154",
-      "summary": "Ensurge Micropower planlegger en rettet emisjon på inntil 100 millioner kroner, med 65 millioner kroner allerede undertegnet av eksisterende aksjonærer. Prosessen for å sikre resten på 35 millioner pågår, med emisjonskurs lik gjennomsnittspris siste 10 dager.",
-      "reason": "Emisjonen på 100 millioner kroner skal styrke selskapets finansiering fremover. Undertegnede 65 millioner viser tillit fra eksisterende aksjonærer, men mangler fortsatt en betydelig andel. Det blir viktig å følge om fulltegning når forventet. Finansieringen og prisnivået indikerer status quo, men emisjoner kan pr-effe og fortynne aksjonær",
-      "score": 70,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "number_keys": [
-        "0716d9",
-        "17ba07",
-        "2a4593",
-        "310b86",
-        "7b5200",
-        "840235",
-        "972a67",
-        "ac3478",
-        "aee655"
-      ]
     }
   ],
   "indirect": [
@@ -13204,11 +13202,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T10:40:00+00:00",
+  "last_checked_at": "2026-11-16T10:50:00+00:00",
   "monitor_stats": {
-    "fetched": 28,
-    "recent": 28,
-    "already_seen": 27,
+    "fetched": 29,
+    "recent": 29,
+    "already_seen": 28,
     "eligible": 1,
     "filtered": 0,
     "analyzed": 1,
@@ -13216,7 +13214,7 @@
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T10:30:06.393000+00:00",
+    "source_latest_at": "2026-11-16T10:46:29.495000+00:00",
     "indirect": 0
   }
 }
