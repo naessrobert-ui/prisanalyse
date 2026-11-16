@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T07:40:00+00:00",
+  "generated_at": "2026-11-16T07:50:00+00:00",
   "items": [
+    {
+      "id": "686556",
+      "market": "XOSL",
+      "ticker": "NKR",
+      "issuer": "Nekkar ASA",
+      "title": "Transactions carried out under the buy-back program",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T07:43:43.655000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686556",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686555",
       "market": "XOSL",
@@ -13322,57 +13339,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686138",
-      "market": "XOSL",
-      "ticker": "TEL",
-      "issuer": "Telenor ASA",
-      "title": "Trade by primary insiders",
-      "headline": "Telenor-ledelsen kjøper aksjer for 134 kroner via utbytteautomatikk",
-      "lead": "Telenor-innsidere reinvesterte utbytte i aksjer til kurs 133,62 kroner per aksje, og øker beholdningen med inntil 654 aksjer hver. Transaksjonen reflekterer ikke markedskjøp, men intern opsjon i utbytteprogrammet.",
-      "published_at": "2026-11-10T16:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/686138",
-      "summary": "Telenor-innsidere reinvesterte utbytte i aksjer til kurs 133,62 kroner per aksje, og øker beholdningen med inntil 654 aksjer hver. Transaksjonen reflekterer ikke markedskjøp, men intern opsjon i utbytteprogrammet.",
-      "reason": "Reinvestering av utbytte i aksjer viser tillit fra nøkkelpersoner, men er en mekanisk transaksjon uten indikasjon på ny strategisk kjøpsiver. Viktig å følge videre insidere kjøp/salg og selskapets egen utvikling.",
-      "score": 55,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "importance": "stor",
-      "score_ai": 45,
-      "language_versions": [
-        {
-          "id": "686139",
-          "title": "Meldepliktig handel primærinnsidere",
-          "url": "https://newsweb.oslobors.no/message/686139",
-          "published_at": "2026-11-10T16:00:00+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "686138",
-          "title": "Trade by primary insiders",
-          "url": "https://newsweb.oslobors.no/message/686138",
-          "published_at": "2026-11-10T16:00:00+00:00",
-          "language": "Original"
-        }
-      ],
-      "attachment_key": "bc435b9d18c83b25",
-      "number_keys": [
-        "356a19",
-        "49ba96",
-        "77de68",
-        "7b5200",
-        "89a1c1",
-        "973ac2",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "b6e7a2",
-        "db00e4",
-        "e0e71f",
-        "fd636c"
-      ]
     }
   ],
   "indirect": [
@@ -13533,19 +13499,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T07:40:00+00:00",
+  "last_checked_at": "2026-11-16T07:50:00+00:00",
   "monitor_stats": {
-    "fetched": 17,
-    "recent": 17,
-    "already_seen": 13,
+    "fetched": 18,
+    "recent": 18,
+    "already_seen": 17,
     "eligible": 0,
-    "filtered": 4,
+    "filtered": 1,
     "analyzed": 0,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T07:30:28.806000+00:00",
+    "source_latest_at": "2026-11-16T07:43:43.655000+00:00",
     "indirect": 0
   }
 }
