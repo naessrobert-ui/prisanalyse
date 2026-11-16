@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T12:10:00+00:00",
+  "generated_at": "2026-11-16T12:20:00+00:00",
   "items": [
+    {
+      "id": "686603",
+      "market": "XOSL",
+      "ticker": "NOD",
+      "issuer": "Nordic Semiconductor ASA",
+      "title": "Financial calendar",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T12:16:28.827000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686603",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686601",
       "market": "XOSL",
@@ -22,6 +39,22 @@
       "assessment_source": "AI",
       "importance": "stor",
       "score_ai": 50,
+      "language_versions": [
+        {
+          "id": "686601",
+          "title": "LTIP share awards completed and new grants issued",
+          "url": "https://newsweb.oslobors.no/message/686601",
+          "published_at": "2026-11-16T12:05:17.619000+00:00",
+          "language": "Original"
+        },
+        {
+          "id": "686599",
+          "title": "LTIP share awards completed and new grants issued",
+          "url": "https://newsweb.oslobors.no/message/686599",
+          "published_at": "2026-11-16T12:02:44.099000+00:00",
+          "language": "Original"
+        }
+      ],
       "attachment_key": "6cd25d2a754c25c7",
       "number_keys": [
         "011c94",
@@ -74,22 +107,6 @@
         "f9fc41",
         "fc339c",
         "ff9bb9"
-      ],
-      "language_versions": [
-        {
-          "id": "686601",
-          "title": "LTIP share awards completed and new grants issued",
-          "url": "https://newsweb.oslobors.no/message/686601",
-          "published_at": "2026-11-16T12:05:17.619000+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "686599",
-          "title": "LTIP share awards completed and new grants issued",
-          "url": "https://newsweb.oslobors.no/message/686599",
-          "published_at": "2026-11-16T12:02:44.099000+00:00",
-          "language": "Original"
-        }
       ]
     },
     {
@@ -402,18 +419,18 @@
       "ticker": "FERT",
       "issuer": "Fertiberia Corporate S.L.U.",
       "title": "Consolidated Interim Report Q3-2026",
-      "headline": "Fertiberia leverer foreløpig rapport for Q3 2026 uten detaljer",
-      "lead": "Fertiberia presenterer en foreløpig konsolidert kvartalsrapport for tredje kvartal 2026, men uten ytterligere inntekts- eller resultatdata tilgjengelig per nå.",
+      "headline": "Fertiberia rapporterer foreløpige tall for tredje kvartal 2026 uten detaljer",
+      "lead": "Fertiberia har offentliggjort en konsolidert kvartalsrapport for Q3 2026 uten å gi detaljer om inntjening eller drift. Uten tall er det vanskelig å vurdere selskapets økonomiske utvikling dette kvartalet.",
       "published_at": "2026-11-16T11:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686574",
-      "summary": "Fertiberia presenterer en foreløpig konsolidert kvartalsrapport for tredje kvartal 2026, men uten ytterligere inntekts- eller resultatdata tilgjengelig per nå.",
-      "reason": "Mangelen på finansielle nøkkeltall og strategiske kommentarer gjør det umulig å vurdere selskapets kortsiktige utvikling eller aksjonærverdier. Vi bør følge opp med komplett rapport for bedre innsikt.",
-      "score": 10,
+      "summary": "Fertiberia har offentliggjort en konsolidert kvartalsrapport for Q3 2026 uten å gi detaljer om inntjening eller drift. Uten tall er det vanskelig å vurdere selskapets økonomiske utvikling dette kvartalet.",
+      "reason": "Uten konkrete finansielle data i rapporten er det ikke mulig å vurdere om kvartalet er bedre eller dårligere enn året før, selskapets guiding eller markedets forventninger. Investorer må avvente mer fullstendig informasjon.",
+      "score": 15,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 25,
+      "score_ai": 30,
       "attachment_key": "4d28cac0c650427d",
       "number_keys": [
         "77de68",
@@ -433,72 +450,85 @@
             "label": "Omsetning",
             "name": "revenue",
             "unit": "€ million",
-            "current": 951.334,
-            "prior_year": 840.284,
+            "current": 951.3,
+            "prior_year": 840.3,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 13.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11: Net sales 1 January to 30 September 2026 €951,334 thousand; 9M 2025 €840,284 thousand"
+            "evidence": "Condensed consolidated statement of comprehensive income, reporting 9M 2026 and 9M 2025 net sales on SIDE 11."
           },
           {
             "label": "EBITDA",
             "name": "ebitda",
             "unit": "€ million",
-            "current": 57.547,
-            "prior_year": 46.621,
+            "current": 57.5,
+            "prior_year": 46.6,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 23.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11: EBITDA 1 January to 30 September 2026 €57,547 thousand; 9M 2025 €46,621 thousand"
+            "evidence": "Condensed consolidated statement of comprehensive income 9M 2026 EBITDA and 9M 2025 EBITDA on SIDE 11."
           },
           {
             "label": "EBIT",
             "name": "ebit",
             "unit": "€ million",
-            "current": 25.188,
-            "prior_year": 18.867,
+            "current": 25.2,
+            "prior_year": 18.9,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 33.5,
+            "yoy_pct": 33.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11: Operating profit (EBIT) 1 January to 30 September 2026 €25,188 thousand; 9M 2025 €18,867 thousand"
+            "evidence": "Condensed consolidated statement of comprehensive income 9M 2026 EBIT and 9M 2025 EBIT on SIDE 11."
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
             "unit": "€ million",
-            "current": -15.028,
-            "prior_year": -16.028,
+            "current": -15.0,
+            "prior_year": -16.0,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11: Profit/(Loss) for the year 1 January to 30 September 2026 (€15,028) thousand; 9M 2025 (€16,028) thousand"
+            "evidence": "Condensed consolidated statement of comprehensive income, net profit/(loss) 9M 2026 and 9M 2025 on SIDE 11."
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
             "unit": "€ million",
-            "current": 22.453,
-            "prior_year": 76.398,
+            "current": 22.5,
+            "prior_year": 76.4,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": -70.6,
+            "yoy_pct": -70.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 16: Cash flows from operating activities 1 January to 30 September 2026 €22,453 thousand; 9M 2025 €76,398 thousand"
+            "evidence": "Condensed consolidated cash flow statement 9M 2026 operating cash flow on SIDE 16 and narrative that adjusted excludes €10.2m one-off refinancing costs (so repo"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "€ /share",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "EPS data not provided in report excerpts."
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Ledelsen beskriver utfordringer knyttet til høye energikostnader i Europa som midlertidig påvirker konkurranseevnen og produksjonen, spesielt innen gass-til-ammoniakk-spread. Selskapet forventer å gjenoppta produksjonen når markedsforholdene bedres varig, men vil måtte revurdere driftsoppsettet ved vedvarende strukturelle kostnadsforskjeller. Videre rapporteres konkrete besparelser fra transformasjonsprogrammet med 9,8 millioner euro i besparelser hittil i 2026. Plattformen Trixia® utvikles videre med sterkt fokus på biologiske og spesialiserte planteernæringsløsninger gjennom et lavinvestert modell med egen FoU og produksjon i Sevilla.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "summary": "Selskapet har midlertidig redusert produksjonen i Europa grunnet høye energikostnader, men forventer å gjenoppta full produksjon når markedssituasjonen stabiliseres. Dersom gass-til-ammoniakk-spreaden vedvarer og blir strukturell, kan driftsoppsettet i upstream-virksomheten måtte vurderes på nytt. Transformasjonsprogrammet har levert €9,8 millioner i besparelser i løpet av årets første ni måneder. Utviklingen av en høy-margin, skalerbar bioteknologisk plattform for differensierte gjødslingsløsninger, som drives under Trixia®-merket, fortsetter med lav kapitalbinding og målrettet FoU.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [
             "2026Q2",
@@ -507,21 +537,21 @@
           ],
           "points": [
             {
-              "topic": "Produksjon og markedsforhold",
-              "statement": "Produksjon påvirkes midlertidig av høye energikostnader; forventning om gjenopptakelse ved bedring, men mulig revurdering ved vedvarende høye gasspriser.",
-              "evidence": "\"temporarily affecting competitiveness... expects to resume production once market conditions improve ... may need to reassess operating configuration\"",
+              "topic": "Produksjon og driftsforhold",
+              "statement": "Produksjonen i Europa er midlertidig redusert pga høye energikostnader, men forventes gjenopptatt når forholdene bedrer seg. En vedvarende gass-til-ammoniakk spread kan kreve revidert driftsoppsett upstream.",
+              "evidence": "'temporarily affecting the competitiveness of European production' og 'the Group expects to resume production once market conditions improve' og 'may need to reassess the operating configuration of it",
               "page": "utdrag fra rapporten"
             },
             {
               "topic": "Kostnadsbesparelser",
-              "statement": "Transformasjonsprogrammet har levert 9,8 millioner euro i besparelser hittil i 2026.",
-              "evidence": "\"The transformation programme delivered €9.8 million of in-year savings in 9M 2026\"",
+              "statement": "Transformasjonsprogrammet har levert €9,8 millioner i årlige besparelser i 9M 2026.",
+              "evidence": "'The transformation programme delivered €9.8 million of in-year savings in 9M 2026'",
               "page": "utdrag fra rapporten"
             },
             {
-              "topic": "Plattformutvikling",
-              "statement": "Videreutvikling av Trixia®-plattformen for biologiske og differensierte planteernæringsløsninger, drevet av innhus FoU og lav capex-modell.",
-              "evidence": "\"platform operated under the Trixia® brand ... based on asset-light, low-capex model ... dedicated manufacturing in Seville\"",
+              "topic": "Strategisk plattformutvikling",
+              "statement": "Utvikling av Trixia®-plattformen for bioteknologiske, differensierte planteernæringsløsninger fortsetter med et lav-kapital intensivt modell med fokus på bærekraft og avkastning.",
+              "evidence": "'platform – is a high-margin, scalable platform' og 'operated under the Trixia® brand ... based on an asset-light, low-capex model'",
               "page": "utdrag fra rapporten"
             }
           ]
@@ -11793,143 +11823,6 @@
         "f6719e",
         "fb6443"
       ]
-    },
-    {
-      "id": "686181",
-      "market": "XOSL",
-      "ticker": "INFRO",
-      "issuer": "Infront AS",
-      "title": "Infront publishes its Q3 2026 report",
-      "headline": "Infront AS publiserer Q3 2026-rapport uten detaljer",
-      "lead": "Infront AS har offentliggjort sin Q3-rapport for 2026, men rapporten inneholder ingen tall eller nøkkelinformasjon foreløpig.",
-      "published_at": "2026-11-11T07:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/686181",
-      "summary": "Infront AS har offentliggjort sin Q3-rapport for 2026, men rapporten inneholder ingen tall eller nøkkelinformasjon foreløpig.",
-      "reason": "Manglende finansiell informasjon og nøkkeltall gjør det umulig å vurdere kvartalets prestasjon eller framtidsutsikter for aksjonærer.",
-      "score": 5,
-      "skipped": false,
-      "direction": "uklar",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 20,
-      "attachment_key": "36ee857b37d25584",
-      "number_keys": [
-        "77de68",
-        "aee655"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "reported",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "Quarterly report Q3 2026.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=686181&attachmentId=336196"
-        },
-        "metrics": [
-          {
-            "label": "Omsetning",
-            "name": "revenue",
-            "unit": "EUR million",
-            "current": 30.7,
-            "prior_year": 33.0,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -7.0,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 2, Page 7, Page 9"
-          },
-          {
-            "label": "EBITDA",
-            "name": "ebitda",
-            "unit": "EUR million",
-            "current": 5.9,
-            "prior_year": 8.7,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -32.2,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Pages 2, 7, 9, 18"
-          },
-          {
-            "label": "EBIT",
-            "name": "ebit",
-            "unit": "EUR million",
-            "current": 2.298,
-            "prior_year": 5.771,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -60.2,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 9"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "EUR million",
-            "current": -0.239,
-            "prior_year": 3.459,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -106.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 9"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "EUR million",
-            "current": 0.646,
-            "prior_year": 2.576,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -74.9,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 13"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "Infront forventer at justert EBITDA i tredje kvartal 2026 blir lavere enn året før, drevet av strategiske investeringer i team og infrastruktur for å akselerere vekst i booking og øke kundetilfredshet. Fokus fremover ligger på å styrke datafundamentet, modernisere handelsinfrastruktur, forbedre ytelse og skalerbarhet i formuesforvaltning og bygge AI-kapasiteter for bedre effektivitet hos kundene. Videre prioriteres samarbeid mellom data, analyse, handel og formuesforvaltning for å skape en plattform som gir bedre automatisering og innsikt. Viktige satsinger inkluderer støtte til regulatoriske initiativer som Den tyske pensjonsreformen, lanser",
-          "change": "- EBITDA-forventning senket til lavere enn 2025, i tråd med investeringsbeslutninger (Q2: forventning om å omsette investeringer til kundeutfall, Q3: EBITDA i tråd med forventning men lavere enn året før).\n- Tidligere fremhevet muligheter i tysk marked knyttet til Altersvorsorgereformgesetz er nå konkretisert som støtte til ny tysk pensjonsreform (Q2 til Q3).\n- Fokus på kundeorientert innovasjon videreføres og konkretiseres gjennom AI-aktiviteter og forbedringer i datatilgang og plattformintegrasjon.\n- Større vekt på modernisering av handelsinfrastruktur og forbedringer i ytelse og skalerbarhet sammenlignet med tidligere kvartal, hvor prioriteringer var mer generelle investeringsmål.",
-          "trend": "Over kvartalene har Infront gradvis tydeliggjort fokus på AI og teknologiinvesteringer som grunnlag for fremtidig vekst og kundeorientert innovasjon. Tidligere kvartaler pekte på attraktive vekstmuligheter i Tyskland, som nå i Q3 har konkret form gjennom regulatorisk støtte. Ledelsen har holdt fast på investeringer til tross for forventet kortsiktig marginpress, og EBITDA i Q3 reflekterer dette ved å være lavere enn i fjor, men i tråd med forventningene. Denne utviklingen indikerer en konservativ, men målrettet satsing mot langsiktig verdiøkning for kundene.",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1"
-          ],
-          "points": [
-            {
-              "topic": "EBITDA og investeringer",
-              "statement": "Justert EBITDA i Q3 2026 var lavere enn året før, i tråd med strategiske investeringer for å akselerere bookingsvekst og øke kundetilfredshet.",
-              "evidence": "\"Adjusted EBITDA in Q3 was lower than the prior year and in line with expectations... driven by the strategic decision in 2026 to invest in teams and infrastructure\" (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Fokus på teknologi og AI",
-              "statement": "Videre satsing på AI-klare datatilganger, Data Manager Streaming og integrasjon av analyse og innhold for å styrke plattformen og kundeopplevelsen.",
-              "evidence": "\"...expanding AI-ready access to data through MCP-enabled interfaces... focus on bringing high-quality content, data and analytics closer together across the Infront platform\" (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Regulatorisk støtte og markedsmuligheter",
-              "statement": "Støtte til nye regulatoriske initiativer som tysk pensjonsreform som en del av vekststrategien i Europa.",
-              "evidence": "\"...continuing to support new regulatory initiatives such as the German pension reform\" (side 3)",
-              "page": "3"
-            },
-            {
-              "topic": "Modernisering og skalerbarhet",
-              "statement": "Prioriterer å styrke datafundament, modernisere handelsinfrastruktur og forbedre skalerbarhet og ytelse i formuesforvaltning.",
-              "evidence": "\"strengthen our data foundations, modernise trading infrastructure, improve performance and scalability across wealth solutions\" (side 3)",
-              "page": "3"
-            }
-          ]
-        }
-      }
     }
   ],
   "indirect": [
@@ -12107,19 +12000,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T12:10:00+00:00",
+  "last_checked_at": "2026-11-16T12:20:00+00:00",
   "monitor_stats": {
-    "fetched": 49,
-    "recent": 49,
-    "already_seen": 45,
-    "eligible": 4,
-    "filtered": 0,
-    "analyzed": 4,
+    "fetched": 50,
+    "recent": 50,
+    "already_seen": 48,
+    "eligible": 1,
+    "filtered": 1,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-16T12:05:17.619000+00:00",
+    "source_latest_at": "2026-11-16T12:16:28.827000+00:00",
     "indirect": 0
   }
 }
