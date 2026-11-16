@@ -108,7 +108,7 @@ async function peer(value){
   local.getTracks().forEach(track=>connection.addTrack(track,local));if(me.kind==='member'){$('local').hidden=false;$('local').srcObject=local;}
   connection.onicecandidate=e=>{if(e.candidate&&pc===connection)api('call/'+id+'/signal',{kind:'ice',data:e.candidate.toJSON()}).catch(()=>{});};
   connection.ontrack=e=>{if(pc!==connection)return;remote.addTrack(e.track);if(e.track.kind==='audio')playRemoteAudio(e.track,connection);};
-  connection.onconnectionstatechange=()=>{if(pc!==connection)return;const s=connection.connectionState;if(s==='connected'){clearTimeout(connectionTimer);clearTimeout(disconnectTimer);clearTimeout(statusTimer);$('state').hidden=true;}else if(s==='failed'){status('Besøket mistet forbindelsen.',true);endCall();}else if(s==='disconnected'){clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(pc===connection&&connection.connectionState!=='connected'){status('Besøket mistet forbindelsen.',true);endCall();}},8000);}};
+  connection.onconnectionstatechange=()=>{if(pc!==connection)return;const s=connection.connectionState;if(s==='connected'){clearTimeout(connectionTimer);clearTimeout(disconnectTimer);clearTimeout(statusTimer);$('state').hidden=true;if(me.kind==='member')watchMedia(connection,value.peer_name);}else if(s==='failed'){status('Besøket mistet forbindelsen.',true);endCall();}else if(s==='disconnected'){clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(pc===connection&&connection.connectionState!=='connected'){status('Besøket mistet forbindelsen.',true);endCall();}},8000);}};
   connectionTimer=setTimeout(()=>{if(pc===connection&&connection.connectionState!=='connected'){status('Besøket fikk ikke forbindelse.',true);endCall('connection');}},20000);
   if(value.outgoing){const offer=await connection.createOffer();if(pc!==connection)return;await connection.setLocalDescription(offer);if(pc!==connection)return;await api('call/'+id+'/signal',{kind:'offer',data:{type:'offer',sdp:connection.localDescription.sdp}});}
  })();
@@ -149,7 +149,28 @@ async function processCall(value){
  }
  await applySignals(value);
 }
+// Tells the caller what is wrong with the picture or sound from the other side, so a
+// black screen can be told apart: nothing sent, sent but dark/covered, or no sound.
+let mediaTimer=null;
+function watchMedia(connection,who){
+ clearInterval(mediaTimer);const canvas=document.createElement('canvas');canvas.width=32;canvas.height=18;const g=canvas.getContext('2d',{willReadFrequently:true});
+ let last=null,noVideo=0,dark=0,noAudio=0,shown='';
+ mediaTimer=setInterval(async()=>{
+  if(pc!==connection){clearInterval(mediaTimer);return;}
+  const now={video:0,audio:0};try{(await connection.getStats()).forEach(r=>{if(r.type==='inbound-rtp'){if(r.kind==='video')now.video=r.framesDecoded||0;else if(r.kind==='audio')now.audio=r.bytesReceived||0;}});}catch(e){return;}
+  if(last){noVideo=now.video>last.video?0:noVideo+1;noAudio=now.audio>last.audio?0:noAudio+1;}last=now;
+  let light=255;const v=$('remote');if(v.videoWidth&&noVideo===0){try{g.drawImage(v,0,0,32,18);const d=g.getImageData(0,0,32,18).data;let sum=0;for(let i=0;i<d.length;i+=4)sum+=0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2];light=sum/(d.length/4);}catch(e){}}
+  dark=light<14?dark+1:0;
+  const parts=[];
+  if(noVideo>=3)parts.push('Ingen bilde fra '+who+'. Kameraet der sender ikke: det kan være i bruk av en annen app, stoppet av enheten, eller skjermen kan være låst.');
+  else if(dark>=3)parts.push('Bildet fra '+who+' er helt svart eller svært mørkt. Er kameraet dekket til, eller er det mørkt i rommet?');
+  if(noAudio>=3)parts.push('Ingen lyd fra '+who+'.');
+  const text=parts.join(' ');
+  if(text!==shown){shown=text;if(text)status(text,true);else{clearTimeout(statusTimer);$('state').hidden=true;}}
+ },2000);
+}
 function stopCall(){
+ clearInterval(mediaTimer);mediaTimer=null;
  stopRing();clearTimeout(connectionTimer);clearTimeout(disconnectTimer);
  if(pc){pc.ontrack=null;pc.onicecandidate=null;pc.onconnectionstatechange=null;pc.close();pc=null;}
  pcCall=null;peerState=null;stopStream(local);local=null;stopStream(remote);remote=null;remoteAudio?.disconnect();remoteAudio=null;speaker.pause();speaker.srcObject=null;

@@ -250,6 +250,24 @@ def test_caller_is_told_why_the_visit_ended(admin):
     b.wait_for_selector('#state:has-text("Anne kan ikke ta imot besøk")', timeout=10000)
 
 
+def test_caller_is_told_when_picture_is_black_or_missing(admin):
+    frame = admin.device('Fruen', 'auto')
+    a = admin.device('Anne')
+    call(a, 'Fruen')
+    assert_media_flows(a, frame)
+    time.sleep(3)
+    assert a.is_hidden('#state')  # normal picture and sound: no message
+    frame.evaluate('window.__streams.at(-1).getVideoTracks()[0].enabled=false')  # camera covered: black frames
+    a.wait_for_selector('#state:has-text("helt svart eller svært mørkt")', timeout=15000)
+    frame.evaluate('window.__streams.at(-1).getVideoTracks()[0].enabled=true')
+    a.wait_for_function('document.getElementById("state").hidden', timeout=15000)  # picture back: message cleared
+    frame.evaluate('window.__streams.at(-1).getTracks().forEach(t=>t.stop())')  # camera and microphone stopped
+    a.wait_for_selector('#state:has-text("Ingen bilde fra Fruen")', timeout=15000)
+    assert 'Ingen lyd fra Fruen' in a.text_content('#state')
+    assert frame.is_hidden('#state') or 'Ingen' not in frame.text_content('#state')  # the frame itself shows nothing
+    a.click('#hangup')
+
+
 def test_slow_camera_does_not_stop_heartbeat(admin):
     a = admin.device('Anne')
     b = admin.device('Bjørn')
