@@ -13183,6 +13183,23 @@
   ],
   "indirect": [
     {
+      "id": "92c606b8b9820157",
+      "source": "E24",
+      "title": "Ber om 480 mrd. i krisestøtte etter flykaoset",
+      "url": "https://e24.no/boers-og-finans/i/M5RAWK/ber-om-480-mrd-i-krisestoette-etter-flykaoset?utm_medium=rss",
+      "published_at": "2026-11-16T09:53:17+00:00",
+      "analyzed_at": "2026-11-16T10:00:00+00:00",
+      "score": 55,
+      "comment": "Flykaos i USA kan føre til økte kostnader og forsinkelser for flyselskaper og tilknyttede transporttjenester globalt, noe som kan påvirke inntjeningen negativt.",
+      "affected": [
+        {
+          "ticker": "NAS",
+          "direction": "negativ",
+          "reason": "Økte driftskostnader og kundeulemper pga flykaos"
+        }
+      ]
+    },
+    {
       "id": "a0dee80bf1299eed",
       "source": "E24",
       "title": "Høyeste handelsoverskudd siden 2022",
@@ -13322,7 +13339,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T09:50:00+00:00",
+  "last_checked_at": "2026-11-16T10:00:00+00:00",
   "monitor_stats": {
     "fetched": 25,
     "recent": 25,
@@ -13335,6 +13352,6 @@
     "capped": 0,
     "recovered_unpublished": 0,
     "source_latest_at": "2026-11-16T09:30:03.272000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
