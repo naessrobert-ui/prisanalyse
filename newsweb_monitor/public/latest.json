@@ -11475,6 +11475,28 @@
   ],
   "indirect": [
     {
+      "id": "7889f29edee8f30b",
+      "source": "E24",
+      "title": "Feilutbetalt strømstøtte: – Vet ikke noe om omfanget",
+      "url": "https://e24.no/energi-og-klima/i/KLvoJ6/feilutbetalt-stroemstoette-vet-ikke-noe-om-omfanget?utm_medium=rss",
+      "published_at": "2026-11-16T15:26:11+00:00",
+      "analyzed_at": "2026-11-16T15:30:00+00:00",
+      "score": 50,
+      "comment": "Feilutbetaling av strømstøtte kan føre til økonomisk usikkerhet og tilbakebetaling for bedrifter, påvirker kostnadsnivå og likviditet.",
+      "affected": [
+        {
+          "ticker": "YAR",
+          "direction": "negativ",
+          "reason": "Kan stå overfor høyere kostnader ved tilbakebetaling av strømstøtte."
+        },
+        {
+          "ticker": "MOWI",
+          "direction": "negativ",
+          "reason": "Høy strømbruk, risiko for tilbakebetaling påvirker bunnlinjen."
+        }
+      ]
+    },
+    {
       "id": "c35582b835295d83",
       "source": "E24",
       "title": "USA innfører nye AI-restriksjoner",
@@ -11675,7 +11697,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T15:20:00+00:00",
+  "last_checked_at": "2026-11-16T15:30:00+00:00",
   "monitor_stats": {
     "fetched": 66,
     "recent": 66,
@@ -11688,6 +11710,6 @@
     "capped": 0,
     "recovered_unpublished": 0,
     "source_latest_at": "2026-11-16T14:31:18.069000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
