@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T09:20:00+00:00",
+  "generated_at": "2026-11-16T09:40:00+00:00",
   "items": [
+    {
+      "id": "686565",
+      "market": "XOSL",
+      "ticker": "IPC",
+      "issuer": "International Petroleum Corporation",
+      "title": "International Petroleum Corporation Announces Results of  Normal Course Issuer Bid",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T09:30:03.272000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686565",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686564",
       "market": "XOSL",
@@ -13162,53 +13179,6 @@
         "d435a6",
         "da4b92"
       ]
-    },
-    {
-      "id": "686149",
-      "market": "XOSL",
-      "ticker": "HSHP",
-      "issuer": "Himalaya Shipping Ltd",
-      "title": "Himalaya Shipping Ltd. (HSHP)   Commercial Update and Key Information Relating to the Cash Dividends for October 2026",
-      "headline": "Himalaya Shipping tjente 50.900 USD per dag i oktober, utbetaler 0,20 USD i utbytte",
-      "lead": "I oktober 2026 oppnådde Himalaya Shipping en gjennomsnittlig TCE-inntekt på 50.900 USD per dag, betydelig over Baltic Capesize-indeksen på 33.254 USD. Selskapet kunngjorde utbytte på 0,20 USD per aksje med betaling i november.",
-      "published_at": "2026-11-10T21:15:03.937000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686149",
-      "summary": "I oktober 2026 oppnådde Himalaya Shipping en gjennomsnittlig TCE-inntekt på 50.900 USD per dag, betydelig over Baltic Capesize-indeksen på 33.254 USD. Selskapet kunngjorde utbytte på 0,20 USD per aksje med betaling i november.",
-      "reason": "Himalaya Shipping rapporterer en TCE-inntekt som er klart høyere enn hovedindeksen, noe som indikerer sterk inntjening. Det utpekte utbyttet bekrefter god kontantstrøm. Aksjonærer bør følge utviklingen i tørrbulksmarkedet og sammenligne med konkurrenter for forventet inntjeningsstabilitet.",
-      "score": 55,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 70,
-      "number_keys": [
-        "004be8",
-        "01927c",
-        "259e58",
-        "356a19",
-        "39f193",
-        "47cb6d",
-        "58f074",
-        "632667",
-        "6d93f2",
-        "77de68",
-        "845f3f",
-        "87e8db",
-        "91032a",
-        "a6ef96",
-        "a7aa0c",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "b3f0c7",
-        "bc33ea",
-        "d435a6",
-        "da4b92",
-        "e54183",
-        "eab294",
-        "ec7f1f",
-        "f38e1b"
-      ]
     }
   ],
   "indirect": [
@@ -13352,19 +13322,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T09:30:00+00:00",
+  "last_checked_at": "2026-11-16T09:40:00+00:00",
   "monitor_stats": {
-    "fetched": 24,
-    "recent": 24,
+    "fetched": 25,
+    "recent": 25,
     "already_seen": 24,
     "eligible": 0,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 0,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T09:10:59.252000+00:00",
+    "source_latest_at": "2026-11-16T09:30:03.272000+00:00",
     "indirect": 0
   }
 }
