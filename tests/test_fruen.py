@@ -194,3 +194,15 @@ def test_end_reason_reaches_the_other_side(fruen):
     with sqlite3.connect(root/'posts.sqlite3') as db:db.execute('UPDATE fruen_calls SET created=created-100 WHERE id!=?',(ident,));db.execute('UPDATE fruen_calls SET created=created-50 WHERE id=?',(ident,))
     assert ready(a).json()['call']['reason']=='timeout:noanswer'
     a.close();f.close()
+
+
+def test_admin_can_request_reload_once(fruen):
+    app,admin,root=fruen;f,frame,_=enrol(app,admin,'Fruen','auto');a,one,_=enrol(app,admin,'A')
+    assert ready(f).json()['reload'] is False
+    assert post(a,'admin/reload/'+frame['id']).status_code==401  # devices cannot do this
+    assert admin.post('/fruen/api/admin/reload/'+frame['id'],headers=HEAD,json={}).status_code==200
+    assert admin.post('/fruen/api/admin/reload/'+'0'*32,headers=HEAD,json={}).status_code==404
+    assert ready(f).json()['reload'] is True
+    assert ready(f).json()['reload'] is False  # delivered once
+    assert ready(a).json()['reload'] is False
+    f.close();a.close()

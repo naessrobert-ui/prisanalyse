@@ -34,7 +34,11 @@ const nativeGum=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
 navigator.mediaDevices.getUserMedia=async c=>{
   if(window.__gumDeny)throw new DOMException('denied','NotAllowedError');
   if(window.__gumDelay)await new Promise(r=>setTimeout(r,window.__gumDelay));
-  const s=await nativeGum(c);window.__streams.push(s);return s;};
+  const s=await nativeGum(c);
+  if(window.__forceMuted>0){window.__forceMuted--;s.getTracks().forEach(t=>Object.defineProperty(t,'muted',{configurable:true,get:()=>true}));}
+  window.__streams.push(s);return s;};
+window.__forceMuted=0;
+window.__muteLive=()=>window.__streams.at(-1).getTracks().forEach(t=>Object.defineProperty(t,'muted',{configurable:true,get:()=>true}));
 window.__live=()=>window.__streams.flatMap(s=>s.getTracks()).filter(t=>t.readyState!=='ended').length;
 window.__inbound=async()=>{const pc=window.__pcs.at(-1);const r={audio:0,video:0};if(!pc)return r;
   (await pc.getStats()).forEach(s=>{if(s.type==='inbound-rtp')r[s.kind]=s.bytesReceived||0;});return r;};
@@ -261,11 +265,64 @@ def test_caller_is_told_when_picture_is_black_or_missing(admin):
     a.wait_for_selector('#state:has-text("helt svart eller svært mørkt")', timeout=15000)
     frame.evaluate('window.__streams.at(-1).getVideoTracks()[0].enabled=true')
     a.wait_for_function('document.getElementById("state").hidden', timeout=15000)  # picture back: message cleared
-    frame.evaluate('window.__streams.at(-1).getTracks().forEach(t=>t.stop())')  # camera and microphone stopped
+    frame.evaluate('window.__pcs.at(-1).getSenders().forEach(s=>s.replaceTrack(null))')  # nothing sent, tracks still look fine
     a.wait_for_selector('#state:has-text("Ingen bilde fra Fruen")', timeout=15000)
     assert 'Ingen lyd fra Fruen' in a.text_content('#state')
     assert frame.is_hidden('#state') or 'Ingen' not in frame.text_content('#state')  # the frame itself shows nothing
     a.click('#hangup')
+
+
+def test_frame_restarts_camera_that_ios_stopped_mid_visit(admin):
+    frame = admin.device('Fruen', 'auto')
+    a = admin.device('Anne')
+    call(a, 'Fruen')
+    assert_media_flows(a, frame)
+    before = frame.evaluate('window.__streams.length')
+    frame.evaluate('window.__muteLive()')  # like iOS interrupting capture
+    frame.wait_for_function(f'window.__streams.length>{before}', timeout=15000)
+    frame.wait_for_function('window.__streams.slice(0,-1).every(s=>s.getTracks().every(t=>t.readyState==="ended"))', timeout=5000)
+    assert frame.is_visible('#visit')
+    assert_media_flows(a, frame)  # picture and sound continue with the new tracks
+    a.click('#hangup')
+    assert_back_to_photos(frame)
+
+
+def test_frame_reports_camera_that_stays_stopped(admin):
+    frame = admin.device('Fruen', 'auto')
+    a = admin.device('Anne')
+    frame.evaluate('window.__forceMuted=10')  # every attempt gets muted tracks
+    call(a, 'Fruen')
+    a.wait_for_selector('#state:has-text("Fruen sin enhet fikk ikke startet kamera")', timeout=25000)
+    frame.wait_for_function('window.__live()===0', timeout=5000)
+
+
+def test_remote_reload_from_admin_and_automatic_reactivation(admin, base):
+    frame = admin.device('Fruen', 'auto')
+    a = admin.device('Anne')
+    page = admin.ctx.new_page()
+    page.goto('/fruen/admin')
+    page.wait_for_selector('li:has-text("Fruen") >> text=klar for besøk', timeout=10000)
+    frame.evaluate('window.__marker=1')
+    page.once('dialog', lambda d: d.accept())
+    page.click('li:has-text("Fruen") >> text=Last inn på nytt')
+    page.wait_for_selector('#status:has-text("Sendt")')
+    frame.wait_for_function('window.__marker===undefined', timeout=15000)  # the page was reloaded
+    frame.wait_for_selector('#photo[src]:not([hidden])', timeout=15000)
+    assert frame.is_hidden('#setup')  # nobody tapped anything
+    call(a, 'Fruen')  # waits until the frame reports itself ready again
+    assert_media_flows(a, frame)
+    a.click('#hangup')
+    assert_back_to_photos(frame)
+    page.close()
+
+
+def test_admin_shows_open_but_not_activated(admin):
+    frame = admin.device('Fruen', 'auto', activate=False)
+    frame.goto('/fruen')  # photos only, never activated on this device
+    page = admin.ctx.new_page()
+    page.goto('/fruen/admin')
+    page.wait_for_selector('li:has-text("Fruen") >> text=bildene vises, men besøk er ikke aktivert', timeout=10000)
+    page.close()
 
 
 def test_slow_camera_does_not_stop_heartbeat(admin):

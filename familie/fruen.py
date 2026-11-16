@@ -46,6 +46,8 @@ def register(app,root,db,media_response,secure_cookie):
           seq INTEGER PRIMARY KEY AUTOINCREMENT,call_id TEXT NOT NULL,sender TEXT NOT NULL,recipient TEXT NOT NULL,kind TEXT NOT NULL,data TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS fruen_call_state ON fruen_calls(status,caller,callee);
         ''')
+        if 'reload' not in {r[1] for r in c.execute('PRAGMA table_info(fruen_accounts)')}:
+            c.execute('ALTER TABLE fruen_accounts ADD COLUMN reload INTEGER NOT NULL DEFAULT 0')
 
     def hashed(value):return hashlib.sha256(value.encode()).hexdigest()
 
@@ -140,6 +142,14 @@ def register(app,root,db,media_response,secure_cookie):
             c.execute('INSERT INTO fruen_invites VALUES(?,?,?,?)',(hashed(token),name,kind,time.time()+1800))
         return {'token':token,'expires_in':1800}
 
+    @app.post('/fruen/api/admin/reload/{ident}')
+    async def request_reload(ident:str,request:Request):
+        # Lets a relative reload the page on a device from afar, e.g. the frame at her home.
+        admin(request);await body(request)
+        with db() as c:
+            if not c.execute('UPDATE fruen_accounts SET reload=1 WHERE id=? AND active=1',(ident,)).rowcount:raise HTTPException(404,'Fant ikke enheten.')
+        return {'ok':True}
+
     @app.post('/fruen/api/admin/revoke/{ident}')
     async def revoke(ident:str,request:Request):
         admin(request);await body(request)
@@ -192,7 +202,9 @@ def register(app,root,db,media_response,secure_cookie):
     async def state(request:Request):
         a=account(request);d=await body(request,2048)
         now=time.time()
-        with db() as c:c.execute('UPDATE fruen_accounts SET seen=?,ready=? WHERE id=?',(now,int(d.get('ready') is True),a['id']))
+        with db() as c:
+            c.execute('UPDATE fruen_accounts SET seen=?,ready=? WHERE id=?',(now,int(d.get('ready') is True),a['id']))
+            reload=bool(c.execute('UPDATE fruen_accounts SET reload=0 WHERE id=? AND reload=1',(a['id'],)).rowcount)
         cleanup()
         with db() as c:
             contacts=c.execute('SELECT id,name,kind,seen,ready FROM fruen_accounts WHERE active=1 AND expires>? AND id!=? ORDER BY name',(now,a['id'])).fetchall()
@@ -206,7 +218,7 @@ def register(app,root,db,media_response,secure_cookie):
                 r['signals']=[{'seq':s['seq'],'kind':s['kind'],'data':json.loads(s['data'])} for s in c.execute('SELECT * FROM fruen_signals WHERE call_id=? AND recipient=? AND seq>? ORDER BY seq',(r['id'],a['id'],after))]
                 result=r
         night=is_night(now)
-        return {'contacts':[{'id':r['id'],'name':r['name'],'kind':r['kind'],'sleeping':r['kind']=='auto' and night,'online':bool(r['ready'] and r['seen']>now-10) and not (r['kind']=='auto' and night)} for r in contacts],'call':result,'night':a['kind']=='auto' and night}
+        return {'contacts':[{'id':r['id'],'name':r['name'],'kind':r['kind'],'sleeping':r['kind']=='auto' and night,'online':bool(r['ready'] and r['seen']>now-10) and not (r['kind']=='auto' and night)} for r in contacts],'call':result,'night':a['kind']=='auto' and night,'reload':reload}
 
     @app.post('/fruen/api/call')
     async def ring(request:Request):

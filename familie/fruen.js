@@ -11,7 +11,7 @@ let clipSound=false;try{clipSound=localStorage.getItem('fruen-clip-sound')==='1'
 async function api(path,data){const r=await fetch('/fruen/api/'+path,{method:data===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Fruen-Request':'1'},body:data===undefined?undefined:JSON.stringify(data)});let v;try{v=await r.json();}catch(e){throw Error('Besøkstjenesten svarer ikke.');}if(!r.ok){const e=Error(v.detail||'Kunne ikke fullføre.');e.status=r.status;throw e;}return v;}
 // Short confirmations fade out so the picture frame stays calm; problems stay visible.
 // On her frame only the 'needs re-activation' notice stays; everything else fades.
-let lostSince=0,connectionNotice=false;
+let lostSince=0,connectionNotice=false,reloadWanted=false;
 function status(text,sticky=false,keep=false){if(sticky&&!keep&&me?.kind==='auto')sticky=false;connectionNotice=false;clearTimeout(statusTimer);const box=$('state');box.textContent=text;box.hidden=false;if(!sticky)statusTimer=setTimeout(()=>{box.hidden=true;},8000);}
 function stopStream(stream){stream?.getTracks().forEach(t=>t.stop());}
 function sound(){if(!context||context.state!=='running')return;for(const [frequency,delay] of [[523,0],[659,.2]]){const o=context.createOscillator(),g=context.createGain(),start=context.currentTime+delay;o.frequency.value=frequency;g.gain.setValueAtTime(.045,start);g.gain.exponentialRampToValueAtTime(.001,start+.25);o.connect(g);g.connect(context.destination);o.start(start);o.stop(start+.26);o.onended=()=>{o.disconnect();g.disconnect();};}}
@@ -53,12 +53,13 @@ async function activate(){
  try{
   if(!navigator.mediaDevices?.getUserMedia)throw Error('Denne nettleseren har ikke tilgang til kamera og mikrofon.');
   if(!context||context.state==='closed')context=new(window.AudioContext||window.webkitAudioContext)();
-  context.resume().catch(()=>{});const sample=await getMedia(null);
+  context.resume().catch(()=>{});const sample=await healthyMedia(null);
   // iOS may pause audio while the camera switches on. Try to resume while capture is
   // still active, but never let the notification sound block the visit itself.
   await Promise.race([context.resume().catch(()=>{}),new Promise(r=>setTimeout(r,1500))]);stopStream(sample);
   clipSound=$('clipSound').checked;try{localStorage.setItem('fruen-clip-sound',clipSound?'1':'0');}catch(e){}
   armed=true;context.onstatechange=()=>{if(armed&&context.state!=='running')context.resume().catch(()=>{});};
+  if(me?.kind==='auto')try{localStorage.setItem('fruen-armed','1');}catch(e){}
   requestWake();
   $('setup').hidden=true;history.replaceState(null,'','/fruen');sound();status('Besøk er aktivert.');renderControls();poll();
   setTimeout(()=>{if(armed&&me?.kind==='auto'&&!isFullscreen()&&(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen))status('Trykk én gang på bildet for fullskjerm.');},1500);
@@ -69,6 +70,37 @@ async function activate(){
 // activation button (or once on the picture afterwards) is enough. Leaves on reload.
 function isFullscreen(){return !!(document.fullscreenElement||document.webkitFullscreenElement);}
 function fullscreen(){if(me?.kind!=='auto'||isFullscreen())return;const el=document.documentElement,request=el.requestFullscreen||el.webkitRequestFullscreen;if(!request)return;try{const r=request.call(el);if(r&&r.catch)r.catch(()=>{});}catch(e){}}
+// iOS can give Safari camera/microphone tracks that are 'muted' (capture interrupted,
+// e.g. another app took them). Wait briefly, try once more, then report it instead of
+// sending a black, silent picture.
+function healthy(stream){const tracks=stream?.getTracks()||[];return tracks.length>0&&tracks.every(t=>t.readyState==='live'&&!t.muted);}
+async function healthyMedia(expected){
+ for(let attempt=0;attempt<2;attempt++){
+  const stream=await getMedia(expected);
+  for(let i=0;i<8&&!healthy(stream);i++)await new Promise(r=>setTimeout(r,250));
+  if(healthy(stream))return stream;
+  stopStream(stream);
+  if(expected&&call?.id!==expected)throw Error('Samtalen er avsluttet.');
+ }
+ throw Error('Kamera eller mikrofon er stoppet av enheten. Lukk andre apper som bruker kamera eller lyd, og prøv igjen.');
+}
+let localTimer=null;
+function watchLocal(connection,id){
+ clearInterval(localTimer);let bad=0,recovered=false,busy=false;
+ localTimer=setInterval(async()=>{
+  if(pc!==connection){clearInterval(localTimer);return;}
+  if(busy)return;if(healthy(local)){bad=0;return;}
+  if(++bad<2)return;
+  if(recovered){clearInterval(localTimer);endCall('camera');return;}
+  recovered=true;bad=0;busy=true;
+  try{
+   const fresh=await healthyMedia(id);if(pc!==connection){stopStream(fresh);return;}
+   for(const sender of connection.getSenders()){const kind=sender.track?.kind;const track=kind&&fresh.getTracks().find(t=>t.kind===kind);if(track)await sender.replaceTrack(track);}
+   const old=local;local=fresh;stopStream(old);if(me.kind==='member')$('local').srcObject=local;
+  }catch(e){if(pc===connection)endCall('camera');}
+  finally{busy=false;}
+ },2000);
+}
 function requestWake(){if(armed&&navigator.wakeLock&&!document.hidden)navigator.wakeLock.request('screen').then(v=>{wake=v;}).catch(()=>{});}
 // Remote sound plays through a media element (echo cancellation, and Safari allows
 // it while the page captures). Web Audio is only a fallback when playback is refused.
@@ -93,7 +125,7 @@ function showRinging(value){
  $('answer').hidden=value.outgoing||me.kind==='auto';$('decline').hidden=me.kind==='auto';$('decline').textContent=value.outgoing?'Avbryt':'Avvis';ringSound();renderControls();
  if(!value.outgoing&&me.kind==='auto'&&!autoTimer&&acceptingId!==value.id){const id=value.id;autoTimer=setTimeout(()=>{autoTimer=null;if(call?.id===id&&armed&&!document.hidden)acceptCall();},5000);}
 }
-async function acceptCall(){const id=call?.id;if(!id||acceptingId===id||call.outgoing)return;acceptingId=id;$('answer').disabled=true;try{context?.resume().catch(()=>{});const stream=await getMedia(id);if(call?.id!==id){stopStream(stream);return;}stopStream(local);local=stream;await api('call/'+id+'/accept',{});if(call?.id===id){stopRing();poll();}}catch(e){if(call?.id===id){status('Besøket kunne ikke starte. Kontroller kamera og mikrofon.',true);endCall(e?.status?'connection':'camera');}}finally{$('answer').disabled=false;if(acceptingId===id)acceptingId=null;}}
+async function acceptCall(){const id=call?.id;if(!id||acceptingId===id||call.outgoing)return;acceptingId=id;$('answer').disabled=true;try{context?.resume().catch(()=>{});const stream=await healthyMedia(id);if(call?.id!==id){stopStream(stream);return;}stopStream(local);local=stream;await api('call/'+id+'/accept',{});if(call?.id===id){stopRing();poll();}}catch(e){if(call?.id===id){status('Besøket kunne ikke starte. Kontroller kamera og mikrofon.',true);endCall(e?.status?'connection':'camera');}}finally{$('answer').disabled=false;if(acceptingId===id)acceptingId=null;}}
 // One peer connection per call. State is keyed by call id so a slow setup for an old
 // call can never clear or replace the setup of a newer call.
 async function peer(value){
@@ -103,9 +135,9 @@ async function peer(value){
  const state={id};
  state.promise=(async()=>{
   const settings=await api('ice');if(call?.id!==id)return;
-  if(!local){const source=await getMedia(id);if(call?.id!==id){stopStream(source);return;}local=source;}
+  if(!local){const source=await healthyMedia(id);if(call?.id!==id){stopStream(source);return;}local=source;}
   const connection=new RTCPeerConnection({iceServers:settings.iceServers});pc=connection;pcCall=id;remote=new MediaStream();$('remote').srcObject=remote;$('remote').play().catch(()=>{});
-  local.getTracks().forEach(track=>connection.addTrack(track,local));if(me.kind==='member'){$('local').hidden=false;$('local').srcObject=local;}
+  local.getTracks().forEach(track=>connection.addTrack(track,local));watchLocal(connection,id);if(me.kind==='member'){$('local').hidden=false;$('local').srcObject=local;}
   connection.onicecandidate=e=>{if(e.candidate&&pc===connection)api('call/'+id+'/signal',{kind:'ice',data:e.candidate.toJSON()}).catch(()=>{});};
   connection.ontrack=e=>{if(pc!==connection)return;remote.addTrack(e.track);if(e.track.kind==='audio')playRemoteAudio(e.track,connection);};
   connection.onconnectionstatechange=()=>{if(pc!==connection)return;const s=connection.connectionState;if(s==='connected'){clearTimeout(connectionTimer);clearTimeout(disconnectTimer);clearTimeout(statusTimer);$('state').hidden=true;if(me.kind==='member')watchMedia(connection,value.peer_name);}else if(s==='failed'){status('Besøket mistet forbindelsen.',true);endCall();}else if(s==='disconnected'){clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(pc===connection&&connection.connectionState!=='connected'){status('Besøket mistet forbindelsen.',true);endCall();}},8000);}};
@@ -170,7 +202,7 @@ function watchMedia(connection,who){
  },2000);
 }
 function stopCall(){
- clearInterval(mediaTimer);mediaTimer=null;
+ clearInterval(mediaTimer);mediaTimer=null;clearInterval(localTimer);localTimer=null;
  stopRing();clearTimeout(connectionTimer);clearTimeout(disconnectTimer);
  if(pc){pc.ontrack=null;pc.onicecandidate=null;pc.onconnectionstatechange=null;pc.close();pc=null;}
  pcCall=null;peerState=null;stopStream(local);local=null;stopStream(remote);remote=null;remoteAudio?.disconnect();remoteAudio=null;speaker.pause();speaker.srcObject=null;
@@ -190,21 +222,30 @@ function endedText(value,wasRinging){
  if(side==='timeout')return wasRinging?who+' svarte ikke.':'Forbindelsen til '+who+' ble brutt.';
  return code==='hangup'&&!wasRinging?who+' la på.':'';
 }
-function locked(){armed=false;endCall();pausePhotos();resetClip();$('photo').removeAttribute('src');$('photo').hidden=true;photos=[];bag=[];currentPhoto=null;me=null;$('setup').hidden=true;$('controls').hidden=true;$('welcome').hidden=false;$('enrol').hidden=true;$('welcomeText').textContent='En pårørende må koble denne enheten til igjen.';status('Besøk er ikke tilgjengelig.',true);}
+function locked(){armed=false;try{localStorage.removeItem('fruen-armed');}catch(e){}endCall();pausePhotos();resetClip();$('photo').removeAttribute('src');$('photo').hidden=true;photos=[];bag=[];currentPhoto=null;me=null;$('setup').hidden=true;$('controls').hidden=true;$('welcome').hidden=false;$('enrol').hidden=true;$('welcomeText').textContent='En pårørende må koble denne enheten til igjen.';status('Besøk er ikke tilgjengelig.',true);}
 async function poll(){
  if(!me||polling)return;clearTimeout(pollTimer);polling=true;
- try{const value=await api('state',{ready:armed&&!document.hidden&&(!night||call?.status==='accepted'),after:signalSeq});lastPoll=Date.now();lostSince=0;if(connectionNotice){connectionNotice=false;$('state').hidden=true;}setNight(!!value.night);contacts=value.contacts;if($('contactDialog').open)contactList();if(armed&&!document.hidden)await processCall(value.call);else if(call)endCall();}
+ try{const value=await api('state',{ready:armed&&!document.hidden&&(!night||call?.status==='accepted'),after:signalSeq});lastPoll=Date.now();lostSince=0;if(connectionNotice){connectionNotice=false;$('state').hidden=true;}setNight(!!value.night);if(value.reload)reloadWanted=true;if(reloadWanted&&!call){location.reload();return;}contacts=value.contacts;if($('contactDialog').open)contactList();if(armed&&!document.hidden)await processCall(value.call);else if(call)endCall();}
  catch(e){if(e.status===401)locked();else{if(!lostSince)lostSince=Date.now();if(me?.kind==='member'&&Date.now()-lostSince>30000&&!connectionNotice){status('Forbindelsen er midlertidig borte. Bildene vises videre.',true);connectionNotice=true;}}}
  finally{polling=false;if(me)pollTimer=setTimeout(poll,2000);}
 }
+// After a reload the frame activates itself again, but only if a relative activated it
+// before on this device and Safari already allows camera and microphone (no prompt).
+async function autoArm(){
+ let wanted=false;try{wanted=localStorage.getItem('fruen-armed')==='1';}catch(e){}
+ if(me?.kind!=='auto'||!wanted||!navigator.permissions?.query||!navigator.mediaDevices?.getUserMedia)return false;
+ try{const states=await Promise.all(['camera','microphone'].map(name=>navigator.permissions.query({name})));if(states.some(s=>s.state!=='granted'))return false;}catch(e){return false;}
+ try{if(!context||context.state==='closed')context=new(window.AudioContext||window.webkitAudioContext)();context.resume().catch(()=>{});context.onstatechange=()=>{if(armed&&context.state!=='running')context.resume().catch(()=>{});};}catch(e){}
+ armed=true;requestWake();renderControls();return true;
+}
 async function boot(){
- try{me=await api('me');$('welcome').hidden=true;renderControls();await loadPhotos();if(me.kind==='member'||location.pathname.endsWith('/klargjor')){$('setup').hidden=false;$('setupTitle').textContent=me.kind==='auto'?'Klargjør Fruens bildeskjerm':'Aktiver familiebesøk';}else status('Familiebilder · besøk må aktiveres av en pårørende etter ny innlasting.',true,true);poll();}
+ try{me=await api('me');$('welcome').hidden=true;renderControls();await loadPhotos();if(me.kind==='member'||location.pathname.endsWith('/klargjor')){$('setup').hidden=false;$('setupTitle').textContent=me.kind==='auto'?'Klargjør Fruens bildeskjerm':'Aktiver familiebesøk';}else if(!await autoArm())status('Familiebilder · besøk må aktiveres av en pårørende etter ny innlasting.',true,true);poll();}
  catch(e){$('welcome').hidden=false;status('Privat familiebesøk',true);}
 }
 $('activate').onclick=activate;
 document.addEventListener('pointerup',()=>{if(armed)fullscreen();});
 $('resume').onclick=()=>{$('setup').hidden=false;};$('openContacts').onclick=()=>{contactList();$('contactDialog').showModal();};$('closeContacts').onclick=()=>$('contactDialog').close();$('hangup').onclick=()=>endCall('hangup');$('decline').onclick=()=>endCall(call&&!call.outgoing?'declined':'hangup');$('answer').onclick=acceptCall;
-$('logout').onclick=async()=>{if(!confirm('Koble denne enheten fra familiebesøk?'))return;endCall();try{await api('logout',{});location.reload();}catch(e){status(e.message,true);}};
+$('logout').onclick=async()=>{if(!confirm('Koble denne enheten fra familiebesøk?'))return;try{localStorage.removeItem('fruen-armed');}catch(e){}endCall();try{await api('logout',{});location.reload();}catch(e){status(e.message,true);}};
 const invitation=location.hash.match(/^#invite=([0-9a-f]{64})$/);if(invitation){pendingToken=invitation[1];history.replaceState(null,'',location.pathname);$('welcome').hidden=false;$('enrol').hidden=false;$('welcomeText').textContent='Denne private invitasjonen kobler enheten til familiens bildeskjerm og besøk.';}
 $('enrol').onclick=async()=>{if(!pendingToken)return;try{const a=await api('enrol',{token:pendingToken});pendingToken=null;$('enrol').hidden=true;if(a.kind==='auto')history.replaceState(null,'','/fruen/klargjor');await boot();}catch(e){$('welcomeText').textContent=e.message;}};
 if(!invitation)boot();

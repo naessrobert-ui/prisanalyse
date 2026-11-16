@@ -87,6 +87,25 @@ FAMILY_DATA_DIR=~/motes-familie/data PYTHONPATH=~/motes-familie/app ~/motes-fami
 Nettlesere krever et trykk før lyd kan spilles. Til da vises bildene, men iPaden
 står som «ikke tilkoblet» for innringere.
 
+## Fjernvedlikehold
+
+- **Ny innlasting fra admin:** «Last inn på nytt» ved en enhet laster siden der innen
+  noen sekunder (venter til en pågående samtale er ferdig). Fullskjerm forsvinner
+  til noen trykker på skjermen.
+- **Automatisk reaktivering:** Etter en ny innlasting aktiverer `auto`-skjermen seg
+  selv, men bare hvis den er aktivert av en pårørende på denne enheten før, og Safari
+  allerede har «Tillat» for kamera og mikrofon (ingen spørsmål vises). Ellers må
+  `/fruen/klargjor` brukes som før. Varsellyden kan mangle til noen har trykket på
+  skjermen; navnet vises alltid.
+- **Selvsjekk:** Gir iOS Safari stoppede («muted») kamera- eller mikrofonspor, venter
+  siden litt og prøver én gang til, også midt i en samtale. Hjelper ikke det, avsluttes
+  besøket, og innringeren får beskjed om at kameraet ikke kunne startes.
+- **Status i admin:** «bildene vises, men besøk er ikke aktivert», «klar for besøk»,
+  «nattmodus» eller «ikke tilkoblet · sist sett kl. …».
+- **Hos innringeren:** under et besøk sjekkes det om bilde og lyd kommer fram, og om
+  bildet er svart. Meldingen sier «Ingen bilde», «helt svart eller svært mørkt» eller
+  «Ingen lyd».
+
 ## Feilsøking
 
 | Symptom | Sjekk |
