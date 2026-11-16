@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T12:40:00+00:00",
+  "generated_at": "2026-11-16T12:50:00+00:00",
   "items": [
     {
       "id": "686604",
@@ -439,18 +439,18 @@
       "ticker": "FERT",
       "issuer": "Fertiberia Corporate S.L.U.",
       "title": "Consolidated Interim Report Q3-2026",
-      "headline": "Fertiberia offentliggjør foreløpig rapport for Q3 2026 uten detaljer",
-      "lead": "Fertiberia har publisert sin konsernrapport for tredje kvartal 2026, men uten å oppgi nøkkeltall eller fremtidsutsikter, noe som gir lite grunnlag for vurdering av resultat eller utvikling.",
+      "headline": "Fertiberia legger frem foreløpig rapport for tredje kvartal 2026",
+      "lead": "Fertiberia har publisert sin foreløpige rapport for Q3 2026 uten å oppgi detaljer om resultater eller nøkkeltall foreløpig, noe som gir lite innsikt i selskapets nåværende prestasjon eller utsikter.",
       "published_at": "2026-11-16T11:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686574",
-      "summary": "Fertiberia har publisert sin konsernrapport for tredje kvartal 2026, men uten å oppgi nøkkeltall eller fremtidsutsikter, noe som gir lite grunnlag for vurdering av resultat eller utvikling.",
-      "reason": "Mangel på finansiell informasjon gjør det umulig å evaluere selskapets prestasjoner eller sammenligne med tidligere perioder, og skaper usikkerhet for aksjonærer.",
-      "score": 20,
+      "summary": "Fertiberia har publisert sin foreløpige rapport for Q3 2026 uten å oppgi detaljer om resultater eller nøkkeltall foreløpig, noe som gir lite innsikt i selskapets nåværende prestasjon eller utsikter.",
+      "reason": "Manglende konkrete tall og analyser i rapporten gjør det umulig å bedømme hvordan kvartalet har utviklet seg i forhold til fjoråret, selskapets egne mål eller markedets forventninger. Investorer må vente på mer utfyllende informasjon for å vurdere betydning for aksjekurs og strategiske implikasjoner.",
+      "score": 15,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 35,
+      "score_ai": 30,
       "attachment_key": "4d28cac0c650427d",
       "number_keys": [
         "77de68",
@@ -477,64 +477,77 @@
             "yoy_pct": 13.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Sides 6, 11"
+            "evidence": "SIDE 11 Consolidated Interim Report 9M 2026 p.11"
           },
           {
             "label": "EBITDA",
             "name": "ebitda",
             "unit": "million EUR",
-            "current": 57.547,
-            "prior_year": 46.621,
+            "current": 57.5,
+            "prior_year": 46.6,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 23.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 11"
+            "evidence": "SIDE 11 Consolidated Interim Report 9M 2026 p.11"
           },
           {
             "label": "EBIT",
             "name": "ebit",
             "unit": "million EUR",
-            "current": 25.188,
-            "prior_year": 18.867,
+            "current": 25.2,
+            "prior_year": 18.9,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 33.5,
+            "yoy_pct": 33.3,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 11"
+            "evidence": "SIDE 11 Consolidated Interim Report 9M 2026 p.11"
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
             "unit": "million EUR",
-            "current": -15.028,
-            "prior_year": -16.028,
+            "current": -15.0,
+            "prior_year": -16.0,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 11"
+            "evidence": "SIDE 11 Consolidated Interim Report 9M 2026 p.11"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
             "unit": "million EUR",
-            "current": 22.453,
-            "prior_year": 76.398,
+            "current": 22.5,
+            "prior_year": 76.4,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": -70.6,
+            "yoy_pct": -70.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Side 16"
+            "evidence": "SIDE 16 Consolidated Interim Report 9M 2026 p.16"
+          },
+          {
+            "label": "EPS",
+            "name": "eps",
+            "unit": "EUR/share",
+            "current": null,
+            "prior_year": null,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "EPS not disclosed in report"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Selskapet fokuserer på en høymargin, skalerbar plattform for differensierte planteernæringsløsninger under det nye Trixia®-merket, drevet av bioteknologi og lav kapitalintensitet. Driften påvirkes midlertidig av høye energikostnader i Europa, noe som kan føre til omstilling av upstream-operasjoner hvis gassprispåslaget vedvarer. Transformasjonsprogrammet har levert 9,8 millioner euro i besparelser hittil i 2026.",
+          "summary": "Ledelsen rapporterer at den biologiske, differensierte planteernæringsplattformen Trixia® er høymargin og skalerbar, med mål om å forbedre avlingsytelse og bærekraft. Produksjonen i Europa påvirkes midlertidig negativt av høye energikostnader, spesielt gass-til-ammoniaksprisen, noe som kan føre til justering av upstream-operasjoner ved vedvarende markedspress. Transformasjonsprogrammet har levert 9,8 millioner euro i besparelser i 9M 2026.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [
@@ -544,20 +557,20 @@
           ],
           "points": [
             {
-              "topic": "Plattformutvikling",
-              "statement": "Fortsetter satsing på Trixia®-plattformen med fokus på biologiske og spesialiserte planteernæringsløsninger med høy margin og lav kapitalbruk.",
-              "evidence": "\"plattform ... high-margin, scalable ... under Trixia® brand ... asset-light, low-capex model\"",
+              "topic": "Energi og produksjon",
+              "statement": "Produksjonen i Europa påvirkes midlertidig av høye energikostnader, med forventning om gjenopptak når forholdene bedres. Vedvarende høyt gass-til-ammoniakksprisspread vil kunne føre til revurdering av upstream-operasjoner.",
+              "evidence": "\"energy costs in Europe... temporarily affecting competitiveness... expects to resume production once market conditions improve... may need to reassess operating configuration\"",
               "page": "utdrag fra rapporten"
             },
             {
-              "topic": "Driftsforhold",
-              "statement": "Midler over energikostnader midlertidig påvirker konkurranseevnen til europeisk produksjon; produksjonen vil gjenopptas når markedsforholdene forbedres, men upstream-operasjonen kan omvurderes ved vedvarende gass-prispåslag.",
-              "evidence": "\"energy costs in Europe ... temporarily affecting competitiveness ... expects to resume production once market conditions improve ... may need to reassess operating configuration ... if gas-to-ammonia",
+              "topic": "Produktplattform og innovasjon",
+              "statement": "Trixia®-plattformen, biologisk og differensiert, opererer under en lavkapitalmodell med fokus på bærekraft, forbedret avlingsytelse og næringseffektivitet, bygget på egen bioteknologi og FoU.",
+              "evidence": "\"high-margin... biological, specialty... crop nutrition... Since September 2026... asset-light, low-capex model...\"",
               "page": "utdrag fra rapporten"
             },
             {
               "topic": "Kostnadsbesparelser",
-              "statement": "Transformasjonsprogrammet oppnådde 9,8 millioner euro i besparelser i første ni måneder av 2026.",
+              "statement": "Transformasjonsprogrammet har levert 9,8 millioner euro i besparelser i løpet av de første ni månedene av 2026.",
               "evidence": "\"The transformation programme delivered €9.8 million of in-year savings in 9M 2026\"",
               "page": "utdrag fra rapporten"
             }
@@ -11976,14 +11989,14 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T12:40:00+00:00",
+  "last_checked_at": "2026-11-16T12:50:00+00:00",
   "monitor_stats": {
     "fetched": 51,
     "recent": 51,
-    "already_seen": 49,
-    "eligible": 2,
+    "already_seen": 50,
+    "eligible": 1,
     "filtered": 0,
-    "analyzed": 2,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
