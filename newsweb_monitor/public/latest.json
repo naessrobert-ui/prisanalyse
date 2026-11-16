@@ -2,8 +2,59 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T13:20:00+00:00",
+  "generated_at": "2026-11-16T13:30:00+00:00",
   "items": [
+    {
+      "id": "686607",
+      "market": "XOSL",
+      "ticker": "VEND",
+      "issuer": "Vend Marketplaces ASA",
+      "title": "Title: Vend Marketplaces ASA: Repurchase of own shares",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T13:27:19.853000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686607",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "686606",
+      "market": "XOSL",
+      "ticker": "DOFG",
+      "issuer": "DOF Group ASA",
+      "title": "DOF Group ASA - Awarded long-term contract in Africa",
+      "headline": "DOF sikrer kontrakt verdt inntil 200 mill. USD i Afrika over tre år",
+      "lead": "DOF Group ASA har inngått en langsiktig kontrakt med en internasjonal oljekunde i Afrika for Skandi Seven, med en verdi mellom 100 og 200 millioner USD over tre år. Kontrakten gir god inntektsforutsigbarhet, men detaljer om inntektsmodellen mangler.",
+      "published_at": "2026-11-16T13:21:32.119000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686606",
+      "summary": "DOF Group ASA har inngått en langsiktig kontrakt med en internasjonal oljekunde i Afrika for Skandi Seven, med en verdi mellom 100 og 200 millioner USD over tre år. Kontrakten gir god inntektsforutsigbarhet, men detaljer om inntektsmodellen mangler.",
+      "reason": "Langsiktig kontrakt med en betydelig verdi bekrefter DOFs ledende rolle i subseasegmentet og gir stabilitet i ordrereserven. Investorer bør følge kontraktens lønnsomhet og markedsutviklingen i Afrika.",
+      "score": 80,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "SOFF",
+          "direction": "positiv",
+          "reason": "Nærmeste konkurrent i offshore-rederi kan få økt press i Afrika fra DOFs økte aktiviteter."
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 75,
+      "number_keys": [
+        "215bb4",
+        "310b86",
+        "7d7116",
+        "827bfc",
+        "9f9af0",
+        "c66c65"
+      ]
+    },
     {
       "id": "686605",
       "market": "XOSL",
@@ -11747,43 +11798,6 @@
         "f6e112",
         "fb9654"
       ]
-    },
-    {
-      "id": "686187",
-      "market": "XOSL",
-      "ticker": "HSHP",
-      "issuer": "Himalaya Shipping Ltd",
-      "title": "The Goldman Sachs Group, Inc. Disclosure in HIMALAYA SHIPPING LTD",
-      "headline": "Goldman Sachs rapporterer stor eierandel i Himalaya Shipping Ltd",
-      "lead": "Goldman Sachs har offentliggjort betydelig eierandel i Himalaya Shipping Ltd, noe som kan indikere økt interesse fra finanssektoren. Detaljer om eierprosent og mulige strategiske planer mangler foreløpig.",
-      "published_at": "2026-11-11T07:04:30.579000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686187",
-      "summary": "Goldman Sachs har offentliggjort betydelig eierandel i Himalaya Shipping Ltd, noe som kan indikere økt interesse fra finanssektoren. Detaljer om eierprosent og mulige strategiske planer mangler foreløpig.",
-      "reason": "Stor eierandel fra Goldman Sachs kan åpne for nye finansielle muligheter eller endringer i styring, men uten konkret informasjon er effekten for aksjonærer usikker. Vi bør følge utviklingen i aksjonærstrukturen og eventuelle strategiske uttalelser.",
-      "score": 50,
-      "skipped": false,
-      "direction": "uklar",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 65,
-      "attachment_key": "a420dd22883258e0"
-    },
-    {
-      "id": "686186",
-      "market": "XOSL",
-      "ticker": "DOFG",
-      "issuer": "DOF Group ASA",
-      "title": "Financial calendar",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-11T07:02:24.299000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686186",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -11961,19 +11975,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T13:20:00+00:00",
+  "last_checked_at": "2026-11-16T13:30:00+00:00",
   "monitor_stats": {
-    "fetched": 52,
-    "recent": 52,
-    "already_seen": 51,
+    "fetched": 54,
+    "recent": 54,
+    "already_seen": 52,
     "eligible": 1,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T13:18:32.338000+00:00",
+    "source_latest_at": "2026-11-16T13:27:19.853000+00:00",
     "indirect": 0
   }
 }
