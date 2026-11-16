@@ -2,8 +2,28 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T09:10:00+00:00",
+  "generated_at": "2026-11-16T09:20:00+00:00",
   "items": [
+    {
+      "id": "686564",
+      "market": "XOSL",
+      "ticker": "ARCH",
+      "issuer": "Archer Limited",
+      "title": "Major Shareholding Disclosure Notification",
+      "headline": "Archer Limited får vesentlig aksjonærmelding uten detaljer",
+      "lead": "Archer Limited har meldt inn en stor eierandel uten at ytterligere detaljer er offentliggjort. Uten konkret informasjon er det uklart hvordan dette påvirker aksjen eller selskapets fremtidige kurs.",
+      "published_at": "2026-11-16T09:10:59.252000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686564",
+      "summary": "Archer Limited har meldt inn en stor eierandel uten at ytterligere detaljer er offentliggjort. Uten konkret informasjon er det uklart hvordan dette påvirker aksjen eller selskapets fremtidige kurs.",
+      "reason": "Meldingen om en større aksjonær uten offentlig detaljer skaper usikkerhet. Investorer må avvente mer informasjon for å vurdere konsekvenser for eierskap og styring.",
+      "score": 30,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "company_form": "ikke ASA",
+      "score_ai": 45,
+      "attachment_key": "39929c1449428fd8"
+    },
     {
       "id": "686563",
       "market": "XOSL",
@@ -13189,47 +13209,6 @@
         "ec7f1f",
         "f38e1b"
       ]
-    },
-    {
-      "id": "686147",
-      "market": "XOSL",
-      "ticker": "NAVIG",
-      "issuer": "Navigator Holdings Ltd",
-      "title": "Navigator Holdings Ltd. - Buyback of bonds",
-      "headline": "Navigator Holdings kjøper tilbake obligasjoner for 25 millioner dollar uten å kansellere dem",
-      "lead": "Navigator Holdings har tilbakekjøpt obligasjoner for 25 millioner USD, men velger å beholde disse og ikke kansellere dem, noe som kan påvirke selskapets balanse og fremtidig finansiering.",
-      "published_at": "2026-11-10T18:59:49.328000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686147",
-      "summary": "Navigator Holdings har tilbakekjøpt obligasjoner for 25 millioner USD, men velger å beholde disse og ikke kansellere dem, noe som kan påvirke selskapets balanse og fremtidig finansiering.",
-      "reason": "Tilbakekjøpet uten kansellering reduserer tilgjengelig gjeld, men påvirker ikke gjeldsbyrden direkte. Aksjonærer bør følge med på hvordan dette påvirker selskapets finansielle strategi og fremtidige obligasjonsbetingelser.",
-      "score": 40,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 55,
-      "number_keys": [
-        "0ade7c",
-        "0be13b",
-        "185385",
-        "356a19",
-        "6216f8",
-        "65f2ca",
-        "6e45c3",
-        "73ee49",
-        "7dd7f8",
-        "84b0b5",
-        "91032a",
-        "98fbc4",
-        "a51332",
-        "abd013",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "b6589f",
-        "e3cbba",
-        "e932ca"
-      ]
     }
   ],
   "indirect": [
@@ -13371,38 +13350,21 @@
           "reason": "Påvirkes av endringer i handelsregler ved import/eksport"
         }
       ]
-    },
-    {
-      "id": "8beed0dd79a04371",
-      "source": "E24",
-      "title": "Klimasøksmålet: Tillatelser må behandles på nytt",
-      "url": "https://e24.no/energi-og-klima/i/M5gz2r/klimasoeksmaalet-tillatelser-maa-behandles-paa-nytt?utm_medium=rss",
-      "published_at": "2026-11-13T09:14:57+00:00",
-      "analyzed_at": "2026-11-13T09:20:00+00:00",
-      "score": 80,
-      "comment": "Høyesteretts avgjørelse kan utsette og komplisere produksjon fra tre store felt i norsk sokkel, øker regulatorisk risiko og kan redusere fremtidig olje- og gassproduksjon.",
-      "affected": [
-        {
-          "ticker": "EQNR",
-          "direction": "negativ",
-          "reason": "Direkte påvirkning på feltoperasjoner og produksjonstillatelser."
-        }
-      ]
     }
   ],
-  "last_checked_at": "2026-11-16T09:10:00+00:00",
+  "last_checked_at": "2026-11-16T09:20:00+00:00",
   "monitor_stats": {
-    "fetched": 23,
-    "recent": 23,
-    "already_seen": 20,
-    "eligible": 0,
-    "filtered": 3,
-    "analyzed": 0,
+    "fetched": 24,
+    "recent": 24,
+    "already_seen": 23,
+    "eligible": 1,
+    "filtered": 0,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T09:00:22.562000+00:00",
+    "source_latest_at": "2026-11-16T09:10:59.252000+00:00",
     "indirect": 0
   }
 }
