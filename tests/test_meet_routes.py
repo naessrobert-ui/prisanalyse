@@ -53,6 +53,27 @@ def test_to_deltakere_finner_hverandre_og_signalerer(client):
         assert _msg(a)["t"] == "peer-left"
 
 
+def test_opptaksstatus_videresendes_til_alle(client):
+    with client.websocket_connect("/meet/ws/test-rom?name=Robert&kode=hemmelig") as a:
+        _msg(a)
+        with client.websocket_connect("/meet/ws/test-rom?name=Kari&kode=hemmelig") as b:
+            _msg(b)
+            _msg(a)
+            a.send_text(json.dumps({"t": "state", "state": {"rec": True}}))
+            assert _msg(b)["state"]["rec"] is True
+            a.send_text(json.dumps({"t": "state", "state": {"rec": "ja"}}))
+            assert _msg(b)["state"]["rec"] is True
+            a.send_text(json.dumps({"t": "state", "state": {}}))
+            assert _msg(b)["state"]["rec"] is False
+
+
+def test_opptaksskript_serveres(client):
+    r = client.get("/meet/recorder.js")
+    assert r.status_code == 200
+    assert "MeetingRecorder" in r.text
+    assert r.headers["cache-control"] == "no-store"
+
+
 def test_status_viser_ingen_navn(client):
     r = client.get("/meet/status").json()
     assert set(r) == {"rom", "deltakere", "krever_kode", "turn"}
