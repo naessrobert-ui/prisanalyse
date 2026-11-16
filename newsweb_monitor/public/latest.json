@@ -2,8 +2,46 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T07:50:00+00:00",
+  "generated_at": "2026-11-16T08:40:00+00:00",
   "items": [
+    {
+      "id": "686559",
+      "market": "XOSL",
+      "ticker": "DOFG",
+      "issuer": "DOF Group ASA",
+      "title": "DOF Group ASA - Awarded subsea SURF services contract in the APAC region by Amplitude Energy Limited",
+      "headline": "DOF sikrer stor subsea-kontrakt i Australia verdt 50–100 mill. USD",
+      "lead": "DOF Group ASA har fått tildelt en subsea SURF-kontrakt for Amplitude Energy i APAC-området, med oppstart av offshoreoperasjoner fra slutten av 2027. Kontrakten estimeres til mellom 50 og 100 millioner USD.",
+      "published_at": "2026-11-16T08:39:49.271000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686559",
+      "summary": "DOF Group ASA har fått tildelt en subsea SURF-kontrakt for Amplitude Energy i APAC-området, med oppstart av offshoreoperasjoner fra slutten av 2027. Kontrakten estimeres til mellom 50 og 100 millioner USD.",
+      "reason": "Kontrakten bekrefter DOFs sterke posisjon i APAC-markedet og vil bidra til langsiktige inntekter. Aksjonærer bør følge prosjektgjennomføringen og markedspenetrasjonen i regionen videre.",
+      "score": 80,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "SOFF",
+          "direction": "uklar",
+          "reason": "Som konkurrent i offshore-rederi kan SOFF påvirkes av økt aktivitet i APAC-markedet."
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 75,
+      "number_keys": [
+        "215bb4",
+        "310b86",
+        "431f6b",
+        "64e0cf",
+        "7d7116",
+        "827bfc",
+        "aee655",
+        "c66c65",
+        "da4b92",
+        "e1822d"
+      ]
+    },
     {
       "id": "686556",
       "market": "XOSL",
@@ -13322,23 +13360,6 @@
         "f38cfe",
         "f5de2d"
       ]
-    },
-    {
-      "id": "686140",
-      "market": "XOSL",
-      "ticker": "IDEX",
-      "issuer": "IDEX Biometrics ASA",
-      "title": "IDEX Biometrics: Invitation to Q3 2026 Presentation",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-10T16:30:06.370000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686140",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -13499,19 +13520,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T08:30:00+00:00",
+  "last_checked_at": "2026-11-16T08:40:00+00:00",
   "monitor_stats": {
-    "fetched": 18,
-    "recent": 18,
+    "fetched": 19,
+    "recent": 19,
     "already_seen": 18,
-    "eligible": 0,
+    "eligible": 1,
     "filtered": 0,
-    "analyzed": 0,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T07:43:43.655000+00:00",
+    "source_latest_at": "2026-11-16T08:39:49.271000+00:00",
     "indirect": 0
   }
 }
