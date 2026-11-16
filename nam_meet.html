@@ -163,6 +163,12 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 .btn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .sbtn{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:.35rem .65rem;cursor:pointer;font-size:.85rem}
+.btn.rec-on{background:var(--danger);color:var(--danger-ink);border-color:var(--danger)}
+.rec-live{display:none;align-items:center;gap:.4rem;color:var(--danger);font-weight:650;font-size:.9rem}.rec-live.show{display:inline-flex}.rec-live::before{content:'';width:9px;height:9px;border-radius:50%;background:var(--danger);animation:recblink 1.4s infinite}
+@keyframes recblink{50%{opacity:.25}}
+.icons .rec{color:var(--danger)}
+.rec-dialog{max-width:640px;width:92%;border:1px solid #ccd8d7;border-radius:18px;padding:24px;color:var(--ink);background:var(--bg)}.rec-dialog::backdrop{background:#102d2c88}.rec-dialog h2{margin:0 0 .4rem}
+.rec-files{list-style:none;padding:0;margin:14px 0;display:flex;flex-direction:column;gap:8px}.rec-files li{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.rec-files li span{min-width:0;font-size:13px}.rec-files li small{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .notice{max-width:60ch;margin:0 auto .5rem;padding:.6rem .9rem;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:.9rem}
 
 .johnny-option{display:flex;gap:10px;align-items:flex-start;font-size:12px;font-weight:500;margin:20px 0 5px;cursor:pointer}.johnny-option input{margin:3px 0 0;width:17px;height:17px;accent-color:var(--accent);flex:none}.johnny-option strong{display:block;font-weight:650}.johnny-option small{display:block;color:var(--muted);font-size:11px;line-height:1.6;margin-top:4px}.johnny-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.johnny-actions button{font-size:12px}.johnny-status{font-size:12px;color:var(--accent);font-weight:600}.johnny-panel p{font-size:12px;margin:7px 0;color:var(--muted)}.johnny-panel .johnny-error{color:#a23e38}.johnny-answer a{color:var(--accent);text-decoration:underline}.johnny-panel input{margin:0}.johnny-live{background:var(--chip);padding:7px 10px;border-radius:9px;font-size:12px}.johnny-recording{color:#a23e38!important;font-weight:700}.johnny-source{font-size:11px;display:block;margin:5px 0}.johnny-consent{display:flex;gap:6px;flex-wrap:wrap}.johnny-head{font-size:12px;color:var(--accent)}
@@ -232,7 +238,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   <header>
     <h1>møtes.no</h1>
     <span class="orgh">Plass til samtalen</span>
-    <span id="status">Kobler til …</span><span class="johnny-head" id="johnnyHeader" role="status"></span>
+    <span id="status">Kobler til …</span><span class="rec-live" id="recLive" role="status" aria-live="polite"></span><span class="johnny-head" id="johnnyHeader" role="status"></span>
     <span class="roomtag">Rom: <b id="roomName"></b> <button class="sbtn" id="copyBtn" type="button">Inviter</button></span>
   </header>
   <main>
@@ -275,12 +281,14 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       <button class="btn" id="micBtn" type="button"></button>
       <button class="btn" id="camBtn" type="button"></button>
       <button class="btn" id="shareBtn" type="button"></button>
+      <button class="btn" id="recBtn" type="button"></button>
       <button class="btn chat-toggle" id="chatBtn" type="button" aria-label="Chat" title="Chat"></button>
       <button class="btn danger" id="leaveBtn" type="button">Forlat</button>
     </footer>
   </div>
 </div>
 
+<dialog id="recDialog" class="rec-dialog"><h2>Opptaket er klart</h2><p id="recSummary" role="status"></p><p class="hint">Filene ligger bare i denne nettleserfanen. Last dem ned før du lukker fanen – de kan ikke hentes igjen senere. Lydsporene per deltaker kan legges i hvert sitt spor i f.eks. Audacity, Reaper, Hindenburg eller DaVinci Resolve.</p><ul class="rec-files" id="recFiles"></ul><div class="johnny-actions"><button class="sbtn" id="recAll" type="button">Last ned alle</button><button class="sbtn" id="recDiscard" type="button">Forkast opptaket</button><button class="sbtn" id="recClose" type="button">Lukk</button></div></dialog>
 <dialog id="minutesDialog" style="max-width:700px;width:90%;border:1px solid #ccd8d7;border-radius:16px;padding:24px"><h2>Referatutkast</h2><p id="minutesReportStatus" role="status"></p><p>Kontroller navn, tall, beslutninger, ansvar og frister. Dette er et AI-utkast som må godkjennes av møtelederen. Endringer her er bare lokale.</p><label for="minutesDraft">Utkast</label><textarea id="minutesDraft" rows="16" style="width:100%;box-sizing:border-box;font:14px/1.6 system-ui;margin:12px 0"></textarea><div class="johnny-actions"><button class="sbtn" id="minutesDownload" type="button" disabled>Last ned tekst</button><button class="sbtn" id="minutesRecoverFinish" type="button" hidden>Avslutt avbrutt opptak</button><button class="sbtn" id="minutesDelete" type="button">Slett fra Pi-en</button><button class="sbtn" id="minutesClose" type="button">Lukk</button></div><p>Ta vare på utkastet innen 24 timer. Hentelenken gir tilgang til å hente og slette utkastet. Del den bare med rette mottakere.</p></dialog>
 <dialog class="plan-dialog" id="planResult"><h2 id="planTitleOut"></h2><p id="planWhenOut"></p><p id="planCancelled" class="hidden">Møtet er avlyst.</p><pre id="planAgendaOut"></pre><label for="planJoinUrl">Møtelenke til deltakerne</label><input class="field" id="planJoinUrl" readonly><div class="johnny-actions"><button class="sbtn" id="planCopy" type="button">Kopier møtelenke</button><button class="sbtn" id="planShare" type="button">Del invitasjon</button><button class="sbtn" id="planCalendar" type="button">Last ned kalenderinvitasjon</button><button class="sbtn" id="planJoinNow" type="button">Gå til møterommet</button></div><div class="johnny-actions"><button class="sbtn" id="planEdit" type="button">Endre møtet</button><button class="sbtn" id="planCancel" type="button">Avlys møtet</button></div><details id="planOwner" class="plan-private"><summary>Privat arrangørlenke</summary><p>Denne lenken gir rett til å endre og avlyse møtet. Ta vare på den, og del bare den vanlige møtelenken med deltakerne.</p><input class="field" id="planOwnerUrl" readonly><button class="sbtn" id="planCopyOwner" type="button">Kopier arrangørlenke</button> <button class="sbtn" id="planDelete" type="button">Slett møtedetaljene</button></details><p id="planStatus" role="status"></p><p class="hint">Ved endring eller avlysning må du selv sende beskjed og en oppdatert kalenderfil. Møtelenken varer til ett døgn etter planlagt slutt.</p><button class="sbtn" id="planClose" type="button">Lukk</button></dialog>
 <dialog class="plan-dialog" id="plansDialog"><h2>Mine møter</h2><p id="plansListNote"></p><div id="plansList"></div><button class="sbtn" id="plansClose" type="button">Lukk</button></dialog>
@@ -303,6 +311,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     screen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
     cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>',
     chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
+    rec:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>',
     camOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16v1a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2m4 0h5a1 1 0 0 1 1 1v3l6-3v10M3 3l18 18"/></svg>'
   };
   const $ = id => document.getElementById(id);
@@ -319,6 +328,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     actx:null, meters:new Map(), speaking:new Set(), camEls:new Map(), earlyIce:new Map()
   };
 
+  const REC={rec:null,starting:false,timer:null,files:null,seen:new Set()};
   const J={available:false,active:false,proposed:false,approved:[],participants:0,busy:false,listening:'',listener:'',recorder:null,chunks:[],discard:false,timer:null,controller:null,speaking:false,lastAnswer:null,voiceId:null,voiceChunks:[],voiceBytes:0,voiceEnded:false,voiceComplete:false,sources:new Set(),playAt:0};
 
 
@@ -700,7 +710,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     };
   }
   function wsSend(m){ if(S.ws && S.ws.readyState===1) S.ws.send(JSON.stringify(m)); }
-  function sendState(){ wsSend({t:"state", state:{muted:S.muted||!S.mic, sharing:!!S.screen, cam:!!S.cam, shareAt:S.shareAt}}); }
+  function sendState(){ wsSend({t:"state", state:{muted:S.muted||!S.mic, sharing:!!S.screen, cam:!!S.cam, shareAt:S.shareAt, rec:!!REC.rec}}); }
 
   function onMsg(m){
     if(typeof m.t==='string'&&m.t.startsWith('minutes')){minuteMessage(m);return;}
@@ -826,6 +836,75 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   function resetPeers(){ for(const id of [...S.conns.keys()]) dropConn(id); S.peers.clear(); }
   function replaceAll(slot, track){ for(const c of S.conns.values()){ const t=c[slot]; if(t) t.sender.replaceTrack(track).catch(()=>{}); } }
 
+  // ---------- lokalt opptak (podkast) ----------
+  // Opptaket lages i nettleseren til den som trykker «Ta opp» og lastes aldri opp.
+  // Alle i møtet ser at det tas opp (rec i deltakerstatus).
+  function recAudio(){
+    const m=new Map(); if(S.mic) m.set('me',{name:S.name||'Meg',stream:S.mic});
+    for(const [id,c] of S.conns) if(c.audioEl?.srcObject) m.set(id,{name:S.peers.get(id)?.name||'Deltaker',stream:c.audioEl.srcObject});
+    return m;
+  }
+  function recVisuals(){
+    const out=[];
+    if(S.screen) out.push({kind:'screen',key:'me',name:S.name,stream:S.screen,speaking:false});
+    for(const [id,p] of S.peers){ const c=S.conns.get(id); if(p.state.sharing&&c&&c.screen) out.push({kind:'screen',key:id,name:p.name,stream:c.screen,speaking:false}); }
+    out.push({kind:S.cam?'cam':'none',key:'me',name:S.name,stream:S.cam||null,speaking:S.speaking.has('me')});
+    for(const [id,p] of S.peers){ const c=S.conns.get(id), on=p.state.cam&&c&&c.cam; out.push({kind:on?'cam':'none',key:id,name:p.name,stream:on?c.cam:null,speaking:S.speaking.has(id)}); }
+    return out;
+  }
+  const recClock=s=>{s=Math.floor(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s%60).padStart(2,'0');};
+  function recRender(){
+    const b=$("recBtn"); b.disabled=REC.starting;
+    b.className="btn "+(REC.rec?"rec-on":"");
+    btnLabel(b,ICON.rec,REC.rec?"Stopp opptak "+recClock(REC.rec.elapsed()):"Ta opp");
+    const who=[]; if(REC.rec) who.push("deg");
+    for(const [id,p] of S.peers) if(p.state.rec) who.push(p.name);
+    const live=$("recLive"); live.classList.toggle("show",who.length>0);
+    live.textContent=who.length?"Opptak pågår ("+who.join(", ")+")":"";
+    // Varsle når noen andre starter opptak (også ved oppkobling midt i et opptak).
+    const now=new Set([...S.peers].filter(([,p])=>p.state.rec).map(([id])=>id));
+    for(const id of now) if(!REC.seen.has(id)) notice((S.peers.get(id)?.name||"En deltaker")+" tar opp møtet (lyd og bilde). Opptaket lagres på deres enhet.");
+    for(const id of REC.seen) if(!now.has(id)&&S.peers.has(id)) notice(S.peers.get(id).name+" har stoppet opptaket.");
+    REC.seen=now;
+  }
+  async function recStart(){
+    if(!confirm("Ta opp møtet?\n\nLyd og bilde lagres bare i denne nettleseren og lastes ikke opp noe sted. Alle i møtet får beskjed om at du tar opp. Du er ansvarlig for at deltakerne er enige i opptaket og hvordan det brukes.\n\nHold fanen åpen til du har stoppet og lastet ned filene."))return;
+    REC.starting=true; render();
+    try{
+      if(!window.MeetingRecorder) await new Promise((resolve,reject)=>{const sc=document.createElement('script');sc.src=apiBase+'/meet/recorder.js';sc.onload=resolve;sc.onerror=()=>reject(Error('Kunne ikke laste opptaksfunksjonen.'));document.head.append(sc);});
+      const r=new MeetingRecorder({getVisuals:recVisuals,getAudio:recAudio,onError:t=>{notice(t);recStop();}});
+      await r.start();
+      REC.rec=r; REC.timer=setInterval(()=>{ if(REC.rec){ recRender(); if(REC.rec.elapsed()>4*3600){ notice("Opptaket er stoppet etter 4 timer."); recStop(); } } },1000);
+      sendState(); notice("Opptaket er startet. Alle i møtet ser at du tar opp.");
+    }catch(e){ notice(e.message||"Opptaket kunne ikke startes."); }
+    finally{ REC.starting=false; render(); }
+  }
+  async function recStop(){
+    const r=REC.rec; if(!r) return; REC.rec=null; clearInterval(REC.timer);
+    sendState(); render();
+    let result=null; try{ result=await r.stop(); }catch(e){ notice("Opptaket kunne ikke fullføres."); }
+    if(!result||!result.files.length){ notice("Opptaket ble tomt."); return; }
+    recShow(result);
+  }
+  function recShow(result){
+    REC.files=result.files;
+    const mb=b=>b.size>1e9?(b.size/1e9).toFixed(1)+" GB":(b.size/1e6).toFixed(1)+" MB";
+    $("recSummary").textContent="Varighet "+recClock(result.duration)+" · "+result.files.length+" filer · "+mb({size:result.files.reduce((a,f)=>a+f.blob.size,0)});
+    const ul=$("recFiles"); ul.replaceChildren();
+    for(const f of result.files){
+      const li=el("li"), info=el("span",null,f.label); info.appendChild(el("small",null,f.name+" · "+mb(f.blob)));
+      const b=el("button","sbtn","Last ned"); b.type="button"; b.onclick=()=>recDownload(f);
+      li.append(info,b); ul.appendChild(li);
+    }
+    if(!$("recDialog").open) $("recDialog").showModal();
+  }
+  function recDownload(f){ const url=URL.createObjectURL(f.blob); const a=document.createElement('a'); a.href=url; a.download=f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),60000); }
+  $("recBtn").onclick=()=>REC.rec?recStop():recStart();
+  $("recAll").onclick=async()=>{ for(const f of REC.files||[]){ recDownload(f); await new Promise(r=>setTimeout(r,700)); } };
+  $("recClose").onclick=()=>$("recDialog").close();
+  $("recDiscard").onclick=()=>{ if(!confirm("Forkaste opptaket? Filer som ikke er lastet ned, går tapt."))return; REC.files=null; $("recFiles").replaceChildren(); $("recDialog").close(); };
+  window.addEventListener("beforeunload",e=>{ if(REC.rec||REC.files){ e.preventDefault(); e.returnValue=""; } });
+
   // ---------- controls ----------
   $("micBtn").onclick=()=>{ if(!S.mic) return; S.muted=!S.muted;if(S.muted&&J.recorder){J.discard=true;J.recorder.stop();} S.mic.getAudioTracks().forEach(t=>t.enabled=!S.muted); sendState(); render(); };
   $("camBtn").onclick=async()=>{
@@ -849,6 +928,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
   $("leaveBtn").onclick=()=>backToLanding("Du har forlatt møtet.");
   window.addEventListener("pagehide",()=>{ minuteDisconnected();stopYvonneLocal();if(S.ws) { S.leaving=true; wsSend({t:"bye"}); try{ S.ws.close(); }catch(e){} } });
   function backToLanding(msg){
+    if(REC.rec) recStop();
     if(MR.state?.phase==='recording'&&MR.state.owner===S.myId){minuteFinish(true);if(MR.report)minuteOpen();}minuteDisconnected();
     stopYvonneLocal();Object.assign(J,{active:false,proposed:false,approved:[],lastAnswer:null});
     S.leaving=true; clearInterval(S.pingTimer);
@@ -961,6 +1041,7 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     const mb=$("micBtn"); mb.disabled=!S.mic; mb.className="btn "+(S.muted||!S.mic?"off":"");
     btnLabel(mb,S.muted||!S.mic?ICON.micOff:ICON.mic,S.mic?(S.muted?"Slå på mikrofon":"Demp mikrofon"):"Ingen mikrofon");
     const cb=$("camBtn"); cb.className="btn "+(S.cam?"on":""); btnLabel(cb,S.cam?ICON.cam:ICON.camOff,S.cam?"Slå av kamera":"Slå på kamera");
+    recRender();
     const sb=$("shareBtn"); sb.className="btn "+(S.screen?"on":"")+(canShare?"":" hidden"); btnLabel(sb,ICON.screen,S.screen?"Stopp deling":"Del skjerm");
 
     // Hva som kan vises stort: delte skjermer og kameraer.
@@ -1015,14 +1096,15 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
     }
 
     const ul=$("people"); ul.innerHTML="";
-    const rows=[{key:"me",name:S.name,you:true,muted:S.muted||!S.mic,sharing:!!S.screen,cam:!!S.cam,state:"connected"}];
-    for(const [id,p] of S.peers){ const c=S.conns.get(id); rows.push({key:id,name:p.name,muted:!!p.state.muted,sharing:!!p.state.sharing,cam:!!p.state.cam,state:c?c.pc.connectionState:"new"}); }
+    const rows=[{key:"me",name:S.name,you:true,muted:S.muted||!S.mic,sharing:!!S.screen,cam:!!S.cam,rec:!!REC.rec,state:"connected"}];
+    for(const [id,p] of S.peers){ const c=S.conns.get(id); rows.push({key:id,name:p.name,muted:!!p.state.muted,sharing:!!p.state.sharing,cam:!!p.state.cam,rec:!!p.state.rec,state:c?c.pc.connectionState:"new"}); }
     for(const r of rows){
       const li=el("li","person"+(r.sharing?" clickable":"")+(curBigScreen()===r.key?" on-stage":"")+(S.speaking.has(r.key)?" speaking":""));
       li.dataset.key=r.key;
       const nm=el("span","pname",r.name); const extra=r.you?"(deg)":r.state!=="connected"?"kobler til …":"";
       if(extra) nm.appendChild(el("small",null,extra));
       const ic=el("span","icons");
+      if(r.rec) ic.insertAdjacentHTML("beforeend",'<span class="rec" title="Tar opp møtet">'+ICON.rec+'</span>');
       if(r.sharing) ic.insertAdjacentHTML("beforeend",'<span class="share" title="Deler skjerm">'+ICON.screen+'</span>');
       if(r.cam) ic.insertAdjacentHTML("beforeend",'<span title="Kamera på">'+ICON.cam+'</span>');
       if(r.muted) ic.insertAdjacentHTML("beforeend",'<span title="Mikrofon av">'+ICON.micOff+'</span>');

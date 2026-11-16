@@ -41,7 +41,7 @@ import time
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from websockets.exceptions import WebSocketException
 
 import johnny_ai
@@ -225,6 +225,7 @@ def _rens_state(s) -> dict:
         "sharing": bool(s.get("sharing")),
         "cam": bool(s.get("cam")),
         "shareAt": s.get("shareAt") if isinstance(s.get("shareAt"), (int, float)) else 0,
+        "rec": bool(s.get("rec")),
     }
 
 
@@ -301,6 +302,13 @@ async def meet_side():
             "Permissions-Policy": "microphone=(self), camera=(self), display-capture=(self)",
         },
     )
+
+
+@router.get("/meet/recorder.js", include_in_schema=False)
+async def meet_recorder_js():
+    """Lokalt opptak i nettleseren (video, miks og ett lydspor per deltaker). Ingen opplasting."""
+    return FileResponse(Path(__file__).with_name("meeting-recorder.js"), media_type="text/javascript",
+                        headers={"Cache-Control": "no-store"})
 
 
 @router.post("/meet/create", include_in_schema=False)
