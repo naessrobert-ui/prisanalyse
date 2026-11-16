@@ -2,8 +2,28 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T12:30:00+00:00",
+  "generated_at": "2026-11-16T12:40:00+00:00",
   "items": [
+    {
+      "id": "686604",
+      "market": "XOSL",
+      "ticker": "CDLR",
+      "issuer": "Cadeler plc",
+      "title": "Disclosure of Major Holdings",
+      "headline": "Cadeler får ny storaksjonær etter kunngjøring om større eierandel",
+      "lead": "Cadeler melder om en større eierandel i selskapet i dag uten detaljer om størrelse eller eier. Endringen kan påvirke aksjonærstrukturen og fremtidig styrepåvirkning.",
+      "published_at": "2026-11-16T12:31:29.534000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686604",
+      "summary": "Cadeler melder om en større eierandel i selskapet i dag uten detaljer om størrelse eller eier. Endringen kan påvirke aksjonærstrukturen og fremtidig styrepåvirkning.",
+      "reason": "Uten konkrete tall eller navn på ny eller endret stor eier er virkningen på aksjonærene og markedet usikker. Det er viktig å følge opp for ytterligere detaljer som kan påvirke verdsettelsen.",
+      "score": 30,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "company_form": "ikke ASA",
+      "score_ai": 45,
+      "attachment_key": "6d5c3757b2b38e0e"
+    },
     {
       "id": "686603",
       "market": "XOSL",
@@ -419,18 +439,18 @@
       "ticker": "FERT",
       "issuer": "Fertiberia Corporate S.L.U.",
       "title": "Consolidated Interim Report Q3-2026",
-      "headline": "Fertiberia offentliggjør ny konsolidert tredjekvartalsrapport for 2026",
-      "lead": "Fertiberia presenterer foreløpig konsolidert rapport for Q3 2026 uten å oppgi detaljer om resultat eller utsikter, noe som krever nærmere analyse for investorer.",
+      "headline": "Fertiberia offentliggjør foreløpig rapport for Q3 2026 uten detaljer",
+      "lead": "Fertiberia har publisert sin konsernrapport for tredje kvartal 2026, men uten å oppgi nøkkeltall eller fremtidsutsikter, noe som gir lite grunnlag for vurdering av resultat eller utvikling.",
       "published_at": "2026-11-16T11:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686574",
-      "summary": "Fertiberia presenterer foreløpig konsolidert rapport for Q3 2026 uten å oppgi detaljer om resultat eller utsikter, noe som krever nærmere analyse for investorer.",
-      "reason": "Manglende detaljert finansiell informasjon gjør det vanskelig å vurdere prestasjonen i Q3 2026. Investorer må vente på flere data for å forstå resultat og potensielle markedsimplikasjoner.",
-      "score": 5,
+      "summary": "Fertiberia har publisert sin konsernrapport for tredje kvartal 2026, men uten å oppgi nøkkeltall eller fremtidsutsikter, noe som gir lite grunnlag for vurdering av resultat eller utvikling.",
+      "reason": "Mangel på finansiell informasjon gjør det umulig å evaluere selskapets prestasjoner eller sammenligne med tidligere perioder, og skaper usikkerhet for aksjonærer.",
+      "score": 20,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 20,
+      "score_ai": 35,
       "attachment_key": "4d28cac0c650427d",
       "number_keys": [
         "77de68",
@@ -449,20 +469,20 @@
           {
             "label": "Omsetning",
             "name": "revenue",
-            "unit": "€ million",
-            "current": 951.334,
-            "prior_year": 840.284,
+            "unit": "million EUR",
+            "current": 951.3,
+            "prior_year": 840.3,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 13.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11 consolidated statement of comprehensive income, Net sales 1 Jan to 30 Sep 2026 and 2025"
+            "evidence": "Sides 6, 11"
           },
           {
             "label": "EBITDA",
             "name": "ebitda",
-            "unit": "€ million",
+            "unit": "million EUR",
             "current": 57.547,
             "prior_year": 46.621,
             "prev_quarter": null,
@@ -470,12 +490,12 @@
             "yoy_pct": 23.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11 condensed consolidated statement of comprehensive income, EBITDA 1 Jan to 30 Sep 2026 and 2025"
+            "evidence": "Side 11"
           },
           {
             "label": "EBIT",
             "name": "ebit",
-            "unit": "€ million",
+            "unit": "million EUR",
             "current": 25.188,
             "prior_year": 18.867,
             "prev_quarter": null,
@@ -483,12 +503,12 @@
             "yoy_pct": 33.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11 condensed consolidated statement of comprehensive income, Operating profit (EBIT) 1 Jan to 30 Sep 2026 and 2025"
+            "evidence": "Side 11"
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
-            "unit": "€ million",
+            "unit": "million EUR",
             "current": -15.028,
             "prior_year": -16.028,
             "prev_quarter": null,
@@ -496,12 +516,12 @@
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11 condensed consolidated statement of comprehensive income, Profit/(Loss) for the year 1 Jan to 30 Sep 2026 and 2025"
+            "evidence": "Side 11"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
-            "unit": "€ million",
+            "unit": "million EUR",
             "current": 22.453,
             "prior_year": 76.398,
             "prev_quarter": null,
@@ -509,13 +529,13 @@
             "yoy_pct": -70.6,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 16 condensed consolidated cash flow statement, Cash flows from operating activities 1 Jan to 30 Sep 2026 and 2025"
+            "evidence": "Side 16"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Konsernet forventer fortsatt utfordringer i Europa på grunn av høye energikostnader, midlertidig påvirker dette konkurranseevnen for europeisk produksjon. Produksjonen vil gjenopptas når markedssituasjonen bedres varig, men hvis gass-ammoniakk differansen fortsetter strukturelt, må man revurdere driften av upstream-virksomheten. Transformasjonsprogrammet har levert 9,8 millioner euro i besparelser etter 9M 2026. Plattformen for biologiske og differensierte planteernæringsløsninger utvikles videre under Trixia®-merket med lav kapitalintensitet.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
+          "summary": "Selskapet fokuserer på en høymargin, skalerbar plattform for differensierte planteernæringsløsninger under det nye Trixia®-merket, drevet av bioteknologi og lav kapitalintensitet. Driften påvirkes midlertidig av høye energikostnader i Europa, noe som kan føre til omstilling av upstream-operasjoner hvis gassprispåslaget vedvarer. Transformasjonsprogrammet har levert 9,8 millioner euro i besparelser hittil i 2026.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
           "trend": "",
           "compared_periods": [
             "2026Q2",
@@ -524,21 +544,21 @@
           ],
           "points": [
             {
-              "topic": "Produksjon og energikostnader",
-              "statement": "Produksjonen i Europa er midlertidig påvirket av høye energikostnader, gjenopptas når markedet forbedres, men kan bli revurdert hvis gass-prisdifferansen vedvarer.",
-              "evidence": "\"temporarily affecting...competitiveness...expects to resume production once market conditions improve\" og \"may need to reassess operating configuration if spread persist\"",
+              "topic": "Plattformutvikling",
+              "statement": "Fortsetter satsing på Trixia®-plattformen med fokus på biologiske og spesialiserte planteernæringsløsninger med høy margin og lav kapitalbruk.",
+              "evidence": "\"plattform ... high-margin, scalable ... under Trixia® brand ... asset-light, low-capex model\"",
               "page": "utdrag fra rapporten"
             },
             {
-              "topic": "Transformasjonsprogram",
-              "statement": "Programmet har levert 9,8 millioner euro i kostnadsbesparelser i 9 måneder 2026.",
-              "evidence": "\"transformation programme delivered €9.8 million of in-year savings in 9M 2026\"",
+              "topic": "Driftsforhold",
+              "statement": "Midler over energikostnader midlertidig påvirker konkurranseevnen til europeisk produksjon; produksjonen vil gjenopptas når markedsforholdene forbedres, men upstream-operasjonen kan omvurderes ved vedvarende gass-prispåslag.",
+              "evidence": "\"energy costs in Europe ... temporarily affecting competitiveness ... expects to resume production once market conditions improve ... may need to reassess operating configuration ... if gas-to-ammonia",
               "page": "utdrag fra rapporten"
             },
             {
-              "topic": "Utvikling av Trixia®-plattformen",
-              "statement": "Plattformen for biologiske og differensierte planteernæringsløsninger videreutvikles basert på et lavkapital, skalerbart modellkonsept.",
-              "evidence": "\"asset-light, low-capex model...develop the platform through targeted R&D\"",
+              "topic": "Kostnadsbesparelser",
+              "statement": "Transformasjonsprogrammet oppnådde 9,8 millioner euro i besparelser i første ni måneder av 2026.",
+              "evidence": "\"The transformation programme delivered €9.8 million of in-year savings in 9M 2026\"",
               "page": "utdrag fra rapporten"
             }
           ]
@@ -11779,37 +11799,6 @@
         "ed3f03",
         "eed1c6"
       ]
-    },
-    {
-      "id": "686183",
-      "market": "XOSL",
-      "ticker": "CDLR",
-      "issuer": "Cadeler plc",
-      "title": "Cadeler secures exclusive agreement for a full-scope offshore wind project",
-      "headline": "Cadeler inngår eksklusiv avtale for komplett installasjon av storbritannisk havvindprosjekt",
-      "lead": "Cadeler sikrer en eksklusiv kontrakt for installasjon av vindturbiner og fundamenter i et stort offshore vindkraftprosjekt i Storbritannia, med oppstart rundt 2030. Avtalen styrker selskapets posisjon i markedet for full-scope offshore vindinstallasjon.",
-      "published_at": "2026-11-11T07:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/686183",
-      "summary": "Cadeler sikrer en eksklusiv kontrakt for installasjon av vindturbiner og fundamenter i et stort offshore vindkraftprosjekt i Storbritannia, med oppstart rundt 2030. Avtalen styrker selskapets posisjon i markedet for full-scope offshore vindinstallasjon.",
-      "reason": "Avtalen bekrefter Cadelers ledende rolle innen offshore vindinstallasjon og kan gi forutsigbar ordretildeling over lang tid. Investorer bør følge fremdriften og markedets vekst i UK offshore vindsektor.",
-      "score": 60,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 75,
-      "attachment_key": "45cacb86164e7301",
-      "number_keys": [
-        "086c04",
-        "15e730",
-        "17ba07",
-        "98fbc4",
-        "aee655",
-        "b9b8f3",
-        "f0ee73",
-        "f6719e",
-        "fb6443"
-      ]
     }
   ],
   "indirect": [
@@ -11987,19 +11976,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T12:30:00+00:00",
+  "last_checked_at": "2026-11-16T12:40:00+00:00",
   "monitor_stats": {
-    "fetched": 50,
-    "recent": 50,
+    "fetched": 51,
+    "recent": 51,
     "already_seen": 49,
-    "eligible": 1,
+    "eligible": 2,
     "filtered": 0,
-    "analyzed": 1,
+    "analyzed": 2,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-16T12:16:28.827000+00:00",
+    "source_latest_at": "2026-11-16T12:31:29.534000+00:00",
     "indirect": 0
   }
 }
