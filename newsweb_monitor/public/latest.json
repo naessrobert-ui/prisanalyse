@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T13:00:00+00:00",
+  "generated_at": "2026-11-16T13:10:00+00:00",
   "items": [
     {
       "id": "686604",
@@ -439,18 +439,18 @@
       "ticker": "FERT",
       "issuer": "Fertiberia Corporate S.L.U.",
       "title": "Consolidated Interim Report Q3-2026",
-      "headline": "Fertiberia rapporterer foreløpig resultat for tredje kvartal 2026 uten tall",
-      "lead": "Fertiberia har offentliggjort en foreløpig kvartalsrapport for Q3 2026, men uten å oppgi konkrete resultater eller nøkkeltall. Uten tall må investorer vente på mer detaljert informasjon for vurdering.",
+      "headline": "Fertiberia sine tall for Q3 2026 mangler detaljer om resultater",
+      "lead": "Fertiberia presenterer en foreløpig rapport for tredje kvartal 2026 uten konkrete tall eller nøkkelinformasjon, noe som gjør det umulig å vurdere utviklingen eller finansiell status.",
       "published_at": "2026-11-16T11:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686574",
-      "summary": "Fertiberia har offentliggjort en foreløpig kvartalsrapport for Q3 2026, men uten å oppgi konkrete resultater eller nøkkeltall. Uten tall må investorer vente på mer detaljert informasjon for vurdering.",
-      "reason": "Mangelen på konkrete finanstall gjør det vanskelig å vurdere selskapets prestasjon eller sammenligne med tidligere kvartaler og forventninger. Investorer må avvente fullstendig rapport for vurdering.",
-      "score": 25,
+      "summary": "Fertiberia presenterer en foreløpig rapport for tredje kvartal 2026 uten konkrete tall eller nøkkelinformasjon, noe som gjør det umulig å vurdere utviklingen eller finansiell status.",
+      "reason": "Uten konkrete regnskapstall eller kommentarer om resultat, inntjening eller drift er det vanskelig for investorer å bedømme selskapets utvikling. Vi venter på fullstendig rapport for nærmere analyse.",
+      "score": 15,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 40,
+      "score_ai": 30,
       "attachment_key": "4d28cac0c650427d",
       "number_keys": [
         "77de68",
@@ -469,74 +469,74 @@
           {
             "label": "Omsetning",
             "name": "revenue",
-            "unit": "EUR thousand",
-            "current": 951334.0,
-            "prior_year": 840284.0,
+            "unit": "€ million",
+            "current": 951.3,
+            "prior_year": 840.3,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 13.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11: Condensed consolidated statement of comprehensive income"
+            "evidence": "Side 11, Condensed consolidated statement of comprehensive income, Net sales 951,334 vs 840,284 (in €'000)"
           },
           {
             "label": "EBITDA",
             "name": "ebitda",
-            "unit": "EUR thousand",
-            "current": 57547.0,
-            "prior_year": 46621.0,
+            "unit": "€ million",
+            "current": 57.547,
+            "prior_year": 46.621,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 23.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11: EBITDA line in condensed consolidated statement of comprehensive income"
+            "evidence": "Side 11, EBITDA 57,547 vs 46,621 (in €'000)"
           },
           {
             "label": "EBIT",
             "name": "ebit",
-            "unit": "EUR thousand",
-            "current": 25188.0,
-            "prior_year": 18867.0,
+            "unit": "€ million",
+            "current": 25.188,
+            "prior_year": 18.867,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 33.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11: Operating profit (EBIT) line in condensed consolidated statement of comprehensive income"
+            "evidence": "Side 11, Operating profit (EBIT) 25,188 vs 18,867 (in €'000)"
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
-            "unit": "EUR thousand",
-            "current": -15068.0,
-            "prior_year": -16028.0,
+            "unit": "€ million",
+            "current": -15.028,
+            "prior_year": -16.028,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 11: Net profit line in condensed consolidated statement of comprehensive income"
+            "evidence": "Side 11, Profit/(Loss) for the year -15,028 vs -16,028 (in €'000)"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
-            "unit": "EUR thousand",
-            "current": 22453.0,
-            "prior_year": 76398.0,
+            "unit": "€ million",
+            "current": 22.5,
+            "prior_year": 76.4,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": -70.6,
+            "yoy_pct": -70.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "SIDE 16: Cash flows from operating activities line in condensed consolidated cash flow statement"
+            "evidence": "Side 16, Cash flows from operating activities 22,453 vs 76,398 (in €'000)"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Ledelsen uttrykker fortsatt usikkerhet knyttet til energikostnader, spesielt i Europa, som midlertidig påvirker konkurranseevnen til europeisk produksjon og kan medføre produksjonsjusteringer dersom gass-til-ammoniakk-spridningen blir en permanent markedstilstand. Plattformen Trixia® (tidligere Trichodex®) utvikles videre med et lavt kapitalbehov, og transformasjonsprogrammet har levert betydelige kostnadsbesparelser på €9,8 millioner hittil i 2026.",
-          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning da tidligere rapporter ikke inneholdt spesifikk produksjonsrelatert beslutningsveiledning eller kostnadsbesparelser på samme nivå. Den nåværende rapporten gir mer konkret informasjon om energieffektivitetsutfordringer og en potensiell omstilling av upstream operasjoner, samt dokumenterte innsparte kostnader.",
-          "trend": "Gjennom de siste kvartalene har ledelsens fokus beveget seg fra generelle forbedringer i kundeservice og finansiering til mer konkrete utfordringer med kostnadsstrukturer og produksjonsfleksibilitet, særlig drevet av energimarkedets volatile forhold. Kostnadsbesparelsene som nå rapporteres, indikerer et gradvis økende fokus på driftseffektivitet og tilpasning til markedssituasjonen.",
+          "summary": "Ledelsen forventer fortsatt utfordringer i upstream produksjon i Europa på grunn av høye energikostnader, som midlertidig påvirker konkurranseevnen, men forventer å gjenoppta produksjon når markedsforholdene bedres. Det kan bli behov for å revurdere driftskonfigurasjonen hvis gass-til-ammoniakk-spread blir en langsiktig markedsfaktor. Transformasjonsprogrammet har levert 9,8 millioner euro i besparelser hittil i 2026, over forventningene.",
+          "change": "Endring fra forrige kvartal: Tidligere utsagn fokuserte på forbedring av kundeservice og interne prosesser, mens nåværende outlook tydeliggjør utfordringer i produksjonen grunnet energikostnader og mulig behov for justering av upstream operasjoner. I tillegg fremheves betydelige besparelser fra transformasjonsprogrammet, noe som ikke var spesifikt nevnt sist.",
+          "trend": "Fra Q1 til Q3 2026 har ledelsens tone gått fra fokus på finansiering og effektiviseringstidlig i året, til mer konkret omtale av produksjonsutfordringer og markedsforhold, med en pragmatisk tilnærming til operative endringer. Økt fokus på kostnadsbesparelser gjennom transformasjon indikerer en styrket innsats for lønnsomhet og tilpasning til markedssituasjonen.",
           "compared_periods": [
             "2026Q2",
             "2026Q1",
@@ -544,21 +544,21 @@
           ],
           "points": [
             {
-              "topic": "Energikostnader og produksjon",
-              "statement": "Usikkerhet rundt energikostnader, midlertidige produksjonsstans forventes å oppheves ved bedre markedssituasjon, men vedvarende gass-til-ammoniakk-spredning kan føre til revisjon av upstream driften.",
-              "evidence": "'midlertidig påvirket konkurranseevnen', 'forventer å gjenoppta produksjon', 'kan måtte revurdere operasjonskonfigurasjon'",
+              "topic": "Produksjon og energikostnader",
+              "statement": "Midler til midlertidig suspendering av europeisk produksjon på grunn av høye energikostnader, med forventning om gjenopptak ved bedre markedsforhold.",
+              "evidence": "\"midlertidig påvirket konkurranseevnen... forventer å gjenoppta produksjon når markedsforholdene forbedres\"",
               "page": "utdrag fra rapporten"
             },
             {
-              "topic": "Produktplattform Trixia®",
-              "statement": "Plattformen utvikles videre gjennom målrettet FoU og et lavt kapitalintensivt modell, med dedikert produksjon i Sevilla.",
-              "evidence": "'plattform har operert under Trixia®', 'basert på et lav-kapitalkrevende modell'",
+              "topic": "Operativ tilpasning",
+              "statement": "Mulig behov for å revurdere driftskonfigurasjonen i upstream operasjoner hvis gass-til-ammoniakk-spread blir en strukturell markedsfaktor.",
+              "evidence": "\"må kanskje revurdere driftskonfigurasjonen dersom spredningen blir en mer strukturell markedsfaktor\"",
               "page": "utdrag fra rapporten"
             },
             {
               "topic": "Kostnadsbesparelser",
-              "statement": "Transformasjonsprogrammet har levert €9,8 millioner i besparelser over de første ni månedene i 2026, noe som styrker lønnsomheten.",
-              "evidence": "'transformasjonsprogrammet leverte €9,8 millioner in-year savings 9M 2026'",
+              "statement": "Transformasjonsprogrammet har levert 9,8 millioner euro i besparelser i første ni måneder av 2026, over mål.",
+              "evidence": "\"transformasjonsprogrammet leverte €9.8 millioner i besparelser i 9M 2026\"",
               "page": "utdrag fra rapporten"
             }
           ]
@@ -11976,7 +11976,7 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T13:00:00+00:00",
+  "last_checked_at": "2026-11-16T13:10:00+00:00",
   "monitor_stats": {
     "fetched": 51,
     "recent": 51,
