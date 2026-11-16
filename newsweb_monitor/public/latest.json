@@ -2,8 +2,26 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T13:30:00+00:00",
+  "generated_at": "2026-11-16T13:40:00+00:00",
   "items": [
+    {
+      "id": "686608",
+      "market": "XOSL",
+      "ticker": "GENO",
+      "issuer": "General Oceans ASA",
+      "title": "Major Shareholder Disclosure Notification",
+      "headline": "Største aksjonær i General Oceans øker eierandel – detaljer uoppgitt",
+      "lead": "General Oceans' største aksjonær har økt sin eierandel, men meldingen mangler konkrete tall og detaljer om omfang og konsekvenser.",
+      "published_at": "2026-11-16T13:30:39.952000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686608",
+      "summary": "General Oceans' største aksjonær har økt sin eierandel, men meldingen mangler konkrete tall og detaljer om omfang og konsekvenser.",
+      "reason": "Uten tall på eierandel eller ytterligere informasjon er det vanskelig å bedømme signifikansen, men en økt andel kan indikere økt tillit eller kontrollinteresse.",
+      "score": 45,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "attachment_key": "758d6de20a919b26"
+    },
     {
       "id": "686607",
       "market": "XOSL",
@@ -11758,46 +11776,6 @@
           ]
         }
       }
-    },
-    {
-      "id": "686189",
-      "market": "XOSL",
-      "ticker": "LAKRB",
-      "issuer": "Landkreditt Bank AS",
-      "title": "Landkreditt Bank: utvidelse i LANDK66 PRO",
-      "headline": "Landkreditt Bank øker LANDK66 PRO-lån med 200 MNOK til 800 MNOK",
-      "lead": "Landkreditt Bank har utvidet sitt LANDK66 PRO-lån med ytterligere 200 millioner kroner, og øker den utestående summen til 800 millioner kroner med forfall i 2029. Utvidelsen kan tyde på økt finansieringsbehov eller investeringer.",
-      "published_at": "2026-11-11T07:30:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/686189",
-      "summary": "Landkreditt Bank har utvidet sitt LANDK66 PRO-lån med ytterligere 200 millioner kroner, og øker den utestående summen til 800 millioner kroner med forfall i 2029. Utvidelsen kan tyde på økt finansieringsbehov eller investeringer.",
-      "reason": "Utvidelsen av et obligasjonslån øker finansieringsressursene, men uten informasjon om formålet eller effekten på bankens resultat er den langsiktige effekten usikker. Investorer bør følge utvikling i bruken av midlene og kredittkvalitet i lånet over tid.",
-      "score": 40,
-      "skipped": false,
-      "direction": "uklar",
-      "assessment_source": "AI",
-      "company_form": "ikke ASA",
-      "score_ai": 55,
-      "number_keys": [
-        "06a7e1",
-        "0716d9",
-        "12c6fc",
-        "1574bd",
-        "1ea51b",
-        "290a52",
-        "356a19",
-        "59129a",
-        "667be5",
-        "7719a1",
-        "7b5200",
-        "8e63fd",
-        "9f9af0",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "d435a6",
-        "f6e112",
-        "fb9654"
-      ]
     }
   ],
   "indirect": [
@@ -11975,19 +11953,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T13:30:00+00:00",
+  "last_checked_at": "2026-11-16T13:40:00+00:00",
   "monitor_stats": {
-    "fetched": 54,
-    "recent": 54,
-    "already_seen": 52,
+    "fetched": 55,
+    "recent": 55,
+    "already_seen": 54,
     "eligible": 1,
-    "filtered": 1,
+    "filtered": 0,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T13:27:19.853000+00:00",
+    "source_latest_at": "2026-11-16T13:30:39.952000+00:00",
     "indirect": 0
   }
 }
