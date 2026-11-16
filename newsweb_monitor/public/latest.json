@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T14:40:00+00:00",
+  "generated_at": "2026-11-16T15:40:00+00:00",
   "items": [
+    {
+      "id": "686622",
+      "market": "XOSL",
+      "ticker": "AUTO",
+      "issuer": "AutoStore Holdings Ltd.",
+      "title": "AutoStore Holdings Ltd. - Transactions made under the share buy-back program",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T15:30:11.113000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686622",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686621",
       "market": "XOSL",
@@ -11454,23 +11471,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686211",
-      "market": "XOSL",
-      "ticker": "TEL",
-      "issuer": "Telenor ASA",
-      "title": "Kjøp av egne aksjer til aksjeprogram for ansatte og lederlønn gjennomført",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-11T11:45:26.992000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686211",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -11697,19 +11697,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T15:30:00+00:00",
+  "last_checked_at": "2026-11-16T15:40:00+00:00",
   "monitor_stats": {
-    "fetched": 66,
-    "recent": 66,
+    "fetched": 67,
+    "recent": 67,
     "already_seen": 66,
     "eligible": 0,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 0,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T14:31:18.069000+00:00",
-    "indirect": 1
+    "source_latest_at": "2026-11-16T15:30:11.113000+00:00",
+    "indirect": 0
   }
 }
