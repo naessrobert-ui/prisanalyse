@@ -1814,7 +1814,7 @@ def bil_oppslag_data():
         # observasjon brukes som hovedtreff, og de øvrige sendes med til UI-et.
         row_df = con.execute(
             f"SELECT * FROM read_parquet('{path}') "
-            f"WHERE {lookup_where}{order_sql} LIMIT 20",
+            f"WHERE {lookup_where}{order_sql}",
             lookup_params,
         ).df()
 
@@ -1840,9 +1840,40 @@ def bil_oppslag_data():
                 "message": not_found_messages[search_type],
             })
 
-        row_df = row_df.where(pd.notna(row_df), None)
-        records = json.loads(row_df.to_json(orient="records", date_format="iso"))
-        alle_felt = records[0]
+        # FinnKode identifies an advert, while VIN/registration identify the car.
+        # Expand from the direct matches so a Finn link also shows older adverts.
+        direct_rows = row_df
+        history_clauses = [lookup_where]
+        history_params = list(lookup_params)
+        for keys in (("svv_vin",), (
+            "regnr", "svv_regnr", "svv_kjennemerke_ordinart",
+            "svv_kjennemerke_personlig",
+        )):
+            columns = list(dict.fromkeys(colmap[key] for key in keys if colmap.get(key)))
+            values = sorted({
+                re.sub(r"[^A-Za-z0-9]", "", str(value)).upper()
+                for column in columns for value in direct_rows[column].dropna()
+                if str(value).strip().lower() not in ("", "nan", "none", "null")
+            } - {""})
+            if not values:
+                continue
+            placeholders = ", ".join("?" for _ in values)
+            for column in columns:
+                history_clauses.append(
+                    f"{_vehicle_identifier_norm_sql(_qident(column))} IN ({placeholders})"
+                )
+                history_params.extend(values)
+        history_df = con.execute(
+            f"SELECT * FROM read_parquet('{path}') "
+            f"WHERE ({' OR '.join(history_clauses)}){order_sql}",
+            history_params,
+        ).df()
+        records = json.loads(history_df.to_json(orient="records", date_format="iso"))
+        # Preserve the requested advert as the detail view when searching by FinnKode.
+        # Interpretation below uses the same direct query and sort order.
+        alle_felt = json.loads(direct_rows.head(1).to_json(
+            orient="records", date_format="iso"
+        ))[0]
 
         def feltverdi(record, *canonical_keys):
             for canonical_key in canonical_keys:
@@ -1939,12 +1970,19 @@ def bil_oppslag_data():
             forklaring.append("Selger tolkes som forhandler; 'FJERNET' regnes ikke som bekreftet solgt.")
 
         matchende_annonser = []
+        seen_finnkoder = set()
         for record in records:
             fk = normalisert_finnkode(record)
+            if fk and fk in seen_finnkoder:
+                continue
+            if fk:
+                seen_finnkoder.add(fk)
             matchende_annonser.append({
                 "finnkode": fk,
                 "finn_url": FINN_BASE_URL + fk if fk else None,
                 "overskrift": feltverdi(record, "overskrift"),
+                "pris": feltverdi(record, "pris_ny", "pris_start"),
+                "solgt": feltverdi(record, "solgt"),
                 "dato": feltverdi(record, "dato_start"),
                 "dato_ny": feltverdi(record, "dato_end"),
             })
@@ -1957,8 +1995,8 @@ def bil_oppslag_data():
             "funnet": True,
             "finnkode": selected_finnkode,
             "finn_url": finn_url,
-            "flere_rader": len(records) > 1,
-            "antall_treff": len(records),
+            "flere_rader": len(matchende_annonser) > 1,
+            "antall_treff": len(matchende_annonser),
             "matchende_annonser": matchende_annonser,
             "identifikatorer": {
                 "regnr": feltverdi(

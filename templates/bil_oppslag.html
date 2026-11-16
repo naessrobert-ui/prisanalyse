@@ -208,17 +208,22 @@
 
     function renderMatches(data) {
       const matches = data.matchende_annonser || [];
-      const show = data.flere_rader && matches.length > 1;
+      const show = matches.length > 0;
       el("matchesPanel").style.display = show ? "block" : "none";
       if (!show) return;
-      el("matchesIntro").textContent = `${data.antall_treff} lagrede annonser ble funnet. Nyeste brukes som hovedtreff.`;
+      el("matchesIntro").textContent = `${data.antall_treff} lagrede annonser ble funnet. Velg «Vis detaljer» for å se alle felt og tolkning for en annonse.`;
       el("matches").innerHTML = matches.map(match => {
         const title = match.overskrift || (match.finnkode ? `FinnKode ${match.finnkode}` : "Ukjent annonse");
         const linkedTitle = match.finn_url
           ? `<a class="finn" href="${escapeHtml(match.finn_url)}" target="_blank" rel="noopener">${escapeHtml(title)}</a>`
           : escapeHtml(title);
-        const dates = [match.dato, match.dato_ny].filter(Boolean).map(escapeHtml).join(" → ");
-        return `<div class="match"><div class="match-title">${linkedTitle}</div><div class="match-meta">${dates}</div></div>`;
+        const dates = [match.dato, match.dato_ny].filter(Boolean).join(" → ");
+        const price = match.pris == null ? "" : `Pris: ${Number(match.pris).toLocaleString("nb-NO")} kr`;
+        const meta = [price, match.solgt, dates].filter(Boolean).map(escapeHtml).join(" · ");
+        const selected = match.finnkode === data.finnkode;
+        const details = match.finnkode
+          ? `<button type="button" class="badge b-gray" data-finnkode="${escapeHtml(match.finnkode)}" ${selected ? "disabled" : ""}>${selected ? "Viser detaljer" : "Vis detaljer"}</button>` : "";
+        return `<div class="match"><div class="match-title">${linkedTitle}</div><div class="match-meta">${meta}</div>${details}</div>`;
       }).join("");
     }
 
@@ -312,6 +317,12 @@
 
     el("lookupForm").addEventListener("submit", event => {
       event.preventDefault();
+      run();
+    });
+    el("matches").addEventListener("click", event => {
+      const button = event.target.closest("button[data-finnkode]");
+      if (!button) return;
+      el("identifier").value = button.dataset.finnkode;
       run();
     });
     el("fieldSearch").addEventListener("input", e => renderFields(e.target.value));
