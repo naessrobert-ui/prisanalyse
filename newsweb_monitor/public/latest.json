@@ -2,8 +2,45 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T15:40:00+00:00",
+  "generated_at": "2026-11-16T16:00:00+00:00",
   "items": [
+    {
+      "id": "686624",
+      "market": "XOSL",
+      "ticker": "VAR",
+      "issuer": "Vår Energi ASA",
+      "title": "Vår Energi ASA's share saving plan allocates shares",
+      "headline": "Vår Energi ansatte kjøper 137.263 aksjer til snittpris 50,19 kroner",
+      "lead": "Ansatte i Vår Energi har kjøpt 137.263 aksjer gjennom selskapets spareprogram med en gjennomsnittspris på 50,19 kroner per aksje. Over 86 % av de ansatte deltok i kjøpet, inkludert ledende personer som fikk tildelt 4.336 aksjer.",
+      "published_at": "2026-11-16T15:56:44.247000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686624",
+      "summary": "Ansatte i Vår Energi har kjøpt 137.263 aksjer gjennom selskapets spareprogram med en gjennomsnittspris på 50,19 kroner per aksje. Over 86 % av de ansatte deltok i kjøpet, inkludert ledende personer som fikk tildelt 4.336 aksjer.",
+      "reason": "Aksjekjøp i ansattes spareprogram signaliserer tillit til selskapet, men uten ytterligere finansielle data gir dette begrenset innsikt i selskapets fremtidige inntjening. Aksjonærer bør følge utviklingen og vurdere effekten av slike insentivprogrammer på langsiktig verdi.",
+      "score": 50,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "EQNR",
+          "direction": "negativ",
+          "reason": "Konkurrent i olje- og gasssektoren som kan påvirkes av effektiv ressursallokering hos Vår Energi."
+        }
+      ],
+      "importance": "stor",
+      "score_ai": 40,
+      "attachment_key": "1d28cbccc489c85d",
+      "number_keys": [
+        "1474ff",
+        "1574bd",
+        "2a4bd0",
+        "3c26df",
+        "4f1bfb",
+        "9c1c9b",
+        "aee655",
+        "f0275e"
+      ]
+    },
     {
       "id": "686622",
       "market": "XOSL",
@@ -11454,23 +11491,6 @@
         "ee44c6",
         "f6b039"
       ]
-    },
-    {
-      "id": "686212",
-      "market": "XOSL",
-      "ticker": "TEL",
-      "issuer": "Telenor ASA",
-      "title": "Buyback of shares related to employee share programmes and executive compensation completed",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-11T11:45:26.993000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686212",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -11697,19 +11717,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T15:50:00+00:00",
+  "last_checked_at": "2026-11-16T16:00:00+00:00",
   "monitor_stats": {
-    "fetched": 67,
-    "recent": 67,
+    "fetched": 68,
+    "recent": 68,
     "already_seen": 67,
-    "eligible": 0,
+    "eligible": 1,
     "filtered": 0,
-    "analyzed": 0,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T15:30:11.113000+00:00",
+    "source_latest_at": "2026-11-16T15:56:44.247000+00:00",
     "indirect": 0
   }
 }
