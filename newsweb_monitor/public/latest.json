@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T08:40:00+00:00",
+  "generated_at": "2026-11-16T09:00:00+00:00",
   "items": [
+    {
+      "id": "686560",
+      "market": "XOSL",
+      "ticker": "NYKD",
+      "issuer": "Nykode Therapeutics ASA",
+      "title": "Nykode Therapeutics - Invitation to Q3 2026 Financial Results Presentation",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T09:00:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/686560",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686559",
       "market": "XOSL",
@@ -13285,81 +13302,6 @@
         "f7646e",
         "fc1048"
       ]
-    },
-    {
-      "id": "686142",
-      "market": "XOSL",
-      "ticker": "ATEA",
-      "issuer": "Atea ASA",
-      "title": "Atea Share Savings Program- notification of trade",
-      "headline": "Atea overfører 76.381 egne aksjer til ansatte i aksjespareprogram",
-      "lead": "Atea har benyttet sitt aksjespareprogram til å overføre 76.381 egne aksjer til ansatte, inkludert bonusaksjer, med en gjennomsnittspris på 168,55 kroner per aksje. Totalt eier selskapet 742.520 egne aksjer etter transaksjonen.",
-      "published_at": "2026-11-10T17:05:56.514000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686142",
-      "summary": "Atea har benyttet sitt aksjespareprogram til å overføre 76.381 egne aksjer til ansatte, inkludert bonusaksjer, med en gjennomsnittspris på 168,55 kroner per aksje. Totalt eier selskapet 742.520 egne aksjer etter transaksjonen.",
-      "reason": "Overføringen av aksjer til ansatte bidrar til økt eierskap og insentiver internt, men påvirker ikke selskapets regnskapstall direkte. For aksjonærene er dette et tegn på ledelsens tillit, men bør følges opp med evaluering av langsiktige effekter på aksjekurs og utvanning.",
-      "score": 50,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "BOUV",
-          "direction": "negativ",
-          "reason": "Konkurrent i IT-tjenestesektoren kan oppleve økt konkurranse om talent ved økt insentivbruk hos Atea."
-        },
-        {
-          "ticker": "ITERA",
-          "direction": "negativ",
-          "reason": "Markedskonkurrent innen IT-tjenester kan merke økt press på å beholde ansatte gjennom aksjeinsentiver."
-        }
-      ],
-      "importance": "mellom",
-      "score_ai": 45,
-      "number_keys": [
-        "01ec40",
-        "0716d9",
-        "09849e",
-        "0a35b8",
-        "0ad3f8",
-        "15f8d1",
-        "17ba07",
-        "24ab2d",
-        "310b86",
-        "356a19",
-        "3c2968",
-        "409e95",
-        "47cb7c",
-        "56ad4d",
-        "65f40c",
-        "775bc5",
-        "77de68",
-        "7933fe",
-        "7b5200",
-        "87704e",
-        "957111",
-        "994c7c",
-        "9b167f",
-        "9e6a55",
-        "a005a9",
-        "a456f6",
-        "ac3478",
-        "aee655",
-        "b1d578",
-        "b3f0c7",
-        "b6288f",
-        "bc33ea",
-        "c1e55b",
-        "d0226f",
-        "d3d2a5",
-        "d4739b",
-        "d669bf",
-        "d8e4bb",
-        "da4b92",
-        "e3cbba",
-        "f38cfe",
-        "f5de2d"
-      ]
     }
   ],
   "indirect": [
@@ -13520,19 +13462,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T08:50:00+00:00",
+  "last_checked_at": "2026-11-16T09:00:00+00:00",
   "monitor_stats": {
-    "fetched": 19,
-    "recent": 19,
+    "fetched": 20,
+    "recent": 20,
     "already_seen": 19,
     "eligible": 0,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 0,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T08:39:49.271000+00:00",
+    "source_latest_at": "2026-11-16T09:00:00+00:00",
     "indirect": 0
   }
 }
