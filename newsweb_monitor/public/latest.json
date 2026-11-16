@@ -2,8 +2,37 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T13:40:00+00:00",
+  "generated_at": "2026-11-16T13:50:00+00:00",
   "items": [
+    {
+      "id": "686609",
+      "market": "XOSL",
+      "ticker": "TECH",
+      "issuer": "Techstep ASA",
+      "title": "Techstep ASA - Mandatory notification of trade",
+      "headline": "Techstep-insider gjennomførte aksjekjøp – ingen ytterligere detaljer tilgjengelig",
+      "lead": "Bartosz Leoszewski, primærinnsidder i Techstep ASA, har gjort en aksjetransaksjon. Ingen informasjon om størrelse eller konsekvenser foreligger, og betydning for aksjekursen er uavklart.",
+      "published_at": "2026-11-16T13:49:05.788000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686609",
+      "summary": "Bartosz Leoszewski, primærinnsidder i Techstep ASA, har gjort en aksjetransaksjon. Ingen informasjon om størrelse eller konsekvenser foreligger, og betydning for aksjekursen er uavklart.",
+      "reason": "Innsidderkjøp kan signalisere tillit, men mangel på detaljert informasjon om volum og pris gjør det vanskelig å vurdere effekten for aksjonærer eller selskapets fremtid.",
+      "score": 40,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "attachment_key": "253e57779b49eef8",
+      "number_keys": [
+        "39e214",
+        "62d607",
+        "77de68",
+        "7b5200",
+        "827bfc",
+        "89b98f",
+        "ac3478",
+        "ad1bf2",
+        "b3f0c7"
+      ]
+    },
     {
       "id": "686608",
       "market": "XOSL",
@@ -11593,189 +11622,6 @@
           ]
         }
       }
-    },
-    {
-      "id": "686191",
-      "market": "XOSL",
-      "ticker": "BIEN",
-      "issuer": "Bien Sparebank ASA",
-      "title": "Bien Sparebank Q3 2026: Kapasiteten for videre vekst er etablert, nå skal vi hente ut effekten!",
-      "headline": "Bien Sparebank øker utlån 16,4 prosent, men overskuddet faller til 9 millioner i Q3",
-      "lead": "Bien Sparebank har en utlånsvekst på 16,4 prosent siste 12 måneder, men resultatet etter skatt i tredje kvartal faller til 9 millioner kroner fra 15,1 millioner året før, preget av press på rentemargin og økte kostnader.",
-      "published_at": "2026-11-11T07:30:43.421000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686191",
-      "summary": "Bien Sparebank har en utlånsvekst på 16,4 prosent siste 12 måneder, men resultatet etter skatt i tredje kvartal faller til 9 millioner kroner fra 15,1 millioner året før, preget av press på rentemargin og økte kostnader.",
-      "reason": "Sterk utlånsvekst bekrefter posisjonen i Oslo, men lavere rentemargin og resultat svekker lønnsomheten. Investering i kapasitet kan gi langsiktig vekst, men lønnsomhet må bedres for å sikre aksjonærverdier.",
-      "score": 72,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "DNB",
-          "direction": "uklar",
-          "reason": "Konkurrent i banksektoren med eksponering mot Oslo-markedet påvirkes indirekte av markedsutvikling og renter."
-        }
-      ],
-      "attachment_key": "986daf02e956cc5c",
-      "number_keys": [
-        "004be8",
-        "0588f5",
-        "10d293",
-        "19a448",
-        "1ea51b",
-        "1f1362",
-        "2d0c8a",
-        "5d23e9",
-        "64e0cf",
-        "77de68",
-        "7b5200",
-        "81110d",
-        "812ed4",
-        "827bfc",
-        "8effee",
-        "a929eb",
-        "ab8c67",
-        "ac3478",
-        "aee655",
-        "b16a45",
-        "b70706",
-        "b7eb6c",
-        "baab34",
-        "bc15c7",
-        "beba4d",
-        "c61e90",
-        "ca3512",
-        "e408d8",
-        "efe683"
-      ],
-      "financial_report": {
-        "status": "analyzed",
-        "period": "2026Q3",
-        "period_source": "reported",
-        "previous_report": "not_requested",
-        "document": {
-          "name": "2026 Q3 Bien Kvartalsrapport.pdf",
-          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=686191&attachmentId=336237"
-        },
-        "metrics": [
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 9.031,
-            "prior_year": 15.093,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -40.2,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 9, '3. kvartal isolert' Resultat av ordinær drift etter skatt 9,031 thousand NOK = 9.031 million NOK for 3Q2026; prior year 15,093 thousand NOK = 15.093 mi"
-          },
-          {
-            "label": "Resultat etter skatt",
-            "name": "net_income",
-            "unit": "NOK million",
-            "current": 40.774,
-            "prior_year": 50.551,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -19.3,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 9, '3. kvartal' cumulative YTD results 30.09.2026 Resultat av ordinær drift etter skatt 40,774 thousand NOK = 40.774 million NOK; prior year 50,551 thousan"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "NOK/share",
-            "current": 6.69,
-            "prior_year": 8.4,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -20.4,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 9, '3. kvartal' cumulative EPS 6.69 NOK/share for 3Q2026 YTD, prior year 8.40 NOK/share."
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 32.205,
-            "prior_year": 33.709,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -4.5,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 9, '3. kvartal isolert' Netto rente- og kredittprovisjonsinntekter 32,205 thousand NOK = 32.205 million NOK for 3Q2026; prior year 33,709 thousand NOK = 33"
-          },
-          {
-            "label": "Netto renteinntekter",
-            "name": "net_interest_income",
-            "unit": "NOK million",
-            "current": 99.917,
-            "prior_year": 101.672,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": -1.7,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 9, '3. kvartal' cumulative Netto rente- og kredittprovisjonsinntekter 99,917 thousand NOK = 99.917 million NOK for YTD 2026; prior year 101,672 thousand NO"
-          },
-          {
-            "label": "Kontantstrøm drift",
-            "name": "operating_cash_flow",
-            "unit": "NOK million",
-            "current": -167.648,
-            "prior_year": -16.321,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "Page 13, '3. kvartal 2026' Netto kontantstrøm fra operasjonelle aktiviteter -167,648 thousand NOK = -167.648 million NOK for 3Q2026; prior year -16,321 thousand"
-          }
-        ],
-        "outlook": {
-          "status": "analyzed",
-          "summary": "Bien Sparebank har etablert stor kapasitet for videre vekst og prioriterer nå å bedre utnyttelse av denne kapasiteten for å øke produktivitet, inntekter og lønnsomhet. Banken ser en svakere kortsiktig lønnsomhet, men legger vekt på lønnsom vekst med fokus på prising, marginer og produktbredde. Kostnadsbelastningen fra kapasitetsbygging er fullt realisert, og fremover er gevinstrealisering, kostnadsdisiplin og bedre utnyttelse av eksisterende ressurser sentralt. Markedet forventes å ha moderat vekst med fortsatt innstrammende pengepolitikk. Bankens kapital- og soliditetsposisjon er god, og posisjonen i hjemmemarkedet samt alliansens teknologi",
-          "change": "Egenkapitalavkastningen er nedjustert fra 8,3 % i Q2 til 6,86 % i Q3, noe som reflekterer \"svakere kortsiktig lønnsomhet\". Tidligere var fokuset på fortsatt økning i kapasitet og investeringer i rådgivning og kundeoppfølging, mens nå er kapasitetsbyggingen i stor grad gjennomført, og prioriteten har skiftet til å forbedre produktivitet og lønnsomhet gjennom bedre utnyttelse av etablerte ressurser og streng kostnadsdisiplin. Strategien om lønnsom vekst er opprettholdt, men med økt bevissthet på kvalitet i veksten gjennom prising og marginmål. Tidligere ble det forventet økt egenkapitalavkastning, nå er det mer fokus på å omsette kapasitet til bedre lønnsomhet i neste periode.",
-          "trend": "Over perioden har Bien Sparebank beveget seg fra fokus på vekst gjennom kapasitetsoppbygging og investeringer i organisasjon og kundeprosesser, mot en mer moden fase hvor prioriteringen nå er å realisere gevinstene av disse investeringene gjennom økt produktivitet og lønnsomhet. Egenkapitalavkastningen har gått noe ned fra tidlige kvartaler, men banken fastholder strategien om lønnsom vekst og sterk kapitalposisjon. Toneangivelsen har blitt mer nyansert med større fokus på kostnadsdisiplin og marginforbedring, noe som indikerer en mer konservativ og kvalitetssøkende tilnærming. Banken har holdt seg til tidligere kommuniserte rammer for utvikl",
-          "compared_periods": [
-            "2026Q2",
-            "2026Q1",
-            "2025Q4"
-          ],
-          "points": [
-            {
-              "topic": "Egenkapitalavkastning",
-              "statement": "Egenkapitalavkastningen etter skatt er redusert til 6,86%, mot 8,3% i Q2, reflekterer svakere kortsiktig lønnsomhet.",
-              "evidence": "\"Egenkapitalavkastningen av ordinært resultat etter skatt utgjorde 6,86 prosent, mot 9,25 prosent på samme tidspunkt i fjor.\" (side Q3)",
-              "page": "Q3"
-            },
-            {
-              "topic": "Kapasitet og produktivitet",
-              "statement": "Kapasiteten for videre vekst er etablert; neste fase fokuserer på bedre utnyttelse, økt produktivitet og lønnsomhet.",
-              "evidence": "\"Kapasiteten for videre vekst er nå i stor grad etablert... Fremover skal en større del av utviklingen komme gjennom bedre utnyttelse av organisasjonen, teknologien og infrastrukturen.\" (side Q3)",
-              "page": "Q3"
-            },
-            {
-              "topic": "Kostnads- og marginfokus",
-              "statement": "Prioritet flyttes til gevinstrealisering, kostnadsdisiplin og å jobbe aktivt med prising og marginer i et presset rentemarked.",
-              "evidence": "\"Gevinstrealisering, produktivitet og kostnadsdisiplin blir... sentrale prioriteringer... Vi skal arbeide aktivt med prising og marginer... samtidig som vi opprettholder konservativ kredittholdning.\"",
-              "page": "Q3"
-            },
-            {
-              "topic": "Markeds- og økonomivurdering",
-              "statement": "Forventet moderat vekst i norsk økonomi med fortsatt innstrammende pengepolitikk; prisvekst over mål.",
-              "evidence": "\"Veksten i norsk økonomi ventes å være moderat fremover... Norges Bank anslår 0,9 prosent BNP-vekst i 2026... Prisveksten er fortsatt over inflasjonsmålet.\" (side Q3)",
-              "page": "Q3"
-            }
-          ]
-        }
-      }
     }
   ],
   "indirect": [
@@ -11953,11 +11799,11 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T13:40:00+00:00",
+  "last_checked_at": "2026-11-16T13:50:00+00:00",
   "monitor_stats": {
-    "fetched": 55,
-    "recent": 55,
-    "already_seen": 54,
+    "fetched": 56,
+    "recent": 56,
+    "already_seen": 55,
     "eligible": 1,
     "filtered": 0,
     "analyzed": 1,
@@ -11965,7 +11811,7 @@
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T13:30:39.952000+00:00",
+    "source_latest_at": "2026-11-16T13:49:05.788000+00:00",
     "indirect": 0
   }
 }
