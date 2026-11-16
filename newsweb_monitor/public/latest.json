@@ -2,8 +2,36 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T17:10:00+00:00",
+  "generated_at": "2026-11-16T19:20:00+00:00",
   "items": [
+    {
+      "id": "686636",
+      "market": "XOSL",
+      "ticker": "NOL",
+      "issuer": "Northern Ocean Ltd.",
+      "title": "NOL: Changes to the Board composition",
+      "headline": "NOL styremedlem James Ayers trekker seg med øyeblikkelig effekt",
+      "lead": "Northern Ocean Ltd. kunngjør at James Ayers har fratrådt styret umiddelbart. Styret takker for hans innsats, men gir ingen informasjon om årsak eller ny styresammensetning.",
+      "published_at": "2026-11-16T19:11:51.554000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686636",
+      "summary": "Northern Ocean Ltd. kunngjør at James Ayers har fratrådt styret umiddelbart. Styret takker for hans innsats, men gir ingen informasjon om årsak eller ny styresammensetning.",
+      "reason": "Styremedlemsendringer kan tyde på interne justeringer, men uten forklaring er betydningen for selskapet og aksjonærene uklar. Det bør følges opp med informasjon om videre styrestruktur og strategiske konsekvenser.",
+      "score": 25,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "company_form": "ikke ASA",
+      "score_ai": 40,
+      "number_keys": [
+        "1574bd",
+        "a4fc56",
+        "aee655",
+        "b520d1",
+        "ce5c90",
+        "d7fc71",
+        "e321da"
+      ]
+    },
     {
       "id": "686632",
       "market": "XOSL",
@@ -11551,50 +11579,6 @@
         "f97e08",
         "fe2ef4"
       ]
-    },
-    {
-      "id": "686237",
-      "market": "XOSL",
-      "ticker": "VAR",
-      "issuer": "Vår Energi ASA",
-      "title": "Vår Energi ASA: Extraordinary general meeting held",
-      "headline": "Vår Energi fastsetter utbytte på 1,368 kroner per aksje for Q3",
-      "lead": "Vår Energi har besluttet et kvartalsutbytte på 1,368 kroner per aksje, med utbetaling i november og rett til utbytte fra 16. november. Utbyttet betales i norske kroner basert på valutakurs 20. oktober.",
-      "published_at": "2026-11-11T14:32:56.828000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686237",
-      "summary": "Vår Energi har besluttet et kvartalsutbytte på 1,368 kroner per aksje, med utbetaling i november og rett til utbytte fra 16. november. Utbyttet betales i norske kroner basert på valutakurs 20. oktober.",
-      "reason": "Utbytteutbetaling signaliserer fortsatt solid kontantstrøm for Vår Energi, noe som kan være attraktivt for inntektsfokuserte investorer. Overvåk videre hvordan fusjonen med BlueNord avsluttes og påvirker selskapets kapitalstruktur og vekstmuligheter.",
-      "score": 85,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "BNOR",
-          "direction": "positiv",
-          "reason": "BlueNord-aksjonærer kompenseres kontant i forbindelse med fusjonen, direkte knyttet til Vår Energis utbytte."
-        }
-      ],
-      "importance": "stor",
-      "score_ai": 75,
-      "number_keys": [
-        "0716d9",
-        "1574bd",
-        "17ba07",
-        "472b07",
-        "570722",
-        "77de68",
-        "7b5200",
-        "827bfc",
-        "91032a",
-        "9e6a55",
-        "ac3478",
-        "aee655",
-        "c8abaa",
-        "f1abd6",
-        "f6e112",
-        "fb9654"
-      ]
     }
   ],
   "indirect": [
@@ -11799,19 +11783,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T19:10:00+00:00",
+  "last_checked_at": "2026-11-16T19:20:00+00:00",
   "monitor_stats": {
-    "fetched": 76,
-    "recent": 76,
+    "fetched": 77,
+    "recent": 77,
     "already_seen": 76,
-    "eligible": 0,
+    "eligible": 1,
     "filtered": 0,
-    "analyzed": 0,
+    "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T17:00:09.281000+00:00",
+    "source_latest_at": "2026-11-16T19:11:51.554000+00:00",
     "indirect": 0
   }
 }
