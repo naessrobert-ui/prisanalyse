@@ -2,7 +2,7 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T12:20:00+00:00",
+  "generated_at": "2026-11-16T12:30:00+00:00",
   "items": [
     {
       "id": "686603",
@@ -419,18 +419,18 @@
       "ticker": "FERT",
       "issuer": "Fertiberia Corporate S.L.U.",
       "title": "Consolidated Interim Report Q3-2026",
-      "headline": "Fertiberia rapporterer foreløpige tall for tredje kvartal 2026 uten detaljer",
-      "lead": "Fertiberia har offentliggjort en konsolidert kvartalsrapport for Q3 2026 uten å gi detaljer om inntjening eller drift. Uten tall er det vanskelig å vurdere selskapets økonomiske utvikling dette kvartalet.",
+      "headline": "Fertiberia offentliggjør ny konsolidert tredjekvartalsrapport for 2026",
+      "lead": "Fertiberia presenterer foreløpig konsolidert rapport for Q3 2026 uten å oppgi detaljer om resultat eller utsikter, noe som krever nærmere analyse for investorer.",
       "published_at": "2026-11-16T11:00:00+00:00",
       "url": "https://newsweb.oslobors.no/message/686574",
-      "summary": "Fertiberia har offentliggjort en konsolidert kvartalsrapport for Q3 2026 uten å gi detaljer om inntjening eller drift. Uten tall er det vanskelig å vurdere selskapets økonomiske utvikling dette kvartalet.",
-      "reason": "Uten konkrete finansielle data i rapporten er det ikke mulig å vurdere om kvartalet er bedre eller dårligere enn året før, selskapets guiding eller markedets forventninger. Investorer må avvente mer fullstendig informasjon.",
-      "score": 15,
+      "summary": "Fertiberia presenterer foreløpig konsolidert rapport for Q3 2026 uten å oppgi detaljer om resultat eller utsikter, noe som krever nærmere analyse for investorer.",
+      "reason": "Manglende detaljert finansiell informasjon gjør det vanskelig å vurdere prestasjonen i Q3 2026. Investorer må vente på flere data for å forstå resultat og potensielle markedsimplikasjoner.",
+      "score": 5,
       "skipped": false,
       "direction": "uklar",
       "assessment_source": "AI",
       "company_form": "ikke ASA",
-      "score_ai": 30,
+      "score_ai": 20,
       "attachment_key": "4d28cac0c650427d",
       "number_keys": [
         "77de68",
@@ -450,84 +450,71 @@
             "label": "Omsetning",
             "name": "revenue",
             "unit": "€ million",
-            "current": 951.3,
-            "prior_year": 840.3,
+            "current": 951.334,
+            "prior_year": 840.284,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 13.2,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Condensed consolidated statement of comprehensive income, reporting 9M 2026 and 9M 2025 net sales on SIDE 11."
+            "evidence": "SIDE 11 consolidated statement of comprehensive income, Net sales 1 Jan to 30 Sep 2026 and 2025"
           },
           {
             "label": "EBITDA",
             "name": "ebitda",
             "unit": "€ million",
-            "current": 57.5,
-            "prior_year": 46.6,
+            "current": 57.547,
+            "prior_year": 46.621,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": 23.4,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Condensed consolidated statement of comprehensive income 9M 2026 EBITDA and 9M 2025 EBITDA on SIDE 11."
+            "evidence": "SIDE 11 condensed consolidated statement of comprehensive income, EBITDA 1 Jan to 30 Sep 2026 and 2025"
           },
           {
             "label": "EBIT",
             "name": "ebit",
             "unit": "€ million",
-            "current": 25.2,
-            "prior_year": 18.9,
+            "current": 25.188,
+            "prior_year": 18.867,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": 33.3,
+            "yoy_pct": 33.5,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Condensed consolidated statement of comprehensive income 9M 2026 EBIT and 9M 2025 EBIT on SIDE 11."
+            "evidence": "SIDE 11 condensed consolidated statement of comprehensive income, Operating profit (EBIT) 1 Jan to 30 Sep 2026 and 2025"
           },
           {
             "label": "Resultat etter skatt",
             "name": "net_income",
             "unit": "€ million",
-            "current": -15.0,
-            "prior_year": -16.0,
+            "current": -15.028,
+            "prior_year": -16.028,
             "prev_quarter": null,
             "consensus": null,
             "yoy_pct": null,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Condensed consolidated statement of comprehensive income, net profit/(loss) 9M 2026 and 9M 2025 on SIDE 11."
+            "evidence": "SIDE 11 condensed consolidated statement of comprehensive income, Profit/(Loss) for the year 1 Jan to 30 Sep 2026 and 2025"
           },
           {
             "label": "Kontantstrøm drift",
             "name": "operating_cash_flow",
             "unit": "€ million",
-            "current": 22.5,
-            "prior_year": 76.4,
+            "current": 22.453,
+            "prior_year": 76.398,
             "prev_quarter": null,
             "consensus": null,
-            "yoy_pct": -70.5,
+            "yoy_pct": -70.6,
             "qoq_pct": null,
             "surprise_pct": null,
-            "evidence": "Condensed consolidated cash flow statement 9M 2026 operating cash flow on SIDE 16 and narrative that adjusted excludes €10.2m one-off refinancing costs (so repo"
-          },
-          {
-            "label": "EPS",
-            "name": "eps",
-            "unit": "€ /share",
-            "current": null,
-            "prior_year": null,
-            "prev_quarter": null,
-            "consensus": null,
-            "yoy_pct": null,
-            "qoq_pct": null,
-            "surprise_pct": null,
-            "evidence": "EPS data not provided in report excerpts."
+            "evidence": "SIDE 16 condensed consolidated cash flow statement, Cash flows from operating activities 1 Jan to 30 Sep 2026 and 2025"
           }
         ],
         "outlook": {
           "status": "analyzed",
-          "summary": "Selskapet har midlertidig redusert produksjonen i Europa grunnet høye energikostnader, men forventer å gjenoppta full produksjon når markedssituasjonen stabiliseres. Dersom gass-til-ammoniakk-spreaden vedvarer og blir strukturell, kan driftsoppsettet i upstream-virksomheten måtte vurderes på nytt. Transformasjonsprogrammet har levert €9,8 millioner i besparelser i løpet av årets første ni måneder. Utviklingen av en høy-margin, skalerbar bioteknologisk plattform for differensierte gjødslingsløsninger, som drives under Trixia®-merket, fortsetter med lav kapitalbinding og målrettet FoU.",
+          "summary": "Konsernet forventer fortsatt utfordringer i Europa på grunn av høye energikostnader, midlertidig påvirker dette konkurranseevnen for europeisk produksjon. Produksjonen vil gjenopptas når markedssituasjonen bedres varig, men hvis gass-ammoniakk differansen fortsetter strukturelt, må man revurdere driften av upstream-virksomheten. Transformasjonsprogrammet har levert 9,8 millioner euro i besparelser etter 9M 2026. Plattformen for biologiske og differensierte planteernæringsløsninger utvikles videre under Trixia®-merket med lav kapitalintensitet.",
           "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning.",
           "trend": "",
           "compared_periods": [
@@ -537,21 +524,21 @@
           ],
           "points": [
             {
-              "topic": "Produksjon og driftsforhold",
-              "statement": "Produksjonen i Europa er midlertidig redusert pga høye energikostnader, men forventes gjenopptatt når forholdene bedrer seg. En vedvarende gass-til-ammoniakk spread kan kreve revidert driftsoppsett upstream.",
-              "evidence": "'temporarily affecting the competitiveness of European production' og 'the Group expects to resume production once market conditions improve' og 'may need to reassess the operating configuration of it",
+              "topic": "Produksjon og energikostnader",
+              "statement": "Produksjonen i Europa er midlertidig påvirket av høye energikostnader, gjenopptas når markedet forbedres, men kan bli revurdert hvis gass-prisdifferansen vedvarer.",
+              "evidence": "\"temporarily affecting...competitiveness...expects to resume production once market conditions improve\" og \"may need to reassess operating configuration if spread persist\"",
               "page": "utdrag fra rapporten"
             },
             {
-              "topic": "Kostnadsbesparelser",
-              "statement": "Transformasjonsprogrammet har levert €9,8 millioner i årlige besparelser i 9M 2026.",
-              "evidence": "'The transformation programme delivered €9.8 million of in-year savings in 9M 2026'",
+              "topic": "Transformasjonsprogram",
+              "statement": "Programmet har levert 9,8 millioner euro i kostnadsbesparelser i 9 måneder 2026.",
+              "evidence": "\"transformation programme delivered €9.8 million of in-year savings in 9M 2026\"",
               "page": "utdrag fra rapporten"
             },
             {
-              "topic": "Strategisk plattformutvikling",
-              "statement": "Utvikling av Trixia®-plattformen for bioteknologiske, differensierte planteernæringsløsninger fortsetter med et lav-kapital intensivt modell med fokus på bærekraft og avkastning.",
-              "evidence": "'platform – is a high-margin, scalable platform' og 'operated under the Trixia® brand ... based on an asset-light, low-capex model'",
+              "topic": "Utvikling av Trixia®-plattformen",
+              "statement": "Plattformen for biologiske og differensierte planteernæringsløsninger videreutvikles basert på et lavkapital, skalerbart modellkonsept.",
+              "evidence": "\"asset-light, low-capex model...develop the platform through targeted R&D\"",
               "page": "utdrag fra rapporten"
             }
           ]
@@ -12000,13 +11987,13 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T12:20:00+00:00",
+  "last_checked_at": "2026-11-16T12:30:00+00:00",
   "monitor_stats": {
     "fetched": 50,
     "recent": 50,
-    "already_seen": 48,
+    "already_seen": 49,
     "eligible": 1,
-    "filtered": 1,
+    "filtered": 0,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
