@@ -2,8 +2,163 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T10:50:00+00:00",
+  "generated_at": "2026-11-16T11:00:00+00:00",
   "items": [
+    {
+      "id": "686574",
+      "market": "XOSL",
+      "ticker": "FERT",
+      "issuer": "Fertiberia Corporate S.L.U.",
+      "title": "Consolidated Interim Report Q3-2026",
+      "headline": "Fertiberia rapporterer foreløpig Q3-2026 uten detaljer",
+      "lead": "Fertiberia har publisert sin foreløpige delårsrapport for tredje kvartal 2026, men rapporten inneholder foreløpig ingen resultattall eller økonomiske detaljer.",
+      "published_at": "2026-11-16T11:00:00+00:00",
+      "url": "https://newsweb.oslobors.no/message/686574",
+      "summary": "Fertiberia har publisert sin foreløpige delårsrapport for tredje kvartal 2026, men rapporten inneholder foreløpig ingen resultattall eller økonomiske detaljer.",
+      "reason": "Mangelen på økonomiske data gjør det umulig å vurdere selskapets kvartalsprestasjon eller fremtidige utsikter, og skaper usikkerhet for investorer.",
+      "score": 25,
+      "skipped": false,
+      "direction": "uklar",
+      "assessment_source": "AI",
+      "company_form": "ikke ASA",
+      "score_ai": 40,
+      "attachment_key": "4d28cac0c650427d",
+      "number_keys": [
+        "77de68",
+        "aee655"
+      ],
+      "financial_report": {
+        "status": "analyzed",
+        "period": "2026Q3",
+        "period_source": "reported",
+        "previous_report": "not_requested",
+        "document": {
+          "name": "Consolidated Interim Report Q3 2026_VF.pdf",
+          "url": "https://api3.oslo.oslobors.no/v1/newsreader/attachment?messageId=686574&attachmentId=336544"
+        },
+        "metrics": [
+          {
+            "label": "Omsetning",
+            "name": "revenue",
+            "unit": "EUR million",
+            "current": 951.334,
+            "prior_year": 840.284,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 13.2,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Condensed consolidated statement of comprehensive income, period 1 January to 30 September 2026 and 2025, page 11"
+          },
+          {
+            "label": "EBITDA",
+            "name": "ebitda",
+            "unit": "EUR million",
+            "current": 57.547,
+            "prior_year": 46.621,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 23.4,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Condensed consolidated statement of comprehensive income, EBITDA reported, period 1 January to 30 September 2026 and 2025, page 11"
+          },
+          {
+            "label": "EBIT",
+            "name": "ebit",
+            "unit": "EUR million",
+            "current": 25.188,
+            "prior_year": 18.867,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": 33.5,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Condensed consolidated statement of comprehensive income, Operating profit (EBIT), period 1 January to 30 September 2026 and 2025, page 11"
+          },
+          {
+            "label": "Resultat etter skatt",
+            "name": "net_income",
+            "unit": "EUR million",
+            "current": -15.028,
+            "prior_year": -16.028,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": null,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Condensed consolidated statement of comprehensive income, Profit/(Loss) for the year, period 1 January to 30 September 2026 and 2025, page 11"
+          },
+          {
+            "label": "Kontantstrøm drift",
+            "name": "operating_cash_flow",
+            "unit": "EUR million",
+            "current": 22.453,
+            "prior_year": 76.398,
+            "prev_quarter": null,
+            "consensus": null,
+            "yoy_pct": -70.6,
+            "qoq_pct": null,
+            "surprise_pct": null,
+            "evidence": "Condensed consolidated cash flow statement, Cash flows from operating activities, period 1 January to 30 September 2026 and 2025, page 16"
+          }
+        ],
+        "outlook": {
+          "status": "analyzed",
+          "summary": "Ledelsen varsler at energikostnader i Europa midlertidig påvirker konkurranseevnen til europeisk produksjon, noe som har ført til produksjonsstans i en periode. Produksjonen forventes å gjenopptas når markedssituasjonen bedres. Dersom gass-til-ammoniakk-spreaden vedvarer og blir en permanent markedsfaktor, kan det bli nødvendig å revurdere driftskonfigurasjonen for upstream operasjoner. Transformation programme har levert besparelser på €9,8 millioner i de første ni månedene av 2026. Den biologiske og differensierte vekstplattformen under Trixia®-merket utvikles videre basert på en lav-kapitalmodell med målrettet FoU.",
+          "change": "Forrige kvartals guiding er ikke tilgjengelig for sammenligning",
+          "trend": "",
+          "compared_periods": [
+            "2026Q2",
+            "2026Q1",
+            "2025Q4"
+          ],
+          "points": [
+            {
+              "topic": "Produksjon og energikostnader",
+              "statement": "Produksjonen midlertidig stoppet på grunn av høye energikostnader som påvirker konkurranseevnen i Europa; forventet gjenopptak ved bedring i markedet.",
+              "evidence": "'temporarily affecting the competitiveness of European production' og 'Group expects to resume production once market conditions improve'",
+              "page": "utdrag fra rapporten"
+            },
+            {
+              "topic": "Operasjonsstrategi upstream",
+              "statement": "Kan bli nødvendig å revurdere driftskonfigurasjonen for upstream operasjoner dersom høy gass-til-ammoniakk-spread vedvarer som strukturell markedsfaktor.",
+              "evidence": "'Group may need to reassess the operating configuration of its upstream operations' hvis spreaden blir en mer strukturell funksjon.",
+              "page": "utdrag fra rapporten"
+            },
+            {
+              "topic": "Kostnadsbesparelser",
+              "statement": "Transformation programme har levert €9,8 millioner i besparelser i årets første ni måneder.",
+              "evidence": "'The transformation programme delivered €9.8 million of in-year savings in 9M 2026'",
+              "page": "utdrag fra rapporten"
+            },
+            {
+              "topic": "Produktutvikling og investeringer",
+              "statement": "Biologisk, differensiert crop nutrition-plattform videreutvikles under Trixia®-merket med lav kapitalintensitet og målrettet FoU.",
+              "evidence": "'platform has operated under the Trixia® brand' og 'Based on an asset-light, low-capex model, the Group continues to develop the platform'",
+              "page": "utdrag fra rapporten"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "686573",
+      "market": "XOSL",
+      "ticker": "CAVEN",
+      "issuer": "Cavendish Hydrogen ASA",
+      "title": "Financial calendar",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T10:55:17.566000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686573",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686572",
       "market": "XOSL",
@@ -12933,98 +13088,6 @@
         "fab19a",
         "fb9654"
       ]
-    },
-    {
-      "id": "686158",
-      "market": "XOSL",
-      "ticker": "SALME",
-      "issuer": "Salmon Evolution ASA",
-      "title": "Salmon Evolution ASA: Phase 2 nearing completion with handover of four new tanks",
-      "headline": "Salmon Evolution øker tankkapasiteten til åtte i fase 2 – 2,8 mill. smolt planlagt i 2026",
-      "lead": "Salmon Evolution har overtatt fire nye produksjonstanker i fase 2, totalt åtte i drift, og planlegger å sette ut 2,8 millioner smolt ved Indre Harøy i 2026, opp fra 1,7 millioner i 2025. Produksjonen øker videre i 2027.",
-      "published_at": "2026-11-11T06:00:06.157000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686158",
-      "summary": "Salmon Evolution har overtatt fire nye produksjonstanker i fase 2, totalt åtte i drift, og planlegger å sette ut 2,8 millioner smolt ved Indre Harøy i 2026, opp fra 1,7 millioner i 2025. Produksjonen øker videre i 2027.",
-      "reason": "Utvidelsen av kapasiteten og økt smoltvolum signaliserer økt produksjon og potensielt bedre kostnadseffektivitet, noe som kan styrke lønnsomheten på sikt. Investorer bør følge fremdrift i produksjonsmål og kostnadsutvikling mot 2027.",
-      "score": 70,
-      "skipped": false,
-      "direction": "positiv",
-      "assessment_source": "AI",
-      "attachment_key": "fcd70438a9a98df4",
-      "number_keys": [
-        "004be8",
-        "0716d9",
-        "0a57cb",
-        "0c0f6b",
-        "28a5c2",
-        "2a4593",
-        "356a19",
-        "4b581c",
-        "4cd66d",
-        "64e095",
-        "64e0cf",
-        "67959d",
-        "827bfc",
-        "8374aa",
-        "8e63fd",
-        "aee655",
-        "b3f0c7",
-        "bc33ea",
-        "bc9771",
-        "bd307a",
-        "da4b92",
-        "e6c3dd",
-        "fb46f8"
-      ]
-    },
-    {
-      "id": "686156",
-      "market": "XOSL",
-      "ticker": "HAUTO",
-      "issuer": "Höegh Autoliners ASA",
-      "title": "Höegh Autoliners ASA (HAUTO) - October 2026 Trading Update",
-      "headline": "Höegh Autoliners frakter 1,4 mill. cbm i oktober med stabilt fraktnivå",
-      "lead": "I oktober 2026 transporterte Höegh Autoliners 1,4 mill. cbm med en netto fraktrate på 81,8 USD per cbm, små endringer fra forrige tremånedersperiode. Ufordringer i Midtøsten hemmer fortsatt effektiviteten.",
-      "published_at": "2026-11-11T06:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/686156",
-      "summary": "I oktober 2026 transporterte Höegh Autoliners 1,4 mill. cbm med en netto fraktrate på 81,8 USD per cbm, små endringer fra forrige tremånedersperiode. Ufordringer i Midtøsten hemmer fortsatt effektiviteten.",
-      "reason": "Resultatet viser stabilitet i volum og fraktrater sammenlignet med foregående måneder, men vedvarende flaskehalser i Midtøsten kan påvirke fremtidig lønnsomhet. Investorer bør følge utviklingen i driftsforhold og nettverkseffektivitet.",
-      "score": 70,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "WAWI",
-          "direction": "negativ",
-          "reason": "Konkurrent i bil- og containerfrakt kan rammes av samme regionale utfordringer i Midtøsten."
-        },
-        {
-          "ticker": "MPCC",
-          "direction": "negativ",
-          "reason": "Sektoraktør som kan oppleve liknende transportforstyrrelser og press på marginene."
-        }
-      ],
-      "importance": "mellom",
-      "score_ai": 65,
-      "attachment_key": "fc0b4325227c16aa",
-      "number_keys": [
-        "12c6fc",
-        "1574bd",
-        "17ba07",
-        "37a53d",
-        "3ea6c9",
-        "472b07",
-        "639d67",
-        "73ee49",
-        "a4ac91",
-        "aee655",
-        "af3e13",
-        "dd0190",
-        "e973a6",
-        "f022da",
-        "fa35e1"
-      ]
     }
   ],
   "indirect": [
@@ -13202,19 +13265,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T10:50:00+00:00",
+  "last_checked_at": "2026-11-16T11:00:00+00:00",
   "monitor_stats": {
-    "fetched": 29,
-    "recent": 29,
-    "already_seen": 28,
+    "fetched": 31,
+    "recent": 31,
+    "already_seen": 29,
     "eligible": 1,
-    "filtered": 0,
+    "filtered": 1,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T10:46:29.495000+00:00",
+    "source_latest_at": "2026-11-16T11:00:00+00:00",
     "indirect": 0
   }
 }
