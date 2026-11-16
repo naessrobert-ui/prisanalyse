@@ -2,8 +2,25 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T16:00:00+00:00",
+  "generated_at": "2026-11-16T16:10:00+00:00",
   "items": [
+    {
+      "id": "686625",
+      "market": "XOSL",
+      "ticker": "ENTRA",
+      "issuer": "Entra ASA",
+      "title": "Entra ASA: Status on share buy-back programme - week 46",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T16:00:27.460000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686625",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
     {
       "id": "686624",
       "market": "XOSL",
@@ -11418,79 +11435,6 @@
         "b1d578",
         "fb6443"
       ]
-    },
-    {
-      "id": "686216",
-      "market": "XOSL",
-      "ticker": "AVINR",
-      "issuer": "Avinor AS",
-      "title": "More passengers, but fewer aircraft movements in October",
-      "headline": "Avinor: Flere passasjerer i oktober men færre flybevegelser samlet",
-      "lead": "Antall passasjerer økte 1,3 prosent i oktober til 4,9 millioner, mens kommersielle flybevegelser falt med 2,6 prosent. Dette tyder på høyere kapasitetsutnyttelse per flyvning.",
-      "published_at": "2026-11-11T12:00:00+00:00",
-      "url": "https://newsweb.oslobors.no/message/686216",
-      "summary": "Antall passasjerer økte 1,3 prosent i oktober til 4,9 millioner, mens kommersielle flybevegelser falt med 2,6 prosent. Dette tyder på høyere kapasitetsutnyttelse per flyvning.",
-      "reason": "Flere passasjerer med færre flybevegelser peker på bedre effektivitet, men lavere trafikkaktivitet kan indikere markedsutfordringer i enkelte segmenter. Videre utvikling i charter- og rutesegment bør følges.",
-      "score": 57,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "affected": [
-        {
-          "ticker": "OSLKO",
-          "direction": "positiv",
-          "reason": "Oslo Lufthavn har økt passasjertall men færre flybevegelser, noe som kan styrke lønnsomheten."
-        }
-      ],
-      "company_form": "ikke ASA",
-      "score_ai": 72,
-      "language_versions": [
-        {
-          "id": "686217",
-          "title": "Fleire passasjerar, men færre flyrørsler i oktober",
-          "url": "https://newsweb.oslobors.no/message/686217",
-          "published_at": "2026-11-11T12:00:00+00:00",
-          "language": "Original"
-        },
-        {
-          "id": "686216",
-          "title": "More passengers, but fewer aircraft movements in October",
-          "url": "https://newsweb.oslobors.no/message/686216",
-          "published_at": "2026-11-11T12:00:00+00:00",
-          "language": "Engelsk"
-        }
-      ],
-      "number_keys": [
-        "004be8",
-        "0716d9",
-        "0a57cb",
-        "115c55",
-        "1574bd",
-        "22d200",
-        "28a5c2",
-        "3bb9cd",
-        "3bfa48",
-        "3ea6c9",
-        "472b07",
-        "4d134b",
-        "5b384c",
-        "5d24a4",
-        "6e914e",
-        "72db86",
-        "7316b3",
-        "7d1ef3",
-        "7f3541",
-        "aee655",
-        "b1d578",
-        "b1f32a",
-        "bd307a",
-        "be4692",
-        "cb7a1d",
-        "cdfdce",
-        "da4b92",
-        "ee44c6",
-        "f6b039"
-      ]
     }
   ],
   "indirect": [
@@ -11717,19 +11661,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T16:00:00+00:00",
+  "last_checked_at": "2026-11-16T16:10:00+00:00",
   "monitor_stats": {
-    "fetched": 68,
-    "recent": 68,
-    "already_seen": 67,
-    "eligible": 1,
-    "filtered": 0,
-    "analyzed": 1,
+    "fetched": 69,
+    "recent": 69,
+    "already_seen": 68,
+    "eligible": 0,
+    "filtered": 1,
+    "analyzed": 0,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T15:56:44.247000+00:00",
+    "source_latest_at": "2026-11-16T16:00:27.460000+00:00",
     "indirect": 0
   }
 }
