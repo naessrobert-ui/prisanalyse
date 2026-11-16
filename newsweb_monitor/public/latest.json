@@ -2,8 +2,50 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T13:10:00+00:00",
+  "generated_at": "2026-11-16T13:20:00+00:00",
   "items": [
+    {
+      "id": "686605",
+      "market": "XOSL",
+      "ticker": "BEWI",
+      "issuer": "BEWi ASA",
+      "title": "BEWI ASA - Updated key information related to dividend",
+      "headline": "BEWi setter utbytte på 1,15 kroner per aksje med utbetaling i desember",
+      "lead": "BEWi ASA planlegger å utbetale 1,15 kroner i utbytte per aksje 10. desember 2026, forutsatt godkjenning på ekstraordinær generalforsamling 1. desember. Viktig dato for rett til utbytte er 1. desember.",
+      "published_at": "2026-11-16T13:18:32.338000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686605",
+      "summary": "BEWi ASA planlegger å utbetale 1,15 kroner i utbytte per aksje 10. desember 2026, forutsatt godkjenning på ekstraordinær generalforsamling 1. desember. Viktig dato for rett til utbytte er 1. desember.",
+      "reason": "Utbytte styrker investorers kontantstrøm og signaliserer selskapets økonomiske styrke. Investorer bør følge møtet den 1. desember og selskapets videre kapitaldisponering.",
+      "score": 55,
+      "skipped": false,
+      "direction": "positiv",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "BINT",
+          "direction": "uklar",
+          "reason": "Konkurrent i emballasjesektoren kan påvirkes indirekte av BEWis kapitaldisponering."
+        },
+        {
+          "ticker": "ELO",
+          "direction": "uklar",
+          "reason": "Bransjekollega som kan oppleve sekvensiell interesse for aksjer blant emballasjeselskapene."
+        }
+      ],
+      "number_keys": [
+        "1b6453",
+        "2f3987",
+        "356a19",
+        "77de68",
+        "7b5200",
+        "ac3478",
+        "aee655",
+        "b1d578",
+        "da4b92",
+        "e5c49f",
+        "efa6e4"
+      ]
+    },
     {
       "id": "686604",
       "market": "XOSL",
@@ -11742,63 +11784,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686185",
-      "market": "XOSL",
-      "ticker": "ORK",
-      "issuer": "Orkla ASA",
-      "title": "Orkla ASA: Status share buyback programme",
-      "headline": "Orkla kjøper tilbake 1,4 millioner aksjer for 146 millioner kroner i november",
-      "lead": "Orkla har gjennomført tilbakekjøp av totalt 1,41 millioner aksjer i starten av november til en samlet verdi på 146 millioner kroner, og eier nå nær 3,85 prosent av egne aksjer. Programmet løper til utgangen av 2027.",
-      "published_at": "2026-11-11T07:00:15.956000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686185",
-      "summary": "Orkla har gjennomført tilbakekjøp av totalt 1,41 millioner aksjer i starten av november til en samlet verdi på 146 millioner kroner, og eier nå nær 3,85 prosent av egne aksjer. Programmet løper til utgangen av 2027.",
-      "reason": "Tilbakekjøpsprogrammet øker eierandelen til Orkla, hvilket kan indikere kapitalstrukturjustering. Effekten på kursen avhenger av videre kjøpsintensitet og selskapets finansielle utvikling.",
-      "score": 70,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "importance": "stor",
-      "score_ai": 60,
-      "attachment_key": "280d00e7234c75d0",
-      "number_keys": [
-        "05a986",
-        "0ade7c",
-        "1b6453",
-        "21b2d8",
-        "3c17eb",
-        "472b07",
-        "56fcb2",
-        "5dc9f6",
-        "60b72b",
-        "632667",
-        "64e0cf",
-        "7336b4",
-        "73d159",
-        "7456ab",
-        "7b5200",
-        "8076cc",
-        "82532e",
-        "855679",
-        "8774e6",
-        "92d685",
-        "9e6bfb",
-        "a47d65",
-        "a66234",
-        "a7f5a5",
-        "ac3478",
-        "aee655",
-        "af0e91",
-        "b1d578",
-        "c1dfd9",
-        "c3760a",
-        "c4afd6",
-        "c5ebbe",
-        "d5bb26",
-        "ed3f03",
-        "eed1c6"
-      ]
     }
   ],
   "indirect": [
@@ -11976,19 +11961,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T13:10:00+00:00",
+  "last_checked_at": "2026-11-16T13:20:00+00:00",
   "monitor_stats": {
-    "fetched": 51,
-    "recent": 51,
-    "already_seen": 50,
+    "fetched": 52,
+    "recent": 52,
+    "already_seen": 51,
     "eligible": 1,
     "filtered": 0,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
-    "recovered_unpublished": 1,
-    "source_latest_at": "2026-11-16T12:31:29.534000+00:00",
+    "recovered_unpublished": 0,
+    "source_latest_at": "2026-11-16T13:18:32.338000+00:00",
     "indirect": 0
   }
 }
