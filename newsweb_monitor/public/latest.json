@@ -2,8 +2,46 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T14:30:00+00:00",
+  "generated_at": "2026-11-16T14:40:00+00:00",
   "items": [
+    {
+      "id": "686621",
+      "market": "XOSL",
+      "ticker": "SKKO",
+      "issuer": "Skien Kommune",
+      "title": "Euronext Oslo Børs - SKIEN KOMMUNE - Received application for listing of bonds",
+      "headline": "Skien Kommune søker børsnotering for nye obligasjoner på Oslo Børs",
+      "lead": "Skien Kommune har sendt søknad om notering av obligasjoner under ISIN NO0013783019, som medfører økt åpenhet og rapportering etter markedsregelverket.",
+      "published_at": "2026-11-16T14:31:18.069000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686621",
+      "summary": "Skien Kommune har sendt søknad om notering av obligasjoner under ISIN NO0013783019, som medfører økt åpenhet og rapportering etter markedsregelverket.",
+      "reason": "Søknaden om obligasjonsnotering øker gjennomsiktighet, men medfører ingen umiddelbar finansiell endring. Aksjonærer bør følge videre utvikling og vilkår for obligasjonsutstedelsen.",
+      "score": 30,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "company_form": "ikke ASA",
+      "score_ai": 45,
+      "number_keys": [
+        "5ec0ff"
+      ],
+      "language_versions": [
+        {
+          "id": "686621",
+          "title": "Euronext Oslo Børs - SKIEN KOMMUNE - Received application for listing of bonds",
+          "url": "https://newsweb.oslobors.no/message/686621",
+          "published_at": "2026-11-16T14:31:18.069000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "686620",
+          "title": "Euronext Oslo Børs - SKIEN KOMMUNE - Mottatt søknad om notering av obligasjonslån",
+          "url": "https://newsweb.oslobors.no/message/686620",
+          "published_at": "2026-11-16T14:31:18.034000+00:00",
+          "language": "Norsk"
+        }
+      ]
+    },
     {
       "id": "686619",
       "market": "XOSL",
@@ -11433,38 +11471,36 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686208",
-      "market": "XOSL",
-      "ticker": "MULTI",
-      "issuer": "Multiconsult ASA",
-      "title": "Mandatory notification of trade - primary insider",
-      "headline": "Multiconsult CFO kjøper 1.510 aksjer til 132,40 kroner per aksje",
-      "lead": "Finansdirektør Hans-Jørgen Wibstad øker sin beholdning i Multiconsult med 1.510 aksjer, nå totalt 4.126, til en gjennomsnittspris på 132,40 kroner per aksje. Transaksjonen kan signalisere insiderförtroende.",
-      "published_at": "2026-11-11T10:31:17.572000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686208",
-      "summary": "Finansdirektør Hans-Jørgen Wibstad øker sin beholdning i Multiconsult med 1.510 aksjer, nå totalt 4.126, til en gjennomsnittspris på 132,40 kroner per aksje. Transaksjonen kan signalisere insiderförtroende.",
-      "reason": "Insiderkjøp kan tolkes som et positivt signal, men alene gir det begrenset informasjon om selskapets fremtidige utvikling. Aksjonærer bør følge fremtidige resultater og eventuelle ytterligere insidertransaksjoner.",
-      "score": 40,
-      "skipped": false,
-      "direction": "nøytral",
-      "assessment_source": "AI",
-      "attachment_key": "681272e6a336c671",
-      "number_keys": [
-        "17ba07",
-        "7b5200",
-        "855265",
-        "8da4b8",
-        "9a6aa8",
-        "ac3478",
-        "aee655",
-        "e30ce9",
-        "f94517"
-      ]
     }
   ],
   "indirect": [
+    {
+      "id": "c35582b835295d83",
+      "source": "E24",
+      "title": "USA innfører nye AI-restriksjoner",
+      "url": "https://e24.no/boers-og-finans/i/7P0P1K/usa-innfoerer-nye-ai-restriksjoner?utm_medium=rss",
+      "published_at": "2026-11-16T14:29:54+00:00",
+      "analyzed_at": "2026-11-16T14:40:00+00:00",
+      "score": 70,
+      "comment": "Nye amerikanske AI-eksportrestriksjoner kan begrense tilgang på avanserte databrikker, påvirker teknologiselskaper med eksponering mot AI og avansert teknologi.",
+      "affected": [
+        {
+          "ticker": "MOWI",
+          "direction": "uklar",
+          "reason": "Mulig indirekte påvirkning via teknologikostnader i produksjonsstyring"
+        },
+        {
+          "ticker": "TGS",
+          "direction": "negativ",
+          "reason": "Kan påvirke tilgangen på avansert teknologi brukt i seismikk og dataanalyse"
+        },
+        {
+          "ticker": "NEL",
+          "direction": "negativ",
+          "reason": "Restriksjoner kan hemme tilgang på avanserte komponenter til hydrogen- og energiteknologi"
+        }
+      ]
+    },
     {
       "id": "63b5a045ba550c10",
       "source": "E24",
@@ -11639,19 +11675,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T14:30:00+00:00",
+  "last_checked_at": "2026-11-16T14:40:00+00:00",
   "monitor_stats": {
-    "fetched": 64,
-    "recent": 64,
-    "already_seen": 59,
+    "fetched": 66,
+    "recent": 66,
+    "already_seen": 64,
     "eligible": 1,
-    "filtered": 4,
+    "filtered": 1,
     "analyzed": 1,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T14:29:33.924000+00:00",
-    "indirect": 0
+    "source_latest_at": "2026-11-16T14:31:18.069000+00:00",
+    "indirect": 1
   }
 }
