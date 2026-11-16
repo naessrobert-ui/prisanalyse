@@ -2,8 +2,100 @@
   "mode": "live",
   "generation": "newsroom-2026-10-21-v2",
   "source": "NewsWeb – automatisk fra Raspberry Pi",
-  "generated_at": "2026-11-16T04:10:00+00:00",
+  "generated_at": "2026-11-16T06:10:00+00:00",
   "items": [
+    {
+      "id": "686534",
+      "market": "XOSL",
+      "ticker": "MGN",
+      "issuer": "Magnora ASA",
+      "title": "Magnora ASA: Repurchase of shares",
+      "headline": "",
+      "lead": "",
+      "published_at": "2026-11-16T06:00:25.725000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686534",
+      "summary": "Filtrert bort",
+      "reason": "Rutinemelding",
+      "score": 0,
+      "skipped": true,
+      "direction": "nøytral",
+      "assessment_source": "Regelfilter"
+    },
+    {
+      "id": "686532",
+      "market": "XOSL",
+      "ticker": "LSG",
+      "issuer": "Lerøy Seafood Group ASA",
+      "title": "Lerøy Seafood Group ASA: Lerøy har inngått avtale om kjøp av 47,7% av aksjene i Sjøtroll Havbruk",
+      "headline": "Lerøy styrker kontrollen med Sjøtroll Havbruk til 98,4 prosent",
+      "lead": "Lerøy kjøper 47,7% av Sjøtroll Havbruk, øker eieren til 98,4% via 16,5 mill aksjer og 750 mill kr. Transaksjonen ventes gjennomført tidlig 2027 med usikker kurs på aksjevederlaget.",
+      "published_at": "2026-11-16T06:00:01.752000+00:00",
+      "url": "https://newsweb.oslobors.no/message/686532",
+      "summary": "Lerøy kjøper 47,7% av Sjøtroll Havbruk, øker eieren til 98,4% via 16,5 mill aksjer og 750 mill kr. Transaksjonen ventes gjennomført tidlig 2027 med usikker kurs på aksjevederlaget.",
+      "reason": "Oppkjøpet konsoliderer Lerøys posisjon i oppdrettssektoren og gir nær full kontroll over Sjøtroll. Aksjonærer bør følge utviklingen i gjeldsfinansiering og effekter på resultat etter full integrasjon.",
+      "score": 80,
+      "skipped": false,
+      "direction": "nøytral",
+      "assessment_source": "AI",
+      "affected": [
+        {
+          "ticker": "MOWI",
+          "direction": "uklar",
+          "reason": "Styrket posisjon for Lerøy kan øke konkurransepress i laksemarkedet."
+        },
+        {
+          "ticker": "SALM",
+          "direction": "uklar",
+          "reason": "Bransjevurdering påvirkes av konsolidering i oppdrettssektoren."
+        }
+      ],
+      "importance": "mellom",
+      "score_ai": 65,
+      "number_keys": [
+        "062dd0",
+        "0716d9",
+        "0b5103",
+        "118540",
+        "1574bd",
+        "1d57cc",
+        "388e77",
+        "39f193",
+        "404c73",
+        "64e0cf",
+        "74cbd2",
+        "761f22",
+        "7b5200",
+        "827bfc",
+        "866524",
+        "902ba3",
+        "91032a",
+        "ac3478",
+        "aee655",
+        "b7103c",
+        "b888b2",
+        "c56f5c",
+        "d321d6",
+        "e1822d",
+        "f83a38",
+        "fb9654"
+      ],
+      "language_versions": [
+        {
+          "id": "686533",
+          "title": "Lerøy Seafood Group ASA: Lerøy enters into an agreement to acquire 47.7% of the shares in Sjøtroll Havbruk",
+          "url": "https://newsweb.oslobors.no/message/686533",
+          "published_at": "2026-11-16T06:00:01.752000+00:00",
+          "language": "Engelsk"
+        },
+        {
+          "id": "686532",
+          "title": "Lerøy Seafood Group ASA: Lerøy har inngått avtale om kjøp av 47,7% av aksjene i Sjøtroll Havbruk",
+          "url": "https://newsweb.oslobors.no/message/686532",
+          "published_at": "2026-11-16T06:00:01.074000+00:00",
+          "language": "Norsk"
+        }
+      ]
+    },
     {
       "id": "686528",
       "market": "XOSL",
@@ -13243,40 +13335,6 @@
       "skipped": true,
       "direction": "nøytral",
       "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686117",
-      "market": "XOSL",
-      "ticker": "AEN",
-      "issuer": "Å Energi AS",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-10T13:05:32.608000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686117",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
-    },
-    {
-      "id": "686115",
-      "market": "XOSL",
-      "ticker": "SCATC",
-      "issuer": "Scatec ASA",
-      "title": "Rentefastsettelse",
-      "headline": "",
-      "lead": "",
-      "published_at": "2026-11-10T13:05:22.453000+00:00",
-      "url": "https://newsweb.oslobors.no/message/686115",
-      "summary": "Filtrert bort",
-      "reason": "Rutinemelding",
-      "score": 0,
-      "skipped": true,
-      "direction": "nøytral",
-      "assessment_source": "Regelfilter"
     }
   ],
   "indirect": [
@@ -13415,19 +13473,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T06:00:00+00:00",
+  "last_checked_at": "2026-11-16T06:10:00+00:00",
   "monitor_stats": {
-    "fetched": 1,
-    "recent": 1,
+    "fetched": 4,
+    "recent": 4,
     "already_seen": 1,
-    "eligible": 0,
-    "filtered": 0,
-    "analyzed": 0,
+    "eligible": 2,
+    "filtered": 1,
+    "analyzed": 2,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
-    "source_latest_at": "2026-11-16T04:03:17.989000+00:00",
+    "source_latest_at": "2026-11-16T06:00:25.725000+00:00",
     "indirect": 0
   }
 }
