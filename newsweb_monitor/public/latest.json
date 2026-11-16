@@ -13409,6 +13409,28 @@
   ],
   "indirect": [
     {
+      "id": "a0dee80bf1299eed",
+      "source": "E24",
+      "title": "Høyeste handelsoverskudd siden 2022",
+      "url": "https://e24.no/energi-og-klima/i/530pmX/hoeyeste-handelsoverskudd-siden-2022-gass-gass-gass-over-hele-linja?utm_medium=rss",
+      "published_at": "2026-11-16T07:09:03+00:00",
+      "analyzed_at": "2026-11-16T07:20:00+00:00",
+      "score": 60,
+      "comment": "Sterkt handelsoverskudd skyldes høyere gasspriser, gir positiv effekt for norske energiselskaper med gassproduksjon.",
+      "affected": [
+        {
+          "ticker": "EQNR",
+          "direction": "positiv",
+          "reason": "Stigende gasspriser øker inntektene"
+        },
+        {
+          "ticker": "NEL",
+          "direction": "positiv",
+          "reason": "Positivt til hydrogenproduksjon via billig gass"
+        }
+      ]
+    },
+    {
       "id": "a93dbec8d2d651b2",
       "source": "E24",
       "title": "Slår tilbake mot dagligvaregigantene",
@@ -13543,19 +13565,19 @@
       ]
     }
   ],
-  "last_checked_at": "2026-11-16T07:10:00+00:00",
+  "last_checked_at": "2026-11-16T07:20:00+00:00",
   "monitor_stats": {
     "fetched": 10,
     "recent": 10,
-    "already_seen": 7,
-    "eligible": 2,
-    "filtered": 1,
-    "analyzed": 2,
+    "already_seen": 10,
+    "eligible": 0,
+    "filtered": 0,
+    "analyzed": 0,
     "ai_failed": 0,
     "details_failed": 0,
     "capped": 0,
     "recovered_unpublished": 0,
     "source_latest_at": "2026-11-16T07:07:02.711000+00:00",
-    "indirect": 0
+    "indirect": 1
   }
 }
