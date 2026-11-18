@@ -1875,6 +1875,84 @@ def companies_filter(
     )
 
 
+def get_top_companies_by_municipality_payload(
+    *,
+    kommunenummer: str,
+    regnskapsaar: int = 2025,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Rank companies by operating profit and attach their recorded coordinates.
+
+    Rankings cover all companies with valid accounts in the municipality.
+    Missing geocodes remain in the list, but cannot be drawn as map points.
+    """
+    municipality = str(kommunenummer).strip()
+    if not re.fullmatch(r"\\d{4}", municipality):
+        raise ValueError("kommunenummer must have four digits")
+
+    safe_limit = max(1, min(int(limit), 500))
+    ranked = get_companies_filter_payload(
+        kommune=municipality,
+        regnskapsaar=regnskapsaar,
+        has_regnskap=True,
+        limit=safe_limit,
+        sort_by="driftsresultat",
+        sort_dir="desc",
+    )
+    rows = ranked["results"]
+    orgnrs = [str(row["orgnr"]) for row in rows]
+    locations = {}
+    if orgnrs:
+        location_rows = fetch_all(
+            """SELECT orgnr::text AS orgnr, adresse, postnummer, lat, lon
+               FROM entity WHERE orgnr::text = ANY(%s)""",
+            [orgnrs],
+        )
+        locations = {str(row["orgnr"]): row for row in location_rows}
+
+    for row in rows:
+        loc = locations.get(str(row["orgnr"]), {})
+        row["adresse"] = loc.get("adresse")
+        row["postnummer"] = loc.get("postnummer")
+        row["lat"] = loc.get("lat")
+        row["lon"] = loc.get("lon")
+        revenue, profit = row.get("omsetning"), row.get("driftsresultat")
+        row["driftsmargin_prosent"] = (
+            round(float(profit) / float(revenue) * 100, 2)
+            if revenue is not None and float(revenue) > 0 and profit is not None
+            else None
+        )
+        margin = row["driftsmargin_prosent"]
+        row["farge"] = (
+            "gray" if margin is None else
+            "green" if margin >= 20 else
+            "red" if margin < 0 else "yellow"
+        )
+        row["has_coordinates"] = loc.get("lat") is not None and loc.get("lon") is not None
+
+    return {
+        "kommunenummer": municipality,
+        "regnskapsaar": regnskapsaar,
+        "sort_by": "driftsresultat",
+        "sort_dir": "desc",
+        "total_returned": ranked["total_returned"],
+        "count": len(rows),
+        "with_coordinates": sum(1 for row in rows if row["has_coordinates"]),
+        "results": rows,
+    }
+
+
+@router.get("/analysis-api/companies/top-by-municipality")
+def companies_top_by_municipality(
+    kommunenummer: str = Query(pattern=r"^\\d{4}$"),
+    regnskapsaar: int = Query(default=2025, ge=2000, le=2100),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    return get_top_companies_by_municipality_payload(
+        kommunenummer=kommunenummer, regnskapsaar=regnskapsaar, limit=limit
+    )
+
+
 @router.get("/analysis-api/companies/sector-breakdown")
 def companies_sector_breakdown(
     q: str | None = None,
