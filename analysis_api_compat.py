@@ -1926,7 +1926,7 @@ def get_top_companies_by_municipality_payload(
         row["farge"] = (
             "gray" if margin is None else
             "green" if margin >= 20 else
-            "red" if margin < 0 else "yellow"
+            "red" if margin < 0 else "gray"
         )
         row["has_coordinates"] = loc.get("lat") is not None and loc.get("lon") is not None
 
