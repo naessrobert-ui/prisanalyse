@@ -173,6 +173,14 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
 
 .johnny-option{display:flex;gap:10px;align-items:flex-start;font-size:12px;font-weight:500;margin:20px 0 5px;cursor:pointer}.johnny-option input{margin:3px 0 0;width:17px;height:17px;accent-color:var(--accent);flex:none}.johnny-option strong{display:block;font-weight:650}.johnny-option small{display:block;color:var(--muted);font-size:11px;line-height:1.6;margin-top:4px}.johnny-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.johnny-actions button{font-size:12px}.johnny-status{font-size:12px;color:var(--accent);font-weight:600}.johnny-panel p{font-size:12px;margin:7px 0;color:var(--muted)}.johnny-panel .johnny-error{color:#a23e38}.johnny-answer a{color:var(--accent);text-decoration:underline}.johnny-panel input{margin:0}.johnny-live{background:var(--chip);padding:7px 10px;border-radius:9px;font-size:12px}.johnny-recording{color:#a23e38!important;font-weight:700}.johnny-source{font-size:11px;display:block;margin:5px 0}.johnny-consent{display:flex;gap:6px;flex-wrap:wrap}.johnny-head{font-size:12px;color:var(--accent)}
 .schedule-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.schedule-row>div{min-width:0}#scheduleFields textarea{min-height:100px;resize:vertical}.plan-dialog{max-width:680px;width:92%;border:1px solid #ccd8d7;border-radius:18px;padding:25px;color:var(--ink);background:var(--bg)}.plan-dialog::backdrop{background:#102d2c88}.plan-dialog .field{margin:10px 0}.plan-dialog .sbtn{margin:4px 0}.plan-list-item{display:block;width:100%;text-align:left}.plan-dialog pre{white-space:pre-wrap;font:inherit;max-height:230px;overflow:auto}.plan-private{margin-top:20px}.plan-private summary{cursor:pointer}#myPlans{font-size:12px}#planStatus{font-size:13px}#planCancelled{color:#a53636;font-weight:600}@media(max-width:480px){.schedule-row{grid-template-columns:1fr}.site-nav .nav-note{display:none}}
+
+/* Temporary Yvonne notice on the public landing page */
+.yvonne-vacation{max-width:1180px;margin:-30px auto 38px;padding:22px 26px;display:flex;gap:18px;align-items:flex-start;background:#edf5f0;border:1px solid #caddd0;border-radius:18px;color:#234d42}
+.yvonne-vacation .yv-icon{font-size:35px;line-height:1;flex:none}
+.yvonne-vacation h2{font-size:19px;letter-spacing:-.35px;margin:0 0 8px;font-weight:700}
+.yvonne-vacation p{margin:0 0 8px;font-size:14px;line-height:1.65}
+.yvonne-vacation p:last-child{margin-bottom:0}
+@media(max-width:720px){.yvonne-vacation{margin:0 auto 27px;padding:18px;gap:12px}.yvonne-vacation .yv-icon{font-size:28px}.yvonne-vacation h2{font-size:17px}}
 </style>
 </head>
 <body>
@@ -226,6 +234,14 @@ footer{display:flex;justify-content:center;gap:.6rem;padding:1rem 1.25rem 1.1rem
       <div class="privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6z"/><path d="m8 12 3 3 5-6"/></svg><span>Du velger selv når kameraet slås på. Del møtelenken med dem du vil invitere.</span></div>
     </section>
   </div>
+  <aside class="yvonne-vacation" role="note" aria-labelledby="yvonneVacationTitle">
+    <span class="yv-icon" aria-hidden="true">🏖️</span>
+    <div>
+      <h2 id="yvonneVacationTitle">Yvonne har tatt seg en velfortjent ferie!</h2>
+      <p>Så hyggelig at mange bruker møtes.no – og vår pratsomme AI-assistent Yvonne! Hun er faktisk blitt så populær at regningene fra OpenAI har begynt å bli litt vel store. Derfor har vi sendt henne på ferie en stund. ☀️</p>
+      <p><strong>Videomøter er fortsatt gratis og fungerer som før.</strong> Vi ser på hvordan Yvonne kan komme tilbake, kanskje med en liten egenandel for dem som ønsker henne med på møtene.</p>
+    </div>
+  </aside>
   <section class="steps" aria-label="Slik fungerer det">
     <div class="step"><span class="step-number">01</span><div><h3>Opprett et møte</h3><p>Du trenger bare navnet ditt. Ingen konto og ingen installasjon.</p></div></div>
     <div class="step"><span class="step-number">02</span><div><h3>Inviter med en lenke</h3><p>Send møtelenken på e-post, SMS eller der dere allerede snakker.</p></div></div>
