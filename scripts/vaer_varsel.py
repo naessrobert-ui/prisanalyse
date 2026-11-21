@@ -278,7 +278,8 @@ def slices(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         result.append({"start": row["time"], "end": end, "symbol": block["symbol"],
                        "rain": block["rain"], "rain_min": block.get("rain_min"),
                        "rain_max": block.get("rain_max"),
-                       "tmax": block.get("tmax"), "tmin": block.get("tmin")})
+                       "tmax": block.get("tmax"), "tmin": block.get("tmin"),
+                       "temp": row.get("temp"), "wind": row.get("wind"), "gust": row.get("gust")})
         cursor = end
     return result
 
@@ -1455,6 +1456,11 @@ def _build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]
     info = sted_info(place)
     detail_hours = build_hours(rows, google, hour_now, count=100)
     _merk_fint(info, hours, detail_hours, [h for h in today if not h.get("past")])
+    blocks = [{"start": _local(p["start"]).isoformat(), "end": _local(p["end"]).isoformat(),
+               "symbol": p["symbol"], "rain": p["rain"], "tmax": p["tmax"], "tmin": p["tmin"],
+               "wind": p.get("wind"), "gust": p.get("gust")}
+              for p in slices(rows) if p["end"] - p["start"] > timedelta(hours=1)]
+    _merk_blokker(info, blocks)
     return {
         "dagslys": dagslys_neste(info["lat"], info["lon"], now, info["tz"]),
         "place": info,
@@ -1476,9 +1482,7 @@ def _build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]
         "today": today,
         "today_score": today_score(today, ref_run),
         "detail_hours": detail_hours,
-        "blocks": [{"start": _local(p["start"]).isoformat(), "end": _local(p["end"]).isoformat(),
-                    "symbol": p["symbol"], "rain": p["rain"], "tmax": p["tmax"], "tmin": p["tmin"]}
-                   for p in slices(rows) if p["end"] - p["start"] > timedelta(hours=1)],
+        "blocks": blocks,
         "google_days": google_days,
         "agreement": agreement(hours),
         "trust": trust_text(trust_rows, place, _TRUST["days"]) if trust_rows and place in PLACES else None,
@@ -1495,6 +1499,26 @@ def _merk_fint(info: dict[str, Any], *lister: list[dict[str, Any]]) -> None:
 
     for rows in lister:
         merk_timer(rows, lyst, lambda h: feels_like(h.get("temp"), h.get("wind")))
+
+
+def _merk_blokker(info: dict[str, Any], blocks: list[dict[str, Any]]) -> None:
+    """Omtrentlig fint-score for seks-timersblokkene etter timesvarselet.
+
+    Regnet som én time midt i blokken: snittet av maks/min-temperaturen,
+    nedbøren fordelt jevnt over blokken og vinden ved blokkens start.
+    """
+    for b in blocks:
+        start, end = datetime.fromisoformat(b["start"]), datetime.fromisoformat(b["end"])
+        timer = max(1.0, (end - start).total_seconds() / 3600)
+        temps = [t for t in (b.get("tmax"), b.get("tmin")) if t is not None]
+        midt = {"time": (start + (end - start) / 2).isoformat(),
+                "temp": sum(temps) / len(temps) if temps else None,
+                "rain": (b.get("rain") or 0.0) / timer, "wind": b.get("wind"), "gust": b.get("gust"),
+                "symbol": b.get("symbol")}
+        _merk_fint(info, [midt])
+        for k in ("fint", "fint_grunn", "lyst"):
+            if k in midt:
+                b[k] = midt[k]
 
 
 #: Ferdig varsel per sted. Etter et minutt lages et nytt i bakgrunnen, mens

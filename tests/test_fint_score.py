@@ -87,3 +87,25 @@ def test_varsel_api_har_fint_score():
     assert p["detail_hours"][0]["lyst"] is True
     natt = next(h for h in p["detail_hours"] if h["time"].startswith("2026-09-28T02"))
     assert natt["lyst"] is False
+
+
+def test_seks_timersblokker_har_omtrentlig_fint_score():
+    from scripts import vaer_varsel as vv
+    from tests.test_vaer_varsel import NOW, google, yr_payload
+
+    with patch.object(vv, "_fetch_yr", return_value=yr_payload()), \
+         patch.object(vv, "_fetch_nowcast", side_effect=RuntimeError), \
+         patch.object(vv, "_fetch_google", return_value=google()), \
+         patch.object(vv, "_fetch_google_days", return_value=[]), \
+         patch.object(vv, "_fetch_observations", side_effect=RuntimeError), \
+         patch.object(vv, "_fetch_reference", side_effect=RuntimeError), \
+         patch.object(vv, "_fetch_weathernext", side_effect=RuntimeError), \
+         patch.object(vv, "_trust_rows", return_value=None):
+        p = vv.build_payload("bergen", NOW)
+    assert p["blocks"]
+    for b in p["blocks"]:
+        assert set(b["fint"]) == set(fs.PROFILER) and isinstance(b["lyst"], bool)
+        assert b["wind"] == 3.0  # vinden ved blokkens start
+    # 1,5 mm på seks timer er lett regn, ikke et skybrudd: blokken blir ikke "Unngå" bare av regnet.
+    dag = next(b for b in p["blocks"] if b["lyst"])
+    assert dag["fint"]["generelt"] >= 30

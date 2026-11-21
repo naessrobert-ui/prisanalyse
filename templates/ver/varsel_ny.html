@@ -344,6 +344,10 @@ footer a{color:inherit}
   .kpi b{font-size:1.15rem}
 }
 /* Produksjon: tillegg */
+.hrow.brow{grid-template-columns:4px 52px 38px 80px 84px 110px 1fr}
+.thin i.blk{opacity:.8}
+.hrow.brow .kl{white-space:nowrap}
+@media (max-width:700px){.hrow.brow{grid-template-columns:4px 44px 30px 70px 1fr 36px;gap:6px}.hrow.brow .kl{font-size:.82rem}}
 .tznote{margin:14px 0 0;font-size:.82rem;color:var(--muted)}
 a.chip{text-decoration:none;color:inherit}
 .qres{display:block}
@@ -758,34 +762,59 @@ function renderHourly(){
 
 /* ---------- Dager ---------- */
 const CHEV = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
-function thinStrip(hs){
+// En dags timer kl. 06–23: timesvarsel der det finnes, ellers seks-timersblokken som dekker timen.
+function dayCells(d, hs, blocks){
   const byH = {}; hs.forEach(x => byH[x.h] = x);
-  return Array.from({ length: 18 }, (_, k) => k + 6).map(h => { const x = byH[h];
-    return x ? `<i class="${x.lyst ? '' : 'n'}" style="background:${band(x.s)[2]}" title="kl. ${hh(h)}: ${band(x.s)[1]}"></i>` : '<i style="background:var(--soft)"></i>'; }).join('');
+  return Array.from({ length: 18 }, (_, k) => k + 6).map(h => {
+    if (byH[h]) return byH[h];
+    const key = `${d}T${hh(h)}`;
+    return (blocks || []).find(b => b.start.slice(0, 13) <= key && key < b.end.slice(0, 13)) || null;
+  });
+}
+function thinStrip(hs, d, blocks){
+  const cells = d ? dayCells(d, hs, blocks) : (() => { const byH = {}; hs.forEach(x => byH[x.h] = x); return Array.from({ length: 18 }, (_, k) => byH[k + 6] || null); })();
+  return cells.map((x, k) => x && x.s != null
+    ? `<i class="${x.lyst ? '' : 'n'}${x.blokk ? ' blk' : ''}" style="background:${band(x.s)[2]}" title="kl. ${hh(k + 6)}: ${band(x.s)[1]}${x.blokk ? ' (omtrentlig)' : ''}"></i>`
+    : '<i style="background:var(--soft)"></i>').join('');
+}
+function blockRow(b){
+  const bd = band(b.s ?? 50);
+  return `<div class="hrow brow${b.lyst ? '' : ' night'}"><div class="st" style="background:${bd[2]}" title="${bd[1]} (omtrentlig)${b.r ? ', ' + REASON[b.r] : ''}"></div>
+    <div class="kl">${b.start.slice(11, 13)}–${b.end.slice(11, 13)}</div><div class="em">${icon(b.symbol)}</div>
+    <div class="tp">${b.tmin != null ? `<span class="${tcls(b.tmin)}">${Math.round(b.tmin)}</span> til ` : ''}<span class="${tcls(b.tmax ?? 0)}">${b.tmax != null ? Math.round(b.tmax) : '–'}°</span></div>
+    <div class="pr">${b.rain >= 0.1 ? fmt1(b.rain) + ' mm' : ''}</div>
+    <div class="wd">${b.wind != null ? Math.round(b.wind) : ''}${b.gust != null ? ` <span>(${Math.round(b.gust)})</span>` : ''}</div>
+    <div class="lb" style="color:${bd[3]}">${bd[1]}</div></div>`;
 }
 function dateSmall(d){ return (d === TODAY || /\d/.test(dayName(d))) ? '' : `<small>${new Date(d + 'T12:00:00Z').getUTCDate()}. ${MON[+d.slice(5, 7) - 1]}</small>`; }
 function renderDays(){
   const hsAll = withProfile(H.map(x => ({ ...x })), 'generelt');
   const byDay = {}; hsAll.forEach(x => (byDay[x.d] = byDay[x.d] || []).push(x));
   const wn = D.wn_days || {};
+  const B = (D.blocks || []).map(b => ({ ...b, blokk: true, s: b.fint ? b.fint.generelt : null, r: b.fint_grunn ? b.fint_grunn.generelt : null }));
   $('days').innerHTML = (D.days || []).map(d => {
     const hs = byDay[d.date] || [], open = S.open.has(d.date);
+    const lastH = hs.length ? hs[hs.length - 1].t.slice(0, 13) : '';
+    const dayB = B.filter(b => b.end.slice(0, 13) > `${d.date}T00` && b.start.slice(0, 13) < `${addDays(d.date, 1)}T00` && b.start.slice(0, 13) > lastH);
+    const cells = dayCells(d.date, hs, dayB).filter(Boolean).length;
     const periods = (d.periods || []).map(p => `<span class="p4" title="${p.name}">${p.symbol ? icon(p.symbol) : '<span class="muted">–</span>'}</span>`).join('');
     const tmax = d.tmax != null ? d.tmax : (wn[d.date] || {}).tmax, tmin = d.tmin != null ? d.tmin : (wn[d.date] || {}).tmin;
     const rain = d.rain != null ? d.rain : (wn[d.date] || {}).rain;
     let exp = '';
     if (open){
       const w = bestOf(findRuns(hs, x => x.s >= 65 && x.lyst).filter(r => r.n >= 2));
+      const bw = !hs.some(x => x.lyst) ? dayB.filter(b => b.lyst && b.s != null).sort((a, b) => b.s - a.s)[0] : null;
       const gr = D.google_available && d.g_rain != null ? `<span class="gnote">Google: ${fmt1(d.g_rain)} mm</span>` : '';
-      exp = `<div class="dexp"><div class="dmeta">${hs.length ? (w ? `<span><b>Fint ${span(w)}</b></span>` : '<span class="muted">Ingen fin periode</span>') : ''}
+      exp = `<div class="dexp"><div class="dmeta">${w ? `<span><b>Fint ${span(w)}</b></span>` : (!bw && hs.length ? '<span class="muted">Ingen fin periode</span>' : '')}${!w && bw ? `<span><b>Best kl. ${bw.start.slice(11, 13)}–${bw.end.slice(11, 13)}</b> <span class="muted">(${band(bw.s)[1].toLowerCase()})</span></span>` : ''}
         ${d.wind_max != null ? `<span class="muted">vind opptil ${d.wind_max}${d.gust_max != null ? ` (${d.gust_max})` : ''} m/s</span>` : ''}${gr}</div>
-        ${hs.length ? HHEAD + hourRows(hs, false) : '<p class="small muted">Timesvarsel finnes ikke så langt frem.</p>'}</div>`;
+        ${hs.length || dayB.length ? HHEAD + hourRows(hs, false) + dayB.filter(b => b.start.slice(0, 10) === d.date).map(blockRow).join('') : '<p class="small muted">Detaljer finnes ikke så langt frem, bare dagsvarselet.</p>'}
+        ${!hs.length && dayB.length ? '<p class="small muted" style="margin:8px 0 0">Yr gir varsel i blokker på seks timer så langt frem. Fargene er omtrentlige.</p>' : ''}</div>`;
     }
     return `<div class="drow${open ? ' open' : ''}" onclick="toggleDay('${d.date}')">
       <div class="drow-top"><div class="dn">${cap(dayName(d.date))}${dateSmall(d.date)}</div>${periods}
         <div class="tt">${tmax != null ? `<span class="${tcls(tmax)}">${Math.round(tmax)}°</span><span class="lo ${tmin < 0 ? 'cold' : ''}">${Math.round(tmin)}°</span>` : ''}</div>
         <div class="pp">${rain >= 0.1 ? fmt1(rain) + ' mm' : ''}</div><div class="chev">${CHEV}</div></div>
-      ${hs.length >= 6 ? `<div class="thin">${thinStrip(hs)}</div>` : ''}
+      ${cells >= 6 ? `<div class="thin">${thinStrip(hs, d.date, dayB)}</div>` : ''}
     </div>${exp}`;
   }).join('');
   const w = D.weathernext;
