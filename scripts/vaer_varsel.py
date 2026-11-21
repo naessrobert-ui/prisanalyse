@@ -2043,6 +2043,20 @@ def farevarsel_api(sted: str):
     return response
 
 
+@vaer_varsel.get("/ver/api/rainviewer.json")
+def rainviewer_api():
+    """RainViewer sin liste over radarbilder, via oss (unngår CORS og blokkering i nettleseren).
+    Selve kartflisene hentes rett fra RainViewer."""
+    try:
+        data = _CACHE.get(("rainviewer",), 300, lambda: requests.get(
+            "https://api.rainviewer.com/public/weather-maps.json", headers=HEADERS, timeout=(4, 10)).json(), stale=900)
+    except Exception:
+        return jsonify(error="Radarlisten er ikke tilgjengelig."), 502
+    response = jsonify(data)
+    response.headers["Cache-Control"] = "public, max-age=120"
+    return response
+
+
 @vaer_varsel.get("/ver/api/radar/<sted>.gif")
 def radar_gif(sted: str):
     area = RADAR_AREA.get(sted)
