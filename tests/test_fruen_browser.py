@@ -478,3 +478,42 @@ def test_layout_screenshots(admin, size, tmp_path):
     assert box and box['x'] + box['width'] <= size[0] and box['y'] + box['height'] <= size[1]
     a.click('#hangup')
     assert_back_to_photos(frame)
+
+
+def wait_ready(admin, name, timeout=40):
+    """The admin page does not refresh by itself, so ask the admin API directly."""
+    end = time.time() + timeout
+    while time.time() < end:
+        for a in admin.ctx.request.get('/fruen/api/admin/accounts').json()['accounts']:
+            if a['name'] == name and a['active'] and a['ready'] and a['seen'] > time.time() - 5:
+                return
+        time.sleep(.5)
+    pytest.fail(name + ' ble ikke klar for besøk igjen')
+
+
+def test_frame_recovers_by_itself_after_outage_and_reload(admin, base):
+    """The Pi goes away, Safari reloads the tab while it is away, the Pi comes back.
+    The frame must end up ready for visits again without anyone touching it."""
+    frame = admin.device('Fruen', 'auto')
+    frame.wait_for_function('navigator.serviceWorker.controller!==null', timeout=15000)
+    frame.wait_for_function("caches.open('fruen-shell-v1').then(c=>c.keys()).then(k=>k.length===2)", timeout=15000)
+    frame.context.set_offline(True)
+    frame.reload()  # without the service worker this is a browser error page that needs a tap
+    frame.wait_for_selector('#state:has-text("Kobler til")', timeout=15000)
+    assert frame.is_hidden('#welcome') and frame.is_hidden('#setup')
+    time.sleep(3)
+    frame.context.set_offline(False)
+    wait_ready(admin, 'Fruen')
+    assert frame.is_hidden('#setup')  # nobody tapped anything
+
+
+def test_poll_survives_a_request_that_never_answers(admin):
+    frame = admin.device('Fruen', 'auto')
+    # Like a Pi stuck on a failing disk: the request is accepted but never answered.
+    frame.evaluate("""()=>{window.__hung=0;window.__hang=true;const nativeFetch=window.fetch;
+      window.fetch=(url,init)=>{if(window.__hang&&String(url).includes('/api/state')){window.__hung++;
+        return new Promise((_,reject)=>init?.signal?.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError'))));}
+        return nativeFetch(url,init);};}""")
+    frame.wait_for_function('window.__hung>=2', timeout=40000)  # the first one was given up, polling went on
+    frame.evaluate('window.__hang=false')
+    wait_ready(admin, 'Fruen')

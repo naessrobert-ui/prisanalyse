@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 COOKIE='motes_fruen_session'
 ADMIN='motes_fruen_admin'
@@ -97,6 +97,12 @@ def register(app,root,db,media_response,secure_cookie):
     async def js():
         from fastapi.responses import Response
         return Response(Path(__file__).with_name('fruen.js').read_text(),media_type='text/javascript')
+
+    @app.get('/fruen/sw.js')
+    async def service_worker():
+        # Scope '/fruen' (not only '/fruen/') so the frame is covered whichever URL the iPad has open.
+        return Response(Path(__file__).with_name('fruen-sw.js').read_text(),media_type='text/javascript',
+                        headers={'Service-Worker-Allowed':'/fruen','Cache-Control':'no-cache'})
 
     @app.get('/fruen/api/health')
     async def health():return {'ok':True,'configured':(root/'fruen-admin.json').is_file()}
