@@ -361,7 +361,7 @@ a.chip{text-decoration:none;color:inherit}
 .klaer b{color:var(--ink)}
 #radar.met{background:var(--soft);border:0;position:relative;place-items:normal}
 .rview{position:relative;width:100%;overflow:hidden;border-radius:14px;touch-action:none;cursor:grab;background:#fff}
-.rview img{position:absolute;left:0;top:0;width:100%;height:auto;transform-origin:0 0;max-height:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
+#radar.met .rview img{position:absolute;left:0;top:0;width:100%;height:auto;margin:0;object-fit:fill;transform-origin:0 0;max-height:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
 .rmark{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#14213a;border:2px solid #fff;box-shadow:0 0 0 2px rgba(20,33,58,.3);pointer-events:none}
 .rzoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:4px;z-index:2}
 .rzoom button{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:1.05rem;line-height:1}
@@ -945,14 +945,22 @@ async function mapRadar(){
   L.circleMarker([STED_INFO.lat, STED_INFO.lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#14213a', fillOpacity: 1 }).addTo(map);
   setTimeout(() => { if (S.rmap === map) map.invalidateSize(); }, 60);
   try {
-    const r = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-    if (!r.ok) throw new Error(r.status);
-    const j = await r.json();
+    let j = null;
+    for (const u of ['/ver/api/rainviewer.json', 'https://api.rainviewer.com/public/weather-maps.json']){
+      try { const r = await fetch(u); if (r.ok){ j = await r.json(); if (j && j.radar) break; } } catch(e){}
+      j = null;
+    }
+    if (!j) throw new Error('ingen radarliste');
     if (S.rmap !== map) return;
     const frames = ((j.radar && j.radar.past) || []).concat((j.radar && j.radar.nowcast) || []);
     if (!frames.length) throw new Error('ingen bilder');
     const nPast = (j.radar.past || []).length;
-    const layers = frames.map(f => L.tileLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, { pane: 'radar', opacity: 0, maxNativeZoom: 7, maxZoom: 10 }).addTo(map));
+    let ok = 0, feil = 0;
+    const layers = frames.map(f => { const l = L.tileLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, { pane: 'radar', opacity: 0, maxNativeZoom: 7, maxZoom: 10 });
+      l.on('tileload', () => ok++);
+      l.on('tileerror', () => { if (++feil > 20 && !ok && S.rmap === map){ clearInterval(S.rtimer); document.querySelector('#radar-card .rctl').style.display = 'none';
+        $('rsrc').innerHTML = MET_SRC && !S.metFailed ? 'Radarbildene på kartet lastes ikke akkurat nå. <a href="#" onclick="S.rmode=\'met\';showRadar();return false">Vis MET-radaren</a>.' : 'Radarbildene på kartet lastes ikke akkurat nå.'; } });
+      return l.addTo(map); });
     map.attributionControl.addAttribution('<a href="https://www.rainviewer.com/" target="_blank" rel="noopener">Weather data by RainViewer</a>');
     document.querySelector('#radar-card .rctl').style.display = '';
     const rng = $('rrange'), tm = $('rtime'), btn = $('rplay');

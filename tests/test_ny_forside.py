@@ -100,3 +100,18 @@ def test_ikonene_finnes_for_alle_yr_symboler():
     for kode in ("clearsky_day", "fair_night", "partlycloudy_polartwilight", "cloudy", "fog", "lightrain",
                  "heavyrainshowersandthunder_day", "lightssleetshowersandthunder_night", "snow"):
         assert os.path.exists(os.path.join(mappe, kode + ".svg")), kode
+
+
+def test_rainviewer_liste_via_oss():
+    class Svar:
+        def json(self):
+            return {"host": "https://tilecache.rainviewer.com", "radar": {"past": [{"time": 1, "path": "/v2/radar/abc"}]}}
+    c = _client()
+    with patch.object(vv.requests, "get", return_value=Svar()) as hent:
+        res = c.get("/ver/api/rainviewer.json")
+        c.get("/ver/api/rainviewer.json")
+    assert res.status_code == 200 and res.json["radar"]["past"][0]["path"] == "/v2/radar/abc"
+    assert hent.call_count == 1  # cachet
+    vv._CACHE.clear()
+    with patch.object(vv.requests, "get", side_effect=vv.requests.ConnectionError):
+        assert c.get("/ver/api/rainviewer.json").status_code == 502
