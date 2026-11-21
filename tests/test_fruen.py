@@ -206,3 +206,17 @@ def test_admin_can_request_reload_once(fruen):
     assert ready(f).json()['reload'] is False  # delivered once
     assert ready(a).json()['reload'] is False
     f.close();a.close()
+
+
+def test_service_worker_keeps_frame_page_available(fruen):
+    app,admin,root=fruen
+    r=TestClient(app,base_url='http://localhost').get('/fruen/sw.js')
+    assert r.status_code==200 and r.headers['content-type'].startswith('text/javascript')
+    assert r.headers['service-worker-allowed']=='/fruen'
+    # Only the page shell is cached, never API answers or photos.
+    assert "'/fruen/api" not in r.text and '/fruen/media' not in r.text
+
+
+def test_proxy_passes_service_worker_scope_header():
+    import familie_proxy
+    assert 'service-worker-allowed' in familie_proxy.RESPONSE_HEADERS

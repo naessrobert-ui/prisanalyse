@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 router = APIRouter()
 # Credentials and hop-by-hop headers from the main site must not reach the Pi.
 REQUEST_HEADERS = {"content-type", "content-length", "range", "if-range", "if-none-match", "if-modified-since", "x-family-request", "x-fruen-request"}
-RESPONSE_HEADERS = {"content-type", "content-length", "content-encoding", "content-range", "accept-ranges", "set-cookie", "cache-control", "x-content-type-options", "referrer-policy", "x-robots-tag", "content-security-policy", "etag", "last-modified", "vary", "permissions-policy"}
+RESPONSE_HEADERS = {"content-type", "content-length", "content-encoding", "content-range", "accept-ranges", "set-cookie", "cache-control", "x-content-type-options", "referrer-policy", "x-robots-tag", "content-security-policy", "etag", "last-modified", "vary", "permissions-policy", "service-worker-allowed"}
 
 
 @router.get('/fruen/api/ice', include_in_schema=False)
