@@ -103,6 +103,10 @@ def test_seks_timersblokker_har_omtrentlig_fint_score():
          patch.object(vv, "_trust_rows", return_value=None):
         p = vv.build_payload("bergen", NOW)
     assert p["blocks"]
+    # Nedbørsspenn og sannsynlighet følger med på timer, blokker og dager.
+    assert {"rain_min", "rain_max", "pop"} <= set(p["detail_hours"][0])
+    assert {"rain_min", "rain_max", "pop"} <= set(p["blocks"][0])
+    assert all("pop_max" in d and "rain_min" in d and "rain_max" in d for d in p["days"])
     for b in p["blocks"]:
         assert set(b["fint"]) == set(fs.PROFILER) and isinstance(b["lyst"], bool)
         assert b["wind"] == 3.0  # vinden ved blokkens start
