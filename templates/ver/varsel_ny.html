@@ -1,0 +1,1121 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blir det fint i {{ info.name }}?</title>
+<meta name="description" content="Blir det fint i {{ info.name }}? Svar i én setning, radar når det trengs, time for time og dagene fremover. Yr og Google side om side.">
+<meta name="theme-color" content="#faf8f4">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+
+:root{
+  --bg:#faf8f4;--card:#ffffff;--ink:#14213a;--muted:#6b778a;--line:#ece8e0;--soft:#f3f0ea;
+  --accent:#14213a;--accent2:var(--soft);--gold:#f5a524;--rain:#4a86d6;--rainT:#2a62b0;--cold:#2a62b0;
+  --nightfill:rgba(20,33,58,.045);--r:20px;
+  --sky1:#fff1cf;--sky2:var(--bg);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0d1524;--card:#131d2e;--ink:#e9eef5;--muted:#93a0b4;--line:#22304a;--soft:#1a263a;
+    --accent:#e9eef5;--rainT:#86b4f0;--cold:#86b4f0;--nightfill:rgba(255,255,255,.035)}
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.45;font-feature-settings:"tnum" 1,"cv11" 1}
+a{color:inherit}
+.wrap{max-width:920px;margin:0 auto;padding:0 20px}
+button{font:inherit;cursor:pointer;color:inherit}
+.wi{width:1.7em;height:1.7em;vertical-align:middle;display:inline-block}
+
+/* Himmel og topp */
+.sky{background:linear-gradient(180deg,var(--sky1) 0%,var(--sky2) 100%);padding:16px 0 30px;transition:background .6s}
+.sky.sun{--sky1:#ffe39a}
+.sky.part{--sky1:#f6ecd3}
+.sky.cloud{--sky1:#e2e7ee}
+.sky.rain{--sky1:#d2dce8}
+.sky.snow{--sky1:#e6eff9}
+.sky.night{background:linear-gradient(180deg,#14223b 0%,#22355a calc(100% - 46px),var(--bg) 100%);padding-bottom:46px;color:#eef2f8;--muted:rgba(238,242,248,.72)}
+@media (prefers-color-scheme:dark){
+  .sky.sun{--sky1:#3b3016}.sky.part{--sky1:#2c2d2c}.sky.cloud{--sky1:#1c2738}.sky.rain{--sky1:#16263d}.sky.snow{--sky1:#1c2a3e}
+}
+.topbar{display:flex;align-items:center;gap:16px;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px;text-decoration:none;font-weight:800;font-size:1.18rem;letter-spacing:-.025em;white-space:nowrap}
+.logo .q{color:var(--gold)}
+.search{position:relative;flex:1;max-width:320px}
+.search input{width:100%;border:1px solid rgba(20,33,58,.1);border-radius:999px;padding:9px 14px 9px 36px;font:inherit;font-size:.92rem;background:rgba(255,255,255,.62);color:var(--ink);outline:none}
+.search input::placeholder{color:var(--muted)}
+.search input:focus{background:#fff;color:#14213a}
+.sky.night .search input{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.16);color:#fff}
+@media (prefers-color-scheme:dark){.search input{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.12)}}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5;pointer-events:none}
+.qres{position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;color:#14213a;border-radius:14px;box-shadow:0 14px 34px rgba(0,0,0,.18);overflow:hidden;z-index:2000;display:none}
+.qres button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 14px;border-bottom:1px solid #eee;color:#14213a}
+.qres button:hover{background:#f6f3ec}
+.qres small{color:#6b778a}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:14px 0 0;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;display:flex;align-items:center;gap:7px;border:0;background:rgba(255,255,255,.55);border-radius:999px;padding:5px 6px 5px 13px;font-size:.88rem;white-space:nowrap;font-weight:500}
+.chip.on{background:var(--ink);color:var(--bg)}
+.sky.night .chip{background:rgba(255,255,255,.1);color:#eef2f8}
+.sky.night .chip.on{background:#fff;color:#14213a}
+@media (prefers-color-scheme:dark){.chip{background:rgba(255,255,255,.07)}}
+.chip .sc{min-width:26px;height:20px;border-radius:999px;display:inline-grid;place-items:center;font-size:.72rem;font-weight:700;padding:0 6px}
+.chip .x{opacity:.45;padding:0 4px}
+.chip .x:hover{opacity:1}
+
+/* Hero */
+.hero3{padding-top:24px;display:grid;grid-template-columns:auto 1fr;gap:4px 34px;align-items:center}
+.hero3 .place{grid-column:1/-1;font-size:.95rem;color:var(--muted);font-weight:500}
+.hero3 .place b{color:inherit;font-weight:700}
+.sky .hero3 .place b{color:var(--ink)}
+.sky.night .hero3 .place b{color:#fff}
+.bigtemp{display:flex;align-items:center;gap:4px}
+.bigtemp .wi{width:92px;height:92px}
+.bigtemp .t{font-size:5.4rem;font-weight:300;letter-spacing:-.055em;line-height:.9}
+.bigtemp .t.warm{color:inherit}
+.cond{font-size:.95rem;margin-top:8px;font-weight:600}
+.cond .m{color:var(--muted);font-weight:400}
+.answer .q{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--muted)}
+.answer .a{font-size:2.05rem;font-weight:750;line-height:1.12;letter-spacing:-.03em;margin:6px 0 8px}
+.answer .a .hl{background:linear-gradient(transparent 60%,rgba(245,165,36,.42) 60%);padding:0 2px}
+.answer .av{font-size:.98rem;color:var(--muted)}
+.ncl{margin-top:12px;font-size:.9rem;display:flex;align-items:center;gap:10px;color:var(--muted)}
+.ncl b{color:inherit;font-weight:600}
+.ncmini{display:inline-flex;align-items:flex-end;gap:3px;height:22px;padding:2px 0}
+.ncmini i{width:7px;background:var(--rain);border-radius:2px;display:block}
+.ncmini i.z{background:currentColor;opacity:.2;height:3px!important}
+
+/* Faner */
+nav.tabs{position:sticky;top:0;z-index:1500;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav.tabs .wrap{display:flex;gap:2px}
+.tab-btn{border:0;background:none;padding:13px 14px 11px;color:var(--muted);font-weight:600;font-size:.92rem;border-bottom:2px solid transparent;display:flex;align-items:center;gap:7px}
+.tab-btn svg{width:18px;height:18px}
+.tab-btn.on{color:var(--ink);border-bottom-color:var(--gold)}
+
+main{padding:24px 0 40px}
+.tab{display:none}
+.tab.on{display:block;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:16px}
+.card h2{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700;margin:0 0 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h2 .h-l{display:flex;align-items:center;gap:8px}
+.card h2 > span:not(.h-l),.card h2 a,.card h2 select,.card h2 button{text-transform:none;letter-spacing:0;font-weight:500}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.banner{background:#fff7e0;border:1px solid #f1dc9c;color:#5c4700;border-radius:12px;padding:9px 14px;margin-bottom:16px;font-size:.88rem}
+@media (prefers-color-scheme:dark){.banner{background:#2b2412;border-color:#5a4a1c;color:#f1dc9c}}
+.skel{height:120px;border-radius:var(--r);background:linear-gradient(90deg,var(--soft) 0%,var(--card) 50%,var(--soft) 100%);background-size:200% 100%;animation:sh 1.2s infinite;margin-bottom:16px}
+@keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
+.tag{font-size:.64rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--soft);color:var(--muted);border-radius:6px;padding:2px 7px}
+.btnlink{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 13px;font-size:.82rem}
+.btnlink:hover{border-color:var(--muted)}
+
+/* Timegraf */
+.chart-wrap{overflow-x:auto;margin:0 -20px;padding:0 20px 4px;scrollbar-width:thin;-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 36px),transparent)}
+.hc{display:block}
+.hc text{fill:currentColor;font-family:inherit}
+.hc .tlab{font-size:12.5px;font-weight:700}
+.hc .tlab.cold{fill:var(--cold)}
+.hc .hlab{font-size:11px;fill:var(--muted)}
+.hc .dlab{font-size:10.5px;font-weight:700;letter-spacing:.08em;fill:var(--ink)}
+.hc .plab{font-size:10px;fill:var(--rainT);font-weight:600}
+.hc .curve{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.hc .night{fill:var(--nightfill)}
+.hc .sep{stroke:var(--line);stroke-width:1}
+.hc .bar{fill:var(--rain);opacity:.85}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:12px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* Tabell (time for time) */
+.hrow{display:grid;grid-template-columns:4px 34px 38px 56px 84px 110px 1fr;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:.93rem}
+.hrow .st{align-self:stretch;border-radius:3px;min-height:26px}
+.hrow.night .st{opacity:.5}
+.hrow .kl{font-weight:600}
+.hrow .em{text-align:center}
+.hrow .em .wi{width:30px;height:30px}
+.hrow .tp{font-weight:650}
+.hrow .pr{color:var(--rainT)}
+.hrow .wd span{color:var(--muted)}
+.hrow .lb{font-size:.72rem;font-weight:700;text-align:right}
+.hhead{border-top:0;font-size:.72rem;color:var(--muted);padding:0 0 4px}
+.hsep{padding:14px 0 4px;font-weight:700;font-size:.9rem}
+.warm{color:inherit}.cold{color:var(--cold)}
+
+/* Dager */
+.drow{border-top:1px solid var(--line);padding:12px 2px 13px;cursor:pointer}
+.drow:first-of-type{border-top:0;padding-top:2px}
+.drow-top{display:grid;grid-template-columns:120px repeat(4,42px) 1fr 70px 20px;align-items:center;gap:4px}
+.dn{font-weight:650;line-height:1.2}
+.dn small{display:block;color:var(--muted);font-weight:400;font-size:.76rem}
+.p4{text-align:center;line-height:0}
+.p4 .wi{width:34px;height:34px}
+.tt{text-align:right;font-weight:650;font-size:1.02rem}
+.tt .lo{color:var(--muted);font-weight:500;margin-left:6px}
+.pp{text-align:right;color:var(--rainT);font-size:.88rem;white-space:nowrap}
+.chev{text-align:right;color:var(--muted);transition:transform .2s;line-height:0}
+.drow.open .chev{transform:rotate(180deg)}
+.thin{display:grid;grid-template-columns:repeat(18,1fr);gap:2px;margin-top:10px}
+.thin i{height:5px;border-radius:3px;display:block}
+.thin i.n{opacity:.5}
+.dexp{padding:2px 2px 14px}
+.dmeta{display:flex;gap:16px;flex-wrap:wrap;font-size:.86rem;margin:0 0 10px;align-items:center}
+.conf{color:var(--muted);font-size:.82rem}
+.conf b{letter-spacing:1px;color:var(--ink);font-weight:400}
+
+.summary p{margin:0 0 8px;font-size:1.02rem;line-height:1.6}
+
+/* Lister og piller */
+.win{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--line)}
+.win:first-child{border-top:0}
+.win .pill{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:1rem}
+.win .w-main{flex:1}
+.pill-s{display:inline-grid;place-items:center;min-width:34px;height:24px;border-radius:8px;font-weight:700;font-size:.82rem;padding:0 6px}
+
+/* Aktivitet */
+.acts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.act{border:1px solid var(--line);border-radius:16px;background:var(--card);padding:14px;text-align:left;display:flex;flex-direction:column;gap:3px;align-items:flex-start;transition:border-color .15s}
+.act:hover{border-color:var(--muted)}
+.act.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.act .ai{font-size:1.45rem}
+.act b{font-weight:650}
+.act small{color:var(--muted);font-size:.8rem}
+.aday{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.aday:first-of-type{border-top:0}
+.aday .dn{font-weight:650}
+.hstrip{display:grid;grid-template-columns:repeat(18,1fr);gap:2px}
+.aday .hstrip i{height:14px;border-radius:4px;display:block}
+.hstrip i.n{opacity:.5}
+.aday .meta{font-size:.8rem;margin-top:5px}
+
+/* Reis */
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.seg button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 13px;font-size:.86rem}
+.seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+#map{height:360px;border-radius:14px;margin-bottom:14px;background:var(--soft);display:grid;place-items:center;color:var(--muted)}
+.rrow{display:grid;grid-template-columns:28px 1fr 46px;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.rrow .rk{font-weight:700;color:var(--muted);text-align:center}
+.rrow .nm{font-weight:650}
+.rrow .nm small{font-weight:500;color:var(--muted)}
+.rrow .bar{height:6px;border-radius:99px;background:var(--soft);margin:6px 0 5px;overflow:hidden}
+.rrow .bar i{display:block;height:100%;border-radius:99px}
+.rrow .dt{font-size:.8rem;color:var(--muted)}
+.rrow.home{background:var(--soft);border-radius:12px;padding:10px 8px;border-top:0;margin-bottom:6px}
+
+/* Lenker */
+.links{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:0 22px}
+.links a{display:flex;justify-content:space-between;align-items:center;padding:11px 2px;border-bottom:1px solid var(--line);text-decoration:none;font-weight:550;font-size:.92rem}
+.links a span{display:none}
+.links a::after{content:"→";color:var(--muted);transition:transform .15s}
+.links a:hover::after{transform:translateX(3px)}
+
+/* Klima */
+.chart{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:var(--soft);border-radius:14px;padding:12px 14px}
+.kpi b{display:block;font-size:1.45rem;line-height:1.15;font-weight:700}
+.kpi span{font-size:.8rem;color:var(--muted)}
+select{font:inherit;border:1px solid var(--line);border-radius:10px;padding:5px 8px;background:var(--card);color:var(--ink)}
+
+/* Snø-topp */
+.hero{padding:22px 20px}
+.hero .q{color:var(--muted);margin:0 0 4px;font-size:.9rem}
+.hero .ans{font-size:1.55rem;font-weight:750;letter-spacing:-.02em;margin:0 0 6px;line-height:1.2}
+.hero .avoid{margin:0;color:var(--muted)}
+.pbtn{border:0;border-radius:999px;padding:7px 14px;background:var(--ink);color:var(--bg);font-weight:600;font-size:.88rem}
+
+
+/* v4: topp */
+.upd{font-weight:400}
+.facts{margin-top:10px;display:flex;flex-direction:column;gap:4px;font-size:.88rem;color:var(--muted)}
+.facts .m{opacity:.85}
+.wa{display:inline-block;font-weight:700;color:var(--ink)}
+.sky.night .wa{color:#fff}
+.minis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
+.mini{background:rgba(255,255,255,.62);border:1px solid rgba(20,33,58,.06);border-radius:16px;padding:13px 15px;display:flex;flex-direction:column}
+.mini.wet{background:rgba(232,241,252,.85)}
+.sky.night .mini{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1)}
+@media (prefers-color-scheme:dark){.mini,.mini.wet{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.08)}}
+.mini .k{font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--muted)}
+.mini .h{font-weight:700;font-size:1.05rem;margin:6px 0 2px;line-height:1.25;display:flex;gap:8px;align-items:center}
+.mini .h .wi,.mini .h .ui{width:28px;height:28px;flex:none}
+.mini .s{font-size:.82rem;color:var(--muted)}
+.mini a{margin-top:auto;padding-top:8px;font-size:.8rem;font-weight:650;text-decoration:none;align-self:flex-end}
+.ncbars{display:flex;align-items:flex-end;gap:3px;height:28px;margin:10px 0 3px}
+.ncbars i{flex:1;background:var(--rain);border-radius:2px 2px 1px 1px;display:block}
+.ncbars i.z{background:currentColor;opacity:.15;height:2px;flex:1}
+.nclab{display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted)}
+.alert{display:flex;gap:12px;align-items:flex-start;border-radius:14px;padding:12px 14px;margin-top:16px;background:#fff4c2;border:1px solid #efd04f;color:#3a2e00}
+.alert.orange{background:#ffe5c7;border-color:#f2a050;color:#472300}
+.alert.red{background:#ffdcd5;border-color:#e46a58;color:#560e04}
+.alert .tri{flex:none;width:26px;height:26px;margin-top:1px}
+.alert b{display:block;margin-bottom:2px}
+.alert details{font-size:.85rem;margin-top:4px}
+.alert summary{cursor:pointer;font-weight:600}
+.alert .tag{margin-top:6px;display:inline-block}
+/* v4: graf og radar */
+.card h2 .h-r{display:flex;align-items:center;gap:12px}
+.toggle{display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--muted);cursor:pointer}
+.toggle input{accent-color:var(--ink)}
+.hc .past{fill:var(--soft)}
+.hc .pastc{stroke:var(--muted);stroke-width:1.6}
+.hc .tlab.pt{fill:var(--muted);font-weight:600}
+.hc .bar.pb{opacity:.4}
+.hc .cmp{fill:none;stroke:#8b78d6;stroke-width:1.7;stroke-dasharray:5 4}
+.hc .nowline{stroke:var(--gold);stroke-width:1.5;stroke-dasharray:4 3}
+.hc .nowlab{fill:var(--ink);font-weight:700}
+.hc .dlab.muted{fill:var(--muted)}
+.legend i.dash{width:16px;height:0;border-top:2px dashed #8b78d6;border-radius:0;vertical-align:3px}
+#radar{height:320px;border-radius:14px;overflow:hidden;background:var(--soft);display:grid;place-items:center;color:var(--muted);z-index:0;position:relative}
+.rctl{display:flex;align-items:center;gap:12px;margin-top:10px;font-size:.85rem}
+.rctl input[type=range]{flex:1;accent-color:var(--gold)}
+.rctl .tm{min-width:110px;font-weight:600;text-align:right}
+.rctl .btnlink{width:40px;padding:5px 0}
+
+#radar.met{height:auto;display:block;background:#fff;border:1px solid var(--line)}
+#radar.met img{display:block;width:100%;height:auto;max-height:540px;object-fit:contain;margin:0 auto}
+.mini-seg{margin:0!important}
+.mini-seg button{padding:3px 11px!important;font-size:.78rem!important}
+.rsrc{margin:8px 0 0}
+.rsrc:empty{display:none}
+.leaflet-container{font-family:inherit}
+
+.card.slim{display:flex;align-items:center;gap:14px;padding:12px 20px}
+.slim-k{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700}
+.slim-t{flex:1}
+.rnote{text-transform:none;letter-spacing:0;font-weight:600;color:var(--rainT);margin-left:8px;font-size:.82rem}
+@media (max-width:700px){.card.slim{flex-wrap:wrap;gap:6px 12px}.card.slim .btnlink{margin-left:auto}.slim-t{order:3;flex-basis:100%}}
+/* v4: steder */
+.chip .wi{width:22px;height:22px;margin:-4px -2px}
+.chip .tc{font-weight:700}
+.chip.on .tc.cold{color:#9cc4ff}
+.pt{width:100%;border-collapse:collapse}
+.pt th{font-size:.75rem;color:var(--muted);font-weight:500;text-align:center;padding:0 4px 8px}
+.pt td{border-top:1px solid var(--line);padding:8px 4px;text-align:center;white-space:nowrap}
+.pt td.n{text-align:left;font-weight:650}
+.pt tr{cursor:pointer}
+.pt tr:hover td{background:var(--soft)}
+.pt tr.on td.n::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);margin-right:7px;vertical-align:2px}
+.pt .wi{width:30px;height:30px}
+.pt .tx{font-weight:650;margin-left:2px}
+.pt small{display:block;color:var(--rainT);font-size:.7rem;margin-top:-2px}
+@media (max-width:700px){
+  .minis{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;margin:20px -16px 0;padding:0 16px;scrollbar-width:none}
+  .minis::-webkit-scrollbar{display:none}
+  .mini{min-width:78%;scroll-snap-align:start}
+  .card h2 .h-r{gap:8px}
+  .toggle{font-size:.75rem}
+  .hm{display:none}
+  .card h2{flex-wrap:wrap}
+  #radar{height:260px}
+  .pt .wi{width:24px;height:24px}
+  .pt .tx{font-size:.9rem}
+  .pt td.n{font-size:.88rem;white-space:normal}
+}
+
+footer{color:var(--muted);font-size:.78rem;padding:10px 0 40px;text-align:center}
+footer a{color:inherit}
+
+@media (max-width:700px){
+  .wrap{padding:0 16px}
+  .logo span.full{display:none}
+  .search{max-width:none}
+  .hero3{grid-template-columns:1fr;gap:4px;padding-top:18px}
+  .bigtemp .wi{width:70px;height:70px}
+  .bigtemp .t{font-size:4.2rem}
+  .answer{margin-top:14px}
+  .answer .a{font-size:1.6rem}
+  nav.tabs{position:fixed;bottom:0;left:0;right:0;top:auto;border-top:1px solid var(--line);border-bottom:0;padding-bottom:env(safe-area-inset-bottom)}
+  nav.tabs .wrap{padding:0 4px}
+  .tab-btn{flex:1;flex-direction:column;gap:3px;font-size:.68rem;padding:9px 2px 9px;border-bottom:0;border-top:2px solid transparent}
+  .tab-btn.on{border-top-color:var(--gold)}
+  body{padding-bottom:72px}
+  .chart-wrap{margin:0 -20px;padding:0 20px 4px}
+  .hrow{grid-template-columns:4px 24px 32px 42px 1fr 62px;gap:8px}
+  .hrow .wd{text-align:right}
+  .hrow .lb{display:none}
+  .drow-top{grid-template-columns:66px repeat(4,1fr) 58px 50px 12px;gap:2px}
+  .pp{font-size:.78rem}
+  .p4 .wi{width:28px;height:28px}
+  .tt{font-size:.95rem}.tt .lo{margin-left:3px}
+  .acts{grid-template-columns:1fr 1fr}
+  .aday{grid-template-columns:76px 1fr}
+  .kpi b{font-size:1.15rem}
+}
+/* Produksjon: tillegg */
+.tznote{margin:14px 0 0;font-size:.82rem;color:var(--muted)}
+a.chip{text-decoration:none;color:inherit}
+.qres{display:block}
+.qres[hidden]{display:none}
+.qres a{display:block;padding:10px 14px;border-bottom:1px solid #eee;color:#14213a;text-decoration:none}
+.qres a:hover{background:#f6f3ec}
+.qres .tom{padding:10px 14px;color:#6b778a}
+.gnote{color:#7a52c7;font-size:.8rem;margin-top:3px}
+@media (prefers-color-scheme:dark){.gnote{color:#a98ae6}}
+.klaer{display:flex;flex-direction:column;gap:4px;color:var(--muted)}
+.klaer b{color:var(--ink)}
+#radar.met{background:var(--soft);border:0;position:relative;place-items:normal}
+.rview{position:relative;width:100%;overflow:hidden;border-radius:14px;touch-action:none;cursor:grab;background:#fff}
+.rview img{position:absolute;left:0;top:0;width:100%;height:auto;transform-origin:0 0;max-height:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.rmark{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#14213a;border:2px solid #fff;box-shadow:0 0 0 2px rgba(20,33,58,.3);pointer-events:none}
+.rzoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:4px;z-index:2}
+.rzoom button{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:1.05rem;line-height:1}
+/* Mine steder-tabellen (static/js/mine_steder.js) */
+.ms-row{display:grid;grid-template-columns:minmax(110px,1.4fr) repeat(4,1fr) 28px;align-items:center;gap:4px;padding:8px 0;border-top:1px solid var(--line)}
+.ms-row.ms-head{border-top:0;padding-top:0;font-size:.75rem;color:var(--muted)}
+.ms-day{text-align:center;display:flex;align-items:center;justify-content:center;gap:2px}
+.ms-day .wi{width:30px;height:30px}
+.ms-day b{font-weight:650}
+.ms-warm{color:inherit}.ms-cold{color:var(--cold)}
+.ms-name{display:flex;align-items:center;gap:6px;font-weight:650;min-width:0}
+.ms-name a{text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-star,.ms-del{border:0;background:none;color:var(--muted);padding:2px;font-size:.95rem}
+.ms-star.on{color:var(--gold)}
+.ms-hint,.ms-load{font-size:.85rem;color:var(--muted);padding-top:8px}
+@media (max-width:700px){.ms-row{grid-template-columns:minmax(84px,1.2fr) repeat(4,1fr) 22px}.ms-day .wi{width:24px;height:24px}.ms-day b{font-size:.88rem}}
+</style>
+</head>
+<body>
+<div class="sky" id="sky">
+  <div class="wrap">
+    <div class="topbar">
+      <a class="logo" href="/ver/varsel/bergen" aria-label="blirdetfint.no, forsiden">
+        <svg width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="7" fill="#f5a524"/><g stroke="#f5a524" stroke-width="2.4" stroke-linecap="round"><path d="M17 3v4M17 27v4M3 17h4M27 17h4M7.1 7.1l2.8 2.8M24.1 24.1l2.8 2.8M7.1 26.9l2.8-2.8M24.1 9.9l2.8-2.8"/></g></svg>
+        <span>blir det fint<span class="q">?</span></span>
+      </a>
+      <form class="search" id="stedSok" autocomplete="off" role="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input id="stedInput" placeholder="Søk sted i hele verden" aria-label="Søk sted">
+        <div class="qres" id="stedTreff" hidden></div>
+      </form>
+    </div>
+    <div class="chips" id="places"></div>
+    <div id="alerts"></div>
+    <div id="hero"><div class="skel" style="height:220px;margin-top:20px"></div></div>
+    {% if info.tz and info.tz != 'Europe/Oslo' %}<p class="tznote">Alle klokkeslett i lokal tid ({{ info.tz.split('/')[-1].replace('_', ' ') }}).{% if not info.norge %} Varsel fra Open-Meteo.{% endif %}</p>{% elif not info.norge %}<p class="tznote">Varsel fra Open-Meteo.</p>{% endif %}
+  </div>
+</div>
+
+<nav class="tabs">
+  <div class="wrap" id="tabs">
+    <button class="tab-btn" data-tab="varsel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.5"/><path d="M9 2v1.2M3.2 8.5H2M4.9 4.4l.9.9M13.1 4.4l-.9.9"/><path d="M8.5 20h8.5a4 4 0 0 0 0-8 5 5 0 0 0-9.4 1.6A3.2 3.2 0 0 0 8.5 20z"/></svg>Varsel</button>
+    <button class="tab-btn" data-tab="aktivitet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Aktivitet</button>
+    <button class="tab-btn" data-tab="reis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 3 10.5l7 2.5 2.5 7L21 3z"/><path d="M10 13l4.5-4.5"/></svg>Reis</button>
+    <button class="tab-btn" data-tab="klima"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-8M11 20V5M17 20v-5M3 20h18"/></svg>Klima</button>
+    <button class="tab-btn" data-tab="sno"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M3.4 7l17.2 10M3.4 17 20.6 7M9 3.5l3 2 3-2M9 20.5l3-2 3 2"/></svg>Snø</button>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div class="banner" id="feil" hidden></div>
+
+  <section class="tab on" id="tab-varsel">
+    <div id="radarTop"></div>
+    <div class="card"><h2><span class="h-l">I dag og i morgen</span>
+        <span class="h-r"><label class="toggle" id="gToggle" hidden><input type="checkbox" id="gCheck"> <span class="hm">Vis </span>Google<span class="hm"> også</span></label>
+        <button class="btnlink" id="tabellBtn">Tabell</button></span></h2>
+      <div id="hourly"><div class="skel" style="height:200px"></div></div>
+      <div class="legend" id="legend"></div>
+      <p class="small muted" id="hourNote" style="margin:8px 0 0"></p>
+    </div>
+    <div class="card"><h2><span class="h-l">Neste dager</span><span class="muted small">trykk på en dag for detaljer</span></h2>
+      <div id="days"><div class="skel" style="height:300px"></div></div>
+      <p class="small muted" id="wnNote" style="margin:10px 0 0" hidden></p>
+    </div>
+    <div id="radarLow"></div>
+    <div class="card"><h2><span class="h-l">Mine steder</span><span class="muted small">★ fester et sted øverst</span></h2><div id="msList"></div></div>
+    <div class="card summary" id="aiCard"><h2><span class="h-l">Oppsummert</span><span class="tag" id="aiTag">laster</span></h2><div id="aiBody"></div></div>
+    <div class="card"><h2><span class="h-l">Treffsikkerhet</span></h2><div id="trust" class="small"></div>
+      <div class="links" style="margin-top:10px">
+        <a href="/ver/aktivt-varsel">Aktivt varsel</a>
+        <a href="/ver/sammenlign">Yr mot Google</a>
+        <a id="klassiskLink" href="?klassisk=1">Klassisk visning</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-aktivitet"><div class="skel"></div></section>
+
+  <section class="tab" id="tab-reis">
+    <div class="card"><h2><span class="h-l">Hvor blir det fint?</span></h2>
+      <p class="muted" style="margin:0 0 6px">Finn stedet med best vær de nærmeste dagene, eller planlegg ferien ut fra hvordan været pleier å være.</p>
+      <div class="links">
+        <a href="/ver/ferieplanlegger">Ferieplanlegger</a>
+        <a href="/ver/ferieplanlegger/korttid">Neste dager: hvor er det fint?</a>
+        <a href="/ver/ferieplanlegger/langtid">Langtid: beste måned og sted</a>
+        <a href="/ver/aktivt-varsel">Aktivt varsel for et punkt</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-klima">
+    <div class="card"><h2><span class="h-l">Statistikk for hele landet</span></h2>
+      <div class="links">
+        <a href="/ver/nedbor">Nedbør</a>
+        <a href="/ver/solskinn">Solskinn</a>
+        <a href="/ver/vind">Vind</a>
+        <a href="/ver/min-temp">Min. temperatur</a>
+        <a href="/ver/normaler">Værnormaler</a>
+        <a href="/ver/temp-sammenlign">Sammenlign to år</a>
+        <a href="/ver/oversikt">Oversikt over alt</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-sno">
+    <div class="card"><h2><span class="h-l">Snø og skiføre</span></h2>
+      <div class="links">
+        <a href="/ver/varsel-kvamskogen">Snøprognoser (maskinlæring)</a>
+        <a href="/ver/sno">Snømengde</a>
+        <a href="/ver/skiloyper-kvamskogen">Løypekart Kvamskogen</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap" id="footer">
+  {% if info.norge %}Varsel og radar: <a href="https://www.met.no/" target="_blank" rel="noopener">MET Norway</a> (Yr, CC BY 4.0). Målinger: Frost.{% else %}Varsel: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), beste tilgjengelige modell for stedet.{% endif %} Værsymboler: Yr (MIT).
+  <span id="srcExtra"></span>
+</footer>
+
+<script>
+const STED = {{ sted | tojson }};
+const STED_INFO = {{ info | tojson }};
+const PLACES = {{ places | tojson }};
+const HAR_RADAR = {{ har_radar | tojson }};
+const RADAR_OMRAADE = {{ radar_omraade | tojson }};
+const FORHAAND = {{ forhaand | tojson }};
+{% raw %}
+/* Forsiden på blirdetfint.no. All værlogikk bygger på /ver/api/varsel/<sted>, der
+ * hver time har fint-score fra scripts/fint_score.py. Svarlinjen, de tre kortene,
+ * fargestripene og værlukene bruker de samme timene, så de aldri motsier hverandre. */
+const $ = id => document.getElementById(id);
+const Q = location.search;
+const hh = h => String(h).padStart(2, '0');
+const WD = ['søndag','mandag','tirsdag','onsdag','torsdag','fredag','lørdag'];
+const WDS = ['søn','man','tir','ons','tor','fre','lør'];
+const MON = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const fmt1 = v => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+const RADAR_H = 8;              // radaren fremheves når det er ventet nedbør innen så mange timer
+const BANDS = [[80,'Strålende','#f5a524','#b86e00','#4a2c00'],[65,'Fint','#fbd35b','#8f6a00','#4d3a00'],[50,'Greit','#e6dcc4','#7a6f55','#4f4635'],[30,'Grått','#c3cdd9','#5b6c82','#33445a'],[0,'Unngå','#7f91aa','#51647f','#ffffff']];
+const band = s => BANDS.find(b => s >= b[0]);
+const pill = s => `background:${band(s)[2]};color:${band(s)[4]}`;
+const REASON = {regn:'regn',vind:'vind',kaldt:'kaldt',varmt:'for varmt',sky:'skyet',torden:'torden'};
+const PROFILER = {generelt:['Generelt','🙂'], lop:['Løping','🏃'], tur:['Tur og hytte','🥾'], sykkel:['Sykkel','🚴'], strand:['Strand og sol','🏖️']};
+const DIRS = ['nord','nordøst','øst','sørøst','sør','sørvest','vest','nordvest'];
+const dirName = deg => DIRS[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+const S = { tab: 'varsel', open: new Set(), table: false, showG: false, radarOpen: false, rmode: null, metFailed: false,
+            profil: store.get('bdf_profil', 'generelt') };
+if (!PROFILER[S.profil]) S.profil = 'generelt';
+let D = null, H = [], P = [], TODAY = '';
+
+function icon(sym, cls){ return sym ? `<img class="${cls || 'wi'}" src="/static/ver/ikoner/${sym}.svg" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : ''; }
+const tcls = t => t >= 0 ? 'warm' : 'cold';
+function addDays(d, n){ const t = new Date(d + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); }
+function dayName(d, short){
+  if (d === TODAY) return 'i dag';
+  if (d === addDays(TODAY, 1)) return 'i morgen';
+  const t = new Date(d + 'T12:00:00Z'), diff = Math.round((t - new Date(TODAY + 'T12:00:00Z')) / 864e5);
+  if (diff < 7 && !short) return WD[t.getUTCDay()];
+  return `${WDS[t.getUTCDay()]} ${t.getUTCDate()}. ${MON[t.getUTCMonth()]}`;
+}
+const clock = iso => iso ? iso.slice(11, 16) : '';
+const kind = hs => { const t = hs.reduce((s, x) => s + x.temp, 0) / Math.max(1, hs.length); return t < 0.5 ? 'snø' : t < 1.5 ? 'sludd' : 'regn'; };
+
+/* ---------- Timer ---------- */
+function norm(h){
+  const t = h.time;
+  return { t, d: t.slice(0, 10), h: +t.slice(11, 13), temp: h.temp, rain: h.rain || 0, wind: h.wind || 0, gust: h.gust,
+    wdir: h.wind_dir, symbol: h.symbol, lyst: !!h.lyst, foles: h.foles, g_temp: h.g_temp, g_rain: h.g_rain,
+    fint: h.fint || {}, grunn: h.fint_grunn || {} };
+}
+function withProfile(list, prof){ list.forEach(x => { x.s = x.fint[prof] ?? 50; x.r = x.grunn[prof] || null; }); return list; }
+
+function findRuns(hs, test, from = 0){
+  const runs = []; let cur = null;
+  for (let i = from; i < hs.length; i++){
+    const x = hs[i], ok = x.h >= 7 && x.h <= 21 && test(x);
+    if (ok && cur && cur.d === x.d && cur.e === i - 1){ cur.e = i; cur.sum += x.s; cur.n++; cur.rs.push(x.r); }
+    else if (ok){ cur = { d: x.d, b: i, e: i, sum: x.s, n: 1, rs: [x.r] }; runs.push(cur); }
+    else cur = null;
+  }
+  runs.forEach(r => { r.avg = r.sum / r.n; r.from = hs[r.b].h; r.to = hs[r.e].h + 1; r.reason = mostCommon(r.rs.filter(Boolean)); r.rank = r.avg * Math.sqrt(r.n); });
+  return runs;
+}
+function mostCommon(a){ const c = {}; let best = null, n = 0; a.forEach(v => { c[v] = (c[v] || 0) + 1; if (c[v] > n){ n = c[v]; best = v; } }); return best; }
+const bestOf = runs => runs.slice().sort((a, b) => b.rank - a.rank)[0];
+const span = r => `kl. ${hh(r.from)}–${hh(r.to % 24)}`;
+const HL = t => `<span class="hl">${t}</span>`;
+
+function answer(hs){
+  const today = TODAY, tomorrow = addDays(today, 1);
+  const good = findRuns(hs, x => x.s >= 65 && x.lyst).filter(r => r.n >= 2);
+  const goodToday = good.filter(r => r.d === today);
+  const dayLeft = hs.some(x => x.d === today && x.lyst);
+  const bad = findRuns(hs, x => x.s < 30).filter(r => r.d === (dayLeft ? today : tomorrow));
+  let ans;
+  if (goodToday.length){
+    const b = bestOf(goodToday);
+    ans = b.b === 0 ? `Fint nå og frem til ${HL('kl. ' + hh(b.to % 24))}.` : `Fint ${HL(span(b))}.`;
+  } else if (good.length){
+    const n = good[0];
+    if (!dayLeft && n.d === tomorrow) ans = `Fint i morgen ${HL(span(n))}.`;
+    else ans = `${dayLeft ? 'Ikke i dag.' : 'Ikke i morgen.'} Neste fine periode er ${dayName(n.d)} ${HL(span(n))}.`;
+  } else {
+    const c = hs.filter(x => x.lyst).sort((a, b) => b.s - a.s)[0];
+    ans = c ? `Ingen fine perioder i sikte. Beste sjanse er ${dayName(c.d)} ${HL('kl. ' + hh(c.h))}.` : 'Ingen fine perioder i sikte.';
+  }
+  const merged = [];
+  bad.sort((a, b) => a.b - b.b).forEach(r => {
+    const m = merged[merged.length - 1];
+    if (m && r.b - m.e <= 2){ m.e = r.e; m.to = r.to; m.rs = m.rs.concat(r.rs); m.reason = mostCommon(m.rs.filter(Boolean)); m.avg = Math.min(m.avg, r.avg); }
+    else merged.push({ ...r, rs: r.rs.slice() });
+  });
+  const worst = merged.sort((a, b) => a.avg - b.avg).slice(0, 2).sort((a, b) => a.b - b.b);
+  const avoid = worst.length ? `Unngå ${worst.map(r => `${span(r)} (${REASON[r.reason] || 'dårlig vær'})`).join(' og ')}.` : 'Ingen timer du trenger å unngå.';
+  return { q: `Blir det fint ${dayLeft ? 'i dag' : 'i morgen'}?`, ans, avoid };
+}
+
+function describe(hs, nowRain){
+  if (!hs.length) return null;
+  const wet = hs.filter(x => x.rain >= 0.1), sum = hs.reduce((s, x) => s + x.rain, 0);
+  const tmax = hs.slice().sort((a, b) => b.temp - a.temp)[0], tmin = Math.min(...hs.map(x => x.temp));
+  const k = wet.length ? kind(wet) : 'regn';
+  const rep = wet.length ? wet.slice().sort((a, b) => b.rain - a.rain)[0] : (hs.find(x => x.lyst) || hs[0]);
+  let head, sub;
+  if (!wet.length && !nowRain) head = 'Tørt';
+  else if (!wet.length && nowRain){ head = `Litt ${k} rundt kl. ${nowRain}`; sub = 'ellers tørt'; }
+  else if (wet.length <= 2 && sum < 1.5){ head = `Litt ${k} rundt kl. ${hh(wet[0].h)}`; sub = 'ellers tørt'; }
+  else if (wet.length / hs.length > .7){ head = `${cap(k)} store deler av tiden`; sub = `${fmt1(sum)} mm i alt`; }
+  else {
+    const end = wet[wet.length - 1].h + 1, last = hs[hs.length - 1].h + 1;
+    head = end >= last ? `${cap(k)} fra kl. ${hh(wet[0].h)}` : `${cap(k)} kl. ${hh(wet[0].h)}–${hh(end % 24)}`;
+    sub = end >= last ? `${fmt1(sum)} mm` : `${fmt1(sum)} mm, ellers opphold`;
+  }
+  return { head, sub, tmax, tmin, rep, sum };
+}
+
+function nowcastInfo(){
+  const nc = D.nowcast;
+  if (!nc || !nc.available || !(nc.steps || []).length) return null;
+  const steps = nc.steps;
+  const first = steps.findIndex(s => s.rate >= 0.1);
+  const stop = first === 0 ? steps.findIndex(s => s.rate < 0.1) : -1;
+  return { steps, first, stop, peak: Math.max(...steps.map(s => s.rate || 0)),
+    minutes: first >= 0 ? Math.max(0, steps[first].minutes) : null,
+    startT: first >= 0 ? steps[first].time : null, rainAt: first >= 0 ? steps[first].time.slice(0, 2) : null };
+}
+
+/* ---------- Toppen ---------- */
+function skyClass(x){
+  if (!x || !x.lyst) return 'night';
+  const s = x.symbol || '';
+  if (s.includes('snow')) return 'snow';
+  if (/rain|sleet|thunder/.test(s)) return 'rain';
+  if (s.startsWith('cloudy') || s.startsWith('fog')) return 'cloud';
+  if (s.startsWith('partlycloudy')) return 'part';
+  return 'sun';
+}
+function sunLine(){
+  const dl = D.dagslys || [];
+  const d0 = dl[0];
+  if (!d0) return '';
+  if (d0.unntak) return esc(d0.unntak);
+  const now = D.generated_at;
+  const lead = d0.lyst_til && now < d0.lyst_til ? `Lyst til kl. ${clock(d0.lyst_til)}, mørkt etter det`
+    : (dl[1] && dl[1].lyst_fra ? `Mørkt nå, lyst fra kl. ${clock(dl[1].lyst_fra)} i morgen` : '');
+  return `${lead}${d0.sol_opp ? ` <span class="m">(sol ${clock(d0.sol_opp)}–${clock(d0.sol_ned)})</span>` : ''}`;
+}
+function renderHero(){
+  const hs = withProfile(H.map(x => ({ ...x })), 'generelt');
+  const now = D.now || {}, a = answer(hs), nc = nowcastInfo();
+  const night = hs[0].h < 6;
+  let restHs = hs.filter(x => x.d === TODAY && (night ? x.h >= 6 : true)), restTitle = night ? 'I dag' : 'Resten av i dag';
+  let nightHs = night ? hs.filter(x => x.d === TODAY && x.h < 6) : hs.filter(x => x.d === addDays(TODAY, 1) && x.h < 7), nightTitle = night ? 'Resten av natten' : 'I natt';
+  if (restHs.length <= 1){ restHs = hs.filter(x => x.d === addDays(TODAY, 1) && x.h >= 6 && x.h <= 22); restTitle = 'I morgen'; }
+  const rest = describe(restHs, nc && nc.rainAt && !night ? nc.rainAt : null), nt = describe(nightHs, null);
+
+  let ncHead, ncSub = '', ncBars = '', ncWet = false;
+  const k3 = kind(hs.slice(0, 3));
+  if (nc){
+    const mx = Math.max(0.3, nc.peak);
+    ncBars = `<div class="ncbars">${nc.steps.map(s => s.rate >= 0.1 ? `<i style="height:${Math.max(15, s.rate / mx * 100)}%" title="kl. ${s.time}: ${fmt1(s.rate)} mm/t"></i>` : '<i class="z"></i>').join('')}</div><div class="nclab"><span>nå</span><span>30</span><span>60</span><span>90</span><span>120 min</span></div>`;
+    if (nc.first < 0){ ncHead = 'Opphold'; ncSub = 'de neste to timene'; }
+    else if (nc.first === 0){ ncWet = true; ncHead = `${cap(k3)} nå`; ncSub = nc.stop > 0 ? `opphold fra ca. kl. ${nc.steps[nc.stop].time}` : `hele de neste to timene, opptil ${fmt1(nc.peak)} mm/t`; }
+    else { ncWet = true; ncHead = `${cap(k3)} om ${nc.minutes} min`; ncSub = `fra ca. kl. ${nc.startT}, kraftigst ${fmt1(nc.peak)} mm/t`; }
+  } else {
+    const w = hs.slice(0, 2).find(x => x.rain >= 0.1);
+    ncWet = !!w; ncHead = w ? `${cap(kind([w]))} ventet kl. ${hh(w.h)}` : 'Opphold ventet';
+    ncSub = 'Radarvarsel finnes ikke her, dette er fra timesvarselet.';
+  }
+  const ncIcon = ncWet ? '<svg class="ui" viewBox="0 0 24 24" fill="none" stroke="#2a62b0" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 0 1 18 0z" fill="#4a86d6" stroke="none"/><path d="M12 12v7a2 2 0 0 1-4 0"/></svg>'
+    : '<svg class="ui" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l4 4 10-10"/></svg>';
+  const g = D.google_available ? (o => o && o.google ? `<div class="s gnote">${esc(o.google)}</div>` : '') : () => '';
+  const obs = D.observed && D.observed.today != null && D.observed.station ? `<span>${esc(String(D.observed.station).split(' - ').pop())} har målt ${fmt1(D.observed.today)} mm i dag</span>` : '';
+  const arrow = now.wind_dir != null ? `<span class="wa" style="transform:rotate(${now.wind_dir + 180}deg)">↑</span> ` : '';
+  const upd = new Date(D.generated_at).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: STED_INFO.tz || 'Europe/Oslo' });
+  const lyst = hs[0].lyst;
+
+  const nightCard = nt ? `<div class="mini"><div class="k">${nightTitle}</div><div class="h">${icon(nt.rep.symbol)}${nt.head === 'Tørt' ? 'Opphold' : nt.head}</div><div class="s">${nt.sub ? cap(nt.sub) + '. ' : ''}${Math.round(nt.tmin)}° til ${Math.round(Math.max(...nightHs.map(x => x.temp)))}°.</div>${g(D.later)}</div>` : '';
+  $('sky').className = 'sky ' + skyClass(hs[0]);
+  $('hero').innerHTML = `<div class="hero3">
+    <div class="place"><b>${esc(STED_INFO.name)}</b> <span class="upd">· oppdatert kl. ${upd}</span></div>
+    <div>
+      <div class="bigtemp">${icon(now.symbol || hs[0].symbol)}<span class="t ${tcls(now.temp)}">${now.temp != null ? Math.round(now.temp) : '–'}°</span></div>
+      <div class="cond">${esc(now.text || '')} ${now.feels_like != null ? `<span class="m">· føles som ${Math.round(now.feels_like)}°</span>` : ''}</div>
+      <div class="facts">
+        ${now.wind != null ? `<span>${arrow}${Math.round(now.wind)}${now.gust != null ? ` (${Math.round(now.gust)})` : ''} m/s${now.wind_dir != null ? ' fra ' + dirName(now.wind_dir) : ''}</span>` : ''}
+        ${obs}
+        <span>${sunLine()}</span>
+      </div>
+    </div>
+    <div class="answer"><div class="q">${a.q}</div><div class="a">${a.ans}</div><div class="av">${a.avoid}</div></div>
+  </div>
+  <div class="minis">
+    <div class="mini${ncWet ? ' wet' : ''}"><div class="k">Neste 2 timer</div><div class="h">${ncIcon}${ncHead}</div><div class="s">${ncSub}</div>${ncBars}<a href="#radar-card" onclick="openRadar();return false">Radar ›</a></div>
+    ${restTitle === 'I morgen' ? nightCard : ''}
+    ${rest ? `<div class="mini"><div class="k">${restTitle}</div><div class="h">${icon(rest.rep.symbol)}${rest.head}</div><div class="s">${rest.sub ? cap(rest.sub) + '. ' : ''}Opptil ${Math.round(rest.tmax.temp)}° rundt kl. ${hh(rest.tmax.h)}.</div>${restTitle === 'Resten av i dag' ? g(D.rest_of_day) : ''}</div>` : ''}
+    ${restTitle === 'I morgen' ? '' : nightCard}
+  </div>`;
+  document.title = `Blir det fint i ${STED_INFO.name}?`;
+}
+
+/* ---------- Timegraf ---------- */
+function curvePath(pts){
+  if (!pts.length) return '';
+  let d = `M${pts[0][0]},${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length; i++){
+    const p0 = pts[i-2] || pts[i-1], p1 = pts[i-1], p2 = pts[i], p3 = pts[i+1] || p2;
+    const c1 = [p1[0] + (p2[0]-p0[0])/6, p1[1] + (p2[1]-p0[1])/6], c2 = [p2[0] - (p3[0]-p1[0])/6, p2[1] - (p3[1]-p1[1])/6];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0]},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+function segments(arr){ const out = []; let cur = []; arr.forEach(p => { if (p) cur.push(p); else if (cur.length){ out.push(cur); cur = []; } }); if (cur.length) out.push(cur); return out; }
+function hourChart(past, fut){
+  const all = past.concat(fut), iNow = past.length, cw = 46, n = all.length, W = n * cw, Hc = 232;
+  const temps = all.map(x => x.temp).filter(v => v != null).concat(S.showG ? all.map(x => x.g_temp).filter(v => v != null) : []);
+  const tmin = Math.min(...temps), tmax = Math.max(...temps);
+  const yT = t => 134 - (t - tmin) / Math.max(4, tmax - tmin) * 52, X = i => i * cw + cw / 2;
+  let bg = '', fg = '';
+  if (iNow > 0){
+    bg += `<rect class="past" x="0" y="0" width="${iNow * cw}" height="${Hc - 26}"/>`;
+    if (iNow >= 3) fg += `<text class="dlab muted" x="${iNow * cw / 2}" y="30" text-anchor="middle">${past.some(x => x.measured) ? 'MÅLT' : 'TIDLIGERE I DAG'}</text>`;
+  }
+  all.forEach((x, i) => { if (i >= iNow && !x.lyst) bg += `<rect class="night" x="${i * cw}" y="0" width="${cw + .5}" height="${Hc - 26}"/>`; });
+  all.forEach((x, i) => { if (i === 0 || x.h === 0){ if (i > 0) bg += `<line class="sep" x1="${i * cw}" x2="${i * cw}" y1="0" y2="${Hc - 26}"/>`; fg += `<text class="dlab" x="${i * cw + 6}" y="14">${dayName(x.d).toUpperCase()}</text>`; } });
+  fut.forEach((x, k) => { const i = iNow + k; if (x.symbol) fg += `<image href="/static/ver/ikoner/${x.symbol}.svg" x="${X(i) - 15}" y="22" width="30" height="30"/>`; });
+  const pts = all.map((x, i) => x.temp != null ? [X(i), yT(x.temp)] : null);
+  const futPts = pts.slice(iNow).filter(Boolean);
+  if (futPts.length) fg += `<path d="${curvePath(futPts)} L${futPts[futPts.length - 1][0]},176 L${futPts[0][0]},176 Z" fill="url(#tg)"/>`;
+  segments(pts.slice(0, iNow + 1)).forEach(seg => { if (seg.length > 1) fg += `<path class="curve pastc" d="${curvePath(seg)}"/>`; });
+  if (S.showG) segments(all.map((x, i) => x.g_temp != null ? [X(i), yT(x.g_temp)] : null)).forEach(seg => { if (seg.length > 1) fg += `<path class="cmp" d="${curvePath(seg)}"/>`; });
+  if (futPts.length) fg += `<path class="curve" d="${curvePath(futPts)}"/>`;
+  all.forEach((x, i) => { if (x.temp != null && (i - iNow) % 2 === 0) fg += `<text class="tlab ${tcls(x.temp)}${i < iNow ? ' pt' : ''}" x="${X(i)}" y="${yT(x.temp) - 9}" text-anchor="middle">${Math.round(x.temp)}°</text>`; });
+  all.forEach((x, i) => { if (x.rain >= 0.1){ const h = Math.min(34, 5 + x.rain * 12);
+    fg += `<rect class="bar${i < iNow ? ' pb' : ''}" x="${i * cw + 9}" y="${184 - h}" width="${cw - 18}" height="${h}" rx="3"/>`;
+    if (x.rain >= 0.5) fg += `<text class="plab" x="${X(i)}" y="${184 - h - 4}" text-anchor="middle">${fmt1(x.rain)}</text>`; } });
+  fut.forEach((x, k) => { const i = iNow + k; fg += `<rect x="${i * cw + 1}" y="190" width="${cw - 2}" height="8" rx="3" fill="${band(x.s)[2]}" opacity="${x.lyst ? 1 : .55}"><title>kl. ${hh(x.h)}: ${band(x.s)[1]}${x.r ? ', ' + REASON[x.r] : ''}</title></rect>`; });
+  fg += `<line class="nowline" x1="${iNow * cw}" x2="${iNow * cw}" y1="18" y2="${Hc - 26}"/>`;
+  all.forEach((x, i) => { fg += `<text class="hlab${i === iNow ? ' nowlab' : ''}" x="${X(i)}" y="${Hc - 8}" text-anchor="middle">${i === iNow ? 'Nå' : hh(x.h)}</text>`; });
+  return `<svg class="hc" width="${W}" height="${Hc}" viewBox="0 0 ${W} ${Hc}" role="img" aria-label="Temperatur, nedbør og hvor fint det er time for time">
+    <defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f5a524" stop-opacity=".22"/><stop offset="1" stop-color="#f5a524" stop-opacity="0"/></linearGradient></defs>${bg}${fg}</svg>`;
+}
+const HHEAD = `<div class="hrow hhead"><div></div><div class="kl">Kl.</div><div></div><div>Temp.</div><div>Nedbør</div><div class="wd">Vind (kast) m/s</div><div></div></div>`;
+function hourRow(x){
+  const b = band(x.s);
+  return `<div class="hrow${x.lyst ? '' : ' night'}"><div class="st" style="background:${b[2]}" title="${b[1]}${x.r ? ', ' + REASON[x.r] : ''}"></div>
+    <div class="kl">${hh(x.h)}</div><div class="em">${icon(x.symbol)}</div><div class="tp ${tcls(x.temp)}">${Math.round(x.temp)}°</div>
+    <div class="pr">${x.rain >= 0.1 ? fmt1(x.rain) + ' mm' : ''}</div>
+    <div class="wd">${x.wdir != null ? `<span class="wa" style="transform:rotate(${x.wdir + 180}deg)">↑</span> ` : ''}${Math.round(x.wind)}${x.gust != null ? ` <span>(${Math.round(x.gust)})</span>` : ''}</div>
+    <div class="lb" style="color:${b[3]}">${b[1]}</div></div>`;
+}
+function hourRows(hs, sep = true){
+  let out = '', last = null;
+  hs.forEach(x => { if (sep && x.d !== last){ out += `<div class="hsep">${cap(dayName(x.d))}</div>`; last = x.d; } out += hourRow(x); });
+  return out;
+}
+function renderHourly(){
+  const fut = withProfile(H.slice(0, 48).map(x => ({ ...x })), 'generelt');
+  $('tabellBtn').textContent = S.table ? 'Graf' : 'Tabell';
+  if (S.table){ $('hourly').innerHTML = HHEAD + hourRows(fut); }
+  else {
+    $('hourly').innerHTML = `<div class="chart-wrap" id="cw">${hourChart(P, fut)}</div>`;
+    $('cw').scrollLeft = Math.max(0, (P.length - 3) * 46);
+  }
+  $('legend').innerHTML = BANDS.map(b => `<span><i style="background:${b[2]}"></i>${b[1]}</span>`).join('') + '<span><i style="background:var(--rain)"></i>Nedbør</span>' + (S.showG ? '<span><i class="dash"></i>Google</span>' : '');
+  const measured = P.some(x => x.measured);
+  const ag = D.agreement ? ` ${esc(D.agreement.title)}: ${esc(D.agreement.text)}` : '';
+  $('hourNote').innerHTML = (P.length ? (measured ? 'Det grå feltet viser målt temperatur og nedbør tidligere i dag.' : 'Det grå feltet er tidligere i dag.') : '') + ag;
+}
+
+/* ---------- Dager ---------- */
+const CHEV = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+function thinStrip(hs){
+  const byH = {}; hs.forEach(x => byH[x.h] = x);
+  return Array.from({ length: 18 }, (_, k) => k + 6).map(h => { const x = byH[h];
+    return x ? `<i class="${x.lyst ? '' : 'n'}" style="background:${band(x.s)[2]}" title="kl. ${hh(h)}: ${band(x.s)[1]}"></i>` : '<i style="background:var(--soft)"></i>'; }).join('');
+}
+function dateSmall(d){ return (d === TODAY || /\d/.test(dayName(d))) ? '' : `<small>${new Date(d + 'T12:00:00Z').getUTCDate()}. ${MON[+d.slice(5, 7) - 1]}</small>`; }
+function renderDays(){
+  const hsAll = withProfile(H.map(x => ({ ...x })), 'generelt');
+  const byDay = {}; hsAll.forEach(x => (byDay[x.d] = byDay[x.d] || []).push(x));
+  const wn = D.wn_days || {};
+  $('days').innerHTML = (D.days || []).map(d => {
+    const hs = byDay[d.date] || [], open = S.open.has(d.date);
+    const periods = (d.periods || []).map(p => `<span class="p4" title="${p.name}">${p.symbol ? icon(p.symbol) : '<span class="muted">–</span>'}</span>`).join('');
+    const tmax = d.tmax != null ? d.tmax : (wn[d.date] || {}).tmax, tmin = d.tmin != null ? d.tmin : (wn[d.date] || {}).tmin;
+    const rain = d.rain != null ? d.rain : (wn[d.date] || {}).rain;
+    let exp = '';
+    if (open){
+      const w = bestOf(findRuns(hs, x => x.s >= 65 && x.lyst).filter(r => r.n >= 2));
+      const gr = D.google_available && d.g_rain != null ? `<span class="gnote">Google: ${fmt1(d.g_rain)} mm</span>` : '';
+      exp = `<div class="dexp"><div class="dmeta">${hs.length ? (w ? `<span><b>Fint ${span(w)}</b></span>` : '<span class="muted">Ingen fin periode</span>') : ''}
+        ${d.wind_max != null ? `<span class="muted">vind opptil ${d.wind_max}${d.gust_max != null ? ` (${d.gust_max})` : ''} m/s</span>` : ''}${gr}</div>
+        ${hs.length ? HHEAD + hourRows(hs, false) : '<p class="small muted">Timesvarsel finnes ikke så langt frem.</p>'}</div>`;
+    }
+    return `<div class="drow${open ? ' open' : ''}" onclick="toggleDay('${d.date}')">
+      <div class="drow-top"><div class="dn">${cap(dayName(d.date))}${dateSmall(d.date)}</div>${periods}
+        <div class="tt">${tmax != null ? `<span class="${tcls(tmax)}">${Math.round(tmax)}°</span><span class="lo ${tmin < 0 ? 'cold' : ''}">${Math.round(tmin)}°</span>` : ''}</div>
+        <div class="pp">${rain >= 0.1 ? fmt1(rain) + ' mm' : ''}</div><div class="chev">${CHEV}</div></div>
+      ${hs.length >= 6 ? `<div class="thin">${thinStrip(hs)}</div>` : ''}
+    </div>${exp}`;
+  }).join('');
+  const w = D.weathernext;
+  $('wnNote').hidden = !w;
+  if (w) $('wnNote').textContent = `Dagene etter Yr sitt varsel er fra ${w.kilde || 'Google WeatherNext'}${w.init ? ` (${w.init})` : ''}.`;
+}
+function toggleDay(d){ S.open.has(d) ? S.open.delete(d) : S.open.add(d); renderDays(); }
+
+/* ---------- Radar: MET via vår server, ellers kart med RainViewer. Aldri en feilmelding. ---------- */
+const MET_SRC = HAR_RADAR ? `/ver/api/radar/${STED}.gif` : (RADAR_OMRAADE ? `/ver/api/radar/omraade/${RADAR_OMRAADE}.gif` : null);
+const RADAR_FOCUS = { bergen: [0.451, 0.599], kvamskogen: [0.514, 0.599] };
+function rainSoon(){
+  const nc = nowcastInfo();
+  return (nc && nc.first >= 0) || H.slice(0, RADAR_H).some(x => x.rain >= 0.1);
+}
+function radarNote(){
+  const nc = nowcastInfo();
+  if (nc && nc.first >= 0) return nc.first === 0 ? 'nedbør nå' : `nedbør fra ca. kl. ${nc.startT}`;
+  const w = H.slice(0, RADAR_H).find(x => x.rain >= 0.1);
+  return w ? (w === H[0] ? 'nedbør nå' : `nedbør ventet fra kl. ${hh(w.h)}`) : '';
+}
+function radarCardHtml(){
+  if (!S.rmode) S.rmode = MET_SRC && !S.metFailed ? 'met' : 'map';
+  const note = radarNote();
+  return `<div class="card" id="radar-card"><h2><span class="h-l">Radar${note ? ` <span class="rnote">${note}</span>` : ''}</span>
+      ${MET_SRC ? `<span class="seg mini-seg"><button class="${S.rmode === 'met' ? 'on' : ''}" onclick="S.rmode='met';showRadar()">MET</button><button class="${S.rmode === 'map' ? 'on' : ''}" onclick="S.rmode='map';showRadar()">Kart</button></span>` : ''}</h2>
+    <div id="radar"></div>
+    <div class="rctl" style="display:none"><button class="btnlink" id="rplay">▶</button><input type="range" id="rrange" min="0" max="0" value="0"><span class="tm" id="rtime"></span></div>
+    <p class="small muted rsrc" id="rsrc"></p></div>`;
+}
+function radarSlimHtml(){
+  return `<div class="card slim" id="radar-card"><span class="slim-k">Radar</span><span class="muted small slim-t">Ingen nedbør ventet de neste ${RADAR_H} timene</span><button class="btnlink" onclick="openRadar()">Vis radar</button></div>`;
+}
+function placeRadar(){
+  const soon = rainSoon();
+  // Ved oppdatering hvert femte minutt: bare bytt plass hvis behovet har endret seg.
+  if (S.radarPlaced && S.radarSoon === soon){ const n = document.querySelector('#radar-card .rnote'); if (n) n.textContent = radarNote(); return; }
+  S.radarPlaced = true; S.radarSoon = soon;
+  $('radarTop').innerHTML = soon ? radarCardHtml() : '';
+  $('radarLow').innerHTML = soon ? '' : (S.radarOpen ? radarCardHtml() : radarSlimHtml());
+  if (soon || S.radarOpen) showRadar();
+}
+function openRadar(){
+  const card = $('radar-card'); if (!card) return;
+  if (card.classList.contains('slim')){ S.radarOpen = true; card.outerHTML = radarCardHtml(); showRadar(); }
+  setTimeout(() => { const c = $('radar-card'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
+}
+function setRadarSeg(){ document.querySelectorAll('#radar-card .mini-seg button').forEach((b, i) => b.classList.toggle('on', (i === 0) === (S.rmode === 'met'))); }
+function showRadar(){
+  if (!$('radar')) return;
+  clearInterval(S.rtimer);
+  if (S.rmap){ S.rmap.remove(); S.rmap = null; }
+  if (S.rmode === 'met' && MET_SRC && !S.metFailed){ setRadarSeg(); metRadar(); }
+  else { S.rmode = 'map'; setRadarSeg(); mapRadar(); }
+}
+function metRadar(){
+  const box = $('radar'), [fx, fy] = RADAR_FOCUS[STED] || [.5, .5], focus = !!RADAR_FOCUS[STED];
+  document.querySelector('#radar-card .rctl').style.display = 'none';
+  box.className = 'met';
+  box.innerHTML = `<div class="rview"><img alt="Radaranimasjon fra MET, siste 3 timer" src="${MET_SRC}?t=${Math.floor(Date.now() / 300000)}">${focus ? '<span class="rmark"></span>' : ''}</div>
+    <div class="rzoom"><button type="button" data-z="in" aria-label="Zoom inn">+</button><button type="button" data-z="out" aria-label="Zoom ut">−</button><button type="button" data-z="home" aria-label="Tilbake">⌂</button></div>`;
+  const view = box.querySelector('.rview'), img = view.querySelector('img'), mark = view.querySelector('.rmark');
+  img.onerror = () => { S.metFailed = true; S.rmode = 'map'; showRadar(); };
+  let s = focus ? 3.2 : 1, tx = 0, ty = 0, W = 0, Hh = 0, IH = 0;
+  const size = () => { W = view.clientWidth; IH = img.naturalWidth ? W * img.naturalHeight / img.naturalWidth : W * .8; Hh = Math.min(IH, window.innerWidth < 700 ? 360 : 460); view.style.height = Hh + 'px'; };
+  const clamp = () => { tx = Math.min(0, Math.max(W - W * s, tx)); ty = Math.min(0, Math.max(Hh - IH * s, ty)); };
+  const apply = () => { clamp(); img.style.transform = `translate(${tx}px,${ty}px) scale(${s})`; if (mark){ mark.style.left = (tx + fx * W * s) + 'px'; mark.style.top = (ty + fy * IH * s) + 'px'; } };
+  const zoomAt = (ns, px, py) => { ns = Math.min(6, Math.max(1, ns)); tx = px - (px - tx) * ns / s; ty = py - (py - ty) * ns / s; s = ns; apply(); };
+  const reset = () => { size(); s = focus ? 3.2 : 1; tx = W * .5 - fx * W * s; ty = Hh * .45 - fy * IH * s; apply(); };
+  img.onload = () => { reset(); $('rsrc').innerHTML = 'Radar: <a href="https://www.met.no/" target="_blank" rel="noopener">MET Norway</a>, siste 3 timer. Dra og zoom i bildet.'; };
+  box.querySelector('.rzoom').onclick = e => { const z = e.target.dataset.z; if (z === 'in') zoomAt(s * 1.5, W / 2, Hh / 2); if (z === 'out') zoomAt(s / 1.5, W / 2, Hh / 2); if (z === 'home') reset(); };
+  view.addEventListener('wheel', e => { e.preventDefault(); const r = view.getBoundingClientRect(); zoomAt(s * (e.deltaY < 0 ? 1.2 : 1 / 1.2), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+  const pts = new Map(); let last = null;
+  view.addEventListener('pointerdown', e => { view.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); });
+  view.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 1){ tx += e.clientX - prev[0]; ty += e.clientY - prev[1]; apply(); }
+    else if (pts.size === 2){ const [a, b] = [...pts.values()], dd = Math.hypot(a[0] - b[0], a[1] - b[1]), r = view.getBoundingClientRect();
+      if (last) zoomAt(s * dd / last, (a[0] + b[0]) / 2 - r.left, (a[1] + b[1]) / 2 - r.top); last = dd; }
+  });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) last = null; };
+  view.addEventListener('pointerup', up); view.addEventListener('pointercancel', up);
+}
+function ensureLeaflet(){
+  if (window.L) return Promise.resolve(true);
+  if (S.leafletP) return S.leafletP;
+  const srcs = [
+    ['https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'],
+    ['https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js', 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'],
+    ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css']];
+  S.leafletP = (async () => {
+    for (const [js, css] of srcs){
+      try {
+        await new Promise((res, rej) => {
+          const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = css; document.head.appendChild(l);
+          const sc = document.createElement('script'); sc.src = js; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc);
+          setTimeout(rej, 8000);
+        });
+        if (window.L) return true;
+      } catch(e){}
+    }
+    return !!window.L;
+  })();
+  return S.leafletP;
+}
+function baseLayer(map){
+  const dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+  const carto = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, { attribution: '© OpenStreetMap, © CARTO', maxZoom: 12 });
+  let errs = 0, swapped = false;
+  carto.on('tileerror', () => { if (++errs > 3 && !swapped){ swapped = true; map.removeLayer(carto); L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 12 }).addTo(map); } });
+  carto.addTo(map);
+}
+async function mapRadar(){
+  const box = $('radar'), card = $('radar-card');
+  box.className = 'map'; box.innerHTML = '';
+  document.querySelector('#radar-card .rctl').style.display = 'none';
+  $('rsrc').textContent = '';
+  const ok = await ensureLeaflet();
+  if (!$('radar')) return;
+  if (!ok){
+    if (MET_SRC && !S.metFailed){ S.rmode = 'met'; showRadar(); } else if (card) card.style.display = 'none';
+    return;
+  }
+  const map = S.rmap = L.map(box, { scrollWheelZoom: false, maxZoom: 10 }).setView([STED_INFO.lat, STED_INFO.lon], 6);
+  map.createPane('radar'); map.getPane('radar').style.zIndex = 450;
+  baseLayer(map);
+  L.circleMarker([STED_INFO.lat, STED_INFO.lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#14213a', fillOpacity: 1 }).addTo(map);
+  setTimeout(() => { if (S.rmap === map) map.invalidateSize(); }, 60);
+  try {
+    const r = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    if (S.rmap !== map) return;
+    const frames = ((j.radar && j.radar.past) || []).concat((j.radar && j.radar.nowcast) || []);
+    if (!frames.length) throw new Error('ingen bilder');
+    const nPast = (j.radar.past || []).length;
+    const layers = frames.map(f => L.tileLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, { pane: 'radar', opacity: 0, maxNativeZoom: 7, maxZoom: 10 }).addTo(map));
+    map.attributionControl.addAttribution('<a href="https://www.rainviewer.com/" target="_blank" rel="noopener">Weather data by RainViewer</a>');
+    document.querySelector('#radar-card .rctl').style.display = '';
+    const rng = $('rrange'), tm = $('rtime'), btn = $('rplay');
+    rng.max = frames.length - 1;
+    const show = k => { layers.forEach((l, i) => l.setOpacity(i === k ? .75 : 0)); rng.value = k; S.rk = k;
+      tm.textContent = 'kl. ' + new Date(frames[k].time * 1000).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: STED_INFO.tz || 'Europe/Oslo' }) + (k >= nPast ? ' (varsel)' : ''); };
+    const play = () => { clearInterval(S.rtimer); S.rtimer = setInterval(() => show((S.rk + 1) % frames.length), 700); btn.textContent = '❚❚'; S.rplay = true; };
+    const pause = () => { clearInterval(S.rtimer); btn.textContent = '▶'; S.rplay = false; };
+    btn.onclick = () => S.rplay ? pause() : play();
+    rng.oninput = () => { pause(); show(+rng.value); };
+    show(nPast - 1); play();
+    $('rsrc').textContent = 'Siste 2 timer. Radarbildene er grove når du zoomer langt inn.';
+  } catch(e){
+    $('rsrc').innerHTML = MET_SRC && !S.metFailed ? 'Radarbildene på kartet er ikke tilgjengelige akkurat nå. <a href="#" onclick="S.rmode=\'met\';showRadar();return false">Vis MET-radaren</a>.' : 'Radarbildene er ikke tilgjengelige akkurat nå.';
+  }
+}
+
+/* ---------- Farevarsel, AI-tekst, treffsikkerhet ---------- */
+const TRI = c => `<svg class="tri" viewBox="0 0 24 24"><path d="M12 2.8 22.5 21H1.5z" fill="${c === 'red' ? '#d93a2b' : c === 'orange' ? '#f08a24' : '#f2c40f'}" stroke="#3b2b00" stroke-width="1" stroke-linejoin="round"/><path d="M12 9v5.5" stroke="#1a1200" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.2" fill="#1a1200"/></svg>`;
+async function loadAlerts(){
+  if (!STED_INFO.norge) return;
+  try {
+    const r = await fetch(`/ver/api/farevarsel/${STED}${Q}`); if (!r.ok) return;
+    const d = await r.json();
+    $('alerts').innerHTML = (d.varsler || []).map(v => `<div class="alert ${v.farge}">${TRI(v.farge)}<div><b>${esc(v.tittel)}</b>${v.beskrivelse ? `<div class="small">${esc(v.beskrivelse)}</div>` : ''}${v.rad ? `<details><summary>Råd</summary>${esc(v.rad)}</details>` : ''}</div></div>`).join('');
+  } catch(e){}
+}
+function ruleSummary(){
+  const hs = withProfile(H.map(x => ({ ...x })), 'generelt');
+  const byDay = {}; hs.forEach(x => (byDay[x.d] = byDay[x.d] || []).push(x));
+  const full = Object.entries(byDay).filter(([d, l]) => l.length >= 12);
+  const good = full.filter(([d, l]) => findRuns(l, x => x.s >= 65 && x.lyst).some(r => r.n >= 3));
+  const best = full.map(([d, l]) => [d, l.filter(x => x.lyst).reduce((s, x) => s + x.s, 0) / Math.max(1, l.filter(x => x.lyst).length)]).sort((a, b) => b[1] - a[1])[0];
+  const wet = (D.days || []).slice().sort((a, b) => (b.rain || 0) - (a.rain || 0))[0];
+  return `${good.length ? `${good.length} av de neste ${full.length} dagene har fine perioder på minst 3 timer.` : 'Få fine perioder de nærmeste dagene.'} ${best ? `Beste dag er ${dayName(best[0])}.` : ''} ${wet && wet.rain >= 3 ? `Mest nedbør ${dayName(wet.date)} (${fmt1(wet.rain)} mm).` : ''}`;
+}
+async function loadAI(){
+  let html = '', ai = false;
+  try {
+    const r = await fetch(`/ver/api/ai-varsel/${STED}${Q}`); const d = await r.json();
+    if (d.available){
+      ai = true; S.ai = true;
+      if (d.kort) html += `<p><b>Nå:</b> ${esc(d.kort)}</p>`;
+      if (d.overblikk) html += `<p><b>Fremover:</b> ${esc(d.overblikk)}</p>`;
+      const k = [d.gaa ? `<span><b>Gåtur:</b> ${esc(d.gaa)}</span>` : '', d.lop ? `<span><b>Løpetur:</b> ${esc(d.lop)}</span>` : ''].filter(Boolean).join('');
+      if (k) html += `<p class="small klaer">${k}</p>`;
+    }
+  } catch(e){}
+  if (!html && D) html = `<p>${ruleSummary()}</p>`;
+  $('aiBody').innerHTML = html;
+  $('aiTag').textContent = ai ? 'AI' : 'kort fortalt';
+}
+function renderTrust(){
+  const parts = [];
+  if (D.today_score && D.today_score.text) parts.push(esc(D.today_score.text));
+  if (D.trust) parts.push(`<b>${esc(D.trust.title)}.</b> ${esc(D.trust.text)}`);
+  $('trust').innerHTML = parts.length ? parts.map(p => `<p style="margin:0 0 6px">${p}</p>`).join('') : '<p class="muted" style="margin:0">Treffsikkerhet vises for de faste stedene når det finnes nok målinger.</p>';
+}
+
+/* ---------- Aktivitet ---------- */
+function setProfile(k){ S.profil = k; store.set('bdf_profil', k); renderAktivitet(); }
+function winDesc(hs, r){
+  const x = hs.slice(r.b, r.e + 1), t = x.map(v => v.temp), pr = x.reduce((s, v) => s + v.rain, 0), w = Math.max(...x.map(v => v.wind));
+  return `${Math.round(Math.min(...t))}–${Math.round(Math.max(...t))}°, ${pr >= 0.1 ? fmt1(pr) + ' mm' : 'opphold'}, vind opptil ${Math.round(w)} m/s`;
+}
+function renderAktivitet(){
+  if (!D) return;
+  const lim = addDays(TODAY, 2);
+  const cards = Object.entries(PROFILER).map(([k, [navn, ic]]) => {
+    const hs = withProfile(H.map(x => ({ ...x })), k);
+    const w = bestOf(findRuns(hs, x => x.s >= 65 && x.lyst).filter(r => r.n >= 2 && r.d <= lim));
+    return `<button class="act ${k === S.profil ? 'on' : ''}" onclick="setProfile('${k}')"><span class="ai">${ic}</span><b>${navn}</b>
+      <small>${w ? `${cap(dayName(w.d))} ${span(w)}` : 'Ikke fint neste 3 døgn'}</small>${w ? `<span class="pill-s" style="${pill(Math.round(w.avg))}">${Math.round(w.avg)}</span>` : ''}</button>`;
+  }).join('');
+  const hs = withProfile(H.map(x => ({ ...x })), S.profil), navn = PROFILER[S.profil][0];
+  const wins = findRuns(hs, x => x.s >= 65 && x.lyst).filter(r => r.n >= 2).sort((a, b) => b.rank - a.rank).slice(0, 6).sort((a, b) => a.b - b.b);
+  const avoid = findRuns(hs, x => x.s < 30).filter(r => r.n >= 2 && r.d <= lim);
+  const byDay = {}; hs.forEach(x => (byDay[x.d] = byDay[x.d] || []).push(x));
+  $('tab-aktivitet').innerHTML = `
+  <div class="card"><h2><span class="h-l">Hva skal du gjøre?</span><span class="muted small">beste periode neste 3 døgn</span></h2><div class="acts">${cards}</div></div>
+  <div class="card"><h2><span class="h-l">Værluker for ${navn.toLowerCase()}</span><span class="muted small">så langt Yr har timesvarsel</span></h2>
+    ${wins.length ? wins.map(r => `<div class="win"><div class="pill" style="${pill(Math.round(r.avg))}">${Math.round(r.avg)}</div><div class="w-main"><b>${cap(dayName(r.d))}</b> ${span(r)} <span class="muted small">(${r.n} timer)</span><div class="small muted">${winDesc(hs, r)}</div></div></div>`).join('')
+      : `<p class="muted">Ingen gode perioder for ${navn.toLowerCase()} i timesvarselet. Se <a href="/ver/ferieplanlegger">ferieplanleggeren</a> for steder der det er bedre.</p>`}</div>
+  ${avoid.length ? `<div class="card"><h2><span class="h-l">Unngå</span><span class="muted small">neste 3 døgn</span></h2>${avoid.map(r => `<div class="win"><div class="pill" style="${pill(Math.round(r.avg))}">${Math.round(r.avg)}</div><div class="w-main"><b>${cap(dayName(r.d))}</b> ${span(r)}<div class="small muted">${cap(REASON[r.reason] || 'dårlig vær')}, ${winDesc(hs, r).toLowerCase()}</div></div></div>`).join('')}</div>` : ''}
+  <div class="card"><h2><span class="h-l">Dag for dag</span><span class="muted small">kl. 06–23</span></h2>
+    ${Object.entries(byDay).filter(([d, l]) => l.length >= 6).map(([d, l]) => { const w = bestOf(findRuns(l, x => x.s >= 65 && x.lyst).filter(r => r.n >= 2));
+      return `<div class="aday"><div class="dn">${cap(dayName(d))}${dateSmall(d)}</div><div><div class="hstrip">${thinStrip(l)}</div><div class="meta small">${w ? `✅ ${span(w)}` : '<span class="muted">Ingen god periode</span>'}</div></div></div>`; }).join('')}
+    <div class="legend">${BANDS.map(b => `<span><i style="background:${b[2]}"></i>${b[1]}</span>`).join('')}</div></div>
+  <p class="small muted">Ski: se <a href="/ver/varsel-kvamskogen">snøprognosene</a> og <a href="/ver/sno">snømengde</a>.</p>`;
+}
+
+/* ---------- Faner og lasting ---------- */
+function go(tab){
+  if (!$('tab-' + tab)) tab = 'varsel';
+  S.tab = tab;
+  if (location.hash !== '#' + tab) history.replaceState(null, '', (tab === 'varsel' ? location.pathname + location.search : '#' + tab));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  document.querySelectorAll('.tab').forEach(s => s.classList.toggle('on', s.id === 'tab-' + tab));
+  $('hero').style.display = tab === 'varsel' ? '' : 'none';
+  if (tab === 'aktivitet') renderAktivitet();
+  window.scrollTo({ top: 0 });
+}
+document.querySelectorAll('.tab-btn').forEach(b => b.onclick = () => go(b.dataset.tab));
+$('tabellBtn').onclick = () => { S.table = !S.table; renderHourly(); };
+$('gCheck').onchange = e => { S.showG = e.target.checked; renderHourly(); };
+$('klassiskLink').href = location.pathname + (Q ? Q + '&' : '?') + 'klassisk=1';
+
+function vis(d){
+  D = d;
+  TODAY = d.generated_at.slice(0, 10);
+  H = (d.detail_hours || d.hours || []).filter(h => h.temp != null).map(norm);
+  P = (d.today || []).filter(h => h.past).map(h => {
+    const measured = h.obs_temp != null;
+    const temp = measured ? h.obs_temp : h.ref_temp;
+    return { t: h.time, d: h.time.slice(0, 10), h: h.hour, temp: temp != null ? temp : null, rain: (h.obs_rain != null ? h.obs_rain : h.ref_rain) || 0,
+      g_temp: h.g_temp, measured, lyst: true };
+  });
+  if (!P.some(x => x.temp != null)) P = [];
+  if (!H.length) throw new Error('tomt varsel');
+  $('feil').hidden = true;
+  $('gToggle').hidden = !d.google_available;
+  renderHero(); renderHourly(); renderDays(); placeRadar(); renderTrust();
+  if (!S.ai){ $('aiBody').innerHTML = `<p>${ruleSummary()}</p>`; $('aiTag').textContent = 'kort fortalt'; }
+  if (S.tab === 'aktivitet') renderAktivitet();
+  $('srcExtra').textContent = d.google_available ? 'Sammenligning: Google Weather.' : '';
+}
+async function load(){
+  try {
+    const res = await fetch(`/ver/api/varsel/${STED}${Q}`, { cache: 'no-store' });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || 'Feil');
+    vis(d);
+  } catch(e){
+    if (!D){ $('feil').hidden = false; $('feil').textContent = 'Fikk ikke hentet varselet akkurat nå. Prøver igjen om litt.'; }
+  }
+}
+let vist = false;
+if (FORHAAND){ try { vis(FORHAAND); vist = true; } catch(_){} }
+if (!vist || Date.now() - new Date(FORHAAND.generated_at) > 60 * 1000) load();
+setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && D && Date.now() - new Date(D.generated_at) > 5 * 60 * 1000) load(); });
+loadAlerts(); loadAI();
+setInterval(() => { if (!document.hidden) loadAI(); }, 20 * 60 * 1000);
+const startTab = (location.hash || '').slice(1);
+if (startTab) go(startTab);
+{% endraw %}
+</script>
+<script src="/static/js/mine_steder.js"></script>
+<script>
+{% raw %}
+/* Mine steder: knapper øverst og tabell nederst (felles modul med resten av værsidene) */
+(function () {
+  try { MineSteder.add({ name: STED_INFO.name, lat: STED_INFO.lat, lon: STED_INFO.lon, href: '/ver/varsel/' + STED + Q }); } catch (_) {}
+  const iconFn = (sym) => sym ? `<img class="wi" src="/static/ver/ikoner/${sym}.svg" alt="" loading="lazy">` : '';
+  MineSteder.render(document.getElementById('msList'), iconFn);
+  const esc2 = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  let liste = [];
+  try { liste = MineSteder.list(); } catch (_) {}
+  PLACES.forEach(p => { if (!liste.some(q => Math.abs(q.lat - p.lat) < 0.01 && Math.abs(q.lon - p.lon) < 0.01)) liste.push({ name: p.name, lat: p.lat, lon: p.lon, href: '/ver/varsel/' + p.id }); });
+  const her = p => Math.abs(p.lat - STED_INFO.lat) < 0.01 && Math.abs(p.lon - STED_INFO.lon) < 0.01;
+  document.getElementById('places').innerHTML = liste.slice(0, 6).map(p =>
+    `<a class="chip${her(p) ? ' on' : ''}" href="${esc2(p.href || MineSteder.punktUrl(p.name, p.lat, p.lon))}">${esc2(String(p.name).split(',')[0])}</a>`).join('');
+
+  // Stedssøk: alle steder får denne siden (Yr i Norge, Open-Meteo ellers).
+  const input = document.getElementById('stedInput'), box = document.getElementById('stedTreff');
+  let timer = null, nr = 0;
+  const url = it => MineSteder.punktUrl(String(it.name || '').split(',')[0].trim() || 'Valgt sted', it.lat, it.lon);
+  async function sok() {
+    const q = input.value.trim(), mitt = ++nr;
+    if (q.length < 2) { box.hidden = true; return; }
+    try {
+      const r = await fetch(`/ver/api/sted-sok?q=${encodeURIComponent(q)}`);
+      const d = await r.json();
+      if (mitt !== nr) return;
+      const items = (d.items || []).slice(0, 6);
+      box.innerHTML = items.length ? items.map(it => {
+        const [forst, ...rest] = String(it.name || '').split(',');
+        return `<a href="${esc2(url(it))}">${esc2(forst)}<br><small>${esc2(rest.slice(0, 3).join(',').trim())}</small></a>`;
+      }).join('') : '<div class="tom">Fant ingen steder.</div>';
+      box.hidden = false;
+    } catch (_) { box.hidden = true; }
+  }
+  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(sok, 350); });
+  document.getElementById('stedSok').addEventListener('submit', e => {
+    e.preventDefault();
+    const forste = box.querySelector('a');
+    if (forste) location.href = forste.href; else sok();
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('#stedSok')) box.hidden = true; });
+  input.addEventListener('keydown', e => { if (e.key === 'Escape') box.hidden = true; });
+})();
+{% endraw %}
+</script>
+</body>
+</html>

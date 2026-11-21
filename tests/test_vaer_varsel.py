@@ -581,10 +581,14 @@ def test_punktside_viser_navn_og_skjuler_radaranimasjon():
     vv._CACHE.clear()  # ferdige varsler caches per sted
     # Siden starter ellers en ekte henting i bakgrunnen (forhåndsvarselet).
     with patch.object(vv, "varsel_payload_forhaand", return_value=None):
-        page = _app().get("/ver/varsel/p60.628_6.417?navn=Voss")
+        page = _app().get("/ver/varsel/p60.628_6.417?navn=Voss&klassisk=1")
+        ny = _app().get("/ver/varsel/p60.628_6.417?navn=Voss")
     assert page.status_code == 200
     assert b"<h1 class=\"place\" id=\"placeName\">Voss</h1>" in page.data
     assert b"const HAR_RADAR = false" in page.data
+    # Ny forside: navnet kommer fra STED_INFO, og radaren hentes for MET-området via oss.
+    assert ny.status_code == 200 and b'"name": "Voss"' in ny.data
+    assert b"const HAR_RADAR = false" in ny.data and b'const RADAR_OMRAADE = "western_norway"' in ny.data
 
 
 def test_punkt_api_bruker_yr_uten_google_og_maalinger():

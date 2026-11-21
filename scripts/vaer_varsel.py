@@ -19,6 +19,7 @@ er rene funksjoner; bare `_fetch_*` går mot nettet.
 from __future__ import annotations
 
 import contextvars
+import os
 import re
 import threading
 import time
@@ -1452,6 +1453,8 @@ def _build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]
     yr_dates = [d["date"] for d in days if d.get("tmin") is not None]
     days += weathernext_extra_days(wn_days, yr_dates[-1] if yr_dates else None)
     info = sted_info(place)
+    detail_hours = build_hours(rows, google, hour_now, count=100)
+    _merk_fint(info, hours, detail_hours, [h for h in today if not h.get("past")])
     return {
         "dagslys": dagslys_neste(info["lat"], info["lon"], now, info["tz"]),
         "place": info,
@@ -1472,7 +1475,7 @@ def _build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]
                          "attribusjon": wn_varsel.get("attribusjon")} if wn_varsel else None),
         "today": today,
         "today_score": today_score(today, ref_run),
-        "detail_hours": build_hours(rows, google, hour_now, count=100),
+        "detail_hours": detail_hours,
         "blocks": [{"start": _local(p["start"]).isoformat(), "end": _local(p["end"]).isoformat(),
                     "symbol": p["symbol"], "rain": p["rain"], "tmax": p["tmax"], "tmin": p["tmin"]}
                    for p in slices(rows) if p["end"] - p["start"] > timedelta(hours=1)],
@@ -1481,6 +1484,17 @@ def _build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]
         "trust": trust_text(trust_rows, place, _TRUST["days"]) if trust_rows and place in PLACES else None,
         "google_available": bool(google),
     }
+
+
+def _merk_fint(info: dict[str, Any], *lister: list[dict[str, Any]]) -> None:
+    """Fint-score (scripts/fint_score.py) på timene. Lyst = sola over -6 grader."""
+    from scripts.fint_score import merk_timer
+
+    def lyst(h: dict[str, Any]) -> bool:
+        return sun_elevation(info["lat"], info["lon"], datetime.fromisoformat(h["time"])) > TUSSMORKE_GRADER
+
+    for rows in lister:
+        merk_timer(rows, lyst, lambda h: feels_like(h.get("temp"), h.get("wind")))
 
 
 #: Ferdig varsel per sted. Etter et minutt lages et nytt i bakgrunnen, mens
@@ -1596,6 +1610,33 @@ def _sted_fra_request(sted: str) -> Optional[dict[str, Any]]:
     return sted_info(sted)
 
 
+def radar_omraade(lat: float, lon: float) -> str:
+    """MET-radarområdet som dekker punktet (grovt), til forsidens radar."""
+    if lat < 59.6:
+        return "southwestern_norway" if lon < 7.6 else "southeastern_norway"
+    if lat < 62.3:
+        return "western_norway" if lon < 8 else "eastern_norway"
+    if lat < 64.5:
+        return "northwestern_norway" if lon < 9 else "central_norway"
+    if lat < 66.8:
+        return "southern_nordland"
+    if lat < 68.4:
+        return "nordland"
+    if lat < 69.3 and lon < 18:
+        return "northern_nordland"
+    return "troms" if lon < 23 else "finnmark"
+
+
+def _ny_forside() -> bool:
+    """Ny forside (blirdetfint-designet) er standard. ?klassisk=1 eller
+    VAER_NY_FORSIDE=0 gir den gamle siden."""
+    from flask import request
+
+    if request.args.get("klassisk"):
+        return False
+    return (os.environ.get("VAER_NY_FORSIDE", "1") or "1").strip().lower() not in {"0", "false", "nei", "off"}
+
+
 @vaer_varsel.get("/ver/varsel/<sted>")
 def varsel_page(sted: str):
     info = _sted_fra_request(sted)
@@ -1604,9 +1645,11 @@ def varsel_page(sted: str):
     places = sorted(({"id": k, "name": v["name"].split()[0], "lat": v["lat"], "lon": v["lon"]} for k, v in PLACES.items()),
                     key=lambda p: p["id"] != "bergen")  # Bergen først
     vis = {**info, "name": info["name"].split()[0] if info["fast"] else info["name"]}
+    mal = "ver/varsel_ny.html" if _ny_forside() else "ver/varsel.html"
+    omraade = None if sted in RADAR_AREA or not info.get("norge") else radar_omraade(info["lat"], info["lon"])
     return _frame_headers(make_response(render_template(
-        "ver/varsel.html", sted=sted, info=vis, places=places, vaersider=VAERSIDER,
-        har_radar=sted in RADAR_AREA, forhaand=varsel_payload_forhaand(sted))))
+        mal, sted=sted, info=vis, places=places, vaersider=VAERSIDER,
+        har_radar=sted in RADAR_AREA, radar_omraade=omraade, forhaand=varsel_payload_forhaand(sted))))
 
 
 @vaer_varsel.get("/ver/api/varsel/<sted>")
@@ -1891,6 +1934,88 @@ def google_point_api():
     response = jsonify(payload)
     # Nettleseren kan gjenbruke svaret en stund, men ikke lenger enn Googles vilkår tillater.
     response.headers["Cache-Control"] = "private, max-age=900"
+    return response
+
+
+#: MET-radarområder vi videresender (samme navn som i radar/2.0). Brukes av forsiden
+#: for steder uten fast radar, slik at nettleseren aldri snakker med api.met.no selv.
+RADAR_OMRAADER = {
+    "central_norway", "eastern_norway", "finnmark", "nordland", "northern_nordland",
+    "northwestern_norway", "norway", "southeastern_norway", "southern_nordland",
+    "southern_norway", "southwestern_norway", "troms", "western_norway",
+}
+
+
+@vaer_varsel.get("/ver/api/radar/omraade/<area>.gif")
+def radar_omraade_gif(area: str):
+    if area not in RADAR_OMRAADER:
+        abort(404)
+    body = None
+    for forsok in dict.fromkeys((area, "norway")):  # hele Norge hvis området mangler hos MET
+        try:
+            body = _fetch_radar(forsok)
+            break
+        except requests.RequestException:
+            continue
+    if body is None:
+        return Response("Radaren er ikke tilgjengelig akkurat nå.", status=502, mimetype="text/plain")
+    return Response(body, mimetype="image/gif", headers={"Cache-Control": "public, max-age=300"})
+
+
+# ---------------------------------------------------------------------------
+# Farevarsel fra MET (MetAlerts 2.0), bare i Norge
+# ---------------------------------------------------------------------------
+
+def _farge(props: dict[str, Any]) -> str:
+    tekst = " ".join(str(props.get(k) or "") for k in ("riskMatrixColor", "awareness_level", "severity")).lower()
+    if "red" in tekst or "rød" in tekst or "extreme" in tekst:
+        return "red"
+    if "orange" in tekst or "severe" in tekst:
+        return "orange"
+    return "yellow"
+
+
+def parse_farevarsel(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Aktive farevarsler, alvorligste først. Tåler at felter mangler."""
+    rang = {"red": 0, "orange": 1, "yellow": 2}
+    ut = []
+    for f in (payload or {}).get("features") or []:
+        props = f.get("properties") or {}
+        if str(props.get("status") or "Actual").lower() not in {"actual", ""}:
+            continue
+        intervall = ((f.get("when") or {}).get("interval") or [None, None])
+        tittel = props.get("title") or " ".join(
+            x for x in (props.get("eventAwarenessName"), props.get("area")) if x) or "Farevarsel"
+        ut.append({
+            "farge": _farge(props),
+            "tittel": tittel,
+            "beskrivelse": props.get("description") or "",
+            "rad": props.get("instruction") or "",
+            "slutt": intervall[1] if len(intervall) > 1 else None,
+        })
+    return sorted(ut, key=lambda v: rang[v["farge"]])
+
+
+def _fetch_farevarsel(lat: float, lon: float) -> dict[str, Any]:
+    key = (round(lat, 2), round(lon, 2))
+    return _CACHE.get(("farevarsel", key), 600, lambda: _get(
+        f"{MET}/metalerts/2.0/current.json", lat=f"{key[0]:.2f}", lon=f"{key[1]:.2f}", lang="no").json(),
+        stale=1800)
+
+
+@vaer_varsel.get("/ver/api/farevarsel/<sted>")
+def farevarsel_api(sted: str):
+    info = _sted_fra_request(sted)
+    if info is None:
+        return jsonify(error="Ukjent sted."), 404
+    if not info.get("norge"):
+        return jsonify(varsler=[])
+    try:
+        varsler = parse_farevarsel(_fetch_farevarsel(info["lat"], info["lon"]))
+    except Exception:
+        varsler = []  # Ingen feilmelding på siden: uten svar vises bare ingen varsler.
+    response = jsonify(varsler=varsler)
+    response.headers["Cache-Control"] = "public, max-age=300"
     return response
 
 
