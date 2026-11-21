@@ -277,7 +277,7 @@ def slices(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         end = row["time"] + timedelta(hours=length)
         result.append({"start": row["time"], "end": end, "symbol": block["symbol"],
                        "rain": block["rain"], "rain_min": block.get("rain_min"),
-                       "rain_max": block.get("rain_max"),
+                       "rain_max": block.get("rain_max"), "pop": block.get("pop"),
                        "tmax": block.get("tmax"), "tmin": block.get("tmin"),
                        "temp": row.get("temp"), "wind": row.get("wind"), "gust": row.get("gust")})
         cursor = end
@@ -316,7 +316,7 @@ def build_hours(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
         result.append({
             "time": local.isoformat(), "hour": local.hour,
             "symbol": n1["symbol"], "temp": row["temp"], "rain": n1["rain"],
-            "rain_max": n1["rain_max"], "pop": n1["pop"],
+            "rain_min": n1["rain_min"], "rain_max": n1["rain_max"], "pop": n1["pop"],
             "wind": row["wind"], "gust": row["gust"], "wind_dir": row["wind_dir"],
             "g_temp": g_temp, "g_rain": g_rain, "disagree": disagree,
         })
@@ -397,6 +397,7 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
             "rain": round(yr_rain, 1),
             "rain_min": round(yr_min, 1),
             "rain_max": round(yr_max, 1),
+            "pop_max": max((p["pop"] for p in in_day if p.get("pop") is not None), default=None),
             "g_rain": g_rain,
             "observed": observed_today,
             "wind_max": round(max(winds)) if winds else None,
@@ -789,7 +790,7 @@ def build_today(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
             if row is not None:
                 n1 = row["n1"]
                 item.update({"symbol": n1["symbol"], "temp": row["temp"], "rain": n1["rain"],
-                             "rain_max": n1["rain_max"], "pop": n1["pop"], "wind": row["wind"],
+                             "rain_min": n1["rain_min"], "rain_max": n1["rain_max"], "pop": n1["pop"], "wind": row["wind"],
                              "gust": row["gust"], "wind_dir": row["wind_dir"]})
             item.update({"g_temp": _num(g.get("temp")), "g_rain": _num(g.get("rain"))})
             if row is not None and item["g_rain"] is not None:
@@ -1457,7 +1458,8 @@ def _build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]
     detail_hours = build_hours(rows, google, hour_now, count=100)
     _merk_fint(info, hours, detail_hours, [h for h in today if not h.get("past")])
     blocks = [{"start": _local(p["start"]).isoformat(), "end": _local(p["end"]).isoformat(),
-               "symbol": p["symbol"], "rain": p["rain"], "tmax": p["tmax"], "tmin": p["tmin"],
+               "symbol": p["symbol"], "rain": p["rain"], "rain_min": p.get("rain_min"),
+               "rain_max": p.get("rain_max"), "pop": p.get("pop"), "tmax": p["tmax"], "tmin": p["tmin"],
                "wind": p.get("wind"), "gust": p.get("gust")}
               for p in slices(rows) if p["end"] - p["start"] > timedelta(hours=1)]
     _merk_blokker(info, blocks)

@@ -128,7 +128,7 @@ main{padding:24px 0 40px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 
 /* Tabell (time for time) */
-.hrow{display:grid;grid-template-columns:4px 34px 38px 56px 84px 110px 1fr;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:.93rem}
+.hrow{display:grid;grid-template-columns:4px 34px 38px 56px 92px 52px 110px 1fr;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:.93rem}
 .hrow .st{align-self:stretch;border-radius:3px;min-height:26px}
 .hrow.night .st{opacity:.5}
 .hrow .kl{font-weight:600}
@@ -332,7 +332,7 @@ footer a{color:inherit}
   .tab-btn.on{border-top-color:var(--gold)}
   body{padding-bottom:72px}
   .chart-wrap{margin:0 -20px;padding:0 20px 4px}
-  .hrow{grid-template-columns:4px 24px 32px 42px 1fr 62px;gap:8px}
+  .hrow{grid-template-columns:4px 22px 30px 38px 1fr 40px 54px;gap:6px}
   .hrow .wd{text-align:right}
   .hrow .lb{display:none}
   .drow-top{grid-template-columns:66px repeat(4,1fr) 58px 50px 12px;gap:2px}
@@ -344,6 +344,15 @@ footer a{color:inherit}
   .kpi b{font-size:1.15rem}
 }
 /* Produksjon: tillegg */
+.rng{display:block;font-size:.72rem;color:var(--muted);font-weight:400;line-height:1.1}
+.hhead .rng{white-space:nowrap}
+.pop{font-size:.85rem;color:var(--rainT);font-weight:600}
+.pop.lav{color:var(--muted);font-weight:400}
+.pop.hoy{font-weight:800}
+.popc{text-align:right}
+.pp .rng{text-align:right}
+.dsum{margin-bottom:4px}
+@media (max-width:700px){.pop{font-size:.78rem}.hrow .pr{font-size:.85rem}}
 .leaflet-tile.basekart,.basekart .leaflet-tile{filter:grayscale(1) brightness(1.04) contrast(.88)}
 @media (prefers-color-scheme:dark){.leaflet-tile.basekart,.basekart .leaflet-tile{filter:grayscale(1) invert(1) brightness(.8) contrast(.9)}}
 .hc .vind text{font-size:11.5px;font-weight:600;fill:var(--ink)}
@@ -351,10 +360,10 @@ footer a{color:inherit}
 .hc .vind.frisk text{font-weight:800}
 .hc .vind.sterk text,.hc .vind.sterk path{fill:#b0581a}
 .hc .vind.pv text,.hc .vind.pv path{fill:var(--muted);font-weight:500}
-.hrow.brow{grid-template-columns:4px 52px 38px 80px 84px 110px 1fr}
+.hrow.brow{grid-template-columns:4px 52px 38px 80px 92px 52px 110px 1fr}
 .thin i.blk{opacity:.8}
 .hrow.brow .kl{white-space:nowrap}
-@media (max-width:700px){.hrow.brow{grid-template-columns:4px 44px 30px 70px 1fr 36px;gap:6px}.hrow.brow .kl{font-size:.82rem}}
+@media (max-width:700px){.hrow.brow{grid-template-columns:4px 44px 28px 64px 1fr 40px 34px;gap:5px}.hrow.brow .kl{font-size:.82rem}}
 .tznote{margin:14px 0 0;font-size:.82rem;color:var(--muted)}
 a.chip{text-decoration:none;color:inherit}
 .qres{display:block}
@@ -543,7 +552,7 @@ const kind = hs => { const t = hs.reduce((s, x) => s + x.temp, 0) / Math.max(1, 
 /* ---------- Timer ---------- */
 function norm(h){
   const t = h.time;
-  return { t, d: t.slice(0, 10), h: +t.slice(11, 13), temp: h.temp, rain: h.rain || 0, wind: h.wind || 0, gust: h.gust,
+  return { t, d: t.slice(0, 10), h: +t.slice(11, 13), temp: h.temp, rain: h.rain || 0, rain_min: h.rain_min, rain_max: h.rain_max, pop: h.pop, wind: h.wind || 0, gust: h.gust,
     wdir: h.wind_dir, symbol: h.symbol, lyst: !!h.lyst, foles: h.foles, g_temp: h.g_temp, g_rain: h.g_rain,
     fint: h.fint || {}, grunn: h.fint_grunn || {} };
 }
@@ -746,12 +755,20 @@ function hourChart(past, fut){
   return `<svg class="hc" width="${W}" height="${Hc}" viewBox="0 0 ${W} ${Hc}" role="img" aria-label="Temperatur, nedbør og hvor fint det er time for time">
     <defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f5a524" stop-opacity=".22"/><stop offset="1" stop-color="#f5a524" stop-opacity="0"/></linearGradient></defs>${bg}${fg}</svg>`;
 }
-const HHEAD = `<div class="hrow hhead"><div></div><div class="kl">Kl.</div><div></div><div>Temp.</div><div>Nedbør</div><div class="wd">Vind (kast) m/s</div><div></div></div>`;
+const HHEAD = `<div class="hrow hhead"><div></div><div class="kl">Kl.</div><div></div><div>Temp.</div><div>Nedbør<small class="rng">min–maks</small></div><div class="popc">Sjanse</div><div class="wd">Vind<span class="hm"> (kast) m/s</span></div><div></div></div>`;
+// Forventet nedbør med Yr sitt spenn (min–maks) under, og sannsynlighet for nedbør.
+function rainCell(rain, mn, mx){
+  const r = rain || 0;
+  if (r < 0.1 && !(mx >= 0.1)) return '';
+  const lo = mn != null ? mn : r, hi = mx != null ? mx : r;
+  return `${r >= 0.1 ? `<b>${fmt1(r)}</b> mm` : '<span class="muted">0 mm</span>'}${hi - lo >= 0.1 ? `<small class="rng">${fmt1(lo)}–${fmt1(hi)}</small>` : ''}`;
+}
+const popCell = p => p == null ? '' : `<span class="pop${p >= 50 ? ' hoy' : p < 20 ? ' lav' : ''}">${Math.round(p)} %</span>`;
 function hourRow(x){
   const b = band(x.s);
   return `<div class="hrow${x.lyst ? '' : ' night'}"><div class="st" style="background:${b[2]}" title="${b[1]}${x.r ? ', ' + REASON[x.r] : ''}"></div>
     <div class="kl">${hh(x.h)}</div><div class="em">${icon(x.symbol)}</div><div class="tp ${tcls(x.temp)}">${Math.round(x.temp)}°</div>
-    <div class="pr">${x.rain >= 0.1 ? fmt1(x.rain) + ' mm' : ''}</div>
+    <div class="pr">${rainCell(x.rain, x.rain_min, x.rain_max)}</div><div class="popc">${popCell(x.pop)}</div>
     <div class="wd">${x.wdir != null ? `<span class="wa" style="transform:rotate(${x.wdir + 180}deg)">↑</span> ` : ''}${Math.round(x.wind)}${x.gust != null ? ` <span>(${Math.round(x.gust)})</span>` : ''}</div>
     <div class="lb" style="color:${b[3]}">${b[1]}</div></div>`;
 }
@@ -796,7 +813,7 @@ function blockRow(b){
   return `<div class="hrow brow${b.lyst ? '' : ' night'}"><div class="st" style="background:${bd[2]}" title="${bd[1]} (omtrentlig)${b.r ? ', ' + REASON[b.r] : ''}"></div>
     <div class="kl">${b.start.slice(11, 13)}–${b.end.slice(11, 13)}</div><div class="em">${icon(b.symbol)}</div>
     <div class="tp">${b.tmin != null ? `<span class="${tcls(b.tmin)}">${Math.round(b.tmin)}</span> til ` : ''}<span class="${tcls(b.tmax ?? 0)}">${b.tmax != null ? Math.round(b.tmax) : '–'}°</span></div>
-    <div class="pr">${b.rain >= 0.1 ? fmt1(b.rain) + ' mm' : ''}</div>
+    <div class="pr">${rainCell(b.rain, b.rain_min, b.rain_max)}</div><div class="popc">${popCell(b.pop)}</div>
     <div class="wd">${b.wind != null ? Math.round(b.wind) : ''}${b.gust != null ? ` <span>(${Math.round(b.gust)})</span>` : ''}</div>
     <div class="lb" style="color:${bd[3]}">${bd[1]}</div></div>`;
 }
@@ -819,15 +836,18 @@ function renderDays(){
       const w = bestOf(findRuns(hs, x => x.s >= 65 && x.lyst).filter(r => r.n >= 2));
       const bw = !hs.some(x => x.lyst) ? dayB.filter(b => b.lyst && b.s != null).sort((a, b) => b.s - a.s)[0] : null;
       const gr = D.google_available && d.g_rain != null ? `<span class="gnote">Google: ${fmt1(d.g_rain)} mm</span>` : '';
-      exp = `<div class="dexp"><div class="dmeta">${w ? `<span><b>Fint ${span(w)}</b></span>` : (!bw && hs.length ? '<span class="muted">Ingen fin periode</span>' : '')}${!w && bw ? `<span><b>Best kl. ${bw.start.slice(11, 13)}–${bw.end.slice(11, 13)}</b> <span class="muted">(${band(bw.s)[1].toLowerCase()})</span></span>` : ''}
+      const lo = d.rain_min != null ? d.rain_min : rain, hi = d.rain_max != null ? d.rain_max : rain;
+      const dagRegn = rain != null ? `<span class="dregn"><b>Nedbør:</b> ${fmt1(rain)} mm${hi - lo >= 0.1 ? ` <span class="muted">(min ${fmt1(lo)}, maks ${fmt1(hi)})</span>` : ''}${d.pop_max != null ? ` <span class="muted">· sjanse opptil ${Math.round(d.pop_max)} %</span>` : ''}${d.date === TODAY && d.observed ? ` <span class="muted">· inkl. ${fmt1(d.observed)} mm målt hittil</span>` : ''}</span>` : '';
+      exp = `<div class="dexp"><div class="dmeta dsum">${dagRegn}</div><div class="dmeta">${w ? `<span><b>Fint ${span(w)}</b></span>` : (!bw && hs.length ? '<span class="muted">Ingen fin periode</span>' : '')}${!w && bw ? `<span><b>Best kl. ${bw.start.slice(11, 13)}–${bw.end.slice(11, 13)}</b> <span class="muted">(${band(bw.s)[1].toLowerCase()})</span></span>` : ''}
         ${d.wind_max != null ? `<span class="muted">vind opptil ${d.wind_max}${d.gust_max != null ? ` (${d.gust_max})` : ''} m/s</span>` : ''}${gr}</div>
         ${hs.length || dayB.length ? HHEAD + hourRows(hs, false) + dayB.filter(b => b.start.slice(0, 10) === d.date).map(blockRow).join('') : '<p class="small muted">Detaljer finnes ikke så langt frem, bare dagsvarselet.</p>'}
-        ${!hs.length && dayB.length ? '<p class="small muted" style="margin:8px 0 0">Yr gir varsel i blokker på seks timer så langt frem. Fargene er omtrentlige.</p>' : ''}</div>`;
+        ${hs.length || dayB.length ? '<p class="small muted" style="margin:8px 0 0">Nedbør: forventet mengde, med Yr sitt spenn (min–maks) under. Sjanse: sannsynlighet for nedbør.</p>' : ''}
+        ${!hs.length && dayB.length ? '<p class="small muted" style="margin:4px 0 0">Yr gir varsel i blokker på seks timer så langt frem. Fargene er omtrentlige.</p>' : ''}</div>`;
     }
     return `<div class="drow${open ? ' open' : ''}" onclick="toggleDay('${d.date}')">
       <div class="drow-top"><div class="dn">${cap(dayName(d.date))}${dateSmall(d.date)}</div>${periods}
         <div class="tt">${tmax != null ? `<span class="${tcls(tmax)}">${Math.round(tmax)}°</span><span class="lo ${tmin < 0 ? 'cold' : ''}">${Math.round(tmin)}°</span>` : ''}</div>
-        <div class="pp">${rain >= 0.1 ? fmt1(rain) + ' mm' : ''}</div><div class="chev">${CHEV}</div></div>
+        <div class="pp">${rain >= 0.1 ? fmt1(rain) + ' mm' : ''}${rain != null && d.rain_max != null && d.rain_max - (d.rain_min ?? rain) >= 0.1 ? `<small class="rng">${fmt1(d.rain_min ?? rain)}–${fmt1(d.rain_max)}</small>` : ''}</div><div class="chev">${CHEV}</div></div>
       ${cells >= 6 ? `<div class="thin">${thinStrip(hs, d.date, dayB)}</div>` : ''}
     </div>${exp}`;
   }).join('');
