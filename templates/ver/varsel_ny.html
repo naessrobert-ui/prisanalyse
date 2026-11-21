@@ -344,6 +344,8 @@ footer a{color:inherit}
   .kpi b{font-size:1.15rem}
 }
 /* Produksjon: tillegg */
+.leaflet-tile.basekart,.basekart .leaflet-tile{filter:grayscale(1) brightness(1.04) contrast(.88)}
+@media (prefers-color-scheme:dark){.leaflet-tile.basekart,.basekart .leaflet-tile{filter:grayscale(1) invert(1) brightness(.8) contrast(.9)}}
 .hc .vind text{font-size:11.5px;font-weight:600;fill:var(--ink)}
 .hc .vind path{fill:var(--muted)}
 .hc .vind.frisk text{font-weight:800}
@@ -933,12 +935,12 @@ function ensureLeaflet(){
   })();
   return S.leafletP;
 }
+// Bakgrunnskart: OpenStreetMap (ingen nøkkel, samme som resten av værsidene), gjort grått i CSS
+// så radaren synes. CARTO krever nå API-nøkkel og svarer med vannmerke i stedet for feil.
 function baseLayer(map){
-  const dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
-  const carto = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, { attribution: '© OpenStreetMap, © CARTO', maxZoom: 12 });
-  let errs = 0, swapped = false;
-  carto.on('tileerror', () => { if (++errs > 3 && !swapped){ swapped = true; map.removeLayer(carto); L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 12 }).addTo(map); } });
-  carto.addTo(map);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+    maxZoom: 12, className: 'basekart' }).addTo(map);
 }
 async function mapRadar(){
   const box = $('radar'), card = $('radar-card');
