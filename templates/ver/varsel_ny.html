@@ -757,11 +757,13 @@ function hourChart(past, fut){
 }
 const HHEAD = `<div class="hrow hhead"><div></div><div class="kl">Kl.</div><div></div><div>Temp.</div><div>Nedbør<small class="rng">min–maks</small></div><div class="popc">Sjanse</div><div class="wd">Vind<span class="hm"> (kast) m/s</span></div><div></div></div>`;
 // Forventet nedbør med Yr sitt spenn (min–maks) under, og sannsynlighet for nedbør.
+function rngText(r, mn, mx){
+  if (mx == null || mx - (mn != null ? mn : r) < 0.1) return '';
+  return mn != null ? `${fmt1(mn)}–${fmt1(mx)}` : `opptil ${fmt1(mx)}`;
+}
 function rainCell(rain, mn, mx){
-  const r = rain || 0;
-  if (r < 0.1 && !(mx >= 0.1)) return '';
-  const lo = mn != null ? mn : r, hi = mx != null ? mx : r;
-  return `${r >= 0.1 ? `<b>${fmt1(r)}</b> mm` : '<span class="muted">0 mm</span>'}${hi - lo >= 0.1 ? `<small class="rng">${fmt1(lo)}–${fmt1(hi)}</small>` : ''}`;
+  const r = rain || 0, rng = rngText(r, mn, mx);
+  return `${r >= 0.1 ? `<b>${fmt1(r)}</b> mm` : '<span class="muted">0 mm</span>'}${rng ? `<small class="rng">${rng}</small>` : ''}`;
 }
 const popCell = p => p == null ? '' : `<span class="pop${p >= 50 ? ' hoy' : p < 20 ? ' lav' : ''}">${Math.round(p)} %</span>`;
 function hourRow(x){
@@ -817,6 +819,14 @@ function blockRow(b){
     <div class="wd">${b.wind != null ? Math.round(b.wind) : ''}${b.gust != null ? ` <span>(${Math.round(b.gust)})</span>` : ''}</div>
     <div class="lb" style="color:${bd[3]}">${bd[1]}</div></div>`;
 }
+const PSTART = { natt: 0, morgen: 6, ettermiddag: 12, kveld: 18 };
+function periodRow(p){
+  const a = PSTART[p.name] ?? 0;
+  return `<div class="hrow brow${p.name === 'natt' || p.name === 'kveld' ? ' night' : ''}"><div class="st" style="background:var(--soft)"></div>
+    <div class="kl">${hh(a)}–${hh((a + 6) % 24)}</div><div class="em">${icon(p.symbol)}</div>
+    <div class="tp">${p.tmin != null ? `<span class="${tcls(p.tmin)}">${p.tmin}</span> til ` : ''}<span class="${tcls(p.tmax ?? 0)}">${p.tmax != null ? p.tmax : '–'}°</span></div>
+    <div class="pr">${rainCell(p.rain, null, null)}</div><div class="popc"></div><div class="wd"></div><div class="lb"></div></div>`;
+}
 function dateSmall(d){ return (d === TODAY || /\d/.test(dayName(d))) ? '' : `<small>${new Date(d + 'T12:00:00Z').getUTCDate()}. ${MON[+d.slice(5, 7) - 1]}</small>`; }
 function renderDays(){
   const hsAll = withProfile(H.map(x => ({ ...x })), 'generelt');
@@ -826,7 +836,8 @@ function renderDays(){
   $('days').innerHTML = (D.days || []).map(d => {
     const hs = byDay[d.date] || [], open = S.open.has(d.date);
     const lastH = hs.length ? hs[hs.length - 1].t.slice(0, 13) : '';
-    const dayB = B.filter(b => b.end.slice(0, 13) > `${d.date}T00` && b.start.slice(0, 13) < `${addDays(d.date, 1)}T00` && b.start.slice(0, 13) > lastH);
+    // Blokkene er Yr sine: brukes ikke for dager der WeatherNext har overtatt, så tallene henger sammen.
+    const dayB = d.source === 'weathernext' ? [] : B.filter(b => b.end.slice(0, 13) > `${d.date}T00` && b.start.slice(0, 13) < `${addDays(d.date, 1)}T00` && b.start.slice(0, 13) > lastH);
     const cells = dayCells(d.date, hs, dayB).filter(Boolean).length;
     const periods = (d.periods || []).map(p => `<span class="p4" title="${p.name}">${p.symbol ? icon(p.symbol) : '<span class="muted">–</span>'}</span>`).join('');
     const tmax = d.tmax != null ? d.tmax : (wn[d.date] || {}).tmax, tmin = d.tmin != null ? d.tmin : (wn[d.date] || {}).tmin;
@@ -836,18 +847,21 @@ function renderDays(){
       const w = bestOf(findRuns(hs, x => x.s >= 65 && x.lyst).filter(r => r.n >= 2));
       const bw = !hs.some(x => x.lyst) ? dayB.filter(b => b.lyst && b.s != null).sort((a, b) => b.s - a.s)[0] : null;
       const gr = D.google_available && d.g_rain != null ? `<span class="gnote">Google: ${fmt1(d.g_rain)} mm</span>` : '';
-      const lo = d.rain_min != null ? d.rain_min : rain, hi = d.rain_max != null ? d.rain_max : rain;
-      const dagRegn = rain != null ? `<span class="dregn"><b>Nedbør:</b> ${fmt1(rain)} mm${hi - lo >= 0.1 ? ` <span class="muted">(min ${fmt1(lo)}, maks ${fmt1(hi)})</span>` : ''}${d.pop_max != null ? ` <span class="muted">· sjanse opptil ${Math.round(d.pop_max)} %</span>` : ''}${d.date === TODAY && d.observed ? ` <span class="muted">· inkl. ${fmt1(d.observed)} mm målt hittil</span>` : ''}</span>` : '';
+      const hi = d.rain_max, lo = d.rain_min;
+      const spenn = hi == null || hi - (lo != null ? lo : rain) < 0.1 ? '' : (lo != null ? `(min ${fmt1(lo)}, maks ${fmt1(hi)})` : `(opptil ${fmt1(hi)})`);
+      const dagRegn = rain != null ? `<span class="dregn"><b>Nedbør:</b> ${fmt1(rain)} mm${spenn ? ` <span class="muted">${spenn}</span>` : ''}${d.pop_max != null ? ` <span class="muted">· sjanse opptil ${Math.round(d.pop_max)} %</span>` : ''}${d.date === TODAY && d.observed ? ` <span class="muted">· inkl. ${fmt1(d.observed)} mm målt hittil</span>` : ''}</span>` : '';
       exp = `<div class="dexp"><div class="dmeta dsum">${dagRegn}</div><div class="dmeta">${w ? `<span><b>Fint ${span(w)}</b></span>` : (!bw && hs.length ? '<span class="muted">Ingen fin periode</span>' : '')}${!w && bw ? `<span><b>Best kl. ${bw.start.slice(11, 13)}–${bw.end.slice(11, 13)}</b> <span class="muted">(${band(bw.s)[1].toLowerCase()})</span></span>` : ''}
         ${d.wind_max != null ? `<span class="muted">vind opptil ${d.wind_max}${d.gust_max != null ? ` (${d.gust_max})` : ''} m/s</span>` : ''}${gr}</div>
-        ${hs.length || dayB.length ? HHEAD + hourRows(hs, false) + dayB.filter(b => b.start.slice(0, 10) === d.date).map(blockRow).join('') : '<p class="small muted">Detaljer finnes ikke så langt frem, bare dagsvarselet.</p>'}
+        ${hs.length || dayB.length ? HHEAD + hourRows(hs, false) + dayB.filter(b => b.start.slice(0, 10) === d.date).map(blockRow).join('')
+          : (d.source === 'weathernext' && (d.periods || []).some(p => p.symbol) ? HHEAD + d.periods.filter(p => p.symbol).map(periodRow).join('') : '<p class="small muted">Detaljer finnes ikke så langt frem, bare dagsvarselet.</p>')}
+        ${d.source === 'weathernext' ? '<p class="small muted" style="margin:6px 0 0">Varsel fra Google WeatherNext (Yr når ikke så langt), delt i fire perioder.</p>' : ''}
         ${hs.length || dayB.length ? '<p class="small muted" style="margin:8px 0 0">Nedbør: forventet mengde, med Yr sitt spenn (min–maks) under. Sjanse: sannsynlighet for nedbør.</p>' : ''}
         ${!hs.length && dayB.length ? '<p class="small muted" style="margin:4px 0 0">Yr gir varsel i blokker på seks timer så langt frem. Fargene er omtrentlige.</p>' : ''}</div>`;
     }
     return `<div class="drow${open ? ' open' : ''}" onclick="toggleDay('${d.date}')">
       <div class="drow-top"><div class="dn">${cap(dayName(d.date))}${dateSmall(d.date)}</div>${periods}
         <div class="tt">${tmax != null ? `<span class="${tcls(tmax)}">${Math.round(tmax)}°</span><span class="lo ${tmin < 0 ? 'cold' : ''}">${Math.round(tmin)}°</span>` : ''}</div>
-        <div class="pp">${rain >= 0.1 ? fmt1(rain) + ' mm' : ''}${rain != null && d.rain_max != null && d.rain_max - (d.rain_min ?? rain) >= 0.1 ? `<small class="rng">${fmt1(d.rain_min ?? rain)}–${fmt1(d.rain_max)}</small>` : ''}</div><div class="chev">${CHEV}</div></div>
+        <div class="pp">${rain >= 0.1 ? fmt1(rain) + ' mm' : ''}${rain != null && rngText(rain, d.rain_min, d.rain_max) ? `<small class="rng">${rngText(rain, d.rain_min, d.rain_max)}</small>` : ''}</div><div class="chev">${CHEV}</div></div>
       ${cells >= 6 ? `<div class="thin">${thinStrip(hs, d.date, dayB)}</div>` : ''}
     </div>${exp}`;
   }).join('');

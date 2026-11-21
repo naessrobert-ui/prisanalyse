@@ -115,3 +115,43 @@ def test_rainviewer_liste_via_oss():
     vv._CACHE.clear()
     with patch.object(vv.requests, "get", side_effect=vv.requests.ConnectionError):
         assert c.get("/ver/api/rainviewer.json").status_code == 502
+
+
+def _yr_lang(timer: int, blokker: int):
+    from datetime import datetime, timedelta, timezone
+    start = datetime(2026, 11, 21, 6, tzinfo=timezone.utc)
+    serie = []
+    for i in range(timer):
+        serie.append({"time": (start + timedelta(hours=i)).isoformat().replace("+00:00", "Z"), "data": {
+            "instant": {"details": {"air_temperature": 2.0, "wind_speed": 3.0}},
+            "next_1_hours": {"summary": {"symbol_code": "cloudy"}, "details": {"precipitation_amount": 0.1}}}})
+    t = start + timedelta(hours=timer)
+    for k in range(blokker):
+        serie.append({"time": (t + timedelta(hours=6 * k)).isoformat().replace("+00:00", "Z"), "data": {
+            "instant": {"details": {"air_temperature": 1.0, "wind_speed": 4.0}},
+            "next_6_hours": {"summary": {"symbol_code": "rain"}, "details": {
+                "precipitation_amount": 1.2, "precipitation_amount_min": 0.4, "precipitation_amount_max": 2.6,
+                "probability_of_precipitation": 60}}}})
+    return vv.parse_yr({"properties": {"timeseries": serie}})
+
+
+def test_dagene_foelger_yr_saa_langt_det_har_hele_doegn():
+    from datetime import datetime, timezone
+    now = datetime(2026, 11, 21, 6, tzinfo=timezone.utc)
+    # 66 timer + 34 seks-timersblokker = ca. 11 døgn, siste døgn bare delvis.
+    days = vv.build_days(_yr_lang(66, 34), [], {}, now)
+    assert len(days) > 8
+    sist = days[-1]
+    assert sum(1 for p in sist["periods"] if p["symbol"]) == 4  # siste Yr-døgn er helt
+    assert sist["rain_min"] < sist["rain"] < sist["rain_max"]
+
+
+def test_weathernext_dag_har_min_naar_p10_finnes():
+    from datetime import datetime, timedelta, timezone
+    now = datetime(2026, 11, 21, 0, tzinfo=timezone.utc)
+    timer = [{"t": (now + timedelta(days=12, hours=h)).isoformat(), "temp": {"mean": 1.0, "p10": -1.0, "p90": 3.0},
+              "regn": {"mean": 0.2, "p10": 0.0, "p90": 0.6}, "sky": {"mean": 80}} for h in range(24)]
+    dag = max(vv.weathernext_by_day({"timer": timer}, now).values(), key=lambda d: d["hours"])
+    assert dag["rain_lo"] == 0.0 and dag["rain_hi"] == round(dag["rain"] * 3, 1) > 0
+    ekstra = vv.weathernext_extra_days({"2026-12-03": dag}, "2026-12-01")
+    assert ekstra[0]["rain_min"] == 0.0 and ekstra[0]["rain_max"] == dag["rain_hi"]
