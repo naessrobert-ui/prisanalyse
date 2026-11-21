@@ -344,6 +344,11 @@ footer a{color:inherit}
   .kpi b{font-size:1.15rem}
 }
 /* Produksjon: tillegg */
+.hc .vind text{font-size:11.5px;font-weight:600;fill:var(--ink)}
+.hc .vind path{fill:var(--muted)}
+.hc .vind.frisk text{font-weight:800}
+.hc .vind.sterk text,.hc .vind.sterk path{fill:#b0581a}
+.hc .vind.pv text,.hc .vind.pv path{fill:var(--muted);font-weight:500}
 .hrow.brow{grid-template-columns:4px 52px 38px 80px 84px 110px 1fr}
 .thin i.blk{opacity:.8}
 .hrow.brow .kl{white-space:nowrap}
@@ -704,7 +709,7 @@ function curvePath(pts){
 }
 function segments(arr){ const out = []; let cur = []; arr.forEach(p => { if (p) cur.push(p); else if (cur.length){ out.push(cur); cur = []; } }); if (cur.length) out.push(cur); return out; }
 function hourChart(past, fut){
-  const all = past.concat(fut), iNow = past.length, cw = 46, n = all.length, W = n * cw, Hc = 232;
+  const all = past.concat(fut), iNow = past.length, cw = 46, n = all.length, W = n * cw, Hc = 262;
   const temps = all.map(x => x.temp).filter(v => v != null).concat(S.showG ? all.map(x => x.g_temp).filter(v => v != null) : []);
   const tmin = Math.min(...temps), tmax = Math.max(...temps);
   const yT = t => 134 - (t - tmin) / Math.max(4, tmax - tmin) * 52, X = i => i * cw + cw / 2;
@@ -727,6 +732,13 @@ function hourChart(past, fut){
     fg += `<rect class="bar${i < iNow ? ' pb' : ''}" x="${i * cw + 9}" y="${184 - h}" width="${cw - 18}" height="${h}" rx="3"/>`;
     if (x.rain >= 0.5) fg += `<text class="plab" x="${X(i)}" y="${184 - h - 4}" text-anchor="middle">${fmt1(x.rain)}</text>`; } });
   fut.forEach((x, k) => { const i = iNow + k; fg += `<rect x="${i * cw + 1}" y="190" width="${cw - 2}" height="8" rx="3" fill="${band(x.s)[2]}" opacity="${x.lyst ? 1 : .55}"><title>kl. ${hh(x.h)}: ${band(x.s)[1]}${x.r ? ', ' + REASON[x.r] : ''}</title></rect>`; });
+  // Vind: pil i vindretningen (der vinden blåser mot) og styrke i m/s, kast i verktøytipset.
+  all.forEach((x, i) => {
+    if (x.wind == null) return;
+    const v = Math.round(x.wind), cls = x.wind >= 14 ? ' sterk' : x.wind >= 8 ? ' frisk' : '';
+    const tip = `Vind ${v}${x.gust != null ? ` (kast ${Math.round(x.gust)})` : ''} m/s${x.wdir != null ? ' fra ' + dirName(x.wdir) : ''}${x.measured ? ', målt' : ''}`;
+    fg += `<g class="vind${cls}${i < iNow ? ' pv' : ''}"><title>${tip}</title>${x.wdir != null ? `<g transform="translate(${X(i) - 8},${214}) rotate(${x.wdir + 180})"><path d="M0,-6 L4.2,4 L0,1.6 L-4.2,4 Z"/></g>` : ''}<text x="${X(i) + (x.wdir != null ? 6 : 0)}" y="218" text-anchor="middle">${v}</text></g>`;
+  });
   fg += `<line class="nowline" x1="${iNow * cw}" x2="${iNow * cw}" y1="18" y2="${Hc - 26}"/>`;
   all.forEach((x, i) => { fg += `<text class="hlab${i === iNow ? ' nowlab' : ''}" x="${X(i)}" y="${Hc - 8}" text-anchor="middle">${i === iNow ? 'Nå' : hh(x.h)}</text>`; });
   return `<svg class="hc" width="${W}" height="${Hc}" viewBox="0 0 ${W} ${Hc}" role="img" aria-label="Temperatur, nedbør og hvor fint det er time for time">
@@ -754,7 +766,7 @@ function renderHourly(){
     $('hourly').innerHTML = `<div class="chart-wrap" id="cw">${hourChart(P, fut)}</div>`;
     $('cw').scrollLeft = Math.max(0, (P.length - 3) * 46);
   }
-  $('legend').innerHTML = BANDS.map(b => `<span><i style="background:${b[2]}"></i>${b[1]}</span>`).join('') + '<span><i style="background:var(--rain)"></i>Nedbør</span>' + (S.showG ? '<span><i class="dash"></i>Google</span>' : '');
+  $('legend').innerHTML = BANDS.map(b => `<span><i style="background:${b[2]}"></i>${b[1]}</span>`).join('') + '<span><i style="background:var(--rain)"></i>Nedbør</span>' + '<span>↗ Vind m/s, pilen viser retningen</span>' + (S.showG ? '<span><i class="dash"></i>Google</span>' : '');
   const measured = P.some(x => x.measured);
   const ag = D.agreement ? ` ${esc(D.agreement.title)}: ${esc(D.agreement.text)}` : '';
   $('hourNote').innerHTML = (P.length ? (measured ? 'Det grå feltet viser målt temperatur og nedbør tidligere i dag.' : 'Det grå feltet er tidligere i dag.') : '') + ag;
@@ -1076,7 +1088,7 @@ function vis(d){
     const measured = h.obs_temp != null;
     const temp = measured ? h.obs_temp : h.ref_temp;
     return { t: h.time, d: h.time.slice(0, 10), h: h.hour, temp: temp != null ? temp : null, rain: (h.obs_rain != null ? h.obs_rain : h.ref_rain) || 0,
-      g_temp: h.g_temp, measured, lyst: true };
+      g_temp: h.g_temp, measured, lyst: true, wind: h.obs_wind != null ? h.obs_wind : null, gust: h.obs_gust != null ? h.obs_gust : null, wdir: null };
   });
   if (!P.some(x => x.temp != null)) P = [];
   if (!H.length) throw new Error('tomt varsel');
