@@ -341,8 +341,10 @@ def _period_symbol(parts: list[dict[str, Any]]) -> Optional[str]:
 
 
 def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
-               observed: dict[datetime, float], now: datetime, count: int = 8) -> list[dict[str, Any]]:
-    """Åtte døgn i lokal tid. I dag tar med målt nedbør for timene som er gått."""
+               observed: dict[datetime, float], now: datetime, count: int = 11) -> list[dict[str, Any]]:
+    """Døgn i lokal tid så langt Yr har varsel (opptil elleve). I dag tar med målt nedbør
+    for timene som er gått. Etter åtte døgn tas bare hele døgn med (minst 18 timer), så
+    WeatherNext overtar for et halvt siste Yr-døgn i stedet for å vise halve summer."""
     parts = slices(rows)
     google = _google_index(google_hours)
     today = _local(now).date()
@@ -353,6 +355,8 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
         day_end = day_start + timedelta(days=1)
         in_day = [p for p in parts if day_start <= _local(p["start"] + (p["end"] - p["start"]) / 2) < day_end]
         if offset > 0 and not in_day:
+            break
+        if offset >= 8 and sum((p["end"] - p["start"]).total_seconds() for p in in_day) < 18 * 3600:
             break
         periods = []
         for name, hour in PERIODS:
@@ -473,6 +477,8 @@ def weathernext_by_day(varsel: Optional[dict[str, Any]], now: datetime) -> dict[
             "lo": round(min(lows)) if lows else None, "hi": round(max(highs)) if highs else None,
             "rain": round(sum(mean(h, "regn") or 0.0 for _, h in hrs), 1),
             "rain_hi": round(sum(mean(h, "regn", "p90") or 0.0 for _, h in hrs), 1),
+            "rain_lo": (round(sum(mean(h, "regn", "p10") or 0.0 for _, h in hrs), 1)
+                        if any(mean(h, "regn", "p10") is not None for _, h in hrs) else None),
             "wind_max": round(max(winds)) if winds else None,
             "periods": periods,
         }
@@ -494,7 +500,7 @@ def weathernext_extra_days(wn_days: dict[str, dict[str, Any]], last_yr_date: Opt
             "date": date, "label": weekday, "weekday": weekday, "source": "weathernext",
             "periods": d["periods"], "tmin": d["tmin"], "tmax": d["tmax"],
             "lo": d["lo"], "hi": d["hi"], "rain": d["rain"], "rain_hi": d["rain_hi"],
-            "rain_min": None, "rain_max": d["rain_hi"],
+            "rain_min": d.get("rain_lo"), "rain_max": d["rain_hi"],
             "g_rain": None, "observed": None, "wind_max": d["wind_max"], "gust_max": None,
         })
     return extra
