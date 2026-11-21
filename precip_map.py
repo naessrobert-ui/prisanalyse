@@ -673,6 +673,16 @@ def make_map(
                                    "showCoverageOnHover": False}) if cluster else None
     if layer is not None:
         layer.add_to(m)
+    legende_rader = []
+    for k in range(len(grenser) + 1):
+        if k == 0:
+            tekst = "under " + _mm_tekst(grenser[0])
+        elif k == len(grenser):
+            tekst = _mm_tekst(grenser[k - 1]) + "+"
+        else:
+            tekst = _mm_tekst(grenser[k - 1]) + "–" + _mm_tekst(grenser[k])
+        legende_rader.append(f'<div><i style="background:{_MM_FARGER[k]}"></i>{tekst}</div>')
+    legende = "".join(legende_rader)
     folium.Element(f"""<style>
       .mmk-w{{background:none;border:none}}
       .mmk{{width:52px;height:52px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -685,9 +695,7 @@ def make_map(
              box-shadow:0 10px 30px rgba(15,23,42,.18);font:12px system-ui,sans-serif}}
       .mmleg i{{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-3px;margin-right:6px;border:1px solid rgba(15,23,42,.1)}}
     </style>
-    <div class="mmleg"><div style="font-weight:800;margin-bottom:4px">Nedbør (mm)</div>{"".join(
-        f'<div><i style="background:{_MM_FARGER[k]}"></i>{("under " + _mm_tekst(grenser[0])) if k == 0 else (_mm_tekst(grenser[k-1]) + ("+" if k == len(grenser) else "–" + _mm_tekst(grenser[k])))}</div>'
-        for k in range(len(grenser) + 1))}<div style="color:#64748b;margin-top:4px;max-width:150px">Tallet på hver stasjon er nedbør i mm. Store sirkler viser høyeste verdi i området.</div></div>""").add_to(m.get_root().html)
+    <div class="mmleg"><div style="font-weight:800;margin-bottom:4px">Nedbør (mm)</div>{legende}<div style="color:#64748b;margin-top:4px;max-width:150px">Tallet på hver stasjon er nedbør i mm. Store sirkler viser høyeste verdi i området.</div></div>""").add_to(m.get_root().html)
 
     marker_map: dict[str, str] = {}
     for _, r in d.iterrows():
@@ -715,9 +723,10 @@ def make_map(
                 f"<b>{float(r['value_min']):.2f}</b>–<b>{float(r['value_max']):.2f}</b> {UNIT_MM}</small>"
             )
 
+        etikett = "Varslet" if str(selected_mode).startswith("next") else "Målt"
         popup = folium.Popup(
             folium.IFrame(
-                html=f"<b>{name}</b><br>{'Varslet' if str(selected_mode).startswith('next') else 'Målt'}: <b>{_mm_tekst(val)} {UNIT_MM}</b>{range_line}{wet_days_line}<br><small>{rt_s}</small>",
+                html=f"<b>{name}</b><br>{etikett}: <b>{_mm_tekst(val)} {UNIT_MM}</b>{range_line}{wet_days_line}<br><small>{rt_s}</small>",
                 width=300,
                 height=135 if (wet_days_line or range_line) else 95,
             ),
@@ -753,10 +762,11 @@ def make_map(
         for _, rr in tbl.iterrows():
             sid = _html.escape(str(rr.get("sourceId") or ""))
             nm = _html.escape(str(rr.get("name") or rr.get("shortName") or sid))
+            mm = f"{float(rr['value']):.1f}".replace(".", ",")
             rows.append(
                 f'<tr style="cursor:pointer;" onclick="focusStation(\'{sid}\')">'
                 f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0;'>{nm}</td>"
-                f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:800;'>{f"{float(rr['value']):.1f}".replace(".", ",")}</td>"
+                f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:800;'>{mm}</td>"
                 f"</tr>"
             )
         return "".join(rows)
