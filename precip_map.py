@@ -4,6 +4,7 @@ from __future__ import annotations
 import html as _html
 import logging
 import os
+import json
 import time
 from dataclasses import dataclass
 from datetime import date as _date
@@ -578,6 +579,42 @@ def make_empty_map_with_dropdown(
 # Map rendering
 # ======================================================================
 
+#: Grenser (mm) for fargeskalaen per periode. Samme farger på stasjoner, klynger og forklaring.
+_MM_GRENSER: dict[str, list[float]] = {
+    "last24h": [0.5, 2, 5, 10, 20, 40], "day": [0.5, 2, 5, 10, 20, 40],
+    "next24h": [0.5, 2, 5, 10, 20, 40], "next48h": [1, 5, 10, 20, 40, 70],
+    "next7d": [2, 10, 25, 50, 100, 150], "mtd": [5, 25, 50, 100, 200, 300],
+    "ytd": [100, 500, 1000, 2000, 3000, 4000],
+}
+_MM_FARGER = ["#eef4fb", "#c6dcf3", "#8dbbe8", "#4a8ad6", "#2559b3", "#5a3aa6", "#8b1f8c"]
+
+
+def _mm_tekst(v: float) -> str:
+    """Kort tall til kartet: én desimal under 10 mm, ellers heltall. Norsk komma."""
+    if v < 0.05:
+        return "0"
+    return f"{v:.1f}".replace(".", ",") if v < 10 else f"{v:.0f}"
+
+
+def _mm_farge(v: float, grenser: list[float]) -> str:
+    return _MM_FARGER[sum(1 for g in grenser if v >= g)]
+
+
+def _mm_klynge_js(grenser: list[float]) -> str:
+    """Klyngene viser høyeste nedbør blant stasjonene (ikke antall stasjoner)."""
+    return f"""function(cluster) {{
+      var g = {json.dumps(grenser)}, f = {json.dumps(_MM_FARGER)};
+      var mx = 0; cluster.getAllChildMarkers().forEach(function(m) {{ mx = Math.max(mx, m.options.mm || 0); }});
+      var i = 0; g.forEach(function(x) {{ if (mx >= x) i++; }});
+      var t = mx < 10 ? mx.toFixed(1).replace('.', ',') : Math.round(mx);
+      var mork = i >= 3;
+      return L.divIcon({{
+        html: '<div class="mmk" style="background:' + f[i] + ';color:' + (mork ? '#fff' : '#0f172a') + '"><b>' + t + '</b><small>maks mm</small></div>',
+        className: 'mmk-w', iconSize: L.point(52, 52)
+      }});
+    }}"""
+
+
 def make_map(
     df: pd.DataFrame,
     *,
@@ -588,7 +625,7 @@ def make_map(
     selected_top_n: int,
     selected_rank: Rank,
     cluster: bool = True,
-    heatmap_show: bool = True,
+    heatmap_show: bool = False,
     heat_radius: int = 25,
     heat_blur: int = 18,
     heat_clip_mm: float = 80.0,
@@ -630,9 +667,27 @@ def make_map(
         hm_data = list(zip(d["lat"].tolist(), d["lon"].tolist(), weights.tolist()))
         HeatMap(hm_data, radius=heat_radius, blur=heat_blur, min_opacity=0.25).add_to(m)
 
-    layer = MarkerCluster() if cluster else None
+    grenser = _MM_GRENSER.get(str(selected_mode), _MM_GRENSER["last24h"])
+    layer = MarkerCluster(icon_create_function=_mm_klynge_js(grenser),
+                          options={"maxClusterRadius": 45, "disableClusteringAtZoom": 9,
+                                   "showCoverageOnHover": False}) if cluster else None
     if layer is not None:
         layer.add_to(m)
+    folium.Element(f"""<style>
+      .mmk-w{{background:none;border:none}}
+      .mmk{{width:52px;height:52px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+           box-shadow:0 0 0 3px rgba(255,255,255,.85),0 4px 12px rgba(15,23,42,.25);font-family:system-ui,sans-serif;line-height:1}}
+      .mmk b{{font-size:15px}} .mmk small{{font-size:8.5px;opacity:.85;margin-top:2px}}
+      .mms-w{{background:none;border:none}}
+      .mms{{display:inline-block;transform:translate(-50%,-50%);padding:2px 6px;border-radius:9px;font:700 12px/1.2 system-ui,sans-serif;
+           white-space:nowrap;box-shadow:0 0 0 1.5px rgba(255,255,255,.9),0 2px 6px rgba(15,23,42,.25)}}
+      .mmleg{{position:fixed;right:12px;bottom:24px;z-index:9999;background:rgba(255,255,255,.95);padding:8px 10px;border-radius:12px;
+             box-shadow:0 10px 30px rgba(15,23,42,.18);font:12px system-ui,sans-serif}}
+      .mmleg i{{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-3px;margin-right:6px;border:1px solid rgba(15,23,42,.1)}}
+    </style>
+    <div class="mmleg"><div style="font-weight:800;margin-bottom:4px">Nedbør (mm)</div>{"".join(
+        f'<div><i style="background:{_MM_FARGER[k]}"></i>{("under " + _mm_tekst(grenser[0])) if k == 0 else (_mm_tekst(grenser[k-1]) + ("+" if k == len(grenser) else "–" + _mm_tekst(grenser[k])))}</div>'
+        for k in range(len(grenser) + 1))}<div style="color:#64748b;margin-top:4px;max-width:150px">Tallet på hver stasjon er nedbør i mm. Store sirkler viser høyeste verdi i området.</div></div>""").add_to(m.get_root().html)
 
     marker_map: dict[str, str] = {}
     for _, r in d.iterrows():
@@ -662,20 +717,23 @@ def make_map(
 
         popup = folium.Popup(
             folium.IFrame(
-                html=f"<b>{name}</b><br>Forventet: <b>{val:.1f} {UNIT_MM}</b>{range_line}{wet_days_line}<br><small>{rt_s}</small>",
+                html=f"<b>{name}</b><br>{'Varslet' if str(selected_mode).startswith('next') else 'Målt'}: <b>{_mm_tekst(val)} {UNIT_MM}</b>{range_line}{wet_days_line}<br><small>{rt_s}</small>",
                 width=300,
                 height=135 if (wet_days_line or range_line) else 95,
             ),
             max_width=330,
         )
 
-        mk = folium.CircleMarker(
+        farge = _mm_farge(val, grenser)
+        tekstfarge = "#fff" if _MM_FARGER.index(farge) >= 3 else "#0f172a"
+        mk = folium.Marker(
             location=[float(r["lat"]), float(r["lon"])],
-            radius=6,
-            weight=1,
-            fill=True,
-            fill_opacity=0.85,
+            icon=folium.DivIcon(
+                html=f'<span class="mms" style="background:{farge};color:{tekstfarge}">{_mm_tekst(val)}</span>',
+                class_name="mms-w", icon_size=(0, 0)),
             popup=popup,
+            tooltip=f"{name}: {_mm_tekst(val)} mm",
+            mm=round(val, 1),
         )
         if layer is not None:
             mk.add_to(layer)
@@ -698,7 +756,7 @@ def make_map(
             rows.append(
                 f'<tr style="cursor:pointer;" onclick="focusStation(\'{sid}\')">'
                 f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0;'>{nm}</td>"
-                f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:800;'>{float(rr['value']):.1f}</td>"
+                f"<td style='padding:6px 8px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:800;'>{f"{float(rr['value']):.1f}".replace(".", ",")}</td>"
                 f"</tr>"
             )
         return "".join(rows)
@@ -754,7 +812,8 @@ def make_map(
     folium.Element(topbox_html).add_to(m.get_root().html)
 
     map_var = m.get_name()
-    mapping_lines = ",\n".join([f'"{sid}": {jsname}' for sid, jsname in marker_map.items()])
+    # Navnene slås opp først ved klikk: markørene er ikke definert ennå når dette skriptet kjøres.
+    mapping_lines = ",\n".join([f'"{sid}": "{jsname}"' for sid, jsname in marker_map.items()])
     js = f"""
     <script>
       function findLeafletMap() {{
@@ -769,11 +828,19 @@ def make_map(
       window._precipMarkers = {{
         {mapping_lines}
       }};
+      document.addEventListener("DOMContentLoaded", function () {{
+        try {{ window._mmKlynge = {layer.get_name() if layer is not None else "null"}; }} catch (e) {{ window._mmKlynge = null; }}
+      }});
 
       function focusStation(sourceId) {{
         const map = findLeafletMap();
-        const mk = window._precipMarkers[sourceId];
+        const navn = window._precipMarkers[sourceId];
+        const mk = navn ? window[navn] : null;
         if (!map || !mk) return;
+        if (window._mmKlynge && window._mmKlynge.zoomToShowLayer) {{
+          window._mmKlynge.zoomToShowLayer(mk, function () {{ mk.openPopup(); }});
+          return;
+        }}
         const ll = mk.getLatLng();
         const z = Math.max(map.getZoom(), 10);
         map.setView(ll, z, {{animate:true}});
@@ -842,7 +909,7 @@ def build_precip_county_map_html(
     limit: int = 1000,
     qualities: str = "0,1,2,3,4",
     cluster: bool = True,
-    show_heatmap: bool = True,
+    show_heatmap: bool = False,
     heat_radius: int = 25,
     heat_blur: int = 18,
     heat_clip_mm: float = 80.0,

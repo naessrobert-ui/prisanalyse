@@ -1732,7 +1732,9 @@ def nedbor_kart() -> Response:
     return Response(build_precip_county_map_html(
         county=request.args.get("county") or None, mode=mode,
         date_str=request.args.get("date"), top_n=request.args.get("top", "50"), rank=rank,
-        timeout=20, batch_size=80, limit=1000, qualities="0,1,2,3,4", show_heatmap=True,
+        timeout=20, batch_size=80, limit=1000, qualities="0,1,2,3,4",
+        # Varmekartet viste tetthet av stasjoner, ikke nedbør. Kan slås på med ?heat=1.
+        show_heatmap=(request.args.get("heat", "") or "").strip().lower() in {"1", "true", "ja", "on"},
     ), mimetype="text/html; charset=utf-8")
 
 
