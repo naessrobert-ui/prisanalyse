@@ -46,7 +46,8 @@ def test_sist_velger_siste_hele_dogn_og_lager_tekst(monkeypatch):
     p = kn.bygg_sist(STASJONER, NAA)
     assert p["dato"] == "2026-11-21"
     assert p["varm"]["sted"] == "Bergen" and p["varm"]["v"] == 13.1  # 99 er filtrert bort
-    assert p["varm"]["topp"] == [["Oslo", 3.0]]
+    assert p["varm"]["topp"] == [["Oslo", 3.0, "Oslo", 59.94, 10.72]]
+    assert p["varm"]["antall"] == 2
     assert p["kald"]["v"] == -41.0 and p["kald"]["sted"] == "Karasjok"
     assert p["vind"]["kast"] is True and "storms styrke" in p["vind"]["merk"]
     assert p["sno"]["v"] == 108 and "18 cm nysnø" in p["sno"]["merk"]

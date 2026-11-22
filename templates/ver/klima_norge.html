@@ -459,6 +459,45 @@ footer a{color:inherit}
 @media (max-width:860px){.verktoy{grid-template-columns:1fr 1fr}}
 @media (max-width:560px){.rek.tom .rek-m{display:block}.khero h1{font-size:1.75rem}.rek{padding:11px 11px 10px}.rek-v{font-size:1.85rem}.rek-ik{width:24px;height:24px}.rek-k{font-size:.64rem;letter-spacing:.06em}
   .ov{font-size:.8rem}.ov th.rad{position:sticky;left:0;background:var(--card);z-index:1}.verktoy{grid-template-columns:1fr 1fr}}
+/* Detaljpanel: topp 10 */
+.rek.klikk{cursor:pointer;transition:transform .15s,box-shadow .15s}
+.rek.klikk:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(20,33,58,.08)}
+.rek.klikk:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.rek-mer{font-size:.76rem;font-weight:650;color:var(--muted);margin-top:8px}
+.rek.klikk:hover .rek-mer{color:var(--ink)}
+.dt-bg{position:fixed;inset:0;background:rgba(10,18,34,.45);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fade .2s ease}
+.dt-bg[hidden]{display:none}
+.dt{background:var(--card);border-radius:20px;width:100%;max-width:640px;max-height:calc(100vh - 40px);overflow:auto;padding:18px 20px 20px;box-shadow:0 24px 60px rgba(0,0,0,.25);outline:none}
+.dt-hode{display:flex;gap:12px;align-items:center}
+.dt-hode > div{flex:1;min-width:0}
+.dt-k{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:var(--muted)}
+.dt-hode h3{margin:2px 0 0;font-size:1.25rem;letter-spacing:-.02em}
+.dt-x{border:0;background:var(--soft);width:36px;height:36px;border-radius:50%;font-size:1.4rem;line-height:1;color:var(--ink);cursor:pointer;flex:none}
+.dt-merk{font-size:.88rem;margin:10px 0 12px}
+.dt-l{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.dt-l li{display:grid;grid-template-columns:24px minmax(0,1.3fr) 1fr 74px;gap:10px;align-items:center;padding:6px 4px;border-radius:10px}
+.dt-l li:first-child{background:var(--soft)}
+.dt-nr{font-weight:750;color:var(--muted);text-align:center;font-size:.85rem}
+.dt-l li:first-child .dt-nr{color:var(--ink)}
+.dt-sted{text-decoration:none;color:inherit;min-width:0}
+.dt-sted b{display:block;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt-sted small{display:block;font-size:.74rem;color:var(--muted)}
+.dt-sted:hover b{text-decoration:underline}
+.dt-bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden}
+.dt-bar i{display:block;height:100%;border-radius:99px}
+.dt-v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dt-kart{height:230px;border-radius:14px;overflow:hidden;margin:14px 0 0;background:var(--soft)}
+.dt-pin{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;font-size:.72rem;font-weight:800;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.dt-knapper{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.dt-knapp{border:1px solid var(--line);background:none;border-radius:999px;padding:9px 14px;font-weight:600;font-size:.88rem;color:var(--ink);text-decoration:none;cursor:pointer}
+.dt-knapp.hoved{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+@media (max-width:560px){
+  .dt-bg{align-items:flex-end;padding:0}
+  .dt{border-radius:20px 20px 0 0;max-height:88vh;padding:16px 14px 22px}
+  .dt-l li{grid-template-columns:22px minmax(0,1fr) 54px 64px;gap:8px}
+  .dt-kart{height:180px}
+  .dt-knapp.hoved{flex-basis:100%;text-align:center}
+}
 </style>
 </head>
 <body>
@@ -499,7 +538,7 @@ footer a{color:inherit}
 
   <section class="tavle" id="tavle" aria-live="polite"></section>
 
-  <div class="card"><h2><span class="h-l">Alle periodene</span><span class="muted small">trykk for detaljer</span></h2>
+  <div class="card"><h2><span class="h-l">Alle periodene</span><span class="muted small">trykk for topp 10</span></h2>
     <div class="ov-wrap"><table class="ov" id="oversikt"></table></div>
   </div>
 
@@ -528,6 +567,10 @@ footer a{color:inherit}
     </div>
   </div>
 </main>
+
+<div id="detaljBg" class="dt-bg" hidden onclick="if(event.target===this)lukkDetalj()">
+  <div id="detalj" class="dt" role="dialog" aria-modal="true" tabindex="-1"></div>
+</div>
 
 <footer class="wrap"><span id="oppdatert"></span> Målinger: <a href="https://frost.met.no/" target="_blank" rel="noopener">Frost / MET Norway</a> (CC BY 4.0). Varsel: <a href="https://www.yr.no/" target="_blank" rel="noopener">Yr</a>. Normaler: 1991–2020. Kart: © OpenStreetMap.</footer>
 <script>
@@ -571,13 +614,14 @@ function kort(k, d){
   if (!d) return `<article class="rek tom" style="--c:${kat.farge};--fg:${kat.fg}">
       <div class="rek-top"><span class="rek-ik">${ikon(k)}</span><span class="rek-k">${kat.navn}</span></div>
       <div class="rek-m">${esc(((P[periode] || {}).tom || {})[k] || 'Ingen målinger for denne perioden ennå.')}</div></article>`;
-  return `<article class="rek" style="--c:${kat.farge};--fg:${kat.fg}">
+  return `<article class="rek klikk" style="--c:${kat.farge};--fg:${kat.fg}" tabindex="0" role="button" aria-label="${etikett(k, d)}: se topp 10" onclick="apneDetalj('${k}', event)" onkeydown="if(event.key==='Enter')apneDetalj('${k}', event)">
       <div class="rek-top"><span class="rek-ik">${ikon(k)}</span><span class="rek-k">${etikett(k, d)}</span>
-        <button class="del" title="Del" aria-label="Del" onclick="del('${k}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg></button></div>
+        <button class="del" title="Del" aria-label="Del" onclick="event.stopPropagation(); del('${k}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg></button></div>
       <div class="rek-v">${verdi(k, d.v)}<span>${kat.enhet}</span></div>
       <div class="rek-s"><a href="/ver/varsel/p${(+d.lat).toFixed(3)}_${(+d.lon).toFixed(3)}?navn=${encodeURIComponent(d.sted)}" title="Se varselet for ${esc(d.sted)}"><b>${esc(d.sted)}</b></a> <span>${esc(d.fylke || '')}</span></div>
       <div class="rek-m">${esc(d.merk || '')}</div>
-      <ol class="rek-l">${(d.topp || []).map(([n, v], i) => `<li><span>${i + 2}.</span> ${esc(n)} <b>${verdi(k, v)}${kat.enhet}</b></li>`).join('')}</ol>
+      <ol class="rek-l">${(d.topp || []).slice(0, 2).map(([n, v], i) => `<li><span>${i + 2}.</span> ${esc(n)} <b>${verdi(k, v)}${kat.enhet}</b></li>`).join('')}</ol>
+      ${(d.topp || []).length > 2 ? '<div class="rek-mer">Topp 10 og kart →</div>' : '<div class="rek-mer">Mer om temaet →</div>'}
     </article>`;
 }
 function tegnTavle(){
@@ -691,7 +735,7 @@ function tegnOversikt(){
     const celler = per.map(pk => {
       const d = P[pk][k];
       if (!d) return `<td class="tom" style="--c:${kat.farge}">–</td>`;
-      return `<td class="${pk === periode ? 'on' : ''}" style="--c:${kat.farge}" data-p="${pk}" title="${esc(d.sted)}: ${verdi(k, d.v)}${kat.enhet}"><b>${verdi(k, d.v)}${kat.enhet.trim() === '°' ? '°' : '<span class="muted" style="font-weight:500;font-size:.8em">' + kat.enhet + '</span>'}</b><small>${esc(d.sted)}</small></td>`;
+      return `<td class="${pk === periode ? 'on' : ''}" style="--c:${kat.farge}" data-p="${pk}" data-k="${k}" title="${esc(d.sted)}: ${verdi(k, d.v)}${kat.enhet}"><b>${verdi(k, d.v)}${kat.enhet.trim() === '°' ? '°' : '<span class="muted" style="font-weight:500;font-size:.8em">' + kat.enhet + '</span>'}</b><small>${esc(d.sted)}</small></td>`;
     }).join('');
     return `<tr><th class="rad" style="--c:${kat.farge};--fg:${kat.fg}"><span>${ikon(k, 14)}</span>${kat.navn}</th>${celler}</tr>`;
   }).join('');
@@ -699,9 +743,78 @@ function tegnOversikt(){
   $('oversikt').querySelectorAll('td[data-p]').forEach(td => td.onclick = () => {
     periode = td.dataset.p; tegnTavle(); tegnOversikt();
     history.replaceState(null, '', periode === 'sist' ? location.pathname : '#' + periode);
-    $('tavle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    apneDetalj(td.dataset.k);
   });
 }
+/* ---------- Detalj: topp 10 og videre til temasiden ---------- */
+const MER = {
+  varm: { navn: 'temperaturkartet', url: { sist: '/ver/min-temp-kart?temp=max&period=last', neste: '/ver/min-temp-kart?temp=max&period=next24h', uke: '/ver/min-temp-kart?temp=max&period=next7d', mnd: '/ver/min-temp-kart?temp=max&period=month', aar: '/ver/min-temp-kart?temp=max&period=year' } },
+  kald: { navn: 'temperaturkartet', url: { sist: '/ver/min-temp-kart?temp=min&period=last', neste: '/ver/min-temp-kart?temp=min&period=next24h', uke: '/ver/min-temp-kart?temp=min&period=next7d', mnd: '/ver/min-temp-kart?temp=min&period=month', aar: '/ver/min-temp-kart?temp=min&period=year' } },
+  vaat: { navn: 'nedbørkartet', url: { sist: '/ver/nedbor-kart?mode=last24h', neste: '/ver/nedbor-kart?mode=next24h', uke: '/ver/nedbor-kart?mode=next7d', mnd: '/ver/nedbor-kart?mode=mtd', aar: '/ver/nedbor-kart?mode=ytd' } },
+  vind: { navn: 'vindkartet', url: { sist: '/ver/vind-kart?mode=observed&period=day&metric=gust', neste: '/ver/vind-kart?mode=forecast&forecast_hours=24&metric=gust', uke: '/ver/vind-kart?mode=forecast&forecast_hours=168&metric=gust', mnd: '/ver/vind-kart?mode=observed&period=month&metric=gust', aar: '/ver/vind' } },
+  sol:  { navn: 'solskinnskartet', url: { sist: '/ver/solskinn-kart?mode=last24h', neste: '/ver/solskinn-kart?mode=next24h', uke: '/ver/solskinn-kart?mode=next7d', mnd: '/ver/solskinn-kart?mode=mtd', aar: '/ver/solskinn-kart?mode=ytd' } },
+  sno:  { navn: 'snøsiden', url: { sist: '/ver/sno', neste: '/ver/sno', uke: '/ver/sno', mnd: '/ver/sno', aar: '/ver/sno' } },
+};
+const stedUrl = (sted, lat, lon) => `/ver/varsel/p${(+lat).toFixed(3)}_${(+lon).toFixed(3)}?navn=${encodeURIComponent(sted)}`;
+let detaljK = null, detaljKart = null;
+function apneDetalj(k, ev){
+  if (ev && ev.target.closest('a,button')) return;
+  const p = P[periode], d = p && p[k];
+  if (!d) return;
+  detaljK = k;
+  const kat = KAT[k], mer = MER[k];
+  const liste = [[d.sted, d.v, d.fylke, d.lat, d.lon], ...(d.topp || [])];
+  const vals = liste.map(x => +x[1]);
+  // Søylene: lengst for rekorden. For kulde måles avstanden fra den "minst kalde" i lista.
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const bredde = v => k === 'kald' ? (hi === lo ? 100 : 18 + 82 * (hi - v) / (hi - lo)) : (hi <= 0 ? 100 : 18 + 82 * (v - Math.min(0, lo)) / (hi - Math.min(0, lo)));
+  const enhet = kat.enhet.trim() === '°' ? '°' : kat.enhet;
+  $('detalj').innerHTML = `
+    <div class="dt-hode" style="--c:${kat.farge};--fg:${kat.fg}">
+      <span class="rek-ik">${ikon(k)}</span>
+      <div><div class="dt-k">${etikett(k, d)}</div><h3>${esc(etikett(k, d))} i Norge ${esc(p.tittel)}</h3></div>
+      <button class="dt-x" onclick="lukkDetalj()" aria-label="Lukk">×</button>
+    </div>
+    <p class="dt-merk">${esc(d.merk || '')}${d.antall ? ` <span class="muted">Rangert blant ${d.antall} ${periode === 'neste' || periode === 'uke' ? 'steder' : 'stasjoner'}.</span>` : ''}</p>
+    <ol class="dt-l">${liste.map(([n, v, f, la, lo2], i) => `
+      <li><span class="dt-nr">${i + 1}</span>
+        <a class="dt-sted" href="${la != null ? stedUrl(n, la, lo2) : '#'}" title="Se varselet for ${esc(n)}"><b>${esc(n)}</b>${f ? `<small>${esc(f)}</small>` : ''}</a>
+        <span class="dt-bar"><i style="width:${bredde(+v).toFixed(0)}%;background:${kat.farge}"></i></span>
+        <span class="dt-v">${verdi(k, v)}${enhet}</span></li>`).join('')}</ol>
+    ${liste.length < 10 ? '<p class="small muted" style="margin:6px 0 0">Færre enn ti steder har tall for denne perioden.</p>' : ''}
+    <div id="dtKart" class="dt-kart"></div>
+    <div class="dt-knapper">
+      <a class="dt-knapp hoved" href="${mer.url[periode]}">Se ${mer.navn} med alle stasjonene →</a>
+      <a class="dt-knapp" href="${stedUrl(d.sted, d.lat, d.lon)}">Været på ${esc(d.sted)}</a>
+      <button class="dt-knapp" onclick="del('${k}')">Del</button>
+    </div>`;
+  $('detaljBg').hidden = false;
+  document.body.style.overflow = 'hidden';
+  tegnDetaljKart(liste, kat);
+  setTimeout(() => $('detalj').focus(), 30);
+}
+function lukkDetalj(){
+  $('detaljBg').hidden = true; detaljK = null;
+  document.body.style.overflow = '';
+  if (detaljKart){ detaljKart.remove(); detaljKart = null; }
+}
+async function tegnDetaljKart(liste, kat){
+  const ok = await ensureLeaflet().catch(() => false);
+  if (!ok || $('detaljBg').hidden){ const el = $('dtKart'); if (el) el.style.display = 'none'; return; }
+  if (detaljKart){ detaljKart.remove(); detaljKart = null; }
+  detaljKart = L.map('dtKart', { zoomControl: false, attributionControl: true, scrollWheelZoom: false });
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, className: 'basekart', attribution: '© OpenStreetMap' }).addTo(detaljKart);
+  const pts = [];
+  liste.forEach(([n, v, f, la, lo2], i) => {
+    if (la == null) return;
+    pts.push([la, lo2]);
+    L.marker([la, lo2], { icon: L.divIcon({ className: '', html: `<span class="dt-pin" style="background:${kat.farge};color:${kat.fg}">${i + 1}</span>`, iconSize: [24, 24], iconAnchor: [12, 12] }) })
+      .bindTooltip(`${i + 1}. ${esc(n)}`).addTo(detaljKart);
+  });
+  if (pts.length) detaljKart.fitBounds(pts, { padding: [24, 24], maxZoom: 8 });
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('detaljBg').hidden) lukkDetalj(); });
+
 function tegnAlt(){ tegnTavle(); tegnOversikt(); tegnUvanlig(); tegnOppdatert(); }
 tegnAlt();
 

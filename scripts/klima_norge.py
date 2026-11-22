@@ -55,6 +55,9 @@ MAKS_ALDER = {
 _VARSEL_MAKS_STASJONER = int(os.getenv("KLIMA_NORGE_VARSEL_STASJONER", "320"))
 _VARSEL_TRAADER = int(os.getenv("KLIMA_NORGE_VARSEL_TRAADER", "12"))
 _FROST_BATCH = 60
+TOPP_N = 10
+# Økes når payloaden endrer form, så lagrede tall bygges på nytt med en gang.
+VERSJON = 2
 
 _S3_KEY = os.getenv("KLIMA_NORGE_S3_KEY", "klima-norge/payload.json")
 _LOKAL = Path(__file__).resolve().parents[1] / "data" / "klima_norge.json"
@@ -338,14 +341,16 @@ def _topp(verdier: dict[str, float], meta: dict[str, dict[str, Any]], *, synkend
 def _rekord(verdier: dict[str, float], meta: dict[str, dict[str, Any]], *, synkende: bool = True,
             merk: Callable[[dict[str, Any], float], str] | None = None,
             runde: int = 1, **ekstra: Any) -> Optional[dict[str, Any]]:
-    topp = _topp(verdier, meta, synkende=synkende)
+    topp = _topp(verdier, meta, synkende=synkende, n=TOPP_N)
     if not topp:
         return None
     s, v = topp[0]
     return {
         "v": round(v, runde), "sted": s["sted"], "fylke": s["fylke"], "lat": s["lat"], "lon": s["lon"],
         "id": s["id"], "merk": merk(s, v) if merk else "",
-        "topp": [[t["sted"], round(tv, runde)] for t, tv in topp[1:]],
+        # Plass 2 til 10: [sted, verdi, fylke, lat, lon]. Kortet viser de to første.
+        "topp": [[t["sted"], round(tv, runde), t["fylke"], t["lat"], t["lon"]] for t, tv in topp[1:]],
+        "antall": len(verdier),
         **ekstra,
     }
 
@@ -920,14 +925,19 @@ def oppfrisk(tving: bool = False) -> dict[str, Any]:
         stasjoner = None
         endret = False
 
+        versjoner = data.setdefault("_versjon", {})
+        if not isinstance(versjoner, dict):
+            versjoner = data["_versjon"] = {}
+
         def trenger(del_: str) -> bool:
-            return tving or _alder(data, del_) > MAKS_ALDER[del_]
+            return tving or versjoner.get(del_) != VERSJON or _alder(data, del_) > MAKS_ALDER[del_]
 
         def kjor(del_: str, fn: Callable[[], None]) -> None:
             nonlocal endret
             try:
                 fn()
                 data["_oppdatert"][del_] = time.time()
+                versjoner[del_] = VERSJON
                 endret = True
             except Exception as exc:  # behold forrige versjon
                 log.warning("klima_norge: %s feilet: %s", del_, exc)
@@ -948,6 +958,7 @@ def oppfrisk(tving: bool = False) -> dict[str, Any]:
             def varsel() -> None:
                 data["neste"], data["uke"] = bygg_varsel(stasjoner)
                 data["_oppdatert"]["uke"] = time.time()
+                versjoner["uke"] = VERSJON
             kjor("neste", varsel)
 
         if trenger("aar") and _frost_auth():
