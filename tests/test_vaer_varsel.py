@@ -181,6 +181,12 @@ def _app():
     return app.test_client()
 
 
+def _fast_tid(navn):
+    """Lar API-ruten bygge svaret ved NOW, slik at yr_payload() ikke er utdatert uansett dagens dato."""
+    orig = getattr(vv, navn)
+    return patch.object(vv, navn, lambda place, now=None: orig(place, NOW))
+
+
 def test_api_survives_missing_sources_and_rejects_unknown_place():
     client = _app()
     assert client.get("/ver/api/varsel/oslo").status_code == 404
@@ -188,7 +194,7 @@ def test_api_survives_missing_sources_and_rejects_unknown_place():
          patch.object(vv, "_fetch_nowcast", side_effect=RuntimeError), \
          patch.object(vv, "_fetch_google", side_effect=RuntimeError), \
          patch.object(vv, "_fetch_observations", side_effect=RuntimeError), \
-         patch.object(vv, "_trust_rows", return_value=None):
+         patch.object(vv, "_trust_rows", return_value=None), _fast_tid("build_payload"):
         res = client.get("/ver/api/varsel/bergen")
     assert res.status_code == 200
     data = res.json
@@ -466,7 +472,8 @@ def test_timeserie_api():
     client = _app()
     assert client.get("/ver/api/timeserie/oslo").status_code == 404
     with patch.object(vv, "_fetch_yr", return_value=yr_payload()), \
-         patch.object(vv, "_fetch_google_long", return_value=google(hours=240)):
+         patch.object(vv, "_fetch_google_long", return_value=google(hours=240)), \
+         _fast_tid("build_series_payload"):
         res = client.get("/ver/api/timeserie/kvamskogen")
     assert res.status_code == 200
     data = res.json
@@ -705,6 +712,22 @@ def test_google_data_vises_ikke_etter_utlop():
     c.get("g", 0.0, lambda: "gammel", stale=vv.GOOGLE_STALE)
     assert c.peek("g") is None
     assert c.get("g", 0.0, lambda: "ny", stale=vv.GOOGLE_STALE) == "ny"
+
+
+def test_cache_clear_glemmer_hentinger_som_pagaar():
+    # En henting fra før clear() skal verken deles med nye kall eller skrives inn etterpå.
+    import threading
+    import time
+
+    c = vv._Cache()
+    slipp, startet = threading.Event(), threading.Event()
+    c.prefetch("k", 60, lambda: (startet.set(), slipp.wait(2), "gammel")[2])
+    assert startet.wait(2)
+    c.clear()
+    assert c.get("k", 60, lambda: "ny") == "ny"
+    slipp.set()
+    time.sleep(0.2)  # la den gamle hentingen bli ferdig
+    assert c.peek("k") == "ny"
 
 
 def test_varselapi_bruker_ferdig_varsel_fra_cachen():
