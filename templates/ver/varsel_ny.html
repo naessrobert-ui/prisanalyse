@@ -151,6 +151,11 @@ main{padding:24px 0 40px}
 .p4{text-align:center;line-height:0}
 .p4 .wi{width:34px;height:34px}
 .p4 small{display:block;height:12px;line-height:12px;margin-top:1px;font-size:.68rem;color:var(--rainT);font-weight:600}
+.p4 .pt{display:block;height:15px;line-height:15px;margin-top:2px;font-size:.8rem;font-weight:650}
+.p4 .pv{display:block;height:13px;line-height:13px;margin-top:1px;font-size:.7rem;font-style:normal;color:var(--muted);white-space:nowrap}
+.p4 .pv .wa{font-size:.66rem;margin-right:1px;color:var(--muted);font-weight:700}
+.p4 .pv.v1{color:var(--ink);font-weight:650}.p4 .pv.v2{color:#c2410c;font-weight:750}
+@media (prefers-color-scheme:dark){.p4 .pv.v2{color:#fb923c}}
 .ds{text-align:right;font-size:.86rem;color:#a86a00;white-space:nowrap}
 .ds svg{width:15px;height:15px;vertical-align:-2px;margin-right:3px}
 .dw{text-align:right;font-size:.9rem;white-space:nowrap;color:var(--muted)}
@@ -347,7 +352,8 @@ footer a{color:inherit}
   .hrow .lb{display:none}
   .drow-top{grid-template-columns:66px repeat(4,1fr) 58px 50px 12px;gap:2px}
   .ds{display:none}
-  .dw{grid-column:6;grid-row:2;font-size:.74rem;margin-top:-2px}.dw small{font-size:.68rem}.dw .wa{font-size:.68rem;margin-right:2px}
+  .dw{display:none}  /* vinden står under hver bolk på mobil */
+  .p4 .pt{font-size:.76rem}
   .pp{font-size:.78rem}
   .p4 .wi{width:28px;height:28px}
   .tt{font-size:.95rem}.tt .lo{margin-left:3px}
@@ -839,6 +845,14 @@ function windCell(w, g, dir){
   const tittel = `Vind opptil ${w} m/s${g != null ? `, kast ${g}` : ''}${dir != null ? `, mest fra ${dirName(dir)}` : ''}`;
   return `<div class="dw${cls}" title="${tittel}">${pil}<b>${w}</b>${g != null ? ` <small>(${g})</small>` : ''}</div>`;
 }
+const PNAVN = { natt: 'Natt', morgen: 'Morgen', ettermiddag: 'Ettermiddag', kveld: 'Kveld' };
+function periodTitle(p){
+  const a = PSTART[p.name] ?? 0, deler = [`${PNAVN[p.name] || p.name} kl. ${hh(a)}–${hh((a + 6) % 24)}`];
+  if (p.temp != null) deler.push(p.tmin != null && p.tmax != null && p.tmin !== p.tmax ? `${p.tmin}° til ${p.tmax}°` : `${p.temp}°`);
+  if (p.rain >= 0.1) deler.push(`${fmt1(p.rain)} mm`);
+  if (p.wind != null) deler.push(`vind ${p.wind} m/s${p.gust != null ? ` (kast ${p.gust})` : ''}${p.wind_dir != null ? ` fra ${dirName(p.wind_dir)}` : ''}`);
+  return deler.join(', ');
+}
 function dateSmall(d){ return (d === TODAY || /\d/.test(dayName(d))) ? '' : `<small>${new Date(d + 'T12:00:00Z').getUTCDate()}. ${MON[+d.slice(5, 7) - 1]}</small>`; }
 function renderDays(){
   const hsAll = withProfile(H.map(x => ({ ...x })), 'generelt');
@@ -853,7 +867,9 @@ function renderDays(){
     const cells = dayCells(d.date, hs, dayB).filter(Boolean).length;
     // Nedbør per seksbolk under ikonet, bare på dager der det faktisk kommer noe (tørre dager forblir rene).
     const pRain = (d.periods || []).some(p => p.rain >= 0.1);
-    const periods = (d.periods || []).map(p => `<span class="p4" title="${p.name}${p.rain >= 0.1 ? `: ${fmt1(p.rain)} mm` : ''}">${p.symbol ? icon(p.symbol) : '<span class="muted">–</span>'}${pRain ? `<small>${p.rain >= 0.1 ? fmt1(p.rain) : ''}</small>` : ''}</span>`).join('');
+    // Temperatur og vind per seksbolk under ikonet, som nedbøren.
+    const pTemp = (d.periods || []).some(p => p.temp != null), pVind = (d.periods || []).some(p => p.wind != null);
+    const periods = (d.periods || []).map(p => `<span class="p4" title="${periodTitle(p)}">${p.symbol ? icon(p.symbol) : '<span class="muted">–</span>'}${pRain ? `<small>${p.rain >= 0.1 ? fmt1(p.rain) : ''}</small>` : ''}${pTemp ? `<b class="pt ${p.temp != null ? tcls(p.temp) : ''}">${p.temp != null ? Math.round(p.temp) + '°' : ''}</b>` : ''}${pVind ? `<em class="pv${p.wind >= 15 ? ' v2' : p.wind >= 10 ? ' v1' : ''}">${p.wind != null ? `${p.wind_dir != null ? `<span class="wa" style="transform:rotate(${p.wind_dir + 180}deg)">↑</span>` : ''}${p.wind}` : ''}</em>` : ''}</span>`).join('');
     const tmax = d.tmax != null ? d.tmax : (wn[d.date] || {}).tmax, tmin = d.tmin != null ? d.tmin : (wn[d.date] || {}).tmin;
     const rain = d.rain != null ? d.rain : (wn[d.date] || {}).rain;
     let exp = '';

@@ -370,6 +370,7 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
                 "name": name, "symbol": _period_symbol(chunk),
                 "rain": round(sum(p["rain"] for p in chunk) + obs, 1),
                 "observed": bool(obs) and not chunk,
+                **_periode_temp_vind(chunk, [r for r in rows if p_start <= _local(r["time"]) < p_end]),
             })
         day_rows = [r for r in rows if day_start <= _local(r["time"]) < day_end]
         winds = [r["wind"] for r in day_rows if r["wind"] is not None]
@@ -411,6 +412,28 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
             "wind_dir": dominerende_vindretning(day_rows),
         })
     return days
+
+
+def _periode_temp_vind(chunk: list[dict[str, Any]], rader: list[dict[str, Any]]) -> dict[str, Any]:
+    """Temperatur og vind for en seks-timersperiode, slik nedbøren allerede vises.
+
+    temp er snittet av øyeblikksverdiene i perioden (det man typisk merker),
+    tmin/tmax tar også med Yr sine min/maks for seks-timersblokkene. vind er
+    sterkeste middelvind, kast sterkeste vindkast."""
+    temps = [r["temp"] for r in rader if r.get("temp") is not None]
+    ytre = temps + [v for p in chunk for v in (p.get("tmax"), p.get("tmin")) if v is not None]
+    vind = [r["wind"] for r in rader if r.get("wind") is not None]
+    kast = [r["gust"] for r in rader if r.get("gust") is not None]
+    if not temps and ytre:
+        temps = [(max(ytre) + min(ytre)) / 2]
+    return {
+        "temp": round(sum(temps) / len(temps)) if temps else None,
+        "tmin": round(min(ytre)) if ytre else None,
+        "tmax": round(max(ytre)) if ytre else None,
+        "wind": round(max(vind)) if vind else None,
+        "gust": round(max(kast)) if kast else None,
+        "wind_dir": dominerende_vindretning(rader) if vind else None,
+    }
 
 
 def dominerende_vindretning(rows: list[dict[str, Any]]) -> Optional[int]:
@@ -493,6 +516,8 @@ def weathernext_by_day(varsel: Optional[dict[str, Any]], now: datetime) -> dict[
                 "rain": round(rain, 1), "observed": False,
                 "tmin": round(min(ptemps)) if ptemps else None,
                 "tmax": round(max(ptemps)) if ptemps else None,
+                "temp": round(sum(ptemps) / len(ptemps)) if ptemps else None,
+                "wind": round(max(pv)) if (pv := [v for h in chunk if (v := mean(h, "vind")) is not None]) else None,
             })
         result[date] = {
             "hours": len(hrs),
