@@ -867,3 +867,17 @@ def test_utenlandsk_varsel_har_klokkeslett_i_lokal_tid():
     assert p["days"][0]["date"] == "2026-11-02"
     # Utenfor konteksten er det norsk tid igjen.
     assert vv._local(now).hour == 20
+
+
+def test_periode_har_temperatur_og_vind():
+    from datetime import datetime, timezone
+    from scripts.vaer_varsel import _periode_temp_vind
+
+    t = datetime(2026, 11, 23, 6, tzinfo=timezone.utc)
+    rader = [{"time": t, "temp": -6.4, "wind": 7.6, "gust": 11.0, "wind_dir": 315.0},
+             {"time": t, "temp": -4.0, "wind": 9.2, "gust": 14.5, "wind_dir": 300.0}]
+    chunk = [{"tmax": -3.6, "tmin": -8.2}]
+    p = _periode_temp_vind(chunk, rader)
+    assert p["temp"] == -5 and p["tmin"] == -8 and p["tmax"] == -4
+    assert p["wind"] == 9 and p["gust"] == 14 and p["wind_dir"] is not None
+    assert _periode_temp_vind([], [])["temp"] is None
