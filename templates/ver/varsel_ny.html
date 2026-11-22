@@ -89,7 +89,7 @@ button{font:inherit;cursor:pointer;color:inherit}
 /* Faner */
 nav.tabs{position:sticky;top:0;z-index:1500;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
 nav.tabs .wrap{display:flex;gap:2px}
-.tab-btn{border:0;background:none;padding:13px 14px 11px;color:var(--muted);font-weight:600;font-size:.92rem;border-bottom:2px solid transparent;display:flex;align-items:center;gap:7px}
+.tab-btn{border:0;background:none;text-decoration:none;padding:13px 14px 11px;color:var(--muted);font-weight:600;font-size:.92rem;border-bottom:2px solid transparent;display:flex;align-items:center;gap:7px}
 .tab-btn svg{width:18px;height:18px}
 .tab-btn.on{color:var(--ink);border-bottom-color:var(--gold)}
 
@@ -210,16 +210,6 @@ main{padding:24px 0 40px}
 .links a:hover::after{transform:translateX(3px)}
 
 /* Klima */
-.card.norge{display:block;text-decoration:none;color:inherit;transition:transform .15s}
-.card.norge:hover{transform:translateY(-1px)}
-.norge-g{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-@media (max-width:560px){.norge-g{grid-template-columns:repeat(2,1fr)}}
-.ng{border-radius:14px;padding:10px 12px;background:var(--soft);border-top:4px solid var(--c)}
-.ng span{display:block;font-size:.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.ng b{display:block;font-size:1.5rem;font-weight:750;letter-spacing:-.02em;line-height:1.2}
-.ng b small{font-size:.8rem;font-weight:600;color:var(--muted)}
-.ng em{font-style:normal;font-size:.85rem}
-.ng-varm{--c:#f5a524}.ng-kald{--c:#8fc0f0}.ng-vaat{--c:#2a62b0}.ng-vind{--c:#5b6c82}
 .chart{width:100%;height:auto;display:block}
 .chart text{fill:var(--muted)}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
@@ -432,7 +422,7 @@ a.chip{text-decoration:none;color:inherit}
     <button class="tab-btn" data-tab="varsel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.5"/><path d="M9 2v1.2M3.2 8.5H2M4.9 4.4l.9.9M13.1 4.4l-.9.9"/><path d="M8.5 20h8.5a4 4 0 0 0 0-8 5 5 0 0 0-9.4 1.6A3.2 3.2 0 0 0 8.5 20z"/></svg>Varsel</button>
     <button class="tab-btn" data-tab="aktivitet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Aktivitet</button>
     <button class="tab-btn" data-tab="reis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 3 10.5l7 2.5 2.5 7L21 3z"/><path d="M10 13l4.5-4.5"/></svg>Reis</button>
-    <button class="tab-btn" data-tab="klima"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-8M11 20V5M17 20v-5M3 20h18"/></svg>Klima</button>
+    <a class="tab-btn" href="/ver/klima"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-8M11 20V5M17 20v-5M3 20h18"/></svg>Klima</a>
     <button class="tab-btn" data-tab="sno"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M3.4 7l17.2 10M3.4 17 20.6 7M9 3.5l3 2 3-2M9 20.5l3-2 3 2"/></svg>Snø</button>
   </div>
 </nav>
@@ -475,34 +465,6 @@ a.chip{text-decoration:none;color:inherit}
         <a href="/ver/ferieplanlegger/korttid">Neste dager: hvor er det fint?</a>
         <a href="/ver/ferieplanlegger/langtid">Langtid: beste måned og sted</a>
         <a href="/ver/aktivt-varsel">Aktivt varsel for et punkt</a>
-      </div>
-    </div>
-  </section>
-
-  <section class="tab" id="tab-klima">
-    <a class="card norge" href="/ver/klima">
-      <h2><span class="h-l">Norge {{ klima.tittel if klima else 'i tall' }}</span><span class="muted small">Se alle rekordene →</span></h2>
-      {% if klima %}
-      <div class="norge-g">
-        {% for k, navn, enhet, d in [('varm', 'Varmest', '°', 1), ('kald', 'Kaldest', '°', 1), ('vaat', 'Våtest', ' mm', 1), ('vind', 'Mest vind', ' m/s', 1)] %}{% if klima[k] %}
-        <div class="ng ng-{{ k }}"><span>{{ navn }}</span><b>{{ ('%.1f' % klima[k].v).replace('.', ',').replace('-', '−') }}<small>{{ enhet }}</small></b><em>{{ klima[k].sted }}</em></div>
-        {% endif %}{% endfor %}
-      </div>
-      <p class="muted small" style="margin:10px 0 0">{{ klima.lead or '' }} Også neste døgn, neste uke, denne måneden og i år.</p>
-      {% else %}
-      <p class="muted" style="margin:0">Varmest, kaldest, våtest og mest vind, sol og snø i hele landet. Siste døgn, neste uke, denne måneden og i år.</p>
-      {% endif %}
-    </a>
-    <div class="card"><h2><span class="h-l">Statistikk for hele landet</span></h2>
-      <div class="links">
-        <a href="/ver/nedbor">Nedbør</a>
-        <a href="/ver/solskinn">Solskinn</a>
-        <a href="/ver/vind">Vind</a>
-        <a href="/ver/min-temp">Min. temperatur</a>
-        <a href="/ver/normaler">Værnormaler</a>
-        <a href="/ver/temp-sammenlign">Sammenlign to år</a>
-        <a href="/ver/klima">Norge i tall</a>
-        <a href="/ver/oversikt">Oversikt over alt</a>
       </div>
     </div>
   </section>
@@ -1135,7 +1097,7 @@ function go(tab){
   if (tab === 'aktivitet') renderAktivitet();
   window.scrollTo({ top: 0 });
 }
-document.querySelectorAll('.tab-btn').forEach(b => b.onclick = () => go(b.dataset.tab));
+document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.onclick = () => go(b.dataset.tab));
 $('tabellBtn').onclick = () => { S.table = !S.table; renderHourly(); };
 $('gCheck').onchange = e => { S.showG = e.target.checked; renderHourly(); };
 $('klassiskLink').href = location.pathname + (Q ? Q + '&' : '?') + 'klassisk=1';
@@ -1178,7 +1140,8 @@ loadAlerts(); loadAI();
 setInterval(() => { if (!document.hidden) loadAI(); }, 20 * 60 * 1000);
 try { localStorage.setItem('bdf_sted', location.pathname); } catch (e) {}
 const startTab = (location.hash || '').slice(1);
-if (startTab) go(startTab);
+if (startTab === 'klima') location.replace('/ver/klima');
+else if (startTab) go(startTab);
 {% endraw %}
 </script>
 <script src="/static/js/mine_steder.js"></script>

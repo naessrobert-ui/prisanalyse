@@ -104,9 +104,6 @@ main{padding:24px 0 40px}
 .muted{color:var(--muted)}
 .small{font-size:.85rem}
 .kgrid.uten-kart{grid-template-columns:1fr}.rek.tom{opacity:.6}.rek.tom .rek-m{margin-top:10px}.venter{grid-column:1/-1;padding:22px}.rek-s a{color:inherit;text-decoration:none}.rek-s a:hover b{text-decoration:underline}.pseg button:disabled{opacity:.4;cursor:default}
-.banner{background:#fff7e0;border:1px solid #f1dc9c;color:#5c4700;border-radius:12px;padding:9px 14px;margin-bottom:16px;font-size:.88rem}
-@media (prefers-color-scheme:dark){.kgrid.uten-kart{grid-template-columns:1fr}.rek.tom{opacity:.6}.rek.tom .rek-m{margin-top:10px}.venter{grid-column:1/-1;padding:22px}.rek-s a{color:inherit;text-decoration:none}.rek-s a:hover b{text-decoration:underline}.pseg button:disabled{opacity:.4;cursor:default}
-.banner{background:#2b2412;border-color:#5a4a1c;color:#f1dc9c}}
 .skel{height:120px;border-radius:var(--r);background:linear-gradient(90deg,var(--soft) 0%,var(--card) 50%,var(--soft) 100%);background-size:200% 100%;animation:sh 1.2s infinite;margin-bottom:16px}
 @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
 .tag{font-size:.64rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--soft);color:var(--muted);border-radius:6px;padding:2px 7px}
@@ -408,6 +405,60 @@ footer a{color:inherit}
 @media (max-width:560px){.khero h1{font-size:2.05rem}.tavle{grid-template-columns:1fr 1fr;gap:10px}.rek{padding:14px 12px 12px}.rek-v{font-size:2.3rem}
   .rek-m{display:none}.rek-l{font-size:.78rem}.rek-s span{display:block;margin:0}.pseg{display:flex;width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.pseg::-webkit-scrollbar{display:none}.pseg button{flex:none;padding:8px 12px;font-size:.84rem;white-space:nowrap}.pseg .lg{display:none}.pseg button::first-letter{text-transform:uppercase}.verktoy{grid-template-columns:1fr}
   .del{display:none}.uv-tag{min-width:62px;font-size:.82rem}.uv p{font-size:.92rem}}
+/* Kompakt: tavla skal få plass på én skjerm på PC. */
+.wrap{max-width:1080px}
+.sky{padding:12px 0 16px}
+.khero{padding:12px 0 0}
+.khero h1{font-size:2.1rem;margin:4px 0 4px}
+.lead{font-size:.93rem;margin:0 0 12px}
+.pseg button{padding:6px 14px;font-size:.86rem}
+.tavle{gap:12px;margin-bottom:14px}
+.rek{padding:13px 15px 11px}
+.rek::before{height:4px}
+.rek-ik{width:28px;height:28px;border-radius:8px}
+.rek-ik svg{width:17px;height:17px}
+.rek-k{font-size:.7rem}
+.rek-v{font-size:2.25rem;font-weight:350;margin:8px 0 3px}
+.rek-v span{font-size:.95rem}
+.rek-s b{font-size:.98rem}
+.rek-s span{font-size:.8rem}
+.rek-m{font-size:.8rem;margin:3px 0 8px;min-height:0;line-height:1.35}
+.rek-l{font-size:.8rem;padding-top:7px;gap:2px}
+.card{padding:16px 18px;margin-bottom:14px}
+#kart{height:300px}
+.sp-tall{font-size:2.8rem}
+.sp-tall span{font-size:1.2rem}
+.sp-bar{margin:44px 0 8px}
+.sp-fakta{margin-top:18px;padding-top:12px}
+.sp-fakta b{font-size:1.2rem}
+.uv{padding:8px 0;gap:12px}
+.uv p{font-size:.92rem}
+.uv-tag{padding:5px 8px;font-size:.84rem;min-width:66px}
+.verktoy{grid-template-columns:repeat(4,1fr);gap:10px}
+.verktoy a{padding:11px 12px}
+.verktoy .vi{height:28px;margin-bottom:2px}
+.verktoy .vi svg{height:28px;width:auto}
+.verktoy b{font-size:.92rem}
+.verktoy small{font-size:.76rem}
+/* Alle periodene i én tabell */
+.ov-wrap{overflow-x:auto;margin:0 -4px;scrollbar-width:thin}
+.ov{width:100%;border-collapse:separate;border-spacing:4px;font-size:.84rem;min-width:640px}
+.ov th{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;text-align:left;padding:2px 8px}
+.ov th.on{color:var(--ink)}
+.ov td{padding:7px 9px;border-radius:10px;background:var(--soft);vertical-align:top;cursor:pointer;transition:background .15s}
+.ov td:hover{background:color-mix(in srgb,var(--c) 22%,var(--soft))}
+.ov td.on{box-shadow:inset 0 0 0 2px var(--ink)}
+.ov td b{display:block;font-size:1rem;font-weight:700;letter-spacing:-.01em}
+.ov td small{display:block;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.ov td.tom{cursor:default;color:var(--muted)}
+.ov th.rad{white-space:nowrap;padding:7px 8px 7px 0;vertical-align:middle}
+.ov th.rad span{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--c);color:var(--fg);margin-right:7px;vertical-align:-6px}
+.ov th.rad span svg{width:14px;height:14px}
+.ov-tips{margin:8px 0 0}
+.rek-l li b{white-space:nowrap}
+@media (max-width:860px){.verktoy{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.rek.tom .rek-m{display:block}.khero h1{font-size:1.75rem}.rek{padding:11px 11px 10px}.rek-v{font-size:1.85rem}.rek-ik{width:24px;height:24px}.rek-k{font-size:.64rem;letter-spacing:.06em}
+  .ov{font-size:.8rem}.ov th.rad{position:sticky;left:0;background:var(--card);z-index:1}.verktoy{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -448,6 +499,10 @@ footer a{color:inherit}
 
   <section class="tavle" id="tavle" aria-live="polite"></section>
 
+  <div class="card"><h2><span class="h-l">Alle periodene</span><span class="muted small">trykk for detaljer</span></h2>
+    <div class="ov-wrap"><table class="ov" id="oversikt"></table></div>
+  </div>
+
   <div class="kgrid">
     <div class="card kart-card"><h2><span class="h-l">På kartet</span><span class="muted small" id="kartTekst">rekordene siste døgn</span></h2>
       <div id="kart"></div>
@@ -469,6 +524,7 @@ footer a{color:inherit}
       <a href="/ver/min-temp"><span class="vi" style="--c:#4a8ad6"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 3v11"/><circle cx="12" cy="17" r="3.2" fill="currentColor" fill-opacity=".25"/><path d="M5 5l3 3M5 8l3-3"/></svg></span><b>Minimumstemperatur</b><small>Kaldeste steder natt for natt</small></a>
       <a href="/ver/normaler"><span class="vi" style="--c:#7a6f55"><svg width="56" height="34" viewBox="0 0 56 34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M2 26C12 26 14 6 28 6s16 20 26 20" /><path d="M2 30h52" stroke-opacity=".35"/></svg></span><b>Værnormaler</b><small>Hva som er vanlig hvor og når</small></a>
       <a href="/ver/temp-sammenlign"><span class="vi" style="--c:#b86e00"><svg width="56" height="34" viewBox="0 0 56 34" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M2 26C12 22 18 10 28 12s18 8 26 2" stroke="currentColor"/><path d="M2 30C14 26 20 18 30 20s16 4 24-2" stroke="#4a8ad6"/></svg></span><b>Sammenlign to år</b><small>Temperatur år mot år for et sted</small></a>
+      <a href="/ver/oversikt"><span class="vi" style="--c:#14213a"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><b>Oversikt over alt</b><small>Alle værsidene samlet</small></a>
     </div>
   </div>
 </main>
@@ -514,7 +570,7 @@ function kort(k, d){
   const kat = KAT[k];
   if (!d) return `<article class="rek tom" style="--c:${kat.farge};--fg:${kat.fg}">
       <div class="rek-top"><span class="rek-ik">${ikon(k)}</span><span class="rek-k">${kat.navn}</span></div>
-      <div class="rek-m">Ingen målinger for denne perioden ennå.</div></article>`;
+      <div class="rek-m">${esc(((P[periode] || {}).tom || {})[k] || 'Ingen målinger for denne perioden ennå.')}</div></article>`;
   return `<article class="rek" style="--c:${kat.farge};--fg:${kat.fg}">
       <div class="rek-top"><span class="rek-ik">${ikon(k)}</span><span class="rek-k">${etikett(k, d)}</span>
         <button class="del" title="Del" aria-label="Del" onclick="del('${k}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg></button></div>
@@ -612,7 +668,7 @@ async function tegnKart(){
 
 document.querySelectorAll('#periode button').forEach(b => b.onclick = () => {
   if (!P[b.dataset.p]) return;
-  periode = b.dataset.p; tegnTavle();
+  periode = b.dataset.p; tegnTavle(); tegnOversikt();
   history.replaceState(null, '', periode === 'sist' ? location.pathname : '#' + periode);
 });
 const fraHash = location.hash.slice(1);
@@ -624,7 +680,29 @@ try {
   if (sted && /^\/(ver\/)?varsel\//.test(sted)) document.querySelectorAll('[data-sted]').forEach(a => { a.href = sted + (a.dataset.sted || ''); });
 } catch (e) {}
 
-function tegnAlt(){ tegnTavle(); tegnUvanlig(); tegnOppdatert(); }
+const KOLONNE = { sist: 'Siste døgn', neste: 'Neste døgn', uke: 'Neste 7 døgn', mnd: 'Måneden', aar: 'I år' };
+function tegnOversikt(){
+  const per = REKKEFOLGE.filter(k => P[k]);
+  if (!per.length){ $('oversikt').closest('.card').style.display = 'none'; return; }
+  $('oversikt').closest('.card').style.display = '';
+  const hode = `<tr><th></th>${per.map(k => `<th class="${k === periode ? 'on' : ''}">${k === 'mnd' && P.mnd.tittel ? esc(P.mnd.tittel.replace(/^i /, '').replace(/^./, c => c.toUpperCase())) : KOLONNE[k]}</th>`).join('')}</tr>`;
+  const rader = Object.keys(KAT).map(k => {
+    const kat = KAT[k];
+    const celler = per.map(pk => {
+      const d = P[pk][k];
+      if (!d) return `<td class="tom" style="--c:${kat.farge}">–</td>`;
+      return `<td class="${pk === periode ? 'on' : ''}" style="--c:${kat.farge}" data-p="${pk}" title="${esc(d.sted)}: ${verdi(k, d.v)}${kat.enhet}"><b>${verdi(k, d.v)}${kat.enhet.trim() === '°' ? '°' : '<span class="muted" style="font-weight:500;font-size:.8em">' + kat.enhet + '</span>'}</b><small>${esc(d.sted)}</small></td>`;
+    }).join('');
+    return `<tr><th class="rad" style="--c:${kat.farge};--fg:${kat.fg}"><span>${ikon(k, 14)}</span>${kat.navn}</th>${celler}</tr>`;
+  }).join('');
+  $('oversikt').innerHTML = hode + rader;
+  $('oversikt').querySelectorAll('td[data-p]').forEach(td => td.onclick = () => {
+    periode = td.dataset.p; tegnTavle(); tegnOversikt();
+    history.replaceState(null, '', periode === 'sist' ? location.pathname : '#' + periode);
+    $('tavle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+function tegnAlt(){ tegnTavle(); tegnOversikt(); tegnUvanlig(); tegnOppdatert(); }
 tegnAlt();
 
 /* Henter nye tall i bakgrunnen (koster ingenting: serveren har dem klare). */
