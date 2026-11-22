@@ -1114,26 +1114,31 @@ class _Cache:
         self._lock = threading.Lock()
         self._inflight: dict[Any, Future] = {}
         self._feil: dict[Any, tuple[float, BaseException]] = {}  # nøkkel -> (prøv_igjen, feil)
+        self._gen = 0  # økes av clear(); hentinger fra før det skrives ikke inn
 
     def _start(self, key: Any, ttl: float, stale: float, fn: Callable[[], Any]) -> Future:
         """Registrerer en henting. Må kalles med låsen holdt."""
         fut: Future = Future()
         self._inflight[key] = fut
-        fut._vv_args = (key, ttl, stale, fn)  # type: ignore[attr-defined]
+        fut._vv_args = (key, ttl, stale, fn, self._gen)  # type: ignore[attr-defined]
         return fut
 
     def _run(self, fut: Future) -> None:
-        key, ttl, stale, fn = fut._vv_args  # type: ignore[attr-defined]
+        key, ttl, stale, fn, gen = fut._vv_args  # type: ignore[attr-defined]
         try:
             value = fn()
         except BaseException as exc:  # noqa: BLE001 - videreformidles til alle som venter
             with self._lock:
-                self._feil[key] = (time.monotonic() + self.FEIL_PAUSE, exc)
-                self._inflight.pop(key, None)
+                if gen == self._gen:
+                    self._feil[key] = (time.monotonic() + self.FEIL_PAUSE, exc)
+                    self._inflight.pop(key, None)
             fut.set_exception(exc)
             return
         now = time.monotonic()
         with self._lock:
+            if gen != self._gen:  # cachen ble tømt mens vi hentet
+                fut.set_result(value)
+                return
             self._data[key] = (now + ttl, now + ttl + stale, value)
             self._feil.pop(key, None)
             self._inflight.pop(key, None)
@@ -1186,9 +1191,12 @@ class _Cache:
             return hit[2] if hit and hit[1] > time.monotonic() else None
 
     def clear(self) -> None:
+        """Glemmer alt, også hentinger som pågår (de fullføres, men skrives ikke inn)."""
         with self._lock:
+            self._gen += 1
             self._data.clear()
             self._feil.clear()
+            self._inflight.clear()
 
 
 _CACHE = _Cache()
