@@ -18,7 +18,9 @@ er rene funksjoner; bare `_fetch_*` går mot nettet.
 """
 from __future__ import annotations
 
+import bisect
 import contextvars
+import math
 import os
 import re
 import threading
@@ -406,8 +408,29 @@ def build_days(rows: list[dict[str, Any]], google_hours: list[dict[str, Any]],
             "observed": observed_today,
             "wind_max": round(max(winds)) if winds else None,
             "gust_max": round(max(gusts)) if gusts else None,
+            "wind_dir": dominerende_vindretning(day_rows),
         })
     return days
+
+
+def dominerende_vindretning(rows: list[dict[str, Any]]) -> Optional[int]:
+    """Hvor vinden mest kommer fra (grader), vektet etter styrke. None når den er skiftende.
+
+    Vektorsnitt: sterk vind fra sør teller mer enn svak bris fra nord. Peker
+    vektorene i alle retninger (resultanten under 35 % av summen), er det ingen
+    retning å vise.
+    """
+    x = y = total = 0.0
+    for r in rows:
+        v, d = r.get("wind"), r.get("wind_dir")
+        if v is None or d is None or v <= 0:
+            continue
+        x += v * math.sin(math.radians(d))
+        y += v * math.cos(math.radians(d))
+        total += v
+    if total <= 0 or math.hypot(x, y) < 0.35 * total:
+        return None
+    return round(math.degrees(math.atan2(x, y))) % 360
 
 
 def _wn_symbol(rain: float, sky: Optional[float], night: bool) -> str:
@@ -934,6 +957,72 @@ def dagslys(lat: float, lon: float, dato, tz: str = "Europe/Oslo") -> dict[str, 
     iso = lambda t: t.astimezone(sone).replace(microsecond=0).isoformat(timespec="minutes") if t else None
     return {"dato": dato.isoformat(), "lyst_fra": iso(lyst_fra), "lyst_til": iso(lyst_til),
             "sol_opp": iso(sol_opp), "sol_ned": iso(sol_ned), "unntak": lys, "tz": tz}
+
+
+#: Sola må stå så høyt før den regnes som solskinn (lav sol gir lite direkte lys).
+SOLSKINN_GRADER = 2.0
+
+
+def soltimer(samples: list[tuple[datetime, Optional[float]]], lat: float, lon: float,
+             tz: str = "Europe/Oslo") -> dict[str, float]:
+    """Anslåtte soltimer per lokal dato ut fra skydekke (%) i tiden sola er oppe.
+
+    Verken Yr eller WeatherNext varsler solskinn, så dette er et anslag: hvert
+    kvarter med sol over `SOLSKINN_GRADER` teller (1 − skydekke). Skydekket tas
+    fra siste varseltidspunkt før kvarteret, høyst seks timer gammelt (dekker Yr
+    sine seks-timersblokker). Dager der ikke hele soltiden er dekket av varselet
+    (som i dag når varselet starter etter soloppgang), utelates.
+    """
+    pts = sorted((t, c) for t, c in samples if t is not None and c is not None)
+    if not pts:
+        return {}
+    times = [t for t, _ in pts]
+    maks_alder = timedelta(hours=6)
+
+    def sky(t: datetime) -> Optional[float]:
+        j = bisect.bisect_right(times, t) - 1
+        return pts[j][1] if j >= 0 and t - times[j] <= maks_alder else None
+
+    sone = ZoneInfo(tz)
+    ut: dict[str, float] = {}
+    dato = times[0].astimezone(sone).date()
+    while True:
+        start = datetime(dato.year, dato.month, dato.day, tzinfo=sone).astimezone(timezone.utc)
+        if start > times[-1]:
+            break
+        neste = dato + timedelta(days=1)
+        slutt = datetime(neste.year, neste.month, neste.day, tzinfo=sone).astimezone(timezone.utc)
+        sum_sol, komplett = 0.0, True
+        t = start + timedelta(minutes=7.5)
+        while t < slutt:
+            if sun_elevation(lat, lon, t) > SOLSKINN_GRADER:
+                c = sky(t)
+                if c is None:
+                    komplett = False
+                    break
+                sum_sol += 0.25 * max(0.0, 1 - c / 100)
+            t += timedelta(minutes=15)
+        if komplett:
+            ut[dato.isoformat()] = round(sum_sol, 1)
+        dato = neste
+    return ut
+
+
+def _legg_til_soltimer(days: list[dict[str, Any]], rows: list[dict[str, Any]],
+                       wn_varsel: Optional[dict[str, Any]], info: Optional[dict[str, Any]]) -> None:
+    """Setter `sol_timer` på hver dag: fra Yr sitt skydekke, eller WeatherNext for dagene der."""
+    if not info:
+        return
+    lat, lon, tz = info["lat"], info["lon"], info.get("tz") or "Europe/Oslo"
+    try:
+        yr = soltimer([(r["time"], r.get("cloud")) for r in rows], lat, lon, tz)
+        wn = soltimer([(_parse_time(h.get("t", "")), _num((h.get("sky") or {}).get("mean")))
+                       for h in (wn_varsel or {}).get("timer") or []], lat, lon, tz) \
+            if any(d.get("source") == "weathernext" for d in days) else {}
+    except Exception:  # noqa: BLE001 - soltimer er pynt; varselet skal vises uansett
+        return
+    for d in days:
+        d["sol_timer"] = (wn if d.get("source") == "weathernext" else yr).get(d["date"])
 
 
 def dagslys_neste(lat: float, lon: float, now: datetime, tz: str = "Europe/Oslo") -> list[dict[str, Any]]:
@@ -1469,6 +1558,7 @@ def _build_payload(place: str, now: Optional[datetime] = None) -> dict[str, Any]
     yr_dates = [d["date"] for d in days if d.get("tmin") is not None]
     days += weathernext_extra_days(wn_days, yr_dates[-1] if yr_dates else None)
     info = sted_info(place)
+    _legg_til_soltimer(days, rows, wn_varsel, info)
     detail_hours = build_hours(rows, google, hour_now, count=100)
     _merk_fint(info, hours, detail_hours, [h for h in today if not h.get("past")])
     blocks = [{"start": _local(p["start"]).isoformat(), "end": _local(p["end"]).isoformat(),
